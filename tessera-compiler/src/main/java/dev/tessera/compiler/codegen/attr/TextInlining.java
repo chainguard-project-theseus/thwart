@@ -1,5 +1,7 @@
 package dev.tessera.compiler.codegen.attr;
 
+import static dev.tessera.compiler.types.ExpressionCompiler.isDeclared;
+
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.CodegenContext;
@@ -8,6 +10,7 @@ import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.model.Text;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.Scope;
+import dev.tessera.runtime.SafeHtml;
 import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.ElementKind;
@@ -29,7 +32,7 @@ public final class TextInlining {
   private TextInlining() {}
 
   private static final String ESCAPERS = "dev.tessera.runtime.Escapers";
-  private static final String SAFE_HTML = "dev.tessera.runtime.SafeHtml";
+  private static final String SAFE_HTML = SafeHtml.class.getName();
 
   /** Boxes and JDK value types {@code Escapers.json} serializes as a JSON scalar. */
   private static final Set<String> JSON_VALUES =
@@ -168,8 +171,8 @@ public final class TextInlining {
    * reporting an error. The value must be view-safe; in SCRIPT it must also be JSON-serializable.
    */
   static String valueStatement(CodegenContext ctx, Expr e, OutputContext context, Scope scope) {
-    CompiledExpr c = ctx.expressions().compile(e, scope);
-    if (c == null || !ctx.expressions().checkOutputType(c.type(), c.pos())) {
+    CompiledExpr c = ctx.expressions().compileOutput(e, scope);
+    if (c == null) {
       return "";
     }
     if (context == OutputContext.SCRIPT) {
@@ -219,11 +222,6 @@ public final class TextInlining {
       return "";
     }
     return ESCAPERS + ".html(out, " + c.code() + ");\n";
-  }
-
-  private static boolean isDeclared(TypeMirror t, String name) {
-    return t.getKind() == TypeKind.DECLARED
-        && ((TypeElement) ((DeclaredType) t).asElement()).getQualifiedName().contentEquals(name);
   }
 
   /** Whether {@code Escapers.json} can serialize every value of static type {@code t}. */

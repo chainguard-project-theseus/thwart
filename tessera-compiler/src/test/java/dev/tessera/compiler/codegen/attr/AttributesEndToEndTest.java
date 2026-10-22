@@ -76,6 +76,31 @@ class AttributesEndToEndTest {
     compile("<object t:data=\"s + 'x'\"></object>").assertError("t:data on <object>");
   }
 
+  /** A type-use annotation does not change the type: the RESOURCE_URL gate still sees TrustedUrl. */
+  @Test
+  void resourceUrlAcceptsTypeAnnotatedTrustedUrl() {
+    Compilation c = annotatedPage("<script t:src=\"p.url\"></script>").compile().assertSuccess();
+    Object page = c.newInstance("com.example.Page", TrustedUrl.unchecked("https://cdn.example/app.js"), "x");
+    assertEquals("<div><script src=\"https://cdn.example/app.js\"></script></div>", c.render("t", Map.of("p", page)));
+  }
+
+  @Test
+  void resourceUrlRejectsTypeAnnotatedString() {
+    annotatedPage("<script t:src=\"p.name\"></script>").compile().assertError("t:src on <script>", "TrustedUrl");
+  }
+
+  private static Compilation.Builder annotatedPage(String body) {
+    return Compilation.builder()
+        .java(
+            "com.example.Ann",
+            "package com.example; @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE)"
+                + " public @interface Ann {}")
+        .java(
+            "com.example.Page",
+            "package com.example; public record Page(dev.tessera.runtime.@Ann TrustedUrl url, @Ann String name) {}")
+        .template("t.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"com.example.Page p\">" + body + "</div>");
+  }
+
   // ------------------------------------------------------------- forbidden contexts
 
   @Test

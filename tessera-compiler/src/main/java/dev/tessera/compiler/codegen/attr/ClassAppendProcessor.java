@@ -3,6 +3,7 @@ package dev.tessera.compiler.codegen.attr;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
+import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.types.CompiledExpr;
 import java.util.Optional;
@@ -14,8 +15,9 @@ public final class ClassAppendProcessor implements AttributeProcessor {
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
-    CompiledExpr c = ctx.compile(attr, plan.scope());
-    if (c == null || !ctx.expressions().checkOutputType(c.type(), c.pos())) {
+    Expr e = ctx.parse(attr);
+    CompiledExpr c = e == null ? null : ctx.expressions().compileOutput(e, plan.scope());
+    if (c == null) {
       return;
     }
     Optional<ElementPlan.Attr> current = plan.attribute("class");
