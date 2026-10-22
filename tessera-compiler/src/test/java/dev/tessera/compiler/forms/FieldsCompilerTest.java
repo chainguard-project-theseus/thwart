@@ -7,7 +7,6 @@ import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.Diagnostics;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.expr.Expr;
-import dev.tessera.compiler.messages.MessageBundle;
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
@@ -33,14 +32,7 @@ class FieldsCompilerTest {
             pe -> {
               for (Expr e : exprs) {
                 Diagnostics d = new Diagnostics();
-                CompilerEnv env =
-                    new CompilerEnv(
-                        pe.getElementUtils(),
-                        pe.getTypeUtils(),
-                        d,
-                        CompilerEnv.DEFAULT_PACKAGE,
-                        MessageBundle.unchecked(),
-                        List.of());
+                CompilerEnv env = Compilation.env(pe, d);
                 TypeMirror owner = pe.getElementUtils().getTypeElement("com.example.Owner").asType();
                 Scope scope = selected ? Scope.empty().withSelection(new Scope.Selection("owner", "o", owner)) : Scope.empty();
                 CompiledExpr c = new ExpressionCompiler(env).compile(e, scope);

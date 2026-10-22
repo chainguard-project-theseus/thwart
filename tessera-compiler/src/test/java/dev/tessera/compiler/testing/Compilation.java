@@ -85,8 +85,33 @@ public final class Compilation {
 
   /** Builds a {@link CompilerEnv} inside a processor callback, for stage-level unit tests. */
   public static CompilerEnv env(ProcessingEnvironment pe, DiagnosticSink sink) {
+    return env(pe, sink, MessageBundle.unchecked(), List.of());
+  }
+
+  /** As {@link #env(ProcessingEnvironment, DiagnosticSink)}, with a message bundle and function namespaces. */
+  public static CompilerEnv env(
+      ProcessingEnvironment pe, DiagnosticSink sink, MessageBundle messages, List<TypeElement> functionNamespaces) {
     return new CompilerEnv(
-        pe.getElementUtils(), pe.getTypeUtils(), sink, CompilerEnv.DEFAULT_PACKAGE, MessageBundle.unchecked(), List.of());
+        pe.getElementUtils(), pe.getTypeUtils(), sink, CompilerEnv.DEFAULT_PACKAGE, messages, functionNamespaces);
+  }
+
+  /**
+   * Compiles {@code package tessera.eval; public final class Eval { public static Object run() {
+   * <body> } }} with {@code sources}, then loads and invokes {@code run()} (test code only).
+   */
+  public static Object evalRun(Map<String, String> sources, String body) {
+    String src = "package tessera.eval; public final class Eval { public static Object run() {\n" + body + " } }";
+    Builder b = builder();
+    sources.forEach(b::java);
+    Compilation c = b.java("tessera.eval.Eval", src).compile();
+    if (!c.success()) {
+      throw new AssertionError("generated code does not compile:\n" + src + "\n" + c.errors());
+    }
+    try {
+      return c.classLoader().loadClass("tessera.eval.Eval").getMethod("run").invoke(null);
+    } catch (ReflectiveOperationException e) {
+      throw new AssertionError(e);
+    }
   }
 
   public static final class Builder {
@@ -129,7 +154,8 @@ public final class Compilation {
 
     /**
      * Runs {@code callback} with javac's ProcessingEnvironment during the first round (before
-     * Tessera's processor), for unit-testing type resolution against {@link #java} sources.
+     * Tessera's processor), for unit-testing type resolution against {@link #java} sources. Anything
+     * the callback throws is rethrown from {@link #compile()}.
      */
     public Builder inProcessor(Consumer<ProcessingEnvironment> callback) {
       this.callback = callback;
@@ -155,7 +181,7 @@ public final class Compilation {
         }
         if (messages != null) {
           Path base = dir.resolve("messages");
-          Files.writeString(dir.resolve("messages.properties"), messages, StandardCharsets.UTF_8);
+          Files.writeString(MessageBundle.file(base), messages, StandardCharsets.UTF_8);
           args.add("-A" + ProcessorOptions.MESSAGES + "=" + base.toAbsolutePath());
         }
         options.forEach((k, v) -> args.add("-A" + k + "=" + v));
@@ -172,13 +198,24 @@ public final class Compilation {
         StandardJavaFileManager std = javac.getStandardFileManager(collector, Locale.ROOT, StandardCharsets.UTF_8);
         MemoryFileManager mem = new MemoryFileManager(std);
         List<Processor> processors = new ArrayList<>();
-        if (callback != null) {
-          processors.add(new CallbackProcessor(callback));
+        CallbackProcessor callbackProcessor = callback == null ? null : new CallbackProcessor(callback);
+        if (callbackProcessor != null) {
+          processors.add(callbackProcessor);
         }
         processors.add(new TesseraProcessor());
         JavaCompiler.CompilationTask task = javac.getTask(null, mem, collector, args, null, units);
         task.setProcessors(processors);
         boolean ok = task.call();
+        if (callbackProcessor != null && callbackProcessor.failure != null) {
+          Throwable t = callbackProcessor.failure;
+          if (t instanceof RuntimeException r) {
+            throw r;
+          }
+          if (t instanceof Error e) {
+            throw e;
+          }
+          throw new AssertionError(t);
+        }
         return new Compilation(
             collector.getDiagnostics(), ok, mem, options.getOrDefault(ProcessorOptions.PACKAGE, CompilerEnv.DEFAULT_PACKAGE));
       } catch (IOException e) {
@@ -409,6 +446,7 @@ public final class Compilation {
   private static final class CallbackProcessor extends AbstractProcessor {
     private final Consumer<ProcessingEnvironment> callback;
     private boolean done;
+    private Throwable failure;
 
     CallbackProcessor(Consumer<ProcessingEnvironment> callback) {
       this.callback = callback;
@@ -428,7 +466,11 @@ public final class Compilation {
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
       if (!done) {
         done = true;
-        callback.accept(processingEnv);
+        try {
+          callback.accept(processingEnv);
+        } catch (Throwable t) {
+          failure = t;
+        }
       }
       return false;
     }

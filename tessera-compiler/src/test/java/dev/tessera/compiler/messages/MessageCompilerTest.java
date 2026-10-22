@@ -4,12 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.tessera.compiler.messages.ExprRunner.Result;
 import dev.tessera.compiler.processor.ProcessorOptions;
 import dev.tessera.compiler.testing.Compilation;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import dev.tessera.compiler.testing.ExprRunner;
+import dev.tessera.compiler.testing.ExprRunner.Result;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -94,7 +92,7 @@ class MessageCompilerTest {
   }
 
   @Test
-  void bundleFileLoadsKeys() throws IOException {
+  void bundleFileLoadsKeys() {
     MessageBundle m = load("a=1\nb.c = 2\n# comment\nd\\:e=3\n");
     assertTrue(m.isChecked());
     assertTrue(m.contains("a") && m.contains("b.c") && m.contains("d:e"));
@@ -118,15 +116,7 @@ class MessageCompilerTest {
     Compilation.builder().template("a.html", "<p>x</p>").messages("a=1\n").compile().assertSuccess();
   }
 
-  private static MessageBundle load(String properties) throws IOException {
-    Path dir = Files.createTempDirectory("tessera-bundle");
-    Path base = dir.resolve("messages");
-    Files.writeString(MessageBundle.file(base), properties);
-    try {
-      return MessageBundle.load(base);
-    } finally {
-      Files.delete(MessageBundle.file(base));
-      Files.delete(dir);
-    }
+  private static MessageBundle load(String properties) {
+    return ExprRunner.loadBundle(properties);
   }
 }
