@@ -4,7 +4,7 @@
 @@ -360,5 +360,5 @@
      </script>
      <script>
--      var ctx = $('#myChart'); var chartData = {"labels":["Germany - France","Germany - Spain"],"datasets":[{"label":"admin","data":[8,13]},{"label":"ben","data":[0,10]},{"label":"anna","data":[1,2]}],"empty":false}; var myChart = new Chart(ctx, { type: 'line', data: chartData, options: { responsive: true, legend: { position: 'bottom' }, plugins: { colorschemes: { scheme: 'brewer.Paired7' } }, maintainAspectRatio: false } });
-+      var ctx = $('#myChart'); var chartData = true ? { labels: ["Germany - France","Germany - Spain"], datasets: ["admin","ben","anna"].map(function (label, i) { return {label: label, data: [[8,13],[0,10],[1,2]][i]}; }) } : null; var myChart = new Chart(ctx, { type: 'line', data: chartData, options: { responsive: true, legend: { position: 'bottom' }, plugins: { colorschemes: { scheme: 'brewer.Paired7' } }, maintainAspectRatio: false } });
+-      var ctx = $('#myChart'); var chartData ={"labels":["Germany - France","Germany - Spain"],"datasets":[{"label":"admin","data":[8,13]},{"label":"ben","data":[0,10]},{"label":"anna","data":[1,2]}],"empty":false}; var myChart = new Chart(ctx,{type:'line',data:chartData,options:{responsive:true,legend:{position:'bottom'},plugins:{colorschemes:{scheme:'brewer.Paired7'}},maintainAspectRatio:false}});
++      var ctx = $('#myChart'); var chartData = true ?{labels:["Germany - France","Germany - Spain"],datasets:["admin","ben","anna"].map(function (label,i){return{label:label,data:[[8,13],[0,10],[1,2]][i]};})}:null; var myChart = new Chart(ctx,{type:'line',data:chartData,options:{responsive:true,legend:{position:'bottom'},plugins:{colorschemes:{scheme:'brewer.Paired7'}},maintainAspectRatio:false}});
      </script>
    </body>

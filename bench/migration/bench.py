@@ -172,7 +172,10 @@ def score(app, run_dir):
 
     def page(d, name):
         with open(os.path.join(d, "pages", name), errors="replace") as f:
-            return normalize(f.read()).splitlines()
+            text = normalize(f.read())
+        for pattern in config(app).get("ignore", []):  # accepted, unobservable differences
+            text = re.sub(pattern, "", text)
+        return text.splitlines()
     for p in base["pages"]:
         q = got_pages.get(p["file"])
         a = page(os.path.join(RESULTS, app, "baseline"), p["file"])

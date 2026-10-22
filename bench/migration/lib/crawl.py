@@ -32,6 +32,8 @@ BOOLEAN = {"checked", "selected", "disabled", "readonly", "required", "multiple"
            "autofocus", "novalidate", "open", "async", "defer", "nomodule", "formnovalidate"}
 # A typo like `<span">` is still a span to a reader of the page.
 TAG_JUNK = re.compile(r"[^a-z0-9:_.-]")
+# Attribute names no author meant, such as `text-bg-success"` from an unbalanced quote.
+BAD_ATTR = re.compile(r"[\"'(),+]")
 TOKEN = re.compile(r"(_csrf|csrf|jsessionid)", re.I)
 # Values that change from run to run of the same app: random UUIDs, times of day on pages crawled
 # today, and java.util.Date.toString() timestamps.
@@ -50,8 +52,10 @@ VOLATILE = [
 
 class Normalizer(html.parser.HTMLParser):
     """Re-serializes HTML one node per line: sorted attributes and class names, collapsed
-    whitespace, no comments, masked CSRF tokens and session ids. Self-closing and void tags print
-    the same, and end tags that close nothing are dropped, as browsers do."""
+    whitespace, no comments, masked CSRF tokens and session ids. It follows what a browser builds,
+    not the bytes: self-closing and void tags print the same, end tags that close nothing are
+    dropped, implicitly closed elements print their end tags, the first of duplicate attributes
+    wins, boolean attributes and empty input values have no value."""
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -63,6 +67,8 @@ class Normalizer(html.parser.HTMLParser):
         # Text arrives in pieces (an unescaped "<" that starts no tag splits it); print it whole.
         text = " ".join("".join(self.text).split())
         self.text = []
+        if text and self.open and self.open[-1] == "script":
+            text = re.sub(r"\s*([\[\]{},:])\s*", r"\1", text)  # JSON spacing
         if text:
             self.lines.append("  " * len(self.open) + html.escape(text, quote=False))
         if s:
@@ -75,10 +81,14 @@ class Normalizer(html.parser.HTMLParser):
         tag = TAG_JUNK.sub("", tag)
         named = {}
         for k, v in attrs:
+            if k in named or BAD_ATTR.search(k):  # browsers keep the first of duplicate attributes
+                continue
             v = " ".join((v or "").split())
             if k == "class":
                 v = " ".join(sorted(v.split()))
             named[k] = "" if k in BOOLEAN else re.sub(r";jsessionid=[^?#\"]*", "", v, flags=re.I)
+        if tag == "input" and named.get("value") == "" and named.get("type") not in ("checkbox", "radio"):
+            del named["value"]
         if TOKEN.search(named.get("name", "")) or TOKEN.search(named.get("id", "")):
             named["value"] = named.get("value") and "MASKED"
             if "content" in named:
@@ -100,11 +110,18 @@ class Normalizer(html.parser.HTMLParser):
         tag = TAG_JUNK.sub("", tag)
         if tag not in self.open:
             return
+        self.close_until(tag)
+
+    def close_until(self, tag):
+        """Closes open elements up to and including tag (None: all), printing their end tags as
+        if they had been written: an implicit close compares equal to an explicit one."""
         self.emit("")
-        while self.open.pop() != tag:
-            pass
-        if tag not in OPTIONAL_END:
-            self.emit(f"</{tag}>")
+        while self.open:
+            top = self.open.pop()
+            if top not in OPTIONAL_END:
+                self.emit(f"</{top}>")
+            if top == tag:
+                break
 
     def handle_data(self, data):
         self.text.append(data)
@@ -116,7 +133,7 @@ def normalize(body):
     n = Normalizer()
     n.feed(body)
     n.close()
-    n.emit("")
+    n.close_until(None)
     return "\n".join(n.lines) + "\n"
 
 
