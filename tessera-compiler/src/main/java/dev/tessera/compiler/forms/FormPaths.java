@@ -6,17 +6,69 @@ import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.types.Scope;
+import dev.tessera.compiler.types.Variable;
+import java.util.Optional;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 
 /**
  * Form field paths ({@code lastName}, {@code address.city}) relative to the {@code t:object}
  * selection. Paths are checked at build time against the selection type, so an unknown field
  * is a build error naming the type.
+ *
+ * <p>Inside a fragment, a parameter of type {@code dev.tessera.runtime.Field} stands for a path
+ * the caller checked against its own {@code t:object}; {@link FormField} covers both forms.
  */
 public final class FormPaths {
   private FormPaths() {}
 
   /** Path meaning "all errors of the form object" for {@code t:errors} and {@code fields.*}. */
   public static final String ALL = "*";
+
+  /** The runtime type of {@code Field} fragment parameters. */
+  public static final String FIELD = "dev.tessera.runtime.Field";
+
+  /**
+   * A form field resolved at build time.
+   *
+   * @param objectName Java code (a String) for the form object name
+   * @param path Java code (a String) for the dotted field path
+   * @param value the field's current value, or null where the caller does not need it
+   */
+  public record FormField(String objectName, String path, CompiledExpr value) {
+    /** Java code for {@code ctx.forms().<method>(objectName, path)}, e.g. {@code errors}. */
+    public String formsCall(String method) {
+      return "ctx.forms()." + method + "(" + objectName + ", " + path + ")";
+    }
+  }
+
+  /** A field given as a literal {@code path} relative to {@code selection}. */
+  public static FormField literal(Scope.Selection selection, String path, CompiledExpr value) {
+    return new FormField(
+        TemplateGenerator.javaString(selection.objectName()), TemplateGenerator.javaString(path), value);
+  }
+
+  /**
+   * The {@code Field}-typed variable that {@code e} names ({@code name}, or {@code name} in a
+   * {@code ${...}} wrapper), if any. Such a variable wins over a selection property of the same name.
+   */
+  public static Optional<Variable> fieldVariable(Expr e, Scope scope) {
+    if (!(e instanceof Expr.Var v) || v.name().contains("$")) {
+      return Optional.empty();
+    }
+    return scope.lookup(v.name()).filter(var -> isField(var.type()));
+  }
+
+  /** A field held in a {@code Field} variable; its value has static type {@code Object}. */
+  public static FormField fromVariable(Variable v, SourcePos pos, ExpressionCompiler expressions) {
+    TypeMirror object = expressions.env().elements().getTypeElement("java.lang.Object").asType();
+    String j = v.javaName();
+    return new FormField(j + ".objectName()", j + ".path()", new CompiledExpr(j + ".value()", object, pos));
+  }
+
+  public static boolean isField(TypeMirror t) {
+    return t != null && t.getKind() == TypeKind.DECLARED && t.toString().equals(FIELD);
+  }
 
   /**
    * The dotted path of a field expression ({@code lastName}, {@code *{lastName}},
@@ -57,13 +109,7 @@ public final class FormPaths {
 
   /** Java code for {@code ctx.forms().<method>(objectName, path)}, e.g. {@code errors}. */
   public static String formsCall(String method, Scope.Selection selection, String path) {
-    return "ctx.forms()."
-        + method
-        + "("
-        + TemplateGenerator.javaString(selection.objectName())
-        + ", "
-        + TemplateGenerator.javaString(path)
-        + ")";
+    return literal(selection, path, null).formsCall(method);
   }
 
   private static boolean isIdentifier(String s) {

@@ -7,7 +7,6 @@ import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.OutputContext;
-import dev.tessera.compiler.types.Scope;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -34,10 +33,9 @@ public final class ErrorClassProcessor implements AttributeProcessor {
       ctx.diagnostics().error(attr.pos(), "t:errorclass needs t:field on the same element");
       return;
     }
-    Optional<Scope.Selection> selection = plan.scope().selection();
     // t:field reports a missing t:object or a bad path; don't report it twice.
-    String path = selection.isEmpty() ? null : FieldProcessor.path(ctx, field.get(), d -> {});
-    if (path == null) {
+    FormPaths.FormField formField = FieldProcessor.field(ctx, field.get(), plan.scope(), false);
+    if (formField == null) {
       return;
     }
     String original =
@@ -58,7 +56,7 @@ public final class ErrorClassProcessor implements AttributeProcessor {
         "}");
     plan.setAttribute(
         "class",
-        FormPaths.formsCall("hasErrors", selection.get(), path) + " ? (" + c + ".isEmpty() ? "
+        formField.formsCall("hasErrors") + " ? (" + c + ".isEmpty() ? "
             + TemplateGenerator.javaString(cls) + " : " + c + " + " + TemplateGenerator.javaString(" " + cls) + ") : "
             + o,
         OutputContext.ATTRIBUTE,
