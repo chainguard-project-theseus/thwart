@@ -11,12 +11,23 @@
 
   <artifactId>tessera-migrate</artifactId>
   <name>Tessera Migrate</name>
-  <description>CLI that converts Thymeleaf templates to Tessera and reports what it cannot convert.</description>
+  <description>CLI that converts Thymeleaf templates to Tessera, reports what it cannot convert, and compares
+    the pages of the old and the migrated app.</description>
+
+  <properties>
+    <!-- Only this tooling module uses jsoup (#149); the runtime stays dependency-free. -->
+    <jsoup.version>1.23.2</jsoup.version>
+  </properties>
 
   <dependencies>
     <dependency>
       <groupId>org.attoparser</groupId>
       <artifactId>attoparser</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jsoup</groupId>
+      <artifactId>jsoup</artifactId>
+      <version>${jsoup.version}</version>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
@@ -38,7 +49,7 @@
           </archive>
         </configuration>
       </plugin>
-      <!-- Bundle attoparser so `java -jar tessera-migrate-<version>.jar` runs on its own. -->
+      <!-- Bundle attoparser and jsoup so `java -jar tessera-migrate-<version>.jar` runs on its own. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
@@ -50,6 +61,15 @@
             </goals>
             <configuration>
               <createDependencyReducedPom>false</createDependencyReducedPom>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>module-info.class</exclude>
+                    <exclude>META-INF/versions/*/module-info.class</exclude>
+                  </excludes>
+                </filter>
+              </filters>
             </configuration>
           </execution>
         </executions>
