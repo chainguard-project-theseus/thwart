@@ -100,6 +100,23 @@ class AttributesEndToEndTest {
   }
 
   @Test
+  void metaRefreshContentIsABuildError() {
+    // #46: the url= part of a refresh navigates the page (open redirect).
+    compile("<meta http-equiv=\"refresh\" t:content=\"s\">")
+        .assertError("t:content is not allowed", "refresh", "controller");
+    compile("<meta http-equiv=\"Refresh\" t:attr=\"content=s\">").assertError("t:attr content is not allowed");
+    compile("<meta t:http-equiv=\"s\" t:content=\"c\">").assertError("t:http-equiv", "<meta>", "static http-equiv");
+    compile("<meta t:attr=\"http-equiv=s\" content=\"0;url=/x\">").assertError("t:attr http-equiv", "<meta>");
+    // A literal refresh written by the author is fine, and so is other meta content.
+    assertEquals(
+        "<meta http-equiv=\"refresh\" content=\"5\">",
+        render("<meta http-equiv=\"refresh\" content=\"5\">", model()));
+    assertEquals(
+        "<meta name=\"description\" content=\"a&lt;b\">",
+        render("<meta name=\"description\" t:content=\"s\">", model("s", "a<b")));
+  }
+
+  @Test
   void scriptTypeCannotBeComputed() {
     compile("<script t:type=\"s\"></script>").assertError("t:type", "<script>", "static type attribute");
     compile("<script t:attr=\"type=s\"></script>").assertError("t:attr type", "<script>");
