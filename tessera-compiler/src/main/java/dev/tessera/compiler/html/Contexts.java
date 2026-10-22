@@ -37,7 +37,9 @@ public final class Contexts {
    * Context for the value of attribute {@code attributeName} (without {@code t:}) on
    * {@code element}: {@code on*} is EVENT_HANDLER, {@code style} is STYLE, {@code srcdoc} and
    * names that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*} are FORBIDDEN, resource URLs are
-   * RESOURCE_URL, other URL attributes are URL, everything else ATTRIBUTE.
+   * RESOURCE_URL, other URL attributes are URL, everything else ATTRIBUTE. The values of SVG
+   * {@code <animate>}/{@code <set>} ({@code values to from by}) are URL too: they can set an
+   * {@code href} to {@code javascript:}.
    */
   public static OutputContext attribute(Element element, String attributeName) {
     if (attributeName == null || !PLAIN_NAME.matcher(attributeName).matches()) {
@@ -56,10 +58,19 @@ public final class Contexts {
     if (isResourceUrl(element == null ? "" : element.name().toLowerCase(Locale.ROOT), attr)) {
       return OutputContext.RESOURCE_URL;
     }
-    if (URL_ATTRIBUTES.contains(attr)) {
+    if (URL_ATTRIBUTES.contains(attr) || isAnimationValue(element, attr)) {
       return OutputContext.URL;
     }
     return OutputContext.ATTRIBUTE;
+  }
+
+  private static boolean isAnimationValue(Element element, String attr) {
+    if (element == null) {
+      return false;
+    }
+    String name = element.name().toLowerCase(Locale.ROOT);
+    return (name.equals("animate") || name.equals("set"))
+        && (attr.equals("values") || attr.equals("to") || attr.equals("from") || attr.equals("by"));
   }
 
   private static boolean isResourceUrl(String element, String attr) {
