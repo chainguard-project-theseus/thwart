@@ -8,8 +8,7 @@ public record Diagnostic(Severity severity, SourcePos pos, String message) {
 
   public enum Severity {
     ERROR,
-    WARNING,
-    NOTE
+    WARNING
   }
 
   @Override
