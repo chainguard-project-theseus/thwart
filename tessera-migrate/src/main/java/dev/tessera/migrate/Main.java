@@ -5,6 +5,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Stream;
 import org.attoparser.ParseException;
@@ -17,18 +18,46 @@ import org.attoparser.ParseException;
  *
  * <p>Exit codes: 0 on success (report items do not fail the run; the report is the audit),
  * 1 if a template could not be read, parsed or written, 2 on a usage error.
+ *
+ * <p>{@code tessera-migrate record|compare <base-url> <pages.txt> <dir>}: the page-parity check
+ * (see {@link Parity}). {@code record} saves every page of the running old app to {@code dir};
+ * {@code compare} requests the same pages from the running new app and prints {@code same},
+ * {@code reordered} or {@code differs} (with a diff) per page. {@code compare} exits 0 only if
+ * every page has its recorded status and final URL and is the same or reordered.
  */
 public final class Main {
   private Main() {}
 
-  static final String USAGE =
-      "usage: tessera-migrate <thymeleaf-templates-dir> <output-dir> [--report report.md]";
+  static final String USAGE = String.join(System.lineSeparator(),
+      "usage: tessera-migrate <thymeleaf-templates-dir> <output-dir> [--report report.md]",
+      "       tessera-migrate record <base-url> <pages.txt> <dir>",
+      "       tessera-migrate compare <base-url> <pages.txt> <dir>",
+      "",
+      "pages.txt: one request per line, `GET /path` or `POST /path a=1&b=2`; `#` comments.",
+      "One cookie jar per run; a POST sends the previous page's _csrf hidden input.",
+      "record saves NN.html and index.tsv to <dir> from the old app. compare requests the same",
+      "pages from the new app and prints same, reordered or differs (with a diff) per page;",
+      "it exits 0 only if every page has its recorded status and final URL and is the same or",
+      "reordered.");
 
   public static void main(String[] args) {
     System.exit(run(args, System.out, System.err));
   }
 
   static int run(String[] args, PrintStream out, PrintStream err) {
+    if (args.length > 0 && (args[0].equals("record") || args[0].equals("compare"))) {
+      if (args.length != 4) {
+        return usage(err, args[0] + " needs <base-url> <pages.txt> <dir>");
+      }
+      Path pages = Path.of(args[2]);
+      if (!Files.isRegularFile(pages)) {
+        return usage(err, "not a file: " + pages);
+      }
+      Path dir = Path.of(args[3]);
+      return args[0].equals("record")
+          ? Parity.record(args[1], pages, dir, LocalDate.now(), out, err)
+          : Parity.compare(args[1], pages, dir, LocalDate.now(), out, err);
+    }
     Path in = null;
     Path outDir = null;
     Path reportFile = null;
