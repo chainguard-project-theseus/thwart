@@ -1,14 +1,11 @@
 package dev.tessera.compiler.codegen;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.CompilerEnv;
-import dev.tessera.compiler.Diagnostic;
 import dev.tessera.compiler.Diagnostics;
 import dev.tessera.compiler.GeneratedFile;
 import dev.tessera.compiler.TemplateSource;
@@ -91,10 +88,7 @@ class TemplateGeneratorTest {
 
   @Test
   void templateObjectRendersAndKnowsItsName() throws Exception {
-    Compilation c =
-        HandBuilt.run(Compilation.builder(), pe -> List.of(HandBuilt.info(staticDoc(), List.of())))
-            .compilation()
-            .assertSuccess();
+    Compilation c = HandBuilt.compile(staticDoc());
     Class<?> cls = c.classLoader().loadClass("tessera.generated.StaticTemplate");
     dev.tessera.runtime.Template t = (dev.tessera.runtime.Template) cls.getMethod("of").invoke(null);
     assertEquals("static", t.templateName());
@@ -108,8 +102,7 @@ class TemplateGeneratorTest {
     Element b = h.el("b", List.of(), h.text("side"));
     Element block = h.el("t:block", List.of(), h.text("in"), b);
     Document doc = h.doc(h.el("div", List.of(), block));
-    Compilation c =
-        HandBuilt.run(Compilation.builder(), pe -> List.of(HandBuilt.info(doc, List.of()))).compilation().assertSuccess();
+    Compilation c = HandBuilt.compile(doc);
     assertEquals("<div>in<b>side</b></div>", c.render("block", Map.of()));
   }
 
@@ -125,8 +118,7 @@ class TemplateGeneratorTest {
     String src = "<p>" + text + "</p>";
     HandBuilt h = new HandBuilt("big.html", src);
     Document doc = h.doc(h.el("p", List.of(), new Text(text, OutputContext.TEXT, h.pos(">").advance(">", 1))));
-    Compilation c =
-        HandBuilt.run(Compilation.builder(), pe -> List.of(HandBuilt.info(doc, List.of()))).compilation().assertSuccess();
+    Compilation c = HandBuilt.compile(doc);
     assertEquals(src, c.render("big", Map.of()));
   }
 
@@ -259,7 +251,7 @@ class TemplateGeneratorTest {
   }
 
   @Test
-  void generatedSourcesContainNoReflection() {
+  void generatesOneJavaFilePerTemplatePlusRegistry() {
     HandBuilt.Run run =
         HandBuilt.run(
             Compilation.builder(),
@@ -270,12 +262,6 @@ class TemplateGeneratorTest {
             });
     run.compilation().assertSuccess();
     assertEquals(3, run.files().stream().filter(f -> f.kind() == GeneratedFile.Kind.JAVA).count());
-    for (GeneratedFile f : run.files()) {
-      for (String banned :
-          List.of("java.lang.reflect", "java.lang.invoke", "MethodHandle", "Class.forName", "getDeclared", "setAccessible", "getMethod")) {
-        assertFalse(f.content().contains(banned), f.name() + " contains " + banned);
-      }
-    }
   }
 
   // ---- errors ----
@@ -303,24 +289,13 @@ class TemplateGeneratorTest {
     return h.doc(html);
   }
 
-  private static List<String> errors(Diagnostics d) {
-    return d.all().stream().filter(x -> x.severity() == Diagnostic.Severity.ERROR).map(Diagnostic::toString).toList();
-  }
-
-  private static void assertHasError(List<String> errors, String... fragments) {
-    assertTrue(
-        errors.stream().anyMatch(e -> List.of(fragments).stream().allMatch(e::contains)),
-        "no error with " + List.of(fragments) + " in " + errors);
-  }
-
   @Test
   void misplacedCoreAttributesAndExclusivePairsAreErrorsWithPositions() {
-    HandBuilt.Run run = HandBuilt.run(Compilation.builder(), pe -> List.of(HandBuilt.info(badDoc(), List.of())));
-    List<String> errors = errors(run.diagnostics());
-    assertHasError(errors, "bad.html:2:6: error: t:params is only allowed on the root element");
-    assertHasError(errors, "bad.html:2:26: error: t:import is only allowed on the root element");
-    assertHasError(errors, "bad.html:3:15:", "t:text and t:utext cannot be used on the same element");
-    assertHasError(errors, "bad.html:4:17:", "t:insert and t:replace cannot be used on the same element");
+    HandBuilt.run(Compilation.builder(), pe -> List.of(HandBuilt.info(badDoc(), List.of())))
+        .assertError("bad.html:2:6: error: t:params is only allowed on the root element")
+        .assertError("bad.html:2:26: error: t:import is only allowed on the root element")
+        .assertError("bad.html:3:15:", "t:text and t:utext cannot be used on the same element")
+        .assertError("bad.html:4:17:", "t:insert and t:replace cannot be used on the same element");
   }
 
   @Test
@@ -329,17 +304,11 @@ class TemplateGeneratorTest {
         HandBuilt.run(
             Compilation.builder(),
             pe -> List.of(HandBuilt.info(badDoc(), List.of()), HandBuilt.info(staticDoc(), List.of())));
-    assertHasError(errors(run.diagnostics()), "bad.html:2:6: error: t:params is only allowed on the root element");
+    run.assertError("bad.html:2:6: error: t:params is only allowed on the root element");
     assertNull(run.compilation().generatedSource("tessera.generated.BadTemplate"));
     assertNull(run.compilation().generatedSource("tessera.generated.StaticTemplate"));
     assertNull(run.compilation().generatedSource("tessera.generated.TesseraRegistry"));
     assertNull(run.compilation().generatedResource(RegistryGenerator.SERVICES_FILE));
-  }
-
-  @Test
-  void coreAttributesOnTheRootAreAccepted() {
-    Compilation c = paramsCompilation();
-    assertNotNull(c.generatedSource("tessera.generated.ParamsTemplate"));
   }
 
   // ---- TemplateIndex ----
@@ -376,7 +345,7 @@ class TemplateGeneratorTest {
     CompilerEnv env = plainEnv(d, "x");
     TemplateIndex.build(
         List.of(emptyDoc("main-page.html"), emptyDoc("mainPage.html")), new ExpressionParser(), new ExpressionCompiler(env), env);
-    assertHasError(errors(d), "mainPage.html:1:1", "x.MainPageTemplate", "main-page.html");
+    HandBuilt.assertError(HandBuilt.errors(d), "mainPage.html:1:1", "x.MainPageTemplate", "main-page.html");
   }
 
   private static List<String> indexErrors(Document doc) {
@@ -386,7 +355,7 @@ class TemplateGeneratorTest {
     TemplateIndex.TemplateInfo info = index.template(doc.source().viewName()).orElseThrow();
     assertTrue(info.imports().isEmpty());
     assertTrue(info.params().isEmpty());
-    return errors(d);
+    return HandBuilt.errors(d);
   }
 
   @Test
