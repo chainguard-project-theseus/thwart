@@ -1,5 +1,6 @@
 package dev.tessera.runtime;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,23 +22,22 @@ public interface TemplateRegistry {
 
   /** Merges every registry visible to {@code loader}. Duplicate view names are an error. */
   static TemplateRegistry load(ClassLoader loader) {
-    Map<String, TemplateEntry> entries = new LinkedHashMap<>();
+    List<TemplateEntry> entries = new ArrayList<>();
     for (TemplateRegistry r : ServiceLoader.load(TemplateRegistry.class, loader)) {
-      for (TemplateEntry e : r.all()) {
-        if (entries.putIfAbsent(e.name(), e) != null) {
-          throw new IllegalStateException("Duplicate Tessera template name: " + e.name());
-        }
-      }
+      entries.addAll(r.all());
     }
-    return of(List.copyOf(entries.values()));
+    return of(entries);
   }
 
-  /** A registry over a fixed list of entries. */
+  /** A registry over a fixed list of entries. Duplicate view names are an error. */
   static TemplateRegistry of(List<TemplateEntry> list) {
     Map<String, TemplateEntry> byName = new LinkedHashMap<>();
     for (TemplateEntry e : list) {
-      byName.put(e.name(), e);
+      if (byName.putIfAbsent(e.name(), e) != null) {
+        throw new IllegalStateException("Duplicate Tessera template name: " + e.name());
+      }
     }
+    List<TemplateEntry> all = List.copyOf(byName.values());
     return new TemplateRegistry() {
       @Override
       public Optional<TemplateEntry> find(String viewName) {
@@ -46,7 +46,7 @@ public interface TemplateRegistry {
 
       @Override
       public Collection<TemplateEntry> all() {
-        return List.copyOf(byName.values());
+        return all;
       }
     };
   }

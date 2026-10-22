@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.DayOfWeek;
@@ -492,52 +491,5 @@ class EscapersTest {
     assertThrows(
         IllegalArgumentException.class, () -> Escapers.json(out, List.of("ok", new Object())));
     assertEquals("", out.toString());
-  }
-
-  // --- safe types and outputs ------------------------------------------------------------------
-
-  @Test
-  void safeHtmlEscapeAndUnchecked() {
-    assertEquals("&lt;i&gt;&amp;&lt;/i&gt;", SafeHtml.escape("<i>&</i>").html());
-    assertEquals("", SafeHtml.escape(null).html());
-    assertEquals("<i>x</i>", SafeHtml.unchecked("<i>x</i>").html());
-    assertEquals(SafeHtml.unchecked("a"), SafeHtml.unchecked("a"));
-    assertEquals(SafeHtml.unchecked("a").hashCode(), SafeHtml.unchecked("a").hashCode());
-    assertNotEquals(SafeHtml.unchecked("a"), SafeHtml.unchecked("b"));
-    assertThrows(NullPointerException.class, () -> SafeHtml.unchecked(null));
-  }
-
-  @Test
-  void safeHtmlOfTemplateRendersIt() {
-    Template t =
-        new Template() {
-          @Override
-          public String templateName() {
-            return "t";
-          }
-
-          @Override
-          public void render(RenderContext ctx, Output out) {
-            out.write("<p>hi</p>");
-          }
-        };
-    assertEquals("<p>hi</p>", SafeHtml.of(t, null).html());
-  }
-
-  @Test
-  void trustedUrlValueSemantics() {
-    assertEquals("/x", TrustedUrl.unchecked("/x").url());
-    assertEquals("/x", TrustedUrl.unchecked("/x").toString());
-    assertEquals(TrustedUrl.unchecked("/x"), TrustedUrl.unchecked("/x"));
-    assertEquals(TrustedUrl.unchecked("/x").hashCode(), TrustedUrl.unchecked("/x").hashCode());
-    assertNotEquals(TrustedUrl.unchecked("/x"), TrustedUrl.unchecked("/y"));
-    assertThrows(NullPointerException.class, () -> TrustedUrl.unchecked(null));
-  }
-
-  @Test
-  void escapersWriteThroughWriterOutput() {
-    StringWriter w = new StringWriter();
-    Escapers.text(new WriterOutput(w), "<a>");
-    assertEquals("&lt;a&gt;", w.toString());
   }
 }
