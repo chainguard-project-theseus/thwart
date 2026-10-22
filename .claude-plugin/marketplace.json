@@ -1,0 +1,14 @@
+{
+  "name": "chainguard-harder",
+  "description": "Claude Code plugins for Chainguard's secure-by-design libraries",
+  "owner": {
+    "name": "Chainguard"
+  },
+  "plugins": [
+    {
+      "name": "tessera",
+      "source": "./plugins/tessera",
+      "description": "Migrate server-rendered Java views to Tessera, checked page by page against the old app"
+    }
+  ]
+}
