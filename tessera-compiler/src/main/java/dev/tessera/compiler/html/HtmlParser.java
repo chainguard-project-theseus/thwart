@@ -323,7 +323,8 @@ public final class HtmlParser {
       String name = new String(buffer, offset, len);
       tag = new Open(name, pos(line, col));
       if (!ELEMENT_NAME.matcher(name).matches()) {
-        diagnostics.error(tag.pos, "malformed markup: invalid element name '" + name + "'");
+        diagnostics.error(tag.pos, "malformed markup: invalid element name '" + name
+            + "': element names start with a letter and use letters, digits, '-', '_', ':' and '.'");
       }
     }
 
@@ -340,10 +341,11 @@ public final class HtmlParser {
       String name = new String(buffer, nameOffset, nameLen);
       SourcePos namePos = pos(nameLine, nameCol);
       if (name.chars().anyMatch(ch -> ch == '<' || ch == '"' || ch == '\'' || ch == '=')) {
-        diagnostics.error(namePos, "malformed markup: invalid attribute name '" + name + "'");
+        diagnostics.error(namePos, "malformed markup: invalid attribute name '" + name
+            + "': attribute names cannot contain <, quotes or =");
       }
       if (!tag.attributeNames.add(name.toLowerCase(Locale.ROOT))) {
-        diagnostics.error(namePos, "duplicate attribute '" + name + "' on <" + tag.name + ">");
+        diagnostics.error(namePos, "duplicate attribute '" + name + "' on <" + tag.name + ">: remove one of them");
       }
       Attribute attribute;
       if (operatorLen == 0) {
@@ -421,14 +423,16 @@ public final class HtmlParser {
           // attoparser parsed markup (a comment, an attribute value) that hid an earlier end
           // tag; a browser would end the element there, so the contexts after it would be wrong.
           diagnostics.error(position(rawEnd), "malformed markup: content of <" + raw.name
-              + "> contains '</" + raw.name + "' before its end tag");
+              + "> contains '</" + raw.name + "' before its end tag: escape it (in a script string,"
+              + " write '<\\/" + raw.name + "')");
         }
         endRaw(end);
       }
       flushText();
       boolean open = stack.stream().anyMatch(o -> o.name.equalsIgnoreCase(name));
       if (!open) {
-        diagnostics.error(closePos, "end tag </" + name + "> does not match any open element");
+        diagnostics.error(closePos, "end tag </" + name + "> does not match any open element: remove it or add the"
+            + " matching <" + name + ">");
         return;
       }
       while (true) {
@@ -438,7 +442,7 @@ public final class HtmlParser {
           return;
         }
         diagnostics.error(top.pos, "element <" + top.name + "> is not closed (found </" + name + "> at "
-            + line + ":" + col + ")");
+            + line + ":" + col + "): add </" + top.name + ">");
         children().add(top.toElement(false, false));
       }
     }
@@ -477,7 +481,7 @@ public final class HtmlParser {
           // Browsers apply script-data escape rules after "<!--" ("<script" inside it hides
           // the next "</script>"); attoparser does not. Fail closed.
           diagnostics.error(position(rawStart + comment),
-              "malformed markup: '<!--' inside <script> is not supported");
+              "malformed markup: '<!--' inside <script> is not supported: remove it (it is not needed in HTML5)");
         }
         raw.children.add(new Text(body, raw.textContext, rawPos));
       }
@@ -493,7 +497,7 @@ public final class HtmlParser {
       while (!stack.isEmpty()) {
         Open top = stack.pop();
         if (report) {
-          diagnostics.error(top.pos, "element <" + top.name + "> is not closed");
+          diagnostics.error(top.pos, "element <" + top.name + "> is not closed: add </" + top.name + ">");
         }
         children().add(top.toElement(false, false));
       }

@@ -12,10 +12,4 @@ public interface AttributeProcessor {
    * attribute's position.
    */
   void process(CodegenContext ctx, Attribute attr, ElementPlan plan);
-
-  /** Shared stub behaviour until a family is implemented. */
-  static void notImplemented(CodegenContext ctx, Attribute attr, int issue) {
-    ctx.diagnostics()
-        .error(attr.pos(), attr.name() + " is not implemented yet (TODO(#" + issue + "))");
-  }
 }

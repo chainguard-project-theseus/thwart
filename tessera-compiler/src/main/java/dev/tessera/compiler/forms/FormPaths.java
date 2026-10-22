@@ -93,7 +93,8 @@ public final class FormPaths {
    */
   public static CompiledExpr compile(String path, SourcePos pos, Scope scope, ExpressionCompiler expressions) {
     if (scope.selection().isEmpty()) {
-      expressions.env().diagnostics().error(pos, "field '" + path + "' can only be used inside t:object");
+      expressions.env().diagnostics().error(pos, "field '" + path + "' can only be used inside t:object: put t:object=\"...\" on"
+              + " this element or an enclosing one");
       return null;
     }
     Expr e = null;

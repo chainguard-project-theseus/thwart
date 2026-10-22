@@ -30,7 +30,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.lang.model.SourceVersion;
 
 /**
  * Generates the class for one template (shape in docs/mvp-design.md): walks the node tree,
@@ -75,16 +74,13 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   /**
-   * Java name for a template variable: the name itself, or with a {@code $} suffix if it is a
-   * Java keyword or one of the render-method parameters {@code ctx}/{@code out}.
+   * Java name for a template parameter: always {@code name$}. The suffix keeps a parameter named
+   * like a package root ({@code java}, {@code dev}, {@code com}) from obscuring the fully
+   * qualified names in the generated body, and one named like a keyword or {@code ctx}/{@code out}
+   * from clashing. Fragment parameters use the same rule.
    */
   public static String javaName(String templateVariable) {
-    if (SourceVersion.isKeyword(templateVariable)
-        || templateVariable.equals("ctx")
-        || templateVariable.equals("out")) {
-      return templateVariable + "$";
-    }
-    return templateVariable;
+    return templateVariable + "$";
   }
 
   /** Returns the generated Java source for {@code document}, or nothing if it had errors. */
@@ -149,7 +145,7 @@ public final class TemplateGenerator implements CodegenContext {
   @Override
   public Expr parse(Attribute attr) {
     if (attr.value() == null) {
-      diagnostics().error(attr.pos(), attr.name() + " needs a value");
+      diagnostics().error(attr.pos(), attr.name() + " needs a value: write an expression, e.g. " + attr.name() + "=\"owner.name\"");
       return null;
     }
     return parser.parseExpression(attr.value(), attr.valuePos(), diagnostics());
@@ -429,7 +425,8 @@ public final class TemplateGenerator implements CodegenContext {
           default -> null;
         };
     if (escaper == null) {
-      diagnostics().error(d.pos(), "an expression cannot be used in attribute " + d.name() + " (" + d.context() + " context)");
+      diagnostics().error(d.pos(), "an expression cannot be used in attribute " + d.name() + " (" + d.context()
+              + " context): write a literal value");
       return "";
     }
     String v = freshName("v");

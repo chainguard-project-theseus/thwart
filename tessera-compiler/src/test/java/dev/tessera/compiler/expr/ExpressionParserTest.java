@@ -245,7 +245,7 @@ class ExpressionParserTest {
   @Test
   void fragmentRefErrors() {
     Parse p = (t, d) -> parser.parseFragmentRef(t, START, d);
-    assertEquals("fragment arguments must be all named or all positional", error("a :: f(x, n=y)", p).message());
+    assertEquals("fragment arguments must be all named or all positional, e.g. f(a, b) or f(x=a, y=b)", error("a :: f(x, n=y)", p).message());
     assertTrue(error("template", p).message().startsWith("expected '::'"));
     assertTrue(error("~{a :: #id}", p).message().contains("markup selectors are not supported"));
     assertTrue(error("~{${t} :: f}", p).message().startsWith("dynamic template names are not supported"));
@@ -311,7 +311,7 @@ class ExpressionParserTest {
     assertTrue(error("a", p).message().startsWith("expected '=' after 'a'"));
     assertTrue(error("=1", p).message().startsWith("expected an attribute or variable name"));
     assertTrue(error("a=1,", p).message().startsWith("expected an attribute or variable name"));
-    assertTrue(error("a=1 b=2", p).message().startsWith("unexpected 'b'"));
+    assertTrue(error("a=1 b=2", p).message().startsWith("unexpected 'b': expected the end of the expression (check for a missing operator or an unbalanced bracket or quote)"));
   }
 
   @Test
@@ -376,20 +376,20 @@ class ExpressionParserTest {
 
   @ParameterizedTest
   @CsvSource(delimiter = '|', quoteCharacter = '"', commentCharacter = '%', value = {
-    "T(java.lang.Runtime).getRuntime()|type references (T(...)) are not supported|1",
-    "T (java.lang.Runtime)|type references (T(...)) are not supported|1",
-    "new java.io.File('x')|object creation (new) is not supported|1",
+    "T(java.lang.Runtime).getRuntime()|type references (T(...)) are not supported: call a @TemplateFunction (e.g. numbers.sequence(1, n)) or pass the value as a parameter|1",
+    "T (java.lang.Runtime)|type references (T(...)) are not supported: call a @TemplateFunction (e.g. numbers.sequence(1, n)) or pass the value as a parameter|1",
+    "new java.io.File('x')|object creation (new) is not supported: pass the value in as a template parameter|1",
     "__${x}__|preprocessing (__...__) is not supported: expressions are never built from strings|1",
     "a + '__x'|preprocessing (__...__) is not supported: expressions are never built from strings|6",
     "@bean.run()|bean references (@name) are not supported; pass values in as template parameters|1",
     "x + @bean|bean references (@name) are not supported; pass values in as template parameters|5",
     "a = b|assignment (=) is not supported; use == to compare|3",
-    "x -> x|lambdas (->) are not supported|3",
-    "->x|lambdas (->) are not supported|1",
-    "list.![name]|collection projection (.![...]) is not supported|5",
-    "list.?[a > 1]|collection selection (.?[...]) is not supported|5",
-    "list.^[a]|collection selection (.?[...]) is not supported|5",
-    "list.$[a]|collection selection (.?[...]) is not supported|5",
+    "x -> x|lambdas (->) are not supported: compute the value in Java and pass it as a parameter|3",
+    "->x|lambdas (->) are not supported: compute the value in Java and pass it as a parameter|1",
+    "list.![name]|collection projection (.![...]) is not supported: compute the list in Java and pass it as a parameter|5",
+    "list.?[a > 1]|collection selection (.?[...]) is not supported: filter the list in Java and pass it as a parameter|5",
+    "list.^[a]|collection selection (.?[...]) is not supported: filter the list in Java and pass it as a parameter|5",
+    "list.$[a]|collection selection (.?[...]) is not supported: filter the list in Java and pass it as a parameter|5",
     "#{${key}}|dynamic message keys are not supported; the key must be a literal such as #{owner.name}|3",
     "#{'k' + x}|dynamic message keys are not supported; the key must be a literal such as #{owner.name}|3",
     "@{${url}}|dynamic link paths are not supported; the path must be a literal such as @{/owners/{id}(id=owner.id)}|3",
@@ -410,21 +410,21 @@ class ExpressionParserTest {
     assertEquals("expected ')' but reached the end", error("(a").message());
     assertEquals("expected '}' to close '${' but reached the end", error("${a").message());
     assertEquals("expected ']' to close the index but found ')'", error("a[1)").message());
-    assertEquals("unterminated string literal", error("'abc").message());
-    assertEquals("unexpected ')'", error("a)").message());
-    assertEquals("unexpected 'b'", error("a b").message());
+    assertEquals("unterminated string literal: expected a closing ' (write \\' for a quote inside the string)", error("'abc").message());
+    assertEquals("unexpected ')': expected the end of the expression (check for a missing operator or an unbalanced bracket or quote)", error("a)").message());
+    assertEquals("unexpected 'b': expected the end of the expression (check for a missing operator or an unbalanced bracket or quote)", error("a b").message());
     assertEquals("expected a property or method name after '.' but found '1'", error("a.1").message());
     assertEquals("expected an expression but found operator 'and'", error("and b").message());
     assertEquals("expected ',' or ')' in the argument list but reached the end", error("f.g(1").message());
     assertEquals("expected '(' after '#ns.fn' but reached the end", error("#ns.fn").message());
     assertEquals("expected '.' after '#ns' but found '('", error("#ns(1)").message());
-    assertEquals("unterminated literal substitution: expected a closing '|'", error("|abc").message());
-    assertEquals("number literal out of range: 99999999999", error("99999999999").message());
-    assertEquals("invalid number literal", error("12ab").message());
-    assertEquals("invalid path variable '{1x}'", error("@{/a/{1x}}").message());
-    assertEquals("link path must not contain whitespace", error("@{/a b}").message());
+    assertEquals("unterminated literal substitution: expected a closing '|' (e.g. |Hello, ${name}!|)", error("|abc").message());
+    assertEquals("number literal out of range: 99999999999 (int, or long with an L suffix)", error("99999999999").message());
+    assertEquals("invalid number literal: expected a digit, '.' or 'L' but found 'a'", error("12ab").message());
+    assertEquals("invalid path variable '{1x}': write a name such as {id}", error("@{/a/{1x}}").message());
+    assertEquals("link path must not contain whitespace: percent-encode it (%20) or pass the value as a parameter, e.g. @{/search(q=term)}", error("@{/a b}").message());
     assertEquals("expected '=' after link parameter 'x' but found ')'", error("@{/a(x)}").message());
-    assertEquals("invalid character ' ' in message key 'a b'", error("#{a b}").message());
+    assertEquals("invalid character ' ' in message key 'a b': keys use letters, digits, '.', '-' and '_'", error("#{a b}").message());
     assertEquals("expected a message key after '#{' but found '}'", error("#{}").message());
     assertEquals("expected a property name after '*{' but found '}'", error("*{}").message());
     assertEquals("expected an expression but found '$'", error("$x").message());
@@ -433,9 +433,9 @@ class ExpressionParserTest {
   @Test
   void deepNestingIsAnErrorNotACrash() {
     String deep = "(".repeat(5000) + "a" + ")".repeat(5000);
-    assertEquals("expression is nested too deeply", error(deep).message());
-    assertEquals("expression is nested too deeply", error("!".repeat(5000) + "a").message());
-    assertEquals("expression is nested too deeply", error("-".repeat(5000) + "a").message());
+    assertEquals("expression is nested more than 200 levels deep: simplify it or compute the value in Java", error(deep).message());
+    assertEquals("expression is nested more than 200 levels deep: simplify it or compute the value in Java", error("!".repeat(5000) + "a").message());
+    assertEquals("expression is nested more than 200 levels deep: simplify it or compute the value in Java", error("-".repeat(5000) + "a").message());
   }
 
   @Test
