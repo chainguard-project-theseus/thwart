@@ -229,7 +229,7 @@ public final class ExpressionCompiler {
       return false;
     }
     if (type.getKind() == TypeKind.VOID) {
-      env.diagnostics().error(pos, "cannot output void");
+      env.diagnostics().error(pos, "cannot output void: the expression has no value");
       return false;
     }
     Optional<String> never = safety.neverViewSafeReason(type);
@@ -273,7 +273,8 @@ public final class ExpressionCompiler {
   private CompiledExpr selection(Expr.SelectionVar s, Scope scope) {
     Optional<Scope.Selection> sel = scope.selection();
     if (sel.isEmpty()) {
-      return error(s.pos(), "*{" + s.name() + "} can only be used inside t:object");
+      return error(s.pos(), "*{" + s.name() + "} can only be used inside t:object: put t:object=\"...\" on this element or an"
+          + " enclosing one, or write the full path (owner." + s.name() + ")");
     }
     return member(new CompiledExpr(sel.get().code(), sel.get().type(), s.pos()), s.name(), false, s.pos());
   }
@@ -294,7 +295,8 @@ public final class ExpressionCompiler {
       if (functions().namespaces().contains(v.name())) {
         return function(v.name(), m.name(), m.args(), m.pos(), scope);
       }
-      return error(v.pos(), "unknown identifier or function namespace '" + v.name() + "'");
+      return error(v.pos(), "unknown identifier or function namespace '" + v.name() + "': declare it in"
+          + " t:params, or register a class annotated @TemplateFunctions(\"" + v.name() + "\")");
     }
     CompiledExpr target = compile(m.target(), scope);
     if (target == null) {
@@ -316,10 +318,10 @@ public final class ExpressionCompiler {
   private CompiledExpr member(CompiledExpr target, String name, boolean nullSafe, SourcePos pos) {
     TypeMirror type = normalize(target.type());
     if (type.getKind() == TypeKind.NULL) {
-      return error(pos, "cannot read '" + name + "' of null");
+      return error(pos, "cannot read '" + name + "' of null: the expression is the literal null");
     }
     if (type.getKind().isPrimitive()) {
-      return error(pos, "cannot read '" + name + "' of a " + type + " value");
+      return error(pos, "cannot read '" + name + "' of a " + type + " value: primitives have no properties");
     }
     if (OBJECT_METHODS.contains(name) || ("get" + capitalize(name)).equals("getClass")) {
       return objectMethodError(name, pos);
@@ -494,7 +496,8 @@ public final class ExpressionCompiler {
     }
     Optional<TypeElement> owner = functions().namespaceClass(ns);
     if (owner.isEmpty()) {
-      return error(pos, "unknown function namespace '" + ns + "'");
+      return error(pos, "unknown function namespace '" + ns + "': register a class annotated @TemplateFunctions(\"" + ns
+          + "\") (built-ins: strings, numbers, temporals, lists; auth with the Spring starter)");
     }
     if (functions().overloads(ns, name).isEmpty()) {
       return error(
@@ -508,7 +511,8 @@ public final class ExpressionCompiler {
       return error(
           pos,
           "no single applicable " + ns + "." + name + " for arguments ("
-              + argTypes.stream().map(ExpressionCompiler::describe).collect(Collectors.joining(", ")) + ")");
+              + argTypes.stream().map(ExpressionCompiler::describe).collect(Collectors.joining(", ")) + "): check the"
+              + " argument types against the @TemplateFunction overloads of " + owner.get().getQualifiedName());
     }
     TypeMirror result = normalize(m.get().getReturnType());
     Optional<String> bad = safety.neverViewSafeReason(result);
@@ -570,7 +574,8 @@ public final class ExpressionCompiler {
     } else if (l.type().getKind().isPrimitive() && r.type().getKind().isPrimitive()) {
       boolean bothBool = l.type().getKind() == TypeKind.BOOLEAN && r.type().getKind() == TypeKind.BOOLEAN;
       if (!bothBool && !(isNumeric(l.type()) && isNumeric(r.type()))) {
-        return error(b.pos(), "cannot compare " + l.type() + " with " + r.type());
+        return error(b.pos(), "cannot compare " + l.type() + " with " + r.type() + ": == on primitives needs two numbers or"
+            + " two booleans");
       }
       code = "(" + l.code() + " == " + r.code() + ")";
     } else if (isNumber(l.type()) && isNumber(r.type())) {
@@ -657,7 +662,8 @@ public final class ExpressionCompiler {
     }
     TypeMirror t = unify(then.type(), other.type());
     if (t == null) {
-      return error(c.pos(), "the branches of ?: have incompatible types " + describe(then.type()) + " and " + describe(other.type()));
+      return error(c.pos(), "the branches of ?: have incompatible types " + describe(then.type()) + " and "
+          + describe(other.type()) + ": make both branches the same type");
     }
     String code = "(" + cond.code() + " ? " + coerce(then, t) + " : " + coerce(other, t) + ")";
     return new CompiledExpr(code, t, c.pos());
@@ -680,7 +686,8 @@ public final class ExpressionCompiler {
       t = box(t);
     }
     if (t == null || !types().isAssignable(v.type(), t) || !types().isAssignable(f.type(), t)) {
-      return error(e.pos(), "the operands of ?: have incompatible types " + describe(v.type()) + " and " + describe(f.type()));
+      return error(e.pos(), "the operands of ?: have incompatible types " + describe(v.type()) + " and "
+          + describe(f.type()) + ": make the default the same type as the value");
     }
     return new CompiledExpr(VALUES + ".<" + t + ">elvis(" + v.code() + ", " + f.code() + ")", t, e.pos());
   }
@@ -764,7 +771,8 @@ public final class ExpressionCompiler {
           return te;
         }
       }
-      env.diagnostics().error(pos, "unknown type '" + name + "'");
+      env.diagnostics().error(pos, "unknown type '" + name + "': check the package name and that the class is on the compile"
+          + " classpath");
       return null;
     }
     return resolveSimple(name, imports, pos, true);
@@ -779,7 +787,8 @@ public final class ExpressionCompiler {
           return te;
         }
         if (report) {
-          env.diagnostics().error(pos, "unknown type '" + imp + "' in t:import");
+          env.diagnostics().error(pos, "unknown type '" + imp + "' in t:import: check the package name and that the class is on"
+              + " the compile classpath");
         }
         return null;
       }

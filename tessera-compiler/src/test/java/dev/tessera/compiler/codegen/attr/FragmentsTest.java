@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.Fragment;
@@ -40,7 +39,6 @@ class FragmentsTest {
 
   private static Compilation compile(Compilation.Builder b) {
     Compilation c = b.compile();
-    assumeFalse(c.errors().stream().anyMatch(e -> e.contains("TODO(#")), () -> "stage not implemented: " + c.errors());
     return c;
   }
 
