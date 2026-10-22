@@ -41,12 +41,17 @@ guide (#19). Friction points (compiler gaps, migrator misses) are in [MIGRATION-
    was `@{__${link}__}`. Now the caller passes a built link (`@{/owners/find}`, type `String`) and
    the fragment writes `t:href="link"`. `t:class="nav-item"` (a Thymeleaf literal token) became a
    static `class="nav-item"`.
-6. **Inline the field fragments.** `fragments/inputField` and `fragments/selectField` used
-   `*{__${name}__}` and `#fields.hasErrors(name)`. Tessera has no preprocessing and no dynamic field
-   paths, so each of the 10 call sites now contains the fragment's markup with a literal path
-   (`t:field="*{firstName}"`, `fields.hasErrors('firstName')`, `t:errors="*{firstName}"`). The two
-   fragment templates were deleted. The `th:switch` on `type` is gone: each copy holds the one
-   `<input>` it needs, still wrapped in the `<div>` the switch rendered.
+6. **Type the field fragments with `Field`** (#43). `fragments/inputField` and `fragments/selectField`
+   used `*{__${name}__}` and `#fields.hasErrors(name)`. Tessera has no preprocessing and no dynamic
+   field paths. Instead `name` is declared `Field`: `input (String label, Field name, String type)`
+   and `select (String label, Field name, Collection<PetType> items)`. The callers are unchanged
+   (`input (#{firstName}, 'firstName', 'text')`); each literal path is checked against the caller's
+   `t:object` at build time. Inside, `*{__${name}__}` became `name` (`t:field="name"`,
+   `t:errors="name"`, `fields.hasErrors(name)`, `t:for="name"`). Upstream's date input read
+   `minVisitDate` from the caller's context; fragments see only their parameters, so
+   `inputWithMin (label, name, type, LocalDate min)` takes it and `input` delegates to it with `null`.
+   The visit form calls `inputWithMin (#{date}, 'date', 'date', minVisitDate)`. The first port inlined
+   the markup at all 10 call sites.
 7. **Rewrite links with `__${...}__`** to path variables or query parameters:
    - `@{__${owner.id}__/edit}` → `@{{ownerId}/edit(ownerId=owner.id)}` (still page-relative)
    - `@{/owners/__${owner.id}__}` → `@{/owners/{ownerId}(ownerId=owner.id)}`
@@ -103,5 +108,7 @@ and POSTs with validation errors). Text and structure are the same. The remainin
   render. Upstream's `@{/owners/__${owner.id}__}` renders `/owners/`. Saved owners always have an id,
   but `OwnerControllerTests` listed a bare `new Owner()`, so it now uses an owner with id 2.
 - **Pet and visit form labels** use `#{name}`, `#{birthDate}`, `#{type}`, `#{date}`, `#{description}`
-  where upstream passed English literals to the field fragment. English output is the same.
-  `I18nPropertiesSyncTest` flags literal label text now that the labels are inline.
+  where upstream passed English literals to the field fragment. English output is the same. (The
+  first port inlined the labels, where `I18nPropertiesSyncTest` flags literal text; the keys stayed.)
+- **Label attribute order.** The field fragments write `<label class="..." for="firstName">`;
+  upstream writes `for` first (see attribute order above).

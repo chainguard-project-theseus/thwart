@@ -7,76 +7,11 @@
   <h2 t:text="#{owner}">Owner</h2>
   <form t:object="owner" class="form-horizontal" id="add-owner-form" method="post">
     <div class="form-group has-feedback">
-      <div t:with="valid=!fields.hasErrors('firstName')" t:class="'form-group' + (valid ? '' : ' has-error')"
-        class="form-group">
-        <label for="firstName" class="col-sm-2 control-label" t:text="#{firstName}">Label</label>
-        <div class="col-sm-10">
-          <div>
-            <input class="form-control" type="text" t:field="*{firstName}" />
-          </div>
-          <span t:if="valid" class="fa fa-ok form-control-feedback" aria-hidden="true"></span>
-          <t:block t:if="!valid">
-            <span class="fa fa-remove form-control-feedback" aria-hidden="true"></span>
-            <span class="help-inline" t:errors="*{firstName}">Error</span>
-          </t:block>
-        </div>
-      </div>
-      <div t:with="valid=!fields.hasErrors('lastName')" t:class="'form-group' + (valid ? '' : ' has-error')"
-        class="form-group">
-        <label for="lastName" class="col-sm-2 control-label" t:text="#{lastName}">Label</label>
-        <div class="col-sm-10">
-          <div>
-            <input class="form-control" type="text" t:field="*{lastName}" />
-          </div>
-          <span t:if="valid" class="fa fa-ok form-control-feedback" aria-hidden="true"></span>
-          <t:block t:if="!valid">
-            <span class="fa fa-remove form-control-feedback" aria-hidden="true"></span>
-            <span class="help-inline" t:errors="*{lastName}">Error</span>
-          </t:block>
-        </div>
-      </div>
-      <div t:with="valid=!fields.hasErrors('address')" t:class="'form-group' + (valid ? '' : ' has-error')"
-        class="form-group">
-        <label for="address" class="col-sm-2 control-label" t:text="#{address}">Label</label>
-        <div class="col-sm-10">
-          <div>
-            <input class="form-control" type="text" t:field="*{address}" />
-          </div>
-          <span t:if="valid" class="fa fa-ok form-control-feedback" aria-hidden="true"></span>
-          <t:block t:if="!valid">
-            <span class="fa fa-remove form-control-feedback" aria-hidden="true"></span>
-            <span class="help-inline" t:errors="*{address}">Error</span>
-          </t:block>
-        </div>
-      </div>
-      <div t:with="valid=!fields.hasErrors('city')" t:class="'form-group' + (valid ? '' : ' has-error')"
-        class="form-group">
-        <label for="city" class="col-sm-2 control-label" t:text="#{city}">Label</label>
-        <div class="col-sm-10">
-          <div>
-            <input class="form-control" type="text" t:field="*{city}" />
-          </div>
-          <span t:if="valid" class="fa fa-ok form-control-feedback" aria-hidden="true"></span>
-          <t:block t:if="!valid">
-            <span class="fa fa-remove form-control-feedback" aria-hidden="true"></span>
-            <span class="help-inline" t:errors="*{city}">Error</span>
-          </t:block>
-        </div>
-      </div>
-      <div t:with="valid=!fields.hasErrors('telephone')" t:class="'form-group' + (valid ? '' : ' has-error')"
-        class="form-group">
-        <label for="telephone" class="col-sm-2 control-label" t:text="#{telephone}">Label</label>
-        <div class="col-sm-10">
-          <div>
-            <input class="form-control" type="text" t:field="*{telephone}" />
-          </div>
-          <span t:if="valid" class="fa fa-ok form-control-feedback" aria-hidden="true"></span>
-          <t:block t:if="!valid">
-            <span class="fa fa-remove form-control-feedback" aria-hidden="true"></span>
-            <span class="help-inline" t:errors="*{telephone}">Error</span>
-          </t:block>
-        </div>
-      </div>
+      <input t:replace="~{fragments/inputField :: input (#{firstName}, 'firstName', 'text')}" />
+      <input t:replace="~{fragments/inputField :: input (#{lastName}, 'lastName', 'text')}" />
+      <input t:replace="~{fragments/inputField :: input (#{address}, 'address', 'text')}" />
+      <input t:replace="~{fragments/inputField :: input (#{city}, 'city', 'text')}" />
+      <input t:replace="~{fragments/inputField :: input (#{telephone}, 'telephone', 'text')}" />
     </div>
     <div class="form-group">
       <div class="col-sm-offset-2 col-sm-10">

@@ -58,6 +58,7 @@ import javax.lang.model.util.Types;
 public final class ExpressionCompiler {
   private static final String VALUES = "dev.tessera.runtime.Values";
   private static final String FRAGMENT = "dev.tessera.runtime.Fragment";
+  private static final String FIELD = "dev.tessera.runtime.Field";
   private static final List<String> IMPLICIT_PACKAGES =
       List.of("java.lang", "java.util", "java.time", "java.math", "dev.tessera.runtime");
   private static final Set<String> OBJECT_METHODS =
@@ -197,7 +198,8 @@ public final class ExpressionCompiler {
    * Resolves a declared parameter type. Simple names resolve against {@code imports}
    * ({@code t:import} entries), then the implicit imports {@code java.lang}, {@code java.util},
    * {@code java.time}, {@code java.math}, {@code dev.tessera.runtime}. Parameters must be
-   * view-safe, {@code SafeHtml}, {@code TrustedUrl} or {@code Fragment}.
+   * view-safe, {@code SafeHtml}, {@code TrustedUrl}, {@code Fragment} or {@code Field} (fragment
+   * parameters only; {@code TemplateIndex} rejects it in {@code t:params}).
    */
   public TypeMirror resolveType(TypeRef ref, List<String> imports) {
     functions();
@@ -209,7 +211,7 @@ public final class ExpressionCompiler {
     if (never.isPresent()) {
       return errorType(ref.pos(), "parameter type " + t + " is not allowed: " + never.get());
     }
-    if (!safety.isViewSafe(t) && !isSame(t, FRAGMENT)) {
+    if (!safety.isViewSafe(t) && !isSame(t, FRAGMENT) && !isSame(t, FIELD)) {
       return errorType(
           ref.pos(),
           "parameter type " + t + " is not view-safe: use a record, an enum, a JDK value type, a collection of"
@@ -218,7 +220,10 @@ public final class ExpressionCompiler {
     return t;
   }
 
-  /** Checks that {@code type} may be output (view-safe or primitive) and reports at {@code pos} if not. */
+  /**
+   * Checks that {@code type} may be output (view-safe or primitive, or a {@code Field}, which
+   * outputs its path) and reports at {@code pos} if not.
+   */
   public boolean checkOutputType(TypeMirror type, SourcePos pos) {
     if (type == null) {
       return false;
@@ -232,7 +237,7 @@ public final class ExpressionCompiler {
       env.diagnostics().error(pos, "cannot output a value of type " + type + ": " + never.get());
       return false;
     }
-    if (!safety.isViewSafe(type)) {
+    if (!safety.isViewSafe(type) && !isSame(type, FIELD)) {
       env.diagnostics().error(pos, "cannot output a value of type " + type + ": it is not view-safe");
       return false;
     }
