@@ -1,0 +1,1137 @@
+### GET /owners?lastName=Franklin
+--- baseline/05.html
++++ run/05.html
+@@ -1,187 +1 @@
+-<!doctype html>
+-<html>
+-  <head>
+-    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
+-    <meta charset="utf-8">
+-    <meta content="IE=edge" http-equiv="X-UA-Compatible">
+-    <meta content="width=device-width, initial-scale=1" name="viewport">
+-    <link href="/resources/images/favicon.png" rel="shortcut icon" type="image/x-icon">
+-    <title>
+-      PetClinic :: a Spring Framework demonstration
+-    </title>
+-    <link href="/webjars/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+-    <link href="/resources/css/petclinic.css" rel="stylesheet">
+-  </head>
+-  <body>
+-    <nav class="navbar navbar-dark navbar-expand-lg" role="navigation">
+-      <div class="container-fluid">
+-        <a class="navbar-brand" href="/">
+-          <span>
+-          </span>
+-        </a>
+-        <button class="navbar-toggler" data-bs-target="#main-navbar" data-bs-toggle="collapse" type="button">
+-          <span class="navbar-toggler-icon">
+-          </span>
+-        </button>
+-        <div class="collapse navbar-collapse" id="main-navbar" style="">
+-          <ul class="mb-2 mb-lg-0 me-auto navbar-nav">
+-            <li class="">
+-              <a class="nav-link" href="/" title="home page">
+-                <span class="fa fa-home">
+-                </span>
+-                <span>
+-                  Home
+-                </span>
+-              </a>
+-            </li>
+-            <li class="nav-item">
+-              <a class="active nav-link" href="/owners/find" title="find owners">
+-                <span class="fa fa-search">
+-                </span>
+-                <span>
+-                  Find owners
+-                </span>
+-              </a>
+-            </li>
+-            <li class="">
+-              <a class="nav-link" href="/vets" title="veterinarians">
+-                <span class="fa fa-th-list">
+-                </span>
+-                <span>
+-                  Veterinarians
+-                </span>
+-              </a>
+-            </li>
+-            <li class="">
+-              <a class="nav-link" href="/oups" title="trigger a RuntimeException to see how it is handled">
+-                <span class="exclamation-triangle fa">
+-                </span>
+-                <span>
+-                  Error
+-                </span>
+-              </a>
+-            </li>
+-          </ul>
+-        </div>
+-      </div>
+-    </nav>
+-    <div class="container-fluid">
+-      <div class="container xd-container">
+-        <h2 id="ownerInformation">
+-          Owner Information
+-        </h2>
+-        <table aria-describedby="ownerInformation" class="table table-striped">
+-          <tr>
+-            <th id="name">
+-              Name
+-            </th>
+-            <td headers="name">
+-              <strong>
+-                George Franklin
+-              </strong>
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="address">
+-              Address
+-            </th>
+-            <td headers="address">
+-              110 W. Liberty St.
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="city">
+-              City
+-            </th>
+-            <td headers="city">
+-              Madison
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="telephone">
+-              Telephone
+-            </th>
+-            <td headers="telephone">
+-              6085551023
+-            </td>
+-          </tr>
+-        </table>
+-        <a class="btn btn-primary" href="1/edit">
+-          Edit Owner
+-        </a>
+-        <a class="btn btn-primary" href="1/pets/new">
+-          Add New Pet
+-        </a>
+-        <br>
+-        <br>
+-        <br>
+-        <h2 id="petsAndVisits">
+-          Pets and Visits
+-        </h2>
+-        <table aria-describedby="petsAndVisits" class="table table-striped">
+-          <tr>
+-            <th scope="col">
+-              <dl class="dl-horizontal">
+-                <dt>
+-                  Name
+-                </dt>
+-                <dd>
+-                  Leo
+-                </dd>
+-                <dt>
+-                  Birth Date
+-                </dt>
+-                <dd>
+-                  2010-09-07
+-                </dd>
+-                <dt>
+-                  Type
+-                </dt>
+-                <dd>
+-                  cat
+-                </dd>
+-              </dl>
+-            </th>
+-            <td>
+-              <table aria-describedby="petsAndVisits" class="table-condensed">
+-                <thead>
+-                  <tr>
+-                    <th id="visitDate">
+-                      Visit Date
+-                    </th>
+-                    <th id="visitDescription">
+-                      Description
+-                    </th>
+-                  </tr>
+-                </thead>
+-                <tr>
+-                  <td>
+-                    <a href="/owners/1/pets/1/edit">
+-                      Edit Pet
+-                    </a>
+-                  </td>
+-                  <td>
+-                    <a href="/owners/1/pets/1/visits/new">
+-                      Add Visit
+-                    </a>
+-                  </td>
+-                </tr>
+-              </table>
+-            </td>
+-          </tr>
+-        </table>
+-        <br>
+-        <br>
+-        <div class="container">
+-          <div class="row">
+-            <div class="col-12 text-center">
+-              <img alt="Sponsored by Pivotal" src="/resources/images/spring-pivotal-logo.png">
+-            </div>
+-          </div>
+-        </div>
+-      </div>
+-    </div>
+-    <script src="/webjars/bootstrap/5.3.8/js/bootstrap.bundle.min.js">
+-    </script>
+-  </body>
+-</html>
++
+
+### POST /owners/new firstName=Ann&lastName=O'Neil <b>&address=1 Main St&city=Madison&telephone=6085550000
+--- baseline/11.html
++++ run/11.html
+@@ -1,137 +1 @@
+-<!doctype html>
+-<html>
+-  <head>
+-    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
+-    <meta charset="utf-8">
+-    <meta content="IE=edge" http-equiv="X-UA-Compatible">
+-    <meta content="width=device-width, initial-scale=1" name="viewport">
+-    <link href="/resources/images/favicon.png" rel="shortcut icon" type="image/x-icon">
+-    <title>
+-      PetClinic :: a Spring Framework demonstration
+-    </title>
+-    <link href="/webjars/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+-    <link href="/resources/css/petclinic.css" rel="stylesheet">
+-  </head>
+-  <body>
+-    <nav class="navbar navbar-dark navbar-expand-lg" role="navigation">
+-      <div class="container-fluid">
+-        <a class="navbar-brand" href="/">
+-          <span>
+-          </span>
+-        </a>
+-        <button class="navbar-toggler" data-bs-target="#main-navbar" data-bs-toggle="collapse" type="button">
+-          <span class="navbar-toggler-icon">
+-          </span>
+-        </button>
+-        <div class="collapse navbar-collapse" id="main-navbar" style="">
+-          <ul class="mb-2 mb-lg-0 me-auto navbar-nav">
+-            <li class="">
+-              <a class="nav-link" href="/" title="home page">
+-                <span class="fa fa-home">
+-                </span>
+-                <span>
+-                  Home
+-                </span>
+-              </a>
+-            </li>
+-            <li class="nav-item">
+-              <a class="active nav-link" href="/owners/find" title="find owners">
+-                <span class="fa fa-search">
+-                </span>
+-                <span>
+-                  Find owners
+-                </span>
+-              </a>
+-            </li>
+-            <li class="">
+-              <a class="nav-link" href="/vets" title="veterinarians">
+-                <span class="fa fa-th-list">
+-                </span>
+-                <span>
+-                  Veterinarians
+-                </span>
+-              </a>
+-            </li>
+-            <li class="">
+-              <a class="nav-link" href="/oups" title="trigger a RuntimeException to see how it is handled">
+-                <span class="exclamation-triangle fa">
+-                </span>
+-                <span>
+-                  Error
+-                </span>
+-              </a>
+-            </li>
+-          </ul>
+-        </div>
+-      </div>
+-    </nav>
+-    <div class="container-fluid">
+-      <div class="container xd-container">
+-        <h2 id="ownerInformation">
+-          Owner Information
+-        </h2>
+-        <table aria-describedby="ownerInformation" class="table table-striped">
+-          <tr>
+-            <th id="name">
+-              Name
+-            </th>
+-            <td headers="name">
+-              <strong>
+-                Ann O'Neil &lt;b&gt;
+-              </strong>
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="address">
+-              Address
+-            </th>
+-            <td headers="address">
+-              1 Main St
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="city">
+-              City
+-            </th>
+-            <td headers="city">
+-              Madison
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="telephone">
+-              Telephone
+-            </th>
+-            <td headers="telephone">
+-              6085550000
+-            </td>
+-          </tr>
+-        </table>
+-        <a class="btn btn-primary" href="11/edit">
+-          Edit Owner
+-        </a>
+-        <a class="btn btn-primary" href="11/pets/new">
+-          Add New Pet
+-        </a>
+-        <br>
+-        <br>
+-        <br>
+-        <h2 id="petsAndVisits">
+-          Pets and Visits
+-        </h2>
+-        <table aria-describedby="petsAndVisits" class="table table-striped">
+-        </table>
+-        <br>
+-        <br>
+-        <div class="container">
+-          <div class="row">
+-            <div class="col-12 text-center">
+-              <img alt="Sponsored by Pivotal" src="/resources/images/spring-pivotal-logo.png">
+-            </div>
+-          </div>
+-        </div>
+-      </div>
+-    </div>
+-    <script src="/webjars/bootstrap/5.3.8/js/bootstrap.bundle.min.js">
+-    </script>
+-  </body>
+-</html>
++
+
+### POST /owners/1/edit firstName=George&lastName=Franklin&address=111 W. Liberty St.&city=Madison&telephone=6085551023
+--- baseline/14.html
++++ run/14.html
+@@ -1,187 +1 @@
+-<!doctype html>
+-<html>
+-  <head>
+-    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
+-    <meta charset="utf-8">
+-    <meta content="IE=edge" http-equiv="X-UA-Compatible">
+-    <meta content="width=device-width, initial-scale=1" name="viewport">
+-    <link href="/resources/images/favicon.png" rel="shortcut icon" type="image/x-icon">
+-    <title>
+-      PetClinic :: a Spring Framework demonstration
+-    </title>
+-    <link href="/webjars/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+-    <link href="/resources/css/petclinic.css" rel="stylesheet">
+-  </head>
+-  <body>
+-    <nav class="navbar navbar-dark navbar-expand-lg" role="navigation">
+-      <div class="container-fluid">
+-        <a class="navbar-brand" href="/">
+-          <span>
+-          </span>
+-        </a>
+-        <button class="navbar-toggler" data-bs-target="#main-navbar" data-bs-toggle="collapse" type="button">
+-          <span class="navbar-toggler-icon">
+-          </span>
+-        </button>
+-        <div class="collapse navbar-collapse" id="main-navbar" style="">
+-          <ul class="mb-2 mb-lg-0 me-auto navbar-nav">
+-            <li class="">
+-              <a class="nav-link" href="/" title="home page">
+-                <span class="fa fa-home">
+-                </span>
+-                <span>
+-                  Home
+-                </span>
+-              </a>
+-            </li>
+-            <li class="nav-item">
+-              <a class="active nav-link" href="/owners/find" title="find owners">
+-                <span class="fa fa-search">
+-                </span>
+-                <span>
+-                  Find owners
+-                </span>
+-              </a>
+-            </li>
+-            <li class="">
+-              <a class="nav-link" href="/vets" title="veterinarians">
+-                <span class="fa fa-th-list">
+-                </span>
+-                <span>
+-                  Veterinarians
+-                </span>
+-              </a>
+-            </li>
+-            <li class="">
+-              <a class="nav-link" href="/oups" title="trigger a RuntimeException to see how it is handled">
+-                <span class="exclamation-triangle fa">
+-                </span>
+-                <span>
+-                  Error
+-                </span>
+-              </a>
+-            </li>
+-          </ul>
+-        </div>
+-      </div>
+-    </nav>
+-    <div class="container-fluid">
+-      <div class="container xd-container">
+-        <h2 id="ownerInformation">
+-          Owner Information
+-        </h2>
+-        <table aria-describedby="ownerInformation" class="table table-striped">
+-          <tr>
+-            <th id="name">
+-              Name
+-            </th>
+-            <td headers="name">
+-              <strong>
+-                George Franklin
+-              </strong>
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="address">
+-              Address
+-            </th>
+-            <td headers="address">
+-              111 W. Liberty St.
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="city">
+-              City
+-            </th>
+-            <td headers="city">
+-              Madison
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="telephone">
+-              Telephone
+-            </th>
+-            <td headers="telephone">
+-              6085551023
+-            </td>
+-          </tr>
+-        </table>
+-        <a class="btn btn-primary" href="1/edit">
+-          Edit Owner
+-        </a>
+-        <a class="btn btn-primary" href="1/pets/new">
+-          Add New Pet
+-        </a>
+-        <br>
+-        <br>
+-        <br>
+-        <h2 id="petsAndVisits">
+-          Pets and Visits
+-        </h2>
+-        <table aria-describedby="petsAndVisits" class="table table-striped">
+-          <tr>
+-            <th scope="col">
+-              <dl class="dl-horizontal">
+-                <dt>
+-                  Name
+-                </dt>
+-                <dd>
+-                  Leo
+-                </dd>
+-                <dt>
+-                  Birth Date
+-                </dt>
+-                <dd>
+-                  2010-09-07
+-                </dd>
+-                <dt>
+-                  Type
+-                </dt>
+-                <dd>
+-                  cat
+-                </dd>
+-              </dl>
+-            </th>
+-            <td>
+-              <table aria-describedby="petsAndVisits" class="table-condensed">
+-                <thead>
+-                  <tr>
+-                    <th id="visitDate">
+-                      Visit Date
+-                    </th>
+-                    <th id="visitDescription">
+-                      Description
+-                    </th>
+-                  </tr>
+-                </thead>
+-                <tr>
+-                  <td>
+-                    <a href="/owners/1/pets/1/edit">
+-                      Edit Pet
+-                    </a>
+-                  </td>
+-                  <td>
+-                    <a href="/owners/1/pets/1/visits/new">
+-                      Add Visit
+-                    </a>
+-                  </td>
+-                </tr>
+-              </table>
+-            </td>
+-          </tr>
+-        </table>
+-        <br>
+-        <br>
+-        <div class="container">
+-          <div class="row">
+-            <div class="col-12 text-center">
+-              <img alt="Sponsored by Pivotal" src="/resources/images/spring-pivotal-logo.png">
+-            </div>
+-          </div>
+-        </div>
+-      </div>
+-    </div>
+-    <script src="/webjars/bootstrap/5.3.8/js/bootstrap.bundle.min.js">
+-    </script>
+-  </body>
+-</html>
++
+
+### POST /owners/1/pets/new name=Fluffy&birthDate=2020-01-01&type=hamster
+--- baseline/18.html
++++ run/18.html
+@@ -1,237 +1 @@
+-<!doctype html>
+-<html>
+-  <head>
+-    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
+-    <meta charset="utf-8">
+-    <meta content="IE=edge" http-equiv="X-UA-Compatible">
+-    <meta content="width=device-width, initial-scale=1" name="viewport">
+-    <link href="/resources/images/favicon.png" rel="shortcut icon" type="image/x-icon">
+-    <title>
+-      PetClinic :: a Spring Framework demonstration
+-    </title>
+-    <link href="/webjars/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+-    <link href="/resources/css/petclinic.css" rel="stylesheet">
+-  </head>
+-  <body>
+-    <nav class="navbar navbar-dark navbar-expand-lg" role="navigation">
+-      <div class="container-fluid">
+-        <a class="navbar-brand" href="/">
+-          <span>
+-          </span>
+-        </a>
+-        <button class="navbar-toggler" data-bs-target="#main-navbar" data-bs-toggle="collapse" type="button">
+-          <span class="navbar-toggler-icon">
+-          </span>
+-        </button>
+-        <div class="collapse navbar-collapse" id="main-navbar" style="">
+-          <ul class="mb-2 mb-lg-0 me-auto navbar-nav">
+-            <li class="">
+-              <a class="nav-link" href="/" title="home page">
+-                <span class="fa fa-home">
+-                </span>
+-                <span>
+-                  Home
+-                </span>
+-              </a>
+-            </li>
+-            <li class="nav-item">
+-              <a class="active nav-link" href="/owners/find" title="find owners">
+-                <span class="fa fa-search">
+-                </span>
+-                <span>
+-                  Find owners
+-                </span>
+-              </a>
+-            </li>
+-            <li class="">
+-              <a class="nav-link" href="/vets" title="veterinarians">
+-                <span class="fa fa-th-list">
+-                </span>
+-                <span>
+-                  Veterinarians
+-                </span>
+-              </a>
+-            </li>
+-            <li class="">
+-              <a class="nav-link" href="/oups" title="trigger a RuntimeException to see how it is handled">
+-                <span class="exclamation-triangle fa">
+-                </span>
+-                <span>
+-                  Error
+-                </span>
+-              </a>
+-            </li>
+-          </ul>
+-        </div>
+-      </div>
+-    </nav>
+-    <div class="container-fluid">
+-      <div class="container xd-container">
+-        <h2 id="ownerInformation">
+-          Owner Information
+-        </h2>
+-        <table aria-describedby="ownerInformation" class="table table-striped">
+-          <tr>
+-            <th id="name">
+-              Name
+-            </th>
+-            <td headers="name">
+-              <strong>
+-                George Franklin
+-              </strong>
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="address">
+-              Address
+-            </th>
+-            <td headers="address">
+-              111 W. Liberty St.
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="city">
+-              City
+-            </th>
+-            <td headers="city">
+-              Madison
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="telephone">
+-              Telephone
+-            </th>
+-            <td headers="telephone">
+-              6085551023
+-            </td>
+-          </tr>
+-        </table>
+-        <a class="btn btn-primary" href="1/edit">
+-          Edit Owner
+-        </a>
+-        <a class="btn btn-primary" href="1/pets/new">
+-          Add New Pet
+-        </a>
+-        <br>
+-        <br>
+-        <br>
+-        <h2 id="petsAndVisits">
+-          Pets and Visits
+-        </h2>
+-        <table aria-describedby="petsAndVisits" class="table table-striped">
+-          <tr>
+-            <th scope="col">
+-              <dl class="dl-horizontal">
+-                <dt>
+-                  Name
+-                </dt>
+-                <dd>
+-                  Fluffy
+-                </dd>
+-                <dt>
+-                  Birth Date
+-                </dt>
+-                <dd>
+-                  2020-01-01
+-                </dd>
+-                <dt>
+-                  Type
+-                </dt>
+-                <dd>
+-                  hamster
+-                </dd>
+-              </dl>
+-            </th>
+-            <td>
+-              <table aria-describedby="petsAndVisits" class="table-condensed">
+-                <thead>
+-                  <tr>
+-                    <th id="visitDate">
+-                      Visit Date
+-                    </th>
+-                    <th id="visitDescription">
+-                      Description
+-                    </th>
+-                  </tr>
+-                </thead>
+-                <tr>
+-                  <td>
+-                    <a href="/owners/1/pets/14/edit">
+-                      Edit Pet
+-                    </a>
+-                  </td>
+-                  <td>
+-                    <a href="/owners/1/pets/14/visits/new">
+-                      Add Visit
+-                    </a>
+-                  </td>
+-                </tr>
+-              </table>
+-            </td>
+-          </tr>
+-          <tr>
+-            <th scope="col">
+-              <dl class="dl-horizontal">
+-                <dt>
+-                  Name
+-                </dt>
+-                <dd>
+-                  Leo
+-                </dd>
+-                <dt>
+-                  Birth Date
+-                </dt>
+-                <dd>
+-                  2010-09-07
+-                </dd>
+-                <dt>
+-                  Type
+-                </dt>
+-                <dd>
+-                  cat
+-                </dd>
+-              </dl>
+-            </th>
+-            <td>
+-              <table aria-describedby="petsAndVisits" class="table-condensed">
+-                <thead>
+...
+
+### POST /owners/1/pets/1/edit id=1&name=Leo II&birthDate=2010-09-07&type=dog
+--- baseline/20.html
++++ run/20.html
+@@ -1,237 +1 @@
+-<!doctype html>
+-<html>
+-  <head>
+-    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
+-    <meta charset="utf-8">
+-    <meta content="IE=edge" http-equiv="X-UA-Compatible">
+-    <meta content="width=device-width, initial-scale=1" name="viewport">
+-    <link href="/resources/images/favicon.png" rel="shortcut icon" type="image/x-icon">
+-    <title>
+-      PetClinic :: a Spring Framework demonstration
+-    </title>
+-    <link href="/webjars/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+-    <link href="/resources/css/petclinic.css" rel="stylesheet">
+-  </head>
+-  <body>
+-    <nav class="navbar navbar-dark navbar-expand-lg" role="navigation">
+-      <div class="container-fluid">
+-        <a class="navbar-brand" href="/">
+-          <span>
+-          </span>
+-        </a>
+-        <button class="navbar-toggler" data-bs-target="#main-navbar" data-bs-toggle="collapse" type="button">
+-          <span class="navbar-toggler-icon">
+-          </span>
+-        </button>
+-        <div class="collapse navbar-collapse" id="main-navbar" style="">
+-          <ul class="mb-2 mb-lg-0 me-auto navbar-nav">
+-            <li class="">
+-              <a class="nav-link" href="/" title="home page">
+-                <span class="fa fa-home">
+-                </span>
+-                <span>
+-                  Home
+-                </span>
+-              </a>
+-            </li>
+-            <li class="nav-item">
+-              <a class="active nav-link" href="/owners/find" title="find owners">
+-                <span class="fa fa-search">
+-                </span>
+-                <span>
+-                  Find owners
+-                </span>
+-              </a>
+-            </li>
+-            <li class="">
+-              <a class="nav-link" href="/vets" title="veterinarians">
+-                <span class="fa fa-th-list">
+-                </span>
+-                <span>
+-                  Veterinarians
+-                </span>
+-              </a>
+-            </li>
+-            <li class="">
+-              <a class="nav-link" href="/oups" title="trigger a RuntimeException to see how it is handled">
+-                <span class="exclamation-triangle fa">
+-                </span>
+-                <span>
+-                  Error
+-                </span>
+-              </a>
+-            </li>
+-          </ul>
+-        </div>
+-      </div>
+-    </nav>
+-    <div class="container-fluid">
+-      <div class="container xd-container">
+-        <h2 id="ownerInformation">
+-          Owner Information
+-        </h2>
+-        <table aria-describedby="ownerInformation" class="table table-striped">
+-          <tr>
+-            <th id="name">
+-              Name
+-            </th>
+-            <td headers="name">
+-              <strong>
+-                George Franklin
+-              </strong>
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="address">
+-              Address
+-            </th>
+-            <td headers="address">
+-              111 W. Liberty St.
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="city">
+-              City
+-            </th>
+-            <td headers="city">
+-              Madison
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="telephone">
+-              Telephone
+-            </th>
+-            <td headers="telephone">
+-              6085551023
+-            </td>
+-          </tr>
+-        </table>
+-        <a class="btn btn-primary" href="1/edit">
+-          Edit Owner
+-        </a>
+-        <a class="btn btn-primary" href="1/pets/new">
+-          Add New Pet
+-        </a>
+-        <br>
+-        <br>
+-        <br>
+-        <h2 id="petsAndVisits">
+-          Pets and Visits
+-        </h2>
+-        <table aria-describedby="petsAndVisits" class="table table-striped">
+-          <tr>
+-            <th scope="col">
+-              <dl class="dl-horizontal">
+-                <dt>
+-                  Name
+-                </dt>
+-                <dd>
+-                  Fluffy
+-                </dd>
+-                <dt>
+-                  Birth Date
+-                </dt>
+-                <dd>
+-                  2020-01-01
+-                </dd>
+-                <dt>
+-                  Type
+-                </dt>
+-                <dd>
+-                  hamster
+-                </dd>
+-              </dl>
+-            </th>
+-            <td>
+-              <table aria-describedby="petsAndVisits" class="table-condensed">
+-                <thead>
+-                  <tr>
+-                    <th id="visitDate">
+-                      Visit Date
+-                    </th>
+-                    <th id="visitDescription">
+-                      Description
+-                    </th>
+-                  </tr>
+-                </thead>
+-                <tr>
+-                  <td>
+-                    <a href="/owners/1/pets/14/edit">
+-                      Edit Pet
+-                    </a>
+-                  </td>
+-                  <td>
+-                    <a href="/owners/1/pets/14/visits/new">
+-                      Add Visit
+-                    </a>
+-                  </td>
+-                </tr>
+-              </table>
+-            </td>
+-          </tr>
+-          <tr>
+-            <th scope="col">
+-              <dl class="dl-horizontal">
+-                <dt>
+-                  Name
+-                </dt>
+-                <dd>
+-                  Leo II
+-                </dd>
+-                <dt>
+-                  Birth Date
+-                </dt>
+-                <dd>
+-                  2010-09-07
+-                </dd>
+-                <dt>
+-                  Type
+-                </dt>
+-                <dd>
+-                  dog
+-                </dd>
+-              </dl>
+-            </th>
+-            <td>
+-              <table aria-describedby="petsAndVisits" class="table-condensed">
+-                <thead>
+...
+
+### POST /owners/6/pets/7/visits/new date=2024-01-01&description=Check <up>
+--- baseline/23.html
++++ run/23.html
+@@ -1,277 +1 @@
+-<!doctype html>
+-<html>
+-  <head>
+-    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
+-    <meta charset="utf-8">
+-    <meta content="IE=edge" http-equiv="X-UA-Compatible">
+-    <meta content="width=device-width, initial-scale=1" name="viewport">
+-    <link href="/resources/images/favicon.png" rel="shortcut icon" type="image/x-icon">
+-    <title>
+-      PetClinic :: a Spring Framework demonstration
+-    </title>
+-    <link href="/webjars/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+-    <link href="/resources/css/petclinic.css" rel="stylesheet">
+-  </head>
+-  <body>
+-    <nav class="navbar navbar-dark navbar-expand-lg" role="navigation">
+-      <div class="container-fluid">
+-        <a class="navbar-brand" href="/">
+-          <span>
+-          </span>
+-        </a>
+-        <button class="navbar-toggler" data-bs-target="#main-navbar" data-bs-toggle="collapse" type="button">
+-          <span class="navbar-toggler-icon">
+-          </span>
+-        </button>
+-        <div class="collapse navbar-collapse" id="main-navbar" style="">
+-          <ul class="mb-2 mb-lg-0 me-auto navbar-nav">
+-            <li class="">
+-              <a class="nav-link" href="/" title="home page">
+-                <span class="fa fa-home">
+-                </span>
+-                <span>
+-                  Home
+-                </span>
+-              </a>
+-            </li>
+-            <li class="nav-item">
+-              <a class="active nav-link" href="/owners/find" title="find owners">
+-                <span class="fa fa-search">
+-                </span>
+-                <span>
+-                  Find owners
+-                </span>
+-              </a>
+-            </li>
+-            <li class="">
+-              <a class="nav-link" href="/vets" title="veterinarians">
+-                <span class="fa fa-th-list">
+-                </span>
+-                <span>
+-                  Veterinarians
+-                </span>
+-              </a>
+-            </li>
+-            <li class="">
+-              <a class="nav-link" href="/oups" title="trigger a RuntimeException to see how it is handled">
+-                <span class="exclamation-triangle fa">
+-                </span>
+-                <span>
+-                  Error
+-                </span>
+-              </a>
+-            </li>
+-          </ul>
+-        </div>
+-      </div>
+-    </nav>
+-    <div class="container-fluid">
+-      <div class="container xd-container">
+-        <h2 id="ownerInformation">
+-          Owner Information
+-        </h2>
+-        <table aria-describedby="ownerInformation" class="table table-striped">
+-          <tr>
+-            <th id="name">
+-              Name
+-            </th>
+-            <td headers="name">
+-              <strong>
+-                Jean Coleman
+-              </strong>
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="address">
+-              Address
+-            </th>
+-            <td headers="address">
+-              105 N. Lake St.
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="city">
+-              City
+-            </th>
+-            <td headers="city">
+-              Monona
+-            </td>
+-          </tr>
+-          <tr>
+-            <th id="telephone">
+-              Telephone
+-            </th>
+-            <td headers="telephone">
+-              6085552654
+-            </td>
+-          </tr>
+-        </table>
+-        <a class="btn btn-primary" href="6/edit">
+-          Edit Owner
+-        </a>
+-        <a class="btn btn-primary" href="6/pets/new">
+-          Add New Pet
+-        </a>
+-        <br>
+-        <br>
+-        <br>
+-        <h2 id="petsAndVisits">
+-          Pets and Visits
+-        </h2>
+-        <table aria-describedby="petsAndVisits" class="table table-striped">
+-          <tr>
+-            <th scope="col">
+-              <dl class="dl-horizontal">
+-                <dt>
+-                  Name
+-                </dt>
+-                <dd>
+-                  Max
+-                </dd>
+-                <dt>
+-                  Birth Date
+-                </dt>
+-                <dd>
+-                  2012-09-04
+-                </dd>
+-                <dt>
+-                  Type
+-                </dt>
+-                <dd>
+-                  cat
+-                </dd>
+-              </dl>
+-            </th>
+-            <td>
+-              <table aria-describedby="petsAndVisits" class="table-condensed">
+-                <thead>
+-                  <tr>
+-                    <th id="visitDate">
+-                      Visit Date
+-                    </th>
+-                    <th id="visitDescription">
+-                      Description
+-                    </th>
+-                  </tr>
+-                </thead>
+-                <tr>
+-                  <td headers="visitDate">
+-                    2013-01-03
+-                  </td>
+-                  <td headers="visitDescription">
+-                    neutered
+-                  </td>
+-                </tr>
+-                <tr>
+-                  <td headers="visitDate">
+-                    2013-01-02
+-                  </td>
+-                  <td headers="visitDescription">
+-                    rabies shot
+-                  </td>
+-                </tr>
+-                <tr>
+-                  <td>
+-                    <a href="/owners/6/pets/8/edit">
+-                      Edit Pet
+-                    </a>
+-                  </td>
+-                  <td>
+-                    <a href="/owners/6/pets/8/visits/new">
+-                      Add Visit
+-                    </a>
+-                  </td>
+-                </tr>
+-              </table>
+-            </td>
+-          </tr>
+-          <tr>
+-            <th scope="col">
+-              <dl class="dl-horizontal">
+-                <dt>
+-                  Name
+-                </dt>
+-                <dd>
+-                  Samantha
+-                </dd>
+-                <dt>
+...

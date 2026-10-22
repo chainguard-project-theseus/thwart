@@ -1,0 +1,46 @@
+{
+ "app": "spring-framework-petclinic",
+ "run": "run-2",
+ "build_ok": true,
+ "tests_ok": true,
+ "tests": {
+  "tests": 82,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0
+ },
+ "tests_failed": [],
+ "baseline_tests": 75,
+ "pages_total": 26,
+ "pages_identical": 20,
+ "pages_reordered": 0,
+ "status_mismatch": [
+  "GET /owners?lastName=Franklin: 200 -> 406",
+  "POST /owners/new firstName=Ann&lastName=O'Neil <b>&address=1 Main St&city=Madison&telephone=6085550000: 200 -> 406",
+  "POST /owners/1/edit firstName=George&lastName=Franklin&address=111 W. Liberty St.&city=Madison&telephone=6085551023: 200 -> 406",
+  "POST /owners/1/pets/new name=Fluffy&birthDate=2020-01-01&type=hamster: 200 -> 406",
+  "POST /owners/1/pets/1/edit id=1&name=Leo II&birthDate=2010-09-07&type=dog: 200 -> 406",
+  "POST /owners/6/pets/7/visits/new date=2024-01-01&description=Check <up>: 200 -> 406"
+ ],
+ "insecure": [],
+ "legacy_templates": [],
+ "legacy_constructs": {},
+ "legacy_deps": [],
+ "tessera_templates": 12,
+ "baseline_templates": 19,
+ "pass": false,
+ "wall_minutes": 13.5,
+ "exit": 0,
+ "model": "opus",
+ "budget_usd": 40,
+ "budget_minutes": 90,
+ "outcome": "success",
+ "cost_usd": 3.014367800000001,
+ "turns": 46,
+ "tokens": {
+  "input_tokens": 88,
+  "cache_creation_input_tokens": 177327,
+  "cache_read_input_tokens": 5559204,
+  "output_tokens": 50777
+ }
+}

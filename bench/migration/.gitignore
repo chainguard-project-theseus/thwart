@@ -1,0 +1,6 @@
+work/
+results/**/*.log
+results/**/transcript.jsonl
+results/*/baseline/pages/
+results/*/run-*/check/
+__pycache__/

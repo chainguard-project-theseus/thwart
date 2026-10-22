@@ -1,0 +1,26 @@
+{
+ "mustache": {
+  "templates": 12,
+  "files": [
+   "src/main/resources/templates/error.mustache",
+   "src/main/resources/templates/fragments/inputField.mustache",
+   "src/main/resources/templates/fragments/layout.mustache",
+   "src/main/resources/templates/fragments/selectField.mustache",
+   "src/main/resources/templates/owners/createOrUpdateOwnerForm.mustache",
+   "src/main/resources/templates/owners/findOwners.mustache",
+   "src/main/resources/templates/owners/ownerDetails.mustache",
+   "src/main/resources/templates/owners/ownersList.mustache",
+   "src/main/resources/templates/pets/createOrUpdatePetForm.mustache",
+   "src/main/resources/templates/pets/createOrUpdateVisitForm.mustache",
+   "src/main/resources/templates/vets/vetList.mustache",
+   "src/main/resources/templates/welcome.mustache"
+  ],
+  "constructs": {
+   "{{/": 113,
+   "{{": 103,
+   "{{#": 56,
+   "{{!": 22,
+   "{{^": 19
+  }
+ }
+}
