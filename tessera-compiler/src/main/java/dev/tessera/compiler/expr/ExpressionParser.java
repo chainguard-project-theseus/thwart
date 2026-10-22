@@ -5,6 +5,7 @@ import dev.tessera.compiler.SourcePos;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Lexer and recursive-descent parser for every micro-syntax inside {@code t:} attributes.
@@ -250,10 +251,16 @@ public final class ExpressionParser {
       return identRaw();
     }
 
-    void enter() {
+    /** Runs {@code body} one nesting level deeper, failing with a diagnostic past {@link #MAX_DEPTH}. */
+    private <T> T nested(Supplier<T> body) {
       if (++depth > MAX_DEPTH) {
         throw error(i, "expression is nested more than " + MAX_DEPTH + " levels deep: simplify it or compute the value in"
             + " Java");
+      }
+      try {
+        return body.get();
+      } finally {
+        depth--;
       }
     }
 
@@ -267,8 +274,7 @@ public final class ExpressionParser {
     // ---- expressions ----
 
     Expr expr() {
-      enter();
-      try {
+      return nested(() -> {
         Expr cond = elvis();
         ws();
         if (at("?") && !at("?:")) {
@@ -283,20 +289,13 @@ public final class ExpressionParser {
           return new Expr.Conditional(cond, then, otherwise, cond.pos());
         }
         return cond;
-      } finally {
-        depth--;
-      }
+      });
     }
 
     Expr elvis() {
       Expr value = or();
       if (eat("?:")) {
-        enter();
-        try {
-          return new Expr.Elvis(value, elvis(), value.pos());
-        } finally {
-          depth--;
-        }
+        return new Expr.Elvis(value, nested(this::elvis), value.pos());
       }
       return value;
     }
@@ -410,12 +409,7 @@ public final class ExpressionParser {
       } else {
         return postfix(primary());
       }
-      enter();
-      try {
-        return new Expr.Unary(op, unary(), pos(at));
-      } finally {
-        depth--;
-      }
+      return new Expr.Unary(op, nested(this::unary), pos(at));
     }
 
     Expr postfix(Expr e) {
@@ -839,7 +833,7 @@ public final class ExpressionParser {
           if (at("?")) {
             throw error(i, "wildcard types are not supported: write the element type, e.g. List<Owner>");
           }
-          typeArgs.add(type());
+          typeArgs.add(nested(this::type));
         } while (eat(","));
         expect(">", "',' or '>' in the type arguments of '" + name + "'");
       }
