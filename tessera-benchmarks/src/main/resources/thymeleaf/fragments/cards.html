@@ -1,0 +1,10 @@
+<div xmlns:th="http://www.thymeleaf.org">
+<div th:fragment="card(owner)" class="card">
+<h3><a th:href="@{/owners/{ownerId}(ownerId=${owner.id})}" th:text="${owner.firstName + ' ' + owner.lastName}">Name</a></h3>
+<p class="city" th:text="${owner.city}">City</p>
+<ul class="pets" th:unless="${owner.pets.isEmpty()}"><li th:each="pet : ${owner.pets}"><span th:replace="~{fragments/cards :: petLabel(${pet})}">Pet</span></li></ul>
+<span th:replace="~{fragments/cards :: status(${owner.active})}">Status</span>
+</div>
+<span th:fragment="petLabel(pet)" class="pet" th:text="${pet.name + ' (' + pet.type + ')'}">Pet</span>
+<span th:fragment="status(active)" th:class="${active} ? 'badge active' : 'badge'" th:text="${active} ? 'active' : 'inactive'">Status</span>
+</div>
