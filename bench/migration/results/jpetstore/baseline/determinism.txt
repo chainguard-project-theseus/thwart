@@ -1,0 +1,60 @@
+01 same      GET /
+02 same      GET /catalog
+03 same      GET /catalog/categories/FISH
+04 same      GET /catalog/categories/DOGS
+05 same      GET /catalog/categories/BIRDS
+06 same      GET /catalog/products?keywords=
+07 same      GET /catalog/products?keywords=retriever
+08 same      GET /catalog/products?keywords=%3Cb%3Enothing
+09 same      GET /catalog/products/FI-SW-01
+10 same      GET /catalog/products/K9-RT-01
+11 same      GET /catalog/items/EST-1
+12 same      GET /catalog/items/EST-28
+13 same      GET /cart
+14 same      GET /cart?add&itemId=EST-1
+15 same      GET /cart?add&itemId=EST-1
+16 same      GET /cart?add&itemId=EST-6
+17 same      GET /cart?add&itemId=EST-28
+18 same      POST /cart update=Update Cart&lines[0].quantity=-1&lines[1].quantity=abc&lines[2].quantity=1
+19 same      POST /cart update=Update Cart&lines[0].quantity=3&lines[1].quantity=0&lines[2].quantity=2
+20 same      GET /cart?remove&itemId=EST-28
+21 same      GET /my/orders/create?form
+22 same      POST /login username=j2ee&password=wrong
+23 same      GET /login?error
+24 same      POST /login username=j2ee&password=j2ee
+25 same      GET /cart
+26 same      GET /my/orders
+27 same      GET /my/orders/create?form
+28 same      POST /my/orders/create continue=Continue&cardType=Visa&creditCard=12ab&expiryDate=2030-12&billToFirstName=&billToLastName=XYX&billAddress1=901 San Antonio Road&billAddress2=&billCity=Palo Alto&billState=CA&billZip=94303&billCountry=USA&_shippingAddressRequired=on
+29 same      POST /my/orders/create continue=Continue&cardType=MasterCard&creditCard=999999999999&expiryDate=12/2030&billToFirstName=ABC&billToLastName=O'Neil <b>&billAddress1=901 San Antonio Road&billAddress2=MS UCUP02-206&billCity=Palo Alto&billState=CA&billZip=94303&billCountry=USA&shippingAddressRequired=true&_shippingAddressRequired=on
+30 same      POST /my/orders/create confirm=Continue&shipToFirstName=&shipToLastName=Smith&shipAddress1=&shipAddress2=&shipCity=Boston&shipState=MA&shipZip=0211x&shipCountry=USA
+31 same      POST /my/orders/create confirm=Continue&shipToFirstName=Jane&shipToLastName=Smith %26 "Co"&shipAddress1=1 Main St&shipAddress2=Apt 2&shipCity=Boston&shipState=MA&shipZip=02110&shipCountry=USA
+32 same      POST /my/orders/create
+33 same      GET /my/orders
+34 same      GET /my/orders/1000
+35 same      GET /catalog/items/EST-1
+36 same      GET /cart?add&itemId=EST-16
+37 same      GET /my/orders/create?form
+38 same      POST /my/orders/create continue=Continue&cardType=American Express&creditCard=4444&expiryDate=01/2031&billToFirstName=ABC&billToLastName=XYX&billAddress1=901 San Antonio Road&billAddress2=&billCity=Palo Alto&billState=CA&billZip=94303&billCountry=USA&_shippingAddressRequired=on
+39 same      POST /my/orders/create
+40 same      GET /my/orders
+41 same      GET /my/orders/create?form
+42 same      GET /my/account/update?form
+43 same      POST /my/account/update password=short&repeatedPassword=other&email=not-an-email&firstName=&lastName=XYX&address1=901 San Antonio Road&address2=&city=Palo Alto&state=CA&zip=9430a&country=USA&phone=phone&favouriteCategoryId=DOGS&languagePreference=English&_listOption=on&_bannerOption=on
+44 same      POST /my/account/update password=&repeatedPassword=&email=j2ee@example.com&firstName=Jay <i>&lastName=Two&address1=1 Infinite Loop&address2=&city=Cupertino&state=CA&zip=95014&country=USA&phone=555-555-1234&favouriteCategoryId=CATS&languagePreference=Japanese&listOption=true&_listOption=on&bannerOption=true&_bannerOption=on
+45 same      GET /cart
+46 same      GET /catalog
+47 same      GET /logout
+48 same      GET /accounts/create?form
+49 same      POST /accounts/create username=&password=abc&repeatedPassword=abd&email=&firstName=&lastName=&address1=&address2=&city=&state=&zip=&country=&phone=&favouriteCategoryId=FISH&languagePreference=English&_listOption=on&_bannerOption=on
+50 same      POST /accounts/create username=bench&password=benchpass1&repeatedPassword=benchpass1&email=bench@example.com&firstName=Ben&lastName=Ch&address1=2 Elm St&address2=&city=Springfield&state=IL&zip=62701&country=USA&phone=217-555-0100&favouriteCategoryId=BIRDS&languagePreference=English&_listOption=on&bannerOption=true&_bannerOption=on
+51 same      POST /login username=bench&password=benchpass1
+52 same      GET /my/orders
+53 same      GET /cart
+54 same      POST /cart update=Update Cart&lines[0].itemId=NOPE&lines[0].quantity=1
+55 same      GET /my/orders/abc
+56 same      GET /my/orders/1000
+57 same      GET /catalog/categories/NOPE
+58 same      GET /logout
+59 same      GET /no-such-page
+tessera-migrate compare: 59 page(s): 59 same, 0 reordered, 0 differ

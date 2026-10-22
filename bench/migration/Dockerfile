@@ -13,7 +13,7 @@ RUN mvn -B -ntp -q install -DskipTests -Dmaven.repo.local=/m2 \
 FROM cgr.dev/chainguard/wolfi-base
 ARG CLAUDE_CODE_VERSION=2.1.308
 RUN apk add --no-cache openjdk-21-default-jdk openjdk-8 maven-3.9 bash git curl python-3.13 nodejs-22 npm \
-      coreutils findutils grep sed diffutils procps \
+      coreutils findutils grep sed diffutils procps postgresql-18 postgresql-18-client libfaketime \
  && npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} \
  && node /usr/local/lib/node_modules/@anthropic-ai/claude-code/install.cjs \
  && adduser -D -h /home/bench bench \
@@ -24,6 +24,8 @@ COPY --from=tessera /m2 /opt/m2-seed
 # The same tessera-migrate jar at a fixed path, for check.sh's record and compare.
 COPY --from=tessera /m2/dev/tessera/tessera-migrate/0.1.0-SNAPSHOT/tessera-migrate-0.1.0-SNAPSHOT.jar \
      /opt/tessera-migrate.jar
+# PostgreSQL is for apps that only run on it (budgetmaster): the app's start command creates a
+# throwaway cluster under /tmp. libfaketime pins the clock of an app whose pages show "today".
 # JDK 21 is the default (Tessera's build needs it); JDK 8 is for apps whose app.json says "java": 8.
 ENV JAVA_HOME=/usr/lib/jvm/default-jvm \
     LANG=C.UTF-8 \

@@ -67,17 +67,38 @@ each form, and the error pages. Optional keys:
 The check container (never the migrating agent) sees the app's fixture directory read-only at
 `/bench/app`, so a start command can load seed data from it (for example
 `spring.sql.init.data-locations=file:/bench/app/seed.sql`). An app whose pages send mail can start
-`python3 /bench/lib/smtp.py &`, an SMTP sink on `localhost:2525`, in its start command.
+`python3 /bench/lib/smtp.py &`, an SMTP sink on `localhost:2525`, in its start command. Helper
+scripts go there too (budgetmaster's `start.sh` and surefire `test-excludes.txt`). The image has
+PostgreSQL 18 (`initdb`, `pg_ctl`, `psql`) for apps that need it and libfaketime for an app whose
+pages show "today".
 
 Run `bench.py baseline <name>` and check `results/<name>/baseline/determinism.txt`.
 
 Current ignores: times of day (fredbet, jobsearch: seeded data is stamped at startup; the date
 is still compared), UUIDs (fredbet: image keys generated at startup), the webjar version path
 segment (spring-petclinic, fredbet: Boot adds it for Thymeleaf through `ResourceUrlEncodingFilter`,
-which Tessera's starter does not register yet, #122), and JobSearch's `<span text-bg-...">`, an
-attribute built from an unbalanced quote in the original template. Held-out: the request timestamp and
-the webjar version segment (purl-server: Boot's error page prints the date and time of the request;
-the webjar segment as above), and the invoice date input (jprime: the invoice form defaults to today).
+which Tessera's starter does not register yet, #122), JobSearch's `<span text-bg-...">`, an
+attribute built from an unbalanced quote in the original template, and order timestamps (jpetstore:
+stamped from the clock; no seeded order has one). Held-out: the request timestamp and the webjar
+version segment (purl-server: Boot's error page prints the date and time of the request; the webjar
+segment as above), the invoice date input (jprime: the invoice form defaults to today), and chart
+container UUIDs and the delete-database verification code (budgetmaster: random per request).
 
 Licenses: JobSearch and jprime have no license, so their runs' `diff.patch` files are not
 committed (`.gitignore`).
+
+Per-app environment fixes (in the app's commands, not its code):
+
+- jpetstore (`"java": 8`): `-Dlicense.skip=true` stops license-maven-plugin rewriting source
+  headers at `initialize`, and `-Ddependency-check.skip=true` skips the OWASP plugin, whose NVD feed
+  is gone (it is bound to `verify`, so this only matters if a build runs that far). The baseline
+  builds, tests and runs on JDK 8. A migrated jpetstore builds and tests on JDK 21 and runs on
+  JDK 8, so the agent has to make the original build work on JDK 21 (e.g. a newer Lombok, JaCoCo
+  that understands Java 21 classes) while keeping Java 8 bytecode.
+- budgetmaster: runs only on PostgreSQL or MariaDB, so `start.sh` creates a throwaway PostgreSQL
+  cluster under `/tmp`, writes the settings file the app requires, and starts the app with its
+  clock pinned by libfaketime to 2025-06-15 10:00 UTC (its pages show the current month, and its
+  forms need a date cookie that only `/today` sets). The build pins `app.versionDate`, which is
+  otherwise the build day and shown on the About page. The test command creates the settings file
+  the test JVM requires and excludes, via `test-excludes.txt`, the tests that need Docker
+  (Testcontainers) or Firefox (Selenium), plus one that depends on their logging setup.
