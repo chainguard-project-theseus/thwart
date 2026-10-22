@@ -149,6 +149,9 @@ difference remains: JobSearch's `ignore` in `app.json`, an attribute built from 
 quote in the original template. The crawl lists also avoid requests where the original app
 itself crashes or picks an error message at random.
 
+These #115 runs were crawled and scored with `lib/crawl.py`. Since #151 the harness records and
+compares with `tessera-migrate record`/`compare` instead (see [README.md](README.md)).
+
 ## Limitations
 
 - **FreeMarker coverage is weaker than the rest.** No permissively licensed Boot 3 FreeMarker

@@ -21,25 +21,32 @@ Options: `--runs N` (default 3), `--first-run K` (number new runs from K to add 
 ## What happens
 
 1. **Image.** `Dockerfile` builds Tessera 0.1.0-SNAPSHOT from a `git archive` of this repo's
-   `HEAD` and installs it into a Maven repository. The final image holds that repository, JDK 21,
+   `HEAD` and installs it into a Maven repository. The final image holds that repository (and
+   the same `tessera-migrate` jar at `/opt/tessera-migrate.jar`), JDK 21 (default) and JDK 8,
    Maven, Python and the Claude Code CLI, but none of this repo's sources, docs or history.
 2. **Baseline.** Each app in `apps/<name>/app.json` is cloned at its pinned commit and checked
    in a container (`lib/check.sh`): template and construct counts (`lib/count.py`), the build,
-   a crawl of every request in `apps/<name>/pages.txt` against the running app with its seeded
-   data (`lib/crawl.py`, which normalizes whitespace, attribute order, class order, comments and
-   CSRF tokens), and the app's tests. Output: `results/<app>/baseline/`.
+   `tessera-migrate record` of every request in `apps/<name>/pages.txt` against the running app
+   with its seeded data, and the app's tests. Output: `results/<app>/baseline/` (the recording in
+   `pages/`). The app is then checked a second time with `tessera-migrate compare` against that
+   recording: `baseline/determinism.txt` must show every page `same` or `reordered`, or the
+   pages are not deterministic enough to score a migration against.
 3. **Migration.** For each run, a fresh clone goes into a new container with `/work/guide.md`
    mounted read-only, and `claude -p` runs [prompt.md](prompt.md) with
    `--dangerously-skip-permissions`, no web tools or workflows, a time limit (`timeout`) and a
    spend cap (`--max-budget-usd`). The container's home is empty, so there is no CLAUDE.md,
    memory, settings or plugin: a fresh context with the standard tools.
-4. **Scoring.** The migrated checkout goes through the same check. `results/<app>/run-<k>/` gets
-   `score.json`, the agent's `diff.patch`, `pages.diff` (normalized HTML against the baseline),
-   the agent's `MIGRATION-REPORT.md`, and `agent.json` (wall time, cost, tokens, outcome).
-   A run **passes** when the build and all tests pass (no fewer tests than the baseline), every
-   page has the baseline's status and identical normalized HTML, the diff adds no
-   `SafeHtml.unchecked`, `TrustedUrl.unchecked`, `permitAll`, CSRF disabling or `@Disabled`, and
-   no legacy template or view-engine dependency is left.
+4. **Scoring.** The migrated checkout goes through the same check, with `tessera-migrate
+   compare` against the baseline recording: the same tool and the same page comparison the
+   agent's guide tells it to use. `results/<app>/run-<k>/` gets `score.json`, the agent's
+   `diff.patch`, `compare.txt` (compare's output: per page `same`, `reordered` or `differs`,
+   status and final-URL mismatches, and a diff), the agent's `MIGRATION-REPORT.md`, and
+   `agent.json` (wall time, cost, tokens, outcome). A run **passes** when the build and all tests
+   pass (no fewer tests than the baseline), compare reports every page `same` or `reordered` with
+   its recorded status and final URL, the diff adds no `SafeHtml.unchecked`,
+   `TrustedUrl.unchecked`, `permitAll`, CSRF disabling or `@Disabled`, and no legacy template or
+   view-engine dependency is left. Runs from #115 were scored by an older Python crawler and
+   normalizer; they have `pages.diff` instead of `compare.txt`, and `rescore` leaves them alone.
 5. **Report.** `results/summary.md` has a row per run and a row per app.
 
 ## Adding an app
@@ -47,4 +54,18 @@ Options: `--runs N` (default 3), `--first-run K` (number new runs from K to add 
 Add `apps/<name>/app.json` (repo, commit, engine, build/test/start commands, readiness path,
 base URL) and `apps/<name>/pages.txt` (`GET /path` or `POST /path a=1&b=2` per line, run in
 order; a POST takes the previous page's `_csrf` token). Cover every template, both states of
-each form, and the error pages.
+each form, and the error pages. Optional keys:
+
+- `"java": 8` builds, tests and runs the original app on JDK 8 (default 21). A migrated app
+  builds and tests on JDK 21, which Tessera's build needs, and still runs on the app's JDK.
+- `"ignore": [regex, ...]` deletes matches from both the recorded and the new raw page before
+  comparing (`compare --ignore`), for accepted differences such as broken markup in the original.
+  Prefer fixing the data in `pages.txt` (absolute dates, no random generators) over ignoring.
+
+Run `bench.py baseline <name>` and check `results/<name>/baseline/determinism.txt`.
+
+Current ignores: times of day (fredbet, jobsearch: seeded data is stamped at startup; the date
+is still compared), UUIDs (fredbet: image keys generated at startup), the webjar version path
+segment (spring-petclinic, fredbet: Boot adds it for Thymeleaf through `ResourceUrlEncodingFilter`,
+which Tessera's starter does not register yet, #122), and JobSearch's `<span text-bg-...">`, an
+attribute built from an unbalanced quote in the original template.
