@@ -177,6 +177,28 @@ class TemplateGeneratorTest {
   }
 
   @Test
+  void paramNamedLikeAConstantCannotShadowIt() {
+    String src = "<html" + XMLNS + " t:params=\"String S0\">ok</html>";
+    Compilation c =
+        HandBuilt.run(
+                Compilation.builder(),
+                pe -> {
+                  HandBuilt h = new HandBuilt("shadow.html", src);
+                  Element html =
+                      h.el(
+                          "html",
+                          List.of(h.attr("xmlns:t", "https://tessera.dev"), h.attr("t:params", "String S0")),
+                          h.text("ok"));
+                  TypeMirror string = pe.getElementUtils().getTypeElement("java.lang.String").asType();
+                  return List.of(
+                      HandBuilt.info(h.doc(html), List.of(new TemplateIndex.Param("S0", string, string.toString()))));
+                })
+            .compilation()
+            .assertSuccess();
+    assertEquals("<html>ok</html>", c.render("shadow", Map.of("S0", "<script>")));
+  }
+
+  @Test
   void registryListsParamsAndRendersAWellTypedModel() {
     Compilation c = paramsCompilation();
     TemplateEntry e = c.registry().find("params").orElseThrow();

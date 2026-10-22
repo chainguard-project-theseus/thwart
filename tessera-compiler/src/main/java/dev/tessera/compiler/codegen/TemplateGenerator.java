@@ -349,7 +349,12 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   private String dynamicAttr(ElementPlan.DynamicAttr d) {
-    String escaper = d.context().escaper();
+    // Only attribute contexts: e.g. the SCRIPT (json) escaper does not escape '"'.
+    String escaper =
+        switch (d.context()) {
+          case ATTRIBUTE, URL, RESOURCE_URL -> d.context().escaper();
+          default -> null;
+        };
     if (escaper == null) {
       diagnostics().error(d.pos(), "an expression cannot be used in attribute " + d.name() + " (" + d.context() + " context)");
       return "";
@@ -425,8 +430,13 @@ public final class TemplateGenerator implements CodegenContext {
     return false;
   }
 
+  /**
+   * Name of the constant holding {@code text}. The {@code $} keeps it distinct from every
+   * template variable (template identifiers cannot contain {@code $}), so a param or fragment
+   * param can never shadow a constant and get written unescaped in its place.
+   */
   private String constant(String text) {
-    return constants.computeIfAbsent(text, k -> "S" + constants.size());
+    return constants.computeIfAbsent(text, k -> "S$" + constants.size());
   }
 
   // ---- class source ----

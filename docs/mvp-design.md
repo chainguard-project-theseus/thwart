@@ -216,14 +216,14 @@ For `owners/ownerDetails.html` with `t:params="OwnerView owner"` and base `com.e
 package com.example.templates.owners;
 
 public final class OwnerDetailsTemplate implements dev.tessera.runtime.Template {
-  private static final String S0 = "<!DOCTYPE html>\n<html>\n<body>\n<h2>";
+  private static final String S$0 = "<!DOCTYPE html>\n<html>\n<body>\n<h2>";
   private final com.example.OwnerView owner;
   private OwnerDetailsTemplate(com.example.OwnerView owner) { this.owner = owner; }
   public static OwnerDetailsTemplate of(com.example.OwnerView owner) { return new OwnerDetailsTemplate(owner); }
   @Override public String templateName() { return "owners/ownerDetails"; }
   @Override public void render(dev.tessera.runtime.RenderContext ctx, dev.tessera.runtime.Output out) { render(owner, ctx, out); }
   public static void render(com.example.OwnerView owner, dev.tessera.runtime.RenderContext ctx, dev.tessera.runtime.Output out) {
-    out.write(S0);
+    out.write(S$0);
     dev.tessera.runtime.Escapers.text(out, owner.getFirstName());
     ...
   }
