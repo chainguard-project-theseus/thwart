@@ -222,7 +222,7 @@ public final class HtmlParser {
     }
 
     private OutputContext textContext() {
-      return stack.isEmpty() ? Contexts.text(null) : stack.peek().textContext;
+      return stack.isEmpty() ? OutputContext.TEXT : stack.peek().textContext;
     }
 
     private void flushText() {
