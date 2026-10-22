@@ -12,7 +12,7 @@ RUN mvn -B -ntp -q install -DskipTests -Dmaven.repo.local=/m2 \
 
 FROM cgr.dev/chainguard/wolfi-base
 ARG CLAUDE_CODE_VERSION=2.1.308
-RUN apk add --no-cache openjdk-21-default-jdk maven-3.9 bash git curl python-3.13 nodejs-22 npm \
+RUN apk add --no-cache openjdk-21-default-jdk openjdk-8 maven-3.9 bash git curl python-3.13 nodejs-22 npm \
       coreutils findutils grep sed diffutils procps \
  && npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} \
  && node /usr/local/lib/node_modules/@anthropic-ai/claude-code/install.cjs \
@@ -21,6 +21,10 @@ RUN apk add --no-cache openjdk-21-default-jdk maven-3.9 bash git curl python-3.1
 # Tessera 0.1.0-SNAPSHOT plus its build's dependencies; bench.py copies this into the shared
 # Maven repository volume before each batch.
 COPY --from=tessera /m2 /opt/m2-seed
+# The same tessera-migrate jar at a fixed path, for check.sh's record and compare.
+COPY --from=tessera /m2/dev/tessera/tessera-migrate/0.1.0-SNAPSHOT/tessera-migrate-0.1.0-SNAPSHOT.jar \
+     /opt/tessera-migrate.jar
+# JDK 21 is the default (Tessera's build needs it); JDK 8 is for apps whose app.json says "java": 8.
 ENV JAVA_HOME=/usr/lib/jvm/default-jvm \
     LANG=C.UTF-8 \
     MAVEN_ARGS="-Daether.syncContext.named.factory=file-lock -Daether.syncContext.named.nameMapper=file-gav"

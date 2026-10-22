@@ -6,7 +6,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
 import org.attoparser.ParseException;
 
@@ -23,7 +26,8 @@ import org.attoparser.ParseException;
  * (see {@link Parity}). {@code record} saves every page of the running old app to {@code dir};
  * {@code compare} requests the same pages from the running new app and prints {@code same},
  * {@code reordered} or {@code differs} (the last two with a diff) per page. {@code compare} exits 0 only if
- * every page has its recorded status and final URL and is the same or reordered.
+ * every page has its recorded status and final URL and is the same or reordered. {@code --ignore
+ * REGEX} (repeatable) deletes the matches from both the recorded and the new page first.
  */
 public final class Main {
   private Main() {}
@@ -31,14 +35,14 @@ public final class Main {
   static final String USAGE = String.join(System.lineSeparator(),
       "usage: tessera-migrate <thymeleaf-templates-dir> <output-dir> [--report report.md]",
       "       tessera-migrate record <base-url> <pages.txt> <dir>",
-      "       tessera-migrate compare <base-url> <pages.txt> <dir>",
+      "       tessera-migrate compare <base-url> <pages.txt> <dir> [--ignore REGEX]...",
       "",
       "pages.txt: one request per line, `GET /path` or `POST /path a=1&b=2`; `#` comments.",
       "One cookie jar per run; a POST sends the previous page's _csrf hidden input.",
       "record saves NN.html and index.tsv to <dir> from the old app. compare requests the same",
       "pages from the new app and prints same, reordered or differs (both with a diff) per page;",
       "it exits 0 only if every page has its recorded status and final URL and is the same or",
-      "reordered.");
+      "reordered. --ignore REGEX (repeatable) deletes the matches from both pages before comparing.");
 
   public static void main(String[] args) {
     System.exit(run(args, System.out, System.err));
@@ -46,17 +50,33 @@ public final class Main {
 
   static int run(String[] args, PrintStream out, PrintStream err) {
     if (args.length > 0 && (args[0].equals("record") || args[0].equals("compare"))) {
-      if (args.length != 4) {
+      List<String> positional = new ArrayList<>();
+      List<Pattern> ignore = new ArrayList<>();
+      for (int i = 1; i < args.length; i++) {
+        if (args[i].equals("--ignore") && args[0].equals("compare")) {
+          if (++i >= args.length) {
+            return usage(err, "--ignore needs a regular expression");
+          }
+          try {
+            ignore.add(Pattern.compile(args[i]));
+          } catch (PatternSyntaxException e) {
+            return usage(err, "bad --ignore pattern: " + e.getMessage());
+          }
+        } else {
+          positional.add(args[i]);
+        }
+      }
+      if (positional.size() != 3) {
         return usage(err, args[0] + " needs <base-url> <pages.txt> <dir>");
       }
-      Path pages = Path.of(args[2]);
+      Path pages = Path.of(positional.get(1));
       if (!Files.isRegularFile(pages)) {
         return usage(err, "not a file: " + pages);
       }
-      Path dir = Path.of(args[3]);
+      Path dir = Path.of(positional.get(2));
       return args[0].equals("record")
-          ? Parity.record(args[1], pages, dir, LocalDate.now(), out, err)
-          : Parity.compare(args[1], pages, dir, LocalDate.now(), out, err);
+          ? Parity.record(positional.get(0), pages, dir, LocalDate.now(), out, err)
+          : Parity.compare(positional.get(0), pages, dir, LocalDate.now(), ignore, out, err);
     }
     Path in = null;
     Path outDir = null;
