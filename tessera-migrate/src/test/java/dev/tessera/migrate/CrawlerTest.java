@@ -74,6 +74,8 @@ class CrawlerTest {
             StandardCharsets.ISO_8859_1);
         case "/a%20b/%D0%BF%D1%80%D0%B8%D0%B2%D0%B5%D1%82" -> "next"; // relative to /a%20b/
         case "/keep" -> "/a%20b/next";
+        case "/loop" -> "/loop";
+        case "/bad" -> "http://[bad/";
         default -> null;
       };
       int status = location != null ? (path.equals("/keep") ? 307 : 302)
@@ -105,6 +107,16 @@ class CrawlerTest {
       r = crawler.send(new Crawler.Request("", "GET", "/see-other", ""));
       assertEquals(new Crawler.Response(303, "/see-other", "page /see-other"), r,
           "a redirect status without a Location is a page, as in a browser");
+
+      seen.clear();
+      r = crawler.send(new Crawler.Request("", "GET", "/loop", ""));
+      assertEquals(0, r.status());
+      assertTrue(r.body().contains("more than 10 redirects"), r.body());
+      assertEquals(11, seen.size(), "the first request and ten redirects");
+
+      r = crawler.send(new Crawler.Request("", "GET", "/bad", ""));
+      assertEquals(0, r.status(), "an unusable Location is no response, not a crash");
+      assertTrue(r.body().startsWith("<!-- no response: "), r.body());
     } finally {
       server.stop(0);
     }
@@ -114,5 +126,6 @@ class CrawlerTest {
   void encodeUrlEscapesOnlyWhatIsIllegal() {
     assertEquals("/a%20b/%D0%BF?q=%22x%22&r=%25&s=%2F#f",
         Crawler.encodeUrl("/a b/п?q=\"x\"&r=%&s=%2F#f"));
+    assertEquals("//host/x%2f%25", Crawler.encodeUrl(" //host/x%2f% "));
   }
 }
