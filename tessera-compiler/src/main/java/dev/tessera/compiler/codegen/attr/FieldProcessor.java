@@ -1,10 +1,10 @@
 package dev.tessera.compiler.codegen.attr;
 
 import dev.tessera.compiler.DiagnosticSink;
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
-import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.model.Attribute;
@@ -82,13 +82,13 @@ public final class FieldProcessor implements AttributeProcessor {
               "checked", "java.lang.Boolean.TRUE.equals(" + current.code() + ") ? \"checked\" : null", OutputContext.ATTRIBUTE, attr.pos());
           plan.afterStartTag(
               "out.write("
-                  + TemplateGenerator.javaString("<input type=\"hidden\" name=\"_")
+                  + JavaStrings.literal("<input type=\"hidden\" name=\"_")
                   + "); "
                   + RT
                   + "Escapers.attr(out, "
                   + name
                   + "); out.write("
-                  + TemplateGenerator.javaString("\" value=\"on\" />")
+                  + JavaStrings.literal("\" value=\"on\" />")
                   + ");");
         } else {
           checkedByValue(ctx, attr, plan, name, display);
@@ -154,7 +154,7 @@ public final class FieldProcessor implements AttributeProcessor {
             a ->
                 switch (a) {
                   case ElementPlan.StaticAttr s ->
-                      TemplateGenerator.javaString(s.source().value() == null ? "" : s.source().value());
+                      JavaStrings.literal(s.source().value() == null ? "" : s.source().value());
                   case ElementPlan.DynamicAttr d -> RT + "Escapers.toText(" + d.valueCode() + ")";
                 })
         .orElse(null);

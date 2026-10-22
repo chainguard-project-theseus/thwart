@@ -1,10 +1,10 @@
 package dev.tessera.compiler.codegen.attr;
 
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
-import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.model.Attribute;
@@ -77,7 +77,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     if (context == OutputContext.ATTRIBUTE && BOOLEAN_ATTRIBUTES.contains(lower)) {
       CompiledExpr cond = ctx.expressions().compileCondition(value, plan.scope());
       if (cond != null) {
-        String code = "((" + cond.code() + ") ? " + TemplateGenerator.javaString(name) + " : null)";
+        String code = "((" + cond.code() + ") ? " + JavaStrings.literal(name) + " : null)";
         plan.setAttribute(name, code, context, pos);
       }
       return;

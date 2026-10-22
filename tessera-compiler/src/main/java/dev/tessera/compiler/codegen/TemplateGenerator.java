@@ -1,5 +1,7 @@
 package dev.tessera.compiler.codegen;
 
+import static dev.tessera.compiler.JavaStrings.literal;
+
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.Diagnostic;
 import dev.tessera.compiler.DiagnosticSink;
@@ -437,7 +439,7 @@ public final class TemplateGenerator implements CodegenContext {
         + "; if ("
         + v
         + " != null) { out.write("
-        + javaString(" " + d.name() + "=\"")
+        + literal(" " + d.name() + "=\"")
         + "); "
         + RT
         + "Escapers."
@@ -536,7 +538,7 @@ public final class TemplateGenerator implements CodegenContext {
     sb.append("public final class ").append(simple).append(" implements ").append(RT).append("Template {\n");
     constants.forEach(
         (text, name) ->
-            sb.append("  private static final java.lang.String ").append(name).append(" = ").append(javaString(text)).append(";\n"));
+            sb.append("  private static final java.lang.String ").append(name).append(" = ").append(literal(text)).append(";\n"));
     for (String d : decls) {
       sb.append("  private final ").append(d).append(";\n");
     }
@@ -548,7 +550,7 @@ public final class TemplateGenerator implements CodegenContext {
     sb.append("  public static ").append(simple).append(" of(").append(declList).append(") {\n");
     sb.append("    return new ").append(simple).append("(").append(nameList).append(");\n  }\n\n");
     sb.append("  @Override\n  public java.lang.String templateName() {\n    return ")
-        .append(javaString(info.viewName()))
+        .append(literal(info.viewName()))
         .append(";\n  }\n\n");
     sb.append("  @Override\n  public void render(").append(io).append(") {\n");
     if (info.params().isEmpty()) {
@@ -574,33 +576,6 @@ public final class TemplateGenerator implements CodegenContext {
       sb.append(c < 128 && (Character.isLetterOrDigit(c) || "/._-".indexOf(c) >= 0) ? c : '_');
     }
     return sb.toString();
-  }
-
-  /**
-   * A Java string literal for {@code s}. Line terminators, quotes and backslashes use escape
-   * sequences (never {@code \\u} escapes, which javac would decode before lexing); other control
-   * and non-ASCII characters use {@code \\uXXXX}.
-   */
-  public static String javaString(String s) {
-    StringBuilder sb = new StringBuilder(s.length() + 2).append('"');
-    for (int i = 0; i < s.length(); i++) {
-      char c = s.charAt(i);
-      switch (c) {
-        case '"' -> sb.append("\\\"");
-        case '\\' -> sb.append("\\\\");
-        case '\n' -> sb.append("\\n");
-        case '\r' -> sb.append("\\r");
-        case '\t' -> sb.append("\\t");
-        default -> {
-          if (c < 0x20 || c >= 0x7f) {
-            sb.append(String.format("\\u%04x", (int) c));
-          } else {
-            sb.append(c);
-          }
-        }
-      }
-    }
-    return sb.append('"').toString();
   }
 
   /** Accumulates statements, coalescing adjacent static text into constant writes. */

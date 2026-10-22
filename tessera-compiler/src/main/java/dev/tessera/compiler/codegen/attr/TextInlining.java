@@ -1,8 +1,8 @@
 package dev.tessera.compiler.codegen.attr;
 
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.CodegenContext;
-import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.model.Text;
@@ -108,7 +108,7 @@ public final class TextInlining {
 
   private static void flush(StringBuilder code, StringBuilder literal) {
     if (!literal.isEmpty()) {
-      code.append("out.write(").append(TemplateGenerator.javaString(literal.toString())).append(");\n");
+      code.append("out.write(").append(JavaStrings.literal(literal.toString())).append(");\n");
       literal.setLength(0);
     }
   }

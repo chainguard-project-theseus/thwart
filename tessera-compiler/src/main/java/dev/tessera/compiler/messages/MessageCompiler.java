@@ -1,6 +1,7 @@
 package dev.tessera.compiler.messages;
 
 import dev.tessera.compiler.CompilerEnv;
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
@@ -45,7 +46,7 @@ public final class MessageCompiler {
     }
     // An explicit array: a lone null or array argument must not be taken as the varargs array.
     String code =
-        "ctx.messages().get(" + ExpressionCompiler.javaString(key) + ", new java.lang.Object[] {"
+        "ctx.messages().get(" + JavaStrings.literal(key) + ", new java.lang.Object[] {"
             + String.join(", ", args) + "})";
     return new CompiledExpr(code, env.elements().getTypeElement("java.lang.String").asType(), message.pos());
   }
