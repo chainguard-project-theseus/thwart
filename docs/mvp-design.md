@@ -97,7 +97,9 @@ element, or `t:insert` + `t:replace`, is a build error. Unknown `t:` names are g
 `~{tpl :: name(args)}`, `tpl :: name(args)`, `~{:: name}` (same file), or an expression of type
 `Fragment`. Arguments are positional or all named, type-checked against the signature.
 `~{::name}` as an *argument* is a `Fragment` lambda over the same-file fragment `name`, or else the
-first element whose tag is `name` (petclinic's `~{::body}` layout pattern). When a template renders
+first element whose tag is `name` (petclinic's `~{::body}` layout pattern). A selected element renders in the
+scope of the `t:insert`/`t:replace` that passes it. Template names in `~{...}` are paths under the
+templates root; `.`, `..`, empty segments and a leading `/` are build errors. When a template renders
 as a whole, a parameterized fragment element is skipped; a parameterless one renders in place.
 
 **Forms.** `t:object` must name a variable; that name is the form object name passed to `Forms`
