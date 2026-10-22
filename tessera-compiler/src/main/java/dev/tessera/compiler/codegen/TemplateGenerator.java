@@ -37,7 +37,7 @@ import java.util.Set;
  * ({@code TextInlining} for text nodes, {@code CsrfInjector} for {@code <form>},
  * {@code FieldProcessor.option} for {@code <option>}, {@code FragmentMethods} once per template). Handles {@code t:params}/{@code t:import} on the
  * root element, {@code <t:block>} (tag omitted), and rejects unknown/misplaced core attributes.
- * Implements {@link CodegenContext}.
+ * Implements {@link CodegenContext}; {@link TemplateClassSource} assembles the class text.
  *
  * <p>Elements without {@code t:} attributes whose plan is unchanged are copied from the source
  * verbatim (start tag included), so static markup renders byte-identical. Rebuilt start tags
@@ -90,7 +90,7 @@ public final class TemplateGenerator implements CodegenContext {
             .orElseThrow(() -> new IllegalArgumentException("not indexed: " + document.source().viewName()));
     template = info;
     content = document.source().content();
-    lineStarts = lineStarts(content);
+    lineStarts = document.source().lineStarts();
     constants = new LinkedHashMap<>();
     members = new ArrayList<>();
     fresh = 0;
@@ -108,7 +108,7 @@ public final class TemplateGenerator implements CodegenContext {
     }
     String bodyCode = body.build();
     FragmentMethods.generate(this);
-    return List.of(new GeneratedFile(GeneratedFile.Kind.JAVA, info.className(), classSource(info, bodyCode)));
+    return List.of(new GeneratedFile(GeneratedFile.Kind.JAVA, info.className(), TemplateClassSource.render(info, constants, members, bodyCode)));
   }
 
   // ---- CodegenContext ----
@@ -188,15 +188,6 @@ public final class TemplateGenerator implements CodegenContext {
         whitespaceBefore.put(element, ws);
       }
     }
-  }
-
-  @Override
-  public String renderChildren(Element element, Scope scope) {
-    Code c = new Code();
-    for (Node n : element.children()) {
-      node(c, n, scope);
-    }
-    return c.build();
   }
 
   @Override
@@ -328,26 +319,26 @@ public final class TemplateGenerator implements CodegenContext {
     for (ElementPlan.Wrapper w : wrappers) {
       c.stmt(w.open());
     }
-    if (plan.removed()) {
-      // nothing
-    } else if (plan.replacement() != null) {
-      c.stmt(plan.replacement());
-    } else {
-      if (!plan.tagOmitted()) {
-        startTag(c, plan);
-      }
-      for (String s : plan.afterStartTagStatements()) {
-        c.stmt(s);
-      }
-      if (plan.body() != null) {
-        c.stmt(plan.body());
+    if (!plan.removed()) {
+      if (plan.replacement() != null) {
+        c.stmt(plan.replacement());
       } else {
-        for (Node n : e.children()) {
-          node(c, n, plan.scope());
+        if (!plan.tagOmitted()) {
+          startTag(c, plan);
         }
-      }
-      if (!plan.tagOmitted() && (e.hasEndTag() || opensSelfClosing(plan))) {
-        c.text("</" + e.name() + ">");
+        for (String s : plan.afterStartTagStatements()) {
+          c.stmt(s);
+        }
+        if (plan.body() != null) {
+          c.stmt(plan.body());
+        } else {
+          for (Node n : e.children()) {
+            node(c, n, plan.scope());
+          }
+        }
+        if (!plan.tagOmitted() && (e.hasEndTag() || opensSelfClosing(plan))) {
+          c.text("</" + e.name() + ">");
+        }
       }
     }
     for (int i = wrappers.size() - 1; i >= 0; i--) {
@@ -365,7 +356,7 @@ public final class TemplateGenerator implements CodegenContext {
     c.text("<" + e.name());
     for (ElementPlan.Attr a : plan.attributes()) {
       switch (a) {
-        case ElementPlan.StaticAttr s -> c.text(" " + s.name() + staticValue(s.source()));
+        case ElementPlan.StaticAttr s -> c.text(" " + s.name() + s.source().sourceValue());
         case ElementPlan.DynamicAttr d -> c.stmt(dynamicAttr(d));
       }
     }
@@ -401,16 +392,6 @@ public final class TemplateGenerator implements CodegenContext {
       }
     }
     return true;
-  }
-
-  private static String staticValue(Attribute a) {
-    if (a.rawValue() == null) {
-      return "";
-    }
-    if (a.quote() == 0) {
-      return "=" + a.rawValue();
-    }
-    return "=" + a.quote() + a.rawValue() + a.quote();
   }
 
   private String dynamicAttr(ElementPlan.DynamicAttr d) {
@@ -473,17 +454,6 @@ public final class TemplateGenerator implements CodegenContext {
     return null;
   }
 
-  private static int[] lineStarts(String s) {
-    List<Integer> starts = new ArrayList<>();
-    starts.add(0);
-    for (int i = 0; i < s.length(); i++) {
-      if (s.charAt(i) == '\n') {
-        starts.add(i + 1);
-      }
-    }
-    return starts.stream().mapToInt(Integer::intValue).toArray();
-  }
-
   /**
    * Name of the constant holding {@code text}. The {@code $} keeps it distinct from every
    * template variable (template identifiers cannot contain {@code $}), so a param or fragment
@@ -491,73 +461,6 @@ public final class TemplateGenerator implements CodegenContext {
    */
   private String constant(String text) {
     return constants.computeIfAbsent(text, k -> "S$" + constants.size());
-  }
-
-  // ---- class source ----
-
-  private String classSource(TemplateIndex.TemplateInfo info, String body) {
-    String fqcn = info.className();
-    int dot = fqcn.lastIndexOf('.');
-    String pkg = dot < 0 ? "" : fqcn.substring(0, dot);
-    String simple = fqcn.substring(dot + 1);
-    String io = RT + "RenderContext ctx, " + RT + "Output out";
-    List<String> decls = new ArrayList<>();
-    List<String> names = new ArrayList<>();
-    for (TemplateIndex.Param p : info.params()) {
-      decls.add(p.javaType() + " " + javaName(p.name()));
-      names.add(javaName(p.name()));
-    }
-    String declList = String.join(", ", decls);
-    String nameList = String.join(", ", names);
-
-    StringBuilder sb = new StringBuilder();
-    if (!pkg.isEmpty()) {
-      sb.append("package ").append(pkg).append(";\n\n");
-    }
-    sb.append("/** Generated by Tessera from ")
-        .append(javadocSafe(info.document().source().path()))
-        .append(". Do not edit. */\n");
-    sb.append("public final class ").append(simple).append(" implements ").append(RT).append("Template {\n");
-    constants.forEach(
-        (text, name) ->
-            sb.append("  private static final java.lang.String ").append(name).append(" = ").append(literal(text)).append(";\n"));
-    for (String d : decls) {
-      sb.append("  private final ").append(d).append(";\n");
-    }
-    sb.append("\n  private ").append(simple).append("(").append(declList).append(") {\n");
-    for (String n : names) {
-      sb.append("    this.").append(n).append(" = ").append(n).append(";\n");
-    }
-    sb.append("  }\n\n");
-    sb.append("  public static ").append(simple).append(" of(").append(declList).append(") {\n");
-    sb.append("    return new ").append(simple).append("(").append(nameList).append(");\n  }\n\n");
-    sb.append("  @Override\n  public java.lang.String templateName() {\n    return ")
-        .append(literal(info.viewName()))
-        .append(";\n  }\n\n");
-    sb.append("  @Override\n  public void render(").append(io).append(") {\n");
-    if (info.params().isEmpty()) {
-      // A static render(ctx, out) would clash with this method; the body lives here.
-      sb.append(body).append("  }\n");
-    } else {
-      sb.append("    render(").append(nameList).append(", ctx, out);\n  }\n\n");
-      sb.append("  public static void render(").append(declList).append(", ").append(io).append(") {\n");
-      sb.append(body).append("  }\n");
-    }
-    for (String m : members) {
-      sb.append('\n').append(m).append('\n');
-    }
-    sb.append("}\n");
-    return sb.toString();
-  }
-
-  /** Keeps a file name harmless inside a comment (no comment end, no unicode escapes). */
-  private static String javadocSafe(String s) {
-    StringBuilder sb = new StringBuilder();
-    for (int i = 0; i < s.length(); i++) {
-      char c = s.charAt(i);
-      sb.append(c < 128 && (Character.isLetterOrDigit(c) || "/._-".indexOf(c) >= 0) ? c : '_');
-    }
-    return sb.toString();
   }
 
   /** Accumulates statements, coalescing adjacent static text into constant writes. */
