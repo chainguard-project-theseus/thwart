@@ -26,16 +26,15 @@ import java.util.Set;
  * {@code t:<name>} not listed here and not in {@link #CORE} is a plain output attribute handled
  * by {@link GenericAttrProcessor} at the position of {@code GENERIC}.
  *
- * <p>This list is the only shared file between attribute families; do not reorder it without
- * calling it out in the PR.
+ * <p>The order is the precedence: changing it changes template semantics.
  */
 public final class AttributeProcessors {
   private AttributeProcessors() {}
 
-  public record Entry(String name, AttributeProcessor processor) {}
+  private record Entry(String name, AttributeProcessor processor) {}
 
   /** Placeholder name marking where generic {@code t:<attr>} attributes run. */
-  public static final String GENERIC = "*";
+  private static final String GENERIC = "*";
 
   /** Handled by {@link TemplateGenerator} directly; only valid on the root element. */
   public static final Set<String> CORE = Set.of("params", "import");
@@ -44,27 +43,27 @@ public final class AttributeProcessors {
   private static final IfProcessor IF = new IfProcessor();
   private static final SwitchProcessor SWITCH = new SwitchProcessor();
 
-  public static final List<Entry> ORDER =
+  private static final List<Entry> ORDER =
       List.of(
-          new Entry("fragment", new FragmentProcessor()), // #14
-          new Entry("insert", INSERT_REPLACE), // #14
-          new Entry("replace", INSERT_REPLACE), // #14
-          new Entry("each", new EachProcessor()), // #12
-          new Entry("if", IF), // #12
-          new Entry("unless", IF), // #12
-          new Entry("switch", SWITCH), // #12
-          new Entry("case", SWITCH), // #12
-          new Entry("object", new ObjectProcessor()), // #15
-          new Entry("with", new WithProcessor()), // #12
-          new Entry("attr", new AttrProcessor()), // #13
-          new Entry(GENERIC, new GenericAttrProcessor()), // #13
-          new Entry("field", new FieldProcessor()), // #15
-          new Entry("classappend", new ClassAppendProcessor()), // #13
-          new Entry("errorclass", new ErrorClassProcessor()), // #15
-          new Entry("text", new TextProcessor()), // #11
-          new Entry("utext", new UtextProcessor()), // #11
-          new Entry("errors", new ErrorsProcessor()), // #15
-          new Entry("remove", new RemoveProcessor())); // #12
+          new Entry("fragment", new FragmentProcessor()),
+          new Entry("insert", INSERT_REPLACE),
+          new Entry("replace", INSERT_REPLACE),
+          new Entry("each", new EachProcessor()),
+          new Entry("if", IF),
+          new Entry("unless", IF),
+          new Entry("switch", SWITCH),
+          new Entry("case", SWITCH),
+          new Entry("object", new ObjectProcessor()),
+          new Entry("with", new WithProcessor()),
+          new Entry("attr", new AttrProcessor()),
+          new Entry(GENERIC, new GenericAttrProcessor()),
+          new Entry("field", new FieldProcessor()),
+          new Entry("classappend", new ClassAppendProcessor()),
+          new Entry("errorclass", new ErrorClassProcessor()),
+          new Entry("text", new TextProcessor()),
+          new Entry("utext", new UtextProcessor()),
+          new Entry("errors", new ErrorsProcessor()),
+          new Entry("remove", new RemoveProcessor()));
 
   /** Precedence index for a {@code t:} attribute local name. */
   public static int precedence(String localName) {
