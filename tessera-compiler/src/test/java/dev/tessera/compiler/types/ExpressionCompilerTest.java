@@ -399,6 +399,10 @@ class ExpressionCompilerTest {
               assertEquals(2, f.errors().size(), f.errors().toString());
               assertTrue(f.errors().get(0).contains("cannot iterate over java.lang.String"));
               assertTrue(f.errors().get(1).contains("raw type"));
+              // The deny-list applies to the element type even when the iterable itself passes it.
+              assertNull(ec.elementType(ec.compile(prop(v("a"), "threads"), f.scope)));
+              assertEquals(3, f.errors().size(), f.errors().toString());
+              assertTrue(f.errors().get(2).contains("java.lang.Thread is never view-safe"), f.errors().get(2));
             });
   }
 

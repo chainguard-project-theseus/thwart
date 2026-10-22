@@ -65,6 +65,8 @@ final class TypesHarness {
           public ClassLoader getLoader() { return null; }
           public Pojo getPojo() { return new Pojo(); }
           public String getURL() { return "u"; }
+          public Threads getThreads() { return new Threads(); }
+          public static class Threads extends java.util.ArrayList<Thread> {}
         }
         """);
     MODEL.put("com.example.Pojo", "package com.example; public class Pojo { public String getName() { return \"p\"; } }");

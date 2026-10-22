@@ -156,6 +156,19 @@ public final class ExpressionCompiler {
     if (iterable == null) {
       return null;
     }
+    TypeMirror e = iterableElement(iterable);
+    if (e == null) {
+      return null;
+    }
+    // A subtype such as `class Threads extends ArrayList<Thread>` passes the deny-list itself.
+    Optional<String> bad = safety.neverViewSafeReason(e);
+    if (bad.isPresent()) {
+      return errorType(iterable.pos(), "cannot iterate over " + describe(iterable.type()) + ": " + bad.get());
+    }
+    return e;
+  }
+
+  private TypeMirror iterableElement(CompiledExpr iterable) {
     TypeMirror t = normalize(iterable.type());
     if (t.getKind() == TypeKind.ARRAY) {
       return normalize(((ArrayType) t).getComponentType());
