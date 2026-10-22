@@ -1,6 +1,7 @@
 package dev.tessera.compiler.links;
 
 import dev.tessera.compiler.DiagnosticSink;
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
@@ -55,9 +56,9 @@ public final class LinkCompiler {
       return null;
     }
 
-    StringBuilder code = new StringBuilder("ctx.links().build(").append(ExpressionCompiler.javaString(path));
+    StringBuilder code = new StringBuilder("ctx.links().build(").append(JavaStrings.literal(path));
     code.append(", new java.lang.String[] {");
-    code.append(String.join(", ", names.stream().map(ExpressionCompiler::javaString).toList()));
+    code.append(String.join(", ", names.stream().map(JavaStrings::literal).toList()));
     code.append("}, new java.lang.Object[] {").append(String.join(", ", values)).append("})");
     return new CompiledExpr(
         code.toString(), expressions.env().elements().getTypeElement("java.lang.String").asType(), link.pos());

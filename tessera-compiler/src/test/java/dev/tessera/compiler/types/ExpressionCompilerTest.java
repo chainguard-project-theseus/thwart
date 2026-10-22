@@ -429,10 +429,8 @@ class ExpressionCompilerTest {
   }
 
   @Test
-  void javaStringEscapesEverything() {
-    assertEquals("\"a\\\"b\\\\c\\n\\r\\t\\001\\u00e9\"", ExpressionCompiler.javaString("a\"b\\c\n\r\t\u0001é"));
+  void backslashUInStringLiteralSurvivesCompilation() {
     // A backslash-u sequence in a template string must not become a unicode escape in Java.
-    assertEquals("\"\\\\u0022\"", ExpressionCompiler.javaString("\\u0022"));
     assertEquals("\\u0022)", users().eval(bin(ADD, lit("\\u0022"), lit(")"))));
   }
 }

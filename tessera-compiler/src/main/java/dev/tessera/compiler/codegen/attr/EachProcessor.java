@@ -1,9 +1,9 @@
 package dev.tessera.compiler.codegen.attr;
 
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
-import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.expr.EachSpec;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.types.CompiledExpr;
@@ -86,7 +86,7 @@ public final class EachProcessor implements AttributeProcessor {
     String ws = plan.element().name().equals("t:block") ? null : ctx.whitespaceBefore(plan.element());
     if (ws != null) {
       open.append("if (").append(index).append(" > 0) { out.write(")
-          .append(TemplateGenerator.javaString(ws)).append("); } ");
+          .append(JavaStrings.literal(ws)).append("); } ");
     }
     open.append("final ").append(LOOP_STATUS).append(' ').append(stat).append(" = ")
         .append(LOOP_STATUS).append(".of(").append(index).append(", ").append(size).append("); ");

@@ -1,7 +1,7 @@
 package dev.tessera.compiler.forms;
 
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
-import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
@@ -45,7 +45,7 @@ public final class FormPaths {
   /** A field given as a literal {@code path} relative to {@code selection}. */
   public static FormField literal(Scope.Selection selection, String path, CompiledExpr value) {
     return new FormField(
-        TemplateGenerator.javaString(selection.objectName()), TemplateGenerator.javaString(path), value);
+        JavaStrings.literal(selection.objectName()), JavaStrings.literal(path), value);
   }
 
   /**
