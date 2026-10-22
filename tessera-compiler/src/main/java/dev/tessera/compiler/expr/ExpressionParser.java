@@ -2,7 +2,9 @@ package dev.tessera.compiler.expr;
 
 import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.SourcePos;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * Lexer and recursive-descent parser for every micro-syntax inside {@code t:} attributes.
@@ -15,37 +17,98 @@ import java.util.List;
  * <p>Rejected with a targeted message (these are SSTI vectors in Thymeleaf): {@code T(...)},
  * {@code new}, {@code __...__} preprocessing, {@code @bean} references, assignment, lambdas,
  * projection/selection ({@code .![]}, {@code .?[]}), and dynamic message keys or link paths.
+ * A bare call {@code fn(x)} without a namespace is also rejected: functions are reached only as
+ * {@code ns.fn(x)} or {@code #ns.fn(x)}.
  */
 public final class ExpressionParser {
 
+  /** Guards javac against a stack overflow on pathologically nested input. */
+  private static final int MAX_DEPTH = 200;
+
   /** A value expression ({@code t:text}, {@code t:if}, {@code t:href}, ...). */
   public Expr parseExpression(String text, SourcePos start, DiagnosticSink diagnostics) {
-    throw new UnsupportedOperationException("TODO(#3): ExpressionParser.parseExpression");
+    return run(text, start, diagnostics, p -> {
+      Expr e = p.expr();
+      p.end();
+      return e;
+    });
   }
 
   /** {@code t:each}: {@code o : orders} or {@code o, stat : orders}. */
   public EachSpec parseEach(String text, SourcePos start, DiagnosticSink diagnostics) {
-    throw new UnsupportedOperationException("TODO(#3): ExpressionParser.parseEach");
+    return run(text, start, diagnostics, p -> {
+      p.ws();
+      int at = p.i;
+      String var = p.ident("a loop variable name");
+      String stat = p.eat(",") ? p.ident("a status variable name after ','") : null;
+      p.expect(":", "':' between the loop variable and the iterable (e.g. 'item : items')");
+      Expr iterable = p.expr();
+      p.end();
+      return new EachSpec(var, stat, iterable, p.pos(at));
+    });
   }
 
   /** {@code t:with} / {@code t:attr}: {@code a=expr, b=expr}. */
   public List<Assignment> parseAssignments(String text, SourcePos start, DiagnosticSink diagnostics) {
-    throw new UnsupportedOperationException("TODO(#3): ExpressionParser.parseAssignments");
+    return run(text, start, diagnostics, p -> {
+      List<Assignment> out = new ArrayList<>();
+      do {
+        p.ws();
+        int at = p.i;
+        String name = p.attributeName();
+        p.expect("=", "'=' after '" + name + "'");
+        out.add(new Assignment(name, p.expr(), p.pos(at)));
+      } while (p.eat(","));
+      p.end();
+      return List.copyOf(out);
+    });
   }
 
   /** {@code t:params}: {@code OwnerView owner, List<PetView> pets}. Empty text yields an empty list. */
   public List<ParamDecl> parseParams(String text, SourcePos start, DiagnosticSink diagnostics) {
-    throw new UnsupportedOperationException("TODO(#3): ExpressionParser.parseParams");
+    return run(text, start, diagnostics, p -> {
+      p.ws();
+      List<ParamDecl> params = p.atEnd() ? List.of() : p.paramList();
+      p.end();
+      return params;
+    });
   }
 
   /** {@code t:import}: comma-separated qualified names or {@code package.*}. */
   public List<String> parseImports(String text, SourcePos start, DiagnosticSink diagnostics) {
-    throw new UnsupportedOperationException("TODO(#3): ExpressionParser.parseImports");
+    return run(text, start, diagnostics, p -> {
+      List<String> out = new ArrayList<>();
+      p.ws();
+      if (p.atEnd()) {
+        return List.<String>of();
+      }
+      do {
+        String name = p.qualifiedName("a package or class name");
+        if (p.at(".*")) {
+          p.i += 2;
+          name += ".*";
+        }
+        out.add(name);
+      } while (p.eat(","));
+      p.end();
+      return List.copyOf(out);
+    });
   }
 
   /** {@code t:fragment}: {@code name} or {@code name(Type a, Type b)}. */
   public FragmentSignature parseFragmentSignature(String text, SourcePos start, DiagnosticSink diagnostics) {
-    throw new UnsupportedOperationException("TODO(#3): ExpressionParser.parseFragmentSignature");
+    return run(text, start, diagnostics, p -> {
+      p.ws();
+      int at = p.i;
+      String name = p.ident("a fragment name");
+      List<ParamDecl> params = List.of();
+      if (p.eat("(") && !p.eat(")")) {
+        params = p.paramList();
+        p.expect(")", "',' or ')' in the fragment parameter list");
+      }
+      p.end();
+      return new FragmentSignature(name, params, p.pos(at));
+    });
   }
 
   /**
@@ -55,6 +118,744 @@ public final class ExpressionParser {
    * callers parse it with {@link #parseExpression}.
    */
   public FragmentRef parseFragmentRef(String text, SourcePos start, DiagnosticSink diagnostics) {
-    throw new UnsupportedOperationException("TODO(#3): ExpressionParser.parseFragmentRef");
+    return run(text, start, diagnostics, p -> {
+      p.ws();
+      FragmentRef ref = p.at("~{") ? p.fragment() : p.fragmentBody(p.i);
+      p.end();
+      return ref;
+    });
+  }
+
+  private static <T> T run(String text, SourcePos start, DiagnosticSink diagnostics, Function<Parser, T> body) {
+    Parser p = new Parser(text == null ? "" : text, start);
+    try {
+      p.rejectPreprocessing();
+      return body.apply(p);
+    } catch (ParseError e) {
+      diagnostics.error(e.pos, e.getMessage());
+      return null;
+    }
+  }
+
+  private static final class ParseError extends RuntimeException {
+    final SourcePos pos;
+
+    ParseError(SourcePos pos, String message) {
+      super(message, null, false, false);
+      this.pos = pos;
+    }
+  }
+
+  private static final class Parser {
+    final String s;
+    final SourcePos start;
+    int i;
+    int depth;
+
+    Parser(String s, SourcePos start) {
+      this.s = s;
+      this.start = start;
+    }
+
+    // ---- scanning helpers ----
+
+    SourcePos pos(int at) {
+      return start.advance(s, at);
+    }
+
+    ParseError error(int at, String message) {
+      return new ParseError(pos(at), message);
+    }
+
+    boolean atEnd() {
+      return i >= s.length();
+    }
+
+    char peek() {
+      return peekAt(0);
+    }
+
+    char peekAt(int k) {
+      int j = i + k;
+      return j < s.length() ? s.charAt(j) : '\0';
+    }
+
+    void ws() {
+      while (!atEnd() && Character.isWhitespace(s.charAt(i))) {
+        i++;
+      }
+    }
+
+    boolean at(String t) {
+      return s.startsWith(t, i);
+    }
+
+    boolean eat(String t) {
+      ws();
+      if (at(t)) {
+        i += t.length();
+        return true;
+      }
+      return false;
+    }
+
+    boolean eatWord(String w) {
+      ws();
+      if (at(w) && !identPart(peekAt(w.length()))) {
+        i += w.length();
+        return true;
+      }
+      return false;
+    }
+
+    void expect(String t, String what) {
+      if (!eat(t)) {
+        throw error(i, "expected " + what + " but " + found());
+      }
+    }
+
+    String found() {
+      return atEnd() ? "reached the end" : "found '" + peek() + "'";
+    }
+
+    void end() {
+      ws();
+      if (!atEnd()) {
+        throw error(i, "unexpected '" + peek() + "'");
+      }
+    }
+
+    static boolean identStart(char c) {
+      return Character.isLetter(c) || c == '_';
+    }
+
+    static boolean identPart(char c) {
+      return Character.isLetterOrDigit(c) || c == '_';
+    }
+
+    String identRaw() {
+      int b = i;
+      while (!atEnd() && identPart(peek())) {
+        i++;
+      }
+      return s.substring(b, i);
+    }
+
+    String ident(String what) {
+      ws();
+      if (!identStart(peek())) {
+        throw error(i, "expected " + what + " but " + found());
+      }
+      return identRaw();
+    }
+
+    void enter() {
+      if (++depth > MAX_DEPTH) {
+        throw error(i, "expression is nested too deeply");
+      }
+    }
+
+    void rejectPreprocessing() {
+      int at = s.indexOf("__");
+      if (at >= 0) {
+        throw error(at, "preprocessing (__...__) is not supported: expressions are never built from strings");
+      }
+    }
+
+    // ---- expressions ----
+
+    Expr expr() {
+      enter();
+      try {
+        Expr cond = elvis();
+        ws();
+        if (at("?") && !at("?:")) {
+          i++;
+          Expr then = expr();
+          Expr otherwise = null;
+          ws();
+          if (at(":") && !at("::")) {
+            i++;
+            otherwise = expr();
+          }
+          return new Expr.Conditional(cond, then, otherwise, cond.pos());
+        }
+        return cond;
+      } finally {
+        depth--;
+      }
+    }
+
+    Expr elvis() {
+      Expr value = or();
+      if (eat("?:")) {
+        enter();
+        try {
+          return new Expr.Elvis(value, elvis(), value.pos());
+        } finally {
+          depth--;
+        }
+      }
+      return value;
+    }
+
+    Expr or() {
+      Expr left = and();
+      while (eat("||") || eatWord("or")) {
+        left = new Expr.Binary(Expr.BinaryOp.OR, left, and(), left.pos());
+      }
+      return left;
+    }
+
+    Expr and() {
+      Expr left = equality();
+      while (eat("&&") || eatWord("and")) {
+        left = new Expr.Binary(Expr.BinaryOp.AND, left, equality(), left.pos());
+      }
+      return left;
+    }
+
+    Expr equality() {
+      Expr left = relational();
+      while (true) {
+        Expr.BinaryOp op;
+        if (eat("==") || eatWord("eq")) {
+          op = Expr.BinaryOp.EQ;
+        } else if (eat("!=") || eatWord("ne")) {
+          op = Expr.BinaryOp.NE;
+        } else if (at("=")) {
+          throw error(i, "assignment (=) is not supported; use == to compare");
+        } else {
+          return left;
+        }
+        left = new Expr.Binary(op, left, relational(), left.pos());
+      }
+    }
+
+    Expr relational() {
+      Expr left = additive();
+      Expr.BinaryOp op;
+      if (eat("<=") || eatWord("le")) {
+        op = Expr.BinaryOp.LE;
+      } else if (eat(">=") || eatWord("ge")) {
+        op = Expr.BinaryOp.GE;
+      } else if (eat("<") || eatWord("lt")) {
+        op = Expr.BinaryOp.LT;
+      } else if (eat(">") || eatWord("gt")) {
+        op = Expr.BinaryOp.GT;
+      } else {
+        return left;
+      }
+      return new Expr.Binary(op, left, additive(), left.pos());
+    }
+
+    Expr additive() {
+      Expr left = mult();
+      while (true) {
+        ws();
+        rejectLambda();
+        Expr.BinaryOp op;
+        if (at("+")) {
+          op = Expr.BinaryOp.ADD;
+        } else if (at("-")) {
+          op = Expr.BinaryOp.SUB;
+        } else {
+          return left;
+        }
+        i++;
+        left = new Expr.Binary(op, left, mult(), left.pos());
+      }
+    }
+
+    Expr mult() {
+      Expr left = unary();
+      while (true) {
+        ws();
+        Expr.BinaryOp op;
+        if (at("*") && !at("*{")) {
+          op = Expr.BinaryOp.MUL;
+        } else if (at("/")) {
+          op = Expr.BinaryOp.DIV;
+        } else if (at("%")) {
+          op = Expr.BinaryOp.MOD;
+        } else {
+          return left;
+        }
+        i++;
+        left = new Expr.Binary(op, left, unary(), left.pos());
+      }
+    }
+
+    void rejectLambda() {
+      if (at("->")) {
+        throw error(i, "lambdas (->) are not supported");
+      }
+    }
+
+    Expr unary() {
+      ws();
+      int at = i;
+      Expr.UnaryOp op;
+      if (at("!") && !at("!=")) {
+        i++;
+        op = Expr.UnaryOp.NOT;
+      } else if (eatWord("not")) {
+        op = Expr.UnaryOp.NOT;
+      } else if (at("-")) {
+        rejectLambda();
+        i++;
+        op = Expr.UnaryOp.NEGATE;
+      } else {
+        return postfix(primary());
+      }
+      enter();
+      try {
+        return new Expr.Unary(op, unary(), pos(at));
+      } finally {
+        depth--;
+      }
+    }
+
+    Expr postfix(Expr e) {
+      while (true) {
+        ws();
+        if (at(".![")) {
+          throw error(i, "collection projection (.![...]) is not supported");
+        }
+        if (at(".?[") || at(".^[") || at(".$[")) {
+          throw error(i, "collection selection (.?[...]) is not supported");
+        }
+        boolean nullSafe;
+        if (at("?.")) {
+          nullSafe = true;
+          i += 2;
+        } else if (at(".")) {
+          nullSafe = false;
+          i++;
+        } else if (at("[")) {
+          i++;
+          Expr index = expr();
+          expect("]", "']' to close the index");
+          e = new Expr.Index(e, index, e.pos());
+          continue;
+        } else {
+          return e;
+        }
+        String name = ident("a property or method name after '" + (nullSafe ? "?." : ".") + "'");
+        ws();
+        e = at("(")
+            ? new Expr.MethodCall(e, name, args(), nullSafe, e.pos())
+            : new Expr.Property(e, name, nullSafe, e.pos());
+      }
+    }
+
+    List<Expr> args() {
+      expect("(", "'('");
+      List<Expr> args = new ArrayList<>();
+      if (eat(")")) {
+        return args;
+      }
+      do {
+        args.add(expr());
+      } while (eat(","));
+      expect(")", "',' or ')' in the argument list");
+      return args;
+    }
+
+    Expr primary() {
+      ws();
+      int at = i;
+      if (atEnd()) {
+        throw error(i, "expected an expression but reached the end");
+      }
+      char c = peek();
+      if (c == '\'') {
+        return string();
+      }
+      if (c >= '0' && c <= '9') {
+        return number();
+      }
+      if (c == '(') {
+        i++;
+        Expr e = expr();
+        expect(")", "')'");
+        return e;
+      }
+      if (at("${")) {
+        i += 2;
+        Expr e = expr();
+        expect("}", "'}' to close '${'");
+        return e;
+      }
+      if (at("*{")) {
+        i += 2;
+        ws();
+        int nameAt = i;
+        String name = ident("a property name after '*{'");
+        Expr e = postfix(new Expr.SelectionVar(name, pos(nameAt)));
+        expect("}", "'}' to close '*{'");
+        return e;
+      }
+      if (at("#{")) {
+        return message();
+      }
+      if (c == '#') {
+        i++;
+        String ns = ident("a namespace after '#'");
+        if (!at(".")) {
+          throw error(i, "expected '.' after '#" + ns + "' but " + found());
+        }
+        i++;
+        String fn = ident("a function name after '#" + ns + ".'");
+        ws();
+        if (!at("(")) {
+          throw error(i, "expected '(' after '#" + ns + "." + fn + "' but " + found());
+        }
+        return new Expr.FunctionCall(ns, fn, args(), pos(at));
+      }
+      if (at("@{")) {
+        return link();
+      }
+      if (c == '@') {
+        throw error(at, "bean references (@name) are not supported; pass values in as template parameters");
+      }
+      if (c == '|') {
+        return interpolation();
+      }
+      if (at("~{")) {
+        return new Expr.FragmentExpr(fragment(), pos(at));
+      }
+      if (identStart(c)) {
+        String name = identRaw();
+        switch (name) {
+          case "true" -> {
+            return new Expr.Literal(Boolean.TRUE, pos(at));
+          }
+          case "false" -> {
+            return new Expr.Literal(Boolean.FALSE, pos(at));
+          }
+          case "null" -> {
+            return new Expr.Literal(null, pos(at));
+          }
+          case "new" -> throw error(at, "object creation (new) is not supported");
+          case "and", "or", "eq", "ne", "lt", "gt", "le", "ge" ->
+              throw error(at, "expected an expression but found operator '" + name + "'");
+          default -> {}
+        }
+        ws();
+        if (at("(")) {
+          if (name.equals("T")) {
+            throw error(at, "type references (T(...)) are not supported");
+          }
+          throw error(at, "'" + name + "(...)' is not a known call; call functions as 'ns." + name
+              + "(...)' or '#ns." + name + "(...)'");
+        }
+        return new Expr.Var(name, pos(at));
+      }
+      throw error(at, "expected an expression but found '" + c + "'");
+    }
+
+    Expr string() {
+      int at = i++;
+      StringBuilder b = new StringBuilder();
+      while (true) {
+        if (atEnd()) {
+          throw error(at, "unterminated string literal");
+        }
+        char c = s.charAt(i);
+        if (c == '\\' && (peekAt(1) == '\'' || peekAt(1) == '\\')) {
+          b.append(peekAt(1));
+          i += 2;
+        } else if (c == '\'') {
+          i++;
+          return new Expr.Literal(b.toString(), pos(at));
+        } else {
+          b.append(c);
+          i++;
+        }
+      }
+    }
+
+    Expr number() {
+      int at = i;
+      while (peek() >= '0' && peek() <= '9') {
+        i++;
+      }
+      Object value;
+      try {
+        if (peek() == '.' && peekAt(1) >= '0' && peekAt(1) <= '9') {
+          i++;
+          while (peek() >= '0' && peek() <= '9') {
+            i++;
+          }
+          value = Double.parseDouble(s.substring(at, i));
+        } else if (peek() == 'L' || peek() == 'l') {
+          value = Long.parseLong(s.substring(at, i));
+          i++;
+        } else {
+          value = Integer.parseInt(s.substring(at, i));
+        }
+      } catch (NumberFormatException e) {
+        throw error(at, "number literal out of range: " + s.substring(at, i));
+      }
+      if (identPart(peek())) {
+        throw error(i, "invalid number literal");
+      }
+      return new Expr.Literal(value, pos(at));
+    }
+
+    static boolean isDynamic(String literal) {
+      return literal.indexOf('$') >= 0
+          || literal.indexOf('\'') >= 0
+          || literal.contains("*{")
+          || literal.contains("#{")
+          || literal.contains("@{")
+          || literal.contains("~{");
+    }
+
+    Expr message() {
+      int at = i;
+      i += 2;
+      ws();
+      int keyAt = i;
+      while (!atEnd() && peek() != '(' && peek() != '}') {
+        i++;
+      }
+      String key = s.substring(keyAt, i).strip();
+      if (key.isEmpty()) {
+        throw error(keyAt, "expected a message key after '#{' but " + found());
+      }
+      if (isDynamic(key) || key.indexOf('{') >= 0) {
+        throw error(keyAt, "dynamic message keys are not supported; the key must be a literal such as #{owner.name}");
+      }
+      for (int k = 0; k < key.length(); k++) {
+        char c = key.charAt(k);
+        if (!identPart(c) && c != '.' && c != '-') {
+          throw error(keyAt + k, "invalid character '" + c + "' in message key '" + key + "'");
+        }
+      }
+      ws();
+      List<Expr> args = at("(") ? args() : List.of();
+      expect("}", "'}' to close '#{'");
+      return new Expr.Message(key, args, pos(at));
+    }
+
+    Expr link() {
+      int at = i;
+      i += 2;
+      ws();
+      int pathAt = i;
+      int braces = 0;
+      while (!atEnd()) {
+        char c = peek();
+        if (c == '{') {
+          braces++;
+        } else if (c == '}') {
+          if (braces == 0) {
+            break;
+          }
+          braces--;
+        } else if (c == '(' && braces == 0) {
+          break;
+        }
+        i++;
+      }
+      String path = s.substring(pathAt, i).strip();
+      if (path.isEmpty()) {
+        throw error(pathAt, "expected a link path after '@{' but " + found());
+      }
+      if (isDynamic(path)) {
+        throw error(pathAt, "dynamic link paths are not supported; the path must be a literal such as @{/owners/{id}(id=owner.id)}");
+      }
+      checkPath(path, pathAt);
+      List<Expr.NamedArg> params = new ArrayList<>();
+      ws();
+      if (at("(")) {
+        i++;
+        do {
+          ws();
+          int nameAt = i;
+          String name = ident("a link parameter name");
+          if (!eat("=") || at("=")) {
+            throw error(i, "expected '=' after link parameter '" + name + "' but " + found());
+          }
+          params.add(new Expr.NamedArg(name, expr(), pos(nameAt)));
+        } while (eat(","));
+        expect(")", "',' or ')' in the link parameters");
+      }
+      expect("}", "'}' to close '@{'");
+      return new Expr.Link(path, params, pos(at));
+    }
+
+    void checkPath(String path, int pathAt) {
+      int open = -1;
+      for (int k = 0; k < path.length(); k++) {
+        char c = path.charAt(k);
+        if (Character.isWhitespace(c)) {
+          throw error(pathAt + k, "link path must not contain whitespace");
+        } else if (c == '{') {
+          open = k;
+        } else if (c == '}') {
+          String var = path.substring(open + 1, k);
+          if (var.isEmpty() || !identStart(var.charAt(0)) || !var.chars().allMatch(ch -> identPart((char) ch))) {
+            throw error(pathAt + open, "invalid path variable '{" + var + "}'");
+          }
+          open = -1;
+        }
+      }
+    }
+
+    Expr interpolation() {
+      int at = i++;
+      List<Expr> parts = new ArrayList<>();
+      StringBuilder text = new StringBuilder();
+      int textAt = i;
+      while (true) {
+        if (atEnd()) {
+          throw error(at, "unterminated literal substitution: expected a closing '|'");
+        }
+        boolean end = peek() == '|';
+        boolean expr = at("${") || at("*{") || at("#{");
+        if (end || expr) {
+          if (text.length() > 0) {
+            parts.add(new Expr.Literal(text.toString(), pos(textAt)));
+            text.setLength(0);
+          }
+          if (end) {
+            i++;
+            return new Expr.Interpolation(parts, pos(at));
+          }
+          parts.add(primary());
+          textAt = i;
+        } else {
+          text.append(peek());
+          i++;
+        }
+      }
+    }
+
+    FragmentRef fragment() {
+      int at = i;
+      i += 2;
+      FragmentRef ref = fragmentBody(at);
+      expect("}", "'}' to close '~{'");
+      return ref;
+    }
+
+    /** {@code [template | this] :: selector [(args)]}, the ref positioned at {@code at}. */
+    FragmentRef fragmentBody(int at) {
+      ws();
+      int tplAt = i;
+      while (!atEnd() && !at("::") && peek() != '}') {
+        i++;
+      }
+      String tpl = s.substring(tplAt, i).strip();
+      if (isDynamic(tpl) || tpl.indexOf('{') >= 0) {
+        throw error(tplAt, "dynamic template names are not supported; the template must be a literal such as ~{fragments/layout :: main}");
+      }
+      if (!at("::")) {
+        throw error(i, "expected '::' in fragment reference (e.g. ~{template :: name}) but " + found());
+      }
+      for (int k = 0; k < tpl.length(); k++) {
+        char c = tpl.charAt(k);
+        if (!identPart(c) && c != '/' && c != '-' && c != '.') {
+          throw error(tplAt + k, "invalid character '" + c + "' in template name '" + tpl + "'");
+        }
+      }
+      i += 2;
+      String selector = ident("a fragment name after '::' (markup selectors are not supported)");
+      List<FragmentRef.Arg> args = new ArrayList<>();
+      ws();
+      if (at("(")) {
+        i++;
+        if (!eat(")")) {
+          Boolean named = null;
+          do {
+            ws();
+            int argAt = i;
+            String name = null;
+            if (identStart(peek())) {
+              String id = identRaw();
+              ws();
+              if (at("=") && !at("==")) {
+                i++;
+                name = id;
+              } else {
+                i = argAt;
+              }
+            }
+            if (named != null && named != (name != null)) {
+              throw error(argAt, "fragment arguments must be all named or all positional");
+            }
+            named = name != null;
+            args.add(new FragmentRef.Arg(name, expr(), pos(argAt)));
+          } while (eat(","));
+          expect(")", "',' or ')' in the fragment arguments");
+        }
+      }
+      return new FragmentRef(tpl.isEmpty() || tpl.equals("this") ? null : tpl, selector, args, pos(at));
+    }
+
+    // ---- declarations ----
+
+    String attributeName() {
+      ws();
+      if (!identStart(peek())) {
+        throw error(i, "expected an attribute or variable name but " + found());
+      }
+      int b = i;
+      while (identPart(peek()) || peek() == '-' || peek() == ':' || peek() == '.') {
+        i++;
+      }
+      return s.substring(b, i);
+    }
+
+    String qualifiedName(String what) {
+      StringBuilder b = new StringBuilder(ident(what));
+      while (peek() == '.' && identStart(peekAt(1))) {
+        i++;
+        b.append('.').append(identRaw());
+      }
+      return b.toString();
+    }
+
+    TypeRef type() {
+      ws();
+      int at = i;
+      String name = qualifiedName("a type name");
+      List<TypeRef> typeArgs = new ArrayList<>();
+      if (eat("<")) {
+        do {
+          ws();
+          if (at("?")) {
+            throw error(i, "wildcard types are not supported");
+          }
+          typeArgs.add(type());
+        } while (eat(","));
+        expect(">", "',' or '>' in the type arguments of '" + name + "'");
+      }
+      int dims = 0;
+      while (eat("[")) {
+        expect("]", "']'");
+        dims++;
+      }
+      return new TypeRef(name, typeArgs, dims, pos(at));
+    }
+
+    List<ParamDecl> paramList() {
+      List<ParamDecl> out = new ArrayList<>();
+      do {
+        ws();
+        int at = i;
+        TypeRef type = type();
+        ws();
+        if (!identStart(peek())) {
+          throw error(i, "expected a parameter name after type '" + type.name()
+              + "' but " + found() + " (parameters are declared as 'Type name', e.g. 'OwnerView owner')");
+        }
+        out.add(new ParamDecl(type, identRaw(), pos(at)));
+      } while (eat(","));
+      return List.copyOf(out);
+    }
   }
 }
