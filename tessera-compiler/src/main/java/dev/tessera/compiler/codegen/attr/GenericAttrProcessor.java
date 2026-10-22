@@ -48,6 +48,12 @@ public final class GenericAttrProcessor implements AttributeProcessor {
               + " build time, so write a static type attribute");
       return;
     }
+    if (element.equalsIgnoreCase("meta") && lower.equals("http-equiv")) {
+      ctx.diagnostics()
+          .error(pos, label + ": the http-equiv of a <meta> cannot be computed; it decides whether content is"
+              + " a refresh URL, so write a static http-equiv attribute");
+      return;
+    }
     OutputContext context = Contexts.attribute(plan.element(), name);
     String hint =
         switch (context) {
@@ -58,6 +64,9 @@ public final class GenericAttrProcessor implements AttributeProcessor {
           case FORBIDDEN ->
               lower.equals("srcdoc")
                   ? "srcdoc is a whole HTML document and cannot contain expressions; use src with a URL"
+                  : lower.equals("content")
+                  ? "the content of <meta http-equiv=\"refresh\"> navigates the page and cannot contain"
+                      + " expressions; redirect from the controller instead"
                   : "attribute name '" + name + "' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*";
           default -> null;
         };

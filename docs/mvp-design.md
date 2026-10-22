@@ -181,7 +181,7 @@ compile via `FieldsCompiler` to `ctx.forms()` calls. Iterating `null` yields zer
 | `SCRIPT` | text in `<script>` (no type or JS/module/JSON) | `Escapers.json` | `[[...]]` only; JSON-able types only; also escapes `/`, backtick and `$` so a value cannot leave a JS comment, regex or template literal |
 | `STYLE` | `<style>`, `style` attribute | — | build error |
 | `EVENT_HANDLER` | `on*` attributes | — | build error; use `data-*` + script |
-| `FORBIDDEN` | `srcdoc`, non-JS `<script type>`, odd attribute names | — | build error |
+| `FORBIDDEN` | `srcdoc`, `content` of `<meta http-equiv="refresh">`, non-JS `<script type>`, odd attribute names | — | build error; `http-equiv` on `<meta>` and `type` on `<script>` cannot be computed |
 
 ## Discovery and processor configuration
 

@@ -39,7 +39,8 @@ public final class Contexts {
    * names that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*} are FORBIDDEN, resource URLs are
    * RESOURCE_URL, other URL attributes are URL, everything else ATTRIBUTE. The values of SVG
    * {@code <animate>}/{@code <set>} ({@code values to from by}) are URL too: they can set an
-   * {@code href} to {@code javascript:}.
+   * {@code href} to {@code javascript:}. The {@code content} of a
+   * {@code <meta http-equiv="refresh">} is FORBIDDEN: its {@code url=} part navigates the page.
    */
   public static OutputContext attribute(Element element, String attributeName) {
     if (attributeName == null || !PLAIN_NAME.matcher(attributeName).matches()) {
@@ -52,7 +53,7 @@ public final class Contexts {
     if (attr.equals("style")) {
       return OutputContext.STYLE;
     }
-    if (attr.equals("srcdoc")) {
+    if (attr.equals("srcdoc") || isRefreshContent(element, attr)) {
       return OutputContext.FORBIDDEN;
     }
     if (isResourceUrl(element == null ? "" : element.name().toLowerCase(Locale.ROOT), attr)) {
@@ -62,6 +63,25 @@ public final class Contexts {
       return OutputContext.URL;
     }
     return OutputContext.ATTRIBUTE;
+  }
+
+  /**
+   * {@code content} on a {@code <meta>} whose static {@code http-equiv} is {@code refresh}. A
+   * computed {@code http-equiv} on {@code <meta>} is rejected by the attribute processor.
+   */
+  private static boolean isRefreshContent(Element element, String attr) {
+    if (element == null || !attr.equals("content") || !element.name().equalsIgnoreCase("meta")) {
+      return false;
+    }
+    for (Attribute a : element.attributes()) {
+      if (!a.isTessera()
+          && a.name().equalsIgnoreCase("http-equiv")
+          && a.value() != null
+          && a.value().strip().equalsIgnoreCase("refresh")) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static boolean isAnimationValue(Element element, String attr) {
