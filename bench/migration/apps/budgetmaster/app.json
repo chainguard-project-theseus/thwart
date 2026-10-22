@@ -1,0 +1,16 @@
+{
+  "repo": "https://github.com/deadlocker8/BudgetMaster",
+  "commit": "1bc16296515cc32c27dfcc002c9fc853dafc095e",
+  "engine": "freemarker",
+  "difficulty": "hard",
+  "heldout": true,
+  "build": "mvn -B -ntp -Dapp.versionDate=20.09.26 clean package -DskipTests",
+  "test": "mkdir -p ~/.Deadlocker/BudgetMaster/test && cp BudgetMasterServer/src/main/resources/config/templates/settings.properties ~/.Deadlocker/BudgetMaster/test/ && mvn -B -ntp -Dapp.versionDate=20.09.26 -Dsurefire.excludesFile=/bench/app/test-excludes.txt test",
+  "start": "bash /bench/app/start.sh",
+  "ready": "/login",
+  "base": "http://localhost:9000",
+  "ignore": [
+    "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+    "(?<=verificationCode\">|name=\"verificationCode\" value=\")[0-9A-Z]{4}"
+  ]
+}

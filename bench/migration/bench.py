@@ -98,7 +98,7 @@ def check(app, app_dir, out_dir, recording=None, migrated=False):
     jdk = JDKS[cfg.get("java", 21)]
     env = {k: cfg[k.lower()] for k in ("BUILD", "TEST", "START", "READY", "BASE")}
     env.update(BUILD_JDK=JDKS[21] if migrated else jdk, RUN_JDK=jdk, IGNORE="\n".join(cfg.get("ignore", [])))
-    # /bench/app is the app's fixture directory (pages.txt, seed data) for its start command.
+    # /bench/app is the app's fixture directory (pages.txt, seed data, helper scripts) for its commands.
     mounts = [(app_dir, "/work/app"), (os.path.join(HERE, "lib"), "/bench/lib:ro"),
               (os.path.join(HERE, "apps", app), "/bench/app:ro"),
               (os.path.join(HERE, "apps", app, "pages.txt"), "/bench/pages.txt:ro"), (out_dir, "/work/out")]
