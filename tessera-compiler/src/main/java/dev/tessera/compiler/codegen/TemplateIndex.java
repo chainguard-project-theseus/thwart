@@ -73,9 +73,10 @@ public final class TemplateIndex {
   }
 
   /**
-   * Indexes every document. Problems (unparsable headers, unresolvable or unsafe types,
-   * duplicate parameter or fragment names, class-name collisions) are reported to {@code env};
-   * the affected entries are left out.
+   * Indexes every document. Problems (a valueless or unparsable {@code t:import} or {@code
+   * t:params}, unresolvable or unsafe types, duplicate parameter or fragment names) are reported
+   * to {@code env} and the affected imports, parameters or fragments are left out. A class-name
+   * collision is reported too, but the template is still indexed: the error stops all output.
    */
   public static TemplateIndex build(
       List<Document> documents, ExpressionParser parser, ExpressionCompiler expressions, CompilerEnv env) {
@@ -100,12 +101,16 @@ public final class TemplateIndex {
       List<Param> params = List.of();
       if (root != null) {
         Attribute imp = root.attribute(Attribute.PREFIX + "import").orElse(null);
-        if (imp != null) {
-          List<String> parsed = imp.value() == null ? null : parser.parseImports(imp.value(), imp.valuePos(), sink);
+        if (imp != null && imp.value() == null) {
+          sink.error(imp.pos(), imp.name() + " needs a value, e.g. t:import=\"java.util.List\"");
+        } else if (imp != null) {
+          List<String> parsed = parser.parseImports(imp.value(), imp.valuePos(), sink);
           imports = parsed == null ? List.of() : parsed;
         }
         Attribute par = root.attribute(Attribute.PREFIX + "params").orElse(null);
-        if (par != null && par.value() != null) {
+        if (par != null && par.value() == null) {
+          sink.error(par.pos(), par.name() + " needs a value, e.g. t:params=\"String name, int count\"");
+        } else if (par != null) {
           List<ParamDecl> decls = parser.parseParams(par.value(), par.valuePos(), sink);
           params = resolve(decls == null ? List.of() : decls, imports, expressions, sink);
           params = withoutFields(params, decls, sink);
