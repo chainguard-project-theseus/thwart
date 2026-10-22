@@ -1,19 +1,22 @@
 package dev.tessera.migrate;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.CookieManager;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
 
@@ -29,23 +32,114 @@ import org.jsoup.nodes.Element;
 final class Crawler {
 
   /** One line of {@code pages.txt}; {@code form} is empty for a GET. */
-  record Request(String line, String method, String path, String form) {}
+  static final class Request {
+    private final String line;
+    private final String method;
+    private final String path;
+    private final String form;
+
+    Request(String line, String method, String path, String form) {
+      this.line = line;
+      this.method = method;
+      this.path = path;
+      this.form = form;
+    }
+
+    String line() {
+      return line;
+    }
+
+    String method() {
+      return method;
+    }
+
+    String path() {
+      return path;
+    }
+
+    String form() {
+      return form;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof Request)) {
+        return false;
+      }
+      Request o = (Request) obj;
+      return line.equals(o.line)
+          && method.equals(o.method)
+          && path.equals(o.path)
+          && form.equals(o.form);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(line, method, path, form);
+    }
+
+    @Override
+    public String toString() {
+      return "Request[line=" + line + ", method=" + method + ", path=" + path + ", form=" + form + "]";
+    }
+  }
 
   /** What came back: status 0 means no response at all (the body then says why). */
-  record Response(int status, String finalUrl, String body) {}
+  static final class Response {
+    private final int status;
+    private final String finalUrl;
+    private final String body;
+
+    Response(int status, String finalUrl, String body) {
+      this.status = status;
+      this.finalUrl = finalUrl;
+      this.body = body;
+    }
+
+    int status() {
+      return status;
+    }
+
+    String finalUrl() {
+      return finalUrl;
+    }
+
+    String body() {
+      return body;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof Response)) {
+        return false;
+      }
+      Response o = (Response) obj;
+      return status == o.status
+          && finalUrl.equals(o.finalUrl)
+          && body.equals(o.body);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(status, finalUrl, body);
+    }
+
+    @Override
+    public String toString() {
+      return "Response[status=" + status + ", finalUrl=" + finalUrl + ", body=" + body + "]";
+    }
+  }
+
+  private static final int CONNECT_TIMEOUT_MS = 10_000;
+  private static final int READ_TIMEOUT_MS = 60_000;
 
   private final String base;
-  private final HttpClient client;
+  /** This run's cookie jar, applied by hand: the JVM-wide default CookieHandler stays untouched. */
+  private final CookieManager cookies = new CookieManager();
   private String previousBody = "";
 
   Crawler(String baseUrl) {
     this.base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-    this.client = HttpClient.newBuilder()
-        .version(HttpClient.Version.HTTP_1_1)
-        .followRedirects(HttpClient.Redirect.NEVER) // followed in send(), like a browser
-        .cookieHandler(new CookieManager())
-        .connectTimeout(Duration.ofSeconds(10))
-        .build();
   }
 
   /** Parses {@code pages.txt}. */
@@ -53,7 +147,7 @@ final class Crawler {
     List<Request> requests = new ArrayList<>();
     List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
     for (int i = 0; i < lines.size(); i++) {
-      String line = lines.get(i).strip();
+      String line = Compat.strip(lines.get(i));
       if (line.isEmpty() || line.startsWith("#")) {
         continue;
       }
@@ -76,33 +170,33 @@ final class Crawler {
       URI uri = URI.create(base + request.path());
       String method = request.method();
       String body = method.equals("POST") ? formBody(request.form(), csrf(previousBody)) : null;
-      HttpResponse<String> r;
+      int status;
+      String page;
       for (int hops = 0; ; hops++) {
-        r = client.send(build(uri, method, body),
-            HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        HttpURLConnection http = exchange(uri, method, body);
+        status = http.getResponseCode();
         // Without a Location (a page rendered with status 303, say) a browser shows the body.
-        String location = r.headers().firstValue("Location").orElse(null);
-        if (location == null || !isRedirect(r.statusCode())) {
+        String location = http.getHeaderField("Location");
+        if (location == null || !isRedirect(status)) {
+          page = readBody(http, status);
           break;
         }
+        readBody(http, status); // drain, so the connection can be reused
         if (hops == MAX_REDIRECTS) {
           throw new IOException("more than " + MAX_REDIRECTS + " redirects");
         }
-        // HttpClient reads header bytes as ISO-8859-1; a browser reads a Location as UTF-8.
+        // Header bytes arrive as ISO-8859-1 chars; a browser reads a Location as UTF-8.
         location = new String(location.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
         uri = uri.resolve(encodeUrl(location));
-        if (r.statusCode() != 307 && r.statusCode() != 308) {
+        if (status != 307 && status != 308) {
           method = "GET";
           body = null;
         }
       }
-      response = new Response(r.statusCode(), relative(r.uri().toString()), r.body());
+      response = new Response(status, relative(uri.toString()), page);
     } catch (IOException | IllegalArgumentException e) {
       response = new Response(0, request.path(),
           "<!-- no response: " + e.getClass().getSimpleName() + ": " + e.getMessage() + " -->");
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      response = new Response(0, request.path(), "<!-- interrupted -->");
     }
     previousBody = response.body();
     return response;
@@ -110,20 +204,64 @@ final class Crawler {
 
   private static final int MAX_REDIRECTS = 10;
 
-  private static HttpRequest build(URI uri, String method, String body) {
-    HttpRequest.Builder http = HttpRequest.newBuilder(uri)
-        .timeout(Duration.ofSeconds(60))
-        .header("Accept", "text/html")
-        .header("Accept-Language", "en");
-    if (body != null) {
-      http.header("Content-Type", "application/x-www-form-urlencoded")
-          .method(method, HttpRequest.BodyPublishers.ofString(body));
-    } else {
-      http.method(method, HttpRequest.BodyPublishers.noBody());
+  /** Sends one HTTP request (no redirects followed) and stores the cookies it sets. */
+  private HttpURLConnection exchange(URI uri, String method, String body) throws IOException {
+    String scheme = uri.getScheme();
+    if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+      throw new IOException("not an http(s) URL: " + uri);
     }
-    return http.build();
+    HttpURLConnection http = (HttpURLConnection) uri.toURL().openConnection();
+    http.setInstanceFollowRedirects(false); // followed in send(), like a browser
+    http.setUseCaches(false);
+    http.setConnectTimeout(CONNECT_TIMEOUT_MS);
+    http.setReadTimeout(READ_TIMEOUT_MS);
+    http.setRequestMethod(method);
+    http.setRequestProperty("Accept", "text/html");
+    http.setRequestProperty("Accept-Language", "en");
+    for (Map.Entry<String, List<String>> header
+        : cookies.get(uri, Collections.<String, List<String>>emptyMap()).entrySet()) {
+      for (String value : header.getValue()) {
+        http.addRequestProperty(header.getKey(), value);
+      }
+    }
+    if (body != null) {
+      byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+      http.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+      http.setDoOutput(true);
+      // Streaming mode also stops HttpURLConnection from silently re-sending a POST.
+      http.setFixedLengthStreamingMode(bytes.length);
+      try (OutputStream out = http.getOutputStream()) {
+        out.write(bytes);
+      }
+    }
+    int status = http.getResponseCode();
+    if (status < 0) {
+      throw new IOException("not an HTTP response from " + uri);
+    }
+    cookies.put(uri, http.getHeaderFields());
+    return http;
   }
 
+  /**
+   * The response body as UTF-8 ({@code getErrorStream} for a 4xx/5xx). A body shorter than its
+   * {@code Content-Length} is an error, as it was with {@code java.net.http}.
+   */
+  private static String readBody(HttpURLConnection http, int status) throws IOException {
+    InputStream stream = status >= 400 ? http.getErrorStream() : http.getInputStream();
+    byte[] bytes;
+    if (stream == null) {
+      bytes = new byte[0];
+    } else {
+      try (InputStream in = stream) {
+        bytes = Compat.readAllBytes(in);
+      }
+    }
+    long length = http.getContentLengthLong();
+    if (length >= 0 && bytes.length < length) {
+      throw new IOException("response truncated: got " + bytes.length + " of " + length + " bytes");
+    }
+    return new String(bytes, StandardCharsets.UTF_8);
+  }
   private static boolean isRedirect(int status) {
     return status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
   }
@@ -135,7 +273,7 @@ final class Crawler {
    */
   static String encodeUrl(String url) {
     StringBuilder out = new StringBuilder();
-    byte[] bytes = url.strip().getBytes(StandardCharsets.UTF_8);
+    byte[] bytes = Compat.strip(url).getBytes(StandardCharsets.UTF_8);
     for (int i = 0; i < bytes.length; i++) {
       int b = bytes[i] & 0xff;
       boolean escape = b == '%' && i + 2 < bytes.length && isHex(bytes[i + 1]) && isHex(bytes[i + 2]);
@@ -185,13 +323,19 @@ final class Crawler {
 
   private static String decode(String s) {
     try {
-      return URLDecoder.decode(s, StandardCharsets.UTF_8);
+      return URLDecoder.decode(s, "UTF-8");
     } catch (IllegalArgumentException e) { // a raw '%' that starts no escape
       return s;
+    } catch (UnsupportedEncodingException e) {
+      throw new AssertionError(e); // every JDK has UTF-8
     }
   }
 
   private static String encode(String s) {
-    return URLEncoder.encode(s, StandardCharsets.UTF_8);
+    try {
+      return URLEncoder.encode(s, "UTF-8");
+    } catch (UnsupportedEncodingException e) {
+      throw new AssertionError(e);
+    }
   }
 }

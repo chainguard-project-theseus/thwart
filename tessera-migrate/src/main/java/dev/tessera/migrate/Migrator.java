@@ -1,6 +1,7 @@
 package dev.tessera.migrate;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -23,7 +24,23 @@ final class Migrator {
   private Migrator() {}
 
   /** The converted source and the report items for this file. */
-  record Result(String output, List<Report.Item> items) {}
+  static final class Result {
+    private final String output;
+    private final List<Report.Item> items;
+
+    Result(String output, List<Report.Item> items) {
+      this.output = output;
+      this.items = items;
+    }
+
+    String output() {
+      return output;
+    }
+
+    List<Report.Item> items() {
+      return items;
+    }
+  }
 
   private static final MarkupParser PARSER = new MarkupParser(parseConfiguration());
 
@@ -48,7 +65,29 @@ final class Migrator {
     return handler.finish(source);
   }
 
-  private record Edit(int offset, int length, String replacement) {}
+  private static final class Edit {
+    private final int offset;
+    private final int length;
+    private final String replacement;
+
+    Edit(int offset, int length, String replacement) {
+      this.offset = offset;
+      this.length = length;
+      this.replacement = replacement;
+    }
+
+    int offset() {
+      return offset;
+    }
+
+    int length() {
+      return length;
+    }
+
+    String replacement() {
+      return replacement;
+    }
+  }
 
   private static final class Handler extends AbstractMarkupHandler {
     private final String file;
@@ -130,7 +169,7 @@ final class Migrator {
 
       if (lower.equals(ConversionRules.THYMELEAF_XMLNS)) {
         edits.add(new Edit(nameOffset, nameLen, ConversionRules.TESSERA_XMLNS));
-        if (value != null && ConversionRules.THYMELEAF_NAMESPACES.contains(value.strip())) {
+        if (value != null && ConversionRules.THYMELEAF_NAMESPACES.contains(Compat.strip(value))) {
           edits.add(new Edit(valueContentOffset, valueContentLen, ConversionRules.TESSERA_NAMESPACE));
         }
         return;
@@ -187,7 +226,7 @@ final class Migrator {
       List<String> params = new ArrayList<>();
       List<String> untyped = new ArrayList<>();
       for (String p : Expressions.splitTopLevel(m.group(3), true)) {
-        String param = p.strip();
+        String param = Compat.strip(p);
         if (param.isEmpty()) {
           continue;
         }
@@ -231,7 +270,7 @@ final class Migrator {
       }
       if (thymeleaf && Expressions.isLiteralToken(value) && !ConversionRules.SELECTION_VALUES.contains(local)
           && !ConversionRules.FRAGMENT_REFERENCES.contains(local)) {
-        return "'" + value.strip() + "'";
+        return "'" + Compat.strip(value) + "'";
       }
       String rewritten = Expressions.rewrite(value);
       if (!ConversionRules.SELECTION_VALUES.contains(local)) {
@@ -251,9 +290,9 @@ final class Migrator {
         return original; // not a loop expression; the compiler reports it
       }
       List<String> vars = Expressions.splitTopLevel(value.substring(0, colon), false);
-      vars.forEach(v -> locals.add(v.strip()));
+      vars.forEach(v -> locals.add(Compat.strip(v)));
       if (vars.size() == 1) {
-        locals.add(vars.get(0).strip() + ConversionRules.IMPLICIT_STATUS_SUFFIX);
+        locals.add(Compat.strip(vars.get(0)) + ConversionRules.IMPLICIT_STATUS_SUFFIX);
       }
       if (!convertible) {
         return original;
@@ -273,11 +312,11 @@ final class Migrator {
           continue;
         }
         if (local.equals(ConversionRules.WITH)) {
-          locals.add(part.substring(0, eq).strip());
+          locals.add(Compat.strip(part.substring(0, eq)));
         }
         String expr = part.substring(eq + 1);
         String rewritten = thymeleaf && Expressions.isLiteralToken(expr)
-            ? "'" + expr.strip() + "'"
+            ? "'" + Compat.strip(expr) + "'"
             : Expressions.rewrite(expr);
         roots.addAll(Expressions.roots(rewritten, false));
         parts.add(part.substring(0, eq + 1) + rewritten);
@@ -339,7 +378,7 @@ final class Migrator {
         pos = e.offset() + e.length();
       }
       out.append(source, pos, source.length());
-      return new Result(out.toString(), List.copyOf(items));
+      return new Result(out.toString(), Collections.unmodifiableList(new ArrayList<>(items)));
     }
   }
 }

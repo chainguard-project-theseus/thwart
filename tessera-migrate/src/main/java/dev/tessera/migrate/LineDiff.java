@@ -13,7 +13,35 @@ final class LineDiff {
   /** Past this many edits the diff is printed as one hunk replacing everything. */
   private static final int MAX_EDITS = 4000;
 
-  private record Op(char kind, String line, int a, int b) {}
+  private static final class Op {
+    private final char kind;
+    private final String line;
+    private final int a;
+    private final int b;
+
+    Op(char kind, String line, int a, int b) {
+      this.kind = kind;
+      this.line = line;
+      this.a = a;
+      this.b = b;
+    }
+
+    char kind() {
+      return kind;
+    }
+
+    String line() {
+      return line;
+    }
+
+    int a() {
+      return a;
+    }
+
+    int b() {
+      return b;
+    }
+  }
 
   /** The hunks ({@code @@ ... @@} and the {@code ' '}/{@code -}/{@code +} lines), no headers. */
   static List<String> unified(List<String> a, List<String> b) {

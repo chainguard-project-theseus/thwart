@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * {@code record} and {@code compare}: the page-parity check for a migration. {@code record} saves
@@ -33,7 +34,35 @@ final class Parity {
   static final int MAX_DIFF_LINES = 120;
   private static final Pattern HEADER = Pattern.compile("# tessera-migrate record (\\S+) (\\S+)");
 
-  private record Entry(String file, int status, String finalUrl, String request) {}
+  private static final class Entry {
+    private final String file;
+    private final int status;
+    private final String finalUrl;
+    private final String request;
+
+    Entry(String file, int status, String finalUrl, String request) {
+      this.file = file;
+      this.status = status;
+      this.finalUrl = finalUrl;
+      this.request = request;
+    }
+
+    String file() {
+      return file;
+    }
+
+    int status() {
+      return status;
+    }
+
+    String finalUrl() {
+      return finalUrl;
+    }
+
+    String request() {
+      return request;
+    }
+  }
 
   static int record(String base, Path pages, Path dir, LocalDate today, PrintStream out,
       PrintStream err) {
@@ -54,7 +83,7 @@ final class Parity {
       Crawler.Response response = crawler.send(request);
       String file = fileName(i, requests.size());
       try {
-        Files.writeString(dir.resolve(file), response.body(), StandardCharsets.UTF_8);
+        Compat.writeString(dir.resolve(file), response.body());
       } catch (IOException e) {
         err.println("tessera-migrate record: cannot write " + dir.resolve(file) + ": " + e.getMessage());
         return 1;
@@ -68,7 +97,7 @@ final class Parity {
       }
     }
     try {
-      Files.writeString(dir.resolve(INDEX), index, StandardCharsets.UTF_8);
+      Compat.writeString(dir.resolve(INDEX), index);
     } catch (IOException e) {
       err.println("tessera-migrate record: cannot write " + dir.resolve(INDEX) + ": " + e.getMessage());
       return 1;
@@ -92,7 +121,7 @@ final class Parity {
       }
       recordedOn = header.group(1);
       for (String line : lines) {
-        if (!line.startsWith("#") && !line.isBlank()) {
+        if (!line.startsWith("#") && !Compat.isBlank(line)) {
           String[] f = line.split("\t", 4);
           entries.add(new Entry(f[0], Integer.parseInt(f[1]), f[2], f[3]));
         }
@@ -101,8 +130,8 @@ final class Parity {
       err.println("tessera-migrate compare: " + e.getMessage());
       return 1;
     }
-    List<String> recorded = entries.stream().map(Entry::request).toList();
-    List<String> wanted = requests.stream().map(Crawler.Request::line).toList();
+    List<String> recorded = entries.stream().map(Entry::request).collect(Collectors.toList());
+    List<String> wanted = requests.stream().map(Crawler.Request::line).collect(Collectors.toList());
     if (!recorded.equals(wanted)) {
       err.println("tessera-migrate compare: " + pages + " does not list the requests recorded in "
           + dir + "; record again");
@@ -118,7 +147,7 @@ final class Parity {
       Crawler.Response response = crawler.send(requests.get(i));
       String expected;
       try {
-        expected = Files.readString(dir.resolve(entry.file()), StandardCharsets.UTF_8);
+        expected = Compat.readString(dir.resolve(entry.file()));
       } catch (IOException e) {
         err.println("tessera-migrate compare: cannot read " + dir.resolve(entry.file()) + ": "
             + e.getMessage());

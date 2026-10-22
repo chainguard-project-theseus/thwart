@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
+import java.net.CookieHandler;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -117,6 +118,48 @@ class CrawlerTest {
       r = crawler.send(new Crawler.Request("", "GET", "/bad", ""));
       assertEquals(0, r.status(), "an unusable Location is no response, not a crash");
       assertTrue(r.body().startsWith("<!-- no response: "), r.body());
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @Test
+  void errorBodiesTruncationAndCookieJarsPerCrawler() throws Exception {
+    HttpServer server =
+        HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+    server.createContext("/", ex -> {
+      String path = ex.getRequestURI().getRawPath();
+      String cookie = ex.getRequestHeaders().getFirst("Cookie");
+      if (path.equals("/set")) {
+        ex.getResponseHeaders().add("Set-Cookie", "SID=s1; Path=/");
+      }
+      byte[] page = (path.equals("/echo") ? "cookie " + cookie : "page " + path)
+          .getBytes(StandardCharsets.UTF_8);
+      int status = path.equals("/missing") ? 404 : path.equals("/boom") ? 500 : 200;
+      // /cut promises more than it sends, then hangs up.
+      ex.sendResponseHeaders(status, path.equals("/cut") ? page.length + 100 : page.length);
+      ex.getResponseBody().write(page);
+      ex.close();
+    });
+    server.start();
+    try {
+      String base = "http://127.0.0.1:" + server.getAddress().getPort();
+      Crawler a = new Crawler(base);
+      assertEquals(new Crawler.Response(404, "/missing", "page /missing"),
+          a.send(new Crawler.Request("", "GET", "/missing", "")), "a 4xx page keeps its body");
+      assertEquals(new Crawler.Response(500, "/boom", "page /boom"),
+          a.send(new Crawler.Request("", "POST", "/boom", "x=1")), "a 5xx page keeps its body");
+
+      Crawler.Response cut = a.send(new Crawler.Request("", "GET", "/cut", ""));
+      assertEquals(0, cut.status(), "a truncated response is no response");
+      assertTrue(cut.body().contains("truncated"), cut.body());
+
+      a.send(new Crawler.Request("", "GET", "/set", ""));
+      assertEquals("cookie SID=s1", a.send(new Crawler.Request("", "GET", "/echo", "")).body());
+      assertEquals("cookie null",
+          new Crawler(base).send(new Crawler.Request("", "GET", "/echo", "")).body(),
+          "each crawler has its own cookie jar");
+      assertNull(CookieHandler.getDefault(), "the JVM-wide cookie handler is left alone");
     } finally {
       server.stop(0);
     }
