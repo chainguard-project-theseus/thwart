@@ -1,110 +1,266 @@
-# Porting guide: Thymeleaf, FreeMarker, JSP and Velocity to Tessera
+# Porting guide: moving server-rendered Java views to Tessera
 
-This guide is everything you need to move a server-rendered Java application to Tessera. It is
-written for a coding agent working from this document alone. Read sections 1 to 4 once. After
-that, use the mapping table for your source engine (section 13), the checklist (section 14) and
-the diagnostic catalogue (section 16) as you port.
+This guide is for a coding agent moving a Spring application's views (Thymeleaf, JSP, FreeMarker,
+Mustache or similar) to Tessera, working from this document alone. It does not map your engine's
+syntax construct by construct: you know your engine, and once you know how Tessera works the
+syntax converts on its own. The hard parts are where Tessera's model differs (where data comes
+from, how layouts and forms work) and knowing whether the result is right.
+
+Read section 1 (the target) and section 2 (the build), then follow section 3 (the loop). Sections
+4 to 7 are reference: syntax, a worked example, every compiler diagnostic with its fix, and known
+limitations.
+
+**Done** means: the build and all existing tests pass; `tessera-migrate compare` reports every page
+in your `pages.txt` as `same` or `reordered`, or you can say why a remaining difference is right;
+security is not weakened (no `SafeHtml.unchecked`/`TrustedUrl.unchecked` to get around escaping,
+no CSRF or escaping turned off); and the old engine's templates, dependency and configuration are
+gone.
 
 Examples marked in the source of this file with `<!-- compile: ... -->` are compiled and rendered
 by `dev.tessera.compiler.guide.GuideExamplesTest`, so they are known to work.
 
-## Contents
+## 1. The target
 
-1. [What changes](#1-what-changes)
-2. [Build setup](#2-build-setup)
-3. [Templates and parameters](#3-templates-and-parameters)
-4. [View types](#4-view-types)
-5. [Expressions](#5-expressions)
-6. [Attributes](#6-attributes)
-7. [Escaping and output contexts](#7-escaping-and-output-contexts)
-8. [Messages and links](#8-messages-and-links)
-9. [Functions](#9-functions)
-10. [Forms](#10-forms)
-11. [Fragments and layouts](#11-fragments-and-layouts)
-12. [Spring integration and rendering](#12-spring-integration-and-rendering)
-13. [Mapping tables](#13-mapping-tables)
-14. [Migration checklist](#14-migration-checklist)
-15. [Worked example: a gtvg page](#15-worked-example-a-gtvg-page)
-16. [Diagnostic catalogue](#16-diagnostic-catalogue)
-17. [Known limitations](#17-known-limitations)
+Tessera templates are HTML files with `t:` attributes, close to Thymeleaf's `th:` syntax. An
+annotation processor compiles them to Java classes during the application's normal `javac`, so a
+template error is a build error with `file:line:col`. At runtime nothing parses or reads
+templates. When the compiler rejects something, one of the rules below is the reason.
 
-## 1. What changes
+**A template sees only its typed parameters.** The first element declares them
+(`t:params="Owner owner, List<Pet> pets"`), and with Spring each is read from the model attribute
+of the same name. Nothing else is visible: no request, session, application or bean scope, no
+request parameters, cookies, headers or path variables. Engines you are leaving often fall back to
+those scopes when a name is not in the model. Tessera doesn't: **a missing model attribute is
+`null`**, which prints nothing, and reading a property of it fails the render with a
+`NullPointerException` (write `a?.b` where `null` is expected). So before converting a template,
+find everything it reads that the controller does not put in the model, and make the controller
+provide it. Values every page needs (the current user, the request URI) come from `@ModelAttribute`
+methods in a `@ControllerAdvice`.
 
-Tessera templates are HTML files with `t:` attributes, close to Thymeleaf's `th:` syntax. Unlike
-every engine you are leaving, they are compiled to Java classes by an annotation processor during
-`javac`. A template error is a build error with `file:line:col`. There is no template parser at
-runtime.
+**Templates read data; they don't run code.** A template reads record components and
+`getX()`/`isX()` getters of *view-safe* types (records, enums, JDK value types, collections, and
+classes annotated `@TemplateView`), plus built-ins such as `size()`. It cannot call other methods,
+construct objects or reach static members. Logic lives in Java: a getter, a record the controller
+builds, or a static `@TemplateFunction`.
 
-Six rules shape every port. When the compiler rejects something, one of them is the reason:
+**The output context picks the escaper.** Text, attribute values, URLs and `<script>` blocks are
+each escaped for where they appear, with no switch to turn it off. Raw markup must be a `SafeHtml`
+built in Java. Expressions in `style` and `on*` attributes are rejected. Values that the old engine
+printed raw (JSP EL, FreeMarker without auto-escaping, Mustache `{{{x}}}`) now come out escaped.
+That is intended, not a difference to undo.
 
-1. **Templates are code.** No template source is ever read or evaluated at runtime. No
-   `?eval`, `#evaluate`, `__${...}__` preprocessing or string-built template names.
-2. **No ambient authority.** A template sees only its declared, typed `t:params`. There is no
-   request, session, application scope, `#ctx`, `pageContext` or bean access. The controller
-   puts what the page needs in the model.
-3. **Allow-list everything callable.** Templates read record components and `getX()`/`isX()`
-   getters of view-safe types, plus a few built-ins. Other methods cannot be called. Functions
-   exist only if registered with `@TemplateFunction`.
-4. **No reflection at runtime.** Every property access is plain generated Java.
-5. **Escaping is contextual and automatic.** The compiler picks the escaper from where the
-   output goes. Raw HTML needs a `SafeHtml` value. There is no flag that turns escaping off.
-6. **Familiar before novel.** Where it is safe, syntax and behaviour follow Thymeleaf.
+**Forms bind through Spring's `BindingResult`.** `t:object="owner"` names the form-backing model
+attribute, and `t:field`, `t:errors` and `fields.*` read its `BindingResult`, as Spring's form tags
+and macros do: formatters and `@DateTimeFormat` apply, and a failed bind echoes the rejected value.
+
+**Fragments see only their parameters.** A fragment (`t:fragment="card(String title, Fragment
+body)"`) is a typed function that cannot see the caller's variables. Markup is passed as a
+`Fragment`. Includes, macros with bodies, tag files, partials and layouts all become fragment
+calls.
+
+**Names are literals.** View names, fragment references, message keys and link paths are literals
+checked at build time. Choose between literals with a conditional.
+
+**Values print with `String.valueOf`**, with no locale-aware formatting: use `numbers.*`,
+`temporals.*` or your own function. `null` text renders empty and a `null` attribute is omitted,
+but inside `|...|` and `+` a `null` prints `null`.
+
+### Things Tessera deliberately doesn't do, and what to do instead
+
+| If the old template... | Do this instead |
+|---|---|
+| reads the request, session, application scope, cookies, headers or path variables, or falls back to them | Put the value in the model and declare it in `t:params`. Nothing warns you when you miss one. |
+| calls a method with arguments, a static method, a bean or a constructor | A getter, a record built by the controller, or a `@TemplateFunction`. |
+| filters, sorts, groups or projects a collection | Do it in the controller. |
+| assigns a variable | `t:with="x=..."`: an immutable local for one element. |
+| builds a view name, fragment name, message key or link path from strings | Conditionals between literals; link `{placeholders}`; a `Fragment` argument. |
+| evaluates a string as a template (`?eval`, `#evaluate`, `__${...}__`) | Not possible. Compute the value in Java. |
+| prints a string unescaped | A `SafeHtml` built in Java from sanitized input, or accept the escaped output. |
+| puts expressions in `style` or `on*` | `t:classappend`; `t:data-*` attributes read by a script. |
+| includes a file, calls a macro or tag with a body, or extends a layout | A fragment call with `Fragment` arguments (section 4.8). |
+| binds a form through form tags or macros | `t:object`, `t:field`, `t:errors`, `fields.*` (section 4.7). |
+| posts a form back to the current URL by default | Write the `action` with `@{...}`, or put the URL in the model. |
+| reads an `Exception`, a `Date` or another non-view-safe value | Put what the page shows (a message `String`, a `LocalDate`) in the model. |
 
 ## 2. Build setup
 
-Tessera needs Java 21+ and Maven. Add the runtime (or the Spring Boot starter) as a dependency
-and the compiler as an annotation processor:
+Tessera needs JDK 21+ and Maven. Its jars are Java 21 class files, so the application must
+compile with `release` 21, which breaks old plugins that read class files (JaCoCo before 0.8.11,
+for example).
+
+The Spring integration, `tessera-spring-boot-starter`, is built against **Spring Boot 4.1 (Spring
+Framework 7)** and depends on Boot 4's `spring-boot-webmvc`. Boot 3 is not supported yet (#116),
+although the starter's code uses only APIs that Boot 3.2+ also has.
 
 ```xml
-<dependencies>
-  <!-- Spring Boot web apps: the starter (it brings tessera-runtime). -->
-  <dependency>
-    <groupId>dev.tessera</groupId>
-    <artifactId>tessera-spring-boot-starter</artifactId>
-    <version>${tessera.version}</version>
-  </dependency>
-  <!-- Without Spring use tessera-runtime instead. -->
-</dependencies>
+<dependency>
+  <groupId>dev.tessera</groupId>
+  <artifactId>tessera-spring-boot-starter</artifactId> <!-- without Spring: tessera-runtime -->
+  <version>${tessera.version}</version>
+</dependency>
 
-<build>
-  <plugins>
-    <plugin>
-      <groupId>org.apache.maven.plugins</groupId>
-      <artifactId>maven-compiler-plugin</artifactId>
-      <configuration>
-        <annotationProcessorPaths>
-          <path>
-            <groupId>dev.tessera</groupId>
-            <artifactId>tessera-compiler</artifactId>
-            <version>${tessera.version}</version>
-          </path>
-        </annotationProcessorPaths>
-        <compilerArgs combine.children="append">
-          <arg>-Atessera.templates=${project.basedir}/src/main/resources/templates</arg>
-          <arg>-Atessera.package=com.example.templates</arg>
-          <arg>-Atessera.messages=${project.basedir}/src/main/resources/messages</arg>
-        </compilerArgs>
-      </configuration>
-    </plugin>
-  </plugins>
-</build>
+<plugin>
+  <groupId>org.apache.maven.plugins</groupId>
+  <artifactId>maven-compiler-plugin</artifactId>
+  <configuration>
+    <release>21</release>
+    <parameters>true</parameters>
+    <annotationProcessorPaths>
+      <path>
+        <groupId>dev.tessera</groupId>
+        <artifactId>tessera-compiler</artifactId>
+        <version>${tessera.version}</version>
+      </path>
+      <!-- and every other processor the build uses -->
+    </annotationProcessorPaths>
+    <compilerArgs combine.children="append">
+      <arg>-Atessera.templates=${project.basedir}/src/main/resources/templates</arg>
+      <arg>-Atessera.package=com.example.templates</arg>
+      <arg>-Atessera.messages=${project.basedir}/src/main/resources/messages</arg>
+    </compilerArgs>
+  </configuration>
+  <executions>
+    <execution>
+      <id>default-testCompile</id>
+      <configuration><proc>none</proc></configuration>
+    </execution>
+  </executions>
+</plugin>
 ```
 
-| Option | Required | Meaning |
-|---|---|---|
-| `tessera.templates` | yes | Absolute path of the templates root. Every `**/*.html` below it is a template. |
-| `tessera.package` | no | Package of the generated classes (default `tessera.generated`). |
-| `tessera.messages` | no | Base path of the default message bundle, without `.properties` (`.../messages` reads `messages.properties`). Every `#{key}` is then checked at build time. Without it you get one warning per template that uses messages. |
+`tessera.templates` (required) is the absolute templates root; every `**/*.html` below it is a
+template. `tessera.package` is the generated package (default `tessera.generated`).
+`tessera.messages` is the message bundle's path without `.properties`; with it, every `#{key}` is
+checked at build time. Facts about the build today:
 
-Use absolute paths (`${project.basedir}/...`) so the build does not depend on javac's working
-directory. The processor runs inside your normal `javac`; there is no Maven plugin to add and
-nothing to configure at runtime. If you use `annotationProcessorPaths` for other processors
-(Lombok, MapStruct), list Tessera next to them.
+- `annotationProcessorPaths` turns off processor discovery, so list every processor the build
+  relied on (Lombok, MapStruct, ...) next to Tessera.
+- The processor sees `@TemplateFunctions` classes only when they are compiled in the same javac
+  run (#118). A test compile or an incremental compile without them fails with `unknown identifier
+  or function namespace`: hence `<proc>none</proc>` on test compilation, and `mvn clean compile`
+  (Maven also doesn't recompile when only a template changes).
+- Templates under `src/main/resources` are copied into the jar as resources, so resource
+  filtering rewrites `${...}` in them unless `templates/**` is excluded.
 
-Spring Boot apps also need, as usual for `@PathVariable`/`@RequestParam` binding by name,
-`-parameters` (the Boot parent POM sets it; add it if you set `compilerArgs` yourself).
+**Spring Boot.** The starter's auto-configuration registers the view resolver, the `Template`
+return-value handler and the template registry. Tessera's resolver runs before Thymeleaf's and
+falls through for names it does not know, so the old engine can stay while you migrate.
 
-## 3. Templates and parameters
+**Spring MVC without Boot.** Depend on the starter excluding `org.springframework.boot:*` (the
+classes below need only `spring-webmvc`), and declare what the auto-configuration would.
+`TemplateRegistry` is in `dev.tessera.runtime`, `SpringRenderContexts` in
+`dev.tessera.spring.context`, `TesseraViewResolver` and `TemplateReturnValueHandler` in
+`dev.tessera.spring.view`:
+
+```java
+@Configuration
+public class TesseraConfig implements WebMvcConfigurer {
+  @Bean
+  public TesseraViewResolver tesseraViewResolver() {
+    return new TesseraViewResolver(
+        TemplateRegistry.load(getClass().getClassLoader()), SpringRenderContexts::create);
+  }
+
+  @Bean // redirect: and forward: names; TesseraViewResolver resolves only template names
+  public UrlBasedViewResolver redirectViewResolver() {
+    UrlBasedViewResolver resolver = new UrlBasedViewResolver();
+    resolver.setViewClass(InternalResourceView.class);
+    resolver.setViewNames("redirect:*", "forward:*");
+    return resolver;
+  }
+
+  @Override // only if controllers return Template objects
+  public void addReturnValueHandlers(List<HandlerMethodReturnValueHandler> handlers) {
+    handlers.add(new TemplateReturnValueHandler(SpringRenderContexts::create));
+  }
+}
+```
+
+`TesseraViewResolver` resolves only template names. Under Boot a fallback resolver handles
+`redirect:` and `forward:`; without Boot the old engine's resolver usually did, so removing it
+without a replacement breaks redirects (behind a `ContentNegotiatingViewResolver`, as a 406).
+
+**Error pages.** Under Boot, `templates/error.html` renders errors with Boot's error attributes as
+the model (`Integer status`, `String error`, `String message`, `String path`; `timestamp` is a
+`Date` and not view-safe).
+
+## 3. The migration loop
+
+The old application is the specification. Record it, then convert and check one template at a
+time.
+
+**1. List every page.** Write a `pages.txt` that reaches every view in every state that renders
+differently: each form empty, with validation errors and after success; logged out and logged in
+as each role; empty and full lists; error pages.
+
+```text
+# One request per line, run in order with one cookie jar.
+GET /owners/new
+POST /owners/new firstName=&lastName=
+POST /owners/new firstName=Ann&lastName=Lee&city=Paris&telephone=0123456789
+GET /owners/1
+POST /login username=admin&password=admin
+```
+
+A `POST` sends the `_csrf` hidden input of the previous page, so `GET` a form before posting it.
+Start the app from the same data for every run (fixed seed data in an in-memory database, for
+example), and let the list create the data it needs.
+
+**2. Record the old app** before changing anything:
+
+```sh
+MIGRATE=~/.m2/repository/dev/tessera/tessera-migrate/<version>/tessera-migrate-<version>.jar
+java -jar $MIGRATE record http://localhost:8080 pages.txt baseline/
+```
+
+This saves each response in `baseline/` (the body as `NN.html`; status, final URL and request in
+`index.tsv`). Today's date is masked when comparing, but a page that shows a random value, the
+time or the host name will differ on every run: fix the data or drop the request. `compare`
+refuses a `pages.txt` that doesn't match the recording, so if you change it, record again.
+
+**3. Set up the build** (section 2). Add `@TemplateView` to the classes templates read, or make
+them records.
+
+**4. Convert one template at a time.** Shared fragments and layouts first, since pages depend on
+them. For each template: find every value it reads and make sure the model provides it; declare
+the parameters with their real types; rewrite the markup (section 4); run `mvn clean compile` and
+fix each error with the catalogue (section 6).
+
+For Thymeleaf, `tessera-migrate` does the mechanical rewrite of a whole directory first:
+`java -jar $MIGRATE <old-templates-dir> <new-templates-dir> --report migrate-report.md`. It
+converts `th:` attributes, utility objects and common string-built links, stubs `t:params` and
+fragment parameter types as `Object` (which fails to compile until you write the real types), and
+lists what it could not convert by `file:line`.
+
+**5. Compare** against the new app, started from the same data:
+
+```sh
+java -jar $MIGRATE compare http://localhost:8080 pages.txt baseline/
+```
+
+It compares the status, the final URL after redirects, and the page as a browser would build it,
+not the bytes: whitespace runs, attribute and class order, optional end tags, comments and CSRF
+tokens don't count. Each page prints one line, `NN same|reordered|differs REQUEST`. `reordered`
+means the same elements with siblings in another order; it passes, but its diff is printed so you
+can check that what moved is harmless (validation messages from a `HashSet`, yes; table rows that
+lost their sort order, no). A `differs` page lists a changed status or final URL and a unified
+diff of the normalized page. It exits 0 only if every page is `same` or `reordered` with its
+recorded status and final URL. For each difference, fix it, or decide it is right and write down
+why. Few are right: output now escaped where the old engine printed it raw, or broken
+markup the old engine passed through. An empty value, or a 500 from a `NullPointerException`, is
+nearly always a value the old template got from outside the model. A 302 that became 406 or 500 is
+view-resolver wiring (section 2).
+
+Compare after each template or small group, not only at the end, and run the tests. Controller
+tests that use `standaloneSetup` never render a view, so add one that renders through the real
+resolvers and checks that `<script>` in user data comes out escaped.
+
+**6. Remove the old engine**: its templates, dependency and configuration. Build, test and compare
+once more.
+
+## 4. Reference
+
+### 4.1 Templates and parameters
 
 A template is an HTML file. Its view name is its path under the templates root without `.html`
 (`owners/list.html` is `owners/list`). The first element carries the header:
@@ -144,51 +300,41 @@ import java.math.BigDecimal;
 public record Order(String number, BigDecimal total) {}
 ```
 
-- `xmlns:t="https://tessera.dev"` and the header attributes are removed from the output.
-- `t:params` lists the parameters with Java types: `Type name, Type name`. Generics and arrays
-  work. A template without `t:params` takes no parameters. Header attributes are only allowed on
-  the first element.
-- `t:import` is a comma-separated list of classes (`com.example.Owner`) or packages
-  (`com.example.*`). `java.lang`, `java.util`, `java.time`, `java.math` and `dev.tessera.runtime`
-  are always imported.
-- With Spring, each parameter is read from the model attribute of the same name (section 12).
-  A missing attribute is `null` (a primitive parameter must be present).
-- The generated class is `<package>.<path>.<Name>Template`: `guide/hello.html` becomes
-  `com.example.templates.guide.HelloTemplate`, with `of(Customer, List<Order>, boolean)`.
+- The namespace and header attributes (first element only) are removed from the output.
+- `t:params` is `Type name, ...` with Java types; generics, arrays and nested classes
+  (`Outer.Inner`) work. A primitive parameter must be present in the model.
+- `t:import` lists classes or packages (`com.example.*`). `java.lang`, `java.util`, `java.time`,
+  `java.math` and `dev.tessera.runtime` are always imported.
+- `guide/hello.html` compiles to `com.example.templates.guide.HelloTemplate` with
+  `of(Customer, List<Order>, boolean)`.
+- Static attribute values and text are prototypes that `t:` attributes replace. `<t:block>`
+  renders only its content. HTML comments are copied to the output.
 
-The file stays a valid HTML page: static attribute values and element text are prototypes that
-`t:` attributes replace, as in Thymeleaf. `<t:block>` is an element that renders only its
-content.
+### 4.2 View types
 
-## 4. View types
-
-Templates may read only **view-safe** types. Everything the template reads, including every
-intermediate value of a property chain, is checked at build time.
+Templates may read only **view-safe** types, checked at build time for every step of a property
+chain.
 
 **View-safe:** primitives and their boxes, `String`/`CharSequence`, enums, records, `java.time`
 values, `BigDecimal`, `BigInteger`, `Optional`, `Iterable`, `Collection`, `List`, `Set`, `Map`,
 `Map.Entry` and arrays of view-safe types, `LoopStatus`, `SafeHtml`, `TrustedUrl`, and classes
 annotated `@TemplateView`. `Fragment` and `Field` are allowed as fragment parameters.
 
-**Never view-safe**, even if annotated or registered: `Object` and its methods (`getClass`,
-`hashCode`, `toString`, `wait`, ...), `Class`, `ClassLoader`, `java.lang.reflect.*`,
-`java.lang.invoke.*`, `Thread`, `Runtime`, `Process`, `ProcessBuilder`, `System`, `Module`,
-`java.io.File`, `java.nio.file.*`, `javax.script.*`, servlet types, and Spring `context`,
-`beans`, `core.env`, `core.io`, `web.context` and `expression` packages.
+**Never view-safe**, even if annotated: `Object` and its methods, `Class`, reflection, threads,
+processes, `System`, files, scripting, servlet types, and Spring context, bean, environment and
+expression types.
 
-What a template can read on a view-safe type:
+On a view-safe type a template can read:
 
 - record components: `owner.name` calls `owner.name()`;
 - public no-argument getters: `owner.name`, `owner.name()` and `owner.getName()` all call
-  `getName()`; `isX()` for booleans;
+  `getName()`; `isX()` for booleans (`new` is a keyword: write `pet.isNew()`);
 - built-ins: `size()`/`isEmpty()` on collections and maps, `length` on arrays, `length()` and
   `isEmpty()` on strings, `first`/`last` on lists;
 - index access: `list[0]`, `array[i]`, `map['key']`.
 
-Nothing else: no methods with arguments, no setters, no static members.
-
-**Porting the model.** Records need nothing. For JPA entities and other classes, add
-`@TemplateView`:
+Nothing else. For entities and other classes, add `@TemplateView`; getters inherited from an
+unannotated superclass (a JPA `@MappedSuperclass`) resolve through the annotated class:
 
 <!-- compile: java -->
 ```java
@@ -200,92 +346,45 @@ import java.util.List;
 @TemplateView
 public class Account {
   private final String email;
-  private final boolean active;
   private final List<String> roles;
 
-  public Account(String email, boolean active, List<String> roles) {
-    this.email = email;
-    this.active = active;
-    this.roles = roles;
-  }
+  public Account(String email, List<String> roles) { this.email = email; this.roles = roles; }
 
   public String getEmail() { return email; }
-  public boolean isActive() { return active; }
   public List<String> getRoles() { return roles; }
-  public void deactivate() { } // not reachable from templates: not a getter
+  public void deactivate() { } // not a getter: templates cannot call it
 }
 ```
 
-Getters inherited from unannotated superclasses (JPA `@MappedSuperclass`es) resolve through the
-annotated subclass. If a page needs computed data, add a getter or a record built by the
-controller rather than calling methods from the template. `java.util.Date` and `Calendar` are not
-view-safe: convert them to `java.time` types.
+### 4.3 Expressions and attributes
 
-## 5. Expressions
+Expressions and attributes are Thymeleaf's Standard dialect with `t:` for `th:`, minus everything
+that runs code. What differs:
 
-The expression language is a safe subset of Thymeleaf's Standard Expression syntax.
+- `${...}` is optional (`t:text="owner.name"`). `*{...}` works only inside `t:object`, for one
+  property path. Utility objects are function namespaces (section 4.6); `#ctx`, `#request`,
+  `#dates` and the rest don't exist.
+- Message keys, link paths and fragment references are literals. Not supported: `T(...)`, `new`,
+  `@bean`, `__...__`, assignment, lambdas, `.?[...]`/`.![...]`, `div`/`mod` (use `/`, `%`).
+- `==` is `Objects.equals`; an enum compared with a string literal compares the constant name, and
+  the constant must exist. `c ? a` without else is `null`. Both sides of `?:` and of `c ? a : b`
+  need compatible types.
+- `|...|` and `+` are Java string concatenation, so a `null` operand prints `null`. To print
+  nothing for a null non-String, as EL does, write `x == null ? '' : '' + x` (`x ?: ''` works only
+  when `x` is a String).
+- Attributes on one element run in Thymeleaf's order: `t:fragment` → `t:insert`/`t:replace` →
+  `t:each` → `t:if`/`t:unless`/`t:switch`/`t:case` → `t:object`/`t:with` → other attributes →
+  `t:text`/`t:utext`/`t:errors` → `t:remove`. So `t:if` does not guard a `t:replace` on the same
+  element: put it on an enclosing element or a `<t:block>` (Thymeleaf's `th:block`).
+- `t:each` iterates an Iterable, array or Map (`e.key`, `e.value`); status `index`, `count`,
+  `size`, `first`, `last`, `even`, `odd`, implicit name `xStat`. `t:with` locals are immutable.
+  `t:remove` takes a literal (`all`, `body`, `tag`, `all-but-first`, `none`).
+- Any `t:<name>` sets that attribute; `null` omits it, and boolean attributes (`t:checked`,
+  `t:disabled`, ...) render `name="name"` or nothing. `t:utext` and `[(...)]` need a `SafeHtml`.
+- Not supported: `th:attrappend`/`attrprepend`, `th:alt-title`, `th:lang-xmllang`, `th:assert`,
+  `th:include` (use `t:insert`) and `th:inline` (in a `<script>`, `[[...]]` writes JSON).
 
-| Construct | Example | Notes |
-|---|---|---|
-| Variable, property | `owner.address.city` | `${...}` around an expression is accepted and ignored: `${owner.name}` = `owner.name`. |
-| Safe navigation | `owner?.address?.city` | `null` if any step is null. |
-| Index | `items[0]`, `prices['apple']` | List, array, Map. |
-| Literals | `'text'`, `'it\'s'`, `42`, `42L`, `1.5`, `true`, `false`, `null` | |
-| Arithmetic | `a + b`, `-`, `*`, `/`, `%` | `+` with a String operand concatenates. `div` and `mod` are not supported. |
-| Comparison | `==`, `!=`, `<`, `>`, `<=`, `>=`, `eq ne lt gt le ge` | `==` is `Objects.equals`; an enum compared with a string literal compares the constant name (and the constant must exist). |
-| Logic | `&&`, `\|\|`, `!`, `and`, `or`, `not` | |
-| Conditional | `c ? a : b`, `c ? a`, `value ?: 'default'` | `c ? a` without else is `null`. |
-| Literal substitution | `\|Hello, ${name}!\|` | |
-| Selection | `*{firstName}` | Inside `t:object` only; a single property path. |
-| Message | `#{welcome(user.name)}` | Key must be a literal. |
-| Link | `@{/owners/{id}(id=o.id, q=term)}` | Path must be a literal. |
-| Function | `strings.abbreviate(s, 20)` or `#strings.abbreviate(s, 20)` | Registered functions only. |
-| Fragment | `~{fragments/layout :: layout(~{::body}, 'home')}` | `t:insert`/`t:replace` and fragment arguments only. |
-
-Attribute values are HTML-decoded first, so `&lt;` and `&amp;&amp;` work. Truthiness in
-`t:if`/`t:unless` follows Thymeleaf: `null` and `0` are false, a String is false only for
-`"false"`, `"off"` and `"no"`, anything else non-null is true. Iterating `null` gives zero
-iterations; `null` text renders empty and a `null` attribute value omits the attribute.
-
-**Rejected on purpose** (each has a specific diagnostic, section 16): `T(...)`, `new`,
-`@bean`, `__...__` preprocessing, assignment `=`, lambdas `->`, collection selection `.?[...]`
-and projection `.![...]`, dynamic message keys and link paths, bare calls `fn(x)`, and any
-method call that is not a getter or built-in. Utility objects other than functions (`#ctx`,
-`#vars`, `#request`, `#session`, `#execInfo`, `#locale`, `#dates`, `#calendars`, ...) do not
-exist.
-
-## 6. Attributes
-
-Attributes on one element run in this fixed order (as in Thymeleaf):
-`t:fragment` → `t:insert`/`t:replace` → `t:each` → `t:if`/`t:unless`/`t:switch`/`t:case` →
-`t:object`/`t:with` → `t:attr`, `t:<name>`, `t:field`, `t:classappend`, `t:errorclass` →
-`t:text`/`t:utext`/`t:errors` → `t:remove`.
-
-| Attribute | Example | Effect |
-|---|---|---|
-| `t:text` | `t:text="owner.name"` | Replaces the body with the escaped value. |
-| `t:utext` | `t:utext="bio"` | Replaces the body with raw HTML; the value must be a `SafeHtml`. |
-| `[[...]]`, `[(...)]` | `Hello [[${name}]]` | Inline output in text; `[(...)]` needs `SafeHtml`. |
-| `t:if`, `t:unless` | `t:if="owner.pets.isEmpty()"` | Renders the element only if the condition holds (or does not). |
-| `t:switch`, `t:case` | `t:switch="status"` with children `t:case="'ACTIVE'"`, `t:case="*"` | First matching case renders; `*` is the default. |
-| `t:each` | `t:each="pet, stat : owner.pets"` | Repeats the element. Iterates Iterables, arrays and Maps (`e.key`, `e.value`). Status: `index`, `count`, `size`, `first`, `last`, `even`, `odd`; implicit name `petStat`. |
-| `t:with` | `t:with="total=order.total, n=order.lines.size()"` | Local variables for the element; later ones see earlier ones. |
-| `t:remove` | `t:remove="all"` | `all`, `body`, `tag`, `all-but-first` or `none` (literal). |
-| `t:<name>` | `t:href`, `t:src`, `t:value`, `t:id`, `t:title`, `t:class`, `t:data-id` | Sets that attribute, replacing a static one. `null` omits it. |
-| boolean attributes | `t:disabled="!owner.active"` | `checked`, `selected`, `disabled`, `readonly`, `required`, `multiple`, `hidden`, ... render `name="name"` or nothing. |
-| `t:attr` | `t:attr="title=o.name, data-id=o.id"` | Several attributes at once. |
-| `t:classappend` | `t:classappend="active ? 'on'"` | Appends to the static or computed `class`. |
-| `t:object`, `t:field`, `t:errors`, `t:errorclass` | | Forms, section 10. |
-| `t:fragment`, `t:insert`, `t:replace` | | Fragments, section 11. |
-| `<t:block>` | `<t:block t:each="x : xs">...</t:block>` | Renders only its content. |
-
-`t:text` with `t:utext`, and `t:insert` with `t:replace`, cannot share an element. Any `t:` name
-not listed above is a generic attribute (`t:aria-label`, `t:min`, `t:for`). Thymeleaf-only
-attributes with no Tessera equivalent: `th:attrappend`, `th:attrprepend`, `th:alt-title`,
-`th:lang-xmllang`, `th:inline`, `th:include`, `th:assert`; write the plain attribute or use
-`t:attr` instead.
-
-## 7. Escaping and output contexts
+### 4.4 Escaping and output contexts
 
 The compiler decides the context from the element and attribute name. You cannot override it.
 
@@ -301,10 +400,9 @@ The compiler decides the context from the element and attribute name. You cannot
 | Event handler | `on*` attributes | Build error; put data in `data-*` attributes and read them from a script. |
 | Forbidden | `srcdoc`, `content` of `<meta http-equiv="refresh">`, non-JS `<script type>` | Build error. `<script type>` and `<meta http-equiv>` cannot be computed. |
 
-To output trusted markup, build a `SafeHtml` in Java: `SafeHtml.escape(text)`,
-`SafeHtml.of(template, ctx)` (another template's output) or `SafeHtml.unchecked(html)` for
-markup you have sanitized (every call is a review point). `TrustedUrl.unchecked(url)` does the
-same for URLs.
+Trusted markup is a `SafeHtml` built in Java: `SafeHtml.escape(text)`, `SafeHtml.of(template, ctx)`
+(another template's output), or `SafeHtml.unchecked(html)` for sanitized markup (a review point).
+`TrustedUrl.unchecked(url)` is the same for URLs.
 
 <!-- compile: template guide/contexts.html -->
 ```html
@@ -320,44 +418,34 @@ same for URLs.
 </div>
 ```
 
-## 8. Messages and links
+### 4.5 Messages and links
 
 **Messages.** `#{key}` and `#{key(arg1, arg2)}` render through the application's messages (Spring
-`MessageSource` with the starter; `MessageFormat` placeholders `{0}`). The key is a literal; for
-a computed choice, use a conditional: `active ? #{status.active} : #{status.inactive}`. A message
-is plain text and is escaped like any other value. A missing key renders `??key_locale??` at
-runtime; with `-Atessera.messages` it is a build error instead.
+`MessageSource` with the starter; `MessageFormat` placeholders `{0}`). The key is a literal; for a
+computed choice, use a conditional: `active ? #{status.active} : #{status.inactive}`. A message is
+text and is escaped. A missing key renders `??key_locale??` at runtime; with `-Atessera.messages`
+it is a build error instead.
 
-**Links.** `@{...}` takes a literal path with `{var}` placeholders and parameters in
-parentheses:
+**Links** are Thymeleaf's: `@{/owners/{id}(id=owner.id, q=term)}` fills `{id}` (percent-encoded)
+and turns other parameters into a query string; `@{{id}/edit(id=x)}` is page-relative; absolute
+links must be `http`/`https`. Links get the context path and `response.encodeURL`. A `null` path
+variable fails the render. A URL computed in Java goes in `t:href` as a `String` (scheme-checked)
+or `TrustedUrl`, without the context path.
 
-| Link | Renders (context path `/app`) |
-|---|---|
-| `@{/owners}` | `/app/owners` |
-| `@{/owners/{id}(id=owner.id)}` | `/app/owners/7` (path variable, percent-encoded) |
-| `@{/owners(page=2, q=term)}` | `/app/owners?page=2&q=...` (other parameters become query parameters) |
-| `@{{id}/edit(id=owner.id)}` | `7/edit` (page-relative) |
-| `@{https://example.com/x}` | unchanged; only `http`/`https` absolute links are allowed |
+### 4.6 Functions
 
-A `null` path variable fails the render; a `null` query parameter renders its bare name. Links
-are built through `RenderContext.links()`, which applies the context path and (with Spring)
-`response.encodeURL`.
-
-## 9. Functions
-
-Templates call functions as `namespace.fn(args)` or, Thymeleaf style, `#namespace.fn(args)`.
+Templates call functions as `namespace.fn(args)` or `#namespace.fn(args)`.
 
 | Namespace | Functions |
 |---|---|
 | `strings` | `isEmpty`, `isBlank`, `defaultString(s, def)`, `abbreviate(s, max)`, `toUpperCase`, `toLowerCase`, `capitalize`, `trim`, `contains(s, part)`, `startsWith`, `endsWith`, `substring(s, start[, end])`, `replace(s, before, after)`, `join(iterable, sep)` |
-| `numbers` | `formatInteger(n, minDigits)`, `formatDecimal(n, minIntDigits, decimals)`, `sequence(from, to)` (a `List<Integer>`, for pagination) |
-| `temporals` | `format(temporal, pattern)`, `formatIso(temporal)` |
-| `lists` | `size`, `isEmpty`, `contains(list, x)` (null-tolerant) |
+| `numbers` | `formatInteger(n, minDigits)`, `formatDecimal(n, minIntDigits, decimals)` (no grouping, `.` as decimal point), `sequence(from, to)` (a `List<Integer>`) |
+| `temporals` | `format(temporal, pattern)` (English month and day names), `formatIso(temporal)` |
+| `lists` | `size`, `isEmpty`, `contains(list, x)` |
 | `auth` (Spring starter) | `isAuthenticated()`, `hasRole('ADMIN')`, `hasAnyRole('A', 'B')`, `name()` |
-| `fields` (inside `t:object`) | `hasErrors('path')`, `hasErrors('*')`, `errors('path')`, section 10 |
+| `fields` (inside `t:object`) | `hasErrors('path')`, `hasErrors('*')`, `errors('path')`, section 4.7 |
 
-All built-ins are null-tolerant like Thymeleaf's utility objects. Add your own namespace with a
-class in your application:
+All built-ins are null-tolerant. Add your own namespace with a class in your application:
 
 <!-- compile: java -->
 ```java
@@ -370,8 +458,6 @@ import java.math.RoundingMode;
 
 @TemplateFunctions("money")
 public final class Money {
-  private Money() {}
-
   @TemplateFunction
   public static String euros(BigDecimal amount) {
     return amount == null ? "" : "€" + amount.setScale(2, RoundingMode.HALF_UP);
@@ -387,15 +473,13 @@ public final class Money {
 </p>
 ```
 
-Rules: the class is annotated `@TemplateFunctions("ns")` and public; each method is `public
-static`, annotated `@TemplateFunction`, and returns a value. Parameter and return types must not
-be never-view-safe (`Object` is allowed as a parameter type). The class must be compiled in the
-same `javac` run as the templates. `fields` is reserved.
+The class is public; each method is `public static`, annotated `@TemplateFunction`, and returns a
+value whose type is not never-view-safe (`Object` is allowed for parameters). The class must be in
+the same `javac` run as the templates (section 2). `fields` is reserved.
 
-## 10. Forms
+### 4.7 Forms
 
-`t:object` names the form object; it must be a variable (a `t:param` or local), and its name is
-the Spring model attribute name used for binding and errors.
+`t:object` names the form object: a variable whose name is the model attribute that Spring binds.
 
 <!-- compile: template guide/signup.html -->
 ```html
@@ -439,23 +523,17 @@ package com.example.guide;
 public record Address(String street) {}
 ```
 
-- `t:field="email"` or `t:field="*{email}"` works on `<input>`, `<select>` and `<textarea>`. The
-  path is checked against the `t:object` type at build time; nested paths work. It writes `id`
-  (unless present), `name` and the bound value (after a failed bind, the rejected value).
-  Checkboxes and radios get `checked`; options of a `<select t:field>` get `selected`. Password
-  inputs never echo the value.
-- `t:errors="*{email}"` renders the field's messages (escaped, joined by `<br />`) or removes the
-  element when there are none. `t:errors="*"` shows all errors.
-- `t:errorclass="error"` on an element with `t:field` appends that class when the field has
-  errors.
-- `fields.hasErrors('path')`, `fields.hasErrors('*')` and `fields.errors('path')` work inside
-  `t:object`. The argument is a string literal.
-- A `<form method="post">` gets the CSRF hidden input automatically when Spring Security provides
-  a token.
-- Dynamic field names (`*{__${name}__}`) are not supported. For a reusable field fragment,
-  declare a `Field` parameter (section 11).
+- `t:field` (`email` or `*{email}`, checked against the `t:object` type) works on `<input>`,
+  `<select>` and `<textarea>`. It writes `id` (unless present; not on radios), `name` and the
+  `BindingResult`'s display value (omitted when null; never on passwords). Checkboxes and radios
+  get `checked`, options of a `<select t:field>` get `selected`.
+- `t:errors` renders the field's messages escaped and joined by `<br />`, or removes the element
+  if there are none (`*` for all). For other markup, loop over `fields.errors('email')`.
+- `t:errorclass="error"` next to `t:field` appends the class when the field has errors.
+- `fields.*` arguments are string literals. A `<form method="post">` gets the CSRF input
+  automatically when Spring Security provides a token.
 
-## 11. Fragments and layouts
+### 4.8 Fragments and layouts
 
 A fragment is an element with `t:fragment`. Parameters are typed, and **a fragment sees only its
 parameters**, never the caller's variables.
@@ -472,8 +550,7 @@ parameters**, never the caller's variables.
 </div>
 ```
 
-Calls use `t:insert` (keep the host element, fragment becomes its body) or `t:replace` (the
-fragment replaces the host):
+`t:insert` keeps the host element and makes the fragment its body; `t:replace` replaces the host:
 
 <!-- compile: template guide/cards-page.html -->
 ```html
@@ -486,29 +563,29 @@ fragment replaces the host):
 </main>
 ```
 
-- References: `~{path :: name(args)}`, `path :: name(args)`, `~{:: name}` or `~{this :: name}`
-  (same file), or an expression of type `Fragment`. Paths are relative to the templates root,
-  without `.html`, `.`/`..` or a leading `/`.
-- Arguments are positional or all named, and type-checked against the signature.
-- `~{::name}` as an argument is a `Fragment` over the same-file fragment `name` (which, like
-  every fragment, sees only its own parameters), or else over the first element whose tag is
-  `name` (`~{::dl}`, `~{::body}`). A selected element renders with the variables visible at the
-  call site. Put it inside the `t:replace` host, as above, so it does not also render in place.
-- A parameterized fragment is skipped when its template renders as a page; a fragment without
-  parameters renders in place.
-- Markup selectors other than fragment names and tag names (`~{::#id}`, `~{:: .class}`,
-  `~{::div[@x]}`) are not supported.
+- References: `~{path :: name(args)}`, `path :: name(args)`, `~{::name}` (same file), or a
+  `Fragment` value. Paths are relative to the templates root, without `.html`.
+- Arguments are positional or all named, and type-checked. A `String` argument can be a link
+  `@{...}` or a message.
+- `~{::name}` is a `Fragment` over the same-file fragment `name`, or else the first element with
+  tag `name` (`~{::dl}`), rendered with the call site's variables. Put it inside the host so it
+  does not also render in place. Other selectors (`#id`, `.class`) are not supported.
+- A `null` `Fragment` renders nothing, so a `Fragment` parameter can be optional.
+- A parameterized fragment is skipped when its template renders as a page; one without parameters
+  renders in place. Fragments may call themselves.
 
-**Layouts.** The layout is a fragment taking `Fragment` parameters; each page replaces itself
-with the layout and passes its own `<body>`:
+**Layouts.** The layout is a fragment with `Fragment` parameters. Each page replaces itself with
+the layout and passes its `<body>`, marked `t:remove="tag"` so that only the body's children are
+inserted (without it you get a `<body>` inside the layout's `<body>`):
 
 <!-- compile: template guide/fragments/layout.html -->
 ```html
 <!DOCTYPE html>
-<html xmlns:t="https://tessera.dev" t:fragment="layout(Fragment content, String title)">
+<html xmlns:t="https://tessera.dev" t:fragment="layout(Fragment content, String title, Fragment head)">
 <head>
-  <title t:text="title">Example</title>
+  <title t:text="|${title} - Example|">Example</title>
   <link rel="stylesheet" t:href="@{/css/app.css}" />
+  <t:block t:replace="head"></t:block>
 </head>
 <body>
   <nav><a t:href="@{/}">Home</a></nav>
@@ -521,19 +598,19 @@ with the layout and passes its own `<body>`:
 ```html
 <!DOCTYPE html>
 <html xmlns:t="https://tessera.dev" t:import="com.example.guide.Customer" t:params="Customer customer"
-      t:replace="~{guide/fragments/layout :: layout(~{::body}, 'Home')}">
-<body>
+      t:replace="~{guide/fragments/layout :: layout(~{::body}, 'Home', null)}">
+<body t:remove="tag">
   <h1 t:text="|Welcome, ${customer.name}|">Welcome</h1>
 </body>
 </html>
 ```
 
-The layout dialect (`layout:decorate`, `layout:fragment`) is not supported; this pattern replaces
-it. If the layout needs a value from the page (the active menu entry, a title), pass it as a
-parameter.
+This replaces decorator layouts (`layout:decorate`, Mustache parents, JSP layout tags). What a
+decorator merged, the layout takes as parameters: the title (and its pattern), page-specific
+`<head>` content as a `Fragment` from a same-file fragment or `null`, the active menu entry.
 
-**Reusable form fields.** A `Field` parameter takes a field path that the compiler checks
-against the caller's `t:object`:
+**Reusable form fields.** A `Field` parameter takes a field path that the compiler checks against
+the caller's `t:object`:
 
 <!-- compile: template guide/fragments/fields.html -->
 ```html
@@ -556,309 +633,60 @@ against the caller's `t:object`:
 </form>
 ```
 
-The argument for a `Field` parameter is a string literal (or a `Field` parameter passed on), and
-the call must be inside `t:object`. Inside the fragment, `t:field`, `t:errors`, `t:errorclass`,
-`fields.hasErrors(name)` and `fields.errors(name)` accept it, and printing it (`t:for="name"`)
-writes the path. Templates cannot read the field's value. `Field` cannot be a `t:params` type.
+The argument is a string literal (or a `Field` passed on) inside `t:object`. The form attributes
+and `fields.*` accept it; printing it writes the path. The fragment cannot read the field's value:
+pass it as another argument if needed.
 
-## 12. Spring integration and rendering
+### 4.9 Rendering
 
-With `tessera-spring-boot-starter` on the classpath:
+With Spring, `return "owners/list";` renders `templates/owners/list.html` from the model. The name
+must match exactly; other names fall through to other resolvers. A model value of the wrong type
+fails with `TemplateModelException`. A controller can also return `ListTemplate.of(owners)`, checked
+by `javac`. Without Spring, call `FunctionsTemplate.of(order).renderToString(ctx)` with a
+`RenderContext(locale, messages, links, forms)`, the whole ambient surface (`RenderContext.defaults()`,
+`ResourceBundleMessages`, `DefaultLinks(contextPath)`). `TemplateRegistry.load(classLoader)` finds
+templates by view name.
 
-- Controllers keep returning view names. `return "owners/list";` renders
-  `templates/owners/list.html`, reading each `t:params` entry from the model attribute of the
-  same name. A model value of the wrong type fails with `TemplateModelException` naming the
-  parameter and both types. Names that are not templates fall through to other view resolvers,
-  and `redirect:`/`forward:` work as usual.
-- Or return the template itself, typed and checked by `javac`:
-  `return ListTemplate.of(owners, page);` (any method returning a `dev.tessera.runtime.Template`).
-- Messages come from Spring's `MessageSource` (`spring.messages.basename`), the locale from the
-  `LocaleResolver`, links get the context path and `response.encodeURL`, `t:field`/`t:errors`
-  read the `BindingResult`, and the CSRF token comes from Spring Security.
-- Remove `spring-boot-starter-thymeleaf` (or keep it while you migrate page by page: Tessera's
-  resolver runs first and falls through for names it does not know).
-- `@WebMvcTest` slices load Tessera's auto-configuration, so MockMvc tests render pages.
+## 5. Worked example
 
-Without Spring, render a template directly:
+The product list and home page of Thymeleaf's *Good Thymes Virtual Grocery* (gtvg), through the
+loop. `pages.txt` is `GET /product/list` and `GET /`, recorded from the running old app.
 
-<!-- compile: java -->
-```java
-package com.example.guide;
-
-import com.example.templates.guide.FunctionsTemplate;
-import dev.tessera.runtime.RenderContext;
-import java.math.BigDecimal;
-
-public final class RenderExample {
-  private RenderExample() {}
-
-  public static String render() {
-    Order order = new Order("ORD-12345678", new BigDecimal("9.5"));
-    return FunctionsTemplate.of(order).renderToString(RenderContext.defaults());
-  }
-}
-```
-
-`RenderContext(locale, messages, links, forms)` is the entire ambient surface: build one with your
-own `Messages` (for example `ResourceBundleMessages`) and `DefaultLinks(contextPath)`.
-`TemplateRegistry.load(classLoader)` finds every compiled template by view name if you need
-name-based lookup (`registry.find("owners/list")`). A template without parameters is rendered
-with `XTemplate.of().render(ctx, out)`.
-
-## 13. Mapping tables
-
-### From Thymeleaf
-
-Start with `tessera-migrate` (section 14); it does the mechanical part of this table.
-
-| Thymeleaf | Tessera |
-|---|---|
-| `xmlns:th="http://www.thymeleaf.org"` | `xmlns:t="https://tessera.dev"` plus `t:params`/`t:import` on the root |
-| `th:text`, `th:utext` | `t:text`, `t:utext` (value must be `SafeHtml`; for messages use `t:text`) |
-| `th:if`, `th:unless`, `th:switch`, `th:case`, `th:each`, `th:with`, `th:remove`, `th:block` | `t:` with the same name; `th:block` → `<t:block>` |
-| `th:href`, `th:src`, `th:action`, `th:value`, `th:id`, `th:title`, `th:class`, ... | `t:href`, ... (same name) |
-| `th:attr="a=${x}"` | `t:attr="a=x"` |
-| `th:classappend` | `t:classappend` |
-| `th:styleappend`, `th:style` | build error: use classes (`t:classappend`) |
-| `th:onclick` and other `th:on*` | build error: `t:data-*` attribute + script |
-| `th:inline="javascript"` with `/*[[${x}]]*/` | `[[${x}]]` directly in `<script>` (JSON-encoded); no `th:inline` |
-| `th:object`, `*{...}`, `th:field`, `th:errors`, `th:errorclass` | same with `t:`; `th:object` must name a variable |
-| `th:fragment="f(a, b)"` | `t:fragment="f(Type a, Type b)"`; `Fragment` for markup params |
-| `th:insert`, `th:replace` | same; `th:include` → `t:insert` (`t:insert` keeps the host, inserts the whole fragment element) |
-| `layout:decorate`, `layout:fragment` | layout fragment with `Fragment` params (section 11) |
-| `sec:authorize="hasRole('ADMIN')"` | `t:if="auth.hasRole('ADMIN')"` |
-| `${x.y}`, `${x?.y}`, `${x} ?: 'd'` | same (wrapper optional) |
-| `#{key(${a})}` | `#{key(a)}` |
-| `@{/p/{id}(id=${x})}` | same |
-| `@{/p/__${x}__}`, `@{'/p?k=' + ${x}}` | `@{/p/{x}(x=x)}`, `@{/p(k=x)}` |
-| `*{__${name}__}` | a `Field` fragment parameter (section 11) |
-| `${#lists.isEmpty(x)}`, `${#lists.size(x)}` | `x.isEmpty()`, `x.size()` |
-| `${#strings.*}`, `${#numbers.*}`, `${#temporals.*}` | `strings.*`, `numbers.*`, `temporals.*` (same names; `listJoin` → `join`) |
-| `${#dates.format(d, p)}`, `${#calendars.format(c, p)}` | convert to `java.time`, then `temporals.format(d, p)` |
-| `#fields.hasErrors('x')`, `#fields.hasAnyErrors()`, `#fields.allErrors()` | `fields.hasErrors('x')`, `fields.hasErrors('*')`, `fields.errors('*')` |
-| `${x['new']}` (SpEL bean property) | `x.isNew()` |
-| `${s.toUpperCase()}` and other method calls | `strings.toUpperCase(s)` or a `@TemplateFunction` |
-| `th:class="nav-item"` (literal token) | `class="nav-item"` or `t:class="'nav-item'"` |
-| `${a div b}`, `${a mod b}` | `a / b`, `a % b` |
-| `${session.x}`, `${param.x}`, `${#request...}`, `${@bean.m()}`, `${T(C).m()}` | put the value in the model and declare it in `t:params` |
-| `${list.?[cond]}`, `${list.![prop]}` | compute in the controller or a `@TemplateFunction` |
-
-### From FreeMarker
-
-| FreeMarker | Tessera |
-|---|---|
-| `${x}` | `[[${x}]]` in text, or `t:text="x"` on an element |
-| `${x?no_esc}`, `<#noautoesc>` | `t:utext="x"` with `x` a `SafeHtml` |
-| `${x!"default"}`, `x??` | `x ?: 'default'`, `x != null` |
-| `<#if c>…<#elseif d>…<#else>…</#if>` | `t:if="c"`, `t:if="!c and d"`, `t:unless="c or d"`; or `t:switch`/`t:case` on a value |
-| `<#list xs as x>…<#sep>, </#list>` | `<t:block t:each="x, s : xs">…<t:block t:unless="s.last">, </t:block></t:block>` |
-| `x?index`, `x?counter`, `x?has_next`, `x?is_first` | `s.index`, `s.count`, `!s.last`, `s.first` |
-| `<#list 1..n as i>` | `t:each="i : numbers.sequence(1, n)"` |
-| `<#assign x = e>`, `<#local>` | `t:with="x=e"` on the enclosing element |
-| `<#include "header.ftl">` | `t:insert="~{header :: header}"` (declare `t:fragment="header"` in `header.html`) |
-| `<#macro card title><div>${title}<#nested></div></#macro>` | `t:fragment="card(String title, Fragment body)"`, `t:replace="body"` where `<#nested>` was |
-| `<@lib.card title="T">…</@lib.card>` | `t:replace="~{lib :: card('T', ~{::cardBody})}"` with the body in a same-file `t:fragment="cardBody"` |
-| `x?size`, `x?has_content` | `x.size()`, `!lists.isEmpty(x)` or `!strings.isEmpty(x)` |
-| `x?upper_case`, `x?lower_case`, `x?cap_first`, `x?trim`, `x?join(", ")` | `strings.toUpperCase(x)`, `strings.toLowerCase(x)`, `strings.capitalize(x)`, `strings.trim(x)`, `strings.join(x, ', ')` |
-| `n?string("0.00")`, `d?string("yyyy-MM-dd")` | `numbers.formatDecimal(n, 1, 2)`, `temporals.format(d, 'yyyy-MM-dd')` |
-| `<@spring.message "k"/>`, `<@spring.url "/x"/>` | `#{k}`, `@{/x}` |
-| `<@spring.formInput "owner.name"/>`, `<@spring.showErrors "<br>"/>` | `<input t:field="*{name}">` inside `t:object="owner"`, `<span t:errors="*{name}">` |
-| `?eval`, `?interpret`, `?new`, `?api`, `<#attempt>` | not supported (never); compute in Java |
-| hash access `user.name`, `map["k"]` | `user.name`, `map['k']` (the type must be view-safe) |
-
-### From JSP and JSTL
-
-| JSP/JSTL | Tessera |
-|---|---|
-| `${x}` (EL, **not escaped**), `<c:out value="${x}"/>` | `[[${x}]]` or `t:text="x"` (always escaped) |
-| `<c:if test="${c}">` | `t:if="c"` on the content (or on a `<t:block>`) |
-| `<c:choose><c:when test="${a}">…<c:otherwise>` | `t:if="a"` / `t:unless="a"`; several branches: `t:switch`/`t:case` on a value |
-| `<c:forEach items="${xs}" var="x" varStatus="s">` | `t:each="x, s : xs"` (`s.index`, `s.count`, `s.first`, `s.last`) |
-| `<c:forEach begin="1" end="${n}" var="i">` | `t:each="i : numbers.sequence(1, n)"` |
-| `<c:set var="x" value="${e}"/>` | `t:with="x=e"` |
-| `<c:url value="/o"><c:param name="id" value="${id}"/></c:url>` | `@{/o(id=id)}` |
-| `<fmt:message key="k"><fmt:param value="${a}"/></fmt:message>`, `<spring:message code="k"/>` | `#{k(a)}`, `#{k}` |
-| `<fmt:formatDate value="${d}" pattern="p"/>`, `<fmt:formatNumber>` | `temporals.format(d, 'p')` (`java.time` only), `numbers.formatDecimal(...)` |
-| `<jsp:include page="h.jsp"/>`, `<%@ include file="h.jsp" %>` | `t:insert="~{h :: h}"` |
-| tag file with `<jsp:doBody/>` | fragment with a `Fragment` parameter |
-| `<form:form modelAttribute="owner">` | `<form t:object="owner" method="post">` |
-| `<form:input path="name"/>`, `<form:errors path="name"/>` | `<input t:field="*{name}">`, `<span t:errors="*{name}">` |
-| `<form:select path="type" items="${types}"/>` | `<select t:field="*{type}"><option t:each="t : types" t:value="t" t:text="t">` |
-| `<sec:authorize access="hasRole('ADMIN')">` | `t:if="auth.hasRole('ADMIN')"` |
-| `${empty x}`, `${not empty x}` | `lists.isEmpty(x)` or `strings.isEmpty(x)`, with `!` for not |
-| `${fn:length(x)}`, `${fn:toUpperCase(s)}`, `${fn:contains(s, p)}` | `x.size()`, `strings.toUpperCase(s)`, `strings.contains(s, p)` |
-| `${param.x}`, `${sessionScope.x}`, `${requestScope.x}`, `${pageContext...}`, `${cookie.x}` | add to the model in the controller and declare in `t:params` |
-| scriptlets `<% %>`, `<%= %>`, `<%! %>` | move the code to the controller or a `@TemplateFunction` |
-
-### From Velocity
-
-| Velocity | Tessera |
-|---|---|
-| `$x`, `${x}`, `$!x` | `[[${x}]]` or `t:text="x"` (`null` renders empty) |
-| `$esc.html($x)` | not needed: output is escaped |
-| `#if($c)…#elseif($d)…#else…#end` | `t:if`/`t:unless` (or `t:switch`/`t:case`) |
-| `#foreach($x in $xs)…#end`, `$foreach.index`, `$foreach.count`, `$foreach.hasNext`, `$velocityCount` | `t:each="x, s : xs"`, `s.index`, `s.count`, `!s.last`, `s.count` |
-| `#set($x = $e)` | `t:with="x=e"` |
-| `#parse("h.vm")`, `#include("h.vm")` | `t:insert="~{h :: h}"` |
-| `#macro(card $title)…$bodyContent…#end`, `#@card("T")…#end` | `t:fragment="card(String title, Fragment body)"`, called with `~{::...}` |
-| `$x.method($arg)`, `$x.getClass()` | getters only; other calls via a `@TemplateFunction` |
-| `$date.format('yyyy-MM-dd', $d)`, `$number.format(...)` | `temporals.format(d, 'yyyy-MM-dd')`, `numbers.formatDecimal(...)` |
-| `#springMessage("k")`, `#springUrl("/x")`, `#springBind("owner.name")` | `#{k}`, `@{/x}`, `t:field="*{name}"` inside `t:object="owner"` |
-| `#evaluate`, `#define` | `#evaluate` is not supported (never); `#define` → a fragment |
-
-## 14. Migration checklist
-
-Work one template at a time; the build tells you what is left.
-
-1. **Build setup.** Add the dependency and processor block (section 2). Put templates under
-   `src/main/resources/templates` with an `.html` extension (rename `.ftl`, `.jsp`, `.vm`).
-2. **Convert syntax.** For Thymeleaf, run the migrator:
-   ```sh
-   java -jar tessera-migrate/target/tessera-migrate-<version>.jar \
-     src/main/resources/thymeleaf-templates src/main/resources/templates --report migrate-report.md
-   ```
-   It rewrites `th:` to `t:`, drops redundant `${}`, maps utility objects to function namespaces,
-   rewrites common string-built links, inserts a `t:params` stub and types fragment parameters as
-   `Object`, and lists everything it could not convert in the report (`file:line`). For other
-   engines, rewrite by hand with section 13.
-3. **Annotate the model.** Add `@TemplateView` to every class the templates read (or turn it into
-   a record). Convert `Date`/`Calendar` to `java.time`.
-4. **Type the parameters.** Replace each `Object` in `t:params` with what the controller puts in
-   the model (look at `model.addAttribute`, `@ModelAttribute` methods and the return value of
-   `ModelAndView`). Add `t:import`. Flash attributes and error-page attributes (`status`,
-   `message`) are ordinary parameters.
-5. **Type the fragments.** Give every fragment parameter its type; markup arguments
-   (`~{::body}`) are `Fragment`, dynamic form fields are `Field`.
-6. **Remove ambient access.** Anything read from the request, session, beans, static classes or
-   the caller's variables inside a fragment becomes a parameter.
-7. **Rewrite the rest** with the mapping table: links built from strings, `__${...}__`, method
-   calls, `th:style`/`th:on*`, raw output (`SafeHtml`), unsupported markup selectors.
-8. **Check messages at build time.** Set `-Atessera.messages`.
-9. **Compile** (`mvn clean compile`). Fix each diagnostic with section 16 until the build is
-   green.
-10. **Test the pages.** MockMvc tests that assert on rendered HTML, including one that puts
-    `<script>` in user data and checks that it comes out escaped. Compare each page with the old
-    engine's output for the same data; expect attribute order and whitespace differences only.
-11. **Remove the old engine** dependency and its configuration.
-
-## 15. Worked example: a gtvg page
-
-The product list from Thymeleaf's *Good Thymes Virtual Grocery* sample, `product/list.html`:
-
-```html
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-  <head>
-    <title>Good Thymes Virtual Grocery</title>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <link rel="stylesheet" type="text/css" media="all"
-          href="../../../css/gtvg.css" th:href="@{/css/gtvg.css}" />
-  </head>
-  <body>
-    <h1>Product list</h1>
-    <table>
-      <tr>
-        <th>NAME</th>
-        <th>PRICE</th>
-        <th>IN STOCK</th>
-        <th>COMMENTS</th>
-      </tr>
-      <tr th:each="prod : ${prods}" th:class="${prodStat.odd}? 'odd'">
-        <td th:text="${prod.name}">Onions</td>
-        <td th:text="${prod.price}">2.41</td>
-        <td th:text="${prod.inStock}? #{true} : #{false}">yes</td>
-        <td>
-          <span th:text="${#lists.size(prod.comments)}">2</span> comment/s
-          <a href="comments.html"
-             th:href="@{/product/comments(prodId=${prod.id})}"
-             th:unless="${#lists.isEmpty(prod.comments)}">view</a>
-        </td>
-      </tr>
-    </table>
-    <p>
-      <a href="../home.html" th:href="@{/}">Return to home</a>
-    </p>
-  </body>
-</html>
-```
-
-**Step 1: syntax.** `th:` becomes `t:`, the namespace changes, `${...}` wrappers can go, and the
-two `#lists` calls become built-ins.
-
-**Step 2: model.** gtvg's `Product` and `Comment` are plain classes with getters; annotate them:
+gtvg's `Product` and `Comment` are classes with getters, which get `@TemplateView` (records here,
+for brevity):
 
 <!-- compile: java -->
 ```java
 package com.example.gtvg;
 
-import dev.tessera.runtime.TemplateView;
 import java.math.BigDecimal;
 import java.util.List;
 
-@TemplateView
-public class Product {
-  private final Integer id;
-  private final String name;
-  private final BigDecimal price;
-  private final boolean inStock;
-  private final List<Comment> comments;
-
-  public Product(Integer id, String name, BigDecimal price, boolean inStock, List<Comment> comments) {
-    this.id = id;
-    this.name = name;
-    this.price = price;
-    this.inStock = inStock;
-    this.comments = comments;
-  }
-
-  public Integer getId() { return id; }
-  public String getName() { return name; }
-  public BigDecimal getPrice() { return price; }
-  public boolean isInStock() { return inStock; }
-  public List<Comment> getComments() { return comments; }
-}
+public record Product(Integer id, String name, BigDecimal price, boolean inStock, List<Comment> comments) {}
 ```
 
 <!-- compile: java -->
 ```java
 package com.example.gtvg;
 
-import dev.tessera.runtime.TemplateView;
-
-@TemplateView
-public class Comment {
-  private final String text;
-
-  public Comment(String text) { this.text = text; }
-
-  public String getText() { return text; }
-}
+public record Comment(String text) {}
 ```
 
-**Step 3: parameters.** The gtvg controller puts `prods` (a `List<Product>`) in the context, so
-the header is `t:import="com.example.gtvg.Product" t:params="List<Product> prods"`.
-
-**Result**, `src/main/resources/templates/product/list.html`:
+The controller puts `prods` in the model, so the template declares `List<Product> prods`. The rest
+is `th:` to `t:`, dropping `${...}`, and `#lists.size(x)`/`#lists.isEmpty(x)` becoming
+`x.size()`/`x.isEmpty()`. (Without the annotation, `mvn compile` reports
+`parameter type java.util.List<com.example.gtvg.Product> is not view-safe: ...` at `t:params`.)
 
 <!-- compile: template product/list.html -->
 ```html
 <!DOCTYPE html>
 <html xmlns:t="https://tessera.dev" t:import="com.example.gtvg.Product" t:params="List<Product> prods">
   <head>
-    <title>Good Thymes Virtual Grocery</title>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <link rel="stylesheet" type="text/css" media="all"
           href="../../../css/gtvg.css" t:href="@{/css/gtvg.css}" />
   </head>
   <body>
-    <h1>Product list</h1>
     <table>
-      <tr>
-        <th>NAME</th>
-        <th>PRICE</th>
-        <th>IN STOCK</th>
-        <th>COMMENTS</th>
-      </tr>
       <tr t:each="prod : prods" t:class="prodStat.odd ? 'odd'">
         <td t:text="prod.name">Onions</td>
         <td t:text="prod.price">2.41</td>
@@ -884,20 +712,31 @@ true=yes
 false=no
 ```
 
-The page compiles to `com.example.templates.product.ListTemplate`. Render it from a controller
-(`return "product/list";` with `prods` in the model, or `return ListTemplate.of(prods);`) or
-directly with `ListTemplate.of(prods).renderToString(ctx)`. For gtvg's `home.html`, note two more
-changes: `th:utext="#{home.welcome(${session.user.name})}"` becomes
-`t:text="#{home.welcome(user.name)}"` with `User user` as a parameter (a message is text, and the
-session is not reachable), and `${#calendars.format(today,'dd MMMM yyyy')}` becomes
-`temporals.format(today, 'dd MMMM yyyy')` with `LocalDate today`.
+The home page has `th:utext="#{home.welcome(${session.user.name})}"`. A message is text, so it
+becomes `t:text="#{home.welcome(user.name)}"` with `User user` in `t:params`, and it compiles.
+`compare` then reports:
 
-## 16. Diagnostic catalogue
+```text
+01 same      GET /product/list
+02 differs   GET /
+   status: recorded 200, got 500
+--- recorded 02.html
++++ now
+...
+```
+
+The log shows a `NullPointerException` reading `user.name`: the old page read `user` from the
+session, and nothing puts it in the model. A `@ModelAttribute("user")` method that returns the
+session's user fixes it, and both pages are `same`. Then Thymeleaf and the old templates go, and a
+last build, test and compare confirm it.
+
+## 6. Diagnostic catalogue
 
 Every compiler diagnostic, with its fix. Diagnostics print as
 `templates/path.html:line:col: error: message`, with the position of the attribute, expression or
-element at fault. In the messages below, `<angle brackets>` stand for the parts that vary. A
-template with any error generates no code, and other templates still report their errors.
+element at fault. In the messages below, `<angle brackets>` stand for the parts that vary. Every
+template reports its errors in the same build, but any error fails the javac run, so no template
+classes are generated until all are fixed.
 
 ### Build configuration
 
@@ -948,7 +787,7 @@ These come from the annotation processor itself, without a template position.
   empty; give it an expression.
 - `an expression cannot be used in attribute <name> (<CONTEXT> context): write a literal value`:
   the attribute's context (style, event handler, forbidden) does not allow expressions in
-  inlined text; see section 7.
+  inlined text; see section 4.4.
 - `duplicate parameter '<name>': rename or remove one of them`: in `t:params` or a fragment
   signature.
 - `parameter '<name>' has type Field, which only fragment parameters may have: declare it in a t:fragment signature`:
@@ -1029,7 +868,7 @@ These come from the annotation processor itself, without a template position.
   `<type> takes <n> type argument(s), got <m>`: fix the generics.
 - `type arguments must be reference types: use <Boxed>, not <primitive>`: `List<Integer>`, not
   `List<int>`.
-- `parameter type <type> is not allowed: <reason>`: a never-view-safe type (section 4). Pass the
+- `parameter type <type> is not allowed: <reason>`: a never-view-safe type (section 4.2). Pass the
   data the page needs instead (a record or view type).
 - `parameter type <type> is not view-safe: use a record, an enum, a JDK value type, a collection of those, or a class annotated @TemplateView`:
   annotate the class `@TemplateView` or pass a record.
@@ -1173,22 +1012,41 @@ These come from the annotation processor itself, without a template position.
 - `~{::<name>} selects an element inside this element's t:object, but t:insert/t:replace runs before t:object, so the selection would render without it: move t:object to an enclosing element`.
 - `~{::<name>} and the selections inside it include each other, so rendering would never end: no selected element may pass ~{::...} of an element that selects it`.
 
-## 17. Known limitations
+## 7. Known limitations
 
-- **Incremental builds.** Maven's incremental compile does not notice template-only changes. Run
-  `mvn clean compile` (or touch a Java file) after editing only templates. There is no hot
-  reload: restart the application to see a template change.
-- **No dynamic templates.** View names, fragment references, message keys and link paths are
-  literals. Choose between literals with conditionals.
-- **No ambient context.** Request parameters, session attributes, beans and static methods must
-  be passed in.
-- **Not supported:** the layout dialect, `th:inline` modes and `/*[[...]]*/` natural-template
-  comments, markup selectors other than fragment and tag names, collection
-  selection/projection, `th:style`/`th:on*` with expressions (by design), `th:include`,
-  `th:attrappend`, Kotlin, Gradle, and byte-array output.
-- **Output differences from Thymeleaf** that are expected: attributes set by `t:` attributes may
-  move within the tag; `<td >` (after a removed attribute) renders as `<td>`; a `null` attribute
-  value omits the attribute (Thymeleaf writes `value=""`); a `null` link path variable fails the
-  render.
-- **Errors at runtime** are limited to model type mismatches (`TemplateModelException`), missing
-  primitive parameters and `null` link path variables; everything else is a build error.
+Gaps in Tessera today, each with what to do until it is fixed.
+
+- **Build.** Maven only. Template-only changes need `mvn clean compile`; there is no hot reload.
+  The processor fails in `testCompile` and in incremental compiles that skip the
+  `@TemplateFunctions` class (#118). Spring Boot 3 is not supported yet (#116).
+- **Messages.** `-Atessera.messages` checks one bundle. Keys from other bundles fail the build;
+  give those pages a `@TemplateFunction` that looks them up, and accept that they are not checked.
+- **View resolution.** Names are matched exactly: a leading `/` or a `page :: fragment` view name
+  falls through to other resolvers. Return the plain template name (make the fragment its own
+  template if needed). Path variables are not in the model unless the controller adds them.
+- **Types.** Concrete collection types (`ArrayList`, `TreeMap`, `SortedMap`) are rejected as
+  parameter and property types; declare `List`/`Map`. A `Boolean` getter named `getIsX()` (Lombok
+  on a `Boolean isX` field) is reachable only as `x.getIsX()`. `java.util.Date`/`Calendar` are not
+  view-safe.
+- **Forms.** No indexed paths (`items[0].name`), no `checked` for checkboxes bound to a collection,
+  no global (object-level) errors apart from `fields.errors('*')`, no `t:field` on fields whose
+  type is not view-safe (`MultipartFile`: write the `name` attribute by hand), and `Field`
+  fragments cannot read the value. A `<select t:field>` bound to `null` selects the
+  `<option value="">`. Radios get no `id`.
+- **Output.** `[[...]]` in a script cannot serialize records or beans: pass the specific values, or
+  a `Map`/`List` built in Java. `numbers.*` has no grouping or locale; `temporals.format` uses
+  English names. A `null` link query parameter renders `?name`, not `?name=`. Thymeleaf
+  parser-level comments `<!--/* ... */-->` are emitted like any comment; delete them.
+- **Security functions.** `auth` has `hasRole`/`hasAnyRole`, not `hasAuthority`; compute anything
+  else in the controller.
+- **Selections.** `~{::tag}` selects fragment names and plain tag names only: not hyphenated tags,
+  `t:block`, ids or classes. Give the element a `t:fragment` name instead.
+- **Not supported, by design:** runtime template loading, `__${...}__` preprocessing, dynamic
+  names, the layout dialect, `th:inline` modes and `/*[[...]]*/` natural-template comments,
+  collection selection/projection, expressions in `style`/`on*`, Kotlin and Gradle.
+- **Expected output differences from Thymeleaf:** attributes set by `t:` attributes may move within
+  the tag; `<td >` (after a removed attribute) renders as `<td>`; a `null` attribute value omits
+  the attribute (Thymeleaf writes `value=""`); a `null` link path variable fails the render.
+- **Runtime errors** are model type mismatches (`TemplateModelException`), missing primitive
+  parameters, reading a property of `null`, and `null` link path variables. Everything else is a
+  build error.
