@@ -104,7 +104,16 @@ as a whole, a parameterized fragment element is skipped; a parameterless one ren
 
 **Forms.** `t:object` must name a variable; that name is the form object name passed to `Forms`
 (the Spring model attribute name). `t:field="lastName"` or `"*{lastName}"` checks the path at build
-time. Dynamic field names (`*{__${name}__}`) are not supported; inline such fragments.
+time. Dynamic field names (`*{__${name}__}`) are not supported. For a reusable form-field
+fragment, declare a parameter of type `Field`: `t:fragment="input(String label, Field name, String type)"`,
+called as `~{fragments/inputField :: input(#{firstName}, 'firstName', 'text')}` inside `t:object`.
+The argument must be a string literal (or a `Field` variable passed on); the path is checked
+against the caller's `t:object` type at build time and the generated code passes
+`new Field(objectName, path, currentValue)`. Inside the fragment, `t:field="name"`,
+`t:errors="name"`, `t:errorclass` and `fields.hasErrors(name)`/`fields.errors(name)` accept it, and
+outputting it (`t:for="name"`) writes the path. Templates cannot read its value. `Field` is a
+fragment parameter type only (not allowed in `t:params`). A checkbox bound through a `Field` is
+checked by its value attribute, since the field's static type is not known inside the fragment.
 
 ## Expression grammar
 

@@ -6,6 +6,7 @@ import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.codegen.TemplateIndex;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.FragmentRef;
+import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
@@ -17,6 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.type.TypeMirror;
@@ -210,6 +212,9 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       }
       return fragmentValue(ctx, fe.ref(), scope, host, pre);
     }
+    if (FormPaths.isField(param.type())) {
+      return fieldArgument(ctx, arg, what, scope);
+    }
     CompiledExpr e = ctx.expressions().compile(arg.value(), scope);
     if (e == null) {
       return null;
@@ -219,6 +224,37 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       return null;
     }
     return e.code();
+  }
+
+  /**
+   * An argument for a {@code Field} parameter: a string literal field path, checked here against
+   * the caller's {@code t:object} type, or a {@code Field} variable passed on (a fragment
+   * forwarding its own parameter). Nothing else: the path is never computed at run time.
+   */
+  private static String fieldArgument(CodegenContext ctx, FragmentRef.Arg arg, String what, Scope scope) {
+    if (arg.value() instanceof Expr.Literal lit && lit.value() instanceof String path) {
+      if (scope.selection().isEmpty()) {
+        ctx.diagnostics()
+            .error(arg.pos(), what + " is a form field, so the call must be inside t:object (on this element or an ancestor)");
+        return null;
+      }
+      CompiledExpr current = FormPaths.compile(path, lit.pos(), scope, ctx.expressions());
+      if (current == null) {
+        return null;
+      }
+      FormPaths.FormField f = FormPaths.literal(scope.selection().get(), path, current);
+      return "new " + FormPaths.FIELD + "(" + f.objectName() + ", " + f.path() + ", " + current.code() + ")";
+    }
+    Optional<Variable> forwarded = FormPaths.fieldVariable(arg.value(), scope);
+    if (forwarded.isPresent()) {
+      return forwarded.get().javaName();
+    }
+    ctx.diagnostics()
+        .error(
+            arg.pos(),
+            what + " has type Field: pass a field path as a string literal, e.g. 'lastName' (checked against the"
+                + " enclosing t:object), or a Field parameter");
+    return null;
   }
 
   /**

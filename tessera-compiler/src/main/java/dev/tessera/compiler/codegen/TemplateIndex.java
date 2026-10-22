@@ -108,6 +108,7 @@ public final class TemplateIndex {
         if (par != null && par.value() != null) {
           List<ParamDecl> decls = parser.parseParams(par.value(), par.valuePos(), sink);
           params = resolve(decls == null ? List.of() : decls, imports, expressions, sink);
+          params = withoutFields(params, decls, sink);
         }
       }
       Map<String, FragmentInfo> fragments = new LinkedHashMap<>();
@@ -129,6 +130,26 @@ public final class TemplateIndex {
       TypeMirror type = expressions.resolveType(d.type(), imports);
       if (type != null) {
         out.add(new Param(d.name(), type, type.toString()));
+      }
+    }
+    return out;
+  }
+
+  /**
+   * {@code Field} is a fragment parameter type only: its argument is a field path checked at the
+   * call site, which a template rendered from a model has no way to supply.
+   */
+  private static List<Param> withoutFields(List<Param> params, List<ParamDecl> decls, DiagnosticSink sink) {
+    List<Param> out = new ArrayList<>();
+    for (Param p : params) {
+      if (p.javaType().equals("dev.tessera.runtime.Field")) {
+        SourcePos pos = decls.stream().filter(d -> d.name().equals(p.name())).findFirst().map(ParamDecl::pos).orElseThrow();
+        sink.error(
+            pos,
+            "parameter '" + p.name() + "' has type Field, which only fragment parameters may have: declare it in a"
+                + " t:fragment signature");
+      } else {
+        out.add(p);
       }
     }
     return out;

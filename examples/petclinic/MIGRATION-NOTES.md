@@ -10,7 +10,7 @@ output deviations are in [PORTING.md](PORTING.md).
 | 3 | Migrator | `#strings.listJoin` mapped to a non-existent `strings.listJoin` | `strings.join`. Filed #42 |
 | 4 | Migrator | `#fields.hasAnyErrors()` / `allErrors()` left as is | `fields.hasErrors('*')` / `fields.errors('*')`. Filed #42 |
 | 5 | Migrator | `x['new']` left as an index expression | `x.isNew()`. Filed #42 |
-| 6 | Construct | `*{__${name}__}` field fragments (`inputField`, `selectField`) cannot be expressed: no dynamic field paths, by design | Inlined at all 10 call sites (about 140 lines of duplicated markup). Filed #43 for a typed, safe alternative |
+| 6 | Construct | `*{__${name}__}` field fragments (`inputField`, `selectField`) cannot be expressed: no dynamic field paths, by design | First inlined at all 10 call sites. Since #43: the fragments take a `Field` parameter, a string-literal path checked against the caller's `t:object` at build time |
 | 7 | Construct | `menuItem` read the layout's `menu` from the caller's context | Caller passes `menu == 'owners'` as a `boolean` parameter (principle 2) |
 | 8 | Construct | `@{__${link}__}` with the link passed as a fragment argument | Caller passes a built link (`@{/owners/find}` is a `String` expression); fragment uses `t:href="link"` |
 | 9 | Construct | `@{'/owners?page=' + ${i}}` string-built links | `@{/owners(page=i)}` |
