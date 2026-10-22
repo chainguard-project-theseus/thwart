@@ -10,10 +10,10 @@ import java.util.List;
 import java.util.stream.Stream;
 
 /** Finds every {@code *.html} file under the templates root, in a stable (sorted) order. */
-public final class TemplateDiscovery {
+final class TemplateDiscovery {
   private TemplateDiscovery() {}
 
-  public static List<TemplateSource> discover(Path root) throws IOException {
+  static List<TemplateSource> discover(Path root) throws IOException {
     List<Path> files;
     try (Stream<Path> s = Files.walk(root)) {
       files = s.filter(p -> Files.isRegularFile(p) && p.toString().endsWith(".html")).sorted().toList();

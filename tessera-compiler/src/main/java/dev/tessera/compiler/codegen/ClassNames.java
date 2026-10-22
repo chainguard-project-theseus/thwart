@@ -14,13 +14,13 @@ import javax.lang.model.SourceVersion;
  * {@code fragments/main-layout} becomes {@code tessera.generated.fragments.MainLayoutTemplate};
  * {@code class/404} becomes {@code tessera.generated._class._404Template}.
  */
-public final class ClassNames {
+final class ClassNames {
   private ClassNames() {}
 
   /** Simple name of the generated registry class in the base package. */
-  public static final String REGISTRY = "TesseraRegistry";
+  static final String REGISTRY = "TesseraRegistry";
 
-  public static String className(String basePackage, String viewName) {
+  static String className(String basePackage, String viewName) {
     String[] segments = viewName.split("/", -1);
     String name = basePackage;
     for (int i = 0; i < segments.length - 1; i++) {
@@ -34,7 +34,7 @@ public final class ClassNames {
   }
 
   /** {@code pkg.simple}, or {@code simple} in the unnamed package. */
-  public static String qualify(String pkg, String simple) {
+  static String qualify(String pkg, String simple) {
     return pkg.isEmpty() ? simple : pkg + "." + simple;
   }
 

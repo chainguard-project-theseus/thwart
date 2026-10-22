@@ -3,9 +3,6 @@ package dev.tessera.compiler.codegen;
 import static dev.tessera.compiler.JavaStrings.literal;
 
 import dev.tessera.compiler.CompilerEnv;
-import dev.tessera.compiler.Diagnostic;
-import dev.tessera.compiler.DiagnosticSink;
-import dev.tessera.compiler.Diagnostics;
 import dev.tessera.compiler.GeneratedFile;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.attr.CsrfInjector;
@@ -85,7 +82,7 @@ public final class TemplateGenerator implements CodegenContext {
     return templateVariable + "$";
   }
 
-  /** Returns the generated Java source for {@code document}, or nothing if it had errors. */
+  /** Returns the generated Java source for {@code document}, even if errors were reported. */
   public List<GeneratedFile> generate(Document document) {
     TemplateIndex.TemplateInfo info =
         index
@@ -111,9 +108,6 @@ public final class TemplateGenerator implements CodegenContext {
     }
     String bodyCode = body.build();
     FragmentMethods.generate(this);
-    if (hasErrors(document.source().path())) {
-      return List.of();
-    }
     return List.of(new GeneratedFile(GeneratedFile.Kind.JAVA, info.className(), classSource(info, bodyCode)));
   }
 
@@ -488,18 +482,6 @@ public final class TemplateGenerator implements CodegenContext {
       }
     }
     return starts.stream().mapToInt(Integer::intValue).toArray();
-  }
-
-  private boolean hasErrors(String file) {
-    DiagnosticSink sink = env.diagnostics();
-    if (sink instanceof FileErrors f) {
-      return f.hasErrors(file);
-    }
-    if (sink instanceof Diagnostics d) {
-      return d.all().stream()
-          .anyMatch(x -> x.severity() == Diagnostic.Severity.ERROR && x.pos() != null && x.pos().file().equals(file));
-    }
-    return false;
   }
 
   /**
