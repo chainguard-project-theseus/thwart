@@ -1,16 +1,16 @@
 # Porting spring-petclinic's templates to Tessera
 
 This records every manual step and deviation from porting the twelve Thymeleaf templates in
-`thymeleaf-reference/templates` to `src/main/resources/templates` (#18). It is input for the porting
-guide (#19). Friction points (compiler gaps, migrator misses) are in [MIGRATION-NOTES.md](MIGRATION-NOTES.md).
+`thymeleaf-reference/templates` to `src/main/resources/templates` (#18). The general porting guide is
+[docs/guide.md](../../docs/guide.md). Friction points (compiler gaps, migrator misses) are in [MIGRATION-NOTES.md](MIGRATION-NOTES.md).
 
 ## Steps
 
 1. **Run the migrator.**
    ```sh
    mvn -B -q -ntp -DskipTests install   # builds tessera-migrate
-   java -cp tessera-migrate/target/tessera-migrate-0.1.0-SNAPSHOT.jar:<attoparser-2.0.9.jar> \
-     dev.tessera.migrate.Main examples/petclinic/thymeleaf-reference/templates \
+   java -jar tessera-migrate/target/tessera-migrate-0.1.0-SNAPSHOT.jar \
+     examples/petclinic/thymeleaf-reference/templates \
      examples/petclinic/src/main/resources/templates --report migrate-report.md
    ```
    This converted 12 templates and produced 53 report items: 25 `Object` stubs to type (root variables
