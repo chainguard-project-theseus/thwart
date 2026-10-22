@@ -1,0 +1,4 @@
+<ul xmlns:t="https://tessera.dev">
+<li t:fragment="menuItem(String path, String name, String active, String title)" class="nav-item" t:classappend="${name == active} ? 'active'"><a class="nav-link" t:href="${path}" t:title="${title}" t:text="${title}">Item</a></li>
+<footer t:fragment="footer"><p>Tessera benchmarks</p></footer>
+</ul>
