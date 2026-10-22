@@ -2,6 +2,7 @@ package dev.tessera.compiler.codegen.attr;
 
 import static dev.tessera.compiler.types.ExpressionCompiler.isDeclared;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.AttributeProcessor;
@@ -23,7 +24,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
 
   /** HTML boolean attributes (Thymeleaf's list): rendered as {@code name="name"} or omitted. */
   private static final Set<String> BOOLEAN_ATTRIBUTES =
-      Set.of(
+      Backports.setOf(
           "async", "autofocus", "autoplay", "checked", "controls", "declare", "default", "defer",
           "disabled", "formnovalidate", "hidden", "inert", "ismap", "itemscope", "loop", "multiple",
           "muted", "nomodule", "novalidate", "nowrap", "open", "playsinline", "pubdate", "readonly",
@@ -45,27 +46,34 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     String element = plan.element().name();
     String lower = name.toLowerCase(Locale.ROOT);
     OutputContext context = Contexts.attribute(plan.element(), name);
-    String hint =
-        switch (context) {
-          case EVENT_HANDLER ->
-              "event-handler attributes cannot contain expressions; put the value in a data-* attribute and"
-                  + " read it from a script";
-          case STYLE -> "style attributes cannot contain expressions; use t:class or t:classappend instead";
-          case FORBIDDEN ->
-              lower.equals("type")
-                  ? "the type of a <script> cannot be computed; its content type must be known at"
-                      + " build time, so write a static type attribute"
-                  : lower.equals("http-equiv")
-                  ? "the http-equiv of a <meta> cannot be computed; it decides whether content is"
-                      + " a refresh URL, so write a static http-equiv attribute"
-                  : lower.equals("srcdoc")
-                  ? "srcdoc is a whole HTML document and cannot contain expressions; use src with a URL"
-                  : lower.equals("content")
-                  ? "the content of <meta http-equiv=\"refresh\"> navigates the page and cannot contain"
-                      + " expressions; redirect from the controller instead"
-                  : "attribute name '" + name + "' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*";
-          default -> null;
-        };
+    String hint;
+    switch (context) {
+      case EVENT_HANDLER:
+        hint =
+            "event-handler attributes cannot contain expressions; put the value in a data-* attribute and"
+                + " read it from a script";
+        break;
+      case STYLE:
+        hint = "style attributes cannot contain expressions; use t:class or t:classappend instead";
+        break;
+      case FORBIDDEN:
+        hint =
+            lower.equals("type")
+                ? "the type of a <script> cannot be computed; its content type must be known at"
+                    + " build time, so write a static type attribute"
+                : lower.equals("http-equiv")
+                ? "the http-equiv of a <meta> cannot be computed; it decides whether content is"
+                    + " a refresh URL, so write a static http-equiv attribute"
+                : lower.equals("srcdoc")
+                ? "srcdoc is a whole HTML document and cannot contain expressions; use src with a URL"
+                : lower.equals("content")
+                ? "the content of <meta http-equiv=\"refresh\"> navigates the page and cannot contain"
+                    + " expressions; redirect from the controller instead"
+                : "attribute name '" + name + "' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*";
+        break;
+      default:
+        hint = null;
+    }
     if (hint != null) {
       boolean computedType = context == OutputContext.FORBIDDEN
           && (lower.equals("type") || lower.equals("http-equiv"));

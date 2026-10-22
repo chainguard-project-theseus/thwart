@@ -1,5 +1,6 @@
 package dev.tessera.compiler.codegen.attr;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.expr.FragmentRef;
 import dev.tessera.compiler.model.Attribute;
@@ -68,7 +69,7 @@ final class ElementSelection {
     }
     String body;
     try {
-      body = ctx.renderElement(target, scope, Set.of());
+      body = ctx.renderElement(target, scope, Backports.setOf());
     } finally {
       active.remove(target);
     }
@@ -91,7 +92,8 @@ final class ElementSelection {
 
   private static Element find(List<Node> nodes, String tag) {
     for (Node n : nodes) {
-      if (n instanceof Element e) {
+      if (n instanceof Element) {
+        Element e = (Element) n;
         if (e.name().toLowerCase(Locale.ROOT).equals(tag.toLowerCase(Locale.ROOT))) {
           return e;
         }
@@ -109,7 +111,7 @@ final class ElementSelection {
       return true;
     }
     for (Node n : ancestor.children()) {
-      if (n instanceof Element child && contains(child, e)) {
+      if (n instanceof Element && contains((Element) n, e)) {
         return true;
       }
     }

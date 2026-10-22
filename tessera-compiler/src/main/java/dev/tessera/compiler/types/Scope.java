@@ -1,9 +1,11 @@
 package dev.tessera.compiler.types;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import javax.lang.model.type.TypeMirror;
 
@@ -12,7 +14,7 @@ import javax.lang.model.type.TypeMirror;
  * plus the current {@code t:object} selection. Inner declarations shadow outer ones.
  */
 public final class Scope {
-  private static final Scope EMPTY = new Scope(Map.of(), null);
+  private static final Scope EMPTY = new Scope(Collections.emptyMap(), null);
 
   private final Map<String, Variable> vars;
   private final Selection selection;
@@ -27,7 +29,53 @@ public final class Scope {
   }
 
   /** The {@code t:object} target for {@code *{...}} and {@code t:field}. */
-  public record Selection(String objectName, String code, TypeMirror type) {}
+  public static final class Selection {
+    private final String objectName;
+    private final String code;
+    private final TypeMirror type;
+
+    public Selection(String objectName, String code, TypeMirror type) {
+      this.objectName = objectName;
+      this.code = code;
+      this.type = type;
+    }
+
+    public String objectName() {
+      return objectName;
+    }
+
+    public String code() {
+      return code;
+    }
+
+    public TypeMirror type() {
+      return type;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof Selection)) {
+        return false;
+      }
+      Selection that = (Selection) o;
+      return Objects.equals(objectName, that.objectName)
+          && Objects.equals(code, that.code)
+          && Objects.equals(type, that.type);
+    }
+
+    @Override
+    public int hashCode() {
+      int h = Objects.hashCode(objectName);
+      h = 31 * h + Objects.hashCode(code);
+      h = 31 * h + Objects.hashCode(type);
+      return h;
+    }
+
+    @Override
+    public String toString() {
+      return "Selection[objectName=" + objectName + ", code=" + code + ", type=" + type + "]";
+    }
+  }
 
   public Scope with(Variable v) {
     Map<String, Variable> copy = new LinkedHashMap<>(vars);

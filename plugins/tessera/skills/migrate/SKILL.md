@@ -49,8 +49,8 @@ The old application is the specification. Work the way an expert would, keeping 
    pages. Start the app from the same data on every run.
 2. **Record** the old app before changing anything:
    `java -jar .tessera/tessera-migrate.jar record <base-url> pages.txt baseline/`
-3. **Set up the build** (guide section 2): the compiler needs JDK 21 to build, the app can run on
-   Java 8+ with Spring 5.0+ or Boot 2.0+, and the starter is `tessera-spring-boot-starter` for
+3. **Set up the build** (guide section 2): the app builds with JDK 8+ and runs on Java 8+ with
+   Spring 5.0+ or Boot 2.0+, and the starter is `tessera-spring-boot-starter` for
    `jakarta.servlet` or `tessera-spring-boot-starter-javax` for `javax.servlet`. Tessera can sit
    next to the old engine while you migrate.
 4. **Convert one template at a time**, shared fragments and layouts first. For each one, find

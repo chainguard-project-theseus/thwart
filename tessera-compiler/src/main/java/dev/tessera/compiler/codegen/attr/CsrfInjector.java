@@ -1,5 +1,6 @@
 package dev.tessera.compiler.codegen.attr;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.runtime.Escapers;
@@ -16,11 +17,9 @@ public final class CsrfInjector {
   public static void apply(CodegenContext ctx, ElementPlan plan) {
     boolean post =
         plan.attribute("method")
-            .filter(
-                a ->
-                    a instanceof ElementPlan.StaticAttr s
-                        && s.source().value() != null
-                        && s.source().value().strip().toLowerCase(Locale.ROOT).equals("post"))
+            .filter(a -> a instanceof ElementPlan.StaticAttr)
+            .map(a -> ((ElementPlan.StaticAttr) a).source().value())
+            .filter(v -> Backports.strip(v).toLowerCase(Locale.ROOT).equals("post"))
             .isPresent();
     if (!post) {
       return;

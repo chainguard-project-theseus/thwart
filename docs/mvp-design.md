@@ -23,11 +23,12 @@ collection selection/projection, `th:style`/`th:onclick` (build errors by design
 
 ## Modules
 
-One Maven reactor, `groupId dev.tessera`, JUnit Jupiter 6. What ships in the application is Java 8:
-`tessera-runtime` and the starter are built with `--release 8` and the generated template code
-compiles at `--release 8`, so the app needs Java 8+. Everything else (compiler, migrate,
-benchmarks, most tests) is `--release 21`, so the build needs JDK 21+. The table names the main
-classes only.
+One Maven reactor, `groupId dev.tessera`, JUnit Jupiter 6. What the application uses is Java 8:
+`tessera-runtime`, the starter and `tessera-compiler` (the annotation processor, which runs inside
+the application's javac) are built with `--release 8` and the generated template code compiles at
+`--release 8`, so the app builds with JDK 8+ and runs on Java 8+. Everything else (migrate,
+benchmarks, most tests) is `--release 21`, so building this repo needs JDK 21+. The table names
+the main classes only.
 
 | Module | Packages | Contents | Deps |
 |---|---|---|---|

@@ -67,6 +67,7 @@ class HtmlParserTest {
             sb.append("</").append(e.name()).append('>');
           }
         }
+        default -> throw new IllegalArgumentException("unknown node " + n);
       }
     }
     return sb.toString();

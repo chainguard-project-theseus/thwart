@@ -1,10 +1,13 @@
 package dev.tessera.compiler.types;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.expr.TypeRef;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -22,17 +25,16 @@ import javax.lang.model.type.TypeMirror;
  */
 final class TypeResolver {
   private static final List<String> IMPLICIT_PACKAGES =
-      List.of("java.lang", "java.util", "java.time", "java.math", "dev.tessera.runtime");
-  private static final Map<String, TypeKind> PRIMITIVES =
-      Map.of(
-          "boolean", TypeKind.BOOLEAN,
-          "byte", TypeKind.BYTE,
-          "short", TypeKind.SHORT,
-          "int", TypeKind.INT,
-          "long", TypeKind.LONG,
-          "char", TypeKind.CHAR,
-          "float", TypeKind.FLOAT,
-          "double", TypeKind.DOUBLE);
+      Backports.listOf("java.lang", "java.util", "java.time", "java.math", "dev.tessera.runtime");
+  private static final Map<String, TypeKind> PRIMITIVES = new HashMap<>();
+
+  static {
+    for (TypeKind k : TypeKind.values()) {
+      if (k.isPrimitive()) {
+        PRIMITIVES.put(k.name().toLowerCase(Locale.ROOT), k);
+      }
+    }
+  }
 
   private final CompilerEnv env;
   private final ViewSafety safety;
@@ -113,7 +115,7 @@ final class TypeResolver {
 
   private TypeElement resolveSimple(String simple, List<String> imports, SourcePos pos, boolean report) {
     for (String raw : imports) {
-      String imp = raw.strip();
+      String imp = Backports.strip(raw);
       if (!imp.endsWith(".*") && (imp.equals(simple) || imp.endsWith("." + simple))) {
         TypeElement te = env.elements().getTypeElement(imp);
         if (te != null) {
@@ -128,7 +130,7 @@ final class TypeResolver {
     }
     List<TypeElement> found = new ArrayList<>();
     for (String raw : imports) {
-      String imp = raw.strip();
+      String imp = Backports.strip(raw);
       if (imp.endsWith(".*")) {
         TypeElement te = env.elements().getTypeElement(imp.substring(0, imp.length() - 1) + simple);
         if (te != null && !found.contains(te)) {
