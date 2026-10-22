@@ -1,5 +1,6 @@
 package dev.tessera.compiler.codegen.attr;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
@@ -19,9 +20,9 @@ public final class ErrorClassProcessor implements AttributeProcessor {
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
-    String cls = attr.value() == null ? "" : attr.value().strip();
+    String cls = attr.value() == null ? "" : Backports.strip(attr.value());
     if (cls.length() >= 2 && cls.startsWith("'") && cls.endsWith("'")) {
-      cls = cls.substring(1, cls.length() - 1).strip();
+      cls = Backports.strip(cls.substring(1, cls.length() - 1));
     }
     if (!CLASSES.matcher(cls).matches()) {
       ctx.diagnostics()
@@ -29,7 +30,7 @@ public final class ErrorClassProcessor implements AttributeProcessor {
       return;
     }
     Optional<Attribute> field = plan.element().attribute(Attribute.PREFIX + "field");
-    if (field.isEmpty()) {
+    if (!field.isPresent()) {
       ctx.diagnostics().error(attr.pos(), "t:errorclass needs t:field on the same element");
       return;
     }

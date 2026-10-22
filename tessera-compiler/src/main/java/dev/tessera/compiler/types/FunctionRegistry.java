@@ -1,5 +1,6 @@
 package dev.tessera.compiler.types;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.runtime.TemplateFunctions;
@@ -10,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
@@ -69,9 +71,9 @@ final class FunctionRegistry {
 
   /** All registered overloads of {@code ns.name} (empty if there is no such function). */
   List<ExecutableElement> overloads(String namespace, String name) {
-    return functions.getOrDefault(namespace, List.of()).stream()
+    return functions.getOrDefault(namespace, Backports.listOf()).stream()
         .filter(m -> m.getSimpleName().contentEquals(name))
-        .toList();
+        .collect(Collectors.toList());
   }
 
   /** The unique applicable overload of {@code ns.name} for {@code argTypes}, if any. */
@@ -244,8 +246,8 @@ final class FunctionRegistry {
       return null;
     }
     for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e : am.getElementValues().entrySet()) {
-      if (e.getKey().getSimpleName().contentEquals("value") && e.getValue().getValue() instanceof String s) {
-        return s;
+      if (e.getKey().getSimpleName().contentEquals("value") && e.getValue().getValue() instanceof String) {
+        return (String) e.getValue().getValue();
       }
     }
     return null;
@@ -254,8 +256,8 @@ final class FunctionRegistry {
   /** Function classes have no template position; report against their source file. */
   private static SourcePos positionOf(TypeElement te) {
     Element top = te;
-    while (top.getEnclosingElement() instanceof TypeElement outer) {
-      top = outer;
+    while (top.getEnclosingElement() instanceof TypeElement) {
+      top = top.getEnclosingElement();
     }
     return new SourcePos(((TypeElement) top).getQualifiedName().toString().replace('.', '/') + ".java", 1, 1);
   }

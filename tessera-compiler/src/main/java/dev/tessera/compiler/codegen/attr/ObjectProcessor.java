@@ -20,13 +20,14 @@ public final class ObjectProcessor implements AttributeProcessor {
     if (e == null) {
       return;
     }
-    if (!(e instanceof Expr.Var v)) {
+    if (!(e instanceof Expr.Var)) {
       ctx.diagnostics()
           .error(attr.valuePos(), "t:object must name a variable (a t:param or local variable), e.g. t:object=\"owner\"");
       return;
     }
+    Expr.Var v = (Expr.Var) e;
     Optional<Variable> var = plan.scope().lookup(v.name());
-    if (var.isEmpty()) {
+    if (!var.isPresent()) {
       ctx.expressions().compile(e, plan.scope()); // reports the unknown identifier
       return;
     }

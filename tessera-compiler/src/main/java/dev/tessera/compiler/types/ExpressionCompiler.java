@@ -1,5 +1,6 @@
 package dev.tessera.compiler.types;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
@@ -16,6 +17,7 @@ import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -23,7 +25,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.RecordComponentElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
@@ -62,7 +63,7 @@ public final class ExpressionCompiler {
   private static final String VALUES = "dev.tessera.runtime.Values";
   private static final String FRAGMENT = Fragment.class.getName();
   private static final Set<String> OBJECT_METHODS =
-      Set.of("getClass", "hashCode", "equals", "toString", "wait", "notify", "notifyAll", "clone", "finalize");
+      Backports.setOf("getClass", "hashCode", "equals", "toString", "wait", "notify", "notifyAll", "clone", "finalize");
 
   private final CompilerEnv env;
   private final ViewSafety safety;
@@ -100,27 +101,42 @@ public final class ExpressionCompiler {
   /** Compiles a value expression. */
   public CompiledExpr compile(Expr expr, Scope scope) {
     functions();
-    return switch (expr) {
-      case Expr.Literal l -> literal(l);
-      case Expr.Var v -> variable(v, scope);
-      case Expr.SelectionVar s -> selection(s, scope);
-      case Expr.Property p -> property(p, scope);
-      case Expr.MethodCall m -> methodCall(m, scope);
-      case Expr.Index i -> index(i, scope);
-      case Expr.FunctionCall f ->
-          f.namespace().equals(FunctionRegistry.RESERVED)
-              ? FieldsCompiler.compile(f.name(), f.args(), f.pos(), scope, this)
-              : function(f.namespace(), f.name(), f.args(), f.pos(), scope);
-      case Expr.Unary u -> unary(u, scope);
-      case Expr.Binary b -> binary(b, scope);
-      case Expr.Conditional c -> conditional(c, scope);
-      case Expr.Elvis e -> elvis(e, scope);
-      case Expr.Message m -> MessageCompiler.compile(m, scope, this);
-      case Expr.Link l -> LinkCompiler.compile(l, scope, this);
-      case Expr.Interpolation i -> interpolation(i, scope);
-      case Expr.FragmentExpr f ->
-          error(f.pos(), "a fragment expression ~{...} is only allowed in t:insert/t:replace or as a fragment argument");
-    };
+    if (expr instanceof Expr.Literal) {
+      return literal((Expr.Literal) expr);
+    } else if (expr instanceof Expr.Var) {
+      return variable((Expr.Var) expr, scope);
+    } else if (expr instanceof Expr.SelectionVar) {
+      return selection((Expr.SelectionVar) expr, scope);
+    } else if (expr instanceof Expr.Property) {
+      return property((Expr.Property) expr, scope);
+    } else if (expr instanceof Expr.MethodCall) {
+      return methodCall((Expr.MethodCall) expr, scope);
+    } else if (expr instanceof Expr.Index) {
+      return index((Expr.Index) expr, scope);
+    } else if (expr instanceof Expr.FunctionCall) {
+      Expr.FunctionCall f = (Expr.FunctionCall) expr;
+      return f.namespace().equals(FunctionRegistry.RESERVED)
+          ? FieldsCompiler.compile(f.name(), f.args(), f.pos(), scope, this)
+          : function(f.namespace(), f.name(), f.args(), f.pos(), scope);
+    } else if (expr instanceof Expr.Unary) {
+      return unary((Expr.Unary) expr, scope);
+    } else if (expr instanceof Expr.Binary) {
+      return binary((Expr.Binary) expr, scope);
+    } else if (expr instanceof Expr.Conditional) {
+      return conditional((Expr.Conditional) expr, scope);
+    } else if (expr instanceof Expr.Elvis) {
+      return elvis((Expr.Elvis) expr, scope);
+    } else if (expr instanceof Expr.Message) {
+      return MessageCompiler.compile((Expr.Message) expr, scope, this);
+    } else if (expr instanceof Expr.Link) {
+      return LinkCompiler.compile((Expr.Link) expr, scope, this);
+    } else if (expr instanceof Expr.Interpolation) {
+      return interpolation((Expr.Interpolation) expr, scope);
+    } else if (expr instanceof Expr.FragmentExpr) {
+      return error(
+          expr.pos(), "a fragment expression ~{...} is only allowed in t:insert/t:replace or as a fragment argument");
+    }
+    throw new IllegalArgumentException("unknown expression " + expr);
   }
 
   /**
@@ -246,15 +262,20 @@ public final class ExpressionCompiler {
 
   private CompiledExpr literal(Expr.Literal l) {
     Object v = l.value();
-    return switch (v) {
-      case null -> new CompiledExpr("null", types().getNullType(), l.pos());
-      case String s -> new CompiledExpr(JavaStrings.literal(s), declared("java.lang.String"), l.pos());
-      case Integer i -> new CompiledExpr(Integer.toString(i), prim(TypeKind.INT), l.pos());
-      case Long n -> new CompiledExpr(n + "L", prim(TypeKind.LONG), l.pos());
-      case Double d -> new CompiledExpr(Double.toString(d), prim(TypeKind.DOUBLE), l.pos());
-      case Boolean b -> new CompiledExpr(Boolean.toString(b), prim(TypeKind.BOOLEAN), l.pos());
-      default -> error(l.pos(), "unsupported literal " + v);
-    };
+    if (v == null) {
+      return new CompiledExpr("null", types().getNullType(), l.pos());
+    } else if (v instanceof String) {
+      return new CompiledExpr(JavaStrings.literal((String) v), declared("java.lang.String"), l.pos());
+    } else if (v instanceof Integer) {
+      return new CompiledExpr(v.toString(), prim(TypeKind.INT), l.pos());
+    } else if (v instanceof Long) {
+      return new CompiledExpr(v + "L", prim(TypeKind.LONG), l.pos());
+    } else if (v instanceof Double) {
+      return new CompiledExpr(v.toString(), prim(TypeKind.DOUBLE), l.pos());
+    } else if (v instanceof Boolean) {
+      return new CompiledExpr(v.toString(), prim(TypeKind.BOOLEAN), l.pos());
+    }
+    return error(l.pos(), "unsupported literal " + v);
   }
 
   private CompiledExpr variable(Expr.Var v, Scope scope) {
@@ -270,7 +291,7 @@ public final class ExpressionCompiler {
 
   private CompiledExpr selection(Expr.SelectionVar s, Scope scope) {
     Optional<Scope.Selection> sel = scope.selection();
-    if (sel.isEmpty()) {
+    if (!sel.isPresent()) {
       return error(s.pos(), "*{" + s.name() + "} can only be used inside t:object: put t:object=\"...\" on this element or an"
           + " enclosing one, or write the full path (owner." + s.name() + ")");
     }
@@ -278,7 +299,8 @@ public final class ExpressionCompiler {
   }
 
   private CompiledExpr property(Expr.Property p, Scope scope) {
-    if (p.target() instanceof Expr.Var v && isNamespaceRef(v, scope)) {
+    if (p.target() instanceof Expr.Var && isNamespaceRef((Expr.Var) p.target(), scope)) {
+      Expr.Var v = (Expr.Var) p.target();
       return error(p.pos(), "'" + v.name() + "." + p.name() + "' is a function: call it as " + v.name() + "." + p.name() + "(...)");
     }
     CompiledExpr target = compile(p.target(), scope);
@@ -286,7 +308,8 @@ public final class ExpressionCompiler {
   }
 
   private CompiledExpr methodCall(Expr.MethodCall m, Scope scope) {
-    if (m.target() instanceof Expr.Var v && scope.lookup(v.name()).isEmpty()) {
+    if (m.target() instanceof Expr.Var && !scope.lookup(((Expr.Var) m.target()).name()).isPresent()) {
+      Expr.Var v = (Expr.Var) m.target();
       if (v.name().equals(FunctionRegistry.RESERVED)) {
         return FieldsCompiler.compile(m.name(), m.args(), m.pos(), scope, this);
       }
@@ -374,7 +397,29 @@ public final class ExpressionCompiler {
    * A built-in member: Java code to put around the receiver and its type (null for a raw List
    * element).
    */
-  private record Builtin(String prefix, String suffix, TypeMirror type) {
+  private static final class Builtin {
+    private final String prefix;
+    private final String suffix;
+    private final TypeMirror type;
+
+    private Builtin(String prefix, String suffix, TypeMirror type) {
+      this.prefix = prefix;
+      this.suffix = suffix;
+      this.type = type;
+    }
+
+    public String prefix() {
+      return prefix;
+    }
+
+    public String suffix() {
+      return suffix;
+    }
+
+    public TypeMirror type() {
+      return type;
+    }
+
     Builtin(String suffix, TypeMirror type) {
       this("", suffix, type);
     }
@@ -413,9 +458,11 @@ public final class ExpressionCompiler {
   private ExecutableElement findAccessor(DeclaredType type, String name) {
     TypeElement te = (TypeElement) type.asElement();
     Set<String> components = new HashSet<>();
-    if (te.getKind() == ElementKind.RECORD) {
-      for (RecordComponentElement rc : te.getRecordComponents()) {
-        components.add(rc.getSimpleName().toString());
+    if (ViewSafety.isRecord(te)) {
+      for (Element e : te.getEnclosedElements()) {
+        if (e.getKind().name().equals("RECORD_COMPONENT")) {
+          components.add(e.getSimpleName().toString());
+        }
       }
     }
     List<String> candidates = new ArrayList<>();
@@ -502,7 +549,7 @@ public final class ExpressionCompiler {
       return null;
     }
     Optional<TypeElement> owner = functions().namespaceClass(ns);
-    if (owner.isEmpty()) {
+    if (!owner.isPresent()) {
       return error(pos, "unknown function namespace '" + ns + "': register a class annotated @TemplateFunctions(\"" + ns
           + "\") (built-ins: strings, numbers, temporals, lists; auth with the Spring starter)");
     }
@@ -512,9 +559,9 @@ public final class ExpressionCompiler {
           "unknown function " + ns + "." + name + ": only public static @TemplateFunction methods of "
               + owner.get().getQualifiedName() + " can be called");
     }
-    List<TypeMirror> argTypes = compiled.stream().map(CompiledExpr::type).toList();
+    List<TypeMirror> argTypes = compiled.stream().map(CompiledExpr::type).collect(Collectors.toList());
     Optional<ExecutableElement> m = functions().lookup(ns, name, argTypes);
-    if (m.isEmpty()) {
+    if (!m.isPresent()) {
       return error(
           pos,
           "no single applicable " + ns + "." + name + " for arguments ("
@@ -562,14 +609,22 @@ public final class ExpressionCompiler {
     if (l == null || r == null) {
       return null;
     }
-    return switch (b.op()) {
-      case EQ, NE -> equality(b, l, r);
-      case LT, GT, LE, GE -> comparison(b, l, r);
-      case ADD -> isDeclared(l.type(), "java.lang.String") || isDeclared(r.type(), "java.lang.String")
-          ? concat(b, l, r)
-          : arithmetic(b, l, r);
-      default -> arithmetic(b, l, r);
-    };
+    switch (b.op()) {
+      case EQ:
+      case NE:
+        return equality(b, l, r);
+      case LT:
+      case GT:
+      case LE:
+      case GE:
+        return comparison(b, l, r);
+      case ADD:
+        return isDeclared(l.type(), "java.lang.String") || isDeclared(r.type(), "java.lang.String")
+            ? concat(b, l, r)
+            : arithmetic(b, l, r);
+      default:
+        return arithmetic(b, l, r);
+    }
   }
 
   private CompiledExpr equality(Expr.Binary b, CompiledExpr l, CompiledExpr r) {
@@ -617,13 +672,8 @@ public final class ExpressionCompiler {
   }
 
   private CompiledExpr comparison(Expr.Binary b, CompiledExpr l, CompiledExpr r) {
-    String op =
-        switch (b.op()) {
-          case LT -> " < ";
-          case GT -> " > ";
-          case LE -> " <= ";
-          default -> " >= ";
-        };
+    Expr.BinaryOp o = b.op();
+    String op = o == Expr.BinaryOp.LT ? " < " : o == Expr.BinaryOp.GT ? " > " : o == Expr.BinaryOp.LE ? " <= " : " >= ";
     String code;
     if (isNumeric(l.type()) && isNumeric(r.type())) {
       code = "(" + l.code() + op + r.code() + ")";
@@ -632,7 +682,7 @@ public final class ExpressionCompiler {
         && (types().isAssignable(r.type(), l.type()) || types().isAssignable(l.type(), r.type()))) {
       code = "(" + l.code() + ".compareTo(" + r.code() + ")" + op + "0)";
     } else {
-      return error(b.pos(), "cannot compare " + describe(l.type()) + " and " + describe(r.type()) + " with" + op.stripTrailing());
+      return error(b.pos(), "cannot compare " + describe(l.type()) + " and " + describe(r.type()) + " with" + Backports.stripTrailing(op));
     }
     return new CompiledExpr(code, prim(TypeKind.BOOLEAN), b.pos());
   }
@@ -644,16 +694,13 @@ public final class ExpressionCompiler {
   }
 
   private CompiledExpr arithmetic(Expr.Binary b, CompiledExpr l, CompiledExpr r) {
+    Expr.BinaryOp o = b.op();
     String op =
-        switch (b.op()) {
-          case ADD -> " + ";
-          case SUB -> " - ";
-          case MUL -> " * ";
-          case DIV -> " / ";
-          default -> " % ";
-        };
+        o == Expr.BinaryOp.ADD
+            ? " + "
+            : o == Expr.BinaryOp.SUB ? " - " : o == Expr.BinaryOp.MUL ? " * " : o == Expr.BinaryOp.DIV ? " / " : " % ";
     if (!isNumeric(l.type()) || !isNumeric(r.type())) {
-      return error(b.pos(), "operator" + op.stripTrailing() + " needs numbers (or a String for +), got " + describe(l.type()) + " and " + describe(r.type()));
+      return error(b.pos(), "operator" + Backports.stripTrailing(op) + " needs numbers (or a String for +), got " + describe(l.type()) + " and " + describe(r.type()));
     }
     TypeMirror t = promote(unboxed(l.type()), unboxed(r.type()));
     return new CompiledExpr("(" + l.code() + op + r.code() + ")", t, b.pos());
@@ -703,8 +750,8 @@ public final class ExpressionCompiler {
     StringBuilder code = new StringBuilder("(\"\"");
     boolean ok = true;
     for (Expr part : i.parts()) {
-      if (part instanceof Expr.Literal l && l.value() instanceof String s) {
-        code.append(" + ").append(JavaStrings.literal(s));
+      if (part instanceof Expr.Literal && ((Expr.Literal) part).value() instanceof String) {
+        code.append(" + ").append(JavaStrings.literal((String) ((Expr.Literal) part).value()));
         continue;
       }
       CompiledExpr c = compileOutput(part, scope);
@@ -742,7 +789,7 @@ public final class ExpressionCompiler {
   }
 
   private boolean isNamespaceRef(Expr.Var v, Scope scope) {
-    return scope.lookup(v.name()).isEmpty() && isNamespace(v.name());
+    return !scope.lookup(v.name()).isPresent() && isNamespace(v.name());
   }
 
   private PrimitiveType prim(TypeKind kind) {
@@ -776,7 +823,9 @@ public final class ExpressionCompiler {
   }
 
   private static String stringLiteral(Expr e) {
-    return e instanceof Expr.Literal l && l.value() instanceof String s ? s : null;
+    return e instanceof Expr.Literal && ((Expr.Literal) e).value() instanceof String
+        ? (String) ((Expr.Literal) e).value()
+        : null;
   }
 
   /** The primitive type of {@code t} (itself, or its unboxed type), or null. */
@@ -813,10 +862,8 @@ public final class ExpressionCompiler {
   }
 
   private static boolean isIntIndex(TypeMirror t) {
-    return switch (t.getKind()) {
-      case INT, SHORT, BYTE, CHAR -> true;
-      default -> false;
-    };
+    TypeKind k = t.getKind();
+    return k == TypeKind.INT || k == TypeKind.SHORT || k == TypeKind.BYTE || k == TypeKind.CHAR;
   }
 
   private boolean isIntIndexBoxed(TypeMirror t) {
@@ -825,7 +872,7 @@ public final class ExpressionCompiler {
 
   /** Binary numeric promotion of two primitive types. */
   private TypeMirror promote(TypeMirror a, TypeMirror b) {
-    for (TypeKind k : List.of(TypeKind.DOUBLE, TypeKind.FLOAT, TypeKind.LONG)) {
+    for (TypeKind k : Backports.listOf(TypeKind.DOUBLE, TypeKind.FLOAT, TypeKind.LONG)) {
       if (a.getKind() == k || b.getKind() == k) {
         return prim(k);
       }
@@ -874,15 +921,17 @@ public final class ExpressionCompiler {
 
   /** Strips wildcards, captured and declared type variables down to their upper bounds. */
   private TypeMirror normalize(TypeMirror t) {
-    return switch (t.getKind()) {
-      case WILDCARD -> {
+    switch (t.getKind()) {
+      case WILDCARD:
         TypeMirror ext = ((WildcardType) t).getExtendsBound();
-        yield ext != null ? normalize(ext) : declared(ViewSafety.OBJECT);
-      }
-      case TYPEVAR -> normalize(((TypeVariable) t).getUpperBound());
-      case INTERSECTION -> normalize(((IntersectionType) t).getBounds().get(0));
-      default -> t;
-    };
+        return ext != null ? normalize(ext) : declared(ViewSafety.OBJECT);
+      case TYPEVAR:
+        return normalize(((TypeVariable) t).getUpperBound());
+      case INTERSECTION:
+        return normalize(((IntersectionType) t).getBounds().get(0));
+      default:
+        return t;
+    }
   }
 
   /** Type argument {@code index} of {@code t}'s supertype {@code name} (normalized), or null if raw. */

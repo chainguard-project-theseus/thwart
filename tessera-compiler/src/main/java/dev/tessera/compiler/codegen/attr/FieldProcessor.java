@@ -2,6 +2,7 @@ package dev.tessera.compiler.codegen.attr;
 
 import static dev.tessera.compiler.types.ExpressionCompiler.isDeclared;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
@@ -52,33 +53,35 @@ public final class FieldProcessor implements AttributeProcessor {
     String display = "ctx.forms().value(" + field.objectName() + ", " + name + ", " + current.code() + ")";
     String tag = plan.element().name().toLowerCase(Locale.ROOT);
     switch (tag) {
-      case "input" -> input(ctx, attr, plan, name, display, current);
-      case "textarea" -> {
+      case "input":
+        input(ctx, attr, plan, name, display, current);
+        break;
+      case "textarea":
         nameAndId(plan, attr, name, true);
         plan.replaceBody(ESCAPERS + ".text(out, " + display + ");", OutputContext.TEXT);
-      }
-      case "select" -> {
+        break;
+      case "select":
         nameAndId(plan, attr, name, true);
         String local = ctx.freshName("selected");
         plan.wrap("{ java.lang.String " + local + " = " + display + ";", "}");
         TypeMirror string = ctx.env().elements().getTypeElement("java.lang.String").asType();
         plan.scope(plan.scope().with(new Variable(SELECTED, string, local)));
-      }
-      default ->
-          ctx.diagnostics()
-              .error(attr.pos(), "t:field works on <input>, <select> and <textarea>, not <" + plan.element().name() + ">");
+        break;
+      default:
+        ctx.diagnostics()
+            .error(attr.pos(), "t:field works on <input>, <select> and <textarea>, not <" + plan.element().name() + ">");
     }
   }
 
   /** {@code name} is Java code (a String) for the field path. */
   private static void input(
       CodegenContext ctx, Attribute attr, ElementPlan plan, String name, String display, CompiledExpr current) {
-    String type = staticValue(plan, "type").map(t -> t.strip().toLowerCase(Locale.ROOT)).orElse("text");
+    String type = staticValue(plan, "type").map(t -> Backports.strip(t).toLowerCase(Locale.ROOT)).orElse("text");
     switch (type) {
-      case "checkbox" -> {
+      case "checkbox":
         if (isBoolean(current.type())) {
           nameAndId(plan, attr, name, true);
-          if (plan.attribute("value").isEmpty()) {
+          if (!plan.attribute("value").isPresent()) {
             plan.setAttribute("value", "\"true\"", attr.pos());
           }
           plan.setAttribute(
@@ -96,17 +99,20 @@ public final class FieldProcessor implements AttributeProcessor {
         } else {
           checkedByValue(ctx, attr, plan, name, display);
         }
-      }
-      case "radio" -> checkedByValue(ctx, attr, plan, name, display);
-      case "file" -> nameAndId(plan, attr, name, true);
-      case "password" -> {
+        break;
+      case "radio":
+        checkedByValue(ctx, attr, plan, name, display);
+        break;
+      case "file":
+        nameAndId(plan, attr, name, true);
+        break;
+      case "password":
         nameAndId(plan, attr, name, true);
         plan.removeAttribute("value");
-      }
-      default -> {
+        break;
+      default:
         nameAndId(plan, attr, name, true);
         plan.setAttribute("value", display, attr.pos());
-      }
     }
   }
 
@@ -123,7 +129,7 @@ public final class FieldProcessor implements AttributeProcessor {
   }
 
   private static void nameAndId(ElementPlan plan, Attribute attr, String name, boolean id) {
-    if (id && plan.attribute("id").isEmpty()) {
+    if (id && !plan.attribute("id").isPresent()) {
       plan.setAttribute("id", name, attr.pos());
     }
     plan.setAttribute("name", name, attr.pos());
@@ -136,7 +142,7 @@ public final class FieldProcessor implements AttributeProcessor {
    */
   public static void option(CodegenContext ctx, ElementPlan plan) {
     Optional<Variable> selected = plan.scope().lookup(SELECTED);
-    if (selected.isEmpty()) {
+    if (!selected.isPresent()) {
       return;
     }
     String value = valueCode(plan, "value");
@@ -154,15 +160,16 @@ public final class FieldProcessor implements AttributeProcessor {
     return plan.attribute(attribute)
         .map(
             a ->
-                a instanceof ElementPlan.DynamicAttr d
-                    ? ESCAPERS + ".toText(" + d.valueCode() + ")"
+                a instanceof ElementPlan.DynamicAttr
+                    ? ESCAPERS + ".toText(" + a.valueCode() + ")"
                     : a.valueCode())
         .orElse(null);
   }
 
   private static Optional<String> staticValue(ElementPlan plan, String attribute) {
     return plan.attribute(attribute)
-        .flatMap(a -> a instanceof ElementPlan.StaticAttr s ? Optional.ofNullable(s.source().value()) : Optional.empty());
+        .filter(a -> a instanceof ElementPlan.StaticAttr)
+        .map(a -> ((ElementPlan.StaticAttr) a).source().value());
   }
 
   private static boolean isBoolean(TypeMirror t) {
@@ -178,7 +185,7 @@ public final class FieldProcessor implements AttributeProcessor {
    */
   static FormPaths.FormField field(CodegenContext ctx, Attribute attr, Scope scope, boolean report) {
     DiagnosticSink sink = report ? ctx.diagnostics() : d -> {};
-    if (attr.value() == null || attr.value().isBlank()) {
+    if (attr.value() == null || Backports.isBlank(attr.value())) {
       sink.error(attr.pos(), attr.name() + " needs a field path, e.g. " + attr.name() + "=\"*{lastName}\"");
       return null;
     }
@@ -191,7 +198,7 @@ public final class FieldProcessor implements AttributeProcessor {
       return FormPaths.fromVariable(variable.get(), attr.valuePos(), ctx.expressions());
     }
     Optional<Scope.Selection> selection = scope.selection();
-    if (selection.isEmpty()) {
+    if (!selection.isPresent()) {
       sink.error(
           attr.pos(),
           attr.name()

@@ -1,5 +1,6 @@
 package dev.tessera.compiler.html;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.OutputContext;
@@ -17,13 +18,13 @@ public final class Contexts {
   private static final Pattern PLAIN_NAME = Pattern.compile("[A-Za-z_][A-Za-z0-9_.:-]*");
 
   private static final Set<String> URL_ATTRIBUTES =
-      Set.of(
+      Backports.setOf(
           "href", "src", "action", "formaction", "cite", "poster", "background", "longdesc",
           "usemap", "ping", "xlink:href");
 
   /** {@code <script type>} values whose content is JavaScript or JSON. */
   private static final Set<String> SCRIPT_TYPES =
-      Set.of(
+      Backports.setOf(
           "",
           "text/javascript",
           "application/javascript",
@@ -81,7 +82,7 @@ public final class Contexts {
       if (!a.isTessera()
           && a.name().equalsIgnoreCase("http-equiv")
           && a.value() != null
-          && a.value().strip().equalsIgnoreCase("refresh")) {
+          && Backports.strip(a.value()).equalsIgnoreCase("refresh")) {
         return true;
       }
     }
@@ -94,14 +95,21 @@ public final class Contexts {
   }
 
   private static boolean isResourceUrl(String element, String attr) {
-    return switch (element) {
-      // SVG <script> loads code from href / xlink:href.
-      case "script" -> attr.equals("src") || attr.equals("href") || attr.equals("xlink:href");
-      case "iframe", "frame", "embed" -> attr.equals("src");
-      case "object" -> attr.equals("data");
-      case "base", "link" -> attr.equals("href");
-      default -> false;
-    };
+    switch (element) {
+      case "script": // SVG <script> loads code from href / xlink:href.
+        return attr.equals("src") || attr.equals("href") || attr.equals("xlink:href");
+      case "iframe":
+      case "frame":
+      case "embed":
+        return attr.equals("src");
+      case "object":
+        return attr.equals("data");
+      case "base":
+      case "link":
+        return attr.equals("href");
+      default:
+        return false;
+    }
   }
 
   /**
@@ -113,11 +121,14 @@ public final class Contexts {
    * content type must be known at build time.
    */
   public static OutputContext text(Element element) {
-    return switch (element.name().toLowerCase(Locale.ROOT)) {
-      case "script" -> scriptContext(element);
-      case "style" -> OutputContext.STYLE;
-      default -> OutputContext.TEXT;
-    };
+    switch (element.name().toLowerCase(Locale.ROOT)) {
+      case "script":
+        return scriptContext(element);
+      case "style":
+        return OutputContext.STYLE;
+      default:
+        return OutputContext.TEXT;
+    }
   }
 
   private static OutputContext scriptContext(Element script) {
@@ -133,7 +144,7 @@ public final class Contexts {
     if (type == null) {
       return OutputContext.SCRIPT;
     }
-    return SCRIPT_TYPES.contains(type.strip().toLowerCase(Locale.ROOT))
+    return SCRIPT_TYPES.contains(Backports.strip(type).toLowerCase(Locale.ROOT))
         ? OutputContext.SCRIPT
         : OutputContext.FORBIDDEN;
   }

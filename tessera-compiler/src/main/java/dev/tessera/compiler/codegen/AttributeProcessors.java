@@ -1,5 +1,6 @@
 package dev.tessera.compiler.codegen;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.codegen.attr.AttrProcessor;
 import dev.tessera.compiler.codegen.attr.ClassAppendProcessor;
 import dev.tessera.compiler.codegen.attr.EachProcessor;
@@ -17,6 +18,7 @@ import dev.tessera.compiler.codegen.attr.TextProcessor;
 import dev.tessera.compiler.codegen.attr.UtextProcessor;
 import dev.tessera.compiler.codegen.attr.WithProcessor;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -31,20 +33,36 @@ import java.util.Set;
 public final class AttributeProcessors {
   private AttributeProcessors() {}
 
-  private record Entry(String name, AttributeProcessor processor) {}
+  private static final class Entry {
+    private final String name;
+    private final AttributeProcessor processor;
+
+    private Entry(String name, AttributeProcessor processor) {
+      this.name = name;
+      this.processor = processor;
+    }
+
+    public String name() {
+      return name;
+    }
+
+    public AttributeProcessor processor() {
+      return processor;
+    }
+  }
 
   /** Placeholder name marking where generic {@code t:<attr>} attributes run. */
   private static final String GENERIC = "*";
 
   /** Handled by {@link TemplateGenerator} directly; only valid on the root element. */
-  public static final Set<String> CORE = Set.of("params", "import");
+  public static final Set<String> CORE = Backports.setOf("params", "import");
 
   private static final InsertReplaceProcessor INSERT_REPLACE = new InsertReplaceProcessor();
   private static final IfProcessor IF = new IfProcessor();
   private static final SwitchProcessor SWITCH = new SwitchProcessor();
 
   private static final List<Entry> ORDER =
-      List.of(
+      Backports.listOf(
           new Entry("fragment", new FragmentProcessor()),
           new Entry("insert", INSERT_REPLACE),
           new Entry("replace", INSERT_REPLACE),

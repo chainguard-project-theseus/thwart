@@ -1,5 +1,6 @@
 package dev.tessera.compiler.codegen;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.html.Contexts;
@@ -12,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -41,10 +43,48 @@ import java.util.Optional;
 public final class ElementPlan {
 
   /** Code opened before and closed after the element, e.g. a loop or if. */
-  public record Wrapper(String open, String close) {}
+  public static final class Wrapper {
+    private final String open;
+    private final String close;
+
+    public Wrapper(String open, String close) {
+      this.open = open;
+      this.close = close;
+    }
+
+    public String open() {
+      return open;
+    }
+
+    public String close() {
+      return close;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof Wrapper)) {
+        return false;
+      }
+      Wrapper that = (Wrapper) o;
+      return Objects.equals(open, that.open)
+          && Objects.equals(close, that.close);
+    }
+
+    @Override
+    public int hashCode() {
+      int h = Objects.hashCode(open);
+      h = 31 * h + Objects.hashCode(close);
+      return h;
+    }
+
+    @Override
+    public String toString() {
+      return "Wrapper[open=" + open + ", close=" + close + "]";
+    }
+  }
 
   /** An attribute in the output start tag. */
-  public sealed interface Attr permits StaticAttr, DynamicAttr {
+  public interface Attr {
     String name();
 
     /**
@@ -55,7 +95,36 @@ public final class ElementPlan {
   }
 
   /** A non-{@code t:} attribute copied from the source as written. */
-  public record StaticAttr(Attribute source) implements Attr {
+  public static final class StaticAttr implements Attr {
+    private final Attribute source;
+
+    public StaticAttr(Attribute source) {
+      this.source = source;
+    }
+
+    public Attribute source() {
+      return source;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof StaticAttr)) {
+        return false;
+      }
+      StaticAttr that = (StaticAttr) o;
+      return Objects.equals(source, that.source);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(source);
+    }
+
+    @Override
+    public String toString() {
+      return "StaticAttr[source=" + source + "]";
+    }
+
     @Override
     public String name() {
       return source.name();
@@ -65,11 +134,66 @@ public final class ElementPlan {
     public String valueCode() {
       return JavaStrings.literal(source.value() == null ? "" : source.value());
     }
+  
   }
 
   /** A computed attribute. {@code valueCode} is a Java expression (any type; null omits). */
-  public record DynamicAttr(String name, String valueCode, OutputContext context, SourcePos pos)
-      implements Attr {}
+  public static final class DynamicAttr implements Attr {
+    private final String name;
+    private final String valueCode;
+    private final OutputContext context;
+    private final SourcePos pos;
+
+    public DynamicAttr(String name, String valueCode, OutputContext context, SourcePos pos) {
+      this.name = name;
+      this.valueCode = valueCode;
+      this.context = context;
+      this.pos = pos;
+    }
+
+    public String name() {
+      return name;
+    }
+
+    public String valueCode() {
+      return valueCode;
+    }
+
+    public OutputContext context() {
+      return context;
+    }
+
+    public SourcePos pos() {
+      return pos;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof DynamicAttr)) {
+        return false;
+      }
+      DynamicAttr that = (DynamicAttr) o;
+      return Objects.equals(name, that.name)
+          && Objects.equals(valueCode, that.valueCode)
+          && Objects.equals(context, that.context)
+          && Objects.equals(pos, that.pos);
+    }
+
+    @Override
+    public int hashCode() {
+      int h = Objects.hashCode(name);
+      h = 31 * h + Objects.hashCode(valueCode);
+      h = 31 * h + Objects.hashCode(context);
+      h = 31 * h + Objects.hashCode(pos);
+      return h;
+    }
+
+    @Override
+    public String toString() {
+      return "DynamicAttr[name=" + name + ", valueCode=" + valueCode + ", context=" + context
+          + ", pos=" + pos + "]";
+    }
+  }
 
   private final Element element;
   private Scope scope;
@@ -114,12 +238,12 @@ public final class ElementPlan {
   }
 
   public List<Wrapper> wrappers() {
-    return List.copyOf(wrappers);
+    return Backports.listCopy(wrappers);
   }
 
   /** Output attributes in order (source order, new attributes appended). */
   public List<Attr> attributes() {
-    return List.copyOf(attributes.values());
+    return Backports.listCopy(attributes.values());
   }
 
   /** Case-insensitive lookup. */
@@ -146,7 +270,7 @@ public final class ElementPlan {
   }
 
   public List<String> afterStartTagStatements() {
-    return List.copyOf(afterStartTag);
+    return Backports.listCopy(afterStartTag);
   }
 
   /**

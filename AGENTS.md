@@ -35,13 +35,15 @@ This is an MVP built tonight. Prefer the smallest thing that is correct and secu
 
 - Do exactly the issue's scope. No speculative abstractions, plugin systems, config knobs,
   or "future-proofing". No new modules or dependencies unless the issue says so.
-- Plain Java. `tessera-runtime`, `tessera-spring-boot-starter` (main and test sources) and the
-  code the generator emits are **Java 8** (no records, sealed types, pattern matching, switch
-  expressions, `var` or post-8 APIs such as `List.of`); javac `--release 8` and the release-8
-  test runs enforce it. The starter must also keep working on Spring 5.0 / Boot 2.0
-  (`tessera-spring-tests`). The compiler and tooling are Java 21 (records, sealed interfaces,
-  switch patterns). The runtime module has **zero
-  third-party dependencies**.
+- Plain Java. `tessera-runtime`, `tessera-compiler` (the annotation processor runs inside the
+  application's javac, which may be JDK 8), `tessera-migrate`, `tessera-spring-boot-starter`
+  (main and test sources) and the code the generator emits are **Java 8** (no records, sealed
+  types, pattern matching, switch expressions, `var` or post-8 APIs such as `List.of`; the
+  compiler has `Backports` and migrate `Compat` for the latter); javac `--release 8` and the
+  release-8 and JDK 8 test runs enforce it. The starter must also keep working on Spring 5.0 /
+  Boot 2.0 (`tessera-spring-tests`, also `--release 8`). Benchmarks, examples and the tests of
+  the runtime, compiler and migrate are Java 21. The runtime module has **zero third-party
+  dependencies**.
 - Error messages from the compiler must name the template file, line and column.
 - Security-relevant behaviour gets a test, including a negative test (the bad thing fails).
 - If something is out of scope, leave a `// TODO(#issue)` or open an issue; don't build it.
@@ -50,7 +52,7 @@ This is an MVP built tonight. Prefer the smallest thing that is correct and secu
 
 See the module table in [docs/mvp-design.md](docs/mvp-design.md).
 
-Shared contracts are the template model (`tessera-compiler/.../model/*`), the `Expr` records in
+Shared contracts are the template model (`tessera-compiler/.../model/*`), the `Expr` classes in
 `.../expr`, `Scope`/`Variable`/`CompiledExpr` in `.../types`,
 `CodegenContext`/`ElementPlan`/`AttributeProcessor`/`AttributeProcessors` in `.../codegen`, the
 runtime API, and the `dev.tessera.compiler.testing.Compilation` harness. If you must change one,
@@ -58,7 +60,9 @@ keep the change additive and minimal and call it out in the PR description.
 
 ## Build and test
 
-- `mvn -B -ntp verify` from the repo root. JDK 21+ (`--release 21`; the runtime `--release 8`).
+- `mvn -B -ntp verify` from the repo root. JDK 21+ (`--release 21`; runtime, compiler, migrate and
+  starter `--release 8`). `Jdk8ProcessorTest` builds a small app with a real JDK 8 javac: point
+  `JDK8_HOME` at a JDK 8 (without it the test is skipped locally and fails in CI).
 - Tests use JUnit Jupiter 6 (the root pom pins `junit-bom` 6.1.3). Compiler tests use the in-memory harness
   `dev.tessera.compiler.testing.Compilation` (in `tessera-compiler/src/test/java`), which runs
   javac with the real annotation processor and lets you render or assert on diagnostics.
