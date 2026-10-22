@@ -42,7 +42,7 @@ final class Crawler {
     this.base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
     this.client = HttpClient.newBuilder()
         .version(HttpClient.Version.HTTP_1_1)
-        .followRedirects(HttpClient.Redirect.NORMAL)
+        .followRedirects(HttpClient.Redirect.NEVER) // followed in send(), like a browser
         .cookieHandler(new CookieManager())
         .connectTimeout(Duration.ofSeconds(10))
         .build();
@@ -73,18 +73,29 @@ final class Crawler {
   Response send(Request request) {
     Response response;
     try {
-      HttpRequest.Builder http = HttpRequest.newBuilder(URI.create(base + request.path()))
-          .timeout(Duration.ofSeconds(60))
-          .header("Accept", "text/html")
-          .header("Accept-Language", "en");
-      if (request.method().equals("POST")) {
-        http.header("Content-Type", "application/x-www-form-urlencoded")
-            .POST(HttpRequest.BodyPublishers.ofString(formBody(request.form(), csrf(previousBody))));
-      } else {
-        http.GET();
+      URI uri = URI.create(base + request.path());
+      String method = request.method();
+      String body = method.equals("POST") ? formBody(request.form(), csrf(previousBody)) : null;
+      HttpResponse<String> r;
+      for (int hops = 0; ; hops++) {
+        r = client.send(build(uri, method, body),
+            HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        // Without a Location (a page rendered with status 303, say) a browser shows the body.
+        String location = r.headers().firstValue("Location").orElse(null);
+        if (location == null || !isRedirect(r.statusCode())) {
+          break;
+        }
+        if (hops == MAX_REDIRECTS) {
+          throw new IOException("more than " + MAX_REDIRECTS + " redirects");
+        }
+        // HttpClient reads header bytes as ISO-8859-1; a browser reads a Location as UTF-8.
+        location = new String(location.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+        uri = uri.resolve(encodeUrl(location));
+        if (r.statusCode() != 307 && r.statusCode() != 308) {
+          method = "GET";
+          body = null;
+        }
       }
-      HttpResponse<String> r = client.send(http.build(),
-          HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
       response = new Response(r.statusCode(), relative(r.uri().toString()), r.body());
     } catch (IOException | IllegalArgumentException e) {
       response = new Response(0, request.path(),
@@ -95,6 +106,54 @@ final class Crawler {
     }
     previousBody = response.body();
     return response;
+  }
+
+  private static final int MAX_REDIRECTS = 10;
+
+  private static HttpRequest build(URI uri, String method, String body) {
+    HttpRequest.Builder http = HttpRequest.newBuilder(uri)
+        .timeout(Duration.ofSeconds(60))
+        .header("Accept", "text/html")
+        .header("Accept-Language", "en");
+    if (body != null) {
+      http.header("Content-Type", "application/x-www-form-urlencoded")
+          .method(method, HttpRequest.BodyPublishers.ofString(body));
+    } else {
+      http.method(method, HttpRequest.BodyPublishers.noBody());
+    }
+    return http.build();
+  }
+
+  private static boolean isRedirect(int status) {
+    return status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
+  }
+
+  /**
+   * Percent-encodes what a browser would in a {@code Location} before resolving it: every
+   * character outside the URI's ASCII set (spaces, non-ASCII as UTF-8, {@code "<>\^`{|}}) and a
+   * {@code %} that starts no escape. Existing escapes and the URI's delimiters stay as they are.
+   */
+  static String encodeUrl(String url) {
+    StringBuilder out = new StringBuilder();
+    byte[] bytes = url.strip().getBytes(StandardCharsets.UTF_8);
+    for (int i = 0; i < bytes.length; i++) {
+      int b = bytes[i] & 0xff;
+      boolean escape = b == '%' && i + 2 < bytes.length && isHex(bytes[i + 1]) && isHex(bytes[i + 2]);
+      if (escape || (b != '%' && b < 0x80 && URI_CHARS.indexOf(b) >= 0)) {
+        out.append((char) b);
+      } else {
+        out.append('%').append(HEX.charAt(b >> 4)).append(HEX.charAt(b & 0xf));
+      }
+    }
+    return out.toString();
+  }
+
+  private static final String HEX = "0123456789ABCDEF";
+  private static final String URI_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+      + "0123456789-._~:/?#[]@!$&'()*+,;=";
+
+  private static boolean isHex(byte b) {
+    return HEX.indexOf(Character.toUpperCase((char) b)) >= 0;
   }
 
   private String relative(String url) {
