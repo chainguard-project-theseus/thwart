@@ -95,7 +95,7 @@ class PetControllerTests {
 		mockMvc.perform(get("/owners/{ownerId}/pets/new", TEST_OWNER_ID))
 			.andExpect(status().isOk())
 			.andExpect(view().name("pets/createOrUpdatePetForm"))
-			.andExpect(content().string(stringContainsInOrder("<h2>", "New ", "<span>Pet</span>", "</h2>", "<form class=\"form-horizontal\" method=\"post\">", "<input type=\"hidden\" name=\"id\" />", "<label for=\"name\" class=\"col-sm-2 control-label\">Name</label>", "id=\"name\" name=\"name\" value=\"\"", "type=\"date\" id=\"birthDate\" name=\"birthDate\" value=\"\"", "<select id=\"type\" name=\"type\">", "<option value=\"hamster\">hamster</option>", "</select>", "<button class=\"btn btn-primary\" type=\"submit\">Add Pet</button>")))
+			.andExpect(content().string(stringContainsInOrder("<h2>", "New ", "<span>Pet</span>", "</h2>", "<form class=\"form-horizontal\" method=\"post\">", "<input type=\"hidden\" name=\"id\" />", "<label class=\"col-sm-2 control-label\" for=\"name\">Name</label>", "id=\"name\" name=\"name\" value=\"\"", "type=\"date\" id=\"birthDate\" name=\"birthDate\" value=\"\"", "<select id=\"type\" name=\"type\">", "<option value=\"hamster\">hamster</option>", "</select>", "<button class=\"btn btn-primary\" type=\"submit\">Add Pet</button>")))
 			.andExpect(content().string(not(containsString("has-error"))))
 			.andExpect(model().attributeExists("pet"));
 	}

@@ -10,23 +10,24 @@ import java.util.Optional;
 
 /**
  * {@code t:errors="name"} (or {@code "*"}): if the field has errors, renders them escaped and joined by {@code <br />} as the body; otherwise removes the element.
+ * Inside a fragment, {@code name} may be a {@code Field} parameter.
  */
 public final class ErrorsProcessor implements AttributeProcessor {
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
-    Optional<Scope.Selection> selection = plan.scope().selection();
-    if (selection.isEmpty()) {
-      ctx.diagnostics().error(attr.pos(), "t:errors can only be used inside t:object (on this element or an ancestor)");
-      return;
-    }
-    String path;
+    FormPaths.FormField field;
     String value = attr.value() == null ? "" : attr.value().strip();
     if (value.equals(FormPaths.ALL) || value.equals("*{*}")) {
-      path = FormPaths.ALL;
+      Optional<Scope.Selection> selection = plan.scope().selection();
+      if (selection.isEmpty()) {
+        ctx.diagnostics().error(attr.pos(), "t:errors can only be used inside t:object (on this element or an ancestor)");
+        return;
+      }
+      field = FormPaths.literal(selection.get(), FormPaths.ALL, null);
     } else {
-      path = FieldProcessor.path(ctx, attr, ctx.diagnostics());
-      if (path == null || FormPaths.compile(path, attr.valuePos(), plan.scope(), ctx.expressions()) == null) {
+      field = FieldProcessor.field(ctx, attr, plan.scope(), true);
+      if (field == null) {
         return;
       }
     }
@@ -36,7 +37,7 @@ public final class ErrorsProcessor implements AttributeProcessor {
         "{ java.util.List<java.lang.String> "
             + errors
             + " = "
-            + FormPaths.formsCall("errors", selection.get(), path)
+            + field.formsCall("errors")
             + "; if (!"
             + errors
             + ".isEmpty()) {",
