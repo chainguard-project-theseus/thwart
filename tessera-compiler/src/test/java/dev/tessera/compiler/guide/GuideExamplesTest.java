@@ -114,7 +114,7 @@ class GuideExamplesTest {
 
   @Test
   void contexts() {
-    Object account = compilation.newInstance("com.example.guide.Account", "a@example.com", true, List.of("</script>"));
+    Object account = compilation.newInstance("com.example.guide.Account", "a@example.com", List.of("</script>"));
     String html =
         render(
             "guide/contexts",
@@ -127,10 +127,10 @@ class GuideExamplesTest {
   }
 
   @Test
-  void functionsAndPlainJavaRendering() throws Exception {
-    Object html = compilation.classLoader().loadClass("com.example.guide.RenderExample").getMethod("render").invoke(null);
-    assertEquals(
-        "<p>\n  Total: <b>€9.50</b>\n  (<span>ORD-1...</span>)\n</p>", html.toString().strip());
+  void functions() {
+    Object order = compilation.newInstance("com.example.guide.Order", "ORD-12345678", new BigDecimal("9.5"));
+    String html = render("guide/functions", Map.of("order", order));
+    assertEquals("<p>\n  Total: <b>€9.50</b>\n  (<span>ORD-1...</span>)\n</p>", html.strip());
   }
 
   @Test
@@ -141,8 +141,10 @@ class GuideExamplesTest {
     assertTrue(cards.contains("<footer>© Example</footer>"), cards);
 
     String home = render("guide/home", Map.of("customer", customer()));
-    assertTrue(home.contains("<title>Home</title>"), home);
-    assertTrue(home.contains("<div class=\"container\"><body>\n  <h1>Welcome, Ann &lt;b&gt;</h1>\n</body></div>"), home);
+    assertTrue(home.contains("<title>Home - Example</title>"), home);
+    // <body t:remove="tag"> inserts only the body's children: no <body> inside the layout's <body>.
+    assertTrue(home.contains("<div class=\"container\">\n  <h1>Welcome, Ann &lt;b&gt;</h1>\n</div>"), home);
+    assertEquals(1, home.split("<body", -1).length - 1, home);
   }
 
   @Test
