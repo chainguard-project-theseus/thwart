@@ -1,6 +1,8 @@
 package dev.tessera.compiler.codegen;
 
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
+import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.OutputContext;
@@ -32,8 +34,9 @@ import java.util.Optional;
  * A dynamic attribute is emitted as
  * {@code { Object v$ = <valueCode>; if (v$ != null) { out.write(" name=\""); Escapers.<ctx>(out, v$); out.write('"'); } }},
  * so a {@code null} value omits the attribute (Thymeleaf behaviour) and boolean attributes use
- * {@code cond ? "checked" : null}. Its context must have an escaper; processors report
- * contexts without one as build errors instead of adding them.
+ * {@code cond ? "checked" : null}. Its context is {@link Contexts#attribute} for the element and
+ * name, and must have an escaper; processors report contexts without one as build errors instead
+ * of adding them.
  */
 public final class ElementPlan {
 
@@ -43,6 +46,12 @@ public final class ElementPlan {
   /** An attribute in the output start tag. */
   public sealed interface Attr permits StaticAttr, DynamicAttr {
     String name();
+
+    /**
+     * Java code for this attribute's current value: a String literal, {@code ""} for a valueless
+     * static attribute, or the dynamic expression code.
+     */
+    String valueCode();
   }
 
   /** A non-{@code t:} attribute copied from the source as written. */
@@ -50,6 +59,11 @@ public final class ElementPlan {
     @Override
     public String name() {
       return source.name();
+    }
+
+    @Override
+    public String valueCode() {
+      return JavaStrings.literal(source.value() == null ? "" : source.value());
     }
   }
 
@@ -113,9 +127,13 @@ public final class ElementPlan {
     return Optional.ofNullable(attributes.get(key(name)));
   }
 
-  /** Sets a computed attribute, replacing a same-named one in place or appending. */
-  public void setAttribute(String name, String valueCode, OutputContext context, SourcePos pos) {
-    attributes.put(key(name), new DynamicAttr(name, valueCode, context, pos));
+  /**
+   * Sets a computed attribute, replacing a same-named one in place or appending. Its context is
+   * {@link Contexts#attribute} for this element and {@code name}.
+   */
+  public void setAttribute(String name, String valueCode, SourcePos pos) {
+    attributes.put(
+        key(name), new DynamicAttr(name, valueCode, Contexts.attribute(element, name), pos));
   }
 
   public void removeAttribute(String name) {
@@ -131,8 +149,20 @@ public final class ElementPlan {
     return List.copyOf(afterStartTag);
   }
 
-  /** Replaces the children with {@code statements} (t:text, t:utext, t:errors, t:insert). */
-  public void replaceBody(String statements) {
+  /**
+   * Replaces the children with {@code statements} (t:text, t:utext, t:errors, t:insert).
+   * {@code writtenFor} is the context the statements escape for; it must be the element's
+   * content context ({@link Contexts#text}), so a processor that forgot to check it fails loudly
+   * instead of writing HTML into a {@code <script>} or {@code <style>}.
+   *
+   * @throws IllegalStateException if {@code writtenFor} is not {@code Contexts.text(element())}
+   */
+  public void replaceBody(String statements, OutputContext writtenFor) {
+    OutputContext content = Contexts.text(element);
+    if (writtenFor != content) {
+      throw new IllegalStateException(
+          "body written for " + writtenFor + " inside <" + element.name() + "> whose content is " + content);
+    }
     this.body = statements;
   }
 

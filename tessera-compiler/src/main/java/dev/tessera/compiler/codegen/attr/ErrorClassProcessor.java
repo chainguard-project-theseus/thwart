@@ -6,7 +6,7 @@ import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.model.Attribute;
-import dev.tessera.compiler.model.OutputContext;
+import dev.tessera.runtime.Escapers;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -38,28 +38,18 @@ public final class ErrorClassProcessor implements AttributeProcessor {
     if (formField == null) {
       return;
     }
-    String original =
-        plan.attribute("class")
-            .map(
-                a ->
-                    switch (a) {
-                      case ElementPlan.StaticAttr s ->
-                          JavaStrings.literal(s.source().value() == null ? "" : s.source().value());
-                      case ElementPlan.DynamicAttr d -> d.valueCode();
-                    })
-            .orElse("null");
+    String original = plan.attribute("class").map(ElementPlan.Attr::valueCode).orElse("null");
     String o = ctx.freshName("class");
     String c = ctx.freshName("class");
     plan.wrap(
         "{ java.lang.Object " + o + " = " + original + "; java.lang.String " + c
-            + " = dev.tessera.runtime.Escapers.toText(" + o + ").strip();",
+            + " = " + Escapers.class.getName() + ".toText(" + o + ").strip();",
         "}");
     plan.setAttribute(
         "class",
         formField.formsCall("hasErrors") + " ? (" + c + ".isEmpty() ? "
             + JavaStrings.literal(cls) + " : " + c + " + " + JavaStrings.literal(" " + cls) + ") : "
             + o,
-        OutputContext.ATTRIBUTE,
         attr.pos());
   }
 }

@@ -74,7 +74,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       CompiledExpr cond = ctx.expressions().compileCondition(value, plan.scope());
       if (cond != null) {
         String code = "((" + cond.code() + ") ? " + JavaStrings.literal(name) + " : null)";
-        plan.setAttribute(name, code, context, pos);
+        plan.setAttribute(name, code, pos);
       }
       return;
     }
@@ -90,6 +90,6 @@ public final class GenericAttrProcessor implements AttributeProcessor {
               + " @{/js/app.js} or a TrustedUrl value, not a " + c.type());
       return;
     }
-    plan.setAttribute(name, c.code(), context, pos);
+    plan.setAttribute(name, c.code(), pos);
   }
 }

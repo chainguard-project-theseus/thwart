@@ -22,7 +22,7 @@ public final class UtextProcessor implements AttributeProcessor {
     if (e == null) {
       return;
     }
-    plan.replaceBody(TextInlining.safeHtmlStatement(ctx, e, attr.name(), plan.scope()));
+    plan.replaceBody(TextInlining.safeHtmlStatement(ctx, e, attr.name(), plan.scope()), OutputContext.TEXT);
   }
 
   /**
