@@ -3,7 +3,10 @@ package dev.tessera.compiler.codegen.attr;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
+import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.model.Attribute;
+import dev.tessera.compiler.types.Scope;
+import java.util.Optional;
 
 /**
  * {@code t:errors="name"} (or {@code "*"}): if the field has errors, renders them escaped and joined by {@code <br />} as the body; otherwise removes the element.
@@ -12,6 +15,35 @@ public final class ErrorsProcessor implements AttributeProcessor {
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
-    AttributeProcessor.notImplemented(ctx, attr, 15); // TODO(#15)
+    Optional<Scope.Selection> selection = plan.scope().selection();
+    if (selection.isEmpty()) {
+      ctx.diagnostics().error(attr.pos(), "t:errors can only be used inside t:object (on this element or an ancestor)");
+      return;
+    }
+    String path;
+    String value = attr.value() == null ? "" : attr.value().strip();
+    if (value.equals(FormPaths.ALL) || value.equals("*{*}")) {
+      path = FormPaths.ALL;
+    } else {
+      path = FieldProcessor.path(ctx, attr, ctx.diagnostics());
+      if (path == null || FormPaths.compile(path, attr.valuePos(), plan.scope(), ctx.expressions()) == null) {
+        return;
+      }
+    }
+    String errors = ctx.freshName("errors");
+    String i = ctx.freshName("i");
+    plan.wrap(
+        "{ java.util.List<java.lang.String> "
+            + errors
+            + " = "
+            + FormPaths.formsCall("errors", selection.get(), path)
+            + "; if (!"
+            + errors
+            + ".isEmpty()) {",
+        "} }");
+    plan.replaceBody(
+        "for (int " + i + " = 0; " + i + " < " + errors + ".size(); " + i + "++) { if (" + i
+            + " > 0) { out.write(\"<br />\"); } dev.tessera.runtime.Escapers.text(out, " + errors + ".get(" + i
+            + ")); }");
   }
 }

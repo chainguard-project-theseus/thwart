@@ -7,6 +7,7 @@ import dev.tessera.compiler.Diagnostics;
 import dev.tessera.compiler.GeneratedFile;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.attr.CsrfInjector;
+import dev.tessera.compiler.codegen.attr.FieldProcessor;
 import dev.tessera.compiler.codegen.attr.FragmentMethods;
 import dev.tessera.compiler.codegen.attr.TextInlining;
 import dev.tessera.compiler.expr.Expr;
@@ -35,7 +36,7 @@ import javax.lang.model.SourceVersion;
  * emits static markup as string constants, builds an {@link ElementPlan} per element by running
  * {@link AttributeProcessors} in precedence order, and calls the per-template hooks
  * ({@code TextInlining} for text nodes, {@code CsrfInjector} for {@code <form>},
- * {@code FragmentMethods} once per template). Handles {@code t:params}/{@code t:import} on the
+ * {@code FieldProcessor.option} for {@code <option>}, {@code FragmentMethods} once per template). Handles {@code t:params}/{@code t:import} on the
  * root element, {@code <t:block>} (tag omitted), and rejects unknown/misplaced core attributes.
  * Implements {@link CodegenContext}.
  *
@@ -266,6 +267,9 @@ public final class TemplateGenerator implements CodegenContext {
     }
     if (e.name().equalsIgnoreCase("form")) {
       CsrfInjector.apply(this, plan);
+    }
+    if (e.name().equalsIgnoreCase("option")) {
+      FieldProcessor.option(this, plan);
     }
     emit(c, plan);
   }
