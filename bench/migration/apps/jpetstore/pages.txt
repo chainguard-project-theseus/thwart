@@ -1,0 +1,82 @@
+# jpetstore (Spring Boot 2.0 / Java 8 / Thymeleaf 3.0 + layout dialect + springsecurity4 extras):
+# every template, anonymous and signed in, the cart, the whole order flow with each form invalid
+# and valid, account create/update, and the error pages. Requests run in order against a fresh
+# in-memory HSQLDB seeded by Flyway (users j2ee/j2ee and ACID/ACID, no orders).
+#
+# Order dates come from the clock and are ignored in app.json (no seeded order has a date).
+
+# --- Anonymous catalog
+GET /
+GET /catalog
+GET /catalog/categories/FISH
+GET /catalog/categories/DOGS
+GET /catalog/categories/BIRDS
+GET /catalog/products?keywords=
+GET /catalog/products?keywords=retriever
+GET /catalog/products?keywords=%3Cb%3Enothing
+GET /catalog/products/FI-SW-01
+GET /catalog/products/K9-RT-01
+GET /catalog/items/EST-1
+GET /catalog/items/EST-28
+
+# --- Anonymous cart: empty, add, increment, invalid and valid updates, remove
+GET /cart
+GET /cart?add&itemId=EST-1
+GET /cart?add&itemId=EST-1
+GET /cart?add&itemId=EST-6
+GET /cart?add&itemId=EST-28
+POST /cart update=Update Cart&lines[0].quantity=-1&lines[1].quantity=abc&lines[2].quantity=1
+POST /cart update=Update Cart&lines[0].quantity=3&lines[1].quantity=0&lines[2].quantity=2
+GET /cart?remove&itemId=EST-28
+
+# --- Sign in: the order form needs it
+GET /my/orders/create?form
+POST /login username=j2ee&password=wrong
+GET /login?error
+POST /login username=j2ee&password=j2ee
+GET /cart
+
+# --- Order flow: basic form invalid/valid, shipping form invalid/valid, confirm, submit
+GET /my/orders
+GET /my/orders/create?form
+POST /my/orders/create continue=Continue&cardType=Visa&creditCard=12ab&expiryDate=2030-12&billToFirstName=&billToLastName=XYX&billAddress1=901 San Antonio Road&billAddress2=&billCity=Palo Alto&billState=CA&billZip=94303&billCountry=USA&_shippingAddressRequired=on
+POST /my/orders/create continue=Continue&cardType=MasterCard&creditCard=999999999999&expiryDate=12/2030&billToFirstName=ABC&billToLastName=O'Neil <b>&billAddress1=901 San Antonio Road&billAddress2=MS UCUP02-206&billCity=Palo Alto&billState=CA&billZip=94303&billCountry=USA&shippingAddressRequired=true&_shippingAddressRequired=on
+POST /my/orders/create confirm=Continue&shipToFirstName=&shipToLastName=Smith&shipAddress1=&shipAddress2=&shipCity=Boston&shipState=MA&shipZip=0211x&shipCountry=USA
+POST /my/orders/create confirm=Continue&shipToFirstName=Jane&shipToLastName=Smith %26 "Co"&shipAddress1=1 Main St&shipAddress2=Apt 2&shipCity=Boston&shipState=MA&shipZip=02110&shipCountry=USA
+POST /my/orders/create
+GET /my/orders
+GET /my/orders/1000
+GET /catalog/items/EST-1
+
+# --- A second order without a shipping address, then an empty cart at the order form
+GET /cart?add&itemId=EST-16
+GET /my/orders/create?form
+POST /my/orders/create continue=Continue&cardType=American Express&creditCard=4444&expiryDate=01/2031&billToFirstName=ABC&billToLastName=XYX&billAddress1=901 San Antonio Road&billAddress2=&billCity=Palo Alto&billState=CA&billZip=94303&billCountry=USA&_shippingAddressRequired=on
+POST /my/orders/create
+GET /my/orders
+GET /my/orders/create?form
+
+# --- My account: form, invalid, valid (banner on, other favourite category)
+GET /my/account/update?form
+POST /my/account/update password=short&repeatedPassword=other&email=not-an-email&firstName=&lastName=XYX&address1=901 San Antonio Road&address2=&city=Palo Alto&state=CA&zip=9430a&country=USA&phone=phone&favouriteCategoryId=DOGS&languagePreference=English&_listOption=on&_bannerOption=on
+POST /my/account/update password=&repeatedPassword=&email=j2ee@example.com&firstName=Jay <i>&lastName=Two&address1=1 Infinite Loop&address2=&city=Cupertino&state=CA&zip=95014&country=USA&phone=555-555-1234&favouriteCategoryId=CATS&languagePreference=Japanese&listOption=true&_listOption=on&bannerOption=true&_bannerOption=on
+GET /cart
+GET /catalog
+GET /logout
+
+# --- Account creation (anonymous): form, invalid, duplicate-free valid, sign in as the new user
+GET /accounts/create?form
+POST /accounts/create username=&password=abc&repeatedPassword=abd&email=&firstName=&lastName=&address1=&address2=&city=&state=&zip=&country=&phone=&favouriteCategoryId=FISH&languagePreference=English&_listOption=on&_bannerOption=on
+POST /accounts/create username=bench&password=benchpass1&repeatedPassword=benchpass1&email=bench@example.com&firstName=Ben&lastName=Ch&address1=2 Elm St&address2=&city=Springfield&state=IL&zip=62701&country=USA&phone=217-555-0100&favouriteCategoryId=BIRDS&languagePreference=English&_listOption=on&bannerOption=true&_bannerOption=on
+POST /login username=bench&password=benchpass1
+GET /my/orders
+GET /cart
+
+# --- Error pages: 500 (an update for an item that is not in the cart), 400, 404 for an order of
+# another user and an unknown category, and an unmapped path
+POST /cart update=Update Cart&lines[0].itemId=NOPE&lines[0].quantity=1
+GET /my/orders/abc
+GET /my/orders/1000
+GET /catalog/categories/NOPE
+GET /logout
+GET /no-such-page

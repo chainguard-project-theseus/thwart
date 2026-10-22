@@ -1,0 +1,15 @@
+{
+  "repo": "https://github.com/kazuki43zoo/mybatis-spring-boot-jpetstore",
+  "commit": "ccd904cf9ba9a13f432964e05763795151a6d1da",
+  "engine": "thymeleaf",
+  "difficulty": "medium",
+  "java": 8,
+  "build": "mvn -B -ntp -Dlicense.skip=true -Ddependency-check.skip=true clean package -DskipTests",
+  "test": "mvn -B -ntp -Dlicense.skip=true -Ddependency-check.skip=true test",
+  "start": "java -jar target/mybatis-spring-boot-jpetstore-*.jar --spring.datasource.url=jdbc:hsqldb:mem:jpetstore",
+  "ready": "/catalog",
+  "base": "http://localhost:8080",
+  "ignore": [
+    "\\d{4}/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d"
+  ]
+}
