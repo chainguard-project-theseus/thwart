@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- Runs the starter's test sources (tessera-spring-boot-starter/src/test) against older Spring
+       generations, one module each. Not a child of tessera-parent: its managed Tomcat, Jackson and
+       JUnit 6 versions are Boot 4's. Each module imports its own Boot (or Spring) BOM. -->
+  <groupId>dev.tessera</groupId>
+  <artifactId>tessera-spring-tests</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>Tessera Spring generation tests</name>
+
+  <modules>
+    <module>boot35</module>
+    <module>boot27</module>
+    <module>boot20</module>
+    <module>spring50</module>
+  </modules>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- Spring <= 5.2 cannot read class files newer than Java 8/11. -->
+    <maven.compiler.release>8</maven.compiler.release>
+    <maven.install.skip>true</maven.install.skip>
+    <maven.deploy.skip>true</maven.deploy.skip>
+    <!-- JUnit 6 needs Java 17; @FieldSource needs 5.11. -->
+    <junit5.version>5.14.4</junit5.version>
+    <starter.dir>${project.basedir}/../../tessera-spring-boot-starter</starter.dir>
+    <!-- The javax modules set javax.servlet; the shared sources are written against jakarta. -->
+    <servlet.package>jakarta.servlet</servlet.package>
+    <argLine></argLine>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>dev.tessera</groupId>
+        <artifactId>tessera-spring-boot-starter</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>dev.tessera</groupId>
+        <artifactId>tessera-spring-boot-starter-javax</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>dev.tessera</groupId>
+        <artifactId>tessera-compiler</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <!-- Only so the reactor builds the processor first (test compilation runs it). -->
+      <groupId>dev.tessera</groupId>
+      <artifactId>tessera-compiler</artifactId>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <!-- The starter's test sources, copied with the rewrites below (see maven-antrun-plugin). -->
+    <testSourceDirectory>${project.build.directory}/shared-tests</testSourceDirectory>
+    <testResources>
+      <testResource>
+        <directory>${starter.dir}/src/test/resources</directory>
+      </testResource>
+    </testResources>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>3.5.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>3.5.0</version>
+        </plugin>
+        <plugin>
+          <!-- Modules list this plugin to get the copy. Rewrites: the servlet package for the
+               javax modules, and Boot 4's @WebMvcTest package to the Boot 2/3 one. -->
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-antrun-plugin</artifactId>
+          <version>3.2.0</version>
+          <executions>
+            <execution>
+              <id>shared-tests</id>
+              <phase>generate-test-sources</phase>
+              <goals>
+                <goal>run</goal>
+              </goals>
+              <configuration>
+                <target>
+                  <delete dir="${project.build.testSourceDirectory}" />
+                  <copy todir="${project.build.testSourceDirectory}" encoding="UTF-8">
+                    <fileset dir="${starter.dir}/src/test/java" />
+                    <filterchain>
+                      <replacestring from="jakarta.servlet." to="${servlet.package}." />
+                      <replacestring from="org.springframework.boot.webmvc.test.autoconfigure."
+                                     to="org.springframework.boot.test.autoconfigure.web.servlet." />
+                    </filterchain>
+                  </copy>
+                </target>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.16.0</version>
+          <configuration>
+            <compilerArgs>
+              <arg>-Xlint:-options</arg>
+            </compilerArgs>
+          </configuration>
+          <executions>
+            <execution>
+              <!-- As in the starter: the shared tests compile src/test/templates. -->
+              <id>default-testCompile</id>
+              <configuration>
+                <annotationProcessorPaths>
+                  <path>
+                    <groupId>dev.tessera</groupId>
+                    <artifactId>tessera-compiler</artifactId>
+                    <version>${project.version}</version>
+                  </path>
+                </annotationProcessorPaths>
+                <compilerArgs combine.children="append">
+                  <arg>-Atessera.templates=${starter.dir}/src/test/templates</arg>
+                  <arg>-Atessera.package=dev.tessera.spring.e2e.templates</arg>
+                  <arg>-Atessera.messages=${starter.dir}/src/test/resources/messages</arg>
+                  <arg>-parameters</arg>
+                </compilerArgs>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>3.6.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.5.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>3.2.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-deploy-plugin</artifactId>
+          <version>3.2.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>3.22.0</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+
+</project>
