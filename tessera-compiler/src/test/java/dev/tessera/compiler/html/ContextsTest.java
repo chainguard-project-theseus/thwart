@@ -19,7 +19,11 @@ class ContextsTest {
   private static Element element(String name, String... attrs) {
     List<Attribute> list = new ArrayList<>();
     for (int i = 0; i < attrs.length; i += 2) {
-      list.add(new Attribute(attrs[i], attrs[i + 1], attrs[i + 1], '"', POS, POS));
+      String value = attrs[i + 1];
+      list.add(
+          value == null
+              ? new Attribute(attrs[i], null, null, (char) 0, POS, null)
+              : new Attribute(attrs[i], value, value, '"', POS, POS));
     }
     return new Element(name, list, List.of(), false, true, POS);
   }
@@ -37,8 +41,10 @@ class ContextsTest {
     "a, _x, ATTRIBUTE",
     "div, xmlns:t, ATTRIBUTE",
     "div, aria-label, ATTRIBUTE",
-    "object, src, URL",
+    "div, type, ATTRIBUTE",
     // URL
+    // only object[data] is RESOURCE_URL; object[src] is an ordinary URL attribute
+    "object, src, URL",
     "a, href, URL",
     "img, src, URL",
     "form, action, URL",
@@ -95,6 +101,9 @@ class ContextsTest {
     "div, \"x, FORBIDDEN",
     "div, a/b, FORBIDDEN",
     "div, <x, FORBIDDEN",
+    "script, type, FORBIDDEN",
+    "SCRIPT, TYPE, FORBIDDEN",
+    "meta, http-equiv, FORBIDDEN",
   })
   void attributeTable(String element, String attribute, OutputContext expected) {
     assertEquals(expected, Contexts.attribute(element(element), attribute));
@@ -107,12 +116,6 @@ class ContextsTest {
     assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("div"), "a\tb"));
     assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("div"), "é"));
     assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("div"), null));
-  }
-
-  @Test
-  void attributeWithoutElement() {
-    assertEquals(OutputContext.URL, Contexts.attribute(null, "src"));
-    assertEquals(OutputContext.ATTRIBUTE, Contexts.attribute(null, "class"));
   }
 
   @ParameterizedTest(name = "<script type=\"{0}\"> -> {1}")
@@ -160,7 +163,6 @@ class ContextsTest {
 
   @Test
   void textContexts() {
-    assertEquals(OutputContext.TEXT, Contexts.text(null));
     assertEquals(OutputContext.SCRIPT, Contexts.text(element("script")));
     assertEquals(OutputContext.SCRIPT, Contexts.text(element("Script", "src", "/a.js")));
     assertEquals(OutputContext.STYLE, Contexts.text(element("style")));
@@ -173,15 +175,7 @@ class ContextsTest {
 
   @Test
   void valuelessScriptTypeIsJavaScript() {
-    Element script =
-        new Element(
-            "script",
-            List.of(new Attribute("type", null, null, (char) 0, POS, null)),
-            List.of(),
-            false,
-            true,
-            POS);
-    assertEquals(OutputContext.SCRIPT, Contexts.text(script));
+    assertEquals(OutputContext.SCRIPT, Contexts.text(element("script", "type", null)));
   }
 
   @Test

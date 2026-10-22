@@ -13,7 +13,8 @@ public enum OutputContext {
   /** URL-valued attribute: href, src, action, formaction, cite, poster, ... (scheme-checked). */
   URL("url"),
   /**
-   * URL that loads code or a document: {@code <script src>}, {@code <iframe src>},
+   * URL that loads code or a document: {@code <script src>}, {@code <script href>},
+   * {@code <script xlink:href>}, {@code <iframe src>},
    * {@code <object data>}, {@code <embed src>}, {@code <base href>},
    * {@code <link href>}. Only a literal-path link expression or a {@code TrustedUrl}.
    */
