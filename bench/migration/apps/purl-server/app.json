@@ -1,0 +1,16 @@
+{
+  "repo": "https://github.com/ubrostock/purl_server",
+  "commit": "ddd4f4eea41ae0ffca918e138da24b5bf87ed0f5",
+  "engine": "thymeleaf",
+  "difficulty": "medium",
+  "heldout": true,
+  "build": "mvn -B -ntp clean package -DskipTests",
+  "test": "mvn -B -ntp test",
+  "start": "python3 /bench/lib/smtp.py & SPRING_DATASOURCE_URL='jdbc:h2:mem:purldb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=USER' SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.h2.Driver SPRING_DATASOURCE_USERNAME=sa SPRING_DATASOURCE_PASSWORD= SPRING_SQL_INIT_SCHEMA_LOCATIONS=classpath:schema.sql SPRING_SQL_INIT_DATA_LOCATIONS=file:/bench/app/seed.sql SPRING_H2_CONSOLE_ENABLED=false SPRING_MAIL_HOST=localhost SPRING_MAIL_PORT=2525 SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH=false SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE=false SPRING_DEVTOOLS_RESTART_ENABLED=false mvn -B -ntp -q spring-boot:run -Dspring-boot.run.useTestClasspath=true",
+  "ready": "/admin/login",
+  "base": "http://localhost:8080",
+  "ignore": [
+    "\\w{3} \\w{3} \\d\\d \\d\\d:\\d\\d:\\d\\d \\w+ \\d{4}",
+    "(?<=/webjars/[\\w.-]{1,40}/)v?\\d+(\\.\\d+)+[\\w.-]*/"
+  ]
+}

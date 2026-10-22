@@ -1,0 +1,134 @@
+# purl_server: every reachable template, anonymous and logged in (admin, and user1 without the
+# admin role), each form in its invalid and valid states, and the error pages. Requests run in
+# order against a fresh in-memory H2 database loaded from seed.sql (users admin, user1, user2 and a
+# deleted one; domains /test, /library and a deleted /old; four PURLs with history). The UI is in
+# German: the app's locale resolver defaults to German and ignores Accept-Language.
+#
+# The login form SHA-1s the password in the browser, so the posted password is the SHA-1 hex:
+# admin = d033e22ae348aeb5660fc2140aec35850c4da997, user1 = b3daa77b4c04a9551b8781d03191fe098f325e67.
+#
+# Rows written through the UI are stamped with the current time, and only the PURL search and the
+# info pages print timestamps; those pages are visited before anything is changed, and changed
+# PURLs are not searched for or viewed afterwards. PURLs that redirect are never resolved (the
+# target is an external site), and neither is the gone one: its message key is missing, so it is
+# a 500 whose stack trace carries the controller's line numbers. Unknown ones show the 404 page.
+#
+# Unreachable: a valid domain create ("Domain created!") renders domaincreate.html without an
+# `error` model attribute and the template crashes (a 500 with a Thymeleaf stack trace), so only
+# its invalid states are requested.
+#
+# The domain and user modify forms disable the path and login inputs, so a browser never sends
+# them and the app answers "Domain null existiert nicht" (domain) or silently does not save (user).
+# Each form is posted once that way and once with the field added, to reach the saved state.
+
+# --- Anonymous
+GET /
+GET /admin/manager
+GET /info/domain/test
+GET /info/domain/old
+GET /info/domain/nosuch
+GET /info/purl/test/partial
+GET /info/purl/test/partial/extra/path
+GET /info/purl/test/gone
+GET /info/purl/library/book1
+GET /info/purl/nosuch/thing
+GET /nosuch/thing
+GET /?lang=en
+GET /info/domain/test
+GET /info/domain/nosuch
+GET /?lang=de
+
+# --- Password reset: request form (unknown and known user), set-password form (bad token, then
+# user2's seeded token, which expires in 2286)
+GET /admin/login/password
+POST /admin/login/password login=nosuch&do_password_reset=x
+POST /admin/login/password login=user1&do_password_reset=x
+GET /admin/login/password?login=user2&token=bad-token
+POST /admin/login/password password_reset_token=bad-token&password_sha1=a1881c06eec96db9901c7bbfe41c42a3f08e9cb4&do_set_password=x
+GET /admin/login/password?login=user2&token=9999999999999_bench-token
+POST /admin/login/password password_reset_token=9999999999999_bench-token&password_sha1=a1881c06eec96db9901c7bbfe41c42a3f08e9cb4&do_set_password=x
+
+# --- Login as admin
+GET /admin/login
+POST /admin/login username=admin&password=d033e22ae348aeb5660fc2140aec35850c4da997
+GET /
+
+# Searches and lists (before any change)
+GET /admin/manager/purl/search
+POST /admin/manager/purl/search path=/test&targetURL=
+POST /admin/manager/purl/search path=/test&targetURL=&tombstoned=on
+POST /admin/manager/purl/search path=&targetURL=books
+POST /admin/manager/purl/search path=/nothing&targetURL=
+GET /admin/manager/domain/search
+POST /admin/manager/domain/search searchPath=&searchName=&searchUser=
+POST /admin/manager/domain/search searchPath=&searchName=&searchUser=&searchTombstonedDomain=on
+POST /admin/manager/domain/search searchPath=/nothing&searchName=&searchUser=
+GET /admin/manager/user/search
+POST /admin/manager/user/search searchLogin=&searchFullName=&searchAffiliation=&searchEMailAddress=
+POST /admin/manager/user/search searchLogin=&searchFullName=&searchAffiliation=&searchEMailAddress=&searchTombstonedUser=on
+POST /admin/manager/user/search searchLogin=nobody&searchFullName=&searchAffiliation=&searchEMailAddress=
+
+# PURLs: create (invalid, then valid), modify, delete
+GET /admin/manager/purl/create
+POST /admin/manager/purl/create id=-1&path=&type=REDIRECT_302&target=
+POST /admin/manager/purl/create id=-1&path=no slash!&type=REDIRECT_302&target=ftp://x
+POST /admin/manager/purl/create id=-1&path=/nodomain/x&type=REDIRECT_302&target=https://example.org/x
+POST /admin/manager/purl/create id=-1&path=/old/x&type=REDIRECT_302&target=https://example.org/x
+POST /admin/manager/purl/create id=-1&path=/test/redirect&type=REDIRECT_302&target=https://example.org/x
+POST /admin/manager/purl/create id=-1&path=/library/book2&type=PARTIAL_302&target=https://example.org/books/2/
+GET /admin/manager/purl/modify?id=4
+GET /admin/manager/purl/modify?id=99
+POST /admin/manager/purl/modify id=4&path=/library/book1&type=REDIRECT_302&target=
+POST /admin/manager/purl/modify id=4&path=/library/book1&type=PARTIAL_302&target=https://example.org/books/one/
+GET /admin/manager/purl/delete?id=4
+GET /admin/manager/purl/delete?id=99
+POST /admin/manager/purl/delete id=4
+
+# Domains: create (invalid, add a user row, valid), modify, delete
+GET /admin/manager/domain/create
+POST /admin/manager/domain/create id=-1&path=&name=&domainUserList[0].user.login=&_domainUserList[0].canCreate=on&_domainUserList[0].canModify=on&comment=&addUser=
+POST /admin/manager/domain/create id=-1&path=&name=&domainUserList[0].user.login=&_domainUserList[0].canCreate=on&_domainUserList[0].canModify=on&comment=&submit=
+POST /admin/manager/domain/create id=-1&path=/admin&name=Reserved&domainUserList[0].user.login=&_domainUserList[0].canCreate=on&_domainUserList[0].canModify=on&comment=&submit=
+POST /admin/manager/domain/create id=-1&path=/test&name=Again&domainUserList[0].user.login=&_domainUserList[0].canCreate=on&_domainUserList[0].canModify=on&comment=&submit=
+GET /admin/manager/domain/modify?id=1
+GET /admin/manager/domain/modify?id=99
+POST /admin/manager/domain/modify id=1&name=Test Domain&domainUserList[0].user.login=user1&domainUserList[0].canCreate=true&_domainUserList[0].canCreate=on&domainUserList[0].canModify=true&_domainUserList[0].canModify=on&domainUserList[1].user.login=user2&_domainUserList[1].canCreate=on&domainUserList[1].canModify=true&_domainUserList[1].canModify=on&domainUserList[2].user.login=&_domainUserList[2].canCreate=on&_domainUserList[2].canModify=on&comment=x&addUser=
+POST /admin/manager/domain/modify id=1&name=&domainUserList[0].user.login=user1&domainUserList[0].canCreate=true&_domainUserList[0].canCreate=on&domainUserList[0].canModify=true&_domainUserList[0].canModify=on&comment=&submit=
+POST /admin/manager/domain/modify id=1&path=/test&name=Test Domain (renamed)&domainUserList[0].user.login=user1&domainUserList[0].canCreate=true&_domainUserList[0].canCreate=on&domainUserList[0].canModify=true&_domainUserList[0].canModify=on&domainUserList[1].user.login=admin&domainUserList[1].canCreate=true&_domainUserList[1].canCreate=on&_domainUserList[1].canModify=on&comment=Renamed&submit=
+GET /admin/manager/domain/delete?id=2
+GET /admin/manager/domain/delete?id=99
+POST /admin/manager/domain/delete id=2
+
+# Users: create (invalid, valid), modify, delete
+GET /admin/manager/user/create
+POST /admin/manager/user/create id=-1&passwordSHA=da39a3ee5e6b4b0d3255bfef95601890afd80709&login=&fullname=&affiliation=&email=&comment=
+POST /admin/manager/user/create id=-1&passwordSHA=b3daa77b4c04a9551b8781d03191fe098f325e67&login=user1&fullname=Dup&affiliation=&email=&comment=
+POST /admin/manager/user/create id=-1&passwordSHA=4dd5ab4d8dfe2cbb1baed3a2e0e1d0f6a89d79f7&login=newbie&admin=true&_admin=on&fullname=New <Person>&affiliation=Bench %26 Co&email=newbie@example.org&comment=created by the bench
+GET /admin/manager/user/modify?id=2
+GET /admin/manager/user/modify?id=99
+POST /admin/manager/user/modify id=2&_admin=on&fullname=x&comment=
+POST /admin/manager/user/modify id=2&login=user1&_admin=on&fullname=Ursula One-Changed&affiliation=Library&email=u1@example.org&comment=changed
+GET /admin/manager/user/delete?id=3
+GET /admin/manager/user/delete?id=99
+POST /admin/manager/user/delete id=3
+POST /admin/manager/user/search searchLogin=&searchFullName=&searchAffiliation=&searchEMailAddress=&searchTombstonedUser=on
+
+POST /admin/logout
+
+# --- Login as user1 (no admin role): failed login, then the PURL pages it may use and the admin
+# pages it may not
+GET /admin/login
+POST /admin/login username=user1&password=wrong
+POST /admin/login username=user1&password=b3daa77b4c04a9551b8781d03191fe098f325e67
+GET /admin/manager/help
+GET /admin/manager/domain/search
+POST /admin/manager/domain/search searchPath=&searchName=&searchUser=user1
+GET /admin/manager/domain/create
+GET /admin/manager/user/search
+GET /admin/manager/purl/create
+POST /admin/manager/purl/create id=-1&path=/library/nope&type=REDIRECT_302&target=https://example.org/x
+GET /admin/manager/purl/create
+POST /admin/manager/purl/create id=-1&path=/test/user1&type=REDIRECT_302&target=https://example.org/user1
+POST /admin/logout
+GET /admin/login?logout
+
