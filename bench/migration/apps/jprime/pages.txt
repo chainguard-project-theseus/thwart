@@ -1,0 +1,181 @@
+# jprime: every reachable JSP, anonymous and as admin, each form in its invalid and valid states
+# where the form can be sent, and the error page. Requests run in order against a fresh in-memory
+# H2 database loaded from seed.sql: the current branch is the 2099 conference (CFP open since 2020
+# and until 2099-01-15, tickets on sale), plus a sold-out 2020 branch, speakers, submissions in
+# every status, sessions, articles, tags, sponsors, partners, registrants and visitors.
+#
+# The app has no error status pages: errors redirect to /404, which answers 200.
+#
+# Not requested:
+# - POSTs of multipart forms that need a file part (CFP proposal, admin speaker, sponsor, partner,
+#   submission, visitor CSV upload): the recorder sends url-encoded forms, which these handlers
+#   reject. Their pages are covered by GET.
+# - tickets-result.jsp: buying a ticket needs the random captcha from /captcha-image.
+# - Background jobs (send tickets, invoice e-mails): they run asynchronously with random IDs.
+# - /admin/visitor/send's POST answers text/plain, not a page.
+
+# --- Anonymous: public pages
+GET /
+GET /speakers
+GET /speaker/2
+GET /speaker/4
+GET /speaker/999
+GET /agenda
+GET /agenda/1
+GET /agenda/999
+GET /nav
+GET /nav/news
+GET /nav/agenda
+GET /nav/nosuch
+GET /nav/article/1
+GET /nav/article/4
+GET /nav/article/999
+GET /nav/article?title=Tickets%20on%20sale
+GET /team
+GET /venue
+GET /privacy-policy
+GET /privacy-policy?bg
+GET /cfp
+GET /cfp-thank-you
+GET /cfp-problem
+GET /tickets
+GET /qr
+GET /pwa/
+GET /nosuch
+GET /admin
+
+# --- Anonymous: forms. Mail goes to the SMTP sink. A valid signup redirects to /home, which does
+# not exist (the 404 page); the seeded reset token belongs to the plain user.
+GET /tickets
+POST /tickets visitors[0].name=&visitors[0].email=&visitors[0].company=&_student=on&company=true&_company=on&name=&address=&vatNumber=&eik=&mol=&email=&id=&captcha=wrong
+GET /signup
+POST /signup firstName=&lastName=&email=&password=&cpassword=
+POST /signup firstName=New&lastName=Person&email=not-an-email&password=a&cpassword=a
+POST /signup firstName=New&lastName=Person&email=new@example.org&password=a&cpassword=b
+POST /signup firstName=Plain&lastName=Again&email=plain@example.org&password=a&cpassword=a
+POST /signup firstName=New&lastName=Person&email=new@example.org&password=newpass&cpassword=newpass
+GET /resetPassword
+POST /resetPassword email=nonsense
+POST /resetPassword email=nobody@example.org
+POST /resetPassword email=new@example.org
+GET /createNewPassword?tokenId=bad
+GET /createNewPassword?tokenId=benchresettoken
+POST /createNewPassword password=x&cpassword=x&tokenId=bad
+POST /createNewPassword password=x&cpassword=y&tokenId=benchresettoken
+POST /createNewPassword password=fresh&cpassword=fresh&tokenId=benchresettoken
+GET /createNewPassword?tokenId=benchresettoken
+GET /qr/tuk
+POST /qr/tuk id=&name=Nobody&company=
+POST /qr/tuk id=2&name=&company=
+GET /qr/tukjpro
+POST /qr/tukjpro name=Nobody&email=
+POST /qr/tukjpro name=Kay Pro&email=kay@jpro.example
+
+# --- Login
+GET /login
+POST /login username=admin&password=wrong
+POST /login username=admin&password=password
+
+# --- Admin: lists and forms before any change
+GET /admin
+GET /admin/article/view
+GET /admin/article/view/1
+GET /admin/article/add
+GET /admin/article/edit/1
+GET /admin/tag/view
+GET /admin/tag/add
+GET /admin/tag/edit/1
+GET /admin/user/view
+GET /admin/user/view?page=1&size=3
+GET /admin/user/add
+GET /admin/hall/view
+GET /admin/hall/add
+GET /admin/hall/edit/1
+GET /admin/session/view
+GET /admin/session/add
+GET /admin/session/edit/1
+GET /admin/session/edit/3
+GET /admin/session/edit/4
+GET /admin/branch/view
+GET /admin/branch/add
+GET /admin/branch/edit/2099
+GET /admin/branch/edit/2020
+GET /admin/speaker/view
+GET /admin/speaker/view?branch=YEAR_2020
+GET /admin/speaker/add
+GET /admin/speaker/edit/2
+GET /admin/sponsor/view
+GET /admin/sponsor/add
+GET /admin/sponsor/edit/6
+GET /admin/partner/view
+GET /admin/partner/add
+GET /admin/partner/edit/1
+GET /admin/submission/view
+GET /admin/submission/view/all
+GET /admin/submission/view/status/CONFIRMED
+GET /admin/submission/view/2020
+GET /admin/submission/view/id/1
+GET /admin/submission/add
+GET /admin/submission/edit/2
+GET /admin/registrant/view
+GET /admin/registrant/view?year=2020
+GET /admin/registrant/add
+GET /admin/registrant/edit/1
+GET /admin/registrant/edit/2
+GET /admin/registrant/1/addVisitor
+GET /admin/invoice/1
+GET /admin/visitor/view
+GET /admin/visitor/view?year=2020
+GET /admin/visitor/add
+GET /admin/visitor/edit/1
+GET /admin/visitor/upload
+GET /admin/visitor/send
+GET /admin/jobs/view
+GET /raffle/view
+GET /raffle/view/jpro
+
+# --- Admin: changes. IDs created here start at 100 (new@example.org from the signup is user 100,
+# the article author the app creates is 101, the user added below is 102).
+POST /admin/tag/add name=java&id=
+POST /admin/tag/add name=news %26 events&id=1
+GET /admin/tag/remove/100
+POST /admin/article/add description=&_tags=1&_published=on&id=&createdDate=&createdBy=
+POST /admin/article/add title=Speakers announced&description=The <first> speakers&text=<p>Meet them.</p>&tags=1&tags=100&_tags=1&published=true&_published=on&id=&createdDate=&createdBy=
+GET /admin/article/remove/4
+POST /admin/hall/add name=Hall C&description=Overflow room&id=&createdDate=&createdBy=
+GET /admin/hall/remove/100
+POST /admin/user/add firstName=&lastName=&email=bad&id=
+POST /admin/user/add firstName=Added&lastName=ByAdmin&email=added@example.org&id=
+GET /admin/user/remove/102
+POST /admin/session/add submission=3&title=&startTime=28.05.2099 11:00&endTime=28.05.2099 11:50&hall=1&id=
+POST /admin/session/add submission=-1&title=Lunch&startTime=28.05.2099 12:00&endTime=28.05.2099 13:00&hall=&id=
+GET /admin/session/remove/4
+GET /admin/submission/accept/4
+GET /admin/submission/confirm/3
+GET /admin/submission/reject/1
+GET /admin/submission/cancel/2
+GET /admin/submission/notify/3
+GET /admin/submission/delete/5
+GET /admin/submission/view/all
+POST /admin/registrant/add name=Globex&email=billing@globex.example&company=true&_company=on&address=2 Side St&vatNumber=BG987654321&eik=987654321&mol=Hank Scorpio&paymentType=BANK_TRANSFER&branch=YEAR_2099&id=&epayInvoiceNumber=0&realInvoiceNumber=0&proformaInvoiceNumber=0
+POST /admin/visitor/add name=Homer&email=homer@globex.example&company=Globex&status=PAYED&present=true&_present=on&id=&registrant.id=1
+POST /admin/visitor/add name=Walk In&email=walkin@example.org&company=&status=SPONSORED&_present=on&id=&registrant.id=
+GET /admin/visitor/remove/3
+GET /admin/registrant/remove/2
+GET /admin/visitor/view
+POST /admin/branch/add year=2030&startDate=20.05.2030&duration=2 days&cfpOpenDate=01.10.2029&cfpCloseDate=15.02.2030&_coOrgSoldOut=on&_platinumSoldOut=on&goldSoldOut=true&_goldSoldOut=on&_goldLiteSoldOut=on&_goldOpenSoldOut=on&_silverSoldOut=on&_agendaPublished=on&_soldOut=on&ticketPrices.regularPrice=180.00&ticketPrices.earlyBirdPrice=120.00&ticketPrices.studentPrice=60.00
+GET /admin/branch/edit/2030
+GET /admin/branch/remove/2030
+GET /admin/branch/view
+
+# --- The 2020 branch as current: CFP closed, tickets sold out
+GET /admin/branch/current/2020
+GET /
+GET /cfp
+GET /tickets
+GET /admin/branch/current/2099
+GET /
+
+# --- Logout
+GET /logout
+GET /admin
