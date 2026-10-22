@@ -76,9 +76,10 @@ final class ElementSelection {
     List<String> decls = new ArrayList<>();
     List<String> captured = new ArrayList<>();
     for (Variable v : scope.variables()) {
-      decls.add(WithProcessor.sourceType(v.type()) + " " + v.javaName());
+      String type = WithProcessor.sourceType(v.type());
+      decls.add(type + " " + v.javaName());
       String a = ctx.freshName("cap");
-      pre.append("final var ").append(a).append(" = ").append(v.javaName()).append(";\n");
+      pre.append("final ").append(type).append(' ').append(a).append(" = ").append(v.javaName()).append(";\n");
       captured.add(a);
     }
     decls.add(FragmentMethods.IO);

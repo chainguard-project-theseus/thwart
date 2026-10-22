@@ -37,7 +37,7 @@ public final class SafeHtml {
 
   @Override
   public boolean equals(Object o) {
-    return o instanceof SafeHtml other && html.equals(other.html);
+    return o instanceof SafeHtml && html.equals(((SafeHtml) o).html);
   }
 
   @Override

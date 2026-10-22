@@ -1,6 +1,8 @@
 package dev.tessera.runtime;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -27,7 +29,42 @@ public interface Forms {
   Optional<CsrfToken> csrfToken();
 
   /** CSRF token parameter name and value. */
-  record CsrfToken(String parameterName, String token) {}
+  final class CsrfToken {
+    private final String parameterName;
+    private final String token;
+
+    public CsrfToken(String parameterName, String token) {
+      this.parameterName = parameterName;
+      this.token = token;
+    }
+
+    public String parameterName() {
+      return parameterName;
+    }
+
+    public String token() {
+      return token;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof CsrfToken)) {
+        return false;
+      }
+      CsrfToken other = (CsrfToken) o;
+      return Objects.equals(parameterName, other.parameterName) && Objects.equals(token, other.token);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(parameterName, token);
+    }
+
+    @Override
+    public String toString() {
+      return "CsrfToken[parameterName=" + parameterName + ", token=" + token + "]";
+    }
+  }
 
   /** No binding state: values are {@link Escapers#toText}, no errors, no CSRF token. */
   Forms NONE =
@@ -39,7 +76,7 @@ public interface Forms {
 
         @Override
         public List<String> errors(String objectName, String path) {
-          return List.of();
+          return Collections.emptyList();
         }
 
         @Override

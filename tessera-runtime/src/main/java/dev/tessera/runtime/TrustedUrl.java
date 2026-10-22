@@ -24,7 +24,7 @@ public final class TrustedUrl {
 
   @Override
   public boolean equals(Object o) {
-    return o instanceof TrustedUrl other && url.equals(other.url);
+    return o instanceof TrustedUrl && url.equals(((TrustedUrl) o).url);
   }
 
   @Override

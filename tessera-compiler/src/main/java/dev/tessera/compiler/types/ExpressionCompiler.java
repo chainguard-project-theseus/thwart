@@ -328,10 +328,12 @@ public final class ExpressionCompiler {
     if (never.isPresent()) {
       return error(pos, "cannot read '" + name + "': " + never.get());
     }
+    String prefix = "";
     String suffix;
     TypeMirror result;
     Builtin builtin = builtin(type, name);
     if (builtin != null) {
+      prefix = builtin.prefix();
       suffix = builtin.suffix();
       result = builtin.type();
       if (result == null) {
@@ -360,16 +362,23 @@ public final class ExpressionCompiler {
       return error(pos, "cannot read '" + name + "' of " + type + ": it returns " + result + ", and " + bad.get());
     }
     if (!nullSafe) {
-      return new CompiledExpr(target.code() + suffix, result, pos);
+      return new CompiledExpr(prefix + target.code() + suffix, result, pos);
     }
     TypeMirror boxed = box(result);
     String p = "v$$" + (++lambdas);
-    String code = "((" + boxed + ") " + VALUES + ".nav(" + target.code() + ", " + p + " -> " + p + suffix + "))";
+    String code = "((" + boxed + ") " + VALUES + ".nav(" + target.code() + ", " + p + " -> " + prefix + p + suffix + "))";
     return new CompiledExpr(code, boxed, pos);
   }
 
-  /** A built-in member: Java code to append to the receiver and its type (null for a raw List element). */
-  private record Builtin(String suffix, TypeMirror type) {}
+  /**
+   * A built-in member: Java code to put around the receiver and its type (null for a raw List
+   * element).
+   */
+  private record Builtin(String prefix, String suffix, TypeMirror type) {
+    Builtin(String suffix, TypeMirror type) {
+      this("", suffix, type);
+    }
+  }
 
   private Builtin builtin(TypeMirror type, String name) {
     if (type.getKind() == TypeKind.ARRAY) {
@@ -391,10 +400,10 @@ public final class ExpressionCompiler {
     }
     if (isSubtypeOf(type, "java.util.List")) {
       if (name.equals("first") || name.equals("getFirst")) {
-        return new Builtin(".getFirst()", typeArg(type, "java.util.List", 0));
+        return new Builtin(VALUES + ".first(", ")", typeArg(type, "java.util.List", 0));
       }
       if (name.equals("last") || name.equals("getLast")) {
-        return new Builtin(".getLast()", typeArg(type, "java.util.List", 0));
+        return new Builtin(VALUES + ".last(", ")", typeArg(type, "java.util.List", 0));
       }
     }
     return null;
