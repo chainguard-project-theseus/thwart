@@ -59,15 +59,7 @@ class HtmlParserTest {
         case Element e -> {
           sb.append('<').append(e.name());
           for (Attribute a : e.attributes()) {
-            sb.append(' ').append(a.name());
-            if (a.rawValue() != null) {
-              sb.append('=');
-              if (a.quote() != 0) {
-                sb.append(a.quote()).append(a.rawValue()).append(a.quote());
-              } else {
-                sb.append(a.rawValue());
-              }
-            }
+            sb.append(' ').append(a.name()).append(a.sourceValue());
           }
           sb.append(e.selfClosing() ? "/>" : ">");
           sb.append(serialize(e.children()));

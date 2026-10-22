@@ -38,7 +38,11 @@ public interface CodegenContext {
 
   ExpressionCompiler expressions();
 
-  /** Parses {@code attr}'s value as a value expression; reports and returns null on error. */
+  /**
+   * Parses {@code attr}'s value as a value expression; reports and returns null on error.
+   * Processors that parse a non-attribute source or a non-expression grammar (each, with,
+   * fragment refs, inlined text) use {@link #parser()} directly.
+   */
   Expr parse(Attribute attr);
 
   /** Parses and compiles {@code attr}'s value in {@code scope}; reports and returns null on error. */
@@ -55,9 +59,6 @@ public interface CodegenContext {
    * names), e.g. {@code Set.of("fragment")} when generating a fragment method.
    */
   String renderElement(Element element, Scope scope, Set<String> ignoredAttributes);
-
-  /** Java statements that render {@code element}'s children in {@code scope}. */
-  String renderChildren(Element element, Scope scope);
 
   /** Adds a member (method or constant) to the generated class. */
   void addMember(String javaCode);

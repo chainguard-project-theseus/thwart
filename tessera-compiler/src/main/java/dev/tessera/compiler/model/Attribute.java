@@ -27,4 +27,15 @@ public record Attribute(
   public String localName() {
     return isTessera() ? name.substring(PREFIX.length()) : name;
   }
+
+  /** The value as written, including the leading '=' and any quotes; empty for a value-less attribute. */
+  public String sourceValue() {
+    if (rawValue == null) {
+      return "";
+    }
+    if (quote == 0) {
+      return "=" + rawValue;
+    }
+    return "=" + quote + rawValue + quote;
+  }
 }

@@ -199,14 +199,7 @@ public final class HtmlParser {
       this.content = source.content();
       this.chars = chars;
       this.diagnostics = diagnostics;
-      List<Integer> starts = new ArrayList<>();
-      starts.add(0);
-      for (int i = 0; i < content.length(); i++) {
-        if (content.charAt(i) == '\n') {
-          starts.add(i + 1);
-        }
-      }
-      this.lineStarts = starts.stream().mapToInt(Integer::intValue).toArray();
+      this.lineStarts = source.lineStarts();
     }
 
     private SourcePos pos(int line, int col) {
