@@ -24,7 +24,8 @@ class SpringRenderContextsWithoutSecurityTest {
     MockHttpServletRequest request = new MockHttpServletRequest();
     request.setAttribute(DispatcherServlet.WEB_APPLICATION_CONTEXT_ATTRIBUTE, wac);
     // Even a real token is ignored: the starter must not touch Security classes when absent.
-    request.setAttribute("_csrf", new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "t"));
+    request.setAttribute(
+        SpringForms.CSRF_ATTRIBUTE, new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "t"));
     try (var loader = new NoSecurityClassLoader()) {
       Class<?> contexts = loader.loadClass(SpringRenderContexts.class.getName());
       RenderContext ctx =

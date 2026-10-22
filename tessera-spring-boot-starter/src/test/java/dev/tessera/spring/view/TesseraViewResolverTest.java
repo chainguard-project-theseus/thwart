@@ -7,6 +7,7 @@ import java.util.Locale;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.core.Ordered;
 
 class TesseraViewResolverTest {
 
@@ -56,8 +57,9 @@ class TesseraViewResolverTest {
   }
 
   @Test
-  void orderedBeforeThymeleaf() {
-    // ThymeleafViewResolver defaults to Ordered.LOWEST_PRECEDENCE - 5.
-    assertThat(resolver.getOrder()).isLessThan(Integer.MAX_VALUE - 5);
+  void orderedBeforeBeanNameAndThymeleafResolvers() {
+    // Before Thymeleaf's resolver (LOWEST_PRECEDENCE - 5) and Boot's BeanNameViewResolver
+    // (LOWEST_PRECEDENCE - 10).
+    assertThat(resolver.getOrder()).isLessThan(Ordered.LOWEST_PRECEDENCE - 10);
   }
 }
