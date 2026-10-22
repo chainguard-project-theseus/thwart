@@ -102,8 +102,12 @@ public final class ViewSafety {
           "java.util.Map",
           "java.util.Map.Entry");
 
-  /** {@code java.time} types that are not values (they read ambient state). */
-  private static final Set<String> TIME_EXCLUDED = Set.of("java.time.Clock", "java.time.InstantSource");
+  /**
+   * {@code java.time} types that are not values: Clock/InstantSource read ambient state, and
+   * DateTimeException is a Throwable.
+   */
+  private static final Set<String> TIME_EXCLUDED =
+      Set.of("java.time.Clock", "java.time.InstantSource", "java.time.DateTimeException");
 
   private static final String TEMPLATE_VIEW = "dev.tessera.runtime.TemplateView";
 
