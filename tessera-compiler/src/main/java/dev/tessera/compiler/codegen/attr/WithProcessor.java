@@ -4,6 +4,7 @@ import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.expr.Assignment;
+import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.Scope;
@@ -33,7 +34,7 @@ public final class WithProcessor implements AttributeProcessor {
     Scope scope = plan.scope();
     StringBuilder open = new StringBuilder("{ ");
     for (Assignment a : assignments) {
-      if (!isIdentifier(a.name())) {
+      if (!FormPaths.isIdentifier(a.name())) {
         ctx.diagnostics()
             .error(a.pos(), "t:with variable name '" + a.name() + "' must be an identifier ([A-Za-z_][A-Za-z0-9_]*)");
         return;
@@ -59,22 +60,5 @@ public final class WithProcessor implements AttributeProcessor {
   /** The Java source type of a local of type {@code t}: javac's null type is written {@code java.lang.Object}. */
   static String sourceType(TypeMirror t) {
     return t.getKind() == TypeKind.NULL ? "java.lang.Object" : t.toString();
-  }
-
-  static boolean isIdentifier(String s) {
-    if (s.isEmpty() || !(isLetter(s.charAt(0)) || s.charAt(0) == '_')) {
-      return false;
-    }
-    for (int i = 1; i < s.length(); i++) {
-      char c = s.charAt(i);
-      if (!(isLetter(c) || c == '_' || (c >= '0' && c <= '9'))) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  private static boolean isLetter(char c) {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
   }
 }

@@ -59,6 +59,6 @@ public final class FieldsCompiler {
     if (!path.equals(FormPaths.ALL) && FormPaths.compile(path, lit.pos(), scope, expressions) == null) {
       return null;
     }
-    return new CompiledExpr(FormPaths.formsCall(function, selection.get(), path), type, pos);
+    return new CompiledExpr(FormPaths.literal(selection.get(), path, null).formsCall(function), type, pos);
   }
 }
