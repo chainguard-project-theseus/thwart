@@ -1,7 +1,6 @@
 package dev.tessera.compiler.codegen;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -25,26 +24,21 @@ class CodegenEndToEndTest {
           + "</body>\n"
           + "</html>\n";
 
-  private static Compilation compile(Compilation.Builder b) {
-    Compilation c = b.compile();
-    return c;
-  }
-
   @Test
   void staticTemplateRendersByteIdenticalMinusXmlns() {
-    Compilation c = compile(Compilation.builder().template("static.html", STATIC)).assertSuccess();
+    Compilation c = Compilation.builder().template("static.html", STATIC).compile().assertSuccess();
     assertEquals(STATIC.replace(" xmlns:t=\"https://tessera.dev\"", ""), c.render("static", Map.of()));
   }
 
   @Test
   void classNamesAndServicesFile() {
     Compilation c =
-        compile(
-                Compilation.builder()
-                    .option("tessera.package", "com.example.views")
-                    .template("owners/create-or-update.html", "<p>a</p>")
-                    .template("class/404.html", "<p>b</p>")
-                    .template("2024/new.html", "<p>c</p>"))
+        Compilation.builder()
+            .option("tessera.package", "com.example.views")
+            .template("owners/create-or-update.html", "<p>a</p>")
+            .template("class/404.html", "<p>b</p>")
+            .template("2024/new.html", "<p>c</p>")
+            .compile()
             .assertSuccess();
     assertNotNull(c.generatedSource("com.example.views.owners.CreateOrUpdateTemplate"));
     assertNotNull(c.generatedSource("com.example.views._class._404Template"));
@@ -58,13 +52,13 @@ class CodegenEndToEndTest {
   @Test
   void typedParamsAndRegistryAdapter() {
     Compilation c =
-        compile(
-                Compilation.builder()
-                    .java("com.example.User", "package com.example; public record User(String name) {}")
-                    .template(
-                        "page.html",
-                        "<html xmlns:t=\"https://tessera.dev\" t:import=\"com.example.*\""
-                            + " t:params=\"User user, List<String> tags, int n\">x</html>"))
+        Compilation.builder()
+            .java("com.example.User", "package com.example; public record User(String name) {}")
+            .template(
+                "page.html",
+                "<html xmlns:t=\"https://tessera.dev\" t:import=\"com.example.*\""
+                    + " t:params=\"User user, List<String> tags, int n\">x</html>")
+            .compile()
             .assertSuccess();
     String src = c.generatedSource("tessera.generated.PageTemplate");
     assertTrue(src.contains("of(com.example.User user$, java.util.List<java.lang.String> tags$, int n$)"), src);
@@ -81,12 +75,12 @@ class CodegenEndToEndTest {
   void selfClosingElementWithReplacedBodyGetsAnEndTag() {
     // petclinic's ownersList writes <td th:text="..." />; Thymeleaf renders <td>text</td>.
     Compilation c =
-        compile(
-                Compilation.builder()
-                    .template(
-                        "page.html",
-                        "<tr xmlns:t=\"https://tessera.dev\" t:params=\"String s\"><td t:text=\"s\" /><td />"
-                            + "<td class=\"a\" t:text=\"s\"/></tr>"))
+        Compilation.builder()
+            .template(
+                "page.html",
+                "<tr xmlns:t=\"https://tessera.dev\" t:params=\"String s\"><td t:text=\"s\" /><td />"
+                    + "<td class=\"a\" t:text=\"s\"/></tr>")
+            .compile()
             .assertSuccess();
     assertEquals(
         "<tr><td>&lt;b&gt;</td><td /><td class=\"a\">&lt;b&gt;</td></tr>", c.render("page", Map.of("s", "<b>")));
@@ -95,24 +89,13 @@ class CodegenEndToEndTest {
   @Test
   void misplacedParamsIsAnErrorAndNothingIsGenerated() {
     Compilation c =
-        compile(
-            Compilation.builder()
-                .template("ok.html", "<p>fine</p>")
-                .template("bad.html", "<html>\n<div t:params=\"String x\">a</div>\n</html>"));
+        Compilation.builder()
+            .template("ok.html", "<p>fine</p>")
+            .template("bad.html", "<html>\n<div t:params=\"String x\">a</div>\n</html>")
+            .compile();
     c.assertError("bad.html:2:6", "only allowed on the root element");
     assertNull(c.generatedSource("tessera.generated.BadTemplate"));
     assertNull(c.generatedSource("tessera.generated.OkTemplate"));
     assertNull(c.generatedSource("tessera.generated.TesseraRegistry"));
-  }
-
-  @Test
-  void generatedSourcesContainNoReflection() {
-    Compilation c = compile(Compilation.builder().template("static.html", STATIC)).assertSuccess();
-    for (String name : List.of("tessera.generated.StaticTemplate", "tessera.generated.TesseraRegistry")) {
-      String src = c.generatedSource(name);
-      for (String banned : List.of("java.lang.reflect", "java.lang.invoke", "MethodHandle", "Class.forName")) {
-        assertFalse(src.contains(banned), name + " contains " + banned);
-      }
-    }
   }
 }

@@ -1,6 +1,9 @@
 package dev.tessera.compiler.codegen;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.tessera.compiler.CompilerEnv;
+import dev.tessera.compiler.Diagnostic;
 import dev.tessera.compiler.Diagnostics;
 import dev.tessera.compiler.GeneratedFile;
 import dev.tessera.compiler.SourcePos;
@@ -105,7 +108,33 @@ final class HandBuilt {
   }
 
   /** Result of {@link #run}. */
-  record Run(Compilation compilation, Diagnostics diagnostics, List<GeneratedFile> files) {}
+  record Run(Compilation compilation, Diagnostics diagnostics, List<GeneratedFile> files) {
+    /** The reported errors, formatted as {@code file:line:col: error: message}. */
+    List<String> errors() {
+      return HandBuilt.errors(diagnostics);
+    }
+
+    /** Asserts some reported error contains every one of {@code fragments}. */
+    Run assertError(String... fragments) {
+      HandBuilt.assertError(errors(), fragments);
+      return this;
+    }
+  }
+
+  static List<String> errors(Diagnostics d) {
+    return d.all().stream().filter(x -> x.severity() == Diagnostic.Severity.ERROR).map(Diagnostic::toString).toList();
+  }
+
+  static void assertError(List<String> errors, String... fragments) {
+    assertTrue(
+        errors.stream().anyMatch(e -> List.of(fragments).stream().allMatch(e::contains)),
+        "no error with " + List.of(fragments) + " in " + errors);
+  }
+
+  /** Generates {@code doc} alone (no params) and asserts the compilation succeeded. */
+  static Compilation compile(Document doc) {
+    return run(Compilation.builder(), pe -> List.of(info(doc, List.of()))).compilation().assertSuccess();
+  }
 
   /**
    * Generates every template returned by {@code templates} (plus the registry) inside javac and
