@@ -2,6 +2,7 @@ package dev.tessera.compiler.links;
 
 import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.JavaStrings;
+import dev.tessera.compiler.expr.Assignment;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
@@ -31,7 +32,7 @@ public final class LinkCompiler {
 
     Set<String> names = new LinkedHashSet<>();
     List<String> values = new ArrayList<>();
-    for (Expr.NamedArg p : link.params()) {
+    for (Assignment p : link.params()) {
       if (!names.add(p.name())) {
         diagnostics.error(p.pos(), "duplicate link parameter '" + p.name() + "' in @{" + path + "}");
         ok = false;
@@ -101,8 +102,10 @@ public final class LinkCompiler {
 
   /**
    * The scheme of {@code path} (the text before a {@code :} that comes before any {@code /},
-   * {@code ?} or {@code #}), with whitespace and control characters removed the way browsers
-   * ignore them; null if the path has no scheme.
+   * {@code ?} or {@code #}), with every char {@code <= 0x20} and {@code 0x7f} dropped anywhere
+   * before the {@code :}; null if the path has no scheme. This is stricter than browsers (which
+   * strip only leading C0/space and tab/CR/LF); the runtime {@code Escapers.url}/{@code
+   * resourceUrl} re-check with the browser-accurate parser.
    */
   static String scheme(String path) {
     StringBuilder sb = new StringBuilder();

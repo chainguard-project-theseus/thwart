@@ -681,7 +681,7 @@ public final class ExpressionParser {
         throw error(pathAt, "dynamic link paths are not supported; the path must be a literal such as @{/owners/{id}(id=owner.id)}");
       }
       checkPath(path, pathAt);
-      List<Expr.NamedArg> params = new ArrayList<>();
+      List<Assignment> params = new ArrayList<>();
       ws();
       if (at("(")) {
         i++;
@@ -692,7 +692,7 @@ public final class ExpressionParser {
           if (!eat("=") || at("=")) {
             throw error(i, "expected '=' after link parameter '" + name + "' but " + found());
           }
-          params.add(new Expr.NamedArg(name, expr(), pos(nameAt)));
+          params.add(new Assignment(name, expr(), pos(nameAt)));
         } while (eat(","));
         expect(")", "',' or ')' in the link parameters");
       }

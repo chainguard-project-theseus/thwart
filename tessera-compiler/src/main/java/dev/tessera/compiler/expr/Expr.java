@@ -6,7 +6,10 @@ import java.util.List;
 /**
  * Expression AST (grammar in docs/mvp-design.md). Purely syntactic: the parser does not know
  * which identifiers are variables or function namespaces; the {@code ExpressionCompiler}
- * decides. Every node carries the template position of its first character.
+ * decides. Every node carries the template position of its first token. Infix and postfix nodes
+ * ({@code Binary}, {@code Conditional}, {@code Elvis}, {@code Index}, {@code Property},
+ * {@code MethodCall}) take their left operand's position. Parentheses and {@code ${...}} wrappers
+ * are transparent, and {@code *{name}} points at {@code name}.
  */
 public sealed interface Expr {
 
@@ -82,14 +85,11 @@ public sealed interface Expr {
   }
 
   /** {@code @{/path/{id}(id=x, q=y)}}. The path is always a literal. */
-  record Link(String path, List<NamedArg> params, SourcePos pos) implements Expr {
+  record Link(String path, List<Assignment> params, SourcePos pos) implements Expr {
     public Link {
       params = List.copyOf(params);
     }
   }
-
-  /** {@code name=value} inside a link. */
-  record NamedArg(String name, Expr value, SourcePos pos) {}
 
   /** {@code |Hello ${name}!|}: parts are String Literals and expressions, in order. */
   record Interpolation(List<Expr> parts, SourcePos pos) implements Expr {
