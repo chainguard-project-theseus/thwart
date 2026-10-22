@@ -395,6 +395,10 @@ class ExpressionParserTest {
     "@{${url}}|dynamic link paths are not supported; the path must be a literal such as @{/owners/{id}(id=owner.id)}|3",
     "@{'/a/' + x}|dynamic link paths are not supported; the path must be a literal such as @{/owners/{id}(id=owner.id)}|3",
     "@{/a/*{x}}|dynamic link paths are not supported; the path must be a literal such as @{/owners/{id}(id=owner.id)}|3",
+    "@{/a/{{id}}}|nested '{' in link path: write a path variable such as {id}|7",
+    "@{/a/{x{y}}}|nested '{' in link path: write a path variable such as {id}|8",
+    "@{/a}b}|unexpected 'b': expected the end of the expression (check for a missing operator or an unbalanced bracket or quote)|6",
+    "@{/a/{id}}}|unexpected '}': expected the end of the expression (check for a missing operator or an unbalanced bracket or quote)|11",
     "exec('ls')|'exec(...)' is not a known call; call functions as 'ns.exec(...)' or '#ns.exec(...)'|1",
   })
   void rejectedConstructs(String text, String message, int column) {
