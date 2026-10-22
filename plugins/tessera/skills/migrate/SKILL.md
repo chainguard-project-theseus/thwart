@@ -25,8 +25,8 @@ and forms.
 ## The tool
 
 `tessera-migrate` records the old app's pages and compares the new app's pages against them. For
-Thymeleaf it also does the mechanical rewrite of a whole template directory. The build needs JDK
-21+ and Maven, so you already have both. Get the jar into `.tessera/` in the application's
+Thymeleaf it also does the mechanical rewrite of a whole template directory. It runs on JDK 8+,
+and the build needs a JDK and Maven, so you already have both. Get the jar into `.tessera/` in the application's
 directory (outside `target/`, so `mvn clean` leaves it; don't commit it):
 
 ```sh

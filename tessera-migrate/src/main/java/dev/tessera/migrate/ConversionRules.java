@@ -19,7 +19,7 @@ final class ConversionRules {
   static final String TESSERA_XMLNS = "xmlns:t";
   static final String TESSERA_NAMESPACE = "https://tessera.dev";
   static final Set<String> THYMELEAF_NAMESPACES =
-      Set.of("http://www.thymeleaf.org", "https://www.thymeleaf.org");
+      Compat.setOf("http://www.thymeleaf.org", "https://www.thymeleaf.org");
 
   /** Header attribute that declares template parameters (inserted as a stub when missing). */
   static final String PARAMS = "t:params";
@@ -31,7 +31,7 @@ final class ConversionRules {
    * {@code th:} attributes that are left in place, unrenamed, and reported. Keys are lower-case
    * attribute names; {@code th:on*} is handled by {@link #unsupportedAttribute}.
    */
-  private static final Map<String, String> UNSUPPORTED_ATTRIBUTES = Map.of(
+  private static final Map<String, String> UNSUPPORTED_ATTRIBUTES = Compat.mapOf(
       "th:inline", "`th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or move data to `data-*` attributes",
       "th:style", "`th:style` is a build error by design (no dynamic CSS); use `t:classappend`",
       "th:styleappend", "`th:styleappend` is a build error by design (no dynamic CSS); use `t:classappend`",
@@ -46,7 +46,7 @@ final class ConversionRules {
       "`%s` belongs to the `%s:` dialect, which Tessera does not support; port it by hand";
 
   /** Attribute prefixes that are plain XML/HTML, not template dialects. */
-  private static final Set<String> PLAIN_PREFIXES = Set.of("xmlns", "xml", "xlink", "th", "t");
+  private static final Set<String> PLAIN_PREFIXES = Compat.setOf("xmlns", "xml", "xlink", "th", "t");
 
   /**
    * Returns the report message for an attribute that is left untouched (not renamed, value not
@@ -75,31 +75,31 @@ final class ConversionRules {
    * Attributes whose value is a keyword, literal or declaration, not an expression (renamed only).
    * {@code import} names classes and {@code params} declares types and names; neither holds roots.
    */
-  static final Set<String> LITERAL_VALUES = Set.of("remove", "errorclass", "import", "params");
+  static final Set<String> LITERAL_VALUES = Compat.setOf("remove", "errorclass", "import", "params");
 
   /** Characters (besides whitespace) that force a rewritten unquoted value into double quotes. */
   static final String UNQUOTED_VALUE_FORBIDDEN = "\"'=<>`";
 
   /** Attributes whose value is a selection path on {@code t:object}, not a root variable. */
-  static final Set<String> SELECTION_VALUES = Set.of("field", "errors");
+  static final Set<String> SELECTION_VALUES = Compat.setOf("field", "errors");
 
   /** The only assignment attribute that declares locals ({@code th:with="n=..."}). */
   static final String WITH = "with";
 
   /** Attributes whose value is a comma-separated list of {@code name=expr} assignments. */
-  static final Set<String> ASSIGNMENT_VALUES = Set.of(WITH, "attr");
+  static final Set<String> ASSIGNMENT_VALUES = Compat.setOf(WITH, "attr");
 
   static final String FRAGMENT = "fragment";
   static final String EACH = "each";
 
   /** Attributes whose value may be a bare {@code tpl :: name(args)} fragment reference. */
-  static final Set<String> FRAGMENT_REFERENCES = Set.of("insert", "replace");
+  static final Set<String> FRAGMENT_REFERENCES = Compat.setOf("insert", "replace");
 
   /** Thymeleaf's implicit loop status variable suffix ({@code owner} gets {@code ownerStat}). */
   static final String IMPLICIT_STATUS_SUFFIX = "Stat";
 
   /** Thymeleaf expression utility objects that become Tessera function namespaces. */
-  static final Map<String, String> NAMESPACES = Map.of(
+  static final Map<String, String> NAMESPACES = Compat.mapOf(
       "#strings", "strings",
       "#numbers", "numbers",
       "#temporals", "temporals",
@@ -107,7 +107,7 @@ final class ConversionRules {
       "#fields", "fields");
 
   /** Utility calls {@code #obj.fn(x)} that become a built-in method on the argument, {@code x.m()}. */
-  static final Map<String, String> RECEIVER_CALLS = Map.of(
+  static final Map<String, String> RECEIVER_CALLS = Compat.mapOf(
       "#lists.isEmpty", "isEmpty",
       "#lists.size", "size");
 
@@ -115,7 +115,7 @@ final class ConversionRules {
    * Utility calls whose Tessera spelling differs, replaced verbatim (outside string literals)
    * before {@link #NAMESPACES} applies.
    */
-  static final Map<String, String> RENAMED_CALLS = Map.of(
+  static final Map<String, String> RENAMED_CALLS = Compat.mapOf(
       "#strings.listJoin(", "strings.join(",
       "#fields.hasAnyErrors()", "fields.hasErrors('*')",
       "#fields.allErrors()", "fields.errors('*')");
@@ -131,7 +131,7 @@ final class ConversionRules {
    */
   static final Pattern LITERAL_TOKEN = Pattern.compile("[A-Za-z0-9\\[\\]._-]+");
   static final Pattern NUMBER = Pattern.compile("\\d+(\\.\\d+)?");
-  static final Set<String> TOKEN_KEYWORDS = Set.of("true", "false", "null");
+  static final Set<String> TOKEN_KEYWORDS = Compat.setOf("true", "false", "null");
 
   /**
    * String-built links with a literal path and one query parameter, {@code @{'/p?k=' + ${x}}} and
@@ -140,7 +140,7 @@ final class ConversionRules {
    * match whose first character is inside a string literal.
    */
   private static final String LINK_PATH = "@\\{\\s*'(/(?:[^'?{}()\\s_]|_(?!_))*)\\?(\\w+)=";
-  static final List<Pattern> STRING_LINKS = List.of(
+  static final List<Pattern> STRING_LINKS = Compat.listOf(
       Pattern.compile(LINK_PATH + "'\\s*\\+\\s*\\$\\{([^{}',]+)\\}\\s*\\}"),
       Pattern.compile(LINK_PATH + "__\\$\\{([^{}',]+)\\}__'\\s*\\}"));
 
@@ -148,14 +148,36 @@ final class ConversionRules {
       "Thymeleaf utility object `#%s` has no Tessera equivalent; use a `@TemplateFunctions` namespace or a view-type property";
 
   /** An expression construct that is left in place and reported. */
-  record Unsupported(Pattern pattern, boolean inLiterals, String message) {}
+  static final class Unsupported {
+    private final Pattern pattern;
+    private final boolean inLiterals;
+    private final String message;
+
+    Unsupported(Pattern pattern, boolean inLiterals, String message) {
+      this.pattern = pattern;
+      this.inLiterals = inLiterals;
+      this.message = message;
+    }
+
+    Pattern pattern() {
+      return pattern;
+    }
+
+    boolean inLiterals() {
+      return inLiterals;
+    }
+
+    String message() {
+      return message;
+    }
+  }
 
   /**
    * Unconvertible expression constructs. When one matches, the whole value is left untouched so
    * the Tessera compiler rejects it with a specific error. Patterns run on the value with string
    * literal contents blanked, unless {@code inLiterals} (preprocessing applies inside literals).
    */
-  static final List<Unsupported> UNSUPPORTED_EXPRESSIONS = List.of(
+  static final List<Unsupported> UNSUPPORTED_EXPRESSIONS = Compat.listOf(
       new Unsupported(Pattern.compile("\\*\\{\\s*__"), true,
           "dynamic form-field path `*{__...__}` is not supported (preprocessing); inline one element per field (a typed alternative is tracked in #43)"),
       new Unsupported(Pattern.compile("^(?!.*\\*\\{\\s*__).*__", Pattern.DOTALL), true,
@@ -172,7 +194,7 @@ final class ConversionRules {
           "link with a non-literal path; Tessera links take a literal path with placeholders, e.g. `@{/owners(page=p)}` or `@{/owners/{id}(id=x)}`"));
 
   /** Word operators and literals that are never variables. */
-  static final Set<String> KEYWORDS = Set.of(
+  static final Set<String> KEYWORDS = Compat.setOf(
       "and", "or", "not", "eq", "ne", "lt", "gt", "le", "ge", "div", "mod",
       "true", "false", "null", "this");
 

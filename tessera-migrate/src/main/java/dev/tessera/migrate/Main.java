@@ -2,14 +2,15 @@ package dev.tessera.migrate;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.attoparser.ParseException;
 
@@ -69,11 +70,11 @@ public final class Main {
       if (positional.size() != 3) {
         return usage(err, args[0] + " needs <base-url> <pages.txt> <dir>");
       }
-      Path pages = Path.of(positional.get(1));
+      Path pages = Paths.get(positional.get(1));
       if (!Files.isRegularFile(pages)) {
         return usage(err, "not a file: " + pages);
       }
-      Path dir = Path.of(positional.get(2));
+      Path dir = Paths.get(positional.get(2));
       return args[0].equals("record")
           ? Parity.record(positional.get(0), pages, dir, LocalDate.now(), out, err)
           : Parity.compare(positional.get(0), pages, dir, LocalDate.now(), ignore, out, err);
@@ -90,13 +91,13 @@ public final class Main {
         if (++i >= args.length) {
           return usage(err, "--report needs a file name");
         }
-        reportFile = Path.of(args[i]);
+        reportFile = Paths.get(args[i]);
       } else if (arg.startsWith("-")) {
         return usage(err, "unknown option " + arg);
       } else if (in == null) {
-        in = Path.of(arg);
+        in = Paths.get(arg);
       } else if (outDir == null) {
-        outDir = Path.of(arg);
+        outDir = Paths.get(arg);
       } else {
         return usage(err, "unexpected argument " + arg);
       }
@@ -113,7 +114,7 @@ public final class Main {
       templates = files
           .filter(p -> Files.isRegularFile(p) && p.getFileName().toString().endsWith(".html"))
           .sorted()
-          .toList();
+          .collect(Collectors.toList());
     } catch (IOException e) {
       err.println("error: cannot list " + in + ": " + e.getMessage());
       return 1;
@@ -125,11 +126,11 @@ public final class Main {
       Path rel = in.relativize(template);
       String name = rel.toString().replace('\\', '/');
       try {
-        String source = Files.readString(template, StandardCharsets.UTF_8);
+        String source = Compat.readString(template);
         Migrator.Result result = Migrator.migrate(name, source);
         Path target = outDir.resolve(rel);
         Files.createDirectories(target.getParent());
-        Files.writeString(target, result.output(), StandardCharsets.UTF_8);
+        Compat.writeString(target, result.output());
         report.addTemplate(result.items());
       } catch (ParseException e) {
         err.println(name + ":" + e.getLine() + ":" + e.getCol() + ": error: " + e.getMessage());
@@ -147,7 +148,7 @@ public final class Main {
       try {
         Path parent = reportFile.toAbsolutePath().getParent();
         Files.createDirectories(parent);
-        Files.writeString(reportFile, markdown, StandardCharsets.UTF_8);
+        Compat.writeString(reportFile, markdown);
       } catch (IOException e) {
         err.println("error: cannot write report " + reportFile + ": " + e.getMessage());
         return 1;

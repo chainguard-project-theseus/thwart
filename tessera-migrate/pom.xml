@@ -17,6 +17,10 @@
   <properties>
     <!-- Only this tooling module uses jsoup (#149); the runtime stays dependency-free. -->
     <jsoup.version>1.23.2</jsoup.version>
+    <!-- The tool runs on the developer's machine, so it targets Java 8 (#167). The tests stay on 21:
+         JUnit 6 needs 17+. -->
+    <maven.compiler.release>8</maven.compiler.release>
+    <maven.compiler.testRelease>21</maven.compiler.testRelease>
   </properties>
 
   <dependencies>
