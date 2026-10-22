@@ -63,3 +63,9 @@ each form, and the error pages. Optional keys:
   Prefer fixing the data in `pages.txt` (absolute dates, no random generators) over ignoring.
 
 Run `bench.py baseline <name>` and check `results/<name>/baseline/determinism.txt`.
+
+Current ignores: times of day (fredbet, jobsearch: seeded data is stamped at startup; the date
+is still compared), UUIDs (fredbet: image keys generated at startup), the webjar version path
+segment (spring-petclinic, fredbet: Boot adds it for Thymeleaf through `ResourceUrlEncodingFilter`,
+which Tessera's starter does not register yet, #122), and JobSearch's `<span text-bg-...">`, an
+attribute built from an unbalanced quote in the original template.

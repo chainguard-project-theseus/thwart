@@ -9,7 +9,7 @@
 #
 # Without RECORDING_DIR the pages are recorded (`tessera-migrate record`) into OUT_DIR/pages;
 # with it they are compared against that recording (`tessera-migrate compare`), whose output goes
-# to OUT_DIR/compare.txt and exit code to OUT_DIR/compare.exit.
+# to OUT_DIR/compare.txt and exit code to OUT_DIR/compare.exit (record's to OUT_DIR/record.exit).
 # OUT_DIR also gets counts.json, build.log/build.exit, app.log, test.log/test.exit, tests.json.
 set -u
 app=$1 pages=$2 out=$3 recording=${4:-}
@@ -34,6 +34,7 @@ if [ "$(cat "$out/build.exit")" = 0 ]; then
   done
   if [ -z "$recording" ]; then
     $migrate record "$BASE" "$pages" "$out/pages" > "$out/record.log" 2>&1
+    echo $? > "$out/record.exit"
   else
     ignore=()
     while IFS= read -r p; do [ -n "$p" ] && ignore+=(--ignore "$p"); done <<< "${IGNORE:-}"

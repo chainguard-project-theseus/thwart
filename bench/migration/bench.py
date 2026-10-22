@@ -121,7 +121,14 @@ def baseline(app):
     with open(os.path.join(out, "determinism.txt"), "w") as f:
         f.write(compare)
     last = compare.strip().splitlines()[-1:] or ["no compare output"]
-    print(f"{app}: baseline {summary_line(load_check(out))}; again: {last[0]}", flush=True)
+    c = load_check(out)
+    broken = "" if baseline_ok(c) and c["record_exit"] == 0 else " BROKEN (see baseline/record.log)"
+    print(f"{app}: baseline {summary_line(c)}{broken}; again: {last[0]}", flush=True)
+
+
+def baseline_ok(c):
+    """A recording to score against: the original app built and answered every request."""
+    return c["build_exit"] == 0 and bool(c["pages"]) and all(p["status"] for p in c["pages"])
 
 
 def read_text(p, default=""):
@@ -145,7 +152,7 @@ def load_check(d):
             pages.append({"file": f[0], "status": int(f[1]), "final": f[2], "request": f[3]})
     return {"build_exit": int(read("build.exit", "1") or 1), "test_exit": int(read("test.exit", "1") or 1),
             "tests": read("tests.json", {}), "counts": read("counts.json", {}), "pages": pages,
-            "compare_exit": int(read("compare.exit", "1") or 1), "compare": read_text(os.path.join(d, "compare.txt"))}
+            "record_exit": int(read("record.exit", "1") or 1), "compare_exit": int(read("compare.exit", "1") or 1), "compare": read_text(os.path.join(d, "compare.txt"))}
 
 
 def summary_line(c):
@@ -243,7 +250,7 @@ def score(app, run_dir):
         "tessera_templates": got["counts"].get("tessera", {}).get("templates", 0),
         "baseline_templates": base["counts"].get(engine, {}).get("templates", 0),
     }
-    s["pass"] = (s["build_ok"] and s["tests_ok"] and got["compare_exit"] == 0
+    s["pass"] = (baseline_ok(base) and s["build_ok"] and s["tests_ok"] and got["compare_exit"] == 0
                  and identical + reordered == len(base["pages"]) and not status_mismatch
                  and not insecure and not s["legacy_templates"] and not legacy_deps)
     meta = json.load(open(os.path.join(run_dir, "agent.json")))
@@ -313,7 +320,10 @@ def report():
         tests = f"{(t['tests'] or 0) - (t['failures'] or 0) - (t['errors'] or 0)}/{t['tests'] or 0} (base {s['baseline_tests']})"
         legacy = len(s["legacy_templates"]) + len(s["legacy_deps"])
         cost = "-" if s["cost_usd"] is None else f"{s['cost_usd']:.2f}"
-        out.append(f"| {s['app']} | {s['run']} | {'yes' if s['pass'] else 'no'} | {'ok' if s['build_ok'] else 'FAIL'}"
+        # Runs from #115 were scored by lib/crawl.py (pages.diff, no compare.txt).
+        old = not os.path.exists(os.path.join(RESULTS, s["app"], s["run"], "compare.txt"))
+        run = s["run"] + (" (crawl.py)" if old else "")
+        out.append(f"| {s['app']} | {run} | {'yes' if s['pass'] else 'no'} | {'ok' if s['build_ok'] else 'FAIL'}"
                    f" | {tests} | {s['pages_identical']}+{s['pages_reordered']}/{s['pages_total']} | {len(s['status_mismatch'])}"
                    f" | {', '.join(s['insecure']) or '-'} | {legacy} | {s['wall_minutes']} | {cost}"
                    f" | {s['tokens'].get('output_tokens', '-')} |")
