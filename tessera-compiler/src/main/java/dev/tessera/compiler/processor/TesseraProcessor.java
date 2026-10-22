@@ -72,6 +72,13 @@ public final class TesseraProcessor extends AbstractProcessor {
           Kind.ERROR, "Tessera: templates directory does not exist: " + options.templates());
       return false;
     }
+    if (options.messages() != null && !Files.isRegularFile(MessageBundle.file(options.messages()))) {
+      messager.printMessage(
+          Kind.ERROR,
+          "Tessera: message bundle does not exist: " + MessageBundle.file(options.messages())
+              + " (-A" + ProcessorOptions.MESSAGES + " is the bundle base path without .properties)");
+      return false;
+    }
     try {
       List<TemplateSource> sources = TemplateDiscovery.discover(options.templates());
       Diagnostics diagnostics = new Diagnostics();

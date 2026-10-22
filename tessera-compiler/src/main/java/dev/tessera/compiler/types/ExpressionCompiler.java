@@ -1021,7 +1021,7 @@ public final class ExpressionCompiler {
   }
 
   /** A Java string literal for {@code s}, safe against unicode-escape preprocessing. */
-  static String javaString(String s) {
+  public static String javaString(String s) {
     StringBuilder b = new StringBuilder("\"");
     for (int i = 0; i < s.length(); i++) {
       char c = s.charAt(i);
