@@ -3,6 +3,7 @@ package dev.tessera.compiler.codegen;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -254,7 +255,7 @@ class TemplateGeneratorTest {
     Compilation c = paramsCompilation();
     assertEquals(
         "tessera.generated.TesseraRegistry\n",
-        c.generatedResource("META-INF/services/dev.tessera.runtime.TemplateRegistry"));
+        c.generatedResource(RegistryGenerator.SERVICES_FILE));
   }
 
   @Test
@@ -328,10 +329,11 @@ class TemplateGeneratorTest {
         HandBuilt.run(
             Compilation.builder(),
             pe -> List.of(HandBuilt.info(badDoc(), List.of()), HandBuilt.info(staticDoc(), List.of())));
-    assertTrue(run.diagnostics().hasErrors());
-    assertTrue(
-        run.files().stream().noneMatch(f -> f.name().equals("tessera.generated.BadTemplate")), run.files().toString());
-    assertTrue(run.files().stream().anyMatch(f -> f.name().equals("tessera.generated.StaticTemplate")));
+    assertHasError(errors(run.diagnostics()), "bad.html:2:6: error: t:params is only allowed on the root element");
+    assertNull(run.compilation().generatedSource("tessera.generated.BadTemplate"));
+    assertNull(run.compilation().generatedSource("tessera.generated.StaticTemplate"));
+    assertNull(run.compilation().generatedSource("tessera.generated.TesseraRegistry"));
+    assertNull(run.compilation().generatedResource(RegistryGenerator.SERVICES_FILE));
   }
 
   @Test

@@ -7,6 +7,7 @@ import dev.tessera.compiler.GeneratedFile;
 import dev.tessera.compiler.TemplateCompiler;
 import dev.tessera.compiler.TemplateSource;
 import dev.tessera.compiler.messages.MessageBundle;
+import dev.tessera.runtime.TemplateFunctions;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Files;
@@ -21,7 +22,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic.Kind;
 import javax.tools.FileObject;
-import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
 
 /**
@@ -32,7 +32,7 @@ import javax.tools.StandardLocation;
  * Never claims annotations, so other processors are unaffected.
  */
 public final class TesseraProcessor extends AbstractProcessor {
-  private static final String FUNCTIONS_ANNOTATION = "dev.tessera.runtime.TemplateFunctions";
+  private static final String FUNCTIONS_ANNOTATION = TemplateFunctions.class.getName();
 
   private boolean done;
 
@@ -96,6 +96,7 @@ public final class TesseraProcessor extends AbstractProcessor {
       for (Diagnostic d : diagnostics.all()) {
         messager.printMessage(kind(d.severity()), d.toString());
       }
+      // The only place that enforces "nothing is written on error".
       if (!diagnostics.hasErrors()) {
         write(files);
       }
@@ -120,16 +121,12 @@ public final class TesseraProcessor extends AbstractProcessor {
 
   private void write(List<GeneratedFile> files) throws IOException {
     for (GeneratedFile f : files) {
-      if (f.kind() == GeneratedFile.Kind.JAVA) {
-        JavaFileObject jfo = processingEnv.getFiler().createSourceFile(f.name());
-        try (Writer w = jfo.openWriter()) {
-          w.write(f.content());
-        }
-      } else {
-        FileObject fo = processingEnv.getFiler().createResource(StandardLocation.CLASS_OUTPUT, "", f.name());
-        try (Writer w = fo.openWriter()) {
-          w.write(f.content());
-        }
+      FileObject fo =
+          f.kind() == GeneratedFile.Kind.JAVA
+              ? processingEnv.getFiler().createSourceFile(f.name())
+              : processingEnv.getFiler().createResource(StandardLocation.CLASS_OUTPUT, "", f.name());
+      try (Writer w = fo.openWriter()) {
+        w.write(f.content());
       }
     }
   }
@@ -138,7 +135,6 @@ public final class TesseraProcessor extends AbstractProcessor {
     return switch (s) {
       case ERROR -> Kind.ERROR;
       case WARNING -> Kind.WARNING;
-      case NOTE -> Kind.NOTE;
     };
   }
 
