@@ -3,7 +3,11 @@ package dev.tessera.compiler.codegen.attr;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
+import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.model.Attribute;
+import dev.tessera.compiler.model.OutputContext;
+import dev.tessera.compiler.types.CompiledExpr;
+import java.util.Optional;
 
 /**
  * {@code t:classappend="expr"}: appends the value (if non-null and non-empty) to the {@code class} attribute with a single space.
@@ -12,6 +16,23 @@ public final class ClassAppendProcessor implements AttributeProcessor {
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
-    AttributeProcessor.notImplemented(ctx, attr, 13); // TODO(#13)
+    CompiledExpr c = ctx.compile(attr, plan.scope());
+    if (c == null || !ctx.expressions().checkOutputType(c.type(), c.pos())) {
+      return;
+    }
+    Optional<ElementPlan.Attr> current = plan.attribute("class");
+    String base =
+        switch (current.orElse(null)) {
+          case null -> "null";
+          case ElementPlan.StaticAttr s ->
+              TemplateGenerator.javaString(s.source().value() == null ? "" : s.source().value());
+          case ElementPlan.DynamicAttr d -> d.valueCode();
+        };
+    String name = current.map(ElementPlan.Attr::name).orElse("class");
+    plan.setAttribute(
+        name,
+        "dev.tessera.runtime.Attributes.appendClass(" + base + ", " + c.code() + ")",
+        OutputContext.ATTRIBUTE,
+        attr.pos());
   }
 }
