@@ -60,9 +60,10 @@ public final class HtmlParser {
   }
 
   public Document parse(TemplateSource source, DiagnosticSink diagnostics) {
-    Builder builder = new Builder(source, diagnostics);
+    char[] chars = source.content().toCharArray();
+    Builder builder = new Builder(source, chars, diagnostics);
     try {
-      new MarkupParser(CONFIG).parse(source.content().toCharArray(), builder);
+      new MarkupParser(CONFIG).parse(chars, builder);
       builder.finish(true);
     } catch (ParseException e) {
       int line = e.getLine() == null ? 1 : e.getLine();
@@ -173,6 +174,8 @@ public final class HtmlParser {
   private static final class Builder extends AbstractMarkupHandler {
     private final String file;
     private final String content;
+    /** The buffer attoparser is reading; see {@link #matchEndTagCase}. */
+    private final char[] chars;
     private final DiagnosticSink diagnostics;
     private final int[] lineStarts;
     final List<Node> topLevel = new ArrayList<>();
@@ -191,9 +194,10 @@ public final class HtmlParser {
     private final StringBuilder text = new StringBuilder();
     private SourcePos textPos;
 
-    Builder(TemplateSource source, DiagnosticSink diagnostics) {
+    Builder(TemplateSource source, char[] chars, DiagnosticSink diagnostics) {
       this.file = source.path();
       this.content = source.content();
+      this.chars = chars;
       this.diagnostics = diagnostics;
       List<Integer> starts = new ArrayList<>();
       starts.add(0);
@@ -379,6 +383,20 @@ public final class HtmlParser {
         rawStart = offset(line, col) + 1;
         rawPos = pos(line, col + 1);
         rawEnd = browserEndTag(open.name, rawStart);
+        matchEndTagCase(open.name);
+      }
+    }
+
+    /**
+     * attoparser ends raw text only at {@code </name>} spelled in the start tag's case, while
+     * browsers match the end tag case-insensitively ({@code <Script>...</sCrIpT>}). Rewrites the
+     * name of the end tag a browser would use, in attoparser's not-yet-read input, to the start
+     * tag's case. Lengths and offsets are unchanged and node text comes from {@link #content},
+     * so only where attoparser stops changes.
+     */
+    private void matchEndTagCase(String name) {
+      if (rawEnd >= 0) {
+        name.getChars(0, name.length(), chars, rawEnd + 2);
       }
     }
 

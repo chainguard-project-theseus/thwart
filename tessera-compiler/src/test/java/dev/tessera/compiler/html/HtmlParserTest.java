@@ -324,12 +324,37 @@ class HtmlParserTest {
   }
 
   @Test
-  void scriptEndTagInDifferentCaseIsAnError() {
-    // attoparser only ends <script>/<style> at an end tag in the start tag's case; browsers
-    // ignore case. Rather than misclassify what follows as script, this fails the build.
+  void rawTextEndTagMatchesCaseInsensitively() {
+    // Browsers end <Script> at </sCrIpT>; what follows is markup again.
+    Element div =
+        el(parseOk("<div><Script>a</b></sCrIpT><STYLE>p{}</style><p>[[${x}]]</p></div>").rootElement());
+    assertEquals(3, div.children().size());
+    Element script = el(div.children().get(0));
+    assertEquals("Script", script.name());
+    assertTrue(script.hasEndTag());
+    Text js = assertInstanceOf(Text.class, script.children().get(0));
+    assertEquals("a</b>", js.raw());
+    assertEquals(OutputContext.SCRIPT, js.context());
+    assertEquals(pos(1, 14), js.pos());
+    Text css = assertInstanceOf(Text.class, el(div.children().get(1)).children().get(0));
+    assertEquals("p{}", css.raw());
+    assertEquals(OutputContext.STYLE, css.context());
+    Element p = el(div.children().get(2));
+    assertEquals(new Text("[[${x}]]", OutputContext.TEXT, pos(1, 49)), p.children().get(0));
+    assertEquals("x", ((Text) el(parseOk("<script>x</SCRIPT>").rootElement()).children().get(0)).raw());
+  }
+
+  @Test
+  void rawTextEndTagInAnyCaseCannotBeSkipped() {
+    // The first end tag a browser sees ends the element, whatever its case, even when a later
+    // one matches the start tag's case exactly.
     assertEquals(
         List.of("dir/t.html:1:1: error: element <script> is not closed"),
-        errors("<script>x</SCRIPT><p>[[${x}]]</p>"));
+        errors("<script>x</SCRIPT x><p>[[${x}]]</p>"));
+    assertEquals(
+        List.of("dir/t.html:1:10: error: malformed markup: content of <script> contains"
+            + " '</script' before its end tag"),
+        errors("<script>x</SCRIPT x><p>[[${x}]]</p></script>"));
   }
 
   @Test

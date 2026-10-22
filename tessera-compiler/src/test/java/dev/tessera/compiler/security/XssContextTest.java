@@ -230,18 +230,18 @@ class XssContextTest {
 
   @Test
   void mixedCaseScriptEndTagIsNeverTreatedAsText() {
-    // Browsers end <Script> at </sCrIpT>. Today the parser reports the element as unclosed,
-    // which fails closed (#47); if that changes, the content must still be a script context.
+    // Browsers end <Script> at </sCrIpT> (#47): the content is a script context and the
+    // markup after the end tag is HTML text again.
     Compilation c =
         Compilation.builder()
-            .template("page.html", "<div t:params=\"String s\"><Script>var a = [[s]];</sCrIpT></div>")
+            .template(
+                "page.html",
+                "<div t:params=\"String s\"><Script>var a = [[s]];</sCrIpT><p>[[s]]</p></div>")
             .compile();
-    if (c.success()) {
-      String out = c.render("page", Map.of("s", "</script><b>"));
-      assertTrue(out.contains("\\u003c\\/script\\u003e"), out);
-    } else {
-      c.assertError("page.html:1:");
-    }
+    c.assertSuccess();
+    String out = c.render("page", Map.of("s", "</script><b>"));
+    assertTrue(out.contains("<Script>var a = \"\\u003c\\/script\\u003e\\u003cb\\u003e\";</Script>"), out);
+    assertTrue(out.contains("<p>&lt;/script&gt;&lt;b&gt;</p>"), out);
   }
 
   /** Markup that must fail to build: these contexts cannot be escaped. */
