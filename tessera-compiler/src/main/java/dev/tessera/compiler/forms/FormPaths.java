@@ -49,8 +49,11 @@ public final class FormPaths {
   }
 
   /**
-   * The {@code Field}-typed variable that {@code e} names ({@code name}, or {@code name} in a
-   * {@code ${...}} wrapper), if any. Such a variable wins over a selection property of the same name.
+   * The {@code Field}-typed variable that {@code e} names, if any: {@code e} must be a bare
+   * {@link Expr.Var} ({@code name}, or {@code ${name}}, whose wrapper the parser strips). Names
+   * containing {@code $} are rejected, so internal variables such as
+   * {@code FieldProcessor.SELECTED} ({@code select$value}) cannot be reached from templates. Such a
+   * variable wins over a selection property of the same name.
    */
   public static Optional<Variable> fieldVariable(Expr e, Scope scope) {
     if (!(e instanceof Expr.Var v) || v.name().contains("$")) {
@@ -108,21 +111,21 @@ public final class FormPaths {
     return expressions.compile(e, scope);
   }
 
-  /** Java code for {@code ctx.forms().<method>(objectName, path)}, e.g. {@code errors}. */
-  public static String formsCall(String method, Scope.Selection selection, String path) {
-    return literal(selection, path, null).formsCall(method);
-  }
-
-  private static boolean isIdentifier(String s) {
-    if (s.isEmpty() || !(Character.isLetter(s.charAt(0)) || s.charAt(0) == '_') || s.charAt(0) > 127) {
+  /** True if {@code s} is an ASCII identifier: {@code [A-Za-z_][A-Za-z0-9_]*}. */
+  public static boolean isIdentifier(String s) {
+    if (s.isEmpty() || !(isAsciiLetter(s.charAt(0)) || s.charAt(0) == '_')) {
       return false;
     }
     for (int i = 1; i < s.length(); i++) {
       char c = s.charAt(i);
-      if (c > 127 || !(Character.isLetterOrDigit(c) || c == '_')) {
+      if (!(isAsciiLetter(c) || c == '_' || (c >= '0' && c <= '9'))) {
         return false;
       }
     }
     return true;
+  }
+
+  private static boolean isAsciiLetter(char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
   }
 }
