@@ -129,9 +129,11 @@ class CrawlerTest {
         HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
     server.createContext("/", ex -> {
       String path = ex.getRequestURI().getRawPath();
-      String cookie = ex.getRequestHeaders().getFirst("Cookie");
+      // All Cookie headers, to see that the jar sends one, as a browser does.
+      List<String> cookie = ex.getRequestHeaders().get("Cookie");
       if (path.equals("/set")) {
         ex.getResponseHeaders().add("Set-Cookie", "SID=s1; Path=/");
+        ex.getResponseHeaders().add("Set-Cookie", "LANG=en; Path=/");
       }
       byte[] page = (path.equals("/echo") ? "cookie " + cookie : "page " + path)
           .getBytes(StandardCharsets.UTF_8);
@@ -155,7 +157,7 @@ class CrawlerTest {
       assertTrue(cut.body().contains("truncated"), cut.body());
 
       a.send(new Crawler.Request("", "GET", "/set", ""));
-      assertEquals("cookie SID=s1", a.send(new Crawler.Request("", "GET", "/echo", "")).body());
+      assertEquals("cookie [SID=s1; LANG=en]", a.send(new Crawler.Request("", "GET", "/echo", "")).body());
       assertEquals("cookie null",
           new Crawler(base).send(new Crawler.Request("", "GET", "/echo", "")).body(),
           "each crawler has its own cookie jar");

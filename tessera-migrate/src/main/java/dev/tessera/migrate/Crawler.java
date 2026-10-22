@@ -218,10 +218,11 @@ final class Crawler {
     http.setRequestMethod(method);
     http.setRequestProperty("Accept", "text/html");
     http.setRequestProperty("Accept-Language", "en");
+    // One Cookie header with every cookie, as a browser sends (RFC 6265 allows only one).
     for (Map.Entry<String, List<String>> header
         : cookies.get(uri, Collections.<String, List<String>>emptyMap()).entrySet()) {
-      for (String value : header.getValue()) {
-        http.addRequestProperty(header.getKey(), value);
+      if (!header.getValue().isEmpty()) {
+        http.setRequestProperty(header.getKey(), String.join("; ", header.getValue()));
       }
     }
     if (body != null) {
