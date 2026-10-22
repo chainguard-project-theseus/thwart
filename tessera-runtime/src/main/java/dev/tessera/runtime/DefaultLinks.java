@@ -33,7 +33,7 @@ public final class DefaultLinks implements Links {
       if (used[i]) {
         continue;
       }
-      if (!query.isEmpty()) {
+      if (query.length() > 0) {
         query.append('&');
       }
       query.append(UrlEncoding.queryParam(names[i]));
@@ -53,7 +53,7 @@ public final class DefaultLinks implements Links {
       url.append(contextPath);
     }
     url.append(expanded);
-    if (!query.isEmpty()) {
+    if (query.length() > 0) {
       url.append(expanded.indexOf('?') >= 0 ? '&' : '?').append(query);
     }
     return url.append(fragment).toString();

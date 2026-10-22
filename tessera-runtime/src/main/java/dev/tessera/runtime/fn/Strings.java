@@ -20,7 +20,7 @@ public final class Strings {
   /** {@code true} if {@code target} is null or only whitespace (Thymeleaf semantics). */
   @TemplateFunction
   public static boolean isEmpty(Object target) {
-    return target == null || target.toString().isBlank();
+    return target == null || isWhitespace(target.toString());
   }
 
   /** Same as {@link #isEmpty}: {@code true} if {@code target} is null or only whitespace. */
@@ -140,5 +140,17 @@ public final class Strings {
       joiner.add(item == null ? "" : item.toString());
     }
     return joiner.toString();
+  }
+
+  /** {@code String.isBlank} (Java 11): every code point is {@link Character#isWhitespace(int)}. */
+  private static boolean isWhitespace(String s) {
+    for (int i = 0; i < s.length(); ) {
+      int cp = s.codePointAt(i);
+      if (!Character.isWhitespace(cp)) {
+        return false;
+      }
+      i += Character.charCount(cp);
+    }
+    return true;
   }
 }

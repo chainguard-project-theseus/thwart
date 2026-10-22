@@ -4,7 +4,7 @@ import dev.tessera.runtime.TemplateFunction;
 import dev.tessera.runtime.TemplateFunctions;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
+import java.util.Collections;
 import java.util.Objects;
 
 /**
@@ -19,28 +19,34 @@ public final class Lists {
 
   @TemplateFunction
   public static int size(Object target) {
-    return switch (target) {
-      case null -> 0;
-      case Collection<?> c -> c.size();
-      case Object[] a -> a.length;
-      default -> {
-        int n = 0;
-        for (Object ignored : items(target)) {
-          n++;
-        }
-        yield n;
-      }
-    };
+    if (target == null) {
+      return 0;
+    }
+    if (target instanceof Collection) {
+      return ((Collection<?>) target).size();
+    }
+    if (target instanceof Object[]) {
+      return ((Object[]) target).length;
+    }
+    int n = 0;
+    for (Object ignored : items(target)) {
+      n++;
+    }
+    return n;
   }
 
   @TemplateFunction
   public static boolean isEmpty(Object target) {
-    return switch (target) {
-      case null -> true;
-      case Collection<?> c -> c.isEmpty();
-      case Object[] a -> a.length == 0;
-      default -> !items(target).iterator().hasNext();
-    };
+    if (target == null) {
+      return true;
+    }
+    if (target instanceof Collection) {
+      return ((Collection<?>) target).isEmpty();
+    }
+    if (target instanceof Object[]) {
+      return ((Object[]) target).length == 0;
+    }
+    return !items(target).iterator().hasNext();
   }
 
   /** {@code true} if {@code target} has an element equal ({@link Objects#equals}) to {@code element}. */
@@ -56,12 +62,16 @@ public final class Lists {
 
   /** {@code target} as an {@link Iterable}: null is empty, arrays are wrapped, anything else throws. */
   static Iterable<?> items(Object target) {
-    return switch (target) {
-      case null -> List.of();
-      case Object[] a -> Arrays.asList(a);
-      case Iterable<?> it -> it;
-      default -> throw notAList(target);
-    };
+    if (target == null) {
+      return Collections.emptyList();
+    }
+    if (target instanceof Object[]) {
+      return Arrays.asList((Object[]) target);
+    }
+    if (target instanceof Iterable) {
+      return (Iterable<?>) target;
+    }
+    throw notAList(target);
   }
 
   private static IllegalArgumentException notAList(Object target) {

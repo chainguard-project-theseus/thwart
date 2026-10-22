@@ -2,6 +2,7 @@ package dev.tessera.runtime;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +38,7 @@ public interface TemplateRegistry {
         throw new IllegalStateException("Duplicate Tessera template name: " + e.name());
       }
     }
-    List<TemplateEntry> all = List.copyOf(byName.values());
+    Collection<TemplateEntry> all = Collections.unmodifiableList(new ArrayList<>(byName.values()));
     return new TemplateRegistry() {
       @Override
       public Optional<TemplateEntry> find(String viewName) {

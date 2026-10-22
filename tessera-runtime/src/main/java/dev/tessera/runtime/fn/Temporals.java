@@ -43,20 +43,31 @@ public final class Temporals {
    */
   @TemplateFunction
   public static String formatIso(TemporalAccessor temporal) {
-    return switch (temporal) {
-      case null -> null;
-      case ZonedDateTime z -> DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(z);
-      case LocalDate d -> d.toString();
-      case LocalDateTime dt -> DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(dt);
-      case LocalTime t -> DateTimeFormatter.ISO_LOCAL_TIME.format(t);
-      case OffsetDateTime o -> DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(o);
-      case OffsetTime o -> DateTimeFormatter.ISO_OFFSET_TIME.format(o);
-      case Instant i -> i.toString();
-      case YearMonth ym -> ym.toString();
-      case Year y -> y.toString();
-      default ->
-          throw new IllegalArgumentException(
-              "temporals.formatIso does not support " + temporal.getClass().getName());
-    };
+    if (temporal == null) {
+      return null;
+    }
+    if (temporal instanceof ZonedDateTime) {
+      return DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(temporal);
+    }
+    if (temporal instanceof LocalDate
+        || temporal instanceof Instant
+        || temporal instanceof YearMonth
+        || temporal instanceof Year) {
+      return temporal.toString();
+    }
+    if (temporal instanceof LocalDateTime) {
+      return DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(temporal);
+    }
+    if (temporal instanceof LocalTime) {
+      return DateTimeFormatter.ISO_LOCAL_TIME.format(temporal);
+    }
+    if (temporal instanceof OffsetDateTime) {
+      return DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(temporal);
+    }
+    if (temporal instanceof OffsetTime) {
+      return DateTimeFormatter.ISO_OFFSET_TIME.format(temporal);
+    }
+    throw new IllegalArgumentException(
+        "temporals.formatIso does not support " + temporal.getClass().getName());
   }
 }

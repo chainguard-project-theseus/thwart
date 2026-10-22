@@ -59,29 +59,37 @@ public final class EachProcessor implements AttributeProcessor {
     String stat = ctx.freshName(statName);
 
     StringBuilder open = new StringBuilder();
-    open.append("{ final var ").append(src).append(" = ").append(iterable.code()).append("; ");
+    String elementType = WithProcessor.sourceType(element);
+    open.append("{ final ").append(WithProcessor.sourceType(source)).append(' ').append(src).append(" = ")
+        .append(iterable.code()).append("; ");
     open.append("if (").append(src).append(" != null) { ");
     if (source.getKind() == TypeKind.ARRAY) {
       open.append("final int ").append(size).append(" = ").append(src).append(".length; ");
       open.append("for (int ").append(index).append(" = 0; ").append(index).append(" < ").append(size)
           .append("; ").append(index).append("++) { ");
-      open.append("final var ").append(var).append(" = ").append(src).append('[').append(index).append("]; ");
+      open.append("final ").append(elementType).append(' ').append(var).append(" = ").append(src).append('[')
+          .append(index).append("]; ");
     } else {
       if (isSubtype(ctx, source, "java.util.Map")) {
-        open.append("final var ").append(items).append(" = ").append(src).append(".entrySet(); ");
+        // For Map<K, ? extends V> the entries are Entry<K, capture>, which Java cannot name. Templates only
+        // read entries (no setValue), so viewing them as Entry<K, V> is sound.
+        String entries = "java.util.Collection<" + elementType + ">";
+        open.append("@java.lang.SuppressWarnings(\"unchecked\") final ").append(entries).append(' ').append(items)
+            .append(" = (").append(entries).append(") (java.util.Collection<?>) ").append(src).append(".entrySet(); ");
       } else if (isSubtype(ctx, source, "java.util.Collection")) {
-        open.append("final var ").append(items).append(" = ").append(src).append("; ");
+        open.append("final java.util.Collection<? extends ").append(elementType).append("> ").append(items)
+            .append(" = ").append(src).append("; ");
       } else {
         // A plain Iterable may be single-use and has no size: copy it once.
         String e = ctx.freshName("e");
-        open.append("final java.util.List<").append(element).append("> ").append(items)
+        open.append("final java.util.List<").append(elementType).append("> ").append(items)
             .append(" = new java.util.ArrayList<>(); ");
-        open.append("for (final ").append(element).append(' ').append(e).append(" : ").append(src).append(") { ")
+        open.append("for (final ").append(elementType).append(' ').append(e).append(" : ").append(src).append(") { ")
             .append(items).append(".add(").append(e).append("); } ");
       }
       open.append("final int ").append(size).append(" = ").append(items).append(".size(); ");
       open.append("int ").append(index).append(" = 0; ");
-      open.append("for (final var ").append(var).append(" : ").append(items).append(") { ");
+      open.append("for (final ").append(elementType).append(' ').append(var).append(" : ").append(items).append(") { ");
     }
     String ws = plan.element().name().equals("t:block") ? null : ctx.whitespaceBefore(plan.element());
     if (ws != null) {
