@@ -21,6 +21,6 @@ injection is impossible by construction.
 
 - Using and migrating to Tessera: [docs/guide.md](docs/guide.md)
 - MVP design: [docs/mvp-design.md](docs/mvp-design.md); long-term vision: [docs/tessera-vision.md](docs/tessera-vision.md)
-- Contributing (humans and agents): [AGENTS.md](AGENTS.md)
+- Contributing (humans and agents): [AGENTS.md](AGENTS.md); orchestration handoff: [docs/handoff.md](docs/handoff.md)
 
 Build: `mvn -B -ntp verify` (JDK 21+). CI runs on Chainguard Checks (`.chainguard/ci/`).
