@@ -8,16 +8,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import dev.tessera.runtime.RenderContext;
 import dev.tessera.runtime.TemplateEntry;
 import dev.tessera.runtime.TemplateRegistry;
+import dev.tessera.spring.view.FallbackResolver;
 import dev.tessera.spring.view.RenderContextFactory;
 import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -31,7 +28,6 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
-import org.springframework.core.Ordered;
 import org.springframework.stereotype.Controller;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -39,8 +35,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.servlet.View;
-import org.springframework.web.servlet.ViewResolver;
 
 /**
  * Spring View Manipulation through the starter: whatever a controller returns as a view name
@@ -61,6 +55,7 @@ class ViewNameInjectionTest {
           "__${T (java.lang.Runtime).getRuntime().exec('id')}__::.x",
           "__${new\tjava.io.File('/etc/passwd')}__::x",
           "__|${T(java.lang.Runtime)}|__::x",
+          "__${T(java.lang.Runtime)}__",
           "__${#ctx}__",
           "__${@environment.getProperty('x')}__",
           "${T(java.lang.Runtime).getRuntime().exec('id')}",
@@ -80,6 +75,8 @@ class ViewNameInjectionTest {
           "|greeting|",
           "greeting ",
           " greeting",
+          "greeting/",
+          "GREETING",
           "greeting\n",
           "Greeting",
           "greeting.html",
@@ -122,7 +119,10 @@ class ViewNameInjectionTest {
   @ParameterizedTest
   @FieldSource("PAYLOADS")
   void requestParameterViewName(String payload) throws Exception {
-    mvc.perform(get("/param").param("v", payload));
+    var result = mvc.perform(get("/param").param("v", payload));
+    if (!payload.startsWith("redirect:")) {
+      result.andExpect(status().isOk()).andExpect(content().string("fallback:" + payload));
+    }
     assertNeverRendered(payload);
   }
 
@@ -219,34 +219,6 @@ class ViewNameInjectionTest {
     @Override
     public Collection<TemplateEntry> all() {
       return delegate.all();
-    }
-  }
-
-  /** The "next resolver": records the names that fell through and renders them as plain text. */
-  static final class FallbackResolver implements ViewResolver, Ordered {
-    final List<String> names = new CopyOnWriteArrayList<>();
-
-    @Override
-    public View resolveViewName(String viewName, Locale locale) {
-      names.add(viewName);
-      return new View() {
-        @Override
-        public String getContentType() {
-          return "text/plain;charset=UTF-8";
-        }
-
-        @Override
-        public void render(Map<String, ?> model, HttpServletRequest request, HttpServletResponse response)
-            throws Exception {
-          response.setContentType(getContentType());
-          response.getWriter().write("fallback");
-        }
-      };
-    }
-
-    @Override
-    public int getOrder() {
-      return Ordered.LOWEST_PRECEDENCE - 1;
     }
   }
 
