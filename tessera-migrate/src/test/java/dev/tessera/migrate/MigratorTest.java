@@ -99,6 +99,25 @@ class MigratorTest {
         convert("<div th:fragment=card(a,b)>x</div>"));
   }
 
+  @Test
+  void requotesSingleQuotedValuesWhenTheRewriteAddsAQuote() throws Exception {
+    assertEquals("<div><p t:class=\"'nav-item'\" t:if=\"fields.hasErrors('*')\">x</p></div>",
+        convert("<div><p th:class='nav-item' th:if='${#fields.hasAnyErrors()}'>x</p></div>"));
+  }
+
+  @Test
+  void singleQuotedValuesWithoutAddedQuotesStaySingleQuoted() throws Exception {
+    assertEquals("<p t:params=\"Object a\"><i t:text='a'></i></p>",
+        convert("<p><i th:text='${a}'></i></p>"));
+  }
+
+  @Test
+  void singleQuotedValueHoldingDoubleQuoteIsNotEscaped() throws Exception {
+    // Left for the compiler to reject rather than silently escaped.
+    assertEquals("<div t:params=\"Object x\"><p t:if='fields.hasErrors('*') or \"x\"'>x</p></div>",
+        migrate("<div><p th:if='${#fields.hasAnyErrors() or \"x\"}'>x</p></div>").output());
+  }
+
   // ---- fragments and params ----
 
   @Test
@@ -132,6 +151,21 @@ class MigratorTest {
   void existingParamsAreKept() throws Exception {
     String in = "<html t:params=\"OwnerView owner\"><p th:text=\"${owner.name}\">x</p></html>";
     assertEquals("<html t:params=\"OwnerView owner\"><p t:text=\"owner.name\">x</p></html>", convert(in));
+    assertEquals(List.of(), messages(in));
+  }
+
+  @Test
+  void importIsNotAnExpression() throws Exception {
+    String src = "<html t:import=\"com.example.OwnerView\"><p th:text=\"${a}\">x</p></html>";
+    assertEquals("<html t:import=\"com.example.OwnerView\" t:params=\"Object a\"><p t:text=\"a\">x</p></html>",
+        convert(src));
+    assertEquals(List.of("1: " + String.format(ConversionRules.PARAM_STUB_MESSAGE, "a")), messages(src));
+  }
+
+  @Test
+  void nestedParamsAddNoRoots() throws Exception {
+    String in = "<div><div t:params=\"List<Pet> pets\">x</div></div>";
+    assertEquals(in, convert(in));
     assertEquals(List.of(), messages(in));
   }
 
