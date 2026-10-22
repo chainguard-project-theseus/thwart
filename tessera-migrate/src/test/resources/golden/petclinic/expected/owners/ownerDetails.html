@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+
+<html xmlns:t="https://tessera.dev" t:replace="~{fragments/layout :: layout(~{::body},'owners')}" t:params="Object message, Object owner">
+
+<body>
+
+  <h2>Owner Information</h2>
+
+  <div t:if="message" class="alert alert-success" id="success-message">
+    <span t:text="message"></span>
+  </div>
+
+  <table class="table table-striped" t:object="owner">
+    <tr>
+      <th>Name</th>
+      <td><b t:text="*{firstName + ' ' + lastName}"></b></td>
+    </tr>
+    <tr>
+      <th>Telephone</th>
+      <td t:text="*{telephone}"></td>
+    </tr>
+  </table>
+
+  <a t:href="@{{id}/edit(id=owner.id)}" class="btn btn-primary">Edit Owner</a>
+  <a t:href="@{{id}/pets/new(id=owner.id)}" class="btn btn-primary">Add New Pet</a>
+
+  <h2>Pets and Visits</h2>
+
+  <table class="table table-striped">
+    <tr t:each="pet : owner.pets">
+      <td valign="top">
+        <dl class="dl-horizontal">
+          <dt t:text="#{name}">Name</dt>
+          <dd t:text="pet.name"></dd>
+          <dt>Birth Date</dt>
+          <dd t:text="temporals.format(pet.birthDate, 'yyyy-MM-dd')"></dd>
+          <dt>Type</dt>
+          <dd t:text="pet.type"></dd>
+        </dl>
+      </td>
+      <td valign="top">
+        <table class="table-condensed">
+          <tr t:if="pet.visits.isEmpty()"><td t:text="#{noVisits(pet.name)}">No visits</td></tr>
+          <tr t:each="visit, iter : pet.visits" t:classappend="iter.odd ? 'odd'">
+            <td t:text="temporals.format(visit.date, 'yyyy-MM-dd')"></td>
+            <td t:text="visit?.description"></td>
+          </tr>
+          <tr>
+            <td><a t:href="@{{ownerId}/pets/{petId}/edit(ownerId=owner.id,petId=pet.id)}">Edit Pet</a></td>
+            <td><a t:href="@{{ownerId}/pets/{petId}/visits/new(ownerId=owner.id,petId=pet.id)}">Add Visit</a></td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+
+</html>

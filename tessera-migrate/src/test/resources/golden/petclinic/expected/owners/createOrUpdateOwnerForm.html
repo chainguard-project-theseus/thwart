@@ -1,0 +1,26 @@
+<html xmlns:t="https://tessera.dev"
+  t:replace="~{fragments/layout :: layout(~{::body},'owners')}" t:params="Object owner">
+
+<body>
+
+  <h2>Owner</h2>
+  <form t:object="owner" class="form-horizontal" id="add-owner-form" method="post">
+    <div class="form-group has-feedback">
+      <input
+        t:replace="~{fragments/inputField :: input ('First Name', 'firstName', 'text')}" />
+      <input
+        t:replace="~{fragments/inputField :: input ('Last Name', 'lastName', 'text')}" />
+      <input
+        t:replace="fragments/inputField :: input ('Telephone', 'telephone', 'text')" />
+    </div>
+    <div class="form-group">
+      <div class="col-sm-offset-2 col-sm-10">
+        <button
+          t:with="text=owner['new'] ? 'Add Owner' : 'Update Owner'"
+          class="btn btn-primary" type="submit" t:text="text">Add
+          Owner</button>
+      </div>
+    </div>
+  </form>
+</body>
+</html>
