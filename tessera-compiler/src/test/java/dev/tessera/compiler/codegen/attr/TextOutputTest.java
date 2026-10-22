@@ -92,7 +92,7 @@ class TextOutputTest {
     Compilation c = compile("String s, List<Integer> xs", "<script t:text=\"s\">x</script><script t:text=\"xs\"></script>")
         .assertSuccess();
     assertEquals(
-        "<div><script>\"\\u003c/script\\u003e\\u003cscript\\u003e\"</script><script>[1,2]</script></div>",
+        "<div><script>\"\\u003c\\/script\\u003e\\u003cscript\\u003e\"</script><script>[1,2]</script></div>",
         c.render("page", model("s", "</script><script>", "xs", List.of(1, 2))));
   }
 
@@ -171,7 +171,7 @@ class TextOutputTest {
         compile("String s, Map<String, Integer> m", "<script>var a = [[s]]; var m = [[m]];</script>").assertSuccess();
     String out = c.render("page", model("s", "</script><script>alert(1)//", "m", Map.of("k", 1)));
     assertEquals(
-        "<div><script>var a = \"\\u003c/script\\u003e\\u003cscript\\u003ealert(1)//\"; var m = {\"k\":1};</script></div>",
+        "<div><script>var a = \"\\u003c\\/script\\u003e\\u003cscript\\u003ealert(1)\\/\\/\"; var m = {\"k\":1};</script></div>",
         out);
   }
 

@@ -106,7 +106,9 @@ public final class Escapers {
    * JavaScript value inside {@code <script>} (OutputContext.SCRIPT). Serializes as JSON:
    * null, Boolean, Number, CharSequence, Character, Enum (name), java.time values (ISO string),
    * Optional, Collection, array and Map with String keys. Escapes {@code <}, {@code >},
-   * {@code &}, U+2028 and U+2029 so the value cannot close the script element. Other types
+   * {@code &}, {@code '}, U+2028 and U+2029 so the value cannot close the script element, and
+   * {@code /}, {@code `} and {@code $} so a string cannot leave a JS comment, regex literal or
+   * template literal it was inlined into. Other types
    * throw IllegalArgumentException (the compiler only allows the types above).
    *
    * <p>Numbers are limited to the JDK types ({@code Byte}, {@code Short}, {@code Integer},
@@ -309,8 +311,8 @@ public final class Escapers {
 
   /**
    * Writes a double-quoted JSON string that is also safe inside an HTML {@code <script>}
-   * element: {@code < > & '}, U+2028, U+2029, controls and unpaired surrogates become
-   * {@code \\uXXXX}.
+   * element or a JS comment, regex or template literal: {@code < > & ' ` $}, U+2028, U+2029,
+   * controls and unpaired surrogates become {@code \\uXXXX}, and {@code /} becomes {@code \\/}.
    */
   private static void writeJsonString(StringBuilder sb, String s) {
     sb.append('"');
@@ -325,7 +327,10 @@ public final class Escapers {
         case '\t' -> sb.append("\\t");
         case '\b' -> sb.append("\\b");
         case '\f' -> sb.append("\\f");
-        case '<', '>', '&', '\'', '\u2028', '\u2029' -> unicodeEscape(sb, c);
+        // '/' stops a value closing a /*[[...]]*/ comment or a regex literal; '`' and '$' stop
+        // it closing a template literal or starting ${...} inside one.
+        case '/' -> sb.append("\\/");
+        case '<', '>', '&', '\'', '`', '$', '\u2028', '\u2029' -> unicodeEscape(sb, c);
         default -> {
           if (c < 0x20 || c == 0x7f) {
             unicodeEscape(sb, c);
