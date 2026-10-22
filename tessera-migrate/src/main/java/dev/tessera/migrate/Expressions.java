@@ -5,6 +5,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -49,7 +51,7 @@ final class Expressions {
     for (Map.Entry<String, String> e : ConversionRules.RENAMED_CALLS.entrySet()) {
       s = replaceOutsideLiterals(s, e.getKey(), e.getValue());
     }
-    s = replaceOutsideLiterals(s, ConversionRules.NEW_INDEX, ConversionRules.IS_NEW);
+    s = replaceOutsideLiterals(s, ConversionRules.NEW_INDEX, m -> ConversionRules.IS_NEW);
     for (Map.Entry<String, String> e : ConversionRules.RECEIVER_CALLS.entrySet()) {
       s = receiverCall(s, e.getKey(), e.getValue());
     }
@@ -60,7 +62,7 @@ final class Expressions {
   }
 
   /** {@code ${x}} becomes {@code x}; a compound {@code ${...}} inside a larger value keeps parentheses. */
-  static String dropDollar(String expr) {
+  private static String dropDollar(String expr) {
     String masked = mask(expr, false);
     String trimmed = expr.strip();
     int lead = expr.indexOf(trimmed);
@@ -127,15 +129,19 @@ final class Expressions {
     return s;
   }
 
-  /** Replaces matches of {@code p} that start outside string literals with {@code to} (verbatim). */
-  private static String replaceOutsideLiterals(String s, Pattern p, String to) {
+  /**
+   * Replaces matches of {@code p} that start outside string literals with {@code to.apply(match)},
+   * appended verbatim (never through {@link Matcher#appendReplacement}, so {@code $} in the
+   * replacement is literal).
+   */
+  private static String replaceOutsideLiterals(String s, Pattern p, Function<MatchResult, String> to) {
     String masked = mask(s, false);
     StringBuilder sb = new StringBuilder();
     Matcher m = p.matcher(s);
     int pos = 0;
     while (m.find()) {
       if (masked.charAt(m.start()) == s.charAt(m.start())) {
-        sb.append(s, pos, m.start()).append(to);
+        sb.append(s, pos, m.start()).append(to.apply(m));
         pos = m.end();
       }
     }
@@ -149,18 +155,8 @@ final class Expressions {
   static String rewriteLinks(String expr) {
     String s = expr;
     for (Pattern p : ConversionRules.STRING_LINKS) {
-      String masked = mask(s, false);
-      StringBuilder sb = new StringBuilder();
-      Matcher m = p.matcher(s);
-      int pos = 0;
-      while (m.find()) {
-        if (masked.charAt(m.start()) == '@') {
-          sb.append(s, pos, m.start()).append("@{").append(m.group(1)).append('(').append(m.group(2))
-              .append("=${").append(m.group(3).strip()).append("})}");
-          pos = m.end();
-        }
-      }
-      s = sb.append(s, pos, s.length()).toString();
+      s = replaceOutsideLiterals(s, p,
+          m -> "@{" + m.group(1) + "(" + m.group(2) + "=${" + m.group(3).strip() + "})}");
     }
     return s;
   }
@@ -186,24 +182,21 @@ final class Expressions {
   }
 
   /** True if {@code x} has a top-level operator or space, so it needs parentheses as an operand. */
-  static boolean needsParens(String x) {
+  private static boolean needsParens(String x) {
     String masked = mask(x, false);
     int depth = 0;
     for (int i = 0; i < masked.length(); i++) {
       char c = masked.charAt(i);
-      switch (c) {
-        case '(', '[', '{' -> depth++;
-        case ')', ']', '}' -> depth--;
-        case '?' -> {
-          if (depth == 0 && !(i + 1 < masked.length() && masked.charAt(i + 1) == '.')) {
-            return true;
-          }
+      if (isOpen(c)) {
+        depth++;
+      } else if (isClose(c)) {
+        depth--;
+      } else if (c == '?') {
+        if (depth == 0 && !(i + 1 < masked.length() && masked.charAt(i + 1) == '.')) {
+          return true;
         }
-        default -> {
-          if (depth == 0 && (Character.isWhitespace(c) || "+-*/%<>=!:&|,".indexOf(c) >= 0)) {
-            return true;
-          }
-        }
+      } else if (depth == 0 && (Character.isWhitespace(c) || "+-*/%<>=!:&|,".indexOf(c) >= 0)) {
+        return true;
       }
     }
     return false;
@@ -244,9 +237,9 @@ final class Expressions {
     int start = 0;
     for (int i = 0; i < masked.length(); i++) {
       char c = masked.charAt(i);
-      if (c == '(' || c == '[' || c == '{' || (angleBrackets && c == '<')) {
+      if (isOpen(c) || (angleBrackets && c == '<')) {
         depth++;
-      } else if (c == ')' || c == ']' || c == '}' || (angleBrackets && c == '>')) {
+      } else if (isClose(c) || (angleBrackets && c == '>')) {
         depth--;
       } else if (c == ',' && depth == 0) {
         parts.add(s.substring(start, i));
@@ -266,13 +259,21 @@ final class Expressions {
       if (c == ch && depth == 0) {
         return i;
       }
-      if (c == '(' || c == '[' || c == '{') {
+      if (isOpen(c)) {
         depth++;
-      } else if (c == ')' || c == ']' || c == '}') {
+      } else if (isClose(c)) {
         depth--;
       }
     }
     return -1;
+  }
+
+  private static boolean isOpen(char c) {
+    return c == '(' || c == '[' || c == '{';
+  }
+
+  private static boolean isClose(char c) {
+    return c == ')' || c == ']' || c == '}';
   }
 
   /**
@@ -282,7 +283,7 @@ final class Expressions {
    * delimiters, {@code *{...}} selections, message keys, literal link paths, fragment template
    * names and fragment names.
    */
-  static String mask(String s, boolean forRoots) {
+  private static String mask(String s, boolean forRoots) {
     char[] m = s.toCharArray();
     mask(s, 0, s.length(), m, forRoots);
     return new String(m);
@@ -354,18 +355,7 @@ final class Expressions {
         int close = matchBrace(s, i + 1);
         int limit = close < 0 || close >= to ? to : close;
         int sep = s.indexOf("::", i);
-        int end;
-        if (sep >= 0 && sep < limit) {
-          end = sep + 2;
-          while (end < limit && Character.isWhitespace(s.charAt(end))) {
-            end++;
-          }
-          while (end < limit && isNameChar(s.charAt(end))) {
-            end++;
-          }
-        } else {
-          end = limit;
-        }
+        int end = sep >= 0 && sep < limit ? endOfFragmentName(s, sep + 2, limit) : limit;
         blank(m, i, end);
         i = end;
       } else {
@@ -384,16 +374,22 @@ final class Expressions {
     if (sep < 0) {
       return masked;
     }
-    int end = sep + 2;
-    while (end < value.length() && Character.isWhitespace(value.charAt(end))) {
-      end++;
-    }
-    while (end < value.length() && isNameChar(value.charAt(end))) {
-      end++;
-    }
+    int end = endOfFragmentName(value, sep + 2, value.length());
     char[] m = masked.toCharArray();
     blank(m, 0, end);
     return new String(m);
+  }
+
+  /** Index just past the fragment name after {@code ::}: optional whitespace, then name characters. */
+  private static int endOfFragmentName(String s, int afterSep, int limit) {
+    int end = afterSep;
+    while (end < limit && Character.isWhitespace(s.charAt(end))) {
+      end++;
+    }
+    while (end < limit && isNameChar(s.charAt(end))) {
+      end++;
+    }
+    return end;
   }
 
   private static boolean isNameChar(char c) {
@@ -423,7 +419,7 @@ final class Expressions {
   }
 
   /** Index of the '}' matching the '{' at {@code open}, skipping string literals; -1 if none. */
-  static int matchBrace(String s, int open) {
+  private static int matchBrace(String s, int open) {
     return match(s, open, '{', '}');
   }
 

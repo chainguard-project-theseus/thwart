@@ -31,22 +31,22 @@ final class ConversionRules {
    * {@code th:} attributes that are left in place, unrenamed, and reported. Keys are lower-case
    * attribute names; {@code th:on*} is handled by {@link #unsupportedAttribute}.
    */
-  static final Map<String, String> UNSUPPORTED_ATTRIBUTES = Map.of(
+  private static final Map<String, String> UNSUPPORTED_ATTRIBUTES = Map.of(
       "th:inline", "`th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or move data to `data-*` attributes",
       "th:style", "`th:style` is a build error by design (no dynamic CSS); use `t:classappend`",
       "th:styleappend", "`th:styleappend` is a build error by design (no dynamic CSS); use `t:classappend`",
       "th:include", "`th:include` is not supported; use `t:insert` or `t:replace` (check the host-element semantics)",
       "th:substituteby", "`th:substituteby` is not supported; use `t:replace`");
 
-  static final String EVENT_HANDLER_MESSAGE =
+  private static final String EVENT_HANDLER_MESSAGE =
       "`%s` is a build error by design (no dynamic event handlers); use a `data-*` attribute read by a script";
-  static final String DATA_TH_MESSAGE =
+  private static final String DATA_TH_MESSAGE =
       "`%s` (HTML5 data-th-* syntax) is not converted; rewrite it as `t:%s`";
-  static final String DIALECT_MESSAGE =
+  private static final String DIALECT_MESSAGE =
       "`%s` belongs to the `%s:` dialect, which Tessera does not support; port it by hand";
 
   /** Attribute prefixes that are plain XML/HTML, not template dialects. */
-  static final Set<String> PLAIN_PREFIXES = Set.of("xmlns", "xml", "xlink", "th", "t");
+  private static final Set<String> PLAIN_PREFIXES = Set.of("xmlns", "xml", "xlink", "th", "t");
 
   /**
    * Returns the report message for an attribute that is left untouched (not renamed, value not
@@ -83,8 +83,11 @@ final class ConversionRules {
   /** Attributes whose value is a selection path on {@code t:object}, not a root variable. */
   static final Set<String> SELECTION_VALUES = Set.of("field", "errors");
 
+  /** The only assignment attribute that declares locals ({@code th:with="n=..."}). */
+  static final String WITH = "with";
+
   /** Attributes whose value is a comma-separated list of {@code name=expr} assignments. */
-  static final Set<String> ASSIGNMENT_VALUES = Set.of("with", "attr");
+  static final Set<String> ASSIGNMENT_VALUES = Set.of(WITH, "attr");
 
   static final String FRAGMENT = "fragment";
   static final String EACH = "each";
@@ -133,6 +136,8 @@ final class ConversionRules {
   /**
    * String-built links with a literal path and one query parameter, {@code @{'/p?k=' + ${x}}} and
    * {@code @{'/p?k=__${x}__'}}; both become {@code @{/p(k=${x})}}. Groups: path, name, expression.
+   * Every pattern must start with a literal {@code @}: {@link Expressions#rewriteLinks} skips a
+   * match whose first character is inside a string literal.
    */
   private static final String LINK_PATH = "@\\{\\s*'(/(?:[^'?{}()\\s_]|_(?!_))*)\\?(\\w+)=";
   static final List<Pattern> STRING_LINKS = List.of(

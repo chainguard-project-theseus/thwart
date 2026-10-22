@@ -140,8 +140,9 @@ final class Migrator {
         report(nameLine, unsupported);
         return;
       }
+      boolean thymeleaf = lower.startsWith(ConversionRules.THYMELEAF_PREFIX);
       String local;
-      if (lower.startsWith(ConversionRules.THYMELEAF_PREFIX)) {
+      if (thymeleaf) {
         local = lower.substring(ConversionRules.THYMELEAF_PREFIX.length());
         edits.add(new Edit(nameOffset, ConversionRules.THYMELEAF_PREFIX.length(),
             ConversionRules.TESSERA_PREFIX));
@@ -158,7 +159,7 @@ final class Migrator {
       }
       String converted = local.equals(ConversionRules.FRAGMENT)
           ? fragmentSignature(value, nameLine)
-          : expressionValue(local, value, lower.startsWith(ConversionRules.THYMELEAF_PREFIX), nameLine);
+          : expressionValue(local, value, thymeleaf, nameLine);
       if (!converted.equals(value)) {
         boolean singleQuoted = quoted && buffer[valueOuterOffset] == '\'';
         boolean needsQuoting = converted.chars().anyMatch(
@@ -220,45 +221,13 @@ final class Migrator {
       }
       boolean convertible = problems.isEmpty();
       if (local.equals(ConversionRules.EACH)) {
-        int colon = Expressions.indexOfTopLevel(value, ':');
-        if (colon < 0) {
-          return original; // not a loop expression; the compiler reports it
-        }
-        List<String> vars = Expressions.splitTopLevel(value.substring(0, colon), false);
-        vars.forEach(v -> locals.add(v.strip()));
-        if (vars.size() == 1) {
-          locals.add(vars.get(0).strip() + ConversionRules.IMPLICIT_STATUS_SUFFIX);
-        }
-        String expr = value.substring(colon + 1);
-        if (!convertible) {
-          return original;
-        }
-        String rewritten = Expressions.rewrite(expr);
-        roots.addAll(Expressions.roots(rewritten, false));
-        return value.substring(0, colon + 1) + rewritten;
+        return eachValue(original, value, convertible);
       }
       if (!convertible) {
         return original; // left in place for the compiler to reject; roots would be guesses
       }
       if (ConversionRules.ASSIGNMENT_VALUES.contains(local)) {
-        List<String> parts = new ArrayList<>();
-        for (String part : Expressions.splitTopLevel(value, false)) {
-          int eq = Expressions.indexOfTopLevel(part, '=');
-          if (eq < 0) {
-            parts.add(part);
-            continue;
-          }
-          if (local.equals("with")) {
-            locals.add(part.substring(0, eq).strip());
-          }
-          String expr = part.substring(eq + 1);
-          String rewritten = thymeleaf && Expressions.isLiteralToken(expr)
-              ? "'" + expr.strip() + "'"
-              : Expressions.rewrite(expr);
-          roots.addAll(Expressions.roots(rewritten, false));
-          parts.add(part.substring(0, eq + 1) + rewritten);
-        }
-        return String.join(",", parts);
+        return assignmentsValue(local, value, thymeleaf);
       }
       if (thymeleaf && Expressions.isLiteralToken(value) && !ConversionRules.SELECTION_VALUES.contains(local)
           && !ConversionRules.FRAGMENT_REFERENCES.contains(local)) {
@@ -270,6 +239,50 @@ final class Migrator {
             ConversionRules.FRAGMENT_REFERENCES.contains(local)));
       }
       return rewritten;
+    }
+
+    /**
+     * {@code th:each="x, st : expr"}: the loop variables become locals even when the expression
+     * is not convertible, so they are never mistaken for parameters elsewhere in the template.
+     */
+    private String eachValue(String original, String value, boolean convertible) {
+      int colon = Expressions.indexOfTopLevel(value, ':');
+      if (colon < 0) {
+        return original; // not a loop expression; the compiler reports it
+      }
+      List<String> vars = Expressions.splitTopLevel(value.substring(0, colon), false);
+      vars.forEach(v -> locals.add(v.strip()));
+      if (vars.size() == 1) {
+        locals.add(vars.get(0).strip() + ConversionRules.IMPLICIT_STATUS_SUFFIX);
+      }
+      if (!convertible) {
+        return original;
+      }
+      String rewritten = Expressions.rewrite(value.substring(colon + 1));
+      roots.addAll(Expressions.roots(rewritten, false));
+      return value.substring(0, colon + 1) + rewritten;
+    }
+
+    /** {@code name=expr, ...}: each expression is rewritten; {@code with} names become locals. */
+    private String assignmentsValue(String local, String value, boolean thymeleaf) {
+      List<String> parts = new ArrayList<>();
+      for (String part : Expressions.splitTopLevel(value, false)) {
+        int eq = Expressions.indexOfTopLevel(part, '=');
+        if (eq < 0) {
+          parts.add(part);
+          continue;
+        }
+        if (local.equals(ConversionRules.WITH)) {
+          locals.add(part.substring(0, eq).strip());
+        }
+        String expr = part.substring(eq + 1);
+        String rewritten = thymeleaf && Expressions.isLiteralToken(expr)
+            ? "'" + expr.strip() + "'"
+            : Expressions.rewrite(expr);
+        roots.addAll(Expressions.roots(rewritten, false));
+        parts.add(part.substring(0, eq + 1) + rewritten);
+      }
+      return String.join(",", parts);
     }
 
     /** {@code [[...]]} and {@code [(...)]} in text: collect roots and report, never rewrite. */
