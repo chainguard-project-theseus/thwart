@@ -41,8 +41,8 @@ This is an MVP built tonight. Prefer the smallest thing that is correct and secu
   types, pattern matching, switch expressions, `var` or post-8 APIs such as `List.of`; the
   compiler has `Backports` and migrate `Compat` for the latter); javac `--release 8` and the
   release-8 and JDK 8 test runs enforce it. The starter must also keep working on Spring 5.0 /
-  Boot 2.0 (`tessera-spring-tests`). The Spring test modules, benchmarks, examples and the
-  compiler's and migrate's tests are Java 21. The runtime module has **zero third-party
+  Boot 2.0 (`tessera-spring-tests`, also `--release 8`). Benchmarks, examples and the tests of
+  the runtime, compiler and migrate are Java 21. The runtime module has **zero third-party
   dependencies**.
 - Error messages from the compiler must name the template file, line and column.
 - Security-relevant behaviour gets a test, including a negative test (the bad thing fails).

@@ -28,8 +28,7 @@ One Maven reactor, `groupId dev.tessera`, JUnit Jupiter 6. What the application 
 the application's javac) and `tessera-migrate` are built with `--release 8` and the generated
 template code compiles at `--release 8`, so the app builds with JDK 8+ and runs on Java 8+.
 Everything else (benchmarks, examples, most tests) is `--release 21`, so building this repo needs
-JDK 21+. The table names
-the main classes only.
+JDK 21+. The table names the main classes only.
 
 | Module | Packages | Contents | Deps |
 |---|---|---|---|
