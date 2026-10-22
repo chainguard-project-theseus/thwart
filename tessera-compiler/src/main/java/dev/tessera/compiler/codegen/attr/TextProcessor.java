@@ -24,6 +24,6 @@ public final class TextProcessor implements AttributeProcessor {
     if (e == null) {
       return;
     }
-    plan.replaceBody(TextInlining.valueStatement(ctx, e, context, plan.scope()));
+    plan.replaceBody(TextInlining.valueStatement(ctx, e, context, plan.scope()), context);
   }
 }

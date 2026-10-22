@@ -1,11 +1,9 @@
 package dev.tessera.compiler.codegen.attr;
 
-import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.model.Attribute;
-import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.CompiledExpr;
 import java.util.Optional;
 
@@ -21,18 +19,11 @@ public final class ClassAppendProcessor implements AttributeProcessor {
       return;
     }
     Optional<ElementPlan.Attr> current = plan.attribute("class");
-    String base =
-        switch (current.orElse(null)) {
-          case null -> "null";
-          case ElementPlan.StaticAttr s ->
-              JavaStrings.literal(s.source().value() == null ? "" : s.source().value());
-          case ElementPlan.DynamicAttr d -> d.valueCode();
-        };
+    String base = current.map(ElementPlan.Attr::valueCode).orElse("null");
     String name = current.map(ElementPlan.Attr::name).orElse("class");
     plan.setAttribute(
         name,
         "dev.tessera.runtime.Attributes.appendClass(" + base + ", " + c.code() + ")",
-        OutputContext.ATTRIBUTE,
         attr.pos());
   }
 }

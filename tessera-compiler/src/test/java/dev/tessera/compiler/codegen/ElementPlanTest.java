@@ -1,0 +1,69 @@
+package dev.tessera.compiler.codegen;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import dev.tessera.compiler.SourcePos;
+import dev.tessera.compiler.model.Attribute;
+import dev.tessera.compiler.model.Element;
+import dev.tessera.compiler.model.OutputContext;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
+class ElementPlanTest {
+  private static final SourcePos POS = new SourcePos("t.html", 1, 1);
+
+  private static ElementPlan plan(String name, Attribute... attributes) {
+    return new ElementPlan(new Element(name, List.of(attributes), List.of(), false, true, POS), null);
+  }
+
+  @Test
+  void replaceBodyRejectsContextOtherThanTheElementContent() {
+    ElementPlan script = plan("script");
+    IllegalStateException e =
+        assertThrows(IllegalStateException.class, () -> script.replaceBody("x", OutputContext.TEXT));
+    assertEquals("body written for TEXT inside <script> whose content is SCRIPT", e.getMessage());
+    assertNull(script.body());
+
+    ElementPlan style = plan("style");
+    assertThrows(IllegalStateException.class, () -> style.replaceBody("x", OutputContext.TEXT));
+    ElementPlan div = plan("div");
+    assertThrows(IllegalStateException.class, () -> div.replaceBody("x", OutputContext.SCRIPT));
+    assertNull(div.body());
+  }
+
+  @Test
+  void replaceBodyAcceptsTheElementContent() {
+    ElementPlan script = plan("script");
+    script.replaceBody("x", OutputContext.SCRIPT);
+    assertEquals("x", script.body());
+    ElementPlan div = plan("div");
+    div.replaceBody("y", OutputContext.TEXT);
+    assertEquals("y", div.body());
+  }
+
+  @Test
+  void setAttributeDerivesContextFromElementAndName() {
+    ElementPlan a = plan("a");
+    a.setAttribute("href", "h", POS);
+    a.setAttribute("VALUE", "v", POS);
+    a.setAttribute("onclick", "c", POS);
+    List<OutputContext> contexts =
+        a.attributes().stream().map(x -> ((ElementPlan.DynamicAttr) x).context()).toList();
+    assertEquals(List.of(OutputContext.URL, OutputContext.ATTRIBUTE, OutputContext.EVENT_HANDLER), contexts);
+  }
+
+  @Test
+  void valueCode() {
+    ElementPlan p =
+        plan(
+            "input",
+            new Attribute("value", "a\"b", "a&quot;b", '"', POS, POS),
+            new Attribute("checked", null, null, '\0', POS, null));
+    assertEquals("\"a\\\"b\"", p.attribute("value").orElseThrow().valueCode());
+    assertEquals("\"\"", p.attribute("checked").orElseThrow().valueCode());
+    p.setAttribute("value", "expr()", POS);
+    assertEquals("expr()", p.attribute("value").orElseThrow().valueCode());
+  }
+}

@@ -5,7 +5,9 @@ import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.model.Attribute;
+import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.Scope;
+import dev.tessera.runtime.Escapers;
 import java.util.Optional;
 
 /**
@@ -47,7 +49,8 @@ public final class ErrorsProcessor implements AttributeProcessor {
         "} }");
     plan.replaceBody(
         "for (int " + i + " = 0; " + i + " < " + errors + ".size(); " + i + "++) { if (" + i
-            + " > 0) { out.write(\"<br />\"); } dev.tessera.runtime.Escapers.text(out, " + errors + ".get(" + i
-            + ")); }");
+            + " > 0) { out.write(\"<br />\"); } " + Escapers.class.getName() + ".text(out, " + errors
+            + ".get(" + i + ")); }",
+        OutputContext.TEXT);
   }
 }
