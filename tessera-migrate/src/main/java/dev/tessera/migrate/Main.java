@@ -104,7 +104,7 @@ public final class Main {
         return 1;
       }
       out.println("tessera-migrate: converted " + report.templates() + " template(s), "
-          + report.items().size() + " report item(s), report written to " + reportFile);
+          + report.itemCount() + " report item(s), report written to " + reportFile);
     }
     return failed ? 1 : 0;
   }

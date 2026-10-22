@@ -24,8 +24,8 @@ final class Report {
     return templates;
   }
 
-  List<Item> items() {
-    return List.copyOf(items);
+  int itemCount() {
+    return items.size();
   }
 
   /** Markdown, grouped by file (sorted), items in line order. */
