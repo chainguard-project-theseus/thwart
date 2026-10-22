@@ -1,0 +1,17 @@
+version: 1
+environment:
+  packages: [openjdk-21-default-jdk, maven-3.9, git, bash]
+  vars:
+    JAVA_HOME: /usr/lib/jvm/default-jvm
+    LANG: C.UTF-8
+    CI: "true"
+    MAVEN_OPTS: -Djava.io.tmpdir=/var/tmp
+checks:
+  verify:
+    description: Builds and runs all tests with mvn -B verify.
+    trigger: [presubmit, postsubmit]
+    resources: medium
+    timeout: 20m
+    network:
+      egress: [repo.maven.apache.org, repo1.maven.org]
+    cmd: [mvn, -B, -ntp, verify]
