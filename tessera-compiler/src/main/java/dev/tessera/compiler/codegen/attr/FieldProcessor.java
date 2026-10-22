@@ -12,6 +12,7 @@ import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
+import dev.tessera.runtime.Escapers;
 import java.util.Locale;
 import java.util.Optional;
 import javax.lang.model.type.TypeKind;
@@ -30,7 +31,7 @@ import javax.lang.model.type.TypeMirror;
  * bound that way is checked by its value attribute, like a non-boolean checkbox.
  */
 public final class FieldProcessor implements AttributeProcessor {
-  private static final String RT = "dev.tessera.runtime.";
+  private static final String ESCAPERS = Escapers.class.getName();
 
   /**
    * Internal variable (unreachable from templates: contains {@code $}) holding the bound display
@@ -52,7 +53,7 @@ public final class FieldProcessor implements AttributeProcessor {
       case "input" -> input(ctx, attr, plan, name, display, current);
       case "textarea" -> {
         nameAndId(plan, attr, name, true);
-        plan.replaceBody(RT + "Escapers.text(out, " + display + ");");
+        plan.replaceBody(ESCAPERS + ".text(out, " + display + ");", OutputContext.TEXT);
       }
       case "select" -> {
         nameAndId(plan, attr, name, true);
@@ -76,16 +77,16 @@ public final class FieldProcessor implements AttributeProcessor {
         if (isBoolean(current.type())) {
           nameAndId(plan, attr, name, true);
           if (plan.attribute("value").isEmpty()) {
-            plan.setAttribute("value", "\"true\"", OutputContext.ATTRIBUTE, attr.pos());
+            plan.setAttribute("value", "\"true\"", attr.pos());
           }
           plan.setAttribute(
-              "checked", "java.lang.Boolean.TRUE.equals(" + current.code() + ") ? \"checked\" : null", OutputContext.ATTRIBUTE, attr.pos());
+              "checked", "java.lang.Boolean.TRUE.equals(" + current.code() + ") ? \"checked\" : null", attr.pos());
           plan.afterStartTag(
               "out.write("
                   + JavaStrings.literal("<input type=\"hidden\" name=\"_")
                   + "); "
-                  + RT
-                  + "Escapers.attr(out, "
+                  + ESCAPERS
+                  + ".attr(out, "
                   + name
                   + "); out.write("
                   + JavaStrings.literal("\" value=\"on\" />")
@@ -102,7 +103,7 @@ public final class FieldProcessor implements AttributeProcessor {
       }
       default -> {
         nameAndId(plan, attr, name, true);
-        plan.setAttribute("value", display, OutputContext.ATTRIBUTE, attr.pos());
+        plan.setAttribute("value", display, attr.pos());
       }
     }
   }
@@ -116,14 +117,14 @@ public final class FieldProcessor implements AttributeProcessor {
       return;
     }
     nameAndId(plan, attr, name, false);
-    plan.setAttribute("checked", display + ".equals(" + value + ") ? \"checked\" : null", OutputContext.ATTRIBUTE, attr.pos());
+    plan.setAttribute("checked", display + ".equals(" + value + ") ? \"checked\" : null", attr.pos());
   }
 
   private static void nameAndId(ElementPlan plan, Attribute attr, String name, boolean id) {
     if (id && plan.attribute("id").isEmpty()) {
-      plan.setAttribute("id", name, OutputContext.ATTRIBUTE, attr.pos());
+      plan.setAttribute("id", name, attr.pos());
     }
-    plan.setAttribute("name", name, OutputContext.ATTRIBUTE, attr.pos());
+    plan.setAttribute("name", name, attr.pos());
   }
 
   /**
@@ -143,7 +144,6 @@ public final class FieldProcessor implements AttributeProcessor {
     plan.setAttribute(
         "selected",
         selected.get().javaName() + ".equals(" + value + ") ? \"selected\" : null",
-        OutputContext.ATTRIBUTE,
         plan.element().pos());
   }
 
@@ -152,11 +152,9 @@ public final class FieldProcessor implements AttributeProcessor {
     return plan.attribute(attribute)
         .map(
             a ->
-                switch (a) {
-                  case ElementPlan.StaticAttr s ->
-                      JavaStrings.literal(s.source().value() == null ? "" : s.source().value());
-                  case ElementPlan.DynamicAttr d -> RT + "Escapers.toText(" + d.valueCode() + ")";
-                })
+                a instanceof ElementPlan.DynamicAttr d
+                    ? ESCAPERS + ".toText(" + d.valueCode() + ")"
+                    : a.valueCode())
         .orElse(null);
   }
 
