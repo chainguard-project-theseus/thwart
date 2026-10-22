@@ -1,0 +1,82 @@
+### GET /extrabets
+--- baseline/54.html
++++ run/54.html
+@@ -349,5 +349,5 @@
+               <div class="card-body">
+                 <select class="form-select" id="finalWinner" name="finalWinner">
+-                  <option value="">
++                  <option selected="" value="">
+                     -- Please select --
+                   <option value="ENGLAND">
+@@ -379,5 +379,5 @@
+               <div class="card-body">
+                 <select class="form-select" id="semiFinalWinner" name="semiFinalWinner">
+-                  <option value="">
++                  <option selected="" value="">
+                     -- Please select --
+                   <option value="ENGLAND">
+@@ -409,5 +409,5 @@
+               <div class="card-body">
+                 <select class="form-select" id="thirdFinalWinner" name="thirdFinalWinner">
+-                  <option value="">
++                  <option selected="" value="">
+                     -- Please select --
+                   <option value="ENGLAND">
+
+### GET /extrabets
+--- baseline/110.html
++++ run/110.html
+@@ -283,5 +283,5 @@
+               <div class="card-body">
+                 <select class="form-select" id="finalWinner" name="finalWinner">
+-                  <option value="">
++                  <option selected="" value="">
+                     -- Please select --
+                   <option value="ENGLAND">
+@@ -313,5 +313,5 @@
+               <div class="card-body">
+                 <select class="form-select" id="semiFinalWinner" name="semiFinalWinner">
+-                  <option value="">
++                  <option selected="" value="">
+                     -- Please select --
+                   <option value="ENGLAND">
+@@ -343,5 +343,5 @@
+               <div class="card-body">
+                 <select class="form-select" id="thirdFinalWinner" name="thirdFinalWinner">
+-                  <option value="">
++                  <option selected="" value="">
+                     -- Please select --
+                   <option value="ENGLAND">
+
+### GET /ranking
+--- baseline/154.html
++++ run/154.html
+@@ -436,5 +436,5 @@
+         </div>
+         <div class="col-auto mb-3">
+-          <a class="btn btn-primary" href="/ranking/pdf?mode=" role="button">
++          <a class="btn btn-primary" href="/ranking/pdf?mode" role="button">
+             <i class="fa-file-pdf fas">
+             </i>
+
+### GET /pointcourse/show
+--- baseline/160.html
++++ run/160.html
+@@ -360,5 +360,5 @@
+     </script>
+     <script>
+-      var ctx = $('#myChart'); var chartData ={"labels":["Germany - France","Germany - Spain"],"datasets":[{"label":"admin","data":[8,13]},{"label":"ben","data":[0,10]},{"label":"anna","data":[1,2]}],"empty":false}; var myChart = new Chart(ctx,{type:'line',data:chartData,options:{responsive:true,legend:{position:'bottom'},plugins:{colorschemes:{scheme:'brewer.Paired7'}},maintainAspectRatio:false}});
++      var ctx = $('#myChart'); var chartData = JSON.parse("{\"labels\":[\"Germany - France\",\"Germany - Spain\"],\"datasets\":[{\"label\":\"admin\",\"data\":[8,13]},{\"label\":\"ben\",\"data\":[0,10]},{\"label\":\"anna\",\"data\":[1,2]}],\"empty\":false}"); var myChart = new Chart(ctx,{type:'line',data:chartData,options:{responsive:true,legend:{position:'bottom'},plugins:{colorschemes:{scheme:'brewer.Paired7'}},maintainAspectRatio:false}});
+     </script>
+   </body>
+
+### GET /ranking?lang=en
+--- baseline/163.html
++++ run/163.html
+@@ -436,5 +436,5 @@
+         </div>
+         <div class="col-auto mb-3">
+-          <a class="btn btn-primary" href="/ranking/pdf?mode=" role="button">
++          <a class="btn btn-primary" href="/ranking/pdf?mode" role="button">
+             <i class="fa-file-pdf fas">
+             </i>

@@ -1,0 +1,67 @@
+### GET /resumes/update/resume/34
+--- baseline/36.html
++++ run/36.html
+@@ -205,5 +205,5 @@
+                         Start Date
+                       </label>
+-                      <input class="form-control" id="educationInfoDtos0.startDate" name="educationInfoDtos[0].startDate" placeholder="ГГГГ-ММ-ДД HH:MM:ss" type="text" value="2010-09-01 00:00:00">
++                      <input class="form-control" id="educationInfoDtos0.startDate" name="educationInfoDtos[0].startDate" placeholder="ГГГГ-ММ-ДД HH:MM:ss" type="text" value="2010-09-01T00:00">
+                     </div>
+                     <div class="mb-3">
+@@ -213,5 +213,5 @@
+                         End Date
+                       </label>
+-                      <input class="form-control" id="educationInfoDtos0.endDate" name="educationInfoDtos[0].endDate" placeholder="ГГГГ-ММ-ДД HH:MM:ss" type="text" value="2014-06-30 00:00:00">
++                      <input class="form-control" id="educationInfoDtos0.endDate" name="educationInfoDtos[0].endDate" placeholder="ГГГГ-ММ-ДД HH:MM:ss" type="text" value="2014-06-30T00:00">
+                     </div>
+                   </div>
+
+### GET /resumes/update/resume/34
+--- baseline/38.html
++++ run/38.html
+@@ -205,5 +205,5 @@
+                         Start Date
+                       </label>
+-                      <input class="form-control" id="educationInfoDtos0.startDate" name="educationInfoDtos[0].startDate" placeholder="ГГГГ-ММ-ДД HH:MM:ss" type="text" value="2010-09-01 00:00:00">
++                      <input class="form-control" id="educationInfoDtos0.startDate" name="educationInfoDtos[0].startDate" placeholder="ГГГГ-ММ-ДД HH:MM:ss" type="text" value="2010-09-01T00:00">
+                     </div>
+                     <div class="mb-3">
+@@ -213,5 +213,5 @@
+                         End Date
+                       </label>
+-                      <input class="form-control" id="educationInfoDtos0.endDate" name="educationInfoDtos[0].endDate" placeholder="ГГГГ-ММ-ДД HH:MM:ss" type="text" value="2014-06-30 00:00:00">
++                      <input class="form-control" id="educationInfoDtos0.endDate" name="educationInfoDtos[0].endDate" placeholder="ГГГГ-ММ-ДД HH:MM:ss" type="text" value="2014-06-30T00:00">
+                     </div>
+                   </div>
+
+### GET /resumes/update/resume/34
+--- baseline/59.html
++++ run/59.html
+@@ -253,5 +253,5 @@
+                         Start Date
+                       </label>
+-                      <input class="form-control" id="educationInfoDtos0.startDate" name="educationInfoDtos[0].startDate" placeholder="ГГГГ-ММ-ДД HH:MM:ss" type="text" value="2010-09-01 00:00:00">
++                      <input class="form-control" id="educationInfoDtos0.startDate" name="educationInfoDtos[0].startDate" placeholder="ГГГГ-ММ-ДД HH:MM:ss" type="text" value="2010-09-01T00:00">
+                     </div>
+                     <div class="mb-3">
+@@ -261,5 +261,5 @@
+                         End Date
+                       </label>
+-                      <input class="form-control" id="educationInfoDtos0.endDate" name="educationInfoDtos[0].endDate" placeholder="ГГГГ-ММ-ДД HH:MM:ss" type="text" value="2014-06-30 00:00:00">
++                      <input class="form-control" id="educationInfoDtos0.endDate" name="educationInfoDtos[0].endDate" placeholder="ГГГГ-ММ-ДД HH:MM:ss" type="text" value="2014-06-30T00:00">
+                     </div>
+                   </div>
+@@ -307,5 +307,5 @@
+                         Start Date
+                       </label>
+-                      <input class="form-control" id="educationInfoDtos1.startDate" name="educationInfoDtos[1].startDate" placeholder="ГГГГ-ММ-ДД HH:MM:ss" type="text" value="2010-09-01 00:00:00">
++                      <input class="form-control" id="educationInfoDtos1.startDate" name="educationInfoDtos[1].startDate" placeholder="ГГГГ-ММ-ДД HH:MM:ss" type="text" value="2010-09-01T00:00">
+                     </div>
+                     <div class="mb-3">
+@@ -315,5 +315,5 @@
+                         End Date
+                       </label>
+-                      <input class="form-control" id="educationInfoDtos1.endDate" name="educationInfoDtos[1].endDate" placeholder="ГГГГ-ММ-ДД HH:MM:ss" type="text" value="2014-06-30 00:00:00">
++                      <input class="form-control" id="educationInfoDtos1.endDate" name="educationInfoDtos[1].endDate" placeholder="ГГГГ-ММ-ДД HH:MM:ss" type="text" value="2014-06-30T00:00">
+                     </div>
+                   </div>

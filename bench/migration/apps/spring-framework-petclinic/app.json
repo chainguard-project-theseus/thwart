@@ -1,0 +1,11 @@
+{
+  "repo": "https://github.com/spring-petclinic/spring-framework-petclinic",
+  "commit": "cf392920cdbe9cd07689f1f4b603271940bac957",
+  "engine": "jsp",
+  "difficulty": "medium",
+  "build": "mvn -B -ntp clean package -DskipTests",
+  "test": "mvn -B -ntp test",
+  "start": "mvn -B -ntp -DskipTests jetty:run-war",
+  "ready": "/",
+  "base": "http://localhost:8080"
+}

@@ -1,0 +1,185 @@
+### GET /skills/new_vacancy
+--- baseline/63.html
++++ run/63.html
+@@ -42,66 +42,4 @@
+                     <option value="">
+                       Select Category
+-                    <option selected="" value="1">
+-                      It
+-                    <option value="2">
+-                      UUI Designer
+-                    <option value="3">
+-                      Marketing
+-                    <option value="4">
+-                      Sales
+-                    <option value="5">
+-                      Design
+-                    <option value="6">
+-                      HR
+-                    <option value="7">
+-                      Finance
+-                    <option value="8">
+-                      Operations
+-                    <option value="9">
+-                      Customer Support
+-                    <option value="10">
+-                      Engineering
+-                    <option value="11">
+-                      Business Development
+-                    <option value="12">
+-                      Product Management
+-                    <option value="13">
+-                      Data Science
+-                    <option value="14">
+-                      Legal
+-                    <option value="15">
+-                      Project Management
+-                    <option value="16">
+-                      Quality Assurance
+-                    <option value="17">
+-                      Public Relations
+-                    <option value="18">
+-                      Research and Development
+-                    <option value="19">
+-                      Content Creation
+-                    <option value="20">
+-                      Administration
+-                    <option value="21">
+-                      Supply Chain
+-                    <option value="22">
+-                      Consulting
+-                    <option value="23">
+-                      Customer Success
+-                    <option value="24">
+-                      Creative Direction
+-                    <option value="25">
+-                      Event Management
+-                    <option value="26">
+-                      Real Estate
+-                    <option value="27">
+-                      Accounting
+-                    <option value="28">
+-                      Security
+-                    <option value="29">
+-                      Procurement
+-                    <option value="30">
+-                      User Experience
+-                    <option value="31">
+-                      Training
+                   </select>
+                 </div>
+
+### GET /skills/update_vacancy
+--- baseline/67.html
++++ run/67.html
+@@ -43,66 +43,4 @@
+                     <option value="">
+                       Select Category
+-                    <option selected="" value="1">
+-                      It
+-                    <option value="2">
+-                      UUI Designer
+-                    <option value="3">
+-                      Marketing
+-                    <option value="4">
+-                      Sales
+-                    <option value="5">
+-                      Design
+-                    <option value="6">
+-                      HR
+-                    <option value="7">
+-                      Finance
+-                    <option value="8">
+-                      Operations
+-                    <option value="9">
+-                      Customer Support
+-                    <option value="10">
+-                      Engineering
+-                    <option value="11">
+-                      Business Development
+-                    <option value="12">
+-                      Product Management
+-                    <option value="13">
+-                      Data Science
+-                    <option value="14">
+-                      Legal
+-                    <option value="15">
+-                      Project Management
+-                    <option value="16">
+-                      Quality Assurance
+-                    <option value="17">
+-                      Public Relations
+-                    <option value="18">
+-                      Research and Development
+-                    <option value="19">
+-                      Content Creation
+-                    <option value="20">
+-                      Administration
+-                    <option value="21">
+-                      Supply Chain
+-                    <option value="22">
+-                      Consulting
+-                    <option value="23">
+-                      Customer Success
+-                    <option value="24">
+-                      Creative Direction
+-                    <option value="25">
+-                      Event Management
+-                    <option value="26">
+-                      Real Estate
+-                    <option value="27">
+-                      Accounting
+-                    <option value="28">
+-                      Security
+-                    <option value="29">
+-                      Procurement
+-                    <option value="30">
+-                      User Experience
+-                    <option value="31">
+-                      Training
+                   </select>
+                 </div>
+
+### GET /channel/new_channel
+--- baseline/78.html
++++ run/78.html
+@@ -192,5 +192,5 @@
+                 </span>
+                 <select class="form-select" id="channelAccess" name="channelAccess">
+-                  <option value="">
++                  <option selected="" value="">
+                     Select access type
+                   <option value="PUBLIC">
+
+### POST /channel/create login=&description=&channelAccess=
+--- baseline/79.html
++++ run/79.html
+@@ -199,5 +199,5 @@
+                 </span>
+                 <select class="form-select is-invalid" id="channelAccess" name="channelAccess">
+-                  <option value="">
++                  <option selected="" value="">
+                     Select access type
+                   <option value="PUBLIC">
+
+### GET /channel/new_channel
+--- baseline/80.html
++++ run/80.html
+@@ -192,5 +192,5 @@
+                 </span>
+                 <select class="form-select" id="channelAccess" name="channelAccess">
+-                  <option value="">
++                  <option selected="" value="">
+                     Select access type
+                   <option value="PUBLIC">
+
+### POST /channel/update id=1&login=&description=&channelAccess=
+--- baseline/84.html
++++ run/84.html
+@@ -200,5 +200,5 @@
+                 </span>
+                 <select class="form-select is-invalid" id="channelAccess" name="channelAccess">
+-                  <option value="">
++                  <option selected="" value="">
+                     Select access type
+                   <option value="PUBLIC">
