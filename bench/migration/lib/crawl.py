@@ -23,6 +23,15 @@ import urllib.request
 
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param",
         "source", "track", "wbr"}
+# Elements whose end tag is optional: a sibling start tag or the parent's end tag closes them, so
+# their end tags are never printed and explicit and implicit closing compare equal.
+OPTIONAL_END = {"li", "dt", "dd", "p", "option", "tr", "td", "th", "thead", "tbody", "tfoot"}
+SIBLINGS = {"li": {"li"}, "dt": {"dt", "dd"}, "dd": {"dt", "dd"}, "option": {"option"},
+            "tr": {"tr"}, "td": {"td", "th"}, "th": {"td", "th"}}
+BOOLEAN = {"checked", "selected", "disabled", "readonly", "required", "multiple", "hidden",
+           "autofocus", "novalidate", "open", "async", "defer", "nomodule", "formnovalidate"}
+# A typo like `<span">` is still a span to a reader of the page.
+TAG_JUNK = re.compile(r"[^a-z0-9:_.-]")
 TOKEN = re.compile(r"(_csrf|csrf|jsessionid)", re.I)
 # Values that change from run to run of the same app: random UUIDs, times of day on pages crawled
 # today, and java.util.Date.toString() timestamps.
@@ -34,6 +43,8 @@ VOLATILE = [
     (re.compile(r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{4}, \d{1,2}:\d\d:\d\d\s[AP]M"),
      "DATETIME"),
     (re.compile(r"\b\d\d:\d\d:\d{4} \d\d:\d\d:\d\d\b"), "DATETIME"),
+    # The webjars locator serves /webjars/x/1.2.3/f and /webjars/x/f alike.
+    (re.compile(r"(/webjars/[\w.-]+/)v?\d+(\.\d+)+[\w.-]*/"), r"\1"),
 ]
 
 
@@ -61,16 +72,20 @@ class Normalizer(html.parser.HTMLParser):
         self.emit("<!" + " ".join(decl.split()).lower() + ">")
 
     def handle_starttag(self, tag, attrs, closed=False):
+        tag = TAG_JUNK.sub("", tag)
         named = {}
         for k, v in attrs:
             v = " ".join((v or "").split())
             if k == "class":
                 v = " ".join(sorted(v.split()))
-            named[k] = re.sub(r";jsessionid=[^?#\"]*", "", v, flags=re.I)
+            named[k] = "" if k in BOOLEAN else re.sub(r";jsessionid=[^?#\"]*", "", v, flags=re.I)
         if TOKEN.search(named.get("name", "")) or TOKEN.search(named.get("id", "")):
             named["value"] = named.get("value") and "MASKED"
             if "content" in named:
                 named["content"] = "MASKED"
+        if self.open and self.open[-1] in SIBLINGS.get(tag, ()):
+            self.emit("")
+            self.open.pop()
         parts = [tag] + [f'{k}="{html.escape(named[k], quote=True)}"' for k in sorted(named)]
         self.emit("<" + " ".join(parts) + ">")
         if tag not in VOID and not closed:
@@ -82,12 +97,14 @@ class Normalizer(html.parser.HTMLParser):
             self.emit(f"</{tag}>")
 
     def handle_endtag(self, tag):
+        tag = TAG_JUNK.sub("", tag)
         if tag not in self.open:
             return
         self.emit("")
         while self.open.pop() != tag:
             pass
-        self.emit(f"</{tag}>")
+        if tag not in OPTIONAL_END:
+            self.emit(f"</{tag}>")
 
     def handle_data(self, data):
         self.text.append(data)

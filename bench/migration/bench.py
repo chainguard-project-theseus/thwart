@@ -146,8 +146,13 @@ def agent_usage(transcript):
         for k, v in u.items():
             if isinstance(v, int):
                 usage[k] = usage.get(k, 0) + v
-    if result:
-        usage = {k: v for k, v in (result.get("usage") or {}).items() if isinstance(v, int)} or usage
+    if result and result.get("modelUsage"):  # cumulative over the session, unlike result["usage"]
+        usage = {}
+        for m in result["modelUsage"].values():
+            for k, key in (("input_tokens", "inputTokens"), ("output_tokens", "outputTokens"),
+                           ("cache_read_input_tokens", "cacheReadInputTokens"),
+                           ("cache_creation_input_tokens", "cacheCreationInputTokens")):
+                usage[k] = usage.get(k, 0) + m.get(key, 0)
     return {"outcome": result.get("subtype") if result else "killed (time budget)",
             "cost_usd": result.get("total_cost_usd") if result else None,
             "turns": result.get("num_turns") if result else None,
@@ -219,6 +224,7 @@ def score(app, run_dir):
                  and not status_mismatch
                  and not insecure and not s["legacy_templates"] and not legacy_deps)
     meta = json.load(open(os.path.join(run_dir, "agent.json")))
+    meta.update(agent_usage(os.path.join(run_dir, "transcript.jsonl")))
     s.update(meta)
     with open(os.path.join(run_dir, "score.json"), "w") as f:
         json.dump(s, f, indent=1)

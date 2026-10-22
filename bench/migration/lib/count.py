@@ -68,6 +68,8 @@ def count(root):
             if not path.endswith(spec["ext"]) or "/static/" in path:
                 continue
             text = open(path, encoding="utf-8", errors="replace").read()
+            if spec["ext"] == (".html",):  # an HTML comment that mentions th:value is not Thymeleaf
+                text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
             if "marker" in spec and not spec["marker"].search(text):
                 continue
             found.append(os.path.relpath(path, root))

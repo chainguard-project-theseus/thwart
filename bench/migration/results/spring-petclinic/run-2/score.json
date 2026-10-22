@@ -32,8 +32,8 @@
  "turns": 68,
  "tokens": {
   "input_tokens": 132,
-  "cache_creation_input_tokens": 155257,
+  "output_tokens": 43673,
   "cache_read_input_tokens": 7879055,
-  "output_tokens": 43673
+  "cache_creation_input_tokens": 155257
  }
 }

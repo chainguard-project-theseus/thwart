@@ -5,7 +5,7 @@
   "difficulty": "easy",
   "build": "mvn -B -ntp clean package -DskipTests",
   "test": "mvn -B -ntp test",
-  "start": "java -jar target/spring-petclinic-*.jar",
+  "start": "java -jar target/spring-petclinic-*.jar --server.error.include-message=always",
   "ready": "/",
   "base": "http://localhost:8080"
 }
