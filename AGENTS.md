@@ -43,15 +43,18 @@ This is an MVP built tonight. Prefer the smallest thing that is correct and secu
 
 ## Repo layout and ownership
 
-See the module table in [docs/mvp-design.md](docs/mvp-design.md). Each issue names the
-files/packages it owns. Stay inside them; if you must change a shared interface, keep the
-change minimal and call it out in the PR description.
+See the module table in [docs/mvp-design.md](docs/mvp-design.md). Each issue in
+[docs/issues.md](docs/issues.md) names the files/packages it owns. Stay inside them; if you must
+change a shared contract (listed at the top of issues.md), keep the change additive and minimal
+and call it out in the PR description. Stubs you are replacing are marked `TODO(#<your issue>)`.
 
 ## Build and test
 
 - `mvn -B -q verify` from the repo root. JDK 21+ (`--release 21`).
-- Tests use JUnit 5. Compiler tests compile templates in-memory with
-  `javax.tools.JavaCompiler` and assert on rendered output or on diagnostics.
+- Tests use JUnit 5. Compiler tests use the in-memory harness
+  `dev.tessera.compiler.testing.Compilation` (in `tessera-compiler/src/test/java`), which runs
+  javac with the real annotation processor and lets you render or assert on diagnostics.
+- Maven does not recompile when only a template changes; use `mvn clean verify` when in doubt.
 
 ## Workflow for agents
 
