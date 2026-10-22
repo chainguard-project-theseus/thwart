@@ -1,0 +1,122 @@
+001 same      GET /login
+002 same      GET /
+003 same      POST /login username=Default&password=wrong
+004 same      POST /login username=Default&password=BudgetMaster
+005 same      GET /today?target=/
+006 same      GET /firstUse
+007 same      GET /about
+008 same      GET /about/whatsNewModal
+009 same      GET /hotkeys
+010 same      GET /statistics
+011 same      GET /tags
+012 same      GET /418
+013 same      GET /accounts
+014 same      GET /accounts/newAccount
+015 same      POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=&description=&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=
+016 same      POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Default Account&description=&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=
+017 same      POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Savings <b>&description=Rainy "day" fund&iconImageID=&builtinIconIdentifier=fas fa-piggy-bank&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=31.12.2025
+018 same      POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Old Wallet&description=&iconImageID=&builtinIconIdentifier=&fontColor=#000000&accountState=READ_ONLY&endDate=
+019 same      POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Temp&description=&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=
+020 same      GET /accounts/3/edit
+021 same      POST /accounts/newAccount ID=3&isSelected=false&isDefault=false&name=Savings <b>&description=Rainy "day" fund %26 more&iconImageID=&builtinIconIdentifier=fas fa-piggy-bank&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=31.12.2025
+022 same      GET /accounts/5/requestDelete
+023 same      GET /accounts/5/delete
+024 same      GET /accounts
+025 same      GET /categories
+026 same      GET /categories/newCategory
+027 same      POST /categories/newCategory ID=&type=CUSTOM&name=&color=#eeeeee&iconImageID=&builtinIconIdentifier=&fontColor=#000000
+028 same      POST /categories/newCategory ID=&type=CUSTOM&name=Food %26 Drinks&color=#4caf50&iconImageID=&builtinIconIdentifier=fas fa-utensils&fontColor=#FFFFFF
+029 same      POST /categories/newCategory ID=&type=CUSTOM&name=Salary&color=#2196f3&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF
+030 same      POST /categories/newCategory ID=&type=CUSTOM&name=Old <i>&color=#9e9e9e&iconImageID=&builtinIconIdentifier=&fontColor=#000000
+031 same      GET /categories/4/edit
+032 same      POST /categories/newCategory ID=4&type=CUSTOM&name=Salary&color=#1976d2&iconImageID=&builtinIconIdentifier=fas fa-money-bill&fontColor=#FFFFFF
+033 same      GET /categories/5/requestDelete
+034 same      POST /categories/5/delete category=2
+035 same      GET /categories
+036 same      GET /transactions
+037 same      GET /transactions/newTransaction/normal
+038 same      POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=&amount=&category=1&date=&description=&account=2&action=
+039 same      POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=Groceries&amount=2550&category=3&date=03.06.2025&description=Weekly <shop>&account=2&tags[0].name=food&tags[1].name=weekly&action=continue
+040 same      POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=false&name=Salary June&amount=250000&category=4&date=01.06.2025&description=&account=2&action=
+041 same      POST /transactions/newTransaction ID=&isRepeating=true&isExpenditure=true&name=Rent&amount=90000&category=2&date=05.05.2025&description=Flat "A"&account=2&repeatingModifierNumber=1&repeatingModifierType=Months&repeatingEndType=afterXTimes&repeatingEndValue=5&action=
+042 same      POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=Coffee&amount=350&category=3&date=14.06.2025&description=&account=2&tags[0].name=food&action=
+043 same      POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=Bookshop&amount=1999&category=1&date=20.05.2025&description=&account=2&action=
+044 same      GET /transactions/newTransaction/transfer
+045 same      POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=To savings&amount=50000&category=1&date=10.06.2025&description=&account=2&transferAccount=3&action=
+046 same      GET /transactions
+047 same      GET /previousMonth?target=/transactions
+048 same      GET /nextMonth?target=/transactions
+049 same      GET /nextMonth?target=/transactions
+050 same      GET /setDate?target=/transactions
+051 same      GET /today?target=/transactions
+052 same      GET /transactions/recurringOverview
+053 same      GET /transactions/1/edit
+054 same      POST /transactions/newTransaction ID=1&isRepeating=false&isExpenditure=true&name=Groceries&amount=2750&category=3&date=03.06.2025&description=Weekly <shop>&account=2&tags[0].name=food&action=
+055 same      GET /transactions/1/highlight
+056 same      GET /transactions/1/changeTypeModal
+057 same      GET /transactions/1/newFromExisting
+058 same      GET /transactions/3/edit
+059 same      GET /transactions/7/edit
+060 same      GET /transactions/5/requestDelete
+061 same      GET /transactions/5/delete
+062 same      GET /keywords/keywordCheck?transactionName=Salary
+063 same      GET /keywords/keywordCheck?transactionName=Groceries
+064 same      GET /transactions
+065 same      GET /search?searchText=&searchName=true&searchDescription=true&searchCategory=true&searchTags=true
+066 same      GET /search?searchText=groc&searchName=true&searchDescription=true&searchCategory=true&searchTags=true
+067 same      GET /search?searchText=food&searchName=false&searchDescription=false&searchCategory=false&searchTags=true
+068 same      GET /search?searchText=nothing-matches&searchName=true
+069 same      GET /templateGroups
+070 same      GET /templateGroups/newTemplateGroup
+071 same      POST /templateGroups/newTemplateGroup ID=&name=
+072 same      POST /templateGroups/newTemplateGroup ID=&name=Monthly
+073 same      POST /templateGroups/newTemplateGroup ID=&name=Temp group
+074 same      GET /templates
+075 same      GET /templates/newTemplate
+076 same      POST /templates/newTemplate ID=&templateGroup=&isExpenditure=true&templateName=&name=&amount=&category=1&description=&account=2&transferAccount=2&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF
+077 same      POST /templates/newTemplate ID=&templateGroup=&isExpenditure=true&templateName=Lunch <b>&name=Lunch&amount=1200&category=3&description=Canteen&includeAccount=true&account=2&transferAccount=2&iconImageID=&builtinIconIdentifier=fas fa-burger&fontColor=#FFFFFF&tags[0].name=food
+078 same      GET /templates/fromTransactionModal
+079 same      GET /templates
+080 same      POST /templates/fromTransaction templateName=Rent template&ID=&isExpenditure=true&name=Rent&amount=90000&category=2&description=&account=2&includeCategory=true&includeAccount=false
+081 same      GET /templates
+082 same      GET /templateGroups
+083 same      GET /templateGroups/2/edit
+084 same      GET /templateGroups/3/requestDelete
+085 same      GET /templateGroups/3/delete
+086 same      GET /templates/1/edit
+087 same      GET /templates/1/select
+088 same      GET /templates/2/requestDelete
+089 same      GET /templates/2/delete
+090 same      GET /templates
+091 same      GET /charts
+092 same      POST /charts displayType=BAR&groupType=MONTH&chartID=1&startDate=01.05.2025&endDate=30.06.2025&filterConfiguration.includeIncome=true&filterConfiguration.includeExpenditure=true&filterConfiguration.includeTransfer=true&filterConfiguration.includeNotRepeating=true&filterConfiguration.includeRepeating=true&filterConfiguration.filterCategories['0'].include=true&filterConfiguration.filterCategories['0'].ID=3&filterConfiguration.filterCategories['0'].name=Food %26 Drinks&filterConfiguration.filterCategories['1'].include=true&filterConfiguration.filterCategories['1'].ID=1&filterConfiguration.filterCategories['1'].name=No Category&filterConfiguration.filterCategories['2'].include=true&filterConfiguration.filterCategories['2'].ID=4&filterConfiguration.filterCategories['2'].name=Salary&filterConfiguration.filterCategories['3'].include=true&filterConfiguration.filterCategories['3'].ID=2&filterConfiguration.filterCategories['3'].name=Rest&filterConfiguration.filterTags['0'].include=true&filterConfiguration.filterTags['0'].ID=1&filterConfiguration.filterTags['0'].name=food&filterConfiguration.filterTags['1'].include=true&filterConfiguration.filterTags['1'].ID=2&filterConfiguration.filterTags['1'].name=weekly&filterConfiguration.name=
+093 same      POST /charts/getMatchingTransactions displayType=BAR&groupType=MONTH&chartID=1&startDate=01.05.2025&endDate=30.06.2025&filterConfiguration.includeIncome=true&filterConfiguration.includeExpenditure=true&filterConfiguration.includeTransfer=true&filterConfiguration.includeNotRepeating=true&filterConfiguration.includeRepeating=true&filterConfiguration.filterCategories['0'].include=true&filterConfiguration.filterCategories['0'].ID=3&filterConfiguration.filterCategories['0'].name=Food %26 Drinks&filterConfiguration.filterCategories['1'].include=true&filterConfiguration.filterCategories['1'].ID=1&filterConfiguration.filterCategories['1'].name=No Category&filterConfiguration.filterCategories['2'].include=true&filterConfiguration.filterCategories['2'].ID=4&filterConfiguration.filterCategories['2'].name=Salary&filterConfiguration.filterCategories['3'].include=true&filterConfiguration.filterCategories['3'].ID=2&filterConfiguration.filterCategories['3'].name=Rest&filterConfiguration.filterTags['0'].include=true&filterConfiguration.filterTags['0'].ID=1&filterConfiguration.filterTags['0'].name=food&filterConfiguration.filterTags['1'].include=true&filterConfiguration.filterTags['1'].ID=2&filterConfiguration.filterTags['1'].name=weekly&filterConfiguration.name=&clickedAmountType=EXPENDITURE&clickedCategory=
+094 same      GET /charts/manage
+095 same      GET /charts/newChart
+096 same      POST /charts/newChart ID=&name=&script=
+097 same      POST /charts/newChart ID=&name=My chart&script=var x = 1;
+098 same      GET /charts/manage
+099 same      GET /charts/1/edit
+100 same      GET /charts/13/edit
+101 same      GET /charts/13/requestDelete
+102 same      GET /charts/13/delete
+103 same      GET /reports
+104 same      GET /settings
+105 same      POST /settings/save/security password=abc&passwordConfirmation=abd
+106 same      POST /settings/save/personalization language=English&currency=$&useDarkTheme=false&showCategoriesAsCircles=true&searchItemsPerPage=20
+107 same      POST /settings/save/accounts accountEndDateReminderActivated=false
+108 same      POST /settings/save/transactions restActivated=true&orderTransactionNameSuggestionsAlphabetically=true&keywords[0].value=salary&keywords[1].value=refund
+109 same      POST /settings/save/backup backupReminderActivated=false&autoBackupActivated=false&autoBackupDays=1&autoBackupTimeType=TIME_00&autoBackupFilesToKeep=3&autoBackupGitUrl=&autoBackupGitBranchName=&autoBackupGitUserName=&autoBackupGitToken=&runBackup=0
+110 same      POST /settings/save/update autoUpdateCheckEnabled=false
+111 same      POST /settings/save/misc
+112 same      GET /settings
+113 same      GET /settings/database/requestImport
+114 same      GET /settings/database/requestDelete
+115 same      POST /settings/database/delete verificationCode=XXXX&verificationUserInput=YYYY
+116 same      GET /accounts/globalAccountSelectModal
+117 same      GET /
+118 same      GET /no-such-page
+119 same      GET /transactions/abc/edit
+120 same      GET /accounts/9999/edit
+121 same      GET /accounts/9999/select
+tessera-migrate compare: 121 page(s): 121 same, 0 reordered, 0 differ
