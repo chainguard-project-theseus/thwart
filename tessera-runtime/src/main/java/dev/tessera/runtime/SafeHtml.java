@@ -23,9 +23,7 @@ public final class SafeHtml {
 
   /** HTML-escapes plain text. */
   public static SafeHtml escape(String text) {
-    StringOutput out = new StringOutput();
-    Escapers.text(out, text);
-    return new SafeHtml(out.toString());
+    return new SafeHtml(Escapers.escapeHtml(text == null ? "" : text));
   }
 
   /** Renders a template; its output is escaped by construction. */
