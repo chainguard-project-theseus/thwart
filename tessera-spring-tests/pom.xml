@@ -6,7 +6,9 @@
 
   <!-- Runs the starter's test sources (tessera-spring-boot-starter/src/test) against older Spring
        generations, one module each. Not a child of tessera-parent: its managed Tomcat, Jackson and
-       JUnit 6 versions are Boot 4's. Each module imports its own Boot (or Spring) BOM. -->
+       JUnit 6 versions are Boot 4's. Each module imports its own Boot (or Spring) BOM.
+       Run with `mvn verify` (or later phases): the javax modules need the shaded
+       tessera-spring-boot-starter-javax jar, which a reactor `mvn test` never packages. -->
   <groupId>dev.tessera</groupId>
   <artifactId>tessera-spring-tests</artifactId>
   <version>0.1.0-SNAPSHOT</version>

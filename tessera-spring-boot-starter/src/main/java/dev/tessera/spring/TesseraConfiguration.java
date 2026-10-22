@@ -17,7 +17,8 @@ import org.springframework.web.servlet.view.UrlBasedViewResolver;
  * {@code @EnableWebMvc} (or {@code <bean class="dev.tessera.spring.TesseraConfiguration"/>} in
  * XML). Registers what {@link TesseraAutoConfiguration} does, plus a resolver for {@code
  * redirect:} and {@code forward:} names, which Boot otherwise provides. Needs only {@code
- * spring-webmvc}; Boot apps get all of this from the auto-configuration and should not import it.
+ * spring-webmvc}. Boot apps get all of this from the auto-configuration, which backs off if
+ * this class is imported.
  */
 @Configuration
 public class TesseraConfiguration {

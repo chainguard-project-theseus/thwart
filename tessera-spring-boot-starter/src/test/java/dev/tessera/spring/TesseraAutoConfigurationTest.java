@@ -54,6 +54,19 @@ class TesseraAutoConfigurationTest {
   }
 
   @Test
+  void backsOffWhenTesseraConfigurationIsImported() {
+    // A Boot app that also imports the plain-Spring configuration gets one set of beans, not a
+    // bean-name clash or a second return-value handler.
+    web.withUserConfiguration(TesseraConfiguration.class)
+        .run(
+            ctx -> {
+              assertThat(ctx).hasNotFailed();
+              assertThat(ctx).hasSingleBean(TesseraViewResolver.class);
+              assertThat(ctx).hasSingleBean(ReturnValueHandlerRegistrar.class);
+            });
+  }
+
+  @Test
   void inactiveOutsideWebApps() {
     new ApplicationContextRunner()
         .withConfiguration(AutoConfigurations.of(TesseraAutoConfiguration.class))
