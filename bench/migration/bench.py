@@ -7,7 +7,6 @@ usage: bench.py [all|image|baseline|migrate|recheck|rescore|report] [--runs N] [
 
 import argparse
 import concurrent.futures
-import difflib
 import json
 import os
 import re
@@ -24,8 +23,10 @@ IMAGE = "tessera-migration-bench"
 VOLUME = "tessera-migration-bench-m2"
 M2 = "/home/bench/.m2"
 
-sys.path.insert(0, os.path.join(HERE, "lib"))
-from crawl import normalize  # noqa: E402
+# app.json "java" picks the JDK the original app builds and runs with (default 21).
+JDKS = {8: "/usr/lib/jvm/java-1.8-openjdk", 21: "/usr/lib/jvm/java-21-openjdk"}
+# A line of `tessera-migrate compare` output: page number, verdict, request.
+VERDICT = re.compile(r"^(\d+) (same|reordered|differs)\s+(.*)$")
 
 # Dependencies that mean the old view technology is still on the build.
 LEGACY_DEPS = re.compile(r"<artifactId>(spring-boot-starter-(thymeleaf|freemarker|mustache|groovy-templates)"
@@ -87,25 +88,54 @@ def docker(mounts, env, cmd, out=None, memory="4g"):
     return subprocess.run(args + [IMAGE] + cmd, stdout=out, stderr=subprocess.STDOUT if out else None)
 
 
-def check(app, app_dir, out_dir):
-    """Build, crawl and test a checkout inside the container."""
+def check(app, app_dir, out_dir, recording=None, migrated=False):
+    """Build, crawl and test a checkout inside the container. Without a recording the pages are
+    recorded into out_dir/pages; with one they are compared against it (out_dir/compare.txt).
+    A migrated app builds and tests with JDK 21 (Tessera's build needs it) and runs on the app's JDK."""
     cfg = config(app)
     shutil.rmtree(out_dir, ignore_errors=True)
     os.makedirs(out_dir)
+    jdk = JDKS[cfg.get("java", 21)]
     env = {k: cfg[k.lower()] for k in ("BUILD", "TEST", "START", "READY", "BASE")}
+    env.update(BUILD_JDK=JDKS[21] if migrated else jdk, RUN_JDK=jdk, IGNORE="\n".join(cfg.get("ignore", [])))
+    mounts = [(app_dir, "/work/app"), (os.path.join(HERE, "lib"), "/bench/lib:ro"),
+              (os.path.join(HERE, "apps", app, "pages.txt"), "/bench/pages.txt:ro"), (out_dir, "/work/out")]
+    cmd = ["bash", "/bench/lib/check.sh", "/work/app", "/bench/pages.txt", "/work/out"]
+    if recording:
+        mounts.append((recording, "/bench/recording:ro"))
+        cmd.append("/bench/recording")
     with open(os.path.join(out_dir, "check.log"), "w") as log:
-        docker([(app_dir, "/work/app"), (os.path.join(HERE, "lib"), "/bench/lib:ro"),
-                (os.path.join(HERE, "apps", app, "pages.txt"), "/bench/pages.txt:ro"),
-                (out_dir, "/work/out")],
-               env, ["bash", "/bench/lib/check.sh", "/work/app", "/bench/pages.txt", "/work/out"], out=log)
+        docker(mounts, env, cmd, out=log)
 
 
 def baseline(app):
+    """Check the original app, recording its pages; then check it again, comparing against that
+    recording, to show the pages are deterministic (results/<app>/baseline/determinism.txt)."""
     src = os.path.join(WORK, "baseline", app)
     checkout(app, src)
     out = os.path.join(RESULTS, app, "baseline")
     check(app, src, out)
-    print(f"{app}: baseline {summary_line(load_check(out))}", flush=True)
+    again = os.path.join(WORK, "determinism", app)
+    check(app, src, again, recording=os.path.join(out, "pages"))
+    compare = read_text(os.path.join(again, "compare.txt"))
+    with open(os.path.join(out, "determinism.txt"), "w") as f:
+        f.write(compare)
+    last = compare.strip().splitlines()[-1:] or ["no compare output"]
+    c = load_check(out)
+    broken = "" if baseline_ok(c) and c["record_exit"] == 0 else " BROKEN (see baseline/record.log)"
+    print(f"{app}: baseline {summary_line(c)}{broken}; again: {last[0]}", flush=True)
+
+
+def baseline_ok(c):
+    """A recording to score against: the original app built and answered every request."""
+    return c["build_exit"] == 0 and bool(c["pages"]) and all(p["status"] for p in c["pages"])
+
+
+def read_text(p, default=""):
+    if not os.path.exists(p):
+        return default
+    with open(p, errors="replace") as f:
+        return f.read()
 
 
 def load_check(d):
@@ -115,9 +145,14 @@ def load_check(d):
             return default
         with open(p) as f:
             return json.load(f) if name.endswith(".json") else f.read().strip()
+    pages = []  # index.tsv of a recording: file, status, final URL, request
+    for line in read_text(os.path.join(d, "pages", "index.tsv")).splitlines():
+        if line and not line.startswith("#"):
+            f = line.split("\t", 3)
+            pages.append({"file": f[0], "status": int(f[1]), "final": f[2], "request": f[3]})
     return {"build_exit": int(read("build.exit", "1") or 1), "test_exit": int(read("test.exit", "1") or 1),
-            "tests": read("tests.json", {}), "counts": read("counts.json", {}),
-            "pages": read(os.path.join("pages", "index.json"), [])}
+            "tests": read("tests.json", {}), "counts": read("counts.json", {}), "pages": pages,
+            "record_exit": int(read("record.exit", "1") or 1), "compare_exit": int(read("compare.exit", "1") or 1), "compare": read_text(os.path.join(d, "compare.txt"))}
 
 
 def summary_line(c):
@@ -164,33 +199,25 @@ def score(app, run_dir):
     got = load_check(os.path.join(run_dir, "check"))
     engine = config(app)["engine"]
 
-    # Pages: status and normalized HTML against the baseline.
-    # A page whose lines match the baseline's only in another order counts as "reordered": the
-    # order of validation messages, for one, comes from a HashSet.
-    diffs, identical, reordered, status_mismatch = [], 0, 0, []
-    got_pages = {p["file"]: p for p in got["pages"]}
-
-    def page(d, name):
-        with open(os.path.join(d, "pages", name), errors="replace") as f:
-            text = normalize(f.read())
-        for pattern in config(app).get("ignore", []):  # accepted, unobservable differences
-            text = re.sub(pattern, "", text)
-        return text.splitlines()
-    for p in base["pages"]:
-        q = got_pages.get(p["file"])
-        a = page(os.path.join(RESULTS, app, "baseline"), p["file"])
-        b = page(os.path.join(run_dir, "check"), p["file"]) if q else []
-        if q is None or q["status"] != p["status"]:
-            status_mismatch.append(f"{p['request']}: {p['status']} -> {q['status'] if q else 'not crawled'}")
-        if a == b:
-            identical += 1
-        elif sorted(x.strip() for x in a) == sorted(x.strip() for x in b):
-            reordered += 1
+    # Pages: `tessera-migrate compare` against the baseline recording. A page passes as "same" or
+    # "reordered" (siblings in another order, such as validation messages from a HashSet) and only
+    # with its recorded status and final URL.
+    verdicts, mismatch, request = {}, [], None  # verdicts by page number
+    for line in got["compare"].splitlines():
+        m = VERDICT.match(line)
+        if m:
+            request = m.group(3)
+            verdicts[int(m.group(1))] = m.group(2)
+        elif request and line.startswith(("   status: ", "   final URL: ")):
+            mismatch.append(f"{request}: {line.strip()}")
         else:
-            d = list(difflib.unified_diff(a, b, f"baseline/{p['file']}", f"run/{p['file']}", lineterm="", n=2))
-            diffs.append(f"### {p['request']}\n" + "\n".join(d[:200]) + ("\n..." if len(d) > 200 else ""))
-    with open(os.path.join(run_dir, "pages.diff"), "w") as f:
-        f.write("\n\n".join(diffs))
+            request = None  # status lines come right after their verdict line
+    identical = sum(1 for v in verdicts.values() if v == "same")
+    reordered = sum(1 for v in verdicts.values() if v == "reordered")
+    status_mismatch = mismatch + [f"{p['request']}: not compared" for i, p in enumerate(base["pages"], 1)
+                                  if i not in verdicts]
+    with open(os.path.join(run_dir, "compare.txt"), "w") as f:
+        f.write(got["compare"])
 
     # The agent's change, and what it says about security and leftovers.
     added, prose = [], False
@@ -223,8 +250,8 @@ def score(app, run_dir):
         "tessera_templates": got["counts"].get("tessera", {}).get("templates", 0),
         "baseline_templates": base["counts"].get(engine, {}).get("templates", 0),
     }
-    s["pass"] = (s["build_ok"] and s["tests_ok"] and identical + reordered == len(base["pages"])
-                 and not status_mismatch
+    s["pass"] = (baseline_ok(base) and s["build_ok"] and s["tests_ok"] and got["compare_exit"] == 0
+                 and identical + reordered == len(base["pages"]) and not status_mismatch
                  and not insecure and not s["legacy_templates"] and not legacy_deps)
     meta = json.load(open(os.path.join(run_dir, "agent.json")))
     meta.update(agent_usage(os.path.join(run_dir, "transcript.jsonl")))
@@ -266,7 +293,7 @@ def migrate(app, k, args):
     if os.path.exists(report):
         shutil.copy(report, run_dir)
 
-    check(app, app_dir, os.path.join(run_dir, "check"))
+    check(app, app_dir, os.path.join(run_dir, "check"), os.path.join(RESULTS, app, "baseline", "pages"), migrated=True)
     s = score(app, run_dir)
     print(f"{app} run-{k}: pass={s['pass']} {summary_line(load_check(os.path.join(run_dir, 'check')))}"
           f" identical={s['pages_identical']}+{s['pages_reordered']}/{s['pages_total']} {s['wall_minutes']}min"
@@ -293,7 +320,10 @@ def report():
         tests = f"{(t['tests'] or 0) - (t['failures'] or 0) - (t['errors'] or 0)}/{t['tests'] or 0} (base {s['baseline_tests']})"
         legacy = len(s["legacy_templates"]) + len(s["legacy_deps"])
         cost = "-" if s["cost_usd"] is None else f"{s['cost_usd']:.2f}"
-        out.append(f"| {s['app']} | {s['run']} | {'yes' if s['pass'] else 'no'} | {'ok' if s['build_ok'] else 'FAIL'}"
+        # Runs from #115 were scored by lib/crawl.py (pages.diff, no compare.txt).
+        old = not os.path.exists(os.path.join(RESULTS, s["app"], s["run"], "compare.txt"))
+        run = s["run"] + (" (crawl.py)" if old else "")
+        out.append(f"| {s['app']} | {run} | {'yes' if s['pass'] else 'no'} | {'ok' if s['build_ok'] else 'FAIL'}"
                    f" | {tests} | {s['pages_identical']}+{s['pages_reordered']}/{s['pages_total']} | {len(s['status_mismatch'])}"
                    f" | {', '.join(s['insecure']) or '-'} | {legacy} | {s['wall_minutes']} | {cost}"
                    f" | {s['tokens'].get('output_tokens', '-')} |")
@@ -335,13 +365,20 @@ def main():
                 f.result()
     if args.cmd in ("recheck", "rescore"):
         # recheck: build, crawl and test each migrated checkout again (after a pages.txt change);
-        # rescore: score the existing check output again (after a scoring change).
+        # rescore: score the existing check output again (after a scoring change). Runs scored by
+        # the old Python crawler (#115: pages.diff, no compare.txt) are left as they are.
         for a in names:
             for run in sorted(os.listdir(os.path.join(RESULTS, a))):
-                if os.path.exists(os.path.join(RESULTS, a, run, "agent.json")):
-                    if args.cmd == "recheck":
-                        check(a, os.path.join(WORK, "runs", a, run), os.path.join(RESULTS, a, run, "check"))
-                    score(a, os.path.join(RESULTS, a, run))
+                d = os.path.join(RESULTS, a, run)
+                if not os.path.exists(os.path.join(d, "agent.json")):
+                    continue
+                if args.cmd == "recheck":
+                    check(a, os.path.join(WORK, "runs", a, run), os.path.join(d, "check"),
+                          os.path.join(RESULTS, a, "baseline", "pages"), migrated=True)
+                if os.path.exists(os.path.join(d, "check", "compare.txt")):
+                    score(a, d)
+                else:
+                    print(f"{a} {run}: no compare output (old-format run), not rescored")
     if args.cmd in ("all", "migrate", "recheck", "rescore", "report"):
         report()
 

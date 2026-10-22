@@ -218,7 +218,9 @@ java -jar $MIGRATE record http://localhost:8080 pages.txt baseline/
 
 This saves each response in `baseline/` (the body as `NN.html`; status, final URL and request in
 `index.tsv`). Today's date is masked when comparing, but a page that shows a random value, the
-time or the host name will differ on every run: fix the data or drop the request. `compare`
+time or the host name will differ on every run: fix the data, drop the request, or pass
+`compare --ignore REGEX` (repeatable) to delete that text from both pages. Keep the pattern
+narrow, because whatever it matches is never compared. `compare`
 refuses a `pages.txt` that doesn't match the recording, so if you change it, record again.
 
 **3. Set up the build** (section 2). Add `@TemplateView` to the classes templates read, or make

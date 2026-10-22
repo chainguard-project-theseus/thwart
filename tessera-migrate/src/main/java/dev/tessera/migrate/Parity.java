@@ -22,7 +22,8 @@ import java.util.regex.Pattern;
  *
  * <p>The ISO date of the recording day ({@code 2026-10-22}) in a recorded page, and of today in a
  * new page, both compare as {@code TODAY}, so a form that defaults a date to today does not differ
- * between a recording made yesterday and a comparison run now.
+ * between a recording made yesterday and a comparison run now. Text matching an {@code ignore}
+ * pattern is deleted from both pages before they are compared.
  */
 final class Parity {
   private Parity() {}
@@ -77,8 +78,8 @@ final class Parity {
     return noResponse > 0 ? 1 : 0;
   }
 
-  static int compare(String base, Path pages, Path dir, LocalDate today, PrintStream out,
-      PrintStream err) {
+  static int compare(String base, Path pages, Path dir, LocalDate today, List<Pattern> ignore,
+      PrintStream out, PrintStream err) {
     List<Crawler.Request> requests;
     List<Entry> entries = new ArrayList<>();
     String recordedOn;
@@ -125,6 +126,10 @@ final class Parity {
       }
       expected = expected.replace(recordedOn, "TODAY");
       String actual = response.body().replace(today.toString(), "TODAY");
+      for (Pattern p : ignore) {
+        expected = p.matcher(expected).replaceAll("");
+        actual = p.matcher(actual).replaceAll("");
+      }
       PageNormalizer.Verdict verdict = PageNormalizer.compare(expected, actual);
       boolean statusOk = entry.status() == response.status();
       boolean urlOk = PageNormalizer.maskUrl(entry.finalUrl())
