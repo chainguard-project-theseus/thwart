@@ -111,6 +111,9 @@ class LinkCompilerTest {
     assertError(r.compile("@{https://{id}/x(id=o.id)}"), "host");
     assertError(r.compile("@{//{id}.example.com/x(id=o.id)}"), "host");
     assertError(r.compile("@{/\\{id}/x(id=o.id)}"), "host");
+    // Browsers resolve https:host/x and https:/host/x like https://host/x.
+    assertError(r.compile("@{https:{id}/x(id=o.id)}"), "host");
+    assertError(r.compile("@{HTTP:/{id}/x(id=o.id)}"), "host");
     assertEquals(List.of(), r.compile("@{https://x.org/{id}(id=o.id)}").diagnostics());
   }
 

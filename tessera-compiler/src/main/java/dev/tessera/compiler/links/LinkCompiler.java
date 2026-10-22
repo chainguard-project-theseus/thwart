@@ -121,23 +121,28 @@ public final class LinkCompiler {
   }
 
   /**
-   * The authority after {@code //} (following the scheme, if any), or null if there is none.
-   * Like browsers, treats {@code \} as {@code /} and ignores tab, CR and LF.
+   * The authority of {@code path}, or null if there is none. Like browsers, treats {@code \} as
+   * {@code /} and ignores tab, CR and LF. After an http(s) scheme any number of slashes (even
+   * none: {@code https:host/x}) precede the authority; without a scheme it needs {@code //}.
    */
   private static String authority(String path, boolean hasScheme) {
     String rest = hasScheme ? path.substring(path.indexOf(':') + 1) : path;
     rest = rest.replaceAll("[\t\r\n]", "").replace('\\', '/').stripLeading();
-    if (!rest.startsWith("//")) {
+    if (hasScheme) {
+      rest = rest.replaceFirst("^/*", "");
+    } else if (rest.startsWith("//")) {
+      rest = rest.substring(2);
+    } else {
       return null;
     }
     int end = rest.length();
-    for (int i = 2; i < rest.length(); i++) {
+    for (int i = 0; i < rest.length(); i++) {
       char c = rest.charAt(i);
       if (c == '/' || c == '?' || c == '#') {
         end = i;
         break;
       }
     }
-    return rest.substring(2, end);
+    return rest.substring(0, end);
   }
 }
