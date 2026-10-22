@@ -47,6 +47,28 @@ public final class TextInlining {
           "java.math.BigDecimal",
           "java.math.BigInteger");
 
+  /**
+   * {@code java.time} types {@code Escapers.json} serializes as an ISO string. Must mirror the
+   * java.time cases of {@code Escapers.writeJson} exactly (ZoneOffset is handled there by
+   * {@code case ZoneId}); java.time enums (DayOfWeek, Month) take the enum path.
+   */
+  private static final Set<String> JSON_TIME =
+      Set.of(
+          "java.time.Instant",
+          "java.time.LocalDate",
+          "java.time.LocalTime",
+          "java.time.LocalDateTime",
+          "java.time.OffsetTime",
+          "java.time.OffsetDateTime",
+          "java.time.ZonedDateTime",
+          "java.time.Year",
+          "java.time.YearMonth",
+          "java.time.MonthDay",
+          "java.time.Duration",
+          "java.time.Period",
+          "java.time.ZoneId",
+          "java.time.ZoneOffset");
+
   private static final Set<String> JSON_COLLECTIONS =
       Set.of("java.util.Collection", "java.util.List", "java.util.Set");
 
@@ -224,11 +246,7 @@ public final class TextInlining {
     }
     TypeElement te = (TypeElement) ((DeclaredType) t).asElement();
     String name = te.getQualifiedName().toString();
-    if (te.getKind() == ElementKind.ENUM || JSON_VALUES.contains(name)) {
-      return true;
-    }
-    // ViewSafety (checked first) already excludes Clock/InstantSource; Escapers.json covers the rest.
-    if (ctx.env().elements().getPackageOf(te).getQualifiedName().contentEquals("java.time")) {
+    if (te.getKind() == ElementKind.ENUM || JSON_VALUES.contains(name) || JSON_TIME.contains(name)) {
       return true;
     }
     List<? extends TypeMirror> args = ((DeclaredType) t).getTypeArguments();

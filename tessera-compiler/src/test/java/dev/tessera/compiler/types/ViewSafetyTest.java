@@ -174,12 +174,26 @@ class ViewSafetyTest {
                       "java.util.List",
                       "java.util.ArrayList<java.lang.String>",
                       "java.time.Clock",
+                      "java.time.InstantSource",
+                      "java.time.DateTimeException",
                       "java.lang.Runnable",
                       "dev.tessera.runtime.Fragment")) {
                 TypeMirror t = f.type(name);
                 assertFalse(vs.isViewSafe(t), name);
                 assertTrue(vs.neverViewSafeReason(t).isEmpty(), name);
               }
+            });
+  }
+
+  @Test
+  void dateTimeExceptionParameterIsRejected() {
+    harness()
+        .run(
+            f -> {
+              assertNull(f.compiler().resolveType(ref("java.time.DateTimeException"), List.of()));
+              String err = f.errors().getLast();
+              assertTrue(err.startsWith("t.html:1:1: error: parameter type"), err);
+              assertTrue(err.contains("java.time.DateTimeException"), err);
             });
   }
 

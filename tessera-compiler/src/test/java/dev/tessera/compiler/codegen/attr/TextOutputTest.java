@@ -6,6 +6,8 @@ import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.SafeHtml;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -179,6 +181,45 @@ class TextOutputTest {
   void inlinedInScriptRejectsNonJsonTypes() {
     compile("Pet pet", "<script>var p = [[pet]];</script>").assertError("page.html:1:", "inside <script>");
     compile("Map<Integer, String> m", "<script>var p = [[m]];</script>").assertError("inside <script>");
+  }
+
+  @Test
+  void inlinedInScriptAcceptsEveryJavaTimeTypeEscapersSerializes() {
+    String[] types = {
+      "Instant", "LocalDate", "LocalTime", "LocalDateTime", "OffsetTime", "OffsetDateTime", "ZonedDateTime", "Year",
+      "YearMonth", "MonthDay", "Duration", "Period", "ZoneId", "ZoneOffset", "DayOfWeek", "Month"
+    };
+    for (String type : types) {
+      Compilation.builder()
+          .template("page.html", "<div t:import=\"java.time.*\" t:params=\"" + type + " v\"><script>[[v]]</script></div>")
+          .compile()
+          .assertSuccess();
+    }
+  }
+
+  @Test
+  void inlinedInScriptRendersZoneOffset() {
+    Compilation c =
+        Compilation.builder()
+            .template(
+                "page.html",
+                "<div t:import=\"java.time.*\" t:params=\"ZoneOffset zone, ZoneId id\"><script>[[zone]] [[id]]</script></div>")
+            .compile()
+            .assertSuccess();
+    assertEquals(
+        "<div><script>\"+02:00\" \"Europe\\/Paris\"</script></div>",
+        c.render("page", model("zone", ZoneOffset.ofHours(2), "id", ZoneId.of("Europe/Paris"))));
+  }
+
+  @Test
+  void inlinedInScriptRejectsJavaTimeTypesEscapersCannotSerialize() {
+    // Regression: DateTimeException used to compile here and throw at render.
+    for (String type : List.of("java.time.DateTimeException", "java.time.chrono.JapaneseDate", "java.time.zone.ZoneRules")) {
+      Compilation.builder()
+          .template("page.html", "<div t:params=\"" + type + " v\"><script>[[v]]</script></div>")
+          .compile()
+          .assertError("page.html:1:", type);
+    }
   }
 
   @Test
