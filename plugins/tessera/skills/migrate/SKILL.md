@@ -49,8 +49,10 @@ The old application is the specification. Work the way an expert would, keeping 
    pages. Start the app from the same data on every run.
 2. **Record** the old app before changing anything:
    `java -jar .tessera/tessera-migrate.jar record <base-url> pages.txt baseline/`
-3. **Set up the build** (guide section 2). Tessera can sit next to the old engine while you
-   migrate.
+3. **Set up the build** (guide section 2): the compiler needs JDK 21 to build, the app can run on
+   Java 8+ with Spring 5.0+ or Boot 2.0+, and the starter is `tessera-spring-boot-starter` for
+   `jakarta.servlet` or `tessera-spring-boot-starter-javax` for `javax.servlet`. Tessera can sit
+   next to the old engine while you migrate.
 4. **Convert one template at a time**, shared fragments and layouts first. For each one, find
    every value it reads and make the controller provide it. Declare the real parameter types,
    rewrite the markup, then run `mvn clean compile` and fix each error using the diagnostic
@@ -59,9 +61,11 @@ The old application is the specification. Work the way an expert would, keeping 
    first, then finish what it reports.
 5. **Compare** the new app, started from the same data, after each template or small group:
    `java -jar .tessera/tessera-migrate.jar compare <base-url> pages.txt baseline/`
-   Judge each difference: fix it, or decide that it is right and write down why. Few differences
-   are right. An empty value or a 500 nearly always means a value the old template took from
-   outside the model.
+   Judge each difference: fix it, or decide that it is right and write down why. A `reordered`
+   page passes but prints its diff, so check that what moved is harmless. Text that changes on
+   every run (times, random ids) can be masked with `--ignore REGEX`; keep it narrow, since what it
+   matches is never compared. Few differences are right. An empty value or a 500 nearly always
+   means a value the old template took from outside the model.
 6. **Remove the old engine**: its templates, its dependency and its configuration. Then build,
    test and compare once more.
 
