@@ -1,0 +1,157 @@
+# BudgetMaster (FreeMarker, held out): every template reachable without JavaScript or a file
+# upload, anonymous and logged in, each form invalid and valid, and the error pages. Requests run
+# in order against a fresh PostgreSQL database that holds only what the app creates at startup:
+# the user "Default" (password BudgetMaster), the "All accounts" placeholder (account 1), the
+# "Default Account" (2) and the categories "No Category" (1) and "Rest" (2), plus the built-in
+# charts. start.sh pins the app's clock to 2025-06-15 10:00 UTC, so "today" and the current month
+# are fixed; every date below is absolute.
+#
+# Not reachable here: the database import (importStepOne, importResult) and the bank CSV import
+# rows (transactionImportRow) need a multipart file upload; the 403 page needs a POST without a
+# CSRF token, which the app answers with 405.
+
+# --- Anonymous
+GET /login
+GET /
+POST /login username=Default&password=wrong
+POST /login username=Default&password=BudgetMaster
+# Sets the currentDate cookie (normally set by the page's JavaScript); the post handlers need it.
+GET /today?target=/
+GET /firstUse
+GET /about
+GET /about/whatsNewModal
+GET /hotkeys
+GET /statistics
+GET /tags
+GET /418
+
+# --- Accounts: invalid, three valid (one with an end date, one read-only, one to delete)
+GET /accounts
+GET /accounts/newAccount
+POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=&description=&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=
+POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Default Account&description=&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=
+POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Savings <b>&description=Rainy "day" fund&iconImageID=&builtinIconIdentifier=fas fa-piggy-bank&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=31.12.2025
+POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Old Wallet&description=&iconImageID=&builtinIconIdentifier=&fontColor=#000000&accountState=READ_ONLY&endDate=
+POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Temp&description=&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=
+GET /accounts/3/edit
+POST /accounts/newAccount ID=3&isSelected=false&isDefault=false&name=Savings <b>&description=Rainy "day" fund %26 more&iconImageID=&builtinIconIdentifier=fas fa-piggy-bank&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=31.12.2025
+GET /accounts/5/requestDelete
+GET /accounts/5/delete
+GET /accounts
+
+# --- Categories: invalid, valid, edit, delete with a destination
+GET /categories
+GET /categories/newCategory
+POST /categories/newCategory ID=&type=CUSTOM&name=&color=#eeeeee&iconImageID=&builtinIconIdentifier=&fontColor=#000000
+POST /categories/newCategory ID=&type=CUSTOM&name=Food %26 Drinks&color=#4caf50&iconImageID=&builtinIconIdentifier=fas fa-utensils&fontColor=#FFFFFF
+POST /categories/newCategory ID=&type=CUSTOM&name=Salary&color=#2196f3&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF
+POST /categories/newCategory ID=&type=CUSTOM&name=Old <i>&color=#9e9e9e&iconImageID=&builtinIconIdentifier=&fontColor=#000000
+GET /categories/4/edit
+POST /categories/newCategory ID=4&type=CUSTOM&name=Salary&color=#1976d2&iconImageID=&builtinIconIdentifier=fas fa-money-bill&fontColor=#FFFFFF
+GET /categories/5/requestDelete
+POST /categories/5/delete category=2
+GET /categories
+
+# --- Transactions (account 2, June 2025 unless noted): invalid, normal, income, tagged, repeating,
+# transfer, an older one in May
+GET /transactions
+GET /transactions/newTransaction/normal
+POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=&amount=&category=1&date=&description=&account=2&action=
+POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=Groceries&amount=2550&category=3&date=03.06.2025&description=Weekly <shop>&account=2&tags[0].name=food&tags[1].name=weekly&action=continue
+POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=false&name=Salary June&amount=250000&category=4&date=01.06.2025&description=&account=2&action=
+POST /transactions/newTransaction ID=&isRepeating=true&isExpenditure=true&name=Rent&amount=90000&category=2&date=05.05.2025&description=Flat "A"&account=2&repeatingModifierNumber=1&repeatingModifierType=Months&repeatingEndType=afterXTimes&repeatingEndValue=5&action=
+POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=Coffee&amount=350&category=3&date=14.06.2025&description=&account=2&tags[0].name=food&action=
+POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=Bookshop&amount=1999&category=1&date=20.05.2025&description=&account=2&action=
+GET /transactions/newTransaction/transfer
+POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=To savings&amount=50000&category=1&date=10.06.2025&description=&account=2&transferAccount=3&action=
+GET /transactions
+GET /previousMonth?target=/transactions
+GET /nextMonth?target=/transactions
+GET /nextMonth?target=/transactions
+GET /setDate?target=/transactions
+GET /today?target=/transactions
+GET /transactions/recurringOverview
+
+# --- Edit, change type, copy, delete. (Editing future repetitions always fails with a 500 in this
+# version: Hibernate rejects the re-saved transaction after deleting it.)
+GET /transactions/1/edit
+POST /transactions/newTransaction ID=1&isRepeating=false&isExpenditure=true&name=Groceries&amount=2750&category=3&date=03.06.2025&description=Weekly <shop>&account=2&tags[0].name=food&action=
+GET /transactions/1/highlight
+GET /transactions/1/changeTypeModal
+GET /transactions/1/newFromExisting
+GET /transactions/3/edit
+GET /transactions/7/edit
+GET /transactions/5/requestDelete
+GET /transactions/5/delete
+GET /keywords/keywordCheck?transactionName=Salary
+GET /keywords/keywordCheck?transactionName=Groceries
+GET /transactions
+
+# --- Search
+GET /search?searchText=&searchName=true&searchDescription=true&searchCategory=true&searchTags=true
+GET /search?searchText=groc&searchName=true&searchDescription=true&searchCategory=true&searchTags=true
+GET /search?searchText=food&searchName=false&searchDescription=false&searchCategory=false&searchTags=true
+GET /search?searchText=nothing-matches&searchName=true
+
+# --- Template groups and templates
+GET /templateGroups
+GET /templateGroups/newTemplateGroup
+POST /templateGroups/newTemplateGroup ID=&name=
+POST /templateGroups/newTemplateGroup ID=&name=Monthly
+POST /templateGroups/newTemplateGroup ID=&name=Temp group
+GET /templates
+GET /templates/newTemplate
+POST /templates/newTemplate ID=&templateGroup=&isExpenditure=true&templateName=&name=&amount=&category=1&description=&account=2&transferAccount=2&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF
+POST /templates/newTemplate ID=&templateGroup=&isExpenditure=true&templateName=Lunch <b>&name=Lunch&amount=1200&category=3&description=Canteen&includeAccount=true&account=2&transferAccount=2&iconImageID=&builtinIconIdentifier=fas fa-burger&fontColor=#FFFFFF&tags[0].name=food
+GET /templates/fromTransactionModal
+GET /templates
+POST /templates/fromTransaction templateName=Rent template&ID=&isExpenditure=true&name=Rent&amount=90000&category=2&description=&account=2&includeCategory=true&includeAccount=false
+GET /templates
+GET /templateGroups
+GET /templateGroups/2/edit
+GET /templateGroups/3/requestDelete
+GET /templateGroups/3/delete
+GET /templates/1/edit
+GET /templates/1/select
+GET /templates/2/requestDelete
+GET /templates/2/delete
+GET /templates
+
+# --- Charts: the built-in charts, one shown, matching transactions, a custom chart
+GET /charts
+POST /charts displayType=BAR&groupType=MONTH&chartID=1&startDate=01.05.2025&endDate=30.06.2025&filterConfiguration.includeIncome=true&filterConfiguration.includeExpenditure=true&filterConfiguration.includeTransfer=true&filterConfiguration.includeNotRepeating=true&filterConfiguration.includeRepeating=true&filterConfiguration.filterCategories['0'].include=true&filterConfiguration.filterCategories['0'].ID=3&filterConfiguration.filterCategories['0'].name=Food %26 Drinks&filterConfiguration.filterCategories['1'].include=true&filterConfiguration.filterCategories['1'].ID=1&filterConfiguration.filterCategories['1'].name=No Category&filterConfiguration.filterCategories['2'].include=true&filterConfiguration.filterCategories['2'].ID=4&filterConfiguration.filterCategories['2'].name=Salary&filterConfiguration.filterCategories['3'].include=true&filterConfiguration.filterCategories['3'].ID=2&filterConfiguration.filterCategories['3'].name=Rest&filterConfiguration.filterTags['0'].include=true&filterConfiguration.filterTags['0'].ID=1&filterConfiguration.filterTags['0'].name=food&filterConfiguration.filterTags['1'].include=true&filterConfiguration.filterTags['1'].ID=2&filterConfiguration.filterTags['1'].name=weekly&filterConfiguration.name=
+POST /charts/getMatchingTransactions displayType=BAR&groupType=MONTH&chartID=1&startDate=01.05.2025&endDate=30.06.2025&filterConfiguration.includeIncome=true&filterConfiguration.includeExpenditure=true&filterConfiguration.includeTransfer=true&filterConfiguration.includeNotRepeating=true&filterConfiguration.includeRepeating=true&filterConfiguration.filterCategories['0'].include=true&filterConfiguration.filterCategories['0'].ID=3&filterConfiguration.filterCategories['0'].name=Food %26 Drinks&filterConfiguration.filterCategories['1'].include=true&filterConfiguration.filterCategories['1'].ID=1&filterConfiguration.filterCategories['1'].name=No Category&filterConfiguration.filterCategories['2'].include=true&filterConfiguration.filterCategories['2'].ID=4&filterConfiguration.filterCategories['2'].name=Salary&filterConfiguration.filterCategories['3'].include=true&filterConfiguration.filterCategories['3'].ID=2&filterConfiguration.filterCategories['3'].name=Rest&filterConfiguration.filterTags['0'].include=true&filterConfiguration.filterTags['0'].ID=1&filterConfiguration.filterTags['0'].name=food&filterConfiguration.filterTags['1'].include=true&filterConfiguration.filterTags['1'].ID=2&filterConfiguration.filterTags['1'].name=weekly&filterConfiguration.name=&clickedAmountType=EXPENDITURE&clickedCategory=
+GET /charts/manage
+GET /charts/newChart
+POST /charts/newChart ID=&name=&script=
+POST /charts/newChart ID=&name=My chart&script=var x = 1;
+GET /charts/manage
+GET /charts/1/edit
+GET /charts/13/edit
+GET /charts/13/requestDelete
+GET /charts/13/delete
+
+# --- Reports page
+GET /reports
+
+# --- Settings and their containers
+GET /settings
+POST /settings/save/security password=abc&passwordConfirmation=abd
+POST /settings/save/personalization language=English&currency=$&useDarkTheme=false&showCategoriesAsCircles=true&searchItemsPerPage=20
+POST /settings/save/accounts accountEndDateReminderActivated=false
+POST /settings/save/transactions restActivated=true&orderTransactionNameSuggestionsAlphabetically=true&keywords[0].value=salary&keywords[1].value=refund
+POST /settings/save/backup backupReminderActivated=false&autoBackupActivated=false&autoBackupDays=1&autoBackupTimeType=TIME_00&autoBackupFilesToKeep=3&autoBackupGitUrl=&autoBackupGitBranchName=&autoBackupGitUserName=&autoBackupGitToken=&runBackup=0
+POST /settings/save/update autoUpdateCheckEnabled=false
+POST /settings/save/misc
+GET /settings
+GET /settings/database/requestImport
+GET /settings/database/requestDelete
+POST /settings/database/delete verificationCode=XXXX&verificationUserInput=YYYY
+GET /accounts/globalAccountSelectModal
+GET /
+
+# --- Error pages
+GET /no-such-page
+GET /transactions/abc/edit
+GET /accounts/9999/edit
+GET /accounts/9999/select

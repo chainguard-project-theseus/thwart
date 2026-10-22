@@ -1,0 +1,12 @@
+# Tests the bench cannot run, passed to surefire as -Dsurefire.excludesFile; every other test class
+# runs. Each of these needs Docker (Testcontainers starts PostgreSQL); the integration/selenium
+# ones also need Firefox.
+de/deadlocker8/budgetmaster/integration/**
+**/TransactionServiceDatabaseTest.java
+**/TransactionSpecificationsTest.java
+**/TransactionSearchSpecificationsTest.java
+**/unit/database/ImportServiceTest.java
+**/unit/database/importer/*ImporterTest.java
+# Asserts on DEBUG log lines, which are only captured once one of the Spring Boot tests above has
+# applied the app's logging.level settings in the same JVM; without them it fails.
+**/unit/database/DatabaseServiceTest.java
