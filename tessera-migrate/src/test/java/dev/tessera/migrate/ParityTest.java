@@ -262,6 +262,18 @@ class ParityTest {
   }
 
   @Test
+  void ignoredTextIsDeletedFromBothPages() throws IOException {
+    Path dir = record();
+    variant = Variant.BROKEN;
+
+    assertEquals(0, run("compare", base, pages.toString(), dir.toString(), "--ignore", "out of bounds?"),
+        out());
+    assertTrue(out().contains("5 same, 0 reordered, 0 differ"), out());
+    // Only the matched text is ignored: a difference elsewhere on the page still counts.
+    assertEquals(1, run("compare", base, pages.toString(), dir.toString(), "--ignore", "must not"));
+  }
+
+  @Test
   void statusMismatchDiffersEvenIfThePageIsTheSame() throws IOException {
     Path dir = record();
     variant = Variant.NOT_FOUND_IS_200;
@@ -312,5 +324,8 @@ class ParityTest {
     assertTrue(err().contains("record needs <base-url> <pages.txt> <dir>"));
     assertEquals(2, run("compare", base, tmp.resolve("nope.txt").toString(), tmp.toString()));
     assertTrue(err().contains("not a file"));
+    assertEquals(2, run("compare", base, pages.toString(), tmp.toString(), "--ignore", "("));
+    assertTrue(err().contains("bad --ignore pattern"));
+    assertEquals(2, run("record", base, pages.toString(), tmp.toString(), "--ignore", "x"));
   }
 }
