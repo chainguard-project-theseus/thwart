@@ -404,7 +404,7 @@ public final class HtmlParser {
         int comment = body.indexOf("<!--");
         if (raw.name.equalsIgnoreCase("script") && comment >= 0) {
           // Browsers apply script-data escape rules after "<!--" ("<script" inside it hides
-          // the next "</script>"); attoparser does not. Fail closed.
+          // the next "</script>"); the tokenizer does not. Fail closed.
           diagnostics.error(position(rawStart + comment),
               "malformed markup: '<!--' inside <script> is not supported: remove it (it is not needed in HTML5)");
         }
