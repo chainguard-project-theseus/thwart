@@ -1,0 +1,15 @@
+{
+  "repo": "https://github.com/bgjug/jprime",
+  "commit": "5ef70329771ea884a021f64f088b1e52abc49f04",
+  "engine": "jsp",
+  "difficulty": "hard",
+  "heldout": true,
+  "build": "mvn -B -ntp clean package -DskipTests",
+  "test": "mvn -B -ntp test",
+  "start": "python3 /bench/lib/smtp.py & mvn -B -ntp -q spring-boot:run -Dspring-boot.run.useTestClasspath=true '-Dspring-boot.run.jvmArguments=-Dspring.datasource.url=jdbc:h2:mem:jp;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=USER -Dspring.datasource.driver-class-name=org.h2.Driver -Dspring.datasource.username=sa -Dspring.datasource.password= -Dspring.jpa.database-platform=org.hibernate.dialect.H2Dialect -Dspring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect -Dspring.jpa.hibernate.ddl-auto=create -Dspring.jpa.defer-datasource-initialization=true -Dspring.flyway.enabled=false -Dspring.sql.init.mode=always -Dspring.sql.init.data-locations=file:/bench/app/seed.sql -Dspring.mail.host=localhost -Dspring.mail.port=2525 -Dspring.mail.properties.mail.smtp.socketFactory.port=2525 -Dspring.mail.properties.mail.smtp.socketFactory.class=javax.net.SocketFactory -Dspring.mail.properties.mail.smtp.auth=false -Dspring.devtools.restart.enabled=false -Dspring.h2.console.enabled=false'",
+  "ready": "/login",
+  "base": "http://localhost:8080",
+  "ignore": [
+    "(?<=<input[^>]{0,80}name=\"invoiceDate\"[^>]{0,80}value=\")\\d\\d\\.\\d\\d\\.\\d{4}|\\d\\d\\.\\d\\d\\.\\d{4}(?=\"[^>]{0,80}name=\"invoiceDate\")"
+  ]
+}

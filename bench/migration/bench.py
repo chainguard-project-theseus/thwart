@@ -98,7 +98,9 @@ def check(app, app_dir, out_dir, recording=None, migrated=False):
     jdk = JDKS[cfg.get("java", 21)]
     env = {k: cfg[k.lower()] for k in ("BUILD", "TEST", "START", "READY", "BASE")}
     env.update(BUILD_JDK=JDKS[21] if migrated else jdk, RUN_JDK=jdk, IGNORE="\n".join(cfg.get("ignore", [])))
+    # /bench/app is the app's fixture directory (pages.txt, seed data) for its start command.
     mounts = [(app_dir, "/work/app"), (os.path.join(HERE, "lib"), "/bench/lib:ro"),
+              (os.path.join(HERE, "apps", app), "/bench/app:ro"),
               (os.path.join(HERE, "apps", app, "pages.txt"), "/bench/pages.txt:ro"), (out_dir, "/work/out")]
     cmd = ["bash", "/bench/lib/check.sh", "/work/app", "/bench/pages.txt", "/work/out"]
     if recording:
@@ -327,12 +329,18 @@ def report():
                    f" | {tests} | {s['pages_identical']}+{s['pages_reordered']}/{s['pages_total']} | {len(s['status_mismatch'])}"
                    f" | {', '.join(s['insecure']) or '-'} | {legacy} | {s['wall_minutes']} | {cost}"
                    f" | {s['tokens'].get('output_tokens', '-')} |")
-    out += ["", "| App | Runs | Passed | Build ok | Tests ok | Mean pages identical+reordered |", "|---|---|---|---|---|---|"]
-    for app, ss in per_app.items():
-        n = len(ss)
-        mean = sum((s["pages_identical"] + s["pages_reordered"]) / max(1, s["pages_total"]) for s in ss) / n
-        out.append(f"| {app} | {n} | {sum(s['pass'] for s in ss)} | {sum(s['build_ok'] for s in ss)}"
-                   f" | {sum(s['tests_ok'] for s in ss)} | {mean:.0%} |")
+    # Held-out apps ("heldout": true) only measure the guide and tools, so they get their own table.
+    for title, heldout in (("Development apps", False), ("Held-out apps", True)):
+        group = {a: ss for a, ss in per_app.items() if bool(config(a).get("heldout")) == heldout}
+        if not group:
+            continue
+        out += ["", f"**{title}**", "", "| App | Runs | Passed | Build ok | Tests ok | Mean pages identical+reordered |",
+                "|---|---|---|---|---|---|"]
+        for app, ss in group.items():
+            n = len(ss)
+            mean = sum((s["pages_identical"] + s["pages_reordered"]) / max(1, s["pages_total"]) for s in ss) / n
+            out.append(f"| {app} | {n} | {sum(s['pass'] for s in ss)} | {sum(s['build_ok'] for s in ss)}"
+                       f" | {sum(s['tests_ok'] for s in ss)} | {mean:.0%} |")
     text = "\n".join(out) + "\n"
     with open(os.path.join(RESULTS, "summary.md"), "w") as f:
         f.write(text)

@@ -61,6 +61,13 @@ each form, and the error pages. Optional keys:
 - `"ignore": [regex, ...]` deletes matches from both the recorded and the new raw page before
   comparing (`compare --ignore`), for accepted differences such as broken markup in the original.
   Prefer fixing the data in `pages.txt` (absolute dates, no random generators) over ignoring.
+- `"heldout": true` marks an app that only measures the guide and `tessera-migrate`. Never change
+  either because of what a held-out app does; `report` lists held-out apps in their own table.
+
+The check container (never the migrating agent) sees the app's fixture directory read-only at
+`/bench/app`, so a start command can load seed data from it (for example
+`spring.sql.init.data-locations=file:/bench/app/seed.sql`). An app whose pages send mail can start
+`python3 /bench/lib/smtp.py &`, an SMTP sink on `localhost:2525`, in its start command.
 
 Run `bench.py baseline <name>` and check `results/<name>/baseline/determinism.txt`.
 
@@ -68,4 +75,9 @@ Current ignores: times of day (fredbet, jobsearch: seeded data is stamped at sta
 is still compared), UUIDs (fredbet: image keys generated at startup), the webjar version path
 segment (spring-petclinic, fredbet: Boot adds it for Thymeleaf through `ResourceUrlEncodingFilter`,
 which Tessera's starter does not register yet, #122), and JobSearch's `<span text-bg-...">`, an
-attribute built from an unbalanced quote in the original template.
+attribute built from an unbalanced quote in the original template. Held-out: times of day and the
+webjar version segment (purl-server: Boot's error page prints the time of the request; the webjar
+segment as above), and the invoice date input (jprime: the invoice form defaults to today).
+
+Licenses: JobSearch and jprime have no license, so their runs' `diff.patch` files are not
+committed (`.gitignore`).
