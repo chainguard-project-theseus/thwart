@@ -41,11 +41,15 @@ public final class Contexts {
    * {@code <animate>}/{@code <set>} ({@code values to from by}) are URL too: they can set an
    * {@code href} to {@code javascript:}. The {@code content} of a
    * {@code <meta http-equiv="refresh">} is FORBIDDEN: its {@code url=} part navigates the page.
+   * The {@code type} of a {@code <script>} is FORBIDDEN: it decides whether the content is
+   * JavaScript. The {@code http-equiv} of a {@code <meta>} is FORBIDDEN: it decides whether
+   * {@code content} is a refresh URL.
    */
   public static OutputContext attribute(Element element, String attributeName) {
     if (attributeName == null || !PLAIN_NAME.matcher(attributeName).matches()) {
       return OutputContext.FORBIDDEN;
     }
+    String el = element.name().toLowerCase(Locale.ROOT);
     String attr = attributeName.toLowerCase(Locale.ROOT);
     if (attr.startsWith("on")) {
       return OutputContext.EVENT_HANDLER;
@@ -53,24 +57,24 @@ public final class Contexts {
     if (attr.equals("style")) {
       return OutputContext.STYLE;
     }
-    if (attr.equals("srcdoc") || isRefreshContent(element, attr)) {
+    if (attr.equals("srcdoc")
+        || isRefreshContent(element, el, attr)
+        || (el.equals("script") && attr.equals("type"))
+        || (el.equals("meta") && attr.equals("http-equiv"))) {
       return OutputContext.FORBIDDEN;
     }
-    if (isResourceUrl(element == null ? "" : element.name().toLowerCase(Locale.ROOT), attr)) {
+    if (isResourceUrl(el, attr)) {
       return OutputContext.RESOURCE_URL;
     }
-    if (URL_ATTRIBUTES.contains(attr) || isAnimationValue(element, attr)) {
+    if (URL_ATTRIBUTES.contains(attr) || isAnimationValue(el, attr)) {
       return OutputContext.URL;
     }
     return OutputContext.ATTRIBUTE;
   }
 
-  /**
-   * {@code content} on a {@code <meta>} whose static {@code http-equiv} is {@code refresh}. A
-   * computed {@code http-equiv} on {@code <meta>} is rejected by the attribute processor.
-   */
-  private static boolean isRefreshContent(Element element, String attr) {
-    if (element == null || !attr.equals("content") || !element.name().equalsIgnoreCase("meta")) {
+  /** {@code content} on a {@code <meta>} whose static {@code http-equiv} is {@code refresh}. */
+  private static boolean isRefreshContent(Element element, String el, String attr) {
+    if (!attr.equals("content") || !el.equals("meta")) {
       return false;
     }
     for (Attribute a : element.attributes()) {
@@ -84,12 +88,8 @@ public final class Contexts {
     return false;
   }
 
-  private static boolean isAnimationValue(Element element, String attr) {
-    if (element == null) {
-      return false;
-    }
-    String name = element.name().toLowerCase(Locale.ROOT);
-    return (name.equals("animate") || name.equals("set"))
+  private static boolean isAnimationValue(String el, String attr) {
+    return (el.equals("animate") || el.equals("set"))
         && (attr.equals("values") || attr.equals("to") || attr.equals("from") || attr.equals("by"));
   }
 
@@ -105,7 +105,7 @@ public final class Contexts {
   }
 
   /**
-   * Context for text directly inside {@code element} ({@code null} for top level): SCRIPT
+   * Context for text directly inside {@code element}: SCRIPT
    * inside {@code <script>} with no type or a JavaScript/module/JSON type, FORBIDDEN inside
    * other script types, STYLE inside {@code <style>}, otherwise TEXT.
    *
@@ -113,9 +113,6 @@ public final class Contexts {
    * content type must be known at build time.
    */
   public static OutputContext text(Element element) {
-    if (element == null) {
-      return OutputContext.TEXT;
-    }
     return switch (element.name().toLowerCase(Locale.ROOT)) {
       case "script" -> scriptContext(element);
       case "style" -> OutputContext.STYLE;

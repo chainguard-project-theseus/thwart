@@ -42,18 +42,6 @@ public final class GenericAttrProcessor implements AttributeProcessor {
   static void set(CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label) {
     String element = plan.element().name();
     String lower = name.toLowerCase(Locale.ROOT);
-    if (element.equalsIgnoreCase("script") && lower.equals("type")) {
-      ctx.diagnostics()
-          .error(pos, label + ": the type of a <script> cannot be computed; its content type must be known at"
-              + " build time, so write a static type attribute");
-      return;
-    }
-    if (element.equalsIgnoreCase("meta") && lower.equals("http-equiv")) {
-      ctx.diagnostics()
-          .error(pos, label + ": the http-equiv of a <meta> cannot be computed; it decides whether content is"
-              + " a refresh URL, so write a static http-equiv attribute");
-      return;
-    }
     OutputContext context = Contexts.attribute(plan.element(), name);
     String hint =
         switch (context) {
@@ -62,7 +50,13 @@ public final class GenericAttrProcessor implements AttributeProcessor {
                   + " read it from a script";
           case STYLE -> "style attributes cannot contain expressions; use t:class or t:classappend instead";
           case FORBIDDEN ->
-              lower.equals("srcdoc")
+              lower.equals("type")
+                  ? "the type of a <script> cannot be computed; its content type must be known at"
+                      + " build time, so write a static type attribute"
+                  : lower.equals("http-equiv")
+                  ? "the http-equiv of a <meta> cannot be computed; it decides whether content is"
+                      + " a refresh URL, so write a static http-equiv attribute"
+                  : lower.equals("srcdoc")
                   ? "srcdoc is a whole HTML document and cannot contain expressions; use src with a URL"
                   : lower.equals("content")
                   ? "the content of <meta http-equiv=\"refresh\"> navigates the page and cannot contain"
@@ -71,7 +65,9 @@ public final class GenericAttrProcessor implements AttributeProcessor {
           default -> null;
         };
     if (hint != null) {
-      ctx.diagnostics().error(pos, label + " is not allowed: " + hint);
+      boolean computedType = context == OutputContext.FORBIDDEN
+          && (lower.equals("type") || lower.equals("http-equiv"));
+      ctx.diagnostics().error(pos, label + (computedType ? ": " : " is not allowed: ") + hint);
       return;
     }
     if (context == OutputContext.ATTRIBUTE && BOOLEAN_ATTRIBUTES.contains(lower)) {
