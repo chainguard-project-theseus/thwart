@@ -143,6 +143,22 @@ class ContextsTest {
   }
 
   @Test
+  void metaRefreshContentIsForbidden() {
+    assertEquals(
+        OutputContext.FORBIDDEN, Contexts.attribute(element("meta", "http-equiv", "refresh"), "content"));
+    assertEquals(
+        OutputContext.FORBIDDEN, Contexts.attribute(element("META", "HTTP-EQUIV", " Refresh "), "Content"));
+    // Other meta content is an ordinary attribute.
+    assertEquals(
+        OutputContext.ATTRIBUTE, Contexts.attribute(element("meta", "name", "description"), "content"));
+    assertEquals(
+        OutputContext.ATTRIBUTE,
+        Contexts.attribute(element("meta", "http-equiv", "content-language"), "content"));
+    assertEquals(
+        OutputContext.ATTRIBUTE, Contexts.attribute(element("div", "http-equiv", "refresh"), "content"));
+  }
+
+  @Test
   void textContexts() {
     assertEquals(OutputContext.TEXT, Contexts.text(null));
     assertEquals(OutputContext.SCRIPT, Contexts.text(element("script")));
