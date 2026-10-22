@@ -994,6 +994,8 @@ These come from the annotation processor itself, without a template position.
 - `expected '=' after link parameter '<name>' but <found>`: parameters are `name=value`.
 - `link path must not contain whitespace: percent-encode it (%20) or pass the value as a parameter, e.g. @{/search(q=term)}`.
 - `invalid path variable '{<name>}': write a name such as {id}`.
+- `nested '{' in link path: write a path variable such as {id}`.
+- `unmatched '}' in link path: write a path variable such as {id}`.
 - `unterminated literal substitution: expected a closing '|' (e.g. |Hello, ${name}!|)`.
 - `dynamic template names are not supported; the template must be a literal such as ~{fragments/layout :: main}`:
   pick between literal references with `t:if`, or pass a `Fragment`.
