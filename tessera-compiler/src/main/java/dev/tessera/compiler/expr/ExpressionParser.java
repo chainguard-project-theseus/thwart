@@ -1,5 +1,6 @@
 package dev.tessera.compiler.expr;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.SourcePos;
 import java.util.ArrayList;
@@ -61,7 +62,7 @@ public final class ExpressionParser {
         out.add(new Assignment(name, p.expr(), p.pos(at)));
       } while (p.eat(","));
       p.end();
-      return List.copyOf(out);
+      return Backports.listCopy(out);
     });
   }
 
@@ -69,7 +70,7 @@ public final class ExpressionParser {
   public List<ParamDecl> parseParams(String text, SourcePos start, DiagnosticSink diagnostics) {
     return run(text, start, diagnostics, p -> {
       p.ws();
-      List<ParamDecl> params = p.atEnd() ? List.of() : p.paramList();
+      List<ParamDecl> params = p.atEnd() ? Backports.listOf() : p.paramList();
       p.end();
       return params;
     });
@@ -81,7 +82,7 @@ public final class ExpressionParser {
       List<String> out = new ArrayList<>();
       p.ws();
       if (p.atEnd()) {
-        return List.<String>of();
+        return Backports.<String>listOf();
       }
       do {
         String name = p.qualifiedName("a package or class name");
@@ -92,7 +93,7 @@ public final class ExpressionParser {
         out.add(name);
       } while (p.eat(","));
       p.end();
-      return List.copyOf(out);
+      return Backports.listCopy(out);
     });
   }
 
@@ -102,7 +103,7 @@ public final class ExpressionParser {
       p.ws();
       int at = p.i;
       String name = p.ident("a fragment name");
-      List<ParamDecl> params = List.of();
+      List<ParamDecl> params = Backports.listOf();
       if (p.eat("(") && !p.eat(")")) {
         params = p.paramList();
         p.expect(")", "',' or ')' in the fragment parameter list");
@@ -538,19 +539,25 @@ public final class ExpressionParser {
       if (identStart(c)) {
         String name = identRaw();
         switch (name) {
-          case "true" -> {
+          case "true":
             return new Expr.Literal(Boolean.TRUE, pos(at));
-          }
-          case "false" -> {
+          case "false":
             return new Expr.Literal(Boolean.FALSE, pos(at));
-          }
-          case "null" -> {
+          case "null":
             return new Expr.Literal(null, pos(at));
-          }
-          case "new" -> throw error(at, "object creation (new) is not supported: pass the value in as a template parameter");
-          case "and", "or", "eq", "ne", "lt", "gt", "le", "ge" ->
-              throw error(at, "expected an expression but found operator '" + name + "'");
-          default -> {}
+          case "new":
+            throw error(at, "object creation (new) is not supported: pass the value in as a template parameter");
+          case "and":
+          case "or":
+          case "eq":
+          case "ne":
+          case "lt":
+          case "gt":
+          case "le":
+          case "ge":
+            throw error(at, "expected an expression but found operator '" + name + "'");
+          default:
+            break;
         }
         ws();
         if (at("(")) {
@@ -633,7 +640,7 @@ public final class ExpressionParser {
       while (!atEnd() && peek() != '(' && peek() != '}') {
         i++;
       }
-      String key = s.substring(keyAt, i).strip();
+      String key = Backports.strip(s.substring(keyAt, i));
       if (key.isEmpty()) {
         throw error(keyAt, "expected a message key after '#{' but " + found());
       }
@@ -648,7 +655,7 @@ public final class ExpressionParser {
         }
       }
       ws();
-      List<Expr> args = at("(") ? args() : List.of();
+      List<Expr> args = at("(") ? args() : Backports.listOf();
       expect("}", "'}' to close '#{'");
       return new Expr.Message(key, args, pos(at));
     }
@@ -673,7 +680,7 @@ public final class ExpressionParser {
         }
         i++;
       }
-      String path = s.substring(pathAt, i).strip();
+      String path = Backports.strip(s.substring(pathAt, i));
       if (path.isEmpty()) {
         throw error(pathAt, "expected a link path after '@{' but " + found());
       }
@@ -769,7 +776,7 @@ public final class ExpressionParser {
       while (!atEnd() && !at("::") && peek() != '}') {
         i++;
       }
-      String tpl = s.substring(tplAt, i).strip();
+      String tpl = Backports.strip(s.substring(tplAt, i));
       if (isDynamic(tpl) || tpl.indexOf('{') >= 0) {
         throw error(tplAt, "dynamic template names are not supported; the template must be a literal such as ~{fragments/layout :: main}");
       }
@@ -876,7 +883,7 @@ public final class ExpressionParser {
         }
         out.add(new ParamDecl(type, identRaw(), pos(at)));
       } while (eat(","));
-      return List.copyOf(out);
+      return Backports.listCopy(out);
     }
   }
 }

@@ -1,11 +1,13 @@
 package dev.tessera.compiler.messages;
 
+import dev.tessera.compiler.Backports;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
@@ -32,7 +34,7 @@ public final class MessageBundle {
 
   /** The properties file for {@code basePath}: {@code basePath + ".properties"}. */
   public static Path file(Path basePath) {
-    return Path.of(basePath + ".properties");
+    return Paths.get(basePath + ".properties");
   }
 
   /** Loads {@code basePath + ".properties"}; a missing file is reported by the caller. */
@@ -45,7 +47,7 @@ public final class MessageBundle {
     } catch (IOException e) {
       throw new UncheckedIOException("cannot read message bundle " + file, e);
     }
-    return new MessageBundle(Set.copyOf(props.stringPropertyNames()), file.toString());
+    return new MessageBundle(Backports.setCopy(props.stringPropertyNames()), file.toString());
   }
 
   public boolean isChecked() {

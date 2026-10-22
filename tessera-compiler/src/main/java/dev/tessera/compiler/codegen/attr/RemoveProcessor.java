@@ -19,16 +19,25 @@ public final class RemoveProcessor implements AttributeProcessor {
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
     String v = attr.value() == null ? "" : attr.value().trim();
     switch (v) {
-      case "all" -> plan.remove();
-      case "body" -> plan.replaceBody("", Contexts.text(plan.element()));
-      case "tag" -> plan.omitTag();
-      case "all-but-first" -> plan.replaceBody(firstElementOnly(ctx, plan), Contexts.text(plan.element()));
-      case "none" -> {}
-      default ->
-          ctx.diagnostics()
-              .error(
-                  attr.valuePos() != null ? attr.valuePos() : attr.pos(),
-                  "t:remove must be one of all, body, tag, all-but-first, none (got '" + v + "')");
+      case "all":
+        plan.remove();
+        break;
+      case "body":
+        plan.replaceBody("", Contexts.text(plan.element()));
+        break;
+      case "tag":
+        plan.omitTag();
+        break;
+      case "all-but-first":
+        plan.replaceBody(firstElementOnly(ctx, plan), Contexts.text(plan.element()));
+        break;
+      case "none":
+        break;
+      default:
+        ctx.diagnostics()
+            .error(
+                attr.valuePos() != null ? attr.valuePos() : attr.pos(),
+                "t:remove must be one of all, body, tag, all-but-first, none (got '" + v + "')");
     }
   }
 

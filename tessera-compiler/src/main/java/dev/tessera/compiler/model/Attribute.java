@@ -1,6 +1,7 @@
 package dev.tessera.compiler.model;
 
 import dev.tessera.compiler.SourcePos;
+import java.util.Objects;
 
 /**
  * An attribute as written.
@@ -14,8 +15,78 @@ import dev.tessera.compiler.SourcePos;
  * @param valuePos position of the first character of the value inside the quotes, or
  *     {@code null}
  */
-public record Attribute(
-    String name, String value, String rawValue, char quote, SourcePos pos, SourcePos valuePos) {
+public final class Attribute {
+  private final String name;
+  private final String value;
+  private final String rawValue;
+  private final char quote;
+  private final SourcePos pos;
+  private final SourcePos valuePos;
+
+  public Attribute(
+      String name, String value, String rawValue, char quote, SourcePos pos, SourcePos valuePos) {
+    this.name = name;
+    this.value = value;
+    this.rawValue = rawValue;
+    this.quote = quote;
+    this.pos = pos;
+    this.valuePos = valuePos;
+  }
+
+  public String name() {
+    return name;
+  }
+
+  public String value() {
+    return value;
+  }
+
+  public String rawValue() {
+    return rawValue;
+  }
+
+  public char quote() {
+    return quote;
+  }
+
+  public SourcePos pos() {
+    return pos;
+  }
+
+  public SourcePos valuePos() {
+    return valuePos;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof Attribute)) {
+      return false;
+    }
+    Attribute that = (Attribute) o;
+    return Objects.equals(name, that.name)
+        && Objects.equals(value, that.value)
+        && Objects.equals(rawValue, that.rawValue)
+        && quote == that.quote
+        && Objects.equals(pos, that.pos)
+        && Objects.equals(valuePos, that.valuePos);
+  }
+
+  @Override
+  public int hashCode() {
+    int h = Objects.hashCode(name);
+    h = 31 * h + Objects.hashCode(value);
+    h = 31 * h + Objects.hashCode(rawValue);
+    h = 31 * h + Character.hashCode(quote);
+    h = 31 * h + Objects.hashCode(pos);
+    h = 31 * h + Objects.hashCode(valuePos);
+    return h;
+  }
+
+  @Override
+  public String toString() {
+    return "Attribute[name=" + name + ", value=" + value + ", rawValue=" + rawValue + ", quote=" + quote
+        + ", pos=" + pos + ", valuePos=" + valuePos + "]";
+  }
 
   public static final String PREFIX = "t:";
 

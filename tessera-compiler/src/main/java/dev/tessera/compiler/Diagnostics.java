@@ -13,7 +13,7 @@ public final class Diagnostics implements DiagnosticSink {
   }
 
   public List<Diagnostic> all() {
-    return List.copyOf(all);
+    return Backports.listCopy(all);
   }
 
   public boolean hasErrors() {

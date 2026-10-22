@@ -1,5 +1,6 @@
 package dev.tessera.compiler.links;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.expr.Assignment;
@@ -11,6 +12,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Compiles {@code @{/path/{id}(id=x, q=y)}} to
@@ -59,7 +61,7 @@ public final class LinkCompiler {
 
     StringBuilder code = new StringBuilder("ctx.links().build(").append(JavaStrings.literal(path));
     code.append(", new java.lang.String[] {");
-    code.append(String.join(", ", names.stream().map(JavaStrings::literal).toList()));
+    code.append(String.join(", ", names.stream().map(JavaStrings::literal).collect(Collectors.toList())));
     code.append("}, new java.lang.Object[] {").append(String.join(", ", values)).append("})");
     return new CompiledExpr(
         code.toString(), expressions.env().elements().getTypeElement("java.lang.String").asType(), link.pos());
@@ -131,7 +133,7 @@ public final class LinkCompiler {
    */
   private static String authority(String path, boolean hasScheme) {
     String rest = hasScheme ? path.substring(path.indexOf(':') + 1) : path;
-    rest = rest.replaceAll("[\t\r\n]", "").replace('\\', '/').stripLeading();
+    rest = Backports.stripLeading(rest.replaceAll("[\t\r\n]", "").replace('\\', '/'));
     if (hasScheme) {
       rest = rest.replaceFirst("^/*", "");
     } else if (rest.startsWith("//")) {

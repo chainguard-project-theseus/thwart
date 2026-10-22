@@ -36,7 +36,7 @@ class DiagnosticCatalogueTest {
 
   /** Code regions whose strings are spliced into messages: {file suffix, start marker, end marker}. */
   private static final String[][] REGIONS = {
-    {"GenericAttrProcessor.java", "String hint =", "};"},
+    {"GenericAttrProcessor.java", "String hint;", "hint = null;"},
     {"TextInlining.java", "static String where(", "\n  }"},
   };
 

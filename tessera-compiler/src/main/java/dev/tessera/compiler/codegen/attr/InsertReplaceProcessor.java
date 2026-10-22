@@ -1,5 +1,6 @@
 package dev.tessera.compiler.codegen.attr;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
@@ -18,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.lang.model.type.TypeMirror;
@@ -51,7 +53,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
   }
 
   private static String code(CodegenContext ctx, Attribute attr, ElementPlan plan) {
-    if (attr.value() == null || attr.value().isBlank()) {
+    if (attr.value() == null || Backports.isBlank(attr.value())) {
       ctx.diagnostics().error(attr.pos(), attr.name() + " needs a fragment reference, e.g. ~{fragments/layout :: header}");
       return null;
     }
@@ -83,13 +85,36 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
   }
 
   /** A resolved call of {@code method(args..., ctx, out)}; {@code types} are the parameter types. */
-  private record Call(String method, List<String> args, List<String> types) {
+  private static final class Call {
+    private final String method;
+    private final List<String> args;
+    private final List<String> types;
+
+    private Call(String method, List<String> args, List<String> types) {
+      this.method = method;
+      this.args = args;
+      this.types = types;
+    }
+
+    public String method() {
+      return method;
+    }
+
+    public List<String> args() {
+      return args;
+    }
+
+    public List<String> types() {
+      return types;
+    }
+
     String invoke(String ctxName, String outName) {
       List<String> all = new ArrayList<>(args);
       all.add(ctxName);
       all.add(outName);
       return method + "(" + String.join(", ", all) + ")";
     }
+  
   }
 
   /**
@@ -156,7 +181,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       ok &= code != null;
       codes.add(code);
     }
-    List<String> types = f.params().stream().map(TemplateIndex.Param::javaType).toList();
+    List<String> types = f.params().stream().map(TemplateIndex.Param::javaType).collect(Collectors.toList());
     return ok ? new Call(target.className() + "." + f.methodName(), codes, types) : null;
   }
 
@@ -168,7 +193,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       CodegenContext ctx, FragmentRef ref, TemplateIndex.FragmentInfo f, String sig) {
     List<FragmentRef.Arg> args = ref.args();
     List<FragmentRef.Arg> ordered = new ArrayList<>();
-    boolean named = !args.isEmpty() && args.getFirst().name() != null;
+    boolean named = !args.isEmpty() && args.get(0).name() != null;
     if (!named) {
       if (args.size() != f.params().size()) {
         ctx.diagnostics()
@@ -220,12 +245,12 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       StringBuilder pre) {
     String what = "argument " + (index + 1) + " ('" + param.name() + "') of fragment " + sig;
     boolean wantsFragment = isFragment(ctx, param.type());
-    if (arg.value() instanceof Expr.FragmentExpr fe) {
+    if (arg.value() instanceof Expr.FragmentExpr) {
       if (!wantsFragment) {
         ctx.diagnostics().error(arg.pos(), what + " has type " + param.javaType() + ", but a fragment ~{...} was passed");
         return null;
       }
-      return fragmentValue(ctx, fe.ref(), scope, host, pre);
+      return fragmentValue(ctx, ((Expr.FragmentExpr) arg.value()).ref(), scope, host, pre);
     }
     if (FormPaths.isField(param.type())) {
       return fieldArgument(ctx, arg, what, scope);
@@ -247,8 +272,10 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
    * forwarding its own parameter). Nothing else: the path is never computed at run time.
    */
   private static String fieldArgument(CodegenContext ctx, FragmentRef.Arg arg, String what, Scope scope) {
-    if (arg.value() instanceof Expr.Literal lit && lit.value() instanceof String path) {
-      if (scope.selection().isEmpty()) {
+    if (arg.value() instanceof Expr.Literal && ((Expr.Literal) arg.value()).value() instanceof String) {
+      Expr.Literal lit = (Expr.Literal) arg.value();
+      String path = (String) lit.value();
+      if (!scope.selection().isPresent()) {
         ctx.diagnostics()
             .error(arg.pos(), what + " is a form field, so the call must be inside t:object (on this element or an ancestor)");
         return null;

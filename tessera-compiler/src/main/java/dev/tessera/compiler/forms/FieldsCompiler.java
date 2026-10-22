@@ -1,5 +1,6 @@
 package dev.tessera.compiler.forms;
 
+import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.types.CompiledExpr;
@@ -27,7 +28,7 @@ public final class FieldsCompiler {
 
   public static CompiledExpr compile(
       String function, List<Expr> args, SourcePos pos, Scope scope, ExpressionCompiler expressions) {
-    var diagnostics = expressions.env().diagnostics();
+    DiagnosticSink diagnostics = expressions.env().diagnostics();
     if (!function.equals("hasErrors") && !function.equals("errors")) {
       diagnostics.error(pos, "unknown function fields." + function + ": the fields namespace has hasErrors('path') and errors('path')");
       return null;
@@ -40,22 +41,24 @@ public final class FieldsCompiler {
             : types.getDeclaredType(
                 elements.getTypeElement("java.util.List"), elements.getTypeElement("java.lang.String").asType());
     // A Field fragment parameter: the caller checked its path against its own t:object.
-    Optional<Variable> field = args.size() == 1 ? FormPaths.fieldVariable(args.getFirst(), scope) : Optional.empty();
+    Optional<Variable> field = args.size() == 1 ? FormPaths.fieldVariable(args.get(0), scope) : Optional.empty();
     if (field.isPresent()) {
       return new CompiledExpr(FormPaths.fromVariable(field.get(), pos, expressions).formsCall(function), type, pos);
     }
     Optional<Scope.Selection> selection = scope.selection();
-    if (selection.isEmpty()) {
+    if (!selection.isPresent()) {
       diagnostics.error(pos, "fields." + function + "(...) can only be used inside t:object, or with a Field parameter");
       return null;
     }
-    if (args.size() != 1 || !(args.getFirst() instanceof Expr.Literal lit) || !(lit.value() instanceof String path)) {
+    Expr.Literal lit = args.size() == 1 && args.get(0) instanceof Expr.Literal ? (Expr.Literal) args.get(0) : null;
+    if (lit == null || !(lit.value() instanceof String)) {
       diagnostics.error(
           pos,
           "fields." + function + " takes one string literal (a field path such as 'lastName', or '*' for all errors)"
               + " or a Field parameter");
       return null;
     }
+    String path = (String) lit.value();
     if (!path.equals(FormPaths.ALL) && FormPaths.compile(path, lit.pos(), scope, expressions) == null) {
       return null;
     }

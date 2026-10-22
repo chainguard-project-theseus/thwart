@@ -1,5 +1,6 @@
 package dev.tessera.compiler.codegen.attr;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
@@ -22,10 +23,10 @@ public final class ErrorsProcessor implements AttributeProcessor {
       return;
     }
     FormPaths.FormField field;
-    String value = attr.value() == null ? "" : attr.value().strip();
+    String value = attr.value() == null ? "" : Backports.strip(attr.value());
     if (value.equals(FormPaths.ALL) || value.equals("*{*}")) {
       Optional<Scope.Selection> selection = plan.scope().selection();
-      if (selection.isEmpty()) {
+      if (!selection.isPresent()) {
         ctx.diagnostics().error(attr.pos(), "t:errors can only be used inside t:object (on this element or an ancestor)");
         return;
       }

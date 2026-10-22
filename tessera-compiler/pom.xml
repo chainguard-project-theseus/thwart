@@ -13,6 +13,14 @@
   <name>Tessera Compiler</name>
   <description>Build-time template compiler and javac annotation processor.</description>
 
+  <!-- The processor runs inside the application's javac, so it is Java 8 too (#166); tests stay on 21. -->
+  <properties>
+    <maven.compiler.release>8</maven.compiler.release>
+    <maven.compiler.testRelease>21</maven.compiler.testRelease>
+    <!-- JDK 8 home for Jdk8ProcessorTest; CI sets JDK8_HOME. -->
+    <tessera.jdk8.home>${env.JDK8_HOME}</tessera.jdk8.home>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>dev.tessera</groupId>
@@ -42,6 +50,11 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <systemPropertyVariables>
+            <tessera.jdk8.home>${tessera.jdk8.home}</tessera.jdk8.home>
+          </systemPropertyVariables>
+        </configuration>
         <executions>
           <!-- Generated code must compile for the Java 8 floor (#154): run the template tests again
                with the Compilation harness at javac release 8. Excluded: tests whose own Java snippets
@@ -59,6 +72,7 @@
                 <exclude>dev/tessera/compiler/types/**</exclude>
                 <exclude>dev/tessera/compiler/testing/CompilationTest.java</exclude>
                 <exclude>dev/tessera/compiler/links/LinkCompilerTest.java</exclude>
+                <exclude>dev/tessera/compiler/processor/Jdk8ProcessorTest.java</exclude>
               </excludes>
             </configuration>
           </execution>

@@ -23,7 +23,7 @@ injection is impossible by construction.
 - MVP design: [docs/mvp-design.md](docs/mvp-design.md); long-term vision: [docs/tessera-vision.md](docs/tessera-vision.md)
 - Contributing (humans and agents): [AGENTS.md](AGENTS.md); orchestration handoff: [docs/handoff.md](docs/handoff.md)
 
-Build: `mvn -B -ntp verify` (JDK 21+). CI runs on Chainguard Checks (`.chainguard/ci/`).
+Build: `mvn -B -ntp verify` (JDK 21+; set `JDK8_HOME` to also run the JDK 8 processor test). CI runs on Chainguard Checks (`.chainguard/ci/`).
 
 ### Migration skill for Claude Code
 

@@ -1,5 +1,7 @@
 package dev.tessera.compiler;
 
+import java.util.Objects;
+
 /**
  * Compiler output written through the annotation processor's {@code Filer}.
  *
@@ -8,7 +10,53 @@ package dev.tessera.compiler;
  *     (e.g. {@code META-INF/services/dev.tessera.runtime.TemplateRegistry})
  * @param content file contents
  */
-public record GeneratedFile(Kind kind, String name, String content) {
+public final class GeneratedFile {
+  private final Kind kind;
+  private final String name;
+  private final String content;
+
+  public GeneratedFile(Kind kind, String name, String content) {
+    this.kind = kind;
+    this.name = name;
+    this.content = content;
+  }
+
+  public Kind kind() {
+    return kind;
+  }
+
+  public String name() {
+    return name;
+  }
+
+  public String content() {
+    return content;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof GeneratedFile)) {
+      return false;
+    }
+    GeneratedFile that = (GeneratedFile) o;
+    return Objects.equals(kind, that.kind)
+        && Objects.equals(name, that.name)
+        && Objects.equals(content, that.content);
+  }
+
+  @Override
+  public int hashCode() {
+    int h = Objects.hashCode(kind);
+    h = 31 * h + Objects.hashCode(name);
+    h = 31 * h + Objects.hashCode(content);
+    return h;
+  }
+
+  @Override
+  public String toString() {
+    return "GeneratedFile[kind=" + kind + ", name=" + name + ", content=" + content + "]";
+  }
+
   public enum Kind {
     JAVA,
     RESOURCE

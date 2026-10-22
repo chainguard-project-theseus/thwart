@@ -2,6 +2,7 @@ package dev.tessera.compiler.codegen;
 
 import static dev.tessera.compiler.JavaStrings.literal;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.GeneratedFile;
 import dev.tessera.compiler.SourcePos;
@@ -17,6 +18,7 @@ import dev.tessera.compiler.model.DocType;
 import dev.tessera.compiler.model.Document;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
+import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.model.Text;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
@@ -110,7 +112,7 @@ public final class TemplateGenerator implements CodegenContext {
     }
     String bodyCode = body.build();
     FragmentMethods.generate(this);
-    return List.of(new GeneratedFile(GeneratedFile.Kind.JAVA, info.className(), TemplateClassSource.render(info, constants, members, bodyCode)));
+    return Backports.listOf(new GeneratedFile(GeneratedFile.Kind.JAVA, info.className(), TemplateClassSource.render(info, constants, members, bodyCode)));
   }
 
   // ---- CodegenContext ----
@@ -164,7 +166,7 @@ public final class TemplateGenerator implements CodegenContext {
         sb.append(c);
       }
     }
-    if (sb.isEmpty() || Character.isDigit(sb.charAt(0))) {
+    if (sb.length() == 0 || Character.isDigit(sb.charAt(0))) {
       sb.insert(0, 'v');
     }
     return sb.append('$').append(fresh++).toString();
@@ -211,9 +213,10 @@ public final class TemplateGenerator implements CodegenContext {
   private void indexWhitespace(List<Node> nodes) {
     Node previous = null;
     for (Node n : nodes) {
-      if (n instanceof Element e) {
-        if (previous instanceof Text t) {
-          String ws = trailingWhitespace(t.raw());
+      if (n instanceof Element) {
+        Element e = (Element) n;
+        if (previous instanceof Text) {
+          String ws = trailingWhitespace(((Text) previous).raw());
           if (ws != null) {
             whitespaceBefore.put(e, ws);
           }
@@ -251,9 +254,10 @@ public final class TemplateGenerator implements CodegenContext {
   /** Reports misplaced core attributes and exclusive attribute pairs, once per element. */
   private void validate(Element root, List<Node> nodes) {
     for (Node n : nodes) {
-      if (!(n instanceof Element e)) {
+      if (!(n instanceof Element)) {
         continue;
       }
+      Element e = (Element) n;
       for (Attribute a : e.tesseraAttributes()) {
         if (AttributeProcessors.CORE.contains(a.localName()) && e != root) {
           diagnostics()
@@ -276,18 +280,20 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   private void node(Code c, Node n, Scope scope) {
-    switch (n) {
-      case Text t -> {
-        String code = TextInlining.render(this, t, scope);
-        if (code == null) {
-          c.text(t.raw());
-        } else {
-          c.stmt(code);
-        }
+    if (n instanceof Text) {
+      Text t = (Text) n;
+      String code = TextInlining.render(this, t, scope);
+      if (code == null) {
+        c.text(t.raw());
+      } else {
+        c.stmt(code);
       }
-      case Comment cm -> c.text(cm.raw());
-      case DocType d -> c.text(d.raw());
-      case Element e -> element(c, e, scope, Set.of());
+    } else if (n instanceof Comment) {
+      c.text(((Comment) n).raw());
+    } else if (n instanceof DocType) {
+      c.text(((DocType) n).raw());
+    } else {
+      element(c, (Element) n, scope, Collections.emptySet());
     }
   }
 
@@ -362,9 +368,10 @@ public final class TemplateGenerator implements CodegenContext {
     }
     c.text("<" + e.name());
     for (ElementPlan.Attr a : plan.attributes()) {
-      switch (a) {
-        case ElementPlan.StaticAttr s -> c.text(" " + s.name() + s.source().sourceValue());
-        case ElementPlan.DynamicAttr d -> c.stmt(dynamicAttr(d));
+      if (a instanceof ElementPlan.StaticAttr) {
+        c.text(" " + a.name() + ((ElementPlan.StaticAttr) a).source().sourceValue());
+      } else {
+        c.stmt(dynamicAttr((ElementPlan.DynamicAttr) a));
       }
     }
     if (!e.selfClosing() || opensSelfClosing(plan)) {
@@ -394,7 +401,8 @@ public final class TemplateGenerator implements CodegenContext {
       return false;
     }
     for (int i = 0; i < attrs.size(); i++) {
-      if (!(attrs.get(i) instanceof ElementPlan.StaticAttr s) || s.source() != e.attributes().get(i)) {
+      if (!(attrs.get(i) instanceof ElementPlan.StaticAttr)
+          || ((ElementPlan.StaticAttr) attrs.get(i)).source() != e.attributes().get(i)) {
         return false;
       }
     }
@@ -403,11 +411,11 @@ public final class TemplateGenerator implements CodegenContext {
 
   private String dynamicAttr(ElementPlan.DynamicAttr d) {
     // Only attribute contexts: e.g. the SCRIPT (json) escaper does not escape '"'.
+    OutputContext ctx = d.context();
     String escaper =
-        switch (d.context()) {
-          case ATTRIBUTE, URL, RESOURCE_URL -> d.context().escaper();
-          default -> null;
-        };
+        ctx == OutputContext.ATTRIBUTE || ctx == OutputContext.URL || ctx == OutputContext.RESOURCE_URL
+            ? ctx.escaper()
+            : null;
     if (escaper == null) {
       diagnostics().error(d.pos(), "an expression cannot be used in attribute " + d.name() + " (" + d.context()
               + " context): write a literal value");

@@ -84,10 +84,11 @@ but inside `|...|` and `+` a `null` prints `null`.
 
 ## 2. Build setup
 
-The build needs JDK 21+ and Maven: the annotation processor (`tessera-compiler`) runs inside the
-application's javac. The application itself can run on Java 8+: `tessera-runtime` and the Spring
-starter are Java 8 class files and the generated template code compiles with `release` 8. On Java
-8 there are no records, so give the model classes `getX()` getters and `@TemplateView`.
+The build needs JDK 8+ and Maven, and the application runs on Java 8+. The annotation processor
+(`tessera-compiler`) runs inside the application's javac, and it, `tessera-runtime` and the Spring
+starter are Java 8 class files; the generated template code compiles with `release` 8. On Java 8
+there are no records, so give the model classes `getX()` getters and `@TemplateView`. JDK 8's
+javac has no `--release`: there, set `<source>` and `<target>` 1.8 instead of `<release>` below.
 
 The Spring integration supports **Spring Framework 5.0+ and Spring Boot 2.0+**. The test suite
 runs on Boot 2.0, 2.7, 3.5 and 4.1 and on plain Spring MVC 5.0. Pick the artifact by servlet API
@@ -181,7 +182,7 @@ breaks redirects (behind a `ContentNegotiatingViewResolver`, as a 406).
 - Boot 2.0's default security (CSRF on, token in the session) works unchanged: a
   `<form method="post">` gets the `_csrf` input.
 - Spring 5.0 needs `--add-opens java.base/java.lang=ALL-UNNAMED` on JDK 16+, including for tests
-  on the JDK 21 that the build needs (surefire `argLine`). Spring 5.3 (Boot 2.7) does not.
+  (surefire `argLine`). Spring 5.3 (Boot 2.7) does not.
 
 **Error pages.** Under Boot, `templates/error.html` renders errors with Boot's error attributes as
 the model (`Integer status`, `String error`, `String message`, `String path`; `timestamp` is a
