@@ -1,13 +1,25 @@
 package dev.tessera.compiler.codegen;
 
 import dev.tessera.compiler.CompilerEnv;
+import dev.tessera.compiler.DiagnosticSink;
+import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.expr.ExpressionParser;
+import dev.tessera.compiler.expr.FragmentSignature;
+import dev.tessera.compiler.expr.ParamDecl;
+import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Document;
 import dev.tessera.compiler.model.Element;
+import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.types.ExpressionCompiler;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import javax.lang.model.type.TypeMirror;
 
 /**
@@ -60,9 +72,93 @@ public final class TemplateIndex {
     }
   }
 
+  /**
+   * Indexes every document. Problems (unparsable headers, unresolvable or unsafe types,
+   * duplicate parameter or fragment names, class-name collisions) are reported to {@code env};
+   * the affected entries are left out.
+   */
   public static TemplateIndex build(
       List<Document> documents, ExpressionParser parser, ExpressionCompiler expressions, CompilerEnv env) {
-    throw new UnsupportedOperationException("TODO(#5): TemplateIndex.build");
+    DiagnosticSink sink = env.diagnostics();
+    List<TemplateInfo> out = new ArrayList<>();
+    Map<String, String> classOwners = new HashMap<>();
+    for (Document doc : documents) {
+      String className = ClassNames.className(env.basePackage(), doc.source().viewName());
+      // Case-insensitive: class files of both would clash on case-insensitive file systems.
+      String previous = classOwners.putIfAbsent(className.toLowerCase(Locale.ROOT), doc.source().path());
+      if (previous != null) {
+        sink.error(
+            new SourcePos(doc.source().path(), 1, 1),
+            "generated class name "
+                + className
+                + " collides with the one generated for "
+                + previous
+                + "; rename one of the templates");
+      }
+      Element root = doc.rootElement();
+      List<String> imports = List.of();
+      List<Param> params = List.of();
+      if (root != null) {
+        Attribute imp = root.attribute(Attribute.PREFIX + "import").orElse(null);
+        if (imp != null) {
+          List<String> parsed = imp.value() == null ? null : parser.parseImports(imp.value(), imp.valuePos(), sink);
+          imports = parsed == null ? List.of() : parsed;
+        }
+        Attribute par = root.attribute(Attribute.PREFIX + "params").orElse(null);
+        if (par != null && par.value() != null) {
+          List<ParamDecl> decls = parser.parseParams(par.value(), par.valuePos(), sink);
+          params = resolve(decls == null ? List.of() : decls, imports, expressions, sink);
+        }
+      }
+      Map<String, FragmentInfo> fragments = new LinkedHashMap<>();
+      collectFragments(doc.children(), imports, parser, expressions, sink, fragments);
+      out.add(new TemplateInfo(doc, className, imports, params, fragments));
+    }
+    return new TemplateIndex(out);
+  }
+
+  private static List<Param> resolve(
+      List<ParamDecl> decls, List<String> imports, ExpressionCompiler expressions, DiagnosticSink sink) {
+    List<Param> out = new ArrayList<>();
+    Set<String> seen = new HashSet<>();
+    for (ParamDecl d : decls) {
+      if (!seen.add(d.name())) {
+        sink.error(d.pos(), "duplicate parameter '" + d.name() + "'");
+        continue;
+      }
+      TypeMirror type = expressions.resolveType(d.type(), imports);
+      if (type != null) {
+        out.add(new Param(d.name(), type, type.toString()));
+      }
+    }
+    return out;
+  }
+
+  private static void collectFragments(
+      List<Node> nodes,
+      List<String> imports,
+      ExpressionParser parser,
+      ExpressionCompiler expressions,
+      DiagnosticSink sink,
+      Map<String, FragmentInfo> out) {
+    for (Node n : nodes) {
+      if (!(n instanceof Element e)) {
+        continue;
+      }
+      Attribute frag = e.attribute(Attribute.PREFIX + "fragment").orElse(null);
+      if (frag != null && frag.value() == null) {
+        sink.error(frag.pos(), "t:fragment needs a name, e.g. t:fragment=\"card(OwnerView owner)\"");
+      } else if (frag != null) {
+        FragmentSignature sig = parser.parseFragmentSignature(frag.value(), frag.valuePos(), sink);
+        if (sig != null && out.containsKey(sig.name())) {
+          sink.error(sig.pos(), "duplicate fragment '" + sig.name() + "' in this template");
+        } else if (sig != null) {
+          List<Param> params = resolve(sig.params(), imports, expressions, sink);
+          out.put(sig.name(), new FragmentInfo(sig.name(), params, e, "fragment_" + sig.name()));
+        }
+      }
+      collectFragments(e.children(), imports, parser, expressions, sink, out);
+    }
   }
 
   public static TemplateIndex of(List<TemplateInfo> templates) {

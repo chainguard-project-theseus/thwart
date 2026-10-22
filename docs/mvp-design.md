@@ -233,8 +233,11 @@ public final class OwnerDetailsTemplate implements dev.tessera.runtime.Template 
 
 Plus `com.example.templates.TesseraRegistry implements TemplateRegistry`, whose entries adapt a
 `Map<String, ?>` model: `instanceof` check per param (`TemplateModelException` on mismatch; missing
-means `null`; generic arguments unchecked), then the static `render`. Registered via
-`META-INF/services/dev.tessera.runtime.TemplateRegistry`. No reflection anywhere.
+means `null`, except for a primitive param, which needs a value; generic arguments unchecked), then
+the static `render`. Registered via `META-INF/services/dev.tessera.runtime.TemplateRegistry`. No
+reflection anywhere. A template without `t:params` has no static `render` (it would clash with the
+instance method): call `XTemplate.of().render(ctx, out)`. A param named like a Java keyword or
+`ctx`/`out` gets a `$` suffix in generated code (`TemplateGenerator.javaName`).
 
 ## Spring integration
 
