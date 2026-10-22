@@ -1,20 +1,18 @@
 package dev.tessera.compiler.codegen.attr;
 
+import static dev.tessera.compiler.codegen.attr.FormFixture.ctx;
+import static dev.tessera.compiler.codegen.attr.FormFixture.model;
+import static dev.tessera.compiler.codegen.attr.FormFixture.owner;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.tessera.compiler.codegen.attr.FormFixture.TestForms;
 import dev.tessera.compiler.testing.Compilation;
-import dev.tessera.runtime.DefaultLinks;
-import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.Forms;
-import dev.tessera.runtime.Messages;
-import dev.tessera.runtime.RenderContext;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /** t:object, t:field, t:errors, t:errorclass and CSRF injection, end to end. */
@@ -22,58 +20,12 @@ class FormsTest {
   private static final String HEAD =
       "<form xmlns:t=\"https://tessera.dev\" t:import=\"com.example.*\" t:params=\"Owner owner\" t:object=\"owner\"";
 
-  private static Compilation.Builder model() {
-    return Compilation.builder()
-        .java("com.example.Address", "package com.example; public record Address(String city) {}")
-        .java(
-            "com.example.Owner",
-            "package com.example; public record Owner(String firstName, int age, boolean active, Address address,"
-                + " String pet, String bio, String password) {}");
+  private static Compilation compileForm(String template) {
+    return model().template("form.html", template).compile();
   }
 
   private static Compilation compile(String body) {
-    return compile(HEAD + ">" + body + "</form>", true);
-  }
-
-  private static Compilation compile(String template, boolean ok) {
-    Compilation c = model().template("form.html", template).compile();
-    return ok ? c.assertSuccess() : c;
-  }
-
-  private static Object owner(Compilation c, String firstName, String city) {
-    Object address = city == null ? null : c.newInstance("com.example.Address", city);
-    return c.newInstance("com.example.Owner", firstName, 42, true, address, "dog", "a <b>bio</b>", "secret");
-  }
-
-  /** A Forms with fixed rejected values, errors and CSRF token. */
-  static final class TestForms implements Forms {
-    final Map<String, String> rejected = new HashMap<>();
-    final Map<String, List<String>> errors = new HashMap<>();
-    CsrfToken token;
-
-    @Override
-    public String value(String objectName, String path, Object currentValue) {
-      assertEquals("owner", objectName);
-      return rejected.containsKey(path) ? rejected.get(path) : Escapers.toText(currentValue);
-    }
-
-    @Override
-    public List<String> errors(String objectName, String path) {
-      assertEquals("owner", objectName);
-      if (path.equals("*")) {
-        return errors.values().stream().flatMap(List::stream).toList();
-      }
-      return errors.getOrDefault(path, List.of());
-    }
-
-    @Override
-    public Optional<CsrfToken> csrfToken() {
-      return Optional.ofNullable(token);
-    }
-  }
-
-  private static RenderContext ctx(Forms forms) {
-    return new RenderContext(Locale.ROOT, Messages.NONE, new DefaultLinks(""), forms);
+    return compileForm(HEAD + ">" + body + "</form>").assertSuccess();
   }
 
   private static String render(Compilation c, Object owner, Forms forms) {
@@ -157,7 +109,7 @@ class FormsTest {
 
   @Test
   void radioWithoutValueIsAnError() {
-    compile(HEAD + "><input type=\"radio\" t:field=\"*{pet}\"></form>", false).assertError("needs a value attribute");
+    compileForm(HEAD + "><input type=\"radio\" t:field=\"*{pet}\"></form>").assertError("needs a value attribute");
   }
 
   @Test
@@ -196,39 +148,36 @@ class FormsTest {
 
   @Test
   void unknownFieldIsBuildErrorNamingType() {
-    compile(HEAD + ">\n<input t:field=\"*{lastName}\"></form>", false)
+    compileForm(HEAD + ">\n<input t:field=\"*{lastName}\"></form>")
         .assertError("form.html:2:", "'lastName' is not a property of com.example.Owner");
-    compile(HEAD + "><input t:field=\"*{address.zip}\"></form>", false)
+    compileForm(HEAD + "><input t:field=\"*{address.zip}\"></form>")
         .assertError("'zip' is not a property of com.example.Address");
   }
 
   @Test
   void fieldOutsideObjectIsBuildError() {
-    compile(
+    compileForm(
             "<form xmlns:t=\"https://tessera.dev\" t:import=\"com.example.*\" t:params=\"Owner owner\">"
-                + "<input t:field=\"*{firstName}\"></form>",
-            false)
+                + "<input t:field=\"*{firstName}\"></form>")
         .assertError("t:field can only be used inside t:object");
   }
 
   @Test
   void fieldNeedsPlainPath() {
-    compile(HEAD + "><input t:field=\"*{firstName} + 'x'\"></form>", false).assertError("needs a field path");
-    compile(HEAD + "><input t:field=\"*{address?.city}\"></form>", false).assertError("needs a field path");
-    compile(HEAD + "><div t:field=\"*{firstName}\"></div></form>", false).assertError("t:field works on <input>");
-    compile(HEAD + "><input t:field=\"*{__${x}__}\"></form>", false).assertError("form.html:1:");
+    compileForm(HEAD + "><input t:field=\"*{firstName} + 'x'\"></form>").assertError("needs a field path");
+    compileForm(HEAD + "><input t:field=\"*{address?.city}\"></form>").assertError("needs a field path");
+    compileForm(HEAD + "><div t:field=\"*{firstName}\"></div></form>").assertError("t:field works on <input>");
+    compileForm(HEAD + "><input t:field=\"*{__${x}__}\"></form>").assertError("form.html:1:");
   }
 
   @Test
   void objectMustNameVariable() {
-    compile(
+    compileForm(
             "<form xmlns:t=\"https://tessera.dev\" t:import=\"com.example.*\" t:params=\"Owner owner\""
-                + " t:object=\"owner.address\"></form>",
-            false)
+                + " t:object=\"owner.address\"></form>")
         .assertError("t:object must name a variable");
-    compile(
-            "<form xmlns:t=\"https://tessera.dev\" t:import=\"com.example.*\" t:params=\"Owner owner\" t:object=\"nope\"></form>",
-            false)
+    compileForm(
+            "<form xmlns:t=\"https://tessera.dev\" t:import=\"com.example.*\" t:params=\"Owner owner\" t:object=\"nope\"></form>")
         .assertError("unknown identifier 'nope'");
   }
 
@@ -236,10 +185,10 @@ class FormsTest {
   void selectionExpressionsInsideObject() {
     // t:object on a non-form element; *{...} is resolved by the expression compiler (#4).
     Compilation c =
-        compile(
-            "<form xmlns:t=\"https://tessera.dev\" t:import=\"com.example.*\" t:params=\"Owner owner\">"
-                + "<div t:object=\"${owner}\"><input t:field=\"firstName\"></div></form>",
-            true);
+        compileForm(
+                "<form xmlns:t=\"https://tessera.dev\" t:import=\"com.example.*\" t:params=\"Owner owner\">"
+                    + "<div t:object=\"${owner}\"><input t:field=\"firstName\"></div></form>")
+            .assertSuccess();
     assertEquals(
         "<form><div><input id=\"firstName\" name=\"firstName\" value=\"Ann\"></div></form>",
         render(c, owner(c, "Ann", null), new TestForms()));
@@ -264,22 +213,21 @@ class FormsTest {
 
   @Test
   void errorsNegative() {
-    compile(HEAD + "><span t:errors=\"*{nope}\"></span></form>", false)
+    compileForm(HEAD + "><span t:errors=\"*{nope}\"></span></form>")
         .assertError("'nope' is not a property of com.example.Owner");
-    compile(
+    compileForm(
             "<form xmlns:t=\"https://tessera.dev\" t:import=\"com.example.*\" t:params=\"Owner owner\">"
-                + "<span t:errors=\"*\"></span></form>",
-            false)
+                + "<span t:errors=\"*\"></span></form>")
         .assertError("t:errors can only be used inside t:object");
   }
 
   @Test
   void errorsInScriptOrStyleIsRejected() {
     // Error text (which can echo user input) would otherwise run as live JavaScript or CSS.
-    compile(HEAD + "><script t:errors=\"*\"></script></form>", false)
+    compileForm(HEAD + "><script t:errors=\"*\"></script></form>")
         .assertError(
             "form.html:1:", "t:errors is only allowed on elements whose content is HTML text, not <script> or <style>");
-    compile(HEAD + "><style t:errors=\"*{firstName}\"></style></form>", false)
+    compileForm(HEAD + "><style t:errors=\"*{firstName}\"></style></form>")
         .assertError("t:errors is only allowed on elements whose content is HTML text, not <script> or <style>");
   }
 
@@ -304,16 +252,15 @@ class FormsTest {
 
   @Test
   void errorClassNegative() {
-    compile(HEAD + "><input t:errorclass=\"err\"></form>", false).assertError("t:errorclass needs t:field");
-    compile(HEAD + "><input t:field=\"*{age}\" t:errorclass=\"x\\\" onclick=\\\"y\"></form>", false)
+    compileForm(HEAD + "><input t:errorclass=\"err\"></form>").assertError("t:errorclass needs t:field");
+    compileForm(HEAD + "><input t:field=\"*{age}\" t:errorclass=\"x\\\" onclick=\\\"y\"></form>")
         .assertError("t:errorclass needs literal class names");
-    compile(HEAD + "><input t:field=\"*{age}\" t:errorclass=\"${owner.firstName}\"></form>", false)
+    compileForm(HEAD + "><input t:field=\"*{age}\" t:errorclass=\"${owner.firstName}\"></form>")
         .assertError("t:errorclass needs literal class names");
   }
 
   @Test
   void fieldsHasErrorsInTemplates() {
-    // Needs t:if (#12) and t:text (#11); skipped until they land.
     Compilation c =
         compile(
             "<b t:if=\"${fields.hasErrors('firstName')}\">F</b><i t:if=\"${fields.hasErrors('*')}\">A</i>"

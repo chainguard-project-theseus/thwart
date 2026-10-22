@@ -1,5 +1,6 @@
 package dev.tessera.compiler.codegen.attr;
 
+import static dev.tessera.compiler.testing.Compilation.model;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import dev.tessera.compiler.testing.Compilation;
@@ -8,7 +9,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -26,14 +26,6 @@ class TextOutputTest {
         .java("com.example.Pojo", "package com.example; public class Pojo { public String getName() { return \"p\"; } }")
         .template("page.html", "<div t:import=\"com.example.*\" t:params=\"" + params + "\">" + body + "</div>")
         .compile();
-  }
-
-  private static Map<String, Object> model(Object... kv) {
-    Map<String, Object> m = new HashMap<>();
-    for (int i = 0; i < kv.length; i += 2) {
-      m.put((String) kv[i], kv[i + 1]);
-    }
-    return m;
   }
 
   // ---- t:text
@@ -59,13 +51,13 @@ class TextOutputTest {
                 "<i t:text=\"n + 1\">.</i><i t:text=\"d\">.</i><i t:text=\"color\">.</i>"
                     + "<i t:text=\"date\">.</i><i t:text=\"o\">.</i><i t:text=\"b\">.</i>")
             .assertSuccess();
-    Object red = enumConstant(c, "com.example.Color", "GREEN");
+    Object green = c.enumConstant("com.example.Color", "GREEN");
     assertEquals(
         "<div><i>42</i><i>1.50</i><i>GREEN</i><i>2024-02-29</i><i>&lt;b&gt;</i><i>true</i></div>",
         c.render(
             "page",
             model(
-                "n", 41, "d", new BigDecimal("1.50"), "color", red, "date", LocalDate.of(2024, 2, 29), "o",
+                "n", 41, "d", new BigDecimal("1.50"), "color", green, "date", LocalDate.of(2024, 2, 29), "o",
                 Optional.of("<b>"), "b", true)));
   }
 
@@ -252,15 +244,5 @@ class TextOutputTest {
             .template("pos.html", "<div t:params=\"String s\">\n  <p>ok [[s]] then [[missing]]</p>\n</div>")
             .compile();
     c.assertError("pos.html:2:22", "unknown identifier 'missing'");
-  }
-
-  private static Object enumConstant(Compilation c, String cls, String name) {
-    try {
-      @SuppressWarnings({"unchecked", "rawtypes"})
-      Object v = Enum.valueOf((Class) c.classLoader().loadClass(cls), name);
-      return v;
-    } catch (ClassNotFoundException e) {
-      throw new AssertionError(e);
-    }
   }
 }

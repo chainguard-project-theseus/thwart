@@ -27,11 +27,8 @@ class AttributesEndToEndTest {
   }
 
   private static Map<String, Object> model(Object... kv) {
-    Map<String, Object> m = new HashMap<>();
-    m.put("b", false); // primitive param: needs a value
-    for (int i = 0; i < kv.length; i += 2) {
-      m.put((String) kv[i], kv[i + 1]);
-    }
+    Map<String, Object> m = new HashMap<>(Map.of("b", false)); // primitive param: needs a value
+    m.putAll(Compilation.model(kv));
     return m;
   }
 
