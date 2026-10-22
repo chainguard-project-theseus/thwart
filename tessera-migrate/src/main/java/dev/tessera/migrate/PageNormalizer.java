@@ -2,9 +2,10 @@ package dev.tessera.migrate;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
@@ -41,7 +42,7 @@ final class PageNormalizer {
   /** Two pages compare as one of these. */
   enum Verdict { SAME, REORDERED, DIFFERS }
 
-  private static final Set<String> BOOLEAN = Set.of("allowfullscreen", "async", "autofocus",
+  private static final Set<String> BOOLEAN = Compat.setOf("allowfullscreen", "async", "autofocus",
       "autoplay", "checked", "controls", "default", "defer", "disabled", "formnovalidate",
       "hidden", "inert", "ismap", "itemscope", "loop", "multiple", "muted", "nomodule",
       "novalidate", "open", "playsinline", "readonly", "required", "reversed", "selected");
@@ -54,7 +55,43 @@ final class PageNormalizer {
   static final String MASK = "MASKED";
 
   /** A printed node and its children. */
-  private record Line(String text, List<Line> children) {}
+  private static final class Line {
+    private final String text;
+    private final List<Line> children;
+
+    Line(String text, List<Line> children) {
+      this.text = text;
+      this.children = children;
+    }
+
+    String text() {
+      return text;
+    }
+
+    List<Line> children() {
+      return children;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof Line)) {
+        return false;
+      }
+      Line o = (Line) obj;
+      return text.equals(o.text)
+          && children.equals(o.children);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(text, children);
+    }
+
+    @Override
+    public String toString() {
+      return "Line[text=" + text + ", children=" + children + "]";
+    }
+  }
 
   /** The normalized page, one node per line, indented by depth. */
   static List<String> lines(String html) {
@@ -90,21 +127,23 @@ final class PageNormalizer {
     List<Line> out = new ArrayList<>();
     StringBuilder text = new StringBuilder();
     for (Node node : parent.childNodes()) {
-      if (node instanceof TextNode t) {
-        text.append(t.getWholeText());
+      if (node instanceof TextNode) {
+        text.append(((TextNode) node).getWholeText());
         continue;
       }
-      if (node instanceof DataNode d) { // script and style content
-        text.append(d.getWholeData());
+      if (node instanceof DataNode) { // script and style content
+        text.append(((DataNode) node).getWholeData());
         continue;
       }
       if (node instanceof Element || node instanceof DocumentType) {
         flushText(text, out);
       }
-      if (node instanceof Element e) {
-        out.add(new Line(startTag(e), children(e)));
-      } else if (node instanceof DocumentType dt) {
-        out.add(new Line("<!doctype " + dt.name().toLowerCase() + publicId(dt) + ">", List.of()));
+      if (node instanceof Element) {
+        out.add(new Line(startTag((Element) node), children(node)));
+      } else if (node instanceof DocumentType) {
+        DocumentType dt = (DocumentType) node;
+        out.add(new Line("<!doctype " + dt.name().toLowerCase() + publicId(dt) + ">",
+            Collections.<Line>emptyList()));
       }
       // Comments and other nodes are dropped; text either side of them joins.
     }
@@ -118,10 +157,10 @@ final class PageNormalizer {
   }
 
   private static void flushText(StringBuilder text, List<Line> out) {
-    String collapsed = WS.matcher(text).replaceAll(" ").strip();
+    String collapsed = Compat.strip(WS.matcher(text).replaceAll(" "));
     text.setLength(0);
     if (!collapsed.isEmpty()) {
-      out.add(new Line(escapeText(collapsed), List.of()));
+      out.add(new Line(escapeText(collapsed), Collections.<Line>emptyList()));
     }
   }
 
@@ -130,7 +169,7 @@ final class PageNormalizer {
     Map<String, String> attrs = new TreeMap<>();
     for (Attribute a : e.attributes()) {
       String name = a.getKey().toLowerCase();
-      String value = WS.matcher(a.getValue()).replaceAll(" ").strip();
+      String value = Compat.strip(WS.matcher(a.getValue()).replaceAll(" "));
       if (name.equals("class")) {
         String[] tokens = value.isEmpty() ? new String[0] : value.split(" ");
         Arrays.sort(tokens);
@@ -146,7 +185,7 @@ final class PageNormalizer {
     }
     if (TOKEN_NAME.matcher(nonNull(attrs.get("name"))).find()
         || TOKEN_NAME.matcher(nonNull(attrs.get("id"))).find()) {
-      for (String masked : List.of("value", "content")) {
+      for (String masked : Compat.listOf("value", "content")) {
         if (attrs.get(masked) != null && !attrs.get(masked).isEmpty()) {
           attrs.put(masked, MASK);
         }
@@ -176,7 +215,7 @@ final class PageNormalizer {
   }
 
   private static void print(Line line, int depth, List<String> out) {
-    out.add("  ".repeat(depth) + line.text());
+    out.add(Compat.repeat("  ", depth) + line.text());
     for (Line kid : line.children()) {
       print(kid, depth + 1, out);
     }
@@ -192,16 +231,16 @@ final class PageNormalizer {
   }
 
   private static List<Line> sorted(List<Line> lines) {
-    record Keyed(String key, Line line) {}
-    return lines.stream()
-        .map(l -> new Line(l.text(), sorted(l.children())))
-        .map(l -> {
-          List<String> out = new ArrayList<>();
-          print(l, 0, out);
-          return new Keyed(String.join("\n", out), l);
-        })
-        .sorted(Comparator.comparing(Keyed::key))
-        .map(Keyed::line)
-        .toList();
+    // Each line keyed by its printed form, sorted by key.
+    TreeMap<String, List<Line>> byKey = new TreeMap<>();
+    for (Line l : lines) {
+      Line s = new Line(l.text(), sorted(l.children()));
+      List<String> out = new ArrayList<>();
+      print(s, 0, out);
+      byKey.computeIfAbsent(String.join("\n", out), k -> new ArrayList<>()).add(s);
+    }
+    List<Line> result = new ArrayList<>();
+    byKey.values().forEach(result::addAll);
+    return result;
   }
 }

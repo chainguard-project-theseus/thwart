@@ -64,10 +64,10 @@ final class Expressions {
   /** {@code ${x}} becomes {@code x}; a compound {@code ${...}} inside a larger value keeps parentheses. */
   private static String dropDollar(String expr) {
     String masked = mask(expr, false);
-    String trimmed = expr.strip();
+    String trimmed = Compat.strip(expr);
     int lead = expr.indexOf(trimmed);
     if (trimmed.startsWith("${") && matchBrace(expr, lead + 1) == lead + trimmed.length() - 1) {
-      return expr.substring(0, lead) + trimmed.substring(2, trimmed.length() - 1).strip()
+      return expr.substring(0, lead) + Compat.strip(trimmed.substring(2, trimmed.length() - 1))
           + expr.substring(lead + trimmed.length());
     }
     StringBuilder sb = new StringBuilder();
@@ -82,7 +82,7 @@ final class Expressions {
         if (close < 0) {
           break;
         }
-        String inner = expr.substring(i + 2, close).strip();
+        String inner = Compat.strip(expr.substring(i + 2, close));
         if (inSubstitution) {
           sb.append(expr, i, close + 1); // |...${x}...| keeps its wrapper
         } else {
@@ -113,7 +113,7 @@ final class Expressions {
         from = at + 1;
         continue;
       }
-      String arg = s.substring(open + 1, close).strip();
+      String arg = Compat.strip(s.substring(open + 1, close));
       String replacement = (needsParens(arg) ? "(" + arg + ")" : arg) + "." + method + "()";
       s = s.substring(0, at) + replacement + s.substring(close + 1);
       from = at + replacement.length();
@@ -156,7 +156,7 @@ final class Expressions {
     String s = expr;
     for (Pattern p : ConversionRules.STRING_LINKS) {
       s = replaceOutsideLiterals(s, p,
-          m -> "@{" + m.group(1) + "(" + m.group(2) + "=${" + m.group(3).strip() + "})}");
+          m -> "@{" + m.group(1) + "(" + m.group(2) + "=${" + Compat.strip(m.group(3)) + "})}");
     }
     return s;
   }
@@ -166,7 +166,7 @@ final class Expressions {
    * text in Thymeleaf, but a variable (or {@code nav - item}) in Tessera, so it must be quoted.
    */
   static boolean isLiteralToken(String value) {
-    String v = value.strip();
+    String v = Compat.strip(value);
     return ConversionRules.LITERAL_TOKEN.matcher(v).matches()
         && !ConversionRules.NUMBER.matcher(v).matches()
         && !ConversionRules.TOKEN_KEYWORDS.contains(v);
@@ -366,7 +366,7 @@ final class Expressions {
 
   /** Blanks a bare {@code tpl :: name} fragment reference prefix (no {@code ~{}} wrapper). */
   private static String maskBareFragmentReference(String value, String masked) {
-    String trimmed = value.strip();
+    String trimmed = Compat.strip(value);
     if (trimmed.startsWith("~{") || trimmed.startsWith("${")) {
       return masked;
     }

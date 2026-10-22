@@ -10,7 +10,29 @@ import java.util.Map;
 final class Report {
 
   /** One report entry; {@code file} is the template path relative to the input root, with '/'. */
-  record Item(String file, int line, String message) {}
+  static final class Item {
+    private final String file;
+    private final int line;
+    private final String message;
+
+    Item(String file, int line, String message) {
+      this.file = file;
+      this.line = line;
+      this.message = message;
+    }
+
+    String file() {
+      return file;
+    }
+
+    int line() {
+      return line;
+    }
+
+    String message() {
+      return message;
+    }
+  }
 
   private final List<Item> items = new ArrayList<>();
   private int templates;
