@@ -15,6 +15,8 @@
     <module>tessera-runtime</module>
     <module>tessera-compiler</module>
     <module>tessera-spring-boot-starter</module>
+    <module>tessera-spring-boot-starter-javax</module>
+    <module>tessera-spring-tests</module>
     <module>tessera-migrate</module>
     <module>examples/petclinic</module>
     <module>tessera-benchmarks</module>
@@ -50,6 +52,11 @@
       <dependency>
         <groupId>dev.tessera</groupId>
         <artifactId>tessera-spring-boot-starter</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>dev.tessera</groupId>
+        <artifactId>tessera-spring-boot-starter-javax</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
@@ -145,6 +152,11 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-enforcer-plugin</artifactId>
           <version>3.6.3</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-source-plugin</artifactId>
+          <version>3.4.0</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>

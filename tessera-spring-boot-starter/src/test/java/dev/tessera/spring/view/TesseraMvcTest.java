@@ -13,26 +13,41 @@ import dev.tessera.runtime.Template;
 import dev.tessera.runtime.TemplateEntry;
 import dev.tessera.runtime.TemplateModelException;
 import dev.tessera.runtime.TemplateRegistry;
-import java.util.List;
+import java.util.Arrays;
+import java.util.Collections;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Controller;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.context.WebApplicationContext;
 
-/** End-to-end MVC tests over hand-written registry and template doubles. */
+/**
+ * End-to-end MVC tests over hand-written registry and template doubles. MockMvc is built from the
+ * context (not {@code @AutoConfigureMockMvc}, whose package differs by Boot version), and the
+ * Spring extension is explicit for Boot 2.0.
+ */
+@ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = TesseraMvcTest.App.class)
-@AutoConfigureMockMvc
 class TesseraMvcTest {
 
-  @Autowired MockMvc mvc;
+  @Autowired WebApplicationContext context;
+  MockMvc mvc;
+
+  @BeforeEach
+  void setUp() {
+    mvc = MockMvcBuilders.webAppContextSetup(context).build();
+  }
 
   @Test
   void viewNameRendersWithModel() throws Exception {
@@ -86,7 +101,13 @@ class TesseraMvcTest {
   }
 
   /** A hand-written stand-in for a generated template with {@code t:params="String name"}. */
-  record GreetingTemplate(String name) implements Template {
+  static final class GreetingTemplate implements Template {
+    private final String name;
+
+    GreetingTemplate(String name) {
+      this.name = name;
+    }
+
     @Override
     public String templateName() {
       return "greeting";
@@ -108,7 +129,7 @@ class TesseraMvcTest {
     TemplateEntry greeting =
         new TemplateEntry(
             "greeting",
-            List.of(new TemplateEntry.Param("name", "java.lang.String")),
+            Collections.singletonList(new TemplateEntry.Param("name", "java.lang.String")),
             (model, ctx, out) -> {
               Object v = model.get("name");
               if (v != null && !(v instanceof String)) {
@@ -120,8 +141,11 @@ class TesseraMvcTest {
               GreetingTemplate.render((String) v, ctx, out);
             });
     TemplateEntry details =
-        new TemplateEntry("owners/details", List.of(), (model, ctx, out) -> out.write("<h1>details</h1>"));
-    return TemplateRegistry.of(List.of(greeting, details));
+        new TemplateEntry(
+            "owners/details",
+            Collections.<TemplateEntry.Param>emptyList(),
+            (model, ctx, out) -> out.write("<h1>details</h1>"));
+    return TemplateRegistry.of(Arrays.asList(greeting, details));
   }
 
   @SpringBootConfiguration

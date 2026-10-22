@@ -85,19 +85,27 @@ but inside `|...|` and `+` a `null` prints `null`.
 ## 2. Build setup
 
 The build needs JDK 21+ and Maven: the annotation processor (`tessera-compiler`) runs inside the
-application's javac. The application itself can run on Java 8+: `tessera-runtime` is Java 8 class
-files and the generated template code compiles with `release` 8. On Java 8 there are no records,
-so give the model classes `getX()` getters and `@TemplateView`. The Spring starter is Java 21
-(below).
+application's javac. The application itself can run on Java 8+: `tessera-runtime` and the Spring
+starter are Java 8 class files and the generated template code compiles with `release` 8. On Java
+8 there are no records, so give the model classes `getX()` getters and `@TemplateView`.
 
-The Spring integration, `tessera-spring-boot-starter`, is built against **Spring Boot 4.1 (Spring
-Framework 7)** and depends on Boot 4's `spring-boot-webmvc`. Boot 3 is not supported yet (#116),
-although the starter's code uses only APIs that Boot 3.2+ also has.
+The Spring integration supports **Spring Framework 5.0+ and Spring Boot 2.0+**. The test suite
+runs on Boot 2.0, 2.7, 3.5 and 4.1 and on plain Spring MVC 5.0. Pick the artifact by servlet API
+and use exactly one of them; they contain the same classes:
+
+| Application | Artifact |
+|---|---|
+| `jakarta.servlet` (Boot 3+, Spring 6+) | `tessera-spring-boot-starter` |
+| `javax.servlet` (Boot 2.x, Spring 5.x) | `tessera-spring-boot-starter-javax` (the same jar, relocated to `javax.servlet`) |
+
+The starter brings only `tessera-runtime`. Spring, Boot, the servlet API and Spring Security come
+from the application. Below Spring 5.0 nothing is tested: wiring the classes by hand is at your
+own risk.
 
 ```xml
 <dependency>
   <groupId>dev.tessera</groupId>
-  <artifactId>tessera-spring-boot-starter</artifactId> <!-- without Spring: tessera-runtime -->
+  <artifactId>tessera-spring-boot-starter</artifactId> <!-- javax: -javax; without Spring: tessera-runtime -->
   <version>${tessera.version}</version>
 </dependency>
 
@@ -146,41 +154,34 @@ checked at build time. Facts about the build today:
 
 **Spring Boot.** The starter's auto-configuration registers the view resolver, the `Template`
 return-value handler and the template registry. Tessera's resolver runs before Thymeleaf's and
-falls through for names it does not know, so the old engine can stay while you migrate.
+falls through for names it does not know, so the old engine can stay while you migrate. The jar
+registers itself for every Boot generation, including `@WebMvcTest` slices.
 
-**Spring MVC without Boot.** Depend on the starter excluding `org.springframework.boot:*` (the
-classes below need only `spring-webmvc`), and declare what the auto-configuration would.
-`TemplateRegistry` is in `dev.tessera.runtime`, `SpringRenderContexts` in
-`dev.tessera.spring.context`, `TesseraViewResolver` and `TemplateReturnValueHandler` in
-`dev.tessera.spring.view`:
+**Spring MVC without Boot.** Import `dev.tessera.spring.TesseraConfiguration`. It needs only
+`spring-webmvc`:
 
 ```java
 @Configuration
-public class TesseraConfig implements WebMvcConfigurer {
-  @Bean
-  public TesseraViewResolver tesseraViewResolver() {
-    return new TesseraViewResolver(
-        TemplateRegistry.load(getClass().getClassLoader()), SpringRenderContexts::create);
-  }
-
-  @Bean // redirect: and forward: names; TesseraViewResolver resolves only template names
-  public UrlBasedViewResolver redirectViewResolver() {
-    UrlBasedViewResolver resolver = new UrlBasedViewResolver();
-    resolver.setViewClass(InternalResourceView.class);
-    resolver.setViewNames("redirect:*", "forward:*");
-    return resolver;
-  }
-
-  @Override // only if controllers return Template objects
-  public void addReturnValueHandlers(List<HandlerMethodReturnValueHandler> handlers) {
-    handlers.add(new TemplateReturnValueHandler(SpringRenderContexts::create));
-  }
-}
+@EnableWebMvc
+@Import(TesseraConfiguration.class)
+public class WebConfig {}
 ```
 
-`TesseraViewResolver` resolves only template names. Under Boot a fallback resolver handles
-`redirect:` and `forward:`; without Boot the old engine's resolver usually did, so removing it
-without a replacement breaks redirects (behind a `ContentNegotiatingViewResolver`, as a 406).
+In XML, declare it as a bean next to `<context:annotation-config/>` and `<mvc:annotation-driven/>`:
+`<bean class="dev.tessera.spring.TesseraConfiguration"/>`. It registers the same beans as the
+auto-configuration, plus a resolver for `redirect:` and `forward:` names. Boot provides that
+resolver; without Boot the old engine's resolver usually did, so removing it without a replacement
+breaks redirects (behind a `ContentNegotiatingViewResolver`, as a 406).
+
+**Older Boot.** Checked on Boot 2.0 (Spring 5.0, Security 5.0):
+
+- The Boot 2.x parent's `maven-compiler-plugin` (3.7.0 in Boot 2.0) supports
+  `annotationProcessorPaths`, and its `-source`/`-target 1.8` build Java 8 class files. Nothing
+  to change.
+- Boot 2.0's default security (CSRF on, token in the session) works unchanged: a
+  `<form method="post">` gets the `_csrf` input.
+- Spring 5.0 needs `--add-opens java.base/java.lang=ALL-UNNAMED` on JDK 16+, including for tests
+  on the JDK 21 that the build needs (surefire `argLine`). Spring 5.3 (Boot 2.7) does not.
 
 **Error pages.** Under Boot, `templates/error.html` renders errors with Boot's error attributes as
 the model (`Integer status`, `String error`, `String message`, `String path`; `timestamp` is a
@@ -641,7 +642,8 @@ pass it as another argument if needed.
 
 ### 4.9 Rendering
 
-With Spring, `return "owners/list";` renders `templates/owners/list.html` from the model. The name
+With Spring (Boot's auto-configuration, or `TesseraConfiguration` without Boot), `return
+"owners/list";` renders `templates/owners/list.html` from the model. The name
 must match exactly; other names fall through to other resolvers. A model value of the wrong type
 fails with `TemplateModelException`. A controller can also return `ListTemplate.of(owners)`, checked
 by `javac`. Without Spring, call `FunctionsTemplate.of(order).renderToString(ctx)` with a
@@ -1020,7 +1022,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
 
 - **Build.** Maven only. Template-only changes need `mvn clean compile`; there is no hot reload.
   The processor fails in `testCompile` and in incremental compiles that skip the
-  `@TemplateFunctions` class (#118). Spring Boot 3 is not supported yet (#116).
+  `@TemplateFunctions` class (#118).
 - **Messages.** `-Atessera.messages` checks one bundle. Keys from other bundles fail the build;
   give those pages a `@TemplateFunction` that looks them up, and accept that they are not checked.
 - **View resolution.** Names are matched exactly: a leading `/` or a `page :: fragment` view name

@@ -35,10 +35,12 @@ This is an MVP built tonight. Prefer the smallest thing that is correct and secu
 
 - Do exactly the issue's scope. No speculative abstractions, plugin systems, config knobs,
   or "future-proofing". No new modules or dependencies unless the issue says so.
-- Plain Java. `tessera-runtime` and the code the generator emits are **Java 8** (no records,
-  sealed types, pattern matching, switch expressions, `var` or post-8 APIs such as `List.of`);
-  javac `--release 8` and the release-8 test run enforce it. The compiler, starter and tooling
-  are Java 21 (records, sealed interfaces, switch patterns). The runtime module has **zero
+- Plain Java. `tessera-runtime`, `tessera-spring-boot-starter` (main and test sources) and the
+  code the generator emits are **Java 8** (no records, sealed types, pattern matching, switch
+  expressions, `var` or post-8 APIs such as `List.of`); javac `--release 8` and the release-8
+  test runs enforce it. The starter must also keep working on Spring 5.0 / Boot 2.0
+  (`tessera-spring-tests`). The compiler and tooling are Java 21 (records, sealed interfaces,
+  switch patterns). The runtime module has **zero
   third-party dependencies**.
 - Error messages from the compiler must name the template file, line and column.
 - Security-relevant behaviour gets a test, including a negative test (the bad thing fails).
