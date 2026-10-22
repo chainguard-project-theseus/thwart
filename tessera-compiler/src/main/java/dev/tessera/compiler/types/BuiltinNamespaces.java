@@ -6,10 +6,10 @@ import java.util.List;
  * Function namespace classes registered automatically when present on the compile classpath.
  * Adding a class here widens every application's attack surface: keep it short and reviewed.
  */
-public final class BuiltinNamespaces {
+final class BuiltinNamespaces {
   private BuiltinNamespaces() {}
 
-  public static final List<String> CLASSES =
+  static final List<String> CLASSES =
       List.of(
           "dev.tessera.runtime.fn.Strings",
           "dev.tessera.runtime.fn.Numbers",

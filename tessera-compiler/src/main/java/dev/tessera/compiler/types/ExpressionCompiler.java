@@ -60,29 +60,19 @@ public final class ExpressionCompiler {
   private static final String VALUES = "dev.tessera.runtime.Values";
   private static final String FRAGMENT = "dev.tessera.runtime.Fragment";
   private static final String FIELD = "dev.tessera.runtime.Field";
-  private static final List<String> IMPLICIT_PACKAGES =
-      List.of("java.lang", "java.util", "java.time", "java.math", "dev.tessera.runtime");
   private static final Set<String> OBJECT_METHODS =
       Set.of("getClass", "hashCode", "equals", "toString", "wait", "notify", "notifyAll", "clone", "finalize");
-  private static final Map<String, TypeKind> PRIMITIVES =
-      Map.of(
-          "boolean", TypeKind.BOOLEAN,
-          "byte", TypeKind.BYTE,
-          "short", TypeKind.SHORT,
-          "int", TypeKind.INT,
-          "long", TypeKind.LONG,
-          "char", TypeKind.CHAR,
-          "float", TypeKind.FLOAT,
-          "double", TypeKind.DOUBLE);
 
   private final CompilerEnv env;
   private final ViewSafety safety;
+  private final TypeResolver resolver;
   private FunctionRegistry functions;
   private int lambdas;
 
   public ExpressionCompiler(CompilerEnv env) {
     this.env = env;
     this.safety = new ViewSafety(env);
+    this.resolver = new TypeResolver(env, safety);
   }
 
   public CompilerEnv env() {
@@ -93,7 +83,7 @@ public final class ExpressionCompiler {
    * The function namespaces visible to templates. Built (and its registration errors reported)
    * on first use, i.e. as soon as any expression or parameter type is compiled.
    */
-  public FunctionRegistry functions() {
+  FunctionRegistry functions() {
     if (functions == null) {
       functions = new FunctionRegistry(env);
     }
@@ -165,7 +155,7 @@ public final class ExpressionCompiler {
     // A subtype such as `class Threads extends ArrayList<Thread>` passes the deny-list itself.
     Optional<String> bad = safety.neverViewSafeReason(e);
     if (bad.isPresent()) {
-      return errorType(iterable.pos(), "cannot iterate over " + describe(iterable.type()) + ": " + bad.get());
+      return error(iterable.pos(), "cannot iterate over " + describe(iterable.type()) + ": " + bad.get());
     }
     return e;
   }
@@ -180,19 +170,19 @@ public final class ExpressionCompiler {
         TypeMirror k = typeArg(t, "java.util.Map", 0);
         TypeMirror v = typeArg(t, "java.util.Map", 1);
         if (k == null || v == null) {
-          return errorType(iterable.pos(), "cannot iterate over raw type " + t + ": declare its type arguments");
+          return error(iterable.pos(), "cannot iterate over raw type " + t + ": declare its type arguments");
         }
         return types().getDeclaredType(elements().getTypeElement("java.util.Map.Entry"), k, v);
       }
       if (isSubtypeOf(t, "java.lang.Iterable")) {
         TypeMirror e = typeArg(t, "java.lang.Iterable", 0);
         if (e == null) {
-          return errorType(iterable.pos(), "cannot iterate over raw type " + t + ": declare its type arguments");
+          return error(iterable.pos(), "cannot iterate over raw type " + t + ": declare its type arguments");
         }
         return e;
       }
     }
-    return errorType(iterable.pos(), "cannot iterate over " + describe(t) + ": t:each needs an Iterable, an array or a Map");
+    return error(iterable.pos(), "cannot iterate over " + describe(t) + ": t:each needs an Iterable, an array or a Map");
   }
 
   /**
@@ -204,16 +194,16 @@ public final class ExpressionCompiler {
    */
   public TypeMirror resolveType(TypeRef ref, List<String> imports) {
     functions();
-    TypeMirror t = resolveRef(ref, imports);
+    TypeMirror t = resolver.resolve(ref, imports);
     if (t == null) {
       return null;
     }
     Optional<String> never = safety.neverViewSafeReason(t);
     if (never.isPresent()) {
-      return errorType(ref.pos(), "parameter type " + t + " is not allowed: " + never.get());
+      return error(ref.pos(), "parameter type " + t + " is not allowed: " + never.get());
     }
     if (!safety.isViewSafe(t) && !isSame(t, FRAGMENT) && !isSame(t, FIELD)) {
-      return errorType(
+      return error(
           ref.pos(),
           "parameter type " + t + " is not view-safe: use a record, an enum, a JDK value type, a collection of"
               + " those, or a class annotated @TemplateView");
@@ -712,120 +702,6 @@ public final class ExpressionCompiler {
     return ok ? new CompiledExpr(code.toString(), declared("java.lang.String"), i.pos()) : null;
   }
 
-  // ---------------------------------------------------------------- type resolution
-
-  private TypeMirror resolveRef(TypeRef ref, List<String> imports) {
-    TypeMirror base;
-    TypeKind pk = PRIMITIVES.get(ref.name());
-    if (pk != null) {
-      if (!ref.typeArgs().isEmpty()) {
-        return errorType(ref.pos(), ref.name() + " cannot have type arguments");
-      }
-      base = prim(pk);
-    } else {
-      TypeElement te = resolveName(ref.name(), imports, ref.pos());
-      if (te == null) {
-        return null;
-      }
-      Optional<String> never = safety.neverViewSafeReason(types().erasure(te.asType()));
-      if (never.isPresent()) {
-        return errorType(ref.pos(), "parameter type " + te.getQualifiedName() + " is not allowed: " + never.get());
-      }
-      int expected = te.getTypeParameters().size();
-      int got = ref.typeArgs().size();
-      if (got == 0 && expected > 0) {
-        return errorType(ref.pos(), ref.name() + " needs " + expected + " type argument(s), e.g. " + ref.name() + "<String>");
-      }
-      if (got != expected) {
-        return errorType(ref.pos(), te.getQualifiedName() + " takes " + expected + " type argument(s), got " + got);
-      }
-      TypeMirror[] args = new TypeMirror[got];
-      for (int i = 0; i < got; i++) {
-        TypeRef a = ref.typeArgs().get(i);
-        args[i] = resolveRef(a, imports);
-        if (args[i] == null) {
-          return null;
-        }
-        if (args[i].getKind().isPrimitive()) {
-          return errorType(a.pos(), "type arguments must be reference types: use " + box(args[i]) + ", not " + a.name());
-        }
-      }
-      base = types().getDeclaredType(te, args);
-    }
-    for (int d = 0; d < ref.arrayDims(); d++) {
-      base = types().getArrayType(base);
-    }
-    return base;
-  }
-
-  private TypeElement resolveName(String name, List<String> imports, SourcePos pos) {
-    if (name.contains(".")) {
-      TypeElement te = elements().getTypeElement(name);
-      if (te != null) {
-        return te;
-      }
-      int dot = name.indexOf('.');
-      TypeElement outer = resolveSimple(name.substring(0, dot), imports, pos, false);
-      if (outer != null) {
-        te = elements().getTypeElement(outer.getQualifiedName() + name.substring(dot));
-        if (te != null) {
-          return te;
-        }
-      }
-      env.diagnostics().error(pos, "unknown type '" + name + "': check the package name and that the class is on the compile"
-          + " classpath");
-      return null;
-    }
-    return resolveSimple(name, imports, pos, true);
-  }
-
-  private TypeElement resolveSimple(String simple, List<String> imports, SourcePos pos, boolean report) {
-    for (String raw : imports) {
-      String imp = raw.strip();
-      if (!imp.endsWith(".*") && (imp.equals(simple) || imp.endsWith("." + simple))) {
-        TypeElement te = elements().getTypeElement(imp);
-        if (te != null) {
-          return te;
-        }
-        if (report) {
-          env.diagnostics().error(pos, "unknown type '" + imp + "' in t:import: check the package name and that the class is on"
-              + " the compile classpath");
-        }
-        return null;
-      }
-    }
-    List<TypeElement> found = new ArrayList<>();
-    for (String raw : imports) {
-      String imp = raw.strip();
-      if (imp.endsWith(".*")) {
-        TypeElement te = elements().getTypeElement(imp.substring(0, imp.length() - 1) + simple);
-        if (te != null && !found.contains(te)) {
-          found.add(te);
-        }
-      }
-    }
-    if (found.size() == 1) {
-      return found.get(0);
-    }
-    if (found.size() > 1) {
-      if (report) {
-        env.diagnostics()
-            .error(pos, "type '" + simple + "' is ambiguous: " + found.stream().map(t -> t.getQualifiedName().toString()).collect(Collectors.joining(" and ")) + "; import one explicitly");
-      }
-      return null;
-    }
-    for (String pkg : IMPLICIT_PACKAGES) {
-      TypeElement te = elements().getTypeElement(pkg + "." + simple);
-      if (te != null) {
-        return te;
-      }
-    }
-    if (report) {
-      env.diagnostics().error(pos, "unknown type '" + simple + "': add it to t:import or use its qualified name");
-    }
-    return null;
-  }
-
   // ---------------------------------------------------------------- helpers
 
   private Types types() {
@@ -836,12 +712,7 @@ public final class ExpressionCompiler {
     return env.elements();
   }
 
-  private CompiledExpr error(SourcePos pos, String message) {
-    env.diagnostics().error(pos, message);
-    return null;
-  }
-
-  private TypeMirror errorType(SourcePos pos, String message) {
+  private <T> T error(SourcePos pos, String message) {
     env.diagnostics().error(pos, message);
     return null;
   }
