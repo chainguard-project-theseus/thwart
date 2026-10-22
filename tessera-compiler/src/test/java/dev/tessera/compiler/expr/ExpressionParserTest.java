@@ -21,10 +21,7 @@ class ExpressionParserTest {
   // ---- helpers ----
 
   private Expr expr(String text) {
-    Diagnostics d = new Diagnostics();
-    Expr e = parser.parseExpression(text, START, d);
-    assertEquals(List.of(), d.all(), "diagnostics for " + text);
-    return e;
+    return ok(text, (t, d) -> parser.parseExpression(t, START, d));
   }
 
   private String ast(String text) {
@@ -35,11 +32,18 @@ class ExpressionParserTest {
     return error(text, (t, d) -> parser.parseExpression(t, START, d));
   }
 
-  private interface Parse {
-    Object apply(String text, Diagnostics d);
+  private interface Parse<T> {
+    T apply(String text, Diagnostics d);
   }
 
-  private static Diagnostic error(String text, Parse parse) {
+  private static <T> T ok(String text, Parse<T> parse) {
+    Diagnostics d = new Diagnostics();
+    T result = parse.apply(text, d);
+    assertEquals(List.of(), d.all(), "diagnostics for " + text);
+    return result;
+  }
+
+  private static Diagnostic error(String text, Parse<?> parse) {
     Diagnostics d = new Diagnostics();
     assertNull(parse.apply(text, d), "expected failure for " + text);
     assertEquals(1, d.all().size(), "diagnostics for " + text + ": " + d.all());
@@ -236,15 +240,12 @@ class ExpressionParserTest {
   }
 
   private FragmentRef ref(String text) {
-    Diagnostics d = new Diagnostics();
-    FragmentRef r = parser.parseFragmentRef(text, START, d);
-    assertEquals(List.of(), d.all(), "diagnostics for " + text);
-    return r;
+    return ok(text, (t, d) -> parser.parseFragmentRef(t, START, d));
   }
 
   @Test
   void fragmentRefErrors() {
-    Parse p = (t, d) -> parser.parseFragmentRef(t, START, d);
+    Parse<FragmentRef> p = (t, d) -> parser.parseFragmentRef(t, START, d);
     assertEquals("fragment arguments must be all named or all positional, e.g. f(a, b) or f(x=a, y=b)", error("a :: f(x, n=y)", p).message());
     assertTrue(error("template", p).message().startsWith("expected '::'"));
     assertTrue(error("~{a :: #id}", p).message().contains("markup selectors are not supported"));
@@ -277,19 +278,17 @@ class ExpressionParserTest {
 
   @Test
   void each() {
-    Diagnostics d = new Diagnostics();
-    EachSpec e = parser.parseEach("o : ${owners}", START, d);
+    Parse<EachSpec> p = (t, d) -> parser.parseEach(t, START, d);
+    EachSpec e = ok("o : ${owners}", p);
     assertEquals("o", e.var());
     assertNull(e.statVar());
     assertEquals("owners", show(e.iterable()));
-    e = parser.parseEach(" pet, stat : owner.pets", START, d);
+    e = ok(" pet, stat : owner.pets", p);
     assertEquals("pet", e.var());
     assertEquals("stat", e.statVar());
     assertEquals("(. owner pets)", show(e.iterable()));
     assertEquals(new SourcePos("t.html", 3, 11), e.pos());
-    assertEquals(List.of(), d.all());
 
-    Parse p = (t, dd) -> parser.parseEach(t, START, dd);
     assertTrue(error("o in owners", p).message().startsWith("expected ':'"));
     assertTrue(error("o, : owners", p).message().startsWith("expected a status variable name"));
     assertTrue(error(": owners", p).message().startsWith("expected a loop variable name"));
@@ -298,16 +297,14 @@ class ExpressionParserTest {
 
   @Test
   void assignments() {
-    Diagnostics d = new Diagnostics();
-    List<Assignment> as = parser.parseAssignments("data-id=${o.id}, xlink:href = @{/a}, aria.x=1 + 2", START, d);
-    assertEquals(List.of(), d.all());
+    Parse<List<Assignment>> p = (t, d) -> parser.parseAssignments(t, START, d);
+    List<Assignment> as = ok("data-id=${o.id}, xlink:href = @{/a}, aria.x=1 + 2", p);
     assertEquals(List.of("data-id", "xlink:href", "aria.x"), as.stream().map(Assignment::name).toList());
     assertEquals("(. o id)", show(as.get(0).value()));
     assertEquals("(link /a)", show(as.get(1).value()));
     assertEquals("(ADD 1 2)", show(as.get(2).value()));
     assertEquals(new SourcePos("t.html", 3, 27), as.get(1).pos());
 
-    Parse p = (t, dd) -> parser.parseAssignments(t, START, dd);
     assertTrue(error("a", p).message().startsWith("expected '=' after 'a'"));
     assertTrue(error("=1", p).message().startsWith("expected an attribute or variable name"));
     assertTrue(error("a=1,", p).message().startsWith("expected an attribute or variable name"));
@@ -316,11 +313,10 @@ class ExpressionParserTest {
 
   @Test
   void params() {
-    Diagnostics d = new Diagnostics();
-    assertEquals(List.of(), parser.parseParams("  ", START, d));
-    List<ParamDecl> ps = parser.parseParams(
-        "OwnerView owner, List<PetView> pets, Map<String, List<com.x.Item>> m, int[][] grid, String[] names", START, d);
-    assertEquals(List.of(), d.all());
+    Parse<List<ParamDecl>> p = (t, d) -> parser.parseParams(t, START, d);
+    assertEquals(List.of(), ok("  ", p));
+    List<ParamDecl> ps = ok(
+        "OwnerView owner, List<PetView> pets, Map<String, List<com.x.Item>> m, int[][] grid, String[] names", p);
     assertEquals(List.of("owner", "pets", "m", "grid", "names"), ps.stream().map(ParamDecl::name).toList());
     assertEquals(new TypeRef("OwnerView", List.of(), 0, START), ps.get(0).type());
     TypeRef map = ps.get(2).type();
@@ -332,7 +328,6 @@ class ExpressionParserTest {
     assertEquals(1, ps.get(4).type().arrayDims());
     assertEquals(new SourcePos("t.html", 3, 27), ps.get(1).pos());
 
-    Parse p = (t, dd) -> parser.parseParams(t, START, dd);
     assertTrue(error("owner", p).message().startsWith("expected a parameter name after type 'owner'"));
     assertTrue(error("List<? extends X> xs", p).message().startsWith("wildcard types are not supported"));
     assertTrue(error("List<X xs", p).message().startsWith("expected ',' or '>'"));
@@ -342,12 +337,10 @@ class ExpressionParserTest {
 
   @Test
   void imports() {
-    Diagnostics d = new Diagnostics();
-    assertEquals(List.of(), parser.parseImports("", START, d));
+    Parse<List<String>> p = (t, d) -> parser.parseImports(t, START, d);
+    assertEquals(List.of(), ok("", p));
     assertEquals(List.of("com.example.owner.*", "com.example.vet.VetView", "Foo"),
-        parser.parseImports(" com.example.owner.*,\n com.example.vet.VetView , Foo", START, d));
-    assertEquals(List.of(), d.all());
-    Parse p = (t, dd) -> parser.parseImports(t, START, dd);
+        ok(" com.example.owner.*,\n com.example.vet.VetView , Foo", p));
     assertTrue(error("com.", p).message().startsWith("unexpected '.'"));
     assertTrue(error("com.x,", p).message().startsWith("expected a package or class name"));
     assertTrue(error("com x", p).message().startsWith("unexpected 'x'"));
@@ -355,18 +348,16 @@ class ExpressionParserTest {
 
   @Test
   void fragmentSignatures() {
-    Diagnostics d = new Diagnostics();
-    FragmentSignature s = parser.parseFragmentSignature("card", START, d);
+    Parse<FragmentSignature> p = (t, d) -> parser.parseFragmentSignature(t, START, d);
+    FragmentSignature s = ok("card", p);
     assertEquals("card", s.name());
     assertEquals(List.of(), s.params());
-    assertEquals(List.of(), parser.parseFragmentSignature("card()", START, d).params());
-    s = parser.parseFragmentSignature(" card(OwnerView owner, Fragment body)", START, d);
-    assertEquals(List.of(), d.all());
+    assertEquals(List.of(), ok("card()", p).params());
+    s = ok(" card(OwnerView owner, Fragment body)", p);
     assertEquals(new SourcePos("t.html", 3, 11), s.pos());
     assertEquals(List.of("owner", "body"), s.params().stream().map(ParamDecl::name).toList());
     assertEquals("Fragment", s.params().get(1).type().name());
 
-    Parse p = (t, dd) -> parser.parseFragmentSignature(t, START, dd);
     assertTrue(error("card(a, b)", p).message().startsWith("expected a parameter name after type 'a'"));
     assertTrue(error("card(A a", p).message().startsWith("expected ',' or ')'"));
     assertTrue(error("(A a)", p).message().startsWith("expected a fragment name"));
