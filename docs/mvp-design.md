@@ -176,9 +176,9 @@ compile via `FieldsCompiler` to `ctx.forms()` calls. Iterating `null` yields zer
 | `TEXT` | element text, `<title>`, `<textarea>`, `t:text`, `[[...]]` | `Escapers.text` | `& < > " '` |
 | — | `t:utext`, `[(...)]` | `Escapers.html(SafeHtml)` | non-`SafeHtml` is a build error |
 | `ATTRIBUTE` | any other attribute value | `Escapers.attr` | output always double-quoted |
-| `URL` | `href src action formaction cite poster background longdesc usemap ping` (`xlink:href`) | `Escapers.url` | http/https/mailto/tel/relative, else `about:invalid#tessera`; `TrustedUrl` passes |
+| `URL` | `href src action formaction cite poster background longdesc usemap ping` (`xlink:href`), `values to from by` on SVG `animate`/`set` | `Escapers.url` | http/https/mailto/tel/relative, else `about:invalid#tessera`; `TrustedUrl` passes |
 | `RESOURCE_URL` | `script[src] iframe[src] frame[src] embed[src] object[data] base[href] link[href]` | `Escapers.resourceUrl` | only a literal-path `@{}` link or `TrustedUrl`; else build error |
-| `SCRIPT` | text in `<script>` (no type or JS/module/JSON) | `Escapers.json` | `[[...]]` only; JSON-able types only |
+| `SCRIPT` | text in `<script>` (no type or JS/module/JSON) | `Escapers.json` | `[[...]]` only; JSON-able types only; also escapes `/`, backtick and `$` so a value cannot leave a JS comment, regex or template literal |
 | `STYLE` | `<style>`, `style` attribute | — | build error |
 | `EVENT_HANDLER` | `on*` attributes | — | build error; use `data-*` + script |
 | `FORBIDDEN` | `srcdoc`, non-JS `<script type>`, odd attribute names | — | build error |

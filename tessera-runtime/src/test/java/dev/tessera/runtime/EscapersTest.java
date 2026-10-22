@@ -325,6 +325,7 @@ class EscapersTest {
     assertEquals("\"\\u0000\\u001f\\u007f\"", json("\u0000\u001f\u007f"));
     assertEquals("\"\\u003c\\u003e\\u0026\\u0027\"", json("<>&'"));
     assertEquals("\"\\u2028\\u2029\"", json("\u2028\u2029"));
+    assertEquals("\"\\u0060\\u0024{x}\\/\"", json("`${x}/"));
     assertEquals("\"\u00e9\ud83d\ude00\"", json("\u00e9\ud83d\ude00"));
   }
 
@@ -346,10 +347,15 @@ class EscapersTest {
         "'; alert(1); //",
         "\u2028alert(1)",
         "\\\"",
+        "*/alert(1)/*",
+        "/;alert(1);//",
+        "`+alert(1)+`",
+        "${alert(1)}",
       })
   void jsonCannotCloseScriptOrString(String payload) {
     String out = json(payload);
-    for (char c : new char[] {'<', '>', '&', '\'', '\u2028', '\u2029'}) {
+    assertFalse(out.replace("\\/", "").contains("/"), () -> "raw / in " + out);
+    for (char c : new char[] {'<', '>', '&', '\'', '`', '$', '\u2028', '\u2029'}) {
       assertEquals(-1, out.indexOf(c), () -> "raw " + c + " in " + out);
     }
     // Exactly the two delimiting quotes are unescaped.
@@ -360,7 +366,7 @@ class EscapersTest {
 
   @Test
   void jsonMapKeysAreEscapedToo() {
-    assertEquals("{\"\\u003c/script\\u003e\":1}", json(Map.of("</script>", 1)));
+    assertEquals("{\"\\u003c\\/script\\u003e\":1}", json(Map.of("</script>", 1)));
   }
 
   @Test
@@ -415,7 +421,7 @@ class EscapersTest {
     assertEquals("\"P1D\"", json(Period.ofDays(1)));
     assertEquals("\"2024\"", json(Year.of(2024)));
     assertEquals("\"2024-02\"", json(YearMonth.of(2024, 2)));
-    assertEquals("\"Europe/Paris\"", json(ZoneId.of("Europe/Paris")));
+    assertEquals("\"Europe\\/Paris\"", json(ZoneId.of("Europe/Paris")));
     assertEquals("[\"2024-02-29\"]", json(List.of(LocalDate.of(2024, 2, 29))));
   }
 
