@@ -1,6 +1,9 @@
 package dev.tessera.compiler.types;
 
 import dev.tessera.compiler.CompilerEnv;
+import dev.tessera.runtime.LoopStatus;
+import dev.tessera.runtime.SafeHtml;
+import dev.tessera.runtime.TrustedUrl;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashSet;
@@ -88,9 +91,9 @@ final class ViewSafety {
           "java.lang.CharSequence",
           "java.math.BigDecimal",
           "java.math.BigInteger",
-          "dev.tessera.runtime.LoopStatus",
-          "dev.tessera.runtime.SafeHtml",
-          "dev.tessera.runtime.TrustedUrl");
+          LoopStatus.class.getName(),
+          SafeHtml.class.getName(),
+          TrustedUrl.class.getName());
 
   /** Container types; view-safe when every type argument is. */
   private static final Set<String> CONTAINERS =

@@ -6,6 +6,7 @@ import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.expr.ExpressionParser;
 import dev.tessera.compiler.expr.FragmentSignature;
 import dev.tessera.compiler.expr.ParamDecl;
+import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Document;
 import dev.tessera.compiler.model.Element;
@@ -147,7 +148,7 @@ public final class TemplateIndex {
   private static List<Param> withoutFields(List<Param> params, List<ParamDecl> decls, DiagnosticSink sink) {
     List<Param> out = new ArrayList<>();
     for (Param p : params) {
-      if (p.javaType().equals("dev.tessera.runtime.Field")) {
+      if (p.javaType().equals(FormPaths.FIELD)) {
         SourcePos pos = decls.stream().filter(d -> d.name().equals(p.name())).findFirst().map(ParamDecl::pos).orElseThrow();
         sink.error(
             pos,

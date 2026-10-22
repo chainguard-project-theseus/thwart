@@ -34,8 +34,8 @@ public final class MessageCompiler {
     // Arguments are formatted into the message text, so they must be outputtable values.
     List<String> args = new ArrayList<>();
     for (Expr a : message.args()) {
-      CompiledExpr c = expressions.compile(a, scope);
-      if (c == null || !expressions.checkOutputType(c.type(), a.pos())) {
+      CompiledExpr c = expressions.compileOutput(a, scope);
+      if (c == null) {
         ok = false;
         continue;
       }

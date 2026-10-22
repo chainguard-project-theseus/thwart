@@ -7,8 +7,8 @@ import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
+import dev.tessera.runtime.Field;
 import java.util.Optional;
-import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
 /**
@@ -26,7 +26,7 @@ public final class FormPaths {
   public static final String ALL = "*";
 
   /** The runtime type of {@code Field} fragment parameters. */
-  public static final String FIELD = "dev.tessera.runtime.Field";
+  public static final String FIELD = Field.class.getName();
 
   /**
    * A form field resolved at build time.
@@ -69,8 +69,9 @@ public final class FormPaths {
     return new FormField(j + ".objectName()", j + ".path()", new CompiledExpr(j + ".value()", object, pos));
   }
 
+  /** Whether {@code t} is the runtime {@code Field} type. */
   public static boolean isField(TypeMirror t) {
-    return t != null && t.getKind() == TypeKind.DECLARED && t.toString().equals(FIELD);
+    return t != null && ExpressionCompiler.isDeclared(t, FIELD);
   }
 
   /**

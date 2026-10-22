@@ -1,5 +1,7 @@
 package dev.tessera.compiler.codegen.attr;
 
+import static dev.tessera.compiler.types.ExpressionCompiler.isDeclared;
+
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.AttributeProcessor;
@@ -20,7 +22,7 @@ import java.util.Set;
 public final class GenericAttrProcessor implements AttributeProcessor {
 
   /** HTML boolean attributes (Thymeleaf's list): rendered as {@code name="name"} or omitted. */
-  static final Set<String> BOOLEAN_ATTRIBUTES =
+  private static final Set<String> BOOLEAN_ATTRIBUTES =
       Set.of(
           "async", "autofocus", "autoplay", "checked", "controls", "declare", "default", "defer",
           "disabled", "formnovalidate", "hidden", "inert", "ismap", "itemscope", "loop", "multiple",
@@ -78,13 +80,13 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       }
       return;
     }
-    CompiledExpr c = ctx.expressions().compile(value, plan.scope());
-    if (c == null || !ctx.expressions().checkOutputType(c.type(), value.pos())) {
+    CompiledExpr c = ctx.expressions().compileOutput(value, plan.scope());
+    if (c == null) {
       return;
     }
     if (context == OutputContext.RESOURCE_URL
         && !(value instanceof Expr.Link)
-        && !c.type().toString().equals(TrustedUrl.class.getName())) {
+        && !isDeclared(c.type(), TrustedUrl.class.getName())) {
       ctx.diagnostics()
           .error(pos, label + " on <" + element + "> loads code or a document: use a literal-path link such as"
               + " @{/js/app.js} or a TrustedUrl value, not a " + c.type());
