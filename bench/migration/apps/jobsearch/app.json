@@ -9,6 +9,7 @@
   "ready": "/",
   "base": "http://localhost:8081",
   "ignore": [
-    " text-bg-(success|secondary)=\"\""
+    " text-bg-(success|secondary)(\"|=\"\")(?=>)",
+    "(?<![\\d:])\\d{1,2}:\\d\\d:\\d\\d(\\.\\d+)?([\\s\\u202f]?[AP]M)?(?![\\d:])"
   ]
 }

@@ -8,7 +8,7 @@ ENV JAVA_HOME=/usr/lib/jvm/default-jvm
 COPY . /src
 WORKDIR /src
 RUN mvn -B -ntp -q install -DskipTests -Dmaven.repo.local=/m2 \
-      -pl tessera-runtime,tessera-compiler,tessera-spring-boot-starter,tessera-migrate -am
+      -pl tessera-runtime,tessera-compiler,tessera-spring-boot-starter,tessera-spring-boot-starter-javax,tessera-migrate -am
 
 FROM cgr.dev/chainguard/wolfi-base
 ARG CLAUDE_CODE_VERSION=2.1.308

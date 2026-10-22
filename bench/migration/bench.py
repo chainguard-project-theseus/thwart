@@ -26,7 +26,7 @@ M2 = "/home/bench/.m2"
 # app.json "java" picks the JDK the original app builds and runs with (default 21).
 JDKS = {8: "/usr/lib/jvm/java-1.8-openjdk", 21: "/usr/lib/jvm/java-21-openjdk"}
 # A line of `tessera-migrate compare` output: page number, verdict, request.
-VERDICT = re.compile(r"^\d+ (same|reordered|differs)\s+(.*)$")
+VERDICT = re.compile(r"^(\d+) (same|reordered|differs)\s+(.*)$")
 
 # Dependencies that mean the old view technology is still on the build.
 LEGACY_DEPS = re.compile(r"<artifactId>(spring-boot-starter-(thymeleaf|freemarker|mustache|groovy-templates)"
@@ -195,20 +195,20 @@ def score(app, run_dir):
     # Pages: `tessera-migrate compare` against the baseline recording. A page passes as "same" or
     # "reordered" (siblings in another order, such as validation messages from a HashSet) and only
     # with its recorded status and final URL.
-    verdicts, mismatch, request = {}, [], None
+    verdicts, mismatch, request = {}, [], None  # verdicts by page number
     for line in got["compare"].splitlines():
         m = VERDICT.match(line)
         if m:
-            request = m.group(2)
-            verdicts[request] = m.group(1)
+            request = m.group(3)
+            verdicts[int(m.group(1))] = m.group(2)
         elif request and line.startswith(("   status: ", "   final URL: ")):
             mismatch.append(f"{request}: {line.strip()}")
         else:
             request = None  # status lines come right after their verdict line
     identical = sum(1 for v in verdicts.values() if v == "same")
     reordered = sum(1 for v in verdicts.values() if v == "reordered")
-    status_mismatch = mismatch + [f"{p['request']}: not compared" for p in base["pages"]
-                                  if p["request"] not in verdicts]
+    status_mismatch = mismatch + [f"{p['request']}: not compared" for i, p in enumerate(base["pages"], 1)
+                                  if i not in verdicts]
     with open(os.path.join(run_dir, "compare.txt"), "w") as f:
         f.write(got["compare"])
 
