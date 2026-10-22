@@ -153,12 +153,72 @@ class MigratorTest {
 
   @Test
   void preprocessingIsLeftInPlaceAndReported() throws Exception {
-    String src = "<div>\n\n<input th:field=\"*{__${name}__}\"/><a th:href=\"@{'/x?p=__${i}__'}\">x</a></div>";
-    assertEquals("<div>\n\n<input t:field=\"*{__${name}__}\"/><a t:href=\"@{'/x?p=__${i}__'}\">x</a></div>",
-        convert(src));
+    String src = "<div>\n\n<input th:field=\"*{__${name}__}\"/><a th:href=\"@{/x/__${i}__}\">x</a>"
+        + "<a th:href=\"@{'/x?p=__${i}__&q=1'}\">y</a></div>";
+    assertEquals(src.replace("th:", "t:"), convert(src));
     List<String> messages = messages(src);
-    assertTrue(messages.get(0).startsWith("3: `__...__` preprocessing is not supported"), messages.toString());
+    assertEquals(4, messages.size(), messages.toString());
+    assertTrue(messages.get(0).startsWith("3: dynamic form-field path `*{__...__}` is not supported")
+        && messages.get(0).contains("#43"), messages.toString());
     assertTrue(messages.get(1).startsWith("3: `__...__` preprocessing is not supported"), messages.toString());
+    assertTrue(messages.get(2).startsWith("3: `__...__` preprocessing is not supported"), messages.toString());
+  }
+
+  // ---- mechanical rewrites found by the petclinic port (#42) ----
+
+  @Test
+  void stringBuiltLinksWithOneQueryParameterAreRewritten() throws Exception {
+    String src = "<p><a th:href=\"@{'/owners?page=' + ${i}}\">a</a>"
+        + "<a th:href=\"@{ '/owners?page=__${n + 1}__' }\">b</a>"
+        + "<a th:href=\"@{'/a/b_c?page_no=' + ${p.no}}\">c</a></p>";
+    assertEquals("<p t:params=\"Object i, Object n, Object p\"><a t:href=\"@{/owners(page=i)}\">a</a>"
+            + "<a t:href=\"@{/owners(page=(n + 1))}\">b</a><a t:href=\"@{/a/b_c(page_no=p.no)}\">c</a></p>",
+        convert(src));
+    assertEquals(3, messages(src).size(), messages(src).toString()); // only the params stub
+  }
+
+  @Test
+  void stringBuiltLinksThatAreNotOnePathAndOneParameterAreReported() throws Exception {
+    for (String link : List.of("@{'/o?a=' + ${x} + '&b=' + ${y}}", "@{'/o/' + ${id}}", "@{'o?a=' + ${x}}",
+        "@{'/o?a=' + ${x} + 'y'}", "@{'/o?a=' + ${f(x, y)}}")) {
+      String src = "<a th:href=\"" + link + "\">x</a>";
+      assertEquals("<a t:href=\"" + link + "\">x</a>", convert(src), link);
+      assertTrue(messages(src).stream().anyMatch(m -> m.contains("non-literal path")), link);
+    }
+    String literal = "<p th:text=\"|@{'/o?a=' + ${x}}|\">x</p>";
+    assertTrue(convert(literal).contains("t:text=\"|@{'/o?a=' + ${x}}|\""), convert(literal));
+  }
+
+  @Test
+  void literalTokensAreQuoted() throws Exception {
+    assertEquals("<ul t:params=\"Object nav_x\"><li t:class=\"'nav-item'\" t:text=\"'item.name'\" t:value=\"42\""
+            + " t:if=\"true\" t:with=\"c=nav_x\" t:attr=\"data-k='a-b'\">x</li></ul>",
+        convert("<ul><li th:class=\"nav-item\" th:text=\"item.name\" th:value=\"42\" th:if=\"true\""
+            + " t:with=\"c=nav_x\" th:attr=\"data-k=a-b\">x</li></ul>"));
+    assertEquals("<b t:class=\"'nav-link'\">x</b>", convert("<b th:class=nav-link>x</b>"));
+  }
+
+  @Test
+  void fragmentReferencesSelectionsAndTesseraValuesAreNotLiteralTokens() throws Exception {
+    assertEquals("<div t:params=\"Object nav\"><i t:insert=\"footer :: f\"></i><i t:field=\"name\"></i>"
+            + "<i t:class=\"nav\"></i></div>",
+        convert("<div><i th:insert=\"footer :: f\"></i><i th:field=\"name\"></i><i t:class=\"nav\"></i></div>"));
+  }
+
+  @Test
+  void renamedUtilityCallsAndNewIndex() throws Exception {
+    assertEquals("<p t:params=\"Object o, Object xs\"><i t:text=\"strings.join(o.pets, ', ')\"></i>"
+            + "<i t:if=\"fields.hasErrors('*')\"></i><i t:each=\"e : fields.errors('*')\"></i>"
+            + "<i t:text=\"o.isNew() ? 'a' : 'b'\"></i><i t:text=\"xs[0].isNew()\"></i></p>",
+        convert("<p><i th:text=\"${#strings.listJoin(o.pets, ', ')}\"></i>"
+            + "<i th:if=\"${#fields.hasAnyErrors()}\"></i><i th:each=\"e : ${#fields.allErrors()}\"></i>"
+            + "<i th:text=\"${o['new']} ? 'a' : 'b'\"></i><i th:text=\"${xs[0][ 'new' ]}\"></i></p>"));
+  }
+
+  @Test
+  void renamesDoNotApplyInsideStringLiterals() throws Exception {
+    String src = "<p th:text=\"'#fields.allErrors() x[' + 'new' + ']' + |#strings.listJoin( ['new']|\">x</p>";
+    assertEquals(src.replace("th:", "t:"), convert(src));
   }
 
   @Test

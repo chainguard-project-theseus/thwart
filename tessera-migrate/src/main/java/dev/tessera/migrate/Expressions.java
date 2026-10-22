@@ -46,6 +46,10 @@ final class Expressions {
    */
   static String rewrite(String expr) {
     String s = dropDollar(expr);
+    for (Map.Entry<String, String> e : ConversionRules.RENAMED_CALLS.entrySet()) {
+      s = replaceOutsideLiterals(s, e.getKey(), e.getValue());
+    }
+    s = replaceOutsideLiterals(s, ConversionRules.NEW_INDEX, ConversionRules.IS_NEW);
     for (Map.Entry<String, String> e : ConversionRules.RECEIVER_CALLS.entrySet()) {
       s = receiverCall(s, e.getKey(), e.getValue());
     }
@@ -121,6 +125,55 @@ final class Expressions {
       at = indexOutsideLiterals(s, from, at + to.length());
     }
     return s;
+  }
+
+  /** Replaces matches of {@code p} that start outside string literals with {@code to} (verbatim). */
+  private static String replaceOutsideLiterals(String s, Pattern p, String to) {
+    String masked = mask(s, false);
+    StringBuilder sb = new StringBuilder();
+    Matcher m = p.matcher(s);
+    int pos = 0;
+    while (m.find()) {
+      if (masked.charAt(m.start()) == s.charAt(m.start())) {
+        sb.append(s, pos, m.start()).append(to);
+        pos = m.end();
+      }
+    }
+    return sb.append(s, pos, s.length()).toString();
+  }
+
+  /**
+   * {@code @{'/p?k=' + ${x}}} and {@code @{'/p?k=__${x}__'}} become {@code @{/p(k=${x})}}. Runs
+   * before {@link #unsupported}, which reports the string-built forms it does not cover.
+   */
+  static String rewriteLinks(String expr) {
+    String s = expr;
+    for (Pattern p : ConversionRules.STRING_LINKS) {
+      String masked = mask(s, false);
+      StringBuilder sb = new StringBuilder();
+      Matcher m = p.matcher(s);
+      int pos = 0;
+      while (m.find()) {
+        if (masked.charAt(m.start()) == '@') {
+          sb.append(s, pos, m.start()).append("@{").append(m.group(1)).append('(').append(m.group(2))
+              .append("=${").append(m.group(3).strip()).append("})}");
+          pos = m.end();
+        }
+      }
+      s = sb.append(s, pos, s.length()).toString();
+    }
+    return s;
+  }
+
+  /**
+   * True if a {@code th:} value is a Thymeleaf literal token such as {@code nav-item}: literal
+   * text in Thymeleaf, but a variable (or {@code nav - item}) in Tessera, so it must be quoted.
+   */
+  static boolean isLiteralToken(String value) {
+    String v = value.strip();
+    return ConversionRules.LITERAL_TOKEN.matcher(v).matches()
+        && !ConversionRules.NUMBER.matcher(v).matches()
+        && !ConversionRules.TOKEN_KEYWORDS.contains(v);
   }
 
   private static int indexOutsideLiterals(String s, String needle, int from) {
