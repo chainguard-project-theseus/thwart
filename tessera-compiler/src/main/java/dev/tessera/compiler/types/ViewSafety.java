@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
@@ -38,7 +39,7 @@ import javax.lang.model.type.WildcardType;
  * supertypes (other than {@code Object}) or type arguments is. {@code Object} is allowed only as a
  * {@code @TemplateFunction} parameter type (input only: nothing can be called on it).
  */
-public final class ViewSafety {
+final class ViewSafety {
   static final String OBJECT = "java.lang.Object";
 
   private static final Set<String> NEVER_TYPES =
@@ -113,16 +114,16 @@ public final class ViewSafety {
 
   private final CompilerEnv env;
 
-  public ViewSafety(CompilerEnv env) {
+  ViewSafety(CompilerEnv env) {
     this.env = env;
   }
 
-  public boolean isViewSafe(TypeMirror type) {
+  boolean isViewSafe(TypeMirror type) {
     return neverViewSafeReason(type).isEmpty() && allowed(type);
   }
 
   /** Why {@code type} is never view-safe, or empty if it is not on the deny-list. */
-  public Optional<String> neverViewSafeReason(TypeMirror type) {
+  Optional<String> neverViewSafeReason(TypeMirror type) {
     return reason(type, false);
   }
 
@@ -261,12 +262,17 @@ public final class ViewSafety {
   }
 
   private static boolean hasTemplateView(TypeElement te) {
-    for (AnnotationMirror am : te.getAnnotationMirrors()) {
+    return annotation(te, TEMPLATE_VIEW) != null;
+  }
+
+  /** The annotation of type {@code qualifiedName} directly present on {@code e}, or null. */
+  static AnnotationMirror annotation(Element e, String qualifiedName) {
+    for (AnnotationMirror am : e.getAnnotationMirrors()) {
       TypeElement at = (TypeElement) am.getAnnotationType().asElement();
-      if (at.getQualifiedName().contentEquals(TEMPLATE_VIEW)) {
-        return true;
+      if (at.getQualifiedName().contentEquals(qualifiedName)) {
+        return am;
       }
     }
-    return false;
+    return null;
   }
 }
