@@ -1,0 +1,14 @@
+{
+  "repo": "https://github.com/AscelOttaku/JobSearch",
+  "commit": "c78a61c195877e16969d69741bee6b0a3ca5e444",
+  "engine": "freemarker",
+  "difficulty": "hard",
+  "build": "mvn -B -ntp clean package -DskipTests",
+  "test": "mvn -B -ntp test",
+  "start": "java -jar target/JobSearch-*.jar '--spring.datasource.url=jdbc:h2:mem:jobsearch;DB_CLOSE_DELAY=-1'",
+  "ready": "/",
+  "base": "http://localhost:8081",
+  "ignore": [
+    " text-bg-(success|secondary)=\"\""
+  ]
+}

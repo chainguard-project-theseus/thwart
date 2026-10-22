@@ -1,0 +1,11 @@
+{
+  "repo": "https://github.com/spring-petclinic/spring-petclinic-mustache",
+  "commit": "003a4066970086d5de2de45d1dc9c71b7e5e2e2d",
+  "engine": "mustache",
+  "difficulty": "easy",
+  "build": "mvn -B -ntp clean package -DskipTests",
+  "test": "mvn -B -ntp test",
+  "start": "java -jar target/spring-petclinic-*.jar --server.error.include-message=always",
+  "ready": "/",
+  "base": "http://localhost:8080"
+}

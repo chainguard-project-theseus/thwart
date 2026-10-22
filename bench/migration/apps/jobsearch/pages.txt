@@ -1,0 +1,116 @@
+# jobsearch (FreeMarker): every reachable template, each form in its empty/invalid and valid states,
+# anonymous vs job seeker, and the error pages. Requests run in order against a fresh in-memory H2
+# with the app's Liquibase seed data (users 1-3, vacancies 1-32, resumes 1-33, responses 1-34).
+# Registration logs the new user in, so the job seeker registered below is user 4; her resume is 34
+# and her response to vacancy 1 is 35.
+#
+# Left out on purpose:
+# - The employer role. The app cannot create an employer: registering with "Employer" gives the
+#   JOB_SEEKER role (UserMapper wants "EMPLOYER") and "EMPLOYER" fails the role lookup. The seeded
+#   employer's password is unknown. Employer-only pages show only as a 403 (last request below).
+#   The vacancy and resume-list templates are still reached through routes that are not restricted
+#   to employers (/skills/new_vacancy, /skills/update_vacancy, POST /vacancies/..., /resumes/sort).
+# - Anything that calls out: POST /auth/forgot_password for a real user (SMTP), skill search or
+#   adding skills (api.hh.ru), Google login.
+# - Multipart uploads (group image, video, avatar, chat file), so there is no group or video to view.
+# - Pages the app itself crashes on mid-render (the crawl gets a truncated response):
+#   validation_error.ftlh, an empty chat message, GET /skills/new_resume and /skills/update_resume.
+# - Skill POSTs: the empty skills page has no form, so no CSRF token to send.
+# - GET /users/update/profile: its hidden password field holds the bcrypt hash, which changes on
+#   every run. The invalid POST shows the same template.
+# - Paged vacancy lists. The seed gives all 32 vacancies the same timestamp and the lists sort by
+#   date (or salary, with ties), and H2's LIMIT sort orders ties at random, so a page of 10 or 20
+#   holds a different subset each run. Lists are fetched with size=50 to show every vacancy; their
+#   order can still change between runs, which scoring accepts as "reordered".
+GET /vacancies/actives?size=50
+GET /vacancies?size=50
+GET /vacancies/1
+GET /vacancies/filtered?filterType=SALARY_DESC&size=50
+GET /vacancies/filtered?filterType=FAVORITE_VACANCIES
+GET /vacancies/sort?categoryName=It&size=50
+GET /search
+GET /vacancies/search/vacancies/dynamic/page
+GET /vacancies/search/dynamic?searchCriteria=salary%3E1800
+GET /companies/company/profile/2
+GET /groups
+GET /users/profile
+GET /auth/login
+POST /auth/login username=nobody@example.com&password=wrong
+GET /auth/forgot_password
+POST /auth/forgot_password email=bad
+GET /auth/forgot_password
+POST /auth/forgot_password email=nobody@example.com
+GET /auth/reset_password?token=nope
+GET /auth/forgot_password
+POST /auth/reset_password token=nope&password=
+GET /vacancies/99999
+GET /auth/registration
+POST /users/registration name=&surname=&age=&email=&password=&phoneNumber=%2B996&accountType=&avatar=
+POST /users/registration name=Ann&surname=Seeker&age=30&email=ann@example.com&password=Secret123&phoneNumber=%2B996555000001&accountType=JobSeeker&avatar=
+GET /users/profile
+GET /users/profile/statistics
+GET /users/profile
+POST /users/updates/profile name=A1&surname=&age=200&email=ann@example.com&phoneNumber=123&userId=4&accountType=JobSeeker&password=&avatar=
+GET /users/profile
+POST /users/updates/profile name=Anna&surname=Seeker&age=31&email=ann@example.com&phoneNumber=%2B996555000001&userId=4&accountType=JobSeeker&password=Secret123&avatar=
+GET /resumes/new_resume
+POST /resumes/new_resume name=&categoryId=1&salary=-5&workExperienceInfoDtos[0].years=&workExperienceInfoDtos[0].companyName=&workExperienceInfoDtos[0].position=&workExperienceInfoDtos[0].responsibilities=&educationInfoDtos[0].degree=&educationInfoDtos[0].institution=&educationInfoDtos[0].program=&educationInfoDtos[0].startDate=&educationInfoDtos[0].endDate=&contactInfos[0].id=&contactInfos[0].contactType.contactTypeId=2&contactInfos[0].contactType.type=TELEGRAM&contactInfos[0].contactValue=&contactInfos[1].id=&contactInfos[1].contactType.contactTypeId=3&contactInfos[1].contactType.type=FACEBOOK&contactInfos[1].contactValue=&contactInfos[2].id=&contactInfos[2].contactType.contactTypeId=4&contactInfos[2].contactType.type=EMAIL&contactInfos[2].contactValue=&contactInfos[3].id=&contactInfos[3].contactType.contactTypeId=5&contactInfos[3].contactType.type=LINKEDIN&contactInfos[3].contactValue=&contactInfos[4].id=&contactInfos[4].contactType.contactTypeId=6&contactInfos[4].contactType.type=PHONE_NUMBER&contactInfos[4].contactValue=%2B996
+POST /resumes/new_resume name=Kotlin engineer&categoryId=1&salary=3000&workExperienceInfoDtos[0].years=3&workExperienceInfoDtos[0].companyName=Acme&workExperienceInfoDtos[0].position=Developer&workExperienceInfoDtos[0].responsibilities=Backend and APIs&educationInfoDtos[0].degree=BSc&educationInfoDtos[0].institution=State University&educationInfoDtos[0].program=Computer Science&educationInfoDtos[0].startDate=2010-09-01 00:00:00&educationInfoDtos[0].endDate=2014-06-30 00:00:00&contactInfos[0].id=&contactInfos[0].contactType.contactTypeId=2&contactInfos[0].contactType.type=TELEGRAM&contactInfos[0].contactValue=@ann&contactInfos[1].id=&contactInfos[1].contactType.contactTypeId=3&contactInfos[1].contactType.type=FACEBOOK&contactInfos[1].contactValue=&contactInfos[2].id=&contactInfos[2].contactType.contactTypeId=4&contactInfos[2].contactType.type=EMAIL&contactInfos[2].contactValue=ann@gmail.com&contactInfos[3].id=&contactInfos[3].contactType.contactTypeId=5&contactInfos[3].contactType.type=LINKEDIN&contactInfos[3].contactValue=&contactInfos[4].id=&contactInfos[4].contactType.contactTypeId=6&contactInfos[4].contactType.type=PHONE_NUMBER&contactInfos[4].contactValue=%2B996555000001&active=true
+GET /resumes/users
+GET /resumes/update/resume/34
+POST /resumes/update/resume id=34&name=&categoryId=1&salary=3000&workExperienceInfoDtos[0].years=&workExperienceInfoDtos[0].companyName=&workExperienceInfoDtos[0].position=&workExperienceInfoDtos[0].responsibilities=&educationInfoDtos[0].degree=&educationInfoDtos[0].institution=&educationInfoDtos[0].program=&educationInfoDtos[0].startDate=&educationInfoDtos[0].endDate=&contactInfos[0].id=&contactInfos[0].contactType.contactTypeId=2&contactInfos[0].contactType.type=TELEGRAM&contactInfos[0].contactValue=&contactInfos[1].id=&contactInfos[1].contactType.contactTypeId=3&contactInfos[1].contactType.type=FACEBOOK&contactInfos[1].contactValue=&contactInfos[2].id=&contactInfos[2].contactType.contactTypeId=4&contactInfos[2].contactType.type=EMAIL&contactInfos[2].contactValue=&contactInfos[3].id=&contactInfos[3].contactType.contactTypeId=5&contactInfos[3].contactType.type=LINKEDIN&contactInfos[3].contactValue=&contactInfos[4].id=&contactInfos[4].contactType.contactTypeId=6&contactInfos[4].contactType.type=PHONE_NUMBER&contactInfos[4].contactValue=%2B996
+GET /resumes/update/resume/34
+POST /resumes/update/resume id=34&name=Kotlin engineer II&categoryId=1&salary=3200&workExperienceInfoDtos[0].years=3&workExperienceInfoDtos[0].companyName=Acme&workExperienceInfoDtos[0].position=Developer&workExperienceInfoDtos[0].responsibilities=Backend and APIs&educationInfoDtos[0].degree=BSc&educationInfoDtos[0].institution=State University&educationInfoDtos[0].program=Computer Science&educationInfoDtos[0].startDate=2010-09-01 00:00:00&educationInfoDtos[0].endDate=2014-06-30 00:00:00&contactInfos[0].id=&contactInfos[0].contactType.contactTypeId=2&contactInfos[0].contactType.type=TELEGRAM&contactInfos[0].contactValue=@ann&contactInfos[1].id=&contactInfos[1].contactType.contactTypeId=3&contactInfos[1].contactType.type=FACEBOOK&contactInfos[1].contactValue=&contactInfos[2].id=&contactInfos[2].contactType.contactTypeId=4&contactInfos[2].contactType.type=EMAIL&contactInfos[2].contactValue=ann@gmail.com&contactInfos[3].id=&contactInfos[3].contactType.contactTypeId=5&contactInfos[3].contactType.type=LINKEDIN&contactInfos[3].contactValue=&contactInfos[4].id=&contactInfos[4].contactType.contactTypeId=6&contactInfos[4].contactType.type=PHONE_NUMBER&contactInfos[4].contactValue=%2B996555000001&active=true
+GET /resumes/34
+GET /resumes/users/actives/1
+POST /responds vacancyId=1&resumeId=
+GET /resumes/users/actives/1
+POST /responds vacancyId=1&resumeId=34
+GET /responds/users
+GET /messages/job_seeker
+GET /messages/chat/35
+POST /messages respondedApplicationId=35&vacancyId=1&resumeId=34&content=Hello <b>there</b>
+GET /messages/job_seeker
+GET /companies
+GET /companies/2?size=50
+GET /companies/company/profile/2
+GET /users/profile/1
+GET /vacancies/filtered?filterType=FAVORITE_VACANCIES
+GET /resumes/new_resume
+POST /skills/save_resume_storage name=Draft&categoryId=1&salary=100&pageName=skills/resumes/new_skills
+GET /skills?skillName=ab
+GET /skills/resumes/new_skills
+GET /resumes/update/resume/34
+POST /skills/save_resume_storage id=34&name=Kotlin engineer II&categoryId=1&salary=3200&pageName=skills/resumes/update_skills
+GET /resumes/users
+POST /skills/save_vacancy_storage name=Draft vacancy&categoryId=1&salary=100&pageName=skills/vacancies/new_skills
+GET /skills/new_vacancy
+POST /vacancies/new_vacancy name=X!&categoryId=&salary=-1&expFrom=9&expTo=20&description=
+GET /resumes/users
+POST /skills/save_vacancy_storage vacancyId=1&name=Junior Java Dev&categoryId=1&salary=9000&pageName=skills/vacancies/update_skills
+GET /skills/update_vacancy
+POST /vacancies/update/vacancy vacancyId=1&name=&categoryId=1&salary=&expFrom=-1&expTo=&description=
+GET /vacancies/users
+GET /resumes/sort?categoryName=It&size=50
+GET /groups
+GET /groups/new_groups
+POST /groups/new_groups name=
+GET /groups/new_groups
+POST /groups/new_groups name=Kotlin fans
+GET /groups/generate/link/1
+GET /channel
+GET /channel/new_channel
+POST /channel/create login=&description=&channelAccess=
+GET /channel/new_channel
+POST /channel/create login=annchannel&description=Talks about <i>Kotlin</i>&channelAccess=PUBLIC
+GET /channel
+GET /channel/update_channel/1
+POST /channel/update id=1&login=&description=&channelAccess=
+GET /channel/update_channel/1
+POST /channel/update id=1&login=annchannel2&description=Kotlin talks&channelAccess=PRIVATE
+GET /videos/channel/1
+GET /videos/new_video/1
+POST /videos/create title=&description=&channelDto.id=1
+GET /videos/channel/1
+GET /vacancies/new_vacancy
+GET /auth/logout

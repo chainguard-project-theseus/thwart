@@ -1,0 +1,11 @@
+{
+  "repo": "https://github.com/fred4jupiter/fredbet",
+  "commit": "8f0d70604eb8c67804c1efc3c10b6acf11a03192",
+  "engine": "thymeleaf",
+  "difficulty": "hard",
+  "build": "mvn -B -ntp clean package -DskipTests",
+  "test": "mvn -B -ntp test",
+  "start": "java -jar target/fredbet.jar '--spring.datasource.url=jdbc:h2:mem:fredbet;DB_CLOSE_DELAY=-1' --fredbet.default-language=en",
+  "ready": "/login",
+  "base": "http://localhost:8080"
+}
