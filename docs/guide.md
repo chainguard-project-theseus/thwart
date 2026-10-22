@@ -89,12 +89,8 @@ compile with `release` 21, which breaks old plugins that read class files (JaCoC
 for example).
 
 The Spring integration, `tessera-spring-boot-starter`, is built against **Spring Boot 4.1 (Spring
-Framework 7)**. Boot 3 is not supported yet. The starter only uses APIs Boot 3.2+ also has, and
-Boot 3 apps have run it by excluding `org.springframework.boot:spring-boot-webmvc` from the starter
-and, for `@WebMvcTest`, adding a test resource
-`META-INF/spring/org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc.imports`
-that contains `dev.tessera.spring.TesseraAutoConfiguration` (without it, slice tests silently
-render nothing).
+Framework 7)** and depends on Boot 4's `spring-boot-webmvc`. Boot 3 is not supported yet (#116),
+although the starter's code uses only APIs that Boot 3.2+ also has.
 
 ```xml
 <dependency>
@@ -135,17 +131,16 @@ render nothing).
 `tessera.templates` (required) is the absolute templates root; every `**/*.html` below it is a
 template. `tessera.package` is the generated package (default `tessera.generated`).
 `tessera.messages` is the message bundle's path without `.properties`; with it, every `#{key}` is
-checked at build time. What catches people out:
+checked at build time. Facts about the build today:
 
-- **`annotationProcessorPaths` turns off processor discovery.** List every processor the build
-  relied on next to Tessera: Lombok, MapStruct, `spring-boot-configuration-processor`.
-- **Test compilation is a second javac run.** There the processor would compile the templates
-  again without your `@TemplateFunctions` classes and fail with `unknown identifier or function
-  namespace`; hence `<proc>none</proc>` on `default-testCompile`. Tests use the main classes.
-- **Maven does not recompile when only a template changes**, and an incremental compile that skips
-  a `@TemplateFunctions` class fails as above. Use `mvn clean compile`.
-- Templates under `src/main/resources` are also copied into the jar, unused. If resources are
-  filtered, exclude `templates/**`, or Maven rewrites `${...}` in them.
+- `annotationProcessorPaths` turns off processor discovery, so list every processor the build
+  relied on (Lombok, MapStruct, ...) next to Tessera.
+- The processor sees `@TemplateFunctions` classes only when they are compiled in the same javac
+  run (#118). A test compile or an incremental compile without them fails with `unknown identifier
+  or function namespace`: hence `<proc>none</proc>` on test compilation, and `mvn clean compile`
+  (Maven also doesn't recompile when only a template changes).
+- Templates under `src/main/resources` are copied into the jar as resources, so resource
+  filtering rewrites `${...}` in them unless `templates/**` is excluded.
 
 **Spring Boot.** The starter's auto-configuration registers the view resolver, the `Template`
 return-value handler and the template registry. Tessera's resolver runs before Thymeleaf's and
@@ -181,16 +176,13 @@ public class TesseraConfig implements WebMvcConfigurer {
 }
 ```
 
-Don't skip the redirect resolver. Under Boot, `redirect:` and `forward:` work because Boot
-registers a fallback resolver; without Boot, the old engine's `InternalResourceViewResolver`
-usually handled them. Remove it with nothing in its place and redirects fail (behind a
-`ContentNegotiatingViewResolver`, as 406). If view resolvers are configured in XML, declare both
-resolvers there with the same properties.
+`TesseraViewResolver` resolves only template names. Under Boot a fallback resolver handles
+`redirect:` and `forward:`; without Boot the old engine's resolver usually did, so removing it
+without a replacement breaks redirects (behind a `ContentNegotiatingViewResolver`, as a 406).
 
 **Error pages.** Under Boot, `templates/error.html` renders errors with Boot's error attributes as
-the model: declare the ones you use (`Integer status`, `String error`, `String message`,
-`String path`). `timestamp` (a `Date`) and exceptions are not view-safe; if a page showed an
-exception, put its message in the model as a `String`.
+the model (`Integer status`, `String error`, `String message`, `String path`; `timestamp` is a
+`Date` and not view-safe).
 
 ## 3. The migration loop
 
@@ -221,9 +213,10 @@ MIGRATE=~/.m2/repository/dev/tessera/tessera-migrate/<version>/tessera-migrate-<
 java -jar $MIGRATE record http://localhost:8080 pages.txt baseline/
 ```
 
-This saves each response in `baseline/` (status, final URL and body, as `NN.html` plus an
-`index.tsv`). If a page shows a random value, the time or the host name, it will differ on every
-run: fix the data or drop the request. If you change `pages.txt`, record again.
+This saves each response in `baseline/` (the body as `NN.html`; status, final URL and request in
+`index.tsv`). Today's date is masked when comparing, but a page that shows a random value, the
+time or the host name will differ on every run: fix the data or drop the request. `compare`
+refuses a `pages.txt` that doesn't match the recording, so if you change it, record again.
 
 **3. Set up the build** (section 2). Add `@TemplateView` to the classes templates read, or make
 them records.
@@ -246,11 +239,14 @@ java -jar $MIGRATE compare http://localhost:8080 pages.txt baseline/
 ```
 
 It compares the status, the final URL after redirects, and the page as a browser would build it,
-not the bytes: whitespace, attribute order, optional end tags, comments and CSRF tokens don't
-count. Each page prints as `same`, `reordered` (the same elements in another order, such as
-validation messages from a `HashSet`), or `differs`, followed by what changed and a diff. It exits
-0 only if every page is `same` or `reordered`. For each difference, fix it, or decide it is right and
-write down why. Few are right: output now escaped where the old engine printed it raw, or broken
+not the bytes: whitespace runs, attribute and class order, optional end tags, comments and CSRF
+tokens don't count. Each page prints one line, `NN same|reordered|differs REQUEST`. `reordered`
+means the same elements with siblings in another order; it passes, but its diff is printed so you
+can check that what moved is harmless (validation messages from a `HashSet`, yes; table rows that
+lost their sort order, no). A `differs` page lists a changed status or final URL and a unified
+diff of the normalized page. It exits 0 only if every page is `same` or `reordered` with its
+recorded status and final URL. For each difference, fix it, or decide it is right and write down
+why. Few are right: output now escaped where the old engine printed it raw, or broken
 markup the old engine passed through. An empty value, or a 500 from a `NullPointerException`, is
 nearly always a value the old template got from outside the model. A 302 that became 406 or 500 is
 view-resolver wiring (section 2).
@@ -721,10 +717,12 @@ becomes `t:text="#{home.welcome(user.name)}"` with `User user` in `t:params`, an
 `compare` then reports:
 
 ```text
-01 same GET /product/list
-02 differs GET /
+01 same      GET /product/list
+02 differs   GET /
    status: recorded 200, got 500
-   ...
+--- recorded 02.html
++++ now
+...
 ```
 
 The log shows a `NullPointerException` reading `user.name`: the old page read `user` from the
@@ -1020,7 +1018,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
 
 - **Build.** Maven only. Template-only changes need `mvn clean compile`; there is no hot reload.
   The processor fails in `testCompile` and in incremental compiles that skip the
-  `@TemplateFunctions` class (section 2). Spring Boot 3 needs the workarounds in section 2.
+  `@TemplateFunctions` class (#118). Spring Boot 3 is not supported yet (#116).
 - **Messages.** `-Atessera.messages` checks one bundle. Keys from other bundles fail the build;
   give those pages a `@TemplateFunction` that looks them up, and accept that they are not checked.
 - **View resolution.** Names are matched exactly: a leading `/` or a `page :: fragment` view name
