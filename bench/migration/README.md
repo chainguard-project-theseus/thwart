@@ -75,9 +75,9 @@ Current ignores: times of day (fredbet, jobsearch: seeded data is stamped at sta
 is still compared), UUIDs (fredbet: image keys generated at startup), the webjar version path
 segment (spring-petclinic, fredbet: Boot adds it for Thymeleaf through `ResourceUrlEncodingFilter`,
 which Tessera's starter does not register yet, #122), and JobSearch's `<span text-bg-...">`, an
-attribute built from an unbalanced quote in the original template. Held-out: times of day and the
-webjar version segment (purl-server: Boot's error page prints the time of the request; the webjar
-segment as above), and the invoice date input (jprime: the invoice form defaults to today).
+attribute built from an unbalanced quote in the original template. Held-out: the request timestamp and
+the webjar version segment (purl-server: Boot's error page prints the date and time of the request;
+the webjar segment as above), and the invoice date input (jprime: the invoice form defaults to today).
 
 Licenses: JobSearch and jprime have no license, so their runs' `diff.patch` files are not
 committed (`.gitignore`).
