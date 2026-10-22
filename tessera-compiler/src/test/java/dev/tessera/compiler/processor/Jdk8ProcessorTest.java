@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-import org.attoparser.MarkupParser;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -37,7 +36,7 @@ class Jdk8ProcessorTest {
   void jdk8JavacRunsTheProcessorAndTheAppRendersOnJava8() throws Exception {
     Path jdk = jdk8();
     Path runtime = codeSource(Escapers.class);
-    String processorPath = join(codeSource(TesseraProcessor.class), codeSource(MarkupParser.class), runtime);
+    String processorPath = join(codeSource(TesseraProcessor.class), runtime);
 
     Path src = dir.resolve("src");
     Path templates = dir.resolve("templates");

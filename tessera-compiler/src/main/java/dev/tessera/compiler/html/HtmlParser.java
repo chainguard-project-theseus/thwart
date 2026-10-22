@@ -22,13 +22,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-import org.attoparser.AbstractMarkupHandler;
-import org.attoparser.MarkupParser;
-import org.attoparser.ParseException;
-import org.attoparser.config.ParseConfiguration;
 
 /**
- * Parses a template into a {@link Document} using attoparser (non-validating,
+ * Parses a template into a {@link Document} using {@link MarkupTokenizer} (non-validating,
  * non-normalizing, HTML-aware for void elements and raw-text elements). Records exact
  * positions for every element, attribute name and attribute value, decodes character
  * references in attribute values ({@code Attribute.value}) while keeping the raw form, and
@@ -53,38 +49,21 @@ public final class HtmlParser {
     }
   }
 
-  private static final ParseConfiguration CONFIG = config();
-
-  private static ParseConfiguration config() {
-    ParseConfiguration c = ParseConfiguration.htmlConfiguration();
-    // We balance elements and check attributes ourselves so errors carry our positions.
-    c.setElementBalancing(ParseConfiguration.ElementBalancing.NO_BALANCING);
-    c.setNoUnmatchedCloseElementsRequired(false);
-    c.setUniqueAttributesInElementRequired(false);
-    c.setUniqueRootElementPresence(ParseConfiguration.UniqueRootElementPresence.NOT_VALIDATED);
-    c.setCaseSensitive(false);
-    c.setTextSplittable(false);
-    return c;
-  }
-
   public Document parse(TemplateSource source, DiagnosticSink diagnostics) {
     char[] chars = source.content().toCharArray();
     Builder builder = new Builder(source, chars, diagnostics);
     try {
-      new MarkupParser(CONFIG).parse(chars, builder);
+      new MarkupTokenizer(chars, builder).run();
       builder.finish(true);
-    } catch (ParseException e) {
-      int line = e.getLine() == null ? 1 : e.getLine();
-      int col = e.getCol() == null ? 1 : e.getCol();
-      diagnostics.error(new SourcePos(source.path(), line, col), "malformed markup: " + describe(e));
+    } catch (MarkupTokenizer.MarkupException e) {
+      diagnostics.error(builder.position(e.offset), "malformed markup: " + describe(e.getMessage()));
       builder.finish(false);
     }
     return new Document(source, builder.topLevel);
   }
 
-  private static String describe(ParseException e) {
-    String m = e.getMessage() == null ? "" : e.getMessage();
-    m = m.replaceFirst("^\\(Line = \\d+, Column = \\d+\\)\\s*", "");
+  /** The message's first line, at most 80 chars. */
+  private static String describe(String m) {
     int nl = m.indexOf('\n');
     if (nl >= 0) {
       m = m.substring(0, nl);
@@ -179,17 +158,17 @@ public final class HtmlParser {
     }
   }
 
-  private static final class Builder extends AbstractMarkupHandler {
+  private static final class Builder implements MarkupTokenizer.Handler {
     private final String file;
     private final String content;
-    /** The buffer attoparser is reading; see {@link #matchEndTagCase}. */
+    /** The buffer the tokenizer is reading; see {@link #matchEndTagCase}. */
     private final char[] chars;
     private final DiagnosticSink diagnostics;
     private final int[] lineStarts;
     final List<Node> topLevel = new ArrayList<>();
     private final Deque<Open> stack = new ArrayDeque<>();
 
-    /** Start tag being read (between ElementStart and ElementEnd events). */
+    /** Start tag being read (between startTag and its end). */
     private Open tag;
 
     /** Raw-text element whose content we are skipping, its content offset and position. */
@@ -197,7 +176,6 @@ public final class HtmlParser {
     private int rawStart;
     /** Offset of the first {@code </name} that a browser would take as the raw element's end. */
     private int rawEnd;
-    private SourcePos rawPos;
 
     private final StringBuilder text = new StringBuilder();
     private SourcePos textPos;
@@ -210,12 +188,23 @@ public final class HtmlParser {
       this.lineStarts = source.lineStarts();
     }
 
-    private SourcePos pos(int line, int col) {
-      return new SourcePos(file, line, col);
+    /** Line and column of {@code offset}: only LF starts a line, every other char is one column. */
+    SourcePos position(int offset) {
+      int lo = 0;
+      int hi = lineStarts.length - 1;
+      while (lo < hi) {
+        int mid = (lo + hi + 1) >>> 1;
+        if (lineStarts[mid] <= offset) {
+          lo = mid;
+        } else {
+          hi = mid - 1;
+        }
+      }
+      return new SourcePos(file, lo + 1, offset - lineStarts[lo] + 1);
     }
 
-    private int offset(int line, int col) {
-      return lineStarts[line - 1] + col - 1;
+    private String str(int start, int end) {
+      return new String(chars, start, end - start);
     }
 
     private List<Node> children() {
@@ -234,95 +223,51 @@ public final class HtmlParser {
     }
 
     @Override
-    public void handleText(char[] buffer, int offset, int len, int line, int col) {
+    public void text(int start, int end) {
       if (raw != null) {
         return;
       }
       if (text.length() == 0) {
-        textPos = pos(line, col);
+        textPos = position(start);
       }
-      text.append(buffer, offset, len);
+      text.append(chars, start, end - start);
     }
 
     @Override
-    public void handleComment(
-        char[] buffer, int contentOffset, int contentLen, int outerOffset, int outerLen, int line, int col) {
+    public void comment(int start, int end) {
       if (raw != null) {
         return;
       }
       flushText();
-      children().add(new Comment(new String(buffer, outerOffset, outerLen), pos(line, col)));
+      children().add(new Comment(str(start, end), position(start)));
     }
 
     @Override
-    public void handleCDATASection(
-        char[] buffer, int contentOffset, int contentLen, int outerOffset, int outerLen, int line, int col) {
+    public void cdata(int start, int end) {
       if (raw != null) {
         return;
       }
       flushText();
-      children().add(new Text(new String(buffer, outerOffset, outerLen), textContext(), pos(line, col)));
+      children().add(new Text(str(start, end), textContext(), position(start)));
     }
 
     @Override
-    public void handleDocType(
-        char[] buffer,
-        int keywordOffset, int keywordLen, int keywordLine, int keywordCol,
-        int elementNameOffset, int elementNameLen, int elementNameLine, int elementNameCol,
-        int typeOffset, int typeLen, int typeLine, int typeCol,
-        int publicIdOffset, int publicIdLen, int publicIdLine, int publicIdCol,
-        int systemIdOffset, int systemIdLen, int systemIdLine, int systemIdCol,
-        int internalSubsetOffset, int internalSubsetLen, int internalSubsetLine, int internalSubsetCol,
-        int outerOffset, int outerLen, int outerLine, int outerCol) {
-      declaration(buffer, outerOffset, outerLen, outerLine, outerCol);
-    }
-
-    @Override
-    public void handleXmlDeclaration(
-        char[] buffer,
-        int keywordOffset, int keywordLen, int keywordLine, int keywordCol,
-        int versionOffset, int versionLen, int versionLine, int versionCol,
-        int encodingOffset, int encodingLen, int encodingLine, int encodingCol,
-        int standaloneOffset, int standaloneLen, int standaloneLine, int standaloneCol,
-        int outerOffset, int outerLen, int line, int col) {
-      declaration(buffer, outerOffset, outerLen, line, col);
-    }
-
-    @Override
-    public void handleProcessingInstruction(
-        char[] buffer,
-        int targetOffset, int targetLen, int targetLine, int targetCol,
-        int contentOffset, int contentLen, int contentLine, int contentCol,
-        int outerOffset, int outerLen, int line, int col) {
-      declaration(buffer, outerOffset, outerLen, line, col);
-    }
-
-    private void declaration(char[] buffer, int offset, int len, int line, int col) {
+    public void declaration(int start, int end) {
       if (raw != null) {
         return;
       }
       flushText();
-      children().add(new DocType(new String(buffer, offset, len), pos(line, col)));
+      children().add(new DocType(str(start, end), position(start)));
     }
 
     @Override
-    public void handleStandaloneElementStart(
-        char[] buffer, int offset, int len, boolean minimized, int line, int col) {
-      startTag(buffer, offset, len, line, col);
-    }
-
-    @Override
-    public void handleOpenElementStart(char[] buffer, int offset, int len, int line, int col) {
-      startTag(buffer, offset, len, line, col);
-    }
-
-    private void startTag(char[] buffer, int offset, int len, int line, int col) {
+    public void startTag(int lt, int nameEnd) {
       if (raw != null) {
         return;
       }
       flushText();
-      String name = new String(buffer, offset, len);
-      tag = new Open(name, pos(line, col));
+      String name = str(lt + 1, nameEnd);
+      tag = new Open(name, position(lt));
       if (!ELEMENT_NAME.matcher(name).matches()) {
         diagnostics.error(tag.pos, "malformed markup: invalid element name '" + name
             + "': element names start with a letter and use letters, digits, '-', '_', ':' and '.'");
@@ -330,17 +275,12 @@ public final class HtmlParser {
     }
 
     @Override
-    public void handleAttribute(
-        char[] buffer,
-        int nameOffset, int nameLen, int nameLine, int nameCol,
-        int operatorOffset, int operatorLen, int operatorLine, int operatorCol,
-        int valueContentOffset, int valueContentLen, int valueOuterOffset, int valueOuterLen,
-        int valueLine, int valueCol) {
+    public void attribute(int nameStart, int nameEnd, int valueStart, int valueEnd, char quote) {
       if (raw != null || tag == null) {
         return;
       }
-      String name = new String(buffer, nameOffset, nameLen);
-      SourcePos namePos = pos(nameLine, nameCol);
+      String name = str(nameStart, nameEnd);
+      SourcePos namePos = position(nameStart);
       if (name.chars().anyMatch(ch -> ch == '<' || ch == '"' || ch == '\'' || ch == '=')) {
         diagnostics.error(namePos, "malformed markup: invalid attribute name '" + name
             + "': attribute names cannot contain <, quotes or =");
@@ -349,21 +289,17 @@ public final class HtmlParser {
         diagnostics.error(namePos, "duplicate attribute '" + name + "' on <" + tag.name + ">: remove one of them");
       }
       Attribute attribute;
-      if (operatorLen == 0) {
+      if (valueStart < 0) {
         attribute = new Attribute(name, null, null, (char) 0, namePos, null);
       } else {
-        String rawValue = new String(buffer, valueContentOffset, valueContentLen);
-        boolean quoted = valueOuterLen == valueContentLen + 2;
-        char quote = quoted ? buffer[valueOuterOffset] : 0;
-        SourcePos valuePos = pos(valueLine, quoted ? valueCol + 1 : valueCol);
-        attribute = new Attribute(name, decode(rawValue), rawValue, quote, namePos, valuePos);
+        String rawValue = str(valueStart, valueEnd);
+        attribute = new Attribute(name, decode(rawValue), rawValue, quote, namePos, position(valueStart));
       }
       tag.attributes.add(attribute);
     }
 
     @Override
-    public void handleStandaloneElementEnd(
-        char[] buffer, int offset, int len, boolean minimized, int line, int col) {
+    public void selfClosedTagEnd(boolean minimized) {
       if (raw != null || tag == null) {
         return;
       }
@@ -379,7 +315,7 @@ public final class HtmlParser {
     }
 
     @Override
-    public void handleOpenElementEnd(char[] buffer, int offset, int len, int line, int col) {
+    public void openTagEnd(int gt) {
       if (raw != null || tag == null) {
         return;
       }
@@ -388,21 +324,19 @@ public final class HtmlParser {
       open.textContext = Contexts.text(open.toElement(false, false));
       stack.push(open);
       if (RAW_TEXT_ELEMENTS.contains(open.name.toLowerCase(Locale.ROOT))) {
-        // line:col is the '>' of the start tag; content starts right after it.
         raw = open;
-        rawStart = offset(line, col) + 1;
-        rawPos = pos(line, col + 1);
+        rawStart = gt + 1;
         rawEnd = browserEndTag(open.name, rawStart);
         matchEndTagCase(open.name);
       }
     }
 
     /**
-     * attoparser ends raw text only at {@code </name>} spelled in the start tag's case, while
-     * browsers match the end tag case-insensitively ({@code <Script>...</sCrIpT>}). Rewrites the
-     * name of the end tag a browser would use, in attoparser's not-yet-read input, to the start
-     * tag's case. Lengths and offsets are unchanged and node text comes from {@link #content},
-     * so only where attoparser stops changes.
+     * The tokenizer ends script and style content only at {@code </name>} spelled in the start
+     * tag's case, while browsers match the end tag case-insensitively ({@code <Script>...</sCrIpT>}).
+     * Rewrites the name of the end tag a browser would use, in the tokenizer's not-yet-read input,
+     * to the start tag's case. Lengths and offsets are unchanged and node text comes from {@link
+     * #content}, so only where the tokenizer stops (and the text its messages quote) changes.
      */
     private void matchEndTagCase(String name) {
       if (rawEnd >= 0) {
@@ -411,30 +345,21 @@ public final class HtmlParser {
     }
 
     @Override
-    public void handleCloseElementStart(char[] buffer, int offset, int len, int line, int col) {
-      closeTag(new String(buffer, offset, len), line, col);
-    }
-
-    @Override
-    public void handleUnmatchedCloseElementStart(char[] buffer, int offset, int len, int line, int col) {
-      closeTag(new String(buffer, offset, len), line, col);
-    }
-
-    private void closeTag(String name, int line, int col) {
-      SourcePos closePos = pos(line, col);
+    public void endTag(int lt, int nameEnd) {
+      String name = str(lt + 2, nameEnd);
+      SourcePos closePos = position(lt);
       if (raw != null) {
         if (!raw.name.equalsIgnoreCase(name)) {
           return;
         }
-        int end = offset(line, col);
-        if (end != rawEnd) {
-          // attoparser parsed markup (a comment, an attribute value) that hid an earlier end
+        if (lt != rawEnd) {
+          // The tokenizer read markup (a comment, an attribute value) that hid an earlier end
           // tag; a browser would end the element there, so the contexts after it would be wrong.
           diagnostics.error(position(rawEnd), "malformed markup: content of <" + raw.name
               + "> contains '</" + raw.name + "' before its end tag: escape it (in a script string,"
               + " write '<\\/" + raw.name + "')");
         }
-        endRaw(end);
+        endRaw(lt);
       }
       flushText();
       boolean open = stack.stream().anyMatch(o -> o.name.equalsIgnoreCase(name));
@@ -450,7 +375,7 @@ public final class HtmlParser {
           return;
         }
         diagnostics.error(top.pos, "element <" + top.name + "> is not closed (found </" + name + "> at "
-            + line + ":" + col + "): add </" + top.name + ">");
+            + closePos.line() + ":" + closePos.column() + "): add </" + top.name + ">");
         children().add(top.toElement(false, false));
       }
     }
@@ -472,14 +397,6 @@ public final class HtmlParser {
       return -1;
     }
 
-    private SourcePos position(int offset) {
-      int line = 0;
-      while (line + 1 < lineStarts.length && lineStarts[line + 1] <= offset) {
-        line++;
-      }
-      return pos(line + 1, offset - lineStarts[line] + 1);
-    }
-
     /** Ends the current raw-text element's content at {@code end} (exclusive). */
     private void endRaw(int end) {
       if (end > rawStart) {
@@ -487,11 +404,11 @@ public final class HtmlParser {
         int comment = body.indexOf("<!--");
         if (raw.name.equalsIgnoreCase("script") && comment >= 0) {
           // Browsers apply script-data escape rules after "<!--" ("<script" inside it hides
-          // the next "</script>"); attoparser does not. Fail closed.
+          // the next "</script>"); the tokenizer does not. Fail closed.
           diagnostics.error(position(rawStart + comment),
               "malformed markup: '<!--' inside <script> is not supported: remove it (it is not needed in HTML5)");
         }
-        raw.children.add(new Text(body, raw.textContext, rawPos));
+        raw.children.add(new Text(body, raw.textContext, position(rawStart)));
       }
       raw = null;
     }
