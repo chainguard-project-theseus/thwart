@@ -16,6 +16,9 @@ public final class ErrorsProcessor implements AttributeProcessor {
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
+    if (!UtextProcessor.requireHtmlText(ctx, attr, plan)) {
+      return;
+    }
     FormPaths.FormField field;
     String value = attr.value() == null ? "" : attr.value().strip();
     if (value.equals(FormPaths.ALL) || value.equals("*{*}")) {

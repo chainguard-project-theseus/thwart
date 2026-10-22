@@ -277,4 +277,28 @@ class FragmentsTest {
     page("<div t:replace=\"'<script>'\"></div>\n").assertError("page.html:2:17", "java.lang.String");
     page("<div t:insert=\"\"></div>\n").assertError("page.html:2:6", "needs a fragment reference");
   }
+
+  @Test
+  void insertIntoScriptOrStyleIsRejected() {
+    // The fragment's markup would otherwise run as live JavaScript or CSS.
+    page("<script t:insert=\"~{fragments/cards :: plain}\"></script>\n")
+        .assertError(
+            "page.html:2:9", "t:insert is only allowed on elements whose content is HTML text, not <script> or <style>");
+    page("<style t:insert=\"~{fragments/cards :: plain}\"></style>\n")
+        .assertError(
+            "page.html:2:8", "t:insert is only allowed on elements whose content is HTML text, not <script> or <style>");
+  }
+
+  @Test
+  void insertAndReplaceOnHtmlHostsStillRender() {
+    Compilation c =
+        page("<div t:insert=\"~{fragments/cards :: plain}\">x</div>"
+                + "<p t:replace=\"~{fragments/cards :: plain}\">x</p>"
+                + "<script t:replace=\"~{fragments/cards :: plain}\">x</script>")
+            .assertSuccess();
+    // t:replace swaps the whole element, so a <script> host is not a script context.
+    assertEquals(
+        "<main>\n<div><i>plain</i></div><i>plain</i><i>plain</i></main>",
+        c.render("page", Map.of("u", c.newInstance("com.example.User", "a"))));
+  }
 }
