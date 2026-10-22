@@ -17,6 +17,8 @@ package org.springframework.samples.petclinic.vet;
 
 import org.springframework.samples.petclinic.model.NamedEntity;
 
+import dev.tessera.runtime.TemplateView;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
@@ -26,6 +28,7 @@ import jakarta.persistence.Table;
  * @author Juergen Hoeller
  */
 @Entity
+@TemplateView
 @Table(name = "specialties")
 public class Specialty extends NamedEntity {
 

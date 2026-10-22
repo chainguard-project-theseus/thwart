@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+
+<html xmlns:t="https://tessera.dev" t:replace="~{fragments/layout :: layout (~{::body},'owners')}" t:import="org.springframework.samples.petclinic.owner.*" t:params="List<Owner> listOwners, int totalPages, int currentPage">
+
+<body>
+
+  <h2 t:text="#{owners}">Owners</h2>
+
+  <table id="owners" class="table table-striped">
+    <thead>
+      <tr>
+        <th t:text="#{name}" style="width: 150px;">Name</th>
+        <th t:text="#{address}" style="width: 200px;">Address</th>
+        <th t:text="#{city}">City</th>
+        <th t:text="#{telephone}" style="width: 120px">Telephone</th>
+        <th t:text="#{pets}">Pets</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr t:each="owner : listOwners">
+        <td>
+          <a t:href="@{/owners/{ownerId}(ownerId=owner.id)}" t:text="owner.firstName + ' ' + owner.lastName"></a>
+        </td>
+        <td t:text="owner.address" />
+        <td t:text="owner.city" />
+        <td t:text="owner.telephone" />
+        <td><span t:text="strings.join(owner.pets, ', ')" /></td>
+      </tr>
+    </tbody>
+  </table>
+  <div t:if="totalPages > 1">
+    <span t:text="#{pages}">Pages:</span>
+    <span>[</span>
+    <span t:each="i: numbers.sequence(1, totalPages)">
+      <a t:if="currentPage != i" t:href="@{/owners(page=i)}">[[${i}]]</a>
+      <span t:unless="currentPage != i">[[${i}]]</span>
+    </span>
+    <span>]&nbsp;</span>
+    <span>
+      <a t:if="currentPage > 1" t:href="@{/owners(page=1)}" t:title="#{first}" class="fa fa-fast-backward"></a>
+      <span t:unless="currentPage > 1" t:title="#{first}" class="fa fa-fast-backward"></span>
+    </span>
+    <span>
+      <a t:if="currentPage > 1" t:href="@{/owners(page=currentPage - 1)}" t:title="#{previous}"
+        class="fa fa-step-backward"></a>
+      <span t:unless="currentPage > 1" t:title="#{previous}" class="fa fa-step-backward"></span>
+    </span>
+    <span>
+      <a t:if="currentPage < totalPages" t:href="@{/owners(page=currentPage + 1)}" t:title="#{next}"
+        class="fa fa-step-forward"></a>
+      <span t:unless="currentPage < totalPages" t:title="#{next}" class="fa fa-step-forward"></span>
+    </span>
+    <span>
+      <a t:if="currentPage < totalPages" t:href="@{/owners(page=totalPages)}" t:title="#{last}"
+        class="fa fa-fast-forward"></a>
+      <span t:unless="currentPage < totalPages" t:title="#{last}" class="fa fa-fast-forward"></span>
+    </span>
+  </div>
+</body>
+
+</html>
