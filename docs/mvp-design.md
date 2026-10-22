@@ -121,7 +121,7 @@ additive    = mult { ( "+" | "-" ) mult } ;                (* + with a String op
 mult        = unary { ( "*" | "/" | "%" ) unary } ;
 unary       = ( "!" | "not" | "-" ) unary | postfix ;
 postfix     = primary { ( "." | "?." ) ident [ args ] | "[" expr "]" } ;
-primary     = literal | ident [ args ] | "(" expr ")" | "${" expr "}" | "*{" selpath "}"
+primary     = literal | ident | "(" expr ")" | "${" expr "}" | "*{" selpath "}"
             | "#" ident "." ident args | message | link | interp | fragment ;
 args        = "(" [ expr { "," expr } ] ")" ;
 message     = "#{" key [ "(" expr { "," expr } ")" ] "}" ;            (* key is literal *)
@@ -136,7 +136,7 @@ type        = qname [ "<" type { "," type } ">" ] { "[]" } ;
 ```
 
 Rejected with a specific message: `T(`, `new`, `__`, `@bean`, `=` assignment, `->`, `.![`, `.?[`,
-dynamic message keys and link paths.
+dynamic message keys and link paths, bare calls `fn(x)` (functions are `ns.fn(x)` or `#ns.fn(x)`).
 
 ## View-safe rules
 
