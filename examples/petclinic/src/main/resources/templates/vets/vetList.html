@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+
+<html xmlns:t="https://tessera.dev" t:replace="~{fragments/layout :: layout (~{::body},'vets')}" t:import="org.springframework.samples.petclinic.vet.Vet" t:params="List<Vet> listVets, int totalPages, int currentPage">
+
+<body>
+
+  <h2 t:text="#{vets}">Veterinarians</h2>
+
+  <table id="vets" class="table table-striped">
+    <thead>
+      <tr>
+        <th t:text="#{name}">Name</th>
+        <th t:text="#{specialties}">Specialties</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr t:each="vet : listVets">
+        <td t:text="vet.firstName + ' ' + vet.lastName"></td>
+        <td>
+          <span t:each="specialty : vet.specialties" t:text="specialty.name + ' '" /> <span
+            t:if="vet.nrOfSpecialties == 0" t:text="#{none}">none</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <div t:if="totalPages > 1">
+    <span t:text="#{pages}">Pages:</span>
+    <span>[</span>
+    <span t:each="i: numbers.sequence(1, totalPages)">
+      <a t:if="currentPage != i" t:href="@{/vets.html(page=i)}">[[${i}]]</a>
+      <span t:unless="currentPage != i">[[${i}]]</span>
+    </span>
+    <span>]&nbsp;</span>
+    <span>
+      <a t:if="currentPage > 1" t:href="@{/vets.html(page=1)}" t:title="#{first}"
+        class="fa fa-fast-backward"></a>
+      <span t:unless="currentPage > 1" t:title="#{first}" class="fa fa-fast-backward"></span>
+    </span>
+    <span>
+      <a t:if="currentPage > 1" t:href="@{/vets.html(page=currentPage - 1)}" t:title="#{previous}"
+        class="fa fa-step-backward"></a>
+      <span t:unless="currentPage > 1" t:title="#{previous}" class="fa fa-step-backward"></span>
+    </span>
+    <span>
+      <a t:if="currentPage < totalPages" t:href="@{/vets.html(page=currentPage + 1)}" t:title="#{next}"
+        class="fa fa-step-forward"></a>
+      <span t:unless="currentPage < totalPages" t:title="#{next}" class="fa fa-step-forward"></span>
+    </span>
+    <span>
+      <a t:if="currentPage < totalPages" t:href="@{/vets.html(page=totalPages)}" t:title="#{last}"
+        class="fa fa-fast-forward"></a>
+      <span t:unless="currentPage < totalPages" t:title="#{last}" class="fa fa-fast-forward"></span>
+    </span>
+  </div>
+</body>
+
+</html>

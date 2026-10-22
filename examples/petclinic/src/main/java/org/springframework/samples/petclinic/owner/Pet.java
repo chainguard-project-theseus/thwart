@@ -23,6 +23,8 @@ import java.util.Set;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.samples.petclinic.model.NamedEntity;
 
+import dev.tessera.runtime.TemplateView;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -42,6 +44,7 @@ import jakarta.persistence.Table;
  * @author Wick Dynex
  */
 @Entity
+@TemplateView
 @Table(name = "pets")
 public class Pet extends NamedEntity {
 

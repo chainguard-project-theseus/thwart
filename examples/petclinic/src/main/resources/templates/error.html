@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+
+<html xmlns:t="https://tessera.dev" t:replace="~{fragments/layout :: layout (~{::body},'error')}" t:params="Integer status, String message">
+
+<body>
+  <img src="../static/resources/images/pets.png" t:src="@{/resources/images/pets.png}" />
+  <!-- Title: Something happened -->
+  <h2 t:text="#{somethingHappened}">Something happened...</h2>
+
+  <!-- Status-specific error message -->
+  <p t:switch="status">
+    <span t:case="404" t:text="#{error.404}">The requested page was not found.</span>
+    <span t:case="500" t:text="#{error.500}">An internal server error occurred.</span>
+    <span t:case="*" t:text="#{error.general}">An unexpected error occurred.</span>
+  </p>
+
+  <!-- Exception message (for developers) -->
+  <p t:text="message">Exception message</p>
+</body>
+
+</html>

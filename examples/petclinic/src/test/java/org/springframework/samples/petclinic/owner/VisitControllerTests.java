@@ -16,6 +16,10 @@
 
 package org.springframework.samples.petclinic.owner;
 
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.hamcrest.Matchers.stringContainsInOrder;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -69,7 +73,9 @@ class VisitControllerTests {
 	void initNewVisitForm() throws Exception {
 		mockMvc.perform(get("/owners/{ownerId}/pets/{petId}/visits/new", TEST_OWNER_ID, TEST_PET_ID))
 			.andExpect(status().isOk())
-			.andExpect(view().name("pets/createOrUpdateVisitForm"));
+			.andExpect(view().name("pets/createOrUpdateVisitForm"))
+			.andExpect(content().string(stringContainsInOrder("<h2>", "New ", "Visit", "</h2>", "<b>Pet</b>", "<form class=\"form-horizontal\" method=\"post\">", "type=\"date\" min=\"", "\" id=\"date\" name=\"date\" value=\"", "id=\"description\" name=\"description\" value=\"\"", "<input type=\"hidden\" name=\"petId\" value=\"1\" />", "<button class=\"btn btn-primary\" type=\"submit\">Add Visit</button>", "<b>Previous Visits</b>")))
+			.andExpect(content().string(not(containsString("has-error"))));
 	}
 
 	@Test
@@ -90,7 +96,8 @@ class VisitControllerTests {
 					"George"))
 			.andExpect(model().attributeHasErrors("visit"))
 			.andExpect(status().isOk())
-			.andExpect(view().name("pets/createOrUpdateVisitForm"));
+			.andExpect(view().name("pets/createOrUpdateVisitForm"))
+			.andExpect(content().string(stringContainsInOrder("id=\"date\" name=\"date\"", "<div class=\"form-group has-error\">", "id=\"description\" name=\"description\"", "<span class=\"help-inline\">must not be blank</span>")));
 	}
 
 	@Test
@@ -103,7 +110,8 @@ class VisitControllerTests {
 			.andExpect(model().attributeHasFieldErrors("visit", "date"))
 			.andExpect(model().attributeHasFieldErrorCode("visit", "date", "typeMismatch.visitDate"))
 			.andExpect(status().isOk())
-			.andExpect(view().name("pets/createOrUpdateVisitForm"));
+			.andExpect(view().name("pets/createOrUpdateVisitForm"))
+			.andExpect(content().string(stringContainsInOrder("<div class=\"form-group has-error\">", "id=\"date\" name=\"date\"", "<span class=\"help-inline\">Visit date must be in the future</span>", "id=\"description\" name=\"description\" value=\"Visit Description\"")));
 	}
 
 	@Test
@@ -115,7 +123,8 @@ class VisitControllerTests {
 				.param("description", "a".repeat(256)))
 			.andExpect(model().attributeHasFieldErrors("visit", "description"))
 			.andExpect(status().isOk())
-			.andExpect(view().name("pets/createOrUpdateVisitForm"));
+			.andExpect(view().name("pets/createOrUpdateVisitForm"))
+			.andExpect(content().string(stringContainsInOrder("<div class=\"form-group has-error\">", "id=\"description\" name=\"description\"", "<span class=\"help-inline\">size must be between 0 and 255</span>")));
 	}
 
 }

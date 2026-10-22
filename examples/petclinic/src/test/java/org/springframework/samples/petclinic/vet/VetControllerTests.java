@@ -33,6 +33,9 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
 import java.util.List;
 
+import static org.hamcrest.Matchers.stringContainsInOrder;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -87,7 +90,9 @@ class VetControllerTests {
 		mockMvc.perform(MockMvcRequestBuilders.get("/vets.html?page=1"))
 			.andExpect(status().isOk())
 			.andExpect(model().attributeExists("listVets"))
-			.andExpect(view().name("vets/vetList"));
+			.andExpect(view().name("vets/vetList"))
+			.andExpect(content().string(stringContainsInOrder("<h2>Veterinarians</h2>", "<td>James Carter</td>", "<span>none</span>", "<td>Helen Leary</td>", "<span>radiology </span>")))
+			.andExpect(content().string(not(containsString("pages"))));
 
 	}
 
