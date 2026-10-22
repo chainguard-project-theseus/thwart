@@ -221,7 +221,8 @@ public final class ExpressionParser {
     void end() {
       ws();
       if (!atEnd()) {
-        throw error(i, "unexpected '" + peek() + "'");
+        throw error(i, "unexpected '" + peek() + "': expected the end of the expression (check for a missing"
+            + " operator or an unbalanced bracket or quote)");
       }
     }
 
@@ -251,7 +252,8 @@ public final class ExpressionParser {
 
     void enter() {
       if (++depth > MAX_DEPTH) {
-        throw error(i, "expression is nested too deeply");
+        throw error(i, "expression is nested more than " + MAX_DEPTH + " levels deep: simplify it or compute the value in"
+            + " Java");
       }
     }
 
@@ -388,7 +390,7 @@ public final class ExpressionParser {
 
     void rejectLambda() {
       if (at("->")) {
-        throw error(i, "lambdas (->) are not supported");
+        throw error(i, "lambdas (->) are not supported: compute the value in Java and pass it as a parameter");
       }
     }
 
@@ -420,10 +422,12 @@ public final class ExpressionParser {
       while (true) {
         ws();
         if (at(".![")) {
-          throw error(i, "collection projection (.![...]) is not supported");
+          throw error(i, "collection projection (.![...]) is not supported: compute the list in Java and pass it as a"
+              + " parameter");
         }
         if (at(".?[") || at(".^[") || at(".$[")) {
-          throw error(i, "collection selection (.?[...]) is not supported");
+          throw error(i, "collection selection (.?[...]) is not supported: filter the list in Java and pass it as a"
+              + " parameter");
         }
         boolean nullSafe;
         if (at("?.")) {
@@ -537,7 +541,7 @@ public final class ExpressionParser {
           case "null" -> {
             return new Expr.Literal(null, pos(at));
           }
-          case "new" -> throw error(at, "object creation (new) is not supported");
+          case "new" -> throw error(at, "object creation (new) is not supported: pass the value in as a template parameter");
           case "and", "or", "eq", "ne", "lt", "gt", "le", "ge" ->
               throw error(at, "expected an expression but found operator '" + name + "'");
           default -> {}
@@ -545,7 +549,8 @@ public final class ExpressionParser {
         ws();
         if (at("(")) {
           if (name.equals("T")) {
-            throw error(at, "type references (T(...)) are not supported");
+            throw error(at, "type references (T(...)) are not supported: call a @TemplateFunction (e.g."
+              + " numbers.sequence(1, n)) or pass the value as a parameter");
           }
           throw error(at, "'" + name + "(...)' is not a known call; call functions as 'ns." + name
               + "(...)' or '#ns." + name + "(...)'");
@@ -560,7 +565,7 @@ public final class ExpressionParser {
       StringBuilder b = new StringBuilder();
       while (true) {
         if (atEnd()) {
-          throw error(at, "unterminated string literal");
+          throw error(at, "unterminated string literal: expected a closing ' (write \\' for a quote inside the string)");
         }
         char c = s.charAt(i);
         if (c == '\\' && (peekAt(1) == '\'' || peekAt(1) == '\\')) {
@@ -596,10 +601,11 @@ public final class ExpressionParser {
           value = Integer.parseInt(s.substring(at, i));
         }
       } catch (NumberFormatException e) {
-        throw error(at, "number literal out of range: " + s.substring(at, i));
+        throw error(at, "number literal out of range: " + s.substring(at, i)
+            + " (int, or long with an L suffix)");
       }
       if (identPart(peek())) {
-        throw error(i, "invalid number literal");
+        throw error(i, "invalid number literal: expected a digit, '.' or 'L' but found '" + peek() + "'");
       }
       return new Expr.Literal(value, pos(at));
     }
@@ -631,7 +637,8 @@ public final class ExpressionParser {
       for (int k = 0; k < key.length(); k++) {
         char c = key.charAt(k);
         if (!identPart(c) && c != '.' && c != '-') {
-          throw error(keyAt + k, "invalid character '" + c + "' in message key '" + key + "'");
+          throw error(keyAt + k, "invalid character '" + c + "' in message key '" + key
+              + "': keys use letters, digits, '.', '-' and '_'");
         }
       }
       ws();
@@ -692,13 +699,14 @@ public final class ExpressionParser {
       for (int k = 0; k < path.length(); k++) {
         char c = path.charAt(k);
         if (Character.isWhitespace(c)) {
-          throw error(pathAt + k, "link path must not contain whitespace");
+          throw error(pathAt + k, "link path must not contain whitespace: percent-encode it (%20) or pass the value as a"
+              + " parameter, e.g. @{/search(q=term)}");
         } else if (c == '{') {
           open = k;
         } else if (c == '}') {
           String var = path.substring(open + 1, k);
           if (var.isEmpty() || !identStart(var.charAt(0)) || !var.chars().allMatch(ch -> identPart((char) ch))) {
-            throw error(pathAt + open, "invalid path variable '{" + var + "}'");
+            throw error(pathAt + open, "invalid path variable '{" + var + "}': write a name such as {id}");
           }
           open = -1;
         }
@@ -712,7 +720,7 @@ public final class ExpressionParser {
       int textAt = i;
       while (true) {
         if (atEnd()) {
-          throw error(at, "unterminated literal substitution: expected a closing '|'");
+          throw error(at, "unterminated literal substitution: expected a closing '|' (e.g. |Hello, ${name}!|)");
         }
         boolean end = peek() == '|';
         boolean expr = at("${") || at("*{") || at("#{");
@@ -759,7 +767,8 @@ public final class ExpressionParser {
       for (int k = 0; k < tpl.length(); k++) {
         char c = tpl.charAt(k);
         if (!identPart(c) && c != '/' && c != '-' && c != '.') {
-          throw error(tplAt + k, "invalid character '" + c + "' in template name '" + tpl + "'");
+          throw error(tplAt + k, "invalid character '" + c + "' in template name '" + tpl
+              + "': names use letters, digits, '/', '-', '_' and '.'");
         }
       }
       i += 2;
@@ -785,7 +794,7 @@ public final class ExpressionParser {
               }
             }
             if (named != null && named != (name != null)) {
-              throw error(argAt, "fragment arguments must be all named or all positional");
+              throw error(argAt, "fragment arguments must be all named or all positional, e.g. f(a, b) or f(x=a, y=b)");
             }
             named = name != null;
             args.add(new FragmentRef.Arg(name, expr(), pos(argAt)));
@@ -828,7 +837,7 @@ public final class ExpressionParser {
         do {
           ws();
           if (at("?")) {
-            throw error(i, "wildcard types are not supported");
+            throw error(i, "wildcard types are not supported: write the element type, e.g. List<Owner>");
           }
           typeArgs.add(type());
         } while (eat(","));

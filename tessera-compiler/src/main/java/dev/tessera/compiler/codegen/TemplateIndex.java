@@ -124,7 +124,7 @@ public final class TemplateIndex {
     Set<String> seen = new HashSet<>();
     for (ParamDecl d : decls) {
       if (!seen.add(d.name())) {
-        sink.error(d.pos(), "duplicate parameter '" + d.name() + "'");
+        sink.error(d.pos(), "duplicate parameter '" + d.name() + "': rename or remove one of them");
         continue;
       }
       TypeMirror type = expressions.resolveType(d.type(), imports);
@@ -172,7 +172,7 @@ public final class TemplateIndex {
       } else if (frag != null) {
         FragmentSignature sig = parser.parseFragmentSignature(frag.value(), frag.valuePos(), sink);
         if (sig != null && out.containsKey(sig.name())) {
-          sink.error(sig.pos(), "duplicate fragment '" + sig.name() + "' in this template");
+          sink.error(sig.pos(), "duplicate fragment '" + sig.name() + "' in this template: rename one of them");
         } else if (sig != null) {
           List<Param> params = resolve(sig.params(), imports, expressions, sink);
           out.put(sig.name(), new FragmentInfo(sig.name(), params, e, "fragment_" + sig.name()));

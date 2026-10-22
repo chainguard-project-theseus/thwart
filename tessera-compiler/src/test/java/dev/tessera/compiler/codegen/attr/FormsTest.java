@@ -3,7 +3,6 @@ package dev.tessera.compiler.codegen.attr;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.DefaultLinks;
@@ -38,7 +37,6 @@ class FormsTest {
 
   private static Compilation compile(String template, boolean ok) {
     Compilation c = model().template("form.html", template).compile();
-    assumeFalse(c.errors().stream().anyMatch(e -> e.contains("TODO(#")), () -> "stage not implemented: " + c.errors());
     return ok ? c.assertSuccess() : c;
   }
 

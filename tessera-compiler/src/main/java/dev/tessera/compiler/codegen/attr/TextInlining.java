@@ -137,7 +137,7 @@ public final class TextInlining {
     return switch (context) {
       case STYLE -> "inside <style>: CSS cannot be escaped safely; compute a class name instead";
       case FORBIDDEN -> "inside a <script> whose type is not JavaScript or JSON (or is set by t:type)";
-      default -> "in " + context + " context";
+      default -> "in " + context + " context: move the expression into element text or a t: attribute";
     };
   }
 

@@ -15,7 +15,7 @@ public final class AttrProcessor implements AttributeProcessor {
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
     if (attr.value() == null) {
-      ctx.diagnostics().error(attr.pos(), attr.name() + " needs a value");
+      ctx.diagnostics().error(attr.pos(), attr.name() + " needs a value, e.g. t:attr=\"title=owner.name, data-id=owner.id\"");
       return;
     }
     List<Assignment> assignments = ctx.parser().parseAssignments(attr.value(), attr.valuePos(), ctx.diagnostics());

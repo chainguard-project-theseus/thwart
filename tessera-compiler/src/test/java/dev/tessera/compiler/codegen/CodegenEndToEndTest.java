@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.TemplateModelException;
@@ -14,10 +13,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * Full pipeline through javac and the real processor. Each test is skipped while a stage it
- * needs is still a {@code TODO(#n)} stub (HTML parser #2, expression parser #3, types #4).
- */
+/** Full pipeline through javac and the real processor. */
 class CodegenEndToEndTest {
   private static final String STATIC =
       "<!DOCTYPE html>\n"
@@ -31,7 +27,6 @@ class CodegenEndToEndTest {
 
   private static Compilation compile(Compilation.Builder b) {
     Compilation c = b.compile();
-    assumeFalse(c.errors().stream().anyMatch(e -> e.contains("TODO(#")), () -> "stage not implemented: " + c.errors());
     return c;
   }
 
@@ -72,7 +67,7 @@ class CodegenEndToEndTest {
                             + " t:params=\"User user, List<String> tags, int n\">x</html>"))
             .assertSuccess();
     String src = c.generatedSource("tessera.generated.PageTemplate");
-    assertTrue(src.contains("of(com.example.User user, java.util.List<java.lang.String> tags, int n)"), src);
+    assertTrue(src.contains("of(com.example.User user$, java.util.List<java.lang.String> tags$, int n$)"), src);
     Object user = c.newInstance("com.example.User", "Ann");
     assertEquals("<html>x</html>", c.render("page", Map.of("user", user, "tags", List.of(), "n", 1)));
     assertEquals("<html>x</html>", c.render("page", Map.of("n", 1)));
