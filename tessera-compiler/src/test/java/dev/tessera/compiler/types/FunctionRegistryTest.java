@@ -123,7 +123,7 @@ class FunctionRegistryTest {
     TypesHarness h = TypesHarness.create().java("com.example.Bad", bad).functions("com.example.Bad");
     h.run(
         f -> {
-          f.compiler();
+          f.compiler().functions();
           String all = String.join("\n", f.errors());
           assertTrue(all.contains("com/example/Bad.java:1:1: error: @TemplateFunction com.example.Bad.inst must be public static"), all);
           assertTrue(all.contains("com.example.Bad.hidden must be public static"), all);
@@ -153,7 +153,7 @@ class FunctionRegistryTest {
     ViewSafetyTest.HOSTILE.forEach(h::java);
     h.run(
         f -> {
-          f.compiler();
+          f.compiler().functions();
           String all = String.join("\n", f.errors());
           for (int i = 0; i < denied.size(); i++) {
             assertTrue(all.contains("com.example.Deny.p" + i + " parameter x"), denied.get(i) + "\n" + all);
@@ -184,7 +184,7 @@ class FunctionRegistryTest {
         .functions("com.example.Hidden")
         .run(
             f -> {
-              f.compiler();
+              f.compiler().functions();
               String all = String.join("\n", f.errors());
               assertTrue(all.contains("duplicate function namespace 'dup': declared by com.example.DupA and com.example.DupB"), all);
               assertTrue(

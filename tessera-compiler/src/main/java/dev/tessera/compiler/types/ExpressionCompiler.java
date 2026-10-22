@@ -75,26 +75,32 @@ public final class ExpressionCompiler {
 
   private final CompilerEnv env;
   private final ViewSafety safety;
-  private final FunctionRegistry functions;
+  private FunctionRegistry functions;
   private int lambdas;
 
   public ExpressionCompiler(CompilerEnv env) {
     this.env = env;
     this.safety = new ViewSafety(env);
-    this.functions = new FunctionRegistry(env);
   }
 
   public CompilerEnv env() {
     return env;
   }
 
-  /** The function namespaces visible to templates. */
+  /**
+   * The function namespaces visible to templates. Built (and its registration errors reported)
+   * on first use, i.e. as soon as any expression or parameter type is compiled.
+   */
   public FunctionRegistry functions() {
+    if (functions == null) {
+      functions = new FunctionRegistry(env);
+    }
     return functions;
   }
 
   /** Compiles a value expression. */
   public CompiledExpr compile(Expr expr, Scope scope) {
+    functions();
     return switch (expr) {
       case Expr.Literal l -> literal(l);
       case Expr.Var v -> variable(v, scope);
@@ -181,6 +187,7 @@ public final class ExpressionCompiler {
    * view-safe, {@code SafeHtml}, {@code TrustedUrl} or {@code Fragment}.
    */
   public TypeMirror resolveType(TypeRef ref, List<String> imports) {
+    functions();
     TypeMirror t = resolveRef(ref, imports);
     if (t == null) {
       return null;
@@ -266,7 +273,7 @@ public final class ExpressionCompiler {
       if (v.name().equals(FunctionRegistry.RESERVED)) {
         return FieldsCompiler.compile(m.name(), m.args(), m.pos(), scope, this);
       }
-      if (functions.namespaces().contains(v.name())) {
+      if (functions().namespaces().contains(v.name())) {
         return function(v.name(), m.name(), m.args(), m.pos(), scope);
       }
       return error(v.pos(), "unknown identifier or function namespace '" + v.name() + "'");
@@ -467,18 +474,18 @@ public final class ExpressionCompiler {
     if (failed) {
       return null;
     }
-    Optional<TypeElement> owner = functions.namespaceClass(ns);
+    Optional<TypeElement> owner = functions().namespaceClass(ns);
     if (owner.isEmpty()) {
       return error(pos, "unknown function namespace '" + ns + "'");
     }
-    if (functions.overloads(ns, name).isEmpty()) {
+    if (functions().overloads(ns, name).isEmpty()) {
       return error(
           pos,
           "unknown function " + ns + "." + name + ": only public static @TemplateFunction methods of "
               + owner.get().getQualifiedName() + " can be called");
     }
     List<TypeMirror> argTypes = compiled.stream().map(CompiledExpr::type).toList();
-    Optional<ExecutableElement> m = functions.lookup(ns, name, argTypes);
+    Optional<ExecutableElement> m = functions().lookup(ns, name, argTypes);
     if (m.isEmpty()) {
       return error(
           pos,
@@ -816,7 +823,7 @@ public final class ExpressionCompiler {
   }
 
   private boolean isNamespace(String name) {
-    return name.equals(FunctionRegistry.RESERVED) || functions.namespaces().contains(name);
+    return name.equals(FunctionRegistry.RESERVED) || functions().namespaces().contains(name);
   }
 
   private boolean isNamespaceRef(Expr.Var v, Scope scope) {
