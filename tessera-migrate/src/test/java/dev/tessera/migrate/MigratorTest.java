@@ -23,6 +23,15 @@ class MigratorTest {
     return migrate(source).items().stream().map(i -> i.line() + ": " + i.message()).toList();
   }
 
+  /** Asserts the report messages for {@code src}, in order: each starts with its {@code expected}. */
+  private static void assertMessages(String src, String... expected) throws Exception {
+    List<String> messages = messages(src);
+    assertEquals(expected.length, messages.size(), messages.toString());
+    for (int i = 0; i < expected.length; i++) {
+      assertTrue(messages.get(i).startsWith(expected[i]), messages.toString());
+    }
+  }
+
   // ---- source preservation ----
 
   @Test
@@ -143,8 +152,11 @@ class MigratorTest {
     assertEquals("<html xmlns:t=\"https://tessera.dev\""
             + " t:params=\"Object form, Object owner, Object query, Object user, Object t, Object count, Object html\">",
         convert(src).lines().findFirst().orElseThrow());
-    assertEquals(7, messages(src).size());
-    assertTrue(messages(src).get(0).startsWith("1: `form` is declared as `Object`"), messages(src).get(0));
+    assertMessages(src,
+        "1: `form` is declared as `Object`", "1: `owner` is declared as `Object`",
+        "1: `query` is declared as `Object`", "1: `user` is declared as `Object`",
+        "1: `t` is declared as `Object`", "1: `count` is declared as `Object`",
+        "1: `html` is declared as `Object`");
   }
 
   @Test
@@ -190,12 +202,12 @@ class MigratorTest {
     String src = "<div>\n\n<input th:field=\"*{__${name}__}\"/><a th:href=\"@{/x/__${i}__}\">x</a>"
         + "<a th:href=\"@{'/x?p=__${i}__&q=1'}\">y</a></div>";
     assertEquals(src.replace("th:", "t:"), convert(src));
-    List<String> messages = messages(src);
-    assertEquals(4, messages.size(), messages.toString());
-    assertTrue(messages.get(0).startsWith("3: dynamic form-field path `*{__...__}` is not supported")
-        && messages.get(0).contains("#43"), messages.toString());
-    assertTrue(messages.get(1).startsWith("3: `__...__` preprocessing is not supported"), messages.toString());
-    assertTrue(messages.get(2).startsWith("3: `__...__` preprocessing is not supported"), messages.toString());
+    assertMessages(src,
+        "3: dynamic form-field path `*{__...__}` is not supported (preprocessing); inline one element per"
+            + " field (a typed alternative is tracked in #43)",
+        "3: `__...__` preprocessing is not supported",
+        "3: `__...__` preprocessing is not supported",
+        "3: link with a non-literal path");
   }
 
   // ---- mechanical rewrites found by the petclinic port (#42) ----
@@ -208,7 +220,8 @@ class MigratorTest {
     assertEquals("<p t:params=\"Object i, Object n, Object p\"><a t:href=\"@{/owners(page=i)}\">a</a>"
             + "<a t:href=\"@{/owners(page=(n + 1))}\">b</a><a t:href=\"@{/a/b_c(page_no=p.no)}\">c</a></p>",
         convert(src));
-    assertEquals(3, messages(src).size(), messages(src).toString()); // only the params stub
+    assertMessages(src, // only the params stub
+        "1: `i` is declared as `Object`", "1: `n` is declared as `Object`", "1: `p` is declared as `Object`");
   }
 
   @Test
@@ -264,14 +277,13 @@ class MigratorTest {
     assertTrue(out.contains("t:text=\"${@env.getProperty('k')}\""), out);
     assertTrue(out.contains("t:text=\"${#request.getParameter('q')}\""), out);
     assertTrue(out.startsWith("<div>"), "no params stub from unconvertible values: " + out);
-    List<String> messages = messages(src);
-    assertEquals(6, messages.size(), messages.toString());
-    assertTrue(messages.get(0).contains("Spring bean references"), messages.toString());
-    assertTrue(messages.get(1).contains("object creation with `new`"), messages.toString());
-    assertTrue(messages.get(2).contains("`#request`"), messages.toString());
-    assertTrue(messages.get(3).contains("`#ctx`"), messages.toString());
-    assertTrue(messages.get(4).contains("selection/projection"), messages.toString());
-    assertTrue(messages.get(5).contains("non-literal path"), messages.toString());
+    assertMessages(src,
+        "1: Spring bean references (`@bean`) are not supported",
+        "1: object creation with `new` is not supported",
+        "1: Thymeleaf utility object `#request` has no Tessera equivalent",
+        "1: Thymeleaf utility object `#ctx` has no Tessera equivalent",
+        "1: collection selection/projection is not supported",
+        "1: link with a non-literal path");
   }
 
   @Test
@@ -279,16 +291,21 @@ class MigratorTest {
     String src = "<div xmlns:sec=\"x\">\n<b th:onclick=\"${a}\" th:style=\"${s}\" th:inline=\"javascript\""
         + " sec:authorize=\"hasRole('A')\" layout:fragment=\"c\" data-th-text=\"${t}\" th:include=\"f\">x</b></div>";
     assertEquals(src, convert(src));
-    List<String> messages = messages(src);
-    assertEquals(7, messages.size(), messages.toString());
-    assertTrue(messages.stream().allMatch(m -> m.startsWith("2: ")), messages.toString());
+    assertMessages(src,
+        "2: `th:onclick` is a build error by design (no dynamic event handlers)",
+        "2: `th:style` is a build error by design (no dynamic CSS)",
+        "2: `th:inline` is not supported",
+        "2: `sec:authorize` belongs to the `sec:` dialect",
+        "2: `layout:fragment` belongs to the `layout:` dialect",
+        "2: `data-th-text` (HTML5 data-th-* syntax) is not converted; rewrite it as `t:text`",
+        "2: `th:include` is not supported; use `t:insert` or `t:replace`");
   }
 
   @Test
   void unsupportedConstructsInInlinedTextAreReported() throws Exception {
     String src = "<p>[[${T(System).getenv()}]]</p>";
     assertEquals(src, convert(src));
-    assertEquals(1, messages(src).size());
+    assertMessages(src, "1: `T(...)` static class access is not supported");
   }
 
   @Test
