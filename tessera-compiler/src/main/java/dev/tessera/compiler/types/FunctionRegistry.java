@@ -2,6 +2,7 @@ package dev.tessera.compiler.types;
 
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.SourcePos;
+import dev.tessera.runtime.TemplateFunctions;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -31,9 +32,9 @@ import javax.lang.model.util.Types;
  * never-view-safe types are build errors (reported once, when the registry is built, at
  * {@code path/To/Class.java:1:1}).
  */
-public final class FunctionRegistry {
+final class FunctionRegistry {
   static final String RESERVED = "fields";
-  private static final String FUNCTIONS = "dev.tessera.runtime.TemplateFunctions";
+  private static final String FUNCTIONS = TemplateFunctions.class.getName();
   private static final String FUNCTION = "dev.tessera.runtime.TemplateFunction";
 
   private final CompilerEnv env;
@@ -41,7 +42,7 @@ public final class FunctionRegistry {
   private final Map<String, TypeElement> classes = new LinkedHashMap<>();
   private final Map<String, List<ExecutableElement>> functions = new LinkedHashMap<>();
 
-  public FunctionRegistry(CompilerEnv env) {
+  FunctionRegistry(CompilerEnv env) {
     this.env = env;
     this.safety = new ViewSafety(env);
     Map<String, TypeElement> candidates = new LinkedHashMap<>();
@@ -57,24 +58,24 @@ public final class FunctionRegistry {
     candidates.values().forEach(this::register);
   }
 
-  public Set<String> namespaces() {
+  Set<String> namespaces() {
     return Collections.unmodifiableSet(classes.keySet());
   }
 
   /** The class implementing {@code namespace}, if registered. */
-  public Optional<TypeElement> namespaceClass(String namespace) {
+  Optional<TypeElement> namespaceClass(String namespace) {
     return Optional.ofNullable(classes.get(namespace));
   }
 
   /** All registered overloads of {@code ns.name} (empty if there is no such function). */
-  public List<ExecutableElement> overloads(String namespace, String name) {
+  List<ExecutableElement> overloads(String namespace, String name) {
     return functions.getOrDefault(namespace, List.of()).stream()
         .filter(m -> m.getSimpleName().contentEquals(name))
         .toList();
   }
 
   /** The unique applicable overload of {@code ns.name} for {@code argTypes}, if any. */
-  public Optional<ExecutableElement> lookup(String namespace, String name, List<TypeMirror> argTypes) {
+  Optional<ExecutableElement> lookup(String namespace, String name, List<TypeMirror> argTypes) {
     List<ExecutableElement> overloads = overloads(namespace, name);
     // JLS 15.12.2 phases: subtyping only, then boxing, then varargs.
     for (int phase = 1; phase <= 3; phase++) {
@@ -95,11 +96,11 @@ public final class FunctionRegistry {
   }
 
   private void register(TypeElement te) {
-    SourcePos pos = positionOf(te);
     String ns = namespaceOf(te);
     if (ns == null) {
       return;
     }
+    SourcePos pos = positionOf(te);
     String className = te.getQualifiedName().toString();
     if (!SourceVersion.isIdentifier(ns) || SourceVersion.isKeyword(ns)) {
       env.diagnostics().error(pos, "invalid function namespace '" + ns + "' on " + className + ": must be a Java identifier");
@@ -121,38 +122,42 @@ public final class FunctionRegistry {
     }
     List<ExecutableElement> valid = new ArrayList<>();
     for (ExecutableElement m : ElementFilter.methodsIn(te.getEnclosedElements())) {
-      if (!hasAnnotation(m, FUNCTION)) {
-        continue;
-      }
-      String fn = className + "." + m.getSimpleName();
-      if (!m.getModifiers().contains(Modifier.PUBLIC) || !m.getModifiers().contains(Modifier.STATIC)) {
-        env.diagnostics().error(pos, "@TemplateFunction " + fn + " must be public static");
-        continue;
-      }
-      if (m.getReturnType().getKind() == TypeKind.VOID) {
-        env.diagnostics().error(pos, "@TemplateFunction " + fn + " must return a value");
-        continue;
-      }
-      boolean ok = true;
-      Optional<String> r = safety.reason(m.getReturnType(), false);
-      if (r.isPresent()) {
-        env.diagnostics().error(pos, "@TemplateFunction " + fn + " returns " + m.getReturnType() + ": " + r.get());
-        ok = false;
-      }
-      for (VariableElement p : m.getParameters()) {
-        Optional<String> pr = safety.reason(p.asType(), true);
-        if (pr.isPresent()) {
-          env.diagnostics()
-              .error(pos, "@TemplateFunction " + fn + " parameter " + p.getSimpleName() + " has type " + p.asType() + ": " + pr.get());
-          ok = false;
-        }
-      }
-      if (ok) {
+      if (ViewSafety.annotation(m, FUNCTION) != null && validFunction(m, className + "." + m.getSimpleName(), pos)) {
         valid.add(m);
       }
     }
     classes.put(ns, te);
     functions.put(ns, valid);
+  }
+
+  /**
+   * Checks a {@code @TemplateFunction} method, reporting at {@code pos}; a bad return type and every
+   * bad parameter are all reported before returning.
+   */
+  private boolean validFunction(ExecutableElement m, String fn, SourcePos pos) {
+    if (!m.getModifiers().contains(Modifier.PUBLIC) || !m.getModifiers().contains(Modifier.STATIC)) {
+      env.diagnostics().error(pos, "@TemplateFunction " + fn + " must be public static");
+      return false;
+    }
+    if (m.getReturnType().getKind() == TypeKind.VOID) {
+      env.diagnostics().error(pos, "@TemplateFunction " + fn + " must return a value");
+      return false;
+    }
+    boolean ok = true;
+    Optional<String> r = safety.neverViewSafeReason(m.getReturnType());
+    if (r.isPresent()) {
+      env.diagnostics().error(pos, "@TemplateFunction " + fn + " returns " + m.getReturnType() + ": " + r.get());
+      ok = false;
+    }
+    for (VariableElement p : m.getParameters()) {
+      Optional<String> pr = safety.reason(p.asType(), true);
+      if (pr.isPresent()) {
+        env.diagnostics()
+            .error(pos, "@TemplateFunction " + fn + " parameter " + p.getSimpleName() + " has type " + p.asType() + ": " + pr.get());
+        ok = false;
+      }
+    }
+    return ok;
   }
 
   private boolean applicable(ExecutableElement m, List<TypeMirror> args, int phase) {
@@ -234,25 +239,16 @@ public final class FunctionRegistry {
   }
 
   private static String namespaceOf(TypeElement te) {
-    for (AnnotationMirror am : te.getAnnotationMirrors()) {
-      if (((TypeElement) am.getAnnotationType().asElement()).getQualifiedName().contentEquals(FUNCTIONS)) {
-        for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e : am.getElementValues().entrySet()) {
-          if (e.getKey().getSimpleName().contentEquals("value") && e.getValue().getValue() instanceof String s) {
-            return s;
-          }
-        }
+    AnnotationMirror am = ViewSafety.annotation(te, FUNCTIONS);
+    if (am == null) {
+      return null;
+    }
+    for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e : am.getElementValues().entrySet()) {
+      if (e.getKey().getSimpleName().contentEquals("value") && e.getValue().getValue() instanceof String s) {
+        return s;
       }
     }
     return null;
-  }
-
-  private static boolean hasAnnotation(Element e, String annotation) {
-    for (AnnotationMirror am : e.getAnnotationMirrors()) {
-      if (((TypeElement) am.getAnnotationType().asElement()).getQualifiedName().contentEquals(annotation)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /** Function classes have no template position; report against their source file. */
