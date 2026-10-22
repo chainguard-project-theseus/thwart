@@ -267,21 +267,19 @@ def migrate(app, k, args):
     cfg = config(app)
     run_dir = os.path.join(RESULTS, app, f"run-{k}")
     app_dir = os.path.join(WORK, "runs", app, f"run-{k}")
-    shutil.rmtree(run_dir, ignore_errors=True)
+    if os.path.exists(run_dir):  # earlier runs are results; add new ones with --first-run
+        sys.exit(f"{run_dir} exists; pick unused run numbers with --first-run")
     os.makedirs(run_dir)
     checkout(app, app_dir)
     prompt = open(os.path.join(HERE, "prompt.md")).read().replace("{minutes}", str(args.minutes))
     # The container is the sandbox: its home is empty (no CLAUDE.md, memory, plugins or settings)
-    # and it sees only the checkout and the guide. No web access and no multi-agent workflows.
-    claude = ("timeout --kill-after=30s {m}m claude -p \"$PROMPT\" --dangerously-skip-permissions"
-              " --model {model} --max-budget-usd {usd} --output-format stream-json --verbose"
-              " --disallowedTools WebFetch WebSearch Workflow").format(m=args.minutes, model=args.model,
-                                                                       usd=args.budget_usd)
+    # and it sees only the checkout and the guide. lib/run-agent.sh has the claude invocation.
     start = time.time()
     with open(os.path.join(run_dir, "transcript.jsonl"), "w") as out:
         p = docker([(app_dir, "/work/app"), (os.path.join(REPO, "docs", "guide.md"), "/work/guide.md:ro")],
-                   {"PROMPT": prompt, "ANTHROPIC_API_KEY": os.environ["ANTHROPIC_API_KEY"]},
-                   ["bash", "-c", claude], out=out)
+                   {"PROMPT": prompt, "ANTHROPIC_API_KEY": os.environ["ANTHROPIC_API_KEY"],
+                    "AGENT_MINUTES": args.minutes, "AGENT_MODEL": args.model, "AGENT_BUDGET_USD": args.budget_usd},
+                   ["run-agent"], out=out)
     meta = {"wall_minutes": round((time.time() - start) / 60, 1), "exit": p.returncode,
             "model": args.model, "budget_usd": args.budget_usd, "budget_minutes": args.minutes}
     meta.update(agent_usage(os.path.join(run_dir, "transcript.jsonl")))
