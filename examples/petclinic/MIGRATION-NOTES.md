@@ -20,7 +20,7 @@ output deviations are in [PORTING.md](PORTING.md).
 | 13 | Compiler bug | `<td t:text="x" />` rendered `<td />x` | Fixed in `TemplateGenerator`: a self-closed element whose body is replaced gets a start and end tag |
 | 14 | Starter gap | `@WebMvcTest` slices did not load `TesseraAutoConfiguration`, so no view rendered and bodies were empty | Added the starter's `AutoConfigureWebMvc.imports` entry |
 | 15 | Runtime rule | A null link path variable throws; upstream test data listed an owner without an id | Test fixture gives the owner an id (`OwnerControllerTests.savedOwner`) |
-| 16 | Cosmetic | `t:each` drops the whitespace Thymeleaf repeats between iterations | Left as is; #40 |
+| 16 | Cosmetic | `t:each` drops the whitespace Thymeleaf repeats between iterations | Fixed in #40: `t:each` repeats it like Thymeleaf |
 
 What went smoothly: once the model was annotated and the stubs were typed, the templates compiled
 after the one parser error above. That covers layout with `~{::body}`, `t:object`/`t:field`/`t:errors`,
