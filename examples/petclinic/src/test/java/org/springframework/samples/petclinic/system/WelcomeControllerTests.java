@@ -23,7 +23,9 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.aot.DisabledInAotMode;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.stringContainsInOrder;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
@@ -37,7 +39,18 @@ class WelcomeControllerTests {
 
 	@Test
 	void welcome() throws Exception {
-		mockMvc.perform(get("/")).andExpect(status().isOk()).andExpect(view().name("welcome"));
+		mockMvc.perform(get("/"))
+			.andExpect(status().isOk())
+			.andExpect(view().name("welcome"))
+			.andExpect(content().contentType("text/html;charset=UTF-8"))
+			.andExpect(content().string(stringContainsInOrder("<!DOCTYPE html>", "<html>",
+					"<title>PetClinic :: a Spring Framework demonstration</title>",
+					"<a class=\"nav-link active\" href=\"/\" title=\"home page\">", "<span>Home</span>",
+					"<a class=\"nav-link\" href=\"/owners/find\" title=\"find owners\">", "<span>Find Owners</span>",
+					"<a class=\"nav-link\" href=\"/vets.html\" title=\"veterinarians\">",
+					"<a class=\"nav-link\" href=\"/oups\"", "<h2>Welcome</h2>",
+					"<img class=\"img-responsive\" src=\"/resources/images/pets.png\" />",
+					"<script src=\"/webjars/bootstrap/dist/js/bootstrap.bundle.min.js\"></script>")));
 	}
 
 }

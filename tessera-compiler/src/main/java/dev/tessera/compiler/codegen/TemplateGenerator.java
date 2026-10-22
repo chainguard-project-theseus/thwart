@@ -298,7 +298,7 @@ public final class TemplateGenerator implements CodegenContext {
           node(c, n, plan.scope());
         }
       }
-      if (!plan.tagOmitted() && e.hasEndTag()) {
+      if (!plan.tagOmitted() && (e.hasEndTag() || opensSelfClosing(plan))) {
         c.text("</" + e.name() + ">");
       }
     }
@@ -321,13 +321,21 @@ public final class TemplateGenerator implements CodegenContext {
         case ElementPlan.DynamicAttr d -> c.stmt(dynamicAttr(d));
       }
     }
-    if (!e.selfClosing()) {
+    if (!e.selfClosing() || opensSelfClosing(plan)) {
       c.text(">");
     } else if (source != null && source.length() > 2 && Character.isWhitespace(source.charAt(source.length() - 3))) {
       c.text(" />");
     } else {
       c.text("/>");
     }
+  }
+
+  /**
+   * A self-closing element whose body a processor replaced ({@code <td t:text="x"/>}) renders as
+   * {@code <td>x</td>}, like Thymeleaf; otherwise the text would follow a {@code <td/>} tag.
+   */
+  private static boolean opensSelfClosing(ElementPlan plan) {
+    return plan.element().selfClosing() && plan.body() != null;
   }
 
   /** True if the start tag can be copied from the source: no t: attributes and nothing changed. */

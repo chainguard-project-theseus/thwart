@@ -34,6 +34,10 @@ import java.util.Optional;
 
 import org.springframework.dao.DataIntegrityViolationException;
 
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.hamcrest.Matchers.stringContainsInOrder;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -91,6 +95,8 @@ class PetControllerTests {
 		mockMvc.perform(get("/owners/{ownerId}/pets/new", TEST_OWNER_ID))
 			.andExpect(status().isOk())
 			.andExpect(view().name("pets/createOrUpdatePetForm"))
+			.andExpect(content().string(stringContainsInOrder("<h2>", "New ", "<span>Pet</span>", "</h2>", "<form class=\"form-horizontal\" method=\"post\">", "<input type=\"hidden\" name=\"id\" />", "<label for=\"name\" class=\"col-sm-2 control-label\">Name</label>", "id=\"name\" name=\"name\" value=\"\"", "type=\"date\" id=\"birthDate\" name=\"birthDate\" value=\"\"", "<select id=\"type\" name=\"type\">", "<option value=\"hamster\">hamster</option>", "</select>", "<button class=\"btn btn-primary\" type=\"submit\">Add Pet</button>")))
+			.andExpect(content().string(not(containsString("has-error"))))
 			.andExpect(model().attributeExists("pet"));
 	}
 
@@ -117,7 +123,8 @@ class PetControllerTests {
 				.andExpect(model().attributeHasFieldErrors("pet", "name"))
 				.andExpect(model().attributeHasFieldErrorCode("pet", "name", "required"))
 				.andExpect(status().isOk())
-				.andExpect(view().name("pets/createOrUpdatePetForm"));
+				.andExpect(view().name("pets/createOrUpdatePetForm"))
+				.andExpect(content().string(stringContainsInOrder("<div class=\"form-group has-error\">", "id=\"name\" name=\"name\"", "<span class=\"help-inline\">is required</span>")));
 		}
 
 		@Test
@@ -130,7 +137,8 @@ class PetControllerTests {
 				.andExpect(model().attributeHasFieldErrors("pet", "name"))
 				.andExpect(model().attributeHasFieldErrorCode("pet", "name", "duplicate"))
 				.andExpect(status().isOk())
-				.andExpect(view().name("pets/createOrUpdatePetForm"));
+				.andExpect(view().name("pets/createOrUpdatePetForm"))
+				.andExpect(content().string(stringContainsInOrder("<div class=\"form-group has-error\">", "id=\"name\" name=\"name\" value=\"petty\"", "<span class=\"help-inline\">is already in use</span>")));
 		}
 
 		@Test
@@ -143,7 +151,8 @@ class PetControllerTests {
 				.andExpect(model().attributeHasFieldErrors("pet", "type"))
 				.andExpect(model().attributeHasFieldErrorCode("pet", "type", "required"))
 				.andExpect(status().isOk())
-				.andExpect(view().name("pets/createOrUpdatePetForm"));
+				.andExpect(view().name("pets/createOrUpdatePetForm"))
+				.andExpect(content().string(stringContainsInOrder("id=\"name\" name=\"name\" value=\"Betty\"", "<div class=\"form-group has-error\">", "<select id=\"type\" name=\"type\">", "<span class=\"help-inline\">is required</span>")));
 		}
 
 		@Test
@@ -159,7 +168,8 @@ class PetControllerTests {
 				.andExpect(model().attributeHasFieldErrors("pet", "birthDate"))
 				.andExpect(model().attributeHasFieldErrorCode("pet", "birthDate", "typeMismatch.birthDate"))
 				.andExpect(status().isOk())
-				.andExpect(view().name("pets/createOrUpdatePetForm"));
+				.andExpect(view().name("pets/createOrUpdatePetForm"))
+				.andExpect(content().string(stringContainsInOrder("<div class=\"form-group has-error\">", "id=\"birthDate\" name=\"birthDate\"", "<span class=\"help-inline\">invalid date</span>")));
 		}
 
 		@Test
@@ -183,7 +193,9 @@ class PetControllerTests {
 			mockMvc.perform(get("/owners/{ownerId}/pets/{petId}/edit", TEST_OWNER_ID, TEST_PET_ID))
 				.andExpect(status().isOk())
 				.andExpect(model().attributeExists("pet"))
-				.andExpect(view().name("pets/createOrUpdatePetForm"));
+				.andExpect(view().name("pets/createOrUpdatePetForm"))
+				.andExpect(content().string(stringContainsInOrder("<h2>", "<span>Pet</span>", "<input type=\"hidden\" name=\"id\" value=\"1\" />", "id=\"name\" name=\"name\" value=\"petty\"", "<button class=\"btn btn-primary\" type=\"submit\">Update Pet</button>")))
+				.andExpect(content().string(not(containsString("New "))));
 		}
 
 	}
@@ -226,7 +238,8 @@ class PetControllerTests {
 				.andExpect(model().attributeHasFieldErrors("pet", "name"))
 				.andExpect(model().attributeHasFieldErrorCode("pet", "name", "duplicate"))
 				.andExpect(status().isOk())
-				.andExpect(view().name("pets/createOrUpdatePetForm"));
+				.andExpect(view().name("pets/createOrUpdatePetForm"))
+				.andExpect(content().string(stringContainsInOrder("<div class=\"form-group has-error\">", "id=\"name\" name=\"name\" value=\"petty\"", "<span class=\"help-inline\">is already in use</span>", "<option value=\"hamster\" selected=\"selected\">hamster</option>")));
 		}
 
 		@Test
@@ -238,7 +251,8 @@ class PetControllerTests {
 				.andExpect(model().attributeHasErrors("pet"))
 				.andExpect(model().attributeHasFieldErrors("pet", "birthDate"))
 				.andExpect(model().attributeHasFieldErrorCode("pet", "birthDate", "typeMismatch"))
-				.andExpect(view().name("pets/createOrUpdatePetForm"));
+				.andExpect(view().name("pets/createOrUpdatePetForm"))
+				.andExpect(content().string(stringContainsInOrder("id=\"birthDate\" name=\"birthDate\" value=\"2015/02/12\"", "<span class=\"help-inline\">invalid date<br />is required</span>")));
 		}
 
 		@Test

@@ -15,7 +15,8 @@
  */
 
 /**
- * Spring PetClinic on Tessera, imported from spring-projects/spring-petclinic. TODO(#18): port the
- * templates from {@code thymeleaf-reference/templates}.
+ * Spring PetClinic on Tessera, imported from spring-projects/spring-petclinic. The UI is compiled
+ * Tessera templates under {@code src/main/resources/templates}, ported from
+ * {@code thymeleaf-reference/templates} (see {@code PORTING.md}).
  */
 package org.springframework.samples.petclinic;

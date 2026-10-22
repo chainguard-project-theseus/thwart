@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+
+<html xmlns:t="https://tessera.dev" t:replace="~{fragments/layout :: layout (~{::body},'owners')}" t:import="org.springframework.samples.petclinic.owner.*" t:params="Pet pet, Owner owner, Collection<PetType> types">
+
+<body>
+
+  <h2>
+    <t:block t:if="pet.isNew()" t:text="#{new}">New </t:block>
+    <span t:text="#{pet}">Pet</span>
+  </h2>
+  <form t:object="pet" class="form-horizontal" method="post">
+    <input type="hidden" name="id" t:value="*{id}" />
+    <div class="form-group has-feedback">
+      <div class="form-group">
+        <label class="col-sm-2 control-label" t:text="#{owner}">Owner</label>
+        <div class="col-sm-10">
+          <span t:text="owner?.firstName + ' ' + owner?.lastName" />
+        </div>
+      </div>
+      <div t:with="valid=!fields.hasErrors('name')" t:class="'form-group' + (valid ? '' : ' has-error')"
+        class="form-group">
+        <label for="name" class="col-sm-2 control-label" t:text="#{name}">Name</label>
+        <div class="col-sm-10">
+          <div>
+            <input class="form-control" type="text" t:field="*{name}" />
+          </div>
+          <span t:if="valid" class="fa fa-ok form-control-feedback" aria-hidden="true"></span>
+          <t:block t:if="!valid">
+            <span class="fa fa-remove form-control-feedback" aria-hidden="true"></span>
+            <span class="help-inline" t:errors="*{name}">Error</span>
+          </t:block>
+        </div>
+      </div>
+      <div t:with="valid=!fields.hasErrors('birthDate')" t:class="'form-group' + (valid ? '' : ' has-error')"
+        class="form-group">
+        <label for="birthDate" class="col-sm-2 control-label" t:text="#{birthDate}">Birth Date</label>
+        <div class="col-sm-10">
+          <div>
+            <input class="form-control" type="date" t:field="*{birthDate}" />
+          </div>
+          <span t:if="valid" class="fa fa-ok form-control-feedback" aria-hidden="true"></span>
+          <t:block t:if="!valid">
+            <span class="fa fa-remove form-control-feedback" aria-hidden="true"></span>
+            <span class="help-inline" t:errors="*{birthDate}">Error</span>
+          </t:block>
+        </div>
+      </div>
+      <div t:with="valid=!fields.hasErrors('type')" t:class="'form-group' + (valid ? '' : ' has-error')"
+        class="form-group">
+        <label for="type" class="col-sm-2 control-label" t:text="#{type}">Type</label>
+        <div class="col-sm-10">
+          <select t:field="*{type}">
+            <option t:each="item : types" t:value="item" t:text="item">dog</option>
+          </select>
+          <span t:if="valid" class="fa fa-ok form-control-feedback" aria-hidden="true"></span>
+          <t:block t:if="!valid">
+            <span class="fa fa-remove form-control-feedback" aria-hidden="true"></span>
+            <span class="help-inline" t:errors="*{type}">Error</span>
+          </t:block>
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="col-sm-offset-2 col-sm-10">
+        <button t:with="text=pet.isNew() ? 'Add Pet' : 'Update Pet'" class="btn btn-primary" type="submit"
+          t:text="text">Add Pet</button>
+      </div>
+    </div>
+  </form>
+
+</body>
+
+</html>
