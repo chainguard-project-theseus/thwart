@@ -8,6 +8,7 @@ import dev.tessera.compiler.expr.EachSpec;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.Variable;
+import dev.tessera.runtime.LoopStatus;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
@@ -23,7 +24,7 @@ import javax.lang.model.util.Types;
  * between rows. Thymeleaf does not do this for {@code t:block}.
  */
 public final class EachProcessor implements AttributeProcessor {
-  private static final String LOOP_STATUS = "dev.tessera.runtime.LoopStatus";
+  private static final String LOOP_STATUS = LoopStatus.class.getName();
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
@@ -49,7 +50,6 @@ public final class EachProcessor implements AttributeProcessor {
     if (element == null) {
       return;
     }
-    Types types = ctx.env().types();
     TypeMirror source = iterable.type();
     String src = ctx.freshName("each");
     String items = ctx.freshName("items");
@@ -67,9 +67,9 @@ public final class EachProcessor implements AttributeProcessor {
           .append("; ").append(index).append("++) { ");
       open.append("final var ").append(var).append(" = ").append(src).append('[').append(index).append("]; ");
     } else {
-      if (isSubtype(ctx, types, source, "java.util.Map")) {
+      if (isSubtype(ctx, source, "java.util.Map")) {
         open.append("final var ").append(items).append(" = ").append(src).append(".entrySet(); ");
-      } else if (isSubtype(ctx, types, source, "java.util.Collection")) {
+      } else if (isSubtype(ctx, source, "java.util.Collection")) {
         open.append("final var ").append(items).append(" = ").append(src).append("; ");
       } else {
         // A plain Iterable may be single-use and has no size: copy it once.
@@ -100,7 +100,8 @@ public final class EachProcessor implements AttributeProcessor {
             .with(new Variable(statName, statType, stat)));
   }
 
-  private static boolean isSubtype(CodegenContext ctx, Types types, TypeMirror t, String name) {
+  private static boolean isSubtype(CodegenContext ctx, TypeMirror t, String name) {
+    Types types = ctx.env().types();
     return types.isSubtype(types.erasure(t), types.erasure(ctx.env().elements().getTypeElement(name).asType()));
   }
 }

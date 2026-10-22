@@ -6,8 +6,10 @@ import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.TypeRef;
 import dev.tessera.compiler.forms.FieldsCompiler;
+import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.links.LinkCompiler;
 import dev.tessera.compiler.messages.MessageCompiler;
+import dev.tessera.runtime.Fragment;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -58,8 +60,7 @@ import javax.lang.model.util.Types;
  */
 public final class ExpressionCompiler {
   private static final String VALUES = "dev.tessera.runtime.Values";
-  private static final String FRAGMENT = "dev.tessera.runtime.Fragment";
-  private static final String FIELD = "dev.tessera.runtime.Field";
+  private static final String FRAGMENT = Fragment.class.getName();
   private static final Set<String> OBJECT_METHODS =
       Set.of("getClass", "hashCode", "equals", "toString", "wait", "notify", "notifyAll", "clone", "finalize");
 
@@ -88,6 +89,12 @@ public final class ExpressionCompiler {
       functions = new FunctionRegistry(env);
     }
     return functions;
+  }
+
+  /** Compiles {@code e} and checks its value may be output; reports and returns null on error. */
+  public CompiledExpr compileOutput(Expr e, Scope scope) {
+    CompiledExpr c = compile(e, scope);
+    return c != null && checkOutputType(c.type(), e.pos()) ? c : null;
   }
 
   /** Compiles a value expression. */
@@ -131,7 +138,7 @@ public final class ExpressionCompiler {
       code = c.code();
     } else if (t.getKind() == TypeKind.NULL) {
       code = "false";
-    } else if (isSame(t, "java.lang.Boolean")) {
+    } else if (isDeclared(t, "java.lang.Boolean")) {
       code = "java.lang.Boolean.TRUE.equals(" + c.code() + ")";
     } else {
       code = "dev.tessera.runtime.Conditions.isTrue(" + c.code() + ")";
@@ -202,7 +209,7 @@ public final class ExpressionCompiler {
     if (never.isPresent()) {
       return error(ref.pos(), "parameter type " + t + " is not allowed: " + never.get());
     }
-    if (!safety.isViewSafe(t) && !isSame(t, FRAGMENT) && !isSame(t, FIELD)) {
+    if (!safety.isViewSafe(t) && !isDeclared(t, FRAGMENT) && !FormPaths.isField(t)) {
       return error(
           ref.pos(),
           "parameter type " + t + " is not view-safe: use a record, an enum, a JDK value type, a collection of"
@@ -228,7 +235,7 @@ public final class ExpressionCompiler {
       env.diagnostics().error(pos, "cannot output a value of type " + type + ": " + never.get());
       return false;
     }
-    if (!safety.isViewSafe(type) && !isSame(type, FIELD)) {
+    if (!safety.isViewSafe(type) && !FormPaths.isField(type)) {
       env.diagnostics().error(pos, "cannot output a value of type " + type + ": it is not view-safe");
       return false;
     }
@@ -371,7 +378,7 @@ public final class ExpressionCompiler {
     if (type.getKind() != TypeKind.DECLARED) {
       return null;
     }
-    boolean isString = isSame(type, "java.lang.String");
+    boolean isString = isDeclared(type, "java.lang.String");
     boolean sized = isSubtypeOf(type, "java.util.Collection") || isSubtypeOf(type, "java.util.Map");
     if (isString && name.equals("length")) {
       return new Builtin(".length()", prim(TypeKind.INT));
@@ -549,7 +556,7 @@ public final class ExpressionCompiler {
     return switch (b.op()) {
       case EQ, NE -> equality(b, l, r);
       case LT, GT, LE, GE -> comparison(b, l, r);
-      case ADD -> isSame(l.type(), "java.lang.String") || isSame(r.type(), "java.lang.String")
+      case ADD -> isDeclared(l.type(), "java.lang.String") || isDeclared(r.type(), "java.lang.String")
           ? concat(b, l, r)
           : arithmetic(b, l, r);
       default -> arithmetic(b, l, r);
@@ -691,8 +698,8 @@ public final class ExpressionCompiler {
         code.append(" + ").append(JavaStrings.literal(s));
         continue;
       }
-      CompiledExpr c = compile(part, scope);
-      if (c == null || !checkOutputType(c.type(), part.pos())) {
+      CompiledExpr c = compileOutput(part, scope);
+      if (c == null) {
         ok = false;
         continue;
       }
@@ -737,9 +744,13 @@ public final class ExpressionCompiler {
     return elements().getTypeElement(name).asType();
   }
 
-  private boolean isSame(TypeMirror t, String name) {
+  /**
+   * Whether {@code t} is the declared type named {@code qualifiedName} (any type arguments or type
+   * annotations aside).
+   */
+  public static boolean isDeclared(TypeMirror t, String qualifiedName) {
     return t.getKind() == TypeKind.DECLARED
-        && ((TypeElement) ((DeclaredType) t).asElement()).getQualifiedName().contentEquals(name);
+        && ((TypeElement) ((DeclaredType) t).asElement()).getQualifiedName().contentEquals(qualifiedName);
   }
 
   private boolean isSubtypeOf(TypeMirror t, String name) {

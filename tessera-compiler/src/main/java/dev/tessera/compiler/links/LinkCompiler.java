@@ -37,8 +37,8 @@ public final class LinkCompiler {
         diagnostics.error(p.pos(), "duplicate link parameter '" + p.name() + "' in @{" + path + "}");
         ok = false;
       }
-      CompiledExpr c = expressions.compile(p.value(), scope);
-      if (c == null || !expressions.checkOutputType(c.type(), p.value().pos())) {
+      CompiledExpr c = expressions.compileOutput(p.value(), scope);
+      if (c == null) {
         ok = false;
         continue;
       }
