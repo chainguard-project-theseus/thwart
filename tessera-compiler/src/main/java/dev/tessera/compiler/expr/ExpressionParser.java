@@ -235,6 +235,18 @@ public final class ExpressionParser {
       return Character.isLetterOrDigit(c) || c == '_';
     }
 
+    static boolean isIdentifier(String s) {
+      if (s.isEmpty() || !identStart(s.charAt(0))) {
+        return false;
+      }
+      for (int k = 1; k < s.length(); k++) {
+        if (!identPart(s.charAt(k))) {
+          return false;
+        }
+      }
+      return true;
+    }
+
     String identRaw() {
       int b = i;
       while (!atEnd() && identPart(peek())) {
@@ -696,10 +708,16 @@ public final class ExpressionParser {
           throw error(pathAt + k, "link path must not contain whitespace: percent-encode it (%20) or pass the value as a"
               + " parameter, e.g. @{/search(q=term)}");
         } else if (c == '{') {
+          if (open >= 0) {
+            throw error(pathAt + k, "nested '{' in link path: write a path variable such as {id}");
+          }
           open = k;
         } else if (c == '}') {
+          if (open < 0) {
+            throw error(pathAt + k, "unmatched '}' in link path: write a path variable such as {id}");
+          }
           String var = path.substring(open + 1, k);
-          if (var.isEmpty() || !identStart(var.charAt(0)) || !var.chars().allMatch(ch -> identPart((char) ch))) {
+          if (!isIdentifier(var)) {
             throw error(pathAt + open, "invalid path variable '{" + var + "}': write a name such as {id}");
           }
           open = -1;
