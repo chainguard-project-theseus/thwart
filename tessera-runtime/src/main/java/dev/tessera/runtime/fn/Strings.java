@@ -135,16 +135,8 @@ public final class Strings {
     if (target == null) {
       return null;
     }
-    Iterable<?> items =
-        switch (target) {
-          case Iterable<?> it -> it;
-          case Object[] array -> java.util.Arrays.asList(array);
-          default ->
-              throw new IllegalArgumentException(
-                  "strings.join needs an Iterable or array, got " + target.getClass().getName());
-        };
     StringJoiner joiner = new StringJoiner(separator == null ? "" : separator);
-    for (Object item : items) {
+    for (Object item : Lists.items(target)) {
       joiner.add(item == null ? "" : item.toString());
     }
     return joiner.toString();
