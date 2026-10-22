@@ -331,4 +331,32 @@ class HtmlParserTest {
         List.of("dir/t.html:1:1: error: element <script> is not closed"),
         errors("<script>x</SCRIPT><p>[[${x}]]</p>"));
   }
+
+  @Test
+  void rawTextEndTagHiddenFromAttoparserIsAnError() {
+    // A browser ends <textarea>/<title> at the first </textarea>, even inside what looks like
+    // an attribute value or comment, so the <script> below would be live script.
+    assertEquals(
+        List.of("dir/t.html:1:21: error: malformed markup: content of <textarea> contains"
+            + " '</textarea' before its end tag"),
+        errors("<textarea><a title=\"</textarea><script>[[${x}]]</script>\"></a></textarea>"));
+    assertEquals(
+        List.of("dir/t.html:2:5: error: malformed markup: content of <title> contains"
+            + " '</title' before its end tag"),
+        errors("<title>\n<!--</title ><script>[[${x}]]</script>--></title>"));
+    assertEquals(
+        List.of("dir/t.html:1:32: error: malformed markup: content of <script> contains"
+            + " '</script' before its end tag"),
+        errors("<script type=\"text/html\"><a b=\"</script><p>\"></script>"));
+    parseOk("<textarea></textareax></textarea>");
+  }
+
+  @Test
+  void commentInsideScriptIsAnError() {
+    assertEquals(
+        List.of(
+            "dir/t.html:1:9: error: malformed markup: '<!--' inside <script> is not supported",
+            "dir/t.html:1:48: error: end tag </script> does not match any open element"),
+        errors("<script><!--<script></script><p>[[${x}]]</p>--></script>"));
+  }
 }

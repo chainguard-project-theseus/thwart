@@ -54,6 +54,8 @@ class ContextsTest {
     "audio, src, URL",
     // RESOURCE_URL
     "script, src, RESOURCE_URL",
+    "script, href, RESOURCE_URL",
+    "script, xlink:href, RESOURCE_URL",
     "iframe, src, RESOURCE_URL",
     "frame, src, RESOURCE_URL",
     "embed, src, RESOURCE_URL",

@@ -64,7 +64,9 @@ public final class Contexts {
 
   private static boolean isResourceUrl(String element, String attr) {
     return switch (element) {
-      case "script", "iframe", "frame", "embed" -> attr.equals("src");
+      // SVG <script> loads code from href / xlink:href.
+      case "script" -> attr.equals("src") || attr.equals("href") || attr.equals("xlink:href");
+      case "iframe", "frame", "embed" -> attr.equals("src");
       case "object" -> attr.equals("data");
       case "base", "link" -> attr.equals("href");
       default -> false;

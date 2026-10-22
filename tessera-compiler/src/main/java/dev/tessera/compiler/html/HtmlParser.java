@@ -184,6 +184,8 @@ public final class HtmlParser {
     /** Raw-text element whose content we are skipping, its content offset and position. */
     private Open raw;
     private int rawStart;
+    /** Offset of the first {@code </name} that a browser would take as the raw element's end. */
+    private int rawEnd;
     private SourcePos rawPos;
 
     private final StringBuilder text = new StringBuilder();
@@ -376,6 +378,7 @@ public final class HtmlParser {
         raw = open;
         rawStart = offset(line, col) + 1;
         rawPos = pos(line, col + 1);
+        rawEnd = browserEndTag(open.name, rawStart);
       }
     }
 
@@ -395,7 +398,14 @@ public final class HtmlParser {
         if (!raw.name.equalsIgnoreCase(name)) {
           return;
         }
-        endRaw(offset(line, col));
+        int end = offset(line, col);
+        if (end != rawEnd) {
+          // attoparser parsed markup (a comment, an attribute value) that hid an earlier end
+          // tag; a browser would end the element there, so the contexts after it would be wrong.
+          diagnostics.error(position(rawEnd), "malformed markup: content of <" + raw.name
+              + "> contains '</" + raw.name + "' before its end tag");
+        }
+        endRaw(end);
       }
       flushText();
       boolean open = stack.stream().anyMatch(o -> o.name.equalsIgnoreCase(name));
@@ -415,10 +425,43 @@ public final class HtmlParser {
       }
     }
 
+    /**
+     * Offset of the first {@code </name} followed by whitespace, {@code /} or {@code >} at or
+     * after {@code from} (case-insensitive), or -1.
+     */
+    private int browserEndTag(String name, int from) {
+      String needle = "</" + name;
+      for (int i = from; i + needle.length() <= content.length(); i++) {
+        if (content.regionMatches(true, i, needle, 0, needle.length())) {
+          int next = i + needle.length();
+          if (next == content.length() || " \t\n\f\r/>".indexOf(content.charAt(next)) >= 0) {
+            return i;
+          }
+        }
+      }
+      return -1;
+    }
+
+    private SourcePos position(int offset) {
+      int line = 0;
+      while (line + 1 < lineStarts.length && lineStarts[line + 1] <= offset) {
+        line++;
+      }
+      return pos(line + 1, offset - lineStarts[line] + 1);
+    }
+
     /** Ends the current raw-text element's content at {@code end} (exclusive). */
     private void endRaw(int end) {
       if (end > rawStart) {
-        raw.children.add(new Text(content.substring(rawStart, end), raw.textContext, rawPos));
+        String body = content.substring(rawStart, end);
+        int comment = body.indexOf("<!--");
+        if (raw.name.equalsIgnoreCase("script") && comment >= 0) {
+          // Browsers apply script-data escape rules after "<!--" ("<script" inside it hides
+          // the next "</script>"); attoparser does not. Fail closed.
+          diagnostics.error(position(rawStart + comment),
+              "malformed markup: '<!--' inside <script> is not supported");
+        }
+        raw.children.add(new Text(body, raw.textContext, rawPos));
       }
       raw = null;
     }
