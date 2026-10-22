@@ -246,6 +246,26 @@ class HtmlParserTest {
   // ---- errors (negative tests) ----
 
   @Test
+  void selfClosingScriptOrStyleIsAnError() {
+    // A browser treats <script/> as an open tag, so text after it would run as script.
+    assertEquals(
+        List.of("dir/t.html:1:1: error: <script/> is not self-closing in HTML: the browser treats everything"
+            + " after it as script; write <script ...></script>"),
+        errors("<script/>[[${x}]]<script>f()</script>"));
+    assertEquals(
+        List.of("dir/t.html:2:3: error: <script/> is not self-closing in HTML: the browser treats everything"
+            + " after it as script; write <script ...></script>"),
+        errors("<p></p>\n  <SCRIPT src=\"a.js\"/>"));
+    assertEquals(
+        List.of("dir/t.html:1:6: error: <style/> is not self-closing in HTML: the browser treats everything"
+            + " after it as style; write <style ...></style>"),
+        errors("<div><style/></div>"));
+    assertEquals(List.of(), errors("<script></script><style></style>"));
+    // RCDATA elements stay allowed: TEXT escaping is still safe there, and SVG <title/> is common.
+    assertEquals(List.of(), errors("<svg><title/></svg><textarea/>"));
+  }
+
+  @Test
   void duplicateAttributes() {
     assertEquals(
         List.of("dir/t.html:1:16: error: duplicate attribute 'class' on <div>: remove one of them"),
