@@ -68,8 +68,8 @@ public final class Escapers {
    * scheme-less (relative) URLs pass; anything else is replaced by {@code about:invalid#tessera}.
    */
   public static void url(Output out, Object value) {
-    if (value instanceof TrustedUrl trusted) {
-      attr(out, trusted.url());
+    if (value instanceof TrustedUrl) {
+      attr(out, ((TrustedUrl) value).url());
       return;
     }
     attr(out, checkedUrl(toText(value)));
@@ -84,13 +84,16 @@ public final class Escapers {
    * other type throws {@link IllegalArgumentException}.
    */
   public static void resourceUrl(Output out, Object value) {
-    switch (value) {
-      case null -> {}
-      case TrustedUrl trusted -> attr(out, trusted.url());
-      case String s -> attr(out, checkedUrl(s));
-      default ->
-          throw new IllegalArgumentException(
-              "resource URL must be a TrustedUrl or a link, got " + value.getClass().getName());
+    if (value == null) {
+      return;
+    }
+    if (value instanceof TrustedUrl) {
+      attr(out, ((TrustedUrl) value).url());
+    } else if (value instanceof String) {
+      attr(out, checkedUrl((String) value));
+    } else {
+      throw new IllegalArgumentException(
+          "resource URL must be a TrustedUrl or a link, got " + value.getClass().getName());
     }
   }
 
@@ -138,13 +141,25 @@ public final class Escapers {
     for (; i < n; i++) {
       char c = s.charAt(i);
       switch (c) {
-        case '&' -> sb.append("&amp;");
-        case '<' -> sb.append("&lt;");
-        case '>' -> sb.append("&gt;");
-        case '"' -> sb.append("&quot;");
-        case '\'' -> sb.append("&#39;");
-        case '\0' -> sb.append('\uFFFD');
-        default -> {
+        case '&':
+          sb.append("&amp;");
+          break;
+        case '<':
+          sb.append("&lt;");
+          break;
+        case '>':
+          sb.append("&gt;");
+          break;
+        case '"':
+          sb.append("&quot;");
+          break;
+        case '\'':
+          sb.append("&#39;");
+          break;
+        case '\0':
+          sb.append('\uFFFD');
+          break;
+        default:
           if (Character.isHighSurrogate(c) && i + 1 < n && Character.isLowSurrogate(s.charAt(i + 1))) {
             sb.append(c).append(s.charAt(++i));
           } else if (Character.isSurrogate(c)) {
@@ -152,7 +167,7 @@ public final class Escapers {
           } else {
             sb.append(c);
           }
-        }
+          break;
       }
     }
     return sb.toString();
@@ -160,10 +175,17 @@ public final class Escapers {
 
   private static boolean needsHtmlEscape(String s, int i) {
     char c = s.charAt(i);
-    return switch (c) {
-      case '&', '<', '>', '"', '\'', '\0' -> true;
-      default -> Character.isSurrogate(c);
-    };
+    switch (c) {
+      case '&':
+      case '<':
+      case '>':
+      case '"':
+      case '\'':
+      case '\0':
+        return true;
+      default:
+        return Character.isSurrogate(c);
+    }
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -222,61 +244,93 @@ public final class Escapers {
     if (depth > MAX_JSON_DEPTH) {
       throw new IllegalArgumentException("value nested deeper than " + MAX_JSON_DEPTH + " (cycle?)");
     }
-    switch (value) {
-      case null -> sb.append("null");
-      case Boolean b -> sb.append(b.booleanValue());
-      case Byte b -> sb.append(b.byteValue());
-      case Short v -> sb.append(v.shortValue());
-      case Integer v -> sb.append(v.intValue());
-      case Long v -> sb.append(v.longValue());
-      case Float v -> writeDouble(sb, v.doubleValue(), Float.toString(v));
-      case Double v -> writeDouble(sb, v, Double.toString(v));
-      case BigInteger v -> sb.append(v.toString());
-      case BigDecimal v -> sb.append(v.toString());
-      case CharSequence cs -> writeJsonString(sb, cs.toString());
-      case Character c -> writeJsonString(sb, String.valueOf(c.charValue()));
-      case Enum<?> e -> writeJsonString(sb, e.name());
-      case Optional<?> o -> writeJson(sb, o.orElse(null), depth + 1);
-      case Map<?, ?> m -> writeJsonObject(sb, m, depth);
-      case Collection<?> c -> {
-        sb.append('[');
-        boolean first = true;
-        for (Object item : c) {
-          if (!first) {
-            sb.append(',');
-          }
-          first = false;
-          writeJson(sb, item, depth + 1);
+    if (value == null) {
+      sb.append("null");
+    } else if (value instanceof Boolean) {
+      sb.append(((Boolean) value).booleanValue());
+    } else if (value instanceof Byte) {
+      sb.append(((Byte) value).byteValue());
+    } else if (value instanceof Short) {
+      sb.append(((Short) value).shortValue());
+    } else if (value instanceof Integer) {
+      sb.append(((Integer) value).intValue());
+    } else if (value instanceof Long) {
+      sb.append(((Long) value).longValue());
+    } else if (value instanceof Float) {
+      Float v = (Float) value;
+      writeDouble(sb, v.doubleValue(), Float.toString(v));
+    } else if (value instanceof Double) {
+      Double v = (Double) value;
+      writeDouble(sb, v, Double.toString(v));
+    } else if (value instanceof BigInteger || value instanceof BigDecimal) {
+      sb.append(value.toString());
+    } else if (value instanceof CharSequence) {
+      writeJsonString(sb, value.toString());
+    } else if (value instanceof Character) {
+      writeJsonString(sb, String.valueOf(((Character) value).charValue()));
+    } else if (value instanceof Enum) {
+      writeJsonString(sb, ((Enum<?>) value).name());
+    } else if (value instanceof Optional) {
+      writeJson(sb, ((Optional<?>) value).orElse(null), depth + 1);
+    } else if (value instanceof Map) {
+      writeJsonObject(sb, (Map<?, ?>) value, depth);
+    } else if (value instanceof Collection) {
+      sb.append('[');
+      boolean first = true;
+      for (Object item : (Collection<?>) value) {
+        if (!first) {
+          sb.append(',');
         }
-        sb.append(']');
+        first = false;
+        writeJson(sb, item, depth + 1);
       }
-      case Object[] a -> writeJson(sb, Arrays.asList(a), depth);
-      case boolean[] a -> writeArray(sb, a.length, i -> sb.append(a[i]));
-      case byte[] a -> writeArray(sb, a.length, i -> sb.append(a[i]));
-      case short[] a -> writeArray(sb, a.length, i -> sb.append(a[i]));
-      case int[] a -> writeArray(sb, a.length, i -> sb.append(a[i]));
-      case long[] a -> writeArray(sb, a.length, i -> sb.append(a[i]));
-      case float[] a -> writeArray(sb, a.length, i -> writeDouble(sb, a[i], Float.toString(a[i])));
-      case double[] a -> writeArray(sb, a.length, i -> writeDouble(sb, a[i], Double.toString(a[i])));
-      case char[] a -> writeJsonString(sb, new String(a));
-      // The java.time cases below must match TextInlining.JSON_TIME in tessera-compiler, which
-      // decides at build time which types may be inlined into <script>.
-      case Instant v -> writeJsonString(sb, v.toString());
-      case LocalDate v -> writeJsonString(sb, v.toString());
-      case LocalTime v -> writeJsonString(sb, v.toString());
-      case LocalDateTime v -> writeJsonString(sb, v.toString());
-      case OffsetTime v -> writeJsonString(sb, v.toString());
-      case OffsetDateTime v -> writeJsonString(sb, v.toString());
-      case ZonedDateTime v -> writeJsonString(sb, v.toString());
-      case Year v -> writeJsonString(sb, v.toString());
-      case YearMonth v -> writeJsonString(sb, v.toString());
-      case MonthDay v -> writeJsonString(sb, v.toString());
-      case Duration v -> writeJsonString(sb, v.toString());
-      case Period v -> writeJsonString(sb, v.toString());
-      case ZoneId v -> writeJsonString(sb, v.getId());
-      default ->
-          throw new IllegalArgumentException(
-              "cannot serialize " + value.getClass().getName() + " as JSON");
+      sb.append(']');
+    } else if (value instanceof Object[]) {
+      writeJson(sb, Arrays.asList((Object[]) value), depth);
+    } else if (value instanceof boolean[]) {
+      boolean[] a = (boolean[]) value;
+      writeArray(sb, a.length, i -> sb.append(a[i]));
+    } else if (value instanceof byte[]) {
+      byte[] a = (byte[]) value;
+      writeArray(sb, a.length, i -> sb.append(a[i]));
+    } else if (value instanceof short[]) {
+      short[] a = (short[]) value;
+      writeArray(sb, a.length, i -> sb.append(a[i]));
+    } else if (value instanceof int[]) {
+      int[] a = (int[]) value;
+      writeArray(sb, a.length, i -> sb.append(a[i]));
+    } else if (value instanceof long[]) {
+      long[] a = (long[]) value;
+      writeArray(sb, a.length, i -> sb.append(a[i]));
+    } else if (value instanceof float[]) {
+      float[] a = (float[]) value;
+      writeArray(sb, a.length, i -> writeDouble(sb, a[i], Float.toString(a[i])));
+    } else if (value instanceof double[]) {
+      double[] a = (double[]) value;
+      writeArray(sb, a.length, i -> writeDouble(sb, a[i], Double.toString(a[i])));
+    } else if (value instanceof char[]) {
+      writeJsonString(sb, new String((char[]) value));
+    } else if (value instanceof ZoneId) {
+      writeJsonString(sb, ((ZoneId) value).getId());
+    } else if (
+    // The java.time types below must match TextInlining.JSON_TIME in tessera-compiler, which
+    // decides at build time which types may be inlined into <script>.
+    value instanceof Instant
+        || value instanceof LocalDate
+        || value instanceof LocalTime
+        || value instanceof LocalDateTime
+        || value instanceof OffsetTime
+        || value instanceof OffsetDateTime
+        || value instanceof ZonedDateTime
+        || value instanceof Year
+        || value instanceof YearMonth
+        || value instanceof MonthDay
+        || value instanceof Duration
+        || value instanceof Period) {
+      writeJsonString(sb, value.toString());
+    } else {
+      throw new IllegalArgumentException(
+          "cannot serialize " + value.getClass().getName() + " as JSON");
     }
   }
 
@@ -299,11 +353,12 @@ public final class Escapers {
     sb.append('{');
     boolean first = true;
     for (Map.Entry<?, ?> e : m.entrySet()) {
-      if (!(e.getKey() instanceof String key)) {
+      if (!(e.getKey() instanceof String)) {
         throw new IllegalArgumentException(
             "JSON object keys must be Strings, got "
                 + (e.getKey() == null ? "null" : e.getKey().getClass().getName()));
       }
+      String key = (String) e.getKey();
       if (!first) {
         sb.append(',');
       }
@@ -326,18 +381,43 @@ public final class Escapers {
     for (int i = 0; i < n; i++) {
       char c = s.charAt(i);
       switch (c) {
-        case '"' -> sb.append("\\\"");
-        case '\\' -> sb.append("\\\\");
-        case '\n' -> sb.append("\\n");
-        case '\r' -> sb.append("\\r");
-        case '\t' -> sb.append("\\t");
-        case '\b' -> sb.append("\\b");
-        case '\f' -> sb.append("\\f");
+        case '"':
+          sb.append("\\\"");
+          break;
+        case '\\':
+          sb.append("\\\\");
+          break;
+        case '\n':
+          sb.append("\\n");
+          break;
+        case '\r':
+          sb.append("\\r");
+          break;
+        case '\t':
+          sb.append("\\t");
+          break;
+        case '\b':
+          sb.append("\\b");
+          break;
+        case '\f':
+          sb.append("\\f");
+          break;
         // '/' stops a value closing a /*[[...]]*/ comment or a regex literal; '`' and '$' stop
         // it closing a template literal or starting ${...} inside one.
-        case '/' -> sb.append("\\/");
-        case '<', '>', '&', '\'', '`', '$', '\u2028', '\u2029' -> unicodeEscape(sb, c);
-        default -> {
+        case '/':
+          sb.append("\\/");
+          break;
+        case '<':
+        case '>':
+        case '&':
+        case '\'':
+        case '`':
+        case '$':
+        case '\u2028':
+        case '\u2029':
+          unicodeEscape(sb, c);
+          break;
+        default:
           if (c < 0x20 || c == 0x7f) {
             unicodeEscape(sb, c);
           } else if (Character.isHighSurrogate(c)
@@ -349,7 +429,7 @@ public final class Escapers {
           } else {
             sb.append(c);
           }
-        }
+          break;
       }
     }
     sb.append('"');

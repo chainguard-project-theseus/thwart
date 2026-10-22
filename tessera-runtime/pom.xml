@@ -13,6 +13,12 @@
   <name>Tessera Runtime</name>
   <description>Runtime used by compiled templates. Zero third-party dependencies.</description>
 
+  <!-- What ships in the application runs on Java 8 (#154); its tests and the build stay on 21. -->
+  <properties>
+    <maven.compiler.release>8</maven.compiler.release>
+    <maven.compiler.testRelease>21</maven.compiler.testRelease>
+  </properties>
+
   <!-- Principle: the runtime has ZERO third-party compile/runtime dependencies. Test scope only. -->
   <dependencies>
     <dependency>

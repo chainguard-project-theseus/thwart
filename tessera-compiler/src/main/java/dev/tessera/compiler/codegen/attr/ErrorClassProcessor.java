@@ -43,7 +43,7 @@ public final class ErrorClassProcessor implements AttributeProcessor {
     String c = ctx.freshName("class");
     plan.wrap(
         "{ java.lang.Object " + o + " = " + original + "; java.lang.String " + c
-            + " = " + Escapers.class.getName() + ".toText(" + o + ").strip();",
+            + " = " + Escapers.class.getName() + ".toText(" + o + ").trim();",
         "}");
     plan.setAttribute(
         "class",
