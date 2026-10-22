@@ -111,6 +111,24 @@ class FragmentsTest {
         .assertSuccess();
   }
 
+  private static final String WRAP =
+      "<div " + NS + "><b t:fragment=\"wrap(Fragment content)\"><i t:replace=\"content\">c</i></b></div>";
+
+  @Test
+  void selectedElementCapturesANullTypedWithVariable() {
+    // t:with="z=null" keeps javac's null type; the ~{::span} helper must still declare a valid parameter.
+    Compilation c =
+        compile(
+                Compilation.builder()
+                    .template("fragments/wrap.html", WRAP)
+                    .template(
+                        "page.html",
+                        "<main " + NS + "><div t:with=\"z=null\">"
+                            + "<div t:replace=\"~{fragments/wrap :: wrap(~{::span})}\"></div><span>s</span></div></main>"))
+            .assertSuccess();
+    assertEquals("<main><div><b><span>s</span></b><span>s</span></div></main>", c.render("page", Map.of()));
+  }
+
   @Test
   void petclinicLayoutPattern() {
     String page =

@@ -358,7 +358,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     List<String> decls = new ArrayList<>();
     List<String> captured = new ArrayList<>();
     for (Variable v : scope.variables()) {
-      decls.add(v.type() + " " + v.javaName());
+      decls.add(WithProcessor.sourceType(v.type()) + " " + v.javaName());
       String a = ctx.freshName("cap");
       pre.append("final var ").append(a).append(" = ").append(v.javaName()).append(";\n");
       captured.add(a);
