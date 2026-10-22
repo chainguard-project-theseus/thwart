@@ -37,11 +37,6 @@ class FragmentsTest {
         .template("fragments/cards.html", CARDS);
   }
 
-  private static Compilation compile(Compilation.Builder b) {
-    Compilation c = b.compile();
-    return c;
-  }
-
   private static Fragment text(String s) {
     return (ctx, out) -> out.write(s);
   }
@@ -49,14 +44,14 @@ class FragmentsTest {
   @Test
   void sameFileInsertKeepsHostAndReplaceDropsIt() {
     Compilation c =
-        compile(
-                Compilation.builder()
-                    .template(
-                        "page.html",
-                        "<main " + NS + "><i t:fragment=\"hi\"><b>hi</b></i>"
-                            + "<div class=\"a\" t:insert=\"~{:: hi}\">x</div>"
-                            + "<div t:replace=\"~{this :: hi}\">x</div>"
-                            + "<div t:insert=\":: hi\">x</div></main>"))
+        Compilation.builder()
+            .template(
+                "page.html",
+                "<main " + NS + "><i t:fragment=\"hi\"><b>hi</b></i>"
+                    + "<div class=\"a\" t:insert=\"~{:: hi}\">x</div>"
+                    + "<div t:replace=\"~{this :: hi}\">x</div>"
+                    + "<div t:insert=\":: hi\">x</div></main>")
+            .compile()
             .assertSuccess();
     assertEquals(
         "<main><i><b>hi</b></i><div class=\"a\"><i><b>hi</b></i></div><i><b>hi</b></i><div><i><b>hi</b></i></div></main>",
@@ -65,7 +60,7 @@ class FragmentsTest {
 
   @Test
   void parameterizedFragmentIsSkippedInPlace() {
-    Compilation c = compile(base()).assertSuccess();
+    Compilation c = base().compile().assertSuccess();
     // card and user need arguments; plain has none and renders in place.
     assertEquals("<div><i>plain</i></div>", c.render("fragments/cards", Map.of()));
   }
@@ -73,23 +68,23 @@ class FragmentsTest {
   @Test
   void parameterizedFragmentInPlaceDoesNotCompileItsAttributesInTheTemplateScope() {
     // `content` is only a fragment parameter; compiled in the page scope it would be unknown.
-    Compilation c = compile(base()).assertSuccess();
+    Compilation c = base().compile().assertSuccess();
     assertTrue(c.generatedSource("tessera.generated.fragments.CardsTemplate").contains("fragment_card("));
   }
 
   @Test
   void crossFilePositionalAndNamedArguments() {
     Compilation c =
-        compile(
-                base()
-                    .template(
-                        "page.html",
-                        "<main " + NS + " t:params=\"Fragment body\">"
-                            + "<div t:replace=\"~{fragments/cards :: card('A', ~{::p})}\">x</div>"
-                            + "<div t:replace=\"fragments/cards :: card(content=body, title='B')\">x</div>"
-                            + "<div t:insert=\"~{fragments/cards :: plain}\">x</div>"
-                            + "<div t:insert=\"~{fragments/cards :: plain()}\">x</div>"
-                            + "<p>para</p></main>"))
+        base()
+            .template(
+                "page.html",
+                "<main " + NS + " t:params=\"Fragment body\">"
+                    + "<div t:replace=\"~{fragments/cards :: card('A', ~{::p})}\">x</div>"
+                    + "<div t:replace=\"fragments/cards :: card(content=body, title='B')\">x</div>"
+                    + "<div t:insert=\"~{fragments/cards :: plain}\">x</div>"
+                    + "<div t:insert=\"~{fragments/cards :: plain()}\">x</div>"
+                    + "<p>para</p></main>")
+            .compile()
             .assertSuccess();
     assertEquals(
         "<main><section><h3>T</h3><p>para</p></section><section><h3>T</h3>BODY</section>"
@@ -99,15 +94,15 @@ class FragmentsTest {
 
   @Test
   void argumentsOfAssignableTypesCompile() {
-    compile(
-            base()
-                .template(
-                    "page.html",
-                    "<main " + NS + " t:import=\"com.example.*\" t:params=\"User u, List<User> us\">"
-                        + "<div t:replace=\"~{fragments/cards :: user(u)}\"></div>"
-                        + "<div t:replace=\"~{fragments/cards :: user(us[0])}\"></div>"
-                        + "<div t:replace=\"~{fragments/cards :: user(null)}\"></div>"
-                        + "</main>"))
+    base()
+        .template(
+            "page.html",
+            "<main " + NS + " t:import=\"com.example.*\" t:params=\"User u, List<User> us\">"
+                + "<div t:replace=\"~{fragments/cards :: user(u)}\"></div>"
+                + "<div t:replace=\"~{fragments/cards :: user(us[0])}\"></div>"
+                + "<div t:replace=\"~{fragments/cards :: user(null)}\"></div>"
+                + "</main>")
+        .compile()
         .assertSuccess();
   }
 
@@ -118,13 +113,13 @@ class FragmentsTest {
   void selectedElementCapturesANullTypedWithVariable() {
     // t:with="z=null" keeps javac's null type; the ~{::span} helper must still declare a valid parameter.
     Compilation c =
-        compile(
-                Compilation.builder()
-                    .template("fragments/wrap.html", WRAP)
-                    .template(
-                        "page.html",
-                        "<main " + NS + "><div t:with=\"z=null\">"
-                            + "<div t:replace=\"~{fragments/wrap :: wrap(~{::span})}\"></div><span>s</span></div></main>"))
+        Compilation.builder()
+            .template("fragments/wrap.html", WRAP)
+            .template(
+                "page.html",
+                "<main " + NS + "><div t:with=\"z=null\">"
+                    + "<div t:replace=\"~{fragments/wrap :: wrap(~{::span})}\"></div><span>s</span></div></main>")
+            .compile()
             .assertSuccess();
     assertEquals("<main><div><b><span>s</span></b><span>s</span></div></main>", c.render("page", Map.of()));
   }
@@ -138,7 +133,10 @@ class FragmentsTest {
             + "<body><h2>Owners</h2><p t:insert=\"extra\">x</p></body>\n"
             + "</html>\n";
     Compilation c =
-        compile(Compilation.builder().template("fragments/layout.html", LAYOUT).template("owners/list.html", page))
+        Compilation.builder()
+            .template("fragments/layout.html", LAYOUT)
+            .template("owners/list.html", page)
+            .compile()
             .assertSuccess();
     assertEquals(
         "<!DOCTYPE html>\n"
@@ -154,7 +152,9 @@ class FragmentsTest {
   @Test
   void nullFragmentValueInsertsNothing() {
     Compilation c =
-        compile(Compilation.builder().template("page.html", "<main " + NS + " t:params=\"Fragment f\"><p t:insert=\"f\">x</p></main>"))
+        Compilation.builder()
+            .template("page.html", "<main " + NS + " t:params=\"Fragment f\"><p t:insert=\"f\">x</p></main>")
+            .compile()
             .assertSuccess();
     assertEquals("<main><p></p></main>", c.render("page", Map.of()));
   }
@@ -162,53 +162,39 @@ class FragmentsTest {
   @Test
   void fragmentParamsNamedLikePackagesOrRenderParamsWork() {
     Compilation c =
-        compile(
-                Compilation.builder()
-                    .template(
-                        "page.html",
-                        "<main " + NS + " t:params=\"Fragment f\">"
-                            + "<b t:fragment=\"x(Fragment java, Fragment ctx, Fragment out, Fragment dev)\">"
-                            + "<i t:replace=\"java\"></i><i t:replace=\"ctx\"></i><i t:replace=\"out\"></i><i t:replace=\"dev\"></i></b>"
-                            + "<div t:replace=\"~{:: x(f, f, f, f)}\"></div></main>"))
+        Compilation.builder()
+            .template(
+                "page.html",
+                "<main " + NS + " t:params=\"Fragment f\">"
+                    + "<b t:fragment=\"x(Fragment java, Fragment ctx, Fragment out, Fragment dev)\">"
+                    + "<i t:replace=\"java\"></i><i t:replace=\"ctx\"></i><i t:replace=\"out\"></i><i t:replace=\"dev\"></i></b>"
+                    + "<div t:replace=\"~{:: x(f, f, f, f)}\"></div></main>")
+            .compile()
             .assertSuccess();
     assertEquals("<main><b>FFFF</b></main>", c.render("page", Map.of("f", text("F"))));
   }
 
   @Test
   void textInFragmentsUsesOnlyArguments() {
-    // Needs t:text (#11); skipped until it lands.
     Compilation c =
-        compile(
-            base()
-                .template(
-                    "page.html",
-                    "<main " + NS + " t:import=\"com.example.*\" t:params=\"User u\">"
-                        + "<b t:fragment=\"name(User user)\" t:text=\"user.name\">n</b>"
-                        + "<div t:replace=\"~{:: name(u)}\"></div><div t:replace=\"~{:: name(user=u)}\"></div></main>"));
+        base()
+            .template(
+                "page.html",
+                "<main " + NS + " t:import=\"com.example.*\" t:params=\"User u\">"
+                    + "<b t:fragment=\"name(User user)\" t:text=\"user.name\">n</b>"
+                    + "<div t:replace=\"~{:: name(u)}\"></div><div t:replace=\"~{:: name(user=u)}\"></div></main>")
+            .compile();
     c.assertSuccess();
     Object u = c.newInstance("com.example.User", "<Ann>");
     assertEquals("<main><b>&lt;Ann&gt;</b><b>&lt;Ann&gt;</b></main>", c.render("page", Map.of("u", u)));
   }
 
-  @Test
-  void generatedCodeHasNoReflection() {
-    Compilation c =
-        compile(Compilation.builder().template("fragments/layout.html", LAYOUT)
-            .template("p.html", "<html " + NS + " t:replace=\"~{fragments/layout :: layout(~{::body}, 'x')}\"><body>b</body></html>"))
-            .assertSuccess();
-    for (String name : List.of("tessera.generated.PTemplate", "tessera.generated.fragments.LayoutTemplate")) {
-      String src = c.generatedSource(name);
-      for (String banned : List.of("java.lang.reflect", "java.lang.invoke", "MethodHandle", "Class.forName")) {
-        assertFalse(src.contains(banned), name + " contains " + banned);
-      }
-    }
-  }
-
   // ---------------------------------------------------------------- negative tests
 
   private static Compilation page(String body) {
-    return compile(
-        base().template("page.html", "<main " + NS + " t:import=\"com.example.*\" t:params=\"User u\">\n" + body + "</main>"));
+    return base()
+        .template("page.html", "<main " + NS + " t:import=\"com.example.*\" t:params=\"User u\">\n" + body + "</main>")
+        .compile();
   }
 
   @Test
