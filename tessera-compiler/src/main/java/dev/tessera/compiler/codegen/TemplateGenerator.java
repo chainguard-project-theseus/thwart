@@ -23,6 +23,7 @@ import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -54,6 +55,7 @@ public final class TemplateGenerator implements CodegenContext {
   private final TemplateIndex index;
   private final ExpressionParser parser;
   private final ExpressionCompiler expressions;
+  private final Set<Element> selecting = Collections.newSetFromMap(new IdentityHashMap<>());
 
   // State for the template being generated.
   private TemplateIndex.TemplateInfo template;
@@ -198,6 +200,11 @@ public final class TemplateGenerator implements CodegenContext {
   @Override
   public String whitespaceBefore(Element element) {
     return whitespaceBefore.get(element);
+  }
+
+  @Override
+  public Set<Element> selecting() {
+    return selecting;
   }
 
   /** Records {@link #whitespaceBefore} for every element preceded by a text sibling. */

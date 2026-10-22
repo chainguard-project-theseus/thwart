@@ -70,4 +70,11 @@ public interface CodegenContext {
    * fragment method or {@code ~{::selector}} helper).
    */
   String whitespaceBefore(Element element);
+
+  /**
+   * Elements whose {@code ~{::tag}} helper is being generated, so mutually recursive selections
+   * are reported instead of recursing forever. Compared by identity; callers add before rendering
+   * and remove in a {@code finally}.
+   */
+  Set<Element> selecting();
 }

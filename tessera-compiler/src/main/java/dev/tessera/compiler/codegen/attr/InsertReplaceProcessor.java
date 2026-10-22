@@ -9,20 +9,16 @@ import dev.tessera.compiler.expr.FragmentRef;
 import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
-import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
+import dev.tessera.runtime.Fragment;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.type.TypeMirror;
 
@@ -35,14 +31,7 @@ import javax.lang.model.type.TypeMirror;
  * method that receives the visible variables as parameters.
  */
 public final class InsertReplaceProcessor implements AttributeProcessor {
-  private static final String FRAGMENT = "dev.tessera.runtime.Fragment";
-
-  /**
-   * Elements whose {@code ~{::selector}} helper is being generated, so mutually recursive
-   * selections are reported instead of recursing forever. Generation is single-threaded.
-   */
-  private static final ThreadLocal<Set<Element>> SELECTING =
-      ThreadLocal.withInitial(() -> Collections.newSetFromMap(new IdentityHashMap<>()));
+  private static final String FRAGMENT = Fragment.class.getName();
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
@@ -155,8 +144,28 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       return null;
     }
     String sig = target.viewName() + " :: " + signature(f);
+    List<FragmentRef.Arg> ordered = orderArguments(ctx, ref, f, sig);
+    if (ordered == null) {
+      return null;
+    }
 
-    // Order the arguments like the parameters.
+    List<String> codes = new ArrayList<>();
+    boolean ok = true;
+    for (int i = 0; i < ordered.size(); i++) {
+      String code = argument(ctx, ordered.get(i), f.params().get(i), i, sig, scope, host, pre);
+      ok &= code != null;
+      codes.add(code);
+    }
+    List<String> types = f.params().stream().map(TemplateIndex.Param::javaType).toList();
+    return ok ? new Call(target.className() + "." + f.methodName(), codes, types) : null;
+  }
+
+  /**
+   * {@code ref}'s arguments in the order of {@code f}'s parameters (all positional or all named).
+   * Reports and returns null on a wrong count or an unknown, duplicate or missing name.
+   */
+  private static List<FragmentRef.Arg> orderArguments(
+      CodegenContext ctx, FragmentRef ref, TemplateIndex.FragmentInfo f, String sig) {
     List<FragmentRef.Arg> args = ref.args();
     List<FragmentRef.Arg> ordered = new ArrayList<>();
     boolean named = !args.isEmpty() && args.getFirst().name() != null;
@@ -197,16 +206,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
         return null;
       }
     }
-
-    List<String> codes = new ArrayList<>();
-    boolean ok = true;
-    for (int i = 0; i < ordered.size(); i++) {
-      String code = argument(ctx, ordered.get(i), f.params().get(i), i, sig, scope, host, pre);
-      ok &= code != null;
-      codes.add(code);
-    }
-    List<String> types = f.params().stream().map(TemplateIndex.Param::javaType).toList();
-    return ok ? new Call(target.className() + "." + f.methodName(), codes, types) : null;
+    return ordered;
   }
 
   private static String argument(
@@ -283,7 +283,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     String local = ctx.freshName("frag");
     String call;
     if (ref.template() == null && !ctx.template().fragments().containsKey(ref.selector())) {
-      call = selectedElement(ctx, ref, scope, host, pre, c, o);
+      call = ElementSelection.helperCall(ctx, ref, scope, host, pre, c, o);
     } else {
       Call target = resolve(ctx, ref, scope, host, pre);
       if (target == null) {
@@ -305,96 +305,6 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     pre.append(FRAGMENT).append(' ').append(local).append(" = (").append(c).append(", ").append(o).append(") -> ")
         .append(call).append(";\n");
     return local;
-  }
-
-  /** {@code ~{::tag}}: a helper method rendering the first {@code <tag>} in the caller's scope. */
-  private static String selectedElement(
-      CodegenContext ctx, FragmentRef ref, Scope scope, Element host, StringBuilder pre, String c, String o) {
-    Element target = find(ctx.template().document().children(), ref.selector());
-    if (target == null) {
-      ctx.diagnostics()
-          .error(
-              ref.pos(),
-              "~{::" + ref.selector() + "}: this template has no fragment or element named '" + ref.selector() + "'");
-      return null;
-    }
-    if (!ref.args().isEmpty()) {
-      ctx.diagnostics()
-          .error(ref.pos(), "~{::" + ref.selector() + "} selects an element, which takes no arguments");
-      return null;
-    }
-    if (contains(target, host)) {
-      ctx.diagnostics()
-          .error(
-              ref.pos(),
-              "~{::" + ref.selector() + "} selects an element that contains this t:insert/t:replace, so it would"
-                  + " include itself");
-      return null;
-    }
-    if (host.attribute(Attribute.PREFIX + "object").isPresent() && contains(host, target)) {
-      ctx.diagnostics()
-          .error(
-              ref.pos(),
-              "~{::" + ref.selector() + "} selects an element inside this element's t:object, but t:insert/t:replace"
-                  + " runs before t:object, so the selection would render without it: move t:object to an"
-                  + " enclosing element");
-      return null;
-    }
-    Set<Element> active = SELECTING.get();
-    if (!active.add(target)) {
-      ctx.diagnostics()
-          .error(
-              ref.pos(),
-              "~{::" + ref.selector() + "} and the selections inside it include each other, so rendering would"
-                  + " never end: no selected element may pass ~{::...} of an element that selects it");
-      return null;
-    }
-    String body;
-    try {
-      body = ctx.renderElement(target, scope, Set.of());
-    } finally {
-      active.remove(target);
-    }
-    String helper = ctx.freshName("select_" + ref.selector());
-    List<String> decls = new ArrayList<>();
-    List<String> captured = new ArrayList<>();
-    for (Variable v : scope.variables()) {
-      decls.add(WithProcessor.sourceType(v.type()) + " " + v.javaName());
-      String a = ctx.freshName("cap");
-      pre.append("final var ").append(a).append(" = ").append(v.javaName()).append(";\n");
-      captured.add(a);
-    }
-    decls.add("dev.tessera.runtime.RenderContext ctx");
-    decls.add("dev.tessera.runtime.Output out");
-    ctx.addMember("  private static void " + helper + "(" + String.join(", ", decls) + ") {\n" + body + "  }");
-    return new Call(helper, captured, List.of()).invoke(c, o);
-  }
-
-  private static Element find(List<Node> nodes, String tag) {
-    for (Node n : nodes) {
-      if (n instanceof Element e) {
-        if (e.name().toLowerCase(Locale.ROOT).equals(tag.toLowerCase(Locale.ROOT))) {
-          return e;
-        }
-        Element inner = find(e.children(), tag);
-        if (inner != null) {
-          return inner;
-        }
-      }
-    }
-    return null;
-  }
-
-  private static boolean contains(Element ancestor, Element e) {
-    if (ancestor == e) {
-      return true;
-    }
-    for (Node n : ancestor.children()) {
-      if (n instanceof Element child && contains(child, e)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /** {@code a/b} with no empty, {@code .} or {@code ..} segments (so no leading {@code /}). */
