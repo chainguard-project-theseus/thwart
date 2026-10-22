@@ -15,6 +15,7 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- Imported per module so runtime/compiler/migrate stay free of Spring's managed versions. -->
       <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>

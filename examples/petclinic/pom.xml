@@ -24,6 +24,7 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- Imported per module so runtime/compiler/migrate stay free of Spring's managed versions. -->
       <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>
@@ -38,6 +39,12 @@
     <dependency>
       <groupId>dev.tessera</groupId>
       <artifactId>tessera-spring-boot-starter</artifactId>
+    </dependency>
+    <dependency>
+      <!-- Only so the reactor builds the processor first (it runs from annotationProcessorPaths). -->
+      <groupId>dev.tessera</groupId>
+      <artifactId>tessera-compiler</artifactId>
+      <scope>provided</scope>
     </dependency>
 
     <!-- From upstream spring-petclinic, minus Thymeleaf, MySQL/Postgres, Testcontainers and Docker. -->
