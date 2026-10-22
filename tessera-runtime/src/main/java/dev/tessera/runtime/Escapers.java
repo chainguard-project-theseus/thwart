@@ -142,12 +142,12 @@ public final class Escapers {
         case '>' -> sb.append("&gt;");
         case '"' -> sb.append("&quot;");
         case '\'' -> sb.append("&#39;");
-        case '\0' -> sb.append('�');
+        case '\0' -> sb.append('\uFFFD');
         default -> {
           if (Character.isHighSurrogate(c) && i + 1 < n && Character.isLowSurrogate(s.charAt(i + 1))) {
             sb.append(c).append(s.charAt(++i));
           } else if (Character.isSurrogate(c)) {
-            sb.append('�');
+            sb.append('\uFFFD');
           } else {
             sb.append(c);
           }
@@ -325,7 +325,7 @@ public final class Escapers {
         case '\t' -> sb.append("\\t");
         case '\b' -> sb.append("\\b");
         case '\f' -> sb.append("\\f");
-        case '<', '>', '&', '\'', ' ', ' ' -> unicodeEscape(sb, c);
+        case '<', '>', '&', '\'', '\u2028', '\u2029' -> unicodeEscape(sb, c);
         default -> {
           if (c < 0x20 || c == 0x7f) {
             unicodeEscape(sb, c);
