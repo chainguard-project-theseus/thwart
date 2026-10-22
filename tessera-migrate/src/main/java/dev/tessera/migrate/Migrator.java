@@ -159,7 +159,7 @@ final class Migrator {
       }
       String converted = local.equals(ConversionRules.FRAGMENT)
           ? fragmentSignature(value, nameLine)
-          : expressionValue(local, value, nameLine);
+          : expressionValue(local, value, lower.startsWith(ConversionRules.THYMELEAF_PREFIX), nameLine);
       if (!converted.equals(value)) {
         if (!quoted && converted.chars().anyMatch(c -> Character.isWhitespace(c) || "\"'=<>`".indexOf(c) >= 0)) {
           edits.add(new Edit(valueOuterOffset, valueOuterLen, '"' + converted + '"'));
@@ -203,7 +203,13 @@ final class Migrator {
       return m.group(1) + m.group(2) + "(" + String.join(", ", params) + ")" + m.group(4);
     }
 
-    private String expressionValue(String local, String value, int line) {
+    /**
+     * Rewrites an attribute value. {@code thymeleaf} is true for {@code th:} attributes, whose
+     * literal tokens ({@code th:class="nav-item"}) are quoted; {@code t:} values are already
+     * Tessera, which keeps the rewrite idempotent.
+     */
+    private String expressionValue(String local, String original, boolean thymeleaf, int line) {
+      String value = Expressions.rewriteLinks(original);
       List<String> problems = Expressions.unsupported(value);
       for (String problem : problems) {
         report(line, problem);
@@ -212,7 +218,7 @@ final class Migrator {
       if (local.equals(ConversionRules.EACH)) {
         int colon = Expressions.indexOfTopLevel(value, ':');
         if (colon < 0) {
-          return value; // not a loop expression; the compiler reports it
+          return original; // not a loop expression; the compiler reports it
         }
         List<String> vars = Expressions.splitTopLevel(value.substring(0, colon), false);
         vars.forEach(v -> locals.add(v.strip()));
@@ -221,14 +227,14 @@ final class Migrator {
         }
         String expr = value.substring(colon + 1);
         if (!convertible) {
-          return value;
+          return original;
         }
         String rewritten = Expressions.rewrite(expr);
         roots.addAll(Expressions.roots(rewritten, false));
         return value.substring(0, colon + 1) + rewritten;
       }
       if (!convertible) {
-        return value; // left in place for the compiler to reject; roots would be guesses
+        return original; // left in place for the compiler to reject; roots would be guesses
       }
       if (ConversionRules.ASSIGNMENT_VALUES.contains(local)) {
         List<String> parts = new ArrayList<>();
@@ -242,11 +248,17 @@ final class Migrator {
             locals.add(part.substring(0, eq).strip());
           }
           String expr = part.substring(eq + 1);
-          String rewritten = Expressions.rewrite(expr);
+          String rewritten = thymeleaf && Expressions.isLiteralToken(expr)
+              ? "'" + expr.strip() + "'"
+              : Expressions.rewrite(expr);
           roots.addAll(Expressions.roots(rewritten, false));
           parts.add(part.substring(0, eq + 1) + rewritten);
         }
         return String.join(",", parts);
+      }
+      if (thymeleaf && Expressions.isLiteralToken(value) && !ConversionRules.SELECTION_VALUES.contains(local)
+          && !ConversionRules.FRAGMENT_REFERENCES.contains(local)) {
+        return "'" + value.strip() + "'";
       }
       String rewritten = Expressions.rewrite(value);
       if (!ConversionRules.SELECTION_VALUES.contains(local)) {

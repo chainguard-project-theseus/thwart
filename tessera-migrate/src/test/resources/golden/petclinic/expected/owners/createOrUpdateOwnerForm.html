@@ -5,6 +5,9 @@
 
   <h2>Owner</h2>
   <form t:object="owner" class="form-horizontal" id="add-owner-form" method="post">
+    <div t:if="fields.hasErrors('*')" t:class="'alert-danger'">
+      <p t:each="err : fields.errors('*')" t:text="err">Error</p>
+    </div>
     <div class="form-group has-feedback">
       <input
         t:replace="~{fragments/inputField :: input ('First Name', 'firstName', 'text')}" />
@@ -16,7 +19,7 @@
     <div class="form-group">
       <div class="col-sm-offset-2 col-sm-10">
         <button
-          t:with="text=owner['new'] ? 'Add Owner' : 'Update Owner'"
+          t:with="text=owner.isNew() ? 'Add Owner' : 'Update Owner'"
           class="btn btn-primary" type="submit" t:text="text">Add
           Owner</button>
       </div>

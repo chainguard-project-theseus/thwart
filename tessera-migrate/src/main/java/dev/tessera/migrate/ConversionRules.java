@@ -102,6 +102,37 @@ final class ConversionRules {
       "#lists.isEmpty", "isEmpty",
       "#lists.size", "size");
 
+  /**
+   * Utility calls whose Tessera spelling differs, replaced verbatim (outside string literals)
+   * before {@link #NAMESPACES} applies.
+   */
+  static final Map<String, String> RENAMED_CALLS = Map.of(
+      "#strings.listJoin(", "strings.join(",
+      "#fields.hasAnyErrors()", "fields.hasErrors('*')",
+      "#fields.allErrors()", "fields.errors('*')");
+
+  /** Thymeleaf's {@code x['new']}: SpEL property access for {@code isNew()} ({@code new} is a keyword). */
+  static final Pattern NEW_INDEX = Pattern.compile("\\[\\s*'new'\\s*\\]");
+  static final String IS_NEW = ".isNew()";
+
+  /**
+   * A Thymeleaf literal token: a {@code th:} value made only of letters, digits, brackets, dots,
+   * hyphens and underscores is literal text ({@code th:class="nav-item"}), not an expression. It
+   * is quoted as a string literal. Numbers and {@link #TOKEN_KEYWORDS} mean the same in Tessera.
+   */
+  static final Pattern LITERAL_TOKEN = Pattern.compile("[A-Za-z0-9\\[\\]._-]+");
+  static final Pattern NUMBER = Pattern.compile("\\d+(\\.\\d+)?");
+  static final Set<String> TOKEN_KEYWORDS = Set.of("true", "false", "null");
+
+  /**
+   * String-built links with a literal path and one query parameter, {@code @{'/p?k=' + ${x}}} and
+   * {@code @{'/p?k=__${x}__'}}; both become {@code @{/p(k=${x})}}. Groups: path, name, expression.
+   */
+  private static final String LINK_PATH = "@\\{\\s*'(/(?:[^'?{}()\\s_]|_(?!_))*)\\?(\\w+)=";
+  static final List<Pattern> STRING_LINKS = List.of(
+      Pattern.compile(LINK_PATH + "'\\s*\\+\\s*\\$\\{([^{}',]+)\\}\\s*\\}"),
+      Pattern.compile(LINK_PATH + "__\\$\\{([^{}',]+)\\}__'\\s*\\}"));
+
   static final String UNKNOWN_UTILITY_MESSAGE =
       "Thymeleaf utility object `#%s` has no Tessera equivalent; use a `@TemplateFunctions` namespace or a view-type property";
 
@@ -114,7 +145,9 @@ final class ConversionRules {
    * literal contents blanked, unless {@code inLiterals} (preprocessing applies inside literals).
    */
   static final List<Unsupported> UNSUPPORTED_EXPRESSIONS = List.of(
-      new Unsupported(Pattern.compile("__"), true,
+      new Unsupported(Pattern.compile("\\*\\{\\s*__"), true,
+          "dynamic form-field path `*{__...__}` is not supported (preprocessing); inline one element per field (a typed alternative is tracked in #43)"),
+      new Unsupported(Pattern.compile("^(?!.*\\*\\{\\s*__).*__", Pattern.DOTALL), true,
           "`__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field"),
       new Unsupported(Pattern.compile("(?<![\\w.])T\\s*\\("), false,
           "`T(...)` static class access is not supported (never); expose the value through a view type or a `@TemplateFunction`"),
