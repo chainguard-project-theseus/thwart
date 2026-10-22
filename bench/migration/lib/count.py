@@ -2,7 +2,7 @@
 
 usage: count.py APP_DIR
 
-Prints JSON: for each engine, the template files found under src/ and a count per construct.
+Prints JSON: for each engine, the template files found under any src/ and a count per construct.
 Run on a baseline checkout it sizes the job; run on a migrated one it shows what was left.
 """
 
@@ -53,10 +53,12 @@ SKIP = {"target", "build", "node_modules", ".git", ".mvn", "test"}
 
 
 def template_files(root):
-    for d, dirs, files in os.walk(os.path.join(root, "src")):
+    """Files under any module's src/ (a multi-module build such as budgetmaster's nests it)."""
+    for d, dirs, files in os.walk(root):
         dirs[:] = [x for x in dirs if x not in SKIP and not x.startswith(".")]
-        for f in files:
-            yield os.path.join(d, f)
+        if "src" in os.path.relpath(d, root).split(os.sep):
+            for f in files:
+                yield os.path.join(d, f)
 
 
 def count(root):
