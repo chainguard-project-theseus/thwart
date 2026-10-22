@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.tessera.compiler.processor.ProcessorOptions;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.lang.model.element.TypeElement;
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,30 @@ class CompilationTest {
   @Test
   void requiresTemplatesOption() {
     Compilation.builder().withoutTemplatesOption().compile().assertError("-Atessera.templates");
+  }
+
+  @Test
+  void discoversOnlyHtmlTemplatesInSubdirectories() {
+    Compilation c =
+        Compilation.builder()
+            .template("notes.txt", "not a template")
+            .template("a/b.html", "<p>hi</p>")
+            .compile()
+            .assertSuccess();
+    assertNotNull(c.generatedSource("tessera.generated.a.BTemplate"));
+    assertNull(c.generatedSource("tessera.generated.NotesTemplate"));
+    assertTrue(c.registry().find("a/b").isPresent());
+    assertTrue(c.registry().find("notes").isEmpty());
+    assertEquals(1, c.registry().all().size());
+  }
+
+  @Test
+  void rejectsMissingTemplatesDirectory() {
+    Compilation.builder()
+        .option(ProcessorOptions.TEMPLATES, "/nonexistent/tessera/templates")
+        .withoutTemplatesOption()
+        .compile()
+        .assertError("templates directory does not exist");
   }
 
   @Test
