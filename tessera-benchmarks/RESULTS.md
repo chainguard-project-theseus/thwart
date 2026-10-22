@@ -38,9 +38,3 @@ operations per second (higher is better).
 The fragment-heavy page shows the larger gap: a Tessera fragment call is a static method call,
 while Thymeleaf resolves the fragment template, evaluates the selector and binds parameters as
 variables on every insertion.
-
-## Caveat
-
-Thymeleaf repeats the whitespace before an iterated element between iterations; Tessera does not
-(#40). The benchmark templates put no whitespace before `each` elements so the output is
-byte-identical.

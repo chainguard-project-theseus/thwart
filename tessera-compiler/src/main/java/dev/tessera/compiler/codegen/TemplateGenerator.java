@@ -25,6 +25,7 @@ import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +64,7 @@ public final class TemplateGenerator implements CodegenContext {
   private Map<String, String> constants;
   private List<String> members;
   private int fresh;
+  private Map<Element, String> whitespaceBefore;
 
   public TemplateGenerator(
       CompilerEnv env, TemplateIndex index, ExpressionParser parser, ExpressionCompiler expressions) {
@@ -97,6 +99,8 @@ public final class TemplateGenerator implements CodegenContext {
     constants = new LinkedHashMap<>();
     members = new ArrayList<>();
     fresh = 0;
+    whitespaceBefore = new IdentityHashMap<>();
+    indexWhitespace(document.children());
 
     validate(document.rootElement(), document.children());
     Scope scope = Scope.empty();
@@ -181,9 +185,17 @@ public final class TemplateGenerator implements CodegenContext {
 
   @Override
   public String renderElement(Element element, Scope scope, Set<String> ignoredAttributes) {
-    Code c = new Code();
-    element(c, element, scope, ignoredAttributes);
-    return c.build();
+    // Rendered standalone (fragment method, ~{::selector} helper): no preceding sibling text.
+    String ws = whitespaceBefore.remove(element);
+    try {
+      Code c = new Code();
+      element(c, element, scope, ignoredAttributes);
+      return c.build();
+    } finally {
+      if (ws != null) {
+        whitespaceBefore.put(element, ws);
+      }
+    }
   }
 
   @Override
@@ -198,6 +210,50 @@ public final class TemplateGenerator implements CodegenContext {
   @Override
   public void addMember(String javaCode) {
     members.add(javaCode);
+  }
+
+  @Override
+  public String whitespaceBefore(Element element) {
+    return whitespaceBefore.get(element);
+  }
+
+  /** Records {@link #whitespaceBefore} for every element preceded by a text sibling. */
+  private void indexWhitespace(List<Node> nodes) {
+    Node previous = null;
+    for (Node n : nodes) {
+      if (n instanceof Element e) {
+        if (previous instanceof Text t) {
+          String ws = trailingWhitespace(t.raw());
+          if (ws != null) {
+            whitespaceBefore.put(e, ws);
+          }
+        }
+        indexWhitespace(e.children());
+      }
+      previous = n;
+    }
+  }
+
+  /**
+   * Thymeleaf splits text at inlined expressions and repeats the last piece if it is all
+   * whitespace: the whole text if it is whitespace, else the whitespace after a closing
+   * {@code ]]} or {@code )]} of an inlined expression. Null otherwise.
+   */
+  private static String trailingWhitespace(String raw) {
+    int start = raw.length();
+    while (start > 0 && Character.isWhitespace(raw.charAt(start - 1))) {
+      start--;
+    }
+    if (start == raw.length()) {
+      return null;
+    }
+    if (start == 0) {
+      return raw;
+    }
+    String head = raw.substring(0, start);
+    boolean inlined =
+        (head.endsWith("]]") && head.contains("[[")) || (head.endsWith(")]") && head.contains("[("));
+    return inlined ? raw.substring(start) : null;
   }
 
   // ---- tree walk ----
