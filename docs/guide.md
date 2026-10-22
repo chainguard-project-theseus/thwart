@@ -927,6 +927,9 @@ These come from the annotation processor itself, without a template position.
   case-insensitive (`t:text` and `T:TEXT` are the same).
 - `malformed markup: content of <<tag>> contains '</<tag>' before its end tag: escape it (in a script string, write '<\/<tag>')`:
   a browser would end the element early; split the string.
+- `<<tag>/> is not self-closing in HTML: the browser treats everything after it as <tag>; write <<tag> ...></<tag>>`:
+  reported for `<script/>` and `<style/>`; a browser ignores the `/` and treats the rest of the
+  page as script or CSS. Write the end tag, e.g. `<script src="a.js"></script>`.
 - `end tag </<tag>> does not match any open element: remove it or add the matching <<tag>>`:
   common with `<a ... />` followed by `</a>`; write `<a ...></a>`.
 - `element <<tag>> is not closed (found </<other>> at <line>:<col>): add </<tag>>` and
