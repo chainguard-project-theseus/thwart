@@ -71,8 +71,14 @@ final class ConversionRules {
     return null;
   }
 
-  /** Attributes whose value is a keyword or literal, not an expression (renamed only). */
-  static final Set<String> LITERAL_VALUES = Set.of("remove", "errorclass");
+  /**
+   * Attributes whose value is a keyword, literal or declaration, not an expression (renamed only).
+   * {@code import} names classes and {@code params} declares types and names; neither holds roots.
+   */
+  static final Set<String> LITERAL_VALUES = Set.of("remove", "errorclass", "import", "params");
+
+  /** Characters (besides whitespace) that force a rewritten unquoted value into double quotes. */
+  static final String UNQUOTED_VALUE_FORBIDDEN = "\"'=<>`";
 
   /** Attributes whose value is a selection path on {@code t:object}, not a root variable. */
   static final Set<String> SELECTION_VALUES = Set.of("field", "errors");
