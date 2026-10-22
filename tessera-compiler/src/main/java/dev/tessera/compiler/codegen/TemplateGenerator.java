@@ -257,6 +257,11 @@ public final class TemplateGenerator implements CodegenContext {
     }
     attrs.sort(Comparator.comparingInt(a -> AttributeProcessors.precedence(a.localName())));
     for (Attribute a : attrs) {
+      // A removed element renders nothing: later attributes are not compiled here (a
+      // parameterized t:fragment's attributes only make sense in its fragment method).
+      if (plan.removed()) {
+        break;
+      }
       AttributeProcessors.forName(a.localName()).ifPresent(p -> p.process(this, a, plan));
     }
     if (e.name().equalsIgnoreCase("form")) {
