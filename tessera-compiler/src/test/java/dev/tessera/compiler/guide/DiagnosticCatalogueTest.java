@@ -1,12 +1,16 @@
 package dev.tessera.compiler.guide;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -42,11 +46,12 @@ class DiagnosticCatalogueTest {
   void everyDiagnosticAppearsInTheGuide() throws IOException {
     String guide = normalize(Files.readString(GUIDE));
     List<String> missing = new ArrayList<>();
+    Set<String> matchedRegions = new TreeSet<>();
     int checked = 0;
     try (Stream<Path> files = Files.walk(SOURCES)) {
       for (Path f : files.filter(p -> p.toString().endsWith(".java")).sorted().toList()) {
         String src = Files.readString(f);
-        for (Piece piece : pieces(f, src)) {
+        for (Piece piece : pieces(f, src, matchedRegions)) {
           checked++;
           if (!guide.contains(piece.text())) {
             missing.add(piece.where() + ": " + piece.text());
@@ -54,13 +59,18 @@ class DiagnosticCatalogueTest {
         }
       }
     }
+    assertEquals(
+        new TreeSet<>(Arrays.stream(REGIONS).map(r -> r[0]).toList()),
+        matchedRegions,
+        "REGIONS entries whose file was not found under " + SOURCES + "; update REGIONS");
     assertTrue(checked > 150, "found only " + checked + " message pieces; is the extraction broken?");
     assertTrue(missing.isEmpty(), "diagnostic text missing from docs/guide.md:\n" + String.join("\n", missing));
   }
 
   record Piece(String where, String text) {}
 
-  private static List<Piece> pieces(Path file, String src) {
+  /** Message pieces in {@code file}; adds the file suffix of every REGIONS entry it matches. */
+  private static List<Piece> pieces(Path file, String src, Set<String> matchedRegions) {
     List<Piece> out = new ArrayList<>();
     Matcher m = CALL.matcher(src);
     while (m.find()) {
@@ -73,10 +83,18 @@ class DiagnosticCatalogueTest {
     }
     for (String[] r : REGIONS) {
       if (file.toString().endsWith(r[0])) {
+        matchedRegions.add(r[0]);
         int start = src.indexOf(r[1]);
-        if (start >= 0) {
-          literals(file, src, start, src.indexOf(r[2], start), out);
+        if (start < 0) {
+          throw new AssertionError(
+              "region marker \"" + r[1] + "\" not found in " + file.getFileName() + "; update REGIONS");
         }
+        int end = src.indexOf(r[2], start);
+        if (end < 0) {
+          throw new AssertionError(
+              "region end marker after \"" + r[1] + "\" not found in " + file.getFileName() + "; update REGIONS");
+        }
+        literals(file, src, start, end, out);
       }
     }
     return out;
