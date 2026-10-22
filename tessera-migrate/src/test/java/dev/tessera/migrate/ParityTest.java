@@ -235,6 +235,9 @@ class ParityTest {
 
     assertEquals(0, run("compare", base, pages.toString(), dir.toString()), out());
     assertTrue(out().contains("04 reordered GET /errors"), out());
+    // The diff is still shown so the reader can judge whether the order matters.
+    assertTrue(out().contains("--- recorded 04.html"), out());
+    assertTrue(out().lines().anyMatch(l -> l.startsWith("-") && l.contains("must not be empty")), out());
     assertTrue(out().contains("4 same, 1 reordered, 0 differ"), out());
   }
 

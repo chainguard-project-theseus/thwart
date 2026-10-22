@@ -149,12 +149,12 @@ final class Parity {
       if (!urlOk) {
         out.println("   final URL: recorded " + entry.finalUrl() + ", got " + response.finalUrl());
       }
-      if (word.equals("differs")) {
-        if (verdict == PageNormalizer.Verdict.DIFFERS) {
-          printDiff(out, entry, expected, actual);
-        } else {
-          out.println("   page: " + verdict.name().toLowerCase());
-        }
+      // A reordered page passes but still shows what moved: HashSet-ordered messages are
+      // harmless, table rows that lost their sort order are not, and only a reader can tell.
+      if (verdict != PageNormalizer.Verdict.SAME) {
+        printDiff(out, entry, expected, actual);
+      } else if (word.equals("differs")) {
+        out.println("   page: same");
       }
     }
     out.println("tessera-migrate compare: " + requests.size() + " page(s): " + same + " same, "
