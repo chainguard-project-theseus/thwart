@@ -1,5 +1,7 @@
 package dev.tessera.compiler.codegen.attr;
 
+import static dev.tessera.compiler.types.ExpressionCompiler.isDeclared;
+
 import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
@@ -164,7 +166,7 @@ public final class FieldProcessor implements AttributeProcessor {
   }
 
   private static boolean isBoolean(TypeMirror t) {
-    return t.getKind() == TypeKind.BOOLEAN || t.toString().equals("java.lang.Boolean");
+    return t.getKind() == TypeKind.BOOLEAN || isDeclared(t, "java.lang.Boolean");
   }
 
   /**
