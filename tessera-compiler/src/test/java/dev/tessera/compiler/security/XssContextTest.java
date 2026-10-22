@@ -1,0 +1,298 @@
+package dev.tessera.compiler.security;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
+import dev.tessera.compiler.testing.Compilation;
+import dev.tessera.runtime.DefaultLinks;
+import dev.tessera.runtime.Forms;
+import dev.tessera.runtime.RenderContext;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.FieldSource;
+
+/**
+ * XSS vectors in every output context, end to end: one template puts the same hostile string
+ * into every context Tessera allows (directly, through messages, links and form binding), and an
+ * independent {@link ContextOracle} parses each output slot the way a browser would. Contexts
+ * that cannot be escaped (style, event handlers, srcdoc, computed script types, resource URLs
+ * from strings, raw output of non-SafeHtml) must fail to build.
+ */
+class XssContextTest {
+
+  private static final String MARK = "ZZZ";
+
+  /** How an output slot is checked. */
+  enum Kind {
+    HTML,
+    URL,
+    JSON,
+    PATH_SEGMENT,
+    QUERY
+  }
+
+  /** One template line and the kinds of the slots it renders, in output order. */
+  record Line(String markup, Kind... kinds) {}
+
+  static final List<Line> LINES =
+      List.of(
+          new Line("<p t:text=\"s\">x</p>", Kind.HTML),
+          new Line("<p>a [[s]] b</p>", Kind.HTML),
+          new Line("<title>[[s]]</title>", Kind.HTML),
+          new Line("<textarea t:text=\"s\"></textarea>", Kind.HTML),
+          new Line("<xmp>[[s]]</xmp><noscript>[[s]]</noscript><noembed>[[s]]</noembed>", Kind.HTML, Kind.HTML, Kind.HTML),
+          new Line("<iframe>[[s]]</iframe>", Kind.HTML),
+          new Line("<i t:title=\"s\" t:attr=\"data-x=s\">x</i>", Kind.HTML, Kind.HTML),
+          new Line("<i t:class=\"s\">x</i><i class=\"c\" t:classappend=\"'k' + s\">y</i>", Kind.HTML, Kind.HTML),
+          new Line("<input t:value=\"s\"><img t:alt=\"s\">", Kind.HTML, Kind.HTML),
+          new Line("<a t:href=\"s\">x</a><a t:attr=\"HREF=s\">y</a>", Kind.URL, Kind.URL),
+          new Line("<form t:action=\"s\"></form><button t:formaction=\"s\">x</button>", Kind.URL, Kind.URL),
+          new Line("<img t:src=\"s\"><video t:poster=\"s\"></video><q t:cite=\"s\">q</q>", Kind.URL, Kind.URL, Kind.URL),
+          new Line("<svg><a t:xlink:href=\"s\"><text>x</text></a><image t:href=\"s\"/></svg>", Kind.URL, Kind.URL),
+          new Line(
+              "<svg><a><animate attributeName=\"href\" t:values=\"s\"/><set attributeName=\"href\" t:to=\"s\"/>"
+                  + "<animate attributeName=\"href\" t:from=\"s\" t:by=\"s\"/><SET attributeName=\"href\" t:attr=\"to=s\"/></a></svg>",
+              Kind.URL, Kind.URL, Kind.URL, Kind.URL, Kind.URL),
+          new Line("<a t:href=\"@{/o/{id}(id='x' + s, q=s)}\">x</a>", Kind.PATH_SEGMENT, Kind.QUERY),
+          new Line("<script t:src=\"@{/js/{f}(f='x' + s)}\"></script>", Kind.PATH_SEGMENT),
+          new Line("<p t:text=\"#{greet(s)}\">x</p><i t:title=\"#{greet(s)}\">y</i>", Kind.HTML, Kind.HTML),
+          new Line("<p t:text=\"|a ${s} b|\">x</p>", Kind.HTML),
+          new Line("<script t:text=\"s\"></script>", Kind.JSON),
+          new Line(
+              "<script>var a = [[s]]; /*[[s]]*/ var t = `[[s]]`; var r = /[[s]]/; // [[s]]\n</script>",
+              Kind.JSON, Kind.JSON, Kind.JSON, Kind.JSON, Kind.JSON),
+          new Line("<SCRIPT type=\"application/json\">[[s]]</SCRIPT>", Kind.JSON),
+          new Line(
+              "<form method=\"post\" t:object=\"owner\"><input t:field=\"*{name}\"><span t:errors=\"*{name}\">e</span></form>",
+              Kind.HTML, Kind.HTML));
+
+  private static Compilation compilation;
+  private static List<Kind> kinds;
+  private static Pattern skeleton;
+
+  @BeforeAll
+  static void compileOnce() {
+    StringBuilder t = new StringBuilder("<div t:import=\"com.example.*\" t:params=\"String s, Owner owner\">\n");
+    for (Line line : LINES) {
+      t.append(line.markup()).append('\n');
+    }
+    t.append("</div>");
+    compilation =
+        Compilation.builder()
+            .java("com.example.Owner", "package com.example; public record Owner(String name) {}")
+            .messages("greet=Hi {0}!\n")
+            .template("page.html", t.toString())
+            .compile()
+            .assertSuccess();
+    kinds = kinds();
+    skeleton = skeleton(kinds);
+  }
+
+  /** A request whose messages, form state and CSRF token all echo the hostile value. */
+  private static RenderContext hostileContext(String s) {
+    Forms forms =
+        new Forms() {
+          @Override
+          public String value(String objectName, String path, Object currentValue) {
+            return s;
+          }
+
+          @Override
+          public List<String> errors(String objectName, String path) {
+            return List.of(s);
+          }
+
+          @Override
+          public Optional<CsrfToken> csrfToken() {
+            return Optional.of(new CsrfToken("_csrf", s));
+          }
+        };
+    return new RenderContext(Locale.ROOT, (key, args) -> String.valueOf(args[0]), new DefaultLinks(""), forms);
+  }
+
+  private static String render(String s) {
+    Object owner = compilation.newInstance("com.example.Owner", s);
+    return compilation.render("page", Map.of("s", s, "owner", owner), hostileContext(s));
+  }
+
+  /**
+   * The output with a capture group per slot, from a render with a benign marker value. A JSON
+   * slot is the body of a string literal (escapes included); other slots end at the next static
+   * text, which always starts with a character their escaper encodes.
+   */
+  private static Pattern skeleton(List<Kind> kinds) {
+    String out = render(MARK);
+    String[] statics = out.split(MARK, -1);
+    assertEquals(kinds.size(), statics.length - 1, () -> "slot count in\n" + out);
+    StringBuilder re = new StringBuilder("^");
+    for (int i = 0; i < statics.length; i++) {
+      if (i > 0) {
+        re.append(kinds.get(i - 1) == Kind.JSON ? "((?:[^\"\\\\]|\\\\.)*)" : "(.*?)");
+      }
+      re.append(Pattern.quote(statics[i]));
+    }
+    return Pattern.compile(re.append('$').toString(), Pattern.DOTALL);
+  }
+
+  private static List<Kind> kinds() {
+    List<Kind> kinds = new ArrayList<>();
+    // The form adds a CSRF hidden input (an attribute value) before its fields.
+    for (Line line : LINES) {
+      if (line.markup().startsWith("<form method=\"post\"")) {
+        kinds.add(Kind.HTML);
+      }
+      kinds.addAll(List.of(line.kinds()));
+    }
+    return kinds;
+  }
+
+  static void assertCannotLeaveContext(String s) {
+    String out = render(s);
+    Matcher m = skeleton.matcher(out);
+    if (!m.matches()) {
+      fail("output structure changed for " + show(s) + ":\n" + out);
+    }
+    for (int i = 0; i < kinds.size(); i++) {
+      String slot = m.group(i + 1);
+      String problem =
+          switch (kinds.get(i)) {
+            case HTML -> ContextOracle.html(slot, null);
+            case URL -> ContextOracle.url(slot, s);
+            case JSON -> ContextOracle.jsonString("\"" + slot + "\"", s);
+            case PATH_SEGMENT ->
+                ContextOracle.decodeHtml(slot).matches("[A-Za-z0-9%._~-]*") ? null : "unencoded path segment";
+            case QUERY -> {
+              String r = ContextOracle.html(slot, null);
+              yield r != null || !ContextOracle.decodeHtml(slot).matches("[^&=+#? \"<>]*") ? "unencoded query value" : null;
+            }
+          };
+      if (problem != null) {
+        fail("slot " + (i + 1) + " (" + kinds.get(i) + ") for " + show(s) + ": " + problem + ": " + slot + "\n" + out);
+      }
+    }
+  }
+
+  private static String show(String s) {
+    StringBuilder sb = new StringBuilder("\"");
+    for (char c : s.toCharArray()) {
+      sb.append(c >= 0x20 && c < 0x7f ? String.valueOf(c) : String.format("\\u%04x", (int) c));
+    }
+    return sb.append('"').toString();
+  }
+
+  @ParameterizedTest
+  @FieldSource("dev.tessera.compiler.security.HostileStrings#VECTORS")
+  void vectorCannotLeaveAnyContext(String vector) {
+    assertCannotLeaveContext(vector);
+  }
+
+  @Test
+  void randomStringsCannotLeaveAnyContext() {
+    long seed = System.nanoTime();
+    Random rnd = new Random(seed);
+    for (int i = 0; i < 2000; i++) {
+      String s = HostileStrings.random(rnd, 12);
+      try {
+        assertCannotLeaveContext(s);
+      } catch (AssertionError e) {
+        throw new AssertionError("seed " + seed + ", iteration " + i + ": " + e.getMessage(), e);
+      }
+    }
+  }
+
+  @Test
+  void dangerousUrlsAreReplacedEverywhere() {
+    String out = render("javascript:alert(1)");
+    assertTrue(out.contains("href=\"about:invalid#tessera\""), out);
+    assertTrue(out.contains("values=\"about:invalid#tessera\""), out);
+    assertTrue(out.contains(" to=\"about:invalid#tessera\""), out);
+    assertTrue(!Pattern.compile("[ :](href|values|to|from|by|action|formaction|src|poster|cite)=\"javascript", Pattern.CASE_INSENSITIVE).matcher(out).find(), out);
+  }
+
+  @Test
+  void scriptInlineInTemplateLiteralAndCommentIsInert() {
+    String out = render("`;alert(1);/*${x}*/");
+    assertTrue(
+        out.contains("var t = `\"\\u0060;alert(1);\\/*\\u0024{x}*\\/\"`;"),
+        out);
+  }
+
+  @Test
+  void mixedCaseScriptEndTagIsNeverTreatedAsText() {
+    // Browsers end <Script> at </sCrIpT>. Today the parser reports the element as unclosed,
+    // which fails closed (#47); if that changes, the content must still be a script context.
+    Compilation c =
+        Compilation.builder()
+            .template("page.html", "<div t:params=\"String s\"><Script>var a = [[s]];</sCrIpT></div>")
+            .compile();
+    if (c.success()) {
+      String out = c.render("page", Map.of("s", "</script><b>"));
+      assertTrue(out.contains("\\u003c\\/script\\u003e"), out);
+    } else {
+      c.assertError("page.html:1:");
+    }
+  }
+
+  /** Markup that must fail to build: these contexts cannot be escaped. */
+  static final List<String> REJECTED =
+      List.of(
+          "<i t:style=\"s\">x</i>",
+          "<i t:attr=\"style=s\">x</i>",
+          "<i t:STYLE=\"s\">x</i>",
+          "<style>p { color: [[s]]; }</style>",
+          "<STYLE>[[s]]</STYLE>",
+          "<style t:text=\"s\"></style>",
+          "<i t:onclick=\"s\">x</i>",
+          "<i t:OnClick=\"s\">x</i>",
+          "<i t:attr=\"onclick=s\">x</i>",
+          "<i t:attr=\"ONMOUSEOVER=s\">x</i>",
+          "<svg><a t:onbegin=\"s\"></a></svg>",
+          "<body t:onload=\"s\"></body>",
+          "<iframe t:srcdoc=\"s\"></iframe>",
+          "<iframe t:attr=\"srcdoc=s\"></iframe>",
+          "<script t:type=\"s\">var a = 1;</script>",
+          "<script t:attr=\"type=s\">var a = [[s]];</script>",
+          "<script type=\"text/template\">[[s]]</script>",
+          "<script type=\"text/x-handlebars\" t:text=\"s\"></script>",
+          "<script t:src=\"s\"></script>",
+          "<script t:attr=\"src=s\"></script>",
+          "<script t:src=\"'/js/' + s\"></script>",
+          "<script t:src=\"@{${s}}\"></script>",
+          "<svg><script t:href=\"s\"></script></svg>",
+          "<svg><script t:xlink:href=\"s\"></script></svg>",
+          "<iframe t:src=\"s\"></iframe>",
+          "<frame t:src=\"s\">",
+          "<embed t:src=\"s\">",
+          "<object t:data=\"s\"></object>",
+          "<base t:href=\"s\">",
+          "<link t:href=\"s\">",
+          "<p t:utext=\"s\">x</p>",
+          "<p>[(s)]</p>",
+          "<p t:utext=\"'<b>' + s\">x</p>",
+          "<p t:utext=\"#{greet(s)}\">x</p>",
+          "<script>var a = [(s)];</script>",
+          "<script t:utext=\"s\"></script>",
+          "<i t:attr=\"a b=s\">x</i>");
+
+  @ParameterizedTest
+  @FieldSource("REJECTED")
+  void unescapableContextsFailToBuild(String markup) {
+    Compilation c =
+        Compilation.builder()
+            .template("page.html", "<div t:params=\"String s\">\n" + markup + "\n</div>")
+            .compile();
+    c.assertError("page.html:2:");
+    assertNull(c.generatedSource("tessera.generated.PageTemplate"), "nothing may be generated");
+  }
+}
