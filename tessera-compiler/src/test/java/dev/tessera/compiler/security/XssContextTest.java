@@ -1,5 +1,6 @@
 package dev.tessera.compiler.security;
 
+import static dev.tessera.compiler.security.HostileStrings.show;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -9,14 +10,13 @@ import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.DefaultLinks;
 import dev.tessera.runtime.Forms;
 import dev.tessera.runtime.RenderContext;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -75,7 +75,8 @@ class XssContextTest {
           new Line("<SCRIPT type=\"application/json\">[[s]]</SCRIPT>", Kind.JSON),
           new Line(
               "<form method=\"post\" t:object=\"owner\"><input t:field=\"*{name}\"><span t:errors=\"*{name}\">e</span></form>",
-              Kind.HTML, Kind.HTML));
+              // The first slot is the injected CSRF hidden-input value, before the fields.
+              Kind.HTML, Kind.HTML, Kind.HTML));
 
   private static Compilation compilation;
   private static List<Kind> kinds;
@@ -146,15 +147,7 @@ class XssContextTest {
   }
 
   private static List<Kind> kinds() {
-    List<Kind> kinds = new ArrayList<>();
-    // The form adds a CSRF hidden input (an attribute value) before its fields.
-    for (Line line : LINES) {
-      if (line.markup().startsWith("<form method=\"post\"")) {
-        kinds.add(Kind.HTML);
-      }
-      kinds.addAll(List.of(line.kinds()));
-    }
-    return kinds;
+    return LINES.stream().flatMap(l -> Stream.of(l.kinds())).toList();
   }
 
   static void assertCannotLeaveContext(String s) {
@@ -183,14 +176,6 @@ class XssContextTest {
     }
   }
 
-  private static String show(String s) {
-    StringBuilder sb = new StringBuilder("\"");
-    for (char c : s.toCharArray()) {
-      sb.append(c >= 0x20 && c < 0x7f ? String.valueOf(c) : String.format("\\u%04x", (int) c));
-    }
-    return sb.append('"').toString();
-  }
-
   @ParameterizedTest
   @FieldSource("dev.tessera.compiler.security.HostileStrings#VECTORS")
   void vectorCannotLeaveAnyContext(String vector) {
@@ -199,16 +184,7 @@ class XssContextTest {
 
   @Test
   void randomStringsCannotLeaveAnyContext() {
-    long seed = System.nanoTime();
-    Random rnd = new Random(seed);
-    for (int i = 0; i < 2000; i++) {
-      String s = HostileStrings.random(rnd, 12);
-      try {
-        assertCannotLeaveContext(s);
-      } catch (AssertionError e) {
-        throw new AssertionError("seed " + seed + ", iteration " + i + ": " + e.getMessage(), e);
-      }
-    }
+    HostileStrings.forEachSeeded(2000, (rnd, i) -> assertCannotLeaveContext(HostileStrings.random(rnd, 12)));
   }
 
   @Test
