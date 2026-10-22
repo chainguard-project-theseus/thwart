@@ -953,6 +953,9 @@ These come from the annotation processor itself, without a template position.
   signature.
 - `parameter '<name>' has type Field, which only fragment parameters may have: declare it in a t:fragment signature`:
   `Field` is for fragment parameters; a page uses `t:object` instead.
+- `t:params needs a value, e.g. t:params="String name, int count"` and
+  `t:import needs a value, e.g. t:import="java.util.List"`: a bare `t:params` or `t:import` on
+  the root element; declare the parameters or imports, or remove the attribute.
 - `t:fragment needs a name, e.g. t:fragment="card(OwnerView owner)"`: give the fragment a name.
 - `duplicate fragment '<name>' in this template: rename one of them`.
 

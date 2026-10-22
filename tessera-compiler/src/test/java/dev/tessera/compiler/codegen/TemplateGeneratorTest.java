@@ -378,4 +378,33 @@ class TemplateGeneratorTest {
         List.of(emptyDoc("main-page.html"), emptyDoc("mainPage.html")), new ExpressionParser(), new ExpressionCompiler(env), env);
     assertHasError(errors(d), "mainPage.html:1:1", "x.MainPageTemplate", "main-page.html");
   }
+
+  private static List<String> indexErrors(Document doc) {
+    Diagnostics d = new Diagnostics();
+    CompilerEnv env = plainEnv(d, "x");
+    TemplateIndex index = TemplateIndex.build(List.of(doc), new ExpressionParser(), new ExpressionCompiler(env), env);
+    TemplateIndex.TemplateInfo info = index.template(doc.source().viewName()).orElseThrow();
+    assertTrue(info.imports().isEmpty());
+    assertTrue(info.params().isEmpty());
+    return errors(d);
+  }
+
+  @Test
+  void indexReportsBareRootParams() {
+    HandBuilt h = new HandBuilt("bare-params.html", "<html t:params>\n</html>");
+    Document doc = h.doc(new Element("html", List.of(h.bare("t:params")), List.of(), false, true, h.pos("<html")));
+    List<String> errors = indexErrors(doc);
+    assertEquals(
+        List.of("bare-params.html:1:7: error: t:params needs a value, e.g. t:params=\"String name, int count\""),
+        errors);
+  }
+
+  @Test
+  void indexReportsBareRootImport() {
+    HandBuilt h = new HandBuilt("bare-import.html", "<html t:import>\n</html>");
+    Document doc = h.doc(new Element("html", List.of(h.bare("t:import")), List.of(), false, true, h.pos("<html")));
+    List<String> errors = indexErrors(doc);
+    assertEquals(
+        List.of("bare-import.html:1:7: error: t:import needs a value, e.g. t:import=\"java.util.List\""), errors);
+  }
 }
