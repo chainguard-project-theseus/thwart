@@ -3,10 +3,12 @@ package dev.tessera.runtime;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
@@ -33,11 +35,11 @@ class RuntimeArchitectureTest {
   private static Stream<String> violations(Path p) {
     try {
       List<String> lines = Files.readAllLines(p);
-      return java.util.stream.IntStream.range(0, lines.size())
+      return IntStream.range(0, lines.size())
           .filter(i -> FORBIDDEN.matcher(lines.get(i)).find())
           .mapToObj(i -> p + ":" + (i + 1) + ": " + lines.get(i).trim());
     } catch (IOException e) {
-      throw new java.io.UncheckedIOException(e);
+      throw new UncheckedIOException(e);
     }
   }
 }
