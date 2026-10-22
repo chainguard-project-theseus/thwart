@@ -2,6 +2,7 @@ package dev.tessera.compiler.security;
 
 import java.util.List;
 import java.util.Random;
+import java.util.function.BiConsumer;
 
 /** Known XSS vectors and a generator of random strings biased towards context-breaking input. */
 final class HostileStrings {
@@ -75,5 +76,30 @@ final class HostileStrings {
       }
     }
     return sb.toString();
+  }
+
+  /**
+   * Runs {@code body} {@code iterations} times with one {@link Random} from a fresh seed; a
+   * failure is rethrown with the seed and iteration so the run can be reproduced.
+   */
+  static void forEachSeeded(int iterations, BiConsumer<Random, Integer> body) {
+    long seed = System.nanoTime();
+    Random rnd = new Random(seed);
+    for (int i = 0; i < iterations; i++) {
+      try {
+        body.accept(rnd, i);
+      } catch (AssertionError e) {
+        throw new AssertionError("seed " + seed + ", iteration " + i + ": " + e.getMessage(), e);
+      }
+    }
+  }
+
+  /** {@code s} as a Java string literal, with every non-printable, quote or backslash escaped. */
+  static String show(String s) {
+    StringBuilder sb = new StringBuilder("\"");
+    for (char c : s.toCharArray()) {
+      sb.append(c >= 0x20 && c < 0x7f && c != '"' && c != '\\' ? String.valueOf(c) : String.format("\\u%04x", (int) c));
+    }
+    return sb.append('"').toString();
   }
 }
