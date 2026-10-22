@@ -366,6 +366,13 @@ public final class HtmlParser {
       if (raw != null || tag == null) {
         return;
       }
+      String lower = tag.name.toLowerCase(Locale.ROOT);
+      if (minimized && (lower.equals("script") || lower.equals("style"))) {
+        // A browser treats <script/> as an open tag, so the template text after it would run as
+        // script (or style) while Tessera escaped it for TEXT. RCDATA textarea/title stay allowed.
+        diagnostics.error(tag.pos, "<" + lower + "/> is not self-closing in HTML: the browser treats everything"
+            + " after it as " + lower + "; write <" + lower + " ...></" + lower + ">");
+      }
       children().add(tag.toElement(minimized, false));
       tag = null;
     }
