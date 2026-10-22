@@ -24,3 +24,19 @@ injection is impossible by construction.
 - Contributing (humans and agents): [AGENTS.md](AGENTS.md); orchestration handoff: [docs/handoff.md](docs/handoff.md)
 
 Build: `mvn -B -ntp verify` (JDK 21+). CI runs on Chainguard Checks (`.chainguard/ci/`).
+
+### Migration skill for Claude Code
+
+`plugins/tessera` is a Claude Code plugin with a `migrate` skill: the porting guide plus the
+`tessera-migrate` record/compare loop. Asking Claude Code to move an app's views to Tessera picks it up,
+or run it as `/tessera:migrate`. Install it from this repository's marketplace:
+
+```sh
+claude plugin marketplace add chainguard-dev/harder   # private repo: needs git access (gh auth setup-git)
+claude plugin install tessera@chainguard-harder
+```
+
+Or try it from a checkout without installing: `claude --plugin-dir plugins/tessera`. The skill fetches
+`dev.tessera:tessera-migrate` with Maven. Artifacts aren't published yet, so run `mvn install` here
+first. `references/guide.md` is a copy of [docs/guide.md](docs/guide.md); edit the guide and copy it
+(`MigrationSkillTest` fails the build when the copy is stale).
