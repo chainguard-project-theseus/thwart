@@ -206,7 +206,8 @@ class SpringRenderContextsTest {
 
   @Test
   void csrfTokenFromRequestAttribute() {
-    request.setAttribute("_csrf", new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "s3cret"));
+    request.setAttribute(
+        SpringForms.CSRF_ATTRIBUTE, new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "s3cret"));
     assertEquals(
         Optional.of(new Forms.CsrfToken("_csrf", "s3cret")), create(Map.of()).forms().csrfToken());
   }
@@ -218,7 +219,7 @@ class SpringRenderContextsTest {
 
   @Test
   void csrfAttributeOfWrongTypeIsIgnored() {
-    request.setAttribute("_csrf", "forged");
+    request.setAttribute(SpringForms.CSRF_ATTRIBUTE, "forged");
     assertEquals(Optional.empty(), create(Map.of()).forms().csrfToken());
   }
 }
