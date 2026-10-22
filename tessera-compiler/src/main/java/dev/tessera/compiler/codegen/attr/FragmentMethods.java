@@ -18,7 +18,8 @@ import java.util.Set;
 public final class FragmentMethods {
   private FragmentMethods() {}
 
-  private static final String IO = "dev.tessera.runtime.RenderContext ctx, dev.tessera.runtime.Output out";
+  /** The trailing {@code RenderContext ctx, Output out} parameters of every render method. */
+  static final String IO = "dev.tessera.runtime.RenderContext ctx, dev.tessera.runtime.Output out";
 
   public static void generate(CodegenContext ctx) {
     for (TemplateIndex.FragmentInfo f : ctx.template().fragments().values()) {
