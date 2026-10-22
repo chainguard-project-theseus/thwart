@@ -10,6 +10,7 @@ import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
 import java.util.List;
 import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 
 /**
  * {@code t:with="a=expr, b=expr"}: declares locals visible to the element and its children
@@ -51,8 +52,13 @@ public final class WithProcessor implements AttributeProcessor {
 
   /** {@code final var name = code;} (a {@code null} literal has no {@code var} type). */
   static String declaration(CompiledExpr value, String javaName) {
-    String type = value.type().getKind() == TypeKind.NULL ? "java.lang.Object" : "var";
+    String type = value.type().getKind() == TypeKind.NULL ? sourceType(value.type()) : "var";
     return "final " + type + " " + javaName + " = " + value.code() + "; ";
+  }
+
+  /** The Java source type of a local of type {@code t}: javac's null type is written {@code java.lang.Object}. */
+  static String sourceType(TypeMirror t) {
+    return t.getKind() == TypeKind.NULL ? "java.lang.Object" : t.toString();
   }
 
   static boolean isIdentifier(String s) {
