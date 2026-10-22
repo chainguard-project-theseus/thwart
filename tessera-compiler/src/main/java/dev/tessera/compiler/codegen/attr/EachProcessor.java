@@ -3,6 +3,7 @@ package dev.tessera.compiler.codegen.attr;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
+import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.expr.EachSpec;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.types.CompiledExpr;
@@ -16,6 +17,10 @@ import javax.lang.model.util.Types;
  * (entries). Declares the loop variable and the status variable ({@code LoopStatus}; implicit
  * name {@code oStat} when omitted). A {@code null} iterable renders zero iterations. Both
  * variables are visible to the element (including its later attributes) and its children only.
+ *
+ * <p>Like Thymeleaf, the whitespace text right before the element is written again before every
+ * iteration after the first, so {@code <tbody>\n<tr t:each>} renders {@code </tr>\n<tr>}
+ * between rows. Thymeleaf does not do this for {@code t:block}.
  */
 public final class EachProcessor implements AttributeProcessor {
   private static final String LOOP_STATUS = "dev.tessera.runtime.LoopStatus";
@@ -76,6 +81,11 @@ public final class EachProcessor implements AttributeProcessor {
       open.append("final int ").append(size).append(" = ").append(items).append(".size(); ");
       open.append("int ").append(index).append(" = 0; ");
       open.append("for (final var ").append(var).append(" : ").append(items).append(") { ");
+    }
+    String ws = plan.element().name().equals("t:block") ? null : ctx.whitespaceBefore(plan.element());
+    if (ws != null) {
+      open.append("if (").append(index).append(" > 0) { out.write(")
+          .append(TemplateGenerator.javaString(ws)).append("); } ");
     }
     open.append("final ").append(LOOP_STATUS).append(' ').append(stat).append(" = ")
         .append(LOOP_STATUS).append(".of(").append(index).append(", ").append(size).append("); ");

@@ -90,6 +90,82 @@ class ControlFlowTest {
     assertEquals("", render(c, model("items", List.of())));
   }
 
+  // Expected outputs below were checked against Thymeleaf 3.1.5 with the th: equivalents.
+
+  @Test
+  void eachRepeatsPrecedingWhitespaceBetweenIterations() {
+    Compilation c = compile("List<String> items", "<ul>\n  <li t:each=\"x : items\">" + ABC + "</li>\n</ul>");
+    assertEquals(
+        "<ul>\n  <li><b>A</b></li>\n  <li><b>B</b></li>\n  <li><b>C</b></li>\n</ul>",
+        render(c, model("items", List.of("a", "b", "c"))));
+    assertEquals("<ul>\n  <li><b>A</b></li>\n</ul>", render(c, model("items", List.of("a"))));
+    assertEquals("<ul>\n  \n</ul>", render(c, model("items", List.of())));
+    assertEquals("<ul>\n  \n</ul>", render(c, model()));
+  }
+
+  @Test
+  void eachRepeatsPrecedingWhitespaceOverArrays() {
+    Compilation c = compile("String[] items", "<ul>\n\t <li t:each=\"x : items\">" + ABC + "</li>\n</ul>");
+    assertEquals(
+        "<ul>\n\t <li><b>A</b></li>\n\t <li><b>B</b></li>\n\t <li><b>C</b></li>\n</ul>",
+        render(c, model("items", new String[] {"a", "b", "c"})));
+  }
+
+  @Test
+  void eachDoesNotRepeatTextThatIsNotWhitespace() {
+    Compilation c = compile("List<String> items", "<ul>foo\n  <li t:each=\"x : items\">.</li>\n</ul>");
+    assertEquals("<ul>foo\n  <li>.</li><li>.</li>\n</ul>", render(c, model("items", List.of("a", "b"))));
+    c = compile("List<String> items", "<ul><li t:each=\"x : items\">.</li>\n</ul>");
+    assertEquals("<ul><li>.</li><li>.</li>\n</ul>", render(c, model("items", List.of("a", "b"))));
+    c = compile("List<String> items", "<ul>\n  <!-- c --><li t:each=\"x : items\">.</li>\n</ul>");
+    assertEquals("<ul>\n  <!-- c --><li>.</li><li>.</li>\n</ul>", render(c, model("items", List.of("a", "b"))));
+  }
+
+  @Test
+  void eachRepeatsWhitespaceAfterLastInlinedExpression() {
+    Compilation c = compile("String s, List<String> items", "<ul>[[${s}]]\n  <li t:each=\"x : items\">.</li>\n</ul>");
+    assertEquals("<ul>S\n  <li>.</li>\n  <li>.</li>\n</ul>", render(c, model("s", "S", "items", List.of("a", "b"))));
+  }
+
+  @Test
+  void eachRepeatsWhitespaceForSkippedAndRemovedIterations() {
+    Compilation c =
+        compile("List<String> items", "<ul>\n  <li t:each=\"x : items\" t:if=\"x != 'b'\">" + ABC + "</li>\n</ul>");
+    assertEquals(
+        "<ul>\n  <li><b>A</b></li>\n  \n  <li><b>C</b></li>\n</ul>",
+        render(c, model("items", List.of("a", "b", "c"))));
+    c = compile("List<String> items", "<ul>\n  <li t:each=\"x : items\" t:remove=\"all\">.</li>\n</ul>");
+    assertEquals("<ul>\n  \n  \n  \n</ul>", render(c, model("items", List.of("a", "b", "c"))));
+  }
+
+  @Test
+  void eachOnBlockDoesNotRepeatWhitespace() {
+    Compilation c = compile("List<String> items", "<ul>\n  <t:block t:each=\"x : items\">" + ABC + "</t:block>\n</ul>");
+    assertEquals("<ul>\n  <b>A</b><b>B</b><b>C</b>\n</ul>", render(c, model("items", List.of("a", "b", "c"))));
+  }
+
+  @Test
+  void eachRenderedStandaloneHasNoPrecedingWhitespace() {
+    Compilation c =
+        compile(
+            "List<String> items",
+            "<ul>\n  <li t:fragment=\"row(List<String> xs)\" t:each=\"x : xs\">.</li>\n</ul><div t:insert=\"~{::row(items)}\"></div>");
+    assertEquals(
+        "<ul>\n  \n</ul><div><li>.</li><li>.</li></div>",
+        render(c, model("items", List.of("a", "b"))));
+  }
+
+  @Test
+  void nestedEachRepeatsEachLevelsWhitespace() {
+    Compilation c =
+        compile(
+            "List<List<String>> rows",
+            "<div>\n<p t:each=\"r : rows\">\n  <i t:each=\"x : r\">" + ABC + "</i>\n</p>\n</div>");
+    assertEquals(
+        "<div>\n<p>\n  <i><b>A</b></i>\n  <i><b>B</b></i>\n</p>\n<p>\n  <i><b>C</b></i>\n</p>\n</div>",
+        render(c, model("rows", List.of(List.of("a", "b"), List.of("c")))));
+  }
+
   @Test
   void eachOverNullIsZeroIterations() {
     Compilation c = compile("List<String> items", "<p>[<i t:each=\"x : items\">.</i>]</p>");
