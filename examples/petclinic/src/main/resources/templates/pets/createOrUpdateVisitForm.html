@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+
+<html xmlns:t="https://tessera.dev" t:replace="~{fragments/layout :: layout (~{::body},'owners')}" t:import="org.springframework.samples.petclinic.owner.*" t:params="Visit visit, Pet pet, Owner owner, LocalDate minVisitDate">
+
+<body>
+
+  <h2>
+    <t:block t:if="visit.isNew()" t:text="#{new}">New </t:block>
+    Visit
+  </h2>
+
+  <b t:text="#{pet}">Pet</b>
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th t:text="#{name}">Name</th>
+        <th t:text="#{birthDate}">Birth Date</th>
+        <th t:text="#{type}">Type</th>
+        <th t:text="#{owner}">Owner</th>
+      </tr>
+    </thead>
+    <tr>
+      <td t:text="pet.name"></td>
+      <td t:text="temporals.format(pet.birthDate, 'yyyy-MM-dd')"></td>
+      <td t:text="pet.type"></td>
+      <td t:text="owner?.firstName + ' ' + owner?.lastName"></td>
+    </tr>
+  </table>
+
+  <form t:object="visit" class="form-horizontal" method="post">
+    <div class="form-group has-feedback">
+      <div t:with="valid=!fields.hasErrors('date')" t:class="'form-group' + (valid ? '' : ' has-error')"
+        class="form-group">
+        <label for="date" class="col-sm-2 control-label" t:text="#{date}">Date</label>
+        <div class="col-sm-10">
+          <div>
+            <input class="form-control" type="date" t:field="*{date}" t:min="minVisitDate" />
+          </div>
+          <span t:if="valid" class="fa fa-ok form-control-feedback" aria-hidden="true"></span>
+          <t:block t:if="!valid">
+            <span class="fa fa-remove form-control-feedback" aria-hidden="true"></span>
+            <span class="help-inline" t:errors="*{date}">Error</span>
+          </t:block>
+        </div>
+      </div>
+      <div t:with="valid=!fields.hasErrors('description')" t:class="'form-group' + (valid ? '' : ' has-error')"
+        class="form-group">
+        <label for="description" class="col-sm-2 control-label" t:text="#{description}">Description</label>
+        <div class="col-sm-10">
+          <div>
+            <input class="form-control" type="text" t:field="*{description}" />
+          </div>
+          <span t:if="valid" class="fa fa-ok form-control-feedback" aria-hidden="true"></span>
+          <t:block t:if="!valid">
+            <span class="fa fa-remove form-control-feedback" aria-hidden="true"></span>
+            <span class="help-inline" t:errors="*{description}">Error</span>
+          </t:block>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="col-sm-offset-2 col-sm-10">
+        <input type="hidden" name="petId" t:value="pet.id" />
+        <button class="btn btn-primary" type="submit" t:text="#{addVisit}">Add Visit</button>
+      </div>
+    </div>
+  </form>
+
+  <br />
+  <b t:text="#{previousVisits}">Previous Visits</b>
+  <table class="table table-striped">
+    <tr>
+      <th t:text="#{date}">Date</th>
+      <th t:text="#{description}">Description</th>
+    </tr>
+    <tr t:if="!visit.isNew()" t:each="visit : pet.visits">
+      <td t:text="temporals.format(visit.date, 'yyyy-MM-dd')"></td>
+      <td t:text=" visit.description"></td>
+    </tr>
+  </table>
+
+</body>
+
+</html>

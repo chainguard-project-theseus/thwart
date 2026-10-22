@@ -152,6 +152,8 @@
           <compilerArgs combine.children="append">
             <arg>-Atessera.templates=${project.basedir}/src/main/resources/templates</arg>
             <arg>-Atessera.package=org.springframework.samples.petclinic.templates</arg>
+            <!-- Check every #{key} against the default bundle at build time. -->
+            <arg>-Atessera.messages=${project.basedir}/src/main/resources/messages/messages</arg>
             <!-- Spring MVC binds @PathVariable/@RequestParam by parameter name (spring-boot-starter-parent sets this). -->
             <arg>-parameters</arg>
             <!-- Upstream JPA entities are Serializable without serialVersionUID. -->

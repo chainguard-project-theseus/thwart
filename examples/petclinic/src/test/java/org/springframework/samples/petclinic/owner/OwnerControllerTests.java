@@ -33,6 +33,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import static org.hamcrest.Matchers.stringContainsInOrder;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasItem;
@@ -89,6 +91,17 @@ class OwnerControllerTests {
 		return george;
 	}
 
+	/**
+	 * An otherwise empty owner with an id. Upstream lists a bare {@code new Owner()}; Tessera's
+	 * {@code @{/owners/{ownerId}(ownerId=owner.id)}} rejects a null path variable instead of
+	 * rendering {@code /owners/}, and saved owners always have an id (see PORTING.md).
+	 */
+	private static Owner savedOwner(int id) {
+		Owner owner = new Owner();
+		owner.setId(id);
+		return owner;
+	}
+
 	@BeforeEach
 	void setup() {
 
@@ -108,7 +121,10 @@ class OwnerControllerTests {
 		mockMvc.perform(get("/owners/new"))
 			.andExpect(status().isOk())
 			.andExpect(model().attributeExists("owner"))
-			.andExpect(view().name("owners/createOrUpdateOwnerForm"));
+			.andExpect(view().name("owners/createOrUpdateOwnerForm"))
+			.andExpect(content().string(stringContainsInOrder("<title>PetClinic :: a Spring Framework demonstration</title>", "<h2>Owner</h2>", "<form class=\"form-horizontal\" id=\"add-owner-form\" method=\"post\">", "<label for=\"firstName\" class=\"col-sm-2 control-label\">First Name</label>", "<input class=\"form-control\" type=\"text\" id=\"firstName\" name=\"firstName\" value=\"\" />", "id=\"telephone\" name=\"telephone\"", "<button class=\"btn btn-primary\" type=\"submit\">Add Owner</button>")))
+			.andExpect(content().string(not(containsString("has-error"))))
+			.andExpect(content().string(not(containsString("t:"))));
 	}
 
 	@Test
@@ -130,7 +146,8 @@ class OwnerControllerTests {
 			.andExpect(model().attributeHasErrors("owner"))
 			.andExpect(model().attributeHasFieldErrors("owner", "address"))
 			.andExpect(model().attributeHasFieldErrors("owner", "telephone"))
-			.andExpect(view().name("owners/createOrUpdateOwnerForm"));
+			.andExpect(view().name("owners/createOrUpdateOwnerForm"))
+			.andExpect(content().string(stringContainsInOrder("<div class=\"form-group\">", "id=\"firstName\" name=\"firstName\" value=\"Joe\"", "<div class=\"form-group has-error\">", "id=\"address\" name=\"address\"", "<span class=\"help-inline\">must not be blank</span>", "id=\"city\" name=\"city\" value=\"London\"")));
 	}
 
 	@Test
@@ -145,7 +162,8 @@ class OwnerControllerTests {
 			.andExpect(model().attributeHasErrors("owner"))
 			.andExpect(model().attributeHasFieldErrors("owner", "city"))
 			.andExpect(model().attributeHasFieldErrorCode("owner", "city", "Size"))
-			.andExpect(view().name("owners/createOrUpdateOwnerForm"));
+			.andExpect(view().name("owners/createOrUpdateOwnerForm"))
+			.andExpect(content().string(stringContainsInOrder("<div class=\"form-group has-error\">", "id=\"city\" name=\"city\" value=\"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC\"", "<span class=\"help-inline\">size must be between 0 and 80</span>")));
 	}
 
 	@Test
@@ -160,7 +178,8 @@ class OwnerControllerTests {
 			.andExpect(model().attributeHasErrors("owner"))
 			.andExpect(model().attributeHasFieldErrors("owner", "address"))
 			.andExpect(model().attributeHasFieldErrorCode("owner", "address", "Size"))
-			.andExpect(view().name("owners/createOrUpdateOwnerForm"));
+			.andExpect(view().name("owners/createOrUpdateOwnerForm"))
+			.andExpect(content().string(stringContainsInOrder("<div class=\"form-group has-error\">", "id=\"address\" name=\"address\"", "<span class=\"help-inline\">size must be between 0 and 255</span>")));
 	}
 
 	@Test
@@ -168,14 +187,20 @@ class OwnerControllerTests {
 		mockMvc.perform(get("/owners/find"))
 			.andExpect(status().isOk())
 			.andExpect(model().attributeExists("owner"))
-			.andExpect(view().name("owners/findOwners"));
+			.andExpect(view().name("owners/findOwners"))
+			.andExpect(content().string(stringContainsInOrder("<h2>Find Owners</h2>", "id=\"search-owner-form\" action=\"/owners\"", "<input class=\"form-control\" size=\"30\" maxlength=\"80\" id=\"lastName\" name=\"lastName\" value=\"\" />", "<a class=\"btn btn-primary\" href=\"/owners/new\">Add Owner</a>")))
+			.andExpect(content().string(not(containsString("<p>"))));
 	}
 
 	@Test
 	void processFindFormSuccess() throws Exception {
-		Page<Owner> tasks = new PageImpl<>(List.of(george(), new Owner()));
+		Page<Owner> tasks = new PageImpl<>(List.of(george(), savedOwner(2)));
 		when(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class))).thenReturn(tasks);
-		mockMvc.perform(get("/owners?page=1")).andExpect(status().isOk()).andExpect(view().name("owners/ownersList"));
+		mockMvc.perform(get("/owners?page=1"))
+			.andExpect(status().isOk())
+			.andExpect(view().name("owners/ownersList"))
+			.andExpect(content().string(stringContainsInOrder("<h2>Owners</h2>", "<a href=\"/owners/1\">George Franklin</a>", "<td>110 W. Liberty St.</td>", "<td>Madison</td>", "<td>6085551023</td>", "<td><span>Max</span></td>")))
+			.andExpect(content().string(not(containsString("Pages:"))));
 	}
 
 	@Test
@@ -212,12 +237,13 @@ class OwnerControllerTests {
 
 	@Test
 	void processFindFormWithWhitespaceOnlyLastNameReturnsAllOwners() throws Exception {
-		Page<Owner> tasks = new PageImpl<>(List.of(george(), new Owner()));
+		Page<Owner> tasks = new PageImpl<>(List.of(george(), savedOwner(2)));
 		when(this.owners.findByLastNameStartingWith(eq(""), any(Pageable.class))).thenReturn(tasks);
 
 		mockMvc.perform(get("/owners?page=1").param("lastName", "   "))
 			.andExpect(status().isOk())
-			.andExpect(view().name("owners/ownersList"));
+			.andExpect(view().name("owners/ownersList"))
+			.andExpect(content().string(stringContainsInOrder("<h2>Owners</h2>", "<a href=\"/owners/1\">George Franklin</a>")));
 
 		verify(this.owners).findByLastNameStartingWith(eq(""), any(Pageable.class));
 	}
@@ -230,7 +256,8 @@ class OwnerControllerTests {
 			.andExpect(status().isOk())
 			.andExpect(model().attributeHasFieldErrors("owner", "lastName"))
 			.andExpect(model().attributeHasFieldErrorCode("owner", "lastName", "notFound"))
-			.andExpect(view().name("owners/findOwners"));
+			.andExpect(view().name("owners/findOwners"))
+			.andExpect(content().string(stringContainsInOrder("id=\"lastName\" name=\"lastName\" value=\"Unknown Surname\"", "<p>has not been found</p>")));
 
 	}
 
@@ -244,7 +271,8 @@ class OwnerControllerTests {
 			.andExpect(model().attribute("owner", hasProperty("address", is("110 W. Liberty St."))))
 			.andExpect(model().attribute("owner", hasProperty("city", is("Madison"))))
 			.andExpect(model().attribute("owner", hasProperty("telephone", is("6085551023"))))
-			.andExpect(view().name("owners/createOrUpdateOwnerForm"));
+			.andExpect(view().name("owners/createOrUpdateOwnerForm"))
+			.andExpect(content().string(stringContainsInOrder("id=\"firstName\" name=\"firstName\" value=\"George\"", "id=\"lastName\" name=\"lastName\" value=\"Franklin\"", "id=\"address\" name=\"address\" value=\"110 W. Liberty St.\"", "id=\"city\" name=\"city\" value=\"Madison\"", "id=\"telephone\" name=\"telephone\" value=\"6085551023\"", "<button class=\"btn btn-primary\" type=\"submit\">Update Owner</button>")));
 	}
 
 	@Test
@@ -277,7 +305,8 @@ class OwnerControllerTests {
 			.andExpect(model().attributeHasErrors("owner"))
 			.andExpect(model().attributeHasFieldErrors("owner", "address"))
 			.andExpect(model().attributeHasFieldErrors("owner", "telephone"))
-			.andExpect(view().name("owners/createOrUpdateOwnerForm"));
+			.andExpect(view().name("owners/createOrUpdateOwnerForm"))
+			.andExpect(content().string(stringContainsInOrder("id=\"firstName\" name=\"firstName\" value=\"Joe\"", "<div class=\"form-group has-error\">", "id=\"address\" name=\"address\" value=\"\"", "<span class=\"help-inline\">must not be blank</span>", "<button class=\"btn btn-primary\" type=\"submit\">Update Owner</button>")));
 	}
 
 	@Test
@@ -292,7 +321,30 @@ class OwnerControllerTests {
 			.andExpect(model().attribute("owner", hasProperty("pets", not(empty()))))
 			.andExpect(model().attribute("owner",
 					hasProperty("pets", hasItem(hasProperty("visits", hasSize(greaterThan(0)))))))
-			.andExpect(view().name("owners/ownerDetails"));
+			.andExpect(view().name("owners/ownerDetails"))
+			.andExpect(content().string(stringContainsInOrder("<h2>Owner Information</h2>", "<td><b>George Franklin</b></td>", "<td>110 W. Liberty St.</td>", "<td>Madison</td>", "<td>6085551023</td>", "<a class=\"btn btn-primary\" href=\"1/edit\">Edit Owner</a>", "<a class=\"btn btn-primary\" href=\"1/pets/new\">Add New Pet</a>", "<dd>Max</dd>", "<dd>dog</dd>", "<a href=\"1/pets/1/edit\">Edit Pet</a>", "<a href=\"1/pets/1/visits/new\">Add Visit</a>")))
+			.andExpect(content().string(not(containsString("id=\"success-message\""))))
+			.andExpect(content().string(not(containsString("id=\"error-message\""))));
+	}
+
+	@Test
+	void ownerDataIsEscapedInEveryPage() throws Exception {
+		Owner evil = george();
+		evil.setFirstName("<script>alert(1)</script>");
+		evil.setAddress("\"><img src=x onerror=alert(1)>");
+		evil.getPets().get(0).setName("</b><script>x</script>");
+		given(this.owners.findById(TEST_OWNER_ID)).willReturn(Optional.of(evil));
+		given(this.owners.findByLastNameStartingWith(eq(""), any(Pageable.class)))
+			.willReturn(new PageImpl<>(List.of(evil, savedOwner(2))));
+
+		for (String url : List.of("/owners/1", "/owners/1/edit", "/owners?lastName=")) {
+			mockMvc.perform(get(url))
+				.andExpect(status().isOk())
+				.andExpect(content().string(containsString("&lt;script&gt;alert(1)&lt;/script&gt;")))
+				.andExpect(content().string(not(containsString("<script>alert(1)"))))
+				.andExpect(content().string(not(containsString("<img src=x"))))
+				.andExpect(content().string(not(containsString("<script>x"))));
+		}
 	}
 
 	@Test

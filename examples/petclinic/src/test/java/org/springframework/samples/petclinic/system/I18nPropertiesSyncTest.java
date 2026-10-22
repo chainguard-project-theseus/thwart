@@ -34,7 +34,7 @@ public class I18nPropertiesSyncTest {
 
 	private static final Pattern BRACKET_ONLY = Pattern.compile("<[^>]*>\\s*[\\[\\]](?:&nbsp;)?\\s*</[^>]*>");
 
-	private static final Pattern HAS_TH_TEXT_ATTRIBUTE = Pattern.compile("th:(u)?text\\s*=\\s*\"[^\"]+\"");
+	private static final Pattern HAS_TH_TEXT_ATTRIBUTE = Pattern.compile("(?:th|t):(?:u?text|errors)\\s*=\\s*\"[^\"]+\"");
 
 	@Test
 	void checkNonInternationalizedStrings() throws Exception {

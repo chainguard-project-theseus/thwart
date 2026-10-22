@@ -83,6 +83,21 @@ class CodegenEndToEndTest {
   }
 
   @Test
+  void selfClosingElementWithReplacedBodyGetsAnEndTag() {
+    // petclinic's ownersList writes <td th:text="..." />; Thymeleaf renders <td>text</td>.
+    Compilation c =
+        compile(
+                Compilation.builder()
+                    .template(
+                        "page.html",
+                        "<tr xmlns:t=\"https://tessera.dev\" t:params=\"String s\"><td t:text=\"s\" /><td />"
+                            + "<td class=\"a\" t:text=\"s\"/></tr>"))
+            .assertSuccess();
+    assertEquals(
+        "<tr><td>&lt;b&gt;</td><td /><td class=\"a\">&lt;b&gt;</td></tr>", c.render("page", Map.of("s", "<b>")));
+  }
+
+  @Test
   void misplacedParamsIsAnErrorAndNothingIsGenerated() {
     Compilation c =
         compile(
