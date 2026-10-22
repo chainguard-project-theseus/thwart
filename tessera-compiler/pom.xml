@@ -26,9 +26,11 @@
       <groupId>dev.tessera</groupId>
       <artifactId>tessera-runtime</artifactId>
     </dependency>
+    <!-- Test only: the reference parser in HtmlParserDifferentialTest (#170). -->
     <dependency>
       <groupId>org.attoparser</groupId>
       <artifactId>attoparser</artifactId>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
@@ -58,7 +60,8 @@
         <executions>
           <!-- Generated code must compile for the Java 8 floor (#154): run the template tests again
                with the Compilation harness at javac release 8. Excluded: tests whose own Java snippets
-               need Java 9+ (types) or that assert record-accessor code text. -->
+               need Java 9+ (types) or that assert record-accessor code text, and tests that do not
+               compile templates (the parser differential test). -->
           <execution>
             <id>release-8</id>
             <goals>
@@ -73,6 +76,7 @@
                 <exclude>dev/tessera/compiler/testing/CompilationTest.java</exclude>
                 <exclude>dev/tessera/compiler/links/LinkCompilerTest.java</exclude>
                 <exclude>dev/tessera/compiler/processor/Jdk8ProcessorTest.java</exclude>
+                <exclude>dev/tessera/compiler/html/HtmlParserDifferentialTest.java</exclude>
               </excludes>
             </configuration>
           </execution>

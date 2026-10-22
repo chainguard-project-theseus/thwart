@@ -34,9 +34,9 @@ JDK 21+. The table names the main classes only.
 |---|---|---|---|
 | `tessera-runtime` | `dev.tessera.runtime` | `Template`, `RenderContext`, `Output`, `Escapers`, `SafeHtml`, `TrustedUrl`, `Messages`/`ResourceBundleMessages`, `Links`/`DefaultLinks`, `Forms`, `Field`, `Fragment`, `LoopStatus`, `Conditions`, `Values`, `TemplateRegistry`/`TemplateEntry`, `TemplateModelException`, `StringOutput`/`WriterOutput`, annotations | none |
 | | `dev.tessera.runtime.fn` | built-in function namespaces | |
-| `tessera-compiler` | `dev.tessera.compiler` | pipeline (`TemplateCompiler`), `Diagnostic`, `SourcePos`, `CompilerEnv` | runtime, attoparser |
+| `tessera-compiler` | `dev.tessera.compiler` | pipeline (`TemplateCompiler`), `Diagnostic`, `SourcePos`, `CompilerEnv` | runtime |
 | | `.model` | template node model, `OutputContext` | |
-| | `.html` | `HtmlParser` (attoparser), `Contexts` (escaping-context table) | |
+| | `.html` | `HtmlParser`, `MarkupTokenizer` (no third-party parser), `Contexts` (escaping-context table) | |
 | | `.expr` | `Expr` AST, `ExpressionParser` | |
 | | `.types` | `ExpressionCompiler`, `ViewSafety`, `FunctionRegistry`, `Scope` | |
 | | `.messages`, `.links`, `.forms` | `#{}`, `@{}` and `fields.*` compilation, `MessageBundle` | |
