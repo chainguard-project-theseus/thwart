@@ -24,9 +24,9 @@ The MySQL and Postgres tests (`MySqlIntegrationTests`, `MysqlTestApplication`,
 
 ## Copied tests that will render views once templates exist
 
-The `@WebMvcTest` controller tests were copied whole. No view engine is configured yet, so
-MockMvc only records a forward for the returned view name, and these tests pass on their model
-and view-name assertions alone. Once #18 adds the Tessera templates, every test that expects a
+The `@WebMvcTest` controller tests were copied whole. No templates exist yet, so the Tessera view
+resolver finds no view, MockMvc only records a forward for the returned view name, and these tests
+pass on their model and view-name assertions alone. Once #18 adds the Tessera templates, every test that expects a
 non-redirect view name renders for real. Add rendered-HTML assertions to them in #18:
 
 - `owner.OwnerControllerTests`: `initCreationForm`, `processCreationFormHasErrors`,
