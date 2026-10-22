@@ -1,5 +1,9 @@
 # Tessera MVP issue breakdown
 
+> **Historical.** This is the MVP build plan as it was executed. The file ownership below no
+> longer applies; the current module layout is in [mvp-design.md](mvp-design.md) and the
+> shared-contract rule is in [AGENTS.md](../AGENTS.md).
+
 Every issue below is a GitHub issue with the same number. Issues within a wave own disjoint files
 and can run fully in parallel. Start a wave once the previous wave has merged. Exception: wave-1
 issues marked *soft dep* can start right away against the stubs and rebase when the dependency
