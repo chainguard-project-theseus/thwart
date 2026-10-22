@@ -436,6 +436,10 @@ class ExpressionParserTest {
     assertEquals("expression is nested more than 200 levels deep: simplify it or compute the value in Java", error(deep).message());
     assertEquals("expression is nested more than 200 levels deep: simplify it or compute the value in Java", error("!".repeat(5000) + "a").message());
     assertEquals("expression is nested more than 200 levels deep: simplify it or compute the value in Java", error("-".repeat(5000) + "a").message());
+    assertEquals("expression is nested more than 200 levels deep: simplify it or compute the value in Java", error("a ?: ".repeat(5000) + "b").message());
+    String deepType = "List<".repeat(5000) + "X" + ">".repeat(5000) + " x";
+    assertEquals("expression is nested more than 200 levels deep: simplify it or compute the value in Java",
+        error(deepType, (t, d) -> parser.parseParams(t, START, d)).message());
   }
 
   @Test
