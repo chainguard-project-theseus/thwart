@@ -3,18 +3,18 @@ package dev.tessera.runtime;
 import java.nio.charset.StandardCharsets;
 
 /** Percent-encoding used by link expressions (UTF-8, RFC 3986). */
-public final class UrlEncoding {
+final class UrlEncoding {
   private UrlEncoding() {}
 
   private static final char[] HEX = "0123456789ABCDEF".toCharArray();
 
   /** Encodes a path variable value: everything except unreserved characters, so {@code /} becomes {@code %2F}. */
-  public static String pathSegment(String value) {
+  static String pathSegment(String value) {
     return encode(value, "");
   }
 
   /** Encodes a query parameter name or value: {@code & = + # ?} and space are encoded. */
-  public static String queryParam(String value) {
+  static String queryParam(String value) {
     // Query characters with no meaning inside a name or value stay readable; all else is encoded.
     return encode(value, "/:@!$'()*,;");
   }

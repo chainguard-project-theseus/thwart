@@ -4,6 +4,7 @@ import dev.tessera.runtime.TemplateFunction;
 import dev.tessera.runtime.TemplateFunctions;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -22,14 +23,13 @@ public final class Lists {
       case null -> 0;
       case Collection<?> c -> c.size();
       case Object[] a -> a.length;
-      case Iterable<?> it -> {
+      default -> {
         int n = 0;
-        for (Object ignored : it) {
+        for (Object ignored : items(target)) {
           n++;
         }
         yield n;
       }
-      default -> throw notAList(target);
     };
   }
 
@@ -39,28 +39,29 @@ public final class Lists {
       case null -> true;
       case Collection<?> c -> c.isEmpty();
       case Object[] a -> a.length == 0;
-      case Iterable<?> it -> !it.iterator().hasNext();
-      default -> throw notAList(target);
+      default -> !items(target).iterator().hasNext();
     };
   }
 
   /** {@code true} if {@code target} has an element equal ({@link Objects#equals}) to {@code element}. */
   @TemplateFunction
   public static boolean contains(Object target, Object element) {
-    Iterable<?> items =
-        switch (target) {
-          case null -> java.util.List.of();
-          case Collection<?> c -> c;
-          case Object[] a -> Arrays.asList(a);
-          case Iterable<?> it -> it;
-          default -> throw notAList(target);
-        };
-    for (Object item : items) {
+    for (Object item : items(target)) {
       if (Objects.equals(item, element)) {
         return true;
       }
     }
     return false;
+  }
+
+  /** {@code target} as an {@link Iterable}: null is empty, arrays are wrapped, anything else throws. */
+  static Iterable<?> items(Object target) {
+    return switch (target) {
+      case null -> List.of();
+      case Object[] a -> Arrays.asList(a);
+      case Iterable<?> it -> it;
+      default -> throw notAList(target);
+    };
   }
 
   private static IllegalArgumentException notAList(Object target) {

@@ -20,10 +20,6 @@ public final class DefaultLinks implements Links {
     this.contextPath = contextPath;
   }
 
-  public String contextPath() {
-    return contextPath;
-  }
-
   @Override
   public String build(String path, String[] names, Object[] values) {
     if (names.length != values.length) {
