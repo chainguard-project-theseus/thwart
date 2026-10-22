@@ -17,6 +17,7 @@
     <module>tessera-spring-boot-starter</module>
     <module>tessera-migrate</module>
     <module>examples/petclinic</module>
+    <module>tessera-benchmarks</module>
   </modules>
 
   <properties>
