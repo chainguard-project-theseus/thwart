@@ -152,7 +152,6 @@ final class Migrator {
       }
       if (inRoot && (ConversionRules.TESSERA_PREFIX + local).equals(ConversionRules.PARAMS)) {
         rootHasParams = true;
-        return;
       }
       if (value == null || ConversionRules.LITERAL_VALUES.contains(local)) {
         return;
@@ -161,7 +160,12 @@ final class Migrator {
           ? fragmentSignature(value, nameLine)
           : expressionValue(local, value, lower.startsWith(ConversionRules.THYMELEAF_PREFIX), nameLine);
       if (!converted.equals(value)) {
-        if (!quoted && converted.chars().anyMatch(c -> Character.isWhitespace(c) || "\"'=<>`".indexOf(c) >= 0)) {
+        boolean singleQuoted = quoted && buffer[valueOuterOffset] == '\'';
+        boolean needsQuoting = converted.chars().anyMatch(
+            c -> Character.isWhitespace(c) || ConversionRules.UNQUOTED_VALUE_FORBIDDEN.indexOf(c) >= 0);
+        // A single-quoted original that already holds '"' keeps the content-only edit: no silent escaping.
+        if ((!quoted && needsQuoting)
+            || (singleQuoted && converted.indexOf('\'') >= 0 && converted.indexOf('"') < 0)) {
           edits.add(new Edit(valueOuterOffset, valueOuterLen, '"' + converted + '"'));
         } else {
           edits.add(new Edit(valueContentOffset, valueContentLen, converted));
