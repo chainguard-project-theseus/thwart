@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:t="https://tessera.dev" t:fragment="layout(Fragment template, String menu)">
+<head>
+<title>PetClinic</title>
+</head>
+<body>
+<nav>
+<ul class="navbar-nav">
+<li t:replace="~{fragments/menu :: menuItem('/', 'home', ${menu}, 'Home')}">Home</li>
+<li t:replace="~{fragments/menu :: menuItem('/owners/find', 'owners', ${menu}, 'Find owners')}">Find owners</li>
+<li t:replace="~{fragments/menu :: menuItem('/vets.html', 'vets', ${menu}, 'Veterinarians')}">Veterinarians</li>
+<li t:replace="~{fragments/menu :: menuItem('/oups', 'error', ${menu}, 'Error')}">Error</li>
+</ul>
+</nav>
+<div class="container"><div t:replace="${template}">Content</div></div>
+<footer t:replace="~{fragments/menu :: footer}">Footer</footer>
+</body>
+</html>
