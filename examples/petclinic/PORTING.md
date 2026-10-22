@@ -92,7 +92,7 @@ and POSTs with validation errors). Text and structure are the same. The remainin
 - **Attribute order.** Attributes set by `t:*` are written where Tessera's plan places them, so
   `<a href="1/edit" class="btn">` becomes `<a class="btn" href="1/edit">`.
 - **Whitespace.** Thymeleaf writes `<td >` for an element whose attribute was removed. Tessera
-  writes `<td>`. `t:each` does not repeat the whitespace before an iterated element (#40).
+  writes `<td>`.
 - **Webjars URLs.** Thymeleaf's links pass through Boot's `ResourceUrlEncodingFilter`, which
   Boot registers only with Thymeleaf, so upstream renders versioned webjar paths
   (`/webjars/bootstrap/5.3.8/...`). Tessera renders `/webjars/bootstrap/dist/...`, which

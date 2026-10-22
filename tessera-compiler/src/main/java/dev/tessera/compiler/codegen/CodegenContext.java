@@ -61,4 +61,12 @@ public interface CodegenContext {
 
   /** Adds a member (method or constant) to the generated class. */
   void addMember(String javaCode);
+
+  /**
+   * The whitespace-only text immediately before {@code element} among its siblings (or the
+   * whitespace after the last inlined expression of that text), which Thymeleaf repeats between
+   * {@code t:each} iterations; null if there is none or the element is rendered standalone (a
+   * fragment method or {@code ~{::selector}} helper).
+   */
+  String whitespaceBefore(Element element);
 }
