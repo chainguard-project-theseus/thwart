@@ -1,5 +1,6 @@
 package dev.tessera.compiler;
 
+import dev.tessera.compiler.codegen.FileErrors;
 import dev.tessera.compiler.codegen.RegistryGenerator;
 import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.codegen.TemplateIndex;
@@ -20,20 +21,29 @@ import java.util.List;
  *   all templates  --RegistryGenerator--> TesseraRegistry + META-INF/services entry
  * </pre>
  *
- * Errors are reported to {@link CompilerEnv#diagnostics()}; nothing is generated for a template
- * with errors.
+ * Errors are reported to {@link CompilerEnv#diagnostics()}; if any template has an error,
+ * nothing is generated (the registry refers to every template class).
  */
 public final class TemplateCompiler {
   private final CompilerEnv env;
+  private final FileErrors errors;
 
   public TemplateCompiler(CompilerEnv env) {
-    this.env = env;
+    this.errors = new FileErrors(env.diagnostics());
+    this.env =
+        new CompilerEnv(
+            env.elements(), env.types(), errors, env.basePackage(), env.messages(), env.functionNamespaces());
   }
 
   public List<GeneratedFile> compile(List<TemplateSource> sources) {
     if (sources.isEmpty()) {
       return List.of();
     }
+    List<GeneratedFile> out = generate(sources);
+    return errors.hasErrors() ? List.of() : out;
+  }
+
+  private List<GeneratedFile> generate(List<TemplateSource> sources) {
     HtmlParser html = new HtmlParser();
     List<Document> docs = new ArrayList<>();
     for (TemplateSource src : sources) {

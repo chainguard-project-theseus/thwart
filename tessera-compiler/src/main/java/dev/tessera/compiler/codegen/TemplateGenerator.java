@@ -1,11 +1,34 @@
 package dev.tessera.compiler.codegen;
 
 import dev.tessera.compiler.CompilerEnv;
+import dev.tessera.compiler.Diagnostic;
+import dev.tessera.compiler.DiagnosticSink;
+import dev.tessera.compiler.Diagnostics;
 import dev.tessera.compiler.GeneratedFile;
+import dev.tessera.compiler.SourcePos;
+import dev.tessera.compiler.codegen.attr.CsrfInjector;
+import dev.tessera.compiler.codegen.attr.FragmentMethods;
+import dev.tessera.compiler.codegen.attr.TextInlining;
+import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.ExpressionParser;
+import dev.tessera.compiler.model.Attribute;
+import dev.tessera.compiler.model.Comment;
+import dev.tessera.compiler.model.DocType;
 import dev.tessera.compiler.model.Document;
+import dev.tessera.compiler.model.Element;
+import dev.tessera.compiler.model.Node;
+import dev.tessera.compiler.model.Text;
+import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
+import dev.tessera.compiler.types.Scope;
+import dev.tessera.compiler.types.Variable;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import javax.lang.model.SourceVersion;
 
 /**
  * Generates the class for one template (shape in docs/mvp-design.md): walks the node tree,
@@ -15,12 +38,30 @@ import java.util.List;
  * {@code FragmentMethods} once per template). Handles {@code t:params}/{@code t:import} on the
  * root element, {@code <t:block>} (tag omitted), and rejects unknown/misplaced core attributes.
  * Implements {@link CodegenContext}.
+ *
+ * <p>Elements without {@code t:} attributes whose plan is unchanged are copied from the source
+ * verbatim (start tag included), so static markup renders byte-identical. Rebuilt start tags
+ * keep attribute order and quoting but normalize the whitespace between attributes to one space.
+ *
+ * <p>Not thread-safe: one instance generates one template at a time.
  */
-public final class TemplateGenerator {
+public final class TemplateGenerator implements CodegenContext {
+  private static final String RT = "dev.tessera.runtime.";
+  /** Static text is split into constants of at most this many chars (constant-pool limit). */
+  private static final int CHUNK = 8192;
+
   private final CompilerEnv env;
   private final TemplateIndex index;
   private final ExpressionParser parser;
   private final ExpressionCompiler expressions;
+
+  // State for the template being generated.
+  private TemplateIndex.TemplateInfo template;
+  private String content;
+  private int[] lineStarts;
+  private Map<String, String> constants;
+  private List<String> members;
+  private int fresh;
 
   public TemplateGenerator(
       CompilerEnv env, TemplateIndex index, ExpressionParser parser, ExpressionCompiler expressions) {
@@ -30,9 +71,503 @@ public final class TemplateGenerator {
     this.expressions = expressions;
   }
 
+  /**
+   * Java name for a template variable: the name itself, or with a {@code $} suffix if it is a
+   * Java keyword or one of the render-method parameters {@code ctx}/{@code out}.
+   */
+  public static String javaName(String templateVariable) {
+    if (SourceVersion.isKeyword(templateVariable)
+        || templateVariable.equals("ctx")
+        || templateVariable.equals("out")) {
+      return templateVariable + "$";
+    }
+    return templateVariable;
+  }
+
   /** Returns the generated Java source for {@code document}, or nothing if it had errors. */
   public List<GeneratedFile> generate(Document document) {
-    throw new UnsupportedOperationException(
-        "TODO(#5): TemplateGenerator.generate " + env.basePackage() + index + parser + expressions);
+    TemplateIndex.TemplateInfo info =
+        index
+            .template(document.source().viewName())
+            .orElseThrow(() -> new IllegalArgumentException("not indexed: " + document.source().viewName()));
+    template = info;
+    content = document.source().content();
+    lineStarts = lineStarts(content);
+    constants = new LinkedHashMap<>();
+    members = new ArrayList<>();
+    fresh = 0;
+
+    validate(document.rootElement(), document.children());
+    Scope scope = Scope.empty();
+    for (TemplateIndex.Param p : info.params()) {
+      scope = scope.with(new Variable(p.name(), p.type(), javaName(p.name())));
+    }
+    Code body = new Code();
+    for (Node n : document.children()) {
+      node(body, n, scope);
+    }
+    String bodyCode = body.build();
+    FragmentMethods.generate(this);
+    if (hasErrors(document.source().path())) {
+      return List.of();
+    }
+    return List.of(new GeneratedFile(GeneratedFile.Kind.JAVA, info.className(), classSource(info, bodyCode)));
+  }
+
+  // ---- CodegenContext ----
+
+  @Override
+  public CompilerEnv env() {
+    return env;
+  }
+
+  @Override
+  public TemplateIndex index() {
+    return index;
+  }
+
+  @Override
+  public TemplateIndex.TemplateInfo template() {
+    return template;
+  }
+
+  @Override
+  public ExpressionParser parser() {
+    return parser;
+  }
+
+  @Override
+  public ExpressionCompiler expressions() {
+    return expressions;
+  }
+
+  @Override
+  public Expr parse(Attribute attr) {
+    if (attr.value() == null) {
+      diagnostics().error(attr.pos(), attr.name() + " needs a value");
+      return null;
+    }
+    return parser.parseExpression(attr.value(), attr.valuePos(), diagnostics());
+  }
+
+  @Override
+  public CompiledExpr compile(Attribute attr, Scope scope) {
+    Expr e = parse(attr);
+    return e == null ? null : expressions.compile(e, scope);
+  }
+
+  @Override
+  public String freshName(String hint) {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < hint.length(); i++) {
+      char c = hint.charAt(i);
+      if (c < 128 && (Character.isLetterOrDigit(c) || c == '_')) {
+        sb.append(c);
+      }
+    }
+    if (sb.isEmpty() || Character.isDigit(sb.charAt(0))) {
+      sb.insert(0, 'v');
+    }
+    return sb.append('$').append(fresh++).toString();
+  }
+
+  @Override
+  public String renderNode(Node node, Scope scope) {
+    Code c = new Code();
+    node(c, node, scope);
+    return c.build();
+  }
+
+  @Override
+  public String renderElement(Element element, Scope scope, Set<String> ignoredAttributes) {
+    Code c = new Code();
+    element(c, element, scope, ignoredAttributes);
+    return c.build();
+  }
+
+  @Override
+  public String renderChildren(Element element, Scope scope) {
+    Code c = new Code();
+    for (Node n : element.children()) {
+      node(c, n, scope);
+    }
+    return c.build();
+  }
+
+  @Override
+  public void addMember(String javaCode) {
+    members.add(javaCode);
+  }
+
+  // ---- tree walk ----
+
+  /** Reports misplaced core attributes and exclusive attribute pairs, once per element. */
+  private void validate(Element root, List<Node> nodes) {
+    for (Node n : nodes) {
+      if (!(n instanceof Element e)) {
+        continue;
+      }
+      for (Attribute a : e.tesseraAttributes()) {
+        if (AttributeProcessors.CORE.contains(a.localName()) && e != root) {
+          diagnostics()
+              .error(a.pos(), a.name() + " is only allowed on the root element (the first element of the template)");
+        }
+      }
+      exclusive(e, "text", "utext");
+      exclusive(e, "insert", "replace");
+      validate(root, e.children());
+    }
+  }
+
+  private void exclusive(Element e, String a, String b) {
+    Attribute first = e.attribute(Attribute.PREFIX + a).orElse(null);
+    Attribute second = e.attribute(Attribute.PREFIX + b).orElse(null);
+    if (first != null && second != null) {
+      diagnostics()
+          .error(second.pos(), "t:" + a + " and t:" + b + " cannot be used on the same element; keep one of them");
+    }
+  }
+
+  private void node(Code c, Node n, Scope scope) {
+    switch (n) {
+      case Text t -> {
+        String code = TextInlining.render(this, t, scope);
+        if (code == null) {
+          c.text(t.raw());
+        } else {
+          c.stmt(code);
+        }
+      }
+      case Comment cm -> c.text(cm.raw());
+      case DocType d -> c.text(d.raw());
+      case Element e -> element(c, e, scope, Set.of());
+    }
+  }
+
+  private void element(Code c, Element e, Scope scope, Set<String> ignored) {
+    ElementPlan plan = new ElementPlan(e, scope);
+    if (e.name().equals("t:block")) {
+      plan.omitTag();
+    }
+    List<Attribute> attrs = new ArrayList<>();
+    for (Attribute a : e.tesseraAttributes()) {
+      if (!AttributeProcessors.CORE.contains(a.localName()) && !ignored.contains(a.localName())) {
+        attrs.add(a);
+      }
+    }
+    attrs.sort(Comparator.comparingInt(a -> AttributeProcessors.precedence(a.localName())));
+    for (Attribute a : attrs) {
+      AttributeProcessors.forName(a.localName()).ifPresent(p -> p.process(this, a, plan));
+    }
+    if (e.name().equalsIgnoreCase("form")) {
+      CsrfInjector.apply(this, plan);
+    }
+    emit(c, plan);
+  }
+
+  private void emit(Code c, ElementPlan plan) {
+    Element e = plan.element();
+    List<ElementPlan.Wrapper> wrappers = plan.wrappers();
+    for (ElementPlan.Wrapper w : wrappers) {
+      c.stmt(w.open());
+    }
+    if (plan.removed()) {
+      // nothing
+    } else if (plan.replacement() != null) {
+      c.stmt(plan.replacement());
+    } else {
+      if (!plan.tagOmitted()) {
+        startTag(c, plan);
+      }
+      for (String s : plan.afterStartTagStatements()) {
+        c.stmt(s);
+      }
+      if (plan.body() != null) {
+        c.stmt(plan.body());
+      } else {
+        for (Node n : e.children()) {
+          node(c, n, plan.scope());
+        }
+      }
+      if (!plan.tagOmitted() && e.hasEndTag()) {
+        c.text("</" + e.name() + ">");
+      }
+    }
+    for (int i = wrappers.size() - 1; i >= 0; i--) {
+      c.stmt(wrappers.get(i).close());
+    }
+  }
+
+  private void startTag(Code c, ElementPlan plan) {
+    Element e = plan.element();
+    String source = sourceStartTag(e);
+    if (source != null && unchanged(e, plan)) {
+      c.text(source);
+      return;
+    }
+    c.text("<" + e.name());
+    for (ElementPlan.Attr a : plan.attributes()) {
+      switch (a) {
+        case ElementPlan.StaticAttr s -> c.text(" " + s.name() + staticValue(s.source()));
+        case ElementPlan.DynamicAttr d -> c.stmt(dynamicAttr(d));
+      }
+    }
+    if (!e.selfClosing()) {
+      c.text(">");
+    } else if (source != null && source.length() > 2 && Character.isWhitespace(source.charAt(source.length() - 3))) {
+      c.text(" />");
+    } else {
+      c.text("/>");
+    }
+  }
+
+  /** True if the start tag can be copied from the source: no t: attributes and nothing changed. */
+  private static boolean unchanged(Element e, ElementPlan plan) {
+    if (!e.tesseraAttributes().isEmpty() || e.attribute("xmlns:t").isPresent()) {
+      return false;
+    }
+    List<ElementPlan.Attr> attrs = plan.attributes();
+    if (attrs.size() != e.attributes().size()) {
+      return false;
+    }
+    for (int i = 0; i < attrs.size(); i++) {
+      if (!(attrs.get(i) instanceof ElementPlan.StaticAttr s) || s.source() != e.attributes().get(i)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static String staticValue(Attribute a) {
+    if (a.rawValue() == null) {
+      return "";
+    }
+    if (a.quote() == 0) {
+      return "=" + a.rawValue();
+    }
+    return "=" + a.quote() + a.rawValue() + a.quote();
+  }
+
+  private String dynamicAttr(ElementPlan.DynamicAttr d) {
+    // Only attribute contexts: e.g. the SCRIPT (json) escaper does not escape '"'.
+    String escaper =
+        switch (d.context()) {
+          case ATTRIBUTE, URL, RESOURCE_URL -> d.context().escaper();
+          default -> null;
+        };
+    if (escaper == null) {
+      diagnostics().error(d.pos(), "an expression cannot be used in attribute " + d.name() + " (" + d.context() + " context)");
+      return "";
+    }
+    String v = freshName("v");
+    return "{ java.lang.Object "
+        + v
+        + " = "
+        + d.valueCode()
+        + "; if ("
+        + v
+        + " != null) { out.write("
+        + javaString(" " + d.name() + "=\"")
+        + "); "
+        + RT
+        + "Escapers."
+        + escaper
+        + "(out, "
+        + v
+        + "); out.write('\"'); } }";
+  }
+
+  /**
+   * The element's start tag exactly as written in the source, or null if it cannot be located
+   * (positions inconsistent with the content).
+   */
+  private String sourceStartTag(Element e) {
+    SourcePos pos = e.pos();
+    if (pos == null || pos.line() < 1 || pos.line() > lineStarts.length || pos.column() < 1) {
+      return null;
+    }
+    int start = lineStarts[pos.line() - 1] + pos.column() - 1;
+    if (start >= content.length() || !content.startsWith("<" + e.name(), start)) {
+      return null;
+    }
+    char quote = 0;
+    for (int i = start + 1 + e.name().length(); i < content.length(); i++) {
+      char ch = content.charAt(i);
+      if (quote != 0) {
+        if (ch == quote) {
+          quote = 0;
+        }
+      } else if (ch == '"' || ch == '\'') {
+        quote = ch;
+      } else if (ch == '>') {
+        String tag = content.substring(start, i + 1);
+        return tag.endsWith("/>") == e.selfClosing() ? tag : null;
+      }
+    }
+    return null;
+  }
+
+  private static int[] lineStarts(String s) {
+    List<Integer> starts = new ArrayList<>();
+    starts.add(0);
+    for (int i = 0; i < s.length(); i++) {
+      if (s.charAt(i) == '\n') {
+        starts.add(i + 1);
+      }
+    }
+    return starts.stream().mapToInt(Integer::intValue).toArray();
+  }
+
+  private boolean hasErrors(String file) {
+    DiagnosticSink sink = env.diagnostics();
+    if (sink instanceof FileErrors f) {
+      return f.hasErrors(file);
+    }
+    if (sink instanceof Diagnostics d) {
+      return d.all().stream()
+          .anyMatch(x -> x.severity() == Diagnostic.Severity.ERROR && x.pos() != null && x.pos().file().equals(file));
+    }
+    return false;
+  }
+
+  /**
+   * Name of the constant holding {@code text}. The {@code $} keeps it distinct from every
+   * template variable (template identifiers cannot contain {@code $}), so a param or fragment
+   * param can never shadow a constant and get written unescaped in its place.
+   */
+  private String constant(String text) {
+    return constants.computeIfAbsent(text, k -> "S$" + constants.size());
+  }
+
+  // ---- class source ----
+
+  private String classSource(TemplateIndex.TemplateInfo info, String body) {
+    String fqcn = info.className();
+    int dot = fqcn.lastIndexOf('.');
+    String pkg = dot < 0 ? "" : fqcn.substring(0, dot);
+    String simple = fqcn.substring(dot + 1);
+    String io = RT + "RenderContext ctx, " + RT + "Output out";
+    List<String> decls = new ArrayList<>();
+    List<String> names = new ArrayList<>();
+    for (TemplateIndex.Param p : info.params()) {
+      decls.add(p.javaType() + " " + javaName(p.name()));
+      names.add(javaName(p.name()));
+    }
+    String declList = String.join(", ", decls);
+    String nameList = String.join(", ", names);
+
+    StringBuilder sb = new StringBuilder();
+    if (!pkg.isEmpty()) {
+      sb.append("package ").append(pkg).append(";\n\n");
+    }
+    sb.append("/** Generated by Tessera from ")
+        .append(javadocSafe(info.document().source().path()))
+        .append(". Do not edit. */\n");
+    sb.append("public final class ").append(simple).append(" implements ").append(RT).append("Template {\n");
+    constants.forEach(
+        (text, name) ->
+            sb.append("  private static final java.lang.String ").append(name).append(" = ").append(javaString(text)).append(";\n"));
+    for (String d : decls) {
+      sb.append("  private final ").append(d).append(";\n");
+    }
+    sb.append("\n  private ").append(simple).append("(").append(declList).append(") {\n");
+    for (String n : names) {
+      sb.append("    this.").append(n).append(" = ").append(n).append(";\n");
+    }
+    sb.append("  }\n\n");
+    sb.append("  public static ").append(simple).append(" of(").append(declList).append(") {\n");
+    sb.append("    return new ").append(simple).append("(").append(nameList).append(");\n  }\n\n");
+    sb.append("  @Override\n  public java.lang.String templateName() {\n    return ")
+        .append(javaString(info.viewName()))
+        .append(";\n  }\n\n");
+    sb.append("  @Override\n  public void render(").append(io).append(") {\n");
+    if (info.params().isEmpty()) {
+      // A static render(ctx, out) would clash with this method; the body lives here.
+      sb.append(body).append("  }\n");
+    } else {
+      sb.append("    render(").append(nameList).append(", ctx, out);\n  }\n\n");
+      sb.append("  public static void render(").append(declList).append(", ").append(io).append(") {\n");
+      sb.append(body).append("  }\n");
+    }
+    for (String m : members) {
+      sb.append('\n').append(m).append('\n');
+    }
+    sb.append("}\n");
+    return sb.toString();
+  }
+
+  /** Keeps a file name harmless inside a comment (no comment end, no unicode escapes). */
+  private static String javadocSafe(String s) {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      sb.append(c < 128 && (Character.isLetterOrDigit(c) || "/._-".indexOf(c) >= 0) ? c : '_');
+    }
+    return sb.toString();
+  }
+
+  /**
+   * A Java string literal for {@code s}. Line terminators, quotes and backslashes use escape
+   * sequences (never {@code \\u} escapes, which javac would decode before lexing); other control
+   * and non-ASCII characters use {@code \\uXXXX}.
+   */
+  public static String javaString(String s) {
+    StringBuilder sb = new StringBuilder(s.length() + 2).append('"');
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      switch (c) {
+        case '"' -> sb.append("\\\"");
+        case '\\' -> sb.append("\\\\");
+        case '\n' -> sb.append("\\n");
+        case '\r' -> sb.append("\\r");
+        case '\t' -> sb.append("\\t");
+        default -> {
+          if (c < 0x20 || c >= 0x7f) {
+            sb.append(String.format("\\u%04x", (int) c));
+          } else {
+            sb.append(c);
+          }
+        }
+      }
+    }
+    return sb.append('"').toString();
+  }
+
+  /** Accumulates statements, coalescing adjacent static text into constant writes. */
+  private final class Code {
+    private final StringBuilder code = new StringBuilder();
+    private final StringBuilder text = new StringBuilder();
+
+    void text(String s) {
+      text.append(s);
+    }
+
+    void stmt(String s) {
+      flush();
+      if (!s.isEmpty()) {
+        code.append(s);
+        if (!s.endsWith("\n")) {
+          code.append('\n');
+        }
+      }
+    }
+
+    String build() {
+      flush();
+      return code.toString();
+    }
+
+    private void flush() {
+      int i = 0;
+      while (i < text.length()) {
+        int end = Math.min(text.length(), i + CHUNK);
+        if (end < text.length() && Character.isHighSurrogate(text.charAt(end - 1))) {
+          end--;
+        }
+        code.append("out.write(").append(constant(text.substring(i, end))).append(");\n");
+        i = end;
+      }
+      text.setLength(0);
+    }
   }
 }
