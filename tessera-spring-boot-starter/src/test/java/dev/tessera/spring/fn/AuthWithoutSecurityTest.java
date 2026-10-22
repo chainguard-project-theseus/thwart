@@ -12,7 +12,7 @@ class AuthWithoutSecurityTest {
 
   @Test
   void everyFunctionIsSafeWithoutSpringSecurity() throws Exception {
-    try (var loader = new NoSecurityClassLoader()) {
+    try (NoSecurityClassLoader loader = new NoSecurityClassLoader()) {
       assertThrows(
           ClassNotFoundException.class,
           () -> loader.loadClass("org.springframework.security.core.context.SecurityContextHolder"));

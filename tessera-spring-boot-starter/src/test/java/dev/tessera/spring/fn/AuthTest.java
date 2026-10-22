@@ -36,7 +36,7 @@ class AuthTest {
   @Test
   void authenticatedUser() {
     login(
-        UsernamePasswordAuthenticationToken.authenticated(
+        new UsernamePasswordAuthenticationToken(
             "alice", "pw", AuthorityUtils.createAuthorityList("ROLE_USER")));
     assertTrue(Auth.isAuthenticated());
     assertTrue(Auth.hasRole("USER"));
@@ -51,7 +51,7 @@ class AuthTest {
   @Test
   void roleMatchIsExactNotPrefixOrCaseInsensitive() {
     login(
-        UsernamePasswordAuthenticationToken.authenticated(
+        new UsernamePasswordAuthenticationToken(
             "alice", "pw", AuthorityUtils.createAuthorityList("ROLE_ADMINISTRATOR", "admin")));
     assertFalse(Auth.hasRole("ADMIN"));
     assertFalse(Auth.hasRole("admin"));

@@ -6,6 +6,7 @@ import dev.tessera.runtime.Template;
 import dev.tessera.runtime.TemplateEntry;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import org.springframework.web.servlet.View;
@@ -47,7 +48,7 @@ public final class TesseraView implements View {
   public void render(
       Map<String, ?> model, HttpServletRequest request, HttpServletResponse response)
       throws Exception {
-    Map<String, ?> m = model == null ? Map.of() : model;
+    Map<String, ?> m = model == null ? Collections.<String, Object>emptyMap() : model;
     RenderContext ctx = contexts.create(request, response, m);
     StringOutput out = new StringOutput(4096);
     renderer.render(m, ctx, out);

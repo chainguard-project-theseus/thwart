@@ -12,29 +12,34 @@ import dev.tessera.spring.view.FallbackResolver;
 import dev.tessera.spring.view.RenderContextFactory;
 import jakarta.servlet.http.Cookie;
 import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.FieldSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Controller;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.context.WebApplicationContext;
 
 /**
  * Spring View Manipulation through the starter: whatever a controller returns as a view name
@@ -43,13 +48,13 @@ import org.springframework.web.bind.annotation.RequestParam;
  * exactly once, in the build-time registry. Nothing is preprocessed, evaluated or split, no
  * template renders, and the name falls through to the next resolver.
  */
+@ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = ViewNameInjectionTest.App.class)
-@AutoConfigureMockMvc
 class ViewNameInjectionTest {
 
   /** Payloads from the Thymeleaf SSTI write-ups (docs/research.md) plus fragment selectors. */
   static final List<String> PAYLOADS =
-      List.of(
+      Arrays.asList(
           "__${T(java.lang.Runtime).getRuntime().exec('id')}__::.x",
           "__${new java.util.Scanner(T(java.lang.Runtime).getRuntime().exec('id').getInputStream()).next()}__::.x",
           "__${T (java.lang.Runtime).getRuntime().exec('id')}__::.x",
@@ -95,12 +100,14 @@ class ViewNameInjectionTest {
           "forward:greeting",
           "redirect:greeting");
 
-  @Autowired MockMvc mvc;
+  @Autowired WebApplicationContext context;
   @Autowired RecordingRegistry registry;
   @Autowired FallbackResolver fallback;
+  MockMvc mvc;
 
   @BeforeEach
   void reset() {
+    mvc = MockMvcBuilders.webAppContextSetup(context).build();
     registry.lookups.clear();
     registry.renders.set(0);
     fallback.names.clear();
@@ -119,7 +126,7 @@ class ViewNameInjectionTest {
   @ParameterizedTest
   @FieldSource("PAYLOADS")
   void requestParameterViewName(String payload) throws Exception {
-    var result = mvc.perform(get("/param").param("v", payload));
+    ResultActions result = mvc.perform(get("/param").param("v", payload));
     if (!payload.startsWith("redirect:")) {
       result.andExpect(status().isOk()).andExpect(content().string("fallback:" + payload));
     }
@@ -139,7 +146,8 @@ class ViewNameInjectionTest {
   @ParameterizedTest
   @FieldSource("PAYLOADS")
   void cookieViewName(String payload) throws Exception {
-    mvc.perform(get("/cookie").cookie(new Cookie("view", URLEncoder.encode(payload, StandardCharsets.UTF_8).replace("+", "%20"))));
+    String encoded = URLEncoder.encode(payload, "UTF-8").replace("+", "%20");
+    mvc.perform(get("/cookie").cookie(new Cookie("view", encoded)));
     assertNeverRendered(payload);
   }
 
@@ -161,8 +169,8 @@ class ViewNameInjectionTest {
   @FieldSource("PAYLOADS")
   void pathVariableViewName(String payload) throws Exception {
     if (payload.indexOf('/') >= 0 || payload.indexOf('\\') >= 0 || payload.indexOf('\u0000') >= 0
-        || payload.indexOf('%') >= 0 || payload.indexOf(';') >= 0 || payload.isBlank()
-        || !payload.equals(payload.strip()) || payload.startsWith(".")) {
+        || payload.indexOf('%') >= 0 || payload.indexOf(';') >= 0 || payload.trim().isEmpty()
+        || !payload.equals(payload.trim()) || payload.startsWith(".")) {
       return; // the servlet container would not route these to the handler
     }
     mvc.perform(get("/path/{v}", payload));
@@ -204,10 +212,12 @@ class ViewNameInjectionTest {
           };
       this.delegate =
           TemplateRegistry.of(
-              List.of(
-                  new TemplateEntry("greeting", List.of(), r),
-                  new TemplateEntry("owners/details", List.of(), r),
-                  new TemplateEntry("user/en/welcome", List.of(), r)));
+              Arrays.asList(
+                  new TemplateEntry("greeting", Collections.<TemplateEntry.Param>emptyList(), r),
+                  new TemplateEntry(
+                      "owners/details", Collections.<TemplateEntry.Param>emptyList(), r),
+                  new TemplateEntry(
+                      "user/en/welcome", Collections.<TemplateEntry.Param>emptyList(), r)));
     }
 
     @Override

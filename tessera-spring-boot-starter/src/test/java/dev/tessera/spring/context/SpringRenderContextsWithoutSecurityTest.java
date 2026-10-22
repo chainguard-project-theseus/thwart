@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import dev.tessera.runtime.RenderContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -26,14 +27,14 @@ class SpringRenderContextsWithoutSecurityTest {
     // Even a real token is ignored: the starter must not touch Security classes when absent.
     request.setAttribute(
         SpringForms.CSRF_ATTRIBUTE, new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "t"));
-    try (var loader = new NoSecurityClassLoader()) {
+    try (NoSecurityClassLoader loader = new NoSecurityClassLoader()) {
       Class<?> contexts = loader.loadClass(SpringRenderContexts.class.getName());
       RenderContext ctx =
           (RenderContext)
               contexts
                   .getMethod(
                       "create", HttpServletRequest.class, HttpServletResponse.class, Map.class)
-                  .invoke(null, request, new MockHttpServletResponse(), Map.of());
+                  .invoke(null, request, new MockHttpServletResponse(), Collections.emptyMap());
       assertEquals(Optional.empty(), ctx.forms().csrfToken());
     }
   }

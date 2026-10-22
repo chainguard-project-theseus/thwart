@@ -14,7 +14,7 @@ injection is impossible by construction.
 |---|---|
 | `tessera-runtime` | Zero-dependency runtime: escapers, safe types, links, messages |
 | `tessera-compiler` | Template compiler and annotation processor |
-| `tessera-spring-boot-starter` | Spring MVC view resolution, forms, CSRF, i18n, `auth` functions |
+| `tessera-spring-boot-starter` | Spring MVC view resolution, forms, CSRF, i18n, `auth` functions (Spring 5.0+ / Boot 2.0+; `-javax` for `javax.servlet`) |
 | `tessera-migrate` | Thymeleaf to Tessera converter with an unconvertible-construct report |
 | `tessera-benchmarks` | JMH benchmarks against Thymeleaf ([results](tessera-benchmarks/RESULTS.md)) |
 | `examples/petclinic` | Spring PetClinic ported to Tessera ([notes](examples/petclinic/MIGRATION-NOTES.md)) |

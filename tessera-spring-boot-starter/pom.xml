@@ -13,6 +13,14 @@
   <name>Tessera Spring Boot Starter</name>
   <description>Spring MVC integration: view resolver over the build-time registry, MessageSource, links, forms, CSRF, auth.</description>
 
+  <!-- Runs in the application: Java 8 class files, Spring Framework 5.0+ / Boot 2.0+ (jakarta.servlet;
+       tessera-spring-boot-starter-javax is this jar relocated to javax.servlet). Compiled against
+       Boot 4.1; tessera-spring-tests runs the shared test sources below on older generations. -->
+  <properties>
+    <maven.compiler.release>8</maven.compiler.release>
+    <maven.compiler.testRelease>8</maven.compiler.testRelease>
+  </properties>
+
   <dependencyManagement>
     <dependencies>
       <!-- Imported per module so runtime/compiler/migrate stay free of Spring's managed versions. -->
@@ -31,13 +39,16 @@
       <groupId>dev.tessera</groupId>
       <artifactId>tessera-runtime</artifactId>
     </dependency>
+    <!-- Supplied by the application, whatever its Spring generation. -->
     <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-autoconfigure</artifactId>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-webmvc</artifactId>
+      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-webmvc</artifactId>
+      <artifactId>spring-boot-autoconfigure</artifactId>
+      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>jakarta.servlet</groupId>
@@ -56,6 +67,12 @@
     </dependency>
 
     <dependency>
+      <!-- Only so the reactor builds the processor first (test compilation runs it). -->
+      <groupId>dev.tessera</groupId>
+      <artifactId>tessera-compiler</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
@@ -71,4 +88,53 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>default-compile</id>
+            <configuration>
+              <proc>none</proc>
+            </configuration>
+          </execution>
+          <!-- The shared test sources compile src/test/templates, as an application would. -->
+          <execution>
+            <id>default-testCompile</id>
+            <configuration>
+              <annotationProcessorPaths>
+                <path>
+                  <groupId>dev.tessera</groupId>
+                  <artifactId>tessera-compiler</artifactId>
+                  <version>${project.version}</version>
+                </path>
+              </annotationProcessorPaths>
+              <compilerArgs combine.children="append">
+                <arg>-Atessera.templates=${project.basedir}/src/test/templates</arg>
+                <arg>-Atessera.package=dev.tessera.spring.e2e.templates</arg>
+                <arg>-Atessera.messages=${project.basedir}/src/test/resources/messages</arg>
+                <arg>-parameters</arg>
+              </compilerArgs>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <!-- tessera-spring-boot-starter-javax relocates these sources too. -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 </project>

@@ -3,26 +3,32 @@ package dev.tessera.spring;
 import dev.tessera.runtime.TemplateRegistry;
 import dev.tessera.spring.context.SpringRenderContexts;
 import dev.tessera.spring.view.RenderContextFactory;
-import dev.tessera.spring.view.TemplateReturnValueHandler;
 import dev.tessera.spring.view.TesseraViewResolver;
-import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.web.method.support.HandlerMethodReturnValueHandler;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.DispatcherServlet;
 
 /**
  * Registers the Tessera view resolver (ordered before Thymeleaf's, falling through for unknown
  * names), the {@code Template} return-value handler, and the merged build-time {@code
  * TemplateRegistry}. The registry, render-context factory and resolver back off if the
  * application declares its own bean of that type.
+ *
+ * <p>Plain {@code @Configuration} with untyped conditions (not {@code @AutoConfiguration} or
+ * {@code type = SERVLET}) so that one class works on Spring Boot 2.0 through 4. Applications
+ * without Boot import {@link TesseraConfiguration} instead; if a Boot app imports it too, this
+ * class backs off entirely.
  */
-@AutoConfiguration
-@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+@Configuration
+@ConditionalOnWebApplication
+@ConditionalOnClass(DispatcherServlet.class)
+@ConditionalOnMissingBean(TesseraConfiguration.class)
 public class TesseraAutoConfiguration {
 
   @Bean
@@ -45,12 +51,8 @@ public class TesseraAutoConfiguration {
   }
 
   @Bean
-  public WebMvcConfigurer tesseraWebMvcConfigurer(ObjectProvider<RenderContextFactory> contexts) {
-    return new WebMvcConfigurer() {
-      @Override
-      public void addReturnValueHandlers(List<HandlerMethodReturnValueHandler> handlers) {
-        handlers.add(new TemplateReturnValueHandler(contexts.getObject()));
-      }
-    };
+  public static BeanPostProcessor tesseraReturnValueHandlerRegistrar(
+      ObjectProvider<RenderContextFactory> contexts) {
+    return new ReturnValueHandlerRegistrar(contexts);
   }
 }

@@ -3,16 +3,25 @@ package dev.tessera.spring;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.tessera.runtime.RenderContext;
+import dev.tessera.runtime.TemplateEntry;
 import dev.tessera.runtime.TemplateRegistry;
 import dev.tessera.spring.view.RenderContextFactory;
 import dev.tessera.spring.view.TesseraViewResolver;
-import java.util.List;
+import java.util.Collections;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
 class TesseraAutoConfigurationTest {
+
+  static final TemplateRegistry USER_REGISTRY =
+      TemplateRegistry.of(Collections.<TemplateEntry>emptyList());
+  static final RenderContextFactory USER_CONTEXTS =
+      (request, response, model) -> RenderContext.defaults();
 
   private final WebApplicationContextRunner web =
       new WebApplicationContextRunner()
@@ -25,28 +34,56 @@ class TesseraAutoConfigurationTest {
           assertThat(ctx).hasSingleBean(TemplateRegistry.class);
           assertThat(ctx).hasSingleBean(RenderContextFactory.class);
           assertThat(ctx).hasSingleBean(TesseraViewResolver.class);
-          // No generated registries on the test classpath: the merged registry is empty.
-          assertThat(ctx.getBean(TemplateRegistry.class).all()).isEmpty();
+          // The merged registry holds the templates generated for this test classpath.
+          assertThat(
+                  ctx.getBean(TemplateRegistry.class).all().stream()
+                      .map(TemplateEntry::name)
+                      .collect(Collectors.toList()))
+              .contains("smoke/page");
         });
   }
 
   @Test
   void backsOffForUserBeans() {
-    TemplateRegistry registry = TemplateRegistry.of(List.of());
-    RenderContextFactory contexts = (request, response, model) -> RenderContext.defaults();
-    web.withBean(TemplateRegistry.class, () -> registry)
-        .withBean(RenderContextFactory.class, () -> contexts)
+    web.withUserConfiguration(UserBeans.class)
         .run(
             ctx -> {
-              assertThat(ctx.getBean(TemplateRegistry.class)).isSameAs(registry);
-              assertThat(ctx.getBean(RenderContextFactory.class)).isSameAs(contexts);
+              assertThat(ctx.getBean(TemplateRegistry.class)).isSameAs(USER_REGISTRY);
+              assertThat(ctx.getBean(RenderContextFactory.class)).isSameAs(USER_CONTEXTS);
             });
   }
 
   @Test
-  void inactiveOutsideServletApps() {
+  void backsOffWhenTesseraConfigurationIsImported() {
+    // A Boot app that also imports the plain-Spring configuration gets one set of beans, not a
+    // bean-name clash or a second return-value handler.
+    web.withUserConfiguration(TesseraConfiguration.class)
+        .run(
+            ctx -> {
+              assertThat(ctx).hasNotFailed();
+              assertThat(ctx).hasSingleBean(TesseraViewResolver.class);
+              assertThat(ctx).hasSingleBean(ReturnValueHandlerRegistrar.class);
+            });
+  }
+
+  @Test
+  void inactiveOutsideWebApps() {
     new ApplicationContextRunner()
         .withConfiguration(AutoConfigurations.of(TesseraAutoConfiguration.class))
         .run(ctx -> assertThat(ctx).doesNotHaveBean(TesseraViewResolver.class));
+  }
+
+  // withUserConfiguration, not withBean: withBean needs Boot 2.2.
+  @Configuration
+  static class UserBeans {
+    @Bean
+    TemplateRegistry userRegistry() {
+      return USER_REGISTRY;
+    }
+
+    @Bean
+    RenderContextFactory userContexts() {
+      return USER_CONTEXTS;
+    }
   }
 }

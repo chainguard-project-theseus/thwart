@@ -57,18 +57,19 @@ public final class Auth {
     }
 
     static boolean isAuthenticated() {
-      var authentication = current();
+      org.springframework.security.core.Authentication authentication = current();
       return authentication != null
           && authentication.isAuthenticated()
           && !TRUST.isAnonymous(authentication);
     }
 
     static boolean hasAnyRole(String... roles) {
-      var authentication = current();
+      org.springframework.security.core.Authentication authentication = current();
       if (authentication == null || !authentication.isAuthenticated() || roles == null) {
         return false;
       }
-      for (var granted : authentication.getAuthorities()) {
+      for (org.springframework.security.core.GrantedAuthority granted :
+          authentication.getAuthorities()) {
         String authority = granted.getAuthority();
         for (String role : roles) {
           if (role != null
@@ -82,7 +83,7 @@ public final class Auth {
     }
 
     static String name() {
-      var authentication = current();
+      org.springframework.security.core.Authentication authentication = current();
       return authentication == null ? null : authentication.getName();
     }
   }
