@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:t="https://tessera.dev" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}" t:params="Object user">
+<body>
+  <p t:text="${T(java.lang.Runtime).getRuntime().exec(cmd)}">rce</p>
+  <p t:text="${@environment.getProperty('secret')}">bean</p>
+  <p t:text="${#ctx.request.remoteAddr}">ctx</p>
+  <p t:text='user.name' t:title=user.title>single and unquoted</p>
+  <p t:if="not user.roles.isEmpty()" t:text="|Hello ${user.name}, you have ${user.roles.size()} roles|">interp</p>
+  <ul><li t:each="r : ${user.roles.?[active]}" t:text="r">selection</li></ul>
+  <button th:onclick="'go(' + ${user.id} + ')'" th:style="'color:' + ${color}">events and style</button>
+  <div sec:authorize="isAuthenticated()">secured</div>
+  <a t:attr="data-id=user.id,title=user.title" t:text="strings.toUpperCase(user.name)">attr</a>
+  <span data-th-text="${user.name}">data-th</span>
+  <p t:text="${new java.util.Date()}">new</p>
+  <script th:inline="javascript">
+    var name = /*[[${user.name}]]*/ 'x';
+  </script>
+  <p>[(${user.bio})]</p>
+</body>
+</html>

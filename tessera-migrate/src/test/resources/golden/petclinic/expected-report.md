@@ -1,0 +1,48 @@
+# tessera-migrate report
+
+Converted 7 template(s); 27 item(s) need manual attention.
+
+## fragments/inputField.html
+
+- `fragments/inputField.html:3`: fragment `input` parameters declared as `Object` (`label`, `name`, `type`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`)
+- `fragments/inputField.html:10`: `__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field
+- `fragments/inputField.html:11`: `__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field
+- `fragments/inputField.html:16`: `__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field
+
+## fragments/layout.html
+
+- `fragments/layout.html:2`: fragment `layout` parameters declared as `Object` (`template`, `menu`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`)
+- `fragments/layout.html:34`: fragment `menuItem` parameters declared as `Object` (`link`, `active`, `title`, `glyph`, `text`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`)
+- `fragments/layout.html:35`: `__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field
+
+## misc/unsupported.html
+
+- `misc/unsupported.html:2`: `user` is declared as `Object` in the generated `t:params` stub; replace it with its view type
+- `misc/unsupported.html:3`: `layout:decorate` belongs to the `layout:` dialect, which Tessera does not support; port it by hand
+- `misc/unsupported.html:5`: `T(...)` static class access is not supported (never); expose the value through a view type or a `@TemplateFunction`
+- `misc/unsupported.html:6`: Spring bean references (`@bean`) are not supported (never); pass the value as a parameter
+- `misc/unsupported.html:7`: Thymeleaf utility object `#ctx` has no Tessera equivalent; use a `@TemplateFunctions` namespace or a view-type property
+- `misc/unsupported.html:10`: collection selection/projection is not supported; compute the collection in Java
+- `misc/unsupported.html:11`: `th:onclick` is a build error by design (no dynamic event handlers); use a `data-*` attribute read by a script
+- `misc/unsupported.html:11`: `th:style` is a build error by design (no dynamic CSS); use `t:classappend`
+- `misc/unsupported.html:12`: `sec:authorize` belongs to the `sec:` dialect, which Tessera does not support; port it by hand
+- `misc/unsupported.html:14`: `data-th-text` (HTML5 data-th-* syntax) is not converted; rewrite it as `t:text`
+- `misc/unsupported.html:15`: object creation with `new` is not supported (never); compute the value in Java
+- `misc/unsupported.html:16`: `th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or move data to `data-*` attributes
+
+## owners/createOrUpdateOwnerForm.html
+
+- `owners/createOrUpdateOwnerForm.html:1`: `owner` is declared as `Object` in the generated `t:params` stub; replace it with its view type
+
+## owners/ownerDetails.html
+
+- `owners/ownerDetails.html:3`: `message` is declared as `Object` in the generated `t:params` stub; replace it with its view type
+- `owners/ownerDetails.html:3`: `owner` is declared as `Object` in the generated `t:params` stub; replace it with its view type
+
+## owners/ownersList.html
+
+- `owners/ownersList.html:3`: `listOwners` is declared as `Object` in the generated `t:params` stub; replace it with its view type
+- `owners/ownersList.html:3`: `totalPages` is declared as `Object` in the generated `t:params` stub; replace it with its view type
+- `owners/ownersList.html:3`: `currentPage` is declared as `Object` in the generated `t:params` stub; replace it with its view type
+- `owners/ownersList.html:23`: `__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field
+- `owners/ownersList.html:36`: link with a non-literal path; Tessera links take a literal path with placeholders, e.g. `@{/owners(page=p)}` or `@{/owners/{id}(id=x)}`

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}">
+<body>
+  <p th:text="${T(java.lang.Runtime).getRuntime().exec(cmd)}">rce</p>
+  <p th:text="${@environment.getProperty('secret')}">bean</p>
+  <p th:text="${#ctx.request.remoteAddr}">ctx</p>
+  <p th:text='${user.name}' th:title=${user.title}>single and unquoted</p>
+  <p th:if="${not #lists.isEmpty(user.roles)}" th:text="|Hello ${user.name}, you have ${#lists.size(user.roles)} roles|">interp</p>
+  <ul><li th:each="r : ${user.roles.?[active]}" th:text="${r}">selection</li></ul>
+  <button th:onclick="'go(' + ${user.id} + ')'" th:style="'color:' + ${color}">events and style</button>
+  <div sec:authorize="isAuthenticated()">secured</div>
+  <a th:attr="data-id=${user.id},title=${user.title}" th:text="${#strings.toUpperCase(user.name)}">attr</a>
+  <span data-th-text="${user.name}">data-th</span>
+  <p th:text="${new java.util.Date()}">new</p>
+  <script th:inline="javascript">
+    var name = /*[[${user.name}]]*/ 'x';
+  </script>
+  <p>[(${user.bio})]</p>
+</body>
+</html>
