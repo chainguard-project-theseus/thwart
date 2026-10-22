@@ -43,15 +43,18 @@ This is an MVP built tonight. Prefer the smallest thing that is correct and secu
 
 ## Repo layout and ownership
 
-See the module table in [docs/mvp-design.md](docs/mvp-design.md). Each issue in
-[docs/issues.md](docs/issues.md) names the files/packages it owns. Stay inside them; if you must
-change a shared contract (listed at the top of issues.md), keep the change additive and minimal
-and call it out in the PR description. Stubs you are replacing are marked `TODO(#<your issue>)`.
+See the module table in [docs/mvp-design.md](docs/mvp-design.md).
+
+Shared contracts are the template model (`tessera-compiler/.../model/*`), the `Expr` records in
+`.../expr`, `Scope`/`Variable`/`CompiledExpr` in `.../types`,
+`CodegenContext`/`ElementPlan`/`AttributeProcessor`/`AttributeProcessors` in `.../codegen`, the
+runtime API, and the `dev.tessera.compiler.testing.Compilation` harness. If you must change one,
+keep the change additive and minimal and call it out in the PR description.
 
 ## Build and test
 
-- `mvn -B -q verify` from the repo root. JDK 21+ (`--release 21`).
-- Tests use JUnit 5. Compiler tests use the in-memory harness
+- `mvn -B -ntp verify` from the repo root. JDK 21+ (`--release 21`).
+- Tests use JUnit Jupiter 6 (the root pom pins `junit-bom` 6.1.3). Compiler tests use the in-memory harness
   `dev.tessera.compiler.testing.Compilation` (in `tessera-compiler/src/test/java`), which runs
   javac with the real annotation processor and lets you render or assert on diagnostics.
 - Maven does not recompile when only a template changes; use `mvn clean verify` when in doubt.

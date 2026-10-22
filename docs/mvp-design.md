@@ -1,8 +1,8 @@
 # Tessera MVP design
 
 Oct 22, 2026. What we build first. The long-term design is [tessera-vision.md](tessera-vision.md);
-the issue breakdown is [issues.md](issues.md). If this doc and the code disagree, fix one of them
-in your PR.
+the historical MVP build plan is [issues.md](issues.md). If this doc and the code disagree, fix one
+of them in your PR.
 
 ## Scope
 
@@ -21,13 +21,14 @@ and a petclinic port.
 fragment names and `~{::tag}`, `__...__` preprocessing (never), `T(...)`/`new`/`@bean` (never),
 collection selection/projection, `th:style`/`th:onclick` (build errors by design), byte-array output.
 
-## Modules and ownership
+## Modules
 
-One Maven reactor, `groupId dev.tessera`, `--release 21`, JUnit 5.
+One Maven reactor, `groupId dev.tessera`, `--release 21`, JUnit Jupiter 6. The table names the
+main classes only.
 
 | Module | Packages | Contents | Deps |
 |---|---|---|---|
-| `tessera-runtime` | `dev.tessera.runtime` | `Template`, `RenderContext`, `Output`, `Escapers`, `SafeHtml`, `TrustedUrl`, `Messages`, `Links`/`DefaultLinks`/`UrlEncoding`, `Forms`, `Fragment`, `LoopStatus`, `Conditions`, `Values`, `TemplateRegistry`/`TemplateEntry`, annotations | none |
+| `tessera-runtime` | `dev.tessera.runtime` | `Template`, `RenderContext`, `Output`, `Escapers`, `SafeHtml`, `TrustedUrl`, `Messages`/`ResourceBundleMessages`, `Links`/`DefaultLinks`, `Forms`, `Field`, `Fragment`, `LoopStatus`, `Conditions`, `Values`, `TemplateRegistry`/`TemplateEntry`, `TemplateModelException`, `StringOutput`/`WriterOutput`, annotations | none |
 | | `dev.tessera.runtime.fn` | built-in function namespaces | |
 | `tessera-compiler` | `dev.tessera.compiler` | pipeline (`TemplateCompiler`), `Diagnostic`, `SourcePos`, `CompilerEnv` | runtime, attoparser |
 | | `.model` | template node model, `OutputContext` | |
@@ -43,7 +44,8 @@ One Maven reactor, `groupId dev.tessera`, `--release 21`, JUnit 5.
 | `examples/petclinic` | `org.springframework.samples.petclinic` | spring-petclinic on Tessera | starter |
 
 The annotation processor lives in `tessera-compiler` (`META-INF/services/javax.annotation.processing.Processor`);
-a separate module would only add a jar. Exact per-issue ownership is in [issues.md](issues.md).
+a separate module would only add a jar. The per-issue file ownership in [issues.md](issues.md) is
+historical and no longer applies.
 
 ## Pipeline
 
@@ -58,7 +60,8 @@ templates/**/*.html ─ TemplateDiscovery ─▶ TemplateSource(viewName, path, 
 ```
 
 Every stage reports to a `DiagnosticSink` and continues; errors print as
-`owners/ownerDetails.html:12:7: error: <message>`. If any error exists nothing is written.
+`owners/ownerDetails.html:12:7: error: <message>`. If any template has an error, nothing is written:
+`TesseraProcessor` is the single gate, checked once after every template has compiled.
 Stages are concrete classes; the only interface with several implementations is `AttributeProcessor`.
 
 ## Key interfaces (all in code; read the javadoc)
@@ -186,7 +189,7 @@ compile via `FieldsCompiler` to `ctx.forms()` calls. Iterating `null` yields zer
 | — | `t:utext`, `[(...)]` | `Escapers.html(SafeHtml)` | non-`SafeHtml` is a build error |
 | `ATTRIBUTE` | any other attribute value | `Escapers.attr` | output always double-quoted |
 | `URL` | `href src action formaction cite poster background longdesc usemap ping` (`xlink:href`), `values to from by` on SVG `animate`/`set` | `Escapers.url` | http/https/mailto/tel/relative, else `about:invalid#tessera`; `TrustedUrl` passes |
-| `RESOURCE_URL` | `script[src] iframe[src] frame[src] embed[src] object[data] base[href] link[href]` | `Escapers.resourceUrl` | only a literal-path `@{}` link or `TrustedUrl`; else build error |
+| `RESOURCE_URL` | `script[src] script[href] script[xlink:href] iframe[src] frame[src] embed[src] object[data] base[href] link[href]` | `Escapers.resourceUrl` | only a literal-path `@{}` link or `TrustedUrl`; else build error |
 | `SCRIPT` | text in `<script>` (no type or JS/module/JSON) | `Escapers.json` | `[[...]]` only; JSON-able types only; also escapes `/`, backtick and `$` so a value cannot leave a JS comment, regex or template literal |
 | `STYLE` | `<style>`, `style` attribute | — | build error |
 | `EVENT_HANDLER` | `on*` attributes | — | build error; use `data-*` + script |
