@@ -134,6 +134,7 @@ final class HandBuilt {
     return new Run(c, diagnostics, files);
   }
 
+  // Mirrors TesseraProcessor.write.
   private static void write(ProcessingEnvironment pe, List<GeneratedFile> files) {
     try {
       for (GeneratedFile f : files) {
