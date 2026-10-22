@@ -1,5 +1,6 @@
 package dev.tessera.compiler.html;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.TemplateSource;
@@ -14,6 +15,7 @@ import dev.tessera.compiler.model.Text;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -40,10 +42,16 @@ import org.attoparser.config.ParseConfiguration;
  */
 public final class HtmlParser {
 
-  private static final Set<String> RAW_TEXT_ELEMENTS = Set.of("script", "style", "textarea", "title");
+  private static final Set<String> RAW_TEXT_ELEMENTS = Backports.setOf("script", "style", "textarea", "title");
   private static final Pattern ELEMENT_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_.:-]*");
-  private static final Map<String, String> NAMED_REFERENCES =
-      Map.of("amp", "&", "lt", "<", "gt", ">", "quot", "\"", "apos", "'", "nbsp", " ");
+  private static final Map<String, String> NAMED_REFERENCES = new HashMap<>();
+
+  static {
+    String[] refs = {"amp", "&", "lt", "<", "gt", ">", "quot", "\"", "apos", "'", "nbsp", " "};
+    for (int i = 0; i < refs.length; i += 2) {
+      NAMED_REFERENCES.put(refs[i], refs[i + 1]);
+    }
+  }
 
   private static final ParseConfiguration CONFIG = config();
 
@@ -219,7 +227,7 @@ public final class HtmlParser {
     }
 
     private void flushText() {
-      if (!text.isEmpty()) {
+      if (text.length() != 0) {
         children().add(new Text(text.toString(), textContext(), textPos));
         text.setLength(0);
       }
@@ -230,7 +238,7 @@ public final class HtmlParser {
       if (raw != null) {
         return;
       }
-      if (text.isEmpty()) {
+      if (text.length() == 0) {
         textPos = pos(line, col);
       }
       text.append(buffer, offset, len);

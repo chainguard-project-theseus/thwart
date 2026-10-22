@@ -15,12 +15,22 @@ public final class JavaStrings {
     for (int i = 0; i < s.length(); i++) {
       char c = s.charAt(i);
       switch (c) {
-        case '"' -> b.append("\\\"");
-        case '\\' -> b.append("\\\\");
-        case '\n' -> b.append("\\n");
-        case '\r' -> b.append("\\r");
-        case '\t' -> b.append("\\t");
-        default -> {
+        case '"':
+          b.append("\\\"");
+          break;
+        case '\\':
+          b.append("\\\\");
+          break;
+        case '\n':
+          b.append("\\n");
+          break;
+        case '\r':
+          b.append("\\r");
+          break;
+        case '\t':
+          b.append("\\t");
+          break;
+        default:
           if (c < 0x20) {
             b.append(String.format("\\%03o", (int) c));
           } else if (c >= 0x7f) {
@@ -28,7 +38,6 @@ public final class JavaStrings {
           } else {
             b.append(c);
           }
-        }
       }
     }
     return b.append('"').toString();

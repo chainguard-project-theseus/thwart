@@ -1,5 +1,6 @@
 package dev.tessera.compiler.types;
 
+import dev.tessera.compiler.Backports;
 import java.util.List;
 
 /**
@@ -10,7 +11,7 @@ final class BuiltinNamespaces {
   private BuiltinNamespaces() {}
 
   static final List<String> CLASSES =
-      List.of(
+      Backports.listOf(
           "dev.tessera.runtime.fn.Strings",
           "dev.tessera.runtime.fn.Numbers",
           "dev.tessera.runtime.fn.Temporals",

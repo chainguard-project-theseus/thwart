@@ -1,5 +1,6 @@
 package dev.tessera.compiler.processor;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.Diagnostic;
 import dev.tessera.compiler.Diagnostics;
@@ -38,12 +39,12 @@ public final class TesseraProcessor extends AbstractProcessor {
 
   @Override
   public Set<String> getSupportedAnnotationTypes() {
-    return Set.of("*");
+    return Backports.setOf("*");
   }
 
   @Override
   public Set<String> getSupportedOptions() {
-    return Set.of(ProcessorOptions.TEMPLATES, ProcessorOptions.PACKAGE, ProcessorOptions.MESSAGES);
+    return Backports.setOf(ProcessorOptions.TEMPLATES, ProcessorOptions.PACKAGE, ProcessorOptions.MESSAGES);
   }
 
   @Override
@@ -111,8 +112,8 @@ public final class TesseraProcessor extends AbstractProcessor {
     List<TypeElement> out = new ArrayList<>();
     if (annotation != null) {
       for (Element e : round.getElementsAnnotatedWith(annotation)) {
-        if (e instanceof TypeElement t) {
-          out.add(t);
+        if (e instanceof TypeElement) {
+          out.add((TypeElement) e);
         }
       }
     }
@@ -132,10 +133,7 @@ public final class TesseraProcessor extends AbstractProcessor {
   }
 
   private static Kind kind(Diagnostic.Severity s) {
-    return switch (s) {
-      case ERROR -> Kind.ERROR;
-      case WARNING -> Kind.WARNING;
-    };
+    return s == Diagnostic.Severity.ERROR ? Kind.ERROR : Kind.WARNING;
   }
 
   private static String describe(Throwable e) {

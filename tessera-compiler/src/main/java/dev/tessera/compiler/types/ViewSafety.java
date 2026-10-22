@@ -1,5 +1,6 @@
 package dev.tessera.compiler.types;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.runtime.LoopStatus;
 import dev.tessera.runtime.SafeHtml;
@@ -46,7 +47,7 @@ final class ViewSafety {
   static final String OBJECT = "java.lang.Object";
 
   private static final Set<String> NEVER_TYPES =
-      Set.of(
+      Backports.setOf(
           OBJECT,
           "java.lang.Class",
           "java.lang.ClassLoader",
@@ -63,7 +64,7 @@ final class ViewSafety {
           "java.io.File");
 
   private static final List<String> NEVER_PACKAGES =
-      List.of(
+      Backports.listOf(
           "java.lang.reflect",
           "java.lang.invoke",
           "java.nio.file",
@@ -78,7 +79,7 @@ final class ViewSafety {
           "org.springframework.expression");
 
   private static final Set<String> VALUE_TYPES =
-      Set.of(
+      Backports.setOf(
           "java.lang.Boolean",
           "java.lang.Byte",
           "java.lang.Short",
@@ -97,7 +98,7 @@ final class ViewSafety {
 
   /** Container types; view-safe when every type argument is. */
   private static final Set<String> CONTAINERS =
-      Set.of(
+      Backports.setOf(
           "java.util.Optional",
           "java.lang.Iterable",
           "java.util.Collection",
@@ -111,7 +112,7 @@ final class ViewSafety {
    * DateTimeException is a Throwable.
    */
   private static final Set<String> TIME_EXCLUDED =
-      Set.of("java.time.Clock", "java.time.InstantSource", "java.time.DateTimeException");
+      Backports.setOf("java.time.Clock", "java.time.InstantSource", "java.time.DateTimeException");
 
   private static final String TEMPLATE_VIEW = "dev.tessera.runtime.TemplateView";
 
@@ -122,7 +123,7 @@ final class ViewSafety {
   }
 
   boolean isViewSafe(TypeMirror type) {
-    return neverViewSafeReason(type).isEmpty() && allowed(type);
+    return !neverViewSafeReason(type).isPresent() && allowed(type);
   }
 
   /** Why {@code type} is never view-safe, or empty if it is not on the deny-list. */
@@ -240,7 +241,7 @@ final class ViewSafety {
     DeclaredType dt = (DeclaredType) type;
     TypeElement te = (TypeElement) dt.asElement();
     String name = te.getQualifiedName().toString();
-    if (te.getKind() == ElementKind.ENUM || te.getKind() == ElementKind.RECORD) {
+    if (te.getKind() == ElementKind.ENUM || isRecord(te)) {
       return true;
     }
     if (VALUE_TYPES.contains(name) || hasTemplateView(te)) {
@@ -262,6 +263,14 @@ final class ViewSafety {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Whether {@code te} is a record. By kind name: the processor is Java 8 code (#166) and
+   * {@code ElementKind.RECORD} exists only on JDK 16+, where javac can compile records.
+   */
+  static boolean isRecord(TypeElement te) {
+    return te.getKind().name().equals("RECORD");
   }
 
   private static boolean hasTemplateView(TypeElement te) {

@@ -2,6 +2,7 @@ package dev.tessera.compiler.codegen;
 
 import static dev.tessera.compiler.JavaStrings.literal;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.GeneratedFile;
 import java.util.ArrayList;
@@ -34,10 +35,10 @@ public final class RegistryGenerator {
 
   public List<GeneratedFile> generate() {
     if (index.templates().isEmpty()) {
-      return List.of();
+      return Backports.listOf();
     }
     String fqcn = ClassNames.qualify(env.basePackage(), ClassNames.REGISTRY);
-    return List.of(
+    return Backports.listOf(
         new GeneratedFile(GeneratedFile.Kind.JAVA, fqcn, source()),
         new GeneratedFile(GeneratedFile.Kind.RESOURCE, SERVICES_FILE, fqcn + "\n"));
   }
@@ -109,8 +110,8 @@ public final class RegistryGenerator {
           "throw mismatch(" + literal(t.viewName()) + ", " + literal(p.name()) + ", " + literal(p.javaType()) + ", " + v + ");";
       sb.append("    java.lang.Object ").append(v).append(" = model.get(").append(literal(p.name())).append(");\n");
       TypeMirror type = p.type();
-      if (type instanceof PrimitiveType prim) {
-        String box = env.types().boxedClass(prim).getQualifiedName().toString();
+      if (type instanceof PrimitiveType) {
+        String box = env.types().boxedClass((PrimitiveType) type).getQualifiedName().toString();
         sb.append("    if (!(").append(v).append(" instanceof ").append(box).append(")) {\n      ").append(fail).append("\n    }\n");
         args.add("(" + box + ") " + v);
       } else {

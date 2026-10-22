@@ -1,8 +1,11 @@
 package dev.tessera.compiler.model;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.SourcePos;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * An element as written.
@@ -15,18 +18,82 @@ import java.util.Optional;
  *     and for elements closed implicitly)
  * @param pos position of the {@code <}
  */
-public record Element(
-    String name,
-    List<Attribute> attributes,
-    List<Node> children,
-    boolean selfClosing,
-    boolean hasEndTag,
-    SourcePos pos)
-    implements Node {
+public final class Element implements Node {
+  private final String name;
+  private final List<Attribute> attributes;
+  private final List<Node> children;
+  private final boolean selfClosing;
+  private final boolean hasEndTag;
+  private final SourcePos pos;
 
-  public Element {
-    attributes = List.copyOf(attributes);
-    children = List.copyOf(children);
+  public Element(
+      String name,
+      List<Attribute> attributes,
+      List<Node> children,
+      boolean selfClosing,
+      boolean hasEndTag,
+      SourcePos pos) {
+    this.name = name;
+    this.attributes = Backports.listCopy(attributes);
+    this.children = Backports.listCopy(children);
+    this.selfClosing = selfClosing;
+    this.hasEndTag = hasEndTag;
+    this.pos = pos;
+  }
+
+  public String name() {
+    return name;
+  }
+
+  public List<Attribute> attributes() {
+    return attributes;
+  }
+
+  public List<Node> children() {
+    return children;
+  }
+
+  public boolean selfClosing() {
+    return selfClosing;
+  }
+
+  public boolean hasEndTag() {
+    return hasEndTag;
+  }
+
+  public SourcePos pos() {
+    return pos;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof Element)) {
+      return false;
+    }
+    Element that = (Element) o;
+    return Objects.equals(name, that.name)
+        && Objects.equals(attributes, that.attributes)
+        && Objects.equals(children, that.children)
+        && selfClosing == that.selfClosing
+        && hasEndTag == that.hasEndTag
+        && Objects.equals(pos, that.pos);
+  }
+
+  @Override
+  public int hashCode() {
+    int h = Objects.hashCode(name);
+    h = 31 * h + Objects.hashCode(attributes);
+    h = 31 * h + Objects.hashCode(children);
+    h = 31 * h + Boolean.hashCode(selfClosing);
+    h = 31 * h + Boolean.hashCode(hasEndTag);
+    h = 31 * h + Objects.hashCode(pos);
+    return h;
+  }
+
+  @Override
+  public String toString() {
+    return "Element[name=" + name + ", attributes=" + attributes + ", children=" + children
+        + ", selfClosing=" + selfClosing + ", hasEndTag=" + hasEndTag + ", pos=" + pos + "]";
   }
 
   public Optional<Attribute> attribute(String name) {
@@ -35,6 +102,6 @@ public record Element(
 
   /** {@code t:} attributes in source order. */
   public List<Attribute> tesseraAttributes() {
-    return attributes.stream().filter(Attribute::isTessera).toList();
+    return attributes.stream().filter(Attribute::isTessera).collect(Collectors.toList());
   }
 }

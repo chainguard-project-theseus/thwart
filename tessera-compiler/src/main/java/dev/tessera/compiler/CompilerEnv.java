@@ -2,6 +2,7 @@ package dev.tessera.compiler;
 
 import dev.tessera.compiler.messages.MessageBundle;
 import java.util.List;
+import java.util.Objects;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -18,17 +19,84 @@ import javax.lang.model.util.Types;
  * @param functionNamespaces {@code @TemplateFunctions} classes found in the current
  *     compilation (built-in namespaces are added by the function registry)
  */
-public record CompilerEnv(
-    Elements elements,
-    Types types,
-    DiagnosticSink diagnostics,
-    String basePackage,
-    MessageBundle messages,
-    List<TypeElement> functionNamespaces) {
+public final class CompilerEnv {
+  private final Elements elements;
+  private final Types types;
+  private final DiagnosticSink diagnostics;
+  private final String basePackage;
+  private final MessageBundle messages;
+  private final List<TypeElement> functionNamespaces;
+
+  public CompilerEnv(
+      Elements elements,
+      Types types,
+      DiagnosticSink diagnostics,
+      String basePackage,
+      MessageBundle messages,
+      List<TypeElement> functionNamespaces) {
+    this.elements = elements;
+    this.types = types;
+    this.diagnostics = diagnostics;
+    this.basePackage = basePackage;
+    this.messages = messages;
+    this.functionNamespaces = Backports.listCopy(functionNamespaces);
+  }
+
+  public Elements elements() {
+    return elements;
+  }
+
+  public Types types() {
+    return types;
+  }
+
+  public DiagnosticSink diagnostics() {
+    return diagnostics;
+  }
+
+  public String basePackage() {
+    return basePackage;
+  }
+
+  public MessageBundle messages() {
+    return messages;
+  }
+
+  public List<TypeElement> functionNamespaces() {
+    return functionNamespaces;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof CompilerEnv)) {
+      return false;
+    }
+    CompilerEnv that = (CompilerEnv) o;
+    return Objects.equals(elements, that.elements)
+        && Objects.equals(types, that.types)
+        && Objects.equals(diagnostics, that.diagnostics)
+        && Objects.equals(basePackage, that.basePackage)
+        && Objects.equals(messages, that.messages)
+        && Objects.equals(functionNamespaces, that.functionNamespaces);
+  }
+
+  @Override
+  public int hashCode() {
+    int h = Objects.hashCode(elements);
+    h = 31 * h + Objects.hashCode(types);
+    h = 31 * h + Objects.hashCode(diagnostics);
+    h = 31 * h + Objects.hashCode(basePackage);
+    h = 31 * h + Objects.hashCode(messages);
+    h = 31 * h + Objects.hashCode(functionNamespaces);
+    return h;
+  }
+
+  @Override
+  public String toString() {
+    return "CompilerEnv[elements=" + elements + ", types=" + types + ", diagnostics=" + diagnostics
+        + ", basePackage=" + basePackage + ", messages=" + messages
+        + ", functionNamespaces=" + functionNamespaces + "]";
+  }
 
   public static final String DEFAULT_PACKAGE = "tessera.generated";
-
-  public CompilerEnv {
-    functionNamespaces = List.copyOf(functionNamespaces);
-  }
 }

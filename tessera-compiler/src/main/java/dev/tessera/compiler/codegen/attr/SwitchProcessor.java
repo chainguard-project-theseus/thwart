@@ -49,7 +49,7 @@ public final class SwitchProcessor implements AttributeProcessor {
   private static void processCase(CodegenContext ctx, Attribute attr, ElementPlan plan) {
     Optional<Variable> value = plan.scope().lookup(VALUE);
     Optional<Variable> matched = plan.scope().lookup(MATCHED);
-    if (value.isEmpty() || matched.isEmpty() || plan.element().attribute(Attribute.PREFIX + "switch").isPresent()) {
+    if (!value.isPresent() || !matched.isPresent() || plan.element().attribute(Attribute.PREFIX + "switch").isPresent()) {
       ctx.diagnostics().error(attr.pos(), "t:case must be inside an element with t:switch (on an enclosing element, not the same one)");
       return;
     }

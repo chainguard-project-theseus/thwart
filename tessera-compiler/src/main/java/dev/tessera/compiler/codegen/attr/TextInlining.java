@@ -2,6 +2,7 @@ package dev.tessera.compiler.codegen.attr;
 
 import static dev.tessera.compiler.types.ExpressionCompiler.isDeclared;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.CodegenContext;
@@ -36,7 +37,7 @@ public final class TextInlining {
 
   /** Boxes and JDK value types {@code Escapers.json} serializes as a JSON scalar. */
   private static final Set<String> JSON_VALUES =
-      Set.of(
+      Backports.setOf(
           "java.lang.Boolean",
           "java.lang.Byte",
           "java.lang.Short",
@@ -56,7 +57,7 @@ public final class TextInlining {
    * {@code case ZoneId}); java.time enums (DayOfWeek, Month) take the enum path.
    */
   private static final Set<String> JSON_TIME =
-      Set.of(
+      Backports.setOf(
           "java.time.Instant",
           "java.time.LocalDate",
           "java.time.LocalTime",
@@ -73,7 +74,7 @@ public final class TextInlining {
           "java.time.ZoneOffset");
 
   private static final Set<String> JSON_COLLECTIONS =
-      Set.of("java.util.Collection", "java.util.List", "java.util.Set");
+      Backports.setOf("java.util.Collection", "java.util.List", "java.util.Set");
 
   /**
    * Statements that render {@code text}, or {@code null} if it has no inlined expressions (the
@@ -132,7 +133,7 @@ public final class TextInlining {
   }
 
   private static void flush(StringBuilder code, StringBuilder literal) {
-    if (!literal.isEmpty()) {
+    if (literal.length() != 0) {
       code.append("out.write(").append(JavaStrings.literal(literal.toString())).append(");\n");
       literal.setLength(0);
     }
@@ -159,11 +160,14 @@ public final class TextInlining {
 
   /** Where an expression cannot go, for error messages. */
   static String where(OutputContext context) {
-    return switch (context) {
-      case STYLE -> "inside <style>: CSS cannot be escaped safely; compute a class name instead";
-      case FORBIDDEN -> "inside a <script> whose type is not JavaScript or JSON (or is set by t:type)";
-      default -> "in " + context + " context: move the expression into element text or a t: attribute";
-    };
+    switch (context) {
+      case STYLE:
+        return "inside <style>: CSS cannot be escaped safely; compute a class name instead";
+      case FORBIDDEN:
+        return "inside a <script> whose type is not JavaScript or JSON (or is set by t:type)";
+      default:
+        return "in " + context + " context: move the expression into element text or a t: attribute";
+    }
   }
 
   /**
@@ -200,10 +204,10 @@ public final class TextInlining {
    * have static type {@code SafeHtml}; {@code form} names the construct in messages.
    */
   static String safeHtmlStatement(CodegenContext ctx, Expr e, String form, Scope scope) {
-    if (e instanceof Expr.Message m) {
+    if (e instanceof Expr.Message) {
       ctx.diagnostics()
           .error(
-              m.pos(),
+              e.pos(),
               form + " needs a value of type " + SAFE_HTML + ", but a message #{...} is a String: use t:text"
                   + " or [[...]] (escaped), or pass trusted HTML as a SafeHtml parameter");
       return "";
@@ -227,7 +231,15 @@ public final class TextInlining {
   /** Whether {@code Escapers.json} can serialize every value of static type {@code t}. */
   private static boolean jsonable(CodegenContext ctx, TypeMirror t) {
     switch (t.getKind()) {
-      case BOOLEAN, BYTE, SHORT, INT, LONG, CHAR, FLOAT, DOUBLE, NULL:
+      case BOOLEAN:
+      case BYTE:
+      case SHORT:
+      case INT:
+      case LONG:
+      case CHAR:
+      case FLOAT:
+      case DOUBLE:
+      case NULL:
         return true;
       case ARRAY:
         return jsonable(ctx, ((ArrayType) t).getComponentType());

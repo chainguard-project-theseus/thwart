@@ -1,5 +1,6 @@
 package dev.tessera.compiler.codegen.attr;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.codegen.TemplateIndex;
@@ -32,7 +33,7 @@ public final class FragmentMethods {
         decls.add(p.javaType() + " " + javaName);
       }
       decls.add(IO);
-      String body = ctx.renderElement(f.element(), scope, Set.of("fragment"));
+      String body = ctx.renderElement(f.element(), scope, Backports.setOf("fragment"));
       ctx.addMember(
           "  public static void "
               + f.methodName()

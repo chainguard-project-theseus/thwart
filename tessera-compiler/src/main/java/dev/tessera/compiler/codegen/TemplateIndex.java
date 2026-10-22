@@ -1,5 +1,6 @@
 package dev.tessera.compiler.codegen;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.SourcePos;
@@ -19,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import javax.lang.model.type.TypeMirror;
@@ -31,20 +33,117 @@ public final class TemplateIndex {
   private final List<TemplateInfo> templates;
 
   private TemplateIndex(List<TemplateInfo> templates) {
-    this.templates = List.copyOf(templates);
+    this.templates = Backports.listCopy(templates);
   }
 
   /** A resolved parameter. {@code javaType} is source text usable in generated code. */
-  public record Param(String name, TypeMirror type, String javaType) {}
+  public static final class Param {
+    private final String name;
+    private final TypeMirror type;
+    private final String javaType;
+
+    public Param(String name, TypeMirror type, String javaType) {
+      this.name = name;
+      this.type = type;
+      this.javaType = javaType;
+    }
+
+    public String name() {
+      return name;
+    }
+
+    public TypeMirror type() {
+      return type;
+    }
+
+    public String javaType() {
+      return javaType;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof Param)) {
+        return false;
+      }
+      Param that = (Param) o;
+      return Objects.equals(name, that.name)
+          && Objects.equals(type, that.type)
+          && Objects.equals(javaType, that.javaType);
+    }
+
+    @Override
+    public int hashCode() {
+      int h = Objects.hashCode(name);
+      h = 31 * h + Objects.hashCode(type);
+      h = 31 * h + Objects.hashCode(javaType);
+      return h;
+    }
+
+    @Override
+    public String toString() {
+      return "Param[name=" + name + ", type=" + type + ", javaType=" + javaType + "]";
+    }
+  }
 
   /**
    * A {@code t:fragment} definition.
    *
    * @param methodName static method on the template class, {@code fragment_<name>}
    */
-  public record FragmentInfo(String name, List<Param> params, Element element, String methodName) {
-    public FragmentInfo {
-      params = List.copyOf(params);
+  public static final class FragmentInfo {
+    private final String name;
+    private final List<Param> params;
+    private final Element element;
+    private final String methodName;
+
+    public FragmentInfo(String name, List<Param> params, Element element, String methodName) {
+      this.name = name;
+      this.params = Backports.listCopy(params);
+      this.element = element;
+      this.methodName = methodName;
+    }
+
+    public String name() {
+      return name;
+    }
+
+    public List<Param> params() {
+      return params;
+    }
+
+    public Element element() {
+      return element;
+    }
+
+    public String methodName() {
+      return methodName;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof FragmentInfo)) {
+        return false;
+      }
+      FragmentInfo that = (FragmentInfo) o;
+      return Objects.equals(name, that.name)
+          && Objects.equals(params, that.params)
+          && Objects.equals(element, that.element)
+          && Objects.equals(methodName, that.methodName);
+    }
+
+    @Override
+    public int hashCode() {
+      int h = Objects.hashCode(name);
+      h = 31 * h + Objects.hashCode(params);
+      h = 31 * h + Objects.hashCode(element);
+      h = 31 * h + Objects.hashCode(methodName);
+      return h;
+    }
+
+    @Override
+    public String toString() {
+      return "FragmentInfo[name=" + name + ", params=" + params + ", element=" + element
+          + ", methodName=" + methodName + "]";
     }
   }
 
@@ -56,21 +155,79 @@ public final class TemplateIndex {
    * @param params resolved {@code t:params}
    * @param fragments fragments by name
    */
-  public record TemplateInfo(
-      Document document,
-      String className,
-      List<String> imports,
-      List<Param> params,
-      Map<String, FragmentInfo> fragments) {
-    public TemplateInfo {
-      imports = List.copyOf(imports);
-      params = List.copyOf(params);
-      fragments = Map.copyOf(fragments);
+  public static final class TemplateInfo {
+    private final Document document;
+    private final String className;
+    private final List<String> imports;
+    private final List<Param> params;
+    private final Map<String, FragmentInfo> fragments;
+
+    public TemplateInfo(
+        Document document,
+        String className,
+        List<String> imports,
+        List<Param> params,
+        Map<String, FragmentInfo> fragments) {
+      this.document = document;
+      this.className = className;
+      this.imports = Backports.listCopy(imports);
+      this.params = Backports.listCopy(params);
+      this.fragments = Backports.mapCopy(fragments);
+    }
+
+    public Document document() {
+      return document;
+    }
+
+    public String className() {
+      return className;
+    }
+
+    public List<String> imports() {
+      return imports;
+    }
+
+    public List<Param> params() {
+      return params;
+    }
+
+    public Map<String, FragmentInfo> fragments() {
+      return fragments;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof TemplateInfo)) {
+        return false;
+      }
+      TemplateInfo that = (TemplateInfo) o;
+      return Objects.equals(document, that.document)
+          && Objects.equals(className, that.className)
+          && Objects.equals(imports, that.imports)
+          && Objects.equals(params, that.params)
+          && Objects.equals(fragments, that.fragments);
+    }
+
+    @Override
+    public int hashCode() {
+      int h = Objects.hashCode(document);
+      h = 31 * h + Objects.hashCode(className);
+      h = 31 * h + Objects.hashCode(imports);
+      h = 31 * h + Objects.hashCode(params);
+      h = 31 * h + Objects.hashCode(fragments);
+      return h;
+    }
+
+    @Override
+    public String toString() {
+      return "TemplateInfo[document=" + document + ", className=" + className + ", imports=" + imports
+          + ", params=" + params + ", fragments=" + fragments + "]";
     }
 
     public String viewName() {
       return document.source().viewName();
     }
+  
   }
 
   /**
@@ -98,22 +255,22 @@ public final class TemplateIndex {
                 + "; rename one of the templates");
       }
       Element root = doc.rootElement();
-      List<String> imports = List.of();
-      List<Param> params = List.of();
+      List<String> imports = Backports.listOf();
+      List<Param> params = Backports.listOf();
       if (root != null) {
         Attribute imp = root.attribute(Attribute.PREFIX + "import").orElse(null);
         if (imp != null && imp.value() == null) {
           sink.error(imp.pos(), imp.name() + " needs a value, e.g. t:import=\"java.util.List\"");
         } else if (imp != null) {
           List<String> parsed = parser.parseImports(imp.value(), imp.valuePos(), sink);
-          imports = parsed == null ? List.of() : parsed;
+          imports = parsed == null ? Backports.listOf() : parsed;
         }
         Attribute par = root.attribute(Attribute.PREFIX + "params").orElse(null);
         if (par != null && par.value() == null) {
           sink.error(par.pos(), par.name() + " needs a value, e.g. t:params=\"String name, int count\"");
         } else if (par != null) {
           List<ParamDecl> decls = parser.parseParams(par.value(), par.valuePos(), sink);
-          params = resolve(decls == null ? List.of() : decls, imports, expressions, sink);
+          params = resolve(decls == null ? Backports.listOf() : decls, imports, expressions, sink);
           params = withoutFields(params, decls, sink);
         }
       }
@@ -149,7 +306,7 @@ public final class TemplateIndex {
     List<Param> out = new ArrayList<>();
     for (Param p : params) {
       if (p.javaType().equals(FormPaths.FIELD)) {
-        SourcePos pos = decls.stream().filter(d -> d.name().equals(p.name())).findFirst().map(ParamDecl::pos).orElseThrow();
+        SourcePos pos = decls.stream().filter(d -> d.name().equals(p.name())).findFirst().map(ParamDecl::pos).get();
         sink.error(
             pos,
             "parameter '" + p.name() + "' has type Field, which only fragment parameters may have: declare it in a"
@@ -169,9 +326,10 @@ public final class TemplateIndex {
       DiagnosticSink sink,
       Map<String, FragmentInfo> out) {
     for (Node n : nodes) {
-      if (!(n instanceof Element e)) {
+      if (!(n instanceof Element)) {
         continue;
       }
+      Element e = (Element) n;
       Attribute frag = e.attribute(Attribute.PREFIX + "fragment").orElse(null);
       if (frag != null && frag.value() == null) {
         sink.error(frag.pos(), "t:fragment needs a name, e.g. t:fragment=\"card(OwnerView owner)\"");

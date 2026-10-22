@@ -74,6 +74,7 @@ class ExpressionParserTest {
           + l.params().stream().map(p -> " " + p.name() + "=" + show(p.value())).collect(Collectors.joining()) + ")";
       case Expr.Interpolation i -> "(interp" + all(i.parts()) + ")";
       case Expr.FragmentExpr f -> "(frag " + show(f.ref()) + ")";
+      default -> throw new IllegalArgumentException("unknown expression " + e);
     };
   }
 
