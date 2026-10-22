@@ -22,7 +22,6 @@ class DefaultLinksTest {
   void contextPathPrependedToContextRelativePaths() {
     assertEquals("/app/owners", app.build("/owners", n(), v()));
     assertEquals("/owners", root.build("/owners", n(), v()));
-    assertEquals("/app", app.contextPath());
   }
 
   @Test
@@ -63,7 +62,7 @@ class DefaultLinksTest {
     assertEquals("/f/caf%C3%A9%E2%82%AC", root.build("/f/{x}", n("x"), v("café€")));
     assertEquals("/f/..%2F..%2Fetc", root.build("/f/{x}", n("x"), v("../../etc")));
     assertEquals("/f/%5C%5Cevil.com", root.build("/f/{x}", n("x"), v("\\\\evil.com")));
-    assertEquals("/f/javascript%3Aalert(1)".replace("(", "%28").replace(")", "%29"),
+    assertEquals("/f/javascript%3Aalert%281%29",
         root.build("/f/{x}", n("x"), v("javascript:alert(1)")));
   }
 

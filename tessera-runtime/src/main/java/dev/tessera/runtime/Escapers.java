@@ -23,8 +23,8 @@ import java.util.function.IntConsumer;
 
 /**
  * Contextual escapers. The compiler picks exactly one of these for every expression output
- * site based on its {@code OutputContext}; templates cannot choose. Every method treats
- * {@code null} as the empty string.
+ * site based on its {@code OutputContext}; templates cannot choose. Every method except
+ * {@link #json} treats {@code null} as the empty string ({@code json} writes {@code null}).
  *
  * <p>Conversion to text: {@code null} becomes {@code ""}; everything else uses
  * {@link String#valueOf(Object)}. Safe types are only honoured where noted.
@@ -72,8 +72,7 @@ public final class Escapers {
       attr(out, trusted.url());
       return;
     }
-    String s = toText(value);
-    attr(out, isAllowedUrl(s) ? s : INVALID_URL);
+    attr(out, checkedUrl(toText(value)));
   }
 
   /**
@@ -88,7 +87,7 @@ public final class Escapers {
     switch (value) {
       case null -> {}
       case TrustedUrl trusted -> attr(out, trusted.url());
-      case String s -> attr(out, isAllowedUrl(s) ? s : INVALID_URL);
+      case String s -> attr(out, checkedUrl(s));
       default ->
           throw new IllegalArgumentException(
               "resource URL must be a TrustedUrl or a link, got " + value.getClass().getName());
@@ -108,8 +107,8 @@ public final class Escapers {
    * Optional, Collection, array and Map with String keys. Escapes {@code <}, {@code >},
    * {@code &}, {@code '}, U+2028 and U+2029 so the value cannot close the script element, and
    * {@code /}, {@code `} and {@code $} so a string cannot leave a JS comment, regex literal or
-   * template literal it was inlined into. Other types
-   * throw IllegalArgumentException (the compiler only allows the types above).
+   * template literal it was inlined into. Other types throw IllegalArgumentException (the
+   * compiler only allows the types above).
    *
    * <p>Numbers are limited to the JDK types ({@code Byte}, {@code Short}, {@code Integer},
    * {@code Long}, {@code Float}, {@code Double}, {@code BigInteger}, {@code BigDecimal}); a
@@ -125,7 +124,7 @@ public final class Escapers {
   // ---------------------------------------------------------------------------------------------
   // HTML
 
-  private static String escapeHtml(String s) {
+  static String escapeHtml(String s) {
     int i = 0;
     int n = s.length();
     while (i < n && !needsHtmlEscape(s, i)) {
@@ -200,6 +199,11 @@ public final class Escapers {
       scheme.append(c);
     }
     return true;
+  }
+
+  /** {@code s} if it {@linkplain #isAllowedUrl passes the scheme check}, else {@link #INVALID_URL}. */
+  private static String checkedUrl(String s) {
+    return isAllowedUrl(s) ? s : INVALID_URL;
   }
 
   private static String asciiLower(CharSequence cs) {
