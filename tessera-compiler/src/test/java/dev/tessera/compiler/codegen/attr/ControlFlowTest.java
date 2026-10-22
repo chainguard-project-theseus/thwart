@@ -210,6 +210,16 @@ class ControlFlowTest {
   }
 
   @Test
+  void eachOverNeverViewSafeElementsIsAnError() {
+    compile(
+            "Threads threads",
+            "<i t:each=\"t : threads\">.</i>",
+            "com.example.Threads",
+            "package com.example; @dev.tessera.runtime.TemplateView public class Threads extends java.util.ArrayList<Thread> {}")
+        .assertError("page.html:1:", "never view-safe");
+  }
+
+  @Test
   void eachSyntaxErrorIsReported() {
     compile("List<String> items", "<i t:each=\"items\">.</i>").assertError("page.html:1:", "':'");
   }
