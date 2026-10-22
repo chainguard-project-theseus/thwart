@@ -149,7 +149,8 @@ class GuideExamplesTest {
   void forms() throws Exception {
     Object address = compilation.newInstance("com.example.guide.Address", "Main St");
     Object[] plans = compilation.classLoader().loadClass("com.example.guide.Plan").getEnumConstants();
-    Object signup = compilation.newInstance("com.example.guide.Signup", "a@example.com", plans[1], true, address);
+    Object pro = compilation.enumConstant("com.example.guide.Plan", "PRO");
+    Object signup = compilation.newInstance("com.example.guide.Signup", "a@example.com", pro, true, address);
     String profile = render("guide/profile", Map.of("signup", signup));
     assertTrue(profile.contains("<label for=\"email\">Email</label>"), profile);
     assertTrue(profile.contains("id=\"email\" name=\"email\" value=\"a@example.com\""), profile);

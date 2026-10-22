@@ -114,6 +114,15 @@ public final class Compilation {
     }
   }
 
+  /** A render model from alternating keys and values; insertion-ordered, null values allowed. */
+  public static Map<String, Object> model(Object... kv) {
+    Map<String, Object> m = new LinkedHashMap<>();
+    for (int i = 0; i < kv.length; i += 2) {
+      m.put((String) kv[i], kv[i + 1]);
+    }
+    return m;
+  }
+
   public static final class Builder {
     private final Map<String, String> templates = new LinkedHashMap<>();
     private final Map<String, String> javaSources = new LinkedHashMap<>();
@@ -317,6 +326,21 @@ public final class Compilation {
     } catch (ReflectiveOperationException e) {
       throw new AssertionError(e);
     }
+  }
+
+  /** The constant {@code name} of compiled test enum {@code qualifiedName} (test code only). */
+  public Object enumConstant(String qualifiedName, String name) {
+    try {
+      Class<?> cls = loader.loadClass(qualifiedName);
+      for (Object o : cls.getEnumConstants()) {
+        if (((Enum<?>) o).name().equals(name)) {
+          return o;
+        }
+      }
+    } catch (ClassNotFoundException e) {
+      throw new AssertionError(e);
+    }
+    throw new AssertionError("no constant " + name + " on " + qualifiedName);
   }
 
   private static void deleteRecursively(Path dir) {
