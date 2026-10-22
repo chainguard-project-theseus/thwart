@@ -206,6 +206,23 @@ class ControlFlowTest {
     assertEquals("", render(c, model()));
   }
 
+  /** Generated code names every local's type (no {@code var}, #154), even entries of a wildcard map. */
+  @Test
+  void eachOverWildcardMapAndList() {
+    Map<String, Integer> m = new LinkedHashMap<>();
+    m.put("a", 1);
+    Compilation c =
+        compile(
+            "Holder h",
+            "<i t:each=\"e : h.m\"><b t:if=\"e.key == 'a' and e.value == 1\">a1</b></i>"
+                + "<i t:each=\"n : h.l\" t:with=\"x=${n}\"><b t:if=\"x == 2\">two</b></i>",
+            "com.example.Holder",
+            "package com.example; public record Holder(java.util.Map<String, ? extends Integer> m,"
+                + " java.util.List<? extends Integer> l) {}");
+    Object h = c.assertSuccess().newInstance("com.example.Holder", m, List.of(2));
+    assertEquals("<i><b>a1</b></i><i><b>two</b></i>", render(c, model("h", h)));
+  }
+
   private static final String STATUS =
       "<b t:if=\"%1$s.index == %1$s.count - 1\">c</b><b t:if=\"%1$s.size == 3\">3</b>"
           + "<b t:if=\"%1$s.first\">F</b><b t:if=\"%1$s.last\">L</b>"

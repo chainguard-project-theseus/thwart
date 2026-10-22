@@ -39,6 +39,31 @@
           <proc>none</proc>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <executions>
+          <!-- Generated code must compile for the Java 8 floor (#154): run the template tests again
+               with the Compilation harness at javac release 8. Excluded: tests whose own Java snippets
+               need Java 9+ (types) or that assert record-accessor code text. -->
+          <execution>
+            <id>release-8</id>
+            <goals>
+              <goal>test</goal>
+            </goals>
+            <configuration>
+              <systemPropertyVariables>
+                <tessera.test.release>8</tessera.test.release>
+              </systemPropertyVariables>
+              <excludes>
+                <exclude>dev/tessera/compiler/types/**</exclude>
+                <exclude>dev/tessera/compiler/testing/CompilationTest.java</exclude>
+                <exclude>dev/tessera/compiler/links/LinkCompilerTest.java</exclude>
+              </excludes>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 </project>

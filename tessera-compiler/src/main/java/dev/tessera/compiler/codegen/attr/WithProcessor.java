@@ -51,10 +51,9 @@ public final class WithProcessor implements AttributeProcessor {
     plan.scope(scope);
   }
 
-  /** {@code final var name = code;} (a {@code null} literal has no {@code var} type). */
+  /** {@code final T name = code;} with the expression's type spelled out (no {@code var}: Java 8). */
   static String declaration(CompiledExpr value, String javaName) {
-    String type = value.type().getKind() == TypeKind.NULL ? sourceType(value.type()) : "var";
-    return "final " + type + " " + javaName + " = " + value.code() + "; ";
+    return "final " + sourceType(value.type()) + " " + javaName + " = " + value.code() + "; ";
   }
 
   /** The Java source type of a local of type {@code t}: javac's null type is written {@code java.lang.Object}. */

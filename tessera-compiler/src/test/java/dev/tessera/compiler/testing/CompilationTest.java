@@ -35,6 +35,31 @@ class CompilationTest {
   }
 
   @Test
+  void release8EmitsJava8ClassFilesAndRewritesRecords() {
+    Compilation c =
+        Compilation.builder()
+            .release(8)
+            .java("com.example.User", "package com.example; public record User(String name) {}")
+            .template("hello.html", "<p t:params=\"com.example.User user\" t:text=\"user.name\">x</p>")
+            .compile()
+            .assertSuccess();
+    assertEquals("<p>Ann</p>", c.render("hello", Compilation.model("user", c.newInstance("com.example.User", "Ann"))));
+    for (String cls : new String[] {"tessera.generated.HelloTemplate", "tessera.generated.TesseraRegistry"}) {
+      byte[] b = c.classFile(cls);
+      assertEquals(52, ((b[6] & 0xff) << 8) | (b[7] & 0xff), cls);
+    }
+  }
+
+  @Test
+  void release8RejectsPostJava8Apis() {
+    Compilation.builder()
+        .release(8)
+        .java("com.example.Bad", "package com.example; class Bad { Object x = java.util.List.of(); }")
+        .compile()
+        .assertError("cannot find symbol");
+  }
+
+  @Test
   void reportsJavaErrors() {
     Compilation.builder()
         .java("com.example.Bad", "package com.example; class Bad { int x = \"s\"; }")

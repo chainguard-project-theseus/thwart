@@ -129,6 +129,7 @@ public final class Compilation {
     private final Map<String, String> options = new LinkedHashMap<>();
     private String messages;
     private boolean templatesOption = true;
+    private Integer release = Integer.getInteger("tessera.test.release");
     private Consumer<ProcessingEnvironment> callback;
 
     /** Adds a template at {@code path} relative to the templates root, e.g. {@code owners/list.html}. */
@@ -152,6 +153,17 @@ public final class Compilation {
     /** Sets a javac {@code -A} option (e.g. {@code tessera.package}). */
     public Builder option(String key, String value) {
       options.put(key, value);
+      return this;
+    }
+
+    /**
+     * Compiles with {@code javac --release <release>}, e.g. 8 to check that generated code runs on
+     * the Java 8 floor (#154). Below 16, records in {@link #java} sources are rewritten to the
+     * equivalent {@code @TemplateView} getter classes ({@link Java8Records}). Default: the
+     * {@code tessera.test.release} system property, else the test JVM's own level.
+     */
+    public Builder release(int release) {
+      this.release = release;
       return this;
     }
 
@@ -185,6 +197,11 @@ public final class Compilation {
         args.add("-classpath");
         args.add(System.getProperty("java.class.path"));
         args.add("-proc:full");
+        if (release != null) {
+          args.add("--release");
+          args.add(release.toString());
+          args.add("-Xlint:-options"); // javac 21+ warns that --release 8 is obsolete
+        }
         if (templatesOption) {
           args.add("-A" + ProcessorOptions.TEMPLATES + "=" + root.toAbsolutePath());
         }
@@ -196,7 +213,9 @@ public final class Compilation {
         options.forEach((k, v) -> args.add("-A" + k + "=" + v));
 
         List<JavaFileObject> units = new ArrayList<>();
-        javaSources.forEach((name, src) -> units.add(new SourceFile(name, src)));
+        boolean noRecords = release != null && release < 16;
+        javaSources.forEach(
+            (name, src) -> units.add(new SourceFile(name, noRecords ? Java8Records.desugar(src) : src)));
         if (units.isEmpty()) {
           // javac only runs processors when it has something to compile.
           units.add(new SourceFile("tessera.test.Placeholder", "package tessera.test; class Placeholder {}"));
@@ -278,6 +297,11 @@ public final class Compilation {
   /** Generated Java source for {@code qualifiedName}, or null. */
   public String generatedSource(String qualifiedName) {
     return files.generatedSource(qualifiedName);
+  }
+
+  /** Class file bytes javac wrote for {@code qualifiedName} (generated or test source), or null. */
+  public byte[] classFile(String qualifiedName) {
+    return files.classBytes(qualifiedName);
   }
 
   /** Generated resource (e.g. the services file), or null. */

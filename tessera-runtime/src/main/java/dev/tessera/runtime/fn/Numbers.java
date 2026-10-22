@@ -51,9 +51,10 @@ public final class Numbers {
     if (n == null) {
       return null;
     }
-    if (!(n instanceof Number number)) {
+    if (!(n instanceof Number)) {
       throw new IllegalArgumentException("not a number: " + n.getClass().getName());
     }
+    Number number = (Number) n;
     DecimalFormat format = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ROOT));
     format.setGroupingUsed(false);
     format.setMinimumIntegerDigits(minIntDigits);
@@ -64,11 +65,12 @@ public final class Numbers {
   }
 
   private static BigDecimal toBigDecimal(Number n) {
-    return switch (n) {
-      case BigDecimal b -> b;
-      case Double d when d.isNaN() || d.isInfinite() -> throw new IllegalArgumentException("not finite: " + d);
-      case Float f when f.isNaN() || f.isInfinite() -> throw new IllegalArgumentException("not finite: " + f);
-      default -> new BigDecimal(n.toString());
-    };
+    if (n instanceof BigDecimal) {
+      return (BigDecimal) n;
+    }
+    if ((n instanceof Double || n instanceof Float) && !Double.isFinite(n.doubleValue())) {
+      throw new IllegalArgumentException("not finite: " + n);
+    }
+    return new BigDecimal(n.toString());
   }
 }

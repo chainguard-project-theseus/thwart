@@ -2,6 +2,8 @@ package dev.tessera.runtime;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.function.Function;
 
 /**
@@ -19,6 +21,30 @@ public final class Values {
   /** {@code value ?: fallback}. */
   public static <T> T elvis(T value, T fallback) {
     return value != null ? value : fallback;
+  }
+
+  /**
+   * {@code list.first}: the first element (Java 21's {@code List.getFirst}).
+   *
+   * @throws java.util.NoSuchElementException if the list is empty
+   */
+  public static <T> T first(List<T> list) {
+    if (list.isEmpty()) {
+      throw new NoSuchElementException();
+    }
+    return list.get(0);
+  }
+
+  /**
+   * {@code list.last}: the last element (Java 21's {@code List.getLast}).
+   *
+   * @throws java.util.NoSuchElementException if the list is empty
+   */
+  public static <T> T last(List<T> list) {
+    if (list.isEmpty()) {
+      throw new NoSuchElementException();
+    }
+    return list.get(list.size() - 1);
   }
 
   /** The constant name of {@code value}, or null. Used for {@code status == 'ACTIVE'}. */
@@ -53,11 +79,11 @@ public final class Values {
   }
 
   private static BigDecimal toBigDecimal(Number n) {
-    if (n instanceof BigDecimal d) {
-      return d;
+    if (n instanceof BigDecimal) {
+      return (BigDecimal) n;
     }
-    if (n instanceof BigInteger i) {
-      return new BigDecimal(i);
+    if (n instanceof BigInteger) {
+      return new BigDecimal((BigInteger) n);
     }
     if (isIntegral(n)) {
       return BigDecimal.valueOf(n.longValue());

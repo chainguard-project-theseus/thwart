@@ -84,9 +84,11 @@ but inside `|...|` and `+` a `null` prints `null`.
 
 ## 2. Build setup
 
-Tessera needs JDK 21+ and Maven. Its jars are Java 21 class files, so the application must
-compile with `release` 21, which breaks old plugins that read class files (JaCoCo before 0.8.11,
-for example).
+The build needs JDK 21+ and Maven: the annotation processor (`tessera-compiler`) runs inside the
+application's javac. The application itself can run on Java 8+: `tessera-runtime` is Java 8 class
+files and the generated template code compiles with `release` 8. On Java 8 there are no records,
+so give the model classes `getX()` getters and `@TemplateView`. The Spring starter is Java 21
+(below).
 
 The Spring integration, `tessera-spring-boot-starter`, is built against **Spring Boot 4.1 (Spring
 Framework 7)** and depends on Boot 4's `spring-boot-webmvc`. Boot 3 is not supported yet (#116),
