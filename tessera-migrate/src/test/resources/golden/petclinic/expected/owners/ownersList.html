@@ -25,7 +25,7 @@
         <td t:text="owner.address" />
         <td t:text="owner.city" />
         <td t:text="owner.telephone" />
-        <td><span t:text="strings.listJoin(owner.pets, ', ')" /></td>
+        <td><span t:text="strings.join(owner.pets, ', ')" /></td>
       </tr>
     </tbody>
   </table>
@@ -33,7 +33,7 @@
     <span>Pages:</span>
     <span>[</span>
     <span t:each="i: numbers.sequence(1, totalPages)">
-      <a t:if="currentPage != i" t:href="@{'/owners?page=' + ${i}}">[[${i}]]</a>
+      <a t:if="currentPage != i" t:href="@{/owners(page=i)}">[[${i}]]</a>
       <span t:unless="currentPage != i">[[${i}]]</span>
     </span>
     <span>]&nbsp;</span>

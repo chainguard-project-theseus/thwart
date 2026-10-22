@@ -1,13 +1,13 @@
 # tessera-migrate report
 
-Converted 7 template(s); 27 item(s) need manual attention.
+Converted 7 template(s); 26 item(s) need manual attention.
 
 ## fragments/inputField.html
 
 - `fragments/inputField.html:3`: fragment `input` parameters declared as `Object` (`label`, `name`, `type`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`)
-- `fragments/inputField.html:10`: `__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field
-- `fragments/inputField.html:11`: `__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field
-- `fragments/inputField.html:16`: `__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field
+- `fragments/inputField.html:10`: dynamic form-field path `*{__...__}` is not supported (preprocessing); inline one element per field (a typed alternative is tracked in #43)
+- `fragments/inputField.html:11`: dynamic form-field path `*{__...__}` is not supported (preprocessing); inline one element per field (a typed alternative is tracked in #43)
+- `fragments/inputField.html:16`: dynamic form-field path `*{__...__}` is not supported (preprocessing); inline one element per field (a typed alternative is tracked in #43)
 
 ## fragments/layout.html
 
@@ -45,4 +45,3 @@ Converted 7 template(s); 27 item(s) need manual attention.
 - `owners/ownersList.html:3`: `totalPages` is declared as `Object` in the generated `t:params` stub; replace it with its view type
 - `owners/ownersList.html:3`: `currentPage` is declared as `Object` in the generated `t:params` stub; replace it with its view type
 - `owners/ownersList.html:23`: `__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field
-- `owners/ownersList.html:36`: link with a non-literal path; Tessera links take a literal path with placeholders, e.g. `@{/owners(page=p)}` or `@{/owners/{id}(id=x)}`
