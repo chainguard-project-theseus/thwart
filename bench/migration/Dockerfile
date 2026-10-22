@@ -30,5 +30,6 @@ COPY --from=tessera /m2/dev/tessera/tessera-migrate/0.1.0-SNAPSHOT/tessera-migra
 ENV JAVA_HOME=/usr/lib/jvm/default-jvm \
     LANG=C.UTF-8 \
     MAVEN_ARGS="-Daether.syncContext.named.factory=file-lock -Daether.syncContext.named.nameMapper=file-gav"
+COPY bench/migration/lib/run-agent.sh /usr/local/bin/run-agent
 USER bench
 WORKDIR /work
