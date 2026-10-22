@@ -27,7 +27,7 @@ One Maven reactor, `groupId dev.tessera`, `--release 21`, JUnit 5.
 
 | Module | Packages | Contents | Deps |
 |---|---|---|---|
-| `tessera-runtime` | `dev.tessera.runtime` | `Template`, `RenderContext`, `Output`, `Escapers`, `SafeHtml`, `TrustedUrl`, `Messages`, `Links`/`DefaultLinks`/`UrlEncoding`, `Forms`, `Fragment`, `LoopStatus`, `Conditions`, `TemplateRegistry`/`TemplateEntry`, annotations | none |
+| `tessera-runtime` | `dev.tessera.runtime` | `Template`, `RenderContext`, `Output`, `Escapers`, `SafeHtml`, `TrustedUrl`, `Messages`, `Links`/`DefaultLinks`/`UrlEncoding`, `Forms`, `Fragment`, `LoopStatus`, `Conditions`, `Values`, `TemplateRegistry`/`TemplateEntry`, annotations | none |
 | | `dev.tessera.runtime.fn` | built-in function namespaces | |
 | `tessera-compiler` | `dev.tessera.compiler` | pipeline (`TemplateCompiler`), `Diagnostic`, `SourcePos`, `CompilerEnv` | runtime, attoparser |
 | | `.model` | template node model, `OutputContext` | |
@@ -155,7 +155,7 @@ view-safe types, `LoopStatus`, `SafeHtml`, `TrustedUrl`, `Fragment` (params only
 **Never view-safe** (even if annotated or registered; checked on params, every intermediate result,
 function signatures): `Object` and its methods (`getClass`, `hashCode`, `wait`, ...), `Class`,
 `ClassLoader`, `java.lang.reflect.*`, `java.lang.invoke.*`, `Thread`, `ThreadGroup`, `Runtime`,
-`Process`, `ProcessBuilder`, `System`, `java.io.File`, `java.nio.file.*`, `javax.script.*`,
+`Process`, `ProcessBuilder`, `ProcessHandle`, `System`, `SecurityManager`, `Module`, `ModuleLayer`, `java.io.File`, `java.nio.file.*`, `javax.script.*`,
 `jakarta.servlet.*`, `javax.servlet.*`, Spring `context`, `beans`, `core.env`, `core.io`,
 `web.context`, `expression` packages. The list is in `ViewSafety`. `Object` is allowed only as a
 `@TemplateFunction` parameter type (input only).
