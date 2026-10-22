@@ -259,6 +259,8 @@ public final class Escapers {
       case float[] a -> writeArray(sb, a.length, i -> writeDouble(sb, a[i], Float.toString(a[i])));
       case double[] a -> writeArray(sb, a.length, i -> writeDouble(sb, a[i], Double.toString(a[i])));
       case char[] a -> writeJsonString(sb, new String(a));
+      // The java.time cases below must match TextInlining.JSON_TIME in tessera-compiler, which
+      // decides at build time which types may be inlined into <script>.
       case Instant v -> writeJsonString(sb, v.toString());
       case LocalDate v -> writeJsonString(sb, v.toString());
       case LocalTime v -> writeJsonString(sb, v.toString());
