@@ -1,12 +1,11 @@
-package dev.tessera.compiler.messages;
+package dev.tessera.compiler.testing;
 
-import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.Diagnostic;
 import dev.tessera.compiler.Diagnostics;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.ExpressionParser;
-import dev.tessera.compiler.testing.Compilation;
+import dev.tessera.compiler.messages.MessageBundle;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.types.Scope;
@@ -21,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
@@ -64,50 +64,50 @@ public final class ExprRunner {
     public List<String> warnings() {
       return diagnostics.stream().filter(d -> d.contains(": warning: ")).toList();
     }
+
+    /** Asserts that no code was emitted and one error contains every one of {@code fragments}. */
+    public void assertError(String... fragments) {
+      if (code != null) {
+        throw new AssertionError("expected an error, got code " + code);
+      }
+      if (errors().stream().noneMatch(e -> Stream.of(fragments).allMatch(e::contains))) {
+        throw new AssertionError(
+            "no error containing " + List.of(fragments) + "; diagnostics:\n" + String.join("\n", diagnostics));
+      }
+    }
   }
 
   /** Compiles each expression (all as if in template {@code t.html}) and returns one result each. */
   public List<Result> compileAll(String... expressions) {
-    MessageBundle messages = bundle == null ? MessageBundle.unchecked() : loadBundle();
+    MessageBundle messages = bundle == null ? MessageBundle.unchecked() : loadBundle(bundle);
     AtomicReference<List<Result>> out = new AtomicReference<>();
-    AtomicReference<RuntimeException> failure = new AtomicReference<>();
     Compilation.Builder b = Compilation.builder();
     java.forEach(b::java);
     b.inProcessor(
             pe -> {
-              try {
-                Diagnostics diagnostics = new Diagnostics();
-                CompilerEnv env =
-                    new CompilerEnv(
-                        pe.getElementUtils(), pe.getTypeUtils(), diagnostics, CompilerEnv.DEFAULT_PACKAGE, messages, List.of());
-                ExpressionCompiler compiler = new ExpressionCompiler(env);
-                Scope scope = Scope.empty();
-                for (String[] v : vars) {
-                  TypeMirror t =
-                      v[1].equals("int")
-                          ? pe.getTypeUtils().getPrimitiveType(TypeKind.INT)
-                          : pe.getTypeUtils().erasure(pe.getElementUtils().getTypeElement(v[1]).asType());
-                  scope = scope.with(new Variable(v[0], t, v[0]));
-                }
-                List<Result> results = new ArrayList<>();
-                for (String text : expressions) {
-                  int before = diagnostics.all().size();
-                  Expr e = new ExpressionParser().parseExpression(text, new SourcePos("t.html", 1, 1), diagnostics);
-                  CompiledExpr c = e == null ? null : compiler.compile(e, scope);
-                  List<String> ds =
-                      diagnostics.all().subList(before, diagnostics.all().size()).stream().map(Diagnostic::toString).toList();
-                  results.add(new Result(c == null ? null : c.code(), ds));
-                }
-                out.set(results);
-              } catch (RuntimeException ex) {
-                failure.set(ex);
+              Diagnostics diagnostics = new Diagnostics();
+              ExpressionCompiler compiler = new ExpressionCompiler(Compilation.env(pe, diagnostics, messages, List.of()));
+              Scope scope = Scope.empty();
+              for (String[] v : vars) {
+                TypeMirror t =
+                    v[1].equals("int")
+                        ? pe.getTypeUtils().getPrimitiveType(TypeKind.INT)
+                        : pe.getTypeUtils().erasure(pe.getElementUtils().getTypeElement(v[1]).asType());
+                scope = scope.with(new Variable(v[0], t, v[0]));
               }
+              List<Result> results = new ArrayList<>();
+              for (String text : expressions) {
+                int before = diagnostics.all().size();
+                Expr e = new ExpressionParser().parseExpression(text, new SourcePos("t.html", 1, 1), diagnostics);
+                CompiledExpr c = e == null ? null : compiler.compile(e, scope);
+                List<String> ds =
+                    diagnostics.all().subList(before, diagnostics.all().size()).stream().map(Diagnostic::toString).toList();
+                results.add(new Result(c == null ? null : c.code(), ds));
+              }
+              out.set(results);
             })
         .compile()
         .assertSuccess();
-    if (failure.get() != null) {
-      throw failure.get();
-    }
     return out.get();
   }
 
@@ -121,35 +121,27 @@ public final class ExprRunner {
     if (r.code() == null) {
       throw new AssertionError("expression did not compile: " + r.diagnostics());
     }
-    StringBuilder src =
-        new StringBuilder("package tessera.eval; public final class Eval { public static Object run() {\n");
-    src.append("dev.tessera.runtime.RenderContext ctx = ").append(ctxInit).append(";\n");
+    StringBuilder body = new StringBuilder();
+    body.append("dev.tessera.runtime.RenderContext ctx = ").append(ctxInit).append(";\n");
     for (String[] v : vars) {
-      src.append(v[1]).append(' ').append(v[0]).append(" = ").append(v[2]).append(";\n");
+      body.append(v[1]).append(' ').append(v[0]).append(" = ").append(v[2]).append(";\n");
     }
-    src.append("String r$ = ").append(r.code()).append(";\nreturn r$; } }");
-    Compilation.Builder b = Compilation.builder();
-    java.forEach(b::java);
-    Compilation c = b.java("tessera.eval.Eval", src.toString()).compile();
-    if (!c.success()) {
-      throw new AssertionError("generated code does not compile:\n" + src + "\n" + c.errors());
-    }
-    try {
-      return c.classLoader().loadClass("tessera.eval.Eval").getMethod("run").invoke(null);
-    } catch (ReflectiveOperationException ex) {
-      throw new AssertionError(ex);
-    }
+    body.append("String r$ = ").append(r.code()).append(";\nreturn r$;");
+    return Compilation.evalRun(java, body.toString());
   }
 
-  private MessageBundle loadBundle() {
+  /** Loads a checked {@link MessageBundle} from these {@code .properties} contents via a temp file. */
+  public static MessageBundle loadBundle(String properties) {
     try {
       Path dir = Files.createTempDirectory("tessera-bundle");
       Path base = dir.resolve("messages");
-      Files.writeString(MessageBundle.file(base), bundle, StandardCharsets.UTF_8);
-      MessageBundle m = MessageBundle.load(base);
-      Files.delete(MessageBundle.file(base));
-      Files.delete(dir);
-      return m;
+      Files.writeString(MessageBundle.file(base), properties, StandardCharsets.UTF_8);
+      try {
+        return MessageBundle.load(base);
+      } finally {
+        Files.delete(MessageBundle.file(base));
+        Files.delete(dir);
+      }
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }

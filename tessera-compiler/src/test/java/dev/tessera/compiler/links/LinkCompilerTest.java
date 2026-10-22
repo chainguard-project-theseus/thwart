@@ -1,11 +1,8 @@
 package dev.tessera.compiler.links;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.tessera.compiler.messages.ExprRunner;
-import dev.tessera.compiler.messages.ExprRunner.Result;
+import dev.tessera.compiler.testing.ExprRunner;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -22,12 +19,6 @@ class LinkCompilerTest {
         .java("com.example.Owner", OWNER)
         .var("o", "com.example.Owner", "new com.example.Owner(" + id + ", 7, null)")
         .var("term", "java.lang.String", term);
-  }
-
-  private static void assertError(Result r, String... fragments) {
-    assertNull(r.code(), "expected an error, got " + r.code());
-    boolean found = r.errors().stream().anyMatch(e -> List.of(fragments).stream().allMatch(e::contains));
-    assertTrue(found, "no error containing " + List.of(fragments) + " in " + r.diagnostics());
   }
 
   // ------------------------------------------------------------- positive
@@ -78,13 +69,13 @@ class LinkCompilerTest {
 
   @Test
   void placeholderWithoutParameterIsAnError() {
-    assertError(owners("\"1\"", "null").compile("@{/owners/{id}/pets/{petId}(id=o.id)}"), "t.html:1:1", "{petId}", "no parameter");
-    assertError(owners("\"1\"", "null").compile("@{/owners/{id}}"), "{id}");
+    owners("\"1\"", "null").compile("@{/owners/{id}/pets/{petId}(id=o.id)}").assertError("t.html:1:1", "{petId}", "no parameter");
+    owners("\"1\"", "null").compile("@{/owners/{id}}").assertError("{id}");
   }
 
   @Test
   void duplicateParameterIsAnError() {
-    assertError(owners("\"1\"", "null").compile("@{/owners(q=term, q=o.id)}"), "duplicate link parameter 'q'");
+    owners("\"1\"", "null").compile("@{/owners(q=term, q=o.id)}").assertError("duplicate link parameter 'q'");
   }
 
   @Test
@@ -100,31 +91,31 @@ class LinkCompilerTest {
             "@{mailto:a@b.c}",
             "@{file:///etc/passwd}",
             "@{ftp://x.org}")) {
-      assertError(r.compile(bad), "only http and https");
+      r.compile(bad).assertError("only http and https");
     }
   }
 
   @Test
   void pathVariableInSchemeOrHostIsAnError() {
     ExprRunner r = owners("\"1\"", "null");
-    assertError(r.compile("@{{id}:alert(id=o.id)}"), "only http and https");
-    assertError(r.compile("@{https://{id}/x(id=o.id)}"), "host");
-    assertError(r.compile("@{//{id}.example.com/x(id=o.id)}"), "host");
-    assertError(r.compile("@{/\\{id}/x(id=o.id)}"), "host");
+    r.compile("@{{id}:alert(id=o.id)}").assertError("only http and https");
+    r.compile("@{https://{id}/x(id=o.id)}").assertError("host");
+    r.compile("@{//{id}.example.com/x(id=o.id)}").assertError("host");
+    r.compile("@{/\\{id}/x(id=o.id)}").assertError("host");
     // Browsers resolve https:host/x and https:/host/x like https://host/x.
-    assertError(r.compile("@{https:{id}/x(id=o.id)}"), "host");
-    assertError(r.compile("@{HTTP:/{id}/x(id=o.id)}"), "host");
+    r.compile("@{https:{id}/x(id=o.id)}").assertError("host");
+    r.compile("@{HTTP:/{id}/x(id=o.id)}").assertError("host");
     assertEquals(List.of(), r.compile("@{https://x.org/{id}(id=o.id)}").diagnostics());
   }
 
   @Test
   void parameterValueMustBeViewSafe() {
-    assertError(owners("\"1\"", "null").compile("@{/x(s=o.secret)}"), "java.lang.Object");
+    owners("\"1\"", "null").compile("@{/x(s=o.secret)}").assertError("java.lang.Object");
   }
 
   @Test
   void parameterValueErrorsAreReported() {
-    assertError(owners("\"1\"", "null").compile("@{/x(s=o.nope)}"), "nope");
+    owners("\"1\"", "null").compile("@{/x(s=o.nope)}").assertError("nope");
   }
 
   @Test
