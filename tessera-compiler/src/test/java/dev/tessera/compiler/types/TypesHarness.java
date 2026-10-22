@@ -8,7 +8,6 @@ import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.TypeRef;
 import dev.tessera.compiler.messages.MessageBundle;
 import dev.tessera.compiler.testing.Compilation;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,6 +15,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
@@ -173,9 +173,7 @@ final class TypesHarness {
     Fixture(ProcessingEnvironment pe, List<String> namespaces) {
       this.pe = pe;
       List<TypeElement> ns = namespaces.stream().map(n -> pe.getElementUtils().getTypeElement(n)).toList();
-      this.env =
-          new CompilerEnv(
-              pe.getElementUtils(), pe.getTypeUtils(), diagnostics, CompilerEnv.DEFAULT_PACKAGE, MessageBundle.unchecked(), ns);
+      this.env = Compilation.env(pe, diagnostics, MessageBundle.unchecked(), ns);
     }
 
     ExpressionCompiler compiler() {
@@ -264,33 +262,33 @@ final class TypesHarness {
 
   /** Runs {@code body} inside javac; assertion failures inside are rethrown here. */
   void run(Consumer<Fixture> body) {
-    AtomicReference<Throwable> failure = new AtomicReference<>();
     Compilation.Builder b = Compilation.builder();
     java.forEach(b::java);
     b.inProcessor(
             pe -> {
-              try {
-                Fixture f = new Fixture(pe, namespaces);
-                for (String[] l : locals) {
-                  f.var(l[0], l[1]);
-                }
-                body.accept(f);
-              } catch (Throwable t) {
-                failure.set(t);
+              Fixture f = new Fixture(pe, namespaces);
+              for (String[] l : locals) {
+                f.var(l[0], l[1]);
               }
+              body.accept(f);
             })
         .compile()
         .assertSuccess();
-    if (failure.get() instanceof RuntimeException e) {
-      throw e;
-    }
-    if (failure.get() instanceof Error e) {
-      throw e;
-    }
   }
 
   /** Result of compiling one expression in the first pass. */
-  record Result(String code, String type, List<String> errors) {}
+  record Result(String code, String type, List<String> errors) {
+    /** Asserts that no code was emitted and one error contains every one of {@code fragments}. */
+    void assertError(String... fragments) {
+      if (code != null) {
+        throw new AssertionError("expected an error, got code " + code);
+      }
+      if (errors.stream().noneMatch(e -> Stream.of(fragments).allMatch(e::contains))) {
+        throw new AssertionError(
+            "no error containing " + List.of(fragments) + "; errors:\n" + String.join("\n", errors));
+      }
+    }
+  }
 
   Result compile(Expr e) {
     return compile(f -> f.compile(e));
@@ -320,22 +318,11 @@ final class TypesHarness {
   }
 
   Object evalCode(Result r) {
-    StringBuilder src = new StringBuilder("package tessera.eval; public final class Eval { public static Object run() {\n");
+    StringBuilder body = new StringBuilder();
     for (String[] l : locals) {
-      src.append(l[1]).append(' ').append(l[0]).append(" = ").append(l[2]).append(";\n");
+      body.append(l[1]).append(' ').append(l[0]).append(" = ").append(l[2]).append(";\n");
     }
-    src.append(r.type()).append(" r$ = ").append(r.code()).append(";\nreturn r$; } }");
-    Compilation.Builder b = Compilation.builder();
-    java.forEach(b::java);
-    Compilation c = b.java("tessera.eval.Eval", src.toString()).compile();
-    if (!c.success()) {
-      throw new AssertionError("generated code does not compile:\n" + src + "\n" + c.errors());
-    }
-    try {
-      Method m = c.classLoader().loadClass("tessera.eval.Eval").getMethod("run");
-      return m.invoke(null);
-    } catch (ReflectiveOperationException ex) {
-      throw new AssertionError(ex);
-    }
+    body.append(r.type()).append(" r$ = ").append(r.code()).append(";\nreturn r$;");
+    return Compilation.evalRun(java, body.toString());
   }
 }

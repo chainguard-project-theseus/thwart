@@ -7,10 +7,8 @@ import static dev.tessera.compiler.types.TypesHarness.lit;
 import static dev.tessera.compiler.types.TypesHarness.prop;
 import static dev.tessera.compiler.types.TypesHarness.v;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.tessera.compiler.types.TypesHarness.Result;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -47,12 +45,6 @@ class FunctionRegistryTest {
         .local("s", "java.lang.String", "\"ann\"");
   }
 
-  private static void assertError(Result r, String... fragments) {
-    assertNull(r.code(), "expected an error, got " + r.code());
-    boolean found = r.errors().stream().anyMatch(e -> List.of(fragments).stream().allMatch(e::contains));
-    assertTrue(found, "no error containing " + List.of(fragments) + " in " + r.errors());
-  }
-
   @Test
   void callsRegisteredFunctions() {
     TypesHarness h = fmt();
@@ -74,17 +66,17 @@ class FunctionRegistryTest {
     assertEquals("long", h.eval(fn("fmt", "twice", lit(1L))));
     assertEquals("Integer", h.eval(fn("fmt", "twice", v("boxed"))));
     assertEquals("long", h.eval(fn("fmt", "twice", v("n"))));
-    assertError(h.compile(fn("fmt", "upper", lit(1))), "no single applicable fmt.upper for arguments (int)");
+    h.compile(fn("fmt", "upper", lit(1))).assertError("no single applicable fmt.upper for arguments (int)");
   }
 
   @Test
   void unknownFunctionsAndNamespaces() {
     TypesHarness h = fmt();
-    assertError(h.compile(fn("fmt", "notAnnotated", lit("x"))), "unknown function fmt.notAnnotated", "@TemplateFunction");
-    assertError(h.compile(call(v("fmt"), "nope")), "unknown function fmt.nope");
-    assertError(h.compile(fn("nope", "f")), "unknown function namespace 'nope'");
-    assertError(h.compile(prop(v("fmt"), "upper")), "'fmt.upper' is a function");
-    assertError(h.compile(v("fmt")), "'fmt' is a function namespace");
+    h.compile(fn("fmt", "notAnnotated", lit("x"))).assertError("unknown function fmt.notAnnotated", "@TemplateFunction");
+    h.compile(call(v("fmt"), "nope")).assertError("unknown function fmt.nope");
+    h.compile(fn("nope", "f")).assertError("unknown function namespace 'nope'");
+    h.compile(prop(v("fmt"), "upper")).assertError("'fmt.upper' is a function");
+    h.compile(v("fmt")).assertError("'fmt' is a function namespace");
   }
 
   @Test
@@ -133,8 +125,8 @@ class FunctionRegistryTest {
           assertTrue(all.contains("com.example.Bad.generic returns T"), all);
           assertEquals(6, f.errors().size(), all);
         });
-    assertError(h.compile(fn("bad", "inst")), "unknown function bad.inst");
-    assertError(h.compile(fn("bad", "obj")), "unknown function bad.obj");
+    h.compile(fn("bad", "inst")).assertError("unknown function bad.inst");
+    h.compile(fn("bad", "obj")).assertError("unknown function bad.obj");
     assertEquals("ok", h.eval(fn("bad", "ok", lit("x"), lit(null))));
   }
 
