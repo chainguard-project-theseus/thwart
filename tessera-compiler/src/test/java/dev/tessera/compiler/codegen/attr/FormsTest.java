@@ -274,6 +274,16 @@ class FormsTest {
   }
 
   @Test
+  void errorsInScriptOrStyleIsRejected() {
+    // Error text (which can echo user input) would otherwise run as live JavaScript or CSS.
+    compile(HEAD + "><script t:errors=\"*\"></script></form>", false)
+        .assertError(
+            "form.html:1:", "t:errors is only allowed on elements whose content is HTML text, not <script> or <style>");
+    compile(HEAD + "><style t:errors=\"*{firstName}\"></style></form>", false)
+        .assertError("t:errors is only allowed on elements whose content is HTML text, not <script> or <style>");
+  }
+
+  @Test
   void errorClassAppendsWhenFieldHasErrors() {
     Compilation c =
         compile(
