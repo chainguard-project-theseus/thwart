@@ -1,9 +1,9 @@
 package dev.tessera.compiler.codegen.attr;
 
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
-import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.OutputContext;
@@ -44,7 +44,7 @@ public final class ErrorClassProcessor implements AttributeProcessor {
                 a ->
                     switch (a) {
                       case ElementPlan.StaticAttr s ->
-                          TemplateGenerator.javaString(s.source().value() == null ? "" : s.source().value());
+                          JavaStrings.literal(s.source().value() == null ? "" : s.source().value());
                       case ElementPlan.DynamicAttr d -> d.valueCode();
                     })
             .orElse("null");
@@ -57,7 +57,7 @@ public final class ErrorClassProcessor implements AttributeProcessor {
     plan.setAttribute(
         "class",
         formField.formsCall("hasErrors") + " ? (" + c + ".isEmpty() ? "
-            + TemplateGenerator.javaString(cls) + " : " + c + " + " + TemplateGenerator.javaString(" " + cls) + ") : "
+            + JavaStrings.literal(cls) + " : " + c + " + " + JavaStrings.literal(" " + cls) + ") : "
             + o,
         OutputContext.ATTRIBUTE,
         attr.pos());

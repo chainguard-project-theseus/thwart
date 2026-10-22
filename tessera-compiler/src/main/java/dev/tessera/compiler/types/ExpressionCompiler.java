@@ -1,6 +1,7 @@
 package dev.tessera.compiler.types;
 
 import dev.tessera.compiler.CompilerEnv;
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.TypeRef;
@@ -250,7 +251,7 @@ public final class ExpressionCompiler {
     Object v = l.value();
     return switch (v) {
       case null -> new CompiledExpr("null", types().getNullType(), l.pos());
-      case String s -> new CompiledExpr(javaString(s), declared("java.lang.String"), l.pos());
+      case String s -> new CompiledExpr(JavaStrings.literal(s), declared("java.lang.String"), l.pos());
       case Integer i -> new CompiledExpr(Integer.toString(i), prim(TypeKind.INT), l.pos());
       case Long n -> new CompiledExpr(n + "L", prim(TypeKind.LONG), l.pos());
       case Double d -> new CompiledExpr(Double.toString(d), prim(TypeKind.DOUBLE), l.pos());
@@ -606,7 +607,7 @@ public final class ExpressionCompiler {
           .error(pos, "'" + constant + "' is not a constant of enum " + te.getQualifiedName() + " (constants: " + String.join(", ", constants) + ")");
       return null;
     }
-    return "java.util.Objects.equals(" + VALUES + ".enumName(" + e.code() + "), " + javaString(constant) + ")";
+    return "java.util.Objects.equals(" + VALUES + ".enumName(" + e.code() + "), " + JavaStrings.literal(constant) + ")";
   }
 
   private CompiledExpr comparison(Expr.Binary b, CompiledExpr l, CompiledExpr r) {
@@ -697,7 +698,7 @@ public final class ExpressionCompiler {
     boolean ok = true;
     for (Expr part : i.parts()) {
       if (part instanceof Expr.Literal l && l.value() instanceof String s) {
-        code.append(" + ").append(javaString(s));
+        code.append(" + ").append(JavaStrings.literal(s));
         continue;
       }
       CompiledExpr c = compile(part, scope);
@@ -1032,30 +1033,5 @@ public final class ExpressionCompiler {
       return s;
     }
     return s.isEmpty() ? s : Character.toLowerCase(s.charAt(0)) + s.substring(1);
-  }
-
-  /** A Java string literal for {@code s}, safe against unicode-escape preprocessing. */
-  public static String javaString(String s) {
-    StringBuilder b = new StringBuilder("\"");
-    for (int i = 0; i < s.length(); i++) {
-      char c = s.charAt(i);
-      switch (c) {
-        case '"' -> b.append("\\\"");
-        case '\\' -> b.append("\\\\");
-        case '\n' -> b.append("\\n");
-        case '\r' -> b.append("\\r");
-        case '\t' -> b.append("\\t");
-        default -> {
-          if (c < 0x20) {
-            b.append(String.format("\\%03o", (int) c));
-          } else if (c >= 0x7f) {
-            b.append(String.format("\\u%04x", (int) c));
-          } else {
-            b.append(c);
-          }
-        }
-      }
-    }
-    return b.append('"').toString();
   }
 }

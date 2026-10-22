@@ -1,6 +1,6 @@
 package dev.tessera.compiler.codegen;
 
-import static dev.tessera.compiler.codegen.TemplateGenerator.javaString;
+import static dev.tessera.compiler.JavaStrings.literal;
 
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.GeneratedFile;
@@ -57,13 +57,13 @@ public final class RegistryGenerator {
       TemplateIndex.TemplateInfo t = templates.get(i);
       List<String> params = new ArrayList<>();
       for (TemplateIndex.Param p : t.params()) {
-        params.add("new " + entry + ".Param(" + javaString(p.name()) + ", " + javaString(p.javaType()) + ")");
+        params.add("new " + entry + ".Param(" + literal(p.name()) + ", " + literal(p.javaType()) + ")");
       }
       sb.append(i == 0 ? "\n" : ",\n")
           .append("          new ")
           .append(entry)
           .append("(")
-          .append(javaString(t.viewName()))
+          .append(literal(t.viewName()))
           .append(", java.util.List.of(")
           .append(String.join(", ", params))
           .append("), ")
@@ -106,8 +106,8 @@ public final class RegistryGenerator {
       TemplateIndex.Param p = params.get(j);
       String v = "a$" + j;
       String fail =
-          "throw mismatch(" + javaString(t.viewName()) + ", " + javaString(p.name()) + ", " + javaString(p.javaType()) + ", " + v + ");";
-      sb.append("    java.lang.Object ").append(v).append(" = model.get(").append(javaString(p.name())).append(");\n");
+          "throw mismatch(" + literal(t.viewName()) + ", " + literal(p.name()) + ", " + literal(p.javaType()) + ", " + v + ");";
+      sb.append("    java.lang.Object ").append(v).append(" = model.get(").append(literal(p.name())).append(");\n");
       TypeMirror type = p.type();
       if (type instanceof PrimitiveType prim) {
         String box = env.types().boxedClass(prim).getQualifiedName().toString();

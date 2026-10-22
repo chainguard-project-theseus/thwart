@@ -1,9 +1,9 @@
 package dev.tessera.compiler.codegen.attr;
 
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
-import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.CompiledExpr;
@@ -25,7 +25,7 @@ public final class ClassAppendProcessor implements AttributeProcessor {
         switch (current.orElse(null)) {
           case null -> "null";
           case ElementPlan.StaticAttr s ->
-              TemplateGenerator.javaString(s.source().value() == null ? "" : s.source().value());
+              JavaStrings.literal(s.source().value() == null ? "" : s.source().value());
           case ElementPlan.DynamicAttr d -> d.valueCode();
         };
     String name = current.map(ElementPlan.Attr::name).orElse("class");
