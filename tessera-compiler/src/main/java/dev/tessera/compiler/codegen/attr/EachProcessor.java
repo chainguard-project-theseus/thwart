@@ -37,7 +37,8 @@ public final class EachProcessor implements AttributeProcessor {
     }
     String statName = spec.statVar() != null ? spec.statVar() : spec.var() + "Stat";
     if (statName.equals(spec.var())) {
-      ctx.diagnostics().error(spec.pos(), "t:each loop variable and status variable must have different names");
+      ctx.diagnostics().error(spec.pos(), "t:each loop variable and status variable must have different names, e.g."
+              + " t:each=\"item, itemStat : items\"");
       return;
     }
     CompiledExpr iterable = ctx.expressions().compile(spec.iterable(), plan.scope());

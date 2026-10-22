@@ -248,32 +248,32 @@ class HtmlParserTest {
   @Test
   void duplicateAttributes() {
     assertEquals(
-        List.of("dir/t.html:1:16: error: duplicate attribute 'class' on <div>"),
+        List.of("dir/t.html:1:16: error: duplicate attribute 'class' on <div>: remove one of them"),
         errors("<div class=\"a\" class=\"b\"></div>"));
     assertEquals(
-        List.of("dir/t.html:1:18: error: duplicate attribute 'T:TEXT' on <p>"),
+        List.of("dir/t.html:1:18: error: duplicate attribute 'T:TEXT' on <p>: remove one of them"),
         errors("<p t:text=\"${a}\" T:TEXT=\"${b}\"></p>"));
     assertEquals(
-        List.of("dir/t.html:1:17: error: duplicate attribute 'disabled' on <input>"),
+        List.of("dir/t.html:1:17: error: duplicate attribute 'disabled' on <input>: remove one of them"),
         errors("<input disabled disabled>"));
   }
 
   @Test
   void duplicateAttributeAcrossLines() {
     assertEquals(
-        List.of("dir/t.html:2:3: error: duplicate attribute 'href' on <a>"),
+        List.of("dir/t.html:2:3: error: duplicate attribute 'href' on <a>: remove one of them"),
         errors("<a href=\"/x\"\n  href=\"javascript:alert(1)\"/>"));
   }
 
   @Test
   void unclosedElements() {
     assertEquals(
-        List.of("dir/t.html:1:6: error: element <p> is not closed (found </div> at 1:10)"),
+        List.of("dir/t.html:1:6: error: element <p> is not closed (found </div> at 1:10): add </p>"),
         errors("<div><p>x</div>"));
     assertEquals(
-        List.of("dir/t.html:1:1: error: element <div> is not closed"), errors("<div><span></span>"));
+        List.of("dir/t.html:1:1: error: element <div> is not closed: add </div>"), errors("<div><span></span>"));
     assertEquals(
-        List.of("dir/t.html:2:1: error: element <script> is not closed"),
+        List.of("dir/t.html:2:1: error: element <script> is not closed: add </script>"),
         errors("<p></p>\n<script>alert(1)"));
   }
 
@@ -281,24 +281,24 @@ class HtmlParserTest {
   void mismatchedElements() {
     assertEquals(
         List.of(
-            "dir/t.html:1:4: error: element <i> is not closed (found </b> at 1:7)",
-            "dir/t.html:1:11: error: end tag </i> does not match any open element"),
+            "dir/t.html:1:4: error: element <i> is not closed (found </b> at 1:7): add </i>",
+            "dir/t.html:1:11: error: end tag </i> does not match any open element: remove it or add the matching <i>"),
         errors("<b><i></b></i>"));
     assertEquals(
-        List.of("dir/t.html:1:13: error: end tag </span> does not match any open element"),
+        List.of("dir/t.html:1:13: error: end tag </span> does not match any open element: remove it or add the matching <span>"),
         errors("<div>x</div></span>"));
     assertEquals(
-        List.of("dir/t.html:1:5: error: end tag </br> does not match any open element"),
+        List.of("dir/t.html:1:5: error: end tag </br> does not match any open element: remove it or add the matching <br>"),
         errors("<br></br>"));
   }
 
   @Test
   void malformedMarkup() {
     assertEquals(
-        List.of("dir/t.html:1:6: error: malformed markup: invalid attribute name '<p'"),
+        List.of("dir/t.html:1:6: error: malformed markup: invalid attribute name '<p': attribute names cannot contain <, quotes or ="),
         errors("<div <p></div>"));
     assertEquals(
-        List.of("dir/t.html:1:1: error: malformed markup: invalid element name '<'"), errors("<</>"));
+        List.of("dir/t.html:1:1: error: malformed markup: invalid element name '<': element names start with a letter and use letters, digits, '-', '_', ':' and '.'"), errors("<</>"));
     List<String> unterminated = errors("<p>ok</p>\n<div class=\"x>hi</div>");
     assertEquals(1, unterminated.size());
     assertTrue(unterminated.get(0).startsWith("dir/t.html:2:1: error: malformed markup: "), unterminated.get(0));
@@ -349,11 +349,11 @@ class HtmlParserTest {
     // The first end tag a browser sees ends the element, whatever its case, even when a later
     // one matches the start tag's case exactly.
     assertEquals(
-        List.of("dir/t.html:1:1: error: element <script> is not closed"),
+        List.of("dir/t.html:1:1: error: element <script> is not closed: add </script>"),
         errors("<script>x</SCRIPT x><p>[[${x}]]</p>"));
     assertEquals(
         List.of("dir/t.html:1:10: error: malformed markup: content of <script> contains"
-            + " '</script' before its end tag"),
+            + " '</script' before its end tag: escape it (in a script string, write '<\\/script')"),
         errors("<script>x</SCRIPT x><p>[[${x}]]</p></script>"));
   }
 
@@ -363,15 +363,15 @@ class HtmlParserTest {
     // an attribute value or comment, so the <script> below would be live script.
     assertEquals(
         List.of("dir/t.html:1:21: error: malformed markup: content of <textarea> contains"
-            + " '</textarea' before its end tag"),
+            + " '</textarea' before its end tag: escape it (in a script string, write '<\\/textarea')"),
         errors("<textarea><a title=\"</textarea><script>[[${x}]]</script>\"></a></textarea>"));
     assertEquals(
         List.of("dir/t.html:2:5: error: malformed markup: content of <title> contains"
-            + " '</title' before its end tag"),
+            + " '</title' before its end tag: escape it (in a script string, write '<\\/title')"),
         errors("<title>\n<!--</title ><script>[[${x}]]</script>--></title>"));
     assertEquals(
         List.of("dir/t.html:1:32: error: malformed markup: content of <script> contains"
-            + " '</script' before its end tag"),
+            + " '</script' before its end tag: escape it (in a script string, write '<\\/script')"),
         errors("<script type=\"text/html\"><a b=\"</script><p>\"></script>"));
     parseOk("<textarea></textareax></textarea>");
   }
@@ -380,8 +380,8 @@ class HtmlParserTest {
   void commentInsideScriptIsAnError() {
     assertEquals(
         List.of(
-            "dir/t.html:1:9: error: malformed markup: '<!--' inside <script> is not supported",
-            "dir/t.html:1:48: error: end tag </script> does not match any open element"),
+            "dir/t.html:1:9: error: malformed markup: '<!--' inside <script> is not supported: remove it (it is not needed in HTML5)",
+            "dir/t.html:1:48: error: end tag </script> does not match any open element: remove it or add the matching <script>"),
         errors("<script><!--<script></script><p>[[${x}]]</p>--></script>"));
   }
 }

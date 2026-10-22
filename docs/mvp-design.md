@@ -247,8 +247,8 @@ Plus `com.example.templates.TesseraRegistry implements TemplateRegistry`, whose 
 means `null`, except for a primitive param, which needs a value; generic arguments unchecked), then
 the static `render`. Registered via `META-INF/services/dev.tessera.runtime.TemplateRegistry`. No
 reflection anywhere. A template without `t:params` has no static `render` (it would clash with the
-instance method): call `XTemplate.of().render(ctx, out)`. A param named like a Java keyword or
-`ctx`/`out` gets a `$` suffix in generated code (`TemplateGenerator.javaName`).
+instance method): call `XTemplate.of().render(ctx, out)`. Every param gets a `$` suffix in generated
+code (`TemplateGenerator.javaName`), so names like `java`, `class` or `ctx` cannot clash.
 
 ## Spring integration
 

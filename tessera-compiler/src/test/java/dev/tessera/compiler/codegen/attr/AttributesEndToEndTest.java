@@ -1,7 +1,6 @@
 package dev.tessera.compiler.codegen.attr;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.TrustedUrl;
@@ -68,7 +67,6 @@ class AttributesEndToEndTest {
   @Test
   void resourceUrlAcceptsLiteralLink() {
     Compilation c = Compilation.builder().template("t.html", HEADER + "<script t:src=\"@{/js/app.js}\"></script></div>").compile();
-    assumeFalse(c.errors().stream().anyMatch(e -> e.contains("TODO(#")), () -> "links not implemented: " + c.errors());
     assertEquals("<div><script src=\"/js/app.js\"></script></div>", c.assertSuccess().render("t", model()));
   }
 

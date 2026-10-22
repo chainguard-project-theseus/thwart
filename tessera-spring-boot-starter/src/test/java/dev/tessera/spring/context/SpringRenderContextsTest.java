@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.MutablePropertyValues;
@@ -142,15 +141,7 @@ class SpringRenderContextsTest {
   @Test
   void linksUseRequestContextPath() {
     RenderContext ctx = create(Map.of());
-    String url;
-    try {
-      url = ctx.links().build("/owners/{id}", new String[] {"id"}, new Object[] {7});
-    } catch (UnsupportedOperationException e) {
-      // TODO(#6): remove once DefaultLinks.build lands.
-      Assumptions.abort("DefaultLinks.build not implemented yet (#6)");
-      return;
-    }
-    assertEquals("/app/owners/7", url);
+    assertEquals("/app/owners/7", ctx.links().build("/owners/{id}", new String[] {"id"}, new Object[] {7}));
   }
 
   @Test

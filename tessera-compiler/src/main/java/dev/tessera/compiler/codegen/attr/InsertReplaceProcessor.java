@@ -14,7 +14,9 @@ import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -33,6 +35,13 @@ import javax.lang.model.type.TypeMirror;
  */
 public final class InsertReplaceProcessor implements AttributeProcessor {
   private static final String FRAGMENT = "dev.tessera.runtime.Fragment";
+
+  /**
+   * Elements whose {@code ~{::selector}} helper is being generated, so mutually recursive
+   * selections are reported instead of recursing forever. Generation is single-threaded.
+   */
+  private static final ThreadLocal<Set<Element>> SELECTING =
+      ThreadLocal.withInitial(() -> Collections.newSetFromMap(new IdentityHashMap<>()));
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
@@ -316,6 +325,30 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
                   + " include itself");
       return null;
     }
+    if (host.attribute(Attribute.PREFIX + "object").isPresent() && contains(host, target)) {
+      ctx.diagnostics()
+          .error(
+              ref.pos(),
+              "~{::" + ref.selector() + "} selects an element inside this element's t:object, but t:insert/t:replace"
+                  + " runs before t:object, so the selection would render without it: move t:object to an"
+                  + " enclosing element");
+      return null;
+    }
+    Set<Element> active = SELECTING.get();
+    if (!active.add(target)) {
+      ctx.diagnostics()
+          .error(
+              ref.pos(),
+              "~{::" + ref.selector() + "} and the selections inside it include each other, so rendering would"
+                  + " never end: no selected element may pass ~{::...} of an element that selects it");
+      return null;
+    }
+    String body;
+    try {
+      body = ctx.renderElement(target, scope, Set.of());
+    } finally {
+      active.remove(target);
+    }
     String helper = ctx.freshName("select_" + ref.selector());
     List<String> decls = new ArrayList<>();
     List<String> captured = new ArrayList<>();
@@ -327,7 +360,6 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     }
     decls.add("dev.tessera.runtime.RenderContext ctx");
     decls.add("dev.tessera.runtime.Output out");
-    String body = ctx.renderElement(target, scope, Set.of());
     ctx.addMember("  private static void " + helper + "(" + String.join(", ", decls) + ") {\n" + body + "  }");
     return new Call(helper, captured, List.of()).invoke(c, o);
   }
