@@ -1,5 +1,6 @@
 package dev.tessera.compiler.security;
 
+import static dev.tessera.compiler.security.HostileStrings.show;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -8,7 +9,6 @@ import dev.tessera.runtime.StringOutput;
 import dev.tessera.runtime.TrustedUrl;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.function.BiConsumer;
 import org.junit.jupiter.api.Test;
 
@@ -31,20 +31,20 @@ class EscaperFuzzTest {
   }
 
   private static void fuzz(String name, BiConsumer<StringOutput, Object> escaper, Check check) {
-    long seed = System.nanoTime();
-    Random rnd = new Random(seed);
-    for (int i = 0; i < ITERATIONS; i++) {
-      String s = HostileStrings.random(rnd, 16);
-      String out = run(escaper, s);
-      String problem = check.problem(s, out);
-      if (problem != null) {
-        fail(name + " (seed " + seed + ", iteration " + i + "): " + problem + "\ninput:  " + escapeJava(s) + "\noutput: " + escapeJava(out));
-      }
-    }
+    HostileStrings.forEachSeeded(
+        ITERATIONS,
+        (rnd, i) -> {
+          String s = HostileStrings.random(rnd, 16);
+          String out = run(escaper, s);
+          String problem = check.problem(s, out);
+          if (problem != null) {
+            fail(name + ": " + problem + "\ninput:  " + show(s) + "\noutput: " + show(out));
+          }
+        });
     for (String s : HostileStrings.VECTORS) {
       String problem = check.problem(s, run(escaper, s));
       if (problem != null) {
-        fail(name + ": " + problem + " for " + escapeJava(s));
+        fail(name + ": " + problem + " for " + show(s));
       }
     }
   }
@@ -76,39 +76,39 @@ class EscaperFuzzTest {
 
   @Test
   void jsonContainers() {
-    long seed = System.nanoTime();
-    Random rnd = new Random(seed);
-    for (int i = 0; i < ITERATIONS / 10; i++) {
-      String k = HostileStrings.random(rnd, 8);
-      String v = HostileStrings.random(rnd, 8);
-      String w = HostileStrings.random(rnd, 8);
-      String out = run(Escapers::json, Map.of(k, List.of(v, w)));
-      // {"k":["v","w"]} with every string checked on its own.
-      String[] strings = splitJsonStrings(out, "{", ":[", ",", "]}");
-      String[] expected = {k, v, w};
-      for (int j = 0; j < 3; j++) {
-        String problem = strings == null ? "structure changed" : ContextOracle.jsonString(strings[j], expected[j]);
-        if (problem != null) {
-          fail("json container (seed " + seed + ", iteration " + i + "): " + problem + "\noutput: " + escapeJava(out));
-        }
-      }
-    }
+    HostileStrings.forEachSeeded(
+        ITERATIONS / 10,
+        (rnd, i) -> {
+          String k = HostileStrings.random(rnd, 8);
+          String v = HostileStrings.random(rnd, 8);
+          String w = HostileStrings.random(rnd, 8);
+          String out = run(Escapers::json, Map.of(k, List.of(v, w)));
+          // {"k":["v","w"]} with every string checked on its own.
+          String[] strings = splitJsonStrings(out, "{", ":[", ",", "]}");
+          String[] expected = {k, v, w};
+          for (int j = 0; j < 3; j++) {
+            String problem = strings == null ? "structure changed" : ContextOracle.jsonString(strings[j], expected[j]);
+            if (problem != null) {
+              fail("json container: " + problem + "\noutput: " + show(out));
+            }
+          }
+        });
   }
 
   @Test
   void trustedUrlIsStillAttributeEscaped() {
-    long seed = System.nanoTime();
-    Random rnd = new Random(seed);
-    for (int i = 0; i < ITERATIONS / 10; i++) {
-      String s = HostileStrings.random(rnd, 16);
-      TrustedUrl u = TrustedUrl.unchecked(s);
-      for (String out : List.of(run(Escapers::url, u), run(Escapers::resourceUrl, u))) {
-        String problem = ContextOracle.html(out, s);
-        if (problem != null) {
-          fail("TrustedUrl (seed " + seed + ", iteration " + i + "): " + problem + "\ninput: " + escapeJava(s));
-        }
-      }
-    }
+    HostileStrings.forEachSeeded(
+        ITERATIONS / 10,
+        (rnd, i) -> {
+          String s = HostileStrings.random(rnd, 16);
+          TrustedUrl u = TrustedUrl.unchecked(s);
+          for (String out : List.of(run(Escapers::url, u), run(Escapers::resourceUrl, u))) {
+            String problem = ContextOracle.html(out, s);
+            if (problem != null) {
+              fail("TrustedUrl: " + problem + "\ninput: " + show(s));
+            }
+          }
+        });
   }
 
   @Test
@@ -162,13 +162,5 @@ class EscaperFuzzTest {
       }
     }
     return -1;
-  }
-
-  private static String escapeJava(String s) {
-    StringBuilder sb = new StringBuilder("\"");
-    for (char c : s.toCharArray()) {
-      sb.append(c >= 0x20 && c < 0x7f && c != '"' && c != '\\' ? String.valueOf(c) : String.format("\\u%04x", (int) c));
-    }
-    return sb.append('"').toString();
   }
 }
