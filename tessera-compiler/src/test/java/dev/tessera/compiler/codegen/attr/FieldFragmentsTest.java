@@ -1,15 +1,13 @@
 package dev.tessera.compiler.codegen.attr;
 
+import static dev.tessera.compiler.codegen.attr.FormFixture.ctx;
+import static dev.tessera.compiler.codegen.attr.FormFixture.owner;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import dev.tessera.compiler.codegen.attr.FormsTest.TestForms;
+import dev.tessera.compiler.codegen.attr.FormFixture.TestForms;
 import dev.tessera.compiler.testing.Compilation;
-import dev.tessera.runtime.DefaultLinks;
-import dev.tessera.runtime.Messages;
-import dev.tessera.runtime.RenderContext;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -39,13 +37,7 @@ class FieldFragmentsTest {
       "<form " + NS + " t:import=\"com.example.*\" t:params=\"Owner owner\" t:object=\"owner\">";
 
   private static Compilation.Builder model() {
-    return Compilation.builder()
-        .java("com.example.Address", "package com.example; public record Address(String city) {}")
-        .java(
-            "com.example.Owner",
-            "package com.example; public record Owner(String firstName, int age, boolean active, Address address,"
-                + " String pet, String bio, String password) {}")
-        .template("fragments/fields.html", FIELDS);
+    return FormFixture.model().template("fragments/fields.html", FIELDS);
   }
 
   private static Compilation compile(String form) {
@@ -53,15 +45,7 @@ class FieldFragmentsTest {
   }
 
   private static String render(Compilation c, Object owner, TestForms forms) {
-    return c.render(
-        "form",
-        Map.of("owner", owner),
-        new RenderContext(Locale.ROOT, Messages.NONE, new DefaultLinks(""), forms));
-  }
-
-  private static Object owner(Compilation c, String firstName, String city) {
-    Object address = city == null ? null : c.newInstance("com.example.Address", city);
-    return c.newInstance("com.example.Owner", firstName, 42, true, address, "dog", "a <b>bio</b>", "secret");
+    return c.render("form", Map.of("owner", owner), ctx(forms));
   }
 
   @Test
@@ -105,7 +89,7 @@ class FieldFragmentsTest {
         c.render(
             "form",
             Map.of("owner", owner(c, "Ann", null), "pets", List.of("cat", "dog")),
-            new RenderContext(Locale.ROOT, Messages.NONE, new DefaultLinks(""), new TestForms()));
+            ctx(new TestForms()));
     assertEquals(
         "<form><select id=\"pet\" name=\"pet\"><option value=\"cat\">cat</option>"
             + "<option value=\"dog\" selected=\"selected\">dog</option></select>"

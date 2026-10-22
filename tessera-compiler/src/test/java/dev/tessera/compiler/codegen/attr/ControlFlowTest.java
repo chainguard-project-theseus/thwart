@@ -1,10 +1,10 @@
 package dev.tessera.compiler.codegen.attr;
 
+import static dev.tessera.compiler.testing.Compilation.model;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import dev.tessera.compiler.testing.Compilation;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,14 +37,6 @@ class ControlFlowTest {
     String out = c.assertSuccess().render("page", model);
     assertEquals("<html>", out.substring(0, 6), out);
     return out.substring(6, out.length() - 7);
-  }
-
-  private static Map<String, Object> model(Object... kv) {
-    Map<String, Object> m = new HashMap<>();
-    for (int i = 0; i < kv.length; i += 2) {
-      m.put((String) kv[i], kv[i + 1]);
-    }
-    return m;
   }
 
   // ---- t:if / t:unless ----
@@ -363,7 +355,7 @@ class ControlFlowTest {
             "com.example.Role",
             role);
     c.assertSuccess();
-    Object admin = enumConstant(c, "com.example.Role", "ADMIN");
+    Object admin = c.enumConstant("com.example.Role", "ADMIN");
     assertEquals("<div><p>A</p></div>", render(c, model("role", admin)));
     assertEquals("<div></div>", render(c, model()));
 
@@ -421,19 +413,5 @@ class ControlFlowTest {
   void removeNeedsALiteral() {
     compile("String x", "<p t:remove=\"${x}\">a</p>").assertError("page.html:1:", "t:remove must be one of");
     compile("", "<p t:remove=\"everything\">a</p>").assertError("t:remove must be one of");
-  }
-
-  private static Object enumConstant(Compilation c, String type, String name) {
-    try {
-      Class<?> cls = c.classLoader().loadClass(type);
-      for (Object o : cls.getEnumConstants()) {
-        if (((Enum<?>) o).name().equals(name)) {
-          return o;
-        }
-      }
-    } catch (ClassNotFoundException e) {
-      throw new AssertionError(e);
-    }
-    throw new AssertionError("no constant " + name);
   }
 }
