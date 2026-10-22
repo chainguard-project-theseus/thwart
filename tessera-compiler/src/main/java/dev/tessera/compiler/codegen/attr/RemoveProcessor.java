@@ -3,6 +3,7 @@ package dev.tessera.compiler.codegen.attr;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
+import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
@@ -19,9 +20,9 @@ public final class RemoveProcessor implements AttributeProcessor {
     String v = attr.value() == null ? "" : attr.value().trim();
     switch (v) {
       case "all" -> plan.remove();
-      case "body" -> plan.replaceBody("");
+      case "body" -> plan.replaceBody("", Contexts.text(plan.element()));
       case "tag" -> plan.omitTag();
-      case "all-but-first" -> plan.replaceBody(firstElementOnly(ctx, plan));
+      case "all-but-first" -> plan.replaceBody(firstElementOnly(ctx, plan), Contexts.text(plan.element()));
       case "none" -> {}
       default ->
           ctx.diagnostics()

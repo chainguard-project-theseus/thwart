@@ -2,6 +2,7 @@ package dev.tessera.compiler.codegen.attr;
 
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
+import dev.tessera.runtime.Escapers;
 import java.util.Locale;
 
 /**
@@ -25,7 +26,7 @@ public final class CsrfInjector {
       return;
     }
     String t = ctx.freshName("csrf");
-    String esc = "dev.tessera.runtime.Escapers.attr(out, ";
+    String esc = Escapers.class.getName() + ".attr(out, ";
     plan.afterStartTag(
         "{ java.util.Optional<dev.tessera.runtime.Forms.CsrfToken> " + t + " = ctx.forms().csrfToken(); if (" + t
             + ".isPresent()) { out.write(\"<input type=\\\"hidden\\\" name=\\\"\"); " + esc + t
