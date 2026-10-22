@@ -30,10 +30,10 @@ public final class TemplateReturnValueHandler implements HandlerMethodReturnValu
       MethodParameter returnType,
       ModelAndViewContainer mavContainer,
       NativeWebRequest webRequest) {
-    if (!(returnValue instanceof Template template)) {
+    if (!(returnValue instanceof Template)) {
       throw new IllegalStateException(
           "Controller method " + returnType.getMethod() + " returned a null Template");
     }
-    mavContainer.setView(TesseraView.of(template, contexts));
+    mavContainer.setView(TesseraView.of((Template) returnValue, contexts));
   }
 }

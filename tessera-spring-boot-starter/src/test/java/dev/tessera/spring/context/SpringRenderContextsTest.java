@@ -5,9 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.runtime.Forms;
+import dev.tessera.runtime.Links;
 import dev.tessera.runtime.RenderContext;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -92,6 +94,14 @@ class SpringRenderContextsTest {
     return SpringRenderContexts.create(request, response, model);
   }
 
+  private static Map<String, String> map(String... keysAndValues) {
+    Map<String, String> map = new HashMap<>();
+    for (int i = 0; i < keysAndValues.length; i += 2) {
+      map.put(keysAndValues[i], keysAndValues[i + 1]);
+    }
+    return map;
+  }
+
   /** Binds {@code values} onto a fresh owner and returns the model Spring MVC would build. */
   private static Map<String, Object> bind(Map<String, String> values) {
     DataBinder binder = new DataBinder(new Owner(), "owner");
@@ -101,26 +111,26 @@ class SpringRenderContextsTest {
 
   @Test
   void localeComesFromLocaleResolver() {
-    assertEquals(Locale.GERMAN, create(Map.of()).locale());
+    assertEquals(Locale.GERMAN, create(Collections.<String, Object>emptyMap()).locale());
   }
 
   @Test
   void localeFallsBackToRequestLocale() {
     request.removeAttribute(DispatcherServlet.LOCALE_RESOLVER_ATTRIBUTE);
     request.addPreferredLocale(Locale.ENGLISH);
-    RenderContext ctx = create(Map.of());
+    RenderContext ctx = create(Collections.<String, Object>emptyMap());
     assertEquals(Locale.ENGLISH, ctx.locale());
     assertEquals("Hello Ann", ctx.messages().get("greeting", "Ann"));
   }
 
   @Test
   void messagesResolveThroughMessageSourceInRequestLocale() {
-    assertEquals("Hallo Ann", create(Map.of()).messages().get("greeting", "Ann"));
+    assertEquals("Hallo Ann", create(Collections.<String, Object>emptyMap()).messages().get("greeting", "Ann"));
   }
 
   @Test
   void missingMessageRendersKeyAndLocale() {
-    assertEquals("??nope_de??", create(Map.of()).messages().get("nope"));
+    assertEquals("??nope_de??", create(Collections.<String, Object>emptyMap()).messages().get("nope"));
   }
 
   @Test
@@ -132,7 +142,7 @@ class SpringRenderContextsTest {
             return url + ";jsessionid=1";
           }
         };
-    var links =
+    Links links =
         SpringRenderContexts.links((path, names, values) -> "/ctx" + path, encoding);
     assertEquals(
         "/ctx/owners;jsessionid=1", links.build("/owners", new String[0], new Object[0]));
@@ -140,23 +150,23 @@ class SpringRenderContextsTest {
 
   @Test
   void linksUseRequestContextPath() {
-    RenderContext ctx = create(Map.of());
+    RenderContext ctx = create(Collections.<String, Object>emptyMap());
     assertEquals("/app/owners/7", ctx.links().build("/owners/{id}", new String[] {"id"}, new Object[] {7}));
   }
 
   @Test
   void formsWithoutBindingResultUseCurrentValue() {
     Owner owner = new Owner();
-    Forms forms = create(Map.of("owner", owner)).forms();
+    Forms forms = create(Collections.singletonMap("owner", owner)).forms();
     assertEquals("Smith", forms.value("owner", "lastName", "Smith"));
     assertEquals("", forms.value("owner", "lastName", null));
-    assertEquals(List.of(), forms.errors("owner", "lastName"));
+    assertEquals(Collections.emptyList(), forms.errors("owner", "lastName"));
     assertFalse(forms.hasErrors("owner", "*"));
   }
 
   @Test
   void formsShowBoundValueWhenBindSucceeded() {
-    Forms forms = create(bind(Map.of("lastName", "Smith", "age", "42"))).forms();
+    Forms forms = create(bind(map("lastName", "Smith", "age", "42"))).forms();
     assertEquals("Smith", forms.value("owner", "lastName", "ignored"));
     assertEquals("42", forms.value("owner", "age", 42));
     assertFalse(forms.hasErrors("owner", "age"));
@@ -164,9 +174,9 @@ class SpringRenderContextsTest {
 
   @Test
   void formsShowRejectedValueAndResolvedErrorAfterFailedBind() {
-    Forms forms = create(bind(Map.of("age", "abc"))).forms();
+    Forms forms = create(bind(map("age", "abc"))).forms();
     assertEquals("abc", forms.value("owner", "age", 0));
-    assertEquals(List.of("Alter muss eine Zahl sein"), forms.errors("owner", "age"));
+    assertEquals(Arrays.asList("Alter muss eine Zahl sein"), forms.errors("owner", "age"));
     assertTrue(forms.hasErrors("owner", "age"));
     assertFalse(forms.hasErrors("owner", "lastName"));
   }
@@ -174,14 +184,14 @@ class SpringRenderContextsTest {
   @Test
   void rejectedValueIsNotHtmlEscapedByForms() {
     // Tessera escapes for the output context; double escaping would corrupt the value.
-    Map<String, Object> model = bind(Map.of("lastName", "<b>&"));
+    Map<String, Object> model = bind(map("lastName", "<b>&"));
     Forms forms = create(model).forms();
     assertEquals("<b>&", forms.value("owner", "lastName", null));
   }
 
   @Test
   void formsResolveNestedPathsAndGlobalErrors() {
-    Map<String, Object> model = bind(Map.of("address.city", "Nowhere"));
+    Map<String, Object> model = bind(map("address.city", "Nowhere"));
     BindingResult result = (BindingResult) model.get(BindingResult.MODEL_KEY_PREFIX + "owner");
     result.rejectValue("address.city", "invalid");
     result.rejectValue("lastName", "required", "Last name is required");
@@ -189,18 +199,18 @@ class SpringRenderContextsTest {
     Forms forms = create(model).forms();
 
     assertEquals("Nowhere", forms.value("owner", "address.city", null));
-    assertEquals(List.of("ungültig"), forms.errors("owner", "address.city"));
-    assertEquals(List.of("Last name is required"), forms.errors("owner", "lastName"));
+    assertEquals(Arrays.asList("ungültig"), forms.errors("owner", "address.city"));
+    assertEquals(Arrays.asList("Last name is required"), forms.errors("owner", "lastName"));
     assertEquals(
-        List.of("ungültig", "Last name is required", "Owner already exists"),
+        Arrays.asList("ungültig", "Last name is required", "Owner already exists"),
         forms.errors("owner", "*"));
     assertTrue(forms.hasErrors("owner", "*"));
   }
 
   @Test
   void formsForUnknownObjectHaveNoErrors() {
-    Forms forms = create(bind(Map.of("age", "abc"))).forms();
-    assertEquals(List.of(), forms.errors("other", "age"));
+    Forms forms = create(bind(map("age", "abc"))).forms();
+    assertEquals(Collections.emptyList(), forms.errors("other", "age"));
     assertEquals("x", forms.value("other", "age", "x"));
   }
 
@@ -209,17 +219,17 @@ class SpringRenderContextsTest {
     request.setAttribute(
         SpringForms.CSRF_ATTRIBUTE, new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "s3cret"));
     assertEquals(
-        Optional.of(new Forms.CsrfToken("_csrf", "s3cret")), create(Map.of()).forms().csrfToken());
+        Optional.of(new Forms.CsrfToken("_csrf", "s3cret")), create(Collections.<String, Object>emptyMap()).forms().csrfToken());
   }
 
   @Test
   void noCsrfTokenWhenAttributeAbsent() {
-    assertEquals(Optional.empty(), create(Map.of()).forms().csrfToken());
+    assertEquals(Optional.empty(), create(Collections.<String, Object>emptyMap()).forms().csrfToken());
   }
 
   @Test
   void csrfAttributeOfWrongTypeIsIgnored() {
     request.setAttribute(SpringForms.CSRF_ATTRIBUTE, "forged");
-    assertEquals(Optional.empty(), create(Map.of()).forms().csrfToken());
+    assertEquals(Optional.empty(), create(Collections.<String, Object>emptyMap()).forms().csrfToken());
   }
 }

@@ -1,0 +1,117 @@
+package dev.tessera.spring.plain;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import dev.tessera.spring.TesseraConfiguration;
+import dev.tessera.spring.e2e.SmokeController;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.context.MessageSource;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.support.ResourceBundleMessageSource;
+import org.springframework.mock.web.MockServletContext;
+import org.springframework.stereotype.Controller;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+
+/**
+ * Spring MVC without Boot: {@code @EnableWebMvc} plus {@code @Import(TesseraConfiguration.class)}
+ * and nothing else. Uses only spring-webmvc and spring-test, so it also runs in the test module
+ * that has no Boot jars on the classpath.
+ */
+class PlainSpringMvcTest {
+
+  private AnnotationConfigWebApplicationContext context;
+  private MockMvc mvc;
+
+  @BeforeEach
+  void setUp() {
+    context = new AnnotationConfigWebApplicationContext();
+    context.setServletContext(new MockServletContext());
+    context.register(App.class);
+    context.refresh();
+    mvc = MockMvcBuilders.webAppContextSetup(context).build();
+  }
+
+  @AfterEach
+  void close() {
+    context.close();
+  }
+
+  private String body(String path) throws Exception {
+    return mvc.perform(get(path))
+        .andExpect(status().isOk())
+        .andReturn()
+        .getResponse()
+        .getContentAsString();
+  }
+
+  @Test
+  void viewNameRendersFromGeneratedRegistry() throws Exception {
+    String body = body("/page");
+    assertTrue(body.contains("<p id=\"hello\">Hello, Ada</p>"), body);
+    assertTrue(body.contains("href=\"/owners/7?q=Ada\""), body);
+  }
+
+  @Test
+  void templateReturnValueRenders() throws Exception {
+    String body = body("/typed");
+    assertTrue(body.contains("Hello, Grace"), body);
+  }
+
+  @Test
+  void formErrorsRender() throws Exception {
+    String body =
+        mvc.perform(post("/signup").param("name", ""))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    assertTrue(body.contains("<span class=\"error\">Name is required</span>"), body);
+  }
+
+  @Test
+  void redirectResolvesWithoutAnotherViewResolver() throws Exception {
+    mvc.perform(post("/signup").param("name", "Ada"))
+        .andExpect(status().is3xxRedirection())
+        .andExpect(redirectedUrl("/page"));
+  }
+
+  @Test
+  void unknownViewNameDoesNotResolve() {
+    // No fallback resolver: an unknown name is an error, never a template lookup by pattern.
+    Exception e = assertThrows(Exception.class, () -> mvc.perform(get("/unknown")));
+    assertTrue(String.valueOf(e.getMessage()).contains("nope"), e.toString());
+  }
+
+  @Configuration
+  @EnableWebMvc
+  @Import({TesseraConfiguration.class, SmokeController.class, UnknownController.class})
+  static class App {
+    @Bean
+    MessageSource messageSource() {
+      ResourceBundleMessageSource messages = new ResourceBundleMessageSource();
+      messages.setBasename("messages");
+      return messages;
+    }
+  }
+
+  @Controller
+  static class UnknownController {
+    @GetMapping("/unknown")
+    String unknown() {
+      return "nope";
+    }
+  }
+}

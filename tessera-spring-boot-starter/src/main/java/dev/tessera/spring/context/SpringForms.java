@@ -4,6 +4,7 @@ import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.Forms;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,7 +46,7 @@ final class SpringForms implements Forms {
   @Override
   public List<String> errors(String objectName, String path) {
     if (!hasBindingResult(objectName)) {
-      return List.of();
+      return Collections.emptyList();
     }
     return Arrays.asList(bindStatus(objectName + "." + path).getErrorMessages());
   }
@@ -70,10 +71,13 @@ final class SpringForms implements Forms {
   /** Holds the Spring Security references so they load only when Security is on the classpath. */
   private static final class Security {
     static Optional<CsrfToken> csrfToken(HttpServletRequest request) {
-      if (request.getAttribute(CSRF_ATTRIBUTE)
-              instanceof org.springframework.security.web.csrf.CsrfToken token
-          && token.getToken() != null) {
-        return Optional.of(new CsrfToken(token.getParameterName(), token.getToken()));
+      Object attribute = request.getAttribute(CSRF_ATTRIBUTE);
+      if (attribute instanceof org.springframework.security.web.csrf.CsrfToken) {
+        org.springframework.security.web.csrf.CsrfToken token =
+            (org.springframework.security.web.csrf.CsrfToken) attribute;
+        if (token.getToken() != null) {
+          return Optional.of(new CsrfToken(token.getParameterName(), token.getToken()));
+        }
       }
       return Optional.empty();
     }
