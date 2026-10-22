@@ -15,10 +15,7 @@ public final class UtextProcessor implements AttributeProcessor {
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
-    OutputContext context = Contexts.text(plan.element());
-    if (context != OutputContext.TEXT) {
-      ctx.diagnostics()
-          .error(attr.pos(), attr.name() + " is only allowed on elements whose content is HTML text, not <script> or <style>");
+    if (!requireHtmlText(ctx, attr, plan)) {
       return;
     }
     Expr e = ctx.parse(attr);
@@ -26,5 +23,18 @@ public final class UtextProcessor implements AttributeProcessor {
       return;
     }
     plan.replaceBody(TextInlining.safeHtmlStatement(ctx, e, attr.name(), plan.scope()));
+  }
+
+  /**
+   * Reports and returns false unless the host's content is HTML text, so markup written into the
+   * body is never rendered as live script or CSS inside {@code <script>} or {@code <style>}.
+   */
+  static boolean requireHtmlText(CodegenContext ctx, Attribute attr, ElementPlan plan) {
+    if (Contexts.text(plan.element()) != OutputContext.TEXT) {
+      ctx.diagnostics()
+          .error(attr.pos(), attr.name() + " is only allowed on elements whose content is HTML text, not <script> or <style>");
+      return false;
+    }
+    return true;
   }
 }

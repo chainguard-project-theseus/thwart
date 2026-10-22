@@ -45,10 +45,15 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
+    boolean replace = attr.localName().equals("replace");
+    // t:insert writes HTML into the host's body; t:replace swaps the whole element.
+    if (!replace && !UtextProcessor.requireHtmlText(ctx, attr, plan)) {
+      return;
+    }
     String code = code(ctx, attr, plan);
     // On error, render nothing in its place so the children do not cascade into more errors.
     String stmts = code == null ? "" : code;
-    if (attr.localName().equals("replace")) {
+    if (replace) {
       plan.replaceElement(stmts);
     } else {
       plan.replaceBody(stmts);
