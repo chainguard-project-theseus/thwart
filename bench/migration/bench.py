@@ -33,7 +33,7 @@ LEGACY_DEPS = re.compile(r"<artifactId>(spring-boot-starter-(thymeleaf|freemarke
                          r"|jstl|velocity[\w-]*|pebble[\w-]*|jmustache)</artifactId>")
 # Added lines that weaken security; each hit is reported.
 INSECURE = re.compile(r"SafeHtml\.unchecked|TrustedUrl\.unchecked|permitAll|csrf\s*\(\s*\w*\s*->\s*\w+\.disable"
-                      r"|csrf\(\)\.disable|AbstractHttpConfigurer::disable|@Disabled|@Ignore\b")
+                      r"|csrf\(\)\.disable|AbstractHttpConfigurer::disable|@Disabled(?![A-Za-z])|@Ignore\b")
 
 
 def sh(cmd, **kw):

@@ -9,9 +9,9 @@
 | spring-framework-petclinic | run-1 | yes | ok | 82/82 (base 75) | 26+0/26 | 0 | - | 0 | 14.4 | 3.99 | 63740 |
 | spring-framework-petclinic | run-2 | no | ok | 82/82 (base 75) | 20+0/26 | 6 | - | 0 | 13.5 | 3.01 | 50777 |
 | spring-framework-petclinic | run-3 | yes | ok | 83/83 (base 75) | 26+0/26 | 0 | - | 0 | 11.9 | 3.43 | 54502 |
-| spring-petclinic | run-1 | yes | ok | 80/80 (base 79) | 30+0/30 | 0 | - | 0 | 8.7 | 2.50 | 34823 |
-| spring-petclinic | run-2 | yes | ok | 79/79 (base 79) | 30+0/30 | 0 | - | 0 | 12.2 | 3.23 | 43673 |
-| spring-petclinic | run-3 | yes | ok | 80/80 (base 79) | 30+0/30 | 0 | - | 0 | 9.2 | 2.50 | 37313 |
+| spring-petclinic | run-1 | yes | ok | 80/80 (base 79) | 29+1/30 | 0 | - | 0 | 8.7 | 2.50 | 34823 |
+| spring-petclinic | run-2 | yes | ok | 79/79 (base 79) | 29+1/30 | 0 | - | 0 | 12.2 | 3.23 | 43673 |
+| spring-petclinic | run-3 | yes | ok | 80/80 (base 79) | 29+1/30 | 0 | - | 0 | 9.2 | 2.50 | 37313 |
 | spring-petclinic-mustache | run-1 | yes | ok | 43/43 (base 42) | 30+0/30 | 0 | - | 0 | 8.6 | 2.77 | 45926 |
 | spring-petclinic-mustache | run-2 | yes | ok | 44/44 (base 42) | 30+0/30 | 0 | - | 0 | 10.7 | 3.02 | 50331 |
 | spring-petclinic-mustache | run-3 | yes | ok | 44/44 (base 42) | 30+0/30 | 0 | - | 0 | 10.9 | 3.33 | 53201 |

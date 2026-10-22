@@ -39,9 +39,9 @@ dependency remains.
 
 | App | Run | Pass | Tests | Pages identical + reordered | Status diffs | Minutes | Cost $ | Output tokens |
 |---|---|---|---|---|---|---|---|---|
-| spring-petclinic | 1 | yes | 80/80 | 30+0/30 | 0 | 8.7 | 2.50 | 34,823 |
-| spring-petclinic | 2 | yes | 79/79 | 30+0/30 | 0 | 12.2 | 3.23 | 43,673 |
-| spring-petclinic | 3 | yes | 80/80 | 30+0/30 | 0 | 9.2 | 2.50 | 37,313 |
+| spring-petclinic | 1 | yes | 80/80 | 29+1/30 | 0 | 8.7 | 2.50 | 34,823 |
+| spring-petclinic | 2 | yes | 79/79 | 29+1/30 | 0 | 12.2 | 3.23 | 43,673 |
+| spring-petclinic | 3 | yes | 80/80 | 29+1/30 | 0 | 9.2 | 2.50 | 37,313 |
 | spring-petclinic-mustache | 1 | yes | 43/43 | 30+0/30 | 0 | 8.6 | 2.77 | 45,926 |
 | spring-petclinic-mustache | 2 | yes | 44/44 | 30+0/30 | 0 | 10.7 | 3.02 | 50,331 |
 | spring-petclinic-mustache | 3 | yes | 44/44 | 30+0/30 | 0 | 10.9 | 3.33 | 53,201 |
@@ -170,4 +170,6 @@ itself crashes or picks an error message at random.
 `bench/migration/run.sh` rebuilds the image from this repo's `HEAD`, re-baselines every app, runs
 3 migrations per app and writes `results/summary.md`. It costs about $140 and 3 hours with 2
 parallel jobs. `bench.py recheck` re-runs build, crawl and tests on existing runs, and `rescore`
-re-scores them, after a harness change.
+re-scores them, after a harness change. The one-command path was checked end to end with
+`run.sh --runs 1 --first-run 9 spring-petclinic` (image, baseline, one migration, score: pass,
+9.5 minutes, $2.72); that throwaway run is not part of the results above.
