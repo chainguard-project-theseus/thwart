@@ -71,7 +71,7 @@ Stages are concrete classes; the only interface with several implementations is 
   (loops/ifs/locals), sets/removes attributes, replaces the body or element, or removes/omits the
   tag. It never writes output directly; `TemplateGenerator` emits the plan.
 - Hooks called by the generator: `TextInlining.render` (text nodes), `CsrfInjector.apply`
-  (`<form>`), `FragmentMethods.generate` (once per template).
+  (`<form>`), `FieldProcessor.option` (`<option>`), `FragmentMethods.generate` (once per template).
 
 ## Template syntax
 
