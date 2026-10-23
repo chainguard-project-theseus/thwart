@@ -6,6 +6,7 @@ import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.expr.Expr;
+import dev.tessera.compiler.messages.MessageCompiler;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.model.Text;
 import dev.tessera.compiler.types.CompiledExpr;
@@ -15,8 +16,8 @@ import javax.lang.model.type.TypeKind;
 
 /**
  * Text inlining: {@code [[expr]]} (escaped for the text node's context: TEXT via
- * {@code Escapers.text}, SCRIPT via {@code Escapers.json}) and {@code [(expr)]} (SafeHtml only,
- * TEXT context only). STYLE/FORBIDDEN contexts with inlined expressions are build errors.
+ * {@code Escapers.text}, SCRIPT via {@code Escapers.json}) and {@code [(expr)]} (SafeHtml or a
+ * checked bundle message, TEXT context only). STYLE/FORBIDDEN contexts with inlined expressions are build errors.
  *
  * <p>Also holds the output helpers shared with {@code t:text} and {@code t:utext}.
  */
@@ -144,16 +145,14 @@ public final class TextInlining {
 
   /**
    * A statement writing {@code e} as raw HTML, or "" after reporting an error. {@code e} must
-   * have static type {@code SafeHtml}; {@code form} names the construct in messages.
+   * have static type {@code SafeHtml} or be a bundle message {@code #{...}} that passes the
+   * build-time markup check; {@code form} names the construct in messages.
    */
   static String safeHtmlStatement(CodegenContext ctx, Expr e, String form, Scope scope) {
     if (e instanceof Expr.Message) {
-      ctx.diagnostics()
-          .error(
-              e.pos(),
-              form + " needs a value of type " + SAFE_HTML + ", but a message #{...} is a String: use t:text"
-                  + " or [[...]] (escaped), or pass trusted HTML as a SafeHtml parameter");
-      return "";
+      // A bundle message is developer-authored markup, checked at build time (#236).
+      String statement = MessageCompiler.htmlStatement((Expr.Message) e, form, scope, ctx.expressions());
+      return statement == null ? "" : statement;
     }
     CompiledExpr c = ctx.expressions().compile(e, scope);
     if (c == null) {
