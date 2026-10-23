@@ -374,7 +374,16 @@ class ExpressionParserTest {
     "T (java.lang.Runtime)|type references (T(...)) are not supported: call a @TemplateFunction (e.g. numbers.sequence(1, n)) or pass the value as a parameter|1",
     "new java.io.File('x')|object creation (new) is not supported: pass the value in as a template parameter|1",
     "__${x}__|preprocessing (__...__) is not supported: expressions are never built from strings|1",
-    "a + '__x'|preprocessing (__...__) is not supported: expressions are never built from strings|6",
+    "a + __${x}__|preprocessing (__...__) is not supported: expressions are never built from strings|5",
+    "a__b|preprocessing (__...__) is not supported: expressions are never built from strings|2",
+    "'a__${x}__'|preprocessing (__...__) is not supported: expressions are never built from strings|3",
+    "'__*{x}__'|preprocessing (__...__) is not supported: expressions are never built from strings|2",
+    "'a' + '__#{k}__'|preprocessing (__...__) is not supported: expressions are never built from strings|8",
+    "'__@{/a}__'|preprocessing (__...__) is not supported: expressions are never built from strings|2",
+    "'__~{t :: f}__'|preprocessing (__...__) is not supported: expressions are never built from strings|2",
+    "\"|a__${x}__|\"|preprocessing (__...__) is not supported: expressions are never built from strings|3",
+    "\"|${'b__'} __${x}__|\"|preprocessing (__...__) is not supported: expressions are never built from strings|11",
+    "@{/a/{id}(id=__${x}__)}|preprocessing (__...__) is not supported: expressions are never built from strings|14",
     "@bean.run()|bean references (@name) are not supported; pass values in as template parameters|1",
     "x + @bean|bean references (@name) are not supported; pass values in as template parameters|5",
     "a = b|assignment (=) is not supported; use == to compare|3",
@@ -399,6 +408,20 @@ class ExpressionParserTest {
     Diagnostic d = error(text);
     assertEquals(message, d.message());
     assertEquals(new SourcePos("t.html", 3, 9 + column), d.pos());
+  }
+
+  @Test
+  void doubleUnderscoreInLiteralsIsPlainText() {
+    // BEM class names (#234): Tessera never preprocesses, so __ inside a literal is just text.
+    assertEquals("(ADD 'card__item card__item--' s)", ast("'card__item card__item--' + s"));
+    assertEquals("'__'", ast("'__'"));
+    assertEquals("'a__b__c'", ast("'a__b__c'"));
+    assertEquals("'it's__x'", ast("'it\\'s__x'"));
+    // An opener without a closing __ is not Thymeleaf's preprocessing shape.
+    assertEquals("'a__${x}'", ast("'a__${x}'"));
+    assertEquals("(interp 'card__item card__item--' s)", ast("|card__item card__item--${s}|"));
+    assertEquals("(interp 'a__b' 'c__d')", ast("|${'a__b'}c__d|"));
+    assertEquals("(? b 'x__on' 'x__off')", ast("b ? 'x__on' : 'x__off'"));
   }
 
   @Test

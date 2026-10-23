@@ -277,11 +277,71 @@ public final class ExpressionParser {
       }
     }
 
+    /**
+     * Rejects Thymeleaf's {@code __...__} preprocessing so a migrated template fails loudly
+     * instead of silently changing meaning. Tessera never preprocesses, so {@code __} is inert
+     * text inside a {@code '...'} string or the text of a {@code |...|} substitution (BEM class
+     * names such as {@code 'card__title'}); there only {@code __} directly followed by an
+     * expression opener ({@code ${ *{ #{ @{ ~{}) and closed by a later {@code __}, which
+     * Thymeleaf would preprocess, is rejected. Outside literals any {@code __} is rejected. This
+     * scan only adds errors, so a misjudged literal boundary can never make anything compile.
+     */
     void rejectPreprocessing() {
-      int at = s.indexOf("__");
-      if (at >= 0) {
-        throw error(at, "preprocessing (__...__) is not supported: expressions are never built from strings");
+      final int code = 0, string = 1, text = 2;
+      int[] modes = new int[s.length() + 1];
+      int[] braces = new int[s.length() + 1];
+      int top = 0;
+      modes[0] = code;
+      for (int k = 0; k < s.length(); k++) {
+        char c = s.charAt(k);
+        int mode = modes[top];
+        if (mode == string) {
+          if (c == '\\' && k + 1 < s.length() && (s.charAt(k + 1) == '\'' || s.charAt(k + 1) == '\\')) {
+            k++;
+          } else if (c == '\'') {
+            top--;
+          } else if (s.startsWith("__", k) && preprocessesAt(k)) {
+            throw preprocessing(k);
+          }
+        } else if (mode == text) {
+          if (c == '|') {
+            top--;
+          } else if (s.startsWith("__", k) && preprocessesAt(k)) {
+            throw preprocessing(k);
+          } else if ((c == '$' || c == '*' || c == '#') && k + 1 < s.length() && s.charAt(k + 1) == '{') {
+            k++;
+            modes[++top] = code;
+            braces[top] = 0;
+          }
+        } else if (s.startsWith("__", k)) {
+          throw preprocessing(k);
+        } else if (c == '\'') {
+          modes[++top] = string;
+        } else if (c == '|') {
+          modes[++top] = text;
+        } else if (c == '{') {
+          braces[top]++;
+        } else if (c == '}' && top > 0) {
+          if (braces[top] == 0) {
+            top--;
+          } else {
+            braces[top]--;
+          }
+        }
       }
+    }
+
+    /** Thymeleaf's preprocessing shape: {@code __} + an expression opener + a later {@code __}. */
+    private boolean preprocessesAt(int k) {
+      int open = k + 2;
+      return open + 1 < s.length()
+          && "$*#@~".indexOf(s.charAt(open)) >= 0
+          && s.charAt(open + 1) == '{'
+          && s.indexOf("__", open + 2) >= 0;
+    }
+
+    private ParseError preprocessing(int at) {
+      return error(at, "preprocessing (__...__) is not supported: expressions are never built from strings");
     }
 
     // ---- expressions ----
