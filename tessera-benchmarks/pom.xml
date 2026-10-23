@@ -11,7 +11,7 @@
 
   <artifactId>tessera-benchmarks</artifactId>
   <name>Tessera Benchmarks</name>
-  <description>JMH benchmarks: Tessera vs Thymeleaf on equivalent templates. Run manually.</description>
+  <description>JMH benchmarks: Tessera vs Thymeleaf and focused runtime measurements, run locally and in CI.</description>
 
   <properties>
     <maven.deploy.skip>true</maven.deploy.skip>
