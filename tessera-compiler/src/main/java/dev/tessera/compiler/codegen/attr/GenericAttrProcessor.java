@@ -21,7 +21,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
 /**
- * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER and FORBIDDEN contexts are build errors. STYLE takes only {@link #style safe style values}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}.
+ * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. STYLE takes only {@link #style safe style values}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}.
  */
 public final class GenericAttrProcessor implements AttributeProcessor {
 
@@ -53,8 +53,12 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     switch (context) {
       case EVENT_HANDLER:
         hint =
-            "event-handler attributes cannot contain expressions; put the value in a data-* attribute and"
-                + " read it from a script";
+            Contexts.isFrameworkDirective(plan.element(), name)
+                ? "'" + name + "' is a Vue, Alpine, htmx, AngularJS or Knockout directive whose value is"
+                    + " run as JavaScript, so it cannot contain expressions; write it as a static attribute,"
+                    + " or put the value in a data-* attribute or a <script> with [[...]] and read it from there"
+                : "event-handler attributes cannot contain expressions; put the value in a data-* attribute and"
+                    + " read it from a script";
         break;
       case STYLE:
         style(ctx, plan, name, value, pos, label);
