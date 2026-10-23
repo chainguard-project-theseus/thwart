@@ -25,6 +25,42 @@ java -jar tessera-benchmarks/target/benchmarks.jar
 
 ## Results
 
+### Continuous benchmarks
+
+[Chainguard Checks](../.chainguard/ci/benchmarks.yaml) runs all benchmark methods and their
+parameter combinations automatically:
+
+- Pull requests: `benchmarks/smoke`, one fork with one 200 ms warmup and one 200 ms measurement.
+  This checks that benchmarks execute; these short timings are not performance evidence.
+- Each merge to the default branch: `benchmarks/measure`, two forks with three 1-second
+  warmups and three 1-second measurements per fork, for throughput and allocation tracking.
+
+Both checks use JDK 21, one benchmark thread, 256 MiB fork heaps, the GC profiler, and a pinned
+`medium-amd64` resource class. They clean-build the benchmark reactor and run its tests,
+including template equivalence checks, before measuring. Build/test failures and benchmark
+exceptions fail the check. Timing changes do not: shared VM CPUs, JIT decisions and short
+measurement windows can produce noise. Compare like-for-like measurement runs, examine error
+intervals, and confirm regressions on a quiet machine. These checks do not automatically compare
+against a baseline or enforce performance budgets.
+
+Open the benchmark check's GitHub summary for the JMH result table (including `ops/s` and
+`gc.alloc.rate.norm` in B/op); its Details link opens the full run log. Raw JMH JSON is printed
+between `::benchmark-json-start::` and `::benchmark-json-end::` in that log. Locally, JSON and
+the JMH log are in `target/ci-results/`. The CI VM's files are ephemeral; no separate downloadable
+artifact or external storage is configured. The JSON also records the JDK and JMH settings.
+
+Reproduce either check from a checkout with JDK 21+ and Maven:
+
+```sh
+bash tessera-benchmarks/ci.sh smoke
+bash tessera-benchmarks/ci.sh measure
+```
+
+Set `JAVA_HOME` to the JDK and, when available, `JDK8_HOME` for the real-JDK-8 processor test.
+CI supplies both. The script prints the revision and OS/architecture alongside the results.
+
+### Original rendering comparison
+
 Oct 22, 2026, default settings (2 forks, 5 x 1 s warmup, 5 x 1 s measurement), throughput in
 operations per second (higher is better).
 

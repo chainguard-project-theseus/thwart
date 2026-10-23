@@ -1,0 +1,26 @@
+version: 1
+environment:
+  packages: [openjdk-21-default-jdk, openjdk-8, maven-3.9, git, bash]
+  vars:
+    JAVA_HOME: /usr/lib/jvm/default-jvm
+    JDK8_HOME: /usr/lib/jvm/java-1.8-openjdk
+    LANG: C.UTF-8
+    CI: "true"
+    MAVEN_OPTS: -Djava.io.tmpdir=/var/tmp
+checks:
+  smoke:
+    description: Builds and smoke-runs every JMH benchmark and parameter combination.
+    trigger: presubmit
+    resources: medium-amd64
+    timeout: 15m
+    network:
+      egress: [repo.maven.apache.org, repo1.maven.org]
+    cmd: [bash, tessera-benchmarks/ci.sh, smoke]
+  measure:
+    description: Measures JMH throughput and allocation after each merge; timings are informational.
+    trigger: postsubmit
+    resources: medium-amd64
+    timeout: 30m
+    network:
+      egress: [repo.maven.apache.org, repo1.maven.org]
+    cmd: [bash, tessera-benchmarks/ci.sh, measure]
