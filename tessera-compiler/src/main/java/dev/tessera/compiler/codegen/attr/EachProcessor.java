@@ -6,6 +6,9 @@ import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.expr.EachSpec;
 import dev.tessera.compiler.model.Attribute;
+import dev.tessera.compiler.model.Element;
+import dev.tessera.compiler.model.Node;
+import dev.tessera.compiler.model.Text;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.Variable;
 import dev.tessera.runtime.LoopStatus;
@@ -57,6 +60,7 @@ public final class EachProcessor implements AttributeProcessor {
     String index = ctx.freshName("i");
     String var = ctx.freshName(spec.var());
     String stat = ctx.freshName(statName);
+    boolean needsStatus = mayUseStatus(plan.element(), attr, statName);
 
     StringBuilder open = new StringBuilder();
     String elementType = WithProcessor.sourceType(element);
@@ -79,6 +83,9 @@ public final class EachProcessor implements AttributeProcessor {
       } else if (isSubtype(ctx, source, "java.util.Collection")) {
         open.append("final java.util.Collection<? extends ").append(elementType).append("> ").append(items)
             .append(" = ").append(src).append("; ");
+      } else if (!needsStatus) {
+        open.append("final java.lang.Iterable<? extends ").append(elementType).append("> ").append(items)
+            .append(" = ").append(src).append("; ");
       } else {
         // A plain Iterable may be single-use and has no size: copy it once.
         String e = ctx.freshName("e");
@@ -87,7 +94,9 @@ public final class EachProcessor implements AttributeProcessor {
         open.append("for (final ").append(elementType).append(' ').append(e).append(" : ").append(src).append(") { ")
             .append(items).append(".add(").append(e).append("); } ");
       }
-      open.append("final int ").append(size).append(" = ").append(items).append(".size(); ");
+      if (needsStatus) {
+        open.append("final int ").append(size).append(" = ").append(items).append(".size(); ");
+      }
       open.append("int ").append(index).append(" = 0; ");
       open.append("for (final ").append(elementType).append(' ').append(var).append(" : ").append(items).append(") { ");
     }
@@ -96,8 +105,10 @@ public final class EachProcessor implements AttributeProcessor {
       open.append("if (").append(index).append(" > 0) { out.write(")
           .append(JavaStrings.literal(ws)).append("); } ");
     }
-    open.append("final ").append(LOOP_STATUS).append(' ').append(stat).append(" = ")
-        .append(LOOP_STATUS).append(".of(").append(index).append(", ").append(size).append("); ");
+    if (needsStatus) {
+      open.append("final ").append(LOOP_STATUS).append(' ').append(stat).append(" = ")
+          .append(LOOP_STATUS).append(".of(").append(index).append(", ").append(size).append("); ");
+    }
     String close = source.getKind() == TypeKind.ARRAY ? "} } }" : index + "++; } } }";
     plan.wrap(open.toString(), close);
 
@@ -106,6 +117,37 @@ public final class EachProcessor implements AttributeProcessor {
         plan.scope()
             .with(new Variable(spec.var(), element, var))
             .with(new Variable(statName, statType, stat)));
+  }
+
+  /**
+   * Conservative absence check: attributes are already entity-decoded, and text inlining parses
+   * the raw text. Substring matches deliberately include literals and shadowed names. Fragment
+   * selections can capture the current scope while rendering an element outside this subtree,
+   * so keep status whenever a fragment can be selected, even without a local name reference.
+   */
+  private static boolean mayUseStatus(Node node, Attribute declaration, String name) {
+    if (node instanceof Text) {
+      String raw = ((Text) node).raw();
+      return raw.contains(name) || raw.contains("~{");
+    }
+    if (node instanceof Element) {
+      Element element = (Element) node;
+      for (Attribute a : element.tesseraAttributes()) {
+        if (a == declaration) {
+          continue;
+        }
+        if (a.localName().equals("insert") || a.localName().equals("replace")
+            || (a.value() != null && (a.value().contains(name) || a.value().contains("~{")))) {
+          return true;
+        }
+      }
+      for (Node child : element.children()) {
+        if (mayUseStatus(child, declaration, name)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private static boolean isSubtype(CodegenContext ctx, TypeMirror t, String name) {
