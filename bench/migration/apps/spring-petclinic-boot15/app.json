@@ -1,0 +1,16 @@
+{
+  "repo": "https://github.com/spring-projects/spring-petclinic",
+  "commit": "c36452a2c34443ae26b4ecbba4f149906af14717",
+  "engine": "thymeleaf",
+  "difficulty": "medium",
+  "java": 8,
+  "belowfloor": true,
+  "build": "mvn -B -ntp clean package -DskipTests",
+  "test": "mvn -B -ntp test",
+  "start": "java -jar target/spring-petclinic-*.jar",
+  "ready": "/",
+  "base": "http://localhost:8080",
+  "ignore": [
+    "(?<=/webjars/[\\w.-]{1,40}/)v?\\d+(\\.\\d+)+[\\w.-]*/"
+  ]
+}
