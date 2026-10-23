@@ -32,6 +32,13 @@ public final class DefaultLinks implements Links {
     if (names.length != values.length) {
       throw new IllegalArgumentException("link names and values differ in length");
     }
+    if (names.length == 0) {
+      return path.startsWith("/") && !path.startsWith("//") ? contextPath + path : path;
+    }
+    return buildWithParameters(path, names, values);
+  }
+
+  private String buildWithParameters(String path, String[] names, Object[] values) {
     boolean[] used = new boolean[names.length];
     String expanded = expandPathVariables(path, names, values, used);
 
