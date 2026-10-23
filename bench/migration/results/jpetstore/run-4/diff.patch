@@ -1,0 +1,3157 @@
+diff --git a/MIGRATION-REPORT.md b/MIGRATION-REPORT.md
+new file mode 100644
+index 0000000..ce20052
+--- /dev/null
++++ b/MIGRATION-REPORT.md
+@@ -0,0 +1,112 @@
++# Migration report: Thymeleaf → Tessera
++
++## Result
++
++- Every page the application renders now comes from a compiled Tessera template (`src/main/resources/templates`,
++  generated into `com.kazuki43zoo.jpetstore.templates`). That covers the catalog, cart, account, login, order and error pages.
++- Thymeleaf is gone: `spring-boot-starter-thymeleaf`, `thymeleaf-extras-springsecurity4`,
++  `thymeleaf-layout-dialect`, the `SpringTemplateEngine` customization in `WebMvcConfig`, and all
++  `th:`/`sec:`/`layout:` markup.
++- Build: `mvn verify` (JDK 21) passes: compile, the 6 existing Selenide tests (unchanged) and 2 new
++  rendering tests. The OWASP `dependency-check` goal fails exactly as it did before the migration, because it cannot
++  download the NVD feeds (`nvd.nist.gov` returns non-200, and the old 3.2.1 plugin uses the retired
++  XML feeds). I used `-Ddependency-check.skip=true` locally and left the plugin unchanged.
++- Parity: `pages.txt` has 67 requests. They cover every view, empty and full lists, every form with validation errors
++  and after success, logged out and logged in (existing user and a newly registered one with
++  favourites and banner), login errors, flash messages, and the error pages (404 ×3, 400 ×3, 500). Recorded from
++  the original app (JDK 8, fresh `~/db`) and compared against the new app:
++  **67 same, 0 reordered, 0 differ**. That holds with the new jar on JDK 8 and on JDK 21, using
++  `--ignore '[0-9]{2}:[0-9]{2}:[0-9]{2}'`. Without the ignore, only the time of day of the two orders
++  created during the run differs (4 pages). The order time is a fresh timestamp on every run, whichever engine renders it.
++- Security: no `SafeHtml.unchecked`/`TrustedUrl.unchecked`, no `t:utext` at all, the security config is
++  untouched (no new `permitAll`), CSRF is still on (Tessera adds the `_csrf` input to every POST form), and no tests are disabled.
++
++## What changed
++
++### Build (`pom.xml`)
++- Added `tessera-spring-boot-starter-javax` (Boot 2.0 / `javax.servlet`). `maven-compiler-plugin` now uses
++  `annotationProcessorPaths` (Lombok + `tessera-compiler`) and `-Atessera.templates/package/messages`.
++  Test compilation runs with `<proc>none</proc>`, as the guide prescribes.
++- `<release>8</release>`: the app still runs on Java 8 (the original only runs on JDK 8). The build itself needs
++  JDK 21 because of Tessera, which forced three tool upgrades:
++  - Lombok 1.16.22 → 1.18.36, because 1.16 crashes javac 21.
++  - JaCoCo 0.8.2 → 0.8.13, because the 0.8.2 agent aborts the JDK 21 test JVM.
++  - surefire `argLine` gets `--add-opens java.base/java.lang=ALL-UNNAMED` (Spring 5.0 CGLIB on JDK 21).
++- Jar manifest `Add-Opens: java.base/java.lang`, so `java -jar` also works on JDK 16+ (JDK 8 ignores it).
++- The license plugin's `format` goal rewrites every file it knows, so I excluded `pages.txt` and this report from it.
++  Otherwise it prepends a header to `pages.txt` that `tessera-migrate` cannot parse.
++- The project name and description now say Tessera, and so does the README. `static/index.html` still says "Thymeleaf" in its
++  welcome text: it is a static page that is part of the parity check, so I left it as is.
++
++### Model: what the templates used to read from outside the model
++- `WebMvcConfig.WebMvcControllerAdvice` now adds the following to every model:
++  - `site` (`ui.view.SiteView`), replacing the old template's reads of:
++    - `#request.getAttribute('javax.servlet.error.status_code')` (the `errorResponse` flag);
++    - the session bean `@productSearchCriteria.keywords`, read lazily at render time, because the search controller
++      updates it after the `@ModelAttribute` methods run;
++    - `#authentication.principal.account` (welcome name, user id, banner).
++  - `clCreditCardTypes`, `clCategories` and `clLanguages`, previously read as beans with `${@clXxx}`.
++- `CartController.viewCart` adds `cartRows`, `cartSubTotal` and `favouriteProducts`, previously read from the
++  session beans `@cart` and `@favourite`.
++- `@TemplateView` is on the domain classes, `CartItem`, the three form classes and `Messages`/`Message`.
++
++### Templates
++- Layout: the `layout:decorate` decorator became the fragment `layout(Fragment content, SiteView site, Messages messages)`
++  in `layout.html`. Each page does `t:replace="~{layout :: layout(~{::section}, site, messages)}"`, and the layout
++  `t:replace`s its `<section>` with the page's.
++- `sec:authorize` became `auth.isAuthenticated()`, and `sec:authentication` became `site.account?.…`.
++- `th:include="account/flagments :: commonForm"` became a typed fragment
++  `commonForm(AccountForm accountForm, List<String> clLanguages, List<String> clCategories)` with
++  `t:object="accountForm"`, called with `t:replace`. The output is the same `<div>` + content.
++- `#numbers.formatDecimal(x, 1, 'COMMA', 2, 'POINT')` became the custom function `fmt.decimal(x)`
++  (`ui.view.FormatFunctions`, `#,##0.00`), because Tessera's `numbers.formatDecimal` has no grouping.
++- `@{/cart(add,itemId=…)}` and `@{…(form)}` (Thymeleaf parameters without a value) became
++  `@{/cart?add(itemId=…)}` and `@{…?form}`.
++- `#ids.prev('shippingAddressRequired')` became a literal id. The checkboxes get explicit `id="xxx1"` to keep
++  Thymeleaf's generated ids (`listOption1`, …).
++- Password fields get a static `value=""`, because Thymeleaf writes an empty value on passwords and Tessera omits it.
++- `cart.html` had an unclosed `<td>` (the browser closed it implicitly). Tessera rejects that, so I added `</td>`.
++  The DOM is unchanged.
++- Error pages: Boot's `DefaultErrorViewResolver` only finds `error/404`-style views through a
++  `TemplateAvailabilityProvider`, and Tessera ships none. Adding `TesseraTemplateAvailabilityProvider`
++  (registered in `META-INF/spring.factories`) keeps `error/400|404|500.html` working unchanged.
++  Other statuses still fall back to Boot's whitelabel page, as before.
++
++## What could not be converted directly, and how it was handled
++
++1. **Raw HTML from the database (`th:utext`)**: product descriptions and the user banner are stored as markup
++   (`<image src="/images/fish1.gif">Salt Water fish…`). Escaping them would break the pages and the existing
++   Selenide test, which clicks the link text "Fresh Water fish from China". `SafeHtml.unchecked` is not allowed.
++   Instead, `markup.parts(...)` (`ui.view.MarkupFunctions`) splits the snippet into images and text. It only
++   recognizes `<image src="/local/path">`, and everything else becomes escaped text. The template renders
++   `<img t:src=…>` plus text. The DOM is identical, because browsers parse `<image>` as `<img>`, and there is no raw HTML path.
++2. **Indexed form fields (`*{lines[__${i}__].quantity}`)**: Tessera has no indexed paths and no `__…__`
++   preprocessing. `CartController` builds `CartRow`s with the field name and id, the display value from the
++   `BindingResult` (so a rejected value like `abc` is echoed), and the resolved error messages
++   (`MessageSource`). The template writes `id`/`name`/`value` and the errors by hand, joined with `<br />` like `th:errors`.
++
++## Where the guide or Tessera fell short
++
++- **Error views by status**: the guide only mentions a single `templates/error.html`. It does not say that Boot's
++  status-specific `error/404.html` lookup stops working, because the starter registers no `TemplateAvailabilityProvider`.
++  Nothing fails at build time: the pages silently become Boot's whitelabel page.
++- **JDK 21 build of an old Boot 2.0 app**: the guide covers `--add-opens` for Spring 5.0 tests, but not that
++  the JDK 21 requirement also breaks older build tooling (Lombok 1.16, JaCoCo 0.8.2 agent) and running the jar on JDK 21.
++- **`tessera-migrate`** stubs valueless link parameters (`@{/cart(add,itemId=…)}`, `@{…(form)}`) as template
++  parameters `Object add` and `Object form`, instead of converting them to a query string.
++- **Links**: the guide documents no syntax for a query parameter without a value. `@{/path?flag(x=…)}` works,
++  but I found that by trial.
++- **Passwords**: per the guide, `t:field` never writes `value` on a password input, while Thymeleaf writes `value=""`.
++  I added a static `value=""` next to `t:field`, and the pages compare `same`. The guide does not say whether static
++  attributes next to `t:field` survive.
++- **Checkbox ids**: Thymeleaf numbers checkbox ids (`listOption1`) and `#ids.prev` reads them back. Tessera has
++  no `#ids`, and the guide says only that `t:field` writes `id` "unless present". So I set the ids explicitly
++  to keep the labels and parity.
++- **`numbers.formatDecimal`** has no grouping or locale, so a custom function was needed (the guide does say so).
++- **Layout dialect**: the guide's layout example uses `t:insert="content"` on the host, which keeps the host
++  element. Selecting the page's `<section>` with `~{::section}` therefore calls for `t:replace` in the layout,
++  or the sections would nest.
++- **Raw markup from data**: the guide offers only `SafeHtml.unchecked` (forbidden here) or "accept the escaped
++  output", which would break the pages. Neither fits data like product descriptions, so I wrote a small parser.
++- **`pages.txt`**: a POST right after an error page has no `_csrf` to send, so the request fails with 403. The guide says
++  to "GET a form before posting it" but does not warn that error pages carry no token.
+diff --git a/README.md b/README.md
+index 53dc65f..f7c9f21 100644
+--- a/README.md
++++ b/README.md
+@@ -4,7 +4,7 @@
+ [![Codacy Badge](https://api.codacy.com/project/badge/Grade/6ac9fe028b1c49a4a61e27cc54cb3b19)](https://www.codacy.com/app/kazuki43zoo/mybatis-spring-boot-jpetstore?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=kazuki43zoo/mybatis-spring-boot-jpetstore&amp;utm_campaign=Badge_Grade)
+ [![Coverage Status](https://coveralls.io/repos/github/kazuki43zoo/mybatis-spring-boot-jpetstore/badge.svg?branch=master)](https://coveralls.io/github/kazuki43zoo/mybatis-spring-boot-jpetstore?branch=master)
+ 
+-This sample is a web application built on MyBatis, Spring Boot(Spring MVC, Spring Security) and Thymeleaf.
++This sample is a web application built on MyBatis, Spring Boot(Spring MVC, Spring Security) and Tessera (compiled templates).
+ This is another implementation of MyBatis JPetStore sample application (https://github.com/mybatis/jpetstore-6).
+ 
+ Original application is available for downloading in the downloads section of MyBatis project site.
+@@ -28,7 +28,7 @@ Let's play on [https://jpetstore.cfapps.io/](https://jpetstore.cfapps.io/).
+ 
+ * MyBatis Spring Boot Starter 2.0 (MyBatis 3.5, MyBatis Spring 2.0) SNAPSHOT version
+ * Spring Boot 2.0 (Spring Framework 5.0, Spring Security 5.0)
+-* Thymeleaf 3.0
++* Tessera 0.1 (compiled templates)
+ * Hibernate Validator 6.0 (Bean Validation 2.0)
+ * HSQLDB 2.4 (Embed Database)
+ * Flyway 5.0 (DB Migration)
+@@ -169,7 +169,7 @@ Project structure of this sample application is as follow:
+             ├── static                     // Store static web resource files
+             │   ├── css
+             │   └── images
+-            └── templates                  // Store view template files for Thymeleaf
++            └── templates                  // Store view template files for Tessera
+                 ├── account
+                 ├── auth
+                 ├── cart
+diff --git a/pages.txt b/pages.txt
+new file mode 100644
+index 0000000..199108c
+--- /dev/null
++++ b/pages.txt
+@@ -0,0 +1,68 @@
++# Parity requests for tessera-migrate (one cookie jar, run in order)
++GET /
++GET /catalog
++GET /catalog/categories/FISH
++GET /catalog/categories/BIRDS
++GET /catalog/products/FI-SW-01
++GET /catalog/products/AV-CB-01
++GET /catalog/items/EST-1
++GET /catalog/items/EST-18
++GET /catalog/products?keywords=fish
++GET /catalog/products?keywords=zzzz
++GET /catalog/products
++GET /cart
++GET /cart?add&itemId=EST-1
++GET /cart?add&itemId=EST-2
++GET /cart?add&itemId=EST-2
++POST /cart update=Update+Cart&lines[0].quantity=abc&lines[1].quantity=-1
++GET /cart
++POST /cart update=Update+Cart&lines[0].quantity=&lines[1].quantity=3
++GET /cart
++POST /cart update=Update+Cart&lines[0].quantity=2&lines[1].quantity=1
++GET /cart?remove&itemId=EST-2
++GET /my/orders/create?form
++GET /login
++POST /login username=j2ee&password=wrong
++GET /accounts/create?form
++POST /accounts/create username=&password=&repeatedPassword=&firstName=&lastName=&email=&phone=&address1=&address2=&city=&state=&zip=&country=&languagePreference=English&favouriteCategoryId=FISH
++GET /accounts/create?form
++POST /accounts/create username=newuser1&password=short&repeatedPassword=other&firstName=<b>Jon</b>&lastName=Doe&email=bad-email&phone=abc&address1=A1&address2=&city=C&state=S&zip=12a&country=JP&languagePreference=Japanese&favouriteCategoryId=CATS&listOption=true&_listOption=on&_bannerOption=on
++GET /accounts/create?form
++POST /accounts/create username=newuser1&password=password1&repeatedPassword=password1&firstName=Jon&lastName=Doe&email=jon@example.com&phone=09012345678&address1=A1&address2=A2&city=Minato&state=Tokyo&zip=0001234&country=Japan&languagePreference=Japanese&favouriteCategoryId=CATS&listOption=true&_listOption=on&bannerOption=true&_bannerOption=on
++POST /login username=newuser1&password=password1
++GET /catalog
++GET /cart
++GET /my/account/update?form
++POST /my/account/update password=&repeatedPassword=&firstName=&lastName=Doe&email=x&phone=1&address1=A1&address2=&city=C&state=S&zip=1&country=J&languagePreference=English&favouriteCategoryId=DOGS&_listOption=on&_bannerOption=on
++GET /my/account/update?form
++POST /my/account/update password=&repeatedPassword=&firstName=Jane&lastName=Doe&email=jane@example.com&phone=09012345678&address1=A1&address2=A2&city=Minato&state=Tokyo&zip=0001234&country=Japan&languagePreference=English&favouriteCategoryId=DOGS&listOption=true&_listOption=on&_bannerOption=on
++GET /cart
++GET /my/orders
++GET /my/orders/create?form
++POST /my/orders/create cardType=Visa&creditCard=12ab&expiryDate=2020&billToFirstName=&billToLastName=L&billAddress1=&billAddress2=&billCity=&billState=&billZip=x&billCountry=&_shippingAddressRequired=on&continue=Continue
++POST /my/orders/create cardType=MasterCard&creditCard=9999999999&expiryDate=04/2030&billToFirstName=Jane&billToLastName=Doe&billAddress1=A1&billAddress2=A2&billCity=C&billState=S&billZip=123&billCountry=JP&shippingAddressRequired=true&_shippingAddressRequired=on&continue=Continue
++POST /my/orders/create shipToFirstName=&shipToLastName=&shipAddress1=&shipAddress2=&shipCity=&shipState=&shipZip=ab&shipCountry=&confirm=Confirm
++POST /my/orders/create shipToFirstName=S1&shipToLastName=S2&shipAddress1=SA1&shipAddress2=SA2&shipCity=SC&shipState=SS&shipZip=999&shipCountry=SJ&confirm=Confirm
++POST /my/orders/create
++GET /my/orders
++GET /cart?add&itemId=EST-6
++GET /my/orders/create?form
++POST /my/orders/create cardType=Visa&creditCard=1234&expiryDate=01/2031&billToFirstName=Jane&billToLastName=Doe&billAddress1=A1&billAddress2=&billCity=C&billState=S&billZip=1&billCountry=J&_shippingAddressRequired=on&continue=Continue
++POST /my/orders/create
++GET /my/orders
++GET /my/orders/99999
++GET /my/orders/abc
++GET /no/such/page
++GET /catalog/items/NOPE
++GET /cart?add
++GET /cart
++POST /cart update=Update+Cart&lines[300].quantity=1
++GET /accounts/create
++GET /logout
++GET /my/orders
++POST /login username=j2ee&password=j2ee
++GET /catalog
++GET /cart
++GET /my/account/update?form
++GET /my/orders
++GET /logout
+diff --git a/pom.xml b/pom.xml
+index 134c0b7..0a6265b 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <!--
+ 
+-       Copyright 2016-2018 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -25,8 +25,8 @@
+ 	<version>2.0.0-SNAPSHOT</version>
+ 	<packaging>jar</packaging>
+ 
+-	<name>jpetstore on spring-boot + mybatis + thymeleaf</name>
+-	<description>A sample web application built on MyBatis 3, Spring Boot and Thymeleaf 3</description>
++	<name>jpetstore on spring-boot + mybatis + tessera</name>
++	<description>A sample web application built on MyBatis 3, Spring Boot and Tessera</description>
+ 	<url>https://github.com/kazuki43zoo/mybatis-spring-boot-jpetstore/</url>
+ 	<inceptionYear>2016</inceptionYear>
+ 
+@@ -64,13 +64,15 @@
+ 		<java.version>1.8</java.version>
+ 		<mybatis-spring-boot-starter.version>1.3.2</mybatis-spring-boot-starter.version>
+ 		<!-- -->
+-		<lombok.version>1.16.22</lombok.version>
++		<!-- Tessera's annotation processor needs JDK 21 to build; the application still targets Java 8 -->
++		<lombok.version>1.18.36</lombok.version>
++		<tessera.version>0.1.0-SNAPSHOT</tessera.version>
+ 		<!-- for test -->
+ 		<selenide.version>4.11.2</selenide.version>
+ 		<!-- for plugins -->
+ 		<license-maven-plugin.version>3.0</license-maven-plugin.version>
+ 		<coveralls-maven-plugin.version>4.3.0</coveralls-maven-plugin.version>
+-		<jacoco-maven-plugin.version>0.8.2</jacoco-maven-plugin.version>
++		<jacoco-maven-plugin.version>0.8.13</jacoco-maven-plugin.version>
+ 		<owasp-dependency-check-plugin.version>3.2.1</owasp-dependency-check-plugin.version>
+ 	</properties>
+ 
+@@ -90,8 +92,9 @@
+ 			<artifactId>spring-boot-starter-web</artifactId>
+ 		</dependency>
+ 		<dependency>
+-			<groupId>org.springframework.boot</groupId>
+-			<artifactId>spring-boot-starter-thymeleaf</artifactId>
++			<groupId>dev.tessera</groupId>
++			<artifactId>tessera-spring-boot-starter-javax</artifactId>
++			<version>${tessera.version}</version>
+ 		</dependency>
+ 		<dependency>
+ 			<groupId>org.springframework.boot</groupId>
+@@ -101,14 +104,6 @@
+ 			<groupId>org.springframework.boot</groupId>
+ 			<artifactId>spring-boot-starter-validation</artifactId>
+ 		</dependency>
+-		<dependency>
+-			<groupId>org.thymeleaf.extras</groupId>
+-			<artifactId>thymeleaf-extras-springsecurity4</artifactId>
+-		</dependency>
+-		<dependency>
+-			<groupId>nz.net.ultraq.thymeleaf</groupId>
+-			<artifactId>thymeleaf-layout-dialect</artifactId>
+-		</dependency>
+ 		<dependency>
+ 			<groupId>org.codehaus.groovy</groupId>
+ 			<artifactId>groovy</artifactId>
+@@ -158,6 +153,51 @@
+ 
+ 	<build>
+ 		<plugins>
++			<plugin>
++				<groupId>org.apache.maven.plugins</groupId>
++				<artifactId>maven-compiler-plugin</artifactId>
++				<configuration>
++					<release>8</release>
++					<parameters>true</parameters>
++					<annotationProcessorPaths>
++						<path>
++							<groupId>org.projectlombok</groupId>
++							<artifactId>lombok</artifactId>
++							<version>${lombok.version}</version>
++						</path>
++						<path>
++							<groupId>dev.tessera</groupId>
++							<artifactId>tessera-compiler</artifactId>
++							<version>${tessera.version}</version>
++						</path>
++					</annotationProcessorPaths>
++					<compilerArgs combine.children="append">
++						<arg>-Atessera.templates=${project.basedir}/src/main/resources/templates</arg>
++						<arg>-Atessera.package=com.kazuki43zoo.jpetstore.templates</arg>
++						<arg>-Atessera.messages=${project.basedir}/src/main/resources/messages</arg>
++					</compilerArgs>
++				</configuration>
++				<executions>
++					<execution>
++						<id>default-testCompile</id>
++						<configuration>
++							<proc>none</proc>
++						</configuration>
++					</execution>
++				</executions>
++			</plugin>
++			<plugin>
++				<groupId>org.apache.maven.plugins</groupId>
++				<artifactId>maven-jar-plugin</artifactId>
++				<configuration>
++					<archive>
++						<manifestEntries>
++							<!-- Spring 5.0's CGLIB proxies need this when the jar runs on JDK 16+ (ignored by JDK 8) -->
++							<Add-Opens>java.base/java.lang</Add-Opens>
++						</manifestEntries>
++					</archive>
++				</configuration>
++			</plugin>
+ 			<plugin>
+ 				<groupId>org.springframework.boot</groupId>
+ 				<artifactId>spring-boot-maven-plugin</artifactId>
+@@ -197,6 +237,8 @@
+ 					<excludes>
+ 						<exclude>**/.mvn/**</exclude>
+ 						<exclude>**/mvnw*</exclude>
++						<exclude>pages.txt</exclude>
++						<exclude>MIGRATION-REPORT.md</exclude>
+ 					</excludes>
+ 					<mapping>
+ 						<java>SLASHSTAR_STYLE</java>
+@@ -223,7 +265,8 @@
+ 				<groupId>org.apache.maven.plugins</groupId>
+ 				<artifactId>maven-surefire-plugin</artifactId>
+ 				<configuration>
+-					<argLine>${jacocoArgs}</argLine>
++					<!-- Spring 5.0 needs java.lang opened on the JDK 21 that the Tessera build requires -->
++					<argLine>${jacocoArgs} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
+ 				</configuration>
+ 			</plugin>
+ 			<plugin>
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/component/message/Messages.java b/src/main/java/com/kazuki43zoo/jpetstore/component/message/Messages.java
+index 63028da..e8a233e 100644
+--- a/src/main/java/com/kazuki43zoo/jpetstore/component/message/Messages.java
++++ b/src/main/java/com/kazuki43zoo/jpetstore/component/message/Messages.java
+@@ -1,5 +1,5 @@
+ /*
+- *    Copyright 2016-2017 the original author or authors.
++ *    Copyright 2016-2026 the original author or authors.
+  *
+  *    Licensed under the Apache License, Version 2.0 (the "License");
+  *    you may not use this file except in compliance with the License.
+@@ -15,6 +15,7 @@
+  */
+ package com.kazuki43zoo.jpetstore.component.message;
+ 
++import dev.tessera.runtime.TemplateView;
+ import java.util.ArrayList;
+ import java.util.Iterator;
+ import java.util.List;
+@@ -24,6 +25,7 @@ import java.util.function.Consumer;
+ /**
+  * @author Kazuki Shimizu
+  */
++@TemplateView
+ public class Messages implements Iterable<Messages.Message> {
+ 
+ 	private final List<Message> values = new ArrayList<>();
+@@ -63,6 +65,7 @@ public class Messages implements Iterable<Messages.Message> {
+ 		return this;
+ 	}
+ 
++	@TemplateView
+ 	public static class Message {
+ 		private final String type;
+ 		private final String text;
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/config/TesseraTemplateAvailabilityProvider.java b/src/main/java/com/kazuki43zoo/jpetstore/config/TesseraTemplateAvailabilityProvider.java
+new file mode 100644
+index 0000000..e5244ac
+--- /dev/null
++++ b/src/main/java/com/kazuki43zoo/jpetstore/config/TesseraTemplateAvailabilityProvider.java
+@@ -0,0 +1,42 @@
++/*
++ *    Copyright 2016-2026 the original author or authors.
++ *
++ *    Licensed under the Apache License, Version 2.0 (the "License");
++ *    you may not use this file except in compliance with the License.
++ *    You may obtain a copy of the License at
++ *
++ *       http://www.apache.org/licenses/LICENSE-2.0
++ *
++ *    Unless required by applicable law or agreed to in writing, software
++ *    distributed under the License is distributed on an "AS IS" BASIS,
++ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ *    See the License for the specific language governing permissions and
++ *    limitations under the License.
++ */
++package com.kazuki43zoo.jpetstore.config;
++
++import dev.tessera.runtime.TemplateRegistry;
++import org.springframework.boot.autoconfigure.template.TemplateAvailabilityProvider;
++import org.springframework.core.env.Environment;
++import org.springframework.core.io.ResourceLoader;
++
++import java.util.Map;
++import java.util.concurrent.ConcurrentHashMap;
++
++/**
++ * Lets Spring Boot's error view resolver find the Tessera templates {@code error/404},
++ * {@code error/500}, ... by status code, as it did for the Thymeleaf templates.
++ *
++ * @author Kazuki Shimizu
++ */
++public class TesseraTemplateAvailabilityProvider implements TemplateAvailabilityProvider {
++
++	private final Map<ClassLoader, TemplateRegistry> registries = new ConcurrentHashMap<>();
++
++	@Override
++	public boolean isTemplateAvailable(String view, Environment environment, ClassLoader classLoader,
++									   ResourceLoader resourceLoader) {
++		return registries.computeIfAbsent(classLoader, TemplateRegistry::load).find(view).isPresent();
++	}
++
++}
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/config/WebMvcConfig.java b/src/main/java/com/kazuki43zoo/jpetstore/config/WebMvcConfig.java
+index 7096fae..c04a7f3 100644
+--- a/src/main/java/com/kazuki43zoo/jpetstore/config/WebMvcConfig.java
++++ b/src/main/java/com/kazuki43zoo/jpetstore/config/WebMvcConfig.java
+@@ -1,5 +1,5 @@
+ /*
+- *    Copyright 2016-2017 the original author or authors.
++ *    Copyright 2016-2026 the original author or authors.
+  *
+  *    Licensed under the Apache License, Version 2.0 (the "License");
+  *    you may not use this file except in compliance with the License.
+@@ -15,14 +15,26 @@
+  */
+ package com.kazuki43zoo.jpetstore.config;
+ 
+-import org.springframework.beans.factory.annotation.Autowired;
++import com.kazuki43zoo.jpetstore.domain.Account;
++import com.kazuki43zoo.jpetstore.service.AccountUserDetails;
++import com.kazuki43zoo.jpetstore.ui.ProductSearchCriteria;
++import com.kazuki43zoo.jpetstore.ui.view.SiteView;
++import org.springframework.beans.factory.ObjectProvider;
++import org.springframework.beans.factory.annotation.Qualifier;
+ import org.springframework.beans.propertyeditors.StringTrimmerEditor;
+ import org.springframework.context.annotation.Configuration;
+ import org.springframework.web.bind.WebDataBinder;
+ import org.springframework.web.bind.annotation.ControllerAdvice;
+ import org.springframework.web.bind.annotation.InitBinder;
+ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+-import org.thymeleaf.spring5.SpringTemplateEngine;
++import org.springframework.security.core.Authentication;
++import org.springframework.security.core.context.SecurityContextHolder;
++import org.springframework.web.bind.annotation.ModelAttribute;
++
++import javax.servlet.RequestDispatcher;
++import javax.servlet.http.HttpServletRequest;
++import java.util.List;
++import java.util.function.Supplier;
+ 
+ /**
+  * @author Kazuki Shimizu
+@@ -32,16 +44,60 @@ public class WebMvcConfig implements WebMvcConfigurer {
+ 
+ 	@ControllerAdvice
+ 	static class WebMvcControllerAdvice {
++
++		private final ObjectProvider<ProductSearchCriteria> productSearchCriteria;
++		private final List<String> clCreditCardTypes;
++		private final List<String> clCategories;
++		private final List<String> clLanguages;
++
++		WebMvcControllerAdvice(ObjectProvider<ProductSearchCriteria> productSearchCriteria,
++							   @Qualifier("clCreditCardTypes") List<String> clCreditCardTypes,
++							   @Qualifier("clCategories") List<String> clCategories,
++							   @Qualifier("clLanguages") List<String> clLanguages) {
++			this.productSearchCriteria = productSearchCriteria;
++			this.clCreditCardTypes = clCreditCardTypes;
++			this.clCategories = clCategories;
++			this.clLanguages = clLanguages;
++		}
++
+ 		@InitBinder
+ 		public void registerCustomEditors(WebDataBinder binder) {
+ 			// configure for empty string change to null
+ 			binder.registerCustomEditor(String.class, new StringTrimmerEditor(true));
+ 		}
+-	}
+ 
+-	@Autowired
+-	protected void configureThymeleafSpringTemplateEngine(SpringTemplateEngine templateEngine) {
+-		templateEngine.setEnableSpringELCompiler(true);
++		// code lists used by the form templates (read as beans by the old templates)
++		@ModelAttribute("clCreditCardTypes")
++		public List<String> clCreditCardTypes() {
++			return clCreditCardTypes;
++		}
++
++		@ModelAttribute("clCategories")
++		public List<String> clCategories() {
++			return clCategories;
++		}
++
++		@ModelAttribute("clLanguages")
++		public List<String> clLanguages() {
++			return clLanguages;
++		}
++
++		// values the layout needs on every page (read from the request, session and security context by the old templates)
++		@ModelAttribute("site")
++		public SiteView site(HttpServletRequest request) {
++			Object status = request.getAttribute(RequestDispatcher.ERROR_STATUS_CODE);
++			boolean errorResponse = status instanceof Integer && (Integer) status >= 400;
++			Supplier<String> keywords = errorResponse ? () -> null : () -> productSearchCriteria.getObject().getKeywords();
++			return new SiteView(errorResponse, keywords, currentAccount());
++		}
++
++		private Account currentAccount() {
++			Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
++			if (authentication != null && authentication.getPrincipal() instanceof AccountUserDetails) {
++				return ((AccountUserDetails) authentication.getPrincipal()).getAccount();
++			}
++			return null;
++		}
+ 	}
+ 
+ }
+\ No newline at end of file
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/domain/Account.java b/src/main/java/com/kazuki43zoo/jpetstore/domain/Account.java
+index 31e48b0..ddb8765 100644
+--- a/src/main/java/com/kazuki43zoo/jpetstore/domain/Account.java
++++ b/src/main/java/com/kazuki43zoo/jpetstore/domain/Account.java
+@@ -1,5 +1,5 @@
+ /*
+- *    Copyright 2016-2017 the original author or authors.
++ *    Copyright 2016-2026 the original author or authors.
+  *
+  *    Licensed under the Apache License, Version 2.0 (the "License");
+  *    you may not use this file except in compliance with the License.
+@@ -15,6 +15,7 @@
+  */
+ package com.kazuki43zoo.jpetstore.domain;
+ 
++import dev.tessera.runtime.TemplateView;
+ import lombok.Getter;
+ import lombok.Setter;
+ 
+@@ -23,6 +24,7 @@ import java.io.Serializable;
+ /**
+  * @author Kazuki Shimizu
+  */
++@TemplateView
+ @Getter
+ @Setter
+ public class Account implements Serializable {
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/domain/Category.java b/src/main/java/com/kazuki43zoo/jpetstore/domain/Category.java
+index f802609..cc5b8e4 100644
+--- a/src/main/java/com/kazuki43zoo/jpetstore/domain/Category.java
++++ b/src/main/java/com/kazuki43zoo/jpetstore/domain/Category.java
+@@ -1,5 +1,5 @@
+ /*
+- *    Copyright 2016-2017 the original author or authors.
++ *    Copyright 2016-2026 the original author or authors.
+  *
+  *    Licensed under the Apache License, Version 2.0 (the "License");
+  *    you may not use this file except in compliance with the License.
+@@ -15,6 +15,7 @@
+  */
+ package com.kazuki43zoo.jpetstore.domain;
+ 
++import dev.tessera.runtime.TemplateView;
+ import lombok.Getter;
+ import lombok.Setter;
+ 
+@@ -23,6 +24,7 @@ import java.io.Serializable;
+ /**
+  * @author Kazuki Shimizu
+  */
++@TemplateView
+ @Getter
+ @Setter
+ public class Category implements Serializable {
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/domain/Item.java b/src/main/java/com/kazuki43zoo/jpetstore/domain/Item.java
+index 774b6b3..3ef8c05 100644
+--- a/src/main/java/com/kazuki43zoo/jpetstore/domain/Item.java
++++ b/src/main/java/com/kazuki43zoo/jpetstore/domain/Item.java
+@@ -1,5 +1,5 @@
+ /*
+- *    Copyright 2016-2017 the original author or authors.
++ *    Copyright 2016-2026 the original author or authors.
+  *
+  *    Licensed under the Apache License, Version 2.0 (the "License");
+  *    you may not use this file except in compliance with the License.
+@@ -15,6 +15,7 @@
+  */
+ package com.kazuki43zoo.jpetstore.domain;
+ 
++import dev.tessera.runtime.TemplateView;
+ import lombok.Getter;
+ import lombok.Setter;
+ 
+@@ -24,6 +25,7 @@ import java.math.BigDecimal;
+ /**
+  * @author Kazuki Shimizu
+  */
++@TemplateView
+ @Getter
+ @Setter
+ public class Item implements Serializable {
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/domain/Order.java b/src/main/java/com/kazuki43zoo/jpetstore/domain/Order.java
+index eea3742..0ec3eaf 100644
+--- a/src/main/java/com/kazuki43zoo/jpetstore/domain/Order.java
++++ b/src/main/java/com/kazuki43zoo/jpetstore/domain/Order.java
+@@ -1,5 +1,5 @@
+ /*
+- *    Copyright 2016-2017 the original author or authors.
++ *    Copyright 2016-2026 the original author or authors.
+  *
+  *    Licensed under the Apache License, Version 2.0 (the "License");
+  *    you may not use this file except in compliance with the License.
+@@ -15,6 +15,7 @@
+  */
+ package com.kazuki43zoo.jpetstore.domain;
+ 
++import dev.tessera.runtime.TemplateView;
+ import lombok.Getter;
+ import lombok.Setter;
+ 
+@@ -27,6 +28,7 @@ import java.util.List;
+ /**
+  * @author Kazuki Shimizu
+  */
++@TemplateView
+ @Getter
+ @Setter
+ public class Order implements Serializable {
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/domain/OrderLine.java b/src/main/java/com/kazuki43zoo/jpetstore/domain/OrderLine.java
+index f146d5c..4b25179 100644
+--- a/src/main/java/com/kazuki43zoo/jpetstore/domain/OrderLine.java
++++ b/src/main/java/com/kazuki43zoo/jpetstore/domain/OrderLine.java
+@@ -1,5 +1,5 @@
+ /*
+- *    Copyright 2016-2017 the original author or authors.
++ *    Copyright 2016-2026 the original author or authors.
+  *
+  *    Licensed under the Apache License, Version 2.0 (the "License");
+  *    you may not use this file except in compliance with the License.
+@@ -15,6 +15,7 @@
+  */
+ package com.kazuki43zoo.jpetstore.domain;
+ 
++import dev.tessera.runtime.TemplateView;
+ import lombok.Getter;
+ import lombok.Setter;
+ 
+@@ -25,6 +26,7 @@ import java.util.Optional;
+ /**
+  * @author Kazuki Shimizu
+  */
++@TemplateView
+ @Getter
+ @Setter
+ public class OrderLine implements Serializable {
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/domain/Product.java b/src/main/java/com/kazuki43zoo/jpetstore/domain/Product.java
+index 258de3a..b38dd7c 100644
+--- a/src/main/java/com/kazuki43zoo/jpetstore/domain/Product.java
++++ b/src/main/java/com/kazuki43zoo/jpetstore/domain/Product.java
+@@ -1,5 +1,5 @@
+ /*
+- *    Copyright 2016-2017 the original author or authors.
++ *    Copyright 2016-2026 the original author or authors.
+  *
+  *    Licensed under the Apache License, Version 2.0 (the "License");
+  *    you may not use this file except in compliance with the License.
+@@ -15,6 +15,7 @@
+  */
+ package com.kazuki43zoo.jpetstore.domain;
+ 
++import dev.tessera.runtime.TemplateView;
+ import lombok.EqualsAndHashCode;
+ import lombok.Getter;
+ import lombok.Setter;
+@@ -24,6 +25,7 @@ import java.io.Serializable;
+ /**
+  * @author Kazuki Shimizu
+  */
++@TemplateView
+ @Getter
+ @Setter
+ @EqualsAndHashCode
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/ui/CartItem.java b/src/main/java/com/kazuki43zoo/jpetstore/ui/CartItem.java
+index af2b4ce..45c76fd 100644
+--- a/src/main/java/com/kazuki43zoo/jpetstore/ui/CartItem.java
++++ b/src/main/java/com/kazuki43zoo/jpetstore/ui/CartItem.java
+@@ -1,5 +1,5 @@
+ /*
+- *    Copyright 2016-2017 the original author or authors.
++ *    Copyright 2016-2026 the original author or authors.
+  *
+  *    Licensed under the Apache License, Version 2.0 (the "License");
+  *    you may not use this file except in compliance with the License.
+@@ -15,6 +15,7 @@
+  */
+ package com.kazuki43zoo.jpetstore.ui;
+ 
++import dev.tessera.runtime.TemplateView;
+ import com.kazuki43zoo.jpetstore.domain.OrderLine;
+ import lombok.Getter;
+ import lombok.Setter;
+@@ -27,6 +28,7 @@ import java.util.Optional;
+ /**
+  * @author Kazuki Shimizu
+  */
++@TemplateView
+ @Getter
+ @Setter
+ public class CartItem implements Serializable {
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/ui/controller/AccountForm.java b/src/main/java/com/kazuki43zoo/jpetstore/ui/controller/AccountForm.java
+index 150dfe9..8eb4b59 100644
+--- a/src/main/java/com/kazuki43zoo/jpetstore/ui/controller/AccountForm.java
++++ b/src/main/java/com/kazuki43zoo/jpetstore/ui/controller/AccountForm.java
+@@ -1,5 +1,5 @@
+ /*
+- *    Copyright 2016-2017 the original author or authors.
++ *    Copyright 2016-2026 the original author or authors.
+  *
+  *    Licensed under the Apache License, Version 2.0 (the "License");
+  *    you may not use this file except in compliance with the License.
+@@ -15,6 +15,7 @@
+  */
+ package com.kazuki43zoo.jpetstore.ui.controller;
+ 
++import dev.tessera.runtime.TemplateView;
+ import com.kazuki43zoo.jpetstore.component.validation.NumericCharacters;
+ import com.kazuki43zoo.jpetstore.component.validation.RepeatedField;
+ import com.kazuki43zoo.jpetstore.component.validation.TelephoneNumber;
+@@ -31,6 +32,7 @@ import java.io.Serializable;
+ /**
+  * @author Kazuki Shimizu
+  */
++@TemplateView
+ @RepeatedField(field = "password")
+ @Getter
+ @Setter
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/ui/controller/CartController.java b/src/main/java/com/kazuki43zoo/jpetstore/ui/controller/CartController.java
+index 1657d8e..50ba563 100644
+--- a/src/main/java/com/kazuki43zoo/jpetstore/ui/controller/CartController.java
++++ b/src/main/java/com/kazuki43zoo/jpetstore/ui/controller/CartController.java
+@@ -1,5 +1,5 @@
+ /*
+- *    Copyright 2016-2017 the original author or authors.
++ *    Copyright 2016-2026 the original author or authors.
+  *
+  *    Licensed under the Apache License, Version 2.0 (the "License");
+  *    you may not use this file except in compliance with the License.
+@@ -20,13 +20,23 @@ import com.kazuki43zoo.jpetstore.service.CatalogService;
+ import com.kazuki43zoo.jpetstore.ui.CartItem;
+ import com.kazuki43zoo.jpetstore.domain.Item;
+ import com.kazuki43zoo.jpetstore.ui.Cart;
++import com.kazuki43zoo.jpetstore.ui.Favourite;
++import com.kazuki43zoo.jpetstore.ui.view.CartRow;
+ import lombok.RequiredArgsConstructor;
++import org.springframework.context.MessageSource;
++import org.springframework.context.i18n.LocaleContextHolder;
+ import org.springframework.stereotype.Controller;
+ import org.springframework.ui.Model;
+ import org.springframework.validation.BindingResult;
+ import org.springframework.validation.annotation.Validated;
++import org.springframework.validation.FieldError;
+ import org.springframework.web.bind.annotation.*;
+ 
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Locale;
++import java.util.stream.Collectors;
++
+ /**
+  * @author Kazuki Shimizu
+  */
+@@ -37,6 +47,8 @@ public class CartController {
+ 
+ 	private final CatalogService catalogService;
+ 	private final Cart cart;
++	private final Favourite favourite;
++	private final MessageSource messageSource;
+ 
+ 	@ModelAttribute
+ 	public CartUpdateForm setUpForm() {
+@@ -48,10 +60,41 @@ public class CartController {
+ 	}
+ 
+ 	@GetMapping
+-	public String viewCart() {
++	public String viewCart(Model model) {
++		model.addAttribute("cartRows", cartRows(model));
++		model.addAttribute("cartSubTotal", cart.getSubTotal());
++		model.addAttribute("favouriteProducts", favourite.getProductList());
+ 		return "cart/cart";
+ 	}
+ 
++	/**
++	 * Pairs each cart item with its {@code lines[i].quantity} field, reading the display value and
++	 * errors from the form's {@link BindingResult} when there is one (as Spring's form binding does).
++	 */
++	private List<CartRow> cartRows(Model model) {
++		CartUpdateForm form = (CartUpdateForm) model.asMap().get("cartUpdateForm");
++		BindingResult result = (BindingResult) model.asMap().get(BindingResult.MODEL_KEY_PREFIX + "cartUpdateForm");
++		Locale locale = LocaleContextHolder.getLocale();
++		List<CartItem> cartItems = cart.getCartItems();
++		List<CartRow> rows = new ArrayList<>(cartItems.size());
++		for (int i = 0; i < cartItems.size(); i++) {
++			String path = "lines[" + i + "].quantity";
++			Object value;
++			List<String> errors;
++			if (result != null) {
++				value = result.getFieldValue(path);
++				errors = result.getFieldErrors(path).stream()
++						.map((FieldError error) -> messageSource.getMessage(error, locale))
++						.collect(Collectors.toList());
++			} else {
++				value = form != null && i < form.getLines().size() ? form.getLines().get(i).getQuantity() : null;
++				errors = new ArrayList<>();
++			}
++			rows.add(new CartRow(cartItems.get(i), path, value == null ? "" : value.toString(), errors));
++		}
++		return rows;
++	}
++
+ 	@GetMapping(params = "add")
+ 	public String addCartItem(@RequestParam String itemId) {
+ 		if (cart.containsByItemId(itemId)) {
+@@ -75,7 +118,7 @@ public class CartController {
+ 		if (result.hasErrors()) {
+ 			model.addAttribute(
+ 					new Messages().error("Input values are invalid. Please confirm error messages."));
+-			return viewCart();
++			return viewCart(model);
+ 		}
+ 		form.getLines().forEach(x -> {
+ 			if (x.getQuantity() > 0) {
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/ui/controller/CartUpdateForm.java b/src/main/java/com/kazuki43zoo/jpetstore/ui/controller/CartUpdateForm.java
+index 08582e1..78e6b19 100644
+--- a/src/main/java/com/kazuki43zoo/jpetstore/ui/controller/CartUpdateForm.java
++++ b/src/main/java/com/kazuki43zoo/jpetstore/ui/controller/CartUpdateForm.java
+@@ -1,5 +1,5 @@
+ /*
+- *    Copyright 2016-2017 the original author or authors.
++ *    Copyright 2016-2026 the original author or authors.
+  *
+  *    Licensed under the Apache License, Version 2.0 (the "License");
+  *    you may not use this file except in compliance with the License.
+@@ -15,6 +15,7 @@
+  */
+ package com.kazuki43zoo.jpetstore.ui.controller;
+ 
++import dev.tessera.runtime.TemplateView;
+ import lombok.AllArgsConstructor;
+ import lombok.Getter;
+ import lombok.NoArgsConstructor;
+@@ -30,6 +31,7 @@ import java.util.List;
+ /**
+  * @author Kazuki Shimizu
+  */
++@TemplateView
+ @Getter
+ @Setter
+ public class CartUpdateForm implements Serializable {
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/ui/controller/OrderForm.java b/src/main/java/com/kazuki43zoo/jpetstore/ui/controller/OrderForm.java
+index 387538e..f7bfbb3 100644
+--- a/src/main/java/com/kazuki43zoo/jpetstore/ui/controller/OrderForm.java
++++ b/src/main/java/com/kazuki43zoo/jpetstore/ui/controller/OrderForm.java
+@@ -1,5 +1,5 @@
+ /*
+- *    Copyright 2016-2017 the original author or authors.
++ *    Copyright 2016-2026 the original author or authors.
+  *
+  *    Licensed under the Apache License, Version 2.0 (the "License");
+  *    you may not use this file except in compliance with the License.
+@@ -15,6 +15,7 @@
+  */
+ package com.kazuki43zoo.jpetstore.ui.controller;
+ 
++import dev.tessera.runtime.TemplateView;
+ import com.kazuki43zoo.jpetstore.component.validation.NumericCharacters;
+ import com.kazuki43zoo.jpetstore.domain.Account;
+ import com.kazuki43zoo.jpetstore.domain.Order;
+@@ -31,6 +32,7 @@ import java.io.Serializable;
+ /**
+  * @author Kazuki Shimizu
+  */
++@TemplateView
+ @Getter
+ @Setter
+ public class OrderForm implements Serializable {
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/ui/view/CartRow.java b/src/main/java/com/kazuki43zoo/jpetstore/ui/view/CartRow.java
+new file mode 100644
+index 0000000..b42104a
+--- /dev/null
++++ b/src/main/java/com/kazuki43zoo/jpetstore/ui/view/CartRow.java
+@@ -0,0 +1,67 @@
++/*
++ *    Copyright 2016-2026 the original author or authors.
++ *
++ *    Licensed under the Apache License, Version 2.0 (the "License");
++ *    you may not use this file except in compliance with the License.
++ *    You may obtain a copy of the License at
++ *
++ *       http://www.apache.org/licenses/LICENSE-2.0
++ *
++ *    Unless required by applicable law or agreed to in writing, software
++ *    distributed under the License is distributed on an "AS IS" BASIS,
++ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ *    See the License for the specific language governing permissions and
++ *    limitations under the License.
++ */
++package com.kazuki43zoo.jpetstore.ui.view;
++
++import com.kazuki43zoo.jpetstore.ui.CartItem;
++import dev.tessera.runtime.TemplateView;
++
++import java.util.List;
++
++/**
++ * A cart item with its quantity field ({@code lines[i].quantity}) as bound by Spring: Tessera's
++ * {@code t:field} does not support indexed paths, so the controller resolves the field's name,
++ * display value and error messages.
++ *
++ * @author Kazuki Shimizu
++ */
++@TemplateView
++public class CartRow {
++
++	private final CartItem cartItem;
++	private final String quantityName;
++	private final String quantityId;
++	private final String quantityValue;
++	private final List<String> quantityErrors;
++
++	public CartRow(CartItem cartItem, String quantityName, String quantityValue, List<String> quantityErrors) {
++		this.cartItem = cartItem;
++		this.quantityName = quantityName;
++		this.quantityId = quantityName.replace("[", "").replace("]", "");
++		this.quantityValue = quantityValue;
++		this.quantityErrors = quantityErrors;
++	}
++
++	public CartItem getCartItem() {
++		return cartItem;
++	}
++
++	public String getQuantityName() {
++		return quantityName;
++	}
++
++	public String getQuantityId() {
++		return quantityId;
++	}
++
++	public String getQuantityValue() {
++		return quantityValue;
++	}
++
++	public List<String> getQuantityErrors() {
++		return quantityErrors;
++	}
++
++}
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/ui/view/FormatFunctions.java b/src/main/java/com/kazuki43zoo/jpetstore/ui/view/FormatFunctions.java
+new file mode 100644
+index 0000000..7da07bb
+--- /dev/null
++++ b/src/main/java/com/kazuki43zoo/jpetstore/ui/view/FormatFunctions.java
+@@ -0,0 +1,49 @@
++/*
++ *    Copyright 2016-2026 the original author or authors.
++ *
++ *    Licensed under the Apache License, Version 2.0 (the "License");
++ *    you may not use this file except in compliance with the License.
++ *    You may obtain a copy of the License at
++ *
++ *       http://www.apache.org/licenses/LICENSE-2.0
++ *
++ *    Unless required by applicable law or agreed to in writing, software
++ *    distributed under the License is distributed on an "AS IS" BASIS,
++ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ *    See the License for the specific language governing permissions and
++ *    limitations under the License.
++ */
++package com.kazuki43zoo.jpetstore.ui.view;
++
++import dev.tessera.runtime.TemplateFunction;
++import dev.tessera.runtime.TemplateFunctions;
++
++import java.math.BigDecimal;
++import java.math.RoundingMode;
++import java.text.DecimalFormat;
++import java.text.DecimalFormatSymbols;
++import java.util.Locale;
++
++/**
++ * Number formatting for templates.
++ *
++ * @author Kazuki Shimizu
++ */
++@TemplateFunctions("fmt")
++public final class FormatFunctions {
++
++	private FormatFunctions() {
++	}
++
++	/** Formats an amount with comma grouping and two decimals (e.g. {@code 1,234.50}). */
++	@TemplateFunction
++	public static String decimal(BigDecimal value) {
++		if (value == null) {
++			return null;
++		}
++		DecimalFormat format = new DecimalFormat("#,##0.00", DecimalFormatSymbols.getInstance(Locale.US));
++		format.setRoundingMode(RoundingMode.HALF_EVEN);
++		return format.format(value);
++	}
++
++}
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/ui/view/MarkupFunctions.java b/src/main/java/com/kazuki43zoo/jpetstore/ui/view/MarkupFunctions.java
+new file mode 100644
+index 0000000..a23b98d
+--- /dev/null
++++ b/src/main/java/com/kazuki43zoo/jpetstore/ui/view/MarkupFunctions.java
+@@ -0,0 +1,64 @@
++/*
++ *    Copyright 2016-2026 the original author or authors.
++ *
++ *    Licensed under the Apache License, Version 2.0 (the "License");
++ *    you may not use this file except in compliance with the License.
++ *    You may obtain a copy of the License at
++ *
++ *       http://www.apache.org/licenses/LICENSE-2.0
++ *
++ *    Unless required by applicable law or agreed to in writing, software
++ *    distributed under the License is distributed on an "AS IS" BASIS,
++ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ *    See the License for the specific language governing permissions and
++ *    limitations under the License.
++ */
++package com.kazuki43zoo.jpetstore.ui.view;
++
++import dev.tessera.runtime.TemplateFunction;
++import dev.tessera.runtime.TemplateFunctions;
++
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.List;
++import java.util.regex.Matcher;
++import java.util.regex.Pattern;
++
++/**
++ * Splits the HTML snippets stored in the database (product descriptions, banners) into images and
++ * text, so that templates can render them without trusting raw markup. Only
++ * {@code <image src="/local/path">} tags are recognized; everything else is kept as text and
++ * escaped on output.
++ *
++ * @author Kazuki Shimizu
++ */
++@TemplateFunctions("markup")
++public final class MarkupFunctions {
++
++	private static final Pattern IMAGE = Pattern.compile("<image\\s+src=\"(/[A-Za-z0-9_./-]*)\"\\s*/?>");
++
++	private MarkupFunctions() {
++	}
++
++	@TemplateFunction
++	public static List<MarkupPart> parts(String html) {
++		if (html == null || html.isEmpty()) {
++			return Collections.emptyList();
++		}
++		List<MarkupPart> parts = new ArrayList<>();
++		Matcher matcher = IMAGE.matcher(html);
++		int last = 0;
++		while (matcher.find()) {
++			if (matcher.start() > last) {
++				parts.add(MarkupPart.text(html.substring(last, matcher.start())));
++			}
++			parts.add(MarkupPart.image(matcher.group(1)));
++			last = matcher.end();
++		}
++		if (last < html.length()) {
++			parts.add(MarkupPart.text(html.substring(last)));
++		}
++		return parts;
++	}
++
++}
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/ui/view/MarkupPart.java b/src/main/java/com/kazuki43zoo/jpetstore/ui/view/MarkupPart.java
+new file mode 100644
+index 0000000..676a4cc
+--- /dev/null
++++ b/src/main/java/com/kazuki43zoo/jpetstore/ui/view/MarkupPart.java
+@@ -0,0 +1,56 @@
++/*
++ *    Copyright 2016-2026 the original author or authors.
++ *
++ *    Licensed under the Apache License, Version 2.0 (the "License");
++ *    you may not use this file except in compliance with the License.
++ *    You may obtain a copy of the License at
++ *
++ *       http://www.apache.org/licenses/LICENSE-2.0
++ *
++ *    Unless required by applicable law or agreed to in writing, software
++ *    distributed under the License is distributed on an "AS IS" BASIS,
++ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ *    See the License for the specific language governing permissions and
++ *    limitations under the License.
++ */
++package com.kazuki43zoo.jpetstore.ui.view;
++
++import dev.tessera.runtime.TemplateView;
++
++/**
++ * A piece of the markup stored in the database: either an image or plain text.
++ *
++ * @author Kazuki Shimizu
++ */
++@TemplateView
++public class MarkupPart {
++
++	private final String src;
++	private final String text;
++
++	private MarkupPart(String src, String text) {
++		this.src = src;
++		this.text = text;
++	}
++
++	static MarkupPart image(String src) {
++		return new MarkupPart(src, null);
++	}
++
++	static MarkupPart text(String text) {
++		return new MarkupPart(null, text);
++	}
++
++	public boolean isImage() {
++		return src != null;
++	}
++
++	public String getSrc() {
++		return src;
++	}
++
++	public String getText() {
++		return text;
++	}
++
++}
+diff --git a/src/main/java/com/kazuki43zoo/jpetstore/ui/view/SiteView.java b/src/main/java/com/kazuki43zoo/jpetstore/ui/view/SiteView.java
+new file mode 100644
+index 0000000..ea99e20
+--- /dev/null
++++ b/src/main/java/com/kazuki43zoo/jpetstore/ui/view/SiteView.java
+@@ -0,0 +1,67 @@
++/*
++ *    Copyright 2016-2026 the original author or authors.
++ *
++ *    Licensed under the Apache License, Version 2.0 (the "License");
++ *    you may not use this file except in compliance with the License.
++ *    You may obtain a copy of the License at
++ *
++ *       http://www.apache.org/licenses/LICENSE-2.0
++ *
++ *    Unless required by applicable law or agreed to in writing, software
++ *    distributed under the License is distributed on an "AS IS" BASIS,
++ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ *    See the License for the specific language governing permissions and
++ *    limitations under the License.
++ */
++package com.kazuki43zoo.jpetstore.ui.view;
++
++import com.kazuki43zoo.jpetstore.domain.Account;
++import dev.tessera.runtime.TemplateView;
++
++import java.util.List;
++import java.util.function.Supplier;
++
++/**
++ * Values the common layout needs on every page (they were read from the request, the session and
++ * the security context by the old templates).
++ *
++ * @author Kazuki Shimizu
++ */
++@TemplateView
++public class SiteView {
++
++	private final boolean errorResponse;
++	private final Supplier<String> keywords;
++	private final Account account;
++
++	public SiteView(boolean errorResponse, Supplier<String> keywords, Account account) {
++		this.errorResponse = errorResponse;
++		this.keywords = keywords;
++		this.account = account;
++	}
++
++	/** Whether the page is rendered for an error response (status 400 or higher). */
++	public boolean isErrorResponse() {
++		return errorResponse;
++	}
++
++	/** The last product search keywords (read when the page renders, after the controller ran), never null. */
++	public String getKeywords() {
++		String value = keywords.get();
++		return value == null ? "" : value;
++	}
++
++	/** The signed-in user's account, or null. */
++	public Account getAccount() {
++		return account;
++	}
++
++	/** The banner of the signed-in user when the banner option is enabled, otherwise empty. */
++	public List<MarkupPart> getBanner() {
++		if (account == null || !account.isBannerOption()) {
++			return java.util.Collections.emptyList();
++		}
++		return MarkupFunctions.parts(account.getBannerName());
++	}
++
++}
+diff --git a/src/main/resources/META-INF/spring.factories b/src/main/resources/META-INF/spring.factories
+new file mode 100644
+index 0000000..cedd160
+--- /dev/null
++++ b/src/main/resources/META-INF/spring.factories
+@@ -0,0 +1,3 @@
++# Template availability for Spring Boot's error view resolution
++org.springframework.boot.autoconfigure.template.TemplateAvailabilityProvider=\
++com.kazuki43zoo.jpetstore.config.TesseraTemplateAvailabilityProvider
+diff --git a/src/main/resources/templates/account/createForm.html b/src/main/resources/templates/account/createForm.html
+index 533d243..3efaf32 100644
+--- a/src/main/resources/templates/account/createForm.html
++++ b/src/main/resources/templates/account/createForm.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,17 +16,17 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:th="http://www.thymeleaf.org"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      layout:decorate="~{layout}">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.domain.*, com.kazuki43zoo.jpetstore.ui.CartItem, com.kazuki43zoo.jpetstore.ui.view.*, com.kazuki43zoo.jpetstore.ui.controller.AccountForm, com.kazuki43zoo.jpetstore.ui.controller.OrderForm, com.kazuki43zoo.jpetstore.ui.controller.CartUpdateForm, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:params="SiteView site, Messages messages, AccountForm accountForm, List<String> clLanguages, List<String> clCategories"
++      t:replace="~{layout :: layout(~{::section}, site, messages)}">
+ <body>
+ <div id="Content">
+-    <section layout:fragment="content">
++    <section>
+ 
+         <div id="Catalog">
+ 
+-            <form th:action="@{/accounts/create}" method="post" th:object="${accountForm}">
++            <form t:action="@{/accounts/create}" method="post" t:object="accountForm">
+ 
+                 <h3>User Information</h3>
+ 
+@@ -34,27 +34,27 @@
+                     <tr>
+                         <td>User ID:</td>
+                         <td>
+-                            <input th:field="*{username}"/>
+-                            <div th:errors="*{username}" class="fieldError"></div>
++                            <input t:field="*{username}"/>
++                            <div t:errors="*{username}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>New password:</td>
+                         <td>
+-                            <input type="password" th:field="*{password}"/>
+-                            <div th:errors="*{password}" class="fieldError"></div>
++                            <input type="password" t:field="*{password}" value=""/>
++                            <div t:errors="*{password}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>Repeat password:</td>
+                         <td>
+-                            <input type="password" th:field="*{repeatedPassword}"/>
+-                            <div th:errors="*{repeatedPassword}" class="fieldError"></div>
++                            <input type="password" t:field="*{repeatedPassword}" value=""/>
++                            <div t:errors="*{repeatedPassword}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                 </table>
+ 
+-                <div th:include="account/flagments :: commonForm">
++                <div t:replace="~{account/flagments :: commonForm(accountForm, clLanguages, clCategories)}">
+                 </div>
+ 
+                 <input id="save" type="submit" value="Save Account Information"/>
+diff --git a/src/main/resources/templates/account/flagments.html b/src/main/resources/templates/account/flagments.html
+index 78eaade..a460ced 100644
+--- a/src/main/resources/templates/account/flagments.html
++++ b/src/main/resources/templates/account/flagments.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,82 +16,82 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:th="http://www.thymeleaf.org">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.ui.controller.AccountForm">
+ <body>
+ 
+-<div th:fragment="commonForm">
++<div t:fragment="commonForm(AccountForm accountForm, List<String> clLanguages, List<String> clCategories)" t:object="accountForm">
+     <h3>Account Information</h3>
+ 
+     <table>
+         <tr>
+             <td>First name:</td>
+             <td>
+-                <input th:field="*{firstName}"/>
+-                <div th:errors="*{firstName}" class="fieldError"></div>
++                <input t:field="*{firstName}"/>
++                <div t:errors="*{firstName}" class="fieldError"></div>
+             </td>
+         </tr>
+         <tr>
+             <td>Last name:</td>
+             <td>
+-                <input th:field="*{lastName}"/>
+-                <div th:errors="*{lastName}" class="fieldError"></div>
++                <input t:field="*{lastName}"/>
++                <div t:errors="*{lastName}" class="fieldError"></div>
+             </td>
+         </tr>
+         <tr>
+             <td>Email:</td>
+             <td>
+-                <input size="40" th:field="*{email}"/>
+-                <div th:errors="*{email}" class="fieldError"></div>
++                <input size="40" t:field="*{email}"/>
++                <div t:errors="*{email}" class="fieldError"></div>
+             </td>
+         </tr>
+         <tr>
+             <td>Phone:</td>
+             <td>
+-                <input th:field="*{phone}"/>
+-                <div th:errors="*{phone}" class="fieldError"></div>
++                <input t:field="*{phone}"/>
++                <div t:errors="*{phone}" class="fieldError"></div>
+             </td>
+         </tr>
+         <tr>
+             <td>Address 1:</td>
+             <td>
+-                <input size="40" th:field="*{address1}"/>
+-                <div th:errors="*{address1}" class="fieldError"></div>
++                <input size="40" t:field="*{address1}"/>
++                <div t:errors="*{address1}" class="fieldError"></div>
+             </td>
+         </tr>
+         <tr>
+             <td>Address 2:</td>
+             <td>
+-                <input size="40" th:field="*{address2}"/>
+-                <div th:errors="*{address2}" class="fieldError"></div>
++                <input size="40" t:field="*{address2}"/>
++                <div t:errors="*{address2}" class="fieldError"></div>
+             </td>
+         </tr>
+         <tr>
+             <td>City:</td>
+             <td>
+-                <input th:field="*{city}"/>
+-                <div th:errors="*{city}" class="fieldError"></div>
++                <input t:field="*{city}"/>
++                <div t:errors="*{city}" class="fieldError"></div>
+             </td>
+         </tr>
+         <tr>
+             <td>State:</td>
+             <td>
+-                <input size="4" th:field="*{state}"/>
+-                <div th:errors="*{state}" class="fieldError"></div>
++                <input size="4" t:field="*{state}"/>
++                <div t:errors="*{state}" class="fieldError"></div>
+             </td>
+         </tr>
+         <tr>
+             <td>Zip:</td>
+             <td>
+-                <input size="10" th:field="*{zip}"/>
+-                <div th:errors="*{zip}" class="fieldError"></div>
++                <input size="10" t:field="*{zip}"/>
++                <div t:errors="*{zip}" class="fieldError"></div>
+             </td>
+         </tr>
+         <tr>
+             <td>Country:</td>
+             <td>
+-                <input size="15" th:field="*{country}"/>
+-                <div th:errors="*{country}" class="fieldError"></div>
++                <input size="15" t:field="*{country}"/>
++                <div t:errors="*{country}" class="fieldError"></div>
+             </td>
+         </tr>
+     </table>
+@@ -102,37 +102,37 @@
+         <tr>
+             <td>Language Preference:</td>
+             <td>
+-                <select th:field="*{languagePreference}">
+-                    <option th:each="language : ${@clLanguages}"
+-                            th:value="${language}" th:text="${language}">
++                <select t:field="*{languagePreference}">
++                    <option t:each="language : clLanguages"
++                            t:value="${language}" t:text="${language}">
+                     </option>
+                 </select>
+-                <div th:errors="*{languagePreference}" class="fieldError"></div>
++                <div t:errors="*{languagePreference}" class="fieldError"></div>
+             </td>
+         </tr>
+         <tr>
+             <td>Favourite Category:</td>
+             <td>
+-                <select th:field="*{favouriteCategoryId}">
+-                    <option th:each="category : ${@clCategories}"
+-                            th:value="${category}" th:text="${category}">
++                <select t:field="*{favouriteCategoryId}">
++                    <option t:each="category : clCategories"
++                            t:value="${category}" t:text="${category}">
+                     </option>
+                 </select>
+-                <div th:errors="*{favouriteCategoryId}" class="fieldError"></div>
++                <div t:errors="*{favouriteCategoryId}" class="fieldError"></div>
+             </td>
+         </tr>
+         <tr>
+             <td>Enable MyList:</td>
+             <td>
+-                <input type="checkbox" th:field="*{listOption}"/>
+-                <div th:errors="*{listOption}" class="fieldError"></div>
++                <input type="checkbox" id="listOption1" t:field="*{listOption}"/>
++                <div t:errors="*{listOption}" class="fieldError"></div>
+             </td>
+         </tr>
+         <tr>
+             <td>Enable MyBanner:</td>
+             <td>
+-                <input type="checkbox" th:field="*{bannerOption}"/>
+-                <div th:errors="*{bannerOption}" class="fieldError"></div>
++                <input type="checkbox" id="bannerOption1" t:field="*{bannerOption}"/>
++                <div t:errors="*{bannerOption}" class="fieldError"></div>
+             </td>
+         </tr>
+ 
+diff --git a/src/main/resources/templates/account/updateForm.html b/src/main/resources/templates/account/updateForm.html
+index b0be502..13b3468 100644
+--- a/src/main/resources/templates/account/updateForm.html
++++ b/src/main/resources/templates/account/updateForm.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,18 +16,17 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:th="http://www.thymeleaf.org"
+-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      layout:decorate="~{layout}">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.domain.*, com.kazuki43zoo.jpetstore.ui.CartItem, com.kazuki43zoo.jpetstore.ui.view.*, com.kazuki43zoo.jpetstore.ui.controller.AccountForm, com.kazuki43zoo.jpetstore.ui.controller.OrderForm, com.kazuki43zoo.jpetstore.ui.controller.CartUpdateForm, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:params="SiteView site, Messages messages, AccountForm accountForm, List<String> clLanguages, List<String> clCategories"
++      t:replace="~{layout :: layout(~{::section}, site, messages)}">
+ <body>
+ <div id="Content">
+-    <section layout:fragment="content">
++    <section>
+ 
+         <div id="Catalog">
+ 
+-            <form th:action="@{/my/account/update}" method="post" th:object="${accountForm}">
++            <form t:action="@{/my/account/update}" method="post" t:object="accountForm">
+ 
+                 <h3>User Information</h3>
+ 
+@@ -35,33 +34,33 @@
+                     <tr>
+                         <td>User ID:</td>
+                         <td>
+-                            <span sec:authentication="principal.account.username"></span>
++                            <span t:text="site.account?.username"></span>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>New password:</td>
+                         <td>
+-                            <input type="password" th:field="*{password}"/>
+-                            <div th:errors="*{password}" class="fieldError"></div>
++                            <input type="password" t:field="*{password}" value=""/>
++                            <div t:errors="*{password}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>Repeat password:</td>
+                         <td>
+-                            <input type="password" th:field="*{repeatedPassword}"/>
+-                            <div th:errors="*{repeatedPassword}" class="fieldError"></div>
++                            <input type="password" t:field="*{repeatedPassword}" value=""/>
++                            <div t:errors="*{repeatedPassword}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                 </table>
+ 
+-                <div th:include="account/flagments :: commonForm">
++                <div t:replace="~{account/flagments :: commonForm(accountForm, clLanguages, clCategories)}">
+                 </div>
+ 
+                 <input id="save" type="submit" value="Save Account Information"/>
+ 
+             </form>
+ 
+-            <a th:href="@{/my/orders}">
++            <a t:href="@{/my/orders}">
+                 My Orders
+             </a>
+ 
+diff --git a/src/main/resources/templates/auth/login.html b/src/main/resources/templates/auth/login.html
+index 9e9ea64..e7caf2e 100644
+--- a/src/main/resources/templates/auth/login.html
++++ b/src/main/resources/templates/auth/login.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,17 +16,17 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:th="http://www.thymeleaf.org"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      layout:decorate="~{layout}">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.domain.*, com.kazuki43zoo.jpetstore.ui.CartItem, com.kazuki43zoo.jpetstore.ui.view.*, com.kazuki43zoo.jpetstore.ui.controller.AccountForm, com.kazuki43zoo.jpetstore.ui.controller.OrderForm, com.kazuki43zoo.jpetstore.ui.controller.CartUpdateForm, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:params="SiteView site, Messages messages"
++      t:replace="~{layout :: layout(~{::section}, site, messages)}">
+ <body>
+ <div id="Content">
+-    <section layout:fragment="content">
++    <section>
+ 
+         <div id="Catalog">
+ 
+-            <form th:action="@{/login}" method="post">
++            <form t:action="@{/login}" method="post">
+                 <p>Please enter your username and password.</p>
+                 <p>
+                     Username:<input name="username" /> <br />
+@@ -36,7 +36,7 @@
+ 
+             </form>
+ 
+-            Need a user name and password? <a th:href="@{/accounts/create(form)}">Register Now!</a>
++            Need a user name and password? <a t:href="@{/accounts/create?form}">Register Now!</a>
+         </div>
+ 
+     </section>
+diff --git a/src/main/resources/templates/cart/cart.html b/src/main/resources/templates/cart/cart.html
+index 63a95bf..677e15e 100644
+--- a/src/main/resources/templates/cart/cart.html
++++ b/src/main/resources/templates/cart/cart.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,17 +16,16 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:th="http://www.thymeleaf.org"
+-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      layout:decorate="~{layout}">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.domain.*, com.kazuki43zoo.jpetstore.ui.CartItem, com.kazuki43zoo.jpetstore.ui.view.*, com.kazuki43zoo.jpetstore.ui.controller.AccountForm, com.kazuki43zoo.jpetstore.ui.controller.OrderForm, com.kazuki43zoo.jpetstore.ui.controller.CartUpdateForm, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:params="SiteView site, Messages messages, CartUpdateForm cartUpdateForm, List<CartRow> cartRows, BigDecimal cartSubTotal, List<Product> favouriteProducts"
++      t:replace="~{layout :: layout(~{::section}, site, messages)}">
+ <body>
+ <div id="Content">
+-    <section layout:fragment="content">
++    <section>
+ 
+         <div id="BackLink">
+-            <a th:href="@{/catalog}">Return to Main Menu</a>
++            <a t:href="@{/catalog}">Return to Main Menu</a>
+         </div>
+ 
+         <div id="Catalog">
+@@ -35,7 +34,7 @@
+ 
+                 <h2>Shopping Cart</h2>
+ 
+-                <form th:action="@{/cart}" th:object="${cartUpdateForm}" method="post">
++                <form t:action="@{/cart}"  method="post">
+                     <table>
+                         <tr>
+                             <th>Item ID</th>
+@@ -48,80 +47,81 @@
+                             <th>&nbsp;</th>
+                         </tr>
+ 
+-                        <tr th:if="${#lists.isEmpty(@cart.cartItems)}">
++                        <tr t:if="cartRows.isEmpty()">
+                             <td colspan="8">
+                                 <b>Your cart is empty.</b>
+                             </td>
+                         </tr>
+ 
+-                        <tr th:each="cartItem : ${@cart.cartItems}">
++                        <tr t:each="row : cartRows" t:with="cartItem=row.cartItem">
+                             <td>
+-                                <a th:href="@{/catalog/items/{itemId}(itemId=${cartItem.item.itemId})}">
+-                                    <span th:text="${cartItem.item.itemId}">EST-1</span>
++                                <a t:href="@{/catalog/items/{itemId}(itemId=${cartItem.item.itemId})}">
++                                    <span t:text="${cartItem.item.itemId}">EST-1</span>
+                                 </a>
+                             </td>
+                             <td>
+-                                <span th:text="${cartItem.item.product.productId}">
++                                <span t:text="${cartItem.item.product.productId}">
+                                     FI-SW-01
+                                 </span>
+                             </td>
+                             <td>
+-                                <span th:text="${cartItem.item.attribute1}">Large</span>
+-                                <span th:text="${cartItem.item.attribute2}"></span>
+-                                <span th:text="${cartItem.item.attribute3}"></span>
+-                                <span th:text="${cartItem.item.attribute4}"></span>
+-                                <span th:text="${cartItem.item.attribute5}"></span>
+-                                <span th:text="${cartItem.item.product.name}">Angelfish</span>
++                                <span t:text="${cartItem.item.attribute1}">Large</span>
++                                <span t:text="${cartItem.item.attribute2}"></span>
++                                <span t:text="${cartItem.item.attribute3}"></span>
++                                <span t:text="${cartItem.item.attribute4}"></span>
++                                <span t:text="${cartItem.item.attribute5}"></span>
++                                <span t:text="${cartItem.item.product.name}">Angelfish</span>
+                             </td>
+                             <td>
+-                                <span th:text="${cartItem.inStock}">
++                                <span t:text="${cartItem.inStock}">
+                                     true
+                                 </span>
+                             </td>
+                             <td>
+-                                <input type="hidden" th:value="${cartItem.item.itemId}"/>
+-                                <input th:field="*{lines[__${cartItemStat.index}__].quantity}"/>
+-                                <div th:errors="*{lines[__${cartItemStat.index}__].quantity}" class="fieldError">must be an integer</div>
++                                <input type="hidden" t:value="${cartItem.item.itemId}"/>
++                                <input t:id="row.quantityId" t:name="row.quantityName" t:value="row.quantityValue"/>
++                                <div t:unless="row.quantityErrors.isEmpty()" class="fieldError"><t:block t:each="error, errorStat : row.quantityErrors">[[${error}]]<br t:unless="errorStat.last" /></t:block></div>
+                             </td>
+                             <td>
+                                 $<span
+-                                    th:text="${#numbers.formatDecimal(cartItem.item.listPrice, 1, 'COMMA', 2, 'POINT')}">16.50</span>
++                                    t:text="${fmt.decimal(cartItem.item.listPrice)}">16.50</span>
+                             </td>
+                             <td>
+                                 $<span
+-                                    th:text="${#numbers.formatDecimal(cartItem.total, 1, 'COMMA', 2, 'POINT')}">16.50</span>
++                                    t:text="${fmt.decimal(cartItem.total)}">16.50</span>
+                             </td>
+                             <td>
+-                                <a class="Button" th:href="@{/cart(remove,itemId=${cartItem.item.itemId})}">Remove</a>
++                                <a class="Button" t:href="@{/cart?remove(itemId=${cartItem.item.itemId})}">Remove</a>
+                             </td>
+                         </tr>
+-                        <tr th:if="${!#lists.isEmpty(@cart.cartItems)}">
++                        <tr t:if="!cartRows.isEmpty()">
+                             <td colspan="7">
+                                 Sub Total:
+                                 $<span
+-                                    th:text="${#numbers.formatDecimal(@cart.subTotal, 1, 'COMMA', 2, 'POINT')}">16.50</span>
++                                    t:text="${fmt.decimal(cartSubTotal)}">16.50</span>
+                                 <input type="submit" name="update" value="Update Cart"/>
++                            </td>
+                             <td>&nbsp;</td>
+                         </tr>
+                     </table>
+ 
+                 </form>
+ 
+-                <a th:href="@{/my/orders/create(form)}" class="Button" th:if="${!#lists.isEmpty(@cart.cartItems)}">
++                <a t:href="@{/my/orders/create?form}" class="Button" t:if="!cartRows.isEmpty()">
+                     Proceed to Checkout
+                 </a>
+ 
+             </div>
+ 
+             <div id="MyList">
+-                <div sec:authorize="isAuthenticated()" th:if="${!#lists.isEmpty(@favourite.productList)}">
++                <div t:if="auth.isAuthenticated() and !lists.isEmpty(favouriteProducts)">
+                     <p>Pet Favorites <br/>
+                         Shop for more of your favorite pets here.</p>
+                     <ul>
+-                        <li th:each="product : ${@favourite.productList}">
+-                            <a th:href="@{/catalog/products/{productId}(productId=${product.productId})}">
+-                                <span th:text="${product.name}"></span>
+-                                (<span th:text="${product.productId}"></span>)
++                        <li t:each="product : favouriteProducts">
++                            <a t:href="@{/catalog/products/{productId}(productId=${product.productId})}">
++                                <span t:text="${product.name}"></span>
++                                (<span t:text="${product.productId}"></span>)
+                             </a>
+                         </li>
+                     </ul>
+diff --git a/src/main/resources/templates/catalog/catalog.html b/src/main/resources/templates/catalog/catalog.html
+index 29af260..eb27cae 100644
+--- a/src/main/resources/templates/catalog/catalog.html
++++ b/src/main/resources/templates/catalog/catalog.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,19 +16,18 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:th="http://www.thymeleaf.org"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+-      layout:decorate="~{layout}">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.domain.*, com.kazuki43zoo.jpetstore.ui.CartItem, com.kazuki43zoo.jpetstore.ui.view.*, com.kazuki43zoo.jpetstore.ui.controller.AccountForm, com.kazuki43zoo.jpetstore.ui.controller.OrderForm, com.kazuki43zoo.jpetstore.ui.controller.CartUpdateForm, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:params="SiteView site, Messages messages"
++      t:replace="~{layout :: layout(~{::section}, site, messages)}">
+ <body>
+ <div id="Content">
+-    <section layout:fragment="content">
++    <section>
+ 
+         <div id="Welcome">
+             <div id="WelcomeContent">
+-                <div sec:authorize="isAuthenticated()">
+-                    Welcome <span sec:authentication="principal.account.firstName">Kazuki</span> !
++                <div t:if="auth.isAuthenticated()">
++                    Welcome <span t:text="site.account?.firstName">Kazuki</span> !
+                 </div>
+             </div>
+         </div>
+@@ -36,24 +35,24 @@
+         <div id="Main">
+             <div id="Sidebar">
+                 <div id="SidebarContent">
+-                    <a th:href="@{/catalog/categories/FISH}">
+-                        <img th:src="@{/images/fish_icon.gif}" />
++                    <a t:href="@{/catalog/categories/FISH}">
++                        <img t:src="@{/images/fish_icon.gif}" />
+                     </a>
+                     <br />Saltwater, Freshwater<br />
+-                    <a th:href="@{/catalog/categories/DOGS}">
+-                        <img th:src="@{/images/dogs_icon.gif}" />
++                    <a t:href="@{/catalog/categories/DOGS}">
++                        <img t:src="@{/images/dogs_icon.gif}" />
+                     </a>
+                     <br />Various Breeds<br />
+-                    <a th:href="@{/catalog/categories/REPTILES}">
+-                        <img th:src="@{/images/reptiles_icon.gif}" />
++                    <a t:href="@{/catalog/categories/REPTILES}">
++                        <img t:src="@{/images/reptiles_icon.gif}" />
+                     </a>
+                     <br />Lizards, Turtles, Snakes<br />
+-                    <a th:href="@{/catalog/categories/CATS}">
+-                        <img th:src="@{/images/cats_icon.gif}" />
++                    <a t:href="@{/catalog/categories/CATS}">
++                        <img t:src="@{/images/cats_icon.gif}" />
+                     </a>
+                     <br />Various Breeds, Exotic Varieties<br />
+-                    <a th:href="@{/catalog/categories/BIRDS}">
+-                        <img th:src="@{/images/birds_icon.gif}" />
++                    <a t:href="@{/catalog/categories/BIRDS}">
++                        <img t:src="@{/images/birds_icon.gif}" />
+                     </a>
+                     <br />Exotic Varieties
+                 </div>
+@@ -63,19 +62,19 @@
+                 <div id="MainImageContent">
+                     <map name="estoremap">
+                         <area alt="Birds" coords="72,2,280,250"
+-                              th:href="@{/catalog/categories/BIRDS}" shape="RECT" />
++                              t:href="@{/catalog/categories/BIRDS}" shape="RECT" />
+                         <area alt="Fish" coords="2,180,72,250"
+-                              th:href="@{/catalog/categories/FISH}" shape="RECT" />
++                              t:href="@{/catalog/categories/FISH}" shape="RECT" />
+                         <area alt="Dogs" coords="60,250,130,320"
+-                              th:href="@{/catalog/categories/DOGS}" shape="RECT" />
++                              t:href="@{/catalog/categories/DOGS}" shape="RECT" />
+                         <area alt="Reptiles" coords="140,270,210,340"
+-                              th:href="@{/catalog/categories/REPTILES}" shape="RECT" />
++                              t:href="@{/catalog/categories/REPTILES}" shape="RECT" />
+                         <area alt="Cats" coords="225,240,295,310"
+-                              th:href="@{/catalog/categories/CATS}" shape="RECT" />
++                              t:href="@{/catalog/categories/CATS}" shape="RECT" />
+                         <area alt="Birds" coords="280,180,350,250"
+-                              th:href="@{/catalog/categories/BIRDS}" shape="RECT" />
++                              t:href="@{/catalog/categories/BIRDS}" shape="RECT" />
+                     </map>
+-                    <img height="355" th:src="@{/images/splash.gif}" align="middle"
++                    <img height="355" t:src="@{/images/splash.gif}" align="middle"
+                          usemap="#estoremap" width="350" />
+                 </div>
+             </div>
+diff --git a/src/main/resources/templates/catalog/category.html b/src/main/resources/templates/catalog/category.html
+index 62ada1e..68045ae 100644
+--- a/src/main/resources/templates/catalog/category.html
++++ b/src/main/resources/templates/catalog/category.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,32 +16,32 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:th="http://www.thymeleaf.org"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      layout:decorate="~{layout}">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.domain.*, com.kazuki43zoo.jpetstore.ui.CartItem, com.kazuki43zoo.jpetstore.ui.view.*, com.kazuki43zoo.jpetstore.ui.controller.AccountForm, com.kazuki43zoo.jpetstore.ui.controller.OrderForm, com.kazuki43zoo.jpetstore.ui.controller.CartUpdateForm, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:params="SiteView site, Messages messages, Category category, List<Product> productList"
++      t:replace="~{layout :: layout(~{::section}, site, messages)}">
+ <body>
+ <div id="Content">
+-    <section layout:fragment="content">
++    <section>
+ 
+         <div id="BackLink">
+-            <a th:href="@{/catalog}">Return to Main Menu</a>
++            <a t:href="@{/catalog}">Return to Main Menu</a>
+         </div>
+ 
+         <div id="Catalog">
+ 
+-            <h2 th:text="${category.name}">Birds</h2>
++            <h2 t:text="${category.name}">Birds</h2>
+ 
+             <table>
+                 <tr>
+                     <th>Product ID</th>
+                     <th>Name</th>
+                 </tr>
+-                <tr th:each="product : ${productList}">
++                <tr t:each="product : ${productList}">
+                     <td>
+-                        <a th:href="@{/catalog/products/{productId}(productId=${product.productId})}" th:text="${product.productId}">AV-CB-01</a>
++                        <a t:href="@{/catalog/products/{productId}(productId=${product.productId})}" t:text="${product.productId}">AV-CB-01</a>
+                     </td>
+-                    <td th:text="${product.name}">Amazon Parrot</td>
++                    <td t:text="${product.name}">Amazon Parrot</td>
+                 </tr>
+             </table>
+ 
+diff --git a/src/main/resources/templates/catalog/item.html b/src/main/resources/templates/catalog/item.html
+index 4ff1374..0fd4f80 100644
+--- a/src/main/resources/templates/catalog/item.html
++++ b/src/main/resources/templates/catalog/item.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,28 +16,28 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:th="http://www.thymeleaf.org"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      layout:decorate="~{layout}">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.domain.*, com.kazuki43zoo.jpetstore.ui.CartItem, com.kazuki43zoo.jpetstore.ui.view.*, com.kazuki43zoo.jpetstore.ui.controller.AccountForm, com.kazuki43zoo.jpetstore.ui.controller.OrderForm, com.kazuki43zoo.jpetstore.ui.controller.CartUpdateForm, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:params="SiteView site, Messages messages, Item item"
++      t:replace="~{layout :: layout(~{::section}, site, messages)}">
+ <body>
+ <div id="Content">
+-    <section layout:fragment="content">
++    <section>
+ 
+         <div id="BackLink">
+-            <a th:href="@{/catalog/products/{productId}(productId=${item.product.productId})}">Return to <span th:text="${item.product.productId}"></span></a>
++            <a t:href="@{/catalog/products/{productId}(productId=${item.product.productId})}">Return to <span t:text="${item.product.productId}"></span></a>
+         </div>
+ 
+         <div id="Catalog">
+ 
+             <table>
+                 <tr>
+-                    <td th:utext="${item.product.description}"></td>
++                    <td><t:block t:each="part : markup.parts(item.product.description)"><img t:if="part.image" t:src="part.src"><t:block t:unless="part.image">[[${part.text}]]</t:block></t:block></td>
+                 </tr>
+                 <tr>
+                     <td>
+                         <b>
+-                            <span th:text="${item.itemId}"></span>
++                            <span t:text="${item.itemId}"></span>
+                         </b>
+                     </td>
+                 </tr>
+@@ -45,36 +45,36 @@
+                     <td>
+                         <b>
+                             <font size="4">
+-                                <span th:text="${item.attribute1}"></span>
+-                                <span th:text="${item.attribute2}"></span>
+-                                <span th:text="${item.attribute3}"></span>
+-                                <span th:text="${item.attribute4}"></span>
+-                                <span th:text="${item.attribute5}"></span>
+-                                <span th:text="${item.product.name}"></span>
++                                <span t:text="${item.attribute1}"></span>
++                                <span t:text="${item.attribute2}"></span>
++                                <span t:text="${item.attribute3}"></span>
++                                <span t:text="${item.attribute4}"></span>
++                                <span t:text="${item.attribute5}"></span>
++                                <span t:text="${item.product.name}"></span>
+                             </font>
+                         </b>
+                     </td>
+                 </tr>
+                 <tr>
+-                    <td th:text="${item.product.name}"></td>
++                    <td t:text="${item.product.name}"></td>
+                 </tr>
+                 <tr>
+-                    <td th:if="${item.quantity le 0}">
++                    <td t:if="${item.quantity le 0}">
+                             Back ordered.
+                    </td>
+-                    <td th:if="${item.quantity gt 0}">
+-                        <span th:text="${item.quantity}"></span> in stock.
++                    <td t:if="${item.quantity gt 0}">
++                        <span t:text="${item.quantity}"></span> in stock.
+                     </td>
+                 </tr>
+                 <tr>
+                     <td>
+-                        $<span th:text="${#numbers.formatDecimal(item.listPrice, 1, 'COMMA', 2, 'POINT')}">16.50</span>
++                        $<span t:text="${fmt.decimal(item.listPrice)}">16.50</span>
+                     </td>
+                 </tr>
+ 
+                 <tr>
+                     <td>
+-                        <a th:href="@{/cart(add,itemId=${item.itemId})}" class="Button">
++                        <a t:href="@{/cart?add(itemId=${item.itemId})}" class="Button">
+                             Add to Cart
+                         </a>
+                     </td>
+diff --git a/src/main/resources/templates/catalog/product.html b/src/main/resources/templates/catalog/product.html
+index 5d05c6e..1cd7015 100644
+--- a/src/main/resources/templates/catalog/product.html
++++ b/src/main/resources/templates/catalog/product.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,21 +16,21 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:th="http://www.thymeleaf.org"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      layout:decorate="~{layout}">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.domain.*, com.kazuki43zoo.jpetstore.ui.CartItem, com.kazuki43zoo.jpetstore.ui.view.*, com.kazuki43zoo.jpetstore.ui.controller.AccountForm, com.kazuki43zoo.jpetstore.ui.controller.OrderForm, com.kazuki43zoo.jpetstore.ui.controller.CartUpdateForm, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:params="SiteView site, Messages messages, Product product, List<Item> itemList"
++      t:replace="~{layout :: layout(~{::section}, site, messages)}">
+ <body>
+ <div id="Content">
+-    <section layout:fragment="content">
++    <section>
+ 
+         <div id="BackLink">
+-            <a th:href="@{/catalog/categories/{categoryId}(categoryId=${product.categoryId})}">Return to <span th:text="${product.categoryId}"></span></a>
++            <a t:href="@{/catalog/categories/{categoryId}(categoryId=${product.categoryId})}">Return to <span t:text="${product.categoryId}"></span></a>
+         </div>
+ 
+         <div id="Catalog">
+ 
+-            <h2 th:text="${product.name}"></h2>
++            <h2 t:text="${product.name}"></h2>
+ 
+             <table>
+                 <tr>
+@@ -40,24 +40,24 @@
+                     <th>List Price</th>
+                     <th>&nbsp;</th>
+                 </tr>
+-                <tr th:each="item : ${itemList}">
++                <tr t:each="item : ${itemList}">
+                     <td>
+-                        <a th:href="@{/catalog/items/{itemId}(itemId=${item.itemId})}" th:text="${item.itemId}">EST-18</a>
++                        <a t:href="@{/catalog/items/{itemId}(itemId=${item.itemId})}" t:text="${item.itemId}">EST-18</a>
+                     </td>
+-                    <td th:text="${item.product.productId}">AV-CB-01</td>
++                    <td t:text="${item.product.productId}">AV-CB-01</td>
+                     <td>
+-                        <span th:text="${item.attribute1}">Adult</span>
+-                        <span th:text="${item.attribute2}">Male</span>
+-                        <span th:text="${item.attribute3}"></span>
+-                        <span th:text="${item.attribute4}"></span>
+-                        <span th:text="${item.attribute5}"></span>
+-                        <span th:text="${product.name}">Amazon Parrot</span>
++                        <span t:text="${item.attribute1}">Adult</span>
++                        <span t:text="${item.attribute2}">Male</span>
++                        <span t:text="${item.attribute3}"></span>
++                        <span t:text="${item.attribute4}"></span>
++                        <span t:text="${item.attribute5}"></span>
++                        <span t:text="${product.name}">Amazon Parrot</span>
+                     </td>
+                     <td>
+-                        $<span th:text="${#numbers.formatDecimal(item.listPrice, 1, 'COMMA', 2, 'POINT')}">193.50</span>
++                        $<span t:text="${fmt.decimal(item.listPrice)}">193.50</span>
+                     </td>
+                     <td>
+-                        <a th:href="@{/cart(add,itemId=${item.itemId})}" class="Button">
++                        <a t:href="@{/cart?add(itemId=${item.itemId})}" class="Button">
+                             Add to Cart
+                         </a>
+                     </td>
+diff --git a/src/main/resources/templates/catalog/products.html b/src/main/resources/templates/catalog/products.html
+index 9e13b2f..5236e46 100644
+--- a/src/main/resources/templates/catalog/products.html
++++ b/src/main/resources/templates/catalog/products.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,17 +16,17 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:th="http://www.thymeleaf.org"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      layout:decorate="~{layout}">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.domain.*, com.kazuki43zoo.jpetstore.ui.CartItem, com.kazuki43zoo.jpetstore.ui.view.*, com.kazuki43zoo.jpetstore.ui.controller.AccountForm, com.kazuki43zoo.jpetstore.ui.controller.OrderForm, com.kazuki43zoo.jpetstore.ui.controller.CartUpdateForm, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:params="SiteView site, Messages messages, List<Product> productList"
++      t:replace="~{layout :: layout(~{::section}, site, messages)}">
+ <body>
+ <div id="Content">
+-    <section layout:fragment="content">
++    <section>
+ 
+ 
+         <div id="BackLink">
+-            <a th:href="@{/catalog}">Return to Main Menu</a>
++            <a t:href="@{/catalog}">Return to Main Menu</a>
+         </div>
+ 
+         <div id="Catalog">
+@@ -37,21 +37,21 @@
+                     <th>Product ID</th>
+                     <th>Name</th>
+                 </tr>
+-                <tr th:if="${#lists.isEmpty(productList)}">
++                <tr t:if="${lists.isEmpty(productList)}">
+                     <td colspan="3">
+                         <b>Products not found.</b>
+                     </td>
+                 </tr>
+-                <tr th:each="product : ${productList}">
++                <tr t:each="product : ${productList}">
+                     <td>
+-                        <a th:href="@{/catalog/products/{productId}(productId=${product.productId})}" th:utext="${product.description}"></a>
++                        <a t:href="@{/catalog/products/{productId}(productId=${product.productId})}" ><t:block t:each="part : markup.parts(product.description)"><img t:if="part.image" t:src="part.src"><t:block t:unless="part.image">[[${part.text}]]</t:block></t:block></a>
+                     </td>
+                     <td>
+-                        <a th:href="@{/catalog/products/{productId}(productId=${product.productId})}" th:text="${product.productId}">
++                        <a t:href="@{/catalog/products/{productId}(productId=${product.productId})}" t:text="${product.productId}">
+                             AV-CB-01
+                         </a>
+                     </td>
+-                    <td th:text="${product.name}">Amazon Parrot</td>
++                    <td t:text="${product.name}">Amazon Parrot</td>
+                 </tr>
+             </table>
+ 
+diff --git a/src/main/resources/templates/error/400.html b/src/main/resources/templates/error/400.html
+index 3feeef3..4826ce2 100644
+--- a/src/main/resources/templates/error/400.html
++++ b/src/main/resources/templates/error/400.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,12 +16,13 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      layout:decorate="~{layout}">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.domain.*, com.kazuki43zoo.jpetstore.ui.CartItem, com.kazuki43zoo.jpetstore.ui.view.*, com.kazuki43zoo.jpetstore.ui.controller.AccountForm, com.kazuki43zoo.jpetstore.ui.controller.OrderForm, com.kazuki43zoo.jpetstore.ui.controller.CartUpdateForm, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:params="SiteView site, Messages messages"
++      t:replace="~{layout :: layout(~{::section}, site, messages)}">
+ <body>
+ <div id="Content">
+-    <section layout:fragment="content">
++    <section>
+         <div id="Catalog">
+             <h2>Bad request.</h2>
+         </div>
+diff --git a/src/main/resources/templates/error/404.html b/src/main/resources/templates/error/404.html
+index d0cf78e..0283a13 100644
+--- a/src/main/resources/templates/error/404.html
++++ b/src/main/resources/templates/error/404.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,12 +16,13 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      layout:decorate="~{layout}">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.domain.*, com.kazuki43zoo.jpetstore.ui.CartItem, com.kazuki43zoo.jpetstore.ui.view.*, com.kazuki43zoo.jpetstore.ui.controller.AccountForm, com.kazuki43zoo.jpetstore.ui.controller.OrderForm, com.kazuki43zoo.jpetstore.ui.controller.CartUpdateForm, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:params="SiteView site, Messages messages"
++      t:replace="~{layout :: layout(~{::section}, site, messages)}">
+ <body>
+ <div id="Content">
+-    <section layout:fragment="content">
++    <section>
+         <div id="Catalog">
+             <h2>Page not found.</h2>
+         </div>
+diff --git a/src/main/resources/templates/error/500.html b/src/main/resources/templates/error/500.html
+index 1dbe46b..0050dc2 100644
+--- a/src/main/resources/templates/error/500.html
++++ b/src/main/resources/templates/error/500.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,12 +16,13 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      layout:decorate="~{layout}">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.domain.*, com.kazuki43zoo.jpetstore.ui.CartItem, com.kazuki43zoo.jpetstore.ui.view.*, com.kazuki43zoo.jpetstore.ui.controller.AccountForm, com.kazuki43zoo.jpetstore.ui.controller.OrderForm, com.kazuki43zoo.jpetstore.ui.controller.CartUpdateForm, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:params="SiteView site, Messages messages"
++      t:replace="~{layout :: layout(~{::section}, site, messages)}">
+ <body>
+ <div id="Content">
+-    <section layout:fragment="content">
++    <section>
+         <div id="Catalog">
+             <h2>Sorry... System error occurred.</h2>
+         </div>
+diff --git a/src/main/resources/templates/layout.html b/src/main/resources/templates/layout.html
+index 53fde41..5774555 100644
+--- a/src/main/resources/templates/layout.html
++++ b/src/main/resources/templates/layout.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,80 +16,79 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:th="http://www.thymeleaf.org"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.ui.view.SiteView, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:fragment="layout(Fragment content, SiteView site, Messages messages)">
+ <head>
+-    <meta charset="UTF-8">
+     <title>JPetStore Demo</title>
+-    <link rel="StyleSheet" th:href="@{/css/jpetstore.css}" type="text/css" media="screen" />
++    <meta charset="UTF-8">
++    <link rel="StyleSheet" t:href="@{/css/jpetstore.css}" type="text/css" media="screen" />
+ </head>
+ 
+-<body th:with="isErrorResponse=${#request.getAttribute('javax.servlet.error.status_code') ge 400}">
++<body>
+ 
+ <div id="Header">
+ 
+     <div id="Logo">
+         <div id="LogoContent">
+-            <a th:href="@{/catalog}">
+-                <img th:src="@{/images/logo-topbar.gif}" />
++            <a t:href="@{/catalog}">
++                <img t:src="@{/images/logo-topbar.gif}" />
+             </a>
+         </div>
+     </div>
+ 
+ 
+     <div id="Menu">
+-        <div id="MenuContent" th:if="${!isErrorResponse}">
+-            <a th:href="@{/cart}">
+-                <img align="middle" name="img_cart" th:src="@{/images/cart.gif}" />
++        <div id="MenuContent" t:if="!site.errorResponse">
++            <a t:href="@{/cart}">
++                <img align="middle" name="img_cart" t:src="@{/images/cart.gif}" />
+             </a>
+-            <img align="middle" th:src="@{/images/separator.gif}" />
+-            <a th:href="@{/login}" sec:authorize="!isAuthenticated()">
++            <img align="middle" t:src="@{/images/separator.gif}" />
++            <a t:href="@{/login}" t:unless="auth.isAuthenticated()">
+                 Sign In
+             </a>
+-            <a th:href="@{/logout}" sec:authorize="${isAuthenticated()}">
++            <a t:href="@{/logout}" t:if="auth.isAuthenticated()">
+                 Sign Out
+             </a>
+-            <img align="middle" th:src="@{/images/separator.gif}" sec:authorize="${isAuthenticated()}"/>
+-            <a th:href="@{/my/account/update(form)}" th:if="${true}" sec:authorize="${isAuthenticated()}">
++            <img align="middle" t:src="@{/images/separator.gif}" t:if="auth.isAuthenticated()"/>
++            <a t:href="@{/my/account/update?form}" t:if="auth.isAuthenticated()">
+                 My Account
+             </a>
+-            <img align="middle" th:src="@{/images/separator.gif}" />
+-            <a th:href="@{/help.html}" target="help">
++            <img align="middle" t:src="@{/images/separator.gif}" />
++            <a t:href="@{/help.html}" target="help">
+                 ?
+             </a>
+         </div>
+     </div>
+ 
+     <div id="Search">
+-        <div id="SearchContent" th:if="${!isErrorResponse}">
+-            <form th:action="@{/catalog/products}" method="get" th:object="${@productSearchCriteria}">
+-                <input name="keywords" size="14" th:value="${@productSearchCriteria.keywords}"/>
++        <div id="SearchContent" t:if="!site.errorResponse">
++            <form t:action="@{/catalog/products}" method="get">
++                <input name="keywords" size="14" t:value="site.keywords"/>
+                 <input id="searchProducts" type="submit" value="Search" />
+             </form>
+         </div>
+     </div>
+ 
+-    <div id="QuickLinks" th:if="${!isErrorResponse}">
+-        <a th:href="@{/catalog/categories/FISH}">
+-            <img th:src="@{/images/sm_fish.gif}" />
++    <div id="QuickLinks" t:if="!site.errorResponse">
++        <a t:href="@{/catalog/categories/FISH}">
++            <img t:src="@{/images/sm_fish.gif}" />
+         </a>
+-        <img th:src="@{/images/separator.gif}" />
+-        <a th:href="@{/catalog/categories/DOGS}">
+-            <img th:src="@{/images/sm_dogs.gif}" />
++        <img t:src="@{/images/separator.gif}" />
++        <a t:href="@{/catalog/categories/DOGS}">
++            <img t:src="@{/images/sm_dogs.gif}" />
+         </a>
+-        <img th:src="@{/images/separator.gif}" />
+-        <a th:href="@{/catalog/categories/REPTILES}">
+-            <img th:src="@{/images/sm_reptiles.gif}" />
++        <img t:src="@{/images/separator.gif}" />
++        <a t:href="@{/catalog/categories/REPTILES}">
++            <img t:src="@{/images/sm_reptiles.gif}" />
+         </a>
+-        <img th:src="@{/images/separator.gif}" />
+-        <a th:href="@{/catalog/categories/CATS}">
+-            <img th:src="@{/images/sm_cats.gif}" />
++        <img t:src="@{/images/separator.gif}" />
++        <a t:href="@{/catalog/categories/CATS}">
++            <img t:src="@{/images/sm_cats.gif}" />
+         </a>
+-        <img th:src="@{/images/separator.gif}" />
+-        <a th:href="@{/catalog/categories/BIRDS}">
+-            <img th:src="@{/images/sm_birds.gif}" />
++        <img t:src="@{/images/separator.gif}" />
++        <a t:href="@{/catalog/categories/BIRDS}">
++            <img t:src="@{/images/sm_birds.gif}" />
+         </a>
+     </div>
+ 
+@@ -97,11 +96,11 @@
+ 
+ <div id="Content">
+ 
+-    <ul class="messages" th:if="${messages != null}">
+-        <li th:each="message : ${messages}" th:class="${message.type}" th:text="${message.text}"></li>
++    <ul class="messages" t:if="messages != null">
++        <li t:each="message : messages" t:class="message.type" t:text="message.text"></li>
+     </ul>
+ 
+-    <section layout:fragment="content">
++    <section t:replace="content">
+         Content
+     </section>
+ </div>
+@@ -115,15 +114,11 @@
+     </div>
+ 
+     <div id="Banner">
+-        <span sec:authorize="isAuthenticated()"
+-              th:if="${#authentication.principal.account.bannerOption}"
+-              th:utext="${#authentication.principal.account.bannerName}">
+-            Banner
+-        </span>
++        <span t:if="auth.isAuthenticated() and site.account != null and site.account.bannerOption"><t:block t:each="part : site.banner"><img t:if="part.image" t:src="part.src"><t:block t:unless="part.image">[[${part.text}]]</t:block></t:block></span>
+     </div>
+ 
+ </div>
+ 
+ 
+ </body>
+-</html>
+\ No newline at end of file
++</html>
+diff --git a/src/main/resources/templates/order/order.html b/src/main/resources/templates/order/order.html
+index c903121..9afed53 100644
+--- a/src/main/resources/templates/order/order.html
++++ b/src/main/resources/templates/order/order.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,16 +16,16 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:th="http://www.thymeleaf.org"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      layout:decorate="~{layout}">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.domain.*, com.kazuki43zoo.jpetstore.ui.CartItem, com.kazuki43zoo.jpetstore.ui.view.*, com.kazuki43zoo.jpetstore.ui.controller.AccountForm, com.kazuki43zoo.jpetstore.ui.controller.OrderForm, com.kazuki43zoo.jpetstore.ui.controller.CartUpdateForm, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:params="SiteView site, Messages messages, Order order"
++      t:replace="~{layout :: layout(~{::section}, site, messages)}">
+ <body>
+ <div id="Content">
+-    <section layout:fragment="content">
++    <section>
+ 
+         <div id="BackLink">
+-            <a th:href="@{/catalog}">
++            <a t:href="@{/catalog}">
+                 Return to Main Menu
+             </a>
+         </div>
+@@ -35,8 +35,8 @@
+             <table>
+                 <tr>
+                     <th align="center" colspan="2">
+-                        Order #<span id="orderId" th:text="${order.orderId}"></span>
+-                        <span th:text="${#temporals.format(order.orderDate, 'yyyy/MM/dd HH:mm:ss')}"></span>
++                        Order #<span id="orderId" t:text="${order.orderId}"></span>
++                        <span t:text="${temporals.format(order.orderDate, 'yyyy/MM/dd HH:mm:ss')}"></span>
+                     </th>
+                 </tr>
+                 <tr>
+@@ -44,92 +44,92 @@
+                 </tr>
+                 <tr>
+                     <td>Card Type:</td>
+-                    <td><span th:text="${order.cardType}"></span></td>
++                    <td><span t:text="${order.cardType}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Card Number:</td>
+-                    <td><span th:text="${order.creditCard}"></span> * Fake number!</td>
++                    <td><span t:text="${order.creditCard}"></span> * Fake number!</td>
+                 </tr>
+                 <tr>
+                     <td>Expiry Date (MM/YYYY):</td>
+-                    <td><span th:text="${order.expiryDate}"></span></td>
++                    <td><span t:text="${order.expiryDate}"></span></td>
+                 </tr>
+                 <tr>
+                     <th colspan="2">Billing Address</th>
+                 </tr>
+                 <tr>
+                     <td>First name:</td>
+-                    <td><span th:text="${order.billToFirstName}"></span></td>
++                    <td><span t:text="${order.billToFirstName}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Last name:</td>
+-                    <td><span th:text="${order.billToLastName}"></span></td>
++                    <td><span t:text="${order.billToLastName}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Address 1:</td>
+-                    <td><span th:text="${order.billAddress1}"></span></td>
++                    <td><span t:text="${order.billAddress1}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Address 2:</td>
+-                    <td><span th:text="${order.billAddress2}"></span></td>
++                    <td><span t:text="${order.billAddress2}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>City:</td>
+-                    <td><span th:text="${order.billCity}"></span></td>
++                    <td><span t:text="${order.billCity}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>State:</td>
+-                    <td><span th:text="${order.billState}"></span></td>
++                    <td><span t:text="${order.billState}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Zip:</td>
+-                    <td><span th:text="${order.billZip}"></span></td>
++                    <td><span t:text="${order.billZip}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Country:</td>
+-                    <td><span th:text="${order.billCountry}"></span></td>
++                    <td><span t:text="${order.billCountry}"></span></td>
+                 </tr>
+                 <tr>
+                     <th colspan="2">Shipping Address</th>
+                 </tr>
+                 <tr>
+                     <td>First name:</td>
+-                    <td><span th:text="${order.shipToFirstName}"></span></td>
++                    <td><span t:text="${order.shipToFirstName}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Last name:</td>
+-                    <td><span th:text="${order.shipToLastName}"></span></td>
++                    <td><span t:text="${order.shipToLastName}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Address 1:</td>
+-                    <td><span th:text="${order.shipAddress1}"></span></td>
++                    <td><span t:text="${order.shipAddress1}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Address 2:</td>
+-                    <td><span th:text="${order.shipAddress2}"></span></td>
++                    <td><span t:text="${order.shipAddress2}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>City:</td>
+-                    <td><span th:text="${order.shipCity}"></span></td>
++                    <td><span t:text="${order.shipCity}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>State:</td>
+-                    <td><span th:text="${order.shipState}"></span></td>
++                    <td><span t:text="${order.shipState}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Zip:</td>
+-                    <td><span th:text="${order.shipZip}"></span></td>
++                    <td><span t:text="${order.shipZip}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Country:</td>
+-                    <td><span th:text="${order.shipCountry}"></span></td>
++                    <td><span t:text="${order.shipCountry}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Courier:</td>
+-                    <td><span th:text="${order.courier}"></span></td>
++                    <td><span t:text="${order.courier}"></span></td>
+                 </tr>
+                 <tr>
+-                    <td colspan="2">Status: <span th:text="${order.status}"></span></td>
++                    <td colspan="2">Status: <span t:text="${order.status}"></span></td>
+                 </tr>
+                 <tr>
+                     <td colspan="2">
+@@ -141,39 +141,39 @@
+                                 <th>Price</th>
+                                 <th>Total Cost</th>
+                             </tr>
+-                            <tr th:each="orderLine : ${order.lines}">
++                            <tr t:each="orderLine : ${order.lines}">
+                                 <td>
+-                                    <a th:href="@{/catalog/items/{itemId}(itemId=${orderLine.item.itemId})}">
+-                                        <span th:text="${orderLine.item.itemId}"></span>
++                                    <a t:href="@{/catalog/items/{itemId}(itemId=${orderLine.item.itemId})}">
++                                        <span t:text="${orderLine.item.itemId}"></span>
+                                     </a>
+                                 </td>
+                                 <td>
+-                                    <div th:if="${orderLine.item != null}">
+-                                        <span th:text="${orderLine.item.attribute1}"></span>
+-                                        <span th:text="${orderLine.item.attribute2}"></span>
+-                                        <span th:text="${orderLine.item.attribute3}"></span>
+-                                        <span th:text="${orderLine.item.attribute4}"></span>
+-                                        <span th:text="${orderLine.item.attribute5}"></span>
+-                                        <span th:text="${orderLine.item.product.name}"></span>
++                                    <div t:if="${orderLine.item != null}">
++                                        <span t:text="${orderLine.item.attribute1}"></span>
++                                        <span t:text="${orderLine.item.attribute2}"></span>
++                                        <span t:text="${orderLine.item.attribute3}"></span>
++                                        <span t:text="${orderLine.item.attribute4}"></span>
++                                        <span t:text="${orderLine.item.attribute5}"></span>
++                                        <span t:text="${orderLine.item.product.name}"></span>
+                                     </div>
+-                                    <div th:if="${orderLine.item == null}">
++                                    <div t:if="${orderLine.item == null}">
+                                         <i>{description unavailable}</i>
+                                     </div>
+                                 </td>
+                                 <td>
+-                                    <span th:text="${orderLine.quantity}"></span>
++                                    <span t:text="${orderLine.quantity}"></span>
+                                 </td>
+                                 <td>
+-                                    $<span th:text="${#numbers.formatDecimal(orderLine.unitPrice, 1, 'COMMA', 2, 'POINT')}"></span>
++                                    $<span t:text="${fmt.decimal(orderLine.unitPrice)}"></span>
+                                 </td>
+                                 <td>
+-                                    $<span th:text="${#numbers.formatDecimal(orderLine.total, 1, 'COMMA', 2, 'POINT')}"></span>
++                                    $<span t:text="${fmt.decimal(orderLine.total)}"></span>
+                                 </td>
+                             </tr>
+                             <tr>
+                                 <th colspan="5">
+                                     Total:
+-                                    $<span th:text="${#numbers.formatDecimal(order.totalPrice, 1, 'COMMA', 2, 'POINT')}"></span>
++                                    $<span t:text="${fmt.decimal(order.totalPrice)}"></span>
+                                 </th>
+                             </tr>
+                         </table>
+diff --git a/src/main/resources/templates/order/orderBasicForm.html b/src/main/resources/templates/order/orderBasicForm.html
+index 6dd1a2a..ed0b61d 100644
+--- a/src/main/resources/templates/order/orderBasicForm.html
++++ b/src/main/resources/templates/order/orderBasicForm.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,17 +16,17 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:th="http://www.thymeleaf.org"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      layout:decorate="~{layout}">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.domain.*, com.kazuki43zoo.jpetstore.ui.CartItem, com.kazuki43zoo.jpetstore.ui.view.*, com.kazuki43zoo.jpetstore.ui.controller.AccountForm, com.kazuki43zoo.jpetstore.ui.controller.OrderForm, com.kazuki43zoo.jpetstore.ui.controller.CartUpdateForm, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:params="SiteView site, Messages messages, OrderForm orderForm, List<String> clCreditCardTypes"
++      t:replace="~{layout :: layout(~{::section}, site, messages)}">
+ <body>
+ <div id="Content">
+-    <section layout:fragment="content">
++    <section>
+ 
+         <div id="Catalog">
+ 
+-            <form th:action="@{/my/orders/create}" th:object="${orderForm}" method="post">
++            <form t:action="@{/my/orders/create}" t:object="orderForm" method="post">
+ 
+                 <table>
+                     <tr>
+@@ -35,27 +35,27 @@
+                     <tr>
+                         <td>Card Type:</td>
+                         <td>
+-                            <select th:field="*{cardType}">
+-                                <option th:each="creditCardType : ${@clCreditCardTypes}"
+-                                        th:value="${creditCardType}" th:text="${creditCardType}">
++                            <select t:field="*{cardType}">
++                                <option t:each="creditCardType : ${clCreditCardTypes}"
++                                        t:value="${creditCardType}" t:text="${creditCardType}">
+                                     Visa
+                                 </option>
+                             </select>
+-                            <div th:errors="*{cardType}" class="fieldError"></div>
++                            <div t:errors="*{cardType}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>Card Number:</td>
+                         <td>
+-                            <input type="password" th:field="*{creditCard}"/> * Use a fake number !
+-                            <div th:errors="*{creditCard}" class="fieldError"></div>
++                            <input type="password" t:field="*{creditCard}" value=""/> * Use a fake number !
++                            <div t:errors="*{creditCard}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>Expiry Date (MM/YYYY):</td>
+                         <td>
+-                            <input th:field="*{expiryDate}"/>
+-                            <div th:errors="*{expiryDate}" class="fieldError"></div>
++                            <input t:field="*{expiryDate}"/>
++                            <div t:errors="*{expiryDate}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+@@ -65,65 +65,65 @@
+                     <tr>
+                         <td>First name:</td>
+                         <td>
+-                            <input th:field="*{billToFirstName}"/>
+-                            <div th:errors="*{billToFirstName}" class="fieldError"></div>
++                            <input t:field="*{billToFirstName}"/>
++                            <div t:errors="*{billToFirstName}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>Last name:</td>
+                         <td>
+-                            <input th:field="*{billToLastName}"/>
+-                            <div th:errors="*{billToLastName}" class="fieldError"></div>
++                            <input t:field="*{billToLastName}"/>
++                            <div t:errors="*{billToLastName}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>Address 1:</td>
+                         <td>
+-                            <input size="40" th:field="*{billAddress1}"/>
+-                            <div th:errors="*{billAddress1}" class="fieldError"></div>
++                            <input size="40" t:field="*{billAddress1}"/>
++                            <div t:errors="*{billAddress1}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>Address 2:</td>
+                         <td>
+-                            <input size="40" th:field="*{billAddress2}"/>
+-                            <div th:errors="*{billAddress2}" class="fieldError"></div>
++                            <input size="40" t:field="*{billAddress2}"/>
++                            <div t:errors="*{billAddress2}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>City:</td>
+                         <td>
+-                            <input size="40" th:field="*{billCity}"/>
+-                            <div th:errors="*{billCity}" class="fieldError"></div>
++                            <input size="40" t:field="*{billCity}"/>
++                            <div t:errors="*{billCity}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>State:</td>
+                         <td>
+-                            <input size="4" th:field="*{billState}"/>
+-                            <div th:errors="*{billState}" class="fieldError"></div>
++                            <input size="4" t:field="*{billState}"/>
++                            <div t:errors="*{billState}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>Zip:</td>
+                         <td>
+-                            <input size="10" th:field="*{billZip}"/>
+-                            <div th:errors="*{billZip}" class="fieldError"></div>
++                            <input size="10" t:field="*{billZip}"/>
++                            <div t:errors="*{billZip}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>Country:</td>
+                         <td>
+-                            <input size="15" th:field="*{billCountry}"/>
+-                            <div th:errors="*{billCountry}" class="fieldError"></div>
++                            <input size="15" t:field="*{billCountry}"/>
++                            <div t:errors="*{billCountry}" class="fieldError"></div>
+                         </td>
+                     </tr>
+ 
+                     <tr>
+                         <td colspan=2>
+-                            <input type="checkbox" th:field="*{shippingAddressRequired}"/>
+-                            <label th:for="${#ids.prev('shippingAddressRequired')}">Ship to different address...</label>
+-                            <div th:errors="*{shippingAddressRequired}" class="fieldError"></div>
++                            <input type="checkbox" id="shippingAddressRequired1" t:field="*{shippingAddressRequired}"/>
++                            <label for="shippingAddressRequired1">Ship to different address...</label>
++                            <div t:errors="*{shippingAddressRequired}" class="fieldError"></div>
+                         </td>
+                     </tr>
+ 
+diff --git a/src/main/resources/templates/order/orderConfirm.html b/src/main/resources/templates/order/orderConfirm.html
+index 00c9c89..68dd041 100644
+--- a/src/main/resources/templates/order/orderConfirm.html
++++ b/src/main/resources/templates/order/orderConfirm.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,16 +16,16 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:th="http://www.thymeleaf.org"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      layout:decorate="~{layout}">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.domain.*, com.kazuki43zoo.jpetstore.ui.CartItem, com.kazuki43zoo.jpetstore.ui.view.*, com.kazuki43zoo.jpetstore.ui.controller.AccountForm, com.kazuki43zoo.jpetstore.ui.controller.OrderForm, com.kazuki43zoo.jpetstore.ui.controller.CartUpdateForm, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:params="SiteView site, Messages messages, OrderForm orderForm"
++      t:replace="~{layout :: layout(~{::section}, site, messages)}">
+ <body>
+ <div id="Content">
+-    <section layout:fragment="content">
++    <section>
+ 
+         <div id="BackLink">
+-            <a th:href="@{/catalog}">
++            <a t:href="@{/catalog}">
+                 Return to Main Menu
+             </a>
+         </div>
+@@ -46,75 +46,75 @@
+                 </tr>
+                 <tr>
+                     <td>First name:</td>
+-                    <td><span th:text="${orderForm.billToFirstName}"></span></td>
++                    <td><span t:text="${orderForm.billToFirstName}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Last name:</td>
+-                    <td><span th:text="${orderForm.billToLastName}"></span></td>
++                    <td><span t:text="${orderForm.billToLastName}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Address 1:</td>
+-                    <td><span th:text="${orderForm.billAddress1}"></span></td>
++                    <td><span t:text="${orderForm.billAddress1}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Address 2:</td>
+-                    <td><span th:text="${orderForm.billAddress2}"></span></td>
++                    <td><span t:text="${orderForm.billAddress2}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>City:</td>
+-                    <td><span th:text="${orderForm.billCity}"></span></td>
++                    <td><span t:text="${orderForm.billCity}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>State:</td>
+-                    <td><span th:text="${orderForm.billState}"></span></td>
++                    <td><span t:text="${orderForm.billState}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Zip:</td>
+-                    <td><span th:text="${orderForm.billZip}"></span></td>
++                    <td><span t:text="${orderForm.billZip}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Country:</td>
+-                    <td><span th:text="${orderForm.billCountry}"></span></td>
++                    <td><span t:text="${orderForm.billCountry}"></span></td>
+                 </tr>
+                 <tr>
+                     <th colspan="2">Shipping Address</th>
+                 </tr>
+                 <tr>
+                     <td>First name:</td>
+-                    <td><span th:text="${orderForm.shipToFirstName}"></span></td>
++                    <td><span t:text="${orderForm.shipToFirstName}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Last name:</td>
+-                    <td><span th:text="${orderForm.shipToLastName}"></span></td>
++                    <td><span t:text="${orderForm.shipToLastName}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Address 1:</td>
+-                    <td><span th:text="${orderForm.shipAddress1}"></span></td>
++                    <td><span t:text="${orderForm.shipAddress1}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Address 2:</td>
+-                    <td><span th:text="${orderForm.shipAddress2}"></span></td>
++                    <td><span t:text="${orderForm.shipAddress2}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>City:</td>
+-                    <td><span th:text="${orderForm.shipCity}"></span></td>
++                    <td><span t:text="${orderForm.shipCity}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>State:</td>
+-                    <td><span th:text="${orderForm.shipState}"></span></td>
++                    <td><span t:text="${orderForm.shipState}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Zip:</td>
+-                    <td><span th:text="${orderForm.shipZip}"></span></td>
++                    <td><span t:text="${orderForm.shipZip}"></span></td>
+                 </tr>
+                 <tr>
+                     <td>Country:</td>
+-                    <td><span th:text="${orderForm.shipCountry}"></span></td>
++                    <td><span t:text="${orderForm.shipCountry}"></span></td>
+                 </tr>
+ 
+             </table>
+ 
+-            <form th:action="@{/my/orders/create}" method="post">
++            <form t:action="@{/my/orders/create}" method="post">
+                 <input id="order" type="submit" value="Submit"/>
+             </form>
+         </div>
+diff --git a/src/main/resources/templates/order/orderShippingForm.html b/src/main/resources/templates/order/orderShippingForm.html
+index 48803c9..6e49c9f 100644
+--- a/src/main/resources/templates/order/orderShippingForm.html
++++ b/src/main/resources/templates/order/orderShippingForm.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,18 +16,18 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:th="http://www.thymeleaf.org"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      layout:decorate="~{layout}">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.domain.*, com.kazuki43zoo.jpetstore.ui.CartItem, com.kazuki43zoo.jpetstore.ui.view.*, com.kazuki43zoo.jpetstore.ui.controller.AccountForm, com.kazuki43zoo.jpetstore.ui.controller.OrderForm, com.kazuki43zoo.jpetstore.ui.controller.CartUpdateForm, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:params="SiteView site, Messages messages, OrderForm orderForm"
++      t:replace="~{layout :: layout(~{::section}, site, messages)}">
+ <body>
+ <div id="Content">
+-    <section layout:fragment="content">
++    <section>
+ 
+         <div id="Catalog">
+ 
+ 
+-            <form th:action="@{/my/orders/create}" method="post" th:object="${orderForm}">
++            <form t:action="@{/my/orders/create}" method="post" t:object="orderForm">
+ 
+                 <table>
+                     <tr>
+@@ -37,57 +37,57 @@
+                     <tr>
+                         <td>First name:</td>
+                         <td>
+-                            <input th:field="*{shipToFirstName}"/>
+-                            <div th:errors="*{shipToFirstName}" class="fieldError"></div>
++                            <input t:field="*{shipToFirstName}"/>
++                            <div t:errors="*{shipToFirstName}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>Last name:</td>
+                         <td>
+-                            <input th:field="*{shipToLastName}"/>
+-                            <div th:errors="*{shipToLastName}" class="fieldError"></div>
++                            <input t:field="*{shipToLastName}"/>
++                            <div t:errors="*{shipToLastName}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>Address 1:</td>
+                         <td>
+-                            <input size="40" th:field="*{shipAddress1}"/>
+-                            <div th:errors="*{shipAddress1}" class="fieldError"></div>
++                            <input size="40" t:field="*{shipAddress1}"/>
++                            <div t:errors="*{shipAddress1}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>Address 2:</td>
+                         <td>
+-                            <input size="40" th:field="*{shipAddress2}"/>
+-                            <div th:errors="*{shipAddress2}" class="fieldError"></div>
++                            <input size="40" t:field="*{shipAddress2}"/>
++                            <div t:errors="*{shipAddress2}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>City:</td>
+                         <td>
+-                            <input th:field="*{shipCity}"/>
+-                            <div th:errors="*{shipCity}" class="fieldError"></div>
++                            <input t:field="*{shipCity}"/>
++                            <div t:errors="*{shipCity}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>State:</td>
+                         <td>
+-                            <input size="4" th:field="*{shipState}"/>
+-                            <div th:errors="*{shipState}" class="fieldError"></div>
++                            <input size="4" t:field="*{shipState}"/>
++                            <div t:errors="*{shipState}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>Zip:</td>
+                         <td>
+-                            <input size="10" th:field="*{shipZip}"/>
+-                            <div th:errors="*{shipZip}" class="fieldError"></div>
++                            <input size="10" t:field="*{shipZip}"/>
++                            <div t:errors="*{shipZip}" class="fieldError"></div>
+                         </td>
+                     </tr>
+                     <tr>
+                         <td>Country:</td>
+                         <td>
+-                            <input size="15" th:field="*{shipCountry}"/>
+-                            <div th:errors="*{shipCountry}" class="fieldError"></div>
++                            <input size="15" t:field="*{shipCountry}"/>
++                            <div t:errors="*{shipCountry}" class="fieldError"></div>
+                         </td>
+                     </tr>
+ 
+diff --git a/src/main/resources/templates/order/orders.html b/src/main/resources/templates/order/orders.html
+index acc4cd0..625dfad 100644
+--- a/src/main/resources/templates/order/orders.html
++++ b/src/main/resources/templates/order/orders.html
+@@ -1,6 +1,6 @@
+ <!--
+ 
+-       Copyright 2016-2017 the original author or authors.
++       Copyright 2016-2026 the original author or authors.
+ 
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+@@ -16,13 +16,13 @@
+ 
+ -->
+ <!DOCTYPE html>
+-<html xmlns="http://www.w3.org/1999/xhtml"
+-      xmlns:th="http://www.thymeleaf.org"
+-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+-      layout:decorate="~{layout}">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:t="https://tessera.dev"
++      t:import="com.kazuki43zoo.jpetstore.domain.*, com.kazuki43zoo.jpetstore.ui.CartItem, com.kazuki43zoo.jpetstore.ui.view.*, com.kazuki43zoo.jpetstore.ui.controller.AccountForm, com.kazuki43zoo.jpetstore.ui.controller.OrderForm, com.kazuki43zoo.jpetstore.ui.controller.CartUpdateForm, com.kazuki43zoo.jpetstore.component.message.Messages"
++      t:params="SiteView site, Messages messages, List<Order> orderList"
++      t:replace="~{layout :: layout(~{::section}, site, messages)}">
+ <body>
+ <div id="Content">
+-    <section layout:fragment="content">
++    <section>
+ 
+         <div id="Catalog">
+ 
+@@ -34,22 +34,22 @@
+                     <th>Date</th>
+                     <th>Total Price</th>
+                 </tr>
+-                <tr th:if="${#lists.isEmpty(orderList)}">
++                <tr t:if="${lists.isEmpty(orderList)}">
+                     <td colspan="3">
+                         Order not found.
+                     </td>
+                 </tr>
+-                <tr th:each="order : ${orderList}">
++                <tr t:each="order : ${orderList}">
+                     <td>
+-                        <a th:href="@{/my/orders/{orderId}(orderId=${order.orderId})}">
+-                            <span th:text="${order.orderId}"></span>
++                        <a t:href="@{/my/orders/{orderId}(orderId=${order.orderId})}">
++                            <span t:text="${order.orderId}"></span>
+                         </a>
+                     </td>
+                     <td>
+-                        <span th:text="${#temporals.format(order.orderDate, 'yyyy/MM/dd HH:mm:ss')}"></span>
++                        <span t:text="${temporals.format(order.orderDate, 'yyyy/MM/dd HH:mm:ss')}"></span>
+                     </td>
+                     <td>
+-                        $<span th:text="${#numbers.formatDecimal(order.totalPrice, 1, 'COMMA', 2, 'POINT')}"></span>
++                        $<span t:text="${fmt.decimal(order.totalPrice)}"></span>
+                     </td>
+                 </tr>
+             </table>
+diff --git a/src/test/java/com/kazuki43zoo/jpetstore/TesseraViewRenderingTests.java b/src/test/java/com/kazuki43zoo/jpetstore/TesseraViewRenderingTests.java
+new file mode 100644
+index 0000000..e06bcf7
+--- /dev/null
++++ b/src/test/java/com/kazuki43zoo/jpetstore/TesseraViewRenderingTests.java
+@@ -0,0 +1,58 @@
++/*
++ *    Copyright 2016-2026 the original author or authors.
++ *
++ *    Licensed under the Apache License, Version 2.0 (the "License");
++ *    you may not use this file except in compliance with the License.
++ *    You may obtain a copy of the License at
++ *
++ *       http://www.apache.org/licenses/LICENSE-2.0
++ *
++ *    Unless required by applicable law or agreed to in writing, software
++ *    distributed under the License is distributed on an "AS IS" BASIS,
++ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ *    See the License for the specific language governing permissions and
++ *    limitations under the License.
++ */
++package com.kazuki43zoo.jpetstore;
++
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
++import org.springframework.boot.test.context.SpringBootTest;
++import org.springframework.test.context.junit4.SpringRunner;
++import org.springframework.test.web.servlet.MockMvc;
++
++import static org.hamcrest.Matchers.*;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
++
++/**
++ * Renders pages through the real view resolvers (Tessera templates) and checks escaping.
++ */
++@RunWith(SpringRunner.class)
++@SpringBootTest
++@AutoConfigureMockMvc
++public class TesseraViewRenderingTests {
++
++	@Autowired
++	private MockMvc mockMvc;
++
++	@Test
++	public void searchKeywordsAreEscapedInTheLayout() throws Exception {
++		mockMvc.perform(get("/catalog/products").param("keywords", "<script>alert('x')</script>"))
++				.andExpect(status().isOk())
++				.andExpect(content().contentTypeCompatibleWith("text/html"))
++				.andExpect(content().string(containsString("Products not found.")))
++				.andExpect(content().string(containsString("value=\"&lt;script&gt;alert(")))
++				.andExpect(content().string(not(containsString("<script>alert("))));
++	}
++
++	@Test
++	public void productDescriptionMarkupIsRenderedAsImageAndText() throws Exception {
++		mockMvc.perform(get("/catalog/products").param("keywords", "fish"))
++				.andExpect(status().isOk())
++				.andExpect(content().string(containsString("<img src=\"/images/fish2.gif\">Fresh Water fish from China")));
++	}
++
++}

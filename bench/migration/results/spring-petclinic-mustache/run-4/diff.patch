@@ -1,0 +1,2054 @@
+diff --git a/MIGRATION-REPORT.md b/MIGRATION-REPORT.md
+new file mode 100644
+index 0000000..ea9595b
+--- /dev/null
++++ b/MIGRATION-REPORT.md
+@@ -0,0 +1,133 @@
++# Migration report: Mustache (JMustache) to Tessera
++
++## Result
++
++- All 12 views (`welcome`, `error`, `owners/*`, `pets/*`, `vets/vetList` and the three shared
++  fragments) are Tessera templates under `src/main/resources/templates/**/*.html`. They are compiled by
++  the annotation processor into `org.springframework.samples.petclinic.templates`.
++- JMustache, `spring-boot-starter-mustache` and every `*.mustache` template are gone. The old app had
++  no Mustache-specific properties, so there was no configuration to remove.
++- `mvn clean verify` passes: all 42 existing tests run unchanged, plus 2 new ones (44 total).
++- Page parity: `pages.txt` has 47 requests covering every view and form state: the owner/pet/visit
++  forms empty, with validation errors (including a type-mismatch date and a duplicate pet name) and after
++  success; search with no hits, one hit (redirect) and many hits with pagination; HTML/script in user
++  data; the 500 page from `/oups`, a 500 from a missing owner and from an empty pet birth date; and the
++  404 page. Against the recording of the original app, 41 pages are `same`, 1 is `reordered` and
++  5 `differ`. All 5 differences have the same cause, a typo in the old markup that Tessera cannot
++  reproduce (explained below).
++- Security: there is no `SafeHtml.unchecked` or `TrustedUrl.unchecked`, no `t:utext`, nothing that
++  turns escaping off, no security configuration changes, and no test was disabled or weakened.
++
++## What changed
++
++**Build (`pom.xml`).** I replaced `jmustache` and `spring-boot-starter-mustache` with
++`dev.tessera:tessera-spring-boot-starter:0.1.0-SNAPSHOT` (the app is Boot 3.2 on jakarta). I configured
++`maven-compiler-plugin` with `tessera-compiler` in `annotationProcessorPaths`. Because that list turns
++off processor discovery, `spring-boot-configuration-processor` is listed there too. The plugin also gets
++`-Atessera.templates`, `-Atessera.package` and `-Atessera.messages` (`messages/messages`), and
++`<proc>none</proc>` for `default-testCompile` (#118).
++
++**Templates.** Each Mustache parent/partial became a fragment call:
++- `fragments/layout.html` has the fragment `layout(List<Application.Menu> menus, Fragment body,
++  boolean footer)`. Each page replaces itself with the layout and passes `~{::body}`.
++- `fragments/inputField.html` has `inputField(InputField field)` and `fragments/selectField.html` has
++  `selectField(SelectField field)`. These replace the `{{<fragments/inputField}}` partials, which
++  rendered in the context of the field object.
++- Mustache's context-stack lookups were made explicit. For example, `{{owner.id}}` inside
++  `{{#pets}}` became `owner.id` of the enclosing loop. `{{#new}}` became `pet.isNew()`, and so on.
++- Values that were `null` and printed as `""` by Mustache, but would now drop the attribute, use
++  `?: ''`. One example is `value` on the find-owners input.
++- A `selected` option is written with a static `selected` attribute in a `t:if` branch, so the markup
++  matches the old `{{#selected}} selected{{/selected}}` exactly.
++
++**Java.**
++- `@TemplateView` is on the classes the templates read: `Owner`, `Pet`, `PetType`, `Visit`, `Vet`,
++  `Specialty`, `Vets`, `Application.Menu`, `InputField`, `SelectField`, `OwnerForm` and `PetForm`.
++  Getters inherited from the `@MappedSuperclass` entities resolve through them.
++- `InputField`/`SelectField` exposed public fields. They now also have getters, because Tessera reads
++  only getters.
++- `OwnerForm`/`PetForm` were package-private classes nested in package-private controllers. Mustache
++  reached them by reflection. Generated template code lives in another package, so they became public
++  top-level classes (`owner/OwnerForm.java`, `owner/PetForm.java`) with public getters.
++  `PetForm.nameField()/birthDate()/type()` became `getNameField()/getBirthDate()/getType()`.
++- The pagination model was a `List<Map<String, Object>>`, which is not view-safe. It is now a
++  `List<PageLink>`, where `system/PageLink` is a record `(int number, boolean current)`. This is
++  used in `OwnerController` and `VetController`.
++- `LayoutAdvice` (which adds `menus`, `errors` and fills the form fields from the `BindingResult`) is
++  unchanged. It runs in `postHandle`, before the view renders, so the templates simply declare `menus`
++  and `errors` as parameters.
++
++**Tests.** I added `TesseraRenderingTests`, a `@SpringBootTest` with MockMvc that renders through the
++real Tessera view resolver. It checks the owner page and that `<script>` in a rejected form value comes
++out escaped. It sits in the root test package: in the `system` package, `@SpringBootTest` picked up the
++nested `@SpringBootApplication` of `CrashControllerIntegrationTests` and got a context without
++controllers.
++
++## What could not be converted 1:1, and why
++
++1. **`<span">` in the pagination blocks** (`owners/ownersList`, `vets/vetList`; pages 03, 04, 05, 43
++   and 44 in `pages.txt`). The old templates contain the typo `<span">`. A browser parses this as an
++   unknown element named `span"`. Its `</span>` does not close it, so the rest of the pagination block
++   nests inside it. Tessera's parser rejects the markup (`malformed markup: Incomplete structure`), and
++   no Tessera construct can emit an element with that name. The only way would be raw markup through
++   `SafeHtml.unchecked`, which is not acceptable. The new templates write `<span>`. The only difference
++   in those 5 pages is this element and the nesting it caused. The text, links and order are
++   identical. This is the "broken markup the old engine passed through" case from the guide, and the
++   difference is correct.
++2. **Bugs in the old app kept on purpose, for parity.** I reproduced these faithfully rather than
++   fixed them, because the parity check is against the original output:
++   - `vets/vetList` looped over `{{#listVets}}`, which no controller provides, so the vet table was
++     always empty. The new template renders the same empty `<tbody>`.
++   - `pets/createOrUpdateVisitForm` wrapped its date/description inputs in `{{#form}}`, which the
++     visit controller never sets, so the visit form showed no input fields. The new template has the
++     same (empty) form.
++   - The error page printed `{{message}}`, which Boot leaves out of the model by default
++     (`server.error.include-message=never`). JMustache threw at that point and the response was cut off
++     after `<p>`: no footer and no bootstrap script. The new `error.html` renders an empty
++     `<p t:text="message">` and calls the layout with `footer=false`, which gives the same page as a
++     browser builds from the truncated response, with the same status codes.
++   - `POST /owners/{id}/pets/new` with an empty birth date still returns a 500, from an NPE in
++     `PetForm`.
++   - The static `th:text`/`th:value` attributes, copied from Thymeleaf, were output literally before
++     and still are.
++3. **`reordered`, page 12.** The two telephone validation messages come from a `HashSet`, so their
++   order changes from run to run under either engine. This is harmless.
++
++## Where the guide or Tessera fell short
++
++- **Mustache is barely covered.** The guide's migration tooling and most of its advice target
++  Thymeleaf. There is no help for Mustache sections, inverted sections, context-stack name resolution
++  or partials rendered in a section's context. The guide says only "partials ... become fragment
++  calls". The context-stack semantics (for example `{{owner.firstName}}` inside `{{#owner}}` falling back
++  to `pet.owner`) had to be worked out by hand.
++- **Missing-value behavior of the old engine.** Spring Boot's JMustache setup treats a missing section
++  name as false, but throws on a missing `{{variable}}` and returns a truncated page with the error
++  status. The guide's advice ("a missing model attribute is `null`") does not cover an old engine that
++  fails part-way through a page. I only found this by reading the recorded bodies.
++- **Invalid markup.** Tessera rejects markup that browsers accept (`<span">`), and the guide offers no
++  option to reproduce it. The parser's message (`Incomplete structure: "<span">x</span>`) also matches
++  none of the entries in the diagnostic catalogue (section 6). The closest are "invalid element name"
++  and "invalid attribute name".
++- **Access to classes.** The guide says templates read "public no-argument getters" of view-safe
++  types. It does not say that the *class* must be accessible from the generated package. Public static
++  nested classes inside a package-private class are unusable, which forced the `OwnerForm`/`PetForm`
++  extraction.
++- **`@SpringBootTest` + test-only `@SpringBootApplication`.** This is not Tessera's fault, but the
++  guide's advice ("add a test that renders through the real resolvers") runs into it easily.
++- **`t:field` cannot be used for parity.** `t:field` always writes an `id` attribute (unless one is
++  present). The old markup had no `id`s, so binding through `t:object`/`t:field` would have changed
++  every form. The forms keep the existing Java-side `InputField`/`SelectField` view models (filled from
++  Spring's `BindStatus` by `LayoutAdvice`) instead. There is no option to suppress the generated `id`.
++- **Tooling quirks.** `tessera-migrate` handles only Thymeleaf. `pages.txt` POST bodies must be
++  percent-encoded by hand (spaces, `&`, `<`), and the guide does not say so.
++
++## How to re-check
++
++```sh
++mvn clean verify
++java -jar target/spring-petclinic-mustache-3.0.0-SNAPSHOT.jar &
++java -jar ~/.m2/repository/dev/tessera/tessera-migrate/0.1.0-SNAPSHOT/tessera-migrate-0.1.0-SNAPSHOT.jar \
++  compare <base-url> pages.txt <baseline-dir>
++```
++
++The baseline was recorded from the original app (commit `003a406`) with the same `pages.txt`.
+diff --git a/pages.txt b/pages.txt
+new file mode 100644
+index 0000000..0ff6575
+--- /dev/null
++++ b/pages.txt
+@@ -0,0 +1,49 @@
++# Petclinic page parity list. One request per line, run in order with one cookie jar.
++GET /
++GET /owners/find
++GET /owners
++GET /owners?page=2
++GET /owners?lastName=
++GET /owners?lastName=Davis
++GET /owners?lastName=Franklin
++GET /owners?lastName=Nobody
++GET /owners/1
++GET /owners/3
++GET /owners/new
++POST /owners/new firstName=&lastName=&address=&city=&telephone=
++GET /owners/new
++POST /owners/new firstName=Ann&lastName=Lee&address=1%20Main%20St&city=Paris&telephone=abc
++GET /owners/new
++POST /owners/new firstName=%3Cscript%3Ealert%281%29%3C%2Fscript%3E&lastName=O%27Brien%20%22x%22%20%26%20y&address=1%20%3Cb%3EMain%3C%2Fb%3E%20St&city=Paris&telephone=0123456789
++GET /owners/11
++GET /owners?lastName=O'Brien%20%22x%22%20%26%20y
++GET /owners/1/edit
++POST /owners/1/edit firstName=George&lastName=&address=110%20W.%20Liberty%20St.&city=Madison&telephone=12
++GET /owners/1/edit
++POST /owners/1/edit firstName=George&lastName=Franklin&address=110%20W.%20Liberty%20St.&city=Madison&telephone=6085551023
++GET /owners/1/pets/new
++POST /owners/1/pets/new name=&birthDate=&type=cat
++GET /owners/1/pets/new
++POST /owners/1/pets/new name=Leo&birthDate=2020-01-01&type=dog
++GET /owners/1/pets/new
++POST /owners/1/pets/new name=Rex&birthDate=notadate&type=dog
++GET /owners/1/pets/new
++POST /owners/1/pets/new name=%3Ci%3ERex%3C%2Fi%3E&birthDate=2020-02-03&type=dog
++GET /owners/1
++GET /owners/1/pets/1/edit
++POST /owners/1/pets/1/edit name=&birthDate=2010-09-07&type=cat
++GET /owners/1/pets/1/edit
++POST /owners/1/pets/1/edit name=Leo&birthDate=2010-09-07&type=hamster
++GET /owners/6/pets/7/visits/new
++GET /owners/6/pets/8/visits/new
++POST /owners/6/pets/8/visits/new date=2021-03-04&description=
++GET /owners/6/pets/8/visits/new
++POST /owners/6/pets/8/visits/new date=2021-03-04&description=%3Cb%3ECheckup%3C%2Fb%3E
++GET /owners/6
++GET /owners/6/pets/8/visits/new
++GET /vets.html
++GET /vets.html?page=2
++GET /oups
++GET /owners/999
++GET /does-not-exist
++
+diff --git a/pom.xml b/pom.xml
+index 5a8ba22..bae39a2 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -29,6 +29,7 @@
+     <node.version>v8.11.1</node.version>
+     <nohttp-checkstyle.version>0.0.10</nohttp-checkstyle.version>
+     <spring-format.version>0.0.39</spring-format.version>
++    <tessera.version>0.1.0-SNAPSHOT</tessera.version>
+ 
+   </properties>
+ 
+@@ -55,13 +56,9 @@
+       <artifactId>spring-boot-starter-validation</artifactId>
+     </dependency>
+     <dependency>
+-      <groupId>com.samskivert</groupId>
+-      <artifactId>jmustache</artifactId>
+-      <version>1.16</version>
+-    </dependency>
+-    <dependency>
+-      <groupId>org.springframework.boot</groupId>
+-      <artifactId>spring-boot-starter-mustache</artifactId>
++      <groupId>dev.tessera</groupId>
++      <artifactId>tessera-spring-boot-starter</artifactId>
++      <version>${tessera.version}</version>
+     </dependency>
+     <dependency>
+       <groupId>org.springframework.boot</groupId>
+@@ -126,6 +123,38 @@
+ 
+   <build>
+     <plugins>
++      <plugin>
++        <groupId>org.apache.maven.plugins</groupId>
++        <artifactId>maven-compiler-plugin</artifactId>
++        <configuration>
++          <parameters>true</parameters>
++          <annotationProcessorPaths>
++            <path>
++              <groupId>dev.tessera</groupId>
++              <artifactId>tessera-compiler</artifactId>
++              <version>${tessera.version}</version>
++            </path>
++            <path>
++              <groupId>org.springframework.boot</groupId>
++              <artifactId>spring-boot-configuration-processor</artifactId>
++              <version>${project.parent.version}</version>
++            </path>
++          </annotationProcessorPaths>
++          <compilerArgs combine.children="append">
++            <arg>-Atessera.templates=${project.basedir}/src/main/resources/templates</arg>
++            <arg>-Atessera.package=org.springframework.samples.petclinic.templates</arg>
++            <arg>-Atessera.messages=${project.basedir}/src/main/resources/messages/messages</arg>
++          </compilerArgs>
++        </configuration>
++        <executions>
++          <execution>
++            <id>default-testCompile</id>
++            <configuration>
++              <proc>none</proc>
++            </configuration>
++          </execution>
++        </executions>
++      </plugin>
+       <plugin>
+         <groupId>io.spring.javaformat</groupId>
+         <artifactId>spring-javaformat-maven-plugin</artifactId>
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/Owner.java b/src/main/java/org/springframework/samples/petclinic/owner/Owner.java
+index 6f9043a..000509c 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/Owner.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/Owner.java
+@@ -15,6 +15,8 @@
+  */
+ package org.springframework.samples.petclinic.owner;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import java.util.ArrayList;
+ import java.util.Collections;
+ import java.util.HashSet;
+@@ -43,6 +45,7 @@ import org.springframework.samples.petclinic.model.Person;
+  * @author Sam Brannen
+  * @author Michael Isvy
+  */
++@TemplateView
+ @Entity
+ @Table(name = "owners")
+ public class Owner extends Person {
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+index cc501c9..250ebff 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+@@ -15,17 +15,14 @@
+  */
+ package org.springframework.samples.petclinic.owner;
+ 
+-import java.util.HashMap;
+ import java.util.List;
+-import java.util.Map;
+ import java.util.stream.Collectors;
+ import java.util.stream.IntStream;
+ 
+ import org.springframework.data.domain.Page;
+ import org.springframework.data.domain.PageRequest;
+ import org.springframework.data.domain.Pageable;
+-import org.springframework.samples.petclinic.system.Form;
+-import org.springframework.samples.petclinic.system.InputField;
++import org.springframework.samples.petclinic.system.PageLink;
+ import org.springframework.samples.petclinic.visit.VisitRepository;
+ import org.springframework.stereotype.Controller;
+ import org.springframework.ui.Model;
+@@ -37,7 +34,6 @@ import org.springframework.web.bind.annotation.PathVariable;
+ import org.springframework.web.bind.annotation.PostMapping;
+ import org.springframework.web.bind.annotation.RequestParam;
+ import org.springframework.web.servlet.ModelAndView;
+-import org.springframework.web.servlet.support.RequestContext;
+ 
+ import jakarta.validation.Valid;
+ 
+@@ -131,11 +127,8 @@ class OwnerController {
+ 		return "owners/ownersList";
+ 	}
+ 
+-	private Map<String, Object> pagemodel(int value, int page) {
+-		HashMap<String, Object> map = new HashMap<>();
+-		map.put("current", value == page);
+-		map.put("number", value);
+-		return map;
++	private PageLink pagemodel(int value, int page) {
++		return new PageLink(value, value == page);
+ 	}
+ 
+ 	private Page<Owner> findPaginatedForOwnersLastName(int page, String lastname) {
+@@ -182,58 +175,4 @@ class OwnerController {
+ 		return mav;
+ 	}
+ 
+-	static class OwnerForm implements Form {
+-
+-		final Owner owner;
+-
+-		private InputField firstName;
+-
+-		private InputField lastName;
+-
+-		private InputField address;
+-
+-		private InputField city;
+-
+-		private InputField telephone;
+-
+-		OwnerForm(Owner owner) {
+-			this.owner = owner;
+-			firstName = new InputField("First Name", "firstName", this.owner.getFirstName(), "text");
+-			lastName = new InputField("Last Name", "lastName", this.owner.getLastName(), "text");
+-			address = new InputField("Address", "address", this.owner.getAddress(), "text");
+-			city = new InputField("City", "city", this.owner.getCity(), "text");
+-			telephone = new InputField("Telephone", "telephone", this.owner.getTelephone(), "text");
+-		}
+-
+-		InputField getFirstName() {
+-			return firstName;
+-		}
+-
+-		InputField getLastName() {
+-			return lastName;
+-		}
+-
+-		InputField getAddress() {
+-			return address;
+-		}
+-
+-		InputField getCity() {
+-			return city;
+-		}
+-
+-		InputField getTelephone() {
+-			return telephone;
+-		}
+-
+-		@Override
+-		public void setContext(RequestContext context) {
+-			firstName.setStatus(context.getBindStatus("owner.firstName"));
+-			lastName.setStatus(context.getBindStatus("owner.lastName"));
+-			address.setStatus(context.getBindStatus("owner.address"));
+-			city.setStatus(context.getBindStatus("owner.city"));
+-			telephone.setStatus(context.getBindStatus("owner.telephone"));
+-		}
+-
+-	}
+-
+ }
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/OwnerForm.java b/src/main/java/org/springframework/samples/petclinic/owner/OwnerForm.java
+new file mode 100644
+index 0000000..1ab5bb6
+--- /dev/null
++++ b/src/main/java/org/springframework/samples/petclinic/owner/OwnerForm.java
+@@ -0,0 +1,80 @@
++/*
++ * Copyright 2012-2019 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      https://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.springframework.samples.petclinic.owner;
++
++import dev.tessera.runtime.TemplateView;
++
++import org.springframework.samples.petclinic.system.Form;
++import org.springframework.samples.petclinic.system.InputField;
++import org.springframework.web.servlet.support.RequestContext;
++
++/**
++ * View model of the owner form fields.
++ */
++@TemplateView
++public class OwnerForm implements Form {
++
++	final Owner owner;
++
++	private InputField firstName;
++
++	private InputField lastName;
++
++	private InputField address;
++
++	private InputField city;
++
++	private InputField telephone;
++
++	OwnerForm(Owner owner) {
++		this.owner = owner;
++		firstName = new InputField("First Name", "firstName", this.owner.getFirstName(), "text");
++		lastName = new InputField("Last Name", "lastName", this.owner.getLastName(), "text");
++		address = new InputField("Address", "address", this.owner.getAddress(), "text");
++		city = new InputField("City", "city", this.owner.getCity(), "text");
++		telephone = new InputField("Telephone", "telephone", this.owner.getTelephone(), "text");
++	}
++
++	public InputField getFirstName() {
++		return firstName;
++	}
++
++	public InputField getLastName() {
++		return lastName;
++	}
++
++	public InputField getAddress() {
++		return address;
++	}
++
++	public InputField getCity() {
++		return city;
++	}
++
++	public InputField getTelephone() {
++		return telephone;
++	}
++
++	@Override
++	public void setContext(RequestContext context) {
++		firstName.setStatus(context.getBindStatus("owner.firstName"));
++		lastName.setStatus(context.getBindStatus("owner.lastName"));
++		address.setStatus(context.getBindStatus("owner.address"));
++		city.setStatus(context.getBindStatus("owner.city"));
++		telephone.setStatus(context.getBindStatus("owner.telephone"));
++	}
++
++}
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/Pet.java b/src/main/java/org/springframework/samples/petclinic/owner/Pet.java
+index c32bea2..e9be49b 100755
+--- a/src/main/java/org/springframework/samples/petclinic/owner/Pet.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/Pet.java
+@@ -15,6 +15,8 @@
+  */
+ package org.springframework.samples.petclinic.owner;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import java.time.LocalDate;
+ import java.util.ArrayList;
+ import java.util.Collection;
+@@ -44,6 +46,7 @@ import org.springframework.samples.petclinic.visit.Visit;
+  * @author Juergen Hoeller
+  * @author Sam Brannen
+  */
++@TemplateView
+ @Entity
+ @Table(name = "pets")
+ public class Pet extends NamedEntity {
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/PetController.java b/src/main/java/org/springframework/samples/petclinic/owner/PetController.java
+index 993e313..08da5a8 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/PetController.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/PetController.java
+@@ -16,11 +16,7 @@
+ package org.springframework.samples.petclinic.owner;
+ 
+ import java.util.Collection;
+-import java.util.stream.Collectors;
+ 
+-import org.springframework.samples.petclinic.system.Form;
+-import org.springframework.samples.petclinic.system.InputField;
+-import org.springframework.samples.petclinic.system.SelectField;
+ import org.springframework.stereotype.Controller;
+ import org.springframework.ui.ModelMap;
+ import org.springframework.util.StringUtils;
+@@ -32,7 +28,6 @@ import org.springframework.web.bind.annotation.ModelAttribute;
+ import org.springframework.web.bind.annotation.PathVariable;
+ import org.springframework.web.bind.annotation.PostMapping;
+ import org.springframework.web.bind.annotation.RequestMapping;
+-import org.springframework.web.servlet.support.RequestContext;
+ 
+ import jakarta.validation.Valid;
+ 
+@@ -121,46 +116,4 @@ class PetController {
+ 		}
+ 	}
+ 
+-	static class PetForm implements Form {
+-
+-		final Pet pet;
+-
+-		final Collection<PetType> types;
+-
+-		private InputField nameField;
+-
+-		private InputField birthDate;
+-
+-		private SelectField type;
+-
+-		PetForm(Pet pet, Collection<PetType> types) {
+-			this.pet = pet;
+-			this.types = types;
+-			nameField = new InputField("Name", "name", this.pet.getName(), "text");
+-			birthDate = new InputField("Birth Date", "birthDate", this.pet.getBirthDate().toString(), "date");
+-			type = new SelectField("Type", "type", this.pet.getType() == null ? "" : this.pet.getType().toString(),
+-					this.types.stream().map(item -> item.toString()).collect(Collectors.toList()));
+-		}
+-
+-		InputField nameField() {
+-			return nameField;
+-		}
+-
+-		InputField birthDate() {
+-			return birthDate;
+-		}
+-
+-		SelectField type() {
+-			return type;
+-		}
+-
+-		@Override
+-		public void setContext(RequestContext context) {
+-			nameField.setStatus(context.getBindStatus("pet.name"));
+-			birthDate.setStatus(context.getBindStatus("pet.birthDate"));
+-			type.setStatus(context.getBindStatus("pet.type"));
+-		}
+-
+-	}
+-
+ }
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/PetForm.java b/src/main/java/org/springframework/samples/petclinic/owner/PetForm.java
+new file mode 100644
+index 0000000..3aa380f
+--- /dev/null
++++ b/src/main/java/org/springframework/samples/petclinic/owner/PetForm.java
+@@ -0,0 +1,72 @@
++/*
++ * Copyright 2012-2019 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      https://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.springframework.samples.petclinic.owner;
++
++import java.util.Collection;
++import java.util.stream.Collectors;
++
++import dev.tessera.runtime.TemplateView;
++
++import org.springframework.samples.petclinic.system.Form;
++import org.springframework.samples.petclinic.system.InputField;
++import org.springframework.samples.petclinic.system.SelectField;
++import org.springframework.web.servlet.support.RequestContext;
++
++/**
++ * View model of the pet form fields.
++ */
++@TemplateView
++public class PetForm implements Form {
++
++	final Pet pet;
++
++	final Collection<PetType> types;
++
++	private InputField nameField;
++
++	private InputField birthDate;
++
++	private SelectField type;
++
++	PetForm(Pet pet, Collection<PetType> types) {
++		this.pet = pet;
++		this.types = types;
++		nameField = new InputField("Name", "name", this.pet.getName(), "text");
++		birthDate = new InputField("Birth Date", "birthDate", this.pet.getBirthDate().toString(), "date");
++		type = new SelectField("Type", "type", this.pet.getType() == null ? "" : this.pet.getType().toString(),
++				this.types.stream().map(item -> item.toString()).collect(Collectors.toList()));
++	}
++
++	public InputField getNameField() {
++		return nameField;
++	}
++
++	public InputField getBirthDate() {
++		return birthDate;
++	}
++
++	public SelectField getType() {
++		return type;
++	}
++
++	@Override
++	public void setContext(RequestContext context) {
++		nameField.setStatus(context.getBindStatus("pet.name"));
++		birthDate.setStatus(context.getBindStatus("pet.birthDate"));
++		type.setStatus(context.getBindStatus("pet.type"));
++	}
++
++}
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/PetType.java b/src/main/java/org/springframework/samples/petclinic/owner/PetType.java
+index eeea6a7..89a370e 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/PetType.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/PetType.java
+@@ -15,6 +15,8 @@
+  */
+ package org.springframework.samples.petclinic.owner;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import org.springframework.samples.petclinic.model.NamedEntity;
+ 
+ import jakarta.persistence.Entity;
+@@ -23,6 +25,7 @@ import jakarta.persistence.Table;
+ /**
+  * @author Juergen Hoeller Can be Cat, Dog, Hamster...
+  */
++@TemplateView
+ @Entity
+ @Table(name = "types")
+ public class PetType extends NamedEntity {
+diff --git a/src/main/java/org/springframework/samples/petclinic/system/Application.java b/src/main/java/org/springframework/samples/petclinic/system/Application.java
+index 04422e0..153e258 100644
+--- a/src/main/java/org/springframework/samples/petclinic/system/Application.java
++++ b/src/main/java/org/springframework/samples/petclinic/system/Application.java
+@@ -18,6 +18,7 @@ package org.springframework.samples.petclinic.system;
+ import java.util.ArrayList;
+ import java.util.List;
+ 
++import dev.tessera.runtime.TemplateView;
+ import org.springframework.boot.context.properties.ConfigurationProperties;
+ import org.springframework.stereotype.Component;
+ 
+@@ -37,6 +38,7 @@ public class Application {
+ 		return menus;
+ 	}
+ 
++	@TemplateView
+ 	public static class Menu {
+ 
+ 		private String name;
+diff --git a/src/main/java/org/springframework/samples/petclinic/system/InputField.java b/src/main/java/org/springframework/samples/petclinic/system/InputField.java
+index 2034a5a..5f009a5 100644
+--- a/src/main/java/org/springframework/samples/petclinic/system/InputField.java
++++ b/src/main/java/org/springframework/samples/petclinic/system/InputField.java
+@@ -1,7 +1,10 @@
+ package org.springframework.samples.petclinic.system;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import org.springframework.web.servlet.support.BindStatus;
+ 
++@TemplateView
+ public class InputField implements FormField {
+ 
+ 	public String label;
+@@ -32,4 +35,28 @@ public class InputField implements FormField {
+ 		}
+ 	}
+ 
+-}
+\ No newline at end of file
++	public String getLabel() {
++		return label;
++	}
++
++	public String getName() {
++		return name;
++	}
++
++	public boolean isDate() {
++		return date;
++	}
++
++	public boolean isValid() {
++		return valid;
++	}
++
++	public String getValue() {
++		return value;
++	}
++
++	public String[] getErrors() {
++		return errors;
++	}
++
++}
+diff --git a/src/main/java/org/springframework/samples/petclinic/system/PageLink.java b/src/main/java/org/springframework/samples/petclinic/system/PageLink.java
+new file mode 100644
+index 0000000..94ea58a
+--- /dev/null
++++ b/src/main/java/org/springframework/samples/petclinic/system/PageLink.java
+@@ -0,0 +1,8 @@
++package org.springframework.samples.petclinic.system;
++
++/**
++ * One entry of the page navigation of a paginated list.
++ */
++public record PageLink(int number, boolean current) {
++
++}
+diff --git a/src/main/java/org/springframework/samples/petclinic/system/SelectField.java b/src/main/java/org/springframework/samples/petclinic/system/SelectField.java
+index cabb8d6..ff58b4a 100644
+--- a/src/main/java/org/springframework/samples/petclinic/system/SelectField.java
++++ b/src/main/java/org/springframework/samples/petclinic/system/SelectField.java
+@@ -1,10 +1,13 @@
+ package org.springframework.samples.petclinic.system;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import java.util.ArrayList;
+ import java.util.List;
+ 
+ import org.springframework.web.servlet.support.BindStatus;
+ 
++@TemplateView
+ public class SelectField implements FormField {
+ 
+ 	public String label;
+@@ -39,4 +42,32 @@ public class SelectField implements FormField {
+ 		}
+ 	}
+ 
+-}
+\ No newline at end of file
++	public String getLabel() {
++		return label;
++	}
++
++	public String getName() {
++		return name;
++	}
++
++	public boolean isDate() {
++		return date;
++	}
++
++	public boolean isValid() {
++		return valid;
++	}
++
++	public String getValue() {
++		return value;
++	}
++
++	public String[] getErrors() {
++		return errors;
++	}
++
++	public List<SelectValue> getValues() {
++		return values;
++	}
++
++}
+diff --git a/src/main/java/org/springframework/samples/petclinic/vet/Specialty.java b/src/main/java/org/springframework/samples/petclinic/vet/Specialty.java
+index 21f38c3..fe45106 100644
+--- a/src/main/java/org/springframework/samples/petclinic/vet/Specialty.java
++++ b/src/main/java/org/springframework/samples/petclinic/vet/Specialty.java
+@@ -15,6 +15,8 @@
+  */
+ package org.springframework.samples.petclinic.vet;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import jakarta.persistence.Entity;
+ import jakarta.persistence.Table;
+ 
+@@ -25,6 +27,7 @@ import org.springframework.samples.petclinic.model.NamedEntity;
+  *
+  * @author Juergen Hoeller
+  */
++@TemplateView
+ @Entity
+ @Table(name = "specialties")
+ public class Specialty extends NamedEntity {
+diff --git a/src/main/java/org/springframework/samples/petclinic/vet/Vet.java b/src/main/java/org/springframework/samples/petclinic/vet/Vet.java
+index 3001967..a94cf27 100644
+--- a/src/main/java/org/springframework/samples/petclinic/vet/Vet.java
++++ b/src/main/java/org/springframework/samples/petclinic/vet/Vet.java
+@@ -15,6 +15,8 @@
+  */
+ package org.springframework.samples.petclinic.vet;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import org.springframework.beans.support.MutableSortDefinition;
+ import org.springframework.beans.support.PropertyComparator;
+ import org.springframework.samples.petclinic.model.Person;
+@@ -31,6 +33,7 @@ import java.util.*;
+  * @author Sam Brannen
+  * @author Arjen Poutsma
+  */
++@TemplateView
+ @Entity
+ @Table(name = "vets")
+ public class Vet extends Person {
+diff --git a/src/main/java/org/springframework/samples/petclinic/vet/VetController.java b/src/main/java/org/springframework/samples/petclinic/vet/VetController.java
+index b85e332..cf2f8e5 100644
+--- a/src/main/java/org/springframework/samples/petclinic/vet/VetController.java
++++ b/src/main/java/org/springframework/samples/petclinic/vet/VetController.java
+@@ -15,14 +15,13 @@
+  */
+ package org.springframework.samples.petclinic.vet;
+ 
+-import java.util.HashMap;
+-import java.util.Map;
+ import java.util.stream.Collectors;
+ import java.util.stream.IntStream;
+ 
+ import org.springframework.data.domain.Page;
+ import org.springframework.data.domain.PageRequest;
+ import org.springframework.data.domain.Pageable;
++import org.springframework.samples.petclinic.system.PageLink;
+ import org.springframework.stereotype.Controller;
+ import org.springframework.ui.Model;
+ import org.springframework.web.bind.annotation.GetMapping;
+@@ -70,11 +69,8 @@ class VetController {
+ 		return "vets/vetList";
+ 	}
+ 
+-	private Map<String, Object> pagemodel(int value, int page) {
+-		HashMap<String, Object> map = new HashMap<>();
+-		map.put("current", value == page);
+-		map.put("number", value);
+-		return map;
++	private PageLink pagemodel(int value, int page) {
++		return new PageLink(value, value == page);
+ 	}
+ 
+ 	private Page<Vet> findPaginated(int page) {
+diff --git a/src/main/java/org/springframework/samples/petclinic/vet/Vets.java b/src/main/java/org/springframework/samples/petclinic/vet/Vets.java
+index f85d30b..481b7d8 100644
+--- a/src/main/java/org/springframework/samples/petclinic/vet/Vets.java
++++ b/src/main/java/org/springframework/samples/petclinic/vet/Vets.java
+@@ -15,6 +15,8 @@
+  */
+ package org.springframework.samples.petclinic.vet;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import jakarta.xml.bind.annotation.XmlElement;
+ import jakarta.xml.bind.annotation.XmlRootElement;
+ import java.util.ArrayList;
+@@ -26,6 +28,7 @@ import java.util.List;
+  *
+  * @author Arjen Poutsma
+  */
++@TemplateView
+ @XmlRootElement
+ public class Vets {
+ 
+diff --git a/src/main/java/org/springframework/samples/petclinic/visit/Visit.java b/src/main/java/org/springframework/samples/petclinic/visit/Visit.java
+index 44e9e50..529e74c 100755
+--- a/src/main/java/org/springframework/samples/petclinic/visit/Visit.java
++++ b/src/main/java/org/springframework/samples/petclinic/visit/Visit.java
+@@ -15,6 +15,8 @@
+  */
+ package org.springframework.samples.petclinic.visit;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import org.springframework.format.annotation.DateTimeFormat;
+ import org.springframework.samples.petclinic.model.BaseEntity;
+ 
+@@ -30,6 +32,7 @@ import java.time.LocalDate;
+  * @author Ken Krebs
+  * @author Dave Syer
+  */
++@TemplateView
+ @Entity
+ @Table(name = "visits")
+ public class Visit extends BaseEntity {
+diff --git a/src/main/resources/templates/error.html b/src/main/resources/templates/error.html
+new file mode 100644
+index 0000000..dfa1d1c
+--- /dev/null
++++ b/src/main/resources/templates/error.html
+@@ -0,0 +1,10 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="org.springframework.samples.petclinic.system.Application"
++      t:params="List<Application.Menu> menus, String message"
++      t:replace="~{fragments/layout :: layout(menus, ~{::body}, false)}">
++<body t:remove="tag">
++    <img src="/resources/images/pets.png"/>
++    <h2>Something happened...</h2>
++    <p t:text="message"></p>
++</body>
++</html>
+diff --git a/src/main/resources/templates/error.mustache b/src/main/resources/templates/error.mustache
+deleted file mode 100644
+index c9ca0a8..0000000
+--- a/src/main/resources/templates/error.mustache
++++ /dev/null
+@@ -1,18 +0,0 @@
+-{{!
+-<!DOCTYPE html>
+-
+-<html lang="en">
+-
+-  <body>}}
+-
+-{{<fragments/layout}}{{$menu}}home{{/menu}}{{$body}}
+-
+-    <img src="/resources/images/pets.png"/>
+-    <h2>Something happened...</h2>
+-    <p>{{message}}</p>
+-
+-{{/body}}{{/fragments/layout}}
+-
+-{{!  </body>
+-
+-</html>}}
+diff --git a/src/main/resources/templates/fragments/inputField.html b/src/main/resources/templates/fragments/inputField.html
+new file mode 100644
+index 0000000..bbcf7be
+--- /dev/null
++++ b/src/main/resources/templates/fragments/inputField.html
+@@ -0,0 +1,18 @@
++<div xmlns:t="https://tessera.dev" t:import="org.springframework.samples.petclinic.system.InputField">
++  <div t:fragment="inputField(InputField field)" class="form-group" t:classappend="field.valid ? '' : 'has-error'">
++    <label class="col-sm-2 control-label" t:text="field.label">Label</label>
++    <div class="col-sm-10">
++        <input t:unless="field.date" class="form-control" type="text" t:name="field.name" t:value="field.value"/>
++        <input t:if="field.date" class="form-control" type="date" t:name="field.name"
++                    placeholder="YYYY-MM-DD" title="Enter a date in this format: YYYY-MM-DD"
++                    pattern="(?:19|20)[0-9]{2}-(?:(?:0[1-9]|1[0-2])-(?:0[1-9]|1[0-9]|2[0-9])|(?:(?!02)(?:0[1-9]|1[0-2])-(?:30))|(?:(?:0[13578]|1[02])-31))" t:value="field.value"/>
++      <span t:if="field.valid"
++        class="glyphicon glyphicon-ok form-control-feedback"
++        aria-hidden="true"></span>
++      <t:block t:unless="field.valid"><span
++          class="glyphicon glyphicon-remove form-control-feedback"
++          aria-hidden="true"></span>
++        <span class="help-block" t:each="error : field.errors" t:text="error">error</span></t:block>
++    </div>
++  </div>
++</div>
+diff --git a/src/main/resources/templates/fragments/inputField.mustache b/src/main/resources/templates/fragments/inputField.mustache
+deleted file mode 100644
+index b9d1452..0000000
+--- a/src/main/resources/templates/fragments/inputField.mustache
++++ /dev/null
+@@ -1,29 +0,0 @@
+-{{!
+-<!DOCTYPE html>
+-
+-<html lang="en">
+-
+-  <body>
+-
+-  <form>}}
+-  <div class="form-group{{^valid}} has-error{{/valid}}">
+-    <label class="col-sm-2 control-label">{{label}}</label>
+-    <div class="col-sm-10">
+-        {{^date}}<input class="form-control" type="text" name="{{name}}" value="{{value}}"/>{{/date}}
+-        {{#date}}<input class="form-control" type="date" name="{{name}}"
+-                    placeholder="YYYY-MM-DD" title="Enter a date in this format: YYYY-MM-DD"
+-                    pattern="(?:19|20)[0-9]{2}-(?:(?:0[1-9]|1[0-2])-(?:0[1-9]|1[0-9]|2[0-9])|(?:(?!02)(?:0[1-9]|1[0-2])-(?:30))|(?:(?:0[13578]|1[02])-31))" value="{{value}}"/>{{/date}}
+-      {{#valid}}<span
+-        class="glyphicon glyphicon-ok form-control-feedback"
+-        aria-hidden="true"></span>{{/valid}}
+-      {{^valid}}<span
+-          class="glyphicon glyphicon-remove form-control-feedback"
+-          aria-hidden="true"></span>
+-        {{#errors}}<span class="help-block">{{.}}</span>{{/errors}}{{/valid}}
+-    </div>
+-  </div>
+-{{!  </form>
+-
+-  </body>
+-
+-</html>}}
+diff --git a/src/main/resources/templates/fragments/layout.mustache b/src/main/resources/templates/fragments/layout.html
+old mode 100755
+new mode 100644
+similarity index 70%
+rename from src/main/resources/templates/fragments/layout.mustache
+rename to src/main/resources/templates/fragments/layout.html
+index 4ad52ee..1df49a3
+--- a/src/main/resources/templates/fragments/layout.mustache
++++ b/src/main/resources/templates/fragments/layout.html
+@@ -1,5 +1,6 @@
+ <!doctype html>
+-<html>
++<html xmlns:t="https://tessera.dev" t:import="org.springframework.samples.petclinic.system.Application"
++      t:fragment="layout(List<Application.Menu> menus, Fragment body, boolean footer)">
+ 
+ <head>
+ 
+@@ -34,12 +35,12 @@
+ 
+         <ul class="nav navbar-nav me-auto">
+ 
+-          {{#menus}}<li class="nav-item">
+-            <a class="nav-link {{#active}}active{{/active}}" href="{{path}}" title="{{title}}">
+-              <span class="fa fa-{{glyph}}" aria-hidden="true"></span>
+-              <span>{{name}}</span>
++          <li class="nav-item" t:each="menu : menus">
++            <a class="nav-link" t:classappend="menu.active ? 'active'" t:href="menu.path" t:title="menu.title">
++              <span t:class="|fa fa-${menu.glyph}|" aria-hidden="true"></span>
++              <span t:text="menu.name">Home</span>
+             </a>
+-          </li>{{/menus}}
++          </li>
+ 
+         </ul>
+       </div>
+@@ -48,8 +49,9 @@
+   <div class="container-fluid">
+     <div class="container xd-container">
+ 
+-      {{$body}}Empty body{{/body}}
++      <t:block t:replace="body">Empty body</t:block>
+ 
++      <t:block t:if="footer">
+       <br />
+       <br />
+       <div class="container">
+@@ -59,10 +61,11 @@
+           </div>
+         </div>
+       </div>
++      </t:block>
+     </div>
+   </div>
+ 
+-  <script src="/webjars/bootstrap/5.1.3/dist/js/bootstrap.bundle.min.js"></script>
++  <script t:if="footer" src="/webjars/bootstrap/5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+ 
+ </body>
+ 
+diff --git a/src/main/resources/templates/fragments/selectField.html b/src/main/resources/templates/fragments/selectField.html
+new file mode 100644
+index 0000000..21329e1
+--- /dev/null
++++ b/src/main/resources/templates/fragments/selectField.html
+@@ -0,0 +1,18 @@
++<div xmlns:t="https://tessera.dev" t:import="org.springframework.samples.petclinic.system.SelectField">
++      <div t:fragment="selectField(SelectField field)" class="form-group" t:classappend="field.valid ? '' : 'has-error'">
++        <label class="col-sm-2 control-label" t:text="field.label">Label</label>
++
++        <div class="col-sm-10">
++          <select t:name="field.name">
++            <t:block t:each="option : field.values"><option t:if="option.selected" t:value="option.value" t:text="option.value" selected>value</option><option t:unless="option.selected" t:value="option.value" t:text="option.value">value</option></t:block>
++          </select>
++          <span t:if="field.valid"
++            class="glyphicon glyphicon-ok form-control-feedback"
++            aria-hidden="true"></span>
++          <t:block t:unless="field.valid"><span
++              class="glyphicon glyphicon-remove form-control-feedback"
++              aria-hidden="true"></span>
++            <span class="help-block" t:each="error : field.errors" t:text="error">error</span></t:block>
++        </div>
++      </div>
++</div>
+diff --git a/src/main/resources/templates/fragments/selectField.mustache b/src/main/resources/templates/fragments/selectField.mustache
+deleted file mode 100644
+index b453294..0000000
+--- a/src/main/resources/templates/fragments/selectField.mustache
++++ /dev/null
+@@ -1,31 +0,0 @@
+-{{!
+-<!DOCTYPE html>
+-
+-<html lang="en">
+-
+-  <body>
+-
+-  <form>}}
+-
+-      <div class="form-group{{^valid}} has-error{{/valid}}">
+-        <label class="col-sm-2 control-label">{{label}}</label>
+-
+-        <div class="col-sm-10">
+-          <select name="{{name}}">
+-            {{#values}}<option value="{{value}}"{{#selected}} selected{{/selected}}>{{value}}</option>{{/values}}
+-          </select>
+-          {{#valid}}<span
+-            class="glyphicon glyphicon-ok form-control-feedback"
+-            aria-hidden="true"></span>{{/valid}}
+-          {{^valid}}<span
+-              class="glyphicon glyphicon-remove form-control-feedback"
+-              aria-hidden="true"></span>
+-            {{#errors}}<span class="help-block">{{.}}</span>{{/errors}}{{/valid}}
+-        </div>
+-      </div>
+-
+-{{!  </form>
+-
+-  </body>
+-
+-</html>}}
+\ No newline at end of file
+diff --git a/src/main/resources/templates/owners/createOrUpdateOwnerForm.html b/src/main/resources/templates/owners/createOrUpdateOwnerForm.html
+new file mode 100644
+index 0000000..6f8aabb
+--- /dev/null
++++ b/src/main/resources/templates/owners/createOrUpdateOwnerForm.html
+@@ -0,0 +1,29 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="org.springframework.samples.petclinic.system.Application, org.springframework.samples.petclinic.owner.*"
++      t:params="List<Application.Menu> menus, Owner owner, OwnerForm form"
++      t:replace="~{fragments/layout :: layout(menus, ~{::body}, true)}">
++<body t:remove="tag">
++
++  <h2>Owner</h2>
++  <form class="form-horizontal" id="add-owner-form" method="post">
++    <div class="form-group has-feedback" t:if="form != null">
++      <div t:replace="~{fragments/inputField :: inputField(form.firstName)}"></div>
++      <div t:replace="~{fragments/inputField :: inputField(form.lastName)}"></div>
++      <div t:replace="~{fragments/inputField :: inputField(form.address)}"></div>
++      <div t:replace="~{fragments/inputField :: inputField(form.city)}"></div>
++      <div t:replace="~{fragments/inputField :: inputField(form.telephone)}"></div>
++    </div>
++    <div class="form-group">
++      <div class="col-sm-offset-2 col-sm-10">
++        <button t:if="owner != null"
++          class="btn btn-primary" type="submit">
++          <t:block t:if="owner.isNew()">Add Owner</t:block>
++          <t:block t:unless="owner.isNew()">Update Owner</t:block>
++        </button>
++      </div>
++    </div>
++  </form>
++
++</body>
++</html>
+diff --git a/src/main/resources/templates/owners/createOrUpdateOwnerForm.mustache b/src/main/resources/templates/owners/createOrUpdateOwnerForm.mustache
+deleted file mode 100644
+index f08e26a..0000000
+--- a/src/main/resources/templates/owners/createOrUpdateOwnerForm.mustache
++++ /dev/null
+@@ -1,36 +0,0 @@
+-{{!
+-<!DOCTYPE html>
+-
+-<html lang="en">
+-
+-  <body>}}
+-
+-{{<fragments/layout}}{{$menu}}owners{{/menu}}{{$body}}
+-
+-  <h2>Owner</h2>
+-  <form class="form-horizontal" id="add-owner-form" method="post">
+-    {{#form}}
+-    <div class="form-group has-feedback">
+-      {{#firstName}}{{<fragments/inputField}}First Name <input name="firstName"/>{{/fragments/inputField}}{{/firstName}}
+-      {{#lastName}}{{<fragments/inputField}}Last Name <input name="lastName"/>{{/fragments/inputField}}{{/lastName}}
+-      {{#address}}{{<fragments/inputField}}Address <input name="address"/>{{/fragments/inputField}}{{/address}}
+-      {{#city}}{{<fragments/inputField}}City <input name="city"/>{{/fragments/inputField}}{{/city}}
+-      {{#telephone}}{{<fragments/inputField}}Telephone <input name="telephone"/>{{/fragments/inputField}}{{/telephone}}
+-    </div>
+-    {{/form}}
+-    <div class="form-group">
+-      <div class="col-sm-offset-2 col-sm-10">
+-        {{#owner}}<button
+-          class="btn btn-primary" type="submit">
+-          {{#new}}Add Owner{{/new}}
+-          {{^new}}Update Owner{{/new}}
+-        </button>{{/owner}}
+-      </div>
+-    </div>
+-  </form>
+-
+-{{/body}}{{/fragments/layout}}
+-
+-{{!  </body>
+-
+-</html>}}
+diff --git a/src/main/resources/templates/owners/findOwners.mustache b/src/main/resources/templates/owners/findOwners.html
+similarity index 57%
+rename from src/main/resources/templates/owners/findOwners.mustache
+rename to src/main/resources/templates/owners/findOwners.html
+index 09c95eb..b596053 100644
+--- a/src/main/resources/templates/owners/findOwners.mustache
++++ b/src/main/resources/templates/owners/findOwners.html
+@@ -1,11 +1,9 @@
+-{{!
+ <!DOCTYPE html>
+-
+-<html lang="en">
+-
+-  <body>}}
+-
+-{{<fragments/layout}}{{$menu}}owners{{/menu}}{{$body}}
++<html xmlns:t="https://tessera.dev"
++      t:import="org.springframework.samples.petclinic.system.Application, org.springframework.samples.petclinic.owner.Owner"
++      t:params="List<Application.Menu> menus, Owner owner, String[] errors"
++      t:replace="~{fragments/layout :: layout(menus, ~{::body}, true)}">
++<body t:remove="tag">
+ 
+   <h2>Find Owners</h2>
+ 
+@@ -15,9 +13,9 @@
+       <div class="control-group" id="lastNameGroup">
+         <label class="col-sm-2 control-label">Last name </label>
+         <div class="col-sm-10">
+-          <input class="form-control" name="lastName" value="{{owner.lastName}}" size="30"
++          <input class="form-control" name="lastName" t:value="owner?.lastName ?: ''" size="30"
+             maxlength="80" /> <span class="help-inline">
+-              {{#errors}}<p>{{.}}</p>{{/errors}}
++              <p t:each="error : errors" t:text="error">error</p>
+             </span>
+         </div>
+       </div>
+@@ -34,8 +32,5 @@
+   <br />
+   <a class="btn btn-primary" href="/owners/new">Add Owner</a>
+ 
+-{{/body}}{{/fragments/layout}}
+-
+-{{!  </body>
+-
+-</html>}}
++</body>
++</html>
+diff --git a/src/main/resources/templates/owners/ownerDetails.html b/src/main/resources/templates/owners/ownerDetails.html
+new file mode 100644
+index 0000000..b265b4b
+--- /dev/null
++++ b/src/main/resources/templates/owners/ownerDetails.html
+@@ -0,0 +1,81 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="org.springframework.samples.petclinic.system.Application, org.springframework.samples.petclinic.owner.Owner"
++      t:params="List<Application.Menu> menus, Owner owner"
++      t:replace="~{fragments/layout :: layout(menus, ~{::body}, true)}">
++<body t:remove="tag">
++
++    <h2>Owner Information</h2>
++
++
++    <t:block t:if="owner != null">
++    <table class="table table-striped">
++      <tr>
++        <th>Name</th>
++        <td><b>[[${owner.firstName}]] [[${owner.lastName}]]</b></td>
++      </tr>
++      <tr>
++        <th>Address</th>
++        <td t:text="owner.address">address</td>
++      </tr>
++      <tr>
++        <th>City</th>
++        <td t:text="owner.city">city</td>
++      </tr>
++      <tr>
++        <th>Telephone</th>
++        <td t:text="owner.telephone">telephone</td>
++      </tr>
++    </table>
++
++    <a t:href="@{{id}/edit(id=owner.id)}" class="btn btn-primary">Edit
++      Owner</a>
++    <a t:href="@{{id}/pets/new(id=owner.id)}" class="btn btn-primary">Add
++      New Pet</a>
++
++    <br />
++    <br />
++    <br />
++    <h2>Pets and Visits</h2>
++
++    <table class="table table-striped">
++
++      <tr t:each="pet : owner.pets">
++        <td valign="top">
++          <dl class="dl-horizontal">
++            <dt>Name</dt>
++            <dd t:text="pet.name">name</dd>
++            <dt>Birth Date</dt>
++            <dd>
++              [[${pet.birthDate}]]</dd>
++            <dt>Type</dt>
++            <dd t:text="pet.type?.name">type</dd>
++          </dl>
++        </td>
++        <td valign="top">
++          <table class="table-condensed">
++            <thead>
++              <tr>
++                <th>Visit Date</th>
++                <th>Description</th>
++              </tr>
++            </thead>
++            <tr t:each="visit : pet.visits">
++              <td t:text="visit.date">date</td>
++              <td t:text="visit.description">description</td>
++            </tr>
++            <tr>
++              <td><a t:href="@{{ownerId}/pets/{petId}/edit(ownerId=owner.id, petId=pet.id)}">Edit
++                  Pet</a></td>
++              <td><a t:href="@{{ownerId}/pets/{petId}/visits/new(ownerId=owner.id, petId=pet.id)}">Add
++                  Visit</a></td>
++            </tr>
++          </table>
++        </td>
++      </tr>
++
++    </table>
++    </t:block>
++
++</body>
++</html>
+diff --git a/src/main/resources/templates/owners/ownerDetails.mustache b/src/main/resources/templates/owners/ownerDetails.mustache
+deleted file mode 100644
+index f2e93d3..0000000
+--- a/src/main/resources/templates/owners/ownerDetails.mustache
++++ /dev/null
+@@ -1,86 +0,0 @@
+-{{!
+-<!DOCTYPE html>
+-
+-<html lang="en">
+-
+-  <body>}}
+-
+-{{<fragments/layout}}{{$menu}}owners{{/menu}}{{$body}}
+-
+-    <h2>Owner Information</h2>
+-  
+-  
+-    {{#owner}}
+-    <table class="table table-striped">
+-      <tr>
+-        <th>Name</th>
+-        <td><b>{{firstName}} {{lastName}}</b></td>
+-      </tr>
+-      <tr>
+-        <th>Address</th>
+-        <td>{{address}}</td>
+-      </tr>
+-      <tr>
+-        <th>City</th>
+-        <td>{{city}}</td>
+-      </tr>
+-      <tr>
+-        <th>Telephone</th>
+-        <td>{{telephone}}</td>
+-      </tr>
+-    </table>
+-  
+-    <a href="{{owner.id}}/edit" class="btn btn-primary">Edit
+-      Owner</a>
+-    <a href="{{owner.id}}/pets/new" class="btn btn-primary">Add
+-      New Pet</a>
+-  
+-    <br />
+-    <br />
+-    <br />
+-    <h2>Pets and Visits</h2>
+-  
+-    <table class="table table-striped">
+-  
+-      {{#pets}}<tr>
+-        <td valign="top">
+-          <dl class="dl-horizontal">
+-            <dt>Name</dt>
+-            <dd>{{name}}</dd>
+-            <dt>Birth Date</dt>
+-            <dd>
+-              {{birthDate}}</dd>
+-            <dt>Type</dt>
+-            <dd>{{type}}</dd>
+-          </dl>
+-        </td>
+-        <td valign="top">
+-          <table class="table-condensed">
+-            <thead>
+-              <tr>
+-                <th>Visit Date</th>
+-                <th>Description</th>
+-              </tr>
+-            </thead>
+-            {{#visits}}<tr>
+-              <td>{{date}}</td>
+-              <td>{{description}}</td>
+-            </tr>{{/visits}}
+-            <tr>
+-              <td><a href="{{owner.id}}/pets/{{id}}/edit">Edit
+-                  Pet</a></td>
+-              <td><a href="{{owner.id}}/pets/{{id}}/visits/new">Add
+-                  Visit</a></td>
+-            </tr>
+-          </table>
+-        </td>
+-      </tr>{{/pets}}
+-  
+-    </table>
+-    {{/owner}}
+-
+-{{/body}}{{/fragments/layout}}
+-
+-{{!  </body>
+-
+-</html>}}
+diff --git a/src/main/resources/templates/owners/ownersList.html b/src/main/resources/templates/owners/ownersList.html
+new file mode 100644
+index 0000000..9d3aaf9
+--- /dev/null
++++ b/src/main/resources/templates/owners/ownersList.html
+@@ -0,0 +1,65 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="org.springframework.samples.petclinic.system.*, org.springframework.samples.petclinic.owner.Owner"
++      t:params="List<Application.Menu> menus, List<Owner> listOwners, List<PageLink> pages, Boolean hasPages,
++                Boolean first, Boolean last, Integer previous, Integer next, Integer totalPages"
++      t:replace="~{fragments/layout :: layout(menus, ~{::body}, true)}">
++<body t:remove="tag">
++
++    <h2>Owners</h2>
++
++    <table id="owners" class="table table-striped">
++        <thead>
++        <tr>
++            <th style="width: 150px;">Name</th>
++            <th style="width: 200px;">Address</th>
++            <th>City</th>
++            <th style="width: 120px">Telephone</th>
++            <th>Pets</th>
++        </tr>
++        </thead>
++        <tbody>
++          <tr t:each="owner : listOwners">
++              <td>
++                  <a t:href="@{/owners/{id}(id=owner.id)}">[[${owner.firstName}]] [[${owner.lastName}]]</a>
++              </td>
++              <td t:text="owner.address">address</td>
++              <td t:text="owner.city">city</td>
++              <td t:text="owner.telephone">telephone</td>
++              <td><t:block t:each="pet : owner.pets"><span t:text="pet.name">pet</span> </t:block></td>
++          </tr>
++        </tbody>
++    </table>
++
++    <div t:if="hasPages">
++        <span>Pages:</span>
++        <span>[</span>
++        <span t:each="page : pages">
++            <a t:unless="page.current" t:href="@{/owners(page=page.number)}" t:text="page.number">1</a>
++            <span t:if="page.current" t:text="page.number">1</span>
++        </span>
++        <span>]&nbsp;</span>
++        <span>
++            <a t:unless="first" href="/owners?page=1" title="First"
++                class="fa fa-fast-backward"></a>
++            <span t:if="first" title="First" class="fa fa-fast-backward"></span>
++        </span>
++        <span>
++            <a t:unless="first" t:href="@{/owners(page=previous)}" title="Previous"
++                class="fa fa-step-backward"></a>
++            <span t:if="first" title="Previous" class="fa fa-step-backward"></span>
++        </span>
++        <span>
++            <a t:unless="last" t:href="@{/owners(page=next)}" title="Next"
++                class="fa fa-step-forward"></a>
++            <span t:if="last" title="Next" class="fa fa-step-forward"></span>
++        </span>
++        <span>
++            <a t:unless="last" t:href="@{/owners(page=totalPages)}" title="Last"
++                class="fa fa-fast-forward"></a>
++            <span t:if="last" title="Last" class="fa fa-fast-forward"></span>
++        </span>
++    </div>
++
++</body>
++</html>
+diff --git a/src/main/resources/templates/owners/ownersList.mustache b/src/main/resources/templates/owners/ownersList.mustache
+deleted file mode 100644
+index a66bc12..0000000
+--- a/src/main/resources/templates/owners/ownersList.mustache
++++ /dev/null
+@@ -1,69 +0,0 @@
+-{{!
+-<!DOCTYPE html>
+-
+-<html lang="en">
+-
+-  <body>}}
+-
+-{{<fragments/layout}}{{$menu}}owners{{/menu}}{{$body}}
+-
+-    <h2>Owners</h2>
+-
+-    <table id="owners" class="table table-striped">
+-        <thead>
+-        <tr>
+-            <th style="width: 150px;">Name</th>
+-            <th style="width: 200px;">Address</th>
+-            <th>City</th>
+-            <th style="width: 120px">Telephone</th>
+-            <th>Pets</th>
+-        </tr>
+-        </thead>
+-        <tbody>
+-          {{#listOwners}}<tr>
+-              <td>
+-                  <a href="/owners/{{id}}">{{firstName}} {{lastName}}</a>
+-              </td>
+-              <td>{{address}}</td>
+-              <td>{{city}}</td>
+-              <td>{{telephone}}</td>
+-              <td>{{#pets}}<span>{{name}}</span> {{/pets}}</td>
+-          </tr>{{/listOwners}}
+-        </tbody>
+-    </table>
+-
+-    {{#hasPages}}<div>
+-        <span>Pages:</span>
+-        <span>[</span>
+-        {{#pages}}<span">
+-            {{^current}}<a href="/owners?page={{number}}">{{number}}</a>{{/current}}
+-            {{#current}}<span>{{number}}</span>{{/current}}
+-        </span>{{/pages}}
+-        <span>]&nbsp;</span>
+-        <span>
+-            {{^first}}<a href="/owners?page=1" title="First"
+-                class="fa fa-fast-backward"></a>{{/first}}
+-            {{#first}}<span title="First" class="fa fa-fast-backward"></span>{{/first}}
+-        </span>
+-        <span>
+-            {{^first}}<a href="/owners?page={{previous}}" title="Previous"
+-                class="fa fa-step-backward"></a>{{/first}}
+-            {{#first}}<span title="Previous" class="fa fa-step-backward"></span>{{/first}}
+-        </span>
+-        <span>
+-            {{^last}}<a href="/owners?page={{next}}" title="Next"
+-                class="fa fa-step-forward"></a>{{/last}}
+-            {{#last}}<span title="Next" class="fa fa-step-forward"></span>{{/last}}
+-        </span>
+-        <span>
+-            {{^last}}<a href="/owners?page={{totalPages}}" title="Last"
+-                class="fa fa-fast-forward"></a>{{/last}}
+-            {{#last}}<span title="Last" class="fa fa-fast-forward"></span>{{/last}}
+-        </span>
+-    </div>{{/hasPages}}
+-
+-{{/body}}{{/fragments/layout}}
+-
+-{{!  </body>
+-
+-</html>}}
+diff --git a/src/main/resources/templates/pets/createOrUpdatePetForm.html b/src/main/resources/templates/pets/createOrUpdatePetForm.html
+new file mode 100644
+index 0000000..e009c87
+--- /dev/null
++++ b/src/main/resources/templates/pets/createOrUpdatePetForm.html
+@@ -0,0 +1,35 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="org.springframework.samples.petclinic.system.Application, org.springframework.samples.petclinic.owner.*"
++      t:params="List<Application.Menu> menus, Pet pet, PetForm form"
++      t:replace="~{fragments/layout :: layout(menus, ~{::body}, true)}">
++<body t:remove="tag">
++
++  <h2 t:if="pet != null">
++    <t:block t:if="pet.isNew()">New </t:block>Pet
++  </h2>
++  <form class="form-horizontal" method="post">
++    <input type="hidden" name="id" th:value="*{id}" />
++    <div class="form-group has-feedback">
++      <div class="form-group">
++        <label class="col-sm-2 control-label">Owner</label>
++        <div class="col-sm-10">
++          <span t:if="pet?.owner != null">[[${pet.owner.firstName}]] [[${pet.owner.lastName}]]</span>
++        </div>
++      </div>
++      <t:block t:if="form != null">
++        <div t:replace="~{fragments/inputField :: inputField(form.nameField)}"></div>
++        <div t:replace="~{fragments/inputField :: inputField(form.birthDate)}"></div>
++        <div t:replace="~{fragments/selectField :: selectField(form.type)}"></div>
++      </t:block>
++    </div>
++    <div class="form-group" t:if="pet != null">
++      <div class="col-sm-offset-2 col-sm-10">
++        <button class="btn btn-primary" type="submit"><t:block t:if="pet.isNew()">Add</t:block><t:block t:unless="pet.isNew()">Update</t:block>
++          Pet</button>
++      </div>
++    </div>
++  </form>
++
++</body>
++</html>
+diff --git a/src/main/resources/templates/pets/createOrUpdatePetForm.mustache b/src/main/resources/templates/pets/createOrUpdatePetForm.mustache
+deleted file mode 100644
+index c2f7076..0000000
+--- a/src/main/resources/templates/pets/createOrUpdatePetForm.mustache
++++ /dev/null
+@@ -1,46 +0,0 @@
+-{{!
+-<!DOCTYPE html>
+-
+-<html lang="en">
+-
+-  <body>}}
+-
+-{{<fragments/layout}}{{$menu}}owners{{/menu}}{{$body}}
+-
+-{{#pet}}
+-  <h2>
+-    {{#new}}New {{/new}}Pet
+-  </h2>
+-{{/pet}}
+-  <form class="form-horizontal" method="post">
+-    <input type="hidden" name="id" th:value="*{id}" />
+-    <div class="form-group has-feedback">
+-      <div class="form-group">
+-        <label class="col-sm-2 control-label">Owner</label>
+-        <div class="col-sm-10">
+-{{#pet}}
+-          {{#owner}}<span>{{firstName}} {{lastName}}</span>{{/owner}}
+-{{/pet}}
+-        </div>
+-      </div>
+-      {{#form}}
+-        {{#nameField}}{{<fragments/inputField}}Name <input name="name"/>{{/fragments/inputField}}{{/nameField}}
+-        {{#birthDate}}{{<fragments/inputField}}Birth Date <input name="birthDate" type="date"/>{{/fragments/inputField}}{{/birthDate}}
+-        {{#type}}{{<fragments/selectField}}Type <input name="type" values="types"/>{{/fragments/selectField}}{{/type}}
+-      {{/form}}
+-    </div>
+-{{#pet}}
+-    <div class="form-group">
+-      <div class="col-sm-offset-2 col-sm-10">
+-        <button class="btn btn-primary" type="submit">{{#new}}Add{{/new}}{{^new}}Update{{/new}}
+-          Pet</button>
+-      </div>
+-    </div>
+-{{/pet}}
+-  </form>
+-
+-{{/body}}{{/fragments/layout}}
+-
+-{{!  </body>
+-
+-</html>}}
+diff --git a/src/main/resources/templates/pets/createOrUpdateVisitForm.html b/src/main/resources/templates/pets/createOrUpdateVisitForm.html
+new file mode 100644
+index 0000000..7be4be2
+--- /dev/null
++++ b/src/main/resources/templates/pets/createOrUpdateVisitForm.html
+@@ -0,0 +1,57 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="org.springframework.samples.petclinic.system.Application, org.springframework.samples.petclinic.owner.Pet, org.springframework.samples.petclinic.visit.Visit"
++      t:params="List<Application.Menu> menus, Pet pet, Visit visit"
++      t:replace="~{fragments/layout :: layout(menus, ~{::body}, true)}">
++<body t:remove="tag">
++
++  <h2>
++    <t:block t:if="visit?.isNew() == true">New </t:block> Visit
++  </h2>
++
++  <t:block t:if="pet != null">
++  <b>Pet</b>
++  <table class="table table-striped">
++    <thead>
++      <tr>
++        <th>Name</th>
++        <th>Birth Date</th>
++        <th>Type</th>
++        <th>Owner</th>
++      </tr>
++    </thead>
++    <tr>
++      <td t:text="pet.name">name</td>
++      <td t:text="pet.birthDate">birthDate</td>
++      <td t:text="pet.type?.name">type</td>
++      <td t:if="pet.owner != null">[[${pet.owner.firstName}]] [[${pet.owner.lastName}]]</td>
++    </tr>
++  </table>
++  </t:block>
++
++  <form class="form-horizontal" method="post">
++    <div class="form-group has-feedback">
++    </div>
++    <div class="form-group">
++      <div class="col-sm-offset-2 col-sm-10">
++        <input type="hidden" name="petId" th:value="${pet.id}" />
++        <button class="btn btn-primary" type="submit">Add Visit</button>
++      </div>
++    </div>
++  </form>
++
++  <br />
++  <b>Previous Visits</b>
++  <table class="table table-striped">
++    <tr>
++      <th>Date</th>
++      <th>Description</th>
++    </tr>
++    <t:block t:if="pet != null"><tr t:each="visit : pet.visits" t:unless="visit.isNew()">
++      <td t:text="visit.date">date</td>
++      <td t:text="visit.description">description</td>
++    </tr></t:block>
++  </table>
++
++</body>
++</html>
+diff --git a/src/main/resources/templates/pets/createOrUpdateVisitForm.mustache b/src/main/resources/templates/pets/createOrUpdateVisitForm.mustache
+deleted file mode 100644
+index b084f83..0000000
+--- a/src/main/resources/templates/pets/createOrUpdateVisitForm.mustache
++++ /dev/null
+@@ -1,67 +0,0 @@
+-{{!
+-<!DOCTYPE html>
+-
+-<html lang="en">
+-
+-  <body>}}
+-
+-{{<fragments/layout}}{{$menu}}owners{{/menu}}{{$body}}
+-
+-  <h2>
+-    {{#visit.new}}New {{/visit.new}} Visit
+-  </h2>
+-
+-{{#pet}}
+-  <b>Pet</b>
+-  <table class="table table-striped">
+-    <thead>
+-      <tr>
+-        <th>Name</th>
+-        <th>Birth Date</th>
+-        <th>Type</th>
+-        <th>Owner</th>
+-      </tr>
+-    </thead>
+-    <tr>
+-      <td>{{name}}</td>
+-      <td>{{birthDate}}</td>
+-      <td>{{type}}</td>
+-      {{#owner}}<td>{{owner.firstName}} {{lastName}}</td>{{/owner}}
+-    </tr>
+-  </table>
+-{{/pet}}
+-
+-  <form class="form-horizontal" method="post">
+-    <div class="form-group has-feedback">
+-      {{#form}}
+-        {{#date}}{{<fragments/inputField}}Date <input name="date" type="date"/>{{/fragments/inputField}}{{/date}}
+-        {{#description}}{{<fragments/inputField}}Description <input name="description"/>{{/fragments/inputField}}{{/description}}
+-      {{/form}}
+-    </div>
+-    <div class="form-group">
+-      <div class="col-sm-offset-2 col-sm-10">
+-        <input type="hidden" name="petId" th:value="${pet.id}" />
+-        <button class="btn btn-primary" type="submit">Add Visit</button>
+-      </div>
+-    </div>
+-  </form>
+-
+-  <br />
+-  <b>Previous Visits</b>
+-  <table class="table table-striped">
+-    <tr>
+-      <th>Date</th>
+-      <th>Description</th>
+-    </tr>
+-    {{#pet.visits}}{{^new}}<tr>
+-      <td>{{date}}</td>
+-      <td>{{description}}</td>
+-    </tr>{{/new}}{{/pet.visits}}
+-  </table>
+-
+-
+-{{/body}}{{/fragments/layout}}
+-
+-{{!  </body>
+-
+-</html>}}
+diff --git a/src/main/resources/templates/vets/vetList.html b/src/main/resources/templates/vets/vetList.html
+new file mode 100644
+index 0000000..16d385d
+--- /dev/null
++++ b/src/main/resources/templates/vets/vetList.html
+@@ -0,0 +1,53 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="org.springframework.samples.petclinic.system.*"
++      t:params="List<Application.Menu> menus, List<PageLink> pages, Boolean hasPages,
++                Boolean first, Boolean last, Integer previous, Integer next, Integer totalPages"
++      t:replace="~{fragments/layout :: layout(menus, ~{::body}, true)}">
++<body t:remove="tag">
++
++    <h2>Veterinarians</h2>
++
++  <table id="vets" class="table table-striped">
++    <thead>
++      <tr>
++        <th>Name</th>
++        <th>Specialties</th>
++      </tr>
++    </thead>
++    <tbody>
++    </tbody>
++  </table>
++
++    <div t:if="hasPages">
++        <span>Pages:</span>
++        <span>[</span>
++        <span t:each="page : pages">
++            <a t:unless="page.current" t:href="@{/vets.html(page=page.number)}" t:text="page.number">1</a>
++            <span t:if="page.current" t:text="page.number">1</span>
++        </span>
++        <span>]&nbsp;</span>
++        <span>
++            <a t:unless="first" href="/vets.html?page=1" title="First"
++                class="fa fa-fast-backward"></a>
++            <span t:if="first" title="First" class="fa fa-fast-backward"></span>
++        </span>
++        <span>
++            <a t:unless="first" t:href="@{/vets.html(page=previous)}" title="Previous"
++                class="fa fa-step-backward"></a>
++            <span t:if="first" title="Previous" class="fa fa-step-backward"></span>
++        </span>
++        <span>
++            <a t:unless="last" t:href="@{/vets.html(page=next)}" title="Next"
++                class="fa fa-step-forward"></a>
++            <span t:if="last" title="Next" class="fa fa-step-forward"></span>
++        </span>
++        <span>
++            <a t:unless="last" t:href="@{/vets.html(page=totalPages)}" title="Last"
++                class="fa fa-fast-forward"></a>
++            <span t:if="last" title="Last" class="fa fa-fast-forward"></span>
++        </span>
++    </div>
++
++</body>
++</html>
+diff --git a/src/main/resources/templates/vets/vetList.mustache b/src/main/resources/templates/vets/vetList.mustache
+deleted file mode 100644
+index 4c5f718..0000000
+--- a/src/main/resources/templates/vets/vetList.mustache
++++ /dev/null
+@@ -1,61 +0,0 @@
+-{{!
+-<!DOCTYPE html>
+-
+-<html lang="en">
+-
+-  <body>}}
+-
+-{{<fragments/layout}}{{$menu}}vets{{/menu}}{{$body}}
+-
+-  <h2>Veterinarians</h2>
+-
+-  <table id="vets" class="table table-striped">
+-    <thead>
+-      <tr>
+-        <th>Name</th>
+-        <th>Specialties</th>
+-      </tr>
+-    </thead>
+-    <tbody>
+-      {{#listVets}}<tr>
+-        <td>{{firstName}} {{lastName}}</td>
+-        <td>{{#specialties}}<span>{{name}}</span> {{/specialties}}
+-        {{^special}}<span>none</span>{{/special}}</td>
+-      </tr>{{/listVets}}
+-    </tbody>
+-  </table>
+-  {{#hasPages}}<div>
+-      <span>Pages:</span>
+-      <span>[</span>
+-      {{#pages}}<span">
+-          {{^current}}<a href="/vets.html?page={{number}}">{{number}}</a>{{/current}}
+-          {{#current}}<span>{{number}}</span>{{/current}}
+-      </span>{{/pages}}
+-      <span>]&nbsp;</span>
+-      <span>
+-          {{^first}}<a href="/vets.html?page=1" title="First"
+-              class="fa fa-fast-backward"></a>{{/first}}
+-          {{#first}}<span title="First" class="fa fa-fast-backward"></span>{{/first}}
+-      </span>
+-      <span>
+-          {{^first}}<a href="/vets.html?page={{previous}}" title="Previous"
+-              class="fa fa-step-backward"></a>{{/first}}
+-          {{#first}}<span title="Previous" class="fa fa-step-backward"></span>{{/first}}
+-      </span>
+-      <span>
+-          {{^last}}<a href="/vets.html?page={{next}}" title="Next"
+-              class="fa fa-step-forward"></a>{{/last}}
+-          {{#last}}<span title="Next" class="fa fa-step-forward"></span>{{/last}}
+-      </span>
+-      <span>
+-          {{^last}}<a href="/vets.html?page={{totalPages}}" title="Last"
+-              class="fa fa-fast-forward"></a>{{/last}}
+-          {{#last}}<span title="Last" class="fa fa-fast-forward"></span>{{/last}}
+-      </span>
+-  </div>{{/hasPages}}
+-
+-{{/body}}{{/fragments/layout}}
+-
+-{{!  </body>
+-
+-</html>}}
+diff --git a/src/main/resources/templates/welcome.html b/src/main/resources/templates/welcome.html
+new file mode 100644
+index 0000000..c940263
+--- /dev/null
++++ b/src/main/resources/templates/welcome.html
+@@ -0,0 +1,13 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="org.springframework.samples.petclinic.system.Application"
++      t:params="List<Application.Menu> menus"
++      t:replace="~{fragments/layout :: layout(menus, ~{::body}, true)}">
++<body t:remove="tag">
++    <h2 th:text="#{welcome}">Welcome</h2>
++    <div class="row">
++        <div class="col-md-12">
++          <img class="img-responsive" src="resources/images/pets.png"/>
++        </div>
++    </div>
++</body>
++</html>
+diff --git a/src/main/resources/templates/welcome.mustache b/src/main/resources/templates/welcome.mustache
+deleted file mode 100644
+index 65ea4e2..0000000
+--- a/src/main/resources/templates/welcome.mustache
++++ /dev/null
+@@ -1,19 +0,0 @@
+-{{!
+-<!DOCTYPE html>
+-
+-<html lang="en">
+-
+-  <body>}}
+-
+-{{<fragments/layout}}{{$menu}}home{{/menu}}{{$body}}
+-    <h2 th:text="#{welcome}">Welcome</h2>
+-    <div class="row">
+-        <div class="col-md-12">
+-          <img class="img-responsive" src="resources/images/pets.png"/>
+-        </div>
+-    </div>
+-{{/body}}{{/fragments/layout}}
+-
+-{{!  </body>
+-
+-</html>}}
+diff --git a/src/test/java/org/springframework/samples/petclinic/TesseraRenderingTests.java b/src/test/java/org/springframework/samples/petclinic/TesseraRenderingTests.java
+new file mode 100644
+index 0000000..878210c
+--- /dev/null
++++ b/src/test/java/org/springframework/samples/petclinic/TesseraRenderingTests.java
+@@ -0,0 +1,65 @@
++/*
++ * Copyright 2012-2019 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      https://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.springframework.samples.petclinic;
++
++import static org.hamcrest.Matchers.containsString;
++import static org.hamcrest.Matchers.not;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
++
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
++import org.springframework.boot.test.context.SpringBootTest;
++import org.springframework.test.web.servlet.MockMvc;
++
++/**
++ * Renders pages through the real Tessera view resolver (not a standalone setup) and
++ * checks that user data is escaped. The invalid form post is not saved.
++ */
++@SpringBootTest
++@AutoConfigureMockMvc
++class TesseraRenderingTests {
++
++	@Autowired
++	private MockMvc mockMvc;
++
++	@Test
++	void rendersOwnerDetailsWithLayout() throws Exception {
++		mockMvc.perform(get("/owners/1"))
++			.andExpect(status().isOk())
++			.andExpect(content().string(containsString("<title>PetClinic :: a Spring Framework demonstration</title>")))
++			.andExpect(content().string(containsString("George Franklin")))
++			.andExpect(content().string(containsString("href=\"1/pets/1/edit\"")));
++	}
++
++	@Test
++	void escapesUserDataInForms() throws Exception {
++		mockMvc
++			.perform(post("/owners/new").param("firstName", "<script>alert(1)</script>")
++				.param("lastName", "")
++				.param("address", "a")
++				.param("city", "b")
++				.param("telephone", "1"))
++			.andExpect(status().isOk())
++			.andExpect(content().string(not(containsString("<script>alert(1)</script>"))))
++			.andExpect(content().string(containsString("&lt;script&gt;alert(1)&lt;/script&gt;")));
++	}
++
++}
