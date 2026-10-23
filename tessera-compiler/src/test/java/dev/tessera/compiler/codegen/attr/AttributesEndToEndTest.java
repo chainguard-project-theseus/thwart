@@ -243,6 +243,32 @@ class AttributesEndToEndTest {
   }
 
   @Test
+  void bemClassNamesWithDoubleUnderscore() {
+    // #234: __ is only rejected as Thymeleaf preprocessing (__${...}__), not in literals.
+    assertEquals(
+        "<p class=\"card__title\">x</p>", render("<p class=\"card__title\">x</p>", model()));
+    assertEquals(
+        "<p class=\"card__item card__item--on\">x</p>",
+        render("<p t:class=\"'card__item card__item--' + s\">x</p>", model("s", "on")));
+    assertEquals(
+        "<p class=\"card card__item--on\">x</p>",
+        render("<p class=\"card\" t:classappend=\"b ? 'card__item--on' : null\">x</p>", model("b", true)));
+    assertEquals(
+        "<p class=\"card__item card__item--on\">x</p>",
+        render("<p t:class=\"|card__item card__item--${s}|\">x</p>", model("s", "on")));
+    assertEquals("<p>a__b</p>", render("<p t:text=\"'a__b'\">x</p>", model()));
+  }
+
+  @Test
+  void preprocessingIsStillRejected() {
+    String message = "preprocessing (__...__) is not supported: expressions are never built from strings";
+    compile("<p t:class=\"__${s}__\">x</p>").assertError("t.html:1:", message);
+    compile("<p t:classappend=\"'card__' + __${s}__\">x</p>").assertError("t.html:1:", message);
+    compile("<p t:text=\"'a__${s}__'\">x</p>").assertError("t.html:1:", message);
+    compile("<p t:class=\"|card__${s}__|\">x</p>").assertError("t.html:1:", message);
+  }
+
+  @Test
   void classAppendIsEscaped() {
     assertEquals(
         "<p class=\"a &quot; onclick=&quot;x\">x</p>",
