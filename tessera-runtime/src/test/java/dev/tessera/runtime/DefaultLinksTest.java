@@ -150,9 +150,17 @@ class DefaultLinksTest {
     };
     for (Object array : arrays) {
       assertEquals("/s?keep=1#top", root.build("/s#top", n("x", "keep"), v(array, 1)));
+      assertEquals("/s", root.build("/s", n((String) null), v(array)));
       assertThrows(IllegalArgumentException.class,
           () -> root.build("/{x}/evil.com", n("x"), v(array)));
     }
+    assertEquals("/s", root.build("/s", n((String) null), v(Collections.emptyList())));
+    Iterable<String> empty = () -> Collections.<String>emptyList().iterator();
+    assertEquals("/s", root.build("/s", n((String) null), v(empty)));
+    assertThrows(NullPointerException.class,
+        () -> root.build("/s", n((String) null), v(Collections.singletonList("value"))));
+    assertThrows(NullPointerException.class,
+        () -> root.build("/s", n((String) null), v((Object) new int[] {1})));
   }
 
   @Test

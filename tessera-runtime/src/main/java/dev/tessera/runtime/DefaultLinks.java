@@ -47,10 +47,10 @@ public final class DefaultLinks implements Links {
       if (used[i]) {
         continue;
       }
-      String name = UrlEncoding.queryParam(names[i]);
-      if (!appendMultiValues(query, name, values[i])) {
+      String name = names[i];
+      if (appendMultiValues(query, name, values[i]) == null) {
         // Like Thymeleaf: null is "" (name=); only a parameter written without a value is bare.
-        appendParam(query, name, values[i] == null ? "" : values[i]);
+        appendParam(query, UrlEncoding.queryParam(name), values[i] == null ? "" : values[i]);
       }
     }
 
@@ -81,62 +81,82 @@ public final class DefaultLinks implements Links {
     }
   }
 
-  /** Append an Iterable or array without a snapshot; null name selects path-segment mode. */
-  private static boolean appendMultiValues(StringBuilder out, String name, Object value) {
+  /**
+   * Append an Iterable or array, returning its buffer, or null for a scalar. A null buffer selects
+   * path-segment mode. Allocate that buffer and encode query names only when they are needed.
+   */
+  private static StringBuilder appendMultiValues(StringBuilder out, String name, Object value) {
+    boolean path = out == null;
+    String encodedName = null;
     if (value instanceof Iterable<?>) {
+      out = out == null ? new StringBuilder() : out;
       for (Object item : (Iterable<?>) value) {
-        appendItem(out, name, item);
+        encodedName = appendItem(out, path, name, encodedName, item);
       }
     } else if (value instanceof Object[]) {
+      out = out == null ? new StringBuilder() : out;
       for (Object item : (Object[]) value) {
-        appendItem(out, name, item);
+        encodedName = appendItem(out, path, name, encodedName, item);
       }
     } else if (value instanceof int[]) {
+      out = out == null ? new StringBuilder() : out;
       for (int item : (int[]) value) {
-        appendItem(out, name, String.valueOf(item));
+        encodedName = appendItem(out, path, name, encodedName, String.valueOf(item));
       }
     } else if (value instanceof long[]) {
+      out = out == null ? new StringBuilder() : out;
       for (long item : (long[]) value) {
-        appendItem(out, name, String.valueOf(item));
+        encodedName = appendItem(out, path, name, encodedName, String.valueOf(item));
       }
     } else if (value instanceof double[]) {
+      out = out == null ? new StringBuilder() : out;
       for (double item : (double[]) value) {
-        appendItem(out, name, String.valueOf(item));
+        encodedName = appendItem(out, path, name, encodedName, String.valueOf(item));
       }
     } else if (value instanceof float[]) {
+      out = out == null ? new StringBuilder() : out;
       for (float item : (float[]) value) {
-        appendItem(out, name, String.valueOf(item));
+        encodedName = appendItem(out, path, name, encodedName, String.valueOf(item));
       }
     } else if (value instanceof short[]) {
+      out = out == null ? new StringBuilder() : out;
       for (short item : (short[]) value) {
-        appendItem(out, name, String.valueOf(item));
+        encodedName = appendItem(out, path, name, encodedName, String.valueOf(item));
       }
     } else if (value instanceof byte[]) {
+      out = out == null ? new StringBuilder() : out;
       for (byte item : (byte[]) value) {
-        appendItem(out, name, String.valueOf(item));
+        encodedName = appendItem(out, path, name, encodedName, String.valueOf(item));
       }
     } else if (value instanceof char[]) {
+      out = out == null ? new StringBuilder() : out;
       for (char item : (char[]) value) {
-        appendItem(out, name, String.valueOf(item));
+        encodedName = appendItem(out, path, name, encodedName, String.valueOf(item));
       }
     } else if (value instanceof boolean[]) {
+      out = out == null ? new StringBuilder() : out;
       for (boolean item : (boolean[]) value) {
-        appendItem(out, name, String.valueOf(item));
+        encodedName = appendItem(out, path, name, encodedName, String.valueOf(item));
       }
     } else {
-      return false;
+      return null;
     }
-    return true;
+    return out;
   }
 
-  private static void appendItem(StringBuilder out, String name, Object item) {
-    if (name == null) {
+  private static String appendItem(
+      StringBuilder out, boolean path, String name, String encodedName, Object item) {
+    if (path) {
       // A trailing separator also counts empty/null elements; pathValue removes the last one.
       out.append(UrlEncoding.pathSegment(item == null ? "" : String.valueOf(item))).append(',');
     } else {
       // A null element of a collection is the bare name, as in Thymeleaf.
-      appendParam(out, name, item == null ? NO_VALUE : item);
+      if (encodedName == null) {
+        encodedName = UrlEncoding.queryParam(name);
+      }
+      appendParam(out, encodedName, item == null ? NO_VALUE : item);
     }
+    return encodedName;
   }
 
   /** Single pass, so substituted (encoded) values are never re-scanned for {@code {name}}. */
@@ -166,8 +186,8 @@ public final class DefaultLinks implements Links {
    * own so the separator stays a literal comma.
    */
   private static String pathValue(String name, Object value) {
-    StringBuilder encoded = new StringBuilder();
-    if (!appendMultiValues(encoded, null, value)) {
+    StringBuilder encoded = appendMultiValues(null, null, value);
+    if (encoded == null) {
       return UrlEncoding.pathSegment(checkPathValue(name, value == NO_VALUE ? null : value));
     }
     if (encoded.length() > 0) {
