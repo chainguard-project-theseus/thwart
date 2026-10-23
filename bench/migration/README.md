@@ -113,7 +113,9 @@ segment as above), the invoice date input (jprime: the invoice form defaults to 
 container UUIDs, the delete-database verification code (budgetmaster: random per request),
 the webjar version segment (budgetmaster, as above), the free-memory figures on the admin
 monitor page (luckyblog: read from the operating system), and the time each manifest was last
-fetched and the home page's commit and build day (ewp-registry).
+fetched and the home page's commit and build day (ewp-registry), and the eCertis URL handed to
+`EcertisHandler(...)` in espd's layout script (the original printed `&amp;` inside a `<script>`, a
+bug a port fixes by writing the URL as JSON; the country argument is still compared).
 
 Licenses: JobSearch and jprime have no license and ESPD is EUPL-1.1 (copyleft), so their runs'
 `diff.patch` files are not committed (`.gitignore`).
@@ -156,7 +158,7 @@ Per-app environment fixes (in the app's commands, not its code):
   TED lookup off and Piwik off, points the eCertis URL handed to the pages' JavaScript at a local
   placeholder, leaves the stack trace out of error pages, and keeps the session id out of URLs
   (`server.session.tracking-modes=cookie`; otherwise the first page's links carry a random
-  `;jsessionid=`). No ignores.
+  `;jsessionid=`). One ignore: the eCertis URL argument (above).
 - luckyblog (held out, Apache Velocity, `"java": 8`): Boot 1.4 is below Tessera's Boot 1.5 floor
   (Spring 4.3 is supported), so a migration may need to bump Boot to 1.5 first. The build has no
   `spring-boot-maven-plugin` (a thin jar plus `lib/`), so `start.sh` runs `target/classes` on the
