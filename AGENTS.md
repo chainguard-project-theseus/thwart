@@ -40,8 +40,8 @@ This is an MVP built tonight. Prefer the smallest thing that is correct and secu
   (main and test sources) and the code the generator emits are **Java 8** (no records, sealed
   types, pattern matching, switch expressions, `var` or post-8 APIs such as `List.of`; the
   compiler has `Backports` and migrate `Compat` for the latter); javac `--release 8` and the
-  release-8 and JDK 8 test runs enforce it. The starter must also keep working on Spring 5.0 /
-  Boot 2.0 (`tessera-spring-tests`, also `--release 8`). Benchmarks, examples and the tests of
+  release-8 and JDK 8 test runs enforce it. The starter must also keep working on Spring 4.3 /
+  Boot 1.5 and Servlet 3.0 (`tessera-spring-tests`, also `--release 8`). Benchmarks, examples and the tests of
   the runtime, compiler and migrate are Java 21. `tessera-runtime` and `tessera-compiler` have
   **zero third-party dependencies** outside test scope (the compiler has its own
   `MarkupTokenizer`; attoparser is only a test oracle), and the starters pass on only

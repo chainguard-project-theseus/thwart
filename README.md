@@ -58,8 +58,10 @@ Each principle removes a class of bugs. The full rules are in [AGENTS.md](AGENTS
 - **Your application:** builds with JDK 8+ javac and Maven, and runs on Java 8+. The runtime, the
   Spring starters and the annotation processor are Java 8 class files, and the generated code
   compiles at release 8.
-- **Spring:** Spring Framework 5.0+ or Spring Boot 2.0+. Tested on Boot 2.0, 2.7, 3.5 and 4.1 and
-  on plain Spring MVC 5.0.
+- **Spring:** Spring Framework 4.3+ or Spring Boot 1.5+, on Servlet 3.0+. Tested on Boot 1.5,
+  2.0, 2.7, 3.5 and 4.1 and on plain Spring MVC 4.3 and 5.0. Below Spring 4.3 is untested. The
+  build needs `maven-compiler-plugin` 3.5+ for `annotationProcessorPaths` (Boot 1.5's parent pins
+  3.1: override it).
 - **Dependencies:** `tessera-runtime` has none. The starters pass on only `tessera-runtime`;
   Spring, the servlet API and Spring Security come from your application.
 - **Building this repo:** JDK 21+ and Maven 3.9+.
@@ -74,7 +76,7 @@ Add the starter for your servlet API (use exactly one) and run the annotation pr
 | Application | Artifact |
 |---|---|
 | `jakarta.servlet` (Boot 3+, Spring 6+) | `dev.tessera:tessera-spring-boot-starter` |
-| `javax.servlet` (Boot 2.x, Spring 5.x) | `dev.tessera:tessera-spring-boot-starter-javax` |
+| `javax.servlet` (Boot 1.5-2.x, Spring 4.3-5.x) | `dev.tessera:tessera-spring-boot-starter-javax` |
 | No Spring | `dev.tessera:tessera-runtime` |
 
 ```xml
@@ -157,7 +159,7 @@ Thymeleaf directory and reports, by `file:line`, what it couldn't convert.
 | `tessera-compiler` | Template compiler and annotation processor. No dependencies outside Tessera |
 | `tessera-spring-boot-starter` | Spring MVC integration (`jakarta.servlet`): view resolver, typed return values, forms, CSRF, i18n, `auth` functions |
 | `tessera-spring-boot-starter-javax` | The same starter relocated to `javax.servlet` |
-| `tessera-spring-tests` | Runs the starter's tests on Boot 3.5, 2.7, 2.0 and plain Spring MVC 5.0 |
+| `tessera-spring-tests` | Runs the starter's tests on Boot 3.5, 2.7, 2.0 and 1.5 and plain Spring MVC 5.0 and 4.3 |
 | `tessera-migrate` | Page record/compare and the Thymeleaf converter (bundles attoparser and jsoup) |
 | `tessera-benchmarks` | JMH benchmarks against Thymeleaf ([results](tessera-benchmarks/RESULTS.md)) |
 | `examples/petclinic` | Spring PetClinic ported to Tessera ([porting notes](examples/petclinic/PORTING.md)) |
