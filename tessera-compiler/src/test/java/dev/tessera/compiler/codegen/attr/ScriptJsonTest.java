@@ -170,4 +170,55 @@ class ScriptJsonTest {
     compile("Pojo p", "<script>var p = [[p]];</script>").assertError("page.html:1:", "not view-safe");
     compile("List<Pojo> p", "<script>var p = [[p]];</script>").assertError("page.html:1:", "not view-safe");
   }
+
+  @Test
+  void adversarialBeansExposeNothingTemplatesCannotRead() {
+    Compilation c =
+        Compilation.builder()
+            .java(
+                "com.example.Base",
+                "package com.example; public class Base {\n"
+                    + "  public ClassLoader getClassLoader() { return Base.class.getClassLoader(); }\n"
+                    + "  public String getInherited() { return \"i\"; } }")
+            .java(
+                "com.example.Named",
+                "package com.example; public interface Named {\n"
+                    + "  default Object getSecret() { return \"s\"; }\n"
+                    + "  default String getNick() { return \"n\"; } }")
+            .java(
+                "com.example.Evil",
+                "package com.example; @dev.tessera.runtime.TemplateView public class Evil extends Base implements Named {\n"
+                    + "  public java.util.Optional<Class<?>> getType() { return java.util.Optional.of(Evil.class); }\n"
+                    + "  public java.util.Map<String, Thread> getThreads() { return java.util.Collections.emptyMap(); }\n"
+                    + "  public java.lang.reflect.Method[] getMethods() { return new java.lang.reflect.Method[0]; }\n"
+                    + "  public Runtime getRuntime() { return Runtime.getRuntime(); }\n"
+                    + "  public String getName() { return \"e\"; } }")
+            .java(
+                "com.example.Rec",
+                "package com.example; public record Rec(String name, Thread thread, ClassLoader loader,"
+                    + " java.util.List<Object> objects) {}")
+            .template("evil.html", "<div t:import=\"com.example.*\" t:params=\"Evil e\"><script>[[e]]</script></div>")
+            .template("rec.html", "<div t:import=\"com.example.*\" t:params=\"Rec r\"><script>[[r]]</script></div>")
+            .compile()
+            .assertSuccess();
+    assertEquals(
+        "<div><script>{\"name\":\"e\",\"inherited\":\"i\",\"nick\":\"n\"}</script></div>",
+        c.render("evil", model("e", c.newInstance("com.example.Evil"))));
+    assertEquals(
+        "<div><script>{\"name\":\"a\"}</script></div>",
+        c.render("rec", model("r", c.newInstance("com.example.Rec", "a", null, null, null))));
+    for (String hidden : List.of("getClassLoader", "getSecret", "getType", "getThreads", "getMethods", "getRuntime",
+        "thread()", "loader()", "objects()", "getClass")) {
+      assertFalse(c.generatedSource("tessera.generated.EvilTemplate").contains(hidden), hidden);
+      assertFalse(c.generatedSource("tessera.generated.RecTemplate").contains(hidden), hidden);
+    }
+    Compilation.builder()
+        .java(
+            "com.example.Worker",
+            "package com.example; @dev.tessera.runtime.TemplateView public class Worker extends Thread {\n"
+                + "  public String getLabel() { return \"w\"; } }")
+        .template("w.html", "<div t:import=\"com.example.*\" t:params=\"Worker w\"><script>[[w]]</script></div>")
+        .compile()
+        .assertError("w.html:1:", "java.lang.Thread");
+  }
 }
