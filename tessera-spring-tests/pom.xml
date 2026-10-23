@@ -20,11 +20,13 @@
     <module>boot27</module>
     <module>boot20</module>
     <module>spring50</module>
+    <module>boot15</module>
+    <module>spring43</module>
   </modules>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <!-- Spring <= 5.2 cannot read class files newer than Java 8/11. -->
+    <!-- Spring <= 5.2 (and 4.3) cannot read class files newer than Java 8/11. -->
     <maven.compiler.release>8</maven.compiler.release>
     <maven.install.skip>true</maven.install.skip>
     <maven.deploy.skip>true</maven.deploy.skip>
@@ -87,7 +89,7 @@
         </plugin>
         <plugin>
           <!-- Modules list this plugin to get the copy. Rewrites: the servlet package for the
-               javax modules, and Boot 4's @WebMvcTest package to the Boot 2/3 one. -->
+               javax modules, and Boot 4's @WebMvcTest package to the Boot 1.5-3 one. -->
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-antrun-plugin</artifactId>
           <version>3.2.0</version>
