@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.DayOfWeek;
@@ -95,6 +96,103 @@ class EscapersTest {
     assertEquals("plain text", text("plain text"));
     assertEquals("42", text(42));
     assertEquals("\u00e9\u4e2d\ud83d\ude00", text("\u00e9\u4e2d\ud83d\ude00"));
+  }
+
+  @Test
+  void htmlSinksPreserveEveryBmpCharacterExceptRequiredEscapes() {
+    StringBuilder input = new StringBuilder();
+    StringBuilder expected = new StringBuilder();
+    for (int i = 0; i <= Character.MAX_VALUE; i++) {
+      char c = (char) i;
+      input.append(c).append(' '); // Isolate surrogates so each must be replaced.
+      switch (c) {
+        case '&':
+          expected.append("&amp;");
+          break;
+        case '<':
+          expected.append("&lt;");
+          break;
+        case '>':
+          expected.append("&gt;");
+          break;
+        case '"':
+          expected.append("&quot;");
+          break;
+        case '\'':
+          expected.append("&#39;");
+          break;
+        default:
+          expected.append(c == 0 || Character.isSurrogate(c) ? '\uFFFD' : c);
+      }
+      expected.append(' ');
+    }
+    assertHtmlSinks(input.toString(), expected.toString());
+  }
+
+  @Test
+  void htmlSinksHandleAdjacentEscapesAndSurrogateBoundaries() {
+    assertHtmlSinks("😀", "😀");
+    assertHtmlSinks("😀&😀<😀", "😀&amp;😀&lt;😀");
+    assertHtmlSinks("\ud800😀\udc00\0\ud800", "�😀���");
+    assertHtmlSinks("<>&\"'", "&lt;&gt;&amp;&quot;&#39;");
+    assertHtmlSinks("\"><script>alert('x')</script>",
+        "&quot;&gt;&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;");
+  }
+
+  @Test
+  void directHtmlEscapingAppendsToExistingStringOutput() {
+    StringOutput out = new StringOutput(1);
+    out.write("<p>");
+    Escapers.text(out, "before<&😀after");
+    Escapers.attr(out, "'\0\ud800");
+    Escapers.text(out, null);
+    out.write("</p>");
+    assertEquals("<p>before&lt;&amp;😀after&#39;��</p>", out.toString());
+  }
+
+  @Test
+  void otherOutputImplementationsStillReceiveOneWritePerValue() {
+    StringBuilder text = new StringBuilder();
+    AtomicInteger writes = new AtomicInteger();
+    Output out = new Output() {
+      public void write(String value) {
+        writes.incrementAndGet();
+        text.append(value);
+      }
+
+      public void write(char value) {
+        throw new AssertionError("HTML values must remain buffered for other sinks");
+      }
+    };
+    Escapers.text(out, "<>&\"'😀");
+    assertEquals("&lt;&gt;&amp;&quot;&#39;😀", text.toString());
+    assertEquals(1, writes.get());
+  }
+
+  private static void assertHtmlSinks(String value, String expected) {
+    for (BiConsumer<Output, Object> escaper : List.<BiConsumer<Output, Object>>of(
+        Escapers::text, Escapers::attr, Escapers::url, Escapers::resourceUrl)) {
+      StringOutput string = new StringOutput();
+      StringWriter writer = new StringWriter();
+      StringBuilder fallback = new StringBuilder();
+      Output legacy = new Output() {
+        public void write(String s) {
+          fallback.append(s);
+        }
+        public void write(char c) {
+          fallback.append(c);
+        }
+      };
+      // TrustedUrl bypasses the scheme policy while retaining HTML escaping for URL sinks.
+      Object input = TrustedUrl.unchecked(value);
+      escaper.accept(string, input);
+      escaper.accept(new WriterOutput(writer), input);
+      escaper.accept(legacy, input);
+      assertEquals(expected, string.toString());
+      assertEquals(expected, writer.toString());
+      assertEquals(expected, fallback.toString());
+    }
+    assertEquals(expected, SafeHtml.escape(value).html());
   }
 
   @Test
