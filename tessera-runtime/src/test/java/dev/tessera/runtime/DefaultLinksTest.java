@@ -6,6 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 class DefaultLinksTest {
@@ -120,6 +123,105 @@ class DefaultLinksTest {
     assertEquals("/s?t=1&t=2", root.build("/s", n("t"), v((Object) new int[] {1, 2})));
     assertEquals("/s?t=a&t", root.build("/s", n("t"), v((Object) new String[] {"a", null})));
     assertEquals("/s?x=1", root.build("/s", n("t", "x"), v(Collections.emptyList(), 1)));
+  }
+
+  @Test
+  void everyArrayKindSupportsQueryAndPathValues() {
+    Object[] arrays = {
+      new Object[] {"1", "2"}, new int[] {1, 2}, new long[] {1, 2},
+      new short[] {1, 2}, new byte[] {1, 2}, new char[] {'1', '2'},
+      new double[] {1, 2}, new float[] {1, 2}, new boolean[] {true, false}
+    };
+    for (int i = 0; i < arrays.length; i++) {
+      String first = i == 8 ? "true" : i >= 6 ? "1.0" : "1";
+      String second = i == 8 ? "false" : i >= 6 ? "2.0" : "2";
+      assertEquals("/s?k%26%3D=" + first + "&k%26%3D=" + second,
+          root.build("/s", n("k&="), v(arrays[i])));
+      assertEquals("/s/" + first + "," + second,
+          root.build("/s/{x}", n("x"), v(arrays[i])));
+    }
+  }
+
+  @Test
+  void emptyArraysEmitNoQueryAndCannotBecomeEmptyPathSegments() {
+    Object[] arrays = {
+      new Object[0], new int[0], new long[0], new short[0], new byte[0],
+      new char[0], new double[0], new float[0], new boolean[0]
+    };
+    for (Object array : arrays) {
+      assertEquals("/s?keep=1#top", root.build("/s#top", n("x", "keep"), v(array, 1)));
+      assertThrows(IllegalArgumentException.class,
+          () -> root.build("/{x}/evil.com", n("x"), v(array)));
+    }
+  }
+
+  @Test
+  void nullEmptyAndValuelessElementsRetainTheirDifferentMeanings() {
+    List<Object> items = Arrays.asList(null, "", Links.NO_VALUE, "a&b");
+    assertEquals("/s?k%26&k%26=&k%26&k%26=a%26b",
+        root.build("/s", n("k&"), v(items)));
+    assertEquals("/s/,,Links.NO_VALUE,a%26b",
+        root.build("/s/{x}", n("x"), v(items)));
+    assertEquals("/s/,", root.build("/s/{x}", n("x"), v(Arrays.asList(null, null))));
+  }
+
+  @Test
+  void multiValuePathEncodingCannotIntroduceUrlStructureOrDotSegments() {
+    for (Object bad : new Object[] {new char[] {'.'}, new String[] {".."},
+        Collections.singletonList(""), Collections.singletonList(null)}) {
+      assertThrows(IllegalArgumentException.class,
+          () -> root.build("/{x}/evil.com", n("x"), v(bad)));
+    }
+    assertEquals("/s/%252e%252e,%2F%2Fevil.com,%3Fq%3Dx%23f,%5C%5Cevil.com,%2C,%00",
+        root.build("/s/{x}", n("x"), v(Arrays.asList("%2e%2e", "//evil.com", "?q=x#f",
+            "\\\\evil.com", ",", "\u0000"))));
+  }
+
+  @Test
+  void singleUseIterablesConvertEachElementBeforeAdvancing() {
+    for (String path : new String[] {"/s", "/s/{x}"}) {
+      AtomicInteger iteratorCalls = new AtomicInteger();
+      StringBuilder events = new StringBuilder();
+      Iterable<Object> values = () -> {
+        assertEquals(1, iteratorCalls.incrementAndGet());
+        return new Iterator<Object>() {
+          int next;
+
+          public boolean hasNext() {
+            return next < 2;
+          }
+
+          public Object next() {
+            int index = next++;
+            events.append("next").append(index).append(';');
+            return new Object() {
+              public String toString() {
+                events.append("text").append(index).append(';');
+                return "a/" + index;
+              }
+            };
+          }
+        };
+      };
+      assertEquals(path.equals("/s") ? "/s?x=a/0&x=a/1" : "/s/a%2F0,a%2F1",
+          root.build(path, n("x"), v(values)));
+      assertEquals("next0;text0;next1;text1;", events.toString());
+    }
+  }
+
+  @Test
+  void objectArraysAreReadAsEachElementIsRendered() {
+    for (String path : new String[] {"/s", "/s/{x}"}) {
+      Object[] items = {null, "before"};
+      items[0] = new Object() {
+        public String toString() {
+          items[1] = "after";
+          return "first";
+        }
+      };
+      assertEquals(path.equals("/s") ? "/s?x=first&x=after" : "/s/first,after",
+          root.build(path, n("x"), v((Object) items)));
+    }
   }
 
   @Test

@@ -1,9 +1,5 @@
 package dev.tessera.runtime;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
 /**
  * {@link Links} implementing the documented expansion rules for a fixed context path.
  *
@@ -14,6 +10,10 @@ import java.util.List;
  * Thymeleaf, a {@code null} query value renders {@code name=}, {@link Links#NO_VALUE} the bare
  * {@code name}, and a collection or array one {@code name=item} per element (a {@code null}
  * element is the bare name; an empty collection renders nothing).
+ *
+ * <p>Multi-value parameters are traversed once and each element is converted immediately.
+ * Values are not snapshotted before rendering: mutations by an iterator or an element's
+ * {@code toString()} can affect subsequent elements or invalidate the iteration.
  *
  * <p>A path variable value that is {@code null}, empty, {@code .} or {@code ..} is rejected with
  * an {@link IllegalArgumentException}: browsers resolve dot segments even when percent-encoded,
@@ -47,15 +47,10 @@ public final class DefaultLinks implements Links {
       if (used[i]) {
         continue;
       }
-      List<Object> items = multiValues(values[i]);
-      if (items == null) {
+      String name = UrlEncoding.queryParam(names[i]);
+      if (!appendMultiValues(query, name, values[i])) {
         // Like Thymeleaf: null is "" (name=); only a parameter written without a value is bare.
-        appendParam(query, names[i], values[i] == null ? "" : values[i]);
-      } else {
-        for (Object item : items) {
-          // A null element of a collection is the bare name, as in Thymeleaf.
-          appendParam(query, names[i], item == null ? NO_VALUE : item);
-        }
+        appendParam(query, name, values[i] == null ? "" : values[i]);
       }
     }
 
@@ -80,57 +75,68 @@ public final class DefaultLinks implements Links {
     if (query.length() > 0) {
       query.append('&');
     }
-    query.append(UrlEncoding.queryParam(name));
+    query.append(name);
     if (value != NO_VALUE) {
       query.append('=').append(UrlEncoding.queryParam(String.valueOf(value)));
     }
   }
 
-  /** The elements of an {@code Iterable} or array, or null for any other value. */
-  private static List<Object> multiValues(Object value) {
-    List<Object> out = new ArrayList<>();
+  /** Append an Iterable or array without a snapshot; null name selects path-segment mode. */
+  private static boolean appendMultiValues(StringBuilder out, String name, Object value) {
     if (value instanceof Iterable<?>) {
-      for (Object o : (Iterable<?>) value) {
-        out.add(o);
+      for (Object item : (Iterable<?>) value) {
+        appendItem(out, name, item);
       }
     } else if (value instanceof Object[]) {
-      out.addAll(Arrays.asList((Object[]) value));
+      for (Object item : (Object[]) value) {
+        appendItem(out, name, item);
+      }
     } else if (value instanceof int[]) {
-      for (int v : (int[]) value) {
-        out.add(v);
+      for (int item : (int[]) value) {
+        appendItem(out, name, String.valueOf(item));
       }
     } else if (value instanceof long[]) {
-      for (long v : (long[]) value) {
-        out.add(v);
+      for (long item : (long[]) value) {
+        appendItem(out, name, String.valueOf(item));
       }
     } else if (value instanceof double[]) {
-      for (double v : (double[]) value) {
-        out.add(v);
+      for (double item : (double[]) value) {
+        appendItem(out, name, String.valueOf(item));
       }
     } else if (value instanceof float[]) {
-      for (float v : (float[]) value) {
-        out.add(v);
+      for (float item : (float[]) value) {
+        appendItem(out, name, String.valueOf(item));
       }
     } else if (value instanceof short[]) {
-      for (short v : (short[]) value) {
-        out.add(v);
+      for (short item : (short[]) value) {
+        appendItem(out, name, String.valueOf(item));
       }
     } else if (value instanceof byte[]) {
-      for (byte v : (byte[]) value) {
-        out.add(v);
+      for (byte item : (byte[]) value) {
+        appendItem(out, name, String.valueOf(item));
       }
     } else if (value instanceof char[]) {
-      for (char v : (char[]) value) {
-        out.add(v);
+      for (char item : (char[]) value) {
+        appendItem(out, name, String.valueOf(item));
       }
     } else if (value instanceof boolean[]) {
-      for (boolean v : (boolean[]) value) {
-        out.add(v);
+      for (boolean item : (boolean[]) value) {
+        appendItem(out, name, String.valueOf(item));
       }
     } else {
-      return null;
+      return false;
     }
-    return out;
+    return true;
+  }
+
+  private static void appendItem(StringBuilder out, String name, Object item) {
+    if (name == null) {
+      // A trailing separator also counts empty/null elements; pathValue removes the last one.
+      out.append(UrlEncoding.pathSegment(item == null ? "" : String.valueOf(item))).append(',');
+    } else {
+      // A null element of a collection is the bare name, as in Thymeleaf.
+      appendParam(out, name, item == null ? NO_VALUE : item);
+    }
   }
 
   /** Single pass, so substituted (encoded) values are never re-scanned for {@code {name}}. */
@@ -160,23 +166,16 @@ public final class DefaultLinks implements Links {
    * own so the separator stays a literal comma.
    */
   private static String pathValue(String name, Object value) {
-    List<Object> items = value == NO_VALUE ? null : multiValues(value);
-    if (items == null) {
+    StringBuilder encoded = new StringBuilder();
+    if (!appendMultiValues(encoded, null, value)) {
       return UrlEncoding.pathSegment(checkPathValue(name, value == NO_VALUE ? null : value));
     }
-    StringBuilder raw = new StringBuilder();
-    StringBuilder encoded = new StringBuilder();
-    for (int i = 0; i < items.size(); i++) {
-      String item = items.get(i) == null ? "" : String.valueOf(items.get(i));
-      if (i > 0) {
-        raw.append(',');
-        encoded.append(',');
-      }
-      raw.append(item);
-      encoded.append(UrlEncoding.pathSegment(item));
+    if (encoded.length() > 0) {
+      encoded.setLength(encoded.length() - 1);
     }
-    checkPathValue(name, raw.toString());
-    return encoded.toString();
+    // Encoding preserves dots and escapes every other structural character. Only the empty
+    // string, "." and ".." can still be empty/dot segments, so no raw joined copy is needed.
+    return checkPathValue(name, encoded.toString());
   }
 
   private static String checkPathValue(String name, Object value) {
