@@ -27,6 +27,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.FieldSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.SpringBootVersion;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
@@ -112,6 +113,7 @@ class ViewNameInjectionTest {
     registry.lookups.clear();
     registry.renders.set(0);
     fallback.names.clear();
+    controllers.lastPath = null;
   }
 
   private void assertNeverRendered(String expectedName) {
@@ -177,13 +179,17 @@ class ViewNameInjectionTest {
     mvc.perform(get("/path/{v}", payload));
     // Spring 4.3's suffix pattern matching (on by default in Boot 1.5) strips a ".ext" from the
     // path variable, so the controller may return less than the payload; whatever it returns is
-    // what is looked up. On Spring 5+ (Boot 2.0+) it receives the payload verbatim.
+    // what is looked up. On Boot 2.0+ it receives the payload verbatim.
     String returned = controllers.lastPath;
+    assertThat(returned).as("handler ran").isNotNull();
+    if (!returned.equals(payload)) {
+      assertThat(SpringBootVersion.getVersion()).as("only Boot 1.x strips .ext").startsWith("1.");
+      assertThat(payload).startsWith(returned + ".");
+    }
     if (registry.delegate.find(returned).isPresent()) {
       // "greeting.html" became "greeting", a real template name: the controller's choice. (Spring
       // 4.3's ContentNegotiatingViewResolver then also tries "greeting.html", for text/html.)
       assertThat(registry.lookups).startsWith(returned);
-      assertThat(payload).startsWith(returned + ".");
       return;
     }
     assertNeverRendered(returned);
