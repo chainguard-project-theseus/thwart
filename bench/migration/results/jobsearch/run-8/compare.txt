@@ -157,7 +157,7 @@
 21 reordered POST /auth/reset_password token=nope&password=
 --- recorded 21.html
 +++ now
-@@ -16,15 +16,15 @@
+@@ -16,8 +16,8 @@
        <div class="align-items-center d-flex h-100 justify-content-center row">
          <div class="col-lg-5 col-md-7 col-xl-5">
            <form action="/auth/reset_password" method="post">
@@ -167,33 +167,41 @@
              <div class="form-group">
                <input autofocus class="form-control" id="password" name="password" placeholder="Введите новый пароль" type="password">
                <span class="small text-danger">
--                password is null or blank
-+                must not be blank
-               <br>
-               <span class="small text-danger">
--                must not be blank
-+                password is null or blank
-             <p class="text-center">
-               <button class="btn btn-primary mt-3" type="submit">
-                 Change Password
 22 same      GET /vacancies/99999
 23 same      GET /auth/registration
 24 reordered POST /users/registration name=&surname=&age=&email=&password=&phoneNumber=%2B996&accountType=&avatar=
 --- recorded 24.html
 +++ now
-@@ -25,10 +25,10 @@
+@@ -25,13 +25,13 @@
                First Name
              <input class="custom-form-control" id="name" name="name" placeholder="John" type="text">
              <span class="small text-danger">
 -              Value must not contain numbers, symbols, or spaces
+-            <br>
+-            <span class="small text-danger">
+               Value length must be between 3 and 30 characters
+             <br>
+             <span class="small text-danger">
+               Value must not be empty
++            <br>
++            <span class="small text-danger">
++              Value must not contain numbers, symbols, or spaces
+           <div class="custom-form-group">
+             <label for="surname">
+               Last Name
+@@ -40,10 +40,10 @@
+               Value must not contain numbers, symbols, or spaces
+             <br>
+             <span class="small text-danger">
+-              Value must not be empty
 +              Value length must be between 3 and 30 characters
              <br>
              <span class="small text-danger">
 -              Value length must be between 3 and 30 characters
-+              Value must not contain numbers, symbols, or spaces
-             <br>
-             <span class="small text-danger">
-               Value must not be empty
++              Value must not be empty
+           <div class="custom-form-group">
+             <label for="age">
+               Age
 25 same      POST /users/registration name=Ann&surname=Seeker&age=30&email=ann@example.com&password=Secret123&phoneNumber=%2B996555000001&accountType=JobSeeker&avatar=
 26 same      GET /users/profile
 27 same      GET /users/profile/statistics
@@ -201,7 +209,18 @@
 29 reordered POST /users/updates/profile name=A1&surname=&age=200&email=ann@example.com&phoneNumber=123&userId=4&accountType=JobSeeker&password=&avatar=
 --- recorded 29.html
 +++ now
-@@ -61,10 +61,10 @@
+@@ -52,19 +52,19 @@
+                               First Name
+                             <input class="form-control" id="name" name="name" placeholder="Enter First Name" type="text" value="A1">
+                             <span class="small text-danger">
+-                              Value must not contain numbers, symbols, or spaces
++                              Value length must be between 3 and 30 characters
+                             <br>
+                             <span class="small text-danger">
+-                              Value length must be between 3 and 30 characters
++                              Value must not contain numbers, symbols, or spaces
+                           <div class="mb-3">
+                             <label class="form-label">
                                Last Name
                              <input class="form-control" id="surname" name="surname" placeholder="Enter Last Name" type="text">
                              <span class="small text-danger">
@@ -263,19 +282,16 @@
      <div class="container py-5">
        <div class="justify-content-center row">
          <div class="col-md-8">
-@@ -23,10 +24,9 @@
-                   Resume Name
+@@ -24,8 +25,7 @@
                  <input class="form-control" id="name" name="name" placeholder="Enter Resume Name" type="text">
                  <span class="small text-danger">
--                  Value length must be between 3 and 30 characters
+                   Value length must be between 3 and 30 characters
 -                <br>
 -                <span class="small text-danger">
-                   Value must not be empty
 +                  <br>
-+                  Value length must be between 3 and 30 characters
+                   Value must not be empty
                <div class="mb-4">
                  <label class="form-label" for="categoryId">
-                   <i class="bi bi-briefcase form-icon me-2">
 @@ -159,7 +159,7 @@
                        <label class="form-label" for="startDate">
                          <i class="bi bi-calendar-plus form-icon me-2">
@@ -507,7 +523,7 @@
      <div class="container py-5">
        <div class="justify-content-center row">
          <div class="col-md-8">
-@@ -17,17 +18,16 @@
+@@ -17,16 +18,15 @@
                Update Resume
              <form action="/resumes/update/resume" method="post">
                <input name="_csrf" type="hidden" value="MASKED">
@@ -519,15 +535,13 @@
                  <input class="form-control" id="name" name="name" placeholder="Enter Resume Name" type="text">
 +                <input class="form-control" id="id" name="id" type="hidden" value="34">
                  <span class="small text-danger">
--                  Value length must be between 3 and 30 characters
+                   Value length must be between 3 and 30 characters
 -                <br>
 -                <span class="small text-danger">
-                   Value must not be empty
 +                  <br>
-+                  Value length must be between 3 and 30 characters
+                   Value must not be empty
                <div class="mb-4">
                  <label class="form-label" for="categoryId">
-                   <i class="bi bi-briefcase form-icon me-2">
 @@ -97,14 +97,15 @@
                      User Experience
                    <option value="31">
@@ -1096,6 +1110,19 @@
 64 differs   POST /vacancies/new_vacancy name=X!&categoryId=&salary=-1&expFrom=9&expTo=20&description=
 --- recorded 64.html
 +++ now
+@@ -25,10 +25,10 @@
+                   Vacancy Name
+                 <input class="form-control" id="name" name="name" placeholder="Enter Name" type="text" value="X!">
+                 <span class="small text-danger">
+-                  Value length must be between 3 and 30 characters
++                  Value must not contain numbers, symbols, or spaces
+                 <br>
+                 <span class="small text-danger">
+-                  Value must not contain numbers, symbols, or spaces
++                  Value length must be between 3 and 30 characters
+               <div class="mb-3 row">
+                 <div class="col-md-6">
+                   <label class="form-label" for="categoryId">
 @@ -125,7 +125,7 @@
                      value max size should be equals 10
                <div class="mb-3">
@@ -1325,19 +1352,6 @@
 68 differs   POST /vacancies/update/vacancy vacancyId=1&name=&categoryId=1&salary=&expFrom=-1&expTo=&description=
 --- recorded 68.html
 +++ now
-@@ -26,10 +26,10 @@
-                   Vacancy Name
-                 <input class="form-control" id="name" name="name" placeholder="Enter Name" type="text">
-                 <span class="small text-danger">
--                  Value length must be between 3 and 30 characters
-+                  Value must not be empty
-                 <br>
-                 <span class="small text-danger">
--                  Value must not be empty
-+                  Value length must be between 3 and 30 characters
-                 <br>
-                 <span class="small text-danger">
-                   Value must not contain numbers, symbols, or spaces
 @@ -127,7 +127,7 @@
                      expTo is null
                <div class="mb-3">
@@ -1486,54 +1500,10 @@
      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
 +    <script>
 +      document.querySelectorAll('tr[data-href]').forEach(function (row) { row.addEventListener('click', function () { window.location.href = row.getAttribute('data-href'); }); });
-72 differs   GET /groups/new_groups
---- recorded 72.html
-+++ now
-@@ -94,7 +94,7 @@
-               <div class="input-group">
-                 <span class="input-group-text">
-                   <i class="fa-users fas">
--                <input '')="" (spring.status.error?then('="" +="" class="form-control" id="name" is-invalid',="" name="name" type="text">
-+                <input class="form-control" id="name" name="name" type="text">
-             <div class="mb-4">
-               <label class="form-label" for="image">
-                 Изображение группы
-73 differs   POST /groups/new_groups name=
---- recorded 73.html
-+++ now
-@@ -94,7 +94,7 @@
-               <div class="input-group">
-                 <span class="input-group-text">
-                   <i class="fa-users fas">
--                <input '')="" (spring.status.error?then('="" +="" class="form-control" id="name" is-invalid',="" name="name" type="text">
-+                <input class="form-control" id="name" name="name" type="text">
-               <span class="invalid-feedback">
-                 Имя группы обязательно
-             <div class="mb-4">
-74 differs   GET /groups/new_groups
---- recorded 74.html
-+++ now
-@@ -94,7 +94,7 @@
-               <div class="input-group">
-                 <span class="input-group-text">
-                   <i class="fa-users fas">
--                <input '')="" (spring.status.error?then('="" +="" class="form-control" id="name" is-invalid',="" name="name" type="text">
-+                <input class="form-control" id="name" name="name" type="text">
-             <div class="mb-4">
-               <label class="form-label" for="image">
-                 Изображение группы
-75 differs   POST /groups/new_groups name=Kotlin fans
---- recorded 75.html
-+++ now
-@@ -94,7 +94,7 @@
-               <div class="input-group">
-                 <span class="input-group-text">
-                   <i class="fa-users fas">
--                <input '')="" (spring.status.error?then('="" +="" class="form-control" id="name" is-invalid',="" name="name" type="text" value="Kotlin fans">
-+                <input class="form-control" id="name" name="name" type="text" value="Kotlin fans">
-             <div class="mb-4">
-               <label class="form-label" for="image">
-                 Изображение группы
+72 same      GET /groups/new_groups
+73 same      POST /groups/new_groups name=
+74 same      GET /groups/new_groups
+75 same      POST /groups/new_groups name=Kotlin fans
 76 same      GET /groups/generate/link/1
 77 same      GET /channel
 78 differs   GET /channel/new_channel
@@ -1543,7 +1513,7 @@
                <div class="input-group">
                  <span class="input-group-text">
                    <i class="fa-at fas">
--                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text">
+-                <input class="form-control" id="login" name="login" type="text">
 +                <input +="" class="form-control" id="login" name="login" type="text">
                <div class="form-text">
                  3-50 characters, must be unique
@@ -1551,22 +1521,15 @@
 79 differs   POST /channel/create login=&description=&channelAccess=
 --- recorded 79.html
 +++ now
-@@ -94,12 +94,12 @@
+@@ -94,7 +94,7 @@
                <div class="input-group">
                  <span class="input-group-text">
                    <i class="fa-at fas">
--                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text">
+-                <input class="form-control" id="login" name="login" type="text">
 +                <input +="" class="form-control" id="login" name="login" type="text">
                <span class="invalid-feedback">
--                Login must not be blank
-+                size must be between 3 and 50
+                 Login must not be blank
                <br>
-               <span class="invalid-feedback">
--                size must be between 3 and 50
-+                Login must not be blank
-               <div class="form-text">
-                 3-50 characters, must be unique
-             <div class="mb-4">
 80 differs   GET /channel/new_channel
 --- recorded 80.html
 +++ now
@@ -1574,7 +1537,7 @@
                <div class="input-group">
                  <span class="input-group-text">
                    <i class="fa-at fas">
--                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text">
+-                <input class="form-control" id="login" name="login" type="text">
 +                <input +="" class="form-control" id="login" name="login" type="text">
                <div class="form-text">
                  3-50 characters, must be unique
@@ -1588,7 +1551,7 @@
                <div class="input-group">
                  <span class="input-group-text">
                    <i class="fa-at fas">
--                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text" value="annchannel">
+-                <input class="form-control" id="login" name="login" type="text" value="annchannel">
 +                <input +="" class="form-control" id="login" name="login" type="text" value="annchannel">
                <div class="form-text">
                  3-50 characters, must be unique
@@ -1596,22 +1559,15 @@
 84 differs   POST /channel/update id=1&login=&description=&channelAccess=
 --- recorded 84.html
 +++ now
-@@ -95,12 +95,12 @@
+@@ -95,7 +95,7 @@
                <div class="input-group">
                  <span class="input-group-text">
                    <i class="fa-at fas">
--                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text">
+-                <input class="form-control" id="login" name="login" type="text">
 +                <input +="" class="form-control" id="login" name="login" type="text">
                <span class="invalid-feedback">
--                Login must not be blank
-+                size must be between 3 and 50
+                 Login must not be blank
                <br>
-               <span class="invalid-feedback">
--                size must be between 3 and 50
-+                Login must not be blank
-               <div class="form-text">
-                 3-50 characters, must be unique
-             <div class="mb-4">
 85 differs   GET /channel/update_channel/1
 --- recorded 85.html
 +++ now
@@ -1619,7 +1575,7 @@
                <div class="input-group">
                  <span class="input-group-text">
                    <i class="fa-at fas">
--                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text" value="annchannel">
+-                <input class="form-control" id="login" name="login" type="text" value="annchannel">
 +                <input +="" class="form-control" id="login" name="login" type="text" value="annchannel">
                <div class="form-text">
                  3-50 characters, must be unique
@@ -1631,4 +1587,4 @@
 90 same      GET /videos/channel/1
 91 same      GET /vacancies/new_vacancy
 92 same      GET /auth/logout
-tessera-migrate compare: 92 page(s): 46 same, 3 reordered, 43 differ
+tessera-migrate compare: 92 page(s): 50 same, 3 reordered, 39 differ
