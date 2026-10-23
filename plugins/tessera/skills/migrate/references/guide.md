@@ -174,10 +174,11 @@ auto-configuration, plus a resolver for `redirect:` and `forward:` names. Boot p
 resolver; without Boot the old engine's resolver usually did, so removing it without a replacement
 breaks redirects (behind a `ContentNegotiatingViewResolver`, as a 406).
 
-**Resource links.** On every Boot version, `ResourceUrlEncodingFilter` (versioned `/webjars/...`
-and resource links, when the resource chain is enabled) comes from the Thymeleaf auto-configuration,
-so removing Thymeleaf drops it. Tessera links go through `response.encodeURL`, so declaring a
-`ResourceUrlEncodingFilter` bean restores the links.
+**Resource links.** With the resource chain enabled, the starter registers
+`ResourceUrlEncodingFilter` for REQUEST and ERROR dispatches, as Boot's Thymeleaf auto-configuration
+did, so `@{/webjars/...}` and other resource links stay versioned on normal and error pages. Don't
+declare the filter yourself; remove a hand-written one. Without Boot, map the filter in `web.xml`
+or a `WebApplicationInitializer` as the old application did.
 
 **Older Boot.** Checked on Boot 2.0 (Spring 5.0, Security 5.0) and Boot 1.5 (Spring 4.3,
 Security 4.2):
