@@ -1,5 +1,8 @@
 # Tessera vs Thymeleaf benchmarks
 
+The [runtime URL performance comparison](URL-PERFORMANCE.md) records before/after
+throughput and allocation for the URL rendering improvements in #191.
+
 JMH benchmarks that render the same pages with Tessera and Thymeleaf. `EquivalenceTest` checks
 that both engines produce identical HTML for the benchmark data.
 
