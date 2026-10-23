@@ -14,6 +14,8 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAccessor;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /**
  * Built-in {@code temporals} namespace (Thymeleaf's {@code #temporals}). Always registered.
@@ -24,6 +26,9 @@ import java.util.Locale;
  */
 @TemplateFunctions("temporals")
 public final class Temporals {
+  // Collisions replace one entry; dynamic patterns can never grow the cache without bound.
+  private static final AtomicReferenceArray<PatternFormat> FORMATS = new AtomicReferenceArray<>(32);
+
   private Temporals() {}
 
   /** Formats {@code temporal} with a {@link DateTimeFormatter} pattern such as {@code yyyy-MM-dd}. */
@@ -32,7 +37,33 @@ public final class Temporals {
     if (temporal == null) {
       return null;
     }
-    return DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH).format(temporal);
+    return formatter(pattern).format(temporal);
+  }
+
+  private static DateTimeFormatter formatter(String pattern) {
+    Objects.requireNonNull(pattern, "pattern");
+    // Also bound the size of each retained pattern and its compiled formatter.
+    if (pattern.length() > 128) {
+      return DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH);
+    }
+    int slot = pattern.hashCode() & (FORMATS.length() - 1);
+    PatternFormat cached = FORMATS.get(slot);
+    if (cached != null && cached.pattern.equals(pattern)) {
+      return cached.format;
+    }
+    DateTimeFormatter format = DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH);
+    FORMATS.set(slot, new PatternFormat(pattern, format));
+    return format;
+  }
+
+  private static final class PatternFormat {
+    final String pattern;
+    final DateTimeFormatter format;
+
+    PatternFormat(String pattern, DateTimeFormatter format) {
+      this.pattern = pattern;
+      this.format = format;
+    }
   }
 
   /**
