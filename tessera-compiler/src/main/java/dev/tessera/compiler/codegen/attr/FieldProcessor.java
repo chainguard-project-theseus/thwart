@@ -252,7 +252,8 @@ public final class FieldProcessor implements AttributeProcessor {
                     d -> {},
                     ctx.env().basePackage(),
                     ctx.env().messages(),
-                    ctx.env().functionNamespaces()));
+                    ctx.env().functionNamespaces(),
+                    ctx.env().functionIndex()));
     return FormPaths.resolve(e, scope, expressions, report);
   }
 }
