@@ -17,6 +17,11 @@ public final class StringOutput implements Output {
     sb.append(s);
   }
 
+  /** Package-private fast path used only by the contextual escapers. */
+  void writeHtml(String s) {
+    Escapers.escapeHtml(sb, s);
+  }
+
   @Override
   public void write(char c) {
     sb.append(c);

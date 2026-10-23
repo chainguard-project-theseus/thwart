@@ -53,12 +53,12 @@ public final class Escapers {
    * argument is escaped like any other value: {@code t:text} always escapes.
    */
   public static void text(Output out, Object value) {
-    out.write(escapeHtml(toText(value)));
+    escapeHtml(out, toText(value));
   }
 
   /** Quoted attribute value (OutputContext.ATTRIBUTE). Encodes {@code & < > " '}. */
   public static void attr(Output out, Object value) {
-    out.write(escapeHtml(toText(value)));
+    escapeHtml(out, toText(value));
   }
 
   /**
@@ -127,6 +127,27 @@ public final class Escapers {
   // ---------------------------------------------------------------------------------------------
   // HTML
 
+  private static void escapeHtml(Output out, String s) {
+    if (out instanceof StringOutput) {
+      ((StringOutput) out).writeHtml(s);
+    } else {
+      out.write(escapeHtml(s));
+    }
+  }
+
+  /** Append directly to StringOutput; other sinks retain one write per escaped value. */
+  static void escapeHtml(StringBuilder sb, String s) {
+    int i = 0;
+    while (i < s.length() && !needsHtmlEscape(s, i)) {
+      i++;
+    }
+    if (i == s.length()) {
+      sb.append(s);
+    } else {
+      appendEscapedHtml(sb, s, i);
+    }
+  }
+
   static String escapeHtml(String s) {
     int i = 0;
     int n = s.length();
@@ -137,6 +158,12 @@ public final class Escapers {
       return s;
     }
     StringBuilder sb = new StringBuilder(n + 16);
+    appendEscapedHtml(sb, s, i);
+    return sb.toString();
+  }
+
+  private static void appendEscapedHtml(StringBuilder sb, String s, int i) {
+    int n = s.length();
     sb.append(s, 0, i);
     for (; i < n; i++) {
       char c = s.charAt(i);
@@ -170,7 +197,6 @@ public final class Escapers {
           break;
       }
     }
-    return sb.toString();
   }
 
   private static boolean needsHtmlEscape(String s, int i) {
