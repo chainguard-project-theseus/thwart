@@ -1,0 +1,18 @@
+{
+ "wall_minutes": 10.7,
+ "exit": 0,
+ "model": "opus",
+ "budget_usd": 40,
+ "budget_minutes": 90,
+ "outcome": "success",
+ "cost_usd": 2.9312959999999992,
+ "turns": 61,
+ "tokens": {
+  "input_tokens": 114,
+  "output_tokens": 43032,
+  "cache_read_input_tokens": 6582650,
+  "cache_creation_input_tokens": 150734
+ },
+ "skill_listed": true,
+ "skill_invoked": true
+}

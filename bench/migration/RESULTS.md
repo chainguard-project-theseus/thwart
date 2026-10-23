@@ -15,8 +15,9 @@ container, no web access, 90-minute and $40 budget per run.
 | [#115 baseline](#115-baseline) (runs 1-3) | 15 | 5 development apps | `lib/crawl.py` | **9/15** |
 | [#151 batch](#151-batch-runs-4-5) (runs 4-5) | 12 | 8 development runs, 4 held-out runs | `tessera-migrate compare` | dev **2/8**, held-out **1/4** |
 | [Version-ladder quick round](#version-ladder-quick-round-run-7) (run 7) | 6 | 5 petclinic rungs + jpetstore | `tessera-migrate compare` | **5/6** |
+| [Post-wave round](#post-wave-round-run-8) (run 8) | 14 | every app, one run each | `tessera-migrate compare` | **7/14** (dev 5/9, held-out 0/3, Spring 4.3 rungs 2/2) |
 
-Across all 33 runs, every migrated app builds and passes all of its tests, and no run used
+Across all 47 runs, every migrated app builds and passes all of its tests, and no run used
 `SafeHtml.unchecked`/`TrustedUrl.unchecked`, `permitAll`, CSRF disabling or `@Disabled`. Only
 one run (budgetmaster run 4, which stopped early) left legacy templates behind.
 
@@ -240,9 +241,139 @@ files were rebuilt from `bench.py`'s log (wall time, cost, skill use; marked `"r
 so **their token counts and transcripts are lost**. `diff.patch` and `MIGRATION-REPORT.md` come from
 the surviving checkouts, and the check, compare and score were regenerated with `bench.py recheck`.
 
+## Post-wave round (run 8)
+
+Tracked in #205. After the #151 triage a fix wave landed: #118 (function index), #119 (null link
+parameter), #120 (null `<select>`), #121 (beans in script `[[...]]`), #122 (starter registers
+`ResourceUrlEncodingFilter`), #123 (indexed form paths), and #179/#180 (Spring 4.3 / Boot 1.5
+floor). The image was rebuilt from `83ecac5`, every baseline was re-recorded on the same UTC day as
+the runs (so no date differences this time), and every app got one run with the plugin
+(`migrate --runs 1 --first-run 8 --jobs 2`). 14 runs, $124.57 and 240 minutes of agent time. All
+14 runs listed and invoked the `tessera:migrate` skill.
+
+| App | Pass | Tests | Pages same + reordered | Minutes | Cost $ | Output tokens |
+|---|---|---|---|---|---|---|
+| spring-petclinic | yes | 81/81 | 30+0/30 | 8.5 | 2.42 | 37,539 |
+| spring-petclinic-boot27 | yes | 43/43 | 29+1/30 | 6.3 | 1.86 | 29,506 |
+| spring-petclinic-boot20 | yes | 43/43 | 27+1/28 | 7.0 | 2.19 | 34,880 |
+| spring-petclinic-boot15 | yes | 42/42 | 28+0/28 | 9.4 | 2.31 | 36,957 |
+| spring-framework-petclinic | yes | 79/79 | 26+0/26 | 12.8 | 3.32 | 50,059 |
+| spring-framework-petclinic-spring5 | yes | 67/67 | 27+0/27 | 9.6 | 2.73 | 48,015 |
+| spring-framework-petclinic-spring43 | yes | 70/70 | 27+0/27 | 13.7 | 3.40 | 50,305 |
+| spring-petclinic-mustache | no | 44/44 | 24+0/30 | 10.7 | 2.93 | 43,032 |
+| jpetstore | no | 9/9 | 58+0/59 | 14.0 | 4.55 | 62,821 |
+| fredbet | no | 117/117 | 165+0/169 | 22.2 | 11.30 | 113,577 |
+| jobsearch | no | 3/3 | 46+3/92 | 41.5 | 35.11 | 413,789 |
+| purl-server (held out) | no | 50/50 | 89+0/92 | 13.6 | 5.34 | 72,781 |
+| jprime (held out) | no | 209/209 | 137+3/150 | 33.2 | 21.10 | 237,891 |
+| budgetmaster (held out) | no | 269/269 | 65+0/121 | 37.8 | 26.01 | 369,065 |
+
+**7 of 14 pass**: every petclinic rung, both Spring 4.3 rungs included (they are still flagged
+`belowfloor` in their `app.json`, so `results/summary.md` lists them separately), and nothing
+else. This is **one run per app**, so a single agent's choices swing an app's result; treat
+per-app changes as anecdotes. For comparison: #115 passed 9/15 (5 apps, 3 runs each, the
+lenient `crawl.py`); the #151 batch passed dev 2/8 and held-out 1/4. On the five #115 apps this
+round passes 2/5 (spring-petclinic, spring-framework-petclinic), the same as the #151 batch.
+Counting failures that are only acceptable differences as passes (jpetstore) gives 8/14.
+
+What changed against the #151 batch: fredbet is down to one cause, jprime lost its agent error
+and now fails only on #181, budgetmaster went from 51 to 65 identical pages, and the dates that
+cost jobsearch and fredbet pages are gone. jobsearch and purl-server got worse; neither is a
+regression in Tessera (below).
+
+### Triage
+
+Classes as in the #151 triage, with harness artifacts split out as **harness**.
+
+| Run | Pages differing | Cause | Class | Issue |
+|---|---|---|---|---|
+| fredbet 8 | 4 | `/ranking` links: `th:href="@{/ranking(mode=mixed)}"` uses Thymeleaf token literals; `tessera-migrate`'s converter made `mixed`, `adult`, `child` template parameters, the agent took them for undefined model values and wrote `mode=null`, so all three links render `?mode=` | Tessera gap (converter) + agent error | #206 (new) |
+| jpetstore 8 | 1 | `/catalog`: first name escaped (stored XSS in the original), same as runs 4 and 7 | Acceptable | |
+| purl-server 8 | 3 | Disabled checkboxes bound with `t:field` (now possible for `domainUserList[i].canCreate`, #123) get the `_name` hidden marker; Thymeleaf leaves it out for a disabled checkbox. Run 4 had hand-written these inputs and passed | Tessera gap | #207 (new) |
+| spring-petclinic-mustache 8 | 4 | The original's `<span">` typo nests the pagination block; the port writes `<span>` (same as run 4; the ignore suggested then was never added) | Harness | |
+| spring-petclinic-mustache 8 | 2 | Error pages: the agent hard-coded the truncated page JMustache produced locally (no `server.error.include-message`), the bench starts the original with it and gets the full page. Same as run 4 | Agent error (guide gap) | |
+| jprime 8 | 8 | Stored rich text (articles, speaker bios) escaped | Tessera gap | #181 |
+| jprime 8 | 2 | Plain-text article description `The <first> speakers` escaped | Acceptable | |
+| jobsearch 8 | 33 | Unfinished port. The agent split the work across five parallel subagents, ran up $35 of its $40 budget, killed three of them before their compare loops finished, and said so in its report. Leftovers: `<!doctype html>` added (19 pages), `<link>`/navbar moved into `<body>` (11), `Employer :`/`Experience :` spacing (6), icon classes (4), hidden inputs moved or renamed, empty category dropdowns again (2, the session `categories` of run 5), an ungrouped `9000.0` (1) | Agent error | |
+| jobsearch 8 | 10 (+7 of the 33) | The original's broken `<input ... (spring.status.error?then('="" ...>` and `<input ,="" ...>` attributes; the port writes clean markup (the ignore suggested in #151 was never added) | Harness | |
+| jobsearch 8 | 2 | `const fields = [ "name", ... ]` vs compact JSON | Tessera gap (compare) | #183 |
+| budgetmaster 8 | 42 | User data (`Savings <b>`, `Old <i>`, `Weekly <shop>`, `Lunch <b>`) escaped, which also removes the nesting the stray tags caused | Acceptable | |
+| budgetmaster 8 | 31 | Off-palette user colours in `style` become `data-style-background-color` plus a script (the agent wrote literal `style` cases for the app's ~45 palette colours; the bench's colours aren't among them) | Tessera gap | #182 |
+| budgetmaster 8 | 13 | Script values written as JSON instead of JS literals | Acceptable | (#183) |
+| budgetmaster 8 | 5 | Grouped amounts in hidden inputs (`-2,550` vs `-2550`) | Tessera gap | #125 |
+| budgetmaster 8 | 4 | Broken original markup (`text-white"=""`) dropped | Acceptable | |
+| budgetmaster 8 | 1 | `/charts`: the user's stored chart script, printed raw by the original, is passed as a JSON string to `(0, eval)(...)`; same behaviour, no raw-script output in Tessera | Acceptable (workaround) | |
+
+Pages can have several causes, so the budgetmaster and jobsearch counts overlap. 21 budgetmaster
+pages differ only for acceptable reasons, 4 only for #182. Three budgetmaster pages
+(`/templates/newTemplate` twice, `/templates/1/edit`) again exceed compare's diff limit; their
+line counts match two escaped account options, so the escaping row is the likely cause. The run-5
+causes "settings `_csrf` id" and "unclosed `<div>`s" produced no differences this time.
+
+| Run | Verdict |
+|---|---|
+| jpetstore 8 | Acceptable only: a correct port |
+| spring-petclinic-mustache 8 | Harness + agent error, as in run 4 |
+| fredbet 8 | Tessera gap (#206) + agent error |
+| purl-server 8 | Tessera gap (#207) |
+| jprime 8 | Tessera gap (#181) |
+| budgetmaster 8 | Tessera gaps (#182, #125); everything else acceptable |
+| jobsearch 8 | Agent error (ran out of budget mid-port) + harness + #183 |
+
+**The two regressions.** jobsearch (69+5 in run 4, 46+3 now) is agent variance: the port was
+unfinished when the budget ran out, and it is the most expensive app in every round ($17-35).
+purl-server (92/92 in run 4) shows a Tessera gap that was always there: run 8 trusted `t:field`
+where run 4 hand-wrote the markup, and `t:field` gets the disabled-checkbox marker wrong (`*{admin}`
+too, not only indexed paths). Neither is caused by a wave fix.
+
+### Wave fixes
+
+| Fix | Held? | Evidence |
+|---|---|---|
+| #118 function index | yes | 0 of 14 runs set `<proc>none</proc>` (18/18 before); 6 runs have `@TemplateFunctions` |
+| #119 null link parameter | yes | fredbet's `@{/ranking/pdf(mode=modeParam)}` with a null `modeParam` matches `?mode=` on `/ranking` (it cost fredbet 5 two pages) |
+| #120 null `<select>` | yes | No select differences. The jobsearch agent used an explicit `t:selected`, which now wins, to copy FreeMarker's `formSingleSelect` (it selects `value=""` for an empty value) |
+| #121 beans in script `[[...]]` | yes | fredbet `/pointcourse/show` is identical with `var chartData = [[${chartData}]];` (it differed in all five earlier fredbet runs); budgetmaster passes a record list and maps straight to `[[...]]` |
+| #122 `ResourceUrlEncodingFilter` | yes, except before Boot 2.0.6 | No Boot 2.7+ agent registered the filter or reported a webjar difference. The Boot 1.5 and 2.0 agents each found their error pages differing (Boot's Thymeleaf auto-configuration covered ERROR dispatches only from 2.0.6) and declared the filter themselves. The bench can't score this: those apps ignore the webjar version segment | 
+| #123 indexed form paths | yes | jobsearch, jpetstore and purl-server bound indexed paths with `t:field` (6 runs hand-wrote them before); jpetstore's cart is identical; purl-server's use exposed #207 |
+
+### Issues
+
+Filed from this round (label `migration-bench`):
+
+- #206 `tessera-migrate` converter: Thymeleaf token literals become template parameters (fredbet 8)
+- #207 `t:field` checkbox: no `_name` marker when disabled (purl-server 8)
+- #208 Starter: `ResourceUrlEncodingFilter` for REQUEST only on Boot 1.5 and 2.0.0-2.0.5
+  (spring-petclinic-boot15 8, -boot20 8; checked against Boot's bytecode)
+- #209 CSRF input: a form with a computed `t:method` gets no token (budgetmaster 8 used that as an
+  undocumented opt-out to keep the page's own token input)
+
+Existing issues cited, with evidence added as a comment: #125, #129, #181, #182, #183.
+
+Pages per gap this round: #182 31 (34 with the undiffable pages), #181 8, #125 5, #206 4,
+#207 3, #183 2.
+
+### Observations
+
+- **Agents fit the comparison.** budgetmaster prints the old single-quoted JS literal when a
+  value equals its shipped default and JSON otherwise (`helpers/globalDatePicker.html`,
+  `settingsTransactions.html`), and keeps the original's `value="1}"` bug. Not a page difference,
+  but it is tuned to the page list.
+- **Parallel subagents cost the hard apps.** jobsearch (five subagents) and budgetmaster run 4
+  (six) are the two runs that stopped unfinished.
+- **fredbet avoided #181 without `unchecked`**: it parses the stored info HTML into `HtmlNode`
+  records and renders an allow-list recursively (`info/html_content.html`).
+
+### Harness follow-ups
+
+Still not done from #151: an ignore for jobsearch's broken `spring.status.error`/`,=""` attributes
+(10 pages) and for spring-petclinic-mustache's `<span">` (4 pages). The Spring 4.3 rungs are still
+marked `belowfloor` although #179 made them supported. Dropping the webjar-version ignores would let
+the bench score #122 and #208.
+
 ## Limitations
 
-- **Small samples.** One or two runs per app in #151 and run 7; the hard apps vary between runs.
+- **Small samples.** One or two runs per app in #151 and one in runs 7 and 8; the hard apps vary between runs.
 - **FreeMarker coverage leans on two apps.** JobSearch has no license (its patches aren't
   committed) and a single context-loads test; BudgetMaster is held out.
 - **No Velocity app.** Spring 5+ dropped Velocity. Mustache stands in for the Velocity-like slot.
@@ -252,7 +383,7 @@ the surviving checkouts, and the check, compare and score were regenerated with 
   (`examples/petclinic`) was built from. The agents never saw that port, but Tessera was shaped by
   it.
 - **Different rounds, different setups.** #115 used the guide and `crawl.py`; runs 4-5 the guide
-  and record/compare; run 7 the plugin. Pass rates across rounds aren't directly comparable.
+  and record/compare; runs 7 and 8 the plugin. Pass rates across rounds aren't directly comparable.
 
 ## Re-running
 

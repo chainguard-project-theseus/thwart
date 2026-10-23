@@ -1,0 +1,1634 @@
+01 same      GET /vacancies/actives?size=50
+02 same      GET /vacancies?size=50
+03 differs   GET /vacancies/1
+--- recorded 03.html
++++ now
+@@ -98,7 +98,7 @@
+           <div class="meta-item">
+             <a class="align-items-center d-inline-flex fw-semibold gap-1 text-decoration-none text-primary" href="/companies/company/profile/2">
+               <i class="bi bi-person">
+-              Employer : Tom jerry
++              Employer: Tom jerry
+           <div class="meta-item">
+             <i class="bi bi-person">
+             Number of Responses: 3
+04 same      GET /vacancies/filtered?filterType=SALARY_DESC&size=50
+05 same      GET /vacancies/filtered?filterType=FAVORITE_VACANCIES
+06 same      GET /vacancies/sort?categoryName=It&size=50
+07 same      GET /search
+08 differs   GET /vacancies/search/vacancies/dynamic/page
+--- recorded 08.html
++++ now
+@@ -68,7 +68,7 @@
+     <script src="/static/scripts/vacancy/vacancies-filter.js">
+     <link href="/static/css/vacancy.css" rel="stylesheet">
+     <script>
+-      const fields = [ "name", "description", "category", "salary", "expFrom", "expTo", "isActive", "created", "updated", "skills.skillName", "skills.isApproved" ];
++      const fields = ["name","description","category","salary","expFrom","expTo","isActive","created","updated","skills.skillName","skills.isApproved"];
+     <div class="container mt-4">
+       <div class="mb-4 row">
+         <div class="col-12">
+09 differs   GET /vacancies/search/dynamic?searchCriteria=salary%3E1800
+--- recorded 09.html
++++ now
+@@ -68,7 +68,7 @@
+     <script src="/static/scripts/vacancy/vacancies-filter.js">
+     <link href="/static/css/vacancy.css" rel="stylesheet">
+     <script>
+-      const fields = [ "name", "description", "category", "salary", "expFrom", "expTo", "isActive", "created", "updated", "skills.skillName", "skills.isApproved" ];
++      const fields = ["name","description","category","salary","expFrom","expTo","isActive","created","updated","skills.skillName","skills.isApproved"];
+     <div class="container mt-4">
+       <div class="mb-4 row">
+         <div class="col-12">
+@@ -107,7 +107,7 @@
+                   9,000 KGS
+                 <div class="meta-item">
+                   <i class="bi bi-clock-history">
+-                  Experience : 10-100 Years
++                  Experience: 10-100 Years
+               <div class="vacancy-description">
+                 java Junior dev with 1 year experience
+               <div class="vacancy-footer">
+@@ -134,7 +134,7 @@
+                   1,800 KGS
+                 <div class="meta-item">
+                   <i class="bi bi-clock-history">
+-                  Experience : 2-5 Years
++                  Experience: 2-5 Years
+               <div class="vacancy-description">
+                 Network security, firewalls, audits
+               <div class="vacancy-footer">
+@@ -161,7 +161,7 @@
+                   2,000 KGS
+                 <div class="meta-item">
+                   <i class="bi bi-clock-history">
+-                  Experience : 2-5 Years
++                  Experience: 2-5 Years
+               <div class="vacancy-description">
+                 Machine Learning, Python, TensorFlow
+               <div class="vacancy-footer">
+@@ -188,7 +188,7 @@
+                   1,800 KGS
+                 <div class="meta-item">
+                   <i class="bi bi-clock-history">
+-                  Experience : 2-4 Years
++                  Experience: 2-4 Years
+               <div class="vacancy-description">
+                 Monitoring, alerting, uptime
+               <div class="vacancy-footer">
+@@ -215,7 +215,7 @@
+                   1,950 KGS
+                 <div class="meta-item">
+                   <i class="bi bi-clock-history">
+-                  Experience : 2-5 Years
++                  Experience: 2-5 Years
+               <div class="vacancy-description">
+                 ML models, deployment
+               <div class="vacancy-footer">
+@@ -242,7 +242,7 @@
+                   2,100 KGS
+                 <div class="meta-item">
+                   <i class="bi bi-clock-history">
+-                  Experience : 3-5 Years
++                  Experience: 3-5 Years
+               <div class="vacancy-description">
+                 System design, microservices
+               <div class="vacancy-footer">
+@@ -269,7 +269,7 @@
+                   1,900 KGS
+                 <div class="meta-item">
+                   <i class="bi bi-clock-history">
+-                  Experience : 3-5 Years
++                  Experience: 3-5 Years
+               <div class="vacancy-description">
+                 Leadership, code reviews, mentoring
+               <div class="vacancy-footer">
+@@ -296,7 +296,7 @@
+                   2,000 KGS
+                 <div class="meta-item">
+                   <i class="bi bi-clock-history">
+-                  Experience : 2-5 Years
++                  Experience: 2-5 Years
+               <div class="vacancy-description">
+                 Data mining, ML, statistics
+               <div class="vacancy-footer">
+@@ -323,7 +323,7 @@
+                   1,850 KGS
+                 <div class="meta-item">
+                   <i class="bi bi-clock-history">
+-                  Experience : 2-4 Years
++                  Experience: 2-4 Years
+               <div class="vacancy-description">
+                 Ethical hacking, Kali Linux
+               <div class="vacancy-footer">
+@@ -350,7 +350,7 @@
+                   1,850 KGS
+                 <div class="meta-item">
+                   <i class="bi bi-clock-history">
+-                  Experience : 2-4 Years
++                  Experience: 2-4 Years
+               <div class="vacancy-description">
+                 Embedded systems, automation
+               <div class="vacancy-footer">
+10 same      GET /companies/company/profile/2
+11 differs   GET /groups
+--- recorded 11.html
++++ now
+@@ -1,3 +1,4 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+     <link href="/static/css/groups.css" rel="stylesheet">
+@@ -83,3 +84,5 @@
+           <p class="text-muted">
+             Нажмите кнопку "Создать группу" чтобы добавить новую
+     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
++    <script>
++      document.querySelectorAll('tr[data-href]').forEach(function (row) { row.addEventListener('click', function () { window.location.href = row.getAttribute('data-href'); }); });
+12 same      GET /users/profile
+13 same      GET /auth/login
+14 same      POST /auth/login username=nobody@example.com&password=wrong
+15 same      GET /auth/forgot_password
+16 same      POST /auth/forgot_password email=bad
+17 same      GET /auth/forgot_password
+18 same      POST /auth/forgot_password email=nobody@example.com
+19 same      GET /auth/reset_password?token=nope
+20 same      GET /auth/forgot_password
+21 reordered POST /auth/reset_password token=nope&password=
+--- recorded 21.html
++++ now
+@@ -16,15 +16,15 @@
+       <div class="align-items-center d-flex h-100 justify-content-center row">
+         <div class="col-lg-5 col-md-7 col-xl-5">
+           <form action="/auth/reset_password" method="post">
+-            <input name="token" type="hidden" value="nope">
+             <input name="_csrf" type="hidden" value="MASKED">
++            <input name="token" type="hidden" value="nope">
+             <div class="form-group">
+               <input autofocus class="form-control" id="password" name="password" placeholder="Введите новый пароль" type="password">
+               <span class="small text-danger">
+-                password is null or blank
++                must not be blank
+               <br>
+               <span class="small text-danger">
+-                must not be blank
++                password is null or blank
+             <p class="text-center">
+               <button class="btn btn-primary mt-3" type="submit">
+                 Change Password
+22 same      GET /vacancies/99999
+23 same      GET /auth/registration
+24 reordered POST /users/registration name=&surname=&age=&email=&password=&phoneNumber=%2B996&accountType=&avatar=
+--- recorded 24.html
++++ now
+@@ -25,10 +25,10 @@
+               First Name
+             <input class="custom-form-control" id="name" name="name" placeholder="John" type="text">
+             <span class="small text-danger">
+-              Value must not contain numbers, symbols, or spaces
++              Value length must be between 3 and 30 characters
+             <br>
+             <span class="small text-danger">
+-              Value length must be between 3 and 30 characters
++              Value must not contain numbers, symbols, or spaces
+             <br>
+             <span class="small text-danger">
+               Value must not be empty
+25 same      POST /users/registration name=Ann&surname=Seeker&age=30&email=ann@example.com&password=Secret123&phoneNumber=%2B996555000001&accountType=JobSeeker&avatar=
+26 same      GET /users/profile
+27 same      GET /users/profile/statistics
+28 same      GET /users/profile
+29 reordered POST /users/updates/profile name=A1&surname=&age=200&email=ann@example.com&phoneNumber=123&userId=4&accountType=JobSeeker&password=&avatar=
+--- recorded 29.html
++++ now
+@@ -61,10 +61,10 @@
+                               Last Name
+                             <input class="form-control" id="surname" name="surname" placeholder="Enter Last Name" type="text">
+                             <span class="small text-danger">
+-                              Value length must be between 3 and 30 characters
++                              Value must not contain numbers, symbols, or spaces
+                             <br>
+                             <span class="small text-danger">
+-                              Value must not contain numbers, symbols, or spaces
++                              Value length must be between 3 and 30 characters
+                             <br>
+                             <span class="small text-danger">
+                               Value must not be empty
+30 same      GET /users/profile
+31 same      POST /users/updates/profile name=Anna&surname=Seeker&age=31&email=ann@example.com&phoneNumber=%2B996555000001&userId=4&accountType=JobSeeker&password=Secret123&avatar=
+32 differs   GET /resumes/new_resume
+--- recorded 32.html
++++ now
+@@ -1,6 +1,6 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+-    <link href="/static/css/resume_form.css" rel="stylesheet">
+     <meta charset="UTF-8">
+     <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" name="viewport">
+     <meta content="ie=edge" http-equiv="X-UA-Compatible">
+@@ -9,6 +9,7 @@
+     <title>
+       Job Search
+   <body>
++    <link href="/static/css/resume_form.css" rel="stylesheet">
+     <div class="container py-5">
+       <div class="justify-content-center row">
+         <div class="col-md-8">
+@@ -152,7 +153,7 @@
+                       <label class="form-label" for="startDate">
+                         <i class="bi bi-calendar-plus form-icon me-2">
+                         Start Date
+-                      <input ,="" class="form-control" id="educationInfoDtos0.startDate" name="educationInfoDtos[0].startDate" placeholder="YYYY-MM-DD HH:mm:ss" type="text">
++                      <input class="form-control" id="educationInfoDtos0.startDate" name="educationInfoDtos[0].startDate" placeholder="YYYY-MM-DD HH:mm:ss" type="text">
+                     <div class="mb-3">
+                       <label class="form-label" for="endDate">
+                         <i class="bi bi-calendar-minus form-icon me-2">
+33 differs   POST /resumes/new_resume name=&categoryId=1&salary=-5&workExperienceInfoDtos[0].years=&workExperienceInfoDtos[0].companyName=&workExperienceInfoDtos[0].position=&workExperienceInfoDtos[0].responsibilities=&educationInfoDtos[0].degree=&educationInfoDtos[0].institution=&educationInfoDtos[0].program=&educationInfoDtos[0].startDate=&educationInfoDtos[0].endDate=&contactInfos[0].id=&contactInfos[0].contactType.contactTypeId=2&contactInfos[0].contactType.type=TELEGRAM&contactInfos[0].contactValue=&contactInfos[1].id=&contactInfos[1].contactType.contactTypeId=3&contactInfos[1].contactType.type=FACEBOOK&contactInfos[1].contactValue=&contactInfos[2].id=&contactInfos[2].contactType.contactTypeId=4&contactInfos[2].contactType.type=EMAIL&contactInfos[2].contactValue=&contactInfos[3].id=&contactInfos[3].contactType.contactTypeId=5&contactInfos[3].contactType.type=LINKEDIN&contactInfos[3].contactValue=&contactInfos[4].id=&contactInfos[4].contactType.contactTypeId=6&contactInfos[4].contactType.type=PHONE_NUMBER&contactInfos[4].contactValue=%2B996
+--- recorded 33.html
++++ now
+@@ -1,6 +1,6 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+-    <link href="/static/css/resume_form.css" rel="stylesheet">
+     <meta charset="UTF-8">
+     <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" name="viewport">
+     <meta content="ie=edge" http-equiv="X-UA-Compatible">
+@@ -9,6 +9,7 @@
+     <title>
+       Job Search
+   <body>
++    <link href="/static/css/resume_form.css" rel="stylesheet">
+     <div class="container py-5">
+       <div class="justify-content-center row">
+         <div class="col-md-8">
+@@ -23,10 +24,9 @@
+                   Resume Name
+                 <input class="form-control" id="name" name="name" placeholder="Enter Resume Name" type="text">
+                 <span class="small text-danger">
+-                  Value length must be between 3 and 30 characters
+-                <br>
+-                <span class="small text-danger">
+                   Value must not be empty
++                  <br>
++                  Value length must be between 3 and 30 characters
+               <div class="mb-4">
+                 <label class="form-label" for="categoryId">
+                   <i class="bi bi-briefcase form-icon me-2">
+@@ -159,7 +159,7 @@
+                       <label class="form-label" for="startDate">
+                         <i class="bi bi-calendar-plus form-icon me-2">
+                         Start Date
+-                      <input ,="" class="form-control" id="educationInfoDtos0.startDate" name="educationInfoDtos[0].startDate" placeholder="YYYY-MM-DD HH:mm:ss" type="text">
++                      <input class="form-control" id="educationInfoDtos0.startDate" name="educationInfoDtos[0].startDate" placeholder="YYYY-MM-DD HH:mm:ss" type="text">
+                     <div class="mb-3">
+                       <label class="form-label" for="endDate">
+                         <i class="bi bi-calendar-minus form-icon me-2">
+34 differs   POST /resumes/new_resume name=Kotlin engineer&categoryId=1&salary=3000&workExperienceInfoDtos[0].years=3&workExperienceInfoDtos[0].companyName=Acme&workExperienceInfoDtos[0].position=Developer&workExperienceInfoDtos[0].responsibilities=Backend and APIs&educationInfoDtos[0].degree=BSc&educationInfoDtos[0].institution=State University&educationInfoDtos[0].program=Computer Science&educationInfoDtos[0].startDate=2010-09-01 00:00:00&educationInfoDtos[0].endDate=2014-06-30 00:00:00&contactInfos[0].id=&contactInfos[0].contactType.contactTypeId=2&contactInfos[0].contactType.type=TELEGRAM&contactInfos[0].contactValue=@ann&contactInfos[1].id=&contactInfos[1].contactType.contactTypeId=3&contactInfos[1].contactType.type=FACEBOOK&contactInfos[1].contactValue=&contactInfos[2].id=&contactInfos[2].contactType.contactTypeId=4&contactInfos[2].contactType.type=EMAIL&contactInfos[2].contactValue=ann@gmail.com&contactInfos[3].id=&contactInfos[3].contactType.contactTypeId=5&contactInfos[3].contactType.type=LINKEDIN&contactInfos[3].contactValue=&contactInfos[4].id=&contactInfos[4].contactType.contactTypeId=6&contactInfos[4].contactType.type=PHONE_NUMBER&contactInfos[4].contactValue=%2B996555000001&active=true
+--- recorded 34.html
++++ now
+@@ -1,3 +1,4 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+     <link href="/static/css/detailed_resume.css" rel="stylesheet">
+35 differs   GET /resumes/users
+--- recorded 35.html
++++ now
+@@ -1,3 +1,4 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+     <link href="/static/css/resume.css" rel="stylesheet">
+@@ -9,77 +10,77 @@
+     <title>
+       Job Search
+   <body class="bg-light">
++    <style>
++      .d-flex { position: relative; }
++    <meta charset="UTF-8">
++    <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" name="viewport">
++    <meta content="ie=edge" http-equiv="X-UA-Compatible">
++    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
++    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
++    <title>
++      Job Search
++    <nav class="bg-dark navbar navbar-dark navbar-expand-lg sticky-top">
++      <div class="container">
++        <a class="navbar-brand" href="#">
++          <i class="bi bi-briefcase me-2">
++          Job Search
++        <button class="navbar-toggler" data-bs-target="#navbarContent" data-bs-toggle="collapse" type="button">
++          <span class="navbar-toggler-icon">
++        <div class="collapse navbar-collapse" id="navbarContent">
++          <ul class="me-auto navbar-nav">
++            <li class="nav-item">
++              <a class="nav-link" href="/vacancies/actives" onclick="sendUri(event)">
++                <i class="bi bi-search me-1">
++                Vacancies
++            <li class="dropdown nav-item">
++              <a aria-expanded="false" class="dropdown-toggle nav-link" data-bs-toggle="dropdown" href="#" id="dropdownMenuButton1" role="button">
++                🌐 Language
++              <ul aria-labelledby="dropdownMenuButton1" class="dropdown-menu z-3">
++                <li>
++                  <form action="/api/locale" method="POST">
++                    <input name="_csrf" type="hidden" value="MASKED">
++                    <input name="lang" type="hidden" value="en">
++                    <button class="dropdown-item" type="submit">
++                      🇺🇸 English
++                <li>
++                  <form action="/api/locale" method="POST">
++                    <input name="_csrf" type="hidden" value="MASKED">
++                    <input name="lang" type="hidden" value="ru">
++                    <button class="dropdown-item" type="submit">
++                      🇷🇺 Русский
++            <li class="nav-item">
++              <a class="nav-link" href="/companies">
++                <i class="bi bi-file-earmark-text me-1">
++                Companies
++            <li class="nav-item">
++              <a class="nav-link" href="/responds/users">
++                <i class="bi-people">
++                Responses
++            <li class="nav-item">
++              <a class="nav-link" href="/messages/job_seeker">
++                <i class="bi bi-chat-dots me-1">
++                Messages
++            <li class="nav-item">
++              <a class="nav-link" href="/groups">
++                <i class="bi-person-lines-fill">
++                Groups
++            <li class="nav-item">
++              <a class="nav-link" href="/users/profile">
++                <i class="bi bi-clock-history me-1">
++                Profile
++            <li class="nav-item">
++              <a class="nav-link" href="/search">
++                <i class="bi bi-search me-1">
++                Search
++            <li class="nav-item">
++              <a class="nav-link" href="/channel">
++                <i class="bi bi-youtube me-1" style="color:#414d5b;">
++                Channel
++          <a class="btn btn-outline-light me-2" href="/auth/logout">
++            <i class="bi bi-box-arrow-in-right me-1">
++            Logout
++    <script src="/static/scripts/vacancy/vacancies-filter.js">
+     <header>
+-      <style>
+-        .d-flex { position: relative; }
+-      <meta charset="UTF-8">
+-      <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" name="viewport">
+-      <meta content="ie=edge" http-equiv="X-UA-Compatible">
+-      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+-      <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+-      <title>
+-        Job Search
+-      <nav class="bg-dark navbar navbar-dark navbar-expand-lg sticky-top">
+-        <div class="container">
+-          <a class="navbar-brand" href="#">
+-            <i class="bi bi-briefcase me-2">
+-            Job Search
+-          <button class="navbar-toggler" data-bs-target="#navbarContent" data-bs-toggle="collapse" type="button">
+-            <span class="navbar-toggler-icon">
+-          <div class="collapse navbar-collapse" id="navbarContent">
+-            <ul class="me-auto navbar-nav">
+-              <li class="nav-item">
+-                <a class="nav-link" href="/vacancies/actives" onclick="sendUri(event)">
+-                  <i class="bi bi-search me-1">
+-                  Vacancies
+-              <li class="dropdown nav-item">
+-                <a aria-expanded="false" class="dropdown-toggle nav-link" data-bs-toggle="dropdown" href="#" id="dropdownMenuButton1" role="button">
+-                  🌐 Language
+-                <ul aria-labelledby="dropdownMenuButton1" class="dropdown-menu z-3">
+-                  <li>
+-                    <form action="/api/locale" method="POST">
+-                      <input name="_csrf" type="hidden" value="MASKED">
+-                      <input name="lang" type="hidden" value="en">
+-                      <button class="dropdown-item" type="submit">
+-                        🇺🇸 English
+-                  <li>
+-                    <form action="/api/locale" method="POST">
+-                      <input name="_csrf" type="hidden" value="MASKED">
+-                      <input name="lang" type="hidden" value="ru">
+-                      <button class="dropdown-item" type="submit">
+-                        🇷🇺 Русский
+-              <li class="nav-item">
+-                <a class="nav-link" href="/companies">
+... 42 more diff line(s)
+36 differs   GET /resumes/update/resume/34
+--- recorded 36.html
++++ now
+@@ -1,6 +1,6 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+-    <link href="/static/css/resume_form.css" rel="stylesheet">
+     <meta charset="UTF-8">
+     <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" name="viewport">
+     <meta content="ie=edge" http-equiv="X-UA-Compatible">
+@@ -9,6 +9,7 @@
+     <title>
+       Job Search
+   <body>
++    <link href="/static/css/resume_form.css" rel="stylesheet">
+     <div class="container py-5">
+       <div class="justify-content-center row">
+         <div class="col-md-8">
+@@ -17,12 +18,12 @@
+               Update Resume
+             <form action="/resumes/update/resume" method="post">
+               <input name="_csrf" type="hidden" value="MASKED">
+-              <input ,="" class="form-control" id="id" name="id" placeholder="Enter Resume Name" type="hidden" value="34">
+               <div class="mb-3">
+                 <label class="form-label" for="name">
+                   <i class="bi bi-card-heading form-icon me-2">
+                   Resume Name
+                 <input class="form-control" id="name" name="name" placeholder="Enter Resume Name" type="text" value="Kotlin engineer">
++                <input class="form-control" id="id" name="id" type="hidden" value="34">
+               <div class="mb-4">
+                 <label class="form-label" for="categoryId">
+                   <i class="bi bi-briefcase form-icon me-2">
+@@ -92,14 +93,15 @@
+                     User Experience
+                   <option value="31">
+                     Training
+-              <div class="col-md-6">
+-                <label class="form-label" for="salary">
+-                  <i class="bi bi-cash-coin form-icon me-2">
+-                  Expected Salary (KGS)
+-                <input class="form-control" id="salary" name="salary" placeholder="Enter Salary" type="text" value="3000.0">
++              <div class="mb-3 row">
++                <div class="col-md-6">
++                  <label class="form-label" for="salary">
++                    <i class="bi bi-cash-coin form-icon me-2">
++                    Expected Salary (KGS)
++                  <input class="form-control" id="salary" name="salary" placeholder="Enter Salary" type="text" value="3000.0">
+               <div id="workExperiences">
+-                <input ,="" class="form-control" id="workExperienceInfoDtos0.id" name="workExperienceInfoDtos[0].id" placeholder="Your Position" type="hidden" value="33">
+                 <div class="mb-3 row">
++                  <input class="form-control" id="workExperienceInfoDtos0.id" name="workExperienceInfoDtos[0].id" type="hidden" value="33">
+                   <div class="col-md-6">
+                     <div class="mb-3">
+                       <label class="form-label" for="years">
+@@ -132,8 +134,8 @@
+                   <i class="bi bi-plus-lg me-1">
+                   Add work experience info
+               <div id="educationInfos">
+-                <input ,="" class="form-control" id="educationInfoDtos0.id" name="educationInfoDtos[0].id" placeholder="Id" type="hidden" value="33">
+                 <div class="mb-3 row">
++                  <input class="form-control" id="educationInfoDtos0.id" name="educationInfoDtos[0].id" type="hidden" value="33">
+                   <div class="col-md-6">
+                     <div class="mb-3">
+                       <label class="form-label" for="degree">
+@@ -236,4 +238,5 @@
+     <script id="dto-education-info-length" type="application/json">
+       0
+     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
++    <script src="/static/scripts/scripts.js">
+     <script src="/static/scripts/resume/resume.js">
+37 differs   POST /resumes/update/resume id=34&name=&categoryId=1&salary=3000&workExperienceInfoDtos[0].years=&workExperienceInfoDtos[0].companyName=&workExperienceInfoDtos[0].position=&workExperienceInfoDtos[0].responsibilities=&educationInfoDtos[0].degree=&educationInfoDtos[0].institution=&educationInfoDtos[0].program=&educationInfoDtos[0].startDate=&educationInfoDtos[0].endDate=&contactInfos[0].id=&contactInfos[0].contactType.contactTypeId=2&contactInfos[0].contactType.type=TELEGRAM&contactInfos[0].contactValue=&contactInfos[1].id=&contactInfos[1].contactType.contactTypeId=3&contactInfos[1].contactType.type=FACEBOOK&contactInfos[1].contactValue=&contactInfos[2].id=&contactInfos[2].contactType.contactTypeId=4&contactInfos[2].contactType.type=EMAIL&contactInfos[2].contactValue=&contactInfos[3].id=&contactInfos[3].contactType.contactTypeId=5&contactInfos[3].contactType.type=LINKEDIN&contactInfos[3].contactValue=&contactInfos[4].id=&contactInfos[4].contactType.contactTypeId=6&contactInfos[4].contactType.type=PHONE_NUMBER&contactInfos[4].contactValue=%2B996
+--- recorded 37.html
++++ now
+@@ -1,6 +1,6 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+-    <link href="/static/css/resume_form.css" rel="stylesheet">
+     <meta charset="UTF-8">
+     <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" name="viewport">
+     <meta content="ie=edge" http-equiv="X-UA-Compatible">
+@@ -9,6 +9,7 @@
+     <title>
+       Job Search
+   <body>
++    <link href="/static/css/resume_form.css" rel="stylesheet">
+     <div class="container py-5">
+       <div class="justify-content-center row">
+         <div class="col-md-8">
+@@ -17,17 +18,16 @@
+               Update Resume
+             <form action="/resumes/update/resume" method="post">
+               <input name="_csrf" type="hidden" value="MASKED">
+-              <input ,="" class="form-control" id="id" name="id" placeholder="Enter Resume Name" type="hidden" value="34">
+               <div class="mb-3">
+                 <label class="form-label" for="name">
+                   <i class="bi bi-card-heading form-icon me-2">
+                   Resume Name
+                 <input class="form-control" id="name" name="name" placeholder="Enter Resume Name" type="text">
++                <input class="form-control" id="id" name="id" type="hidden" value="34">
+                 <span class="small text-danger">
+-                  Value length must be between 3 and 30 characters
+-                <br>
+-                <span class="small text-danger">
+                   Value must not be empty
++                  <br>
++                  Value length must be between 3 and 30 characters
+               <div class="mb-4">
+                 <label class="form-label" for="categoryId">
+                   <i class="bi bi-briefcase form-icon me-2">
+@@ -97,14 +97,15 @@
+                     User Experience
+                   <option value="31">
+                     Training
+-              <div class="col-md-6">
+-                <label class="form-label" for="salary">
+-                  <i class="bi bi-cash-coin form-icon me-2">
+-                  Expected Salary (KGS)
+-                <input class="form-control" id="salary" name="salary" placeholder="Enter Salary" type="text" value="3000.0">
++              <div class="mb-3 row">
++                <div class="col-md-6">
++                  <label class="form-label" for="salary">
++                    <i class="bi bi-cash-coin form-icon me-2">
++                    Expected Salary (KGS)
++                  <input class="form-control" id="salary" name="salary" placeholder="Enter Salary" type="text" value="3000.0">
+               <div id="workExperiences">
+-                <input ,="" class="form-control" id="workExperienceInfoDtos0.id" name="workExperienceInfoDtos[0].id" placeholder="Your Position" type="hidden">
+                 <div class="mb-3 row">
++                  <input class="form-control" id="workExperienceInfoDtos0.id" name="workExperienceInfoDtos[0].id" type="hidden">
+                   <div class="col-md-6">
+                     <div class="mb-3">
+                       <label class="form-label" for="years">
+@@ -136,8 +137,8 @@
+                   <i class="bi bi-plus-lg me-1">
+                   Add work experience info
+               <div id="educationInfos">
+-                <input ,="" class="form-control" id="educationInfoDtos0.id" name="educationInfoDtos[0].id" placeholder="Id" type="hidden">
+                 <div class="mb-3 row">
++                  <input class="form-control" id="educationInfoDtos0.id" name="educationInfoDtos[0].id" type="hidden">
+                   <div class="col-md-6">
+                     <div class="mb-3">
+                       <label class="form-label" for="degree">
+@@ -240,4 +241,5 @@
+     <script id="dto-education-info-length" type="application/json">
+       0
+     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
++    <script src="/static/scripts/scripts.js">
+     <script src="/static/scripts/resume/resume.js">
+38 differs   GET /resumes/update/resume/34
+--- recorded 38.html
++++ now
+@@ -1,6 +1,6 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+-    <link href="/static/css/resume_form.css" rel="stylesheet">
+     <meta charset="UTF-8">
+     <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" name="viewport">
+     <meta content="ie=edge" http-equiv="X-UA-Compatible">
+@@ -9,6 +9,7 @@
+     <title>
+       Job Search
+   <body>
++    <link href="/static/css/resume_form.css" rel="stylesheet">
+     <div class="container py-5">
+       <div class="justify-content-center row">
+         <div class="col-md-8">
+@@ -17,12 +18,12 @@
+               Update Resume
+             <form action="/resumes/update/resume" method="post">
+               <input name="_csrf" type="hidden" value="MASKED">
+-              <input ,="" class="form-control" id="id" name="id" placeholder="Enter Resume Name" type="hidden" value="34">
+               <div class="mb-3">
+                 <label class="form-label" for="name">
+                   <i class="bi bi-card-heading form-icon me-2">
+                   Resume Name
+                 <input class="form-control" id="name" name="name" placeholder="Enter Resume Name" type="text" value="Kotlin engineer">
++                <input class="form-control" id="id" name="id" type="hidden" value="34">
+               <div class="mb-4">
+                 <label class="form-label" for="categoryId">
+                   <i class="bi bi-briefcase form-icon me-2">
+@@ -92,14 +93,15 @@
+                     User Experience
+                   <option value="31">
+                     Training
+-              <div class="col-md-6">
+-                <label class="form-label" for="salary">
+-                  <i class="bi bi-cash-coin form-icon me-2">
+-                  Expected Salary (KGS)
+-                <input class="form-control" id="salary" name="salary" placeholder="Enter Salary" type="text" value="3000.0">
++              <div class="mb-3 row">
++                <div class="col-md-6">
++                  <label class="form-label" for="salary">
++                    <i class="bi bi-cash-coin form-icon me-2">
++                    Expected Salary (KGS)
++                  <input class="form-control" id="salary" name="salary" placeholder="Enter Salary" type="text" value="3000.0">
+               <div id="workExperiences">
+-                <input ,="" class="form-control" id="workExperienceInfoDtos0.id" name="workExperienceInfoDtos[0].id" placeholder="Your Position" type="hidden" value="33">
+                 <div class="mb-3 row">
++                  <input class="form-control" id="workExperienceInfoDtos0.id" name="workExperienceInfoDtos[0].id" type="hidden" value="33">
+                   <div class="col-md-6">
+                     <div class="mb-3">
+                       <label class="form-label" for="years">
+@@ -132,8 +134,8 @@
+                   <i class="bi bi-plus-lg me-1">
+                   Add work experience info
+               <div id="educationInfos">
+-                <input ,="" class="form-control" id="educationInfoDtos0.id" name="educationInfoDtos[0].id" placeholder="Id" type="hidden" value="33">
+                 <div class="mb-3 row">
++                  <input class="form-control" id="educationInfoDtos0.id" name="educationInfoDtos[0].id" type="hidden" value="33">
+                   <div class="col-md-6">
+                     <div class="mb-3">
+                       <label class="form-label" for="degree">
+@@ -236,4 +238,5 @@
+     <script id="dto-education-info-length" type="application/json">
+       0
+     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
++    <script src="/static/scripts/scripts.js">
+     <script src="/static/scripts/resume/resume.js">
+39 differs   POST /resumes/update/resume id=34&name=Kotlin engineer II&categoryId=1&salary=3200&workExperienceInfoDtos[0].years=3&workExperienceInfoDtos[0].companyName=Acme&workExperienceInfoDtos[0].position=Developer&workExperienceInfoDtos[0].responsibilities=Backend and APIs&educationInfoDtos[0].degree=BSc&educationInfoDtos[0].institution=State University&educationInfoDtos[0].program=Computer Science&educationInfoDtos[0].startDate=2010-09-01 00:00:00&educationInfoDtos[0].endDate=2014-06-30 00:00:00&contactInfos[0].id=&contactInfos[0].contactType.contactTypeId=2&contactInfos[0].contactType.type=TELEGRAM&contactInfos[0].contactValue=@ann&contactInfos[1].id=&contactInfos[1].contactType.contactTypeId=3&contactInfos[1].contactType.type=FACEBOOK&contactInfos[1].contactValue=&contactInfos[2].id=&contactInfos[2].contactType.contactTypeId=4&contactInfos[2].contactType.type=EMAIL&contactInfos[2].contactValue=ann@gmail.com&contactInfos[3].id=&contactInfos[3].contactType.contactTypeId=5&contactInfos[3].contactType.type=LINKEDIN&contactInfos[3].contactValue=&contactInfos[4].id=&contactInfos[4].contactType.contactTypeId=6&contactInfos[4].contactType.type=PHONE_NUMBER&contactInfos[4].contactValue=%2B996555000001&active=true
+--- recorded 39.html
++++ now
+@@ -1,3 +1,4 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+     <link href="/static/css/detailed_resume.css" rel="stylesheet">
+40 differs   GET /resumes/34
+--- recorded 40.html
++++ now
+@@ -1,3 +1,4 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+     <link href="/static/css/detailed_resume.css" rel="stylesheet">
+41 differs   GET /resumes/users/actives/1
+--- recorded 41.html
++++ now
+@@ -111,7 +111,7 @@
+           <div class="meta-item">
+             <a class="align-items-center d-inline-flex fw-semibold gap-1 text-decoration-none text-primary" href="/companies/company/profile/2">
+               <i class="bi bi-person">
+-              Employer : Tom jerry
++              Employer: Tom jerry
+           <div class="meta-item">
+             <i class="bi bi-person">
+             Number of Responses: 3
+42 differs   POST /responds vacancyId=1&resumeId=
+--- recorded 42.html
++++ now
+@@ -111,7 +111,7 @@
+           <div class="meta-item">
+             <a class="align-items-center d-inline-flex fw-semibold gap-1 text-decoration-none text-primary" href="/companies/company/profile/2">
+               <i class="bi bi-person">
+-              Employer : Tom jerry
++              Employer: Tom jerry
+           <div class="meta-item">
+             <i class="bi bi-person">
+             Number of Responses: 3
+43 differs   GET /resumes/users/actives/1
+--- recorded 43.html
++++ now
+@@ -111,7 +111,7 @@
+           <div class="meta-item">
+             <a class="align-items-center d-inline-flex fw-semibold gap-1 text-decoration-none text-primary" href="/companies/company/profile/2">
+               <i class="bi bi-person">
+-              Employer : Tom jerry
++              Employer: Tom jerry
+           <div class="meta-item">
+             <i class="bi bi-person">
+             Number of Responses: 3
+44 differs   POST /responds vacancyId=1&resumeId=34
+--- recorded 44.html
++++ now
+@@ -111,7 +111,7 @@
+           <div class="meta-item">
+             <a class="align-items-center d-inline-flex fw-semibold gap-1 text-decoration-none text-primary" href="/companies/company/profile/2">
+               <i class="bi bi-person">
+-              Employer : Tom jerry
++              Employer: Tom jerry
+           <div class="meta-item">
+             <i class="bi bi-person">
+             Number of Responses: 4
+45 differs   GET /responds/users
+--- recorded 45.html
++++ now
+@@ -1,3 +1,4 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+     <link href="/static/css/resume.css" rel="stylesheet">
+46 differs   GET /messages/job_seeker
+--- recorded 46.html
++++ now
+@@ -1,3 +1,4 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+     <link href="/static/css/resume.css" rel="stylesheet">
+47 same      GET /messages/chat/35
+48 differs   POST /messages respondedApplicationId=35&vacancyId=1&resumeId=34&content=Hello <b>there</b>
+--- recorded 48.html
++++ now
+@@ -119,7 +119,8 @@
+               <input name="_csrf" type="hidden" value="MASKED">
+               <div class="d-inline-block position-relative">
+                 <input class="visually-hidden" id="fileInput" name="file" type="file">
+-                <input name="respondId" type="hidden" value="35">
++                <input name="vacancyId" type="hidden" value="1">
++                <input name="resumeId" type="hidden">
+                 <label class="btn btn-link p-2" for="fileInput" style="font-size: 1.5rem; color: #6c757d;" title="Upload">
+                   <i class="bi bi-paperclip">
+               <button class="btn btn-primary p-2 rounded-circle" style="width: 40px; height: 40px;" title="Send" type="submit">
+49 differs   GET /messages/job_seeker
+--- recorded 49.html
++++ now
+@@ -1,3 +1,4 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+     <link href="/static/css/resume.css" rel="stylesheet">
+@@ -112,7 +113,7 @@
+                           Kotlin engineer II
+                         <span>
+                           <i class="fa-ruble-sign fas me-1">
+-                          9,000
++                          9000.0
+                     <div class="text-end">
+                       <a class="btn btn-primary btn-sm rounded-pill" href="/messages/chat/35">
+                         <i class="fa-paper-plane fas me-1">
+50 same      GET /companies
+51 same      GET /companies/2?size=50
+52 same      GET /companies/company/profile/2
+53 same      GET /users/profile/1
+54 same      GET /vacancies/filtered?filterType=FAVORITE_VACANCIES
+55 differs   GET /resumes/new_resume
+--- recorded 55.html
++++ now
+@@ -1,6 +1,6 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+-    <link href="/static/css/resume_form.css" rel="stylesheet">
+     <meta charset="UTF-8">
+     <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" name="viewport">
+     <meta content="ie=edge" http-equiv="X-UA-Compatible">
+@@ -9,6 +9,7 @@
+     <title>
+       Job Search
+   <body>
++    <link href="/static/css/resume_form.css" rel="stylesheet">
+     <div class="container py-5">
+       <div class="justify-content-center row">
+         <div class="col-md-8">
+@@ -152,7 +153,7 @@
+                       <label class="form-label" for="startDate">
+                         <i class="bi bi-calendar-plus form-icon me-2">
+                         Start Date
+-                      <input ,="" class="form-control" id="educationInfoDtos0.startDate" name="educationInfoDtos[0].startDate" placeholder="YYYY-MM-DD HH:mm:ss" type="text">
++                      <input class="form-control" id="educationInfoDtos0.startDate" name="educationInfoDtos[0].startDate" placeholder="YYYY-MM-DD HH:mm:ss" type="text">
+                     <div class="mb-3">
+                       <label class="form-label" for="endDate">
+                         <i class="bi bi-calendar-minus form-icon me-2">
+56 same      POST /skills/save_resume_storage name=Draft&categoryId=1&salary=100&pageName=skills/resumes/new_skills
+57 same      GET /skills?skillName=ab
+58 same      GET /skills/resumes/new_skills
+59 differs   GET /resumes/update/resume/34
+--- recorded 59.html
++++ now
+@@ -1,6 +1,6 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+-    <link href="/static/css/resume_form.css" rel="stylesheet">
+     <meta charset="UTF-8">
+     <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" name="viewport">
+     <meta content="ie=edge" http-equiv="X-UA-Compatible">
+@@ -9,6 +9,7 @@
+     <title>
+       Job Search
+   <body>
++    <link href="/static/css/resume_form.css" rel="stylesheet">
+     <div class="container py-5">
+       <div class="justify-content-center row">
+         <div class="col-md-8">
+@@ -17,12 +18,12 @@
+               Update Resume
+             <form action="/resumes/update/resume" method="post">
+               <input name="_csrf" type="hidden" value="MASKED">
+-              <input ,="" class="form-control" id="id" name="id" placeholder="Enter Resume Name" type="hidden" value="34">
+               <div class="mb-3">
+                 <label class="form-label" for="name">
+                   <i class="bi bi-card-heading form-icon me-2">
+                   Resume Name
+                 <input class="form-control" id="name" name="name" placeholder="Enter Resume Name" type="text" value="Kotlin engineer II">
++                <input class="form-control" id="id" name="id" type="hidden" value="34">
+               <div class="mb-4">
+                 <label class="form-label" for="categoryId">
+                   <i class="bi bi-briefcase form-icon me-2">
+@@ -92,14 +93,15 @@
+                     User Experience
+                   <option value="31">
+                     Training
+-              <div class="col-md-6">
+-                <label class="form-label" for="salary">
+-                  <i class="bi bi-cash-coin form-icon me-2">
+-                  Expected Salary (KGS)
+-                <input class="form-control" id="salary" name="salary" placeholder="Enter Salary" type="text" value="3200.0">
++              <div class="mb-3 row">
++                <div class="col-md-6">
++                  <label class="form-label" for="salary">
++                    <i class="bi bi-cash-coin form-icon me-2">
++                    Expected Salary (KGS)
++                  <input class="form-control" id="salary" name="salary" placeholder="Enter Salary" type="text" value="3200.0">
+               <div id="workExperiences">
+-                <input ,="" class="form-control" id="workExperienceInfoDtos0.id" name="workExperienceInfoDtos[0].id" placeholder="Your Position" type="hidden" value="33">
+                 <div class="mb-3 row">
++                  <input class="form-control" id="workExperienceInfoDtos0.id" name="workExperienceInfoDtos[0].id" type="hidden" value="33">
+                   <div class="col-md-6">
+                     <div class="mb-3">
+                       <label class="form-label" for="years">
+@@ -127,8 +129,8 @@
+                     <button class="btn btn-outline-danger delete-work-experience" id="deleteWorkExperienceButton" type="button">
+                       <i class="bi bi-trash me-1">
+                       Delete
+-                <input ,="" class="form-control" id="workExperienceInfoDtos1.id" name="workExperienceInfoDtos[1].id" placeholder="Your Position" type="hidden" value="34">
+                 <div class="mb-3 row">
++                  <input class="form-control" id="workExperienceInfoDtos1.id" name="workExperienceInfoDtos[1].id" type="hidden" value="34">
+                   <div class="col-md-6">
+                     <div class="mb-3">
+                       <label class="form-label" for="years">
+@@ -161,8 +163,8 @@
+                   <i class="bi bi-plus-lg me-1">
+                   Add work experience info
+               <div id="educationInfos">
+-                <input ,="" class="form-control" id="educationInfoDtos0.id" name="educationInfoDtos[0].id" placeholder="Id" type="hidden" value="33">
+                 <div class="mb-3 row">
++                  <input class="form-control" id="educationInfoDtos0.id" name="educationInfoDtos[0].id" type="hidden" value="33">
+                   <div class="col-md-6">
+                     <div class="mb-3">
+                       <label class="form-label" for="degree">
+@@ -194,8 +196,8 @@
+                     <button class="btn btn-outline-danger delete-education" id="deleteEducationInfoButton" type="button">
+                       <i class="bi bi-trash me-1">
+                       Delete
+-                <input ,="" class="form-control" id="educationInfoDtos1.id" name="educationInfoDtos[1].id" placeholder="Id" type="hidden" value="34">
+                 <div class="mb-3 row">
++                  <input class="form-control" id="educationInfoDtos1.id" name="educationInfoDtos[1].id" type="hidden" value="34">
+                   <div class="col-md-6">
+                     <div class="mb-3">
+                       <label class="form-label" for="degree">
+@@ -307,4 +309,5 @@
+     <script id="dto-education-info-length" type="application/json">
+       1
+     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
++    <script src="/static/scripts/scripts.js">
+     <script src="/static/scripts/resume/resume.js">
+60 differs   POST /skills/save_resume_storage id=34&name=Kotlin engineer II&categoryId=1&salary=3200&pageName=skills/resumes/update_skills
+--- recorded 60.html
++++ now
+@@ -19,7 +19,7 @@
+             <form action="/skills" class="g-2 row" method="GET">
+               <div class="col-md-8">
+                 <input class="form-control" name="skillName" placeholder="Введите навык..." type="text">
+-              <input name="pageName" type="hidden" value="skills/resumes_update_skills">
++                <input name="pageName" type="hidden" value="skills/resumes_update_skills">
+               <div class="col-md-4">
+                 <button class="btn btn-primary w-100" type="submit">
+                   <i class="bi bi-search me-2">
+61 differs   GET /resumes/users
+--- recorded 61.html
++++ now
+@@ -1,3 +1,4 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+     <link href="/static/css/resume.css" rel="stylesheet">
+@@ -9,77 +10,77 @@
+     <title>
+       Job Search
+   <body class="bg-light">
++    <style>
++      .d-flex { position: relative; }
++    <meta charset="UTF-8">
++    <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" name="viewport">
++    <meta content="ie=edge" http-equiv="X-UA-Compatible">
++    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
++    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
++    <title>
++      Job Search
++    <nav class="bg-dark navbar navbar-dark navbar-expand-lg sticky-top">
++      <div class="container">
++        <a class="navbar-brand" href="#">
++          <i class="bi bi-briefcase me-2">
++          Job Search
++        <button class="navbar-toggler" data-bs-target="#navbarContent" data-bs-toggle="collapse" type="button">
++          <span class="navbar-toggler-icon">
++        <div class="collapse navbar-collapse" id="navbarContent">
++          <ul class="me-auto navbar-nav">
++            <li class="nav-item">
++              <a class="nav-link" href="/vacancies/actives" onclick="sendUri(event)">
++                <i class="bi bi-search me-1">
++                Vacancies
++            <li class="dropdown nav-item">
++              <a aria-expanded="false" class="dropdown-toggle nav-link" data-bs-toggle="dropdown" href="#" id="dropdownMenuButton1" role="button">
++                🌐 Language
++              <ul aria-labelledby="dropdownMenuButton1" class="dropdown-menu z-3">
++                <li>
++                  <form action="/api/locale" method="POST">
++                    <input name="_csrf" type="hidden" value="MASKED">
++                    <input name="lang" type="hidden" value="en">
++                    <button class="dropdown-item" type="submit">
++                      🇺🇸 English
++                <li>
++                  <form action="/api/locale" method="POST">
++                    <input name="_csrf" type="hidden" value="MASKED">
++                    <input name="lang" type="hidden" value="ru">
++                    <button class="dropdown-item" type="submit">
++                      🇷🇺 Русский
++            <li class="nav-item">
++              <a class="nav-link" href="/companies">
++                <i class="bi bi-file-earmark-text me-1">
++                Companies
++            <li class="nav-item">
++              <a class="nav-link" href="/responds/users">
++                <i class="bi-people">
++                Responses
++            <li class="nav-item">
++              <a class="nav-link" href="/messages/job_seeker">
++                <i class="bi bi-chat-dots me-1">
++                Messages
++            <li class="nav-item">
++              <a class="nav-link" href="/groups">
++                <i class="bi-person-lines-fill">
++                Groups
++            <li class="nav-item">
++              <a class="nav-link" href="/users/profile">
++                <i class="bi bi-clock-history me-1">
++                Profile
++            <li class="nav-item">
++              <a class="nav-link" href="/search">
++                <i class="bi bi-search me-1">
++                Search
++            <li class="nav-item">
++              <a class="nav-link" href="/channel">
++                <i class="bi bi-youtube me-1" style="color:#414d5b;">
++                Channel
++          <a class="btn btn-outline-light me-2" href="/auth/logout">
++            <i class="bi bi-box-arrow-in-right me-1">
++            Logout
++    <script src="/static/scripts/vacancy/vacancies-filter.js">
+     <header>
+-      <style>
+-        .d-flex { position: relative; }
+-      <meta charset="UTF-8">
+-      <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" name="viewport">
+-      <meta content="ie=edge" http-equiv="X-UA-Compatible">
+-      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+-      <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+-      <title>
+-        Job Search
+-      <nav class="bg-dark navbar navbar-dark navbar-expand-lg sticky-top">
+-        <div class="container">
+-          <a class="navbar-brand" href="#">
+-            <i class="bi bi-briefcase me-2">
+-            Job Search
+-          <button class="navbar-toggler" data-bs-target="#navbarContent" data-bs-toggle="collapse" type="button">
+-            <span class="navbar-toggler-icon">
+-          <div class="collapse navbar-collapse" id="navbarContent">
+-            <ul class="me-auto navbar-nav">
+-              <li class="nav-item">
+-                <a class="nav-link" href="/vacancies/actives" onclick="sendUri(event)">
+-                  <i class="bi bi-search me-1">
+-                  Vacancies
+-              <li class="dropdown nav-item">
+-                <a aria-expanded="false" class="dropdown-toggle nav-link" data-bs-toggle="dropdown" href="#" id="dropdownMenuButton1" role="button">
+-                  🌐 Language
+-                <ul aria-labelledby="dropdownMenuButton1" class="dropdown-menu z-3">
+-                  <li>
+-                    <form action="/api/locale" method="POST">
+-                      <input name="_csrf" type="hidden" value="MASKED">
+-                      <input name="lang" type="hidden" value="en">
+-                      <button class="dropdown-item" type="submit">
+-                        🇺🇸 English
+-                  <li>
+-                    <form action="/api/locale" method="POST">
+-                      <input name="_csrf" type="hidden" value="MASKED">
+-                      <input name="lang" type="hidden" value="ru">
+-                      <button class="dropdown-item" type="submit">
+-                        🇷🇺 Русский
+-              <li class="nav-item">
+-                <a class="nav-link" href="/companies">
+... 42 more diff line(s)
+62 same      POST /skills/save_vacancy_storage name=Draft vacancy&categoryId=1&salary=100&pageName=skills/vacancies/new_skills
+63 differs   GET /skills/new_vacancy
+--- recorded 63.html
++++ now
+@@ -32,68 +32,6 @@
+                   <select class="form-select" id="categoryId" name="categoryId">
+                     <option value="">
+                       Select Category
+-                    <option selected value="1">
+-                      It
+-                    <option value="2">
+-                      UUI Designer
+-                    <option value="3">
+-                      Marketing
+-                    <option value="4">
+-                      Sales
+-                    <option value="5">
+-                      Design
+-                    <option value="6">
+-                      HR
+-                    <option value="7">
+-                      Finance
+-                    <option value="8">
+-                      Operations
+-                    <option value="9">
+-                      Customer Support
+-                    <option value="10">
+-                      Engineering
+-                    <option value="11">
+-                      Business Development
+-                    <option value="12">
+-                      Product Management
+-                    <option value="13">
+-                      Data Science
+-                    <option value="14">
+-                      Legal
+-                    <option value="15">
+-                      Project Management
+-                    <option value="16">
+-                      Quality Assurance
+-                    <option value="17">
+-                      Public Relations
+-                    <option value="18">
+-                      Research and Development
+-                    <option value="19">
+-                      Content Creation
+-                    <option value="20">
+-                      Administration
+-                    <option value="21">
+-                      Supply Chain
+-                    <option value="22">
+-                      Consulting
+-                    <option value="23">
+-                      Customer Success
+-                    <option value="24">
+-                      Creative Direction
+-                    <option value="25">
+-                      Event Management
+-                    <option value="26">
+-                      Real Estate
+-                    <option value="27">
+-                      Accounting
+-                    <option value="28">
+-                      Security
+-                    <option value="29">
+-                      Procurement
+-                    <option value="30">
+-                      User Experience
+-                    <option value="31">
+-                      Training
+                 <div class="col-md-6">
+                   <label class="form-label" for="salary">
+                     <i class="bi bi-cash-coin form-icon me-2">
+@@ -112,7 +50,7 @@
+                   <input class="form-control" id="expTo" name="expTo" placeholder="5" type="text">
+               <div class="mb-3">
+                 <label class="form-label" for="description">
+-                  <i class="bi bi-card-text form-icon me-2">
++                  <i class="bi bi-file-text form-icon me-2">
+                   Description
+                 <textarea class="form-control" id="description" name="description" placeholder="Vacancy Description" rows="4">
+               <div class="form-check form-switch mb-4">
+64 differs   POST /vacancies/new_vacancy name=X!&categoryId=&salary=-1&expFrom=9&expTo=20&description=
+--- recorded 64.html
++++ now
+@@ -125,7 +125,7 @@
+                     value max size should be equals 10
+               <div class="mb-3">
+                 <label class="form-label" for="description">
+-                  <i class="bi bi-card-text form-icon me-2">
++                  <i class="bi bi-file-text form-icon me-2">
+                   Description
+                 <textarea class="form-control" id="description" name="description" placeholder="Vacancy Description" rows="4">
+               <div class="form-check form-switch mb-4">
+65 differs   GET /resumes/users
+--- recorded 65.html
++++ now
+@@ -1,3 +1,4 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+     <link href="/static/css/resume.css" rel="stylesheet">
+@@ -9,77 +10,77 @@
+     <title>
+       Job Search
+   <body class="bg-light">
++    <style>
++      .d-flex { position: relative; }
++    <meta charset="UTF-8">
++    <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" name="viewport">
++    <meta content="ie=edge" http-equiv="X-UA-Compatible">
++    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
++    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
++    <title>
++      Job Search
++    <nav class="bg-dark navbar navbar-dark navbar-expand-lg sticky-top">
++      <div class="container">
++        <a class="navbar-brand" href="#">
++          <i class="bi bi-briefcase me-2">
++          Job Search
++        <button class="navbar-toggler" data-bs-target="#navbarContent" data-bs-toggle="collapse" type="button">
++          <span class="navbar-toggler-icon">
++        <div class="collapse navbar-collapse" id="navbarContent">
++          <ul class="me-auto navbar-nav">
++            <li class="nav-item">
++              <a class="nav-link" href="/vacancies/actives" onclick="sendUri(event)">
++                <i class="bi bi-search me-1">
++                Vacancies
++            <li class="dropdown nav-item">
++              <a aria-expanded="false" class="dropdown-toggle nav-link" data-bs-toggle="dropdown" href="#" id="dropdownMenuButton1" role="button">
++                🌐 Language
++              <ul aria-labelledby="dropdownMenuButton1" class="dropdown-menu z-3">
++                <li>
++                  <form action="/api/locale" method="POST">
++                    <input name="_csrf" type="hidden" value="MASKED">
++                    <input name="lang" type="hidden" value="en">
++                    <button class="dropdown-item" type="submit">
++                      🇺🇸 English
++                <li>
++                  <form action="/api/locale" method="POST">
++                    <input name="_csrf" type="hidden" value="MASKED">
++                    <input name="lang" type="hidden" value="ru">
++                    <button class="dropdown-item" type="submit">
++                      🇷🇺 Русский
++            <li class="nav-item">
++              <a class="nav-link" href="/companies">
++                <i class="bi bi-file-earmark-text me-1">
++                Companies
++            <li class="nav-item">
++              <a class="nav-link" href="/responds/users">
++                <i class="bi-people">
++                Responses
++            <li class="nav-item">
++              <a class="nav-link" href="/messages/job_seeker">
++                <i class="bi bi-chat-dots me-1">
++                Messages
++            <li class="nav-item">
++              <a class="nav-link" href="/groups">
++                <i class="bi-person-lines-fill">
++                Groups
++            <li class="nav-item">
++              <a class="nav-link" href="/users/profile">
++                <i class="bi bi-clock-history me-1">
++                Profile
++            <li class="nav-item">
++              <a class="nav-link" href="/search">
++                <i class="bi bi-search me-1">
++                Search
++            <li class="nav-item">
++              <a class="nav-link" href="/channel">
++                <i class="bi bi-youtube me-1" style="color:#414d5b;">
++                Channel
++          <a class="btn btn-outline-light me-2" href="/auth/logout">
++            <i class="bi bi-box-arrow-in-right me-1">
++            Logout
++    <script src="/static/scripts/vacancy/vacancies-filter.js">
+     <header>
+-      <style>
+-        .d-flex { position: relative; }
+-      <meta charset="UTF-8">
+-      <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" name="viewport">
+-      <meta content="ie=edge" http-equiv="X-UA-Compatible">
+-      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+-      <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+-      <title>
+-        Job Search
+-      <nav class="bg-dark navbar navbar-dark navbar-expand-lg sticky-top">
+-        <div class="container">
+-          <a class="navbar-brand" href="#">
+-            <i class="bi bi-briefcase me-2">
+-            Job Search
+-          <button class="navbar-toggler" data-bs-target="#navbarContent" data-bs-toggle="collapse" type="button">
+-            <span class="navbar-toggler-icon">
+-          <div class="collapse navbar-collapse" id="navbarContent">
+-            <ul class="me-auto navbar-nav">
+-              <li class="nav-item">
+-                <a class="nav-link" href="/vacancies/actives" onclick="sendUri(event)">
+-                  <i class="bi bi-search me-1">
+-                  Vacancies
+-              <li class="dropdown nav-item">
+-                <a aria-expanded="false" class="dropdown-toggle nav-link" data-bs-toggle="dropdown" href="#" id="dropdownMenuButton1" role="button">
+-                  🌐 Language
+-                <ul aria-labelledby="dropdownMenuButton1" class="dropdown-menu z-3">
+-                  <li>
+-                    <form action="/api/locale" method="POST">
+-                      <input name="_csrf" type="hidden" value="MASKED">
+-                      <input name="lang" type="hidden" value="en">
+-                      <button class="dropdown-item" type="submit">
+-                        🇺🇸 English
+-                  <li>
+-                    <form action="/api/locale" method="POST">
+-                      <input name="_csrf" type="hidden" value="MASKED">
+-                      <input name="lang" type="hidden" value="ru">
+-                      <button class="dropdown-item" type="submit">
+-                        🇷🇺 Русский
+-              <li class="nav-item">
+-                <a class="nav-link" href="/companies">
+... 42 more diff line(s)
+66 differs   POST /skills/save_vacancy_storage vacancyId=1&name=Junior Java Dev&categoryId=1&salary=9000&pageName=skills/vacancies/update_skills
+--- recorded 66.html
++++ now
+@@ -19,7 +19,7 @@
+             <form action="/skills" class="g-2 row" method="GET">
+               <div class="col-md-8">
+                 <input class="form-control" name="skillName" placeholder="Введите навык..." type="text">
+-              <input name="pageName" type="hidden" value="skills/vacancies_update_skills">
++                <input name="pageName" type="hidden" value="skills/vacancies_update_skills">
+               <div class="col-md-4">
+                 <button class="btn btn-primary w-100" type="submit">
+                   <i class="bi bi-search me-2">
+67 differs   GET /skills/update_vacancy
+--- recorded 67.html
++++ now
+@@ -33,68 +33,6 @@
+                   <select class="form-select" id="categoryId" name="categoryId">
+                     <option value="">
+                       Select Category
+-                    <option selected value="1">
+-                      It
+-                    <option value="2">
+-                      UUI Designer
+-                    <option value="3">
+-                      Marketing
+-                    <option value="4">
+-                      Sales
+-                    <option value="5">
+-                      Design
+-                    <option value="6">
+-                      HR
+-                    <option value="7">
+-                      Finance
+-                    <option value="8">
+-                      Operations
+-                    <option value="9">
+-                      Customer Support
+-                    <option value="10">
+-                      Engineering
+-                    <option value="11">
+-                      Business Development
+-                    <option value="12">
+-                      Product Management
+-                    <option value="13">
+-                      Data Science
+-                    <option value="14">
+-                      Legal
+-                    <option value="15">
+-                      Project Management
+-                    <option value="16">
+-                      Quality Assurance
+-                    <option value="17">
+-                      Public Relations
+-                    <option value="18">
+-                      Research and Development
+-                    <option value="19">
+-                      Content Creation
+-                    <option value="20">
+-                      Administration
+-                    <option value="21">
+-                      Supply Chain
+-                    <option value="22">
+-                      Consulting
+-                    <option value="23">
+-                      Customer Success
+-                    <option value="24">
+-                      Creative Direction
+-                    <option value="25">
+-                      Event Management
+-                    <option value="26">
+-                      Real Estate
+-                    <option value="27">
+-                      Accounting
+-                    <option value="28">
+-                      Security
+-                    <option value="29">
+-                      Procurement
+-                    <option value="30">
+-                      User Experience
+-                    <option value="31">
+-                      Training
+                 <div class="col-md-6">
+                   <label class="form-label" for="salary">
+                     <i class="bi bi-cash-coin form-icon me-2">
+@@ -113,7 +51,7 @@
+                   <input class="form-control" id="expTo" name="expTo" placeholder="5" type="text">
+               <div class="mb-3">
+                 <label class="form-label" for="description">
+-                  <i class="bi bi-card-text form-icon me-2">
++                  <i class="bi bi-file-text form-icon me-2">
+                   Description
+                 <textarea class="form-control" id="description" name="description" placeholder="Vacancy Description" rows="4">
+               <div class="form-check form-switch mb-4">
+68 differs   POST /vacancies/update/vacancy vacancyId=1&name=&categoryId=1&salary=&expFrom=-1&expTo=&description=
+--- recorded 68.html
++++ now
+@@ -26,10 +26,10 @@
+                   Vacancy Name
+                 <input class="form-control" id="name" name="name" placeholder="Enter Name" type="text">
+                 <span class="small text-danger">
+-                  Value length must be between 3 and 30 characters
++                  Value must not be empty
+                 <br>
+                 <span class="small text-danger">
+-                  Value must not be empty
++                  Value length must be between 3 and 30 characters
+                 <br>
+                 <span class="small text-danger">
+                   Value must not contain numbers, symbols, or spaces
+@@ -127,7 +127,7 @@
+                     expTo is null
+               <div class="mb-3">
+                 <label class="form-label" for="description">
+-                  <i class="bi bi-card-text form-icon me-2">
++                  <i class="bi bi-file-text form-icon me-2">
+                   Description
+                 <textarea class="form-control" id="description" name="description" placeholder="Vacancy Description" rows="4">
+               <div class="form-check form-switch mb-4">
+69 same      GET /vacancies/users
+70 differs   GET /resumes/sort?categoryName=It&size=50
+--- recorded 70.html
++++ now
+@@ -1,3 +1,4 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+     <link href="/static/css/resume.css" rel="stylesheet">
+@@ -9,77 +10,77 @@
+     <title>
+       Job Search
+   <body class="bg-light">
++    <style>
++      .d-flex { position: relative; }
++    <meta charset="UTF-8">
++    <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" name="viewport">
++    <meta content="ie=edge" http-equiv="X-UA-Compatible">
++    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
++    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
++    <title>
++      Job Search
++    <nav class="bg-dark navbar navbar-dark navbar-expand-lg sticky-top">
++      <div class="container">
++        <a class="navbar-brand" href="#">
++          <i class="bi bi-briefcase me-2">
++          Job Search
++        <button class="navbar-toggler" data-bs-target="#navbarContent" data-bs-toggle="collapse" type="button">
++          <span class="navbar-toggler-icon">
++        <div class="collapse navbar-collapse" id="navbarContent">
++          <ul class="me-auto navbar-nav">
++            <li class="nav-item">
++              <a class="nav-link" href="/vacancies/actives" onclick="sendUri(event)">
++                <i class="bi bi-search me-1">
++                Vacancies
++            <li class="dropdown nav-item">
++              <a aria-expanded="false" class="dropdown-toggle nav-link" data-bs-toggle="dropdown" href="#" id="dropdownMenuButton1" role="button">
++                🌐 Language
++              <ul aria-labelledby="dropdownMenuButton1" class="dropdown-menu z-3">
++                <li>
++                  <form action="/api/locale" method="POST">
++                    <input name="_csrf" type="hidden" value="MASKED">
++                    <input name="lang" type="hidden" value="en">
++                    <button class="dropdown-item" type="submit">
++                      🇺🇸 English
++                <li>
++                  <form action="/api/locale" method="POST">
++                    <input name="_csrf" type="hidden" value="MASKED">
++                    <input name="lang" type="hidden" value="ru">
++                    <button class="dropdown-item" type="submit">
++                      🇷🇺 Русский
++            <li class="nav-item">
++              <a class="nav-link" href="/companies">
++                <i class="bi bi-file-earmark-text me-1">
++                Companies
++            <li class="nav-item">
++              <a class="nav-link" href="/responds/users">
++                <i class="bi-people">
++                Responses
++            <li class="nav-item">
++              <a class="nav-link" href="/messages/job_seeker">
++                <i class="bi bi-chat-dots me-1">
++                Messages
++            <li class="nav-item">
++              <a class="nav-link" href="/groups">
++                <i class="bi-person-lines-fill">
++                Groups
++            <li class="nav-item">
++              <a class="nav-link" href="/users/profile">
++                <i class="bi bi-clock-history me-1">
++                Profile
++            <li class="nav-item">
++              <a class="nav-link" href="/search">
++                <i class="bi bi-search me-1">
++                Search
++            <li class="nav-item">
++              <a class="nav-link" href="/channel">
++                <i class="bi bi-youtube me-1" style="color:#414d5b;">
++                Channel
++          <a class="btn btn-outline-light me-2" href="/auth/logout">
++            <i class="bi bi-box-arrow-in-right me-1">
++            Logout
++    <script src="/static/scripts/vacancy/vacancies-filter.js">
+     <header>
+-      <style>
+-        .d-flex { position: relative; }
+-      <meta charset="UTF-8">
+-      <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" name="viewport">
+-      <meta content="ie=edge" http-equiv="X-UA-Compatible">
+-      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+-      <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+-      <title>
+-        Job Search
+-      <nav class="bg-dark navbar navbar-dark navbar-expand-lg sticky-top">
+-        <div class="container">
+-          <a class="navbar-brand" href="#">
+-            <i class="bi bi-briefcase me-2">
+-            Job Search
+-          <button class="navbar-toggler" data-bs-target="#navbarContent" data-bs-toggle="collapse" type="button">
+-            <span class="navbar-toggler-icon">
+-          <div class="collapse navbar-collapse" id="navbarContent">
+-            <ul class="me-auto navbar-nav">
+-              <li class="nav-item">
+-                <a class="nav-link" href="/vacancies/actives" onclick="sendUri(event)">
+-                  <i class="bi bi-search me-1">
+-                  Vacancies
+-              <li class="dropdown nav-item">
+-                <a aria-expanded="false" class="dropdown-toggle nav-link" data-bs-toggle="dropdown" href="#" id="dropdownMenuButton1" role="button">
+-                  🌐 Language
+-                <ul aria-labelledby="dropdownMenuButton1" class="dropdown-menu z-3">
+-                  <li>
+-                    <form action="/api/locale" method="POST">
+-                      <input name="_csrf" type="hidden" value="MASKED">
+-                      <input name="lang" type="hidden" value="en">
+-                      <button class="dropdown-item" type="submit">
+-                        🇺🇸 English
+-                  <li>
+-                    <form action="/api/locale" method="POST">
+-                      <input name="_csrf" type="hidden" value="MASKED">
+-                      <input name="lang" type="hidden" value="ru">
+-                      <button class="dropdown-item" type="submit">
+-                        🇷🇺 Русский
+-              <li class="nav-item">
+-                <a class="nav-link" href="/companies">
+... 124 more diff line(s)
+71 differs   GET /groups
+--- recorded 71.html
++++ now
+@@ -1,3 +1,4 @@
++<!doctype html>
+ <html lang="en">
+   <head>
+     <link href="/static/css/groups.css" rel="stylesheet">
+@@ -96,3 +97,5 @@
+           <p class="text-muted">
+             Нажмите кнопку "Создать группу" чтобы добавить новую
+     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
++    <script>
++      document.querySelectorAll('tr[data-href]').forEach(function (row) { row.addEventListener('click', function () { window.location.href = row.getAttribute('data-href'); }); });
+72 differs   GET /groups/new_groups
+--- recorded 72.html
++++ now
+@@ -94,7 +94,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-users fas">
+-                <input '')="" (spring.status.error?then('="" +="" class="form-control" id="name" is-invalid',="" name="name" type="text">
++                <input class="form-control" id="name" name="name" type="text">
+             <div class="mb-4">
+               <label class="form-label" for="image">
+                 Изображение группы
+73 differs   POST /groups/new_groups name=
+--- recorded 73.html
++++ now
+@@ -94,7 +94,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-users fas">
+-                <input '')="" (spring.status.error?then('="" +="" class="form-control" id="name" is-invalid',="" name="name" type="text">
++                <input class="form-control" id="name" name="name" type="text">
+               <span class="invalid-feedback">
+                 Имя группы обязательно
+             <div class="mb-4">
+74 differs   GET /groups/new_groups
+--- recorded 74.html
++++ now
+@@ -94,7 +94,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-users fas">
+-                <input '')="" (spring.status.error?then('="" +="" class="form-control" id="name" is-invalid',="" name="name" type="text">
++                <input class="form-control" id="name" name="name" type="text">
+             <div class="mb-4">
+               <label class="form-label" for="image">
+                 Изображение группы
+75 differs   POST /groups/new_groups name=Kotlin fans
+--- recorded 75.html
++++ now
+@@ -94,7 +94,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-users fas">
+-                <input '')="" (spring.status.error?then('="" +="" class="form-control" id="name" is-invalid',="" name="name" type="text" value="Kotlin fans">
++                <input class="form-control" id="name" name="name" type="text" value="Kotlin fans">
+             <div class="mb-4">
+               <label class="form-label" for="image">
+                 Изображение группы
+76 same      GET /groups/generate/link/1
+77 same      GET /channel
+78 differs   GET /channel/new_channel
+--- recorded 78.html
++++ now
+@@ -94,7 +94,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-at fas">
+-                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text">
++                <input +="" class="form-control" id="login" name="login" type="text">
+               <div class="form-text">
+                 3-50 characters, must be unique
+             <div class="mb-4">
+79 differs   POST /channel/create login=&description=&channelAccess=
+--- recorded 79.html
++++ now
+@@ -94,12 +94,12 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-at fas">
+-                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text">
++                <input +="" class="form-control" id="login" name="login" type="text">
+               <span class="invalid-feedback">
+-                Login must not be blank
++                size must be between 3 and 50
+               <br>
+               <span class="invalid-feedback">
+-                size must be between 3 and 50
++                Login must not be blank
+               <div class="form-text">
+                 3-50 characters, must be unique
+             <div class="mb-4">
+80 differs   GET /channel/new_channel
+--- recorded 80.html
++++ now
+@@ -94,7 +94,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-at fas">
+-                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text">
++                <input +="" class="form-control" id="login" name="login" type="text">
+               <div class="form-text">
+                 3-50 characters, must be unique
+             <div class="mb-4">
+81 same      POST /channel/create login=annchannel&description=Talks about <i>Kotlin</i>&channelAccess=PUBLIC
+82 same      GET /channel
+83 differs   GET /channel/update_channel/1
+--- recorded 83.html
++++ now
+@@ -95,7 +95,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-at fas">
+-                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text" value="annchannel">
++                <input +="" class="form-control" id="login" name="login" type="text" value="annchannel">
+               <div class="form-text">
+                 3-50 characters, must be unique
+             <div class="mb-4">
+84 differs   POST /channel/update id=1&login=&description=&channelAccess=
+--- recorded 84.html
++++ now
+@@ -95,12 +95,12 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-at fas">
+-                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text">
++                <input +="" class="form-control" id="login" name="login" type="text">
+               <span class="invalid-feedback">
+-                Login must not be blank
++                size must be between 3 and 50
+               <br>
+               <span class="invalid-feedback">
+-                size must be between 3 and 50
++                Login must not be blank
+               <div class="form-text">
+                 3-50 characters, must be unique
+             <div class="mb-4">
+85 differs   GET /channel/update_channel/1
+--- recorded 85.html
++++ now
+@@ -95,7 +95,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-at fas">
+-                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text" value="annchannel">
++                <input +="" class="form-control" id="login" name="login" type="text" value="annchannel">
+               <div class="form-text">
+                 3-50 characters, must be unique
+             <div class="mb-4">
+86 same      POST /channel/update id=1&login=annchannel2&description=Kotlin talks&channelAccess=PRIVATE
+87 same      GET /videos/channel/1
+88 same      GET /videos/new_video/1
+89 same      POST /videos/create title=&description=&channelDto.id=1
+90 same      GET /videos/channel/1
+91 same      GET /vacancies/new_vacancy
+92 same      GET /auth/logout
+tessera-migrate compare: 92 page(s): 46 same, 3 reordered, 43 differ

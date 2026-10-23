@@ -11,21 +11,7 @@
 11 same      POST /owners/new firstName=&lastName=&address=&city=&telephone=abc
 12 same      POST /owners/new firstName=Ann&lastName=O'Neil <b>&address=1 Main St&city=Madison&telephone=6085550000
 13 same      GET /owners/1/edit
-14 reordered POST /owners/1/edit firstName=George&lastName=Franklin&address=110 W. Liberty St.&city=Madison&telephone=
---- recorded 14.html
-+++ now
-@@ -81,9 +81,9 @@
-                   <input class="form-control" id="telephone" name="telephone" type="text">
-                 <span aria-hidden="true" class="fa fa-remove form-control-feedback">
-                 <span class="help-inline">
--                  Telephone must be a 10-digit number
--                  <br>
-                   must not be blank
-+                  <br>
-+                  Telephone must be a 10-digit number
-           <div class="form-group">
-             <div class="col-sm-10 col-sm-offset-2">
-               <button class="btn btn-primary" type="submit">
+14 same      POST /owners/1/edit firstName=George&lastName=Franklin&address=110 W. Liberty St.&city=Madison&telephone=
 15 same      POST /owners/1/edit firstName=George&lastName=Franklin&address=111 W. Liberty St.&city=Madison&telephone=6085551023
 16 same      GET /owners/1/pets/new
 17 same      POST /owners/1/pets/new name=&birthDate=&type=cat
@@ -42,4 +28,4 @@
 28 same      GET /vets.html?page=2
 29 same      GET /oups
 30 same      GET /no-such-page
-tessera-migrate compare: 30 page(s): 29 same, 1 reordered, 0 differ
+tessera-migrate compare: 30 page(s): 30 same, 0 reordered, 0 differ

@@ -1,0 +1,213 @@
+01 same      GET /
+02 same      GET /owners/find
+03 differs   GET /owners?lastName=
+--- recorded 03.html
++++ now
+@@ -129,22 +129,22 @@
+             Pages:
+           <span>
+             [
+-          <span">
++          <span>
+             <span>
+               1
+-            <span">
+-              <a href="/owners?page=2">
+-                2
+-              <span>
+-                ]&nbsp;
+-              <span>
+-                <span class="fa fa-fast-backward" title="First">
+-              <span>
+-                <span class="fa fa-step-backward" title="Previous">
+-              <span>
+-                <a class="fa fa-step-forward" href="/owners?page=2" title="Next">
+-              <span>
+-                <a class="fa fa-fast-forward" href="/owners?page=2" title="Last">
++          <span>
++            <a href="/owners?page=2">
++              2
++          <span>
++            ]&nbsp;
++          <span>
++            <span class="fa fa-fast-backward" title="First">
++          <span>
++            <span class="fa fa-step-backward" title="Previous">
++          <span>
++            <a class="fa fa-step-forward" href="/owners?page=2" title="Next">
++          <span>
++            <a class="fa fa-fast-forward" href="/owners?page=2" title="Last">
+         <br>
+         <br>
+         <div class="container">
+04 differs   GET /owners?lastName=&page=2
+--- recorded 04.html
++++ now
+@@ -131,22 +131,22 @@
+             Pages:
+           <span>
+             [
+-          <span">
++          <span>
+             <a href="/owners?page=1">
+               1
+-            <span">
+-              <span>
+-                2
+-              <span>
+-                ]&nbsp;
+-              <span>
+-                <a class="fa fa-fast-backward" href="/owners?page=1" title="First">
+-              <span>
+-                <a class="fa fa-step-backward" href="/owners?page=1" title="Previous">
+-              <span>
+-                <span class="fa fa-step-forward" title="Next">
+-              <span>
+-                <span class="fa fa-fast-forward" title="Last">
++          <span>
++            <span>
++              2
++          <span>
++            ]&nbsp;
++          <span>
++            <a class="fa fa-fast-backward" href="/owners?page=1" title="First">
++          <span>
++            <a class="fa fa-step-backward" href="/owners?page=1" title="Previous">
++          <span>
++            <span class="fa fa-step-forward" title="Next">
++          <span>
++            <span class="fa fa-fast-forward" title="Last">
+         <br>
+         <br>
+         <div class="container">
+05 same      GET /owners?lastName=Davis
+06 same      GET /owners?lastName=Franklin
+07 same      GET /owners?lastName=Nobody
+08 same      GET /owners/1
+09 same      GET /owners/3
+10 same      GET /owners/new
+11 same      POST /owners/new firstName=&lastName=&address=&city=&telephone=abc
+12 same      POST /owners/new firstName=Ann&lastName=O'Neil <b>&address=1 Main St&city=Madison&telephone=6085550000
+13 same      GET /owners/1/edit
+14 same      POST /owners/1/edit firstName=George&lastName=Franklin&address=110 W. Liberty St.&city=Madison&telephone=
+15 same      POST /owners/1/edit firstName=George&lastName=Franklin&address=111 W. Liberty St.&city=Madison&telephone=6085551023
+16 same      GET /owners/1/pets/new
+17 same      POST /owners/1/pets/new name=&birthDate=2020-01-01&type=cat
+18 same      POST /owners/1/pets/new name=Leo&birthDate=2020-01-01&type=cat
+19 same      POST /owners/1/pets/new name=Fluffy&birthDate=2020-01-01&type=hamster
+20 same      GET /owners/1/pets/1/edit
+21 same      POST /owners/1/pets/1/edit id=1&name=Leo&birthDate=2099-01-01&type=cat
+22 same      POST /owners/1/pets/1/edit id=1&name=Leo II&birthDate=2010-09-07&type=dog
+23 same      GET /owners/6/pets/7/visits/new
+24 same      POST /owners/6/pets/7/visits/new date=2024-01-01&description=
+25 same      POST /owners/6/pets/7/visits/new date=2024-01-01&description=Check <up>
+26 same      GET /owners/6
+27 differs   GET /vets.html
+--- recorded 27.html
++++ now
+@@ -56,22 +56,22 @@
+             Pages:
+           <span>
+             [
+-          <span">
++          <span>
+             <span>
+               1
+-            <span">
+-              <a href="/vets.html?page=2">
+-                2
+-              <span>
+-                ]&nbsp;
+-              <span>
+-                <span class="fa fa-fast-backward" title="First">
+-              <span>
+-                <span class="fa fa-step-backward" title="Previous">
+-              <span>
+-                <a class="fa fa-step-forward" href="/vets.html?page=2" title="Next">
+-              <span>
+-                <a class="fa fa-fast-forward" href="/vets.html?page=2" title="Last">
++          <span>
++            <a href="/vets.html?page=2">
++              2
++          <span>
++            ]&nbsp;
++          <span>
++            <span class="fa fa-fast-backward" title="First">
++          <span>
++            <span class="fa fa-step-backward" title="Previous">
++          <span>
++            <a class="fa fa-step-forward" href="/vets.html?page=2" title="Next">
++          <span>
++            <a class="fa fa-fast-forward" href="/vets.html?page=2" title="Last">
+         <br>
+         <br>
+         <div class="container">
+28 differs   GET /vets.html?page=2
+--- recorded 28.html
++++ now
+@@ -56,22 +56,22 @@
+             Pages:
+           <span>
+             [
+-          <span">
++          <span>
+             <a href="/vets.html?page=1">
+               1
+-            <span">
+-              <span>
+-                2
+-              <span>
+-                ]&nbsp;
+-              <span>
+-                <a class="fa fa-fast-backward" href="/vets.html?page=1" title="First">
+-              <span>
+-                <a class="fa fa-step-backward" href="/vets.html?page=1" title="Previous">
+-              <span>
+-                <span class="fa fa-step-forward" title="Next">
+-              <span>
+-                <span class="fa fa-fast-forward" title="Last">
++          <span>
++            <span>
++              2
++          <span>
++            ]&nbsp;
++          <span>
++            <a class="fa fa-fast-backward" href="/vets.html?page=1" title="First">
++          <span>
++            <a class="fa fa-step-backward" href="/vets.html?page=1" title="Previous">
++          <span>
++            <span class="fa fa-step-forward" title="Next">
++          <span>
++            <span class="fa fa-fast-forward" title="Last">
+         <br>
+         <br>
+         <div class="container">
+29 differs   GET /oups
+--- recorded 29.html
++++ now
+@@ -46,10 +46,3 @@
+           Something happened...
+         <p>
+           Expected: controller used to showcase what happens when an exception is thrown
+-        <br>
+-        <br>
+-        <div class="container">
+-          <div class="row">
+-            <div class="col-12 text-center">
+-              <img alt="Sponsored by Pivotal" src="/resources/images/spring-pivotal-logo.png">
+-    <script src="/webjars/bootstrap/5.1.3/dist/js/bootstrap.bundle.min.js">
+30 differs   GET /no-such-page
+--- recorded 30.html
++++ now
+@@ -46,10 +46,3 @@
+           Something happened...
+         <p>
+           No static resource no-such-page.
+-        <br>
+-        <br>
+-        <div class="container">
+-          <div class="row">
+-            <div class="col-12 text-center">
+-              <img alt="Sponsored by Pivotal" src="/resources/images/spring-pivotal-logo.png">
+-    <script src="/webjars/bootstrap/5.1.3/dist/js/bootstrap.bundle.min.js">
+tessera-migrate compare: 30 page(s): 24 same, 0 reordered, 6 differ

@@ -25,14 +25,14 @@
                      – A longer, advanced session with detailed explanations, discussions, and time for audience questions.
                    <dd>
                      <select id="type" name="type">
--                      <option value="WORKSHOP">
--                        Workshop
-                       <option value="DEEP_DIVE">
-                         Deep Dive
-+                      <option value="WORKSHOP">
-+                        Workshop
+-                      <option value="DEEP_DIVE">
+-                        Deep Dive
                        <option selected value="CONFERENCE_SESSION">
                          Conference session
++                      <option value="DEEP_DIVE">
++                        Deep Dive
+                       <option value="WORKSHOP">
+                         Workshop
                  <dl>
 022 same      GET /cfp-thank-you
 023 same      GET /cfp-problem
@@ -113,14 +113,14 @@
                – A longer, advanced session with detailed explanations, discussions, and time for audience questions.
              <dd>
                <select id="type" name="type">
--                <option value="WORKSHOP">
--                  Workshop
-                 <option value="DEEP_DIVE">
-                   Deep Dive
-+                <option value="WORKSHOP">
-+                  Workshop
+-                <option value="DEEP_DIVE">
+-                  Deep Dive
                  <option selected value="CONFERENCE_SESSION">
                    Conference session
++                <option value="DEEP_DIVE">
++                  Deep Dive
+                 <option value="WORKSHOP">
+                   Workshop
            <dl>
 095 reordered GET /admin/submission/edit/2
 --- recorded 095.html
@@ -129,14 +129,14 @@
                – A longer, advanced session with detailed explanations, discussions, and time for audience questions.
              <dd>
                <select id="type" name="type">
--                <option selected value="WORKSHOP">
--                  Workshop
-                 <option value="DEEP_DIVE">
-                   Deep Dive
-+                <option selected value="WORKSHOP">
-+                  Workshop
+-                <option value="DEEP_DIVE">
+-                  Deep Dive
                  <option value="CONFERENCE_SESSION">
                    Conference session
++                <option value="DEEP_DIVE">
++                  Deep Dive
+                 <option selected value="WORKSHOP">
+                   Workshop
            <dl>
 096 same      GET /admin/registrant/view
 097 same      GET /admin/registrant/view?year=2020
