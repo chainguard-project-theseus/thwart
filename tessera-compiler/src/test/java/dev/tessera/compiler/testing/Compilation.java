@@ -133,6 +133,8 @@ public final class Compilation {
     private Integer release = Integer.getInteger("tessera.test.release");
     private Consumer<ProcessingEnvironment> callback;
     private Compilation upstream;
+    private final List<Processor> before = new ArrayList<>();
+    private final List<Processor> after = new ArrayList<>();
 
     /** Adds a template at {@code path} relative to the templates root, e.g. {@code owners/list.html}. */
     public Builder template(String path, String content) {
@@ -194,6 +196,15 @@ public final class Compilation {
       return this;
     }
 
+    /**
+     * Also runs {@code processor} (e.g. Lombok's), in the same rounds as Tessera's and ahead of it
+     * or after it in javac's processor order (#233).
+     */
+    public Builder processor(Processor processor, boolean beforeTessera) {
+      (beforeTessera ? before : after).add(processor);
+      return this;
+    }
+
     public Compilation compile() {
       Path dir = null;
       try {
@@ -247,7 +258,9 @@ public final class Compilation {
         if (callbackProcessor != null) {
           processors.add(callbackProcessor);
         }
+        processors.addAll(before);
         processors.add(new TesseraProcessor());
+        processors.addAll(after);
         JavaCompiler.CompilationTask task = javac.getTask(null, mem, collector, args, null, units);
         task.setProcessors(processors);
         boolean ok = task.call();
