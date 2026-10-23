@@ -125,13 +125,13 @@ final class ConversionRules {
   static final String IS_NEW = ".isNew()";
 
   /**
-   * A Thymeleaf literal token: a {@code th:} value made only of letters, digits, brackets, dots,
-   * hyphens and underscores is literal text ({@code th:class="nav-item"}), not an expression. It
-   * is quoted as a string literal. Numbers and {@link #TOKEN_KEYWORDS} mean the same in Tessera.
+   * Thymeleaf token runs that are not text literals (see {@code Expressions.quoteTokens}): numbers,
+   * and, compared in lower case, its boolean, null and no-op tokens and word operators. Every other
+   * token outside {@code ${...}} is literal text ({@code th:class="nav-item"}) and is quoted.
    */
-  static final Pattern LITERAL_TOKEN = Pattern.compile("[A-Za-z0-9\\[\\]._-]+");
-  static final Pattern NUMBER = Pattern.compile("\\d+(\\.\\d+)?");
-  static final Set<String> TOKEN_KEYWORDS = Compat.setOf("true", "false", "null");
+  static final Pattern NUMBER = Pattern.compile("\\d+\\.?\\d*|\\.\\d+");
+  static final Set<String> TOKEN_KEYWORDS = Compat.setOf("true", "false", "null", "_",
+      "and", "or", "not", "eq", "ne", "gt", "lt", "ge", "le", "div", "mod");
 
   /**
    * String-built links with a literal path and one query parameter, {@code @{'/p?k=' + ${x}}} and
