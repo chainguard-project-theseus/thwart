@@ -13,6 +13,7 @@ import dev.tessera.runtime.Template;
 import dev.tessera.runtime.TemplateEntry;
 import dev.tessera.runtime.TemplateModelException;
 import dev.tessera.runtime.TemplateRegistry;
+import dev.tessera.spring.testing.SpringTestContext;
 import java.util.Arrays;
 import java.util.Collections;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,7 +25,6 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Controller;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.ui.Model;
@@ -35,9 +35,9 @@ import org.springframework.web.context.WebApplicationContext;
 /**
  * End-to-end MVC tests over hand-written registry and template doubles. MockMvc is built from the
  * context (not {@code @AutoConfigureMockMvc}, whose package differs by Boot version), and the
- * Spring extension is explicit for Boot 2.0.
+ * Spring test context comes from {@link SpringTestContext}, which runs on every generation.
  */
-@ExtendWith(SpringExtension.class)
+@ExtendWith(SpringTestContext.class)
 @SpringBootTest(classes = TesseraMvcTest.App.class)
 class TesseraMvcTest {
 

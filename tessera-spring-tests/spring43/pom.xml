@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>dev.tessera</groupId>
+    <artifactId>tessera-spring-tests</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>tessera-spring-tests-spring43</artifactId>
+  <name>Tessera Spring tests: Spring MVC 4.3 without Boot (javax)</name>
+  <packaging>jar</packaging>
+
+  <!-- No Spring Boot jars at all: proves @Import(TesseraConfiguration.class) needs only spring-webmvc. -->
+  <properties>
+    <servlet.package>javax.servlet</servlet.package>
+    <!-- Spring 4.3's CGLIB defines classes through ClassLoader.defineClass. -->
+    <argLine>--add-opens java.base/java.lang=ALL-UNNAMED</argLine>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>${junit5.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-framework-bom</artifactId>
+        <version>4.3.30.RELEASE</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>dev.tessera</groupId>
+      <artifactId>tessera-spring-boot-starter-javax</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-webmvc</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Servlet 3.0, the starter's floor (request.getServletContext()). -->
+    <dependency>
+      <groupId>javax.servlet</groupId>
+      <artifactId>javax.servlet-api</artifactId>
+      <version>3.0.1</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <!-- Spring 4.3's MockServletContext.getMimeType uses JAF, which left the JDK in Java 11. -->
+      <groupId>com.sun.activation</groupId>
+      <artifactId>javax.activation</artifactId>
+      <version>1.2.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <!-- Only the Boot-free test and the controller and model it shares with the Boot tests. -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <testIncludes>
+            <testInclude>dev/tessera/spring/plain/**</testInclude>
+            <testInclude>dev/tessera/spring/e2e/Signup.java</testInclude>
+            <testInclude>dev/tessera/spring/e2e/SmokeController.java</testInclude>
+          </testIncludes>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

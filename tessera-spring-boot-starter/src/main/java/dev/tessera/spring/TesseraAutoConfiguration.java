@@ -21,7 +21,7 @@ import org.springframework.web.servlet.DispatcherServlet;
  * application declares its own bean of that type.
  *
  * <p>Plain {@code @Configuration} with untyped conditions (not {@code @AutoConfiguration} or
- * {@code type = SERVLET}) so that one class works on Spring Boot 2.0 through 4. Applications
+ * {@code type = SERVLET}) so that one class works on Spring Boot 1.5 through 4. Applications
  * without Boot import {@link TesseraConfiguration} instead; if a Boot app imports it too, this
  * class backs off entirely.
  */

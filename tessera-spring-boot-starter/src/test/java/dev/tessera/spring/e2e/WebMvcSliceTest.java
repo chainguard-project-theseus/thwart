@@ -5,13 +5,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import dev.tessera.spring.testing.SpringTestContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -20,7 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
  * would not resolve and the response would be empty or an error. The Boot 2/3 test modules
  * rewrite the {@code WebMvcTest} import to its old package.
  */
-@ExtendWith(SpringExtension.class)
+@ExtendWith(SpringTestContext.class)
 @WebMvcTest
 @ContextConfiguration(classes = WebMvcSliceTest.App.class)
 class WebMvcSliceTest {

@@ -43,9 +43,9 @@ JDK 21+. The table names the main classes only.
 | | `.codegen` | `TemplateGenerator`, `ElementPlan`, `AttributeProcessors`, `TemplateIndex`, `RegistryGenerator` | |
 | | `.codegen.attr` | one processor class per attribute family + hooks | |
 | | `.processor` | `TesseraProcessor` (javac entry point), options, discovery | |
-| `tessera-spring-boot-starter` | `dev.tessera.spring{,.view,.context,.fn}` | auto-config, plain-Spring config, view resolver, return values, request `RenderContext`, `auth` | runtime; Spring 5.0+ / Boot 2.0+ from the app (`jakarta.servlet`) |
+| `tessera-spring-boot-starter` | `dev.tessera.spring{,.view,.context,.fn}` | auto-config, plain-Spring config, view resolver, return values, request `RenderContext`, `auth` | runtime; Spring 4.3+ / Boot 1.5+, Servlet 3.0+ from the app (`jakarta.servlet`) |
 | `tessera-spring-boot-starter-javax` | same | the starter jar shaded with `jakarta.servlet` relocated to `javax.servlet` | runtime |
-| `tessera-spring-tests` | | the starter's test sources run on Boot 3.5, 2.7 and 2.0 and on Spring MVC 5.0 without Boot | |
+| `tessera-spring-tests` | | the starter's test sources run on Boot 3.5, 2.7, 2.0 and 1.5 and on Spring MVC 5.0 and 4.3 without Boot | |
 | `tessera-migrate` | `dev.tessera.migrate` | CLI: page record/compare (`Crawler`, `PageNormalizer`, `Parity`) and the Thymeleaf → Tessera converter (`Migrator`) | attoparser, jsoup (bundled into the jar) |
 | `tessera-benchmarks` | | JMH, Tessera vs Thymeleaf | Thymeleaf, JMH |
 | `examples/petclinic` | `org.springframework.samples.petclinic` | spring-petclinic on Tessera | starter |
@@ -266,15 +266,17 @@ code (`TemplateGenerator.javaName`), so names like `java`, `class` or `ctx` cann
   ordered before Thymeleaf's that returns `null` for unknown names (fall-through; never parses a
   name), and a return-value handler so controllers can `return OwnerDetailsTemplate.of(owner)`.
   `redirect:`/`forward:` prefixes are left to Spring.
-- Supported range: Spring 5.0+ / Boot 2.0+. One source tree (`jakarta.servlet`, `--release 8`)
-  compiled against Boot 4.1; `tessera-spring-boot-starter-javax` relocates it to `javax.servlet`.
+- Supported range: Spring 4.3+ / Boot 1.5+, Servlet 3.0+ (`request.getServletContext()`). One
+  source tree (`jakarta.servlet`, `--release 8`) compiled against Boot 4.1; `tessera-spring-boot-starter-javax` relocates it to `javax.servlet`.
   An application uses exactly one of the two. To work on every generation the auto-configuration
   is a plain `@Configuration` with untyped `@ConditionalOnWebApplication` and
   `@ConditionalOnClass(DispatcherServlet)`, the return-value handler is added by a
   `BeanPostProcessor` on `RequestMappingHandlerAdapter` (not a `WebMvcConfigurer`), and the jar
   carries every registration file: `AutoConfiguration.imports` (Boot 2.7+), `spring.factories`
-  (`EnableAutoConfiguration` and `AutoConfigureWebMvc` keys, Boot 2.0-2.6), and the Boot 2.7/3
-  and Boot 4 `AutoConfigureWebMvc.imports` for `@WebMvcTest`. Below Spring 5.0: untested.
+  (`EnableAutoConfiguration` and `AutoConfigureWebMvc` keys, Boot 1.5-2.6), and the Boot 2.7/3
+  and Boot 4 `AutoConfigureWebMvc.imports` for `@WebMvcTest`. The shared tests use their own
+  `SpringTestContext` JUnit extension (Spring's `SpringExtension` needs 5.0) and build contexts by
+  hand instead of `ApplicationContextRunner` (Boot 2.0+). Below Spring 4.3: untested.
 - `TesseraConfiguration`: the same beans without Boot (`@Import` it, or declare it in XML), plus a
   `UrlBasedViewResolver` for `redirect:`/`forward:` names only, which Boot otherwise provides.
 - `TesseraView` renders the registry entry with the model and `SpringRenderContexts.create(...)`:

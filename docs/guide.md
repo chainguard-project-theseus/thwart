@@ -90,18 +90,20 @@ starter are Java 8 class files; the generated template code compiles with `relea
 there are no records, so give the model classes `getX()` getters and `@TemplateView`. JDK 8's
 javac has no `--release`: there, set `<source>` and `<target>` 1.8 instead of `<release>` below.
 
-The Spring integration supports **Spring Framework 5.0+ and Spring Boot 2.0+**. The test suite
-runs on Boot 2.0, 2.7, 3.5 and 4.1 and on plain Spring MVC 5.0. Pick the artifact by servlet API
-and use exactly one of them; they contain the same classes:
+The Spring integration supports **Spring Framework 4.3+ and Spring Boot 1.5+**, on Servlet 3.0+
+(Tomcat 7+). The test suite runs on Boot 1.5, 2.0, 2.7, 3.5 and 4.1 and on plain Spring MVC 4.3
+and 5.0. Pick the artifact by servlet API and use exactly one of them; they contain the same
+classes:
 
 | Application | Artifact |
 |---|---|
 | `jakarta.servlet` (Boot 3+, Spring 6+) | `tessera-spring-boot-starter` |
-| `javax.servlet` (Boot 2.x, Spring 5.x) | `tessera-spring-boot-starter-javax` (the same jar, relocated to `javax.servlet`) |
+| `javax.servlet` (Boot 1.5-2.x, Spring 4.3-5.x) | `tessera-spring-boot-starter-javax` (the same jar, relocated to `javax.servlet`) |
 
 The starter brings only `tessera-runtime`. Spring, Boot, the servlet API and Spring Security come
-from the application. Below Spring 5.0 nothing is tested: wiring the classes by hand is at your
-own risk.
+from the application. Below Spring 4.3 nothing is tested: wiring the classes by hand is at your
+own risk. Don't upgrade Spring as part of the migration: an application on Boot 1.5 or Spring 4.3
+keeps its version.
 
 ```xml
 <dependency>
@@ -144,6 +146,10 @@ template. `tessera.package` is the generated package (default `tessera.generated
 `tessera.messages` is the message bundle's path without `.properties`; with it, every `#{key}` is
 checked at build time. Facts about the build today:
 
+- `annotationProcessorPaths` needs `maven-compiler-plugin` 3.5+ (`<parameters>` needs 3.6.2+).
+  Older parents pin older versions (Boot 1.5: 3.1); override it, for example with the property
+  `<maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>` under a Boot parent, or
+  a `<version>` on the plugin.
 - `annotationProcessorPaths` turns off processor discovery, so list every processor the build
   relied on (Lombok, MapStruct, ...) next to Tessera.
 - The processor sees `@TemplateFunctions` classes only when they are compiled in the same javac
@@ -174,15 +180,29 @@ auto-configuration, plus a resolver for `redirect:` and `forward:` names. Boot p
 resolver; without Boot the old engine's resolver usually did, so removing it without a replacement
 breaks redirects (behind a `ContentNegotiatingViewResolver`, as a 406).
 
-**Older Boot.** Checked on Boot 2.0 (Spring 5.0, Security 5.0):
+**Older Boot.** Checked on Boot 2.0 (Spring 5.0, Security 5.0) and Boot 1.5 (Spring 4.3,
+Security 4.2):
 
 - The Boot 2.x parent's `maven-compiler-plugin` (3.7.0 in Boot 2.0) supports
   `annotationProcessorPaths`, and its `-source`/`-target 1.8` build Java 8 class files. Nothing
   to change.
+- The Boot 1.5 parent pins `maven-compiler-plugin` 3.1 and defaults `java.version` to 1.6. Set
+  the properties `<java.version>1.8</java.version>` and
+  `<maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>`.
+  The starter's `spring.factories` registers the auto-configuration and the `@WebMvcTest` slice
+  for Boot 1.5 too.
 - Boot 2.0's default security (CSRF on, token in the session) works unchanged: a
   `<form method="post">` gets the `_csrf` input.
-- Spring 5.0 needs `--add-opens java.base/java.lang=ALL-UNNAMED` on JDK 16+, including for tests
-  (surefire `argLine`). Spring 5.3 (Boot 2.7) does not.
+- Boot 1.5's default security (`spring-boot-starter-security` and no security configuration of
+  your own) is HTTP Basic with CSRF **off** (`security.enable-csrf=false`): no `_csrf` request
+  attribute, so a POST form gets no `_csrf` input, as with Thymeleaf. With your own
+  `WebSecurityConfigurerAdapter`, Security 4.2 turns CSRF on (token in the session) and the input
+  renders. Either way, keep the application's setting; `auth.*` works in both.
+- On Boot 1.x, `ResourceUrlEncodingFilter` (versioned `/webjars/...` and resource links) came
+  from the Thymeleaf auto-configuration, so removing Thymeleaf drops it. Tessera links go through
+  `response.encodeURL`, so declaring a `ResourceUrlEncodingFilter` bean restores the links.
+- Spring 4.3 and 5.0 need `--add-opens java.base/java.lang=ALL-UNNAMED` on JDK 16+, including
+  for tests (surefire `argLine`). Spring 5.3 (Boot 2.7) does not.
 
 **Error pages.** Under Boot, `templates/error.html` renders errors with Boot's error attributes as
 the model (`Integer status`, `String error`, `String message`, `String path`; `timestamp` is a
@@ -1023,6 +1043,8 @@ These come from the annotation processor itself, without a template position.
 
 Gaps in Tessera today, each with what to do until it is fixed.
 
+- **Versions.** Spring 4.3+ / Boot 1.5+ on Servlet 3.0+; anything older is untested. Upgrade to
+  Spring 4.3 first, or wire the classes by hand at your own risk.
 - **Build.** Tested with Maven only. Gradle is untested and has no docs or plugin: the processor
   needs only javac options (section 2), so it should work, but it isn't verified. Template-only
   changes need `mvn clean compile`; there is no hot reload. The processor fails in `testCompile`

@@ -11,7 +11,7 @@
 
   <artifactId>tessera-spring-boot-starter-javax</artifactId>
   <name>Tessera Spring Boot Starter (javax.servlet)</name>
-  <description>tessera-spring-boot-starter relocated from jakarta.servlet to javax.servlet, for Spring 5 / Boot 2 applications.</description>
+  <description>tessera-spring-boot-starter relocated from jakarta.servlet to javax.servlet, for Spring 4.3-5 / Boot 1.5-2 applications.</description>
 
   <!-- No sources of its own: the jar is the jakarta starter with jakarta.servlet relocated to
        javax.servlet. An application depends on exactly one of the two. -->
