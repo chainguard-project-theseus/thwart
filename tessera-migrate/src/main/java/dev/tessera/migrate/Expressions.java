@@ -3,6 +3,7 @@ package dev.tessera.migrate;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -162,14 +163,180 @@ final class Expressions {
   }
 
   /**
-   * True if a {@code th:} value is a Thymeleaf literal token such as {@code nav-item}: literal
-   * text in Thymeleaf, but a variable (or {@code nav - item}) in Tessera, so it must be quoted.
+   * Quotes Thymeleaf token literals in a {@code th:} value: outside {@code ${...}}, {@code *{...}},
+   * string literals and {@code |...|} text, a run of token characters such as {@code nav-item} or
+   * {@code mixed} is literal text in Thymeleaf but a variable in Tessera, so it becomes
+   * {@code 'mixed'}. This covers whole values ({@code th:class="nav-item"}), operands
+   * ({@code ${x} ? active}) and the arguments of links, messages and fragment expressions
+   * ({@code @{/ranking(mode=mixed)}}). Numbers, {@code true}/{@code false}/{@code null}, word
+   * operators and the no-op token {@code _} are left alone, as are link paths, message keys,
+   * fragment names and link parameter names. With {@code bareFragmentReference}, a value that is
+   * not {@code ~{...}} or {@code ${...}} is read as the content of a fragment expression.
    */
-  static boolean isLiteralToken(String value) {
-    String v = Compat.strip(value);
-    return ConversionRules.LITERAL_TOKEN.matcher(v).matches()
-        && !ConversionRules.NUMBER.matcher(v).matches()
-        && !ConversionRules.TOKEN_KEYWORDS.contains(v);
+  static String quoteTokens(String expr, boolean bareFragmentReference) {
+    String trimmed = Compat.strip(expr);
+    if (bareFragmentReference && !trimmed.startsWith("~{") && !trimmed.startsWith("${")) {
+      return withQuotedArguments(expr, true);
+    }
+    return quoteTokens(expr);
+  }
+
+  private static String quoteTokens(String s) {
+    StringBuilder out = new StringBuilder(s.length() + 8);
+    int i = 0;
+    while (i < s.length()) {
+      char c = s.charAt(i);
+      int end;
+      if (c == '\'') {
+        end = endOfString(s, i, s.length());
+        out.append(s, i, end);
+      } else if (c == '|') {
+        end = endOfSubstitution(s, i);
+        out.append(s, i, end);
+      } else if (i + 1 < s.length() && s.charAt(i + 1) == '{' && "$*#@~".indexOf(c) >= 0) {
+        int close = matchBrace(s, i + 1);
+        if (close < 0) {
+          out.append(s, i, s.length());
+          return out.toString();
+        }
+        end = close + 1;
+        String content = s.substring(i + 2, close);
+        if (c == '@' || c == '~') {
+          content = withQuotedArguments(content, c == '~');
+        } else if (c == '#') {
+          content = messageArguments(content);
+        }
+        out.append(s, i, i + 2).append(content).append('}');
+      } else if (isTokenChar(s, i)) {
+        end = i + 1;
+        while (end < s.length() && isTokenChar(s, end)) {
+          end++;
+        }
+        String token = s.substring(i, end);
+        boolean code = nextNonSpace(s, end) == '(' || (i > 0 && s.charAt(i - 1) == '#');
+        out.append(!code && isTokenLiteral(token) ? "'" + token + "'" : token);
+      } else {
+        end = i + 1;
+        out.append(c);
+      }
+      i = end;
+    }
+    return out.toString();
+  }
+
+  /**
+   * Quotes the tokens in the trailing {@code (...)} arguments of link or fragment content, the way
+   * Thymeleaf splits {@code base(args)}. Link parameters without a value are names, kept as is.
+   */
+  private static String withQuotedArguments(String content, boolean positional) {
+    String trimmed = Compat.strip(content);
+    int lead = content.indexOf(trimmed);
+    int close = lead + trimmed.length() - 1;
+    if (trimmed.isEmpty() || content.charAt(close) != ')') {
+      return content;
+    }
+    String masked = mask(content, false);
+    int depth = 0;
+    int open = -1;
+    for (int i = close; i >= lead; i--) {
+      char c = masked.charAt(i);
+      if (c == ')') {
+        depth++;
+      } else if (c == '(' && --depth == 0) {
+        open = i;
+        break;
+      }
+    }
+    if (open <= lead) {
+      return content; // no base before the parentheses: not an argument list
+    }
+    List<String> args = new ArrayList<>();
+    for (String arg : splitTopLevel(content.substring(open + 1, close), false)) {
+      int eq = indexOfTopLevel(arg, '=');
+      if (eq >= 0 && !(eq + 1 < arg.length() && arg.charAt(eq + 1) == '=')) {
+        args.add(arg.substring(0, eq + 1) + quoteTokens(arg.substring(eq + 1)));
+      } else {
+        args.add(positional ? quoteTokens(arg) : arg);
+      }
+    }
+    return content.substring(0, open + 1) + String.join(",", args) + content.substring(close);
+  }
+
+  /** {@code #{key(args)}}: the key is literal, each argument is an expression. */
+  private static String messageArguments(String content) {
+    int open = content.indexOf('(');
+    int close = open < 0 ? -1 : matchParen(content, open);
+    if (close < 0) {
+      return content;
+    }
+    List<String> args = new ArrayList<>();
+    for (String arg : splitTopLevel(content.substring(open + 1, close), false)) {
+      args.add(quoteTokens(arg));
+    }
+    return content.substring(0, open + 1) + String.join(",", args) + content.substring(close);
+  }
+
+  /** True if a token run is a text literal in Thymeleaf, not a number, keyword or operator. */
+  private static boolean isTokenLiteral(String token) {
+    String lower = token.toLowerCase(Locale.ROOT);
+    return !ConversionRules.NUMBER.matcher(token).matches()
+        && !ConversionRules.TOKEN_KEYWORDS.contains(lower);
+  }
+
+  /** Index just past the {@code |} closing the substitution opening at {@code start}. */
+  private static int endOfSubstitution(String s, int start) {
+    int k = start + 1;
+    while (k < s.length() && s.charAt(k) != '|') {
+      if (s.startsWith("${", k) || s.startsWith("*{", k)) {
+        int close = matchBrace(s, k + 1);
+        k = close < 0 ? s.length() : close + 1;
+      } else {
+        k++;
+      }
+    }
+    return Math.min(k + 1, s.length());
+  }
+
+  /**
+   * Thymeleaf's {@code Token.isTokenChar}: letters, digits, {@code []._} and a range of non-ASCII
+   * letters; {@code -} only when an adjacent run of token characters is not purely numeric, so
+   * {@code nav-item} is one token and {@code 1-2} is a subtraction.
+   */
+  static boolean isTokenChar(String s, int pos) {
+    char c = s.charAt(pos);
+    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+        || c == '[' || c == ']' || c == '.' || c == '_') {
+      return true;
+    }
+    if (c == '-') {
+      for (int i = pos - 1; i >= 0 && isTokenChar(s, i); i--) {
+        char cc = s.charAt(i);
+        if (!((cc >= '0' && cc <= '9') || cc == '.')) {
+          return true;
+        }
+      }
+      for (int i = pos + 1; i < s.length(); i++) {
+        char cc = s.charAt(i);
+        if (cc == '-') {
+          return true; // as Thymeleaf, which stops here to avoid a cycle
+        }
+        if (!isTokenChar(s, i)) {
+          break;
+        }
+        if (!((cc >= '0' && cc <= '9') || cc == '.')) {
+          return true;
+        }
+      }
+      return false;
+    }
+    return c == '\u00B7'
+        || (c >= '\u00C0' && c <= '\u00D6') || (c >= '\u00D8' && c <= '\u00F6')
+        || (c >= '\u00F8' && c <= '\u02FF') || (c >= '\u0300' && c <= '\u036F')
+        || (c >= '\u0370' && c <= '\u037D') || (c >= '\u037F' && c <= '\u1FFF')
+        || (c >= '\u200C' && c <= '\u200D') || (c >= '\u203F' && c <= '\u2040')
+        || (c >= '\u2070' && c <= '\u218F') || (c >= '\u2C00' && c <= '\u2FEF')
+        || (c >= '\u3001' && c <= '\uD7FF') || (c >= '\uF900' && c <= '\uFDCF')
+        || (c >= '\uFDF0' && c <= '\uFFFD');
   }
 
   private static int indexOutsideLiterals(String s, String needle, int from) {
@@ -348,6 +515,9 @@ final class Expressions {
             depth += e == '{' ? 1 : e == '}' ? -1 : 0;
             end++;
           }
+          if (end < to && s.charAt(end) == '(') {
+            blankValuelessParameters(s, end, to, m);
+          }
         }
         blank(m, i, end);
         i = end;
@@ -361,6 +531,21 @@ final class Expressions {
       } else {
         i++;
       }
+    }
+  }
+
+  /** Blanks link parameters without a value ({@code add} in {@code @{/cart(add, id=x)}}): names. */
+  private static void blankValuelessParameters(String s, int open, int to, char[] m) {
+    int close = matchParen(s, open);
+    if (close < 0 || close >= to) {
+      return;
+    }
+    int start = open + 1;
+    for (String arg : splitTopLevel(s.substring(start, close), false)) {
+      if (indexOfTopLevel(arg, '=') < 0) {
+        blank(m, start, start + arg.length());
+      }
+      start += arg.length() + 1;
     }
   }
 
