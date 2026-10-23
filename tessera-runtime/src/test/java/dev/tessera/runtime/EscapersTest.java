@@ -355,6 +355,26 @@ class EscapersTest {
   }
 
   @Test
+  void refreshEncodesWhatEndsTheUrl() {
+    assertEquals("3;url=/a/b?x=1&amp;y=2", run(Escapers::refresh, "3;url=/a/b?x=1&y=2"));
+    assertEquals(
+        "0;url=/a%3Burl=//evil%2C%27%22%20%09%0A%5C&lt;",
+        run(Escapers::refresh, "0;url=/a;url=//evil,'\" \t\n\\<"));
+    // A backslash cannot make //host: it is encoded before the same-origin check.
+    assertEquals("0;url=/%5Cevil", run(Escapers::refresh, "0;url=/\\evil"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "", "3", "3;url=", ";url=/x", "x;url=/x", "3 ;url=/x", "-1;url=/x", "3;URL=/x", "3;url=x",
+        "3;url=//evil", "3;url=https://evil", "3;url=javascript:alert(1)", "3;url= /x", "3;url=\t//evil"
+      })
+  void refreshRejectsAnythingButDelayAndSameOriginPath(String value) {
+    assertThrows(IllegalArgumentException.class, () -> run(Escapers::refresh, value));
+  }
+
+  @Test
   void urlChecksToTextOfOtherObjects() {
     Object o =
         new Object() {

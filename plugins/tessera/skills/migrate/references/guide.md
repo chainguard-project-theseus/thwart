@@ -450,8 +450,9 @@ The compiler decides the context from the element and attribute name. You cannot
 | Resource URL | `script[src]`, `iframe[src]`, `embed[src]`, `object[data]`, `base[href]`, `link[href]` | Only a literal-path `@{...}` link or a `TrustedUrl` compiles. |
 | Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, records and `@TemplateView` beans, collections, String-keyed maps). |
 | Style | `<style>` text and `style` attribute | In `<style>`, expressions are a build error. A `style` attribute takes only string literals, numbers and `CssValue`s, combined with `+`, `\|...\|`, `?:` and `? :`; anything else (a `String` value) is a build error. |
+| Refresh | `content` of `<meta http-equiv="refresh">` | Only `'<seconds>;url=' + @{/path...}` compiles: a literal delay and a link whose literal path starts with a single `/`, so the refresh stays on the same origin. Path variables and parameters are encoded as usual, and `; , ' "`, `\` and whitespace in the URL are percent-encoded. Rendered as `<seconds>;url=<url>`. |
 | Event handler | `on*` attributes, and framework directives (below) | Build error; put data in `data-*` attributes and read them from a script. |
-| Forbidden | `srcdoc`, `content` of `<meta http-equiv="refresh">`, non-JS `<script type>` | Build error. `<script type>` and `<meta http-equiv>` cannot be computed. |
+| Forbidden | `srcdoc`, non-JS `<script type>` | Build error. `<script type>` and `<meta http-equiv>` cannot be computed. |
 
 Client-side frameworks run some attribute values as JavaScript once they mount the element, so
 attribute escaping does not protect them and an expression there is a build error, as for `on*`:
@@ -1332,7 +1333,8 @@ These come from the annotation processor itself, without a template position.
 - `<label> is not allowed: '<name>' is a Vue, Alpine, htmx, AngularJS or Knockout directive whose value is run as JavaScript, so it cannot contain expressions; write it as a static attribute, or put the value in a data-* attribute or a <script> with [[...]] and read it from there`. See [4.4](#44-escaping-and-output-contexts) for the list of directives.
 - `<label> is not allowed: a style value can only combine string literals, numbers and CssValues such as css.color(c), css.length(l) or css.url(u), not a <type>; use t:class or t:classappend instead`.
 - `<label> is not allowed: srcdoc is a whole HTML document and cannot contain expressions; use src with a URL`.
-- `<label> is not allowed: the content of <meta http-equiv="refresh"> navigates the page and cannot contain expressions; redirect from the controller instead`.
+- `<label> is not allowed: the content of <meta http-equiv="refresh"> navigates the page; write a delay and a same-origin link such as '3;url=' + @{/items/{id}(id=${item.id})}, or redirect from the controller`. Port `content="1;url=/admin/update${vid}"` to `t:content="'1;url=' + @{/admin/update{vid}(vid=${vid})}"`.
+- `<label> is not allowed: a refresh URL must be a same-origin path starting with a single '/', not @{<path>}`. Absolute, protocol-relative and page-relative links cannot be refresh targets; redirect from the controller instead.
 - `<label> is not allowed: attribute name '<name>' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*`.
 - `<label>: the type of a <script> cannot be computed; its content type must be known at build time, so write a static type attribute`.
 - `<label>: the http-equiv of a <meta> cannot be computed; it decides whether content is a refresh URL, so write a static http-equiv attribute`.
@@ -1441,8 +1443,6 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **Rich text.** `html.sanitize` has one fixed policy: no images, tables, `class` or `style`, and
   links don't keep `target`. If the stored HTML needs more, build the markup in Java (a template
   over a parsed model, or `SafeHtml.concat`) rather than widening it with `SafeHtml.unchecked`.
-- **Refresh `<meta>`** (#237). Its `content` can't be computed: choose between literal `<meta>` tags
-  with `t:if`/`t:switch`.
 - **Security functions.** `auth` has `hasRole`/`hasAnyRole`, not `hasAuthority`; compute anything
   else in the controller.
 - **Selections.** `~{::tag}` selects fragment names and plain tag names only: not hyphenated tags,

@@ -98,6 +98,41 @@ public final class Escapers {
     }
   }
 
+  /**
+   * The {@code content} of a {@code <meta http-equiv="refresh">} (OutputContext.REFRESH, #237).
+   * The compiler only lets through {@code "<digits>;url=" + <link with a literal /path>}. The
+   * URL part has {@code ; , ' " \}, ASCII whitespace and control characters percent-encoded, so a
+   * browser's loose refresh parsing cannot end it early or strip characters from it, and it
+   * must then be a same-origin path: one {@code /} not followed by {@code /} or {@code \}.
+   * Anything else throws {@link IllegalArgumentException}. The result is attribute-encoded.
+   */
+  public static void refresh(Output out, Object value) {
+    String s = toText(value);
+    int sep = s.indexOf(";url=");
+    boolean digits = sep > 0;
+    for (int i = 0; i < sep && digits; i++) {
+      digits = s.charAt(i) >= '0' && s.charAt(i) <= '9';
+    }
+    if (!digits) {
+      throw new IllegalArgumentException("refresh content must be <seconds>;url=<path>");
+    }
+    StringBuilder sb = new StringBuilder(s.length() + 16).append(s, 0, sep + ";url=".length());
+    int urlStart = sb.length();
+    for (int i = sep + ";url=".length(); i < s.length(); i++) {
+      char c = s.charAt(i);
+      if (c <= 0x20 || c == 0x7f || ";,'\"\\".indexOf(c) >= 0) {
+        sb.append('%').append(Character.toUpperCase(HEX[c >> 4])).append(Character.toUpperCase(HEX[c & 0xF]));
+      } else {
+        sb.append(c);
+      }
+    }
+    if (sb.length() == urlStart || sb.charAt(urlStart) != '/'
+        || (sb.length() > urlStart + 1 && sb.charAt(urlStart + 1) == '/')) {
+      throw new IllegalArgumentException("refresh URL must be a same-origin path starting with a single '/'");
+    }
+    escapeHtml(out, sb.toString());
+  }
+
   /** Raw HTML (t:utext and {@code [(...)]}). Only {@link SafeHtml} is accepted. */
   public static void html(Output out, SafeHtml value) {
     if (value != null) {

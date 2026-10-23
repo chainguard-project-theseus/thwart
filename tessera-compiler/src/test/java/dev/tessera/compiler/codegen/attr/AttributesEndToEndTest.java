@@ -121,10 +121,26 @@ class AttributesEndToEndTest {
 
   @Test
   void metaRefreshContentIsABuildError() {
-    // #46: the url= part of a refresh navigates the page (open redirect).
+    // #46: the url= part of a refresh navigates the page (open redirect). Only a delay and a
+    // same-origin link are allowed (#237).
     compile("<meta http-equiv=\"refresh\" t:content=\"s\">")
-        .assertError("t:content is not allowed", "refresh", "controller");
+        .assertError("t:content is not allowed", "refresh", "'3;url=' + @{", "controller");
     compile("<meta http-equiv=\"Refresh\" t:attr=\"content=s\">").assertError("t:attr content is not allowed");
+    compile("<meta http-equiv=\"refresh\" t:content=\"'1;url=' + s\">").assertError("t:content is not allowed");
+    compile("<meta http-equiv=\"refresh\" t:content=\"@{/x}\">").assertError("t:content is not allowed");
+    compile("<meta http-equiv=\"refresh\" t:content=\"s + ';url=' + @{/x}\">").assertError("t:content is not allowed");
+    compile("<meta http-equiv=\"refresh\" t:content=\"|1;url=${s}|\">").assertError("t:content is not allowed");
+    compile("<meta http-equiv=\"refresh\" t:content=\"'1;url=/x' + @{/y}\">").assertError("t:content is not allowed");
+    compile("<meta http-equiv=\"refresh\" t:content=\"'1;url=' + @{/x} + s\">").assertError("t:content is not allowed");
+    compile("<meta http-equiv=\"refresh\" t:content=\"'1;url=' + @{${s}}\">").assertError("dynamic link paths");
+    // Only a same-origin literal path: no absolute, protocol-relative or page-relative link.
+    for (String path : new String[] {"https://evil.example/x", "//evil.example/x", "/\\evil.example/x",
+        "javascript:x", "data:text/html,x", "x/y"}) {
+      compile("<meta http-equiv=\"refresh\" t:content=\"'1;url=' + @{" + path + "}\">")
+          .assertError("t:content is not allowed", "same-origin path");
+    }
+    compile("<meta http-equiv=\"refresh\" t:attr=\"content='1;url=' + @{//evil.example}\">")
+        .assertError("t:attr content is not allowed", "same-origin path");
     compile("<meta t:http-equiv=\"s\" t:content=\"c\">").assertError("t:http-equiv", "<meta>", "static http-equiv");
     compile("<meta t:attr=\"http-equiv=s\" content=\"0;url=/x\">").assertError("t:attr http-equiv", "<meta>");
     // A literal refresh written by the author is fine, and so is other meta content.
@@ -134,6 +150,27 @@ class AttributesEndToEndTest {
     assertEquals(
         "<meta name=\"description\" content=\"a&lt;b\">",
         render("<meta name=\"description\" t:content=\"s\">", model("s", "a<b")));
+  }
+
+  @Test
+  void metaRefreshAcceptsADelayAndASameOriginLink() {
+    // #237: '<seconds>;url=' + @{/path...}, normalized to <seconds>;url=<url>.
+    assertEquals(
+        "<meta http-equiv=\"refresh\" content=\"1;url=/admin/update?vid=7\">",
+        render("<meta http-equiv=\"refresh\" t:content=\"'1;url=' + @{/admin/update(vid=${n})}\">", model("n", 7)));
+    assertEquals(
+        "<meta http-equiv=\"REFRESH\" content=\"3;url=/blog/7\">",
+        render("<meta http-equiv=\"REFRESH\" t:attr=\"content=' 3 , URL = ' + @{/blog/{n}(n=${n})}\">", model("n", 7)));
+    // A path variable cannot add a second url=, leave the path or the origin.
+    assertEquals(
+        "<meta http-equiv=\"refresh\" content=\"0;url=/p/x%3Burl%3D%2F%2Fevil%20%27%22%2C\">",
+        render("<meta http-equiv=\"refresh\" t:content=\"'0;url=' + @{/p/{s}(s=${s})}\">",
+            model("s", "x;url=//evil '\",")));
+    // Query values keep ; , and ' readable for links; in a refresh they are encoded too.
+    assertEquals(
+        "<meta http-equiv=\"refresh\" content=\"0;url=/p?q=a%3Burl%3D//evil%2C%27%20%22\">",
+        render("<meta http-equiv=\"refresh\" t:content=\"'0;url=' + @{/p(q=${s})}\">",
+            model("s", "a;url=//evil,' \"")));
   }
 
   @Test
