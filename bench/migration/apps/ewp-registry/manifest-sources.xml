@@ -1,0 +1,14 @@
+<manifest-sources>
+    <source><location>https://localhost:8443/example.xml</location></source>
+    <source><location>https://localhost:8443/vienna.xml</location></source>
+    <source><location>https://localhost:8443/krakow.xml</location></source>
+    <source><location>https://localhost:8443/overview-1.xml</location></source>
+    <source><location>https://localhost:8443/overview-2.xml</location></source>
+    <source><location>https://localhost:8443/registry.xml</location></source>
+    <source><location>https://localhost:8443/invalid.xml</location></source>
+    <source><location>https://localhost:8443/missing.xml</location></source>
+    <source>
+        <location>https://localhost:8443/vienna.xml?restricted</location>
+        <hei-regex>^uj\.edu\.pl$</hei-regex>
+    </source>
+</manifest-sources>
