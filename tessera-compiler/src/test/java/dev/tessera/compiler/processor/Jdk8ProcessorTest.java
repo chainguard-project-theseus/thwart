@@ -118,7 +118,7 @@ class Jdk8ProcessorTest {
         <a t:href="@{/owners/{id}(id=${owner.id})}">edit</a>
         <ul><li t:each="pet, stat : ${owner.pets}" t:text="|${stat.count}. ${pet.name} (${pet.kind})|">pet</li></ul>
         <p t:if="${owner.regular}" t:text="${shout.loud(owner.name)}">regular</p>
-        <script>var id = [[${owner.id}]];</script>
+        <script>var id = [[${owner.id}]]; var owner = [[owner]];</script>
         </div>
         """);
 
@@ -154,7 +154,7 @@ class Jdk8ProcessorTest {
         <a href="/owners/7">edit</a>
         <ul><li>1. Rex (DOG)</li><li>2. Tom (CAT)</li></ul>
         <p>ANN &lt;B&gt;!</p>
-        <script>var id = 7;</script>
+        <script>var id = 7; var owner = {"id":7,"name":"Ann \\u003cb\\u003e","pets":[{"name":"Rex","kind":"DOG"},{"name":"Tom","kind":"CAT"}],"regular":true};</script>
         </div>
         """,
         rendered);
