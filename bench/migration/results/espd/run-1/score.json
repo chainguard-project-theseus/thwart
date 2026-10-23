@@ -1,0 +1,41 @@
+{
+ "app": "espd",
+ "run": "run-1",
+ "build_ok": true,
+ "tests_ok": true,
+ "tests": {
+  "tests": 931,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0
+ },
+ "tests_failed": [],
+ "baseline_tests": 931,
+ "pages_total": 60,
+ "pages_identical": 0,
+ "pages_reordered": 0,
+ "status_mismatch": [],
+ "insecure": [],
+ "legacy_templates": [],
+ "legacy_constructs": {},
+ "legacy_deps": [],
+ "tessera_templates": 44,
+ "baseline_templates": 50,
+ "pass": false,
+ "wall_minutes": 16.3,
+ "exit": 0,
+ "model": "opus",
+ "budget_usd": 40,
+ "budget_minutes": 90,
+ "outcome": "success",
+ "cost_usd": 10.743108600000003,
+ "turns": 11,
+ "tokens": {
+  "input_tokens": 418,
+  "output_tokens": 171660,
+  "cache_read_input_tokens": 20202133,
+  "cache_creation_input_tokens": 653562
+ },
+ "skill_listed": true,
+ "skill_invoked": true
+}

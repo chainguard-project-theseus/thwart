@@ -447,12 +447,170 @@ Existing issues cited, with evidence added as a comment: #126, #127, #183.
 
 Pages per gap this round: #225 12, #127 2, #126 1.
 
+## First runs on new engines
+
+Tracked in #232. These are the first migrations of the three held-out apps added in #223, #228 and
+#222, each on an engine the plugin was never tuned on: espd (JSP + Apache Tiles 3, Boot 1.4),
+luckyblog (Velocity 1.7, Boot 1.4) and ewp-registry (Pebble 3.2, Boot 3.2). The image was rebuilt
+from main and the three baselines re-recorded just before (all three `determinism.txt` 100% `same`).
+One run each. All three listed and invoked the skill. 3 runs, $22.60 and 73 minutes of agent time.
+
+| App (engine) | Pass | Tests | Pages same + reordered | Acceptable only | Minutes | Cost $ | Output tokens |
+|---|---|---|---|---|---|---|---|
+| luckyblog (Velocity) | no | 0/0 | 63+0/64 | 63/64 | 12.8 | 3.78 | 60,422 |
+| ewp-registry (Pebble) | no | 375/375 | 34+0/38 | 35/38 | 43.6 | 8.08 | 92,313 |
+| espd (JSP + Tiles) | no | 931/931 | 0+0/60 | 26/60 | 16.3 | 10.74 | 171,660 |
+
+"Acceptable only" is the score if the differences classed acceptable below were allowed. Without
+their Tessera gaps (#237 for luckyblog, #235 for ewp-registry), luckyblog would pass 64/64 and
+ewp-registry would differ only on its one acceptable page. espd is dominated by agent error. All
+three built, kept every test (ewp-registry added three), removed the old engine (no Tiles, Velocity
+or Pebble dependency or file is left) and used no `unchecked`.
+
+### Triage
+
+| Run | Pages | Cause | Class | Issue |
+|---|---|---|---|---|
+| luckyblog 1 | 1 | `POST /admin/update.action` (failure): the result page's `<meta http-equiv="refresh" content="1;url=/admin/update28">` can't take an expression, so the port refreshes to `/admin/blogList/1` | Tessera gap | #237 (new) |
+| ewp-registry 1 | 3 | `/manifestValidation` (3 manifests): Vue shorthand `:security`/`:parameters`/`:security-notices` written as `v-bind:...`, because `:name` attributes can't be computed. Equivalent for Vue | Tessera gap (forced equivalent) | #235 (new) |
+| ewp-registry 1 | 1 | `/status`: notice HTML now goes through `html.sanitize`, which adds `rel="nofollow noopener"` to its two links | Acceptable | |
+| espd 1 | 60 (21 only this) | The layout script's eCertis URL is JSON in the port (`http:\/\/...&lang=`). The original has `&amp;lang=` inside a `<script>`, where it isn't an entity, so the old JS string really contained `&amp;`. The port fixes an original bug | Acceptable (harness noise) | (#183) |
+| espd 1 | 15 (5 only this, with the above) | An extra empty `<p>`: `html.sanitize` turns a message's `<p/>` into an empty paragraph | Acceptable (forced by a Tessera gap) | #236 (new) |
+| espd 1 | 4 (3 only this) | Filter pages: the phase-out message's links lose `class="alert-link"` and gain `rel` (message HTML sanitized, since there's no trusted-message HTML) | Tessera gap | #236 (new) |
+| espd 1 | 5 | Contracting-authority exclusion criteria print `&lt;p/&gt;` as text: the message went through the escaped function | Agent error (forced by a Tessera gap) | #236 |
+| espd 1 | 14 | Hand-written selects lose the selection (`currency EUR` on 13 response pages, `country BE` on `/initialization`); `id="*.errors"` instead of `espd.errors` on one. The agent hand-wrote all form markup, because `${field}.answer` paths can't be bound | Agent error (forced by a Tessera gap) | #239 (new) |
+| espd 1 | 12 | The session-expiry countdown (`viewChangeRole.jsp`, script plus banner) is missing from every exclusion page | Agent error (dropped feature) | |
+| espd 1 | 7 | The finish step is a `TODO finish` placeholder in both flows | Agent error (unfinished) | |
+| espd 1 | 5 | Overview/print pages miss fields and sections (TED reception id, representatives) | Agent error (unfinished) | |
+| espd 1 | 4 | `?lang=xx` dropped from form actions (`page.requestUri` has no query string) | Agent error | |
+
+Pages can have several causes. espd's 16 longest diffs exceed compare's 120-line limit, so this
+triage covers what compare prints. The agent's report agrees that the wizard steps were "not done".
+
+**espd stopped itself early.** At 13 minutes into a 90-minute run, after splitting the wizard across
+four background subagents with a self-imposed "HARD TIME LIMIT: about 25 minutes", the agent told
+them "time is up in ~4 minutes". It ended at 16 minutes with $29 left and its own compare failing on
+25 of its 36 pages; the report still says "as of the 90-minute limit". It also launched one subagent
+with a literal `__COMMON__` prompt and killed it. The 21 pages that differ only on the eCertis line
+(welcome, contact, about, error pages, the start of both flows) show what it did finish was right.
+Same pattern as jobsearch and budgetmaster run 4 in earlier rounds.
+
+| Run | Verdict |
+|---|---|
+| luckyblog 1 | Tessera gap (#237); otherwise identical |
+| ewp-registry 1 | Tessera gap (#235) + acceptable |
+| espd 1 | Agent error (stopped at 16 of 90 minutes, unfinished) on top of Tessera gaps (#236, #239) and harness noise |
+
+**Harness.** espd's eCertis difference can't be fixed in compare. Decoding JS string escapes (`\/`,
+`\uXXXX`) in script data, an extension of #183 (JSON whitespace), would still leave `&amp;` against
+`&`, a real fix of an original bug. The right fix is a narrow espd ignore,
+`EcertisHandler\("[^"]*"`, in `apps/espd/app.json`; with it, espd run 1 would score 21/60. Not
+changed here: a harness change needs its own PR and a `recheck`. Commented on #183.
+
+### Security review
+
+- **luckyblog (Velocity escapes nothing).** Every `${...}` and `$!{...}` in the original printed
+  raw: blog titles, tags, project fields, profile info, `value="$!{...}"` attributes (a `"` breaks
+  out), and the stored article and resume HTML (`$!{article}`, `$!{resume}`). That is stored XSS in
+  the original, though only the single admin can author content. The port escapes all of it. For the
+  rich text it parses the stored HTML with jsoup into an allow-listed `RichNode` tree, rendered by a
+  recursive fragment: text and attributes go through Tessera's escaping, `href`/`src` through the
+  URL check (`javascript:` becomes `about:invalid#tessera`), `style` only takes three literal
+  `text-align` values, and script, style, iframe, object, embed, svg and form controls are dropped
+  with their content. It keeps `id`/`name`/`class` (Editor.md needs them; a minor DOM-clobbering
+  surface) and `target` without forcing `rel`. No `SafeHtml` is built by hand. The avatar background
+  (`style="background: url($!{avatar})"`) can't be expressed (#238), so an uploaded avatar is no
+  longer shown: a feature lost, not a hole.
+- **ewp-registry (Pebble with `| raw`).** It had five raw outputs:
+  - the coverage matrix, built as HTML with a `StringBuilder`, is now a record tree rendered by the
+    template;
+  - manifest notices `notice.messageHtml` and watched-flag names `flag.name` go through
+    `html.sanitize`;
+  - the security disclaimer is now two literal texts in the template;
+  - `{{ api.* | asJson | raw }}` in **single-quoted** Vue attributes is now a JSON string built in
+    Java and written with attribute escaping. In the original, a `'` in a manifest-supplied string
+    (the security notices quote client-authentication namespaces from the fetched manifest) would
+    close the attribute: XSS through a hostile manifest, fixed by the port.
+
+  The page sets Vue's in-DOM template on `#api-entry-set`. Tessera treats `v-bind:*` as a plain
+  attribute, so the port is safe only because the value is a JSON literal;
+  `t:v-on:click="userString"` would compile to script injection. That gap is filed as #235. The
+  agent added `UiTemplatesIntegrationTest` (escaping of the `email`, `pattern` and `url` parameters)
+  and changed one assertion from `didn't` to `didn&#39;t`.
+- **espd (JSP + Tiles).** No `unchecked`. Message HTML goes through `SafeHtml.sanitize`
+  (`i18n.html(key)`; arguments are formatted in before sanitizing, so they can't inject markup). The
+  overview's capture of its own HTML renders a second template into a `SafeHtml`
+  (`SafeHtml.of(template, ctx)`), which stays escaped. The hostile inputs in the page list (`Road
+  works <b>`, `City of Ghent <i>`, `Acme <SARL>`, `Bid rigging <script>`) render as in the original
+  wherever compare shows them: the original's Spring form tags escaped them too. The template
+  functions read the request and `BindingResult` through `RequestContextHolder`, from Java and with
+  paths from the app's own criteria tables, never from the request. The eCertis `&amp;` fix above is
+  the one escaping change, and it's a correctness fix.
+
+### Engine friction
+
+Full list, with what the guide and skill should say, in #241. In short:
+
+- **JSP + Tiles (espd).** Tiles definitions and attribute inheritance have no counterpart. The agent
+  rebuilt them in Java (a view type that merges `tiles.xml` defaults, plus one wrapper template per
+  definition calling a layout fragment) in about 6 minutes before fanning out. About 150 criteria
+  share Tiles fragments with computed form paths (`${field}.answer`, #239) and computed message
+  keys, so it wrote `form.*`/`i18n.*` functions and hand-copied Spring form-tag markup. Scriptlets
+  that change the session during render moved to the controller and an interceptor. A `<c:set var>`
+  capture became a second template rendered into a `SafeHtml`. Messages with markup were sanitized
+  (#236). On Boot 1.4 the guide's compiler-plugin property had no effect, so
+  `annotationProcessorPaths` was silently ignored. Lombok 1.16.6 getters were invisible to the
+  processor (#233; checked by hand: Lombok 1.18 works only when listed first). Removing Tiles
+  dropped `commons-beanutils` and `commons-collections`, which the app still used.
+- **Velocity (luckyblog).** The fastest and cleanest run (12.8 minutes; template conversion took 3).
+  It mapped `$!{x}` in attributes to `x ?: ''` and hit "incompatible types" 5 times on `x == null ?
+  '' : x` before switching to `'' + x`. It reproduced Velocity's null tolerance on purpose
+  (`/projects/$prev` printed literally, `#set` with a null keeping the old value, a null result
+  counted as success). `VM_global_library.vm` macros became fragments, `$velocityCount` became
+  `st.count` and `#parse`/`#include` became a layout fragment; one stray `</div>` was rejected.
+  Dropping the Velocity starter removed `spring-context-support`, which only showed as a runtime
+  cache error. Stored HTML needed a hand-written allow-list renderer, because `html.sanitize` strips
+  `class`/`id`; `t:attr` names must be literal, and whitespace between `t:case` siblings is output.
+  The refresh `<meta>` (#237), `url()` in `style` (#238) and `record` with unencoded paths (#240)
+  had no route. HTML comments are always output (#132).
+- **Pebble (ewp-registry).** A two-level `{% extends %}` chain became nested layout fragments via
+  invented-tag `~{::tag}` selections (#137). Macros became typed fragments. The five `| raw` sources
+  were replaced as above, and the custom `asJson` filter became JSON precomputed in Java.
+  `strictVariables` was dropped. Pebble's public-field, `Map` and method-with-argument access
+  (`getOtherIds(String)`, `Optional.get()`) became getters and records. BEM class names with `__`
+  were rejected as preprocessing even inside string literals (42 error lines; #234), so the class
+  names moved to a `@TemplateFunctions` class. Vue `:prop` names couldn't be written (#235).
+  Rendering a template from non-Spring code (the console validator) meant reading the generated
+  class from `target/generated-sources`. Of its 44 minutes, about 15 went on the environment (local
+  HTTPS manifests, the Vue bundle without the frontend plugin) and about 12 on SpotBugs, PMD and
+  Javadoc judging the generated code.
+
+### Issues
+
+Filed from this round (label `migration-bench`):
+
+- #233 Processor: Lombok getters invisible unless Lombok runs first, never with Lombok 1.16 (espd 1)
+- #234 Expressions: `__` inside a string literal rejected as preprocessing (ewp-registry 1)
+- #235 Attributes: framework directives (`v-bind:`, `v-on:`, `x-on:`, `hx-on:`) are code but escaped
+  as text, and `:prop`/`@event` names can't be written (ewp-registry 1, 3 pages; security)
+- #236 Messages with markup: no trusted-message HTML (espd 1, 4 pages, plus 20 shaped by it)
+- #237 meta refresh: allow a same-origin `@{/path}` in `content` (luckyblog 1, 1 page)
+- #238 style: a checked `url()` value (luckyblog 1, feature lost)
+- #239 Field fragment parameters: bind a sub-path (espd 1, 14 pages through hand-written forms)
+- #240 tessera-migrate record/compare: percent-encode `pages.txt` paths (luckyblog 1)
+- #241 Migration guide/skill: per-engine notes for JSP+Tiles, Velocity, Pebble
+
+Existing issues cited, with evidence added as a comment: #132, #137, #183.
+
+Pages per gap this round: #236 4 (24 including the pages it shaped), #239 14, #235 3, #237 1.
+
 ## Limitations
 
-- **Small samples.** One or two runs per app in #151 and one in runs 7, 8 and 9; the hard apps vary between runs.
+- **Small samples.** One or two runs per app in #151 and one in runs 7, 8 and 9 and on the new engines; the hard apps vary between runs.
 - **FreeMarker coverage leans on two apps.** JobSearch has no license (its patches aren't
   committed) and a single context-loads test; BudgetMaster is held out.
-- **No Velocity app.** Spring 5+ dropped Velocity. Mustache stands in for the Velocity-like slot.
+- **One app per new engine.** Spring 5+ dropped Velocity, so luckyblog (Boot 1.4) is the only Velocity app;
+  espd is the only Tiles app and ewp-registry the only Pebble app, each with one run so far.
 - **Not every page is reachable.** Pages that need multipart uploads, cookies the tool can't set,
   captchas or HTMX headers aren't recorded.
 - **The Thymeleaf petclinics are one family.** spring-petclinic is the app Tessera's own port
