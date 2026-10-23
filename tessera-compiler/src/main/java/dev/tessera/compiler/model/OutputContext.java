@@ -27,7 +27,11 @@ public enum OutputContext {
    * (#182) and is attribute-escaped.
    */
   STYLE(null),
-  /** {@code on*} event-handler attribute: expressions are a build error. */
+  /**
+   * {@code on*} event-handler attribute, or a client-side framework directive whose value runs as
+   * JavaScript ({@code v-*}, {@code x-*}, {@code hx-on*}, ...; see
+   * {@code Contexts.isFrameworkDirective}): expressions are a build error.
+   */
   EVENT_HANDLER(null),
   /**
    * Anything else we cannot escape safely ({@code srcdoc}, non-JS {@code <script type>},

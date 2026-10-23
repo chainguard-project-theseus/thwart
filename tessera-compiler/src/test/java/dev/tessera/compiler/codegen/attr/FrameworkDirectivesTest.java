@@ -46,6 +46,15 @@ class FrameworkDirectivesTest {
     compile("<p t:attr=\"" + name + "=s\">x</p>").assertError("t.html:1:");
   }
 
+  /** Knockout evaluates {@code params} on a component (custom element) as a binding. */
+  @Test
+  void knockoutComponentParamsIsABuildError() {
+    // t:params declares template parameters, so t:attr is the only way to compute it.
+    compile("<my-widget t:attr=\"params=s\"></my-widget>")
+        .assertError("t.html:1:", "t:attr params is not allowed", "run as JavaScript");
+    compile("<my-widget params=\"name: n\"></my-widget>").assertSuccess();
+  }
+
   /** Even a string literal is rejected, as for t:onclick: the author writes the static attribute. */
   @Test
   void literalExpressionIsABuildError() {

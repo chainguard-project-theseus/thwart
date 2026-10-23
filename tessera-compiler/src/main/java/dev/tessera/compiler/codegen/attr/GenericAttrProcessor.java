@@ -53,7 +53,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     switch (context) {
       case EVENT_HANDLER:
         hint =
-            Contexts.isFrameworkDirective(name)
+            Contexts.isFrameworkDirective(plan.element(), name)
                 ? "'" + name + "' is a Vue, Alpine, htmx, AngularJS or Knockout directive whose value is"
                     + " run as JavaScript, so it cannot contain expressions; write it as a static attribute,"
                     + " or put the value in a data-* attribute or a <script> with [[...]] and read it from there"

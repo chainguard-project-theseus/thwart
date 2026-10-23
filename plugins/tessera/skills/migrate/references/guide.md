@@ -432,7 +432,7 @@ attribute escaping does not protect them and an expression there is a build erro
 Vue's `v-*` (every directive, `v-html` included) and its `:x`, `@x`, `#x` and `.x` shorthands;
 Alpine's `x-*`; htmx's `hx-on*`, `hx-vals`, `hx-vars`, `hx-headers`, `hx-request` and `hx-trigger`
 (also with `data-`); AngularJS's `ng-*`, `ng:*` and `ng_*` (also with `data-` or `x-`); and
-Knockout's `data-bind`. Static directives are copied verbatim, shorthand names included: write
+Knockout's `data-bind` and `params` on a custom element. Static directives are copied verbatim, shorthand names included: write
 `<api-entry :security="security" @click="open">` as in the old page. To hand server data to a
 component, put it in a `data-*` attribute or a `<script>` with `[[${...}]]` and read it from
 there; a Pebble or JSP `:prop='{{ json | raw }}'` becomes a `[[${object}]]` in a script. Other

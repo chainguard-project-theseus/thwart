@@ -48,7 +48,7 @@ public final class Contexts {
    * {@code content} is a refresh URL.
    */
   public static OutputContext attribute(Element element, String attributeName) {
-    if (attributeName != null && isFrameworkDirective(attributeName)) {
+    if (attributeName != null && isFrameworkDirective(element, attributeName)) {
       return OutputContext.EVENT_HANDLER;
     }
     if (attributeName == null || !PLAIN_NAME.matcher(attributeName).matches()) {
@@ -101,14 +101,18 @@ public final class Contexts {
    *       {@code [filter]} is evaluated).
    *   <li>AngularJS: every {@code ng-*}, {@code ng:*}, {@code ng_*}, also with a {@code data-}
    *       or {@code x-} prefix.
-   *   <li>Knockout: {@code data-bind}.
+   *   <li>Knockout: {@code data-bind}, and {@code params} on a custom element (a name with a
+   *       {@code -}), which Knockout components evaluate as a binding.
    * </ul>
    *
    * Other {@code data-*} attributes, and the htmx attributes that hold URLs, selectors or plain
    * strings ({@code hx-get}, {@code hx-target}, {@code hx-swap}, ...), stay ordinary attributes.
    */
-  public static boolean isFrameworkDirective(String attributeName) {
+  public static boolean isFrameworkDirective(Element element, String attributeName) {
     String a = attributeName.toLowerCase(Locale.ROOT);
+    if (a.equals("params") && element.name().indexOf('-') >= 0) {
+      return true;
+    }
     if (a.startsWith(":") || a.startsWith("@") || a.startsWith("#") || a.startsWith(".")
         || a.startsWith("v-") || a.startsWith("x-") || a.equals("data-bind")) {
       return true;

@@ -133,6 +133,8 @@ class ContextsTest {
     "div, data-ng-click, EVENT_HANDLER",
     "div, x-ng-click, EVENT_HANDLER",
     "div, data-bind, EVENT_HANDLER",
+    "my-component, params, EVENT_HANDLER",
+    "my-component, PARAMS, EVENT_HANDLER",
     // data-only and string-valued framework attributes stay ordinary attributes
     "div, data-v-1a2b3c, ATTRIBUTE",
     "div, data-id, ATTRIBUTE",
@@ -141,6 +143,8 @@ class ContextsTest {
     "div, hx-target, ATTRIBUTE",
     "div, hx-swap, ATTRIBUTE",
     "div, hx-confirm, ATTRIBUTE",
+    "div, hx-get, ATTRIBUTE",
+    "div, params, ATTRIBUTE",
     "div, xml:lang, ATTRIBUTE",
     "div, ngx, ATTRIBUTE",
     "div, vue, ATTRIBUTE",
