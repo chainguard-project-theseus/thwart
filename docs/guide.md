@@ -463,14 +463,20 @@ escape(b))`). `SafeHtml.unchecked(html)` is a review point, and `TrustedUrl.unch
 same for URLs.
 
 CSS has no escaping that makes an arbitrary string safe, so a `style` attribute is built only from
-pieces that cannot end a declaration or call `url(...)`: literals, numbers and `CssValue`s.
+pieces that cannot end a declaration or call an unchecked `url(...)`: literals, numbers and `CssValue`s.
 `css.color(s)` and `css.length(s)` (or `CssValue.color`/`CssValue.length` in Java) validate a
 string and return `null` for anything else, so user data such as a category colour goes through
 them: `t:style="|background-color: ${css.color(category.color)}|"`. An invalid colour prints
 `background-color: null`, which the browser ignores as an invalid declaration; a `t:style` that is
 only a `null` value is omitted. Choices between literals work as before:
 `t:style="${soldOut} ? 'opacity:.5' : 'opacity:1'"`. `rgb(...)`, `var(...)` and other functions are
-not accepted; compute a hex colour in Java or use a class.
+not accepted; compute a hex colour in Java or use a class. For a background image such as an
+uploaded avatar, `css.url(s)` (`CssValue.url`) writes `url("...")`:
+`t:style="|background: ${css.url(user.avatar)} no-repeat center|"`. The URL must be relative,
+protocol-relative (`//cdn/a.png`) or `http`/`https`; `data:`, `javascript:`, every other scheme,
+control characters (newlines included) and URLs over 4096 characters give `null`. Quotes,
+backslashes, parentheses, `*`, spaces, a stray `%` and non-ASCII are percent-encoded, so the value
+cannot leave the quoted URL.
 
 <!-- compile: template guide/contexts.html -->
 ```html
@@ -513,7 +519,7 @@ Templates call functions as `namespace.fn(args)` or `#namespace.fn(args)`.
 | `numbers` | `formatInteger(n, minDigits)`, `formatDecimal(n, minIntDigits, decimals)` (no grouping, `.` as decimal point), `sequence(from, to)` (a `List<Integer>`) |
 | `temporals` | `format(temporal, pattern)` (English month and day names), `formatIso(temporal)` |
 | `lists` | `size`, `isEmpty`, `contains(list, x)` |
-| `css` | `color(s)` (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, a CSS named colour), `length(s)` (a number with optional `px`, `em`, `rem`, `%`, `vh`, `vw`): a `CssValue`, or `null` for anything else |
+| `css` | `color(s)` (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, a CSS named colour), `length(s)` (a number with optional `px`, `em`, `rem`, `%`, `vh`, `vw`), `url(s)` (`url("...")` for a relative or `http`/`https` URL, percent-encoded): a `CssValue`, or `null` for anything else |
 | `html` | `sanitize(s)`: stored rich text as `SafeHtml` for `t:utext` (section 4.4) |
 | `auth` (Spring starter) | `isAuthenticated()`, `hasRole('ADMIN')`, `hasAnyRole('A', 'B')`, `name()` |
 | `fields` (inside `t:object`) | `hasErrors('path')`, `hasErrors('*')`, `errors('path')`, section 4.7 |

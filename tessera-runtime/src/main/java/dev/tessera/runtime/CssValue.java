@@ -1,5 +1,6 @@
 package dev.tessera.runtime;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -8,12 +9,14 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * A single CSS value that is safe to place in a {@code style} attribute (#182): a colour or a
- * length. Only built by the validating factories {@link #color(String)} and {@link #length(String)},
- * which return {@code null} for anything else. The text of a {@code CssValue} contains only ASCII
- * letters, digits, {@code #}, {@code .}, {@code %} and {@code -}, so it can never end a
- * declaration ({@code ;}, <code>}</code>), call a function ({@code url(...)}, {@code expression(...)}),
- * open a string or comment, or carry a CSS escape ({@code \}).
+ * A single CSS value that is safe to place in a {@code style} attribute (#182): a colour, a
+ * length or an image URL. Only built by the validating factories {@link #color(String)},
+ * {@link #length(String)} and {@link #url(String)}, which return {@code null} for anything else.
+ * The text of a colour or length contains only ASCII letters, digits, {@code #}, {@code .},
+ * {@code %} and {@code -}, so it can never end a declaration ({@code ;}, <code>}</code>), call a
+ * function ({@code url(...)}, {@code expression(...)}), open a string or comment, or carry a CSS
+ * escape ({@code \}). A URL is {@code url("...")} whose quoted part contains only URL characters
+ * that have no meaning inside a CSS string (see {@link #url(String)}).
  *
  * <p>Templates build one with the built-in {@code css} namespace ({@code css.color(c)}), and the
  * {@code style} attribute accepts it next to string literals and numbers.
@@ -88,6 +91,89 @@ public final class CssValue {
     String t = s.trim();
     return LENGTH.matcher(t).matches() ? new CssValue(t) : null;
   }
+
+  /** Longest URL {@link #url(String)} accepts, in chars. */
+  static final int MAX_URL_LENGTH = 4096;
+
+  /**
+   * An image URL for {@code background}, {@code background-image} and the like (#238), written as
+   * {@code url("...")}. Surrounding whitespace is ignored. The URL must be relative
+   * ({@code /img/a.png}, {@code a.png}, {@code ?v=1}), protocol-relative ({@code //cdn/a.png}) or
+   * {@code http}/{@code https}: the URL context's scheme check without {@code mailto} and
+   * {@code tel}. {@code data:}, {@code javascript:} and every other scheme give {@code null}, as do
+   * {@code null}, the empty string, control characters (tab, CR and LF included), unpaired
+   * surrogates and URLs longer than {@value #MAX_URL_LENGTH} chars.
+   *
+   * <p>The quoted part keeps only ASCII letters, digits and {@code - . _ ~ : / ? # [ ] @ ! $ & + , ; =}
+   * plus {@code %} when it starts a {@code %XX} escape. Everything else is percent-encoded as UTF-8:
+   * {@code "} {@code '} {@code \} {@code (} {@code )} {@code *} {@code <} {@code >}, space, a
+   * stray {@code %} and non-ASCII. So the value can never close the string or the {@code url(...)},
+   * carry a CSS escape or start a comment.
+   */
+  public static CssValue url(String s) {
+    if (s == null) {
+      return null;
+    }
+    String t = s.trim();
+    if (t.isEmpty() || t.length() > MAX_URL_LENGTH) {
+      return null;
+    }
+    for (int i = 0; i < t.length(); i++) {
+      char c = t.charAt(i);
+      if (c < ' ' || c == 0x7f) {
+        return null;
+      }
+    }
+    if (!Escapers.isAllowedUrl(t) || hasScheme(t, "mailto") || hasScheme(t, "tel")) {
+      return null;
+    }
+    StringBuilder b = new StringBuilder(t.length() + 16).append("url(\"");
+    for (int i = 0; i < t.length(); i++) {
+      char c = t.charAt(i);
+      if (isUrlSafe(c)) {
+        b.append(c);
+      } else if (c == '%' && i + 2 < t.length() && isHex(t.charAt(i + 1)) && isHex(t.charAt(i + 2))) {
+        b.append(c);
+      } else if (c < 0x80) {
+        percent(b, c);
+      } else {
+        int cp = t.codePointAt(i);
+        if (Character.isSurrogate((char) cp)) {
+          return null; // unpaired surrogate
+        }
+        i += Character.charCount(cp) - 1;
+        byte[] utf8 = new String(Character.toChars(cp)).getBytes(StandardCharsets.UTF_8);
+        for (byte x : utf8) {
+          percent(b, x & 0xff);
+        }
+      }
+    }
+    return new CssValue(b.append("\")").toString());
+  }
+
+  /** Whether {@code t} (no control characters) starts with {@code scheme:}, ASCII case-insensitively. */
+  private static boolean hasScheme(String t, String scheme) {
+    return t.length() > scheme.length()
+        && t.charAt(scheme.length()) == ':'
+        && t.regionMatches(true, 0, scheme, 0, scheme.length());
+  }
+
+  private static boolean isUrlSafe(char c) {
+    return (c >= 'a' && c <= 'z')
+        || (c >= 'A' && c <= 'Z')
+        || (c >= '0' && c <= '9')
+        || "-._~:/?#[]@!$&+,;=".indexOf(c) >= 0;
+  }
+
+  private static boolean isHex(char c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+  }
+
+  private static void percent(StringBuilder b, int octet) {
+    b.append('%').append(HEX_DIGITS[octet >> 4]).append(HEX_DIGITS[octet & 0xf]);
+  }
+
+  private static final char[] HEX_DIGITS = "0123456789ABCDEF".toCharArray();
 
   /** The CSS text. */
   public String value() {
