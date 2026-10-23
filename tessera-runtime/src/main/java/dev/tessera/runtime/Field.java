@@ -40,6 +40,7 @@ public final class Field {
   }
 
   /** The path, so that {@code t:for="name"} writes the field's id. */
+  // TODO(#193): for an indexed path (items[1].name) the id drops the brackets (items1.name).
   @Override
   public String toString() {
     return path;
