@@ -569,6 +569,42 @@ public record Address(String street) {}
 - `t:errorclass="error"` next to `t:field` appends the class when the field has errors.
 - `fields.*` arguments are string literals. A `<form method="post">` gets the CSRF input
   automatically when Spring Security provides a token.
+- **Lists of beans.** A path may index a `List` or an array with an int literal or an int
+  variable: `*{items[0].name}`, `*{items[itemStat.index].name}`, `*{items[${i}].name}`. This
+  replaces Thymeleaf's `*{items[__${itemStat.index}__].name}` and FreeMarker's
+  `"cart.items[${index}].name"`. The element type is checked, `name` is Spring's `items[1].name`
+  and `id` is `items1.name`, and values and errors come from the `BindingResult` for that path, so
+  `@DateTimeFormat` and converters apply. In `fields.*` write a literal `'items[0].name'` or, for a
+  variable index, the path itself: `fields.hasErrors(*{items[itemStat.index].name})`. Map keys
+  (`map[key]`) are not supported.
+
+<!-- compile: template guide/cart.html -->
+```html
+<form xmlns:t="https://tessera.dev" t:import="com.example.guide.*" t:params="Cart cart"
+      t:object="cart" t:action="@{/cart}" method="post">
+  <div t:each="line : cart.lines" t:classappend="fields.hasErrors(*{lines[lineStat.index].qty}) ? 'has-error'">
+    <input type="text" t:field="*{lines[lineStat.index].product}" />
+    <input type="number" t:field="*{lines[lineStat.index].qty}" />
+    <span t:errors="*{lines[lineStat.index].qty}">Invalid quantity</span>
+  </div>
+</form>
+```
+
+<!-- compile: java -->
+```java
+package com.example.guide;
+
+import java.util.List;
+
+public record Cart(List<CartLine> lines) {}
+```
+
+<!-- compile: java -->
+```java
+package com.example.guide;
+
+public record CartLine(String product, int qty) {}
+```
 
 ### 4.8 Fragments and layouts
 
@@ -1022,9 +1058,13 @@ These come from the annotation processor itself, without a template position.
 - `t:field on a radio button or a non-boolean checkbox needs a value attribute (or t:value)`.
 - `<t:field> needs a field path, e.g. <t:field>="*{lastName}"`.
 - `<t:field> can only be used inside t:object (on this element or an ancestor), or with a Field fragment parameter`.
-- `<t:field> needs a field path such as lastName or *{address.city}, not an expression`.
+- `<t:field> needs a field path such as lastName, *{address.city} or *{items[i].name}, not an expression`.
+- `a field path index must be an int literal or an int variable such as i or iterStat.index, not an expression`:
+  compute the index with `t:with="i=..."` first.
+- `a field path index must be an int, got <type>`.
+- `cannot index <type> in a field path: [...] works on a List or an array`.
 - `field '<path>' can only be used inside t:object: put t:object="..." on this element or an enclosing one`.
-- `'<path>' is not a field path: use names like lastName or address.city`.
+- `'<path>' is not a field path: use names like lastName, address.city or items[0].name`.
 - `*{<name>} can only be used inside t:object: put t:object="..." on this element or an enclosing one, or write the full path (owner.<name>)`.
 - `t:errors can only be used inside t:object (on this element or an ancestor)`.
 - `t:errorclass needs literal class names (letters, digits, '-', '_'), e.g. t:errorclass="error"`.
@@ -1032,7 +1072,7 @@ These come from the annotation processor itself, without a template position.
 - `unknown function fields.<fn>: the fields namespace has hasErrors('path') and errors('path')`:
   `#fields.hasAnyErrors()` → `fields.hasErrors('*')`, `#fields.allErrors()` → `fields.errors('*')`.
 - `fields.<fn>(...) can only be used inside t:object, or with a Field parameter`.
-- `fields.<fn> takes one string literal (a field path such as 'lastName', or '*' for all errors) or a Field parameter`.
+- `fields.<fn> takes one string literal (a field path such as 'lastName', or '*' for all errors), a field expression such as *{items[i].name}, or a Field parameter`.
 
 ### Fragments
 
@@ -1073,7 +1113,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
   parameter and property types; declare `List`/`Map`. A `Boolean` getter named `getIsX()` (Lombok
   on a `Boolean isX` field) is reachable only as `x.getIsX()`. `java.util.Date`/`Calendar` are not
   view-safe.
-- **Forms.** No indexed paths (`items[0].name`), no `checked` for checkboxes bound to a collection,
+- **Forms.** No map keys in paths (`map[key]`), no `checked` for checkboxes bound to a collection,
   no global (object-level) errors apart from `fields.errors('*')`, no `t:field` on fields whose
   type is not view-safe (`MultipartFile`: write the `name` attribute by hand), and `Field`
   fragments cannot read the value. Radios get no `id`.

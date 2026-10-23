@@ -17,9 +17,10 @@ import javax.lang.model.util.Types;
 /**
  * The reserved {@code fields} namespace (Thymeleaf's {@code #fields}), valid only inside
  * {@code t:object}: {@code fields.hasErrors('path')} / {@code fields.hasErrors('*')} (boolean)
- * and {@code fields.errors('path')} ({@code List<String>}). Paths must be string literals and
- * are checked against the selection type; a {@code Field} fragment parameter may stand in for the
- * literal. Compiles to {@code ctx.forms().hasErrors(objectName, path)}
+ * and {@code fields.errors('path')} ({@code List<String>}). Paths are string literals
+ * ({@code 'items[0].name'} allowed) checked against the selection type; for an index held in a
+ * variable, pass the path as a selection expression, {@code fields.hasErrors(*{items[i].name})}. A
+ * {@code Field} fragment parameter may stand in for the path. Compiles to {@code ctx.forms().hasErrors(objectName, path)}
  * / {@code ctx.forms().errors(objectName, path)}. The ExpressionCompiler routes every
  * {@code fields.*} and {@code #fields.*} call here.
  */
@@ -50,18 +51,25 @@ public final class FieldsCompiler {
       diagnostics.error(pos, "fields." + function + "(...) can only be used inside t:object, or with a Field parameter");
       return null;
     }
-    Expr.Literal lit = args.size() == 1 && args.get(0) instanceof Expr.Literal ? (Expr.Literal) args.get(0) : null;
-    if (lit == null || !(lit.value() instanceof String)) {
-      diagnostics.error(
-          pos,
-          "fields." + function + " takes one string literal (a field path such as 'lastName', or '*' for all errors)"
-              + " or a Field parameter");
-      return null;
+    Expr arg = args.size() == 1 ? args.get(0) : null;
+    if (arg instanceof Expr.Literal && FormPaths.ALL.equals(((Expr.Literal) arg).value())) {
+      return new CompiledExpr(FormPaths.literal(selection.get(), FormPaths.ALL, null).formsCall(function), type, pos);
     }
-    String path = (String) lit.value();
-    if (!path.equals(FormPaths.ALL) && FormPaths.compile(path, lit.pos(), scope, expressions) == null) {
-      return null;
+    if (arg instanceof Expr.Literal && ((Expr.Literal) arg).value() instanceof String) {
+      String path = (String) ((Expr.Literal) arg).value();
+      if (FormPaths.compile(path, arg.pos(), scope, expressions) == null) {
+        return null;
+      }
+      return new CompiledExpr(FormPaths.literal(selection.get(), path, null).formsCall(function), type, pos);
     }
-    return new CompiledExpr(FormPaths.literal(selection.get(), path, null).formsCall(function), type, pos);
+    if (arg != null && FormPaths.root(arg) instanceof Expr.SelectionVar) {
+      FormPaths.FormField resolved = FormPaths.resolve(arg, scope, expressions, true);
+      return resolved == null ? null : new CompiledExpr(resolved.formsCall(function), type, pos);
+    }
+    diagnostics.error(
+        pos,
+        "fields." + function + " takes one string literal (a field path such as 'lastName', or '*' for all errors),"
+            + " a field expression such as *{items[i].name}, or a Field parameter");
+    return null;
   }
 }
