@@ -260,16 +260,19 @@ the runs (so no date differences this time), and every app got one run with the 
 | spring-framework-petclinic | yes | 79/79 | 26+0/26 | 12.8 | 3.32 | 50,059 |
 | spring-framework-petclinic-spring5 | yes | 67/67 | 27+0/27 | 9.6 | 2.73 | 48,015 |
 | spring-framework-petclinic-spring43 | yes | 70/70 | 27+0/27 | 13.7 | 3.40 | 50,305 |
-| spring-petclinic-mustache | no | 44/44 | 24+0/30 | 10.7 | 2.93 | 43,032 |
+| spring-petclinic-mustache | no | 44/44 | 28+0/30 | 10.7 | 2.93 | 43,032 |
 | jpetstore | no | 9/9 | 58+0/59 | 14.0 | 4.55 | 62,821 |
 | fredbet | no | 117/117 | 165+0/169 | 22.2 | 11.30 | 113,577 |
-| jobsearch | no | 3/3 | 46+3/92 | 41.5 | 35.11 | 413,789 |
+| jobsearch | no | 3/3 | 50+3/92 | 41.5 | 35.11 | 413,789 |
 | purl-server (held out) | no | 50/50 | 89+0/92 | 13.6 | 5.34 | 72,781 |
 | jprime (held out) | no | 209/209 | 137+3/150 | 33.2 | 21.10 | 237,891 |
 | budgetmaster (held out) | no | 269/269 | 65+0/121 | 37.8 | 26.01 | 369,065 |
 
-**7 of 14 pass**: every petclinic rung, both Spring 4.3 rungs included (they are still flagged
-`belowfloor` in their `app.json`, so `results/summary.md` lists them separately), and nothing
+Rechecked after #211 added the harness ignores below (jobsearch 46+3 and mustache 24+0 before);
+no pass changed.
+
+**7 of 14 pass**: every petclinic rung, both Spring 4.3 rungs included (#211 dropped their
+`belowfloor` flag, so `results/summary.md` counts them with the development apps), and nothing
 else. This is **one run per app**, so a single agent's choices swing an app's result; treat
 per-app changes as anecdotes. For comparison: #115 passed 9/15 (5 apps, 3 runs each, the
 lenient `crawl.py`); the #151 batch passed dev 2/8 and held-out 1/4. On the five #115 apps this
@@ -366,10 +369,11 @@ Pages per gap this round: #182 31 (34 with the undiffable pages), #181 8, #125 5
 
 ### Harness follow-ups
 
-Still not done from #151: an ignore for jobsearch's broken `spring.status.error`/`,=""` attributes
-(10 pages) and for spring-petclinic-mustache's `<span">` (4 pages). The Spring 4.3 rungs are still
-marked `belowfloor` although #179 made them supported. Dropping the webjar-version ignores would let
-the bench score #122 and #208.
+#211 added ignores for jobsearch's broken `spring.status.error` attribute (4 of its 10 pages are
+now identical; the 6 channel pages still differ because the port kept a stray `+` attribute from
+it) and spring-petclinic-mustache's `<span">` (all 4 pages), and dropped `belowfloor` from the
+Spring 4.3 rungs. The `,=""` inputs are left: those pages differ for other reasons too. Dropping
+the webjar-version ignores would let the bench score #122 and #208.
 
 ## Limitations
 

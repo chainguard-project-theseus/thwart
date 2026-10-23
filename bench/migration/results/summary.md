@@ -14,7 +14,7 @@
 | jobsearch | run-3 (crawl.py) | no | ok | 1/1 (base 1) | 81+5/92 | 0 | - | 0 | - | 21.4 | 16.54 | 289235 |
 | jobsearch | run-4 | no | ok | 1/1 (base 1) | 69+5/92 | 0 | - | 0 | - | 33.8 | 25.20 | 311868 |
 | jobsearch | run-5 | no | ok | 4/4 (base 1) | 66+4/92 | 0 | - | 0 | - | 19.2 | 17.66 | 276229 |
-| jobsearch | run-8 | no | ok | 3/3 (base 1) | 46+3/92 | 0 | - | 0 | invoked | 41.5 | 35.11 | 413789 |
+| jobsearch | run-8 | no | ok | 3/3 (base 1) | 50+3/92 | 0 | - | 0 | invoked | 41.5 | 35.11 | 413789 |
 | jpetstore | run-4 | no | ok | 8/8 (base 6) | 58+0/59 | 0 | - | 0 | - | 15.8 | 4.34 | 66385 |
 | jpetstore | run-7 | no | ok | 9/9 (base 6) | 58+0/59 | 0 | - | 0 | invoked | 27.4 | 5.58 | - |
 | jpetstore | run-8 | no | ok | 9/9 (base 6) | 58+0/59 | 0 | - | 0 | invoked | 14.0 | 4.55 | 62821 |
@@ -46,22 +46,24 @@
 | spring-petclinic-mustache | run-2 (crawl.py) | yes | ok | 44/44 (base 42) | 30+0/30 | 0 | - | 0 | - | 10.7 | 3.02 | 50331 |
 | spring-petclinic-mustache | run-3 (crawl.py) | yes | ok | 44/44 (base 42) | 30+0/30 | 0 | - | 0 | - | 10.9 | 3.33 | 53201 |
 | spring-petclinic-mustache | run-4 | no | ok | 44/44 (base 42) | 24+0/30 | 0 | - | 0 | - | 9.8 | 2.38 | 41798 |
-| spring-petclinic-mustache | run-8 | no | ok | 44/44 (base 42) | 24+0/30 | 0 | - | 0 | invoked | 10.7 | 2.93 | 43032 |
+| spring-petclinic-mustache | run-8 | no | ok | 44/44 (base 42) | 28+0/30 | 0 | - | 0 | invoked | 10.7 | 2.93 | 43032 |
 
 **Development apps**
 
 | App | Runs | Passed | Build ok | Tests ok | Skill invoked | Mean pages identical+reordered |
 |---|---|---|---|---|---|---|
 | fredbet | 6 | 0/6 | 6/6 | 6/6 | 1/1 | 98% |
-| jobsearch | 6 | 1/6 | 6/6 | 6/6 | 1/1 | 83% |
+| jobsearch | 6 | 1/6 | 6/6 | 6/6 | 1/1 | 84% |
 | jpetstore | 3 | 0/3 | 3/3 | 3/3 | 2/2 | 98% |
 | spring-framework-petclinic | 5 | 4/5 | 5/5 | 5/5 | 1/1 | 95% |
+| spring-framework-petclinic-spring43 | 2 | 2/2 | 2/2 | 2/2 | 2/2 | 100% |
 | spring-framework-petclinic-spring5 | 2 | 2/2 | 2/2 | 2/2 | 2/2 | 100% |
 | spring-petclinic | 5 | 5/5 | 5/5 | 5/5 | 1/1 | 100% |
+| spring-petclinic-boot15 | 2 | 2/2 | 2/2 | 2/2 | 2/2 | 100% |
 | spring-petclinic-boot20 | 2 | 2/2 | 2/2 | 2/2 | 2/2 | 100% |
 | spring-petclinic-boot27 | 2 | 2/2 | 2/2 | 2/2 | 2/2 | 100% |
-| spring-petclinic-mustache | 5 | 3/5 | 5/5 | 5/5 | 1/1 | 92% |
-| all | 36 | 19/36 | | | | |
+| spring-petclinic-mustache | 5 | 3/5 | 5/5 | 5/5 | 1/1 | 95% |
+| all | 40 | 23/40 | | | | |
 
 **Held-out apps**
 
@@ -71,11 +73,3 @@
 | jprime | 2 | 0/2 | 2/2 | 2/2 | 1/1 | 93% |
 | purl-server | 2 | 1/2 | 2/2 | 2/2 | 1/1 | 98% |
 | all | 7 | 1/7 | | | | |
-
-**Below-floor apps**
-
-| App | Runs | Passed | Build ok | Tests ok | Skill invoked | Mean pages identical+reordered |
-|---|---|---|---|---|---|---|
-| spring-framework-petclinic-spring43 | 2 | 2/2 | 2/2 | 2/2 | 2/2 | 100% |
-| spring-petclinic-boot15 | 2 | 2/2 | 2/2 | 2/2 | 2/2 | 100% |
-| all | 4 | 4/4 | | | | |

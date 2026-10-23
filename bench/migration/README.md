@@ -84,9 +84,10 @@ each form, and the error pages. Optional keys:
   Prefer fixing the data in `pages.txt` (absolute dates, no random generators) over ignoring.
 - `"heldout": true` marks an app that only measures the plugin (skill and guide) and
   `tessera-migrate`. Never change either because of what a held-out app does; `report` lists held-out apps in their own table.
-- `"belowfloor": true` marks an app older than Tessera supports (Spring 4.3 / Boot 1.5; Tessera
-  needs Spring 5.0+ or Boot 2.0+). It is informational: it shows whether an agent upgrades Spring
-  first. `report` lists below-floor apps in their own table.
+- `"belowfloor": true` marks an app older than Tessera supports (before Spring 4.3 / Boot 1.5).
+  It is informational: it shows whether an agent upgrades Spring first. `report` lists
+  below-floor apps in their own table. No app has it since #179 made the Spring 4.3 rungs
+  supported.
 
 The check container (never the migrating agent) sees the app's fixture directory read-only at
 `/bench/app`, so a start command can load seed data from it (for example
@@ -102,7 +103,9 @@ Current ignores: times of day (fredbet, jobsearch: seeded data is stamped at sta
 is still compared), UUIDs (fredbet: image keys generated at startup), the webjar version path
 segment (spring-petclinic, its Boot 2.0 and 1.5 rungs, fredbet: Boot adds it for Thymeleaf through `ResourceUrlEncodingFilter`,
 which Tessera's starter does not register yet, #122), JobSearch's `<span text-bg-...">`, an
-attribute built from an unbalanced quote in the original template, and order timestamps (jpetstore:
+attribute built from an unbalanced quote in the original template, and its
+`+ (spring.status.error?then(...))` left as literal attribute text in two inputs, the Mustache
+petclinic's `<span">` typo on the pagination pages, and order timestamps (jpetstore:
 stamped from the clock; no seeded order has one). Held-out: the request timestamp and the webjar
 version segment (purl-server: Boot's error page prints the date and time of the request; the webjar
 segment as above), the invoice date input (jprime: the invoice form defaults to today), and chart
@@ -121,9 +124,9 @@ routes and forms:
 |---|---|---|
 | spring-petclinic-boot27 | `9ecdc11` (2022-10) | Boot 2.7.3, Thymeleaf 3.0, H2, javax |
 | spring-petclinic-boot20 | `60105d5` (2018-08) | Boot 2.0.4, Thymeleaf 3.0, HSQLDB, javax; no pagination |
-| spring-petclinic-boot15 (below floor) | `c36452a` (2017-11) | Boot 1.5.4 (Spring 4.3), Thymeleaf 2.1, HSQLDB |
+| spring-petclinic-boot15 | `c36452a` (2017-11) | Boot 1.5.4 (Spring 4.3), Thymeleaf 2.1, HSQLDB |
 | spring-framework-petclinic-spring5 | `f5ab627` (v5.3.22, 2022-09) | Spring 5.3 MVC, JSP on Jetty 9.4, H2, javax; `yyyy/MM/dd` dates |
-| spring-framework-petclinic-spring43 (below floor) | `6e3b582` (2018-02) | Spring 4.3.13 MVC, JSP on Tomcat 7 (`tomcat7:run-war`, port 9966, `/petclinic`), HSQLDB |
+| spring-framework-petclinic-spring43 | `6e3b582` (2018-02) | Spring 4.3.13 MVC, JSP on Tomcat 7 (`tomcat7:run-war`, port 9966, `/petclinic`), HSQLDB |
 
 None needs an environment fix: they build with the image's Maven 3.9 as they are.
 
