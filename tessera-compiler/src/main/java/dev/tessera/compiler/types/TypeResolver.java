@@ -4,6 +4,7 @@ import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.expr.TypeRef;
+import dev.tessera.compiler.forms.FormPaths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -67,6 +68,10 @@ final class TypeResolver {
       }
       int expected = te.getTypeParameters().size();
       int got = ref.typeArgs().size();
+      if (got == 0 && ref.arrayDims() == 0 && te.getQualifiedName().contentEquals(FormPaths.FIELD)) {
+        // A plain Field parameter (#43) is a field of unknown type: Field<?>.
+        return env.types().getDeclaredType(te, env.types().getWildcardType(null, null));
+      }
       if (got == 0 && expected > 0) {
         return error(ref.pos(), ref.name() + " needs " + expected + " type argument(s), e.g. " + ref.name() + "<String>");
       }

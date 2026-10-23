@@ -10,18 +10,24 @@ import java.util.Objects;
  * creates the {@code Field}. Inside the fragment {@code t:field="name"}, {@code t:errors="name"},
  * {@code t:errorclass} and {@code fields.hasErrors(name)} accept it. Output as text it is its
  * path ({@code t:for="name"}). Templates cannot read its value.
+ *
+ * <p>Declared with its type, {@code Field<Criterion> name}, the fragment can also bind the
+ * field's properties: {@code t:field="name.answer"} is the path {@code <name>.answer}, checked
+ * against {@code Criterion} at build time. A plain {@code Field} parameter is a {@code Field<?>}.
+ *
+ * @param <T> the field's type
  */
-public final class Field {
+public final class Field<T> {
   private final String objectName;
   private final String path;
-  private final Object value;
+  private final T value;
 
   /**
    * @param objectName the {@code t:object} name (the Spring model attribute name)
    * @param path the dotted field path, e.g. {@code address.city}
    * @param value the field's current value
    */
-  public Field(String objectName, String path, Object value) {
+  public Field(String objectName, String path, T value) {
     this.objectName = Objects.requireNonNull(objectName, "objectName");
     this.path = Objects.requireNonNull(path, "path");
     this.value = value;
@@ -35,7 +41,7 @@ public final class Field {
     return path;
   }
 
-  public Object value() {
+  public T value() {
     return value;
   }
 
