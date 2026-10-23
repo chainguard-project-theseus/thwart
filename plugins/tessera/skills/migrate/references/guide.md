@@ -4,7 +4,8 @@ This guide is for a coding agent moving a Spring application's views (Thymeleaf,
 Mustache or similar) to Tessera, working from this document alone. It does not map your engine's
 syntax construct by construct: you know your engine, and once you know how Tessera works the
 syntax converts on its own. The hard parts are where Tessera's model differs (where data comes
-from, how layouts and forms work) and knowing whether the result is right.
+from, how layouts and forms work) and knowing whether the result is right. Section 4.10 lists the
+traps of particular engines (JSP with Tiles or SiteMesh, Velocity, Pebble).
 
 Read section 1 (the target) and section 2 (the build), then follow section 3 (the loop). Sections
 4 to 7 are reference: syntax, a worked example, every compiler diagnostic with its fix, and known
@@ -152,6 +153,17 @@ checked at build time. Facts about the build today:
   either order, but a Lombok bean serialized as JSON in a `<script>` needs Lombok first, and the
   build fails and says so otherwise. A property that is really missing is still a build error at
   its template position.
+- Check that the processor ran: after `mvn clean compile`, `target/generated-sources/annotations`
+  holds a `*Template.java` per template under the `tessera.package` directory. If it is empty,
+  `annotationProcessorPaths` was ignored, usually because the plugin is older than 3.5.
+- Static analysis that runs on compiled classes or all source roots (SpotBugs, PMD, Checkstyle,
+  Javadoc) also sees the generated templates and flags them (redundant null checks, dead stores).
+  Exclude the `tessera.package` package: a SpotBugs `excludeFilterFile` with
+  `<Match><Package name="~com\.example\.templates(\..*)?"/></Match>`, PMD
+  `<excludeRoots><excludeRoot>target/generated-sources/annotations</excludeRoot></excludeRoots>`,
+  Checkstyle `<excludes>com/example/templates/**</excludes>`, Javadoc
+  `<excludePackageNames>com.example.templates</excludePackageNames>`. Don't change the
+  generated code or lower the tools' thresholds for the application's own code.
 - The processor also runs in test compilation and regenerates the templates there. It finds
   `@TemplateFunctions` classes compiled earlier (the main classes, or an incremental compile that
   skips them) through the index it writes to `META-INF/tessera/functions/`, so no `<proc>none</proc>`
@@ -197,6 +209,10 @@ Security 4.2):
   `<maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>`.
   The starter's `spring.factories` registers the auto-configuration and the `@WebMvcTest` slice
   for Boot 1.5 too.
+- Boot 1.4 (Spring 4.3) isn't in the test suite, but apps on it have migrated with the javax
+  starter unchanged; don't upgrade Boot. Its parent pins the compiler plugin's version directly,
+  so the property above has no effect: write `<version>3.8.1</version>` on the
+  `maven-compiler-plugin` itself, and check that the processor ran.
 - Boot 2.0's default security (CSRF on, token in the session) works unchanged: a
   `<form method="post">` gets the `_csrf` input.
 - Boot 1.5's default security (`spring-boot-starter-security` and no security configuration of
@@ -288,7 +304,11 @@ tests that use `standaloneSetup` never render a view, so add one that renders th
 resolvers and checks that `<script>` in user data comes out escaped.
 
 **6. Remove the old engine**: its templates, dependency and configuration. Build, test and compare
-once more.
+once more. The old engine's starter or tag library often brought in libraries the application
+still uses (`spring-context-support`, with Spring's Ehcache, JCache and mail support, came with
+Boot's Velocity starter; `commons-beanutils` and `commons-collections` with Tiles), and losing them
+may show only at runtime. Save `mvn dependency:list` before removing it, diff it afterwards, and
+declare what the application still imports or configures.
 
 ## 4. Reference
 
@@ -504,7 +524,11 @@ cannot leave the quoted URL.
 `MessageSource` with the starter; `MessageFormat` placeholders `{0}`). The key is a literal; for a
 computed choice, use a conditional: `active ? #{status.active} : #{status.inactive}`. A message is
 text and is escaped. A missing key renders `??key_locale??` at runtime; with `-Atessera.messages`
-it is a build error instead.
+it is a build error instead. A key computed from data (`'criterion.' + c.code`) has no template
+form: resolve those messages in Java with Spring's `MessageSource` and the request `Locale` (in the
+controller or a `@ModelAttribute` method) and pass the strings in the model. A
+`@TemplateFunction` can't see the locale or Spring beans; don't reach them through
+`RequestContextHolder` or other static state.
 
 **Messages with markup.** A bundle is part of the application, so a message that holds markup
 (Thymeleaf `th:utext="#{key(args)}"`, JSP `<spring:message>` without escaping) can be printed as
@@ -857,8 +881,145 @@ must match exactly; other names fall through to other resolvers. A model value o
 fails with `TemplateModelException`. A controller can also return `ListTemplate.of(owners)`, checked
 by `javac`. Without Spring, call `FunctionsTemplate.of(order).renderToString(ctx)` with a
 `RenderContext(locale, messages, links, forms)`, the whole ambient surface (`RenderContext.defaults()`,
-`ResourceBundleMessages`, `DefaultLinks(contextPath)`). `TemplateRegistry.load(classLoader)` finds
-templates by view name.
+`ResourceBundleMessages`, `DefaultLinks(contextPath)`). The generated class is
+`<tessera.package>.<path>Template` with `of(...)` taking the `t:params` in order (section 4.1).
+This is how code outside a request (a command-line tool, a mail job) renders a template that the
+old app rendered with its engine's API. `TemplateRegistry.load(classLoader)` finds templates by
+view name.
+
+### 4.10 Notes for specific engines
+
+The rest of this guide applies to every engine. These notes list what is easy to get wrong when
+leaving a particular one. Read the part for your engine before converting.
+
+**Every engine.**
+
+- **Raw output.** Velocity prints everything raw, JSP prints EL `${x}` raw outside `<c:out>` and
+  the form tags, and Pebble's `| raw` turns escaping off. Treat each raw output in the old
+  templates as a review point, and replace it according to where the value comes from:
+  - plain data: an escaped `t:text` or attribute. If the page now shows `&lt;b&gt;` where the old
+    one rendered `<b>`, the old page was injectable. That difference is the fix: keep it and say so.
+  - stored rich text: `html.sanitize` (section 4.4). If the HTML needs what the sanitizer drops
+    (`class`, `id`, images: editor output, Markdown with code blocks), parse it in Java into an
+    allow-listed tree of records and render that with a recursive fragment (section 7, Rich text).
+  - markup the application builds in Java (a `StringBuilder` of HTML): build records instead and
+    let the template render them; for a few pieces, `SafeHtml.concat`/`SafeHtml.escape`.
+  - constant HTML: write it in the template; a bundle message with markup: `t:utext="#{key}"`
+    (section 4.5).
+  - JSON for a script: pass the object to `[[...]]` inside the `<script>`. JSON in a `data-*`
+    attribute: build the JSON string in Java and write it as a normal attribute value, which is
+    escaped. A framework directive (Vue `:prop`, Alpine `x-data`, ...) can't contain an expression
+    (section 4.4): put the value in a `data-*` attribute or a `<script>` with `[[...]]` and read it
+    from there.
+
+  Never `SafeHtml.unchecked`.
+- **Scripts.** `[[...]]` in a `<script>` writes JSON with, among others, `/`, `&`, `<` and `'`
+  escaped as `\/`, `\u0026`, `\u003c` and `\u0027`. The JavaScript value is the same, so a
+  difference that compare shows there against a page that printed the value raw or HTML-escaped is
+  expected (an `&amp;` inside an old `<script>` was a bug: the string contained `&amp;`).
+- **Conditions** are Thymeleaf's: `t:if` is false for `null`, `false`, `0` and the strings
+  `"false"`, `"off"` and `"no"`, and true for everything else, including `""` and empty
+  collections. Write what the old condition meant: `x != null`, `!list.isEmpty()`.
+- `numbers.sequence(1, n)` counts down when `n` is below 1 (`sequence(1, 0)` is `[1, 0]`): guard the
+  loop where the old one ran zero times. Whitespace between `t:case` siblings and HTML comments are
+  output; that matters only in whitespace-sensitive markup (`<pre>`, inline text).
+
+**JSP, JSTL and Spring form tags, with Tiles or SiteMesh.**
+
+- `<form:form modelAttribute="x">` is `t:object="x"`; `<form:input>`, `<form:select>`,
+  `<form:checkbox>`, `<form:radiobutton>` and `<form:textarea path="p">` are the HTML element with
+  `t:field="*{p}"` (write `<form:options>` as a `t:each` over `<option>`); `<form:errors>` is
+  `t:errors`. `t:field` writes Spring's ids, names, checkbox `_name` markers and `selected`/`checked`.
+- **Computed paths.** A tag file or Tiles fragment that binds `path="${field}.answer"` becomes a
+  fragment with a `Field<T>` parameter that binds `t:field="c.answer"` (section 4.8, Binding
+  properties of a `Field`). The caller can't yet pass a `Field` indexed by its own loop variable
+  (`*{criteria[i]}`, #193): pass the list both as a value to loop over and as a `Field<List<T>>`,
+  and bind `cs[st.index].answer` inside the fragment's loop; or keep those controls at the call
+  site, where `*{criteria[st.index].answer}` works, and pass them in as a `Fragment`
+  (`~{::controls}` renders with the call site's variables).
+  Don't hand-write the form tags' markup: what you miss (selected options, ids, markers) shows up
+  only in compare.
+- **Tiles definitions.** Each definition becomes a page template that calls a layout fragment with
+  the definition's attributes as arguments: `<tiles:insertAttribute>` is a `Fragment` parameter,
+  `<tiles:getAsString>` a `String`. An `extends` chain and `put-attribute` defaults are resolved by
+  the caller: each page passes the inherited values itself, and `cascade` attributes are passed on
+  to the nested fragments that use them. A definition chosen at runtime becomes `t:if`/`t:switch`
+  between literal fragment calls, or the controller returns one of several literal view names.
+  SiteMesh decorators are layouts the same way (section 4.8).
+- `<jsp:include>`, `<%@ include %>` and tag files are fragments: tag attributes become typed
+  parameters and `<jsp:doBody/>` a `Fragment` parameter.
+- **Scriptlets and state changes during render** (`<% %>`, `<jsp:useBean>`, `<c:set
+  scope="session">`, filling in a form object's lists) move to the controller, a `@ModelAttribute`
+  method or an interceptor. `<c:set var>` of a value is `t:with`; `<c:set var>` that captures markup
+  to repeat it is a fragment. Markup needed as data (written into a hidden field, mailed) is a
+  second template rendered in Java: `SafeHtml.of(XTemplate.of(...), ctx)` (section 4.4), with
+  `ctx` from `SpringRenderContexts.create(request, response, model)` in a controller.
+- EL implicit objects (`param`, `sessionScope`, `header`, `cookie`,
+  `pageContext.request.contextPath`) are model values (section 1); a context-path prefix is `@{...}`.
+
+**Velocity (and Velocity Tools).**
+
+- `#foreach` is `t:each="x, st : xs"`: `$velocityCount` is `st.count` (1-based), `$foreach.index`
+  `st.index`, `$foreach.hasNext` `!st.last`. `#set` is `t:with`, for one element. `#macro` and
+  `VM_global_library.vm` macros are fragments; `#parse`/`#include` of a header and footer become one
+  layout fragment (section 4.8). Of Velocity Tools, `$esc.html(...)` goes (escaping is
+  automatic), `$date` and `$number` become `temporals.*`, `numbers.*` or a function, and `$link`
+  an `@{...}` link.
+- **Nulls.** `$!{x}` prints nothing for `null`, and `${x}` prints its own source text; Tessera prints
+  nothing for both. A `null` attribute is omitted where `value="$!{x}"` kept `value=""`: write
+  `x ?: ''` for a `String`, and `x == null ? '' : '' + x` for anything else
+  (`x == null ? '' : x` doesn't compile, because the branches' types differ).
+- **Tolerance.** Velocity prints the source of a reference it can't evaluate (arithmetic on `null`
+  leaves `/projects/$prev` in the page), `#set($a = $b)` with a null `$b` keeps the old `$a`, and
+  `#if($x)` is true for anything but `null` and `false`. If the pages depend on that, reproduce it
+  on purpose, in Java, and check it with compare.
+- Templates split across `#parse` files often leave tags unbalanced (the header opens a `<div>` the
+  footer closes). Tessera needs each template well formed: open and close in one layout fragment.
+
+**Pebble.**
+
+- `{% for %}`'s `loop.index` is `st.index` (0-based), `loop.first`/`loop.last`/`loop.length` are
+  `st.first`/`st.last`/`st.size`. `{% set %}` is `t:with`, `{% macro %}` a typed fragment,
+  `{% include %}` a fragment call, and `{% extends %}` with `{% block %}`s a layout whose `Fragment`
+  parameters are the blocks.
+- **Extends chains.** A layout that extends another layout is a fragment that replaces itself with
+  the outer layout and passes its own markup as a selection. The selected element needs a plain tag
+  name you invent (`~{::tag}` can't select `t:block` or hyphenated names), with `t:remove="tag"`:
+
+<!-- compile: template guide/fragments/toolbar-layout.html -->
+```html
+<html xmlns:t="https://tessera.dev" t:fragment="toolbarLayout(String title, Fragment tools, Fragment content)"
+      t:replace="~{guide/fragments/layout :: layout(~{::withtoolbar}, title, null)}">
+<withtoolbar t:remove="tag">
+  <div class="toolbar" t:insert="tools">tools</div>
+  <div t:replace="content">content</div>
+</withtoolbar>
+</html>
+```
+
+<!-- compile: template guide/report.html -->
+```html
+<!DOCTYPE html>
+<html xmlns:t="https://tessera.dev" t:params="String name"
+      t:replace="~{guide/fragments/toolbar-layout :: toolbarLayout('Report', ~{::tools}, ~{::body})}">
+<tools t:remove="tag"><a t:href="@{/report.csv}">CSV</a></tools>
+<body t:remove="tag">
+  <h1 t:text="name">Report</h1>
+</body>
+</html>
+```
+
+The page puts its selected elements outside `<body>`, or they would also render inside it.
+
+- **Filters and functions.** Built-in filters map to functions (`upper`, `abbreviate`, `date`) or
+  `?:` (`default`). Custom filters and functions (a Pebble `Extension`) become a
+  `@TemplateFunctions` class or a value computed in Java. `| raw`: see raw output above.
+  `strictVariables` is what typed `t:params` already give you: delete the setting with Pebble.
+- **Attribute access.** Pebble reads public fields, `Map` keys with `.`, and methods with arguments
+  (`x.getOther('a')`, `opt.get()`). Tessera reads getters and record components only: add getters
+  or build a record. `map['key']` works. An `Optional` has `isPresent()` (or `present`) and prints
+  its value or nothing, but `get()` can't be called. Printing a `@TemplateView` object prints its
+  `toString()`.
 
 ## 5. Worked example
 
@@ -1280,6 +1441,8 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **Rich text.** `html.sanitize` has one fixed policy: no images, tables, `class` or `style`, and
   links don't keep `target`. If the stored HTML needs more, build the markup in Java (a template
   over a parsed model, or `SafeHtml.concat`) rather than widening it with `SafeHtml.unchecked`.
+- **Refresh `<meta>`** (#237). Its `content` can't be computed: choose between literal `<meta>` tags
+  with `t:if`/`t:switch`.
 - **Security functions.** `auth` has `hasRole`/`hasAnyRole`, not `hasAuthority`; compute anything
   else in the controller.
 - **Selections.** `~{::tag}` selects fragment names and plain tag names only: not hyphenated tags,
