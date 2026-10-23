@@ -258,6 +258,11 @@ public final class ExpressionCompiler {
     return true;
   }
 
+  /** Why {@code type} is never view-safe (the deny-list in {@link ViewSafety}), or empty. */
+  public Optional<String> neverViewSafeReason(TypeMirror type) {
+    return safety.neverViewSafeReason(type);
+  }
+
   // ---------------------------------------------------------------- expressions
 
   private CompiledExpr literal(Expr.Literal l) {
