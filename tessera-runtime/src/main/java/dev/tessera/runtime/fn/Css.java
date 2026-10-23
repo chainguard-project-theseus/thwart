@@ -25,4 +25,10 @@ public final class Css {
   public static CssValue length(String s) {
     return CssValue.length(s);
   }
+
+  /** {@link CssValue#url(String)}: {@code url("/img/a.png")} for a relative or http(s) URL. */
+  @TemplateFunction
+  public static CssValue url(String s) {
+    return CssValue.url(s);
+  }
 }

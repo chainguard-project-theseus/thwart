@@ -171,7 +171,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
         .error(
             e.pos(),
             label + " is not allowed: a style value can only combine string literals, numbers and CssValues"
-                + " such as css.color(c) or css.length(l), not a " + type
+                + " such as css.color(c), css.length(l) or css.url(u), not a " + type
                 + "; use t:class or t:classappend instead");
     return false;
   }
