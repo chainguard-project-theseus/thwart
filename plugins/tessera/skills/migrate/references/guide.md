@@ -520,9 +520,10 @@ Arguments are HTML-escaped before they are formatted into the message (numbers a
 formatted by `MessageFormat` as usual), so `{0}` is always text. Placeholders must be `{n}`,
 `{n,number[,integer|currency|percent]}` or `{n,date|time[,short|medium|long|full]}`, and may not
 appear inside a tag. The value is checked both as written and as `MessageFormat` formats it, where
-`'` quotes text: use double quotes around attribute values and `''` for an apostrophe. Bundles the
-build cannot see (other directories or jars, a database-backed `MessageSource`) are not checked:
-the application vouches for what its `MessageSource` returns. Where a message's markup does not fit
+`'` quotes text: use double quotes around attribute values and `''` for an apostrophe. At
+runtime the message is printed as HTML only if it contains no `<` or is exactly what one of the
+checked values produces; a message from a source the build did not check (another directory or
+jar, a database-backed `MessageSource`, a file changed after the build) is escaped as text. Where a message's markup does not fit
 the allow-list, move the markup into the template and keep the text in the bundle.
 
 <!-- compile: messages -->

@@ -165,4 +165,33 @@ class HtmlMessageTest {
     Compilation c = compile(w.toString(), "<div>\n<p t:utext=\"#{bad}\">x</p></div>");
     c.assertError("page.html:2:", "message 'bad'", "cannot be rendered as HTML");
   }
+
+  @Test
+  void runtimeMessageTheBuildDidNotCheckIsEscaped() {
+    Compilation c = compile(BUNDLE, PAGE).assertSuccess();
+    // At runtime the message source returns other values for the checked keys (a bundle in
+    // another directory or jar, a database, a file changed after the build).
+    String evil =
+        "intro=<script>alert(1)</script>\n"
+            + "greet=<img src=x onerror=alert({0})>{1}\n";
+    String html = c.render("page", Map.of("name", "Ann", "n", 1), ctx(evil));
+    assertEquals(
+        "<div><p>&lt;script&gt;alert(1)&lt;/script&gt;</p>"
+            + "<p>&lt;img src=x onerror=alert(Ann)&gt;1</p>"
+            + "<span>&lt;img src=x onerror=alert(Ann)&gt;1</span></div>",
+        html);
+  }
+
+  @Test
+  void runtimeMessageFromALocaleFileTheBuildCheckedIsHtml() {
+    Compilation c =
+        Compilation.builder()
+            .template("page.html", "<p t:utext=\"#{intro}\">x</p>")
+            .messages("intro=<b>Hi</b>\n")
+            .localeMessages("fr", "intro=<b>Salut</b>\n")
+            .compile()
+            .assertSuccess();
+    assertEquals("<p><b>Salut</b></p>", c.render("page", Map.of(), ctx("intro=<b>Salut</b>\n")));
+    assertEquals("<p>&lt;i&gt;Salut&lt;/i&gt;</p>", c.render("page", Map.of(), ctx("intro=<i>Salut</i>\n")));
+  }
 }
