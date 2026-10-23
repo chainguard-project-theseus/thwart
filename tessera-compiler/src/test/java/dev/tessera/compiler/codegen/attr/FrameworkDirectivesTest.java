@@ -136,6 +136,31 @@ class FrameworkDirectivesTest {
     compile("<button t:hx-get=\"@{${s}}\">x</button>").assertError("t.html:1:", "dynamic link paths");
   }
 
+  /** URL parsers drop tab, CR and LF, so {@code /<tab>/host} would be protocol-relative: rejected. */
+  @Test
+  void sameOriginCheckIgnoresTabAndNewlines() {
+    for (String path : new String[] {"/\t/evil.example/x", "/\r\n/evil.example", "/\n\\evil.example"}) {
+      compile("<button t:hx-get=\"@{" + path + "}\">x</button>")
+          .assertError("t.html:1:", "link path must not contain whitespace");
+      compile("<meta http-equiv=\"refresh\" t:content=\"'0;url=' + @{" + path + "}\">")
+          .assertError("t.html:1:", "link path must not contain whitespace");
+    }
+  }
+
+  /** htmx 1.x hx-sse / hx-ws hold connect:<url>: no expression at all; static values pass. */
+  @Test
+  void legacyHtmxConnectRejectsExpressions() {
+    for (String name : new String[] {"hx-sse", "hx-ws", "data-hx-sse", "HX-WS"}) {
+      compile("<div t:" + name + "=\"'connect:' + @{/events}\">x</div>")
+          .assertError("t.html:1:", "t:" + name + " is not allowed", "connect:<url>", "sse-connect");
+      compile("<div t:attr=\"" + name + "=${s}\">x</div>").assertError("t:attr " + name + " is not allowed");
+    }
+    Compilation c = compile("<div hx-sse=\"connect:/events\" hx-ws=\"connect:/chat\">x</div>").assertSuccess();
+    assertEquals(
+        "<div><div hx-sse=\"connect:/events\" hx-ws=\"connect:/chat\">x</div></div>",
+        c.render("t", Map.of("s", "x")));
+  }
+
   @Test
   void htmxRequestUrlAcceptsASameOriginLink() {
     Compilation c =

@@ -76,6 +76,10 @@ public final class GenericAttrProcessor implements AttributeProcessor {
                 : lower.equals("http-equiv")
                 ? "the http-equiv of a <meta> cannot be computed; it decides whether content is"
                     + " a refresh URL, so write a static http-equiv attribute"
+                : Contexts.isLegacyHtmxConnect(name)
+                ? "htmx 1.x '" + name + "' holds connect:<url>, a URL htmx connects to and swaps into the page as"
+                    + " HTML, so it cannot be computed; write it as a static attribute, or use the sse/ws"
+                    + " extension's sse-connect/ws-connect with a same-origin link such as @{/events}"
                 : lower.equals("srcdoc")
                 ? "srcdoc is a whole HTML document and cannot contain expressions; use src with a URL"
                 : "attribute name '" + name + "' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*";
@@ -154,7 +158,11 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     }
   }
 
-  /** A literal link path that stays on the page's origin: one {@code /} not followed by {@code /} or a backslash. */
+  /**
+   * A literal link path that stays on the page's origin: one {@code /} not followed by {@code /}
+   * or a backslash. Whitespace, which URL parsers strip ({@code /<tab>/host} is {@code //host}),
+   * is already rejected in every link path.
+   */
   private static boolean isSameOriginPath(String path) {
     return path.startsWith("/") && !path.startsWith("//") && !path.startsWith("/\\");
   }

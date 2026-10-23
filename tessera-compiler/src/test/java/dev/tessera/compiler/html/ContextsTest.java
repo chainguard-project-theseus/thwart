@@ -156,6 +156,8 @@ class ContextsTest {
     "div, ws-connect, RESOURCE_URL",
     "div, data-ws-connect, RESOURCE_URL",
     // htmx history URLs only change the address bar
+    "div, hx-sse, FORBIDDEN",
+    "div, data-hx-ws, FORBIDDEN",
     "a, hx-push-url, URL",
     "a, hx-replace-url, URL",
     "a, data-hx-push-url, URL",

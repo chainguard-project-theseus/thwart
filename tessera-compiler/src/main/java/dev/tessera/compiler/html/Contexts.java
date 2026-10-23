@@ -69,6 +69,9 @@ public final class Contexts {
     if (isHtmxRequestUrl(attr)) {
       return OutputContext.RESOURCE_URL;
     }
+    if (isLegacyHtmxConnect(attr)) {
+      return OutputContext.FORBIDDEN;
+    }
     String unprefixed = attr.startsWith("data-") ? attr.substring("data-".length()) : attr;
     if (unprefixed.equals("hx-push-url") || unprefixed.equals("hx-replace-url")) {
       return OutputContext.URL;
@@ -107,6 +110,18 @@ public final class Contexts {
   public static boolean isHtmxRequestUrl(String attributeName) {
     String a = attributeName.toLowerCase(Locale.ROOT);
     return HTMX_REQUEST_ATTRIBUTES.contains(a.startsWith("data-") ? a.substring("data-".length()) : a);
+  }
+
+  /**
+   * Whether {@code attributeName} is htmx 1.x's {@code hx-sse} or {@code hx-ws} (also with
+   * {@code data-}), whose {@code connect:<url>} htmx connects to and swaps into the page. They
+   * are FORBIDDEN: the URL sits inside a mini-language, so it can only be written statically.
+   * Case-insensitive.
+   */
+  public static boolean isLegacyHtmxConnect(String attributeName) {
+    String a = attributeName.toLowerCase(Locale.ROOT);
+    String unprefixed = a.startsWith("data-") ? a.substring("data-".length()) : a;
+    return unprefixed.equals("hx-sse") || unprefixed.equals("hx-ws");
   }
 
   /** htmx attributes ({@code hx-} or {@code data-hx-}) whose value is evaluated as JavaScript. */
