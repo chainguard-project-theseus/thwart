@@ -26,8 +26,10 @@ import org.jsoup.nodes.Element;
  * and every POST carrying the {@code _csrf} hidden input of the previous page.
  *
  * <p>{@code pages.txt} has one request per line, {@code GET /path} or {@code POST /path a=1&b=2};
- * blank lines and {@code #} comments are ignored. Form values may be written raw or
- * percent-encoded ({@code +} is a space, as in any form body).
+ * blank lines and {@code #} comments are ignored. The path and query may be written raw or
+ * percent-encoded: characters a URL can't hold are encoded as a browser would ({@link #encodeUrl})
+ * and existing escapes are kept. Form values may also be written raw or percent-encoded ({@code +}
+ * is a space, as in any form body), so a value holding {@code &} needs {@code %26}.
  */
 final class Crawler {
 
@@ -167,7 +169,8 @@ final class Crawler {
   Response send(Request request) {
     Response response;
     try {
-      URI uri = URI.create(base + request.path());
+      // A raw `<`, non-ASCII letter or stray `%` in pages.txt is sent as a browser would send it.
+      URI uri = URI.create(base + encodeUrl(request.path()));
       String method = request.method();
       String body = method.equals("POST") ? formBody(request.form(), csrf(previousBody)) : null;
       int status;
@@ -268,7 +271,7 @@ final class Crawler {
   }
 
   /**
-   * Percent-encodes what a browser would in a {@code Location} before resolving it: every
+   * Percent-encodes what a browser would in a {@code pages.txt} path or a {@code Location}: every
    * character outside the URI's ASCII set (spaces, non-ASCII as UTF-8, {@code "<>\^`{|}}) and a
    * {@code %} that starts no escape. Existing escapes and the URI's delimiters stay as they are.
    */
