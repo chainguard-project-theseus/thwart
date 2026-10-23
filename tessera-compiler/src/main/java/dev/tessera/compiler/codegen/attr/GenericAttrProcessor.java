@@ -146,7 +146,9 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     }
     if (e instanceof Expr.Conditional) {
       Expr.Conditional c = (Expr.Conditional) e;
-      return styleSafe(ctx, c.then(), plan, label) & styleSafe(ctx, c.otherwise(), plan, label);
+      // The condition is not output. A missing else branch ("c ? a") renders nothing.
+      return styleSafe(ctx, c.then(), plan, label)
+          & (c.otherwise() == null || styleSafe(ctx, c.otherwise(), plan, label));
     }
     if (e instanceof Expr.Elvis) {
       Expr.Elvis el = (Expr.Elvis) e;

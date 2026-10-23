@@ -74,6 +74,11 @@ class StyleAttributeTest {
     assertEquals(
         "<p style=\"display:none\">x</p>", render("<p t:attr=\"style=${b} ? 'display:none' : null\">x</p>", "b", true));
     assertEquals("<p>x</p>", render("<p t:attr=\"style=${b} ? 'display:none' : null\">x</p>", "b", false));
+    // No else branch: the attribute is omitted when the condition is false.
+    assertEquals("<p style=\"display:none\">x</p>", render("<p t:style=\"${b} ? 'display:none'\">x</p>", "b", true));
+    assertEquals("<p>x</p>", render("<p t:style=\"${b} ? 'display:none'\">x</p>", "b", false));
+    // The condition may be any boolean; only the branches are output.
+    assertEquals("<p style=\"color:red\">x</p>", render("<p t:style=\"${s == 'x'} ? 'color:red'\">x</p>", "s", "x"));
   }
 
   @Test
@@ -97,12 +102,24 @@ class StyleAttributeTest {
         "<p t:style=\"#strings.trim(s)\">x</p>",
         "<p t:style=\"#{color}\">x</p>",
         "<p t:style=\"|color: ${b}|\">x</p>",
+        "<p t:style=\"b ? s\">x</p>",
+        "<p t:style=\"|a: ${|${s}|}|\">x</p>",
         "<p t:STYLE=\"s\">x</p>",
         "<p t:attr=\"style=s\">x</p>",
         "<p t:attr=\"style='color:' + s\">x</p>",
       })
   void stringValuesAreBuildErrors(String body) {
     compile(body).assertError("t.html:1:", "is not allowed", "style value", "t:class");
+  }
+
+  @Test
+  void charIsNotANumber() {
+    // A char could be ';' or '}'.
+    Compilation.builder()
+        .template("t.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"char c, Character k\"><p t:style=\"|a: ${c}|\">x</p><i t:style=\"|a: ${k}|\">y</i></div>")
+        .compile()
+        .assertError("t.html:1:", "is not allowed", "not a char")
+        .assertError("t.html:1:", "is not allowed", "not a java.lang.Character");
   }
 
   @Test
@@ -134,6 +151,9 @@ class StyleAttributeTest {
         "#fff;",
         "#ff\u0000f",
         "＃fff",
+        "\u0661\u0662px",
+        "１２px",
+        "12px\n;x:y",
         "red;",
         "'red'",
         "\"red\"",
