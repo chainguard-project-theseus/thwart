@@ -228,8 +228,9 @@ The processor runs inside the application's normal `javac`. Every app adds:
 
 An absolute path avoids depending on javac's working directory and on resources being copied
 before compilation. Every `**/*.html` under the root is a template; the view name is its relative
-path without `.html`. The processor supports `*`, runs once in the first round, never claims
-annotations. With `tessera.messages` set, `#{}` keys are checked against `<base>.properties`.
+path without `.html`. The processor supports `*`, never claims annotations, and compiles the
+templates in the first round; if that has errors it retries in each later round and reports the
+last round's errors, so getters another processor (Lombok) adds are visible whatever the order. With `tessera.messages` set, `#{}` keys are checked against `<base>.properties`.
 **Known limitation:** Maven's incremental compile does not see template edits; run
 `mvn clean compile` (or touch a Java file) after changing only templates.
 

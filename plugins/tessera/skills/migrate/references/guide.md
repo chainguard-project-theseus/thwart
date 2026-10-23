@@ -146,7 +146,10 @@ checked at build time. Facts about the build today:
   `<maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>` under a Boot parent, or
   a `<version>` on the plugin.
 - `annotationProcessorPaths` turns off processor discovery, so list every processor the build
-  relied on (Lombok, MapStruct, ...) next to Tessera.
+  relied on (Lombok, MapStruct, ...) next to Tessera. The order doesn't matter: templates see the
+  getters Lombok generates (`@Getter`, `@Data`, `@Value`) on `@TemplateView` classes, with Lombok
+  1.16 and 1.18 alike, so there is no need to write them by hand. A property that is really
+  missing is still a build error at its template position.
 - The processor also runs in test compilation and regenerates the templates there. It finds
   `@TemplateFunctions` classes compiled earlier (the main classes, or an incremental compile that
   skips them) through the index it writes to `META-INF/tessera/functions/`, so no `<proc>none</proc>`

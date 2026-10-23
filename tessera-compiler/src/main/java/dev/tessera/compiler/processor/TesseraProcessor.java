@@ -14,6 +14,7 @@ import java.io.Writer;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,11 +32,17 @@ import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 
 /**
- * javac entry point. Runs once, in the first round: discovers templates under
- * {@code -Atessera.templates}, compiles them with {@link TemplateCompiler}, writes the generated
- * sources and resources through the Filer, and reports diagnostics as
- * {@code file:line:col: message} javac errors. If any template has an error, nothing is written.
- * Never claims annotations, so other processors are unaffected.
+ * javac entry point. Discovers templates under {@code -Atessera.templates}, compiles them with
+ * {@link TemplateCompiler}, writes the generated sources and resources through the Filer, and
+ * reports diagnostics as {@code file:line:col: message} javac errors. If any template has an
+ * error, nothing is written. Never claims annotations, so other processors are unaffected.
+ *
+ * <p>Rounds (#233): it compiles the templates in the first round and, if that succeeds, is done.
+ * If there are errors it says nothing and tries again in each later round, reporting the errors of
+ * the last round ({@code processingOver}). Processors that add members to existing classes, such
+ * as Lombok, may run after Tessera in a round or (Lombok 1.16) not finish in the first round; javac
+ * re-enters all classes from the modified trees before each new round, so a later attempt sees the
+ * generated getters whatever the processor order.
  *
  * <p>Function index (#118): for each {@code @TemplateFunctions("ns")} class in this compilation it
  * writes {@code META-INF/tessera/functions/ns} (the class name), and a namespace the templates use
@@ -48,6 +55,7 @@ public final class TesseraProcessor extends AbstractProcessor {
   static final String FUNCTION_INDEX = "META-INF/tessera/functions/";
 
   private boolean done;
+  private final Set<String> functionClassNames = new LinkedHashSet<>();
 
   @Override
   public Set<String> getSupportedAnnotationTypes() {
@@ -69,27 +77,13 @@ public final class TesseraProcessor extends AbstractProcessor {
     if (done) {
       return false;
     }
-    done = true;
+    collectFunctionClasses(round);
     Messager messager = processingEnv.getMessager();
     ProcessorOptions options = ProcessorOptions.parse(processingEnv.getOptions());
-    if (options.templates() == null) {
-      messager.printMessage(
-          Kind.ERROR,
-          "Tessera: the annotation processor needs -A"
-              + ProcessorOptions.TEMPLATES
-              + "=<absolute templates dir>, e.g. ${project.basedir}/src/main/resources/templates");
-      return false;
-    }
-    if (!Files.isDirectory(options.templates())) {
-      messager.printMessage(
-          Kind.ERROR, "Tessera: templates directory does not exist: " + options.templates());
-      return false;
-    }
-    if (options.messages() != null && !Files.isRegularFile(MessageBundle.file(options.messages()))) {
-      messager.printMessage(
-          Kind.ERROR,
-          "Tessera: message bundle does not exist: " + MessageBundle.file(options.messages())
-              + " (-A" + ProcessorOptions.MESSAGES + " is the bundle base path without .properties)");
+    String optionError = optionError(options);
+    if (optionError != null) {
+      done = true;
+      messager.printMessage(Kind.ERROR, optionError);
       return false;
     }
     try {
@@ -97,7 +91,7 @@ public final class TesseraProcessor extends AbstractProcessor {
       Diagnostics diagnostics = new Diagnostics();
       MessageBundle messages =
           options.messages() == null ? MessageBundle.unchecked() : MessageBundle.load(options.messages());
-      List<TypeElement> functionClasses = functionNamespaces(round);
+      List<TypeElement> functionClasses = functionClasses();
       CompilerEnv env =
           new CompilerEnv(
               processingEnv.getElementUtils(),
@@ -108,6 +102,13 @@ public final class TesseraProcessor extends AbstractProcessor {
               functionClasses,
               this::indexedFunctionClass);
       List<GeneratedFile> files = new ArrayList<>(new TemplateCompiler(env).compile(sources));
+      if (diagnostics.hasErrors() && !round.processingOver()) {
+        // #233: another processor (Lombok) may still be adding members to the classes the templates
+        // read; javac re-enters every class before the next round, so try again then and only
+        // report errors in the last round.
+        return false;
+      }
+      done = true;
       files.addAll(functionIndex(functionClasses));
       for (Diagnostic d : diagnostics.all()) {
         messager.printMessage(kind(d.severity()), d.toString());
@@ -117,19 +118,48 @@ public final class TesseraProcessor extends AbstractProcessor {
         write(files);
       }
     } catch (IOException | RuntimeException e) {
+      done = true;
       messager.printMessage(Kind.ERROR, "Tessera: internal compiler error: " + describe(e));
     }
     return false;
   }
 
-  private List<TypeElement> functionNamespaces(RoundEnvironment round) {
+  /** The error for a missing or invalid processor option, or null. */
+  private static String optionError(ProcessorOptions options) {
+    if (options.templates() == null) {
+      return "Tessera: the annotation processor needs -A"
+          + ProcessorOptions.TEMPLATES
+          + "=<absolute templates dir>, e.g. ${project.basedir}/src/main/resources/templates";
+    }
+    if (!Files.isDirectory(options.templates())) {
+      return "Tessera: templates directory does not exist: " + options.templates();
+    }
+    if (options.messages() != null && !Files.isRegularFile(MessageBundle.file(options.messages()))) {
+      return "Tessera: message bundle does not exist: " + MessageBundle.file(options.messages())
+          + " (-A" + ProcessorOptions.MESSAGES + " is the bundle base path without .properties)";
+    }
+    return null;
+  }
+
+  /** Remembers this round's {@code @TemplateFunctions} classes by name (elements are per round). */
+  private void collectFunctionClasses(RoundEnvironment round) {
     TypeElement annotation = processingEnv.getElementUtils().getTypeElement(FUNCTIONS_ANNOTATION);
-    List<TypeElement> out = new ArrayList<>();
     if (annotation != null) {
       for (Element e : round.getElementsAnnotatedWith(annotation)) {
         if (e instanceof TypeElement) {
-          out.add((TypeElement) e);
+          functionClassNames.add(((TypeElement) e).getQualifiedName().toString());
         }
+      }
+    }
+  }
+
+  /** The {@code @TemplateFunctions} classes of all rounds so far, resolved in the current round. */
+  private List<TypeElement> functionClasses() {
+    List<TypeElement> out = new ArrayList<>();
+    for (String name : functionClassNames) {
+      TypeElement te = processingEnv.getElementUtils().getTypeElement(name);
+      if (te != null) {
+        out.add(te);
       }
     }
     return out;
