@@ -13,13 +13,18 @@ import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic.Kind;
 import javax.tools.FileObject;
@@ -31,9 +36,16 @@ import javax.tools.StandardLocation;
  * sources and resources through the Filer, and reports diagnostics as
  * {@code file:line:col: message} javac errors. If any template has an error, nothing is written.
  * Never claims annotations, so other processors are unaffected.
+ *
+ * <p>Function index (#118): for each {@code @TemplateFunctions("ns")} class in this compilation it
+ * writes {@code META-INF/tessera/functions/ns} (the class name), and a namespace the templates use
+ * that is not in this compilation is looked up there on the classpath. So test compilation and
+ * incremental builds, which compile templates without recompiling the function classes, still
+ * find them (Maven puts the main output directory on both classpaths).
  */
 public final class TesseraProcessor extends AbstractProcessor {
   private static final String FUNCTIONS_ANNOTATION = TemplateFunctions.class.getName();
+  static final String FUNCTION_INDEX = "META-INF/tessera/functions/";
 
   private boolean done;
 
@@ -85,6 +97,7 @@ public final class TesseraProcessor extends AbstractProcessor {
       Diagnostics diagnostics = new Diagnostics();
       MessageBundle messages =
           options.messages() == null ? MessageBundle.unchecked() : MessageBundle.load(options.messages());
+      List<TypeElement> functionClasses = functionNamespaces(round);
       CompilerEnv env =
           new CompilerEnv(
               processingEnv.getElementUtils(),
@@ -92,8 +105,10 @@ public final class TesseraProcessor extends AbstractProcessor {
               diagnostics,
               options.basePackage(),
               messages,
-              functionNamespaces(round));
-      List<GeneratedFile> files = new TemplateCompiler(env).compile(sources);
+              functionClasses,
+              this::indexedFunctionClass);
+      List<GeneratedFile> files = new ArrayList<>(new TemplateCompiler(env).compile(sources));
+      files.addAll(functionIndex(functionClasses));
       for (Diagnostic d : diagnostics.all()) {
         messager.printMessage(kind(d.severity()), d.toString());
       }
@@ -118,6 +133,46 @@ public final class TesseraProcessor extends AbstractProcessor {
       }
     }
     return out;
+  }
+
+  /** One index resource per {@code @TemplateFunctions} class compiled now (invalid namespaces are errors elsewhere). */
+  private static List<GeneratedFile> functionIndex(List<TypeElement> classes) {
+    Map<String, GeneratedFile> out = new LinkedHashMap<>();
+    for (TypeElement te : classes) {
+      String ns = namespaceOf(te);
+      if (ns != null && SourceVersion.isIdentifier(ns) && !SourceVersion.isKeyword(ns)) {
+        // Duplicates are reported by the function registry when templates use functions.
+        out.putIfAbsent(ns, new GeneratedFile(GeneratedFile.Kind.RESOURCE, FUNCTION_INDEX + ns, te.getQualifiedName() + "\n"));
+      }
+    }
+    return new ArrayList<>(out.values());
+  }
+
+  private static String namespaceOf(TypeElement te) {
+    for (AnnotationMirror am : te.getAnnotationMirrors()) {
+      if (((TypeElement) am.getAnnotationType().asElement()).getQualifiedName().contentEquals(FUNCTIONS_ANNOTATION)) {
+        for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e : am.getElementValues().entrySet()) {
+          if (e.getKey().getSimpleName().contentEquals("value") && e.getValue().getValue() instanceof String) {
+            return (String) e.getValue().getValue();
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /** The class an earlier compilation indexed for {@code ns}, read from the classpath, or null. */
+  private String indexedFunctionClass(String ns) {
+    if (!SourceVersion.isIdentifier(ns) || SourceVersion.isKeyword(ns)) {
+      return null;
+    }
+    try {
+      FileObject fo = processingEnv.getFiler().getResource(StandardLocation.CLASS_PATH, "", FUNCTION_INDEX + ns);
+      String name = fo.getCharContent(true).toString().trim();
+      return name.isEmpty() ? null : name;
+    } catch (IOException | IllegalArgumentException e) {
+      return null; // not indexed
+    }
   }
 
   private void write(List<GeneratedFile> files) throws IOException {
