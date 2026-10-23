@@ -9,9 +9,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * Vue, Alpine, htmx, AngularJS and Knockout attributes whose values the framework runs as
- * JavaScript (#235): an expression there is a build error, like {@code t:onclick}; a static
- * value, shorthand names included, is written verbatim.
+ * Vue, Alpine, htmx, _hyperscript, AngularJS and Knockout attributes whose values the framework
+ * runs as JavaScript (#235, #249): an expression there is a build error, like {@code t:onclick}; a
+ * static value, shorthand names included, is written verbatim. htmx request URLs take only a
+ * same-origin link (#249).
  */
 class FrameworkDirectivesTest {
 
@@ -35,6 +36,8 @@ class FrameworkDirectivesTest {
         "hx-on", "hx-on:click", "hx-on::after-request", "hx-on-click", "hx-on--after-request",
         "data-hx-on:click", "hx-vals", "data-hx-vals", "hx-vars", "hx-headers", "hx-request",
         "hx-trigger",
+        // _hyperscript
+        "_", "script", "data-script",
         // AngularJS
         "ng-click", "ng-init", "ng-bind-html", "data-ng-click", "x-ng-click", "ng:click", "ng_click",
         // Knockout
@@ -79,7 +82,8 @@ class FrameworkDirectivesTest {
             + " v-on:submit=\"save\" v-if=\"ok\" v-for=\"i in items\" v-html=\"bio\" #default=\"{ item }\""
             + " .textContent=\"t\" x-data=\"{ open: false }\" x-on:click=\"open = !open\""
             + " hx-on::after-request=\"done()\" hx-vals='js:{n: 1}' ng-click=\"go()\""
-            + " data-bind=\"text: name\"></api-entry>";
+            + " data-bind=\"text: name\" _=\"on click toggle .open\" data-script=\"on load log me\""
+            + " hx-get=\"https://api.example/x\" hx-post=\"//cdn.example/y\"></api-entry>";
     Compilation c = compile(markup).assertSuccess();
     assertEquals("<div>" + markup + "</div>", c.render("t", Map.of("s", "x")));
   }
@@ -93,5 +97,100 @@ class FrameworkDirectivesTest {
         "<div><p data-security=\"&quot;);alert(1)//\" hx-target=\"&quot;);alert(1)//\""
             + " data-action=\"&quot;);alert(1)//\">x</p></div>",
         c.render("t", Map.of("s", "\");alert(1)//")));
+  }
+
+  // ------------------------------------------------------------- htmx request URLs (#249)
+
+  private static final String[] HTMX_REQUESTS = {
+    "hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete", "data-hx-get", "data-hx-delete", "HX-POST",
+    "sse-connect", "ws-connect", "data-ws-connect",
+  };
+
+  /** htmx swaps the response in as HTML, so a computed URL that is not a link is a build error. */
+  @Test
+  void htmxRequestUrlRejectsNonLinks() {
+    for (String name : HTMX_REQUESTS) {
+      compile("<button t:" + name + "=\"s\">x</button>")
+          .assertError("t.html:1:", "t:" + name + " is not allowed", "swaps the response", "@{/items/");
+      compile("<button t:attr=\"" + name + "=s\">x</button>").assertError("t.html:1:", "t:attr " + name);
+      compile("<button t:" + name + "=\"'/x/' + s\">x</button>").assertError("t:" + name + " is not allowed");
+      compile("<button t:" + name + "=\"|/x/${s}|\">x</button>").assertError("t:" + name + " is not allowed");
+      compile("<button t:" + name + "=\"'/x'\">x</button>").assertError("t:" + name + " is not allowed");
+      compile("<button t:" + name + "=\"@{/x} + s\">x</button>").assertError("t:" + name + " is not allowed");
+      compile("<button t:" + name + "=\"${s} ?: @{/x}\">x</button>").assertError("t:" + name + " is not allowed");
+    }
+  }
+
+  /** Only a same-origin literal path: no absolute, protocol-relative or page-relative link. */
+  @Test
+  void htmxRequestUrlRejectsOtherOrigins() {
+    for (String name : HTMX_REQUESTS) {
+      for (String path : new String[] {"https://evil.example/x", "//evil.example/x", "/\\evil.example/x",
+          "javascript:x", "data:text/html,x", "x/y", "~/x"}) {
+        compile("<button t:" + name + "=\"@{" + path + "}\">x</button>")
+            .assertError("t.html:1:", "t:" + name + " is not allowed", "same-origin path");
+      }
+    }
+    compile("<button t:attr=\"hx-get=@{//evil.example}\">x</button>")
+        .assertError("t:attr hx-get is not allowed", "same-origin path");
+    compile("<button t:hx-get=\"@{${s}}\">x</button>").assertError("t.html:1:", "dynamic link paths");
+  }
+
+  /** URL parsers drop tab, CR and LF, so {@code /<tab>/host} would be protocol-relative: rejected. */
+  @Test
+  void sameOriginCheckIgnoresTabAndNewlines() {
+    for (String path : new String[] {"/\t/evil.example/x", "/\r\n/evil.example", "/\n\\evil.example"}) {
+      compile("<button t:hx-get=\"@{" + path + "}\">x</button>")
+          .assertError("t.html:1:", "link path must not contain whitespace");
+      compile("<meta http-equiv=\"refresh\" t:content=\"'0;url=' + @{" + path + "}\">")
+          .assertError("t.html:1:", "link path must not contain whitespace");
+    }
+  }
+
+  /** htmx 1.x hx-sse / hx-ws hold connect:<url>: no expression at all; static values pass. */
+  @Test
+  void legacyHtmxConnectRejectsExpressions() {
+    for (String name : new String[] {"hx-sse", "hx-ws", "data-hx-sse", "HX-WS"}) {
+      compile("<div t:" + name + "=\"'connect:' + @{/events}\">x</div>")
+          .assertError("t.html:1:", "t:" + name + " is not allowed", "connect:<url>", "sse-connect");
+      compile("<div t:attr=\"" + name + "=${s}\">x</div>").assertError("t:attr " + name + " is not allowed");
+    }
+    Compilation c = compile("<div hx-sse=\"connect:/events\" hx-ws=\"connect:/chat\">x</div>").assertSuccess();
+    assertEquals(
+        "<div><div hx-sse=\"connect:/events\" hx-ws=\"connect:/chat\">x</div></div>",
+        c.render("t", Map.of("s", "x")));
+  }
+
+  @Test
+  void htmxRequestUrlAcceptsASameOriginLink() {
+    Compilation c =
+        compile("<button t:hx-get=\"@{/items/{id}(id=${s})}\" t:attr=\"data-hx-post=@{/save(q=${s})}\""
+                + " hx-target=\"#out\">x</button>")
+            .assertSuccess();
+    assertEquals(
+        "<div><button hx-target=\"#out\" data-hx-post=\"/save?q=//evil.example%3F\""
+            + " hx-get=\"/items/%2F%2Fevil.example%3F\">x</button></div>",
+        c.render("t", Map.of("s", "//evil.example?")));
+  }
+
+  /** hx-push-url and hx-replace-url only change the address bar: an ordinary URL attribute. */
+  @Test
+  void htmxHistoryUrlsAreUrls() {
+    Compilation c = compile("<a t:hx-push-url=\"s\" t:hx-replace-url=\"s\">x</a>").assertSuccess();
+    assertEquals(
+        "<div><a hx-push-url=\"/x?a=1&amp;b=2\" hx-replace-url=\"/x?a=1&amp;b=2\">x</a></div>",
+        c.render("t", Map.of("s", "/x?a=1&b=2")));
+    assertEquals(
+        "<div><a hx-push-url=\"about:invalid#tessera\" hx-replace-url=\"about:invalid#tessera\">x</a></div>",
+        c.render("t", Map.of("s", "javascript:alert(1)")));
+  }
+
+  /** The selector and swap attributes next to a request URL stay ordinary, escaped attributes. */
+  @Test
+  void htmxTargetAndSwapStayOrdinary() {
+    Compilation c = compile("<p t:hx-target=\"s\" t:hx-swap=\"s\" t:hx-select=\"s\">x</p>").assertSuccess();
+    assertEquals(
+        "<div><p hx-target=\"&quot;&gt;\" hx-swap=\"&quot;&gt;\" hx-select=\"&quot;&gt;\">x</p></div>",
+        c.render("t", Map.of("s", "\">")));
   }
 }
