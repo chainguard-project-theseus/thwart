@@ -92,7 +92,7 @@ class TextOutputTest {
 
   @Test
   void textOnScriptRejectsNonJsonTypes() {
-    compile("Pet pet", "<script t:text=\"pet\"></script>").assertError("page.html:1:", "inside <script>", "JSON");
+    compile("SafeHtml h", "<script t:text=\"h\"></script>").assertError("page.html:1:", "inside <script>", "JSON");
   }
 
   @Test
@@ -171,7 +171,7 @@ class TextOutputTest {
 
   @Test
   void inlinedInScriptRejectsNonJsonTypes() {
-    compile("Pet pet", "<script>var p = [[pet]];</script>").assertError("page.html:1:", "inside <script>");
+    compile("SafeHtml h", "<script>var p = [[h]];</script>").assertError("page.html:1:", "inside <script>");
     compile("Map<Integer, String> m", "<script>var p = [[m]];</script>").assertError("inside <script>");
   }
 

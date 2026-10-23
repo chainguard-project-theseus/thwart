@@ -63,7 +63,7 @@ class GeneratedCodeTest {
                     + "<form method=\"post\" t:action=\"@{/owners}\" t:object=\"owner\"><input t:field=\"*{name}\">"
                     + "<span t:if=\"fields.hasErrors('name')\" t:errors=\"*{name}\">e</span></form>"
                     + "<input type=\"checkbox\" t:checked=\"owner.pets.isEmpty()\">"
-                    + "<script>var owner = [[owner.name]]; var n = [[owner.pets.size()]];</script>"
+                    + "<script>var owner = [[owner.name]]; var n = [[owner.pets.size()]]; var o = [[owner]];</script>"
                     + "<div t:remove=\"all\">gone</div>"
                     + "</body></html>")
             .compile()
