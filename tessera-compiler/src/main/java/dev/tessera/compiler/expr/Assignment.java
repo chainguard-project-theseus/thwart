@@ -5,7 +5,8 @@ import java.util.Objects;
 
 /**
  * {@code name=expr} in {@code t:with}, {@code t:attr} or link parameters. Attribute names may
- * contain {@code - : .}; link parameter names are plain identifiers.
+ * contain {@code - : .}; link parameter names are plain identifiers. A link parameter written
+ * without a value ({@code add} in {@code @{/cart(add, id=x)}}) has a {@code null} {@link #value()}.
  */
 public final class Assignment {
   private final String name;

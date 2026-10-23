@@ -71,7 +71,7 @@ class ExpressionParserTest {
       case Expr.Elvis v -> "(?: " + show(v.value()) + " " + show(v.fallback()) + ")";
       case Expr.Message m -> "(msg " + m.key() + all(m.args()) + ")";
       case Expr.Link l -> "(link " + l.path()
-          + l.params().stream().map(p -> " " + p.name() + "=" + show(p.value())).collect(Collectors.joining()) + ")";
+          + l.params().stream().map(p -> " " + p.name() + (p.value() == null ? "" : "=" + show(p.value()))).collect(Collectors.joining()) + ")";
       case Expr.Interpolation i -> "(interp" + all(i.parts()) + ")";
       case Expr.FragmentExpr f -> "(frag " + show(f.ref()) + ")";
       default -> throw new IllegalArgumentException("unknown expression " + e);
@@ -204,6 +204,8 @@ class ExpressionParserTest {
     assertEquals("(link /owners/{ownerId}/edit ownerId=(. owner id))", ast("@{/owners/{ownerId}/edit(ownerId=${owner.id})}"));
     assertEquals("(link /owners lastName=q page=(ADD p 1))", ast("@{/owners(lastName=q, page=p + 1)}"));
     assertEquals("(link https://example.com/a#top)", ast("@{https://example.com/a#top}"));
+    assertEquals("(link /cart add itemId=(. item id))", ast("@{/cart(add,itemId=${item.id})}"));
+    assertEquals("(link /a x=1 form)", ast("@{/a(x=1, form )}"));
     assertEquals("(link ../x.css)", ast("@{ ../x.css }"));
   }
 
@@ -419,7 +421,8 @@ class ExpressionParserTest {
     assertEquals("invalid number literal: expected a digit, '.' or 'L' but found 'a'", error("12ab").message());
     assertEquals("invalid path variable '{1x}': write a name such as {id}", error("@{/a/{1x}}").message());
     assertEquals("link path must not contain whitespace: percent-encode it (%20) or pass the value as a parameter, e.g. @{/search(q=term)}", error("@{/a b}").message());
-    assertEquals("expected '=' after link parameter 'x' but found ')'", error("@{/a(x)}").message());
+    assertEquals("expected '=', ',' or ')' after link parameter 'x' but found 'y'", error("@{/a(x y)}").message());
+    assertEquals("expected a link parameter name but found ')'", error("@{/a(x,)}").message());
     assertEquals("invalid character ' ' in message key 'a b': keys use letters, digits, '.', '-' and '_'", error("#{a b}").message());
     assertEquals("expected a message key after '#{' but found '}'", error("#{}").message());
     assertEquals("expected a property name after '*{' but found '}'", error("*{}").message());
