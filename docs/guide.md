@@ -446,8 +446,9 @@ The compiler decides the context from the element and attribute name. You cannot
 | Text | element text, `<title>`, `<textarea>`, `t:text`, `[[...]]` | `& < > " '` escaped. |
 | Raw HTML | `t:utext`, `[(...)]` | Only `SafeHtml`, or a bundle message checked at build time (section 4.5), compiles. |
 | Attribute | any other attribute value | Escaped, always double-quoted. |
-| URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. |
+| URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, `hx-push-url`, `hx-replace-url`, ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. |
 | Resource URL | `script[src]`, `iframe[src]`, `embed[src]`, `object[data]`, `base[href]`, `link[href]` | Only a literal-path `@{...}` link or a `TrustedUrl` compiles. |
+| htmx request URL | `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect`, `ws-connect` (also with `data-`) | Only a link whose literal path starts with a single `/` compiles, as for a refresh: htmx swaps the response into the page as HTML, and htmx 1.x also requests other origins. Static values are copied verbatim. |
 | Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, records and `@TemplateView` beans, collections, String-keyed maps). |
 | Style | `<style>` text and `style` attribute | In `<style>`, expressions are a build error. A `style` attribute takes only string literals, numbers and `CssValue`s, combined with `+`, `\|...\|`, `?:` and `? :`; anything else (a `String` value) is a build error. |
 | Refresh | `content` of `<meta http-equiv="refresh">` | Only `'<seconds>;url=' + @{/path...}` compiles: a literal delay and a link whose literal path starts with a single `/`, so the refresh stays on the same origin. Path variables and parameters are encoded as usual, and `; , ' "`, `\` and whitespace in the URL are percent-encoded. Rendered as `<seconds>;url=<url>`. |
@@ -458,13 +459,14 @@ Client-side frameworks run some attribute values as JavaScript once they mount t
 attribute escaping does not protect them and an expression there is a build error, as for `on*`:
 Vue's `v-*` (every directive, `v-html` included) and its `:x`, `@x`, `#x` and `.x` shorthands;
 Alpine's `x-*`; htmx's `hx-on*`, `hx-vals`, `hx-vars`, `hx-headers`, `hx-request` and `hx-trigger`
-(also with `data-`); AngularJS's `ng-*`, `ng:*` and `ng_*` (also with `data-` or `x-`); and
-Knockout's `data-bind` and `params` on a custom element. Static directives are copied verbatim, shorthand names included: write
+(also with `data-`); _hyperscript's `_`, `script` and `data-script`; AngularJS's `ng-*`, `ng:*`
+and `ng_*` (also with `data-` or `x-`); and Knockout's `data-bind` and `params` on a custom element. Static directives are copied verbatim, shorthand names included: write
 `<api-entry :security="security" @click="open">` as in the old page. To hand server data to a
 component, put it in a `data-*` attribute or a `<script>` with `[[${...}]]` and read it from
 there; a Pebble or JSP `:prop='{{ json | raw }}'` becomes a `[[${object}]]` in a script. Other
-`data-*` attributes and htmx attributes that hold URLs, selectors or text (`hx-get`, `hx-target`,
-`hx-swap`, `hx-confirm`) are ordinary attributes.
+`data-*` attributes and htmx attributes that hold selectors or text (`hx-target`, `hx-swap`,
+`hx-select`, `hx-confirm`) are ordinary attributes. Port `th:hx-get="@{/items/{id}(id=${id})}"`
+to the same `t:hx-get`; a URL computed in Java (`t:hx-get="${url}"`) has to become a link.
 
 In a script, a record or `@TemplateView` bean becomes a JSON object of the properties a template
 can read, as Thymeleaf's Jackson output does: `var chart = [[${chart}]];` works unchanged. Record
@@ -1330,11 +1332,13 @@ These come from the annotation processor itself, without a template position.
 ### Attributes
 
 - `<label> is not allowed: event-handler attributes cannot contain expressions; put the value in a data-* attribute and read it from a script`.
-- `<label> is not allowed: '<name>' is a Vue, Alpine, htmx, AngularJS or Knockout directive whose value is run as JavaScript, so it cannot contain expressions; write it as a static attribute, or put the value in a data-* attribute or a <script> with [[...]] and read it from there`. See [4.4](#44-escaping-and-output-contexts) for the list of directives.
+- `<label> is not allowed: '<name>' is a Vue, Alpine, htmx, _hyperscript, AngularJS or Knockout directive whose value is run as JavaScript, so it cannot contain expressions; write it as a static attribute, or put the value in a data-* attribute or a <script> with [[...]] and read it from there`. See [4.4](#44-escaping-and-output-contexts) for the list of directives.
 - `<label> is not allowed: a style value can only combine string literals, numbers and CssValues such as css.color(c), css.length(l) or css.url(u), not a <type>; use t:class or t:classappend instead`.
 - `<label> is not allowed: srcdoc is a whole HTML document and cannot contain expressions; use src with a URL`.
 - `<label> is not allowed: the content of <meta http-equiv="refresh"> navigates the page; write a delay and a same-origin link such as '3;url=' + @{/items/{id}(id=${item.id})}, or redirect from the controller`. Port `content="1;url=/admin/update${vid}"` to `t:content="'1;url=' + @{/admin/update{vid}(vid=${vid})}"`.
 - `<label> is not allowed: a refresh URL must be a same-origin path starting with a single '/', not @{<path>}`. Absolute, protocol-relative and page-relative links cannot be refresh targets; redirect from the controller instead.
+- `<label> is not allowed: htmx requests this URL and swaps the response into the page as HTML; use a same-origin link such as @{/items/{id}(id=${item.id})}`. On `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect` and `ws-connect`; build the URL with a link, not a `String`.
+- `<label> is not allowed: an htmx request URL must be a same-origin path starting with a single '/', not @{<path>}`. Absolute, protocol-relative and page-relative links are rejected; write a cross-origin endpoint as a static attribute.
 - `<label> is not allowed: attribute name '<name>' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*`.
 - `<label>: the type of a <script> cannot be computed; its content type must be known at build time, so write a static type attribute`.
 - `<label>: the http-equiv of a <meta> cannot be computed; it decides whether content is a refresh URL, so write a static http-equiv attribute`.
@@ -1443,6 +1447,11 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **Rich text.** `html.sanitize` has one fixed policy: no images, tables, `class` or `style`, and
   links don't keep `target`. If the stored HTML needs more, build the markup in Java (a template
   over a parsed model, or `SafeHtml.concat`) rather than widening it with `SafeHtml.unchecked`.
+- **Framework attribute names.** Only the default names of client-side framework attributes are
+  known (section 4.4). An Alpine prefix (`Alpine.prefix('data-x-')`), a Knockout binding provider
+  or a _hyperscript `attributes` setting that reads other names is not detected, so expressions
+  there are escaped as ordinary attributes and run as code. Keep the default names, or never
+  compute those attributes.
 - **Security functions.** `auth` has `hasRole`/`hasAnyRole`, not `hasAuthority`; compute anything
   else in the controller.
 - **Selections.** `~{::tag}` selects fragment names and plain tag names only: not hyphenated tags,

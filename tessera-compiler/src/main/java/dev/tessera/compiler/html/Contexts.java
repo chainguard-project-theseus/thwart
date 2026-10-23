@@ -46,7 +46,10 @@ public final class Contexts {
    * only a same-origin link is allowed there (#237).
    * The {@code type} of a {@code <script>} is FORBIDDEN: it decides whether the content is
    * JavaScript. The {@code http-equiv} of a {@code <meta>} is FORBIDDEN: it decides whether
-   * {@code content} is a refresh URL.
+   * {@code content} is a refresh URL. The {@link #isHtmxRequestUrl htmx request URLs}
+   * ({@code hx-get}, {@code hx-post}, ...) are RESOURCE_URL: htmx fetches them and swaps the
+   * response into the page as HTML (#249). {@code hx-push-url} and {@code hx-replace-url} only
+   * change the address bar and are URL.
    */
   public static OutputContext attribute(Element element, String attributeName) {
     if (attributeName != null && isFrameworkDirective(element, attributeName)) {
@@ -63,6 +66,13 @@ public final class Contexts {
     if (attr.equals("style")) {
       return OutputContext.STYLE;
     }
+    if (isHtmxRequestUrl(attr)) {
+      return OutputContext.RESOURCE_URL;
+    }
+    String unprefixed = attr.startsWith("data-") ? attr.substring("data-".length()) : attr;
+    if (unprefixed.equals("hx-push-url") || unprefixed.equals("hx-replace-url")) {
+      return OutputContext.URL;
+    }
     if (isRefreshContent(element, el, attr)) {
       return OutputContext.REFRESH;
     }
@@ -78,6 +88,25 @@ public final class Contexts {
       return OutputContext.URL;
     }
     return OutputContext.ATTRIBUTE;
+  }
+
+  /**
+   * htmx attributes (also with a {@code data-} prefix) whose URL htmx requests and swaps into the
+   * page as HTML: the request verbs, and the {@code sse} and {@code ws} extensions' connect URLs.
+   */
+  private static final Set<String> HTMX_REQUEST_ATTRIBUTES =
+      Backports.setOf("hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete", "sse-connect", "ws-connect");
+
+  /**
+   * Whether {@code attributeName} is an htmx request URL (#249): {@code hx-get}, {@code hx-post},
+   * {@code hx-put}, {@code hx-patch}, {@code hx-delete}, {@code sse-connect} or
+   * {@code ws-connect}, also with a {@code data-} prefix. htmx fetches the URL and swaps the
+   * response into the page as HTML (htmx 1.x also cross-origin), so a computed value must be a
+   * same-origin link. Case-insensitive.
+   */
+  public static boolean isHtmxRequestUrl(String attributeName) {
+    String a = attributeName.toLowerCase(Locale.ROOT);
+    return HTMX_REQUEST_ATTRIBUTES.contains(a.startsWith("data-") ? a.substring("data-".length()) : a);
   }
 
   /** htmx attributes ({@code hx-} or {@code data-hx-}) whose value is evaluated as JavaScript. */
@@ -106,10 +135,15 @@ public final class Contexts {
    *       or {@code x-} prefix.
    *   <li>Knockout: {@code data-bind}, and {@code params} on a custom element (a name with a
    *       {@code -}), which Knockout components evaluate as a binding.
+   *   <li>_hyperscript: {@code _}, {@code script} and {@code data-script}, whose value is
+   *       hyperscript code (#249).
    * </ul>
    *
-   * Other {@code data-*} attributes, and the htmx attributes that hold URLs, selectors or plain
-   * strings ({@code hx-get}, {@code hx-target}, {@code hx-swap}, ...), stay ordinary attributes.
+   * Other {@code data-*} attributes, and the htmx attributes that hold selectors or plain
+   * strings ({@code hx-target}, {@code hx-swap}, ...), stay ordinary attributes; htmx request
+   * URLs are {@link #isHtmxRequestUrl RESOURCE_URL}. Frameworks configured to read other
+   * attribute names (an Alpine prefix, a Knockout binding provider, a hyperscript
+   * {@code attributes} setting) are not detected.
    */
   public static boolean isFrameworkDirective(Element element, String attributeName) {
     String a = attributeName.toLowerCase(Locale.ROOT);
@@ -117,7 +151,8 @@ public final class Contexts {
       return true;
     }
     if (a.startsWith(":") || a.startsWith("@") || a.startsWith("#") || a.startsWith(".")
-        || a.startsWith("v-") || a.startsWith("x-") || a.equals("data-bind")) {
+        || a.startsWith("v-") || a.startsWith("x-") || a.equals("data-bind")
+        || a.equals("_") || a.equals("script") || a.equals("data-script")) {
       return true;
     }
     String unprefixed = a.startsWith("data-") ? a.substring("data-".length()) : a;
