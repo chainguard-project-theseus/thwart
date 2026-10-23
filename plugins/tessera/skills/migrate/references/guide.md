@@ -76,7 +76,7 @@ but inside `|...|` and `+` a `null` prints `null`.
 | assigns a variable | `t:with="x=..."`: an immutable local for one element. |
 | builds a view name, fragment name, message key or link path from strings | Conditionals between literals; link `{placeholders}`; a `Fragment` argument. |
 | evaluates a string as a template (`?eval`, `#evaluate`, `__${...}__`) | Not possible. Compute the value in Java. |
-| prints a string unescaped | A `SafeHtml` built in Java from sanitized input, or accept the escaped output. |
+| prints a string unescaped | Stored rich text: `t:utext="html.sanitize(article.text)"` (section 4.4). Markup built in Java: a `SafeHtml`. |
 | puts expressions in `style` or `on*` | `t:style` with literals, numbers and `css.color(...)`/`css.length(...)` (section 4.4); otherwise `t:classappend`; `t:data-*` attributes read by a script. |
 | includes a file, calls a macro or tag with a body, or extends a layout | A fragment call with `Fragment` arguments (section 4.8). |
 | binds a form through form tags or macros | `t:object`, `t:field`, `t:errors`, `fields.*` (section 4.7). |
@@ -435,9 +435,17 @@ levels, or a cycle, fails the render. Where the Thymeleaf page parsed a JSON str
 serialized before the next getter runs; getters should not mutate previously returned values.
 The complete JSON value is buffered before output, so a serialization failure writes none of it.
 
-Trusted markup is a `SafeHtml` built in Java: `SafeHtml.escape(text)`, `SafeHtml.of(template, ctx)`
-(another template's output), or `SafeHtml.unchecked(html)` for sanitized markup (a review point).
-`TrustedUrl.unchecked(url)` is the same for URLs.
+Trusted markup is a `SafeHtml`. For stored HTML (articles, bios, rich-text pages) that the old
+page printed with `th:utext` or `${...}` in JSP, write `t:utext="html.sanitize(article.text)"`, or
+call `SafeHtml.sanitize(text)` in Java. It keeps `p br hr h1`-`h6 b i em strong u s sub sup small
+mark code pre blockquote ul ol li span div` without attributes, and `a` with an `href` that passes
+the URL check above, plus `rel="nofollow noopener"`. It removes `script`, `style`, `iframe`, `svg`,
+`math`, `object` and similar elements with their content, every other tag (but not its text), comments
+and all other attributes (`on*`, `style`, `class`, `id`, `target`, ...). The policy is fixed. In
+Java, `SafeHtml.escape(text)` escapes text, `SafeHtml.of(template, ctx)` wraps another template's
+output, and `SafeHtml.concat(a, b, ...)` joins parts (`concat(escape(a), sanitize("<br>"),
+escape(b))`). `SafeHtml.unchecked(html)` is a review point, and `TrustedUrl.unchecked(url)` is the
+same for URLs.
 
 CSS has no escaping that makes an arbitrary string safe, so a `style` attribute is built only from
 pieces that cannot end a declaration or call `url(...)`: literals, numbers and `CssValue`s.
@@ -491,6 +499,7 @@ Templates call functions as `namespace.fn(args)` or `#namespace.fn(args)`.
 | `temporals` | `format(temporal, pattern)` (English month and day names), `formatIso(temporal)` |
 | `lists` | `size`, `isEmpty`, `contains(list, x)` |
 | `css` | `color(s)` (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, a CSS named colour), `length(s)` (a number with optional `px`, `em`, `rem`, `%`, `vh`, `vw`): a `CssValue`, or `null` for anything else |
+| `html` | `sanitize(s)`: stored rich text as `SafeHtml` for `t:utext` (section 4.4) |
 | `auth` (Spring starter) | `isAuthenticated()`, `hasRole('ADMIN')`, `hasAnyRole('A', 'B')`, `name()` |
 | `fields` (inside `t:object`) | `hasErrors('path')`, `hasErrors('*')`, `errors('path')`, section 4.7 |
 
@@ -1139,6 +1148,9 @@ Gaps in Tessera today, each with what to do until it is fixed.
   extra getters are not written, and Jackson annotations are ignored. `numbers.*` has no grouping
   or locale; `temporals.format` uses English names. Thymeleaf parser-level comments
   `<!--/* ... */-->` are emitted like any comment; delete them.
+- **Rich text.** `html.sanitize` has one fixed policy: no images, tables, `class` or `style`, and
+  links don't keep `target`. If the stored HTML needs more, build the markup in Java (a template
+  over a parsed model, or `SafeHtml.concat`) rather than widening it with `SafeHtml.unchecked`.
 - **Security functions.** `auth` has `hasRole`/`hasAnyRole`, not `hasAuthority`; compute anything
   else in the controller.
 - **Selections.** `~{::tag}` selects fragment names and plain tag names only: not hyphenated tags,
