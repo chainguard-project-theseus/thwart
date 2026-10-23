@@ -16,8 +16,9 @@ container, no web access, 90-minute and $40 budget per run.
 | [#151 batch](#151-batch-runs-4-5) (runs 4-5) | 12 | 8 development runs, 4 held-out runs | `tessera-migrate compare` | dev **2/8**, held-out **1/4** |
 | [Version-ladder quick round](#version-ladder-quick-round-run-7) (run 7) | 6 | 5 petclinic rungs + jpetstore | `tessera-migrate compare` | **5/6** |
 | [Post-wave round](#post-wave-round-run-8) (run 8) | 14 | every app, one run each | `tessera-migrate compare` | **7/14** (dev 5/9, held-out 0/3, Spring 4.3 rungs 2/2) |
+| [Quick round 9](#quick-round-9) (run 9) | 4 | fredbet + 3 held-out apps | `tessera-migrate compare` | **1/4** (dev 0/1, held-out 1/3) |
 
-Across all 47 runs, every migrated app builds and passes all of its tests, and no run used
+Across all 51 runs, every migrated app builds and passes all of its tests, and no run used
 `SafeHtml.unchecked`/`TrustedUrl.unchecked`, `permitAll`, CSRF disabling or `@Disabled`. Only
 one run (budgetmaster run 4, which stopped early) left legacy templates behind.
 
@@ -375,9 +376,80 @@ it) and spring-petclinic-mustache's `<span">` (all 4 pages), and dropped `belowf
 Spring 4.3 rungs. The `,=""` inputs are left: those pages differ for other reasons too. Dropping
 the webjar-version ignores would let the bench score #122 and #208.
 
+## Quick round 9
+
+Tracked in #224. After run 8 these merged: #209 (CSRF on a computed `t:method`), #207 (no
+checkbox marker when disabled), #206 (the converter quotes Thymeleaf token literals), #182
+(`css.color`/`css.length` in `style`), #181 (`html.sanitize`, `SafeHtml.concat`), #217, #211
+(harness) and #220 (scoring). The image was rebuilt and the four apps those fixes target got one run
+each, scored against baselines recorded earlier the same UTC day. jprime and purl-server were scored
+afterwards with `bench.finish()` because the migrate step crashed on a gitignored `baseline/`
+(#220); both agent sessions had finished. All four listed and invoked the skill. 4 runs, $60.22
+and 119 minutes of agent time (run 8, same apps: $63.75, 107 minutes).
+
+| App | Pass | Tests | Pages same + reordered | Run 8 | Minutes | Cost $ | Output tokens |
+|---|---|---|---|---|---|---|---|
+| purl-server (held out) | **yes** | 49/49 | 92+0/92 | 89+0 | 21.0 | 4.68 | 63,801 |
+| fredbet | no | 120/120 | 168+0/169 | 165+0 | 19.1 | 11.06 | 153,442 |
+| jprime (held out) | no | 209/209 | 143+3/150 | 137+3 | 29.3 | 14.77 | 158,789 |
+| budgetmaster (held out) | no | 269/269 | 62+0/121 | 65+0 | 49.6 | 29.71 | 377,904 |
+
+**1 of 4 pass**; purl-server is back to 92/92. Three apps gained pages. budgetmaster lost three, and
+not by chance: it gained the 4 pages #182 fixed and lost 7 to a gap that #209 exposed (#225). One
+run per app, so treat per-app changes as anecdotes.
+
+### Triage
+
+| Run | Pages differing | Cause | Class | Issue |
+|---|---|---|---|---|
+| fredbet 9 | 1 | `/user/1`: the agent hand-wrote the role radios (`t:field` can't check a radio bound to a `Set`) and gave their hidden copies the loop value. In the original, `th:field` on the hidden input overrides `th:value`, so each copy carries the bound role. The agent's page list skipped `/user/1` | Agent error (forced by a Tessera gap) | #126 |
+| jprime 9 | 2 | Spring `<form:errors/>` with no path (object-level errors only) ported as `t:errors="*"` in ten admin forms, so a field error also shows at the top (`POST /admin/article/add`, `/admin/user/add`) | Tessera gap + agent error | #127 |
+| jprime 9 | 2 | Plain-text article description `The <first> speakers`: the original printed it raw, and the port sanitizes it (`The speakers`). Escaped in run 8 | Acceptable | |
+| budgetmaster 9 | 12 (6 only this) | Every settings form now has two `_csrf` inputs: the automatic one, plus the page's own `<input id="token" name="_csrf">`, which an inline script reads by id. #209 closed the computed-method opt-out run 8 used, and there's no other way to keep the page's own input or give the automatic one an id | Tessera gap | #225 (new) |
+| budgetmaster 9 | 44 | User data (`Savings <b>`, `Old <i>`, `Weekly <shop>`, `Lunch <b>`) escaped, which also removes the nesting the stray tags caused | Acceptable | |
+| budgetmaster 9 | 15 | Script values written as JSON instead of JS literals (one page is whitespace only) | Acceptable | (#183) |
+| budgetmaster 9 | 4 | Broken original markup (`text-white"=""`) dropped | Acceptable | |
+| budgetmaster 9 | 1 | `/charts`: stored chart script passed as a JSON string to `(0, eval)(...)`, as in run 8 | Acceptable (workaround) | |
+
+Pages can have several causes. Three budgetmaster pages (`/templates/newTemplate` twice,
+`/templates/1/edit`) again exceed compare's diff limit, with the same visible diff as run 8. Apart
+from #225, every budgetmaster difference compare shows is acceptable. Without #225 the run would
+score 68/121.
+
+| Run | Verdict |
+|---|---|
+| purl-server 9 | Pass |
+| fredbet 9 | Agent error in hand-written markup that #126 forced |
+| jprime 9 | Tessera gap (#127) + acceptable |
+| budgetmaster 9 | Tessera gap (#225); everything else acceptable |
+
+### Fixes confirmed
+
+| Fix | Used? | Held? | Evidence |
+|---|---|---|---|
+| #207 disabled checkbox marker | yes | yes | purl-server binds `*{admin}` and `*{domainUserList[i].canCreate}` with `t:field` + `t:disabled`. The 3 run-8 pages are identical |
+| #206 converter token literals | yes | yes | fredbet's ranking links are `@{/ranking(mode='mixed')}`, and `/ranking` with `?mode=adult`/`child` is identical (4 pages in run 8) |
+| #181 `html.sanitize`, `SafeHtml.concat` | yes | yes | jprime prints stored articles, abstracts and bios through `html.sanitize`. Its 8 rich-text pages from run 8 are identical. budgetmaster builds newline-to-`<br>` text with `SafeHtml.escape` + `concat`. fredbet weighed `html.sanitize` and chose its own allow-list renderer, because the fixed policy drops the default rules page's `<li value>`, images and tables (documented limitation) |
+| #182 `css.color` in `style` | yes | yes | budgetmaster writes every user colour as `t:style="\|background-color: ${css.color(category.color)}\|"` (12 uses). No `data-style-*` workaround is left (181 diff lines in run 8, 0 now), and the 4 pages that differed only for #182 are identical |
+| #209 CSRF on computed `t:method` | n/a | yes | No run computes a form method. Closing the opt-out exposed #225 |
+
+The guide steered the agents to every new feature: the skill doesn't name them, but its guide
+does, and each agent found them there. No guide gap was filed this round.
+
+### Issues
+
+Filed from this round (label `migration-bench`):
+
+- #225 CSRF input: no way to keep a form's own token input (with an id) without a second
+  automatic one (budgetmaster 9, 12 pages)
+
+Existing issues cited, with evidence added as a comment: #126, #127, #183.
+
+Pages per gap this round: #225 12, #127 2, #126 1.
+
 ## Limitations
 
-- **Small samples.** One or two runs per app in #151 and one in runs 7 and 8; the hard apps vary between runs.
+- **Small samples.** One or two runs per app in #151 and one in runs 7, 8 and 9; the hard apps vary between runs.
 - **FreeMarker coverage leans on two apps.** JobSearch has no license (its patches aren't
   committed) and a single context-loads test; BudgetMaster is held out.
 - **No Velocity app.** Spring 5+ dropped Velocity. Mustache stands in for the Velocity-like slot.
@@ -387,7 +459,7 @@ the webjar-version ignores would let the bench score #122 and #208.
   (`examples/petclinic`) was built from. The agents never saw that port, but Tessera was shaped by
   it.
 - **Different rounds, different setups.** #115 used the guide and `crawl.py`; runs 4-5 the guide
-  and record/compare; runs 7 and 8 the plugin. Pass rates across rounds aren't directly comparable.
+  and record/compare; runs 7-9 the plugin. Pass rates across rounds aren't directly comparable.
 
 ## Re-running
 
