@@ -12,7 +12,7 @@
  "tests_failed": [],
  "baseline_tests": 931,
  "pages_total": 60,
- "pages_identical": 0,
+ "pages_identical": 21,
  "pages_reordered": 0,
  "status_mismatch": [],
  "insecure": [],

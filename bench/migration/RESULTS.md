@@ -17,10 +17,13 @@ container, no web access, 90-minute and $40 budget per run.
 | [Version-ladder quick round](#version-ladder-quick-round-run-7) (run 7) | 6 | 5 petclinic rungs + jpetstore | `tessera-migrate compare` | **5/6** |
 | [Post-wave round](#post-wave-round-run-8) (run 8) | 14 | every app, one run each | `tessera-migrate compare` | **7/14** (dev 5/9, held-out 0/3, Spring 4.3 rungs 2/2) |
 | [Quick round 9](#quick-round-9) (run 9) | 4 | fredbet + 3 held-out apps | `tessera-migrate compare` | **1/4** (dev 0/1, held-out 1/3) |
+| [First runs on new engines](#first-runs-on-new-engines) (run 1) | 3 | 3 held-out apps (JSP + Tiles, Velocity, Pebble) | `tessera-migrate compare` | **0/3** |
+| [New engines run 2](#new-engines-run-2) (run 2) | 3 | the same 3 held-out apps | `tessera-migrate compare` | **1/3** |
 
-Across all 51 runs, every migrated app builds and passes all of its tests, and no run used
-`SafeHtml.unchecked`/`TrustedUrl.unchecked`, `permitAll`, CSRF disabling or `@Disabled`. Only
-one run (budgetmaster run 4, which stopped early) left legacy templates behind.
+Across all 57 runs, every migrated app builds and passes all of its tests, and no run used
+`SafeHtml.unchecked`/`TrustedUrl.unchecked`, `permitAll`, CSRF disabling or `@Disabled`. Two
+runs left legacy templates behind: budgetmaster run 4, which stopped early, and espd run 2, whose
+session ended before its last step.
 
 The #151 scoring is stricter than #115's: `tessera-migrate compare` doesn't repair broken markup
 or normalize script whitespace the way `crawl.py` did, and it compares dates. Of the 7 failing
@@ -604,13 +607,146 @@ Existing issues cited, with evidence added as a comment: #132, #137, #183.
 
 Pages per gap this round: #236 4 (24 including the pages it shaped), #239 14, #235 3, #237 1.
 
+## New engines run 2
+
+Tracked in #259. After run 1 these merged: #233 (Lombok getters whatever the processor order), #234
+(`__` in string literals), #235 (framework directives reject expressions), #236
+(`t:utext="#{key}"` for build-checked bundle messages), #237 (refresh `<meta>` with a same-origin
+link), #238 (`css.url`), #239 (`Field<T>` sub-paths), #240 (percent-encoded `pages.txt` paths) and
+#241 (per-engine guide and skill notes, and the skill's Time rule). #249 (htmx request URLs) merged
+after the image was built, so it isn't in this run; none of these apps uses htmx. The image was
+rebuilt from main and each app got one run, scored against the baselines recorded earlier the same
+day. All three listed and invoked the skill. 3 runs, **$26.44** and 94 minutes of agent time (run 1:
+$22.60, 73 minutes).
+
+**Harness change.** This round adds the espd ignore that the run-1 triage proposed,
+`EcertisHandler\("[^"]*"` in `apps/espd/app.json`. The original's layout script printed the eCertis
+URL with `&amp;` inside a `<script>`, so the old JavaScript string really contained `&amp;`. The port
+writes it as JSON (`\/`, `&`). The pattern deletes only the first argument of the one
+`EcertisHandler(...)` call per page (60 of 60 baseline pages have exactly one), so the country
+argument is still compared. `bench.py recheck espd` re-ran both espd runs: run 1 goes from 0/60 to
+21/60, as predicted, and run 2 from 0/60 to 46/60. No other verdict changed in either run, and no
+diff line from before the recheck is missing after it. The diffs of long pages show more lines,
+because the eCertis line no longer uses part of compare's 120-line limit. Test counts and every
+other score field are unchanged.
+
+| App (engine) | Pass | Tests | Pages same + reordered | Run 1 | Acceptable only | Minutes (run 1) | Cost $ (run 1) | Output tokens |
+|---|---|---|---|---|---|---|---|---|
+| luckyblog (Velocity) | **yes** | 0/0 | 64+0/64 | 63/64 | 64/64 | 17.1 (12.8) | 4.17 (3.78) | 66,528 |
+| ewp-registry (Pebble) | no | 376/376 | 35+0/38 | 34/38 | 38/38 | 42.2 (43.6) | 7.80 (8.08) | 93,056 |
+| espd (JSP + Tiles) | no | 932/932 | 46+0/60 | 21/60 | 48/60 | 34.4 (16.3) | 14.47 (10.74) | 169,319 |
+
+espd's run-1 column is the rechecked 21/60 (0/60 in the run-1 table above, before the ignore). "Acceptable
+only" counts the differences classed acceptable below as passes. **1 of 3 pass**, and every app
+gained pages. luckyblog passes: #237 fixed its one page. ewp-registry differs only on the three
+pages where #235 now forbids the old markup, and that change is by design. espd went from 21 to 46
+pages, but it also fails on the 50 JSPs and `tiles.xml` it left behind (below). All three built,
+kept every test (ewp-registry added four tests, espd one), removed the old engine's dependency and
+used no `unchecked`.
+
+### Triage
+
+| Run | Pages | Cause | Class | Issue |
+|---|---|---|---|---|
+| ewp-registry 2 | 3 | `/manifestValidation` (3 manifests): the Vue props are `data-security`/`data-parameters`/`data-security-notices` (JSON built in Java, attribute-escaped), read by `apiEntry.vue` as string props and parsed in computed properties of the old names. The changed component also changes the `ui-<sha1>.js` bundle name. Vue sees the same values | Acceptable (by design since #235) | #246 |
+| espd 2 | 8 (6 only this) | Pages in French, German, Italian and Spanish print bundle messages with markup as escaped text (`&lt;p&gt;Bitte speichern Sie ...`): the session-expiry reminder on every page, `contact_info`, the filter page's intro, criteria descriptions. `-Atessera.messages` points at `messages_en` (espd's `messages.properties` is a partial file), so the build loaded no `messages_en_xx` locale files, and the 98 `t:utext="#{key}"` uses escape every unchecked locale at runtime, as designed. Nothing at build time said 24 locale files were skipped | Tessera gap | #134 |
+| espd 2 | 4 (2 only this) | `?lang=xx` dropped from form actions (`page.requestUri` has no query string), as in run 1 | Agent error | |
+| espd 2 | 2 | `/request/ca/overview` (twice): the yearly-turnover criterion shows 1 group instead of 5. The original's overview renders as `agent=eo` (`tiles.xml`), and a scriptlet filled empty lists while rendering. The port moved that to `WizardPreparation`, but keyed it on the URL's agent and only on the selection step | Agent error | |
+| espd 2 | 3 (2 only this) | Response overview: the hidden `html` input that carries the page's own markup to the PDF export has a different attribute order, `&ndash;` for `–`, `&#39;` for `'` and `<hr>` for `<hr></hr>`. Parsed, the markup is the same, but compare can't normalize HTML inside an attribute value | Acceptable | |
+
+Pages can have several causes; every page was checked against a fresh recording of the port, past
+compare's diff limit. "Acceptable only" for espd is 46 + 2: without #134 it would reach 54/60,
+and the remaining 6 are agent errors.
+
+**espd ran longer and finished most of the wizard, but its session was cut off.** The agent noted the
+time at the start, gave no time limits and stopped nothing early (run 1 stopped itself at 16 of 90
+minutes). It forked one helper for the criteria pages instead of four (#241's skill text asks not to
+split shared templates across subagents). Then it wrote the report and ended its turn "waiting for
+the criteria helper to finish". In `claude -p`, background tasks get 10 minutes after the last turn
+(`CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS`), so the CLI stopped the helper at 34 minutes, in the middle
+of copying its pages into the tree. The main agent never ran its planned last step (delete the JSPs
+and `tiles.xml`, build, compare). Everything the helper copied in builds and renders: the countdown
+(`viewChangeRole`) is on every page, the finish step is done, and the response overview matches
+except for the hidden input. The report claims the JSPs are gone; they aren't, and the scorer counts
+51 legacy files. The helper also built into `target-crit/` and `target-verify/`, which aren't
+ignored, so its diff has about 1,800 build files (`diff.patch` is 40 MB and not committed, EUPL).
+**Harness follow-up:** set `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` in `lib/run-agent.sh` (the run is
+still bounded by `timeout`), or have the prompt say the session ends when the agent's turn does. Not
+changed here, because it changes what a run can do.
+
+| Run | Verdict |
+|---|---|
+| luckyblog 2 | Pass |
+| ewp-registry 2 | Acceptable only (by design since #235) |
+| espd 2 | Tessera gap (#134) + agent errors; fails on legacy templates because the session ended before the agent's last step |
+
+### Fixes and guide changes
+
+| Change | Used? | Helped? | Evidence |
+|---|---|---|---|
+| #237 refresh `<meta>` | yes (luckyblog) | yes | `result.html` has one `<meta>` per target, such as `t:content="'1;url=' + @{/admin/update{vid}(vid=${targetVid})}"`, and `POST /admin/update.action` is identical (run 1's only differing page) |
+| #238 `css.url` | yes (luckyblog) | yes | The uploaded avatar is back: `t:style="... ${css.url(info?.avatar)} ..."`. The default `/img/avatar.jpg` is printed as a literal, because `css.url` always quotes (`url("...")`) and the original didn't |
+| #240 encoded `pages.txt` paths | yes (luckyblog) | yes | The agent's own `pages.txt` has raw `<x>`, `"` and spaces in form values. Run 1 hit `URISyntaxException` 3 times; run 2 hit none |
+| #235 directives reject expressions | yes (ewp-registry) | as designed | The agent followed the guide to `data-*` attributes and changed the Vue component. The props are now safe JSON in escaped attributes (in run 1, `v-bind:` was escaped as text but was still code). The 3 pages can't match the original markup. The JSON-in-`:prop` option is #246 |
+| #234 `__` in literals | yes (ewp-registry) | yes | BEM names are written in place, such as `t:classappend="\|ewpsrc__item--status-${test.status}\|"` (8 uses). No preprocessing errors, and no `@TemplateFunctions` class for class names (run 1 had 42 error lines and one) |
+| #241 Pebble notes | yes (ewp-registry) | yes | Generated templates are excluded from SpotBugs, PMD and Javadoc from the start. Time spent was about the same (42 vs 44 minutes) |
+| #236 `t:utext="#{key}"` | yes (espd, 98 uses, all literal keys) | yes in English | No `html.sanitize` of messages is left. The run-1 filter-page `alert-link` loss, the empty `<p>` from `<p/>` and the `&lt;p/&gt;` text are gone from every English page (the 24 run-1 pages #236 shaped). Other locales escape: #134 above. One message (`phase_out_text`, `href=" https://..."`) failed the build-time check, so the agent split it into six text keys in all 25 locale files and moved its markup into the template |
+| #239 `Field<T>` sub-paths | no (espd) | n/a | The parent told the helper to use `Field<T>` fragments. Instead, the helper wrote a Python generator (`tools/tessera/generate_criteria.py`) that expands every criteria list into literal paths (`lists.html`, 854 `t:field`). Unbounded groups use map-key paths in a loop (`unboundedGroups[0]["amount"]`, #190, #193). Either way the 14 run-1 pages with lost selections (`currency EUR`, `country BE`) are now identical |
+| #233 Lombok | yes (espd) | yes | Lombok stays at 1.16.6. The domain classes only gained `@TemplateView`, and templates read their Lombok getters (run 1 couldn't with 1.16) |
+| #241 JSP + Tiles notes, Time rule | yes (espd) | partly | Compiler plugin pinned to 3.8.1 for Boot 1.4, `commons-beanutils`/`commons-collections` declared after a `dependency:list` diff, render-time scriptlets moved to `WizardPreparation`, one subagent instead of four, no time limits. It ran 34 minutes instead of 16 and finished the wizard, countdown, finish step and response overview. It still lost its last step to the session ending (above) |
+| #241 Velocity notes | yes (luckyblog) | yes | It passes. 17 minutes instead of 13, partly to restore the avatar |
+
+### Security review
+
+- **luckyblog.** As in run 1: everything Velocity printed raw is escaped. Stored article and
+  resume HTML go through jsoup into an allow-listed `RichNode` tree rendered by a recursive fragment
+  (text and attributes escaped, `href`/`src` URL-checked; script, style, iframe, object, embed, svg
+  and form controls dropped with their content; `id`, `class`, `name` and `title` kept, no `style`,
+  `on*` or `target`). The avatar URL now goes through `css.url`. No `SafeHtml` is built by hand.
+- **ewp-registry.** The five raw outputs: the coverage matrix is a model rendered by the template,
+  as in run 1; the security disclaimer is literal markup; flag names are escaped. Notice HTML (which
+  the application generates from manifest checks) is parsed as XML, with DTDs disallowed and entity
+  expansion off, into an `HtmlNode` record tree (`p code b i em strong ul ol li br pre span a`, only
+  `href` kept and URL-checked), with `html.sanitize` as the fallback for malformed input. This avoids
+  the `rel` that `html.sanitize` adds, which was run 1's acceptable difference on `/status`. The Vue
+  props are attribute-escaped JSON in `data-*` attributes and parsed with `JSON.parse`. Inside the
+  in-DOM Vue template (`#api-entry-set`), server data appears only in plain attributes, which Vue
+  doesn't interpolate. So the original's injection through a `'` in a manifest-supplied string
+  (single-quoted `:security='{{ ... | raw }}'`) is closed, and no expression reaches a directive.
+  The agent added an escaping test (`"><script>` on `/heiSearch`).
+- **espd.** No `unchecked`, no `html.sanitize`. Message markup comes only from the 98
+  build-checked `t:utext="#{key}"` uses, and unchecked locales escape. The PDF export's hidden `html`
+  input is now two compiled templates rendered into a `SafeHtml` (`CriteriaPrintHtml`) and written
+  with `t:value`, so it is attribute-escaped. The original captured its own JSP output the same way.
+  Messages for keys computed from data (`page.i18n[key]`, `MessageSource` per request locale) are
+  printed as text. The hostile inputs in the page list (`Road works <b>`, `City of Ghent <i>`,
+  `Acme <SARL>`, `Bid rigging <script>`) render as in the original. `WizardPreparation` reads the
+  request through `RequestContextHolder` to render the print templates, from Java, not from a
+  template. The agent added `TemplateEscapingTest`.
+
+### Issues
+
+Filed from this round (label `migration-bench`):
+
+- #260 Diagnostics: `X<...> is not view-safe` doesn't name the type argument that isn't view-safe
+  (ewp-registry 2)
+- #261 Starter: nothing is logged when no compiled templates are on the classpath; every view
+  silently falls through (luckyblog 2: its jar left out `META-INF/services`)
+- #262 Rich text: `html.sanitize`'s fixed policy leaves apps writing their own allow-list renderer
+  (luckyblog 1-2, ewp-registry 2, fredbet 9)
+
+Existing issues cited, with evidence added as a comment: #134 (8 espd pages), #246 (3 ewp-registry
+pages), #130, #136, #193, #183 (the eCertis ignore).
+
+Pages per gap this round: #134 8 (espd), and #246 3 (ewp-registry, by design without it).
+
 ## Limitations
 
-- **Small samples.** One or two runs per app in #151 and one in runs 7, 8 and 9 and on the new engines; the hard apps vary between runs.
+- **Small samples.** One or two runs per app in #151, one in runs 7, 8 and 9, and two on the new engines; the hard apps vary between runs.
 - **FreeMarker coverage leans on two apps.** JobSearch has no license (its patches aren't
   committed) and a single context-loads test; BudgetMaster is held out.
 - **One app per new engine.** Spring 5+ dropped Velocity, so luckyblog (Boot 1.4) is the only Velocity app;
-  espd is the only Tiles app and ewp-registry the only Pebble app, each with one run so far.
+  espd is the only Tiles app and ewp-registry the only Pebble app, each with two runs so far.
 - **Not every page is reachable.** Pages that need multipart uploads, cookies the tool can't set,
   captchas or HTMX headers aren't recorded.
 - **The Thymeleaf petclinics are one family.** spring-petclinic is the app Tessera's own port
