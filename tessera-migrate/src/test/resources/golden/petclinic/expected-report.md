@@ -24,7 +24,7 @@ Converted 7 template(s); 26 item(s) need manual attention.
 - `misc/unsupported.html:7`: Thymeleaf utility object `#ctx` has no Tessera equivalent; use a `@TemplateFunctions` namespace or a view-type property
 - `misc/unsupported.html:10`: collection selection/projection is not supported; compute the collection in Java
 - `misc/unsupported.html:11`: `th:onclick` is a build error by design (no dynamic event handlers); use a `data-*` attribute read by a script
-- `misc/unsupported.html:11`: `th:style` is a build error by design (no dynamic CSS); use `t:classappend`
+- `misc/unsupported.html:11`: `th:style` is not converted; rewrite it as `t:style` from literals, numbers and `css.color(...)`/`css.length(...)` (guide section 4.4), otherwise use `t:classappend` or a `t:data-*` attribute
 - `misc/unsupported.html:12`: `sec:authorize` belongs to the `sec:` dialect, which Tessera does not support; port it by hand
 - `misc/unsupported.html:14`: `data-th-text` (HTML5 data-th-* syntax) is not converted; rewrite it as `t:text`
 - `misc/unsupported.html:15`: object creation with `new` is not supported (never); compute the value in Java
