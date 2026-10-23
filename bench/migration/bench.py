@@ -167,9 +167,28 @@ def summary_line(c):
 SKILL = "tessera:migrate"  # plugins/tessera's skill, as Claude Code names a plugin skill
 
 
+def skill_use(transcript):
+    """Whether the session listed the Tessera skill (init event) and whether the agent invoked it
+    (a Skill tool call), from claude's stream-json output. Recorded in agent.json by migrate()."""
+    listed = invoked = False
+    with open(transcript, errors="replace") as f:
+        for line in f:
+            try:
+                ev = json.loads(line)
+            except ValueError:
+                continue
+            if ev.get("type") == "system" and ev.get("subtype") == "init":
+                listed = SKILL in (ev.get("skills") or []) or SKILL in (ev.get("slash_commands") or [])
+            elif ev.get("type") == "assistant":
+                invoked |= any(c.get("type") == "tool_use" and c.get("name") == "Skill"
+                               and (c.get("input") or {}).get("skill") in (SKILL, "migrate")
+                               for c in ev.get("message", {}).get("content") or [] if isinstance(c, dict))
+    return {"skill_listed": listed, "skill_invoked": invoked}
+
+
 def agent_usage(transcript):
-    """Cost, tokens, outcome and use of the Tessera skill from claude's stream-json output."""
-    per_message, result, listed, invoked = {}, None, False, False
+    """Cost, tokens and outcome from claude's stream-json output."""
+    per_message, result = {}, None
     with open(transcript, errors="replace") as f:
         for line in f:
             try:
@@ -178,14 +197,9 @@ def agent_usage(transcript):
                 continue
             if ev.get("type") == "result":
                 result = ev
-            elif ev.get("type") == "system" and ev.get("subtype") == "init":
-                listed = SKILL in (ev.get("skills") or []) or SKILL in (ev.get("slash_commands") or [])
             elif ev.get("type") == "assistant":
                 msg = ev.get("message", {})
                 per_message[msg.get("id")] = msg.get("usage") or {}  # the last event has the totals
-                invoked |= any(c.get("type") == "tool_use" and c.get("name") == "Skill"
-                               and (c.get("input") or {}).get("skill") in (SKILL, "migrate")
-                               for c in msg.get("content") or [] if isinstance(c, dict))
     usage = {}
     for u in per_message.values():
         for k, v in u.items():
@@ -201,7 +215,7 @@ def agent_usage(transcript):
     return {"outcome": result.get("subtype") if result else "killed (time budget)",
             "cost_usd": result.get("total_cost_usd") if result else None,
             "turns": result.get("num_turns") if result else None,
-            "tokens": usage, "skill_listed": listed, "skill_invoked": invoked}
+            "tokens": usage}
 
 
 def score(app, run_dir):
@@ -291,6 +305,7 @@ def migrate(app, k, args):
     meta = {"wall_minutes": round((time.time() - start) / 60, 1), "exit": p.returncode,
             "model": args.model, "budget_usd": args.budget_usd, "budget_minutes": args.minutes}
     meta.update(agent_usage(os.path.join(run_dir, "transcript.jsonl")))
+    meta.update(skill_use(os.path.join(run_dir, "transcript.jsonl")))
     with open(os.path.join(run_dir, "agent.json"), "w") as f:
         json.dump(meta, f, indent=1)
 
