@@ -17,5 +17,6 @@ final class BuiltinNamespaces {
           "dev.tessera.runtime.fn.Temporals",
           "dev.tessera.runtime.fn.Lists",
           "dev.tessera.runtime.fn.Css",
+          "dev.tessera.runtime.fn.Html",
           "dev.tessera.spring.fn.Auth");
 }
