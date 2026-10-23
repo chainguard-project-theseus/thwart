@@ -25,12 +25,12 @@
              <div class="form-group">
                <input autofocus class="form-control" id="password" name="password" placeholder="Введите новый пароль" type="password">
                <span class="small text-danger">
--                password is null or blank
-+                must not be blank
-               <br>
-               <span class="small text-danger">
 -                must not be blank
 +                password is null or blank
+               <br>
+               <span class="small text-danger">
+-                password is null or blank
++                must not be blank
              <p class="text-center">
                <button class="btn btn-primary mt-3" type="submit">
                  Change Password
@@ -43,50 +43,67 @@
                First Name
              <input class="custom-form-control" id="name" name="name" placeholder="John" type="text">
              <span class="small text-danger">
--              Value must not contain numbers, symbols, or spaces
-+              Value length must be between 3 and 30 characters
-             <br>
-             <span class="small text-danger">
 -              Value length must be between 3 and 30 characters
-+              Value must not contain numbers, symbols, or spaces
-             <br>
-             <span class="small text-danger">
-               Value must not be empty
-@@ -37,10 +37,10 @@
-               Last Name
-             <input class="custom-form-control" id="surname" name="surname" placeholder="Smith" type="text">
-             <span class="small text-danger">
--              Value must not contain numbers, symbols, or spaces
-+              Value length must be between 3 and 30 characters
-             <br>
-             <span class="small text-danger">
--              Value length must be between 3 and 30 characters
-+              Value must not contain numbers, symbols, or spaces
-             <br>
-             <span class="small text-danger">
-               Value must not be empty
-@@ -55,10 +55,10 @@
-               Email
-             <input class="custom-form-control" id="email" name="email" placeholder="email@example.com" type="text">
-             <span class="small text-danger">
--              email should be unique
 +              Value must not be empty
              <br>
              <span class="small text-danger">
 -              Value must not be empty
-+              email should be unique
-           <div class="custom-form-group">
-             <label for="password">
-               Password
++              Value length must be between 3 and 30 characters
+             <br>
+             <span class="small text-danger">
+               Value must not contain numbers, symbols, or spaces
+@@ -37,10 +37,10 @@
+               Last Name
+             <input class="custom-form-control" id="surname" name="surname" placeholder="Smith" type="text">
+             <span class="small text-danger">
+-              Value must not be empty
++              Value length must be between 3 and 30 characters
+             <br>
+             <span class="small text-danger">
+-              Value length must be between 3 and 30 characters
++              Value must not be empty
+             <br>
+             <span class="small text-danger">
+               Value must not contain numbers, symbols, or spaces
 25 same      POST /users/registration name=Ann&surname=Seeker&age=30&email=ann@example.com&password=Secret123&phoneNumber=%2B996555000001&accountType=JobSeeker&avatar=
 26 same      GET /users/profile
 27 same      GET /users/profile/statistics
 28 same      GET /users/profile
-29 same      POST /users/updates/profile name=A1&surname=&age=200&email=ann@example.com&phoneNumber=123&userId=4&accountType=JobSeeker&password=&avatar=
+29 reordered POST /users/updates/profile name=A1&surname=&age=200&email=ann@example.com&phoneNumber=123&userId=4&accountType=JobSeeker&password=&avatar=
+--- recorded 29.html
++++ now
+@@ -52,10 +52,10 @@
+                               First Name
+                             <input class="form-control" id="name" name="name" placeholder="Enter First Name" type="text" value="A1">
+                             <span class="small text-danger">
+-                              Value must not contain numbers, symbols, or spaces
++                              Value length must be between 3 and 30 characters
+                             <br>
+                             <span class="small text-danger">
+-                              Value length must be between 3 and 30 characters
++                              Value must not contain numbers, symbols, or spaces
+                           <div class="mb-3">
+                             <label class="form-label">
+                               Last Name
 30 same      GET /users/profile
 31 same      POST /users/updates/profile name=Anna&surname=Seeker&age=31&email=ann@example.com&phoneNumber=%2B996555000001&userId=4&accountType=JobSeeker&password=Secret123&avatar=
 32 same      GET /resumes/new_resume
-33 same      POST /resumes/new_resume name=&categoryId=1&salary=-5&workExperienceInfoDtos[0].years=&workExperienceInfoDtos[0].companyName=&workExperienceInfoDtos[0].position=&workExperienceInfoDtos[0].responsibilities=&educationInfoDtos[0].degree=&educationInfoDtos[0].institution=&educationInfoDtos[0].program=&educationInfoDtos[0].startDate=&educationInfoDtos[0].endDate=&contactInfos[0].id=&contactInfos[0].contactType.contactTypeId=2&contactInfos[0].contactType.type=TELEGRAM&contactInfos[0].contactValue=&contactInfos[1].id=&contactInfos[1].contactType.contactTypeId=3&contactInfos[1].contactType.type=FACEBOOK&contactInfos[1].contactValue=&contactInfos[2].id=&contactInfos[2].contactType.contactTypeId=4&contactInfos[2].contactType.type=EMAIL&contactInfos[2].contactValue=&contactInfos[3].id=&contactInfos[3].contactType.contactTypeId=5&contactInfos[3].contactType.type=LINKEDIN&contactInfos[3].contactValue=&contactInfos[4].id=&contactInfos[4].contactType.contactTypeId=6&contactInfos[4].contactType.type=PHONE_NUMBER&contactInfos[4].contactValue=%2B996
+33 reordered POST /resumes/new_resume name=&categoryId=1&salary=-5&workExperienceInfoDtos[0].years=&workExperienceInfoDtos[0].companyName=&workExperienceInfoDtos[0].position=&workExperienceInfoDtos[0].responsibilities=&educationInfoDtos[0].degree=&educationInfoDtos[0].institution=&educationInfoDtos[0].program=&educationInfoDtos[0].startDate=&educationInfoDtos[0].endDate=&contactInfos[0].id=&contactInfos[0].contactType.contactTypeId=2&contactInfos[0].contactType.type=TELEGRAM&contactInfos[0].contactValue=&contactInfos[1].id=&contactInfos[1].contactType.contactTypeId=3&contactInfos[1].contactType.type=FACEBOOK&contactInfos[1].contactValue=&contactInfos[2].id=&contactInfos[2].contactType.contactTypeId=4&contactInfos[2].contactType.type=EMAIL&contactInfos[2].contactValue=&contactInfos[3].id=&contactInfos[3].contactType.contactTypeId=5&contactInfos[3].contactType.type=LINKEDIN&contactInfos[3].contactValue=&contactInfos[4].id=&contactInfos[4].contactType.contactTypeId=6&contactInfos[4].contactType.type=PHONE_NUMBER&contactInfos[4].contactValue=%2B996
+--- recorded 33.html
++++ now
+@@ -23,10 +23,10 @@
+                   Resume Name
+                 <input class="form-control" id="name" name="name" placeholder="Enter Resume Name" type="text">
+                 <span class="small text-danger">
+-                  Value length must be between 3 and 30 characters
++                  Value must not be empty
+                 <br>
+                 <span class="small text-danger">
+-                  Value must not be empty
++                  Value length must be between 3 and 30 characters
+               <div class="mb-4">
+                 <label class="form-label" for="categoryId">
+                   <i class="bi bi-briefcase form-icon me-2">
 34 same      POST /resumes/new_resume name=Kotlin engineer&categoryId=1&salary=3000&workExperienceInfoDtos[0].years=3&workExperienceInfoDtos[0].companyName=Acme&workExperienceInfoDtos[0].position=Developer&workExperienceInfoDtos[0].responsibilities=Backend and APIs&educationInfoDtos[0].degree=BSc&educationInfoDtos[0].institution=State University&educationInfoDtos[0].program=Computer Science&educationInfoDtos[0].startDate=2010-09-01 00:00:00&educationInfoDtos[0].endDate=2014-06-30 00:00:00&contactInfos[0].id=&contactInfos[0].contactType.contactTypeId=2&contactInfos[0].contactType.type=TELEGRAM&contactInfos[0].contactValue=@ann&contactInfos[1].id=&contactInfos[1].contactType.contactTypeId=3&contactInfos[1].contactType.type=FACEBOOK&contactInfos[1].contactValue=&contactInfos[2].id=&contactInfos[2].contactType.contactTypeId=4&contactInfos[2].contactType.type=EMAIL&contactInfos[2].contactValue=ann@gmail.com&contactInfos[3].id=&contactInfos[3].contactType.contactTypeId=5&contactInfos[3].contactType.type=LINKEDIN&contactInfos[3].contactValue=&contactInfos[4].id=&contactInfos[4].contactType.contactTypeId=6&contactInfos[4].contactType.type=PHONE_NUMBER&contactInfos[4].contactValue=%2B996555000001&active=true
 35 same      GET /resumes/users
 36 same      GET /resumes/update/resume/34
@@ -117,22 +134,7 @@
 61 same      GET /resumes/users
 62 same      POST /skills/save_vacancy_storage name=Draft vacancy&categoryId=1&salary=100&pageName=skills/vacancies/new_skills
 63 same      GET /skills/new_vacancy
-64 reordered POST /vacancies/new_vacancy name=X!&categoryId=&salary=-1&expFrom=9&expTo=20&description=
---- recorded 64.html
-+++ now
-@@ -25,10 +25,10 @@
-                   Vacancy Name
-                 <input class="form-control" id="name" name="name" placeholder="Enter Name" type="text" value="X!">
-                 <span class="small text-danger">
--                  Value must not contain numbers, symbols, or spaces
-+                  Value length must be between 3 and 30 characters
-                 <br>
-                 <span class="small text-danger">
--                  Value length must be between 3 and 30 characters
-+                  Value must not contain numbers, symbols, or spaces
-               <div class="mb-3 row">
-                 <div class="col-md-6">
-                   <label class="form-label" for="categoryId">
+64 same      POST /vacancies/new_vacancy name=X!&categoryId=&salary=-1&expFrom=9&expTo=20&description=
 65 same      GET /resumes/users
 66 same      POST /skills/save_vacancy_storage vacancyId=1&name=Junior Java Dev&categoryId=1&salary=9000&pageName=skills/vacancies/update_skills
 67 same      GET /skills/update_vacancy
@@ -143,15 +145,16 @@
                    Vacancy Name
                  <input class="form-control" id="name" name="name" placeholder="Enter Name" type="text">
                  <span class="small text-danger">
--                  Value must not be empty
-+                  Value length must be between 3 and 30 characters
-                 <br>
-                 <span class="small text-danger">
+-                  Value length must be between 3 and 30 characters
+-                <br>
+-                <span class="small text-danger">
                    Value must not contain numbers, symbols, or spaces
                  <br>
                  <span class="small text-danger">
--                  Value length must be between 3 and 30 characters
-+                  Value must not be empty
+                   Value must not be empty
++                <br>
++                <span class="small text-danger">
++                  Value length must be between 3 and 30 characters
                <div class="mb-3 row">
                  <div class="col-md-6">
                    <label class="form-label" for="categoryId">
@@ -165,7 +168,22 @@
 76 same      GET /groups/generate/link/1
 77 same      GET /channel
 78 same      GET /channel/new_channel
-79 same      POST /channel/create login=&description=&channelAccess=
+79 reordered POST /channel/create login=&description=&channelAccess=
+--- recorded 79.html
++++ now
+@@ -96,10 +96,10 @@
+                   <i class="fa-at fas">
+                 <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text">
+               <span class="invalid-feedback">
+-                size must be between 3 and 50
++                Login must not be blank
+               <br>
+               <span class="invalid-feedback">
+-                Login must not be blank
++                size must be between 3 and 50
+               <div class="form-text">
+                 3-50 characters, must be unique
+             <div class="mb-4">
 80 same      GET /channel/new_channel
 81 same      POST /channel/create login=annchannel&description=Talks about <i>Kotlin</i>&channelAccess=PUBLIC
 82 same      GET /channel
@@ -179,4 +197,4 @@
 90 same      GET /videos/channel/1
 91 same      GET /vacancies/new_vacancy
 92 same      GET /auth/logout
-tessera-migrate compare: 92 page(s): 88 same, 4 reordered, 0 differ
+tessera-migrate compare: 92 page(s): 86 same, 6 reordered, 0 differ

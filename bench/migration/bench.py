@@ -285,7 +285,9 @@ def score(app, run_dir):
                  and identical + reordered == len(base["pages"]) and not status_mismatch
                  and not insecure and not s["legacy_templates"] and not legacy_deps)
     meta = json.load(open(os.path.join(run_dir, "agent.json")))
-    meta.update(agent_usage(os.path.join(run_dir, "transcript.jsonl")))
+    transcript = os.path.join(run_dir, "transcript.jsonl")
+    if os.path.exists(transcript):  # gitignored, so absent in a fresh clone; agent.json has the totals
+        meta.update(agent_usage(transcript))
     s.update(meta)
     with open(os.path.join(run_dir, "score.json"), "w") as f:
         json.dump(s, f, indent=1)

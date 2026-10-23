@@ -1,0 +1,39 @@
+{
+ "app": "fredbet",
+ "run": "run-4",
+ "build_ok": true,
+ "tests_ok": true,
+ "tests": {
+  "tests": 119,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0
+ },
+ "tests_failed": [],
+ "baseline_tests": 117,
+ "pages_total": 169,
+ "pages_identical": 168,
+ "pages_reordered": 0,
+ "status_mismatch": [],
+ "insecure": [],
+ "legacy_templates": [],
+ "legacy_constructs": {},
+ "legacy_deps": [],
+ "tessera_templates": 48,
+ "baseline_templates": 46,
+ "pass": false,
+ "wall_minutes": 39.4,
+ "exit": 0,
+ "model": "opus",
+ "budget_usd": 40,
+ "budget_minutes": 90,
+ "outcome": "success",
+ "cost_usd": 15.705019599999993,
+ "turns": 1,
+ "tokens": {
+  "input_tokens": 606,
+  "output_tokens": 199028,
+  "cache_read_input_tokens": 34092253,
+  "cache_creation_input_tokens": 980717
+ }
+}

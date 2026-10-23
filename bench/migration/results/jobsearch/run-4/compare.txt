@@ -1,0 +1,401 @@
+01 same      GET /vacancies/actives?size=50
+02 same      GET /vacancies?size=50
+03 same      GET /vacancies/1
+04 same      GET /vacancies/filtered?filterType=SALARY_DESC&size=50
+05 same      GET /vacancies/filtered?filterType=FAVORITE_VACANCIES
+06 same      GET /vacancies/sort?categoryName=It&size=50
+07 same      GET /search
+08 same      GET /vacancies/search/vacancies/dynamic/page
+09 same      GET /vacancies/search/dynamic?searchCriteria=salary%3E1800
+10 same      GET /companies/company/profile/2
+11 same      GET /groups
+12 same      GET /users/profile
+13 same      GET /auth/login
+14 same      POST /auth/login username=nobody@example.com&password=wrong
+15 same      GET /auth/forgot_password
+16 differs   POST /auth/forgot_password email=bad
+--- recorded 16.html
++++ now
+@@ -158,7 +158,7 @@
+                   Timestamp
+                 :
+               <code>
+-                Oct 22, 2026,
++                Oct 23, 2026,
+     <script crossorigin="anonymous" integrity="sha512-H6cPm97FAsgIKmlBA4s774vqoN24V5gSQL4yBTDOY2su2DeXZVhQPxFK4P6GPdnZqM9fg1G3cMv5wD7e6cFLZQ==" referrerpolicy="no-referrer" src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js">
+     <script>
+       /** @var {object} gsap is a library for building high-performance animations */ if (typeof gsap === 'object') { gsap.set("svg", {visibility: "visible"}); gsap.to("#headStripe", {y: 0.5, rotation: 1, yoyo: true, repeat: -1, ease: "sine.inOut", duration: 1}); gsap.to("#spaceman", {y: 0.5, rotation: 1, yoyo: true, repeat: -1, ease: "sine.inOut", duration: 1}); gsap.to("#craterSmall", {x: -3, yoyo: true, repeat: -1, duration: 1, ease: "sine.inOut"}); gsap.to("#craterBig", {x: 3, yoyo: true, repeat: -1, duration: 1, ease: "sine.inOut"}); gsap.to("#planet", { rotation: -2, yoyo: true, repeat: -1, duration: 1, ease: "sine.inOut", transformOrigin: "50% 50%" }); gsap.to("#starsBig g", { rotation: "random(-30,30)", transformOrigin: "50% 50%", yoyo: true, repeat: -1, ease: "sine.inOut" }); gsap.fromTo("#starsSmall g", {scale: 0, transformOrigin: "50% 50%"}, { scale: 1, transformOrigin: "50% 50%", yoyo: true, repeat: -1, stagger: 0.1 }); gsap.to("#circlesSmall circle", {y: -4, yoyo: true, duration: 1, ease: "sine.inOut", repeat: -1}); gsap.to("#circlesBig circle", {y: -2, yoyo: true, duration: 1, ease: "sine.inOut", repeat: -1}); gsap.set("#glassShine", {x: -68}); gsap.to("#glassShine", { x: 80, duration: 2, rotation: -30, ease: "expo.inOut", transformOrigin: "50% 50%", repeat: -1, repeatDelay: 8, delay: 2 }); } else { console.warn('gsap library is not initialized (network error?)') } // {{ if l10n_enabled }} if (navigator.language.substring(0, 2).toLowerCase() !== 'en') { ((s, p) =&gt; { // localize the page (details here - https://github.com/tarampampam/error-pages/tree/master/l10n) s.src = 'https://cdn.jsdelivr.net/gh/tarampampam/error-pages@2/l10n/l10n.min.js'; // '../l10n/l10n.js'; s.async = s.defer = true; s.addEventListener('load', () =&gt; p.removeChild(s)); p.appendChild(s); })(document.createElement('script'), document.body); } // {{ end }}
+17 same      GET /auth/forgot_password
+18 differs   POST /auth/forgot_password email=nobody@example.com
+--- recorded 18.html
++++ now
+@@ -158,7 +158,7 @@
+                   Timestamp
+                 :
+               <code>
+-                Oct 22, 2026,
++                Oct 23, 2026,
+     <script crossorigin="anonymous" integrity="sha512-H6cPm97FAsgIKmlBA4s774vqoN24V5gSQL4yBTDOY2su2DeXZVhQPxFK4P6GPdnZqM9fg1G3cMv5wD7e6cFLZQ==" referrerpolicy="no-referrer" src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js">
+     <script>
+       /** @var {object} gsap is a library for building high-performance animations */ if (typeof gsap === 'object') { gsap.set("svg", {visibility: "visible"}); gsap.to("#headStripe", {y: 0.5, rotation: 1, yoyo: true, repeat: -1, ease: "sine.inOut", duration: 1}); gsap.to("#spaceman", {y: 0.5, rotation: 1, yoyo: true, repeat: -1, ease: "sine.inOut", duration: 1}); gsap.to("#craterSmall", {x: -3, yoyo: true, repeat: -1, duration: 1, ease: "sine.inOut"}); gsap.to("#craterBig", {x: 3, yoyo: true, repeat: -1, duration: 1, ease: "sine.inOut"}); gsap.to("#planet", { rotation: -2, yoyo: true, repeat: -1, duration: 1, ease: "sine.inOut", transformOrigin: "50% 50%" }); gsap.to("#starsBig g", { rotation: "random(-30,30)", transformOrigin: "50% 50%", yoyo: true, repeat: -1, ease: "sine.inOut" }); gsap.fromTo("#starsSmall g", {scale: 0, transformOrigin: "50% 50%"}, { scale: 1, transformOrigin: "50% 50%", yoyo: true, repeat: -1, stagger: 0.1 }); gsap.to("#circlesSmall circle", {y: -4, yoyo: true, duration: 1, ease: "sine.inOut", repeat: -1}); gsap.to("#circlesBig circle", {y: -2, yoyo: true, duration: 1, ease: "sine.inOut", repeat: -1}); gsap.set("#glassShine", {x: -68}); gsap.to("#glassShine", { x: 80, duration: 2, rotation: -30, ease: "expo.inOut", transformOrigin: "50% 50%", repeat: -1, repeatDelay: 8, delay: 2 }); } else { console.warn('gsap library is not initialized (network error?)') } // {{ if l10n_enabled }} if (navigator.language.substring(0, 2).toLowerCase() !== 'en') { ((s, p) =&gt; { // localize the page (details here - https://github.com/tarampampam/error-pages/tree/master/l10n) s.src = 'https://cdn.jsdelivr.net/gh/tarampampam/error-pages@2/l10n/l10n.min.js'; // '../l10n/l10n.js'; s.async = s.defer = true; s.addEventListener('load', () =&gt; p.removeChild(s)); p.appendChild(s); })(document.createElement('script'), document.body); } // {{ end }}
+19 differs   GET /auth/reset_password?token=nope
+--- recorded 19.html
++++ now
+@@ -158,7 +158,7 @@
+                   Timestamp
+                 :
+               <code>
+-                Oct 22, 2026,
++                Oct 23, 2026,
+     <script crossorigin="anonymous" integrity="sha512-H6cPm97FAsgIKmlBA4s774vqoN24V5gSQL4yBTDOY2su2DeXZVhQPxFK4P6GPdnZqM9fg1G3cMv5wD7e6cFLZQ==" referrerpolicy="no-referrer" src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js">
+     <script>
+       /** @var {object} gsap is a library for building high-performance animations */ if (typeof gsap === 'object') { gsap.set("svg", {visibility: "visible"}); gsap.to("#headStripe", {y: 0.5, rotation: 1, yoyo: true, repeat: -1, ease: "sine.inOut", duration: 1}); gsap.to("#spaceman", {y: 0.5, rotation: 1, yoyo: true, repeat: -1, ease: "sine.inOut", duration: 1}); gsap.to("#craterSmall", {x: -3, yoyo: true, repeat: -1, duration: 1, ease: "sine.inOut"}); gsap.to("#craterBig", {x: 3, yoyo: true, repeat: -1, duration: 1, ease: "sine.inOut"}); gsap.to("#planet", { rotation: -2, yoyo: true, repeat: -1, duration: 1, ease: "sine.inOut", transformOrigin: "50% 50%" }); gsap.to("#starsBig g", { rotation: "random(-30,30)", transformOrigin: "50% 50%", yoyo: true, repeat: -1, ease: "sine.inOut" }); gsap.fromTo("#starsSmall g", {scale: 0, transformOrigin: "50% 50%"}, { scale: 1, transformOrigin: "50% 50%", yoyo: true, repeat: -1, stagger: 0.1 }); gsap.to("#circlesSmall circle", {y: -4, yoyo: true, duration: 1, ease: "sine.inOut", repeat: -1}); gsap.to("#circlesBig circle", {y: -2, yoyo: true, duration: 1, ease: "sine.inOut", repeat: -1}); gsap.set("#glassShine", {x: -68}); gsap.to("#glassShine", { x: 80, duration: 2, rotation: -30, ease: "expo.inOut", transformOrigin: "50% 50%", repeat: -1, repeatDelay: 8, delay: 2 }); } else { console.warn('gsap library is not initialized (network error?)') } // {{ if l10n_enabled }} if (navigator.language.substring(0, 2).toLowerCase() !== 'en') { ((s, p) =&gt; { // localize the page (details here - https://github.com/tarampampam/error-pages/tree/master/l10n) s.src = 'https://cdn.jsdelivr.net/gh/tarampampam/error-pages@2/l10n/l10n.min.js'; // '../l10n/l10n.js'; s.async = s.defer = true; s.addEventListener('load', () =&gt; p.removeChild(s)); p.appendChild(s); })(document.createElement('script'), document.body); } // {{ end }}
+20 same      GET /auth/forgot_password
+21 reordered POST /auth/reset_password token=nope&password=
+--- recorded 21.html
++++ now
+@@ -16,8 +16,8 @@
+       <div class="align-items-center d-flex h-100 justify-content-center row">
+         <div class="col-lg-5 col-md-7 col-xl-5">
+           <form action="/auth/reset_password" method="post">
+-            <input name="token" type="hidden" value="nope">
+             <input name="_csrf" type="hidden" value="MASKED">
++            <input name="token" type="hidden" value="nope">
+             <div class="form-group">
+               <input autofocus class="form-control" id="password" name="password" placeholder="Введите новый пароль" type="password">
+               <span class="small text-danger">
+22 differs   GET /vacancies/99999
+--- recorded 22.html
++++ now
+@@ -158,7 +158,7 @@
+                   Timestamp
+                 :
+               <code>
+-                Oct 22, 2026,
++                Oct 23, 2026,
+     <script crossorigin="anonymous" integrity="sha512-H6cPm97FAsgIKmlBA4s774vqoN24V5gSQL4yBTDOY2su2DeXZVhQPxFK4P6GPdnZqM9fg1G3cMv5wD7e6cFLZQ==" referrerpolicy="no-referrer" src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js">
+     <script>
+       /** @var {object} gsap is a library for building high-performance animations */ if (typeof gsap === 'object') { gsap.set("svg", {visibility: "visible"}); gsap.to("#headStripe", {y: 0.5, rotation: 1, yoyo: true, repeat: -1, ease: "sine.inOut", duration: 1}); gsap.to("#spaceman", {y: 0.5, rotation: 1, yoyo: true, repeat: -1, ease: "sine.inOut", duration: 1}); gsap.to("#craterSmall", {x: -3, yoyo: true, repeat: -1, duration: 1, ease: "sine.inOut"}); gsap.to("#craterBig", {x: 3, yoyo: true, repeat: -1, duration: 1, ease: "sine.inOut"}); gsap.to("#planet", { rotation: -2, yoyo: true, repeat: -1, duration: 1, ease: "sine.inOut", transformOrigin: "50% 50%" }); gsap.to("#starsBig g", { rotation: "random(-30,30)", transformOrigin: "50% 50%", yoyo: true, repeat: -1, ease: "sine.inOut" }); gsap.fromTo("#starsSmall g", {scale: 0, transformOrigin: "50% 50%"}, { scale: 1, transformOrigin: "50% 50%", yoyo: true, repeat: -1, stagger: 0.1 }); gsap.to("#circlesSmall circle", {y: -4, yoyo: true, duration: 1, ease: "sine.inOut", repeat: -1}); gsap.to("#circlesBig circle", {y: -2, yoyo: true, duration: 1, ease: "sine.inOut", repeat: -1}); gsap.set("#glassShine", {x: -68}); gsap.to("#glassShine", { x: 80, duration: 2, rotation: -30, ease: "expo.inOut", transformOrigin: "50% 50%", repeat: -1, repeatDelay: 8, delay: 2 }); } else { console.warn('gsap library is not initialized (network error?)') } // {{ if l10n_enabled }} if (navigator.language.substring(0, 2).toLowerCase() !== 'en') { ((s, p) =&gt; { // localize the page (details here - https://github.com/tarampampam/error-pages/tree/master/l10n) s.src = 'https://cdn.jsdelivr.net/gh/tarampampam/error-pages@2/l10n/l10n.min.js'; // '../l10n/l10n.js'; s.async = s.defer = true; s.addEventListener('load', () =&gt; p.removeChild(s)); p.appendChild(s); })(document.createElement('script'), document.body); } // {{ end }}
+23 same      GET /auth/registration
+24 reordered POST /users/registration name=&surname=&age=&email=&password=&phoneNumber=%2B996&accountType=&avatar=
+--- recorded 24.html
++++ now
+@@ -25,10 +25,10 @@
+               First Name
+             <input class="custom-form-control" id="name" name="name" placeholder="John" type="text">
+             <span class="small text-danger">
+-              Value length must be between 3 and 30 characters
++              Value must not be empty
+             <br>
+             <span class="small text-danger">
+-              Value must not be empty
++              Value length must be between 3 and 30 characters
+             <br>
+             <span class="small text-danger">
+               Value must not contain numbers, symbols, or spaces
+@@ -37,13 +37,13 @@
+               Last Name
+             <input class="custom-form-control" id="surname" name="surname" placeholder="Smith" type="text">
+             <span class="small text-danger">
+-              Value must not be empty
+-            <br>
+-            <span class="small text-danger">
+               Value length must be between 3 and 30 characters
+             <br>
+             <span class="small text-danger">
+               Value must not contain numbers, symbols, or spaces
++            <br>
++            <span class="small text-danger">
++              Value must not be empty
+           <div class="custom-form-group">
+             <label for="age">
+               Age
+@@ -55,10 +55,10 @@
+               Email
+             <input class="custom-form-control" id="email" name="email" placeholder="email@example.com" type="text">
+             <span class="small text-danger">
+-              Value must not be empty
++              email should be unique
+             <br>
+             <span class="small text-danger">
+-              email should be unique
++              Value must not be empty
+           <div class="custom-form-group">
+             <label for="password">
+               Password
+25 same      POST /users/registration name=Ann&surname=Seeker&age=30&email=ann@example.com&password=Secret123&phoneNumber=%2B996555000001&accountType=JobSeeker&avatar=
+26 same      GET /users/profile
+27 same      GET /users/profile/statistics
+28 same      GET /users/profile
+29 reordered POST /users/updates/profile name=A1&surname=&age=200&email=ann@example.com&phoneNumber=123&userId=4&accountType=JobSeeker&password=&avatar=
+--- recorded 29.html
++++ now
+@@ -52,10 +52,10 @@
+                               First Name
+                             <input class="form-control" id="name" name="name" placeholder="Enter First Name" type="text" value="A1">
+                             <span class="small text-danger">
+-                              Value must not contain numbers, symbols, or spaces
++                              Value length must be between 3 and 30 characters
+                             <br>
+                             <span class="small text-danger">
+-                              Value length must be between 3 and 30 characters
++                              Value must not contain numbers, symbols, or spaces
+                           <div class="mb-3">
+                             <label class="form-label">
+                               Last Name
+30 same      GET /users/profile
+31 same      POST /users/updates/profile name=Anna&surname=Seeker&age=31&email=ann@example.com&phoneNumber=%2B996555000001&userId=4&accountType=JobSeeker&password=Secret123&avatar=
+32 same      GET /resumes/new_resume
+33 same      POST /resumes/new_resume name=&categoryId=1&salary=-5&workExperienceInfoDtos[0].years=&workExperienceInfoDtos[0].companyName=&workExperienceInfoDtos[0].position=&workExperienceInfoDtos[0].responsibilities=&educationInfoDtos[0].degree=&educationInfoDtos[0].institution=&educationInfoDtos[0].program=&educationInfoDtos[0].startDate=&educationInfoDtos[0].endDate=&contactInfos[0].id=&contactInfos[0].contactType.contactTypeId=2&contactInfos[0].contactType.type=TELEGRAM&contactInfos[0].contactValue=&contactInfos[1].id=&contactInfos[1].contactType.contactTypeId=3&contactInfos[1].contactType.type=FACEBOOK&contactInfos[1].contactValue=&contactInfos[2].id=&contactInfos[2].contactType.contactTypeId=4&contactInfos[2].contactType.type=EMAIL&contactInfos[2].contactValue=&contactInfos[3].id=&contactInfos[3].contactType.contactTypeId=5&contactInfos[3].contactType.type=LINKEDIN&contactInfos[3].contactValue=&contactInfos[4].id=&contactInfos[4].contactType.contactTypeId=6&contactInfos[4].contactType.type=PHONE_NUMBER&contactInfos[4].contactValue=%2B996
+34 same      POST /resumes/new_resume name=Kotlin engineer&categoryId=1&salary=3000&workExperienceInfoDtos[0].years=3&workExperienceInfoDtos[0].companyName=Acme&workExperienceInfoDtos[0].position=Developer&workExperienceInfoDtos[0].responsibilities=Backend and APIs&educationInfoDtos[0].degree=BSc&educationInfoDtos[0].institution=State University&educationInfoDtos[0].program=Computer Science&educationInfoDtos[0].startDate=2010-09-01 00:00:00&educationInfoDtos[0].endDate=2014-06-30 00:00:00&contactInfos[0].id=&contactInfos[0].contactType.contactTypeId=2&contactInfos[0].contactType.type=TELEGRAM&contactInfos[0].contactValue=@ann&contactInfos[1].id=&contactInfos[1].contactType.contactTypeId=3&contactInfos[1].contactType.type=FACEBOOK&contactInfos[1].contactValue=&contactInfos[2].id=&contactInfos[2].contactType.contactTypeId=4&contactInfos[2].contactType.type=EMAIL&contactInfos[2].contactValue=ann@gmail.com&contactInfos[3].id=&contactInfos[3].contactType.contactTypeId=5&contactInfos[3].contactType.type=LINKEDIN&contactInfos[3].contactValue=&contactInfos[4].id=&contactInfos[4].contactType.contactTypeId=6&contactInfos[4].contactType.type=PHONE_NUMBER&contactInfos[4].contactValue=%2B996555000001&active=true
+35 same      GET /resumes/users
+36 same      GET /resumes/update/resume/34
+37 reordered POST /resumes/update/resume id=34&name=&categoryId=1&salary=3000&workExperienceInfoDtos[0].years=&workExperienceInfoDtos[0].companyName=&workExperienceInfoDtos[0].position=&workExperienceInfoDtos[0].responsibilities=&educationInfoDtos[0].degree=&educationInfoDtos[0].institution=&educationInfoDtos[0].program=&educationInfoDtos[0].startDate=&educationInfoDtos[0].endDate=&contactInfos[0].id=&contactInfos[0].contactType.contactTypeId=2&contactInfos[0].contactType.type=TELEGRAM&contactInfos[0].contactValue=&contactInfos[1].id=&contactInfos[1].contactType.contactTypeId=3&contactInfos[1].contactType.type=FACEBOOK&contactInfos[1].contactValue=&contactInfos[2].id=&contactInfos[2].contactType.contactTypeId=4&contactInfos[2].contactType.type=EMAIL&contactInfos[2].contactValue=&contactInfos[3].id=&contactInfos[3].contactType.contactTypeId=5&contactInfos[3].contactType.type=LINKEDIN&contactInfos[3].contactValue=&contactInfos[4].id=&contactInfos[4].contactType.contactTypeId=6&contactInfos[4].contactType.type=PHONE_NUMBER&contactInfos[4].contactValue=%2B996
+--- recorded 37.html
++++ now
+@@ -24,10 +24,10 @@
+                   Resume Name
+                 <input class="form-control" id="name" name="name" placeholder="Enter Resume Name" type="text">
+                 <span class="small text-danger">
+-                  Value must not be empty
++                  Value length must be between 3 and 30 characters
+                 <br>
+                 <span class="small text-danger">
+-                  Value length must be between 3 and 30 characters
++                  Value must not be empty
+               <div class="mb-4">
+                 <label class="form-label" for="categoryId">
+                   <i class="bi bi-briefcase form-icon me-2">
+38 same      GET /resumes/update/resume/34
+39 same      POST /resumes/update/resume id=34&name=Kotlin engineer II&categoryId=1&salary=3200&workExperienceInfoDtos[0].years=3&workExperienceInfoDtos[0].companyName=Acme&workExperienceInfoDtos[0].position=Developer&workExperienceInfoDtos[0].responsibilities=Backend and APIs&educationInfoDtos[0].degree=BSc&educationInfoDtos[0].institution=State University&educationInfoDtos[0].program=Computer Science&educationInfoDtos[0].startDate=2010-09-01 00:00:00&educationInfoDtos[0].endDate=2014-06-30 00:00:00&contactInfos[0].id=&contactInfos[0].contactType.contactTypeId=2&contactInfos[0].contactType.type=TELEGRAM&contactInfos[0].contactValue=@ann&contactInfos[1].id=&contactInfos[1].contactType.contactTypeId=3&contactInfos[1].contactType.type=FACEBOOK&contactInfos[1].contactValue=&contactInfos[2].id=&contactInfos[2].contactType.contactTypeId=4&contactInfos[2].contactType.type=EMAIL&contactInfos[2].contactValue=ann@gmail.com&contactInfos[3].id=&contactInfos[3].contactType.contactTypeId=5&contactInfos[3].contactType.type=LINKEDIN&contactInfos[3].contactValue=&contactInfos[4].id=&contactInfos[4].contactType.contactTypeId=6&contactInfos[4].contactType.type=PHONE_NUMBER&contactInfos[4].contactValue=%2B996555000001&active=true
+40 same      GET /resumes/34
+41 same      GET /resumes/users/actives/1
+42 same      POST /responds vacancyId=1&resumeId=
+43 same      GET /resumes/users/actives/1
+44 same      POST /responds vacancyId=1&resumeId=34
+45 same      GET /responds/users
+46 same      GET /messages/job_seeker
+47 same      GET /messages/chat/35
+48 same      POST /messages respondedApplicationId=35&vacancyId=1&resumeId=34&content=Hello <b>there</b>
+49 same      GET /messages/job_seeker
+50 same      GET /companies
+51 same      GET /companies/2?size=50
+52 same      GET /companies/company/profile/2
+53 same      GET /users/profile/1
+54 same      GET /vacancies/filtered?filterType=FAVORITE_VACANCIES
+55 same      GET /resumes/new_resume
+56 same      POST /skills/save_resume_storage name=Draft&categoryId=1&salary=100&pageName=skills/resumes/new_skills
+57 same      GET /skills?skillName=ab
+58 same      GET /skills/resumes/new_skills
+59 same      GET /resumes/update/resume/34
+60 same      POST /skills/save_resume_storage id=34&name=Kotlin engineer II&categoryId=1&salary=3200&pageName=skills/resumes/update_skills
+61 same      GET /resumes/users
+62 same      POST /skills/save_vacancy_storage name=Draft vacancy&categoryId=1&salary=100&pageName=skills/vacancies/new_skills
+63 same      GET /skills/new_vacancy
+64 same      POST /vacancies/new_vacancy name=X!&categoryId=&salary=-1&expFrom=9&expTo=20&description=
+65 same      GET /resumes/users
+66 same      POST /skills/save_vacancy_storage vacancyId=1&name=Junior Java Dev&categoryId=1&salary=9000&pageName=skills/vacancies/update_skills
+67 same      GET /skills/update_vacancy
+68 reordered POST /vacancies/update/vacancy vacancyId=1&name=&categoryId=1&salary=&expFrom=-1&expTo=&description=
+--- recorded 68.html
++++ now
+@@ -29,10 +29,10 @@
+                   Value length must be between 3 and 30 characters
+                 <br>
+                 <span class="small text-danger">
+-                  Value must not contain numbers, symbols, or spaces
++                  Value must not be empty
+                 <br>
+                 <span class="small text-danger">
+-                  Value must not be empty
++                  Value must not contain numbers, symbols, or spaces
+               <div class="mb-3 row">
+                 <div class="col-md-6">
+                   <label class="form-label" for="categoryId">
+69 same      GET /vacancies/users
+70 same      GET /resumes/sort?categoryName=It&size=50
+71 same      GET /groups
+72 differs   GET /groups/new_groups
+--- recorded 72.html
++++ now
+@@ -94,7 +94,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-users fas">
+-                <input '')="" (spring.status.error?then('="" +="" class="form-control" id="name" is-invalid',="" name="name" type="text">
++                <input class="form-control" id="name" name="name" type="text">
+             <div class="mb-4">
+               <label class="form-label" for="image">
+                 Изображение группы
+73 differs   POST /groups/new_groups name=
+--- recorded 73.html
++++ now
+@@ -94,7 +94,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-users fas">
+-                <input '')="" (spring.status.error?then('="" +="" class="form-control" id="name" is-invalid',="" name="name" type="text">
++                <input class="form-control" id="name" name="name" type="text">
+               <span class="invalid-feedback">
+                 Имя группы обязательно
+             <div class="mb-4">
+74 differs   GET /groups/new_groups
+--- recorded 74.html
++++ now
+@@ -94,7 +94,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-users fas">
+-                <input '')="" (spring.status.error?then('="" +="" class="form-control" id="name" is-invalid',="" name="name" type="text">
++                <input class="form-control" id="name" name="name" type="text">
+             <div class="mb-4">
+               <label class="form-label" for="image">
+                 Изображение группы
+75 differs   POST /groups/new_groups name=Kotlin fans
+--- recorded 75.html
++++ now
+@@ -94,7 +94,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-users fas">
+-                <input '')="" (spring.status.error?then('="" +="" class="form-control" id="name" is-invalid',="" name="name" type="text" value="Kotlin fans">
++                <input class="form-control" id="name" name="name" type="text" value="Kotlin fans">
+             <div class="mb-4">
+               <label class="form-label" for="image">
+                 Изображение группы
+76 same      GET /groups/generate/link/1
+77 same      GET /channel
+78 differs   GET /channel/new_channel
+--- recorded 78.html
++++ now
+@@ -94,7 +94,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-at fas">
+-                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text">
++                <input class="form-control" id="login" name="login" type="text">
+               <div class="form-text">
+                 3-50 characters, must be unique
+             <div class="mb-4">
+79 differs   POST /channel/create login=&description=&channelAccess=
+--- recorded 79.html
++++ now
+@@ -94,7 +94,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-at fas">
+-                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text">
++                <input class="form-control" id="login" name="login" type="text">
+               <span class="invalid-feedback">
+                 size must be between 3 and 50
+               <br>
+80 differs   GET /channel/new_channel
+--- recorded 80.html
++++ now
+@@ -94,7 +94,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-at fas">
+-                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text">
++                <input class="form-control" id="login" name="login" type="text">
+               <div class="form-text">
+                 3-50 characters, must be unique
+             <div class="mb-4">
+81 differs   POST /channel/create login=annchannel&description=Talks about <i>Kotlin</i>&channelAccess=PUBLIC
+--- recorded 81.html
++++ now
+@@ -95,7 +95,7 @@
+                       PUBLIC
+                     <span class="ms-2">
+                       <i class="fa-clock far me-1">
+-                      Created 22:10:2026
++                      Created 23:10:2026
+             <div class="card-body pt-0">
+               <div class="bg-light mb-4 p-3 rounded">
+                 <h5 class="mb-2 text-muted">
+82 differs   GET /channel
+--- recorded 82.html
++++ now
+@@ -95,7 +95,7 @@
+                       PUBLIC
+                     <span class="ms-2">
+                       <i class="fa-clock far me-1">
+-                      Created 22:10:2026
++                      Created 23:10:2026
+             <div class="card-body pt-0">
+               <div class="bg-light mb-4 p-3 rounded">
+                 <h5 class="mb-2 text-muted">
+83 differs   GET /channel/update_channel/1
+--- recorded 83.html
++++ now
+@@ -95,7 +95,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-at fas">
+-                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text" value="annchannel">
++                <input class="form-control" id="login" name="login" type="text" value="annchannel">
+               <div class="form-text">
+                 3-50 characters, must be unique
+             <div class="mb-4">
+84 differs   POST /channel/update id=1&login=&description=&channelAccess=
+--- recorded 84.html
++++ now
+@@ -95,7 +95,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-at fas">
+-                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text">
++                <input class="form-control" id="login" name="login" type="text">
+               <span class="invalid-feedback">
+                 size must be between 3 and 50
+               <br>
+85 differs   GET /channel/update_channel/1
+--- recorded 85.html
++++ now
+@@ -95,7 +95,7 @@
+               <div class="input-group">
+                 <span class="input-group-text">
+                   <i class="fa-at fas">
+-                <input ''))="" (spring.status.error?then('="" +="" class="form-control" id="login" is-invalid',="" name="login" type="text" value="annchannel">
++                <input class="form-control" id="login" name="login" type="text" value="annchannel">
+               <div class="form-text">
+                 3-50 characters, must be unique
+             <div class="mb-4">
+86 differs   POST /channel/update id=1&login=annchannel2&description=Kotlin talks&channelAccess=PRIVATE
+--- recorded 86.html
++++ now
+@@ -95,7 +95,7 @@
+                       PRIVATE
+                     <span class="ms-2">
+                       <i class="fa-clock far me-1">
+-                      Created 22:10:2026
++                      Created 23:10:2026
+             <div class="card-body pt-0">
+               <div class="bg-light mb-4 p-3 rounded">
+                 <h5 class="mb-2 text-muted">
+@@ -122,7 +122,7 @@
+                       <div class="align-items-center d-flex justify-content-center">
+                         <i class="fa-history fas me-2 text-primary">
+                         <span>
+-                          22:10:2026
++                          23:10:2026
+               <div class="border-top d-flex justify-content-between pt-3">
+                 <a class="btn btn-outline-secondary" href="videos/channel/1">
+                   <i class="fa-arrow-left fas me-1">
+87 same      GET /videos/channel/1
+88 same      GET /videos/new_video/1
+89 same      POST /videos/create title=&description=&channelDto.id=1
+90 same      GET /videos/channel/1
+91 differs   GET /vacancies/new_vacancy
+--- recorded 91.html
++++ now
+@@ -6,6 +6,6 @@
+     <p>
+       This application has no explicit mapping for /error, so you are seeing this as a fallback.
+     <div id="created">
+-      Thu Oct 22 GMT 2026
++      Fri Oct 23 GMT 2026
+     <div>
+       There was an unexpected error (type=Forbidden, status=403).
+92 same      GET /auth/logout
+tessera-migrate compare: 92 page(s): 69 same, 5 reordered, 18 differ

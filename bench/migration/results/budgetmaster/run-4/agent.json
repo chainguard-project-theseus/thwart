@@ -1,0 +1,16 @@
+{
+ "wall_minutes": 18.4,
+ "exit": 0,
+ "model": "opus",
+ "budget_usd": 40,
+ "budget_minutes": 90,
+ "outcome": "success",
+ "cost_usd": 16.378850999999997,
+ "turns": 2,
+ "tokens": {
+  "input_tokens": 634,
+  "output_tokens": 254965,
+  "cache_read_input_tokens": 32399425,
+  "cache_creation_input_tokens": 959426
+ }
+}
