@@ -23,7 +23,9 @@ one run (budgetmaster run 4, which stopped early) left legacy templates behind.
 The #151 scoring is stricter than #115's: `tessera-migrate compare` doesn't repair broken markup
 or normalize script whitespace the way `crawl.py` did, and it compares dates. Of the 7 failing
 runs in the #151 batch's development set and run 7, 3 fail only on differences triaged as
-acceptable (below). Counting those as passes gives development apps 8/12 and held-out apps 1/4.
+acceptable (below). Counting those as passes gives development apps 8/12 (not counting run 7's
+two below-floor rungs, which `results/summary.md` lists separately; both passed) and held-out
+apps 1/4.
 
 ## #115 baseline
 
