@@ -1023,9 +1023,10 @@ These come from the annotation processor itself, without a template position.
 
 Gaps in Tessera today, each with what to do until it is fixed.
 
-- **Build.** Maven only. Template-only changes need `mvn clean compile`; there is no hot reload.
-  The processor fails in `testCompile` and in incremental compiles that skip the
-  `@TemplateFunctions` class (#118).
+- **Build.** Tested with Maven only. Gradle is untested and has no docs or plugin: the processor
+  needs only javac options (section 2), so it should work, but it isn't verified. Template-only
+  changes need `mvn clean compile`; there is no hot reload. The processor fails in `testCompile`
+  and in incremental compiles that skip the `@TemplateFunctions` class (#118).
 - **Messages.** `-Atessera.messages` checks one bundle. Keys from other bundles fail the build;
   give those pages a `@TemplateFunction` that looks them up, and accept that they are not checked.
 - **View resolution.** Names are matched exactly: a leading `/` or a `page :: fragment` view name
@@ -1050,7 +1051,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
   `t:block`, ids or classes. Give the element a `t:fragment` name instead.
 - **Not supported, by design:** runtime template loading, `__${...}__` preprocessing, dynamic
   names, the layout dialect, `th:inline` modes and `/*[[...]]*/` natural-template comments,
-  collection selection/projection, expressions in `style`/`on*`, Kotlin and Gradle.
+  collection selection/projection, expressions in `style`/`on*` and Kotlin.
 - **Expected output differences from Thymeleaf:** attributes set by `t:` attributes may move within
   the tag; `<td >` (after a removed attribute) renders as `<td>`; a `null` attribute value omits
   the attribute (Thymeleaf writes `value=""`); a `null` link path variable fails the render.
