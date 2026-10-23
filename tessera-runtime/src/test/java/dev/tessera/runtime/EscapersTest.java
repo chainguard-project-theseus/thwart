@@ -618,4 +618,21 @@ class EscapersTest {
         IllegalArgumentException.class, () -> Escapers.json(out, List.of("ok", new Object())));
     assertEquals("", out.toString());
   }
+  @Test
+  void generatedJsonBufferUsesTheSameEscapingAndDepthLimit() {
+    Object value = Map.of("${key}", List.of("</script>*/`", Double.NaN, Optional.of("value")));
+    StringBuilder buffer = new StringBuilder("prefix");
+    Escapers.appendJson(buffer, value, 0);
+    assertEquals("prefix" + json(value), buffer.toString());
+    for (int depth : new int[] {-1, Integer.MIN_VALUE, 65, Integer.MAX_VALUE}) {
+      StringBuilder rejected = new StringBuilder("prefix");
+      assertThrows(IllegalArgumentException.class, () -> Escapers.appendJson(rejected, "value", depth));
+      assertEquals("prefix", rejected.toString());
+    }
+    StringBuilder last = new StringBuilder();
+    Escapers.appendJson(last, "value", 64);
+    assertEquals("\"value\"", last.toString());
+    assertThrows(IllegalArgumentException.class, () -> Escapers.appendJson(new StringBuilder(), List.of("value"), 64));
+  }
+
 }

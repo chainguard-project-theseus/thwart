@@ -48,7 +48,7 @@ class GeneratedCodeTest {
                     + "<body><div t:replace=\"body\">b</div></body></html>")
             .template(
                 "owners/details.html",
-                "<html " + NS + " t:import=\"com.example.*\" t:params=\"Owner owner, SafeHtml note, String q\""
+                "<html " + NS + " t:import=\"com.example.*\" t:params=\"Owner owner, SafeHtml note, String q, Map<String, Owner> owners\""
                     + " t:replace=\"~{fragments/layout :: layout(~{::body}, #{title(owner.name)})}\">"
                     + "<body>"
                     + "<h1 t:text=\"owner.name\">n</h1><p t:utext=\"note\">n</p>"
@@ -63,7 +63,7 @@ class GeneratedCodeTest {
                     + "<form method=\"post\" t:action=\"@{/owners}\" t:object=\"owner\"><input t:field=\"*{name}\">"
                     + "<span t:if=\"fields.hasErrors('name')\" t:errors=\"*{name}\">e</span></form>"
                     + "<input type=\"checkbox\" t:checked=\"owner.pets.isEmpty()\">"
-                    + "<script>var owner = [[owner.name]]; var n = [[owner.pets.size()]]; var o = [[owner]];</script>"
+                    + "<script>var owner = [[owner.name]]; var n = [[owner.pets.size()]]; var o = [[owner]]; var m = [[owners]];</script>"
                     + "<div t:remove=\"all\">gone</div>"
                     + "</body></html>")
             .compile()
