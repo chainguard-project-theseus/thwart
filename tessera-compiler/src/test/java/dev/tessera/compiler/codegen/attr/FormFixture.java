@@ -31,6 +31,12 @@ final class FormFixture {
     }
 
     @Override
+    public String selectedValue(String objectName, String path, Object currentValue) {
+      assertEquals("owner", objectName);
+      return rejected.containsKey(path) ? rejected.get(path) : currentValue == null ? null : Escapers.toText(currentValue);
+    }
+
+    @Override
     public List<String> errors(String objectName, String path) {
       assertEquals("owner", objectName);
       if (path.equals("*")) {

@@ -554,7 +554,9 @@ public record Address(String street) {}
 - `t:field` (`email` or `*{email}`, checked against the `t:object` type) works on `<input>`,
   `<select>` and `<textarea>`. It writes `id` (unless present; not on radios), `name` and the
   `BindingResult`'s display value (omitted when null; never on passwords). Checkboxes and radios
-  get `checked`, options of a `<select t:field>` get `selected`.
+  get `checked`, options of a `<select t:field>` get `selected` when their value matches (none
+  when the bound value is `null`, so a placeholder `<option value="">` stays unselected). A static
+  `selected` on such an option is replaced, as in Thymeleaf; a `t:selected` is kept.
 - `t:errors` renders the field's messages escaped and joined by `<br />`, or removes the element
   if there are none (`*` for all). For other markup, loop over `fields.errors('email')`.
 - `t:errorclass="error"` next to `t:field` appends the class when the field has errors.
@@ -1063,8 +1065,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **Forms.** No indexed paths (`items[0].name`), no `checked` for checkboxes bound to a collection,
   no global (object-level) errors apart from `fields.errors('*')`, no `t:field` on fields whose
   type is not view-safe (`MultipartFile`: write the `name` attribute by hand), and `Field`
-  fragments cannot read the value. A `<select t:field>` bound to `null` selects the
-  `<option value="">`. Radios get no `id`.
+  fragments cannot read the value. Radios get no `id`.
 - **Output.** `[[...]]` in a script cannot serialize records or beans: pass the specific values, or
   a `Map`/`List` built in Java. `numbers.*` has no grouping or locale; `temporals.format` uses
   English names. A `null` link query parameter renders `?name`, not `?name=`. Thymeleaf

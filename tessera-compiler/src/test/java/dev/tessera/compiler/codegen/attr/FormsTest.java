@@ -147,6 +147,47 @@ class FormsTest {
   }
 
   @Test
+  void nullBoundValueSelectsNoOption() {
+    // Spring's SelectedValueComparator: a null value matches no option, not the "" placeholder.
+    Compilation c =
+        compile(
+            "<select t:field=\"*{address.city}\"><option value=\"\">Choose</option>"
+                + "<option value=\"Oslo\">Oslo</option></select>");
+    assertEquals(
+        "<form><select id=\"address.city\" name=\"address.city\"><option value=\"\">Choose</option>"
+            + "<option value=\"Oslo\">Oslo</option></select></form>",
+        render(c, owner(c, "Ann", null), new TestForms()));
+    assertEquals(
+        "<form><select id=\"address.city\" name=\"address.city\"><option value=\"\">Choose</option>"
+            + "<option value=\"Oslo\" selected=\"selected\">Oslo</option></select></form>",
+        render(c, owner(c, "Ann", "Oslo"), new TestForms()));
+    assertEquals(
+        "<form><select id=\"address.city\" name=\"address.city\"><option value=\"\" selected=\"selected\">"
+            + "Choose</option><option value=\"Oslo\">Oslo</option></select></form>",
+        render(c, owner(c, "Ann", ""), new TestForms()));
+    // After a failed bind the rejected value is compared, even when the model value is null.
+    TestForms rejected = new TestForms();
+    rejected.rejected.put("address.city", "Oslo");
+    assertEquals(
+        "<form><select id=\"address.city\" name=\"address.city\"><option value=\"\">Choose</option>"
+            + "<option value=\"Oslo\" selected=\"selected\">Oslo</option></select></form>",
+        render(c, owner(c, "Ann", null), rejected));
+  }
+
+  @Test
+  void explicitSelectedOnOptionWins() {
+    Compilation c =
+        compile(
+            "<select t:field=\"*{pet}\"><option value=\"cat\" t:selected=\"${true}\">Cat</option>"
+                + "<option value=\"dog\" t:selected=\"${false}\">Dog</option>"
+                + "<option value=\"fish\">Fish</option></select>");
+    assertEquals(
+        "<form><select id=\"pet\" name=\"pet\"><option value=\"cat\" selected=\"selected\">Cat</option>"
+            + "<option value=\"dog\">Dog</option><option value=\"fish\">Fish</option></select></form>",
+        render(c, owner(c, "Ann", null), new TestForms()));
+  }
+
+  @Test
   void unknownFieldIsBuildErrorNamingType() {
     compileForm(HEAD + ">\n<input t:field=\"*{lastName}\"></form>")
         .assertError("form.html:2:", "'lastName' is not a property of com.example.Owner");

@@ -38,7 +38,8 @@ public final class FieldProcessor implements AttributeProcessor {
 
   /**
    * Internal variable (unreachable from templates: contains {@code $}) holding the bound display
-   * value of the enclosing {@code <select t:field>}, used by {@link #option}.
+   * value of the enclosing {@code <select t:field>} (null when the bound value is null), used by
+   * {@link #option}.
    */
   static final String SELECTED = "select$value";
 
@@ -62,8 +63,20 @@ public final class FieldProcessor implements AttributeProcessor {
         break;
       case "select":
         nameAndId(plan, attr, name, true);
+        // Like Spring's SelectedValueComparator: a null bound value selects no option (not the
+        // placeholder <option value="">, which a null's "" display value would match).
         String local = ctx.freshName("selected");
-        plan.wrap("{ java.lang.String " + local + " = " + display + ";", "}");
+        plan.wrap(
+            "{ java.lang.String "
+                + local
+                + " = ctx.forms().selectedValue("
+                + field.objectName()
+                + ", "
+                + name
+                + ", "
+                + current.code()
+                + ");",
+            "}");
         TypeMirror string = ctx.env().elements().getTypeElement("java.lang.String").asType();
         plan.scope(plan.scope().with(new Variable(SELECTED, string, local)));
         break;
@@ -138,20 +151,25 @@ public final class FieldProcessor implements AttributeProcessor {
   /**
    * Hook for every {@code <option>} (called by the generator after its attribute processors):
    * inside a {@code <select t:field>}, sets {@code selected} when the option's value equals the
-   * bound value. Options without a value attribute are left unchanged.
+   * bound value (never when the bound value is null, like Spring's
+   * {@code SelectedValueComparator}). A static {@code selected} is replaced, as in Thymeleaf (a
+   * natural-template mock-up), but an option with a {@code t:selected} keeps it: the explicit
+   * expression wins. Options without a value attribute are left unchanged.
    */
   public static void option(CodegenContext ctx, ElementPlan plan) {
     Optional<Variable> selected = plan.scope().lookup(SELECTED);
-    if (!selected.isPresent()) {
+    if (!selected.isPresent()
+        || plan.attribute("selected").filter(a -> a instanceof ElementPlan.DynamicAttr).isPresent()) {
       return;
     }
     String value = valueCode(plan, "value");
     if (value == null) {
       return;
     }
+    String local = selected.get().javaName();
     plan.setAttribute(
         "selected",
-        selected.get().javaName() + ".equals(" + value + ") ? \"selected\" : null",
+        "(" + local + " != null && " + local + ".equals(" + value + ")) ? \"selected\" : null",
         plan.element().pos());
   }
 

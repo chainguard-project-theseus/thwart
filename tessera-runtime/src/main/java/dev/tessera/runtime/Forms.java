@@ -18,6 +18,15 @@ public interface Forms {
    */
   String value(String objectName, String path, Object currentValue);
 
+  /**
+   * Value a {@code <select t:field>} compares its options with: {@link #value}, but null when the
+   * bound value (after a failed bind the rejected value, otherwise {@code currentValue}) is null,
+   * so that no option is selected, as with Spring's {@code SelectedValueComparator}.
+   */
+  default String selectedValue(String objectName, String path, Object currentValue) {
+    return currentValue == null ? null : value(objectName, path, currentValue);
+  }
+
   /** Resolved error messages for a field; {@code path} {@code "*"} means all errors. */
   List<String> errors(String objectName, String path);
 
