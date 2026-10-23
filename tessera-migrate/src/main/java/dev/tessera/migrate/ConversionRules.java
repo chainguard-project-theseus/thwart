@@ -33,8 +33,8 @@ final class ConversionRules {
    */
   private static final Map<String, String> UNSUPPORTED_ATTRIBUTES = Compat.mapOf(
       "th:inline", "`th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or move data to `data-*` attributes",
-      "th:style", "`th:style` is a build error by design (no dynamic CSS); use `t:classappend`",
-      "th:styleappend", "`th:styleappend` is a build error by design (no dynamic CSS); use `t:classappend`",
+      "th:style", "`th:style` is not converted; rewrite it as `t:style` from literals, numbers and `css.color(...)`/`css.length(...)` (guide section 4.4), otherwise use `t:classappend` or a `t:data-*` attribute",
+      "th:styleappend", "`th:styleappend` is not supported; merge it into one `t:style` from literals, numbers and `css.color(...)`/`css.length(...)` (guide section 4.4), otherwise use `t:classappend`",
       "th:include", "`th:include` is not supported; use `t:insert` or `t:replace` (check the host-element semantics)",
       "th:substituteby", "`th:substituteby` is not supported; use `t:replace`");
 
