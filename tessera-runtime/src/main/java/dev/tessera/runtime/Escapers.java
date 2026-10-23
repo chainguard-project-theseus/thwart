@@ -2,6 +2,7 @@ package dev.tessera.runtime;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.text.MessageFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -102,6 +103,58 @@ public final class Escapers {
     if (value != null) {
       out.write(value.html());
     }
+  }
+
+  /**
+   * A bundle message rendered as HTML ({@code t:utext="#{key(args)}"}, {@code [(#{...})]}; #236).
+   * {@code checked} holds the key's values in every bundle file the compiler checked as HTML. The
+   * arguments are HTML-escaped (numbers and dates are kept for MessageFormat) and the message is looked up; the result is
+   * returned as HTML only if it contains no {@code <}, or if it is exactly what one of the
+   * {@code checked} patterns produces (as written, or formatted by {@link MessageFormat} in the
+   * context's locale with the escaped arguments). Anything else (a bundle the build did not see,
+   * a database-backed message source, a file changed after the build, a missing key) is escaped
+   * as text. {@code null} becomes {@code ""}.
+   */
+  public static String htmlMessage(RenderContext ctx, String key, Object[] args, String[] checked) {
+    Object[] escaped = htmlMessageArgs(args);
+    String message = ctx.messages().get(key, escaped);
+    if (message == null) {
+      return "";
+    }
+    if (message.indexOf('<') < 0) {
+      return message; // cannot open a tag, comment or other markup in text
+    }
+    for (String pattern : checked) {
+      if (message.equals(pattern)) {
+        return message;
+      }
+      try {
+        if (message.equals(new MessageFormat(pattern, ctx.locale()).format(escaped))) {
+          return message;
+        }
+      } catch (IllegalArgumentException e) {
+        // an argument does not fit the pattern (e.g. text for {0,number}): not this pattern
+      }
+    }
+    return escapeHtml(message);
+  }
+
+  /**
+   * The arguments of {@link #htmlMessage}. The compiler has checked the message's markup and that
+   * its placeholders only stand in text, so each argument only has to be escaped as HTML text:
+   * every value becomes its escaped {@linkplain #toText text}, except {@link Number} and
+   * {@link java.util.Date}, which {@link MessageFormat} formats itself (to digits and locale
+   * symbols or names, never markup) and which must stay numbers and dates for {@code {0,number}}
+   * and {@code {0,date}}. {@code null} stays {@code null}, as with the escaped form. Returns a new
+   * array.
+   */
+  static Object[] htmlMessageArgs(Object[] args) {
+    Object[] escaped = new Object[args.length];
+    for (int i = 0; i < args.length; i++) {
+      Object a = args[i];
+      escaped[i] = a == null || a instanceof Number || a instanceof java.util.Date ? a : escapeHtml(toText(a));
+    }
+    return escaped;
   }
 
   /**

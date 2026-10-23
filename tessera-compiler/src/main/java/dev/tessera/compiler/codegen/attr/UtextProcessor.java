@@ -9,7 +9,7 @@ import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.OutputContext;
 
 /**
- * {@code t:utext="expr"}: replaces the body with raw HTML. The expression must have static type {@code SafeHtml}; anything else (including String and messages) is a build error that points to {@code SafeHtml}.
+ * {@code t:utext="expr"}: replaces the body with raw HTML. The expression must have static type {@code SafeHtml}, or be a bundle message {@code #{key(args)}} whose value passes the build-time markup check (#236); anything else (including String) is a build error that points to {@code SafeHtml}.
  */
 public final class UtextProcessor implements AttributeProcessor {
 
