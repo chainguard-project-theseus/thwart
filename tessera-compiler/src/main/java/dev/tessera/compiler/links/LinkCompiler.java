@@ -18,7 +18,9 @@ import java.util.stream.Collectors;
  * Compiles {@code @{/path/{id}(id=x, q=y)}} to
  * {@code ctx.links().build("/path/{id}", new String[] {"id", "q"}, new Object[] {x, y})}
  * (type String). Reports {@code {var}} placeholders without a matching parameter, duplicate
- * parameter names, and paths with schemes other than http/https.
+ * parameter names, and paths with schemes other than http/https. A parameter written without a
+ * value ({@code @{/cart(add)}}) passes {@code Links.NO_VALUE} and renders as the bare name; it
+ * cannot fill a path variable.
  *
  * <p>A {@code {var}} in the scheme or host of an absolute or protocol-relative link is also an
  * error: path-variable encoding keeps letters, so a variable there would let data choose the
@@ -38,6 +40,17 @@ public final class LinkCompiler {
       if (!names.add(p.name())) {
         diagnostics.error(p.pos(), "duplicate link parameter '" + p.name() + "' in @{" + path + "}");
         ok = false;
+      }
+      if (p.value() == null) {
+        if (placeholders(path).contains(p.name())) {
+          diagnostics.error(
+              p.pos(),
+              "link parameter '" + p.name() + "' fills path variable {" + p.name() + "} in @{" + path
+                  + "} and needs a value: write (" + p.name() + "=...)");
+          ok = false;
+        }
+        values.add("dev.tessera.runtime.Links.NO_VALUE");
+        continue;
       }
       CompiledExpr c = expressions.compileOutput(p.value(), scope);
       if (c == null) {
