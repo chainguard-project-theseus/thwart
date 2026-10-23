@@ -6,3 +6,4 @@ results/*/run-*/check/
 __pycache__/
 results/jobsearch/run-*/diff.patch
 results/jprime/run-*/diff.patch
+results/espd/run-*/diff.patch

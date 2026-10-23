@@ -42,6 +42,12 @@ ENGINES = {
                        r"\bsec:[\w-]+(?==)", r"\$\{", r"\*\{", r"#\{", r"@\{", r"~\{", r"__\$\{",
                        r"\[\[", r"\[\(", r"#[a-z]+\.\w+", r"\bT\(", r"\.\?\[", r"\.!\["],
     },
+    # Apache Tiles definitions (tiles.xml) that compose JSPs; scored as legacy whatever the engine.
+    "tiles": {
+        "ext": (".xml",),
+        "marker": re.compile(r"<tiles-definitions\b"),
+        "constructs": [r"<definition\b", r"<put-attribute\b", r"<put-list-attribute\b"],
+    },
     "tessera": {
         "ext": (".html",),
         "marker": re.compile(r"xmlns:t=\"https://tessera\.dev\""),
@@ -70,7 +76,8 @@ def count(root):
             if not path.endswith(spec["ext"]) or "/static/" in path:
                 continue
             text = open(path, encoding="utf-8", errors="replace").read()
-            if spec["ext"] == (".html",):  # an HTML comment that mentions th:value is not Thymeleaf
+            # A comment that mentions th:value is not Thymeleaf, nor one that shows a Tiles definition.
+            if spec["ext"] in ((".html",), (".xml",)):
                 text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
             if "marker" in spec and not spec["marker"].search(text):
                 continue

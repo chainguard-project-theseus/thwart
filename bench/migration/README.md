@@ -64,7 +64,8 @@ Two kinds of round:
    pass (no fewer tests than the baseline), compare reports every page `same` or `reordered` with
    its recorded status and final URL, the diff adds no `SafeHtml.unchecked`,
    `TrustedUrl.unchecked`, `permitAll`, CSRF disabling or `@Disabled`, and no legacy template or
-   view-engine dependency is left. Runs from #115 were scored by an older Python crawler and
+   view-engine dependency is left (Apache Tiles counts as one: a `tiles-*` dependency or a Tiles
+   definitions XML file fails the run whatever the app's engine). Runs from #115 were scored by an older Python crawler and
    normalizer; they have `pages.diff` instead of `compare.txt`, and `rescore` leaves them alone.
 5. **Report.** `results/summary.md` has a row per run, then a row per app in three tables:
    development apps, held-out apps and below-floor apps, each with its pass count out of all its
@@ -112,8 +113,8 @@ segment as above), the invoice date input (jprime: the invoice form defaults to 
 container UUIDs, the delete-database verification code (budgetmaster: random per request) and
 the webjar version segment (budgetmaster, as above).
 
-Licenses: JobSearch and jprime have no license, so their runs' `diff.patch` files are not
-committed (`.gitignore`).
+Licenses: JobSearch and jprime have no license and ESPD is EUPL-1.1 (copyleft), so their runs'
+`diff.patch` files are not committed (`.gitignore`).
 
 The version ladder: old commits of the two petclinics, so differences between rungs come from
 the Spring and Java generation rather than the app. Each rung builds, tests and runs on JDK 8 with
@@ -143,3 +144,14 @@ Per-app environment fixes (in the app's commands, not its code):
   otherwise the build day and shown on the About page. The test command creates the settings file
   the test JVM requires and excludes, via `test-excludes.txt`, the tests that need Docker
   (Testcontainers) or Firefox (Selenium), plus one that depends on their logging setup.
+- espd (held out; ESPD-Service, JSP composed with Apache Tiles 3, Spring Boot 1.4.1 / Spring 4.3.3,
+  `"java": 8`): Boot 1.4 is below Tessera's Boot 1.5 floor (Spring 4.3 is supported), so a
+  migration may need to bump Boot to 1.5 first. Only the `espd-web` module is built (`-pl espd-web
+  -am`); `-Denforcer.skip=true` lifts its enforcer rule that Maven be at most 3.5.0, and the build
+  pins `espd.build.timestamp`, which every page footer shows. There is no database: the wizard
+  keeps its document in the session. `start.sh` pins the clock with libfaketime to 2025-06-15 10:00
+  UTC (the response wizard's turnover years and some criteria show the current year), turns the
+  TED lookup off and Piwik off, points the eCertis URL handed to the pages' JavaScript at a local
+  placeholder, leaves the stack trace out of error pages, and keeps the session id out of URLs
+  (`server.session.tracking-modes=cookie`; otherwise the first page's links carry a random
+  `;jsessionid=`). No ignores.
