@@ -27,6 +27,14 @@ class DefaultLinksTest {
   }
 
   @Test
+  void literalLinksPreserveQueriesFragmentsAndUnmatchedPlaceholders() {
+    assertEquals("/app/owners?sort=name#top", app.build("/owners?sort=name#top", n(), v()));
+    assertEquals("/app/{id}#top?x=1", app.build("/{id}#top?x=1", n(), v()));
+    assertEquals("relative?x=1#top", app.build("relative?x=1#top", n(), v()));
+    assertEquals("", app.build("", n(), v()));
+  }
+
+  @Test
   void absoluteUrlsUntouched() {
     assertEquals("https://example.com/x", app.build("https://example.com/x", n(), v()));
     assertEquals("//cdn.example.com/a.js", app.build("//cdn.example.com/a.js", n(), v()));

@@ -214,6 +214,34 @@ class EscapersTest {
   }
 
   @Test
+  void schemeComparisonIgnoresOnlyBrowserIgnoredControlsAndAsciiCase() {
+    for (String scheme : new String[] {"HTTP", "HTTPS", "MAILTO", "TEL"}) {
+      for (int i = 0; i <= scheme.length(); i++) {
+        String u = "\u0000 " + scheme.substring(0, i) + "\t\r\n" + scheme.substring(i) + ":x";
+        assertTrue(Escapers.isAllowedUrl(u), u);
+      }
+      for (int i = 1; i <= scheme.length(); i++) {
+        for (char c : new char[] {' ', '\u0000', '\u001f', '\u007f', '\u00a0', 'ſ'}) {
+          String u = scheme.substring(0, i) + c + scheme.substring(i) + ":x";
+          assertFalse(Escapers.isAllowedUrl(u), u);
+        }
+      }
+      assertFalse(Escapers.isAllowedUrl(scheme + "x:x"));
+      assertFalse(Escapers.isAllowedUrl("x" + scheme + ":x"));
+    }
+  }
+
+  @Test
+  void longRelativeNamesAreAllowedButUnknownSchemesAreRejected() {
+    String name = "a".repeat(10_000);
+    assertTrue(Escapers.isAllowedUrl(name));
+    assertTrue(Escapers.isAllowedUrl(name + "/javascript:x"));
+    assertTrue(Escapers.isAllowedUrl(name + "?javascript:x"));
+    assertTrue(Escapers.isAllowedUrl(name + "#javascript:x"));
+    assertFalse(Escapers.isAllowedUrl(name + ":x"));
+  }
+
+  @Test
   void urlEntityEncodedSchemeStaysInert() {
     // The '#' makes these relative URLs; '&' is encoded so the browser never decodes the entity.
     assertEquals("&amp;#106;avascript:alert(1)", url("&#106;avascript:alert(1)"));
