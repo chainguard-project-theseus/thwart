@@ -248,7 +248,7 @@ parameter), #120 (null `<select>`), #121 (beans in script `[[...]]`), #122 (star
 `ResourceUrlEncodingFilter`), #123 (indexed form paths), and #179/#180 (Spring 4.3 / Boot 1.5
 floor). The image was rebuilt from `83ecac5`, every baseline was re-recorded on the same UTC day as
 the runs (so no date differences this time), and every app got one run with the plugin
-(`migrate --runs 1 --first-run 8 --jobs 2`). 14 runs, $124.57 and 240 minutes of agent time. All
+(`migrate --runs 1 --first-run 8 --jobs 2`). 14 runs, $124.58 and 240 minutes of agent time. All
 14 runs listed and invoked the `tessera:migrate` skill.
 
 | App | Pass | Tests | Pages same + reordered | Minutes | Cost $ | Output tokens |
@@ -330,7 +330,7 @@ too, not only indexed paths). Neither is caused by a wave fix.
 
 | Fix | Held? | Evidence |
 |---|---|---|
-| #118 function index | yes | 0 of 14 runs set `<proc>none</proc>` (18/18 before); 6 runs have `@TemplateFunctions` |
+| #118 function index | yes | 0 of 14 runs set `<proc>none</proc>` (18/18 before); 7 runs have `@TemplateFunctions` |
 | #119 null link parameter | yes | fredbet's `@{/ranking/pdf(mode=modeParam)}` with a null `modeParam` matches `?mode=` on `/ranking` (it cost fredbet 5 two pages) |
 | #120 null `<select>` | yes | No select differences. The jobsearch agent used an explicit `t:selected`, which now wins, to copy FreeMarker's `formSingleSelect` (it selects `value=""` for an empty value) |
 | #121 beans in script `[[...]]` | yes | fredbet `/pointcourse/show` is identical with `var chartData = [[${chartData}]];` (it differed in all five earlier fredbet runs); budgetmaster passes a record list and maps straight to `[[...]]` |
