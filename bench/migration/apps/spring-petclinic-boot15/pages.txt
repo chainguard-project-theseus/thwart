@@ -1,0 +1,31 @@
+# spring-petclinic at Boot 1.5 (Spring 4.3, below Tessera's floor; Java 8, Thymeleaf 2.1): the
+# spring-petclinic list without the pagination requests (owners and vets are not paginated yet).
+# Requests run in order against a fresh HSQLDB database.
+GET /
+GET /owners/find
+GET /owners?lastName=
+GET /owners?lastName=Davis
+GET /owners?lastName=Franklin
+GET /owners?lastName=Nobody
+GET /owners/1
+GET /owners/3
+GET /owners/new
+POST /owners/new firstName=&lastName=&address=&city=&telephone=abc
+POST /owners/new firstName=Ann&lastName=O'Neil <b>&address=1 Main St&city=Madison&telephone=6085550000
+GET /owners/1/edit
+POST /owners/1/edit firstName=George&lastName=Franklin&address=110 W. Liberty St.&city=Madison&telephone=
+POST /owners/1/edit firstName=George&lastName=Franklin&address=111 W. Liberty St.&city=Madison&telephone=6085551023
+GET /owners/1/pets/new
+POST /owners/1/pets/new name=&birthDate=&type=cat
+POST /owners/1/pets/new name=Leo&birthDate=2020-01-01&type=cat
+POST /owners/1/pets/new name=Fluffy&birthDate=2020-01-01&type=hamster
+GET /owners/1/pets/1/edit
+POST /owners/1/pets/1/edit id=1&name=&birthDate=&type=cat
+POST /owners/1/pets/1/edit id=1&name=Leo II&birthDate=2010-09-07&type=dog
+GET /owners/6/pets/7/visits/new
+POST /owners/6/pets/7/visits/new date=2024-01-01&description=
+POST /owners/6/pets/7/visits/new date=2024-01-01&description=Check <up>
+GET /owners/6
+GET /vets.html
+GET /oups
+GET /no-such-page
