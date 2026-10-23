@@ -118,6 +118,11 @@ class DefaultLinksTest {
   void collectionPathVariableJoinedWithCommas() {
     assertEquals("/f/a,,b%2Fc", root.build("/f/{x}", n("x"), v(Arrays.asList("a", null, "b/c"))));
     assertEquals("/f/a%2C,b", root.build("/f/{x}", n("x"), v(Arrays.asList("a,", "b"))));
+    // Each element is encoded on its own: no element can add a '/', '?' or '#', and a dot segment
+    // among others is part of one segment ("..,a"), not a segment of its own.
+    assertEquals("/f/..,a/y", root.build("/f/{x}/y", n("x"), v(Arrays.asList("..", "a"))));
+    assertEquals(
+        "/f/%252e%252e,%3F%23", root.build("/f/{x}", n("x"), v(Arrays.asList("%2e%2e", "?#"))));
   }
 
   @Test
@@ -128,6 +133,12 @@ class DefaultLinksTest {
     assertThrows(
         IllegalArgumentException.class,
         () -> root.build("/f/{x}", n("x"), v(Arrays.asList(".."))));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> root.build("/f/{x}", n("x"), v((Object) new String[] {"."})));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> root.build("/f/{x}", n("x"), v(Arrays.asList(""))));
     assertThrows(
         IllegalArgumentException.class,
         () -> root.build("/{x}/evil.com", n("x"), v((Object) new String[] {null})));
