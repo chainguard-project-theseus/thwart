@@ -36,7 +36,8 @@ public final class Contexts {
 
   /**
    * Context for the value of attribute {@code attributeName} (without {@code t:}) on
-   * {@code element}: {@code on*} is EVENT_HANDLER, {@code style} is STYLE, {@code srcdoc} and
+   * {@code element}: {@code on*} and {@link #isFrameworkDirective framework directives} are
+   * EVENT_HANDLER, {@code style} is STYLE, {@code srcdoc} and
    * names that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*} are FORBIDDEN, resource URLs are
    * RESOURCE_URL, other URL attributes are URL, everything else ATTRIBUTE. The values of SVG
    * {@code <animate>}/{@code <set>} ({@code values to from by}) are URL too: they can set an
@@ -47,6 +48,9 @@ public final class Contexts {
    * {@code content} is a refresh URL.
    */
   public static OutputContext attribute(Element element, String attributeName) {
+    if (attributeName != null && isFrameworkDirective(attributeName)) {
+      return OutputContext.EVENT_HANDLER;
+    }
     if (attributeName == null || !PLAIN_NAME.matcher(attributeName).matches()) {
       return OutputContext.FORBIDDEN;
     }
@@ -71,6 +75,50 @@ public final class Contexts {
       return OutputContext.URL;
     }
     return OutputContext.ATTRIBUTE;
+  }
+
+  /** htmx attributes ({@code hx-} or {@code data-hx-}) whose value is evaluated as JavaScript. */
+  private static final Set<String> HTMX_SCRIPT_ATTRIBUTES =
+      Backports.setOf("hx-vals", "hx-vars", "hx-headers", "hx-request", "hx-trigger");
+
+  /**
+   * Whether {@code attributeName} is a client-side framework attribute whose value the framework
+   * evaluates as a JavaScript expression (#235). Attribute escaping does not help there: once the
+   * framework mounts the element, the decoded value runs as code. Case-insensitive. The list:
+   *
+   * <ul>
+   *   <li>Vue 2/3 and petite-vue: every {@code v-*} (built-in and custom directives such as
+   *       {@code v-bind:x}, {@code v-on:x}, {@code v-model}, {@code v-if}, {@code v-for},
+   *       {@code v-html}, {@code v-slot}), and the shorthands {@code :x} ({@code v-bind}),
+   *       {@code @x} ({@code v-on}), {@code #x} ({@code v-slot}, whose value is a destructuring
+   *       pattern with default expressions) and {@code .x} ({@code v-bind.prop}).
+   *   <li>Alpine.js: every {@code x-*} ({@code x-data}, {@code x-init}, {@code x-on:x},
+   *       {@code x-bind:x}, {@code x-html}, ...), plus the {@code :x} and {@code @x} shorthands.
+   *   <li>htmx ({@code hx-} or {@code data-hx-}): {@code hx-on*} ({@code hx-on:click},
+   *       {@code hx-on::after-request}, {@code hx-on-click}, the old {@code hx-on}),
+   *       {@code hx-vals}, {@code hx-headers} and {@code hx-request} (a {@code js:} prefix
+   *       evaluates the rest), {@code hx-vars} (always evaluated) and {@code hx-trigger} (its
+   *       {@code [filter]} is evaluated).
+   *   <li>AngularJS: every {@code ng-*}, {@code ng:*}, {@code ng_*}, also with a {@code data-}
+   *       or {@code x-} prefix.
+   *   <li>Knockout: {@code data-bind}.
+   * </ul>
+   *
+   * Other {@code data-*} attributes, and the htmx attributes that hold URLs, selectors or plain
+   * strings ({@code hx-get}, {@code hx-target}, {@code hx-swap}, ...), stay ordinary attributes.
+   */
+  public static boolean isFrameworkDirective(String attributeName) {
+    String a = attributeName.toLowerCase(Locale.ROOT);
+    if (a.startsWith(":") || a.startsWith("@") || a.startsWith("#") || a.startsWith(".")
+        || a.startsWith("v-") || a.startsWith("x-") || a.equals("data-bind")) {
+      return true;
+    }
+    String unprefixed = a.startsWith("data-") ? a.substring("data-".length()) : a;
+    return unprefixed.startsWith("hx-on")
+        || HTMX_SCRIPT_ATTRIBUTES.contains(unprefixed)
+        || unprefixed.startsWith("ng-")
+        || unprefixed.startsWith("ng:")
+        || unprefixed.startsWith("ng_");
   }
 
   /** {@code content} on a {@code <meta>} whose static {@code http-equiv} is {@code refresh}. */

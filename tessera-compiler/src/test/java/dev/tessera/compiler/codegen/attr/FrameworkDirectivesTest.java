@@ -1,0 +1,88 @@
+package dev.tessera.compiler.codegen.attr;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import dev.tessera.compiler.testing.Compilation;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+/**
+ * Vue, Alpine, htmx, AngularJS and Knockout attributes whose values the framework runs as
+ * JavaScript (#235): an expression there is a build error, like {@code t:onclick}; a static
+ * value, shorthand names included, is written verbatim.
+ */
+class FrameworkDirectivesTest {
+
+  private static final String HEADER = "<div xmlns:t=\"https://tessera.dev\" t:params=\"String s\">";
+
+  private static Compilation compile(String body) {
+    return Compilation.builder().template("t.html", HEADER + body + "</div>").compile();
+  }
+
+  /** One attribute per expression-evaluating class; each is a build error with any value. */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        // Vue
+        "v-on:click", "@click", "@click.prevent", "v-bind:title", "v-bind", ":title", ":security",
+        "v-model", "v-if", "v-else-if", "v-show", "v-for", "v-html", "V-HTML", "v-text", "v-slot:item",
+        "#default", ".textContent", "v-focus",
+        // Alpine
+        "x-data", "x-init", "x-on:click", "x-bind:class", "x-html", "x-text", "x-show", "x-effect",
+        // htmx
+        "hx-on", "hx-on:click", "hx-on::after-request", "hx-on-click", "hx-on--after-request",
+        "data-hx-on:click", "hx-vals", "data-hx-vals", "hx-vars", "hx-headers", "hx-request",
+        "hx-trigger",
+        // AngularJS
+        "ng-click", "ng-init", "ng-bind-html", "data-ng-click", "x-ng-click", "ng:click", "ng_click",
+        // Knockout
+        "data-bind",
+      })
+  void dynamicValueIsABuildError(String name) {
+    compile("<p t:" + name + "=\"s\">x</p>")
+        .assertError("t.html:1:", "t:" + name + " is not allowed", "run as JavaScript", "static attribute");
+    compile("<p t:attr=\"" + name + "=s\">x</p>").assertError("t.html:1:");
+  }
+
+  /** Even a string literal is rejected, as for t:onclick: the author writes the static attribute. */
+  @Test
+  void literalExpressionIsABuildError() {
+    compile("<p t:v-on:click=\"'go()'\">x</p>").assertError("t:v-on:click is not allowed");
+    compile("<p t:v-html=\"'<b>x</b>'\">x</p>").assertError("t:v-html is not allowed");
+    compile("<p t:x-data=\"'{}'\">x</p>").assertError("t:x-data is not allowed");
+  }
+
+  /** The issue's reproduction: a hostile string never ends up in a directive. */
+  @Test
+  void issueReproductionIsRejected() {
+    Compilation c = compile("<api-entry t:v-on:click=\"s\" t:v-bind:x=\"s\"></api-entry>");
+    c.assertError("t:v-on:click is not allowed");
+    c.assertError("t:v-bind:x is not allowed");
+  }
+
+  /** Static directives, shorthand names included, are the author's code and are written verbatim. */
+  @Test
+  void staticDirectivesPassThroughVerbatim() {
+    String markup =
+        "<api-entry :security='{\"a\": [1, 2]}' @click.prevent=\"open(id)\" v-bind:x=\"y\""
+            + " v-on:submit=\"save\" v-if=\"ok\" v-for=\"i in items\" v-html=\"bio\" #default=\"{ item }\""
+            + " .textContent=\"t\" x-data=\"{ open: false }\" x-on:click=\"open = !open\""
+            + " hx-on::after-request=\"done()\" hx-vals='js:{n: 1}' ng-click=\"go()\""
+            + " data-bind=\"text: name\"></api-entry>";
+    Compilation c = compile(markup).assertSuccess();
+    assertEquals("<div>" + markup + "</div>", c.render("t", Map.of("s", "x")));
+  }
+
+  /** Ordinary data attributes and htmx string attributes still take expressions, escaped. */
+  @Test
+  void dataAttributesStayOrdinary() {
+    Compilation c =
+        compile("<p t:data-security=\"s\" t:hx-target=\"s\" t:data-action=\"s\">x</p>").assertSuccess();
+    assertEquals(
+        "<div><p data-security=\"&quot;);alert(1)//\" hx-target=\"&quot;);alert(1)//\""
+            + " data-action=\"&quot;);alert(1)//\">x</p></div>",
+        c.render("t", Map.of("s", "\");alert(1)//")));
+  }
+}

@@ -424,8 +424,20 @@ The compiler decides the context from the element and attribute name. You cannot
 | Resource URL | `script[src]`, `iframe[src]`, `embed[src]`, `object[data]`, `base[href]`, `link[href]` | Only a literal-path `@{...}` link or a `TrustedUrl` compiles. |
 | Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, records and `@TemplateView` beans, collections, String-keyed maps). |
 | Style | `<style>` text and `style` attribute | In `<style>`, expressions are a build error. A `style` attribute takes only string literals, numbers and `CssValue`s, combined with `+`, `\|...\|`, `?:` and `? :`; anything else (a `String` value) is a build error. |
-| Event handler | `on*` attributes | Build error; put data in `data-*` attributes and read them from a script. |
+| Event handler | `on*` attributes, and framework directives (below) | Build error; put data in `data-*` attributes and read them from a script. |
 | Forbidden | `srcdoc`, `content` of `<meta http-equiv="refresh">`, non-JS `<script type>` | Build error. `<script type>` and `<meta http-equiv>` cannot be computed. |
+
+Client-side frameworks run some attribute values as JavaScript once they mount the element, so
+attribute escaping does not protect them and an expression there is a build error, as for `on*`:
+Vue's `v-*` (every directive, `v-html` included) and its `:x`, `@x`, `#x` and `.x` shorthands;
+Alpine's `x-*`; htmx's `hx-on*`, `hx-vals`, `hx-vars`, `hx-headers`, `hx-request` and `hx-trigger`
+(also with `data-`); AngularJS's `ng-*`, `ng:*` and `ng_*` (also with `data-` or `x-`); and
+Knockout's `data-bind`. Static directives are copied verbatim, shorthand names included: write
+`<api-entry :security="security" @click="open">` as in the old page. To hand server data to a
+component, put it in a `data-*` attribute or a `<script>` with `[[${...}]]` and read it from
+there; a Pebble or JSP `:prop='{{ json | raw }}'` becomes a `[[${object}]]` in a script. Other
+`data-*` attributes and htmx attributes that hold URLs, selectors or text (`hx-get`, `hx-target`,
+`hx-swap`, `hx-confirm`) are ordinary attributes.
 
 In a script, a record or `@TemplateView` bean becomes a JSON object of the properties a template
 can read, as Thymeleaf's Jackson output does: `var chart = [[${chart}]];` works unchanged. Record
@@ -1047,6 +1059,7 @@ These come from the annotation processor itself, without a template position.
 ### Attributes
 
 - `<label> is not allowed: event-handler attributes cannot contain expressions; put the value in a data-* attribute and read it from a script`.
+- `<label> is not allowed: '<name>' is a Vue, Alpine, htmx, AngularJS or Knockout directive whose value is run as JavaScript, so it cannot contain expressions; write it as a static attribute, or put the value in a data-* attribute or a <script> with [[...]] and read it from there`. See [4.4](#44-escaping-and-output-contexts) for the list of directives.
 - `<label> is not allowed: a style value can only combine string literals, numbers and CssValues such as css.color(c) or css.length(l), not a <type>; use t:class or t:classappend instead`.
 - `<label> is not allowed: srcdoc is a whole HTML document and cannot contain expressions; use src with a URL`.
 - `<label> is not allowed: the content of <meta http-equiv="refresh"> navigates the page and cannot contain expressions; redirect from the controller instead`.
