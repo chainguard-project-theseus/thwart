@@ -326,10 +326,11 @@ def finish(app, k):
     run_dir = os.path.join(RESULTS, app, f"run-{k}")
     app_dir = os.path.join(WORK, "runs", app, f"run-{k}")
     # baseline/ is the agent's own page recording (the skill's `tessera-migrate record ... baseline/`).
-    # Unstage it after adding rather than excluding it: an exclude pathspec fails when the agent has
-    # gitignored baseline/.
+    # Reset its index entries to the pinned commit after adding rather than excluding it: an exclude
+    # pathspec fails when the agent has gitignored baseline/, and resetting (not `rm --cached`) keeps
+    # a baseline/ the app itself tracks out of the diff.
     sh(["git", "-C", app_dir, "add", "-A", "--", ".", ":!**/target/**"])
-    sh(["git", "-C", app_dir, "rm", "-r", "-q", "--cached", "--ignore-unmatch", "--", "baseline"])
+    sh(["git", "-C", app_dir, "reset", "-q", cfg["commit"], "--", "baseline"])
     with open(os.path.join(run_dir, "diff.patch"), "w") as f:
         subprocess.run(["git", "-C", app_dir, "diff", "--cached", cfg["commit"]], stdout=f, check=True)
     report = os.path.join(app_dir, "MIGRATION-REPORT.md")
