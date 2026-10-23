@@ -65,23 +65,16 @@ public final class FieldProcessor implements AttributeProcessor {
         nameAndId(plan, attr, name, true);
         // Like Spring's SelectedValueComparator: a null bound value selects no option (not the
         // placeholder <option value="">, which a null's "" display value would match).
-        String bound = ctx.freshName("bound");
         String local = ctx.freshName("selected");
         plan.wrap(
-            "{ java.lang.Object "
-                + bound
-                + " = "
-                + current.code()
-                + "; java.lang.String "
+            "{ java.lang.String "
                 + local
-                + " = "
-                + bound
-                + " == null ? null : ctx.forms().value("
+                + " = ctx.forms().selectedValue("
                 + field.objectName()
                 + ", "
                 + name
                 + ", "
-                + bound
+                + current.code()
                 + ");",
             "}");
         TypeMirror string = ctx.env().elements().getTypeElement("java.lang.String").asType();
@@ -173,9 +166,10 @@ public final class FieldProcessor implements AttributeProcessor {
     if (value == null) {
       return;
     }
+    String local = selected.get().javaName();
     plan.setAttribute(
         "selected",
-        "(" + selected.get().javaName() + " != null && " + selected.get().javaName() + ".equals(" + value + ")) ? \"selected\" : null",
+        "(" + local + " != null && " + local + ".equals(" + value + ")) ? \"selected\" : null",
         plan.element().pos());
   }
 

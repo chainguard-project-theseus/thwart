@@ -165,6 +165,13 @@ class FormsTest {
         "<form><select id=\"address.city\" name=\"address.city\"><option value=\"\" selected=\"selected\">"
             + "Choose</option><option value=\"Oslo\">Oslo</option></select></form>",
         render(c, owner(c, "Ann", ""), new TestForms()));
+    // After a failed bind the rejected value is compared, even when the model value is null.
+    TestForms rejected = new TestForms();
+    rejected.rejected.put("address.city", "Oslo");
+    assertEquals(
+        "<form><select id=\"address.city\" name=\"address.city\"><option value=\"\">Choose</option>"
+            + "<option value=\"Oslo\" selected=\"selected\">Oslo</option></select></form>",
+        render(c, owner(c, "Ann", null), rejected));
   }
 
   @Test
