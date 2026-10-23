@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** t:style takes only literals, numbers and CssValues (#182). */
+/** t:style takes only literals, numbers and CssValues (#182, css.url #238). */
 class StyleAttributeTest {
 
   private static final String HEADER =
@@ -45,6 +45,32 @@ class StyleAttributeTest {
     assertEquals(
         "<p style=\"color: null\">x</p>", render("<p t:style=\"|color: ${css.color(s)}|\">x</p>", "s", "red;x:y"));
     assertEquals("<p>x</p>", render("<p t:style=\"css.color(s)\">x</p>", "s", "expression(alert(1))"));
+  }
+
+  @Test
+  void backgroundImageFromTheCssNamespace() {
+    String body = "<div t:style=\"|background: ${css.url(s)} no-repeat center; background-size: cover|\">x</div>";
+    assertEquals(
+        "<div style=\"background: url(&quot;/img/avatar.jpg&quot;) no-repeat center; background-size: cover\">x</div>",
+        render(body, "s", "/img/avatar.jpg"));
+    assertEquals(
+        "<div style=\"background: url(&quot;https://cdn.example.com/a.png?w=1&amp;h=2&quot;) no-repeat center;"
+            + " background-size: cover\">x</div>",
+        render(body, "s", "https://cdn.example.com/a.png?w=1&h=2"));
+    // A breakout attempt stays inside the quoted URL.
+    assertEquals(
+        "<div style=\"background: url(&quot;/a%22%29%20;%20background:url%28evil&quot;) no-repeat center;"
+            + " background-size: cover\">x</div>",
+        render(body, "s", "/a\") ; background:url(evil"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"javascript:alert(1)", "data:image/png;base64,AAAA", "/a\nb", "vbscript:x", ""})
+  void hostileUrlsNeverReachTheAttribute(String hostile) {
+    assertEquals(
+        "<div style=\"background-image: null\">x</div>",
+        render("<div t:style=\"|background-image: ${css.url(s)}|\">x</div>", "s", hostile));
+    assertEquals("<div>x</div>", render("<div t:style=\"css.url(s)\">x</div>", "s", hostile));
   }
 
   @Test
