@@ -330,7 +330,8 @@ class MigratorTest {
     assertEquals(src, convert(src));
     assertMessages(src,
         "2: `th:onclick` is a build error by design (no dynamic event handlers)",
-        "2: `th:style` is a build error by design (no dynamic CSS)",
+        "2: `th:style` is not converted; rewrite it as `t:style` from literals, numbers and"
+            + " `css.color(...)`/`css.length(...)`",
         "2: `th:inline` is not supported",
         "2: `sec:authorize` belongs to the `sec:` dialect",
         "2: `layout:fragment` belongs to the `layout:` dialect",
