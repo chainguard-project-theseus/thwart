@@ -77,6 +77,42 @@ class SmokeTest {
   }
 
   @Test
+  void indexedFieldsBindThroughBindStatus() throws Exception {
+    // Spring's names and ids, and @DateTimeFormat applied through the BindingResult (#123).
+    mvc.perform(get("/cart"))
+        .andExpect(status().isOk())
+        .andExpect(
+            content()
+                .string(
+                    containsString(
+                        "<input type=\"text\" id=\"lines0.name\" name=\"lines[0].name\" value=\"Tea\" />")))
+        .andExpect(
+            content()
+                .string(
+                    containsString(
+                        "<input type=\"text\" id=\"lines0.due\" name=\"lines[0].due\" value=\"05.03.2024\" />")))
+        .andExpect(content().string(containsString("id=\"lines1.due\" name=\"lines[1].due\" value=\"\"")))
+        .andExpect(content().string(not(containsString("class=\"error\""))))
+        .andExpect(content().string(not(containsString("has-error"))));
+  }
+
+  @Test
+  void indexedFieldErrorsRender() throws Exception {
+    mvc.perform(
+            post("/cart")
+                .param("lines[0].name", "Tea")
+                .param("lines[0].due", "31.12.2024")
+                .param("lines[1].name", "")
+                .param("lines[1].due", "soon"))
+        .andExpect(status().isOk())
+        .andExpect(content().string(containsString("value=\"31.12.2024\"")))
+        .andExpect(content().string(containsString("name=\"lines[1].due\" value=\"soon\"")))
+        .andExpect(content().string(containsString("<div class=\"has-error\">")))
+        .andExpect(content().string(containsString("<span class=\"error\">Name is required</span>")))
+        .andExpect(content().string(containsString("<span class=\"error\">Failed to convert")));
+  }
+
+  @Test
   void validPostRedirects() throws Exception {
     mvc.perform(post("/signup").param("name", "Ada"))
         .andExpect(status().is3xxRedirection())
