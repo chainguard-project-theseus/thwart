@@ -50,7 +50,8 @@ class WelcomeControllerTests {
 					"<a class=\"nav-link\" href=\"/vets.html\" title=\"veterinarians\">",
 					"<a class=\"nav-link\" href=\"/oups\"", "<h2>Welcome</h2>",
 					"<img class=\"img-responsive\" src=\"/resources/images/pets.png\" />",
-					"<script src=\"/webjars/bootstrap/dist/js/bootstrap.bundle.min.js\"></script>")));
+					// Versioned by the starter's ResourceUrlEncodingFilter (webjars-bootstrap.version).
+					"<script src=\"/webjars/bootstrap/5.3.8/dist/js/bootstrap.bundle.min.js\"></script>")));
 	}
 
 }
