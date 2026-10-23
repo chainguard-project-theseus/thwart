@@ -42,7 +42,8 @@ public final class Contexts {
    * RESOURCE_URL, other URL attributes are URL, everything else ATTRIBUTE. The values of SVG
    * {@code <animate>}/{@code <set>} ({@code values to from by}) are URL too: they can set an
    * {@code href} to {@code javascript:}. The {@code content} of a
-   * {@code <meta http-equiv="refresh">} is FORBIDDEN: its {@code url=} part navigates the page.
+   * {@code <meta http-equiv="refresh">} is REFRESH: its {@code url=} part navigates the page, so
+   * only a same-origin link is allowed there (#237).
    * The {@code type} of a {@code <script>} is FORBIDDEN: it decides whether the content is
    * JavaScript. The {@code http-equiv} of a {@code <meta>} is FORBIDDEN: it decides whether
    * {@code content} is a refresh URL.
@@ -62,8 +63,10 @@ public final class Contexts {
     if (attr.equals("style")) {
       return OutputContext.STYLE;
     }
+    if (isRefreshContent(element, el, attr)) {
+      return OutputContext.REFRESH;
+    }
     if (attr.equals("srcdoc")
-        || isRefreshContent(element, el, attr)
         || (el.equals("script") && attr.equals("type"))
         || (el.equals("meta") && attr.equals("http-equiv"))) {
       return OutputContext.FORBIDDEN;

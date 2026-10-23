@@ -17,11 +17,13 @@ import dev.tessera.runtime.CssValue;
 import dev.tessera.runtime.TrustedUrl;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
 /**
- * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. STYLE takes only {@link #style safe style values}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}.
+ * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}.
  */
 public final class GenericAttrProcessor implements AttributeProcessor {
 
@@ -63,6 +65,9 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       case STYLE:
         style(ctx, plan, name, value, pos, label);
         return;
+      case REFRESH:
+        refresh(ctx, plan, name, value, pos, label);
+        return;
       case FORBIDDEN:
         hint =
             lower.equals("type")
@@ -73,9 +78,6 @@ public final class GenericAttrProcessor implements AttributeProcessor {
                     + " a refresh URL, so write a static http-equiv attribute"
                 : lower.equals("srcdoc")
                 ? "srcdoc is a whole HTML document and cannot contain expressions; use src with a URL"
-                : lower.equals("content")
-                ? "the content of <meta http-equiv=\"refresh\"> navigates the page and cannot contain"
-                    + " expressions; redirect from the controller instead"
                 : "attribute name '" + name + "' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*";
         break;
       default:
@@ -108,6 +110,44 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       return;
     }
     plan.setAttribute(name, c.code(), pos);
+  }
+
+  private static final Pattern REFRESH_PREFIX =
+      Pattern.compile("\\s*([0-9]+)\\s*[;,]\\s*url\\s*=\\s*", Pattern.CASE_INSENSITIVE);
+
+  /**
+   * The {@code content} of a {@code <meta http-equiv="refresh">} (#237): only
+   * {@code '<seconds>;url=' + @{/path...}}, where the link path is a literal starting with a single
+   * {@code /}, so the page can only refresh to the same origin. Path variables and parameters are
+   * percent-encoded by the link, and {@code Escapers.refresh} encodes what would end the URL.
+   * The output is always {@code <seconds>;url=<url>}.
+   */
+  private static void refresh(CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label) {
+    Expr.Binary b = value instanceof Expr.Binary ? (Expr.Binary) value : null;
+    Matcher prefix = null;
+    if (b != null && b.op() == Expr.BinaryOp.ADD && b.left() instanceof Expr.Literal
+        && ((Expr.Literal) b.left()).value() instanceof String && b.right() instanceof Expr.Link) {
+      prefix = REFRESH_PREFIX.matcher((String) ((Expr.Literal) b.left()).value());
+    }
+    if (prefix == null || !prefix.matches()) {
+      ctx.diagnostics()
+          .error(pos, label + " is not allowed: the content of <meta http-equiv=\"refresh\"> navigates the page;"
+              + " write a delay and a same-origin link such as '3;url=' + @{/items/{id}(id=${item.id})},"
+              + " or redirect from the controller");
+      return;
+    }
+    Expr.Link link = (Expr.Link) b.right();
+    String path = link.path();
+    if (!path.startsWith("/") || path.startsWith("//") || path.startsWith("/\\")) {
+      ctx.diagnostics()
+          .error(link.pos(), label + " is not allowed: a refresh URL must be a same-origin path starting with a"
+              + " single '/', not @{" + path + "}");
+      return;
+    }
+    CompiledExpr c = ctx.expressions().compileOutput(link, plan.scope());
+    if (c != null) {
+      plan.setAttribute(name, JavaStrings.literal(prefix.group(1) + ";url=") + " + " + c.code(), pos);
+    }
   }
 
   /** Boxed and big number types whose text is only digits, sign, '.', 'E', NaN or Infinity. */

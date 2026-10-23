@@ -19,6 +19,12 @@ public enum OutputContext {
    * {@code <link href>}. Only a literal-path link expression or a {@code TrustedUrl}.
    */
   RESOURCE_URL("resourceUrl"),
+  /**
+   * The {@code content} of a {@code <meta http-equiv="refresh">} (#237). Only
+   * {@code '<seconds>;url=' + @{/path...}} with a same-origin literal path is accepted; the
+   * escaper encodes the characters that end a refresh URL and re-checks the path.
+   */
+  REFRESH("refresh"),
   /** Inside a JavaScript {@code <script>} element; values are serialized as JSON. */
   SCRIPT("json"),
   /**

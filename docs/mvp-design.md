@@ -202,9 +202,10 @@ observe this ordering; templates should not depend on an eager snapshot when sta
 | `URL` | `href src action formaction cite poster background longdesc usemap ping` (`xlink:href`), `values to from by` on SVG `animate`/`set` | `Escapers.url` | http/https/mailto/tel/relative, else `about:invalid#tessera`; `TrustedUrl` passes |
 | `RESOURCE_URL` | `script[src] script[href] script[xlink:href] iframe[src] frame[src] embed[src] object[data] base[href] link[href]` | `Escapers.resourceUrl` | only a literal-path `@{}` link or `TrustedUrl`; else build error |
 | `SCRIPT` | text in `<script>` (no type or JS/module/JSON) | `Escapers.json` | `[[...]]` only; JSON-able types only; also escapes `/`, backtick and `$` so a value cannot leave a JS comment, regex or template literal |
+| `REFRESH` | `content` of `<meta http-equiv="refresh">` | `Escapers.refresh` | only `'<seconds>;url=' + @{/path}` with a literal path starting with a single `/` (#237); else build error |
 | `STYLE` | `<style>`, `style` attribute | — | build error |
 | `EVENT_HANDLER` | `on*` attributes | — | build error; use `data-*` + script |
-| `FORBIDDEN` | `srcdoc`, `content` of `<meta http-equiv="refresh">`, non-JS `<script type>`, odd attribute names | — | build error; `http-equiv` on `<meta>` and `type` on `<script>` cannot be computed |
+| `FORBIDDEN` | `srcdoc`, non-JS `<script type>`, odd attribute names | — | build error; `http-equiv` on `<meta>` and `type` on `<script>` cannot be computed |
 
 ## Discovery and processor configuration
 
