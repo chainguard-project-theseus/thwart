@@ -29,7 +29,8 @@ import javax.lang.model.type.TypeMirror;
  * <p>{@code id} is only added when the element has none; checkboxes on non-boolean fields and
  * radios get no generated {@code id} (Thymeleaf numbers them per request). Password inputs never
  * echo the bound value. Boolean checkboxes get Spring's {@code _name} hidden marker so an
- * unchecked box binds {@code false}.
+ * unchecked box binds {@code false}, unless the checkbox is disabled (a {@code disabled}
+ * attribute, or a {@code t:disabled} that is true), as in Thymeleaf.
  *
  * <p>Inside a fragment, {@code t:field="name"} where {@code name} is a {@code Field} parameter uses
  * the path the caller passed (and checked). Its value has static type {@code Object}, so a checkbox
@@ -108,7 +109,7 @@ public final class FieldProcessor implements AttributeProcessor {
           }
           plan.setAttribute(
               "checked", "java.lang.Boolean.TRUE.equals(" + current.code() + ") ? \"checked\" : null", attr.pos());
-          plan.afterStartTag(
+          String marker =
               "out.write("
                   + JavaStrings.literal("<input type=\"hidden\" name=\"_")
                   + "); "
@@ -117,7 +118,21 @@ public final class FieldProcessor implements AttributeProcessor {
                   + name
                   + "); out.write("
                   + JavaStrings.literal("\" value=\"on\" />")
-                  + ");");
+                  + ");";
+          // Like Thymeleaf, no marker for a disabled checkbox (it is not submitted, so the marker
+          // would reset the value to false). Thymeleaf checks for a disabled attribute of any
+          // value after t:disabled/t:attr ran, as here (they precede t:field).
+          Optional<ElementPlan.Attr> disabled = plan.attribute("disabled");
+          if (!disabled.isPresent()) {
+            plan.afterStartTag(marker);
+          } else if (disabled.get() instanceof ElementPlan.DynamicAttr) {
+            // Evaluate once: the attribute and the marker share the value (null omits both ways).
+            ElementPlan.DynamicAttr dynamic = (ElementPlan.DynamicAttr) disabled.get();
+            String local = ctx.freshName("disabled");
+            plan.wrap("{ java.lang.Object " + local + " = " + dynamic.valueCode() + ";", "}");
+            plan.setAttribute(dynamic.name(), local, dynamic.pos());
+            plan.afterStartTag("if (" + local + " == null) { " + marker + " }");
+          }
         } else {
           checkedByValue(ctx, attr, plan, name, display);
         }
