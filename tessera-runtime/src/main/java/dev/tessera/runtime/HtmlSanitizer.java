@@ -280,12 +280,20 @@ final class HtmlSanitizer {
     } else if (s.startsWith("<!--->", pos)) {
       pos += 6;
     } else {
-      int end = s.indexOf("-->", pos + 4);
-      int bang = s.indexOf("--!>", pos + 4);
-      if (bang >= 0 && (end < 0 || bang < end)) {
-        pos = bang + 4;
-      } else {
-        pos = end < 0 ? n : end + 3;
+      // One forward scan: searching separately for "-->" and "--!>" would rescan the rest of the
+      // input for every comment that lacks one of them (quadratic).
+      int i = pos + 4;
+      while (true) {
+        int dash = s.indexOf("--", i);
+        if (dash < 0) {
+          pos = n;
+          return;
+        }
+        if (s.startsWith(">", dash + 2) || s.startsWith("!>", dash + 2)) {
+          pos = s.indexOf('>', dash + 2) + 1;
+          return;
+        }
+        i = dash + 1;
       }
     }
   }

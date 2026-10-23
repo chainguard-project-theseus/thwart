@@ -3,8 +3,10 @@ package dev.tessera.runtime;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Locale;
@@ -126,6 +128,51 @@ class HtmlSanitizerTest {
   }
 
   @Test
+  void rawTextEndTagMatching() {
+    assertEquals("b", clean("<script>a</script >b"));
+    assertEquals("b", clean("<script>a</SCRIPT\t>b"));
+    assertEquals("c", clean("<script>a</scriptx>b</script>c"));
+    // the first end tag closes, so the rest is inert text
+    assertEquals("alert(1)", clean("<script><script></script>alert(1)</script>"));
+    assertEquals("", clean("<style><style/>x"));
+    assertEquals("&quot;&gt;", clean("<noscript><p title=\"</noscript><img src=x onerror=alert(1)>\">"));
+  }
+
+  @Test
+  void hrefEdgeCases() {
+    assertEquals(
+        "<a href=\"//evil.com\" rel=\"nofollow noopener\">x</a>", clean("<a href=\"//evil.com\">x</a>"));
+    assertEquals(
+        "<a href=\"http://ok\" rel=\"nofollow noopener\">x</a>", clean("<a href=\"http&#58;//ok\">x</a>"));
+    // quotes decoded from the value are re-escaped, so they cannot end the attribute
+    assertEquals(
+        "<a href=\"/x&quot;onclick=alert(1)\" rel=\"nofollow noopener\">x</a>",
+        clean("<a href=\"/x&quot;onclick=alert(1)\">x</a>"));
+    assertEquals(
+        "<a href=\"/x?a=1&amp;b=&lt;\" rel=\"nofollow noopener\">x</a>", clean("<a href=\"/x?a=1&amp;b=&lt;\">x</a>"));
+    assertEquals("<a>x</a>", clean("<a href=`javascript:alert(1)`>x</a>"));
+  }
+
+  /** Pathological input is processed in linear time. */
+  @Test
+  void largeInputIsLinear() {
+    int n = 200_000;
+    String[] inputs = {
+      "<!---->".repeat(n), "<!-- a -".repeat(n), "<".repeat(n), "<b>".repeat(n), "</b>".repeat(n),
+      "<svg>".repeat(n), "<svg>" + "</svg>".repeat(n), "<script></script>".repeat(n), "</a".repeat(n),
+      "&aaaa".repeat(n), "&#1111111111".repeat(n), "<p " + "a=1 ".repeat(n) + ">", "<p a=\"".repeat(n),
+      "<div>".repeat(100) + "</span>".repeat(n), "<a href=/x>".repeat(n),
+    };
+    assertTimeoutPreemptively(
+        Duration.ofSeconds(10),
+        () -> {
+          for (String in : inputs) {
+            clean(in);
+          }
+        });
+  }
+
+  @Test
   void concatJoinsParts() {
     assertEquals(
         "a&lt;b<br>c",
@@ -236,7 +283,38 @@ class HtmlSanitizerTest {
         "<p\0onclick=alert(1)>x</p>",
         "<\0script>alert(1)</script>",
         "<img src=`x` onerror=`alert(1)`>",
-        "<p title=`a` onclick=`alert(1)`>x</p>");
+        "<p title=`a` onclick=`alert(1)`>x</p>",
+        "<svg></p><style><a title=\"</style><img src onerror=alert(1)>\">",
+        "<math><mtext><table><mglyph><style><img src onerror=alert(1)>",
+        "<noscript><p title=\"</noscript><img src=x onerror=alert(1)>\">",
+        "<script><script></script>alert(1)</script>",
+        "<script><!--<script></script>alert(1)</script>-->",
+        "<style><style/><img src=x onerror=alert(1)>",
+        "<script>x</scriptx><img src=x onerror=alert(1)>",
+        "<p title=\"x",
+        "<a href='javascript:alert(1)",
+        "<a href=",
+        "<a href=\"java\0script:alert(1)\">x</a>",
+        "<a href=\"java\nscript:alert(1)\">x</a>",
+        "<a href=\"java&NewLine;script:alert(1)\">x</a>",
+        "<a href=\"javascript&#x09;:alert(1)\">x</a>",
+        "<a href=\"javascript&#58alert(1)\">x</a>",
+        "<a href=\"&#x110000;javascript:alert(1)\">x</a>",
+        "<a href=\"&#0;javascript:alert(1)\">x</a>",
+        "<a href=\"&#xD800;javascript:alert(1)\">x</a>",
+        "<a href=\"&#1;javascript:alert(1)\">x</a>",
+        "<a href=\"ja&#x0;vascript:alert(1)\">x</a>",
+        "<a href=\"  javascript:alert(1)\">x</a>",
+        "<a href=\"/x' onclick='alert(1)\">x</a>",
+        "<base href=//evil>",
+        "<link rel=import href=//evil>",
+        "<meta http-equiv=refresh content=\"0;url=//evil\">",
+        "<!-- a --->b<script>alert(1)</script>",
+        "<!-- a -- ><script>alert(1)</script>-->",
+        "<SVG><p>x</SVG><img src=x onerror=alert(1)>",
+        "<svg/ ><script>alert(1)</script></svg>",
+        "<div\u000bonclick=alert(1)>y</div>",
+        "&#x3c;script&#x3e;alert(1)&#x3c;/script&#x3e;");
   }
 
   /** Output tokens that may appear: allowed tags, a checked link, or text without '<' or '>'. */
