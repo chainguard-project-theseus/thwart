@@ -106,7 +106,8 @@ attribute built from an unbalanced quote in the original template, and order tim
 stamped from the clock; no seeded order has one). Held-out: the request timestamp and the webjar
 version segment (purl-server: Boot's error page prints the date and time of the request; the webjar
 segment as above), the invoice date input (jprime: the invoice form defaults to today), and chart
-container UUIDs and the delete-database verification code (budgetmaster: random per request).
+container UUIDs, the delete-database verification code (budgetmaster: random per request) and
+the webjar version segment (budgetmaster, as above).
 
 Licenses: JobSearch and jprime have no license, so their runs' `diff.patch` files are not
 committed (`.gitignore`).
