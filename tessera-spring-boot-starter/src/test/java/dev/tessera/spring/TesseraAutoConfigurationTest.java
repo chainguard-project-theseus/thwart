@@ -8,14 +8,19 @@ import dev.tessera.runtime.TemplateRegistry;
 import dev.tessera.spring.view.RenderContextFactory;
 import dev.tessera.spring.view.TesseraViewResolver;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.MapPropertySource;
 import org.springframework.mock.web.MockServletContext;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
+import org.springframework.web.servlet.resource.ResourceUrlEncodingFilter;
 
 /**
  * The auto-configuration's conditions. Contexts are built by hand, not with {@code
@@ -34,8 +39,22 @@ class TesseraAutoConfigurationTest {
   static class Auto {}
 
   private static AnnotationConfigWebApplicationContext web(Class<?>... userConfiguration) {
+    return web(null, userConfiguration);
+  }
+
+  /** {@code resourceChain} sets the chain's enabled property (Boot 1.5-2.3 and 2.4+ names). */
+  private static AnnotationConfigWebApplicationContext web(
+      Boolean resourceChain, Class<?>... userConfiguration) {
     AnnotationConfigWebApplicationContext ctx = new AnnotationConfigWebApplicationContext();
     ctx.setServletContext(new MockServletContext());
+    if (resourceChain != null) {
+      Map<String, Object> properties = new HashMap<>();
+      properties.put("spring.resources.chain.enabled", resourceChain.toString());
+      properties.put("spring.web.resources.chain.enabled", resourceChain.toString());
+      ctx.getEnvironment()
+          .getPropertySources()
+          .addFirst(new MapPropertySource("resourceChain", properties));
+    }
     // As Boot 2.1+ does: a second set of Tessera beans fails instead of silently overriding.
     ctx.setAllowBeanDefinitionOverriding(false);
     if (userConfiguration.length > 0) {
@@ -80,6 +99,47 @@ class TesseraAutoConfigurationTest {
   }
 
   @Test
+  @SuppressWarnings("rawtypes") // FilterRegistrationBean is not generic on Boot 1.5.
+  void registersResourceUrlEncodingFilterWhenResourceChainIsEnabled() {
+    try (AnnotationConfigWebApplicationContext ctx = web(true)) {
+      FilterRegistrationBean registration =
+          ctx.getBean("tesseraResourceUrlEncodingFilter", FilterRegistrationBean.class);
+      assertThat(registration.getFilter()).isInstanceOf(ResourceUrlEncodingFilter.class);
+      // REQUEST and ERROR dispatches: ResourceChainTest renders both through a real server.
+    }
+  }
+
+  @Test
+  void noResourceUrlEncodingFilterWhenResourceChainIsDisabled() {
+    try (AnnotationConfigWebApplicationContext ctx = web(false)) {
+      assertThat(ctx.containsBean("tesseraResourceUrlEncodingFilter")).isFalse();
+    }
+    // Unset, Boot enables the chain only when the webjars locator is on the classpath; it isn't.
+    try (AnnotationConfigWebApplicationContext ctx = web()) {
+      assertThat(ctx.containsBean("tesseraResourceUrlEncodingFilter")).isFalse();
+    }
+  }
+
+  @Test
+  void resourceUrlEncodingFilterBacksOffForUserFilter() {
+    try (AnnotationConfigWebApplicationContext ctx = web(true, UserFilter.class)) {
+      assertThat(ctx.containsBean("tesseraResourceUrlEncodingFilter")).isFalse();
+      assertThat(ctx.getBeanNamesForType(ResourceUrlEncodingFilter.class)).hasSize(1);
+    }
+  }
+
+  @Test
+  void resourceUrlEncodingFilterBacksOffForThymeleafsRegistration() {
+    // Boot 2.0+'s Thymeleaf auto-configuration (kept while migrating), or an app copying it,
+    // declares a FilterRegistrationBean named resourceUrlEncodingFilter.
+    try (AnnotationConfigWebApplicationContext ctx = web(true, UserFilterRegistration.class)) {
+      assertThat(ctx.containsBean("tesseraResourceUrlEncodingFilter")).isFalse();
+      assertThat(ctx.getBeanNamesForType(FilterRegistrationBean.class))
+          .containsExactly("resourceUrlEncodingFilter");
+    }
+  }
+
+  @Test
   void inactiveOutsideWebApps() {
     try (AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext()) {
       ctx.register(Auto.class);
@@ -98,6 +158,24 @@ class TesseraAutoConfigurationTest {
     @Bean
     RenderContextFactory userContexts() {
       return USER_CONTEXTS;
+    }
+  }
+
+  @Configuration
+  static class UserFilter {
+    @Bean
+    ResourceUrlEncodingFilter myResourceUrlEncodingFilter() {
+      return new ResourceUrlEncodingFilter();
+    }
+  }
+
+  @Configuration
+  static class UserFilterRegistration {
+    // Raw: FilterRegistrationBean is not generic on Boot 1.5.
+    @Bean
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    FilterRegistrationBean resourceUrlEncodingFilter() {
+      return new FilterRegistrationBean(new ResourceUrlEncodingFilter());
     }
   }
 }
