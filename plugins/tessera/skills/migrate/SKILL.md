@@ -9,7 +9,9 @@ The full porting guide is [references/guide.md](references/guide.md). Read its s
 target), 2 (build setup) and 3 (the loop) before you change anything. Use sections 4 to 7
 (syntax, a worked example, every compiler diagnostic with its fix, known limitations) when you
 need them. It doesn't map your engine's syntax construct by construct. You know the old engine,
-and once you know how Tessera works the syntax converts on its own.
+and once you know how Tessera works the syntax converts on its own. Section 4.10 lists the traps of
+JSP (with Tiles or SiteMesh), Velocity and Pebble, including how to replace their raw output: read
+the part for your engine before converting.
 
 ## The target, in brief
 
@@ -57,10 +59,12 @@ The old application is the specification. Work the way an expert would, keeping 
    Spring 4.3+ or Boot 1.5+ (Servlet 3.0+; keep the app's Spring version), and the starter is
    `tessera-spring-boot-starter` for `jakarta.servlet` or `tessera-spring-boot-starter-javax` for
    `javax.servlet`. Tessera can sit next to the old engine while you migrate.
-4. **Convert one template at a time**, shared fragments and layouts first. For each one, find
-   every value it reads and make the controller provide it. Declare the real parameter types,
-   rewrite the markup, then run `mvn clean compile` and fix each error using the diagnostic
-   catalogue (guide section 6). For Thymeleaf, run
+4. **Convert one template at a time**, shared fragments and layouts first (guide section 4.10 for
+   your engine). Convert templates that share a layout or form fragments in one context rather
+   than splitting them across subagents. For each one, find every value it reads and make the
+   controller provide it. Declare the real parameter types, rewrite the markup, then run
+   `mvn clean compile` and fix each error using the diagnostic catalogue (guide section 6). For
+   Thymeleaf, run
    `java -jar .tessera/tessera-migrate.jar <old-templates-dir> <new-templates-dir> --report migrate-report.md`
    first, then finish what it reports.
 5. **Compare** the new app, started from the same data, after each template or small group:
@@ -70,8 +74,16 @@ The old application is the specification. Work the way an expert would, keeping 
    every run (times, random ids) can be masked with `--ignore REGEX`; keep it narrow, since what it
    matches is never compared. Few differences are right. An empty value or a 500 nearly always
    means a value the old template took from outside the model.
-6. **Remove the old engine**: its templates, its dependency and its configuration. Then build,
-   test and compare once more.
+6. **Remove the old engine**: its templates, its dependency and its configuration. Diff
+   `mvn dependency:list` from before and after, and declare the libraries the app still uses that
+   came with the old engine. Then build, test and compare once more.
+
+## Time
+
+Note the time with `date` when you start. Before you decide that time is short, run `date` again
+and compare: don't guess. Use the whole budget you were given if the work needs it. Don't stop
+while your own `compare` still fails, and don't give subagents time limits or stop them early
+because you think time is up.
 
 ## What "done" is checked against
 
