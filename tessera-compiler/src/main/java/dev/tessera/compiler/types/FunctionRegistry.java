@@ -6,6 +6,7 @@ import dev.tessera.compiler.SourcePos;
 import dev.tessera.runtime.TemplateFunctions;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,8 +31,11 @@ import javax.lang.model.util.Types;
  * Registered template functions: {@code public static} methods annotated
  * {@code @TemplateFunction} in classes annotated {@code @TemplateFunctions("ns")}, taken from
  * {@link CompilerEnv#functionNamespaces()} plus every {@link BuiltinNamespaces} class present on
- * the classpath. Duplicate namespaces, non-static or non-public methods, and signatures using
- * never-view-safe types are build errors (reported once, when the registry is built, at
+ * the classpath. Any other namespace is looked up on first use in the function index
+ * ({@link CompilerEnv#functionIndex()}: classes compiled earlier, #118); the indexed class must
+ * still be annotated {@code @TemplateFunctions} with that namespace and goes through the same
+ * checks. Duplicate namespaces, non-static or non-public methods, and signatures using
+ * never-view-safe types are build errors (reported once, when the class is registered, at
  * {@code path/To/Class.java:1:1}).
  */
 final class FunctionRegistry {
@@ -43,6 +47,7 @@ final class FunctionRegistry {
   private final ViewSafety safety;
   private final Map<String, TypeElement> classes = new LinkedHashMap<>();
   private final Map<String, List<ExecutableElement>> functions = new LinkedHashMap<>();
+  private final Set<String> looked = new HashSet<>();
 
   FunctionRegistry(CompilerEnv env) {
     this.env = env;
@@ -60,17 +65,25 @@ final class FunctionRegistry {
     candidates.values().forEach(this::register);
   }
 
+  /** Namespaces registered so far (indexed ones only once looked up). */
   Set<String> namespaces() {
     return Collections.unmodifiableSet(classes.keySet());
   }
 
+  /** Whether {@code namespace} is registered, consulting the function index on first use. */
+  boolean isNamespace(String namespace) {
+    return namespaceClass(namespace).isPresent();
+  }
+
   /** The class implementing {@code namespace}, if registered. */
   Optional<TypeElement> namespaceClass(String namespace) {
+    resolve(namespace);
     return Optional.ofNullable(classes.get(namespace));
   }
 
   /** All registered overloads of {@code ns.name} (empty if there is no such function). */
   List<ExecutableElement> overloads(String namespace, String name) {
+    resolve(namespace);
     return functions.getOrDefault(namespace, Backports.listOf()).stream()
         .filter(m -> m.getSimpleName().contentEquals(name))
         .collect(Collectors.toList());
@@ -95,6 +108,22 @@ final class FunctionRegistry {
       }
     }
     return Optional.empty();
+  }
+
+  /**
+   * Registers the indexed class for {@code ns}, once, if there is one and it still declares
+   * {@code @TemplateFunctions(ns)}. Stale or forged entries are ignored, so the namespace stays
+   * unknown.
+   */
+  private void resolve(String ns) {
+    if (classes.containsKey(ns) || !looked.add(ns)) {
+      return;
+    }
+    String className = env.functionIndex().apply(ns);
+    TypeElement te = className == null ? null : env.elements().getTypeElement(className);
+    if (te != null && ns.equals(namespaceOf(te))) {
+      register(te);
+    }
   }
 
   private void register(TypeElement te) {

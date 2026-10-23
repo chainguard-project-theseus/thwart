@@ -71,12 +71,13 @@ public final class Compilation {
       List<Diagnostic<? extends JavaFileObject>> diagnostics,
       boolean success,
       MemoryFileManager files,
-      String basePackage) {
+      String basePackage,
+      ClassLoader parent) {
     this.diagnostics = diagnostics;
     this.success = success;
     this.files = files;
     this.basePackage = basePackage;
-    this.loader = new MemoryClassLoader(files, Compilation.class.getClassLoader());
+    this.loader = new MemoryClassLoader(files, parent);
   }
 
   public static Builder builder() {
@@ -131,6 +132,7 @@ public final class Compilation {
     private boolean templatesOption = true;
     private Integer release = Integer.getInteger("tessera.test.release");
     private Consumer<ProcessingEnvironment> callback;
+    private Compilation upstream;
 
     /** Adds a template at {@code path} relative to the templates root, e.g. {@code owners/list.html}. */
     public Builder template(String path, String content) {
@@ -167,6 +169,15 @@ public final class Compilation {
       return this;
     }
 
+    /**
+     * Puts {@code earlier}'s classes and resources on the classpath (ahead of the test classpath)
+     * and its class loader under this one's, like a test compile against the main output (#118).
+     */
+    public Builder classpath(Compilation earlier) {
+      this.upstream = earlier.assertSuccess();
+      return this;
+    }
+
     /** Omits {@code -Atessera.templates} (to test the processor's error). */
     public Builder withoutTemplatesOption() {
       this.templatesOption = false;
@@ -195,7 +206,13 @@ public final class Compilation {
         }
         List<String> args = new ArrayList<>();
         args.add("-classpath");
-        args.add(System.getProperty("java.class.path"));
+        String classpath = System.getProperty("java.class.path");
+        if (upstream != null) {
+          Path out = dir.resolve("upstream");
+          upstream.files.writeTo(out);
+          classpath = out + java.io.File.pathSeparator + classpath;
+        }
+        args.add(classpath);
         args.add("-proc:full");
         if (release != null) {
           args.add("--release");
@@ -245,7 +262,11 @@ public final class Compilation {
           throw new AssertionError(t);
         }
         return new Compilation(
-            collector.getDiagnostics(), ok, mem, options.getOrDefault(ProcessorOptions.PACKAGE, CompilerEnv.DEFAULT_PACKAGE));
+            collector.getDiagnostics(),
+            ok,
+            mem,
+            options.getOrDefault(ProcessorOptions.PACKAGE, CompilerEnv.DEFAULT_PACKAGE),
+            upstream == null ? Compilation.class.getClassLoader() : upstream.loader);
       } catch (IOException e) {
         throw new UncheckedIOException(e);
       } finally {
@@ -455,6 +476,21 @@ public final class Compilation {
     @Override
     public boolean isSameFile(FileObject a, FileObject b) {
       return a.toUri().equals(b.toUri());
+    }
+
+    /** Writes the class files and class-output resources under {@code root}, as javac {@code -d} would. */
+    void writeTo(Path root) throws IOException {
+      for (Map.Entry<String, MemoryFile> e : classes.entrySet()) {
+        write(root.resolve(e.getKey().replace('.', '/') + ".class"), e.getValue().bytes);
+      }
+      for (Map.Entry<String, MemoryFile> e : resources.entrySet()) {
+        write(root.resolve(e.getKey()), e.getValue().bytes);
+      }
+    }
+
+    private static void write(Path file, byte[] bytes) throws IOException {
+      Files.createDirectories(file.getParent());
+      Files.write(file, bytes);
     }
 
     byte[] classBytes(String name) {
