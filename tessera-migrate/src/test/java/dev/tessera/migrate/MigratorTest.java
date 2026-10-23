@@ -246,6 +246,43 @@ class MigratorTest {
   }
 
   @Test
+  void tokenLiteralsInLinkParametersAreQuoted() throws Exception {
+    // fredbet ranking/list.html (#206): mode=mixed is the text "mixed", not a model attribute.
+    assertEquals("<ul t:params=\"Object sortBy\"><li><a t:href=\"@{/ranking(mode='mixed')}\">a</a></li>"
+            + "<li><a t:href=\"@{/ranking(mode='adult', sort=sortBy, lang='en', page=2, flag)}\">b</a></li>"
+            + "<li><a t:href=\"@{/ranking/{m}(m='child')}\">c</a></li></ul>",
+        convert("<ul><li><a th:href=\"@{/ranking(mode=mixed)}\">a</a></li>"
+            + "<li><a th:href=\"@{/ranking(mode=adult, sort=${sortBy}, lang=en, page=2, flag)}\">b</a></li>"
+            + "<li><a th:href=\"@{/ranking/{m}(m=child)}\">c</a></li></ul>"));
+  }
+
+  @Test
+  void tokenLiteralsInsideLargerExpressionsAreQuoted() throws Exception {
+    assertEquals("<div t:params=\"Object x, Object a, Object b, Object n\">"
+            + "<i t:classappend=\"x ? 'active'\"></i><i t:text=\"a ?: 'none'\"></i>"
+            + "<i t:if=\"a and b or not x\"></i><i t:if=\"a neq b\"></i><i t:text=\"a == 1-2 ? true : null\"></i>"
+            + "<i t:text=\"#{ranking.title('mixed', n)}\"></i>"
+            + "<i t:replace=\"~{fragments :: nav(active='ranking')}\"></i>"
+            + "<i t:replace=\"fragments :: nav('ranking')\"></i></div>",
+        convert("<div><i th:classappend=\"${x} ? active\"></i><i th:text=\"${a} ?: none\"></i>"
+            + "<i th:if=\"${a} and ${b} or not ${x}\"></i><i th:if=\"${a} neq ${b}\"></i><i th:text=\"${a} == 1-2 ? true : null\"></i>"
+            + "<i th:text=\"#{ranking.title(mixed, ${n})}\"></i>"
+            + "<i th:replace=\"~{fragments :: nav(active=ranking)}\"></i>"
+            + "<i th:replace=\"fragments :: nav(ranking)\"></i></div>"));
+  }
+
+  @Test
+  void identifiersInsideVariableAndSelectionExpressionsAreNotTokens() throws Exception {
+    // Negative: real variables are still collected as parameters, never quoted.
+    assertEquals("<form t:object=\"user\" t:params=\"Object user, Object mode, Object other\">"
+            + "<a t:href=\"@{/ranking(mode=mode, x=*{name})}\" t:classappend=\"(mode == other) ? 'on'\""
+            + " t:text=\"|${mode} mixed|\" t:with=\"m=mode\">x</a></form>",
+        convert("<form th:object=\"${user}\"><a th:href=\"@{/ranking(mode=${mode}, x=*{name})}\""
+            + " th:classappend=\"${mode == other} ? on\" th:text=\"|${mode} mixed|\" th:with=\"m=${mode}\">x</a>"
+            + "</form>"));
+  }
+
+  @Test
   void fragmentReferencesSelectionsAndTesseraValuesAreNotLiteralTokens() throws Exception {
     assertEquals("<div t:params=\"Object nav\"><i t:insert=\"footer :: f\"></i><i t:field=\"name\"></i>"
             + "<i t:class=\"nav\"></i></div>",
