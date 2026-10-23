@@ -1443,8 +1443,6 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **Rich text.** `html.sanitize` has one fixed policy: no images, tables, `class` or `style`, and
   links don't keep `target`. If the stored HTML needs more, build the markup in Java (a template
   over a parsed model, or `SafeHtml.concat`) rather than widening it with `SafeHtml.unchecked`.
-- **Refresh `<meta>`** (#237). Its `content` can't be computed: choose between literal `<meta>` tags
-  with `t:if`/`t:switch`.
 - **Security functions.** `auth` has `hasRole`/`hasAnyRole`, not `hasAuthority`; compute anything
   else in the controller.
 - **Selections.** `~{::tag}` selects fragment names and plain tag names only: not hyphenated tags,
