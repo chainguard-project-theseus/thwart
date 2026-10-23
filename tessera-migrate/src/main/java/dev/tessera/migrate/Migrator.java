@@ -249,8 +249,8 @@ final class Migrator {
 
     /**
      * Rewrites an attribute value. {@code thymeleaf} is true for {@code th:} attributes, whose
-     * literal tokens ({@code th:class="nav-item"}) are quoted; {@code t:} values are already
-     * Tessera, which keeps the rewrite idempotent.
+     * literal tokens ({@code th:class="nav-item"}, {@code @{/r(mode=mixed)}}) are quoted;
+     * {@code t:} values are already Tessera, which keeps the rewrite idempotent.
      */
     private String expressionValue(String local, String original, boolean thymeleaf, int line) {
       String value = Expressions.rewriteLinks(original);
@@ -268,14 +268,14 @@ final class Migrator {
       if (ConversionRules.ASSIGNMENT_VALUES.contains(local)) {
         return assignmentsValue(local, value, thymeleaf);
       }
-      if (thymeleaf && Expressions.isLiteralToken(value) && !ConversionRules.SELECTION_VALUES.contains(local)
-          && !ConversionRules.FRAGMENT_REFERENCES.contains(local)) {
-        return "'" + Compat.strip(value) + "'";
+      boolean selection = ConversionRules.SELECTION_VALUES.contains(local);
+      boolean fragmentReference = ConversionRules.FRAGMENT_REFERENCES.contains(local);
+      if (thymeleaf && !selection) {
+        value = Expressions.quoteTokens(value, fragmentReference);
       }
       String rewritten = Expressions.rewrite(value);
-      if (!ConversionRules.SELECTION_VALUES.contains(local)) {
-        roots.addAll(Expressions.roots(rewritten,
-            ConversionRules.FRAGMENT_REFERENCES.contains(local)));
+      if (!selection) {
+        roots.addAll(Expressions.roots(rewritten, fragmentReference));
       }
       return rewritten;
     }
@@ -315,9 +315,7 @@ final class Migrator {
           locals.add(Compat.strip(part.substring(0, eq)));
         }
         String expr = part.substring(eq + 1);
-        String rewritten = thymeleaf && Expressions.isLiteralToken(expr)
-            ? "'" + Compat.strip(expr) + "'"
-            : Expressions.rewrite(expr);
+        String rewritten = Expressions.rewrite(thymeleaf ? Expressions.quoteTokens(expr, false) : expr);
         roots.addAll(Expressions.roots(rewritten, false));
         parts.add(part.substring(0, eq + 1) + rewritten);
       }
