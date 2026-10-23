@@ -51,7 +51,8 @@ Two kinds of round:
    plugin, as a user who installed it would have. The prompt asks for the migration and says what
    "done" is checked against, but doesn't name the skill or its guide: the skill's description
    has to trigger it. `agent.json` records `skill_listed` (the session's init event lists
-   `tessera:migrate`) and `skill_invoked` (the transcript has a `Skill` tool call for it). The
+   `tessera:migrate`) and `skill_invoked` (the transcript has a `Skill` tool call for it, or a tool call that opens its
+   `SKILL.md` directly). The
    skill's `mvn dependency:copy` of `tessera-migrate` resolves from the seeded Maven volume.
 4. **Scoring.** The migrated checkout goes through the same check, with `tessera-migrate
    compare` against the baseline recording: the same tool and the same page comparison the

@@ -167,9 +167,17 @@ def summary_line(c):
 SKILL = "tessera:migrate"  # plugins/tessera's skill, as Claude Code names a plugin skill
 
 
+def invokes_skill(tool, args):
+    """A Skill tool call for the Tessera skill, or a tool call that opens the skill's SKILL.md
+    directly (an agent that finds /opt/tessera-plugin and reads the file uses the skill too)."""
+    if tool == "Skill":
+        return str(args.get("skill") or args.get("command") or "").lstrip("/") in (SKILL, "migrate")
+    return "tessera-plugin/skills/migrate/SKILL.md" in json.dumps(args)
+
+
 def skill_use(transcript):
     """Whether the session listed the Tessera skill (init event) and whether the agent invoked it
-    (a Skill tool call), from claude's stream-json output. Recorded in agent.json by migrate()."""
+    (invokes_skill), from claude's stream-json output. Recorded in agent.json by migrate()."""
     listed = invoked = False
     with open(transcript, errors="replace") as f:
         for line in f:
@@ -180,8 +188,7 @@ def skill_use(transcript):
             if ev.get("type") == "system" and ev.get("subtype") == "init":
                 listed = SKILL in (ev.get("skills") or []) or SKILL in (ev.get("slash_commands") or [])
             elif ev.get("type") == "assistant":
-                invoked |= any(c.get("type") == "tool_use" and c.get("name") == "Skill"
-                               and (c.get("input") or {}).get("skill") in (SKILL, "migrate")
+                invoked |= any(c.get("type") == "tool_use" and invokes_skill(c.get("name"), c.get("input") or {})
                                for c in ev.get("message", {}).get("content") or [] if isinstance(c, dict))
     return {"skill_listed": listed, "skill_invoked": invoked}
 
