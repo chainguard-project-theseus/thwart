@@ -1,0 +1,96 @@
+# luckyblog (Apache Velocity): every page template (VM_global_library.vm's macros and the module/
+# header, admin-header and footer includes through them), the admin pages behind the login, each
+# admin form's failing and succeeding post, and the error pages. Requests run in order against a
+# fresh in-memory H2 seeded from seed.sql (posts 1-26, projects 1-11, admin jcala/admin), with the
+# clock starting at 2025-06-15 (start.sh), so the post added below is dated Jun 15, 2025. It is
+# post 28: the failed insert before it uses up id 27.
+#
+# The app has no server-side validation and no CSRF token. Its forms post through JavaScript (the
+# login and password forms send MD5 hashes); the requests below send what that JavaScript sends.
+# A form's failing state is what the app shows when the database rejects the change (a missing
+# NOT NULL column): admin/result.vm with "Operation failed!", or a redirect with result=fail/1.
+#
+# Not covered: picture upload (multipart; /admin/file/uplPic.action returns JSON), /pic/** (files
+# under /data) and the admin monitor's memory figures (ignored in app.json: free memory changes).
+# A successful login redirects to /admin, which the app does not map: a 404, recorded as such.
+
+# Front end, anonymous.
+GET /
+GET /archives/1
+GET /archives/2
+GET /archives/3
+GET /tags
+GET /tags/java
+GET /tags/nope
+GET /projects
+GET /projects/1
+GET /projects/2
+GET /projects/3
+GET /about
+GET /post/1
+GET /post/5
+GET /post/26
+GET /post/999
+GET /nope
+
+# Admin pages need the session: the interceptor redirects to the login page.
+GET /admin/
+GET /admin/info
+GET /login
+POST /login.action username=jcala&password=wrong
+POST /login.action username=jcala&password=21232f297a57a5a743894a0e4a801fc3
+
+# Admin, logged in.
+GET /admin/
+GET /admin/blogList/1
+GET /admin/blogList/2
+GET /admin/blogList/3
+GET /admin/project/1
+GET /admin/project/2
+GET /admin/info
+GET /admin/resume
+GET /admin/update1
+GET /admin/update999
+GET /admin/pro.json?id=3
+
+# Blogs: add (no title fails), the new post on the front end, update (no title fails), delete.
+GET /admin/blogAdd
+POST /admin/post.action tags=java&md=x&article=x
+POST /admin/post.action title=Velocity 迁移笔记&tags=java,migration&md=%23%23 迁移笔记  先迁移宏，再迁移页面。&article=<h2 id="h2-notes">迁移笔记</h2><p>先迁移<strong>宏</strong>，再迁移页面。</p>
+GET /archives/1
+GET /tags
+GET /tags/migration
+GET /post/28
+GET /post/26
+GET /admin/update28
+POST /admin/update.action vid=28&tags=java&md=x&article=x
+POST /admin/update.action vid=28&title=Velocity 迁移笔记（修订）&tags=java,velocity&md=%23%23 迁移笔记  已修订。&article=<h2 id="h2-notes">迁移笔记</h2><p>已修订。</p>
+GET /tags/velocity
+GET /admin/delete/28
+GET /archives/1
+
+# Projects: add, update, delete (the front-end lists show the add time, so they are not revisited).
+POST /admin/addPro.action name=new-project&url=https://github.com/jcala/new-project&tech=Go&desp=新项目
+GET /admin/project/2
+GET /admin/pro.json?id=12
+POST /admin/updPro.action id=12&name=renamed-project&url=https://github.com/jcala/renamed&tech=Go, Redis&desp=改名了
+GET /admin/deletePro/12
+
+# Profile: no username fails, then a valid update shows on the front end.
+POST /admin/info.action email=x@example.com
+POST /admin/info.action username=jcala&email=lucky@example.com&github=https://github.com/lucky&twitter=https://twitter.com/lucky
+GET /
+# The avatar form without a file: the upload fails and the info page is shown again.
+POST /admin/file/uplAva.action avatar=
+
+# Resume.
+POST /admin/resume.action md=%23 简历  十年 Java。&resume=<h1>简历</h1><p>十年 Java。</p>
+GET /about
+
+# Password: a wrong old password, then a change (to the same hash), which ends the session.
+POST /admin/pass.action old_pass=wrong&new_pass=x
+POST /admin/pass.action old_pass=21232f297a57a5a743894a0e4a801fc3&new_pass=21232f297a57a5a743894a0e4a801fc3
+GET /admin/blogList/1
+POST /login.action username=jcala&password=21232f297a57a5a743894a0e4a801fc3
+GET /logout
+GET /admin/
