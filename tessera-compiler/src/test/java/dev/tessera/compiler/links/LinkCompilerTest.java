@@ -41,7 +41,32 @@ class LinkCompilerTest {
   void noParamsAndNullQueryValue() {
     ExprRunner r = owners("\"1\"", "null");
     assertEquals("/owners/find", r.eval("@{/owners/find}", CTX));
-    assertEquals("/owners?page=7&q", r.eval("@{/owners(page=o.num, q=term)}", CTX));
+    // Like Thymeleaf: a null value is "", so the parameter keeps its '='.
+    assertEquals("/owners?page=7&q=", r.eval("@{/owners(page=o.num, q=term)}", CTX));
+  }
+
+  @Test
+  void valuelessParameterRendersBareName() {
+    ExprRunner r = owners("\"a&b\"", "null");
+    assertEquals(
+        "ctx.links().build(\"/cart\", new java.lang.String[] {\"add\", \"itemId\"},"
+            + " new java.lang.Object[] {dev.tessera.runtime.Links.NO_VALUE, o.id()})",
+        r.compile("@{/cart(add,itemId=o.id)}").code());
+    assertEquals("/cart?add&itemId=a%26b", r.eval("@{/cart(add,itemId=o.id)}", CTX));
+    assertEquals("/app/accounts/create?form", r.eval("@{/accounts/create(form)}", CTX_PATH));
+    assertEquals("/s?q=&form", r.eval("@{/s(q=term, form)}", CTX));
+  }
+
+  @Test
+  void collectionValuesRepeatTheParameter() {
+    ExprRunner r =
+        ExprRunner.create()
+            .java("com.example.Tags", "package com.example; public record Tags(java.util.List<String> all, java.util.List<String> none) {}")
+            .var("t", "com.example.Tags",
+                "new com.example.Tags(java.util.Arrays.asList(\"a\", null, \"b&c\"), java.util.List.of())");
+    assertEquals("/s?tag=a&tag&tag=b%26c&x=1", r.eval("@{/s(tag=t.all, x=1)}", CTX));
+    assertEquals("/s?x=1", r.eval("@{/s(tag=t.none, x=1)}", CTX));
+    assertEquals("/s/a,,b%26c", r.eval("@{/s/{tag}(tag=t.all)}", CTX));
   }
 
   @Test
@@ -74,7 +99,14 @@ class LinkCompilerTest {
   }
 
   @Test
+  void valuelessPathVariableIsAnError() {
+    owners("\"1\"", "null").compile("@{/owners/{id}(id)}")
+        .assertError("t.html:1:", "link parameter 'id' fills path variable {id}", "needs a value");
+  }
+
+  @Test
   void duplicateParameterIsAnError() {
+    owners("\"1\"", "null").compile("@{/owners(q, q=o.id)}").assertError("duplicate link parameter 'q'");
     owners("\"1\"", "null").compile("@{/owners(q=term, q=o.id)}").assertError("duplicate link parameter 'q'");
   }
 
