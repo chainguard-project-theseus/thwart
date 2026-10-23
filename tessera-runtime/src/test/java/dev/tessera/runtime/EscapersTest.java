@@ -635,4 +635,62 @@ class EscapersTest {
     assertThrows(IllegalArgumentException.class, () -> Escapers.appendJson(new StringBuilder(), List.of("value"), 64));
   }
 
+
+  @Test
+  void htmlMessageArgsEscapeTextButKeepNumbersAndDates() {
+    java.util.Date date = new java.util.Date(0);
+    Object[] in = {"<script>&\"'", 42, new BigDecimal("1.5"), date, null, SafeHtml.unchecked("<b>"), 'c'};
+    Object[] out = Escapers.htmlMessageArgs(in);
+    assertEquals("&lt;script&gt;&amp;&quot;&#39;", out[0]);
+    assertEquals(42, out[1]);
+    assertEquals(new BigDecimal("1.5"), out[2]);
+    assertTrue(out[3] == date);
+    assertEquals(null, out[4]);
+    assertEquals("&lt;b&gt;", out[5]);
+    assertEquals("c", out[6]);
+    assertEquals("<script>&\"'", in[0], "the input array is not changed");
+    assertEquals(
+        "Hi &lt;i&gt;x&lt;/i&gt;, 1,234",
+        new java.text.MessageFormat("Hi {0}, {1,number}", java.util.Locale.US)
+            .format(Escapers.htmlMessageArgs(new Object[] {"<i>x</i>", 1234})));
+  }
+
+  private static RenderContext messages(Messages m) {
+    return new RenderContext(java.util.Locale.US, m, new DefaultLinks(""), Forms.NONE);
+  }
+
+  @Test
+  void htmlMessagePrintsOnlyWhatACheckedPatternProduces() {
+    String[] checked = {"Hi <b>{0}</b>, {1,number}", "Salut <b>{0}</b>"};
+    Messages formatting = (k, a) -> new java.text.MessageFormat("Hi <b>{0}</b>, {1,number}", java.util.Locale.US).format(a);
+    assertEquals(
+        "Hi <b>&lt;i&gt;</b>, 1,234",
+        Escapers.htmlMessage(messages(formatting), "k", new Object[] {"<i>", 1234}, checked));
+    // Unformatted (no arguments, as Spring returns it) and a second locale's pattern.
+    assertEquals(
+        "Salut <b>{0}</b>", Escapers.htmlMessage(messages((k, a) -> "Salut <b>{0}</b>"), "k", new Object[0], checked));
+    // Text without '<' cannot hold markup.
+    assertEquals("plain &amp; simple", Escapers.htmlMessage(messages((k, a) -> "plain &amp; simple"), "k", new Object[0], checked));
+    assertEquals("", Escapers.htmlMessage(messages((k, a) -> null), "k", new Object[0], checked));
+  }
+
+  @Test
+  void htmlMessageEscapesAMessageNoCheckedPatternProduces() {
+    String[] checked = {"Hi <b>{0}</b>"};
+    // A message source the build never saw (another bundle, a database, a changed file).
+    assertEquals(
+        "&lt;script&gt;alert(1)&lt;/script&gt;",
+        Escapers.htmlMessage(messages((k, a) -> "<script>alert(1)</script>"), "k", new Object[] {"x"}, checked));
+    // A checked pattern with the raw (unescaped) argument is not what the pattern produces.
+    assertEquals(
+        "Hi &lt;b&gt;&lt;img src=x onerror=alert(1)&gt;&lt;/b&gt;",
+        Escapers.htmlMessage(
+            messages((k, a) -> "Hi <b><img src=x onerror=alert(1)></b>"), "k", new Object[] {"<img src=x onerror=alert(1)>"}, checked));
+    // No checked patterns at all.
+    assertEquals("&lt;b&gt;x&lt;/b&gt;", Escapers.htmlMessage(messages((k, a) -> "<b>x</b>"), "k", new Object[0], new String[0]));
+    // An argument that does not fit a checked pattern does not throw.
+    assertEquals(
+        "&lt;b&gt;x&lt;/b&gt;",
+        Escapers.htmlMessage(messages((k, a) -> "<b>x</b>"), "k", new Object[] {"text"}, new String[] {"<b>{0,number}</b>"}));
+  }
 }
