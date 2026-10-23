@@ -44,6 +44,15 @@ final class SpringForms implements Forms {
   }
 
   @Override
+  public String selectedValue(String objectName, String path, Object currentValue) {
+    if (!hasBindingResult(objectName)) {
+      return currentValue == null ? null : Escapers.toText(currentValue);
+    }
+    BindStatus status = bindStatus(objectName + "." + path);
+    return status.getValue() == null ? null : status.getDisplayValue();
+  }
+
+  @Override
   public List<String> errors(String objectName, String path) {
     if (!hasBindingResult(objectName)) {
       return Collections.emptyList();
