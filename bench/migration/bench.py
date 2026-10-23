@@ -29,7 +29,7 @@ JDKS = {8: "/usr/lib/jvm/java-1.8-openjdk", 21: "/usr/lib/jvm/java-21-openjdk"}
 VERDICT = re.compile(r"^(\d+) (same|reordered|differs)\s+(.*)$")
 
 # Dependencies that mean the old view technology is still on the build.
-LEGACY_DEPS = re.compile(r"<artifactId>(spring-boot-starter-(thymeleaf|freemarker|mustache|groovy-templates)"
+LEGACY_DEPS = re.compile(r"<artifactId>(spring-boot-starter-(thymeleaf|freemarker|mustache|groovy-templates|velocity)"
                          r"|thymeleaf[\w-]*|freemarker|tomcat-embed-jasper|jakarta\.servlet\.jsp\.jstl[\w-]*"
                          r"|jstl|velocity[\w-]*|pebble[\w-]*|jmustache|tiles-[\w-]+)</artifactId>")
 # Added lines that weaken security; each hit is reported.

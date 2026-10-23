@@ -110,8 +110,9 @@ petclinic's `<span">` typo on the pagination pages, and order timestamps (jpetst
 stamped from the clock; no seeded order has one). Held-out: the request timestamp and the webjar
 version segment (purl-server: Boot's error page prints the date and time of the request; the webjar
 segment as above), the invoice date input (jprime: the invoice form defaults to today), and chart
-container UUIDs, the delete-database verification code (budgetmaster: random per request) and
-the webjar version segment (budgetmaster, as above).
+container UUIDs, the delete-database verification code (budgetmaster: random per request),
+the webjar version segment (budgetmaster, as above) and the free-memory figures on the admin
+monitor page (luckyblog: read from the operating system).
 
 Licenses: JobSearch and jprime have no license and ESPD is EUPL-1.1 (copyleft), so their runs'
 `diff.patch` files are not committed (`.gitignore`).
@@ -155,3 +156,14 @@ Per-app environment fixes (in the app's commands, not its code):
   placeholder, leaves the stack trace out of error pages, and keeps the session id out of URLs
   (`server.session.tracking-modes=cookie`; otherwise the first page's links carry a random
   `;jsessionid=`). No ignores.
+- luckyblog (held out, Apache Velocity, `"java": 8`): Boot 1.4 is below Tessera's Boot 1.5 floor
+  (Spring 4.3 is supported), so a migration may need to bump Boot to 1.5 first. The build has no
+  `spring-boot-maven-plugin` (a thin jar plus `lib/`), so `start.sh` runs `target/classes` on the
+  Maven runtime classpath. MySQL is replaced by H2 2.2 in MySQL mode (the last H2 line for Java 8),
+  which takes the mappers' MySQL dialect (`LIMIT a,b`, `INSERT IGNORE`, `INSERT ... SET`,
+  `UPDATE/DELETE ... LIMIT`, `LAST_INSERT_ID()`), with `schema.sql` (the app's `import.sql` without
+  the MySQL dump clauses) and `seed.sql`. Druid's `wall` filter, which does not know H2, is off; the
+  undertow access log (under `/data`) is off; `log4j.properties` logs INFO to the console instead
+  of DEBUG to the console and `logs/`. libfaketime starts the clock at 2025-06-15 10:00 UTC, the
+  date of the post the pages add. The pom skips tests (`maven.test.skip`) and its one test class
+  has none, so the baseline has 0 tests.
