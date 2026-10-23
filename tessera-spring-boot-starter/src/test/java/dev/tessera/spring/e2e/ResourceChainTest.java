@@ -1,0 +1,104 @@
+package dev.tessera.spring.e2e;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import dev.tessera.spring.testing.SpringTestContext;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+
+/**
+ * With the resource chain enabled, links to static resources are versioned on normal pages and on
+ * Boot's error page: the starter registers {@code ResourceUrlEncodingFilter} for REQUEST and ERROR
+ * dispatches, as Boot's Thymeleaf auto-configuration does. Needs a real server: MockMvc neither
+ * applies filter registrations nor makes ERROR dispatches. Both property generations are set
+ * (Boot 1.5-2.3 {@code spring.resources}, 2.4+ {@code spring.web.resources}).
+ */
+@ExtendWith(SpringTestContext.class)
+@SpringBootTest(
+    classes = ResourceChainTest.App.class,
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = {
+      "spring.resources.chain.strategy.content.enabled=true",
+      "spring.resources.chain.strategy.content.paths=/**",
+      "spring.web.resources.chain.strategy.content.enabled=true",
+      "spring.web.resources.chain.strategy.content.paths=/**"
+    })
+class ResourceChainTest {
+
+  /** {@code /css/app.css} with its content hash, as the content version strategy writes it. */
+  static final String VERSIONED = "href=\"/css/app-[0-9a-f]{32}\\.css\"";
+
+  @Autowired Environment environment;
+
+  @Test
+  void pageLinksAreVersioned() throws IOException {
+    Response page = get("/assets");
+    assertThat(page.status).isEqualTo(200);
+    assertThat(page.body).contains("<h1>Assets</h1>").containsPattern(VERSIONED);
+  }
+
+  @Test
+  void errorPageLinksAreVersioned() throws IOException {
+    Response page = get("/no-such-page");
+    assertThat(page.status).isEqualTo(404);
+    assertThat(page.body).contains("<h1>404</h1>").containsPattern(VERSIONED);
+  }
+
+  private Response get(String path) throws IOException {
+    URL url = new URL("http://localhost:" + environment.getProperty("local.server.port") + path);
+    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+    connection.setRequestProperty("Accept", "text/html");
+    try {
+      int status = connection.getResponseCode();
+      InputStream in = status < 400 ? connection.getInputStream() : connection.getErrorStream();
+      ByteArrayOutputStream body = new ByteArrayOutputStream();
+      byte[] buffer = new byte[4096];
+      for (int n; (n = in.read(buffer)) != -1; ) {
+        body.write(buffer, 0, n);
+      }
+      in.close();
+      return new Response(status, new String(body.toByteArray(), StandardCharsets.UTF_8));
+    } finally {
+      connection.disconnect();
+    }
+  }
+
+  static final class Response {
+    final int status;
+    final String body;
+
+    Response(int status, String body) {
+      this.status = status;
+      this.body = body;
+    }
+  }
+
+  @Controller
+  public static class AssetsController {
+    @GetMapping("/assets")
+    public String assets(Model model) {
+      model.addAttribute("title", "Assets");
+      return "assets/page";
+    }
+  }
+
+  @SpringBootConfiguration
+  @EnableAutoConfiguration
+  @Import(AssetsController.class)
+  static class App {}
+}
