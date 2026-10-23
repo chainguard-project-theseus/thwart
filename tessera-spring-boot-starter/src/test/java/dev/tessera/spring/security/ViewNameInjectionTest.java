@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import dev.tessera.runtime.RenderContext;
 import dev.tessera.runtime.TemplateEntry;
 import dev.tessera.runtime.TemplateRegistry;
+import dev.tessera.spring.testing.SpringTestContext;
 import dev.tessera.spring.view.FallbackResolver;
 import dev.tessera.spring.view.RenderContextFactory;
 import jakarta.servlet.http.Cookie;
@@ -30,7 +31,6 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Controller;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -48,7 +48,7 @@ import org.springframework.web.context.WebApplicationContext;
  * exactly once, in the build-time registry. Nothing is preprocessed, evaluated or split, no
  * template renders, and the name falls through to the next resolver.
  */
-@ExtendWith(SpringExtension.class)
+@ExtendWith(SpringTestContext.class)
 @SpringBootTest(classes = ViewNameInjectionTest.App.class)
 class ViewNameInjectionTest {
 
@@ -103,6 +103,7 @@ class ViewNameInjectionTest {
   @Autowired WebApplicationContext context;
   @Autowired RecordingRegistry registry;
   @Autowired FallbackResolver fallback;
+  @Autowired Controllers controllers;
   MockMvc mvc;
 
   @BeforeEach
@@ -174,7 +175,18 @@ class ViewNameInjectionTest {
       return; // the servlet container would not route these to the handler
     }
     mvc.perform(get("/path/{v}", payload));
-    assertNeverRendered(payload);
+    // Spring 4.3's suffix pattern matching (on by default in Boot 1.5) strips a ".ext" from the
+    // path variable, so the controller may return less than the payload; whatever it returns is
+    // what is looked up. On Spring 5+ (Boot 2.0+) it receives the payload verbatim.
+    String returned = controllers.lastPath;
+    if (registry.delegate.find(returned).isPresent()) {
+      // "greeting.html" became "greeting", a real template name: the controller's choice. (Spring
+      // 4.3's ContentNegotiatingViewResolver then also tries "greeting.html", for text/html.)
+      assertThat(registry.lookups).startsWith(returned);
+      assertThat(payload).startsWith(returned + ".");
+      return;
+    }
+    assertNeverRendered(returned);
   }
 
   @Test
@@ -202,7 +214,7 @@ class ViewNameInjectionTest {
   static final class RecordingRegistry implements TemplateRegistry {
     final List<String> lookups = new CopyOnWriteArrayList<>();
     final AtomicInteger renders = new AtomicInteger();
-    private final TemplateRegistry delegate;
+    final TemplateRegistry delegate;
 
     RecordingRegistry() {
       TemplateEntry.ModelRenderer r =
@@ -258,6 +270,8 @@ class ViewNameInjectionTest {
 
   @Controller
   static class Controllers {
+    volatile String lastPath;
+
     @GetMapping("/param")
     String param(@RequestParam("v") String v) {
       return v;
@@ -285,6 +299,7 @@ class ViewNameInjectionTest {
 
     @GetMapping("/path/{v}")
     String path(@PathVariable("v") String v) {
+      lastPath = v;
       return v;
     }
 

@@ -12,9 +12,9 @@ the Claude Code migration skill in `plugins/tessera`. A code-quality pass follow
 
 Since then:
 
-- **Java 8 and Spring 5 floors.** Application code built against Tessera compiles with JDK 8+
+- **Java 8 and Spring 4.3 floors.** Application code built against Tessera compiles with JDK 8+
   javac and runs on Java 8+ (#154, #166); `tessera-migrate` runs on Java 8+ (#167). The starters
-  support Spring Framework 5.0+ / Boot 2.0+, with a `javax.servlet` variant and
+  support Spring Framework 4.3+ / Boot 1.5+ (#156, #178), with a `javax.servlet` variant and
   `TesseraConfiguration` for Spring MVC without Boot (#156).
 - **No third-party compile dependencies** in `tessera-runtime`, `tessera-compiler` (own
   `MarkupTokenizer` since #170) or the starters. Only `tessera-migrate`, a developer tool, bundles
@@ -65,7 +65,7 @@ Since then:
   compilation needs `<proc>none</proc>`.
 - Artifacts are not published. A target app consumes Tessera through `mvn install` of this
   repo, as `0.1.0-SNAPSHOT` in `~/.m2`.
-- Floors: the target app builds with JDK 8+ and runs on Java 8+, on Spring 5.0+ / Boot 2.0+.
+- Floors: the target app builds with JDK 8+ and runs on Java 8+, on Spring 4.3+ / Boot 1.5+.
   This repo builds with JDK 21+.
 - There is no runtime template loading and no `__${}__` preprocessing, by design.
 - [guide.md section 7](guide.md#7-known-limitations) lists the current gaps.

@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** One jar carries the registration files of every Boot generation (2.0 through 4). */
+/** One jar carries the registration files of every Boot generation (1.5 through 4). */
 class AutoConfigurationImportsTest {
 
   @ParameterizedTest
@@ -22,7 +22,8 @@ class AutoConfigurationImportsTest {
       strings = {
         // Boot 2.7+.
         "/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports",
-        // Makes @WebMvcTest slices pick up the Tessera view resolver: Boot 2.7/3, then Boot 4.
+        // Makes @WebMvcTest slices pick up the Tessera view resolver: Boot 2.7/3, then Boot 4
+        // (Boot 1.5-2.6 use the spring.factories key below).
         "/META-INF/spring/org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc.imports",
         "/META-INF/spring/org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureWebMvc.imports"
       })
@@ -46,7 +47,7 @@ class AutoConfigurationImportsTest {
         "org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc"
       })
   void springFactoriesRegistersForBoot2(String key) throws IOException {
-    // Boot 2.0-2.6 read only META-INF/spring.factories.
+    // Boot 1.5-2.6 read only META-INF/spring.factories.
     Properties factories = new Properties();
     try (InputStream in = getClass().getResourceAsStream("/META-INF/spring.factories")) {
       assertNotNull(in, "spring.factories");
