@@ -325,12 +325,14 @@ class MigratorTest {
 
   @Test
   void eventHandlersStylesInlineAndDialectsAreNotRenamed() throws Exception {
-    String src = "<div xmlns:sec=\"x\">\n<b th:onclick=\"${a}\" th:style=\"${s}\" th:inline=\"javascript\""
+    String src = "<div xmlns:sec=\"x\">\n<b th:onclick=\"${a}\" th:style=\"${s}\" th:styleappend=\"${s2}\" th:inline=\"javascript\""
         + " sec:authorize=\"hasRole('A')\" layout:fragment=\"c\" data-th-text=\"${t}\" th:include=\"f\">x</b></div>";
     assertEquals(src, convert(src));
     assertMessages(src,
         "2: `th:onclick` is a build error by design (no dynamic event handlers)",
         "2: `th:style` is not converted; rewrite it as `t:style` from literals, numbers and"
+            + " `css.color(...)`/`css.length(...)`",
+        "2: `th:styleappend` is not supported; merge it into one `t:style` from literals, numbers and"
             + " `css.color(...)`/`css.length(...)`",
         "2: `th:inline` is not supported",
         "2: `sec:authorize` belongs to the `sec:` dialect",
