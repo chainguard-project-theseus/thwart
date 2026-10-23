@@ -1,0 +1,27 @@
+<manifest
+    xmlns="https://github.com/erasmus-without-paper/ewp-specs-api-discovery/tree/stable-v6"
+    xmlns:r="https://github.com/erasmus-without-paper/ewp-specs-api-registry/tree/stable-v1"
+    xmlns:ewp="https://github.com/erasmus-without-paper/ewp-specs-architecture/blob/stable-v1/common-types.xsd"
+>
+    <host>
+        <ewp:admin-email>heis-admin@example.org</ewp:admin-email>
+        <ewp:admin-provider>Bench &amp; Co</ewp:admin-provider>
+        <r:apis-implemented>
+            <discovery version="6.0.0" xmlns="https://github.com/erasmus-without-paper/ewp-specs-api-discovery/blob/stable-v6/manifest-entry.xsd">
+                <url>https://heis.example.org/vienna/manifest.xml</url>
+            </discovery>
+            <institutions version="2.0.0" xmlns="https://github.com/erasmus-without-paper/ewp-specs-api-institutions/blob/stable-v2/manifest-entry.xsd">
+                <url>https://heis.example.org/vienna/institutions</url>
+                <max-hei-ids>1</max-hei-ids>
+            </institutions>
+        </r:apis-implemented>
+        <institutions-covered>
+            <r:hei id="univie.ac.at">
+                <r:other-id type="erasmus">A  WIEN01</r:other-id>
+                <r:other-id type="pic">999865905</r:other-id>
+                <r:name xml:lang="en">University of Vienna</r:name>
+                <r:name xml:lang="de">Universität Wien</r:name>
+            </r:hei>
+        </institutions-covered>
+    </host>
+</manifest>

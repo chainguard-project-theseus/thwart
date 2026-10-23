@@ -1,0 +1,16 @@
+{
+  "repo": "https://github.com/erasmus-without-paper/ewp-registry-service",
+  "commit": "c7066ed4a2814351ccc9c3d30cd856ca5b37c9f7",
+  "engine": "pebble",
+  "difficulty": "hard",
+  "heldout": true,
+  "build": "F='-B -ntp -Dskip.installnodenpm -Dskip.npm -Dcheckstyle.skip -Dspotbugs.skip -Dpmd.skip -Dmaven.javadoc.skip'; mvn $F -q clean && (cd src/main/webapp && npm ci --no-audit --no-fund && npm run build-prod) && mvn $F package -DskipTests",
+  "test": "mvn -B -ntp -Dskip.installnodenpm -Dskip.npm -Dcheckstyle.skip -Dspotbugs.skip -Dpmd.skip -Dmaven.javadoc.skip test",
+  "start": "bash /bench/app/start.sh",
+  "ready": "/",
+  "base": "http://localhost:8080",
+  "ignore": [
+    "(?:\\d{4}-\\d\\d-\\d\\d|TODAY) \\d\\d:\\d\\d:\\d\\d(?:\\.\\d+)? \\([^()<]*\\)",
+    "\\([0-9a-f]{7,40}, \\d\\d\\.\\d\\d\\.\\d{4}\\)"
+  ]
+}

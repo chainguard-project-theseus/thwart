@@ -111,8 +111,9 @@ stamped from the clock; no seeded order has one). Held-out: the request timestam
 version segment (purl-server: Boot's error page prints the date and time of the request; the webjar
 segment as above), the invoice date input (jprime: the invoice form defaults to today), and chart
 container UUIDs, the delete-database verification code (budgetmaster: random per request),
-the webjar version segment (budgetmaster, as above) and the free-memory figures on the admin
-monitor page (luckyblog: read from the operating system).
+the webjar version segment (budgetmaster, as above), the free-memory figures on the admin
+monitor page (luckyblog: read from the operating system), and the time each manifest was last
+fetched and the home page's commit and build day (ewp-registry).
 
 Licenses: JobSearch and jprime have no license and ESPD is EUPL-1.1 (copyleft), so their runs'
 `diff.patch` files are not committed (`.gitignore`).
@@ -167,3 +168,12 @@ Per-app environment fixes (in the app's commands, not its code):
   of DEBUG to the console and `logs/`. libfaketime starts the clock at 2025-06-15 10:00 UTC, the
   date of the post the pages add. The pom skips tests (`maven.test.skip`) and its one test class
   has none, so the baseline has 0 tests.
+- ewp-registry (Pebble, held out): the build's frontend-maven-plugin downloads a Node.js that
+  needs `libatomic`, which the image lacks, so the build skips it (`-Dskip.installnodenpm
+  -Dskip.npm`) and runs the image's `npm` for the Vue bundle instead; it also skips Checkstyle,
+  SpotBugs, PMD and Javadoc, which are bound to the build and would judge generated code. The app
+  takes only https manifest URLs, so `start.sh` serves the fixture manifests in `manifests/` over
+  local HTTPS with the localhost certificate from the app's `local_configuration/keys` (the JVM
+  trusts only that one), gives it a fresh git working copy, in-memory H2 and the SMTP sink, and
+  opens port 8080 (forwarded to the app on 8081) only after every manifest source has been fetched
+  once, since the app fetches them in the background after it starts answering.
