@@ -3,6 +3,7 @@ package dev.tessera.compiler.types;
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.runtime.LoopStatus;
+import dev.tessera.runtime.CssValue;
 import dev.tessera.runtime.SafeHtml;
 import dev.tessera.runtime.TrustedUrl;
 import java.util.ArrayDeque;
@@ -27,7 +28,7 @@ import javax.lang.model.type.WildcardType;
  *
  * <p>View-safe: primitives and boxes, String/CharSequence, enums, records, {@code java.time}
  * value types, BigDecimal/BigInteger, Optional/List/Set/Collection/Iterable/Map/Map.Entry of
- * view-safe types, arrays of view-safe types, {@code LoopStatus}, {@code SafeHtml}, {@code TrustedUrl},
+ * view-safe types, arrays of view-safe types, {@code LoopStatus}, {@code SafeHtml}, {@code TrustedUrl}, {@code CssValue},
  * and classes annotated {@code @TemplateView}.
  *
  * <p>Never view-safe, even if annotated or registered: {@code Object} (as a declared type and
@@ -94,7 +95,8 @@ final class ViewSafety {
           "java.math.BigInteger",
           LoopStatus.class.getName(),
           SafeHtml.class.getName(),
-          TrustedUrl.class.getName());
+          TrustedUrl.class.getName(),
+          CssValue.class.getName());
 
   /** Container types; view-safe when every type argument is. */
   private static final Set<String> CONTAINERS =
