@@ -16,6 +16,12 @@ import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
 
 class TemporalsTest {
@@ -33,6 +39,48 @@ class TemporalsTest {
   void formatRejectsFieldsTheValueLacks() {
     assertThrows(RuntimeException.class, () -> Temporals.format(LocalDate.of(2024, 1, 5), "HH:mm"));
     assertThrows(IllegalArgumentException.class, () -> Temporals.format(DT, "{bad"));
+  }
+
+  @Test
+  void cacheCollisionsAndLongPatternsPreserveFormatting() {
+    // These literals have identical String hashes but require different formatted output.
+    String first = "yyyy-MM-dd 'Aa'";
+    String second = "yyyy-MM-dd 'BB'";
+    assertEquals(first.hashCode(), second.hashCode());
+    String longPattern = "yyyy '" + "literal".repeat(40) + "'";
+    for (int i = 0; i < 50; i++) {
+      for (String pattern : List.of(first, second, longPattern, "", "d MMM yyyy EEE")) {
+        assertEquals(DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH).format(DT),
+            Temporals.format(DT, pattern));
+      }
+    }
+    assertThrows(NullPointerException.class, () -> Temporals.format(DT, null));
+    assertNull(Temporals.format(null, null));
+    assertNull(Temporals.format(null, "{bad"));
+    // A failed pattern must not poison a previously cached valid formatter.
+    assertThrows(IllegalArgumentException.class, () -> Temporals.format(DT, "{bad"));
+    assertEquals("2024-01-05 Aa", Temporals.format(DT, first));
+  }
+
+  @Test
+  void cachedFormattersRemainIsolatedAcrossThreads() throws Exception {
+    List<Callable<Void>> calls = new ArrayList<>();
+    for (int task = 0; task < 16; task++) {
+      final LocalDateTime date = DT.plusDays(task);
+      final String pattern = task % 2 == 0 ? "yyyy-MM-dd 'Aa'" : "yyyy-MM-dd 'BB'";
+      final String expected = DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH).format(date);
+      calls.add(() -> {
+        for (int i = 0; i < 500; i++) {
+          assertEquals(expected, Temporals.format(date, pattern));
+        }
+        return null;
+      });
+    }
+    try (var executor = Executors.newFixedThreadPool(8)) {
+      for (var result : executor.invokeAll(calls)) {
+        result.get();
+      }
+    }
   }
 
   @Test
