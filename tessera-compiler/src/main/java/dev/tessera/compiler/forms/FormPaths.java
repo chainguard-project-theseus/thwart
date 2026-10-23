@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
@@ -126,9 +127,57 @@ public final class FormPaths {
     return scope.lookup(((Expr.Var) e).name()).filter(var -> isField(var.type()));
   }
 
-  /** A field held in a {@code Field} variable; its value has static type {@code Object}. */
+  /**
+   * The {@code Field} variable at the root of {@code e} if {@code e} is a sub-path of it,
+   * {@code name.answer} or {@code name.items[i].text} (#239), and empty otherwise (also for a bare
+   * {@code name}, see {@link #fieldVariable}).
+   */
+  public static Optional<Variable> fieldRoot(Expr e, Scope scope) {
+    Expr root = root(e);
+    return root != e && isPath(e) ? fieldVariable(root, scope) : Optional.empty();
+  }
+
+  /** {@code T} of {@code Field<T>}, or null for {@code Field<?>} (a plain {@code Field}). */
+  public static TypeMirror fieldType(TypeMirror field) {
+    List<? extends TypeMirror> args = ((DeclaredType) field).getTypeArguments();
+    return args.size() == 1 && args.get(0).getKind() != TypeKind.WILDCARD ? args.get(0) : null;
+  }
+
+  /**
+   * A sub-path of the {@code Field<T>} variable {@code field} ({@link #fieldRoot}):
+   * {@code name.answer} binds {@code <name's path>.answer}, checked against {@code T}. The path
+   * appended to the caller's is built from the literal names and int indexes only, as in
+   * {@link #resolve}. Reports and returns null on error, including for a plain {@code Field},
+   * whose type is not known.
+   */
+  public static FormField resolveSubPath(
+      Expr e, Variable field, Scope scope, ExpressionCompiler expressions, boolean withValue) {
+    Expr root = root(e);
+    TypeMirror type = fieldType(field.type());
+    if (type == null) {
+      expressions.env().diagnostics().error(root.pos(), "'" + field.name() + "' is a Field of unknown type, so its properties"
+          + " cannot be bound: declare its type in the fragment signature, e.g. Field<Criterion> " + field.name());
+      return null;
+    }
+    String j = field.javaName();
+    List<String> name = new ArrayList<>();
+    name.add(j + ".path()");
+    List<String> id = new ArrayList<>();
+    id.add(j + ".path().replace(\"[\", \"\").replace(\"]\", \"\")");
+    // The value chain starts at the field's value, seen under the field's own name.
+    Scope valueScope = scope.with(new Variable(field.name(), type, j + ".value()"));
+    return steps(
+        j + ".objectName()", name, id, new StringBuilder(), root, valueScope, e, scope, expressions, withValue);
+  }
+
+  /**
+   * A field held in a {@code Field<T>} variable; its value has static type {@code T}, or
+   * {@code Object} for a plain {@code Field}.
+   */
   public static FormField fromVariable(Variable v, SourcePos pos, ExpressionCompiler expressions) {
-    TypeMirror object = expressions.env().elements().getTypeElement("java.lang.Object").asType();
+    TypeMirror type = fieldType(v.type());
+    TypeMirror object =
+        type != null ? type : expressions.env().elements().getTypeElement("java.lang.Object").asType();
     String j = v.javaName();
     return new FormField(
         j + ".objectName()",
@@ -156,23 +205,49 @@ public final class FormPaths {
    *     it only the index expressions are compiled and the value is null
    */
   public static FormField resolve(Expr e, Scope scope, ExpressionCompiler expressions, boolean withValue) {
+    if (!isPath(e)) {
+      throw new IllegalArgumentException("not a field path: " + e);
+    }
     Scope.Selection selection = scope.selection().get();
+    Expr root = root(e);
+    String rootName = root instanceof Expr.Var ? ((Expr.Var) root).name() : ((Expr.SelectionVar) root).name();
+    return steps(
+        JavaStrings.literal(selection.objectName()),
+        new ArrayList<>(),
+        new ArrayList<>(),
+        new StringBuilder(rootName),
+        new Expr.SelectionVar(rootName, root.pos()),
+        scope,
+        e,
+        scope,
+        expressions,
+        withValue);
+  }
+
+  /**
+   * Builds the field for the steps of the path {@code e} after its root.
+   *
+   * @param name Java string parts of the name so far; {@code id} likewise for the id
+   * @param text pending literal path text, not yet in {@code name}/{@code id}
+   * @param value the root's value, compiled in {@code valueScope}; {@code scope} compiles indexes
+   */
+  private static FormField steps(
+      String objectName,
+      List<String> name,
+      List<String> id,
+      StringBuilder text,
+      Expr value,
+      Scope valueScope,
+      Expr e,
+      Scope scope,
+      ExpressionCompiler expressions,
+      boolean withValue) {
     DiagnosticSink diagnostics = expressions.env().diagnostics();
     List<Expr> chain = new ArrayList<>();
     for (Expr step = e; step != null; step = target(step)) {
       chain.add(0, step);
     }
-    if (!isPath(e)) {
-      throw new IllegalArgumentException("not a field path: " + e);
-    }
-    Expr root = chain.get(0);
-    String rootName = root instanceof Expr.Var ? ((Expr.Var) root).name() : ((Expr.SelectionVar) root).name();
-    // name and id as Java string concatenations: text parts are Java literals, index parts ints.
-    List<String> name = new ArrayList<>();
-    List<String> id = new ArrayList<>();
-    StringBuilder text = new StringBuilder(rootName);
-    Expr value = new Expr.SelectionVar(rootName, root.pos());
-    CompiledExpr current = withValue ? expressions.compile(value, scope) : null;
+    CompiledExpr current = withValue ? expressions.compile(value, valueScope) : null;
     if (withValue && current == null) {
       return null;
     }
@@ -206,14 +281,14 @@ public final class FormPaths {
         value = new Expr.Index(value, index.index(), step.pos());
       }
       if (withValue) {
-        current = expressions.compile(value, scope);
+        current = expressions.compile(value, valueScope);
         if (current == null) {
           return null;
         }
       }
     }
     flush(text, name, id);
-    return new FormField(JavaStrings.literal(selection.objectName()), concat(name), concat(id), current);
+    return new FormField(objectName, concat(name), concat(id), current);
   }
 
   /**

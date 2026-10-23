@@ -221,9 +221,10 @@ public final class FieldProcessor implements AttributeProcessor {
 
   /**
    * The field a {@code t:field}/{@code t:errors} attribute names: a {@code Field} variable (a
-   * fragment parameter), or a property path ({@code lastName}, {@code *{lastName}},
-   * {@code *{address.city}}, {@code *{items[i].name}}) checked against the {@code t:object}
-   * selection in {@code scope} ({@link FormPaths#resolve}). Reports and returns null on error. With
+   * fragment parameter) or a sub-path of one ({@code name.answer}, {@link FormPaths#resolveSubPath}),
+   * or a property path ({@code lastName}, {@code *{lastName}}, {@code *{address.city}},
+   * {@code *{items[i].name}}) checked against the {@code t:object} selection in {@code scope}
+   * ({@link FormPaths#resolve}). Reports and returns null on error. With
    * {@code report} false it reports nothing, compiles only the path's index expressions, and
    * leaves the value null.
    */
@@ -241,8 +242,9 @@ public final class FieldProcessor implements AttributeProcessor {
     if (variable.isPresent()) {
       return FormPaths.fromVariable(variable.get(), attr.valuePos(), ctx.expressions());
     }
+    Optional<Variable> fieldRoot = FormPaths.fieldRoot(e, scope);
     Optional<Scope.Selection> selection = scope.selection();
-    if (!selection.isPresent()) {
+    if (!fieldRoot.isPresent() && !selection.isPresent()) {
       sink.error(
           attr.pos(),
           attr.name()
@@ -269,6 +271,8 @@ public final class FieldProcessor implements AttributeProcessor {
                     ctx.env().messages(),
                     ctx.env().functionNamespaces(),
                     ctx.env().functionIndex()));
-    return FormPaths.resolve(e, scope, expressions, report);
+    return fieldRoot.isPresent()
+        ? FormPaths.resolveSubPath(e, fieldRoot.get(), scope, expressions, report)
+        : FormPaths.resolve(e, scope, expressions, report);
   }
 }
