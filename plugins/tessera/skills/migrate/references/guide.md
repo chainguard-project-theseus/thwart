@@ -570,7 +570,11 @@ public record Address(String street) {}
   if there are none (`*` for all). For other markup, loop over `fields.errors('email')`.
 - `t:errorclass="error"` next to `t:field` appends the class when the field has errors.
 - `fields.*` arguments are string literal paths (or a field expression, below). A
-  `<form method="post">` gets the CSRF input automatically when Spring Security provides a token.
+  `<form method="post">` gets the CSRF input automatically when Spring Security provides a token,
+  and so does a form whose computed method (`t:method`, `t:attr="method=..."`) is `post` (any
+  case) at render time, as in Thymeleaf. Computing the method does not opt a form out of the token.
+  The method must be exactly `post` as a browser reads it: `method=" post"` submits as GET and gets
+  no token, so the token never ends up in a URL.
 - **Lists of beans.** A path may index a `List` or an array with an int literal or an int
   variable: `*{items[0].name}`, `*{items[itemStat.index].name}`, `*{items[${i}].name}`. This
   replaces Thymeleaf's `*{items[__${itemStat.index}__].name}` and FreeMarker's
