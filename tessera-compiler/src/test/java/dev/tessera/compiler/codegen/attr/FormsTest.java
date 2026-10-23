@@ -108,6 +108,49 @@ class FormsTest {
   }
 
   @Test
+  void disabledCheckboxHasNoMarker() {
+    // Thymeleaf's checkbox field processor leaves the _name marker out when the input has a
+    // disabled attribute of any value (a disabled box is not submitted; the marker would reset it).
+    Compilation c =
+        compile(
+            "<input type=\"checkbox\" disabled t:field=\"*{active}\">"
+                + "<input type=\"checkbox\" disabled=\"false\" t:field=\"*{active}\">");
+    assertEquals(
+        "<form><input type=\"checkbox\" disabled id=\"active\" name=\"active\" value=\"true\" checked=\"checked\">"
+            + "<input type=\"checkbox\" disabled=\"false\" id=\"active\" name=\"active\" value=\"true\""
+            + " checked=\"checked\"></form>",
+        render(c, owner(c, "Ann", null), new TestForms()));
+  }
+
+  @Test
+  void conditionallyDisabledCheckboxHasMarkerOnlyWhenEnabled() {
+    // t:disabled runs before t:field: the marker is written only when it is false. A static
+    // disabled overridden by a false t:disabled gets the marker, as in Thymeleaf.
+    Compilation c =
+        compile(
+            "<input type=\"checkbox\" t:field=\"*{active}\" t:disabled=\"${owner.firstName == 'Ann'}\">"
+                + "<input type=\"checkbox\" disabled t:disabled=\"false\" t:field=\"*{active}\">");
+    assertEquals(
+        "<form><input type=\"checkbox\" disabled=\"disabled\" id=\"active\" name=\"active\" value=\"true\""
+            + " checked=\"checked\">"
+            + "<input type=\"checkbox\" id=\"active\" name=\"active\" value=\"true\" checked=\"checked\">"
+            + "<input type=\"hidden\" name=\"_active\" value=\"on\" /></form>",
+        render(c, owner(c, "Ann", null), new TestForms()));
+    assertEquals(
+        "<form><input type=\"checkbox\" id=\"active\" name=\"active\" value=\"true\" checked=\"checked\">"
+            + "<input type=\"hidden\" name=\"_active\" value=\"on\" />"
+            + "<input type=\"checkbox\" id=\"active\" name=\"active\" value=\"true\" checked=\"checked\">"
+            + "<input type=\"hidden\" name=\"_active\" value=\"on\" /></form>",
+        render(c, owner(c, "Bob", null), new TestForms()));
+  }
+
+  @Test
+  void checkboxDisabledThroughAttrHasNoMarker() {
+    Compilation c = compile("<input type=\"checkbox\" t:attr=\"disabled=${true}\" t:field=\"*{active}\">");
+    assertFalse(render(c, owner(c, "Ann", null), new TestForms()).contains("_active"));
+  }
+
+  @Test
   void radioWithoutValueIsAnError() {
     compileForm(HEAD + "><input type=\"radio\" t:field=\"*{pet}\"></form>").assertError("needs a value attribute");
   }
