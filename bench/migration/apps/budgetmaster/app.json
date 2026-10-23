@@ -11,6 +11,7 @@
   "base": "http://localhost:9000",
   "ignore": [
     "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
-    "(?<=verificationCode\">|name=\"verificationCode\" value=\")[0-9A-Z]{4}"
+    "(?<=verificationCode\">|name=\"verificationCode\" value=\")[0-9A-Z]{4}",
+    "(?<=/webjars/[\\w.-]{1,40}/)v?\\d+(\\.\\d+)+[\\w.-]*/"
   ]
 }

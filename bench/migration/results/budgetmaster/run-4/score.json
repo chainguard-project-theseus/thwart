@@ -12,7 +12,7 @@
  "tests_failed": [],
  "baseline_tests": 269,
  "pages_total": 121,
- "pages_identical": 7,
+ "pages_identical": 10,
  "pages_reordered": 0,
  "status_mismatch": [
   "GET /tags: status: recorded 200, got 404",

@@ -1,102 +1,9 @@
-001 differs   GET /login
---- recorded 001.html
-+++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Login
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
-@@ -39,9 +39,9 @@
-                       <i class="left material-icons">
-                         send
-                       Login
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
-002 differs   GET /
---- recorded 002.html
-+++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Login
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
-@@ -39,9 +39,9 @@
-                       <i class="left material-icons">
-                         send
-                       Login
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
-003 differs   POST /login username=Default&password=wrong
---- recorded 003.html
-+++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Login
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
-@@ -49,9 +49,9 @@
-                       <i class="left material-icons">
-                         send
-                       Login
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
+001 same      GET /login
+002 same      GET /
+003 same      POST /login username=Default&password=wrong
 004 differs   POST /login username=Default&password=BudgetMaster
 --- recorded 004.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -124,7 +124,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -106,34 +13,9 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -258,9 +258,9 @@
-                     play_arrow
-                   <span>
-                     Create a category
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 005 differs   GET /today?target=/
 --- recorded 005.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -124,7 +124,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -143,34 +25,9 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -258,9 +258,9 @@
-                     play_arrow
-                   <span>
-                     Create a category
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 006 differs   GET /firstUse
 --- recorded 006.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Introduction
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -124,7 +124,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -180,34 +37,9 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -262,9 +262,9 @@
-                     Let's go!
-                 <p>
-                 <p>
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 007 differs   GET /about
 --- recorded 007.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - About
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -124,7 +124,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -217,35 +49,10 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -229,9 +229,9 @@
-             <br>
-             datatables 2.3.5
-             <br>
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 008 same      GET /about/whatsNewModal
 009 differs   GET /hotkeys
 --- recorded 009.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Hotkeys
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -124,7 +124,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -255,34 +62,9 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -234,9 +234,9 @@
-               Click
-           <div class="col l5 m5 s8">
-             Show related transactions for clicked area
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 010 differs   GET /statistics
 --- recorded 010.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Statistics
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -124,7 +124,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -292,38 +74,19 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -174,9 +174,9 @@
-                   event
-                 <div>
-                   First Transaction -
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 011 differs   GET /tags
    status: recorded 200, got 404
 --- recorded 011.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Tags
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,137 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -429,22 +192,16 @@
 -        <a class="waves-effect" id="button-logout">
 -          <i class="material-icons">
 -            lock
-... 52 more diff line(s)
+-          Logout
+-    <a class="sidenav-trigger valign-wrapper white-text" data-target="slide-out" href="#">
+-      <i class="left material-icons mobile-menu-icon">
+-        menu
+-      Menü
+-    <div class="hide-on-large-only">
+... 46 more diff line(s)
 012 differs   GET /418
 --- recorded 012.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - 418
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -33,15 +33,7 @@
                    <h5>
                      I'm a teapot.
@@ -465,18 +222,6 @@
 013 differs   GET /accounts
 --- recorded 013.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Accounts
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -123,7 +123,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -486,34 +231,9 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -223,9 +223,9 @@
-                       <i class="left material-icons no-margin">
-                         delete
-       <div id="deleteModalContainerOnDemand">
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 014 differs   GET /accounts/newAccount
 --- recorded 014.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - New Account
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -125,7 +125,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -532,45 +252,18 @@
                  <label class="input-label" for="account-description">
                    Description
              <div class="row">
-@@ -8389,10 +8389,10 @@
+@@ -8389,7 +8389,7 @@
              done
            OK
      <script>
 -      monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', ]; monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', ]; weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', ]; weekDaysShort = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', ]; weekDaysLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S', ]; buttonCancel = 'Cancel'; buttonClose = 'OK';
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
 +      monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]; monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; weekDays = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]; weekDaysShort = ["Su","Mo","Tu","We","Th","Fr","Sa"]; weekDaysLetters = ["S","M","T","W","T","F","S"]; buttonCancel = "Cancel"; buttonClose = "OK";
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
-@@ -8401,7 +8401,7 @@
-     <script src="/js/fetchModalContent.js">
-     <script>
-       accountPlaceholderName = "All Accounts";
--    <script src="/webjars/vanilla-picker/2.12.3/dist/vanilla-picker.min.js">
-+    <script src="/webjars/vanilla-picker/dist/vanilla-picker.min.js">
-     <script src="/js/accounts.js">
-     <script src="/js/iconSelect.js">
-     <script src="/js/fontColorPicker.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
+     <script src="/webjars/mousetrap/mousetrap.js">
 015 differs   POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=&description=&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=
 --- recorded 015.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - New Account
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -125,7 +125,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -589,45 +282,18 @@
                  <label class="input-label" for="account-description">
                    Description
              <div class="row">
-@@ -8389,10 +8389,10 @@
+@@ -8389,7 +8389,7 @@
              done
            OK
      <script>
 -      monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', ]; monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', ]; weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', ]; weekDaysShort = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', ]; weekDaysLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S', ]; buttonCancel = 'Cancel'; buttonClose = 'OK';
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
 +      monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]; monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; weekDays = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]; weekDaysShort = ["Su","Mo","Tu","We","Th","Fr","Sa"]; weekDaysLetters = ["S","M","T","W","T","F","S"]; buttonCancel = "Cancel"; buttonClose = "OK";
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
-@@ -8401,7 +8401,7 @@
-     <script src="/js/fetchModalContent.js">
-     <script>
-       accountPlaceholderName = "All Accounts";
--    <script src="/webjars/vanilla-picker/2.12.3/dist/vanilla-picker.min.js">
-+    <script src="/webjars/vanilla-picker/dist/vanilla-picker.min.js">
-     <script src="/js/accounts.js">
-     <script src="/js/iconSelect.js">
-     <script src="/js/fontColorPicker.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
+     <script src="/webjars/mousetrap/mousetrap.js">
 016 differs   POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Default Account&description=&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=
 --- recorded 016.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - New Account
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -125,7 +125,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -646,45 +312,18 @@
                  <label class="input-label" for="account-description">
                    Description
              <div class="row">
-@@ -8390,10 +8390,10 @@
+@@ -8390,7 +8390,7 @@
              done
            OK
      <script>
 -      monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', ]; monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', ]; weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', ]; weekDaysShort = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', ]; weekDaysLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S', ]; buttonCancel = 'Cancel'; buttonClose = 'OK';
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
 +      monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]; monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; weekDays = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]; weekDaysShort = ["Su","Mo","Tu","We","Th","Fr","Sa"]; weekDaysLetters = ["S","M","T","W","T","F","S"]; buttonCancel = "Cancel"; buttonClose = "OK";
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
-@@ -8402,7 +8402,7 @@
-     <script src="/js/fetchModalContent.js">
-     <script>
-       accountPlaceholderName = "All Accounts";
--    <script src="/webjars/vanilla-picker/2.12.3/dist/vanilla-picker.min.js">
-+    <script src="/webjars/vanilla-picker/dist/vanilla-picker.min.js">
-     <script src="/js/accounts.js">
-     <script src="/js/iconSelect.js">
-     <script src="/js/fontColorPicker.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
+     <script src="/webjars/mousetrap/mousetrap.js">
 017 differs   POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Savings <b>&description=Rainy "day" fund&iconImageID=&builtinIconIdentifier=fas fa-piggy-bank&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=31.12.2025
 --- recorded 017.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Accounts
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -123,7 +123,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -793,22 +432,22 @@
 -                      Default Account
 -                    <td>
 -                      <div class="account-description truncate">
-... 178 more diff line(s)
+-                    <td>
+-                      <a class="btn-flat no-padding text-default" href="/accounts/2/edit">
+-                        <i class="left material-icons">
+-                          edit
+-                      <a class="btn-flat button-request-delete-account no-padding text-default waves-effect waves-light" data-url="/accounts/2/requestDelete" id="">
+-                        <i class="left material-icons no-margin">
+-                          delete
+-                  <tr class="account-overview-row">
+-                    <td>
+-                      <div class="category-circle category-square text-blue">
+-                        <span style="color: #FFFFFF">
+-                          <i class="account-select-icon fa-piggy-bank fas">
+... 166 more diff line(s)
 018 differs   POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Old Wallet&description=&iconImageID=&builtinIconIdentifier=&fontColor=#000000&accountState=READ_ONLY&endDate=
 --- recorded 018.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Accounts
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -123,7 +123,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -840,34 +479,9 @@
                    <td>
                      <div class="account-description truncate">
                        Rainy "day" fund
-@@ -283,9 +279,9 @@
-                       <i class="left material-icons no-margin">
-                         delete
-       <div id="deleteModalContainerOnDemand">
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 019 differs   POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Temp&description=&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=
 --- recorded 019.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Accounts
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -123,7 +123,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -899,34 +513,9 @@
                    <td>
                      <div class="account-description truncate">
                        Rainy "day" fund
-@@ -306,9 +302,9 @@
-                       <i class="left material-icons no-margin">
-                         delete
-       <div id="deleteModalContainerOnDemand">
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 020 differs   GET /accounts/3/edit
 --- recorded 020.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Edit Account
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -125,7 +125,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -945,45 +534,18 @@
                    Rainy "day" fund
                  <label class="input-label" for="account-description">
                    Description
-@@ -8391,10 +8391,10 @@
+@@ -8391,7 +8391,7 @@
              done
            OK
      <script>
 -      monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', ]; monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', ]; weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', ]; weekDaysShort = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', ]; weekDaysLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S', ]; buttonCancel = 'Cancel'; buttonClose = 'OK';
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
 +      monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]; monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; weekDays = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]; weekDaysShort = ["Su","Mo","Tu","We","Th","Fr","Sa"]; weekDaysLetters = ["S","M","T","W","T","F","S"]; buttonCancel = "Cancel"; buttonClose = "OK";
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
-@@ -8403,7 +8403,7 @@
-     <script src="/js/fetchModalContent.js">
-     <script>
-       accountPlaceholderName = "All Accounts";
--    <script src="/webjars/vanilla-picker/2.12.3/dist/vanilla-picker.min.js">
-+    <script src="/webjars/vanilla-picker/dist/vanilla-picker.min.js">
-     <script src="/js/accounts.js">
-     <script src="/js/iconSelect.js">
-     <script src="/js/fontColorPicker.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
+     <script src="/webjars/mousetrap/mousetrap.js">
 021 differs   POST /accounts/newAccount ID=3&isSelected=false&isDefault=false&name=Savings <b>&description=Rainy "day" fund %26 more&iconImageID=&builtinIconIdentifier=fas fa-piggy-bank&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=31.12.2025
 --- recorded 021.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Accounts
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -123,7 +123,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -1092,7 +654,19 @@
 -                      Default Account
 -                    <td>
 -                      <div class="account-description truncate">
-... 266 more diff line(s)
+-                    <td>
+-                      <a class="btn-flat no-padding text-default" href="/accounts/2/edit">
+-                        <i class="left material-icons">
+-                          edit
+-                      <a class="btn-flat button-request-delete-account no-padding text-default waves-effect waves-light" data-url="/accounts/2/requestDelete" id="">
+-                        <i class="left material-icons no-margin">
+-                          delete
+-                  <tr class="account-overview-row">
+-                    <td>
+-                      <div class="account-square-border category-circle category-square text-blue">
+-                        <span style="color: #000000">
+-                          O
+... 254 more diff line(s)
 022 differs   GET /accounts/5/requestDelete
 --- recorded 022.html
 +++ now
@@ -1110,18 +684,6 @@
 023 differs   GET /accounts/5/delete
 --- recorded 023.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Accounts
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -123,7 +123,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -1141,34 +703,9 @@
                    <td>
                      <div class="account-description truncate">
                        Rainy "day" fund &amp; more
-@@ -280,9 +279,9 @@
-                       <i class="left material-icons no-margin">
-                         delete
-       <div id="deleteModalContainerOnDemand">
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 024 differs   GET /accounts
 --- recorded 024.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Accounts
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -123,7 +123,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -1188,34 +725,9 @@
                    <td>
                      <div class="account-description truncate">
                        Rainy "day" fund &amp; more
-@@ -270,9 +269,9 @@
-                       <i class="left material-icons no-margin">
-                         delete
-       <div id="deleteModalContainerOnDemand">
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 025 differs   GET /categories
 --- recorded 025.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Categories
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -125,7 +125,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -1225,7 +737,7 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -182,20 +182,20 @@
+@@ -182,13 +182,13 @@
                  <td>
                    No Category
                  <td>
@@ -1241,31 +753,9 @@
                      <i class="left material-icons no-margin">
                        search
        <div id="deleteModalContainerOnDemand">
-     <script>
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 026 differs   GET /categories/newCategory
 --- recorded 026.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - New Category
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -125,7 +125,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -1275,43 +765,9 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -8377,9 +8377,9 @@
-           <i class="left material-icons">
-             done
-           OK
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
-@@ -8388,7 +8388,7 @@
-     <script src="/js/fetchModalContent.js">
-     <script>
-       accountPlaceholderName = "All Accounts";
--    <script src="/webjars/vanilla-picker/2.12.3/dist/vanilla-picker.min.js">
-+    <script src="/webjars/vanilla-picker/dist/vanilla-picker.min.js">
-     <script src="/js/categories.js">
-     <script src="/js/iconSelect.js">
-     <script src="/js/fontColorPicker.js">
 027 differs   POST /categories/newCategory ID=&type=CUSTOM&name=&color=#eeeeee&iconImageID=&builtinIconIdentifier=&fontColor=#000000
 --- recorded 027.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - New Category
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -125,7 +125,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -1321,43 +777,9 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -8377,9 +8377,9 @@
-           <i class="left material-icons">
-             done
-           OK
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
-@@ -8388,7 +8388,7 @@
-     <script src="/js/fetchModalContent.js">
-     <script>
-       accountPlaceholderName = "All Accounts";
--    <script src="/webjars/vanilla-picker/2.12.3/dist/vanilla-picker.min.js">
-+    <script src="/webjars/vanilla-picker/dist/vanilla-picker.min.js">
-     <script src="/js/categories.js">
-     <script src="/js/iconSelect.js">
-     <script src="/js/fontColorPicker.js">
 028 differs   POST /categories/newCategory ID=&type=CUSTOM&name=Food %26 Drinks&color=#4caf50&iconImageID=&builtinIconIdentifier=fas fa-utensils&fontColor=#FFFFFF
 --- recorded 028.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Categories
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -125,7 +125,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -1402,7 +824,7 @@
                      <i class="left material-icons no-margin">
                        search
                    <a class="btn-flat button-request-delete-category no-padding text-default waves-effect waves-light" data-url="/categories/3/requestDelete" id="">
-@@ -216,20 +213,20 @@
+@@ -216,13 +213,13 @@
                  <td>
                    No Category
                  <td>
@@ -1418,31 +840,9 @@
                      <i class="left material-icons no-margin">
                        search
        <div id="deleteModalContainerOnDemand">
-     <script>
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 029 differs   POST /categories/newCategory ID=&type=CUSTOM&name=Salary&color=#2196f3&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF
 --- recorded 029.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Categories
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -125,7 +125,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -1510,34 +910,9 @@
                        <span style="color: #FFFFFF">
                          S
                  <td>
-@@ -248,9 +245,9 @@
-                       delete
-       <div id="deleteModalContainerOnDemand">
-     <script>
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 030 differs   POST /categories/newCategory ID=&type=CUSTOM&name=Old <i>&color=#9e9e9e&iconImageID=&builtinIconIdentifier=&fontColor=#000000
 --- recorded 030.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Categories
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -125,7 +125,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -1646,22 +1021,22 @@
 -                    <a href="/search?searchCategory=true&amp;searchText=Old <i>">
 -                      <div class="category-circle" style="background-color: #9e9e9e">
 -                        <span style="color: #000000">
-... 190 more diff line(s)
+-                          O
+-                  <td>
+-                    Old
+-                    <i>
+-                  <td>
+-                    <a class="text-default waves-effect waves-light" href="/search?searchCategory=true&amp;searchText=Old <i>">
+-                      0
+-                  <td>
+-                    <a class="btn-flat no-padding text-default waves-effect waves-light" href="/categories/5/edit" id="">
+-                      <i class="left material-icons no-margin">
+-                        edit
+-                    <a class="btn-flat no-padding text-default waves-effect waves-light" href="/search?searchCategory=true&amp;searchText=Old <i>" id="">
+... 178 more diff line(s)
 031 differs   GET /categories/4/edit
 --- recorded 031.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Edit Category
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -125,7 +125,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -1689,43 +1064,9 @@
                          <i class="hidden" id="builtin-icon-preview-icon">
                          <img class="category-icon hidden item-icon-preview" id="item-icon-preview-icon" src="">
                          <span class="" id="item-icon-fallback-name">
-@@ -8378,9 +8378,9 @@
-           <i class="left material-icons">
-             done
-           OK
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
-@@ -8389,7 +8389,7 @@
-     <script src="/js/fetchModalContent.js">
-     <script>
-       accountPlaceholderName = "All Accounts";
--    <script src="/webjars/vanilla-picker/2.12.3/dist/vanilla-picker.min.js">
-+    <script src="/webjars/vanilla-picker/dist/vanilla-picker.min.js">
-     <script src="/js/categories.js">
-     <script src="/js/iconSelect.js">
-     <script src="/js/fontColorPicker.js">
 032 differs   POST /categories/newCategory ID=4&type=CUSTOM&name=Salary&color=#1976d2&iconImageID=&builtinIconIdentifier=fas fa-money-bill&fontColor=#FFFFFF
 --- recorded 032.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Categories
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -125,7 +125,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -1818,19 +1159,6 @@
                        <span style="color: #FFFFFF">
                          <i class="category-icon fa-money-bill fas">
                  <td>
-@@ -270,9 +266,9 @@
-                       delete
-       <div id="deleteModalContainerOnDemand">
-     <script>
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 033 differs   GET /categories/5/requestDelete
 --- recorded 033.html
 +++ now
@@ -1945,18 +1273,6 @@
 034 differs   POST /categories/5/delete category=2
 --- recorded 034.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Categories
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -125,7 +125,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -2065,22 +1381,22 @@
 -                          <i class="category-icon fa-money-bill fas">
 -                  <td>
 -                    Salary
-... 144 more diff line(s)
+-                  <td>
+-                    <a class="text-default waves-effect waves-light" href="/search?searchCategory=true&amp;searchText=Salary">
+-                      0
+-                  <td>
+-                    <a class="btn-flat no-padding text-default waves-effect waves-light" href="/categories/4/edit" id="">
+-                      <i class="left material-icons no-margin">
+-                        edit
+-                    <a class="btn-flat no-padding text-default waves-effect waves-light" href="/search?searchCategory=true&amp;searchText=Salary" id="">
+-                      <i class="left material-icons no-margin">
+-                        search
+-                    <a class="btn-flat button-request-delete-category no-padding text-default waves-effect waves-light" data-url="/categories/4/requestDelete" id="">
+-                      <i class="left material-icons no-margin">
+... 132 more diff line(s)
 035 differs   GET /categories
 --- recorded 035.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Categories
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -125,7 +125,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -2136,38 +1452,19 @@
                        <span style="color: #FFFFFF">
                          <i class="category-icon fa-money-bill fas">
                  <td>
-@@ -235,9 +235,9 @@
-                       delete
-       <div id="deleteModalContainerOnDemand">
-     <script>
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 036 differs   GET /transactions
    status: recorded 200, got 404
 --- recorded 036.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Transactions
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,597 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -2273,22 +1570,16 @@
 -          Settings
 -      <li>
 -        <div class="divider no-margin">
-... 510 more diff line(s)
+-      <li>
+-        <a class="waves-effect" href="/hotkeys">
+-          <i class="material-icons">
+-            keyboard
+-          Hotkeys
+-      <li>
+... 504 more diff line(s)
 037 differs   GET /transactions/newTransaction/normal
 --- recorded 037.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - New Transaction
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -144,7 +144,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -2397,22 +1688,22 @@
 -                    Repeating
 -                <div class="row" id="transaction-repeating-modifier-row">
 -                  <div class="col input-field l4 m6 offset-l2 s6">
-... 275 more diff line(s)
+-                    <input class="validate" id="transaction-repeating-modifier" type="text">
+-                    <label for="transaction-repeating-modifier">
+-                      Every
+-                  <input id="hidden-transaction-repeating-modifier" name="repeatingModifierNumber" type="hidden">
+-                  <div class="col input-field l4 m6 s6">
+-                    <select id="transaction-repeating-modifier-type" name="repeatingModifierType">
+-                      <option value="Days">
+-                        Days
+-                      <option selected value="Months">
+-                        Months
+-                      <option value="Years">
+-                        Years
+... 263 more diff line(s)
 038 differs   POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=&amount=&category=1&date=&description=&account=2&action=
 --- recorded 038.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - New Transaction
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -144,7 +144,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -2521,22 +1812,22 @@
 -                    Repeating
 -                <div class="row" id="transaction-repeating-modifier-row">
 -                  <div class="col input-field l4 m6 offset-l2 s6">
-... 275 more diff line(s)
+-                    <input class="validate" id="transaction-repeating-modifier" type="text">
+-                    <label for="transaction-repeating-modifier">
+-                      Every
+-                  <input id="hidden-transaction-repeating-modifier" name="repeatingModifierNumber" type="hidden">
+-                  <div class="col input-field l4 m6 s6">
+-                    <select id="transaction-repeating-modifier-type" name="repeatingModifierType">
+-                      <option value="Days">
+-                        Days
+-                      <option selected value="Months">
+-                        Months
+-                      <option value="Years">
+-                        Years
+... 263 more diff line(s)
 039 differs   POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=Groceries&amount=2550&category=3&date=03.06.2025&description=Weekly <shop>&account=2&tags[0].name=food&tags[1].name=weekly&action=continue
 --- recorded 039.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - New Transaction
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -144,7 +144,7 @@
        <br>
      <form action="/logout" class="hide" id="logout-form" method="post">
@@ -2645,26 +1936,32 @@
                <div class="row">
 -                <div class="center-align col s12">
 -                  <a class="background-blue-baby btn text-black waves-effect waves-light" id="button-transaction-add-repeating-option">
-... 287 more diff line(s)
+-                    <i class="left material-icons">
+-                      repeat
+-                    Add repetition
+-              <div class="hidden" id="transaction-repeating-option">
+-                <input name="isRepeating" type="hidden">
+-                <div class="row">
+-                  <div class="col l8 m12 offset-l2 s12">
+-                    <i class="icon-repeating material-icons">
+-                      repeat
+-                    Repeating
+-                <div class="row" id="transaction-repeating-modifier-row">
+-                  <div class="col input-field l4 m6 offset-l2 s6">
+... 275 more diff line(s)
 040 differs   POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=false&name=Salary June&amount=250000&category=4&date=01.06.2025&description=&account=2&action=
    status: recorded 200, got 404
 --- recorded 040.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Transactions
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,799 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -2770,7 +2067,13 @@
 -          Settings
 -      <li>
 -        <div class="divider no-margin">
-... 712 more diff line(s)
+-      <li>
+-        <a class="waves-effect" href="/hotkeys">
+-          <i class="material-icons">
+-            keyboard
+-          Hotkeys
+-      <li>
+... 706 more diff line(s)
 041 differs   POST /transactions/newTransaction ID=&isRepeating=true&isExpenditure=true&name=Rent&amount=90000&category=2&date=05.05.2025&description=Flat "A"&account=2&repeatingModifierNumber=1&repeatingModifierType=Months&repeatingEndType=afterXTimes&repeatingEndValue=5&action=
    status: recorded 200, got 405
    final URL: recorded /transactions, got /transactions/newTransaction
@@ -2782,9 +2085,9 @@
 -    <title>
 -      BudgetMaster - Transactions
 -    <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
+-    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
 -    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
+-    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
 -    <link href="/css/colors.css" rel="stylesheet" type="text/css">
 -    <link href="/css/style.css" rel="stylesheet" type="text/css">
 -    <link href="/css/navbar.css" rel="stylesheet" type="text/css">
@@ -2908,9 +2211,9 @@
 -    <title>
 -      BudgetMaster - Transactions
 -    <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
+-    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
 -    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
+-    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
 -    <link href="/css/colors.css" rel="stylesheet" type="text/css">
 -    <link href="/css/style.css" rel="stylesheet" type="text/css">
 -    <link href="/css/navbar.css" rel="stylesheet" type="text/css">
@@ -3034,9 +2337,9 @@
 -    <title>
 -      BudgetMaster - Transactions
 -    <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
+-    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
 -    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
+-    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
 -    <link href="/css/colors.css" rel="stylesheet" type="text/css">
 -    <link href="/css/style.css" rel="stylesheet" type="text/css">
 -    <link href="/css/navbar.css" rel="stylesheet" type="text/css">
@@ -3152,18 +2455,6 @@
 044 differs   GET /transactions/newTransaction/transfer
 --- recorded 044.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - New Transfer
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -52,7 +52,7 @@
              All Accounts
            <div>
@@ -3272,26 +2563,32 @@
 +                <i class="material-icons prefix">
 +                  account_balance
 +                <label class="input-label" for="transaction-destination-account">
-... 373 more diff line(s)
++                  Destination Account
++                <div class="custom-select-wrapper transfer-account-select-wrapper" id="transaction-destination-account">
++                  <div class="custom-select">
++                    <div class="custom-select-trigger" tabindex="0">
++                      <div class="custom-select-selected-item">
++                        <div class="account-square-border category-circle category-circle-small category-square no-margin-left">
++                          <span style="color: #FFFFFF">
++                            D
++                        <span class="custom-select-item-name">
++                          Default Account
++                      <div class="custom-select-arrow">
++                    <div class="custom-select-options">
+... 361 more diff line(s)
 045 differs   POST /transactions/newTransaction ID=&isRepeating=false&isExpenditure=true&name=To savings&amount=50000&category=1&date=10.06.2025&description=&account=2&transferAccount=3&action=
    status: recorded 200, got 404
 --- recorded 045.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Transactions
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,963 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -3397,26 +2694,26 @@
 -          Settings
 -      <li>
 -        <div class="divider no-margin">
-... 876 more diff line(s)
+-      <li>
+-        <a class="waves-effect" href="/hotkeys">
+-          <i class="material-icons">
+-            keyboard
+-          Hotkeys
+-      <li>
+... 870 more diff line(s)
 046 differs   GET /transactions
    status: recorded 200, got 404
 --- recorded 046.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Transactions
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,950 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -3522,26 +2819,26 @@
 -          Settings
 -      <li>
 -        <div class="divider no-margin">
-... 863 more diff line(s)
+-      <li>
+-        <a class="waves-effect" href="/hotkeys">
+-          <i class="material-icons">
+-            keyboard
+-          Hotkeys
+-      <li>
+... 857 more diff line(s)
 047 differs   GET /previousMonth?target=/transactions
    status: recorded 200, got 404
 --- recorded 047.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Transactions
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,769 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -3647,26 +2944,26 @@
 -          Settings
 -      <li>
 -        <div class="divider no-margin">
-... 682 more diff line(s)
+-      <li>
+-        <a class="waves-effect" href="/hotkeys">
+-          <i class="material-icons">
+-            keyboard
+-          Hotkeys
+-      <li>
+... 676 more diff line(s)
 048 differs   GET /nextMonth?target=/transactions
    status: recorded 200, got 404
 --- recorded 048.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Transactions
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,950 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -3772,26 +3069,26 @@
 -          Settings
 -      <li>
 -        <div class="divider no-margin">
-... 863 more diff line(s)
+-      <li>
+-        <a class="waves-effect" href="/hotkeys">
+-          <i class="material-icons">
+-            keyboard
+-          Hotkeys
+-      <li>
+... 857 more diff line(s)
 049 differs   GET /nextMonth?target=/transactions
    status: recorded 200, got 404
 --- recorded 049.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Transactions
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,679 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -3897,26 +3194,26 @@
 -          Settings
 -      <li>
 -        <div class="divider no-margin">
-... 592 more diff line(s)
+-      <li>
+-        <a class="waves-effect" href="/hotkeys">
+-          <i class="material-icons">
+-            keyboard
+-          Hotkeys
+-      <li>
+... 586 more diff line(s)
 050 differs   GET /setDate?target=/transactions
    status: recorded 200, got 404
 --- recorded 050.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Transactions
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,679 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -4022,26 +3319,26 @@
 -          Settings
 -      <li>
 -        <div class="divider no-margin">
-... 592 more diff line(s)
+-      <li>
+-        <a class="waves-effect" href="/hotkeys">
+-          <i class="material-icons">
+-            keyboard
+-          Hotkeys
+-      <li>
+... 586 more diff line(s)
 051 differs   GET /today?target=/transactions
    status: recorded 200, got 404
 --- recorded 051.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Transactions
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,950 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -4147,26 +3444,26 @@
 -          Settings
 -      <li>
 -        <div class="divider no-margin">
-... 863 more diff line(s)
+-      <li>
+-        <a class="waves-effect" href="/hotkeys">
+-          <i class="material-icons">
+-            keyboard
+-          Hotkeys
+-      <li>
+... 857 more diff line(s)
 052 differs   GET /transactions/recurringOverview
    status: recorded 200, got 404
 --- recorded 052.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Active Recurring Transactions
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,241 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -4272,22 +3569,16 @@
 -      <li>
 -        <div class="divider no-margin">
 -      <li>
-... 156 more diff line(s)
+-        <a class="waves-effect" href="/hotkeys">
+-          <i class="material-icons">
+-            keyboard
+-          Hotkeys
+-      <li>
+-        <a class="waves-effect" href="/firstUse">
+... 150 more diff line(s)
 053 differs   GET /transactions/1/edit
 --- recorded 053.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Edit Transaction
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -52,7 +52,7 @@
              All Accounts
            <div>
@@ -4396,26 +3687,32 @@
 +                        <div class="category-circle category-circle-small category-square">
                            <span style="color: #FFFFFF">
                              <i class="account-select-icon fa-piggy-bank fas">
-... 323 more diff line(s)
+                         <span class="custom-select-item-name">
+-                          Savings
+-                          <b>
+-                        <b>
+-                      <b>
+-                    <b>
+-                  <b>
+-                    <input class="hidden-input-custom-select" name="account" type="hidden" value="2">
+-                <b>
+-              <b>
+-            <b>
++                          Savings &lt;b&gt;
+... 311 more diff line(s)
 054 differs   POST /transactions/newTransaction ID=1&isRepeating=false&isExpenditure=true&name=Groceries&amount=2750&category=3&date=03.06.2025&description=Weekly <shop>&account=2&tags[0].name=food&action=
    status: recorded 200, got 404
 --- recorded 054.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Transactions
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,963 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -4521,26 +3818,26 @@
 -          Settings
 -      <li>
 -        <div class="divider no-margin">
-... 876 more diff line(s)
+-      <li>
+-        <a class="waves-effect" href="/hotkeys">
+-          <i class="material-icons">
+-            keyboard
+-          Hotkeys
+-      <li>
+... 870 more diff line(s)
 055 differs   GET /transactions/1/highlight
    status: recorded 200, got 404
 --- recorded 055.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Transactions
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,950 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -4646,23 +3943,17 @@
 -          Settings
 -      <li>
 -        <div class="divider no-margin">
-... 863 more diff line(s)
+-      <li>
+-        <a class="waves-effect" href="/hotkeys">
+-          <i class="material-icons">
+-            keyboard
+-          Hotkeys
+-      <li>
+... 857 more diff line(s)
 056 same      GET /transactions/1/changeTypeModal
 057 differs   GET /transactions/1/newFromExisting
 --- recorded 057.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - New Transaction
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -52,7 +52,7 @@
              All Accounts
            <div>
@@ -4771,25 +4062,31 @@
 +                        <div class="category-circle category-circle-small category-square">
                            <span style="color: #FFFFFF">
                              <i class="account-select-icon fa-piggy-bank fas">
-... 311 more diff line(s)
+                         <span class="custom-select-item-name">
+-                          Savings
+-                          <b>
+-                        <b>
+-                      <b>
+-                    <b>
+-                  <b>
+-                    <input class="hidden-input-custom-select" name="account" type="hidden" value="2">
+-                <b>
+-              <b>
+-            <b>
++                          Savings &lt;b&gt;
+... 299 more diff line(s)
 058 differs   GET /transactions/3/edit
 --- recorded 058.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Edit Transaction
 +      BudgetMaster - Edit Transfer
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -52,7 +52,7 @@
              All Accounts
            <div>
@@ -4895,26 +4192,26 @@
                            <span style="color: #FFFFFF">
                              <i class="category-icon fa-utensils fas">
                          <span class="custom-select-item-name">
-... 427 more diff line(s)
+                           Food &amp; Drinks
+-                      <div class="custom-select-option" data-value="1">
++                      <div class="custom-select-option selected" data-value="1">
+                         <div class="category-circle category-circle-small" style="background-color: #FFFFFF">
+                           <span style="color: #000000">
+                             N
+... 421 more diff line(s)
 059 differs   GET /transactions/7/edit
    status: recorded 200, got 404
 --- recorded 059.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Edit Transfer
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,495 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -5020,7 +4317,13 @@
 -          Settings
 -      <li>
 -        <div class="divider no-margin">
-... 409 more diff line(s)
+-      <li>
+-        <a class="waves-effect" href="/hotkeys">
+-          <i class="material-icons">
+-            keyboard
+-          Hotkeys
+-      <li>
+... 403 more diff line(s)
 060 differs   GET /transactions/5/requestDelete
    status: recorded 200, got 404
    final URL: recorded /transactions/5/requestDelete, got /transactions
@@ -5086,21 +4389,15 @@
    final URL: recorded /transactions, got /transactions/5/delete
 --- recorded 061.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Transactions
 +      BudgetMaster - 500
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,870 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -5206,28 +4503,28 @@
 -          Settings
 -      <li>
 -        <div class="divider no-margin">
-... 783 more diff line(s)
+-      <li>
+-        <a class="waves-effect" href="/hotkeys">
+-          <i class="material-icons">
+-            keyboard
+-          Hotkeys
+-      <li>
+... 777 more diff line(s)
 062 same      GET /keywords/keywordCheck?transactionName=Salary
 063 same      GET /keywords/keywordCheck?transactionName=Groceries
 064 differs   GET /transactions
    status: recorded 200, got 404
 --- recorded 064.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Transactions
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,860 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -5333,26 +4630,26 @@
 -          Settings
 -      <li>
 -        <div class="divider no-margin">
-... 773 more diff line(s)
+-      <li>
+-        <a class="waves-effect" href="/hotkeys">
+-          <i class="material-icons">
+-            keyboard
+-          Hotkeys
+-      <li>
+... 767 more diff line(s)
 065 differs   GET /search?searchText=&searchName=true&searchDescription=true&searchCategory=true&searchTags=true
    status: recorded 200, got 404
 --- recorded 065.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Search
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,846 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -5458,26 +4755,26 @@
 -      <li>
 -        <div class="divider no-margin">
 -      <li>
-... 760 more diff line(s)
+-        <a class="waves-effect" id="button-logout">
+-          <i class="material-icons">
+-            lock
+-          Logout
+-    <a class="sidenav-trigger valign-wrapper white-text" data-target="slide-out" href="#">
+-      <i class="left material-icons mobile-menu-icon">
+... 754 more diff line(s)
 066 differs   GET /search?searchText=groc&searchName=true&searchDescription=true&searchCategory=true&searchTags=true
    status: recorded 200, got 404
 --- recorded 066.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Search
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,324 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -5583,26 +4880,26 @@
 -      <li>
 -        <div class="divider no-margin">
 -      <li>
-... 238 more diff line(s)
+-        <a class="waves-effect" id="button-logout">
+-          <i class="material-icons">
+-            lock
+-          Logout
+-    <a class="sidenav-trigger valign-wrapper white-text" data-target="slide-out" href="#">
+-      <i class="left material-icons mobile-menu-icon">
+... 232 more diff line(s)
 067 differs   GET /search?searchText=food&searchName=false&searchDescription=false&searchCategory=false&searchTags=true
    status: recorded 200, got 404
 --- recorded 067.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Search
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,324 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -5708,26 +5005,26 @@
 -      <li>
 -        <div class="divider no-margin">
 -      <li>
-... 238 more diff line(s)
+-        <a class="waves-effect" id="button-logout">
+-          <i class="material-icons">
+-            lock
+-          Logout
+-    <a class="sidenav-trigger valign-wrapper white-text" data-target="slide-out" href="#">
+-      <i class="left material-icons mobile-menu-icon">
+... 232 more diff line(s)
 068 differs   GET /search?searchText=nothing-matches&searchName=true
    status: recorded 200, got 404
 --- recorded 068.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Search
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,216 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -5833,22 +5130,16 @@
 -      <li>
 -        <div class="divider no-margin">
 -      <li>
-... 130 more diff line(s)
+-        <a class="waves-effect" id="button-logout">
+-          <i class="material-icons">
+-            lock
+-          Logout
+-    <a class="sidenav-trigger valign-wrapper white-text" data-target="slide-out" href="#">
+-      <i class="left material-icons mobile-menu-icon">
+... 124 more diff line(s)
 069 differs   GET /templateGroups
 --- recorded 069.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Template Groups
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -51,7 +51,7 @@
              All Accounts
            <div>
@@ -5871,9 +5162,9 @@
            <div class="center-align headline">
              No data available
          <div id="deleteModalContainerOnDemand">
--        <script src="/webjars/jquery/3.7.1/jquery.min.js">
--        <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--        <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+-        <script src="/webjars/jquery/jquery.min.js">
+-        <script src="/webjars/materializecss/js/materialize.min.js">
+-        <script src="/webjars/mousetrap/mousetrap.js">
 -        <script>
 -          rootURL = ""
 -        <script src="/js/hotkeys.js">
@@ -5898,18 +5189,6 @@
 070 differs   GET /templateGroups/newTemplateGroup
 --- recorded 070.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - New Template Group
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -49,7 +49,7 @@
              All Accounts
            <div>
@@ -5928,34 +5207,9 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -186,9 +186,9 @@
-                     <i class="left material-icons">
-                       save
-                     Save
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 071 differs   POST /templateGroups/newTemplateGroup ID=&name=
 --- recorded 071.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - New Template Group
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -49,7 +49,7 @@
              All Accounts
            <div>
@@ -5974,34 +5228,9 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -186,9 +186,9 @@
-                     <i class="left material-icons">
-                       save
-                     Save
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 072 differs   POST /templateGroups/newTemplateGroup ID=&name=Monthly
 --- recorded 072.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Template Groups
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -51,7 +51,7 @@
              All Accounts
            <div>
@@ -6036,9 +5265,9 @@
                      <i class="left material-icons no-margin">
                        delete
          <div id="deleteModalContainerOnDemand">
--        <script src="/webjars/jquery/3.7.1/jquery.min.js">
--        <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--        <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+-        <script src="/webjars/jquery/jquery.min.js">
+-        <script src="/webjars/materializecss/js/materialize.min.js">
+-        <script src="/webjars/mousetrap/mousetrap.js">
 -        <script>
 -          rootURL = ""
 -        <script src="/js/hotkeys.js">
@@ -6063,18 +5292,6 @@
 073 differs   POST /templateGroups/newTemplateGroup ID=&name=Temp group
 --- recorded 073.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Template Groups
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -51,7 +51,7 @@
              All Accounts
            <div>
@@ -6109,9 +5326,9 @@
                      <i class="left material-icons no-margin">
                        delete
          <div id="deleteModalContainerOnDemand">
--        <script src="/webjars/jquery/3.7.1/jquery.min.js">
--        <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--        <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+-        <script src="/webjars/jquery/jquery.min.js">
+-        <script src="/webjars/materializecss/js/materialize.min.js">
+-        <script src="/webjars/mousetrap/mousetrap.js">
 -        <script>
 -          rootURL = ""
 -        <script src="/js/hotkeys.js">
@@ -6136,18 +5353,6 @@
 074 differs   GET /templates
 --- recorded 074.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Templates
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -51,7 +51,7 @@
              All Accounts
            <div>
@@ -6166,26 +5371,6 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -225,9 +225,9 @@
-           <input name="templateID" type="hidden">
-           <input name="groupID" type="hidden">
-       <div id="deleteModalContainerOnDemand">
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
-@@ -236,5 +236,5 @@
-     <script src="/js/fetchModalContent.js">
-     <script>
-       accountPlaceholderName = "All Accounts";
--    <script src="/webjars/sortablejs/1.15.6/Sortable.min.js">
-+    <script src="/webjars/sortablejs/Sortable.min.js">
-     <script src="/js/templates.js">
 075 differs   GET /templates/newTemplate
 --- recorded 075.html
 +++ now
@@ -6195,9 +5380,9 @@
 -    <title>
 -      BudgetMaster - New Template
 -    <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
+-    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
 -    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
+-    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
 -    <link href="/css/colors.css" rel="stylesheet" type="text/css">
 -    <link href="/css/style.css" rel="stylesheet" type="text/css">
 -    <link href="/css/navbar.css" rel="stylesheet" type="text/css">
@@ -6319,9 +5504,9 @@
 -    <title>
 -      BudgetMaster - New Template
 -    <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
+-    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
 -    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
+-    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
 -    <link href="/css/colors.css" rel="stylesheet" type="text/css">
 -    <link href="/css/style.css" rel="stylesheet" type="text/css">
 -    <link href="/css/navbar.css" rel="stylesheet" type="text/css">
@@ -6437,18 +5622,6 @@
 077 differs   POST /templates/newTemplate ID=&templateGroup=&isExpenditure=true&templateName=Lunch <b>&name=Lunch&amount=1200&category=3&description=Canteen&includeAccount=true&account=2&transferAccount=2&iconImageID=&builtinIconIdentifier=fas fa-burger&fontColor=#FFFFFF&tags[0].name=food
 --- recorded 077.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Templates
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -51,7 +51,7 @@
              All Accounts
            <div>
@@ -6557,7 +5730,19 @@
 -                  <a class="hint-clear notification-item text-default" data-id="hint-3" data-url="/hints/dismiss/3">
 -                    <i class="material-icons">
 -                      clear
-... 207 more diff line(s)
+-          <div class="row" id="hint-7">
+-            <div class="center-align col s12">
+-              <div class="notification-wrapper">
+-                <div class="notification notification-border text-default">
+-                  <i class="fa-info fas notification-item">
+-                  <span class="left-align notification-item">
+-                    Hint: You can move templates to a group by drag&amp;drop
+-                  <a class="hint-clear notification-item text-default" data-id="hint-7" data-url="/hints/dismiss/7">
+-                    <i class="material-icons">
+-                      clear
+-          <br>
+-          <div class="container">
+... 195 more diff line(s)
 078 differs   GET /templates/fromTransactionModal
 --- recorded 078.html
 +++ now
@@ -6576,18 +5761,6 @@
 079 differs   GET /templates
 --- recorded 079.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Templates
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -51,7 +51,7 @@
              All Accounts
            <div>
@@ -6671,9 +5844,9 @@
 -      <b>
 -        <div id="deleteModalContainerOnDemand">
 -    <b>
--      <script src="/webjars/jquery/3.7.1/jquery.min.js">
--      <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--      <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+-      <script src="/webjars/jquery/jquery.min.js">
+-      <script src="/webjars/materializecss/js/materialize.min.js">
+-      <script src="/webjars/mousetrap/mousetrap.js">
 -      <script>
 -        rootURL = ""
 -      <script src="/js/hotkeys.js">
@@ -6682,7 +5855,7 @@
 -      <script src="/js/fetchModalContent.js">
 -      <script>
 -        accountPlaceholderName = "All Accounts";
--      <script src="/webjars/sortablejs/1.15.6/Sortable.min.js">
+-      <script src="/webjars/sortablejs/Sortable.min.js">
 -      <script src="/js/templates.js">
 +                      Lunch &lt;b&gt;
 +                    <div class="collapsible-header-button">
@@ -6696,22 +5869,22 @@
 +                        <i class="left material-icons no-margin">
 +                          note_add
 +                  <div class="collapsible-body">
-... 52 more diff line(s)
++                    <div class="no-margin-bottom row">
++                      <table class="table-template-content text-default">
++                        <tbody>
++                          <tr>
++                            <td class="template-content-label">
++                              Name
++                            <td>
++                              Lunch
++                          <tr>
++                            <td class="template-content-label">
++                              Amount
++                            <td>
+... 40 more diff line(s)
 080 differs   POST /templates/fromTransaction templateName=Rent template&ID=&isExpenditure=true&name=Rent&amount=90000&category=2&description=&account=2&includeCategory=true&includeAccount=false
 --- recorded 080.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Templates
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -51,7 +51,7 @@
              All Accounts
            <div>
@@ -6820,22 +5993,22 @@
 -                            <tr>
 -                              <td class="template-content-label">
 -                                Name
-... 136 more diff line(s)
+-                              <td>
+-                                Rent
+-                            <tr>
+-                              <td class="template-content-label">
+-                                Amount
+-                              <td>
+-                                -900.00 €
+-                            <tr>
+-                              <td class="template-content-label">
+-                                Category
+-                              <td>
+-                                Balance
+... 124 more diff line(s)
 081 differs   GET /templates
 --- recorded 081.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Templates
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -51,7 +51,7 @@
              All Accounts
            <div>
@@ -6944,22 +6117,22 @@
 -                                Category
 -                              <td>
 -                                Balance
-... 124 more diff line(s)
+-              <b>
+-            <b>
+-          <b>
+-        <b>
+-          <form action="/templateGroups/moveTemplateToGroup" id="form-move-template-to-group" method="post">
+-            <input name="_csrf" type="hidden" value="MASKED">
+-            <input name="templateID" type="hidden">
+-            <input name="groupID" type="hidden">
+-      <b>
+-        <div id="deleteModalContainerOnDemand">
+-    <b>
+-      <script src="/webjars/jquery/jquery.min.js">
+... 112 more diff line(s)
 082 differs   GET /templateGroups
 --- recorded 082.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Template Groups
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -51,7 +51,7 @@
              All Accounts
            <div>
@@ -6982,9 +6155,9 @@
                      <i class="left material-icons no-margin">
                        delete
          <div id="deleteModalContainerOnDemand">
--        <script src="/webjars/jquery/3.7.1/jquery.min.js">
--        <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--        <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+-        <script src="/webjars/jquery/jquery.min.js">
+-        <script src="/webjars/materializecss/js/materialize.min.js">
+-        <script src="/webjars/mousetrap/mousetrap.js">
 -        <script>
 -          rootURL = ""
 -        <script src="/js/hotkeys.js">
@@ -7009,18 +6182,6 @@
 083 differs   GET /templateGroups/2/edit
 --- recorded 083.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Edit Template Group
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -49,7 +49,7 @@
              All Accounts
            <div>
@@ -7039,35 +6200,10 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -186,9 +186,9 @@
-                     <i class="left material-icons">
-                       save
-                     Save
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 084 same      GET /templateGroups/3/requestDelete
 085 differs   GET /templateGroups/3/delete
 --- recorded 085.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Template Groups
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -51,7 +51,7 @@
              All Accounts
            <div>
@@ -7090,9 +6226,9 @@
                      <i class="left material-icons no-margin">
                        delete
          <div id="deleteModalContainerOnDemand">
--        <script src="/webjars/jquery/3.7.1/jquery.min.js">
--        <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--        <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+-        <script src="/webjars/jquery/jquery.min.js">
+-        <script src="/webjars/materializecss/js/materialize.min.js">
+-        <script src="/webjars/mousetrap/mousetrap.js">
 -        <script>
 -          rootURL = ""
 -        <script src="/js/hotkeys.js">
@@ -7123,9 +6259,9 @@
 -    <title>
 -      BudgetMaster - Edit Template
 -    <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
+-    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
 -    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
+-    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
 -    <link href="/css/colors.css" rel="stylesheet" type="text/css">
 -    <link href="/css/style.css" rel="stylesheet" type="text/css">
 -    <link href="/css/navbar.css" rel="stylesheet" type="text/css">
@@ -7241,18 +6377,6 @@
 087 differs   GET /templates/1/select
 --- recorded 087.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - New Transaction
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -52,7 +52,7 @@
              All Accounts
            <div>
@@ -7361,23 +6485,23 @@
 +                        <div class="category-circle category-circle-small category-square">
                            <span style="color: #FFFFFF">
                              <i class="account-select-icon fa-piggy-bank fas">
-... 311 more diff line(s)
+                         <span class="custom-select-item-name">
+-                          Savings
+-                          <b>
+-                        <b>
+-                      <b>
+-                    <b>
+-                  <b>
+-                    <input class="hidden-input-custom-select" name="account" type="hidden" value="2">
+-                <b>
+-              <b>
+-            <b>
++                          Savings &lt;b&gt;
+... 299 more diff line(s)
 088 same      GET /templates/2/requestDelete
 089 differs   GET /templates/2/delete
 --- recorded 089.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Templates
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -51,7 +51,7 @@
              All Accounts
            <div>
@@ -7461,9 +6585,9 @@
 -      <b>
 -        <div id="deleteModalContainerOnDemand">
 -    <b>
--      <script src="/webjars/jquery/3.7.1/jquery.min.js">
--      <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--      <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+-      <script src="/webjars/jquery/jquery.min.js">
+-      <script src="/webjars/materializecss/js/materialize.min.js">
+-      <script src="/webjars/mousetrap/mousetrap.js">
 -      <script>
 -        rootURL = ""
 -      <script src="/js/hotkeys.js">
@@ -7472,7 +6596,7 @@
 -      <script src="/js/fetchModalContent.js">
 -      <script>
 -        accountPlaceholderName = "All Accounts";
--      <script src="/webjars/sortablejs/1.15.6/Sortable.min.js">
+-      <script src="/webjars/sortablejs/Sortable.min.js">
 -      <script src="/js/templates.js">
 +                      Lunch &lt;b&gt;
 +                    <div class="collapsible-header-button">
@@ -7486,22 +6610,22 @@
 +                        <i class="left material-icons no-margin">
 +                          note_add
 +                  <div class="collapsible-body">
-... 52 more diff line(s)
++                    <div class="no-margin-bottom row">
++                      <table class="table-template-content text-default">
++                        <tbody>
++                          <tr>
++                            <td class="template-content-label">
++                              Name
++                            <td>
++                              Lunch
++                          <tr>
++                            <td class="template-content-label">
++                              Amount
++                            <td>
+... 40 more diff line(s)
 090 differs   GET /templates
 --- recorded 090.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Templates
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -51,7 +51,7 @@
              All Accounts
            <div>
@@ -7585,9 +6709,9 @@
 -      <b>
 -        <div id="deleteModalContainerOnDemand">
 -    <b>
--      <script src="/webjars/jquery/3.7.1/jquery.min.js">
--      <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--      <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+-      <script src="/webjars/jquery/jquery.min.js">
+-      <script src="/webjars/materializecss/js/materialize.min.js">
+-      <script src="/webjars/mousetrap/mousetrap.js">
 -      <script>
 -        rootURL = ""
 -      <script src="/js/hotkeys.js">
@@ -7596,7 +6720,7 @@
 -      <script src="/js/fetchModalContent.js">
 -      <script>
 -        accountPlaceholderName = "All Accounts";
--      <script src="/webjars/sortablejs/1.15.6/Sortable.min.js">
+-      <script src="/webjars/sortablejs/Sortable.min.js">
 -      <script src="/js/templates.js">
 +                      Lunch &lt;b&gt;
 +                    <div class="collapsible-header-button">
@@ -7610,26 +6734,32 @@
 +                        <i class="left material-icons no-margin">
 +                          note_add
 +                  <div class="collapsible-body">
-... 52 more diff line(s)
++                    <div class="no-margin-bottom row">
++                      <table class="table-template-content text-default">
++                        <tbody>
++                          <tr>
++                            <td class="template-content-label">
++                              Name
++                            <td>
++                              Lunch
++                          <tr>
++                            <td class="template-content-label">
++                              Amount
++                            <td>
+... 40 more diff line(s)
 091 differs   GET /charts
    status: recorded 200, got 404
 --- recorded 091.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Charts
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,485 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -7735,7 +6865,13 @@
 -            info
 -          About
 -      <li>
-... 399 more diff line(s)
+-        <div class="divider no-margin">
+-      <li>
+-        <a class="waves-effect" id="button-logout">
+-          <i class="material-icons">
+-            lock
+-          Logout
+... 393 more diff line(s)
 092 differs   POST /charts displayType=BAR&groupType=MONTH&chartID=1&startDate=01.05.2025&endDate=30.06.2025&filterConfiguration.includeIncome=true&filterConfiguration.includeExpenditure=true&filterConfiguration.includeTransfer=true&filterConfiguration.includeNotRepeating=true&filterConfiguration.includeRepeating=true&filterConfiguration.filterCategories['0'].include=true&filterConfiguration.filterCategories['0'].ID=3&filterConfiguration.filterCategories['0'].name=Food %26 Drinks&filterConfiguration.filterCategories['1'].include=true&filterConfiguration.filterCategories['1'].ID=1&filterConfiguration.filterCategories['1'].name=No Category&filterConfiguration.filterCategories['2'].include=true&filterConfiguration.filterCategories['2'].ID=4&filterConfiguration.filterCategories['2'].name=Salary&filterConfiguration.filterCategories['3'].include=true&filterConfiguration.filterCategories['3'].ID=2&filterConfiguration.filterCategories['3'].name=Rest&filterConfiguration.filterTags['0'].include=true&filterConfiguration.filterTags['0'].ID=1&filterConfiguration.filterTags['0'].name=food&filterConfiguration.filterTags['1'].include=true&filterConfiguration.filterTags['1'].ID=2&filterConfiguration.filterTags['1'].name=weekly&filterConfiguration.name=
    status: recorded 200, got 405
 --- recorded 092.html
@@ -7746,9 +6882,9 @@
 -    <title>
 -      BudgetMaster - Charts
 -    <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
+-    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
 -    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
+-    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
 -    <link href="/css/colors.css" rel="stylesheet" type="text/css">
 -    <link href="/css/style.css" rel="stylesheet" type="text/css">
 -    <link href="/css/navbar.css" rel="stylesheet" type="text/css">
@@ -7989,18 +7125,6 @@
 094 differs   GET /charts/manage
 --- recorded 094.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Charts
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -50,7 +50,7 @@
              All Accounts
            <div>
@@ -8019,43 +7143,9 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -346,9 +346,9 @@
-                     <i class="left material-icons no-margin">
-                       visibility
-       <div id="deleteModalContainerOnDemand">
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 095 differs   GET /charts/newChart
 --- recorded 095.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - New Chart
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
-@@ -15,7 +15,7 @@
-     <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
-     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-     <link href="/touch_icon.png" rel="apple-touch-icon">
--    <link href="/webjars/codemirror/5.62.2/lib/codemirror.css" rel="stylesheet">
-+    <link href="/webjars/codemirror/lib/codemirror.css" rel="stylesheet">
-     <link href="/css/charts.css" rel="stylesheet" type="text/css">
-   <body class="background-blue-light" data-theme="dark">
-     <ul class="sidenav sidenav-fixed" id="slide-out">
 @@ -51,7 +51,7 @@
              All Accounts
            <div>
@@ -8085,52 +7175,9 @@
              <div class="row">
                <div class="col input-field sl2" style="width: 100%">
                  <textarea class="materialize-textarea validate" id="chart-script" name="script">
-@@ -187,9 +185,9 @@
-                     <i class="left material-icons">
-                       save
-                     Save
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
-@@ -198,6 +196,6 @@
-     <script src="/js/fetchModalContent.js">
-     <script>
-       accountPlaceholderName = "All Accounts";
--    <script src="/webjars/codemirror/5.62.2/lib/codemirror.js">
--    <script src="/webjars/codemirror/5.62.2/mode/javascript/javascript.js">
-+    <script src="/webjars/codemirror/lib/codemirror.js">
-+    <script src="/webjars/codemirror/mode/javascript/javascript.js">
-     <script src="/js/charts.js">
 096 differs   POST /charts/newChart ID=&name=&script=
 --- recorded 096.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - New Chart
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
-@@ -15,7 +15,7 @@
-     <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
-     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-     <link href="/touch_icon.png" rel="apple-touch-icon">
--    <link href="/webjars/codemirror/5.62.2/lib/codemirror.css" rel="stylesheet">
-+    <link href="/webjars/codemirror/lib/codemirror.css" rel="stylesheet">
-     <link href="/css/charts.css" rel="stylesheet" type="text/css">
-   <body class="background-blue-light" data-theme="dark">
-     <ul class="sidenav sidenav-fixed" id="slide-out">
 @@ -51,7 +51,7 @@
              All Accounts
            <div>
@@ -8160,43 +7207,9 @@
              <div class="row">
                <div class="col input-field sl2" style="width: 100%">
                  <textarea class="invalid materialize-textarea tooltipped" data-delay="50" data-position="bottom" data-tooltip="Please insert a script." id="chart-script" name="script">
-@@ -186,9 +184,9 @@
-                     <i class="left material-icons">
-                       save
-                     Save
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
-@@ -197,6 +195,6 @@
-     <script src="/js/fetchModalContent.js">
-     <script>
-       accountPlaceholderName = "All Accounts";
--    <script src="/webjars/codemirror/5.62.2/lib/codemirror.js">
--    <script src="/webjars/codemirror/5.62.2/mode/javascript/javascript.js">
-+    <script src="/webjars/codemirror/lib/codemirror.js">
-+    <script src="/webjars/codemirror/mode/javascript/javascript.js">
-     <script src="/js/charts.js">
 097 differs   POST /charts/newChart ID=&name=My chart&script=var x = 1;
 --- recorded 097.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Charts
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -50,7 +50,7 @@
              All Accounts
            <div>
@@ -8227,34 +7240,9 @@
                  <a class="notification-clear notification-item text-white" data-id="notification-0">
                    <i class="material-icons">
                      clear
-@@ -367,9 +364,9 @@
-                     <i class="left material-icons no-margin">
-                       visibility
-       <div id="deleteModalContainerOnDemand">
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 098 differs   GET /charts/manage
 --- recorded 098.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Charts
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -50,7 +50,7 @@
              All Accounts
            <div>
@@ -8273,43 +7261,9 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -354,9 +354,9 @@
-                     <i class="left material-icons no-margin">
-                       visibility
-       <div id="deleteModalContainerOnDemand">
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 099 differs   GET /charts/1/edit
 --- recorded 099.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Edit Chart
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
-@@ -15,7 +15,7 @@
-     <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
-     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-     <link href="/touch_icon.png" rel="apple-touch-icon">
--    <link href="/webjars/codemirror/5.62.2/lib/codemirror.css" rel="stylesheet">
-+    <link href="/webjars/codemirror/lib/codemirror.css" rel="stylesheet">
-     <link href="/css/charts.css" rel="stylesheet" type="text/css">
-   <body class="background-blue-light" data-theme="dark">
-     <ul class="sidenav sidenav-fixed" id="slide-out">
 @@ -51,7 +51,7 @@
              All Accounts
            <div>
@@ -8328,52 +7282,9 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -185,9 +185,9 @@
-                     <i class="left material-icons">
-                       save
-                     Save
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
-@@ -196,6 +196,6 @@
-     <script src="/js/fetchModalContent.js">
-     <script>
-       accountPlaceholderName = "All Accounts";
--    <script src="/webjars/codemirror/5.62.2/lib/codemirror.js">
--    <script src="/webjars/codemirror/5.62.2/mode/javascript/javascript.js">
-+    <script src="/webjars/codemirror/lib/codemirror.js">
-+    <script src="/webjars/codemirror/mode/javascript/javascript.js">
-     <script src="/js/charts.js">
 100 differs   GET /charts/13/edit
 --- recorded 100.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Edit Chart
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
-@@ -15,7 +15,7 @@
-     <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
-     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-     <link href="/touch_icon.png" rel="apple-touch-icon">
--    <link href="/webjars/codemirror/5.62.2/lib/codemirror.css" rel="stylesheet">
-+    <link href="/webjars/codemirror/lib/codemirror.css" rel="stylesheet">
-     <link href="/css/charts.css" rel="stylesheet" type="text/css">
-   <body class="background-blue-light" data-theme="dark">
-     <ul class="sidenav sidenav-fixed" id="slide-out">
 @@ -51,7 +51,7 @@
              All Accounts
            <div>
@@ -8403,44 +7314,10 @@
              <div class="row">
                <div class="col input-field sl2" style="width: 100%">
                  <textarea class="materialize-textarea validate" id="chart-script" name="script">
-@@ -187,9 +185,9 @@
-                     <i class="left material-icons">
-                       save
-                     Save
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
-@@ -198,6 +196,6 @@
-     <script src="/js/fetchModalContent.js">
-     <script>
-       accountPlaceholderName = "All Accounts";
--    <script src="/webjars/codemirror/5.62.2/lib/codemirror.js">
--    <script src="/webjars/codemirror/5.62.2/mode/javascript/javascript.js">
-+    <script src="/webjars/codemirror/lib/codemirror.js">
-+    <script src="/webjars/codemirror/mode/javascript/javascript.js">
-     <script src="/js/charts.js">
 101 same      GET /charts/13/requestDelete
 102 differs   GET /charts/13/delete
 --- recorded 102.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - Charts
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -50,7 +50,7 @@
              All Accounts
            <div>
@@ -8459,38 +7336,19 @@
      <div data-url="/about/whatsNewModal" id="whatsNewModelContainer">
      <div id="globalAccountSelectModalOnDemand">
      <main>
-@@ -356,9 +356,9 @@
-                     <i class="left material-icons no-margin">
-                       visibility
-       <div id="deleteModalContainerOnDemand">
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 103 differs   GET /reports
    status: recorded 200, got 404
 --- recorded 103.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Reports
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,552 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -8596,26 +7454,26 @@
 -      <li>
 -        <div class="divider no-margin">
 -      <li>
-... 465 more diff line(s)
+-        <a class="waves-effect" id="button-logout">
+-          <i class="material-icons">
+-            lock
+-          Logout
+-    <a class="sidenav-trigger valign-wrapper white-text" data-target="slide-out" href="#">
+-      <i class="left material-icons mobile-menu-icon">
+... 459 more diff line(s)
 104 differs   GET /settings
    status: recorded 200, got 404
 --- recorded 104.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Settings
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,703 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -8721,7 +7579,13 @@
 -        <div class="divider no-margin">
 -      <li>
 -        <a class="waves-effect" id="button-logout">
-... 618 more diff line(s)
+-          <i class="material-icons">
+-            lock
+-          Logout
+-    <a class="sidenav-trigger valign-wrapper white-text" data-target="slide-out" href="#">
+-      <i class="left material-icons mobile-menu-icon">
+-        menu
+... 612 more diff line(s)
 105 differs   POST /settings/save/security password=abc&passwordConfirmation=abd
    status: recorded 200, got 405
 --- recorded 105.html
@@ -8756,8 +7620,8 @@
 -        $('#settings-password').on('change keydown paste input', function() { toggleSettingsContainerHeader('securitySettingsContainerHeader', false); }); $('#settings-password-confirmation').on('change keydown paste input', function() { toggleSettingsContainerHeader('securitySettingsContainerHeader', false); });
 -    <div class="hidden securityContainerToastContent">
 -      {"localizedMessage":"Error saving password","classes":"background-red text-white"}
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
+-    <script src="/webjars/jquery/jquery.min.js">
+-    <script src="/webjars/materializecss/js/materialize.min.js">
 -    <script>
 -      initSettingsContainer('SecuritySettingsContainer', 'securitySettingsContainer');
 106 differs   POST /settings/save/personalization language=English&currency=$&useDarkTheme=false&showCategoriesAsCircles=true&searchItemsPerPage=20
@@ -8856,8 +7720,8 @@
 -        $('.settings-preview-image').click(function() { for(let item of document.getElementsByClassName('settings-preview-image')) { item.classList.toggle('settings-preview-image-selected', false); } this.classList.toggle('settings-preview-image-selected', true); document.getElementById('useDarkTheme').value = this.dataset.useDarkTheme; toggleSettingsContainerHeader('personalizationSettingsContainerHeader', false); }); // show unsaved changes warning $('#settings-language').change(function() { toggleSettingsContainerHeader('personalizationSettingsContainerHeader', false); }); $('#settings-currency').on('change keydown paste input', function() { toggleSettingsContainerHeader('personalizationSettingsContainerHeader', false); }); $('input[name="showCategoriesAsCircles"]').change(function() { toggleSettingsContainerHeader('personalizationSettingsContainerHeader', false); }); $('#settings-password-confirmation').on('change keydown paste input', function() { toggleSettingsContainerHeader('personalizationSettingsContainerHeader', false); }); $('#settings-search-items-per-page').change(function() { toggleSettingsContainerHeader('personalizationSettingsContainerHeader', false); });
 -    <div class="hidden securityContainerToastContent">
 -      {"localizedMessage":"Personalization settings saved","classes":"background-green text-white"}
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
+-    <script src="/webjars/jquery/jquery.min.js">
+-    <script src="/webjars/materializecss/js/materialize.min.js">
 -    <script>
 -      initSettingsContainer('PersonalizationSettingsContainer', 'personalizationSettingsContainer');
 107 differs   POST /settings/save/accounts accountEndDateReminderActivated=false
@@ -8900,8 +7764,8 @@
 -        function validateAccountsForm() { return true; } // toggle unsaved changes warning $('input[name="accountEndDateReminderActivated"]').change(function() { toggleSettingsContainerHeader('accountsSettingsContainerHeader', false); });
 -    <div class="hidden securityContainerToastContent">
 -      {"localizedMessage":"Account settings saved","classes":"background-green text-white"}
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
+-    <script src="/webjars/jquery/jquery.min.js">
+-    <script src="/webjars/materializecss/js/materialize.min.js">
 -    <script>
 -      initSettingsContainer('AccountsSettingsContainer', 'accountsSettingsContainer');
 108 differs   POST /settings/save/transactions restActivated=true&orderTransactionNameSuggestionsAlphabetically=true&keywords[0].value=salary&keywords[1].value=refund
@@ -8976,8 +7840,8 @@
 -        M.Chips.init(document.querySelectorAll('.chips'), { placeholder: keywordsPlaceholder, secondaryPlaceholder: keywordsPlaceholder, data: initialKeywords, onChipAdd: onKeywordsChange, onChipDelete: onKeywordsChange }); function onKeywordsChange() { toggleSettingsContainerHeader('transactionsSettingsContainerHeader', false); } function validateTransactionForm() { let keywords = M.Chips.getInstance(document.querySelector('.chips')).chipsData; let parent = document.getElementById('hidden-transaction-name-keywords'); for(let i = 0; i &lt; keywords.length; i++) { let input = document.createElement('input'); input.setAttribute('type', 'hidden'); input.setAttribute('name', 'keywords[' + i + '].value'); input.setAttribute('value', keywords[i].tag); parent.appendChild(input); } return true; } $('input[name="restActivated"]').change(function() { toggleSettingsContainerHeader('transactionsSettingsContainerHeader', false); });
 -    <div class="hidden securityContainerToastContent">
 -      {"localizedMessage":"Transactions settings saved","classes":"background-green text-white"}
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
+-    <script src="/webjars/jquery/jquery.min.js">
+-    <script src="/webjars/materializecss/js/materialize.min.js">
 -    <script>
 -      initSettingsContainer('TransactionsSettingsContainer', 'transactionsSettingsContainer');
 109 differs   POST /settings/save/backup backupReminderActivated=false&autoBackupActivated=false&autoBackupDays=1&autoBackupTimeType=TIME_00&autoBackupFilesToKeep=3&autoBackupGitUrl=&autoBackupGitBranchName=&autoBackupGitUserName=&autoBackupGitToken=&runBackup=0
@@ -9166,8 +8030,8 @@
 -        $('#button-update-search').click(function() { $.ajax({ type: 'GET', url: $(this).attr('data-url'), data: {}, success: function(response) { M.Toast.dismissAll(); let parsedData = JSON.parse(response); M.toast({ html: parsedData['localizedMessage'], classes: parsedData['classes'] }); }, error: function(response) { M.toast({ html: "Error searching for updates", classes: 'red' }); console.error(response); } }); }); $('input[name="autoUpdateCheckEnabled"]').change(function() { toggleSettingsContainerHeader('updateSettingsContainerHeader', false); });
 -    <div class="hidden securityContainerToastContent">
 -      {"localizedMessage":"Update settings saved","classes":"background-green text-white"}
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
+-    <script src="/webjars/jquery/jquery.min.js">
+-    <script src="/webjars/materializecss/js/materialize.min.js">
 -    <script>
 -      initSettingsContainer('UpdateSettingsContainer', 'updateSettingsContainer');
 111 differs   POST /settings/save/misc
@@ -9188,29 +8052,23 @@
 -            Reset all hints
 -    <div class="hidden securityContainerToastContent">
 -      {"localizedMessage":"All hints reset","classes":"background-green text-white"}
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
+-    <script src="/webjars/jquery/jquery.min.js">
+-    <script src="/webjars/materializecss/js/materialize.min.js">
 -    <script>
 -      initSettingsContainer('MiscSettingsContainer', 'miscSettingsContainer');
 112 differs   GET /settings
    status: recorded 200, got 404
 --- recorded 112.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Settings
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,703 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -9316,26 +8174,26 @@
 -      <li>
 -        <a class="waves-effect" id="button-logout">
 -          <i class="material-icons">
-... 619 more diff line(s)
+-            lock
+-          Logout
+-    <a class="sidenav-trigger valign-wrapper white-text" data-target="slide-out" href="#">
+-      <i class="left material-icons mobile-menu-icon">
+-        menu
+-      Menü
+... 613 more diff line(s)
 113 differs   GET /settings/database/requestImport
    status: recorded 200, got 404
 --- recorded 113.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Settings
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,732 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -9441,26 +8299,26 @@
 -      <li>
 -        <a class="waves-effect" id="button-logout">
 -          <i class="material-icons">
-... 648 more diff line(s)
+-            lock
+-          Logout
+-    <a class="sidenav-trigger valign-wrapper white-text" data-target="slide-out" href="#">
+-      <i class="left material-icons mobile-menu-icon">
+-        menu
+-      Menü
+... 642 more diff line(s)
 114 differs   GET /settings/database/requestDelete
    status: recorded 200, got 404
 --- recorded 114.html
 +++ now
-@@ -1,11 +1,11 @@
+@@ -1,7 +1,7 @@
  <html>
    <head>
      <title>
 -      BudgetMaster - Settings
 +      BudgetMaster - 404
      <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
+     <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,731 +15,24 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -9566,7 +8424,13 @@
 -      <li>
 -        <a class="waves-effect" id="button-logout">
 -          <i class="material-icons">
-... 647 more diff line(s)
+-            lock
+-          Logout
+-    <a class="sidenav-trigger valign-wrapper white-text" data-target="slide-out" href="#">
+-      <i class="left material-icons mobile-menu-icon">
+-        menu
+-      Menü
+... 641 more diff line(s)
 115 differs   POST /settings/database/delete verificationCode=XXXX&verificationUserInput=YYYY
    status: recorded 200, got 405
    final URL: recorded /settings/database/requestDelete, got /settings/database/delete
@@ -9578,9 +8442,9 @@
 -    <title>
 -      BudgetMaster - Settings
 -    <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
+-    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
 -    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
+-    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
 -    <link href="/css/colors.css" rel="stylesheet" type="text/css">
 -    <link href="/css/style.css" rel="stylesheet" type="text/css">
 -    <link href="/css/navbar.css" rel="stylesheet" type="text/css">
@@ -9821,18 +8685,6 @@
 117 differs   GET /
 --- recorded 117.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -15,11 +15,11 @@
      <link href="/css/hotkeys.css" rel="stylesheet" type="text/css">
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -9883,34 +8735,9 @@
            <div class="row" id="hint-1">
              <div class="center-align col s12">
                <div class="notification-wrapper">
-@@ -258,9 +258,9 @@
-                     play_arrow
-                   <span>
-                     Create a category
--    <script src="/webjars/jquery/3.7.1/jquery.min.js">
--    <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--    <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
-+    <script src="/webjars/jquery/jquery.min.js">
-+    <script src="/webjars/materializecss/js/materialize.min.js">
-+    <script src="/webjars/mousetrap/mousetrap.js">
-     <script>
-       rootURL = ""
-     <script src="/js/hotkeys.js">
 118 differs   GET /no-such-page
 --- recorded 118.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - 404
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -16,7 +16,7 @@
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
      <link href="/touch_icon.png" rel="apple-touch-icon">
@@ -9932,18 +8759,6 @@
 119 differs   GET /transactions/abc/edit
 --- recorded 119.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - 400
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -16,7 +16,7 @@
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
      <link href="/touch_icon.png" rel="apple-touch-icon">
@@ -9965,18 +8780,6 @@
 120 differs   GET /accounts/9999/edit
 --- recorded 120.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - 404
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -16,7 +16,7 @@
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
      <link href="/touch_icon.png" rel="apple-touch-icon">
@@ -9998,18 +8801,6 @@
 121 differs   GET /accounts/9999/select
 --- recorded 121.html
 +++ now
-@@ -3,9 +3,9 @@
-     <title>
-       BudgetMaster - 500
-     <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
-+    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
-     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
-+    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
-     <link href="/css/colors.css" rel="stylesheet" type="text/css">
-     <link href="/css/style.css" rel="stylesheet" type="text/css">
-     <link href="/css/navbar.css" rel="stylesheet" type="text/css">
 @@ -16,7 +16,7 @@
      <meta content="width=device-width, initial-scale=1.0" name="viewport">
      <link href="/touch_icon.png" rel="apple-touch-icon">
@@ -10028,4 +8819,4 @@
                <div class="row">
                  <div class="center-align col s12">
                    <h1>
-tessera-migrate compare: 121 page(s): 7 same, 0 reordered, 114 differ
+tessera-migrate compare: 121 page(s): 10 same, 0 reordered, 111 differ

@@ -20,9 +20,9 @@
      <script>
 -      monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', ]; monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', ]; weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', ]; weekDaysShort = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', ]; weekDaysLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S', ]; buttonCancel = 'Cancel'; buttonClose = 'OK';
 +      monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]; monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; weekDays = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]; weekDaysShort = ["Su","Mo","Tu","We","Th","Fr","Sa"]; weekDaysLetters = ["S","M","T","W","T","F","S"]; buttonCancel = "Cancel"; buttonClose = "OK";
-     <script src="/webjars/jquery/3.7.1/jquery.min.js">
-     <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
-     <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
+     <script src="/webjars/mousetrap/mousetrap.js">
 015 differs   POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=&description=&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=
 --- recorded 015.html
 +++ now
@@ -32,9 +32,9 @@
      <script>
 -      monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', ]; monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', ]; weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', ]; weekDaysShort = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', ]; weekDaysLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S', ]; buttonCancel = 'Cancel'; buttonClose = 'OK';
 +      monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]; monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; weekDays = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]; weekDaysShort = ["Su","Mo","Tu","We","Th","Fr","Sa"]; weekDaysLetters = ["S","M","T","W","T","F","S"]; buttonCancel = "Cancel"; buttonClose = "OK";
-     <script src="/webjars/jquery/3.7.1/jquery.min.js">
-     <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
-     <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
+     <script src="/webjars/mousetrap/mousetrap.js">
 016 differs   POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Default Account&description=&iconImageID=&builtinIconIdentifier=&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=
 --- recorded 016.html
 +++ now
@@ -44,9 +44,9 @@
      <script>
 -      monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', ]; monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', ]; weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', ]; weekDaysShort = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', ]; weekDaysLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S', ]; buttonCancel = 'Cancel'; buttonClose = 'OK';
 +      monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]; monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; weekDays = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]; weekDaysShort = ["Su","Mo","Tu","We","Th","Fr","Sa"]; weekDaysLetters = ["S","M","T","W","T","F","S"]; buttonCancel = "Cancel"; buttonClose = "OK";
-     <script src="/webjars/jquery/3.7.1/jquery.min.js">
-     <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
-     <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
+     <script src="/webjars/mousetrap/mousetrap.js">
 017 differs   POST /accounts/newAccount ID=&isSelected=false&isDefault=false&name=Savings <b>&description=Rainy "day" fund&iconImageID=&builtinIconIdentifier=fas fa-piggy-bank&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=31.12.2025
 --- recorded 017.html
 +++ now
@@ -206,9 +206,9 @@
      <script>
 -      monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', ]; monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', ]; weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', ]; weekDaysShort = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', ]; weekDaysLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S', ]; buttonCancel = 'Cancel'; buttonClose = 'OK';
 +      monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]; monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; weekDays = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]; weekDaysShort = ["Su","Mo","Tu","We","Th","Fr","Sa"]; weekDaysLetters = ["S","M","T","W","T","F","S"]; buttonCancel = "Cancel"; buttonClose = "OK";
-     <script src="/webjars/jquery/3.7.1/jquery.min.js">
-     <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
-     <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
+     <script src="/webjars/mousetrap/mousetrap.js">
 021 differs   POST /accounts/newAccount ID=3&isSelected=false&isDefault=false&name=Savings <b>&description=Rainy "day" fund %26 more&iconImageID=&builtinIconIdentifier=fas fa-piggy-bank&fontColor=#FFFFFF&accountState=FULL_ACCESS&endDate=31.12.2025
 --- recorded 021.html
 +++ now
@@ -807,9 +807,9 @@
 -        <div id="deleteModalContainerOnDemand">
 -    <i>
 -      <script>
--      <script src="/webjars/jquery/3.7.1/jquery.min.js">
--      <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--      <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+-      <script src="/webjars/jquery/jquery.min.js">
+-      <script src="/webjars/materializecss/js/materialize.min.js">
+-      <script src="/webjars/mousetrap/mousetrap.js">
 -      <script>
 ... 123 more diff line(s)
 035 differs   GET /categories
@@ -3147,9 +3147,9 @@
      <script>
 -      monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', ]; monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', ]; weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', ]; weekDaysShort = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', ]; weekDaysLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S', ]; buttonCancel = 'Cancel'; buttonClose = 'OK';
 +      monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]; monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; weekDays = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]; weekDaysShort = ["Su","Mo","Tu","We","Th","Fr","Sa"]; weekDaysLetters = ["S","M","T","W","T","F","S"]; buttonCancel = "Cancel"; buttonClose = "OK";
-     <script src="/webjars/jquery/3.7.1/jquery.min.js">
-     <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
-     <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
+     <script src="/webjars/mousetrap/mousetrap.js">
 066 differs   GET /search?searchText=groc&searchName=true&searchDescription=true&searchCategory=true&searchTags=true
 --- recorded 066.html
 +++ now
@@ -3209,9 +3209,9 @@
      <script>
 -      monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', ]; monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', ]; weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', ]; weekDaysShort = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', ]; weekDaysLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S', ]; buttonCancel = 'Cancel'; buttonClose = 'OK';
 +      monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]; monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; weekDays = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]; weekDaysShort = ["Su","Mo","Tu","We","Th","Fr","Sa"]; weekDaysLetters = ["S","M","T","W","T","F","S"]; buttonCancel = "Cancel"; buttonClose = "OK";
-     <script src="/webjars/jquery/3.7.1/jquery.min.js">
-     <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
-     <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
+     <script src="/webjars/mousetrap/mousetrap.js">
 067 differs   GET /search?searchText=food&searchName=false&searchDescription=false&searchCategory=false&searchTags=true
 --- recorded 067.html
 +++ now
@@ -3271,9 +3271,9 @@
      <script>
 -      monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', ]; monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', ]; weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', ]; weekDaysShort = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', ]; weekDaysLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S', ]; buttonCancel = 'Cancel'; buttonClose = 'OK';
 +      monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]; monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; weekDays = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]; weekDaysShort = ["Su","Mo","Tu","We","Th","Fr","Sa"]; weekDaysLetters = ["S","M","T","W","T","F","S"]; buttonCancel = "Cancel"; buttonClose = "OK";
-     <script src="/webjars/jquery/3.7.1/jquery.min.js">
-     <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
-     <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
+     <script src="/webjars/mousetrap/mousetrap.js">
 068 differs   GET /search?searchText=nothing-matches&searchName=true
 --- recorded 068.html
 +++ now
@@ -3283,9 +3283,9 @@
      <script>
 -      monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', ]; monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', ]; weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', ]; weekDaysShort = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', ]; weekDaysLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S', ]; buttonCancel = 'Cancel'; buttonClose = 'OK';
 +      monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]; monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; weekDays = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]; weekDaysShort = ["Su","Mo","Tu","We","Th","Fr","Sa"]; weekDaysLetters = ["S","M","T","W","T","F","S"]; buttonCancel = "Cancel"; buttonClose = "OK";
-     <script src="/webjars/jquery/3.7.1/jquery.min.js">
-     <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
-     <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
+     <script src="/webjars/mousetrap/mousetrap.js">
 069 same      GET /templateGroups
 070 same      GET /templateGroups/newTemplateGroup
 071 same      POST /templateGroups/newTemplateGroup ID=&name=
@@ -3301,9 +3301,9 @@
 -    <title>
 -      BudgetMaster - New Template
 -    <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
+-    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
 -    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
+-    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
 -    <link href="/css/colors.css" rel="stylesheet" type="text/css">
 -    <link href="/css/style.css" rel="stylesheet" type="text/css">
 -    <link href="/css/navbar.css" rel="stylesheet" type="text/css">
@@ -3425,9 +3425,9 @@
 -    <title>
 -      BudgetMaster - New Template
 -    <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
+-    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
 -    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
+-    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
 -    <link href="/css/colors.css" rel="stylesheet" type="text/css">
 -    <link href="/css/style.css" rel="stylesheet" type="text/css">
 -    <link href="/css/navbar.css" rel="stylesheet" type="text/css">
@@ -3747,9 +3747,9 @@
 -      <b>
 -        <div id="deleteModalContainerOnDemand">
 -    <b>
--      <script src="/webjars/jquery/3.7.1/jquery.min.js">
--      <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--      <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+-      <script src="/webjars/jquery/jquery.min.js">
+-      <script src="/webjars/materializecss/js/materialize.min.js">
+-      <script src="/webjars/mousetrap/mousetrap.js">
 -      <script>
 -        rootURL = ""
 -      <script src="/js/hotkeys.js">
@@ -3758,7 +3758,7 @@
 -      <script src="/js/fetchModalContent.js">
 -      <script>
 -        accountPlaceholderName = "All Accounts";
--      <script src="/webjars/sortablejs/1.15.6/Sortable.min.js">
+-      <script src="/webjars/sortablejs/Sortable.min.js">
 -      <script src="/js/templates.js">
 +                      Lunch &lt;b&gt;
 +                    <div class="collapsible-header-button">
@@ -3907,9 +3907,9 @@
 -      <b>
 -        <div id="deleteModalContainerOnDemand">
 -    <b>
--      <script src="/webjars/jquery/3.7.1/jquery.min.js">
--      <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--      <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+-      <script src="/webjars/jquery/jquery.min.js">
+-      <script src="/webjars/materializecss/js/materialize.min.js">
+-      <script src="/webjars/mousetrap/mousetrap.js">
 -      <script>
 -        rootURL = ""
 -      <script src="/js/hotkeys.js">
@@ -3918,7 +3918,7 @@
 -      <script src="/js/fetchModalContent.js">
 -      <script>
 -        accountPlaceholderName = "All Accounts";
--      <script src="/webjars/sortablejs/1.15.6/Sortable.min.js">
+-      <script src="/webjars/sortablejs/Sortable.min.js">
 -      <script src="/js/templates.js">
 +                      Lunch &lt;b&gt;
 +                    <div class="collapsible-header-button">
@@ -4031,9 +4031,9 @@
 -      <b>
 -        <div id="deleteModalContainerOnDemand">
 -    <b>
--      <script src="/webjars/jquery/3.7.1/jquery.min.js">
--      <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--      <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+-      <script src="/webjars/jquery/jquery.min.js">
+-      <script src="/webjars/materializecss/js/materialize.min.js">
+-      <script src="/webjars/mousetrap/mousetrap.js">
 -      <script>
 -        rootURL = ""
 -      <script src="/js/hotkeys.js">
@@ -4042,7 +4042,7 @@
 -      <script src="/js/fetchModalContent.js">
 -      <script>
 -        accountPlaceholderName = "All Accounts";
--      <script src="/webjars/sortablejs/1.15.6/Sortable.min.js">
+-      <script src="/webjars/sortablejs/Sortable.min.js">
 -      <script src="/js/templates.js">
 +                      Lunch &lt;b&gt;
 +                    <div class="collapsible-header-button">
@@ -4064,9 +4064,9 @@
 -    <title>
 -      BudgetMaster - Edit Template
 -    <meta charset="UTF-8">
--    <link href="/webjars/font-awesome/7.1.0/css/all.min.css" rel="stylesheet">
+-    <link href="/webjars/font-awesome/css/all.min.css" rel="stylesheet">
 -    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
--    <link href="/webjars/materializecss/1.0.0/css/materialize.min.css" rel="stylesheet">
+-    <link href="/webjars/materializecss/css/materialize.min.css" rel="stylesheet">
 -    <link href="/css/colors.css" rel="stylesheet" type="text/css">
 -    <link href="/css/style.css" rel="stylesheet" type="text/css">
 -    <link href="/css/navbar.css" rel="stylesheet" type="text/css">
@@ -4372,9 +4372,9 @@
 -      <b>
 -        <div id="deleteModalContainerOnDemand">
 -    <b>
--      <script src="/webjars/jquery/3.7.1/jquery.min.js">
--      <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--      <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+-      <script src="/webjars/jquery/jquery.min.js">
+-      <script src="/webjars/materializecss/js/materialize.min.js">
+-      <script src="/webjars/mousetrap/mousetrap.js">
 -      <script>
 -        rootURL = ""
 -      <script src="/js/hotkeys.js">
@@ -4383,7 +4383,7 @@
 -      <script src="/js/fetchModalContent.js">
 -      <script>
 -        accountPlaceholderName = "All Accounts";
--      <script src="/webjars/sortablejs/1.15.6/Sortable.min.js">
+-      <script src="/webjars/sortablejs/Sortable.min.js">
 -      <script src="/js/templates.js">
 +                      Lunch &lt;b&gt;
 +                    <div class="collapsible-header-button">
@@ -4496,9 +4496,9 @@
 -      <b>
 -        <div id="deleteModalContainerOnDemand">
 -    <b>
--      <script src="/webjars/jquery/3.7.1/jquery.min.js">
--      <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
--      <script src="/webjars/mousetrap/1.6.5/mousetrap.js">
+-      <script src="/webjars/jquery/jquery.min.js">
+-      <script src="/webjars/materializecss/js/materialize.min.js">
+-      <script src="/webjars/mousetrap/mousetrap.js">
 -      <script>
 -        rootURL = ""
 -      <script src="/js/hotkeys.js">
@@ -4507,7 +4507,7 @@
 -      <script src="/js/fetchModalContent.js">
 -      <script>
 -        accountPlaceholderName = "All Accounts";
--      <script src="/webjars/sortablejs/1.15.6/Sortable.min.js">
+-      <script src="/webjars/sortablejs/Sortable.min.js">
 -      <script src="/js/templates.js">
 +                      Lunch &lt;b&gt;
 +                    <div class="collapsible-header-button">
@@ -4563,7 +4563,7 @@
 +      monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]; monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; weekDays = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]; weekDaysShort = ["Su","Mo","Tu","We","Th","Fr","Sa"]; weekDaysLetters = ["S","M","T","W","T","F","S"]; buttonCancel = "Cancel"; buttonClose = "OK";
      <script>
        filterActive = "Filter active"; filterNotActive = "Filter";
-     <script src="/webjars/jquery/3.7.1/jquery.min.js">
+     <script src="/webjars/jquery/jquery.min.js">
 092 differs   POST /charts displayType=BAR&groupType=MONTH&chartID=1&startDate=01.05.2025&endDate=30.06.2025&filterConfiguration.includeIncome=true&filterConfiguration.includeExpenditure=true&filterConfiguration.includeTransfer=true&filterConfiguration.includeNotRepeating=true&filterConfiguration.includeRepeating=true&filterConfiguration.filterCategories['0'].include=true&filterConfiguration.filterCategories['0'].ID=3&filterConfiguration.filterCategories['0'].name=Food %26 Drinks&filterConfiguration.filterCategories['1'].include=true&filterConfiguration.filterCategories['1'].ID=1&filterConfiguration.filterCategories['1'].name=No Category&filterConfiguration.filterCategories['2'].include=true&filterConfiguration.filterCategories['2'].ID=4&filterConfiguration.filterCategories['2'].name=Salary&filterConfiguration.filterCategories['3'].include=true&filterConfiguration.filterCategories['3'].ID=2&filterConfiguration.filterCategories['3'].name=Rest&filterConfiguration.filterTags['0'].include=true&filterConfiguration.filterTags['0'].ID=1&filterConfiguration.filterTags['0'].name=food&filterConfiguration.filterTags['1'].include=true&filterConfiguration.filterTags['1'].ID=2&filterConfiguration.filterTags['1'].name=weekly&filterConfiguration.name=
 --- recorded 092.html
 +++ now
@@ -4575,7 +4575,7 @@
 +      monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"]; monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; weekDays = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]; weekDaysShort = ["Su","Mo","Tu","We","Th","Fr","Sa"]; weekDaysLetters = ["S","M","T","W","T","F","S"]; buttonCancel = "Cancel"; buttonClose = "OK";
      <script>
        filterActive = "Filter active"; filterNotActive = "Filter";
-     <script src="/webjars/jquery/3.7.1/jquery.min.js">
+     <script src="/webjars/jquery/jquery.min.js">
 @@ -499,4 +499,4 @@
      <script src="/js/charts.js">
      <script src="/js/filter.js">
@@ -4751,8 +4751,8 @@
          <div class="col input-field l8 m12 offset-l2 s12">
            <i class="material-icons prefix">
 @@ -30,4 +30,4 @@
-     <script src="/webjars/jquery/3.7.1/jquery.min.js">
-     <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
      <script>
 -      initSettingsContainer('SecuritySettingsContainer', 'securitySettingsContainer');
 +      initSettingsContainer("SecuritySettingsContainer", "securitySettingsContainer");
@@ -4769,8 +4769,8 @@
          <div class="col input-field l8 m12 offset-l2 s12">
            <i class="material-icons prefix">
 @@ -92,4 +92,4 @@
-     <script src="/webjars/jquery/3.7.1/jquery.min.js">
-     <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
      <script>
 -      initSettingsContainer('PersonalizationSettingsContainer', 'personalizationSettingsContainer');
 +      initSettingsContainer("PersonalizationSettingsContainer", "personalizationSettingsContainer");
@@ -4787,8 +4787,8 @@
          <div class="col s12">
            <div class="table-container">
 @@ -36,4 +36,4 @@
-     <script src="/webjars/jquery/3.7.1/jquery.min.js">
-     <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
      <script>
 -      initSettingsContainer('AccountsSettingsContainer', 'accountsSettingsContainer');
 +      initSettingsContainer("AccountsSettingsContainer", "accountsSettingsContainer");
@@ -4814,8 +4814,8 @@
          <div class="col l6 m8 offset-l3 offset-m2 offset-s1 s10">
            <div id="settings-keywords-description">
 @@ -68,4 +68,4 @@
-     <script src="/webjars/jquery/3.7.1/jquery.min.js">
-     <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
      <script>
 -      initSettingsContainer('TransactionsSettingsContainer', 'transactionsSettingsContainer');
 +      initSettingsContainer("TransactionsSettingsContainer", "transactionsSettingsContainer");
@@ -4839,8 +4839,8 @@
 +        function onAutoBackupStrategyChange(newSelectedIndex) { $('#settings-auto-backup-local').toggle(newSelectedIndex === 0); // local backup with file system copies // index 1 --&gt; git local doesn't have any settings $('#settings-auto-backup-git-remote').toggle(newSelectedIndex === 2); // git remote } function validateBackupForm() { let autoBackupCheckbox = document.getElementsByName("autoBackupActivated")[0]; if(autoBackupCheckbox.checked) { let autoBackupDaysValid = validateNumber($('#settings-backup-auto-days').val(), "settings-backup-auto-days", "hidden-settings-backup-auto-days", numberValidationMessage, REGEX_NUMBER_GREATER_ZERO); let autoBackupFilesToKeepValid = validateNumber($('#settings-backup-auto-files-to-keep').val(), "settings-backup-auto-files-to-keep", "hidden-settings-backup-auto-files-to-keep", numberValidationMessageZeroAllowed, REGEX_NUMBER); return autoBackupDaysValid &amp;&amp; autoBackupFilesToKeepValid; } else { document.getElementById('settings-backup-auto-strategy').name = ''; } return true; } $('input[name="autoBackupActivated"]').click(function() { $('#settings-auto-backup').toggle($(this).prop("checked")); }); $('#settings-backup-auto-strategy').change(function() { onAutoBackupStrategyChange(this.selectedIndex); }); $('#settings-backup-auto-git-test').click(function() { $.ajax({ type: 'POST', url: $('#settings-backup-auto-git-test').attr('data-url'), data: { '_csrf': document.querySelector('form[name="BackupSettingsContainer"] input[name="_csrf"]').value, 'autoBackupGitUrl': document.getElementById('settings-backup-auto-git-url').value, 'autoBackupGitBranchName': document.getElementById('settings-backup-auto-git-branch-name').value, 'autoBackupGitUserName': document.getElementById('settings-backup-auto-git-user-name').value, 'autoBackupGitToken': document.getElementById('settings-backup-auto-git-token').value, }, success: function(data) { let parsedData = JSON.parse(data); let isValidConnection = parsedData['isValidConnection'] M.toast({ html: parsedData['localizedMessage'], classes: isValidConnection ? 'background-green': 'background-red' }); }, error: function(data) { M.toast({ html: 'Error: ' + data, classes: 'background-red' }); } }); }); var autoBackupDays = $('#settings-backup-auto-days'); if(autoBackupDays.length) { autoBackupDays.on('change keydown paste input', function() { validateNumber(autoBackupDays.val(), 'settings-backup-auto-days', "hidden-settings-backup-auto-days", numberValidationMessage, REGEX_NUMBER_GREATER_ZERO); }); } var autoBackupFilesToKeep = $('#settings-backup-auto-files-to-keep'); if(autoBackupFilesToKeep.length) { autoBackupFilesToKeep.on('change keydown paste input', function() { validateNumber(autoBackupFilesToKeep.val(), "settings-backup-auto-files-to-keep", "hidden-settings-backup-auto-files-to-keep", numberValidationMessageZeroAllowed, REGEX_NUMBER); }); } $('#settings-backup-run-now').click(function() { document.getElementById('runBackupInput').value = 1; }); var autoBackupCheckbox = document.getElementsByName("autoBackupActivated")[0]; $('#settings-auto-backup').toggle(autoBackupCheckbox.checked); onAutoBackupStrategyChange(document.getElementById('settings-backup-auto-strategy').selectedIndex); // toggle unsaved changes warning $('input[name="backupReminderActivated"]').change(function() { toggleSettingsContainerHeader('backupSettingsContainerHeader', false); }); $('input[name="autoBackupActivated"]').change(function() { toggleSettingsContainerHeader('backupSettingsContainerHeader', false); }); $('#settings-backup-auto-days').on('change keydown paste input', function() { toggleSettingsContainerHeader('backupSettingsContainerHeader', false); }); $('#settings-backup-auto-time').change(function() { toggleSettingsContainerHeader('backupSettingsContainerHeader', false); }); $('#settings-backup-auto-strategy').change(function() { toggleSettingsContainerHeader('backupSettingsContainerHeader', false); }); $('#settings-backup-auto-files-to-keep').on('change keydown paste input', function() { toggleSettingsContainerHeader('backupSettingsContainerHeader', false); }); $('#settings-backup-auto-git-url').on('change keydown paste input', function() { toggleSettingsContainerHeader('backupSettingsContainerHeader', false); }); $('#settings-backup-auto-git-branch-name').on('change keydown paste input', function() { toggleSettingsContainerHeader('backupSettingsContainerHeader', false); }); $('#settings-backup-auto-git-user-name').on('change keydown paste input', function() { toggleSettingsContainerHeader('backupSettingsContainerHeader', false); }); $('#settings-backup-auto-git-token').on('change keydown paste input', function() { toggleSettingsContainerHeader('backupSettingsContainerHeader', false); });
      <div class="hidden securityContainerToastContent">
        {"localizedMessage":"Backup settings saved","classes":"background-green text-white"}
-     <script src="/webjars/jquery/3.7.1/jquery.min.js">
-     <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
      <script>
 -      initSettingsContainer('BackupSettingsContainer', 'backupSettingsContainer');
 +      initSettingsContainer("BackupSettingsContainer", "backupSettingsContainer");
@@ -4857,8 +4857,8 @@
          <div class="center-align col l8 m12 offset-l2 s12">
            <div class="table-container">
 @@ -57,4 +57,4 @@
-     <script src="/webjars/jquery/3.7.1/jquery.min.js">
-     <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
      <script>
 -      initSettingsContainer('UpdateSettingsContainer', 'updateSettingsContainer');
 +      initSettingsContainer("UpdateSettingsContainer", "updateSettingsContainer");
@@ -4875,8 +4875,8 @@
          <div class="center-align col s12">
            <button class="background-blue btn waves-effect waves-light" name="action" type="submit">
 @@ -14,4 +14,4 @@
-     <script src="/webjars/jquery/3.7.1/jquery.min.js">
-     <script src="/webjars/materializecss/1.0.0/js/materialize.min.js">
+     <script src="/webjars/jquery/jquery.min.js">
+     <script src="/webjars/materializecss/js/materialize.min.js">
      <script>
 -      initSettingsContainer('MiscSettingsContainer', 'miscSettingsContainer');
 +      initSettingsContainer("MiscSettingsContainer", "miscSettingsContainer");
