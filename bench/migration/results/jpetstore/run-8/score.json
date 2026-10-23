@@ -1,0 +1,41 @@
+{
+ "app": "jpetstore",
+ "run": "run-8",
+ "build_ok": true,
+ "tests_ok": true,
+ "tests": {
+  "tests": 9,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0
+ },
+ "tests_failed": [],
+ "baseline_tests": 6,
+ "pages_total": 59,
+ "pages_identical": 58,
+ "pages_reordered": 0,
+ "status_mismatch": [],
+ "insecure": [],
+ "legacy_templates": [],
+ "legacy_constructs": {},
+ "legacy_deps": [],
+ "tessera_templates": 19,
+ "baseline_templates": 19,
+ "pass": false,
+ "wall_minutes": 14.0,
+ "exit": 0,
+ "model": "opus",
+ "budget_usd": 40,
+ "budget_minutes": 90,
+ "outcome": "success",
+ "cost_usd": 4.5482242,
+ "turns": 86,
+ "tokens": {
+  "input_tokens": 164,
+  "output_tokens": 62821,
+  "cache_read_input_tokens": 11421391,
+  "cache_creation_input_tokens": 201374
+ },
+ "skill_listed": true,
+ "skill_invoked": true
+}

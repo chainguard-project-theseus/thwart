@@ -1,0 +1,1094 @@
+diff --git a/.gitignore b/.gitignore
+index af0cb9b..6cc6c24 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -15,3 +15,4 @@ build/*
+ _site/
+ *.css
+ !petclinic.css
++.tessera/
+diff --git a/MIGRATION-REPORT.md b/MIGRATION-REPORT.md
+new file mode 100644
+index 0000000..a2c8846
+--- /dev/null
++++ b/MIGRATION-REPORT.md
+@@ -0,0 +1,62 @@
++# Migration report: Thymeleaf → Tessera
++
++## Result
++
++| Check | Status |
++|---|---|
++| Every page rendered by Tessera | Yes. All 12 templates (2 pages, 3 fragment files, 7 owner/pet/vet views) plus `error.html` for 400/404/500 are Tessera templates. |
++| Old engine removed | `spring-boot-starter-thymeleaf` removed from `pom.xml` and `build.gradle`, `spring.thymeleaf.mode` removed from `application.properties`, no `th:` template is left, and `mvn dependency:tree` has no Thymeleaf artifact. |
++| `mvn clean verify` | Passes on JDK 8 (`/usr/lib/jvm/java-1.8-openjdk`, the JDK the app targets with `java.version` 1.8) and on JDK 21. 43 tests: 42 pass and 1 is skipped. The skipped one is `CrashControllerTests`, which was already `@Disabled` upstream. No existing test was changed. |
++| Page parity | `tessera-migrate compare` exits 0 on 50 requests. 49 are `same` and 1 is `reordered` (see below). |
++| Security | No `SafeHtml.unchecked`, no `TrustedUrl.unchecked`, no `t:utext`, and no new `permitAll`. The app has no Spring Security, so CSRF did not change. Escaping is on everywhere. |
++
++## What changed
++
++- **`pom.xml`**
++  - Replaced the Thymeleaf starter with `dev.tessera:tessera-spring-boot-starter-javax` (Boot 2.7 uses `javax.servlet`). Kept the Boot version.
++  - Configured `maven-compiler-plugin` with the `tessera-compiler` annotation processor, `-Atessera.templates`, `-Atessera.package=org.springframework.samples.petclinic.templates` and `-Atessera.messages`, so `#{welcome}` is checked at build time.
++  - Added `**/.tessera/**` to the nohttp checkstyle excludes. This is my local migration workspace, which is git-ignored.
++- **`build.gradle`**: made the same dependency change and added `mavenLocal()` and the processor options. **This is not verified**: there is no Gradle run in this environment, and Tessera documents no Gradle support.
++- **`application.properties`**: removed `spring.thymeleaf.mode`.
++- **Entities**: added `@TemplateView` to `Owner`, `Pet`, `Visit`, `PetType`, `Vet` and `Specialty`. Without it, templates can't read their getters. No other code changes and no controller changes were needed.
++- **Templates** (rewritten in place, same file names and view names):
++  - `fragments/layout.html`
++    - It is now `layout(Fragment template, String menu)`.
++    - `menuItem` used `@{__${link}__}` (preprocessing). It now takes the link as a `String` built by a literal `@{/...}` at each call site, and receives `menu` explicitly because a fragment can't see its caller's variables.
++  - `fragments/inputField.html` and `fragments/selectField.html`: the dynamic `*{__${name}__}` field paths became a typed `Field name` parameter. Select options use `item.name`.
++  - Pages: replaced `th:` with `t:` and declared typed `t:params`.
++    - `owner['new']` became `owner.isNew()`.
++    - `pet.type` became `pet.type?.name`.
++    - `#strings.listJoin` became `strings.join`.
++    - String-built links (`@{'/owners?page=__${i}__'}`, `@{__${owner.id}__/edit}`) became `@{/owners(page=i)}` and `@{{ownerId}/edit(ownerId=...)}`.
++    - In the visit form, the loop variable is renamed from `visit` to `previous` so it doesn't shadow the `visit` parameter. Thymeleaf's semantics (`th:each` runs before `th:if`) are preserved.
++  - `error.html` reads Boot's `message` error attribute.
++- **New test** `OwnerViewRenderingTests`: renders `/owners/{id}` through the real Tessera resolver. It checks that `<script>`, quotes and `&` in owner and pet data come out escaped, and that the id-based relative links are right. The existing controller tests (`@WebMvcTest`) also render every view through Tessera now.
++
++## Parity check
++
++- I recorded the original app (built on JDK 8, fresh H2 data) and compared it against the migrated app started the same way.
++- The 50 requests cover:
++  - home and the vet list (pages 1 and 2);
++  - find-owners: empty search, not found (form error), single hit (redirect) and multiple hits with paging;
++  - owner details, including owners with and without pets and visits;
++  - the owner form: new and edit, with validation errors and on success. This includes an XSS payload that is then shown on the details page;
++  - the pet form: new and edit, with an empty name, a duplicate name, an invalid date and success;
++  - the visit form: empty description, invalid date and success;
++  - error pages: `/oups` (500), an unknown URL (404), a non-numeric id (400), an unknown owner (500) and a pet that isn't the owner's (500).
++- One page is `reordered`: #17, the owner form with all fields empty. The telephone field has two messages, "must not be empty" and "numeric value out of bounds", and they come in another order. Hibernate Validator returns its violations in a `HashSet`, so the order isn't stable in the original app either. This is harmless.
++
++## Not converted / deviations
++
++- Nothing was left unconverted.
++- One deliberate workaround: Thymeleaf rendered a `null` id in `@{/owners/__${owner.id}__}` as the text `/owners/null`, and Tessera fails the render on a `null` link path variable. The existing test `OwnerControllerTests.testProcessFindFormSuccess` lists an `Owner` with no id. To keep Thymeleaf's behaviour, the owner and pet id links pass `'' + owner.id` and `'' + pet.id`. For a non-null id the output is the same.
++
++## Where Tessera or its documentation fell short
++
++1. **Null path variables.** Tessera fails the render on a `null` path variable, where Thymeleaf printed `null`. An existing test hit this. The guide mentions it only in "known limitations" and in the expected-differences list. It suggests no idiom to keep the old output, and I had to find the `'' + x` workaround myself.
++2. **The guide is wrong about `t:field` and null values.** Section 4.7 says `t:field` writes the display value "omitted when null", and section 7 lists "a `null` attribute value omits the attribute (Thymeleaf writes `value=""`)" as an expected difference. In practice `t:field` writes `value=""` for a null field, the same as Thymeleaf. That's good, but the docs say otherwise. Following the documented rule that a `null` attribute is omitted, I wrote the hidden `id` input in the pet form as `pet.id == null ? '' : '' + pet.id` so it keeps `value=""`. I didn't check whether a plain `t:value` would also have written `value=""`.
++3. **`tessera-migrate` contradicts the guide on dynamic field paths.** For `*{__${name}__}`, the converter's report says the path is "not supported … inline one element per field (a typed alternative is tracked in #43)". But the guide (section 4.8) documents exactly that typed alternative, `Field` fragment parameters, and it works. The report also points to an issue number in a tracker that doesn't exist.
++4. **The converter's output is a long way from compiling.** It adds no `xmlns:t` to fragment files, leaves every type as `Object`, and leaves `__...__` in place. It also leaves quoted string links such as `@{'/owners?page=1'}` untouched. The report flags most of these, so the files are a starting point rather than a near-finished conversion. I wrote the templates by hand.
++5. **Gradle is unsupported and undocumented** (guide section 7). The project ships a `build.gradle`. I updated it by analogy, but it isn't tested.
++6. **Two smaller gaps in the guide.** It doesn't say whether a parameterised fragment defined inside a `t:remove="all"` element (Thymeleaf's `menuItem` pattern) can still be called. It can, but I found that out by compiling. It also doesn't say which of Boot's error attributes are present when `server.error.include-message` is off: `message` is then absent or empty, which matched the original.
++7. **The skill text points to a GitHub repository for building Tessera**, but the task says Tessera has no published source. That didn't block anything.
+diff --git a/build.gradle b/build.gradle
+index 5f62c06..13d6a2f 100644
+--- a/build.gradle
++++ b/build.gradle
+@@ -11,6 +11,7 @@ version = '2.7.3'
+ sourceCompatibility = '11'
+ 
+ repositories {
++  mavenLocal() // Tessera is only installed in the local Maven repository
+   mavenCentral()
+ }
+ 
+@@ -20,7 +21,8 @@ ext.webjarsBootstrapVersion = "5.1.3"
+ dependencies {
+   implementation 'org.springframework.boot:spring-boot-starter-cache'
+   implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+-  implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
++  implementation 'dev.tessera:tessera-spring-boot-starter-javax:0.1.0-SNAPSHOT'
++  annotationProcessor 'dev.tessera:tessera-compiler:0.1.0-SNAPSHOT'
+   implementation 'org.springframework.boot:spring-boot-starter-web'
+   implementation 'org.springframework.boot:spring-boot-starter-validation'
+   implementation 'javax.cache:cache-api'
+@@ -35,6 +37,14 @@ dependencies {
+   testImplementation 'org.springframework.boot:spring-boot-starter-test'
+ }
+ 
++tasks.named('compileJava') {
++  options.compilerArgs += [
++    "-Atessera.templates=${projectDir}/src/main/resources/templates",
++    '-Atessera.package=org.springframework.samples.petclinic.templates',
++    "-Atessera.messages=${projectDir}/src/main/resources/messages/messages"
++  ]
++}
++
+ tasks.named('test') {
+   useJUnitPlatform()
+ }
+diff --git a/pom.xml b/pom.xml
+index d29355c..40dbcbc 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -26,6 +26,7 @@
+     <jacoco.version>0.8.7</jacoco.version>
+     <nohttp-checkstyle.version>0.0.10</nohttp-checkstyle.version>
+     <spring-format.version>0.0.31</spring-format.version>
++    <tessera.version>0.1.0-SNAPSHOT</tessera.version>
+ 
+   </properties>
+ 
+@@ -52,8 +53,9 @@
+       <artifactId>spring-boot-starter-validation</artifactId>
+     </dependency>
+     <dependency>
+-      <groupId>org.springframework.boot</groupId>
+-      <artifactId>spring-boot-starter-thymeleaf</artifactId>
++      <groupId>dev.tessera</groupId>
++      <artifactId>tessera-spring-boot-starter-javax</artifactId>
++      <version>${tessera.version}</version>
+     </dependency>
+     <dependency>
+       <groupId>org.springframework.boot</groupId>
+@@ -110,6 +112,25 @@
+ 
+   <build>
+     <plugins>
++      <plugin>
++        <groupId>org.apache.maven.plugins</groupId>
++        <artifactId>maven-compiler-plugin</artifactId>
++        <configuration>
++          <parameters>true</parameters>
++          <annotationProcessorPaths>
++            <path>
++              <groupId>dev.tessera</groupId>
++              <artifactId>tessera-compiler</artifactId>
++              <version>${tessera.version}</version>
++            </path>
++          </annotationProcessorPaths>
++          <compilerArgs combine.children="append">
++            <arg>-Atessera.templates=${project.basedir}/src/main/resources/templates</arg>
++            <arg>-Atessera.package=org.springframework.samples.petclinic.templates</arg>
++            <arg>-Atessera.messages=${project.basedir}/src/main/resources/messages/messages</arg>
++          </compilerArgs>
++        </configuration>
++      </plugin>
+       <plugin>
+         <groupId>io.spring.javaformat</groupId>
+         <artifactId>spring-javaformat-maven-plugin</artifactId>
+@@ -149,7 +170,7 @@
+               <encoding>UTF-8</encoding>
+               <sourceDirectories>${basedir}</sourceDirectories>
+               <includes>**/*</includes>
+-              <excludes>**/.git/**/*,**/.idea/**/*,**/target/**/,**/.flattened-pom.xml,**/*.class</excludes>
++              <excludes>**/.git/**/*,**/.tessera/**/*,**/.idea/**/*,**/target/**/,**/.flattened-pom.xml,**/*.class</excludes>
+             </configuration>
+             <goals>
+               <goal>check</goal>
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/Owner.java b/src/main/java/org/springframework/samples/petclinic/owner/Owner.java
+index 52ff119..0f0d1d1 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/Owner.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/Owner.java
+@@ -15,6 +15,7 @@
+  */
+ package org.springframework.samples.petclinic.owner;
+ 
++import dev.tessera.runtime.TemplateView;
+ import java.util.ArrayList;
+ import java.util.List;
+ 
+@@ -43,6 +44,7 @@ import org.springframework.util.Assert;
+  * @author Oliver Drotbohm
+  */
+ @Entity
++@TemplateView
+ @Table(name = "owners")
+ public class Owner extends Person {
+ 
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/Pet.java b/src/main/java/org/springframework/samples/petclinic/owner/Pet.java
+old mode 100755
+new mode 100644
+index a863c75..95a3dfc
+--- a/src/main/java/org/springframework/samples/petclinic/owner/Pet.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/Pet.java
+@@ -15,6 +15,7 @@
+  */
+ package org.springframework.samples.petclinic.owner;
+ 
++import dev.tessera.runtime.TemplateView;
+ import java.time.LocalDate;
+ import java.util.Collection;
+ import java.util.LinkedHashSet;
+@@ -41,6 +42,7 @@ import org.springframework.samples.petclinic.model.NamedEntity;
+  * @author Sam Brannen
+  */
+ @Entity
++@TemplateView
+ @Table(name = "pets")
+ public class Pet extends NamedEntity {
+ 
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/PetType.java b/src/main/java/org/springframework/samples/petclinic/owner/PetType.java
+index 6f0aa58..545cf83 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/PetType.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/PetType.java
+@@ -15,6 +15,7 @@
+  */
+ package org.springframework.samples.petclinic.owner;
+ 
++import dev.tessera.runtime.TemplateView;
+ import javax.persistence.Entity;
+ import javax.persistence.Table;
+ 
+@@ -24,6 +25,7 @@ import org.springframework.samples.petclinic.model.NamedEntity;
+  * @author Juergen Hoeller Can be Cat, Dog, Hamster...
+  */
+ @Entity
++@TemplateView
+ @Table(name = "types")
+ public class PetType extends NamedEntity {
+ 
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/Visit.java b/src/main/java/org/springframework/samples/petclinic/owner/Visit.java
+old mode 100755
+new mode 100644
+index 8d91165..b04dbef
+--- a/src/main/java/org/springframework/samples/petclinic/owner/Visit.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/Visit.java
+@@ -15,6 +15,7 @@
+  */
+ package org.springframework.samples.petclinic.owner;
+ 
++import dev.tessera.runtime.TemplateView;
+ import java.time.LocalDate;
+ 
+ import javax.persistence.Column;
+@@ -32,6 +33,7 @@ import org.springframework.samples.petclinic.model.BaseEntity;
+  * @author Dave Syer
+  */
+ @Entity
++@TemplateView
+ @Table(name = "visits")
+ public class Visit extends BaseEntity {
+ 
+diff --git a/src/main/java/org/springframework/samples/petclinic/vet/Specialty.java b/src/main/java/org/springframework/samples/petclinic/vet/Specialty.java
+index 3a7347f..f4fa0ef 100644
+--- a/src/main/java/org/springframework/samples/petclinic/vet/Specialty.java
++++ b/src/main/java/org/springframework/samples/petclinic/vet/Specialty.java
+@@ -15,6 +15,7 @@
+  */
+ package org.springframework.samples.petclinic.vet;
+ 
++import dev.tessera.runtime.TemplateView;
+ import javax.persistence.Entity;
+ import javax.persistence.Table;
+ 
+@@ -26,6 +27,7 @@ import org.springframework.samples.petclinic.model.NamedEntity;
+  * @author Juergen Hoeller
+  */
+ @Entity
++@TemplateView
+ @Table(name = "specialties")
+ public class Specialty extends NamedEntity {
+ 
+diff --git a/src/main/java/org/springframework/samples/petclinic/vet/Vet.java b/src/main/java/org/springframework/samples/petclinic/vet/Vet.java
+index 014becf..e62390b 100644
+--- a/src/main/java/org/springframework/samples/petclinic/vet/Vet.java
++++ b/src/main/java/org/springframework/samples/petclinic/vet/Vet.java
+@@ -15,6 +15,7 @@
+  */
+ package org.springframework.samples.petclinic.vet;
+ 
++import dev.tessera.runtime.TemplateView;
+ import java.util.ArrayList;
+ import java.util.Collections;
+ import java.util.HashSet;
+@@ -42,6 +43,7 @@ import org.springframework.samples.petclinic.model.Person;
+  * @author Arjen Poutsma
+  */
+ @Entity
++@TemplateView
+ @Table(name = "vets")
+ public class Vet extends Person {
+ 
+diff --git a/src/main/resources/application.properties b/src/main/resources/application.properties
+index 5d3eeed..00702a0 100644
+--- a/src/main/resources/application.properties
++++ b/src/main/resources/application.properties
+@@ -3,9 +3,6 @@ database=h2
+ spring.sql.init.schema-locations=classpath*:db/${database}/schema.sql
+ spring.sql.init.data-locations=classpath*:db/${database}/data.sql
+ 
+-# Web
+-spring.thymeleaf.mode=HTML
+-
+ # JPA
+ spring.jpa.hibernate.ddl-auto=none
+ spring.jpa.open-in-view=true
+diff --git a/src/main/resources/templates/error.html b/src/main/resources/templates/error.html
+index b902669..c47249d 100644
+--- a/src/main/resources/templates/error.html
++++ b/src/main/resources/templates/error.html
+@@ -1,11 +1,11 @@
+ <!DOCTYPE html>
+ 
+-<html xmlns:th="https://www.thymeleaf.org" th:replace="~{fragments/layout :: layout (~{::body},'error')}">
++<html xmlns:t="https://tessera.dev" t:params="String message" t:replace="~{fragments/layout :: layout(~{::body}, 'error')}">
+ 
+   <body>
+-    <img src="../static/resources/images/pets.png" th:src="@{/resources/images/pets.png}"/>
++    <img src="../static/resources/images/pets.png" t:src="@{/resources/images/pets.png}"/>
+     <h2>Something happened...</h2>
+-    <p th:text="${message}">Exception message</p>
++    <p t:text="message">Exception message</p>
+   </body>
+ 
+-</html>
+\ No newline at end of file
++</html>
+diff --git a/src/main/resources/templates/fragments/inputField.html b/src/main/resources/templates/fragments/inputField.html
+index 5aeebc9..b2bf89c 100644
+--- a/src/main/resources/templates/fragments/inputField.html
++++ b/src/main/resources/templates/fragments/inputField.html
+@@ -1,28 +1,28 @@
+-<html>
++<html xmlns:t="https://tessera.dev">
+ <body>
+   <form>
+-    <th:block th:fragment="input (label, name, type)">
+-      <div th:with="valid=${!#fields.hasErrors(name)}"
+-        th:class="${'form-group' + (valid ? '' : ' has-error')}"
++    <t:block t:fragment="input(String label, Field name, String type)">
++      <div t:with="valid=!fields.hasErrors(name)"
++        t:class="'form-group' + (valid ? '' : ' has-error')"
+         class="form-group">
+-        <label class="col-sm-2 control-label" th:text="${label}">Label</label>
++        <label class="col-sm-2 control-label" t:text="label">Label</label>
+         <div class="col-sm-10">
+-            <div th:switch="${type}">
+-                <input th:case="'text'" class="form-control" type="text" th:field="*{__${name}__}" />
+-                <input th:case="'date'" class="form-control" type="date" th:field="*{__${name}__}"/>
++            <div t:switch="type">
++                <input t:case="'text'" class="form-control" type="text" t:field="name" />
++                <input t:case="'date'" class="form-control" type="date" t:field="name"/>
+             </div>
+-          <span th:if="${valid}"
++          <span t:if="valid"
+             class="fa fa-ok form-control-feedback"
+             aria-hidden="true"></span>
+-          <th:block th:if="${!valid}">
++          <t:block t:if="!valid">
+             <span
+               class="fa fa-remove form-control-feedback"
+               aria-hidden="true"></span>
+-            <span class="help-inline" th:errors="*{__${name}__}">Error</span>
+-          </th:block>
++            <span class="help-inline" t:errors="name">Error</span>
++          </t:block>
+         </div>
+       </div>
+-    </th:block>
++    </t:block>
+   </form>
+ </body>
+ </html>
+diff --git a/src/main/resources/templates/fragments/layout.html b/src/main/resources/templates/fragments/layout.html
+index 5c8d391..150557b 100755
+--- a/src/main/resources/templates/fragments/layout.html
++++ b/src/main/resources/templates/fragments/layout.html
+@@ -1,5 +1,5 @@
+ <!doctype html>
+-<html th:fragment="layout (template, menu)">
++<html xmlns:t="https://tessera.dev" t:fragment="layout(Fragment template, String menu)">
+ 
+ <head>
+ 
+@@ -8,7 +8,7 @@
+   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+   <meta name="viewport" content="width=device-width, initial-scale=1">
+ 
+-  <link rel="shortcut icon" type="image/x-icon" th:href="@{/resources/images/favicon.png}">
++  <link rel="shortcut icon" type="image/x-icon" t:href="@{/resources/images/favicon.png}">
+ 
+   <title>PetClinic :: a Spring Framework demonstration</title>
+ 
+@@ -17,8 +17,8 @@
+     <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+     <![endif]-->
+ 
+-  <link th:href="@{/webjars/font-awesome/4.7.0/css/font-awesome.min.css}" rel="stylesheet">
+-  <link rel="stylesheet" th:href="@{/resources/css/petclinic.css}" />
++  <link t:href="@{/webjars/font-awesome/4.7.0/css/font-awesome.min.css}" rel="stylesheet">
++  <link rel="stylesheet" t:href="@{/resources/css/petclinic.css}" />
+ 
+ </head>
+ 
+@@ -26,18 +26,18 @@
+ 
+   <nav class="navbar navbar-expand-lg navbar-dark" role="navigation">
+     <div class="container-fluid">
+-      <a class="navbar-brand" th:href="@{/}"><span></span></a>
++      <a class="navbar-brand" t:href="@{/}"><span></span></a>
+       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#main-navbar">
+         <span class="navbar-toggler-icon"></span>
+       </button>
+       <div class="collapse navbar-collapse" id="main-navbar" style>
+ 
+-        <ul class="navbar-nav me-auto mb-2 mb-lg-0" th:remove="all">
++        <ul class="navbar-nav me-auto mb-2 mb-lg-0" t:remove="all">
+ 
+-          <li th:fragment="menuItem (link,active,title,glyph,text)" th:class="nav-item">
+-            <a th:class="${active==menu ? 'nav-link active' : 'nav-link'}" th:href="@{__${link}__}" th:title="${title}">
+-              <span th:class="'fa fa-'+${glyph}" class="fa fa-home"></span>
+-              <span th:text="${text}">Template</span>
++          <li t:fragment="menuItem(String link, String active, String menu, String title, String glyph, String text)" class="nav-item">
++            <a t:class="active == menu ? 'nav-link active' : 'nav-link'" t:href="link" t:title="title">
++              <span t:class="'fa fa-' + glyph" class="fa fa-home"></span>
++              <span t:text="text">Template</span>
+             </a>
+           </li>
+ 
+@@ -45,23 +45,23 @@
+ 
+         <ul class="nav navbar-nav me-auto">
+ 
+-          <li th:replace="~{::menuItem ('/','home','home page','home','Home')}">
++          <li t:replace="~{::menuItem(@{/}, 'home', menu, 'home page', 'home', 'Home')}">
+             <span class="fa fa-home" aria-hidden="true"></span>
+             <span>Home</span>
+           </li>
+ 
+-          <li th:replace="~{::menuItem ('/owners/find','owners','find owners','search','Find owners')}">
++          <li t:replace="~{::menuItem(@{/owners/find}, 'owners', menu, 'find owners', 'search', 'Find owners')}">
+             <span class="fa fa-search" aria-hidden="true"></span>
+             <span>Find owners</span>
+           </li>
+ 
+-          <li th:replace="~{::menuItem ('/vets.html','vets','veterinarians','th-list','Veterinarians')}">
++          <li t:replace="~{::menuItem(@{/vets.html}, 'vets', menu, 'veterinarians', 'th-list', 'Veterinarians')}">
+             <span class="fa fa-th-list" aria-hidden="true"></span>
+             <span>Veterinarians</span>
+           </li>
+ 
+           <li
+-            th:replace="~{::menuItem ('/oups','error','trigger a RuntimeException to see how it is handled','exclamation-triangle','Error')}">
++            t:replace="~{::menuItem(@{/oups}, 'error', menu, 'trigger a RuntimeException to see how it is handled', 'exclamation-triangle', 'Error')}">
+             <span class="fa exclamation-triangle" aria-hidden="true"></span>
+             <span>Error</span>
+           </li>
+@@ -73,7 +73,7 @@
+   <div class="container-fluid">
+     <div class="container xd-container">
+ 
+-      <th:block th:insert="${template}" />
++      <t:block t:replace="template" />
+ 
+       <br />
+       <br />
+@@ -81,13 +81,13 @@
+         <div class="row">
+           <div class="col-12 text-center">
+             <img src="../static/resources/images/spring-pivotal-logo.png"
+-              th:src="@{/resources/images/spring-pivotal-logo.png}" alt="Sponsored by Pivotal" /></div>
++              t:src="@{/resources/images/spring-pivotal-logo.png}" alt="Sponsored by Pivotal" /></div>
+         </div>
+       </div>
+     </div>
+   </div>
+ 
+-  <script th:src="@{/webjars/bootstrap/5.1.3/dist/js/bootstrap.bundle.min.js}"></script>
++  <script t:src="@{/webjars/bootstrap/5.1.3/dist/js/bootstrap.bundle.min.js}"></script>
+ 
+ </body>
+ 
+diff --git a/src/main/resources/templates/fragments/selectField.html b/src/main/resources/templates/fragments/selectField.html
+index 25581eb..72066e2 100644
+--- a/src/main/resources/templates/fragments/selectField.html
++++ b/src/main/resources/templates/fragments/selectField.html
+@@ -1,29 +1,29 @@
+-<html>
++<html xmlns:t="https://tessera.dev" t:import="org.springframework.samples.petclinic.owner.PetType">
+ <body>
+   <form>
+-    <th:block th:fragment="select (label, name, items)">
+-      <div th:with="valid=${!#fields.hasErrors(name)}"
+-        th:class="${'form-group' + (valid ? '' : ' has-error')}"
++    <t:block t:fragment="select(String label, Field name, Collection<PetType> items)">
++      <div t:with="valid=!fields.hasErrors(name)"
++        t:class="'form-group' + (valid ? '' : ' has-error')"
+         class="form-group">
+-        <label class="col-sm-2 control-label" th:text="${label}">Label</label>
++        <label class="col-sm-2 control-label" t:text="label">Label</label>
+ 
+         <div class="col-sm-10">
+-          <select th:field="*{__${name}__}">
+-            <option th:each="item : ${items}" th:value="${item}"
+-              th:text="${item}">dog</option>
++          <select t:field="name">
++            <option t:each="item : items" t:value="item.name"
++              t:text="item.name">dog</option>
+           </select>
+-          <span th:if="${valid}"
++          <span t:if="valid"
+             class="fa fa-ok form-control-feedback"
+             aria-hidden="true"></span>
+-          <th:block th:if="${!valid}">
++          <t:block t:if="!valid">
+             <span
+               class="fa fa-remove form-control-feedback"
+               aria-hidden="true"></span>
+-            <span class="help-inline" th:errors="*{__${name}__}">Error</span>
+-          </th:block>
++            <span class="help-inline" t:errors="name">Error</span>
++          </t:block>
+         </div>
+       </div>
+-    </th:block>
++    </t:block>
+   </form>
+ </body>
+ </html>
+diff --git a/src/main/resources/templates/owners/createOrUpdateOwnerForm.html b/src/main/resources/templates/owners/createOrUpdateOwnerForm.html
+index 72c40fb..649a255 100644
+--- a/src/main/resources/templates/owners/createOrUpdateOwnerForm.html
++++ b/src/main/resources/templates/owners/createOrUpdateOwnerForm.html
+@@ -1,27 +1,28 @@
+-<html xmlns:th="https://www.thymeleaf.org"
+-  th:replace="~{fragments/layout :: layout (~{::body},'owners')}">
++<html xmlns:t="https://tessera.dev"
++  t:import="org.springframework.samples.petclinic.owner.Owner" t:params="Owner owner"
++  t:replace="~{fragments/layout :: layout(~{::body}, 'owners')}">
+ 
+ <body>
+ 
+   <h2>Owner</h2>
+-  <form th:object="${owner}" class="form-horizontal" id="add-owner-form" method="post">
++  <form t:object="owner" class="form-horizontal" id="add-owner-form" method="post">
+     <div class="form-group has-feedback">
+       <input
+-        th:replace="~{fragments/inputField :: input ('First Name', 'firstName', 'text')}" />
++        t:replace="~{fragments/inputField :: input('First Name', 'firstName', 'text')}" />
+       <input
+-        th:replace="~{fragments/inputField :: input ('Last Name', 'lastName', 'text')}" />
++        t:replace="~{fragments/inputField :: input('Last Name', 'lastName', 'text')}" />
+       <input
+-        th:replace="~{fragments/inputField :: input ('Address', 'address', 'text')}" />
++        t:replace="~{fragments/inputField :: input('Address', 'address', 'text')}" />
+       <input
+-        th:replace="~{fragments/inputField :: input ('City', 'city', 'text')}" />
++        t:replace="~{fragments/inputField :: input('City', 'city', 'text')}" />
+       <input
+-        th:replace="~{fragments/inputField :: input ('Telephone', 'telephone', 'text')}" />
++        t:replace="~{fragments/inputField :: input('Telephone', 'telephone', 'text')}" />
+     </div>
+     <div class="form-group">
+       <div class="col-sm-offset-2 col-sm-10">
+         <button
+-          th:with="text=${owner['new']} ? 'Add Owner' : 'Update Owner'"
+-          class="btn btn-primary" type="submit" th:text="${text}">Add
++          t:with="text=owner.isNew() ? 'Add Owner' : 'Update Owner'"
++          class="btn btn-primary" type="submit" t:text="text">Add
+           Owner</button>
+       </div>
+     </div>
+diff --git a/src/main/resources/templates/owners/findOwners.html b/src/main/resources/templates/owners/findOwners.html
+index 0a818fc..7e6a815 100644
+--- a/src/main/resources/templates/owners/findOwners.html
++++ b/src/main/resources/templates/owners/findOwners.html
+@@ -1,20 +1,21 @@
+-<html xmlns:th="https://www.thymeleaf.org"
+-  th:replace="~{fragments/layout :: layout (~{::body},'owners')}">
++<html xmlns:t="https://tessera.dev"
++  t:import="org.springframework.samples.petclinic.owner.Owner" t:params="Owner owner"
++  t:replace="~{fragments/layout :: layout(~{::body}, 'owners')}">
+ 
+ <body>
+ 
+   <h2>Find Owners</h2>
+ 
+-  <form th:object="${owner}" th:action="@{/owners}" method="get"
++  <form t:object="owner" t:action="@{/owners}" method="get"
+     class="form-horizontal" id="search-owner-form">
+     <div class="form-group">
+       <div class="control-group" id="lastNameGroup">
+         <label class="col-sm-2 control-label">Last name </label>
+         <div class="col-sm-10">
+-          <input class="form-control" th:field="*{lastName}" size="30"
++          <input class="form-control" t:field="*{lastName}" size="30"
+             maxlength="80" /> <span class="help-inline"><div
+-              th:if="${#fields.hasAnyErrors()}">
+-              <p th:each="err : ${#fields.allErrors()}" th:text="${err}">Error</p>
++              t:if="fields.hasErrors('*')">
++              <p t:each="err : fields.errors('*')" t:text="err">Error</p>
+             </div></span>
+         </div>
+       </div>
+@@ -26,7 +27,7 @@
+       </div>
+     </div>
+ 
+-    <a class="btn btn-primary" th:href="@{/owners/new}">Add Owner</a>
++    <a class="btn btn-primary" t:href="@{/owners/new}">Add Owner</a>
+ 
+   </form>
+ 
+diff --git a/src/main/resources/templates/owners/ownerDetails.html b/src/main/resources/templates/owners/ownerDetails.html
+index 41f7d16..4d0f716 100644
+--- a/src/main/resources/templates/owners/ownerDetails.html
++++ b/src/main/resources/templates/owners/ownerDetails.html
+@@ -1,7 +1,8 @@
+ <!DOCTYPE html>
+ 
+-<html xmlns:th="https://www.thymeleaf.org"
+-  th:replace="~{fragments/layout :: layout (~{::body},'owners')}">
++<html xmlns:t="https://tessera.dev"
++  t:import="org.springframework.samples.petclinic.owner.Owner" t:params="Owner owner"
++  t:replace="~{fragments/layout :: layout(~{::body}, 'owners')}">
+ 
+   <body>
+   
+@@ -9,28 +10,28 @@
+     <h2>Owner Information</h2>
+   
+   
+-    <table class="table table-striped" th:object="${owner}">
++    <table class="table table-striped">
+       <tr>
+         <th>Name</th>
+-        <td><b th:text="*{firstName + ' ' + lastName}"></b></td>
++        <td><b t:text="owner.firstName + ' ' + owner.lastName"></b></td>
+       </tr>
+       <tr>
+         <th>Address</th>
+-        <td th:text="*{address}"></td>
++        <td t:text="owner.address"></td>
+       </tr>
+       <tr>
+         <th>City</th>
+-        <td th:text="*{city}"></td>
++        <td t:text="owner.city"></td>
+       </tr>
+       <tr>
+         <th>Telephone</th>
+-        <td th:text="*{telephone}"></td>
++        <td t:text="owner.telephone"></td>
+       </tr>
+     </table>
+   
+-    <a th:href="@{__${owner.id}__/edit}" class="btn btn-primary">Edit
++    <a t:href="@{{ownerId}/edit(ownerId='' + owner.id)}" class="btn btn-primary">Edit
+       Owner</a>
+-    <a th:href="@{__${owner.id}__/pets/new}" class="btn btn-primary">Add
++    <a t:href="@{{ownerId}/pets/new(ownerId='' + owner.id)}" class="btn btn-primary">Add
+       New Pet</a>
+   
+     <br />
+@@ -40,16 +41,16 @@
+   
+     <table class="table table-striped">
+   
+-      <tr th:each="pet : ${owner.pets}">
++      <tr t:each="pet : owner.pets">
+         <td valign="top">
+           <dl class="dl-horizontal">
+             <dt>Name</dt>
+-            <dd th:text="${pet.name}"></dd>
++            <dd t:text="pet.name"></dd>
+             <dt>Birth Date</dt>
+             <dd
+-              th:text="${#temporals.format(pet.birthDate, 'yyyy-MM-dd')}"></dd>
++              t:text="temporals.format(pet.birthDate, 'yyyy-MM-dd')"></dd>
+             <dt>Type</dt>
+-            <dd th:text="${pet.type}"></dd>
++            <dd t:text="pet.type?.name"></dd>
+           </dl>
+         </td>
+         <td valign="top">
+@@ -60,13 +61,13 @@
+                 <th>Description</th>
+               </tr>
+             </thead>
+-            <tr th:each="visit : ${pet.visits}">
+-              <td th:text="${#temporals.format(visit.date, 'yyyy-MM-dd')}"></td>
+-              <td th:text="${visit?.description}"></td>
++            <tr t:each="visit : pet.visits">
++              <td t:text="temporals.format(visit.date, 'yyyy-MM-dd')"></td>
++              <td t:text="visit?.description"></td>
+             </tr>
+             <tr>
+-              <td><a th:href="@{__${owner.id}__/pets/__${pet.id}__/edit}">Edit Pet</a></td>
+-              <td><a th:href="@{__${owner.id}__/pets/__${pet.id}__/visits/new}">Add Visit</a></td>
++              <td><a t:href="@{{ownerId}/pets/{petId}/edit(ownerId='' + owner.id, petId='' + pet.id)}">Edit Pet</a></td>
++              <td><a t:href="@{{ownerId}/pets/{petId}/visits/new(ownerId='' + owner.id, petId='' + pet.id)}">Add Visit</a></td>
+             </tr>
+           </table>
+         </td>
+diff --git a/src/main/resources/templates/owners/ownersList.html b/src/main/resources/templates/owners/ownersList.html
+index 9af3252..4178155 100644
+--- a/src/main/resources/templates/owners/ownersList.html
++++ b/src/main/resources/templates/owners/ownersList.html
+@@ -1,6 +1,9 @@
+ <!DOCTYPE html>
+ 
+-<html xmlns:th="https://www.thymeleaf.org" th:replace="~{fragments/layout :: layout (~{::body},'owners')}">
++<html xmlns:t="https://tessera.dev"
++  t:import="org.springframework.samples.petclinic.owner.Owner"
++  t:params="List<Owner> listOwners, int currentPage, int totalPages"
++  t:replace="~{fragments/layout :: layout(~{::body}, 'owners')}">
+ 
+ <body>
+ 
+@@ -17,46 +20,45 @@
+   </tr>
+   </thead>
+   <tbody>
+-  <tr th:each="owner : ${listOwners}">
++  <tr t:each="owner : listOwners">
+     <td>
+-      <a th:href="@{/owners/__${owner.id}__}" th:text="${owner.firstName + ' ' + owner.lastName}"/></a>
++      <a t:href="@{/owners/{ownerId}(ownerId='' + owner.id)}" t:text="owner.firstName + ' ' + owner.lastName"></a>
+     </td>
+-    <td th:text="${owner.address}"/>
+-    <td th:text="${owner.city}"/>
+-    <td th:text="${owner.telephone}"/>
+-    <td><span th:text="${#strings.listJoin(owner.pets, ', ')}"/></td>
++    <td t:text="owner.address"></td>
++    <td t:text="owner.city"></td>
++    <td t:text="owner.telephone"></td>
++    <td><span t:text="strings.join(owner.pets, ', ')"></span></td>
+   </tr>
+   </tbody>
+ </table>
+-<div th:if="${totalPages > 1}">
++<div t:if="totalPages > 1">
+   <span>Pages:</span>
+   <span>[</span>
+-  <span th:each="i: ${#numbers.sequence(1, totalPages)}">
+-      <a th:if="${currentPage != i}" th:href="@{'/owners?page=' + ${i}}">[[${i}]]</a>
+-      <span th:unless="${currentPage != i}">[[${i}]]</span>
++  <span t:each="i: numbers.sequence(1, totalPages)">
++      <a t:if="currentPage != i" t:href="@{/owners(page=i)}">[[${i}]]</a>
++      <span t:unless="currentPage != i">[[${i}]]</span>
+     </span>
+   <span>]&nbsp;</span>
+   <span>
+-      <a th:if="${currentPage > 1}" th:href="@{'/owners?page=1'}" title="First"
++      <a t:if="currentPage > 1" t:href="@{/owners(page=1)}" title="First"
+          class="fa fa-fast-backward"></a>
+-      <span th:unless="${currentPage > 1}" title="First" class="fa fa-fast-backward"></span>
++      <span t:unless="currentPage > 1" title="First" class="fa fa-fast-backward"></span>
+     </span>
+   <span>
+-      <a th:if="${currentPage > 1}" th:href="@{'/owners?page=__${currentPage - 1}__'}" title="Previous"
++      <a t:if="currentPage > 1" t:href="@{/owners(page=currentPage - 1)}" title="Previous"
+          class="fa fa-step-backward"></a>
+-      <span th:unless="${currentPage > 1}" title="Previous" class="fa fa-step-backward"></span>
++      <span t:unless="currentPage > 1" title="Previous" class="fa fa-step-backward"></span>
+     </span>
+   <span>
+-      <a th:if="${currentPage < totalPages}" th:href="@{'/owners?page=__${currentPage + 1}__'}" title="Next"
++      <a t:if="currentPage < totalPages" t:href="@{/owners(page=currentPage + 1)}" title="Next"
+          class="fa fa-step-forward"></a>
+-      <span th:unless="${currentPage < totalPages}" title="Next" class="fa fa-step-forward"></span>
++      <span t:unless="currentPage < totalPages" title="Next" class="fa fa-step-forward"></span>
+     </span>
+   <span>
+-      <a th:if="${currentPage < totalPages}" th:href="@{'/owners?page=__${totalPages}__'}" title="Last"
++      <a t:if="currentPage < totalPages" t:href="@{/owners(page=totalPages)}" title="Last"
+          class="fa fa-fast-forward"></a>
+-      <span th:unless="${currentPage < totalPages}" title="Last" class="fa fa-step-forward"></span>
++      <span t:unless="currentPage < totalPages" title="Last" class="fa fa-step-forward"></span>
+     </span>
+ </div>
+ </body>
+ </html>
+-
+diff --git a/src/main/resources/templates/pets/createOrUpdatePetForm.html b/src/main/resources/templates/pets/createOrUpdatePetForm.html
+index dd8a4dd..9767d7f 100644
+--- a/src/main/resources/templates/pets/createOrUpdatePetForm.html
++++ b/src/main/resources/templates/pets/createOrUpdatePetForm.html
+@@ -1,33 +1,35 @@
+-<html xmlns:th="https://www.thymeleaf.org"
+-  th:replace="~{fragments/layout :: layout (~{::body},'owners')}">
++<html xmlns:t="https://tessera.dev"
++  t:import="org.springframework.samples.petclinic.owner.*"
++  t:params="Pet pet, Owner owner, Collection<PetType> types"
++  t:replace="~{fragments/layout :: layout(~{::body}, 'owners')}">
+ 
+ <body>
+ 
+   <h2>
+-    <th:block th:if="${pet['new']}">New </th:block>
++    <t:block t:if="pet.isNew()">New </t:block>
+     Pet
+   </h2>
+-  <form th:object="${pet}" class="form-horizontal" method="post">
+-    <input type="hidden" name="id" th:value="*{id}" />
++  <form t:object="pet" class="form-horizontal" method="post">
++    <input type="hidden" name="id" t:value="pet.id == null ? '' : '' + pet.id" />
+     <div class="form-group has-feedback">
+       <div class="form-group">
+         <label class="col-sm-2 control-label">Owner</label>
+         <div class="col-sm-10">
+-          <span th:text="${owner?.firstName + ' ' + owner?.lastName}" />
++          <span t:text="owner?.firstName + ' ' + owner?.lastName"></span>
+         </div>
+       </div>
+       <input
+-        th:replace="~{fragments/inputField :: input ('Name', 'name', 'text')}" />
++        t:replace="~{fragments/inputField :: input('Name', 'name', 'text')}" />
+       <input
+-        th:replace="~{fragments/inputField :: input ('Birth Date', 'birthDate', 'date')}" />
++        t:replace="~{fragments/inputField :: input('Birth Date', 'birthDate', 'date')}" />
+       <input
+-        th:replace="~{fragments/selectField :: select ('Type', 'type', ${types})}" />
++        t:replace="~{fragments/selectField :: select('Type', 'type', types)}" />
+     </div>
+     <div class="form-group">
+       <div class="col-sm-offset-2 col-sm-10">
+         <button
+-          th:with="text=${pet['new']} ? 'Add Pet' : 'Update Pet'"
+-          class="btn btn-primary" type="submit" th:text="${text}">Add
++          t:with="text=pet.isNew() ? 'Add Pet' : 'Update Pet'"
++          class="btn btn-primary" type="submit" t:text="text">Add
+           Pet</button>
+       </div>
+     </div>
+diff --git a/src/main/resources/templates/pets/createOrUpdateVisitForm.html b/src/main/resources/templates/pets/createOrUpdateVisitForm.html
+index 4b0d315..adc1702 100644
+--- a/src/main/resources/templates/pets/createOrUpdateVisitForm.html
++++ b/src/main/resources/templates/pets/createOrUpdateVisitForm.html
+@@ -1,10 +1,12 @@
+-<html xmlns:th="https://www.thymeleaf.org"
+-  th:replace="~{fragments/layout :: layout (~{::body},'owners')}">
++<html xmlns:t="https://tessera.dev"
++  t:import="org.springframework.samples.petclinic.owner.*"
++  t:params="Visit visit, Pet pet, Owner owner"
++  t:replace="~{fragments/layout :: layout(~{::body}, 'owners')}">
+ 
+ <body>
+ 
+   <h2>
+-    <th:block th:if="${visit['new']}">New </th:block>
++    <t:block t:if="visit.isNew()">New </t:block>
+     Visit
+   </h2>
+ 
+@@ -19,26 +21,26 @@
+       </tr>
+     </thead>
+     <tr>
+-      <td th:text="${pet.name}"></td>
++      <td t:text="pet.name"></td>
+       <td
+-        th:text="${#temporals.format(pet.birthDate, 'yyyy-MM-dd')}"></td>
+-      <td th:text="${pet.type}"></td>
++        t:text="temporals.format(pet.birthDate, 'yyyy-MM-dd')"></td>
++      <td t:text="pet.type?.name"></td>
+       <td
+-        th:text="${owner?.firstName + ' ' + owner?.lastName}"></td>
++        t:text="owner?.firstName + ' ' + owner?.lastName"></td>
+     </tr>
+   </table>
+ 
+-  <form th:object="${visit}" class="form-horizontal" method="post">
++  <form t:object="visit" class="form-horizontal" method="post">
+     <div class="form-group has-feedback">
+       <input
+-        th:replace="~{fragments/inputField :: input ('Date', 'date', 'date')}"  />
++        t:replace="~{fragments/inputField :: input('Date', 'date', 'date')}"  />
+       <input
+-        th:replace="~{fragments/inputField :: input ('Description', 'description', 'text')}" />
++        t:replace="~{fragments/inputField :: input('Description', 'description', 'text')}" />
+     </div>
+ 
+     <div class="form-group">
+       <div class="col-sm-offset-2 col-sm-10">
+-        <input type="hidden" name="petId" th:value="${pet.id}" />
++        <input type="hidden" name="petId" t:value="pet.id" />
+         <button class="btn btn-primary" type="submit">Add Visit</button>
+       </div>
+     </div>
+@@ -51,9 +53,9 @@
+       <th>Date</th>
+       <th>Description</th>
+     </tr>
+-    <tr th:if="${!visit['new']}" th:each="visit : ${pet.visits}">
+-      <td th:text="${#temporals.format(visit.date, 'yyyy-MM-dd')}"></td>
+-      <td th:text=" ${visit.description}"></td>
++    <tr t:each="previous : pet.visits" t:if="!previous.isNew()">
++      <td t:text="temporals.format(previous.date, 'yyyy-MM-dd')"></td>
++      <td t:text="previous.description"></td>
+     </tr>
+   </table>
+ 
+diff --git a/src/main/resources/templates/vets/vetList.html b/src/main/resources/templates/vets/vetList.html
+index e0b8e70..cb3e05b 100644
+--- a/src/main/resources/templates/vets/vetList.html
++++ b/src/main/resources/templates/vets/vetList.html
+@@ -1,7 +1,9 @@
+ <!DOCTYPE html>
+ 
+-<html xmlns:th="https://www.thymeleaf.org"
+-      th:replace="~{fragments/layout :: layout (~{::body},'vets')}">
++<html xmlns:t="https://tessera.dev"
++      t:import="org.springframework.samples.petclinic.vet.Vet"
++      t:params="List<Vet> listVets, int currentPage, int totalPages"
++      t:replace="~{fragments/layout :: layout(~{::body}, 'vets')}">
+ 
+ <body>
+ 
+@@ -15,42 +17,42 @@
+   </tr>
+   </thead>
+   <tbody>
+-  <tr th:each="vet : ${listVets}">
+-    <td th:text="${vet.firstName + ' ' + vet.lastName}"></td>
+-    <td><span th:each="specialty : ${vet.specialties}"
+-              th:text="${specialty.name + ' '}"/> <span
+-      th:if="${vet.nrOfSpecialties == 0}">none</span></td>
++  <tr t:each="vet : listVets">
++    <td t:text="vet.firstName + ' ' + vet.lastName"></td>
++    <td><span t:each="specialty : vet.specialties"
++              t:text="specialty.name + ' '"></span> <span
++      t:if="vet.nrOfSpecialties == 0">none</span></td>
+   </tr>
+   </tbody>
+ </table>
+ 
+-<div th:if="${totalPages > 1}">
++<div t:if="totalPages > 1">
+   <span>Pages:</span>
+   <span>[</span>
+-  <span th:each="i: ${#numbers.sequence(1, totalPages)}">
+-      <a th:if="${currentPage != i}" th:href="@{'/vets.html?page=__${i}__'}">[[${i}]]</a>
+-      <span th:unless="${currentPage != i}">[[${i}]]</span>
++  <span t:each="i: numbers.sequence(1, totalPages)">
++      <a t:if="currentPage != i" t:href="@{/vets.html(page=i)}">[[${i}]]</a>
++      <span t:unless="currentPage != i">[[${i}]]</span>
+     </span>
+   <span>]&nbsp;</span>
+   <span>
+-      <a th:if="${currentPage > 1}" th:href="@{'/vets.html?page=1'}" title="First"
++      <a t:if="currentPage > 1" t:href="@{/vets.html(page=1)}" title="First"
+          class="fa fa-fast-backward"></a>
+-      <span th:unless="${currentPage > 1}" title="First" class="fa fa-fast-backward"></span>
++      <span t:unless="currentPage > 1" title="First" class="fa fa-fast-backward"></span>
+     </span>
+   <span>
+-      <a th:if="${currentPage > 1}" th:href="@{'/vets.html?page=__${currentPage - 1}__'}" title="Previous"
++      <a t:if="currentPage > 1" t:href="@{/vets.html(page=currentPage - 1)}" title="Previous"
+          class="fa fa-step-backward"></a>
+-      <span th:unless="${currentPage > 1}" title="Previous" class="fa fa-step-backward"></span>
++      <span t:unless="currentPage > 1" title="Previous" class="fa fa-step-backward"></span>
+     </span>
+   <span>
+-      <a th:if="${currentPage < totalPages}" th:href="@{'/vets.html?page=__${currentPage + 1}__'}" title="Next"
++      <a t:if="currentPage < totalPages" t:href="@{/vets.html(page=currentPage + 1)}" title="Next"
+          class="fa fa-step-forward"></a>
+-      <span th:unless="${currentPage < totalPages}" title="Next" class="fa fa-step-forward"></span>
++      <span t:unless="currentPage < totalPages" title="Next" class="fa fa-step-forward"></span>
+     </span>
+   <span>
+-      <a th:if="${currentPage < totalPages}" th:href="@{'/vets.html?page=__${totalPages}__'}" title="Last"
++      <a t:if="currentPage < totalPages" t:href="@{/vets.html(page=totalPages)}" title="Last"
+          class="fa fa-fast-forward"></a>
+-      <span th:unless="${currentPage < totalPages}" title="Last" class="fa fa-fast-forward"></span>
++      <span t:unless="currentPage < totalPages" title="Last" class="fa fa-fast-forward"></span>
+     </span>
+ </div>
+ </body>
+diff --git a/src/main/resources/templates/welcome.html b/src/main/resources/templates/welcome.html
+index 4fa1cd3..98fd725 100644
+--- a/src/main/resources/templates/welcome.html
++++ b/src/main/resources/templates/welcome.html
+@@ -1,16 +1,16 @@
+ <!DOCTYPE html>
+ 
+-<html xmlns:th="https://www.thymeleaf.org" th:replace="~{fragments/layout :: layout (~{::body},'home')}">
++<html xmlns:t="https://tessera.dev" t:replace="~{fragments/layout :: layout(~{::body}, 'home')}">
+ 
+   <body>
+ 
+-    <h2 th:text="#{welcome}">Welcome</h2>
++    <h2 t:text="#{welcome}">Welcome</h2>
+     <div class="row">
+         <div class="col-md-12">
+-          <img class="img-responsive" src="../static/resources/images/pets.png" th:src="@{/resources/images/pets.png}"/>
++          <img class="img-responsive" src="../static/resources/images/pets.png" t:src="@{/resources/images/pets.png}"/>
+         </div>
+     </div>
+ 
+   </body>
+ 
+-</html>
+\ No newline at end of file
++</html>
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/OwnerViewRenderingTests.java b/src/test/java/org/springframework/samples/petclinic/owner/OwnerViewRenderingTests.java
+new file mode 100644
+index 0000000..2c0f987
+--- /dev/null
++++ b/src/test/java/org/springframework/samples/petclinic/owner/OwnerViewRenderingTests.java
+@@ -0,0 +1,78 @@
++/*
++ * Copyright 2012-2019 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      https://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.springframework.samples.petclinic.owner;
++
++import static org.hamcrest.Matchers.containsString;
++import static org.hamcrest.Matchers.not;
++import static org.mockito.BDDMockito.given;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
++
++import java.time.LocalDate;
++
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
++import org.springframework.boot.test.mock.mockito.MockBean;
++import org.springframework.test.web.servlet.MockMvc;
++
++/**
++ * Renders owner pages through the real Tessera view resolver and checks that user data is
++ * escaped.
++ */
++@WebMvcTest(OwnerController.class)
++class OwnerViewRenderingTests {
++
++	@Autowired
++	private MockMvc mockMvc;
++
++	@MockBean
++	private OwnerRepository owners;
++
++	@Test
++	void ownerDetailsEscapesUserData() throws Exception {
++		Owner owner = new Owner();
++		owner.setId(7);
++		owner.setFirstName("<script>alert(1)</script>");
++		owner.setLastName("O'Brien & Co");
++		owner.setAddress("\"quoted\" <b>");
++		owner.setCity("Paris");
++		owner.setTelephone("0123456789");
++		Pet pet = new Pet();
++		pet.setName("<i>Rex</i>");
++		pet.setBirthDate(LocalDate.of(2020, 1, 2));
++		owner.addPet(pet);
++		pet.setId(3);
++		given(this.owners.findById(7)).willReturn(owner);
++
++		mockMvc.perform(get("/owners/7")).andExpect(status().isOk())
++				.andExpect(content().string(containsString("&lt;script&gt;alert(1)&lt;/script&gt;")))
++				.andExpect(content().string(not(containsString("<script>alert(1)"))))
++				.andExpect(content().string(containsString("O&#39;Brien &amp; Co")))
++				.andExpect(content().string(containsString("&lt;i&gt;Rex&lt;/i&gt;")))
++				.andExpect(content().string(containsString("href=\"7/pets/3/edit\"")))
++				.andExpect(content().string(containsString("2020-01-02")));
++	}
++
++	@Test
++	void ownerFormRenders() throws Exception {
++		mockMvc.perform(get("/owners/new")).andExpect(status().isOk())
++				.andExpect(content().string(containsString("id=\"add-owner-form\"")));
++	}
++
++}

@@ -1,0 +1,41 @@
+{
+ "app": "jprime",
+ "run": "run-8",
+ "build_ok": true,
+ "tests_ok": true,
+ "tests": {
+  "tests": 209,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0
+ },
+ "tests_failed": [],
+ "baseline_tests": 208,
+ "pages_total": 150,
+ "pages_identical": 137,
+ "pages_reordered": 3,
+ "status_mismatch": [],
+ "insecure": [],
+ "legacy_templates": [],
+ "legacy_constructs": {},
+ "legacy_deps": [],
+ "tessera_templates": 62,
+ "baseline_templates": 69,
+ "pass": false,
+ "wall_minutes": 33.2,
+ "exit": 0,
+ "model": "opus",
+ "budget_usd": 40,
+ "budget_minutes": 90,
+ "outcome": "success",
+ "cost_usd": 21.10430599999999,
+ "turns": 2,
+ "tokens": {
+  "input_tokens": 748,
+  "output_tokens": 237891,
+  "cache_read_input_tokens": 60780845,
+  "cache_creation_input_tokens": 837465
+ },
+ "skill_listed": true,
+ "skill_invoked": true
+}

@@ -1,0 +1,41 @@
+{
+ "app": "spring-petclinic-mustache",
+ "run": "run-8",
+ "build_ok": true,
+ "tests_ok": true,
+ "tests": {
+  "tests": 44,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0
+ },
+ "tests_failed": [],
+ "baseline_tests": 42,
+ "pages_total": 30,
+ "pages_identical": 24,
+ "pages_reordered": 0,
+ "status_mismatch": [],
+ "insecure": [],
+ "legacy_templates": [],
+ "legacy_constructs": {},
+ "legacy_deps": [],
+ "tessera_templates": 13,
+ "baseline_templates": 12,
+ "pass": false,
+ "wall_minutes": 10.7,
+ "exit": 0,
+ "model": "opus",
+ "budget_usd": 40,
+ "budget_minutes": 90,
+ "outcome": "success",
+ "cost_usd": 2.9312959999999992,
+ "turns": 61,
+ "tokens": {
+  "input_tokens": 114,
+  "output_tokens": 43032,
+  "cache_read_input_tokens": 6582650,
+  "cache_creation_input_tokens": 150734
+ },
+ "skill_listed": true,
+ "skill_invoked": true
+}
