@@ -318,7 +318,8 @@ def migrate(app, k, args):
     with open(os.path.join(run_dir, "agent.json"), "w") as f:
         json.dump(meta, f, indent=1)
 
-    sh(["git", "-C", app_dir, "add", "-A", "--", ".", ":!**/target/**"])
+    # baseline/ is the agent's own page recording (the skill's `tessera-migrate record ... baseline/`).
+    sh(["git", "-C", app_dir, "add", "-A", "--", ".", ":!**/target/**", ":!baseline/**"])
     with open(os.path.join(run_dir, "diff.patch"), "w") as f:
         subprocess.run(["git", "-C", app_dir, "diff", "--cached", cfg["commit"]], stdout=f, check=True)
     report = os.path.join(app_dir, "MIGRATION-REPORT.md")
@@ -423,13 +424,16 @@ def main():
                 d = os.path.join(RESULTS, a, run)
                 if not os.path.exists(os.path.join(d, "agent.json")):
                     continue
+                if os.path.exists(os.path.join(d, "pages.diff")):
+                    print(f"{a} {run}: old-format run (pages.diff), left as it is")
+                    continue
                 if args.cmd == "recheck":
                     check(a, os.path.join(WORK, "runs", a, run), os.path.join(d, "check"),
                           os.path.join(RESULTS, a, "baseline", "pages"))
                 if os.path.exists(os.path.join(d, "check", "compare.txt")):
                     score(a, d)
                 else:
-                    print(f"{a} {run}: no compare output (old-format run), not rescored")
+                    print(f"{a} {run}: no compare output, not rescored")
     if args.cmd in ("all", "migrate", "recheck", "rescore", "report"):
         report()
 
