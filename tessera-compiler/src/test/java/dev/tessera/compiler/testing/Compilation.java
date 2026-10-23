@@ -129,6 +129,7 @@ public final class Compilation {
     private final Map<String, String> javaSources = new LinkedHashMap<>();
     private final Map<String, String> options = new LinkedHashMap<>();
     private String messages;
+    private final Map<String, String> localeMessages = new LinkedHashMap<>();
     private boolean templatesOption = true;
     private Integer release = Integer.getInteger("tessera.test.release");
     private Consumer<ProcessingEnvironment> callback;
@@ -149,6 +150,15 @@ public final class Compilation {
     /** Default-locale message bundle contents ({@code .properties} syntax); enables key checks. */
     public Builder messages(String properties) {
       this.messages = properties;
+      return this;
+    }
+
+    /**
+     * A locale file beside the default bundle, e.g. {@code localeMessages("fr", "a=b")} writes
+     * {@code messages_fr.properties}. Only used together with {@link #messages}.
+     */
+    public Builder localeMessages(String locale, String properties) {
+      localeMessages.put(locale, properties);
       return this;
     }
 
@@ -225,6 +235,9 @@ public final class Compilation {
         if (messages != null) {
           Path base = dir.resolve("messages");
           Files.writeString(MessageBundle.file(base), messages, StandardCharsets.UTF_8);
+          for (Map.Entry<String, String> e : localeMessages.entrySet()) {
+            Files.writeString(dir.resolve("messages_" + e.getKey() + ".properties"), e.getValue(), StandardCharsets.UTF_8);
+          }
           args.add("-A" + ProcessorOptions.MESSAGES + "=" + base.toAbsolutePath());
         }
         options.forEach((k, v) -> args.add("-A" + k + "=" + v));

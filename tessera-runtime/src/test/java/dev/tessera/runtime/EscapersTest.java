@@ -635,4 +635,23 @@ class EscapersTest {
     assertThrows(IllegalArgumentException.class, () -> Escapers.appendJson(new StringBuilder(), List.of("value"), 64));
   }
 
+
+  @Test
+  void htmlMessageArgsEscapeTextButKeepNumbersAndDates() {
+    java.util.Date date = new java.util.Date(0);
+    Object[] in = {"<script>&\"'", 42, new BigDecimal("1.5"), date, null, SafeHtml.unchecked("<b>"), 'c'};
+    Object[] out = Escapers.htmlMessageArgs(in);
+    assertEquals("&lt;script&gt;&amp;&quot;&#39;", out[0]);
+    assertEquals(42, out[1]);
+    assertEquals(new BigDecimal("1.5"), out[2]);
+    assertTrue(out[3] == date);
+    assertEquals(null, out[4]);
+    assertEquals("&lt;b&gt;", out[5]);
+    assertEquals("c", out[6]);
+    assertEquals("<script>&\"'", in[0], "the input array is not changed");
+    assertEquals(
+        "Hi &lt;i&gt;x&lt;/i&gt;, 1,234",
+        new java.text.MessageFormat("Hi {0}, {1,number}", java.util.Locale.US)
+            .format(Escapers.htmlMessageArgs(new Object[] {"<i>x</i>", 1234})));
+  }
 }

@@ -105,6 +105,24 @@ public final class Escapers {
   }
 
   /**
+   * Arguments of a bundle message rendered as HTML ({@code t:utext="#{key(args)}"}). The compiler
+   * has checked the message's markup and that its placeholders only stand in text, so each
+   * argument only has to be escaped as HTML text: every value becomes its escaped
+   * {@linkplain #toText text}, except {@link Number} and {@link java.util.Date}, which
+   * {@link java.text.MessageFormat} formats itself (to digits and locale symbols or names, never
+   * markup) and which must stay numbers and dates for {@code {0,number}} and {@code {0,date}}.
+   * {@code null} stays {@code null}, as with the escaped form. Returns a new array.
+   */
+  public static Object[] htmlMessageArgs(Object[] args) {
+    Object[] escaped = new Object[args.length];
+    for (int i = 0; i < args.length; i++) {
+      Object a = args[i];
+      escaped[i] = a == null || a instanceof Number || a instanceof java.util.Date ? a : escapeHtml(toText(a));
+    }
+    return escaped;
+  }
+
+  /**
    * JavaScript value inside {@code <script>} (OutputContext.SCRIPT). Serializes as JSON:
    * null, Boolean, Number, CharSequence, Character, Enum (name), java.time values (ISO string),
    * Optional, Collection, array and Map with String keys. Escapes {@code <}, {@code >},

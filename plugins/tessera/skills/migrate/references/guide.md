@@ -407,7 +407,8 @@ that runs code. What differs:
   `size`, `first`, `last`, `even`, `odd`, implicit name `xStat`. `t:with` locals are immutable.
   `t:remove` takes a literal (`all`, `body`, `tag`, `all-but-first`, `none`).
 - Any `t:<name>` sets that attribute; `null` omits it, and boolean attributes (`t:checked`,
-  `t:disabled`, ...) render `name="name"` or nothing. `t:utext` and `[(...)]` need a `SafeHtml`.
+  `t:disabled`, ...) render `name="name"` or nothing. `t:utext` and `[(...)]` need a `SafeHtml`
+  or a checked bundle message (section 4.5).
 - Not supported: `th:attrappend`/`attrprepend`, `th:alt-title`, `th:lang-xmllang`, `th:assert`,
   `th:include` (use `t:insert`) and `th:inline` (in a `<script>`, `[[...]]` writes JSON).
 
@@ -418,7 +419,7 @@ The compiler decides the context from the element and attribute name. You cannot
 | Context | Where | What happens |
 |---|---|---|
 | Text | element text, `<title>`, `<textarea>`, `t:text`, `[[...]]` | `& < > " '` escaped. |
-| Raw HTML | `t:utext`, `[(...)]` | Only `SafeHtml` compiles. |
+| Raw HTML | `t:utext`, `[(...)]` | Only `SafeHtml`, or a bundle message checked at build time (section 4.5), compiles. |
 | Attribute | any other attribute value | Escaped, always double-quoted. |
 | URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. |
 | Resource URL | `script[src]`, `iframe[src]`, `embed[src]`, `object[data]`, `base[href]`, `link[href]` | Only a literal-path `@{...}` link or a `TrustedUrl` compiles. |
@@ -499,6 +500,44 @@ cannot leave the quoted URL.
 computed choice, use a conditional: `active ? #{status.active} : #{status.inactive}`. A message is
 text and is escaped. A missing key renders `??key_locale??` at runtime; with `-Atessera.messages`
 it is a build error instead.
+
+**Messages with markup.** A bundle is part of the application, so a message that holds markup
+(Thymeleaf `th:utext="#{key(args)}"`, JSP `<spring:message>` without escaping) can be printed as
+HTML: `t:utext="#{key(args)}"` or `[(#{key(args)})]`. It needs `-Atessera.messages`; the compiler
+then checks the key's value in the default bundle and in every locale file next to it
+(`messages_fr.properties`, `messages_pt_BR.properties`, ...) and fails the build, naming the file
+and key, unless the value is markup from this allow-list:
+
+- elements `p br hr h1`-`h6 b i em strong u s sub sup small mark code pre blockquote ul ol li dl dt
+  dd span div a abbr cite q kbd del ins`; no comments, `script`, `style` or anything else;
+- attributes `class id title lang dir`, plus `href target rel hreflang` on `a`, with quoted
+  values; an `href` must be relative or `http`/`https`/`mailto`/`tel`, with no `&` other than
+  `&amp;`; no `style` and no `on*`;
+- every end tag matches, and every element is closed except `p li dt dd`. `<p/>` is a `<p>` and is
+  printed as written, as Thymeleaf does.
+
+Arguments are HTML-escaped before they are formatted into the message (numbers and `Date`s are
+formatted by `MessageFormat` as usual), so `{0}` is always text. Placeholders must be `{n}`,
+`{n,number[,integer|currency|percent]}` or `{n,date|time[,short|medium|long|full]}`, and may not
+appear inside a tag. The value is checked both as written and as `MessageFormat` formats it, where
+`'` quotes text: use double quotes around attribute values and `''` for an apostrophe. Bundles the
+build cannot see (other directories or jars, a database-backed `MessageSource`) are not checked:
+the application vouches for what its `MessageSource` returns. Where a message's markup does not fit
+the allow-list, move the markup into the template and keep the text in the bundle.
+
+<!-- compile: messages -->
+```properties
+phaseout.notice=This version is being phased out: see <a href="/phaseout" class="alert-link">the plan</a>.<p/>Save your work.
+welcome.html=Hello <b>{0}</b>!
+```
+
+<!-- compile: template guide/messages-html.html -->
+```html
+<div xmlns:t="https://tessera.dev" t:params="String name">
+  <p class="alert" t:utext="#{phaseout.notice}">notice</p>
+  <p t:utext="#{welcome.html(name)}">Hello <b>Ann</b></p>
+</div>
+```
 
 **Links** are Thymeleaf's: `@{/owners/{id}(id=owner.id, q=term)}` fills `{id}` (percent-encoded)
 and turns other parameters into a query string; `@{{id}/edit(id=x)}` is page-relative; absolute
@@ -1062,7 +1101,14 @@ These come from the annotation processor itself, without a template position.
   when a property of a record or bean is the problem, the message ends with
   `; property '<name>' of <type> has type <type>` (or `; <type> contains itself with different type arguments`).
   Output the specific properties the script needs, or make the property's type serializable.
-- `<form> needs a value of type dev.tessera.runtime.SafeHtml, but a message #{...} is a String: use t:text or [[...]] (escaped), or pass trusted HTML as a SafeHtml parameter`.
+- `<form> with a message #{...} needs -Atessera.messages=<bundle base path>, so the message can be checked as HTML at build time; or use t:text or [[...]] (escaped)`:
+  set the option (section 2), or print the message as text.
+- `message '<key>' in <bundle file> cannot be rendered as HTML by <form>: <reason>`: the value does
+  not pass the allow-list in section 4.5. The reason names the element, attribute, URL or
+  placeholder at fault (`<script> is not allowed`, `attribute onclick is not allowed on <b>`,
+  `a placeholder may not be inside a tag`, `<div> is never closed`, ...); a reason that ends `(in
+  the message as MessageFormat formats it, ...)` is about `'` quoting. Fix the bundle, or move the
+  markup into the template.
 - `<form> needs a value of type dev.tessera.runtime.SafeHtml, but the expression has type <type>: use t:text or [[...]] (escaped), or build a SafeHtml in trusted Java code`.
 
 ### Attributes

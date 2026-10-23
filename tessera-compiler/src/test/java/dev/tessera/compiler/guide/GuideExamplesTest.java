@@ -45,6 +45,7 @@ class GuideExamplesTest {
     Compilation.Builder b = Compilation.builder().option("tessera.package", "com.example.templates");
     Matcher m = EXAMPLE.matcher(guide);
     messages = new Properties();
+    StringBuilder bundle = new StringBuilder();
     while (m.find()) {
       examples++;
       String body = m.group(3);
@@ -53,19 +54,22 @@ class GuideExamplesTest {
         assertTrue(n.find(), "no package/type in java example:\n" + body);
         b.java(n.group(1) + "." + n.group(2), body);
       } else if (m.group(1).equals("messages")) {
-        b.messages(body);
+        bundle.append(body).append('\n');
         messages.load(new StringReader(body));
       } else {
         b.template(m.group(2), body);
       }
     }
-    compilation = b.compile();
+    compilation = b.messages(bundle.toString()).compile();
   }
 
   private static RenderContext ctx() {
     return new RenderContext(
         Locale.ROOT,
-        (key, args) -> messages.getProperty(key, "??" + key + "??"),
+        (key, args) ->
+            args.length == 0 || !messages.containsKey(key)
+                ? messages.getProperty(key, "??" + key + "??")
+                : new java.text.MessageFormat(messages.getProperty(key), Locale.ROOT).format(args),
         new DefaultLinks("/app"),
         Forms.NONE);
   }
@@ -110,6 +114,16 @@ class GuideExamplesTest {
     assertTrue(html.contains("<li class=\"odd\">\n        1. <span>9.99</span>\n      </li>"), html);
     assertTrue(html.contains("<a href=\"/app/admin/customers/7\">Edit</a>"), html);
     assertTrue(!html.contains("No orders yet"), html);
+  }
+
+  @Test
+  void messagesWithMarkup() {
+    String html = render("guide/messages-html", Map.of("name", "<i>Ann</i>"));
+    assertTrue(
+        html.contains("<p class=\"alert\">This version is being phased out: see <a href=\"/phaseout\""
+            + " class=\"alert-link\">the plan</a>.<p/>Save your work.</p>"),
+        html);
+    assertTrue(html.contains("<p>Hello <b>&lt;i&gt;Ann&lt;/i&gt;</b>!</p>"), html);
   }
 
   @Test
