@@ -1,0 +1,17 @@
+{
+  "repo": "https://github.com/MSUNorg/luckyBlog",
+  "commit": "4e2888b44cdc4b952033a162f2bda1a19e6d241d",
+  "engine": "velocity",
+  "difficulty": "medium",
+  "heldout": true,
+  "java": 8,
+  "note": "Apache Velocity 1.7 (spring-boot-starter-velocity, a VM_global_library.vm macro library, #parse/#include of module/*.vm) on Spring Boot 1.4.1 / Spring 4.3.3, below Tessera's Boot 1.5 floor (Spring 4.3 is supported): a migration may need to bump Boot to 1.5 first. No spring-boot-maven-plugin (thin jar plus lib/), so start.sh runs it from target/classes and the Maven classpath, on H2 in MySQL mode instead of MySQL. Velocity escapes nothing; post and resume bodies are stored HTML. Apache-2.0.",
+  "build": "mvn -B -ntp clean package -DskipTests",
+  "test": "mvn -B -ntp test",
+  "start": "bash /bench/app/start.sh",
+  "ready": "/",
+  "base": "http://localhost:8080",
+  "ignore": [
+    "(?<=\\{value: )\\d+(?=, label: ')"
+  ]
+}
