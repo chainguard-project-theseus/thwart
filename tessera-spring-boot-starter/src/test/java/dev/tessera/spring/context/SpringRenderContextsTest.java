@@ -2,6 +2,7 @@ package dev.tessera.spring.context;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.runtime.Forms;
@@ -179,6 +180,17 @@ class SpringRenderContextsTest {
     assertEquals(Arrays.asList("Alter muss eine Zahl sein"), forms.errors("owner", "age"));
     assertTrue(forms.hasErrors("owner", "age"));
     assertFalse(forms.hasErrors("owner", "lastName"));
+  }
+
+  @Test
+  void selectedValueIsNullOnlyWhenBoundValueIsNull() {
+    // Like SelectedValueComparator: a null bound value selects no option, a rejected value does.
+    Forms unbound = create(Collections.singletonMap("owner", new Owner())).forms();
+    assertNull(unbound.selectedValue("owner", "lastName", null));
+    assertEquals("Smith", unbound.selectedValue("owner", "lastName", "Smith"));
+    Forms forms = create(bind(map("age", "abc"))).forms();
+    assertNull(forms.selectedValue("owner", "lastName", null));
+    assertEquals("abc", forms.selectedValue("owner", "age", null));
   }
 
   @Test
