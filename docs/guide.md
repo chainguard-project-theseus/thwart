@@ -417,10 +417,19 @@ The compiler decides the context from the element and attribute name. You cannot
 | Attribute | any other attribute value | Escaped, always double-quoted. |
 | URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. |
 | Resource URL | `script[src]`, `iframe[src]`, `embed[src]`, `object[data]`, `base[href]`, `link[href]` | Only a literal-path `@{...}` link or a `TrustedUrl` compiles. |
-| Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, collections, String-keyed maps). |
+| Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, records and `@TemplateView` beans, collections, String-keyed maps). |
 | Style | `<style>` text and `style` attribute | Expressions are a build error; use `t:class`/`t:classappend`. |
 | Event handler | `on*` attributes | Build error; put data in `data-*` attributes and read them from a script. |
 | Forbidden | `srcdoc`, `content` of `<meta http-equiv="refresh">`, non-JS `<script type>` | Build error. `<script type>` and `<meta http-equiv>` cannot be computed. |
+
+In a script, a record or `@TemplateView` bean becomes a JSON object of the properties a template
+can read, as Thymeleaf's Jackson output does: `var chart = [[${chart}]];` works unchanged. Record
+components keep their order; a bean's properties come in field order, then getter-only ones, named
+like Jackson (`getURL()` is `url`). Getters returning a never-view-safe type are left out, and any
+other property that cannot be serialized (a `SafeHtml`, a class that isn't view-safe) is a build
+error. Jackson annotations (`@JsonIgnore`, `@JsonProperty`) are not read. Nesting deeper than 64
+levels, or a cycle, fails the render. Where the Thymeleaf page parsed a JSON string built in Java
+(`JSON.parse([[${json}]])`), pass the object instead and write `[[${object}]]`.
 
 Trusted markup is a `SafeHtml` built in Java: `SafeHtml.escape(text)`, `SafeHtml.of(template, ctx)`
 (another template's output), or `SafeHtml.unchecked(html)` for sanitized markup (a review point).
@@ -961,8 +970,10 @@ These come from the annotation processor itself, without a template position.
 - `<form> is not allowed in <CONTEXT> context: move the expression into element text or a t: attribute`.
 - `t:utext is only allowed on elements whose content is HTML text, not <script> or <style>`.
 - `[(...)] is only allowed in element text; inside <script> use [[...]], which outputs JSON`.
-- `cannot output a value of type <type> inside <script>: only strings, numbers, booleans, enums, java.time values, and Optionals, collections, arrays and String-keyed maps of those can be serialized as JSON`:
-  output the specific properties the script needs.
+- `cannot output a value of type <type> inside <script>: only strings, numbers, booleans, enums, java.time values, records and @TemplateView classes of those, and Optionals, collections, arrays and String-keyed maps of those can be serialized as JSON`:
+  when a property of a record or bean is the problem, the message ends with
+  `; property '<name>' of <type> has type <type>` (or `; <type> contains itself with different type arguments`).
+  Output the specific properties the script needs, or make the property's type serializable.
 - `<form> needs a value of type dev.tessera.runtime.SafeHtml, but a message #{...} is a String: use t:text or [[...]] (escaped), or pass trusted HTML as a SafeHtml parameter`.
 - `<form> needs a value of type dev.tessera.runtime.SafeHtml, but the expression has type <type>: use t:text or [[...]] (escaped), or build a SafeHtml in trusted Java code`.
 
@@ -1065,10 +1076,10 @@ Gaps in Tessera today, each with what to do until it is fixed.
   no global (object-level) errors apart from `fields.errors('*')`, no `t:field` on fields whose
   type is not view-safe (`MultipartFile`: write the `name` attribute by hand), and `Field`
   fragments cannot read the value. Radios get no `id`.
-- **Output.** `[[...]]` in a script cannot serialize records or beans: pass the specific values, or
-  a `Map`/`List` built in Java. `numbers.*` has no grouping or locale; `temporals.format` uses
-  English names. Thymeleaf parser-level comments `<!--/* ... */-->` are emitted like any comment;
-  delete them.
+- **Output.** `[[...]]` in a script serializes only the properties of the static type: a subclass's
+  extra getters are not written, and Jackson annotations are ignored. `numbers.*` has no grouping
+  or locale; `temporals.format` uses English names. Thymeleaf parser-level comments
+  `<!--/* ... */-->` are emitted like any comment; delete them.
 - **Security functions.** `auth` has `hasRole`/`hasAnyRole`, not `hasAuthority`; compute anything
   else in the controller.
 - **Selections.** `~{::tag}` selects fragment names and plain tag names only: not hyphenated tags,

@@ -313,7 +313,7 @@ public final class Escapers {
     } else if (value instanceof ZoneId) {
       writeJsonString(sb, ((ZoneId) value).getId());
     } else if (
-    // The java.time types below must match TextInlining.JSON_TIME in tessera-compiler, which
+    // The java.time types below must match ScriptJson.JSON_TIME in tessera-compiler, which
     // decides at build time which types may be inlined into <script>.
     value instanceof Instant
         || value instanceof LocalDate
