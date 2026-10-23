@@ -2,6 +2,7 @@ package dev.tessera.compiler.types;
 
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
+import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.runtime.LoopStatus;
 import dev.tessera.runtime.CssValue;
 import dev.tessera.runtime.SafeHtml;
@@ -180,7 +181,9 @@ final class ViewSafety {
                   : name + " is never view-safe (it is a " + denied + ")");
         }
         for (TypeMirror arg : dt.getTypeArguments()) {
-          Optional<String> r = reason(arg, allowObject);
+          // A plain Field parameter is Field<?>: a field of unknown type, not an Object value.
+          boolean fieldOfUnknownType = name.equals(FormPaths.FIELD) && arg.getKind() == TypeKind.WILDCARD;
+          Optional<String> r = fieldOfUnknownType ? Optional.empty() : reason(arg, allowObject);
           if (r.isPresent()) {
             return r;
           }

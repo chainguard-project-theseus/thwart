@@ -221,6 +221,14 @@ public final class ExpressionCompiler {
     if (t == null) {
       return null;
     }
+    if (FormPaths.isField(t)) {
+      // Field<T>: T is what the fragment may bind sub-paths of (#239); a plain Field is Field<?>.
+      TypeMirror fieldType = FormPaths.fieldType(t);
+      if (fieldType != null && !safety.isViewSafe(fieldType)) {
+        return error(ref.pos(), "parameter type " + t + " is not allowed: " + fieldType + " is not view-safe");
+      }
+      return t;
+    }
     Optional<String> never = safety.neverViewSafeReason(t);
     if (never.isPresent()) {
       return error(ref.pos(), "parameter type " + t + " is not allowed: " + never.get());

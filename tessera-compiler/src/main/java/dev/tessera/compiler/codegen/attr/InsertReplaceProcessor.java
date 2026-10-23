@@ -253,7 +253,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       return fragmentValue(ctx, ((Expr.FragmentExpr) arg.value()).ref(), scope, host, pre);
     }
     if (FormPaths.isField(param.type())) {
-      return fieldArgument(ctx, arg, what, scope);
+      return fieldArgument(ctx, arg, param, what, scope);
     }
     CompiledExpr e = ctx.expressions().compile(arg.value(), scope);
     if (e == null) {
@@ -268,10 +268,15 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
 
   /**
    * An argument for a {@code Field} parameter: a string literal field path, checked here against
-   * the caller's {@code t:object} type, or a {@code Field} variable passed on (a fragment
-   * forwarding its own parameter). Nothing else: the path is never computed at run time.
+   * the caller's {@code t:object} type, a {@code Field} variable passed on (a fragment forwarding
+   * its own parameter), or a sub-path of one ({@code name.answer}, #239). Nothing else: the path
+   * is never computed from a run-time string. For a {@code Field<T>} parameter the field's type
+   * must be assignable to {@code T}.
    */
-  private static String fieldArgument(CodegenContext ctx, FragmentRef.Arg arg, String what, Scope scope) {
+  private static String fieldArgument(
+      CodegenContext ctx, FragmentRef.Arg arg, TemplateIndex.Param param, String what, Scope scope) {
+    TypeMirror wanted = FormPaths.fieldType(param.type());
+    FormPaths.FormField f;
     if (arg.value() instanceof Expr.Literal && ((Expr.Literal) arg.value()).value() instanceof String) {
       Expr.Literal lit = (Expr.Literal) arg.value();
       String path = (String) lit.value();
@@ -284,19 +289,35 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       if (current == null) {
         return null;
       }
-      FormPaths.FormField f = FormPaths.literal(scope.selection().get(), path, current);
-      return "new " + FormPaths.FIELD + "(" + f.objectName() + ", " + f.path() + ", " + current.code() + ")";
+      f = FormPaths.literal(scope.selection().get(), path, current);
+    } else if (FormPaths.fieldVariable(arg.value(), scope).isPresent()) {
+      Variable forwarded = FormPaths.fieldVariable(arg.value(), scope).get();
+      if (!ctx.env().types().isAssignable(forwarded.type(), param.type())) {
+        ctx.diagnostics()
+            .error(arg.pos(), what + " has type " + param.javaType() + ", but '" + forwarded.name() + "' is a " + forwarded.type());
+        return null;
+      }
+      return forwarded.javaName();
+    } else if (FormPaths.fieldRoot(arg.value(), scope).isPresent()) {
+      f = FormPaths.resolveSubPath(arg.value(), FormPaths.fieldRoot(arg.value(), scope).get(), scope, ctx.expressions(), true);
+      if (f == null) {
+        return null;
+      }
+    } else {
+      ctx.diagnostics()
+          .error(
+              arg.pos(),
+              what + " has type Field: pass a field path as a string literal, e.g. 'lastName' (checked against the"
+                  + " enclosing t:object), a Field parameter, or a property of one, e.g. name.answer");
+      return null;
     }
-    Optional<Variable> forwarded = FormPaths.fieldVariable(arg.value(), scope);
-    if (forwarded.isPresent()) {
-      return forwarded.get().javaName();
+    TypeMirror type = f.value().type();
+    if (wanted != null && !ctx.env().types().isAssignable(type, wanted)) {
+      ctx.diagnostics().error(arg.pos(), what + " has type " + param.javaType() + ", but the field has type " + type);
+      return null;
     }
-    ctx.diagnostics()
-        .error(
-            arg.pos(),
-            what + " has type Field: pass a field path as a string literal, e.g. 'lastName' (checked against the"
-                + " enclosing t:object), or a Field parameter");
-    return null;
+    String typeArg = wanted == null ? "java.lang.Object" : wanted.toString();
+    return "new " + FormPaths.FIELD + "<" + typeArg + ">(" + f.objectName() + ", " + f.path() + ", " + f.value().code() + ")";
   }
 
   /**
