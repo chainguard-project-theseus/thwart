@@ -34,11 +34,15 @@ mvn -q dependency:copy -Dartifact=dev.tessera:tessera-migrate:0.1.0-SNAPSHOT -Dm
 java -jar .tessera/tessera-migrate.jar --help
 ```
 
-The Tessera artifacts aren't published to a remote repository yet. The `dependency:copy` above
-resolves only on a machine where Tessera has been built with `mvn install` (from
-`github.com/chainguard-dev/harder`). If it fails with "Could not resolve", stop and say that
-Tessera needs to be installed into the local Maven repository first. The application's build
-resolves `tessera-compiler` and the starter the same way.
+Run the command as written (don't add `-o`: Maven may need to fetch the dependency plugin
+itself). The Tessera artifacts aren't published to a remote repository yet, so it resolves only
+where Tessera has been built with `mvn install` (from `github.com/chainguard-dev/harder`). If it
+fails, read the error. If the missing artifact is `dev.tessera:tessera-migrate`, stop and say that
+Tessera needs to be installed into the local Maven repository first. Any other failure (plugin
+resolution, network) is a Maven problem, not a missing Tessera. Either way, if the jar is in the
+local repository (`~/.m2/repository/dev/tessera/tessera-migrate/<version>/tessera-migrate-<version>.jar`,
+with the version above), copying it to `.tessera/tessera-migrate.jar` works too. The application's
+build resolves `tessera-compiler` and the starter from the same local repository.
 
 ## The process
 
