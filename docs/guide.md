@@ -456,8 +456,11 @@ it is a build error instead.
 
 **Links** are Thymeleaf's: `@{/owners/{id}(id=owner.id, q=term)}` fills `{id}` (percent-encoded)
 and turns other parameters into a query string; `@{{id}/edit(id=x)}` is page-relative; absolute
-links must be `http`/`https`. Links get the context path and `response.encodeURL`. A `null` path
-variable fails the render. A URL computed in Java goes in `t:href` as a `String` (scheme-checked)
+links must be `http`/`https`. Links get the context path and `response.encodeURL`. As in
+Thymeleaf, a `null` query value renders `name=`, a parameter with no value renders the bare name
+(`@{/cart(add, itemId=i.id)}` is `/cart?add&itemId=...`), and a collection repeats the parameter
+per element (`?t=a&t=b`; a `null` element is the bare `t`). A `null` path variable fails the
+render. A URL computed in Java goes in `t:href` as a `String` (scheme-checked)
 or `TrustedUrl`, without the context path.
 
 ### 4.6 Functions
@@ -862,7 +865,10 @@ These come from the annotation processor itself, without a template position.
 - `dynamic link paths are not supported; the path must be a literal such as @{/owners/{id}(id=owner.id)}`:
   move the variable parts into `{placeholders}` or query parameters. A link computed in Java is a
   `String` (URL checked) or `TrustedUrl` value in `t:href`.
-- `expected '=' after link parameter '<name>' but <found>`: parameters are `name=value`.
+- `expected '=', ',' or ')' after link parameter '<name>' but <found>`: parameters are
+  `name=value`, or a bare `name` for a parameter without a value.
+- `link parameter '<name>' fills path variable {<name>} in @{<path>} and needs a value: write
+  (<name>=...)`: a path variable needs a value.
 - `link path must not contain whitespace: percent-encode it (%20) or pass the value as a parameter, e.g. @{/search(q=term)}`.
 - `invalid path variable '{<name>}': write a name such as {id}`.
 - `nested '{' in link path: write a path variable such as {id}`.
@@ -1067,8 +1073,8 @@ Gaps in Tessera today, each with what to do until it is fixed.
   `<option value="">`. Radios get no `id`.
 - **Output.** `[[...]]` in a script cannot serialize records or beans: pass the specific values, or
   a `Map`/`List` built in Java. `numbers.*` has no grouping or locale; `temporals.format` uses
-  English names. A `null` link query parameter renders `?name`, not `?name=`. Thymeleaf
-  parser-level comments `<!--/* ... */-->` are emitted like any comment; delete them.
+  English names. Thymeleaf parser-level comments `<!--/* ... */-->` are emitted like any comment;
+  delete them.
 - **Security functions.** `auth` has `hasRole`/`hasAnyRole`, not `hasAuthority`; compute anything
   else in the controller.
 - **Selections.** `~{::tag}` selects fragment names and plain tag names only: not hyphenated tags,

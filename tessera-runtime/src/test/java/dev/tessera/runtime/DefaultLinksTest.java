@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
+import java.util.Collections;
 import org.junit.jupiter.api.Test;
 
 class DefaultLinksTest {
@@ -88,8 +90,49 @@ class DefaultLinksTest {
   }
 
   @Test
-  void queryParamsInDeclarationOrderWithNullsAsBareNames() {
-    assertEquals("/s?z=1&a&m=x", root.build("/s", n("z", "a", "m"), v(1, null, "x")));
+  void queryParamsInDeclarationOrderWithNullsAsEmptyValues() {
+    // Thymeleaf turns a null value into "": @{/s(a=${null})} is /s?a=, not /s?a.
+    assertEquals("/s?z=1&a=&m=x", root.build("/s", n("z", "a", "m"), v(1, null, "x")));
+    assertEquals("/s?a=", root.build("/s", n("a"), v("")));
+  }
+
+  @Test
+  void valuelessParamsAsBareNames() {
+    assertEquals(
+        "/app/cart?add&itemId=7", app.build("/cart", n("add", "itemId"), v(Links.NO_VALUE, 7)));
+    assertEquals("/s?a=1&form#top", root.build("/s?a=1#top", n("form"), v(Links.NO_VALUE)));
+    assertEquals("/s?k%26%3D", root.build("/s", n("k&="), v(Links.NO_VALUE)));
+  }
+
+  @Test
+  void collectionValuesRepeatTheName() {
+    assertEquals(
+        "/s?t=a&t&t=b%26c%3Dd&x=1",
+        root.build("/s", n("t", "x"), v(Arrays.asList("a", null, "b&c=d"), 1)));
+    assertEquals("/s?t=1&t=2", root.build("/s", n("t"), v((Object) new int[] {1, 2})));
+    assertEquals("/s?t=a&t", root.build("/s", n("t"), v((Object) new String[] {"a", null})));
+    assertEquals("/s?x=1", root.build("/s", n("t", "x"), v(Collections.emptyList(), 1)));
+  }
+
+  @Test
+  void collectionPathVariableJoinedWithCommas() {
+    assertEquals("/f/a,,b%2Fc", root.build("/f/{x}", n("x"), v(Arrays.asList("a", null, "b/c"))));
+    assertEquals("/f/a%2C,b", root.build("/f/{x}", n("x"), v(Arrays.asList("a,", "b"))));
+  }
+
+  @Test
+  void badCollectionOrValuelessPathVariablesRejected() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> root.build("/{x}/evil.com", n("x"), v(Collections.emptyList())));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> root.build("/f/{x}", n("x"), v(Arrays.asList(".."))));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> root.build("/{x}/evil.com", n("x"), v((Object) new String[] {null})));
+    assertThrows(
+        IllegalArgumentException.class, () -> root.build("/{x}/y", n("x"), v(Links.NO_VALUE)));
   }
 
   @Test

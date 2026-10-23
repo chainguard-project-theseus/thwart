@@ -696,8 +696,14 @@ public final class ExpressionParser {
           ws();
           int nameAt = i;
           String name = ident("a link parameter name");
+          ws();
+          if (at(",") || at(")")) {
+            // Thymeleaf's valueless parameter: @{/cart(add,id=x)} renders /cart?add&id=...
+            params.add(new Assignment(name, null, pos(nameAt)));
+            continue;
+          }
           if (!eat("=") || at("=")) {
-            throw error(i, "expected '=' after link parameter '" + name + "' but " + found());
+            throw error(i, "expected '=', ',' or ')' after link parameter '" + name + "' but " + found());
           }
           params.add(new Assignment(name, expr(), pos(nameAt)));
         } while (eat(","));
