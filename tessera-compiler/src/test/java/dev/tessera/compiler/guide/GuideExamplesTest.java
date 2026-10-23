@@ -159,6 +159,14 @@ class GuideExamplesTest {
     // <body t:remove="tag"> inserts only the body's children: no <body> inside the layout's <body>.
     assertTrue(home.contains("<div class=\"container\">\n  <h1>Welcome, Ann &lt;b&gt;</h1>\n</div>"), home);
     assertEquals(1, home.split("<body", -1).length - 1, home);
+
+    // A layout that extends a layout: the page's <tools> renders in the toolbar, not in the body.
+    String report = render("guide/report", Map.of("name", "Q3 <b>"));
+    assertTrue(report.contains("<title>Report - Example</title>"), report);
+    assertTrue(report.contains("<div class=\"toolbar\"><a href=\"/app/report.csv\">CSV</a></div>"), report);
+    assertTrue(report.contains("<h1>Q3 &lt;b&gt;</h1>"), report);
+    assertEquals(1, report.split("CSV", -1).length - 1, report);
+    assertEquals(1, report.split("<body", -1).length - 1, report);
   }
 
   @Test
