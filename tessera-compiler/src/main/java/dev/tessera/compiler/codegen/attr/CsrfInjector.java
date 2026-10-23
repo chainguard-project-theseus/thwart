@@ -1,6 +1,5 @@
 package dev.tessera.compiler.codegen.attr;
 
-import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.runtime.Escapers;
@@ -12,11 +11,12 @@ import java.util.Optional;
  * with {@code ctx.forms().csrfToken()} after the start tag when a token is present and the form's
  * method is {@code post} (case-insensitive).
  *
- * <p>A static {@code method} is checked at build time. A computed one ({@code t:method},
- * {@code t:attr="method=..."}) is evaluated once before the start tag, written from that value,
- * and the input is added iff it is {@code post} in ASCII case-insensitive form, untrimmed, as a
- * browser reads it. As in Thymeleaf, where {@code th:method} runs before the CSRF processor, so a
- * computed POST form cannot lose its token.
+ * <p>Both a static and a computed method match {@code post} ASCII case-insensitively and untrimmed,
+ * as a browser reads the attribute: any other value submits as GET, and a token there would leak
+ * into the URL. A static {@code method} is checked at build time. A computed one ({@code t:method},
+ * {@code t:attr="method=..."}) is evaluated once before the start tag and written from that value,
+ * as in Thymeleaf, where {@code th:method} runs before the CSRF processor, so a computed POST form
+ * cannot lose its token.
  */
 public final class CsrfInjector {
   private CsrfInjector() {}
@@ -41,7 +41,7 @@ public final class CsrfInjector {
         method
             .filter(a -> a instanceof ElementPlan.StaticAttr)
             .map(a -> ((ElementPlan.StaticAttr) a).source().value())
-            .filter(v -> Backports.strip(v).toLowerCase(Locale.ROOT).equals("post"))
+            .filter(v -> v.toLowerCase(Locale.ROOT).equals("post"))
             .isPresent();
     if (post) {
       plan.afterStartTag(tokenInput(ctx));

@@ -132,4 +132,18 @@ class CsrfComputedMethodTest {
       assertFalse(out.contains("_csrf"), m + ": " + out);
     }
   }
+
+  /**
+   * Negative: a static method is read the same way. {@code method=" post"} submits as GET in a
+   * browser, so it gets no token; entity-encoded {@code post} is still POST.
+   */
+  @Test
+  void staticMethodUsesBrowserRule() {
+    for (String m : new String[] {" post", "post ", "\tpost", "poſt"}) {
+      String out = render("method=\"" + m + "\"");
+      assertFalse(out.contains("_csrf"), m + ": " + out);
+    }
+    assertTrue(render("method=\"&#112;OST\"").contains(INPUT));
+    assertTrue(render("method=\"Post\"").contains(INPUT));
+  }
 }
