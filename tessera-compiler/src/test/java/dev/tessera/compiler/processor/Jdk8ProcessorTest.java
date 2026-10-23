@@ -160,6 +160,60 @@ class Jdk8ProcessorTest {
         rendered);
   }
 
+  /**
+   * #233: Lombok getters on a {@code @TemplateView} class, with Lombok before and after Tessera on
+   * the processor path, for Lombok 1.16 (espd's 1.16.6, which failed even when listed first) and
+   * the current 1.18. A missing property is still one error naming the template position.
+   */
+  @Test
+  void lombokGettersAreTemplatePropertiesInEitherProcessorOrder() throws Exception {
+    Path jdk = jdk8();
+    Path runtime = codeSource(Escapers.class);
+    Path tessera = codeSource(TesseraProcessor.class);
+    Path lombok16 = Path.of(System.getProperty("tessera.lombok16.jar", ""));
+    assertTrue(Files.isRegularFile(lombok16), "no Lombok 1.16 jar at " + lombok16 + " (see the pom)");
+    Path src = dir.resolve("demo/PageInfo.java");
+    write(
+        src,
+        """
+        package demo;
+        import dev.tessera.runtime.TemplateView;
+        import lombok.Getter;
+        @TemplateView
+        @Getter
+        public class PageInfo {
+          private final String locale;
+          private final boolean active;
+          public PageInfo(String locale, boolean active) { this.locale = locale; this.active = active; }
+        }
+        """);
+    Path templates = dir.resolve("templates");
+    Path page = templates.resolve("page.html");
+    for (Path lombok : List.of(lombok16, codeSource(lombok.Getter.class))) {
+      for (boolean lombokFirst : List.of(true, false)) {
+        String processorPath =
+            lombokFirst ? join(lombok, tessera, runtime) : join(tessera, runtime, lombok);
+        Path out = Files.createDirectories(dir.resolve("lombok-" + lombok.getFileName() + "-" + lombokFirst));
+        List<String> javac =
+            List.of(
+                jdk.resolve("bin/javac").toString(), "-encoding", "UTF-8", "-d", out.toString(),
+                "-classpath", join(runtime, lombok), "-processorpath", processorPath,
+                "-Atessera.templates=" + templates, src.toString());
+        String what = lombok.getFileName() + (lombokFirst ? ", Lombok first" : ", Tessera first");
+
+        write(page, "<p xmlns:t=\"https://tessera.dev\" t:params=\"demo.PageInfo page\" t:if=\"${page.active}\" t:text=\"${page.locale}\">x</p>");
+        String compiled = run(javac);
+        assertFalse(compiled.contains("warning"), what + ": " + compiled);
+        assertTrue(Files.exists(out.resolve("tessera/generated/PageTemplate.class")), what + ": " + compiled);
+
+        write(page, "<p xmlns:t=\"https://tessera.dev\" t:params=\"demo.PageInfo page\" t:text=\"${page.missing}\">x</p>");
+        String failed = runFailing(javac);
+        assertTrue(failed.contains("page.html:1:74: error: 'missing' is not a property of demo.PageInfo"), what + ": " + failed);
+        assertTrue(failed.contains("1 error"), what + ": " + failed);
+      }
+    }
+  }
+
   /** The configured JDK 8; skips the test locally, fails it in CI, when there is none. */
   private static Path jdk8() throws IOException, InterruptedException {
     String home = System.getProperty("tessera.jdk8.home", "");
@@ -185,6 +239,15 @@ class Jdk8ProcessorTest {
     String output = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
     assertTrue(p.waitFor(2, TimeUnit.MINUTES), "timed out: " + command);
     assertEquals(0, p.exitValue(), String.join(" ", command) + "\n" + output);
+    return output;
+  }
+
+  /** Runs {@code command}; returns its combined output, failing the test unless it exits non-zero. */
+  private static String runFailing(List<String> command) throws IOException, InterruptedException {
+    Process p = new ProcessBuilder(command).redirectErrorStream(true).start();
+    String output = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+    assertTrue(p.waitFor(2, TimeUnit.MINUTES), "timed out: " + command);
+    assertTrue(p.exitValue() != 0, "expected a failure: " + String.join(" ", command) + "\n" + output);
     return output;
   }
 
