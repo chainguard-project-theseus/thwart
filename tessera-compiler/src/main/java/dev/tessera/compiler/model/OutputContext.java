@@ -21,7 +21,11 @@ public enum OutputContext {
   RESOURCE_URL("resourceUrl"),
   /** Inside a JavaScript {@code <script>} element; values are serialized as JSON. */
   SCRIPT("json"),
-  /** {@code <style>} element or {@code style} attribute: expressions are a build error. */
+  /**
+   * {@code <style>} element or {@code style} attribute. Expressions in a {@code <style>} are a
+   * build error; a {@code style} attribute takes only literals, numbers and {@code CssValue}s
+   * (#182) and is attribute-escaped.
+   */
   STYLE(null),
   /** {@code on*} event-handler attribute: expressions are a build error. */
   EVENT_HANDLER(null),
