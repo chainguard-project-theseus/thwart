@@ -168,6 +168,47 @@ class CrawlerTest {
   }
 
   @Test
+  void pagesPathsArePercentEncodedLikeABrowser() throws Exception {
+    List<String> seen = Collections.synchronizedList(new ArrayList<>());
+    HttpServer server =
+        HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+    server.createContext("/", ex -> {
+      String raw = ex.getRequestURI().getRawPath()
+          + (ex.getRequestURI().getRawQuery() == null ? "" : "?" + ex.getRequestURI().getRawQuery());
+      seen.add(raw);
+      byte[] page = ("page " + raw).getBytes(StandardCharsets.UTF_8);
+      ex.sendResponseHeaders(200, page.length);
+      ex.getResponseBody().write(page);
+      ex.close();
+    });
+    server.start();
+    try {
+      Crawler crawler = new Crawler("http://127.0.0.1:" + server.getAddress().getPort());
+      Path pages = Files.writeString(tmp.resolve("pages.txt"), """
+          GET /tags/new<i>
+          GET /heiSearch?pattern=Kraków&q="x"
+          GET /caf%C3%A9?url=https://h/x.xml%3Fa&b=%2F&c=100%
+          POST /tags/new<i> name=a%26b
+          """);
+      List<String> finalUrls = new ArrayList<>();
+      for (Crawler.Request request : Crawler.readPages(pages)) {
+        Crawler.Response r = crawler.send(request);
+        assertEquals(200, r.status(), r.body());
+        finalUrls.add(r.finalUrl());
+      }
+      List<String> expected = List.of(
+          "/tags/new%3Ci%3E",
+          "/heiSearch?pattern=Krak%C3%B3w&q=%22x%22",
+          "/caf%C3%A9?url=https://h/x.xml%3Fa&b=%2F&c=100%25",
+          "/tags/new%3Ci%3E");
+      assertEquals(expected, seen, "illegal characters encoded as UTF-8; escapes, ?&=/ kept");
+      assertEquals(expected, finalUrls, "the recorded final URL is the encoded one");
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @Test
   void encodeUrlEscapesOnlyWhatIsIllegal() {
     assertEquals("/a%20b/%D0%BF?q=%22x%22&r=%25&s=%2F#f",
         Crawler.encodeUrl("/a b/п?q=\"x\"&r=%&s=%2F#f"));

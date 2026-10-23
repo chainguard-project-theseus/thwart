@@ -225,6 +225,9 @@ POST /login username=admin&password=admin
 ```
 
 A `POST` sends the `_csrf` hidden input of the previous page, so `GET` a form before posting it.
+Write paths and form values raw or percent-encoded: `GET /tags/new<i>` requests
+`/tags/new%3Ci%3E`, as a browser would. A space ends the path, so write it `%20` there. In a form,
+`&` separates fields and `+` is a space, so a value holding them needs `%26` and `%2B`.
 Start the app from the same data for every run (fixed seed data in an in-memory database, for
 example), and let the list create the data it needs.
 
