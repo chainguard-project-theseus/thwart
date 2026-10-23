@@ -11,6 +11,7 @@ import dev.tessera.runtime.TemplateRegistry;
 import dev.tessera.spring.testing.SpringTestContext;
 import dev.tessera.spring.view.FallbackResolver;
 import dev.tessera.spring.view.RenderContextFactory;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import java.net.URLEncoder;
 import java.util.Arrays;
@@ -30,6 +31,7 @@ import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.SpringVersion;
 import org.springframework.stereotype.Controller;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -112,6 +114,7 @@ class ViewNameInjectionTest {
     registry.lookups.clear();
     registry.renders.set(0);
     fallback.names.clear();
+    controllers.lastPath = null;
   }
 
   private void assertNeverRendered(String expectedName) {
@@ -174,19 +177,26 @@ class ViewNameInjectionTest {
         || !payload.equals(payload.trim()) || payload.startsWith(".")) {
       return; // the servlet container would not route these to the handler
     }
-    mvc.perform(get("/path/{v}", payload));
-    // Spring 4.3's suffix pattern matching (on by default in Boot 1.5) strips a ".ext" from the
-    // path variable, so the controller may return less than the payload; whatever it returns is
-    // what is looked up. On Spring 5+ (Boot 2.0+) it receives the payload verbatim.
-    String returned = controllers.lastPath;
-    if (registry.delegate.find(returned).isPresent()) {
-      // "greeting.html" became "greeting", a real template name: the controller's choice. (Spring
-      // 4.3's ContentNegotiatingViewResolver then also tries "greeting.html", for text/html.)
-      assertThat(registry.lookups).startsWith(returned);
-      assertThat(payload).startsWith(returned + ".");
+    boolean spring4Html = SpringVersion.getVersion().startsWith("4.") && payload.endsWith(".html");
+    try {
+      mvc.perform(get("/path/{v}", payload));
+    } catch (ServletException e) {
+      // Spring 4.3 favours the path extension: for "greeting.html" the
+      // ContentNegotiatingViewResolver picks Boot's InternalResourceViewResolver, whose forward
+      // would loop back to this handler.
+      assertThat(spring4Html).as("unexpected " + e).isTrue();
+      assertThat(e).hasMessageContaining("Circular view path");
+    }
+    assertThat(controllers.lastPath).as("path variable").isEqualTo(payload);
+    if (spring4Html) {
+      // It also asks every resolver for the name plus the ".html" of the requested media type:
+      // a second exact lookup, still never evaluated or rendered.
+      assertThat(registry.renders.get()).as("templates rendered").isZero();
+      assertThat(registry.lookups).containsExactly(payload, payload + ".html");
+      assertThat(fallback.names).containsExactly(payload, payload + ".html");
       return;
     }
-    assertNeverRendered(returned);
+    assertNeverRendered(payload);
   }
 
   @Test
@@ -214,7 +224,7 @@ class ViewNameInjectionTest {
   static final class RecordingRegistry implements TemplateRegistry {
     final List<String> lookups = new CopyOnWriteArrayList<>();
     final AtomicInteger renders = new AtomicInteger();
-    final TemplateRegistry delegate;
+    private final TemplateRegistry delegate;
 
     RecordingRegistry() {
       TemplateEntry.ModelRenderer r =
@@ -297,7 +307,9 @@ class ViewNameInjectionTest {
       return "greeting :: " + section;
     }
 
-    @GetMapping("/path/{v}")
+    // ".+" turns off Spring 4.3's suffix pattern matching (on in Boot 1.5), which would cut the
+    // path variable at a dot, so every generation passes the whole payload to the controller.
+    @GetMapping("/path/{v:.+}")
     String path(@PathVariable("v") String v) {
       lastPath = v;
       return v;
