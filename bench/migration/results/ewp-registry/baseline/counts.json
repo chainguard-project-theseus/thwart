@@ -1,0 +1,45 @@
+{
+ "pebble": {
+  "templates": 14,
+  "files": [
+   "src/main/resources/templates/coverage.peb",
+   "src/main/resources/templates/generic-with-toolbar.peb",
+   "src/main/resources/templates/generic.peb",
+   "src/main/resources/templates/heiFilter.peb",
+   "src/main/resources/templates/heiSearch.peb",
+   "src/main/resources/templates/iiaHashValidator.peb",
+   "src/main/resources/templates/index.peb",
+   "src/main/resources/templates/manifestValidation.peb",
+   "src/main/resources/templates/manifestsOverview.peb",
+   "src/main/resources/templates/schemaValidator.peb",
+   "src/main/resources/templates/status.peb",
+   "src/main/resources/templates/statusPerEmail.peb",
+   "src/main/resources/templates/statusPerUrl.peb",
+   "src/main/resources/templates/validationResult.peb"
+  ],
+  "constructs": {
+   "{{": 140,
+   "{% if": 38,
+   "{% endif": 38,
+   "{% block": 28,
+   "{% endblock": 28,
+   "{% for": 28,
+   "{% endfor": 28,
+   "{% else": 13,
+   "{% extends": 12,
+   "{% set": 10,
+   "| raw": 7,
+   "{% macro": 6,
+   "{% endmacro": 6,
+   "| default": 6,
+   "{% elseif": 4,
+   "| asJson": 3,
+   "{% include": 2,
+   "|length": 1,
+   "| first": 1,
+   "| join": 1,
+   "|Lato": 1,
+   "|Roboto": 1
+  }
+ }
+}
