@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html xmlns:t="https://tessera.dev" t:import="dev.tessera.spring.e2e.Cart" t:params="Cart cart">
+  <body>
+    <form t:object="cart" t:action="@{/cart}" method="post">
+      <div t:each="line : cart.lines" t:classappend="fields.hasErrors(*{lines[lineStat.index].name}) ? 'has-error'">
+        <input type="text" t:field="*{lines[lineStat.index].name}" />
+        <input type="text" t:field="*{lines[lineStat.index].due}" />
+        <span class="error" t:errors="*{lines[lineStat.index].name}">error</span>
+        <span class="error" t:errors="*{lines[lineStat.index].due}">error</span>
+      </div>
+    </form>
+  </body>
+</html>

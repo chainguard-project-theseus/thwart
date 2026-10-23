@@ -1,6 +1,7 @@
 package dev.tessera.spring.e2e;
 
 import dev.tessera.spring.e2e.templates.smoke.PageTemplate;
+import java.time.LocalDate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -21,6 +22,25 @@ public class SmokeController {
   @GetMapping("/typed")
   public PageTemplate typed() {
     return PageTemplate.of(new Signup("Grace"));
+  }
+
+  /** A bound cart (so the model has a BindingResult, as for any {@code @ModelAttribute}). */
+  @GetMapping("/cart")
+  public String cart(@ModelAttribute("cart") Cart cart) {
+    cart.getLines().add(new Line("Tea", LocalDate.of(2024, 3, 5)));
+    cart.getLines().add(new Line("Cake", null));
+    return "smoke/cart";
+  }
+
+  @PostMapping("/cart")
+  public String saveCart(@ModelAttribute("cart") Cart cart, BindingResult result) {
+    for (int i = 0; i < cart.getLines().size(); i++) {
+      String name = cart.getLines().get(i).getName();
+      if (name == null || name.isEmpty()) {
+        result.rejectValue("lines[" + i + "].name", "required", "Name is required");
+      }
+    }
+    return result.hasErrors() ? "smoke/cart" : "redirect:/cart";
   }
 
   @PostMapping("/signup")

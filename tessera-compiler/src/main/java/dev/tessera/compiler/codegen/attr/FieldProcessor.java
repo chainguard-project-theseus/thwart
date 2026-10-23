@@ -3,6 +3,7 @@ package dev.tessera.compiler.codegen.attr;
 import static dev.tessera.compiler.types.ExpressionCompiler.isDeclared;
 
 import dev.tessera.compiler.Backports;
+import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
@@ -13,6 +14,7 @@ import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.CompiledExpr;
+import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
 import dev.tessera.runtime.Escapers;
@@ -51,18 +53,19 @@ public final class FieldProcessor implements AttributeProcessor {
     }
     CompiledExpr current = field.value();
     String name = field.path();
+    String id = field.id();
     String display = "ctx.forms().value(" + field.objectName() + ", " + name + ", " + current.code() + ")";
     String tag = plan.element().name().toLowerCase(Locale.ROOT);
     switch (tag) {
       case "input":
-        input(ctx, attr, plan, name, display, current);
+        input(ctx, attr, plan, name, id, display, current);
         break;
       case "textarea":
-        nameAndId(plan, attr, name, true);
+        nameAndId(plan, attr, name, id);
         plan.replaceBody(ESCAPERS + ".text(out, " + display + ");", OutputContext.TEXT);
         break;
       case "select":
-        nameAndId(plan, attr, name, true);
+        nameAndId(plan, attr, name, id);
         // Like Spring's SelectedValueComparator: a null bound value selects no option (not the
         // placeholder <option value="">, which a null's "" display value would match).
         String local = ctx.freshName("selected");
@@ -86,14 +89,20 @@ public final class FieldProcessor implements AttributeProcessor {
     }
   }
 
-  /** {@code name} is Java code (a String) for the field path. */
+  /** {@code name} and {@code id} are Java code (Strings) for the field path and element id. */
   private static void input(
-      CodegenContext ctx, Attribute attr, ElementPlan plan, String name, String display, CompiledExpr current) {
+      CodegenContext ctx,
+      Attribute attr,
+      ElementPlan plan,
+      String name,
+      String id,
+      String display,
+      CompiledExpr current) {
     String type = staticValue(plan, "type").map(t -> Backports.strip(t).toLowerCase(Locale.ROOT)).orElse("text");
     switch (type) {
       case "checkbox":
         if (isBoolean(current.type())) {
-          nameAndId(plan, attr, name, true);
+          nameAndId(plan, attr, name, id);
           if (!plan.attribute("value").isPresent()) {
             plan.setAttribute("value", "\"true\"", attr.pos());
           }
@@ -117,14 +126,14 @@ public final class FieldProcessor implements AttributeProcessor {
         checkedByValue(ctx, attr, plan, name, display);
         break;
       case "file":
-        nameAndId(plan, attr, name, true);
+        nameAndId(plan, attr, name, id);
         break;
       case "password":
-        nameAndId(plan, attr, name, true);
+        nameAndId(plan, attr, name, id);
         plan.removeAttribute("value");
         break;
       default:
-        nameAndId(plan, attr, name, true);
+        nameAndId(plan, attr, name, id);
         plan.setAttribute("value", display, attr.pos());
     }
   }
@@ -137,13 +146,14 @@ public final class FieldProcessor implements AttributeProcessor {
           .error(attr.pos(), "t:field on a radio button or a non-boolean checkbox needs a value attribute (or t:value)");
       return;
     }
-    nameAndId(plan, attr, name, false);
+    nameAndId(plan, attr, name, null);
     plan.setAttribute("checked", display + ".equals(" + value + ") ? \"checked\" : null", attr.pos());
   }
 
-  private static void nameAndId(ElementPlan plan, Attribute attr, String name, boolean id) {
-    if (id && !plan.attribute("id").isPresent()) {
-      plan.setAttribute("id", name, attr.pos());
+  /** {@code name} and {@code id} are Java code (Strings); a null {@code id} adds no id. */
+  private static void nameAndId(ElementPlan plan, Attribute attr, String name, String id) {
+    if (id != null && !plan.attribute("id").isPresent()) {
+      plan.setAttribute("id", id, attr.pos());
     }
     plan.setAttribute("name", name, attr.pos());
   }
@@ -196,10 +206,11 @@ public final class FieldProcessor implements AttributeProcessor {
 
   /**
    * The field a {@code t:field}/{@code t:errors} attribute names: a {@code Field} variable (a
-   * fragment parameter), or a plain property path ({@code lastName}, {@code *{lastName}},
-   * {@code *{address.city}}) checked against the {@code t:object} selection in {@code scope}.
-   * Reports and returns null on error. With {@code report} false it reports nothing, does not
-   * compile the path, and leaves the value null.
+   * fragment parameter), or a property path ({@code lastName}, {@code *{lastName}},
+   * {@code *{address.city}}, {@code *{items[i].name}}) checked against the {@code t:object}
+   * selection in {@code scope} ({@link FormPaths#resolve}). Reports and returns null on error. With
+   * {@code report} false it reports nothing, compiles only the path's index expressions, and
+   * leaves the value null.
    */
   static FormPaths.FormField field(CodegenContext ctx, Attribute attr, Scope scope, boolean report) {
     DiagnosticSink sink = report ? ctx.diagnostics() : d -> {};
@@ -224,15 +235,25 @@ public final class FieldProcessor implements AttributeProcessor {
               + " parameter");
       return null;
     }
-    String path = FormPaths.pathOf(e);
-    if (path == null) {
-      sink.error(attr.valuePos(), attr.name() + " needs a field path such as lastName or *{address.city}, not an expression");
+    if (!FormPaths.isPath(e)) {
+      sink.error(
+          attr.valuePos(),
+          attr.name() + " needs a field path such as lastName, *{address.city} or *{items[i].name}, not an expression");
       return null;
     }
-    if (!report) {
-      return FormPaths.literal(selection.get(), path, null);
-    }
-    CompiledExpr current = FormPaths.compile(path, attr.valuePos(), scope, ctx.expressions());
-    return current == null ? null : FormPaths.literal(selection.get(), path, current);
+    // Without reporting, compile through a compiler whose diagnostics go nowhere: t:field reports.
+    ExpressionCompiler expressions =
+        report
+            ? ctx.expressions()
+            : new ExpressionCompiler(
+                new CompilerEnv(
+                    ctx.env().elements(),
+                    ctx.env().types(),
+                    d -> {},
+                    ctx.env().basePackage(),
+                    ctx.env().messages(),
+                    ctx.env().functionNamespaces(),
+                    ctx.env().functionIndex()));
+    return FormPaths.resolve(e, scope, expressions, report);
   }
 }
