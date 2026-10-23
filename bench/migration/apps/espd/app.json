@@ -10,5 +10,6 @@
   "test": "mvn -B -ntp -Denforcer.skip=true -pl espd-web -am test",
   "start": "bash /bench/app/start.sh",
   "ready": "/",
-  "base": "http://localhost:8080/espd"
+  "base": "http://localhost:8080/espd",
+  "ignore": ["EcertisHandler\\(\"[^\"]*\""]
 }
