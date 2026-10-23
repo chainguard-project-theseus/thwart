@@ -23,6 +23,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.aot.DisabledInAotMode;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.matchesRegex;
 import static org.hamcrest.Matchers.stringContainsInOrder;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -49,9 +50,10 @@ class WelcomeControllerTests {
 					"<a class=\"nav-link\" href=\"/owners/find\" title=\"find owners\">", "<span>Find Owners</span>",
 					"<a class=\"nav-link\" href=\"/vets.html\" title=\"veterinarians\">",
 					"<a class=\"nav-link\" href=\"/oups\"", "<h2>Welcome</h2>",
-					"<img class=\"img-responsive\" src=\"/resources/images/pets.png\" />",
-					// Versioned by the starter's ResourceUrlEncodingFilter (webjars-bootstrap.version).
-					"<script src=\"/webjars/bootstrap/5.3.8/dist/js/bootstrap.bundle.min.js\"></script>")));
+					"<img class=\"img-responsive\" src=\"/resources/images/pets.png\" />")))
+			// Versioned by the starter's ResourceUrlEncodingFilter (webjars-bootstrap.version).
+			.andExpect(content().string(matchesRegex(
+					"(?s).*<script src=\"/webjars/bootstrap/\\d[^/\"]*/dist/js/bootstrap\\.bundle\\.min\\.js\"></script>.*")));
 	}
 
 }
