@@ -261,6 +261,23 @@ class XssContextTest {
           "<script t:utext=\"s\"></script>",
           "<i t:attr=\"a b=s\">x</i>");
 
+  /** The built-in {@code html.sanitize} turns stored rich text into SafeHtml for raw output. */
+  @Test
+  void htmlSanitizeFeedsRawOutput() {
+    Compilation c =
+        Compilation.builder()
+            .template(
+                "page.html",
+                "<div t:params=\"String s\"><section t:utext=\"html.sanitize(s)\">x</section>[(#html.sanitize(s))]</div>")
+            .compile()
+            .assertSuccess();
+    String stored = "<p onclick=\"alert(1)\">See <a href=\"javascript:alert(1)\">the</a> <b>agenda</b>.</p><script>alert(1)</script>";
+    String clean = "<p>See <a>the</a> <b>agenda</b>.</p>";
+    assertEquals(
+        "<div><section>" + clean + "</section>" + clean + "</div>", c.render("page", Map.of("s", stored)));
+    assertEquals("<div><section></section></div>", c.render("page", Compilation.model("s", null)));
+  }
+
   @ParameterizedTest
   @FieldSource("REJECTED")
   void unescapableContextsFailToBuild(String markup) {
