@@ -1,0 +1,28 @@
+package dev.tessera.runtime.fn;
+
+import dev.tessera.runtime.CssValue;
+import dev.tessera.runtime.TemplateFunction;
+import dev.tessera.runtime.TemplateFunctions;
+
+/**
+ * Built-in {@code css} namespace: validated values for {@code style} attributes (#182). Always
+ * registered. Invalid or {@code null} input gives {@code null}: a {@code t:style} that is only
+ * that value is omitted, and inside {@code |...|} or {@code +} it prints {@code null}, which the
+ * browser drops as an invalid declaration.
+ */
+@TemplateFunctions("css")
+public final class Css {
+  private Css() {}
+
+  /** {@link CssValue#color(String)}: {@code #rgb}, {@code #rrggbb}, a named colour, ... */
+  @TemplateFunction
+  public static CssValue color(String s) {
+    return CssValue.color(s);
+  }
+
+  /** {@link CssValue#length(String)}: {@code 12px}, {@code 1.5em}, {@code 50%}, ... */
+  @TemplateFunction
+  public static CssValue length(String s) {
+    return CssValue.length(s);
+  }
+}

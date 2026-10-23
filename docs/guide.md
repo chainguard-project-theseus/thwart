@@ -45,7 +45,8 @@ builds, or a static `@TemplateFunction`.
 
 **The output context picks the escaper.** Text, attribute values, URLs and `<script>` blocks are
 each escaped for where they appear, with no switch to turn it off. Raw markup must be a `SafeHtml`
-built in Java. Expressions in `style` and `on*` attributes are rejected. Values that the old engine
+built in Java. Expressions in `on*` attributes are rejected, and a `style` attribute takes only
+literals, numbers and validated `css.*` values. Values that the old engine
 printed raw (JSP EL, FreeMarker without auto-escaping, Mustache `{{{x}}}`) now come out escaped.
 That is intended, not a difference to undo.
 
@@ -76,7 +77,7 @@ but inside `|...|` and `+` a `null` prints `null`.
 | builds a view name, fragment name, message key or link path from strings | Conditionals between literals; link `{placeholders}`; a `Fragment` argument. |
 | evaluates a string as a template (`?eval`, `#evaluate`, `__${...}__`) | Not possible. Compute the value in Java. |
 | prints a string unescaped | A `SafeHtml` built in Java from sanitized input, or accept the escaped output. |
-| puts expressions in `style` or `on*` | `t:classappend`; `t:data-*` attributes read by a script. |
+| puts expressions in `style` or `on*` | `t:style` with literals, numbers and `css.color(...)`/`css.length(...)` (section 4.4); otherwise `t:classappend`; `t:data-*` attributes read by a script. |
 | includes a file, calls a macro or tag with a body, or extends a layout | A fragment call with `Fragment` arguments (section 4.8). |
 | binds a form through form tags or macros | `t:object`, `t:field`, `t:errors`, `fields.*` (section 4.7). |
 | posts a form back to the current URL by default | Write the `action` with `@{...}`, or put the URL in the model. |
@@ -419,7 +420,7 @@ The compiler decides the context from the element and attribute name. You cannot
 | URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. |
 | Resource URL | `script[src]`, `iframe[src]`, `embed[src]`, `object[data]`, `base[href]`, `link[href]` | Only a literal-path `@{...}` link or a `TrustedUrl` compiles. |
 | Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, records and `@TemplateView` beans, collections, String-keyed maps). |
-| Style | `<style>` text and `style` attribute | Expressions are a build error; use `t:class`/`t:classappend`. |
+| Style | `<style>` text and `style` attribute | In `<style>`, expressions are a build error. A `style` attribute takes only string literals, numbers and `CssValue`s, combined with `+`, `\|...\|`, `?:` and `? :`; anything else (a `String` value) is a build error. |
 | Event handler | `on*` attributes | Build error; put data in `data-*` attributes and read them from a script. |
 | Forbidden | `srcdoc`, `content` of `<meta http-equiv="refresh">`, non-JS `<script type>` | Build error. `<script type>` and `<meta http-equiv>` cannot be computed. |
 
@@ -437,6 +438,16 @@ The complete JSON value is buffered before output, so a serialization failure wr
 Trusted markup is a `SafeHtml` built in Java: `SafeHtml.escape(text)`, `SafeHtml.of(template, ctx)`
 (another template's output), or `SafeHtml.unchecked(html)` for sanitized markup (a review point).
 `TrustedUrl.unchecked(url)` is the same for URLs.
+
+CSS has no escaping that makes an arbitrary string safe, so a `style` attribute is built only from
+pieces that cannot end a declaration or call `url(...)`: literals, numbers and `CssValue`s.
+`css.color(s)` and `css.length(s)` (or `CssValue.color`/`CssValue.length` in Java) validate a
+string and return `null` for anything else, so user data such as a category colour goes through
+them: `t:style="|background-color: ${css.color(category.color)}|"`. An invalid colour prints
+`background-color: null`, which the browser ignores as an invalid declaration; a `t:style` that is
+only a `null` value is omitted. Choices between literals work as before:
+`t:style="${soldOut} ? 'opacity:.5' : 'opacity:1'"`. `rgb(...)`, `var(...)` and other functions are
+not accepted; compute a hex colour in Java or use a class.
 
 <!-- compile: template guide/contexts.html -->
 ```html
@@ -479,6 +490,7 @@ Templates call functions as `namespace.fn(args)` or `#namespace.fn(args)`.
 | `numbers` | `formatInteger(n, minDigits)`, `formatDecimal(n, minIntDigits, decimals)` (no grouping, `.` as decimal point), `sequence(from, to)` (a `List<Integer>`) |
 | `temporals` | `format(temporal, pattern)` (English month and day names), `formatIso(temporal)` |
 | `lists` | `size`, `isEmpty`, `contains(list, x)` |
+| `css` | `color(s)` (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, a CSS named colour), `length(s)` (a number with optional `px`, `em`, `rem`, `%`, `vh`, `vw`): a `CssValue`, or `null` for anything else |
 | `auth` (Spring starter) | `isAuthenticated()`, `hasRole('ADMIN')`, `hasAnyRole('A', 'B')`, `name()` |
 | `fields` (inside `t:object`) | `hasErrors('path')`, `hasErrors('*')`, `errors('path')`, section 4.7 |
 
@@ -1023,7 +1035,7 @@ These come from the annotation processor itself, without a template position.
 ### Attributes
 
 - `<label> is not allowed: event-handler attributes cannot contain expressions; put the value in a data-* attribute and read it from a script`.
-- `<label> is not allowed: style attributes cannot contain expressions; use t:class or t:classappend instead`.
+- `<label> is not allowed: a style value can only combine string literals, numbers and CssValues such as css.color(c) or css.length(l), not a <type>; use t:class or t:classappend instead`.
 - `<label> is not allowed: srcdoc is a whole HTML document and cannot contain expressions; use src with a URL`.
 - `<label> is not allowed: the content of <meta http-equiv="refresh"> navigates the page and cannot contain expressions; redirect from the controller instead`.
 - `<label> is not allowed: attribute name '<name>' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*`.
@@ -1133,7 +1145,8 @@ Gaps in Tessera today, each with what to do until it is fixed.
   `t:block`, ids or classes. Give the element a `t:fragment` name instead.
 - **Not supported, by design:** runtime template loading, `__${...}__` preprocessing, dynamic
   names, the layout dialect, `th:inline` modes and `/*[[...]]*/` natural-template comments,
-  collection selection/projection, expressions in `style`/`on*` and Kotlin.
+  collection selection/projection, expressions in `<style>` and `on*`, `String` values in `style`
+  attributes, and Kotlin.
 - **Expected output differences from Thymeleaf:** attributes set by `t:` attributes may move within
   the tag; `<td >` (after a removed attribute) renders as `<td>`; a `null` attribute value omits
   the attribute (Thymeleaf writes `value=""`); a `null` link path variable fails the render.
