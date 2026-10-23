@@ -19,7 +19,17 @@ import java.util.Locale;
  */
 @TemplateFunctions("numbers")
 public final class Numbers {
+  // Never formatted with or reconfigured after initialization. Each call owns its clone.
+  private static final DecimalFormat BASE_FORMAT = baseFormat();
+
   private Numbers() {}
+
+  private static DecimalFormat baseFormat() {
+    DecimalFormat format = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ROOT));
+    format.setGroupingUsed(false);
+    format.setRoundingMode(RoundingMode.HALF_UP);
+    return format;
+  }
 
   /** {@code n} rounded to an integer and left-padded with zeros to {@code minDigits} digits. */
   @TemplateFunction
@@ -55,12 +65,10 @@ public final class Numbers {
       throw new IllegalArgumentException("not a number: " + n.getClass().getName());
     }
     Number number = (Number) n;
-    DecimalFormat format = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ROOT));
-    format.setGroupingUsed(false);
+    DecimalFormat format = (DecimalFormat) BASE_FORMAT.clone();
     format.setMinimumIntegerDigits(minIntDigits);
     format.setMinimumFractionDigits(decimals);
     format.setMaximumFractionDigits(decimals);
-    format.setRoundingMode(RoundingMode.HALF_UP);
     return format.format(toBigDecimal(number));
   }
 

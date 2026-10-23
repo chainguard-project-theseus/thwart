@@ -6,7 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
 
 class NumbersTest {
@@ -36,6 +43,37 @@ class NumbersTest {
     assertThrows(IllegalArgumentException.class, () -> Numbers.formatInteger("7", 1));
     assertThrows(IllegalArgumentException.class, () -> Numbers.formatDecimal(Double.NaN, 1, 2));
     assertThrows(IllegalArgumentException.class, () -> Numbers.formatDecimal(Float.POSITIVE_INFINITY, 1, 2));
+  }
+
+  @Test
+  void configurationsRemainIndependentAcrossCallsAndThreads() throws Exception {
+    // Exercise different padding/scale, including the JDK's clamping of negative settings.
+    List<Callable<Void>> calls = new ArrayList<>();
+    for (int task = 0; task < 16; task++) {
+      final int digits = task % 8 - 1;
+      final int decimals = task % 5 - 1;
+      final BigDecimal value = new BigDecimal(task % 2 == 0 ? "-0.125" : "12345.675");
+      DecimalFormat reference = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ROOT));
+      reference.setGroupingUsed(false);
+      reference.setMinimumIntegerDigits(digits);
+      reference.setMinimumFractionDigits(decimals);
+      reference.setMaximumFractionDigits(decimals);
+      reference.setRoundingMode(RoundingMode.HALF_UP);
+      String expected = reference.format(value);
+      calls.add(() -> {
+        for (int i = 0; i < 500; i++) {
+          assertEquals(expected, Numbers.formatDecimal(value, digits, decimals));
+        }
+        return null;
+      });
+    }
+    try (var executor = Executors.newFixedThreadPool(8)) {
+      for (var result : executor.invokeAll(calls)) {
+        result.get();
+      }
+    }
+    assertEquals("3", Numbers.formatInteger(2.5, 1));
+    assertNull(Numbers.formatDecimal(null, -1, -1));
   }
 
   @Test
