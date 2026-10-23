@@ -5,10 +5,26 @@ and the PR workflow. This doc covers how the work gets orchestrated.
 
 ## State (2026-10-22)
 
-The Tessera MVP is done. It has the compiler, the runtime, the Spring starter, `tessera-migrate`,
-the petclinic port, a security suite, JMH benchmarks, and [guide.md](guide.md) (the porting guide
-written for agents). A code-quality pass followed, tracked in #85. All issues are closed.
-`mvn clean verify` runs about 1.3k tests, all green.
+The Tessera MVP is done: the compiler, the runtime, the Spring starters (`jakarta` and `javax`),
+`tessera-migrate` (page record/compare and the Thymeleaf converter), the petclinic port, a
+security suite, JMH benchmarks, [guide.md](guide.md) (the porting guide written for agents) and
+the Claude Code migration skill in `plugins/tessera`. A code-quality pass followed (#85).
+
+Since then:
+
+- **Java 8 and Spring 5 floors.** Application code built against Tessera compiles with JDK 8+
+  javac and runs on Java 8+ (#154, #166); `tessera-migrate` runs on Java 8+ (#167). The starters
+  support Spring Framework 5.0+ / Boot 2.0+, with a `javax.servlet` variant and
+  `TesseraConfiguration` for Spring MVC without Boot (#156).
+- **No third-party compile dependencies** in `tessera-runtime`, `tessera-compiler` (own
+  `MarkupTokenizer` since #170) or the starters. Only `tessera-migrate`, a developer tool, bundles
+  attoparser and jsoup.
+- **Migration benchmark** in [bench/migration](../bench/migration/README.md) (#115, #151): an
+  agent migrates real apps from the guide alone, scored with `tessera-migrate compare`. The gaps
+  it found are open issues labelled `migration-bench` (#118 to #137), and #151 tracks the
+  benchmark itself.
+
+`mvn clean verify` is green.
 
 ## Orchestration pattern
 
@@ -37,14 +53,22 @@ written for agents). A code-quality pass followed, tracked in #85. All issues ar
     is "Chainguard Checks (presubmit)".
   - Read logs with `chainctl checks logs chainguard-dev/harder#<n> --check verify --errors`.
 - Merge on green CI. Review is not required. Commits are unsigned; ignore the signing check.
-- Labels used so far: `wave-1` through `wave-4`, `refactor-wave-1` through `refactor-wave-4`.
+- Labels used so far: `wave-1` through `wave-4`, `refactor-wave-1` through `refactor-wave-4`,
+  `migration-bench`, `documentation`.
 
 ## Known limits relevant to migration work
 
-- Maven only, no Gradle plugin. The processor needs `-Atessera.templates=<absolute dir>`.
+- Maven only: nothing tests Gradle, and there is no Maven or Gradle plugin. The processor needs
+  `-Atessera.templates=<absolute dir>`.
 - Maven doesn't recompile when only a template changes. Use `mvn clean`.
+- The processor finds `@TemplateFunctions` classes only in the same compile (#118), so test
+  compilation needs `<proc>none</proc>`.
 - Artifacts are not published. A target app consumes Tessera through `mvn install` of this
   repo, as `0.1.0-SNAPSHOT` in `~/.m2`.
+- Floors: the target app builds with JDK 8+ and runs on Java 8+, on Spring 5.0+ / Boot 2.0+.
+  This repo builds with JDK 21+.
 - There is no runtime template loading and no `__${}__` preprocessing, by design.
-- [examples/petclinic/MIGRATION-NOTES.md](../examples/petclinic/MIGRATION-NOTES.md) lists the
-  friction from the one real port so far.
+- [guide.md section 7](guide.md#7-known-limitations) lists the current gaps.
+  [examples/petclinic/MIGRATION-NOTES.md](../examples/petclinic/MIGRATION-NOTES.md) is the
+  friction log of the first port, and [bench/migration/RESULTS.md](../bench/migration/RESULTS.md)
+  has the failure analysis of the benchmark runs.
