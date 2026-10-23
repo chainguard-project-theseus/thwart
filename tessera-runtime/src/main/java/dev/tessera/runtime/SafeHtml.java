@@ -4,8 +4,9 @@ import java.util.Objects;
 
 /**
  * HTML that is known to be safe to emit without escaping. The only ways to get one are
- * {@link #escape(String)}, rendering a {@link Template}, or {@link #unchecked(String)} (greppable,
- * lint-bannable). {@code t:utext} accepts nothing else.
+ * {@link #escape(String)}, {@link #sanitize(String)}, rendering a {@link Template},
+ * {@link #concat(SafeHtml...)} of other {@code SafeHtml}s, or {@link #unchecked(String)}
+ * (greppable, lint-bannable). {@code t:utext} accepts nothing else.
  */
 public final class SafeHtml {
   public static final SafeHtml EMPTY = new SafeHtml("");
@@ -24,6 +25,40 @@ public final class SafeHtml {
   /** HTML-escapes plain text. */
   public static SafeHtml escape(String text) {
     return new SafeHtml(Escapers.escapeHtml(text == null ? "" : text));
+  }
+
+  /**
+   * Cleans untrusted HTML, such as stored rich text, with a fixed allow-list. The input is parsed
+   * and the output rebuilt, never copied through:
+   *
+   * <ul>
+   *   <li>Kept, without attributes: {@code p br hr h1}-{@code h6 b i em strong u s sub sup small
+   *       mark code pre blockquote ul ol li span div}.
+   *   <li>{@code a} keeps only an {@code href} that passes the URL attribute scheme check
+   *       ({@code http}, {@code https}, {@code mailto}, {@code tel} or relative) and then gets
+   *       {@code rel="nofollow noopener"}.
+   *   <li>Removed with their content: {@code script style iframe object embed template svg math
+   *       noscript textarea title xmp plaintext noembed noframes select}.
+   *   <li>Any other tag is removed and its text kept. Comments, doctypes, CDATA and every other
+   *       attribute ({@code on*}, {@code style}, {@code class}, {@code id}, ...) are removed.
+   * </ul>
+   *
+   * <p>Text is re-escaped, tags are balanced (unmatched end tags are dropped and open ones closed),
+   * and malformed markup never fails. {@code null} gives {@link #EMPTY}.
+   */
+  public static SafeHtml sanitize(String html) {
+    return html == null ? EMPTY : new SafeHtml(HtmlSanitizer.sanitize(html));
+  }
+
+  /** Joins safe parts in order; {@code null} parts are skipped. */
+  public static SafeHtml concat(SafeHtml... parts) {
+    StringBuilder sb = new StringBuilder();
+    for (SafeHtml part : parts) {
+      if (part != null) {
+        sb.append(part.html);
+      }
+    }
+    return new SafeHtml(sb.toString());
   }
 
   /** Renders a template; its output is escaped by construction. */
