@@ -180,6 +180,11 @@ auto-configuration, plus a resolver for `redirect:` and `forward:` names. Boot p
 resolver; without Boot the old engine's resolver usually did, so removing it without a replacement
 breaks redirects (behind a `ContentNegotiatingViewResolver`, as a 406).
 
+**Resource links.** On every Boot version, `ResourceUrlEncodingFilter` (versioned `/webjars/...`
+and resource links, when the resource chain is enabled) comes from the Thymeleaf auto-configuration,
+so removing Thymeleaf drops it. Tessera links go through `response.encodeURL`, so declaring a
+`ResourceUrlEncodingFilter` bean restores the links.
+
 **Older Boot.** Checked on Boot 2.0 (Spring 5.0, Security 5.0) and Boot 1.5 (Spring 4.3,
 Security 4.2):
 
@@ -198,9 +203,6 @@ Security 4.2):
   attribute, so a POST form gets no `_csrf` input, as with Thymeleaf. With your own
   `WebSecurityConfigurerAdapter`, Security 4.2 turns CSRF on (token in the session) and the input
   renders. Either way, keep the application's setting; `auth.*` works in both.
-- On Boot 1.x, `ResourceUrlEncodingFilter` (versioned `/webjars/...` and resource links) came
-  from the Thymeleaf auto-configuration, so removing Thymeleaf drops it. Tessera links go through
-  `response.encodeURL`, so declaring a `ResourceUrlEncodingFilter` bean restores the links.
 - Spring 4.3 and 5.0 need `--add-opens java.base/java.lang=ALL-UNNAMED` on JDK 16+, including
   for tests (surefire `argLine`). Spring 5.3 (Boot 2.7) does not.
 

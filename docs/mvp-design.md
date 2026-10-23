@@ -315,7 +315,8 @@ item each. Exit code 0 even with report items (the report is the audit).
 - Starter: MockMvc tests with hand-written `TemplateRegistry`s, plus an end-to-end smoke test and
   a `@WebMvcTest` slice over templates compiled from `src/test/templates`. The test sources are
   Java 8 and run unchanged on every generation: `tessera-spring-tests` copies them (rewriting
-  `jakarta.servlet` for the javax modules and Boot 4's `@WebMvcTest` package for Boot 2/3) and runs
-  them on Boot 3.5, 2.7 and 2.0; its Boot-free `spring50` module runs only the plain-Spring tests.
+  `jakarta.servlet` for the javax modules and Boot 4's `@WebMvcTest` package for Boot 1.5-3) and
+  runs them on Boot 3.5, 2.7, 2.0 and 1.5; its Boot-free `spring50` and `spring43` modules run only
+  the plain-Spring tests.
   Petclinic: its own MockMvc suite plus rendered-HTML assertions.
 - `mvn -B -ntp verify` must stay green; CI runs exactly that (`.chainguard/ci/maven.yaml`).
