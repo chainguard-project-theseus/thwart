@@ -23,8 +23,8 @@ import java.util.function.IntConsumer;
 
 /**
  * Contextual escapers. The compiler picks exactly one of these for every expression output
- * site based on its {@code OutputContext}; templates cannot choose. Every method except
- * {@link #json} treats {@code null} as the empty string ({@code json} writes {@code null}).
+ * site based on its {@code OutputContext}; templates cannot choose. HTML methods treat
+ * {@code null} as the empty string; JSON methods serialize it as {@code null}.
  *
  * <p>Conversion to text: {@code null} becomes {@code ""}; everything else uses
  * {@link String#valueOf(Object)}. Safe types are only honoured where noted.
@@ -122,6 +122,22 @@ public final class Escapers {
     StringBuilder sb = new StringBuilder();
     writeJson(sb, value, 0);
     out.write(sb.toString());
+  }
+
+  /**
+   * Appends script-safe JSON to a private serialization buffer at the supplied nesting depth.
+   * Used by generated bean serializers to share this escaper without intermediate object graphs.
+   * A failure may leave partial JSON in {@code buffer}; callers must discard it on failure and
+   * only publish the completed value. Depth starts at zero and must not be negative.
+   *
+   * @throws IllegalArgumentException if depth is negative, nesting exceeds the JSON limit,
+   *     or the value cannot be serialized
+   */
+  public static void appendJson(StringBuilder buffer, Object value, int depth) {
+    if (depth < 0) {
+      throw new IllegalArgumentException("JSON nesting depth must not be negative");
+    }
+    writeJson(buffer, value, depth);
   }
 
   // ---------------------------------------------------------------------------------------------

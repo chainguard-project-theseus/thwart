@@ -221,4 +221,114 @@ class ScriptJsonTest {
         .compile()
         .assertError("w.html:1:", "java.lang.Thread");
   }
+  @Test
+  void scriptBreakersAreEscapedInNestedBeansAndPropertyNames() {
+    Compilation c = Compilation.builder()
+        .java("com.example.Value", "package com.example; public record Value(String a$name) {}")
+        .template("page.html", "<script t:params=\"com.example.Value value\">[[value]]</script>")
+        .compile().assertSuccess();
+    Object value = c.newInstance("com.example.Value", "*/ `${x}` </script>\u2028\u2029\ud800");
+    assertEquals("<script>{\"a\\u0024name\":\"*\\/ \\u0060\\u0024{x}\\u0060 \\u003c\\/script\\u003e\\u2028\\u2029\\ud800\"}</script>",
+        c.render("page", model("value", value)));
+  }
+
+  @Test
+  void gettersRunOnceInPropertyOrderAndFailureWritesNoJson() {
+    Compilation c = Compilation.builder()
+        .java("com.example.Checked", "package com.example; @dev.tessera.runtime.TemplateView public class Checked {"
+            + " private int calls; private final boolean fail; public Checked(boolean fail) { this.fail = fail; }"
+            + " public String getFirst() { if (++calls != 1) throw new AssertionError(); return \"first\"; }"
+            + " public String getSecond() { if (++calls != 2) throw new AssertionError();"
+            + " if (fail) throw new IllegalArgumentException(\"getter failed\"); return \"second\"; } }")
+        .template("page.html", "<script t:params=\"com.example.Checked value\">[[value]]</script>")
+        .compile().assertSuccess();
+    assertEquals("<script>{\"first\":\"first\",\"second\":\"second\"}</script>",
+        c.render("page", model("value", c.newInstance("com.example.Checked", false))));
+    assertFailsBeforeJson(c, model("value", c.newInstance("com.example.Checked", true)));
+  }
+
+  @Test
+  void invalidNestedMapKeysFailWithoutWritingJson() {
+    Compilation c = compile("Shapes s", "<script>[[s]]</script>").assertSuccess();
+    Object p = c.newInstance("com.example.Point", 1, "first");
+    Map<Object, Object> keys = new java.util.LinkedHashMap<>();
+    keys.put("good", p);
+    keys.put(42, p);
+    Object shapes = c.newInstance("com.example.Shapes", List.of(p), keys, Optional.empty(), null, null);
+    assertFailsBeforeJson(c, model("s", shapes));
+    keys.remove(42);
+    keys.put(null, p);
+    assertFailsBeforeJson(c, model("s", shapes));
+  }
+
+  @Test
+  void exactDepthBoundariesForBeansAndOptionalContainers() {
+    assertDepthBoundary("com.example.Node", "package com.example; public record Node(Node next) {}", 64, false, false);
+    assertDepthBoundary("com.example.Node", "package com.example; public record Node(java.util.Optional<Node> next) {}",
+        32, true, false);
+    assertDepthBoundary("com.example.Node", "package com.example; public record Node(java.util.List<java.util.Optional<Node>> next) {}",
+        21, true, true);
+  }
+
+  private static void assertDepthBoundary(String type, String source, int accepted, boolean optional, boolean list) {
+    Compilation c = Compilation.builder().java(type, source)
+        .template("page.html", "<script t:params=\"" + type + " value\">[[value]]</script>")
+        .compile().assertSuccess();
+    Object value = null;
+    for (int i = 0; i < accepted; i++) {
+      Object child = optional ? Optional.ofNullable(value) : value;
+      value = c.newInstance(type, list ? List.of(child) : child);
+    }
+    assertTrue(c.render("page", model("value", value)).endsWith("</script>"));
+    Object child = optional ? Optional.of(value) : value;
+    Object excessive = c.newInstance(type, list ? List.of(child) : child);
+    assertFailsBeforeJson(c, model("value", excessive));
+  }
+
+  @Test
+  void scalarContainersWithinBeansKeepTheirRuntimeDepthLimit() {
+    Compilation c = Compilation.builder()
+        .java("com.example.Node", "package com.example; public record Node(java.util.Optional<String> text, Node next) {}")
+        .template("page.html", "<script t:params=\"com.example.Node value\">[[value]]</script>")
+        .compile().assertSuccess();
+    Object value = null;
+    for (int i = 0; i < 63; i++) {
+      value = c.newInstance("com.example.Node", Optional.of("ok"), value);
+    }
+    assertTrue(c.render("page", model("value", value)).endsWith("</script>"));
+    Object excessive = c.newInstance("com.example.Node", Optional.of("ok"), value);
+    assertFailsBeforeJson(c, model("value", excessive));
+  }
+
+  private static void assertFailsBeforeJson(Compilation c, Map<String, ?> model) {
+    dev.tessera.runtime.StringOutput out = new dev.tessera.runtime.StringOutput();
+    assertThrows(IllegalArgumentException.class,
+        () -> c.registry().find("page").orElseThrow().renderer()
+            .render(model, dev.tessera.runtime.RenderContext.defaults(), out));
+    assertTrue(out.toString().endsWith("<script>"), out.toString());
+    assertFalse(out.toString().contains("{"), out.toString());
+  }
+
+  @Test
+  void serializesEachPropertyBeforeCallingTheNextGetter() {
+    Compilation c = Compilation.builder()
+        .java("com.example.Mutable", "package com.example; @dev.tessera.runtime.TemplateView public class Mutable {"
+            + " private final java.util.List<String> values = new java.util.ArrayList<>(java.util.Arrays.asList(\"original\"));"
+            + " public java.util.List<String> getValues() { return values; }"
+            + " public String getLast() { values.set(0, \"changed\"); return \"last\"; } }")
+        .template("page.html", "<script t:params=\"com.example.Mutable value\">[[value]]</script>")
+        .compile().assertSuccess();
+    assertEquals("<script>{\"values\":[\"original\"],\"last\":\"last\"}</script>",
+        c.render("page", model("value", c.newInstance("com.example.Mutable"))));
+  }
+  @Test
+  void beanContainersCompileAtJava8Floor() {
+    Compilation c = Compilation.builder().release(8)
+        .java("com.example.Bean", "package com.example; @dev.tessera.runtime.TemplateView public class Bean {"
+            + " public String getName() { return \"ok\"; } }")
+        .template("page.html", "<script t:params=\"Map<String, List<Optional<com.example.Bean>>> values\">[[values]]</script>")
+        .compile().assertSuccess();
+    assertEquals("<script>{\"key\":[{\"name\":\"ok\"}]}</script>",
+        c.render("page", model("values", Map.of("key", List.of(Optional.of(c.newInstance("com.example.Bean")))))));
+  }
 }

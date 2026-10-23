@@ -430,7 +430,9 @@ like Jackson (`getURL()` is `url`). Getters returning a never-view-safe type are
 other property that cannot be serialized (a `SafeHtml`, a class that isn't view-safe) is a build
 error. Jackson annotations (`@JsonIgnore`, `@JsonProperty`) are not read. Nesting deeper than 64
 levels, or a cycle, fails the render. Where the Thymeleaf page parsed a JSON string built in Java
-(`JSON.parse([[${json}]])`), pass the object instead and write `[[${object}]]`.
+(`JSON.parse([[${json}]])`), pass the object instead and write `[[${object}]]`. Each property is
+serialized before the next getter runs; getters should not mutate previously returned values.
+The complete JSON value is buffered before output, so a serialization failure writes none of it.
 
 Trusted markup is a `SafeHtml` built in Java: `SafeHtml.escape(text)`, `SafeHtml.of(template, ctx)`
 (another template's output), or `SafeHtml.unchecked(html)` for sanitized markup (a review point).

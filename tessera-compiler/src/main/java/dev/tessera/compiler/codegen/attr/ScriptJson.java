@@ -4,6 +4,8 @@ import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.types.CompiledExpr;
+import dev.tessera.runtime.Escapers;
+import dev.tessera.runtime.StringOutput;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -29,21 +31,20 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Types;
 
 /**
- * The value {@code [[...]]} and {@code t:text} pass to {@code Escapers.json} inside
- * {@code <script>}.
+ * Serializes {@code [[...]]} and {@code t:text} values inside {@code <script>}.
  *
- * <p>Strings, numbers, booleans, enums, {@code java.time} values, and Optionals, collections,
- * arrays and String-keyed maps of those go to {@code Escapers.json} as they are. Records and
- * {@code @TemplateView} classes (#121) are converted first by static helper methods generated
- * into the template class: each copies the bean's properties into a {@code LinkedHashMap}, which
- * {@code Escapers.json} then serializes (and escapes) like any other map. The properties are
+ * <p>Values without beans go directly to {@code Escapers.json}. Records and
+ * {@code @TemplateView} classes use generated static helpers that append JSON to one private
+ * buffer, without building intermediate maps or lists. Only the completed buffer is written to
+ * the output. Properties are
  * the record components and the public no-arg {@code getX()} (and boolean {@code isX()})
  * getters, the members templates can read, named as Jackson (Thymeleaf's serializer) names
  * them and in its order where that is defined: record components, else properties backed by a
  * field in field order, then getter-only properties (in declaration order here; Jackson's order
  * for those depends on reflection). A getter whose return type is never view-safe is left out; any
  * other property type that cannot be serialized is a build error. There is no reflection: the
- * set of properties is fixed at build time by the static type.
+ * set of properties is fixed at build time by the static type. Each property is serialized before
+ * the next getter is called; view getters should not mutate previously returned values.
  *
  * <p>Recursive types (a tree node with a {@code List} of children) are allowed; nesting deeper
  * than {@value #MAX_DEPTH} levels, which includes a cycle, throws
@@ -109,13 +110,10 @@ final class ScriptJson {
     this.ctx = ctx;
   }
 
-  /**
-   * The Java expression to pass to {@code Escapers.json} for {@code c}, or null after reporting
-   * an error at its position.
-   */
-  static String value(CodegenContext ctx, CompiledExpr c) {
+  /** A statement writing the whole JSON value, or null after reporting an error. */
+  static String statement(CodegenContext ctx, CompiledExpr c) {
     ScriptJson json = new ScriptJson(ctx);
-    String code = json.convert(c.type(), c.code(), "0");
+    String code = json.convert(c.type(), "o$", "0", "0");
     if (code == null) {
       ctx.diagnostics()
           .error(
@@ -124,16 +122,25 @@ final class ScriptJson {
                   + " booleans, enums, java.time values, records and @TemplateView classes of those, and"
                   + " Optionals, collections, arrays and String-keyed maps of those can be serialized as JSON"
                   + (json.failure == null ? "" : "; " + json.failure));
+      return null;
     }
-    return code;
+    if (code.equals("o$")) {
+      return "dev.tessera.runtime.Escapers.json(out, " + c.code() + ");\n";
+    }
+    String helper = ctx.freshName("jsonOutput");
+    ctx.addMember("private static void " + helper
+        + "(java.lang.Object o$, dev.tessera.runtime.Output out) {\n"
+        + "java.lang.StringBuilder s$ = new java.lang.StringBuilder();\n"
+        + code + ";\nout.write(s$.toString());\n}\n");
+    return helper + "(" + c.code() + ", out);\n";
   }
 
   /**
-   * An expression converting {@code code} (static type {@code t}) into a value
-   * {@code Escapers.json} can serialize ({@code code} itself if no bean is involved), or null if
-   * {@code t} cannot be serialized. {@code depth} is the nesting depth expression.
+   * A helper call appending a bean-containing value to {@code s$}, or {@code code} itself for
+   * values the runtime already serializes. The two depths preserve the old conversion and JSON
+   * traversal limits: converting a bean-containing Optional unwraps it before JSON serialization.
    */
-  private String convert(TypeMirror t, String code, String depth) {
+  private String convert(TypeMirror t, String code, String depth, String jsonDepth) {
     switch (t.getKind()) {
       case BOOLEAN:
       case BYTE:
@@ -147,23 +154,21 @@ final class ScriptJson {
         return code;
       case WILDCARD: {
         TypeMirror bound = ((WildcardType) t).getExtendsBound();
-        return bound == null ? null : convert(bound, code, depth);
+        return bound == null ? null : convert(bound, code, depth, jsonDepth);
       }
       case TYPEVAR:
-        return convert(types().erasure(t), code, depth);
+        return convert(types().erasure(t), code, depth, jsonDepth);
       case ARRAY: {
         TypeMirror component = ((ArrayType) t).getComponentType();
         if (component.getKind().isPrimitive()) {
           return code;
         }
-        String item = convert(component, "e$", "d$ + 1");
+        String item = convert(component, "e$", "d$ + 1", "j$ + 1");
         if (item == null) {
           return null;
         }
-        return item.equals("e$")
-            ? code
-            : container(t, code, depth, "java.util.List<java.lang.Object> l$ = new java.util.ArrayList<>();\n"
-                + "for (java.lang.Object e$ : (java.lang.Object[]) o$) { l$.add(" + item + "); }\nreturn l$;\n");
+        return item.equals("e$") ? code : container(t, code, depth, jsonDepth,
+            arrayBody("(java.lang.Object[]) o$", item));
       }
       case DECLARED:
         break;
@@ -178,39 +183,50 @@ final class ScriptJson {
     }
     List<? extends TypeMirror> args = dt.getTypeArguments();
     if (name.equals("java.util.Optional") || JSON_COLLECTIONS.contains(name)) {
-      String item = args.size() == 1 ? convert(args.get(0), "e$", "d$ + 1") : null;
+      boolean optional = name.equals("java.util.Optional");
+      String item = args.size() == 1
+          ? convert(args.get(0), "e$", "d$ + 1", optional ? "j$" : "j$ + 1") : null;
       if (item == null) {
         return null;
       }
       if (item.equals("e$")) {
         return code;
       }
-      return name.equals("java.util.Optional")
-          ? container(t, code, depth, "java.lang.Object e$ = ((java.util.Optional<?>) o$).orElse(null);\n"
-              + "return " + item + ";\n")
-          : container(t, code, depth, "java.util.List<java.lang.Object> l$ = new java.util.ArrayList<>();\n"
-              + "for (java.lang.Object e$ : (java.util.Collection<?>) o$) { l$.add(" + item + "); }\nreturn l$;\n");
+      return container(t, code, depth, jsonDepth, optional
+          ? "java.lang.Object e$ = ((java.util.Optional<?>) o$).orElse(null);\n" + item + ";\n"
+          : arrayBody("(java.util.Collection<?>) o$", item));
     }
     if (name.equals("java.util.Map")) {
-      String item = args.size() == 2 && isString(args.get(0)) ? convert(args.get(1), "e$", "d$ + 1") : null;
+      String item = args.size() == 2 && isString(args.get(0))
+          ? convert(args.get(1), "e$", "d$ + 1", "j$ + 1") : null;
       if (item == null) {
         return null;
       }
-      // Keys are copied as they are, so Escapers.json still rejects a non-String key.
-      return item.equals("e$")
-          ? code
-          : container(t, code, depth, "java.util.Map<java.lang.Object, java.lang.Object> m$ = new java.util.LinkedHashMap<>();\n"
+      return item.equals("e$") ? code : container(t, code, depth, jsonDepth,
+          "s$.append('{');\nboolean first$ = true;\n"
               + "for (java.util.Map.Entry<?, ?> x$ : ((java.util.Map<?, ?>) o$).entrySet()) {\n"
-              + "java.lang.Object e$ = x$.getValue();\nm$.put(x$.getKey(), " + item + ");\n}\nreturn m$;\n");
+              + "java.lang.Object k$ = x$.getKey();\n"
+              + "if (!(k$ instanceof java.lang.String)) { throw new java.lang.IllegalArgumentException("
+              + "\"JSON object keys must be Strings\"); }\n"
+              + "if (!first$) { s$.append(','); }\nfirst$ = false;\n"
+              + "dev.tessera.runtime.Escapers.appendJson(s$, k$, 0);\ns$.append(':');\n"
+              + "java.lang.Object e$ = x$.getValue();\n" + item + ";\n}\ns$.append('}');\n");
     }
     if (isBean(te) && !ctx.expressions().neverViewSafeReason(t).isPresent()) {
-      return bean(dt, code, depth);
+      return bean(dt, code, depth, jsonDepth);
     }
     return null;
   }
 
-  /** A call of the helper converting container type {@code t} with {@code body}. */
-  private String container(TypeMirror t, String code, String depth, String body) {
+  private static String arrayBody(String iterable, String item) {
+    return "s$.append('[');\nboolean first$ = true;\n"
+        + "for (java.lang.Object e$ : " + iterable + ") {\n"
+        + "if (!first$) { s$.append(','); }\nfirst$ = false;\n"
+        + item + ";\n}\ns$.append(']');\n";
+  }
+
+  /** A call of the helper serializing container type {@code t} with {@code body}. */
+  private String container(TypeMirror t, String code, String depth, String jsonDepth, String body) {
     String key = t.toString();
     String helper = helpers.get(key);
     if (helper == null) {
@@ -218,11 +234,11 @@ final class ScriptJson {
       helpers.put(key, helper);
       addHelper(helper, body);
     }
-    return helper + "(" + code + ", " + depth + ")";
+    return helper + "(" + code + ", " + depth + ", " + jsonDepth + ", s$)";
   }
 
-  /** A call of the helper converting bean {@code t} to a map of its properties, or null. */
-  private String bean(DeclaredType t, String code, String depth) {
+  /** A call of the helper serializing bean {@code t}, or null. */
+  private String bean(DeclaredType t, String code, String depth, String jsonDepth) {
     String key = t.toString();
     String helper = helpers.get(key);
     if (helper == null) {
@@ -237,34 +253,44 @@ final class ScriptJson {
       String erased = types().erasure(t).toString();
       StringBuilder body = new StringBuilder();
       body.append(erased).append(" v$ = (").append(erased).append(") o$;\n");
-      body.append("java.util.Map<java.lang.String, java.lang.Object> m$ = new java.util.LinkedHashMap<>();\n");
+      body.append("s$.append('{');\n");
+      boolean first = true;
       for (Map.Entry<String, ExecutableElement> p : properties(te).entrySet()) {
         ExecutableElement getter = p.getValue();
         TypeMirror type = ((ExecutableType) types().asMemberOf(t, getter)).getReturnType();
         if (ctx.expressions().neverViewSafeReason(type).isPresent()) {
           continue; // never readable from a template, so never serialized either
         }
-        String value = convert(type, "v$." + getter.getSimpleName() + "()", "d$ + 1");
+        String access = "v$." + getter.getSimpleName() + "()";
+        String value = convert(type, access, "d$ + 1", "j$ + 1");
         if (value == null) {
           if (failure == null) {
             failure = "property '" + p.getKey() + "' of " + t + " has type " + type;
           }
           return null;
         }
-        body.append("m$.put(").append(JavaStrings.literal(p.getKey())).append(", ").append(value).append(");\n");
+        StringOutput escapedKey = new StringOutput();
+        Escapers.json(escapedKey, p.getKey());
+        body.append("s$.append(").append(JavaStrings.literal((first ? "" : ",") + escapedKey + ":")).append(");\n");
+        first = false;
+        if (value.equals(access)) {
+          body.append("dev.tessera.runtime.Escapers.appendJson(s$, ").append(access).append(", j$ + 1);\n");
+        } else {
+          body.append(value).append(";\n");
+        }
       }
-      body.append("return m$;\n");
+      body.append("s$.append('}');\n");
       generating.remove(element);
       addHelper(helper, body.toString());
     }
-    return helper + "(" + code + ", " + depth + ")";
+    return helper + "(" + code + ", " + depth + ", " + jsonDepth + ", s$)";
   }
 
   private void addHelper(String name, String body) {
     ctx.addMember(
-        "private static java.lang.Object " + name + "(java.lang.Object o$, int d$) {\n"
-            + "if (o$ == null) { return null; }\n"
-            + "if (d$ > " + MAX_DEPTH + ") { throw new java.lang.IllegalArgumentException(\"value nested deeper"
+        "private static void " + name + "(java.lang.Object o$, int d$, int j$, java.lang.StringBuilder s$) {\n"
+            + "if (o$ == null) { dev.tessera.runtime.Escapers.appendJson(s$, null, j$); return; }\n"
+            + "if (d$ > " + MAX_DEPTH + " || j$ > " + MAX_DEPTH + ") { throw new java.lang.IllegalArgumentException(\"value nested deeper"
             + " than " + MAX_DEPTH + " (cycle?)\"); }\n"
             + body
             + "}\n");

@@ -131,8 +131,8 @@ public final class TextInlining {
       return "";
     }
     if (context == OutputContext.SCRIPT) {
-      String json = ScriptJson.value(ctx, c);
-      return json == null ? "" : ESCAPERS + ".json(out, " + json + ");\n";
+      String json = ScriptJson.statement(ctx, c);
+      return json == null ? "" : json;
     }
     if (isDeclared(c.type(), "java.util.Optional")) {
       String o = ctx.freshName("opt");
