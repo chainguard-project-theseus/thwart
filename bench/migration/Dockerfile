@@ -1,6 +1,7 @@
 # Image for the migration benchmark. bench.py builds it with a `git archive` of this repo as the
-# build context. The final image has the installed Tessera jars but none of this repo's sources,
-# docs or history: the migration agent sees only what bench.py mounts.
+# build context. The final image has the installed Tessera jars and the Claude Code plugin from
+# plugins/tessera, but none of this repo's other sources, docs or history: beyond those, the
+# migration agent sees only what bench.py mounts.
 
 FROM cgr.dev/chainguard/wolfi-base AS tessera
 RUN apk add --no-cache openjdk-21-default-jdk maven-3.9 bash
@@ -21,12 +22,15 @@ RUN apk add --no-cache openjdk-21-default-jdk openjdk-8 maven-3.9 bash git curl 
 # Tessera 0.1.0-SNAPSHOT plus its build's dependencies; bench.py copies this into the shared
 # Maven repository volume before each batch.
 COPY --from=tessera /m2 /opt/m2-seed
+# The Claude Code plugin we ship (the migration skill and its guide), from the same commit as the
+# jars; lib/run-agent.sh loads it with --plugin-dir.
+COPY plugins/tessera /opt/tessera-plugin
 # The same tessera-migrate jar at a fixed path, for check.sh's record and compare.
 COPY --from=tessera /m2/dev/tessera/tessera-migrate/0.1.0-SNAPSHOT/tessera-migrate-0.1.0-SNAPSHOT.jar \
      /opt/tessera-migrate.jar
 # PostgreSQL is for apps that only run on it (budgetmaster): the app's start command creates a
 # throwaway cluster under /tmp. libfaketime pins the clock of an app whose pages show "today".
-# JDK 21 is the default (Tessera's build needs it); JDK 8 is for apps whose app.json says "java": 8.
+# JDK 21 is the default; JDK 8 is for apps whose app.json says "java": 8.
 ENV JAVA_HOME=/usr/lib/jvm/default-jvm \
     LANG=C.UTF-8 \
     MAVEN_ARGS="-Daether.syncContext.named.factory=file-lock -Daether.syncContext.named.nameMapper=file-gav"

@@ -88,16 +88,16 @@ def docker(mounts, env, cmd, out=None, memory="4g"):
     return subprocess.run(args + [IMAGE] + cmd, stdout=out, stderr=subprocess.STDOUT if out else None)
 
 
-def check(app, app_dir, out_dir, recording=None, migrated=False):
+def check(app, app_dir, out_dir, recording=None):
     """Build, crawl and test a checkout inside the container. Without a recording the pages are
     recorded into out_dir/pages; with one they are compared against it (out_dir/compare.txt).
-    A migrated app builds and tests with JDK 21 (Tessera's build needs it) and runs on the app's JDK."""
+    The original and the migrated app build, test and run on the app's JDK (Tessera supports 8+)."""
     cfg = config(app)
     shutil.rmtree(out_dir, ignore_errors=True)
     os.makedirs(out_dir)
     jdk = JDKS[cfg.get("java", 21)]
     env = {k: cfg[k.lower()] for k in ("BUILD", "TEST", "START", "READY", "BASE")}
-    env.update(BUILD_JDK=JDKS[21] if migrated else jdk, RUN_JDK=jdk, IGNORE="\n".join(cfg.get("ignore", [])))
+    env.update(BUILD_JDK=jdk, RUN_JDK=jdk, IGNORE="\n".join(cfg.get("ignore", [])))
     # /bench/app is the app's fixture directory (pages.txt, seed data, helper scripts) for its commands.
     mounts = [(app_dir, "/work/app"), (os.path.join(HERE, "lib"), "/bench/lib:ro"),
               (os.path.join(HERE, "apps", app), "/bench/app:ro"),
@@ -164,9 +164,12 @@ def summary_line(c):
             f"/{t.get('tests', 0)} pages={ok}/{len(c['pages'])}")
 
 
+SKILL = "tessera:migrate"  # plugins/tessera's skill, as Claude Code names a plugin skill
+
+
 def agent_usage(transcript):
-    """Cost, tokens and outcome from claude's stream-json output."""
-    per_message, result = {}, None
+    """Cost, tokens, outcome and use of the Tessera skill from claude's stream-json output."""
+    per_message, result, listed, invoked = {}, None, False, False
     with open(transcript, errors="replace") as f:
         for line in f:
             try:
@@ -175,9 +178,14 @@ def agent_usage(transcript):
                 continue
             if ev.get("type") == "result":
                 result = ev
+            elif ev.get("type") == "system" and ev.get("subtype") == "init":
+                listed = SKILL in (ev.get("skills") or []) or SKILL in (ev.get("slash_commands") or [])
             elif ev.get("type") == "assistant":
                 msg = ev.get("message", {})
                 per_message[msg.get("id")] = msg.get("usage") or {}  # the last event has the totals
+                invoked |= any(c.get("type") == "tool_use" and c.get("name") == "Skill"
+                               and (c.get("input") or {}).get("skill") in (SKILL, "migrate")
+                               for c in msg.get("content") or [] if isinstance(c, dict))
     usage = {}
     for u in per_message.values():
         for k, v in u.items():
@@ -193,7 +201,7 @@ def agent_usage(transcript):
     return {"outcome": result.get("subtype") if result else "killed (time budget)",
             "cost_usd": result.get("total_cost_usd") if result else None,
             "turns": result.get("num_turns") if result else None,
-            "tokens": usage}
+            "tokens": usage, "skill_listed": listed, "skill_invoked": invoked}
 
 
 def score(app, run_dir):
@@ -273,10 +281,10 @@ def migrate(app, k, args):
     checkout(app, app_dir)
     prompt = open(os.path.join(HERE, "prompt.md")).read().replace("{minutes}", str(args.minutes))
     # The container is the sandbox: its home is empty (no CLAUDE.md, memory, plugins or settings)
-    # and it sees only the checkout and the guide. lib/run-agent.sh has the claude invocation.
+    # and it sees only the checkout and the image's Tessera plugin, which lib/run-agent.sh loads.
     start = time.time()
     with open(os.path.join(run_dir, "transcript.jsonl"), "w") as out:
-        p = docker([(app_dir, "/work/app"), (os.path.join(REPO, "docs", "guide.md"), "/work/guide.md:ro")],
+        p = docker([(app_dir, "/work/app")],
                    {"PROMPT": prompt, "ANTHROPIC_API_KEY": os.environ["ANTHROPIC_API_KEY"],
                     "AGENT_MINUTES": args.minutes, "AGENT_MODEL": args.model, "AGENT_BUDGET_USD": args.budget_usd},
                    ["run-agent"], out=out)
@@ -293,11 +301,11 @@ def migrate(app, k, args):
     if os.path.exists(report):
         shutil.copy(report, run_dir)
 
-    check(app, app_dir, os.path.join(run_dir, "check"), os.path.join(RESULTS, app, "baseline", "pages"), migrated=True)
+    check(app, app_dir, os.path.join(run_dir, "check"), os.path.join(RESULTS, app, "baseline", "pages"))
     s = score(app, run_dir)
     print(f"{app} run-{k}: pass={s['pass']} {summary_line(load_check(os.path.join(run_dir, 'check')))}"
           f" identical={s['pages_identical']}+{s['pages_reordered']}/{s['pages_total']} {s['wall_minutes']}min"
-          f" ${s['cost_usd']}",
+          f" ${s['cost_usd']} skill={'invoked' if s['skill_invoked'] else 'not invoked'}",
           flush=True)
 
 
@@ -307,14 +315,14 @@ def report():
         d = os.path.join(RESULTS, app)
         if not os.path.isdir(d):
             continue
-        for run in sorted(os.listdir(d)):
+        for run in sorted(os.listdir(d), key=lambda r: [int(x) if x.isdigit() else x for x in re.split(r"(\d+)", r)]):
             p = os.path.join(d, run, "score.json")
             if os.path.exists(p):
                 s = json.load(open(p))
                 rows.append(s)
                 per_app.setdefault(app, []).append(s)
     out = ["| App | Run | Pass | Build | Tests | Pages identical+reordered | Status diffs | Insecure | Legacy left"
-           " | Minutes | Cost $ | Output tokens |", "|" + "---|" * 12]
+           " | Skill | Minutes | Cost $ | Output tokens |", "|" + "---|" * 13]
     for s in rows:
         t = s["tests"]
         tests = f"{(t['tests'] or 0) - (t['failures'] or 0) - (t['errors'] or 0)}/{t['tests'] or 0} (base {s['baseline_tests']})"
@@ -323,22 +331,35 @@ def report():
         # Runs from #115 were scored by lib/crawl.py (pages.diff, no compare.txt).
         old = not os.path.exists(os.path.join(RESULTS, s["app"], s["run"], "compare.txt"))
         run = s["run"] + (" (crawl.py)" if old else "")
+        # Runs before #174 had the guide mounted instead of the plugin: no skill to invoke.
+        skill = "-" if "skill_invoked" not in s else "invoked" if s["skill_invoked"] else "no"
         out.append(f"| {s['app']} | {run} | {'yes' if s['pass'] else 'no'} | {'ok' if s['build_ok'] else 'FAIL'}"
                    f" | {tests} | {s['pages_identical']}+{s['pages_reordered']}/{s['pages_total']} | {len(s['status_mismatch'])}"
-                   f" | {', '.join(s['insecure']) or '-'} | {legacy} | {s['wall_minutes']} | {cost}"
+                   f" | {', '.join(s['insecure']) or '-'} | {legacy} | {skill} | {s['wall_minutes']} | {cost}"
                    f" | {s['tokens'].get('output_tokens', '-')} |")
-    # Held-out apps ("heldout": true) only measure the guide and tools, so they get their own table.
-    for title, heldout in (("Development apps", False), ("Held-out apps", True)):
-        group = {a: ss for a, ss in per_app.items() if bool(config(a).get("heldout")) == heldout}
+    # Held-out apps ("heldout": true) only measure the guide and tools, and below-floor apps
+    # ("belowfloor": true) are older than Tessera supports, so each gets its own table. Apps can
+    # have different numbers of runs (quick rounds add one), so counts are out of each app's runs.
+    def group_of(app):
+        c = config(app)
+        return "Below-floor apps" if c.get("belowfloor") else "Held-out apps" if c.get("heldout") else "Development apps"
+    for title in ("Development apps", "Held-out apps", "Below-floor apps"):
+        group = {a: ss for a, ss in per_app.items() if group_of(a) == title}
         if not group:
             continue
-        out += ["", f"**{title}**", "", "| App | Runs | Passed | Build ok | Tests ok | Mean pages identical+reordered |",
-                "|---|---|---|---|---|---|"]
+        out += ["", f"**{title}**", "", "| App | Runs | Passed | Build ok | Tests ok | Skill invoked"
+                " | Mean pages identical+reordered |", "|---|---|---|---|---|---|---|"]
+        def skill_count(ss):  # only runs that had the plugin (#174) could invoke the skill
+            had = [s for s in ss if "skill_invoked" in s]
+            return f"{sum(s['skill_invoked'] for s in had)}/{len(had)}" if had else "-"
         for app, ss in group.items():
             n = len(ss)
             mean = sum((s["pages_identical"] + s["pages_reordered"]) / max(1, s["pages_total"]) for s in ss) / n
-            out.append(f"| {app} | {n} | {sum(s['pass'] for s in ss)} | {sum(s['build_ok'] for s in ss)}"
-                       f" | {sum(s['tests_ok'] for s in ss)} | {mean:.0%} |")
+            out.append(f"| {app} | {n} | {sum(s['pass'] for s in ss)}/{n} | {sum(s['build_ok'] for s in ss)}/{n}"
+                       f" | {sum(s['tests_ok'] for s in ss)}/{n} | {skill_count(ss)}"
+                       f" | {mean:.0%} |")
+        runs = [s for ss in group.values() for s in ss]
+        out.append(f"| all | {len(runs)} | {sum(s['pass'] for s in runs)}/{len(runs)} | | | | |")
     text = "\n".join(out) + "\n"
     with open(os.path.join(RESULTS, "summary.md"), "w") as f:
         f.write(text)
@@ -349,7 +370,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", nargs="?", default="all", choices=["all", "image", "baseline", "migrate", "recheck", "rescore", "report"])
     ap.add_argument("apps", nargs="*")
-    ap.add_argument("--runs", type=int, default=3)
+    ap.add_argument("--runs", type=int, default=1, help="runs per app (quick round 1, milestone 3)")
     ap.add_argument("--first-run", type=int, default=1, help="number of the first run (to add runs)")
     ap.add_argument("--jobs", type=int, default=2)
     ap.add_argument("--minutes", type=int, default=90)
@@ -380,7 +401,7 @@ def main():
                     continue
                 if args.cmd == "recheck":
                     check(a, os.path.join(WORK, "runs", a, run), os.path.join(d, "check"),
-                          os.path.join(RESULTS, a, "baseline", "pages"), migrated=True)
+                          os.path.join(RESULTS, a, "baseline", "pages"))
                 if os.path.exists(os.path.join(d, "check", "compare.txt")):
                     score(a, d)
                 else:
