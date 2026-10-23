@@ -116,7 +116,7 @@ final class FunctionRegistry {
    * unknown.
    */
   private void resolve(String ns) {
-    if (classes.containsKey(ns) || !looked.add(ns)) {
+    if (!looked.add(ns)) { // registered, rejected, or already looked up
       return;
     }
     String className = env.functionIndex().apply(ns);
@@ -131,6 +131,7 @@ final class FunctionRegistry {
     if (ns == null) {
       return;
     }
+    looked.add(ns); // the index never overrides a class seen here, even a rejected one
     SourcePos pos = positionOf(te);
     String className = te.getQualifiedName().toString();
     if (!SourceVersion.isIdentifier(ns) || SourceVersion.isKeyword(ns)) {

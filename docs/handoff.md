@@ -61,8 +61,8 @@ Since then:
 - Maven only: nothing tests Gradle, and there is no Maven or Gradle plugin. The processor needs
   `-Atessera.templates=<absolute dir>`.
 - Maven doesn't recompile when only a template changes. Use `mvn clean`.
-- The processor finds `@TemplateFunctions` classes only in the same compile (#118), so test
-  compilation needs `<proc>none</proc>`.
+- The processor also runs in test compilation. It finds `@TemplateFunctions` classes from an
+  earlier compile through the index it writes to `META-INF/tessera/functions/` (#118).
 - Artifacts are not published. A target app consumes Tessera through `mvn install` of this
   repo, as `0.1.0-SNAPSHOT` in `~/.m2`.
 - Floors: the target app builds with JDK 8+ and runs on Java 8+, on Spring 4.3+ / Boot 1.5+.
