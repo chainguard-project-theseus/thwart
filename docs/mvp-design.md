@@ -46,7 +46,8 @@ JDK 21+. The table names the main classes only.
 | `tessera-spring-boot-starter` | `dev.tessera.spring{,.view,.context,.fn}` | auto-config, plain-Spring config, view resolver, return values, request `RenderContext`, `auth` | runtime; Spring 5.0+ / Boot 2.0+ from the app (`jakarta.servlet`) |
 | `tessera-spring-boot-starter-javax` | same | the starter jar shaded with `jakarta.servlet` relocated to `javax.servlet` | runtime |
 | `tessera-spring-tests` | | the starter's test sources run on Boot 3.5, 2.7 and 2.0 and on Spring MVC 5.0 without Boot | |
-| `tessera-migrate` | `dev.tessera.migrate` | Thymeleaf → Tessera CLI | attoparser |
+| `tessera-migrate` | `dev.tessera.migrate` | CLI: page record/compare (`Crawler`, `PageNormalizer`, `Parity`) and the Thymeleaf → Tessera converter (`Migrator`) | attoparser, jsoup (bundled into the jar) |
+| `tessera-benchmarks` | | JMH, Tessera vs Thymeleaf | Thymeleaf, JMH |
 | `examples/petclinic` | `org.springframework.samples.petclinic` | spring-petclinic on Tessera | starter |
 
 The annotation processor lives in `tessera-compiler` (`META-INF/services/javax.annotation.processing.Processor`);
@@ -284,6 +285,12 @@ code (`TemplateGenerator.javaName`), so names like `java`, `class` or `ctx` cann
   `hasAnyRole(String...)`, `name()`, via `SecurityContextHolder` (optional dependency).
 
 ## Migration tool
+
+`tessera-migrate record|compare <base-url> <pages.txt> <dir> [--ignore REGEX]...` is the page-parity
+check behind the migration loop in [guide.md](guide.md): `record` fetches each request in
+`pages.txt` from the old app (one cookie jar, CSRF token carried over, redirects followed like a
+browser) and saves the pages; `compare` fetches them from the new app and reports each page
+`same`, `reordered` or `differs`, comparing status, final URL and the page as parsed by jsoup.
 
 `tessera-migrate <in> <out> [--report r.md]` (attoparser, source-preserving): `th:` → `t:`,
 `xmlns:th` → `xmlns:t`, drop redundant `${}`, `#lists.isEmpty(x)` → `x.isEmpty()`,

@@ -42,8 +42,11 @@ This is an MVP built tonight. Prefer the smallest thing that is correct and secu
   compiler has `Backports` and migrate `Compat` for the latter); javac `--release 8` and the
   release-8 and JDK 8 test runs enforce it. The starter must also keep working on Spring 5.0 /
   Boot 2.0 (`tessera-spring-tests`, also `--release 8`). Benchmarks, examples and the tests of
-  the runtime, compiler and migrate are Java 21. The runtime module has **zero third-party
-  dependencies**.
+  the runtime, compiler and migrate are Java 21. `tessera-runtime` and `tessera-compiler` have
+  **zero third-party dependencies** outside test scope (the compiler has its own
+  `MarkupTokenizer`; attoparser is only a test oracle), and the starters pass on only
+  `tessera-runtime`. Only `tessera-migrate`, a developer tool, bundles libraries (attoparser,
+  jsoup).
 - Error messages from the compiler must name the template file, line and column.
 - Security-relevant behaviour gets a test, including a negative test (the bad thing fails).
 - If something is out of scope, leave a `// TODO(#issue)` or open an issue; don't build it.
