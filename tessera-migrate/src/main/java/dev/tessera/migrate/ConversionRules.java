@@ -131,7 +131,7 @@ final class ConversionRules {
    */
   static final Pattern NUMBER = Pattern.compile("\\d+\\.?\\d*|\\.\\d+");
   static final Set<String> TOKEN_KEYWORDS = Compat.setOf("true", "false", "null", "_",
-      "and", "or", "not", "eq", "ne", "gt", "lt", "ge", "le", "div", "mod");
+      "and", "or", "not", "eq", "ne", "neq", "gt", "lt", "ge", "le", "div", "mod");
 
   /**
    * String-built links with a literal path and one query parameter, {@code @{'/p?k=' + ${x}}} and
@@ -195,7 +195,7 @@ final class ConversionRules {
 
   /** Word operators and literals that are never variables. */
   static final Set<String> KEYWORDS = Compat.setOf(
-      "and", "or", "not", "eq", "ne", "lt", "gt", "le", "ge", "div", "mod",
+      "and", "or", "not", "eq", "ne", "neq", "lt", "gt", "le", "ge", "div", "mod",
       "true", "false", "null", "this");
 
   static final String PARAM_STUB_MESSAGE =

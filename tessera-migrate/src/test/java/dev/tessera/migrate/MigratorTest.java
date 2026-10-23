@@ -260,12 +260,12 @@ class MigratorTest {
   void tokenLiteralsInsideLargerExpressionsAreQuoted() throws Exception {
     assertEquals("<div t:params=\"Object x, Object a, Object b, Object n\">"
             + "<i t:classappend=\"x ? 'active'\"></i><i t:text=\"a ?: 'none'\"></i>"
-            + "<i t:if=\"a and b or not x\"></i><i t:text=\"a == 1-2 ? true : null\"></i>"
+            + "<i t:if=\"a and b or not x\"></i><i t:if=\"a neq b\"></i><i t:text=\"a == 1-2 ? true : null\"></i>"
             + "<i t:text=\"#{ranking.title('mixed', n)}\"></i>"
             + "<i t:replace=\"~{fragments :: nav(active='ranking')}\"></i>"
             + "<i t:replace=\"fragments :: nav('ranking')\"></i></div>",
         convert("<div><i th:classappend=\"${x} ? active\"></i><i th:text=\"${a} ?: none\"></i>"
-            + "<i th:if=\"${a} and ${b} or not ${x}\"></i><i th:text=\"${a} == 1-2 ? true : null\"></i>"
+            + "<i th:if=\"${a} and ${b} or not ${x}\"></i><i th:if=\"${a} neq ${b}\"></i><i th:text=\"${a} == 1-2 ? true : null\"></i>"
             + "<i th:text=\"#{ranking.title(mixed, ${n})}\"></i>"
             + "<i th:replace=\"~{fragments :: nav(active=ranking)}\"></i>"
             + "<i th:replace=\"fragments :: nav(ranking)\"></i></div>"));
