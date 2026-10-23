@@ -1,0 +1,46 @@
+{
+ "thymeleaf": {
+  "templates": 12,
+  "files": [
+   "src/main/resources/templates/error.html",
+   "src/main/resources/templates/fragments/inputField.html",
+   "src/main/resources/templates/fragments/layout.html",
+   "src/main/resources/templates/fragments/selectField.html",
+   "src/main/resources/templates/owners/createOrUpdateOwnerForm.html",
+   "src/main/resources/templates/owners/findOwners.html",
+   "src/main/resources/templates/owners/ownerDetails.html",
+   "src/main/resources/templates/owners/ownersList.html",
+   "src/main/resources/templates/pets/createOrUpdatePetForm.html",
+   "src/main/resources/templates/pets/createOrUpdateVisitForm.html",
+   "src/main/resources/templates/vets/vetList.html",
+   "src/main/resources/templates/welcome.html"
+  ],
+  "constructs": {
+   "${": 75,
+   "th:text": 32,
+   "~{": 28,
+   "th:replace": 24,
+   "@{": 19,
+   "th:href": 12,
+   "*{": 10,
+   "th:if": 9,
+   "th:each": 9,
+   "th:src": 6,
+   "__${": 6,
+   "th:object": 5,
+   "th:fragment": 4,
+   "th:with": 4,
+   "th:class": 4,
+   "#calendars.format": 4,
+   "th:field": 3,
+   "th:value": 3,
+   "th:errors": 2,
+   "#fields.hasErrors": 2,
+   "#{": 1,
+   "th:title": 1,
+   "th:action": 1,
+   "#fields.hasAnyErrors": 1,
+   "#fields.allErrors": 1
+  }
+ }
+}
