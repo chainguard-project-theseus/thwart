@@ -4,7 +4,6 @@
   "engine": "jsp",
   "difficulty": "medium",
   "java": 8,
-  "belowfloor": true,
   "build": "mvn -B -ntp clean package -DskipTests",
   "test": "mvn -B -ntp test",
   "start": "mvn -B -ntp -DskipTests tomcat7:run-war",

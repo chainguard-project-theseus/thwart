@@ -4,7 +4,6 @@
   "engine": "thymeleaf",
   "difficulty": "medium",
   "java": 8,
-  "belowfloor": true,
   "build": "mvn -B -ntp clean package -DskipTests",
   "test": "mvn -B -ntp test",
   "start": "java -jar target/spring-petclinic-*.jar",
