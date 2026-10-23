@@ -2,7 +2,6 @@ package dev.tessera.compiler.codegen.attr;
 
 import static dev.tessera.compiler.types.ExpressionCompiler.isDeclared;
 
-import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.CodegenContext;
@@ -12,15 +11,7 @@ import dev.tessera.compiler.model.Text;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.runtime.SafeHtml;
-import java.util.List;
-import java.util.Set;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.ArrayType;
-import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.type.WildcardType;
 
 /**
  * Text inlining: {@code [[expr]]} (escaped for the text node's context: TEXT via
@@ -34,47 +25,6 @@ public final class TextInlining {
 
   private static final String ESCAPERS = "dev.tessera.runtime.Escapers";
   private static final String SAFE_HTML = SafeHtml.class.getName();
-
-  /** Boxes and JDK value types {@code Escapers.json} serializes as a JSON scalar. */
-  private static final Set<String> JSON_VALUES =
-      Backports.setOf(
-          "java.lang.Boolean",
-          "java.lang.Byte",
-          "java.lang.Short",
-          "java.lang.Integer",
-          "java.lang.Long",
-          "java.lang.Float",
-          "java.lang.Double",
-          "java.lang.Character",
-          "java.lang.String",
-          "java.lang.CharSequence",
-          "java.math.BigDecimal",
-          "java.math.BigInteger");
-
-  /**
-   * {@code java.time} types {@code Escapers.json} serializes as an ISO string. Must mirror the
-   * java.time cases of {@code Escapers.writeJson} exactly (ZoneOffset is handled there by
-   * {@code case ZoneId}); java.time enums (DayOfWeek, Month) take the enum path.
-   */
-  private static final Set<String> JSON_TIME =
-      Backports.setOf(
-          "java.time.Instant",
-          "java.time.LocalDate",
-          "java.time.LocalTime",
-          "java.time.LocalDateTime",
-          "java.time.OffsetTime",
-          "java.time.OffsetDateTime",
-          "java.time.ZonedDateTime",
-          "java.time.Year",
-          "java.time.YearMonth",
-          "java.time.MonthDay",
-          "java.time.Duration",
-          "java.time.Period",
-          "java.time.ZoneId",
-          "java.time.ZoneOffset");
-
-  private static final Set<String> JSON_COLLECTIONS =
-      Backports.setOf("java.util.Collection", "java.util.List", "java.util.Set");
 
   /**
    * Statements that render {@code text}, or {@code null} if it has no inlined expressions (the
@@ -172,7 +122,8 @@ public final class TextInlining {
 
   /**
    * A statement writing {@code e} escaped for {@code context} (TEXT or SCRIPT), or "" after
-   * reporting an error. The value must be view-safe; in SCRIPT it must also be JSON-serializable.
+   * reporting an error. The value must be view-safe; in SCRIPT it must also be JSON-serializable
+   * ({@link ScriptJson}).
    */
   static String valueStatement(CodegenContext ctx, Expr e, OutputContext context, Scope scope) {
     CompiledExpr c = ctx.expressions().compileOutput(e, scope);
@@ -180,16 +131,8 @@ public final class TextInlining {
       return "";
     }
     if (context == OutputContext.SCRIPT) {
-      if (!jsonable(ctx, c.type())) {
-        ctx.diagnostics()
-            .error(
-                c.pos(),
-                "cannot output a value of type " + c.type() + " inside <script>: only strings, numbers,"
-                    + " booleans, enums, java.time values, and Optionals, collections, arrays and"
-                    + " String-keyed maps of those can be serialized as JSON");
-        return "";
-      }
-      return ESCAPERS + ".json(out, " + c.code() + ");\n";
+      String json = ScriptJson.value(ctx, c);
+      return json == null ? "" : ESCAPERS + ".json(out, " + json + ");\n";
     }
     if (isDeclared(c.type(), "java.util.Optional")) {
       String o = ctx.freshName("opt");
@@ -226,54 +169,5 @@ public final class TextInlining {
       return "";
     }
     return ESCAPERS + ".html(out, " + c.code() + ");\n";
-  }
-
-  /** Whether {@code Escapers.json} can serialize every value of static type {@code t}. */
-  private static boolean jsonable(CodegenContext ctx, TypeMirror t) {
-    switch (t.getKind()) {
-      case BOOLEAN:
-      case BYTE:
-      case SHORT:
-      case INT:
-      case LONG:
-      case CHAR:
-      case FLOAT:
-      case DOUBLE:
-      case NULL:
-        return true;
-      case ARRAY:
-        return jsonable(ctx, ((ArrayType) t).getComponentType());
-      case WILDCARD: {
-        TypeMirror bound = ((WildcardType) t).getExtendsBound();
-        return bound != null && jsonable(ctx, bound);
-      }
-      case TYPEVAR:
-        return jsonable(ctx, ctx.env().types().erasure(t));
-      case DECLARED:
-        break;
-      default:
-        return false;
-    }
-    TypeElement te = (TypeElement) ((DeclaredType) t).asElement();
-    String name = te.getQualifiedName().toString();
-    if (te.getKind() == ElementKind.ENUM || JSON_VALUES.contains(name) || JSON_TIME.contains(name)) {
-      return true;
-    }
-    List<? extends TypeMirror> args = ((DeclaredType) t).getTypeArguments();
-    if (name.equals("java.util.Optional") || JSON_COLLECTIONS.contains(name)) {
-      return args.size() == 1 && jsonable(ctx, args.get(0));
-    }
-    if (name.equals("java.util.Map")) {
-      return args.size() == 2 && isString(args.get(0)) && jsonable(ctx, args.get(1));
-    }
-    return false;
-  }
-
-  private static boolean isString(TypeMirror t) {
-    if (t.getKind() == TypeKind.WILDCARD) {
-      TypeMirror bound = ((WildcardType) t).getExtendsBound();
-      return bound != null && isString(bound);
-    }
-    return isDeclared(t, "java.lang.String");
   }
 }
