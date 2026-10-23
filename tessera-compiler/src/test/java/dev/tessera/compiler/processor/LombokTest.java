@@ -90,6 +90,28 @@ class LombokTest {
             model("page", c.newInstance("demo.PageInfo", "en", true), "owner", c.newInstance("demo.Owner", "Ann <b>", 3))));
   }
 
+  private static final String OWNER_JSON =
+      "<script xmlns:t=\"https://tessera.dev\" t:params=\"demo.Owner owner\">var o = [[${owner}]];</script>";
+
+  @Test
+  void scriptJsonHasLombokPropertiesWithLombokFirst() {
+    Compilation c = withLombok(true).java("demo.Owner", OWNER).template("owner.html", OWNER_JSON).compile().assertSuccess();
+    assertEquals(
+        "<script>var o = {\"name\":\"Ann\",\"visits\":3};</script>",
+        c.render("owner", model("owner", c.newInstance("demo.Owner", "Ann", 3))));
+  }
+
+  /**
+   * Negative: with Tessera first, script JSON compiles in round 1 without error but sees no getters
+   * ({@code {}}). The last-round check catches it and fails the build instead of shipping that.
+   */
+  @Test
+  void scriptJsonCompiledBeforeLombokFailsTheBuild() {
+    Compilation c = withLombok(false).java("demo.Owner", OWNER).template("owner.html", OWNER_JSON).compile();
+    c.assertError("list that processor before Tessera");
+    assertEquals(1, c.errors().size(), String.join("\n", c.errors()));
+  }
+
   @ParameterizedTest(name = "lombokFirst={0}")
   @ValueSource(booleans = {true, false})
   void aMissingPropertyIsStillOneErrorWithItsPosition(boolean lombokFirst) {

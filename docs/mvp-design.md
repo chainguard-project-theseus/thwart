@@ -230,7 +230,9 @@ An absolute path avoids depending on javac's working directory and on resources 
 before compilation. Every `**/*.html` under the root is a template; the view name is its relative
 path without `.html`. The processor supports `*`, never claims annotations, and compiles the
 templates in the first round; if that has errors it retries in each later round and reports the
-last round's errors, so getters another processor (Lombok) adds are visible whatever the order. With `tessera.messages` set, `#{}` keys are checked against `<base>.properties`.
+last round's errors, so getters another processor (Lombok) adds are visible whatever the order. A
+successful early compile is repeated in the last round and the build fails if the output changed
+(script JSON of a Lombok bean with Tessera listed first). With `tessera.messages` set, `#{}` keys are checked against `<base>.properties`.
 **Known limitation:** Maven's incremental compile does not see template edits; run
 `mvn clean compile` (or touch a Java file) after changing only templates.
 

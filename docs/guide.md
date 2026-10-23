@@ -146,10 +146,12 @@ checked at build time. Facts about the build today:
   `<maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>` under a Boot parent, or
   a `<version>` on the plugin.
 - `annotationProcessorPaths` turns off processor discovery, so list every processor the build
-  relied on (Lombok, MapStruct, ...) next to Tessera. The order doesn't matter: templates see the
-  getters Lombok generates (`@Getter`, `@Data`, `@Value`) on `@TemplateView` classes, with Lombok
-  1.16 and 1.18 alike, so there is no need to write them by hand. A property that is really
-  missing is still a build error at its template position.
+  relied on (Lombok, MapStruct, ...) next to Tessera. Templates see the getters Lombok generates
+  (`@Getter`, `@Data`, `@Value`) on `@TemplateView` classes, with Lombok 1.16 and 1.18 alike, so
+  there is no need to write them by hand. List Lombok before Tessera: property reads work in
+  either order, but a Lombok bean serialized as JSON in a `<script>` needs Lombok first, and the
+  build fails and says so otherwise. A property that is really missing is still a build error at
+  its template position.
 - The processor also runs in test compilation and regenerates the templates there. It finds
   `@TemplateFunctions` classes compiled earlier (the main classes, or an incremental compile that
   skips them) through the index it writes to `META-INF/tessera/functions/`, so no `<proc>none</proc>`
@@ -867,6 +869,8 @@ These come from the annotation processor itself, without a template position.
   `${project.basedir}/...`.
 - `Tessera: message bundle does not exist: <file> (-Atessera.messages is the bundle base path without .properties)`:
   point the option at the bundle without the `.properties` suffix.
+- `Tessera: <file> was generated before another annotation processor (Lombok?) finished adding members to the classes its templates read; list that processor before Tessera in annotationProcessorPaths`:
+  move Lombok ahead of Tessera in `annotationProcessorPaths` (section 2), then `mvn clean compile`.
 - `Tessera: internal compiler error: <exception>`: a compiler bug. Report it with the template
   that triggers it.
 - `generated class name <class> collides with the one generated for <other template>; rename one of the templates`:

@@ -42,7 +42,8 @@ import javax.tools.StandardLocation;
  * the last round ({@code processingOver}). Processors that add members to existing classes, such
  * as Lombok, may run after Tessera in a round or (Lombok 1.16) not finish in the first round; javac
  * re-enters all classes from the modified trees before each new round, so a later attempt sees the
- * generated getters whatever the processor order.
+ * generated getters whatever the processor order. A compile that succeeded before Lombok finished
+ * is checked again in the last round; if the output would differ the build fails.
  *
  * <p>Function index (#118): for each {@code @TemplateFunctions("ns")} class in this compilation it
  * writes {@code META-INF/tessera/functions/ns} (the class name), and a namespace the templates use
@@ -55,6 +56,9 @@ public final class TesseraProcessor extends AbstractProcessor {
   static final String FUNCTION_INDEX = "META-INF/tessera/functions/";
 
   private boolean done;
+  private ProcessorOptions options;
+  /** What the processor wrote, compared with a last-round compile (#233), or null. */
+  private List<GeneratedFile> written;
   private final Set<String> functionClassNames = new LinkedHashSet<>();
 
   @Override
@@ -75,6 +79,9 @@ public final class TesseraProcessor extends AbstractProcessor {
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment round) {
     if (done) {
+      if (written != null && round.processingOver()) {
+        checkUnchanged();
+      }
       return false;
     }
     collectFunctionClasses(round);
@@ -86,22 +93,11 @@ public final class TesseraProcessor extends AbstractProcessor {
       messager.printMessage(Kind.ERROR, optionError);
       return false;
     }
+    this.options = options;
     try {
-      List<TemplateSource> sources = TemplateDiscovery.discover(options.templates());
       Diagnostics diagnostics = new Diagnostics();
-      MessageBundle messages =
-          options.messages() == null ? MessageBundle.unchecked() : MessageBundle.load(options.messages());
       List<TypeElement> functionClasses = functionClasses();
-      CompilerEnv env =
-          new CompilerEnv(
-              processingEnv.getElementUtils(),
-              processingEnv.getTypeUtils(),
-              diagnostics,
-              options.basePackage(),
-              messages,
-              functionClasses,
-              this::indexedFunctionClass);
-      List<GeneratedFile> files = new ArrayList<>(new TemplateCompiler(env).compile(sources));
+      List<GeneratedFile> files = compile(diagnostics, functionClasses);
       if (diagnostics.hasErrors() && !round.processingOver()) {
         // #233: another processor (Lombok) may still be adding members to the classes the templates
         // read; javac re-enters every class before the next round, so try again then and only
@@ -116,12 +112,54 @@ public final class TesseraProcessor extends AbstractProcessor {
       // The only place that enforces "nothing is written on error".
       if (!diagnostics.hasErrors()) {
         write(files);
+        written = files;
       }
     } catch (IOException | RuntimeException e) {
       done = true;
       messager.printMessage(Kind.ERROR, "Tessera: internal compiler error: " + describe(e));
     }
     return false;
+  }
+
+  private List<GeneratedFile> compile(Diagnostics diagnostics, List<TypeElement> functionClasses) throws IOException {
+    List<TemplateSource> sources = TemplateDiscovery.discover(options.templates());
+    MessageBundle messages =
+        options.messages() == null ? MessageBundle.unchecked() : MessageBundle.load(options.messages());
+    CompilerEnv env =
+        new CompilerEnv(
+            processingEnv.getElementUtils(),
+            processingEnv.getTypeUtils(),
+            diagnostics,
+            options.basePackage(),
+            messages,
+            functionClasses,
+            this::indexedFunctionClass);
+    return new ArrayList<>(new TemplateCompiler(env).compile(sources));
+  }
+
+  /**
+   * #233: a compile that succeeded before another processor finished adding members can still
+   * be wrong without an error (script JSON lists the getters it sees, even none). The Filer cannot
+   * rewrite files, so compile once more in the last round and fail the build if the output changed.
+   */
+  private void checkUnchanged() {
+    List<GeneratedFile> again;
+    try {
+      List<TypeElement> functionClasses = functionClasses();
+      again = compile(new Diagnostics(), functionClasses);
+      again.addAll(functionIndex(functionClasses));
+    } catch (IOException | RuntimeException e) {
+      return; // the build already has its output; this is only a check
+    }
+    List<GeneratedFile> changed = new ArrayList<>(again);
+    changed.removeAll(written);
+    if (!changed.isEmpty()) {
+      processingEnv.getMessager().printMessage(
+          Kind.ERROR,
+          "Tessera: " + changed.get(0).name() + " was generated before another annotation processor"
+              + " (Lombok?) finished adding members to the classes its templates read; list that"
+              + " processor before Tessera in annotationProcessorPaths");
+    }
   }
 
   /** The error for a missing or invalid processor option, or null. */
