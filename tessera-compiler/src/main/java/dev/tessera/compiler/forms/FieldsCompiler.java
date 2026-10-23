@@ -20,7 +20,7 @@ import javax.lang.model.util.Types;
  * and {@code fields.errors('path')} ({@code List<String>}). Paths are string literals
  * ({@code 'items[0].name'} allowed) checked against the selection type; for an index held in a
  * variable, pass the path as a selection expression, {@code fields.hasErrors(*{items[i].name})}. A
- * {@code Field} fragment parameter may stand in for the path. Compiles to {@code ctx.forms().hasErrors(objectName, path)}
+ * {@code Field} fragment parameter, or a sub-path of one ({@code name.answer}), may stand in for the path. Compiles to {@code ctx.forms().hasErrors(objectName, path)}
  * / {@code ctx.forms().errors(objectName, path)}. The ExpressionCompiler routes every
  * {@code fields.*} and {@code #fields.*} call here.
  */
@@ -45,6 +45,12 @@ public final class FieldsCompiler {
     Optional<Variable> field = args.size() == 1 ? FormPaths.fieldVariable(args.get(0), scope) : Optional.empty();
     if (field.isPresent()) {
       return new CompiledExpr(FormPaths.fromVariable(field.get(), pos, expressions).formsCall(function), type, pos);
+    }
+    // A sub-path of one, fields.hasErrors(name.answer) (#239).
+    Optional<Variable> root = args.size() == 1 ? FormPaths.fieldRoot(args.get(0), scope) : Optional.empty();
+    if (root.isPresent()) {
+      FormPaths.FormField f = FormPaths.resolveSubPath(args.get(0), root.get(), scope, expressions, true);
+      return f == null ? null : new CompiledExpr(f.formsCall(function), type, pos);
     }
     Optional<Scope.Selection> selection = scope.selection();
     if (!selection.isPresent()) {

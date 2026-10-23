@@ -763,6 +763,52 @@ The argument is a string literal (or a `Field` passed on) inside `t:object`. The
 and `fields.*` accept it; printing it writes the path. The fragment cannot read the field's value:
 pass it as another argument if needed.
 
+**Binding properties of a `Field`.** Declare the field's type, `Field<Criterion> c`, and the
+fragment can bind its properties: `t:field="c.answer"` binds `<c's path>.answer`, as JSP's
+`<form:input path="${field}.answer"/>` or Thymeleaf's `*{__${field}__.answer}` do. The property is
+checked against `Criterion` when the fragment compiles, and the caller's path against
+`Criterion` at each call. Name, id, value and errors are Spring's for the full path
+(`criteria[1].answer`, id `criteria1.answer`). `t:errors`, `t:errorclass`, `fields.*` and fragment
+arguments accept the sub-path too; an index works on a `Field<List<...>>` (`cs[i].text`). A plain
+`Field` has unknown type and no sub-paths.
+
+<!-- compile: template guide/fragments/criterion.html -->
+```html
+<div xmlns:t="https://tessera.dev" t:import="com.example.guide.Criterion">
+  <fieldset t:fragment="criterion(Field<Criterion> c)" t:classappend="fields.hasErrors(c.answer) ? 'has-error'">
+    <input type="radio" t:field="c.answer" value="true" /> Yes
+    <input type="radio" t:field="c.answer" value="false" /> No
+    <textarea t:field="c.description"></textarea>
+    <span t:errors="c.description">Error</span>
+  </fieldset>
+</div>
+```
+
+<!-- compile: template guide/criteria.html -->
+```html
+<form xmlns:t="https://tessera.dev" t:import="com.example.guide.*" t:params="Espd espd"
+      t:object="espd" method="post">
+  <div t:replace="~{guide/fragments/criterion :: criterion('exclusion')}"></div>
+  <div t:replace="~{guide/fragments/criterion :: criterion('selection[0]')}"></div>
+</form>
+```
+
+<!-- compile: java -->
+```java
+package com.example.guide;
+
+public record Criterion(Boolean answer, String description) {}
+```
+
+<!-- compile: java -->
+```java
+package com.example.guide;
+
+import java.util.List;
+
+public record Espd(Criterion exclusion, List<Criterion> selection) {}
+```
+
 ### 4.9 Rendering
 
 With Spring (Boot's auto-configuration, or `TesseraConfiguration` without Boot), `return
@@ -1146,7 +1192,11 @@ These come from the annotation processor itself, without a template position.
 - `argument <n> ('<param>') of fragment <signature> has type <type>, but a fragment ~{...} was passed`.
 - `argument <n> ('<param>') of fragment <signature> has type <type>, but the argument has type <type>`.
 - `argument <n> ('<param>') of fragment <signature> is a form field, so the call must be inside t:object (on this element or an ancestor)`.
-- `argument <n> ('<param>') of fragment <signature> has type Field: pass a field path as a string literal, e.g. 'lastName' (checked against the enclosing t:object), or a Field parameter`.
+- `argument <n> ('<param>') of fragment <signature> has type Field: pass a field path as a string literal, e.g. 'lastName' (checked against the enclosing t:object), a Field parameter, or a property of one, e.g. name.answer`.
+- `argument <n> ('<param>') of fragment <signature> has type Field<T>, but the field has type <type>`
+  (or `but '<name>' is a Field<?>`): the path must name a `T`; a plain `Field` can't be passed on
+  as a `Field<T>`.
+- `'<name>' is a Field of unknown type, so its properties cannot be bound: declare its type in the fragment signature, e.g. Field<Criterion> <name>`.
 - `~{::<name>}: this template has no fragment or element named '<name>'`.
 - `~{::<name>} selects an element, which takes no arguments`.
 - `~{::<name>} selects an element that contains this t:insert/t:replace, so it would include itself`:

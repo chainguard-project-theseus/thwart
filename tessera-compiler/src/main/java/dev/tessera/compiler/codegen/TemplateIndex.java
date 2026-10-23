@@ -305,7 +305,7 @@ public final class TemplateIndex {
   private static List<Param> withoutFields(List<Param> params, List<ParamDecl> decls, DiagnosticSink sink) {
     List<Param> out = new ArrayList<>();
     for (Param p : params) {
-      if (p.javaType().equals(FormPaths.FIELD)) {
+      if (FormPaths.isField(p.type())) {
         SourcePos pos = decls.stream().filter(d -> d.name().equals(p.name())).findFirst().map(ParamDecl::pos).get();
         sink.error(
             pos,
