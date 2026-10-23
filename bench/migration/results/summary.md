@@ -4,6 +4,8 @@
 | budgetmaster | run-5 | no | ok | 276/276 (base 269) | 51+0/121 | 0 | - | 0 | - | 30.9 | 21.29 | 356949 |
 | budgetmaster | run-8 | no | ok | 269/269 (base 269) | 65+0/121 | 0 | - | 0 | invoked | 37.8 | 26.01 | 369065 |
 | budgetmaster | run-9 | no | ok | 269/269 (base 269) | 62+0/121 | 0 | - | 0 | invoked | 49.6 | 29.71 | 377904 |
+| espd | run-1 | no | ok | 931/931 (base 931) | 0+0/60 | 0 | - | 0 | invoked | 16.3 | 10.74 | 171660 |
+| ewp-registry | run-1 | no | ok | 375/375 (base 372) | 34+0/38 | 0 | - | 0 | invoked | 43.6 | 8.08 | 92313 |
 | fredbet | run-1 (crawl.py) | no | ok | 123/123 (base 117) | 164+0/169 | 0 | - | 0 | - | 24.3 | 15.19 | 210654 |
 | fredbet | run-2 (crawl.py) | no | ok | 122/122 (base 117) | 166+0/169 | 0 | - | 0 | - | 28.7 | 20.03 | 235526 |
 | fredbet | run-3 (crawl.py) | no | ok | 119/119 (base 117) | 168+0/169 | 0 | - | 0 | - | 36.8 | 16.17 | 201271 |
@@ -23,6 +25,7 @@
 | jprime | run-4 | no | ok | 211/211 (base 208) | 134+6/150 | 0 | - | 0 | - | 34.0 | 21.76 | 290847 |
 | jprime | run-8 | no | ok | 209/209 (base 208) | 137+3/150 | 0 | - | 0 | invoked | 33.2 | 21.10 | 237891 |
 | jprime | run-9 | no | ok | 209/209 (base 208) | 143+3/150 | 0 | - | 0 | invoked | 29.3 | 14.77 | 158789 |
+| luckyblog | run-1 | no | ok | 0/0 (base 0) | 63+0/64 | 0 | - | 0 | invoked | 12.8 | 3.78 | 60422 |
 | purl-server | run-4 | yes | ok | 50/50 (base 46) | 92+0/92 | 0 | - | 0 | - | 17.6 | 5.09 | 79063 |
 | purl-server | run-8 | no | ok | 50/50 (base 46) | 89+0/92 | 0 | - | 0 | invoked | 13.6 | 5.34 | 72781 |
 | purl-server | run-9 | yes | ok | 49/49 (base 46) | 92+0/92 | 0 | - | 0 | invoked | 21.0 | 4.68 | 63801 |
@@ -74,6 +77,9 @@
 | App | Runs | Passed | Build ok | Tests ok | Skill invoked | Mean pages identical+reordered |
 |---|---|---|---|---|---|---|
 | budgetmaster | 4 | 0/4 | 4/4 | 4/4 | 2/2 | 39% |
+| espd | 1 | 0/1 | 1/1 | 1/1 | 1/1 | 0% |
+| ewp-registry | 1 | 0/1 | 1/1 | 1/1 | 1/1 | 89% |
 | jprime | 3 | 0/3 | 3/3 | 3/3 | 2/2 | 95% |
+| luckyblog | 1 | 0/1 | 1/1 | 1/1 | 1/1 | 98% |
 | purl-server | 3 | 2/3 | 3/3 | 3/3 | 2/2 | 99% |
-| all | 10 | 2/10 | | | | |
+| all | 13 | 2/13 | | | | |
