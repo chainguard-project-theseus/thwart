@@ -77,7 +77,7 @@ but inside `|...|` and `+` a `null` prints `null`.
 | builds a view name, fragment name, message key or link path from strings | Conditionals between literals; link `{placeholders}`; a `Fragment` argument. |
 | evaluates a string as a template (`?eval`, `#evaluate`, `__${...}__`) | Not possible. Compute the value in Java. |
 | prints a string unescaped | Stored rich text: `t:utext="html.sanitize(article.text)"` (section 4.4). Markup built in Java: a `SafeHtml`. |
-| puts expressions in `style` or `on*` | `t:style` with literals, numbers and `css.color(...)`/`css.length(...)` (section 4.4); otherwise `t:classappend`; `t:data-*` attributes read by a script. |
+| puts expressions in `style` or `on*` | `t:style` with literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (section 4.4); otherwise `t:classappend`; `t:data-*` attributes read by a script. |
 | includes a file, calls a macro or tag with a body, or extends a layout | A fragment call with `Fragment` arguments (section 4.8). |
 | binds a form through form tags or macros | `t:object`, `t:field`, `t:errors`, `fields.*` (section 4.7). |
 | posts a form back to the current URL by default | Write the `action` with `@{...}`, or put the URL in the model. |
@@ -1069,7 +1069,7 @@ These come from the annotation processor itself, without a template position.
 
 - `<label> is not allowed: event-handler attributes cannot contain expressions; put the value in a data-* attribute and read it from a script`.
 - `<label> is not allowed: '<name>' is a Vue, Alpine, htmx, AngularJS or Knockout directive whose value is run as JavaScript, so it cannot contain expressions; write it as a static attribute, or put the value in a data-* attribute or a <script> with [[...]] and read it from there`. See [4.4](#44-escaping-and-output-contexts) for the list of directives.
-- `<label> is not allowed: a style value can only combine string literals, numbers and CssValues such as css.color(c) or css.length(l), not a <type>; use t:class or t:classappend instead`.
+- `<label> is not allowed: a style value can only combine string literals, numbers and CssValues such as css.color(c), css.length(l) or css.url(u), not a <type>; use t:class or t:classappend instead`.
 - `<label> is not allowed: srcdoc is a whole HTML document and cannot contain expressions; use src with a URL`.
 - `<label> is not allowed: the content of <meta http-equiv="refresh"> navigates the page and cannot contain expressions; redirect from the controller instead`.
 - `<label> is not allowed: attribute name '<name>' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*`.
