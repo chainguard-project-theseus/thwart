@@ -415,6 +415,7 @@ public final class TemplateGenerator implements CodegenContext {
     OutputContext ctx = d.context();
     String escaper =
         ctx == OutputContext.ATTRIBUTE || ctx == OutputContext.URL || ctx == OutputContext.RESOURCE_URL
+            || ctx == OutputContext.REFRESH
             ? ctx.escaper()
             : ctx == OutputContext.STYLE ? OutputContext.ATTRIBUTE.escaper() : null;
     if (escaper == null) {
