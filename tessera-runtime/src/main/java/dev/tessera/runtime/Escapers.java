@@ -198,11 +198,11 @@ public final class Escapers {
    * scheme and is not exactly (ASCII case-insensitively) an allowed one is rejected.
    */
   static boolean isAllowedUrl(String s) {
-    StringBuilder scheme = new StringBuilder();
     int i = 0;
     while (i < s.length() && s.charAt(i) <= ' ') {
       i++;
     }
+    int start = i;
     for (; i < s.length(); i++) {
       char c = s.charAt(i);
       if (c == '\t' || c == '\n' || c == '\r') {
@@ -212,13 +212,11 @@ public final class Escapers {
         return true;
       }
       if (c == ':') {
-        String name = asciiLower(scheme);
-        return name.equals("http")
-            || name.equals("https")
-            || name.equals("mailto")
-            || name.equals("tel");
+        return schemeEquals(s, start, i, "http")
+            || schemeEquals(s, start, i, "https")
+            || schemeEquals(s, start, i, "mailto")
+            || schemeEquals(s, start, i, "tel");
       }
-      scheme.append(c);
     }
     return true;
   }
@@ -228,13 +226,23 @@ public final class Escapers {
     return isAllowedUrl(s) ? s : INVALID_URL;
   }
 
-  private static String asciiLower(CharSequence cs) {
-    StringBuilder sb = new StringBuilder(cs.length());
-    for (int i = 0; i < cs.length(); i++) {
-      char c = cs.charAt(i);
-      sb.append(c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c);
+  /** Compare without allocating a normalized scheme; only ASCII case and tab/CR/LF are ignored. */
+  private static boolean schemeEquals(String s, int start, int end, String expected) {
+    int matched = 0;
+    for (int i = start; i < end; i++) {
+      char c = s.charAt(i);
+      if (c == '\t' || c == '\n' || c == '\r') {
+        continue;
+      }
+      if (c >= 'A' && c <= 'Z') {
+        c = (char) (c + ('a' - 'A'));
+      }
+      if (matched == expected.length() || c != expected.charAt(matched)) {
+        return false;
+      }
+      matched++;
     }
-    return sb.toString();
+    return matched == expected.length();
   }
 
   // ---------------------------------------------------------------------------------------------
