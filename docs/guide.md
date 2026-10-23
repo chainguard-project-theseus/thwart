@@ -910,7 +910,10 @@ These come from the annotation processor itself, without a template position.
 - `expression is nested more than <n> levels deep: simplify it or compute the value in Java`.
 - `preprocessing (__...__) is not supported: expressions are never built from strings`: replace
   `__${x}__` with a link parameter (`@{/p/{x}(x=x)}`), a `Field` fragment parameter, or a
-  conditional.
+  conditional. Only `__` outside a literal, or `__` directly followed by `${`, `*{`, `#{`, `@{` or
+  `~{` and closed by a later `__`, is rejected: `__` elsewhere inside a `'...'` or `|...|` literal
+  is plain text, so BEM class names such as `'card__item card__item--' + s` work as written
+  (Thymeleaf's `\_\_` escape is not needed).
 - `assignment (=) is not supported; use == to compare`.
 - `lambdas (->) are not supported: compute the value in Java and pass it as a parameter`.
 - `collection projection (.![...]) is not supported: compute the list in Java and pass it as a parameter`.
