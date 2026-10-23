@@ -132,12 +132,6 @@ keeps its version.
       <arg>-Atessera.messages=${project.basedir}/src/main/resources/messages</arg>
     </compilerArgs>
   </configuration>
-  <executions>
-    <execution>
-      <id>default-testCompile</id>
-      <configuration><proc>none</proc></configuration>
-    </execution>
-  </executions>
 </plugin>
 ```
 
@@ -152,10 +146,10 @@ checked at build time. Facts about the build today:
   a `<version>` on the plugin.
 - `annotationProcessorPaths` turns off processor discovery, so list every processor the build
   relied on (Lombok, MapStruct, ...) next to Tessera.
-- The processor sees `@TemplateFunctions` classes only when they are compiled in the same javac
-  run (#118). A test compile or an incremental compile without them fails with `unknown identifier
-  or function namespace`: hence `<proc>none</proc>` on test compilation, and `mvn clean compile`
-  (Maven also doesn't recompile when only a template changes).
+- The processor also runs in test compilation and regenerates the templates there. It finds
+  `@TemplateFunctions` classes compiled earlier (the main classes, or an incremental compile that
+  skips them) through the index it writes to `META-INF/tessera/functions/`, so no `<proc>none</proc>`
+  is needed. Maven doesn't recompile when only a template changes: use `mvn clean compile`.
 - Templates under `src/main/resources` are copied into the jar as resources, so resource
   filtering rewrites `${...}` in them unless `templates/**` is excluded.
 
@@ -1057,8 +1051,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
   Spring 4.3 first, or wire the classes by hand at your own risk.
 - **Build.** Tested with Maven only. Gradle is untested and has no docs or plugin: the processor
   needs only javac options (section 2), so it should work, but it isn't verified. Template-only
-  changes need `mvn clean compile`; there is no hot reload. The processor fails in `testCompile`
-  and in incremental compiles that skip the `@TemplateFunctions` class (#118).
+  changes need `mvn clean compile`; there is no hot reload.
 - **Messages.** `-Atessera.messages` checks one bundle. Keys from other bundles fail the build;
   give those pages a `@TemplateFunction` that looks them up, and accept that they are not checked.
 - **View resolution.** Names are matched exactly: a leading `/` or a `page :: fragment` view name

@@ -313,7 +313,7 @@ public final class ExpressionCompiler {
       if (v.name().equals(FunctionRegistry.RESERVED)) {
         return FieldsCompiler.compile(m.name(), m.args(), m.pos(), scope, this);
       }
-      if (functions().namespaces().contains(v.name())) {
+      if (functions().isNamespace(v.name())) {
         return function(v.name(), m.name(), m.args(), m.pos(), scope);
       }
       return error(v.pos(), "unknown identifier or function namespace '" + v.name() + "': declare it in"
@@ -785,7 +785,7 @@ public final class ExpressionCompiler {
   }
 
   private boolean isNamespace(String name) {
-    return name.equals(FunctionRegistry.RESERVED) || functions().namespaces().contains(name);
+    return name.equals(FunctionRegistry.RESERVED) || functions().isNamespace(name);
   }
 
   private boolean isNamespaceRef(Expr.Var v, Scope scope) {

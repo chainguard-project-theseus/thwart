@@ -3,6 +3,7 @@ package dev.tessera.compiler;
 import dev.tessera.compiler.messages.MessageBundle;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -18,6 +19,8 @@ import javax.lang.model.util.Types;
  * @param messages message keys for build-time {@code #{...}} checks
  * @param functionNamespaces {@code @TemplateFunctions} classes found in the current
  *     compilation (built-in namespaces are added by the function registry)
+ * @param functionIndex maps any other namespace to the qualified name of the class that declared it
+ *     in an earlier compilation, or null (the processor reads the index from the classpath, #118)
  */
 public final class CompilerEnv {
   private final Elements elements;
@@ -26,7 +29,9 @@ public final class CompilerEnv {
   private final String basePackage;
   private final MessageBundle messages;
   private final List<TypeElement> functionNamespaces;
+  private final Function<String, String> functionIndex;
 
+  /** An environment without a function index (only {@code functionNamespaces} and built-ins). */
   public CompilerEnv(
       Elements elements,
       Types types,
@@ -34,6 +39,18 @@ public final class CompilerEnv {
       String basePackage,
       MessageBundle messages,
       List<TypeElement> functionNamespaces) {
+    this(elements, types, diagnostics, basePackage, messages, functionNamespaces, ns -> null);
+  }
+
+  public CompilerEnv(
+      Elements elements,
+      Types types,
+      DiagnosticSink diagnostics,
+      String basePackage,
+      MessageBundle messages,
+      List<TypeElement> functionNamespaces,
+      Function<String, String> functionIndex) {
+    this.functionIndex = Objects.requireNonNull(functionIndex);
     this.elements = elements;
     this.types = types;
     this.diagnostics = diagnostics;
@@ -66,6 +83,10 @@ public final class CompilerEnv {
     return functionNamespaces;
   }
 
+  public Function<String, String> functionIndex() {
+    return functionIndex;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (!(o instanceof CompilerEnv)) {
@@ -77,7 +98,8 @@ public final class CompilerEnv {
         && Objects.equals(diagnostics, that.diagnostics)
         && Objects.equals(basePackage, that.basePackage)
         && Objects.equals(messages, that.messages)
-        && Objects.equals(functionNamespaces, that.functionNamespaces);
+        && Objects.equals(functionNamespaces, that.functionNamespaces)
+        && Objects.equals(functionIndex, that.functionIndex);
   }
 
   @Override
@@ -88,6 +110,7 @@ public final class CompilerEnv {
     h = 31 * h + Objects.hashCode(basePackage);
     h = 31 * h + Objects.hashCode(messages);
     h = 31 * h + Objects.hashCode(functionNamespaces);
+    h = 31 * h + Objects.hashCode(functionIndex);
     return h;
   }
 

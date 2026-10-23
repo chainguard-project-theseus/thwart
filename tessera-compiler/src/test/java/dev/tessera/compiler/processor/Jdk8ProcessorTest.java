@@ -23,7 +23,8 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * The Java 8 build floor (#166): a small Java 8 application (view classes, an enum, a
  * {@code @TemplateFunctions} class, templates) compiled by a real JDK 8 javac with the processor
- * on its processor path, then rendered on a JDK 8 JVM.
+ * on its processor path, then rendered on a JDK 8 JVM. A second javac run compiles the templates
+ * against the first's output, finding the function class through the function index (#118).
  *
  * <p>The JDK comes from {@code -Dtessera.jdk8.home}, which the pom fills from {@code JDK8_HOME}.
  * Without it the test is skipped locally and fails in CI ({@code CI=true}).
@@ -133,6 +134,17 @@ class Jdk8ProcessorTest {
     String compiled = run(javac);
     assertFalse(compiled.contains("warning"), compiled);
     assertTrue(Files.exists(out.resolve("tessera/generated/owners/DetailsTemplate.class")), compiled);
+
+    // A test compile (#118): the same templates, with the function class only on the classpath.
+    Path testSrc = dir.resolve("test-src/app/MainTest.java");
+    Path testOut = Files.createDirectories(dir.resolve("test-classes"));
+    write(testSrc, "package app; class MainTest {}");
+    String testCompiled =
+        run(List.of(
+            jdk.resolve("bin/javac").toString(), "-encoding", "UTF-8", "-d", testOut.toString(),
+            "-classpath", join(out, runtime), "-processorpath", processorPath,
+            "-Atessera.templates=" + templates, testSrc.toString()));
+    assertTrue(Files.exists(testOut.resolve("tessera/generated/owners/DetailsTemplate.class")), testCompiled);
 
     String rendered = run(List.of(jdk.resolve("bin/java").toString(), "-cp", join(out, runtime), "app.Main"));
     assertEquals(

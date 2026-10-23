@@ -115,7 +115,7 @@ With plain Spring MVC, import the configuration:
 public class WebConfig {}
 ```
 
-The details (other processors, `<proc>none</proc>` on test compilation, message-key checking,
+The details (other processors, message-key checking,
 XML configuration, older Boot versions) are in [section 2 of the guide](docs/guide.md#2-build-setup).
 
 ## Migrate an existing app
