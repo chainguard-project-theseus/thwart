@@ -184,7 +184,11 @@ function signatures): `Object` and its methods (`getClass`, `hashCode`, `wait`, 
 Function namespaces: classes annotated `@TemplateFunctions("ns")` in the current compilation, plus
 `BuiltinNamespaces.CLASSES` if on the classpath. Methods must be `public static @TemplateFunction`.
 `fields` is reserved: inside `t:object`, `fields.hasErrors('path'|'*')` and `fields.errors('path')`
-compile via `FieldsCompiler` to `ctx.forms()` calls. Iterating `null` yields zero iterations.
+compile via `FieldsCompiler` to `ctx.forms()` calls. Iterating `null` yields zero iterations. When a loop's status variable is provably unused, a plain
+`Iterable` can stream directly: iterator advancement and rendering the body are interleaved. When
+status is used (or fragment selection makes its use uncertain), a plain `Iterable` is consumed into
+a list first so `size` and `last` are available. Stateful iterators and body getters/functions can
+observe this ordering; templates should not depend on an eager snapshot when status is unused.
 
 ## Escaping contexts
 
