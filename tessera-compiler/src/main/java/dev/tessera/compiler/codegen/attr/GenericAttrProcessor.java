@@ -23,7 +23,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
 /**
- * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}.
+ * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}; an htmx request URL ({@code hx-get}, ...) only a same-origin link.
  */
 public final class GenericAttrProcessor implements AttributeProcessor {
 
@@ -56,7 +56,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       case EVENT_HANDLER:
         hint =
             Contexts.isFrameworkDirective(plan.element(), name)
-                ? "'" + name + "' is a Vue, Alpine, htmx, AngularJS or Knockout directive whose value is"
+                ? "'" + name + "' is a Vue, Alpine, htmx, _hyperscript, AngularJS or Knockout directive whose value is"
                     + " run as JavaScript, so it cannot contain expressions; write it as a static attribute,"
                     + " or put the value in a data-* attribute or a <script> with [[...]] and read it from there"
                 : "event-handler attributes cannot contain expressions; put the value in a data-* attribute and"
@@ -76,6 +76,10 @@ public final class GenericAttrProcessor implements AttributeProcessor {
                 : lower.equals("http-equiv")
                 ? "the http-equiv of a <meta> cannot be computed; it decides whether content is"
                     + " a refresh URL, so write a static http-equiv attribute"
+                : Contexts.isLegacyHtmxConnect(name)
+                ? "htmx 1.x '" + name + "' holds connect:<url>, a URL htmx connects to and swaps into the page as"
+                    + " HTML, so it cannot be computed; write it as a static attribute, or use the sse/ws"
+                    + " extension's sse-connect/ws-connect with a same-origin link such as @{/events}"
                 : lower.equals("srcdoc")
                 ? "srcdoc is a whole HTML document and cannot contain expressions; use src with a URL"
                 : "attribute name '" + name + "' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*";
@@ -95,6 +99,10 @@ public final class GenericAttrProcessor implements AttributeProcessor {
         String code = "((" + cond.code() + ") ? " + JavaStrings.literal(name) + " : null)";
         plan.setAttribute(name, code, pos);
       }
+      return;
+    }
+    if (context == OutputContext.RESOURCE_URL && Contexts.isHtmxRequestUrl(name)) {
+      htmxRequestUrl(ctx, plan, name, value, pos, label);
       return;
     }
     CompiledExpr c = ctx.expressions().compileOutput(value, plan.scope());
@@ -138,7 +146,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     }
     Expr.Link link = (Expr.Link) b.right();
     String path = link.path();
-    if (!path.startsWith("/") || path.startsWith("//") || path.startsWith("/\\")) {
+    if (!isSameOriginPath(path)) {
       ctx.diagnostics()
           .error(link.pos(), label + " is not allowed: a refresh URL must be a same-origin path starting with a"
               + " single '/', not @{" + path + "}");
@@ -147,6 +155,41 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     CompiledExpr c = ctx.expressions().compileOutput(link, plan.scope());
     if (c != null) {
       plan.setAttribute(name, JavaStrings.literal(prefix.group(1) + ";url=") + " + " + c.code(), pos);
+    }
+  }
+
+  /**
+   * A literal link path that stays on the page's origin: one {@code /} not followed by {@code /}
+   * or a backslash. Whitespace, which URL parsers strip ({@code /<tab>/host} is {@code //host}),
+   * is already rejected in every link path.
+   */
+  private static boolean isSameOriginPath(String path) {
+    return path.startsWith("/") && !path.startsWith("//") && !path.startsWith("/\\");
+  }
+
+  /**
+   * An htmx request URL such as {@code hx-get} (#249): htmx fetches it and swaps the response
+   * into the page as HTML, and htmx 1.x also sends cross-origin requests, so only a link whose
+   * literal path is same-origin ({@link #isSameOriginPath}) compiles. Path variables and
+   * parameters are percent-encoded by the link; the value is written with the resource-URL escaper.
+   */
+  private static void htmxRequestUrl(CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label) {
+    if (!(value instanceof Expr.Link)) {
+      ctx.diagnostics()
+          .error(pos, label + " is not allowed: htmx requests this URL and swaps the response into the page as"
+              + " HTML; use a same-origin link such as @{/items/{id}(id=${item.id})}");
+      return;
+    }
+    Expr.Link link = (Expr.Link) value;
+    if (!isSameOriginPath(link.path())) {
+      ctx.diagnostics()
+          .error(link.pos(), label + " is not allowed: an htmx request URL must be a same-origin path starting"
+              + " with a single '/', not @{" + link.path() + "}");
+      return;
+    }
+    CompiledExpr c = ctx.expressions().compileOutput(link, plan.scope());
+    if (c != null) {
+      plan.setAttribute(name, c.code(), pos);
     }
   }
 
