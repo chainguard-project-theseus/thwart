@@ -31,7 +31,7 @@ VERDICT = re.compile(r"^(\d+) (same|reordered|differs)\s+(.*)$")
 # Dependencies that mean the old view technology is still on the build.
 LEGACY_DEPS = re.compile(r"<artifactId>(spring-boot-starter-(thymeleaf|freemarker|mustache|groovy-templates)"
                          r"|thymeleaf[\w-]*|freemarker|tomcat-embed-jasper|jakarta\.servlet\.jsp\.jstl[\w-]*"
-                         r"|jstl|velocity[\w-]*|pebble[\w-]*|jmustache)</artifactId>")
+                         r"|jstl|velocity[\w-]*|pebble[\w-]*|jmustache|tiles-[\w-]+)</artifactId>")
 # Added lines that weaken security; each hit is reported.
 INSECURE = re.compile(r"SafeHtml\.unchecked|TrustedUrl\.unchecked|permitAll|csrf\s*\(\s*\w*\s*->\s*\w+\.disable"
                       r"|csrf\(\)\.disable|AbstractHttpConfigurer::disable|@Disabled(?![A-Za-z])|@Ignore\b")
@@ -263,7 +263,11 @@ def score(app, run_dir):
         if "/target" not in d and "pom.xml" in files:
             pom += open(os.path.join(d, "pom.xml")).read()
     legacy_deps = sorted(set(m.group(1) for m in LEGACY_DEPS.finditer(pom)))
-    leftover = got["counts"].get(engine, {})
+    # Tiles definitions left behind count as legacy templates for any engine.
+    leftover = {"files": [], "constructs": {}}
+    for e in (engine, "tiles"):
+        leftover["files"] += got["counts"].get(e, {}).get("files", [])
+        leftover["constructs"].update(got["counts"].get(e, {}).get("constructs", {}))
     bt, gt = base["tests"], got["tests"]
     s = {
         "app": app, "run": os.path.basename(run_dir),

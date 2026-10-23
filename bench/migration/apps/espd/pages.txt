@@ -1,0 +1,86 @@
+# ESPD-Service (espd-web): JSP pages composed with Apache Tiles 3 definitions (tiles.xml), under
+# /espd. No database: the wizard keeps the ESPD document in the session (@SessionAttributes), so
+# the requests run in order as one browser session. Validation is client-side; the server-side
+# "invalid" states are binding errors: a step's "previous" button re-renders the step with them
+# (selection shows them in <form:errors path="*">), and a "next" with one is a 400 error page.
+# The contracting authority's steps bind no typed field, so they have no invalid state.
+# The clock is pinned to 2025-06-15 (start.sh): the turnover years and the current year depend
+# on it. Not covered: the XML/PDF/ZIP downloads (files, not pages, with generated IDs and times),
+# the upload actions on /filter (the crawler sends no multipart bodies), 500.jsp (only the
+# WebLogic web.xml maps it) and criteriaTemplates/requestCriterion.jsp (no page includes it).
+
+# Static pages.
+GET /
+GET /contact
+GET /about
+GET /filter
+
+# Locales: the lang parameter sets the ESPD_LOCALE cookie, which stays until it is changed again.
+GET /?lang=fr
+GET /filter
+GET /about
+GET /?lang=de
+GET /contact
+GET /?lang=en
+
+# Prefilled start page (a link from national e-procurement systems).
+GET /initialization?title=Road%20works%20%3Cb%3E&description=Resurfacing%20of%20the%20A1&fileRefByCA=REF-2025/001&officialName=City%20of%20Ghent&procurerCountry=BE&name=Acme%20NV&country=BE
+
+# Contracting authority creates a request: procedure, exclusion, selection, finish, overview.
+POST /filter agent=ca&action=ca_create_espd_request&country=BE&tedReceptionId=
+POST /request/ca/procedure next=exclusion&authority.name=City of Ghent <i>&authority.country=BE&procedureType=OPEN&procedureTitle=Road works %26 "repairs"&procedureShortDesc=Resurfacing of the A1, lots 1-3&fileRefByCA=REF-2025/001&ojsNumber=2025/S 123-456789&ngojNumber=NG-77
+POST /request/ca/exclusion next=selection&breachingObligationsEnvironmental.exists=true&_breachingObligationsEnvironmental.exists=on&_bankruptcy.exists=on&_insolvency.exists=on
+POST /request/ca/selection prev=exclusion
+GET /request/ca/selection
+POST /request/ca/selection next=finish&selectionSatisfiesAll.exists=false&generalYearlyTurnover.exists=true&_generalYearlyTurnover.exists=on&financialRatio.exists=true&_financialRatio.exists=on&workContractsPerformanceOfWorks.exists=true&_workContractsPerformanceOfWorks.exists=on
+POST /request/ca/finish prev=selection
+POST /request/ca/selection next=finish
+POST /request/ca/finish overview=true
+GET /request/ca/overview
+GET /request/ca/procedure
+
+# Same as a central purchasing body ("ce"), after the welcome page has ended the session's document.
+GET /welcome
+GET /filter
+POST /filter agent=ce&action=ca_create_espd_request&country=AT
+POST /request/ca/procedure next=exclusion
+GET /request/ca/exclusion?lang=it
+GET /request/ca/selection
+GET /request/ca/exclusion?lang=en
+
+# Economic operator creates a response: every step, with repeatable groups added and removed.
+GET /welcome
+POST /filter agent=eo&action=eo_create_espd_response&country=FR
+POST /response/eo/procedure next=exclusion&economicOperator.representatives[0].dateOfBirth=not-a-date
+POST /response/eo/procedure add=1&economicOperator.name=Acme <SARL>&economicOperator.street=1 rue de la Paix&economicOperator.postalCode=75002&economicOperator.city=Paris&economicOperator.country=FR&economicOperator.website=https://acme.example&economicOperator.contactEmail=ops@acme.example&economicOperator.contactPhone=%2B33 1 23 45 67 89&economicOperator.contactName=Marie Curie&economicOperator.vatNumber=FR123&economicOperator.isSmallSizedEnterprise=true&procurementReserved.answer=false&eoRegistered.answer=true&eoRegistered.description1=Registry 42&economicOperator.representatives[0].firstName=Jean&economicOperator.representatives[0].lastName=Dupont&economicOperator.representatives[0].dateOfBirth=01-02-1970&economicOperator.representatives[0].country=FR&eoReliesCapacities.answer=false&subcontractingThirdParties.answer=true&subcontractingThirdParties.description1=Cleaning %26 catering
+POST /response/eo/procedure remove=1
+POST /response/eo/procedure next=exclusion&lotConcerned=Lot 1
+POST /response/eo/exclusion add_criminalConvictions=1&criminalConvictions.answer=true&criminalConvictions.unboundedGroups[0]["dateOfConviction"]=01-03-2019&criminalConvictions.unboundedGroups[0]["reason"]=Bid rigging <script>&criminalConvictions.unboundedGroups[0]["convicted"]=J. Dupont&criminalConvictions.unboundedGroups[0]["periodLength"]=5 years&criminalConvictions.unboundedGroups[0].subIndicatorAnswer=true&criminalConvictions.unboundedGroups[0]["selfCleaningDescription"]=New compliance officer
+POST /response/eo/exclusion remove_criminalConvictions=1
+POST /response/eo/exclusion add_fraud=1&fraud.answer=true
+POST /response/eo/exclusion remove_fraud=1
+POST /response/eo/exclusion prev=procedure&corruption.answer=false&fraud.answer=false
+POST /response/eo/procedure next=exclusion
+POST /response/eo/exclusion next=selection
+POST /response/eo/selection prev=exclusion&averageYearlyTurnover.numberOfYears=three
+POST /response/eo/selection add_financialRatio=1&selectionSatisfiesAll.exists=false&generalYearlyTurnover.unboundedGroups[0]["amount"]=1250000.50&generalYearlyTurnover.unboundedGroups[0]["currency"]=EUR&averageYearlyTurnover.numberOfYears=3&averageYearlyTurnover.averageTurnover=990000&averageYearlyTurnover.averageTurnoverCurrency=EUR
+POST /response/eo/selection add_workContractsPerformanceOfWorks=1
+POST /response/eo/selection remove_financialRatio=1
+POST /response/eo/selection next=finish
+POST /response/eo/finish prev=selection&documentDate=tomorrow
+POST /response/eo/selection next=finish
+POST /response/eo/finish overview=true&meetsObjective.answer=true&meetsObjective.description1=All criteria met&documentDate=15-06-2025&location=Paris
+GET /response/eo/overview
+GET /response/eo/overview?lang=es
+GET /response/eo/finish?lang=en
+
+# A response step opened outside its flow, and the request flow as economic operator.
+GET /request/eo/procedure
+GET /request/eo/exclusion
+GET /request/eo/selection
+GET /request/eo/finish
+
+# Error pages: unknown page, a bad enum on the start form, and an expired session.
+GET /no-such-page
+POST /filter agent=eo&action=eo_create_espd_response&country=XX
+GET /request/ca/null/procedure
