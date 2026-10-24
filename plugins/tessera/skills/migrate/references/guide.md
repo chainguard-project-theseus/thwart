@@ -1756,7 +1756,7 @@ These come from the annotation processor itself, without a template position.
   `t:utext` and `[(...)]` inside `<svg>`, `<math>` or `<select>` (contexts as in the fragment
   messages below; inside raw text, the raw-text error above applies). Inside `<svg>`, a `<p>` in the value
   ends the `<svg>`, and a `<title>` holds HTML, where a `<script>` runs.
-- `[[...]] is inside a quoted JavaScript string (<q>...<q>) but writes a complete JSON value with its own quotes, so the value would close the string and run as code; remove the quotes, e.g. var a = [[...]];`:
+- `[[...]] is inside a quoted JavaScript string (<q>...<q>), but it writes a complete JSON value with its own quotes, which would close a "..." string and run as code, or end up quoted twice; remove the quotes, e.g. var a = [[...]];`:
   `<q>` is `"`, `'` or `` ` `` (template-literal text; `${[[...]]}` inside it is code and
   allowed). A Thymeleaf default-mode page wrote `var a = "[[${x}]]";`; write `var a = [[x]];` (a
   string renders `"Alice"` as before; a number renders `42`, not `"42"`). For

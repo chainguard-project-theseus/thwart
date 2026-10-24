@@ -53,6 +53,20 @@ class ScriptQuotedInlineTest {
           // An inlined value is an expression: the '/' after it is division, not a regex.
           "<script>var q = [[a]] / \"[[x]]\".length;</script>",
           "<script>var r = /[[x]]/; var a = \"[[x]]\";</script>",
+          // A regex may start the statement after a control-flow condition.
+          "<script>if (true) /\"/.test(s); var a = \"[[x]]\";</script>",
+          "<script>while (f(s)) /\"/.exec(s); var a = \"[[x]]\";</script>",
+          "<script>for (;;) /\"/.test(s); var a = \"[[x]]\";</script>",
+          "<script>if ((a)) /\"/.test(s); var a = \"[[x]]\";</script>",
+          // Any JavaScript whitespace separates a keyword from what follows (U+2007, U+202F).
+          "<script>function f(s) { return\u2007/\"/.test(s) ? \"[[x]]\" : 0; }</script>",
+          "<script>if\u202f(c) /\"/.test(s); var a = \"[[x]]\";</script>",
+          // An Annex B "-->" line comment or a hashbang hides a "/*" that would otherwise span lines.
+          "<script>\n--> /*\nvar a = \"[[x]]\";</script>",
+          "<script>\n  /* c */ --> /*\nvar a = \"[[x]]\";</script>",
+          "<script>#!/*\nvar a = \"[[x]]\";</script>",
+          // "-->" after code on its line is "--" and ">".
+          "<script>var a = b --> \"[[x]]\";</script>",
           // After an identifier '/' is division, so "/; [[x]]" is a string.
           "<script>var z = y /\"/; [[x]]\";</script>",
           // Template-literal text: the value is inert there, but arrives with its own quotes.
@@ -73,6 +87,9 @@ class ScriptQuotedInlineTest {
           "<script>var q = 4 / 2; var s = \"q\"; var b = [[x]];</script>",
           "<script>var q = [[a]] / [[b]];</script>",
           "<script>var q = [[a]] / 2; var s = \"/\"; var b = [[x]];</script>",
+          "<script>var q = (a) / 2; var s = \"/\"; var b = [[x]];</script>",
+          "<script>if (f(a) / 2) { var s = \"/\"; } var b = [[x]];</script>",
+          "<script>if (a) { var q = g(a) / 2; var s = \"/\"; } var b = [[x]];</script>",
           "<script>function f() { return /\"/.test(\"a\"); } var b = [[x]];</script>",
           "<script>// \"c\"\n var b = [[x]];</script>",
           "<script>/* \"c\" */ var b = [[x]];</script>",
@@ -89,6 +106,8 @@ class ScriptQuotedInlineTest {
           "<script>/*[[x]]*/</script>",
           "<script>// [[x]]\n</script>",
           "<script>var a = \"x\u2028\"; var b = [[x]];</script>",
+          "<script>\n--> \"[[x]]\"\nvar b = [[x]];</script>",
+          "<script>#! \"[[x]]\"\nvar b = [[x]];</script>",
           "<script type=\"application/json\">{\"a\": [[x]]}</script>");
 
   private static Compilation compile(String markup) {

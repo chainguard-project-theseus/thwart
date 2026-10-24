@@ -98,9 +98,9 @@ public final class TextInlining {
             ctx.diagnostics()
                 .error(
                     pos,
-                    "[[...]] is inside a quoted JavaScript string (" + q + "..." + q + ") but writes a complete"
-                        + " JSON value with its own quotes, so the value would close the string and run as"
-                        + " code; remove the quotes, e.g. var a = [[...]];");
+                    "[[...]] is inside a quoted JavaScript string (" + q + "..." + q + "), but it writes a"
+                        + " complete JSON value with its own quotes, which would close a \"...\" string and run"
+                        + " as code, or end up quoted twice; remove the quotes, e.g. var a = [[...]];");
             i = end + 2;
             continue;
           }
@@ -225,15 +225,19 @@ public final class TextInlining {
    * inside it. Comments, regex literals and {@code ${...}} code in template literals are tracked
    * so that quotes inside them do not count; a {@code [[...]]} inside them stays allowed (the JSON
    * escaper keeps it inert there). Fed only the static text; {@link #expression} stands for each
-   * inlined value.
+   * inlined value. Annex B comments count too: {@code -->} after only whitespace and comments on
+   * its line, and {@code #!} at the very start (a hashbang); either is a comment or a syntax error
+   * in a browser, so taking it for a comment is safe.
    *
    * <p>As in Go's {@code html/template}, whether a {@code /} starts a regex or is a division is
    * decided from the previous significant token: a regex follows an operator, punctuator or one of
    * {@link #KEYWORDS_BEFORE_REGEX}, a division follows an identifier, a number, a literal,
-   * {@code )}, {@code ]} or an inlined value. Known limits: after a closing brace (block or
-   * object literal?) and after {@code ++}/{@code --} a regex is assumed; and a property named like one of
-   * the keywords ({@code o.return / 2}) is taken for the keyword. A misread there can hide a string
-   * in contrived code ({@code x = {}\n/"[[x]]"/ 1}) as well as raise a spurious error.
+   * {@code )}, {@code ]} or an inlined value; but after the {@code )} that closes the condition of
+   * {@code if}, {@code while}, {@code for} or {@code with} a regex follows. Known limits: after a
+   * closing brace (block or object literal?) and after {@code ++}/{@code --} a regex is assumed;
+   * and a property named like one of the keywords ({@code o.return / 2}, {@code o.if(x) / 2}) is
+   * taken for the keyword. A misread there can hide a string in contrived code
+   * ({@code x = {}\n/"[[x]]"/ 1}) as well as raise a spurious error.
    */
   static final class JsLexState {
     private enum S { CODE, SLASH, DQ, SQ, TPL, LINE_COMMENT, BLOCK_COMMENT, REGEX, REGEX_CLASS }
@@ -247,6 +251,10 @@ public final class TextInlining {
                 "return", "typeof", "instanceof", "in", "of", "new", "delete", "void", "throw", "case", "do",
                 "else", "yield", "await"));
 
+    /** Keywords whose parenthesized condition is followed by a statement, so a regex may follow its ')'. */
+    private static final Set<String> KEYWORDS_BEFORE_CONDITION =
+        new HashSet<>(Arrays.asList("if", "while", "for", "with"));
+
     private S s = S.CODE;
     private boolean escape;
     /** A backslash escaped a CR in a string literal, so a following LF continues the line too. */
@@ -259,6 +267,14 @@ public final class TextInlining {
     private int braceDepth;
     /** Brace depths at which an open {@code ${} of a template literal started. */
     private final ArrayDeque<Integer> tplBraces = new ArrayDeque<>();
+    /** For each open '(': whether it starts the condition of an if, while, for or with. */
+    private final ArrayDeque<Boolean> parens = new ArrayDeque<>();
+    /** Only whitespace and comments since the start of the text or the last line break. */
+    private boolean lineStart = true;
+    /** Dashes seen at the start of a line, towards an Annex B "-->" comment. */
+    private int dashes;
+    /** Chars fed so far, inlined values included; "#!" is a hashbang only at the very start. */
+    private int fed;
 
     boolean inStringLiteral() {
       return s == S.DQ || s == S.SQ || s == S.TPL;
@@ -279,11 +295,14 @@ public final class TextInlining {
       escape = false;
       escapedCr = false;
       prev = 0;
+      lineStart = false;
+      fed++;
     }
 
     void feed(char c) {
       char p = prev;
       prev = c;
+      int index = fed++;
       switch (s) {
         case DQ:
         case SQ:
@@ -300,6 +319,9 @@ public final class TextInlining {
               // LS and PS are allowed in a string literal (ES2019); an unterminated one ends at a line break.
               s = S.CODE;
               value();
+              if (c == '\n' || c == '\r') {
+                newLine();
+              }
             }
           }
           return;
@@ -321,11 +343,14 @@ public final class TextInlining {
         case LINE_COMMENT:
           if (lineTerminator(c)) {
             s = S.CODE;
+            newLine();
           }
           return;
         case BLOCK_COMMENT:
           if (c == '/' && p == '*') {
             s = S.CODE;
+          } else if (lineTerminator(c)) {
+            newLine();
           }
           return;
         case REGEX:
@@ -338,6 +363,9 @@ public final class TextInlining {
           } else if (c == '/' || lineTerminator(c)) {
             s = S.CODE;
             value();
+            if (c != '/') {
+              newLine();
+            }
           }
           return;
         case REGEX_CLASS:
@@ -350,6 +378,7 @@ public final class TextInlining {
           } else if (lineTerminator(c)) {
             s = S.CODE;
             value();
+            newLine();
           }
           return;
         case SLASH:
@@ -363,6 +392,7 @@ public final class TextInlining {
             prev = 0; // "/*/" does not close the comment
             return;
           }
+          lineStart = false;
           if (regexMayFollow()) {
             s = S.REGEX;
             prev = 0;
@@ -376,6 +406,23 @@ public final class TextInlining {
         default:
           break;
       }
+      if (index == 1 && p == '#' && c == '!') {
+        s = S.LINE_COMMENT; // hashbang
+        return;
+      }
+      if (lineTerminator(c)) {
+        newLine();
+      } else if (lineStart) {
+        if (c == '>' && dashes == 2) {
+          s = S.LINE_COMMENT; // Annex B "-->" at the start of a line
+          return;
+        }
+        if (c == '-' && dashes < 2) {
+          dashes++;
+        } else if (dashes > 0 || !(space(c) || c == '/')) {
+          lineStart = false; // a '/' may open a comment, which keeps the line start
+        }
+      }
       if (c == '"') {
         s = S.DQ;
       } else if (c == '\'') {
@@ -385,6 +432,14 @@ public final class TextInlining {
       } else if (c == '/') {
         s = S.SLASH;
         return;
+      } else if (c == '(') {
+        parens.push(
+            Character.isJavaIdentifierPart(prevSignificant) && KEYWORDS_BEFORE_CONDITION.contains(word.toString()));
+      } else if (c == ')') {
+        if (!parens.isEmpty() && parens.pop()) {
+          operator(); // "if (c) /re/.test(s)": the statement after a condition may start with a regex
+          return;
+        }
       } else if (c == '{') {
         braceDepth++;
       } else if (c == '}') {
@@ -395,7 +450,7 @@ public final class TextInlining {
         }
         braceDepth--;
       }
-      if (Character.isWhitespace(c) || c == '\u00a0' || c == '\ufeff') {
+      if (space(c)) {
         wordOpen = false;
       } else if (Character.isJavaIdentifierPart(c)) {
         if (!wordOpen) {
@@ -430,6 +485,16 @@ public final class TextInlining {
       prevSignificant = '*';
       word.setLength(0);
       wordOpen = false;
+    }
+
+    private void newLine() {
+      lineStart = true;
+      dashes = 0;
+    }
+
+    /** JavaScript WhiteSpace or LineTerminator. */
+    private static boolean space(char c) {
+      return Character.isWhitespace(c) || Character.isSpaceChar(c) || c == '\ufeff';
     }
 
     private static boolean lineTerminator(char c) {
