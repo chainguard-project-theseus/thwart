@@ -27,6 +27,7 @@ class MessageMarkupTest {
         "'{0}' is literal",
         "&lt;{0}&gt; and &amp; {0}",
         "< {0}",
+        "a <b>&lt;</b>",
       })
   void accepts(String message) {
     assertNull(MessageMarkup.problem(message), message);
@@ -53,6 +54,8 @@ class MessageMarkupTest {
         "<a href=\"data:text/html,x\">x</a>^ only http, https, mailto, tel and relative",
         "<b title=\"{0}\">x</b>^ a placeholder may not be inside a tag",
         "<{0}>^ a placeholder may not follow '<'",
+        "a <^ may not end with '<'",
+        "x<^ may not end with '<'",
         "<a href='{0}'>x</a>^ needs a quoted value",
         "<a href='/x'>y</a>^ in the message as MessageFormat formats it",
         "{0,choice,0#a|1#b}^ is not allowed in a message rendered as HTML",

@@ -368,7 +368,14 @@ class XssContextTest {
           "<!-x <!-- > <script> -->\n[[s]]\n<!-- </script> -->",
           "<!/ <!-- > <script> -->\n[[s]]\n<!-- </script> -->",
           "<!? <!-- > <script> -->\n[[s]]\n<!-- </script> -->",
-          "<!! <!-- > <script> -->\n[[s]]\n<!-- </script> -->");
+          "<!! <!-- > <script> -->\n[[s]]\n<!-- </script> -->",
+          "<p><[[s]]></p>",
+          "<p><[[s]]script>alert(1)<[[s]]/script></p>",
+          "<p></[[s]]></p>",
+          "<textarea></[[s]]></textarea>",
+          "<textarea></text[[s]]area></textarea>",
+          "<title><[[s]]></title>",
+          "<script>var x = 2 <!-[[s]]</script>");
 
   /** The built-in {@code html.sanitize} turns stored rich text into SafeHtml for raw output. */
   @Test
