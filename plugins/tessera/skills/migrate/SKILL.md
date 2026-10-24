@@ -86,9 +86,9 @@ The old application is the specification. Work the way an expert would, keeping 
    matches is never compared. Few differences are right. An empty value or a 500 nearly always
    means a value the old template took from outside the model.
 6. **Remove the old engine**: this completes the security guarantee. Remove its templates, its
-   dependency and its configuration. Diff
-   `mvn dependency:list` from before and after, and declare the libraries the app still uses that
-   came with the old engine. Then build, test and compare once more.
+   dependency and its configuration. Diff `mvn dependency:list` from before and after, and declare
+   the libraries the app still uses that came with the old engine. Then build, test and compare
+   once more.
 
 ## Time
 

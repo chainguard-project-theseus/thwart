@@ -15,7 +15,7 @@ limitations.
 in your `pages.txt` as `same` or `reordered`, or you can say why a remaining difference is right;
 security is not weakened (no `SafeHtml.unchecked`/`TrustedUrl.unchecked` to get around escaping,
 no CSRF or escaping turned off); and the old engine's templates, dependency and configuration are
-gone.
+gone, with no `Tessera: another template engine is still configured` warning at startup.
 
 Examples marked in the source of this file with `<!-- compile: ... -->` are compiled and rendered
 by `dev.tessera.compiler.guide.GuideExamplesTest`, so they are known to work.
@@ -184,16 +184,16 @@ return-value handler and the template registry. Tessera's resolver runs before T
 falls through for names it does not know, so the old engine can stay while you migrate. While it
 stays, every view name Tessera doesn't know is rendered by it, with its injection risks: Tessera's
 guarantees (no template injection, contextual escaping) cover only the views Tessera renders, and
-hold for the application once the old engine is gone (section 3, step 6). Never build a view name
-from request data, whichever engine renders it. Until then the starter logs a warning at startup
-naming the other engine's view resolver (Thymeleaf, FreeMarker, Groovy markup, Mustache, script
-templates, Velocity); there is no setting to silence it, removing the engine does. JSP is not
-reported, since Boot registers its `InternalResourceViewResolver` in every app, but it falls
-through the same way. The jar registers itself for every Boot generation, including
-`@WebMvcTest` slices.
+hold for the application once the old engine is gone (section 3, step 6). While the other engine's
+view resolver is still configured, the starter logs a warning at startup naming it (Thymeleaf,
+FreeMarker, Groovy markup, Mustache, script templates and Velocity are recognized; other engines,
+such as Pebble or JTE, are not). There is no setting to silence the warning; removing the engine
+does. JSP is not reported, since Boot registers its `InternalResourceViewResolver` in every app,
+but it falls through the same way. Never build a view name from request data, whichever engine
+renders it. The jar registers itself for every Boot generation, including `@WebMvcTest` slices.
 
 **Spring MVC without Boot.** Import `dev.tessera.spring.TesseraConfiguration`. It needs only
-`spring-webmvc`:
+`spring-webmvc`, and logs the same startup warning while another engine is configured:
 
 ```java
 @Configuration

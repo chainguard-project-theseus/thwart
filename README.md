@@ -112,9 +112,9 @@ Add the starter for your servlet API (use exactly one) and run the annotation pr
 
 With Spring Boot, auto-configuration registers the view resolver. It runs before Thymeleaf's and
 falls through for names it doesn't know, so both engines can run side by side during a migration.
-Until the old engine is removed it renders every view Tessera doesn't know, so Tessera's guarantees
-apply to the application once it is gone; the starter logs a warning at startup while it is still
-configured.
+Until it is removed, the old engine renders every view Tessera doesn't know, so Tessera's
+guarantees cover the whole application only once it is gone; the starter logs a warning at startup
+while it is still configured.
 With plain Spring MVC, import the configuration:
 
 ```java

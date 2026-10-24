@@ -5,10 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import org.apache.commons.logging.impl.NoOpLog;
 import org.junit.jupiter.api.Test;
+import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.beans.factory.support.RootBeanDefinition;
@@ -19,10 +21,13 @@ import org.springframework.mock.web.MockServletContext;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 import org.springframework.web.servlet.ViewResolver;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.ViewResolverRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurationSupport;
 import org.springframework.web.servlet.view.BeanNameViewResolver;
 import org.springframework.web.servlet.view.ContentNegotiatingViewResolver;
 import org.springframework.web.servlet.view.InternalResourceViewResolver;
 import org.springframework.web.servlet.view.UrlBasedViewResolver;
+import org.springframework.web.servlet.view.ViewResolverComposite;
 import org.springframework.web.servlet.view.freemarker.FreeMarkerViewResolver;
 import org.springframework.web.servlet.view.groovy.GroovyMarkupViewResolver;
 import org.springframework.web.servlet.view.script.ScriptTemplateViewResolver;
@@ -106,6 +111,65 @@ class OldEngineWarningTest {
   }
 
   @Test
+  void seesEnginesAddedThroughTheViewResolverRegistry() {
+    // registry.freeMarker(), registry.groovy(), ... put the engine's resolver inside
+    // @EnableWebMvc's mvcViewResolver (a ViewResolverComposite); it is not a bean of its own.
+    try (AnnotationConfigWebApplicationContext ctx =
+        context(null, RegistryMvc.class, TesseraConfiguration.class, Recording.class)) {
+      assertEquals(
+          Collections.singletonList(String.format(OldEngineWarning.MESSAGE, THYMELEAF)),
+          warnings(ctx));
+    }
+  }
+
+  @Test
+  void seesEnginesBehindContentNegotiation() {
+    try (AnnotationConfigWebApplicationContext ctx =
+        context(null, Plain.class, Negotiating.class, Recording.class)) {
+      assertEquals(
+          Collections.singletonList(String.format(OldEngineWarning.MESSAGE, THYMELEAF)),
+          warnings(ctx));
+    }
+  }
+
+  @Test
+  void nestedAndCyclicCompositesNameEachEngineOnce() {
+    // As Boot's content-negotiating viewResolver wraps every resolver bean, mvcViewResolver too.
+    ViewResolverComposite composite = new ViewResolverComposite();
+    ContentNegotiatingViewResolver negotiating = new ContentNegotiatingViewResolver();
+    FakeThymeleafViewResolver thymeleaf = new FakeThymeleafViewResolver();
+    composite.setViewResolvers(Arrays.<ViewResolver>asList(thymeleaf, negotiating));
+    negotiating.setViewResolvers(Arrays.<ViewResolver>asList(composite, thymeleaf));
+    DefaultListableBeanFactory beans = new DefaultListableBeanFactory();
+    beans.registerSingleton("thymeleafViewResolver", thymeleaf);
+    beans.registerSingleton("mvcViewResolver", composite);
+    beans.registerSingleton("viewResolver", negotiating);
+    assertEquals(
+        String.format(OldEngineWarning.MESSAGE, THYMELEAF), OldEngineWarning.message(beans));
+  }
+
+  @Test
+  void namesAProxiedResolverWithoutTheProxySuffix() {
+    ProxyFactory proxy = new ProxyFactory(new FakeThymeleafViewResolver());
+    proxy.setProxyTargetClass(true);
+    Object resolver = proxy.getProxy();
+    assertTrue(resolver.getClass().getName().contains("$$"));
+    DefaultListableBeanFactory beans = new DefaultListableBeanFactory();
+    beans.registerSingleton("thymeleafViewResolver", resolver);
+    assertEquals(
+        String.format(OldEngineWarning.MESSAGE, THYMELEAF), OldEngineWarning.message(beans));
+  }
+
+  @Test
+  void aResolverThatCannotBeInspectedDoesNotFailStartup() {
+    try (AnnotationConfigWebApplicationContext ctx =
+        context(null, Plain.class, Broken.class, Recording.class)) {
+      assertEquals(Collections.emptyList(), warnings(ctx));
+      assertEquals(1, ctx.getBean(RecordingLog.class).debug.size());
+    }
+  }
+
+  @Test
   void matchesSpringsOwnTemplateEngineResolvers() {
     DefaultListableBeanFactory beans = new DefaultListableBeanFactory();
     beans.registerBeanDefinition("ftl", new RootBeanDefinition(FreeMarkerViewResolver.class));
@@ -149,7 +213,40 @@ class OldEngineWarningTest {
     }
   }
 
+  /** {@code @EnableWebMvc} with a {@code configureViewResolvers} override, as configurers do. */
+  @Configuration
+  static class RegistryMvc extends WebMvcConfigurationSupport {
+    @Override
+    protected void configureViewResolvers(ViewResolverRegistry registry) {
+      registry.viewResolver(new FakeThymeleafViewResolver());
+    }
+  }
+
+  @Configuration
+  static class Negotiating {
+    @Bean
+    ViewResolver negotiatingViewResolver() {
+      ContentNegotiatingViewResolver resolver = new ContentNegotiatingViewResolver();
+      resolver.setViewResolvers(
+          Collections.<ViewResolver>singletonList(new FakeThymeleafViewResolver()));
+      return resolver;
+    }
+  }
+
   static class AppThymeleafResolver extends FakeThymeleafViewResolver {}
+
+  @Configuration
+  static class Broken {
+    @Bean
+    ViewResolver negotiatingViewResolver() {
+      return new ContentNegotiatingViewResolver() {
+        @Override
+        public List<ViewResolver> getViewResolvers() {
+          throw new IllegalStateException("not inspectable");
+        }
+      };
+    }
+  }
 
   @Configuration
   static class Subclassed {
@@ -187,10 +284,16 @@ class OldEngineWarningTest {
   @SuppressWarnings("serial") // NoOpLog is Serializable; this test double is never serialized
   static final class RecordingLog extends NoOpLog {
     final List<Object> warn = new ArrayList<>();
+    final List<Object> debug = new ArrayList<>();
 
     @Override
     public void warn(Object message) {
       warn.add(message);
+    }
+
+    @Override
+    public void debug(Object message, Throwable t) {
+      debug.add(message);
     }
   }
 }
