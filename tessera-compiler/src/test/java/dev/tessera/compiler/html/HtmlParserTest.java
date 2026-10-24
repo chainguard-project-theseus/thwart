@@ -254,7 +254,8 @@ class HtmlParserTest {
             + " after it as style; write <style ...></style>"),
         errors("<div><style/></div>"));
     assertEquals(List.of(), errors("<script></script><style></style>"));
-    // RCDATA elements stay allowed: TEXT escaping is still safe there, and SVG <title/> is common.
+    // TemplateGenerator checks <textarea/>, <title/> and the other raw text elements, where it knows
+    // whether it writes them with an end tag (<textarea t:text="x"/>).
     assertEquals(List.of(), errors("<svg><title/></svg><textarea/>"));
   }
 
@@ -444,6 +445,64 @@ class HtmlParserTest {
             + " '</script' before its end tag: escape it (in a script string, write '<\\/script')"),
         errors("<script type=\"text/html\"><a b=\"</script><p>\"></script>"));
     parseOk("<textarea></textareax></textarea>");
+  }
+
+  private static String hiddenEndTag(int line, int col, String tag) {
+    return "dir/t.html:" + line + ":" + col + ": error: malformed markup: content of <" + tag + "> contains '</"
+        + tag + "' before its end tag: a browser ends the element there, so the markup after it would be read"
+        + " differently; remove it or move it outside the element";
+  }
+
+  @Test
+  void browserRawTextEndTagMustBeTheElementsOwn() {
+    // A browser reads <xmp>, <iframe>, <noembed>, <noframes> and <noscript> (scripting on) as raw
+    // text up to the first </name; Tessera parses markup there, so that must be the element's end tag.
+    assertEquals(List.of(hiddenEndTag(1, 16, "xmp")), errors("<xmp><i title=\"</xmp><script>/*\"></i></xmp>"));
+    assertEquals(
+        List.of(hiddenEndTag(2, 6, "NoScript")), errors("<NoScript>\n<!-- </NOSCRIPT><script> --></noscript>"));
+    assertEquals(List.of(hiddenEndTag(1, 21, "noscript")), errors("<noscript><noscript></noscript></noscript>"));
+    assertEquals(
+        List.of(hiddenEndTag(1, 26, "iframe")), errors("<iframe><script>var a = \"</iframe>\";</script></iframe>"));
+    parseOk("<noscript><img src=\"a.png\"></noscript><iframe src=\"/x\"></iframe><xmp>a <b>b</b></xmp>");
+    parseOk("<noembed><!-- c --><p title=\"</noembedx>\"></p></noembed ><noframes></noframes>");
+    parseOk("<div><noscript><p>x</p></NOSCRIPT></div><noscript><noembed></noembed></noscript>");
+  }
+
+  @Test
+  void browserRawElementsEndWhereABrowserDoes() {
+    // #283: a browser reads these as raw text up to the first </name, so an end tag hidden in a
+    // nested raw-text element, a comment or an attribute value ends them there.
+    for (String tag : List.of("xmp", "iframe", "noembed", "noframes", "noscript")) {
+      for (String html : List.of(
+          "<" + tag + "><textarea></" + tag + "><script>[[${x}]]</script></textarea></" + tag + ">",
+          "<" + tag + "><title></" + tag + "><script>[[${x}]]</script></title></" + tag + ">",
+          "<" + tag + "><!--</" + tag + "><script>[[${x}]]</script>--></" + tag + ">",
+          "<" + tag + "><p title=\"</" + tag + "><script>/*\">*/[[${x}]]//</p></" + tag + ">")) {
+        assertEquals(List.of(hiddenEndTag(1, html.indexOf("</" + tag) + 1, tag)), errors(html), html);
+      }
+    }
+    assertEquals(List.of(hiddenEndTag(2, 5, "xmp")), errors("<xmp>\n<!--</XMP >--></xmp>"));
+    // unquoted attribute value, and '/' after the name
+    assertEquals(List.of(hiddenEndTag(1, 15, "xmp")), errors("<xmp><p title=</xmp>x</p></xmp>"));
+    assertEquals(List.of(hiddenEndTag(1, 10, "xmp")), errors("<xmp><!--</xmp/>--></xmp>"));
+    // browsers fold ASCII letters only: </noſcript> is no end tag to them, so the </noscript> in
+    // the title is where a browser ends the element
+    assertEquals(List.of(hiddenEndTag(1, 29, "noscript")), errors("<noscript></no\u017Fcript><title></noscript></title>"));
+
+    Element noscript = el(parseOk("<noscript><img t:src=\"@{/p.gif}\"><p>[[${x}]]</p></noscript>").children().get(0));
+    assertEquals("p", el(noscript.children().get(1)).name());
+    parseOk("<iframe>[[${x}]]</iframe><xmp>[[${x}]]</xmp><noembed></noembed><noframes><p>a</p></noframes>");
+    // not an end tag: the name must be followed by whitespace, '/' or '>'
+    parseOk("<noscript><a title=\"</noscriptx>\"></a></noscript>");
+  }
+
+
+  @Test
+  void plaintextIsAnError() {
+    assertEquals(
+        List.of("dir/t.html:1:4: error: <PlainText> is not supported: a browser treats the rest of the page as plain"
+            + " text; use <pre>"),
+        errors("<p><PlainText>x</PlainText></p>"));
   }
 
   @Test

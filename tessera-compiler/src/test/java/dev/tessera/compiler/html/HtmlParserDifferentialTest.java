@@ -79,7 +79,9 @@ class HtmlParserDifferentialTest {
     "<a href=/x/>", "<a title=x onclick=y>", "<a A=1 a=2>", "<a b='x\"y'>", "<a b=>", "<a b= >", "<a b=\"\">",
     "<a\u000Bb=c>", "<a<b>", "<a b<c=d>", "<td t:text/>", "[[${x}]]", "[(${x})]", "${x}", "<span t:text=\"${a}\">",
     "</span>", "<ſcript>", "</ſcript>", "<scrİpt>", "<ſtyle>", "<Keygen>", "<svg>", "</svg>",
-    "<t:block>", "</t:block>",
+    "<t:block>", "</t:block>", "<noscript>", "</noscript>", "<XMP>", "</xmp>", "<iframe/>", "<plaintext>",
+    "<xmp>", "<NoScript>", "</noscript >", "<iframe>", "</IFRAME>", "<noembed>", "</noembed>", "<noframes>",
+    "</noframes>", "<xmp/>",
   };
 
   /** Single chars and keywords, for character-level soups that reach odd tokenizer states. */

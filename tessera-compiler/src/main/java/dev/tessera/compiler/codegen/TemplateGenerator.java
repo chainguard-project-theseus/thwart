@@ -31,6 +31,7 @@ import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -54,6 +55,9 @@ public final class TemplateGenerator implements CodegenContext {
   /** Static text is split into constants of at most this many chars (constant-pool limit). */
   private static final int CHUNK = 8192;
 
+  /** {@code t:} attributes that write HTML known only at runtime into the element. */
+  private static final Set<String> RUNTIME_HTML = Backports.setOf("utext", "insert", "replace");
+
   private final CompilerEnv env;
   private final TemplateIndex index;
   private final ExpressionParser parser;
@@ -69,6 +73,13 @@ public final class TemplateGenerator implements CodegenContext {
   private int fresh;
   private Map<Element, String> whitespaceBefore;
   private Set<Element> htmxSubmits;
+  /**
+   * The element a browser reads as raw text or RCDATA whose content is being generated, or null.
+   * See {@link #rawTextElement}.
+   */
+  private String rawTextHost;
+  /** Whether the content being generated is inside an {@code <svg>} or {@code <math>} element. */
+  private boolean inForeign;
 
   public TemplateGenerator(
       CompilerEnv env, TemplateIndex index, ExpressionParser parser, ExpressionCompiler expressions) {
@@ -187,11 +198,18 @@ public final class TemplateGenerator implements CodegenContext {
   public String renderElement(Element element, Scope scope, Set<String> ignoredAttributes) {
     // Rendered standalone (fragment method, ~{::selector} helper): no preceding sibling text.
     String ws = whitespaceBefore.remove(element);
+    // ... and rendered where it is inserted, which is checked there, not inside its source parent.
+    String host = rawTextHost;
+    boolean foreign = inForeign;
+    rawTextHost = null;
+    inForeign = false;
     try {
       Code c = new Code();
       element(c, element, scope, ignoredAttributes);
       return c.build();
     } finally {
+      rawTextHost = host;
+      inForeign = foreign;
       if (ws != null) {
         whitespaceBefore.put(element, ws);
       }
@@ -321,6 +339,13 @@ public final class TemplateGenerator implements CodegenContext {
   private void node(Code c, Node n, Scope scope) {
     if (n instanceof Text) {
       Text t = (Text) n;
+      if (rawTextHost != null
+          && (t.context() == OutputContext.TEXT || t.context() == OutputContext.RCDATA)) {
+        int unescaped = TextInlining.firstUnescaped(t.raw());
+        if (unescaped >= 0) {
+          runtimeHtmlInRawText(t.pos().advance(t.raw(), unescaped), "[(...)]", rawTextHost);
+        }
+      }
       String code = TextInlining.render(this, t, scope);
       if (code == null) {
         c.text(t.raw());
@@ -337,32 +362,72 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   private void element(Code c, Element e, Scope scope, Set<String> ignored) {
-    ElementPlan plan = new ElementPlan(e, scope);
-    if (e.name().equals("t:block")) {
-      plan.omitTag();
-    }
-    List<Attribute> attrs = new ArrayList<>();
-    for (Attribute a : e.tesseraAttributes()) {
-      if (!AttributeProcessors.CORE.contains(a.localName()) && !ignored.contains(a.localName())) {
-        attrs.add(a);
+    String outer = rawTextHost;
+    boolean outerForeign = inForeign;
+    String host = rawTextElement(e) ? e.name() : outer;
+    // Processors (t:remove="all-but-first") and emit generate the content.
+    rawTextHost = host;
+    inForeign = outerForeign || e.name().equalsIgnoreCase("svg") || e.name().equalsIgnoreCase("math");
+    try {
+      ElementPlan plan = new ElementPlan(e, scope);
+      if (e.name().equals("t:block")) {
+        plan.omitTag();
       }
-    }
-    attrs.sort(Comparator.comparingInt(a -> AttributeProcessors.precedence(a.localName())));
-    for (Attribute a : attrs) {
-      // A removed element renders nothing: later attributes are not compiled here (a
-      // parameterized t:fragment's attributes only make sense in its fragment method).
-      if (plan.removed()) {
-        break;
+      List<Attribute> attrs = new ArrayList<>();
+      for (Attribute a : e.tesseraAttributes()) {
+        if (!AttributeProcessors.CORE.contains(a.localName()) && !ignored.contains(a.localName())) {
+          attrs.add(a);
+        }
       }
-      AttributeProcessors.forName(a.localName()).ifPresent(p -> p.process(this, a, plan));
+      attrs.sort(Comparator.comparingInt(a -> AttributeProcessors.precedence(a.localName())));
+      for (Attribute a : attrs) {
+        // A removed element renders nothing: later attributes are not compiled here (a
+        // parameterized t:fragment's attributes only make sense in its fragment method).
+        if (plan.removed()) {
+          break;
+        }
+        // t:replace swaps the whole element: on a raw text element itself it writes nothing inside it.
+        String within = a.localName().equals("replace") ? outer : host;
+        if (within != null && RUNTIME_HTML.contains(a.localName())) {
+          runtimeHtmlInRawText(a.pos(), a.name(), within);
+        }
+        AttributeProcessors.forName(a.localName()).ifPresent(p -> p.process(this, a, plan));
+      }
+      if (e.name().equalsIgnoreCase("form")) {
+        CsrfInjector.apply(this, plan);
+      }
+      if (e.name().equalsIgnoreCase("option")) {
+        FieldProcessor.option(this, plan);
+      }
+      emit(c, plan);
+    } finally {
+      rawTextHost = outer;
+      inForeign = outerForeign;
     }
-    if (e.name().equalsIgnoreCase("form")) {
-      CsrfInjector.apply(this, plan);
-    }
-    if (e.name().equalsIgnoreCase("option")) {
-      FieldProcessor.option(this, plan);
-    }
-    emit(c, plan);
+  }
+
+  /**
+   * Whether a browser reads the content of {@code e} as raw text or RCDATA up to the first
+   * {@code </name}: {@link Contexts#browserRawText} elements, {@code <textarea>} and {@code <title>}.
+   * Tessera treats {@code <title>} in {@code <svg>} and {@code <math>} as RCDATA too: a browser
+   * reads it as RCDATA in an HTML integration point ({@code <foreignObject>}, {@code <mtext>}) or
+   * after a tag that ends foreign content ({@code <b>}).
+   */
+  private static boolean rawTextElement(Element e) {
+    String lower = e.name().toLowerCase(Locale.ROOT);
+    return Contexts.browserRawText(lower) || lower.equals("textarea") || lower.equals("title");
+  }
+
+  /**
+   * HTML known only at runtime (a {@code SafeHtml}, a rendered fragment) could contain {@code
+   * </name}, which ends a raw text element early in a browser and makes the rest of its content
+   * live markup, so it cannot be written inside one.
+   */
+  private void runtimeHtmlInRawText(SourcePos pos, String what, String element) {
+    diagnostics()
+        .error(pos, what + " inside <" + element + "> is not supported: a browser reads the content of <" + element
+            + "> as text up to the first '</" + element + "', and inserted markup could contain one; move it"
+            + " outside the element");
   }
 
   private void emit(Code c, ElementPlan plan) {
@@ -375,6 +440,9 @@ public final class TemplateGenerator implements CodegenContext {
       if (plan.replacement() != null) {
         c.stmt(plan.replacement());
       } else {
+        if (!plan.tagOmitted() && e.selfClosing() && rawTextElement(e) && !opensSelfClosing(plan)) {
+          selfClosingRawText(e);
+        }
         if (!plan.tagOmitted()) {
           startTag(c, plan);
         }
@@ -396,6 +464,25 @@ public final class TemplateGenerator implements CodegenContext {
     for (int i = wrappers.size() - 1; i >= 0; i--) {
       c.stmt(wrappers.get(i).close());
     }
+  }
+
+  /**
+   * Reports {@code <textarea/>} and the like written as is: a browser ignores the '/' and reads
+   * the rest of the page as the element's text up to the first {@code </name}, which Tessera may
+   * have read inside a comment or attribute value.
+   */
+  private void selfClosingRawText(Element e) {
+    String lower = e.name().toLowerCase(Locale.ROOT);
+    if (inForeign && lower.equals("title")) {
+      diagnostics()
+          .error(e.pos(), "<title/> is not supported inside <svg> or <math>: Tessera cannot tell an SVG title"
+              + " from an HTML one (in <foreignObject> or after <b>), after which a browser reads the rest of the"
+              + " page as title text; write <title></title>");
+      return;
+    }
+    diagnostics()
+        .error(e.pos(), "<" + lower + "/> is not self-closing in HTML: the browser treats everything after it as "
+            + lower + "; write <" + lower + " ...></" + lower + ">");
   }
 
   private void startTag(Code c, ElementPlan plan) {
