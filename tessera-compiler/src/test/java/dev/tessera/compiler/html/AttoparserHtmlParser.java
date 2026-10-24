@@ -36,14 +36,16 @@ import org.attoparser.config.ParseConfiguration;
  * classifies every text node's {@code OutputContext} via {@link Contexts}.
  *
  * <p>The content of {@code <script>}, {@code <style>}, {@code <textarea>} and {@code <title>}
- * is a single raw {@link Text} node: markup inside it is not parsed.
+ * is a single raw {@link Text} node: markup inside it is not parsed. Under {@code <svg>} and
+ * {@code <math>} (outside their HTML integration points) {@code <textarea>} and {@code <title>}
+ * are ordinary elements, as in a browser (#277; see {@link ForeignContent}).
  *
  * <p>Build errors (reported, then parsing continues): unclosed or mismatched non-void elements,
  * duplicate attributes on one element, malformed markup.
  */
 final class AttoparserHtmlParser {
 
-  private static final Set<String> RAW_TEXT_ELEMENTS = Backports.setOf("script", "style", "textarea", "title");
+  private static final Set<String> RAW_TEXT_ELEMENTS = Backports.setOf("script", "style");
   private static final Pattern ELEMENT_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_.:-]*");
   private static final Map<String, String> NAMED_REFERENCES = new HashMap<>();
 
@@ -169,6 +171,10 @@ final class AttoparserHtmlParser {
     final Set<String> attributeNames = new HashSet<>();
     final List<Node> children = new ArrayList<>();
     OutputContext textContext = OutputContext.TEXT;
+    /** An SVG or MathML element, as a browser parses it; see {@link ForeignContent}. */
+    boolean foreign;
+    /** Namespace its children are parsed in: HTML once a start tag has ended foreign content. */
+    int ns = ForeignContent.HTML;
 
     Open(String name, SourcePos pos) {
       this.name = name;
@@ -176,7 +182,7 @@ final class AttoparserHtmlParser {
     }
 
     Element toElement(boolean selfClosing, boolean hasEndTag) {
-      return new Element(name, attributes, children, selfClosing, hasEndTag, pos);
+      return new Element(name, attributes, children, selfClosing, hasEndTag, pos, foreign);
     }
   }
 
@@ -375,8 +381,30 @@ final class AttoparserHtmlParser {
         diagnostics.error(tag.pos, "<" + lower + "/> is not self-closing in HTML: the browser treats everything"
             + " after it as " + lower + "; write <" + lower + " ...></" + lower + ">");
       }
+      setNamespace(tag);
       children().add(tag.toElement(minimized, false));
       tag = null;
+    }
+
+    /**
+     * Sets {@code tag}'s namespace the way a browser's tree builder does. An HTML start tag in
+     * foreign content (such as {@code <p>}) makes the browser close the open foreign elements, so
+     * the rest of their content is HTML.
+     */
+    private void setNamespace(Open tag) {
+      Open parent = stack.peek();
+      boolean htmlRules = parent == null || ForeignContent.htmlRules(parent.ns, parent.name, parent.attributes, tag.name);
+      if (!htmlRules && ForeignContent.breaksOut(tag.name, tag.attributes)) {
+        for (Open o : stack) {
+          if (o.ns == ForeignContent.HTML || ForeignContent.integrationPoint(o.ns, o.name, o.attributes)) {
+            break;
+          }
+          o.ns = ForeignContent.HTML;
+        }
+        htmlRules = true;
+      }
+      tag.ns = htmlRules ? ForeignContent.htmlNamespace(tag.name) : parent.ns;
+      tag.foreign = tag.ns != ForeignContent.HTML;
     }
 
     @Override
@@ -386,9 +414,11 @@ final class AttoparserHtmlParser {
       }
       Open open = tag;
       tag = null;
+      setNamespace(open);
       open.textContext = Contexts.text(open.toElement(false, false));
       stack.push(open);
-      if (RAW_TEXT_ELEMENTS.contains(open.name.toLowerCase(Locale.ROOT))) {
+      // An HTML <title> or <textarea> (RCDATA) is raw text too; a foreign one is not (#277).
+      if (RAW_TEXT_ELEMENTS.contains(open.name.toLowerCase(Locale.ROOT)) || open.textContext == OutputContext.RCDATA) {
         // line:col is the '>' of the start tag; content starts right after it.
         raw = open;
         rawStart = offset(line, col) + 1;

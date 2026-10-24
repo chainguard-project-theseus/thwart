@@ -28,6 +28,11 @@ class ContextsTest {
     return new Element(name, list, List.of(), false, true, POS);
   }
 
+  /** An SVG or MathML element, as the parser marks one under {@code <svg>}/{@code <math>}. */
+  private static Element foreignElement(String name) {
+    return new Element(name, List.of(), List.of(), false, true, POS, true);
+  }
+
   @ParameterizedTest(name = "<{0} {1}> -> {2}")
   @CsvSource({
     // ATTRIBUTE
@@ -328,6 +333,9 @@ class ContextsTest {
     assertEquals(OutputContext.STYLE, Contexts.text(element("STYLE")));
     assertEquals(OutputContext.RCDATA, Contexts.text(element("title")));
     assertEquals(OutputContext.RCDATA, Contexts.text(element("TextArea")));
+    assertEquals(OutputContext.TEXT, Contexts.text(foreignElement("title")));
+    assertEquals(OutputContext.TEXT, Contexts.text(foreignElement("textarea")));
+    assertEquals(OutputContext.SCRIPT, Contexts.text(foreignElement("script")));
     assertEquals(OutputContext.TEXT, Contexts.text(element("xmp")));
     assertEquals(OutputContext.TEXT, Contexts.text(element("option")));
     assertEquals(OutputContext.TEXT, Contexts.text(element("div")));

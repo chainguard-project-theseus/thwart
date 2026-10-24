@@ -11,7 +11,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Client-side template injection (#248): Vue, petite-vue and AngularJS compile the rendered DOM
  * as a template, so {@code {{ }}} in an escaped value would run as an expression. Element text
- * breaks every {@code {{} with an empty comment; {@code <title>}/{@code <textarea>} (RCDATA),
+ * breaks every {@code {{} with an empty comment; HTML {@code <title>}/{@code <textarea>} (RCDATA),
  * attributes and scripts are unchanged; an expression inside a static {@code {{ }}} is a build
  * error.
  */
@@ -87,6 +87,24 @@ class ClientTemplateInjectionTest {
   }
 
   @Test
+  void svgAndMathTitleAndTextareaTextIsBroken() {
+    // #277: inside <svg>/<math> these are ordinary elements, not RCDATA: their text is element
+    // text, which the frameworks interpolate.
+    assertEquals("<svg><title><!---->{<!---->{x}}</title></svg>", render("<svg><title>[[s]]</title></svg>", "{{x}}"));
+    assertEquals(
+        "<svg><title><!---->{<!---->{x}}</title></svg>", render("<svg><title t:text=\"s\">t</title></svg>", "{{x}}"));
+    assertEquals(
+        "<svg><textarea><!---->{<!---->{x}}</textarea></svg>",
+        render("<svg><textarea t:text=\"s\"></textarea></svg>", "{{x}}"));
+    assertEquals(
+        "<math><title><!---->{<!---->{x}}</title></math>", render("<math><title>[[s]]</title></math>", "{{x}}"));
+    // An HTML textarea in an integration point is still RCDATA.
+    assertEquals(
+        "<svg><foreignObject><textarea>{{x}}</textarea></foreignObject></svg>",
+        render("<svg><foreignObject><textarea>[[s]]</textarea></foreignObject></svg>", "{{x}}"));
+  }
+
+  @Test
   void attributesAndScriptsAreNotChanged() {
     assertEquals("<i title=\"{{x}}\" data-v=\"{{x}}\">i</i>", render("<i t:title=\"s\" t:data-v=\"s\">i</i>", "{{x}}"));
     assertEquals("<a href=\"{{x}}\">a</a>", render("<a t:href=\"s\">a</a>", "{{x}}"));
@@ -105,6 +123,7 @@ class ClientTemplateInjectionTest {
         "<p>{{ [(h)] }}</p>",
         "<title>{{ [[s]] }}</title>",
         "<textarea>{{ [[s]] }}</textarea>",
+        "<svg><title>{{ [[s]] }}</title></svg>",
       })
   void expressionInsideStaticMustacheIsABuildError(String body) {
     compile(body).assertError("t.html:1:", "inside a client-side {{ ... }} interpolation", "data-*");

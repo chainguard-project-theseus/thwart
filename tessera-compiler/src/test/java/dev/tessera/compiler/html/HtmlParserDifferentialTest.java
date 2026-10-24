@@ -79,7 +79,8 @@ class HtmlParserDifferentialTest {
     "<a href=/x/>", "<a title=x onclick=y>", "<a A=1 a=2>", "<a b='x\"y'>", "<a b=>", "<a b= >", "<a b=\"\">",
     "<a\u000Bb=c>", "<a<b>", "<a b<c=d>", "<td t:text/>", "[[${x}]]", "[(${x})]", "${x}", "<span t:text=\"${a}\">",
     "</span>", "<ſcript>", "</ſcript>", "<scrİpt>", "<ſtyle>", "<Keygen>", "<svg>", "</svg>",
-    "<t:block>", "</t:block>",
+    "<t:block>", "</t:block>", "<math>", "</math>", "<foreignObject>", "</foreignObject>", "<desc>", "<mi>",
+    "<mglyph>", "<annotation-xml encoding=\"text/html\">", "<annotation-xml>", "<font color=r>", "<font>",
   };
 
   /** Single chars and keywords, for character-level soups that reach odd tokenizer states. */
@@ -99,6 +100,8 @@ class HtmlParserDifferentialTest {
     "<script type=\"\">if(a<b){}</script>", "<script type=\"text/javascript \">if(a<b){}</script>",
     "<script>a</script >b</script>", "<script>a</SCRIPT x>b</script>", "<textarea>a</TEXTAREA x>b</textarea>",
     "<title>a <b c=\"</TITLE>\">b</title>", "<title><!-- </title> --></title>", "<script><!-- x --></script>",
+    "<svg><title>a<b>c</b></title><textarea><i>x</i></textarea></svg>", "<svg><desc><title><i>x</title></desc></svg>",
+    "<math><mi><textarea><i>x</textarea></mi><title><i>x</i></title></math>", "<svg><p></p><title><i>x</title></svg>",
     "<div><p>x</div>", "<div></p></div>", "<br></br>", "<p><br/></p>", "<frame><command>",
     "<div a=1 a=2 A=3>", "<div\n a=1\n a=2>", "<a b=\"x\"=y>", "<a =x>", "</a b>", "</a\n>", "</>", "<>",
     "<!---->", "<!--->-->", "<!-- -- -->", "<![CDATA[]]>", "<?ab?>", "<?a?>?>", "<!doctype html><html></html>",
@@ -155,7 +158,7 @@ class HtmlParserDifferentialTest {
     Document doc = new HtmlParser().parse(source("<a\tb=c>"), d);
     assertEquals("Document[source=TemplateSource[viewName=t, path=t.html, content=<a\tb=c>], children=[Element[name=a,"
         + " attributes=[Attribute[name=b, value=c, rawValue=c, quote=\u0000, pos=t.html:1:4, valuePos=t.html:1:6]],"
-        + " children=[], selfClosing=false, hasEndTag=false, pos=t.html:1:1]]]", doc.toString());
+        + " children=[], selfClosing=false, hasEndTag=false, pos=t.html:1:1, inForeignContent=false]]]", doc.toString());
     assertEquals(List.of("t.html:1:1: error: element <a> is not closed: add </a>"),
         d.all().stream().map(Diagnostic::toString).toList());
   }

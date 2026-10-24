@@ -452,7 +452,7 @@ The compiler decides the context from the element and attribute name. You cannot
 | Context | Where | What happens |
 |---|---|---|
 | Text | element text, `t:text`, `[[...]]` | `& < > " '` escaped, and `{{` broken with an empty comment (below). |
-| Title and textarea | text in `<title>` and `<textarea>` (also `t:field`) | `& < > " '` escaped; `{{` is left as is. |
+| Title and textarea | text in `<title>` and `<textarea>` (also `t:field`) | `& < > " '` escaped; `{{` is left as is. Inside `<svg>`/`<math>` (outside `foreignObject`, `desc` and the like) they are ordinary elements, as in a browser: their content is markup and their text is element text. |
 | Raw HTML | `t:utext`, `[(...)]` | Only `SafeHtml`, or a bundle message checked at build time (section 4.5), compiles. |
 | Attribute | any other attribute value | Escaped, always double-quoted. |
 | URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, `hx-push-url`, `hx-replace-url`, ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. |
@@ -521,7 +521,7 @@ not it shows a mount point, since the app is often mounted from JavaScript or in
 same applies to `SafeHtml.escape`, `html.sanitize` (which also percent-encodes `{` in the links it
 keeps) and the arguments of an HTML message. An expression inside a static `{{ ... }}` in the
 template is a build error, since the framework would run the value as code: pass it in a
-`data-*` attribute or a `<script>` with `[[...]]`. Attribute values and `<title>`/`<textarea>` text are not changed (section 7).
+`data-*` attribute or a `<script>` with `[[...]]`. Attribute values and HTML `<title>`/`<textarea>` text are not changed (section 7).
 
 In a script, a record or `@TemplateView` bean becomes a JSON object of the properties a template
 can read, as Thymeleaf's Jackson output does: `var chart = [[${chart}]];` works unchanged. Record
@@ -1551,8 +1551,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
   region. Custom delimiters (Vue `delimiters`, AngularJS `$interpolateProvider`) are not
   broken, so keep the default `{{ }}` or mark the region. The check for an expression inside a
   static `{{ }}` only sees one text: a `{{` before a tag or comment and an expression after it
-  are not reported. `SafeHtml.unchecked` text is not changed, and neither is SVG `<title>` text,
-  which the frameworks interpolate too: add `v-pre`/`ng-non-bindable` there as well.
+  are not reported. `SafeHtml.unchecked` text is not changed.
 - **Security functions.** `auth` has `hasRole`/`hasAnyRole`, not `hasAuthority`; compute anything
   else in the controller.
 - **Selections.** `~{::tag}` selects fragment names and plain tag names only: not hyphenated tags,

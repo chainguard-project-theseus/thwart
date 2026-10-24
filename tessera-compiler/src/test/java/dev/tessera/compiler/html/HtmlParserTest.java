@@ -17,6 +17,7 @@ import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.model.Text;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +47,19 @@ class HtmlParserTest {
 
   private static Element el(Node n) {
     return assertInstanceOf(Element.class, n);
+  }
+
+  /** Every text node, depth-first, as {@code raw=context}. */
+  private static List<String> texts(List<Node> nodes) {
+    List<String> out = new ArrayList<>();
+    for (Node n : nodes) {
+      if (n instanceof Text t) {
+        out.add(t.raw() + "=" + t.context());
+      } else if (n instanceof Element e) {
+        out.addAll(texts(e.children()));
+      }
+    }
+    return out;
   }
 
   /** Serializes the tree back to HTML (attribute whitespace normalized to one space). */
@@ -144,6 +158,83 @@ class HtmlParserTest {
         List.of(OutputContext.RCDATA, OutputContext.RCDATA, OutputContext.STYLE, OutputContext.FORBIDDEN),
         top.stream().map(n -> ((Text) el(n).children().get(0)).context()).toList());
     assertEquals(0, el(parseOk("<script src=\"/a.js\"></script>").rootElement()).children().size());
+  }
+
+  @Test
+  void foreignTitleAndTextareaContentIsMarkup() {
+    // #277: under <svg>/<math> a browser parses <title> and <textarea> content as markup (an SVG
+    // <title> is an HTML integration point, the others are ordinary foreign elements), so a
+    // nested <script> is a real script and their text is element text.
+    Document doc = parseOk("<svg><title>a<b>c</b></title></svg>");
+    Element title = el(el(doc.rootElement()).children().get(0));
+    Element b = el(title.children().get(1));
+    assertEquals("b", b.name());
+    assertEquals(pos(1, 14), b.pos());
+    assertEquals(pos(1, 17), b.children().get(0).pos());
+    assertEquals(List.of("a=TEXT", "c=TEXT"), texts(doc.children()));
+    for (String html :
+        List.of(
+            "<svg><title><script>[[${x}]]</script></title></svg>",
+            "<svg><textarea><script>[[${x}]]</script></textarea></svg>",
+            "<math><title><script>[[${x}]]</script></title></math>",
+            "<math><textarea><script>[[${x}]]</script></textarea></math>",
+            "<SVG><g><Title><script>[[${x}]]</script></Title></g></SVG>",
+            // MathML <title> is not an integration point; annotation-xml is one only for HTML.
+            "<math><title><textarea><script>[[${x}]]</script></textarea></title></math>",
+            "<math><annotation-xml><textarea><script>[[${x}]]</script></textarea></annotation-xml></math>",
+            "<math><annotation-xml encoding=\"text/xml\"><title><script>[[${x}]]</script></title></annotation-xml></math>",
+            // mglyph/malignmark stay MathML in a text integration point.
+            "<math><mi><mglyph><textarea><script>[[${x}]]</script></textarea></mglyph></mi></math>",
+            // <svg> starts foreign content again inside an integration point.
+            "<svg><foreignObject><svg><title><script>[[${x}]]</script></title></svg></foreignObject></svg>",
+            "<math><annotation-xml><svg><title><script>[[${x}]]</script></title></svg></annotation-xml></math>",
+            // <font> leaves foreign content only with color, face or size.
+            "<svg><font></font><textarea><script>[[${x}]]</script></textarea></svg>")) {
+      assertEquals(List.of("[[${x}]]=SCRIPT"), texts(parseOk(html).children()), html);
+    }
+  }
+
+  @Test
+  void htmlTitleAndTextareaInsideForeignContentStayRawText() {
+    // Integration points (SVG foreignObject/desc/title, MathML mi/mo/mn/ms/mtext and
+    // annotation-xml with an HTML encoding) and the HTML start tags that end foreign content in a
+    // browser make the next <title>/<textarea> an HTML one again: RCDATA, raw text.
+    for (String html :
+        List.of(
+            "<svg><foreignObject><textarea><i>x</textarea></foreignObject></svg>",
+            "<svg><FOREIGNOBJECT><textarea><i>x</textarea></FOREIGNOBJECT></svg>",
+            "<svg><desc><title><i>x</title></desc></svg>",
+            "<svg><title><textarea><i>x</textarea></title></svg>",
+            "<math><mi><textarea><i>x</textarea></mi></math>",
+            "<math><mo><textarea><i>x</textarea></mo></math>",
+            "<math><mn><textarea><i>x</textarea></mn></math>",
+            "<math><ms><textarea><i>x</textarea></ms></math>",
+            "<math><mtext><textarea><i>x</textarea></mtext></math>",
+            "<math><annotation-xml encoding=\"text/html\"><title><i>x</title></annotation-xml></math>",
+            "<math><annotation-xml encoding=\"Application/XHTML+XML\"><title><i>x</title></annotation-xml></math>",
+            "<svg></svg><textarea><i>x</textarea>",
+            "<svg><p></p><textarea><i>x</textarea></svg>",
+            "<svg><g><br><title><i>x</title></g></svg>",
+            "<svg><textarea><div></div><textarea><i>x</textarea></textarea></svg>",
+            "<math><mrow><img src=\"a\"/><title><i>x</title></mrow></math>",
+            "<svg><font color=\"red\"></font><textarea><i>x</textarea></svg>")) {
+      assertEquals(List.of("<i>x=RCDATA"), texts(parseOk(html).children()), html);
+    }
+  }
+
+  @Test
+  void hiddenEndTagInHtmlTextareaInsideForeignContentIsAnError() {
+    // The naive "inside <svg>" rule would parse these as markup and miss the </textarea that a
+    // browser ends the HTML textarea at, putting the TEXT-escaped value in a live script.
+    assertEquals(
+        List.of("dir/t.html:1:41: error: malformed markup: content of <textarea> contains"
+            + " '</textarea' before its end tag: escape it (in a script string, write '<\\/textarea')"),
+        errors("<svg><foreignObject><textarea><a title=\"</textarea><script>\">[[${x}]]</a></textarea>"
+            + "</foreignObject></svg>"));
+    assertEquals(
+        List.of("dir/t.html:1:26: error: malformed markup: content of <title> contains"
+            + " '</title' before its end tag: escape it (in a script string, write '<\\/title')"),
+        errors("<svg><p></p><title><a b=\"</title><script>\">[[${x}]]</a></title></svg>"));
   }
 
   @Test

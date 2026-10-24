@@ -78,6 +78,11 @@ class XssContextTest {
               Kind.JSON, Kind.JSON, Kind.JSON, Kind.JSON, Kind.JSON),
           new Line("<SCRIPT type=\"application/json\">[[s]]</SCRIPT>", Kind.JSON),
           new Line(
+              "<svg><title>[[s]]<script>var a = [[s]];</script></title><textarea t:text=\"s\"></textarea>"
+                  + "<textarea><script>var b = [[s]];</script></textarea></svg>",
+              // #277: SVG title/textarea are not RCDATA; a nested <script> is a real script.
+              Kind.TEXT, Kind.JSON, Kind.TEXT, Kind.JSON),
+          new Line(
               "<form method=\"post\" t:object=\"owner\"><input t:field=\"*{name}\"><span t:errors=\"*{name}\">e</span>"
                   + "<textarea t:field=\"*{name}\"></textarea></form>",
               // The first slot is the injected CSRF hidden-input value, before the fields. A
@@ -228,6 +233,26 @@ class XssContextTest {
     assertTrue(out.contains("<p>&lt;/script&gt;&lt;b&gt;</p>"), out);
   }
 
+  @Test
+  void scriptInsideSvgOrMathTitleOrTextareaGetsJsonEscaping() {
+    // #277: a browser runs a <script> nested in an SVG/MathML <title> or <textarea>; before the
+    // fix these were RCDATA and the value was written as bare JavaScript.
+    Compilation c =
+        Compilation.builder()
+            .template(
+                "page.html",
+                "<div t:params=\"String s\"><svg><title><script>var a = [[s]];</script></title>"
+                    + "<textarea><script>var b = [[s]];</script></textarea></svg>"
+                    + "<math><title><script>var c = [[s]];</script></title></math></div>")
+            .compile();
+    c.assertSuccess();
+    assertEquals(
+        "<div><svg><title><script>var a = \"alert(1)\";</script></title>"
+            + "<textarea><script>var b = \"alert(1)\";</script></textarea></svg>"
+            + "<math><title><script>var c = \"alert(1)\";</script></title></math></div>",
+        c.render("page", Map.of("s", "alert(1)")));
+  }
+
   /** Markup that must fail to build: these contexts cannot be escaped. */
   static final List<String> REJECTED =
       List.of(
@@ -267,7 +292,10 @@ class XssContextTest {
           "<p t:utext=\"#{greet(s)}\">x</p>",
           "<script>var a = [(s)];</script>",
           "<script t:utext=\"s\"></script>",
-          "<i t:attr=\"a b=s\">x</i>");
+          "<i t:attr=\"a b=s\">x</i>",
+          // An HTML textarea/title inside foreign content still ends at the first end tag (#277).
+          "<svg><foreignObject><textarea><a title=\"</textarea><script>/*\">*/[[s]]//</a></textarea></foreignObject></svg>",
+          "<svg><p></p><title><a title=\"</title><script>/*\">*/[[s]]//</a></title></svg>");
 
   /** The built-in {@code html.sanitize} turns stored rich text into SafeHtml for raw output. */
   @Test
