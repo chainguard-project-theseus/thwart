@@ -487,6 +487,11 @@ public final class HtmlParser {
     }
 
     @Override
+    public boolean rawText() {
+      return raw != null;
+    }
+
+    @Override
     public void endTag(int lt, int nameEnd) {
       String name = str(lt + 2, nameEnd);
       SourcePos closePos = position(lt);

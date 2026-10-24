@@ -1217,6 +1217,30 @@ These come from the annotation processor itself, without a template position.
   fix the tag name, or escape a literal `<` in text as `&lt;`.
 - `malformed markup: invalid attribute name '<name>': attribute names cannot contain <, quotes or =`:
   usually a missing quote or space before the attribute.
+- `malformed markup: quote <quote> in an unquoted attribute value: quote the value and write <reference> in it`:
+  a quote inside a value written without quotes, as in `title=a"b`. A browser keeps it as a
+  character of the value and ends the tag at the next `>`, where Tessera would not. Quote the
+  value and write the quote as `&quot;` or `&#39;` (`title="a&quot;b"`).
+- `malformed markup: quote <quote> in a tag or attribute name: remove it (names cannot contain quotes)`:
+  a quote that does not open or close a quoted value, as in `<p"x">`, `title="a"b"` or
+  `</p ">`. A browser reads it as part of a name and ends the tag at the next `>`, where Tessera
+  would not. Remove it; write a quote inside a value as `&quot;` (`title="a&quot;b"`), and
+  remove anything after the name of an end tag.
+- `malformed markup: U+<hex> in a tag is not HTML whitespace: replace it with a space`:
+  a character that Java counts as whitespace but HTML does not (U+000B, U+001C to U+001F,
+  U+2028, U+3000 and the other Unicode spaces) in a tag, outside a quoted value. A browser keeps
+  it as part of the tag name, attribute name or value, so `<textarea` followed by U+000B is an
+  unknown element whose content is live markup. Only space, tab, newline, carriage return and
+  form feed separate the parts of a tag.
+- `malformed markup: '/' before '>' belongs to the unquoted value, not to '/>': quote the value`:
+  as in `<textarea x=y/>` or `<img src=a/>`. A browser reads the `/` as the last character of
+  the value, so the tag is an open tag, not a self-closing one. Quote the value
+  (`<img src="a"/>`).
+- `malformed markup: a name after '/' in a tag starts a new attribute in a browser: remove the '/'`:
+  as in `<p title="x"/t:text="s">`, `<img/src=x>` or `<script type/ type="application/json">`.
+  A browser ends a name at a `/` and reads the name after it, with or without whitespace
+  between, as a new attribute, where Tessera would not. Remove the `/`; only whitespace and `>`
+  may follow it (`<br/>`, `<br / >`).
 - `duplicate attribute '<name>' on <<tag>>: remove one of them`: keep one; names are
   case-insensitive (`t:text` and `T:TEXT` are the same).
 - `malformed markup: content of <<tag>> contains '</<tag>' before its end tag: escape it (in a script string, write '<\/<tag>')`:
