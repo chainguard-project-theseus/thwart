@@ -171,6 +171,47 @@ class TextOutputTest {
   }
 
   @Test
+  void inlinedInsideScriptStringIsABuildError() {
+    compile("String s", "<script>var a = \"[[s]]\";</script>")
+        .assertError("page.html:1:", "inside a \"...\" JavaScript string", "var x = [[...]];");
+    compile("String s", "<script>var a = \"it's\" + \"[[s]]\";</script>").assertError("inside a \"...\"");
+    compile("String s", "<script>var t = `a ${b ? \"[[s]]\" : c} d`;</script>").assertError("inside a \"...\"");
+    compile("String s", "<script>var r = /x/g; var a = \"[[s]]\";</script>").assertError("inside a \"...\"");
+    // A backslash before CRLF continues the string; U+2028 does not end it.
+    compile("String s", "<script>var a = \"Hi \\\r\n[[s]]\";</script>").assertError("inside a \"...\"");
+    compile("String s", "<script>var a = \"x [[s]]\";</script>").assertError("inside a \"...\"");
+    // A / after a condition's ) starts a regex; after a postfix ++ or a property name it divides.
+    compile("String s", "<script>if (ok) /\"/.test(v); var a = \"[[s]]\";</script>").assertError("inside a \"...\"");
+    compile("String s", "<script>n++ / 2; var a = \"[[s]]\";</script>").assertError("inside a \"...\"");
+    compile("String s", "<script>x.return / 2; var a = \"[[s]]\";</script>").assertError("inside a \"...\"");
+    // [(...)] keeps its own message.
+    compile("String s", "<script>var a = \"[(s)]\";</script>").assertError("[(...)] is only allowed in element text");
+  }
+
+  @Test
+  void inlinedInScriptOutsideStringsCompiles() {
+    String[] scripts = {
+      "var a = \"Hi \" + [[s]] + '!';",
+      "var a = 'Hi [[s]]'; var b = 'x \"[[s]]\" y';",
+      "var a = 'it\\'s'; var b = \"say \\\"x\\\"\"; var c = [[s]];",
+      "// don't\nvar a = [[s]];",
+      "/* \"it's\" */ var a = [[s]];",
+      "var r = /[\"']/; var a = [[s]];",
+      "function f(x) { return /'/.test(x); } var a = [[s]];",
+      "var h = n / 2; var q = 'a/b'; var a = [[s]];",
+      "var t = `${\"x\"} it's`; var a = [[s]];",
+      "var t = `\\${\"`; var a = [[s]];",
+      "var a = [[s]] / 2; var b = '/'; var c = [[s]];",
+      "var a = /*[[s]]*/ 'x'; var b = /[[s]]/; var c = `[[s]]`;",
+      "if (f(x)) { y = (a) / 2; } var q = 'a/b'; var a = [[s]];",
+      "while (ok) /x/.exec(v); var a = [[s]];"
+    };
+    for (String script : scripts) {
+      compile("String s", "<script>" + script + "</script>").assertSuccess();
+    }
+  }
+
+  @Test
   void inlinedInScriptRejectsNonJsonTypes() {
     compile("SafeHtml h", "<script>var p = [[h]];</script>").assertError("page.html:1:", "inside <script>");
     compile("Map<Integer, String> m", "<script>var p = [[m]];</script>").assertError("inside <script>");

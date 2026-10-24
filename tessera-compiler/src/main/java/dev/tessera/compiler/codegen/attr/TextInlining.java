@@ -41,6 +41,7 @@ public final class TextInlining {
     }
     StringBuilder code = new StringBuilder();
     StringBuilder literal = new StringBuilder();
+    ScriptStrings js = text.context() == OutputContext.SCRIPT ? new ScriptStrings() : null;
     boolean found = false;
     boolean html = text.context() == OutputContext.TEXT || text.context() == OutputContext.RCDATA;
     boolean inMustache = false;
@@ -64,12 +65,27 @@ public final class TextInlining {
             i = end + 2;
             continue;
           }
-          code.append(inline(ctx, text.context(), raw.substring(i + 2, end), pos, escaped, scope));
+          if (escaped && js != null && js.inDoubleQuotes()) {
+            ctx.diagnostics()
+                .error(
+                    pos,
+                    "[[...]] is not allowed inside a \"...\" JavaScript string: it writes a whole JSON"
+                        + " value, quotes included; write it outside the quotes, as in var x = [[...]];"
+                        + " or \"Hello \" + [[...]]");
+          } else {
+            code.append(inline(ctx, text.context(), raw.substring(i + 2, end), pos, escaped, scope));
+          }
+          if (js != null) {
+            js.value();
+          }
           i = end + 2;
           continue;
         }
       }
       literal.append(raw.charAt(i));
+      if (js != null) {
+        js.text(raw.charAt(i));
+      }
       i++;
     }
     if (!found) {

@@ -74,8 +74,9 @@ class XssContextTest {
           new Line("<p t:text=\"|a ${s} b|\">x</p>", Kind.TEXT_PART),
           new Line("<script t:text=\"s\"></script>", Kind.JSON),
           new Line(
-              "<script>var a = [[s]]; /*[[s]]*/ var t = `[[s]]`; var r = /[[s]]/; // [[s]]\n</script>",
-              Kind.JSON, Kind.JSON, Kind.JSON, Kind.JSON, Kind.JSON),
+              "<script>var a = [[s]]; /*[[s]]*/ var t = `[[s]]`; var r = /[[s]]/; // [[s]]\n"
+                  + "var q = 'Hi [[s]]!';</script>",
+              Kind.JSON, Kind.JSON, Kind.JSON, Kind.JSON, Kind.JSON, Kind.JSON),
           new Line("<SCRIPT type=\"application/json\">[[s]]</SCRIPT>", Kind.JSON),
           new Line(
               "<form method=\"post\" t:object=\"owner\"><input t:field=\"*{name}\"><span t:errors=\"*{name}\">e</span>"
@@ -266,6 +267,14 @@ class XssContextTest {
           "<p t:utext=\"'<b>' + s\">x</p>",
           "<p t:utext=\"#{greet(s)}\">x</p>",
           "<script>var a = [(s)];</script>",
+          "<script>var a = \"[[s]]\";</script>",
+          "<script type=\"application/json\">{\"a\": \"[[s]]\"}</script>",
+          "<script>var a = `${\"[[s]]\"}`;</script>",
+          // Scripts whose type the tokenizer does not take for JavaScript are still one text.
+          "<script type=\"\">var a = \"<!---->[[s]]\";</script>",
+          "<script type=\"\">var a = \"<i></i>[[s]]\";</script>",
+          "<script type>var a = \"<i></i>[[s]]\";</script>",
+          "<script type=\"application/json\">{\"a\": \"<i></i>[[s]]\"}</script>",
           "<script t:utext=\"s\"></script>",
           "<i t:attr=\"a b=s\">x</i>");
 

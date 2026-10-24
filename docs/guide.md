@@ -459,7 +459,7 @@ The compiler decides the context from the element and attribute name. You cannot
 | Resource URL | `script[src]`, `iframe[src]`, `embed[src]`, `object[data]`, `base[href]`, `link[href]` | Only a literal-path `@{...}` link or a `TrustedUrl` compiles. |
 | htmx request URL | `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect`, `ws-connect` (also with `data-`) | Only a link whose literal path starts with a single `/` compiles, as for a refresh: htmx swaps the response into the page as HTML, and htmx 1.x also requests other origins. Static values are copied verbatim. htmx 1.x's `hx-sse` and `hx-ws` (`connect:<url>`) take no expression at all. |
 | htmx form URL | `action` of a `<form>` inside `hx-boost`; `formaction` inside `hx-boost` or inside a `<form>` with an htmx request attribute | Same rule as an htmx request URL: htmx submits the form with AJAX and swaps the response in. `hx-boost="false"` on the form opts out. `hx-boost` itself cannot be computed. Links (`href`) are not affected. |
-| Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, records and `@TemplateView` beans, collections, String-keyed maps). |
+| Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, records and `@TemplateView` beans, collections, String-keyed maps). The JSON brings its own quotes, so `[[...]]` inside a `"..."` string is a build error: write `var x = [[...]];` or `"Hello " + [[...]]`. |
 | Style | `<style>` text and `style` attribute | In `<style>`, expressions are a build error. A `style` attribute takes only string literals, numbers and `CssValue`s, combined with `+`, `\|...\|`, `?:` and `? :`; anything else (a `String` value) is a build error. |
 | Refresh | `content` of `<meta http-equiv="refresh">` | Only `'<seconds>;url=' + @{/path...}` compiles: a literal delay and a link whose literal path starts with a single `/`, so the refresh stays on the same origin. Path variables and parameters are encoded as usual, and `; , ' "`, `\` and whitespace in the URL are percent-encoded. Rendered as `<seconds>;url=<url>`. |
 | Vue/Alpine binding | `:x`, `v-bind:x`, `x-bind:x` whose target `x` is an ordinary attribute (below) | Only a value `[[...]]` accepts in a script compiles; it is written as the same JSON, then attribute-escaped. `null` is written as `null`. |
@@ -1389,6 +1389,10 @@ These come from the annotation processor itself, without a template position.
 - `[[...]] is inside a client-side {{ ... }} interpolation: Vue or AngularJS would run the value as code, whatever the escaping. Pass the value in a data-* attribute or a <script> with [[...]] and read it from there`
   (also `[(...)]`): the text has a `{{` with no `}}` before the expression. Character references
   for braces count, as the framework decodes them.
+- `[[...]] is not allowed inside a "..." JavaScript string: it writes a whole JSON value, quotes included; write it outside the quotes, as in var x = [[...]]; or "Hello " + [[...]]`
+  The value's opening quote would end the string and the rest would run as code. Comments,
+  `'...'` strings (where the value keeps its quotes), template literals and regex literals are
+  fine.
 - `cannot output a value of type <type> inside <script>: only strings, numbers, booleans, enums, java.time values, records and @TemplateView classes of those, and Optionals, collections, arrays and String-keyed maps of those can be serialized as JSON`:
   when a property of a record or bean is the problem, the message ends with
   `; property '<name>' of <type> has type <type>` (or `; <type> contains itself with different type arguments`).
