@@ -4,6 +4,7 @@ import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.TemplateSource;
+import dev.tessera.compiler.html.MarkupTokenizer.Handler;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Comment;
 import dev.tessera.compiler.model.DocType;
@@ -90,20 +91,63 @@ public final class HtmlParser {
    * Index of a {@code >} before the last char of {@code outer}, a CDATA section, DOCTYPE, XML
    * declaration or processing instruction as the tokenizer read it, or -1. A browser ends each of
    * these at its first {@code >} (outside svg and math, a CDATA section is a bogus comment; a
-   * {@code <?...>} always is), quotes and brackets included, so the contexts after an earlier
-   * {@code >} would differ from Tessera's.
+   * {@code <?...>} is a processing instruction or, for some targets, a bogus comment), quotes and
+   * brackets included, so the contexts after an earlier {@code >} would differ from Tessera's.
    */
+  /*@ // The first '>' among all but the last char of outer (docs/rule-contracts.md, earlyEnd).
+    @ normal_behavior
+    @   requires outer != null;
+    @   ensures -1 <= \result && \result + 1 < outer.length() || \result == -1;
+    @   ensures \result >= 0 ==> outer.chars[\result] == '>';
+    @   ensures (\forall int k; 0 <= k && k < (\result < 0 ? outer.length() - 1 : \result);
+    @       outer.chars[k] != '>');
+    @ pure
+    @*/
   static int earlyEnd(String outer) {
-    int gt = outer.indexOf('>');
-    return gt < outer.length() - 1 ? gt : -1;
+    int n = outer.length();
+    //@ maintaining 0 <= i && (i < n || i == 0);
+    //@ maintaining (\forall int k; 0 <= k && k < i && k + 1 < n; outer.chars[k] != '>');
+    //@ loop_assigns i;
+    //@ decreases n - i;
+    for (int i = 0; i + 1 < n; i++) {
+      if (outer.charAt(i) == '>') {
+        return i;
+      }
+    }
+    return -1;
   }
+
+  /*@ // A bogus comment (for '<?', a processing instruction or a bogus comment) starts at t[i]:
+    @ // '<' then '!' or '?', or "</" not followed by an ASCII letter or '>' (the end of t counts as neither).
+    @ public normal_behavior
+    @   ensures \result <==> (0 <= i && i + 1 < t.length && t[i] == '<'
+    @       && (t[i + 1] == '!' || t[i + 1] == '?'
+    @           || (t[i + 1] == '/' && !(i + 2 < t.length
+    @               && ('a' <= t[i + 2] && t[i + 2] <= 'z' || 'A' <= t[i + 2] && t[i + 2] <= 'Z'
+    @                   || t[i + 2] == '>')))));
+    @ public static model no_state helper boolean bogusAt(\string t, int i);
+    @*/
 
   /**
    * Index in {@code text}, element text the tokenizer did not read as markup, of a {@code <!},
    * {@code <?} or {@code </} not followed by an ASCII letter or {@code >}, or -1. A browser starts
-   * a bogus comment there that ends at the first {@code >}, hiding markup Tessera reads.
+   * a bogus comment there (for {@code <?}, a processing instruction or a bogus comment) that ends at
+   * the first {@code >}, hiding markup Tessera reads.
    */
+  /*@ // The first index where bogusAt holds (docs/rule-contracts.md, bogusComment).
+    @ normal_behavior
+    @   requires text != null;
+    @   ensures \result == -1 || 0 <= \result && \result < text.length();
+    @   ensures \result >= 0 ==> bogusAt(text.chars, \result);
+    @   ensures (\forall int k; 0 <= k && k < (\result < 0 ? text.length() : \result);
+    @       !bogusAt(text.chars, k));
+    @ pure
+    @*/
   static int bogusComment(CharSequence text) {
+    //@ maintaining 0 <= i && (i < text.length() || i == 0);
+    //@ maintaining (\forall int k; 0 <= k && k < i; !bogusAt(text.chars, k));
+    //@ loop_assigns i;
+    //@ decreases text.length() - i;
     for (int i = 0; i + 1 < text.length(); i++) {
       if (text.charAt(i) != '<') {
         continue;
@@ -136,10 +180,29 @@ public final class HtmlParser {
    * section as a comment, and inside them as text that does not decode {@code &lt;}; in neither is
    * the value element text, so no escaping fits.
    */
+  /*@ // The first '[' followed by '[' or '(' (docs/rule-contracts.md, cdataHole).
+    @ normal_behavior
+    @   requires outer != null;
+    @   ensures -1 <= \result && \result + 1 < outer.length() || \result == -1;
+    @   ensures \result >= 0 ==> outer.chars[\result] == '['
+    @       && (outer.chars[\result + 1] == '[' || outer.chars[\result + 1] == '(');
+    @   ensures (\forall int k; 0 <= k && k + 1 < outer.length() && (\result < 0 || k < \result);
+    @       !(outer.chars[k] == '[' && (outer.chars[k + 1] == '[' || outer.chars[k + 1] == '(')));
+    @ pure
+    @*/
   static int cdataHole(String outer) {
-    int a = outer.indexOf("[[");
-    int b = outer.indexOf("[(");
-    return a < 0 ? b : b < 0 ? a : Math.min(a, b);
+    int n = outer.length();
+    //@ maintaining 0 <= i && (i < n || i == 0);
+    //@ maintaining (\forall int k; 0 <= k && k < i && k + 1 < n;
+    //@     !(outer.chars[k] == '[' && (outer.chars[k + 1] == '[' || outer.chars[k + 1] == '(')));
+    //@ loop_assigns i;
+    //@ decreases n - i;
+    for (int i = 0; i + 1 < n; i++) {
+      if (outer.charAt(i) == '[' && (outer.charAt(i + 1) == '[' || outer.charAt(i + 1) == '(')) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   /** The build error when {@link #cdataHole} finds an expression. */
@@ -237,11 +300,273 @@ public final class HtmlParser {
    * <!--->} and at a {@code --!>} whose dashes come after {@code <!--}; any of these in {@code
    * comment} means a browser reads the markup after it differently (offset 0 for the first two).
    */
+  /*@ normal_behavior
+    @   requires comment.length() >= 4 && comment.chars[0] == '<' && comment.chars[1] == '!'
+    @       && comment.chars[2] == '-' && comment.chars[3] == '-';
+    @   ensures -1 <= \result && \result < comment.length();
+    @   // -1 exactly when a browser emits no comment token before the last char. Strings of 4 to 6
+    @   // chars, which the tokenizer never delimits, are read to their end, so <!--> and <!---> give 0.
+    @   ensures \result == -1 <==> (\forall int j; 4 < j && j <= (comment.length() < 7 ? comment.length() : comment.length() - 1);
+    @       commentRun(comment, j) != 10);
+    @   // and then a comment ending in "-->" (as the tokenizer delimits them) ends at its last char
+    @   ensures \result == -1 && comment.length() >= 7 && comment.chars[comment.length() - 3] == '-'
+    @       && comment.chars[comment.length() - 2] == '-' && comment.chars[comment.length() - 1] == '>'
+    @       ==> commentRun(comment, comment.length()) == 10;
+    @   // the same in the syntactic form (docs/rule-contracts.md, section 2): it does not start with
+    @   // "<!-->" or "<!--->", and has no "--!>" from index 4 on whose '>' is before the last char
+    @   ensures \result == -1 && comment.length() >= 7 ==> comment.chars[4] != '>'
+    @       && !(comment.chars[4] == '-' && comment.chars[5] == '>');
+    @   ensures \result == -1 ==> (\forall int p; 4 <= p && p + 4 < comment.length();
+    @       !(comment.chars[p] == '-' && comment.chars[p + 1] == '-' && comment.chars[p + 2] == '!'
+    @           && comment.chars[p + 3] == '>'));
+    @ pure
+    @*/
   static int earlyCommentEnd(String comment) {
-    if (comment.startsWith("<!-->") || comment.startsWith("<!--->")) {
-      return 0;
+    int n = comment.length();
+    int state = COMMENT_START;
+    int last = n < 7 ? n : n - 1;
+    //@ maintaining 4 <= k && (k <= last || k == 4);
+    //@ maintaining 0 <= state && state <= 9 && state == commentRun(comment, k);
+    //@ maintaining (\forall int j; 4 <= j && j <= k; 0 <= commentRun(comment, j) && commentRun(comment, j) <= 9);
+    //@ loop_assigns k, state;
+    //@ decreases n - k;
+    for (int k = 4; k < last; k++) {
+      char c = comment.charAt(k);
+      //@ assert c == comment.chars[k];
+      int next = commentStep(state, c);
+      if (next == COMMENT_EMIT) {
+        //@ assert commentRun(comment, k + 1) == COMMENT_EMIT;
+        // <!--> and <!---> end in the comment start states; otherwise "--!>" (or "-->") ends it
+        return k <= 5 ? 0 : state == COMMENT_END_BANG ? k - 3 : k - 2;
+      }
+      state = next;
     }
-    return comment.indexOf("--!>", 4);
+    //@ assert n >= 7 ==> commentRun(comment, 4) == 0 && commentRun(comment, 5) <= 9 && commentRun(comment, 6) <= 9;
+    //@ assert n >= 7 ==> commentRun(comment, 5) == whatwgComment(0, comment.chars[4]);
+    //@ assert n >= 7 ==> commentRun(comment, 6) == whatwgComment(commentRun(comment, 5), comment.chars[5]);
+    //@ assert n >= 7 ==> commentEndsAtDashDashGt(commentRun(comment, n - 3));
+    //@ assert (\forall int p; 4 <= p && p + 4 < n; commentEndsAtDashDashBangGt(commentRun(comment, p)));
+    //@ assert (\forall int p; 4 <= p && p + 4 < n && comment.chars[p] == '-' && comment.chars[p + 1] == '-'
+    //@     && comment.chars[p + 2] == '!' && comment.chars[p + 3] == '>' ==> commentRun(comment, p + 4) == 10);
+    return -1;
+  }
+
+  // The WHATWG comment states (HTML 13.2.5.43-52) after "<!--", and COMMENT_EMIT where a browser
+  // emits the comment token.
+  private static final int COMMENT_START = 0;
+  private static final int COMMENT_START_DASH = 1;
+  private static final int COMMENT_TEXT = 2;
+  private static final int COMMENT_LT = 3;
+  private static final int COMMENT_LT_BANG = 4;
+  private static final int COMMENT_LT_BANG_DASH = 5;
+  private static final int COMMENT_LT_BANG_DASH_DASH = 6;
+  private static final int COMMENT_END_DASH = 7;
+  private static final int COMMENT_END = 8;
+  private static final int COMMENT_END_BANG = 9;
+  private static final int COMMENT_EMIT = 10;
+
+  /*@ // WHATWG HTML 13.2.5.43-52: the comment state after consuming c in state s, with "reconsume in
+    @ // state X" followed through. 10 is where the comment token is emitted. No state ends the
+    @ // comment at any other char.
+    @ public normal_behavior
+    @   ensures \result == (
+    @       // 43 comment start: '-' -> start dash, '>' -> emit (abrupt-closing-of-empty-comment)
+    @       s == 0 ? (c == '-' ? 1 : c == '>' ? 10 : whatwgComment(2, c))
+    @       // 44 comment start dash: '-' -> end, '>' -> emit (abrupt), else reconsume in comment
+    @     : s == 1 ? (c == '-' ? 8 : c == '>' ? 10 : whatwgComment(2, c))
+    @       // 45 comment: '<' -> less-than sign, '-' -> end dash
+    @     : s == 2 ? (c == '<' ? 3 : c == '-' ? 7 : 2)
+    @       // 46 comment less-than sign: '!' -> bang, '<' stays, else reconsume in comment
+    @     : s == 3 ? (c == '!' ? 4 : c == '<' ? 3 : whatwgComment(2, c))
+    @       // 47 comment less-than sign bang: '-' -> bang dash, else reconsume in comment
+    @     : s == 4 ? (c == '-' ? 5 : whatwgComment(2, c))
+    @       // 48 comment less-than sign bang dash: '-' -> bang dash dash, else reconsume in end dash
+    @     : s == 5 ? (c == '-' ? 6 : whatwgComment(7, c))
+    @       // 49 comment less-than sign bang dash dash: reconsume in comment end (nested-comment)
+    @     : s == 6 ? whatwgComment(8, c)
+    @       // 50 comment end dash: '-' -> end, else reconsume in comment
+    @     : s == 7 ? (c == '-' ? 8 : whatwgComment(2, c))
+    @       // 51 comment end: '>' -> emit, '!' -> end bang, '-' stays, else reconsume in comment
+    @     : s == 8 ? (c == '>' ? 10 : c == '!' ? 9 : c == '-' ? 8 : whatwgComment(2, c))
+    @       // 52 comment end bang: '-' -> end dash, '>' -> emit (incorrectly-closed-comment), else
+    @       // reconsume in comment
+    @     : s == 9 ? (c == '-' ? 7 : c == '>' ? 10 : whatwgComment(2, c))
+    @     : 10);
+    @ public static model no_state helper int whatwgComment(int s, char c);
+    @
+    @ // The comment state after comment[4..k), from the comment start state; 10 is final.
+    @ public normal_behavior
+    @   requires 4 <= k && k <= comment.length();
+    @   ensures \result == (k == 4 ? 0
+    @       : commentRun(comment, k - 1) == 10 ? 10
+    @       : whatwgComment(commentRun(comment, k - 1), comment.chars[k - 1]));
+    @ public static model pure helper int commentRun(String comment, int k);
+    @
+    @ // Lemma: from any state, "--" then ">" ends the comment (and "--" alone does not).
+    @ public normal_behavior
+    @   requires 0 <= s && s <= 9;
+    @   ensures 0 <= whatwgComment(s, '-') && whatwgComment(s, '-') <= 9;
+    @   ensures 0 <= whatwgComment(whatwgComment(s, '-'), '-') && whatwgComment(whatwgComment(s, '-'), '-') <= 9;
+    @   ensures whatwgComment(whatwgComment(whatwgComment(s, '-'), '-'), '>') == 10;
+    @   ensures \result;
+    @ public static model pure boolean commentEndsAtDashDashGt(int s) {
+    @   return true;
+    @ }
+    @
+    @ // Lemma: from any state, "--!" then ">" ends the comment (and no shorter prefix does).
+    @ public normal_behavior
+    @   requires 0 <= s && s <= 9;
+    @   ensures 0 <= whatwgComment(s, '-') && whatwgComment(s, '-') <= 9;
+    @   ensures 0 <= whatwgComment(whatwgComment(s, '-'), '-') && whatwgComment(whatwgComment(s, '-'), '-') <= 9;
+    @   ensures 0 <= whatwgComment(whatwgComment(whatwgComment(s, '-'), '-'), '!')
+    @       && whatwgComment(whatwgComment(whatwgComment(s, '-'), '-'), '!') <= 9;
+    @   ensures whatwgComment(whatwgComment(whatwgComment(whatwgComment(s, '-'), '-'), '!'), '>') == 10;
+    @   ensures \result;
+    @ public static model pure boolean commentEndsAtDashDashBangGt(int s) {
+    @   return true;
+    @ }
+    @*/
+
+  /** One step of {@link #earlyCommentEnd}'s comment state machine. */
+  /*@ private normal_behavior
+    @   requires 0 <= state && state <= 9;
+    @   ensures \result == whatwgComment(state, c);
+    @ pure helper
+    @*/
+  private static int commentStep(int state, char c) {
+    switch (state) {
+      case COMMENT_START:
+        return c == '-' ? COMMENT_START_DASH : c == '>' ? COMMENT_EMIT : commentText(c);
+      case COMMENT_START_DASH:
+        return c == '-' ? COMMENT_END : c == '>' ? COMMENT_EMIT : commentText(c);
+      case COMMENT_TEXT:
+        return commentText(c);
+      case COMMENT_LT:
+        return c == '!' ? COMMENT_LT_BANG : c == '<' ? COMMENT_LT : commentText(c);
+      case COMMENT_LT_BANG:
+        return c == '-' ? COMMENT_LT_BANG_DASH : commentText(c);
+      case COMMENT_LT_BANG_DASH:
+        return c == '-' ? COMMENT_LT_BANG_DASH_DASH : commentText(c); // reconsume in end dash: not '-'
+      case COMMENT_LT_BANG_DASH_DASH:
+        return commentEnd(c);
+      case COMMENT_END_DASH:
+        return c == '-' ? COMMENT_END : commentText(c);
+      case COMMENT_END:
+        return commentEnd(c);
+      default: // COMMENT_END_BANG
+        return c == '-' ? COMMENT_END_DASH : c == '>' ? COMMENT_EMIT : commentText(c);
+    }
+  }
+
+  /*@ private normal_behavior
+    @   ensures \result == whatwgComment(2, c);
+    @ pure helper
+    @*/
+  private static int commentText(char c) {
+    return c == '<' ? COMMENT_LT : c == '-' ? COMMENT_END_DASH : COMMENT_TEXT;
+  }
+
+  /*@ private normal_behavior
+    @   ensures \result == whatwgComment(8, c);
+    @ pure helper
+    @*/
+  private static int commentEnd(char c) {
+    return c == '>' ? COMMENT_EMIT : c == '!' ? COMMENT_END_BANG : c == '-' ? COMMENT_END : commentText(c);
+  }
+
+  /**
+   * Offset in {@code content} of the first {@code </name} at or after {@code from} that a browser
+   * takes as the end tag of a raw-text element called {@code name}, or -1: {@code name} ASCII
+   * case-insensitive, then whitespace, {@code /}, {@code >} or the end of {@code content}.
+   */
+  /*@ normal_behavior
+    @   requires 0 <= from && from <= content.length();
+    @   ensures -1 <= \result && \result < content.length();
+    @   ensures \result == -1 <==> (\forall int i; from <= i && i < content.length(); !endTagAt(content, name, i));
+    @   ensures \result != -1 ==> from <= \result && endTagAt(content, name, \result)
+    @       && (\forall int i; from <= i && i < \result; !endTagAt(content, name, i));
+    @ pure
+    @*/
+  static int browserEndTag(String content, String name, int from) {
+    int n = content.length();
+    int len = name.length();
+    int i = from;
+    //@ maintaining from <= i && i <= n;
+    //@ maintaining (\forall int j; from <= j && j < i; !endTagAt(content, name, j));
+    //@ loop_assigns i;
+    //@ decreases n - i;
+    for (; len <= n - 2 - i; i++) {
+      //@ assert content.charAt(i) == content.chars[i] && content.charAt(i + 1) == content.chars[i + 1];
+      if (content.charAt(i) == '<' && content.charAt(i + 1) == '/' && asciiMatchesIgnoreCase(content, i + 2, name)) {
+        int next = i + 2 + len;
+        //@ assert next < n ==> content.charAt(next) == content.chars[next];
+        if (next == n || endTagDelimiter(content.charAt(next))) {
+          //@ assert endTagAt(content, name, i);
+          return i;
+        }
+      }
+    }
+    //@ assert (\forall int j; i <= j && j < n; !endTagAt(content, name, j));
+    return -1;
+  }
+
+  /*@ // WHATWG HTML 13.2.5.12, 13.2.5.15 and 13.2.5.18 (RCDATA, RAWTEXT and script data end tag
+    @ // name states): after "</" and the element's name, ASCII case-insensitive, whitespace, '/' or
+    @ // '>' make it the appropriate end tag. The end of the input counts too here (see
+    @ // docs/rule-contracts.md, section 4).
+    @ public normal_behavior
+    @   ensures \result <==> (0 <= i && i <= content.length() - 2 - name.length()
+    @       && content.chars[i] == '<' && content.chars[i + 1] == '/'
+    @       && (\forall int k; 0 <= k && k < name.length(); asciiLow(content.chars[i + 2 + k]) == asciiLow(name.chars[k]))
+    @       && (i + 2 + name.length() == content.length() || endTagDelimiterSpec(content.chars[i + 2 + name.length()])));
+    @ public static model pure helper boolean endTagAt(String content, String name, int i);
+    @
+    @ public normal_behavior
+    @   ensures \result == ('A' <= c && c <= 'Z' ? (char) (c + 32) : c);
+    @ public static model no_state helper char asciiLow(char c);
+    @
+    @ public normal_behavior
+    @   ensures \result <==> (c == '\t' || c == '\n' || c == '\f' || c == '\r' || c == ' ' || c == '/' || c == '>');
+    @ public static model no_state helper boolean endTagDelimiterSpec(char c);
+    @*/
+
+  /*@ private normal_behavior
+    @   ensures \result <==> endTagDelimiterSpec(c);
+    @ pure helper
+    @*/
+  private static boolean endTagDelimiter(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r' || c == '/' || c == '>';
+  }
+
+  /** Whether {@code s} has {@code part} at {@code offset}, up to ASCII case. */
+  /*@ normal_behavior
+    @   ensures \result <==> (0 <= offset && offset <= s.length() - part.length()
+    @       && (\forall int k; 0 <= k && k < part.length(); asciiLow(s.chars[offset + k]) == asciiLow(part.chars[k])));
+    @ pure
+    @*/
+  static boolean asciiMatchesIgnoreCase(String s, int offset, String part) {
+    if (offset < 0 || offset > s.length() - part.length()) {
+      return false;
+    }
+    //@ maintaining 0 <= k && k <= part.length();
+    //@ maintaining (\forall int j; 0 <= j && j < k; asciiLow(s.chars[offset + j]) == asciiLow(part.chars[j]));
+    //@ loop_assigns k;
+    //@ decreases part.length() - k;
+    for (int k = 0; k < part.length(); k++) {
+      //@ assert s.charAt(offset + k) == s.chars[offset + k] && part.charAt(k) == part.chars[k];
+      if (asciiLower(s.charAt(offset + k)) != asciiLower(part.charAt(k))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /*@ private normal_behavior
+    @   ensures \result == asciiLow(c);
+    @ pure helper
+    @*/
+  private static char asciiLower(char c) {
+    return c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c;
   }
 
   /** An element whose end tag has not been seen yet. */
@@ -265,7 +590,7 @@ public final class HtmlParser {
     }
   }
 
-  private static final class Builder implements MarkupTokenizer.Handler {
+  private static final class Builder implements Handler {
     private final String file;
     private final String content;
     /** The buffer the tokenizer is reading; see {@link #matchEndTagCase}. */
@@ -466,10 +791,10 @@ public final class HtmlParser {
       if (RAW_TEXT_ELEMENTS.contains(open.name.toLowerCase(Locale.ROOT))) {
         raw = open;
         rawStart = gt + 1;
-        rawEnd = browserEndTag(open.name, rawStart);
+        rawEnd = browserEndTag(content, open.name, rawStart);
         matchEndTagCase(open.name);
       } else if (Contexts.browserRawText(open.name)) {
-        open.browserEnd = browserEndTag(open.name, gt + 1);
+        open.browserEnd = browserEndTag(content, open.name, gt + 1);
       }
     }
 
@@ -537,39 +862,6 @@ public final class HtmlParser {
           : "escape it (in a script string, write '<\\/" + name + "')";
       diagnostics.error(position(offset), "malformed markup: content of <" + name + "> contains '</" + name
           + "' before its end tag: " + fix);
-    }
-
-    /**
-     * Offset of the first {@code </name} followed by whitespace, {@code /} or {@code >} at or
-     * after {@code from} (ASCII case-insensitive), or -1.
-     */
-    private int browserEndTag(String name, int from) {
-      String needle = "</" + name;
-      for (int i = from; i + needle.length() <= content.length(); i++) {
-        if (asciiMatchesIgnoreCase(content, i, needle)) {
-          int next = i + needle.length();
-          if (next == content.length() || " \t\n\f\r/>".indexOf(content.charAt(next)) >= 0) {
-            return i;
-          }
-        }
-      }
-      return -1;
-    }
-
-    /** Whether {@code s} has {@code needle} at {@code at}, folding ASCII letters only, as browsers do. */
-    private static boolean asciiMatchesIgnoreCase(String s, int at, String needle) {
-      for (int i = 0; i < needle.length(); i++) {
-        char a = s.charAt(at + i);
-        char b = needle.charAt(i);
-        if (a != b && asciiLower(a) != asciiLower(b)) {
-          return false;
-        }
-      }
-      return true;
-    }
-
-    private static char asciiLower(char c) {
-      return c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c;
     }
 
     /** Ends the current raw-text element's content at {@code end} (exclusive). */

@@ -149,31 +149,94 @@ public final class TextInlining {
    * end tag. In SCRIPT it is {@code <!-}: a negative number makes it {@code <!--}, and a browser
    * then hides the next {@code </script>} after a {@code <script} in the code.
    */
-  private static String markupBefore(OutputContext context, String before) {
-    if (context == OutputContext.SCRIPT) {
-      return before.endsWith("<!-") ? "<!-" : null;
+  static String markupBefore(OutputContext context, String before) {
+    int start =
+        context == OutputContext.SCRIPT
+            ? scriptMarkupStart(before)
+            : context == OutputContext.TEXT || context == OutputContext.RCDATA ? htmlMarkupStart(before) : -1;
+    return start < 0 ? null : before.substring(start);
+  }
+
+  /*@ // A markup ending of t starts at t[j] (docs/rule-contracts.md, htmlMarkupStart): t[j..] is
+    @ // "<", "<!", "<!-", "<?", or "</" followed only by ASCII letters.
+    @ public normal_behavior
+    @   ensures \result <==> (0 <= j && j < t.length && t[j] == '<'
+    @       && (j + 1 == t.length
+    @           || (j + 2 == t.length && (t[j + 1] == '!' || t[j + 1] == '?'))
+    @           || (j + 3 == t.length && t[j + 1] == '!' && t[j + 2] == '-')
+    @           || (t[j + 1] == '/' && letters(t, j + 2))));
+    @ public static model no_state helper boolean markupEndingAt(\string t, int j);
+    @
+    @ // t[from..] is ASCII letters only.
+    @ public normal_behavior
+    @   ensures \result <==> (\forall int k; from <= k && k < t.length;
+    @       'a' <= t[k] && t[k] <= 'z' || 'A' <= t[k] && t[k] <= 'Z');
+    @ public static model no_state helper boolean letters(\string t, int from);
+    @*/
+
+  /** In SCRIPT, the index of a final {@code <!-} in {@code before}, or -1. */
+  /*@ normal_behavior
+    @   requires before != null;
+    @   ensures \result == (before.length() >= 3 && before.chars[before.length() - 3] == '<'
+    @       && before.chars[before.length() - 2] == '!' && before.chars[before.length() - 1] == '-'
+    @       ? before.length() - 3 : -1);
+    @ pure
+    @*/
+  static int scriptMarkupStart(String before) {
+    int n = before.length();
+    return n >= 3 && before.charAt(n - 3) == '<' && before.charAt(n - 2) == '!' && before.charAt(n - 1) == '-'
+        ? n - 3
+        : -1;
+  }
+
+  /**
+   * In TEXT and RCDATA, the index of the last {@code <} in {@code before} if the text from there
+   * is one of the endings {@link #markupBefore} lists, or -1.
+   */
+  /*@ normal_behavior
+    @   requires before != null;
+    @   ensures \result == -1 || 0 <= \result && \result < before.length();
+    @   ensures \result >= 0 ==> markupEndingAt(before.chars, \result);
+    @   ensures \result == -1 ==> (\forall int j; 0 <= j && j < before.length(); !markupEndingAt(before.chars, j));
+    @ pure
+    @*/
+  static int htmlMarkupStart(String before) {
+    int n = before.length();
+    int lt = n - 1;
+    //@ maintaining -1 <= lt && lt < n;
+    //@ maintaining (\forall int k; lt < k && k < n; before.chars[k] != '<');
+    //@ loop_assigns lt;
+    //@ decreases lt + 1;
+    while (lt >= 0 && before.charAt(lt) != '<') {
+      lt--;
     }
-    if (context != OutputContext.TEXT && context != OutputContext.RCDATA) {
-      return null;
-    }
-    int lt = before.lastIndexOf('<');
     if (lt < 0) {
-      return null;
+      //@ assert (\forall int j; 0 <= j && j < n; before.chars[j] != '<');
+      //@ assert (\forall int j; 0 <= j && j < n; !markupEndingAt(before.chars, j));
+      return -1;
     }
-    String end = before.substring(lt);
-    if (end.equals("<") || end.equals("<!") || end.equals("<!-") || end.equals("<?")) {
-      return end;
+    if (lt + 1 == n) {
+      return lt;
     }
-    if (!end.startsWith("</")) {
-      return null;
+    char c = before.charAt(lt + 1);
+    if (lt + 2 == n && (c == '!' || c == '?') || lt + 3 == n && c == '!' && before.charAt(lt + 2) == '-') {
+      return lt;
     }
-    for (int i = 2; i < end.length(); i++) {
-      char c = end.charAt(i);
-      if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))) {
-        return null;
+    if (c != '/') {
+      return -1;
+    }
+    //@ maintaining lt + 2 <= i && i <= n;
+    //@ maintaining (\forall int k; lt + 2 <= k && k < i;
+    //@     'a' <= before.chars[k] && before.chars[k] <= 'z' || 'A' <= before.chars[k] && before.chars[k] <= 'Z');
+    //@ loop_assigns i;
+    //@ decreases n - i;
+    for (int i = lt + 2; i < n; i++) {
+      char d = before.charAt(i);
+      if (!((d >= 'a' && d <= 'z') || (d >= 'A' && d <= 'Z'))) {
+        return -1;
       }
     }
-    return end;
+    return lt;
   }
 
   /** Index of the first {@code close} at or after {@code from} outside a '...' string, or -1. */

@@ -130,10 +130,7 @@ final class MarkupTokenizer {
         cdataEnd = null;
         current = end;
       }
-      int start = indexOf('<', current, n);
-      while (start >= 0 && kind(start) == NONE) {
-        start = indexOf('<', start + 1, n);
-      }
+      int start = nextStructure(current);
       if (start < 0) {
         break;
       }
@@ -149,6 +146,52 @@ final class MarkupTokenizer {
     }
   }
 
+  /*@ // c is an ASCII letter (docs/rule-contracts.md, section 6).
+    @ public normal_behavior
+    @   ensures \result <==> ('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z');
+    @ public static model no_state helper boolean letter(char c);
+    @
+    @ // No start or end tag opens at a '<' at b[j]: it is not followed by an ASCII letter, and not
+    @ // by '/' and then an ASCII letter or '>'.
+    @ public normal_behavior
+    @   requires b != null && 0 <= j;
+    @   ensures \result <==> (!(j + 1 < b.length && letter(b[j + 1]))
+    @       && !(j + 2 < b.length && b[j + 1] == '/' && (letter(b[j + 2]) || b[j + 2] == '>')));
+    @ public static model pure helper boolean noTagStart(char[] b, int j);
+    @*/
+
+  /**
+   * The first {@code <} at or after {@code from} that starts markup ({@link #kind} not {@code
+   * NONE}), or -1. The text before it is one text run.
+   */
+  /*@ private normal_behavior
+    @   requires buf != null && n == buf.length && 0 <= from && from <= n;
+    @   ensures -1 <= \result && \result < n;
+    @   ensures \result >= 0 ==> from <= \result && buf[\result] == '<' && kind(\result) != NONE;
+    @   // the least such index: no earlier '<' starts markup, and none opens a tag
+    @   ensures (\forall int j; from <= j && j < (\result < 0 ? n : \result); !(buf[j] == '<' && kind(j) != NONE));
+    @   ensures (\forall int j; from <= j && j < (\result < 0 ? n : \result); buf[j] == '<' ==> noTagStart(buf, j));
+    @ pure
+    @*/
+  private int nextStructure(int from) {
+    //@ maintaining from <= i && i <= n;
+    //@ maintaining (\forall int j; from <= j && j < i; buf[j] == '<' ==> noTagStart(buf, j));
+    //@ maintaining (\forall int j; from <= j && j < i; !(buf[j] == '<' && kind(j) != NONE));
+    //@ loop_assigns i;
+    //@ decreases n - i;
+    for (int i = from; i < n; i++) {
+      if (buf[i] == '<' && kind(i) != NONE) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /*@ private normal_behavior
+    @   requires buf != null && n == buf.length && 0 <= i && i < n;
+    @   ensures \result == NONE ==> noTagStart(buf, i);
+    @ pure
+    @*/
   private int kind(int i) {
     if (isElementName(i + 1, n)) {
       return START_TAG;
@@ -181,6 +224,11 @@ final class MarkupTokenizer {
    * Whether an element name starts at {@code i}, looking no further than {@code to} (attoparser's
    * rule, including its {@code <!x} names; the answer can depend on {@code to}).
    */
+  /*@ private normal_behavior
+    @   requires buf != null && n == buf.length && 0 <= i && i <= to && to <= n;
+    @   ensures i < to && (letter(buf[i]) || buf[i] == '>') ==> \result;
+    @ pure
+    @*/
   private boolean isElementName(int i, int to) {
     int len = to - i;
     if (len > 1 && buf[i] == '!') {
@@ -387,12 +435,37 @@ final class MarkupTokenizer {
    * shortest}.
    */
   private int delimitedEnd(int start, String shortest, String before) throws MarkupException {
-    for (int i = start + shortest.length() - 1; i < n; i++) {
+    int end = delimitedScan(start + shortest.length() - 1, before);
+    if (end < 0) {
+      throw incomplete(start);
+    }
+    return end;
+  }
+
+  /**
+   * The first {@code >} at or after {@code from} right after {@code before}, or -1
+   * ({@link #delimitedEnd}).
+   */
+  /*@ private normal_behavior
+    @   requires buf != null && n == buf.length && before != null && before.length() <= from;
+    @   ensures \result == -1 || from <= \result && \result < n && buf[\result] == '>'
+    @       && (\forall int k; 0 <= k && k < before.length(); buf[\result - before.length() + k] == before.chars[k]);
+    @   ensures (\forall int i; from <= i && i < (\result < 0 ? n : \result); !(buf[i] == '>'
+    @       && (\forall int k; 0 <= k && k < before.length(); buf[i - before.length() + k] == before.chars[k])));
+    @ pure
+    @*/
+  private int delimitedScan(int from, String before) {
+    //@ maintaining from <= i && (i <= n || i == from);
+    //@ maintaining (\forall int j; from <= j && j < i && j < n; !(buf[j] == '>'
+    //@     && (\forall int k; 0 <= k && k < before.length(); buf[j - before.length() + k] == before.chars[k])));
+    //@ loop_assigns i;
+    //@ decreases n - i;
+    for (int i = from; i < n; i++) {
       if (buf[i] == '>' && startsWith(i - before.length(), before)) {
         return i;
       }
     }
-    throw incomplete(start);
+    return -1;
   }
 
   /** The first {@code >} outside quotes and {@code [...]} after {@code start}. */
@@ -723,11 +796,22 @@ final class MarkupTokenizer {
     return -1;
   }
 
+  /*@ private normal_behavior
+    @   requires buf != null && n == buf.length && 0 <= i && i <= n && s != null;
+    @   ensures \result <==> (s.length() <= n - i
+    @       && (\forall int k; 0 <= k && k < s.length(); buf[i + k] == s.chars[k]));
+    @ pure
+    @*/
   private boolean startsWith(int i, String s) {
     if (n - i < s.length()) {
       return false;
     }
+    //@ maintaining 0 <= j && j <= s.length();
+    //@ maintaining (\forall int k; 0 <= k && k < j; buf[i + k] == s.chars[k]);
+    //@ loop_assigns j;
+    //@ decreases s.length() - j;
     for (int j = 0; j < s.length(); j++) {
+      //@ assert s.charAt(j) == s.chars[j];
       if (buf[i + j] != s.charAt(j)) {
         return false;
       }
@@ -736,10 +820,17 @@ final class MarkupTokenizer {
   }
 
   /** Whether {@code upper} (ASCII upper case) is at {@code i}, in upper or lower case per char. */
+  /*@ private normal_behavior
+    @   requires buf != null && n == buf.length && 0 <= i && i <= n && upper != null;
+    @ pure
+    @*/
   private boolean keyword(int i, String upper) {
     if (n - i < upper.length()) {
       return false;
     }
+    //@ maintaining 0 <= j && j <= upper.length();
+    //@ loop_assigns j;
+    //@ decreases upper.length() - j;
     for (int j = 0; j < upper.length(); j++) {
       char c = buf[i + j];
       char u = upper.charAt(j);
