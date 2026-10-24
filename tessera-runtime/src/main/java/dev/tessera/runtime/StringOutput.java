@@ -18,8 +18,8 @@ public final class StringOutput implements Output {
   }
 
   /** Package-private fast path used only by the contextual escapers. */
-  void writeHtml(String s) {
-    Escapers.escapeHtml(sb, s);
+  void writeHtml(String s, boolean text) {
+    Escapers.escapeHtml(sb, s, text);
   }
 
   @Override

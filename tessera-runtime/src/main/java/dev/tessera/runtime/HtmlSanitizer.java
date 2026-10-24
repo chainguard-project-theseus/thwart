@@ -49,7 +49,7 @@ final class HtmlSanitizer {
       "amp", "&", "AMP", "&", "lt", "<", "LT", "<", "gt", ">", "GT", ">", "quot", "\"",
       "QUOT", "\"", "apos", "'", "nbsp", " ", "Tab", "\t", "NewLine", "\n", "colon", ":",
       "sol", "/", "lpar", "(", "rpar", ")", "period", ".", "comma", ",", "excl", "!",
-      "quest", "?", "num", "#", "semi", ";", "equals", "=", "copy", "©", "reg", "®",
+      "quest", "?", "num", "#", "lbrace", "{", "lcub", "{", "rbrace", "}", "rcub", "}", "semi", ";", "equals", "=", "copy", "©", "reg", "®",
       "trade", "™", "hellip", "…", "mdash", "—", "ndash", "–",
       "lsquo", "‘", "rsquo", "’", "ldquo", "“", "rdquo", "”",
       "sbquo", "‚", "bdquo", "„", "laquo", "«", "raquo", "»",
@@ -175,7 +175,9 @@ final class HtmlSanitizer {
           String href = attrs.get("href");
           if (href != null && Escapers.isAllowedUrl(href)) {
             out.append(" href=\"");
-            Escapers.escapeHtml(out, href);
+            // AngularJS interpolates attribute values too: '{' is percent-encoded, which a
+            // browser does in a path anyway, so the link never holds "{{" (#248)
+            Escapers.escapeHtml(out, href.replace("{", "%7B"), false);
             out.append('"').append(REL);
           }
         }
@@ -329,7 +331,8 @@ final class HtmlSanitizer {
   /**
    * Writes {@code s[from, to)} as escaped text. Known character references are decoded and
    * re-escaped; an unknown named reference such as {@code &eacute;} is kept as is, since in text it
-   * can only ever produce a character.
+   * can only ever produce a character. The references for braces are known, so every brace goes
+   * through the text escaper, which breaks {@code {{} as {@link Escapers#text} does (#248).
    */
   private void text(int from, int to) {
     if (dropping != null || from >= to) {
@@ -348,7 +351,7 @@ final class HtmlSanitizer {
       if (end > 0) {
         i = end;
       } else if ((end = unknownNamed(s, i, to)) > 0) {
-        Escapers.escapeHtml(out, pending.toString());
+        Escapers.escapeHtml(out, pending.toString(), true);
         pending.setLength(0);
         out.append(s, i, end);
         i = end;
@@ -357,7 +360,7 @@ final class HtmlSanitizer {
         i++;
       }
     }
-    Escapers.escapeHtml(out, pending.toString());
+    Escapers.escapeHtml(out, pending.toString(), true);
   }
 
   /** Decodes known character references in an attribute value; unknown ones stay literal. */

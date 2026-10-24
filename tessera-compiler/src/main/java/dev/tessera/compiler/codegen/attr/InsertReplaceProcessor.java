@@ -8,9 +8,9 @@ import dev.tessera.compiler.codegen.TemplateIndex;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.FragmentRef;
 import dev.tessera.compiler.forms.FormPaths;
+import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
-import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
@@ -48,7 +48,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     if (replace) {
       plan.replaceElement(stmts);
     } else {
-      plan.replaceBody(stmts, OutputContext.TEXT);
+      plan.replaceBody(stmts, Contexts.text(plan.element()));
     }
   }
 

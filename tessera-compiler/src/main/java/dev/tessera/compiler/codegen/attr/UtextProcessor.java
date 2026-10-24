@@ -22,7 +22,7 @@ public final class UtextProcessor implements AttributeProcessor {
     if (e == null) {
       return;
     }
-    plan.replaceBody(TextInlining.safeHtmlStatement(ctx, e, attr.name(), plan.scope()), OutputContext.TEXT);
+    plan.replaceBody(TextInlining.safeHtmlStatement(ctx, e, attr.name(), plan.scope()), Contexts.text(plan.element()));
   }
 
   /**
@@ -30,7 +30,8 @@ public final class UtextProcessor implements AttributeProcessor {
    * body is never rendered as live script or CSS inside {@code <script>} or {@code <style>}.
    */
   static boolean requireHtmlText(CodegenContext ctx, Attribute attr, ElementPlan plan) {
-    if (Contexts.text(plan.element()) != OutputContext.TEXT) {
+    OutputContext context = Contexts.text(plan.element());
+    if (context != OutputContext.TEXT && context != OutputContext.RCDATA) {
       ctx.diagnostics()
           .error(attr.pos(), attr.name() + " is only allowed on elements whose content is HTML text, not <script> or <style>");
       return false;

@@ -332,7 +332,8 @@ public final class Contexts {
   /**
    * Context for text directly inside {@code element}: SCRIPT
    * inside {@code <script>} with no type or a JavaScript/module/JSON type, FORBIDDEN inside
-   * other script types, STYLE inside {@code <style>}, otherwise TEXT.
+   * other script types, STYLE inside {@code <style>}, RCDATA inside {@code <title>} and
+   * {@code <textarea>} (#248), otherwise TEXT.
    *
    * <p>A {@code <script>} whose type is set by a {@code t:type} attribute is FORBIDDEN: the
    * content type must be known at build time.
@@ -343,6 +344,9 @@ public final class Contexts {
         return scriptContext(element);
       case "style":
         return OutputContext.STYLE;
+      case "title":
+      case "textarea":
+        return OutputContext.RCDATA;
       default:
         return OutputContext.TEXT;
     }

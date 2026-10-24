@@ -76,7 +76,7 @@ public final class HtmlParser {
    * optional) and the named references {@code amp lt gt quot apos nbsp} (semicolon required).
    * Unknown named references are left as written; invalid code points become U+FFFD.
    */
-  static String decode(String raw) {
+  public static String decode(String raw) {
     if (raw.indexOf('&') < 0) {
       return raw;
     }

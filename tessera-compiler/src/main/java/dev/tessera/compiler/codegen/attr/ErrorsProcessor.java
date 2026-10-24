@@ -5,6 +5,7 @@ import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.forms.FormPaths;
+import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.Scope;
@@ -48,10 +49,11 @@ public final class ErrorsProcessor implements AttributeProcessor {
             + errors
             + ".isEmpty()) {",
         "} }");
+    OutputContext context = Contexts.text(plan.element()); // TEXT, or RCDATA in <title>/<textarea>
     plan.replaceBody(
         "for (int " + i + " = 0; " + i + " < " + errors + ".size(); " + i + "++) { if (" + i
-            + " > 0) { out.write(\"<br />\"); } " + Escapers.class.getName() + ".text(out, " + errors
-            + ".get(" + i + ")); }",
-        OutputContext.TEXT);
+            + " > 0) { out.write(\"<br />\"); } " + Escapers.class.getName() + "." + context.escaper()
+            + "(out, " + errors + ".get(" + i + ")); }",
+        context);
   }
 }

@@ -196,7 +196,8 @@ observe this ordering; templates should not depend on an eager snapshot when sta
 
 | Context | Where | Escaper | Notes |
 |---|---|---|---|
-| `TEXT` | element text, `<title>`, `<textarea>`, `t:text`, `[[...]]` | `Escapers.text` | `& < > " '` |
+| `TEXT` | element text, `t:text`, `[[...]]` | `Escapers.text` | `& < > " '`; `{{` broken with an empty comment, also before a leading and after a trailing `{` (#248) |
+| `RCDATA` | text in `<title>`, `<textarea>` | `Escapers.rcdata` | `& < > " '`; no comment, it would show (#248) |
 | — | `t:utext`, `[(...)]` | `Escapers.html(SafeHtml)` | non-`SafeHtml` is a build error |
 | `ATTRIBUTE` | any other attribute value | `Escapers.attr` | output always double-quoted |
 | `URL` | `href src action formaction cite poster background longdesc usemap ping` (`xlink:href`), `values to from by` on SVG `animate`/`set` | `Escapers.url` | http/https/mailto/tel/relative, else `about:invalid#tessera`; `TrustedUrl` passes |
