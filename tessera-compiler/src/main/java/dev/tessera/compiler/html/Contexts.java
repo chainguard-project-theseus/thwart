@@ -3,6 +3,7 @@ package dev.tessera.compiler.html;
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
+import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.model.OutputContext;
 import java.util.Locale;
 import java.util.Set;
@@ -351,6 +352,39 @@ public final class Contexts {
       default:
         return OutputContext.TEXT;
     }
+  }
+
+  /**
+   * The first SVG/MathML {@code <title>} or {@code <textarea>} in {@code root} (itself included)
+   * that is ordinary markup only because {@code root} sits inside {@code <svg>}/{@code <math>}, or
+   * null. Rendered elsewhere, as a fragment in HTML, a browser would parse it as RCDATA (#277).
+   */
+  public static Element foreignTitleOrTextarea(Element root) {
+    if (!root.inForeignContent() || startsForeignContent(root)) {
+      return null;
+    }
+    String name = root.name().toLowerCase(Locale.ROOT);
+    if (name.equals("title") || name.equals("textarea")) {
+      return root;
+    }
+    for (Node child : root.children()) {
+      if (child instanceof Element) {
+        Element found = foreignTitleOrTextarea((Element) child);
+        if (found != null) {
+          return found;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * An {@code <svg>} or {@code <math>} that renders its tag: it starts SVG/MathML content wherever
+   * it is inserted (the parser rejects one that a browser would not parse as such).
+   */
+  public static boolean startsForeignContent(Element element) {
+    String name = element.name().toLowerCase(Locale.ROOT);
+    return (name.equals("svg") || name.equals("math")) && !ForeignContent.removesTag(element.attributes());
   }
 
   private static OutputContext scriptContext(Element script) {

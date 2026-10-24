@@ -10,6 +10,7 @@ import dev.tessera.compiler.codegen.attr.CsrfInjector;
 import dev.tessera.compiler.codegen.attr.FieldProcessor;
 import dev.tessera.compiler.codegen.attr.FragmentMethods;
 import dev.tessera.compiler.codegen.attr.TextInlining;
+import dev.tessera.compiler.codegen.attr.UtextProcessor;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.ExpressionParser;
 import dev.tessera.compiler.html.Contexts;
@@ -305,6 +306,15 @@ public final class TemplateGenerator implements CodegenContext {
       }
       exclusive(e, "text", "utext");
       exclusive(e, "insert", "replace");
+      if (e.hasForeignContent()) {
+        for (Node child : e.children()) {
+          int at = child instanceof Text ? TextInlining.rawInline(((Text) child).raw()) : -1;
+          if (at >= 0) {
+            Text t = (Text) child;
+            diagnostics().error(t.pos().advance(t.raw(), at), UtextProcessor.RAW_IN_FOREIGN_CONTENT);
+          }
+        }
+      }
       validate(root, e.children());
     }
   }

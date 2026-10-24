@@ -166,7 +166,12 @@ class HtmlParserTest {
     // <title> is an HTML integration point, the others are ordinary foreign elements), so a
     // nested <script> is a real script and their text is element text.
     Document doc = parseOk("<svg><title>a<b>c</b></title></svg>");
-    Element title = el(el(doc.rootElement()).children().get(0));
+    Element svg = el(doc.rootElement());
+    assertFalse(svg.inForeignContent());
+    assertTrue(svg.hasForeignContent());
+    Element title = el(svg.children().get(0));
+    assertTrue(title.inForeignContent());
+    assertFalse(title.hasForeignContent());
     Element b = el(title.children().get(1));
     assertEquals("b", b.name());
     assertEquals(pos(1, 14), b.pos());
@@ -197,8 +202,7 @@ class HtmlParserTest {
   @Test
   void htmlTitleAndTextareaInsideForeignContentStayRawText() {
     // Integration points (SVG foreignObject/desc/title, MathML mi/mo/mn/ms/mtext and
-    // annotation-xml with an HTML encoding) and the HTML start tags that end foreign content in a
-    // browser make the next <title>/<textarea> an HTML one again: RCDATA, raw text.
+    // annotation-xml with an HTML encoding) hold HTML: a <title>/<textarea> there is RCDATA, raw text.
     for (String html :
         List.of(
             "<svg><foreignObject><textarea><i>x</textarea></foreignObject></svg>",
@@ -213,11 +217,7 @@ class HtmlParserTest {
             "<math><annotation-xml encoding=\"text/html\"><title><i>x</title></annotation-xml></math>",
             "<math><annotation-xml encoding=\"Application/XHTML+XML\"><title><i>x</title></annotation-xml></math>",
             "<svg></svg><textarea><i>x</textarea>",
-            "<svg><p></p><textarea><i>x</textarea></svg>",
-            "<svg><g><br><title><i>x</title></g></svg>",
-            "<svg><textarea><div></div><textarea><i>x</textarea></textarea></svg>",
-            "<math><mrow><img src=\"a\"/><title><i>x</title></mrow></math>",
-            "<svg><font color=\"red\"></font><textarea><i>x</textarea></svg>")) {
+            "<svg><foreignObject><p></p><textarea><i>x</textarea></foreignObject></svg>")) {
       assertEquals(List.of("<i>x=RCDATA"), texts(parseOk(html).children()), html);
     }
   }
@@ -232,9 +232,81 @@ class HtmlParserTest {
         errors("<svg><foreignObject><textarea><a title=\"</textarea><script>\">[[${x}]]</a></textarea>"
             + "</foreignObject></svg>"));
     assertEquals(
-        List.of("dir/t.html:1:26: error: malformed markup: content of <title> contains"
+        List.of("dir/t.html:1:25: error: malformed markup: content of <title> contains"
             + " '</title' before its end tag: escape it (in a script string, write '<\\/title')"),
-        errors("<svg><p></p><title><a b=\"</title><script>\">[[${x}]]</a></title></svg>"));
+        errors("<svg><desc><title><a b=\"</title><script>\">[[${x}]]</a></title></desc></svg>"));
+  }
+
+  @Test
+  void markupWhoseNamespaceDependsOnRenderingIsAnError() {
+    // An HTML start tag such as <p> ends <svg>/<math> in a browser, and t:if or t:remove may
+    // drop it, so the namespace of what follows would depend on rendering.
+    String breakout = "dir/t.html:1:6: error: malformed markup: <%s> inside SVG or MathML content ends it in a"
+        + " browser: close the <svg> or <math> first, or put the HTML inside <foreignObject> or <mtext>";
+    for (String tag : List.of("p", "br", "div", "img", "span", "table", "B", "font")) {
+      String open = tag.equals("font") ? "<font color=\"red\">" : "<" + tag + ">";
+      String close = tag.equals("br") || tag.equals("img") ? "" : "</" + tag + ">";
+      assertEquals(List.of(String.format(breakout, tag)), errors("<svg>" + open + close + "<title>x</title></svg>"), tag);
+    }
+    assertEquals(List.of(String.format(breakout, "p")), errors("<svg><p t:remove=\"all\"></p><title>x</title></svg>"));
+    assertEquals(List.of(String.format(breakout, "font")), errors("<svg><font t:size=\"s\"></font></svg>"));
+    assertEquals(List.of(String.format(breakout, "font")), errors("<svg><font t:attr=\"face=s\"></font></svg>"));
+    assertEquals(
+        List.of("dir/t.html:1:7: error: malformed markup: <p> inside SVG or MathML content ends it in a browser:"
+            + " close the <svg> or <math> first, or put the HTML inside <foreignObject> or <mtext>"),
+        errors("<math><p></p></math>"));
+    // Not in foreign content, or not a breakout tag: fine.
+    parseOk("<svg><foreignObject><p>x</p></foreignObject><desc><b>d</b></desc><font></font></svg>");
+    parseOk("<math><mtext><p>x</p></mtext><annotation-xml encoding=\"text/html\"><div>d</div></annotation-xml></math>");
+
+    // <svg> directly in MathML content is a MathML element, <math> in SVG an SVG one.
+    assertEquals(
+        List.of("dir/t.html:1:7: error: malformed markup: <svg> inside MathML content is not a real <svg> in a browser:"
+            + " put it inside <foreignObject> (SVG) or <annotation-xml> (MathML)"),
+        errors("<math><svg><title>x</title></svg></math>"));
+    assertEquals(
+        List.of("dir/t.html:1:9: error: malformed markup: <math> inside SVG content is not a real <math> in a browser:"
+            + " put it inside <foreignObject> (SVG) or <annotation-xml> (MathML)"),
+        errors("<svg><g><math></math></g></svg>"));
+    parseOk("<svg><svg></svg><foreignObject><math><mi><svg></svg></mi></math></foreignObject></svg>"
+        + "<math><math></math><mi><svg></svg></mi><annotation-xml><svg></svg></annotation-xml></math>");
+
+    // The encoding decides whether annotation-xml holds HTML.
+    String encoding = "dir/t.html:1:7: error: a computed encoding on <annotation-xml> is not supported: it decides"
+        + " whether a browser parses the content as HTML; write a fixed encoding";
+    assertEquals(List.of(encoding), errors("<math><annotation-xml encoding=\"text/html\" t:attr=\"encoding=e\"></annotation-xml></math>"));
+    assertEquals(List.of(encoding), errors("<math><annotation-xml t:encoding=\"e\"></annotation-xml></math>"));
+    parseOk("<math><annotation-xml encoding=\"text/html\" t:attr=\"id=e\"></annotation-xml></math>");
+
+    // Without its tag, the content of an element that changes the namespace would land in another one.
+    String removeTag = "error: t:remove=\"tag\" is not supported on <%s>: without its tag a browser would parse the"
+        + " content in another namespace (HTML or SVG/MathML); remove the whole element or keep its tag";
+    assertEquals(List.of("dir/t.html:1:1: " + String.format(removeTag, "svg")),
+        errors("<svg t:remove=\"tag\"><title>x</title></svg>"));
+    assertEquals(List.of("dir/t.html:1:1: " + String.format(removeTag, "math")), errors("<math t:remove=\"tag\"></math>"));
+    assertEquals(List.of("dir/t.html:1:6: " + String.format(removeTag, "title")),
+        errors("<svg><title t:remove=\"tag\"><textarea>x</textarea></title></svg>"));
+    assertEquals(List.of("dir/t.html:1:6: " + String.format(removeTag, "foreignObject")),
+        errors("<svg><foreignObject t:remove=\"tag\"></foreignObject></svg>"));
+    assertEquals(List.of("dir/t.html:1:7: " + String.format(removeTag, "mtext")),
+        errors("<math><mtext t:remove=\"tag\"></mtext></math>"));
+    // mglyph/malignmark keep MathML inside a text integration point; their content would be HTML without them.
+    assertEquals(List.of("dir/t.html:1:11: " + String.format(removeTag, "mglyph")),
+        errors("<math><mi><mglyph t:remove=\"tag\"><textarea>x</textarea></mglyph></mi></math>"));
+    assertEquals(List.of("dir/t.html:1:11: " + String.format(removeTag, "malignmark")),
+        errors("<math><mo><malignmark t:remove=\"tag\"></malignmark></mo></math>"));
+    // annotation-xml makes a child <svg> SVG; directly inside <math> it would be MathML.
+    assertEquals(List.of("dir/t.html:1:7: " + String.format(removeTag, "annotation-xml")),
+        errors("<math><annotation-xml t:remove=\"tag\"><svg></svg></annotation-xml></math>"));
+    parseOk("<svg><g t:remove=\"tag\"><textarea t:remove=\"tag\">x</textarea></g><svg t:remove=\"tag\"></svg></svg>");
+    parseOk("<math><mrow t:remove=\"tag\"><mn>1</mn></mrow></math>");
+    // <t:block> renders no tag either.
+    assertEquals(
+        List.of("dir/t.html:1:11: error: <t:block> is not supported here: it renders no tag, so a browser would parse"
+            + " its content in another namespace (HTML or SVG/MathML); put t:if, t:each or t:with on the child elements"
+            + " instead"),
+        errors("<math><mi><t:block><mglyph></mglyph></t:block></mi></math>"));
+    parseOk("<svg><t:block><g></g></t:block></svg><math><mrow><t:block><mi>x</mi></t:block></mrow></math>");
   }
 
   @Test

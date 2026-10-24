@@ -17,7 +17,12 @@ import java.util.stream.Collectors;
  * @param hasEndTag an explicit end tag was present (false for void and self-closing elements
  *     and for elements closed implicitly)
  * @param pos position of the {@code <}
- * @param inForeignContent the element is an SVG or MathML element, as a browser parses it (#277)
+ * @param inForeignContent the element is inside SVG or MathML content: a browser parses its start
+ *     tag by the foreign-content rules (an {@code <svg>} in HTML starts foreign content, it is not
+ *     in it), #277
+ * @param hasForeignContent markup written in the element's content is parsed by the
+ *     foreign-content rules (true for {@code <svg>}, false for an integration point such as
+ *     {@code <foreignObject>}), #277
  */
 public final class Element implements Node {
   private final String name;
@@ -27,6 +32,7 @@ public final class Element implements Node {
   private final boolean hasEndTag;
   private final SourcePos pos;
   private final boolean inForeignContent;
+  private final boolean hasForeignContent;
 
   public Element(
       String name,
@@ -35,7 +41,7 @@ public final class Element implements Node {
       boolean selfClosing,
       boolean hasEndTag,
       SourcePos pos) {
-    this(name, attributes, children, selfClosing, hasEndTag, pos, false);
+    this(name, attributes, children, selfClosing, hasEndTag, pos, false, false);
   }
 
   public Element(
@@ -45,7 +51,8 @@ public final class Element implements Node {
       boolean selfClosing,
       boolean hasEndTag,
       SourcePos pos,
-      boolean inForeignContent) {
+      boolean inForeignContent,
+      boolean hasForeignContent) {
     this.name = name;
     this.attributes = Backports.listCopy(attributes);
     this.children = Backports.listCopy(children);
@@ -53,6 +60,7 @@ public final class Element implements Node {
     this.hasEndTag = hasEndTag;
     this.pos = pos;
     this.inForeignContent = inForeignContent;
+    this.hasForeignContent = hasForeignContent;
   }
 
   public String name() {
@@ -83,6 +91,10 @@ public final class Element implements Node {
     return inForeignContent;
   }
 
+  public boolean hasForeignContent() {
+    return hasForeignContent;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (!(o instanceof Element)) {
@@ -95,7 +107,8 @@ public final class Element implements Node {
         && selfClosing == that.selfClosing
         && hasEndTag == that.hasEndTag
         && Objects.equals(pos, that.pos)
-        && inForeignContent == that.inForeignContent;
+        && inForeignContent == that.inForeignContent
+        && hasForeignContent == that.hasForeignContent;
   }
 
   @Override
@@ -107,6 +120,7 @@ public final class Element implements Node {
     h = 31 * h + Boolean.hashCode(hasEndTag);
     h = 31 * h + Objects.hashCode(pos);
     h = 31 * h + Boolean.hashCode(inForeignContent);
+    h = 31 * h + Boolean.hashCode(hasForeignContent);
     return h;
   }
 
@@ -114,7 +128,7 @@ public final class Element implements Node {
   public String toString() {
     return "Element[name=" + name + ", attributes=" + attributes + ", children=" + children
         + ", selfClosing=" + selfClosing + ", hasEndTag=" + hasEndTag + ", pos=" + pos
-        + ", inForeignContent=" + inForeignContent + "]";
+        + ", inForeignContent=" + inForeignContent + ", hasForeignContent=" + hasForeignContent + "]";
   }
 
   public Optional<Attribute> attribute(String name) {

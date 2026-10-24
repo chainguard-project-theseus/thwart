@@ -452,7 +452,7 @@ The compiler decides the context from the element and attribute name. You cannot
 | Context | Where | What happens |
 |---|---|---|
 | Text | element text, `t:text`, `[[...]]` | `& < > " '` escaped, and `{{` broken with an empty comment (below). |
-| Title and textarea | text in `<title>` and `<textarea>` (also `t:field`) | `& < > " '` escaped; `{{` is left as is. Inside `<svg>`/`<math>` (outside `foreignObject`, `desc` and the like) they are ordinary elements, as in a browser: their content is markup and their text is element text. |
+| Title and textarea | text in `<title>` and `<textarea>` (also `t:field`) | `& < > " '` escaped; `{{` is left as is. Inside `<svg>`/`<math>` (outside `foreignObject`, `desc` and the like) they are ordinary elements, as in a browser: their content is markup and their text is element text. Markup there whose namespace could change at render time (an HTML tag, raw HTML, a non-SVG fragment) is a build error (section 6). |
 | Raw HTML | `t:utext`, `[(...)]` | Only `SafeHtml`, or a bundle message checked at build time (section 4.5), compiles. |
 | Attribute | any other attribute value | Escaped, always double-quoted. |
 | URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, `hx-push-url`, `hx-replace-url`, ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. |
@@ -1220,6 +1220,26 @@ These come from the annotation processor itself, without a template position.
   nesting for non-void elements).
 - `malformed markup: '<!--' inside <script> is not supported: remove it (it is not needed in HTML5)`:
   delete the `<!--`/`-->` wrapper.
+- `malformed markup: <<tag>> inside SVG or MathML content ends it in a browser: close the <svg> or <math> first, or put the HTML inside <foreignObject> or <mtext>`:
+  a browser closes the `<svg>`/`<math>` at HTML tags such as `<p>`, `<div>`, `<br>`, `<span>` or
+  `<font color>`, and `t:if` or `t:remove` could drop the tag, so the rest of the markup could be
+  parsed either way (#277). Move the HTML out of the SVG, or into `<foreignObject>`.
+- `malformed markup: <<tag>> inside <SVG|MathML> content is not a real <<tag>> in a browser: put it inside <foreignObject> (SVG) or <annotation-xml> (MathML)`:
+  a browser makes `<svg>` directly inside `<math>` a MathML element (and `<math>` inside `<svg>`
+  an SVG one), which would change if the markup were inserted elsewhere as a fragment.
+- `raw HTML (t:utext, [(...)]) inside SVG or MathML content is not supported: a browser would close the <svg> or <math> at an HTML tag in it; put it inside <foreignObject> or <mtext>`:
+  sanitized rich text contains tags such as `<p>` that end `<svg>`/`<math>` in a browser, so the
+  markup after it would be parsed differently than compiled (#277).
+- `a computed encoding on <annotation-xml> is not supported: it decides whether a browser parses the content as HTML; write a fixed encoding`:
+  write `encoding="text/html"` (or another fixed value) instead of `t:encoding` or `t:attr`.
+- `t:remove="tag" is not supported on <<tag>>: without its tag a browser would parse the content in another namespace (HTML or SVG/MathML); remove the whole element or keep its tag`:
+  reported on `<svg>`, `<math>` and the elements inside them whose content a browser parses in
+  another namespace than their parent's: `foreignObject`, `desc`, SVG `title`, `mi`, `mo`, `mn`,
+  `ms`, `mtext`, `annotation-xml`, and `mglyph`/`malignmark` inside `mi`/`mo`/`mn`/`ms`/`mtext`.
+- `<t:block> is not supported here: it renders no tag, so a browser would parse its content in another namespace (HTML or SVG/MathML); put t:if, t:each or t:with on the child elements instead`:
+  the same for a `<t:block>` whose content would be parsed in another namespace without its tag,
+  e.g. directly inside `mi`/`mo`/`mn`/`ms`/`mtext` or another element whose content namespace
+  differs from its parent's.
 
 ### Template structure
 
@@ -1499,6 +1519,16 @@ These come from the annotation processor itself, without a template position.
   select a sibling (`~{::body}` from `<html>` works because `<html>` is the caller).
 - `~{::<name>} selects an element inside this element's t:object, but t:insert/t:replace runs before t:object, so the selection would render without it: move t:object to an enclosing element`.
 - `~{::<name>} and the selections inside it include each other, so rendering would never end: no selected element may pass ~{::...} of an element that selects it`.
+- `<<tag>> in t:fragment '<name>' is SVG/MathML content only inside its <svg> or <math>: inserted into HTML a browser would parse it as RCDATA; put t:fragment on the <svg> or <math> element that keeps its tag`
+  and `~{::<name>} selects an element inside <svg> or <math> with an SVG/MathML <<tag>> in it: inserted into HTML a browser would parse it as RCDATA; select the <svg> or <math> element`:
+  a fragment keeps the contexts of the template that defines it, and an SVG `<title>` or
+  `<textarea>` is ordinary markup only inside `<svg>`/`<math>` (#277). A fragment on the `<svg>`
+  element itself (an icon) is fine, unless it has `t:remove="tag"`.
+- `<t:insert|t:replace> inside SVG or MathML content needs a fragment whose root is an <svg> or <math> element: a browser would parse other markup there in another namespace; wrap the fragment in <svg> or move this into <foreignObject>`:
+  the inserted markup keeps the contexts of the template that defines it, so inside `<svg>` (or
+  `<math>`) only an `<svg>`/`<math>` fragment is parsed the way it was compiled. A `Fragment`
+  parameter is rejected there too, since its root is not known at build time. Integration points
+  (`foreignObject`, `desc`, SVG `title`, `mtext`, ...) hold HTML and accept any fragment.
 
 ## 7. Known limitations
 

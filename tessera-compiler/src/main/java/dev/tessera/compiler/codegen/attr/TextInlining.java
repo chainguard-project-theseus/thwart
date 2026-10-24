@@ -105,6 +105,16 @@ public final class TextInlining {
   }
 
   /** Index of the first {@code close} at or after {@code from} outside a '...' string, or -1. */
+  /** Offset of the first {@code [(...)]} inline in {@code raw}, or -1. */
+  public static int rawInline(String raw) {
+    for (int i = raw.indexOf("[("); i >= 0; i = raw.indexOf("[(", i + 2)) {
+      if (findEnd(raw, i + 2, ")]") >= 0) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
   private static int findEnd(String raw, int from, String close) {
     boolean inString = false;
     for (int i = from; i < raw.length(); i++) {

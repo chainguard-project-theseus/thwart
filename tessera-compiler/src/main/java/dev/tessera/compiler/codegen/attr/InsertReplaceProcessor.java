@@ -34,6 +34,10 @@ import javax.lang.model.type.TypeMirror;
  */
 public final class InsertReplaceProcessor implements AttributeProcessor {
   private static final String FRAGMENT = Fragment.class.getName();
+  private static final String FOREIGN_TARGET =
+      " inside SVG or MathML content needs a fragment whose root is an <svg> or <math> element: a browser would"
+          + " parse other markup there in another namespace; wrap the fragment in <svg> or move this into"
+          + " <foreignObject>";
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
@@ -42,7 +46,10 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     if (!replace && !UtextProcessor.requireHtmlText(ctx, attr, plan)) {
       return;
     }
-    String code = code(ctx, attr, plan);
+    // Inside SVG/MathML content only an <svg>/<math> fragment keeps the namespace its contexts
+    // were chosen for: other markup would be parsed in another namespace there (#277).
+    boolean foreign = replace ? plan.element().inForeignContent() : plan.element().hasForeignContent();
+    String code = code(ctx, attr, plan, foreign);
     // On error, render nothing in its place so the children do not cascade into more errors.
     String stmts = code == null ? "" : code;
     if (replace) {
@@ -52,7 +59,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     }
   }
 
-  private static String code(CodegenContext ctx, Attribute attr, ElementPlan plan) {
+  private static String code(CodegenContext ctx, Attribute attr, ElementPlan plan, boolean foreign) {
     if (attr.value() == null || Backports.isBlank(attr.value())) {
       ctx.diagnostics().error(attr.pos(), attr.name() + " needs a fragment reference, e.g. ~{fragments/layout :: header}");
       return null;
@@ -64,7 +71,16 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
         return null;
       }
       Call call = resolve(ctx, ref, plan.scope(), plan.element(), pre);
+      if (call != null && foreign && (call.root == null || !Contexts.startsForeignContent(call.root))) {
+        ctx.diagnostics().error(attr.pos(), attr.name() + FOREIGN_TARGET);
+        return null;
+      }
       return call == null ? null : "{\n" + pre + call.invoke("ctx", "out") + ";\n}";
+    }
+    if (foreign) {
+      // A Fragment value's root element is not known at build time.
+      ctx.diagnostics().error(attr.pos(), attr.name() + FOREIGN_TARGET);
+      return null;
     }
     CompiledExpr e = ctx.compile(attr, plan.scope());
     if (e == null) {
@@ -89,11 +105,18 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     private final String method;
     private final List<String> args;
     private final List<String> types;
+    /** The fragment's root element, or null if not known. */
+    private final Element root;
 
     private Call(String method, List<String> args, List<String> types) {
+      this(method, args, types, null);
+    }
+
+    private Call(String method, List<String> args, List<String> types, Element root) {
       this.method = method;
       this.args = args;
       this.types = types;
+      this.root = root;
     }
 
     public String method() {
@@ -182,7 +205,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       codes.add(code);
     }
     List<String> types = f.params().stream().map(TemplateIndex.Param::javaType).collect(Collectors.toList());
-    return ok ? new Call(target.className() + "." + f.methodName(), codes, types) : null;
+    return ok ? new Call(target.className() + "." + f.methodName(), codes, types, f.element()) : null;
   }
 
   /**

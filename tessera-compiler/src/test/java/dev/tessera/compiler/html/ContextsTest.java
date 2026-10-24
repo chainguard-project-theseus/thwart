@@ -30,7 +30,7 @@ class ContextsTest {
 
   /** An SVG or MathML element, as the parser marks one under {@code <svg>}/{@code <math>}. */
   private static Element foreignElement(String name) {
-    return new Element(name, List.of(), List.of(), false, true, POS, true);
+    return new Element(name, List.of(), List.of(), false, true, POS, true, true);
   }
 
   @ParameterizedTest(name = "<{0} {1}> -> {2}")

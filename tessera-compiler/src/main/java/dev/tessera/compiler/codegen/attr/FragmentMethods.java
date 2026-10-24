@@ -4,6 +4,8 @@ import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.codegen.TemplateIndex;
+import dev.tessera.compiler.html.Contexts;
+import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
 import java.util.ArrayList;
@@ -33,6 +35,15 @@ public final class FragmentMethods {
         decls.add(p.javaType() + " " + javaName);
       }
       decls.add(IO);
+      Element foreign = Contexts.foreignTitleOrTextarea(f.element());
+      if (foreign != null) {
+        ctx.diagnostics()
+            .error(
+                foreign.pos(),
+                "<" + foreign.name() + "> in t:fragment '" + f.name() + "' is SVG/MathML content only inside its <svg>"
+                    + " or <math>: inserted into HTML a browser would parse it as RCDATA; put t:fragment on the <svg> or"
+                    + " <math> element that keeps its tag");
+      }
       String body = ctx.renderElement(f.element(), scope, Backports.setOf("fragment"));
       ctx.addMember(
           "  public static void "

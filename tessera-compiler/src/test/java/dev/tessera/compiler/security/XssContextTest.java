@@ -253,6 +253,104 @@ class XssContextTest {
         c.render("page", Map.of("s", "alert(1)")));
   }
 
+  @Test
+  void fragmentFromInsideSvgWithTitleOrTextareaIsAnError() {
+    // Inserted into HTML, the SVG <title>/<textarea> parsed as markup here would be RCDATA (#277).
+    Compilation.builder()
+        .template("page.html", "<div t:params=\"String s\"><svg><g t:fragment=\"g\"><title>t</title></g></svg></div>")
+        .compile()
+        .assertError("page.html:1:49:", "<title> in t:fragment 'g' is SVG/MathML content only inside its <svg> or <math>");
+    Compilation.builder()
+        .template(
+            "page.html",
+            "<div t:params=\"String s\"><section t:fragment=\"card(Fragment content)\"><div t:replace=\"content\">c</div>"
+                + "</section><p t:replace=\"~{::card(~{::g})}\"><svg><g><textarea>[[s]]</textarea></g></svg></p></div>")
+        .compile()
+        .assertError("page.html:1:", "~{::g} selects an element inside <svg> or <math> with an SVG/MathML <textarea> in it");
+    // A nested <svg> that drops its tag does not start SVG content where the fragment is inserted.
+    Compilation.builder()
+        .template(
+            "page.html",
+            "<div t:params=\"String s\"><svg><svg t:fragment=\"f\" t:remove=\"tag\"><textarea>t</textarea></svg></svg></div>")
+        .compile()
+        .assertError("page.html:1:", "<textarea> in t:fragment 'f' is SVG/MathML content only inside its <svg> or <math>");
+  }
+
+  @Test
+  void fieldOnSvgTextareaIsElementText() {
+    // t:field picks the textarea's context: RCDATA in HTML, element text in SVG (#277).
+    Compilation c =
+        Compilation.builder()
+            .java("com.example.Owner", "package com.example; public record Owner(String name) {}")
+            .template(
+                "page.html",
+                "<form t:import=\"com.example.*\" t:params=\"Owner owner\" t:object=\"owner\">"
+                    + "<textarea t:field=\"*{name}\"></textarea><svg><textarea t:field=\"*{name}\"></textarea></svg></form>")
+            .compile();
+    c.assertSuccess();
+    String out = c.render("page", Map.of("owner", c.newInstance("com.example.Owner", "{{x}}<b>")));
+    assertTrue(out.contains(">{{x}}&lt;b&gt;</textarea><svg>"), out);
+    assertTrue(out.contains("><!---->{<!---->{x}}&lt;b&gt;</textarea></svg>"), out);
+  }
+
+  @Test
+  void tagRemovedSvgFragmentIsReportedOnce() {
+    Compilation c =
+        Compilation.builder()
+            .template("page.html", "<div><svg t:fragment=\"icon\" t:remove=\"tag\"><title>t</title></svg></div>")
+            .compile();
+    c.assertError("page.html:1:6:", "t:remove=\"tag\" is not supported on <svg>");
+    assertEquals(1, c.errors().size(), () -> String.join("\n", c.errors()));
+  }
+
+  @Test
+  void rawHtmlAndForeignInsertionErrorsNameTheRule() {
+    Compilation.builder()
+        .template("page.html", "<div t:params=\"String s\"><svg><g t:utext=\"html.sanitize(s)\"></g></svg></div>")
+        .compile()
+        .assertError("page.html:1:", "raw HTML (t:utext, [(...)]) inside SVG or MathML content is not supported");
+    Compilation.builder()
+        .template("page.html", "<div t:params=\"String s\"><svg><text>[(html.sanitize(s))]</text></svg></div>")
+        .compile()
+        .assertError("page.html:1:", "raw HTML (t:utext, [(...)]) inside SVG or MathML content is not supported");
+    Compilation.builder()
+        .template("page.html", "<div><p t:fragment=\"f\">x</p><svg><g t:insert=\"~{::f}\"></g></svg></div>")
+        .compile()
+        .assertError("page.html:1:", "t:insert inside SVG or MathML content needs a fragment whose root is an <svg> or <math>");
+    Compilation.builder()
+        .template("page.html", "<div><p t:fragment=\"f\">x</p><svg><g t:replace=\"~{::f}\"></g></svg></div>")
+        .compile()
+        .assertError("page.html:1:", "t:replace inside SVG or MathML content needs a fragment whose root is an <svg> or <math>");
+    // Allowed: an <svg> fragment inside <svg>, raw HTML inside an integration point, and t:replace
+    // on an <svg> placed in HTML.
+    Compilation.builder()
+        .template(
+            "page.html",
+            "<div t:params=\"String s\"><svg t:fragment=\"icon\"><circle r=\"1\"/></svg>"
+                + "<svg><g t:insert=\"~{::icon}\"></g><foreignObject t:utext=\"html.sanitize(s)\"></foreignObject>"
+                + "<title>[(html.sanitize(s))]</title></svg><svg t:replace=\"~{::icon}\"></svg>"
+                + "<math><mtext t:utext=\"html.sanitize(s)\"></mtext></math></div>")
+        .compile()
+        .assertSuccess();
+  }
+
+  @Test
+  void svgAndMathFragmentsKeepTheirNamespace() {
+    // A fragment rooted at <svg>/<math> is SVG/MathML wherever it is inserted (#277).
+    Compilation c =
+        Compilation.builder()
+            .template(
+                "page.html",
+                "<div t:params=\"String s\"><svg t:fragment=\"icon(String label)\"><title>[[label]]</title></svg>"
+                    + "<svg><g t:fragment=\"dot\"><circle r=\"1\"/></g></svg>"
+                    + "<p t:insert=\"~{::icon(s)}\"></p></div>")
+            .compile();
+    c.assertSuccess();
+    assertEquals(
+        "<div><svg><g><circle r=\"1\"/></g></svg><p><svg><title><!---->{<!---->{x}}</title></svg></p></div>",
+        c.render("page", Map.of("s", "{{x}}")));
+  }
+
   /** Markup that must fail to build: these contexts cannot be escaped. */
   static final List<String> REJECTED =
       List.of(
@@ -295,7 +393,37 @@ class XssContextTest {
           "<i t:attr=\"a b=s\">x</i>",
           // An HTML textarea/title inside foreign content still ends at the first end tag (#277).
           "<svg><foreignObject><textarea><a title=\"</textarea><script>/*\">*/[[s]]//</a></textarea></foreignObject></svg>",
-          "<svg><p></p><title><a title=\"</title><script>/*\">*/[[s]]//</a></title></svg>");
+          "<svg><p></p><title><a title=\"</title><script>/*\">*/[[s]]//</a></title></svg>",
+          // The namespace may not depend on rendering (#277).
+          "<svg><p t:remove=\"all\"></p><title><script>[[s]]</script></title></svg>",
+          "<svg><p t:if=\"s == null\"></p><title><script>[[s]]</script></title></svg>",
+          "<math><annotation-xml encoding=\"text/html\" t:attr=\"encoding=s\"><title>[[s]]</title></annotation-xml></math>",
+          "<svg><title t:remove=\"tag\"><textarea><script>[[s]]</script></textarea></title></svg>",
+          "<svg t:remove=\"tag\"><title><a title=\"</title><script>/*\">*/[[s]]//</a></title></svg>",
+          "<math><mi><mglyph t:remove=\"tag\"><textarea><a title=\"</textarea><script>/*\">*/[[s]]//</a></textarea>"
+              + "</mglyph></mi></math>",
+          // <svg> in <math> is MathML here but real SVG once inserted into HTML as a fragment.
+          "<math><svg t:fragment=\"f(String v)\"><title><textarea><a title=\"</textarea><script>/*\">*/[[v]]//</a>"
+              + "<a title=\"</script>\"></a></textarea></title></svg></math><div t:insert=\"~{::f(s)}\"></div>",
+          "<i t:fragment=\"w(Fragment c)\" t:replace=\"c\">c</i><i t:replace=\"~{::w(~{::svg})}\"><math><svg><title>"
+              + "<textarea>[[s]]</textarea></title></svg></math></i>",
+          // A nested <svg> that drops its tag is no wrapper once inserted into HTML.
+          "<svg><svg t:fragment=\"f(String v)\" t:remove=\"tag\"><textarea><a title=\"</textarea><script>/*\">*/[[v]]//</a>"
+              + "<a title=\"</script>\"></a></textarea></svg></svg><div t:insert=\"~{::f(s)}\"></div>",
+          "<i t:fragment=\"w(Fragment c)\" t:replace=\"c\">c</i><i t:replace=\"~{::w(~{::g})}\"><svg><g><svg t:remove=\"tag\">"
+              + "<textarea>[[s]]</textarea></svg></g></svg></i>",
+          // Raw HTML or a non-SVG fragment inside <svg> could close it in a browser, and an HTML
+          // <title>/<textarea> fragment would become an SVG one there (#277).
+          "<svg><g t:utext=\"html.sanitize(s)\"></g><textarea><a title=\"</textarea><script>/*\">*/[[s]]//</a></textarea></svg>",
+          "<svg><g>[(html.sanitize(s))]</g></svg>",
+          "<p t:fragment=\"f\">x</p><svg><g t:insert=\"~{::f}\"></g></svg>",
+          "<p t:fragment=\"f\">x</p><svg><t:block t:replace=\"~{::f}\"/></svg>",
+          "<title t:fragment=\"t\"><script>var a = 1;</script></title><svg><g t:insert=\"~{::t}\"></g></svg>",
+          "<i t:fragment=\"w(Fragment c)\"><svg><g t:insert=\"c\"></g></svg></i>",
+          "<math><mi><t:block><mglyph><textarea><img src=\"x\" onerror=\"[[s]]\"></textarea></mglyph></t:block></mi></math>",
+          // A fragment from inside <svg> would be parsed differently where it is inserted.
+          "<svg><g t:fragment=\"g\"><title>t</title></g></svg>",
+          "<i t:fragment=\"f(Fragment c)\" t:replace=\"c\">c</i><i t:replace=\"~{::f(~{::g})}\"><svg><g><textarea>[[s]]</textarea></g></svg></i>");
 
   /** The built-in {@code html.sanitize} turns stored rich text into SafeHtml for raw output. */
   @Test

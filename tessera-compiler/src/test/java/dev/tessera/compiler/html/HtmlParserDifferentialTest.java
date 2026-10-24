@@ -158,7 +158,8 @@ class HtmlParserDifferentialTest {
     Document doc = new HtmlParser().parse(source("<a\tb=c>"), d);
     assertEquals("Document[source=TemplateSource[viewName=t, path=t.html, content=<a\tb=c>], children=[Element[name=a,"
         + " attributes=[Attribute[name=b, value=c, rawValue=c, quote=\u0000, pos=t.html:1:4, valuePos=t.html:1:6]],"
-        + " children=[], selfClosing=false, hasEndTag=false, pos=t.html:1:1, inForeignContent=false]]]", doc.toString());
+        + " children=[], selfClosing=false, hasEndTag=false, pos=t.html:1:1, inForeignContent=false,"
+        + " hasForeignContent=false]]]", doc.toString());
     assertEquals(List.of("t.html:1:1: error: element <a> is not closed: add </a>"),
         d.all().stream().map(Diagnostic::toString).toList());
   }

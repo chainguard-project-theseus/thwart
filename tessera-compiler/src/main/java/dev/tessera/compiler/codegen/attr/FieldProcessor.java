@@ -11,6 +11,7 @@ import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.forms.FormPaths;
+import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.CompiledExpr;
@@ -63,7 +64,10 @@ public final class FieldProcessor implements AttributeProcessor {
         break;
       case "textarea":
         nameAndId(plan, attr, name, id);
-        plan.replaceBody(ESCAPERS + ".rcdata(out, " + display + ");", OutputContext.RCDATA);
+        // RCDATA in an HTML textarea; element text in an SVG/MathML one (#277).
+        OutputContext context = Contexts.text(plan.element());
+        String escaper = context == OutputContext.RCDATA ? ".rcdata(out, " : ".text(out, ";
+        plan.replaceBody(ESCAPERS + escaper + display + ");", context);
         break;
       case "select":
         nameAndId(plan, attr, name, id);

@@ -171,10 +171,10 @@ final class AttoparserHtmlParser {
     final Set<String> attributeNames = new HashSet<>();
     final List<Node> children = new ArrayList<>();
     OutputContext textContext = OutputContext.TEXT;
-    /** An SVG or MathML element, as a browser parses it; see {@link ForeignContent}. */
-    boolean foreign;
-    /** Namespace its children are parsed in: HTML once a start tag has ended foreign content. */
+    /** Namespace of this element as a browser parses it; see {@link ForeignContent}. */
     int ns = ForeignContent.HTML;
+    /** Its start tag was parsed by the foreign-content rules. */
+    boolean inForeignContent;
 
     Open(String name, SourcePos pos) {
       this.name = name;
@@ -182,7 +182,8 @@ final class AttoparserHtmlParser {
     }
 
     Element toElement(boolean selfClosing, boolean hasEndTag) {
-      return new Element(name, attributes, children, selfClosing, hasEndTag, pos, foreign);
+      return new Element(name, attributes, children, selfClosing, hasEndTag, pos, inForeignContent,
+          ForeignContent.hasForeignContent(ns, name, attributes));
     }
   }
 
@@ -386,25 +387,23 @@ final class AttoparserHtmlParser {
       tag = null;
     }
 
-    /**
-     * Sets {@code tag}'s namespace the way a browser's tree builder does. An HTML start tag in
-     * foreign content (such as {@code <p>}) makes the browser close the open foreign elements, so
-     * the rest of their content is HTML.
-     */
+    /** Sets {@code tag}'s namespace the way a browser's tree builder does; reports markup where it would vary. */
     private void setNamespace(Open tag) {
       Open parent = stack.peek();
       boolean htmlRules = parent == null || ForeignContent.htmlRules(parent.ns, parent.name, parent.attributes, tag.name);
-      if (!htmlRules && ForeignContent.breaksOut(tag.name, tag.attributes)) {
-        for (Open o : stack) {
-          if (o.ns == ForeignContent.HTML || ForeignContent.integrationPoint(o.ns, o.name, o.attributes)) {
-            break;
-          }
-          o.ns = ForeignContent.HTML;
-        }
-        htmlRules = true;
-      }
       tag.ns = htmlRules ? ForeignContent.htmlNamespace(tag.name) : parent.ns;
-      tag.foreign = tag.ns != ForeignContent.HTML;
+      tag.inForeignContent = !htmlRules;
+      String problem =
+          ForeignContent.problem(
+              parent == null ? ForeignContent.HTML : parent.ns,
+              parent == null ? null : parent.name,
+              parent == null ? null : parent.attributes,
+              tag.ns,
+              tag.name,
+              tag.attributes);
+      if (problem != null) {
+        diagnostics.error(tag.pos, problem);
+      }
     }
 
     @Override

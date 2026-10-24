@@ -13,9 +13,20 @@ import dev.tessera.compiler.model.OutputContext;
  */
 public final class UtextProcessor implements AttributeProcessor {
 
+  /** The error for raw HTML written into SVG or MathML content (also used for {@code [(...)]}). */
+  public static final String RAW_IN_FOREIGN_CONTENT =
+      "raw HTML (t:utext, [(...)]) inside SVG or MathML content is not supported: a browser would close the <svg>"
+          + " or <math> at an HTML tag in it; put it inside <foreignObject> or <mtext>";
+
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
     if (!requireHtmlText(ctx, attr, plan)) {
+      return;
+    }
+    if (plan.element().hasForeignContent()) {
+      // A browser leaves <svg>/<math> at an HTML tag such as <p>, so the markup after it would be
+      // parsed in another namespace than the contexts chosen at build time (#277).
+      ctx.diagnostics().error(attr.pos(), RAW_IN_FOREIGN_CONTENT);
       return;
     }
     Expr e = ctx.parse(attr);
