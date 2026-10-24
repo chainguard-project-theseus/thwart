@@ -50,7 +50,8 @@ public final class Contexts {
    * {@code content} is a refresh URL. The {@link #isHtmxRequestUrl htmx request URLs}
    * ({@code hx-get}, {@code hx-post}, ...) are RESOURCE_URL: htmx fetches them and swaps the
    * response into the page as HTML (#249). {@code hx-push-url} and {@code hx-replace-url} only
-   * change the address bar and are URL.
+   * change the address bar and are URL. {@link #isHtmxBoost hx-boost} is FORBIDDEN: it decides
+   * which form actions htmx requests (#258).
    */
   public static OutputContext attribute(Element element, String attributeName) {
     if (attributeName != null && isJsonBinding(element, attributeName)) {
@@ -73,7 +74,7 @@ public final class Contexts {
     if (isHtmxRequestUrl(attr)) {
       return OutputContext.RESOURCE_URL;
     }
-    if (isLegacyHtmxConnect(attr)) {
+    if (isLegacyHtmxConnect(attr) || isHtmxBoost(attr)) {
       return OutputContext.FORBIDDEN;
     }
     String unprefixed = attr.startsWith("data-") ? attr.substring("data-".length()) : attr;
@@ -126,6 +127,53 @@ public final class Contexts {
     String a = attributeName.toLowerCase(Locale.ROOT);
     String unprefixed = a.startsWith("data-") ? a.substring("data-".length()) : a;
     return unprefixed.equals("hx-sse") || unprefixed.equals("hx-ws");
+  }
+
+  /**
+   * Whether {@code attributeName} is {@code hx-boost} or {@code data-hx-boost} (#258). It is
+   * FORBIDDEN: it decides whether htmx submits the forms below with AJAX and swaps the response
+   * into the page, so the compiler must know it to check their actions. Case-insensitive.
+   */
+  public static boolean isHtmxBoost(String attributeName) {
+    String a = attributeName.toLowerCase(Locale.ROOT);
+    return a.equals("hx-boost") || a.equals("data-hx-boost");
+  }
+
+  /**
+   * The static {@code hx-boost} / {@code data-hx-boost} of {@code element} (#258): null if it has
+   * neither, false if every one present is exactly {@code false} (htmx's opt-out), true otherwise.
+   * htmx boosts only on exactly {@code true}; any other value counting as boosted only adds checks.
+   */
+  public static Boolean staticHtmxBoost(Element element) {
+    Boolean boost = null;
+    for (Attribute a : element.attributes()) {
+      if (!a.isTessera() && isHtmxBoost(a.name())) {
+        boost = (boost != null && boost) || !"false".equals(a.value());
+      }
+    }
+    return boost;
+  }
+
+  /**
+   * Whether {@code element} has an {@link #isHtmxRequestUrl htmx request attribute}, static,
+   * {@code t:} or (by name anywhere in its value) {@code t:attr} (#258): on a {@code <form>}, htmx
+   * then requests a submit button's {@code formaction} instead of that URL.
+   */
+  public static boolean hasHtmxRequestAttribute(Element element) {
+    for (Attribute a : element.attributes()) {
+      if (isHtmxRequestUrl(a.localName())) {
+        return true;
+      }
+      if (a.name().equals(Attribute.PREFIX + "attr") && a.value() != null) {
+        String v = a.value().toLowerCase(Locale.ROOT);
+        for (String name : HTMX_REQUEST_ATTRIBUTES) {
+          if (v.contains(name)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 
   /** A bind target: a plain attribute name without modifiers ({@code .}) or namespaces ({@code :}). */

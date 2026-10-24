@@ -72,6 +72,15 @@ public interface CodegenContext {
   String whitespaceBefore(Element element);
 
   /**
+   * Whether htmx may request {@code element}'s {@code action} or {@code formaction} and swap the
+   * response into the page (#258): a {@code <form>} in a statically boosted subtree of this
+   * template, or another element in such a subtree or inside a {@code <form>} that is boosted or
+   * has an htmx request attribute. Boosting from a fragment caller, a layout or JavaScript is not
+   * seen.
+   */
+  boolean htmxSubmits(Element element);
+
+  /**
    * Elements whose {@code ~{::tag}} helper is being generated, so mutually recursive selections
    * are reported instead of recursing forever. Compared by identity; callers add before rendering
    * and remove in a {@code finally}.
