@@ -1231,6 +1231,21 @@ These come from the annotation processor itself, without a template position.
   and `malformed markup: '--!>' ends a comment in a browser: end the comment with '-->' or remove the '!'`:
   a browser ends the comment earlier than Tessera would, so the markup after it would be live. Write
   `<!-- -->`-style comments that end only at `-->`.
+- `malformed markup: '>' inside a CDATA section is not supported, even in <svg> and <math>: elsewhere a browser ends it at the first '>'; write the text without <![CDATA[, with '>' as &gt;`,
+  `malformed markup: '>' inside '<?...?>' is not supported: a browser ends it at the first '>'; remove the '>'`
+  and `malformed markup: '>' inside <!DOCTYPE> is not supported: a browser ends it at the first '>'; write <!DOCTYPE html>`:
+  Tessera ends these at `]]>`, `?>` or the last `>` outside quotes, but in HTML a browser ends them
+  at the first `>`, so the markup after it would be read differently. Inside `<svg>` and `<math>` a
+  browser ends a CDATA section at `]]>` too; Tessera does not track those namespaces and rejects the
+  `>` there as well. A CDATA section inside `<script>` or `<style>` is script or CSS text and is not
+  checked.
+- `malformed markup: [[...]] and [(...)] are not supported inside a CDATA section: outside <svg> and <math> a browser reads the section as a comment, and inside them it shows &lt; as written; write the text without <![CDATA[`:
+  no escaping fits an expression there. Move it out of the CDATA section.
+- `malformed markup: <markup> starts a comment in a browser that ends at the first '>': write &lt; for a literal '<'`:
+  `<markup>` is `'<!'`, `'<?'` or `'</' not followed by a letter`, in element text where Tessera
+  reads no tag or comment (for example `a </ b`, `<? x ?>`, `<![if !IE]>`). A browser hides
+  everything up to the next `>` in a comment, including markup Tessera reads. Write `&lt;` for a
+  literal `<`; `x < y` stays allowed.
 
 ### Template structure
 
