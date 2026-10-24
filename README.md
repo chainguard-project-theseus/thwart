@@ -195,6 +195,7 @@ original app, and a check that security wasn't weakened. See
 
 - [docs/guide.md](docs/guide.md): porting guide and reference (syntax, every compiler diagnostic, known limitations)
 - [docs/mvp-design.md](docs/mvp-design.md): how the compiler, runtime and starter work
+- [docs/proofs.md](docs/proofs.md): machine-checked proofs (OpenJML) of the core escapers' security properties, run by hand with `bash tessera-runtime/src/jml/verify.sh` (not in CI yet)
 - [docs/tessera-vision.md](docs/tessera-vision.md): long-term design
 - [docs/strategy.md](docs/strategy.md): the secure-by-design library portfolio
 - [AGENTS.md](AGENTS.md): rules for contributors, human or agent; [docs/handoff.md](docs/handoff.md): how the work is orchestrated

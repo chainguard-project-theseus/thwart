@@ -1,0 +1,32 @@
+// Trusted specifications for the OpenJML proofs of Escapers (docs/proofs.md). OpenJML reads this
+// file instead of its bundled Character.jml, so it declares only what the proofs use. Each spec
+// restates the JDK documentation of the method; nothing checks it against the JDK code.
+package java.lang;
+
+public /*@ pure @*/ final class Character implements java.io.Serializable, Comparable<Character> {
+    //@ public normal_behavior
+    //@   ensures \result <==> ('\uD800' <= ch && ch <= '\uDBFF');
+    public static /*@ no_state helper @*/ boolean isHighSurrogate(char ch);
+
+    //@ public normal_behavior
+    //@   ensures \result <==> ('\uDC00' <= ch && ch <= '\uDFFF');
+    public static /*@ no_state helper @*/ boolean isLowSurrogate(char ch);
+
+    //@ public normal_behavior
+    //@   ensures \result <==> ('\uD800' <= ch && ch <= '\uDFFF');
+    public static /*@ no_state helper @*/ boolean isSurrogate(char ch);
+
+    // OpenJML's bundled specs for Byte, Short and String call these three; declaring them pure
+    // with no result spec keeps those specs well-formed.
+    //@ public normal_behavior
+    //@   ensures true;
+    public static /*@ no_state helper @*/ int digit(char ch, int radix);
+
+    //@ public normal_behavior
+    //@   ensures true;
+    public static /*@ no_state helper @*/ char toUpperCase(char ch);
+
+    //@ public normal_behavior
+    //@   ensures true;
+    public static /*@ no_state helper @*/ char toLowerCase(char ch);
+}

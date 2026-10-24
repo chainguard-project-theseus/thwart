@@ -1,0 +1,34 @@
+// Trusted specifications for the OpenJML proofs of Escapers (docs/proofs.md). OpenJML reads this
+// file instead of its bundled StringBuilder.jml, so it declares only what the proofs use. Each spec
+// restates the JDK documentation of the method; nothing checks it against the JDK code. Methods
+// not declared here (for StringBuilder: append(char), append(String), length) keep the specs
+// OpenJML's bundled AbstractStringBuilder.jml and CharSequence.jml give them, which are trusted too.
+package java.lang;
+
+public final class StringBuilder extends AbstractStringBuilder implements java.io.Serializable, CharSequence, Appendable, Comparable<StringBuilder> {
+    //@ public normal_behavior
+    //@   ensures chars == \string.empty;
+    //@ pure
+    public StringBuilder();
+
+    //@ public normal_behavior
+    //@   requires capacity >= 0;
+    //@   ensures chars == \string.empty;
+    //@ also public exceptional_behavior
+    //@   requires capacity < 0;
+    //@   signals_only NegativeArraySizeException;
+    //@ pure
+    public StringBuilder(int capacity);
+
+    //@ also public normal_behavior
+    //@   requires 0 <= start && start <= end && end <= s.chars.length;
+    //@   assignable chars;
+    //@   ensures chars == \old(chars).append(s.chars.substring(start, end));
+    //@   ensures \result == this;
+    public StringBuilder append(CharSequence s, int start, int end);
+
+    //@ also public normal_behavior
+    //@   ensures \result.chars == chars;
+    //@ pure
+    public String toString();
+}
