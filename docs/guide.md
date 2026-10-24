@@ -752,7 +752,8 @@ public record Address(String street) {}
   (`action="https://pay.example/..."`, or a computed URL with a scheme or starting with `//`) gets
   no token, so the session's token is never sent to another site. An absolute URL to the
   application's own host counts as elsewhere, and Spring Security then rejects the POST: write it
-  as `@{/...}`. A submit button's `formaction` is not checked (section 7).
+  as `@{/...}`. A submit button's `formaction`, a static `hx-post` and nested forms are not
+  checked (section 7).
 - **Lists of beans.** A path may index a `List` or an array with an int literal or an int
   variable: `*{items[0].name}`, `*{items[itemStat.index].name}`, `*{items[${i}].name}`. This
   replaces Thymeleaf's `*{items[__${itemStat.index}__].name}` and FreeMarker's
@@ -1529,10 +1530,14 @@ Gaps in Tessera today, each with what to do until it is fixed.
   no global (object-level) errors apart from `fields.errors('*')`, no `t:field` on fields whose
   type is not view-safe (`MultipartFile`: write the `name` attribute by hand), and `Field`
   fragments cannot read the value. Radios get no `id`.
-- **CSRF and `formaction`.** The CSRF input is left out of a form whose `action` is on another
-  origin (section 4.7), but a submit button's `formaction` is not checked: a
-  `<button t:formaction="...">` with an external URL inside a same-origin POST form sends the
-  token there. Don't compute `formaction` from data; give the external target its own form.
+- **CSRF and other ways a form posts elsewhere.** The CSRF input is left out of a form whose
+  `action` is on another origin (section 4.7), but only the form's own `action` is checked:
+  a submit button's `formaction` (a `<button t:formaction="...">` with an external URL inside a
+  same-origin POST form sends the token there), a static htmx request attribute such as
+  `hx-post="https://other.example/"` on the form, and a `<form>` nested in another (a browser
+  ignores the inner start tag, so the inner form's token lands in the outer form) are not seen.
+  Don't compute `formaction` from data, give an external target its own form, and don't nest
+  forms.
 - **Output.** `[[...]]` in a script serializes only the properties of the static type: a subclass's
   extra getters are not written, and Jackson annotations are ignored. `numbers.*` has no grouping
   or locale; `temporals.format` uses English names. Thymeleaf parser-level comments

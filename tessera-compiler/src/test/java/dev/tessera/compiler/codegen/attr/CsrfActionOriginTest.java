@@ -54,7 +54,8 @@ class CsrfActionOriginTest {
   @Test
   void relativeStaticActionsGetToken() {
     assertEquals("<div><form method=\"post\">" + INPUT + "x</form></div>", render("method=\"post\""));
-    for (String action : new String[] {"", "/x", "x", "?q=1", "#", "/a:b", "./x", "../x", " /x"}) {
+    for (String action :
+        new String[] {"", "/x", "x", "?q=1", "#", "/a:b", "./x", "../x", " /x", "/x?a=1&amp;b=2", "/x?a&b", "/a&sol;b"}) {
       String out = render("method=\"post\" action=\"" + action + "\"");
       assertEquals("<div><form method=\"post\" action=\"" + action + "\">" + INPUT + "x</form></div>", out, action);
     }
@@ -66,7 +67,13 @@ class CsrfActionOriginTest {
     for (String action :
         new String[] {
           "https://other/", "HTTP://other/", "//other/", "/\\other/", "\\\\other/", "\\/other/",
-          " //other/", "/&#9;/other/", "&#10;//other", "mailto:a@b", "javascript:x", "https:other"
+          " //other/", "/&#9;/other/", "&#10;//other", "mailto:a@b", "javascript:x",
+          // Named references the parser keeps but a browser decodes (/ : tab).
+          "&sol;&sol;evil.example/", "/&sol;evil/", "https&colon;//evil/", "&Tab;//evil/", "/&Tab;/evil/",
+          "&bsol;&bsol;evil/", "&sol;&#47;evil/",
+          // A browser resolves this against the page (same scheme), but any scheme counts as another
+          // origin here: it fails closed.
+          "https:other"
         }) {
       String out = render("method=\"post\" action=\"" + action + "\"");
       assertFalse(out.contains("_csrf"), action + ": " + out);
@@ -171,6 +178,27 @@ class CsrfActionOriginTest {
         "<div><form method=\"post\" action=\"/a\">" + INPUT + "x</form>"
             + "<form method=\"post\" action=\"https://evil/\">x</form></div>",
         render(c, Map.of("us", List.of("/a", "https://evil/"))));
+  }
+
+  /**
+   * A boosted form's action goes through the htmx same-origin link path (#258), a different
+   * processor branch: the hoisted link still passes the check, so the form keeps its token.
+   */
+  @Test
+  void boostedFormLinkActionGetsToken() {
+    Compilation c =
+        Compilation.builder()
+            .template(
+                "form.html",
+                "<div xmlns:t=\"https://tessera.dev\"><section hx-boost=\"true\">"
+                    + "<form method=\"post\" t:action=\"@{/o/{id}(id=1)}\">x</form></section>"
+                    + "<form hx-boost=\"true\" method=\"post\" t:attr=\"action=@{/x}\">y</form></div>")
+            .compile()
+            .assertSuccess();
+    assertEquals(
+        "<div><section hx-boost=\"true\"><form method=\"post\" action=\"/o/1\">" + INPUT + "x</form></section>"
+            + "<form hx-boost=\"true\" method=\"post\" action=\"/x\">" + INPUT + "y</form></div>",
+        render(c, Map.of()));
   }
 
   @Test

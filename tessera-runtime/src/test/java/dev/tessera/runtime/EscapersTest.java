@@ -359,7 +359,9 @@ class EscapersTest {
         new String[] {
           "https://other/", "HTTP://other/", "//other/", "/\\other/", "\\/other/", "\\\\other/", " //other/",
           "\t//evil", "/\t/evil", "/\n\\evil", "\u0000//evil", "\u0001 https://evil/", "mailto:a@b",
-          "javascript:x", "java\tscript:x", "a:b", ":x", "https:other", "about:invalid#tessera",
+          "javascript:x", "java\tscript:x", "a:b", ":x", "about:invalid#tessera",
+          // Same-scheme relative in a browser (so not another origin), but scheme-shaped: fails closed.
+          "https:other",
           // A browser reads this as a path, but url() writes about:invalid#tessera for it.
           "\\u003c:x"
         }) {
