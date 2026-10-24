@@ -460,6 +460,7 @@ The compiler decides the context from the element and attribute name. You cannot
 | Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, records and `@TemplateView` beans, collections, String-keyed maps). |
 | Style | `<style>` text and `style` attribute | In `<style>`, expressions are a build error. A `style` attribute takes only string literals, numbers and `CssValue`s, combined with `+`, `\|...\|`, `?:` and `? :`; anything else (a `String` value) is a build error. |
 | Refresh | `content` of `<meta http-equiv="refresh">` | Only `'<seconds>;url=' + @{/path...}` compiles: a literal delay and a link whose literal path starts with a single `/`, so the refresh stays on the same origin. Path variables and parameters are encoded as usual, and `; , ' "`, `\` and whitespace in the URL are percent-encoded. Rendered as `<seconds>;url=<url>`. |
+| Vue/Alpine binding | `:x`, `v-bind:x`, `x-bind:x` whose target `x` is an ordinary attribute (below) | Only a value `[[...]]` accepts in a script compiles; it is written as the same JSON, then attribute-escaped. `null` is written as `null`. |
 | Event handler | `on*` attributes, and framework directives (below) | Build error; put data in `data-*` attributes and read them from a script. |
 | Forbidden | `srcdoc`, non-JS `<script type>` | Build error. `<script type>` and `<meta http-equiv>` cannot be computed. |
 
@@ -469,9 +470,29 @@ Vue's `v-*` (every directive, `v-html` included) and its `:x`, `@x`, `#x` and `.
 Alpine's `x-*`; htmx's `hx-on*`, `hx-vals`, `hx-vars`, `hx-headers`, `hx-request` and `hx-trigger`
 (also with `data-`); _hyperscript's `_`, `script` and `data-script`; AngularJS's `ng-*`, `ng:*`
 and `ng_*` (also with `data-` or `x-`); and Knockout's `data-bind` and `params` on a custom element. Static directives are copied verbatim, shorthand names included: write
-`<api-entry :security="security" @click="open">` as in the old page. To hand server data to a
-component, put it in a `data-*` attribute or a `<script>` with `[[${...}]]` and read it from
-there; a Pebble or JSP `:prop='{{ json | raw }}'` becomes a `[[${object}]]` in a script. Other
+`<api-entry :security="security" @click="open">` as in the old page.
+
+The one exception is a binding that hands a value to a component or attribute: Vue's
+`v-bind:x` and `:x`, and Alpine's `x-bind:x`. `t::security="${api.securities}"` compiles when the
+value is one a script `[[...]]` accepts (strings, numbers, booleans, enums, `java.time`, records
+and `@TemplateView` beans, collections, arrays, Optionals, String-keyed maps). It is written as the
+same JSON as in a script, then attribute-escaped, so a string is always a string literal and the
+framework gets the value, never code: `:security="[{&quot;name&quot;:&quot;a&quot;}]"`. A Pebble or
+JSP `:prop='{{ obj | json | raw }}'` (or a Java-built JSON string) becomes `t::prop="${obj}"`; pass
+the object, not a JSON string, which would arrive as a string. Any other type is a build error.
+Only these bindings take JSON; anything else stays a build error:
+
+- a target `x` that is not an ordinary attribute: `on*`, `style`, URLs (`:href`, `:src`,
+  `:action`, ...), resource URLs, `srcdoc`, another directive (`:v-html`, `:x-data`, `:hx-get`),
+  `innerHTML`, `outerHTML` and `is`, and the parts of a link's URL (`protocol`, `host`,
+  `hostname`, `port`, `pathname`, `search`, `hash`, `username`, `password`), which Vue sets as
+  properties;
+- modifiers and dynamic names: `v-bind:x.prop`, `:x.camel`, `.x`, `:[key]`;
+- `v-bind="obj"` and `x-bind="obj"` with no target;
+- any binding on `<script>`, `<style>` or `<meta>`.
+
+Otherwise, to hand server data to a component, put it in a `data-*` attribute or a `<script>`
+with `[[${...}]]` and read it from there. Other
 `data-*` attributes and htmx attributes that hold selectors or text (`hx-target`, `hx-swap`,
 `hx-select`, `hx-confirm`) are ordinary attributes. Port `th:hx-get="@{/items/{id}(id=${id})}"`
 to the same `t:hx-get`; a URL computed in Java (`t:hx-get="${url}"`) has to become a link.
@@ -922,9 +943,10 @@ leaving a particular one. Read the part for your engine before converting.
     (section 4.5).
   - JSON for a script: pass the object to `[[...]]` inside the `<script>`. JSON in a `data-*`
     attribute: build the JSON string in Java and write it as a normal attribute value, which is
-    escaped. A framework directive (Vue `:prop`, Alpine `x-data`, ...) can't contain an expression
-    (section 4.4): put the value in a `data-*` attribute or a `<script>` with `[[...]]` and read it
-    from there.
+    escaped. JSON for a Vue `:prop` or Alpine `x-bind:prop`: pass the object, `t::prop="${obj}"`,
+    which writes it as JSON (section 4.4). Other framework directives (`v-on`, `@x`, `x-data`, ...)
+    can't contain an expression: put the value in a `data-*` attribute or a `<script>` with
+    `[[...]]` and read it from there.
 
   Never `SafeHtml.unchecked`.
 - **Scripts.** `[[...]]` in a `<script>` writes JSON with, among others, `/`, `&`, `<` and `'`
@@ -1355,7 +1377,9 @@ These come from the annotation processor itself, without a template position.
 ### Attributes
 
 - `<label> is not allowed: event-handler attributes cannot contain expressions; put the value in a data-* attribute and read it from a script`.
-- `<label> is not allowed: '<name>' is a Vue, Alpine, htmx, _hyperscript, AngularJS or Knockout directive whose value is run as JavaScript, so it cannot contain expressions; write it as a static attribute, or put the value in a data-* attribute or a <script> with [[...]] and read it from there`. See [4.4](#44-escaping-and-output-contexts) for the list of directives.
+- `<label> is not allowed: '<name>' is a Vue, Alpine, htmx, _hyperscript, AngularJS or Knockout directive whose value is run as JavaScript, so it cannot contain expressions; write it as a static attribute, or put the value in a data-* attribute or a <script> with [[...]] and read it from there`. See [4.4](#44-escaping-and-output-contexts) for the list of directives. A Vue or Alpine binding of an ordinary attribute (`t::prop`, `t:v-bind:prop`, `t:x-bind:prop`) takes a JSON value instead.
+- `<label> is not allowed: '<name>' is a Vue or Alpine binding whose value is run as JavaScript; an expression (written as JSON) is only allowed in :x, v-bind:x or x-bind:x whose target x is an ordinary attribute, with no modifiers, not on* / style / a URL or URL part / innerHTML / is, and not on <script>, <style> or <meta>; otherwise write it as a static attribute`. For `:href`, `:style`, `v-bind:x.prop`, `v-bind="obj"`, ... (section 4.4).
+- `cannot output a value of type <type> in <label>: only strings, numbers, booleans, enums, java.time values, records and @TemplateView classes of those, and Optionals, collections, arrays and String-keyed maps of those can be serialized as JSON`. A Vue or Alpine binding takes the same types as a script `[[...]]`.
 - `<label> is not allowed: a style value can only combine string literals, numbers and CssValues such as css.color(c), css.length(l) or css.url(u), not a <type>; use t:class or t:classappend instead`.
 - `<label> is not allowed: srcdoc is a whole HTML document and cannot contain expressions; use src with a URL`.
 - `<label> is not allowed: the content of <meta http-equiv="refresh"> navigates the page; write a delay and a same-origin link such as '3;url=' + @{/items/{id}(id=${item.id})}, or redirect from the controller`. Port `content="1;url=/admin/update${vid}"` to `t:content="'1;url=' + @{/admin/update{vid}(vid=${vid})}"`.

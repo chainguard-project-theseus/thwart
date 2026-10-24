@@ -28,6 +28,13 @@ public enum OutputContext {
   /** Inside a JavaScript {@code <script>} element; values are serialized as JSON. */
   SCRIPT("json"),
   /**
+   * Value of a Vue/Alpine bind attribute ({@code v-bind:x}, {@code :x}, {@code x-bind:x}) whose
+   * target {@code x} is an ordinary attribute (#246; see {@code Contexts.isJsonBinding}). The
+   * framework evaluates the value as a JavaScript expression, so it is serialized as JSON exactly
+   * as in {@code <script>} (a string is always a string literal) and then attribute-escaped.
+   */
+  SCRIPT_ATTRIBUTE("jsonAttr"),
+  /**
    * {@code <style>} element or {@code style} attribute. Expressions in a {@code <style>} are a
    * build error; a {@code style} attribute takes only literals, numbers and {@code CssValue}s
    * (#182) and is attribute-escaped.

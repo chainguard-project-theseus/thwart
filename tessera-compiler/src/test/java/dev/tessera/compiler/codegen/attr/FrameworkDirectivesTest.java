@@ -27,11 +27,11 @@ class FrameworkDirectivesTest {
   @ValueSource(
       strings = {
         // Vue
-        "v-on:click", "@click", "@click.prevent", "v-bind:title", "v-bind", ":title", ":security",
+        "v-on:click", "@click", "@click.prevent", "v-bind", "x-bind", ":href", "v-bind:title.prop",
         "v-model", "v-if", "v-else-if", "v-show", "v-for", "v-html", "V-HTML", "v-text", "v-slot:item",
         "#default", ".textContent", "v-focus",
         // Alpine
-        "x-data", "x-init", "x-on:click", "x-bind:class", "x-html", "x-text", "x-show", "x-effect",
+        "x-data", "x-init", "x-on:click", "x-bind:style", "x-html", "x-text", "x-show", "x-effect",
         // htmx
         "hx-on", "hx-on:click", "hx-on::after-request", "hx-on-click", "hx-on--after-request",
         "data-hx-on:click", "hx-vals", "data-hx-vals", "hx-vars", "hx-headers", "hx-request",
@@ -66,12 +66,17 @@ class FrameworkDirectivesTest {
     compile("<p t:x-data=\"'{}'\">x</p>").assertError("t:x-data is not allowed");
   }
 
-  /** The issue's reproduction: a hostile string never ends up in a directive. */
+  /**
+   * The issue's reproduction: a hostile string never ends up in a directive as code. v-on is
+   * rejected; v-bind:x takes the string as a JSON string literal (#246, see JsonBindingTest).
+   */
   @Test
   void issueReproductionIsRejected() {
-    Compilation c = compile("<api-entry t:v-on:click=\"s\" t:v-bind:x=\"s\"></api-entry>");
-    c.assertError("t:v-on:click is not allowed");
-    c.assertError("t:v-bind:x is not allowed");
+    compile("<api-entry t:v-on:click=\"s\" t:v-bind:x=\"s\"></api-entry>").assertError("t:v-on:click is not allowed");
+    Compilation c = compile("<api-entry t:v-bind:x=\"s\"></api-entry>").assertSuccess();
+    assertEquals(
+        "<div><api-entry v-bind:x=\"&quot;\\&quot;);alert(1)\\/\\/&quot;\"></api-entry></div>",
+        c.render("t", Map.of("s", "\");alert(1)//")));
   }
 
   /** Static directives, shorthand names included, are the author's code and are written verbatim. */

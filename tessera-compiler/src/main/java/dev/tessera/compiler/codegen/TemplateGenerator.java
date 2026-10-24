@@ -415,7 +415,7 @@ public final class TemplateGenerator implements CodegenContext {
     OutputContext ctx = d.context();
     String escaper =
         ctx == OutputContext.ATTRIBUTE || ctx == OutputContext.URL || ctx == OutputContext.RESOURCE_URL
-            || ctx == OutputContext.REFRESH
+            || ctx == OutputContext.REFRESH || ctx == OutputContext.SCRIPT_ATTRIBUTE
             ? ctx.escaper()
             : ctx == OutputContext.STYLE ? OutputContext.ATTRIBUTE.escaper() : null;
     if (escaper == null) {
@@ -424,13 +424,14 @@ public final class TemplateGenerator implements CodegenContext {
       return "";
     }
     String v = freshName("v");
+    // A JSON value (SCRIPT_ATTRIBUTE, #246) is written even when null, as JSON null.
     return "{ java.lang.Object "
         + v
         + " = "
         + d.valueCode()
         + "; if ("
-        + v
-        + " != null) { out.write("
+        + (ctx == OutputContext.SCRIPT_ATTRIBUTE ? "true" : v + " != null")
+        + ") { out.write("
         + literal(" " + d.name() + "=\"")
         + "); "
         + RT
