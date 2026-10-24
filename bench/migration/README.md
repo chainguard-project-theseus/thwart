@@ -46,7 +46,9 @@ Two kinds of round:
 3. **Migration.** For each run, a fresh clone goes into a new container and `claude -p` runs
    [prompt.md](prompt.md) (`lib/run-agent.sh`) with `--plugin-dir /opt/tessera-plugin`,
    `--dangerously-skip-permissions`, no web tools or workflows, a time limit (`timeout`) and a
-   spend cap (`--max-budget-usd`). The container's home is empty, so there is no CLAUDE.md,
+   spend cap (`--max-budget-usd`). `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` keeps `claude -p`
+   from stopping the agent's background tasks 10 minutes after its last turn; the time limit
+   still bounds them. The container's home is empty, so there is no CLAUDE.md,
    memory, settings or other plugin: a fresh context with the standard tools and the Tessera
    plugin, as a user who installed it would have. The prompt asks for the migration and says what
    "done" is checked against, but doesn't name the skill or its guide: the skill's description
