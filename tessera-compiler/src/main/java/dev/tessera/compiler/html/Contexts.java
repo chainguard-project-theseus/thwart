@@ -41,8 +41,9 @@ public final class Contexts {
    * {@link #isFrameworkDirective framework directives} and {@code on*} are EVENT_HANDLER, {@code style} is STYLE, {@code srcdoc} and
    * names that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*} are FORBIDDEN, resource URLs are
    * RESOURCE_URL, other URL attributes are URL, everything else ATTRIBUTE. The values of SVG
-   * {@code <animate>}/{@code <set>} ({@code values to from by}) are URL too: they can set an
-   * {@code href} to {@code javascript:}. The {@code content} of a
+   * {@code <animate>}/{@code <set>} ({@code to from by}) are URL too: they can set an
+   * {@code href} to {@code javascript:}. Their {@code values} is URL_LIST: a {@code ;}-separated
+   * list whose items SVG applies in turn, so every item is checked (#284). The {@code content} of a
    * {@code <meta http-equiv="refresh">} is REFRESH: its {@code url=} part navigates the page, so
    * only a same-origin link is allowed there (#237).
    * The {@code type} of a {@code <script>} is FORBIDDEN: it decides whether the content is
@@ -92,7 +93,11 @@ public final class Contexts {
     if (isResourceUrl(el, attr)) {
       return OutputContext.RESOURCE_URL;
     }
-    if (URL_ATTRIBUTES.contains(attr) || isAnimationValue(el, attr)) {
+    if (isAnimation(el) && attr.equals("values")) {
+      return OutputContext.URL_LIST;
+    }
+    if (URL_ATTRIBUTES.contains(attr)
+        || (isAnimation(el) && (attr.equals("to") || attr.equals("from") || attr.equals("by")))) {
       return OutputContext.URL;
     }
     return OutputContext.ATTRIBUTE;
@@ -306,9 +311,8 @@ public final class Contexts {
     return false;
   }
 
-  private static boolean isAnimationValue(String el, String attr) {
-    return (el.equals("animate") || el.equals("set"))
-        && (attr.equals("values") || attr.equals("to") || attr.equals("from") || attr.equals("by"));
+  private static boolean isAnimation(String el) {
+    return el.equals("animate") || el.equals("set");
   }
 
   private static boolean isResourceUrl(String element, String attr) {
