@@ -1246,10 +1246,17 @@ These come from the annotation processor itself, without a template position.
   the value, so the tag is an open tag, not a self-closing one. Quote the value
   (`<img src="a"/>`).
 - `malformed markup: a name after '/' in a tag starts a new attribute in a browser: remove the '/'`:
-  as in `<p title="x"/t:text="s">`, `<img/src=x>` or `<script type/ type="application/json">`.
-  A browser ends a name at a `/` and reads the name after it, with or without whitespace
-  between, as a new attribute, where Tessera would not. Remove the `/`; only whitespace and `>`
-  may follow it (`<br/>`, `<br / >`).
+  as in `<p title="x"/t:text="s">` or `<img/src=x>`. A browser ends a name at a `/` and reads
+  the name after it as a new attribute, where Tessera would not. Remove the `/`.
+- `malformed markup: '/' in a tag must be followed by '>': remove the '/' or what follows it`:
+  as in `<br / >`, `<br //>` or `<script type/ type="application/json">`. A browser ignores a
+  `/` that is not right before `>`, while Tessera would read it as an attribute named `/`; where
+  Tessera rebuilds the tag, that attribute comes out as ` />`, which closes an svg or math
+  element early. Write `<br/>` or `<br />`, or remove the `/`.
+- `malformed markup: '=' starting an unquoted value is part of it in a browser: quote the value`:
+  as in `href==x` or `title= =x`. A browser reads the value as `=x`, while Tessera would skip the
+  extra `=`, so a tag Tessera rebuilds could carry a different value than the browser read.
+  Remove the extra `=`, or quote the value if it starts with `=` (`title="=x"`).
 - `duplicate attribute '<name>' on <<tag>>: remove one of them`: keep one; names are
   case-insensitive (`t:text` and `T:TEXT` are the same).
 - `malformed markup: content of <<tag>> contains '</<tag>' before its end tag: escape it (in a script string, write '<\/<tag>')`:
