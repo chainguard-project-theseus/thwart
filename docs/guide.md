@@ -605,6 +605,7 @@ naming the file and key, unless the value is markup from this allow-list:
   `&amp;`; no `style` and no `on*`;
 - every end tag matches, and every element is closed except `p li dt dd`. `<p/>` is a `<p>` and is
   printed as written, as Thymeleaf does.
+- the message does not end with `<` (write `&lt;`): the template text after it would continue it.
 
 Arguments are HTML-escaped before they are formatted into the message (numbers and `Date`s are
 formatted by `MessageFormat` as usual), so `{0}` is always text. Placeholders must be `{n}`,
@@ -1415,6 +1416,15 @@ These come from the annotation processor itself, without a template position.
 - `[[...]] is inside a client-side {{ ... }} interpolation: Vue or AngularJS would run the value as code, whatever the escaping. Pass the value in a data-* attribute or a <script> with [[...]] and read it from there`
   (also `[(...)]`): the text has a `{{` with no `}}` before the expression. Character references
   for braces count, as the framework decodes them.
+- `[[...]] may not follow '<MARKUP>' directly: the browser would read the value as markup; write &lt; for a literal '<'`
+  (also `[(...)]`), where `<MARKUP>` is `<`, `<!`, `<!-`, `<?`, or `</` and any letters, at the end
+  of the static text before the expression, in element text, `<title>` or `<textarea>`. In element
+  text a browser reads `<` and a value starting with a letter as a tag (`<p><[[s]]></p>` with
+  `s = "img src=x onerror=..."`). In `<title>` and `<textarea>` only an end tag matters: `</text`
+  and a value `area`, or `</textarea` and an empty value, end the element early. The other endings
+  are rejected there too, to fail closed. Write `&lt;[[s]]`.
+- `[[...]] may not follow '<!-' directly in <script>: a negative number would make it '<!--'; write a space after '<'`:
+  after `<!--` a browser hides the next `</script>` that follows a `<script` in the code.
 - `cannot output a value of type <type> inside <script>: only strings, numbers, booleans, enums, java.time values, records and @TemplateView classes of those, and Optionals, collections, arrays and String-keyed maps of those can be serialized as JSON`:
   when a property of a record or bean is the problem, the message ends with
   `; property '<name>' of <type> has type <type>` (or `; <type> contains itself with different type arguments`).
@@ -1425,8 +1435,9 @@ These come from the annotation processor itself, without a template position.
   not pass the allow-list in section 4.5. The reason names the element, attribute, URL or
   placeholder at fault (`<script> is not allowed`, `attribute onclick is not allowed on <b>`,
   `a placeholder may not be inside a tag`, `<div> is never closed`, ...); a reason that ends `(in
-  the message as MessageFormat formats it, ...)` is about `'` quoting. Fix the bundle, or move the
-  markup into the template.
+  the message as MessageFormat formats it, ...)` is about `'` quoting. `a message may not end with
+  '<'` means the template text after the message would continue the `<` into a tag. Fix the
+  bundle, or move the markup into the template.
 - `<form> needs a value of type dev.tessera.runtime.SafeHtml, but the expression has type <type>: use t:text or [[...]] (escaped), or build a SafeHtml in trusted Java code`.
 
 ### Attributes
