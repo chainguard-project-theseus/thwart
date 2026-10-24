@@ -251,6 +251,46 @@ class XssContextTest {
     assertEquals(2, later.split("values=\"about:invalid#tessera\"", -1).length - 1, later);
   }
 
+  /**
+   * Negative (#285): a hostile computed action never receives the CSRF token. Whenever the token
+   * is written, the action as a browser reads it has no scheme and does not start with two
+   * slashes (either way round), so the form posts to the page's origin.
+   */
+  @Test
+  void csrfTokenNeverPostsCrossOrigin() {
+    Compilation c =
+        Compilation.builder()
+            .template("page.html", "<div t:params=\"String s\"><form method=\"post\" t:action=\"s\"></form></div>")
+            .compile()
+            .assertSuccess();
+    Pattern action = Pattern.compile("action=\"([^\"]*)\"");
+    java.util.function.Consumer<String> check =
+        s -> {
+          String out = c.render("page", Map.of("s", s), hostileContext("tok"));
+          if (!out.contains("_csrf")) {
+            return;
+          }
+          Matcher m = action.matcher(out);
+          String url = m.find() ? ContextOracle.decodeHtml(m.group(1)) : "";
+          String scheme = ContextOracle.browserScheme(url);
+          String path = url.replaceFirst("^[\\x00-\\x20]+", "").replaceAll("[\t\n\r]", "");
+          boolean protocolRelative =
+              path.length() >= 2 && "/\\".indexOf(path.charAt(0)) >= 0 && "/\\".indexOf(path.charAt(1)) >= 0;
+          if (scheme != null || protocolRelative) {
+            fail("token posted cross-origin for " + show(s) + ": " + out);
+          }
+        };
+    for (String v : HostileStrings.VECTORS) {
+      check.accept(v);
+    }
+    for (String v : List.of("https://evil/", "//evil/", "/\\evil/", "\\\\evil", "\t//evil", "\u0000//evil")) {
+      check.accept(v);
+      assertTrue(!c.render("page", Map.of("s", v), hostileContext("tok")).contains("_csrf"), show(v));
+    }
+    HostileStrings.forEachSeeded(2000, (rnd, i) -> check.accept(HostileStrings.random(rnd, 12)));
+    assertTrue(c.render("page", Map.of("s", "/x"), hostileContext("tok")).contains("_csrf"));
+  }
+
   @Test
   void scriptInlineInTemplateLiteralAndCommentIsInert() {
     String out = render("`;alert(1);/*${x}*/");

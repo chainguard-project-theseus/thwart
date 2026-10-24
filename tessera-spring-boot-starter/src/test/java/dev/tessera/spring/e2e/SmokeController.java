@@ -8,6 +8,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /** Controllers over the compiled {@code smoke/page} template, shared by the end-to-end tests. */
 @Controller
@@ -17,6 +18,13 @@ public class SmokeController {
   public String page(Model model) {
     model.addAttribute("signup", new Signup("Ada"));
     return "smoke/page";
+  }
+
+  /** POST forms whose action comes from the request (#285). */
+  @GetMapping("/action")
+  public String action(@RequestParam("target") String target, Model model) {
+    model.addAttribute("target", target);
+    return "smoke/action";
   }
 
   @GetMapping("/typed")
