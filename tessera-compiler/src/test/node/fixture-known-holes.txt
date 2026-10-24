@@ -1,0 +1,14 @@
+# Known holes for fixture.jsonl only (#322), in known-holes.txt's format. fixture.jsonl holds renders
+# from 0dda2f1, so these never go stale; run.sh also checks that an empty list reports every one.
+# Until #324 exports the real cases, the job ratchets the fixture against this file.
+#
+# A5 <svg><title><script>: live in every engine (svg <title> is an HTML integration point).
+f09d02af175e LIVE_SCRIPT parse5 #301 A5
+f09d02af175e JS_NOT_LITERAL parse5 #301 A5
+f09d02af175e LIVE_SCRIPT chromium #301 A5
+f09d02af175e LIVE_SCRIPT firefox #301 A5
+# A31 <select><title><script>: live under classic <select> parsing (parse5 8, Firefox 140 ESR); not
+# in Chromium 149, which parses the new customizable <select>.
+c42d98097d59 LIVE_SCRIPT parse5 #305 A31
+c42d98097d59 JS_NOT_LITERAL parse5 #305 A31
+c42d98097d59 LIVE_SCRIPT firefox #305 A31

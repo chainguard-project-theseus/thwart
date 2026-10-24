@@ -1,0 +1,55 @@
+version: 1
+# The Node oracle (#322): parse5, headless Chromium (Wolfi) and Firefox 140 ESR (pinned download,
+# SHA-256 checked in run.sh) over the spec-parser oracle's cases. Not part of `mvn verify`.
+# Chainguard Checks has no cron, so it runs after every merge to main, and on a PR on request.
+environment:
+  packages:
+    - nodejs-22
+    - npm
+    - chromium
+    - bash
+    - git
+    - curl
+    - xz
+    # Libraries the Firefox ESR tarball loads (Wolfi's firefox package is the current release).
+    - gtk-3
+    - alsa-lib
+    - dbus-libs
+    - libx11
+    - libxcomposite
+    - libxdamage
+    - libxext
+    - libxfixes
+    - libxrandr
+    - mesa-glx
+    - pciutils-libs
+    # ProfileOracleTest exports the cases once #324 lands.
+    - openjdk-21-default-jdk
+    - maven-3.9
+  vars:
+    JAVA_HOME: /usr/lib/jvm/default-jvm
+    CHROMIUM_PATH: /usr/bin/chromium
+    TMPDIR: /var/tmp
+    LANG: C.UTF-8
+    CI: "true"
+    MAVEN_OPTS: -Djava.io.tmpdir=/var/tmp
+checks:
+  oracle-node:
+    description: Runs the oracle's cases through parse5, headless Chromium and Firefox 140 ESR after each merge.
+    trigger: postsubmit
+    resources: medium-amd64
+    timeout: 15m
+    network:
+      egress: [registry.npmjs.org, archive.mozilla.org, repo.maven.apache.org, repo1.maven.org]
+    cmd: [bash, tessera-compiler/src/test/node/run.sh]
+  oracle-node-pr:
+    when: {requested: true}
+    description: >-
+      Runs the oracle's cases through parse5, headless Chromium and Firefox 140 ESR. Worth running
+      when a change touches the HTML parser, output contexts, escapers, or the oracle itself.
+    trigger: presubmit
+    resources: medium-amd64
+    timeout: 15m
+    network:
+      egress: [registry.npmjs.org, archive.mozilla.org, repo.maven.apache.org, repo1.maven.org]
+    cmd: [bash, tessera-compiler/src/test/node/run.sh]
