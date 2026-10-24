@@ -17,6 +17,9 @@ public final class Contexts {
 
   private static final Pattern PLAIN_NAME = Pattern.compile("[A-Za-z_][A-Za-z0-9_.:-]*");
 
+  private static final Set<String> BROWSER_RAW_TEXT =
+      Backports.setOf("xmp", "iframe", "noembed", "noframes", "noscript");
+
   private static final Set<String> URL_ATTRIBUTES =
       Backports.setOf(
           "href", "src", "action", "formaction", "cite", "poster", "background", "longdesc",
@@ -331,6 +334,17 @@ public final class Contexts {
       default:
         return false;
     }
+  }
+
+  /**
+   * Whether a browser reads the content of element {@code name} as raw text while Tessera parses
+   * it as markup: {@code xmp iframe noembed noframes}, and {@code noscript} when scripting is
+   * on. Holes inside are escaped for TEXT, which is inert in raw text too, so the two readings
+   * agree as long as the browser ends the element where Tessera does: at the first
+   * {@code </name} after the start tag.
+   */
+  public static boolean browserRawText(String name) {
+    return BROWSER_RAW_TEXT.contains(name.toLowerCase(Locale.ROOT));
   }
 
   /**

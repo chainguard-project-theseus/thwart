@@ -169,6 +169,8 @@ final class AttoparserHtmlParser {
     final Set<String> attributeNames = new HashSet<>();
     final List<Node> children = new ArrayList<>();
     OutputContext textContext = OutputContext.TEXT;
+    /** For a {@link Contexts#browserRawText} element, where a browser ends it; -1 if nowhere. */
+    int browserEnd = -1;
 
     Open(String name, SourcePos pos) {
       this.name = name;
@@ -366,6 +368,10 @@ final class AttoparserHtmlParser {
       flushText();
       String name = new String(buffer, offset, len);
       tag = new Open(name, pos(line, col));
+      if (name.equalsIgnoreCase("plaintext")) {
+        diagnostics.error(tag.pos, "<" + name + "> is not supported: a browser treats the rest of the page as plain"
+            + " text; use <pre>");
+      }
       if (!ELEMENT_NAME.matcher(name).matches()) {
         diagnostics.error(tag.pos, "malformed markup: invalid element name '" + name
             + "': element names start with a letter and use letters, digits, '-', '_', ':' and '.'");
@@ -413,7 +419,8 @@ final class AttoparserHtmlParser {
       String lower = tag.name.toLowerCase(Locale.ROOT);
       if (minimized && (lower.equals("script") || lower.equals("style"))) {
         // A browser treats <script/> as an open tag, so the template text after it would run as
-        // script (or style) while Tessera escaped it for TEXT. RCDATA textarea/title stay allowed.
+        // script (or style) while Tessera escaped it for TEXT. <textarea/>, <title/> and the other
+        // raw text elements are checked where Tessera writes them (TemplateGenerator).
         diagnostics.error(tag.pos, "<" + lower + "/> is not self-closing in HTML: the browser treats everything"
             + " after it as " + lower + "; write <" + lower + " ...></" + lower + ">");
       }
@@ -437,6 +444,8 @@ final class AttoparserHtmlParser {
         rawPos = pos(line, col + 1);
         rawEnd = browserEndTag(open.name, rawStart);
         matchEndTagCase(open.name);
+      } else if (Contexts.browserRawText(open.name)) {
+        open.browserEnd = browserEndTag(open.name, offset(line, col) + 1);
       }
     }
 
@@ -473,9 +482,7 @@ final class AttoparserHtmlParser {
         if (end != rawEnd) {
           // attoparser parsed markup (a comment, an attribute value) that hid an earlier end
           // tag; a browser would end the element there, so the contexts after it would be wrong.
-          diagnostics.error(position(rawEnd), "malformed markup: content of <" + raw.name
-              + "> contains '</" + raw.name + "' before its end tag: escape it (in a script string,"
-              + " write '<\\/" + raw.name + "')");
+          hiddenEndTag(raw.name, rawEnd);
         }
         endRaw(end);
       }
@@ -489,6 +496,11 @@ final class AttoparserHtmlParser {
       while (true) {
         Open top = stack.pop();
         if (top.name.equalsIgnoreCase(name)) {
+          if (top.browserEnd >= 0 && top.browserEnd != offset(line, col)) {
+            // A comment, attribute value, nested raw text or a nested <noscript> hid the end tag
+            // a browser uses: it would end the element there and parse the rest as markup.
+            hiddenEndTag(top.name, top.browserEnd);
+          }
           children().add(top.toElement(false, true));
           return;
         }
@@ -498,14 +510,23 @@ final class AttoparserHtmlParser {
       }
     }
 
+    private void hiddenEndTag(String name, int offset) {
+      String fix = Contexts.browserRawText(name)
+          ? "a browser ends the element there, so the markup after it would be read differently; remove it or"
+              + " move it outside the element"
+          : "escape it (in a script string, write '<\\/" + name + "')";
+      diagnostics.error(position(offset), "malformed markup: content of <" + name + "> contains '</" + name
+          + "' before its end tag: " + fix);
+    }
+
     /**
      * Offset of the first {@code </name} followed by whitespace, {@code /} or {@code >} at or
-     * after {@code from} (case-insensitive), or -1.
+     * after {@code from} (ASCII case-insensitive), or -1.
      */
     private int browserEndTag(String name, int from) {
       String needle = "</" + name;
       for (int i = from; i + needle.length() <= content.length(); i++) {
-        if (content.regionMatches(true, i, needle, 0, needle.length())) {
+        if (asciiMatchesIgnoreCase(content, i, needle)) {
           int next = i + needle.length();
           if (next == content.length() || " \t\n\f\r/>".indexOf(content.charAt(next)) >= 0) {
             return i;
@@ -513,6 +534,22 @@ final class AttoparserHtmlParser {
         }
       }
       return -1;
+    }
+
+    /** Whether {@code s} has {@code needle} at {@code at}, folding ASCII letters only, as browsers do. */
+    private static boolean asciiMatchesIgnoreCase(String s, int at, String needle) {
+      for (int i = 0; i < needle.length(); i++) {
+        char a = s.charAt(at + i);
+        char b = needle.charAt(i);
+        if (a != b && asciiLower(a) != asciiLower(b)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    private static char asciiLower(char c) {
+      return c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c;
     }
 
     private SourcePos position(int offset) {
