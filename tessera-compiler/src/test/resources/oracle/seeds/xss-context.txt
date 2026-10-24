@@ -199,13 +199,17 @@
 <title>[[s]]</title>
 ====
 # name: xss-lines-4
-# expect-0dda2f1: CLEAN
-# main: CLEAN
+# expect-0dda2f1: CONTEXT_MISMATCH
+# fixed-by: #309
+# main: CONTEXT_MISMATCH
+# note: text escaping inside a raw-text element (#323 flags it; over-escaped, not executable)
 <xmp>[[s]]</xmp><noscript>[[s]]</noscript><noembed>[[s]]</noembed>
 ====
 # name: xss-lines-5
-# expect-0dda2f1: CLEAN
-# main: CLEAN
+# expect-0dda2f1: CONTEXT_MISMATCH
+# fixed-by: #309
+# main: CONTEXT_MISMATCH
+# note: text escaping inside a raw-text element (#323 flags it; over-escaped, not executable)
 <iframe>[[s]]</iframe>
 ====
 # name: xss-lines-6
@@ -269,8 +273,10 @@
 <script t:text="s"></script>
 ====
 # name: xss-lines-18
-# expect-0dda2f1: CLEAN
-# main: CLEAN
+# expect-0dda2f1: JS_NOT_LITERAL
+# fixed-by: #290
+# main: JS_NOT_LITERAL
+# note: JSON inside a string, template, comment or regex; value not one literal in expression position (the #319 rule); no value executes; rejected by #290
 <script>var a = [[s]]; /*[[s]]*/ var t = `[[s]]`; var r = /[[s]]/; // [[s]]
 </script>
 ====

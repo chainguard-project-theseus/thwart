@@ -36,9 +36,10 @@
 <p><![CDATA[ x><script>[[s]]</script> ]]></p>
 ====
 # name: pr296-2
-# expect-0dda2f1: CLEAN
+# expect-0dda2f1: STRUCTURE_CHANGED
+# fixed-by: #296
 # main: REJECTED
-# note: rejected by #296; no finding on 0dda2f1 with the #306 values
+# note: the --> in Tessera's {<!---->{ ends the bogus comment that <![ opens; rejected by #296
 <p><![CDATA[ [[s]] ]]></p>
 ====
 # name: pr296-3
@@ -120,9 +121,10 @@
 <p><[[s]]script>alert(1)<[[s]]/script></p>
 ====
 # name: pr299-2
-# expect-0dda2f1: CLEAN
+# expect-0dda2f1: STRUCTURE_CHANGED
+# fixed-by: #299
 # main: REJECTED
-# note: rejected by #299; no finding on 0dda2f1 with the #306 values
+# note: a value after a static </ or <! changes the bogus comment it is in; rejected by #299
 <p></[[s]]></p>
 ====
 # name: pr299-3
@@ -180,51 +182,59 @@
 <iframe/><title></iframe><script>var a = [[s]];</script></title>
 ====
 # name: pr289-6
-# expect-0dda2f1: CLEAN
+# expect-0dda2f1: CONTEXT_MISMATCH
+# fixed-by: #289
 # main: REJECTED
-# note: rejected by #289; no finding on 0dda2f1 with the #306 values
+# note: text escaping inside a raw-text element (#323 flags it; over-escaped, not executable); rejected by #289
 <plaintext>[[s]]</plaintext>
 ====
 # name: pr289-7
-# expect-0dda2f1: CLEAN
+# expect-0dda2f1: CONTEXT_MISMATCH
+# fixed-by: #289
 # main: REJECTED
-# note: rejected by #289; no finding on 0dda2f1 with the #306 values
+# note: text escaping inside a raw-text element (#323 flags it; over-escaped, not executable); rejected by #289
 <noscript><p t:utext="html.sanitize(s)">x</p></noscript>
 ====
 # name: pr289-8
-# expect-0dda2f1: CLEAN
+# expect-0dda2f1: CONTEXT_MISMATCH
+# fixed-by: #289
 # main: REJECTED
-# note: rejected by #289; no finding on 0dda2f1 with the #306 values
+# note: text escaping inside a raw-text element (#323 flags it; over-escaped, not executable); rejected by #289
 <xmp t:utext="html.sanitize(s)"></xmp>
 ====
 # name: pr289-9
-# expect-0dda2f1: CLEAN
+# expect-0dda2f1: CONTEXT_MISMATCH
+# fixed-by: #289
 # main: REJECTED
-# note: rejected by #289; no finding on 0dda2f1 with the #306 values
+# note: text escaping inside a raw-text element (#323 flags it; over-escaped, not executable); rejected by #289
 <noembed>[(#html.sanitize(s))]</noembed>
 ====
 # name: pr289-10
-# expect-0dda2f1: CLEAN
+# expect-0dda2f1: CONTEXT_MISMATCH
+# fixed-by: #289
 # main: REJECTED
-# note: rejected by #289; no finding on 0dda2f1 with the #306 values
+# note: text escaping inside a raw-text element (#323 flags it; over-escaped, not executable); rejected by #289
 <noframes><textarea>[(#html.sanitize(s))]</textarea></noframes>
 ====
 # name: pr290-1
-# expect-0dda2f1: CLEAN
-# main: CLEAN
-# note: rejected by #290; no finding on 0dda2f1 with the #306 values
+# expect-0dda2f1: JS_NOT_LITERAL
+# fixed-by: #290
+# main: JS_NOT_LITERAL
+# note: JSON inside a string, template, comment or regex; value not one literal in expression position (the #319 rule); no value executes; rejected by #290
 <script>var a = '[[s]]';</script>
 ====
 # name: pr290-2
-# expect-0dda2f1: CLEAN
-# main: CLEAN
-# note: rejected by #290; no finding on 0dda2f1 with the #306 values
+# expect-0dda2f1: JS_NOT_LITERAL
+# fixed-by: #290
+# main: JS_NOT_LITERAL
+# note: JSON inside a string, template, comment or regex; value not one literal in expression position (the #319 rule); no value executes; rejected by #290
 <script>var a = `[[s]]`;</script>
 ====
 # name: pr290-3
-# expect-0dda2f1: CLEAN
-# main: CLEAN
-# note: rejected by #290; no finding on 0dda2f1 with the #306 values
+# expect-0dda2f1: JS_NOT_LITERAL
+# fixed-by: #290
+# main: JS_NOT_LITERAL
+# note: JSON inside a string, template, comment or regex; value not one literal in expression position (the #319 rule); no value executes; rejected by #290
 <script>var a = `a ${1} [[s]]`;</script>
 ====
 # name: pr290-4
@@ -286,9 +296,10 @@
 <plaintext></plaintext>
 ====
 # name: pr298-5
-# expect-0dda2f1: CLEAN
+# expect-0dda2f1: CONTEXT_MISMATCH
+# fixed-by: #298
 # main: REJECTED
-# note: rejected by #298; no finding on 0dda2f1 with the #306 values
+# note: text escaping inside a raw-text element (#323 flags it; over-escaped, not executable); rejected by #298
 <noscript t:utext="html.sanitize(s)"></noscript>
 ====
 # name: pr300-1
@@ -388,10 +399,11 @@
 <svg><g t:fragment="x(String v)"><text><![CDATA[ x><script>/*]]>*/[[v]]/*<![CDATA[*/</script>]]></text></g></svg><div t:insert="~{:: x(s)}"></div>
 ====
 # name: pr304-7
-# expect-0dda2f1: LIVE_SCRIPT
+# expect-0dda2f1: CONTEXT_MISMATCH
 # fixed-by: #304
-# main: LIVE_SCRIPT
+# main: CONTEXT_MISMATCH
 # engines: vnu-1.4
+# note: classic select: the HTML-escaped value is in a script that starts with </style>, which never parses
 <span t:fragment="f(String v)"><style><script></style>[[v]]</span><select><option t:insert="~{:: f(s)}"></option></select>
 ====
 # name: pr304-8
@@ -452,9 +464,10 @@
 <div t:params="String x, int a, int b"><script>var a = "[[${x}]]";</script></div>
 ====
 # name: pr290-8
-# expect-0dda2f1: CLEAN
-# main: CLEAN
-# note: rejected by #290; no finding on 0dda2f1 with the #306 values
+# expect-0dda2f1: JS_NOT_LITERAL
+# fixed-by: #290
+# main: JS_NOT_LITERAL
+# note: JSON inside a string, template, comment or regex; value not one literal in expression position (the #319 rule); no value executes; rejected by #290
 <div t:params="String x, int a, int b"><script>var a = '[[x]]';</script></div>
 ====
 # name: pr290-9
@@ -482,9 +495,10 @@
 <div t:params="String x, int a, int b"><script>var a = 'a' + "[[x]]";</script></div>
 ====
 # name: pr290-13
-# expect-0dda2f1: CLEAN
-# main: CLEAN
-# note: rejected by #290; no finding on 0dda2f1 with the #306 values
+# expect-0dda2f1: JS_NOT_LITERAL
+# fixed-by: #290
+# main: JS_NOT_LITERAL
+# note: JSON inside a string, template, comment or regex; value not one literal in expression position (the #319 rule); no value executes; rejected by #290
 <div t:params="String x, int a, int b"><script>f("a", '[[x]]');</script></div>
 ====
 # name: pr290-14
@@ -640,6 +654,7 @@ var a = "[[x]]";</script></div>
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #290
 # main: LIVE_SCRIPT
+# note: Rhino can't parse this script (JS_UNPARSABLE, a #319 limit); acorn/V8 run the value (#322)
 <div t:params="String x, int a, int b"><script>
   /* c */ --> /*
 var a = "[[x]]";</script></div>
@@ -664,21 +679,24 @@ var a = "[[x]]";</script></div>
 <div t:params="String x, int a, int b"><script>var z = y /"/; [[x]]";</script></div>
 ====
 # name: pr290-42
-# expect-0dda2f1: CLEAN
-# main: CLEAN
-# note: rejected by #290; no finding on 0dda2f1 with the #306 values
+# expect-0dda2f1: JS_NOT_LITERAL
+# fixed-by: #290
+# main: JS_NOT_LITERAL
+# note: JSON inside a string, template, comment or regex; value not one literal in expression position (the #319 rule); no value executes; rejected by #290
 <div t:params="String x, int a, int b"><script>var t = `[[x]]`;</script></div>
 ====
 # name: pr290-43
-# expect-0dda2f1: CLEAN
-# main: CLEAN
-# note: rejected by #290; no finding on 0dda2f1 with the #306 values
+# expect-0dda2f1: JS_NOT_LITERAL
+# fixed-by: #290
+# main: JS_NOT_LITERAL
+# note: JSON inside a string, template, comment or regex; value not one literal in expression position (the #319 rule); no value executes; rejected by #290
 <div t:params="String x, int a, int b"><script>var t = `a ${1} [[x]]`;</script></div>
 ====
 # name: pr290-44
-# expect-0dda2f1: CLEAN
-# main: CLEAN
-# note: rejected by #290; no finding on 0dda2f1 with the #306 values
+# expect-0dda2f1: JS_NOT_LITERAL
+# fixed-by: #290
+# main: JS_NOT_LITERAL
+# note: JSON inside a string, template, comment or regex; value not one literal in expression position (the #319 rule); no value executes; rejected by #290
 <div t:params="String x, int a, int b"><script>var a = `[[x]]`;</script></div>
 ====
 # name: pr296-12
@@ -688,15 +706,17 @@ var a = "[[x]]";</script></div>
 <div t:params="String x"><p><![CDATA[ x><script>[[${x}]]</script> ]]></p></div>
 ====
 # name: pr296-13
-# expect-0dda2f1: CLEAN
+# expect-0dda2f1: STRUCTURE_CHANGED
+# fixed-by: #296
 # main: REJECTED
-# note: rejected by #296; no finding on 0dda2f1 with the #306 values
+# note: the --> in Tessera's {<!---->{ ends the bogus comment that <![ opens; rejected by #296
 <div t:params="String x"><div><![CDATA[ [[${x}]] ]]></div></div>
 ====
 # name: pr296-14
-# expect-0dda2f1: CLEAN
+# expect-0dda2f1: STRUCTURE_CHANGED
+# fixed-by: #296
 # main: REJECTED
-# note: rejected by #296; no finding on 0dda2f1 with the #306 values
+# note: the --> in Tessera's {<!---->{ ends the bogus comment that <![ opens; rejected by #296
 <div t:params="String x"><![CDATA[[${x}]]></div>
 ====
 # name: pr296-15
@@ -734,9 +754,10 @@ var a = "[[x]]";</script></div>
 <!-- </script> --></div>
 ====
 # name: pr298-8
-# expect-0dda2f1: CLEAN
+# expect-0dda2f1: CONTEXT_MISMATCH
+# fixed-by: #298
 # main: REJECTED
-# note: rejected by #298; no finding on 0dda2f1 with the #306 values
+# note: text escaping inside a raw-text element (#323 flags it; over-escaped, not executable); rejected by #298
 <div t:import="dev.tessera.runtime.SafeHtml" t:params="String s, SafeHtml h"><p><plaintext>[[s]]</plaintext></p></div>
 ====
 # name: pr298-9
@@ -792,21 +813,24 @@ var a = "[[x]]";</script></div>
 <div t:params="String s, int n"><p>a<[[s]]</p></div>
 ====
 # name: pr299-9
-# expect-0dda2f1: CLEAN
+# expect-0dda2f1: STRUCTURE_CHANGED
+# fixed-by: #299
 # main: REJECTED
-# note: rejected by #299; no finding on 0dda2f1 with the #306 values
+# note: a value after a static </ or <! changes the bogus comment it is in; rejected by #299
 <div t:params="String s, int n"><p></[[s]]></p></div>
 ====
 # name: pr299-10
-# expect-0dda2f1: CLEAN
+# expect-0dda2f1: STRUCTURE_CHANGED
+# fixed-by: #299
 # main: REJECTED
-# note: rejected by #299; no finding on 0dda2f1 with the #306 values
+# note: a value after a static </ or <! changes the bogus comment it is in; rejected by #299
 <div t:params="String s, int n"><p><![[s]]></p></div>
 ====
 # name: pr299-11
-# expect-0dda2f1: CLEAN
+# expect-0dda2f1: STRUCTURE_CHANGED
+# fixed-by: #299
 # main: REJECTED
-# note: rejected by #299; no finding on 0dda2f1 with the #306 values
+# note: a value after a static </ or <! changes the bogus comment it is in; rejected by #299
 <div t:params="String s, int n"><p><!-[[s]]></p></div>
 ====
 # name: pr299-12
@@ -1062,10 +1086,11 @@ var y = "<script>";
 <option>a<STYLE><script></STYLE></option></SELECT>[[${x}]]</div>
 ====
 # name: pr305-7
-# expect-0dda2f1: LIVE_SCRIPT
+# expect-0dda2f1: CONTEXT_MISMATCH
 # fixed-by: #305
-# main: LIVE_SCRIPT
+# main: CONTEXT_MISMATCH
 # engines: vnu-1.4
+# note: classic select: the HTML-escaped value is in a script that starts with </style>, which never parses
 <div t:params="String x"><div><select/></div><style><script></style>[[${x}]]</div>
 ====
 # name: pr305-8
@@ -1087,9 +1112,10 @@ var y = "<script>";
 <div t:params="String x"><select t:remove="all-but-first"><option>a</option><title>t</title></select></div>
 ====
 # name: pr340-1
-# expect-0dda2f1: CLEAN
+# expect-0dda2f1: CROSS_ORIGIN_RESOURCE
+# fixed-by: #340
 # main: REJECTED
-# note: rejected by #340; no finding on 0dda2f1 with the #306 values
+# note: a browser reads \\evil.example as //evil.example; rejected by #340
 <link rel="stylesheet" t:href="@{\\evil.example/a.css}">
 ====
 # name: pr340-2
@@ -1117,9 +1143,10 @@ var y = "<script>";
 <script t:src="@{{U+0001}//evil.example/a.js}"></script>
 ====
 # name: pr340-6
-# expect-0dda2f1: CLEAN
+# expect-0dda2f1: CROSS_ORIGIN_RESOURCE
+# fixed-by: #340
 # main: REJECTED
-# note: rejected by #340; no finding on 0dda2f1 with the #306 values
+# note: a URL parser strips the leading U+0001, leaving /\evil.example; rejected by #340
 <script t:src="@{{U+0001}/\evil.example/a.js}"></script>
 ====
 # name: pr340-7
@@ -1151,14 +1178,14 @@ var y = "<script>";
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #290
 # main: LIVE_SCRIPT
-# note: pr290 review
+# note: pr290 review; Rhino can't parse this script (JS_UNPARSABLE, a #319 limit); acorn/V8 run the value (#322)
 <div t:params="String x"><script>var a = [.../"/.exec(s) || [], "[[x]]"];</script></div>
 ====
 # name: review-pr290-2
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #290
 # main: LIVE_SCRIPT
-# note: pr290 review
+# note: pr290 review; Rhino can't parse this script (JS_UNPARSABLE, a #319 limit); acorn/V8 run the value (#322)
 <div t:params="String x"><script>var r = [.../`/.source];
 var t = "${" + "[[x]]";</script></div>
 ====
@@ -1166,21 +1193,21 @@ var t = "${" + "[[x]]";</script></div>
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #290
 # main: LIVE_SCRIPT
-# note: pr290 review
+# note: pr290 review; Rhino can't parse this script (JS_UNPARSABLE, a #319 limit); acorn/V8 run the value (#322)
 <div t:params="String x"><script type="module">for await (const c of s) /"/.test(c); var y = "[[x]]";</script></div>
 ====
 # name: review-pr290-4
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #290
 # main: LIVE_SCRIPT
-# note: pr290 review
+# note: pr290 review; Rhino can't parse this script (JS_UNPARSABLE, a #319 limit); acorn/V8 run the value (#322)
 <div t:params="String x"><script type="module">export default /"/; var y = "[[x]]";</script></div>
 ====
 # name: review-pr290-5
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #290
 # main: LIVE_SCRIPT
-# note: pr290 review
+# note: pr290 review; Rhino can't parse this script (JS_UNPARSABLE, a #319 limit); acorn/V8 run the value (#322)
 <div t:params="String x"><script>class A extends /"/.constructor {}; var y = "[[x]]";</script></div>
 ====
 # name: review-pr298-2

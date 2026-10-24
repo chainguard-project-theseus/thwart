@@ -9,6 +9,11 @@
 # script acorn can't tokenize is recorded as CONTEXT_MISMATCH. The parse5 oracle's other reports
 # ({{ in script strings and RCDATA, cross-origin <a href>) are noise and are not recorded.
 # 'main' is the same check on main at 1c4b2b3 (see Seeds.MAIN_SNAPSHOT).
+# The kinds were then reconciled with the phase-1 checks (#318 HTML, #319 Rhino, #323 context) run
+# on the same renders: a LIVE_SCRIPT that no value makes parse became the kind those checks report,
+# and a CLEAN they flag with a non-executable model break became JS_NOT_LITERAL, CONTEXT_MISMATCH or
+# STRUCTURE_CHANGED, with the issue that rejects it. Each such seed has a note. Seeds that stay
+# LIVE_SCRIPT where Rhino can't parse the script say so in their note.
 ====
 # name: 306-A0
 # expect-0dda2f1: CLEAN
@@ -185,6 +190,7 @@
 # name: 306-A29
 # expect-0dda2f1: CLEAN
 # main: REJECTED
+# note: #318 reports STRUCTURE_CHANGED and #323 CONTEXT_MISMATCH here: text after <frameset> is dropped, so the benign marker disappears; not a hole
 <frameset><noframes><p title="</noframes><script>/*"></p></noframes></frameset>*/var a=[[s]];//
 ====
 # name: 306-A30
@@ -202,14 +208,17 @@
 <select><title><script>var a=[[s]];</script></title></select>
 ====
 # name: 306-A32
-# expect-0dda2f1: CLEAN
-# main: CLEAN
+# expect-0dda2f1: JS_NOT_LITERAL
+# fixed-by: #310
+# main: JS_NOT_LITERAL
+# note: a /"/ is a division: the JSON lands after a closed string; value not one literal in expression position (the #319 rule); no value executes
 <script>var r = a /"/ + "[[s]]";</script>
 ====
 # name: 306-A33
-# expect-0dda2f1: LIVE_SCRIPT
+# expect-0dda2f1: JS_NOT_LITERAL
 # fixed-by: #290
-# main: LIVE_SCRIPT
+# main: JS_NOT_LITERAL
+# note: the JSON closing quote opens an unterminated string, so no value parses; acorn's tokenizer saw PWN before the error. value not one literal in expression position (the #319 rule); no value executes
 <script>var r = x
 /"/.test(y); var z = [[s]];</script>
 ====
@@ -219,8 +228,10 @@
 <script>var a = `${[[s]]}`;</script>
 ====
 # name: 306-A35
-# expect-0dda2f1: CLEAN
-# main: CLEAN
+# expect-0dda2f1: JS_NOT_LITERAL
+# fixed-by: #310
+# main: JS_NOT_LITERAL
+# note: JSON in a line comment; value not one literal in expression position (the #319 rule); no value executes
 <script>// [[s]]
 </script>
 ====
@@ -305,12 +316,14 @@
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #290
 # main: LIVE_SCRIPT
+# note: Rhino can't parse this script (JS_UNPARSABLE, a #319 limit); acorn/V8 run the value (#322)
 <script type="module">export default /"/; var y = "[[s]]";</script>
 ====
 # name: 306-A52
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #290
 # main: LIVE_SCRIPT
+# note: Rhino can't parse this script (JS_UNPARSABLE, a #319 limit); acorn/V8 run the value (#322)
 <script>class A extends /"/.constructor {}; var y = "[[s]]";</script>
 ====
 # name: 306-A53
@@ -347,13 +360,17 @@
 <svg><script>/* </svg> */ var a = [[s]];</script></svg>
 ====
 # name: 306-A59
-# expect-0dda2f1: CLEAN
-# main: CLEAN
+# expect-0dda2f1: CONTEXT_MISMATCH
+# fixed-by: #309
+# main: CONTEXT_MISMATCH
+# note: text escaping inside a raw-text element (#323 flags it; over-escaped, not executable)
 <noscript><p>[[s]]</p></noscript>
 ====
 # name: 306-A60
-# expect-0dda2f1: CLEAN
-# main: CLEAN
+# expect-0dda2f1: CONTEXT_MISMATCH
+# fixed-by: #309
+# main: CONTEXT_MISMATCH
+# note: text escaping inside a raw-text element (#323 flags it; over-escaped, not executable)
 <xmp>[[s]]</xmp>
 ====
 # name: 306-A61

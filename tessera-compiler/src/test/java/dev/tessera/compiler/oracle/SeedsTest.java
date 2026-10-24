@@ -24,7 +24,9 @@ class SeedsTest {
    * The #306 probes with findings on 0dda2f1 (the reference tables of #320): probe, kinds, an
    * issue or PR that fixes it. A15 renders an {@code <img onerror>}, a handler (the table says
    * script). A58 and B10 are context mismatches whose JSON-escaped value also shows {@code {{}
-   * in HTML text.
+   * in HTML text. A33 is {@code JS_NOT_LITERAL}, not a live script: the JSON's closing quote opens
+   * an unterminated string, so no value makes the script parse (acorn's tokenizer saw the marker
+   * before the error), and the Rhino check (#319) reports it so.
    */
   private static final Map<String, String> REFERENCE = new LinkedHashMap<>();
 
@@ -36,13 +38,16 @@ class SeedsTest {
       {"A12", "LIVE_SCRIPT", "298"}, {"A13", "LIVE_SCRIPT", "297"}, {"A14", "LIVE_SCRIPT", "295"},
       {"A15", "LIVE_HANDLER", "299"}, {"A16", "LIVE_SCRIPT", "300"}, {"A17", "LIVE_HANDLER", "300"},
       {"A24", "LIVE_SCRIPT", "301"}, {"A27", "LIVE_SCRIPT", "301"}, {"A28", "LIVE_SCRIPT", "298"},
-      {"A30", "LIVE_SCRIPT", "298"}, {"A31", "LIVE_SCRIPT", "305"}, {"A33", "LIVE_SCRIPT", "290"},
+      {"A30", "LIVE_SCRIPT", "298"}, {"A31", "LIVE_SCRIPT", "305"}, {"A33", "JS_NOT_LITERAL", "290"},
       {"A51", "LIVE_SCRIPT", "290"}, {"A52", "LIVE_SCRIPT", "290"}, {"B0", "LIVE_HANDLER", "301"},
       {"B1", "CROSS_ORIGIN_RESOURCE", "313"}, {"B2", "CROSS_ORIGIN_RESOURCE", "313"},
       {"B8", "LIVE_SCRIPT", "301"}, {"B9", "LIVE_SCRIPT", "301"},
       // context and CSTI findings
       {"A7", "CSTI", "301"}, {"A48", "CSTI", "301"}, {"A54", "CSTI", "301"}, {"A18", "CSTI", "336"},
       {"A58", "CONTEXT_MISMATCH CSTI", "301"}, {"B10", "CONTEXT_MISMATCH CSTI", "301"},
+      // not in the #320 tables: non-executable model breaks the phase-1 checks report
+      {"A32", "JS_NOT_LITERAL", "310"}, {"A35", "JS_NOT_LITERAL", "310"},
+      {"A59", "CONTEXT_MISMATCH", "309"}, {"A60", "CONTEXT_MISMATCH", "309"},
     };
     for (String[] r : rows) {
       REFERENCE.put("306-" + r[0], r[1] + " #" + r[2]);
