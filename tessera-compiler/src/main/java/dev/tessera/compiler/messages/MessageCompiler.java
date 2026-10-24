@@ -9,6 +9,7 @@ import dev.tessera.compiler.types.Scope;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Compiles {@code #{key(args)}} to {@code ctx.messages().get("key", args...)} (type String),
@@ -79,7 +80,16 @@ public final class MessageCompiler {
     MessageBundle bundle = env.messages();
     String key = message.key();
     if (!bundle.contains(key)) {
-      env.diagnostics().error(message.pos(), "unknown message key '" + key + "': it is not in " + bundle.source());
+      Set<String> only = bundle.values(key).keySet();
+      env.diagnostics()
+          .error(
+              message.pos(),
+              "unknown message key '" + key + "': it is not in " + bundle.source()
+                  + (only.isEmpty()
+                      ? ""
+                      : "; it is only in " + String.join(", ", only) + ", which other locales do not fall back"
+                          + " to (name the default locale in -Atessera.messages, e.g. <base>_en, or add the key"
+                          + " to the base file)"));
       ok = false;
     } else if (bundle.firstUncheckedUse(message.pos().file())) {
       env.diagnostics()
