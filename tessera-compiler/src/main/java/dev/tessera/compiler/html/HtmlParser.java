@@ -33,6 +33,11 @@ import java.util.regex.Pattern;
  * <p>The content of {@code <script>}, {@code <style>}, {@code <textarea>} and {@code <title>}
  * is a single raw {@link Text} node: markup inside it is not parsed.
  *
+ * <p>The content of {@code <xmp>}, {@code <iframe>}, {@code <noembed>}, {@code <noframes>} and
+ * {@code <noscript>} is parsed as markup, but a browser reads it as raw text (for {@code
+ * <noscript>}, when scripting is on) up to the first {@code </name}. That must be the element's
+ * own end tag, so both readings end it at the same place. {@code <plaintext>} is rejected.
+ *
  * <p>Build errors (reported, then parsing continues): unclosed or mismatched non-void elements,
  * duplicate attributes on one element, malformed markup (including markup a browser would end
  * earlier than the tokenizer does).
@@ -247,6 +252,8 @@ public final class HtmlParser {
     final Set<String> attributeNames = new HashSet<>();
     final List<Node> children = new ArrayList<>();
     OutputContext textContext = OutputContext.TEXT;
+    /** For a {@link Contexts#browserRawText} element, where a browser ends it; -1 if nowhere. */
+    int browserEnd = -1;
 
     Open(String name, SourcePos pos) {
       this.name = name;
@@ -396,6 +403,10 @@ public final class HtmlParser {
       flushText();
       String name = str(lt + 1, nameEnd);
       tag = new Open(name, position(lt));
+      if (name.equalsIgnoreCase("plaintext")) {
+        diagnostics.error(tag.pos, "<" + name + "> is not supported: a browser treats the rest of the page as plain"
+            + " text; use <pre>");
+      }
       if (!ELEMENT_NAME.matcher(name).matches()) {
         diagnostics.error(tag.pos, "malformed markup: invalid element name '" + name
             + "': element names start with a letter and use letters, digits, '-', '_', ':' and '.'");
@@ -434,7 +445,8 @@ public final class HtmlParser {
       String lower = tag.name.toLowerCase(Locale.ROOT);
       if (minimized && (lower.equals("script") || lower.equals("style"))) {
         // A browser treats <script/> as an open tag, so the template text after it would run as
-        // script (or style) while Tessera escaped it for TEXT. RCDATA textarea/title stay allowed.
+        // script (or style) while Tessera escaped it for TEXT. <textarea/>, <title/> and the other
+        // raw text elements are checked where Tessera writes them (TemplateGenerator).
         diagnostics.error(tag.pos, "<" + lower + "/> is not self-closing in HTML: the browser treats everything"
             + " after it as " + lower + "; write <" + lower + " ...></" + lower + ">");
       }
@@ -456,6 +468,8 @@ public final class HtmlParser {
         rawStart = gt + 1;
         rawEnd = browserEndTag(open.name, rawStart);
         matchEndTagCase(open.name);
+      } else if (Contexts.browserRawText(open.name)) {
+        open.browserEnd = browserEndTag(open.name, gt + 1);
       }
     }
 
@@ -483,9 +497,7 @@ public final class HtmlParser {
         if (lt != rawEnd) {
           // The tokenizer read markup (a comment, an attribute value) that hid an earlier end
           // tag; a browser would end the element there, so the contexts after it would be wrong.
-          diagnostics.error(position(rawEnd), "malformed markup: content of <" + raw.name
-              + "> contains '</" + raw.name + "' before its end tag: escape it (in a script string,"
-              + " write '<\\/" + raw.name + "')");
+          hiddenEndTag(raw.name, rawEnd);
         }
         endRaw(lt);
       }
@@ -499,6 +511,11 @@ public final class HtmlParser {
       while (true) {
         Open top = stack.pop();
         if (top.name.equalsIgnoreCase(name)) {
+          if (top.browserEnd >= 0 && top.browserEnd != lt) {
+            // A comment, attribute value, nested raw text or a nested <noscript> hid the end tag
+            // a browser uses: it would end the element there and parse the rest as markup.
+            hiddenEndTag(top.name, top.browserEnd);
+          }
           children().add(top.toElement(false, true));
           return;
         }
@@ -508,14 +525,23 @@ public final class HtmlParser {
       }
     }
 
+    private void hiddenEndTag(String name, int offset) {
+      String fix = Contexts.browserRawText(name)
+          ? "a browser ends the element there, so the markup after it would be read differently; remove it or"
+              + " move it outside the element"
+          : "escape it (in a script string, write '<\\/" + name + "')";
+      diagnostics.error(position(offset), "malformed markup: content of <" + name + "> contains '</" + name
+          + "' before its end tag: " + fix);
+    }
+
     /**
      * Offset of the first {@code </name} followed by whitespace, {@code /} or {@code >} at or
-     * after {@code from} (case-insensitive), or -1.
+     * after {@code from} (ASCII case-insensitive), or -1.
      */
     private int browserEndTag(String name, int from) {
       String needle = "</" + name;
       for (int i = from; i + needle.length() <= content.length(); i++) {
-        if (content.regionMatches(true, i, needle, 0, needle.length())) {
+        if (asciiMatchesIgnoreCase(content, i, needle)) {
           int next = i + needle.length();
           if (next == content.length() || " \t\n\f\r/>".indexOf(content.charAt(next)) >= 0) {
             return i;
@@ -523,6 +549,22 @@ public final class HtmlParser {
         }
       }
       return -1;
+    }
+
+    /** Whether {@code s} has {@code needle} at {@code at}, folding ASCII letters only, as browsers do. */
+    private static boolean asciiMatchesIgnoreCase(String s, int at, String needle) {
+      for (int i = 0; i < needle.length(); i++) {
+        char a = s.charAt(at + i);
+        char b = needle.charAt(i);
+        if (a != b && asciiLower(a) != asciiLower(b)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    private static char asciiLower(char c) {
+      return c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c;
     }
 
     /** Ends the current raw-text element's content at {@code end} (exclusive). */
