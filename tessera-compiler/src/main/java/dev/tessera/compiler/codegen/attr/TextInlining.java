@@ -94,6 +94,26 @@ public final class TextInlining {
     return code.toString();
   }
 
+  /** Offset of the first {@code [(...)]} in {@code raw} that {@link #render} writes as raw HTML, or -1. */
+  public static int firstUnescaped(String raw) {
+    int i = 0;
+    while (i < raw.length()) {
+      boolean escaped = raw.startsWith("[[", i);
+      if (escaped || raw.startsWith("[(", i)) {
+        int end = findEnd(raw, i + 2, escaped ? "]]" : ")]");
+        if (end >= 0) {
+          if (!escaped) {
+            return i;
+          }
+          i = end + 2;
+          continue;
+        }
+      }
+      i++;
+    }
+    return -1;
+  }
+
   /**
    * Whether a client-side {@code {{} interpolation is open after the static text {@code literal},
    * given whether one was open before it. Frameworks read the decoded text, so character

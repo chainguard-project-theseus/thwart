@@ -456,7 +456,7 @@ The compiler decides the context from the element and attribute name. You cannot
 |---|---|---|
 | Text | element text, `t:text`, `[[...]]` | `& < > " '` escaped, and `{{` broken with an empty comment (below). |
 | Title and textarea | text in `<title>` and `<textarea>` (also `t:field`) | `& < > " '` escaped; `{{` is left as is. |
-| Raw HTML | `t:utext`, `[(...)]` | Only `SafeHtml`, or a bundle message checked at build time (section 4.5), compiles. |
+| Raw HTML | `t:utext`, `[(...)]` | Only `SafeHtml`, or a bundle message checked at build time (section 4.5), compiles. Not inside `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>`, `<noscript>`, `<textarea>` or `<title>`, which a browser reads as text up to their end tag (nor are `t:insert` and `t:replace`). |
 | Attribute | any other attribute value | Escaped, always double-quoted. |
 | URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, `hx-push-url`, `hx-replace-url`, `values`, `to`, `from` and `by` of SVG `<animate>`/`<set>`, ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. `values` of `<animate>`/`<set>` is a `;`-separated list and every item is checked; one bad item replaces the whole list with `about:invalid#tessera`. |
 | Resource URL | `script[src]`, `iframe[src]`, `embed[src]`, `object[data]`, `base[href]`, `link[href]` | Only a literal-path `@{...}` link or a `TrustedUrl` compiles. |
@@ -1221,9 +1221,24 @@ These come from the annotation processor itself, without a template position.
   case-insensitive (`t:text` and `T:TEXT` are the same).
 - `malformed markup: content of <<tag>> contains '</<tag>' before its end tag: escape it (in a script string, write '<\/<tag>')`:
   a browser would end the element early; split the string.
+- `malformed markup: content of <<tag>> contains '</<tag>' before its end tag: a browser ends the element there, so the markup after it would be read differently; remove it or move it outside the element`:
+  reported for `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>` and `<noscript>`. Tessera parses
+  their content as markup, but a browser (for `<noscript>`, with scripting on) reads it as text up
+  to the first `</<tag>`. That must be the element's own end tag, not one inside a nested
+  `<textarea>`, `<title>` or `<script>`, a comment, an attribute value or a nested `<noscript>`.
+  (Inside `<svg>` or `<math>` these are ordinary elements to a browser, but the check still applies.)
 - `<<tag>/> is not self-closing in HTML: the browser treats everything after it as <tag>; write <<tag> ...></<tag>>`:
   reported for `<script/>` and `<style/>`; a browser ignores the `/` and treats the rest of the
   page as script or CSS. Write the end tag, e.g. `<script src="a.js"></script>`.
+  Also reported for `<textarea/>`, `<title/>`, `<xmp/>`, `<iframe/>`,
+  `<noembed/>`, `<noframes/>` and `<noscript/>` when Tessera writes them as they are: a browser
+  reads the rest of the page as their text. With content from `t:text`, `t:field` or another
+  attribute (`<textarea t:field="*{bio}"/>`) Tessera writes the end tag, and they compile.
+- `<title/> is not supported inside <svg> or <math>: Tessera cannot tell an SVG title from an HTML one (in <foreignObject> or after <b>), after which a browser reads the rest of the page as title text; write <title></title>`:
+  a real SVG `<title/>` is self-closing, but Tessera does not track where a browser leaves SVG
+  (`<foreignObject>`, `<mtext>`, a `<b>` or `<p>` inside `<svg>`), so it rejects them all.
+- `<plaintext> is not supported: a browser treats the rest of the page as plain text; use <pre>`:
+  a browser never ends `<plaintext>`. Use `<pre>`.
 - `end tag </<tag>> does not match any open element: remove it or add the matching <<tag>>`:
   common with `<a ... />` followed by `</a>`; write `<a ...></a>`.
 - `element <<tag>> is not closed (found </<other>> at <line>:<col>): add </<tag>>` and
@@ -1415,6 +1430,11 @@ These come from the annotation processor itself, without a template position.
   use a JavaScript or JSON script, or move the data to a `data-*` attribute.
 - `<form> is not allowed in <CONTEXT> context: move the expression into element text or a t: attribute`.
 - `t:utext is only allowed on elements whose content is HTML text, not <script> or <style>`.
+- `<t:attr> inside <<tag>> is not supported: a browser reads the content of <<tag>> as text up to the first '</<tag>', and inserted markup could contain one; move it outside the element`:
+  reported for `t:utext`, `[(...)]`, `t:insert` and `t:replace` on or inside `<xmp>`, `<iframe>`,
+  `<noembed>`, `<noframes>`, `<noscript>`, `<textarea>` and `<title>`. A `SafeHtml` or a rendered fragment could contain
+  `</noscript>` and end the element early. `t:replace` on the element itself is allowed, as it
+  replaces the whole element: `<noscript t:replace="~{fragments :: gtm}"></noscript>`.
 - `[(...)] is only allowed in element text; inside <script> use [[...]], which outputs JSON`.
 - `[[...]] is inside a client-side {{ ... }} interpolation: Vue or AngularJS would run the value as code, whatever the escaping. Pass the value in a data-* attribute or a <script> with [[...]] and read it from there`
   (also `[(...)]`): the text has a `{{` with no `}}` before the expression. Character references
