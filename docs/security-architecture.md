@@ -9,7 +9,7 @@ today.
 The core claim held. No reviewer has found SSTI or code execution: templates are compiled, calls
 are allow-listed, and nothing is reflective at runtime. Principles 1-4 work.
 
-XSS-class bugs keep coming: roughly 30 reports since #235 was opened on Oct 23, in four families. Every one of them is in
+XSS-class bugs keep coming: roughly 30 reports since #235 was opened on Oct 23, in five families (§1). Every one of them is in
 **context selection**. None is in an escaper: `Escapers` has done exactly what it was asked
 every time. It was asked the wrong question.
 
