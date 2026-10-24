@@ -81,8 +81,8 @@ public final class TemplateGenerator implements CodegenContext {
   /** Whether the content being generated is inside an {@code <svg>} or {@code <math>} element. */
   private boolean inForeign;
   /**
-   * The {@code <form>}s around the element being rendered (#314): null outside any (or rendered
-   * standalone), TRUE if one of them may get the CSRF token, FALSE if none does.
+   * The {@code <form>}s around the element being rendered (#314): null outside any, TRUE if one of
+   * them may get the CSRF token or the element is rendered standalone, FALSE if none does.
    */
   private Boolean csrfForm;
 
@@ -209,8 +209,10 @@ public final class TemplateGenerator implements CodegenContext {
     boolean foreign = inForeign;
     rawTextHost = null;
     inForeign = false;
+    // ... and may be inserted into a POST form that gets the CSRF token, where a browser drops the
+    // start tag of a <form> inside it, so its buttons submit that form (#314).
     Boolean form = csrfForm;
-    csrfForm = null;
+    csrfForm = Boolean.TRUE;
     try {
       Code c = new Code();
       element(c, element, scope, ignoredAttributes);

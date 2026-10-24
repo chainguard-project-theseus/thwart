@@ -86,7 +86,8 @@ public interface CodegenContext {
    * (#314). False only when every {@code <form>} around it in the walk that renders it gets no token
    * from {@code CsrfInjector} (and there is at least one) and {@code element} has no {@code form}
    * attribute. A fragment method or {@code ~{::selector}} helper is rendered without its
-   * surroundings, so there it is always true.
+   * surroundings and may be inserted into such a form, which a browser makes the owner of every
+   * button inside, nested forms included, so there it is always true.
    */
   boolean mayPostCsrfToken(Element element);
 

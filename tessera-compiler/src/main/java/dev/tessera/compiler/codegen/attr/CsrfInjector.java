@@ -41,7 +41,16 @@ public final class CsrfInjector {
 
   /** Adds the token input to a {@code <form>}; returns whether it may be written. */
   public static boolean apply(CodegenContext ctx, ElementPlan plan) {
-    if (plan.removed() || plan.replacement() != null) {
+    if (plan.removed() || plan.replacement() != null || plan.tagOmitted()) {
+      // Without its tag (t:remove="tag") the token input would land in an enclosing form, maybe a GET one.
+      return false;
+    }
+    if (plan.element().selfClosing() && plan.body() == null) {
+      // A browser treats <form/> as an open form: the page after it is inside the form, and the start
+      // tags of later forms are dropped, so their buttons and token inputs land in it.
+      ctx.diagnostics()
+          .error(plan.element().pos(), "<form/> is not self-closing in HTML: the browser treats everything after it"
+              + " as inside the form; write <form ...></form>");
       return false;
     }
     // The Java condition under which the token is written, or null for always.

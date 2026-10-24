@@ -125,6 +125,13 @@ class CsrfFormactionTest {
             + "<div t:replace=\"~{:: wrap(~{::button})}\"></div>"
             + "<div t:fragment=\"wrap(Fragment b)\">" + POST + "<div t:replace=\"${b}\"></div></form></div>",
         "<form method=\"get\" t:remove=\"tag\"><button t:formaction=\"${u}\">Go</button></form>",
+        // A GET form selected or in a fragment may be inserted into a POST form, which drops its start tag.
+        "<form method=\"get\"><button t:formaction=\"${u}\">Go</button></form>"
+            + "<div t:replace=\"~{:: wrap(~{::form})}\"></div>"
+            + "<div t:fragment=\"wrap(Fragment b)\">" + POST + "<div t:replace=\"${b}\"></div></form></div>",
+        "<form t:fragment=\"get(String u)\" method=\"get\"><button t:formaction=\"${u}\">Go</button></form>",
+        "<div t:fragment=\"pay(String u)\"><form method=\"post\" action=\"https://pay.example/\">"
+            + "<button t:formaction=\"${u}\">Go</button></form></div>",
       })
   void nestedFormsAndFragmentsFail(String body) {
     rejected(body, "formaction");
@@ -155,6 +162,42 @@ class CsrfFormactionTest {
       })
   void htmxOnButtonFails(String button) {
     rejected(POST + button + "</form>", "is not allowed");
+  }
+
+  /** Negative: a GET form from another file inserted into a POST form has its start tag dropped. */
+  @Test
+  void getFormFragmentFromAnotherFileFails() {
+    Compilation c =
+        Compilation.builder()
+            .template("page.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"String u\">\n"
+                + POST + "<div t:replace=\"~{frag :: g(${u})}\"></div></form>\n</div>")
+            .template("frag.html", "<div xmlns:t=\"https://tessera.dev\">\n"
+                + "<form t:fragment=\"g(String u)\" method=\"get\"><button t:formaction=\"${u}\">Go</button></form></div>")
+            .compile();
+    c.assertError("frag.html:2:", "t:formaction is not allowed", "may submit a POST form that gets the CSRF token");
+  }
+
+  /**
+   * Negative: a browser treats {@code <form/>} as open, so later forms' start tags are dropped and
+   * their buttons (and token inputs) land in it.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<form method=\"post\" action=\"/t\"/><form method=\"get\"><button t:formaction=\"${u}\">Go</button></form>",
+        "<form method=\"get\" action=\"/s\"/>" + POST + "<button>Go</button></form>",
+      })
+  void selfClosingFormFails(String body) {
+    rejected(body, "<form/> is not self-closing in HTML");
+  }
+
+  /** Without its tag a form gets no token input: it would land in the enclosing (GET) form. */
+  @Test
+  void formWithoutTagGetsNoToken() {
+    String out =
+        render(compile("<form method=\"get\"><form method=\"post\" action=\"/t\" t:remove=\"tag\">"
+            + "<button>Go</button></form></form>").assertSuccess());
+    assertFalse(out.contains("_csrf"), out);
   }
 
   /** Positive: a same-origin link or static URL keeps the token. */
