@@ -225,7 +225,8 @@ public final class ExpressionCompiler {
       // Field<T>: T is what the fragment may bind sub-paths of (#239); a plain Field is Field<?>.
       TypeMirror fieldType = FormPaths.fieldType(t);
       if (fieldType != null && !safety.isViewSafe(fieldType)) {
-        return error(ref.pos(), "parameter type " + t + " is not allowed: " + fieldType + " is not view-safe");
+        return error(ref.pos(), "parameter type " + t + " is not allowed: " + fieldType + " is not view-safe"
+            + badTypeArgument(fieldType, ""));
       }
       return t;
     }
@@ -236,8 +237,8 @@ public final class ExpressionCompiler {
     if (!safety.isViewSafe(t) && !isDeclared(t, FRAGMENT) && !FormPaths.isField(t)) {
       return error(
           ref.pos(),
-          "parameter type " + t + " is not view-safe: use a record, an enum, a JDK value type, a collection of"
-              + " those, or a class annotated @TemplateView");
+          "parameter type " + t + " is not view-safe" + badTypeArgument(t, ": use a record, an enum, a JDK value"
+              + " type, a collection of those, or a class annotated @TemplateView"));
     }
     return t;
   }
@@ -260,7 +261,8 @@ public final class ExpressionCompiler {
       return false;
     }
     if (!safety.isViewSafe(type) && !FormPaths.isField(type)) {
-      env.diagnostics().error(pos, "cannot output a value of type " + type + ": it is not view-safe");
+      env.diagnostics()
+          .error(pos, "cannot output a value of type " + type + ": it is not view-safe" + badTypeArgument(type, ""));
       return false;
     }
     return true;
@@ -379,8 +381,8 @@ public final class ExpressionCompiler {
       if (!safety.isViewSafe(type)) {
         return error(
             pos,
-            "cannot read '" + name + "': " + describe(type) + " is not view-safe (make it a record or annotate it"
-                + " @TemplateView)");
+            "cannot read '" + name + "': " + describe(type) + " is not view-safe"
+                + badTypeArgument(type, " (make it a record or annotate it @TemplateView)"));
       }
       ExecutableElement accessor = type.getKind() == TypeKind.DECLARED ? findAccessor((DeclaredType) type, name) : null;
       if (accessor == null) {
@@ -965,6 +967,15 @@ public final class ExpressionCompiler {
       work.addAll(types().directSupertypes(s));
     }
     return null;
+  }
+
+  /**
+   * {@code ": its type argument X is ..."} naming the type argument that makes the container
+   * {@code type} not view-safe (#260), else {@code otherwise} (advice about {@code type} itself).
+   */
+  private String badTypeArgument(TypeMirror type, String otherwise) {
+    Optional<String> arg = safety.badTypeArgument(type);
+    return arg.isPresent() ? ": " + arg.get() : otherwise;
   }
 
   private static String describe(TypeMirror t) {

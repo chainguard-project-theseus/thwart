@@ -1264,6 +1264,12 @@ These come from the annotation processor itself, without a template position.
 - Reasons inserted into the messages above and below: `java.lang.Object is never view-safe: declare a specific type`,
   `java.lang.Object (unbounded ?) is never view-safe` (use a concrete type argument),
   `<type> is never view-safe`, `<type> is never view-safe (it is a <denied type>)`.
+- When a container (`List`, `Map`, `Map.Entry`, `Optional`, ...) is not view-safe because of a
+  type argument, the messages above and below end with `: its type argument <type> <why>` instead
+  of advice about the container. `<type>` is the first offending argument, however deeply nested;
+  `<why>` is `is not a record or annotated @TemplateView`, `is not public, not a record and not
+  annotated @TemplateView`, `is raw: declare its type arguments`, or a never-view-safe reason. Fix
+  that type (make it a public record or annotate it `@TemplateView`), not the container.
 
 ### Properties, calls and operators
 
