@@ -1,8 +1,9 @@
 # Security architecture: from patching contexts to safe by construction
 
-Oct 24, 2026. Status: **draft for discussion**. This doc proposes changes; it doesn't describe the
-current code. Where it and [mvp-design.md](mvp-design.md) disagree, mvp-design describes what ships
-today.
+Status: **accepted** (Oct 24, 2026). The principle changes (§6) are in
+[AGENTS.md](../AGENTS.md) and the process changes (§7) are in [handoff.md](handoff.md). The rest of
+this doc describes the target and the plan, not the current code. Where it and
+[mvp-design.md](mvp-design.md) disagree, mvp-design describes what ships today.
 
 ## 0. Summary
 
@@ -340,7 +341,7 @@ nothing outside it.
 
 ## 6. Principle changes
 
-Proposed text for AGENTS.md:
+Text now in AGENTS.md:
 
 > **3. Allow-list everything callable, and everything parseable.** (append) Markup is held to the
 > same rule as expressions: the compiler accepts a closed profile of HTML (docs/context-model.md),
@@ -384,7 +385,8 @@ ways.
 
 ## 8. Plan
 
-Smallest first. Each phase lists what it closes and the gate that shows it's done.
+Smallest first. Each phase lists what it closes and the gate that shows it's done. The phases are
+tracked as GitHub issues.
 
 | Phase | Work | Closes | Gate |
 |---|---|---|---|
@@ -399,22 +401,23 @@ After phase 2, a new parser-differential report is handled by asking "which prof
 this?" and narrowing that rule plus adding the generator case. It is never handled by adding a
 special case.
 
-## 9. Open PRs and issues: what to do now
+## 9. Open PRs and issues: decisions
 
-Ordering principle: land small fail-closed fixes for live XSS now, because phase 2 will keep their
-tests and may replace their code. Close duplicates. Don't land anything that widens the accepted
-language or adds guessing.
+Decided Oct 24, 2026. Ordering principle: land small fail-closed fixes for live XSS now, because
+phase 2 will keep their tests and may replace their code. Close duplicates. Don't land anything
+that widens the accepted language or adds guessing. Closing or combining a teammate's PR is the
+author's call; the actions below are what we recommend to them.
 
 | PR / issue | Action | Notes |
 |---|---|---|
-| **#290** JS string check (#281) | **Land** after the review's 4 fixes, with one change: where the lexer can't be sure a `/` is division or regex (after `)`, `}`, keywords, `++`/`--`), **reject** instead of guessing | High severity, reachable from ordinary migrated templates. The "reject when unsure" change ends this bypass class now, and phase 3 replaces the lexer with the smaller exact rule. Port #294's `wordAfterDot` |
+| **#290** JS string check (#281) | **Land** after the review's 4 fixes, changed to **reject** wherever the lexer can't tell regex from division (after `)`, `}`, keywords, `++`/`--`) instead of guessing | High severity, reachable from ordinary migrated templates. The "reject when unsure" change ends this bypass class now, and phase 3 replaces the lexer with the smaller exact rule. Port #294's `wordAfterDot` |
 | **#294** (same issue) | **Close** | Duplicate of #290; fails open in more places (review) |
 | **#287** migrate unquoting (#282) | **Land** after the review fixes (`th:inline="none"`, non-string wording) | Independent of the design; needed by #290 |
 | **#289** / **#298** (#283) | **Combine and land one**: #289's messages and ASCII fold plus #298's title/textarea, `<textarea/>`, `<title/>` and insertion coverage | In the profile, `xmp`/`noembed`/`noframes`/`plaintext` simply become errors and `iframe` must be empty, so the code shrinks later |
 | **#291** SVG title as markup (#277) | **Close** | Reopens an XSS that main blocks (review); port its namespace and integration-point test cases to #301 |
-| **#301** foreign raw text | **Land** | Matches §5.3 (keep raw text, reject `<` in foreign script/style/title/textarea; breakout list). Becomes the parse-mode core of phase 2 |
+| **#301** foreign raw text | **Land** first, then #304, then #305 | Matches §5.3 (keep raw text, reject `<` in foreign script/style/title/textarea; breakout list). Becomes the parse-mode core of phase 2 |
 | **#304** fragment parse contexts | **Land after #301** | This is §5.5 (content kinds) in all but name. Check overlap with #298/#300 on `t:insert` into title/textarea: one PR owns that rule |
-| **#305** select | **Land** | Small; Firefox 140 ESR is a supported browser |
+| **#305** select | **Land after #304** | Small; Firefox 140 ESR is a supported browser |
 | **#295** comments, **#296** CDATA/PI/bogus, **#297** quotes in tags, **#299** `<` before a hole | **Land in this order, rebasing each** | Token-level rules of §5.2; low false positives per their corpus scans. Phase 2 rewrites them as a positive grammar and keeps the tests |
 | **#300** `t:remove="tag"` / insert into RCDATA | **Land**, minus anything #298/#304 already covers | Part of §5.5 |
 | **#303** cross-node `{{` (855 lines) | **Split.** Land the `{` JSON escape and "unclosed `{{` is an error" now. Rework the rendered-output tracking into a source-order rule in phase 4: between a static `{{` and its `}}`, no hole, no `t:` attribute, and no end tag of a `t:` element | Family D can't be proven; keep its machinery small |
