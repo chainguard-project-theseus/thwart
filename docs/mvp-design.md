@@ -11,7 +11,7 @@ of them in your PR.
 `t:remove`, `t:attr` and generic `t:<attr>` (`t:href`, `t:src`, `t:value`, `t:class`, `t:id`,
 `t:data-*`, boolean attributes), `t:classappend`, `t:fragment`/`t:insert`/`t:replace` (typed
 params, same-file and cross-file, Fragment-valued args), `t:object`/`t:field`/`t:errors`/`t:errorclass`,
-CSRF in POST forms, `#{key(args)}`, `@{/path/{id}(id=x, q=y)}`, `@TemplateFunction` namespaces,
+CSRF in same-origin POST forms, `#{key(args)}`, `@{/path/{id}(id=x, q=y)}`, `@TemplateFunction` namespaces,
 built-in `strings`/`numbers`/`temporals`/`lists`/`css`/`html` and Spring `auth` namespaces, view-safe types,
 contextual escaping, `${...}`/`*{...}` wrappers, the Spring Boot starter, `tessera-migrate`,
 and a petclinic port.

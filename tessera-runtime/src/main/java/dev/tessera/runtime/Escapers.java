@@ -423,6 +423,49 @@ public final class Escapers {
     return true;
   }
 
+  /**
+   * Whether a browser resolves {@code value}, written as a URL attribute, against the page's own
+   * origin: {@code null} (the attribute is omitted), or a relative URL with no scheme that does not
+   * start with two of {@code /} and {@code \} (protocol-relative). As in {@link #isAllowedUrl},
+   * leading C0 controls and spaces are stripped and tab/CR/LF are ignored; any {@code :} before a
+   * {@code / ? #} is a scheme, so an absolute URL to the page's own host is not same-origin. A
+   * {@link TrustedUrl} is checked too: it vouches for the scheme, not for the origin. Any other
+   * value is checked as {@link #url} writes it, so one that fails the scheme check (written as
+   * {@code about:invalid#tessera}) is not same-origin. Used for the CSRF token, which goes only into
+   * forms that post to the page's origin (#285).
+   */
+  public static boolean isSameOriginUrl(Object value) {
+    if (value == null) {
+      return true;
+    }
+    String s = value instanceof TrustedUrl ? ((TrustedUrl) value).url() : toText(value);
+    if (!(value instanceof TrustedUrl) && !isAllowedUrl(s)) {
+      return false;
+    }
+    int i = 0;
+    while (i < s.length() && s.charAt(i) <= ' ') {
+      i++;
+    }
+    if (i < s.length() && (s.charAt(i) == '/' || s.charAt(i) == '\\')) {
+      // A path, unless a second slash makes it protocol-relative (a browser reads \ as /).
+      i++;
+      while (i < s.length() && (s.charAt(i) == '\t' || s.charAt(i) == '\n' || s.charAt(i) == '\r')) {
+        i++;
+      }
+      return i == s.length() || (s.charAt(i) != '/' && s.charAt(i) != '\\');
+    }
+    for (; i < s.length(); i++) {
+      char c = s.charAt(i);
+      if (c == '/' || c == '?' || c == '#') {
+        return true;
+      }
+      if (c == ':') {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /** {@code s} if it {@linkplain #isAllowedUrl passes the scheme check}, else {@link #INVALID_URL}. */
   private static String checkedUrl(String s) {
     return isAllowedUrl(s) ? s : INVALID_URL;

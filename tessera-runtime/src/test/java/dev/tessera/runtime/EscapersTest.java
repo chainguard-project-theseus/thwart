@@ -340,6 +340,36 @@ class EscapersTest {
   }
 
   @Test
+  void sameOriginUrlsAreRelativeWithoutSchemeOrAuthority() {
+    for (String u :
+        new String[] {
+          "", "/x", "x", "?q=1", "#", "./x", "../x", "  /x", "\t/x", "/x;jsessionid=1", "/a:b", "a/b:c", "?a:b",
+          "#a:b", "/", "\\x", "/x//y", "\u00a0//evil"
+        }) {
+      assertTrue(Escapers.isSameOriginUrl(u), u);
+    }
+    assertTrue(Escapers.isSameOriginUrl(null));
+    assertTrue(Escapers.isSameOriginUrl(TrustedUrl.unchecked("/x")));
+  }
+
+  /** Negative (#285): a scheme or a protocol-relative start is another origin, however written. */
+  @Test
+  void crossOriginUrlsAreNotSameOrigin() {
+    for (String u :
+        new String[] {
+          "https://other/", "HTTP://other/", "//other/", "/\\other/", "\\/other/", "\\\\other/", " //other/",
+          "\t//evil", "/\t/evil", "/\n\\evil", "\u0000//evil", "\u0001 https://evil/", "mailto:a@b",
+          "javascript:x", "java\tscript:x", "a:b", ":x", "https:other", "about:invalid#tessera",
+          // A browser reads this as a path, but url() writes about:invalid#tessera for it.
+          "\\u003c:x"
+        }) {
+      assertFalse(Escapers.isSameOriginUrl(u), u);
+    }
+    assertFalse(Escapers.isSameOriginUrl(TrustedUrl.unchecked("https://evil/")));
+    assertFalse(Escapers.isSameOriginUrl(TrustedUrl.unchecked("//evil/")));
+  }
+
+  @Test
   void urlEntityEncodedSchemeStaysInert() {
     // The '#' makes these relative URLs; '&' is encoded so the browser never decodes the entity.
     assertEquals("&amp;#106;avascript:alert(1)", url("&#106;avascript:alert(1)"));
