@@ -29,10 +29,11 @@ Each principle removes a whole class of bugs rather than one instance of it.
 
 1. **Templates are code.** They are compiled at build time and shipped as classes. Production has no template parser, so there is nothing to inject into.
 2. **No ambient authority.** A template sees only its declared, typed parameters. It cannot name a class, construct an object, or reach static state.
-3. **Allow-list everything callable.** Property access resolves at compile time against an allow-list of types. Functions exist only if the application registers them.
+3. **Allow-list everything callable, and everything parseable.** Property access resolves at compile time against an allow-list of types. Functions exist only if the application registers them. Markup outside a closed profile of HTML is a build error.
 4. **No reflection at runtime.** All access is generated Java. This also makes Tessera friendly to GraalVM native images and to the JDK module system.
-5. **Escaping is contextual and cannot be forgotten.** The compiler knows whether each expression lands in HTML text, an attribute, a URL, JavaScript or CSS. Raw output requires a safe type, never a flag on a string.
-6. **Familiar before novel.** Syntax tracks Thymeleaf wherever that is safe, so migration is mostly mechanical.
+5. **Contexts are proven, not guessed; escaping cannot be forgotten.** The compiler accepts only templates where it knows exactly, as browsers parse them, whether each expression lands in HTML text, an attribute, a URL, JavaScript or CSS. Raw output requires a safe type, never a flag on a string.
+6. **Familiar before novel, inside the profile.** Syntax tracks Thymeleaf wherever that is safe, so migration is mostly mechanical. Parity never overrides 5.
+7. **The guarantee ends at the HTML parser.** Client frameworks that re-read the DOM as code are supported only through a deny-by-default framework table. See [security-architecture.md](security-architecture.md).
 
 ## Template syntax
 

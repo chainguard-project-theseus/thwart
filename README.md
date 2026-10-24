@@ -44,14 +44,20 @@ Each principle removes a class of bugs. The full rules are in [AGENTS.md](AGENTS
    API that takes template source.
 2. **No ambient authority.** A template sees only its declared, typed `t:params`: no request,
    session, beans, class names, `new` or statics.
-3. **Allow-list everything callable.** Templates read getters and record components of view-safe
-   types and call only registered `@TemplateFunction`s. `Class`, reflection, `Runtime`, servlet
-   and Spring context types are never reachable.
+3. **Allow-list everything callable, and everything parseable.** Templates read getters and
+   record components of view-safe types and call only registered `@TemplateFunction`s. `Class`,
+   reflection, `Runtime`, servlet and Spring context types are never reachable. Markup outside a
+   closed profile of HTML is a build error.
 4. **No reflection at runtime.** All access is generated Java. No SpEL, OGNL or `ScriptEngine`.
-5. **Escaping is contextual and cannot be forgotten.** The output context picks the escaper. Raw
-   output needs a `SafeHtml` or `TrustedUrl` built in Java.
-6. **Familiar before novel.** The syntax tracks Thymeleaf wherever that is safe, so migration is
-   mostly mechanical.
+5. **Contexts are proven, not guessed; escaping cannot be forgotten.** The compiler accepts only
+   templates where it can classify every output position exactly as browsers parse it, and the
+   context picks the escaper. Raw output needs a `SafeHtml`, `TrustedUrl` or `Fragment` built in
+   Java.
+6. **Familiar before novel, inside the profile.** The syntax tracks Thymeleaf wherever that is
+   safe, so migration is mostly mechanical. Parity never overrides 5.
+7. **The guarantee ends at the HTML parser.** Tessera guarantees what the browser's HTML parser
+   does with the output. Client frameworks that re-read the DOM as code are supported only
+   through a deny-by-default framework table.
 
 ## Requirements
 
