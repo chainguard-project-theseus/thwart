@@ -1,0 +1,281 @@
+# XssContextTest on main as controls (#320): REJECTED entries that 0dda2f1 already had (expected
+# REJECTED), and the LINES that need only 'String s' (expected CLEAN; the ones that need the Owner
+# record or messages are left out). Entries added by #295, #296, #299 and #340 are in open-prs.txt,
+# and duplicates of earlier seeds are skipped. Format: see dev.tessera.compiler.oracle.Seeds.
+====
+# name: xss-rejected-1
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<i t:style="s">x</i>
+====
+# name: xss-rejected-2
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<i t:attr="style=s">x</i>
+====
+# name: xss-rejected-3
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<i t:STYLE="s">x</i>
+====
+# name: xss-rejected-4
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<style>p { color: [[s]]; }</style>
+====
+# name: xss-rejected-5
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<STYLE>[[s]]</STYLE>
+====
+# name: xss-rejected-6
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<style t:text="s"></style>
+====
+# name: xss-rejected-7
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<i t:onclick="s">x</i>
+====
+# name: xss-rejected-8
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<i t:OnClick="s">x</i>
+====
+# name: xss-rejected-9
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<i t:attr="onclick=s">x</i>
+====
+# name: xss-rejected-10
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<i t:attr="ONMOUSEOVER=s">x</i>
+====
+# name: xss-rejected-11
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<svg><a t:onbegin="s"></a></svg>
+====
+# name: xss-rejected-12
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<body t:onload="s"></body>
+====
+# name: xss-rejected-13
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<iframe t:srcdoc="s"></iframe>
+====
+# name: xss-rejected-14
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<iframe t:attr="srcdoc=s"></iframe>
+====
+# name: xss-rejected-15
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<script t:type="s">var a = 1;</script>
+====
+# name: xss-rejected-16
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<script t:attr="type=s">var a = [[s]];</script>
+====
+# name: xss-rejected-17
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<script type="text/template">[[s]]</script>
+====
+# name: xss-rejected-18
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<script type="text/x-handlebars" t:text="s"></script>
+====
+# name: xss-rejected-19
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<script t:src="s"></script>
+====
+# name: xss-rejected-20
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<script t:attr="src=s"></script>
+====
+# name: xss-rejected-21
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<script t:src="'/js/' + s"></script>
+====
+# name: xss-rejected-22
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<script t:src="@{${s}}"></script>
+====
+# name: xss-rejected-23
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<svg><script t:href="s"></script></svg>
+====
+# name: xss-rejected-24
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<svg><script t:xlink:href="s"></script></svg>
+====
+# name: xss-rejected-25
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<iframe t:src="s"></iframe>
+====
+# name: xss-rejected-26
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<frame t:src="s">
+====
+# name: xss-rejected-27
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<embed t:src="s">
+====
+# name: xss-rejected-28
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<object t:data="s"></object>
+====
+# name: xss-rejected-29
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<base t:href="s">
+====
+# name: xss-rejected-30
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<link t:href="s">
+====
+# name: xss-rejected-31
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<p t:utext="s">x</p>
+====
+# name: xss-rejected-32
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<p>[(s)]</p>
+====
+# name: xss-rejected-33
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<p t:utext="'<b>' + s">x</p>
+====
+# name: xss-rejected-34
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<p t:utext="#{greet(s)}">x</p>
+====
+# name: xss-rejected-35
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<script>var a = [(s)];</script>
+====
+# name: xss-rejected-36
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<script t:utext="s"></script>
+====
+# name: xss-lines-1
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<p t:text="s">x</p>
+====
+# name: xss-lines-2
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<p>a [[s]] b</p>
+====
+# name: xss-lines-3
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<title>[[s]]</title>
+====
+# name: xss-lines-4
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<xmp>[[s]]</xmp><noscript>[[s]]</noscript><noembed>[[s]]</noembed>
+====
+# name: xss-lines-5
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<iframe>[[s]]</iframe>
+====
+# name: xss-lines-6
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<i t:title="s" t:attr="data-x=s">x</i>
+====
+# name: xss-lines-7
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<i t:class="s">x</i><i class="c" t:classappend="'k' + s">y</i>
+====
+# name: xss-lines-8
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<input t:value="s"><img t:alt="s">
+====
+# name: xss-lines-9
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<a t:href="s">x</a><a t:attr="HREF=s">y</a>
+====
+# name: xss-lines-10
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<form t:action="s"></form><button t:formaction="s">x</button>
+====
+# name: xss-lines-11
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<img t:src="s"><video t:poster="s"></video><q t:cite="s">q</q>
+====
+# name: xss-lines-12
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<svg><a t:xlink:href="s"><text>x</text></a><image t:href="s"/></svg>
+====
+# name: xss-lines-13
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<svg><a><animate attributeName="href" t:values="s"/><set attributeName="href" t:to="s"/><animate attributeName="href" t:from="s" t:by="s"/><SET attributeName="href" t:attr="to=s"/></a></svg>
+====
+# name: xss-lines-14
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<a t:href="@{/o/{id}(id='x' + s, q=s)}">x</a>
+====
+# name: xss-lines-15
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<script t:src="@{/js/{f}(f='x' + s)}"></script>
+====
+# name: xss-lines-16
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<p t:text="|a ${s} b|">x</p>
+====
+# name: xss-lines-17
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<script t:text="s"></script>
+====
+# name: xss-lines-18
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<script>var a = [[s]]; /*[[s]]*/ var t = `[[s]]`; var r = /[[s]]/; // [[s]]
+</script>
+====
+# name: xss-lines-19
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<SCRIPT type="application/json">[[s]]</SCRIPT>
+====

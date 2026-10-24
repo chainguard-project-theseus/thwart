@@ -1,0 +1,436 @@
+# The #306 probe experiment on 0dda2f1 (#320): /tmp/secarch/exp/cases.txt (A0-A62) and
+# cases2.txt (B0-B11), in order; the number in each name is the 'case' field of out.jsonl/out2.jsonl.
+# Format: see dev.tessera.compiler.oracle.Seeds. Verdicts were recorded by rendering each template
+# through Compilation with the 10 hostile values of the experiment, HostileStrings.VECTORS with
+# alert(1) written PWN(), and +PWN()+ (String parameters get the value, int parameters -1), and
+# parsing the renders with parse5 7 (scripting on) and acorn's tokenizer: a PWN identifier token in
+# a script, PWN in an on* attribute, javascript: URLs, script src or base href that leave the
+# origin by shape, and {{...PWN in text outside script and HTML raw text/RCDATA. A marker in a
+# script acorn can't tokenize is recorded as CONTEXT_MISMATCH. The parse5 oracle's other reports
+# ({{ in script strings and RCDATA, cross-origin <a href>) are noise and are not recorded.
+# 'main' is the same check on main at 96287c4.
+====
+# name: 306-A0
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<p>[[s]]</p>
+====
+# name: 306-A1
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<script>var a = [[s]];</script>
+====
+# name: 306-A2
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #281 #290
+# main: LIVE_SCRIPT
+<script>var a = "[[s]]";</script>
+====
+# name: 306-A3
+# expect-0dda2f1: LIVE_HANDLER
+# fixed-by: #301
+# main: LIVE_HANDLER
+<svg><script>var t='<img src=x title="[[s]]">';</script></svg>
+====
+# name: 306-A4
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #301
+# main: LIVE_SCRIPT
+<svg><script>var a = &quot;[[s]]&quot;;</script></svg>
+====
+# name: 306-A5
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #277 #301
+# main: LIVE_SCRIPT
+<svg><title><script>var a = [[s]];</script></title></svg>
+====
+# name: 306-A6
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #301
+# main: LIVE_SCRIPT
+<svg><textarea><script>var a = [[s]];</script></textarea></svg>
+====
+# name: 306-A7
+# expect-0dda2f1: CSTI
+# fixed-by: #277 #301
+# main: CSTI
+# note: compiler: RCDATA title; browser: SVG title holds text and markup, so {{ is not broken
+<svg><title>[[s]]</title></svg>
+====
+# name: 306-A8
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #283 #289 #298
+# main: LIVE_SCRIPT
+<xmp><textarea></xmp><script>var a = [[s]];</script></textarea></xmp>
+====
+# name: 306-A9
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #283 #289 #298
+# main: LIVE_SCRIPT
+<noscript><title></noscript><script>var a = [[s]];</script></title></noscript>
+====
+# name: 306-A10
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #296
+# main: REJECTED
+<div><![CDATA[ > <script>//]]>[[s]]</div><script></script>
+====
+# name: 306-A11
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #298
+# main: LIVE_SCRIPT
+<textarea/><p title="</textarea><script>/*"></p>*/var a=[[s]];//
+====
+# name: 306-A12
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #298
+# main: LIVE_SCRIPT
+<title/><p title="</title><script>/*"></p>*/var a=[[s]];//
+====
+# name: 306-A13
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #297
+# main: LIVE_SCRIPT
+<p title=a"><script>//">
+[[s]]
+//</p><!-- </script> -->
+====
+# name: 306-A14
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #295
+# main: REJECTED
+<!--> <script> -->
+[[s]]
+<!-- </script> -->
+====
+# name: 306-A15
+# expect-0dda2f1: LIVE_HANDLER
+# fixed-by: #299
+# main: REJECTED
+# note: the #320 table says script; the render is <img src=x onerror=...>, a handler
+<p><[[s]]></p>
+====
+# name: 306-A16
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #300
+# main: LIVE_SCRIPT
+<title t:remove="tag"><script>[[s]]</script></title>
+====
+# name: 306-A17
+# expect-0dda2f1: LIVE_HANDLER
+# fixed-by: #300
+# main: LIVE_HANDLER
+<script t:remove="tag"><img src=x onerror=[[s]]></script>
+====
+# name: 306-A18
+# expect-0dda2f1: CSTI
+# fixed-by: #303
+# main: CSTI
+{{ <t:block t:text="s"></t:block> }}
+====
+# name: 306-A19
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<svg><style>/*<p>*/</style><textarea><a title="</textarea><script>//">[[s]]</a></textarea><script></script></svg>
+====
+# name: 306-A20
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<math><mtext><table><mglyph><style><img src=x title="</style><script>/*"></style></table></mtext></math>*/var a=[[s]];//
+====
+# name: 306-A21
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<svg><desc><title><script>var a=[[s]];</script></title></desc></svg>
+====
+# name: 306-A22
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<math><mi><title><script>var a=[[s]];</script></title></mi></math>
+====
+# name: 306-A23
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<svg><foreignObject><textarea><script>var a=[[s]];</script></textarea></foreignObject></svg>
+====
+# name: 306-A24
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #301
+# main: LIVE_SCRIPT
+<table><caption><svg><title><script>var a=[[s]];</script></title></svg></caption></table>
+====
+# name: 306-A25
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<svg></p><title><script>var a=[[s]];</script></title></svg>
+====
+# name: 306-A26
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<svg><b></b><title><script>var a=[[s]];</script></title></svg>
+====
+# name: 306-A27
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #301
+# main: LIVE_SCRIPT
+<svg><textarea><style>a{}</style><script>var a=[[s]];</script></textarea></svg>
+====
+# name: 306-A28
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #289 #298
+# main: LIVE_SCRIPT
+<noembed><p title="</noembed><script>/*"></p></noembed>*/var a=[[s]];//
+====
+# name: 306-A29
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<frameset><noframes><p title="</noframes><script>/*"></p></noframes></frameset>*/var a=[[s]];//
+====
+# name: 306-A30
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #289 #298
+# main: LIVE_SCRIPT
+<iframe><p title="</iframe><script>/*"></p></iframe>*/var a=[[s]];//
+====
+# name: 306-A31
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #305
+# main: LIVE_SCRIPT
+# engines: vnu-1.4
+# note: classic select parsing only: vnu-26 keeps the script inside <title>
+<select><title><script>var a=[[s]];</script></title></select>
+====
+# name: 306-A32
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<script>var r = a /"/ + "[[s]]";</script>
+====
+# name: 306-A33
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #290
+# main: LIVE_SCRIPT
+<script>var r = x
+/"/.test(y); var z = [[s]];</script>
+====
+# name: 306-A34
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<script>var a = `${[[s]]}`;</script>
+====
+# name: 306-A35
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<script>// [[s]]
+</script>
+====
+# name: 306-A36
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<script>var a = 1; <!-- [[s]]
+</script>
+====
+# name: 306-A37
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<p t:text="s" title="{{x}}">x</p>
+====
+# name: 306-A38
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<p t:title="s">x</p>
+====
+# name: 306-A39
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<img t:alt="s">
+====
+# name: 306-A40
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<math><mi t:href="s">x</mi></math>
+====
+# name: 306-A41
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<svg><a><set attributeName="href" t:to="s"/><text>x</text></a></svg>
+====
+# name: 306-A42
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<script t:src="@{/{p}/a.js(p=${s})}"></script>
+====
+# name: 306-A43
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<script t:src="@{/x/{p}(p=${s})}"></script>
+====
+# name: 306-A44
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<a t:href="@{{p}/x(p=${s})}">x</a>
+====
+# name: 306-A45
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<form method="post"><button t:formaction="s">go</button></form>
+====
+# name: 306-A46
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<a t:href="s">x</a>
+====
+# name: 306-A47
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<svg><animate attributeName="href" t:values="s"/></svg>
+====
+# name: 306-A48
+# expect-0dda2f1: CSTI
+# fixed-by: #277 #301
+# main: CSTI
+<p><svg><title t:text="s"></title></svg></p>
+====
+# name: 306-A49
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<div t:data-x="s"></div>
+====
+# name: 306-A50
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<textarea t:text="s"></textarea>
+====
+# name: 306-A51
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #290
+# main: LIVE_SCRIPT
+<script type="module">export default /"/; var y = "[[s]]";</script>
+====
+# name: 306-A52
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #290
+# main: LIVE_SCRIPT
+<script>class A extends /"/.constructor {}; var y = "[[s]]";</script>
+====
+# name: 306-A53
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<style>p{}</style><p>[[s]]</p>
+====
+# name: 306-A54
+# expect-0dda2f1: CSTI
+# fixed-by: #301
+# main: CSTI
+<svg><style><![CDATA[ a{} ]]></style><title>[[s]]</title></svg>
+====
+# name: 306-A55
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<svg><script><![CDATA[ var a = [[s]]; ]]></script></svg>
+====
+# name: 306-A56
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<svg><script>var a = 1 < 2; var b = [[s]];</script></svg>
+====
+# name: 306-A57
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<math><style><img src=x title="</style><script>/*"></style></math>*/var a=[[s]];//
+====
+# name: 306-A58
+# expect-0dda2f1: CONTEXT_MISMATCH CSTI
+# fixed-by: #301
+# main: CONTEXT_MISMATCH CSTI
+# note: </svg> in SVG script text ends the svg: the JSON-escaped value lands in HTML text
+<svg><script>/* </svg> */ var a = [[s]];</script></svg>
+====
+# name: 306-A59
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<noscript><p>[[s]]</p></noscript>
+====
+# name: 306-A60
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<xmp>[[s]]</xmp>
+====
+# name: 306-A61
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<template><p>[[s]]</p></template>
+====
+# name: 306-A62
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<plaintext>[[s]]
+====
+# name: 306-B0
+# expect-0dda2f1: LIVE_HANDLER
+# fixed-by: #301
+# main: LIVE_HANDLER
+<svg><script>/*</svg><img src=x title=*/[[s]]//></script></svg>
+====
+# name: 306-B1
+# expect-0dda2f1: CROSS_ORIGIN_RESOURCE
+# fixed-by: #313 #340
+# main: REJECTED
+<script t:src="@{/\evil.example/a.js}"></script>
+====
+# name: 306-B2
+# expect-0dda2f1: CROSS_ORIGIN_RESOURCE
+# fixed-by: #313 #340
+# main: REJECTED
+<base t:href="@{/\evil.example/}">
+====
+# name: 306-B3
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<meta http-equiv="refresh" t:content="'0;url=' + @{/\evil.example/}">
+====
+# name: 306-B4
+# expect-0dda2f1: REJECTED
+# main: REJECTED
+<div t:hx-get="@{/\evil.example/x}">x</div>
+====
+# name: 306-B5
+# expect-0dda2f1: CLEAN
+# main: REJECTED
+<form method="post" t:action="@{/\evil.example/x}"></form>
+====
+# name: 306-B6
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<form method="post" action="/x"><button t:formaction="s">go</button></form>
+====
+# name: 306-B7
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+<svg><script>var a=[[s]];</script><title>x</title></svg>
+====
+# name: 306-B8
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #301
+# main: LIVE_SCRIPT
+<template><svg><title><script>var a=[[s]];</script></title></svg></template>
+====
+# name: 306-B9
+# expect-0dda2f1: LIVE_SCRIPT
+# fixed-by: #301
+# main: LIVE_SCRIPT
+<svg><foreignObject><svg><title><script>var a=[[s]];</script></title></svg></foreignObject></svg>
+====
+# name: 306-B10
+# expect-0dda2f1: CONTEXT_MISMATCH CSTI
+# fixed-by: #301
+# main: CONTEXT_MISMATCH CSTI
+# note: // <p> in SVG script text leaves foreign content: the JSON-escaped value lands in HTML text
+<p>x</p><svg><script>// <p>
+var a = [[s]];</script></svg>
+====
+# name: 306-B11
+# expect-0dda2f1: CLEAN
+# main: CLEAN
+# note: the payload is static text, not a value: no marker, so no finding (#301 still rejects it)
+<svg><script>var a = [[s]]; /* <img src=x onerror=PWN()> */</script></svg>
+====
