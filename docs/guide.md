@@ -1486,6 +1486,11 @@ These come from the annotation processor itself, without a template position.
 - `link path variable {<name>} in @{<path>} has no parameter: add (<name>=...)`.
 - `link @{<path>} has scheme '<scheme>:': only http and https absolute links are allowed; use a relative path, or pass a TrustedUrl instead of a link`.
 - `link @{<path>} has a path variable in its host: write the host literally`.
+- `link @{<path>} starts like a protocol-relative URL (a browser reads '\' as '/'), so it would load from another origin: write @{/...} for a path on this site, or @{//host/...} if another origin is meant`:
+  a browser reads `/\host`, `\/host` and `\\host` as `//host`. Write `@{//host/...}` when another
+  origin is meant; it stays allowed where protocol-relative links are (not in htmx, refresh or
+  boosted form URLs).
+- `link @{<path>} starts with '\', which a browser reads as '/': write '/' instead`.
 
 ### Forms
 
