@@ -357,7 +357,18 @@ class XssContextTest {
           "<i t:attr=\"a b=s\">x</i>",
           "<!--> <script> -->\n[[s]]\n<!-- </script> -->",
           "<!---> <script> -->\n[[s]]\n<!-- </script> -->",
-          "<!-- x --!> <script> -->\n[[s]]\n<!-- </script> -->");
+          "<!-- x --!> <script> -->\n[[s]]\n<!-- </script> -->",
+          "<p><![CDATA[ x><script>[[s]]</script> ]]></p>",
+          "<p><![CDATA[ [[s]] ]]></p>",
+          "<?x><script>/* ?>*/\n[[s]]\n<!-- </script> -->",
+          "<!DOCTYPE html PUBLIC \"><script>/*\" \"x\">*/\n[[s]]\n<!-- </script> -->",
+          "</ <!-- > <script> -->\n[[s]]\n<!-- </script> -->",
+          "<? <!-- > <script> -->\n[[s]]\n<!-- </script> -->",
+          "<![if <!-- > <script> -->\n[[s]]\n<!-- </script> -->",
+          "<!-x <!-- > <script> -->\n[[s]]\n<!-- </script> -->",
+          "<!/ <!-- > <script> -->\n[[s]]\n<!-- </script> -->",
+          "<!? <!-- > <script> -->\n[[s]]\n<!-- </script> -->",
+          "<!! <!-- > <script> -->\n[[s]]\n<!-- </script> -->");
 
   /** The built-in {@code html.sanitize} turns stored rich text into SafeHtml for raw output. */
   @Test
