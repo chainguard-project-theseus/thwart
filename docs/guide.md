@@ -1227,6 +1227,10 @@ These come from the annotation processor itself, without a template position.
   nesting for non-void elements).
 - `malformed markup: '<!--' inside <script> is not supported: remove it (it is not needed in HTML5)`:
   delete the `<!--`/`-->` wrapper.
+- `malformed markup: a comment cannot start with '<!-->' or '<!--->' (a browser ends it there): put a space after '<!--'`
+  and `malformed markup: '--!>' ends a comment in a browser: end the comment with '-->' or remove the '!'`:
+  a browser ends the comment earlier than Tessera would, so the markup after it would be live. Write
+  `<!-- -->`-style comments that end only at `-->`.
 
 ### Template structure
 

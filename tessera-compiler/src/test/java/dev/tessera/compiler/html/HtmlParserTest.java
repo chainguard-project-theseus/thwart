@@ -397,4 +397,29 @@ class HtmlParserTest {
             "dir/t.html:1:48: error: end tag </script> does not match any open element: remove it or add the matching <script>"),
         errors("<script><!--<script></script><p>[[${x}]]</p>--></script>"));
   }
+
+  @Test
+  void commentThatEndsEarlierInABrowserIsAnError() {
+    String start = "dir/t.html:1:4: error: malformed markup: a comment cannot start with '<!-->' or '<!--->'"
+        + " (a browser ends it there): put a space after '<!--'";
+    assertEquals(List.of(start), errors("<p><!--> <script> --></p>"));
+    assertEquals(List.of(start), errors("<p><!---> <script> --></p>"));
+    assertEquals(
+        List.of("dir/t.html:2:3: error: malformed markup: '--!>' ends a comment in a browser: end the comment with"
+            + " '-->' or remove the '!'"),
+        errors("<p><!-- x\nx --!> <script> --></p>"));
+    assertEquals(1, errors("<!----!> -->").size());
+    assertEquals(1, errors("<!-- --!>-->").size());
+  }
+
+  @Test
+  void commentsThatEndWhereABrowserEndsThemParse() {
+    parseOk("<p><!----><!-- --><!-- -- --><!-- - -><!-- a --!--><!-- !> --></p>");
+    // "--!>" ends a comment only when its dashes follow "<!--"
+    parseOk("<!--!> --><!---!> -->");
+    // Thymeleaf parser-level and prototype-only comment blocks
+    parseOk("<!--/* hidden */--><!--/*/ <p>shown</p> /*/--><!--/**/-->");
+    // inside raw text a comment is text to a browser
+    parseOk("<textarea><!--> --></textarea><title><!-- --!> --></title>");
+  }
 }
