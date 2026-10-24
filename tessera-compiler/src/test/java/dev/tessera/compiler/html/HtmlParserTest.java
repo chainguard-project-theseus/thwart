@@ -409,6 +409,12 @@ class HtmlParserTest {
       }
     }
     assertEquals(List.of(hiddenEndTag(2, 5, "xmp")), errors("<xmp>\n<!--</XMP >--></xmp>"));
+    // unquoted attribute value, and '/' after the name
+    assertEquals(List.of(hiddenEndTag(1, 15, "xmp")), errors("<xmp><p title=</xmp>x</p></xmp>"));
+    assertEquals(List.of(hiddenEndTag(1, 10, "xmp")), errors("<xmp><!--</xmp/>--></xmp>"));
+    // browsers fold ASCII letters only: </noſcript> is no end tag to them, so the </noscript> in
+    // the title is where a browser ends the element
+    assertEquals(List.of(hiddenEndTag(1, 29, "noscript")), errors("<noscript></no\u017Fcript><title></noscript></title>"));
     // nested same element: a browser ends the outer one at the inner end tag
     assertEquals(List.of(hiddenEndTag(1, 21, "noscript")), errors("<noscript><noscript></noscript></noscript>"));
     // <xmp/> is an open tag to a browser, like <script/>

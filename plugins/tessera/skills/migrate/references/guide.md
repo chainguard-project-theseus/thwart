@@ -1213,7 +1213,13 @@ These come from the annotation processor itself, without a template position.
 - `malformed markup: content of <<tag>> contains '</<tag>' before its end tag: a browser ends the element there, so the markup after it would be read differently; remove it or move it outside the element`:
   reported for `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>` and `<noscript>`. Tessera parses
   their content as markup, but a browser reads it as text up to the first `</<tag>`, even one
-  inside a nested `<textarea>` or `<title>`, a comment or an attribute value.
+  inside a nested `<textarea>` or `<title>`, a comment or an attribute value. (Inside `<svg>` or
+  `<math>` these are ordinary elements to a browser, but the check still applies.)
+- `<attr> inside <<tag>> is not supported: a browser reads the content of <<tag>> as text up to the first '</<tag>', and inserted markup could contain one; move it outside the element`:
+  the same elements: `t:insert`, `t:replace`, `t:utext` and `[(...)]` cannot write markup into
+  them, because a fragment or `SafeHtml` value could hold a `</<tag>` that the check above does
+  not see. Escaped output (`[[...]]`, `t:text`) is fine, and so is `t:replace` on the element
+  itself (`<noscript t:replace="~{fragments :: tracking}">`), whose fragment replaces it.
 - `<plaintext> is not supported: a browser treats everything after it as text; remove it`:
   `<plaintext>` has no end tag in a browser; use `<pre>` instead.
 - `<<tag>/> is not self-closing in HTML: the browser treats everything after it as <tag>; write <<tag> ...></<tag>>`:

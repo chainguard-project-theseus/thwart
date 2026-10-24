@@ -13,6 +13,7 @@ import dev.tessera.compiler.codegen.attr.TextInlining;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.ExpressionParser;
 import dev.tessera.compiler.html.Contexts;
+import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Comment;
 import dev.tessera.compiler.model.DocType;
@@ -105,7 +106,7 @@ public final class TemplateGenerator implements CodegenContext {
     htmxSubmits = Collections.newSetFromMap(new IdentityHashMap<>());
     indexHtmxSubmits(document.children(), false, false);
 
-    validate(document.rootElement(), document.children());
+    validate(document.rootElement(), document.children(), null);
     Scope scope = Scope.empty();
     for (TemplateIndex.Param p : info.params()) {
       scope = scope.with(new Variable(p.name(), p.type(), javaName(p.name())));
@@ -290,9 +291,20 @@ public final class TemplateGenerator implements CodegenContext {
 
   // ---- tree walk ----
 
-  /** Reports misplaced core attributes and exclusive attribute pairs, once per element. */
-  private void validate(Element root, List<Node> nodes) {
+  /**
+   * Reports misplaced core attributes, exclusive attribute pairs and markup inserted into a
+   * browser-raw element, once per element. {@code rawText}: the enclosing {@code <xmp>},
+   * {@code <iframe>}, {@code <noembed>}, {@code <noframes>} or {@code <noscript>}, or null.
+   */
+  private void validate(Element root, List<Node> nodes, String rawText) {
     for (Node n : nodes) {
+      if (n instanceof Text && rawText != null) {
+        Text t = (Text) n;
+        int at = TextInlining.firstRawInline(t.raw());
+        if (at >= 0 && (t.context() == OutputContext.TEXT || t.context() == OutputContext.RCDATA)) {
+          insertedIntoBrowserRawText(t.pos().advance(t.raw(), at), "[(...)]", rawText);
+        }
+      }
       if (!(n instanceof Element)) {
         continue;
       }
@@ -305,8 +317,31 @@ public final class TemplateGenerator implements CodegenContext {
       }
       exclusive(e, "text", "utext");
       exclusive(e, "insert", "replace");
-      validate(root, e.children());
+      // t:replace output lands where the element is; t:insert and t:utext output in its body.
+      String body = HtmlParser.isBrowserRawText(e.name()) ? e.name() : rawText;
+      insertedIntoBrowserRawText(e.attribute(Attribute.PREFIX + "replace").orElse(null), rawText);
+      insertedIntoBrowserRawText(e.attribute(Attribute.PREFIX + "insert").orElse(null), body);
+      insertedIntoBrowserRawText(e.attribute(Attribute.PREFIX + "utext").orElse(null), body);
+      validate(root, e.children(), body);
     }
+  }
+
+  private void insertedIntoBrowserRawText(Attribute a, String rawText) {
+    if (a != null && rawText != null) {
+      insertedIntoBrowserRawText(a.pos(), a.name(), rawText);
+    }
+  }
+
+  /**
+   * A browser ends {@code <rawText>} at the first {@code </rawText} in its content (#283). The
+   * parser checks the template's own markup; markup inserted at render time (a fragment, a
+   * {@code Fragment} value, SafeHtml) is not seen, so it is not allowed there.
+   */
+  private void insertedIntoBrowserRawText(SourcePos pos, String what, String rawText) {
+    diagnostics()
+        .error(pos, what + " inside <" + rawText + "> is not supported: a browser reads the content of <" + rawText
+            + "> as text up to the first '</" + rawText + "', and inserted markup could contain one; move it"
+            + " outside the element");
   }
 
   private void exclusive(Element e, String a, String b) {

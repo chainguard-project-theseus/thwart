@@ -255,6 +255,11 @@ class XssContextTest {
           "<xmp><p title=\"</xmp><script>/*\">*/[[s]]//</p></xmp>",
           "<iframe/><title></iframe><script>var a = [[s]];</script></title>",
           "<plaintext>[[s]]</plaintext>",
+          // and markup inserted at render time could hold such an end tag
+          "<noscript><p t:utext=\"html.sanitize(s)\">x</p></noscript>",
+          "<xmp t:utext=\"html.sanitize(s)\"></xmp>",
+          "<noembed>[(#html.sanitize(s))]</noembed>",
+          "<noframes><textarea>[(#html.sanitize(s))]</textarea></noframes>",
           "<script t:type=\"s\">var a = 1;</script>",
           "<script t:attr=\"type=s\">var a = [[s]];</script>",
           "<script type=\"text/template\">[[s]]</script>",
@@ -294,6 +299,42 @@ class XssContextTest {
     assertEquals(
         "<div><section>" + clean + "</section>" + clean + "</div>", c.render("page", Map.of("s", stored)));
     assertEquals("<div><section></section></div>", c.render("page", Compilation.model("s", null)));
+  }
+
+  /**
+   * #283: a fragment can carry a literal {@code </noscript} that ends the caller's
+   * {@code <noscript>} in a browser, which neither template's parse sees, so markup is not
+   * inserted into these elements.
+   */
+  @Test
+  void fragmentsAreNotInsertedIntoBrowserRawElements() {
+    String frag = "<div t:fragment=\"f(String x)\"><textarea></noscript><script>var a = [[x]];</script></textarea></div>";
+    String message = " inside <noscript> is not supported: a browser reads the content of <noscript> as text up to"
+        + " the first '</noscript', and inserted markup could contain one; move it outside the element";
+    String[][] rejected = {
+      {"<noscript><div t:replace=\"~{frag :: f(x)}\"></div></noscript>", "page.html:2:16: t:replace"},
+      {"<noscript t:insert=\"~{frag :: f(x)}\"></noscript>", "page.html:2:11: t:insert"},
+      {"<NoScript><p><b t:insert=\"~{frag :: f(x)}\"></b></p></NoScript>", "page.html:2:17: t:insert"},
+    };
+    for (String[] r : rejected) {
+      Compilation c =
+          Compilation.builder()
+              .template("frag.html", frag)
+              .template("page.html", "<div t:params=\"String x\">\n" + r[0] + "\n</div>")
+              .compile();
+      String[] at = r[1].split(": ");
+      c.assertError(at[0], at[1] + message.replace("noscript", r[0].startsWith("<NoScript") ? "NoScript" : "noscript"));
+      assertNull(c.generatedSource("tessera.generated.PageTemplate"), r[0]);
+    }
+    // t:replace on the element itself puts the fragment outside it; [[...]] and t:text are escaped.
+    Compilation.builder()
+        .template("frag.html", "<p t:fragment=\"f(String x)\">[[x]]</p>")
+        .template(
+            "page.html",
+            "<div t:params=\"String x\"><noscript t:replace=\"~{frag :: f(x)}\"></noscript>"
+                + "<noscript><p>[[x]]</p><p t:text=\"x\">y</p></noscript><div t:insert=\"~{frag :: f(x)}\"></div></div>")
+        .compile()
+        .assertSuccess();
   }
 
   @ParameterizedTest

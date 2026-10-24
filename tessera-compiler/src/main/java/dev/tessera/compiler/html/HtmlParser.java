@@ -56,6 +56,15 @@ public final class HtmlParser {
     }
   }
 
+  /**
+   * Whether a browser reads the content of {@code <name>} as raw text up to the first {@code </name}
+   * although it is parsed as markup here ({@code xmp}, {@code iframe}, {@code noembed},
+   * {@code noframes}, {@code noscript}; #283).
+   */
+  public static boolean isBrowserRawText(String name) {
+    return BROWSER_RAW_ELEMENTS.contains(name.toLowerCase(Locale.ROOT));
+  }
+
   public Document parse(TemplateSource source, DiagnosticSink diagnostics) {
     char[] chars = source.content().toCharArray();
     Builder builder = new Builder(source, chars, diagnostics);
@@ -414,12 +423,12 @@ public final class HtmlParser {
 
     /**
      * Offset of the first {@code </name} followed by whitespace, {@code /} or {@code >} at or
-     * after {@code from} (case-insensitive), or -1.
+     * after {@code from} (ASCII case-insensitive), or -1.
      */
     private int browserEndTag(String name, int from) {
       String needle = "</" + name;
       for (int i = from; i + needle.length() <= content.length(); i++) {
-        if (content.regionMatches(true, i, needle, 0, needle.length())) {
+        if (asciiMatchesIgnoreCase(content, i, needle)) {
           int next = i + needle.length();
           if (next == content.length() || " \t\n\f\r/>".indexOf(content.charAt(next)) >= 0) {
             return i;
@@ -427,6 +436,22 @@ public final class HtmlParser {
         }
       }
       return -1;
+    }
+
+    /** Whether {@code s} has {@code needle} at {@code at}, folding ASCII letters only, as browsers do. */
+    private static boolean asciiMatchesIgnoreCase(String s, int at, String needle) {
+      for (int i = 0; i < needle.length(); i++) {
+        char a = s.charAt(at + i);
+        char b = needle.charAt(i);
+        if (a != b && asciiLower(a) != asciiLower(b)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    private static char asciiLower(char c) {
+      return c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c;
     }
 
     /** Ends the current raw-text element's content at {@code end} (exclusive). */
