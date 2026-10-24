@@ -156,6 +156,10 @@ checked at build time. Facts about the build today:
 - Check that the processor ran: after `mvn clean compile`, `target/generated-sources/annotations`
   holds a `*Template.java` per template under the `tessera.package` directory. If it is empty,
   `annotationProcessorPaths` was ignored, usually because the plugin is older than 3.5.
+- The processor's generated resources, `META-INF/services/dev.tessera.runtime.TemplateRegistry`
+  and `META-INF/tessera/functions/*`, must be packaged in the jar: a build that copies only
+  `**/*.class` leaves them out, and every view then falls through (the starter warns "No compiled
+  Tessera templates on the classpath" at startup instead of logging the template count).
 - Static analysis that runs on compiled classes or all source roots (SpotBugs, PMD, Checkstyle,
   Javadoc) also sees the generated templates and flags them (redundant null checks, dead stores).
   Exclude the `tessera.package` package: a SpotBugs `excludeFilterFile` with
