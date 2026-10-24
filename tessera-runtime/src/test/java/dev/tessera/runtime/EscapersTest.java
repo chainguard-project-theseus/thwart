@@ -54,6 +54,10 @@ class EscapersTest {
     return run(Escapers::url, v);
   }
 
+  private static String urlList(Object v) {
+    return run(Escapers::urlList, v);
+  }
+
   private static String resourceUrl(Object v) {
     return run(Escapers::resourceUrl, v);
   }
@@ -171,7 +175,7 @@ class EscapersTest {
 
   private static void assertHtmlSinks(String value, String expected) {
     for (BiConsumer<Output, Object> escaper : List.<BiConsumer<Output, Object>>of(
-        Escapers::text, Escapers::attr, Escapers::url, Escapers::resourceUrl)) {
+        Escapers::text, Escapers::attr, Escapers::url, Escapers::urlList, Escapers::resourceUrl)) {
       StringOutput string = new StringOutput();
       StringWriter writer = new StringWriter();
       StringBuilder fallback = new StringBuilder();
@@ -200,6 +204,7 @@ class EscapersTest {
     assertEquals("", text(null));
     assertEquals("", attr(null));
     assertEquals("", url(null));
+    assertEquals("", urlList(null));
     assertEquals("", resourceUrl(null));
     assertEquals("", html(null));
     assertEquals("null", json(null));
@@ -337,6 +342,59 @@ class EscapersTest {
     assertTrue(Escapers.isAllowedUrl(name + "?javascript:x"));
     assertTrue(Escapers.isAllowedUrl(name + "#javascript:x"));
     assertFalse(Escapers.isAllowedUrl(name + ":x"));
+  }
+
+  // --- urlList (SVG animation values, #284) ----------------------------------------------------
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "javascript:x",
+        "https://a;javascript:x",
+        "/a; javascript:x",
+        "/a;JaVaScRiPt:x",
+        "/a;\tjavascript:x",
+        "/a;java\tscript:x",
+        "/a;\u0001javascript:x",
+        "0;1;javascript:x",
+        "a:b;c",
+        ";javascript:x",
+        "javascript:x;",
+        "/a;data:text/html,<script>",
+        "/a;&#106;avascript:x",
+      })
+  void urlListReplacesWhenAnyItemIsDangerous(String u) {
+    assertEquals(Escapers.INVALID_URL, urlList(u));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "0;1",
+        "0;0.5;1",
+        "/a;/b",
+        "https://a;https://b",
+        "/x;jsessionid=1",
+        "",
+        ";",
+        "red;blue",
+        "/a; https://b ;mailto:a@b",
+        "/a?q=\"x\";<b>",
+      })
+  void urlListKeepsSafeLists(String u) {
+    assertEquals(attr(u), urlList(u));
+  }
+
+  @Test
+  void urlListTrustedUrlPassesAsIs() {
+    assertEquals("javascript:void(0);/a&amp;b", urlList(TrustedUrl.unchecked("javascript:void(0);/a&b")));
+  }
+
+  @Test
+  void urlDoesNotSplitOnSemicolon() {
+    // ';' is legal in a single URL; only an animation's values is a list.
+    assertEquals("/x;javascript:x", url("/x;javascript:x"));
+    assertEquals(Escapers.INVALID_URL, urlList("/x;javascript:x"));
   }
 
   @Test

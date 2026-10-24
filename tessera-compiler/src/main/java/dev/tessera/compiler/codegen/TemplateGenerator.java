@@ -453,8 +453,8 @@ public final class TemplateGenerator implements CodegenContext {
     // attribute is attribute-escaped; GenericAttrProcessor admits only safe style values (#182).
     OutputContext ctx = d.context();
     String escaper =
-        ctx == OutputContext.ATTRIBUTE || ctx == OutputContext.URL || ctx == OutputContext.RESOURCE_URL
-            || ctx == OutputContext.REFRESH || ctx == OutputContext.SCRIPT_ATTRIBUTE
+        ctx == OutputContext.ATTRIBUTE || ctx == OutputContext.URL || ctx == OutputContext.URL_LIST
+            || ctx == OutputContext.RESOURCE_URL || ctx == OutputContext.REFRESH || ctx == OutputContext.SCRIPT_ATTRIBUTE
             ? ctx.escaper()
             : ctx == OutputContext.STYLE ? OutputContext.ATTRIBUTE.escaper() : null;
     if (escaper == null) {
