@@ -375,7 +375,10 @@ class XssContextTest {
           "<textarea></[[s]]></textarea>",
           "<textarea></text[[s]]area></textarea>",
           "<title><[[s]]></title>",
-          "<script>var x = 2 <!-[[s]]</script>");
+          "<script>var x = 2 <!-[[s]]</script>",
+          // #313: a browser reads \ as /, so these load from another origin
+          "<script t:src=\"@{/\\evil.example/a.js}\"></script>",
+          "<base t:href=\"@{/\\evil.example/}\">");
 
   /** The built-in {@code html.sanitize} turns stored rich text into SafeHtml for raw output. */
   @Test

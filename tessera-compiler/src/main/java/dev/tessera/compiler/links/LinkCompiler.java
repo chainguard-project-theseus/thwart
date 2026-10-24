@@ -25,6 +25,11 @@ import java.util.stream.Collectors;
  * <p>A {@code {var}} in the scheme or host of an absolute or protocol-relative link is also an
  * error: path-variable encoding keeps letters, so a variable there would let data choose the
  * scheme or the host the URL points to.
+ *
+ * <p>A browser reads {@code \} as {@code /} and ignores leading control characters and tab, CR
+ * and LF, so a path such as {@code /\host/x} is protocol-relative. Only the explicit
+ * {@code //host/...} form may be protocol-relative; any other path a browser reads as one is an
+ * error, as is a path starting with a single {@code \} ({@link #checkShape}).
  */
 public final class LinkCompiler {
   private LinkCompiler() {}
@@ -112,7 +117,53 @@ public final class LinkCompiler {
           "link @{" + path + "} has a path variable in its host: write the host literally");
       return false;
     }
+    return checkShape(link, diagnostics);
+  }
+
+  /**
+   * Rejects a literal path that a browser reads as protocol-relative ({@link #browserForm} starts
+   * with {@code //}) unless it is written exactly {@code //host/...}, and a path starting with a
+   * single {@code \}.
+   */
+  private static boolean checkShape(Expr.Link link, DiagnosticSink diagnostics) {
+    String path = link.path();
+    if (browserForm(path).startsWith("//") && !path.startsWith("//")) {
+      diagnostics.error(
+          link.pos(),
+          "link @{" + path + "} starts like a protocol-relative URL (a browser reads '\\' as '/'), so it"
+              + " would load from another origin: write @{/...} for a path on this site, or @{//host/...}"
+              + " if another origin is meant");
+      return false;
+    }
+    if (path.startsWith("\\")) {
+      diagnostics.error(
+          link.pos(), "link @{" + path + "} starts with '\\', which a browser reads as '/': write '/' instead");
+      return false;
+    }
     return true;
+  }
+
+  /**
+   * A literal link path that stays on the page's origin: it starts with {@code /} and a browser
+   * does not read it as protocol-relative ({@code //host}, {@code /\host}, {@code /<tab>/host}).
+   * Used for htmx request URLs, refresh URLs and boosted or htmx form URLs, which must be
+   * same-origin.
+   */
+  public static boolean isSameOriginPath(String path) {
+    String browser = browserForm(path);
+    return path.startsWith("/") && browser.startsWith("/") && !browser.startsWith("//");
+  }
+
+  /**
+   * The start of {@code path} as a browser's URL parser sees it: leading chars {@code <= 0x20}
+   * dropped, tab, CR and LF removed, and {@code \} read as {@code /}.
+   */
+  static String browserForm(String path) {
+    int i = 0;
+    while (i < path.length() && path.charAt(i) <= ' ') {
+      i++;
+    }
+    return path.substring(i).replaceAll("[\t\r\n]", "").replace('\\', '/');
   }
 
   /**
