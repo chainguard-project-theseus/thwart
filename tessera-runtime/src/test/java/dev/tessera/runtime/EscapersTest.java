@@ -576,7 +576,9 @@ class EscapersTest {
     assertEquals("\"\\u0000\\u001f\\u007f\"", json("\u0000\u001f\u007f"));
     assertEquals("\"\\u003c\\u003e\\u0026\\u0027\"", json("<>&'"));
     assertEquals("\"\\u2028\\u2029\"", json("\u2028\u2029"));
-    assertEquals("\"\\u0060\\u0024{x}\\/\"", json("`${x}/"));
+    assertEquals("\"\\u0060\\u0024\\u007bx}\\/\"", json("`${x}/"));
+    // petite-vue interpolates script text: a JSON string never writes '{' (#248)
+    assertEquals("\"\\u007b\\u007b x }}\"", json("{{ x }}"));
     assertEquals("\"\u00e9\ud83d\ude00\"", json("\u00e9\ud83d\ude00"));
   }
 

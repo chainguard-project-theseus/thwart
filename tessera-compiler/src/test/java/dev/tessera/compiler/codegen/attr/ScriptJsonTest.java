@@ -228,7 +228,7 @@ class ScriptJsonTest {
         .template("page.html", "<script t:params=\"com.example.Value value\">[[value]]</script>")
         .compile().assertSuccess();
     Object value = c.newInstance("com.example.Value", "*/ `${x}` </script>\u2028\u2029\ud800");
-    assertEquals("<script>{\"a\\u0024name\":\"*\\/ \\u0060\\u0024{x}\\u0060 \\u003c\\/script\\u003e\\u2028\\u2029\\ud800\"}</script>",
+    assertEquals("<script>{\"a\\u0024name\":\"*\\/ \\u0060\\u0024\\u007bx}\\u0060 \\u003c\\/script\\u003e\\u2028\\u2029\\ud800\"}</script>",
         c.render("page", model("value", value)));
   }
 
