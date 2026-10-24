@@ -39,6 +39,7 @@ class PageNormalizerTest {
       boolean selected               | <option selected="selected">a</option>   | <option selected>a</option>
       empty input value              | <input name="q" value="">                | <input name="q">
       comments dropped               | <p>a<!-- note -->b</p>                   | <p>ab</p>
+      braces broken in text (#248)   | <p><!---->{<!---->{x}}</p>               | <p>{{x}}</p>
       character references           | <p>O&#39;Neil &amp; co</p>               | <p>O'Neil &amp; co</p>
       doctype case                   | <!DOCTYPE HTML><p>x                      | <!doctype html><p>x</p>
       csrf hidden input              | <input type="hidden" name="_csrf" value="abc"> | <input type="hidden" name="_csrf" value="xyz">

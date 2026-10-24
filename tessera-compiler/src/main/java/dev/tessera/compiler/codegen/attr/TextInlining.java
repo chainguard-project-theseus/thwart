@@ -6,6 +6,7 @@ import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.expr.Expr;
+import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.messages.MessageCompiler;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.model.Text;
@@ -16,8 +17,10 @@ import javax.lang.model.type.TypeKind;
 
 /**
  * Text inlining: {@code [[expr]]} (escaped for the text node's context: TEXT via
- * {@code Escapers.text}, SCRIPT via {@code Escapers.json}) and {@code [(expr)]} (SafeHtml or a
- * checked bundle message, TEXT context only). STYLE/FORBIDDEN contexts with inlined expressions are build errors.
+ * {@code Escapers.text}, RCDATA via {@code Escapers.rcdata}, SCRIPT via {@code Escapers.json})
+ * and {@code [(expr)]} (SafeHtml or a checked bundle message, TEXT and RCDATA only).
+ * STYLE/FORBIDDEN contexts with inlined expressions are build errors, and so is an expression
+ * inside a static client-side {@code {{ ... }}} interpolation in TEXT or RCDATA (#248).
  *
  * <p>Also holds the output helpers shared with {@code t:text} and {@code t:utext}.
  */
@@ -39,6 +42,8 @@ public final class TextInlining {
     StringBuilder code = new StringBuilder();
     StringBuilder literal = new StringBuilder();
     boolean found = false;
+    boolean html = text.context() == OutputContext.TEXT || text.context() == OutputContext.RCDATA;
+    boolean inMustache = false;
     int i = 0;
     while (i < raw.length()) {
       boolean escaped = raw.startsWith("[[", i);
@@ -46,8 +51,19 @@ public final class TextInlining {
         int end = findEnd(raw, i + 2, escaped ? "]]" : ")]");
         if (end >= 0) {
           found = true;
-          flush(code, literal);
           SourcePos pos = text.pos().advance(raw, i + 2);
+          inMustache = html && inMustache(inMustache, literal.toString());
+          flush(code, literal);
+          if (inMustache) {
+            ctx.diagnostics()
+                .error(
+                    pos,
+                    (escaped ? "[[...]]" : "[(...)]") + " is inside a client-side {{ ... }} interpolation: Vue or"
+                        + " AngularJS would run the value as code, whatever the escaping. Pass the value in a"
+                        + " data-* attribute or a <script> with [[...]] and read it from there");
+            i = end + 2;
+            continue;
+          }
           code.append(inline(ctx, text.context(), raw.substring(i + 2, end), pos, escaped, scope));
           i = end + 2;
           continue;
@@ -61,6 +77,31 @@ public final class TextInlining {
     }
     flush(code, literal);
     return code.toString();
+  }
+
+  /**
+   * Whether a client-side {@code {{} interpolation is open after the static text {@code literal},
+   * given whether one was open before it. Frameworks read the decoded text, so character
+   * references for braces count. As in Vue and AngularJS, the first {@code }}} after {@code {{}
+   * closes it.
+   */
+  static boolean inMustache(boolean open, String literal) {
+    String s =
+        HtmlParser.decode(
+            literal
+                .replace("&lbrace;", "{")
+                .replace("&lcub;", "{")
+                .replace("&rbrace;", "}")
+                .replace("&rcub;", "}"));
+    int i = 0;
+    while (true) {
+      int next = s.indexOf(open ? "}}" : "{{", i);
+      if (next < 0) {
+        return open;
+      }
+      open = !open;
+      i = next + 2;
+    }
   }
 
   /** Index of the first {@code close} at or after {@code from} outside a '...' string, or -1. */
@@ -97,7 +138,7 @@ public final class TextInlining {
       ctx.diagnostics().error(pos, form + " is not allowed " + where(context));
       return "";
     }
-    if (!escaped && context != OutputContext.TEXT) {
+    if (!escaped && context != OutputContext.TEXT && context != OutputContext.RCDATA) {
       ctx.diagnostics()
           .error(pos, "[(...)] is only allowed in element text; inside <script> use [[...]], which outputs JSON");
       return "";
@@ -122,7 +163,7 @@ public final class TextInlining {
   }
 
   /**
-   * A statement writing {@code e} escaped for {@code context} (TEXT or SCRIPT), or "" after
+   * A statement writing {@code e} escaped for {@code context} (TEXT, RCDATA or SCRIPT), or "" after
    * reporting an error. The value must be view-safe; in SCRIPT it must also be JSON-serializable
    * ({@link ScriptJson}).
    */
@@ -137,10 +178,10 @@ public final class TextInlining {
     }
     if (isDeclared(c.type(), "java.util.Optional")) {
       String o = ctx.freshName("opt");
-      return "{ java.util.Optional<?> " + o + " = " + c.code() + "; " + ESCAPERS + ".text(out, " + o
-          + " == null ? null : " + o + ".orElse(null)); }\n";
+      return "{ java.util.Optional<?> " + o + " = " + c.code() + "; " + ESCAPERS + "." + context.escaper()
+          + "(out, " + o + " == null ? null : " + o + ".orElse(null)); }\n";
     }
-    return ESCAPERS + ".text(out, " + c.code() + ");\n";
+    return ESCAPERS + "." + context.escaper() + "(out, " + c.code() + ");\n";
   }
 
   /**

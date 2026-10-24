@@ -41,6 +41,11 @@ final class HostileStrings {
           "/;alert(1);//",
           "`+alert(1)+`",
           "${alert(1)}",
+          "{{constructor.constructor('alert(1)')()}}",
+          "{{{7*7}}}",
+          "{",
+          "}}{{",
+          "&#123;&#123;7*7}}",
           "\\\";alert(1);//",
           "\\u003cscript\\u003e",
           "𐀀\ud800",
@@ -57,7 +62,7 @@ final class HostileStrings {
     "<", ">", "&", "\"", "'", "`", "$", "{", "}", "/", "\\", "*", ":", ";", "=", "#", "?", "%", "+", " ",
     "\t", "\n", "\r", "\u0000", "\u0001", "\u001f", "\u007f", " ", " ", "\ud800", "\udc00",
     "😀", "é", "﻿", "script", "</script", "<!--", "-->", "]]>", "javascript", "data",
-    "vbscript", "http", "mailto", "&#", "&lt;", "&amp;", "\\u003c", "*/", "/*", "//", "${", "onerror=",
+    "vbscript", "http", "mailto", "&#", "&lt;", "&amp;", "\\u003c", "*/", "/*", "//", "${", "{{", "}}", "onerror=",
     "a", "Z", "0"
   };
 

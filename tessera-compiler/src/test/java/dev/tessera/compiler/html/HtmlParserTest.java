@@ -141,7 +141,7 @@ class HtmlParserTest {
     assertEquals(List.of("a<b>c</b>", "<i>x", "p>q{}", "<p a=1 a=1>"),
         top.stream().map(n -> ((Text) el(n).children().get(0)).raw()).toList());
     assertEquals(
-        List.of(OutputContext.TEXT, OutputContext.TEXT, OutputContext.STYLE, OutputContext.FORBIDDEN),
+        List.of(OutputContext.RCDATA, OutputContext.RCDATA, OutputContext.STYLE, OutputContext.FORBIDDEN),
         top.stream().map(n -> ((Text) el(n).children().get(0)).context()).toList());
     assertEquals(0, el(parseOk("<script src=\"/a.js\"></script>").rootElement()).children().size());
   }

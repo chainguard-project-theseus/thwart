@@ -51,7 +51,12 @@ class EscaperFuzzTest {
 
   @Test
   void text() {
-    fuzz("text", Escapers::text, (s, out) -> ContextOracle.html(out, s));
+    fuzz("text", Escapers::text, (s, out) -> ContextOracle.text(out, s));
+  }
+
+  @Test
+  void rcdata() {
+    fuzz("rcdata", Escapers::rcdata, (s, out) -> ContextOracle.html(out, s));
   }
 
   @Test
@@ -115,6 +120,11 @@ class EscaperFuzzTest {
   void oracleRejectsBrokenOutput() {
     // The oracle itself must catch what it is there to catch.
     assertEquals("raw '<' at 0", ContextOracle.html("<b>", null));
+    assertEquals("unbroken {{ in {{x}}", ContextOracle.text("{{x}}", null));
+    assertEquals("unbroken {{ in a{{x", ContextOracle.text("a{{x", null));
+    assertEquals("bare { at the edge", ContextOracle.text("{<!---->{", null));
+    assertEquals("comment not next to a brace", ContextOracle.text("a<!---->b", null));
+    assertEquals("raw '<' at 0", ContextOracle.text("<!--->", null));
     assertEquals("raw '\"' at 1", ContextOracle.html("a\"b", null));
     assertEquals("bare & at 0", ContextOracle.html("&#106;", null));
     assertEquals("scheme javascript passed", ContextOracle.url("java&#9;script:x".replace("&#9;", "\t"), null));
