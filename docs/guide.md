@@ -484,7 +484,9 @@ Only these bindings take JSON; anything else stays a build error:
 
 - a target `x` that is not an ordinary attribute: `on*`, `style`, URLs (`:href`, `:src`,
   `:action`, ...), resource URLs, `srcdoc`, another directive (`:v-html`, `:x-data`, `:hx-get`),
-  and `innerHTML`, `outerHTML` and `is`;
+  `innerHTML`, `outerHTML` and `is`, and the parts of a link's URL (`protocol`, `host`,
+  `hostname`, `port`, `pathname`, `search`, `hash`, `username`, `password`), which Vue sets as
+  properties;
 - modifiers and dynamic names: `v-bind:x.prop`, `:x.camel`, `.x`, `:[key]`;
 - `v-bind="obj"` and `x-bind="obj"` with no target;
 - any binding on `<script>`, `<style>` or `<meta>`.
@@ -1376,7 +1378,7 @@ These come from the annotation processor itself, without a template position.
 
 - `<label> is not allowed: event-handler attributes cannot contain expressions; put the value in a data-* attribute and read it from a script`.
 - `<label> is not allowed: '<name>' is a Vue, Alpine, htmx, _hyperscript, AngularJS or Knockout directive whose value is run as JavaScript, so it cannot contain expressions; write it as a static attribute, or put the value in a data-* attribute or a <script> with [[...]] and read it from there`. See [4.4](#44-escaping-and-output-contexts) for the list of directives. A Vue or Alpine binding of an ordinary attribute (`t::prop`, `t:v-bind:prop`, `t:x-bind:prop`) takes a JSON value instead.
-- `<label> is not allowed: '<name>' is a Vue or Alpine binding whose value is run as JavaScript; an expression (written as JSON) is only allowed in :x, v-bind:x or x-bind:x whose target x is an ordinary attribute, with no modifiers, not on* / style / a URL / innerHTML / is, and not on <script>, <style> or <meta>; otherwise write it as a static attribute`. For `:href`, `:style`, `v-bind:x.prop`, `v-bind="obj"`, ... (section 4.4).
+- `<label> is not allowed: '<name>' is a Vue or Alpine binding whose value is run as JavaScript; an expression (written as JSON) is only allowed in :x, v-bind:x or x-bind:x whose target x is an ordinary attribute, with no modifiers, not on* / style / a URL or URL part / innerHTML / is, and not on <script>, <style> or <meta>; otherwise write it as a static attribute`. For `:href`, `:style`, `v-bind:x.prop`, `v-bind="obj"`, ... (section 4.4).
 - `cannot output a value of type <type> in <label>: only strings, numbers, booleans, enums, java.time values, records and @TemplateView classes of those, and Optionals, collections, arrays and String-keyed maps of those can be serialized as JSON`. A Vue or Alpine binding takes the same types as a script `[[...]]`.
 - `<label> is not allowed: a style value can only combine string literals, numbers and CssValues such as css.color(c), css.length(l) or css.url(u), not a <type>; use t:class or t:classappend instead`.
 - `<label> is not allowed: srcdoc is a whole HTML document and cannot contain expressions; use src with a URL`.

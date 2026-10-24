@@ -246,7 +246,8 @@ class JsonBindingTest {
       strings = {
         "v-bind", "x-bind", "v-bind.prop", "v-bind:title.prop", ":title.camel", ":title.attr", "x-bind:title.camel",
         ":href", "v-bind:href", "x-bind:href", ":src", ":action", ":formaction", ":style", "x-bind:style",
-        ":onclick", "v-bind:onmouseover", ":innerHTML", ":innerhtml", ":outerHTML", ":is", ":srcdoc", ":v-html",
+        ":onclick", "v-bind:onmouseover", ":innerHTML", ":innerhtml", ":outerHTML", ":is", ":inner-h-t-m-l",
+        ":protocol", "v-bind:host", ":hostname", ":pathname", ":search", ":hash", ":port", ":username", ":password", ":srcdoc", ":v-html",
         ":x-data", ":x-on:click", ":hx-get", ":hx-vals", ":hx-on:click", ":data-bind", ":ng-click", ":_",
         ":script", ":data-script", ":xlink:href", ".title", "@click", "v-on:click", "x-on:click", "x-data",
         "x-init", "v-html", "v-text", "v-model", "hx-on:click", "ng-bind", "data-bind",

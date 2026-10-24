@@ -136,9 +136,17 @@ public final class Contexts {
 
   /**
    * Targets that are ordinary attributes but, set as DOM properties (Vue 3 sets {@code key in el}
-   * as a property), write markup, or (Vue {@code is}) pick the component or element to render.
+   * as a property), write markup ({@code innerHTML}, {@code outerHTML}) or rewrite a link's URL
+   * ({@code <a>}/{@code <area>} {@code protocol}, {@code host}, ...: {@code :protocol} turns
+   * {@code mailto:alert(1)} into {@code javascript:alert(1)}), or (Vue {@code is}) pick the
+   * component or element to render. Compared without {@code -}: a Vue custom element camelizes
+   * {@code inner-h-t-m-l} to {@code innerHTML}. Denied on every element, since a component's
+   * root element is not known.
    */
-  private static final Set<String> BIND_DENIED_TARGETS = Backports.setOf("innerhtml", "outerhtml", "is");
+  private static final Set<String> BIND_DENIED_TARGETS =
+      Backports.setOf(
+          "innerhtml", "outerhtml", "is", "protocol", "host", "hostname", "port", "pathname", "search",
+          "hash", "username", "password");
 
   /**
    * Whether {@code attributeName} is a Vue or Alpine binding whose value may be a JSON value (#246):
@@ -150,7 +158,8 @@ public final class Contexts {
    *   <li>is itself an ordinary attribute ({@link #attribute} is ATTRIBUTE on this element): not
    *       {@code on*}, {@code style}, a URL, a resource URL, {@code srcdoc}, a framework directive
    *       or otherwise forbidden, since the framework sets the target to the value;
-   *   <li>is not {@code innerHTML}, {@code outerHTML} or {@code is};
+   *   <li>is not {@code innerHTML}, {@code outerHTML}, {@code is} or a URL part such as
+   *       {@code protocol} or {@code host};
    * </ul>
    *
    * and the element is not {@code <script>}, {@code <style>} or {@code <meta>}. The framework
@@ -167,7 +176,8 @@ public final class Contexts {
         break;
       }
     }
-    if (target == null || !BIND_TARGET.matcher(target).matches() || BIND_DENIED_TARGETS.contains(target)) {
+    if (target == null || !BIND_TARGET.matcher(target).matches()
+        || BIND_DENIED_TARGETS.contains(target.replace("-", ""))) {
       return false;
     }
     String el = element.name().toLowerCase(Locale.ROOT);

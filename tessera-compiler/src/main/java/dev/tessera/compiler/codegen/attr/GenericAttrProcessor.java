@@ -61,7 +61,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
             isBind(lower)
                 ? "'" + name + "' is a Vue or Alpine binding whose value is run as JavaScript; an expression"
                     + " (written as JSON) is only allowed in :x, v-bind:x or x-bind:x whose target x is an"
-                    + " ordinary attribute, with no modifiers, not on* / style / a URL / innerHTML / is, and not"
+                    + " ordinary attribute, with no modifiers, not on* / style / a URL or URL part / innerHTML / is, and not"
                     + " on <script>, <style> or <meta>; otherwise write it as a static attribute"
                 : Contexts.isFrameworkDirective(plan.element(), name)
                 ? "'" + name + "' is a Vue, Alpine, htmx, _hyperscript, AngularJS or Knockout directive whose value is"
