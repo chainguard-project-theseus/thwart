@@ -35,6 +35,19 @@
       <artifactId>attoparser</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- Test only: the spec-parser oracle (#317). The validator jar (current spec parser) is not on
+         the classpath: it is copied below and loaded in its own class loader, because it shares
+         package names with htmlparser 1.4.16. -->
+    <dependency>
+      <groupId>nu.validator</groupId>
+      <artifactId>htmlparser</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mozilla</groupId>
+      <artifactId>rhino</artifactId>
+      <scope>test</scope>
+    </dependency>
     <!-- Test only: a processor that adds getters during annotation processing (#233). -->
     <dependency>
       <groupId>org.projectlombok</groupId>
@@ -82,6 +95,24 @@
               <outputDirectory>${project.build.directory}/lombok16</outputDirectory>
             </configuration>
           </execution>
+          <!-- The current spec parser for the oracle (#317), loaded from this path by the tests. -->
+          <execution>
+            <id>oracle-vnu</id>
+            <phase>generate-test-resources</phase>
+            <goals>
+              <goal>copy</goal>
+            </goals>
+            <configuration>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>nu.validator</groupId>
+                  <artifactId>validator</artifactId>
+                  <version>${vnu-validator.version}</version>
+                </artifactItem>
+              </artifactItems>
+              <outputDirectory>${project.build.directory}/oracle</outputDirectory>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
       <plugin>
@@ -91,13 +122,14 @@
           <systemPropertyVariables>
             <tessera.jdk8.home>${tessera.jdk8.home}</tessera.jdk8.home>
             <tessera.lombok16.jar>${project.build.directory}/lombok16/lombok-${lombok16.version}.jar</tessera.lombok16.jar>
+            <tessera.oracle.vnu>${project.build.directory}/oracle/validator-${vnu-validator.version}.jar</tessera.oracle.vnu>
           </systemPropertyVariables>
         </configuration>
         <executions>
           <!-- Generated code must compile for the Java 8 floor (#154): run the template tests again
                with the Compilation harness at javac release 8. Excluded: tests whose own Java snippets
                need Java 9+ (types) or that assert record-accessor code text, and tests that do not
-               compile templates (the parser differential test). -->
+               compile templates (the parser differential test, the spec-parser oracle). -->
           <execution>
             <id>release-8</id>
             <goals>
@@ -113,6 +145,7 @@
                 <exclude>dev/tessera/compiler/links/LinkCompilerTest.java</exclude>
                 <exclude>dev/tessera/compiler/processor/Jdk8ProcessorTest.java</exclude>
                 <exclude>dev/tessera/compiler/html/HtmlParserDifferentialTest.java</exclude>
+                <exclude>dev/tessera/compiler/oracle/**</exclude>
               </excludes>
             </configuration>
           </execution>

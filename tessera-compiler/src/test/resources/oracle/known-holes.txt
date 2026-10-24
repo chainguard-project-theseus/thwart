@@ -1,0 +1,15 @@
+# Known open holes for the spec-parser oracle gate (#308, #324) and the Node job (#322).
+#
+# One hole per line:
+#
+#   <case-id> <KIND> <engine or *> #<issue> <note>
+#
+#   case-id  first 12 hex chars of the SHA-256 of the case's template (OracleCase.idOf)
+#   KIND     a Finding.Kind: STRUCTURE_CHANGED, MARKER_IN_NAME, LIVE_SCRIPT, LIVE_HANDLER, JS_URL,
+#            CROSS_ORIGIN_RESOURCE, JS_NOT_LITERAL, JS_UNPARSABLE, CONTEXT_MISMATCH, CSTI
+#   engine   vnu-1.4, vnu-26, rhino, parse5, chromium, firefox, or * for any engine
+#   #issue   the issue or PR that fixes it (required: a line without one is a format error)
+#   note     free text
+#
+# A finding with no line here fails the gate; a line whose finding no longer occurs fails too
+# ("delete its line"), so this list only shrinks. Lines starting with # are comments.
