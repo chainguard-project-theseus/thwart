@@ -8,7 +8,7 @@
 # origin by shape, and {{...PWN in text outside script and HTML raw text/RCDATA. A marker in a
 # script acorn can't tokenize is recorded as CONTEXT_MISMATCH. The parse5 oracle's other reports
 # ({{ in script strings and RCDATA, cross-origin <a href>) are noise and are not recorded.
-# 'main' is the same check on main at 96287c4.
+# 'main' is the same check on main at 1c4b2b3 (see Seeds.MAIN_SNAPSHOT).
 ====
 # name: 306-A0
 # expect-0dda2f1: CLEAN
@@ -60,13 +60,13 @@
 # name: 306-A8
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #283 #289 #298
-# main: LIVE_SCRIPT
+# main: REJECTED
 <xmp><textarea></xmp><script>var a = [[s]];</script></textarea></xmp>
 ====
 # name: 306-A9
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #283 #289 #298
-# main: LIVE_SCRIPT
+# main: REJECTED
 <noscript><title></noscript><script>var a = [[s]];</script></title></noscript>
 ====
 # name: 306-A10
@@ -78,19 +78,19 @@
 # name: 306-A11
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #298
-# main: LIVE_SCRIPT
+# main: REJECTED
 <textarea/><p title="</textarea><script>/*"></p>*/var a=[[s]];//
 ====
 # name: 306-A12
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #298
-# main: LIVE_SCRIPT
+# main: REJECTED
 <title/><p title="</title><script>/*"></p>*/var a=[[s]];//
 ====
 # name: 306-A13
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #297
-# main: LIVE_SCRIPT
+# main: REJECTED
 <p title=a"><script>//">
 [[s]]
 //</p><!-- </script> -->
@@ -113,19 +113,20 @@
 # name: 306-A16
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #300
-# main: LIVE_SCRIPT
+# main: REJECTED
 <title t:remove="tag"><script>[[s]]</script></title>
 ====
 # name: 306-A17
 # expect-0dda2f1: LIVE_HANDLER
 # fixed-by: #300
-# main: LIVE_HANDLER
+# main: REJECTED
 <script t:remove="tag"><img src=x onerror=[[s]]></script>
 ====
 # name: 306-A18
 # expect-0dda2f1: CSTI
-# fixed-by: #303
+# fixed-by: #336
 # main: CSTI
+# note: #303 rejects only an unclosed static {{ and moved this cross-node case to #336
 {{ <t:block t:text="s"></t:block> }}
 ====
 # name: 306-A19
@@ -178,18 +179,18 @@
 # name: 306-A28
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #289 #298
-# main: LIVE_SCRIPT
+# main: REJECTED
 <noembed><p title="</noembed><script>/*"></p></noembed>*/var a=[[s]];//
 ====
 # name: 306-A29
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 <frameset><noframes><p title="</noframes><script>/*"></p></noframes></frameset>*/var a=[[s]];//
 ====
 # name: 306-A30
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #289 #298
-# main: LIVE_SCRIPT
+# main: REJECTED
 <iframe><p title="</iframe><script>/*"></p></iframe>*/var a=[[s]];//
 ====
 # name: 306-A31

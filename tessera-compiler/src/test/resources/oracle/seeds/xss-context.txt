@@ -1,7 +1,7 @@
 # XssContextTest on main as controls (#320): REJECTED entries that 0dda2f1 already had (expected
 # REJECTED), and the LINES that need only 'String s' (expected CLEAN; the ones that need the Owner
-# record or messages are left out). Entries added by #295, #296, #299 and #340 are in open-prs.txt,
-# and duplicates of earlier seeds are skipped. Format: see dev.tessera.compiler.oracle.Seeds.
+# record or messages are left out). Entries added by the security PRs (#295-#300, #340) are in
+# open-prs.txt, and duplicates of earlier seeds are skipped. Format: see dev.tessera.compiler.oracle.Seeds.
 ====
 # name: xss-rejected-1
 # expect-0dda2f1: REJECTED

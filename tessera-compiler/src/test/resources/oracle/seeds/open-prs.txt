@@ -1,7 +1,7 @@
 # Repros from the security PRs (#320), with fixed-by set to the PR: the templates each PR adds to
 # XssContextTest.REJECTED (all of them), the templates of its own rejected-case tests that the PR
 # head rejects and 0dda2f1 accepts, and findings from the reviews of those PRs ('review-' names; #338
-# is not a PR yet). #295, #296, #299 and #340 are merged; 'main' is the verdict on main at 96287c4.
+# is an issue). #295-#300 and #340 are merged; 'main' is the verdict on main at 1c4b2b3 (see Seeds.MAIN_SNAPSHOT).
 # Verdicts: as in 306-probes.txt.
 # Cases that need a hostile SafeHtml or a second template file are left out (#324 renders String
 # hostile values only). #287 (tessera-migrate), #293 (starter) and #302 (OpenJML) have no template
@@ -152,60 +152,60 @@
 # name: pr289-1
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #289
-# main: LIVE_SCRIPT
+# main: REJECTED
 <iframe><textarea></iframe><script>var a = [[s]];</script></textarea></iframe>
 ====
 # name: pr289-2
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #289
-# main: LIVE_SCRIPT
+# main: REJECTED
 <noembed><title></noembed><script>var a = [[s]];</script></title></noembed>
 ====
 # name: pr289-3
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #289
-# main: LIVE_SCRIPT
+# main: REJECTED
 <noframes><title></noframes><script>var a = [[s]];</script></title></noframes>
 ====
 # name: pr289-4
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #289
-# main: LIVE_SCRIPT
+# main: REJECTED
 <xmp><p title="</xmp><script>/*">*/[[s]]//</p></xmp>
 ====
 # name: pr289-5
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #289
-# main: LIVE_SCRIPT
+# main: REJECTED
 <iframe/><title></iframe><script>var a = [[s]];</script></title>
 ====
 # name: pr289-6
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #289; no finding on 0dda2f1 with the #306 values
 <plaintext>[[s]]</plaintext>
 ====
 # name: pr289-7
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #289; no finding on 0dda2f1 with the #306 values
 <noscript><p t:utext="html.sanitize(s)">x</p></noscript>
 ====
 # name: pr289-8
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #289; no finding on 0dda2f1 with the #306 values
 <xmp t:utext="html.sanitize(s)"></xmp>
 ====
 # name: pr289-9
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #289; no finding on 0dda2f1 with the #306 values
 <noembed>[(#html.sanitize(s))]</noembed>
 ====
 # name: pr289-10
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #289; no finding on 0dda2f1 with the #306 values
 <noframes><textarea>[(#html.sanitize(s))]</textarea></noframes>
 ====
@@ -258,7 +258,7 @@
 # name: pr298-1
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #298
-# main: LIVE_SCRIPT
+# main: REJECTED
 <xmp><i title="</xmp><script>/*"></i></xmp>*/
 [[s]]
 <!-- </script> -->
@@ -266,7 +266,7 @@
 # name: pr298-2
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #298
-# main: LIVE_SCRIPT
+# main: REJECTED
 <noscript><!-- </noscript><script> --></noscript>
 [[s]]
 <!-- </script> -->
@@ -274,27 +274,27 @@
 # name: pr298-3
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #298
-# main: LIVE_SCRIPT
+# main: REJECTED
 <textarea/><!-- </textarea><script> -->
 [[s]]
 <!-- </script> -->
 ====
 # name: pr298-4
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #298; no finding on 0dda2f1 with the #306 values
 <plaintext></plaintext>
 ====
 # name: pr298-5
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #298; no finding on 0dda2f1 with the #306 values
 <noscript t:utext="html.sanitize(s)"></noscript>
 ====
 # name: pr300-1
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #300
-# main: LIVE_SCRIPT
+# main: REJECTED
 <textarea t:remove="tag"><script>[[s]]</script></textarea>
 ====
 # name: pr300-2
@@ -342,7 +342,7 @@
 # name: pr301-7
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #301
-# main: LIVE_SCRIPT
+# main: REJECTED
 <svg><foreignObject t:remove="tag"><title><script>[[s]]</script></title></foreignObject></svg>
 ====
 # name: pr301-8
@@ -372,13 +372,13 @@
 # name: pr304-4
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #304
-# main: LIVE_SCRIPT
+# main: REJECTED
 <b t:fragment="x(String v)"><!-- </textarea><script> -->[[v]]<!-- </script> --></b><textarea t:insert="~{:: x(s)}"></textarea>
 ====
 # name: pr304-5
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #304
-# main: LIVE_SCRIPT
+# main: REJECTED
 <b t:fragment="x(String v)"><!-- </noscript><script> -->[[v]]<!-- </script> --></b><noscript><i t:insert="~{:: x(s)}"></i></noscript>
 ====
 # name: pr304-6
@@ -436,7 +436,7 @@
 # name: pr289-11
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #289
-# main: LIVE_SCRIPT
+# main: REJECTED
 <div t:params="String x"><iframe src="a"/><title></iframe><script>[[${x}]]</script></title></div>
 ====
 # name: pr290-6
@@ -714,13 +714,13 @@ var a = "[[x]]";</script></div>
 # name: pr297-3
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #297
-# main: LIVE_SCRIPT
+# main: REJECTED
 <div t:params="String x"><p title=a"><script>//">[[${x}]]//</p><!-- </script> --></div>
 ====
 # name: pr298-6
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #298
-# main: LIVE_SCRIPT
+# main: REJECTED
 <div t:import="dev.tessera.runtime.SafeHtml" t:params="String s, SafeHtml h"><xmp><i title="</xmp><script>/*"></i></xmp>*/
 [[s]]
 <!-- </script> --></div>
@@ -728,21 +728,21 @@ var a = "[[x]]";</script></div>
 # name: pr298-7
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #298
-# main: LIVE_SCRIPT
+# main: REJECTED
 <div t:import="dev.tessera.runtime.SafeHtml" t:params="String s, SafeHtml h"><noscript><!-- </noscript><script> --></noscript>
 [[s]]
 <!-- </script> --></div>
 ====
 # name: pr298-8
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #298; no finding on 0dda2f1 with the #306 values
 <div t:import="dev.tessera.runtime.SafeHtml" t:params="String s, SafeHtml h"><p><plaintext>[[s]]</plaintext></p></div>
 ====
 # name: pr298-9
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #298
-# main: LIVE_SCRIPT
+# main: REJECTED
 <div t:import="dev.tessera.runtime.SafeHtml" t:params="String s, SafeHtml h"><textarea/><!-- </textarea><script> -->
 [[s]]
 <!-- </script> --></div>
@@ -750,32 +750,32 @@ var a = "[[x]]";</script></div>
 # name: pr298-10
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #298
-# main: LIVE_SCRIPT
+# main: REJECTED
 <div t:import="dev.tessera.runtime.SafeHtml" t:params="String s, SafeHtml h"><svg><foreignObject><title/><!-- </title><script> -->
 [[s]]
 <!-- </script> --></foreignObject></svg></div>
 ====
 # name: pr298-11
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #298; no finding on 0dda2f1 with the #306 values
 <div t:import="dev.tessera.runtime.SafeHtml" t:params="String s, SafeHtml h"><b t:fragment="f">x</b><noscript t:insert="~{::f}"></noscript></div>
 ====
 # name: pr298-12
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #298; no finding on 0dda2f1 with the #306 values
 <div t:import="dev.tessera.runtime.SafeHtml" t:params="String s, SafeHtml h"><b t:fragment="f">x</b><iframe><i t:replace="~{::f}"></i></iframe></div>
 ====
 # name: pr298-13
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #298; no finding on 0dda2f1 with the #306 values
 <div t:import="dev.tessera.runtime.SafeHtml" t:params="String s, SafeHtml h"><xmp><noscript t:replace="~{::f}"></noscript></xmp><b t:fragment="f">x</b></div>
 ====
 # name: pr298-14
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #298; no finding on 0dda2f1 with the #306 values
 <div t:import="dev.tessera.runtime.SafeHtml" t:params="String s, SafeHtml h"><p t:fragment="f">x</p><textarea t:insert="~{::f}"></textarea></div>
 ====
@@ -874,67 +874,67 @@ var y = "<script>";
 ====
 # name: pr300-3
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #300; no finding on 0dda2f1 with the #306 values
 <math t:remove="tag"><mtext>[[s]]</mtext></math>
 ====
 # name: pr300-4
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #300; no finding on 0dda2f1 with the #306 values
 <SVG t:remove=" tag "><g></g></SVG>
 ====
 # name: pr300-5
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #300; no finding on 0dda2f1 with the #306 values
 <svg><foreignObject t:remove="tag"><p>[[s]]</p></foreignObject></svg>
 ====
 # name: pr300-6
 # expect-0dda2f1: CSTI
 # fixed-by: #300
-# main: CSTI
+# main: REJECTED
 <svg><g t:remove="tag"><title>[[s]]</title></g></svg>
 ====
 # name: pr300-7
 # expect-0dda2f1: CSTI
 # fixed-by: #300
-# main: CSTI
+# main: REJECTED
 <svg><title t:remove="tag">[[s]]</title></svg>
 ====
 # name: pr300-8
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #300; no finding on 0dda2f1 with the #306 values
 <svg><desc t:remove="tag">[[s]]</desc></svg>
 ====
 # name: pr300-9
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #300; no finding on 0dda2f1 with the #306 values
 <math><mi t:remove="tag">[[s]]</mi><mo t:remove="tag">+</mo></math>
 ====
 # name: pr300-10
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #300; no finding on 0dda2f1 with the #306 values
 <math><annotation-xml encoding="text/html" t:remove="tag">[[s]]</annotation-xml></math>
 ====
 # name: pr300-11
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #300; no finding on 0dda2f1 with the #306 values
 <svg><foreignObject><div><b t:remove="tag">[[s]]</b></div></foreignObject></svg>
 ====
 # name: pr300-12
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #300; no finding on 0dda2f1 with the #306 values
 <svg><t:block t:remove="tag">[[s]]</t:block></svg>
 ====
 # name: pr300-13
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #300; no finding on 0dda2f1 with the #306 values
 <svg><g t:fragment="f(String v)" t:remove="tag">[[v]]</g></svg><div t:insert="~{::f(s)}"></div>
 ====
@@ -959,7 +959,7 @@ var y = "<script>";
 # name: pr301-12
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #301
-# main: LIVE_SCRIPT
+# main: REJECTED
 <div t:params="String x"><svg><foreignObject t:remove="tag"><title><script>[[${x}]]</script></title></foreignObject></svg></div>
 ====
 # name: pr301-13
@@ -1024,7 +1024,7 @@ var y = "<script>";
 ====
 # name: pr304-11
 # expect-0dda2f1: CLEAN
-# main: CLEAN
+# main: REJECTED
 # note: rejected by #304; no finding on 0dda2f1 with the #306 values
 <div t:params="String v"><title t:insert="${null}"></title></div>
 ====
@@ -1143,7 +1143,7 @@ var y = "<script>";
 # name: review-pr298-1
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #298
-# main: LIVE_SCRIPT
+# main: REJECTED
 # note: pr289 review
 <div t:params="String x"><textarea/><p title="</textarea><script>/*"></p>*/var a=[[x]];//</div>
 ====
@@ -1186,7 +1186,7 @@ var t = "${" + "[[x]]";</script></div>
 # name: review-pr298-2
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #298
-# main: LIVE_SCRIPT
+# main: REJECTED
 # note: pr295 review
 <xmp><!-- </xmp><script> -->
 [[s]]
@@ -1202,28 +1202,28 @@ var t = "${" + "[[x]]";</script></div>
 # name: review-pr338-1
 # expect-0dda2f1: LIVE_HANDLER
 # fixed-by: #338
-# main: LIVE_HANDLER
+# main: REJECTED
 # note: pr297 review
 <textarea{U+000B}><a onclick="[[s]]">x</a></textarea>
 ====
 # name: review-pr338-2
 # expect-0dda2f1: LIVE_HANDLER
 # fixed-by: #338
-# main: LIVE_HANDLER
+# main: REJECTED
 # note: pr297 review
 <title{U+000B}><img src=x onerror="[[s]]"></title>
 ====
 # name: review-pr338-3
 # expect-0dda2f1: CSTI
 # fixed-by: #338
-# main: CSTI
+# main: REJECTED
 # note: pr297 review
 <script{U+000B}>var a = [[s]];</script>
 ====
 # name: review-pr298-3
 # expect-0dda2f1: LIVE_SCRIPT
 # fixed-by: #298
-# main: LIVE_SCRIPT
+# main: REJECTED
 # note: pr297 review
 <textarea x=y/><a title="</textarea><script>//">
 [[s]]

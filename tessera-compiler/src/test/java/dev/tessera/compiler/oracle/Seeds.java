@@ -37,12 +37,14 @@ import java.util.regex.Pattern;
  *       or {@code JS_NOT_LITERAL}, which the parse5 oracle these were recorded with doesn't model.
  *   <li>{@code fixed-by}: the issues or PRs that fix it, as {@code #n} tokens. Required when
  *       {@code expect-0dda2f1} lists kinds.
- *   <li>{@code main}: the verdict on main at {@link #MAIN_SNAPSHOT} (after #295, #296, #299 and
- *       #340 merged), same grammar as {@code expect-0dda2f1}, recorded the same way; a snapshot
- *       for building the first known-holes list (#324), not kept current. Missing means not
- *       recorded.
- *   <li>{@code engines}: the engines a listed kind must be seen by (default: every engine). The
- *       classic {@code <select>} cases are {@code vnu-1.4} only.
+ *   <li>{@code main}: the verdict on main at {@link #MAIN_SNAPSHOT} (after #295-#300 and #340
+ *       merged), same grammar as {@code expect-0dda2f1}, recorded the same way. A snapshot, not
+ *       kept current: main moves as fixes land, so the gate must not assert it or build
+ *       known-holes lines from it. Known holes come from running the gate on the checked-out
+ *       commit; this is only a cross-check. Missing means not recorded.
+ *   <li>{@code engines}: the engines a listed kind must be seen by, each of them; the default
+ *       {@code *} means any one engine (see {@link Expectation#metBy}). The classic {@code
+ *       <select>} cases are {@code vnu-1.4} only.
  *   <li>{@code note}: free text.
  * </ul>
  *
@@ -59,7 +61,7 @@ public final class Seeds {
       List.of("oracle/seeds/306-probes.txt", "oracle/seeds/open-prs.txt", "oracle/seeds/xss-context.txt");
 
   /** The main commit the {@code main} verdicts were recorded on. */
-  public static final String MAIN_SNAPSHOT = "96287c4";
+  public static final String MAIN_SNAPSHOT = "1c4b2b3";
 
   /** What a seed's verdict is: the three {@link Verdict} labels. */
   public enum Outcome {
@@ -328,18 +330,24 @@ public final class Seeds {
     return sb.toString();
   }
 
-  /** The inverse of {@link #unescape}: how a template is written in a seed file. */
+  /**
+   * The inverse of {@link #unescape}: how a template is written in a seed file. A literal {@code {}
+   * that would start an escape is written {@code {U+007B}}, so {@code unescape(escape(s))} is
+   * {@code s}.
+   */
   public static String escape(String body) {
     StringBuilder sb = new StringBuilder();
-    body.codePoints()
-        .forEach(
-            cp -> {
-              if (cp == '\n' || (cp >= 0x20 && cp < 0x7f)) {
-                sb.appendCodePoint(cp);
-              } else {
-                sb.append(String.format("{U+%04X}", cp));
-              }
-            });
+    Matcher escape = ESCAPE.matcher(body);
+    for (int i = 0; i < body.length(); ) {
+      int cp = body.codePointAt(i);
+      boolean literal = cp == '{' && escape.region(i, body.length()).lookingAt();
+      if (!literal && (cp == '\n' || (cp >= 0x20 && cp < 0x7f))) {
+        sb.appendCodePoint(cp);
+      } else {
+        sb.append(String.format("{U+%04X}", cp));
+      }
+      i += Character.charCount(cp);
+    }
     return sb.toString();
   }
 

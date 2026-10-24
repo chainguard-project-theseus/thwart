@@ -41,7 +41,7 @@ class SeedsTest {
       {"B1", "CROSS_ORIGIN_RESOURCE", "313"}, {"B2", "CROSS_ORIGIN_RESOURCE", "313"},
       {"B8", "LIVE_SCRIPT", "301"}, {"B9", "LIVE_SCRIPT", "301"},
       // context and CSTI findings
-      {"A7", "CSTI", "301"}, {"A48", "CSTI", "301"}, {"A54", "CSTI", "301"}, {"A18", "CSTI", "303"},
+      {"A7", "CSTI", "301"}, {"A48", "CSTI", "301"}, {"A54", "CSTI", "301"}, {"A18", "CSTI", "336"},
       {"A58", "CONTEXT_MISMATCH CSTI", "301"}, {"B10", "CONTEXT_MISMATCH CSTI", "301"},
     };
     for (String[] r : rows) {
@@ -110,6 +110,10 @@ class SeedsTest {
     String odd = "a\u000b\r\t é😀{";
     assertEquals("a{U+000B}{U+000D}{U+0009}{U+2028}{U+00E9}{U+1F600}{", Seeds.escape(odd));
     assertEquals(odd, Seeds.unescape("t", 0, Seeds.escape(odd)));
+    // text that looks like an escape survives the round trip
+    String literal = "{U+0041} {U+12} {u+0041}";
+    assertEquals("{U+007B}U+0041} {U+12} {u+0041}", Seeds.escape(literal));
+    assertEquals(literal, Seeds.unescape("t", 0, Seeds.escape(literal)));
   }
 
   @Test
