@@ -36,8 +36,9 @@ public final class Contexts {
 
   /**
    * Context for the value of attribute {@code attributeName} (without {@code t:}) on
-   * {@code element}: {@code on*} and {@link #isFrameworkDirective framework directives} are
-   * EVENT_HANDLER, {@code style} is STYLE, {@code srcdoc} and
+   * {@code element}: {@link #isJsonBinding JSON bindings} ({@code :x}, {@code v-bind:x},
+   * {@code x-bind:x} with an ordinary target {@code x}) are SCRIPT_ATTRIBUTE; other
+   * {@link #isFrameworkDirective framework directives} and {@code on*} are EVENT_HANDLER, {@code style} is STYLE, {@code srcdoc} and
    * names that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*} are FORBIDDEN, resource URLs are
    * RESOURCE_URL, other URL attributes are URL, everything else ATTRIBUTE. The values of SVG
    * {@code <animate>}/{@code <set>} ({@code values to from by}) are URL too: they can set an
@@ -52,6 +53,9 @@ public final class Contexts {
    * change the address bar and are URL.
    */
   public static OutputContext attribute(Element element, String attributeName) {
+    if (attributeName != null && isJsonBinding(element, attributeName)) {
+      return OutputContext.SCRIPT_ATTRIBUTE;
+    }
     if (attributeName != null && isFrameworkDirective(element, attributeName)) {
       return OutputContext.EVENT_HANDLER;
     }
@@ -124,6 +128,65 @@ public final class Contexts {
     return unprefixed.equals("hx-sse") || unprefixed.equals("hx-ws");
   }
 
+  /** A bind target: a plain attribute name without modifiers ({@code .}) or namespaces ({@code :}). */
+  private static final Pattern BIND_TARGET = Pattern.compile("[a-z_][a-z0-9_-]*");
+
+  /** Bind prefixes: Vue {@code v-bind:}, Alpine {@code x-bind:}, and their shared {@code :} shorthand. */
+  private static final String[] BIND_PREFIXES = {"v-bind:", "x-bind:", ":"};
+
+  /**
+   * Targets that are ordinary attributes but, set as DOM properties (Vue 3 sets {@code key in el}
+   * as a property), write markup ({@code innerHTML}, {@code outerHTML}) or rewrite a link's URL
+   * ({@code <a>}/{@code <area>} {@code protocol}, {@code host}, ...: {@code :protocol} turns
+   * {@code mailto:alert(1)} into {@code javascript:alert(1)}), or (Vue {@code is}) pick the
+   * component or element to render. Compared without {@code -}: a Vue custom element camelizes
+   * {@code inner-h-t-m-l} to {@code innerHTML}. Denied on every element, since a component's
+   * root element is not known.
+   */
+  private static final Set<String> BIND_DENIED_TARGETS =
+      Backports.setOf(
+          "innerhtml", "outerhtml", "is", "protocol", "host", "hostname", "port", "pathname", "search",
+          "hash", "username", "password");
+
+  /**
+   * Whether {@code attributeName} is a Vue or Alpine binding whose value may be a JSON value (#246):
+   * {@code v-bind:x}, {@code x-bind:x} or {@code :x} where the target {@code x}
+   *
+   * <ul>
+   *   <li>matches {@code [a-z_][a-z0-9_-]*} (case-insensitive): no modifier such as {@code .prop}
+   *       or {@code .camel}, no dynamic argument {@code [key]}, no namespace;
+   *   <li>is itself an ordinary attribute ({@link #attribute} is ATTRIBUTE on this element): not
+   *       {@code on*}, {@code style}, a URL, a resource URL, {@code srcdoc}, a framework directive
+   *       or otherwise forbidden, since the framework sets the target to the value;
+   *   <li>is not {@code innerHTML}, {@code outerHTML}, {@code is} or a URL part such as
+   *       {@code protocol} or {@code host};
+   * </ul>
+   *
+   * and the element is not {@code <script>}, {@code <style>} or {@code <meta>}. The framework
+   * evaluates the value as JavaScript, so it is written as JSON (OutputContext.SCRIPT_ATTRIBUTE).
+   * Everything else, including {@code v-bind="obj"} and {@code x-bind="obj"} with no target and
+   * the {@code .x} shorthand, stays a {@link #isFrameworkDirective directive} (EVENT_HANDLER).
+   */
+  public static boolean isJsonBinding(Element element, String attributeName) {
+    String a = attributeName.toLowerCase(Locale.ROOT);
+    String target = null;
+    for (String prefix : BIND_PREFIXES) {
+      if (a.startsWith(prefix)) {
+        target = a.substring(prefix.length());
+        break;
+      }
+    }
+    if (target == null || !BIND_TARGET.matcher(target).matches()
+        || BIND_DENIED_TARGETS.contains(target.replace("-", ""))) {
+      return false;
+    }
+    String el = element.name().toLowerCase(Locale.ROOT);
+    if (el.equals("script") || el.equals("style") || el.equals("meta")) {
+      return false;
+    }
+    return attribute(element, target) == OutputContext.ATTRIBUTE;
+  }
+
   /** htmx attributes ({@code hx-} or {@code data-hx-}) whose value is evaluated as JavaScript. */
   private static final Set<String> HTMX_SCRIPT_ATTRIBUTES =
       Backports.setOf("hx-vals", "hx-vars", "hx-headers", "hx-request", "hx-trigger");
@@ -134,7 +197,8 @@ public final class Contexts {
    * framework mounts the element, the decoded value runs as code. Case-insensitive. The list:
    *
    * <ul>
-   *   <li>Vue 2/3 and petite-vue: every {@code v-*} (built-in and custom directives such as
+   *   <li>Vue 2/3 and petite-vue: every {@code v-*} (the {@link #isJsonBinding JSON bindings} are
+   *       SCRIPT_ATTRIBUTE instead) (built-in and custom directives such as
    *       {@code v-bind:x}, {@code v-on:x}, {@code v-model}, {@code v-if}, {@code v-for},
    *       {@code v-html}, {@code v-slot}), and the shorthands {@code :x} ({@code v-bind}),
    *       {@code @x} ({@code v-on}), {@code #x} ({@code v-slot}, whose value is a destructuring
