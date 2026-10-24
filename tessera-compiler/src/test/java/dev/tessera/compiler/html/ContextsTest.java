@@ -58,6 +58,14 @@ class ContextsTest {
     "use, xlink:href, URL",
     "area, href, URL",
     "audio, src, URL",
+    // SVG animation values (#44): to/from/by are single URLs, values is a ;-separated list (#284)
+    "animate, to, URL",
+    "set, from, URL",
+    "animate, by, URL",
+    "animate, values, URL_LIST",
+    "SET, VALUES, URL_LIST",
+    "div, values, ATTRIBUTE",
+    "rect, values, ATTRIBUTE",
     // RESOURCE_URL
     "script, src, RESOURCE_URL",
     "script, href, RESOURCE_URL",

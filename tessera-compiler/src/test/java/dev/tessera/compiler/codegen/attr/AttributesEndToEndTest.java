@@ -47,6 +47,49 @@ class AttributesEndToEndTest {
         render("<a t:attr=\"href=s\">x</a>", model("s", "vbscript:x")));
   }
 
+  /** SVG applies every {@code ;}-separated item of an animation's {@code values} in turn (#284). */
+  @Test
+  void animationValuesCheckEveryItem() {
+    String animate = "<svg><a><animate attributeName=\"href\" t:values=\"s\"/></a></svg>";
+    assertEquals(
+        "<svg><a><animate attributeName=\"href\" values=\"about:invalid#tessera\"/></a></svg>",
+        render(animate, model("s", "https://a;javascript:alert(1)")));
+    assertEquals(
+        "<svg><a><animate attributeName=\"href\" values=\"/a;/b\"/></a></svg>",
+        render(animate, model("s", "/a;/b")));
+    assertEquals(
+        "<svg><a><animate attributeName=\"href\" values=\"about:invalid#tessera\"/></a></svg>",
+        render("<svg><a><animate attributeName=\"href\" t:values=\"|/a;${s}|\"/></a></svg>",
+            model("s", "javascript:alert(1)")));
+    assertEquals(
+        "<svg><a><set attributeName=\"href\" values=\"about:invalid#tessera\"/></a></svg>",
+        render("<svg><a><set attributeName=\"href\" t:attr=\"values=s\"/></a></svg>",
+            model("s", "/a; JaVaScRiPt:alert(1)")));
+    // to/from/by are single values: a ';' is part of the URL (/x;jsessionid=1).
+    assertEquals(
+        "<svg><a><set attributeName=\"href\" to=\"/x;jsessionid=1\"/></a></svg>",
+        render("<svg><a><set attributeName=\"href\" t:to=\"s\"/></a></svg>", model("s", "/x;jsessionid=1")));
+    assertEquals(
+        "<svg><a><animate attributeName=\"href\" from=\"about:invalid#tessera\"/></a></svg>",
+        render("<svg><a><animate attributeName=\"href\" t:from=\"s\"/></a></svg>", model("s", "javascript:alert(1)")));
+  }
+
+  /** Numeric and colour animations keep working: their items have no scheme. */
+  @Test
+  void animationValuesKeepPlainLists() {
+    assertEquals(
+        "<svg><rect><animate attributeName=\"opacity\" values=\"0;0.5\"/></rect></svg>",
+        render("<svg><rect><animate attributeName=\"opacity\" t:values=\"|0;${s}|\"/></rect></svg>",
+            model("s", "0.5")));
+    assertEquals(
+        "<svg><rect><animate attributeName=\"fill\" values=\"red;blue\"/></rect></svg>",
+        render("<svg><rect><animate attributeName=\"fill\" t:values=\"s\"/></rect></svg>", model("s", "red;blue")));
+    assertEquals(
+        "<svg><a><animate attributeName=\"href\" values=\"javascript:void(0);/a\"/></a></svg>",
+        render("<svg><a><animate attributeName=\"href\" t:values=\"u\"/></a></svg>",
+            model("u", TrustedUrl.unchecked("javascript:void(0);/a"))));
+  }
+
   @Test
   void trustedUrlPasses() {
     assertEquals(

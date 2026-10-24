@@ -21,6 +21,11 @@ public enum OutputContext {
   /** URL-valued attribute: href, src, action, formaction, cite, poster, ... (scheme-checked). */
   URL("url"),
   /**
+   * The {@code values} of an SVG {@code <animate>}/{@code <set>}: a {@code ;}-separated list that
+   * SVG applies item by item, so every item is scheme-checked as in URL (#284).
+   */
+  URL_LIST("urlList"),
+  /**
    * URL that loads code or a document: {@code <script src>}, {@code <script href>},
    * {@code <script xlink:href>}, {@code <iframe src>},
    * {@code <object data>}, {@code <embed src>}, {@code <base href>},
