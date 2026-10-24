@@ -128,6 +128,42 @@ class SmokeTest {
                 .string(containsString("<input type=\"hidden\" name=\"_csrf\" value=\"t0k\"")));
   }
 
+  /**
+   * The CSRF token from Spring Security goes only into forms that post to the page's origin
+   * (#285): a relative computed action and a link get it; a computed or static action on another
+   * origin does not.
+   */
+  @Test
+  void csrfTokenOnlyInSameOriginPostForms() throws Exception {
+    String token = "<input type=\"hidden\" name=\"_csrf\" value=\"t0k\" />";
+    mvc.perform(
+            get("/app/action")
+                .contextPath("/app")
+                .param("target", "/app/signup")
+                .requestAttr("_csrf", new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "t0k")))
+        .andExpect(status().isOk())
+        .andExpect(
+            content()
+                .string(containsString("<form id=\"computed\" method=\"post\" action=\"/app/signup\">" + token)))
+        .andExpect(
+            content().string(containsString("<form id=\"link\" method=\"post\" action=\"/app/signup\">" + token)))
+        .andExpect(
+            content()
+                .string(
+                    containsString("<form id=\"external\" method=\"post\" action=\"https://other.example/\"></form>")));
+    mvc.perform(
+            get("/action")
+                .param("target", "https://evil.example/steal")
+                .requestAttr("_csrf", new DefaultCsrfToken("X-CSRF-TOKEN", "_csrf", "t0k")))
+        .andExpect(status().isOk())
+        .andExpect(
+            content()
+                .string(
+                    containsString(
+                        "<form id=\"computed\" method=\"post\" action=\"https://evil.example/steal\"></form>")))
+        .andExpect(content().string(containsString("action=\"/signup\">" + token)));
+  }
+
   @Test
   void authenticationIsVisibleToTemplates() throws Exception {
     mvc.perform(get("/page"))
