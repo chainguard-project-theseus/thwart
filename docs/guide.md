@@ -460,7 +460,8 @@ that runs code. What differs:
   `t:disabled`, ...) render `name="name"` or nothing. `t:utext` and `[(...)]` need a `SafeHtml`
   or a checked bundle message (section 4.5).
 - Not supported: `th:attrappend`/`attrprepend`, `th:alt-title`, `th:lang-xmllang`, `th:assert`,
-  `th:include` (use `t:insert`) and `th:inline` (in a `<script>`, `[[...]]` writes JSON).
+  `th:include` (use `t:insert`) and `th:inline` (in a `<script>`, `[[...]]` writes JSON; drop the
+  quotes a Thymeleaf default-mode page put around it: `"[[${x}]]"` becomes `[[${x}]]`).
 
 ### 4.4 Escaping and output contexts
 
@@ -476,7 +477,7 @@ The compiler decides the context from the element and attribute name. You cannot
 | Resource URL | `script[src]`, `iframe[src]`, `embed[src]`, `object[data]`, `base[href]`, `link[href]` | Only a literal-path `@{...}` link or a `TrustedUrl` compiles. A `<base href>` must be same-origin (section 4.7). |
 | htmx request URL | `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect`, `ws-connect` (also with `data-`) | Only a link whose literal path starts with a single `/` compiles, as for a refresh: htmx swaps the response into the page as HTML, and htmx 1.x also requests other origins. Static values are copied verbatim. htmx 1.x's `hx-sse` and `hx-ws` (`connect:<url>`) take no expression at all. |
 | htmx form URL | `action` of a `<form>` inside `hx-boost`; `formaction` inside `hx-boost` or inside a `<form>` with an htmx request attribute | Same rule as an htmx request URL: htmx submits the form with AJAX and swaps the response in. `hx-boost="false"` on the form opts out. `hx-boost` itself cannot be computed. Links (`href`) are not affected. |
-| Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, records and `@TemplateView` beans, collections, String-keyed maps). |
+| Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, records and `@TemplateView` beans, collections, String-keyed maps). Don't quote it: `var a = [[${x}]];`, not `"[[${x}]]"`: the value brings its own quotes, and an inline inside a JavaScript string (`"..."`, `'...'` or template-literal text) is a build error (section 6). |
 | Style | `<style>` text and `style` attribute | In `<style>`, expressions are a build error. A `style` attribute takes only string literals, numbers and `CssValue`s, combined with `+`, `\|...\|`, `?:` and `? :`; anything else (a `String` value) is a build error. |
 | Refresh | `content` of `<meta http-equiv="refresh">` | Only `'<seconds>;url=' + @{/path...}` compiles: a literal delay and a link whose literal path starts with a single `/`, so the refresh stays on the same origin. Path variables and parameters are encoded as usual, and `; , ' "`, `\` and whitespace in the URL are percent-encoded. Rendered as `<seconds>;url=<url>`. |
 | Vue/Alpine binding | `:x`, `v-bind:x`, `x-bind:x` whose target `x` is an ordinary attribute (below) | Only a value `[[...]]` accepts in a script compiles; it is written as the same JSON, then attribute-escaped. `null` is written as `null`. |
@@ -1108,7 +1109,9 @@ leaving a particular one. Read the part for your engine before converting.
 - **Scripts.** `[[...]]` in a `<script>` writes JSON with, among others, `/`, `&`, `<` and `'`
   escaped as `\/`, `\u0026`, `\u003c` and `\u0027`. The JavaScript value is the same, so a
   difference that compare shows there against a page that printed the value raw or HTML-escaped is
-  expected (an `&amp;` inside an old `<script>` was a bug: the string contained `&amp;`).
+  expected (an `&amp;` inside an old `<script>` was a bug: the string contained `&amp;`). Remove
+  the quotes a default-mode page put around an inline: `var a = "[[${x}]]";` becomes
+  `var a = [[${x}]];` (section 6).
 - **Conditions** are Thymeleaf's: `t:if` is false for `null`, `false`, `0` and the strings
   `"false"`, `"off"` and `"no"`, and true for everything else, including `""` and empty
   collections. Write what the old condition meant: `x != null`, `!list.isEmpty()`.
@@ -1753,6 +1756,12 @@ These come from the annotation processor itself, without a template position.
   `t:utext` and `[(...)]` inside `<svg>`, `<math>` or `<select>` (contexts as in the fragment
   messages below; inside raw text, the raw-text error above applies). Inside `<svg>`, a `<p>` in the value
   ends the `<svg>`, and a `<title>` holds HTML, where a `<script>` runs.
+- `[[...]] is inside a quoted JavaScript string (<q>...<q>) but writes a complete JSON value with its own quotes, so the value would close the string and run as code; remove the quotes, e.g. var a = [[...]];`:
+  `<q>` is `"`, `'` or `` ` `` (template-literal text; `${[[...]]}` inside it is code and
+  allowed). A Thymeleaf default-mode page wrote `var a = "[[${x}]]";`; write `var a = [[x]];` (a
+  string renders `"Alice"` as before; a number renders `42`, not `"42"`). For
+  `"Hello [[${x}]]"` write `"Hello " + [[x]]`. Comments and regex literals are not strings, so
+  `// "[[x]]"` still compiles.
 - `[[...]] is inside a client-side {{ ... }} interpolation: Vue or AngularJS would run the value as code, whatever the escaping. Pass the value in a data-* attribute or a <script> with [[...]] and read it from there`
   (also `[(...)]`): the text has a `{{` with no `}}` before the expression. Character references
   for braces count, as the framework decodes them.

@@ -214,7 +214,7 @@ table is what ships today. The target profile, with the status of each rule, is 
 | `URL` | `href src action formaction cite poster background longdesc usemap ping` (`xlink:href`), `to from by` on SVG `animate`/`set` | `Escapers.url` | http/https/mailto/tel/relative, else `about:invalid#tessera`; `TrustedUrl` passes |
 | `URL_LIST` | `values` on SVG `animate`/`set` | `Escapers.urlList` | a `;`-separated list and every item is checked as for `URL`; one bad item replaces the whole list with `about:invalid#tessera` (#284); `TrustedUrl` passes |
 | `RESOURCE_URL` | `script[src] script[href] script[xlink:href] iframe[src] frame[src] embed[src] object[data] base[href] link[href]` | `Escapers.resourceUrl` | only a literal-path `@{}` link or `TrustedUrl`; else build error |
-| `SCRIPT` | text in `<script>` (no type or JS/module/JSON) | `Escapers.json` | `[[...]]` only; JSON-able types only; also escapes `/`, backtick and `$` so a value cannot leave a JS comment, regex or template literal |
+| `SCRIPT` | text in `<script>` (no type or JS/module/JSON) | `Escapers.json` | `[[...]]` only; JSON-able types only; also escapes `/`, backtick and `$` so a value cannot leave a JS comment, regex or template literal; `[[...]]` inside a JS string literal (also template-literal text) is a build error (#281) |
 | `REFRESH` | `content` of `<meta http-equiv="refresh">` | `Escapers.refresh` | only `'<seconds>;url=' + @{/path}` with a literal path starting with a single `/` (#237); else build error |
 | `STYLE` | `<style>`, `style` attribute | — | build error |
 | `EVENT_HANDLER` | `on*` attributes | — | build error; use `data-*` + script |

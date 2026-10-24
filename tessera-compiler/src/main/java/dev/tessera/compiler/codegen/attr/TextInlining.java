@@ -15,8 +15,12 @@ import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.SafeHtml;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import javax.lang.model.type.TypeKind;
 
 /**
@@ -24,7 +28,8 @@ import javax.lang.model.type.TypeKind;
  * {@code Escapers.text}, RCDATA via {@code Escapers.rcdata}, SCRIPT via {@code Escapers.json})
  * and {@code [(expr)]} (SafeHtml or a checked bundle message, TEXT and RCDATA only).
  * STYLE/FORBIDDEN contexts with inlined expressions are build errors, and so is an expression
- * inside a static client-side {@code {{ ... }}} interpolation in TEXT or RCDATA (#248).
+ * inside a static client-side {@code {{ ... }}} interpolation in TEXT or RCDATA (#248), and a
+ * {@code [[expr]]} inside a JavaScript string literal in SCRIPT (#281).
  *
  * <p>Also holds the output helpers shared with {@code t:text} and {@code t:utext}.
  */
@@ -51,6 +56,7 @@ public final class TextInlining {
     String parsing = ctx.template().parsingContexts().text(text);
     boolean rawText = ctx.template().parsingContexts().insideRawText(text);
     boolean inMustache = false;
+    JsLexState js = text.context() == OutputContext.SCRIPT ? new JsLexState() : null;
     int i = 0;
     while (i < raw.length()) {
       boolean escaped = raw.startsWith("[[", i);
@@ -87,10 +93,27 @@ public final class TextInlining {
             // Still emitted: nothing is written on error, and the skeleton keeps the hole for the
             // verifier's own check (#367).
           }
+          if (escaped && js != null && js.inStringLiteral()) {
+            char q = js.quote();
+            ctx.diagnostics()
+                .error(
+                    pos,
+                    "[[...]] is inside a quoted JavaScript string (" + q + "..." + q + ") but writes a complete"
+                        + " JSON value with its own quotes, so the value would close the string and run as"
+                        + " code; remove the quotes, e.g. var a = [[...]];");
+            i = end + 2;
+            continue;
+          }
           code.add(inline(ctx, text.context(), parsing, rawText, raw.substring(i + 2, end), pos, escaped, scope));
+          if (js != null) {
+            js.expression();
+          }
           i = end + 2;
           continue;
         }
+      }
+      if (js != null) {
+        js.feed(raw.charAt(i));
       }
       literal.append(raw.charAt(i));
       i++;
@@ -193,6 +216,225 @@ public final class TextInlining {
       }
     }
     return end;
+  }
+
+  /**
+   * Minimal JavaScript lexical state over the literal text of a {@code <script>}, enough to tell
+   * whether a {@code [[...]]} sits inside a string literal ({@code "..."}, {@code '...'} or
+   * template-literal text), where the JSON value's own quotes would close the string or land
+   * inside it. Comments, regex literals and {@code ${...}} code in template literals are tracked
+   * so that quotes inside them do not count; a {@code [[...]]} inside them stays allowed (the JSON
+   * escaper keeps it inert there). Fed only the static text; {@link #expression} stands for each
+   * inlined value.
+   *
+   * <p>As in Go's {@code html/template}, whether a {@code /} starts a regex or is a division is
+   * decided from the previous significant token: a regex follows an operator, punctuator or one of
+   * {@link #KEYWORDS_BEFORE_REGEX}, a division follows an identifier, a number, a literal,
+   * {@code )}, {@code ]} or an inlined value. Known limits: after a closing brace (block or
+   * object literal?) and after {@code ++}/{@code --} a regex is assumed; and a property named like one of
+   * the keywords ({@code o.return / 2}) is taken for the keyword. A misread there can hide a string
+   * in contrived code ({@code x = {}\n/"[[x]]"/ 1}) as well as raise a spurious error.
+   */
+  static final class JsLexState {
+    private enum S { CODE, SLASH, DQ, SQ, TPL, LINE_COMMENT, BLOCK_COMMENT, REGEX, REGEX_CLASS }
+
+    /** Last significant char of code after which a {@code /} starts a regex. */
+    private static final String BEFORE_REGEX = "(,=:[!&|?{};+-*%<>~^";
+
+    private static final Set<String> KEYWORDS_BEFORE_REGEX =
+        new HashSet<>(
+            Arrays.asList(
+                "return", "typeof", "instanceof", "in", "of", "new", "delete", "void", "throw", "case", "do",
+                "else", "yield", "await"));
+
+    private S s = S.CODE;
+    private boolean escape;
+    /** A backslash escaped a CR in a string literal, so a following LF continues the line too. */
+    private boolean escapedCr;
+    private char prevSignificant = '(';
+    /** The identifier (or number) that {@code prevSignificant} ends, if it is one. */
+    private final StringBuilder word = new StringBuilder();
+    private boolean wordOpen;
+    private char prev;
+    private int braceDepth;
+    /** Brace depths at which an open {@code ${} of a template literal started. */
+    private final ArrayDeque<Integer> tplBraces = new ArrayDeque<>();
+
+    boolean inStringLiteral() {
+      return s == S.DQ || s == S.SQ || s == S.TPL;
+    }
+
+    char quote() {
+      return s == S.DQ ? '"' : s == S.SQ ? '\'' : '`';
+    }
+
+    /** An inlined value: inside code it is an expression, so a {@code /} after it is division. */
+    void expression() {
+      if (s == S.SLASH) {
+        s = regexMayFollow() ? S.REGEX : S.CODE;
+      }
+      if (s == S.CODE) {
+        value();
+      }
+      escape = false;
+      escapedCr = false;
+      prev = 0;
+    }
+
+    void feed(char c) {
+      char p = prev;
+      prev = c;
+      switch (s) {
+        case DQ:
+        case SQ:
+          if (escape) {
+            escape = false;
+            escapedCr = c == '\r';
+          } else if (c == '\n' && escapedCr) {
+            escapedCr = false;
+          } else {
+            escapedCr = false;
+            if (c == '\\') {
+              escape = true;
+            } else if (c == (s == S.DQ ? '"' : '\'') || c == '\n' || c == '\r') {
+              // LS and PS are allowed in a string literal (ES2019); an unterminated one ends at a line break.
+              s = S.CODE;
+              value();
+            }
+          }
+          return;
+        case TPL:
+          if (escape) {
+            escape = false;
+            prev = 0;
+          } else if (c == '\\') {
+            escape = true;
+          } else if (c == '`') {
+            s = S.CODE;
+            value();
+          } else if (c == '{' && p == '$') {
+            tplBraces.push(braceDepth);
+            s = S.CODE;
+            operator();
+          }
+          return;
+        case LINE_COMMENT:
+          if (lineTerminator(c)) {
+            s = S.CODE;
+          }
+          return;
+        case BLOCK_COMMENT:
+          if (c == '/' && p == '*') {
+            s = S.CODE;
+          }
+          return;
+        case REGEX:
+          if (escape) {
+            escape = false;
+          } else if (c == '\\') {
+            escape = true;
+          } else if (c == '[') {
+            s = S.REGEX_CLASS;
+          } else if (c == '/' || lineTerminator(c)) {
+            s = S.CODE;
+            value();
+          }
+          return;
+        case REGEX_CLASS:
+          if (escape) {
+            escape = false;
+          } else if (c == '\\') {
+            escape = true;
+          } else if (c == ']') {
+            s = S.REGEX;
+          } else if (lineTerminator(c)) {
+            s = S.CODE;
+            value();
+          }
+          return;
+        case SLASH:
+          // The char after a '/': a comment, a regex or a division.
+          if (c == '/') {
+            s = S.LINE_COMMENT;
+            return;
+          }
+          if (c == '*') {
+            s = S.BLOCK_COMMENT;
+            prev = 0; // "/*/" does not close the comment
+            return;
+          }
+          if (regexMayFollow()) {
+            s = S.REGEX;
+            prev = 0;
+            feed(c);
+            return;
+          }
+          s = S.CODE;
+          operator();
+          break;
+        case CODE:
+        default:
+          break;
+      }
+      if (c == '"') {
+        s = S.DQ;
+      } else if (c == '\'') {
+        s = S.SQ;
+      } else if (c == '`') {
+        s = S.TPL;
+      } else if (c == '/') {
+        s = S.SLASH;
+        return;
+      } else if (c == '{') {
+        braceDepth++;
+      } else if (c == '}') {
+        if (!tplBraces.isEmpty() && tplBraces.peek() == braceDepth) {
+          tplBraces.pop();
+          s = S.TPL;
+          return;
+        }
+        braceDepth--;
+      }
+      if (Character.isWhitespace(c) || c == '\u00a0' || c == '\ufeff') {
+        wordOpen = false;
+      } else if (Character.isJavaIdentifierPart(c)) {
+        if (!wordOpen) {
+          word.setLength(0);
+          wordOpen = true;
+        }
+        word.append(c);
+        prevSignificant = c;
+      } else {
+        word.setLength(0);
+        wordOpen = false;
+        prevSignificant = c;
+      }
+    }
+
+    private boolean regexMayFollow() {
+      if (BEFORE_REGEX.indexOf(prevSignificant) >= 0) {
+        return true;
+      }
+      return Character.isJavaIdentifierPart(prevSignificant) && KEYWORDS_BEFORE_REGEX.contains(word.toString());
+    }
+
+    /** The end of an operand: a {@code /} after it is division. */
+    private void value() {
+      prevSignificant = ')';
+      word.setLength(0);
+      wordOpen = false;
+    }
+
+    /** The end of an operator: a {@code /} after it starts a regex. */
+    private void operator() {
+      prevSignificant = '*';
+      word.setLength(0);
+      wordOpen = false;
+    }
+
+    private static boolean lineTerminator(char c) {
+      return c == '\n' || c == '\r' || c == '\u2028' || c == '\u2029';
+    }
   }
 
   /** Index of the first {@code close} at or after {@code from} outside a '...' string, or -1. */
