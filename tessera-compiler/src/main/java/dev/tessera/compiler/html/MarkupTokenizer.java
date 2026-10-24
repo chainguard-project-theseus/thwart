@@ -26,6 +26,14 @@ package dev.tessera.compiler.html;
  *       {@link MarkupException} messages are attoparser's.
  * </ul>
  *
+ * <p>Some rules are Tessera's own: in a start or end tag, a quote that a browser does not read as
+ * the start or end of a quoted attribute value (one in a name, in an unquoted value or right after
+ * a quoted value) is fatal, because with it the tag could end at a different {@code >} than in a
+ * browser. So are a char outside quoted values that {@link Character#isWhitespace} accepts but HTML
+ * does not, a {@code /} that ends an unquoted value before {@code >}, and a name after a
+ * {@code /} outside a value, because a browser splits or ends the tag differently there. Raw text
+ * that a browser does not tokenize ({@link Handler#rawText}) is exempt.
+ *
  * <p>Offsets index the buffer, which the handler may change ahead of the tokenizer (see {@code
  * HtmlParser.Builder.matchEndTagCase}).
  */
@@ -56,6 +64,12 @@ final class MarkupTokenizer {
 
     /** An end tag at {@code lt} whose name ends at {@code nameEnd}. */
     void endTag(int lt, int nameEnd);
+
+    /**
+     * Whether the tokens are raw text a browser does not tokenize (the handler finds where it
+     * ends); there, tags keep the toggling quote rule and a stray quote is no error.
+     */
+    boolean rawText();
   }
 
   /** A fatal tokenizing error at {@code offset}. */
@@ -190,7 +204,7 @@ final class MarkupTokenizer {
   private int structure(int kind, int start) throws MarkupException {
     switch (kind) {
       case START_TAG: {
-        int end = tagEnd(start);
+        int end = handler.rawText() ? tagEnd(start) : tagEnd(start, start + 1);
         boolean minimized = buf[end - 1] == '/';
         if (end - start + 1 < (minimized ? 4 : 3) || !isElementName(start + 1, end + 1)) {
           throw new MarkupException("Could not parse as a well-formed " + (minimized ? "standalone" : "open")
@@ -200,7 +214,7 @@ final class MarkupTokenizer {
         return end;
       }
       case END_TAG: {
-        int end = tagEnd(start);
+        int end = handler.rawText() ? tagEnd(start) : tagEnd(start, start + 2);
         endTag(start, end);
         return end;
       }
@@ -240,7 +254,118 @@ final class MarkupTokenizer {
     return new MarkupException("Incomplete structure: \"" + str(start, n) + "\"", start);
   }
 
-  /** The first {@code >} outside quotes after {@code start}. */
+  // The WHATWG tokenizer states inside a tag, as far as tagEnd(start, from) tracks them.
+  private static final int TAG_NAME = 0;
+  private static final int BEFORE_ATTRIBUTE_NAME = 1;
+  private static final int ATTRIBUTE_NAME = 2;
+  private static final int AFTER_ATTRIBUTE_NAME = 3;
+  private static final int BEFORE_ATTRIBUTE_VALUE = 4;
+  private static final int DOUBLE_QUOTED_VALUE = 5;
+  private static final int SINGLE_QUOTED_VALUE = 6;
+  private static final int UNQUOTED_VALUE = 7;
+  private static final int AFTER_QUOTED_VALUE = 8;
+  private static final int SELF_CLOSING = 9;
+
+  /**
+   * The {@code >} that ends the start or end tag at {@code start}, whose name starts at {@code
+   * from}. A browser opens a quoted attribute value only at a quote right after an attribute's
+   * {@code =} (and optional whitespace); any other quote is a plain character of a name or an
+   * unquoted value. The other tokenizer rules toggle on every quote, so such a quote is an error:
+   * with it the tag could end at a different {@code >} than in a browser. Without one, both end at
+   * the first {@code >} outside a quoted value.
+   *
+   * <p>Three more differences between the tokenizer and a browser are errors here for the same
+   * reason: a char that {@link Character#isWhitespace} accepts but HTML does not ({@code \t \n
+   * \f \r} and space), which a browser keeps in the name or value; a {@code /} that ends an
+   * unquoted value right before {@code >}, which a browser keeps in the value (the tag is not
+   * {@code />}); and a name after a {@code /} (and optional whitespace), which a browser
+   * starts as a new attribute.
+   */
+  private int tagEnd(int start, int from) throws MarkupException {
+    int state = TAG_NAME;
+    boolean slash = false; // a '/' outside a value: only whitespace, '/' and '>' may follow
+    for (int i = from; i < n; i++) {
+      char c = buf[i];
+      boolean space = c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r';
+      if (state == DOUBLE_QUOTED_VALUE || state == SINGLE_QUOTED_VALUE) {
+        if (c == (state == DOUBLE_QUOTED_VALUE ? '"' : '\'')) {
+          state = AFTER_QUOTED_VALUE;
+        }
+        continue;
+      }
+      if (state == BEFORE_ATTRIBUTE_VALUE && (c == '"' || c == '\'')) {
+        state = c == '"' ? DOUBLE_QUOTED_VALUE : SINGLE_QUOTED_VALUE;
+        continue;
+      }
+      if (c == '"' || c == '\'') {
+        // in every other state a browser reads the quote as part of a tag or attribute name
+        throw new MarkupException(state == UNQUOTED_VALUE
+            ? "quote " + c + " in an unquoted attribute value: quote the value and write "
+                + (c == '"' ? "&quot;" : "&#39;") + " in it"
+            : "quote " + c + " in a tag or attribute name: remove it (names cannot contain quotes)", i);
+      }
+      if (!space && Character.isWhitespace(c)) {
+        throw new MarkupException(String.format(
+            "U+%04X in a tag is not HTML whitespace: replace it with a space", (int) c), i);
+      }
+      if (c == '>') {
+        if (state == UNQUOTED_VALUE && buf[i - 1] == '/') {
+          throw new MarkupException(
+              "'/' before '>' belongs to the unquoted value, not to '/>': quote the value", i - 1);
+        }
+        return i;
+      }
+      if (slash && c != '/' && !space) {
+        throw new MarkupException("a name after '/' in a tag starts a new attribute in a browser: remove the '/'", i);
+      }
+      switch (state) {
+        case TAG_NAME:
+        case UNQUOTED_VALUE:
+        case AFTER_QUOTED_VALUE:
+          if (space) {
+            state = BEFORE_ATTRIBUTE_NAME;
+          } else if (c == '/' && state != UNQUOTED_VALUE) {
+            state = SELF_CLOSING;
+          } else if (state == AFTER_QUOTED_VALUE) {
+            state = ATTRIBUTE_NAME;
+          }
+          break;
+        case BEFORE_ATTRIBUTE_NAME:
+        case SELF_CLOSING:
+          if (c == '/') {
+            state = SELF_CLOSING;
+          } else if (!space) {
+            state = ATTRIBUTE_NAME; // a leading = is part of the name
+          } else {
+            state = BEFORE_ATTRIBUTE_NAME;
+          }
+          break;
+        case ATTRIBUTE_NAME:
+        case AFTER_ATTRIBUTE_NAME:
+          if (c == '=') {
+            state = BEFORE_ATTRIBUTE_VALUE;
+          } else if (c == '/') {
+            state = SELF_CLOSING;
+          } else if (space) {
+            state = AFTER_ATTRIBUTE_NAME;
+          } else {
+            state = ATTRIBUTE_NAME;
+          }
+          break;
+        case BEFORE_ATTRIBUTE_VALUE:
+          if (!space) {
+            state = UNQUOTED_VALUE;
+          }
+          break;
+        default:
+          throw new IllegalStateException("state " + state);
+      }
+      slash |= state == SELF_CLOSING;
+    }
+    throw incomplete(start);
+  }
+
+  /** The first {@code >} outside quotes after {@code start}, both quote kinds toggling anywhere. */
   private int tagEnd(int start) throws MarkupException {
     boolean inQuotes = false;
     boolean inApos = false;

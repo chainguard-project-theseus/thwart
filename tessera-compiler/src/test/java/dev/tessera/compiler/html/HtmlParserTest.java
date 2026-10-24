@@ -380,6 +380,98 @@ class HtmlParserTest {
   }
 
   @Test
+  void quoteOutsideQuotedValueIsAnError() {
+    // A browser opens a quoted value only at a quote right after '=' (and whitespace); anywhere
+    // else a quote is a plain character, so the tag ends at the first '>' while the tokenizer
+    // would skip it. In the first case a browser opens the <script> and runs the text after it.
+    String dq = "error: malformed markup: quote \" in an unquoted attribute value: quote the value and write &quot; in it";
+    String sq = "error: malformed markup: quote ' in an unquoted attribute value: quote the value and write &#39; in it";
+    String dqName = "error: malformed markup: quote \" in a tag or attribute name: remove it (names cannot contain quotes)";
+    assertEquals(List.of("dir/t.html:1:11: " + dq), errors("<p title=a\"><script>//\">[[${x}]]//</p><!-- </script> -->"));
+    assertEquals(List.of("dir/t.html:2:13: " + sq), errors("<p>\n  <p title=a'b'></p></p>"));
+    assertEquals(List.of("dir/t.html:1:10: " + dqName), errors("<a b=\"x\"y\"><script>\"></a>"));
+    assertEquals(List.of("dir/t.html:1:9: " + dqName), errors("<a b=\"x\"\"y\"></a>"));
+    assertEquals(List.of("dir/t.html:1:8: " + dqName), errors("<p></p \"><script>//\"></p>"));
+    assertEquals(List.of("dir/t.html:1:11: " + sq), errors("<p></p a=b'>'>"));
+    assertEquals(List.of("dir/t.html:1:3: " + dqName), errors("<p\"x\"></p>"));
+    assertEquals(List.of("dir/t.html:1:4: " + dqName), errors("<a \"b\"></a>"));
+    assertEquals(List.of("dir/t.html:1:5: " + dqName), errors("<a b\"c=d></a>"));
+    assertEquals(List.of("dir/t.html:1:7: " + dq), errors("<a b==\"x>\"></a>"));
+    assertEquals(List.of("dir/t.html:1:8: " + dq), errors("<a b= =\"x>\"></a>"));
+    assertEquals(List.of("dir/t.html:1:6: error: malformed markup: a name after '/' in a tag starts a new attribute in a browser:"
+        + " remove the '/'"), errors("<a b/=\"x>\"></a>"));
+    assertEquals(List.of("dir/t.html:1:4: " + dqName), errors("<a/\"b\"></a>"));
+    assertEquals(List.of("dir/t.html:1:7: " + sq), errors("<a b=c'd e='f'></a>"));
+    assertEquals(List.of("dir/t.html:1:5: error: malformed markup: quote ' in a tag or attribute name: remove it (names cannot"
+        + " contain quotes)"), errors("<a b'c></a>"));
+  }
+
+  @Test
+  void quotedValuesNextToQuotesStillParse() {
+    parseOk("<a b = \"x\" c='y\"z' d=\"it's\" e=\n'f'></a>");
+    parseOk("<a b=\"x\"c='y'd=e></a>");
+    parseOk("<a b='>' c=\"<\" d=\"/>\"></a>");
+    parseOk("<br b=\"x\"/><br c='y' />");
+    parseOk("<input value=it&#39;s><input value=&quot;q&quot;>");
+    parseOk("<p>it's \"quoted\"</p ><p>'</p\n>");
+    parseOk("<script>var a = \"<b c=d'>\";</script>");
+    // raw text a browser does not tokenize keeps the old quote rule
+    parseOk("<script type=\"text/template\"><% if (a === 'b') { %>x<% } %><p title=a'b'></p></script>");
+    parseOk("<textarea><a b=c'd'></a></textarea><title>x<y \"z\"></title>");
+    parseOk("<div t:params=\"String s\"><a t:title=\"'x' + s\" t:text=\"${s == 'y' ? 'z' : s}\"></a></div>");
+  }
+
+  @Test
+  void javaOnlyWhitespaceInTagIsAnError() {
+    // Character.isWhitespace accepts these, HTML whitespace is only \t \n \f \r and space: a
+    // browser reads <textarea> followed by U+000B as an unknown element, so its content is live markup.
+    String msg = "error: malformed markup: U+%04X in a tag is not HTML whitespace: replace it with a space";
+    assertEquals(List.of("dir/t.html:1:10: " + msg.formatted(0x0B)),
+        errors("<textarea\u000b><a onclick=\"[[${x}]]\">x</a></textarea>"));
+    assertEquals(List.of("dir/t.html:1:7: " + msg.formatted(0x0B)),
+        errors("<title\u000b><img src=x onerror=\"[[${x}]]\"></title>"));
+    assertEquals(List.of("dir/t.html:1:8: " + msg.formatted(0x0B)), errors("<script\u000b>var a = [[${x}]];</script>"));
+    assertEquals(List.of("dir/t.html:1:8: " + msg.formatted(0x0B)), errors("<p>x</p\u000b>"));
+    assertEquals(List.of("dir/t.html:1:17: " + msg.formatted(0x0B)),
+        errors("<script data-a=b\u000btype=text/template>[[${x}]]</script>"));
+    assertEquals(List.of("dir/t.html:1:3: " + msg.formatted(0x1C)), errors("<a\u001cb=c></a>"));
+    assertEquals(List.of("dir/t.html:1:13: " + msg.formatted(0x2028)), errors("<p title=\"x\"\u2028t:text=\"s\"></p>"));
+    assertEquals(List.of("dir/t.html:1:10: " + msg.formatted(0x3000)), errors("<textarea\u3000>x</textarea>"));
+    assertEquals(List.of("dir/t.html:1:6: " + msg.formatted(0x2003)), errors("<a b=\u2003c></a>"));
+  }
+
+  @Test
+  void htmlWhitespaceAndNonAsciiOutsideTagsStillParse() {
+    parseOk("<a\tb=c\nd=e\fg=h\ri=j  k=l\r\n></a\n>");
+    parseOk("<p title=\"a\u000bb\u2028c\u3000d\" lang='\u001c'>\u000b\u2028\u3000\u001cx</p>");
+    parseOk("<textarea>a\u000b</textarea><title>\u3000</title><script>var a = '\u2028';</script>");
+    // raw text a browser does not tokenize is exempt
+    parseOk("<script type=\"text/template\"><p\u000bx=y></p></script>");
+  }
+
+  @Test
+  void slashOutsideSelfClosingIsAnError() {
+    // A '/' in an unquoted value belongs to the value, so <textarea x=y/> is an open tag in a browser.
+    String value = "error: malformed markup: '/' before '>' belongs to the unquoted value, not to '/>': quote the value";
+    assertEquals(List.of("dir/t.html:1:14: " + value), errors("<textarea x=y/><a title=\"</textarea>\">x</a>"));
+    assertEquals(List.of("dir/t.html:1:6: " + value), errors("<a b=/>"));
+    assertEquals(List.of("dir/t.html:1:11: " + value), errors("<img src=a/>"));
+    // A browser starts a new attribute right after '/', where the tokenizer keeps the '/' in the name.
+    String name = "error: malformed markup: a name after '/' in a tag starts a new attribute in a browser: remove the '/'";
+    assertEquals(List.of("dir/t.html:1:14: " + name), errors("<p title=\"x\"/t:text=\"s\">a</p>"));
+    assertEquals(List.of("dir/t.html:1:6: " + name), errors("<img/src=x>"));
+    assertEquals(List.of("dir/t.html:1:4: " + name), errors("<a/b></a>"));
+    // with whitespace after the '/' too: a browser reads a valueless type, then ignores the
+    // duplicate, so this is a classic script while Tessera reads a JSON one
+    assertEquals(List.of("dir/t.html:1:15: " + name),
+        errors("<script type/ type=\"application/json\">[[${x}]]</script>"));
+    assertEquals(List.of("dir/t.html:1:7: " + name), errors("<a b/ c></a>"));
+    assertEquals(List.of("dir/t.html:2:1: " + name), errors("<a b=\"c\" /\nd></a>"));
+    assertEquals(List.of("dir/t.html:1:9: " + name), errors("<p></p/ x>"));
+    parseOk("<br/><br /><br / ><br\t/\n><br //><br b=c /><br b=\"c\"/><img src=\"a/\"><a href=/x/ >y</a>");
+  }
+
+  @Test
   void malformedMarkupStillReturnsPartialDocument() {
     Document doc = parse("<p>ok</p><div class=\"x>");
     assertTrue(diagnostics.hasErrors());
