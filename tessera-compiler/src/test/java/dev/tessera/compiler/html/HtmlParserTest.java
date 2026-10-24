@@ -17,6 +17,7 @@ import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.model.Text;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -658,5 +659,259 @@ class HtmlParserTest {
     parseOk("<!--/* hidden */--><!--/*/ <p>shown</p> /*/--><!--/**/-->");
     // inside raw text a comment is text to a browser
     parseOk("<textarea><!--> --></textarea><title><!-- --!> --></title>");
+  }
+
+  private static String foreignMarkup(int col, String tag) {
+    return "dir/t.html:1:" + col + ": error: malformed markup: '<' inside <" + tag + "> in <svg> or <math> starts"
+        + " markup in a browser, not text: write &lt; for a literal '<'";
+  }
+
+  @Test
+  void markupInForeignRawTextIsAnError() {
+    // SVG <title> is an HTML integration point: a browser runs this script.
+    assertEquals(List.of(foreignMarkup(13, "title")), errors("<svg><title><script>[[${x}]]</script></title></svg>"));
+    assertEquals(foreignMarkup(13, "title"),
+        errors("<svg><title><script x=a\">[[${x}]]</script>\" ></title></svg>").get(0));
+    // Inside svg and math these are foreign elements, and <p>/<img> leave foreign content.
+    assertEquals(List.of(foreignMarkup(13, "style")),
+        errors("<svg><style><p><script>/*</style>*/[[${x}]]//<script></script></svg>"));
+    assertEquals(List.of(foreignMarkup(17, "textarea")),
+        errors("<math><textarea><p><script>[[${x}]]</script></p></textarea></math>"));
+    assertEquals(List.of(foreignMarkup(16, "textarea")),
+        errors("<svg><textarea><img src=x onerror=[[${x}]]></textarea></svg>"));
+    assertEquals(List.of(foreignMarkup(14, "title")),
+        errors("<math><title><img src=x onerror=[[${x}]]></title></math>"));
+    assertEquals(List.of(foreignMarkup(19, "script")), errors("<svg><script>if (a<b) {}</script></svg>"));
+    assertEquals(List.of(foreignMarkup(13, "style")), errors("<svg><style><!-- a{} --></style></svg>"));
+    assertEquals(List.of(foreignMarkup(13, "style")), errors("<svg><style></ a{}</style></svg>"));
+    assertEquals(List.of(foreignMarkup(14, "script")), errors("<svg><script><![CDATA[ f() </script></svg>"));
+    // Namespaces: mglyph stays MathML in <mi>, and <math> inside <svg> is an SVG element.
+    assertEquals(List.of(foreignMarkup(29, "textarea")),
+        errors("<math><mi><mglyph><textarea><b>x</b></textarea></mglyph></mi></math>"));
+    assertEquals(List.of(foreignMarkup(26, "textarea")),
+        errors("<svg><math><mi><textarea><b>x</b></textarea></mi></math></svg>"));
+    // annotation-xml is an HTML integration point only with a static HTML encoding (ASCII case-insensitive).
+    assertEquals(List.of(foreignMarkup(58, "textarea")),
+        errors("<math><annotation-xml encoding=\"image/svg+xml\"><textarea><b>x</b></textarea></annotation-xml></math>"));
+    assertEquals(List.of(foreignMarkup(69, "textarea")), errors(
+        "<math><annotation-xml encoding=\"text/html\" t:encoding=\"e\"><textarea><b>x</b></textarea></annotation-xml></math>"));
+    assertEquals(List.of(foreignMarkup(66, "textarea")), errors(
+        "<math><annotation-xml encoding=\"appl\u0131cation/xhtml+xml\"><textarea><b>x</b></textarea></annotation-xml></math>"));
+    // A tag that is not rendered is not the parent the browser sees.
+    assertEquals(List.of(foreignMarkup(43, "title")),
+        errors("<svg><foreignObject t:remove=\"tag\"><title><script>[[${x}]]</script></title></foreignObject></svg>"));
+    assertEquals(List.of(foreignMarkup(36, "textarea")),
+        errors("<math><mi t:remove=\"tag\"><textarea><img src=x onerror=[[${x}]]></textarea></mi></math>"));
+    assertEquals(List.of(foreignMarkup(38, "textarea")), errors(
+        "<math><mi><t:block><mglyph><textarea><p>[[${x}]]</p></textarea></mglyph></t:block></mi></math>"));
+  }
+
+  @Test
+  void foreignRawTextWithoutMarkupStillParses() {
+    Element svg = el(parseOk("<svg><title>a &lt; b [[${x}]]</title><desc>d</desc><style>.a > b { fill: red }</style>"
+        + "<script><![CDATA[ if (a < b && c) { f(\"<b>\"); } ]]></script><textarea>a < b</textarea><title/></svg>")
+        .rootElement());
+    assertTrue(svg.foreign());
+    List<Element> kids = svg.children().stream().map(HtmlParserTest::el).toList();
+    assertTrue(kids.stream().allMatch(Element::foreign));
+    // Foreign <title> and <textarea> are TEXT, so {{ is broken there (#277).
+    assertEquals(
+        List.of(OutputContext.TEXT, OutputContext.TEXT, OutputContext.STYLE, OutputContext.SCRIPT, OutputContext.TEXT),
+        kids.subList(0, 5).stream().map(e -> ((Text) e.children().get(0)).context()).toList());
+
+    // Integration points: their children are HTML again.
+    Element fo = el(el(parseOk("<svg><foreignObject><div><title><b>t</b></title><textarea><i></i></textarea>"
+        + "<style>a>b{}</style><script>if (a<b) {}</script></div></foreignObject></svg>").rootElement())
+        .children().get(0));
+    assertTrue(fo.foreign());
+    Element div = el(fo.children().get(0));
+    assertFalse(div.foreign());
+    assertEquals(
+        List.of(OutputContext.RCDATA, OutputContext.RCDATA, OutputContext.STYLE, OutputContext.SCRIPT),
+        div.children().stream().map(n -> ((Text) el(n).children().get(0)).context()).toList());
+    parseOk("<math><mtext><textarea><b>x</b></textarea></mtext><mi><title><i>t</i></title></mi></math>");
+    parseOk("<svg><desc><b>x</b></desc></svg>");
+    parseOk("<svg><t:block><foreignObject t:remove=\"none\"><t:block><title><b>t</b></title></t:block>"
+        + "</foreignObject></t:block></svg>");
+    parseOk("<math><annotation-xml><svg><title>t</title></svg></annotation-xml></math><title><b>html</b></title>");
+  }
+
+  private static String breakout(int col, String tag) {
+    return "dir/t.html:1:" + col + ": error: malformed markup: <" + tag + "> inside <svg> or <math> is HTML in a"
+        + " browser and ends the <svg> or <math> there: close it first, or put HTML inside <foreignObject>";
+  }
+
+  @Test
+  void breakoutTagInForeignContentIsAnError() {
+    // A browser closes the <svg> at <p>, so this <title> is an HTML RCDATA title, not SVG text.
+    assertEquals(List.of(breakout(6, "p")), errors("<svg><p><title>[[${x}]]</title></p></svg>"));
+    assertEquals(List.of(breakout(9, "DIV")), errors("<svg><g><DIV>x</DIV></g></svg>"));
+    assertEquals(List.of(breakout(6, "br")), errors("<svg><br></svg>"));
+    assertEquals(List.of(breakout(7, "img")), errors("<math><img src=\"a.png\"/></math>"));
+    assertEquals(List.of(breakout(6, "font")), errors("<svg><font color=\"red\">x</font></svg>"));
+    assertEquals(List.of(breakout(6, "font")), errors("<svg><font t:attr=\"size=${x}\">x</font></svg>"));
+    assertEquals(List.of(breakout(15, "span")), errors("<svg><t:block><span>x</span></t:block></svg>"));
+    assertEquals(List.of(breakout(23, "p")), errors("<math><annotation-xml><p>x</p></annotation-xml></math>"));
+    // Under an integration point, or with the tag not rendered, it stays where it is.
+    parseOk("<svg><foreignObject><p><b>x</b><br></p></foreignObject><desc><i>d</i></desc><font>f</font></svg>");
+    parseOk("<math><mi><b>x</b></mi><annotation-xml encoding=\"TEXT/HTML\"><div><style>.x::before{content:\"<b>\"}</style>"
+        + "</div></annotation-xml></math>");
+    parseOk("<svg><g t:remove=\"tag\"><text>t</text></g><p t:remove=\"tag\"><text>t</text></p></svg>");
+  }
+
+  @Test
+  void breakoutsFromPr291() {
+    assertEquals(List.of(breakout(6, "p")), errors("<svg><p t:remove=\"all\"></p><title>x</title></svg>"));
+    assertEquals(List.of(breakout(6, "p")), errors("<svg><p t:if=\"${x} == null\"></p><title>x</title></svg>"));
+    assertEquals(List.of(breakout(6, "font")), errors("<svg><font t:size=\"${x}\"></font></svg>"));
+    assertEquals(List.of(breakout(6, "font")), errors("<svg><font t:attr=\"face=${x}\"></font></svg>"));
+    assertEquals(List.of(breakout(7, "p")), errors("<math><p></p></math>"));
+    parseOk("<svg><foreignObject><p>x</p></foreignObject><desc><b>d</b></desc><font></font></svg>");
+    parseOk("<math><mtext><p>x</p></mtext><annotation-xml encoding=\"text/html\"><div>d</div></annotation-xml></math>");
+  }
+
+  @Test
+  void markupInForeignRawTextCasesFromPr291() {
+    // Each case: the template, the foreign raw-text element and the '<' a browser parses as markup.
+    String[][] cases = {
+      {"<svg><textarea><script>[[${x}]]</script></textarea></svg>", "textarea", "<script>"},
+      {"<math><title><script>[[${x}]]</script></title></math>", "title", "<script>"},
+      {"<math><textarea><script>[[${x}]]</script></textarea></math>", "textarea", "<script>"},
+      {"<SVG><g><Title><script>[[${x}]]</script></Title></g></SVG>", "Title", "<script>"},
+      // MathML <title> is not an integration point; annotation-xml is one only for HTML.
+      {"<math><title><textarea><script>[[${x}]]</script></textarea></title></math>", "title", "<textarea>"},
+      {"<math><annotation-xml><textarea><script>[[${x}]]</script></textarea></annotation-xml></math>", "textarea",
+          "<script>"},
+      {"<math><annotation-xml encoding=\"text/xml\"><title><script>[[${x}]]</script></title></annotation-xml></math>",
+          "title", "<script>"},
+      // mglyph stays MathML in <mi>.
+      {"<math><mi><mglyph><textarea><script>[[${x}]]</script></textarea></mglyph></mi></math>", "textarea",
+          "<script>"},
+      // <svg> inside annotation-xml is SVG again.
+      {"<math><annotation-xml><svg><title><script>[[${x}]]</script></title></svg></annotation-xml></math>", "title",
+          "<script>"},
+      // A bare <font> stays in SVG.
+      {"<svg><font></font><textarea><script>[[${x}]]</script></textarea></svg>", "textarea", "<script>"},
+      // Without its tag, the SVG <title> is still SVG: its content is the browser's <svg><textarea>.
+      {"<svg><title t:remove=\"tag\"><textarea><script>[[${x}]]</script></textarea></title></svg>", "title",
+          "<textarea>"},
+      {"<math><mi><t:block><mglyph><textarea><img src=\"x\" onerror=\"[[${x}]]\"></textarea></mglyph></t:block></mi>"
+          + "</math>", "textarea", "<img"},
+    };
+    for (String[] c : cases) {
+      assertEquals(List.of(foreignMarkup(c[0].indexOf(c[2]) + 1, c[1])), errors(c[0]), c[0]);
+    }
+  }
+
+  /** Every text node, depth-first, as {@code raw=context}. */
+  private static List<String> texts(List<Node> nodes) {
+    List<String> out = new ArrayList<>();
+    for (Node n : nodes) {
+      if (n instanceof Text t) {
+        out.add(t.raw() + "=" + t.context());
+      } else if (n instanceof Element e) {
+        out.addAll(texts(e.children()));
+      }
+    }
+    return out;
+  }
+
+  @Test
+  void htmlTitleAndTextareaInsideForeignContentStayRcdata() {
+    // In an integration point (or outside the svg) these are HTML elements: RCDATA, raw text.
+    for (String html :
+        List.of(
+            "<svg><foreignObject><textarea><i>x</textarea></foreignObject></svg>",
+            "<svg><FOREIGNOBJECT><textarea><i>x</textarea></FOREIGNOBJECT></svg>",
+            "<svg><desc><title><i>x</title></desc></svg>",
+            "<math><mi><textarea><i>x</textarea></mi></math>",
+            "<math><mo><textarea><i>x</textarea></mo></math>",
+            "<math><mn><textarea><i>x</textarea></mn></math>",
+            "<math><ms><textarea><i>x</textarea></ms></math>",
+            "<math><mtext><textarea><i>x</textarea></mtext></math>",
+            "<math><annotation-xml encoding=\"text/html\"><title><i>x</title></annotation-xml></math>",
+            "<math><annotation-xml encoding=\"Application/XHTML+XML\"><title><i>x</title></annotation-xml></math>",
+            "<svg></svg><textarea><i>x</textarea>",
+            "<svg><foreignObject><p></p><textarea><i>x</textarea></foreignObject></svg>",
+            // A tag that is not rendered is not a parent: the browser sees an HTML title or textarea.
+            // (RemoveProcessor then rejects t:remove="tag" inside svg and math, #300.)
+            "<svg t:remove=\"tag\"><title><i>x</title></svg>",
+            "<math><mi><mglyph t:remove=\"tag\"><textarea><i>x</textarea></mglyph></mi></math>")) {
+      assertEquals(List.of("<i>x=RCDATA"), texts(parseOk(html).children()), html);
+    }
+    parseOk("<math><annotation-xml t:remove=\"tag\"><svg></svg></annotation-xml></math>");
+    parseOk("<math><mi><t:block><mglyph></mglyph></t:block></mi></math>");
+    parseOk("<svg><t:block><g></g></t:block></svg>");
+  }
+
+  @Test
+  void foreignTitleTakesTheNamespaceABrowserGivesIt() {
+    // <svg> directly in <math> is a MathML element, so its <title> is a MathML title: TEXT.
+    assertEquals(List.of("[[${x}]]=TEXT"), texts(parseOk("<math><svg><title>[[${x}]]</title></svg></math>").children()));
+    assertEquals(List.of("[[${x}]]=TEXT"), texts(parseOk("<svg><math><title>[[${x}]]</title></math></svg>").children()));
+    // A computed encoding may or may not be HTML: Tessera takes the stricter, MathML reading.
+    for (String html :
+        List.of(
+            "<math><annotation-xml t:encoding=\"${x}\"><title>[[${x}]]</title></annotation-xml></math>",
+            "<math><annotation-xml t:attr=\"encoding=${x}\"><title>[[${x}]]</title></annotation-xml></math>")) {
+      assertEquals(List.of("[[${x}]]=TEXT"), texts(parseOk(html).children()), html);
+    }
+  }
+
+  @Test
+  void hiddenEndTagInHtmlRawTextInsideForeignContentIsAnError() {
+    assertEquals(
+        List.of("dir/t.html:1:41: error: malformed markup: content of <textarea> contains"
+            + " '</textarea' before its end tag: escape it (in a script string, write '<\\/textarea')"),
+        errors("<svg><foreignObject><textarea><a title=\"</textarea><script>\">[[${x}]]</a></textarea>"
+            + "</foreignObject></svg>"));
+    assertEquals(
+        List.of("dir/t.html:1:25: error: malformed markup: content of <title> contains"
+            + " '</title' before its end tag: escape it (in a script string, write '<\\/title')"),
+        errors("<svg><desc><title><a b=\"</title><script>\">[[${x}]]</a></title></desc></svg>"));
+  }
+
+  private static String foreignReference(int col, String tag) {
+    return "dir/t.html:1:" + col + ": error: malformed markup: '&' inside <" + tag + "> in <svg> or <math> is decoded"
+        + " by a browser: write the character itself, or use a CDATA section";
+  }
+
+  @Test
+  void characterReferenceInForeignScriptOrStyleIsAnError() {
+    // A browser decodes &quot; in an SVG <script> to a quote that Tessera's JS lexer did not see.
+    assertEquals(List.of(foreignReference(22, "script")),
+        errors("<svg><script>var a = &quot;[[${x}]]&quot;;</script></svg>"));
+    // After a CDATA section the text is decoded again.
+    assertEquals(List.of(foreignReference(39, "script")),
+        errors("<svg><script><![CDATA[ var a = 1; ]]> &quot;[[${x}]]&quot;</script></svg>"));
+    assertEquals(List.of(foreignReference(23, "script")),
+        errors("<math><script>var a = &#39;[[${x}]]&#39;;</script></math>"));
+    assertEquals(List.of(foreignReference(35, "style")),
+        errors("<svg><style>.a::before { content: &quot;x&quot; }</style></svg>"));
+    assertEquals(List.of(foreignReference(17, "STYLE")), errors("<math><STYLE>a{}&#10;</STYLE></math>"));
+    // A '&' that is not a reference is still decoded text; fail closed on any '&'.
+    assertEquals(List.of(foreignReference(20, "script")), errors("<svg><script>if (a && b) {}</script></svg>"));
+    // A CDATA section is not decoded, and in HTML content a script is raw text.
+    parseOk("<svg><script><![CDATA[ var a = \"&quot;\" && [[${x}]]; ]]></script>"
+        + "<style><![CDATA[ a::before { content: \"&\" } ]]></style></svg>");
+    parseOk("<script>var a = \"&quot;\" && [[${x}]];</script><style>a::before { content: \"&amp;\" }</style>");
+    parseOk("<svg><foreignObject><script>if (a && b) {}</script></foreignObject></svg>");
+    // Title and textarea are TEXT in svg: both readings decode there.
+    parseOk("<svg><title>a &amp; b</title><textarea>&quot;</textarea></svg>");
+  }
+
+  @Test
+  void rawTextEndsOnlyAtAnAsciiCaseInsensitiveEndTag() {
+    // Java's equalsIgnoreCase folds U+017F to 's'; a browser does not, so the script goes on there.
+    // Such a look-alike end tag is an error.
+    String confusable = "dir/t.html:1:10: error: malformed markup: '</\u017Fcript' inside <script> looks like its"
+        + " end tag but a browser doesn't end the element there: remove it";
+    assertEquals(List.of(confusable), errors("<script>a</\u017Fcript>[[${x}]]</script>"));
+    assertEquals(List.of(confusable, "dir/t.html:1:1: error: element <script> is not closed: add </script>"),
+        errors("<script>a</\u017Fcript>"));
+    assertEquals(List.of("dir/t.html:1:9: error: malformed markup: '</t\u0131tle' inside <title> looks like its end"
+        + " tag but a browser doesn't end the element there: remove it"), errors("<title>a</t\u0131tle></title>"));
+    // ASCII case does not matter.
+    assertEquals(List.of("a=SCRIPT"), texts(parseOk("<script>a</SCRIPT>").children()));
   }
 }

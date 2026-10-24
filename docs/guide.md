@@ -455,7 +455,7 @@ The compiler decides the context from the element and attribute name. You cannot
 | Context | Where | What happens |
 |---|---|---|
 | Text | element text, `t:text`, `[[...]]` | `& < > " '` escaped, and `{{` broken with an empty comment (below). |
-| Title and textarea | text in `<title>` and `<textarea>` (also `t:field`) | `& < > " '` escaped; `{{` is left as is. |
+| Title and textarea | text in `<title>` and `<textarea>` (also `t:field`), outside `<svg>` and `<math>` (there they are Text) | `& < > " '` escaped; `{{` is left as is. |
 | Raw HTML | `t:utext`, `[(...)]` | Only `SafeHtml`, or a bundle message checked at build time (section 4.5), compiles. Not inside `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>`, `<noscript>`, `<textarea>` or `<title>`, which a browser reads as text up to their end tag (nor are `t:insert` and `t:replace`). |
 | Attribute | any other attribute value | Escaped, always double-quoted. |
 | URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, `hx-push-url`, `hx-replace-url`, `values`, `to`, `from` and `by` of SVG `<animate>`/`<set>`, ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. `values` of `<animate>`/`<set>` is a `;`-separated list and every item is checked; one bad item replaces the whole list with `about:invalid#tessera`. |
@@ -1272,6 +1272,10 @@ These come from the annotation processor itself, without a template position.
   to the first `</<tag>`. That must be the element's own end tag, not one inside a nested
   `<textarea>`, `<title>` or `<script>`, a comment, an attribute value or a nested `<noscript>`.
   (Inside `<svg>` or `<math>` these are ordinary elements to a browser, but the check still applies.)
+- `malformed markup: '</<name>' inside <<tag>> looks like its end tag but a browser doesn't end the element there: remove it`:
+  in `<script>`, `<style>`, `<title>` and `<textarea>` a browser matches the end tag with ASCII
+  letters only, so `</ſcript>` (with U+017F) or `</tıtle>` (with U+0131) is text to it, not the end
+  tag. Remove the look-alike.
 - `<<tag>/> is not self-closing in HTML: the browser treats everything after it as <tag>; write <<tag> ...></<tag>>`:
   reported for `<script/>` and `<style/>`; a browser ignores the `/` and treats the rest of the
   page as script or CSS. Write the end tag, e.g. `<script src="a.js"></script>`.
@@ -1310,6 +1314,23 @@ These come from the annotation processor itself, without a template position.
   reads no tag or comment (for example `a </ b`, `<? x ?>`, `<![if !IE]>`). A browser hides
   everything up to the next `>` in a comment, including markup Tessera reads. Write `&lt;` for a
   literal `<`; `x < y` stays allowed.
+- `malformed markup: '<' inside <<tag>> in <svg> or <math> starts markup in a browser, not text: write &lt; for a literal '<'`:
+  inside `<svg>` and `<math>`, a browser parses the content of `<script>`, `<style>`, `<title>` and
+  `<textarea>` as markup (SVG `<title>` and `<desc>` as HTML), so `<svg><title><script>` is a real
+  script. Write text only; a `<![CDATA[ ... ]]>` section is allowed. Inside `<foreignObject>`,
+  MathML `<mi>`, `<mo>`, `<mn>`, `<ms>` and `<mtext>`, and `<annotation-xml encoding="text/html">`,
+  these elements are HTML again. `<t:block>` and `t:remove="tag"` elements do not count as parents,
+  since their tags are not rendered.
+- `malformed markup: '&' inside <<tag>> in <svg> or <math> is decoded by a browser: write the character itself, or use a CDATA section`:
+  inside `<svg>` and `<math>`, a browser decodes character references in `<script>` and `<style>`
+  before the script or style sees the text, so `<svg><script>var a = &quot;[[${s}]]&quot;;` puts
+  the value outside the string. Write `"` instead of `&quot;`, or put the code in a
+  `<![CDATA[ ... ]]>` section, where nothing is decoded. Any `&` outside a CDATA section is an error,
+  including `&&`.
+- `malformed markup: <<tag>> inside <svg> or <math> is HTML in a browser and ends the <svg> or <math> there: close it first, or put HTML inside <foreignObject>`:
+  a browser closes the `<svg>` or `<math>` at `<p>`, `<div>`, `<span>`, `<b>`, `<br>`, `<img>`,
+  `<table>` and the other HTML "breakout" tags (and `<font>` with `color`, `face` or `size`), so the
+  markup after it is not where the template puts it.
 
 ### Template structure
 
@@ -1700,8 +1721,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
   region. Custom delimiters (Vue `delimiters`, AngularJS `$interpolateProvider`) are not
   broken, so keep the default `{{ }}` or mark the region. The check for an expression inside a
   static `{{ }}` only sees one text: a `{{` before a tag or comment and an expression after it
-  are not reported. `SafeHtml.unchecked` text is not changed, and neither is SVG `<title>` text,
-  which the frameworks interpolate too: add `v-pre`/`ng-non-bindable` there as well.
+  are not reported. `SafeHtml.unchecked` text is not changed.
 - **Security functions.** `auth` has `hasRole`/`hasAnyRole`, not `hasAuthority`; compute anything
   else in the controller.
 - **Selections.** `~{::tag}` selects fragment names and plain tag names only: not hyphenated tags,
