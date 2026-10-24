@@ -21,6 +21,7 @@ import org.springframework.core.env.MapPropertySource;
 import org.springframework.mock.web.MockServletContext;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 import org.springframework.web.servlet.resource.ResourceUrlEncodingFilter;
+import org.thymeleaf.test.FakeThymeleafViewResolver;
 
 /**
  * The auto-configuration's conditions. Contexts are built by hand, not with {@code
@@ -95,6 +96,31 @@ class TesseraAutoConfigurationTest {
     try (AnnotationConfigWebApplicationContext ctx = web(TesseraConfiguration.class)) {
       assertThat(ctx.getBeanNamesForType(TesseraViewResolver.class)).hasSize(1);
       assertThat(ctx.getBeanNamesForType(ReturnValueHandlerRegistrar.class)).hasSize(1);
+      // One startup warning per context, not one per configuration class.
+      assertThat(ctx.getBeanNamesForType(OldEngineWarning.class)).hasSize(1);
+    }
+  }
+
+  @Test
+  void warnsOnceWhileThymeleafIsStillConfigured() {
+    try (AnnotationConfigWebApplicationContext ctx =
+        web(OldEngineWarningTest.Thymeleaf.class, OldEngineWarningTest.Recording.class)) {
+      assertThat(ctx.getBeanNamesForType(OldEngineWarning.class))
+          .contains("tesseraOldEngineWarning");
+      assertThat(ctx.getBean(OldEngineWarningTest.RecordingLog.class).warn)
+          .containsExactly(
+              String.format(
+                  OldEngineWarning.MESSAGE, FakeThymeleafViewResolver.class.getName()));
+    }
+  }
+
+  @Test
+  void noWarningWithoutAnotherEngine() {
+    try (AnnotationConfigWebApplicationContext ctx =
+        web(OldEngineWarningTest.Jsp.class, OldEngineWarningTest.Recording.class)) {
+      assertThat(ctx.getBeanNamesForType(OldEngineWarning.class))
+          .contains("tesseraOldEngineWarning");
+      assertThat(ctx.getBean(OldEngineWarningTest.RecordingLog.class).warn).isEmpty();
     }
   }
 

@@ -83,12 +83,14 @@
         <artifactId>maven-antrun-plugin</artifactId>
       </plugin>
       <plugin>
-        <!-- Only the Boot-free test and the controller and model it shares with the Boot tests. -->
+        <!-- Only the Boot-free tests and the controller and model they share with the Boot tests. -->
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
           <testIncludes>
             <testInclude>dev/tessera/spring/plain/**</testInclude>
+            <testInclude>dev/tessera/spring/OldEngineWarningTest.java</testInclude>
+            <testInclude>org/thymeleaf/test/**</testInclude>
             <testInclude>dev/tessera/spring/e2e/Signup.java</testInclude>
             <testInclude>dev/tessera/spring/e2e/SmokeController.java</testInclude>
           </testIncludes>

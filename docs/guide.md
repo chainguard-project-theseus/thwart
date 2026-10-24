@@ -181,8 +181,16 @@ Spring falls back to (the system locale unless the app sets one). Facts about th
 
 **Spring Boot.** The starter's auto-configuration registers the view resolver, the `Template`
 return-value handler and the template registry. Tessera's resolver runs before Thymeleaf's and
-falls through for names it does not know, so the old engine can stay while you migrate. The jar
-registers itself for every Boot generation, including `@WebMvcTest` slices.
+falls through for names it does not know, so the old engine can stay while you migrate. While it
+stays, every view name Tessera doesn't know is rendered by it, with its injection risks: Tessera's
+guarantees (no template injection, contextual escaping) cover only the views Tessera renders, and
+hold for the application once the old engine is gone (section 3, step 6). Never build a view name
+from request data, whichever engine renders it. Until then the starter logs a warning at startup
+naming the other engine's view resolver (Thymeleaf, FreeMarker, Groovy markup, Mustache, script
+templates, Velocity); there is no setting to silence it, removing the engine does. JSP is not
+reported, since Boot registers its `InternalResourceViewResolver` in every app, but it falls
+through the same way. The jar registers itself for every Boot generation, including
+`@WebMvcTest` slices.
 
 **Spring MVC without Boot.** Import `dev.tessera.spring.TesseraConfiguration`. It needs only
 `spring-webmvc`:
@@ -311,11 +319,14 @@ Compare after each template or small group, not only at the end, and run the tes
 tests that use `standaloneSetup` never render a view, so add one that renders through the real
 resolvers and checks that `<script>` in user data comes out escaped.
 
-**6. Remove the old engine**: its templates, dependency and configuration. Build, test and compare
-once more. The old engine's starter or tag library often brought in libraries the application
-still uses (`spring-context-support`, with Spring's Ehcache, JCache and mail support, came with
-Boot's Velocity starter; `commons-beanutils` and `commons-collections` with Tiles), and losing them
-may show only at runtime. Save `mvn dependency:list` before removing it, diff it afterwards, and
+**6. Remove the old engine.** This is what completes the security guarantee, not cleanup: until
+its resolver is gone, any view name Tessera doesn't know, including one built from request data,
+still reaches it, and the startup warning `Tessera: another template engine is still configured`
+names it. Remove its templates, dependency and configuration. Build, test and compare once more.
+The old engine's starter or tag library often brought in libraries the application still uses
+(`spring-context-support`, with Spring's Ehcache, JCache and mail support, came with Boot's
+Velocity starter; `commons-beanutils` and `commons-collections` with Tiles), and losing them may
+show only at runtime. Save `mvn dependency:list` before removing it, diff it afterwards, and
 declare what the application still imports or configures.
 
 ## 4. Reference
@@ -1942,6 +1953,9 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **View resolution.** Names are matched exactly: a leading `/` or a `page :: fragment` view name
   falls through to other resolvers. Return the plain template name (make the fragment its own
   template if needed). Path variables are not in the model unless the controller adds them.
+- **Mixed engines.** During a migration the old engine renders every view Tessera doesn't know
+  (section 2), so an app part-way through is protected only on the ported views; finish by
+  removing the engine (section 3, step 6).
 - **Types.** Concrete collection types (`ArrayList`, `TreeMap`, `SortedMap`) are rejected as
   parameter and property types; declare `List`/`Map`. A `Boolean` getter named `getIsX()` (Lombok
   on a `Boolean isX` field) is reachable only as `x.getIsX()`. `java.util.Date`/`Calendar` are not
