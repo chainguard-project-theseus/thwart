@@ -31,9 +31,9 @@ fi
 cd "$here"
 npm ci --ignore-scripts --no-audit --no-fund
 
-# Self-check on the fixture (renders from 0dda2f1): with no known holes the checker must fail and
-# report every hole fixture-known-holes.txt lists (A5 and A31), so a checker that has gone blind
-# can't pass.
+# Self-check on the fixture (renders from 0dda2f1 and synthetic renders for every detector): with no
+# known holes the checker must fail and report every hole fixture-known-holes.txt lists, so a
+# checker, or one of its detectors, that has gone blind can't pass.
 out=$(node check.mjs --engines "$engines" --known-holes /dev/null fixture.jsonl) && status=0 || status=$?
 echo "$out"
 if [[ $status -ne 1 ]]; then

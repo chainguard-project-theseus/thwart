@@ -23,7 +23,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'parse5';
 import * as acorn from 'acorn';
-import { MARKER, HTML_NS, normalizeParse5, structureDiff, eachElement, textOf } from './tree.mjs';
+import {
+  MARKER, HTML_NS, normalizeParse5, structureDiff, eachElement, textOf, attrFindings, preprocessUrl, refreshUrl,
+} from './tree.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const BENIGN = /^tqm\d{4}$/;
@@ -74,10 +76,6 @@ export function readCases(text) {
 
 // ---- parse5 checks ----
 
-const URL_ATTRS = new Set([
-  'href', 'src', 'action', 'formaction', 'xlink:href', 'data', 'poster', 'cite', 'background',
-]);
-const ANIMATE_VALUE_ATTRS = new Set(['values', 'to', 'from', 'by']);
 const JS_TYPES = new Set([
   '', 'text/javascript', 'application/javascript', 'module', 'text/ecmascript',
   'application/ecmascript', 'text/jscript', 'text/livescript', 'application/x-javascript',
@@ -93,9 +91,6 @@ const RESOURCE_LINK_RELS = new Set(['stylesheet', 'preload', 'modulepreload', 'i
 const HTMX = /^(data-)?hx-(get|post|put|patch|delete)$/;
 
 const attr = (el, name) => (el.attrs.find((a) => a[0] === name) || [null, null])[1];
-
-/** A URL as a browser reads it: trim C0 and space, drop tab/LF/CR. */
-const preprocessUrl = (v) => v.replace(/^[\u0000- ]+|[\u0000- ]+$/g, '').replace(/[\t\n\r]/g, '');
 
 /** Whether a resource URL is protocol-relative or absolute by shape (`\` read as `/`). */
 function crossOrigin(value, contextRelative) {
@@ -115,23 +110,7 @@ function isJsScript(el) {
 function renderFindings(tree, contextRelative) {
   const f = [];
   eachElement(tree, (el, p) => {
-    if (MARKER.test(el.name)) f.push(['MARKER_IN_NAME', p]);
-    for (const [name, value] of el.attrs) {
-      if (MARKER.test(name)) f.push(['MARKER_IN_NAME', `${p}@${name}`]);
-      if (!MARKER.test(value)) continue;
-      if (/^on/i.test(name)) f.push(['LIVE_HANDLER', `${p}@${name}`]);
-      const urlValued =
-        URL_ATTRS.has(name) ||
-        ((el.name === 'animate' || el.name === 'set') &&
-          ANIMATE_VALUE_ATTRS.has(name) &&
-          /^(xlink:)?href$/.test(attr(el, 'attributeName') ?? ''));
-      if (urlValued) {
-        const parts = name === 'values' ? value.split(';') : [value];
-        if (parts.some((v) => /^(javascript|vbscript|data):/i.test(preprocessUrl(v)))) {
-          f.push(['JS_URL', `${p}@${name}`]);
-        }
-      }
-    }
+    f.push(...attrFindings(el, p));
     const resource = [];
     if (el.ns === HTML_NS) {
       if (el.name === 'script' || ['iframe', 'frame', 'embed'].includes(el.name)) resource.push('src');
@@ -142,8 +121,8 @@ function renderFindings(tree, contextRelative) {
         if (rels.some((r) => RESOURCE_LINK_RELS.has(r))) resource.push('href');
       }
       if (el.name === 'meta' && (attr(el, 'http-equiv') ?? '').toLowerCase() === 'refresh') {
-        const m = /^\s*\d*\.?\d*\s*[;,]?\s*(?:url\s*=\s*)?['"]?([^'"]*)/i.exec(attr(el, 'content') ?? '');
-        if (m && m[1] && crossOrigin(m[1], contextRelative)) f.push(['CROSS_ORIGIN_RESOURCE', `${p}@content`]);
+        const u = refreshUrl(attr(el, 'content'));
+        if (u && crossOrigin(u, contextRelative)) f.push(['CROSS_ORIGIN_RESOURCE', `${p}@content`]);
       }
     }
     if (el.name === 'script' && el.ns !== HTML_NS) resource.push('href', 'xlink:href');
@@ -209,17 +188,19 @@ function scripts(tree) {
   return m;
 }
 
+const parseTree = (html) => normalizeParse5(parse(html, { scriptingEnabled: true }), parseTree);
+
 /** parse5 findings for one case: [{kind, engine, where, value}], plus the unparsable-script count. */
 export function checkParse5(c) {
   const contextRelative = /@\{\s*\//.test(c.template);
-  const benign = normalizeParse5(parse(c.benign, { scriptingEnabled: true }));
+  const benign = parseTree(c.benign);
   const benignScripts = scripts(benign);
   const out = [];
   let unparsable = 0;
   const add = (kind, where, value) => out.push({ kind, engine: 'parse5', where: 'scripting-on ' + where, value });
   for (const [kind, where] of renderFindings(benign, contextRelative)) add(kind, where, '');
   for (const { value, render } of c.hostile) {
-    const tree = normalizeParse5(parse(render, { scriptingEnabled: true }));
+    const tree = parseTree(render);
     const diff = structureDiff(benign, tree);
     if (diff) add('STRUCTURE_CHANGED', diff, value);
     for (const [kind, where] of renderFindings(tree, contextRelative)) add(kind, where, value);

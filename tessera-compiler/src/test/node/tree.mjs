@@ -4,14 +4,14 @@
 // are dropped and the text around them merged into v: the TEXT escaper breaks `{{` with `<!---->`,
 // so a hostile value may add comments the benign render doesn't have, and that is not a structure
 // change. runs keeps the text between comments apart, which is what a client framework sees. A
-// <template>'s content is a child named '#content'. normalizeDom is stringified into the browser
-// page, so it must stay self-contained.
+// <template>'s content is a child named '#content' and an <iframe srcdoc>'s document a child named
+// '#srcdoc'. normalizeDom is stringified into the browser page, so it must stay self-contained.
 
 export const MARKER = /tqm\d{4}/i;
 export const HTML_NS = 'http://www.w3.org/1999/xhtml';
 
-/** The normalized tree of a parse5 document. */
-export function normalizeParse5(doc) {
+/** The normalized tree of a parse5 document; parseSrcdoc(html) gives an <iframe srcdoc>'s tree. */
+export function normalizeParse5(doc, parseSrcdoc) {
   const walk = (n) => {
     const kids = [];
     let comment = false;
@@ -30,13 +30,18 @@ export function normalizeParse5(doc) {
       if (c.nodeName === '#text') push({ t: 'text', v: c.value });
       else if (c.nodeName === '#comment') comment = true;
       else if (c.tagName) {
-        push({
+        const el = {
           t: 'el',
           name: c.tagName,
           ns: c.namespaceURI,
           attrs: (c.attrs || []).map((a) => [a.prefix ? a.prefix + ':' + a.name : a.name, a.value]),
           kids: walk(c),
-        });
+        };
+        const srcdoc = el.attrs.find((a) => a[0] === 'srcdoc');
+        if (el.name === 'iframe' && el.ns === HTML_NS && srcdoc) {
+          el.kids.unshift({ t: 'el', name: '#srcdoc', ns: '', attrs: [], kids: parseSrcdoc(srcdoc[1]) });
+        }
+        push(el);
       }
     }
     return kids;
@@ -65,13 +70,18 @@ export function normalizeDom(doc) {
       if (c.nodeType === 3) push({ t: 'text', v: c.data });
       else if (c.nodeType === 8) comment = true;
       else if (c.nodeType === 1) {
-        push({
+        const el = {
           t: 'el',
           name: c.localName,
           ns: c.namespaceURI,
           attrs: Array.from(c.attributes, (a) => [a.name, a.value]),
           kids: walk(c),
-        });
+        };
+        if (c.localName === 'iframe' && c.namespaceURI === 'http://www.w3.org/1999/xhtml' && c.hasAttribute('srcdoc')) {
+          // null if the frame is sandboxed without allow-same-origin
+          el.kids.unshift({ t: 'el', name: '#srcdoc', ns: '', attrs: [], kids: c.contentDocument ? walk(c.contentDocument) : [] });
+        }
+        push(el);
       }
     }
     return kids;
@@ -129,4 +139,45 @@ export function eachElement(kids, fn, path = '', parent = null) {
 /** The concatenated text children of an element. */
 export function textOf(el) {
   return el.kids.filter((k) => k.t === 'text').map((k) => k.v).join('');
+}
+
+const URL_ATTRS = new Set([
+  'href', 'src', 'action', 'formaction', 'xlink:href', 'data', 'poster', 'cite', 'background',
+]);
+const ANIMATE_VALUE_ATTRS = new Set(['values', 'to', 'from', 'by']);
+const SCRIPT_URL = /^(javascript|vbscript|data):/i;
+
+/** A URL as a browser reads it: trim C0 and space, drop tab/LF/CR. */
+export const preprocessUrl = (v) => v.replace(/^[\u0000- ]+|[\u0000- ]+$/g, '').replace(/[\t\n\r]/g, '');
+
+/** The URL of a `<meta http-equiv=refresh>` content value, or null. */
+export function refreshUrl(content) {
+  const m = /^\s*\d*\.?\d*\s*[;,]?\s*(?:url\s*=\s*)?['"]?([^'"]*)/i.exec(content ?? '');
+  return m && m[1] ? m[1] : null;
+}
+
+/**
+ * #318 checks 2-4 on one element, for parse5 and browser trees alike: a marker in an element or
+ * attribute name (MARKER_IN_NAME), in an on* attribute (LIVE_HANDLER), or in a javascript:,
+ * vbscript: or data: URL, including a meta refresh URL (JS_URL). Returns [[kind, where]].
+ */
+export function attrFindings(el, p) {
+  const f = [];
+  const attr = (name) => (el.attrs.find((a) => a[0] === name) || [null, null])[1];
+  if (MARKER.test(el.name)) f.push(['MARKER_IN_NAME', p]);
+  for (const [name, value] of el.attrs) {
+    if (MARKER.test(name)) f.push(['MARKER_IN_NAME', `${p}@${name}`]);
+    if (!MARKER.test(value)) continue;
+    if (/^on/i.test(name)) f.push(['LIVE_HANDLER', `${p}@${name}`]);
+    let urls = [];
+    if (URL_ATTRS.has(name)) urls = [value];
+    else if ((el.name === 'animate' || el.name === 'set') && ANIMATE_VALUE_ATTRS.has(name) &&
+        /^(xlink:)?href$/.test(attr('attributeName') ?? '')) {
+      urls = name === 'values' ? value.split(';') : [value];
+    } else if (el.name === 'meta' && name === 'content' && (attr('http-equiv') ?? '').toLowerCase() === 'refresh') {
+      urls = [refreshUrl(value) ?? ''];
+    }
+    if (urls.some((v) => SCRIPT_URL.test(preprocessUrl(v)))) f.push(['JS_URL', `${p}@${name}`]);
+  }
+  return f;
 }
