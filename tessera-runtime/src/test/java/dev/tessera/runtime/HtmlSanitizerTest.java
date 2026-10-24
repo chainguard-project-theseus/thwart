@@ -130,6 +130,17 @@ class HtmlSanitizerTest {
     assertEquals("<!---->{<!----><b><!---->{x}}</b>", clean("{<b>{x}}</b>"));
     assertEquals("<!---->{<!---->&eacute;<!---->{<!---->", clean("{&eacute;{"));
     assertEquals("}}", clean("&rbrace;&rcub;"));
+    // Numeric references a browser decodes without ';' or with leading zeros.
+    assertEquals("<!---->{<!---->{<!---->{x}}", clean("&#123&#x7B&#0000123;x}}"));
+    assertEquals("&amp;lbrace&amp;lbrace", clean("&lbrace&lbrace"));
+  }
+
+  @Test
+  void hrefNeverHoldsMustacheDelimiters() {
+    // #248: AngularJS interpolates attribute values; the kept href has its braces percent-encoded.
+    assertEquals(
+        "<a href=\"/x%7B%7Bconstructor}}?q=%7B%7Ba}}\" rel=\"nofollow noopener\">x</a>",
+        clean("<a href=\"/x{{constructor}}?q=&#123;&lbrace;a}}\">x</a>"));
   }
 
   @Test

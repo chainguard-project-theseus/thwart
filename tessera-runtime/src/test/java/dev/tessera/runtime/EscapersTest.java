@@ -773,6 +773,11 @@ class EscapersTest {
     assertEquals(
         "Hi <!---->{<!---->{x}}",
         Escapers.htmlMessage(messages(plain), "k", new Object[] {"{{x}}"}, new String[] {"Hi {0}"}));
+    // An unchecked message (no bundle the build saw) with no markup but the argument's comments
+    // is printed as it is, not escaped into visible "&lt;!----&gt;".
+    assertEquals(
+        "Hi <!---->{<!---->{x}}",
+        Escapers.htmlMessage(messages(plain), "k", new Object[] {"{{x}}"}, new String[0]));
     // An unchecked message is escaped as text, braces broken.
     assertEquals(
         "&lt;i&gt;{<!---->{x}}",

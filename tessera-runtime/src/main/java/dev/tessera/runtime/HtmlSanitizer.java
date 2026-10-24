@@ -175,7 +175,9 @@ final class HtmlSanitizer {
           String href = attrs.get("href");
           if (href != null && Escapers.isAllowedUrl(href)) {
             out.append(" href=\"");
-            Escapers.escapeHtml(out, href, false);
+            // AngularJS interpolates attribute values too: '{' is percent-encoded, which a
+            // browser does in a path anyway, so the link never holds "{{" (#248)
+            Escapers.escapeHtml(out, href.replace("{", "%7B"), false);
             out.append('"').append(REL);
           }
         }

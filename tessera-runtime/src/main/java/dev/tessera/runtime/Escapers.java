@@ -178,8 +178,10 @@ public final class Escapers {
     if (message == null) {
       return "";
     }
-    if (message.indexOf('<') < 0) {
-      return message; // cannot open a tag, comment or other markup in text
+    if (message.replace(BRACE_BREAK, "").indexOf('<') < 0) {
+      // cannot open a tag, comment or other markup in text; the only markup is the empty
+      // comments an argument's braces got (#248)
+      return message;
     }
     for (String pattern : checked) {
       if (message.equals(pattern)) {
