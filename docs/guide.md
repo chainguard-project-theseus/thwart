@@ -139,8 +139,12 @@ keeps its version.
 
 `tessera.templates` (required) is the absolute templates root; every `**/*.html` below it is a
 template. `tessera.package` is the generated package (default `tessera.generated`).
-`tessera.messages` is the message bundle's path without `.properties`; with it, every `#{key}` is
-checked at build time. Facts about the build today:
+`tessera.messages` is the Spring message basename as a path without `.properties`; with it, every
+`#{key}` is checked at build time. List several basenames with commas
+(`.../msgs/TranslationMessages_de,.../ValidationMessages`). When the base file is partial or missing
+and the full text is in a locale file (`messages_en.properties`), name that file instead
+(`.../i18n/messages_en`): it means basename `messages` with default locale `en`. Use the locale
+Spring falls back to (the system locale unless the app sets one). Facts about the build today:
 
 - `annotationProcessorPaths` needs `maven-compiler-plugin` 3.5+ (`<parameters>` needs 3.6.2+).
   Older parents pin older versions (Boot 1.5: 3.1); override it, for example with the property
@@ -531,18 +535,21 @@ cannot leave the quoted URL.
 `MessageSource` with the starter; `MessageFormat` placeholders `{0}`). The key is a literal; for a
 computed choice, use a conditional: `active ? #{status.active} : #{status.inactive}`. A message is
 text and is escaped. A missing key renders `??key_locale??` at runtime; with `-Atessera.messages`
-it is a build error instead. A key computed from data (`'criterion.' + c.code`) has no template
-form: resolve those messages in Java with Spring's `MessageSource` and the request `Locale` (in the
-controller or a `@ModelAttribute` method) and pass the strings in the model. A
+it is a build error instead. A key is known when it is in a basename's base file or its default
+locale's file (section 2); other locale files (`messages_fr.properties`) may leave keys out, and
+Spring resolves those as it did before the port. A key computed from data
+(`'criterion.' + c.code`) has no template form: resolve those messages in Java with Spring's
+`MessageSource` and the request `Locale` (in the controller or a `@ModelAttribute` method) and pass
+the strings in the model. A
 `@TemplateFunction` can't see the locale or Spring beans; don't reach them through
 `RequestContextHolder` or other static state.
 
 **Messages with markup.** A bundle is part of the application, so a message that holds markup
 (Thymeleaf `th:utext="#{key(args)}"`, JSP `<spring:message>` without escaping) can be printed as
 HTML: `t:utext="#{key(args)}"` or `[(#{key(args)})]`. It needs `-Atessera.messages`; the compiler
-then checks the key's value in the default bundle and in every locale file next to it
-(`messages_fr.properties`, `messages_pt_BR.properties`, ...) and fails the build, naming the file
-and key, unless the value is markup from this allow-list:
+then checks the key's value in the base file and in every locale file next to it
+(`messages_fr.properties`, `messages_pt_BR.properties`, ...) of every basename and fails the build,
+naming the file and key, unless the value is markup from this allow-list:
 
 - elements `p br hr h1`-`h6 b i em strong u s sub sup small mark code pre blockquote ul ol li dl dt
   dd span div a abbr cite q kbd del ins`; no comments, `script`, `style` or anything else;
@@ -1127,8 +1134,14 @@ These come from the annotation processor itself, without a template position.
   add the `-Atessera.templates` compiler argument (section 2).
 - `Tessera: templates directory does not exist: <path>`: fix the path; use
   `${project.basedir}/...`.
-- `Tessera: message bundle does not exist: <file> (-Atessera.messages is the bundle base path without .properties)`:
-  point the option at the bundle without the `.properties` suffix.
+- `Tessera: message bundle does not exist: <file> (-Atessera.messages is a comma-separated list of bundle base paths without .properties)`:
+  point the option at the bundle without the `.properties` suffix. With a locale suffix
+  (`messages_en`) the locale's file must exist. When the base file is missing but locale files
+  exist, the message lists them: name the default locale's file, e.g. `.../messages_en`.
+- `Tessera: message file <file> is not loaded: its name does not end in a locale (_fr, _pt_BR, ...), so its keys are not checked and its HTML messages are escaped`
+  (warning): a file beside a basename such as `messages_en-US.properties` or
+  `messages_backup.properties`. Rename a locale file to Java's form (`messages_en_US.properties`);
+  ignore the warning for other files.
 - `Tessera: <file> was generated before another annotation processor (Lombok?) finished adding members to the classes its templates read; list that processor before Tessera in annotationProcessorPaths`:
   move Lombok ahead of Tessera in `annotationProcessorPaths` (section 2), then `mvn clean compile`.
 - `Tessera: internal compiler error: <exception>`: a compiler bug. Report it with the template
@@ -1364,8 +1377,11 @@ These come from the annotation processor itself, without a template position.
 
 ### Messages and links
 
-- `unknown message key '<key>': it is not in <bundle file>`: add the key to the bundle or fix the
-  spelling.
+- `unknown message key '<key>': it is not in <bundle files>`: add the key to the bundle or fix the
+  spelling. When it ends `; it is only in <files>, which other locales do not fall back to (name
+  the default locale in -Atessera.messages, e.g. <base>_en, or add the key to the base file)`, the
+  key is only in a locale file: name the default locale in the option (`.../messages_en`, section
+  2) or add the key to the base file.
 - `message keys in this template are not checked: set -Atessera.messages=<bundle base path> to check #{...} keys at build time`
   (warning): set the option (section 2).
 - `duplicate link parameter '<name>' in @{<path>}`.
@@ -1432,8 +1448,9 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **Build.** Tested with Maven only. Gradle is untested and has no docs or plugin: the processor
   needs only javac options (section 2), so it should work, but it isn't verified. Template-only
   changes need `mvn clean compile`; there is no hot reload.
-- **Messages.** `-Atessera.messages` checks one bundle. Keys from other bundles fail the build;
-  give those pages a `@TemplateFunction` that looks them up, and accept that they are not checked.
+- **Messages.** `-Atessera.messages` checks the basenames it lists, read from the file system. Keys
+  that only a jar or a database-backed `MessageSource` provides fail the build; give those pages a
+  `@TemplateFunction` that looks them up, and accept that they are not checked.
 - **View resolution.** Names are matched exactly: a leading `/` or a `page :: fragment` view name
   falls through to other resolvers. Return the plain template name (make the fragment its own
   template if needed). Path variables are not in the model unless the controller adds them.

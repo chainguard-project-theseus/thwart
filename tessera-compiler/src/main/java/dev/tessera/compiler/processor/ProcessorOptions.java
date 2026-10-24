@@ -4,6 +4,8 @@ import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -13,15 +15,17 @@ import java.util.Objects;
  * @param templates {@code tessera.templates} (required): absolute path of the templates root,
  *     e.g. {@code ${project.basedir}/src/main/resources/templates}
  * @param basePackage {@code tessera.package}: package for generated classes
- * @param messages {@code tessera.messages}: optional base path of the default message bundle
- *     without {@code .properties}, e.g. {@code ${project.basedir}/src/main/resources/messages}
+ * @param messages {@code tessera.messages}: optional comma-separated message bundle basenames,
+ *     each a path without {@code .properties}, e.g. {@code
+ *     ${project.basedir}/src/main/resources/messages}; a locale suffix ({@code messages_en}) names
+ *     the default locale (see {@code MessageBundle}). Empty when not set.
  */
 public final class ProcessorOptions {
   private final Path templates;
   private final String basePackage;
-  private final Path messages;
+  private final List<Path> messages;
 
-  public ProcessorOptions(Path templates, String basePackage, Path messages) {
+  public ProcessorOptions(Path templates, String basePackage, List<Path> messages) {
     this.templates = templates;
     this.basePackage = basePackage;
     this.messages = messages;
@@ -35,7 +39,7 @@ public final class ProcessorOptions {
     return basePackage;
   }
 
-  public Path messages() {
+  public List<Path> messages() {
     return messages;
   }
 
@@ -68,14 +72,19 @@ public final class ProcessorOptions {
   public static final String PACKAGE = "tessera.package";
   public static final String MESSAGES = "tessera.messages";
 
-  /** Parses options; {@code templates} is null when the option is missing. */
+  /** Parses options; {@code templates} is null and {@code messages} empty when missing. */
   public static ProcessorOptions parse(Map<String, String> options) {
     String t = options.get(TEMPLATES);
     String p = options.getOrDefault(PACKAGE, CompilerEnv.DEFAULT_PACKAGE);
     String m = options.get(MESSAGES);
-    return new ProcessorOptions(
-        t == null || Backports.isBlank(t) ? null : Paths.get(t),
-        p,
-        m == null || Backports.isBlank(m) ? null : Paths.get(m));
+    List<Path> messages = new ArrayList<>();
+    if (m != null) {
+      for (String base : m.split(",")) {
+        if (!Backports.isBlank(base)) {
+          messages.add(Paths.get(Backports.strip(base)));
+        }
+      }
+    }
+    return new ProcessorOptions(t == null || Backports.isBlank(t) ? null : Paths.get(t), p, messages);
   }
 }
