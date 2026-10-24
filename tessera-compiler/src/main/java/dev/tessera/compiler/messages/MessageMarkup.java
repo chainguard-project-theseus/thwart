@@ -15,7 +15,8 @@ import java.util.Set;
  * <ul>
  *   <li>Elements: {@link #ELEMENTS} only. Comments, doctypes, CDATA and processing instructions
  *       are rejected. A {@code <} that cannot start a tag (not followed by an ASCII letter,
- *       {@code /}, {@code !} or {@code ?}) is text, as in a browser.
+ *       {@code /}, {@code !} or {@code ?}) is text, as in a browser. A message may not end with
+ *       {@code <}, which the template text after it would continue.
  *   <li>Attributes: {@link #GLOBAL_ATTRIBUTES} on every element, plus {@link #LINK_ATTRIBUTES} on
  *       {@code a}; values must be quoted. An {@code href} must be relative or
  *       {@code http}/{@code https}/{@code mailto}/{@code tel}, with no whitespace, control
@@ -159,6 +160,9 @@ final class MessageMarkup {
         i = endTag(s, i, open);
       } else if (next == '!' || next == '?') {
         throw new Bad("comments, doctypes and CDATA are not allowed");
+      } else if (i + 1 == n) {
+        // The template text after the message would continue this '<' into a tag.
+        throw new Bad("a message may not end with '<': write &lt; for a literal '<'");
       } else if (next == ARG) {
         // An argument starting with a letter would turn this '<' into a tag.
         throw new Bad("a placeholder may not follow '<' directly: write &lt; for a literal '<'");
