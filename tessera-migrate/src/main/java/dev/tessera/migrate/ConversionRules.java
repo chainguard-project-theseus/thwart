@@ -210,7 +210,10 @@ final class ConversionRules {
 
   /** {@code %s} is the literal as a Markdown code span. */
   static final String SCRIPT_INLINE_UNQUOTED_MESSAGE =
-      "%s in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes (a string renders the same, a number renders `42` instead of `\"42\"`)";
+      "%s in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes (a string renders the same; any other value renders as JSON, such as `42`, `true` or `{...}`, instead of a quoted string)";
+  /** {@code %s} is the template literal as a Markdown code span. */
+  static final String SCRIPT_INLINE_TEMPLATE_LITERAL_MESSAGE =
+      "%s in a script is a template literal, and `[[...]]` inside it is a build error in Tessera (it writes a JSON value with its own quotes); drop the backticks, or for a tagged template keep them and write ``tag`${[[...]]}` ``";
   static final String SCRIPT_INLINE_IN_STRING_MESSAGE =
       "`%s` inside a quoted JavaScript string is a build error in Tessera (it writes a JSON value with its own quotes); rewrite as `\"text \" + %s + \" text\"`";
 

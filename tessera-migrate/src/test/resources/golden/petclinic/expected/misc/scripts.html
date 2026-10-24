@@ -9,7 +9,8 @@
     var roles = [[${user.roles}]];
   </script>
   <script th:inline="javascript">
-    var title = [[${page.title}]];
+    var title = `[[${page.title}]]`;
+    var path = String.raw`[[${page.path}]]`;
     var label = 'Page ' + [[${page.number}]];
   </script>
   <script type="module">import { start } from "/app.js"; start([[${page.title}]]);</script>

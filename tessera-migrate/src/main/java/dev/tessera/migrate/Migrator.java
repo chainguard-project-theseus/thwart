@@ -376,10 +376,11 @@ final class Migrator {
      * Finds {@code [[...]]} inside JavaScript string literals of script text that starts at
      * {@code offset} of the document. In Tessera {@code [[...]]} writes a JSON value with its own
      * quotes, so a Thymeleaf {@code "[[${x}]]"} would close the string (the compiler rejects it, #281).
-     * A literal that is exactly one inline ({@code "[[...]]"}, {@code '[[...]]'} or
-     * {@code `[[...]]`}) loses its quotes; any other inline in a literal is reported. The scan
-     * tracks strings, template literal {@code ${...}} and comments, not regular expression literals;
-     * the compiler is the safety net, and dropping the quotes around an inline can't make it unsafe.
+     * A {@code "..."} or {@code '...'} literal that is exactly one inline loses its quotes; any other
+     * inline in a literal is reported, including {@code `[[...]]`} (the backticks may follow a tag,
+     * {@code String.raw`...`}, which dropping them would break). The scan tracks strings, template
+     * literal {@code ${...}} and comments, not regular expression literals; the compiler is the safety
+     * net, so a misread only misses or adds a report, and dropping the quotes can't make it unsafe.
      */
     private void quotedInlines(String text, int offset, int line) {
       int state = CODE;
@@ -398,7 +399,15 @@ final class Migrator {
           if (state == STRING) {
             String inline = text.substring(i, after);
             int at = lineAt(text, line, i);
-            if (quoteAt == i - 1 && after < text.length() && text.charAt(after) == quote) {
+            boolean whole = quoteAt == i - 1 && after < text.length() && text.charAt(after) == quote;
+            if (whole && quote == '`') {
+              report(at, String.format(ConversionRules.SCRIPT_INLINE_TEMPLATE_LITERAL_MESSAGE,
+                  codeSpan(quote + inline + quote)));
+              state = CODE;
+              i = after; // the closing backtick
+              continue;
+            }
+            if (whole) {
               edits.add(new Edit(offset + quoteAt, 1, ""));
               edits.add(new Edit(offset + after, 1, ""));
               report(at, String.format(ConversionRules.SCRIPT_INLINE_UNQUOTED_MESSAGE,

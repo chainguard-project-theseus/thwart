@@ -387,7 +387,8 @@ class MigratorTest {
         convert(src));
     assertMessages(src,
         "1: `\"[[${user.name}]]\"` in a script " + UNQUOTED
-            + " (a string renders the same, a number renders `42` instead of `\"42\"`)",
+            + " (a string renders the same; any other value renders as JSON, such as `42`, `true` or `{...}`,"
+            + " instead of a quoted string)",
         "1: `'[[${user.id}]]'` in a script " + UNQUOTED,
         "1: `user` is declared as `Object` in the generated `t:params` stub");
   }
@@ -412,10 +413,21 @@ class MigratorTest {
   }
 
   @Test
-  void templateLiteralHoldingOnlyAnInlineIsUnquoted() throws Exception {
-    String src = script("", "var a = `[[${x}]]`;");
-    assertEquals(script("", "var a = [[${x}]];"), convert(src));
-    assertMessages(src, "1: `` `[[${x}]]` `` in a script " + UNQUOTED);
+  void templateLiteralHoldingOnlyAnInlineIsReportedNotUnquoted() throws Exception {
+    // Dropping the backticks would turn a tag call String.raw`...` into String.raw"value", so a
+    // template literal is never unquoted, tagged or not; the report says what to write.
+    for (String body : List.of("var a = `[[${x}]]`;", "`[[${x}]]`", "function f() { return `[[${x}]]`; }",
+        "var a = String.raw`[[${x}]]`;", "var a = tag /* c */ `[[${x}]]`;", "var a = f()`[[${x}]]`;")) {
+      String src = script("", body);
+      assertEquals(src, convert(src), body);
+      assertMessages(src, "1: `` `[[${x}]]` `` in a script is a template literal, and `[[...]]` inside it is a"
+          + " build error in Tessera (it writes a JSON value with its own quotes); drop the backticks, or for a"
+          + " tagged template keep them and write ``tag`${[[...]]}` ``");
+    }
+    // A quoted inline inside template code is still unquoted.
+    String nested = script("", "var a = `${\"[[${x}]]\"}`;");
+    assertEquals(script("", "var a = `${[[${x}]]}`;"), convert(nested));
+    assertMessages(nested, "1: `\"[[${x}]]\"` in a script " + UNQUOTED);
   }
 
   @Test
