@@ -438,7 +438,10 @@ that runs code. What differs:
   element: put it on an enclosing element or a `<t:block>` (Thymeleaf's `th:block`).
 - `t:each` iterates an Iterable, array or Map (`e.key`, `e.value`); status `index`, `count`,
   `size`, `first`, `last`, `even`, `odd`, implicit name `xStat`. `t:with` locals are immutable.
-  `t:remove` takes a literal (`all`, `body`, `tag`, `all-but-first`, `none`).
+  `t:remove` takes a literal (`all`, `body`, `tag`, `all-but-first`, `none`). `tag` is not allowed on
+  `<script>`, `<style>`, `<title>` or `<textarea>`, whose content is text only inside their own
+  tags, nor on `<svg>`, `<math>` or any element inside them, whose content a browser parses
+  differently without the enclosing tag. The other values keep the tag, so they are allowed on these elements.
 - Any `t:<name>` sets that attribute; `null` omits it, and boolean attributes (`t:checked`,
   `t:disabled`, ...) render `name="name"` or nothing. `t:utext` and `[(...)]` need a `SafeHtml`
   or a checked bundle message (section 4.5).
@@ -1472,6 +1475,13 @@ These come from the annotation processor itself, without a template position.
 - `t:with variable name '<name>' must be an identifier ([A-Za-z_][A-Za-z0-9_]*)`.
 - `t:case must be inside an element with t:switch (on an enclosing element, not the same one)`.
 - `t:remove must be one of all, body, tag, all-but-first, none (got '<value>')`.
+- `t:remove="tag" is not allowed on <<tag>>: it is <svg> or <math> or inside one, and without the tag a browser would parse its content as HTML, not as SVG or MathML (or the reverse); keep the tag, or use t:remove="all" to drop the element`:
+  on `<svg>`, `<math>` and every element inside them, matched by name. Without the `<svg>` tag,
+  for example, a browser reads an SVG `<![CDATA[ ... ]]>` section as a comment that ends at the
+  first `>`, so markup Tessera compiled as text would be live.
+- `t:remove="tag" is not allowed on <<tag>>: its content is text only inside <<tag>>, and without the tags a browser would parse it as HTML; keep the tag, or use t:remove="all" to drop the element`:
+  on `<script>`, `<style>`, `<title>` and `<textarea>`, whose content Tessera reads (and escapes)
+  as text.
 
 ### Messages and links
 
