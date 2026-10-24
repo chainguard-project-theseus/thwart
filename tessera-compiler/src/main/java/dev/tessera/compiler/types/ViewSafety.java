@@ -16,6 +16,7 @@ import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
@@ -193,6 +194,90 @@ final class ViewSafety {
       default:
         return Optional.empty();
     }
+  }
+
+  /**
+   * Why the parameterized container {@code type} (e.g. {@code Map.Entry<K, V>}) is not view-safe,
+   * naming the first type argument that isn't (searched depth-first through nested containers and
+   * arrays): {@code "its type argument com.example.Hidden is not public, not a record and not
+   * annotated @TemplateView"}. Empty if {@code type} is not a container or all its arguments are
+   * view-safe (then the container itself is the problem, e.g. it is raw).
+   */
+  Optional<String> badTypeArgument(TypeMirror type) {
+    if (type.getKind() != TypeKind.DECLARED) {
+      return Optional.empty();
+    }
+    DeclaredType dt = (DeclaredType) type;
+    if (!CONTAINERS.contains(((TypeElement) dt.asElement()).getQualifiedName().toString())) {
+      return Optional.empty();
+    }
+    for (TypeMirror arg : dt.getTypeArguments()) {
+      String why = whyNotAllowed(arg);
+      if (why != null) {
+        return Optional.of("its type argument " + why);
+      }
+    }
+    return Optional.empty();
+  }
+
+  /** {@code "<innermost offending type> <why>"}, or null if {@code type} is view-safe. */
+  private String whyNotAllowed(TypeMirror type) {
+    if (allowed(type) && !neverViewSafeReason(type).isPresent()) {
+      return null;
+    }
+    switch (type.getKind()) {
+      case ARRAY:
+        return whyNotAllowed(((ArrayType) type).getComponentType());
+      case WILDCARD: {
+        WildcardType w = (WildcardType) type;
+        if (w.getExtendsBound() != null) {
+          return whyNotAllowed(w.getExtendsBound());
+        }
+        return w.getSuperBound() != null
+            ? type + " is a ? super wildcard: use a specific type"
+            : "? is unbounded: use a specific type";
+      }
+      case TYPEVAR:
+        return type + " is a type variable: use a specific type";
+      case DECLARED: {
+        DeclaredType dt = (DeclaredType) type;
+        TypeElement te = (TypeElement) dt.asElement();
+        Optional<String> never = neverViewSafeReason(type);
+        if (never.isPresent() && deniedSelfOrSupertype(dt) != null) {
+          return never.get(); // the type itself is deny-listed
+        }
+        if (CONTAINERS.contains(te.getQualifiedName().toString())) {
+          if (dt.getTypeArguments().isEmpty()) {
+            return type + " is raw: declare its type arguments";
+          }
+          for (TypeMirror arg : dt.getTypeArguments()) {
+            String why = whyNotAllowed(arg);
+            if (why != null) {
+              return why;
+            }
+          }
+        }
+        if (never.isPresent()) {
+          return never.get();
+        }
+        return type
+            + (isPublic(te)
+                ? " is not a record or annotated @TemplateView"
+                : " is not public, not a record and not annotated @TemplateView");
+      }
+      default:
+        return type + " is not view-safe";
+    }
+  }
+
+  /** Whether {@code te} and every type enclosing it are public (accessible from generated code). */
+  private static boolean isPublic(TypeElement te) {
+    for (Element e = te; e instanceof TypeElement; e = e.getEnclosingElement()) {
+      if (!e.getModifiers().contains(Modifier.PUBLIC)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /** The first deny-listed name among {@code type} and its supertypes (Object excluded), or null. */

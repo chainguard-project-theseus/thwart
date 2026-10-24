@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.tessera.compiler.testing.Compilation;
 import java.util.List;
 import java.util.Map;
 import javax.lang.model.type.TypeMirror;
@@ -285,5 +286,50 @@ class ViewSafetyTest {
     TypesHarness.Result r = h.compile(prop(prop(v("box"), "value"), "name"));
     assertNotNull(r.code(), r.errors().toString());
     assertEquals("pen", h.evalCode(r));
+  }
+  /** A container that isn't view-safe names the type argument that isn't, and why (#260). */
+  private static Compilation entries(String mapType, String body) {
+    return Compilation.builder()
+        .java("com.example.Hidden", "package com.example; class Hidden { public String getId() { return \"h\"; } }")
+        .java("com.example.Pojo", "package com.example; public class Pojo { public String getName() { return \"p\"; } }")
+        .java(
+            "com.example.Holder",
+            "package com.example; public record Holder(" + mapType + " map, java.util.List<Pojo> pojos) {}")
+        .template("page.html", "<div t:params=\"com.example.Holder h\">\n" + body + "</div>")
+        .compile();
+  }
+
+  @Test
+  void containerNamesTheTypeArgumentThatIsNotViewSafe() {
+    Compilation c = entries("java.util.Map<Hidden, String>", "<p t:each=\"e : h.map\">[[e.key]]</p>");
+    c.assertError("page.html:2:25: ", "cannot read 'key'", "is not view-safe: its type argument com.example.Hidden is not"
+        + " public, not a record and not annotated @TemplateView");
+    // The container itself is view-safe: don't tell the user to annotate Map.Entry.
+    assertFalse(String.join("\n", c.errors()).contains("make it a record"), c.errors().toString());
+  }
+
+  @Test
+  void nestedTypeArgumentIsFound() {
+    entries(
+            "java.util.Map<String, java.util.Map<Hidden, java.util.List<String>>>",
+            "<p t:each=\"e : h.map\">[[e.key]]</p>")
+        .assertError("page.html:2:", "cannot read 'key'", "its type argument com.example.Hidden is not public");
+    entries("java.util.Map<String, String>", "<p t:each=\"p : h.pojos\">[[p.name]]</p><i>[[h.pojos]]</i>")
+        .assertError("page.html:2:", "com.example.Pojo is not view-safe (make it a record or annotate it @TemplateView)")
+        .assertError(
+            "page.html:2:",
+            "cannot output a value of type java.util.List<com.example.Pojo>: it is not view-safe: its type argument"
+                + " com.example.Pojo is not a record or annotated @TemplateView");
+  }
+
+  @Test
+  void parameterTypeNamesTheTypeArgument() {
+    Compilation.builder()
+        .java("com.example.Pojo", "package com.example; public class Pojo {}")
+        .template("page.html", "<p t:params=\"java.util.Map<String, java.util.List<com.example.Pojo[]>> m\">x</p>")
+        .compile()
+        .assertError(
+            "page.html:1:",
+            "is not view-safe: its type argument com.example.Pojo is not a record or annotated @TemplateView");
   }
 }
