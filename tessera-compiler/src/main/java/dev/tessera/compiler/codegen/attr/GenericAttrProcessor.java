@@ -23,7 +23,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
 /**
- * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}; an htmx request URL ({@code hx-get}, ...) only a same-origin link.
+ * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. A Vue/Alpine binding with an ordinary target ({@code :prop}, SCRIPT_ATTRIBUTE) takes only a JSON-serializable value, written as JSON. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}; an htmx request URL ({@code hx-get}, ...) only a same-origin link.
  */
 public final class GenericAttrProcessor implements AttributeProcessor {
 
@@ -53,9 +53,17 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     OutputContext context = Contexts.attribute(plan.element(), name);
     String hint;
     switch (context) {
+      case SCRIPT_ATTRIBUTE:
+        jsonBinding(ctx, plan, name, value, pos, label);
+        return;
       case EVENT_HANDLER:
         hint =
-            Contexts.isFrameworkDirective(plan.element(), name)
+            isBind(lower)
+                ? "'" + name + "' is a Vue or Alpine binding whose value is run as JavaScript; an expression"
+                    + " (written as JSON) is only allowed in :x, v-bind:x or x-bind:x whose target x is an"
+                    + " ordinary attribute, with no modifiers, not on* / style / a URL / innerHTML / is, and not"
+                    + " on <script>, <style> or <meta>; otherwise write it as a static attribute"
+                : Contexts.isFrameworkDirective(plan.element(), name)
                 ? "'" + name + "' is a Vue, Alpine, htmx, _hyperscript, AngularJS or Knockout directive whose value is"
                     + " run as JavaScript, so it cannot contain expressions; write it as a static attribute,"
                     + " or put the value in a data-* attribute or a <script> with [[...]] and read it from there"
@@ -118,6 +126,29 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       return;
     }
     plan.setAttribute(name, c.code(), pos);
+  }
+
+  private static final Pattern BIND = Pattern.compile("[vx]-bind([:.].*)?");
+
+  /** Whether {@code lower} is a Vue/Alpine binding ({@code :x}, {@code v-bind...}, {@code x-bind...}). */
+  private static boolean isBind(String lower) {
+    return lower.startsWith(":") || BIND.matcher(lower).matches();
+  }
+
+  /**
+   * A Vue/Alpine binding such as {@code :prop} (#246; {@link Contexts#isJsonBinding}): the value
+   * must be JSON-serializable ({@link ScriptJson}) and is written as JSON, then attribute-escaped
+   * ({@code Escapers.jsonAttr}), so the framework evaluates it to the same value and never runs it.
+   */
+  private static void jsonBinding(CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label) {
+    CompiledExpr c = ctx.expressions().compileOutput(value, plan.scope());
+    if (c == null) {
+      return;
+    }
+    String code = ScriptJson.attributeValue(ctx, c, pos, label);
+    if (code != null) {
+      plan.setAttribute(name, code, pos);
+    }
   }
 
   private static final Pattern REFRESH_PREFIX =
