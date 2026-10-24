@@ -141,6 +141,34 @@ class MessageBundlesTest {
         c.diagnostics().stream().filter(d -> d.startsWith("WARNING: Tessera: message file")).toList();
     assertEquals(1, warnings.size(), c.diagnostics().toString());
     assertTrue(warnings.get(0).contains("messages_en-US.properties is not loaded"), warnings.get(0));
+    // Spring may still serve the skipped file's value; the runtime check escapes it.
+    RenderContext us =
+        new RenderContext(Locale.US, (k, a) -> "<script>alert(1)</script>", new DefaultLinks(""), Forms.NONE);
+    assertEquals("<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>", c.render("page", Map.of(), us));
+  }
+
+  @Test
+  void scriptLocaleFileIsChecked() throws IOException {
+    espd();
+    write("i18n/messages_zh_Hant_TW.properties", "intro=<p onclick=\"x()\">Hi</p>\n");
+    compile(dir.resolve("i18n/messages_en").toString(), "<p t:utext=\"#{intro}\">x</p>")
+        .assertError("messages_zh_Hant_TW.properties", "attribute onclick is not allowed");
+  }
+
+  @Test
+  void sameKeyInTwoBasenamesChecksBothValues() throws IOException {
+    write("a/messages.properties", "k=<b>A</b>\n");
+    write("b/labels.properties", "k=<b>B</b>\n");
+    Compilation c =
+        compile(dir.resolve("a/messages") + "," + dir.resolve("b/labels"), "<p t:utext=\"#{k}\">x</p>")
+            .assertSuccess();
+    for (String v : List.of("<b>A</b>", "<b>B</b>")) {
+      RenderContext ctx = new RenderContext(Locale.ENGLISH, (k, a) -> v, new DefaultLinks(""), Forms.NONE);
+      assertEquals("<p>" + v + "</p>", c.render("page", Map.of(), ctx));
+    }
+    write("b/labels_fr.properties", "k=<img src=x onerror=alert(1)>\n");
+    compile(dir.resolve("a/messages") + "," + dir.resolve("b/labels"), "<p t:utext=\"#{k}\">x</p>")
+        .assertError("labels_fr.properties");
   }
 
   @Test

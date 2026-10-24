@@ -36,8 +36,12 @@ import java.util.stream.Stream;
  * A message rendered as HTML is checked in every loaded file.
  */
 public final class MessageBundle {
-  /** {@code _<language>[_<COUNTRY>|_<region>][_<variant>]}, the suffix of a locale file. */
-  private static final Pattern LOCALE_SUFFIX = Pattern.compile("_[a-z]{2,3}(_[A-Z]{2}|_[0-9]{3})?(_[A-Za-z0-9]+)?");
+  /**
+   * {@code _<language>[_<Script>][_<COUNTRY>|_<region>][_<variant>]}, the suffix of a locale file
+   * ({@code _zh_Hant_TW} is the JDK's name for Taiwan).
+   */
+  private static final Pattern LOCALE_SUFFIX =
+      Pattern.compile("_[a-z]{2,3}(_[A-Z][a-z]{3})?(_[A-Z]{2}|_[0-9]{3})?(_[A-Za-z0-9]+)?");
 
   /** A trailing locale on a basename: {@code messages_en}, {@code messages_pt_BR}. */
   private static final Pattern NAMED_LOCALE = Pattern.compile("(.+?)_([a-z]{2})(_[A-Z]{2}|_[0-9]{3})?");
