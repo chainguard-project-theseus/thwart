@@ -1,6 +1,6 @@
 # tessera-migrate report
 
-Converted 7 template(s); 27 item(s) need manual attention.
+Converted 8 template(s); 37 item(s) need manual attention.
 
 ## fragments/inputField.html
 
@@ -14,6 +14,19 @@ Converted 7 template(s); 27 item(s) need manual attention.
 - `fragments/layout.html:2`: fragment `layout` parameters declared as `Object` (`template`, `menu`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`)
 - `fragments/layout.html:34`: fragment `menuItem` parameters declared as `Object` (`link`, `active`, `title`, `glyph`, `text`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`)
 - `fragments/layout.html:35`: `__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field
+
+## misc/scripts.html
+
+- `misc/scripts.html:2`: `user` is declared as `Object` in the generated `t:params` stub; replace it with its view type
+- `misc/scripts.html:2`: `page` is declared as `Object` in the generated `t:params` stub; replace it with its view type
+- `misc/scripts.html:5`: `"[[${user.name}]]"` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes (a string renders the same, a number renders `42` instead of `"42"`)
+- `misc/scripts.html:6`: `'[[${user.id}]]'` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes (a string renders the same, a number renders `42` instead of `"42"`)
+- `misc/scripts.html:7`: `[[${user.name}]]` inside a quoted JavaScript string is a build error in Tessera (it writes a JSON value with its own quotes); rewrite as `"text " + [[${user.name}]] + " text"`
+- `misc/scripts.html:11`: `th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or move data to `data-*` attributes
+- `misc/scripts.html:12`: `` `[[${page.title}]]` `` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes (a string renders the same, a number renders `42` instead of `"42"`)
+- `misc/scripts.html:13`: `"[[${page.number}]]"` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes (a string renders the same, a number renders `42` instead of `"42"`)
+- `misc/scripts.html:15`: `"[[${page.title}]]"` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes (a string renders the same, a number renders `42` instead of `"42"`)
+- `misc/scripts.html:16`: `"[[${user.name}]]"` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes (a string renders the same, a number renders `42` instead of `"42"`)
 
 ## misc/unsupported.html
 

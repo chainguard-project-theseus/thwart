@@ -1,8 +1,10 @@
 package dev.tessera.migrate;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -101,6 +103,12 @@ final class Migrator {
     private boolean rootHasParams;
     private int rootLine;
     private int rootInsertAt;
+    /** Lower-case name of the element whose start tag is being read. */
+    private String openName;
+    /** The {@code type} of that {@code <script>}; {@code null} after a {@code t:type}. */
+    private String scriptType;
+    /** True between the start and end tag of a JavaScript or JSON {@code <script>}. */
+    private boolean inScript;
 
     Handler(String file, char[] doc) {
       this.file = file;
@@ -119,7 +127,14 @@ final class Migrator {
     }
 
     @Override
+    public void handleOpenElementEnd(char[] buffer, int nameOffset, int nameLen, int line, int col) {
+      inScript = ConversionRules.SCRIPT.equals(openName) && scriptType != null
+          && ConversionRules.SCRIPT_TYPES.contains(Compat.strip(scriptType).toLowerCase(Locale.ROOT));
+    }
+
+    @Override
     public void handleCloseElementStart(char[] buffer, int nameOffset, int nameLen, int line, int col) {
+      inScript = false;
       renameElement(buffer, nameOffset, nameLen);
     }
 
@@ -131,6 +146,9 @@ final class Migrator {
 
     private void elementStart(char[] buffer, int nameOffset, int nameLen, int line) {
       checkBuffer(buffer);
+      openName = new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT);
+      scriptType = "";
+      inScript = false;
       inRoot = !rootSeen;
       if (!rootSeen) {
         rootSeen = true;
@@ -166,6 +184,14 @@ final class Migrator {
       String lower = name.toLowerCase(Locale.ROOT);
       String value = hasValue ? new String(buffer, valueContentOffset, valueContentLen) : null;
       boolean quoted = valueOuterLen > valueContentLen;
+      if (ConversionRules.SCRIPT.equals(openName)) {
+        if (lower.equals(ConversionRules.TYPE) && scriptType != null) {
+          scriptType = value == null ? "" : value;
+        } else if (lower.equals(ConversionRules.THYMELEAF_PREFIX + ConversionRules.TYPE)
+            || lower.equals(ConversionRules.TESSERA_PREFIX + ConversionRules.TYPE)) {
+          scriptType = null;
+        }
+      }
 
       if (lower.equals(ConversionRules.THYMELEAF_XMLNS)) {
         edits.add(new Edit(nameOffset, nameLen, ConversionRules.TESSERA_XMLNS));
@@ -326,12 +352,124 @@ final class Migrator {
       return String.join(",", parts);
     }
 
-    /** {@code [[...]]} and {@code [(...)]} in text: collect roots and report, never rewrite. */
+    /**
+     * {@code [[...]]} and {@code [(...)]} in text: collect roots and report. The only rewrite is in
+     * a JavaScript or JSON {@code <script>}, see {@link #quotedInlines}.
+     */
     @Override
     public void handleText(char[] buffer, int offset, int len, int line, int col) {
+      checkBuffer(buffer);
       String text = new String(buffer, offset, len);
+      if (inScript) {
+        quotedInlines(text, offset, line);
+      }
       inline(text, line, "[[", "]]");
       inline(text, line, "[(", ")]");
+    }
+
+    private static final int CODE = 0;
+    private static final int STRING = 1;
+    private static final int LINE_COMMENT = 2;
+    private static final int BLOCK_COMMENT = 3;
+
+    /**
+     * Finds {@code [[...]]} inside JavaScript string literals of script text that starts at
+     * {@code offset} of the document. In Tessera {@code [[...]]} writes a JSON value with its own
+     * quotes, so a Thymeleaf {@code "[[${x}]]"} would close the string (the compiler rejects it, #281).
+     * A literal that is exactly one inline ({@code "[[...]]"}, {@code '[[...]]'} or
+     * {@code `[[...]]`}) loses its quotes; any other inline in a literal is reported. The scan
+     * tracks strings, template literal {@code ${...}} and comments, not regular expression literals;
+     * the compiler is the safety net, and dropping the quotes around an inline can't make it unsafe.
+     */
+    private void quotedInlines(String text, int offset, int line) {
+      int state = CODE;
+      char quote = 0;
+      int quoteAt = -1; // the opening quote when the current literal so far is only that quote
+      int braces = 0;
+      Deque<Integer> templates = new ArrayDeque<>(); // brace depth at each ${ of a template literal
+      for (int i = 0; i < text.length(); i++) {
+        char c = text.charAt(i);
+        if (text.startsWith("[[", i)) {
+          int end = text.indexOf("]]", i + 2);
+          if (end < 0) {
+            return;
+          }
+          int after = end + 2;
+          if (state == STRING) {
+            String inline = text.substring(i, after);
+            int at = lineAt(text, line, i);
+            if (quoteAt == i - 1 && after < text.length() && text.charAt(after) == quote) {
+              edits.add(new Edit(offset + quoteAt, 1, ""));
+              edits.add(new Edit(offset + after, 1, ""));
+              report(at, String.format(ConversionRules.SCRIPT_INLINE_UNQUOTED_MESSAGE,
+                  codeSpan(quote + inline + quote)));
+              state = CODE;
+              i = after; // the closing quote
+              continue;
+            }
+            report(at, String.format(ConversionRules.SCRIPT_INLINE_IN_STRING_MESSAGE, inline, inline));
+            quoteAt = -1;
+          }
+          i = after - 1;
+          continue;
+        }
+        boolean lineEnd = c == '\n' || c == '\r' || c == '\u2028' || c == '\u2029';
+        switch (state) {
+          case CODE:
+            if (c == '"' || c == '\'' || c == '`') {
+              state = STRING;
+              quote = c;
+              quoteAt = i;
+            } else if (c == '/' && text.startsWith("//", i)) {
+              state = LINE_COMMENT;
+            } else if (c == '/' && text.startsWith("/*", i)) {
+              state = BLOCK_COMMENT;
+              i++; // so that "/*/" does not end the comment
+            } else if (c == '{') {
+              braces++;
+            } else if (c == '}' && !templates.isEmpty() && templates.peek() == braces) {
+              templates.pop();
+              state = STRING;
+              quote = '`';
+              quoteAt = -1;
+            } else if (c == '}') {
+              braces--;
+            }
+            break;
+          case STRING:
+            quoteAt = -1;
+            if (c == '\\') {
+              i++;
+            } else if (c == quote || (lineEnd && quote != '`')) {
+              state = CODE;
+            } else if (quote == '`' && text.startsWith("${", i)) {
+              templates.push(braces);
+              state = CODE;
+              i++;
+            }
+            break;
+          case LINE_COMMENT:
+            if (lineEnd) {
+              state = CODE;
+            }
+            break;
+          default:
+            if (text.startsWith("*/", i)) {
+              state = CODE;
+              i++;
+            }
+            break;
+        }
+      }
+    }
+
+    private static String codeSpan(String s) {
+      return s.indexOf('`') >= 0 ? "`` " + s + " ``" : "`" + s + "`";
+    }
+
+    /** The line of {@code text.charAt(index)}, where {@code text} starts on {@code line}. */
+    private static int lineAt(String text, int line, int index) {
+      return line + (int) text.substring(0, index).chars().filter(c -> c == '\n').count();
     }
 
     private void inline(String text, int line, String open, String close) {
@@ -342,7 +480,7 @@ final class Migrator {
           return;
         }
         String expr = text.substring(at + open.length(), end);
-        int exprLine = line + (int) text.substring(0, at).chars().filter(c -> c == '\n').count();
+        int exprLine = lineAt(text, line, at);
         List<String> problems = Expressions.unsupported(expr);
         problems.forEach(p -> report(exprLine, p));
         if (problems.isEmpty()) {

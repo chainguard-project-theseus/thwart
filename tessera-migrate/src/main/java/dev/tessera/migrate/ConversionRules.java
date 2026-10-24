@@ -198,6 +198,22 @@ final class ConversionRules {
       "and", "or", "not", "eq", "ne", "neq", "lt", "gt", "le", "ge", "div", "mod",
       "true", "false", "null", "this");
 
+  /**
+   * {@code <script type>} values whose content is JavaScript or JSON, compared stripped and in lower
+   * case; the compiler's script context uses the same list. A {@code t:type} is not one of them.
+   */
+  static final Set<String> SCRIPT_TYPES = Compat.setOf("", "text/javascript", "application/javascript",
+      "text/ecmascript", "application/ecmascript", "module", "application/json", "application/ld+json");
+
+  static final String SCRIPT = "script";
+  static final String TYPE = "type";
+
+  /** {@code %s} is the literal as a Markdown code span. */
+  static final String SCRIPT_INLINE_UNQUOTED_MESSAGE =
+      "%s in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes (a string renders the same, a number renders `42` instead of `\"42\"`)";
+  static final String SCRIPT_INLINE_IN_STRING_MESSAGE =
+      "`%s` inside a quoted JavaScript string is a build error in Tessera (it writes a JSON value with its own quotes); rewrite as `\"text \" + %s + \" text\"`";
+
   static final String PARAM_STUB_MESSAGE =
       "`%s` is declared as `Object` in the generated `t:params` stub; replace it with its view type";
   static final String FRAGMENT_PARAMS_MESSAGE =

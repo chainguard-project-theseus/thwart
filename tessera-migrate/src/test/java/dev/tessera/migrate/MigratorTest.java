@@ -368,6 +368,124 @@ class MigratorTest {
     assertMessages(src, "1: `T(...)` static class access is not supported");
   }
 
+  // ---- quoted inlines in <script> (#282) ----
+
+  private static final String UNQUOTED = "was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes";
+  private static final String IN_STRING =
+      "inside a quoted JavaScript string is a build error in Tessera (it writes a JSON value with its own quotes)";
+
+  /** A script in a root that already declares its parameters, so no stub items are reported. */
+  private static String script(String attributes, String body) {
+    return "<div t:params=\"String x, String y\"><script" + attributes + ">" + body + "</script></div>";
+  }
+
+  @Test
+  void quotedInlineFillingAStringIsUnquoted() throws Exception {
+    String src = "<div th:with=\"a=1\"><script>var a = \"[[${user.name}]]\"; var b = '[[${user.id}]]';</script></div>";
+    assertEquals(
+        "<div t:with=\"a=1\" t:params=\"Object user\"><script>var a = [[${user.name}]]; var b = [[${user.id}]];</script></div>",
+        convert(src));
+    assertMessages(src,
+        "1: `\"[[${user.name}]]\"` in a script " + UNQUOTED
+            + " (a string renders the same, a number renders `42` instead of `\"42\"`)",
+        "1: `'[[${user.id}]]'` in a script " + UNQUOTED,
+        "1: `user` is declared as `Object` in the generated `t:params` stub");
+  }
+
+  @Test
+  void quotedInlineIsUnquotedInEveryJavaScriptAndJsonScript() throws Exception {
+    for (String attributes : List.of("", " type=\"module\"", " type=\"TEXT/JavaScript\"", " type",
+        " type=\" application/javascript \"", " type=\"application/ld+json\"")) {
+      String src = script(attributes, "var a = \"[[${x}]]\";");
+      assertEquals(script(attributes, "var a = [[${x}]];"), convert(src), attributes);
+    }
+    String json = script(" type=\"application/json\"", "{\"a\": \"[[${x}]]\", \"b\": [[${y}]]}");
+    assertEquals(script(" type=\"application/json\"", "{\"a\": [[${x}]], \"b\": [[${y}]]}"), convert(json));
+    assertMessages(json, "1: `\"[[${x}]]\"` in a script " + UNQUOTED);
+  }
+
+  @Test
+  void quotedInlineInsideThInlineScriptIsUnquotedAndTheAttributeStillReported() throws Exception {
+    String src = script(" th:inline=\"javascript\"", "var a = '[[${x}]]';");
+    assertEquals(script(" th:inline=\"javascript\"", "var a = [[${x}]];"), convert(src));
+    assertMessages(src, "1: `th:inline` is not supported", "1: `'[[${x}]]'` in a script " + UNQUOTED);
+  }
+
+  @Test
+  void templateLiteralHoldingOnlyAnInlineIsUnquoted() throws Exception {
+    String src = script("", "var a = `[[${x}]]`;");
+    assertEquals(script("", "var a = [[${x}]];"), convert(src));
+    assertMessages(src, "1: `` `[[${x}]]` `` in a script " + UNQUOTED);
+  }
+
+  @Test
+  void stringsAroundAnUnquotedInlineAreKept() throws Exception {
+    // Exactly one inline between two quotes is a whole string literal, even between concatenations.
+    String src = script("", "var a = 'a' + \"[[${x}]]\" + 'b';");
+    assertEquals(script("", "var a = 'a' + [[${x}]] + 'b';"), convert(src));
+    assertMessages(src, "1: `\"[[${x}]]\"` in a script " + UNQUOTED);
+    // Quotes inside the expression don't end or start a string.
+    String quotes = script("", "var a = [[${x == '\"'}]]; var b = \"[[${y + 'a'}]]\";");
+    assertEquals(script("", "var a = [[${x == '\"'}]]; var b = [[${y + 'a'}]];"), convert(quotes));
+    assertMessages(quotes, "1: `\"[[${y + 'a'}]]\"` in a script " + UNQUOTED);
+  }
+
+  @Test
+  void inlineSharingAStringWithOtherTextIsReportedNotRewritten() throws Exception {
+    for (String body : List.of(
+        "var a = \"Hello [[${x}]]!\";",
+        "var a = 'Hello [[${x}]]';",
+        "var a = \"[[${x}]]!\";",
+        "var a = \"\\\"[[${x}]]\";",
+        "var a = `a ${1} [[${x}]]`;",
+        "var a = `${\"a [[${x}]]\"}`;")) {
+      String src = script("", body);
+      assertEquals(src, convert(src), body);
+      assertMessages(src, "1: `[[${x}]]` " + IN_STRING + "; rewrite as `\"text \" + [[${x}]] + \" text\"`");
+    }
+    String two = script("", "var a = \"[[${x}]] [[${y}]]\";");
+    assertEquals(two, convert(two));
+    assertMessages(two, "1: `[[${x}]]` " + IN_STRING, "1: `[[${y}]]` " + IN_STRING);
+  }
+
+  @Test
+  void quotedInlineIsReportedOnItsOwnLine() throws Exception {
+    String src = "<div t:params=\"String x\">\n<script>\n  var a = 1;\n  var b = \"x [[${x}]]\";\n"
+        + "  var c = \"[[${x}]]\";\n</script></div>";
+    assertMessages(src, "4: `[[${x}]]` " + IN_STRING, "5: `\"[[${x}]]\"` in a script " + UNQUOTED);
+  }
+
+  @Test
+  void inlinesOutsideJavaScriptStringsAreUnchanged() throws Exception {
+    for (String body : List.of(
+        "var a = [[${x}]];",
+        "var a = \"a\" + [[${x}]] + \"b\";",
+        "// \"[[${x}]]\"\nvar a = 1;",
+        "/* \"[[${x}]]\" */ var a = 1;",
+        "/*/ \"[[${x}]]\" */",
+        "var a = /*[[${x}]]*/ 'd';",
+        "var a = `${[[${x}]]}`;",
+        "var a = `${ {b: \"}\"} }` + [[${x}]];",
+        "var a = \"done\"; var b = [[${x}]]; var c = 'it\\'s';",
+        "var a = \"unterminated\nvar b = [[${x}]];")) {
+      String src = script("", body);
+      assertEquals(src, convert(src), body);
+      assertEquals(List.of(), messages(src), body);
+    }
+    for (String src : List.of(
+        "<div t:params=\"String x\"><p>\"[[${x}]]\"</p><b title=\"'[[${x}]]'\" onclick=\"f('[[${x}]]')\">b</b></div>",
+        script(" type=\"text/x-template\"", "\"[[${x}]]\""),
+        script(" t:type=\"y\"", "\"[[${x}]]\""),
+        script(" type=\"text/x-template\"", "a") + "<p>'[[${x}]]'</p>")) {
+      assertEquals(src, convert(src), src);
+      assertEquals(List.of(), messages(src), src);
+    }
+    // A type set by an expression is not a JavaScript script (the compiler rejects inlines there).
+    String dynamic = script(" th:type=\"${y}\"", "\"[[${x}]]\"");
+    assertEquals(script(" t:type=\"y\"", "\"[[${x}]]\""), convert(dynamic));
+    assertEquals(List.of(), messages(dynamic));
+  }
+
   @Test
   void literalTextThatLooksDangerousIsNotReported() throws Exception {
     String src = "<p th:text=\"'T(x) new Foo @bean #ctx.x'\">x</p>";
