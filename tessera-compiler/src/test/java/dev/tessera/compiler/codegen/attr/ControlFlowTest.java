@@ -2,6 +2,7 @@ package dev.tessera.compiler.codegen.attr;
 
 import static dev.tessera.compiler.testing.Compilation.model;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import dev.tessera.compiler.testing.Compilation;
 import java.util.Arrays;
@@ -430,5 +431,80 @@ class ControlFlowTest {
   void removeNeedsALiteral() {
     compile("String x", "<p t:remove=\"${x}\">a</p>").assertError("page.html:1:", "t:remove must be one of");
     compile("", "<p t:remove=\"everything\">a</p>").assertError("t:remove must be one of");
+  }
+
+  @Test
+  void removeTagOnRawTextElementsIsRejected() {
+    // Without its tags the title's text would be parsed as HTML: <script>[[s]]</script> would run s.
+    for (String tag : List.of("title", "TextArea", "script", "style")) {
+      Compilation c =
+          Compilation.builder()
+              .template("page.html", "<div t:params=\"String s\">\n  <" + tag + " t:remove=\"tag\">x</" + tag + "></div>")
+              .compile();
+      c.assertError(
+          "page.html:2:" + (tag.length() + 15),
+          "t:remove=\"tag\" is not allowed on <" + tag + ">: its content is text only inside <" + tag
+              + ">, and without the tags a browser would parse it as HTML; keep the tag, or use t:remove=\"all\""
+              + " to drop the element");
+      assertNull(c.generatedSource("tessera.generated.PageTemplate"), "nothing may be generated");
+    }
+  }
+
+  @Test
+  void removeTagOnSvgOrMathOrInsideThemIsRejected() {
+    // Without the <svg> tag a browser parses <![CDATA[ as a bogus comment that ends at the first >,
+    // so the <script> Tessera compiled as SVG text would run s.
+    for (String t : List.of(
+        "<svg t:remove=\"tag\"><text><![CDATA[ x><script>/*]]>*/[[s]]<!--</script>--></text></svg>",
+        "<math t:remove=\"tag\"><mtext>[[s]]</mtext></math>",
+        "<SVG t:remove=\" tag \"><g></g></SVG>",
+        "<svg><foreignObject t:remove=\"tag\"><p>[[s]]</p></foreignObject></svg>",
+        "<svg><g t:remove=\"tag\"><title>[[s]]</title></g></svg>",
+        "<svg><title t:remove=\"tag\">[[s]]</title></svg>",
+        "<svg><desc t:remove=\"tag\">[[s]]</desc></svg>",
+        "<math><mi t:remove=\"tag\">[[s]]</mi><mo t:remove=\"tag\">+</mo></math>",
+        "<math><annotation-xml encoding=\"text/html\" t:remove=\"tag\">[[s]]</annotation-xml></math>",
+        "<svg><foreignObject><div><b t:remove=\"tag\">[[s]]</b></div></foreignObject></svg>",
+        "<svg><t:block t:remove=\"tag\">[[s]]</t:block></svg>",
+        "<svg><g t:fragment=\"f(String v)\" t:remove=\"tag\">[[v]]</g></svg><div t:insert=\"~{::f(s)}\"></div>")) {
+      compile("String s", t).assertError("page.html:", "t:remove=\"tag\" is not allowed");
+    }
+    Compilation c =
+        Compilation.builder()
+            .template("page.html", "<div t:params=\"String s\">\n  <svg><g t:remove=\"tag\">x</g></svg></div>")
+            .compile();
+    c.assertError(
+        "page.html:2:21",
+        "t:remove=\"tag\" is not allowed on <g>: it is <svg> or <math> or inside one, and without the tag a browser"
+            + " would parse its content as HTML, not as SVG or MathML (or the reverse); keep the tag, or use"
+            + " t:remove=\"all\" to drop the element");
+    assertNull(c.generatedSource("tessera.generated.PageTemplate"), "nothing may be generated");
+  }
+
+  @Test
+  void otherRemoveValuesOnSvgAndMathKeepTheTags() {
+    Compilation c =
+        compile(
+            "String s",
+            "<svg t:remove=\"body\"><g></g></svg>|<svg t:remove=\"all\"><g></g></svg>|"
+                + "<svg t:remove=\"none\"><g t:remove=\"all-but-first\"><text>[[s]]</text><g></g></g></svg>|"
+                + "<math><mtext t:remove=\"none\">[[s]]</mtext></math>|<svg></svg><i t:remove=\"tag\">[[s]]</i>");
+    assertEquals(
+        "<svg></svg>||<svg><g><text>&lt;x&gt;</text></g></svg>|<math><mtext>&lt;x&gt;</mtext></math>|<svg></svg>&lt;x&gt;",
+        render(c, model("s", "<x>")));
+  }
+
+  @Test
+  void otherRemoveValuesOnRawTextElementsKeepTheTags() {
+    Compilation c =
+        compile(
+            "String s",
+            "<title t:remove=\"body\">a</title>|<title t:remove=\"all-but-first\"><b>[[s]]</b></title>|"
+                + "<textarea t:remove=\"all\">x</textarea>|<textarea t:remove=\"none\"><b></textarea>|"
+                + "<t:block t:remove=\"tag\"><title>[[s]]</title></t:block>|<i t:remove=\"tag\"><title>[[s]]</title></i>");
+    assertEquals(
+        "<title></title>|<title><b>&lt;x&gt;</b></title>||<textarea><b></textarea>|<title>&lt;x&gt;</title>|"
+            + "<title>&lt;x&gt;</title>",
+        render(c, model("s", "<x>")));
   }
 }
