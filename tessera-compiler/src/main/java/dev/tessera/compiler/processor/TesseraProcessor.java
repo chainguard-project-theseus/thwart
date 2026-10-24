@@ -12,6 +12,7 @@ import dev.tessera.runtime.TemplateFunctions;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -57,6 +58,7 @@ public final class TesseraProcessor extends AbstractProcessor {
 
   private boolean done;
   private ProcessorOptions options;
+  private boolean warnedSkippedMessages;
   /** What the processor wrote, compared with a last-round compile (#233), or null. */
   private List<GeneratedFile> written;
   private final Set<String> functionClassNames = new LinkedHashSet<>();
@@ -124,7 +126,16 @@ public final class TesseraProcessor extends AbstractProcessor {
   private List<GeneratedFile> compile(Diagnostics diagnostics, List<TypeElement> functionClasses) throws IOException {
     List<TemplateSource> sources = TemplateDiscovery.discover(options.templates());
     MessageBundle messages =
-        options.messages() == null ? MessageBundle.unchecked() : MessageBundle.load(options.messages());
+        options.messages().isEmpty() ? MessageBundle.unchecked() : MessageBundle.load(options.messages());
+    if (!warnedSkippedMessages) {
+      warnedSkippedMessages = true;
+      for (Path skipped : messages.skipped()) {
+        processingEnv.getMessager().printMessage(
+            Kind.WARNING,
+            "Tessera: message file " + skipped + " is not loaded: its name does not end in a locale"
+                + " (_fr, _pt_BR, ...), so its keys are not checked and its HTML messages are escaped");
+      }
+    }
     CompilerEnv env =
         new CompilerEnv(
             processingEnv.getElementUtils(),
@@ -172,9 +183,12 @@ public final class TesseraProcessor extends AbstractProcessor {
     if (!Files.isDirectory(options.templates())) {
       return "Tessera: templates directory does not exist: " + options.templates();
     }
-    if (options.messages() != null && !Files.isRegularFile(MessageBundle.file(options.messages()))) {
-      return "Tessera: message bundle does not exist: " + MessageBundle.file(options.messages())
-          + " (-A" + ProcessorOptions.MESSAGES + " is the bundle base path without .properties)";
+    for (Path base : options.messages()) {
+      String problem = MessageBundle.problem(base);
+      if (problem != null) {
+        return "Tessera: " + problem + " (-A" + ProcessorOptions.MESSAGES
+            + " is a comma-separated list of bundle base paths without .properties)";
+      }
     }
     return null;
   }
