@@ -337,7 +337,7 @@ class FormsTest {
   @Test
   void errorClassNegative() {
     compileForm(HEAD + "><input t:errorclass=\"err\"></form>").assertError("t:errorclass needs t:field");
-    compileForm(HEAD + "><input t:field=\"*{age}\" t:errorclass=\"x\\\" onclick=\\\"y\"></form>")
+    compileForm(HEAD + "><input t:field=\"*{age}\" t:errorclass=\"x&quot; onclick=&quot;y\"></form>")
         .assertError("t:errorclass needs literal class names");
     compileForm(HEAD + "><input t:field=\"*{age}\" t:errorclass=\"${owner.firstName}\"></form>")
         .assertError("t:errorclass needs literal class names");

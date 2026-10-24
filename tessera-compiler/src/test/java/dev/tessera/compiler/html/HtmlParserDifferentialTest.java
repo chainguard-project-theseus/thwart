@@ -13,6 +13,7 @@ import com.sun.source.util.JavacTask;
 import com.sun.source.util.TreeScanner;
 import dev.tessera.compiler.Diagnostic;
 import dev.tessera.compiler.Diagnostics;
+import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.TemplateSource;
 import dev.tessera.compiler.model.Document;
 import java.io.IOException;
@@ -38,7 +39,9 @@ import org.junit.jupiter.api.Test;
  * Parses a corpus with {@link HtmlParser} (Tessera's own tokenizer) and with {@link
  * AttoparserHtmlParser} (the attoparser-based parser it replaced, #170) and requires the same
  * documents (node kinds, names, attributes, quotes, positions, text contexts, self-closing and
- * end tags) and the same diagnostics, character for character.
+ * end tags) and the same diagnostics, character for character, up to where Tessera rejects a
+ * tag that a browser reads differently (a quote outside a quoted attribute value, a char that is
+ * whitespace in Java but not in HTML, or a misplaced {@code /}).
  *
  * <p>Corpus: every {@code .html} file in the repository (outside {@code bench/}), every fenced
  * block in the docs, every string literal containing {@code <} in the repository's test sources,
@@ -49,6 +52,9 @@ class HtmlParserDifferentialTest {
 
   private static final Path ROOT = Path.of("..").toAbsolutePath().normalize();
   private static final long SEED = 170;
+  /** Tessera's own fatal tag errors (see {@code MarkupTokenizer.tagEnd}), where attoparser reads on. */
+  private static final List<String> TAG_ERRORS = List.of("malformed markup: quote ", "malformed markup: U+",
+      "malformed markup: '/' before '>'", "malformed markup: a name after '/'");
 
   /** Building blocks for mutations and random documents: everything the tokenizer treats specially. */
   private static final String[] TOKENS = {
@@ -182,9 +188,49 @@ class HtmlParserDifferentialTest {
     if (expected.equals(actual) && want.equals(got)) {
       return null;
     }
+    List<Diagnostic> all = actualDiagnostics.all();
+    for (int at = 0; at < all.size(); at++) {
+      Diagnostic tagError = all.get(at);
+      if (TAG_ERRORS.stream().anyMatch(tagError.message()::startsWith)) {
+        SourcePos pos = tagError.pos();
+        int error = source(input).lineStarts()[pos.line() - 1] + pos.column() - 1;
+        // a z after a '/' in a tag starts a name, an error of its own; a '/' at the start of a tag
+        // name stops the tag starting. One of the two masks keeps the tag open to the end.
+        String z = compareBeforeTagError(input, error, "z", actual, got, at);
+        return z == null || compareBeforeTagError(input, error, "/", actual, got, at) == null ? null : z;
+      }
+    }
     return "input: " + escape(input)
         + "\nattoparser: " + escape(want + " " + expected.children())
         + "\ntessera:    " + escape(got + " " + actual.children());
+  }
+
+  /**
+   * Compares what comes before a tag error of Tessera's own (see {@link #TAG_ERRORS}: attoparser
+   * reads on where a browser and Tessera do not). The tokenizer stops inside the tag that holds the
+   * error, so with the offending char and everything after it replaced by {@code mask} (same
+   * length, so the length-dependent rules for what starts a tag do not change) Tessera must read
+   * the input the same up to that tag, which then has no end ("Incomplete structure" in place of
+   * the tag error {@code got[at]}; diagnostics reported after it stay), and attoparser must agree
+   * on the replaced input.
+   */
+  private static String compareBeforeTagError(String input, int error, String mask, Document actual,
+      List<String> got, int at) {
+    String masked = input.substring(0, error) + mask.repeat(input.length() - error);
+    Diagnostics d = new Diagnostics();
+    Document doc = new HtmlParser().parse(source(masked), d);
+    List<String> maskedGot = d.all().stream().map(Diagnostic::toString).toList();
+    List<String> others = new ArrayList<>(got);
+    others.remove(at);
+    List<String> maskedOthers = new ArrayList<>(maskedGot);
+    String incomplete = maskedOthers.size() == got.size() ? maskedOthers.remove(at) : "";
+    if (!doc.children().equals(actual.children()) || !maskedOthers.equals(others)
+        || !incomplete.contains("error: malformed markup: Incomplete structure")) {
+      return "input: " + escape(input) + "\nTessera reads the input up to its tag error differently from: "
+          + escape(masked) + "\nmasked: " + escape(maskedGot + " " + doc.children())
+          + "\nfull:   " + escape(got + " " + actual.children());
+    }
+    return compare(masked);
   }
 
   private static String escape(String s) {

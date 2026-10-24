@@ -404,7 +404,18 @@ class XssContextTest {
           "<noscript><p t:utext=\"html.sanitize(s)\">x</p></noscript>",
           "<xmp t:utext=\"html.sanitize(s)\"></xmp>",
           "<noembed>[(#html.sanitize(s))]</noembed>",
-          "<noframes><textarea>[(#html.sanitize(s))]</textarea></noframes>");
+          "<noframes><textarea>[(#html.sanitize(s))]</textarea></noframes>",
+          // a browser ends these tags at the first '>' and runs [[s]] as script
+          "<p title=a\"><script>//\">\n[[s]]\n//</p><!-- </script> -->",
+          "<p title=\"a\"b\"><script>//\">\n[[s]]\n//</p><!-- </script> -->",
+          "<p></p \"><script>//\">\n[[s]]\n<!-- </script> -->",
+          // a browser does not end these tag names at U+000B, so <textarea>/<title> is an unknown element
+          "<textarea\u000b><a onclick=\"[[s]]\">x</a></textarea>",
+          "<title\u000b><img src=x onerror=\"[[s]]\"></title>",
+          // a browser does not end this tag at '/>', so the <script> after it is live
+          "<textarea x=y/><a title=\"</textarea><script>//\">\n[[s]]\n//</a><!-- </script> -->",
+          // a browser reads a valueless type first, so this is a classic script, not JSON
+          "<script type/ type=\"application/json\">[[s]]</script>");
 
   /** The built-in {@code html.sanitize} turns stored rich text into SafeHtml for raw output. */
   @Test
