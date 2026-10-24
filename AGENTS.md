@@ -9,30 +9,47 @@ pilot of Chainguard's secure-by-design library portfolio.
 
 ## Design principles (non-negotiable)
 
-Every change must uphold all six. If a task seems to require breaking one, stop and say so
-in the PR/issue instead of working around it.
+Every change must uphold all seven. If a task seems to require breaking one, stop and say so
+in the PR/issue instead of working around it. The profile and the CI spec-parser check in 3
+and 5 are being built in the phases of [docs/security-architecture.md](docs/security-architecture.md)
+§8; new code moves toward them, never away.
 
 1. **Templates are code.** Compiled at build time into Java classes. The runtime has no
    template parser and no API that accepts template source as a `String`.
 2. **No ambient authority.** A template sees only its declared, typed `t:params`. No class
    names, no `new`, no static state.
-3. **Allow-list everything callable.** Property access resolves at compile time against the
-   view-safe type allow-list. Functions exist only if registered with `@TemplateFunction`.
-   The never-view-safe list (`Object` methods, `Class`, `ClassLoader`, `java.lang.reflect`,
-   `java.lang.invoke`, `Thread`, `Runtime`, `ProcessBuilder`, servlet/Spring context
-   objects) can never be reached, even if registered.
+3. **Allow-list everything callable, and everything parseable.** Property access resolves at
+   compile time against the view-safe type allow-list. Functions exist only if registered with
+   `@TemplateFunction`. The never-view-safe list (`Object` methods, `Class`, `ClassLoader`,
+   `java.lang.reflect`, `java.lang.invoke`, `Thread`, `Runtime`, `ProcessBuilder`,
+   servlet/Spring context objects) can never be reached, even if registered. Markup is held to
+   the same rule: the compiler accepts a closed profile of HTML, and any element, attribute name,
+   or construct outside it is a build error. The profile is specified in
+   `docs/context-model.md` once phase 2 writes it; until then it is
+   specified in §5 of docs/security-architecture.md.
 4. **No reflection at runtime.** All access is generated Java. No `java.lang.reflect`,
    `MethodHandle`, SpEL, OGNL, or `ScriptEngine` in runtime or generated code.
-5. **Escaping is contextual and cannot be forgotten.** The compiler picks the escaper from
-   the output context. Raw output needs a safe type (`SafeHtml`, `TrustedUrl`), never a flag
-   on a string.
-6. **Familiar before novel.** Track Thymeleaf syntax and behaviour wherever that is safe so
-   migration is mechanical.
+5. **Contexts are proven, not guessed; escaping cannot be forgotten.** The compiler accepts only
+   templates in which it can classify every output position exactly as every supported browser
+   parses it, and checks this against a spec parser in CI. Within that, it picks the escaper
+   from the context. Raw output needs a safe type of the right content kind (`SafeHtml`,
+   `TrustedUrl`, `Fragment`), never a flag on a string.
+6. **Familiar before novel, inside the profile.** Track Thymeleaf syntax and behaviour where it
+   is safe, so migration is mechanical. Where Thymeleaf accepts something outside the profile,
+   Tessera rejects it with a fix-it and `tessera-migrate` rewrites it where it can. Parity never
+   overrides 5.
+7. **The guarantee ends at the HTML parser.** Tessera guarantees what the browser's HTML parser
+   and built-in sinks do with the output. Client-side code that re-reads the DOM as code is
+   supported only for frameworks in the framework table, deny-by-default, with the remaining
+   gaps documented. New framework support is a table entry plus harness rows, never a special
+   case.
 
 ## Keep it simple
 
 This is an MVP built tonight. Prefer the smallest thing that is correct and secure.
 
+- A security fix that adds a special case to the parser or context table is a smell. Prefer
+  shrinking the profile.
 - Do exactly the issue's scope. No speculative abstractions, plugin systems, config knobs,
   or "future-proofing". No new modules or dependencies unless the issue says so.
 - Plain Java. `tessera-runtime`, `tessera-compiler` (the annotation processor runs inside the
