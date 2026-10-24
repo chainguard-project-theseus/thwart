@@ -6,8 +6,10 @@
 | budgetmaster | run-9 | no | ok | 269/269 (base 269) | 62+0/121 | 0 | - | 0 | invoked | 49.6 | 29.71 | 377904 |
 | espd | run-1 | no | ok | 931/931 (base 931) | 21+0/60 | 0 | - | 0 | invoked | 16.3 | 10.74 | 171660 |
 | espd | run-2 | no | ok | 932/932 (base 931) | 46+0/60 | 0 | - | 51 | invoked | 34.4 | 14.47 | 169319 |
+| espd | run-3 | no | ok | 931/931 (base 931) | 50+0/60 | 0 | - | 0 | invoked | 58.0 | 19.57 | 193222 |
 | ewp-registry | run-1 | no | ok | 375/375 (base 372) | 34+0/38 | 0 | - | 0 | invoked | 43.6 | 8.08 | 92313 |
 | ewp-registry | run-2 | no | ok | 376/376 (base 372) | 35+0/38 | 0 | - | 0 | invoked | 42.2 | 7.80 | 93056 |
+| ewp-registry | run-3 | no | ok | 373/373 (base 372) | 35+0/38 | 0 | - | 0 | invoked | 38.7 | 9.89 | 94078 |
 | fredbet | run-1 (crawl.py) | no | ok | 123/123 (base 117) | 164+0/169 | 0 | - | 0 | - | 24.3 | 15.19 | 210654 |
 | fredbet | run-2 (crawl.py) | no | ok | 122/122 (base 117) | 166+0/169 | 0 | - | 0 | - | 28.7 | 20.03 | 235526 |
 | fredbet | run-3 (crawl.py) | no | ok | 119/119 (base 117) | 168+0/169 | 0 | - | 0 | - | 36.8 | 16.17 | 201271 |
@@ -80,9 +82,9 @@
 | App | Runs | Passed | Build ok | Tests ok | Skill invoked | Mean pages identical+reordered |
 |---|---|---|---|---|---|---|
 | budgetmaster | 4 | 0/4 | 4/4 | 4/4 | 2/2 | 39% |
-| espd | 2 | 0/2 | 2/2 | 2/2 | 2/2 | 56% |
-| ewp-registry | 2 | 0/2 | 2/2 | 2/2 | 2/2 | 91% |
+| espd | 3 | 0/3 | 3/3 | 3/3 | 3/3 | 65% |
+| ewp-registry | 3 | 0/3 | 3/3 | 3/3 | 3/3 | 91% |
 | jprime | 3 | 0/3 | 3/3 | 3/3 | 2/2 | 95% |
 | luckyblog | 2 | 1/2 | 2/2 | 2/2 | 2/2 | 99% |
 | purl-server | 3 | 2/3 | 3/3 | 3/3 | 2/2 | 99% |
-| all | 16 | 3/16 | | | | |
+| all | 18 | 3/18 | | | | |
