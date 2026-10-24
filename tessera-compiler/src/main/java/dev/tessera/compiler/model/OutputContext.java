@@ -6,8 +6,16 @@ package dev.tessera.compiler.model;
  * to exactly one runtime escaper; contexts without an escaper are build errors.
  */
 public enum OutputContext {
-  /** Element text, including RCDATA ({@code <title>}, {@code <textarea>}). */
+  /**
+   * Element text. The escaper also breaks {@code {{} with an empty comment, so client-side
+   * frameworks that compile the DOM as a template do not interpolate values (#248).
+   */
   TEXT("text"),
+  /**
+   * Text in {@code <title>} or {@code <textarea>} (RCDATA, #248). Escaped like TEXT, but
+   * {@code {{} is not broken: a comment would show as text there.
+   */
+  RCDATA("rcdata"),
   /** Quoted value of an ordinary attribute. Generated attributes are always double-quoted. */
   ATTRIBUTE("attr"),
   /** URL-valued attribute: href, src, action, formaction, cite, poster, ... (scheme-checked). */

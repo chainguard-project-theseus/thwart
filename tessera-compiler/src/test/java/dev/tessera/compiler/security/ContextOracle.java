@@ -61,6 +61,47 @@ final class ContextOracle {
     return null;
   }
 
+  /** What the element-text escaper writes between braces (#248). */
+  static final String BRACE_BREAK = "<!---->";
+
+  /**
+   * Element text: like {@link #html}, except that empty comments may separate braces, and no
+   * client-side {@code {{} interpolation can form, whatever text is written next to the value: no
+   * text between the comments contains {@code {{}, the value neither starts nor ends with a bare
+   * {@code {}, and every comment touches a brace. Without the comments, it decodes to
+   * {@code expected} (if not null).
+   */
+  static String text(String out, String expected) {
+    return text(out, expected, true);
+  }
+
+  /**
+   * As {@link #text(String, String)}; without {@code edges}, the slot is the middle of a value
+   * (a literal substitution), so its ends need no comment.
+   */
+  static String text(String out, String expected, boolean edges) {
+    String[] parts = out.split(Pattern.quote(BRACE_BREAK), -1);
+    for (int i = 0; i < parts.length; i++) {
+      String r = html(parts[i], null);
+      if (r != null) {
+        return r;
+      }
+      if (decodeHtml(parts[i]).contains("{{")) {
+        return "unbroken {{ in " + parts[i];
+      }
+      if (i > 0 && !parts[i - 1].endsWith("{") && !parts[i].startsWith("{")) {
+        return "comment not next to a brace";
+      }
+    }
+    if (edges && (out.startsWith("{") || out.endsWith("{"))) {
+      return "bare { at the edge";
+    }
+    if (expected != null && !decodeHtml(String.join("", parts)).equals(wellFormed(expected))) {
+      return "decodes to a different value";
+    }
+    return null;
+  }
+
   /**
    * A URL attribute value: safe as an attribute, and the scheme a browser would see after
    * decoding is allowed. Unless the value was replaced, it must decode to {@code expected}.

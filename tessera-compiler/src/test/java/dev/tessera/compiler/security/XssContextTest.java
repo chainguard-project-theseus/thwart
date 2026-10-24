@@ -35,6 +35,10 @@ class XssContextTest {
 
   /** How an output slot is checked. */
   enum Kind {
+    /** Element text: {@code {{} is broken with empty comments (#248). */
+    TEXT,
+    /** Element text in the middle of one value (a literal substitution): its ends are not edges. */
+    TEXT_PART,
     HTML,
     URL,
     JSON,
@@ -47,12 +51,12 @@ class XssContextTest {
 
   static final List<Line> LINES =
       List.of(
-          new Line("<p t:text=\"s\">x</p>", Kind.HTML),
-          new Line("<p>a [[s]] b</p>", Kind.HTML),
+          new Line("<p t:text=\"s\">x</p>", Kind.TEXT),
+          new Line("<p>a [[s]] b</p>", Kind.TEXT),
           new Line("<title>[[s]]</title>", Kind.HTML),
           new Line("<textarea t:text=\"s\"></textarea>", Kind.HTML),
-          new Line("<xmp>[[s]]</xmp><noscript>[[s]]</noscript><noembed>[[s]]</noembed>", Kind.HTML, Kind.HTML, Kind.HTML),
-          new Line("<iframe>[[s]]</iframe>", Kind.HTML),
+          new Line("<xmp>[[s]]</xmp><noscript>[[s]]</noscript><noembed>[[s]]</noembed>", Kind.TEXT, Kind.TEXT, Kind.TEXT),
+          new Line("<iframe>[[s]]</iframe>", Kind.TEXT),
           new Line("<i t:title=\"s\" t:attr=\"data-x=s\">x</i>", Kind.HTML, Kind.HTML),
           new Line("<i t:class=\"s\">x</i><i class=\"c\" t:classappend=\"'k' + s\">y</i>", Kind.HTML, Kind.HTML),
           new Line("<input t:value=\"s\"><img t:alt=\"s\">", Kind.HTML, Kind.HTML),
@@ -66,17 +70,19 @@ class XssContextTest {
               Kind.URL, Kind.URL, Kind.URL, Kind.URL, Kind.URL),
           new Line("<a t:href=\"@{/o/{id}(id='x' + s, q=s)}\">x</a>", Kind.PATH_SEGMENT, Kind.QUERY),
           new Line("<script t:src=\"@{/js/{f}(f='x' + s)}\"></script>", Kind.PATH_SEGMENT),
-          new Line("<p t:text=\"#{greet(s)}\">x</p><i t:title=\"#{greet(s)}\">y</i>", Kind.HTML, Kind.HTML),
-          new Line("<p t:text=\"|a ${s} b|\">x</p>", Kind.HTML),
+          new Line("<p t:text=\"#{greet(s)}\">x</p><i t:title=\"#{greet(s)}\">y</i>", Kind.TEXT, Kind.HTML),
+          new Line("<p t:text=\"|a ${s} b|\">x</p>", Kind.TEXT_PART),
           new Line("<script t:text=\"s\"></script>", Kind.JSON),
           new Line(
               "<script>var a = [[s]]; /*[[s]]*/ var t = `[[s]]`; var r = /[[s]]/; // [[s]]\n</script>",
               Kind.JSON, Kind.JSON, Kind.JSON, Kind.JSON, Kind.JSON),
           new Line("<SCRIPT type=\"application/json\">[[s]]</SCRIPT>", Kind.JSON),
           new Line(
-              "<form method=\"post\" t:object=\"owner\"><input t:field=\"*{name}\"><span t:errors=\"*{name}\">e</span></form>",
-              // The first slot is the injected CSRF hidden-input value, before the fields.
-              Kind.HTML, Kind.HTML, Kind.HTML));
+              "<form method=\"post\" t:object=\"owner\"><input t:field=\"*{name}\"><span t:errors=\"*{name}\">e</span>"
+                  + "<textarea t:field=\"*{name}\"></textarea></form>",
+              // The first slot is the injected CSRF hidden-input value, before the fields. A
+              // <textarea> is RCDATA: no comments there (#248).
+              Kind.HTML, Kind.HTML, Kind.TEXT, Kind.HTML));
 
   private static Compilation compilation;
   private static List<Kind> kinds;
@@ -160,6 +166,8 @@ class XssContextTest {
       String slot = m.group(i + 1);
       String problem =
           switch (kinds.get(i)) {
+            case TEXT -> ContextOracle.text(slot, null);
+            case TEXT_PART -> ContextOracle.text(slot, null, false);
             case HTML -> ContextOracle.html(slot, null);
             case URL -> ContextOracle.url(slot, s);
             case JSON -> ContextOracle.jsonString("\"" + slot + "\"", s);

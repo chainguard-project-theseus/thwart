@@ -451,7 +451,8 @@ The compiler decides the context from the element and attribute name. You cannot
 
 | Context | Where | What happens |
 |---|---|---|
-| Text | element text, `<title>`, `<textarea>`, `t:text`, `[[...]]` | `& < > " '` escaped. |
+| Text | element text, `t:text`, `[[...]]` | `& < > " '` escaped, and `{{` broken with an empty comment (below). |
+| Title and textarea | text in `<title>` and `<textarea>` (also `t:field`) | `& < > " '` escaped; `{{` is left as is. |
 | Raw HTML | `t:utext`, `[(...)]` | Only `SafeHtml`, or a bundle message checked at build time (section 4.5), compiles. |
 | Attribute | any other attribute value | Escaped, always double-quoted. |
 | URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, `hx-push-url`, `hx-replace-url`, ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. |
@@ -509,6 +510,18 @@ boosted page's form somewhere else, put `hx-boost="false"` on the form; it then 
 and takes any URL. `hx-boost` cannot be computed: write `true` or `false`. Links need nothing:
 htmx boosts an `<a>` only when its hostname is the page's, so `t:href="${user.website}"` in a boosted
 nav stays an ordinary URL.
+
+Vue (2 and 3), petite-vue and AngularJS compile the page's HTML as a template when they mount
+it, so a `{{ ... }}` in printed user data would run as an expression, escaped or not. Element
+text therefore never contains `{{` from a value: Tessera writes an empty comment between two
+braces, before a value's first `{` and after its last (`{{x}}` renders as
+`<!---->{<!---->{x}}`). Nothing visible changes: the page, `textContent` and copied text are the
+same, and `tessera-migrate compare` ignores comments. This happens in every template, whether or
+not it shows a mount point, since the app is often mounted from JavaScript or in a layout. The
+same applies to `SafeHtml.escape`, `html.sanitize` (which also percent-encodes `{` in the links it
+keeps) and the arguments of an HTML message. An expression inside a static `{{ ... }}` in the
+template is a build error, since the framework would run the value as code: pass it in a
+`data-*` attribute or a `<script>` with `[[...]]`. Attribute values and `<title>`/`<textarea>` text are not changed (section 7).
 
 In a script, a record or `@TemplateView` bean becomes a JSON object of the properties a template
 can read, as Thymeleaf's Jackson output does: `var chart = [[${chart}]];` works unchanged. Record
@@ -1373,6 +1386,9 @@ These come from the annotation processor itself, without a template position.
 - `<form> is not allowed in <CONTEXT> context: move the expression into element text or a t: attribute`.
 - `t:utext is only allowed on elements whose content is HTML text, not <script> or <style>`.
 - `[(...)] is only allowed in element text; inside <script> use [[...]], which outputs JSON`.
+- `[[...]] is inside a client-side {{ ... }} interpolation: Vue or AngularJS would run the value as code, whatever the escaping. Pass the value in a data-* attribute or a <script> with [[...]] and read it from there`
+  (also `[(...)]`): the text has a `{{` with no `}}` before the expression. Character references
+  for braces count, as the framework decodes them.
 - `cannot output a value of type <type> inside <script>: only strings, numbers, booleans, enums, java.time values, records and @TemplateView classes of those, and Optionals, collections, arrays and String-keyed maps of those can be serialized as JSON`:
   when a property of a record or bean is the problem, the message ends with
   `; property '<name>' of <type> has type <type>` (or `; <type> contains itself with different type arguments`).
@@ -1526,6 +1542,17 @@ Gaps in Tessera today, each with what to do until it is fixed.
   its form (`form="id"`) are not seen. On htmx 1.9.5 and later set
   `htmx.config.selfRequestsOnly = true` (the default from 2.0) so htmx requests only the page's
   origin; older htmx 1.x has no such setting, so upgrade.
+- **Client-side templates (`{{ }}`).** Tessera breaks `{{` only in element text (section 4.4).
+  AngularJS also interpolates attribute values (`title`, `value`, `alt`, `href`, ...), and Vue,
+  petite-vue and AngularJS interpolate `<title>` and `<textarea>` text, where a comment would
+  show or change the value. Inside a mounted app, put `ng-non-bindable` (AngularJS; it also
+  covers the element's own attributes) or `v-pre` (Vue) on elements whose attributes or
+  `<title>`/`<textarea>` hold user data, or keep server-rendered user data out of the mounted
+  region. Custom delimiters (Vue `delimiters`, AngularJS `$interpolateProvider`) are not
+  broken, so keep the default `{{ }}` or mark the region. The check for an expression inside a
+  static `{{ }}` only sees one text: a `{{` before a tag or comment and an expression after it
+  are not reported. `SafeHtml.unchecked` text is not changed, and neither is SVG `<title>` text,
+  which the frameworks interpolate too: add `v-pre`/`ng-non-bindable` there as well.
 - **Security functions.** `auth` has `hasRole`/`hasAnyRole`, not `hasAuthority`; compute anything
   else in the controller.
 - **Selections.** `~{::tag}` selects fragment names and plain tag names only: not hyphenated tags,
@@ -1536,7 +1563,9 @@ Gaps in Tessera today, each with what to do until it is fixed.
   attributes, and Kotlin.
 - **Expected output differences from Thymeleaf:** attributes set by `t:` attributes may move within
   the tag; `<td >` (after a removed attribute) renders as `<td>`; a `null` attribute value omits
-  the attribute (Thymeleaf writes `value=""`); a `null` link path variable fails the render.
+  the attribute (Thymeleaf writes `value=""`); a `null` link path variable fails the render;
+  element text from a value with `{{`, or starting or ending with `{`, gets empty comments next
+  to those braces (section 4.4).
 - **Runtime errors** are model type mismatches (`TemplateModelException`), missing primitive
   parameters, reading a property of `null`, and `null` link path variables. Everything else is a
   build error.

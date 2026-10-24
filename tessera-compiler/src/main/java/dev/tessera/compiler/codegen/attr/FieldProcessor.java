@@ -63,7 +63,7 @@ public final class FieldProcessor implements AttributeProcessor {
         break;
       case "textarea":
         nameAndId(plan, attr, name, id);
-        plan.replaceBody(ESCAPERS + ".text(out, " + display + ");", OutputContext.TEXT);
+        plan.replaceBody(ESCAPERS + ".rcdata(out, " + display + ");", OutputContext.RCDATA);
         break;
       case "select":
         nameAndId(plan, attr, name, id);

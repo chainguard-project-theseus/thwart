@@ -50,10 +50,32 @@ public final class Escapers {
   }
 
   /**
+   * Written between two {@code {} characters in element text, so that client-side frameworks
+   * that compile the page's DOM as a template (Vue 2/3, petite-vue, AngularJS) never see a
+   * {@code {{} interpolation in the value (#248). An empty comment is a node boundary: the text
+   * that the page shows, {@code textContent} and copied text are unchanged.
+   */
+  static final String BRACE_BREAK = "<!---->";
+
+  /**
    * HTML element text (OutputContext.TEXT). Encodes {@code & < > " '}. A {@link SafeHtml}
    * argument is escaped like any other value: {@code t:text} always escapes.
+   *
+   * <p>Also breaks client-side template delimiters (#248): an empty comment ({@code <!---->})
+   * is written between two adjacent {@code {}, before a {@code {} that starts the value and
+   * after one that ends it, so neither the value alone nor the value next to static text or
+   * another value can form {@code {{}. Values without {@code {} are written as by {@link #attr}.
    */
   public static void text(Output out, Object value) {
+    escapeText(out, toText(value));
+  }
+
+  /**
+   * Text in {@code <title>} or {@code <textarea>} (OutputContext.RCDATA). Encodes
+   * {@code & < > " '} like {@link #attr}. A comment cannot be written there (the browser shows it
+   * as text), so {@code {{} is not broken; see guide section 7.
+   */
+  public static void rcdata(Output out, Object value) {
     escapeHtml(out, toText(value));
   }
 
@@ -171,13 +193,14 @@ public final class Escapers {
         // an argument does not fit the pattern (e.g. text for {0,number}): not this pattern
       }
     }
-    return escapeHtml(message);
+    return escapeText(message);
   }
 
   /**
    * The arguments of {@link #htmlMessage}. The compiler has checked the message's markup and that
    * its placeholders only stand in text, so each argument only has to be escaped as HTML text:
-   * every value becomes its escaped {@linkplain #toText text}, except {@link Number} and
+   * every value becomes its escaped {@linkplain #toText text}, with {@code {{} broken as by
+   * {@link #text}, except {@link Number} and
    * {@link java.util.Date}, which {@link MessageFormat} formats itself (to digits and locale
    * symbols or names, never markup) and which must stay numbers and dates for {@code {0,number}}
    * and {@code {0,date}}. {@code null} stays {@code null}, as with the escaped form. Returns a new
@@ -187,7 +210,7 @@ public final class Escapers {
     Object[] escaped = new Object[args.length];
     for (int i = 0; i < args.length; i++) {
       Object a = args[i];
-      escaped[i] = a == null || a instanceof Number || a instanceof java.util.Date ? a : escapeHtml(toText(a));
+      escaped[i] = a == null || a instanceof Number || a instanceof java.util.Date ? a : escapeText(toText(a));
     }
     return escaped;
   }
@@ -246,44 +269,76 @@ public final class Escapers {
 
   private static void escapeHtml(Output out, String s) {
     if (out instanceof StringOutput) {
-      ((StringOutput) out).writeHtml(s);
+      ((StringOutput) out).writeHtml(s, false);
     } else {
       out.write(escapeHtml(s));
     }
   }
 
-  /** Append directly to StringOutput; other sinks retain one write per escaped value. */
-  static void escapeHtml(StringBuilder sb, String s) {
+  private static void escapeText(Output out, String s) {
+    if (out instanceof StringOutput) {
+      ((StringOutput) out).writeHtml(s, true);
+    } else {
+      out.write(escapeText(s));
+    }
+  }
+
+  /**
+   * Append directly to StringOutput; other sinks retain one write per escaped value. With
+   * {@code text}, also breaks {@code {{} as {@link #text} does.
+   */
+  static void escapeHtml(StringBuilder sb, String s, boolean text) {
     int i = 0;
-    while (i < s.length() && !needsHtmlEscape(s, i)) {
+    while (i < s.length() && !needsHtmlEscape(s, i, text)) {
       i++;
     }
     if (i == s.length()) {
       sb.append(s);
     } else {
-      appendEscapedHtml(sb, s, i);
+      appendEscapedHtml(sb, s, i, text);
     }
   }
 
   static String escapeHtml(String s) {
+    return escape(s, false);
+  }
+
+  /** Escapes element text as {@link #text} does, {@code {{} broken. */
+  static String escapeText(String s) {
+    return escape(s, true);
+  }
+
+  private static String escape(String s, boolean text) {
     int i = 0;
     int n = s.length();
-    while (i < n && !needsHtmlEscape(s, i)) {
+    while (i < n && !needsHtmlEscape(s, i, text)) {
       i++;
     }
     if (i == n) {
       return s;
     }
     StringBuilder sb = new StringBuilder(n + 16);
-    appendEscapedHtml(sb, s, i);
+    appendEscapedHtml(sb, s, i, text);
     return sb.toString();
   }
 
-  private static void appendEscapedHtml(StringBuilder sb, String s, int i) {
+  private static void appendEscapedHtml(StringBuilder sb, String s, int i, boolean text) {
     int n = s.length();
     sb.append(s, 0, i);
     for (; i < n; i++) {
       char c = s.charAt(i);
+      if (c == '{' && text) {
+        // Never let two braces meet: not inside the value, and not with whatever is written
+        // before or after it (static text, another value).
+        if (i == 0) {
+          sb.append(BRACE_BREAK);
+        }
+        sb.append('{');
+        if (i + 1 == n || s.charAt(i + 1) == '{') {
+          sb.append(BRACE_BREAK);
+        }
+        continue;
+      }
       switch (c) {
         case '&':
           sb.append("&amp;");
@@ -316,9 +371,11 @@ public final class Escapers {
     }
   }
 
-  private static boolean needsHtmlEscape(String s, int i) {
+  private static boolean needsHtmlEscape(String s, int i, boolean text) {
     char c = s.charAt(i);
     switch (c) {
+      case '{':
+        return text;
       case '&':
       case '<':
       case '>':
