@@ -1,0 +1,192 @@
+package dev.tessera.compiler.codegen.attr;
+
+import static dev.tessera.compiler.codegen.attr.FormFixture.ctx;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.tessera.compiler.codegen.attr.FormFixture.TestForms;
+import dev.tessera.compiler.testing.Compilation;
+import dev.tessera.runtime.Forms;
+import java.util.Map;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.api.Test;
+
+/**
+ * A submit button sends its form, CSRF token included, to its {@code formaction} (#314). Where the
+ * button may submit a POST form that gets the token, a computed formaction must be a same-origin
+ * link, a static one must be same-origin by shape, and formmethod must stay POST.
+ */
+class CsrfFormactionTest {
+  private static final String INPUT = "<input type=\"hidden\" name=\"_csrf\" value=\"tok\" />";
+  private static final String EVIL = "https://evil.example/collect";
+
+  private static Compilation compile(String body) {
+    return Compilation.builder()
+        .template("page.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"String u, String m, int id\">\n"
+            + body + "\n</div>")
+        .compile();
+  }
+
+  private static String render(Compilation c) {
+    TestForms forms = new TestForms();
+    forms.token = new Forms.CsrfToken("_csrf", "tok");
+    return c.render("page", Map.of("u", EVIL, "m", "get", "id", 7), ctx(forms));
+  }
+
+  private static void rejected(String body, String... message) {
+    Compilation c = compile(body);
+    c.assertError("page.html:2:");
+    c.assertError(message);
+    assertNull(c.generatedSource("tessera.generated.PageTemplate"), "nothing may be generated");
+  }
+
+  private static final String POST = "<form method=\"post\" action=\"/transfer\">";
+
+  /** Negative: each way to compute or write a cross-origin formaction in a token-bearing form. */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<button t:formaction=\"${u}\">Go</button>",
+        "<button t:formaction=\"u\">Go</button>",
+        "<button t:attr=\"formaction=${u}\">Go</button>",
+        "<button t:attr=\"title=${u}, FormAction=${u}\">Go</button>",
+        "<button t:FORMACTION=\"${u}\">Go</button>",
+        "<button t:formaction=\"@{//evil.example/x}\">Go</button>",
+        "<button t:formaction=\"@{/\\evil.example/x}\">Go</button>",
+        "<button t:formaction=\"@{https://evil.example/x}\">Go</button>",
+        "<button t:formaction=\"u != null ? @{/a} : @{/b}\">Go</button>",
+        "<input type=\"submit\" t:formaction=\"${u}\">",
+        "<input type=\"image\" src=\"/i.png\" t:formaction=\"${u}\">",
+        "<button formaction=\"https://evil.example/x\">Go</button>",
+        "<button FORMACTION=\"//evil.example/x\">Go</button>",
+        "<button formaction=\"&sol;&sol;evil.example/x\">Go</button>",
+        "<input type=\"submit\" formaction=\"/\\evil.example/x\">",
+      })
+  void crossOriginFormactionInTokenFormFails(String button) {
+    rejected(POST + button + "</form>", "formaction");
+  }
+
+  @Test
+  void errorNamesFileLineColumnAndFix() {
+    rejected(
+        POST + "<button t:formaction=\"${u}\">Go</button></form>",
+        "page.html:2:48:",
+        "may submit a POST form that gets the CSRF token",
+        "use a same-origin link such as @{/items/{id}(id=${item.id})}, or move the button into its own form");
+    rejected(
+        POST + "<button t:formaction=\"@{//evil.example/x}\">Go</button></form>",
+        "must be a same-origin path starting with a single '/', not @{//evil.example/x}");
+    rejected(POST + "<button formaction=\"https://evil.example/x\">Go</button></form>", "page.html:2:48:", "not same-origin");
+  }
+
+  /** Negative: a form whose method or action is computed may get the token. */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<form t:method=\"${m}\"><button t:formaction=\"${u}\">Go</button></form>",
+        "<form t:attr=\"method=${m}\"><button t:formaction=\"${u}\">Go</button></form>",
+        "<form method=\"post\" t:action=\"${u}\"><button t:formaction=\"${u}\">Go</button></form>",
+        "<form method=\"POST\"><button t:formaction=\"${u}\">Go</button></form>",
+      })
+  void formThatMayGetTokenFails(String body) {
+    rejected(body, "t:formaction");
+  }
+
+  /** Negative: a button with a form attribute submits that form, wherever it is. */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<form id=\"f\" method=\"post\"></form><button form=\"f\" t:formaction=\"${u}\">Go</button>",
+        "<form id=\"f\" method=\"post\"></form><form><button form=\"f\" t:formaction=\"${u}\">Go</button></form>",
+        "<form method=\"get\"><button t:form=\"'f'\" t:formaction=\"${u}\">Go</button></form>",
+        "<form method=\"get\"><button t:attr=\"form='f'\" t:formaction=\"${u}\">Go</button></form>",
+        "<form method=\"get\"><button form=\"f\" formaction=\"https://evil.example/x\">Go</button></form>",
+      })
+  void formAttributeFails(String body) {
+    rejected(body, "formaction");
+  }
+
+  /**
+   * Negative: a browser drops a nested form's start tag, so the button submits the outer POST
+   * form; a fragment or {@code ~{::button}} selection may be rendered into a POST form elsewhere.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        POST + "<form method=\"get\"><button t:formaction=\"${u}\">Go</button></form></form>",
+        "<form method=\"get\">" + POST + "<button t:formaction=\"${u}\">Go</button></form></form>",
+        "<button t:formaction=\"${u}\">Go</button>",
+        "<form method=\"get\"><button t:fragment=\"go(String u)\" t:formaction=\"${u}\">Go</button></form>",
+        "<form><div t:fragment=\"bar\"><button formaction=\"https://evil.example/x\">Go</button></div></form>",
+        "<form method=\"get\"><button t:formaction=\"${u}\">Go</button></form>"
+            + "<div t:replace=\"~{:: wrap(~{::button})}\"></div>"
+            + "<div t:fragment=\"wrap(Fragment b)\">" + POST + "<div t:replace=\"${b}\"></div></form></div>",
+        "<form method=\"get\" t:remove=\"tag\"><button t:formaction=\"${u}\">Go</button></form>",
+      })
+  void nestedFormsAndFragmentsFail(String body) {
+    rejected(body, "formaction");
+  }
+
+  /** Negative: a formmethod other than post submits as GET with the token in the URL. */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<button formmethod=\"get\">Go</button>",
+        "<button formmethod=\"GET\" formaction=\"/search\">Go</button>",
+        "<button formmethod=\" post\">Go</button>",
+        "<input type=\"submit\" formmethod=\"\">",
+        "<button t:formmethod=\"${m}\">Go</button>",
+        "<button t:attr=\"formmethod='post'\">Go</button>",
+      })
+  void formmethodInTokenFormFails(String button) {
+    rejected(POST + button + "</form>", "formmethod", "with the token in the URL");
+  }
+
+  /** Negative: htmx sends the enclosing form's inputs, token included; its URL must be a same-origin link. */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<button t:hx-post=\"${u}\">Go</button>",
+        "<button t:hx-post=\"@{//evil.example/x}\">Go</button>",
+        "<button hx-post=\"/x\" t:formaction=\"${u}\">Go</button>",
+      })
+  void htmxOnButtonFails(String button) {
+    rejected(POST + button + "</form>", "is not allowed");
+  }
+
+  /** Positive: a same-origin link or static URL keeps the token. */
+  @Test
+  void sameOriginFormactionKeepsToken() {
+    Compilation c =
+        compile(POST + "<button t:formaction=\"@{/items/{id}/delete(id=${id})}\">Del</button>"
+            + "<button formmethod=\"post\" t:attr=\"formaction=@{/items}\">A</button>"
+            + "<input type=\"submit\" formaction=\"/items/new\" formmethod=\"dialog\">"
+            + "<button formaction=\"edit?x=1\" FORMMETHOD=\"Post\">B</button></form>")
+            .assertSuccess();
+    assertEquals(
+        "<div>\n" + POST + INPUT + "<button formaction=\"/items/7/delete\">Del</button>"
+            + "<button formmethod=\"post\" formaction=\"/items\">A</button>"
+            + "<input type=\"submit\" formaction=\"/items/new\" formmethod=\"dialog\">"
+            + "<button formaction=\"edit?x=1\" FORMMETHOD=\"Post\">B</button></form>\n</div>",
+        render(c));
+  }
+
+  /** Positive: inside forms that never get the token, formaction and formmethod are unchanged. */
+  @Test
+  void formWithoutTokenIsUnchanged() {
+    Compilation c =
+        compile("<form method=\"get\"><button t:formaction=\"${u}\" t:formmethod=\"${m}\">A</button></form>"
+            + "<form><button formaction=\"https://evil.example/x\" formmethod=\"get\">B</button></form>"
+            + "<form method=\"post\" action=\"https://pay.example/\"><button t:formaction=\"${u}\">C</button></form>"
+            + "<form method=\"get\"><div><form method=\"get\"><input type=\"submit\" t:attr=\"formaction=${u}\"></form></div></form>")
+            .assertSuccess();
+    String out = render(c);
+    assertFalse(out.contains("_csrf"), out);
+    assertTrue(out.contains("<button formaction=\"" + EVIL + "\" formmethod=\"get\">A</button>"), out);
+    assertTrue(out.contains("<button formaction=\"" + EVIL + "\">C</button>"), out);
+    assertTrue(out.contains("<input type=\"submit\" formaction=\"" + EVIL + "\">"), out);
+  }
+}

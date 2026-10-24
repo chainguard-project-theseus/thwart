@@ -756,8 +756,16 @@ public record Address(String street) {}
   (`action="https://pay.example/..."`, or a computed URL with a scheme or starting with `//`) gets
   no token, so the session's token is never sent to another site. An absolute URL to the
   application's own host counts as elsewhere, and Spring Security then rejects the POST: write it
-  as `@{/...}`. A submit button's `formaction`, a static `hx-post` and nested forms are not
-  checked (section 7).
+  as `@{/...}`. A submit button sends the form, token included, to its `formaction`, so a button
+  that may submit a form with the token (inside a POST form that may get it, with a `form`
+  attribute, or in a fragment, which can be inserted into such a form) takes only a same-origin
+  `formaction`: a computed one must be a link with a literal path starting with a single `/`
+  (`t:formaction="@{/items/{id}/delete(id=${item.id})}"`), a static one must be same-origin like a
+  static `action`, and `formmethod` must be a static `post` or `dialog` (anything else submits as
+  GET with the token in the URL). Anything else is a build error: use a link, or move the button
+  into its own form. Inside a GET form, or a form with a static cross-origin `action`, which gets
+  no token, `formaction` and `formmethod` are unchanged. A static `hx-post` and nested forms are
+  not checked (section 7).
 - **Lists of beans.** A path may index a `List` or an array with an int literal or an int
   variable: `*{items[0].name}`, `*{items[itemStat.index].name}`, `*{items[${i}].name}`. This
   replaces Thymeleaf's `*{items[__${itemStat.index}__].name}` and FreeMarker's
@@ -1501,6 +1509,9 @@ These come from the annotation processor itself, without a template position.
 - `<label> is not allowed: an htmx request URL must be a same-origin path starting with a single '/', not @{<path>}`. Absolute, protocol-relative and page-relative links are rejected; write a cross-origin endpoint as a static attribute.
 - `<label> is not allowed: htmx 1.x '<name>' holds connect:<url>, a URL htmx connects to and swaps into the page as HTML, so it cannot be computed; write it as a static attribute, or use the sse/ws extension's sse-connect/ws-connect with a same-origin link such as @{/events}`. On `hx-sse` and `hx-ws` (also with `data-`).
 - `<label> is not allowed: inside hx-boost or an htmx form, htmx submits to this URL and swaps the response into the page as HTML; use a same-origin link such as @{/items/{id}(id=${item.id})}, or put hx-boost="false" on the form to submit it natively`. On `action` of a boosted `<form>` and `formaction` in a boosted region or an htmx form (section 4.4). Other links are reported as `an htmx request URL must be a same-origin path ...`.
+- `<label> is not allowed: this button may submit a POST form that gets the CSRF token, which then goes to the button's formaction; use a same-origin link such as @{/items/{id}(id=${item.id})}, or move the button into its own form`. On a computed `formaction` (`t:formaction`, `t:attr="formaction=..."`) of a button that may submit a form with the CSRF token (section 4.7). A link that is not same-origin is reported as `a formaction that may receive the CSRF token must be a same-origin path starting with a single '/', not @{<path>}`.
+- `formaction="<url>" is not allowed here: this button may submit a POST form that gets the CSRF token, which then goes to the button's formaction, and this URL is not same-origin; use a same-origin URL such as /items or @{/items/{id}(id=${item.id})}, or move the button into its own form`. A static `formaction` with a scheme or starting with `//` or `/\` in such a form.
+- `formmethod="<value>" is not allowed here: this button may submit a POST form that gets the CSRF token, and a formmethod other than post submits as GET with the token in the URL; remove formmethod, or move the button into its own GET form`. Also `<label> is not allowed: ...` for a computed `formmethod` there; only a static `post` or `dialog` is allowed.
 - `<label> is not allowed: '<name>' cannot be computed; it decides whether htmx submits the forms inside with AJAX and swaps the response into the page, so write <name>="true" or <name>="false" statically`. On `hx-boost` and `data-hx-boost`.
 - `<label> is not allowed: attribute name '<name>' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*`.
 - `<label>: the type of a <script> cannot be computed; its content type must be known at build time, so write a static type attribute`.
@@ -1620,13 +1631,11 @@ Gaps in Tessera today, each with what to do until it is fixed.
   type is not view-safe (`MultipartFile`: write the `name` attribute by hand), and `Field`
   fragments cannot read the value. Radios get no `id`.
 - **CSRF and other ways a form posts elsewhere.** The CSRF input is left out of a form whose
-  `action` is on another origin (section 4.7), but only the form's own `action` is checked:
-  a submit button's `formaction` (a `<button t:formaction="...">` with an external URL inside a
-  same-origin POST form sends the token there), a static htmx request attribute such as
-  `hx-post="https://other.example/"` on the form, and a `<form>` nested in another (a browser
-  ignores the inner start tag, so the inner form's token lands in the outer form) are not seen.
-  Don't compute `formaction` from data, give an external target its own form, and don't nest
-  forms.
+  `action` is on another origin, and a submit button's `formaction` must be same-origin where it
+  may submit a form with the token (section 4.7). Not seen: a static htmx request attribute such
+  as `hx-post="https://other.example/"` on the form or a button in it, and a `<form>` nested in
+  another (a browser ignores the inner start tag, so the inner form's token lands in the outer
+  form). Give an external target its own form, and don't nest forms.
 - **Output.** `[[...]]` in a script serializes only the properties of the static type: a subclass's
   extra getters are not written, and Jackson annotations are ignored. `numbers.*` has no grouping
   or locale; `temporals.format` uses English names. Thymeleaf parser-level comments
