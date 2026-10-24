@@ -1,10 +1,17 @@
 package dev.tessera.compiler.links;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.compiler.testing.ExprRunner;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class LinkCompilerTest {
   private static final String OWNER =
@@ -148,6 +155,82 @@ class LinkCompilerTest {
   @Test
   void parameterValueErrorsAreReported() {
     owners("\"1\"", "null").compile("@{/x(s=o.nope)}").assertError("nope");
+  }
+
+  // ------------------------------------------- protocol-relative in disguise (#313)
+
+  private static Compilation page(String markup) {
+    return Compilation.builder()
+        .template("page.html", "<div t:params=\"String s\">\n" + markup + "\n</div>")
+        .compile();
+  }
+
+  /**
+   * A browser reads {@code \\} as {@code /} (and drops leading control chars and tab/CR/LF), so
+   * these paths load from evil.example ({@code new URL(x, "https://app.example/p").origin}).
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<script t:src=\"@{/\\evil.example/a.js}\"></script>",
+        "<base t:href=\"@{/\\evil.example/}\">",
+        "<link rel=\"stylesheet\" t:href=\"@{\\\\evil.example/a.css}\">",
+        "<a t:href=\"@{/\\evil.example/}\">x</a>",
+        "<a t:href=\"@{\\/evil.example/}\">x</a>",
+        "<img t:src=\"@{/\\evil.example/a.png(v=${s})}\">",
+        "<script t:src=\"@{\u0001//evil.example/a.js}\"></script>",
+        "<script t:src=\"@{\u0001/\\evil.example/a.js}\"></script>",
+        "<script t:src=\"@{/\\\\evil.example/a.js}\"></script>",
+        "<a t:href=\"@{/\\}\">x</a>"
+      })
+  void browserProtocolRelativePathIsAnError(String markup) {
+    Compilation c = page(markup);
+    c.assertError("page.html:2:", "protocol-relative", "@{//host/...}");
+    assertNull(c.generatedSource("tessera.generated.PageTemplate"));
+  }
+
+  @Test
+  void errorNamesFileLineAndColumn() {
+    page("<script t:src=\"@{/\\evil.example/a.js}\"></script>").assertError("page.html:2:16:");
+    page("<base t:href=\"@{/\\evil.example/}\">").assertError("page.html:2:15:");
+  }
+
+  @Test
+  void htmxRequestUrlKeepsItsError() {
+    Compilation c = page("<div t:hx-get=\"@{\\/evil.example/x}\"></div>");
+    c.assertError("page.html:2:", "an htmx request URL must be a same-origin path starting with a single '/'");
+    assertNull(c.generatedSource("tessera.generated.PageTemplate"));
+  }
+
+  @Test
+  void singleLeadingBackslashIsAnError() {
+    page("<a t:href=\"@{\\x/y}\">x</a>").assertError("page.html:2:", "starts with '\\'", "write '/'");
+  }
+
+  @Test
+  void ordinaryLinksStillCompile() {
+    Compilation c =
+        page("<script t:src=\"@{/js/app.js}\"></script><script t:src=\"@{//cdn.example/a.js}\"></script>"
+            + "<script t:src=\"@{https://cdn.example/a.js}\"></script><a t:href=\"@{/x/{p}(p=${s})}\">x</a>"
+            + "<a t:href=\"@{/x\\y}\">x</a><a t:href=\"@{/%5Cevil.example/}\">x</a>")
+            .assertSuccess();
+    assertEquals(
+        "<div>\n<script src=\"/js/app.js\"></script><script src=\"//cdn.example/a.js\"></script>"
+            + "<script src=\"https://cdn.example/a.js\"></script><a href=\"/x/a%2Fb\">x</a>"
+            + "<a href=\"/x\\y\">x</a><a href=\"/%5Cevil.example/\">x</a>\n</div>",
+        c.render("page", Map.of("s", "a/b")));
+  }
+
+  @Test
+  void sameOriginPathShape() {
+    for (String ok : List.of("/", "/x", "/x\\y", "/%5Cevil", "/%2F/evil", "/x//y")) {
+      assertTrue(LinkCompiler.isSameOriginPath(ok), ok);
+    }
+    for (String bad :
+        List.of("//evil", "/\\evil", "\\/evil", "\\\\evil", "\\x", "/\t/evil", "/\n\\evil", "\u0001//evil",
+            "x", "https://app.example/x", "")) {
+      assertFalse(LinkCompiler.isSameOriginPath(bad), bad);
+    }
   }
 
   @Test
