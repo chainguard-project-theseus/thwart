@@ -294,6 +294,22 @@ class FragmentsTest {
   }
 
   @Test
+  void titleAndTextareaFragmentsKeepTheirTags() {
+    // The fragment element is inserted or replaced whole, so its text stays inside its own tags.
+    Compilation c =
+        page("<div t:insert=\"~{::t(u.name)}\"></div><p t:replace=\"~{::a(u.name)}\"></p>"
+                + "<title t:replace=\"~{::t(u.name)}\"></title>\n"
+                + "<title t:fragment=\"t(String s)\"><script>[[s]]</script></title>"
+                + "<textarea t:fragment=\"a(String s)\"><script>[[s]]</script></textarea>\n")
+            .assertSuccess();
+    Object u = c.newInstance("com.example.User", "<x>");
+    assertEquals(
+        "<div><title><script>&lt;x&gt;</script></title></div><textarea><script>&lt;x&gt;</script></textarea>"
+            + "<title><script>&lt;x&gt;</script></title>",
+        c.render("page", Map.of("u", u)).split("\n")[1]);
+  }
+
+  @Test
   void insertAndReplaceOnHtmlHostsStillRender() {
     Compilation c =
         page("<div t:insert=\"~{fragments/cards :: plain}\">x</div>"
