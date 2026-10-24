@@ -34,7 +34,8 @@ import java.util.regex.Pattern;
  * is a single raw {@link Text} node: markup inside it is not parsed.
  *
  * <p>Build errors (reported, then parsing continues): unclosed or mismatched non-void elements,
- * duplicate attributes on one element, malformed markup.
+ * duplicate attributes on one element, malformed markup (including markup a browser would end
+ * earlier than the tokenizer does).
  */
 public final class HtmlParser {
 
@@ -69,6 +70,82 @@ public final class HtmlParser {
       m = m.substring(0, nl);
     }
     return m.length() > 80 ? m.substring(0, 80) + "..." : m;
+  }
+
+  /**
+   * Index of a {@code >} before the last char of {@code outer}, a CDATA section, DOCTYPE, XML
+   * declaration or processing instruction as the tokenizer read it, or -1. A browser ends each of
+   * these at its first {@code >} (outside svg and math, a CDATA section is a bogus comment; a
+   * {@code <?...>} always is), quotes and brackets included, so the contexts after an earlier
+   * {@code >} would differ from Tessera's.
+   */
+  static int earlyEnd(String outer) {
+    int gt = outer.indexOf('>');
+    return gt < outer.length() - 1 ? gt : -1;
+  }
+
+  /**
+   * Index in {@code text}, element text the tokenizer did not read as markup, of a {@code <!},
+   * {@code <?} or {@code </} not followed by an ASCII letter or {@code >}, or -1. A browser starts
+   * a bogus comment there that ends at the first {@code >}, hiding markup Tessera reads.
+   */
+  static int bogusComment(CharSequence text) {
+    for (int i = 0; i + 1 < text.length(); i++) {
+      if (text.charAt(i) != '<') {
+        continue;
+      }
+      char c = text.charAt(i + 1);
+      if (c == '!' || c == '?') {
+        return i;
+      }
+      if (c == '/') {
+        char d = i + 2 < text.length() ? text.charAt(i + 2) : ' ';
+        if (!(d >= 'a' && d <= 'z' || d >= 'A' && d <= 'Z' || d == '>')) {
+          return i;
+        }
+      }
+    }
+    return -1;
+  }
+
+  /** The build error for the {@link #bogusComment} at {@code i} of {@code text}. */
+  static String bogusCommentMessage(CharSequence text, int i) {
+    char c = text.charAt(i + 1);
+    String what = c == '!' ? "'<!'" : c == '?' ? "'<?'" : "'</' not followed by a letter";
+    return "malformed markup: " + what + " starts a comment in a browser that ends at the first '>':"
+        + " write &lt; for a literal '<'";
+  }
+
+  /**
+   * Index in the CDATA section {@code outer} of the first {@code [[} or {@code [(}, which {@code
+   * TextInlining} would render as an expression, or -1. Outside svg and math a browser reads the
+   * section as a comment, and inside them as text that does not decode {@code &lt;}; in neither is
+   * the value element text, so no escaping fits.
+   */
+  static int cdataHole(String outer) {
+    int a = outer.indexOf("[[");
+    int b = outer.indexOf("[(");
+    return a < 0 ? b : b < 0 ? a : Math.min(a, b);
+  }
+
+  /** The build error when {@link #cdataHole} finds an expression. */
+  static final String CDATA_HOLE_MESSAGE =
+      "malformed markup: [[...]] and [(...)] are not supported inside a CDATA section: outside <svg> and <math>"
+          + " a browser reads the section as a comment, and inside them it shows &lt; as written; write the text"
+          + " without <![CDATA[";
+
+  /** The build error for {@code outer} when {@link #earlyEnd} finds a {@code >}. */
+  static String earlyEndMessage(String outer) {
+    if (outer.startsWith("<![")) {
+      return "malformed markup: '>' inside a CDATA section is not supported, even in <svg> and <math>: elsewhere a"
+          + " browser ends it at the first '>'; write the text without <![CDATA[, with '>' as &gt;";
+    }
+    if (outer.startsWith("<?")) {
+      return "malformed markup: '>' inside '<?...?>' is not supported: a browser ends it at the first '>';"
+          + " remove the '>'";
+    }
+    return "malformed markup: '>' inside <!DOCTYPE> is not supported: a browser ends it at the first '>';"
+        + " write <!DOCTYPE html>";
   }
 
   /**
@@ -193,6 +270,7 @@ public final class HtmlParser {
 
     private final StringBuilder text = new StringBuilder();
     private SourcePos textPos;
+    private int textStart;
 
     Builder(TemplateSource source, char[] chars, DiagnosticSink diagnostics) {
       this.file = source.path();
@@ -231,6 +309,10 @@ public final class HtmlParser {
 
     private void flushText() {
       if (text.length() != 0) {
+        int bogus = bogusComment(text);
+        if (bogus >= 0) {
+          diagnostics.error(position(textStart + bogus), bogusCommentMessage(text, bogus));
+        }
         children().add(new Text(text.toString(), textContext(), textPos));
         text.setLength(0);
       }
@@ -243,6 +325,7 @@ public final class HtmlParser {
       }
       if (text.length() == 0) {
         textPos = position(start);
+        textStart = start;
       }
       text.append(chars, start, end - start);
     }
@@ -270,6 +353,11 @@ public final class HtmlParser {
         return;
       }
       flushText();
+      checkEarlyEnd(start, end);
+      int hole = cdataHole(str(start, end));
+      if (hole >= 0) {
+        diagnostics.error(position(start + hole), CDATA_HOLE_MESSAGE);
+      }
       children().add(new Text(str(start, end), textContext(), position(start)));
     }
 
@@ -279,7 +367,16 @@ public final class HtmlParser {
         return;
       }
       flushText();
+      checkEarlyEnd(start, end);
       children().add(new DocType(str(start, end), position(start)));
+    }
+
+    private void checkEarlyEnd(int start, int end) {
+      String outer = str(start, end);
+      int gt = earlyEnd(outer);
+      if (gt >= 0) {
+        diagnostics.error(position(start + gt), earlyEndMessage(outer));
+      }
     }
 
     @Override

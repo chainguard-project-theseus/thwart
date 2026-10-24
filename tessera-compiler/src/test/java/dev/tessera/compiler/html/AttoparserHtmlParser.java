@@ -229,6 +229,10 @@ final class AttoparserHtmlParser {
 
     private void flushText() {
       if (text.length() != 0) {
+        int bogus = HtmlParser.bogusComment(text);
+        if (bogus >= 0) {
+          diagnostics.error(after(textPos, text, bogus), HtmlParser.bogusCommentMessage(text, bogus));
+        }
         children().add(new Text(text.toString(), textContext(), textPos));
         text.setLength(0);
       }
@@ -270,6 +274,12 @@ final class AttoparserHtmlParser {
         return;
       }
       flushText();
+      checkEarlyEnd(new String(buffer, outerOffset, outerLen), line, col);
+      String cdata = new String(buffer, outerOffset, outerLen);
+      int hole = HtmlParser.cdataHole(cdata);
+      if (hole >= 0) {
+        diagnostics.error(after(pos(line, col), cdata, hole), HtmlParser.CDATA_HOLE_MESSAGE);
+      }
       children().add(new Text(new String(buffer, outerOffset, outerLen), textContext(), pos(line, col)));
     }
 
@@ -311,7 +321,31 @@ final class AttoparserHtmlParser {
         return;
       }
       flushText();
+      checkEarlyEnd(new String(buffer, offset, len), line, col);
       children().add(new DocType(new String(buffer, offset, len), pos(line, col)));
+    }
+
+    private void checkEarlyEnd(String outer, int line, int col) {
+      int gt = HtmlParser.earlyEnd(outer);
+      if (gt < 0) {
+        return;
+      }
+      diagnostics.error(after(pos(line, col), outer, gt), HtmlParser.earlyEndMessage(outer));
+    }
+
+    /** The position of char {@code to} of {@code s}, which starts at {@code start}. */
+    private SourcePos after(SourcePos start, CharSequence s, int to) {
+      int line = start.line();
+      int col = start.column();
+      for (int i = 0; i < to; i++) {
+        if (s.charAt(i) == '\n') {
+          line++;
+          col = 1;
+        } else {
+          col++;
+        }
+      }
+      return pos(line, col);
     }
 
     @Override
