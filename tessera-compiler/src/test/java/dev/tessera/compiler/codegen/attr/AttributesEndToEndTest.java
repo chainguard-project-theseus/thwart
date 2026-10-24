@@ -65,6 +65,11 @@ class AttributesEndToEndTest {
         "<svg><a><set attributeName=\"href\" values=\"about:invalid#tessera\"/></a></svg>",
         render("<svg><a><set attributeName=\"href\" t:attr=\"values=s\"/></a></svg>",
             model("s", "/a; JaVaScRiPt:alert(1)")));
+    // Element and attribute names are matched case-insensitively.
+    assertEquals(
+        "<svg><a><ANIMATE attributeName=\"href\" VALUES=\"about:invalid#tessera\"/></a></svg>",
+        render("<svg><a><ANIMATE attributeName=\"href\" t:VALUES=\"s\"/></a></svg>",
+            model("s", "/a;javascript:alert(1)")));
     // to/from/by are single values: a ';' is part of the URL (/x;jsessionid=1).
     assertEquals(
         "<svg><a><set attributeName=\"href\" to=\"/x;jsessionid=1\"/></a></svg>",
