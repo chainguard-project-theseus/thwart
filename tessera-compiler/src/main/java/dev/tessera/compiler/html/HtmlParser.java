@@ -139,6 +139,20 @@ public final class HtmlParser {
     return semi + 1;
   }
 
+  /**
+   * The offset in {@code comment} where a browser ends it before its last {@code >}, or -1.
+   * {@code comment} runs from {@code <!--} through the first {@code -->} at least 7 chars in, as
+   * the tokenizer reads it. The HTML tokenizer also ends a comment at {@code <!-->}, at {@code
+   * <!--->} and at a {@code --!>} whose dashes come after {@code <!--}; any of these in {@code
+   * comment} means a browser reads the markup after it differently (offset 0 for the first two).
+   */
+  static int earlyCommentEnd(String comment) {
+    if (comment.startsWith("<!-->") || comment.startsWith("<!--->")) {
+      return 0;
+    }
+    return comment.indexOf("--!>", 4);
+  }
+
   /** An element whose end tag has not been seen yet. */
   private static final class Open {
     final String name;
@@ -239,7 +253,15 @@ public final class HtmlParser {
         return;
       }
       flushText();
-      children().add(new Comment(str(start, end), position(start)));
+      String comment = str(start, end);
+      int early = earlyCommentEnd(comment);
+      if (early >= 0) {
+        diagnostics.error(position(start + early), early == 0
+            ? "malformed markup: a comment cannot start with '<!-->' or '<!--->' (a browser ends it there):"
+                + " put a space after '<!--'"
+            : "malformed markup: '--!>' ends a comment in a browser: end the comment with '-->' or remove the '!'");
+      }
+      children().add(new Comment(comment, position(start)));
     }
 
     @Override

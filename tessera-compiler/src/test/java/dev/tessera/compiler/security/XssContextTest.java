@@ -354,7 +354,10 @@ class XssContextTest {
           "<p t:utext=\"#{greet(s)}\">x</p>",
           "<script>var a = [(s)];</script>",
           "<script t:utext=\"s\"></script>",
-          "<i t:attr=\"a b=s\">x</i>");
+          "<i t:attr=\"a b=s\">x</i>",
+          "<!--> <script> -->\n[[s]]\n<!-- </script> -->",
+          "<!---> <script> -->\n[[s]]\n<!-- </script> -->",
+          "<!-- x --!> <script> -->\n[[s]]\n<!-- </script> -->");
 
   /** The built-in {@code html.sanitize} turns stored rich text into SafeHtml for raw output. */
   @Test

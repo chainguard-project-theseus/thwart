@@ -252,7 +252,15 @@ final class AttoparserHtmlParser {
         return;
       }
       flushText();
-      children().add(new Comment(new String(buffer, outerOffset, outerLen), pos(line, col)));
+      String comment = new String(buffer, outerOffset, outerLen);
+      int early = HtmlParser.earlyCommentEnd(comment);
+      if (early >= 0) {
+        diagnostics.error(position(offset(line, col) + early), early == 0
+            ? "malformed markup: a comment cannot start with '<!-->' or '<!--->' (a browser ends it there):"
+                + " put a space after '<!--'"
+            : "malformed markup: '--!>' ends a comment in a browser: end the comment with '-->' or remove the '!'");
+      }
+      children().add(new Comment(comment, pos(line, col)));
     }
 
     @Override
