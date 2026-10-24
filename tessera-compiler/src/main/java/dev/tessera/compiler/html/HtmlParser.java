@@ -50,6 +50,15 @@ public final class HtmlParser {
     }
   }
 
+  /**
+   * True if the content of an element named {@code name} (any case) is parsed as one raw text
+   * node ({@code <script>}, {@code <style>}, {@code <textarea>}, {@code <title>}): a browser
+   * reads it as text only inside that element, never as markup elsewhere.
+   */
+  public static boolean isRawText(String name) {
+    return RAW_TEXT_ELEMENTS.contains(name.toLowerCase(Locale.ROOT));
+  }
+
   public Document parse(TemplateSource source, DiagnosticSink diagnostics) {
     char[] chars = source.content().toCharArray();
     Builder builder = new Builder(source, chars, diagnostics);
