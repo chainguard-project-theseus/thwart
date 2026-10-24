@@ -10,6 +10,7 @@ import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.html.Contexts;
+import dev.tessera.compiler.links.LinkCompiler;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.CompiledExpr;
@@ -190,7 +191,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     }
     Expr.Link link = (Expr.Link) b.right();
     String path = link.path();
-    if (!isSameOriginPath(path)) {
+    if (!LinkCompiler.isSameOriginPath(path)) {
       ctx.diagnostics()
           .error(link.pos(), label + " is not allowed: a refresh URL must be a same-origin path starting with a"
               + " single '/', not @{" + path + "}");
@@ -203,18 +204,9 @@ public final class GenericAttrProcessor implements AttributeProcessor {
   }
 
   /**
-   * A literal link path that stays on the page's origin: one {@code /} not followed by {@code /}
-   * or a backslash. Whitespace, which URL parsers strip ({@code /<tab>/host} is {@code //host}),
-   * is already rejected in every link path.
-   */
-  private static boolean isSameOriginPath(String path) {
-    return path.startsWith("/") && !path.startsWith("//") && !path.startsWith("/\\");
-  }
-
-  /**
    * An htmx request URL such as {@code hx-get} (#249): htmx fetches it and swaps the response
    * into the page as HTML, and htmx 1.x also sends cross-origin requests, so only a link whose
-   * literal path is same-origin ({@link #isSameOriginPath}) compiles. Path variables and
+   * literal path is same-origin ({@link LinkCompiler#isSameOriginPath}) compiles. Path variables and
    * parameters are percent-encoded by the link; the value is written with the resource-URL escaper.
    * Also the {@code action}/{@code formaction} of a boosted or htmx form (#258), written with the URL
    * escaper. {@code why} starts the error for a non-link value and {@code orElse} ends it.
@@ -229,7 +221,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       return;
     }
     Expr.Link link = (Expr.Link) value;
-    if (!isSameOriginPath(link.path())) {
+    if (!LinkCompiler.isSameOriginPath(link.path())) {
       ctx.diagnostics()
           .error(link.pos(), label + " is not allowed: an htmx request URL must be a same-origin path starting"
               + " with a single '/', not @{" + link.path() + "}");
