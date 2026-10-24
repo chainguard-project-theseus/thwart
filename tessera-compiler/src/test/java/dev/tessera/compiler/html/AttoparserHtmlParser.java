@@ -39,7 +39,8 @@ import org.attoparser.config.ParseConfiguration;
  * is a single raw {@link Text} node: markup inside it is not parsed.
  *
  * <p>Build errors (reported, then parsing continues): unclosed or mismatched non-void elements,
- * duplicate attributes on one element, malformed markup.
+ * duplicate attributes on one element, malformed markup, any start tag inside a {@code <select>}
+ * other than {@code <option>}, {@code <optgroup>}, {@code <hr>} and {@code <t:block>}.
  */
 final class AttoparserHtmlParser {
 
@@ -392,6 +393,19 @@ final class AttoparserHtmlParser {
         diagnostics.error(tag.pos, "malformed markup: invalid element name '" + name
             + "': element names start with a letter and use letters, digits, '-', '_', ':' and '.'");
       }
+      String lower = name.toLowerCase(Locale.ROOT);
+      if (!HtmlParser.SELECT_CONTENT.contains(lower) && inSelect()) {
+        diagnostics.error(tag.pos, HtmlParser.notInSelect(lower));
+      }
+    }
+
+    private boolean inSelect() {
+      for (Open o : stack) {
+        if (o.name.equalsIgnoreCase("select")) {
+          return true;
+        }
+      }
+      return false;
     }
 
     @Override
@@ -433,10 +447,10 @@ final class AttoparserHtmlParser {
         return;
       }
       String lower = tag.name.toLowerCase(Locale.ROOT);
-      if (minimized && (lower.equals("script") || lower.equals("style"))) {
+      if (minimized && (lower.equals("script") || lower.equals("style") || lower.equals("select"))) {
         // A browser treats <script/> as an open tag, so the template text after it would run as
-        // script (or style) while Tessera escaped it for TEXT. <textarea/>, <title/> and the other
-        // raw text elements are checked where Tessera writes them (TemplateGenerator).
+        // script (or style, or select content) while Tessera escaped it for TEXT. <textarea/>, <title/>
+        // and the other raw text elements are checked where Tessera writes them (TemplateGenerator).
         diagnostics.error(tag.pos, "<" + lower + "/> is not self-closing in HTML: the browser treats everything"
             + " after it as " + lower + "; write <" + lower + " ...></" + lower + ">");
       }
