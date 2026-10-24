@@ -713,4 +713,74 @@ class EscapersTest {
         "&lt;b&gt;x&lt;/b&gt;",
         Escapers.htmlMessage(messages((k, a) -> "<b>x</b>"), "k", new Object[] {"text"}, new String[] {"<b>{0,number}</b>"}));
   }
+
+  // Client-side template delimiters (#248)
+
+  private static String rcdata(Object v) {
+    return run(Escapers::rcdata, v);
+  }
+
+  @Test
+  void textBreaksMustacheDelimiters() {
+    assertEquals(
+        "<!---->{<!---->{ constructor.constructor(&#39;alert(1)&#39;)() }}",
+        text("{{ constructor.constructor('alert(1)')() }}"));
+    assertEquals("a{<!---->{b}}", text("a{{b}}"));
+    assertEquals("a{<!---->{<!---->{b}}}", text("a{{{b}}}"));
+    assertEquals("}}{<!---->{x}}", text("}}{{x}}"));
+    // static "{" + "{x": the leading comment keeps them apart.
+    assertEquals("{" + "<!---->{<!---->{x", "{" + text("{{x"));
+    // A brace at either end could meet static text or another value.
+    assertEquals("<!---->{<!---->", text("{"));
+    assertEquals("<!---->{x}}", text("{x}}"));
+    assertEquals("x{<!---->", text("x{"));
+    assertEquals("<!---->{<!---->{<!---->", text("{{"));
+    assertEquals("<!---->{ {x} }", text("{ {x} }"));
+    assertEquals("a { b", text("a { b"));
+    // Closing braces, entities and everything else are as before.
+    assertEquals("}} &amp;#123;&amp;#123; &lt;b&gt;", text("}} &#123;&#123; <b>"));
+    assertEquals("plain &amp; simple", text("plain & simple"));
+  }
+
+  @Test
+  void textBraceRuleIsTheSameForEverySink() {
+    for (String s : new String[] {"{", "{{", "a{{b", "{x{", "<{{&}}>", "\u0000{\ud800{"}) {
+      StringWriter writer = new StringWriter();
+      Escapers.text(new WriterOutput(writer), s);
+      assertEquals(text(s), writer.toString(), s);
+      assertEquals(text(s), SafeHtml.escape(s).html(), s);
+    }
+  }
+
+  @Test
+  void rcdataAndAttributesDoNotBreakBraces() {
+    // A comment would show as text in <title>/<textarea> and change an attribute's value.
+    assertEquals("{{x}} &amp; &lt;", rcdata("{{x}} & <"));
+    assertEquals("{{x}}", attr("{{x}}"));
+    assertEquals("{{x}}", url("{{x}}"));
+    assertEquals("", rcdata(null));
+  }
+
+  @Test
+  void htmlMessageArgumentsBreakBraces() {
+    assertEquals("<!---->{<!---->{x}}", Escapers.htmlMessageArgs(new Object[] {"{{x}}"})[0]);
+    String[] checked = {"Hi <b>{0}</b>"};
+    Messages formatting = (k, a) -> new java.text.MessageFormat("Hi <b>{0}</b>", java.util.Locale.US).format(a);
+    assertEquals(
+        "Hi <b><!---->{<!---->{x}}</b>", Escapers.htmlMessage(messages(formatting), "k", new Object[] {"{{x}}"}, checked));
+    // A checked message without markup: the argument's comments do not make it unchecked.
+    Messages plain = (k, a) -> new java.text.MessageFormat("Hi {0}", java.util.Locale.US).format(a);
+    assertEquals(
+        "Hi <!---->{<!---->{x}}",
+        Escapers.htmlMessage(messages(plain), "k", new Object[] {"{{x}}"}, new String[] {"Hi {0}"}));
+    // An unchecked message (no bundle the build saw) with no markup but the argument's comments
+    // is printed as it is, not escaped into visible "&lt;!----&gt;".
+    assertEquals(
+        "Hi <!---->{<!---->{x}}",
+        Escapers.htmlMessage(messages(plain), "k", new Object[] {"{{x}}"}, new String[0]));
+    // An unchecked message is escaped as text, braces broken.
+    assertEquals(
+        "&lt;i&gt;{<!---->{x}}",
+        Escapers.htmlMessage(messages((k, a) -> "<i>{{x}}"), "k", new Object[0], checked));
+  }
 }

@@ -20,6 +20,15 @@ class SafeHtmlTest {
   }
 
   @Test
+  void escapeBreaksMustacheDelimiters() {
+    // #248: SafeHtml.escape is element text, like t:text.
+    assertEquals("<!---->{<!---->{x}}", SafeHtml.escape("{{x}}").html());
+    assertEquals(
+        "a{<!----><!---->{b}}",
+        SafeHtml.concat(SafeHtml.escape("a{"), SafeHtml.escape("{b}}")).html());
+  }
+
+  @Test
   void safeHtmlOfTemplateRendersIt() {
     Template t =
         new Template() {
