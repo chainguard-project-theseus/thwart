@@ -12,6 +12,7 @@ import dev.tessera.compiler.codegen.attr.FragmentMethods;
 import dev.tessera.compiler.codegen.attr.TextInlining;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.ExpressionParser;
+import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Comment;
 import dev.tessera.compiler.model.DocType;
@@ -67,6 +68,7 @@ public final class TemplateGenerator implements CodegenContext {
   private List<String> members;
   private int fresh;
   private Map<Element, String> whitespaceBefore;
+  private Set<Element> htmxSubmits;
 
   public TemplateGenerator(
       CompilerEnv env, TemplateIndex index, ExpressionParser parser, ExpressionCompiler expressions) {
@@ -100,6 +102,8 @@ public final class TemplateGenerator implements CodegenContext {
     fresh = 0;
     whitespaceBefore = new IdentityHashMap<>();
     indexWhitespace(document.children());
+    htmxSubmits = Collections.newSetFromMap(new IdentityHashMap<>());
+    indexHtmxSubmits(document.children(), false, false);
 
     validate(document.rootElement(), document.children());
     Scope scope = Scope.empty();
@@ -205,6 +209,11 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   @Override
+  public boolean htmxSubmits(Element element) {
+    return htmxSubmits.contains(element);
+  }
+
+  @Override
   public Set<Element> selecting() {
     return selecting;
   }
@@ -224,6 +233,29 @@ public final class TemplateGenerator implements CodegenContext {
         indexWhitespace(e.children());
       }
       previous = n;
+    }
+  }
+
+  /**
+   * Records {@link #htmxSubmits}. {@code boosted}: the nearest static {@code hx-boost} above is not
+   * {@code false} (htmx inherits it; {@code hx-disinherit} is ignored, which only adds checks).
+   * {@code htmxForm}: inside a {@code <form>} that is boosted or has an htmx request attribute.
+   */
+  private void indexHtmxSubmits(List<Node> nodes, boolean boosted, boolean htmxForm) {
+    for (Node n : nodes) {
+      if (!(n instanceof Element)) {
+        continue;
+      }
+      Element e = (Element) n;
+      Boolean boost = Contexts.staticHtmxBoost(e);
+      boolean b = boost == null ? boosted : boost;
+      boolean form = e.name().equalsIgnoreCase("form");
+      boolean f = form ? b || Contexts.hasHtmxRequestAttribute(e) : htmxForm;
+      // A form's own action is requested only when it is boosted; with hx-post etc. htmx ignores it.
+      if (form ? b : b || f) {
+        htmxSubmits.add(e);
+      }
+      indexHtmxSubmits(e.children(), b, f);
     }
   }
 

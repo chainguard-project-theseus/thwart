@@ -158,7 +158,19 @@ class ContextsTest {
     "a, hx-push-url, URL",
     "a, hx-replace-url, URL",
     "a, data-hx-push-url, URL",
-    "div, hx-boost, ATTRIBUTE",
+    // hx-boost decides which form actions htmx requests (#258); bindings of it are directives
+    "body, hx-boost, FORBIDDEN",
+    "div, data-hx-boost, FORBIDDEN",
+    "div, HX-Boost, FORBIDDEN",
+    "div, :hx-boost, EVENT_HANDLER",
+    "div, v-bind:data-hx-boost, EVENT_HANDLER",
+    "div, x-bind:hx-boost, EVENT_HANDLER",
+    // a form's action stays URL; the boosted-subtree check is in codegen (#258)
+    "form, action, URL",
+    "button, formaction, URL",
+    "form, :action, EVENT_HANDLER",
+    "button, v-bind:formaction, EVENT_HANDLER",
+    "form, x-bind:action, EVENT_HANDLER",
     "div, hx-select, ATTRIBUTE",
     "div, hx-getter, ATTRIBUTE",
     // _hyperscript (#249)
