@@ -148,12 +148,12 @@ class HtmlParserTest {
 
   @Test
   void commentsDoctypeCdataAndProcessingInstructions() {
-    Document doc = parseOk("<?xml version=\"1.0\"?><!DOCTYPE html><!-- c --><a><![CDATA[<x>]]></a>");
+    Document doc = parseOk("<?xml version=\"1.0\"?><!DOCTYPE html><!-- c --><a><![CDATA[x<y]]></a>");
     assertEquals(new DocType("<?xml version=\"1.0\"?>", pos(1, 1)), doc.children().get(0));
     assertEquals(new DocType("<!DOCTYPE html>", pos(1, 22)), doc.children().get(1));
     assertEquals(new Comment("<!-- c -->", pos(1, 37)), doc.children().get(2));
     Element a = el(doc.children().get(3));
-    assertEquals(new Text("<![CDATA[<x>]]>", OutputContext.TEXT, pos(1, 50)), a.children().get(0));
+    assertEquals(new Text("<![CDATA[x<y]]>", OutputContext.TEXT, pos(1, 50)), a.children().get(0));
   }
 
   @Test
@@ -256,6 +256,63 @@ class HtmlParserTest {
     assertEquals(List.of(), errors("<script></script><style></style>"));
     // RCDATA elements stay allowed: TEXT escaping is still safe there, and SVG <title/> is common.
     assertEquals(List.of(), errors("<svg><title/></svg><textarea/>"));
+  }
+
+  @Test
+  void markupABrowserEndsAtItsFirstGreaterThanIsAnError() {
+    // Outside svg and math a browser reads <![CDATA[ as a bogus comment ending at the first '>',
+    // so it would run this <script> while Tessera escaped [[${x}]] as text.
+    String cdata = "dir/t.html:1:15: error: malformed markup: '>' inside a CDATA section is not supported, even in"
+        + " <svg> and <math>: elsewhere a browser ends it at the first '>'; write the text without <![CDATA[,"
+        + " with '>' as &gt;";
+    String hole = "error: malformed markup: [[...]] and [(...)] are not supported inside a CDATA section: outside"
+        + " <svg> and <math> a browser reads the section as a comment, and inside them it shows &lt; as written;"
+        + " write the text without <![CDATA[";
+    assertEquals(
+        List.of(cdata, "dir/t.html:1:24: " + hole), errors("<p><![CDATA[ x><script>[[${x}]]</script> ]]></p>"));
+    // Without a '>' an expression would still not be element text to a browser.
+    assertEquals(List.of("dir/t.html:1:16: " + hole), errors("<div><![CDATA[ [[${x}]] ]]></div>"));
+    assertEquals(List.of("dir/t.html:1:16: " + hole), errors("<svg><![CDATA[ [(${x})] ]]></svg>"));
+    assertEquals(List.of("dir/t.html:1:9: " + hole), errors("<![CDATA[[${x}]]>"));
+    assertEquals(List.of(cdata.replace("1:15", "2:2")), errors("<svg><![cdata[\n >]]></svg>"));
+    String pi = "error: malformed markup: '>' inside '<?...?>' is not supported: a browser ends it at the first '>';"
+        + " remove the '>'";
+    assertEquals(List.of("dir/t.html:1:6: " + pi), errors("<?php><script>[[${x}]]</script> ?>"));
+    assertEquals(List.of("dir/t.html:1:31: " + pi), errors("<?xml version=\"1.0\" encoding=\"><script>\"?>"));
+    assertEquals(
+        List.of("dir/t.html:1:24: error: malformed markup: '>' inside <!DOCTYPE> is not supported: a browser ends it"
+            + " at the first '>'; write <!DOCTYPE html>"),
+        errors("<!DOCTYPE html PUBLIC \"><script>\" \"x\">"));
+    // Without an earlier '>', a browser ends them where Tessera does.
+    assertEquals(
+        List.of(),
+        errors("<?xml version=\"1.0\"?><!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"x.dtd\">"
+            + "<p><![CDATA[ x < y ]]><?php echo 1 ?></p><svg><![CDATA[ a ]]]></svg>"
+            + "<script>//<![CDATA[\nif (a > b) {}\n//]]></script>"));
+  }
+
+  @Test
+  void textABrowserReadsAsABogusCommentIsAnError() {
+    // A browser starts a bogus comment at "</ " that ends at the first '>', inside Tessera's
+    // comment, so it would run this <script> while Tessera escaped [[${x}]] as text.
+    String bogus = " starts a comment in a browser that ends at the first '>': write &lt; for a literal '<'";
+    assertEquals(
+        List.of("dir/t.html:1:6: error: malformed markup: '</' not followed by a letter" + bogus),
+        errors("<p>a </ b <!-- > <script> -->[[${x}]]<!-- </script> --></p>"));
+    assertEquals(
+        List.of("dir/t.html:2:3: error: malformed markup: '</' not followed by a letter" + bogus),
+        errors("<p>\n  </ x></p>"));
+    assertEquals(List.of("dir/t.html:1:3: error: malformed markup: '<?'" + bogus), errors("a <? b ?>"));
+    for (String start : List.of("<!-x>", "<!/x>", "<!?x>", "<!!x>", "<![if !IE]>")) {
+      assertEquals(List.of("dir/t.html:1:6: error: malformed markup: '<!'" + bogus), errors("<i>a " + start + "</i>"));
+    }
+    // A '<' that starts no tag or comment in a browser stays text.
+    assertEquals(List.of(), errors("<p>x < y, a <- b, a <[b], a &lt;!b, a &lt;/ b</p>"));
+    // RCDATA and raw text have no comments in a browser.
+    assertEquals(
+        List.of(),
+        errors("<textarea>Type </ html> literally</textarea><title>a <!x> <? b</title>"
+            + "<script>if (a </ b) {}</script><style>p::before { content: \"<!x>\" }</style>"));
   }
 
   @Test
