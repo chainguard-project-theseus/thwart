@@ -1,14 +1,17 @@
 package dev.tessera.compiler.oracle;
 
 import dev.tessera.compiler.model.OutputContext;
+import dev.tessera.runtime.DefaultLinks;
 import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.Output;
 import dev.tessera.runtime.StringOutput;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -37,9 +40,17 @@ import java.util.regex.Pattern;
  * are correct exactly where any of their contexts is, so the check accepts the union. A scheme check
  * the compiler forgot is #318's {@code JS_URL} check, with hostile values.
  *
- * <p>{@link OutputContext#REFRESH} is not in the table: its escaper only accepts
- * {@code <digits>;url=<same-origin path>}, and the compiler only lets a literal link expression there,
- * never a slot value. Contexts without an escaper are build errors and have no fingerprint.
+ * <p>A slot can also reach the output through a link expression ({@code @{/x/{id}(id=${s})}},
+ * {@code @{/x(q=${s})}}), which percent-encodes it as a path segment or a query value before the
+ * context's escaper runs. The table also holds those <em>link cores</em>, built with
+ * {@link DefaultLinks}, for every context including {@link OutputContext#REFRESH} (whose escaper
+ * only takes {@code <digits>;url=<path>}, so it only ever sees a slot inside a link). A path segment
+ * encodes every character the escapers touch, so its core is the same in every context and is
+ * accepted wherever some escaper is correct: the value is {@code [A-Za-z0-9._~%-]} only, inert
+ * everywhere. A query value keeps {@code '} and {@code /}, which still tell the entity family from
+ * JSON and from REFRESH.
+ *
+ * <p>Contexts without an escaper are build errors and have no fingerprint.
  */
 public final class Fingerprint {
 
@@ -63,14 +74,39 @@ public final class Fingerprint {
   /** The same after character-reference decoding. */
   private static final Map<OutputContext, String> DECODED = new EnumMap<>(OutputContext.class);
 
+  /** Cores of each context's escaped fingerprint inside a link (path segment, query value), as written. */
+  private static final Map<OutputContext, List<String>> LINK_RAW = new EnumMap<>(OutputContext.class);
+
+  /** The same after character-reference decoding. */
+  private static final Map<OutputContext, List<String>> LINK_DECODED = new EnumMap<>(OutputContext.class);
+
   static {
+    DefaultLinks links = new DefaultLinks("");
+    String marker = marker(1);
+    List<String> linkValues =
+        List.of(
+            links.build("/{p}", new String[] {"p"}, new Object[] {value(1)}),
+            links.build("/", new String[] {"q"}, new Object[] {value(1)}));
     for (OutputContext c : OutputContext.values()) {
-      if (c.escaper() == null || NOT_FINGERPRINTED.contains(c)) {
+      if (c.escaper() == null) {
         continue;
       }
-      String raw = core(c);
-      RAW.put(c, raw);
-      DECODED.put(c, decode(raw));
+      if (!NOT_FINGERPRINTED.contains(c)) {
+        String raw = core(c, "", value(1));
+        RAW.put(c, raw);
+        DECODED.put(c, decode(raw));
+      }
+      List<String> raw = new ArrayList<>();
+      List<String> decoded = new ArrayList<>();
+      for (String link : linkValues) {
+        int at = link.indexOf(marker);
+        String prefix = (c == OutputContext.REFRESH ? "0;url=" : "") + link.substring(0, at);
+        String core = core(c, prefix, link.substring(at));
+        raw.add(core);
+        decoded.add(decode(core));
+      }
+      LINK_RAW.put(c, raw);
+      LINK_DECODED.put(c, decoded);
     }
   }
 
@@ -99,6 +135,11 @@ public final class Fingerprint {
     return (decoded ? DECODED : RAW).get(context);
   }
 
+  /** The link cores of {@code context}: path segment, then query value. */
+  static List<String> linkCores(OutputContext context, boolean decoded) {
+    return (decoded ? LINK_DECODED : LINK_RAW).get(context);
+  }
+
   /**
    * The contexts whose escaper writes a fingerprint that reads as {@code text} does from
    * {@code at}, where a marker starts. {@code decoded} says whether the parser decoded character
@@ -112,24 +153,31 @@ public final class Fingerprint {
         found.add(e.getKey());
       }
     }
+    for (Map.Entry<OutputContext, List<String>> e : (decoded ? LINK_DECODED : LINK_RAW).entrySet()) {
+      for (String core : e.getValue()) {
+        if (text.startsWith(core, at)) {
+          found.add(e.getKey());
+        }
+      }
+    }
     return found;
   }
 
-  /** The escaped fingerprint of slot 1 from the marker on, without what the escaper writes for "". */
-  private static String core(OutputContext c) {
-    String marker = marker(1);
-    String out = escape(c, value(1));
-    String empty = escape(c, "");
-    int p = out.indexOf(marker);
+  /**
+   * What {@code c}'s escaper writes for {@code tail} (which starts with the marker) after
+   * {@code prefix}, without what it writes for {@code prefix} alone (a JSON string's quotes).
+   */
+  private static String core(OutputContext c, String prefix, String tail) {
+    String out = escape(c, prefix + tail);
+    String alone = escape(c, prefix);
+    int p = out.indexOf(marker(1));
     if (p < 0) {
       throw new IllegalStateException(c + " escaper loses the fingerprint marker: " + out);
     }
-    int trailing = empty.length() - p;
-    if (trailing < 0
-        || !empty.equals(out.substring(0, p) + out.substring(out.length() - trailing))) {
+    if (p > alone.length() || !out.startsWith(alone.substring(0, p)) || !out.endsWith(alone.substring(p))) {
       throw new IllegalStateException(c + " escaper doesn't wrap values uniformly: " + out);
     }
-    return out.substring(p, out.length() - trailing);
+    return out.substring(p, out.length() - (alone.length() - p));
   }
 
   /** Calls the {@link Escapers} method {@code c} names (test code: reflection is fine here). */

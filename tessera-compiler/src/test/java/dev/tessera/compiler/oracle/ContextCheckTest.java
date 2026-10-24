@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.testing.Compilation;
+import dev.tessera.runtime.DefaultLinks;
 import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.StringOutput;
 import java.io.StringReader;
@@ -150,6 +151,39 @@ class ContextCheckTest {
     assertFalse(Fingerprint.core(OutputContext.TEXT, true).equals(Fingerprint.core(OutputContext.RCDATA, true)));
   }
 
+  /**
+   * Link cores: a path segment encodes everything the escapers touch, so it reads the same in every
+   * context; a query value keeps {@code '} and {@code /}, which still split the entity family (with
+   * TEXT: no braces left to break), JSON, and REFRESH (which percent-encodes {@code '}).
+   */
+  @Test
+  void linkCoresCollideOnlyWhereIdentical() {
+    Set<OutputContext> all = EnumSet.noneOf(OutputContext.class);
+    for (OutputContext c : OutputContext.values()) {
+      if (c.escaper() != null) {
+        all.add(c);
+      }
+    }
+    Set<OutputContext> entity =
+        EnumSet.of(OutputContext.TEXT, OutputContext.RCDATA, OutputContext.ATTRIBUTE,
+            OutputContext.URL, OutputContext.URL_LIST, OutputContext.RESOURCE_URL);
+    for (boolean decoded : new boolean[] {false, true}) {
+      Set<Set<OutputContext>> path = new HashSet<>();
+      Set<Set<OutputContext>> query = new HashSet<>();
+      for (OutputContext c : all) {
+        List<String> cores = Fingerprint.linkCores(c, decoded);
+        assertTrue(cores.get(0).startsWith(Fingerprint.marker(1) + "%3C"), c + ": " + cores);
+        path.add(Fingerprint.classify(cores.get(0), 0, decoded));
+        query.add(Fingerprint.classify(cores.get(1), 0, decoded));
+      }
+      assertEquals(Set.of(all), path, "decoded=" + decoded);
+      assertEquals(
+          Set.of(entity, EnumSet.of(OutputContext.SCRIPT, OutputContext.SCRIPT_ATTRIBUTE),
+              EnumSet.of(OutputContext.REFRESH)),
+          query, "decoded=" + decoded);
+    }
+  }
+
   @Test
   void unknownWritingIsUnclassified() {
     assertEquals(Set.of(), Fingerprint.classify(FP, 0, false));
@@ -206,6 +240,34 @@ class ContextCheckTest {
     assertMismatch("<p title=\"" + jsonAttr(FP) + "\">x</p>", "/html/body/p/@title");
     // noscript is raw text with scripting on and markup with scripting off.
     assertMismatch("<noscript>" + text(FP) + "</noscript>", "scripting-on /html/body/noscript text");
+  }
+
+  /**
+   * Places an escaper's output is wrong in that the first version accepted or never tried: code
+   * attributes beyond on*, refresh content, JSON bindings of URL targets, text the parser
+   * foster-parents out of a table (its {@code {<!---->{} break is split: the comment stays in the
+   * table, the braces join in the text before it), SVG {@code <textarea>} and a MathML
+   * {@code <title>}.
+   */
+  @Test
+  void moreWrongPlaces() {
+    assertMismatch("<p hx-vals=\"" + attr(FP) + "\">x</p>", "@hx-vals");
+    assertMismatch("<p data-hx-trigger=\"" + attr(FP) + "\">x</p>", "@data-hx-trigger");
+    assertMismatch("<p _=\"" + attr(FP) + "\">x</p>", "@_");
+    assertMismatch("<p ng:click=\"" + attr(FP) + "\">x</p>", "@ng:click");
+    assertMismatch("<x-c params=\"" + attr(FP) + "\">x</x-c>", "@params");
+    assertMismatch("<script type=\"" + attr(FP) + "\"></script>", "@type");
+    assertMismatch("<meta http-equiv=\"refresh\" content=\"0;url=/?q=" + attr(FP) + "\">", "@content");
+    assertMismatch("<a :href=\"" + jsonAttr(FP) + "\">x</a>", "@:href");
+    assertMismatch("<p v-bind:title.prop=\"" + jsonAttr(FP) + "\">x</p>", "@v-bind:title.prop");
+    assertMismatch("<table>" + text(FP) + "<tr><td>x</td></tr></table>", "/html/body text");
+    assertMismatch("<svg><textarea>" + rcdata(FP) + "</textarea></svg>", "textarea[svg] text");
+    assertMismatch("<math><annotation-xml><title>" + rcdata(FP) + "</title></annotation-xml></math>",
+        "title[math] text");
+    // A query-encoded link value is still entity-escaped: wrong in an event handler.
+    String query = new DefaultLinks("").build("/", new String[] {"q"}, new Object[] {FP});
+    assertTrue(query.contains("%3C'"), query);
+    assertMismatch("<p onclick=\"go('" + attr(query) + "')\">x</p>", "@onclick");
   }
 
   @Test
@@ -267,6 +329,8 @@ class ContextCheckTest {
     cases.put("SCRIPT svg", "<svg><script>var a = " + json(FP) + ";</script></svg>");
     cases.put("SCRIPT_ATTRIBUTE", "<p :title=\"" + jsonAttr(FP) + "\">x</p>");
     cases.put("SCRIPT_ATTRIBUTE x-bind", "<p x-bind:title=\"" + jsonAttr(FP) + "\">x</p>");
+    cases.put("SCRIPT json", "<script type=\"application/json\">" + json(FP) + "</script>");
+    cases.put("SCRIPT ld+json", "<script type=\"application/ld+json\">{\"a\": " + json(FP) + "}</script>");
     cases.put("concatenated", "<p>a" + text(FP + "b") + "</p><script>var a = " + json("x" + FP + "y") + ";</script>");
     for (Map.Entry<String, String> e : cases.entrySet()) {
       assertEquals(List.of(), check(e.getValue()), e.getKey() + ": " + e.getValue());
@@ -300,7 +364,14 @@ class ContextCheckTest {
           "<a t:href=\"${s}\">x</a>",
           "<script>var a = [[${s}]];</script>",
           "<svg><text>[[${s}]]</text></svg>",
-          "<svg><script>var a = [[${s}]];</script></svg>");
+          "<svg><script>var a = [[${s}]];</script></svg>",
+          "<script type=\"application/json\">[[${s}]]</script>",
+          "<a t:href=\"@{/x/{id}(id=${s})}\">x</a>",
+          "<a t:href=\"@{/x(q=${s})}\">x</a>",
+          "<script t:src=\"@{/x/{id}.js(id=${s})}\"></script>",
+          "<script>var u = [[@{/x(q=${s})}]];</script>",
+          "<p t:text=\"@{/x(q=${s})}\">x</p>",
+          "<meta http-equiv=\"refresh\" t:content=\"'3;url=' + @{/x(q=${s})}\">");
 
   @Test
   void compiledTemplatesAreClean() {

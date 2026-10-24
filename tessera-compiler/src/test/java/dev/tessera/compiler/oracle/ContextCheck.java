@@ -47,10 +47,11 @@ import org.w3c.dom.Node;
  *       ("unclassified escaper", fail closed);
  *   <li>the location isn't where any of the classified contexts belongs ({@link #belongs}): TEXT in
  *       HTML flow or foreign element text (not SVG {@code script}/{@code style}); RCDATA in HTML
- *       {@code title}/{@code textarea}; ATTRIBUTE, URL, URL_LIST and RESOURCE_URL in an attribute
- *       that is not an event handler, {@code style}, {@code srcdoc} or a script-evaluating framework
- *       attribute; SCRIPT in a JavaScript {@code script} of the HTML or SVG namespace;
- *       SCRIPT_ATTRIBUTE in a {@code :x}/{@code v-bind:x}/{@code x-bind:x} binding;
+ *       {@code title}/{@code textarea}; ATTRIBUTE, URL, URL_LIST and RESOURCE_URL in a
+ *       {@linkplain #plainAttribute plain attribute}; REFRESH in the {@code content} of a
+ *       {@code <meta http-equiv="refresh">}; SCRIPT in a JavaScript {@code script} of the HTML or SVG
+ *       namespace, or a JSON data block; SCRIPT_ATTRIBUTE in a {@code :x}/{@code v-bind:x}/
+ *       {@code x-bind:x} binding whose target is a plain, non-URL attribute;
  *   <li>the marker is in a comment or a name, or is in the render but nowhere in the tree.
  * </ul>
  *
@@ -321,41 +322,108 @@ public final class ContextCheck {
               && !(svg && (loc.element().equals("script") || loc.element().equals("style"))));
       case RCDATA -> loc.place() == Place.RCDATA_TEXT;
       case ATTRIBUTE, URL, URL_LIST, RESOURCE_URL ->
-          loc.place() == Place.ATTRIBUTE && plainAttribute(loc.attribute());
+          loc.place() == Place.ATTRIBUTE && plainAttribute(loc.node(), loc.attribute());
+      case REFRESH -> loc.place() == Place.ATTRIBUTE && isRefreshContent(loc.node(), loc.attribute());
       case SCRIPT -> loc.element().equals("script")
           && (loc.place() == Place.RAW_TEXT || (loc.place() == Place.FOREIGN_TEXT && svg))
-          && isJavaScript(loc.node());
-      case SCRIPT_ATTRIBUTE -> loc.place() == Place.ATTRIBUTE && binding(loc.attribute());
+          && isJavaScriptOrJson(loc.node());
+      case SCRIPT_ATTRIBUTE -> loc.place() == Place.ATTRIBUTE && binding(loc.node(), loc.attribute());
       default -> false;
     };
   }
 
-  /**
-   * An attribute an entity-escaped string is correct in: not an event handler, {@code style},
-   * {@code srcdoc}, or a framework attribute evaluated as script.
+  /*
+   * The lists below are written from the specs and the frameworks' documentation, deliberately not
+   * taken from the compiler's Contexts: an oracle that asked the compiler which attributes are code
+   * would agree with it by construction, and a name dropped from the compiler would vanish from
+   * the check in the same commit. TODO(#311): read the framework table once it exists as data.
    */
-  private static boolean plainAttribute(String attribute) {
+
+  /**
+   * Framework attributes whose value is evaluated as code (with or without a {@code data-} prefix):
+   * htmx {@code hx-on*} and {@code hx-vals}/{@code hx-vars}/{@code hx-headers}/{@code hx-request}
+   * ({@code js:} values), {@code hx-trigger} ({@code [filter]}); AngularJS {@code ng-}/{@code ng:}/
+   * {@code ng_}; _hyperscript {@code script}.
+   */
+  private static final Set<String> CODE_UNPREFIXED =
+      Set.of("hx-vals", "hx-vars", "hx-headers", "hx-request", "hx-trigger", "script");
+
+  /**
+   * An attribute an entity-escaped string is correct in. Not: an event handler (every WHATWG event
+   * handler content attribute starts with {@code on}; the prefix is the fail-closed superset),
+   * {@code style}, {@code srcdoc}, a {@code <script type>} or {@code <meta http-equiv>} (they
+   * decide how other content is read), the {@code content} of a refresh {@code <meta>} (a
+   * navigation: only REFRESH is correct there), or a client-framework attribute evaluated as code:
+   * Vue/petite-vue {@code v-*} and {@code : @ # .} shorthands, Alpine {@code x-*}, Knockout
+   * {@code data-bind} and custom-element {@code params}, _hyperscript {@code _}, and
+   * {@link #CODE_UNPREFIXED}.
+   */
+  static boolean plainAttribute(Element element, String attribute) {
     String a = attribute.toLowerCase(Locale.ROOT);
+    String el = element.getLocalName() == null ? element.getTagName() : element.getLocalName();
     String unprefixed = a.startsWith("data-") ? a.substring("data-".length()) : a;
     return !(a.startsWith("on") || a.equals("style") || a.equals("srcdoc")
+        || (el.equals("script") && a.equals("type"))
+        || (el.equals("meta") && a.equals("http-equiv"))
+        || isRefreshContent(element, attribute)
         || a.startsWith(":") || a.startsWith("@") || a.startsWith("#") || a.startsWith(".")
-        || a.startsWith("v-") || a.startsWith("x-") || a.equals("data-bind")
-        || unprefixed.startsWith("hx-on") || unprefixed.startsWith("ng-"));
+        || a.startsWith("v-") || a.startsWith("x-") || a.equals("data-bind") || a.equals("_")
+        || (a.equals("params") && el.indexOf('-') >= 0)
+        || unprefixed.startsWith("hx-on") || CODE_UNPREFIXED.contains(unprefixed)
+        || unprefixed.startsWith("ng-") || unprefixed.startsWith("ng:") || unprefixed.startsWith("ng_"));
   }
 
-  /** A Vue/Alpine bind attribute, whose value is evaluated as a JavaScript expression. */
-  private static boolean binding(String attribute) {
+  /** The {@code content} of an HTML {@code <meta>} whose {@code http-equiv} is {@code refresh}. */
+  private static boolean isRefreshContent(Element element, String attribute) {
+    return HTML.equals(element.getNamespaceURI() == null ? HTML : element.getNamespaceURI())
+        && "meta".equals(element.getLocalName() == null ? element.getTagName() : element.getLocalName())
+        && attribute.equalsIgnoreCase("content")
+        && element.getAttribute("http-equiv").strip().equalsIgnoreCase("refresh");
+  }
+
+  /**
+   * Attributes a JSON binding must not target although they are plain: the WHATWG attributes whose
+   * value is a URL (current and obsolete), and DOM properties that a framework would set instead
+   * of the attribute and that take markup or URL parts ({@code HTMLHyperlinkElementUtils}).
+   */
+  private static final Set<String> NOT_BIND_TARGETS =
+      Set.of("action", "archive", "background", "cite", "classid", "codebase", "data", "formaction",
+          "href", "icon", "itemtype", "longdesc", "lowsrc", "manifest", "ping", "poster", "profile",
+          "src", "srcset", "usemap", "xlink:href", "is", "innerhtml", "outerhtml", "protocol",
+          "host", "hostname", "port", "pathname", "search", "hash", "username", "password");
+
+  private static final Pattern BIND_TARGET = Pattern.compile("[a-z_][a-z0-9_-]*");
+
+  /**
+   * A Vue/Alpine bind attribute ({@code :x}, {@code v-bind:x}, {@code x-bind:x}), whose value is
+   * evaluated as a JavaScript expression and set as attribute {@code x}: correct for JSON only if
+   * {@code x} is a plain name (no modifier or dynamic argument) of a plain, non-URL attribute.
+   */
+  private static boolean binding(Element element, String attribute) {
     String a = attribute.toLowerCase(Locale.ROOT);
-    return (a.startsWith(":") || a.startsWith("v-bind:") || a.startsWith("x-bind:"))
-        && !a.endsWith(":");
+    for (String prefix : List.of(":", "v-bind:", "x-bind:")) {
+      if (a.startsWith(prefix)) {
+        String target = a.substring(prefix.length());
+        return BIND_TARGET.matcher(target).matches()
+            && plainAttribute(element, target)
+            && !NOT_BIND_TARGETS.contains(target);
+      }
+    }
+    return false;
   }
 
-  private static boolean isJavaScript(Element script) {
+  /**
+   * A JavaScript {@code script} (no type, an empty type, a JavaScript MIME type or {@code module}),
+   * or a JSON data block ({@code application/json} or a {@code +json} type), whose content the
+   * JSON escaper writes correctly.
+   */
+  private static boolean isJavaScriptOrJson(Element script) {
     if (!script.hasAttribute("type")) {
       return true;
     }
     String type = script.getAttribute("type").strip().toLowerCase(Locale.ROOT);
-    return type.isEmpty() || JS_TYPES.contains(type);
+    return type.isEmpty() || JS_TYPES.contains(type)
+        || type.equals("application/json") || (type.startsWith("application/") && type.endsWith("+json"));
   }
 
   private static String describe(Location loc) {
