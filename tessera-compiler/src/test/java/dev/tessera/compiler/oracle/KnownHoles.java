@@ -36,7 +36,8 @@ public final class KnownHoles {
   }
 
   private static final Pattern LINE =
-      Pattern.compile("([0-9a-f]{12})\\s+([A-Z_]+)\\s+(\\S+)\\s+#([1-9][0-9]*)(?:\\s+(.*))?");
+      Pattern.compile(
+          "([0-9a-f]{12})\\s+([A-Z_]+)\\s+(\\*|[a-z0-9][a-z0-9.-]*)\\s+#([1-9][0-9]{0,8})(?:\\s+(.*))?");
 
   private final List<Entry> entries;
 
@@ -98,6 +99,16 @@ public final class KnownHoles {
       String key = m.group(1) + ' ' + kind + ' ' + m.group(3);
       if (!seen.add(key)) {
         throw error(file, i, "duplicate entry " + key);
+      }
+      // A '*' line and an engine line for the same case and kind overlap: one of them could never
+      // be matched, so the ratchet couldn't tell when it goes stale.
+      String any = m.group(1) + ' ' + kind + " *";
+      boolean overlaps =
+          m.group(3).equals("*")
+              ? entries.stream().anyMatch(e -> e.caseId().equals(m.group(1)) && e.kind() == kind)
+              : seen.contains(any);
+      if (overlaps) {
+        throw error(file, i, "entry " + key + " overlaps another line for the same case and kind");
       }
       String note = m.group(5) == null ? "" : m.group(5);
       entries.add(new Entry(m.group(1), kind, m.group(3), Integer.parseInt(m.group(4)), note));

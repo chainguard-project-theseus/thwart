@@ -56,9 +56,24 @@ class KnownHolesTest {
           "0123456789 LIVE_SCRIPT * #305", // id too short
           "0123456789ab LIVE_JAVA * #305", // unknown kind
           "0123456789ab LIVE_SCRIPT * #305\n0123456789ab LIVE_SCRIPT * #306", // duplicate
+          "0123456789ab LIVE_SCRIPT * #305\n0123456789ab LIVE_SCRIPT vnu-26 #305", // overlap
+          "0123456789ab LIVE_SCRIPT vnu-26 #305\n0123456789ab LIVE_SCRIPT * #305", // overlap
+          "0123456789ab LIVE_SCRIPT #305 #306 engine missing", // '#305' is not an engine
+          "0123456789ab LIVE_SCRIPT * #99999999999", // issue number out of range
+          "0123456789ab LIVE_SCRIPT * #305x", // issue number not separated from the note
+          "0123456789ab\tLIVE_SCRIPT", // truncated
         }) {
       assertThrows(IllegalArgumentException.class, () -> KnownHoles.parse("t.txt", bad), bad);
     }
+  }
+
+  @Test
+  void exportLineEscapesLineBreaksAndSurrogates() {
+    ExportRecord r = new ExportRecord("id", "n", "<p>\n</p>", "a\u2028\ud800\"", null, "CLEAN");
+    assertEquals(
+        "{\"id\":\"id\",\"name\":\"n\",\"template\":\"<p>\\n</p>\",\"value\":\"a\\u2028\\ud800\\\"\","
+            + "\"render\":null,\"verdict\":\"CLEAN\"}",
+        r.toJsonLine());
   }
 
   @Test

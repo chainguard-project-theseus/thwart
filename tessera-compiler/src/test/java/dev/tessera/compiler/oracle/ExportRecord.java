@@ -55,7 +55,8 @@ public record ExportRecord(
         case '\t' -> sb.append("\\t");
         default -> {
           // Escape all other controls, and U+2028/U+2029 so the line stays one line for any reader.
-          if (c < 0x20 || c == ' ' || c == ' ') {
+          // Surrogates too: a lone one would be lost when the line is written as UTF-8.
+          if (c < 0x20 || c == '\u2028' || c == '\u2029' || Character.isSurrogate(c)) {
             sb.append(String.format("\\u%04x", (int) c));
           } else {
             sb.append(c);
