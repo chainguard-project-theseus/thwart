@@ -457,6 +457,7 @@ The compiler decides the context from the element and attribute name. You cannot
 | URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, `hx-push-url`, `hx-replace-url`, ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. |
 | Resource URL | `script[src]`, `iframe[src]`, `embed[src]`, `object[data]`, `base[href]`, `link[href]` | Only a literal-path `@{...}` link or a `TrustedUrl` compiles. |
 | htmx request URL | `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect`, `ws-connect` (also with `data-`) | Only a link whose literal path starts with a single `/` compiles, as for a refresh: htmx swaps the response into the page as HTML, and htmx 1.x also requests other origins. Static values are copied verbatim. htmx 1.x's `hx-sse` and `hx-ws` (`connect:<url>`) take no expression at all. |
+| htmx form URL | `action` of a `<form>` inside `hx-boost`; `formaction` inside `hx-boost` or inside a `<form>` with an htmx request attribute | Same rule as an htmx request URL: htmx submits the form with AJAX and swaps the response in. `hx-boost="false"` on the form opts out. `hx-boost` itself cannot be computed. Links (`href`) are not affected. |
 | Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, records and `@TemplateView` beans, collections, String-keyed maps). |
 | Style | `<style>` text and `style` attribute | In `<style>`, expressions are a build error. A `style` attribute takes only string literals, numbers and `CssValue`s, combined with `+`, `\|...\|`, `?:` and `? :`; anything else (a `String` value) is a build error. |
 | Refresh | `content` of `<meta http-equiv="refresh">` | Only `'<seconds>;url=' + @{/path...}` compiles: a literal delay and a link whose literal path starts with a single `/`, so the refresh stays on the same origin. Path variables and parameters are encoded as usual, and `; , ' "`, `\` and whitespace in the URL are percent-encoded. Rendered as `<seconds>;url=<url>`. |
@@ -496,6 +497,18 @@ with `[[${...}]]` and read it from there. Other
 `data-*` attributes and htmx attributes that hold selectors or text (`hx-target`, `hx-swap`,
 `hx-select`, `hx-confirm`) are ordinary attributes. Port `th:hx-get="@{/items/{id}(id=${id})}"`
 to the same `t:hx-get`; a URL computed in Java (`t:hx-get="${url}"`) has to become a link.
+
+Inside `hx-boost` htmx submits every form with AJAX to its `action` and swaps the response into
+the page as HTML, without checking the origin (htmx 1.x, or 2.x with `selfRequestsOnly` off), and a
+submit button's `formaction` replaces that URL in any form htmx submits, `hx-post` and the like
+included. So where the template itself shows the boost (a static `hx-boost` or `data-hx-boost` on
+the form or an ancestor in the same template, nearest wins), a computed `t:action`, and a computed
+`t:formaction` there or inside a `<form>` with `hx-get`, `hx-post`, ..., takes only a link whose
+literal path starts with a single `/`: `t:action="@{/owners/{id}/edit(id=${owner.id})}"`. To post a
+boosted page's form somewhere else, put `hx-boost="false"` on the form; it then submits natively
+and takes any URL. `hx-boost` cannot be computed: write `true` or `false`. Links need nothing:
+htmx boosts an `<a>` only when its hostname is the page's, so `t:href="${user.website}"` in a boosted
+nav stays an ordinary URL.
 
 In a script, a record or `@TemplateView` bean becomes a JSON object of the properties a template
 can read, as Thymeleaf's Jackson output does: `var chart = [[${chart}]];` works unchanged. Record
@@ -1387,6 +1400,8 @@ These come from the annotation processor itself, without a template position.
 - `<label> is not allowed: htmx requests this URL and swaps the response into the page as HTML; use a same-origin link such as @{/items/{id}(id=${item.id})}`. On `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect` and `ws-connect`; build the URL with a link, not a `String`.
 - `<label> is not allowed: an htmx request URL must be a same-origin path starting with a single '/', not @{<path>}`. Absolute, protocol-relative and page-relative links are rejected; write a cross-origin endpoint as a static attribute.
 - `<label> is not allowed: htmx 1.x '<name>' holds connect:<url>, a URL htmx connects to and swaps into the page as HTML, so it cannot be computed; write it as a static attribute, or use the sse/ws extension's sse-connect/ws-connect with a same-origin link such as @{/events}`. On `hx-sse` and `hx-ws` (also with `data-`).
+- `<label> is not allowed: inside hx-boost or an htmx form, htmx submits to this URL and swaps the response into the page as HTML; use a same-origin link such as @{/items/{id}(id=${item.id})}, or put hx-boost="false" on the form to submit it natively`. On `action` of a boosted `<form>` and `formaction` in a boosted region or an htmx form (section 4.4). Other links are reported as `an htmx request URL must be a same-origin path ...`.
+- `<label> is not allowed: '<name>' cannot be computed; it decides whether htmx submits the forms inside with AJAX and swaps the response into the page, so write <name>="true" or <name>="false" statically`. On `hx-boost` and `data-hx-boost`.
 - `<label> is not allowed: attribute name '<name>' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*`.
 - `<label>: the type of a <script> cannot be computed; its content type must be known at build time, so write a static type attribute`.
 - `<label>: the http-equiv of a <meta> cannot be computed; it decides whether content is a refresh URL, so write a static http-equiv attribute`.
@@ -1504,6 +1519,13 @@ Gaps in Tessera today, each with what to do until it is fixed.
   or a _hyperscript `attributes` setting that reads other names is not detected, so expressions
   there are escaped as ordinary attributes and run as code. Keep the default names, or never
   compute those attributes.
+- **htmx boosting from elsewhere.** Form URLs are checked only where `hx-boost` is visible around
+  the form where it is written (section 4.4). Boosting from a layout or a fragment caller
+  (`<body hx-boost="true">` in a layout that receives the page's content, or a boosted element of
+  the same template that inserts the fragment), set from JavaScript, and a submit button outside
+  its form (`form="id"`) are not seen. On htmx 1.9.5 and later set
+  `htmx.config.selfRequestsOnly = true` (the default from 2.0) so htmx requests only the page's
+  origin; older htmx 1.x has no such setting, so upgrade.
 - **Security functions.** `auth` has `hasRole`/`hasAnyRole`, not `hasAuthority`; compute anything
   else in the controller.
 - **Selections.** `~{::tag}` selects fragment names and plain tag names only: not hyphenated tags,
