@@ -43,7 +43,14 @@ public enum Hole {
   SCRIPT_LINE_COMMENT("script:// [[s]]", Kind.SCRIPT, "// ", "\n"),
   SCRIPT_AFTER_DIVISION("script:a / b; [[s]]", Kind.SCRIPT, "var c = a / b; var d = ", ";"),
   SCRIPT_AFTER_REGEX("script:x\\n/\"/.test(y); [[s]]", Kind.SCRIPT, "var r = x\n/\"/.test(y); var z = ", ";"),
-  STYLE_BLOCK("style:a{color:[[s]]}", Kind.STYLE, "a { color: ", "; }");
+  STYLE_BLOCK("style:a{color:[[s]]}", Kind.STYLE, "a { color: ", "; }"),
+  /**
+   * Inlined into a static event handler. Safe where the compiler and a browser agree that this is
+   * markup; live wherever the compiler thinks it is raw text and a browser doesn't (A17 with {@code
+   * t:remove="tag"} on a script, the #338 tag names).
+   */
+  INLINE_HANDLER_UNQUOTED("<img src=x onerror=[[s]]>", Kind.INLINE, "<img src=x onerror=[[s]]>", ""),
+  INLINE_HANDLER_QUOTED("<a onclick=\"[[s]]\">", Kind.INLINE, "<a onclick=\"[[s]]\">x</a>", "");
 
   /** How a hole is placed; see the class Javadoc. */
   public enum Kind {

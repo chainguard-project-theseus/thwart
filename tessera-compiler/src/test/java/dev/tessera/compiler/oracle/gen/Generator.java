@@ -99,6 +99,13 @@ public final class Generator {
               Shape.of(Container.SCRIPT, Interference.NONE, Hole.SCRIPT_AFTER_REGEX)),
           new Anchor("B0", "<svg><script>/*</svg><img src=x title=*/[[s]]//></script></svg>",
               Shape.of(Container.SVG_SCRIPT, Interference.SVG_SCRIPT_BREAKOUT, Hole.SCRIPT_BARE)),
+          new Anchor("A17", "<script t:remove=\"tag\"><img src=x onerror=[[s]]></script>",
+              Shape.of(Container.SCRIPT, Interference.NONE, Hole.INLINE_HANDLER_UNQUOTED)
+                  .with(Composition.REMOVE_TAG, null)),
+          new Anchor("#338 textarea", "<textarea\u000B><a onclick=\"[[s]]\">x</a></textarea>",
+              Shape.of(Container.NONE, Interference.TEXTAREA_VT, Hole.INLINE_HANDLER_QUOTED)),
+          new Anchor("#296 processing instruction", "<?x > <script>//?>\n[[s]]\n<!-- </script> -->",
+              Shape.of(Container.NONE, Interference.PI_HIDDEN_SCRIPT, Hole.TEXT_INLINE)),
           new Anchor("#298 review",
               "<textarea x=y/><a title=\"</textarea><script>//\">\n[[s]]\n//</a><!-- </script> -->",
               Shape.of(Container.NONE, Interference.UNQUOTED_SLASH_TEXTAREA, Hole.TEXT_INLINE)));

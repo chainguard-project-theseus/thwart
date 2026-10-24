@@ -70,7 +70,9 @@ public enum Interference {
   /** A10 (#296): a CDATA section is a bogus comment in HTML content, ended by the first {@code >}. */
   CDATA_HIDDEN_SCRIPT("<![CDATA[ > <script>//]]>", "<![CDATA[ > <script>//]]>", "<!-- </script> -->"),
   /** B0 (#301): {@code </svg>} inside an SVG script comment ends the SVG in a browser. */
-  SVG_SCRIPT_BREAKOUT("/*</svg><img src=x title=*/..//>", "/*</svg><img src=x title=*/", "//>");
+  SVG_SCRIPT_BREAKOUT("/*</svg><img src=x title=*/..//>", "/*</svg><img src=x title=*/", "//>"),
+  /** #296: a processing instruction is a bogus comment in HTML, ended by the first {@code >}. */
+  PI_HIDDEN_SCRIPT("<?x > <script>//?>", "<?x > <script>//?>\n", "\n<!-- </script> -->");
 
   private final String label;
   private final String prefix;

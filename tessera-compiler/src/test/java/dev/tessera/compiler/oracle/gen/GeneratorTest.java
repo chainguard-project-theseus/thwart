@@ -45,6 +45,22 @@ class GeneratorTest {
     assertEquals(ids(Generator.defaultCases()), ids(Generator.defaultCases()));
   }
 
+  /**
+   * The ids of the default enumeration, pinned. The test above compares two runs in one JVM; this
+   * one fails when another JVM, JDK or platform (CI) would enumerate different cases, which would
+   * silently invalidate known-holes lines (#324). A deliberate grammar change updates the pin (and
+   * turns known-holes lines whose case is gone into seeds; see {@link Generator}).
+   */
+  @Test
+  void defaultEnumerationIsPinned() {
+    List<String> ids = ids(Generator.defaultCases());
+    String fingerprint = OracleCase.idOf(String.join(",", ids));
+    assertEquals(PINNED_COUNT + " " + PINNED_FINGERPRINT, ids.size() + " " + fingerprint);
+  }
+
+  private static final int PINNED_COUNT = 1523;
+  private static final String PINNED_FINGERPRINT = "45990d7b6e24";
+
   @Test
   void defaultEnumerationIsWithinTheCapAndNotTruncated() {
     List<GeneratedCase> cases = Generator.defaultCases();
@@ -277,6 +293,9 @@ class GeneratorTest {
    * A33  script                  | none                  | script:x\n/"/.test(y); [[s]]
    * B0   svg>script              | /*&lt;/svg&gt;&lt;img src=x title=*&#47;..//&gt; | script:[[s]]  (svg script breakout)
    * #298 review none             | &lt;textarea x=y/&gt;       | [[s]]
+   * A17  script, t:remove="tag"  | none                  | &lt;img src=x onerror=[[s]]&gt;
+   * #338 none                    | &lt;textarea\u000B&gt;      | &lt;a onclick="[[s]]"&gt;  (review finding in #320)
+   * #296 none                    | &lt;?x &gt; &lt;script&gt;//?&gt;   | [[s]]  (processing instruction, a bogus comment)
    * </pre>
    */
   @Test
@@ -289,7 +308,7 @@ class GeneratorTest {
       assertTrue(generated.contains(OracleCase.idOf(expected)), anchor.probe() + " is not generated");
       probes.add(anchor.probe());
     }
-    assertTrue(probes.containsAll(List.of("A4", "A5", "A14", "A15", "A16", "B0")), probes.toString());
+    assertTrue(probes.containsAll(List.of("A4", "A5", "A14", "A15", "A16", "A17", "B0", "#338 textarea")), probes.toString());
   }
 
   // ---------------------------------------------------------------- configuration
