@@ -240,6 +240,8 @@ public final class TemplateGenerator implements CodegenContext {
    * Records {@link #htmxSubmits}. {@code boosted}: the nearest static {@code hx-boost} above is not
    * {@code false} (htmx inherits it; {@code hx-disinherit} is ignored, which only adds checks).
    * {@code htmxForm}: inside a {@code <form>} that is boosted or has an htmx request attribute.
+   * An {@code hx-boost="false"} whose tag is not rendered ({@code <t:block>}, {@code t:remove="tag"})
+   * opts nothing out, and an inner form keeps {@code htmxForm}: browsers drop a nested {@code <form>}.
    */
   private void indexHtmxSubmits(List<Node> nodes, boolean boosted, boolean htmxForm) {
     for (Node n : nodes) {
@@ -248,9 +250,14 @@ public final class TemplateGenerator implements CodegenContext {
       }
       Element e = (Element) n;
       Boolean boost = Contexts.staticHtmxBoost(e);
+      if (Boolean.FALSE.equals(boost)
+          && (e.name().equals("t:block")
+              || e.attribute("t:remove").map(Attribute::value).map(String::trim).filter("tag"::equals).isPresent())) {
+        boost = null;
+      }
       boolean b = boost == null ? boosted : boost;
       boolean form = e.name().equalsIgnoreCase("form");
-      boolean f = form ? b || Contexts.hasHtmxRequestAttribute(e) : htmxForm;
+      boolean f = htmxForm || (form && (b || Contexts.hasHtmxRequestAttribute(e)));
       // A form's own action is requested only when it is boosted; with hx-post etc. htmx ignores it.
       if (form ? b : b || f) {
         htmxSubmits.add(e);

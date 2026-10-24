@@ -507,7 +507,7 @@ the form or an ancestor in the same template, nearest wins), a computed `t:actio
 literal path starts with a single `/`: `t:action="@{/owners/{id}/edit(id=${owner.id})}"`. To post a
 boosted page's form somewhere else, put `hx-boost="false"` on the form; it then submits natively
 and takes any URL. `hx-boost` cannot be computed: write `true` or `false`. Links need nothing:
-htmx boosts an `<a>` only when its host is the page's, so `t:href="${user.website}"` in a boosted
+htmx boosts an `<a>` only when its hostname is the page's, so `t:href="${user.website}"` in a boosted
 nav stays an ordinary URL.
 
 In a script, a record or `@TemplateView` bean becomes a JSON object of the properties a template
@@ -1519,12 +1519,13 @@ Gaps in Tessera today, each with what to do until it is fixed.
   or a _hyperscript `attributes` setting that reads other names is not detected, so expressions
   there are escaped as ordinary attributes and run as code. Keep the default names, or never
   compute those attributes.
-- **htmx boosting from elsewhere.** Form URLs are checked only where `hx-boost` is visible in the
-  same template (section 4.4). Boosting from a layout or a fragment caller (`<body hx-boost="true">`
-  in a layout that receives the page's content), set from JavaScript, an `hx-post` set through
-  `t:attr`, and a submit button outside its form (`form="id"`) are not seen. On htmx 1.9.6 and
-  later set `htmx.config.selfRequestsOnly = true` (the default from 2.0) so htmx requests only
-  the page's origin; older htmx 1.x has no such setting, so upgrade.
+- **htmx boosting from elsewhere.** Form URLs are checked only where `hx-boost` is visible around
+  the form where it is written (section 4.4). Boosting from a layout or a fragment caller
+  (`<body hx-boost="true">` in a layout that receives the page's content, or a boosted element of
+  the same template that inserts the fragment), set from JavaScript, and a submit button outside
+  its form (`form="id"`) are not seen. On htmx 1.9.5 and later set
+  `htmx.config.selfRequestsOnly = true` (the default from 2.0) so htmx requests only the page's
+  origin; older htmx 1.x has no such setting, so upgrade.
 - **Security functions.** `auth` has `hasRole`/`hasAnyRole`, not `hasAuthority`; compute anything
   else in the controller.
 - **Selections.** `~{::tag}` selects fragment names and plain tag names only: not hyphenated tags,

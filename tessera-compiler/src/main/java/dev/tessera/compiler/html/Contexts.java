@@ -155,14 +155,22 @@ public final class Contexts {
   }
 
   /**
-   * Whether {@code element} has an {@link #isHtmxRequestUrl htmx request attribute}, static or
-   * {@code t:} (#258): on a {@code <form>}, htmx then requests a submit button's
-   * {@code formaction} instead of that URL.
+   * Whether {@code element} has an {@link #isHtmxRequestUrl htmx request attribute}, static,
+   * {@code t:} or (by name anywhere in its value) {@code t:attr} (#258): on a {@code <form>}, htmx
+   * then requests a submit button's {@code formaction} instead of that URL.
    */
   public static boolean hasHtmxRequestAttribute(Element element) {
     for (Attribute a : element.attributes()) {
       if (isHtmxRequestUrl(a.localName())) {
         return true;
+      }
+      if (a.name().equals(Attribute.PREFIX + "attr") && a.value() != null) {
+        String v = a.value().toLowerCase(Locale.ROOT);
+        for (String name : HTMX_REQUEST_ATTRIBUTES) {
+          if (v.contains(name)) {
+            return true;
+          }
+        }
       }
     }
     return false;
