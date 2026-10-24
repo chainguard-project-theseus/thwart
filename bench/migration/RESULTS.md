@@ -19,8 +19,9 @@ container, no web access, 90-minute and $40 budget per run.
 | [Quick round 9](#quick-round-9) (run 9) | 4 | fredbet + 3 held-out apps | `tessera-migrate compare` | **1/4** (dev 0/1, held-out 1/3) |
 | [First runs on new engines](#first-runs-on-new-engines) (run 1) | 3 | 3 held-out apps (JSP + Tiles, Velocity, Pebble) | `tessera-migrate compare` | **0/3** |
 | [New engines run 2](#new-engines-run-2) (run 2) | 3 | the same 3 held-out apps | `tessera-migrate compare` | **1/3** |
+| [New engines run 3](#new-engines-run-3) (run 3) | 2 | espd, ewp-registry | `tessera-migrate compare` | **0/2** |
 
-Across all 57 runs, every migrated app builds and passes all of its tests, and no run used
+Across all 59 runs, every migrated app builds and passes all of its tests, and no run used
 `SafeHtml.unchecked`/`TrustedUrl.unchecked`, `permitAll`, CSRF disabling or `@Disabled`. Two
 runs left legacy templates behind: budgetmaster run 4, which stopped early, and espd run 2, whose
 session ended before its last step.
@@ -740,13 +741,131 @@ pages), #130, #136, #193, #183 (the eCertis ignore).
 
 Pages per gap this round: #134 8 (espd), and #246 3 (ewp-registry, by design without it).
 
+## New engines run 3
+
+Tracked in #151. After run 2 these merged: #134 (`-Atessera.messages` takes several basenames and
+locale-suffixed bases, and checks every locale file), #246 (Vue/Alpine `:X`/`v-bind:X` take
+JSON-serialisable values), #248 (`{{` in element text is broken with `<!---->`), #258 (boosted and
+htmx form URLs same-origin only), #260 (the view-safety message names the offending type argument),
+#261 (the starter logs the template count and warns when there are none) and #264 (the bench sets
+`CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`, so background tasks are no longer stopped 10 minutes after
+the last turn). The image was rebuilt from `5be4900`, and both baselines were re-recorded the same
+day (both `determinism.txt` 100% `same`). One run each of the two apps that didn't pass in run 2;
+luckyblog wasn't re-run. Both listed and invoked the skill. 2 runs, **$29.46** and 97 minutes of
+agent time (the same two apps in run 2: $22.27, 77 minutes).
+
+| App (engine) | Pass | Tests | Pages same + reordered | Run 2 | Acceptable only | Minutes (run 2) | Cost $ (run 2) | Output tokens |
+|---|---|---|---|---|---|---|---|---|
+| ewp-registry (Pebble) | no | 373/373 | 35+0/38 | 35/38 | 36/38 | 38.7 (42.2) | 9.89 (7.80) | 94,078 |
+| espd (JSP + Tiles) | no | 931/931 | 50+0/60 | 46/60 | 52/60 | 58.0 (34.4) | 19.57 (14.47) | 193,222 |
+
+"Acceptable only" counts the differences classed acceptable below as passes. **0 of 2 pass**, but
+neither run has a Tessera gap left that changes what a user sees. Every remaining difference is an
+agent error or a serialisation difference. #134 fixed all of espd's locale pages, and #246 let
+ewp-registry keep its Vue props. The new differences are agent errors: one shaped by unclear guide
+wording (#278), one by a missing sanitizer policy (#262). espd deleted all 50 JSPs and `tiles.xml`
+this time, so no legacy files are left. Both built, kept every test (ewp-registry added one) and
+removed the old engine's dependencies, and neither used `unchecked`.
+
+### Triage
+
+| Run | Pages | Cause | Class | Issue |
+|---|---|---|---|---|
+| espd 3 | 7 (4 only this) | `averageYearlyTurnover.averageTurnoverCurrency` loses `selected` once the user has posted `EUR`: `POST /response/eo/selection` (3), `GET /request/eo/selection`, and the response finish and overview pages (3; visible page and PDF copy). The agent's generator gave every option of the `<select t:field>` a `t:selected` for the original's default (the country's currency when the field is null). It expected `t:field` to still select the bound value, but an explicit `t:selected` replaces the match (#120). The guide only says a `t:selected` "is kept", and the agent's report asks whether that replaces the match or adds to it. Its map-backed group selects, written by hand as `groupValueIs(...) \|\| default`, are right | Agent error (guide wording) | #278 (new) |
+| espd 3 | 5 (2 only this) | Overview pages: the hidden `html` input that carries the page's markup to the PDF export differs in attribute order, `&ndash;`, `&#39;`, `<hr/>` and `<textarea>` leading whitespace. Parsed and canonicalised, the markup is the same on all 5 pages, apart from the `EUR` option above on the 3 response pages. As in run 2 | Acceptable | |
+| espd 3 | 1 | `POST /response/eo/selection` with `numberOfYears=three`: the global errors are `<div class="alert alert-danger errorContainer">`; the original's `<form:errors path="*">` wrote `<span id="espd.errors" ...>` | Agent error | |
+| ewp-registry 3 | 2 | `/coverage`, `/coverage?pattern=PL`: the user sees `Jagiellonian University <Krak&oacute;w>`. The matrix is built in Java with Spring's `HtmlUtils.htmlEscape` (`ó` becomes `&oacute;`). The agent's own HTML tokenizer (`HtmlTreeParser`, written instead of `html.sanitize`, whose fixed policy drops `class`/`colspan`/`rowspan`) knows 7 entity names, keeps `&oacute;` as text, and the template escapes it again. Its own `pages.txt` had no non-ASCII names | Agent error (shaped by a Tessera gap) | #262 |
+| ewp-registry 3 | 1 | `/manifestValidation` (example.xml): `t::security-notices="${api.securityNotices}"` (#246) writes `https:\/\/github.com\/...`, because Tessera's JSON escaper escapes `/`. The original used Jackson, which doesn't. Vue parses the same value, and compare can't decode JSON string escapes | Acceptable | #183 |
+
+Pages can have several causes. Every espd hidden-input diff was parsed and compared past the
+textual difference. "Acceptable only" for espd is 50 + 2 (pages 20 and 21). Without #278's
+mistake it would be 59/60, with the error container the only real difference.
+
+**What changed since run 2.** espd gained 9 pages and lost 5:
+- **Gained:** the pages run 2 lost to #134 (8) or to `?lang=xx` missing from form actions (4; the
+  layout's form action now includes the query string). That is 10 pages, 2 with both causes, and 9
+  of them are now `same`. The tenth, `/response/eo/overview?lang=es`, still has the causes above.
+  The CA overview's yearly-turnover groups are also right now, but those two pages still differ on
+  the hidden input.
+- **Lost:** pages 43-46 and 56: the four `EUR` selection pages (#278) and the error container,
+  new mistakes in a rewritten generator.
+
+ewp-registry's `/manifestValidation` pages went from 0/3 to 2/3 (#246). Its two `/coverage` pages
+regressed: run 2 rendered the matrix from a record tree, while run 3 parses the Java-built HTML.
+
+**Background tasks and wall time.** Neither run waited after its last turn. espd's last message is
+at 12:34:23, 57.9 minutes after the start, and the run took 58.0. ewp-registry's is at 12:15:06,
+38.7 minutes after the start, and the run took 38.7. espd spawned no subagents (run 2 forked one
+helper, which the CLI stopped). Its 29 background tasks were shell commands, and it killed its own
+app server after writing the report. ewp-registry stopped its local HTTPS server with `TaskStop`. #264
+therefore didn't come into play. espd simply did all the work itself and finished its last step:
+JSPs and `tiles.xml` deleted, then build and compare.
+
+| Run | Verdict |
+|---|---|
+| ewp-registry 3 | Agent error (2 pages, shaped by #262) + acceptable (1 page, #183) |
+| espd 3 | Agent errors (8 pages; 7 from #278's wording) + acceptable (hidden PDF input) |
+
+### Fixes and guide changes
+
+| Change | Used? | Helped? | Evidence |
+|---|---|---|---|
+| #134 locale-suffixed `tessera.messages` | yes (espd) | yes | `-Atessera.messages=.../i18n/messages_en`, as the guide now says for a partial base file. All 24 locale files are checked, the 8 run-2 pages with escaped message markup (`&lt;p&gt;Bitte speichern Sie ...`) are identical, and every `?lang=` page is `same`. The check rejected one message in all 25 locales (`href=" https://..."`, leading space), so the agent removed the space from every bundle file (run 2 split that message into six keys): #279 |
+| #246 `:prop` JSON | yes (ewp-registry) | yes | `t::security="${api.securities}"`, `t::parameters`, `t::security-notices` replace `:security='{{ ... \| asJson \| raw }}'`. `PebbleAsJsonFilter` is deleted and `apiEntry.vue` is untouched (run 2 moved the props to `data-*` and changed the component). 2 of 3 pages identical, the third differs only on `\/` |
+| #248 `{{` in text | n/a | n/a | No page of either baseline has `{{` in element text, so nothing was broken up and no diff comes from it |
+| #258 boosted/htmx forms | n/a | n/a | Neither app uses htmx |
+| #260 type-argument message | not hit | n/a | ewp-registry had no template compile errors. espd's one view-safety error was the existing never-view-safe form, which already named `MultipartFile` (`it returns java.util.List<MultipartFile>, and MultipartFile is never view-safe`, #129) |
+| #261 template count log | seen (espd) | n/a | espd's app log shows `Found 8 compiled Tessera templates` at an early check. Neither run hit the warning |
+| #264 background tasks | not needed | n/a | See above. espd used no subagent this time, so no task was running at the last turn |
+
+### Security review
+
+- **ewp-registry.** The five raw outputs:
+  - The coverage matrix and the notices (the notices put some manifest data in unescaped) go
+    through the agent's `HtmlTreeParser`. It keeps an allow-list of elements (`a b br code div em i
+    li ol p pre small span strong sub sup table tbody td th thead tr ul`) and attributes (`class
+    href colspan rowspan title id`), and drops everything else with its text kept. The recursive
+    fragment renders text and attributes escaped and `href` through Tessera's URL check, so it's
+    safe. But it is a hand-written tokenizer (#262), which is how the entity bug got in, and it
+    keeps `id` (a minor DOM-clobbering surface).
+  - The security disclaimer is literal markup in the template.
+  - Flag names are escaped.
+  - The Vue props are #246 JSON bindings, attribute-escaped, so a `'` in a manifest-supplied string
+    can no longer break out of the original's single-quoted attribute.
+
+  The agent added `testUserInputIsEscaped` (`<script>` in `/heiSearch`) and changed one assertion
+  from `didn't` to `didn&#39;t`, as in run 1.
+- **espd.** As in run 2: no `unchecked`, no `html.sanitize`. Message markup comes only from
+  `t:utext="#{key}"` with literal keys, all build-checked in every locale now. The PDF copy is two
+  compiled templates rendered into `SafeHtml` (`SafeHtml.of(PrintContentTemplate...)`) and written
+  attribute-escaped into the hidden input. Messages for computed keys (`layout.i18n[key]`) are
+  printed as text. The hostile inputs in the page list (`Road works <b>`, `City of Ghent <i>`, `Acme
+  <SARL>`, `Bid rigging <script>`) render as in the original. The bundle edit only removes a space
+  inside two `href`s. `LayoutAdvice` reads the request URI and query string in Java to rebuild the
+  form action, as `<form:form>` did. The output goes through `t:action`. No test was added (run 2
+  added `TemplateEscapingTest`).
+
+### Issues
+
+Filed from this round (label `migration-bench`):
+
+- #278 `t:field` select: say that an option's `t:selected` replaces the bound-value match (espd 3,
+  7 pages)
+- #279 Message markup check: accept leading/trailing whitespace in `href`, as browsers do (espd 2-3)
+
+Existing issues cited, with evidence added as a comment: #262 (ewp-registry 3, 2 pages), #183
+(ewp-registry 3, 1 page: `\/` from the JSON binding), #129 (espd 3, upload errors dropped) and #190
+(espd 3, map-backed inputs still written by hand).
+
+Pages per cause this round: #278 7 (espd), #262 2 (ewp-registry), #183 1 (ewp-registry, acceptable).
+
 ## Limitations
 
-- **Small samples.** One or two runs per app in #151, one in runs 7, 8 and 9, and two on the new engines; the hard apps vary between runs.
+- **Small samples.** One or two runs per app in #151, one in runs 7, 8 and 9, and two or three on the new engines; the hard apps vary between runs.
 - **FreeMarker coverage leans on two apps.** JobSearch has no license (its patches aren't
   committed) and a single context-loads test; BudgetMaster is held out.
 - **One app per new engine.** Spring 5+ dropped Velocity, so luckyblog (Boot 1.4) is the only Velocity app;
-  espd is the only Tiles app and ewp-registry the only Pebble app, each with two runs so far.
+  espd is the only Tiles app and ewp-registry the only Pebble app, each with three runs so far.
 - **Not every page is reachable.** Pages that need multipart uploads, cookies the tool can't set,
   captchas or HTMX headers aren't recorded.
 - **The Thymeleaf petclinics are one family.** spring-petclinic is the app Tessera's own port
