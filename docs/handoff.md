@@ -48,14 +48,14 @@ Since then:
 
 From [security-architecture.md](security-architecture.md) §7 (accepted Oct 24, 2026):
 
-- **Two specs, written in phase 2.** [security-model.md](security-model.md) is the threat model
-  and trust boundaries. [context-model.md](context-model.md) is the HTML profile as tables; until
+- **Two specs, written in phase 2.** `security-model.md` will be the threat model
+  and trust boundaries. `context-model.md` will be the HTML profile as tables; until
   it exists, the profile is §5 of security-architecture.md. Every change to `HtmlParser`,
   `MarkupTokenizer`, `Contexts`, `TextInlining`, `Escapers` or the framework table updates
-  context-model.md in the same PR.
-- **The oracle gate runs in CI** (security-architecture.md §5.7, from phase 1). A new context, parse mode or
-  framework entry lands with oracle or harness rows. A PR that widens the accepted language says
-  so in its description.
+  context-model.md (until then, §5) in the same PR.
+- **The oracle gate runs in CI from phase 1** (security-architecture.md §5.7; not built yet).
+  A new context, parse mode or framework entry lands with oracle or harness rows. A PR that
+  widens the accepted language says so in its description.
 - **Deny-by-default for client frameworks.** No computed value in an unknown attribute namespace.
   Framework support is a table entry with a version range and harness rows.
 - **One owner per security area.** Claim an issue before starting. For parser, context or escaper
