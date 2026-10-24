@@ -52,7 +52,8 @@ public final class TextInlining {
         if (end >= 0) {
           found = true;
           SourcePos pos = text.pos().advance(raw, i + 2);
-          inMustache = html && inMustache(inMustache, literal.toString());
+          String before = literal.toString();
+          inMustache = html && inMustache(inMustache, before);
           flush(code, literal);
           if (inMustache) {
             ctx.diagnostics()
@@ -61,6 +62,20 @@ public final class TextInlining {
                     (escaped ? "[[...]]" : "[(...)]") + " is inside a client-side {{ ... }} interpolation: Vue or"
                         + " AngularJS would run the value as code, whatever the escaping. Pass the value in a"
                         + " data-* attribute or a <script> with [[...]] and read it from there");
+            i = end + 2;
+            continue;
+          }
+          String markup = markupBefore(text.context(), before);
+          if (markup != null) {
+            String form = escaped ? "[[...]]" : "[(...)]";
+            ctx.diagnostics()
+                .error(
+                    pos,
+                    text.context() == OutputContext.SCRIPT
+                        ? form + " may not follow '<!-' directly in <script>: a negative number would make it"
+                            + " '<!--'; write a space after '<'"
+                        : form + " may not follow '" + markup + "' directly: the browser would read the value as"
+                            + " markup; write &lt; for a literal '<'");
             i = end + 2;
             continue;
           }
@@ -102,6 +117,43 @@ public final class TextInlining {
       open = !open;
       i = next + 2;
     }
+  }
+
+  /**
+   * The ending of {@code before} (the static text right before an inlined expression) that the
+   * value would continue into markup in {@code context}, or null. In TEXT and RCDATA these are
+   * {@code <}, {@code <!}, {@code <!-}, {@code <?} and {@code </} with any ASCII letters after
+   * it: the tokenizer reads them as text (in TEXT, {@code <} or {@code </} and a letter would start
+   * a tag), but a browser reads {@code <} and a value starting with a letter as a tag, and in RCDATA
+   * {@code </text} and a value {@code area} (even {@code </textarea} and an empty value) as the
+   * end tag. In SCRIPT it is {@code <!-}: a negative number makes it {@code <!--}, and a browser
+   * then hides the next {@code </script>} after a {@code <script} in the code.
+   */
+  private static String markupBefore(OutputContext context, String before) {
+    if (context == OutputContext.SCRIPT) {
+      return before.endsWith("<!-") ? "<!-" : null;
+    }
+    if (context != OutputContext.TEXT && context != OutputContext.RCDATA) {
+      return null;
+    }
+    int lt = before.lastIndexOf('<');
+    if (lt < 0) {
+      return null;
+    }
+    String end = before.substring(lt);
+    if (end.equals("<") || end.equals("<!") || end.equals("<!-") || end.equals("<?")) {
+      return end;
+    }
+    if (!end.startsWith("</")) {
+      return null;
+    }
+    for (int i = 2; i < end.length(); i++) {
+      char c = end.charAt(i);
+      if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))) {
+        return null;
+      }
+    }
+    return end;
   }
 
   /** Index of the first {@code close} at or after {@code from} outside a '...' string, or -1. */
