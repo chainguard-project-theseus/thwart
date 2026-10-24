@@ -65,6 +65,8 @@ class HtmlParserDifferentialTest {
     "<script type=a type=module>", "<script/>", "<script src=x />", "var s = '</script>';",
     "<style>", "</style>", "<STYLE>", "<style/>", "<textarea>", "</textarea>", "</TEXTAREA>", "</textarea >",
     "<textarea/>", "<title>", "</title>", "<Title>", "</TITLE x>",
+    "<xmp>", "</xmp>", "<NoScript>", "</noscript >", "<iframe>", "</IFRAME>", "<noembed>", "</noembed>",
+    "<noframes>", "</noframes>", "<xmp/>", "<plaintext>",
     "<!--", "-->", "<!---->", "<!--->", "<!-- c -->", "<!-- a -- b -->", "<![CDATA[", "]]>", "<![CDATA[x]]>",
     "<![cdata[<a>]]>", "<!DOCTYPE html>", "<!doctype html>", "<!DOCTYPE>", "<!DOCTYPE\nhtml>",
     "<!DOCTYPE html PUBLIC \"-//W3C//DTD SVG 1.1//EN\" \"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd\">",

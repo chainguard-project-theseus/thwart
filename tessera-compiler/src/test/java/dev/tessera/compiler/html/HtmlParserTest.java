@@ -389,6 +389,45 @@ class HtmlParserTest {
     parseOk("<textarea></textareax></textarea>");
   }
 
+  private static String hiddenEndTag(int line, int col, String tag) {
+    return "dir/t.html:" + line + ":" + col + ": error: malformed markup: content of <" + tag + "> contains '</"
+        + tag + "' before its end tag: a browser ends the element there, so the markup after it would be read"
+        + " differently; remove it or move it outside the element";
+  }
+
+  @Test
+  void browserRawElementsEndWhereABrowserDoes() {
+    // #283: a browser reads these as raw text up to the first </name, so an end tag hidden in a
+    // nested raw-text element, a comment or an attribute value ends them there.
+    for (String tag : List.of("xmp", "iframe", "noembed", "noframes", "noscript")) {
+      for (String html : List.of(
+          "<" + tag + "><textarea></" + tag + "><script>[[${x}]]</script></textarea></" + tag + ">",
+          "<" + tag + "><title></" + tag + "><script>[[${x}]]</script></title></" + tag + ">",
+          "<" + tag + "><!--</" + tag + "><script>[[${x}]]</script>--></" + tag + ">",
+          "<" + tag + "><p title=\"</" + tag + "><script>/*\">*/[[${x}]]//</p></" + tag + ">")) {
+        assertEquals(List.of(hiddenEndTag(1, html.indexOf("</" + tag) + 1, tag)), errors(html), html);
+      }
+    }
+    assertEquals(List.of(hiddenEndTag(2, 5, "xmp")), errors("<xmp>\n<!--</XMP >--></xmp>"));
+    // nested same element: a browser ends the outer one at the inner end tag
+    assertEquals(List.of(hiddenEndTag(1, 21, "noscript")), errors("<noscript><noscript></noscript></noscript>"));
+    // <xmp/> is an open tag to a browser, like <script/>
+    assertEquals(
+        List.of("dir/t.html:1:1: error: <iframe/> is not self-closing in HTML: the browser treats everything"
+            + " after it as iframe; write <iframe ...></iframe>"),
+        errors("<iframe src=\"a\"/><title></iframe><script>[[${x}]]</script></title>"));
+    assertEquals(
+        List.of("dir/t.html:1:4: error: <plaintext> is not supported: a browser treats everything after it as text;"
+            + " remove it"),
+        errors("<p><PlainText>x</PlainText></p>"));
+
+    Element noscript = el(parseOk("<noscript><img t:src=\"@{/p.gif}\"><p>[[${x}]]</p></noscript>").children().get(0));
+    assertEquals("p", el(noscript.children().get(1)).name());
+    parseOk("<iframe>[[${x}]]</iframe><xmp>[[${x}]]</xmp><noembed></noembed><noframes><p>a</p></noframes>");
+    // not an end tag: the name must be followed by whitespace, '/' or '>'
+    parseOk("<noscript><a title=\"</noscriptx>\"></a></noscript>");
+  }
+
   @Test
   void commentInsideScriptIsAnError() {
     assertEquals(

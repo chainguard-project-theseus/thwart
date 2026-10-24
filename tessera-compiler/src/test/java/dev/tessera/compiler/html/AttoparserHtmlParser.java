@@ -36,7 +36,11 @@ import org.attoparser.config.ParseConfiguration;
  * classifies every text node's {@code OutputContext} via {@link Contexts}.
  *
  * <p>The content of {@code <script>}, {@code <style>}, {@code <textarea>} and {@code <title>}
- * is a single raw {@link Text} node: markup inside it is not parsed.
+ * is a single raw {@link Text} node: markup inside it is not parsed. The content of {@code <xmp>},
+ * {@code <iframe>}, {@code <noembed>}, {@code <noframes>} and {@code <noscript>} is parsed as
+ * markup, but a browser reads it as raw text up to the first {@code </name}: an end tag hidden
+ * earlier (in a nested raw-text element, a comment or an attribute value) is a build error, and so
+ * is {@code <plaintext>}, which never ends.
  *
  * <p>Build errors (reported, then parsing continues): unclosed or mismatched non-void elements,
  * duplicate attributes on one element, malformed markup.
@@ -44,6 +48,9 @@ import org.attoparser.config.ParseConfiguration;
 final class AttoparserHtmlParser {
 
   private static final Set<String> RAW_TEXT_ELEMENTS = Backports.setOf("script", "style", "textarea", "title");
+  /** Parsed as markup here, but raw text up to the first {@code </name} in a browser (#283). */
+  private static final Set<String> BROWSER_RAW_ELEMENTS =
+      Backports.setOf("xmp", "iframe", "noembed", "noframes", "noscript");
   private static final Pattern ELEMENT_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_.:-]*");
   private static final Map<String, String> NAMED_REFERENCES = new HashMap<>();
 
@@ -169,6 +176,8 @@ final class AttoparserHtmlParser {
     final Set<String> attributeNames = new HashSet<>();
     final List<Node> children = new ArrayList<>();
     OutputContext textContext = OutputContext.TEXT;
+    /** For a {@link #BROWSER_RAW_ELEMENTS} element: offset of the {@code </name} a browser ends it at. */
+    int browserEnd = -1;
 
     Open(String name, SourcePos pos) {
       this.name = name;
@@ -328,6 +337,10 @@ final class AttoparserHtmlParser {
         diagnostics.error(tag.pos, "malformed markup: invalid element name '" + name
             + "': element names start with a letter and use letters, digits, '-', '_', ':' and '.'");
       }
+      if (name.equalsIgnoreCase("plaintext")) {
+        diagnostics.error(tag.pos,
+            "<plaintext> is not supported: a browser treats everything after it as text; remove it");
+      }
     }
 
     @Override
@@ -369,9 +382,11 @@ final class AttoparserHtmlParser {
         return;
       }
       String lower = tag.name.toLowerCase(Locale.ROOT);
-      if (minimized && (lower.equals("script") || lower.equals("style"))) {
+      if (minimized && (lower.equals("script") || lower.equals("style") || BROWSER_RAW_ELEMENTS.contains(lower))) {
         // A browser treats <script/> as an open tag, so the template text after it would run as
-        // script (or style) while Tessera escaped it for TEXT. RCDATA textarea/title stay allowed.
+        // script (or style) while Tessera escaped it for TEXT; <xmp/> and the others would make
+        // the text after it raw up to the next </xmp, hiding the end check below. RCDATA
+        // textarea/title stay allowed.
         diagnostics.error(tag.pos, "<" + lower + "/> is not self-closing in HTML: the browser treats everything"
             + " after it as " + lower + "; write <" + lower + " ...></" + lower + ">");
       }
@@ -388,6 +403,9 @@ final class AttoparserHtmlParser {
       tag = null;
       open.textContext = Contexts.text(open.toElement(false, false));
       stack.push(open);
+      if (BROWSER_RAW_ELEMENTS.contains(open.name.toLowerCase(Locale.ROOT))) {
+        open.browserEnd = browserEndTag(open.name, offset(line, col) + 1);
+      }
       if (RAW_TEXT_ELEMENTS.contains(open.name.toLowerCase(Locale.ROOT))) {
         // line:col is the '>' of the start tag; content starts right after it.
         raw = open;
@@ -447,12 +465,26 @@ final class AttoparserHtmlParser {
       while (true) {
         Open top = stack.pop();
         if (top.name.equalsIgnoreCase(name)) {
+          browserEndCheck(top, offset(line, col));
           children().add(top.toElement(false, true));
           return;
         }
         diagnostics.error(top.pos, "element <" + top.name + "> is not closed (found </" + name + "> at "
             + line + ":" + col + "): add </" + top.name + ">");
         children().add(top.toElement(false, false));
+      }
+    }
+
+    /**
+     * Reports a {@link #BROWSER_RAW_ELEMENTS} element closed at {@code end} when a browser ends it
+     * at an earlier {@code </name} that this parse read as part of a nested raw-text element, a
+     * comment or an attribute value: the markup after that point would be read differently.
+     */
+    private void browserEndCheck(Open element, int end) {
+      if (element.browserEnd >= 0 && element.browserEnd != end) {
+        diagnostics.error(position(element.browserEnd), "malformed markup: content of <" + element.name
+            + "> contains '</" + element.name + "' before its end tag: a browser ends the element there, so the"
+            + " markup after it would be read differently; remove it or move it outside the element");
       }
     }
 
