@@ -25,8 +25,8 @@ and 5 are being built in the phases of [docs/security-architecture.md](docs/secu
    servlet/Spring context objects) can never be reached, even if registered. Markup is held to
    the same rule: the compiler accepts a closed profile of HTML, and any element, attribute name,
    or construct outside it is a build error. The profile is specified in
-   `docs/context-model.md` once phase 2 writes it; until then it is
-   specified in §5 of docs/security-architecture.md.
+   [docs/context-model.md](docs/context-model.md), and the threat model in
+   [docs/security-model.md](docs/security-model.md).
 4. **No reflection at runtime.** All access is generated Java. No `java.lang.reflect`,
    `MethodHandle`, SpEL, OGNL, or `ScriptEngine` in runtime or generated code.
 5. **Contexts are proven, not guessed; escaping cannot be forgotten.** The compiler accepts only
