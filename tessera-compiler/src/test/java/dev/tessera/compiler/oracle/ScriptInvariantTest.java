@@ -259,6 +259,30 @@ class ScriptInvariantTest {
     assertEquals(Set.of(Kind.JS_UNPARSABLE, Kind.LIVE_SCRIPT), kinds(f));
   }
 
+  @Test
+  void htmlCloseCommentAfterAMultiLineCommentIsNeverClean() {
+    // Annex B: `-->` after a /* */ comment holding a line break starts a comment in browsers, so the
+    // value is commented out and a raw U+2028 in it ends that comment and runs the rest. Rhino 1.8.1
+    // reads `x-- > "..."` instead; the check must not accept its reading.
+    for (String gap : List.of("/*\n*/", "/*\r*/", "/*\u2028*/", "/* a */ /*\n*/")) {
+      String benign = "x " + gap + " --> \"tqm0001\"";
+      List<Finding> f = check(benign, "x " + gap + " --> \"\u2028tqm0001()//\"");
+      assertEquals(Set.of(Kind.JS_UNPARSABLE), kinds(f), benign);
+    }
+    // The same postfix reading is a finding when only the hostile script has it.
+    assertEquals(Set.of(Kind.JS_NOT_LITERAL), kinds(check("var a = \"tqm0001\";", "var a = x /*\n*/ --;")));
+    // An ordinary postfix operator is fine.
+    assertEquals(List.of(), check("x = a-- > \"tqm0001\"", "x = a-- > " + json("\u2028tqm0001()//")));
+  }
+
+  @Test
+  void parserRecursionLimitIsNeverClean() {
+    // In IDE mode Rhino swallows its own "too deep" error and returns a partial AST.
+    String deep = "[".repeat(20_000) + "1" + "]".repeat(20_000);
+    assertEquals(Set.of(Kind.JS_UNPARSABLE), kinds(check("x = [" + deep + ", \"tqm0001\"]", "x = [" + deep + ", 1]")));
+    assertEquals(Set.of(Kind.JS_NOT_LITERAL), kinds(check("x = \"tqm0001\"", "x = " + deep)));
+  }
+
   private static String svgScriptText(String html) {
     try {
       Document doc =

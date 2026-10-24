@@ -24,6 +24,7 @@ import org.mozilla.javascript.ast.ObjectLiteral;
 import org.mozilla.javascript.ast.ObjectProperty;
 import org.mozilla.javascript.ast.StringLiteral;
 import org.mozilla.javascript.ast.UnaryExpression;
+import org.mozilla.javascript.ast.UpdateExpression;
 
 /**
  * The script-slot check (#319, design §5.4 and §5.7 step 3 of docs/security-architecture.md): in a
@@ -67,6 +68,15 @@ import org.mozilla.javascript.ast.UnaryExpression;
  * {@code <} is never XML. A correctly escaped value in a quoted hole ({@code "[[s]]"}) renders
  * byte-identically to an unquoted one, so the render alone can't tell them apart; the compiler
  * rejects quoted holes (#287), and both are safe when the escaper is right.
+ *
+ * <p><b>Division of labour with the HTML checks (#318).</b> This check sees only the script element's
+ * text. A value that ends the element ({@code </script>}), opens a comment or the double-escaped state
+ * ({@code <!--<script}), or otherwise changes where the element ends is the HTML layer's finding
+ * ({@code STRUCTURE_CHANGED}); here it only shows up as a hostile text that doesn't parse or doesn't
+ * match. Annex B HTML-like comments ({@code <!--}, and {@code -->} at the start of a line) are JS
+ * syntax and are checked here. Rhino 1.8.1 doesn't treat a multi-line comment holding a line break as
+ * a line break, so it reads {@code x /*\n*&#47; --> v} as a postfix {@code --}; such a script is
+ * treated as unparsable rather than checked with Rhino's reading.
  */
 public final class ScriptInvariant {
 
@@ -160,6 +170,20 @@ public final class ScriptInvariant {
       AstRoot root, List<AstNode> nodes, Map<AstNode, List<AstNode>> children, String error, int errorOffset) {}
 
   private static Parsed parse(String text) {
+    Parsed p = parse(text, true);
+    if (p.root == null) {
+      return p;
+    }
+    // In IDE mode Rhino swallows its own "nesting too deep" StackOverflowError and returns a partial
+    // AST with no error. Parse again outside IDE mode, where any error throws, to fail closed.
+    Parsed strict = parse(text, false);
+    if (strict.root == null) {
+      return new Parsed(null, List.of(), Map.of(), strict.error, -1);
+    }
+    return p;
+  }
+
+  private static Parsed parse(String text, boolean ideMode) {
     CompilerEnvirons env = new CompilerEnvirons();
     env.setLanguageVersion(Context.VERSION_ECMASCRIPT);
     // Comments are compared as source text outside the slots. Recording them as nodes also makes
@@ -168,7 +192,7 @@ public final class ScriptInvariant {
     env.setXmlAvailable(false);
     env.setRecoverFromErrors(false);
     // IDE mode reports errors with absolute offsets; it also recovers, so any error means "no parse".
-    env.setIdeMode(true);
+    env.setIdeMode(ideMode);
     Errors errors = new Errors();
     env.setErrorReporter(errors);
     AstRoot root;
@@ -180,6 +204,9 @@ public final class ScriptInvariant {
     }
     if (errors.message != null) {
       return new Parsed(null, List.of(), Map.of(), errors.message, errors.offset);
+    }
+    if (!ideMode) {
+      return new Parsed(root, List.of(), Map.of(), null, -1);
     }
     List<AstNode> nodes = new ArrayList<>();
     Map<AstNode, List<AstNode>> children = new IdentityHashMap<>();
@@ -193,7 +220,40 @@ public final class ScriptInvariant {
       }
       return true;
     });
+    for (AstNode n : nodes) {
+      int at = postfixAfterLineBreak(text, n);
+      if (at >= 0) {
+        return new Parsed(null, List.of(), Map.of(),
+            "Rhino read `++`/`--` after a line break inside a comment as postfix; the spec inserts a"
+                + " semicolon there, and a `-->` there starts an HTML-like comment", at);
+      }
+    }
     return new Parsed(root, nodes, children, null, -1);
+  }
+
+  /**
+   * Rhino 1.8.1 doesn't count a line terminator inside a multi-line comment as a line break: it parses
+   * {@code x /*\n*&#47; --> "v"} as {@code x-- > "v"}, while the spec (and V8) treats the
+   * {@code -->} as an Annex B HTML-like comment, so a raw line terminator in the value would end that
+   * comment and run the rest. A postfix operator whose operand ends before a line terminator is never
+   * valid JS, so treat it as "doesn't parse" (fail closed). Returns the operator's offset, or -1.
+   */
+  private static int postfixAfterLineBreak(String text, AstNode n) {
+    if (!(n instanceof UpdateExpression u) || !u.isPostfix() || u.getOperand() == null) {
+      return -1;
+    }
+    int from = u.getOperand().getAbsolutePosition() + u.getOperand().getLength();
+    int to = u.getAbsolutePosition() + u.getLength() - 2;
+    if (from < 0 || to > text.length() || from > to) {
+      return u.getAbsolutePosition(); // spans we can't trust: fail closed
+    }
+    for (int i = from; i < to; i++) {
+      char c = text.charAt(i);
+      if (c == '\n' || c == '\r' || c == '\u2028' || c == '\u2029') {
+        return to;
+      }
+    }
+    return -1;
   }
 
   /** Records Rhino's first error; ignores warnings. */
