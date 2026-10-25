@@ -185,17 +185,17 @@ class CspNonceTest {
   void safeHtmlIsNotStamped() {
     Compilation c =
         Compilation.builder()
-            .template("page.html", "<div " + NS + " t:params=\"SafeHtml h\"><p t:utext=\"${h}\">x</p>[(${h})]</div>")
+            .template("page.html", "<div " + NS + " t:params=\"SafeHtml h\"><div t:utext=\"${h}\">x</div>[(${h})]</div>")
             .compile()
             .assertSuccess();
     SafeHtml sanitized =
         SafeHtml.sanitize("<script>a()</script><style>b{}</style><svg><script>c()</script></svg><b>ok</b>");
     assertEquals("<b>ok</b>", sanitized.toString());
     String html = c.render("page", Map.of("h", sanitized), WITH_NONCE);
-    assertEquals("<div><p><b>ok</b></p><b>ok</b></div>", html);
+    assertEquals("<div><div><b>ok</b></div><b>ok</b></div>", html);
     // An unchecked SafeHtml is the caller's markup: a strict policy blocks its scripts.
     String unchecked = c.render("page", Map.of("h", SafeHtml.unchecked("<script>u()</script>")), WITH_NONCE);
-    assertEquals("<div><p><script>u()</script></p><script>u()</script></div>", unchecked);
+    assertEquals("<div><div><script>u()</script></div><script>u()</script></div>", unchecked);
   }
 
   /** Negative: a nonce in the template is a build error, static or computed, naming file, line and column. */

@@ -145,9 +145,23 @@ class HtmlSanitizerTest {
 
   @Test
   void depthIsCapped() {
-    String deep = "<b>".repeat(500) + "x" + "</b>".repeat(500);
+    String deep = "<span>".repeat(500) + "x" + "</span>".repeat(500);
     String out = clean(deep);
-    assertEquals("<b>".repeat(100) + "x" + "</b>".repeat(100), out);
+    assertEquals("<span>".repeat(100) + "x" + "</span>".repeat(100), out);
+  }
+
+  /**
+   * #329: a formatting element inside one of the same name is dropped, text kept. Nested, it would
+   * be a second identical entry in the list of active formatting elements, and next to one around
+   * the insertion point a third would make a browser drop the outer one (the Noah's Ark clause).
+   */
+  @Test
+  void formattingElementsDoNotNestInThemselves() {
+    assertEquals("<b>x</b>", clean("<b>".repeat(500) + "x"));
+    // The end tag of the dropped element closes the open one, as the sanitizer does for any end tag.
+    assertEquals("<b>a<i>bc</i></b>d", clean("<b>a<i>b<b>c</b>d</i>"));
+    assertEquals("<em>a<strong>bc</strong></em>", clean("<em>a<strong>b<em>c</em></strong></em>"));
+    assertEquals("<b>a</b><p><b>b</b></p>", clean("<b>a</b><p><b>b</b></p>"));
   }
 
   @Test

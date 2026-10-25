@@ -44,5 +44,17 @@ public enum Problem {
   /** A parser engine failed. */
   ENGINE_FAILURE,
   /** A skeleton node the verifier can't interpret (an unknown fragment). */
-  UNKNOWN_NODE
+  UNKNOWN_NODE,
+  /**
+   * A {@code SafeHtml}, {@code Fragment} value or HTML message where its markup would close, reopen
+   * or adopt an element open around it (an open {@code <p>}, {@code <a>}, heading, {@code <form>},
+   * ...; {@link ContentKinds#closer}), so the rest of the page would parse differently.
+   */
+  RAW_CLOSES_ELEMENT,
+  /**
+   * An HTML message whose markup leaves the parser in another state than it found it: it closes an
+   * element open around it (a {@code <p>} in a {@code <p>}, an {@code <a>} in an {@code <a>}), or
+   * leaves one of its own open (a {@code <p>} without {@code </p>}).
+   */
+  MESSAGE_CHANGES_STATE
 }

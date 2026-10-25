@@ -47,13 +47,13 @@ class MessageBundlesTest {
   void localeSuffixedBaseLoadsTheOtherLocales() throws IOException {
     espd();
     Compilation c =
-        compile(dir.resolve("i18n/messages_en").toString(), "<div><p t:utext=\"#{intro}\">x</p><h1 t:text=\"#{title}\">x</h1></div>")
+        compile(dir.resolve("i18n/messages_en").toString(), "<div><div t:utext=\"#{intro}\">x</div><h1 t:text=\"#{title}\">x</h1></div>")
             .assertSuccess();
     // The German value was checked at build time, so it is printed as HTML, not escaped.
     RenderContext de =
         new RenderContext(Locale.GERMAN, (k, a) -> "<p>Bitte <b>speichern</b></p>", new DefaultLinks(""), Forms.NONE);
     assertEquals(
-        "<div><p><p>Bitte <b>speichern</b></p></p><h1>&lt;p&gt;Bitte &lt;b&gt;speichern&lt;/b&gt;&lt;/p&gt;</h1></div>",
+        "<div><div><p>Bitte <b>speichern</b></p></div><h1>&lt;p&gt;Bitte &lt;b&gt;speichern&lt;/b&gt;&lt;/p&gt;</h1></div>",
         c.render("page", Map.of(), de));
   }
 
@@ -136,7 +136,7 @@ class MessageBundlesTest {
     write("i18n/messages_en-US.properties", "intro=<script>alert(1)</script>\n");
     write("i18n/other.properties", "x=y\n");
     Compilation c =
-        compile(dir.resolve("i18n/messages_en").toString(), "<p t:utext=\"#{intro}\">x</p>").assertSuccess();
+        compile(dir.resolve("i18n/messages_en").toString(), "<div t:utext=\"#{intro}\">x</div>").assertSuccess();
     List<String> warnings =
         c.diagnostics().stream().filter(d -> d.startsWith("WARNING: Tessera: message file")).toList();
     assertEquals(1, warnings.size(), c.diagnostics().toString());
@@ -144,7 +144,7 @@ class MessageBundlesTest {
     // Spring may still serve the skipped file's value; the runtime check escapes it.
     RenderContext us =
         new RenderContext(Locale.US, (k, a) -> "<script>alert(1)</script>", new DefaultLinks(""), Forms.NONE);
-    assertEquals("<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>", c.render("page", Map.of(), us));
+    assertEquals("<div>&lt;script&gt;alert(1)&lt;/script&gt;</div>", c.render("page", Map.of(), us));
   }
 
   @Test

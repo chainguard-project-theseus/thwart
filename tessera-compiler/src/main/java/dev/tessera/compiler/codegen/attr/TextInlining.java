@@ -310,7 +310,11 @@ public final class TextInlining {
     if (e instanceof Expr.Message) {
       // A bundle message is developer-authored markup, checked at build time (#236).
       String message = MessageCompiler.htmlValue((Expr.Message) e, form, scope, ctx.expressions());
-      return message == null ? Emitted.EMPTY : Emitted.htmlMessage(e.pos(), message).then("\n");
+      return message == null
+          ? Emitted.EMPTY
+          : Emitted.htmlMessage(
+                  message, MessageCompiler.htmlSkeleton((Expr.Message) e, ctx.expressions().env(), ctx.hostElement()))
+              .then("\n");
     }
     CompiledExpr c = ctx.expressions().compile(e, scope);
     if (c == null) {
