@@ -1,6 +1,7 @@
 package dev.tessera.compiler.codegen.attr;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import dev.tessera.compiler.testing.Compilation;
 import java.util.Map;
@@ -128,5 +129,152 @@ class ClientTemplateInjectionTest {
       })
   void expressionOutsideStaticMustacheCompiles(String body) {
     compile(body).assertSuccess();
+  }
+
+  /**
+   * #348: a browser moves text out of {@code table}, {@code tbody}, {@code thead}, {@code tfoot},
+   * {@code tr} and {@code colgroup} in front of the table but keeps comments inside it, so the
+   * braces of a broken {@code {{} join up again.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<table>[[s]]<tr><td>x</td></tr></table>",
+        "<table><tr><td>x</td></tr><tr t:text=\"s\"></tr></table>",
+        "<table><tbody>[[s]]<tr><td>x</td></tr></tbody></table>",
+        "<table><thead>x [[s]]</thead></table>",
+        "<table><tfoot t:text=\"s\"></tfoot></table>",
+        "<table><tr>[[s]]<td>x</td></tr></table>",
+        "<TABLE><TR>[[s]]</TR></TABLE>",
+        "<table><colgroup>[[s]]</colgroup></table>",
+        "<table><t:block>[[s]]</t:block></table>",
+        "<table><t:block t:text=\"s\"></t:block></table>",
+        "<table><tr><span t:remove=\"tag\">[[s]]</span></tr></table>",
+        "<table><t:block t:if=\"${s != null}\"><t:block>[[s]]</t:block></t:block></table>",
+        "<table><tr t:utext=\"h\"></tr></table>",
+        "<table><tr>[(h)]</tr></table>",
+        "<svg><table>[[s]]</table></svg>",
+      })
+  void computedTextDirectlyInTableIsABuildError(String body) {
+    Compilation c = compile("\n" + body);
+    c.assertError("t.html:2:", "directly inside <", "put the value in a <td>, <th> or <caption>");
+    assertNull(c.generatedSource("tessera.generated.TTemplate"), body);
+  }
+
+  @Test
+  void tableTextErrorNamesThePosition() {
+    compile("\n<table>\n  <tr>[[s]]</tr></table>")
+        .assertError(
+            "t.html:3:9:",
+            "[[...]] directly inside <tr> is not supported: a browser moves the text in front of the table but"
+                + " leaves the comments that break {{ in the value inside it");
+    compile("\n<table><tbody>\n <t:block t:text=\"s\"/></tbody></table>")
+        .assertError("t.html:3:11:", "t:text directly inside <tbody> is not supported");
+  }
+
+  @Test
+  void textInTableCellsIsBroken() {
+    assertEquals(
+        "<table><caption>" + BROKEN + "</caption><tr><td>" + BROKEN + "</td><th>" + BROKEN + "</th></tr></table>",
+        render("<table><caption>[[s]]</caption><tr><td>[[s]]</td><th t:text=\"s\">x</th></tr></table>", PAYLOAD));
+    assertEquals(
+        "<table><tr><td><table><tr><td>" + BROKEN + "</td></tr></table><p>" + BROKEN + "</p>" + BROKEN
+            + "</td></tr></table>",
+        render(
+            "<table><tr><td><table><tr><td>[[s]]</td></tr></table><p>[[s]]</p><t:block>[[s]]</t:block></td></tr></table>",
+            PAYLOAD));
+    assertEquals(
+        "<table>\n  <tr>\n    <td>x</td>\n  </tr>\n</table>" + BROKEN,
+        render("<table>\n  <tr>\n    <td>x</td>\n  </tr>\n</table>[[s]]", PAYLOAD));
+    // Without its tag the table is not there, so the text is ordinary element text.
+    assertEquals(BROKEN, render("<table t:remove=\"tag\">[[s]]</table>", PAYLOAD));
+  }
+
+  /**
+   * #348: a table part where a browser does not keep it makes the browser close elements up to
+   * one that takes it (a {@code <tr>} ends a {@code <td>}), so the text after it is read in the
+   * table and moved in front of it. A {@code <form>} in a table is closed at once.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<table><tr><td><tr></tr>[[s]]</td></tr></table>",
+        "<table><tr><td><p><tr></tr>[[s]]</p></td></tr></table>",
+        "<table><tr><td><select><tr></tr>[[s]]</select></td></tr></table>",
+        "<table><tr><td><tbody></tbody>[[s]]</td></tr></table>",
+        "<table><tr><td><th></th>[[s]]</td></tr></table>",
+        "<table><tr><td><col>[[s]]</td></tr></table>",
+        "<table><caption><tr></tr>[[s]]</caption></table>",
+        "<table><caption><b><td></td>[[s]]</b></caption></table>",
+        "<table><div><tbody></tbody>[[s]]</div></table>",
+        "<table><b><tr></tr>[[s]]</b></table>",
+        "<table><form>[[s]]</form></table>",
+        "<table><tr><form>[[s]]</form></tr></table>",
+      })
+  void misplacedTablePartIsABuildError(String body) {
+    Compilation c = compile("\n" + body);
+    c.assertError("t.html:2:", "is not supported: a browser would close elements to place it");
+    assertNull(c.generatedSource("tessera.generated.TTemplate"), body);
+  }
+
+  private static final String FRAGMENTS =
+      "<div xmlns:t=\"https://tessera.dev\">"
+          + "<t:block t:fragment=\"text(String s)\">[[${s}]]</t:block>"
+          + "<b t:fragment=\"tagless(String s)\" t:remove=\"tag\">[[${s}]]</b>"
+          + "<t:block t:fragment=\"nested(String s)\" t:insert=\"~{::text(${s})}\"></t:block>"
+          + "<tr t:fragment=\"row(String s)\"><td>[[${s}]]</td></tr>"
+          + "<t:block t:fragment=\"rows(String s)\"><tr><td>[[${s}]]</td></tr><tr t:replace=\"~{::row(${s})}\"></tr></t:block>"
+          + "<div t:fragment=\"box(String s)\">[[${s}]]</div>"
+          + "<form t:fragment=\"form(String s)\">[[${s}]]</form>"
+          + "<div t:fragment=\"layout(Fragment body)\"><main t:insert=\"${body}\"></main><table><tr>"
+          + "<td t:insert=\"${body}\"></td></tr></table></div>"
+          + "</div>";
+
+  private static Compilation compileWithFragments(String body) {
+    return Compilation.builder()
+        .template("t.html", HEADER + body + "</div>")
+        .template("f.html", FRAGMENTS)
+        .compile();
+  }
+
+  /** #348: what t:insert/t:replace writes where it lands, through tagless fragment roots. */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<table><tbody t:insert=\"~{f :: text(s)}\"></tbody></table>",
+        "<table><tr t:replace=\"~{f :: text(s)}\"></tr></table>",
+        "<table><tr t:replace=\"~{f :: tagless(s)}\"></tr></table>",
+        "<table><t:block t:insert=\"~{f :: nested(s)}\"></t:block></table>",
+        "<table><tr><td t:insert=\"~{f :: row(s)}\"></td></tr></table>",
+        "<table><tr><td><b t:replace=\"~{f :: row(s)}\"></b>[[s]]</td></tr></table>",
+        "<table><tbody t:insert=\"~{f :: form(s)}\"></tbody></table>",
+        "<t:block t:replace=\"~{f :: layout(~{::tr})}\"></t:block><table><tr><td t:text=\"s\">x</td></tr></table>",
+      })
+  void insertedTextOrTablePartInTableIsABuildError(String body) {
+    Compilation c = compileWithFragments("\n" + body);
+    assertEquals(false, c.success(), body);
+    assertNull(c.generatedSource("tessera.generated.TTemplate"), body);
+  }
+
+  @Test
+  void fragmentValueDirectlyInTableIsABuildError() {
+    Compilation.builder()
+        .template(
+            "f.html",
+            "<div xmlns:t=\"https://tessera.dev\" t:fragment=\"slot(Fragment body)\">\n<table><tbody"
+                + " t:insert=\"${body}\"></tbody></table></div>")
+        .compile()
+        .assertError("f.html:2:15:", "t:insert writes computed text or a Fragment value directly inside <tbody>");
+  }
+
+  @Test
+  void insertedTableContentCompiles() {
+    compileWithFragments(
+            "<table><tbody t:insert=\"~{f :: rows(s)}\"></tbody>"
+                + "<tbody><tr t:replace=\"~{f :: row(s)}\"></tr><t:block t:replace=\"~{f :: rows(s)}\"></t:block></tbody>"
+                + "<tr><td t:insert=\"~{f :: box(s)}\"></td><td t:insert=\"~{f :: text(s)}\"></td></tr></table>"
+                + "<div t:insert=\"~{f :: rows(s)}\"></div>"
+                + "<t:block t:replace=\"~{f :: layout(~{::p})}\"></t:block><p t:text=\"s\">x</p>")
+        .assertSuccess();
   }
 }
