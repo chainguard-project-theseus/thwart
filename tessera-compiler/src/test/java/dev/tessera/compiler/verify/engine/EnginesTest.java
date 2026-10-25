@@ -410,6 +410,79 @@ class EnginesTest {
     }
   }
 
+  /** Pieces for random markup: tags, comments, CDATA, references, CR/LF, NUL and lone surrogates. */
+  private static final String[] PIECES = {
+    "<", ">", "</", "<!", "<?", "</ ", "/>", "=", "\"", "'", "-", "--", "]", "]]", "]]>", "<!--", "-->", "--!>", "<![CDATA[",
+    "<!DOCTYPE html>", "&", "&amp;", "&amp", "&noti", "&notin;", "&#", "&#x", "&#65", "&#x41;", "&#0;", "&#xD800;", "&foo=",
+    "\r", "\n", "\r\n", "\t", "\f", " ", "\u0000", "\uD800", "\uDC00", "😀", "a", "b", "script", "<script>",
+    "</script", "</script>", "<style>", "</style>", "<title>", "<textarea>", "<svg>", "</svg>", "<math>", "<mi>",
+    "<foreignObject>", "<p>", "</p>", "<b>", "</b>", "<table>", "<tr>", "<td>", "<select>", "<option>", "<template>",
+    "</template>", "<noscript>", "<iframe>", "<plaintext>", "<a href=\"", "<div class=", "x=&copy=",
+  };
+
+  /**
+   * vnu is not split-independent on input with parse errors: {@code "<!<x>b<p>"} in one buffer
+   * opens an element named {@code b<p}, and split after {@code "<!<"} it reads the text {@code b}
+   * and a {@code <p>}, as browsers do. Until #408 the verifier replayed the input since the last
+   * point between tokens in one buffer, which hid this. Without the replay the verifier stays sound
+   * because it rejects every parse error: wherever a split changes what the listener hears, both
+   * sides report a parse error the verifier doesn't allow. Random markup, every 2-way split and
+   * random multi-way splits, scripting on and off. Offsets and duplicate IDs (allowed, and not
+   * kept across a fork) are left out.
+   */
+  @Test
+  void splitDependenceComesWithParseErrors() throws EngineException {
+    Engine e = Engines.CURRENT;
+    assertTrue(rejecting(events(e, true, "<!<x>b<p>")) && rejecting(events(e, true, "<!<", "x>b<p>")));
+    Random random = new Random(408);
+    int differ = 0;
+    for (int n = 0; n < 1000; n++) {
+      StringBuilder sb = new StringBuilder();
+      for (int k = 1 + random.nextInt(20); k > 0; k--) {
+        sb.append(PIECES[random.nextInt(PIECES.length)]);
+      }
+      String input = sb.toString();
+      boolean scripting = random.nextBoolean();
+      List<String> whole = events(e, scripting, input);
+      List<List<String>> splits = new ArrayList<>();
+      for (int i = 1; i < input.length(); i++) {
+        splits.add(List.of(input.substring(0, i), input.substring(i)));
+      }
+      for (int trial = 0; trial < 10; trial++) {
+        splits.add(randomChunks(input, random));
+      }
+      for (List<String> chunks : splits) {
+        List<String> got = events(e, scripting, chunks.toArray(new String[0]));
+        if (!withoutOffsets(whole).equals(withoutOffsets(got))) {
+          differ++;
+          assertTrue(rejecting(whole) && rejecting(got), "split " + chunks + "\n" + whole + "\n" + got);
+        }
+      }
+    }
+    assertTrue(differ > 0, "the inputs reach the split-dependent cases");
+  }
+
+  private static List<String> withoutOffsets(List<String> events) {
+    List<String> out = new ArrayList<>();
+    for (String x : events) {
+      if (!x.contains(" error Duplicate ID ")) {
+        out.add(x.substring(x.indexOf(' ')));
+      }
+    }
+    return out;
+  }
+
+  /** Whether {@code events} hold a parse error the verifier rejects (as {@code Rules.allowedError}). */
+  private static boolean rejecting(List<String> events) {
+    for (String x : events) {
+      String m = x.substring(x.indexOf(' ') + 1);
+      if (m.startsWith("error ") && !m.contains("without seeing a doctype first") && !m.startsWith("error Duplicate ID “")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private static List<String> randomChunks(String s, Random random) {
     List<String> out = new ArrayList<>();
     int i = 0;

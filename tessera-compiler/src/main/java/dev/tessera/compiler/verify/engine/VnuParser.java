@@ -10,9 +10,11 @@ import java.util.List;
  * <p>Inside a token the engine keeps the partial token in private fields this class can't read
  * (and the parser source isn't patched to expose them). The state there is described instead by
  * the state when the parser was last between tokens plus the input since then, which determines
- * it exactly. The engine itself carries the partial token across buffers: a chunk may end anywhere
- * ({@code EnginesTest} checks that the state, the errors and the inserted elements don't depend on
- * where the input is split). A raw parser is never fed in place (each feed works on a fork), so
+ * it exactly. The engine itself carries the partial token across buffers: a chunk may end anywhere.
+ * On input without parse errors the state, the errors and the inserted elements don't depend on
+ * where the input is split; where a split does change them (vnu reconsumes a {@code <} after
+ * {@code <!} differently at a buffer end), both sides report a parse error, which the verifier
+ * rejects ({@code EnginesTest}). A raw parser is never fed in place (each feed works on a fork), so
  * forks share them.
  */
 final class VnuParser implements Parser {
