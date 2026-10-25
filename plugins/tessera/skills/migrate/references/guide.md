@@ -299,8 +299,8 @@ converts `th:` attributes, utility objects and common string-built links, stubs 
 fragment parameter types as `Object` (which fails to compile until you write the real types), and
 lists what it could not convert by `file:line`. In a JavaScript or JSON `<script>` it drops the
 quotes around a `"..."` or `'...'` string that is only an inline (`"[[${x}]]"` becomes `[[${x}]]`,
-which writes JSON with its own quotes) and reports any other `[[...]]` inside a string or template
-literal. An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
+which writes JSON with its own quotes) and reports any other `[[...]]` inside a string, template
+literal or comment. An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
 
 **5. Compare** against the new app, started from the same data:
 

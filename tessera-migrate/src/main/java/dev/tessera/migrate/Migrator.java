@@ -423,7 +423,7 @@ final class Migrator {
      * quotes, so a Thymeleaf {@code "[[${x}]]"} would close the string (the compiler rejects it, #281).
      * A {@code "..."} or {@code '...'} literal that is exactly one inline loses its quotes; any other
      * inline in a literal is reported, including {@code `[[...]]`} (the backticks may follow a tag,
-     * {@code String.raw`...`}, which dropping them would break). The scan tracks strings, template
+     * {@code String.raw`...`}, which dropping them would break), and so is an inline in a comment. The scan tracks strings, template
      * literal {@code ${...}} and comments, not regular expression literals, with the compiler's rules
      * (#281): an unterminated {@code '}/{@code "} string ends at {@code \n} or {@code \r}, not at
      * U+2028/U+2029 (ES2019), and {@code \} followed by CRLF is a line continuation. The compiler is
@@ -466,6 +466,11 @@ final class Migrator {
             }
             report(at, String.format(ConversionRules.SCRIPT_INLINE_IN_STRING_MESSAGE, inline, inline));
             quoteAt = -1;
+          } else if (state == LINE_COMMENT || state == BLOCK_COMMENT) {
+            // The compiler rejects an inline in a comment (#281). TODO(#315): rewrite the natural
+            // template /*[[${x}]]*/ 'd' to [[${x}]] instead of only reporting it.
+            String inline = text.substring(i, after);
+            report(lineAt(text, line, i), String.format(ConversionRules.SCRIPT_INLINE_IN_COMMENT_MESSAGE, inline));
           }
           i = after - 1;
           continue;

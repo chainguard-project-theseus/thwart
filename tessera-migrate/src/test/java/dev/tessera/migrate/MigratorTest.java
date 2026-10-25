@@ -371,6 +371,8 @@ class MigratorTest {
   // ---- quoted inlines in <script> (#282) ----
 
   private static final String UNQUOTED = "was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes";
+  private static final String IN_COMMENT =
+      "inside a JavaScript comment is a build error in Tessera (its value would be written inside the comment";
   private static final String IN_STRING =
       "inside a quoted JavaScript string is a build error in Tessera (it writes a JSON value with its own quotes)";
 
@@ -469,14 +471,27 @@ class MigratorTest {
   }
 
   @Test
+  void inlineInsideAJavaScriptCommentIsReportedNotRewritten() throws Exception {
+    // The compiler rejects [[...]] in a comment (#281); the natural-template rewrite is #315.
+    for (String body : List.of(
+        "var a = /*[[${x}]]*/ 'd';",
+        "// \"[[${x}]]\"\nvar a = 1;",
+        "/* \"[[${x}]]\" */ var a = 1;",
+        "/*/ \"[[${x}]]\" */",
+        "var a = 1; // [[${x}]]")) {
+      String src = script("", body);
+      assertEquals(src, convert(src), body);
+      assertMessages(src, "1: `[[${x}]]` " + IN_COMMENT);
+    }
+    String two = script("", "var a = 1; /* [[${x}]]\n [[${y}]] */");
+    assertMessages(two, "1: `[[${x}]]` " + IN_COMMENT, "2: `[[${y}]]` " + IN_COMMENT);
+  }
+
+  @Test
   void inlinesOutsideJavaScriptStringsAreUnchanged() throws Exception {
     for (String body : List.of(
         "var a = [[${x}]];",
         "var a = \"a\" + [[${x}]] + \"b\";",
-        "// \"[[${x}]]\"\nvar a = 1;",
-        "/* \"[[${x}]]\" */ var a = 1;",
-        "/*/ \"[[${x}]]\" */",
-        // TODO(#315): /*[[${x}]]*/ 'd' (a JavaScript natural template) is rewritten or reported there.
         "var a = \"x\u2028\"; var b = [[${x}]];",
         "var a = `${[[${x}]]}`;",
         "var a = `${ {b: \"}\"} }` + [[${x}]];",
