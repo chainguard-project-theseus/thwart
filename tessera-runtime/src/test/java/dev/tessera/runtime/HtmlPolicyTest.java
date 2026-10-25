@@ -110,6 +110,10 @@ class HtmlPolicyTest {
     // AngularJS reads directives from class values ("ng-init: expr"); ':' ';' '{' are never kept
     assertEquals("<p class=\"a b-c d_e\">x</p>", rich("<p class=\"a ng-init:x; b-c NG-bind {{x}} d_e ng-include\">x</p>"));
     assertEquals("<p>x</p>", rich("<p class=\"ng-init: constructor.constructor('alert(1)')()\">x</p>"));
+    // AngularJS normalizes directive names: x-/data- prefixes, '_' delimiters and the camel-case
+    // form a class keeps all name ngBind (framework table, context-model.md 6.3)
+    assertEquals("<p class=\"ngrok angular x-ngx nga\">x</p>",
+        rich("<p class=\"data-ng-bind x-ng-bind ng_bind data_ng_init X-NG-bind ngBind ng ngrok angular x-ngx nga\">x</p>"));
     HtmlPolicy some = HtmlPolicy.builder().allowElements("p").allowClasses("note", "lang-*").build();
     assertEquals("<p class=\"note lang-java\">x</p>", some.sanitize("<p class=\"note lang-java hidden fixed inset-0\">x</p>").html());
     assertEquals("<p>x</p>", basic("<p class=\"note\">x</p>"));
@@ -170,7 +174,7 @@ class HtmlPolicyTest {
         "class", "data-bind", "v-html", "x-data", "hx-get", "ng-click", "is", "target", "rel", "ID"}) {
       assertThrows(IllegalArgumentException.class, () -> HtmlPolicy.builder().allowAttributes(a), a);
     }
-    for (String c : new String[] {"ng-*", "ng-init", "NG-x", "a:b", "a b", "{{x}}", "", "a;b", "**"}) {
+    for (String c : new String[] {"ng-*", "ng-init", "NG-x", "ng_*", "data-ng-*", "x-ng-bind", "ngBind", "a:b", "a b", "{{x}}", "", "a;b", "**"}) {
       assertThrows(IllegalArgumentException.class, () -> HtmlPolicy.builder().allowClasses(c), c);
     }
     for (String p : new String[] {"", "-", "x", "1a-", "a b-", "a:b-", "ab", null}) {

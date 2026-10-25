@@ -549,11 +549,11 @@ For editor or Markdown output that needs more, write `html.sanitizeRich(article.
 (`HtmlPolicy.RICH.sanitize(text)` in Java). It also keeps `del ins kbd`; images (`img` with a `src`
 that passes the URL check, `alt`, `title`, `width`, `height`); tables (`table caption thead tbody
 tfoot tr th td` with `colspan`, `rowspan`, `align`); `ol start reversed` and `li value`; `title`;
-`class` tokens made only of letters, digits, `-` and `_` (never `ng-*`, which AngularJS reads as a
-directive); and `id`, written as `user-content-<id>` so stored content can't shadow `window` or
-`document` properties or the page's own ids, with `href="#<id>"` links rewritten to match. Links
-keep `target="_blank"`. An attribute value containing `{{` is dropped, as is an `img` whose `src`
-fails the check.
+`class` tokens made only of letters, digits, `-` and `_` (never one AngularJS reads as a
+directive: `ng-*`, `ng_*` or `ngX`, also after `x-` or `data-`); and `id`, written as
+`user-content-<id>` so stored content can't shadow `window` or `document` properties or the page's
+own ids, with `href="#<id>"` links rewritten to match. Links keep `target="_blank"`. An attribute
+value containing `{{` is dropped, as is an `img` whose `src` fails the check.
 
 For any other mix, build a policy once in Java with `HtmlPolicy.builder()` and expose it through
 your own function namespace (section 4.6):

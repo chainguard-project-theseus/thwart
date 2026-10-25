@@ -349,7 +349,7 @@ final class HtmlSanitizer {
       StringBuilder classes = new StringBuilder();
       for (String token : decode(attrs.get("class")).split("[ \t\n\f]+")) {
         if (HtmlPolicy.isClassToken(token)
-            && !HtmlPolicy.lower(token).startsWith("ng-")
+            && !HtmlPolicy.isAngularClass(token)
             && policy.allowsClass(token)) {
           classes.append(classes.length() == 0 ? "" : " ").append(token);
         }

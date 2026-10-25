@@ -196,13 +196,13 @@ public final class HtmlPolicy {
     /**
      * Allows {@code class} tokens: an exact name, a prefix ending in {@code *}
      * ({@code "language-*"}), or {@code "*"} for any token. Only tokens of the form
-     * {@code [A-Za-z0-9_-]+} are ever kept, and never one starting with {@code ng-} (AngularJS
-     * reads directives from classes); other tokens are dropped.
+     * {@code [A-Za-z0-9_-]+} are ever kept, and never one AngularJS reads as a built-in directive
+     * name ({@link #isAngularClass}); other tokens are dropped.
      */
     public Builder allowClasses(String... patterns) {
       for (String p : patterns) {
         String name = p.endsWith("*") ? p.substring(0, p.length() - 1) : p;
-        if (!(p.equals("*") || isClassToken(name)) || lower(name).startsWith("ng-")) {
+        if (!(p.equals("*") || isClassToken(name)) || isAngularClass(name)) {
           throw new IllegalArgumentException("not an allowed class pattern: " + p);
         }
         classes.add(p);
@@ -265,6 +265,26 @@ public final class HtmlPolicy {
       }
       return name;
     }
+  }
+
+  /**
+   * Whether AngularJS could read class token {@code token} as one of its {@code ng} directives
+   * (it reads directives from classes): after an optional {@code x-}/{@code data-} prefix (also
+   * with {@code _}), {@code ng} (any case) followed by {@code -}, {@code _}, an upper-case letter
+   * ({@code ngBind}) or nothing. These are the {@code ng-*}, {@code ng_*} rows of the framework
+   * table (context-model.md 6.3), plus the camel-case form a class keeps.
+   */
+  static boolean isAngularClass(String token) {
+    String l = lower(token);
+    int start = l.startsWith("x-") || l.startsWith("x_") ? 2 : l.startsWith("data-") || l.startsWith("data_") ? 5 : 0;
+    if (!l.startsWith("ng", start)) {
+      return false;
+    }
+    if (token.length() == start + 2) {
+      return true;
+    }
+    char c = token.charAt(start + 2);
+    return c == '-' || c == '_' || (c >= 'A' && c <= 'Z');
   }
 
   /** Whether {@code s} is non-empty and only {@code [A-Za-z0-9_-]}. */
