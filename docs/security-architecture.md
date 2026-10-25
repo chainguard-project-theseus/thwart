@@ -555,8 +555,8 @@ document parses identically, and the value is in the node the parser reported.
    stays the caller's responsibility.
 3. **Parser version.** The guarantee is relative to the WHATWG algorithm as the two embedded
    parsers implement it. They bracket the known splits (classic and customizable `<select>`, the
-   fragment-case foreign-content breakout), not unknown ones. The Node job (#322, #345) checks
-   Chromium, Firefox ESR and parse5; WebKit isn't checked yet (#354).
+   fragment-case foreign-content breakout), not unknown ones. The Node job (#322, #345, #354) checks
+   Chromium, Firefox ESR, WebKit and parse5.
 4. **Entry context of partials.** A fragment rendered on its own (htmx, `innerHTML`) is checked
    by fragment parsing in the context its root element implies, and by document parsing.
 5. **The inertness lemma itself.** It's argued here and tested by #324 (state unchanged across
