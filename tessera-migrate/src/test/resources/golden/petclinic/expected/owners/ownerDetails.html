@@ -2,7 +2,7 @@
 
 <html xmlns:t="https://tessera.dev" t:replace="~{fragments/layout :: layout(~{::body},'owners')}" t:params="Object message, Object owner">
 
-<body>
+<body t:remove="tag">
 
   <h2>Owner Information</h2>
 

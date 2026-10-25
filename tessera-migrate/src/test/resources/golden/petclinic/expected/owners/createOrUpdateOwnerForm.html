@@ -1,7 +1,7 @@
 <html xmlns:t="https://tessera.dev"
   t:replace="~{fragments/layout :: layout(~{::body},'owners')}" t:params="Object owner">
 
-<body>
+<body t:remove="tag">
 
   <h2>Owner</h2>
   <form t:object="owner" class="form-horizontal" id="add-owner-form" method="post">
