@@ -665,7 +665,7 @@ public final class Escapers {
 
   /**
    * Writes a double-quoted JSON string that is also safe inside an HTML {@code <script>}
-   * element or a JS comment, regex or template literal: {@code < > & ' ` $}, U+2028, U+2029,
+   * element or a JS comment, regex or template literal: {@code < > & ' ` $ {}, U+2028, U+2029,
    * controls and unpaired surrogates become {@code \\uXXXX}, and {@code /} becomes {@code \\/}.
    */
   private static void writeJsonString(StringBuilder sb, String s) {
@@ -706,6 +706,8 @@ public final class Escapers {
         case '\'':
         case '`':
         case '$':
+        // petite-vue interpolates script text, so a string never writes '{' (no '{{', #248).
+        case '{':
         case '\u2028':
         case '\u2029':
           unicodeEscape(sb, c);

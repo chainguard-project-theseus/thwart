@@ -96,7 +96,8 @@ class ClientTemplateInjectionTest {
   void attributesAndScriptsAreNotChanged() {
     assertEquals("<i title=\"{{x}}\" data-v=\"{{x}}\">i</i>", render("<i t:title=\"s\" t:data-v=\"s\">i</i>", "{{x}}"));
     assertEquals("<a href=\"{{x}}\">a</a>", render("<a t:href=\"s\">a</a>", "{{x}}"));
-    assertEquals("<script>var v = \"{{x}}\";</script>", render("<script>var v = [[s]];</script>", "{{x}}"));
+    // petite-vue interpolates script text: a JSON string writes '{' as \u007b
+    assertEquals("<script>var v = \"\\u007b\\u007bx}}\";</script>", render("<script>var v = [[s]];</script>", "{{x}}"));
   }
 
   @ParameterizedTest
@@ -130,7 +131,7 @@ class ClientTemplateInjectionTest {
         "<p>{ { [[s]] }}</p>",
         "<p>{{ x &#125;} [[s]]</p>",
         "<p>&amp;#123;&amp;#123; [[s]]</p>",
-        "<script>var t = '{{'; var v = [[s]];</script>",
+        "<script>var t = '{{}}'; var v = [[s]];</script>",
         "<p>{{ a }}<b t:text=\"s\">x</b></p>",
       })
   void expressionOutsideStaticMustacheCompiles(String body) {
@@ -282,6 +283,197 @@ class ClientTemplateInjectionTest {
                 + "<tbody><tr t:replace=\"~{f :: row(s)}\"></tr><t:block t:replace=\"~{f :: rows(s)}\"></t:block></tbody>"
                 + "<tr><td t:insert=\"~{f :: box(s)}\"></td><td t:insert=\"~{f :: text(s)}\"></td></tr></table>"
                 + "<t:block t:replace=\"~{f :: layout(~{::p})}\"></t:block><p t:text=\"s\">x</p>")
+        .assertSuccess();
+  }
+
+  /** petite-vue interpolates script text: a value after an open {{ in a script runs as code. */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<script>var t = '{{'; var v = [[s]];</script>",
+        "<script>var t = '{{'; var v = [[s]] + '}}';</script>",
+        "<script>var t = '{{}} {{'; var v = [[s]];</script>",
+      })
+  void expressionAfterOpenMustacheInScriptIsABuildError(String body) {
+    compile(body).assertError("t.html:1:", "[[...]] is inside a client-side {{ ... }} interpolation", "data-*");
+  }
+
+  /**
+   * A static {{ with no }} after it in the template's text: a value written after it, in this
+   * template or in one that inserts it, would be inside the interpolation.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<p>{{</p>",
+        "<p t:fragment=\"f\">{{ </p>",
+        "<p>a</p>{{",
+        "<code>{{</code>",
+        "<p>{{ a }} {{</p>",
+        "<p>{{ a }}</p><p>{{ <b>x</b></p>",
+        "<p>&lbrace;&#123;</p>",
+        "<p>{{ <!-- }} --></p>",
+        "<p>{{ [[s]]</p>",
+        "<p>{{ [['}}']]</p>",
+        "<title>{{</title>",
+        "<textarea>{{</textarea>",
+        "<p>{{</p><script>var a = '}}';</script>",
+      })
+  void unclosedMustacheIsABuildError(String body) {
+    compile(body).assertError("t.html:1:", "a client-side {{ is never closed", "{<!---->{");
+  }
+
+  @Test
+  void unclosedMustacheErrorNamesItsPosition() {
+    Compilation c = compile("\n<p>{{ a }}\n  x {{</p>");
+    c.assertError("t.html:3:5:", "a client-side {{ is never closed");
+    assertEquals(1, c.errors().size(), String.join("\n", c.errors()));
+    // a character reference moves offsets: the position is the start of the text
+    compile("\n<p>x &lbrace;{</p>").assertError("t.html:2:4:", "a client-side {{ is never closed");
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<p>{<!---->{</p>",
+        "<p>{<b></b>{ x</p>",
+        "<p>{ {</p>",
+        "<p>{{ <b>x</b> }}</p>",
+        "<p>{{ a }}</p>",
+        "<p>&amp;#123;&amp;#123;</p>",
+        "<p title=\"{{\">x</p>",
+        "<!-- {{ --><p>x</p>",
+        "<script>const open = '{{';</script>",
+        "<p t:text=\"s\">{{</p>",
+        "<p t:remove=\"all\">{{</p>",
+        "<p t:remove=\"body\">{{</p>",
+        "<p t:insert=\"~{::f}\">{{</p><t:block t:fragment=\"f\">x</t:block>",
+      })
+  void closedOrNonTextMustacheCompiles(String body) {
+    compile(body).assertSuccess();
+  }
+
+  private static final String COND_HEADER =
+      "<div xmlns:t=\"https://tessera.dev\" t:params=\"String s, boolean c, java.util.List<String> l\">";
+
+  private static Compilation compileCond(String body) {
+    return Compilation.builder().template("t.html", COND_HEADER + body + "</div>").compile();
+  }
+
+  /**
+   * A }} that may not render does not close a static {{: with s = "'PW'+'NED'}}" the value would
+   * close it and the frameworks would run it.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<p>{{<t:block t:remove=\"all\">}}</t:block>[[s]]</p>",
+        "<p>{{<b t:remove=\"all\">}}</b>[[s]]</p>",
+        "<p>{{<t:block t:if=\"c\">}}</t:block>[[s]]</p>",
+        "<p>{{<t:block t:unless=\"c\">}}</t:block><t:block t:text=\"s\"></t:block></p>",
+        "<p>{{<t:block t:each=\"x : ${l}\" t:if=\"${false}\">}}</t:block>[[s]]</p>",
+        "<p>{{<t:block t:text=\"'x'\">}}</t:block>[[s]]</p>",
+        "<p>{{<b t:remove=\"body\">}}</b>[[s]]</p>",
+        "<p>{{<b t:remove=\"all-but-first\">}}</b>[[s]]</p>",
+        "<p>{{<b t:switch=\"s\"><i t:case=\"'a'\">}}</i></b>[[s]]</p>",
+        "<p>{{<t:block t:replace=\"~{::f}\">}}</t:block>[[s]]</p><t:block t:fragment=\"f\">x</t:block>",
+        "<p>{{<b t:if=\"c\"><i>}}</i></b>[[s]]</p>",
+        "<p><b t:if=\"c\">{{</b> }}</p>",
+      })
+  void mustacheClosedOnlyByContentThatMayNotRenderIsABuildError(String body) {
+    compileCond(body).assertError("t.html:1:", "a client-side {{ is never closed", "{<!---->{");
+  }
+
+  @Test
+  void fragmentClosedOnlyByContentThatMayNotRenderIsABuildError() {
+    for (String inner : new String[] {"t:if=\"false\"", "t:remove=\"all\""}) {
+      Compilation.builder()
+          .template(
+              "frag.html",
+              "<div xmlns:t=\"https://tessera.dev\"><t:block t:fragment=\"f\">{{<t:block " + inner + ">}}</t:block></t:block></div>")
+          .template("t.html", COND_HEADER + "<p><t:block t:insert=\"~{frag :: f}\"></t:block>[[s]]</p></div>")
+          .compile()
+          .assertError("frag.html:1:", "a client-side {{ is never closed");
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<p>{{ <b t:if=\"c\">x</b> }}</p>",
+        "<p t:if=\"c\">{{ a }}</p>",
+        "<p t:each=\"x : ${l}\">{{ a }} [[x]]</p>",
+        "<p><b t:if=\"c\">{{ a <i>x</i> }}</b> [[s]]</p>",
+        "<p>{{ <b t:remove=\"tag\">}}</b> [[s]]</p>",
+        "<p>{{ <b t:remove=\"none\" t:title=\"s\">}}</b> [[s]]</p>",
+      })
+  void mustacheClosedByContentThatAlwaysRendersCompiles(String body) {
+    compileCond(body).assertSuccess();
+  }
+
+  private static final String FRAG_HEADER = "<div xmlns:t=\"https://tessera.dev\">";
+  private static final String FRAG = "<t:block t:fragment=\"f\">{{</t:block>}}";
+  private static final String INSERT = "<p><t:block t:insert=\"~{frag :: f}\"></t:block>[[s]]</p>";
+
+  /**
+   * A fragment renders alone where another template inserts it, so a }} after it in its own file
+   * does not come along: an element that opens a {{ must close it itself. With s = "'PW'+'NED'}}"
+   * each of these would render a {{ that Vue or AngularJS runs.
+   */
+  @Test
+  void mustacheClosedOnlyOutsideItsElementIsABuildError() {
+    String[][] cases = {
+      {"frag.html", FRAG, INSERT},
+      {"frag.html", "<div><b t:fragment=\"f\" t:remove=\"tag\">{{</b>}}</div>", INSERT},
+      {"frag.html", "<p>x<t:block t:fragment=\"f\">{{</t:block>}}</p>", INSERT},
+      {"frag.html", FRAG, "<p><t:block t:replace=\"~{frag :: f}\"></t:block>[[s]]</p>"},
+      {"t.html", "x", "<t:block t:fragment=\"g\">{{</t:block>}}<p><t:block t:insert=\"~{::g}\"></t:block>[[s]]</p>"},
+      {"frag.html", "<t:block t:fragment=\"f\"><t:block t:fragment=\"inner\">{{</t:block>}}</t:block>",
+          "<p><t:block t:insert=\"~{frag :: inner}\"></t:block>[[s]]</p>"},
+      {"frag.html", "<t:block t:fragment=\"f(String x)\"><t:block t:fragment=\"inner\">{{</t:block>[[x]]</t:block>}}",
+          "<p><t:block t:insert=\"~{frag :: f(x=${s})}\"></t:block></p>"},
+      {"frag.html", FRAG,
+          "<p><t:block t:each=\"x : ${l}\"><t:block t:insert=\"~{frag :: f}\"></t:block>[[x]]</t:block></p>"},
+      // An element in a body that does not render can still be inserted.
+      {"frag.html", "<div t:remove=\"all\"><b t:fragment=\"f\">{{</b>}}</div>", INSERT},
+      {"frag.html", "<p t:text=\"'x'\"><b t:fragment=\"f\">{{</b>}}</p>", INSERT},
+      // An element is read from an empty state, also inside a {{ its parent opens.
+      {"t.html", "x", "<p>{{ <b>a {{</b> }}</p>"},
+      {"t.html", "x", "<p>{{ <b t:if=\"c\">x {{ y</b> }}</p>"},
+      {"frag.html", "<p>{{ <b t:fragment=\"f\">x {{ y</b> }}</p>", INSERT},
+      {"frag.html", "<div t:remove=\"all\">{{ <b t:fragment=\"f\">x {{ y</b></div>", INSERT},
+      // b closes the {{ of p and opens one: only that one is reported.
+      {"t.html", "x", "<p>{{ <b>}}{{</b></p>"},
+    };
+    for (String[] c : cases) {
+      Compilation result =
+          Compilation.builder()
+              .template("frag.html", FRAG_HEADER + c[1] + "</div>")
+              .template("t.html", COND_HEADER + c[2] + "</div>")
+              .compile();
+      result.assertError(c[0] + ":1:", "a client-side {{ is never closed inside <", "{<!---->{");
+      assertEquals(1, result.errors().size(), c[1] + " " + c[2] + "\n" + String.join("\n", result.errors()));
+    }
+  }
+
+  @Test
+  void unclosedMustacheErrorNamesItsElement() {
+    compileCond("\n<p>\n  <b>x {{</b> }}</p>")
+        .assertError("t.html:3:8:", "a client-side {{ is never closed inside <b>", "inside the same element");
+  }
+
+  @Test
+  void fragmentThatClosesItsOwnMustacheCompiles() {
+    Compilation.builder()
+        .template(
+            "frag.html",
+            FRAG_HEADER + "<t:block t:fragment=\"f\">{{ a }}</t:block><p t:fragment=\"g\">{{ <b>x</b> }}</p>"
+                + "<b t:fragment=\"h\" t:remove=\"tag\">{{ a }} {{ b }}</b></div>")
+        .template(
+            "t.html",
+            COND_HEADER + INSERT + "<div><t:block t:insert=\"~{frag :: g}\"></t:block>[[s]]</div>"
+                + "<p><t:block t:replace=\"~{frag :: h}\"></t:block>[[s]]</p></div>")
+        .compile()
         .assertSuccess();
   }
 }
