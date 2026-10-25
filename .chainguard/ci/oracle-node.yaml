@@ -1,6 +1,6 @@
 version: 1
-# The Node oracle (#322): parse5, headless Chromium (Wolfi) and Firefox 140 ESR (pinned download,
-# SHA-256 checked in run.sh) over the spec-parser oracle's cases. Not part of `mvn verify`.
+# The Node oracle (#322): parse5, headless Chromium (Wolfi), Firefox 140 ESR and Playwright's WebKit
+# build (#354; pinned downloads, SHA-256 checked in run.sh) over the spec-parser oracle's cases. Not part of `mvn verify`.
 # Chainguard Checks has no cron, so it runs after every merge to main, and on a PR on request.
 environment:
   packages:
@@ -23,6 +23,52 @@ environment:
     - libxrandr
     - mesa-glx
     - pciutils-libs
+    # Libraries Playwright's WebKit build (WPE, built on Ubuntu 26.04) loads. run.sh adds the ones
+    # Wolfi lacks (flite, hyphen, libmanette, libsoup 3, libjxl 0.11) from pinned Ubuntu debs.
+    - libarchive-tools
+    - libatk-1.0
+    - libatk-bridge-2.0
+    - libatomic
+    - libavif
+    - libbrotlidec1
+    - libdrm
+    - enchant2
+    - libepoxy
+    - libevent
+    - libexpat1
+    - libfontconfig1
+    - freetype
+    - mesa-gbm
+    - mesa-egl
+    - libgcrypt
+    - libgpg-error
+    - glib
+    - gstreamer
+    - gst-plugins-base
+    - gst-plugins-bad
+    - harfbuzz
+    - harfbuzz-icu
+    - libicu78
+    - libjpeg-turbo
+    - lcms2
+    - libnghttp2-14
+    - opus
+    - libpng
+    - libpsl
+    - sqlite-libs
+    - libsystemd
+    - libtasn1
+    - wayland-libs-client
+    - wayland-libs-egl
+    - wayland-libs-server
+    - libwebp
+    - libxkbcommon
+    - libxml2
+    - libxslt
+    - libhwy
+    - libevdev
+    - libudev
+    - krb5-libs
     # ProfileOracleTest exports the cases once #324 lands.
     - openjdk-21-default-jdk
     - maven-3.9
@@ -35,21 +81,33 @@ environment:
     MAVEN_OPTS: -Djava.io.tmpdir=/var/tmp
 checks:
   oracle-node:
-    description: Runs the oracle's cases through parse5, headless Chromium and Firefox 140 ESR after each merge.
+    description: Runs the oracle's cases through parse5, headless Chromium, Firefox 140 ESR and WebKit after each merge.
     trigger: postsubmit
     resources: medium-amd64
     timeout: 15m
     network:
-      egress: [registry.npmjs.org, archive.mozilla.org, repo.maven.apache.org, repo1.maven.org]
+      egress:
+        - registry.npmjs.org
+        - archive.mozilla.org
+        - playwright.download.prss.microsoft.com
+        - archive.ubuntu.com
+        - repo.maven.apache.org
+        - repo1.maven.org
     cmd: [bash, tessera-compiler/src/test/node/run.sh]
   oracle-node-pr:
     when: {requested: true}
     description: >-
-      Runs the oracle's cases through parse5, headless Chromium and Firefox 140 ESR. Worth running
+      Runs the oracle's cases through parse5, headless Chromium, Firefox 140 ESR and WebKit. Worth running
       when a change touches the HTML parser, output contexts, escapers, or the oracle itself.
     trigger: presubmit
     resources: medium-amd64
     timeout: 15m
     network:
-      egress: [registry.npmjs.org, archive.mozilla.org, repo.maven.apache.org, repo1.maven.org]
+      egress:
+        - registry.npmjs.org
+        - archive.mozilla.org
+        - playwright.download.prss.microsoft.com
+        - archive.ubuntu.com
+        - repo.maven.apache.org
+        - repo1.maven.org
     cmd: [bash, tessera-compiler/src/test/node/run.sh]
