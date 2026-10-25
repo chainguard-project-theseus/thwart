@@ -26,8 +26,8 @@ class VerifierBudgetTest {
   private static final Pattern JAVA_NAME =
       Pattern.compile("(?s)package ([\\w.]+);.*?\\b(?:class|record|enum|interface) (\\w+)");
 
-  /** About 3x the best of four runs when the bound was set (18 ms for 17 templates, Oct 25, 2026). */
-  static final long BOUND_MILLIS = 60;
+  /** 3x the best of four runs when the bound was set (3-5 ms for 18 templates, Oct 25, 2026). */
+  static final long BOUND_MILLIS = 15;
 
   @Test
   void theGuideTemplatesVerifyWithinTheBound() throws IOException {

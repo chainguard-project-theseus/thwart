@@ -47,7 +47,8 @@ public final class ParserState {
   private final boolean framesetOk;
   private final boolean dropsNextLineFeed;
   private final boolean pendingTableText;
-  private final String signature;
+  /** Built on first use: most states are only checked, and a signature is long. */
+  private String signature;
 
   // activeFormattingAttributes is in the signature: reconstruction and the Noah's Ark clause
   // compare attributes. framesetOk is left out of it, see framesetOk().
@@ -94,7 +95,9 @@ public final class ParserState {
     this.framesetOk = framesetOk;
     this.dropsNextLineFeed = dropsNextLineFeed;
     this.pendingTableText = pendingTableText;
+  }
 
+  private String buildSignature() {
     StringBuilder sb = new StringBuilder(128);
     // The engines parse some input differently (<select>), so their states never merge either.
     sb.append(engine).append(' ');
@@ -140,10 +143,18 @@ public final class ParserState {
     if (!pendingInput.isEmpty()) {
       sb.append(" pending=").append(quote(pendingInput));
     }
-    this.signature = sb.toString();
+    return sb.toString();
   }
 
   private static String quote(String s) {
+    boolean plain = true;
+    for (int i = 0; i < s.length() && plain; i++) {
+      char c = s.charAt(i);
+      plain = c != '"' && c != '\\' && c >= 0x20 && c != 0x7f;
+    }
+    if (plain) {
+      return '"' + s + '"';
+    }
     StringBuilder sb = new StringBuilder(s.length() + 2).append('"');
     for (int i = 0; i < s.length(); i++) {
       char c = s.charAt(i);
@@ -298,21 +309,24 @@ public final class ParserState {
 
   /** A deterministic description of the whole state, with names only. */
   public String signature() {
+    if (signature == null) {
+      signature = buildSignature();
+    }
     return signature;
   }
 
   @Override
   public boolean equals(Object o) {
-    return o instanceof ParserState && signature.equals(((ParserState) o).signature);
+    return o instanceof ParserState && signature().equals(((ParserState) o).signature());
   }
 
   @Override
   public int hashCode() {
-    return signature.hashCode();
+    return signature().hashCode();
   }
 
   @Override
   public String toString() {
-    return signature;
+    return signature();
   }
 }

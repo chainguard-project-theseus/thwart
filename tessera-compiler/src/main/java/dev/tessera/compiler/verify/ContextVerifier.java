@@ -75,6 +75,8 @@ public final class ContextVerifier {
   private int approxDepth = Integer.MAX_VALUE;
   /** Where findings go: the analysis of the innermost call in progress, or the entry. */
   private List<Finding> sink = new ArrayList<>();
+  /** How many parsers a path of the current template holds. */
+  private int parserCount;
   /** How many more steps {@link #firstElements} may take for the current template. */
   private int firstElementsBudget;
   /** The last source position seen, for nodes that have none (generated markup). */
@@ -105,16 +107,20 @@ public final class ContextVerifier {
   List<Finding> check(Skeleton.TemplateSkeleton template) {
     Map<String, Finding> out = new LinkedHashMap<>();
     SourcePos start = firstPos(template);
+    // The scripting flag changes only how a <noscript> tag parses: without one, the parsers with
+    // scripting off stay in the states of those with it on.
+    boolean scriptingOff = mentionsNoscript(template.body(), Collections.newSetFromMap(new IdentityHashMap<Object, Boolean>()));
+    parserCount = (scriptingOff ? 2 : 1) * Engines.all().size();
     for (String context : entries(template)) {
       List<Finding> found = new ArrayList<>();
       sink = found;
       near = start;
       try {
-        List<Path> paths = Collections.singletonList(context == null ? Path.document() : Path.fragment(context));
+        List<Path> paths = Collections.singletonList(Path.start(context, scriptingOff));
         seq(template.body(), paths, Env.EMPTY);
       } catch (EngineException e) {
         found.add(new Finding(Problem.ENGINE_FAILURE, near, null, null, null, null, null,
-            Collections.<ParserState>emptyList(), e.getMessage(), false));
+            Collections.<ParserState>emptyList(), parserCount, e.getMessage(), false));
       }
       for (Finding f : found) {
         // Data-dependent structure is one error per place, not one per hole it reaches.
@@ -237,6 +243,46 @@ public final class ContextVerifier {
         return;
       }
     }
+  }
+
+  /**
+   * Whether a static {@code seq} can write, through the fragments it calls and their arguments,
+   * contains {@code noscript} in any case.
+   */
+  private boolean mentionsNoscript(Skeleton.Seq seq, Set<Object> seen) {
+    if (!seen.add(seq)) {
+      return false;
+    }
+    for (Skeleton.Node n : seq.nodes()) {
+      boolean found;
+      if (n instanceof Skeleton.Static) {
+        found = ((Skeleton.Static) n).text().toLowerCase(Locale.ROOT).contains("noscript");
+      } else if (n instanceof Skeleton.Seq) {
+        found = mentionsNoscript((Skeleton.Seq) n, seen);
+      } else if (n instanceof Skeleton.Opt) {
+        found = mentionsNoscript(((Skeleton.Opt) n).body(), seen);
+      } else if (n instanceof Skeleton.Rep) {
+        found = mentionsNoscript(((Skeleton.Rep) n).body(), seen) || mentionsNoscript(((Skeleton.Rep) n).separator(), seen);
+      } else if (n instanceof Skeleton.Alt) {
+        found = false;
+        for (Skeleton.Seq b : ((Skeleton.Alt) n).branches()) {
+          found |= mentionsNoscript(b, seen);
+        }
+      } else if (n instanceof Skeleton.Call) {
+        Skeleton.Call c = (Skeleton.Call) n;
+        Skeleton.Seq target = fragments.get(c.target());
+        found = target != null && mentionsNoscript(target, seen);
+        for (Skeleton.Seq a : c.fragmentArgs().values()) {
+          found |= mentionsNoscript(a, seen);
+        }
+      } else {
+        found = false;
+      }
+      if (found) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static boolean isSpace(char c) {
@@ -457,6 +503,9 @@ public final class ContextVerifier {
 
   /** Merges paths with the same state; more than {@link #MAX_STATES} is an error. */
   private List<Path> dedupe(List<Path> paths, SourcePos pos) throws EngineException {
+    if (paths.size() <= 1) {
+      return new ArrayList<>(paths);
+    }
     Map<String, Path> byKey = new LinkedHashMap<>();
     for (Path p : paths) {
       if (!byKey.containsKey(p.key())) {
@@ -499,7 +548,15 @@ public final class ContextVerifier {
         p.key = null;
       }
       if (!p.tagHole && !p.markedFormatting) {
-        p.feed(text);
+        int lt = text.lastIndexOf('<');
+        if (lt > 0 && text.indexOf('>', lt) < 0) {
+          // A tag that goes on past this static: feed the text before it on its own, so the
+          // parser replays only the tag's own input while it is inside it (VnuParser).
+          p.feed(text.substring(0, lt));
+          p.defer(text.substring(lt));
+        } else {
+          p.feed(text);
+        }
         continue;
       }
       // A formatting element with a computed attribute may be in the list of active formatting
@@ -538,6 +595,15 @@ public final class ContextVerifier {
     p.markedFormatting = marked;
   }
 
+  private static boolean hasFormattingStartTag(String text) {
+    for (int i = text.indexOf('<'); i >= 0; i = text.indexOf('<', i + 1)) {
+      if (formattingStartTag(text, i)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private static boolean formattingStartTag(String text, int lt) {
     for (String name : FORMATTING) {
       int end = lt + 1 + name.length();
@@ -561,7 +627,10 @@ public final class ContextVerifier {
   private void hole(Skeleton.Hole h, Path p, SourcePos pos) throws EngineException {
     boundary(p, pos);
     Map<Problem, List<ParserState>> problems = new LinkedHashMap<>();
+    boolean formattingTag = false;
     for (ParserState s : p.states()) {
+      // The tag being read starts in the input since the parser was last between tokens.
+      formattingTag |= h.escaper().inAttribute() && hasFormattingStartTag(s.pendingInput());
       Problem problem = Rules.hole(h, s);
       if (problem != null) {
         if (!problems.containsKey(problem)) {
@@ -574,14 +643,14 @@ public final class ContextVerifier {
       add(e.getKey(), pos, h.escaper(), null, h.attribute(), e.getValue(), null);
     }
     if (h.escaper().inAttribute()) {
-      p.feed(Rules.MARK);
-      p.tagHole = true;
+      p.defer(Rules.MARK);
+      p.tagHole |= formattingTag;
     } else if (h.escaper() == Skeleton.Escaper.JSON) {
       for (ParserState s : p.states()) {
         if (s.tokenizer() == TokenizerState.SCRIPT_DATA_LESS_THAN_SIGN) {
           // A JSON value is never empty and never starts with '/' or '!': any first character
           // ends the '<' alike. Elsewhere it is inert, so this is the exit state of every value.
-          p.feed("0");
+          p.defer("0");
           break;
         }
       }
@@ -613,7 +682,7 @@ public final class ContextVerifier {
 
   private void add(Problem problem, SourcePos pos, Skeleton.Escaper escaper, Skeleton.Source source, String attribute,
       List<ParserState> states, String detail) {
-    sink.add(new Finding(problem, pos, null, null, escaper, source, attribute, states, detail, recursive()));
+    sink.add(new Finding(problem, pos, null, null, escaper, source, attribute, states, parserCount, detail, recursive()));
   }
 
   /** Whether a fragment is on the call stack twice: this is reached only through recursion. */
@@ -678,7 +747,7 @@ public final class ContextVerifier {
     if (same >= MAX_ROUNDS || entries > MAX_STATES) {
       // Recursion into ever new states (deeper nesting each time): the structure depends on data.
       sink.add(new Finding(Problem.STRUCTURE_DEPENDS_ON_DATA, pos, null, null, null, null, null,
-          Collections.<ParserState>emptyList(), null, true));
+          Collections.<ParserState>emptyList(), parserCount, null, true));
       return Collections.emptyList();
     }
     int depth = callStack.size();
@@ -705,7 +774,7 @@ public final class ContextVerifier {
         }
         if (round + 1 >= MAX_ROUNDS) {
           found.add(new Finding(Problem.STRUCTURE_DEPENDS_ON_DATA, pos, null, null, null, null, null,
-              Collections.<ParserState>emptyList(), null, true));
+              Collections.<ParserState>emptyList(), parserCount, null, true));
           break;
         }
         running.approx = exits;
@@ -801,7 +870,10 @@ public final class ContextVerifier {
   /** One path through the template: a parser per engine and scripting mode, in the same input. */
   private static final class Path {
     private final Parser[] parsers;
-    /** An attribute hole was written since the parser was last between tokens. */
+    /**
+     * An attribute hole was written since the parser was last between tokens, in a tag that may be
+     * a formatting element's.
+     */
     boolean tagHole;
     /** A formatting element with a computed attribute is in the list of active formatting elements. */
     boolean markedFormatting;
@@ -812,30 +884,33 @@ public final class ContextVerifier {
     boolean tagBoundary;
     private ParserState[] states;
     String key;
+    /** Input written to no parser yet: fed with the next input, before any state is read. */
+    private final StringBuilder deferred = new StringBuilder();
 
     private Path(Parser[] parsers) {
       this.parsers = parsers;
     }
 
-    static Path document() throws EngineException {
+    /**
+     * Document parsing (null {@code context}) or fragment parsing in an HTML {@code context}, in
+     * each engine, with scripting on and, if {@code scriptingOff}, off.
+     */
+    static Path start(String context, boolean scriptingOff) throws EngineException {
       List<Parser> ps = new ArrayList<>();
       for (Engine e : Engines.all()) {
-        ps.add(e.document(true));
-        ps.add(e.document(false));
+        for (boolean scripting : scriptingOff ? new boolean[] {true, false} : new boolean[] {true}) {
+          ps.add(context == null ? e.document(scripting) : e.fragment(OpenElement.HTML, context, scripting));
+        }
       }
       return new Path(ps.toArray(new Parser[0]));
     }
 
-    static Path fragment(String context) throws EngineException {
-      List<Parser> ps = new ArrayList<>();
-      for (Engine e : Engines.all()) {
-        ps.add(e.fragment(OpenElement.HTML, context, true));
-        ps.add(e.fragment(OpenElement.HTML, context, false));
-      }
-      return new Path(ps.toArray(new Parser[0]));
+    int size() {
+      return parsers.length;
     }
 
     Path fork() throws EngineException {
+      flush();
       Parser[] copy = new Parser[parsers.length];
       for (int i = 0; i < parsers.length; i++) {
         copy[i] = parsers[i].fork();
@@ -850,9 +925,25 @@ public final class ContextVerifier {
     }
 
     void feed(String text) throws EngineException {
-      if (text.isEmpty()) {
+      defer(text);
+      flush();
+    }
+
+    /** Feeds {@code text} with the next input: one parser feed fewer per attribute hole. */
+    void defer(String text) {
+      if (!text.isEmpty()) {
+        deferred.append(text);
+        states = null;
+        key = null;
+      }
+    }
+
+    private void flush() throws EngineException {
+      if (deferred.length() == 0) {
         return;
       }
+      String text = deferred.toString();
+      deferred.setLength(0);
       for (Parser parser : parsers) {
         parser.feed(text);
       }
@@ -861,6 +952,7 @@ public final class ContextVerifier {
     }
 
     ParserState[] states() throws EngineException {
+      flush();
       if (states == null) {
         ParserState[] s = new ParserState[parsers.length];
         for (int i = 0; i < parsers.length; i++) {
@@ -871,7 +963,7 @@ public final class ContextVerifier {
       return states;
     }
 
-    /** The combined signature: equal keys parse every continuation alike in all four parsers. */
+    /** The combined signature: equal keys parse every continuation alike in all the parsers. */
     String key() throws EngineException {
       if (key == null) {
         StringBuilder sb = new StringBuilder();

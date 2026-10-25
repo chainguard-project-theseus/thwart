@@ -29,7 +29,7 @@ final class VerifierMessages {
       sb.append("; the fragment reaches this only by calling itself, so the markup structure depends on data: "
           + "render rich text as SafeHtml with html.sanitize(...) or html.sanitizeRich(...) instead (guide section 4.10, Rich text)");
     }
-    sb.append(engines(f.states));
+    sb.append(engines(f.states, f.parsers));
     sb.append(" [verifier:").append(f.problem.name()).append(']');
     return sb.toString();
   }
@@ -239,8 +239,8 @@ final class VerifierMessages {
    * Which parsers reject it, when not all four do: an engine that alone rejects means browsers
    * differ there.
    */
-  private static String engines(List<ParserState> states) {
-    if (states.isEmpty() || states.size() == 2 * Engines.all().size()) {
+  private static String engines(List<ParserState> states, int parsers) {
+    if (states.isEmpty() || states.size() == parsers) {
       return "";
     }
     Set<String> engines = new LinkedHashSet<>();
@@ -256,7 +256,7 @@ final class VerifierMessages {
           + (e.equals(Engines.CLASSIC.name()) ? "classic <select> parsing, as in Firefox ESR"
               : "customizable <select> parsing, as in current Chromium") + ")");
     }
-    if (scripting.size() == 1) {
+    if (scripting.size() == 1 && parsers == 2 * Engines.all().size()) {
       parts.add(scripting.iterator().next() ? "with scripting on" : "with scripting off");
     }
     return parts.isEmpty() ? "" : " (" + String.join("; ", parts) + ")";
