@@ -265,10 +265,10 @@ comes from `RenderContext.cspNonce()`; the Spring starter sets a fresh one per r
 
 | Rule | Status | Checked by |
 |---|---|---|
-| Every `<script>` and `<style>` start tag the compiler writes gets ` nonce="..."` after its other attributes, written with `Escapers.attr`; nothing when the context has no nonce | #PR | `CspNonceTest` (static, `src`, `t:if`/`t:each`, fragments by `t:insert`/`t:replace` and `~{::selector}`, hostile nonce values) |
-| Stamped in HTML, SVG and MathML alike, so whether a script is allowed never depends on the compiler's namespace tracking; SVG scripts and styles take the `nonce` attribute too | #PR | `CspNonceTest` |
-| A `nonce` on `<script>` or `<style>` in the template (static, `t:nonce`, `t:attr`) is an error | #PR | `CspNonceTest` |
-| Markup the compiler did not write gets no nonce: `html.sanitize` drops `script` and `style` with their content; `SafeHtml.unchecked` is copied as is | #PR | `CspNonceTest`, `HtmlSanitizerTest` |
+| Every `<script>` and `<style>` start tag the compiler writes gets ` nonce="..."` after its other attributes, written with `Escapers.attr`; nothing when the context has no nonce | #361 | `CspNonceTest` (static, `src`, `t:if`/`t:each`, fragments by `t:insert`/`t:replace` and `~{::selector}`, hostile nonce values) |
+| Stamped in HTML, SVG and MathML alike, so whether a script is allowed never depends on the compiler's namespace tracking; SVG scripts and styles take the `nonce` attribute too | #361 | `CspNonceTest` |
+| A `nonce` on `<script>` or `<style>` in the template (static, `t:nonce`, `t:attr`) is an error | #361 | `CspNonceTest` |
+| Markup the compiler did not write gets no nonce: `html.sanitize` drops `script` and `style` with their content; `SafeHtml.unchecked` is copied as is | #361 | `CspNonceTest`, `HtmlSanitizerTest` |
 
 ## 7. Decisions (Oct 25, 2026)
 
