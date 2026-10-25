@@ -6,9 +6,10 @@ this doc describes the target and the plan, not the current code. Where it and
 [mvp-design.md](mvp-design.md) disagree, mvp-design describes what ships today.
 
 **Amended Oct 25, 2026:** a build-time verifier (§11) replaces the profile as the security
-boundary for markup contexts (families A and B), enforced once #367 lands. Two spec HTML parsers
-check every template, inside the annotation processor. §11.7 says which parts of §5 are now
-friendly errors or browser-divergence exclusions.
+boundary for markup contexts (families A and B), enforced since #367. The pinned spec HTML parser
+checks every template inside the annotation processor. Simplified the same day (#404): it is to
+accept only error-free parses outside three coarse exclusions (#406). §11.7 says which parts of
+§5 are now friendly errors or exclusions.
 
 ## 0. Summary
 
@@ -386,6 +387,12 @@ Amended Oct 25, 2026 (§11): principle 5's "checks this against a spec parser in
 line now sends parser-differential and composition fixes to the verifier. `tessera-compiler` may
 shade the two pinned validator.nu htmlparser versions (§11.4), and nothing else.
 
+Simplified Oct 25, 2026 (#404): the shade exception names one pinned parser, and keep-it-simple
+says the verifier rejects error-recovery parsing rather than model it, with the divergence policy
+of §11.4. Principle 5 now reads "checks this at build time, for every template, against the spec
+HTML parser, and accepts only parses without errors, outside the constructs where browsers are
+known to split".
+
 ## 7. Process: where we went wrong and what changes
 
 The working pattern was: build compatibility features fast, have adversarial reviewers find
@@ -461,8 +468,9 @@ author's call; the actions below are what we recommend to them.
 - **Allow-lists go stale.** New HTML or SVG elements and attributes appear slowly; when one is
   missing the result is a build error, not XSS. Keep the lists in one generated file with a source
   (WHATWG/SVG2 indexes).
-- **Oracle drift.** Settled by §11.4: current upstream and 1.4.16 both run at build time, and a
-  hole must pass both. The Node job (#322) and WebKit (#354) check that they bracket real engines.
+- **Oracle drift.** Settled by §11.4: one pinned engine, error-free parses only, and a coarse
+  exclusion for every split the nightly detector (#399) finds between it and parse5, Chromium,
+  Firefox or WebKit.
 - **Node in CI.** Keep `mvn verify` Java-only (validator.nu, Rhino). Node-based checks (parse5,
   jsdom frameworks, real browsers) run nightly and before releases.
 - **Scope creep.** This plan is phased so phase 0 stands alone. If we stop after phase 1, we still
@@ -474,6 +482,24 @@ This section supersedes §4 (b) ("no in main code"), and it supersedes §5 as th
 for families A and B. §11.7 says what happens to each part of §5. Tracker: #364. The research
 memo and prototype are on local branch `research-systemic` (456680e, 05c4d7f).
 
+**Simplified Oct 25, 2026 (#404, tracker #405).** An independent architecture review found that
+the verifier tried to accept every spec-safe template, including markup that parses only through
+error recovery. That forced us to model engine and browser splits forever (#398, #401). No
+corpus template reaches those splits, and only 9% of the accepted ones use error recovery at
+all, most of them one layout idiom. @dlorenc decided:
+
+- one engine;
+- error-free parses only;
+- three coarse exclusions where browsers are known to split;
+- a divergence the nightly detector finds becomes an exclusion, never a modelled algorithm.
+
+§11.4 states the boundary; this section describes the target. The tracker's wave plan takes the
+code there. Until #406 lands, `main` has no error check: it accepts some markup that parses only
+through error recovery (101 of the 1,120 corpus templates it accepts) and checks it by modelling
+recovery, which has the known gaps #398 and #401. So on that markup `main` is weaker than this
+section, not stricter. Until #408 lands, `main` also requires the classic 1.4.16 engine to
+accept, which is stricter.
+
 ### 11.1 Decision
 
 A spec HTML parser decides contexts at build time, for every template. Translation validation
@@ -481,21 +507,24 @@ done as abstract interpretation:
 
 1. **Record the skeleton.** For each template, the processor records the skeleton (static text,
    holes, control flow, fragment insertions) from the exact strings the generator writes (#366).
-2. **Run two parsers.** It runs the skeleton through two spec HTML parsers (§11.4), feeding static
-   bytes as they are. At each hole it reads the parser's real state.
-3. **Accept only inert holes.** A hole is accepted only if its escaper's output can't change the
-   parse in that state (§11.2), in both parsers, with scripting on and off.
-4. **Otherwise, a build error.** Anything else is a build error with file, line, column and a
+2. **Run the parser.** It runs the skeleton through the pinned spec HTML parser (§11.4), feeding
+   static bytes as they are. At each hole it reads the parser's real state.
+3. **Accept only error-free parses.** On every path, with scripting on and off, the parser must
+   report no parse error, outside a short allow-list. No path may reach an excluded construct
+   (§11.4).
+4. **Accept only inert holes.** A hole is accepted only if its escaper's output can't change the
+   parse in that state (§11.2).
+5. **Otherwise, a build error.** Anything else is a build error with file, line, column and a
    fix-it (#367, #368). Fail closed.
 
 Output bytes don't change: the verifier only accepts or rejects. No parser runs at render time,
 nothing uses reflection, and the runtime stays dependency-free. So principles 1 and 4 hold.
 
-Today the compiler guesses contexts with a hand-written model of HTML (`HtmlParser`,
-`MarkupTokenizer`, `Contexts`), and nothing checks the guess. With the verifier, the algorithm
-browsers implement decides, exactly, once per template. That model stays only to build
-Tessera's tree and give early, readable errors. When it disagrees with a browser, the result is
-a build error, never XSS.
+The compiler used to guess contexts with a hand-written model of HTML (`HtmlParser`,
+`MarkupTokenizer`, `Contexts`), and nothing checked the guess. With the verifier, the algorithm
+browsers implement decides, exactly, once per template. That model stays only to build Tessera's
+tree and give early, readable errors (#411). When it disagrees with a browser, the result is a
+build error, never XSS.
 
 ### 11.2 Soundness argument
 
@@ -517,15 +546,20 @@ them.
 
 **The tree builder treats the value uniformly.**
 
+- The static markup around the value parses without errors. So nothing is foster-parented,
+  no misnested formatting element is reopened, no element is closed by an end tag that isn't
+  its own or an implied end tag the spec allows, and the adoption agency only pops the element
+  its end tag names. The Noah's Ark clause and reconstruction never change anything. Neither
+  does `frameset-ok`: a `<frameset>` start tag in body is always a parse error, and the verifier
+  rejects `<frameset>` anyway.
 - In data state the value produces only character tokens, and for `text` empty comments.
 - The modes in body, in cell, in caption, in select (and in select in table), in template,
-  foreign content and text handle every character token the same way: reconstruct the active
-  formatting elements, then append.
-- The verifier rejects text holes in every other mode (table, table body, row, column group,
-  head and the rest). It also rejects them when reconstruction wouldn't be a no-op, and when
-  three or more identical formatting elements carry holes in their attributes (the Noah's Ark
-  clause).
-- `<frameset>` is rejected outright, because a character changes `frameset-ok`.
+  foreign content and text handle every character token the same way: append.
+- The value itself isn't fed to the parser, so the error check can't see what it does. The
+  hole-state rules cover that. They reject text holes in every other mode (table, table body,
+  row, column group, head and the rest), where non-whitespace text would be foster-parented or
+  dropped.
+- Dynamic `SafeHtml` and `Fragment` values are covered by the `FLOW` predicate (§11.3 item 2).
 
 So after the value the parser is in the same state as before, for every value. The rest of the
 document parses identically, and the value is in the node the parser reported.
@@ -533,12 +567,13 @@ document parses identically, and the value is in the node the parser reported.
 **Control flow is exact up to state equivalence.**
 
 - **The state signature.** Tokenizer state, current attribute name, insertion and original mode,
-  the open-element stack as (namespace, name), active formatting elements, template modes, form
-  and head pointers, quirks, `frameset-ok`, and the `annotation-xml` integration-point flag.
+  the open-element stack as (namespace, name), template modes, form and head pointers, quirks and
+  the `annotation-xml` integration-point flag.
 - **Branches** take the union of their exit states. Unions add infeasible combinations, so they
-  can only add false positives.
+  can only add false positives. The error check runs on every branch.
 - **Loops** iterate to a fixed point (Go `html/template`'s idea, with the real parser as the
-  transfer function). A loop that doesn't converge in 4 rounds is rejected.
+  transfer function). A loop that doesn't converge in 4 rounds is rejected. An error in any round
+  is an error.
 - **Static fragment insertions** are analysed at each call site, memoised per (fragment, entry
   state, bound fragment arguments). Recursion is a fixed point too. Recursion that doesn't
   converge, or that reaches a bad state only through data, is "markup structure depends on data".
@@ -548,43 +583,87 @@ document parses identically, and the value is in the node the parser reported.
 1. **Skeleton fidelity.** The skeleton must be the bytes the generated code writes, or it
    becomes a new differential. #366 records it at the single emission path and checks every
    render in the test suite against it. #324 checks every hostile render.
-2. **Dynamic `SafeHtml` and `Fragment` values.** These aren't known at build time. The argument
-   assumes their exit state equals their entry state. That holds only if the producer emits
-   balanced content that implies no end tags in that state. Content kinds are therefore
-   predicates on the insertion state, plus a check on producers (#329). `SafeHtml.unchecked`
-   stays the caller's responsibility.
-3. **Parser version.** The guarantee is relative to the WHATWG algorithm as the two embedded
-   parsers implement it. They bracket the known splits (classic and customizable `<select>`, the
-   fragment-case foreign-content breakout), not unknown ones. The Node job (#322, #345, #354) checks
-   Chromium, Firefox ESR, WebKit and parse5.
-4. **Entry context of partials.** A fragment rendered on its own (htmx, `innerHTML`) is checked
-   by fragment parsing in the context its root element implies, and by document parsing.
-5. **The inertness lemma itself.** It's argued here and tested by #324 (state unchanged across
+2. **Dynamic `SafeHtml` and `Fragment` values.** These aren't known at build time, and the error
+   check can't see them. The argument assumes their exit state equals their entry state. That
+   holds only if the producer emits balanced content that implies no end tags in that state.
+   Content kinds are therefore predicates on the insertion state (`FLOW`, including
+   `ContentKinds.closer`), plus a check on producers (#329). `SafeHtml.unchecked` stays the
+   caller's responsibility.
+3. **One parser.** The guarantee is relative to the WHATWG algorithm as the pinned engine
+   implements it, on error-free parses, outside the exclusions. The supported browsers are tested
+   to agree there, not proved to. The nightly detector (#399, not yet on `main`) is to compare the
+   engine's trees with parse5, Chromium, Firefox and WebKit on the cases it exports that the
+   verifier accepts (seeds, generator cases, fixtures). Until it lands, the Node job compares
+   renders across browsers only. A split it hasn't found yet is a gap until it does.
+4. **The allow-list.** Errors on the allow-list are accepted. It holds only the missing-doctype
+   messages, which say nothing about the tree. Widening it needs a measurement and an argument in
+   the PR.
+5. **Entry context of partials.** A partial (a view with no doctype or `<html>` start) is parsed
+   as a fragment in the context its root element implies, and errors count only there. A
+   partial rendered in some other context isn't covered.
+6. **The inertness lemma itself.** It's argued here and tested by #324 (state unchanged across
    every escaped hostile value), not proved. A Lean proof is optional work under #312.
 
-### 11.4 Two parsers, accepted only if both accept
+### 11.4 The boundary: one parser, error-free parses, three exclusions
+
+**One parser.**
 
 | Engine | Source | Why |
 |---|---|---|
 | Current | upstream htmlparser from the pinned validator 26.10.12 sources release (`nu.validator:validator:26.10.12:sources`), the Java source Gecko's parser is translated from | current spec, 99.7% of html5lib tree-construction tests |
-| Classic | `nu.validator:htmlparser:1.4.16` | classic `<select>` parsing, as in Firefox ESR, and the old fragment-case foreign-content breakout |
 
-Accepting only what both accept covers the supported-browser intersection for the known
-version splits by construction. jsoup, NekoHTML and attoparser were measured and aren't used in
-the compiler (memo §10).
+The classic 1.4.16 snapshot goes (#408). It was there to bracket two known splits: classic and
+customizable `<select>` parsing, and the old fragment-case foreign-content breakout. Exclusion (c)
+covers the first. The second is a parse error. The measurement found no template, seed,
+probe or generator case that only the classic engine rejects and the new rule accepts.
+
+**Error-free parses only** (#406).
+
+- On every path, with scripting on and off, the parser reports no tokenizer or tree-builder
+  error.
+- The allow-list is the missing-doctype messages only. Most views are partials.
+- A partial counts errors only in its implied fragment context (`tr`: `tbody`; `td`, `th`: `tr`;
+  `option`, `optgroup`: `select`; `li`: `ul`; otherwise `body`), not as a document.
+- The error is reported at the static that holds it, with a fix-it for the common classes: a
+  second `<body>`, a block element in `<p>`, content between `</head>` and `<body>`, content
+  directly in a table, a missing space between attributes.
+
+**Three coarse exclusions**, checked after every tag, where browsers are known to split:
+
+| | Rejected | Why | Issue |
+|---|---|---|---|
+| (a) | an `svg` or `math` element open with `td`, `th`, `caption`, `tr`, `tbody`, `thead`, `tfoot`, `table` or `template` below it on the stack (the fragment context counts) | vnu and Firefox reset the insertion mode to "in body" at the foreign element, while the spec, Chromium and WebKit go on to the cell | #398 |
+| (b) | an HTML table part directly in `<template>`, or a table mode in the template-mode stack | vnu and Firefox handle `</table>` there with `findLast`, not table scope, and close the outer table | #401 |
+| (c) | any element other than `option`, `optgroup` and `hr` open above `<select>`, in composed output | classic `<select>` parsing (Firefox ESR, parse5) drops what customizable `<select>` (Chromium, current Firefox, WebKit, vnu) keeps | #305, #328 |
+
+They are coarse on purpose. Exclusion (a) rejects every `<svg>` in a table cell, not only the
+ones that reset. A wider exclusion that is obviously right beats a narrow one that models a
+browser.
+
+**The divergence policy.** When the nightly detector, a reviewer or a report finds the engine
+and a supported browser building different trees for markup the verifier accepts:
+
+1. add the markup as a seed the verifier must reject;
+2. add a coarse exclusion (a stack shape or an element in a context) that covers the whole
+   class, with a negative test and a positive one;
+3. never model either algorithm in the verifier, and never patch the engine.
+
+PR #402 modelled both reset algorithms. #406 replaces it with exclusion (a), and its tests
+and its 45,056-variant differential become test cases. Known deviations are listed in
+[security-model.md](security-model.md) §7.1.
 
 **Packaging (#365).**
 
-- **Build.** A build-only module per version fetches the sources jar from Maven Central with a pinned SHA-256 and
-  compiles it with `--release 8`. Upstream doesn't publish a Java 8 jar; its pom targets 1.8, and
-  the source builds that way.
-- **Relocation.** Each version is relocated to `dev.tessera.compiler.internal.html5.current` and
-  `dev.tessera.compiler.internal.html5.classic`.
-- **Accessor.** One Tessera-owned accessor class per version reads the parser state. The parser
-  source itself isn't patched.
-- **Shading.** `tessera-compiler` shades both into its jar with their MIT notices. Consumers see
-  no new dependency, and the processor still runs in a JDK 8 javac (`Jdk8ProcessorTest`).
-- **Bumps.** Bumping the pinned validator release is its own PR, with the corpus and seed verdicts diffed.
+- **Build.** A build-only module fetches the sources jar from Maven Central with a pinned SHA-256
+  and compiles it with `--release 8`. Upstream doesn't publish a Java 8 jar; its pom targets 1.8,
+  and the source builds that way.
+- **Relocation.** It is relocated to `dev.tessera.compiler.internal.html5.current`.
+- **Accessor.** One Tessera-owned accessor class reads the parser state and its errors. The
+  parser source itself isn't patched.
+- **Shading.** `tessera-compiler` shades it into its jar with its MIT notice. Consumers see no
+  new dependency, and the processor still runs in a JDK 8 javac (`Jdk8ProcessorTest`).
+- **Bumps.** Bumping the pinned validator release is its own PR, with the corpus and seed verdicts
+  and the nightly detector's findings diffed.
 
 ### 11.5 What the verifier doesn't cover
 
@@ -605,28 +684,40 @@ Measured with the prototype (memo §5):
   rejections are 25 (1.8% of 1,372) recursive rich-text fragments. That pattern is data-dependent
   structure, a build error by decision. The fix-it is `html.sanitize` to `SafeHtml` (#369, #262).
   398 more were flagged only because the prototype couldn't resolve an insert, 395 of them layout
-  `Fragment` parameters in `<head>`. #367 analyses those at the call site; if it can't, they are
-  false positives to fix before it is enforced.
+  `Fragment` parameters in `<head>`. #367 analyses those at the call site.
 - **Build time.** The naive prototype took p95 155 ms per template; the targets with
   memoisation are in #367 (p95 ≤ 50 ms, under 10% of javac time).
-- **Size.** About 21k lines of parser source per version, outside our code. The checker is
-  about 1k lines.
+
+The error-free rule, measured on `main` 49060ba (`~/tessera-handoff/errorfree-measurement.md`):
+
+- **Safety.** It accepts nothing today's verifier rejects: 0 of 134 corpus rejections, 0 of 130
+  seeds, 0 of 9 probes, 0 of 271 generator cases, and 0 of the 10,837 #398/#401 variants where
+  Chromium and Firefox disagree. The error check alone rejects all 10,837.
+- **Corpus.** 101 of 1,120 accepted bench templates (9%) become errors. 80 of them are one layout
+  idiom, `~{layout :: layout(~{::body})}`, which nests a second `<body>`. #409 teaches
+  `tessera-migrate` the rewrite, and #407 checks whether a compiler bug causes some of them. The
+  other 21 are broken markup: a block in `<p>`, script/meta/link between `</head>` and `<body>`,
+  headings in a table, a missing space between attributes. The exclusions never fire in the
+  corpus.
+- **Size.** It deletes about 1,000 hand-written lines (the classic engine and its workarounds,
+  reconstruction, Noah's Ark, foster and frameset modelling, most of the producer-promise checks)
+  and about 21.5k lines of upstream source that are no longer built. It adds about 50.
 
 ### 11.7 What happens to §5
 
 | §5 part | Role now |
 |---|---|
 | §5.1 invariant | Unchanged. The verifier enforces it at build time; the oracle (#324) tests the verifier |
-| §5.2 token rules (#327) | **Friendly early errors**, not the boundary. The rules on main stay. Further positive-grammar work only where it gives a better message than the verifier |
-| §5.3 parse modes and allow-lists (#328) | **Browser-divergence exclusions** stay (`select` content, nested `optgroup`, `frameset`, `plaintext`). Mode rules on main stay as friendly errors. The element allow-list moves to phase 4 as a framework/typo rule |
+| §5.2 token rules (#327) | **Friendly early errors**, not the boundary. `MarkupTokenizer`'s positive grammar stays for its messages. Further rules only where they give a better message than the verifier |
+| §5.3 parse modes and allow-lists (#328) | The verifier's exclusions (§11.4) own the browser splits. `HtmlParser`'s mode rules stay only where their message is better (#411). `plaintext` stays an error. The element allow-list moves to phase 4 as a framework/typo rule |
 | §5.4 data-prelude rule (#332) | Unchanged |
-| §5.5 content kinds (#329) | **Redefined** as parser-state predicates (`FLOW` first; `PHRASING`, `HEAD`, `TABLE_ROWS` only if needed), checked by the verifier |
+| §5.5 content kinds (#329) | **Redefined** as one parser-state predicate, `FLOW`, checked by the verifier. `PHRASING` is backlog (#397) |
 | §5.6 attribute names, framework table, CSP | Unchanged (family D) |
-| §5.7 oracle gate (#324) | **Repurposed.** It tests skeleton fidelity and the inertness lemma, and keeps value checks for C, D and E |
-| §5.8 what doesn't change | All of it, except the compiler's dependencies: `tessera-compiler` shades the two parsers (§11.4). The runtime, the starters and generated code stay dependency-free |
+| §5.7 oracle gate (#324) | **Repurposed.** It tests skeleton fidelity and the inertness lemma, and keeps value checks for C, D and E. Its Node job is the nightly divergence detector (#399) |
+| §5.8 what doesn't change | All of it, except the compiler's dependencies: `tessera-compiler` shades the pinned parser (§11.4). The runtime, the starters and generated code stay dependency-free |
 
-A new parser-differential or composition report becomes a verifier test case, not a special
-case in `HtmlParser`, `MarkupTokenizer` or `Contexts` (handoff.md). For families A and B this
-replaces §7's "fix it by shrinking the profile". Once the verifier has run on main without
-false-positive reports for a while, #378 chooses escapers from the parser state and deletes the
-name-based context tables.
+A new parser-differential or composition report becomes a verifier test case, not a special case
+in `HtmlParser`, `MarkupTokenizer` or `Contexts` (handoff.md). If browsers split on it, it also
+becomes a coarse exclusion (§11.4). For families A and B this replaces §7's "fix it by shrinking
+the profile". #378 then chooses escapers from the parser state and deletes the name-based context
+tables.
