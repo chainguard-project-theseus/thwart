@@ -51,7 +51,8 @@ abstract class VnuEngine implements Engine {
       throw new IllegalArgumentException("context element name is empty");
     }
     try {
-      return new VnuParser(this, rawFragment(contextNamespace, contextName, scripting));
+      return new VnuParser(this, new OpenElement(contextNamespace, contextName, false),
+          rawFragment(contextNamespace, contextName, scripting));
     } catch (Exception | AssertionError e) {
       throw VnuParser.failure(this, "starting a fragment parser in <" + contextName + ">", e);
     }

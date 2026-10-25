@@ -206,6 +206,71 @@ class EnginesTest {
     assertEquals(InsertionMode.IN_SELECT, Engines.CLASSIC.fragment(OpenElement.HTML, "select", false).state().mode());
   }
 
+  /**
+   * The fragment context is part of the state: after {@code </table>} the parser resets its
+   * insertion mode from the context (in caption in a caption, in body in a div), and current
+   * upstream ignores {@code <select>} in a select context. States from different engines never
+   * merge either.
+   */
+  @Test
+  void contextAndEngineArePartOfTheSignature() throws EngineException {
+    for (Engine e : Engines.all()) {
+      Parser div = e.fragment(OpenElement.HTML, "div", false);
+      Parser caption = e.fragment(OpenElement.HTML, "caption", false);
+      div.feed("<table><tr><td>");
+      caption.feed("<table><tr><td>");
+      assertEquals(div.state().stack(), caption.state().stack(), e.name());
+      assertEquals(div.state().mode(), caption.state().mode());
+      assertNotEquals(div.state(), caption.state());
+      div.feed("</table>");
+      caption.feed("</table>");
+      assertEquals(InsertionMode.IN_BODY, div.state().mode());
+      assertEquals(InsertionMode.IN_CAPTION, caption.state().mode());
+      assertEquals(new OpenElement(OpenElement.HTML, "caption", false), caption.state().fragmentContext());
+      assertNull(e.document(false).state().fragmentContext());
+      assertNotEquals(e.document(false).state(), e.fragment(OpenElement.HTML, "html", false).state());
+    }
+    Parser div = Engines.CURRENT.fragment(OpenElement.HTML, "div", false);
+    Parser select = Engines.CURRENT.fragment(OpenElement.HTML, "select", false);
+    assertEquals(div.state().mode(), select.state().mode());
+    assertNotEquals(div.state(), select.state());
+    div.feed("<select>");
+    select.feed("<select>");
+    assertEquals(2, div.state().stack().size());
+    assertEquals(1, select.state().stack().size(), "a select context ignores <select>");
+    assertNotEquals(doc(Engines.CURRENT, "<p>"), doc(Engines.CLASSIC, "<p>"));
+    assertEquals(Engines.CLASSIC.name(), doc(Engines.CLASSIC, "<p>").engine());
+  }
+
+  /**
+   * htmlparser 1.4.16 drops the last character of a buffer that ends right after an unmatched
+   * named reference ({@code &x}): fed as {@code "&x<" + "script>"} it would see no script. The
+   * engines only end a buffer between tokens, so chunking never changes the parse.
+   */
+  @Test
+  void bufferEndsAfterAnUnmatchedReferenceLoseNothing() throws EngineException {
+    String[][] cases = {
+      {"<!DOCTYPE html><body>&x<", "script>"},
+      {"<!DOCTYPE html><body>&x", "<", "script>"},
+      {"<!DOCTYPE html><title>&drop<", "/title><script>"},
+      {"<!DOCTYPE html><textarea>&x<", "/textarea><script>"},
+      {"<!DOCTYPE html><p title=\"&x\"", "><script>"},
+      {"<!DOCTYPE html><p title=&x ", "id=\"", "\"><script>"},
+    };
+    for (Engine e : Engines.all()) {
+      for (String[] chunks : cases) {
+        Parser p = e.document(true);
+        for (String c : chunks) {
+          p.feed(c);
+          p.state();
+        }
+        ParserState s = p.state();
+        assertEquals(TokenizerState.SCRIPT_DATA, s.tokenizer(), e.name() + " " + String.join("|", chunks));
+        assertEquals(doc(e, String.join("", chunks), true), s);
+      }
+    }
+  }
+
   @Test
   void forkIsIndependent() throws EngineException {
     for (Engine e : Engines.all()) {
@@ -238,6 +303,7 @@ class EnginesTest {
     "<!DOCTYPE html><template><tr><td>x</td></tr></template><!-- c -- --><p>",
     "<p><b><i><a href=x>1<p>2</a>3</i>",
     "<!DOCTYPE html><form><input type=hidden name=x value='y'><button>b</button></form><noscript><p>n</p></noscript>",
+    "<!DOCTYPE html><p title=\"a&x\" id=&y class='&z'>&q<b>&drop</b><title>&x</title>&x<script>a</script>",
   };
 
   /** The state is the same however the input is split: inside tags, references, CRLF and surrogates. */

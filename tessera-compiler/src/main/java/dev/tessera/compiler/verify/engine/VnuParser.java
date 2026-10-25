@@ -11,11 +11,22 @@ import java.util.List;
  * (and the parser source isn't patched to expose them). The state there is described instead by
  * the state when the parser was last between tokens plus the input since then, which determines
  * it exactly.
+ *
+ * <p>The engine only ever sees a buffer end between tokens. When a chunk ends inside a token, the
+ * next {@link #feed} replays the input since the last point between tokens from a copy taken
+ * there, in one buffer with the new chunk. htmlparser 1.4.16 loses a character when a buffer ends
+ * inside a token: an unmatched named reference ({@code &x}) followed by the buffer's last
+ * character drops that character, so {@code "&x<" + "script>"} would not open a script. A raw
+ * parser is never fed in place (each feed works on a fork), so forks share them.
  */
 final class VnuParser implements Parser {
   private final VnuEngine engine;
-  private final RawParser raw;
-  /** The state when the parser was last between tokens; null while it is between tokens. */
+  /** The fragment parsing context, or null for document parsing. */
+  private final OpenElement context;
+  private RawParser raw;
+  /** The raw parser when it was last between tokens; null while it is between tokens. */
+  private RawParser anchorRaw;
+  /** The state of {@link #anchorRaw}. */
   private ParserState anchor;
   /** The input since {@link #anchor}. */
   private final StringBuilder pending;
@@ -23,12 +34,19 @@ final class VnuParser implements Parser {
   private EngineException broken;
 
   VnuParser(VnuEngine engine, RawParser raw) {
-    this(engine, raw, null, new StringBuilder(), null);
+    this(engine, null, raw);
   }
 
-  private VnuParser(VnuEngine engine, RawParser raw, ParserState anchor, StringBuilder pending, ParserState cached) {
+  VnuParser(VnuEngine engine, OpenElement context, RawParser raw) {
+    this(engine, context, raw, null, null, new StringBuilder(), null);
+  }
+
+  private VnuParser(VnuEngine engine, OpenElement context, RawParser raw, RawParser anchorRaw,
+      ParserState anchor, StringBuilder pending, ParserState cached) {
     this.engine = engine;
+    this.context = context;
     this.raw = raw;
+    this.anchorRaw = anchorRaw;
     this.anchor = anchor;
     this.pending = pending;
     this.cached = cached;
@@ -51,19 +69,33 @@ final class VnuParser implements Parser {
       return;
     }
     try {
-      if (raw.betweenTokens()) {
-        anchor = state();
-        pending.setLength(0);
-      }
-      char[] chars = chunk.toCharArray();
-      cached = null;
-      raw.feed(chars, 0, chars.length);
-      if (raw.betweenTokens()) {
-        anchor = null;
-        pending.setLength(0);
+      RawParser next;
+      if (anchorRaw == null) {
+        // Between tokens: feed a fork, and keep this one as the anchor if the chunk ends mid-token.
+        ParserState here = state();
+        next = raw.fork();
+        char[] chars = chunk.toCharArray();
+        next.feed(chars, 0, chars.length);
+        if (!next.betweenTokens()) {
+          anchorRaw = raw;
+          anchor = here;
+          pending.setLength(0);
+          pending.append(chunk);
+        }
       } else {
+        // Mid-token: replay the input since the anchor and this chunk as one buffer.
         pending.append(chunk);
+        next = anchorRaw.fork();
+        char[] chars = pending.toString().toCharArray();
+        next.feed(chars, 0, chars.length);
+        if (next.betweenTokens()) {
+          anchorRaw = null;
+          anchor = null;
+          pending.setLength(0);
+        }
       }
+      raw = next;
+      cached = null;
     } catch (EngineException e) {
       broken = e;
       throw e;
@@ -94,19 +126,16 @@ final class VnuParser implements Parser {
   @Override
   public Parser fork() throws EngineException {
     checkUsable();
-    try {
-      return new VnuParser(engine, raw.fork(), anchor, new StringBuilder(pending), cached);
-    } catch (Exception | AssertionError e) {
-      throw failure(engine, "forking the parser", e);
-    }
+    // Raw parsers are never fed in place (see the class comment), so the copy can share them.
+    return new VnuParser(engine, context, raw, anchorRaw, anchor, new StringBuilder(pending), cached);
   }
 
   private ParserState read() throws Exception {
     TokenizerState tokenizer = tokenizerState(raw.tokenizerState());
     String pendingInput;
-    if (raw.betweenTokens()) {
+    if (anchorRaw == null && raw.betweenTokens()) {
       pendingInput = "";
-    } else if (anchor != null) {
+    } else if (anchorRaw != null && !raw.betweenTokens()) {
       pendingInput = anchor.signature() + "\n" + pending;
     } else {
       throw new EngineException(engine.name() + ": inside a token with no known start (" + tokenizer + ")");
@@ -141,6 +170,8 @@ final class VnuParser implements Parser {
       templateModes.add(mode(m));
     }
     return new ParserState(
+        engine.name(),
+        context,
         raw.scripting(),
         tokenizer,
         raw.attributeName(),
