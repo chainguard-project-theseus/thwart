@@ -2,9 +2,9 @@ package dev.tessera.compiler.codegen.attr;
 
 import static dev.tessera.compiler.types.ExpressionCompiler.isDeclared;
 
-import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.CodegenContext;
+import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.html.ParsingContexts;
@@ -13,7 +13,10 @@ import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.model.Text;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.Scope;
+import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.SafeHtml;
+import java.util.ArrayList;
+import java.util.List;
 import javax.lang.model.type.TypeKind;
 
 /**
@@ -28,20 +31,21 @@ import javax.lang.model.type.TypeKind;
 public final class TextInlining {
   private TextInlining() {}
 
-  private static final String ESCAPERS = "dev.tessera.runtime.Escapers";
   private static final String SAFE_HTML = SafeHtml.class.getName();
 
   /**
    * Statements that render {@code text}, or {@code null} if it has no inlined expressions (the
    * generator then emits it verbatim).
    */
-  public static String render(CodegenContext ctx, Text text, Scope scope) {
+  public static Emitted render(CodegenContext ctx, Text text, Scope scope) {
     String raw = text.raw();
     if (!raw.contains("[[") && !raw.contains("[(")) {
       return null;
     }
-    StringBuilder code = new StringBuilder();
+    List<Emitted> code = new ArrayList<>();
     StringBuilder literal = new StringBuilder();
+    // Offset in raw of the first char of literal.
+    int literalStart = 0;
     boolean found = false;
     boolean html = text.context() == OutputContext.TEXT || text.context() == OutputContext.RCDATA;
     String parsing = ctx.template().parsingContexts().text(text);
@@ -57,7 +61,8 @@ public final class TextInlining {
           SourcePos pos = text.pos().advance(raw, i + 2);
           String before = literal.toString();
           inMustache = html && inMustache(inMustache, before);
-          flush(code, literal);
+          flush(code, literal, text.pos().advance(raw, literalStart));
+          literalStart = end + 2;
           if (inMustache) {
             ctx.diagnostics()
                 .error(
@@ -82,7 +87,7 @@ public final class TextInlining {
             i = end + 2;
             continue;
           }
-          code.append(inline(ctx, text.context(), parsing, rawText, raw.substring(i + 2, end), pos, escaped, scope));
+          code.add(inline(ctx, text.context(), parsing, rawText, raw.substring(i + 2, end), pos, escaped, scope));
           i = end + 2;
           continue;
         }
@@ -93,8 +98,8 @@ public final class TextInlining {
     if (!found) {
       return null;
     }
-    flush(code, literal);
-    return code.toString();
+    flush(code, literal, text.pos().advance(raw, literalStart));
+    return Emitted.concat(code.toArray(new Emitted[0]));
   }
 
   /** Offset of the first {@code [(...)]} in {@code raw} that {@link #render} writes as raw HTML, or -1. */
@@ -210,32 +215,32 @@ public final class TextInlining {
     return -1;
   }
 
-  private static void flush(StringBuilder code, StringBuilder literal) {
+  private static void flush(List<Emitted> code, StringBuilder literal, SourcePos pos) {
     if (literal.length() != 0) {
-      code.append("out.write(").append(JavaStrings.literal(literal.toString())).append(");\n");
+      code.add(Emitted.text(literal.toString(), pos).then("\n"));
       literal.setLength(0);
     }
   }
 
-  private static String inline(
+  private static Emitted inline(
       CodegenContext ctx, OutputContext context, String parsing, boolean rawText, String source, SourcePos pos,
       boolean escaped, Scope scope) {
     String form = escaped ? "[[...]]" : "[(...)]";
     if (context.escaper() == null) {
       ctx.diagnostics().error(pos, form + " is not allowed " + where(context));
-      return "";
+      return Emitted.EMPTY;
     }
     if (!escaped && context != OutputContext.TEXT && context != OutputContext.RCDATA) {
       ctx.diagnostics()
           .error(pos, "[(...)] is only allowed in element text; inside <script> use [[...]], which outputs JSON");
-      return "";
+      return Emitted.EMPTY;
     }
     if (!escaped && !requireHtmlContent(ctx, parsing, rawText, pos, form)) {
-      return "";
+      return Emitted.EMPTY;
     }
     Expr e = ctx.parser().parseExpression(source, pos, ctx.diagnostics());
     if (e == null) {
-      return "";
+      return Emitted.EMPTY;
     }
     return escaped ? valueStatement(ctx, e, context, scope) : safeHtmlStatement(ctx, e, form, scope);
   }
@@ -272,41 +277,44 @@ public final class TextInlining {
   }
 
   /**
-   * A statement writing {@code e} escaped for {@code context} (TEXT, RCDATA or SCRIPT), or "" after
-   * reporting an error. The value must be view-safe; in SCRIPT it must also be JSON-serializable
-   * ({@link ScriptJson}).
+   * A statement writing {@code e} escaped for {@code context} (TEXT, RCDATA or SCRIPT), or nothing
+   * after reporting an error. The value must be view-safe; in SCRIPT it must also be
+   * JSON-serializable ({@link ScriptJson}).
    */
-  static String valueStatement(CodegenContext ctx, Expr e, OutputContext context, Scope scope) {
+  static Emitted valueStatement(CodegenContext ctx, Expr e, OutputContext context, Scope scope) {
     CompiledExpr c = ctx.expressions().compileOutput(e, scope);
     if (c == null) {
-      return "";
+      return Emitted.EMPTY;
     }
     if (context == OutputContext.SCRIPT) {
-      String json = ScriptJson.statement(ctx, c);
-      return json == null ? "" : json;
+      Emitted json = ScriptJson.statement(ctx, c);
+      return json == null ? Emitted.EMPTY : json;
     }
+    Skeleton.Escaper escaper = Skeleton.Escaper.forMethod(context.escaper());
     if (isDeclared(c.type(), "java.util.Optional")) {
       String o = ctx.freshName("opt");
-      return "{ java.util.Optional<?> " + o + " = " + c.code() + "; " + ESCAPERS + "." + context.escaper()
-          + "(out, " + o + " == null ? null : " + o + ".orElse(null)); }\n";
+      return Emitted.wrap(
+          "{ java.util.Optional<?> " + o + " = " + c.code() + "; ",
+          Emitted.hole(escaper, ctx.hostElement(), null, c.pos(), o + " == null ? null : " + o + ".orElse(null)"),
+          " }\n");
     }
-    return ESCAPERS + "." + context.escaper() + "(out, " + c.code() + ");\n";
+    return Emitted.hole(escaper, ctx.hostElement(), null, c.pos(), c.code()).then("\n");
   }
 
   /**
-   * A statement writing {@code e} as raw HTML, or "" after reporting an error. {@code e} must
+   * A statement writing {@code e} as raw HTML, or nothing after reporting an error. {@code e} must
    * have static type {@code SafeHtml} or be a bundle message {@code #{...}} that passes the
    * build-time markup check; {@code form} names the construct in messages.
    */
-  static String safeHtmlStatement(CodegenContext ctx, Expr e, String form, Scope scope) {
+  static Emitted safeHtmlStatement(CodegenContext ctx, Expr e, String form, Scope scope) {
     if (e instanceof Expr.Message) {
       // A bundle message is developer-authored markup, checked at build time (#236).
-      String statement = MessageCompiler.htmlStatement((Expr.Message) e, form, scope, ctx.expressions());
-      return statement == null ? "" : statement;
+      String message = MessageCompiler.htmlValue((Expr.Message) e, form, scope, ctx.expressions());
+      return message == null ? Emitted.EMPTY : Emitted.htmlMessage(e.pos(), message).then("\n");
     }
     CompiledExpr c = ctx.expressions().compile(e, scope);
     if (c == null) {
-      return "";
+      return Emitted.EMPTY;
     }
     if (!isDeclared(c.type(), SAFE_HTML)) {
       String type = c.type().getKind() == TypeKind.NULL ? "null" : c.type().toString();
@@ -315,8 +323,8 @@ public final class TextInlining {
               c.pos(),
               form + " needs a value of type " + SAFE_HTML + ", but the expression has type " + type
                   + ": use t:text or [[...]] (escaped), or build a SafeHtml in trusted Java code");
-      return "";
+      return Emitted.EMPTY;
     }
-    return ESCAPERS + ".html(out, " + c.code() + ");\n";
+    return Emitted.safeHtml(c.pos(), c.code()).then("\n");
   }
 }

@@ -3,11 +3,13 @@ package dev.tessera.compiler.codegen.attr;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
+import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -27,7 +29,7 @@ public final class RemoveProcessor implements AttributeProcessor {
         plan.remove();
         break;
       case "body":
-        plan.replaceBody("", Contexts.text(plan.element()));
+        plan.replaceBody(Emitted.EMPTY, Contexts.text(plan.element()));
         break;
       case "tag":
         String tag = plan.element().name();
@@ -91,9 +93,9 @@ public final class RemoveProcessor implements AttributeProcessor {
     return null;
   }
 
-  private static String firstElementOnly(CodegenContext ctx, ElementPlan plan) {
+  private static Emitted firstElementOnly(CodegenContext ctx, ElementPlan plan) {
     Element e = plan.element();
-    StringBuilder sb = new StringBuilder();
+    List<Emitted> sb = new ArrayList<>();
     boolean seenElement = false;
     for (Node n : e.children()) {
       if (n instanceof Element) {
@@ -102,8 +104,8 @@ public final class RemoveProcessor implements AttributeProcessor {
         }
         seenElement = true;
       }
-      sb.append(ctx.renderNode(n, plan.scope()));
+      sb.add(ctx.renderNode(n, plan.scope()));
     }
-    return sb.toString();
+    return Emitted.concat(sb.toArray(new Emitted[0]));
   }
 }

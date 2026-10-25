@@ -8,6 +8,7 @@ import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.Scope;
+import dev.tessera.compiler.verify.Skeleton;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,7 +23,7 @@ import java.util.Optional;
  * ({@link AttributeProcessors}) to modify it, then emits:
  *
  * <pre>
- *   wrappers[0].open ... wrappers[n].open
+ *   wrappers[0].open ... wrappers[n].open   (scopes, conditions, loops; see {@link Wrapper})
  *     if removed:            nothing
  *     else if replacement:   replacement
  *     else:
@@ -33,7 +34,8 @@ import java.util.Optional;
  *   wrappers[n].close ... wrappers[0].close
  * </pre>
  *
- * A dynamic attribute is emitted as
+ * Everything written goes through {@link Emitted}, which records the skeleton (#366). A dynamic
+ * attribute is emitted as
  * {@code { Object v$ = <valueCode>; if (v$ != null) { out.write(" name=\""); Escapers.<ctx>(out, v$); out.write('"'); } }},
  * so a {@code null} value omits the attribute (Thymeleaf behaviour) and boolean attributes use
  * {@code cond ? "checked" : null}. Its context is {@link Contexts#attribute} for the element and
@@ -42,22 +44,67 @@ import java.util.Optional;
  */
 public final class ElementPlan {
 
-  /** Code opened before and closed after the element, e.g. a loop or if. */
+  /**
+   * Code opened before and closed after the element: a scope ({@code { decl; ... }}), a condition
+   * or a loop. The kind is the skeleton of the element inside (#366): a scope runs it once, a
+   * condition makes it optional, a loop repeats it. Only a loop's open code writes: the
+   * separator before every iteration but the first.
+   */
   public static final class Wrapper {
-    private final String open;
-    private final String close;
-
-    public Wrapper(String open, String close) {
-      this.open = open;
-      this.close = close;
+    /** What the wrapper does with the element inside. */
+    public enum Kind {
+      SCOPE,
+      OPT,
+      REP
     }
 
+    private final Kind kind;
+    private final Emitted open;
+    private final String close;
+    private final Skeleton.OptKind optKind;
+    private final Skeleton.RepKind repKind;
+    private final SourcePos pos;
+
+    private Wrapper(
+        Kind kind, Emitted open, String close, Skeleton.OptKind optKind, Skeleton.RepKind repKind, SourcePos pos) {
+      this.kind = kind;
+      this.open = open;
+      this.close = close;
+      this.optKind = optKind;
+      this.repKind = repKind;
+      this.pos = pos;
+    }
+
+    public Kind kind() {
+      return kind;
+    }
+
+    /** The open code. */
     public String open() {
+      return open.java();
+    }
+
+    /** The open code and what it writes (a loop's separator). */
+    public Emitted openEmitted() {
       return open;
     }
 
     public String close() {
       return close;
+    }
+
+    /** For {@link Kind#OPT}, else null. */
+    public Skeleton.OptKind optKind() {
+      return optKind;
+    }
+
+    /** For {@link Kind#REP}, else null. */
+    public Skeleton.RepKind repKind() {
+      return repKind;
+    }
+
+    public SourcePos pos() {
+      return pos;
     }
 
     @Override
@@ -66,20 +113,25 @@ public final class ElementPlan {
         return false;
       }
       Wrapper that = (Wrapper) o;
-      return Objects.equals(open, that.open)
-          && Objects.equals(close, that.close);
+      return kind == that.kind
+          && Objects.equals(open.java(), that.open.java())
+          && Objects.equals(close, that.close)
+          && optKind == that.optKind
+          && repKind == that.repKind
+          && Objects.equals(pos, that.pos);
     }
 
     @Override
     public int hashCode() {
-      int h = Objects.hashCode(open);
+      int h = Objects.hashCode(kind);
+      h = 31 * h + Objects.hashCode(open.java());
       h = 31 * h + Objects.hashCode(close);
       return h;
     }
 
     @Override
     public String toString() {
-      return "Wrapper[open=" + open + ", close=" + close + "]";
+      return "Wrapper[kind=" + kind + ", open=" + open.java() + ", close=" + close + "]";
     }
   }
 
@@ -199,9 +251,9 @@ public final class ElementPlan {
   private Scope scope;
   private final List<Wrapper> wrappers = new ArrayList<>();
   private final Map<String, Attr> attributes = new LinkedHashMap<>();
-  private final List<String> afterStartTag = new ArrayList<>();
-  private String body;
-  private String replacement;
+  private final List<Emitted> afterStartTag = new ArrayList<>();
+  private Emitted body;
+  private Emitted replacement;
   private boolean removed;
   private boolean tagOmitted;
 
@@ -232,9 +284,32 @@ public final class ElementPlan {
     this.scope = scope;
   }
 
-  /** Adds a wrapper inside all previously added ones. */
+  /**
+   * Adds a scope inside all previously added wrappers: {@code open} must start with <code>{</code>
+   * and {@code close} be <code>}</code>, and between them the element is written exactly once
+   * (declarations only; use {@link #wrapOpt} for a condition and {@link #wrapRep} for a loop).
+   *
+   * @throws IllegalArgumentException if {@code open} or {@code close} is not a block
+   */
   public void wrap(String open, String close) {
-    wrappers.add(new Wrapper(open, close));
+    if (!open.startsWith("{") || !close.equals("}")) {
+      throw new IllegalArgumentException("a scope wrapper is a block { ... }, not " + open + " ... " + close);
+    }
+    wrappers.add(new Wrapper(Wrapper.Kind.SCOPE, Emitted.code(open), close, null, null, null));
+  }
+
+  /** Adds a condition inside all previously added wrappers: the element is written or not. */
+  public void wrapOpt(Skeleton.OptKind kind, String open, String close, SourcePos pos) {
+    wrappers.add(new Wrapper(Wrapper.Kind.OPT, Emitted.code(open), close, kind, null, pos));
+  }
+
+  /**
+   * Adds a loop inside all previously added wrappers: the element is written zero or more times,
+   * with what {@code open} writes (the separator, written before every iteration but the first)
+   * between two of them.
+   */
+  public void wrapRep(Skeleton.RepKind kind, Emitted open, String close, SourcePos pos) {
+    wrappers.add(new Wrapper(Wrapper.Kind.REP, open, close, null, kind, pos));
   }
 
   public List<Wrapper> wrappers() {
@@ -265,11 +340,11 @@ public final class ElementPlan {
   }
 
   /** Statements emitted right after the start tag (e.g. the CSRF hidden input). */
-  public void afterStartTag(String statements) {
+  public void afterStartTag(Emitted statements) {
     afterStartTag.add(statements);
   }
 
-  public List<String> afterStartTagStatements() {
+  public List<Emitted> afterStartTagStatements() {
     return Backports.listCopy(afterStartTag);
   }
 
@@ -281,7 +356,7 @@ public final class ElementPlan {
    *
    * @throws IllegalStateException if {@code writtenFor} is not {@code Contexts.text(element())}
    */
-  public void replaceBody(String statements, OutputContext writtenFor) {
+  public void replaceBody(Emitted statements, OutputContext writtenFor) {
     OutputContext content = Contexts.text(element);
     if (writtenFor != content) {
       throw new IllegalStateException(
@@ -291,16 +366,16 @@ public final class ElementPlan {
   }
 
   /** Body statements, or null to render the children. */
-  public String body() {
+  public Emitted body() {
     return body;
   }
 
   /** Replaces the whole element, tag included, with {@code statements} (t:replace). */
-  public void replaceElement(String statements) {
+  public void replaceElement(Emitted statements) {
     this.replacement = statements;
   }
 
-  public String replacement() {
+  public Emitted replacement() {
     return replacement;
   }
 

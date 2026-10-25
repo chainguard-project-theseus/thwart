@@ -2,6 +2,7 @@ package dev.tessera.compiler.codegen.attr;
 
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.codegen.CodegenContext;
+import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.expr.FragmentRef;
 import dev.tessera.compiler.html.ParsingContexts;
 import dev.tessera.compiler.model.Attribute;
@@ -9,6 +10,7 @@ import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
+import dev.tessera.compiler.verify.Skeleton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -25,10 +27,12 @@ final class ElementSelection {
   /**
    * Adds the helper for {@code ref} (selecting from {@code host}'s template) and returns the
    * call {@code helper(captured..., c, o)}; locals capturing the scope's variables are appended to
-   * {@code pre}. Reports and returns null on error.
+   * {@code pre}, and the skeleton of what the helper writes to {@code skeleton}. Reports and returns
+   * null on error.
    */
   static String helperCall(
-      CodegenContext ctx, FragmentRef ref, Scope scope, Element host, StringBuilder pre, String c, String o) {
+      CodegenContext ctx, FragmentRef ref, Scope scope, Element host, StringBuilder pre, String c, String o,
+      List<Skeleton.Node> skeleton) {
     Element target = find(ctx.template().document().children(), ref.selector());
     if (target == null) {
       ctx.diagnostics()
@@ -71,12 +75,13 @@ final class ElementSelection {
                   + " never end: no selected element may pass ~{::...} of an element that selects it");
       return null;
     }
-    String body;
+    Emitted body;
     try {
       body = ctx.renderElement(target, scope, Backports.setOf());
     } finally {
       active.remove(target);
     }
+    skeleton.addAll(body.nodes());
     String helper = ctx.freshName("select_" + ref.selector());
     List<String> decls = new ArrayList<>();
     List<String> captured = new ArrayList<>();
@@ -88,7 +93,7 @@ final class ElementSelection {
       captured.add(a);
     }
     decls.add(FragmentMethods.IO);
-    ctx.addMember("  private static void " + helper + "(" + String.join(", ", decls) + ") {\n" + body + "  }");
+    ctx.addMember("  private static void " + helper + "(" + String.join(", ", decls) + ") {\n" + body.java() + "  }");
     captured.add(c);
     captured.add(o);
     return helper + "(" + String.join(", ", captured) + ")";

@@ -1,9 +1,13 @@
 package dev.tessera.compiler.codegen.attr;
 
 import dev.tessera.compiler.Backports;
+import dev.tessera.compiler.Diagnostics;
+import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
+import dev.tessera.compiler.codegen.Emitted;
+import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.codegen.TemplateIndex;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.FragmentRef;
@@ -15,9 +19,12 @@ import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
+import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.Fragment;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,9 +56,9 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     // fits nowhere, so it never renders where that rule does not look.
     boolean rawText =
         contexts.insideRawText(plan.element()) || (!replace && ParsingContexts.rawTextElement(plan.element()));
-    String code = rawText ? null : code(ctx, attr, plan, point);
+    Emitted code = rawText ? null : code(ctx, attr, plan, point);
     // On error, render nothing in its place so the children do not cascade into more errors.
-    String stmts = code == null ? "" : code;
+    Emitted stmts = code == null ? Emitted.EMPTY : code;
     if (replace) {
       plan.replaceElement(stmts);
     } else {
@@ -60,7 +67,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
   }
 
   /** {@code point}: the {@link ParsingContexts} context the fragment's markup lands in. */
-  private static String code(CodegenContext ctx, Attribute attr, ElementPlan plan, String point) {
+  private static Emitted code(CodegenContext ctx, Attribute attr, ElementPlan plan, String point) {
     if (attr.value() == null || Backports.isBlank(attr.value())) {
       ctx.diagnostics().error(attr.pos(), attr.name() + " needs a fragment reference, e.g. ~{fragments/layout :: header}");
       return null;
@@ -99,7 +106,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
                     + " content, where a browser parses its markup differently: " + fix);
         return null;
       }
-      return call == null ? null : "{\n" + pre + call.invoke(ctx.insertionContext(), "out") + ";\n}";
+      return call == null ? null : Emitted.wrap("{\n" + pre, call.emit(ref.pos(), ctx.insertionContext()).then("\n"), "}");
     }
     CompiledExpr e = ctx.compile(attr, plan.scope());
     if (e == null) {
@@ -129,7 +136,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       return null;
     }
     String f = ctx.freshName("f");
-    return "{ " + FRAGMENT + " " + f + " = " + e.code() + "; if (" + f + " != null) { " + f + ".render(" + ctx.insertionContext() + ", out); } }";
+    return Emitted.fragmentValue(FRAGMENT, f, e.code(), fragmentParam(ctx, attr, plan.scope()), e.pos(), ctx.insertionContext());
   }
 
   /** What to do where no fragment fits ({@code point} is unwrapped or mixed content), or null. */
@@ -145,25 +152,69 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
   }
 
   /**
+   * The {@code Fragment} parameter of the fragment being generated that {@code attr}'s value is,
+   * by itself, or null: then the skeleton of what is inserted is bound at each call site.
+   */
+  private static String fragmentParam(CodegenContext ctx, Attribute attr, Scope scope) {
+    Expr e = ctx.parser().parseExpression(attr.value(), attr.valuePos(), new Diagnostics());
+    return e instanceof Expr.Var ? fragmentParam(ctx, ((Expr.Var) e).name(), scope) : null;
+  }
+
+  /**
+   * {@code name} if it is a {@code Fragment} parameter of the fragment being generated and not
+   * shadowed in {@code scope} (a shadowing local has a fresh Java name), else null.
+   */
+  private static String fragmentParam(CodegenContext ctx, String name, Scope scope) {
+    TemplateIndex.FragmentInfo f = ctx.fragment();
+    if (f == null) {
+      return null;
+    }
+    for (TemplateIndex.Param p : f.params()) {
+      if (p.name().equals(name) && isFragment(ctx, p.type())) {
+        Optional<Variable> v = scope.lookup(name);
+        return v.isPresent() && v.get().javaName().equals(TemplateGenerator.javaName(name)) ? name : null;
+      }
+    }
+    return null;
+  }
+
+  /**
    * A resolved call of {@code method(args..., ctx, out)}; {@code types} are the parameter types.
    * {@code name} is the fragment as {@code template :: name}, {@code root} its element and
-   * {@code contexts} the {@link ParsingContexts} of its template.
+   * {@code contexts} the {@link ParsingContexts} of its template,
+   * {@code fragmentArgs} the skeletons of the {@code Fragment} arguments known at build time.
    */
   private static final class Call {
+    private final Skeleton.FragmentId target;
     private final String method;
     private final List<String> args;
     private final List<String> types;
+    private final Map<String, Skeleton.Seq> fragmentArgs;
     private final String name;
     private final Element root;
     private final ParsingContexts contexts;
 
-    private Call(String method, List<String> args, List<String> types, String name, Element root, ParsingContexts contexts) {
+    private Call(
+        Skeleton.FragmentId target, String method, List<String> args, List<String> types,
+        Map<String, Skeleton.Seq> fragmentArgs, String name, Element root, ParsingContexts contexts) {
+      this.target = target;
       this.method = method;
       this.args = args;
       this.types = types;
+      this.fragmentArgs = fragmentArgs;
       this.name = name;
       this.root = root;
       this.contexts = contexts;
+    }
+
+    /** The call, writing to the template's output with render context {@code ctxCode}. */
+    Emitted emit(SourcePos pos, String ctxCode) {
+      return Emitted.call(target, fragmentArgs, pos, method, args, ctxCode);
+    }
+
+    /** The skeleton of what the call writes, for a fragment argument. */
+    Skeleton.Seq skeleton(SourcePos pos) {
+      return new Skeleton.Seq(Collections.singletonList(new Skeleton.Call(target, fragmentArgs, pos)));
     }
 
     public String method() {
@@ -178,7 +229,8 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       return types;
     }
 
-    String invoke(String ctxName, String outName) {
+    /** The call with {@code args} instead of its own, writing to {@code outName}: a Fragment lambda's body. */
+    String invoke(List<String> args, String ctxName, String outName) {
       List<String> all = new ArrayList<>(args);
       all.add(ctxName);
       all.add(outName);
@@ -245,9 +297,10 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     }
 
     List<String> codes = new ArrayList<>();
+    Map<String, Skeleton.Seq> fragmentArgs = new LinkedHashMap<>();
     boolean ok = true;
     for (int i = 0; i < ordered.size(); i++) {
-      String code = argument(ctx, ordered.get(i), f.params().get(i), i, sig, scope, host, pre);
+      String code = argument(ctx, ordered.get(i), f.params().get(i), i, sig, scope, host, pre, fragmentArgs);
       ok &= code != null;
       codes.add(code);
     }
@@ -256,8 +309,8 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       return null;
     }
     return new Call(
-        target.className() + "." + f.methodName(), codes, types, target.viewName() + " :: " + f.name(), f.element(),
-        target.parsingContexts());
+        new Skeleton.FragmentId(target.viewName(), f.name()), target.className() + "." + f.methodName(), codes, types,
+        fragmentArgs, target.viewName() + " :: " + f.name(), f.element(), target.parsingContexts());
   }
 
   /**
@@ -309,6 +362,10 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     return ordered;
   }
 
+  /**
+   * The code of an argument; for a {@code Fragment} parameter whose argument is known at build time
+   * also puts its skeleton in {@code fragmentArgs}.
+   */
   private static String argument(
       CodegenContext ctx,
       FragmentRef.Arg arg,
@@ -317,7 +374,8 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       String sig,
       Scope scope,
       Element host,
-      StringBuilder pre) {
+      StringBuilder pre,
+      Map<String, Skeleton.Seq> fragmentArgs) {
     String what = "argument " + (index + 1) + " ('" + param.name() + "') of fragment " + sig;
     boolean wantsFragment = isFragment(ctx, param.type());
     if (arg.value() instanceof Expr.FragmentExpr) {
@@ -325,7 +383,20 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
         ctx.diagnostics().error(arg.pos(), what + " has type " + param.javaType() + ", but a fragment ~{...} was passed");
         return null;
       }
-      return fragmentValue(ctx, ((Expr.FragmentExpr) arg.value()).ref(), scope, host, pre);
+      List<Skeleton.Node> skeleton = new ArrayList<>();
+      String local = fragmentValue(ctx, ((Expr.FragmentExpr) arg.value()).ref(), scope, host, pre, skeleton);
+      if (local != null) {
+        fragmentArgs.put(param.name(), new Skeleton.Seq(skeleton));
+      }
+      return local;
+    }
+    if (wantsFragment && arg.value() instanceof Expr.Var) {
+      // A Fragment parameter of the caller passed on: bound to whatever the caller's caller bound.
+      String forwarded = fragmentParam(ctx, ((Expr.Var) arg.value()).name(), scope);
+      if (forwarded != null) {
+        fragmentArgs.put(
+            param.name(), new Skeleton.Seq(Collections.singletonList(new Skeleton.ParamInsert(forwarded, arg.pos()))));
+      }
     }
     if (FormPaths.isField(param.type())) {
       return fieldArgument(ctx, arg, param, what, scope);
@@ -397,10 +468,13 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
 
   /**
    * A {@code ~{...}} fragment argument: appends a local holding a {@code Fragment} lambda to
-   * {@code pre} and returns its name. Same-file {@code ~{::x}} picks fragment {@code x}, or else
-   * the first element whose tag is {@code x}.
+   * {@code pre} and returns its name, and adds the skeleton of what the lambda writes to
+   * {@code skeleton}. Same-file {@code ~{::x}} picks fragment {@code x}, or else the first element
+   * whose tag is {@code x}. The lambda writes nothing here: its skeleton is the argument's, written
+   * where the callee inserts the parameter ({@code Skeleton.ParamInsert}).
    */
-  private static String fragmentValue(CodegenContext ctx, FragmentRef ref, Scope scope, Element host, StringBuilder pre) {
+  private static String fragmentValue(
+      CodegenContext ctx, FragmentRef ref, Scope scope, Element host, StringBuilder pre, List<Skeleton.Node> skeleton) {
     // Wherever it is inserted, a table part at its top could end a cell or a foster-parented
     // element and move the text after it out of the table (#348).
     for (String n : FragmentTop.of(ctx, ref).elements) {
@@ -420,7 +494,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     String local = ctx.freshName("frag");
     String call;
     if (ref.template() == null && !ctx.template().fragments().containsKey(ref.selector())) {
-      call = ElementSelection.helperCall(ctx, ref, scope, host, pre, c, o);
+      call = ElementSelection.helperCall(ctx, ref, scope, host, pre, c, o, skeleton);
     } else {
       Call target = resolve(ctx, ref, scope, host, pre);
       if (target == null || !fitsHtml(ctx, ref, target.root, target.contexts)) {
@@ -434,7 +508,8 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
             .append(target.args().get(i)).append(";\n");
         captured.add(a);
       }
-      call = new Call(target.method(), captured, target.types(), target.name, target.root, target.contexts).invoke(c, o);
+      call = target.invoke(captured, c, o);
+      skeleton.addAll(target.skeleton(ref.pos()).nodes());
     }
     if (call == null) {
       return null;
