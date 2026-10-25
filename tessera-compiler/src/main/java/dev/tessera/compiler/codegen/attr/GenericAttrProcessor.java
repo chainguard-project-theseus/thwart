@@ -15,6 +15,7 @@ import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.runtime.CssValue;
+import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.TrustedUrl;
 import java.util.Locale;
 import java.util.Set;
@@ -214,7 +215,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     }
     CompiledExpr c = ctx.expressions().compileOutput(link, plan.scope());
     if (c != null) {
-      plan.setAttribute(name, JavaStrings.literal(prefix.group(1) + ";url=") + " + " + c.code(), pos);
+      plan.setAttribute(name, JavaStrings.literal(prefix.group(1) + ";url=") + " + " + sameOrigin(c), pos);
     }
   }
 
@@ -246,8 +247,17 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     }
     CompiledExpr c = ctx.expressions().compileOutput(link, plan.scope());
     if (c != null) {
-      plan.setAttribute(name, c.code(), pos);
+      plan.setAttribute(name, sameOrigin(c), pos);
     }
+  }
+
+  /**
+   * The code of a link whose literal path {@link LinkCompiler#isSameOriginPath is same-origin},
+   * re-checked at render time (#358): the context path or a custom {@code Links} could still make it
+   * protocol-relative.
+   */
+  private static String sameOrigin(CompiledExpr link) {
+    return Escapers.class.getName() + ".sameOriginLink(" + link.code() + ")";
   }
 
   private static final String HTMX_URL = "an htmx request URL";
