@@ -30,9 +30,10 @@ package dev.tessera.compiler.html;
  * the start or end of a quoted attribute value (one in a name, in an unquoted value or right after
  * a quoted value) is fatal, because with it the tag could end at a different {@code >} than in a
  * browser. So are a char outside quoted values that {@link Character#isWhitespace} accepts but HTML
- * does not, a {@code /} that ends an unquoted value before {@code >}, and a name after a
- * {@code /} outside a value, because a browser splits or ends the tag differently there. Raw text
- * that a browser does not tokenize ({@link Handler#rawText}) is exempt.
+ * does not, a {@code /} that ends an unquoted value before {@code >}, an {@code =} that starts an
+ * unquoted value, and anything but {@code >} after a {@code /} outside a value, because a browser
+ * splits or ends the tag differently there. Raw text that a browser does not tokenize ({@link
+ * Handler#rawText}) is exempt.
  *
  * <p>Offsets index the buffer, which the handler may change ahead of the tokenizer (see {@code
  * HtmlParser.Builder.matchEndTagCase}).
@@ -274,16 +275,17 @@ final class MarkupTokenizer {
    * with it the tag could end at a different {@code >} than in a browser. Without one, both end at
    * the first {@code >} outside a quoted value.
    *
-   * <p>Three more differences between the tokenizer and a browser are errors here for the same
+   * <p>Four more differences between the tokenizer and a browser are errors here for the same
    * reason: a char that {@link Character#isWhitespace} accepts but HTML does not ({@code \t \n
    * \f \r} and space), which a browser keeps in the name or value; a {@code /} that ends an
    * unquoted value right before {@code >}, which a browser keeps in the value (the tag is not
-   * {@code />}); and a name after a {@code /} (and optional whitespace), which a browser
-   * starts as a new attribute.
+   * {@code />}); an {@code =} that starts an unquoted value, which a browser keeps in the value
+   * where the tokenizer skips it; and anything but {@code >} after a {@code /} outside a value: a
+   * browser starts a new attribute at a name there, and the tokenizer reads whitespace or another
+   * {@code /} after it as an attribute named {@code /}.
    */
   private int tagEnd(int start, int from) throws MarkupException {
     int state = TAG_NAME;
-    boolean slash = false; // a '/' outside a value: only whitespace, '/' and '>' may follow
     for (int i = from; i < n; i++) {
       char c = buf[i];
       boolean space = c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r';
@@ -315,8 +317,14 @@ final class MarkupTokenizer {
         }
         return i;
       }
-      if (slash && c != '/' && !space) {
-        throw new MarkupException("a name after '/' in a tag starts a new attribute in a browser: remove the '/'", i);
+      if (state == SELF_CLOSING) {
+        throw new MarkupException(space || c == '/'
+            ? "'/' in a tag must be followed by '>': remove the '/' or what follows it"
+            : "a name after '/' in a tag starts a new attribute in a browser: remove the '/'", i);
+      }
+      if (state == BEFORE_ATTRIBUTE_VALUE && c == '=') {
+        throw new MarkupException(
+            "'=' starting an unquoted value is part of it in a browser: quote the value", i);
       }
       switch (state) {
         case TAG_NAME:
@@ -331,7 +339,6 @@ final class MarkupTokenizer {
           }
           break;
         case BEFORE_ATTRIBUTE_NAME:
-        case SELF_CLOSING:
           if (c == '/') {
             state = SELF_CLOSING;
           } else if (!space) {
@@ -360,7 +367,6 @@ final class MarkupTokenizer {
         default:
           throw new IllegalStateException("state " + state);
       }
-      slash |= state == SELF_CLOSING;
     }
     throw incomplete(start);
   }

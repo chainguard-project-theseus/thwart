@@ -431,7 +431,13 @@ class XssContextTest {
           // #348: the <tr> ends the cell, so the text after it is read in the table, as above
           "<table><tr><td><p><tr></tr>[[s]]</p></td></tr></table>",
           "<table><caption><col>[[s]]</caption></table>",
-          "<table><form>[[s]]</form></table>");
+          "<table><form>[[s]]</form></table>",
+          // the rebuilt tag ends in ' />', which closes the svg g or script, so the text after it
+          // is not in the element Tessera escaped it for
+          "<svg><g t:if=\"true\" x / >[[s]]</g></svg>",
+          "<svg><script t:if=\"true\" / >var a = [[s]];</script></svg>",
+          // a browser reads the value as '=javascript:...', the rebuilt tag as 'javascript:...'
+          "<a t:if=\"true\" href==javascript:alert(1)>[[s]]</a>");
 
   /** The built-in {@code html.sanitize} turns stored rich text into SafeHtml for raw output. */
   @Test
