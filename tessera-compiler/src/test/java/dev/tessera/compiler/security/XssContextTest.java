@@ -77,7 +77,7 @@ class XssContextTest {
           new Line("<p t:text=\"|a ${s} b|\">x</p>", Kind.TEXT_PART),
           new Line("<script t:text=\"s\"></script>", Kind.JSON),
           new Line(
-              "<script>var a = [[s]]; /*[[s]]*/ var t = `[[s]]`; var r = /[[s]]/; // [[s]]\n</script>",
+              "<script>var a = [[s]]; var t = `${[[s]]}`; var r = /x/; var b = [[s]]; var n = a / 2 + [[s]]; /* c */ var d = [[s]]; // done\n</script>",
               Kind.JSON, Kind.JSON, Kind.JSON, Kind.JSON, Kind.JSON),
           new Line("<SCRIPT type=\"application/json\">[[s]]</SCRIPT>", Kind.JSON),
           new Line(
@@ -293,10 +293,12 @@ class XssContextTest {
   }
 
   @Test
-  void scriptInlineInTemplateLiteralAndCommentIsInert() {
+  void scriptInlineInTemplateSubstitutionIsInert() {
+    // Template-literal text, comments and regex literals are build errors (#281, #315); ${...}
+    // inside a template literal is code.
     String out = render("`;alert(1);/*${x}*/");
     assertTrue(
-        out.contains("var t = `\"\\u0060;alert(1);\\/*\\u0024{x}*\\/\"`;"),
+        out.contains("var t = `${\"\\u0060;alert(1);\\/*\\u0024{x}*\\/\"}`;"),
         out);
   }
 
@@ -369,6 +371,18 @@ class XssContextTest {
           "<p t:utext=\"'<b>' + s\">x</p>",
           "<p t:utext=\"#{greet(s)}\">x</p>",
           "<script>var a = [(s)];</script>",
+          "<script>var a = \"[[s]]\";</script>",
+          "<script>var a = '[[s]]';</script>",
+          "<script>var a = `[[s]]`;</script>",
+          "<script>var a = `a ${1} [[s]]`;</script>",
+          "<script type=\"module\">var a = \"[[s]]\";</script>",
+          "<script type=\"application/json\">{\"a\": \"[[s]]\"}</script>",
+          "<script>/*[[s]]*/</script>",
+          "<script>var a = /*[[s]]*/ 'd';</script>",
+          "<script>// [[s]]\n</script>",
+          "<script>--> [[s]]\n</script>",
+          "<script>#![[s]]\n</script>",
+          "<script>var r = /[[s]]/;</script>",
           "<script t:utext=\"s\"></script>",
           "<title t:remove=\"tag\"><script>[[s]]</script></title>",
           "<textarea t:remove=\"tag\"><script>[[s]]</script></textarea>",
