@@ -396,8 +396,9 @@ class HtmlParserTest {
     assertEquals(List.of("dir/t.html:1:3: " + dqName), errors("<p\"x\"></p>"));
     assertEquals(List.of("dir/t.html:1:4: " + dqName), errors("<a \"b\"></a>"));
     assertEquals(List.of("dir/t.html:1:5: " + dqName), errors("<a b\"c=d></a>"));
-    assertEquals(List.of("dir/t.html:1:7: " + dq), errors("<a b==\"x>\"></a>"));
-    assertEquals(List.of("dir/t.html:1:8: " + dq), errors("<a b= =\"x>\"></a>"));
+    String eq = "error: malformed markup: '=' starting an unquoted value is part of it in a browser: quote the value";
+    assertEquals(List.of("dir/t.html:1:6: " + eq), errors("<a b==\"x>\"></a>"));
+    assertEquals(List.of("dir/t.html:1:7: " + eq), errors("<a b= =\"x>\"></a>"));
     assertEquals(List.of("dir/t.html:1:6: error: malformed markup: a name after '/' in a tag starts a new attribute in a browser:"
         + " remove the '/'"), errors("<a b/=\"x>\"></a>"));
     assertEquals(List.of("dir/t.html:1:4: " + dqName), errors("<a/\"b\"></a>"));
@@ -461,14 +462,42 @@ class HtmlParserTest {
     assertEquals(List.of("dir/t.html:1:14: " + name), errors("<p title=\"x\"/t:text=\"s\">a</p>"));
     assertEquals(List.of("dir/t.html:1:6: " + name), errors("<img/src=x>"));
     assertEquals(List.of("dir/t.html:1:4: " + name), errors("<a/b></a>"));
-    // with whitespace after the '/' too: a browser reads a valueless type, then ignores the
-    // duplicate, so this is a classic script while Tessera reads a JSON one
-    assertEquals(List.of("dir/t.html:1:15: " + name),
+    // Whitespace after the '/' is an error of its own (see slashMustBeFollowedByGt). With a name
+    // after it, a browser reads a valueless type, then ignores the duplicate, so this is a classic
+    // script while Tessera reads a JSON one.
+    String slash = "error: malformed markup: '/' in a tag must be followed by '>': remove the '/' or what follows it";
+    assertEquals(List.of("dir/t.html:1:14: " + slash),
         errors("<script type/ type=\"application/json\">[[${x}]]</script>"));
-    assertEquals(List.of("dir/t.html:1:7: " + name), errors("<a b/ c></a>"));
-    assertEquals(List.of("dir/t.html:2:1: " + name), errors("<a b=\"c\" /\nd></a>"));
-    assertEquals(List.of("dir/t.html:1:9: " + name), errors("<p></p/ x>"));
-    parseOk("<br/><br /><br / ><br\t/\n><br //><br b=c /><br b=\"c\"/><img src=\"a/\"><a href=/x/ >y</a>");
+    assertEquals(List.of("dir/t.html:1:6: " + slash), errors("<a b/ c></a>"));
+    assertEquals(List.of("dir/t.html:1:11: " + slash), errors("<a b=\"c\" /\nd></a>"));
+    assertEquals(List.of("dir/t.html:1:8: " + slash), errors("<p></p/ x>"));
+    parseOk("<br/><br /><br b=c /><br b=\"c\"/><img src=\"a/\"><a href=/x/ >y</a>");
+  }
+
+  @Test
+  void slashMustBeFollowedByGt() {
+    // The tokenizer reads "/ >" as an attribute named '/' that a browser does not have (13.2.5.40
+    // reconsumes the space in the before attribute name state). A rebuilt tag renders it as " />",
+    // which closes an svg element, so what follows is not in the element Tessera escaped it for.
+    String slash = "error: malformed markup: '/' in a tag must be followed by '>': remove the '/' or what follows it";
+    assertEquals(List.of("dir/t.html:1:27: " + slash), errors("<svg><g t:if=\"${true}\" x / >[[${x}]]</g></svg>"));
+    assertEquals(List.of("dir/t.html:1:30: " + slash),
+        errors("<svg><script t:if=\"${true}\" / >var a = [[${x}]];</script></svg>"));
+    assertEquals(List.of("dir/t.html:1:6: " + slash), errors("<br / >"));
+    assertEquals(List.of("dir/t.html:1:5: " + slash), errors("<br//>"));
+    assertEquals(List.of("dir/t.html:1:6: " + slash), errors("<br //>"));
+    assertEquals(List.of("dir/t.html:1:6: " + slash), errors("<br\t/\n>"));
+    parseOk("<br/><br /><br\t/><svg><g x=\"y\"/><g x />t</svg>");
+  }
+
+  @Test
+  void equalsStartingAnUnquotedValueIsAnError() {
+    // A browser keeps the second '=' in the value (13.2.5.35 reconsumes it in the unquoted value
+    // state); the tokenizer skips the run of '=', so a rebuilt tag drops it from the value.
+    String eq = "error: malformed markup: '=' starting an unquoted value is part of it in a browser: quote the value";
+    assertEquals(List.of("dir/t.html:1:24: " + eq), errors("<a t:if=\"${true}\" href==javascript:alert(1)>x</a>"));
+    assertEquals(List.of("dir/t.html:1:11: " + eq), errors("<a title= =b>x</a>"));
+    parseOk("<a href=\"=x\" title='=' b = c d=e=f>x</a>");
   }
 
   @Test
