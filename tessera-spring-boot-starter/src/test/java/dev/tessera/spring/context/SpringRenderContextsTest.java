@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.tessera.runtime.Forms;
 import dev.tessera.runtime.Links;
 import dev.tessera.runtime.RenderContext;
+import dev.tessera.spring.CspNonce;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -108,6 +109,17 @@ class SpringRenderContextsTest {
     DataBinder binder = new DataBinder(new Owner(), "owner");
     binder.bind(new MutablePropertyValues(values));
     return new HashMap<>(binder.getBindingResult().getModel());
+  }
+
+  /** The context's CSP nonce is the request's (#335): created once, or the one the application set. */
+  @Test
+  void cspNonceIsTheRequestAttribute() {
+    String nonce = create(Collections.<String, Object>emptyMap()).cspNonce().get();
+    assertEquals(nonce, request.getAttribute(CspNonce.ATTRIBUTE));
+    assertEquals(nonce, create(Collections.<String, Object>emptyMap()).cspNonce().get());
+    assertEquals(nonce, CspNonce.get(request));
+    request.setAttribute(CspNonce.ATTRIBUTE, "app-nonce");
+    assertEquals("app-nonce", create(Collections.<String, Object>emptyMap()).cspNonce().get());
   }
 
   @Test

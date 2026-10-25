@@ -2,13 +2,18 @@ package dev.tessera.spring.e2e;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import dev.tessera.spring.CspNonce;
+import dev.tessera.spring.plain.CspPages;
 import dev.tessera.spring.testing.SpringTestContext;
+import java.util.Collections;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,7 +27,10 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.csrf.DefaultCsrfToken;
+import org.springframework.security.web.header.HeaderWriter;
+import org.springframework.security.web.header.HeaderWriterFilter;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
@@ -176,6 +184,31 @@ class SmokeTest {
     mvc.perform(get("/page"))
         .andExpect(content().string(containsString("<p id=\"user\">alice</p>")))
         .andExpect(content().string(containsString("<p id=\"admin\">admin</p>")));
+  }
+
+  /**
+   * The guide's Spring Security example (#335): a {@code HeaderWriter} that puts the request's
+   * nonce in the policy. Spring Security 4.2 writes headers before the view and 5.x on commit,
+   * after it; both see the nonce the page was rendered with.
+   */
+  @Test
+  void springSecurityHeaderWriterSeesThePageNonce() throws Exception {
+    HeaderWriter csp =
+        (request, response) ->
+            response.setHeader(
+                "Content-Security-Policy",
+                "script-src 'nonce-" + CspNonce.get(request) + "' 'strict-dynamic'; object-src 'none'; base-uri 'self'");
+    MockMvc secured =
+        MockMvcBuilders.webAppContextSetup(context)
+            .addFilters(new HeaderWriterFilter(Collections.<HeaderWriter>singletonList(csp)))
+            .build();
+    MvcResult result = secured.perform(get("/csp")).andExpect(status().isOk()).andReturn();
+    String nonce = CspPages.assertStamped(result);
+    assertEquals(
+        "script-src 'nonce-" + nonce + "' 'strict-dynamic'; object-src 'none'; base-uri 'self'",
+        result.getResponse().getHeader("Content-Security-Policy"));
+    // The starter itself sends no policy.
+    assertNull(mvc.perform(get("/csp")).andReturn().getResponse().getHeader("Content-Security-Policy"));
   }
 
   @SpringBootConfiguration

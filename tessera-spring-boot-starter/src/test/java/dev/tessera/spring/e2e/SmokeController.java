@@ -20,6 +20,12 @@ public class SmokeController {
     return "smoke/page";
   }
 
+  /** A page with a style and two scripts, which get the request's CSP nonce (#335). */
+  @GetMapping("/csp")
+  public String csp() {
+    return "smoke/csp";
+  }
+
   /** POST forms whose action comes from the request (#285). */
   @GetMapping("/action")
   public String action(@RequestParam("target") String target, Model model) {
