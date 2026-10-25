@@ -644,7 +644,7 @@ render. A URL computed in Java goes in `t:href` as a `String` (scheme-checked)
 or `TrustedUrl`, without the context path. A context path of `/` or one ending in `/` loses the
 trailing `/`, so `@{/a}` never renders as the protocol-relative `//a`. Where a link must be
 same-origin (a `<base href>`, an htmx request URL, a refresh URL, a boosted or htmx form's
-`action`/`formaction`, a `formaction` that may receive the CSRF token; section 4.7), the built URL
+`action`/`formaction`, a `formaction` that may receive the CSRF token; sections 4.4 and 4.7), the built URL
 is checked again when rendering: if a custom `Links` makes it anything but a path starting with a
 single `/`, the render fails.
 
