@@ -271,7 +271,7 @@ their phase issue.
 | 4 | `annotation-xml` with an HTML `encoding` is an HTML integration point, as #301 has it; the `encoding` must be static | Follows the spec; a computed `encoding` would pick the mode at render time |
 | 5 | `template` is accepted with flow content only; table-part elements as direct children are errors | `<template><col>` ignores raw-text start tags |
 | 6 | `center`, `font`, `tt`, `big`, `strike`, `marquee` are on the HTML allow-list; `font` stays an error inside SVG and MathML | Migration parity; `font` is a breakout tag |
-| 7 | Supported browsers: Chromium (current), Firefox (current), Firefox ESR and Safari/WebKit (current). Safari is checked through Playwright's WebKit build in the Node job (#354) | Rules must hold in every engine users run |
+| 7 | Supported browsers: Chromium (current), Firefox (current), Firefox ESR and Safari/WebKit (current). Safari is checked through Playwright's WebKit build in the Node job (#354): the WPE port, so WebKit's HTML parser and JavaScriptCore at a recent WebKit revision, not a shipping Safari release or its app shell | Rules must hold in every engine users run |
 | 8 | Static NUL is an error | A browser replaces it, so the source is not what is parsed |
 | 9 | Section 1 is a per-hole claim: each hole lands in the node, context and namespace the compiler chose, and the benign and hostile trees are equal | That is what the oracle checks; implied end tags make the tree claim false |
 | 10 | RCDATA and RAWTEXT content get the end-tag rule, no markup right before a hole, and no NUL | The proof needs exactly these |
