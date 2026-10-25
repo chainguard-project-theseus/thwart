@@ -543,8 +543,67 @@ call `SafeHtml.sanitize(text)` in Java. It keeps `p br hr h1`-`h6 b i em strong 
 mark code pre blockquote ul ol li span div` without attributes, and `a` with an `href` that passes
 the URL check above, plus `rel="nofollow noopener"`. It removes `script`, `style`, `iframe`, `svg`,
 `math`, `object` and similar elements with their content, every other tag (but not its text), comments
-and all other attributes (`on*`, `style`, `class`, `id`, `target`, ...). The policy is fixed. In
-Java, `SafeHtml.escape(text)` escapes text, `SafeHtml.of(template, ctx)` wraps another template's
+and all other attributes (`on*`, `style`, `class`, `id`, `target`, ...).
+
+For editor or Markdown output that needs more, write `html.sanitizeRich(article.text)`
+(`HtmlPolicy.RICH.sanitize(text)` in Java). It also keeps `del ins kbd`; images (`img` with a `src`
+that is a same-origin path, `alt`, `title`, `width`, `height`); tables (`table caption thead tbody
+tfoot tr th td` with `colspan`, `rowspan`, `align`); `ol start reversed` and `li value`; `title`;
+`language-*` class tokens (code highlighting); and `id`, written as `user-content-<id>` so stored
+content can't shadow `window` or `document` properties or the page's own ids, with `href="#<id>"`
+links rewritten to match. Links keep `target="_blank"`. An image `src` must start with a single
+`/` (not `//` or `/\`), so that showing stored content never makes the reader's browser contact
+another host; other images are dropped. An attribute value containing `{{` is dropped.
+
+For any other mix, build a policy once in Java with `HtmlPolicy.builder()` and expose it through
+your own function namespace (section 4.6):
+
+<!-- compile: java -->
+```java
+package com.example.guide;
+
+import dev.tessera.runtime.HtmlPolicy;
+import dev.tessera.runtime.SafeHtml;
+import dev.tessera.runtime.TemplateFunction;
+import dev.tessera.runtime.TemplateFunctions;
+
+@TemplateFunctions("notices")
+public final class NoticeFunctions {
+  private static final HtmlPolicy POLICY =
+      HtmlPolicy.builder()
+          .allowElements("p", "br", "b", "a", "table", "tr", "th", "td")
+          .allowAttributes("colspan", "rowspan")
+          .allowClasses("status-*")
+          .linkRel() // the application writes these notices itself: add no rel
+          .build();
+
+  private NoticeFunctions() {}
+
+  @TemplateFunction
+  public static SafeHtml html(Object text) {
+    return SafeHtml.sanitize(text == null ? null : text.toString(), POLICY);
+  }
+}
+```
+
+Then `t:utext="notices.html(notice.body)"`. The builder accepts only names from a closed set
+(`HtmlPolicy.ELEMENTS`, `HtmlPolicy.ATTRIBUTES`, `REL_TOKENS`) and throws for anything else, so
+`style`, `on*`, framework directives and script-capable elements can't be switched on. Its other
+options are `allowClasses` (exact names, `prefix*` or `*`; only letters, digits, `-` and `_`, and
+never a name AngularJS reads as a directive: `ng-*`, `ng_*` or `ngX`, also after `x-` or `data-`),
+`idPrefix` (a letter first, ending in `-`), `allowLinkTarget` (`target="_blank"` with `noopener`),
+`allowRemoteImages` (any `img src` that passes the URL check, not only same-origin paths) and
+`allowDataImages` (base64 PNG, GIF, JPEG and WebP `data:` URLs in `img src`).
+
+Under every policy the output is rebuilt, never copied through, and balanced: every element is
+closed, and placed only where a browser's parser keeps it as written. A block element closes an
+open `p`, heading or inline element first; `a` never nests in `a`; `li` is kept only in `ul`/`ol`;
+table parts only inside a `table`, with the `tbody` and `tr` a browser would add written out, and
+no text directly in a table, section or row. A tag that fits nowhere is dropped and its text kept.
+So the output works as flow content wherever a `div` could hold it. Text is re-escaped
+(`{{` broken), and character references are decoded (`&oacute;` stays `ó`).
+
+In Java, `SafeHtml.escape(text)` escapes text, `SafeHtml.of(template, ctx)` wraps another template's
 output, and `SafeHtml.concat(a, b, ...)` joins parts (`concat(escape(a), sanitize("<br>"),
 escape(b))`). `SafeHtml.unchecked(html)` is a review point, and `TrustedUrl.unchecked(url)` is the
 same for URLs.
@@ -659,7 +718,7 @@ Templates call functions as `namespace.fn(args)` or `#namespace.fn(args)`.
 | `temporals` | `format(temporal, pattern)` (English month and day names), `formatIso(temporal)` |
 | `lists` | `size`, `isEmpty`, `contains(list, x)` |
 | `css` | `color(s)` (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, a CSS named colour), `length(s)` (a number with optional `px`, `em`, `rem`, `%`, `vh`, `vw`), `url(s)` (`url("...")` for a relative or `http`/`https` URL, percent-encoded): a `CssValue`, or `null` for anything else |
-| `html` | `sanitize(s)`: stored rich text as `SafeHtml` for `t:utext` (section 4.4) |
+| `html` | `sanitize(s)`: stored rich text as `SafeHtml` for `t:utext`; `sanitizeRich(s)`: the same with same-origin images, tables, `language-*` classes and `id` (section 4.4) |
 | `auth` (Spring starter) | `isAuthenticated()`, `hasRole('ADMIN')`, `hasAnyRole('A', 'B')`, `name()` |
 | `fields` (inside `t:object`) | `hasErrors('path')`, `hasErrors('*')`, `errors('path')`, section 4.7 |
 

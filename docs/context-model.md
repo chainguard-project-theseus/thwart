@@ -198,6 +198,15 @@ site. The rows below are #304's name-based rules on the way there.
 
 #329 replaces #304's checks with the predicates. `SafeHtml` and `Fragment` values are `FLOW`.
 
+The producer side for `html.sanitize`, `html.sanitizeRich` and every `HtmlPolicy` (#262):
+`HtmlSanitizer` writes only elements it places where a browser's tree builder keeps them as
+written (no block in `p`, heading or phrasing; no `a` in `a`; `li` only in `ul`/`ol`; table parts
+only in `table`, with `tbody`/`tr` written out and no text directly in table, section or row), and
+closes everything it opens. `SanitizerBalanceTest` checks this with both spec parsers, scripting
+on and off, at body, `div`, `td`, `li` and `template` insertion points, over mXSS vectors and
+fuzzed input: the parsed tree must equal the one the tags spell, and the next element must stay
+the insertion point's next sibling. #329's producer test will reuse it.
+
 ## 6. Attributes (§5.6)
 
 ### 6.1 Attribute classes
