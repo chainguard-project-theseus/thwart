@@ -31,8 +31,8 @@ import org.junit.jupiter.api.Test;
 /**
  * The producer side of the {@code FLOW} content kind (#329): every producer of HTML known only at
  * render time leaves the parser in the state it found it, at every insertion point where
- * {@link ContentKinds#problem} accepts {@code FLOW}, in both of the verifier's engines with scripting
- * on and off. That is the premise the verifier relies on when it takes the state after a
+ * {@link ContentKinds#problem} accepts {@code FLOW}, in the verifier's engine with scripting on and
+ * off. That is the premise the verifier relies on when it takes the state after a
  * {@code SafeHtml} or {@code Fragment} value to be the state before it. (In template mode the first
  * flow start tag switches to "in body"; the verifier continues from both, so either is fine.)
  *
@@ -91,7 +91,7 @@ class FlowProducerTest {
         HtmlPolicy.builder().allowElements("a", "b", "i", "em", "strong", "code", "span", "br").build());
   }
 
-  /** One running parser per engine and scripting mode at each context, never fed after setup. */
+  /** One running parser per scripting mode at each context, never fed after setup. */
   private static final Map<String, List<Parser>> ENTRIES = new LinkedHashMap<>();
 
   private static final List<String> DUMP = new ArrayList<>();
@@ -100,12 +100,11 @@ class FlowProducerTest {
     List<Parser> ps = ENTRIES.get(context);
     if (ps == null) {
       ps = new ArrayList<>();
-      for (Engine e : Engines.all()) {
-        for (boolean scripting : new boolean[] {true, false}) {
-          Parser p = e.document(scripting);
-          p.feed(context);
-          ps.add(p);
-        }
+      Engine e = Engines.CURRENT;
+      for (boolean scripting : new boolean[] {true, false}) {
+        Parser p = e.document(scripting);
+        p.feed(context);
+        ps.add(p);
       }
       ENTRIES.put(context, ps);
     }

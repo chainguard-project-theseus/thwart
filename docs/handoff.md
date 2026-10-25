@@ -18,8 +18,7 @@ Since then:
   `TesseraConfiguration` for Spring MVC without Boot (#156).
 - **No third-party compile dependencies** in `tessera-runtime` or the starters. `tessera-compiler`
   has its own `MarkupTokenizer` (#170); from #365 on it also shades the pinned validator.nu
-  htmlparser for the build-time verifier (#364), and nothing else (the classic 1.4.16 copy goes
-  in #408). `tessera-migrate`, a
+  htmlparser for the build-time verifier (#364), and nothing else. `tessera-migrate`, a
   developer tool, bundles attoparser and jsoup.
 - **Migration benchmark** in [bench/migration](../bench/migration/README.md) (#115, #151): an
   agent migrates real apps from the guide alone, scored with `tessera-migrate compare`. The gaps

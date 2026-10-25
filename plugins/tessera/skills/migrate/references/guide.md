@@ -2106,8 +2106,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
 ### Verifier errors
 
 After its other checks, the compiler runs every template through a spec HTML parser (current
-validator.nu; for now also an older version whose parsing some browsers still use, such as classic
-`<select>`). It accepts a template only if the parser reads it without a parse error (a missing
+validator.nu). It accepts a template only if the parser reads it without a parse error (a missing
 doctype aside) and outside three constructs where browsers are known to build different trees,
 and it checks that each value lands where its escaping keeps it inert. It follows every `t:if`
 branch and `t:each` pass, and checks a fragment at each place it is inserted. A partial (a
@@ -2125,8 +2124,7 @@ the page's whole `<body>` element, so the layout writes a `<body>` inside its ow
 `<body>` `t:remove="tag"` so that only its children are passed (section 4.8, Layouts).
 
 An error ends with `[verifier:RULE]`. For an expression inside a fragment, the error is at the
-call site and the message names the fragment and the expression's position in it. "Only in the
-older HTML parsing some browsers still use", "only in current HTML parsing", "only with
+call site and the message names the fragment and the expression's position in it. "Only with
 scripting on" or "only with scripting off" means browsers differ there; fix the template all the
 same.
 

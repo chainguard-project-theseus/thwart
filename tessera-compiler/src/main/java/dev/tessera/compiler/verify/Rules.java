@@ -29,12 +29,11 @@ final class Rules {
 
   /**
    * Modes whose character tokens are all handled alike: reconstruct the active formatting
-   * elements, then append (in select: append). Text in any other mode is held back, foster-parented,
+   * elements, then append. Text in any other mode is held back, foster-parented,
    * ignored, or closes elements, depending on whether it is whitespace.
    */
   private static final Set<InsertionMode> TEXT_MODES = EnumSet.of(
-      InsertionMode.IN_BODY, InsertionMode.IN_CELL, InsertionMode.IN_CAPTION, InsertionMode.IN_SELECT,
-      InsertionMode.IN_SELECT_IN_TABLE, InsertionMode.IN_TEMPLATE);
+      InsertionMode.IN_BODY, InsertionMode.IN_CELL, InsertionMode.IN_CAPTION, InsertionMode.IN_TEMPLATE);
 
   /** Modes where text is table text. */
   private static final Set<InsertionMode> TABLE_MODES = EnumSet.of(
@@ -52,8 +51,7 @@ final class Rules {
    * {@code input type=hidden} in the table and foster-parent any other.
    */
   private static final Set<InsertionMode> INPUT_TYPE_MODES = EnumSet.of(
-      InsertionMode.IN_TABLE, InsertionMode.IN_TABLE_BODY, InsertionMode.IN_ROW, InsertionMode.IN_COLUMN_GROUP,
-      InsertionMode.IN_SELECT_IN_TABLE);
+      InsertionMode.IN_TABLE, InsertionMode.IN_TABLE_BODY, InsertionMode.IN_ROW, InsertionMode.IN_COLUMN_GROUP);
 
   /** HTML elements whose raw text a browser never runs or renders as markup. */
   private static final Set<String> INERT_RAWTEXT = Backports.setOf("iframe", "xmp", "noembed", "noframes");

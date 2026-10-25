@@ -16,10 +16,7 @@ public interface Parser {
 
   /**
    * {@link #feed(String)}, telling {@code listener} (if not null) about each parse error and each
-   * element inserted while parsing {@code chunk}. When the previous chunk ended inside a token,
-   * what the parser reported for that earlier input may be repeated, at offset 0: a listener must
-   * tolerate repeats (the verifier reports each rule once per path). An engine that doesn't report
-   * errors ({@link Engine#reportsErrors()}) tells it nothing.
+   * element inserted while parsing {@code chunk}.
    */
   void feed(String chunk, Listener listener) throws EngineException;
 

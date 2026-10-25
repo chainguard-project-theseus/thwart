@@ -2,7 +2,6 @@ package dev.tessera.compiler.verify;
 
 import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.SourcePos;
-import dev.tessera.compiler.verify.engine.Engine;
 import dev.tessera.compiler.verify.engine.EngineException;
 import dev.tessera.compiler.verify.engine.Engines;
 import dev.tessera.compiler.verify.engine.OpenElement;
@@ -24,23 +23,24 @@ import java.util.TreeMap;
 
 /**
  * The build-time context verifier (#367, docs/security-architecture.md §11): the security boundary
- * for markup contexts. It runs each template's {@link Skeleton} through the spec HTML parsers
- * ({@link Engines#all()}), with scripting on and off, and accepts a hole only if its escaper's
- * output is inert in the parser state there in all of them ({@link Rules}). A template it doesn't
+ * for markup contexts. It runs each template's {@link Skeleton} through the spec HTML parser
+ * ({@link Engines#CURRENT}), with scripting on and off, and accepts a hole only if its escaper's
+ * output is inert in the parser state there in both ({@link Rules}). A template it doesn't
  * accept is a build error at the hole's file, line and column.
  *
  * <p>It is an abstract interpretation with the parsers as the transfer function. A path holds the
- * four parsers. Statics are fed as they are. A hole is checked and leaves the state as it was
- * (that is what "inert" means), except that an attribute hole writes {@link Rules#MARK}. Paths
- * are merged by their parser states' signatures at every join: an optional part ({@code t:if},
- * {@code t:case}, a computed attribute) is the union of skipping it and writing it, a loop runs
- * to a fixed point, and a static fragment call is analysed at each call site, memoised per
- * (fragment, entry state, bound fragment arguments), with recursion as a fixed point too.
+ * two parsers (one, when the template has no {@code <noscript>}). Statics are fed as they are. A
+ * hole is checked and leaves the state as it was (that is what "inert" means), except that an
+ * attribute hole writes {@link Rules#MARK}. Paths are merged by their parser states' signatures
+ * at every join: an optional part ({@code t:if}, {@code t:case}, a computed attribute) is the
+ * union of skipping it and writing it, a loop runs to a fixed point, and a static fragment call is
+ * analysed at each call site, memoised per (fragment, entry state, bound fragment arguments), with
+ * recursion as a fixed point too.
  *
- * <p>It accepts only error-free parses (#406, security-architecture.md §11.4): every parse error an
- * engine that reports them ({@link Engine#reportsErrors()}) finds on any path, with scripting on
- * and off, is {@link Problem#PARSE_ERROR} at the static that holds it, except the allow-list
- * ({@link Rules#allowedError}); a partial counts them only in its fragment contexts. And it checks
+ * <p>It accepts only error-free parses (#406, security-architecture.md §11.4): every parse error the
+ * engine finds on any path, with scripting on and off, is {@link Problem#PARSE_ERROR} at the static
+ * that holds it, except the allow-list ({@link Rules#allowedError}); a partial counts them only in
+ * its fragment contexts. And it checks
  * the three coarse exclusions ({@link Rules#exclusion}) at every element the parser inserts.
  *
  * <p>It fails closed: an engine failure, too many states, a loop or recursion without a fixed
@@ -70,8 +70,6 @@ public final class ContextVerifier {
     PARTIAL_CONTEXTS.put("li", "ul");
   }
 
-  /** The engines a path runs, {@link Engines#all()} outside tests. */
-  private final List<Engine> engines;
   private final Map<Skeleton.FragmentId, Skeleton.Seq> fragments = new HashMap<>();
   private final Map<String, Memo> memo = new HashMap<>();
   private final Map<String, InProgress> inProgress = new HashMap<>();
@@ -95,12 +93,6 @@ public final class ContextVerifier {
   private String breach;
 
   ContextVerifier(Map<String, Skeleton.TemplateSkeleton> templates) {
-    this(templates, Engines.all());
-  }
-
-  /** A verifier that runs only {@code engines} (tests: the classic engine switched off). */
-  ContextVerifier(Map<String, Skeleton.TemplateSkeleton> templates, List<Engine> engines) {
-    this.engines = engines;
     for (Skeleton.TemplateSkeleton t : templates.values()) {
       for (Map.Entry<String, Skeleton.Seq> f : t.fragments().entrySet()) {
         fragments.put(new Skeleton.FragmentId(t.viewName(), f.getKey()), f.getValue());
@@ -110,7 +102,6 @@ public final class ContextVerifier {
 
   /** A fresh analysis (no memo) over the same fragments. */
   private ContextVerifier(ContextVerifier other) {
-    engines = other.engines;
     fragments.putAll(other.fragments);
   }
 
@@ -148,7 +139,7 @@ public final class ContextVerifier {
    * Why {@code template}'s output may not be FLOW content, in words, or null if it is: it is a
    * partial (not a page), its root needs no other context than {@code <body>}, and inserted at each
    * of {@link ContentKinds#PARTIAL_PROBES} it has no finding and leaves the parser as it found it
-   * in all four parsers, keeping the producer promise after every tag. It fails closed: an engine
+   * in every parser, keeping the producer promise after every tag. It fails closed: an engine
    * failure or a probe the predicate doesn't accept is a "no".
    */
   String whyNotFlowPartial(Skeleton.TemplateSkeleton template) {
@@ -173,7 +164,7 @@ public final class ContextVerifier {
   /** Why {@code template} isn't FLOW content inserted after {@code context} in a {@code <body>}, or null. */
   private String probe(Skeleton.TemplateSkeleton template, String context, boolean checkPromise) {
     boolean scriptingOff = mentionsNoscript(template.body(), Collections.newSetFromMap(new IdentityHashMap<Object, Boolean>()));
-    parserCount = (scriptingOff ? 2 : 1) * engines.size();
+    parserCount = scriptingOff ? 2 : 1;
     promiseCheck = checkPromise;
     List<Finding> found = new ArrayList<>();
     sink = found;
@@ -238,7 +229,7 @@ public final class ContextVerifier {
     // The scripting flag changes only how a <noscript> tag parses: without one, the parsers with
     // scripting off stay in the states of those with it on.
     boolean scriptingOff = mentionsNoscript(template.body(), Collections.newSetFromMap(new IdentityHashMap<Object, Boolean>()));
-    parserCount = (scriptingOff ? 2 : 1) * engines.size();
+    parserCount = scriptingOff ? 2 : 1;
     List<String> entries = entries(template);
     for (String context : entries) {
       List<Finding> found = new ArrayList<>();
@@ -690,8 +681,9 @@ public final class ContextVerifier {
       if (!p.tagHole && !p.markedFormatting && !promiseCheck) {
         int lt = text.lastIndexOf('<');
         if (lt > 0 && text.indexOf('>', lt) < 0) {
-          // A tag that goes on past this static: feed the text before it on its own, so the
-          // parser replays only the tag's own input while it is inside it (VnuParser).
+          // A tag that goes on past this static: feed the text before it on its own, so the state
+          // inside the tag is described by the state before it plus only the tag's own input
+          // (VnuParser), and paths that differ only before the tag still merge.
           p.feed(located.sub(0, lt));
           p.defer(located.sub(lt, text.length()));
         } else {
@@ -1107,15 +1099,12 @@ public final class ContextVerifier {
 
   /**
    * A path at the start of a template: document parsing (null {@code context}) or fragment
-   * parsing in an HTML {@code context}, in each engine, with scripting on and, if {@code
-   * scriptingOff}, off.
+   * parsing in an HTML {@code context}, with scripting on and, if {@code scriptingOff}, off.
    */
   private Path start(String context, boolean scriptingOff) throws EngineException {
     List<Parser> ps = new ArrayList<>();
-    for (Engine e : engines) {
-      for (boolean on : scriptingOff ? new boolean[] {true, false} : new boolean[] {true}) {
-        ps.add(context == null ? e.document(on) : e.fragment(OpenElement.HTML, context, on));
-      }
+    for (boolean on : scriptingOff ? new boolean[] {true, false} : new boolean[] {true}) {
+      ps.add(context == null ? Engines.CURRENT.document(on) : Engines.CURRENT.fragment(OpenElement.HTML, context, on));
     }
     return new Path(this, ps.toArray(new Parser[0]));
   }
@@ -1225,7 +1214,7 @@ public final class ContextVerifier {
     }
   }
 
-  /** One path through the template: a parser per engine and scripting mode, in the same input. */
+  /** One path through the template: a parser per scripting mode, in the same input. */
   private static final class Path {
     /** The verifier the parsers report parse errors and excluded shapes to. */
     private final ContextVerifier owner;

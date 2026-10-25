@@ -4,7 +4,6 @@ import java.io.StringReader;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
@@ -14,13 +13,13 @@ import org.w3c.dom.Document;
 import org.xml.sax.InputSource;
 
 /**
- * The two spec parsers the HTML checks run (#318): {@code vnu-1.4}, htmlparser 1.4.16 (classic
- * {@code <select>}), and {@code vnu-26}, the htmlparser inside validator 26.10.12 (current spec).
+ * The spec parser the HTML checks run (#318): {@code vnu-26}, the htmlparser inside validator
+ * 26.10.12 (current spec), the published jar the verifier's engine is built from.
  *
- * <p>Both jars hold the same package names, so each is loaded in its own {@link URLClassLoader}
- * whose parent is the platform loader, and called reflectively (test code; principle 4 covers
- * runtime and generated code). The loaders run with assertions off: the parsers' own consistency
- * asserts throw {@link AssertionError} on some inputs under surefire's {@code -ea}.
+ * <p>The validator jar bundles many libraries, so it stays off the test classpath: it is loaded in
+ * its own {@link URLClassLoader} whose parent is the platform loader, and called reflectively
+ * (test code; principle 4 covers runtime and generated code). The loader runs with assertions
+ * off, as vnu ships.
  *
  * <p>Each parse is a full document. Every XML violation policy is {@code ALLOW} (comments, text and
  * spaces as parsed), except two that a JDK DOM can't hold: a name that isn't an XML name is spelled
@@ -32,9 +31,6 @@ import org.xml.sax.InputSource;
 public final class SpecParsers {
   private SpecParsers() {}
 
-  /** htmlparser 1.4.16: classic {@code <select>} parsing. */
-  public static final String VNU_14 = "vnu-1.4";
-
   /** validator 26.10.12: the current spec. */
   public static final String VNU_26 = "vnu-26";
 
@@ -42,10 +38,10 @@ public final class SpecParsers {
   private static final String POLICY = "nu.validator.htmlparser.common.XmlViolationPolicy";
 
   private static final class Holder {
-    static final List<SpecParser> ALL = List.of(load(VNU_14, htmlparser14Jar()), load(VNU_26, validator26Jar()));
+    static final List<SpecParser> ALL = List.of(load(VNU_26, validator26Jar()));
   }
 
-  /** Both parsers, {@code vnu-1.4} first. */
+  /** The parsers: {@code vnu-26}. */
   public static List<SpecParser> all() {
     return Holder.ALL;
   }
@@ -58,16 +54,6 @@ public final class SpecParsers {
       }
     }
     throw new IllegalArgumentException("no spec parser " + name);
-  }
-
-  /** The htmlparser 1.4.16 jar on the test classpath. */
-  private static Path htmlparser14Jar() {
-    try {
-      return Path.of(nu.validator.htmlparser.dom.HtmlDocumentBuilder.class
-          .getProtectionDomain().getCodeSource().getLocation().toURI());
-    } catch (URISyntaxException e) {
-      throw new IllegalStateException(e);
-    }
   }
 
   /** The validator 26.10.12 jar, copied by the tessera-compiler pom (not on the classpath). */

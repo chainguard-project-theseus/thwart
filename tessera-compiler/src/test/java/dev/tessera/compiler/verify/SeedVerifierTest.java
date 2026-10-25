@@ -36,15 +36,14 @@ import org.junit.jupiter.params.provider.MethodSource;
  *   <li>expect: {@code VERIFIER} with its rule ids (compiled with the profile's diagnostics
  *       suppressed, the verifier reports each rule), {@code ACCEPT} (the verifier accepts the
  *       skeleton the compiler writes today), or {@code PROFILE} (the profile's tokenizer stops
- *       on it, so there is no tree to verify; the build fails). {@code @classic} after the rules:
- *       only the classic engine rejects it, where browsers differ.
+ *       on it, so there is no tree to verify; the build fails).
  * </ul>
  *
  * An {@code AB} seed is never {@code ACCEPT} without a note saying how main fixed it in codegen.
  */
 class SeedVerifierTest {
 
-  record Expectation(String name, String family, String expect, List<String> rules, boolean classicOnly, String note) {}
+  record Expectation(String name, String family, String expect, List<String> rules, String note) {}
 
   private static Map<String, Expectation> expectations;
 
@@ -70,8 +69,7 @@ class SeedVerifierTest {
       String note = hash < 0 ? "" : line.substring(hash + 2).strip();
       String[] f = (hash < 0 ? line : line.substring(0, hash)).strip().split("\\s+");
       List<String> rules = new ArrayList<>(List.of(f).subList(3, f.length));
-      boolean classicOnly = rules.remove("@classic");
-      Expectation e = new Expectation(f[0], f[1], f[2], rules, classicOnly, note);
+      Expectation e = new Expectation(f[0], f[1], f[2], rules, note);
       assertTrue(Set.of("AB", "C", "D", "E", "OVER", "-").contains(e.family()), line);
       assertTrue(Set.of("VERIFIER", "ACCEPT", "PROFILE").contains(e.expect()), line);
       assertEquals(e.expect().equals("VERIFIER"), !rules.isEmpty(), line);
@@ -89,8 +87,7 @@ class SeedVerifierTest {
     Map<String, Expectation> e = expectations();
     Set<String> names = Seeds.load().stream().map(Seeds.Seed::name).collect(Collectors.toCollection(TreeSet::new));
     assertEquals(names, new TreeSet<>(e.keySet()));
-    // #367: the classic-<select> seeds are rejected; since #406 by exclusion (c) in the current
-    // engine too (ErrorFreeTest checks them with the classic engine switched off); and these three
+    // #367: the <select> seeds are rejected, since #406 by exclusion (c) (ErrorFreeTest); and these three
     // must be rejected by the verifier (the prototype missed pr304-9, the value oracle pr305-4 and 306-A29).
     for (String n : List.of("306-A31", "pr304-7", "pr305-1", "pr305-2", "pr305-3", "pr305-4", "pr305-5", "pr305-6", "pr305-7")) {
       assertTrue(e.get(n).rules().contains("SELECT_CONTENT"), n);
@@ -117,10 +114,6 @@ class SeedVerifierTest {
         for (String rule : e.rules()) {
           assertTrue(c.errors().stream().anyMatch(m -> m.contains("[verifier:" + rule + "]")),
               seed.name() + ": no " + rule + " in " + c.errors());
-        }
-        if (e.classicOnly()) {
-          // Browsers differ here (classic and customizable <select>): the classic engine rejects it.
-          assertTrue(c.errors().stream().allMatch(m -> m.contains("only in the older HTML parsing some browsers still use")), c.errors().toString());
         }
       }
       case "ACCEPT" -> {

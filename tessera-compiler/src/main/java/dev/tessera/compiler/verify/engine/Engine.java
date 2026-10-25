@@ -1,20 +1,14 @@
 package dev.tessera.compiler.verify.engine;
 
 /**
- * A spec HTML parser the build-time verifier runs (security-architecture.md §11.4). The two
- * engines are {@link Engines#CURRENT} and {@link Engines#CLASSIC}; a template is accepted only if
- * both accept it.
+ * A spec HTML parser the build-time verifier runs (security-architecture.md §11.4): {@link
+ * Engines#CURRENT}. Its parsers report parse errors and inserted elements to a {@link
+ * Parser.Listener} (#406).
  */
 public interface Engine {
 
-  /** The parser and its version, for messages: {@code htmlparser@validator-26.10.12}, {@code htmlparser-1.4.16}. */
+  /** The parser and its version, for messages: {@code htmlparser@validator-26.10.12}. */
   String name();
-
-  /**
-   * Whether its parsers report parse errors and inserted elements to a {@link Parser.Listener}
-   * (#406: {@link Engines#CURRENT} only).
-   */
-  boolean reportsErrors();
 
   /** Document parsing from the initial insertion mode. */
   Parser document(boolean scripting) throws EngineException;

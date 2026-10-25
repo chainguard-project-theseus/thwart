@@ -31,15 +31,13 @@ class SeedVerdictsDump {
         Compilation v = Compilation.builder().template("t.html", s.template()).verifierOnly().compile();
         Compilation full = Compilation.builder().template("t.html", s.template()).compile();
         Set<String> rules = new TreeSet<>();
-        boolean classic = !v.errors().isEmpty();
         for (String e : v.errors()) {
           Matcher m = RULE.matcher(e);
           if (m.find()) {
             rules.add(m.group(1));
           }
-          classic &= e.contains("only in the older HTML parsing some browsers still use");
         }
-        String verdict = v.success() ? "ACCEPT" : "REJECT " + String.join(",", rules) + (classic ? " @classic" : "");
+        String verdict = v.success() ? "ACCEPT" : "REJECT " + String.join(",", rules);
         w.println(String.join("\t", s.name(), s.expected().toString(), verdict, full.success() ? "OK" : "PROFILE",
             oneLine(v.errors().isEmpty() ? "" : v.errors().get(0)), oneLine(full.errors().isEmpty() ? "" : full.errors().get(0)),
             oneLine(String.valueOf(v.skeleton("t"))), oneLine(s.template())));

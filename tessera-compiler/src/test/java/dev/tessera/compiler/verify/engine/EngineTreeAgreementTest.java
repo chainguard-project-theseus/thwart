@@ -15,10 +15,10 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * The shaded engines parse exactly like the published jars (#365): on a sample of html5lib
- * tree-construction cases, the tree built with each renamed, Java 8 engine equals the tree the
- * test-scope oracle jar builds (htmlparser 1.4.16 for {@code CLASSIC}, validator 26.10.12 for
- * {@code CURRENT}). This checks the build (fetch, rename, compile), not the spec.
+ * The shaded engine parses exactly like the published jar (#365): on a sample of html5lib
+ * tree-construction cases, the tree built with the renamed, Java 8 engine equals the tree the
+ * test-scope oracle jar (validator 26.10.12) builds. This checks the build (fetch, rename,
+ * compile), not the spec.
  */
 class EngineTreeAgreementTest {
 
@@ -63,12 +63,5 @@ class EngineTreeAgreementTest {
   void currentAgreesWithValidator26(Case c) throws Exception {
     String oracle = TestTree.fromDom(SpecParsers.named(SpecParsers.VNU_26).parse(c.data(), c.scripting())).serialize();
     assertEquals(oracle, CurrentTreeBuilder.parse(c.data(), c.scripting()), c.data());
-  }
-
-  @ParameterizedTest(name = "{0}")
-  @MethodSource("sample")
-  void classicAgreesWithHtmlparser14(Case c) throws Exception {
-    String oracle = TestTree.fromDom(SpecParsers.named(SpecParsers.VNU_14).parse(c.data(), c.scripting())).serialize();
-    assertEquals(oracle, ClassicTreeBuilder.parse(c.data(), c.scripting()), c.data());
   }
 }

@@ -9,8 +9,8 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 
 /**
- * A minimal tree for the html5lib agreement test: built by {@link CurrentTreeBuilder} and
- * {@link ClassicTreeBuilder} from the shaded engines, and read from the oracle jars' DOM, then
+ * A minimal tree for the html5lib agreement test: built by {@link CurrentTreeBuilder} from the
+ * shaded engine, and read from the oracle jar's DOM, then
  * serialized the same way (html5lib's indented format; adjacent text merged; attributes sorted;
  * no doctype, which the oracle's DOM leaves out).
  */
