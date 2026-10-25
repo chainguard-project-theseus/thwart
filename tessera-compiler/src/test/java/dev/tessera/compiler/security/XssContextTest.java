@@ -63,7 +63,8 @@ class XssContextTest {
           new Line("<i t:class=\"s\">x</i><i class=\"c\" t:classappend=\"'k' + s\">y</i>", Kind.HTML, Kind.HTML),
           new Line("<input t:value=\"s\"><img t:alt=\"s\">", Kind.HTML, Kind.HTML),
           new Line("<a t:href=\"s\">x</a><a t:attr=\"HREF=s\">y</a>", Kind.URL, Kind.URL),
-          new Line("<form t:action=\"s\"></form><button t:formaction=\"s\">x</button>", Kind.URL, Kind.URL),
+          // A computed formaction outside a form that gets no CSRF token must be a link (#314).
+          new Line("<form t:action=\"s\"><button t:formaction=\"s\">x</button></form>", Kind.URL, Kind.URL),
           new Line("<img t:src=\"s\"><video t:poster=\"s\"></video><q t:cite=\"s\">q</q>", Kind.URL, Kind.URL, Kind.URL),
           new Line("<svg><a t:xlink:href=\"s\"><text>x</text></a><image t:href=\"s\"/></svg>", Kind.URL, Kind.URL),
           new Line(
@@ -415,7 +416,11 @@ class XssContextTest {
           // a browser does not end this tag at '/>', so the <script> after it is live
           "<textarea x=y/><a title=\"</textarea><script>//\">\n[[s]]\n//</a><!-- </script> -->",
           // a browser reads a valueless type first, so this is a classic script, not JSON
-          "<script type/ type=\"application/json\">[[s]]</script>");
+          "<script type/ type=\"application/json\">[[s]]</script>",
+          // #314: a submit button sends the form's CSRF token to its formaction
+          "<form method=\"post\"><button t:formaction=\"s\">x</button></form>",
+          "<form method=\"post\"><button t:attr=\"formaction=@{//evil.example/}\">x</button></form>",
+          "<form method=\"post\"><input type=\"submit\" formaction=\"https://evil.example/\"></form>");
 
   /** The built-in {@code html.sanitize} turns stored rich text into SafeHtml for raw output. */
   @Test

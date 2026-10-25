@@ -24,7 +24,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
 /**
- * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. A Vue/Alpine binding with an ordinary target ({@code :prop}, SCRIPT_ATTRIBUTE) takes only a JSON-serializable value, written as JSON. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}; an htmx request URL ({@code hx-get}, ...), and the {@code action}/{@code formaction} of a form htmx submits ({@link CodegenContext#htmxSubmits}), only a same-origin link.
+ * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. A Vue/Alpine binding with an ordinary target ({@code :prop}, SCRIPT_ATTRIBUTE) takes only a JSON-serializable value, written as JSON. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}; an htmx request URL ({@code hx-get}, ...), the {@code action}/{@code formaction} of a form htmx submits ({@link CodegenContext#htmxSubmits}), and a {@code formaction} that may receive the CSRF token ({@link CodegenContext#mayPostCsrfToken}), only a same-origin link; there a computed {@code formmethod} is a build error.
  */
 public final class GenericAttrProcessor implements AttributeProcessor {
 
@@ -116,7 +116,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     }
     if (context == OutputContext.RESOURCE_URL && Contexts.isHtmxRequestUrl(name)) {
       htmxRequestUrl(ctx, plan, name, value, pos, label,
-          "htmx requests this URL and swaps the response into the page as HTML", "");
+          "htmx requests this URL and swaps the response into the page as HTML", "", HTMX_URL);
       return;
     }
     if (context == OutputContext.URL
@@ -124,7 +124,17 @@ public final class GenericAttrProcessor implements AttributeProcessor {
         && ctx.htmxSubmits(plan.element())) {
       htmxRequestUrl(ctx, plan, name, value, pos, label,
           "inside hx-boost or an htmx form, htmx submits to this URL and swaps the response into the page as HTML",
-          ", or put hx-boost=\"false\" on the form to submit it natively");
+          ", or put hx-boost=\"false\" on the form to submit it natively", HTMX_URL);
+      return;
+    }
+    if (lower.equals("formaction") && ctx.mayPostCsrfToken(plan.element())) {
+      // #314: the token goes wherever the button submits the form.
+      htmxRequestUrl(ctx, plan, name, value, pos, label, CsrfInjector.IN_TOKEN_FORM,
+          ", or move the button into its own form", "a formaction that may receive the CSRF token");
+      return;
+    }
+    if (lower.equals("formmethod") && ctx.mayPostCsrfToken(plan.element())) {
+      ctx.diagnostics().error(pos, label + " is not allowed: " + CsrfInjector.GET_TOKEN);
       return;
     }
     CompiledExpr c = ctx.expressions().compileOutput(value, plan.scope());
@@ -209,11 +219,13 @@ public final class GenericAttrProcessor implements AttributeProcessor {
    * literal path is same-origin ({@link LinkCompiler#isSameOriginPath}) compiles. Path variables and
    * parameters are percent-encoded by the link; the value is written with the resource-URL escaper.
    * Also the {@code action}/{@code formaction} of a boosted or htmx form (#258), written with the URL
-   * escaper. {@code why} starts the error for a non-link value and {@code orElse} ends it.
+   * escaper, and a {@code formaction} that may receive the CSRF token (#314). {@code why} starts the
+   * error for a non-link value and {@code orElse} ends it; {@code what} names the URL in the error
+   * for a link that is not same-origin.
    */
   private static void htmxRequestUrl(
       CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label, String why,
-      String orElse) {
+      String orElse, String what) {
     if (!(value instanceof Expr.Link)) {
       ctx.diagnostics()
           .error(pos, label + " is not allowed: " + why + "; use a same-origin link such as"
@@ -223,7 +235,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     Expr.Link link = (Expr.Link) value;
     if (!LinkCompiler.isSameOriginPath(link.path())) {
       ctx.diagnostics()
-          .error(link.pos(), label + " is not allowed: an htmx request URL must be a same-origin path starting"
+          .error(link.pos(), label + " is not allowed: " + what + " must be a same-origin path starting"
               + " with a single '/', not @{" + link.path() + "}");
       return;
     }
@@ -232,6 +244,8 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       plan.setAttribute(name, c.code(), pos);
     }
   }
+
+  private static final String HTMX_URL = "an htmx request URL";
 
   /** Boxed and big number types whose text is only digits, sign, '.', 'E', NaN or Infinity. */
   private static final Set<String> NUMBER_TYPES =
