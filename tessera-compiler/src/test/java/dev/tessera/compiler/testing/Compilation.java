@@ -5,6 +5,8 @@ import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.messages.MessageBundle;
 import dev.tessera.compiler.processor.ProcessorOptions;
 import dev.tessera.compiler.processor.TesseraProcessor;
+import dev.tessera.compiler.verify.Skeleton;
+import dev.tessera.compiler.verify.SkeletonMatcher;
 import dev.tessera.runtime.RenderContext;
 import dev.tessera.runtime.StringOutput;
 import dev.tessera.runtime.TemplateEntry;
@@ -66,18 +68,24 @@ public final class Compilation {
   private final MemoryFileManager files;
   private final String basePackage;
   private final ClassLoader loader;
+  private final Map<String, Skeleton.TemplateSkeleton> skeletons;
+  private final Compilation upstream;
 
   private Compilation(
       List<Diagnostic<? extends JavaFileObject>> diagnostics,
       boolean success,
       MemoryFileManager files,
       String basePackage,
-      ClassLoader parent) {
+      Map<String, Skeleton.TemplateSkeleton> skeletons,
+      Compilation upstream) {
     this.diagnostics = diagnostics;
     this.success = success;
     this.files = files;
     this.basePackage = basePackage;
-    this.loader = new MemoryClassLoader(files, parent);
+    this.skeletons = skeletons;
+    this.upstream = upstream;
+    this.loader =
+        new MemoryClassLoader(files, upstream == null ? Compilation.class.getClassLoader() : upstream.loader);
   }
 
   public static Builder builder() {
@@ -136,6 +144,7 @@ public final class Compilation {
     private Compilation upstream;
     private final List<Processor> before = new ArrayList<>();
     private final List<Processor> after = new ArrayList<>();
+    private Map<String, Skeleton.TemplateSkeleton> extraSkeletons = Map.of();
 
     /** Adds a template at {@code path} relative to the templates root, e.g. {@code owners/list.html}. */
     public Builder template(String path, String content) {
@@ -215,6 +224,16 @@ public final class Compilation {
       return this;
     }
 
+    /**
+     * Skeletons of templates generated outside Tessera's processor (by an {@link #inProcessor}
+     * callback that runs the generator itself); read when the compilation ends, so the callback may
+     * fill {@code skeletons} while it runs.
+     */
+    public Builder skeletons(Map<String, Skeleton.TemplateSkeleton> skeletons) {
+      this.extraSkeletons = skeletons;
+      return this;
+    }
+
     public Compilation compile() {
       Path dir = null;
       try {
@@ -272,11 +291,13 @@ public final class Compilation {
           processors.add(callbackProcessor);
         }
         processors.addAll(before);
-        processors.add(new TesseraProcessor());
+        TesseraProcessor tessera = new TesseraProcessor();
+        processors.add(tessera);
         processors.addAll(after);
         JavaCompiler.CompilationTask task = javac.getTask(null, mem, collector, args, null, units);
         task.setProcessors(processors);
         boolean ok = task.call();
+        dumpGenerated(mem);
         if (callbackProcessor != null && callbackProcessor.failure != null) {
           Throwable t = callbackProcessor.failure;
           if (t instanceof RuntimeException r) {
@@ -292,13 +313,46 @@ public final class Compilation {
             ok,
             mem,
             options.getOrDefault(ProcessorOptions.PACKAGE, CompilerEnv.DEFAULT_PACKAGE),
-            upstream == null ? Compilation.class.getClassLoader() : upstream.loader);
+            merge(tessera.skeletons(), extraSkeletons),
+            upstream);
       } catch (IOException e) {
         throw new UncheckedIOException(e);
       } finally {
         if (dir != null) {
           deleteRecursively(dir);
         }
+      }
+    }
+
+    private static Map<String, Skeleton.TemplateSkeleton> merge(
+        Map<String, Skeleton.TemplateSkeleton> a, Map<String, Skeleton.TemplateSkeleton> b) {
+      Map<String, Skeleton.TemplateSkeleton> all = new LinkedHashMap<>(a);
+      all.putAll(b);
+      return all;
+    }
+
+    /**
+     * With {@code -Dtessera.test.dumpGenerated=<dir>}, writes every generated source under
+     * {@code <dir>/<hash of this compilation's inputs>/}, so the generated code of a whole test run
+     * can be compared before and after a codegen change (#366).
+     */
+    private void dumpGenerated(MemoryFileManager mem) throws IOException {
+      String dump = System.getProperty("tessera.test.dumpGenerated");
+      if (dump == null) {
+        return;
+      }
+      String inputs = List.of(templates, javaSources, options, String.valueOf(messages), localeMessages,
+          String.valueOf(release), templatesOption).toString();
+      String key;
+      try {
+        key = java.util.HexFormat.of().formatHex(
+            java.security.MessageDigest.getInstance("SHA-256").digest(inputs.getBytes(StandardCharsets.UTF_8)));
+      } catch (java.security.NoSuchAlgorithmException e) {
+        throw new AssertionError(e);
+      }
+      Path out = Files.createDirectories(Path.of(dump, key));
+      for (Map.Entry<String, MemoryFile> e : mem.sources.entrySet()) {
+        Files.writeString(out.resolve(e.getKey() + ".java"), e.getValue().getCharContent(true), StandardCharsets.UTF_8);
       }
     }
   }
@@ -376,12 +430,59 @@ public final class Compilation {
     return render(viewName, model, RenderContext.defaults());
   }
 
+  /**
+   * Renders {@code viewName}, and checks that the output is in the language of the template's
+   * skeleton (#366): every render in the test suite proves that the skeleton the verifier checks is
+   * what the generated class writes, and that each hole's output stays in its escaper's alphabet.
+   */
   public String render(String viewName, Map<String, ?> model, RenderContext ctx) {
     TemplateEntry entry =
         registry().find(viewName).orElseThrow(() -> new AssertionError("no template " + viewName));
     StringOutput out = new StringOutput();
     entry.renderer().render(model, ctx, out);
-    return out.toString();
+    String output = out.toString();
+    assertInSkeleton(viewName, output);
+    return output;
+  }
+
+  /**
+   * The skeleton of template {@code viewName} compiled here or upstream ({@link Builder#classpath}),
+   * or null.
+   */
+  public Skeleton.TemplateSkeleton skeleton(String viewName) {
+    for (Compilation c = this; c != null; c = c.upstream) {
+      Skeleton.TemplateSkeleton s = c.skeletons.get(viewName);
+      if (s != null) {
+        return s;
+      }
+    }
+    return null;
+  }
+
+  /** The skeleton of fragment {@code id}, or null. */
+  public Skeleton.Seq fragmentSkeleton(Skeleton.FragmentId id) {
+    Skeleton.TemplateSkeleton t = skeleton(id.view());
+    return t == null ? null : t.fragments().get(id.name());
+  }
+
+  /**
+   * Fails unless {@code output} is in the language of {@code viewName}'s skeleton, naming the first
+   * offset no path through the skeleton gets past and the node expected there.
+   */
+  public void assertInSkeleton(String viewName, String output) {
+    Skeleton.TemplateSkeleton t = skeleton(viewName);
+    if (t == null) {
+      throw new AssertionError("no skeleton for template " + viewName);
+    }
+    SkeletonMatcher.Result r = SkeletonMatcher.match(t.body(), output, this::fragmentSkeleton);
+    SkeletonFidelity.record(this, viewName, t, r.matches());
+    if (!r.matches()) {
+      int from = Math.max(0, r.offset() - 40);
+      throw new AssertionError(
+          "render of " + viewName + " is not in its skeleton at offset " + r.offset() + ": ..."
+              + output.substring(from, r.offset()) + "\u2038" + output.substring(r.offset(), Math.min(output.length(), r.offset() + 40))
+              + "...\nexpected: " + r.expected() + "\nskeleton: " + t + "\noutput: " + output);
+    }
   }
 
   /** Creates an instance of a compiled test class via its public constructor (test code only). */

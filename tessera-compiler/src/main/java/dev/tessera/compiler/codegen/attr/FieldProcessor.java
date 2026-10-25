@@ -5,10 +5,10 @@ import static dev.tessera.compiler.types.ExpressionCompiler.isDeclared;
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.DiagnosticSink;
-import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
+import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.html.Contexts;
@@ -18,6 +18,7 @@ import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
+import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.Escapers;
 import java.util.Locale;
 import java.util.Optional;
@@ -66,7 +67,9 @@ public final class FieldProcessor implements AttributeProcessor {
         nameAndId(plan, attr, name, id);
         // RCDATA, or TEXT for a textarea inside svg or math
         OutputContext content = Contexts.text(plan.element());
-        plan.replaceBody(ESCAPERS + "." + content.escaper() + "(out, " + display + ");", content);
+        plan.replaceBody(
+            Emitted.hole(Skeleton.Escaper.forMethod(content.escaper()), plan.element().name(), null, attr.pos(), display),
+            content);
         break;
       case "select":
         nameAndId(plan, attr, name, id);
@@ -112,16 +115,14 @@ public final class FieldProcessor implements AttributeProcessor {
           }
           plan.setAttribute(
               "checked", "java.lang.Boolean.TRUE.equals(" + current.code() + ") ? \"checked\" : null", attr.pos());
-          String marker =
-              "out.write("
-                  + JavaStrings.literal("<input type=\"hidden\" name=\"_")
-                  + "); "
-                  + ESCAPERS
-                  + ".attr(out, "
-                  + name
-                  + "); out.write("
-                  + JavaStrings.literal("\" value=\"on\" />")
-                  + ");";
+          // Made up: no source position.
+          Emitted marker =
+              Emitted.concat(
+                  Emitted.text("<input type=\"hidden\" name=\"_", null),
+                  Emitted.code(" "),
+                  Emitted.hole(Skeleton.Escaper.ATTR, "input", "name", attr.pos(), name),
+                  Emitted.code(" "),
+                  Emitted.text("\" value=\"on\" />", null));
           // Like Thymeleaf, no marker for a disabled checkbox (it is not submitted, so the marker
           // would reset the value to false). Thymeleaf checks for a disabled attribute of any
           // value after t:disabled/t:attr ran, as here (they precede t:field).
@@ -134,7 +135,8 @@ public final class FieldProcessor implements AttributeProcessor {
             String local = ctx.freshName("disabled");
             plan.wrap("{ java.lang.Object " + local + " = " + dynamic.valueCode() + ";", "}");
             plan.setAttribute(dynamic.name(), local, dynamic.pos());
-            plan.afterStartTag("if (" + local + " == null) { " + marker + " }");
+            plan.afterStartTag(
+                Emitted.opt(Skeleton.OptKind.CHECKBOX_MARKER, attr.pos(), "if (" + local + " == null) { ", marker, " }"));
           }
         } else {
           checkedByValue(ctx, attr, plan, name, display);

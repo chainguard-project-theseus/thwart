@@ -51,14 +51,38 @@ public interface CodegenContext {
   /** A unique Java identifier for a generated local, e.g. {@code o$3}. */
   String freshName(String hint);
 
-  /** Java statements that render {@code node} and its subtree in {@code scope}. */
-  String renderNode(Node node, Scope scope);
+  /**
+   * Java statements that render {@code node} and its subtree in {@code scope}, with their skeleton
+   * (#366: everything generated code writes goes through {@link Emitted}).
+   */
+  Emitted renderNode(Node node, Scope scope);
 
   /**
    * Like {@link #renderNode} for an element, ignoring the listed {@code t:} attributes (local
-   * names), e.g. {@code Set.of("fragment")} when generating a fragment method.
+   * names), e.g. {@code Set.of("fragment")} for a {@code ~{::tag}} selection helper. The element is
+   * rendered standalone: where it lands is checked where it is inserted.
    */
-  String renderElement(Element element, Scope scope, Set<String> ignoredAttributes);
+  Emitted renderElement(Element element, Scope scope, Set<String> ignoredAttributes);
+
+  /**
+   * The body of fragment {@code f}'s method: {@link #renderElement} of its element without
+   * {@code t:fragment}, with {@link #fragment} set to {@code f} meanwhile.
+   */
+  Emitted renderFragment(TemplateIndex.FragmentInfo f, Scope scope);
+
+  /**
+   * The fragment whose method is being generated, or null (the template's {@code render} method).
+   * Its {@code Fragment} parameters are recorded as {@code Skeleton.ParamInsert}s where they are
+   * inserted.
+   */
+  TemplateIndex.FragmentInfo fragment();
+
+  /**
+   * The lower-case name of the nearest element being generated whose tag is written, or null at
+   * the top of a template or of an element rendered standalone: the element a text hole is in,
+   * recorded in its {@code Skeleton.Hole}.
+   */
+  String hostElement();
 
   /** Adds a member (method or constant) to the generated class. */
   void addMember(String javaCode);

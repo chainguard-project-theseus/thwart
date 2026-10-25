@@ -30,13 +30,14 @@ public final class MessageCompiler {
   }
 
   /**
-   * A statement writing {@code #{key(args)}} as raw HTML ({@code t:utext}, {@code [(...)]}; #236),
-   * or {@code null} after reporting an error. The bundle must be checked, and the key's value in
+   * Code of the HTML of {@code #{key(args)}} ({@code t:utext}, {@code [(...)]}; #236), a
+   * {@code String} the generator writes as is ({@code codegen.Emitted#htmlMessage}), or
+   * {@code null} after reporting an error. The bundle must be checked, and the key's value in
    * every bundle file the build can see must pass {@link MessageMarkup}. Arguments are
    * HTML-escaped before they are formatted into the message, and at runtime a message that is not
    * what one of those checked values produces is escaped ({@code Escapers.htmlMessage}).
    */
-  public static String htmlStatement(Expr.Message message, String form, Scope scope, ExpressionCompiler expressions) {
+  public static String htmlValue(Expr.Message message, String form, Scope scope, ExpressionCompiler expressions) {
     CompilerEnv env = expressions.env();
     MessageBundle bundle = env.messages();
     String key = message.key();
@@ -67,8 +68,8 @@ public final class MessageCompiler {
       return null;
     }
     // The runtime prints the message as HTML only if it is what one of the checked values produces.
-    return "out.write(dev.tessera.runtime.Escapers.htmlMessage(ctx, " + JavaStrings.literal(key) + ", " + args
-        + ", new java.lang.String[] {" + String.join(", ", checked) + "}));\n";
+    return "dev.tessera.runtime.Escapers.htmlMessage(ctx, " + JavaStrings.literal(key) + ", " + args
+        + ", new java.lang.String[] {" + String.join(", ", checked) + "})";
   }
 
   /**

@@ -2,8 +2,10 @@ package dev.tessera.compiler.codegen.attr;
 
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
+import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
+import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.Escapers;
 import java.util.Locale;
 import java.util.Optional;
@@ -85,7 +87,9 @@ public final class CsrfInjector {
       // A static action on another origin is the author's choice; it just gets no token.
       return false;
     }
-    plan.afterStartTag(condition == null ? tokenInput(ctx) : "if (" + condition + ") " + tokenInput(ctx));
+    Emitted token = tokenInput(ctx);
+    plan.afterStartTag(
+        condition == null ? token : Emitted.opt(Skeleton.OptKind.CSRF_TOKEN, null, "if (" + condition + ") ", token, ""));
     return true;
   }
 
@@ -207,12 +211,26 @@ public final class CsrfInjector {
     return v;
   }
 
-  private static String tokenInput(CodegenContext ctx) {
+  /** The hidden input, written when the request has a token (made up: no source position). */
+  private static Emitted tokenInput(CodegenContext ctx) {
     String t = ctx.freshName("csrf");
-    String esc = Escapers.class.getName() + ".attr(out, ";
-    return "{ java.util.Optional<dev.tessera.runtime.Forms.CsrfToken> " + t + " = ctx.forms().csrfToken(); if (" + t
-        + ".isPresent()) { out.write(\"<input type=\\\"hidden\\\" name=\\\"\"); " + esc + t
-        + ".get().parameterName()); out.write(\"\\\" value=\\\"\"); " + esc + t
-        + ".get().token()); out.write(\"\\\" />\"); } }";
+    Emitted input =
+        Emitted.concat(
+            Emitted.text("<input type=\"hidden\" name=\"", null),
+            Emitted.code(" "),
+            Emitted.hole(Skeleton.Escaper.ATTR, "input", "name", null, t + ".get().parameterName()"),
+            Emitted.code(" "),
+            Emitted.text("\" value=\"", null),
+            Emitted.code(" "),
+            Emitted.hole(Skeleton.Escaper.ATTR, "input", "value", null, t + ".get().token()"),
+            Emitted.code(" "),
+            Emitted.text("\" />", null));
+    return Emitted.opt(
+        Skeleton.OptKind.CSRF_TOKEN,
+        null,
+        "{ java.util.Optional<dev.tessera.runtime.Forms.CsrfToken> " + t + " = ctx.forms().csrfToken(); if (" + t
+            + ".isPresent()) { ",
+        input,
+        " } }");
   }
 }

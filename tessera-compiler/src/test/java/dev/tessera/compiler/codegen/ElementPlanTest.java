@@ -22,25 +22,25 @@ class ElementPlanTest {
   void replaceBodyRejectsContextOtherThanTheElementContent() {
     ElementPlan script = plan("script");
     IllegalStateException e =
-        assertThrows(IllegalStateException.class, () -> script.replaceBody("x", OutputContext.TEXT));
+        assertThrows(IllegalStateException.class, () -> script.replaceBody(Emitted.code("x"), OutputContext.TEXT));
     assertEquals("body written for TEXT inside <script> whose content is SCRIPT", e.getMessage());
     assertNull(script.body());
 
     ElementPlan style = plan("style");
-    assertThrows(IllegalStateException.class, () -> style.replaceBody("x", OutputContext.TEXT));
+    assertThrows(IllegalStateException.class, () -> style.replaceBody(Emitted.code("x"), OutputContext.TEXT));
     ElementPlan div = plan("div");
-    assertThrows(IllegalStateException.class, () -> div.replaceBody("x", OutputContext.SCRIPT));
+    assertThrows(IllegalStateException.class, () -> div.replaceBody(Emitted.code("x"), OutputContext.SCRIPT));
     assertNull(div.body());
   }
 
   @Test
   void replaceBodyAcceptsTheElementContent() {
     ElementPlan script = plan("script");
-    script.replaceBody("x", OutputContext.SCRIPT);
-    assertEquals("x", script.body());
+    script.replaceBody(Emitted.code("x"), OutputContext.SCRIPT);
+    assertEquals("x", script.body().java());
     ElementPlan div = plan("div");
-    div.replaceBody("y", OutputContext.TEXT);
-    assertEquals("y", div.body());
+    div.replaceBody(Emitted.code("y"), OutputContext.TEXT);
+    assertEquals("y", div.body().java());
   }
 
   @Test
