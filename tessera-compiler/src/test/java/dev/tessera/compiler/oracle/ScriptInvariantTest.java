@@ -5,17 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.oracle.Finding.Kind;
 import dev.tessera.runtime.Escapers;
-import java.io.StringReader;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import nu.validator.htmlparser.common.XmlViolationPolicy;
-import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.w3c.dom.Document;
-import org.xml.sax.InputSource;
 
 /** Unit tests of the script-slot check (#319) on hand-written script text. */
 class ScriptInvariantTest {
@@ -285,8 +281,7 @@ class ScriptInvariantTest {
 
   private static String svgScriptText(String html) {
     try {
-      Document doc =
-          new HtmlDocumentBuilder(XmlViolationPolicy.ALLOW).parse(new InputSource(new StringReader(html)));
+      Document doc = SpecParsers.named(SpecParsers.VNU_26).parse(html, true);
       return doc.getElementsByTagNameNS("http://www.w3.org/2000/svg", "script").item(0).getTextContent();
     } catch (Exception e) {
       throw new AssertionError(e);

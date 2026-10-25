@@ -43,8 +43,9 @@ import java.util.regex.Pattern;
  *       known-holes lines from it. Known holes come from running the gate on the checked-out
  *       commit; this is only a cross-check. Missing means not recorded.
  *   <li>{@code engines}: the engines a listed kind must be seen by, each of them; the default
- *       {@code *} means any one engine (see {@link Expectation#metBy}). The classic {@code
- *       <select>} cases are {@code vnu-1.4} only.
+ *       {@code *} means any one engine (see {@link Expectation#metBy}). The {@code <select>}
+ *       cases say {@code vnu-1.4}: on 0dda2f1 only the htmlparser 1.4.16 oracle saw them (history;
+ *       that oracle was removed in #408).
  *   <li>{@code note}: free text.
  * </ul>
  *

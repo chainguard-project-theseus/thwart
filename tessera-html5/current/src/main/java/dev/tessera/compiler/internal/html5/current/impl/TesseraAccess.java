@@ -13,9 +13,7 @@ import org.xml.sax.SAXParseException;
  * builds no tree.
  *
  * <p>Everything it returns is a JDK type. {@code dev.tessera.compiler.verify.engine} maps it to
- * Tessera's engine-independent {@code ParserState}. The classic build has a copy of this class
- * that differs only in its package and in the two constant tables at the end, and has no
- * {@link Listener} (#406: only this build reports parse errors).
+ * Tessera's engine-independent {@code ParserState}.
  */
 public final class TesseraAccess {
 

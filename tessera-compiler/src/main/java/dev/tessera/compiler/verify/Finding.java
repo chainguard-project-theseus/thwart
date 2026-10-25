@@ -26,7 +26,7 @@ final class Finding {
   final String attribute;
   /** The states that reject it (empty for problems that aren't about one state). */
   final List<ParserState> states;
-  /** How many parsers the path had (both engines, scripting on and maybe off). */
+  /** How many parsers the path had (scripting on, and maybe off). */
   final int parsers;
   /** Extra words for the message (engine failure text), or null. */
   final String detail;

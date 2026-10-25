@@ -9,14 +9,9 @@ import org.xml.sax.SAXException;
 
 /**
  * Builds a {@link TestTree} with the shaded current engine, set up like the oracle's
- * {@code HtmlDocumentBuilder} in {@code SpecParsers}. {@link ClassicTreeBuilder} is the same for the
- * classic engine.
+ * {@code HtmlDocumentBuilder} in {@code SpecParsers}.
  */
 final class CurrentTreeBuilder extends TreeBuilder<TestTree> {
-  static {
-    Engines.all(); // first, so the engine classes initialize with their asserts off, as in production
-  }
-
   private final TestTree document = TestTree.document();
 
   static String parse(String html, boolean scripting) throws SAXException {

@@ -94,6 +94,7 @@ class SeedsTest {
     for (Seed s : probes) {
       assertEquals(REFERENCE.containsKey(s.name()), s.expected().outcome() == Outcome.FINDINGS, s.name());
     }
+    // recorded on 0dda2f1 with the htmlparser 1.4.16 oracle (vnu-1.4, removed in #408): history
     assertEquals(List.of("vnu-1.4"), byName.get("306-A31").engines());
     // the static-text control: payload in the template, not in a value
     assertEquals(Outcome.CLEAN, byName.get("306-B11").expected().outcome());
@@ -127,7 +128,7 @@ class SeedsTest {
         Seeds.parse(
             "t.txt",
             "# preamble only\n====\n# name: a\n# expect-0dda2f1: LIVE_SCRIPT CSTI\n# fixed-by: #301 #277\n"
-                + "# main: REJECTED\n# engines: vnu-1.4\n# note: n\n# a comment\n<p>\n[[s]]</p>\n====\n"
+                + "# main: REJECTED\n# engines: firefox\n# note: n\n# a comment\n<p>\n[[s]]</p>\n====\n"
                 + "# name: b\n# expect-0dda2f1: CLEAN\n<div t:params=\"String x\"><p>[[x]]</p></div>\n");
     assertEquals(2, seeds.size());
     Seed a = seeds.get(0);
@@ -138,7 +139,7 @@ class SeedsTest {
     assertEquals(EnumSet.of(Kind.LIVE_SCRIPT, Kind.CSTI), a.expected().kinds());
     assertEquals(List.of(301, 277), a.fixedBy());
     assertEquals(Outcome.REJECTED, a.onMain().outcome());
-    assertEquals(List.of("vnu-1.4"), a.engines());
+    assertEquals(List.of("firefox"), a.engines());
     assertEquals("n", a.note());
     Seed b = seeds.get(1);
     assertEquals("<div t:params=\"String x\"><p>[[x]]</p></div>", b.template());
@@ -178,23 +179,23 @@ class SeedsTest {
 
   @Test
   void expectationsMatchVerdicts() {
-    Finding live14 = new Finding(Kind.LIVE_SCRIPT, "vnu-1.4", "/html", "v");
+    Finding liveFirefox = new Finding(Kind.LIVE_SCRIPT, "firefox", "/html", "v");
     Finding live26 = new Finding(Kind.LIVE_SCRIPT, "vnu-26", "/html", "v");
     Finding unparsable = new Finding(Kind.JS_UNPARSABLE, "rhino", "/html", "v");
-    Verdict both = new Verdict.Findings(List.of(live14, live26, new Finding(Kind.STRUCTURE_CHANGED, "vnu-26", "/", "v")));
-    Verdict classicOnly = new Verdict.Findings(List.of(live14));
+    Verdict both = new Verdict.Findings(List.of(liveFirefox, live26, new Finding(Kind.STRUCTURE_CHANGED, "vnu-26", "/", "v")));
+    Verdict firefoxOnly = new Verdict.Findings(List.of(liveFirefox));
     Verdict rejected = new Verdict.Rejected(List.of("page.html:1:1: error"));
     Expectation live = Expectation.parse("LIVE_SCRIPT");
     assertTrue(live.metBy(both, List.of("*")));
-    assertTrue(live.metBy(classicOnly, List.of("vnu-1.4")));
-    assertFalse(live.metBy(classicOnly, List.of("vnu-1.4", "vnu-26")));
+    assertTrue(live.metBy(firefoxOnly, List.of("firefox")));
+    assertFalse(live.metBy(firefoxOnly, List.of("firefox", "vnu-26")));
     assertFalse(live.metBy(new Verdict.Clean(), List.of("*")));
     assertFalse(live.metBy(rejected, List.of("*")));
     assertFalse(Expectation.parse("LIVE_SCRIPT CSTI").metBy(both, List.of("*")));
     Expectation clean = Expectation.parse("CLEAN");
     assertTrue(clean.metBy(new Verdict.Clean(), List.of("*")));
     assertTrue(clean.metBy(new Verdict.Findings(List.of(unparsable)), List.of("*")));
-    assertFalse(clean.metBy(classicOnly, List.of("*")));
+    assertFalse(clean.metBy(firefoxOnly, List.of("*")));
     assertFalse(clean.metBy(rejected, List.of("*")));
     assertTrue(Expectation.parse("REJECTED").metBy(rejected, List.of("*")));
     assertFalse(Expectation.parse("REJECTED").metBy(new Verdict.Clean(), List.of("*")));

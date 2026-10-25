@@ -1,48 +1,33 @@
 package dev.tessera.compiler.verify.engine;
 
 /**
- * What {@link VnuParser} needs from one engine build: a thin view of that build's
- * {@code TesseraAccess}, in plain types. One adapter per build ({@link CurrentEngine},
- * {@link ClassicEngine}); they differ only in the package they import.
+ * What {@link VnuParser} needs from the engine build: a thin view of its {@code TesseraAccess}, in
+ * plain types ({@link VnuEngine}'s adapter; tests substitute failing ones).
  */
 interface RawParser {
-  void feed(char[] chars, int start, int end) throws Exception;
-
   /**
-   * {@link #feed(char[], int, int)}, telling {@code listener} about parse errors and inserted
-   * elements (#406). A build that doesn't report them ignores the listener.
+   * Tokenizes {@code chars[start, end)}, telling {@code listener} (if not null) about parse errors
+   * and inserted elements (#406).
    */
-  default void feed(char[] chars, int start, int end, RawListener listener) throws Exception {
-    feed(chars, start, end);
-  }
+  void feed(char[] chars, int start, int end, RawListener listener) throws Exception;
 
   /** The number of open elements, also while a {@link RawListener} is called. */
-  default int stackLength() {
-    throw new UnsupportedOperationException();
-  }
+  int stackLength();
 
   /** The namespace URI of open element {@code i}, from 0 (the root). */
-  default String stackNamespace(int i) {
-    throw new UnsupportedOperationException();
-  }
+  String stackNamespace(int i);
 
   /** The local name of open element {@code i}, from 0 (the root). */
-  default String stackName(int i) {
-    throw new UnsupportedOperationException();
-  }
+  String stackName(int i);
 
   /** The number of template insertion modes. */
-  default int templateModeCount() {
-    throw new UnsupportedOperationException();
-  }
+  int templateModeCount();
 
   /** Template insertion mode {@code i} (a name from {@link InsertionMode}), from 0 (the outermost). */
-  default String templateMode(int i) {
-    throw new UnsupportedOperationException();
-  }
+  String templateMode(int i);
 
   /**
-   * What a build reports while it parses, at the tokenizer's line (from 1) and column (from 1) in
+   * What the build reports while it parses, at the tokenizer's line (from 1) and column (from 1) in
    * the input fed to this raw parser since it was created (a fork counts afresh).
    */
   interface RawListener {

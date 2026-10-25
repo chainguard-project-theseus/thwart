@@ -129,7 +129,7 @@ class ProfileOracleTest {
           Finding.Kind.CROSS_ORIGIN_RESOURCE, Finding.Kind.JS_URL, Finding.Kind.LIVE_SCRIPT));
 
   /** The engines this gate runs; a known-holes line for another engine is the Node job's. */
-  static final Set<String> ENGINES = Set.of(SpecParsers.VNU_14, SpecParsers.VNU_26, ScriptInvariant.ENGINE, "*");
+  static final Set<String> ENGINES = Set.of(SpecParsers.VNU_26, ScriptInvariant.ENGINE, "*");
 
   /** The #320 values (security-model.md §4), {@code PWN} standing for the slot's marker. */
   static final List<String> SEED_VALUES =
@@ -417,11 +417,10 @@ class ProfileOracleTest {
 
   static {
     List<LemmaParser> ps = new ArrayList<>();
-    for (Engine e : Engines.all()) {
-      for (boolean scripting : new boolean[] {true, false}) {
-        for (boolean fragment : new boolean[] {false, true}) {
-          ps.add(new LemmaParser(e, scripting, fragment));
-        }
+    Engine e = Engines.CURRENT;
+    for (boolean scripting : new boolean[] {true, false}) {
+      for (boolean fragment : new boolean[] {false, true}) {
+        ps.add(new LemmaParser(e, scripting, fragment));
       }
     }
     LEMMA_PARSERS = List.copyOf(ps);

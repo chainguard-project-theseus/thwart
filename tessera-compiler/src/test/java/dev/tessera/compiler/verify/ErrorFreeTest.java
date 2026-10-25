@@ -1,11 +1,9 @@
 package dev.tessera.compiler.verify;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.oracle.Seeds;
 import dev.tessera.compiler.testing.Compilation;
-import dev.tessera.compiler.verify.engine.Engines;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -195,10 +193,10 @@ class ErrorFreeTest {
   }
 
   /**
-   * A tag with an attribute hole is fed in two chunks, and the parser replays the tag's start when
-   * it completes it. With CRLF line breaks before the hole, what the parser reported in the second
-   * chunk mapped back before it and was dropped: the <svg> in a cell and the nested <a> were
-   * accepted. Nothing a replay reports may be lost.
+   * A tag with an attribute hole is fed in two chunks. When the parser replayed the tag's start to
+   * complete it (before #408), with CRLF line breaks before the hole, what it reported in the
+   * second chunk mapped back before it and was dropped: the <svg> in a cell and the nested <a> were
+   * accepted. Nothing reported in a later chunk may be lost.
    */
   @Test
   void crlfLineBreaksBeforeAnAttributeHoleLoseNothing() {
@@ -252,26 +250,23 @@ class ErrorFreeTest {
   }
 
   /**
-   * The seeds that only the classic engine rejected before #406 (classic <select> parsing) are
-   * rejected by exclusion (c) in the current engine alone: the classic engine can go (#408).
+   * The seeds that only the 1.4.16 engine rejected before #406 (where browsers parse {@code
+   * <select>} the classic way) are rejected by exclusion (c), now that the verifier runs one
+   * engine (#408).
    */
   @Test
-  void theClassicOnlySeedsAreRejectedWithTheClassicEngineOff() {
+  void theSelectSeedsAreRejectedByExclusionC() {
     Map<String, Seeds.Seed> seeds = Seeds.load().stream().collect(Collectors.toMap(Seeds.Seed::name, x -> x));
     for (String name : List.of("306-A31", "pr304-7", "pr305-1", "pr305-2", "pr305-5", "pr305-6", "pr305-8", "pr305-9")) {
       Compilation c = Compilation.builder().template("t.html", seeds.get(name).template()).verifierOnly().compile();
       Map<String, Skeleton.TemplateSkeleton> all = new LinkedHashMap<>();
       all.put("t", c.skeleton("t"));
-      List<Finding> f = new ContextVerifier(all, List.of(Engines.CURRENT)).check(c.skeleton("t"));
+      List<Finding> f = new ContextVerifier(all).check(c.skeleton("t"));
       assertTrue(f.stream().anyMatch(x -> x.problem == Problem.SELECT_CONTENT), name + ": " + f.stream()
           .map(VerifierMessages::message).collect(Collectors.toList()));
     }
-    // ... and an ordinary select still compiles with the current engine alone.
-    Compilation c = verify("<select><option t:text=\"s\">a</option><hr><optgroup label=\"g\"><option>b</option></optgroup></select>");
-    c.assertSuccess();
-    Map<String, Skeleton.TemplateSkeleton> all = new LinkedHashMap<>();
-    all.put("t", c.skeleton("t"));
-    assertTrue(new ContextVerifier(all, List.of(Engines.CURRENT)).check(c.skeleton("t")).isEmpty());
-    assertFalse(Engines.all().isEmpty());
+    // ... and an ordinary select still compiles.
+    verify("<select><option t:text=\"s\">a</option><hr><optgroup label=\"g\"><option>b</option></optgroup></select>")
+        .assertSuccess();
   }
 }

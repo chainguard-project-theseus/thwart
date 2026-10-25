@@ -1,14 +1,10 @@
 package dev.tessera.compiler.verify;
 
-import dev.tessera.compiler.verify.engine.Engines;
 import dev.tessera.compiler.verify.engine.InsertionMode;
 import dev.tessera.compiler.verify.engine.OpenElement;
 import dev.tessera.compiler.verify.engine.ParserState;
 import dev.tessera.compiler.verify.engine.TokenizerState;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -17,7 +13,7 @@ import java.util.regex.Pattern;
  * what a browser does with the value at that point and the smallest template change that fixes it.
  * It never shows a parser state, an insertion mode or an engine class. When the hole is inside a
  * fragment, the error is at the call site and the message names the fragment and the hole; when
- * only one engine or scripting mode rejects it, the message says so. Every message ends with
+ * only one scripting mode rejects it, the message says so. Every message ends with
  * {@code [verifier:RULE_ID]} ({@link Problem}, stable ids). Guide section 7 has the catalogue, and
  * {@code VerifierMessagesTest} the golden text.
  */
@@ -37,7 +33,7 @@ final class VerifierMessages {
       sb.append("; this happens only because the fragment calls itself, so the markup structure depends on data: ")
           .append(RICH_TEXT);
     }
-    sb.append(reportedByParser(f.problem) ? scripting(f.states) : engines(f.states, f.parsers));
+    sb.append(reportedByParser(f.problem) ? scripting(f.states) : scriptingOnly(f.states, f.parsers));
     sb.append(" [verifier:").append(f.problem.name()).append(']');
     return sb.toString();
   }
@@ -338,9 +334,6 @@ final class VerifierMessages {
       case IN_ROW:
       case IN_COLUMN_GROUP:
         return head + ", and moves what isn't table markup in front of the table; put it in a <td> or <th>";
-      case IN_SELECT:
-      case IN_SELECT_IN_TABLE:
-        return head + ", where a browser keeps only options; write the <option> elements in the template";
       default:
         if (s.reconstructionPending()) {
           return head + ", because formatting elements (<b>, <i>, <a>, ...) were closed out of order before it;"
@@ -429,9 +422,6 @@ final class VerifierMessages {
         return "in a table outside any cell";
       case IN_COLUMN_GROUP:
         return "in a <colgroup>";
-      case IN_SELECT:
-      case IN_SELECT_IN_TABLE:
-        return "in a <select>";
       case AFTER_BODY:
       case AFTER_AFTER_BODY:
         return "after </body>";
@@ -542,30 +532,11 @@ final class VerifierMessages {
     return "check the markup before it: a browser started a tag there";
   }
 
-  /**
-   * Which parsers reject it, when not all do: an engine that alone rejects means browsers differ
-   * there; a scripting mode that alone rejects is named.
-   */
-  private static String engines(List<ParserState> states, int parsers) {
-    if (states.isEmpty() || states.size() == parsers) {
+  /** Which scripting mode alone rejects it, when only one of the two parsers does. */
+  private static String scriptingOnly(List<ParserState> states, int parsers) {
+    if (states.size() != 1 || parsers != 2) {
       return "";
     }
-    Set<String> engines = new LinkedHashSet<>();
-    Set<Boolean> scripting = new LinkedHashSet<>();
-    for (ParserState s : states) {
-      engines.add(s.engine());
-      scripting.add(s.scripting());
-    }
-    List<String> parts = new ArrayList<>();
-    if (engines.size() < Engines.all().size()) {
-      parts.add(engines.iterator().next().equals(Engines.CLASSIC.name())
-          ? "in the older HTML parsing some browsers still use"
-          : "in current HTML parsing");
-    }
-    if (scripting.size() == 1 && parsers == 2 * Engines.all().size()) {
-      parts.add(scripting.iterator().next() ? "with scripting on" : "with scripting off");
-    }
-    return parts.isEmpty() ? "" : " (only " + String.join(", ", parts) + (engines.size() < Engines.all().size()
-        ? ": browsers differ here)" : ")");
+    return states.get(0).scripting() ? " (only with scripting on)" : " (only with scripting off)";
   }
 }

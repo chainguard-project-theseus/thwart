@@ -43,9 +43,7 @@ class HtmlInvariantTest {
   private static void assertKinds(Set<Finding.Kind> want, String benign, String hostile) {
     HtmlInvariant.Result r = check(benign, hostile);
     assertEquals(want, kinds(r), () -> "benign " + benign + "\nhostile " + hostile + "\n" + r.findings());
-    for (String engine : List.of(SpecParsers.VNU_14, SpecParsers.VNU_26)) {
-      assertEquals(want, kinds(r, engine), () -> engine + ": " + r.findings());
-    }
+    assertEquals(want, kinds(r, SpecParsers.VNU_26), () -> r.findings().toString());
   }
 
   private static void assertClean(String benign, String hostile) {
@@ -66,7 +64,7 @@ class HtmlInvariantTest {
   void structureFindingNamesTheEngineFlagAndPath() {
     HtmlInvariant.Result r = check("<p>tqm0001</p>", "<p><img src=x onerror=tqm0001()></p>");
     Finding f = r.findings().stream().filter(x -> x.kind() == STRUCTURE_CHANGED).findFirst().orElseThrow();
-    assertEquals(SpecParsers.VNU_14, f.engine());
+    assertEquals(SpecParsers.VNU_26, f.engine());
     assertEquals("scripting-on /html/body/p: the hostile tree adds element img", f.where());
     assertEquals(VALUE, f.value());
     assertEquals("FINDINGS", r.verdict().label());
@@ -108,7 +106,7 @@ class HtmlInvariantTest {
     assertEquals(Set.of(LIVE_HANDLER), kinds(r));
     assertEquals(Set.of("scripting-on /html/body/p/@onclick", "scripting-off /html/body/p/@onclick"),
         r.findings().stream().map(Finding::where).collect(Collectors.toSet()));
-    assertEquals(4, r.findings().size(), r.findings()::toString);
+    assertEquals(2, r.findings().size(), r.findings()::toString);
   }
 
   @Test
@@ -260,9 +258,7 @@ class HtmlInvariantTest {
   void srcdocIsADocument(String srcdoc, Finding.Kind kind) {
     HtmlInvariant.Result r = check("<iframe srcdoc=\"tqm0001\"></iframe>", "<iframe srcdoc=\"" + srcdoc + "\"></iframe>");
     assertEquals(Set.of(STRUCTURE_CHANGED, kind), kinds(r), r.findings()::toString);
-    for (String engine : List.of(SpecParsers.VNU_14, SpecParsers.VNU_26)) {
-      assertEquals(Set.of(STRUCTURE_CHANGED, kind), kinds(r, engine), r.findings()::toString);
-    }
+    assertEquals(Set.of(STRUCTURE_CHANGED, kind), kinds(r, SpecParsers.VNU_26), r.findings()::toString);
     assertTrue(r.findings().stream().allMatch(f -> f.where().contains(" /html/body/iframe/@srcdoc/html/")),
         r.findings()::toString);
   }
@@ -312,7 +308,7 @@ class HtmlInvariantTest {
   void scriptSlotWithoutAHostileScript() {
     HtmlInvariant.Result r = check("<div><script>var a = \"tqm0001\";</script></div>", "<div></div>");
     assertEquals(Set.of(STRUCTURE_CHANGED), kinds(r));
-    assertEquals(4, r.scriptSlots().size(), r.scriptSlots()::toString);
+    assertEquals(2, r.scriptSlots().size(), r.scriptSlots()::toString);
     assertTrue(r.scriptSlots().stream().allMatch(s -> s.hostile() == null), r.scriptSlots()::toString);
   }
 
@@ -326,9 +322,9 @@ class HtmlInvariantTest {
     String hostile = "<script>var a = \"\\\"+tqm0001()+\\\"\";</script>";
     HtmlInvariant.Result r = check("<script>var a = \"tqm0001\";</script>", hostile);
     assertEquals(List.of(), r.findings());
-    assertEquals(4, r.scriptSlots().size(), r.scriptSlots()::toString);
+    assertEquals(2, r.scriptSlots().size(), r.scriptSlots()::toString);
     HtmlInvariant.ScriptSlot s = r.scriptSlots().get(0);
-    assertEquals(SpecParsers.VNU_14, s.engine());
+    assertEquals(SpecParsers.VNU_26, s.engine());
     assertEquals("scripting-on /html/head/script", s.where());
     assertEquals(List.of("tqm0001"), s.markers());
     assertEquals("var a = \"tqm0001\";", s.benign());
@@ -375,13 +371,12 @@ class HtmlInvariantTest {
     assertClean(benign, hostile);
   }
 
-  // ---- engine and scripting splits ----
+  // ---- scripting splits ----
 
   @Test
-  void classicSelectRunsTheScriptCurrentSpecDoesNot() {
+  void customizableSelectKeepsTheScriptInTitle() {
     HtmlInvariant.Result r = check("<select><title>tqm0001</title></select>",
         "<select><title><script>tqm0001()</script></title></select>");
-    assertEquals(Set.of(STRUCTURE_CHANGED, LIVE_SCRIPT), kinds(r, SpecParsers.VNU_14), r.findings()::toString);
     assertEquals(Set.of(), kinds(r, SpecParsers.VNU_26), r.findings()::toString);
   }
 
@@ -418,8 +413,8 @@ class HtmlInvariantTest {
   // ---- parsers ----
 
   @Test
-  void bothParsersLoad() {
-    assertEquals(List.of(SpecParsers.VNU_14, SpecParsers.VNU_26), SpecParsers.all().stream().map(SpecParser::name).toList());
+  void theParserLoads() {
+    assertEquals(List.of(SpecParsers.VNU_26), SpecParsers.all().stream().map(SpecParser::name).toList());
     assertEquals(SpecParsers.VNU_26, SpecParsers.named("vnu-26").name());
   }
 

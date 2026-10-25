@@ -31,9 +31,7 @@
 
     <attoparser.version>2.0.9.RELEASE</attoparser.version>
     <junit.version>6.1.3</junit.version>
-    <!-- Test only: the spec-parser oracle (#317). htmlparser is the classic-<select> parser; the
-         validator jar holds the current one (same package names, so it is loaded separately). -->
-    <htmlparser.version>1.4.16</htmlparser.version>
+    <!-- The verifier's engine source (tessera-html5-current) and, test only, the spec-parser oracle (#317). -->
     <vnu-validator.version>26.10.12</vnu-validator.version>
     <rhino.version>1.8.1</rhino.version>
     <spring-boot.version>4.1.1</spring-boot.version>
@@ -72,19 +70,9 @@
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>dev.tessera</groupId>
-        <artifactId>tessera-html5-classic</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
         <groupId>org.attoparser</groupId>
         <artifactId>attoparser</artifactId>
         <version>${attoparser.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>nu.validator</groupId>
-        <artifactId>htmlparser</artifactId>
-        <version>${htmlparser.version}</version>
       </dependency>
       <dependency>
         <groupId>nu.validator</groupId>
