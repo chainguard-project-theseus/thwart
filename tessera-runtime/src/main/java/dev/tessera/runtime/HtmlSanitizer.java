@@ -9,31 +9,58 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The fixed allow-list policy behind {@link SafeHtml#sanitize}. The input is tokenized and the
- * output rebuilt from scratch: it contains only allow-listed tags written here, text re-escaped by
- * {@link Escapers}, and on {@code <a>} an {@code href} that passed the URL scheme check plus a
- * constant {@code rel}. No input is copied through, so the result is safe however a browser would
- * have parsed the original: there are no comments, no raw-text or foreign-content elements, and no
- * other attributes.
+ * The sanitizer behind {@link SafeHtml#sanitize(String, HtmlPolicy)}. The input is tokenized and
+ * the output rebuilt from scratch: it contains only tags the {@link HtmlPolicy} allows, written
+ * here with attributes whose values were checked here, and text re-escaped by {@link Escapers}.
+ * No input is copied through, so the result is safe however a browser would have parsed the
+ * original: there are no comments, no raw-text or foreign-content elements, and no other
+ * attributes.
  *
- * <p>Elements are balanced with an open-element stack: an end tag closes up to its matching open
- * element, unmatched end tags are ignored, and everything still open is closed at the end, so the
- * output cannot close the page's own elements.
+ * <p>The output is balanced {@code FLOW} content (#329). Elements are kept on an open-element
+ * stack, and each is placed only where a browser's tree builder keeps it as written:
+ *
+ * <ul>
+ *   <li>{@code p}, headings, {@code pre} and phrasing elements hold only phrasing elements; a
+ *       block element first closes them, as a browser's implied end tags would.
+ *   <li>{@code a} never nests in {@code a}; {@code li} only in {@code ul}/{@code ol}.
+ *   <li>Table parts only inside a {@code table}, with the {@code tbody} and {@code tr} a browser
+ *       would imply written out; no text, and nothing else, directly in a table, section or row.
+ *   <li>An end tag closes up to its matching open element, unmatched end tags are ignored, and
+ *       everything still open is closed at the end.
+ * </ul>
+ *
+ * <p>A start tag that fits nowhere before a table cell, caption, table part or list is dropped
+ * (its text is kept). So the output never implies an end tag, never moves content (foster
+ * parenting, formatting reconstruction), and cannot close the page's own elements.
  */
 final class HtmlSanitizer {
   /** Kept elements beyond this nesting depth are dropped (their text is kept). */
   private static final int MAX_DEPTH = 100;
 
-  private static final String REL = " rel=\"nofollow noopener\"";
+  private static final Set<String> VOID = set("br", "hr", "img");
 
-  /** Allowed elements, written without attributes (except {@code a[href]}). */
-  private static final Set<String> ALLOWED =
-      set(
-          "a", "b", "i", "em", "strong", "u", "s", "sub", "sup", "small", "mark", "code", "pre",
-          "blockquote", "p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "span", "div",
-          "br", "hr");
+  /** Phrasing elements: may appear wherever phrasing content may. */
+  private static final Set<String> PHRASING =
+      set("a", "b", "i", "em", "strong", "u", "s", "del", "ins", "sub", "sup", "small", "mark",
+          "code", "kbd", "span", "br", "img");
 
-  private static final Set<String> VOID = set("br", "hr");
+  /** Flow elements that are not phrasing (and are not {@code li} or table parts). */
+  private static final Set<String> BLOCK =
+      set("p", "h1", "h2", "h3", "h4", "h5", "h6", "pre", "blockquote", "ul", "ol", "div", "hr", "table");
+
+  /** Elements whose content is phrasing only, so that no block start tag closes them implicitly. */
+  private static final Set<String> PHRASING_CONTAINERS =
+      set("a", "b", "i", "em", "strong", "u", "s", "del", "ins", "sub", "sup", "small", "mark",
+          "code", "kbd", "span", "p", "h1", "h2", "h3", "h4", "h5", "h6", "pre");
+
+  private static final Set<String> TABLE_SECTIONS = set("thead", "tbody", "tfoot");
+
+  /** Open elements a start tag never closes implicitly; past them a tag that doesn't fit is dropped. */
+  private static final Set<String> BOUNDARY =
+      set("ul", "ol", "table", "caption", "thead", "tbody", "tfoot", "tr", "td", "th");
+
+  /** Where text would be foster-parented or ignored: it is dropped. */
+  private static final Set<String> NO_TEXT = set("table", "thead", "tbody", "tfoot", "tr");
 
   /** Raw text and RCDATA elements: skipped, content included, up to their end tag. */
   private static final Set<String> RAW_TEXT =
@@ -62,6 +89,7 @@ final class HtmlSanitizer {
     }
   }
 
+  private final HtmlPolicy policy;
   private final String s;
   private final int n;
   private int pos;
@@ -75,14 +103,20 @@ final class HtmlSanitizer {
   /** Whether the tag just parsed by {@link #attributes} ended in {@code />}. */
   private boolean selfClosing;
 
-  private HtmlSanitizer(String s) {
-    this.s = s;
-    this.n = s.length();
+  /** Output length right after a {@code <pre>} start tag, or -1. */
+  private int afterPre = -1;
+
+  private HtmlSanitizer(String s, HtmlPolicy policy) {
+    // A browser normalizes newlines before it tokenizes; doing the same keeps the text the parser
+    // sees equal to the text written here (a leading LF after <pre> is dropped by the parser).
+    this.s = s.indexOf('\r') < 0 ? s : s.replace("\r\n", "\n").replace('\r', '\n');
+    this.n = this.s.length();
     this.out = new StringBuilder(n + 16);
+    this.policy = policy;
   }
 
-  static String sanitize(String html) {
-    HtmlSanitizer p = new HtmlSanitizer(html);
+  static String sanitize(String html, HtmlPolicy policy) {
+    HtmlSanitizer p = new HtmlSanitizer(html, policy);
     p.run();
     return p.out.toString();
   }
@@ -101,8 +135,8 @@ final class HtmlSanitizer {
         pos++;
       }
     }
-    for (int i = open.size() - 1; i >= 0; i--) {
-      out.append("</").append(open.get(i)).append('>');
+    while (!open.isEmpty()) {
+      pop();
     }
   }
 
@@ -166,25 +200,112 @@ final class HtmlSanitizer {
         dropping = name;
         dropDepth = 1;
       }
-    } else if (ALLOWED.contains(name)) {
-      if (VOID.contains(name)) {
-        out.append('<').append(name).append('>');
-      } else if (open.size() < MAX_DEPTH) {
-        out.append('<').append(name);
-        if (name.equals("a")) {
-          String href = attrs.get("href");
-          if (href != null && Escapers.isAllowedUrl(href)) {
-            out.append(" href=\"");
-            // AngularJS interpolates attribute values too: '{' is percent-encoded, which a
-            // browser does in a path anyway, so the link never holds "{{" (#248)
-            Escapers.escapeHtml(out, href.replace("{", "%7B"), false);
-            out.append('"').append(REL);
-          }
+    } else if (policy.elements.contains(name)) {
+      String attributes = attributes(name, attrs);
+      if (attributes != null && place(name)) {
+        out.append('<').append(name).append(attributes).append('>');
+        if (!VOID.contains(name)) {
+          open.add(name);
         }
-        out.append('>');
-        open.add(name);
+        if (name.equals("pre")) {
+          afterPre = out.length();
+        }
       }
     }
+  }
+
+  /**
+   * Closes open elements until {@code name} fits as a child of the current node, and writes the
+   * {@code tbody}/{@code tr} a browser would imply before a table part. Returns false (nothing
+   * changed) if it fits nowhere, or would be nested deeper than {@link #MAX_DEPTH}.
+   */
+  private boolean place(String name) {
+    if (name.equals("caption") || TABLE_SECTIONS.contains(name) || name.equals("tr")
+        || name.equals("td") || name.equals("th")) {
+      int table = open.lastIndexOf("table");
+      if (table < 0) {
+        return false;
+      }
+      // As in a browser, a table part closes the cell, row or section it is in.
+      int keep = open.size();
+      while (!fitsTable(open.get(keep - 1), name)) {
+        keep--;
+      }
+      String cur = open.get(keep - 1);
+      List<String> implied = new ArrayList<>(2);
+      if (cur.equals("table") && (name.equals("tr") || name.equals("td") || name.equals("th"))) {
+        implied.add("tbody");
+      }
+      if (!cur.equals("tr") && (name.equals("td") || name.equals("th"))) {
+        implied.add("tr");
+      }
+      if (keep + implied.size() + (VOID.contains(name) ? 0 : 1) > MAX_DEPTH) {
+        return false;
+      }
+      while (open.size() > keep) {
+        pop();
+      }
+      for (String e : implied) {
+        out.append('<').append(e).append('>');
+        open.add(e);
+      }
+      return true;
+    }
+    int keep = open.size();
+    if (name.equals("a")) {
+      // A browser closes an open <a> before another (the adoption agency); so do we.
+      for (int i = open.size() - 1; i >= 0 && !BOUNDARY.contains(open.get(i)); i--) {
+        if (open.get(i).equals("a")) {
+          keep = i;
+        }
+      }
+    }
+    while (!fits(keep == 0 ? null : open.get(keep - 1), name)) {
+      if (keep == 0 || BOUNDARY.contains(open.get(keep - 1))) {
+        return false;
+      }
+      keep--;
+    }
+    if (!VOID.contains(name) && keep >= MAX_DEPTH) {
+      return false;
+    }
+    while (open.size() > keep) {
+      pop();
+    }
+    return true;
+  }
+
+  /** Whether {@code child} (not a table part) is kept as written inside {@code parent} ({@code null}: the insertion point). */
+  private static boolean fits(String parent, String child) {
+    if (parent == null) {
+      return PHRASING.contains(child) || BLOCK.contains(child);
+    }
+    if (parent.equals("ul") || parent.equals("ol")) {
+      return child.equals("li");
+    }
+    if (PHRASING_CONTAINERS.contains(parent)) {
+      return PHRASING.contains(child);
+    }
+    if (NO_TEXT.contains(parent)) {
+      return false;
+    }
+    // div, blockquote, li, td, th, caption: flow content
+    return PHRASING.contains(child) || BLOCK.contains(child);
+  }
+
+  /** Whether table part {@code child} goes directly into {@code parent}, with implied {@code tbody}/{@code tr}. */
+  private static boolean fitsTable(String parent, String child) {
+    if (child.equals("td") || child.equals("th")) {
+      return parent.equals("tr") || TABLE_SECTIONS.contains(parent) || parent.equals("table");
+    }
+    if (child.equals("tr")) {
+      return TABLE_SECTIONS.contains(parent) || parent.equals("table");
+    }
+    return parent.equals("table");
+  }
+
+  private void pop() {
+    out.append("</").append(open.remove(open.size() - 1)).append('>');
   }
 
   private void endTag(String name) {
@@ -198,9 +319,181 @@ final class HtmlSanitizer {
     if (i < 0) {
       return;
     }
-    for (int j = open.size() - 1; j >= i; j--) {
-      out.append("</").append(open.remove(j)).append('>');
+    while (open.size() > i) {
+      pop();
     }
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Attributes
+
+  /**
+   * The attributes written on {@code name}: those the policy allows, with checked values, in a
+   * fixed order. Returns {@code null} if the element must be dropped (an {@code img} without an
+   * acceptable {@code src}).
+   */
+  private String attributes(String name, Map<String, String> attrs) {
+    StringBuilder sb = new StringBuilder();
+    Set<String> allowed = policy.attributes;
+    if (allowed.contains("id")) {
+      String id = attrs.get("id");
+      if (id != null) {
+        id = decode(id).trim();
+        if (HtmlPolicy.isClassToken(id)) {
+          // an id that already has the prefix keeps it, so sanitizing twice changes nothing
+          sb.append(" id=\"").append(id.startsWith(policy.idPrefix) ? "" : policy.idPrefix).append(id).append('"');
+        }
+      }
+    }
+    if (policy.allowsClasses() && attrs.get("class") != null) {
+      StringBuilder classes = new StringBuilder();
+      for (String token : decode(attrs.get("class")).split("[ \t\n\f]+")) {
+        if (HtmlPolicy.isClassToken(token)
+            && !HtmlPolicy.lower(token).startsWith("ng-")
+            && policy.allowsClass(token)) {
+          classes.append(classes.length() == 0 ? "" : " ").append(token);
+        }
+      }
+      if (classes.length() > 0) {
+        sb.append(" class=\"").append(classes).append('"');
+      }
+    }
+    String link = null;
+    if (name.equals("a")) {
+      link = url(attrs.get("href"), false);
+      if (link != null) {
+        sb.append(" href=\"").append(link).append('"');
+      }
+    } else if (name.equals("img")) {
+      String src = url(attrs.get("src"), true);
+      if (src == null) {
+        return null;
+      }
+      sb.append(" src=\"").append(src).append('"');
+      textAttribute(sb, "alt", attrs);
+    }
+    textAttribute(sb, "title", attrs);
+    if (name.equals("img")) {
+      numberAttribute(sb, "width", attrs, 5, false);
+      numberAttribute(sb, "height", attrs, 5, false);
+    } else if (name.equals("td") || name.equals("th")) {
+      numberAttribute(sb, "colspan", attrs, 4, false);
+      numberAttribute(sb, "rowspan", attrs, 5, false);
+      String align = allowed.contains("align") ? attrs.get("align") : null;
+      if (align != null) {
+        align = HtmlPolicy.lower(decode(align).trim());
+        if (align.equals("left") || align.equals("center") || align.equals("right") || align.equals("justify")) {
+          sb.append(" align=\"").append(align).append('"');
+        }
+      }
+    } else if (name.equals("ol")) {
+      numberAttribute(sb, "start", attrs, 9, true);
+      if (allowed.contains("reversed") && attrs.containsKey("reversed")) {
+        sb.append(" reversed");
+      }
+    } else if (name.equals("li")) {
+      numberAttribute(sb, "value", attrs, 9, true);
+    }
+    if (link != null) {
+      sb.append(policy.rel);
+      String target = policy.linkTarget ? attrs.get("target") : null;
+      if (target != null && HtmlPolicy.lower(decode(target).trim()).equals("_blank")) {
+        sb.append(" target=\"_blank\"");
+      }
+    }
+    return sb.toString();
+  }
+
+  /**
+   * The escaped value of a URL attribute that passes the scheme check (for an image, also a
+   * base64 {@code data:image/...} URL if the policy allows them), or {@code null}.
+   */
+  private String url(String raw, boolean image) {
+    if (raw == null) {
+      return null;
+    }
+    String url = decode(raw);
+    if (!Escapers.isAllowedUrl(url) && !(image && policy.dataImages && isDataImage(url))) {
+      return null;
+    }
+    if (!image && policy.attributes.contains("id") && url.length() > 1 && url.charAt(0) == '#'
+        && HtmlPolicy.isClassToken(url.substring(1)) && !url.startsWith(policy.idPrefix, 1)) {
+      url = "#" + policy.idPrefix + url.substring(1); // follow the prefixed id
+    }
+    // AngularJS interpolates attribute values too: '{' is percent-encoded, which a browser does in
+    // a path anyway, so the URL never holds "{{" (#248)
+    StringBuilder sb = new StringBuilder(url.length() + 8);
+    Escapers.escapeHtml(sb, url.replace("{", "%7B"), false);
+    return sb.toString();
+  }
+
+  private static boolean isDataImage(String url) {
+    String u = HtmlPolicy.lower(url);
+    String[] types = {"data:image/png;base64,", "data:image/gif;base64,", "data:image/jpeg;base64,", "data:image/webp;base64,"};
+    for (String t : types) {
+      if (u.startsWith(t)) {
+        for (int i = t.length(); i < u.length(); i++) {
+          char c = u.charAt(i);
+          if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '=')) {
+            return false;
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Writes a text attribute the policy allows. Known references are decoded and re-escaped;
+   * well-formed unknown named references are kept (in a quoted value they only produce
+   * characters). A value holding {@code {{} once decoded is dropped: AngularJS interpolates
+   * attribute values, and they have no lossless break.
+   */
+  private void textAttribute(StringBuilder sb, String name, Map<String, String> attrs) {
+    String raw = policy.attributes.contains(name) ? attrs.get(name) : null;
+    if (raw == null || decode(raw).contains("{{")) {
+      return;
+    }
+    sb.append(' ').append(name).append("=\"");
+    StringBuilder pending = new StringBuilder(raw.length());
+    int i = 0;
+    while (i < raw.length()) {
+      char c = raw.charAt(i);
+      int end = c == '&' ? reference(raw, i, raw.length(), pending) : -1;
+      if (end > 0) {
+        i = end;
+      } else if (c == '&' && (end = unknownNamed(raw, i, raw.length())) > 0) {
+        Escapers.escapeHtml(sb, pending.toString(), false);
+        pending.setLength(0);
+        sb.append(raw, i, end);
+        i = end;
+      } else {
+        pending.append(c);
+        i++;
+      }
+    }
+    Escapers.escapeHtml(sb, pending.toString(), false);
+    sb.append('"');
+  }
+
+  /** Writes a numeric attribute the policy allows: up to {@code digits} ASCII digits, optionally negative. */
+  private void numberAttribute(StringBuilder sb, String name, Map<String, String> attrs, int digits, boolean signed) {
+    String raw = policy.attributes.contains(name) ? attrs.get(name) : null;
+    if (raw == null) {
+      return;
+    }
+    String v = decode(raw).trim();
+    int start = signed && v.startsWith("-") ? 1 : 0;
+    if (v.length() == start || v.length() - start > digits) {
+      return;
+    }
+    for (int i = start; i < v.length(); i++) {
+      if (v.charAt(i) < '0' || v.charAt(i) > '9') {
+        return;
+      }
+    }
+    sb.append(' ').append(name).append("=\"").append(v).append('"');
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -217,7 +510,7 @@ final class HtmlSanitizer {
 
   /**
    * Parses attributes up to and including the closing '>'; the first occurrence of a name wins,
-   * values are entity-decoded. Returns {@code null} if the input ends inside the tag (a browser
+   * values are raw (decoded where they are used). Returns {@code null} if the input ends inside the tag (a browser
    * drops such a tag).
    */
   private Map<String, String> attributes() {
@@ -270,7 +563,7 @@ final class HtmlSanitizer {
         }
       }
       if (!attrs.containsKey(name)) {
-        attrs.put(name, decode(value));
+        attrs.put(name, value);
       }
     }
   }
@@ -335,9 +628,17 @@ final class HtmlSanitizer {
    * through the text escaper, which breaks {@code {{} as {@link Escapers#text} does (#248).
    */
   private void text(int from, int to) {
-    if (dropping != null || from >= to) {
+    if (dropping != null || from >= to || (!open.isEmpty() && NO_TEXT.contains(open.get(open.size() - 1)))) {
       return;
     }
+    int start = out.length();
+    writeText(from, to);
+    if (start == afterPre && out.length() > start && out.charAt(start) == '\n') {
+      out.insert(start, '\n'); // the parser drops one newline right after <pre>
+    }
+  }
+
+  private void writeText(int from, int to) {
     StringBuilder pending = new StringBuilder(to - from);
     int i = from;
     while (i < to) {

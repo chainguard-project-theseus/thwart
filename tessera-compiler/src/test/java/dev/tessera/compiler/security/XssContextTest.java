@@ -529,6 +529,22 @@ class XssContextTest {
     assertEquals("<div><section></section></div>", c.render("page", Compilation.model("s", null)));
   }
 
+  /** {@code html.sanitizeRich} keeps tables, images, classes and prefixed ids, and nothing executable (#262). */
+  @Test
+  void htmlSanitizeRichFeedsRawOutput() {
+    Compilation c =
+        Compilation.builder()
+            .template("page.html", "<div t:params=\"String s\"><section t:utext=\"html.sanitizeRich(s)\">x</section></div>")
+            .compile()
+            .assertSuccess();
+    String stored = "<h2 id=a class=\"t ng-init:x\" onclick=alert(1)>T</h2><img src=/i.png onerror=alert(1)>"
+        + "<img src=javascript:alert(1)><table><tr><td colspan=2 style=x>c</td></tr></table><svg onload=alert(1)>";
+    assertEquals(
+        "<div><section><h2 id=\"user-content-a\" class=\"t\">T</h2><img src=\"/i.png\">"
+            + "<table><tbody><tr><td colspan=\"2\">c</td></tr></tbody></table></section></div>",
+        c.render("page", Map.of("s", stored)));
+  }
+
   /**
    * #283: a fragment can carry a literal {@code </noscript} that ends the caller's
    * {@code <noscript>} in a browser, which neither template's parse sees, so markup is not

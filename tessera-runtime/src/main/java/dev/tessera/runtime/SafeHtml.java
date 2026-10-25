@@ -4,7 +4,7 @@ import java.util.Objects;
 
 /**
  * HTML that is known to be safe to emit without escaping. The only ways to get one are
- * {@link #escape(String)}, {@link #sanitize(String)}, rendering a {@link Template},
+ * {@link #escape(String)}, {@link #sanitize(String)} (or with an {@link HtmlPolicy}), rendering a {@link Template},
  * {@link #concat(SafeHtml...)} of other {@code SafeHtml}s, or {@link #unchecked(String)}
  * (greppable, lint-bannable). {@code t:utext} accepts nothing else.
  */
@@ -31,8 +31,8 @@ public final class SafeHtml {
   }
 
   /**
-   * Cleans untrusted HTML, such as stored rich text, with a fixed allow-list. The input is parsed
-   * and the output rebuilt, never copied through:
+   * Cleans untrusted HTML, such as stored rich text, with {@link HtmlPolicy#BASIC}. The input is
+   * parsed and the output rebuilt, never copied through:
    *
    * <ul>
    *   <li>Kept, without attributes: {@code p br hr h1}-{@code h6 b i em strong u s sub sup small
@@ -46,11 +46,22 @@ public final class SafeHtml {
    *       attribute ({@code on*}, {@code style}, {@code class}, {@code id}, ...) are removed.
    * </ul>
    *
-   * <p>Text is re-escaped as by {@link #escape} ({@code {{} broken), tags are balanced (unmatched end tags are dropped and open ones closed),
-   * and malformed markup never fails. {@code null} gives {@link #EMPTY}.
+   * <p>Text is re-escaped as by {@link #escape} ({@code {{} broken), and the output is balanced:
+   * every element is closed, and placed only where a browser keeps it as written (see
+   * {@link HtmlPolicy}). Malformed markup never fails. {@code null} gives {@link #EMPTY}.
    */
   public static SafeHtml sanitize(String html) {
-    return html == null ? EMPTY : new SafeHtml(HtmlSanitizer.sanitize(html));
+    return sanitize(html, HtmlPolicy.BASIC);
+  }
+
+  /**
+   * Cleans untrusted HTML with {@code policy} ({@link HtmlPolicy#BASIC}, {@link HtmlPolicy#RICH}
+   * or one from {@link HtmlPolicy#builder()}), as {@link #sanitize(String)} does with its fixed
+   * policy. {@code null} gives {@link #EMPTY}.
+   */
+  public static SafeHtml sanitize(String html, HtmlPolicy policy) {
+    Objects.requireNonNull(policy, "policy");
+    return html == null ? EMPTY : new SafeHtml(HtmlSanitizer.sanitize(html, policy));
   }
 
   /** Joins safe parts in order; {@code null} parts are skipped. */
