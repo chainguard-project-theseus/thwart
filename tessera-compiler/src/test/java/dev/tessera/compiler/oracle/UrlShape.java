@@ -77,6 +77,30 @@ public final class UrlShape {
     return (s.length() >= 2 && slash(s.charAt(0)) && slash(s.charAt(1))) || scheme(s) != null;
   }
 
+  /**
+   * The origin part of {@code url} by shape, lower case: the scheme ({@code ""} for a
+   * protocol-relative URL) and everything between {@code //} and the first {@code /}, {@code ?} or
+   * {@code #} (userinfo, host and port), reading {@code \} as {@code /} where a browser does. A URL
+   * without {@code //} after its scheme gives just {@code scheme:}.
+   */
+  public static String authority(String url) {
+    String s = preprocess(url);
+    String scheme = scheme(s);
+    String rest = scheme == null ? s : s.substring(scheme.length() + 1);
+    if (scheme == null || SPECIAL_SCHEMES.contains(scheme)) {
+      rest = rest.replace('\\', '/');
+    }
+    String prefix = scheme == null ? "" : scheme + ":";
+    if (!rest.startsWith("//")) {
+      return prefix;
+    }
+    int end = 2;
+    while (end < rest.length() && "/?#".indexOf(rest.charAt(end)) < 0) {
+      end++;
+    }
+    return (prefix + rest.substring(0, end)).toLowerCase(Locale.ROOT);
+  }
+
   private static boolean slash(char c) {
     return c == '/' || c == '\\';
   }

@@ -93,8 +93,9 @@ public final class HtmlInvariant {
    * @param value the hostile value, recorded in each finding
    * @param contextRelativeLinks whether the template wrote a context-relative link ({@code @{/...}}).
    *     A protocol-relative ({@code //x}) or absolute resource URL is a finding when a value made a
-   *     same-origin slot cross-origin, whatever this says; with it, also when a value changed a URL
-   *     that holds no marker. A static CDN URL is the template's own. A backslash form ({@code /\x},
+   *     same-origin slot cross-origin, or moved the origin (scheme, userinfo, host, port) of a
+   *     cross-origin slot, whatever this says; with it, also when a value changed a URL that holds
+   *     no marker. A static CDN URL is the template's own. A backslash form ({@code /\x},
    *     {@code http:\\x}) always is a finding
    */
   public static Result check(
@@ -473,13 +474,16 @@ public final class HtmlInvariant {
           String url = r.getValue();
           String was = benignResources.get(r.getKey());
           // A same-origin slot (the benign URL holds a marker) that a value makes cross-origin always
-          // counts: the value picks the origin. A static absolute URL (a CDN script) is the template's own; a
-          // static context-relative link that a value changed counts when the template wrote @{/...}.
+          // counts: the value picks the origin. So does a cross-origin slot whose origin a value moved,
+          // or whose origin holds the marker. A static absolute URL (a CDN script) is the template's own;
+          // a static context-relative link that a value changed counts when the template wrote @{/...}.
           boolean slot = hasMarker(was);
           boolean changed = was == null || !was.equals(url);
+          boolean originMoved = slot && UrlShape.crossOrigin(was)
+              && (!UrlShape.authority(was).equals(UrlShape.authority(url)) || hasMarker(UrlShape.authority(was)));
           if (UrlShape.backslashNetworkPath(url)
               || (UrlShape.crossOrigin(url)
-                  && ((slot && !UrlShape.crossOrigin(was)) || (contextRelativeLinks && changed)))) {
+                  && ((slot && !UrlShape.crossOrigin(was)) || originMoved || (contextRelativeLinks && changed)))) {
             add(Finding.Kind.CROSS_ORIGIN_RESOURCE, path + "/@" + r.getKey());
           }
         }

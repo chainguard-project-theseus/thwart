@@ -221,6 +221,30 @@ class HtmlInvariantTest {
     assertTrue(kinds(HtmlInvariant.check(benign, hostile, VALUE, true)).contains(CROSS_ORIGIN_RESOURCE));
   }
 
+  @ParameterizedTest
+  @CsvSource(delimiter = '|', quoteCharacter = '~', value = {
+      // The marker is in the host: the value picks it.
+      "<script src=\"https://tqm0001.cdn.example/a.js\"></script>|<script src=\"https://evil.example/a.js#.cdn.example/a.js\"></script>",
+      "<script src=\"https://tqm0001/a.js\"></script>|<script src=\"https://evil.example/a.js\"></script>",
+      // A path slot under an absolute or protocol-relative origin, moved to another host.
+      "<script src=\"https://cdn.example/tqm0001\"></script>|<script src=\"https://evil.example/x\"></script>",
+      "<script src=\"//cdn.example/tqm0001\"></script>|<script src=\"//evil.example/x\"></script>",
+      "<script src=\"https://cdn.example/tqm0001\"></script>|<script src=\"https://cdn.example@evil.example/x\"></script>",
+      "<script src=\"https://cdn.example/tqm0001\"></script>|<script src=\"https:\\\\evil.example/x\"></script>",
+      "<base href=\"https://cdn.example/tqm0001/\">|<base href=\"https://evil.example/\">"})
+  void valueMovesTheOriginOfACrossOriginSlot(String benign, String hostile) {
+    assertEquals(Set.of(CROSS_ORIGIN_RESOURCE), kinds(HtmlInvariant.check(benign, hostile, VALUE, false)));
+  }
+
+  @Test
+  void crossOriginSlotOnTheSameAuthorityIsClean() {
+    // Path-only changes under the template's own origin are out of scope (URL semantics).
+    assertClean("<script src=\"https://cdn.example/tqm0001\"></script>",
+        "<script src=\"https://CDN.example/../evil.js\"></script>");
+    assertClean("<script src=\"//cdn.example/tqm0001\"></script>",
+        "<script src=\"//cdn.example/%2F%2Fevil.example.js\"></script>");
+  }
+
   @Test
   void absoluteSlotThatStaysOnItsOriginIsClean() {
     assertClean("<script src=\"https://cdn.example/tqm0001/a.js\"></script>",
