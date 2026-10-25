@@ -484,6 +484,9 @@ public final class TemplateGenerator implements CodegenContext {
       if (!plan.removed() && plan.replacement() == null) {
         CsrfInjector.checkSubmitter(this, plan);
       }
+      if (e.name().equalsIgnoreCase("base")) {
+        CsrfInjector.checkBase(this, e);
+      }
       if (e.name().equalsIgnoreCase("option")) {
         FieldProcessor.option(this, plan);
       }

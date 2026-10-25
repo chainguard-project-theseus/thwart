@@ -173,7 +173,7 @@ class LinkCompilerTest {
   @ValueSource(
       strings = {
         "<script t:src=\"@{/\\evil.example/a.js}\"></script>",
-        "<base t:href=\"@{/\\evil.example/}\">",
+        "<link t:href=\"@{/\\evil.example/}\">",
         "<link rel=\"stylesheet\" t:href=\"@{\\\\evil.example/a.css}\">",
         "<a t:href=\"@{/\\evil.example/}\">x</a>",
         "<a t:href=\"@{\\/evil.example/}\">x</a>",
@@ -199,6 +199,14 @@ class LinkCompilerTest {
   void htmxRequestUrlKeepsItsError() {
     Compilation c = page("<div t:hx-get=\"@{\\/evil.example/x}\"></div>");
     c.assertError("page.html:2:", "an htmx request URL must be a same-origin path starting with a single '/'");
+    assertNull(c.generatedSource("tessera.generated.PageTemplate"));
+  }
+
+  /** #350: a {@code <base href>} must be a same-origin link, with its own error. */
+  @Test
+  void baseHrefKeepsItsError() {
+    Compilation c = page("<base t:href=\"@{/\\evil.example/}\">");
+    c.assertError("page.html:2:", "a <base href> must be a same-origin path starting with a single '/'");
     assertNull(c.generatedSource("tessera.generated.PageTemplate"));
   }
 
