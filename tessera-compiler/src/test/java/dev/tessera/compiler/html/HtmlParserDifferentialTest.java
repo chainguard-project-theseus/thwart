@@ -91,6 +91,7 @@ class HtmlParserDifferentialTest {
     "<t:block>", "</t:block>", "<noscript>", "</noscript>", "<XMP>", "</xmp>", "<iframe/>", "<plaintext>",
     "<xmp>", "<NoScript>", "</noscript >", "<iframe>", "</IFRAME>", "<noembed>", "</noembed>", "<noframes>",
     "</noframes>", "<xmp/>",
+    "<math>", "</math>", "<foreignObject>", "<mtext>", "<mglyph>", "<desc>",
   };
 
   /** Single chars and keywords, for character-level soups that reach odd tokenizer states. */
