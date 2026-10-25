@@ -45,6 +45,16 @@ class BrowserRawTextTest {
   }
 
   @Test
+  void endTagChecksAlsoApplyInsideRemoveAll() {
+    // The guide says so: Tessera still parses a t:remove="all" subtree, though it is not rendered.
+    compile("<div t:remove=\"all\"><noscript><!-- </noscript> --></noscript></div>")
+        .assertError("page.html:2:36:", "content of <noscript> contains '</noscript' before its end tag");
+    compile("<div t:remove=\"all\"><script>var a = \"</ſcript>\";</script></div>")
+        .assertError("page.html:2:38:", "'</ſcript' inside <script> looks like its end tag but a browser doesn't end"
+            + " the element there");
+  }
+
+  @Test
   void plaintextIsAnError() {
     compile("<p><plaintext>[[s]]</plaintext></p>")
         .assertError("page.html:2:4:", "<plaintext> is not supported: a browser treats the rest of the page as plain"
