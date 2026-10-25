@@ -76,6 +76,20 @@ final class TemplateClassSource {
     return sb.toString();
   }
 
+  /**
+   * {@code source} (a class {@link #render} wrote) marked as a verified {@code FLOW} partial (#396):
+   * it overrides {@code Template.verifiedFlowPartial()} to return true. The verifier decides this
+   * after the class is generated, from its skeleton, so the mark is added to the finished source.
+   */
+  static String markFlowPartial(String source) {
+    if (!source.endsWith("}\n")) {
+      throw new IllegalArgumentException("not a generated template class");
+    }
+    return source.substring(0, source.length() - 2)
+        + "\n  /** The verifier proved this template a FLOW partial (#396). */\n"
+        + "  @Override\n  public boolean verifiedFlowPartial() {\n    return true;\n  }\n}\n";
+  }
+
   /** Keeps a file name harmless inside a comment (no comment end, no unicode escapes). */
   private static String javadocSafe(String s) {
     StringBuilder sb = new StringBuilder();

@@ -172,6 +172,14 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   /**
+   * {@code file}, a template class {@link #generate} wrote, marked as a verified {@code FLOW}
+   * partial (#396): its {@code verifiedFlowPartial()} returns true.
+   */
+  public static GeneratedFile markFlowPartial(GeneratedFile file) {
+    return new GeneratedFile(file.kind(), file.name(), TemplateClassSource.markFlowPartial(file.content()));
+  }
+
+  /**
    * The skeleton of the template {@link #generate} generated last: exactly what its class writes
    * (#366). Meaningful only if no errors were reported.
    */

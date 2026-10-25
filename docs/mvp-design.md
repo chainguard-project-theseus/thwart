@@ -273,6 +273,10 @@ public final class OwnerDetailsTemplate implements dev.tessera.runtime.Template 
 }
 ```
 
+A template the verifier proves a `FLOW` partial (#396; this page isn't one) also gets
+`@Override public boolean verifiedFlowPartial() { return true; }`, which `SafeHtml.of` and
+`Fragment.of` require.
+
 Plus `com.example.templates.TesseraRegistry implements TemplateRegistry`, whose entries adapt a
 `Map<String, ?>` model: `instanceof` check per param (`TemplateModelException` on mismatch; missing
 means `null`, except for a primitive param, which needs a value; generic arguments unchecked), then

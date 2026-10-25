@@ -66,6 +66,8 @@ public final class TesseraProcessor extends AbstractProcessor {
   private List<GeneratedFile> written;
   /** The skeletons of the templates whose classes were written (#366); empty until then. */
   private Map<String, Skeleton.TemplateSkeleton> skeletons = Collections.emptyMap();
+  /** The view names of the templates the verifier proved FLOW partials (#396). */
+  private Set<String> flowPartials = Collections.emptySet();
   private final Set<String> functionClassNames = new LinkedHashSet<>();
 
   @Override
@@ -105,7 +107,6 @@ public final class TesseraProcessor extends AbstractProcessor {
       Diagnostics diagnostics = new Diagnostics();
       List<TypeElement> functionClasses = functionClasses();
       TemplateCompiler.Result result = compile(diagnostics, functionClasses);
-      List<GeneratedFile> files = new ArrayList<>(result.files());
       if (diagnostics.hasErrors() && !round.processingOver()) {
         // #233: another processor (Lombok) may still be adding members to the classes the templates
         // read; javac re-enters every class before the next round, so try again then and only
@@ -117,6 +118,11 @@ public final class TesseraProcessor extends AbstractProcessor {
         // The security boundary for markup contexts (#367): runs on every build, after the profile.
         ContextVerifier.verify(result.skeletons(), diagnostics);
       }
+      if (!diagnostics.hasErrors()) {
+        // #396: which templates SafeHtml.of and Fragment.of accept, marked in their classes.
+        flowPartials = ContextVerifier.flowPartials(result.skeletons());
+      }
+      List<GeneratedFile> files = new ArrayList<>(result.files(flowPartials));
       files.addAll(functionIndex(functionClasses));
       for (Diagnostic d : diagnostics.all()) {
         messager.printMessage(kind(d.severity()), d.toString());
@@ -177,7 +183,8 @@ public final class TesseraProcessor extends AbstractProcessor {
     List<GeneratedFile> again;
     try {
       List<TypeElement> functionClasses = functionClasses();
-      again = new ArrayList<>(compile(new Diagnostics(), functionClasses).files());
+      // The same marks: if the skeletons changed, so did the classes.
+      again = new ArrayList<>(compile(new Diagnostics(), functionClasses).files(flowPartials));
       again.addAll(functionIndex(functionClasses));
     } catch (IOException | RuntimeException e) {
       return; // the build already has its output; this is only a check

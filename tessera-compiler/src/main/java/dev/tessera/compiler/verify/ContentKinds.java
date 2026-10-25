@@ -7,7 +7,9 @@ import dev.tessera.compiler.verify.engine.ParserState;
 import dev.tessera.compiler.verify.engine.TokenizerState;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -37,9 +39,10 @@ public final class ContentKinds {
      * and its top-level elements are not list items ({@code li}, {@code dd}, {@code dt}), table
      * parts, {@code head}, {@code body}, {@code html} or {@code frameset}. Producers: every
      * {@code html.sanitize} policy (the producer test checks them), {@code SafeHtml.escape} and
-     * {@code concat} of FLOW values. A rendered template ({@code SafeHtml.of}, a {@code Fragment}
-     * value from Java) is FLOW if it is a partial of such content, which the verifier can't see at
-     * the insertion point: like {@code SafeHtml.unchecked}, that is the caller's promise.
+     * {@code concat} of FLOW values, and a rendered template ({@code SafeHtml.of}, {@code
+     * Fragment.of}) that the compiler proved a FLOW partial ({@link #PARTIAL_PROBES}, #396): the
+     * runtime refuses any other template. ({@code SafeHtml.unchecked} and a hand-written {@code
+     * Fragment} lambda remain the caller's promise.)
      */
     FLOW
   }
@@ -94,6 +97,127 @@ public final class ContentKinds {
    * closes nothing.
    */
   public static final String REPRESENTATIVE = "<span></span>";
+
+  /**
+   * The insertion points at which the compiler checks that a template is a FLOW partial (#396),
+   * as markup fed after the start of an HTML fragment parsed in a {@code <body>}. Each is a state
+   * the {@link #problem predicate} accepts, and the template must leave each as it found it (in
+   * {@code <template>}, or in the "in body" state a flow start tag switches to there), with no
+   * verifier finding, in all four parsers. Between them they break every clause of the producer
+   * promise ({@link Kind#FLOW}) a template can break:
+   *
+   * <ul>
+   *   <li>{@code ""}: content that isn't balanced. Here the compiler also checks the promise after
+   *       every tag ({@link #promiseBreach}, {@link #pageTag}, {@link #strayEndTag}): a {@code
+   *       form}, nested formatting elements of one name (with any attributes, which the Noah's Ark
+   *       clause compares), a top-level list item, and an end tag that closes nothing here but would
+   *       close an element of its name open around the insertion point.
+   *   <li>{@code <ul><li>} and {@code <dl><dd>}: an {@code li}, {@code dd} or {@code dt} outside
+   *       its own list, which closes the open one, even inside a {@code div}.
+   *   <li>{@code <table><tr><td>} and {@code <template>}: a top-level table part, which closes
+   *       the cell or switches the template's mode.
+   * </ul>
+   */
+  public static final List<String> PARTIAL_PROBES =
+      Backports.listOf("", "<ul><li>", "<dl><dd>", "<table><tr><td>", "<template>");
+
+  /** Top-level elements FLOW content doesn't have (the producer promise, {@link Kind#FLOW}). */
+  static final Set<String> NOT_TOP_LEVEL =
+      Backports.setOf("li", "dd", "dt", "caption", "colgroup", "col", "tbody", "thead", "tfoot", "tr", "td", "th",
+          "head", "body", "html", "frameset");
+
+  /** Elements of a page, never of FLOW content: in body their start tags push nothing, so they are found by name. */
+  private static final Set<String> PAGE_ELEMENTS = Backports.setOf("head", "body", "html", "frameset");
+
+  /**
+   * How the content written so far breaks the FLOW producer promise, in words, or null. {@code s} is
+   * the state of a parser that started in the {@code ""} {@link #PARTIAL_PROBES probe}: a fragment
+   * in {@code <body>}, so the stack holds only {@code html} below the content, and there is no
+   * form and no formatting entry before it.
+   */
+  static String promiseBreach(ParserState s) {
+    if (s.formPointer()) {
+      return "it has a <form>";
+    }
+    List<OpenElement> stack = s.stack();
+    if (stack.size() > 1 && OpenElement.HTML.equals(stack.get(1).namespace())
+        && NOT_TOP_LEVEL.contains(stack.get(1).localName())) {
+      return "its root is a <" + stack.get(1).localName() + ">";
+    }
+    Set<String> seen = new HashSet<>();
+    List<Integer> list = s.activeFormatting();
+    for (int i = list.size() - 1; i >= 0 && list.get(i) != ParserState.MARKER; i--) {
+      String name = s.activeFormattingElements().get(i).localName();
+      if (!seen.add(name)) {
+        return "it has a <" + name + "> inside another <" + name + ">";
+      }
+    }
+    return null;
+  }
+
+  /**
+   * The signature of {@code s} as a producer's exit state is compared with its entry state: without
+   * the original insertion mode, unless it is live. The parser sets it on entering the "text" mode
+   * (and validator.nu's held-back table text) and reads it only there; validator.nu keeps the last
+   * value afterwards, so a {@code <textarea>}, {@code <script>} or {@code <template>} in the
+   * content would otherwise look like a change.
+   */
+  static String flowSignature(ParserState s) {
+    String sig = s.signature();
+    if (s.mode() == InsertionMode.TEXT || s.pendingTableText()) {
+      return sig;
+    }
+    int at = sig.indexOf(" original=");
+    int end = at < 0 ? -1 : sig.indexOf(' ', at + 1);
+    return at < 0 || end < 0 ? sig : sig.substring(0, at) + sig.substring(end);
+  }
+
+  /**
+   * The breach if {@code piece}, fed alone, is an end tag that closed nothing in one of the parsers
+   * ({@code before} and {@code after} are their states around it), else null. In the {@code ""}
+   * {@link #PARTIAL_PROBES probe} that means the parser had already closed the element the tag was
+   * written for, as an {@code <h2>} closes an open {@code <h1>}, a {@code <dd>} a {@code <dt>} and
+   * a {@code <button>} an open {@code <button>} with the {@code <div>} inside it. Inserted where an
+   * element of that name is open around the content, the same tag closes that one. A {@code </p>}
+   * and a {@code </br>} are exempt: with no {@code p} to close they insert an element, the same
+   * wherever FLOW is accepted (the predicate rejects an open {@code p} in button scope). It fails
+   * closed: an end tag still unfinished after the piece is a breach.
+   */
+  static String strayEndTag(String piece, ParserState[] before, ParserState[] after) {
+    int end = 2;
+    while (end < piece.length() && Character.isLetterOrDigit(piece.charAt(end))) {
+      end++;
+    }
+    if (end == 2 || !Character.isLetter(piece.charAt(2))) {
+      return null; // not an end tag (a bogus comment, or text in data)
+    }
+    String name = piece.substring(2, end).toLowerCase(Locale.ROOT);
+    for (int i = 0; i < before.length; i++) {
+      if (before[i].tokenizer() != TokenizerState.DATA || !before[i].pendingInput().isEmpty()) {
+        continue; // inside raw text, a comment or a tag: not an end tag here
+      }
+      if (after[i].tokenizer() != TokenizerState.DATA || !after[i].pendingInput().isEmpty()) {
+        return "it has a </" + name + "> end tag that doesn't end where the verifier can see it";
+      }
+      if (!name.equals("p") && !name.equals("br") && before[i].stack().equals(after[i].stack())) {
+        return "it has a </" + name + "> end tag that closes nothing it opened (the <" + name
+            + "> was already closed by what came after it)";
+      }
+    }
+    return null;
+  }
+
+  /** The breach if {@code piece} (markup from one {@code <} on) starts with a page element's start tag, else null. */
+  static String pageTag(String piece) {
+    for (String name : PAGE_ELEMENTS) {
+      int end = 1 + name.length();
+      if (piece.regionMatches(true, 0, "<" + name, 0, end)
+          && (piece.length() == end || " \t\n\r\f/>".indexOf(piece.charAt(end)) >= 0)) {
+        return "it has a <" + name + "> tag";
+      }
+    }
+    return null;
+  }
 
   /**
    * The open element (in words) that a start tag of flow content would close, reopen or adopt in
