@@ -17,6 +17,7 @@ import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.model.Text;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -91,7 +92,7 @@ class HtmlParserTest {
           <!-- a comment with <b>markup</b> -->
           <h2 t:text="${owner.name}">Name</h2>
           <br><br/><img src="a.png" alt=""/>
-          <div t:each="pet : ${pets}" title="a &lt; b &#x41; &unknown; &#65">
+          <div t:each="pet : ${pets}" title="a &lt; b &#x41; &unknown; &#65;">
             <span t:text="${pet.name}" t:class="x"/>
           </div>
           <textarea name="t"><b>&lt;raw&gt;</b></textarea>
@@ -147,13 +148,12 @@ class HtmlParserTest {
   }
 
   @Test
-  void commentsDoctypeCdataAndProcessingInstructions() {
-    Document doc = parseOk("<?xml version=\"1.0\"?><!DOCTYPE html><!-- c --><a><![CDATA[x<y]]></a>");
-    assertEquals(new DocType("<?xml version=\"1.0\"?>", pos(1, 1)), doc.children().get(0));
-    assertEquals(new DocType("<!DOCTYPE html>", pos(1, 22)), doc.children().get(1));
-    assertEquals(new Comment("<!-- c -->", pos(1, 37)), doc.children().get(2));
-    Element a = el(doc.children().get(3));
-    assertEquals(new Text("<![CDATA[x<y]]>", OutputContext.TEXT, pos(1, 50)), a.children().get(0));
+  void commentsDoctypeAndCdata() {
+    Document doc = parseOk("<!-- c -->\n<!doctype HTML ><svg><![CDATA[x<y]]></svg>");
+    assertEquals(new Comment("<!-- c -->", pos(1, 1)), doc.children().get(0));
+    assertEquals(new DocType("<!doctype HTML >", pos(2, 1)), doc.children().get(2));
+    Element svg = el(doc.children().get(3));
+    assertEquals(new Text("<![CDATA[x<y]]>", OutputContext.TEXT, pos(2, 22)), svg.children().get(0));
   }
 
   @Test
@@ -269,27 +269,60 @@ class HtmlParserTest {
     String hole = "error: malformed markup: [[...]] and [(...)] are not supported inside a CDATA section: outside"
         + " <svg> and <math> a browser reads the section as a comment, and inside them it shows &lt; as written;"
         + " write the text without <![CDATA[";
+    String html = "error: " + HtmlParser.CDATA_IN_HTML_MESSAGE;
     assertEquals(
-        List.of(cdata, "dir/t.html:1:24: " + hole), errors("<p><![CDATA[ x><script>[[${x}]]</script> ]]></p>"));
+        List.of("dir/t.html:1:4: " + html, cdata, "dir/t.html:1:24: " + hole),
+        errors("<p><![CDATA[ x><script>[[${x}]]</script> ]]></p>"));
+    assertEquals(List.of(cdata.replace("1:15", "1:17"), "dir/t.html:1:26: " + hole),
+        errors("<svg><![CDATA[ x><script>[[${x}]]</script> ]]></svg>"));
     // Without a '>' an expression would still not be element text to a browser.
-    assertEquals(List.of("dir/t.html:1:16: " + hole), errors("<div><![CDATA[ [[${x}]] ]]></div>"));
+    assertEquals(List.of("dir/t.html:1:6: " + html, "dir/t.html:1:16: " + hole), errors("<div><![CDATA[ [[${x}]] ]]></div>"));
     assertEquals(List.of("dir/t.html:1:16: " + hole), errors("<svg><![CDATA[ [(${x})] ]]></svg>"));
-    assertEquals(List.of("dir/t.html:1:9: " + hole), errors("<![CDATA[[${x}]]>"));
-    assertEquals(List.of(cdata.replace("1:15", "2:2")), errors("<svg><![cdata[\n >]]></svg>"));
-    String pi = "error: malformed markup: '>' inside '<?...?>' is not supported: a browser ends it at the first '>';"
-        + " remove the '>'";
-    assertEquals(List.of("dir/t.html:1:6: " + pi), errors("<?php><script>[[${x}]]</script> ?>"));
-    assertEquals(List.of("dir/t.html:1:31: " + pi), errors("<?xml version=\"1.0\" encoding=\"><script>\"?>"));
+    assertEquals(List.of("dir/t.html:1:1: " + html, "dir/t.html:1:9: " + hole), errors("<![CDATA[[${x}]]>"));
+    // inside an HTML element, also in svg and math, a browser reads CDATA as a comment (decision 11)
+    assertEquals(List.of("dir/t.html:1:24: " + html), errors("<svg><foreignObject><p><![CDATA[x]]></p></foreignObject></svg>"));
+    assertEquals(List.of("dir/t.html:1:14: " + html), errors("<math><mi><b><![CDATA[x]]></b></mi></math>"));
+    assertEquals(List.of("dir/t.html:1:9: " + html), errors("<svg><p><![CDATA[x]]></p></svg>"));
+    // CDATA is case-sensitive: <![cdata[ is a bogus comment in svg too
     assertEquals(
-        List.of("dir/t.html:1:24: error: malformed markup: '>' inside <!DOCTYPE> is not supported: a browser ends it"
-            + " at the first '>'; write <!DOCTYPE html>"),
-        errors("<!DOCTYPE html PUBLIC \"><script>\" \"x\">"));
-    // Without an earlier '>', a browser ends them where Tessera does.
+        List.of("dir/t.html:1:6: error: malformed markup: '<!' starts a comment in a browser that ends at the first"
+            + " '>': write &lt; for a literal '<'"),
+        errors("<svg><![cdata[\n >]]></svg>"));
+    // the integration point itself is an svg or math element
+    parseOk("<svg><foreignObject><![CDATA[x]]></foreignObject></svg><math><mtext><![CDATA[x]]></mtext></math>");
+    // a CDATA section inside <script> or <style> is script or CSS text
+    parseOk("<svg><text><![CDATA[ x < y ]]></text><g><![CDATA[ a ]]]></g></svg><math><![CDATA[a]]></math>"
+        + "<script>//<![CDATA[\nif (a > b) {}\n//]]></script>");
+  }
+
+  @Test
+  void onlyTheHtml5DoctypeIsAccepted() {
+    // Other DOCTYPEs switch a browser to quirks or limited-quirks parsing; a later one is ignored.
+    String form = "dir/t.html:1:1: error: malformed markup: only <!DOCTYPE html> is supported (other DOCTYPEs change how"
+        + " a browser parses the page): write <!DOCTYPE html>";
+    assertEquals(List.of(form), errors("<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"x.dtd\"><p></p>"));
+    assertEquals(List.of(form), errors("<!DOCTYPE html PUBLIC \"><script>\" \"x\">"));
+    assertEquals(List.of(form), errors("<!DOCTYPEhtml>"));
+    assertEquals(List.of(form), errors("<!DOCTYPE html x>"));
+    assertEquals(List.of(form), errors("<!DOCTYPE svg>"));
     assertEquals(
-        List.of(),
-        errors("<?xml version=\"1.0\"?><!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"x.dtd\">"
-            + "<p><![CDATA[ x < y ]]><?php echo 1 ?></p><svg><![CDATA[ a ]]]></svg>"
-            + "<script>//<![CDATA[\nif (a > b) {}\n//]]></script>"));
+        List.of("dir/t.html:2:1: error: malformed markup: <!DOCTYPE> after other content is ignored by a browser: move"
+            + " it to the top of the template, or remove it"),
+        errors("<p></p>\n<!DOCTYPE html>"));
+    assertEquals(1, errors("x<!DOCTYPE html>").size());
+    assertEquals(1, errors("<!DOCTYPE html><!DOCTYPE html>").size());
+    // whitespace, comments and a byte order mark may come first, as in a browser
+    parseOk("\n  <!-- license -->\n<!DOCTYPE\thtml\n>");
+    parseOk("\uFEFF<!DOCTYPE html>");
+  }
+
+  @Test
+  void processingInstructionsAndXmlDeclarationsAreErrors() {
+    String pi = "error: malformed markup: '<?' starts a comment in a browser that ends at the first '>': write &lt; for"
+        + " a literal '<'";
+    assertEquals(List.of("dir/t.html:1:1: " + pi), errors("<?xml version=\"1.0\" encoding=\"UTF-8\"?><p></p>"));
+    assertEquals(List.of("dir/t.html:1:4: " + pi), errors("<p><?php echo 1 ?></p>"));
+    assertEquals(List.of("dir/t.html:1:1: " + pi), errors("<?php><script>[[${x}]]</script> ?>"));
   }
 
   @Test
@@ -307,8 +340,15 @@ class HtmlParserTest {
     for (String start : List.of("<!-x>", "<!/x>", "<!?x>", "<!!x>", "<![if !IE]>")) {
       assertEquals(List.of("dir/t.html:1:6: error: malformed markup: '<!'" + bogus), errors("<i>a " + start + "</i>"));
     }
-    // A '<' that starts no tag or comment in a browser stays text.
-    assertEquals(List.of(), errors("<p>x < y, a <- b, a <[b], a &lt;!b, a &lt;/ b</p>"));
+    // Any other '<' that starts no tag or comment is an error too: a value after it could start
+    // one. &lt; is the literal '<'.
+    String literal = "error: malformed markup: '<' that starts no tag or comment is not supported in text: write &lt;"
+        + " for a literal '<'";
+    for (String text : List.of("x < y", "a <- b", "a <[b]", "1<2", "<", "a <1>", "a <ſcript>", "a <\u212Aey>")) {
+      assertEquals(List.of("dir/t.html:1:" + (4 + text.indexOf('<')) + ": " + literal), errors("<p>" + text + "</p>"), text);
+    }
+    assertEquals(List.of("dir/t.html:1:1: " + literal), errors("<</>"));
+    parseOk("<p>x &lt; y, a &lt;!b, a &lt;/ b, [[${a < b}]] [(${'<'})]</p>");
     // RCDATA and raw text have no comments in a browser.
     assertEquals(
         List.of(),
@@ -366,13 +406,27 @@ class HtmlParserTest {
   @Test
   void malformedMarkup() {
     assertEquals(
-        List.of("dir/t.html:1:6: error: malformed markup: invalid attribute name '<p': attribute names cannot contain <, quotes or ="),
+        List.of("dir/t.html:1:6: error: malformed markup: '<' in an attribute name: end the tag with '>' first, or remove"
+            + " the '<'"),
         errors("<div <p></div>"));
     assertEquals(
-        List.of("dir/t.html:1:1: error: malformed markup: invalid element name '<': element names start with a letter and use letters, digits, '-', '_', ':' and '.'"), errors("<</>"));
+        List.of("dir/t.html:1:5: error: malformed markup: '$' in an element name: element names start with a letter and use"
+            + " letters, digits, '-', '_', ':' and '.'; write &lt; for a literal '<'"),
+        errors("<scr$ipt></scr$ipt>"));
+    assertEquals(
+        List.of("dir/t.html:1:8: error: malformed markup: end tag </p> has more than its name: write </p>"),
+        errors("<p></p x>"));
+    assertEquals(1, errors("<p></p/>").size());
+    assertEquals(
+        List.of("dir/t.html:1:4: error: malformed markup: '=' with no attribute name before it: remove it or add the name"),
+        errors("<a =b></a>"));
+    assertEquals(
+        List.of("dir/t.html:1:5: error: malformed markup: '=' with no value after it: write b=\"\" or remove the '='"),
+        errors("<a b=></a>"));
+    assertEquals(1, errors("<a b= ></a>").size());
     List<String> unterminated = errors("<p>ok</p>\n<div class=\"x>hi</div>");
     assertEquals(1, unterminated.size());
-    assertTrue(unterminated.get(0).startsWith("dir/t.html:2:1: error: malformed markup: "), unterminated.get(0));
+    assertTrue(unterminated.get(0).startsWith("dir/t.html:2:6: error: malformed markup: "), unterminated.get(0));
     List<String> comment = errors("<p>x</p><!-- never closed");
     assertEquals(1, comment.size());
     assertTrue(comment.get(0).startsWith("dir/t.html:1:9: error: malformed markup: "), comment.get(0));
@@ -391,8 +445,9 @@ class HtmlParserTest {
     assertEquals(List.of("dir/t.html:2:13: " + sq), errors("<p>\n  <p title=a'b'></p></p>"));
     assertEquals(List.of("dir/t.html:1:10: " + dqName), errors("<a b=\"x\"y\"><script>\"></a>"));
     assertEquals(List.of("dir/t.html:1:9: " + dqName), errors("<a b=\"x\"\"y\"></a>"));
-    assertEquals(List.of("dir/t.html:1:8: " + dqName), errors("<p></p \"><script>//\"></p>"));
-    assertEquals(List.of("dir/t.html:1:11: " + sq), errors("<p></p a=b'>'>"));
+    String endTag = "error: malformed markup: end tag </p> has more than its name: write </p>";
+    assertEquals(List.of("dir/t.html:1:8: " + endTag), errors("<p></p \"><script>//\"></p>"));
+    assertEquals(List.of("dir/t.html:1:8: " + endTag), errors("<p></p a=b'>'>"));
     assertEquals(List.of("dir/t.html:1:3: " + dqName), errors("<p\"x\"></p>"));
     assertEquals(List.of("dir/t.html:1:4: " + dqName), errors("<a \"b\"></a>"));
     assertEquals(List.of("dir/t.html:1:5: " + dqName), errors("<a b\"c=d></a>"));
@@ -413,10 +468,10 @@ class HtmlParserTest {
     parseOk("<a b=\"x\"c='y'd=e></a>");
     parseOk("<a b='>' c=\"<\" d=\"/>\"></a>");
     parseOk("<br b=\"x\"/><br c='y' />");
-    parseOk("<input value=it&#39;s><input value=&quot;q&quot;>");
+    parseOk("<input value=\"it&#39;s\"><input value='&quot;q&quot;'>");
     parseOk("<p>it's \"quoted\"</p ><p>'</p\n>");
     parseOk("<script>var a = \"<b c=d'>\";</script>");
-    // raw text a browser does not tokenize keeps the old quote rule
+    // raw text is not tokenized
     parseOk("<script type=\"text/template\"><% if (a === 'b') { %>x<% } %><p title=a'b'></p></script>");
     parseOk("<textarea><a b=c'd'></a></textarea><title>x<y \"z\"></title>");
     parseOk("<div t:params=\"String s\"><a t:title=\"'x' + s\" t:text=\"${s == 'y' ? 'z' : s}\"></a></div>");
@@ -470,7 +525,8 @@ class HtmlParserTest {
         errors("<script type/ type=\"application/json\">[[${x}]]</script>"));
     assertEquals(List.of("dir/t.html:1:6: " + slash), errors("<a b/ c></a>"));
     assertEquals(List.of("dir/t.html:1:11: " + slash), errors("<a b=\"c\" /\nd></a>"));
-    assertEquals(List.of("dir/t.html:1:8: " + slash), errors("<p></p/ x>"));
+    assertEquals(List.of("dir/t.html:1:7: error: malformed markup: end tag </p> has more than its name: write </p>"),
+        errors("<p></p/ x>"));
     parseOk("<br/><br /><br b=c /><br b=\"c\"/><img src=\"a/\"><a href=/x/ >y</a>");
   }
 
@@ -497,7 +553,27 @@ class HtmlParserTest {
     String eq = "error: malformed markup: '=' starting an unquoted value is part of it in a browser: quote the value";
     assertEquals(List.of("dir/t.html:1:24: " + eq), errors("<a t:if=\"${true}\" href==javascript:alert(1)>x</a>"));
     assertEquals(List.of("dir/t.html:1:11: " + eq), errors("<a title= =b>x</a>"));
-    parseOk("<a href=\"=x\" title='=' b = c d=e=f>x</a>");
+    parseOk("<a href=\"=x\" title='=' b = c d=\"e=f\">x</a>");
+  }
+
+  @Test
+  void unquotedValuesTakeOnlyTheSafeCharacters() {
+    // Without quotes a value takes [A-Za-z0-9_.:/#-]: every other char either ends the value
+    // differently in a browser (quotes, '=', '<', '`') or needs decoding that Tessera does not do
+    // the same way ('&'), so the value must be quoted.
+    String msg = "' in an unquoted attribute value: quote the value (an unquoted value takes only ASCII letters, digits"
+        + " and _ . : / # -)";
+    for (String value : List.of("e=f", "a?b", "${x}", "it&#39;s", "a<b", "a`b", "a;b", "a%20b", "ä")) {
+      String bad = value.chars()
+          .filter(c -> !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || "_.:/#-".indexOf(c) >= 0))
+          .mapToObj(c -> String.valueOf((char) c))
+          .findFirst()
+          .orElseThrow();
+      assertEquals(List.of("dir/t.html:1:" + (7 + value.indexOf(bad)) + ": error: malformed markup: '" + bad + msg),
+          errors("<a ti=" + value + ">x</a>"), value);
+    }
+    assertEquals(1, errors("<a t:if=${a}>x</a>").size());
+    parseOk("<a href=/a/b.c#d:e_f-G9 class=x title=-1>x</a><input value=0 type=text>");
   }
 
   @Test
@@ -539,33 +615,36 @@ class HtmlParserTest {
   @Test
   void rawTextEndTagInAnyCaseCannotBeSkipped() {
     // The first end tag a browser sees ends the element, whatever its case, even when a later
-    // one matches the start tag's case exactly.
+    // one matches the start tag's case exactly; an end tag takes no attributes.
     assertEquals(
-        List.of("dir/t.html:1:1: error: element <script> is not closed: add </script>"),
-        errors("<script>x</SCRIPT x><p>[[${x}]]</p>"));
-    assertEquals(
-        List.of("dir/t.html:1:10: error: malformed markup: content of <script> contains"
-            + " '</script' before its end tag: escape it (in a script string, write '<\\/script')"),
+        List.of("dir/t.html:1:19: error: malformed markup: end tag </SCRIPT> has more than its name: write </SCRIPT>"),
         errors("<script>x</SCRIPT x><p>[[${x}]]</p></script>"));
   }
 
+  private static String strayRawEndTag(int line, int col, String tag) {
+    return "dir/t.html:" + line + ":" + col + ": error: end tag </" + tag + "> does not match any open element: remove it"
+        + " or add the matching <" + tag + "> (a browser ends <" + tag + "> at the first '</" + tag + "', even inside a"
+        + " string or comment: in a script string, write '<\\/" + tag + "')";
+  }
+
   @Test
-  void rawTextEndTagHiddenFromAttoparserIsAnError() {
-    // A browser ends <textarea>/<title> at the first </textarea>, even inside what looks like
-    // an attribute value or comment, so the <script> below would be live script.
+  void rawTextEndsWhereABrowserEndsIt() {
+    // A browser ends <textarea>, <title> and <script> of any type at the first </name, even inside
+    // what looks like an attribute value or comment. Tessera ends them there too, so the <script>
+    // below is script to both; what follows it no longer balances.
+    Document doc = parse("<textarea><a title=\"</textarea><script>[[${x}]]</script>\"></a></textarea>");
+    assertEquals("<a title=\"", ((Text) el(doc.children().get(0)).children().get(0)).raw());
+    assertEquals(OutputContext.SCRIPT, ((Text) el(doc.children().get(1)).children().get(0)).context());
     assertEquals(
-        List.of("dir/t.html:1:21: error: malformed markup: content of <textarea> contains"
-            + " '</textarea' before its end tag: escape it (in a script string, write '<\\/textarea')"),
-        errors("<textarea><a title=\"</textarea><script>[[${x}]]</script>\"></a></textarea>"));
+        List.of("dir/t.html:1:59: error: end tag </a> does not match any open element: remove it or add the matching <a>",
+            strayRawEndTag(1, 63, "textarea")),
+        diagnostics.all().stream().map(Diagnostic::toString).toList());
     assertEquals(
-        List.of("dir/t.html:2:5: error: malformed markup: content of <title> contains"
-            + " '</title' before its end tag: escape it (in a script string, write '<\\/title')"),
-        errors("<title>\n<!--</title ><script>[[${x}]]</script>--></title>"));
+        List.of(strayRawEndTag(2, 42, "title")), errors("<title>\n<!--</title ><script>[[${x}]]</script>--></title>"));
     assertEquals(
-        List.of("dir/t.html:1:32: error: malformed markup: content of <script> contains"
-            + " '</script' before its end tag: escape it (in a script string, write '<\\/script')"),
+        List.of(strayRawEndTag(1, 46, "script"), "dir/t.html:1:41: error: element <p> is not closed: add </p>"),
         errors("<script type=\"text/html\"><a b=\"</script><p>\"></script>"));
-    parseOk("<textarea></textareax></textarea>");
+    parseOk("<textarea></textareax></textarea><script>a</scriptx></script>");
   }
 
   private static String hiddenEndTag(int line, int col, String tag) {
@@ -599,16 +678,24 @@ class HtmlParserTest {
           "<" + tag + "><title></" + tag + "><script>[[${x}]]</script></title></" + tag + ">",
           "<" + tag + "><!--</" + tag + "><script>[[${x}]]</script>--></" + tag + ">",
           "<" + tag + "><p title=\"</" + tag + "><script>/*\">*/[[${x}]]//</p></" + tag + ">")) {
-        assertEquals(List.of(hiddenEndTag(1, html.indexOf("</" + tag) + 1, tag)), errors(html), html);
+        List<String> want = new ArrayList<>();
+        if (html.contains("<!--")) {
+          // the expression in the comment is an error of its own
+          want.add("dir/t.html:1:" + (html.indexOf("[[") + 1) + ": error: " + HtmlParser.COMMENT_HOLE_MESSAGE);
+        }
+        want.add(hiddenEndTag(1, html.indexOf("</" + tag) + 1, tag));
+        assertEquals(want, errors(html), html);
       }
     }
     assertEquals(List.of(hiddenEndTag(2, 5, "xmp")), errors("<xmp>\n<!--</XMP >--></xmp>"));
-    // unquoted attribute value, and '/' after the name
-    assertEquals(List.of(hiddenEndTag(1, 15, "xmp")), errors("<xmp><p title=</xmp>x</p></xmp>"));
+    // quoted attribute value, and '/' after the name
+    assertEquals(List.of(hiddenEndTag(1, 16, "xmp")), errors("<xmp><p title=\"</xmp>\">x</p></xmp>"));
     assertEquals(List.of(hiddenEndTag(1, 10, "xmp")), errors("<xmp><!--</xmp/>--></xmp>"));
-    // browsers fold ASCII letters only: </noſcript> is no end tag to them, so the </noscript> in
-    // the title is where a browser ends the element
-    assertEquals(List.of(hiddenEndTag(1, 29, "noscript")), errors("<noscript></no\u017Fcript><title></noscript></title>"));
+    // element names are ASCII: a browser reads </noſcript> as no end tag of <noscript>
+    assertEquals(
+        List.of("dir/t.html:1:15: error: malformed markup: '\u017F' in an element name: element names start with a"
+            + " letter and use letters, digits, '-', '_', ':' and '.'; write &lt; for a literal '<'"),
+        errors("<noscript></no\u017Fcript><title></noscript></title>"));
 
     Element noscript = el(parseOk("<noscript><img t:src=\"@{/p.gif}\"><p>[[${x}]]</p></noscript>").children().get(0));
     assertEquals("p", el(noscript.children().get(1)).name());
@@ -631,7 +718,7 @@ class HtmlParserTest {
     assertEquals(
         List.of(
             "dir/t.html:1:9: error: malformed markup: '<!--' inside <script> is not supported: remove it (it is not needed in HTML5)",
-            "dir/t.html:1:48: error: end tag </script> does not match any open element: remove it or add the matching <script>"),
+            strayRawEndTag(1, 48, "script")),
         errors("<script><!--<script></script><p>[[${x}]]</p>--></script>"));
   }
 
@@ -658,5 +745,51 @@ class HtmlParserTest {
     parseOk("<!--/* hidden */--><!--/*/ <p>shown</p> /*/--><!--/**/-->");
     // inside raw text a comment is text to a browser
     parseOk("<textarea><!--> --></textarea><title><!-- --!> --></title>");
+  }
+
+  @Test
+  void incompleteCharacterReferencesAreErrors() {
+    // A browser decodes some references without ';' (&amp, &copy, &#65) where Tessera does not,
+    // and a value right after an incomplete one could complete it (decision 13).
+    String msg = "error: malformed markup: '&' that starts an incomplete character reference is not supported: end the"
+        + " reference with ';' (as in &amp;), or write &amp; for a literal '&'";
+    for (String text : List.of("AT&T", "a &amp b", "&copy 2026", "&#65", "&#x41 ", "&#;", "&#x;", "&1;")) {
+      assertEquals(List.of("dir/t.html:1:" + (4 + text.indexOf('&')) + ": " + msg), errors("<p>" + text + "</p>"), text);
+      assertEquals(List.of("dir/t.html:1:" + (11 + text.indexOf('&')) + ": " + msg), errors("<p title=\"" + text + "\"></p>"),
+          text);
+    }
+    assertEquals(1, errors("<p>x&amp[[${y}]]</p>").size());
+    // in text a browser decodes &lt before '='
+    assertEquals(List.of("dir/t.html:1:6: " + msg), errors("<p>a &lt= b</p>"));
+    parseOk("<p title=\"&amp;&lt;&#65;&#x41;&copy;&unknown; a & b && c\">a &amp; b && c & d &nbsp; &#x1F600;</p>");
+    // in an attribute value a name before '=' is a query parameter, which a browser does not decode
+    parseOk("<a href=\"/a?x=1&y=2&amp;z=3\">x</a>");
+    // expressions and t: attribute values are not HTML text
+    parseOk("<p t:title=\"${a &amp b}\" t:if=\"${a&&b}\">[[${'&x'}]] [(${'&#'})]</p>");
+  }
+
+  @Test
+  void nulIsAnError() {
+    // A browser replaces U+0000, so the source is not what it parses (decision 8).
+    String msg = "error: malformed markup: U+0000 (NUL) is not supported: a browser replaces it; remove it";
+    assertEquals(List.of("dir/t.html:1:5: " + msg), errors("<p>a\u0000</p>"));
+    assertEquals(List.of("dir/t.html:1:9: " + msg), errors("<script>\u0000</script>"));
+    assertEquals(List.of("dir/t.html:1:11: " + msg), errors("<p title=\"\u0000\"></p>"));
+  }
+
+  @Test
+  void expressionsInCommentsAndStaticAttributesAreErrors() {
+    // Tessera writes comments and attributes without t: as they are, so [[...]] there is never a
+    // hole; the author most likely meant one.
+    assertEquals(
+        List.of("dir/t.html:1:9: error: [[...]] and [(...)] are not supported inside a comment: Tessera writes a comment"
+            + " as it is, so the expression would not be evaluated; move it out of the comment, or remove it"),
+        errors("<p><!-- [[${x}]] --></p>"));
+    String attr = "error: [[...]] and [(...)] are not supported in an attribute value: Tessera writes a value without t: as"
+        + " it is, so the expression would not be evaluated; use a t: attribute (t:title=\"${...}\"), or write &#91; for"
+        + " a literal '['";
+    assertEquals(List.of("dir/t.html:1:11: " + attr), errors("<p title=\"[[${x}]]\"></p>"));
+    assertEquals(List.of("dir/t.html:1:16: " + attr), errors("<div data-x='a [(${x})]'></div>"));
+    parseOk("<p t:title=\"'[[' + x\" data-x=\"&#91;[1,2]]\" title=\"[[a\"><!-- [[ a ] ] --><!-- [( --></p>");
   }
 }

@@ -1225,27 +1225,53 @@ These come from the annotation processor itself, without a template position.
 
 ### Markup
 
-- `malformed markup: <parser message>`: the HTML could not be parsed at that point; fix the
-  markup (unclosed quote, stray `<`).
-- `malformed markup: invalid element name '<name>': element names start with a letter and use letters, digits, '-', '_', ':' and '.'`:
-  fix the tag name, or escape a literal `<` in text as `&lt;`.
-- `malformed markup: invalid attribute name '<name>': attribute names cannot contain <, quotes or =`:
-  usually a missing quote or space before the attribute.
+Tessera accepts a small grammar of HTML tokens (context-model.md §2) and rejects everything else,
+so the tags, attributes and comments it reads are the ones a browser reads.
+
+- `malformed markup: "<markup>..." does not end before the end of the template: close the tag, quote, comment or CDATA section`:
+  a tag, quoted value, comment or CDATA section that starts at that point never ends. Close it.
+- `malformed markup: '<char>' in an element name: element names start with a letter and use letters, digits, '-', '_', ':' and '.'; write &lt; for a literal '<'`:
+  fix the tag name (`<my-widget>`, not `<my$widget>`), or escape a literal `<` in text as `&lt;`.
+  A browser ends a name only at whitespace, `/` or `>`, so the other characters would be part of it.
+- `malformed markup: '<' that starts no tag or comment is not supported in text: write &lt; for a literal '<'`:
+  a `<` in element text that is not followed by a letter, `/` and a letter, `!--`, `![CDATA[` or
+  `!DOCTYPE`, as in `a < b` or `1<2`. A value written after it could start a tag. Write `&lt;`
+  (`a &lt; b`). Inside `<script>`, `<style>`, `<textarea>` and `<title>`, `<` is text and allowed.
+- `malformed markup: <markup> starts a comment in a browser that ends at the first '>': write &lt; for a literal '<'`:
+  `<markup>` is `'<!'`, `'<?'` or `'</' not followed by a letter`, in element text where Tessera
+  reads no tag or comment (for example `a </ b`, `<? x ?>`, `<![if !IE]>`). A browser hides
+  everything up to the next `>` in a comment, including markup Tessera reads. Write `&lt;` for a
+  literal `<`. An XML declaration (`<?xml version="1.0"?>`) or processing instruction is reported
+  the same way: HTML does not use them, so remove them.
+- `malformed markup: '<' in an attribute name: end the tag with '>' first, or remove the '<'`:
+  usually a missing `>` before the next tag, as in `<div <p>`.
+- `malformed markup: '=' with no attribute name before it: remove it or add the name`:
+  as in `<a =x>` or `<a b="x"=y>`. A browser reads `=x` as an attribute name.
+- `malformed markup: '=' with no value after it: write <name>="" or remove the '='`:
+  as in `<a b=>`. Write the empty value as `b=""`.
+- `malformed markup: '<char>' in an unquoted attribute value: quote the value (an unquoted value takes only ASCII letters, digits and _ . : / # -)`:
+  a value written without quotes may hold only those characters, as in `class=btn` or
+  `href=/owners/new`. Quote any other value (`href="/a?b=c"`, `t:if="${a}"`). Unquoted, a browser
+  ends or decodes some of them differently from Tessera (`=`, `&`, `<`, a backtick).
 - `malformed markup: quote <quote> in an unquoted attribute value: quote the value and write <reference> in it`:
   a quote inside a value written without quotes, as in `title=a"b`. A browser keeps it as a
   character of the value and ends the tag at the next `>`, where Tessera would not. Quote the
   value and write the quote as `&quot;` or `&#39;` (`title="a&quot;b"`).
 - `malformed markup: quote <quote> in a tag or attribute name: remove it (names cannot contain quotes)`:
-  a quote that does not open or close a quoted value, as in `<p"x">`, `title="a"b"` or
-  `</p ">`. A browser reads it as part of a name and ends the tag at the next `>`, where Tessera
-  would not. Remove it; write a quote inside a value as `&quot;` (`title="a&quot;b"`), and
-  remove anything after the name of an end tag.
+  a quote that does not open or close a quoted value, as in `<p"x">` or `title="a"b"`. A browser
+  reads it as part of a name and ends the tag at the next `>`, where Tessera would not. Remove it;
+  write a quote inside a value as `&quot;` (`title="a&quot;b"`).
+- `malformed markup: end tag </<tag>> has more than its name: write </<tag>>`:
+  as in `</p x>`, `</p ">` or `</p/>`. An end tag holds only its name and optional whitespace.
 - `malformed markup: U+<hex> in a tag is not HTML whitespace: replace it with a space`:
   a character that Java counts as whitespace but HTML does not (U+000B, U+001C to U+001F,
   U+2028, U+3000 and the other Unicode spaces) in a tag, outside a quoted value. A browser keeps
   it as part of the tag name, attribute name or value, so `<textarea` followed by U+000B is an
   unknown element whose content is live markup. Only space, tab, newline, carriage return and
   form feed separate the parts of a tag.
+- `malformed markup: U+0000 (NUL) is not supported: a browser replaces it; remove it`:
+  a NUL character anywhere in the template. A browser replaces it with U+FFFD, so the page it
+  parses is not the template Tessera checked.
 - `malformed markup: '/' before '>' belongs to the unquoted value, not to '/>': quote the value`:
   as in `<textarea x=y/>` or `<img src=a/>`. A browser reads the `/` as the last character of
   the value, so the tag is an open tag, not a self-closing one. Quote the value
@@ -1255,17 +1281,21 @@ These come from the annotation processor itself, without a template position.
   the name after it as a new attribute, where Tessera would not. Remove the `/`.
 - `malformed markup: '/' in a tag must be followed by '>': remove the '/' or what follows it`:
   as in `<br / >`, `<br //>` or `<script type/ type="application/json">`. A browser ignores a
-  `/` that is not right before `>`, while Tessera would read it as an attribute named `/`; where
-  Tessera rebuilds the tag, that attribute comes out as ` />`, which closes an svg or math
-  element early. Write `<br/>` or `<br />`, or remove the `/`.
+  `/` that is not right before `>`; where Tessera rebuilds the tag, it would write ` />`, which
+  closes an svg or math element early. Write `<br/>` or `<br />`, or remove the `/`.
 - `malformed markup: '=' starting an unquoted value is part of it in a browser: quote the value`:
   as in `href==x` or `title= =x`. A browser reads the value as `=x`, while Tessera would skip the
   extra `=`, so a tag Tessera rebuilds could carry a different value than the browser read.
   Remove the extra `=`, or quote the value if it starts with `=` (`title="=x"`).
+- `malformed markup: '&' that starts an incomplete character reference is not supported: end the reference with ';' (as in &amp;), or write &amp; for a literal '&'`:
+  an `&` followed by a letter, digit or `#` that does not form `&name;`, `&#digits;` or
+  `&#xhex;`, in element text or in an attribute value without `t:`, as in `AT&T`, `&copy 2026`
+  or `&#65`. A browser decodes some names without the `;` (`&amp`, `&copy`) where Tessera does
+  not, and a value written right after an incomplete reference could complete it. Write
+  `AT&amp;T` or `&copy;`. In an attribute value, a name followed by `=` is accepted, as in a query string
+  (`href="/a?x=1&y=2"`), because a browser does not decode it there.
 - `duplicate attribute '<name>' on <<tag>>: remove one of them`: keep one; names are
   case-insensitive (`t:text` and `T:TEXT` are the same).
-- `malformed markup: content of <<tag>> contains '</<tag>' before its end tag: escape it (in a script string, write '<\/<tag>')`:
-  a browser would end the element early; split the string.
 - `malformed markup: content of <<tag>> contains '</<tag>' before its end tag: a browser ends the element there, so the markup after it would be read differently; remove it or move it outside the element`:
   reported for `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>` and `<noscript>`. Tessera parses
   their content as markup, but a browser (for `<noscript>`, with scripting on) reads it as text up
@@ -1279,13 +1309,25 @@ These come from the annotation processor itself, without a template position.
   `<noembed/>`, `<noframes/>` and `<noscript/>` when Tessera writes them as they are: a browser
   reads the rest of the page as their text. With content from `t:text`, `t:field` or another
   attribute (`<textarea t:field="*{bio}"/>`) Tessera writes the end tag, and they compile.
+- `<<tag>/> is not self-closing in HTML: a browser ignores the '/' and reads what follows as the content of <<tag>>; write <<tag> ...></<tag>>`:
+  reported for every other non-void HTML element written as `<div/>`, `<span/>`, `<td/>` or
+  `<my-widget/>`, when Tessera writes it as it is. The element stays open in a browser and takes
+  the page after it as its content. As above, `<td t:text="${x}"/>` compiles: Tessera writes
+  `<td>...</td>`. Void elements (`<br/>`, `<img/>`, `<input/>`) and elements inside `<svg>` and
+  `<math>` (`<path/>`; not HTML elements in `<foreignObject>`, and not tags such as `<p>` that end
+  svg content in a browser) may use `/>`. A fragment rendered on its own is checked where it is
+  written.
 - `<title/> is not supported inside <svg> or <math>: Tessera cannot tell an SVG title from an HTML one (in <foreignObject> or after <b>), after which a browser reads the rest of the page as title text; write <title></title>`:
   a real SVG `<title/>` is self-closing, but Tessera does not track where a browser leaves SVG
   (`<foreignObject>`, `<mtext>`, a `<b>` or `<p>` inside `<svg>`), so it rejects them all.
 - `<plaintext> is not supported: a browser treats the rest of the page as plain text; use <pre>`:
   a browser never ends `<plaintext>`. Use `<pre>`.
 - `end tag </<tag>> does not match any open element: remove it or add the matching <<tag>>`:
-  common with `<a ... />` followed by `</a>`; write `<a ...></a>`.
+  common with `<a ... />` followed by `</a>`; write `<a ...></a>`. For `<script>`, `<style>`,
+  `<textarea>` and `<title>` the message adds `(a browser ends <<tag>> at the first '</<tag>', even inside a string or comment: in a script string, write '<\/<tag>')`:
+  a browser ends their content at the first `</<tag>`, even inside a JavaScript string or an
+  attribute value, and Tessera ends it there too, so the real end tag comes later and matches
+  nothing. Split the string (`'<\/script>'`).
 - `element <<tag>> is not closed (found </<other>> at <line>:<col>): add </<tag>>` and
   `element <<tag>> is not closed: add </<tag>>`: close the element (Tessera needs well-formed
   nesting for non-void elements).
@@ -1295,21 +1337,30 @@ These come from the annotation processor itself, without a template position.
   and `malformed markup: '--!>' ends a comment in a browser: end the comment with '-->' or remove the '!'`:
   a browser ends the comment earlier than Tessera would, so the markup after it would be live. Write
   `<!-- -->`-style comments that end only at `-->`.
-- `malformed markup: '>' inside a CDATA section is not supported, even in <svg> and <math>: elsewhere a browser ends it at the first '>'; write the text without <![CDATA[, with '>' as &gt;`,
-  `malformed markup: '>' inside '<?...?>' is not supported: a browser ends it at the first '>'; remove the '>'`
-  and `malformed markup: '>' inside <!DOCTYPE> is not supported: a browser ends it at the first '>'; write <!DOCTYPE html>`:
-  Tessera ends these at `]]>`, `?>` or the last `>` outside quotes, but in HTML a browser ends them
-  at the first `>`, so the markup after it would be read differently. Inside `<svg>` and `<math>` a
-  browser ends a CDATA section at `]]>` too; Tessera does not track those namespaces and rejects the
-  `>` there as well. A CDATA section inside `<script>` or `<style>` is script or CSS text and is not
-  checked.
+- `[[...]] and [(...)] are not supported inside a comment: Tessera writes a comment as it is, so the expression would not be evaluated; move it out of the comment, or remove it`:
+  Tessera never evaluates an expression in a comment. Move it into element text, or delete it.
+- `[[...]] and [(...)] are not supported in an attribute value: Tessera writes a value without t: as it is, so the expression would not be evaluated; use a t: attribute (t:title="${...}"), or write &#91; for a literal '['`:
+  as in `title="[[${name}]]"`. Use `t:title="${name}"`. For a literal `[[` in a value (JSON
+  in a `data-` attribute), write the first `[` as `&#91;`.
+- `malformed markup: only <!DOCTYPE html> is supported (other DOCTYPEs change how a browser parses the page): write <!DOCTYPE html>`:
+  a legacy DOCTYPE (`<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" ...>`) puts a
+  browser in quirks or limited-quirks mode, where it builds a different tree. Write
+  `<!DOCTYPE html>` (any letter case).
+- `malformed markup: <!DOCTYPE> after other content is ignored by a browser: move it to the top of the template, or remove it`:
+  only whitespace and comments may come before the DOCTYPE. A fragment template has none.
+- `malformed markup: a CDATA section is only supported directly inside an svg or math element: inside an HTML element (also one in <foreignObject> or <mtext>) a browser reads it as a comment; write the text without <![CDATA[, with '<' as &lt; and '&' as &amp;`:
+  inside an HTML element a browser reads `<![CDATA[` as a comment that ends at the first `>`.
+  That includes HTML elements in the content of `<foreignObject>`, SVG `<desc>` and MathML `<mi>`,
+  `<mo>`, `<mn>`, `<ms>`, `<mtext>` and `<annotation-xml>`, and a `<p>`, `<div>` or other tag
+  that ends svg content in a browser. `<![CDATA[` is case-sensitive:
+  `<![cdata[` is reported as `'<!'` above. A CDATA section inside `<script>` or `<style>` is
+  script or CSS text and is not checked.
+- `malformed markup: '>' inside a CDATA section is not supported, even in <svg> and <math>: elsewhere a browser ends it at the first '>'; write the text without <![CDATA[, with '>' as &gt;`:
+  Tessera ends a CDATA section at `]]>`, but in HTML a browser ends it at the first `>`, and
+  Tessera does not track every place where a browser leaves svg and math, so it rejects the `>`
+  everywhere.
 - `malformed markup: [[...]] and [(...)] are not supported inside a CDATA section: outside <svg> and <math> a browser reads the section as a comment, and inside them it shows &lt; as written; write the text without <![CDATA[`:
   no escaping fits an expression there. Move it out of the CDATA section.
-- `malformed markup: <markup> starts a comment in a browser that ends at the first '>': write &lt; for a literal '<'`:
-  `<markup>` is `'<!'`, `'<?'` or `'</' not followed by a letter`, in element text where Tessera
-  reads no tag or comment (for example `a </ b`, `<? x ?>`, `<![if !IE]>`). A browser hides
-  everything up to the next `>` in a comment, including markup Tessera reads. Write `&lt;` for a
-  literal `<`; `x < y` stays allowed.
 
 ### Template structure
 

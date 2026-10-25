@@ -1,6 +1,7 @@
 package dev.tessera.compiler.html;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -13,9 +14,12 @@ import com.sun.source.util.JavacTask;
 import com.sun.source.util.TreeScanner;
 import dev.tessera.compiler.Diagnostic;
 import dev.tessera.compiler.Diagnostics;
-import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.TemplateSource;
 import dev.tessera.compiler.model.Document;
+import dev.tessera.compiler.model.Element;
+import dev.tessera.compiler.model.Node;
+import dev.tessera.compiler.model.OutputContext;
+import dev.tessera.compiler.model.Text;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -37,11 +41,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Parses a corpus with {@link HtmlParser} (Tessera's own tokenizer) and with {@link
- * AttoparserHtmlParser} (the attoparser-based parser it replaced, #170) and requires the same
- * documents (node kinds, names, attributes, quotes, positions, text contexts, self-closing and
- * end tags) and the same diagnostics, character for character, up to where Tessera rejects a
- * tag that a browser reads differently (a quote outside a quoted attribute value, a char that is
- * whitespace in Java but not in HTML, or a misplaced {@code /} or {@code =}).
+ * AttoparserHtmlParser} (the attoparser-based parser it replaced, #170). For every input both
+ * accept without an error, they must build the same document (node kinds, names, attributes,
+ * quotes, positions, text contexts, self-closing and end tags).
  *
  * <p>Corpus: every {@code .html} file in the repository (outside {@code bench/}), every fenced
  * block in the docs, every string literal containing {@code <} in the repository's test sources,
@@ -52,10 +54,6 @@ class HtmlParserDifferentialTest {
 
   private static final Path ROOT = Path.of("..").toAbsolutePath().normalize();
   private static final long SEED = 170;
-  /** Tessera's own fatal tag errors (see {@code MarkupTokenizer.tagEnd}), where attoparser reads on. */
-  private static final List<String> TAG_ERRORS = List.of("malformed markup: quote ", "malformed markup: U+",
-      "malformed markup: '/' before '>'", "malformed markup: a name after '/'", "malformed markup: '/' in a tag",
-      "malformed markup: '=' starting an");
 
   /** Building blocks for mutations and random documents: everything the tokenizer treats specially. */
   private static final String[] TOKENS = {
@@ -140,8 +138,12 @@ class HtmlParserDifferentialTest {
 
     List<String> failures = new ArrayList<>();
     int compared = 0;
+    int accepted = 0;
     for (String input : inputs) {
       compared++;
+      if (accepted(input)) {
+        accepted++;
+      }
       String mismatch = compare(input);
       if (mismatch != null && failures.size() < 10) {
         failures.add(mismatch);
@@ -154,12 +156,15 @@ class HtmlParserDifferentialTest {
           + String.join("\n\n", failures.subList(0, Math.min(11, failures.size()))));
     }
     assertTrue(compared > 100_000, "compared only " + compared + " inputs");
+    assertTrue(accepted > 20_000, "Tessera accepted only " + accepted + " of " + compared + " inputs");
   }
 
   /** Spot checks that the comparison sees what it should: positions, contexts and diagnostics. */
   @Test
   void comparisonCoversPositionsAndDiagnostics() {
-    assertEquals(null, compare("<div a='1'>\n\t<script>[[${x}]]</script></p>"));
+    assertEquals(null, compare("<div a='1'>\n\t<script>[[${x}]]</script></div>"));
+    assertTrue(accepted("<div a='1'>\n\t<script>[[${x}]]</script></div>"));
+    assertFalse(accepted("<div a='1'>\n\t<script>[[${x}]]</script></p>"));
     Diagnostics d = new Diagnostics();
     Document doc = new HtmlParser().parse(source("<a\tb=c>"), d);
     assertEquals("Document[source=TemplateSource[viewName=t, path=t.html, content=<a\tb=c>], children=[Element[name=a,"
@@ -173,10 +178,15 @@ class HtmlParserDifferentialTest {
     return new TemplateSource("t", "t.html", content);
   }
 
-  /** Null if both parsers agree on {@code input}, else a description of the difference. */
+  /**
+   * Null if either parser rejects {@code input} or both read it the same, else a description of
+   * the difference. Only inputs both accept without an error are compared. Tessera rejects what is
+   * outside the profile's token grammar (docs/context-model.md §2), and attoparser rejects some
+   * raw text that Tessera ends where a browser does (attoparser does not end a {@code <script>}
+   * with a type it does not know, or at {@code </script >}). A {@code <} inside an expression is
+   * text to Tessera and may be markup to attoparser, so such inputs are not compared either.
+   */
   private static String compare(String input) {
-    Diagnostics expectedDiagnostics = new Diagnostics();
-    Document expected = new AttoparserHtmlParser().parse(source(input), expectedDiagnostics);
     Diagnostics actualDiagnostics = new Diagnostics();
     Document actual;
     try {
@@ -184,78 +194,38 @@ class HtmlParserDifferentialTest {
     } catch (RuntimeException e) {
       return "input: " + escape(input) + "\nthrew: " + e;
     }
-    List<String> want = expectedDiagnostics.all().stream().map(Diagnostic::toString).toList();
-    List<String> got = actualDiagnostics.all().stream().map(Diagnostic::toString).toList();
-    if (expected.equals(actual) && want.equals(got)) {
+    if (actualDiagnostics.hasErrors()) {
       return null;
     }
-    List<Diagnostic> all = actualDiagnostics.all();
-    for (int at = 0; at < all.size(); at++) {
-      Diagnostic tagError = all.get(at);
-      if (TAG_ERRORS.stream().anyMatch(tagError.message()::startsWith)) {
-        SourcePos pos = tagError.pos();
-        int[] lineStarts = source(input).lineStarts();
-        int error = lineStarts[pos.line() - 1] + pos.column() - 1;
-        // A diagnostic past the error is about text the mask replaces (a check that reads ahead,
-        // such as for the '</noscript' a browser ends <noscript> at, and reports at column 0 when
-        // it finds none), so the masked input has none.
-        List<String> before = new ArrayList<>();
-        int tagErrorAt = 0;
-        for (int i = 0; i < all.size(); i++) {
-          SourcePos p = all.get(i).pos();
-          if (i == at) {
-            tagErrorAt = before.size();
-            before.add(got.get(i));
-          } else if (p.column() >= 1 && lineStarts[p.line() - 1] + p.column() - 1 < error) {
-            before.add(got.get(i));
-          }
-        }
-        // a z after a '/' in a tag starts a name, an error of its own; a '/' at the start of a tag
-        // name stops the tag starting; after a '/' only '>' may follow, so there the '/' itself is
-        // masked too. One of the three masks keeps the tag open to the end.
-        String z = compareBeforeTagError(input, error, "z", actual, before, tagErrorAt);
-        return z == null || compareBeforeTagError(input, error, "/", actual, before, tagErrorAt) == null
-            || compareBeforeTagError(input, error - 1, "z", actual, before, tagErrorAt) == null ? null : z;
-      }
+    Diagnostics expectedDiagnostics = new Diagnostics();
+    Document expected = new AttoparserHtmlParser().parse(source(input), expectedDiagnostics);
+    if (expectedDiagnostics.hasErrors() || expected.equals(actual) || lessThanInText(actual.children())) {
+      return null;
     }
     return "input: " + escape(input)
-        + "\nattoparser: " + escape(want + " " + expected.children())
-        + "\ntessera:    " + escape(got + " " + actual.children());
+        + "\nattoparser: [] " + escape(expected.children().toString())
+        + "\ntessera:    [] " + escape(actual.children().toString());
   }
 
   /**
-   * Compares what comes before a tag error of Tessera's own (see {@link #TAG_ERRORS}: attoparser
-   * reads on where a browser and Tessera do not). The tokenizer stops inside the tag that holds the
-   * error, so with the offending char and everything after it replaced by {@code mask} (same
-   * length, so the length-dependent rules for what starts a tag do not change) Tessera must read
-   * the input the same up to that tag, which then has no end ("Incomplete structure" in place of
-   * the tag error {@code got[at]}; diagnostics reported after it stay, and {@code got} holds only
-   * those positioned before the error), and attoparser must agree
-   * on the replaced input.
+   * Whether element text holds a {@code <}: Tessera accepts one only inside an expression
+   * ({@code [[a < b]]}), where attoparser may read markup.
    */
-  private static String compareBeforeTagError(String input, int error, String mask, Document actual,
-      List<String> got, int at) {
-    String masked = input.substring(0, error) + mask.repeat(input.length() - error);
-    Diagnostics d = new Diagnostics();
-    Document doc = new HtmlParser().parse(source(masked), d);
-    // The same holds for the masked input: a check that reads ahead and finds nothing reports
-    // outside the text before the error.
-    int[] lineStarts = source(masked).lineStarts();
-    List<String> maskedGot = d.all().stream()
-        .filter(m -> m.pos().column() >= 1 && lineStarts[m.pos().line() - 1] + m.pos().column() - 1 < error)
-        .map(Diagnostic::toString)
-        .toList();
-    List<String> others = new ArrayList<>(got);
-    others.remove(at);
-    List<String> maskedOthers = new ArrayList<>(maskedGot);
-    String incomplete = maskedOthers.size() == got.size() ? maskedOthers.remove(at) : "";
-    if (!doc.children().equals(actual.children()) || !maskedOthers.equals(others)
-        || !incomplete.contains("error: malformed markup: Incomplete structure")) {
-      return "input: " + escape(input) + "\nTessera reads the input up to its tag error differently from: "
-          + escape(masked) + "\nmasked: " + escape(maskedGot + " " + doc.children())
-          + "\nfull:   " + escape(got + " " + actual.children());
+  private static boolean lessThanInText(List<Node> nodes) {
+    for (Node n : nodes) {
+      if (n instanceof Text t && t.context() == OutputContext.TEXT && t.raw().indexOf('<') >= 0
+          || n instanceof Element e && lessThanInText(e.children())) {
+        return true;
+      }
     }
-    return compare(masked);
+    return false;
+  }
+
+  /** Whether Tessera accepts {@code input} without an error. */
+  private static boolean accepted(String input) {
+    Diagnostics d = new Diagnostics();
+    new HtmlParser().parse(source(input), d);
+    return !d.hasErrors();
   }
 
   private static String escape(String s) {

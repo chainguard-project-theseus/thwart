@@ -437,7 +437,23 @@ class XssContextTest {
           "<svg><g t:if=\"true\" x / >[[s]]</g></svg>",
           "<svg><script t:if=\"true\" / >var a = [[s]];</script></svg>",
           // a browser reads the value as '=javascript:...', the rebuilt tag as 'javascript:...'
-          "<a t:if=\"true\" href==javascript:alert(1)>[[s]]</a>");
+          "<a t:if=\"true\" href==javascript:alert(1)>[[s]]</a>",
+          // #327: outside the token grammar (context-model.md §2)
+          "<p>a <[[s]]</p>",
+          "<p>a < [[s]]</p>",
+          "<a title=a`b t:if=\"true\">[[s]]</a>",
+          "<a t:title=\"s\" class=a&amp;b>x</a>",
+          "<p>&lt[[s]]</p>",
+          "<p title=\"&amp[[s]]\">x</p>",
+          "<p title=\"[[s]]\">x</p>",
+          "<!-- [[s]] -->",
+          "<p><![CDATA[ x ]]>[[s]]</p>",
+          "<svg><foreignObject><p><![CDATA[ x ]]></p></foreignObject></svg>[[s]]",
+          "<?xml version=\"1.0\"?>[[s]]",
+          "<p></p x>[[s]]",
+          "<span/>[[s]]",
+          "<svg><foreignObject><div/>[[s]]</foreignObject></svg>",
+          "<p>\u0000[[s]]</p>");
 
   /** The built-in {@code html.sanitize} turns stored rich text into SafeHtml for raw output. */
   @Test

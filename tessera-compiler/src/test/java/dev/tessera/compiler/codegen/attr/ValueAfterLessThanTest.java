@@ -64,7 +64,7 @@ class ValueAfterLessThanTest {
   @Test
   void valueInsideATagNameFailsToBuild() {
     // In element text "<" or "</" and a letter starts a tag, so the hole is part of its name.
-    compile("<scr[[s]]ipt>alert(1)</scr[[s]]ipt>").assertError("page.html:2:1:", "invalid element name 'scr[[s]]ipt'");
+    compile("<scr[[s]]ipt>alert(1)</scr[[s]]ipt>").assertError("page.html:2:5:", "'[' in an element name");
   }
 
   @Test
@@ -90,14 +90,20 @@ class ValueAfterLessThanTest {
   void lessThanThatStaysTextStillCompiles() {
     String s = "img src=x onerror=alert(1)";
     assertEquals("<p>&lt;img src=x onerror=alert(1)></p>", render("<p>&lt;[[s]]></p>", s, 0));
-    assertEquals("<p>a < img src=x onerror=alert(1) b</p>", render("<p>a < [[s]] b</p>", s, 0));
-    assertEquals("<p>img src=x onerror=alert(1)< b</p>", render("<p>[[s]]< b</p>", s, 0));
     assertEquals("<p>a<b>img src=x onerror=alert(1)</b></p>", render("<p>a<b>[[s]]</b></p>", s, 0));
     assertEquals("<p>&lt;img src=x onerror=alert(1)</p>", render("<p t:text=\"|<${s}|\">x</p>", s, 0));
     assertEquals(
         "<p title=\"&lt;img src=x onerror=alert(1)\">x</p>", render("<p title=\"<\" t:title=\"'<' + s\">x</p>", s, 0));
     assertEquals("<textarea>&lt;img src=x onerror=alert(1)</textarea>", render("<textarea>&lt;[[s]]</textarea>", s, 0));
     assertEquals("<textarea></text-area></textarea>", render("<textarea></text-[[s]]></textarea>", "area", 0));
+  }
+
+  @Test
+  void lessThanThatStartsNoTagFailsToBuild() {
+    // Element text takes '<' only as the start of a tag or comment (context-model.md §2); write &lt;.
+    String literal = "'<' that starts no tag or comment is not supported in text: write &lt; for a literal '<'";
+    compile("<p>a < [[s]] b</p>").assertError("page.html:2:6:", literal);
+    compile("<p>[[s]]< b</p>").assertError("page.html:2:9:", literal);
   }
 
   @Test

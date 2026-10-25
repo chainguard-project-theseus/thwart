@@ -78,12 +78,51 @@ class CodegenEndToEndTest {
         Compilation.builder()
             .template(
                 "page.html",
-                "<tr xmlns:t=\"https://tessera.dev\" t:params=\"String s\"><td t:text=\"s\" /><td />"
+                "<tr xmlns:t=\"https://tessera.dev\" t:params=\"String s\"><td t:text=\"s\" /><td></td>"
                     + "<td class=\"a\" t:text=\"s\"/></tr>")
             .compile()
             .assertSuccess();
     assertEquals(
-        "<tr><td>&lt;b&gt;</td><td /><td class=\"a\">&lt;b&gt;</td></tr>", c.render("page", Map.of("s", "<b>")));
+        "<tr><td>&lt;b&gt;</td><td></td><td class=\"a\">&lt;b&gt;</td></tr>", c.render("page", Map.of("s", "<b>")));
+  }
+
+  @Test
+  void selfClosingNonVoidHtmlElementWrittenAsIsFailsToBuild() {
+    // A browser ignores the '/' on a non-void HTML element, so the element stays open and takes
+    // what follows as its content; in svg and math '/>' closes it.
+    String[][] rejected = {
+      {"<td />", "1:55:", "td"},
+      {"<td><span class=\"x\"/>[[s]]</td>", "1:59:", "span"},
+      {"<td><my-widget/></td>", "1:59:", "my-widget"},
+      {"<td><A href=\"/x\"/></td>", "1:59:", "a"},
+      {"<td><svg><foreignObject><div/></foreignObject></svg></td>", "1:79:", "div"},
+      // a breakout tag leaves svg in a browser
+      {"<td><svg><p/></svg></td>", "1:64:", "p"},
+    };
+    for (String[] r : rejected) {
+      Compilation.builder()
+          .template("page.html", "<tr xmlns:t=\"https://tessera.dev\" t:params=\"String s\">" + r[0] + "</tr>")
+          .compile()
+          .assertError("page.html:" + r[1], "<" + r[2] + "/> is not self-closing in HTML: a browser ignores the '/'");
+    }
+    String fine = "<td><svg><path d=\"M0\"/><g><circle r=\"1\"/></g><foreignObject><br/></foreignObject></svg>"
+        + "<math><mspace/></math><br/><img src=\"a\"/></td>";
+    Compilation c =
+        Compilation.builder()
+            .template("page.html", "<tr xmlns:t=\"https://tessera.dev\" t:params=\"String s\">" + fine + "</tr>")
+            .compile()
+            .assertSuccess();
+    assertEquals("<tr>" + fine + "</tr>", c.render("page", Map.of("s", "x")));
+  }
+
+  @Test
+  void selfClosingSvgElementsInAFragmentStillBuild() {
+    // A fragment method renders <symbol> without the <svg> around it; its <path/> stays accepted.
+    Compilation.builder()
+        .template("icons.html", "<svg xmlns:t=\"https://tessera.dev\"><symbol id=\"i\" t:fragment=\"icon\"><path d=\"M0\"/>"
+            + "</symbol></svg>")
+        .compile()
+        .assertSuccess();
   }
 
   @Test

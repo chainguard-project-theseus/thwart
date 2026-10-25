@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 /**
  * Parses a template into a {@link Document} using {@link MarkupTokenizer} (non-validating,
@@ -31,7 +30,8 @@ import java.util.regex.Pattern;
  * classifies every text node's {@code OutputContext} via {@link Contexts}.
  *
  * <p>The content of {@code <script>}, {@code <style>}, {@code <textarea>} and {@code <title>}
- * is a single raw {@link Text} node: markup inside it is not parsed.
+ * is a single raw {@link Text} node: markup inside it is not parsed, and it ends where a browser
+ * ends it.
  *
  * <p>The content of {@code <xmp>}, {@code <iframe>}, {@code <noembed>}, {@code <noframes>} and
  * {@code <noscript>} is parsed as markup, but a browser reads it as raw text (for {@code
@@ -39,17 +39,33 @@ import java.util.regex.Pattern;
  * own end tag, so both readings end it at the same place. {@code <plaintext>} is rejected.
  *
  * <p>Build errors (reported, then parsing continues): unclosed or mismatched non-void elements,
- * duplicate attributes on one element, malformed markup (including markup a browser would end
- * earlier than the tokenizer does).
+ * duplicate attributes on one element, and the profile rules that the tokenizer leaves to the
+ * parser: a {@code <} in text that starts no tag or comment, an incomplete character reference,
+ * a comment a browser ends earlier, and CDATA outside svg and math.
  */
 public final class HtmlParser {
 
   private static final Set<String> RAW_TEXT_ELEMENTS = Backports.setOf("script", "style", "textarea", "title");
-  private static final Pattern ELEMENT_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_.:-]*");
+  /** svg elements whose content a browser parses as HTML. */
+  private static final Set<String> SVG_INTEGRATION_POINTS = Backports.setOf("foreignobject", "desc", "title");
+  /**
+   * MathML elements whose content a browser parses as HTML; {@code annotation-xml} only with an
+   * HTML {@code encoding}, which Tessera assumes, so that it fails closed.
+   */
+  private static final Set<String> MATH_INTEGRATION_POINTS =
+      Backports.setOf("mi", "mo", "mn", "ms", "mtext", "annotation-xml");
+  /**
+   * Start tags that end svg and math content in a browser (13.2.6.5); {@code font} does only with
+   * a {@code color}, {@code face} or {@code size} attribute, but is treated so always.
+   */
+  private static final Set<String> BREAKOUT = Backports.setOf("b", "big", "blockquote", "body", "br", "center",
+      "code", "dd", "div", "dl", "dt", "em", "embed", "h1", "h2", "h3", "h4", "h5", "h6", "head", "hr", "i", "img",
+      "li", "listing", "menu", "meta", "nobr", "ol", "p", "pre", "ruby", "s", "small", "span", "strong", "strike",
+      "sub", "sup", "table", "tt", "u", "ul", "var", "font");
   private static final Map<String, String> NAMED_REFERENCES = new HashMap<>();
 
   static {
-    String[] refs = {"amp", "&", "lt", "<", "gt", ">", "quot", "\"", "apos", "'", "nbsp", " "};
+    String[] refs = {"amp", "&", "lt", "<", "gt", ">", "quot", "\"", "apos", "'", "nbsp", "\u00A0"};
     for (int i = 0; i < refs.length; i += 2) {
       NAMED_REFERENCES.put(refs[i], refs[i + 1]);
     }
@@ -64,6 +80,38 @@ public final class HtmlParser {
     return RAW_TEXT_ELEMENTS.contains(name.toLowerCase(Locale.ROOT));
   }
 
+  /**
+   * The namespace a browser puts an element named {@code name} in, inside content parsed in
+   * namespace {@code parent}: "svg", "math", or null for HTML. A breakout tag ({@code <p>},
+   * {@code <div>}, ...) in svg or math is an HTML element.
+   */
+  public static String namespace(String parent, String name) {
+    String lower = name.toLowerCase(Locale.ROOT);
+    if (lower.equals("svg") || lower.equals("math")) {
+      return lower;
+    }
+    return parent == null || BREAKOUT.contains(lower) ? null : parent;
+  }
+
+  /**
+   * The namespace a browser parses the content of an element named {@code name} in namespace
+   * {@code ns} in: null (HTML) for an HTML element and for an integration point ({@code
+   * <foreignObject>}, {@code <mtext>}, ...).
+   */
+  public static String contentNamespace(String ns, String name) {
+    String lower = name.toLowerCase(Locale.ROOT);
+    if ("svg".equals(ns) && SVG_INTEGRATION_POINTS.contains(lower)
+        || "math".equals(ns) && MATH_INTEGRATION_POINTS.contains(lower)) {
+      return null;
+    }
+    return ns;
+  }
+
+  /** True if {@code name} (any case) is a void HTML element: it has no content and no end tag. */
+  public static boolean isVoid(String name) {
+    return MarkupTokenizer.isVoid(name);
+  }
+
   public Document parse(TemplateSource source, DiagnosticSink diagnostics) {
     char[] chars = source.content().toCharArray();
     Builder builder = new Builder(source, chars, diagnostics);
@@ -71,64 +119,26 @@ public final class HtmlParser {
       new MarkupTokenizer(chars, builder).run();
       builder.finish(true);
     } catch (MarkupTokenizer.MarkupException e) {
-      diagnostics.error(builder.position(e.offset), "malformed markup: " + describe(e.getMessage()));
+      diagnostics.error(builder.position(e.offset), "malformed markup: " + e.getMessage());
       builder.finish(false);
     }
     return new Document(source, builder.topLevel);
   }
 
-  /** The message's first line, at most 80 chars. */
-  private static String describe(String m) {
-    int nl = m.indexOf('\n');
-    if (nl >= 0) {
-      m = m.substring(0, nl);
-    }
-    return m.length() > 80 ? m.substring(0, 80) + "..." : m;
-  }
-
   /**
-   * Index of a {@code >} before the last char of {@code outer}, a CDATA section, DOCTYPE, XML
-   * declaration or processing instruction as the tokenizer read it, or -1. A browser ends each of
-   * these at its first {@code >} (outside svg and math, a CDATA section is a bogus comment; a
-   * {@code <?...>} always is), quotes and brackets included, so the contexts after an earlier
-   * {@code >} would differ from Tessera's.
+   * Index of a {@code >} before the last char of the CDATA section {@code outer}, or -1. Outside
+   * svg and math a browser reads the section as a bogus comment that ends at its first {@code >},
+   * so the contexts after an earlier {@code >} would differ from Tessera's.
    */
   static int earlyEnd(String outer) {
     int gt = outer.indexOf('>');
     return gt < outer.length() - 1 ? gt : -1;
   }
 
-  /**
-   * Index in {@code text}, element text the tokenizer did not read as markup, of a {@code <!},
-   * {@code <?} or {@code </} not followed by an ASCII letter or {@code >}, or -1. A browser starts
-   * a bogus comment there that ends at the first {@code >}, hiding markup Tessera reads.
-   */
-  static int bogusComment(CharSequence text) {
-    for (int i = 0; i + 1 < text.length(); i++) {
-      if (text.charAt(i) != '<') {
-        continue;
-      }
-      char c = text.charAt(i + 1);
-      if (c == '!' || c == '?') {
-        return i;
-      }
-      if (c == '/') {
-        char d = i + 2 < text.length() ? text.charAt(i + 2) : ' ';
-        if (!(d >= 'a' && d <= 'z' || d >= 'A' && d <= 'Z' || d == '>')) {
-          return i;
-        }
-      }
-    }
-    return -1;
-  }
-
-  /** The build error for the {@link #bogusComment} at {@code i} of {@code text}. */
-  static String bogusCommentMessage(CharSequence text, int i) {
-    char c = text.charAt(i + 1);
-    String what = c == '!' ? "'<!'" : c == '?' ? "'<?'" : "'</' not followed by a letter";
-    return "malformed markup: " + what + " starts a comment in a browser that ends at the first '>':"
-        + " write &lt; for a literal '<'";
-  }
+  /** The build error when {@link #earlyEnd} finds a {@code >}. */
+  static final String CDATA_GT_MESSAGE =
+      "malformed markup: '>' inside a CDATA section is not supported, even in <svg> and <math>: elsewhere a"
+          + " browser ends it at the first '>'; write the text without <![CDATA[, with '>' as &gt;";
 
   /**
    * Index in the CDATA section {@code outer} of the first {@code [[} or {@code [(}, which {@code
@@ -148,18 +158,147 @@ public final class HtmlParser {
           + " a browser reads the section as a comment, and inside them it shows &lt; as written; write the text"
           + " without <![CDATA[";
 
-  /** The build error for {@code outer} when {@link #earlyEnd} finds a {@code >}. */
-  static String earlyEndMessage(String outer) {
-    if (outer.startsWith("<![")) {
-      return "malformed markup: '>' inside a CDATA section is not supported, even in <svg> and <math>: elsewhere a"
-          + " browser ends it at the first '>'; write the text without <![CDATA[, with '>' as &gt;";
+  /** The build error for a CDATA section outside svg and math. */
+  static final String CDATA_IN_HTML_MESSAGE =
+      "malformed markup: a CDATA section is only supported directly inside an svg or math element: inside an HTML"
+          + " element (also one in <foreignObject> or <mtext>) a browser reads it as a comment; write the text"
+          + " without <![CDATA[, with '<' as &lt; and '&' as &amp;";
+
+  /**
+   * The offset of the {@code ]]} or {@code )]} that closes the {@code [[} or {@code [(} whose
+   * expression starts at {@code from} (outside a '...' string), or -1. Shared with {@code
+   * TextInlining}, so the static text the rules below check is exactly the text it writes.
+   */
+  public static int holeEnd(String raw, int from, String close) {
+    boolean inString = false;
+    for (int i = from; i < raw.length(); i++) {
+      char c = raw.charAt(i);
+      if (inString) {
+        if (c == '\\') {
+          i++;
+        } else if (c == '\'') {
+          inString = false;
+        }
+      } else if (c == '\'') {
+        inString = true;
+      } else if (raw.startsWith(close, i)) {
+        return i;
+      }
     }
-    if (outer.startsWith("<?")) {
-      return "malformed markup: '>' inside '<?...?>' is not supported: a browser ends it at the first '>';"
-          + " remove the '>'";
+    return -1;
+  }
+
+  /** Offset of the first {@code [[...]]} or {@code [(...)]} in {@code raw} that {@code TextInlining} writes as an expression, or -1. */
+  public static int firstHole(String raw) {
+    for (int i = 0; i < raw.length(); i++) {
+      boolean escaped = raw.startsWith("[[", i);
+      if ((escaped || raw.startsWith("[(", i)) && holeEnd(raw, i + 2, escaped ? "]]" : ")]") >= 0) {
+        return i;
+      }
     }
-    return "malformed markup: '>' inside <!DOCTYPE> is not supported: a browser ends it at the first '>';"
-        + " write <!DOCTYPE html>";
+    return -1;
+  }
+
+  /** The build error for a {@link #firstHole} in a comment. */
+  static final String COMMENT_HOLE_MESSAGE =
+      "[[...]] and [(...)] are not supported inside a comment: Tessera writes a comment as it is, so the"
+          + " expression would not be evaluated; move it out of the comment, or remove it";
+
+  /** The build error for a {@link #firstHole} in a static attribute value. */
+  static final String ATTRIBUTE_HOLE_MESSAGE =
+      "[[...]] and [(...)] are not supported in an attribute value: Tessera writes a value without t: as it is,"
+          + " so the expression would not be evaluated; use a t: attribute (t:title=\"${...}\"), or write &#91; for"
+          + " a literal '['";
+
+  /**
+   * Index in element text {@code text} of a {@code <}, outside {@code [[...]]} and {@code
+   * [(...)]}, or -1. The tokenizer read every tag and comment, so any {@code <} left is one that
+   * starts none: a browser reads {@code <!}, {@code <?} and {@code </} as a bogus comment ending
+   * at the first {@code >}, hiding markup Tessera reads, and a {@code <} before a value as a tag.
+   */
+  static int literalLessThan(String text) {
+    return firstStatic(text, '<');
+  }
+
+  /** The build error for the {@link #literalLessThan} at {@code i} of {@code text}. */
+  static String literalLessThanMessage(String text, int i) {
+    char c = i + 1 < text.length() ? text.charAt(i + 1) : ' ';
+    if (c == '!' || c == '?' || c == '/') {
+      String what = c == '!' ? "'<!'" : c == '?' ? "'<?'" : "'</' not followed by a letter";
+      return "malformed markup: " + what + " starts a comment in a browser that ends at the first '>':"
+          + " write &lt; for a literal '<'";
+    }
+    return "malformed markup: '<' that starts no tag or comment is not supported in text: write &lt; for a literal"
+        + " '<'";
+  }
+
+  /**
+   * Index in {@code s}, element text or a static attribute value, of an incomplete character
+   * reference outside {@code [[...]]} and {@code [(...)]}, or -1: an {@code &} followed by an
+   * ASCII letter, digit or {@code #} that does not form {@code &name;}, {@code &#digits;} or
+   * {@code &#xhex;}. In an {@code attribute} value a name followed by {@code =} is accepted, as in
+   * a query string ({@code ?a=1&b=2}): a browser does not decode it there. Elsewhere a browser decodes some names without
+   * the {@code ;} ({@code &amp}, {@code &copy}) where Tessera does not, and a value right after an
+   * incomplete reference could complete it.
+   */
+  static int incompleteReference(String s, boolean attribute) {
+    int from = 0;
+    while (true) {
+      int amp = firstStatic(s.substring(from), '&');
+      if (amp < 0) {
+        return -1;
+      }
+      int i = from + amp + 1;
+      from = i;
+      char c = i < s.length() ? s.charAt(i) : ' ';
+      if (c == '#') {
+        i++;
+        boolean hex = i < s.length() && (s.charAt(i) == 'x' || s.charAt(i) == 'X');
+        int digits = hex ? ++i : i;
+        while (i < s.length() && Character.digit(s.charAt(i), hex ? 16 : 10) >= 0 && s.charAt(i) < 0x80) {
+          i++;
+        }
+        if (i == digits || i >= s.length() || s.charAt(i) != ';') {
+          return from - 1;
+        }
+      } else if (isAsciiLetterOrDigit(c)) {
+        while (i < s.length() && isAsciiLetterOrDigit(s.charAt(i))) {
+          i++;
+        }
+        boolean digitFirst = c >= '0' && c <= '9';
+        boolean query = attribute && i < s.length() && s.charAt(i) == '=';
+        if (i >= s.length() || digitFirst || s.charAt(i) != ';' && !query) {
+          return from - 1;
+        }
+      }
+    }
+  }
+
+  /** The build error for an {@link #incompleteReference}. */
+  static final String INCOMPLETE_REFERENCE_MESSAGE =
+      "malformed markup: '&' that starts an incomplete character reference is not supported: end the reference"
+          + " with ';' (as in &amp;), or write &amp; for a literal '&'";
+
+  private static boolean isAsciiLetterOrDigit(char c) {
+    return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9';
+  }
+
+  /** Index of the first {@code c} in {@code text} outside {@code [[...]]} and {@code [(...)]}, or -1. */
+  private static int firstStatic(String text, char c) {
+    for (int i = 0; i < text.length(); i++) {
+      boolean escaped = text.startsWith("[[", i);
+      if (escaped || text.startsWith("[(", i)) {
+        int end = holeEnd(text, i + 2, escaped ? "]]" : ")]");
+        if (end >= 0) {
+          i = end + 1;
+          continue;
+        }
+      }
+      if (text.charAt(i) == c) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   /**
@@ -254,6 +393,9 @@ public final class HtmlParser {
     OutputContext textContext = OutputContext.TEXT;
     /** For a {@link Contexts#browserRawText} element, where a browser ends it; -1 if nowhere. */
     int browserEnd = -1;
+    /** The element's namespace and its content's ({@link #namespace}, {@link #contentNamespace}). */
+    String ns;
+    String contentNs;
 
     Open(String name, SourcePos pos) {
       this.name = name;
@@ -268,7 +410,6 @@ public final class HtmlParser {
   private static final class Builder implements MarkupTokenizer.Handler {
     private final String file;
     private final String content;
-    /** The buffer the tokenizer is reading; see {@link #matchEndTagCase}. */
     private final char[] chars;
     private final DiagnosticSink diagnostics;
     private final int[] lineStarts;
@@ -278,11 +419,9 @@ public final class HtmlParser {
     /** Start tag being read (between startTag and its end). */
     private Open tag;
 
-    /** Raw-text element whose content we are skipping, its content offset and position. */
+    /** Raw-text element whose content the tokenizer is reading, and its content offset. */
     private Open raw;
     private int rawStart;
-    /** Offset of the first {@code </name} that a browser would take as the raw element's end. */
-    private int rawEnd;
 
     private final StringBuilder text = new StringBuilder();
     private SourcePos textPos;
@@ -325,11 +464,16 @@ public final class HtmlParser {
 
     private void flushText() {
       if (text.length() != 0) {
-        int bogus = bogusComment(text);
-        if (bogus >= 0) {
-          diagnostics.error(position(textStart + bogus), bogusCommentMessage(text, bogus));
+        String s = text.toString();
+        int lt = literalLessThan(s);
+        if (lt >= 0) {
+          diagnostics.error(position(textStart + lt), literalLessThanMessage(s, lt));
         }
-        children().add(new Text(text.toString(), textContext(), textPos));
+        int amp = incompleteReference(s, false);
+        if (amp >= 0) {
+          diagnostics.error(position(textStart + amp), INCOMPLETE_REFERENCE_MESSAGE);
+        }
+        children().add(new Text(s, textContext(), textPos));
         text.setLength(0);
       }
     }
@@ -348,9 +492,6 @@ public final class HtmlParser {
 
     @Override
     public void comment(int start, int end) {
-      if (raw != null) {
-        return;
-      }
       flushText();
       String comment = str(start, end);
       int early = earlyCommentEnd(comment);
@@ -360,70 +501,55 @@ public final class HtmlParser {
                 + " put a space after '<!--'"
             : "malformed markup: '--!>' ends a comment in a browser: end the comment with '-->' or remove the '!'");
       }
+      int hole = firstHole(comment);
+      if (hole >= 0) {
+        diagnostics.error(position(start + hole), COMMENT_HOLE_MESSAGE);
+      }
       children().add(new Comment(comment, position(start)));
     }
 
     @Override
     public void cdata(int start, int end) {
-      if (raw != null) {
-        return;
-      }
       flushText();
-      checkEarlyEnd(start, end);
-      int hole = cdataHole(str(start, end));
+      String outer = str(start, end);
+      // a browser reads CDATA only where the current node is an svg or math element
+      if (stack.isEmpty() || stack.peek().ns == null) {
+        diagnostics.error(position(start), CDATA_IN_HTML_MESSAGE);
+      }
+      int gt = earlyEnd(outer);
+      if (gt >= 0) {
+        diagnostics.error(position(start + gt), CDATA_GT_MESSAGE);
+      }
+      int hole = cdataHole(outer);
       if (hole >= 0) {
         diagnostics.error(position(start + hole), CDATA_HOLE_MESSAGE);
       }
-      children().add(new Text(str(start, end), textContext(), position(start)));
+      children().add(new Text(outer, textContext(), position(start)));
     }
 
     @Override
-    public void declaration(int start, int end) {
-      if (raw != null) {
-        return;
-      }
+    public void doctype(int start, int end) {
       flushText();
-      checkEarlyEnd(start, end);
       children().add(new DocType(str(start, end), position(start)));
-    }
-
-    private void checkEarlyEnd(int start, int end) {
-      String outer = str(start, end);
-      int gt = earlyEnd(outer);
-      if (gt >= 0) {
-        diagnostics.error(position(start + gt), earlyEndMessage(outer));
-      }
     }
 
     @Override
     public void startTag(int lt, int nameEnd) {
-      if (raw != null) {
-        return;
-      }
       flushText();
       String name = str(lt + 1, nameEnd);
       tag = new Open(name, position(lt));
+      tag.ns = namespace(stack.isEmpty() ? null : stack.peek().contentNs, name);
+      tag.contentNs = contentNamespace(tag.ns, name);
       if (name.equalsIgnoreCase("plaintext")) {
         diagnostics.error(tag.pos, "<" + name + "> is not supported: a browser treats the rest of the page as plain"
             + " text; use <pre>");
-      }
-      if (!ELEMENT_NAME.matcher(name).matches()) {
-        diagnostics.error(tag.pos, "malformed markup: invalid element name '" + name
-            + "': element names start with a letter and use letters, digits, '-', '_', ':' and '.'");
       }
     }
 
     @Override
     public void attribute(int nameStart, int nameEnd, int valueStart, int valueEnd, char quote) {
-      if (raw != null || tag == null) {
-        return;
-      }
       String name = str(nameStart, nameEnd);
       SourcePos namePos = position(nameStart);
-      if (name.chars().anyMatch(ch -> ch == '<' || ch == '"' || ch == '\'' || ch == '=')) {
-        diagnostics.error(namePos, "malformed markup: invalid attribute name '" + name
-            + "': attribute names cannot contain <, quotes or =");
-      }
       if (!tag.attributeNames.add(name.toLowerCase(Locale.ROOT))) {
         diagnostics.error(namePos, "duplicate attribute '" + name + "' on <" + tag.name + ">: remove one of them");
       }
@@ -433,20 +559,27 @@ public final class HtmlParser {
       } else {
         String rawValue = str(valueStart, valueEnd);
         attribute = new Attribute(name, decode(rawValue), rawValue, quote, namePos, position(valueStart));
+        if (!attribute.isTessera()) {
+          int amp = incompleteReference(rawValue, true);
+          if (amp >= 0) {
+            diagnostics.error(position(valueStart + amp), INCOMPLETE_REFERENCE_MESSAGE);
+          }
+          int hole = firstHole(rawValue);
+          if (hole >= 0) {
+            diagnostics.error(position(valueStart + hole), ATTRIBUTE_HOLE_MESSAGE);
+          }
+        }
       }
       tag.attributes.add(attribute);
     }
 
     @Override
     public void selfClosedTagEnd(boolean minimized) {
-      if (raw != null || tag == null) {
-        return;
-      }
       String lower = tag.name.toLowerCase(Locale.ROOT);
       if (minimized && (lower.equals("script") || lower.equals("style"))) {
         // A browser treats <script/> as an open tag, so the template text after it would run as
         // script (or style) while Tessera escaped it for TEXT. <textarea/>, <title/> and the other
-        // raw text elements are checked where Tessera writes them (TemplateGenerator).
+        // non-void elements are checked where Tessera writes them (TemplateGenerator).
         diagnostics.error(tag.pos, "<" + lower + "/> is not self-closing in HTML: the browser treats everything"
             + " after it as " + lower + "; write <" + lower + " ...></" + lower + ">");
       }
@@ -456,9 +589,6 @@ public final class HtmlParser {
 
     @Override
     public void openTagEnd(int gt) {
-      if (raw != null || tag == null) {
-        return;
-      }
       Open open = tag;
       tag = null;
       open.textContext = Contexts.text(open.toElement(false, false));
@@ -466,23 +596,8 @@ public final class HtmlParser {
       if (RAW_TEXT_ELEMENTS.contains(open.name.toLowerCase(Locale.ROOT))) {
         raw = open;
         rawStart = gt + 1;
-        rawEnd = browserEndTag(open.name, rawStart);
-        matchEndTagCase(open.name);
       } else if (Contexts.browserRawText(open.name)) {
         open.browserEnd = browserEndTag(open.name, gt + 1);
-      }
-    }
-
-    /**
-     * The tokenizer ends script and style content only at {@code </name>} spelled in the start
-     * tag's case, while browsers match the end tag case-insensitively ({@code <Script>...</sCrIpT>}).
-     * Rewrites the name of the end tag a browser would use, in the tokenizer's not-yet-read input,
-     * to the start tag's case. Lengths and offsets are unchanged and node text comes from {@link
-     * #content}, so only where the tokenizer stops (and the text its messages quote) changes.
-     */
-    private void matchEndTagCase(String name) {
-      if (rawEnd >= 0) {
-        name.getChars(0, name.length(), chars, rawEnd + 2);
       }
     }
 
@@ -496,21 +611,18 @@ public final class HtmlParser {
       String name = str(lt + 2, nameEnd);
       SourcePos closePos = position(lt);
       if (raw != null) {
-        if (!raw.name.equalsIgnoreCase(name)) {
-          return;
-        }
-        if (lt != rawEnd) {
-          // The tokenizer read markup (a comment, an attribute value) that hid an earlier end
-          // tag; a browser would end the element there, so the contexts after it would be wrong.
-          hiddenEndTag(raw.name, rawEnd);
-        }
+        // the tokenizer ends raw text only at this element's end tag, where a browser ends it
         endRaw(lt);
       }
       flushText();
       boolean open = stack.stream().anyMatch(o -> o.name.equalsIgnoreCase(name));
       if (!open) {
+        String hint = isRawText(name)
+            ? " (a browser ends <" + name + "> at the first '</" + name + "', even inside a string or comment:"
+                + " in a script string, write '<\\/" + name + "')"
+            : "";
         diagnostics.error(closePos, "end tag </" + name + "> does not match any open element: remove it or add the"
-            + " matching <" + name + ">");
+            + " matching <" + name + ">" + hint);
         return;
       }
       while (true) {
@@ -519,7 +631,9 @@ public final class HtmlParser {
           if (top.browserEnd >= 0 && top.browserEnd != lt) {
             // A comment, attribute value, nested raw text or a nested <noscript> hid the end tag
             // a browser uses: it would end the element there and parse the rest as markup.
-            hiddenEndTag(top.name, top.browserEnd);
+            diagnostics.error(position(top.browserEnd), "malformed markup: content of <" + top.name + "> contains '</"
+                + top.name + "' before its end tag: a browser ends the element there, so the markup after it would"
+                + " be read differently; remove it or move it outside the element");
           }
           children().add(top.toElement(false, true));
           return;
@@ -528,15 +642,6 @@ public final class HtmlParser {
             + closePos.line() + ":" + closePos.column() + "): add </" + top.name + ">");
         children().add(top.toElement(false, false));
       }
-    }
-
-    private void hiddenEndTag(String name, int offset) {
-      String fix = Contexts.browserRawText(name)
-          ? "a browser ends the element there, so the markup after it would be read differently; remove it or"
-              + " move it outside the element"
-          : "escape it (in a script string, write '<\\/" + name + "')";
-      diagnostics.error(position(offset), "malformed markup: content of <" + name + "> contains '</" + name
-          + "' before its end tag: " + fix);
     }
 
     /**

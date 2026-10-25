@@ -14,6 +14,7 @@ import dev.tessera.compiler.codegen.attr.TextInlining;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.ExpressionParser;
 import dev.tessera.compiler.html.Contexts;
+import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Comment;
 import dev.tessera.compiler.model.DocType;
@@ -89,6 +90,15 @@ public final class TemplateGenerator implements CodegenContext {
   private String rawTextHost;
   /** Whether the content being generated is inside an {@code <svg>} or {@code <math>} element. */
   private boolean inForeign;
+  /** The namespace a browser parses the content being generated in: "svg", "math", or null for HTML. */
+  private String contentNs;
+  /** The namespace of the element being generated; in svg and math {@code />} closes it. */
+  private String elementNs;
+  /**
+   * Whether an element is rendered standalone (a fragment method) and no svg or math element
+   * around it is known: the namespace then depends on where it is inserted.
+   */
+  private boolean standalone;
   /**
    * The {@code <form>}s around the element being rendered (#314): null outside any, TRUE if one of
    * them may get the CSRF token or the element is rendered standalone, FALSE if none does.
@@ -231,11 +241,16 @@ public final class TemplateGenerator implements CodegenContext {
     // ... and rendered where it is inserted, which is checked there, not inside its source parent.
     String host = rawTextHost;
     boolean foreign = inForeign;
+    String content = contentNs;
+    String ns = elementNs;
+    boolean alone = standalone;
     String table = tableHost;
     String tablePart = tableCtx;
     boolean direct = tableDirect;
     rawTextHost = null;
     inForeign = false;
+    contentNs = null;
+    standalone = true;
     // ... and may be inserted into a POST form that gets the CSRF token, where a browser drops the
     // start tag of a <form> inside it, so its buttons submit that form (#314).
     Boolean form = csrfForm;
@@ -250,6 +265,9 @@ public final class TemplateGenerator implements CodegenContext {
     } finally {
       rawTextHost = host;
       inForeign = foreign;
+      contentNs = content;
+      elementNs = ns;
+      standalone = alone;
       csrfForm = form;
       tableHost = table;
       tableCtx = tablePart;
@@ -417,6 +435,9 @@ public final class TemplateGenerator implements CodegenContext {
   private void element(Code c, Element e, Scope scope, Set<String> ignored) {
     String outer = rawTextHost;
     boolean outerForeign = inForeign;
+    String outerContentNs = contentNs;
+    String outerElementNs = elementNs;
+    boolean outerStandalone = standalone;
     Boolean outerForm = csrfForm;
     String outerTable = tableHost;
     String outerCtx = tableCtx;
@@ -425,6 +446,9 @@ public final class TemplateGenerator implements CodegenContext {
     // Processors (t:remove="all-but-first") and emit generate the content.
     rawTextHost = host;
     inForeign = outerForeign || e.name().equalsIgnoreCase("svg") || e.name().equalsIgnoreCase("math");
+    elementNs = HtmlParser.namespace(outerContentNs, e.name());
+    contentNs = HtmlParser.contentNamespace(elementNs, e.name());
+    standalone &= elementNs == null;
     if (!FragmentTop.tagNotRendered(e)) {
       String lower = e.name().toLowerCase(Locale.ROOT);
       // A t:replace'd element is not written: what replaces it is checked below.
@@ -494,6 +518,9 @@ public final class TemplateGenerator implements CodegenContext {
     } finally {
       rawTextHost = outer;
       inForeign = outerForeign;
+      contentNs = outerContentNs;
+      elementNs = outerElementNs;
+      standalone = outerStandalone;
       csrfForm = outerForm;
       tableHost = outerTable;
       tableCtx = outerCtx;
@@ -614,8 +641,14 @@ public final class TemplateGenerator implements CodegenContext {
       if (plan.replacement() != null) {
         c.stmt(plan.replacement());
       } else {
-        if (!plan.tagOmitted() && e.selfClosing() && rawTextElement(e) && !opensSelfClosing(plan)) {
-          selfClosingRawText(e);
+        if (!plan.tagOmitted() && e.selfClosing() && !opensSelfClosing(plan)) {
+          if (rawTextElement(e)) {
+            selfClosingRawText(e);
+          } else if (elementNs == null && !standalone && !HtmlParser.isVoid(e.name()) && !HtmlParser.isRawText(e.name())
+              && !e.name().equalsIgnoreCase("form")) {
+            // HtmlParser reports <script/> and <style/>, CsrfInjector <form/>
+            selfClosingHtml(e);
+          }
         }
         if (!plan.tagOmitted()) {
           startTag(c, plan);
@@ -657,6 +690,18 @@ public final class TemplateGenerator implements CodegenContext {
     diagnostics()
         .error(e.pos(), "<" + lower + "/> is not self-closing in HTML: the browser treats everything after it as "
             + lower + "; write <" + lower + " ...></" + lower + ">");
+  }
+
+  /**
+   * Reports {@code <div/>} and the other non-void HTML elements written as is: a browser ignores
+   * the {@code /} on them, so the element stays open and takes what follows as its content. In
+   * svg and math {@code />} closes the element.
+   */
+  private void selfClosingHtml(Element e) {
+    String lower = e.name().toLowerCase(Locale.ROOT);
+    diagnostics()
+        .error(e.pos(), "<" + lower + "/> is not self-closing in HTML: a browser ignores the '/' and reads what"
+            + " follows as the content of <" + lower + ">; write <" + lower + " ...></" + lower + ">");
   }
 
   private void startTag(Code c, ElementPlan plan) {

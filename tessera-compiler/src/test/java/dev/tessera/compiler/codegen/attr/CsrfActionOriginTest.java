@@ -55,7 +55,7 @@ class CsrfActionOriginTest {
   void relativeStaticActionsGetToken() {
     assertEquals("<div><form method=\"post\">" + INPUT + "x</form></div>", render("method=\"post\""));
     for (String action :
-        new String[] {"", "/x", "x", "?q=1", "#", "/a:b", "./x", "../x", " /x", "/x?a=1&amp;b=2", "/x?a&b", "/a&sol;b"}) {
+        new String[] {"", "/x", "x", "?q=1", "#", "/a:b", "./x", "../x", " /x", "/x?a=1&amp;b=2", "/x?a&amp;b", "/a&sol;b"}) {
       String out = render("method=\"post\" action=\"" + action + "\"");
       assertEquals("<div><form method=\"post\" action=\"" + action + "\">" + INPUT + "x</form></div>", out, action);
     }

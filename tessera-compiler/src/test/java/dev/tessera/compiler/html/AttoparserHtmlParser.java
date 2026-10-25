@@ -231,9 +231,9 @@ final class AttoparserHtmlParser {
 
     private void flushText() {
       if (text.length() != 0) {
-        int bogus = HtmlParser.bogusComment(text);
+        int bogus = HtmlParser.literalLessThan(text.toString());
         if (bogus >= 0) {
-          diagnostics.error(after(textPos, text, bogus), HtmlParser.bogusCommentMessage(text, bogus));
+          diagnostics.error(after(textPos, text, bogus), HtmlParser.literalLessThanMessage(text.toString(), bogus));
         }
         children().add(new Text(text.toString(), textContext(), textPos));
         text.setLength(0);
@@ -332,7 +332,7 @@ final class AttoparserHtmlParser {
       if (gt < 0) {
         return;
       }
-      diagnostics.error(after(pos(line, col), outer, gt), HtmlParser.earlyEndMessage(outer));
+      diagnostics.error(after(pos(line, col), outer, gt), HtmlParser.CDATA_GT_MESSAGE);
     }
 
     /** The position of char {@code to} of {@code s}, which starts at {@code start}. */

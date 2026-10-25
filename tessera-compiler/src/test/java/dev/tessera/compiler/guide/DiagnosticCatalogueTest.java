@@ -32,15 +32,20 @@ class DiagnosticCatalogueTest {
 
   /** Calls whose arguments are (parts of) diagnostic messages. */
   private static final Pattern CALL =
-      Pattern.compile("\\b(error|errorType|warning|printMessage|ParseError|objectMethodError|Optional\\.of)\\s*\\(");
+      Pattern.compile("\\b(error|errorType|warning|printMessage|ParseError|MarkupException|objectMethodError|Optional\\.of)\\s*\\(");
 
   /** Code regions whose strings are spliced into messages: {file suffix, start marker, end marker}. */
   private static final String[][] REGIONS = {
     {"GenericAttrProcessor.java", "String hint;", "hint = null;"},
     {"TextInlining.java", "static String where(", "\n  }"},
-    {"HtmlParser.java", "static String earlyEndMessage(", "\n  }"},
-    {"HtmlParser.java", "static String bogusCommentMessage(", "\n  }"},
+    {"HtmlParser.java", "static final String CDATA_GT_MESSAGE", "\n\n"},
     {"HtmlParser.java", "static final String CDATA_HOLE_MESSAGE", "\n\n"},
+    {"HtmlParser.java", "static final String CDATA_IN_HTML_MESSAGE", "\n\n"},
+    {"HtmlParser.java", "static String literalLessThanMessage(", "\n  }"},
+    {"HtmlParser.java", "static final String INCOMPLETE_REFERENCE_MESSAGE", "\n\n"},
+    {"HtmlParser.java", "static final String COMMENT_HOLE_MESSAGE", "\n\n"},
+    {"HtmlParser.java", "static final String ATTRIBUTE_HOLE_MESSAGE", "\n\n"},
+    {"MarkupTokenizer.java", "private static final String DOCTYPE_FORM", "\n\n"},
   };
 
   private static final Pattern STRING = Pattern.compile("\"((?:[^\"\\\\\\n]|\\\\.)*)\"");

@@ -48,7 +48,7 @@ public final class TextInlining {
     while (i < raw.length()) {
       boolean escaped = raw.startsWith("[[", i);
       if (escaped || raw.startsWith("[(", i)) {
-        int end = findEnd(raw, i + 2, escaped ? "]]" : ")]");
+        int end = HtmlParser.holeEnd(raw, i + 2, escaped ? "]]" : ")]");
         if (end >= 0) {
           found = true;
           SourcePos pos = text.pos().advance(raw, i + 2);
@@ -100,7 +100,7 @@ public final class TextInlining {
     while (i < raw.length()) {
       boolean escaped = raw.startsWith("[[", i);
       if (escaped || raw.startsWith("[(", i)) {
-        int end = findEnd(raw, i + 2, escaped ? "]]" : ")]");
+        int end = HtmlParser.holeEnd(raw, i + 2, escaped ? "]]" : ")]");
         if (end >= 0) {
           if (!escaped) {
             return i;
@@ -116,13 +116,7 @@ public final class TextInlining {
 
   /** Offset of the first {@code [[...]]} or {@code [(...)]} in {@code raw} that {@link #render} writes as an expression, or -1. */
   public static int firstHole(String raw) {
-    for (int i = 0; i < raw.length(); i++) {
-      boolean escaped = raw.startsWith("[[", i);
-      if ((escaped || raw.startsWith("[(", i)) && findEnd(raw, i + 2, escaped ? "]]" : ")]") >= 0) {
-        return i;
-      }
-    }
-    return -1;
+    return HtmlParser.firstHole(raw);
   }
 
   /**
@@ -185,26 +179,6 @@ public final class TextInlining {
       }
     }
     return end;
-  }
-
-  /** Index of the first {@code close} at or after {@code from} outside a '...' string, or -1. */
-  private static int findEnd(String raw, int from, String close) {
-    boolean inString = false;
-    for (int i = from; i < raw.length(); i++) {
-      char c = raw.charAt(i);
-      if (inString) {
-        if (c == '\\') {
-          i++;
-        } else if (c == '\'') {
-          inString = false;
-        }
-      } else if (c == '\'') {
-        inString = true;
-      } else if (raw.startsWith(close, i)) {
-        return i;
-      }
-    }
-    return -1;
   }
 
   private static void flush(StringBuilder code, StringBuilder literal) {

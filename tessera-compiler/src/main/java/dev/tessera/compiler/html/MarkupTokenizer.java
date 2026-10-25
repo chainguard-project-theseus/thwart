@@ -1,42 +1,40 @@
 package dev.tessera.compiler.html;
 
 /**
- * Splits a template into markup events. It tokenizes exactly as attoparser 2.0.9 did in HTML mode
- * with the configuration Tessera used (no balancing and no validation beyond structure), so
- * templates parse the same as they did before Tessera had its own tokenizer (#170). Balancing,
- * names, duplicates and raw-text handling are {@link HtmlParser}'s job.
+ * Splits a template into markup events. It accepts a positive grammar, the token rules of the
+ * Tessera HTML profile (docs/context-model.md §2), and throws a {@link MarkupException} at the
+ * first char outside it. Element names, balancing, duplicates and the rules that need the open
+ * elements are {@link HtmlParser}'s job.
  *
- * <p>Rules, all inherited from attoparser:
+ * <p>The grammar, where {@code ws} is ASCII whitespace (TAB, LF, FF, CR, SPACE) only:
  *
  * <ul>
- *   <li>A {@code <} starts, in this order of preference: a start tag ({@code <} and a name char,
- *       anything but {@code - ! / ? [} or whitespace, except {@code <!DOCTYPE}), an end tag, a
- *       comment, a CDATA section, a DOCTYPE, an XML declaration or a processing instruction. Any
- *       other {@code <} is text.
- *   <li>Tags and declarations end at the first {@code >} outside quotes; both quote kinds toggle
- *       anywhere in the tag. A tag ending in {@code />} is self-closing. Names end at whitespace
- *       ({@link Character#isWhitespace}) outside quotes.
- *   <li>An attribute name ends at {@code =} or whitespace; it has a value if the following run of
- *       {@code =} and whitespace has an {@code =}. A quoted value ends at its closing quote, an
- *       unquoted one at whitespace.
- *   <li>Void elements are always self-closed. The content of {@code <style>}, and of {@code
- *       <script>} without a {@code type} or with a JavaScript one, is not tokenized: it ends at the
- *       first {@code </name>} spelled as in the start tag.
- *   <li>A structure without its end is fatal, as are a few malformed tags and declarations; the
- *       {@link MarkupException} messages are attoparser's.
+ *   <li><b>Start tag</b>: {@code <} name, then attributes, then optional {@code ws} and {@code
+ *       >} or {@code />}. A name is {@code [A-Za-z][A-Za-z0-9_.:-]*}. An attribute is a name
+ *       (any chars but {@code ws / > = " ' <}) optionally followed by {@code =} and a value:
+ *       double-quoted, single-quoted, or unquoted from {@code [A-Za-z0-9_.:/#-]}, not ending in
+ *       {@code /} right before {@code >}. {@code ws} may surround the {@code =}. Attributes are
+ *       separated by {@code ws}, or follow a quoted value directly. A {@code /} is accepted only
+ *       right before the closing {@code >}.
+ *   <li><b>End tag</b>: {@code </} name, optional {@code ws}, {@code >}.
+ *   <li><b>Comment</b>: {@code <!--} to the first {@code -->} at least 7 chars in ({@link
+ *       HtmlParser} rejects the comments a browser ends earlier).
+ *   <li><b>CDATA</b>: {@code <![CDATA[} to the first {@code ]]>} ({@link HtmlParser} accepts it
+ *       only in svg and math).
+ *   <li><b>DOCTYPE</b>: {@code <!DOCTYPE html>} in any ASCII case, with {@code ws} between and
+ *       after the words, before anything but whitespace and comments.
+ *   <li><b>Raw text</b>: the content of an element for which {@link Handler#rawText} is true
+ *       ends at the first {@code </name} (ASCII case-insensitive) followed by {@code ws}, {@code
+ *       /} or {@code >}, where a browser ends it, or at the end of the template. {@link HtmlParser}
+ *       picks {@code script}, {@code style}, {@code textarea} and {@code title} by name, also in
+ *       svg and math, where a browser parses markup in them (#301 rejects markup there).
+ *   <li><b>Text</b>: everything else. A {@code <} that starts none of the above is text here;
+ *       {@link HtmlParser} rejects it.
+ *   <li>U+0000 is accepted nowhere: a browser replaces it, so the source is not what it parses.
  * </ul>
  *
- * <p>Some rules are Tessera's own: in a start or end tag, a quote that a browser does not read as
- * the start or end of a quoted attribute value (one in a name, in an unquoted value or right after
- * a quoted value) is fatal, because with it the tag could end at a different {@code >} than in a
- * browser. So are a char outside quoted values that {@link Character#isWhitespace} accepts but HTML
- * does not, a {@code /} that ends an unquoted value before {@code >}, an {@code =} that starts an
- * unquoted value, and anything but {@code >} after a {@code /} outside a value, because a browser
- * splits or ends the tag differently there. Raw text that a browser does not tokenize ({@link
- * Handler#rawText}) is exempt.
- *
- * <p>Offsets index the buffer, which the handler may change ahead of the tokenizer (see {@code
- * HtmlParser.Builder.matchEndTagCase}).
+ * <p>Every attribute event carries the spans the grammar matched, so the attributes Tessera
+ * reads, and rebuilds tags from, are the ones a browser reads.
  */
 final class MarkupTokenizer {
 
@@ -48,8 +46,8 @@ final class MarkupTokenizer {
 
     void cdata(int start, int end);
 
-    /** A DOCTYPE, an XML declaration or a processing instruction. */
-    void declaration(int start, int end);
+    /** The {@code <!DOCTYPE html>}. */
+    void doctype(int start, int end);
 
     /** A start tag at {@code lt} whose name ends at {@code nameEnd}. */
     void startTag(int lt, int nameEnd);
@@ -66,10 +64,7 @@ final class MarkupTokenizer {
     /** An end tag at {@code lt} whose name ends at {@code nameEnd}. */
     void endTag(int lt, int nameEnd);
 
-    /**
-     * Whether the tokens are raw text a browser does not tokenize (the handler finds where it
-     * ends); there, tags keep the toggling quote rule and a stray quote is no error.
-     */
+    /** Whether the element just opened ({@link #openTagEnd}) holds raw text that a browser does not tokenize. */
     boolean rawText();
   }
 
@@ -84,34 +79,18 @@ final class MarkupTokenizer {
     }
   }
 
-  private interface AttributeSink {
-    void attribute(int nameStart, int nameEnd, int valueStart, int valueEnd, char quote) throws MarkupException;
-  }
-
   private static final String[] VOID_ELEMENTS = {
     "area", "base", "br", "col", "embed", "hr", "img", "input", "keygen", "link", "menuitem", "meta",
     "param", "source", "track", "wbr"
   };
-  private static final String[] JAVASCRIPT_TYPES = {
-    "javascript", "ecmascript", "text/javascript", "text/ecmascript", "application/javascript",
-    "application/ecmascript", "module"
-  };
-
-  private static final int NONE = 0;
-  private static final int START_TAG = 1;
-  private static final int END_TAG = 2;
-  private static final int COMMENT = 3;
-  private static final int CDATA = 4;
-  private static final int DOCTYPE = 5;
-  private static final int XML_DECLARATION = 6;
-  private static final int PROCESSING_INSTRUCTION = 7;
+  private static final String DOCTYPE_FORM =
+      "only <!DOCTYPE html> is supported (other DOCTYPEs change how a browser parses the page): write <!DOCTYPE html>";
 
   private final char[] buf;
   private final int n;
   private final Handler handler;
-
-  /** While in untokenized content: the {@code </name>} that ends it. */
-  private char[] cdataEnd;
+  /** Whether anything but whitespace and comments came before; a DOCTYPE must not follow it. */
+  private boolean content;
 
   MarkupTokenizer(char[] buf, Handler handler) {
     this.buf = buf;
@@ -120,28 +99,68 @@ final class MarkupTokenizer {
   }
 
   void run() throws MarkupException {
-    int current = 0;
-    while (current < n) {
-      if (cdataEnd != null) {
-        int end = indexOf(cdataEnd, current);
-        if (end < 0) {
-          break;
-        }
-        text(current, end);
-        cdataEnd = null;
-        current = end;
+    for (int i = 0; i < n; i++) {
+      if (buf[i] == 0) {
+        throw new MarkupException("U+0000 (NUL) is not supported: a browser replaces it; remove it", i);
       }
-      int start = indexOf('<', current, n);
-      while (start >= 0 && kind(start) == NONE) {
-        start = indexOf('<', start + 1, n);
-      }
-      if (start < 0) {
-        break;
-      }
-      text(current, start);
-      current = structure(kind(start), start) + 1;
     }
-    text(current, n);
+    int text = 0;
+    int i = 0;
+    while (i < n) {
+      if (buf[i] != '<') {
+        // a byte order mark is not content: a browser drops it when it decodes the page
+        content |= !isSpace(buf[i]) && !(i == 0 && buf[i] == (char) 0xFEFF);
+        i++;
+        continue;
+      }
+      int end = markup(i, text);
+      if (end < 0) {
+        content = true;
+        i++;
+      } else {
+        text = end;
+        i = end;
+      }
+    }
+    text(text, n);
+  }
+
+  /**
+   * Reads the construct the {@code <} at {@code lt} starts, after the text from {@code text};
+   * returns the offset after it, or -1 if it starts none (the {@code <} is text).
+   */
+  private int markup(int lt, int text) throws MarkupException {
+    if (lt + 1 < n && isLetter(buf[lt + 1])) {
+      text(text, lt);
+      content = true;
+      return startTag(lt);
+    }
+    if (lt + 2 < n && buf[lt + 1] == '/' && isLetter(buf[lt + 2])) {
+      text(text, lt);
+      content = true;
+      return endTag(lt);
+    }
+    if (startsWith(lt, "<!--")) {
+      text(text, lt);
+      int end = delimitedEnd(lt, "<!---->", "--");
+      handler.comment(lt, end);
+      return end;
+    }
+    if (startsWith(lt, "<![CDATA[")) {
+      text(text, lt);
+      content = true;
+      int end = delimitedEnd(lt, "<![CDATA[]]>", "]]");
+      handler.cdata(lt, end);
+      return end;
+    }
+    if (startsWith(lt, "<!") && asciiMatchesIgnoreCase(lt + 2, "DOCTYPE")) {
+      text(text, lt);
+      int end = doctype(lt);
+      handler.doctype(lt, end);
+      content = true;
+      return end;
+    }
+    return -1;
   }
 
   private void text(int start, int end) {
@@ -150,309 +169,232 @@ final class MarkupTokenizer {
     }
   }
 
-  private int kind(int i) {
-    if (isElementName(i + 1, n)) {
-      return START_TAG;
-    }
-    if (n - i > 2 && buf[i + 1] == '/' && isElementName(i + 2, n)) {
-      return END_TAG;
-    }
-    if (startsWith(i, "<!--")) {
-      return COMMENT;
-    }
-    if (n - i > 8 && startsWith(i, "<![") && keyword(i + 3, "CDATA") && buf[i + 8] == '[') {
-      return CDATA;
-    }
-    if (n - i > 9 && startsWith(i, "<!") && keyword(i + 2, "DOCTYPE")
-        && (Character.isWhitespace(buf[i + 9]) || buf[i + 9] == '>')) {
-      return DOCTYPE;
-    }
-    if (n - i > 5 && startsWith(i, "<?xml")
-        && (Character.isWhitespace(buf[i + 5]) || (n - i > 6 && buf[i + 5] == '?' && buf[i + 6] == '>'))) {
-      return XML_DECLARATION;
-    }
-    if (n - i > 2 && buf[i + 1] == '?' && !Character.isWhitespace(buf[i + 2])
-        && !(n - i > 5 && startsWith(i + 2, "xml") && Character.isWhitespace(buf[i + 5]))) {
-      return PROCESSING_INSTRUCTION;
-    }
-    return NONE;
-  }
-
-  /**
-   * Whether an element name starts at {@code i}, looking no further than {@code to} (attoparser's
-   * rule, including its {@code <!x} names; the answer can depend on {@code to}).
-   */
-  private boolean isElementName(int i, int to) {
-    int len = to - i;
-    if (len > 1 && buf[i] == '!') {
-      char c = buf[i + 1];
-      if (c == '-' || c == '!' || c == '/' || c == '?' || c == '[') {
-        return false;
+  /** Reads the start tag at {@code lt}, and the raw text after it; returns the offset after them. */
+  private int startTag(int lt) throws MarkupException {
+    int nameEnd = name(lt + 1);
+    handler.startTag(lt, nameEnd);
+    int i = nameEnd;
+    while (true) {
+      while (i < n && isSpace(buf[i])) {
+        i++;
       }
-      if (len > 8) {
-        return !(keyword(i + 1, "DOCTYPE") && (Character.isWhitespace(buf[i + 8]) || buf[i + 8] == '>'));
+      if (i >= n) {
+        throw incomplete(lt);
       }
-      return !Character.isWhitespace(c);
-    }
-    if (len <= 0) {
-      return false;
-    }
-    char c = buf[i];
-    return c != '-' && c != '!' && c != '/' && c != '?' && c != '[' && !Character.isWhitespace(c);
-  }
-
-  /** Reads the structure of {@code kind} at {@code start}; returns the offset of its last char. */
-  private int structure(int kind, int start) throws MarkupException {
-    switch (kind) {
-      case START_TAG: {
-        int end = handler.rawText() ? tagEnd(start) : tagEnd(start, start + 1);
-        boolean minimized = buf[end - 1] == '/';
-        if (end - start + 1 < (minimized ? 4 : 3) || !isElementName(start + 1, end + 1)) {
-          throw new MarkupException("Could not parse as a well-formed " + (minimized ? "standalone" : "open")
-              + " element: \"" + str(start, end + 1) + "\"", start);
-        }
-        startTag(start, minimized ? end - 1 : end, minimized);
-        return end;
-      }
-      case END_TAG: {
-        int end = handler.rawText() ? tagEnd(start) : tagEnd(start, start + 2);
-        endTag(start, end);
-        return end;
-      }
-      case COMMENT: {
-        int end = delimitedEnd(start, "<!---->", "--");
-        handler.comment(start, end + 1);
-        return end;
-      }
-      case CDATA: {
-        int end = delimitedEnd(start, "<![CDATA[]]>", "]]");
-        handler.cdata(start, end + 1);
-        return end;
-      }
-      case PROCESSING_INSTRUCTION: {
-        int end = delimitedEnd(start, "<?xy?>", "?");
-        handler.declaration(start, end + 1);
-        return end;
-      }
-      case DOCTYPE: {
-        int end = docTypeEnd(start);
-        checkDocType(start, end);
-        handler.declaration(start, end + 1);
-        return end;
-      }
-      case XML_DECLARATION: {
-        int end = tagEnd(start);
-        checkXmlDeclaration(start, end);
-        handler.declaration(start, end + 1);
-        return end;
-      }
-      default:
-        throw new IllegalStateException("structure " + kind);
-    }
-  }
-
-  private MarkupException incomplete(int start) {
-    return new MarkupException("Incomplete structure: \"" + str(start, n) + "\"", start);
-  }
-
-  // The WHATWG tokenizer states inside a tag, as far as tagEnd(start, from) tracks them.
-  private static final int TAG_NAME = 0;
-  private static final int BEFORE_ATTRIBUTE_NAME = 1;
-  private static final int ATTRIBUTE_NAME = 2;
-  private static final int AFTER_ATTRIBUTE_NAME = 3;
-  private static final int BEFORE_ATTRIBUTE_VALUE = 4;
-  private static final int DOUBLE_QUOTED_VALUE = 5;
-  private static final int SINGLE_QUOTED_VALUE = 6;
-  private static final int UNQUOTED_VALUE = 7;
-  private static final int AFTER_QUOTED_VALUE = 8;
-  private static final int SELF_CLOSING = 9;
-
-  /**
-   * The {@code >} that ends the start or end tag at {@code start}, whose name starts at {@code
-   * from}. A browser opens a quoted attribute value only at a quote right after an attribute's
-   * {@code =} (and optional whitespace); any other quote is a plain character of a name or an
-   * unquoted value. The other tokenizer rules toggle on every quote, so such a quote is an error:
-   * with it the tag could end at a different {@code >} than in a browser. Without one, both end at
-   * the first {@code >} outside a quoted value.
-   *
-   * <p>Four more differences between the tokenizer and a browser are errors here for the same
-   * reason: a char that {@link Character#isWhitespace} accepts but HTML does not ({@code \t \n
-   * \f \r} and space), which a browser keeps in the name or value; a {@code /} that ends an
-   * unquoted value right before {@code >}, which a browser keeps in the value (the tag is not
-   * {@code />}); an {@code =} that starts an unquoted value, which a browser keeps in the value
-   * where the tokenizer skips it; and anything but {@code >} after a {@code /} outside a value: a
-   * browser starts a new attribute at a name there, and the tokenizer reads whitespace or another
-   * {@code /} after it as an attribute named {@code /}.
-   */
-  private int tagEnd(int start, int from) throws MarkupException {
-    int state = TAG_NAME;
-    for (int i = from; i < n; i++) {
       char c = buf[i];
-      boolean space = c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r';
-      if (state == DOUBLE_QUOTED_VALUE || state == SINGLE_QUOTED_VALUE) {
-        if (c == (state == DOUBLE_QUOTED_VALUE ? '"' : '\'')) {
-          state = AFTER_QUOTED_VALUE;
+      if (c == '>' || c == '/') {
+        boolean minimized = c == '/';
+        if (minimized) {
+          i = slash(i);
         }
-        continue;
+        String name = str(lt + 1, nameEnd);
+        if (minimized || isVoid(name)) {
+          handler.selfClosedTagEnd(minimized);
+          return i + 1;
+        }
+        handler.openTagEnd(i);
+        return handler.rawText() ? rawTextEnd(name, i + 1) : i + 1;
       }
-      if (state == BEFORE_ATTRIBUTE_VALUE && (c == '"' || c == '\'')) {
-        state = c == '"' ? DOUBLE_QUOTED_VALUE : SINGLE_QUOTED_VALUE;
-        continue;
-      }
+      // after the name and after an unquoted value or a name there is whitespace here: they end
+      // only at whitespace, '/', '>' (and a name at '='); after a quoted value there may be none
+      i = attribute(i);
+    }
+  }
+
+  /** Reads the attribute at {@code i}; returns the offset after it. */
+  private int attribute(int i) throws MarkupException {
+    int nameStart = i;
+    if (buf[i] == '=') {
+      throw new MarkupException("'=' with no attribute name before it: remove it or add the name", i);
+    }
+    while (i < n && !isSpace(buf[i]) && buf[i] != '/' && buf[i] != '>' && buf[i] != '=') {
+      char c = buf[i];
       if (c == '"' || c == '\'') {
-        // in every other state a browser reads the quote as part of a tag or attribute name
-        throw new MarkupException(state == UNQUOTED_VALUE
-            ? "quote " + c + " in an unquoted attribute value: quote the value and write "
-                + (c == '"' ? "&quot;" : "&#39;") + " in it"
-            : "quote " + c + " in a tag or attribute name: remove it (names cannot contain quotes)", i);
+        throw new MarkupException("quote " + c + " in a tag or attribute name: remove it (names cannot contain quotes)", i);
       }
-      if (!space && Character.isWhitespace(c)) {
-        throw new MarkupException(String.format(
-            "U+%04X in a tag is not HTML whitespace: replace it with a space", (int) c), i);
+      if (c == '<') {
+        throw new MarkupException("'<' in an attribute name: end the tag with '>' first, or remove the '<'", i);
       }
-      if (c == '>') {
-        if (state == UNQUOTED_VALUE && buf[i - 1] == '/') {
-          throw new MarkupException(
-              "'/' before '>' belongs to the unquoted value, not to '/>': quote the value", i - 1);
-        }
-        return i;
-      }
-      if (state == SELF_CLOSING) {
-        throw new MarkupException(space || c == '/'
-            ? "'/' in a tag must be followed by '>': remove the '/' or what follows it"
-            : "a name after '/' in a tag starts a new attribute in a browser: remove the '/'", i);
-      }
-      if (state == BEFORE_ATTRIBUTE_VALUE && c == '=') {
-        throw new MarkupException(
-            "'=' starting an unquoted value is part of it in a browser: quote the value", i);
-      }
-      switch (state) {
-        case TAG_NAME:
-        case UNQUOTED_VALUE:
-        case AFTER_QUOTED_VALUE:
-          if (space) {
-            state = BEFORE_ATTRIBUTE_NAME;
-          } else if (c == '/' && state != UNQUOTED_VALUE) {
-            state = SELF_CLOSING;
-          } else if (state == AFTER_QUOTED_VALUE) {
-            state = ATTRIBUTE_NAME;
-          }
-          break;
-        case BEFORE_ATTRIBUTE_NAME:
-          if (c == '/') {
-            state = SELF_CLOSING;
-          } else if (!space) {
-            state = ATTRIBUTE_NAME; // a leading = is part of the name
-          } else {
-            state = BEFORE_ATTRIBUTE_NAME;
-          }
-          break;
-        case ATTRIBUTE_NAME:
-        case AFTER_ATTRIBUTE_NAME:
-          if (c == '=') {
-            state = BEFORE_ATTRIBUTE_VALUE;
-          } else if (c == '/') {
-            state = SELF_CLOSING;
-          } else if (space) {
-            state = AFTER_ATTRIBUTE_NAME;
-          } else {
-            state = ATTRIBUTE_NAME;
-          }
-          break;
-        case BEFORE_ATTRIBUTE_VALUE:
-          if (!space) {
-            state = UNQUOTED_VALUE;
-          }
-          break;
-        default:
-          throw new IllegalStateException("state " + state);
-      }
+      notJavaOnlyWhitespace(i);
+      i++;
     }
-    throw incomplete(start);
-  }
-
-  /** The first {@code >} outside quotes after {@code start}, both quote kinds toggling anywhere. */
-  private int tagEnd(int start) throws MarkupException {
-    boolean inQuotes = false;
-    boolean inApos = false;
-    for (int i = start; i < n; i++) {
+    int nameEnd = i;
+    while (i < n && isSpace(buf[i])) {
+      i++;
+    }
+    if (i >= n || buf[i] != '=') {
+      handler.attribute(nameStart, nameEnd, -1, -1, (char) 0);
+      return nameEnd;
+    }
+    int eq = i++;
+    while (i < n && isSpace(buf[i])) {
+      i++;
+    }
+    if (i >= n) {
+      throw incomplete(nameStart);
+    }
+    char q = buf[i];
+    if (q == '"' || q == '\'') {
+      int close = indexOf(q, i + 1);
+      if (close < 0) {
+        throw incomplete(nameStart);
+      }
+      handler.attribute(nameStart, nameEnd, i + 1, close, q);
+      return close + 1;
+    }
+    if (q == '=') {
+      throw new MarkupException("'=' starting an unquoted value is part of it in a browser: quote the value", i);
+    }
+    if (q == '>') {
+      throw new MarkupException("'=' with no value after it: write " + str(nameStart, nameEnd)
+          + "=\"\" or remove the '='", eq);
+    }
+    int valueStart = i;
+    while (i < n && !isSpace(buf[i]) && buf[i] != '>') {
       char c = buf[i];
-      if (c == '"' && !inApos) {
-        inQuotes = !inQuotes;
-      } else if (c == '\'' && !inQuotes) {
-        inApos = !inApos;
-      } else if (c == '>' && !inQuotes && !inApos) {
-        return i;
+      if (c == '"' || c == '\'') {
+        throw new MarkupException("quote " + c + " in an unquoted attribute value: quote the value and write "
+            + (c == '"' ? "&quot;" : "&#39;") + " in it", i);
       }
+      notJavaOnlyWhitespace(i);
+      if (!isUnquotedValueChar(c)) {
+        throw new MarkupException("'" + c + "' in an unquoted attribute value: quote the value (an unquoted value"
+            + " takes only ASCII letters, digits and _ . : / # -)", i);
+      }
+      i++;
     }
-    throw incomplete(start);
+    if (i < n && buf[i] == '>' && buf[i - 1] == '/') {
+      throw new MarkupException(
+          "'/' before '>' belongs to the unquoted value, not to '/>': quote the value", i - 1);
+    }
+    handler.attribute(nameStart, nameEnd, valueStart, i, (char) 0);
+    return i;
   }
 
-  /**
-   * The first {@code >} right after {@code before} that ends a structure at least as long as {@code
-   * shortest}.
-   */
-  private int delimitedEnd(int start, String shortest, String before) throws MarkupException {
-    for (int i = start + shortest.length() - 1; i < n; i++) {
-      if (buf[i] == '>' && startsWith(i - before.length(), before)) {
-        return i;
-      }
+  /** Checks that the {@code /} at {@code i} is right before {@code >}; returns the offset of the {@code >}. */
+  private int slash(int i) throws MarkupException {
+    if (i + 1 >= n) {
+      throw incomplete(i);
     }
-    throw incomplete(start);
+    char c = buf[i + 1];
+    if (c == '>') {
+      return i + 1;
+    }
+    if (c == '"' || c == '\'') {
+      throw new MarkupException("quote " + c + " in a tag or attribute name: remove it (names cannot contain quotes)", i + 1);
+    }
+    throw new MarkupException(isSpace(c) || c == '/'
+        ? "'/' in a tag must be followed by '>': remove the '/' or what follows it"
+        : "a name after '/' in a tag starts a new attribute in a browser: remove the '/'", i + 1);
   }
 
-  /** The first {@code >} outside quotes and {@code [...]} after {@code start}. */
-  private int docTypeEnd(int start) throws MarkupException {
-    boolean inQuotes = false;
-    boolean inApos = false;
-    int brackets = 0;
-    for (int i = start; i < n; i++) {
+  /** Reads the end tag at {@code lt}; returns the offset after it. */
+  private int endTag(int lt) throws MarkupException {
+    int nameEnd = name(lt + 2);
+    int i = nameEnd;
+    while (i < n && isSpace(buf[i])) {
+      i++;
+    }
+    if (i >= n) {
+      throw incomplete(lt);
+    }
+    if (buf[i] != '>') {
+      notJavaOnlyWhitespace(i);
+      String name = str(lt + 2, nameEnd);
+      throw new MarkupException("end tag </" + name + "> has more than its name: write </" + name + ">", i);
+    }
+    handler.endTag(lt, nameEnd);
+    return i + 1;
+  }
+
+  /** The end of the element name at {@code from}, which starts with a letter. */
+  private int name(int from) throws MarkupException {
+    int i = from;
+    while (i < n && isNameChar(buf[i])) {
+      i++;
+    }
+    if (i < n && !isSpace(buf[i]) && buf[i] != '/' && buf[i] != '>') {
       char c = buf[i];
-      if (c == '"' && !inApos) {
-        inQuotes = !inQuotes;
-      } else if (c == '\'' && !inQuotes) {
-        inApos = !inApos;
-      } else if (!inQuotes && !inApos) {
-        if (c == '[') {
-          brackets++;
-        } else if (c == ']') {
-          brackets--;
-        } else if (c == '>' && brackets == 0) {
+      if (c == '"' || c == '\'') {
+        throw new MarkupException("quote " + c + " in a tag or attribute name: remove it (names cannot contain quotes)", i);
+      }
+      notJavaOnlyWhitespace(i);
+      throw new MarkupException("'" + c + "' in an element name: element names start with a letter and use letters,"
+          + " digits, '-', '_', ':' and '.'; write &lt; for a literal '<'", i);
+    }
+    return i;
+  }
+
+  /** Rejects a char at {@code i} that {@link Character#isWhitespace} accepts but HTML does not. */
+  private void notJavaOnlyWhitespace(int i) throws MarkupException {
+    if (Character.isWhitespace(buf[i])) {
+      throw new MarkupException("U+" + String.format("%04X", (int) buf[i])
+          + " in a tag is not HTML whitespace: replace it with a space", i);
+    }
+  }
+
+  /** Emits the raw text from {@code from} to the first {@code </name} a browser ends it at; returns that offset. */
+  private int rawTextEnd(String name, int from) {
+    for (int i = from; i + name.length() + 2 <= n; i++) {
+      if (buf[i] == '<' && buf[i + 1] == '/' && asciiMatchesIgnoreCase(i + 2, name)) {
+        int next = i + 2 + name.length();
+        if (next == n || isSpace(buf[next]) || buf[next] == '/' || buf[next] == '>') {
+          text(from, i);
           return i;
         }
       }
     }
+    text(from, n);
+    return n;
+  }
+
+  /** Reads the {@code <!DOCTYPE html>} at {@code lt}; returns the offset after it. */
+  private int doctype(int lt) throws MarkupException {
+    if (content) {
+      throw new MarkupException("<!DOCTYPE> after other content is ignored by a browser: move it to the top of the"
+          + " template, or remove it", lt);
+    }
+    int i = lt + 9;
+    int words = i;
+    while (i < n && isSpace(buf[i])) {
+      i++;
+    }
+    if (i == words || !asciiMatchesIgnoreCase(i, "HTML")) {
+      throw new MarkupException(DOCTYPE_FORM, lt);
+    }
+    i += 4;
+    while (i < n && isSpace(buf[i])) {
+      i++;
+    }
+    if (i >= n || buf[i] != '>') {
+      throw new MarkupException(DOCTYPE_FORM, lt);
+    }
+    return i + 1;
+  }
+
+  private MarkupException incomplete(int start) {
+    int end = start;
+    while (end < n && end - start < 40 && buf[end] != '\n') {
+      end++;
+    }
+    return new MarkupException("\"" + str(start, end) + (end < n ? "..." : "") + "\" does not end before the end of"
+        + " the template: close the tag, quote, comment or CDATA section", start);
+  }
+
+  /**
+   * The offset after the first {@code >} right after {@code before} that ends a structure at
+   * least as long as {@code shortest}.
+   */
+  private int delimitedEnd(int start, String shortest, String before) throws MarkupException {
+    for (int i = start + shortest.length() - 1; i < n; i++) {
+      if (buf[i] == '>' && startsWith(i - before.length(), before)) {
+        return i + 1;
+      }
+    }
     throw incomplete(start);
   }
 
-  /** A start tag from {@code start} ({@code <}) to {@code end} ({@code >} or the {@code /} of {@code />}). */
-  private void startTag(int start, int end, boolean minimized) throws MarkupException {
-    int nameEnd = whitespace(start + 1, end, true);
-    if (nameEnd < 0) {
-      nameEnd = end;
-    }
-    String name = str(start + 1, nameEnd);
-    boolean isVoid = !minimized && isVoid(name);
-    boolean script = name.equalsIgnoreCase("script");
-    boolean[] raw = {!minimized && !isVoid && (script || name.equalsIgnoreCase("style"))};
-    handler.startTag(start, nameEnd);
-    attributes(nameEnd, end, (ns, ne, vs, ve, quote) -> {
-      if (script && str(ns, ne).equalsIgnoreCase("type")) {
-        raw[0] = vs >= 0 && isJavaScriptType(str(vs, ve));
-      }
-      handler.attribute(ns, ne, vs, ve, quote);
-    });
-    if (minimized || isVoid) {
-      handler.selfClosedTagEnd(minimized);
-      return;
-    }
-    handler.openTagEnd(end);
-    if (raw[0]) {
-      cdataEnd = ("</" + name + ">").toCharArray();
-    }
-  }
-
-  private static boolean isVoid(String name) {
+  static boolean isVoid(String name) {
     for (String v : VOID_ELEMENTS) {
       if (v.equalsIgnoreCase(name)) {
         return true;
@@ -461,254 +403,24 @@ final class MarkupTokenizer {
     return false;
   }
 
-  private static boolean isJavaScriptType(String type) {
-    for (String t : JAVASCRIPT_TYPES) {
-      if (t.equalsIgnoreCase(type)) {
-        return true;
-      }
-    }
-    return false;
+  private static boolean isSpace(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r';
   }
 
-  /** An end tag from {@code start} ({@code <}) to {@code end} ({@code >}). */
-  private void endTag(int start, int end) throws MarkupException {
-    if (end - start + 1 < 4 || !isElementName(start + 2, end + 1)) {
-      throw new MarkupException("Could not parse as a well-formed close element: \"" + str(start, end + 1) + "\"", start);
-    }
-    int nameEnd = whitespace(start + 2, end, true);
-    if (nameEnd < 0) {
-      nameEnd = end;
-    }
-    handler.endTag(start, nameEnd);
-    if (nonWhitespace(nameEnd, end) >= 0) {
-      throw new MarkupException("Could not parse as a well-formed closing element \"</" + str(start + 2, end)
-          + ">\": No attributes are allowed here", start);
-    }
+  private static boolean isLetter(char c) {
+    return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z';
   }
 
-  /** Reads the attributes in [{@code from}, {@code to}). */
-  private void attributes(int from, int to, AttributeSink sink) throws MarkupException {
-    int i = from;
-    while (i < to) {
-      i = nonWhitespace(i, to);
-      if (i < 0) {
-        return;
-      }
-      int nameStart = i;
-      int nameEnd = operator(i, to);
-      if (nameEnd < 0) {
-        sink.attribute(nameStart, to, -1, -1, (char) 0);
-        return;
-      }
-      if (nameEnd == nameStart) {
-        throw new MarkupException("Bad attribute name in sequence \"" + str(from, to)
-            + "\": attribute names cannot start with an equals sign", nameStart);
-      }
-      int operatorEnd = nonOperator(nameEnd, to);
-      boolean equals = indexOf('=', nameEnd, operatorEnd < 0 ? to : operatorEnd) >= 0;
-      if (operatorEnd < 0) {
-        sink.attribute(nameStart, nameEnd, equals ? to : -1, equals ? to : -1, (char) 0);
-        return;
-      }
-      if (!equals) {
-        sink.attribute(nameStart, nameEnd, -1, -1, (char) 0);
-        i = operatorEnd;
-        continue;
-      }
-      int valueStart = operatorEnd;
-      char first = buf[valueStart];
-      int valueEnd;
-      if (first == '"' || first == '\'') {
-        int close = indexOf(first, valueStart + 1, to);
-        valueEnd = close < 0 || close + 1 >= to ? -1 : close + 1;
-      } else {
-        valueEnd = whitespace(valueStart, to, false);
-      }
-      int outerEnd = valueEnd < 0 ? to : valueEnd;
-      char last = buf[outerEnd - 1];
-      if (outerEnd - valueStart >= 2 && (first == '"' || first == '\'') && last == first) {
-        sink.attribute(nameStart, nameEnd, valueStart + 1, outerEnd - 1, first);
-      } else {
-        sink.attribute(nameStart, nameEnd, valueStart, outerEnd, (char) 0);
-      }
-      if (valueEnd < 0) {
-        return;
-      }
-      i = valueEnd;
-    }
+  private static boolean isNameChar(char c) {
+    return isLetter(c) || c >= '0' && c <= '9' || c == '-' || c == '_' || c == '.' || c == ':';
   }
 
-  /** Checks a DOCTYPE from {@code start} to {@code end} ({@code >}) the way attoparser does. */
-  private void checkDocType(int start, int end) throws MarkupException {
-    String outer = str(start, end + 1);
-    String clause = "Could not parse as a well-formed DOCTYPE clause \"" + outer + "\": ";
-    String needId = clause + "If a type is specified (PUBLIC or SYSTEM), at least a public or a system ID has to be specified";
-    String quotes = clause + "Public and System IDs must be surrounded by quotes (\")";
-    String systemOne = clause + "type SYSTEM only allows specifying one element (a system ID)";
-    int from = start + 2;
-    int to = end;
-    int last = to - 1;
-    while (last > from && Character.isWhitespace(buf[last])) {
-      last--;
-    }
-    if (last > from && buf[last] == ']') {
-      to = internalSubsetStart(from, to);
-      if (to < 0) {
-        throw new MarkupException("Could not parse as a well-formed DOCTYPE clause: \"" + outer + "\"", start);
-      }
-    }
-    // keyword, element name, type, then one or two quoted IDs
-    int i = whitespace(from, to, false);
-    i = i < 0 ? -1 : nonWhitespace(i, to);
-    i = i < 0 ? -1 : whitespace(i, to, false);
-    i = i < 0 ? -1 : nonWhitespace(i, to);
-    if (i < 0) {
-      return;
-    }
-    int typeEnd = whitespace(i, to, true);
-    if (typeEnd < 0) {
-      throw new MarkupException(needId, start);
-    }
-    if (!(typeEnd - i == 6 && (keyword(i, "PUBLIC") || keyword(i, "SYSTEM")))) {
-      throw new MarkupException(clause + "DOCTYPE type must be either \"PUBLIC\" or \"SYSTEM\"", start);
-    }
-    boolean isPublic = buf[i] == 'P' || buf[i] == 'p';
-    i = nonWhitespace(typeEnd, to);
-    if (i < 0) {
-      throw new MarkupException(needId, start);
-    }
-    for (int id = 1; ; id++) {
-      int idEnd = whitespace(i, to, true);
-      if (!isQuoted(i, idEnd < 0 ? to : idEnd)) {
-        throw new MarkupException(quotes, start);
-      }
-      if (id == 2 && !isPublic) {
-        throw new MarkupException(systemOne, start);
-      }
-      if (idEnd < 0) {
-        return;
-      }
-      i = nonWhitespace(idEnd, to);
-      if (i < 0) {
-        return;
-      }
-      if (id == 2) {
-        throw new MarkupException(clause + "More elements found than allowed", start);
-      }
-    }
+  private static boolean isUnquotedValueChar(char c) {
+    return isNameChar(c) || c == '/' || c == '#';
   }
 
-  private int internalSubsetStart(int from, int to) {
-    boolean inQuotes = false;
-    boolean inApos = false;
-    for (int i = from; i < to; i++) {
-      char c = buf[i];
-      if (c == '"' && !inApos) {
-        inQuotes = !inQuotes;
-      } else if (c == '\'' && !inQuotes) {
-        inApos = !inApos;
-      } else if (c == '[' && !inQuotes && !inApos) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
-  private boolean isQuoted(int start, int end) {
-    return end - start >= 2 && (buf[start] == '"' || buf[start] == '\'') && buf[end - 1] == buf[start];
-  }
-
-  /** Checks an XML declaration from {@code start} to {@code end} ({@code >}) the way attoparser does. */
-  private void checkXmlDeclaration(int start, int end) throws MarkupException {
-    String outer = "\"" + str(start, end + 1) + "\"";
-    if (end - start + 1 < 7 || buf[end - 1] != '?') {
-      throw new MarkupException("Could not parse as a well-formed XML Declaration: " + outer, start);
-    }
-    int to = end - 1;
-    int keywordEnd = whitespace(start + 2, to, false);
-    int content = keywordEnd < 0 ? -1 : nonWhitespace(keywordEnd, to);
-    if (content < 0) {
-      throw new MarkupException("XML Declaration must at least contain a \"version\" attribute: " + outer, start);
-    }
-    boolean[] seen = new boolean[3]; // version, encoding, standalone
-    attributes(content, to, (ns, ne, vs, ve, quote) -> {
-      String name = str(ns, ne);
-      String problem;
-      if (name.equals("version")) {
-        problem = seen[0] ? "can declare only one \"version\" attribute"
-            : seen[1] || seen[2] ? "must declare \"version\" as its first attribute" : null;
-        seen[0] = true;
-      } else if (name.equals("encoding")) {
-        problem = seen[1] ? "can declare only one \"encoding\" attribute"
-            : !seen[0] ? "must declare \"encoding\" after \"version\""
-            : seen[2] ? "must declare \"encoding\" before \"standalone\"" : null;
-        seen[1] = true;
-      } else if (name.equals("standalone")) {
-        problem = seen[2] ? "can declare only one \"standalone\" attribute" : null;
-        seen[2] = true;
-      } else {
-        problem = "does not allow attribute with name \"" + name
-            + "\". Only \"version\", \"encoding\" and \"standalone\" are allowed (in that order)";
-      }
-      if (problem != null) {
-        throw new MarkupException("XML Declaration " + problem + ": " + outer, start);
-      }
-    });
-    if (!seen[0]) {
-      throw new MarkupException("Attribute \"version\" is required in XML Declaration: " + outer, start);
-    }
-  }
-
-  // ---- scanning helpers; each returns -1 when it reaches the end of its range ----
-
-  /** The first whitespace in [{@code from}, {@code to}), optionally skipping quoted text. */
-  private int whitespace(int from, int to, boolean avoidQuotes) {
-    boolean inQuotes = false;
-    boolean inApos = false;
-    for (int i = from; i < to; i++) {
-      char c = buf[i];
-      if (avoidQuotes && c == '"' && !inApos) {
-        inQuotes = !inQuotes;
-      } else if (avoidQuotes && c == '\'' && !inQuotes) {
-        inApos = !inApos;
-      } else if (!inQuotes && !inApos && Character.isWhitespace(c)) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
-  private int nonWhitespace(int from, int to) {
-    for (int i = from; i < to; i++) {
-      if (!Character.isWhitespace(buf[i])) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
-  /** The first {@code =} or whitespace. */
-  private int operator(int from, int to) {
-    for (int i = from; i < to; i++) {
-      if (buf[i] == '=' || Character.isWhitespace(buf[i])) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
-  /** The first char that is neither {@code =} nor whitespace. */
-  private int nonOperator(int from, int to) {
-    for (int i = from; i < to; i++) {
-      if (buf[i] != '=' && !Character.isWhitespace(buf[i])) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
-  private int indexOf(char c, int from, int to) {
-    for (int i = from; i < to; i++) {
+  private int indexOf(char c, int from) {
+    for (int i = from; i < n; i++) {
       if (buf[i] == c) {
         return i;
       }
@@ -716,21 +428,8 @@ final class MarkupTokenizer {
     return -1;
   }
 
-  private int indexOf(char[] seq, int from) {
-    for (int i = from; i + seq.length <= n; i++) {
-      int j = 0;
-      while (j < seq.length && buf[i + j] == seq[j]) {
-        j++;
-      }
-      if (j == seq.length) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
   private boolean startsWith(int i, String s) {
-    if (n - i < s.length()) {
+    if (i < 0 || n - i < s.length()) {
       return false;
     }
     for (int j = 0; j < s.length(); j++) {
@@ -741,19 +440,23 @@ final class MarkupTokenizer {
     return true;
   }
 
-  /** Whether {@code upper} (ASCII upper case) is at {@code i}, in upper or lower case per char. */
-  private boolean keyword(int i, String upper) {
-    if (n - i < upper.length()) {
+  /** Whether {@code s} is at {@code i}, folding ASCII letters only, as browsers do. */
+  private boolean asciiMatchesIgnoreCase(int i, String s) {
+    if (n - i < s.length()) {
       return false;
     }
-    for (int j = 0; j < upper.length(); j++) {
-      char c = buf[i + j];
-      char u = upper.charAt(j);
-      if (c != u && c != Character.toLowerCase(u)) {
+    for (int j = 0; j < s.length(); j++) {
+      char a = buf[i + j];
+      char b = s.charAt(j);
+      if (a != b && asciiLower(a) != asciiLower(b)) {
         return false;
       }
     }
     return true;
+  }
+
+  private static char asciiLower(char c) {
+    return c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c;
   }
 
   private String str(int start, int end) {
