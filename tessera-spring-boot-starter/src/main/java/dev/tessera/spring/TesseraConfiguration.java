@@ -5,6 +5,7 @@ import dev.tessera.spring.context.SpringRenderContexts;
 import dev.tessera.spring.view.RenderContextFactory;
 import dev.tessera.spring.view.TesseraViewResolver;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -52,6 +53,12 @@ public class TesseraConfiguration {
         UrlBasedViewResolver.FORWARD_URL_PREFIX + "*");
     resolver.setOrder(TesseraViewResolver.ORDER + 1);
     return resolver;
+  }
+
+  /** Warns at startup while another template engine's view resolver is still configured. */
+  @Bean
+  public SmartInitializingSingleton tesseraOldEngineWarning() {
+    return new OldEngineWarning();
   }
 
   @Bean
