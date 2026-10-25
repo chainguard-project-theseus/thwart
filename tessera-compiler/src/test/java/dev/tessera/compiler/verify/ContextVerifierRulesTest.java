@@ -140,7 +140,7 @@ class ContextVerifierRulesTest {
     // Classic <select> parsing only: the message names the engine.
     List<Finding> f = check(seq(st("<select>"), raw()));
     assertEquals(List.of(Problem.RAW_NOT_FLOW), problems(f));
-    assertTrue(VerifierMessages.message(f.get(0)).contains("htmlparser-1.4.16 only: browsers differ here"),
+    assertTrue(VerifierMessages.message(f.get(0)).contains("only in the older HTML parsing some browsers still use: browsers differ here"),
         VerifierMessages.message(f.get(0)));
   }
 
@@ -227,7 +227,7 @@ class ContextVerifierRulesTest {
     f = check(Map.of("x", seq(text())), seq(st("<table>"), call("x")));
     assertEquals(List.of(Problem.TEXT_IN_TABLE), problems(f));
     assertEquals("t.html", f.get(0).at.file());
-    assertTrue(VerifierMessages.message(f.get(0)).contains("in fragment t :: x at t.html:1:"), VerifierMessages.message(f.get(0)));
+    assertTrue(VerifierMessages.message(f.get(0)).contains("in fragment t :: x, inserted here, at t.html:1:"), VerifierMessages.message(f.get(0)));
   }
 
   @Test

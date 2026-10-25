@@ -37,7 +37,7 @@ class SeedVerdictsDump {
           if (m.find()) {
             rules.add(m.group(1));
           }
-          classic &= e.contains("htmlparser-1.4.16 only");
+          classic &= e.contains("only in the older HTML parsing some browsers still use");
         }
         String verdict = v.success() ? "ACCEPT" : "REJECT " + String.join(",", rules) + (classic ? " @classic" : "");
         w.println(String.join("\t", s.name(), s.expected().toString(), verdict, full.success() ? "OK" : "PROFILE",
