@@ -41,7 +41,7 @@ import org.junit.jupiter.api.Test;
  * documents (node kinds, names, attributes, quotes, positions, text contexts, self-closing and
  * end tags) and the same diagnostics, character for character, up to where Tessera rejects a
  * tag that a browser reads differently (a quote outside a quoted attribute value, a char that is
- * whitespace in Java but not in HTML, or a misplaced {@code /}).
+ * whitespace in Java but not in HTML, or a misplaced {@code /} or {@code =}).
  *
  * <p>Corpus: every {@code .html} file in the repository (outside {@code bench/}), every fenced
  * block in the docs, every string literal containing {@code <} in the repository's test sources,
@@ -54,7 +54,8 @@ class HtmlParserDifferentialTest {
   private static final long SEED = 170;
   /** Tessera's own fatal tag errors (see {@code MarkupTokenizer.tagEnd}), where attoparser reads on. */
   private static final List<String> TAG_ERRORS = List.of("malformed markup: quote ", "malformed markup: U+",
-      "malformed markup: '/' before '>'", "malformed markup: a name after '/'");
+      "malformed markup: '/' before '>'", "malformed markup: a name after '/'", "malformed markup: '/' in a tag",
+      "malformed markup: '=' starting an");
 
   /** Building blocks for mutations and random documents: everything the tokenizer treats specially. */
   private static final String[] TOKENS = {
@@ -193,11 +194,28 @@ class HtmlParserDifferentialTest {
       Diagnostic tagError = all.get(at);
       if (TAG_ERRORS.stream().anyMatch(tagError.message()::startsWith)) {
         SourcePos pos = tagError.pos();
-        int error = source(input).lineStarts()[pos.line() - 1] + pos.column() - 1;
+        int[] lineStarts = source(input).lineStarts();
+        int error = lineStarts[pos.line() - 1] + pos.column() - 1;
+        // A diagnostic past the error is about text the mask replaces (a check that reads ahead,
+        // such as for the '</noscript' a browser ends <noscript> at, and reports at column 0 when
+        // it finds none), so the masked input has none.
+        List<String> before = new ArrayList<>();
+        int tagErrorAt = 0;
+        for (int i = 0; i < all.size(); i++) {
+          SourcePos p = all.get(i).pos();
+          if (i == at) {
+            tagErrorAt = before.size();
+            before.add(got.get(i));
+          } else if (p.column() >= 1 && lineStarts[p.line() - 1] + p.column() - 1 < error) {
+            before.add(got.get(i));
+          }
+        }
         // a z after a '/' in a tag starts a name, an error of its own; a '/' at the start of a tag
-        // name stops the tag starting. One of the two masks keeps the tag open to the end.
-        String z = compareBeforeTagError(input, error, "z", actual, got, at);
-        return z == null || compareBeforeTagError(input, error, "/", actual, got, at) == null ? null : z;
+        // name stops the tag starting; after a '/' only '>' may follow, so there the '/' itself is
+        // masked too. One of the three masks keeps the tag open to the end.
+        String z = compareBeforeTagError(input, error, "z", actual, before, tagErrorAt);
+        return z == null || compareBeforeTagError(input, error, "/", actual, before, tagErrorAt) == null
+            || compareBeforeTagError(input, error - 1, "z", actual, before, tagErrorAt) == null ? null : z;
       }
     }
     return "input: " + escape(input)
@@ -211,7 +229,8 @@ class HtmlParserDifferentialTest {
    * error, so with the offending char and everything after it replaced by {@code mask} (same
    * length, so the length-dependent rules for what starts a tag do not change) Tessera must read
    * the input the same up to that tag, which then has no end ("Incomplete structure" in place of
-   * the tag error {@code got[at]}; diagnostics reported after it stay), and attoparser must agree
+   * the tag error {@code got[at]}; diagnostics reported after it stay, and {@code got} holds only
+   * those positioned before the error), and attoparser must agree
    * on the replaced input.
    */
   private static String compareBeforeTagError(String input, int error, String mask, Document actual,
@@ -219,7 +238,13 @@ class HtmlParserDifferentialTest {
     String masked = input.substring(0, error) + mask.repeat(input.length() - error);
     Diagnostics d = new Diagnostics();
     Document doc = new HtmlParser().parse(source(masked), d);
-    List<String> maskedGot = d.all().stream().map(Diagnostic::toString).toList();
+    // The same holds for the masked input: a check that reads ahead and finds nothing reports
+    // outside the text before the error.
+    int[] lineStarts = source(masked).lineStarts();
+    List<String> maskedGot = d.all().stream()
+        .filter(m -> m.pos().column() >= 1 && lineStarts[m.pos().line() - 1] + m.pos().column() - 1 < error)
+        .map(Diagnostic::toString)
+        .toList();
     List<String> others = new ArrayList<>(got);
     others.remove(at);
     List<String> maskedOthers = new ArrayList<>(maskedGot);
