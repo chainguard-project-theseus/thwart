@@ -220,8 +220,13 @@ allow-listed:
 - **`select`.** Only `option`, `optgroup`, `hr` and text, the subset where classic and new select
   parsing agree (#305).
 - **Forms.** No nested `<form>`. The browser drops the inner start tag (CSRF, guide §7).
-- **Tables.** Allowed. Foster parenting moves text but doesn't change its context. The oracle
-  (§5.7) watches this claim.
+- **Tables.** Allowed, with no computed text directly in `table`, `tbody`, `thead`, `tfoot`, `tr`
+  or `colgroup` (#348). Foster parenting moves the text in front of the table but leaves comments
+  in it, so the `{{` break comes apart. Values go in `td`, `th` and `caption`. Table parts must sit
+  directly in the part that takes them, and `<form>` not directly in a table, or the browser closes
+  elements (a `<tr>` ends a `<td>`) and reads later text in a table mode. `t:insert`/`t:replace`
+  get the same checks on the fragment's top level; `Fragment` values never start with a table part.
+  The oracle (§5.7) watches the rest of this claim.
 
 ### 5.4 Scripts: the data-prelude rule
 

