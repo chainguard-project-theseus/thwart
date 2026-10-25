@@ -162,6 +162,65 @@ class ContextVerifierRulesTest {
     accept(st("<b><b><b><b>x")); // static only: the parse doesn't depend on a value
   }
 
+  // ---- the reset of the insertion mode (#398) ----
+
+  /**
+   * A table (or template, or classic select) that ends inside SVG or MathML in a table: validator.nu
+   * resets the insertion mode to "in body" at the foreign element, the standard (Chrome, Safari)
+   * walks on down to the cell. Whatever follows is rejected at the nested table.
+   */
+  @Test
+  void aResetInsideForeignContentInATableIsRejected() {
+    Problem p = Problem.NESTED_TABLE_IN_FOREIGN;
+    String svgCell = "<table><tbody><tr><td><svg><foreignObject><div>";
+    // The repro: a computed type then decides where the <input> goes in a browser.
+    reject(p, st(svgCell + "<table></table></div></foreignObject></svg></td><input type=\""), attr("type"),
+        st("\"></tr></tbody></table>"));
+    // Text and attribute holes after it, and no hole at all: the parsers already disagree on the markup.
+    reject(p, st(svgCell + "<table></table></div></foreignObject></svg></td><td title=\""), attr("title"), st("\">"),
+        text(), st("</td></tr></tbody></table>"));
+    reject(p, st(svgCell + "<table></table></div></foreignObject></svg>"), text(), st("</td></tr></tbody></table>"));
+    reject(p, st(svgCell + "<table></table></div></foreignObject></svg></td><td>x</td></tr></tbody></table>"));
+    // A caption instead of a cell; MathML instead of SVG; annotation-xml as the integration point.
+    reject(p, st("<table><caption><svg><desc><table></table></desc></svg>"), text());
+    reject(p, st("<table><tr><th><math><mi><table><tr><td>x</td></tr></table></mi></math></th></tr></table>"));
+    reject(p, st("<table><tr><td><math><annotation-xml encoding=\"text/html\"><table></table>"
+        + "</annotation-xml></math></td></tr></table>"));
+    reject(p, st("<table><tr><td><svg><title><table></table></title></svg></td></tr></table>"));
+    // Deeper: SVG in a cell of a table inside SVG in a cell.
+    reject(p, st("<table><tr><td><svg><foreignObject><table><tr><td><svg><foreignObject><table></table>"));
+    reject(p, st("<table><tr><td><svg><foreignObject><div><svg><foreignObject><p><table></table>"));
+    // A <template> ends there instead; a nested table with rows.
+    reject(p, st(svgCell + "<template></template>"), text());
+    reject(p, st(svgCell + "<table><tr><td>a</td></tr></table>"), text());
+    // Classic <select> parsing: </select> resets too (current parsing keeps the select in the body).
+    reject(p, st(svgCell + "<select><option>a</option></select>"), text());
+    // The </table> comes from a fragment; the SVG from another static.
+    Map<String, Seq> end = Map.of("end", seq(st("</table>")));
+    reject(end, p, st(svgCell + "<table>"), call("end"), text());
+    reject(p, st("<table><tr><td><svg>"), st("<foreignObject><table>"), st("</table>"), text());
+    // The table opens in one branch.
+    reject(p, st(svgCell), opt(st("<table></table>")), text());
+  }
+
+  @Test
+  void ordinaryForeignContentInTablesIsAccepted() {
+    accept(st("<table><tr><td><svg viewBox=\"0 0 1 1\"><path d=\"M0 0\"/></svg>"), text(),
+        st("</td><td title=\""), attr("title"), st("\">x</td></tr></table>"));
+    accept(st("<table><tr><td><svg><foreignObject><div>"), text(), st("</div></foreignObject></svg></td></tr></table>"));
+    accept(st("<table><tr><td><math><mi>x</mi></math></td><td>"), text(), st("</td></tr></table>"));
+    // A table inside SVG outside any table, and a nested table in a cell without SVG.
+    accept(st("<div><svg><foreignObject><table><tr><td>x</td></tr></table></foreignObject></svg>"), text());
+    accept(st("<table><tr><td><div><table><tr><td>a</td></tr></table></div>"), text(), st("</td></tr></table>"));
+    // The table is in the cell of a table inside the SVG: the reset stops at that cell.
+    accept(st("<table><tr><td><svg><foreignObject><table><tr><td><table></table>"), text());
+    // A <table> start tag closes the nested table and reopens one: the reset in between ends where
+    // a browser's does, in a new table.
+    accept(st("<table><tr><td><svg><foreignObject><table><table><tr><td>"), text());
+    // SVG closed before the nested table.
+    accept(st("<table><tr><td><svg></svg><table></table>"), text(), st("</td></tr></table>"));
+  }
+
   // ---- control flow ----
 
   @Test

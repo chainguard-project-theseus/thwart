@@ -96,6 +96,12 @@ final class VerifierMessages {
         return "a browser parses the markup of this HTML message so that it " + f.detail + ", and the rest of the"
             + " page would be parsed differently; close every element the message opens, and insert it where its"
             + " markup fits (a message with a <p> in a <div>, not in a <p>)";
+      case NESTED_TABLE_IN_FOREIGN:
+        return "when the nested table, <template> or <select> here ends inside <svg> or <math> in a table, Chrome"
+            + " and Safari go back to " + (f.detail == null ? "the table" : f.detail) + ", but Firefox and the"
+            + " parsers Tessera checks with go on as if outside the table, so what follows lands in different places"
+            + " in different browsers and Tessera can't check it; move the nested table out of the <svg> or <math>,"
+            + " or the <svg> or <math> out of the table";
       case FRAMESET:
         return "<frameset> isn't supported: a browser uses it only if no body content came before it, so the page"
             + " would depend on what precedes it; use an <iframe> or an ordinary layout";

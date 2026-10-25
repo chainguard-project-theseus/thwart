@@ -118,7 +118,6 @@ bc38b0ca19ac JS_UNPARSABLE * #332 gen math>mtext noscript | <![CDATA[ > | script
 c89133b0704a JS_UNPARSABLE * #332 gen noscript li | &amp | script:`${[[s]]}` | none
 dea3945987a2 JS_UNPARSABLE * #332 gen svg template svg>foreignObject | <!x> | script:a / b; [[s]] | t:insert into table>tbody>tr>td
 6e7726b5c029 JS_UNPARSABLE * #332 gen svg>foreignObject math>annotation-xml script | </noscript> | script:var a = [[s]]; | none
-dfc12824ced8 JS_UNPARSABLE * #332 gen table>caption math>annotation-xml template | <textarea\u2028> | script:// [[s]] | Fragment f
 5ccfa35c35e7 JS_UNPARSABLE * #332 gen table>tbody>tr>td math>annotation-xml table | <textarea\u3000> | script:`${[[s]]}` | t:replace into svg>foreignObject
 7e2870c35402 JS_UNPARSABLE * #332 gen table>tbody>tr>td table | </svg> | script:`${[[s]]}` | t:remove=tag
 de787504bd69 JS_UNPARSABLE * #332 gen table>tbody>tr>td table>tbody>tr>td a | &amp | script:a / b; [[s]] | t:insert into table>tbody>tr>td

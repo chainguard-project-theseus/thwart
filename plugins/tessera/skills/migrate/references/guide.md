@@ -2037,6 +2037,7 @@ scripting on" means browsers differ there; fix the template all the same.
 | `ATTRIBUTE_VALUE_CHANGES_PARSE` | Decides from the value where the element goes: `type` on an `<input>` directly in a table, `encoding` on MathML `<annotation-xml>` | Move the input into a `<td>`, or write the attribute as a static value |
 | `JSON_NOT_IN_SCRIPT` | Reads `[[...]]` JSON outside the code of an HTML `<script>`, for example in an SVG `<script>` | Write the script as an HTML `<script>` outside `<svg>` and `<math>` |
 | `RAW_NOT_FLOW` | Parses `SafeHtml`, a `Fragment` value or an HTML message outside body content: in the head, a table, a `<select>`, `<svg>`, `<math>`, or raw text such as `<noscript>` | Insert it in an element such as `<div>` in the body, or in a `<td>` |
+| `NESTED_TABLE_IN_FOREIGN` | Disagrees with other browsers on what follows a table, `<template>` or `<select>` that ends inside `<svg>` or `<math>` in a table cell, caption or row: Chrome and Safari go back to the cell, Firefox goes on as if outside the table | Move the nested table out of the `<svg>` or `<math>`, or the `<svg>` or `<math>` out of the table |
 | `FRAMESET` | Uses a `<frameset>` only if no body content came before it | Use an `<iframe>` or an ordinary layout |
 | `NOAHS_ARK` | Reopens at most three identical formatting elements, comparing attribute values, one of them computed | Close them before opening another, or move the computed attribute to a `<span>` |
 | `LOOP_NO_FIXED_POINT` | Has more elements open after each `t:each` pass | Close inside the loop every element it opens |

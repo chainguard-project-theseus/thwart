@@ -192,9 +192,10 @@ HTML messages need none either: their markup is known at build time (below).
   otherwise): a `p` in button scope; a heading as the current node; an `a` in the list of active
   formatting elements after the last marker; a `button`, `nobr` or `ruby` in scope; a `select`,
   `option` or `optgroup` anywhere on the stack; three formatting entries of one name after the
-  last marker (one more would drop the first, the Noah's Ark clause); in cell or caption mode, an
-  SVG or MathML element above the cell (a `</table>` in the value resets the mode, and
-  validator.nu stops at the foreign element where the standard goes on to the cell).
+  last marker (one more would drop the first, the Noah's Ark clause); an SVG or MathML element
+  above a cell, caption, table part or `template` (a `</table>` in the value resets the mode, and
+  validator.nu stops at the foreign element where the standard goes on to the cell; see
+  `NESTED_TABLE_IN_FOREIGN` below and security-model.md §7.1).
 
 In template mode the first flow start tag switches to "in body"; the verifier then continues
 from both states (the second is the state after `<span></span>`).
@@ -395,6 +396,7 @@ The id in brackets ends every error message (`[verifier:ID]`), for #368's fix-it
 | `RAW_NOT_FLOW` | `SafeHtml`, an unbound or dynamic `Fragment` outside data state, HTML namespace, body/cell/caption/template mode, or with formatting elements to reopen | flow content (section 5) |
 | `RAW_CLOSES_ELEMENT` | the same where flow content would close, reopen or adopt an open element: `p` in button scope, a current heading, an active `a`, `button`/`nobr`/`ruby` in scope, `select`/`option`/`optgroup`, three identical formatting entries, SVG or MathML above a cell | flow content (section 5) |
 | `MESSAGE_CHANGES_STATE` | an HTML message whose markup (any locale, either form) leaves the parser in another state than it found it | a message that closes what it opens, where its markup fits |
+| `NESTED_TABLE_IN_FOREIGN` | static markup after which a parser's insertion mode isn't the one the standard's "reset the insertion mode appropriately" picks from its stack: a table, `template` or (classic) `select` that ends inside SVG or MathML in a cell, caption or row, where validator.nu (and Firefox) reset to "in body" and Chrome and Safari to the cell (#398, security-model.md §7.1). Checked after every tag that can reset the mode while SVG or MathML is open, and after every static | the nested table outside the `<svg>`/`<math>`, or the `<svg>`/`<math>` outside the table |
 | `FRAMESET` | any `<frameset>` start tag (frameset-ok is not tracked exactly) | |
 | `NOAHS_ARK` | three or more identical formatting elements, one of them with a computed attribute | |
 | `LOOP_NO_FIXED_POINT`, `STRUCTURE_DEPENDS_ON_DATA` | a loop, or a fragment calling itself, that reaches new parser states after 4 rounds (or more than 24 states for one recursive fragment); anything reached only through recursion | loops and recursion that settle |

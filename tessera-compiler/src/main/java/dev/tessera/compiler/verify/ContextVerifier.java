@@ -432,6 +432,9 @@ public final class ContextVerifier {
     List<Path> cur = in;
     StringBuilder statics = new StringBuilder();
     SourcePos staticPos = null;
+    // Where each static of the run starts in it, and its position: errors inside the run.
+    List<Integer> starts = new ArrayList<>();
+    List<SourcePos> positions = new ArrayList<>();
     boolean frameset = false;
     for (Skeleton.Node n : seq.nodes()) {
       if (n instanceof Skeleton.Static) {
@@ -440,6 +443,10 @@ public final class ContextVerifier {
           add(Problem.FRAMESET, at(n), null, null, null, Collections.<ParserState>emptyList(), null);
           frameset = true;
         }
+        if (n.pos() != null) {
+          starts.add(statics.length());
+          positions.add(n.pos());
+        }
         statics.append(text);
         if (staticPos == null) {
           staticPos = n.pos();
@@ -447,15 +454,17 @@ public final class ContextVerifier {
         continue;
       }
       if (statics.length() > 0) {
-        cur = statics(cur, statics.toString(), staticPos, !frameset);
+        cur = statics(cur, statics.toString(), staticPos, !frameset, starts, positions);
         statics.setLength(0);
+        starts.clear();
+        positions.clear();
         staticPos = null;
         frameset = false;
       }
       cur = node(n, cur, env);
     }
     if (statics.length() > 0) {
-      cur = statics(cur, statics.toString(), staticPos, !frameset);
+      cur = statics(cur, statics.toString(), staticPos, !frameset, starts, positions);
     }
     return cur;
   }
@@ -644,8 +653,13 @@ public final class ContextVerifier {
     return out;
   }
 
-  /** {@code frameset}: whether to report a {@code <frameset>} (seq already reported one inside a single static). */
-  private List<Path> statics(List<Path> in, String text, SourcePos pos, boolean frameset) throws EngineException {
+  /**
+   * {@code frameset}: whether to report a {@code <frameset>} (seq already reported one inside a
+   * single static). {@code starts} and {@code positions}: where each static of {@code text} starts
+   * in it, and its source position.
+   */
+  private List<Path> statics(List<Path> in, String text, SourcePos pos, boolean frameset, List<Integer> starts,
+      List<SourcePos> positions) throws EngineException {
     if (pos != null) {
       near = pos;
     }
@@ -664,15 +678,34 @@ public final class ContextVerifier {
         p.tagBoundary = false;
         p.key = null;
       }
+      StaticRun run = new StaticRun(text, pos, starts, positions);
+      if (!p.tagHole && !p.markedFormatting && !promiseCheck && mayReset(p, text)) {
+        // SVG or MathML with a tag that can reset the insertion mode: feed each such tag on its
+        // own and check after it, so no reset that leaves the standard goes unseen (#398).
+        int from = 0;
+        boolean trigger = false;
+        for (int i = text.indexOf('<'); i >= 0; i = text.indexOf('<', i + 1)) {
+          boolean next = resetTrigger(text, i);
+          if (i > from && (trigger || next)) {
+            feedAndCheckReset(p, text.substring(from, i), run, from);
+            from = i;
+          }
+          trigger = next;
+        }
+        feedAndCheckReset(p, text.substring(from), run, from);
+        continue;
+      }
       if (!p.tagHole && !p.markedFormatting && !promiseCheck) {
         int lt = text.lastIndexOf('<');
         if (lt > 0 && text.indexOf('>', lt) < 0) {
           // A tag that goes on past this static: feed the text before it on its own, so the
           // parser replays only the tag's own input while it is inside it (VnuParser).
           p.feed(text.substring(0, lt));
+          checkReset(p, run, 0);
           p.defer(text.substring(lt));
         } else {
           p.feed(text);
+          checkReset(p, run, text.length());
         }
         continue;
       }
@@ -684,12 +717,110 @@ public final class ContextVerifier {
       for (int i = text.indexOf('<'); i >= 0; i = text.indexOf('<', i + 1)) {
         if (i > from) {
           feedAndCheck(p, text.substring(from, i), pos);
+          checkReset(p, run, from);
           from = i;
         }
       }
       feedAndCheck(p, text.substring(from), pos);
+      checkReset(p, run, from);
     }
     return in;
+  }
+
+  /** A run of statics fed as one text, for positions inside it. */
+  private static final class StaticRun {
+    final String text;
+    final SourcePos pos;
+    final List<Integer> starts;
+    final List<SourcePos> positions;
+
+    StaticRun(String text, SourcePos pos, List<Integer> starts, List<SourcePos> positions) {
+      this.text = text;
+      this.pos = pos;
+      this.starts = starts;
+      this.positions = positions;
+    }
+
+    /** The position of the static that holds offset {@code at} of the text. */
+    SourcePos at(int at) {
+      SourcePos out = pos;
+      for (int i = 0; i < starts.size() && starts.get(i) <= at; i++) {
+        out = positions.get(i);
+      }
+      return out;
+    }
+  }
+
+  /** Tags that can make the parser reset the insertion mode from the stack (in classic {@code <select>} too). */
+  private static final String[] RESET_TRIGGERS = {
+    "table", "template", "select", "input", "keygen", "textarea", "caption", "tbody", "thead", "tfoot", "tr", "td", "th"
+  };
+
+  /** Whether a start or end tag at {@code lt} in {@code text} is one of {@link #RESET_TRIGGERS}. */
+  private static boolean resetTrigger(String text, int lt) {
+    int k = lt + 1;
+    if (k < text.length() && text.charAt(k) == '/') {
+      k++;
+    }
+    for (String name : RESET_TRIGGERS) {
+      int end = k + name.length();
+      if (text.regionMatches(true, k, name, 0, name.length())
+          && (end == text.length() || isSpace(text.charAt(end)) || text.charAt(end) == '/' || text.charAt(end) == '>')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Whether feeding {@code text} may reset the insertion mode with an SVG or MathML element open:
+   * it has a {@link #RESET_TRIGGERS} tag, and it opens {@code <svg>} or {@code <math>} or one is
+   * open already.
+   */
+  private static boolean mayReset(Path p, String text) throws EngineException {
+    boolean trigger = false;
+    for (int i = text.indexOf('<'); i >= 0 && !trigger; i = text.indexOf('<', i + 1)) {
+      trigger = resetTrigger(text, i);
+    }
+    if (!trigger) {
+      return false;
+    }
+    if (containsIgnoreCase(text, "<svg") || containsIgnoreCase(text, "<math")) {
+      return true;
+    }
+    for (ParserState s : p.states()) {
+      for (OpenElement e : s.stack()) {
+        if (!OpenElement.HTML.equals(e.namespace())) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private void feedAndCheckReset(Path p, String piece, StaticRun run, int from) throws EngineException {
+    p.feed(piece);
+    checkReset(p, run, from);
+  }
+
+  /**
+   * After the static input up to some point (the tag at {@code from} of the run): rejects a parser
+   * state whose insertion mode left the HTML standard's (Rules#modeLeftTheStandard), once per path.
+   */
+  private void checkReset(Path p, StaticRun run, int from) throws EngineException {
+    if (p.resetReported) {
+      return;
+    }
+    List<ParserState> bad = new ArrayList<>();
+    for (ParserState s : p.states()) {
+      if (Rules.modeLeftTheStandard(s)) {
+        bad.add(s);
+      }
+    }
+    if (!bad.isEmpty()) {
+      p.resetReported = true;
+      add(Problem.NESTED_TABLE_IN_FOREIGN, run.at(from), null, null, null, bad, Rules.resetPlace(bad.get(0)));
+    }
   }
 
   private void feedAndCheck(Path p, String piece, SourcePos pos) throws EngineException {
@@ -1092,6 +1223,8 @@ public final class ContextVerifier {
      * next character must be whitespace, '/' or '>' ({@link ContextVerifier#attribute}).
      */
     boolean tagBoundary;
+    /** A {@link Problem#NESTED_TABLE_IN_FOREIGN} was reported on this path: the parsers no longer model a browser. */
+    boolean resetReported;
     private ParserState[] states;
     String key;
     /** Input written to no parser yet: fed with the next input, before any state is read. */
@@ -1129,6 +1262,7 @@ public final class ContextVerifier {
       p.tagHole = tagHole;
       p.markedFormatting = markedFormatting;
       p.tagBoundary = tagBoundary;
+      p.resetReported = resetReported;
       p.states = states;
       p.key = key;
       return p;

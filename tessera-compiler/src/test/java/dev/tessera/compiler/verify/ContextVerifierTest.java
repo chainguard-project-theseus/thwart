@@ -132,4 +132,26 @@ class ContextVerifierTest {
         .compile()
         .assertError("row.html:1:", "[verifier:TEXT_IN_TABLE]");
   }
+
+  @Test
+  void aTableEndingInsideSvgInACellIsAnErrorInEveryBuild() {
+    // #398: the profile accepts this; the verifier's parsers (and Firefox) leave the table after the
+    // inner </table>, Chrome and Safari don't, so the computed type decides where the input goes.
+    String inner = "<svg><foreignObject><div><table></table></div></foreignObject></svg>";
+    compile("<table><tbody><tr><td>" + inner + "</td><input t:type=\"s\"></tr></tbody></table>")
+        .assertError("t.html:1:", "Chrome and Safari go back to the <td> that holds the <svg>",
+            "[verifier:NESTED_TABLE_IN_FOREIGN]");
+    // A static fragment that brings the </table>.
+    Compilation.builder()
+        .template("t.html", "<div " + NS + " t:params=\"String s\"><table><tr><td><svg><foreignObject><table>"
+            + "<t:block t:replace=\"~{parts :: end}\"></t:block></foreignObject></svg></td><td t:text=\"s\">x</td>"
+            + "</tr></table></div>")
+        .template("parts.html", "<div " + NS + "><t:block t:fragment=\"end\"></table></t:block></div>")
+        .verifierOnly()
+        .compile()
+        .assertError("t.html:1:", "[verifier:NESTED_TABLE_IN_FOREIGN]");
+    // Without the nested table, the same SVG compiles.
+    compile("<table><tbody><tr><td><svg><foreignObject><div>[[${s}]]</div></foreignObject></svg></td>"
+        + "<td t:title=\"s\">x</td></tr></tbody></table>").assertSuccess();
+  }
 }

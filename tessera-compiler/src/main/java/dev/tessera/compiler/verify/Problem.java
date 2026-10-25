@@ -56,5 +56,13 @@ public enum Problem {
    * element open around it (a {@code <p>} in a {@code <p>}, an {@code <a>} in an {@code <a>}), or
    * leaves one of its own open (a {@code <p>} without {@code </p>}).
    */
-  MESSAGE_CHANGES_STATE
+  MESSAGE_CHANGES_STATE,
+  /**
+   * A table, {@code <template>} or classic {@code <select>} that ends inside SVG or MathML in a
+   * table cell, caption or row (#398): the parser then resets its insertion mode, and browsers
+   * disagree on the result (Chrome and Safari go back to the cell, as the HTML standard says;
+   * Firefox and the verifier's validator.nu parsers continue as outside the table). The verifier
+   * can't check what follows, so it rejects the template ({@link Rules#modeLeftTheStandard}).
+   */
+  NESTED_TABLE_IN_FOREIGN
 }

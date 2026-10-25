@@ -151,3 +151,11 @@ m=First.<p>Second.
 <t:block t:if="s == '0'"><p><b>x</p></t:block><t:block t:if="s == '1'"><p><i>x</p></t:block><t:block t:if="s == '2'"><p><u>x</p></t:block><t:block t:if="s == '3'"><p><s>x</p></t:block><t:block t:if="s == '4'"><p><em>x</p></t:block>[[${s}]]
 => t.html:1:249: error: the branches and loops before this point can leave a browser in more than 24 different states (different elements open), more than Tessera checks; close inside each t:if, t:switch and t:each the elements it opens, or split the template into fragments [verifier:TOO_MANY_STATES]
 => t.html:1:291: error: before this value a browser reopens formatting elements (<b>, <i>, <a>, ...) that an end tag closed out of order, and puts the value inside the copies; close elements in the reverse order they were opened (</b> before </p>) [verifier:TEXT_RECONSTRUCTS]
+== NESTED_TABLE_IN_FOREIGN: a table inside SVG in a cell, then a computed input type in the row
+-- t.html
+<table><tbody><tr><td><svg><foreignObject><div><table></table></div></foreignObject></svg></td><input t:type="s"></tr></tbody></table>
+=> t.html:1:103: error: when the nested table, <template> or <select> here ends inside <svg> or <math> in a table, Chrome and Safari go back to the <td> that holds the <svg>, but Firefox and the parsers Tessera checks with go on as if outside the table, so what follows lands in different places in different browsers and Tessera can't check it; move the nested table out of the <svg> or <math>, or the <svg> or <math> out of the table [verifier:NESTED_TABLE_IN_FOREIGN]
+== NESTED_TABLE_IN_FOREIGN: a table inside MathML in a caption
+-- t.html
+<table><caption><math><mi><table><tr><td>x</td></tr></table></mi></math></caption><tr><td t:text="s">x</td></tr></table>
+=> t.html:1:82: error: when the nested table, <template> or <select> here ends inside <svg> or <math> in a table, Chrome and Safari go back to the <caption> that holds the <math>, but Firefox and the parsers Tessera checks with go on as if outside the table, so what follows lands in different places in different browsers and Tessera can't check it; move the nested table out of the <svg> or <math>, or the <svg> or <math> out of the table [verifier:NESTED_TABLE_IN_FOREIGN]

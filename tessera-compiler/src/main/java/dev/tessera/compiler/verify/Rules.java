@@ -1,6 +1,7 @@
 package dev.tessera.compiler.verify;
 
 import dev.tessera.compiler.Backports;
+import dev.tessera.compiler.verify.engine.Engines;
 import dev.tessera.compiler.verify.engine.InsertionMode;
 import dev.tessera.compiler.verify.engine.OpenElement;
 import dev.tessera.compiler.verify.engine.ParserState;
@@ -159,6 +160,187 @@ final class Rules {
       return Problem.ATTRIBUTE_VALUE_CHANGES_PARSE;
     }
     return null;
+  }
+
+  /** Modes that the reset of the insertion mode can pick and that stay as it picked them until the stack changes. */
+  private static final Set<InsertionMode> RESET_MODES = EnumSet.of(
+      InsertionMode.IN_BODY, InsertionMode.IN_TABLE, InsertionMode.IN_CAPTION, InsertionMode.IN_COLUMN_GROUP,
+      InsertionMode.IN_TABLE_BODY, InsertionMode.IN_ROW, InsertionMode.IN_CELL, InsertionMode.IN_SELECT,
+      InsertionMode.IN_SELECT_IN_TABLE, InsertionMode.IN_TEMPLATE);
+
+  /**
+   * Whether the mode of {@code s} isn't the one the HTML standard's "reset the insertion mode
+   * appropriately" (§13.2.4.1) picks from its stack ({@link #standardReset}), for the modes in
+   * which the standard keeps the two equal. Both validator.nu engines break this only after
+   * their own reset ({@code TreeBuilder.resetTheInsertionMode}) stopped at an SVG or MathML element
+   * and picked "in body", where the standard skips foreign elements and walks on down to a
+   * {@code td}, {@code th}, {@code caption}, table part or {@code template} ({@link
+   * #resetDivergence}): from there on the verifier's parsers and a browser that follows the
+   * standard (Chrome, Safari) parse differently (#398). In text mode, the mode it returns to counts.
+   */
+  static boolean modeLeftTheStandard(ParserState s) {
+    InsertionMode mode = s.mode() == InsertionMode.TEXT ? s.originalMode() : s.mode();
+    return mode != null && RESET_MODES.contains(mode) && !s.stack().isEmpty() && mode != standardReset(s);
+  }
+
+  /**
+   * Where a reset of the insertion mode from the stack of {@code s} would make validator.nu and the
+   * HTML standard disagree, in words ({@link #resetPlace}), or null if they agree.
+   */
+  static String resetDivergence(ParserState s) {
+    return s.stack().isEmpty() || vnuReset(s) == standardReset(s) ? null : resetPlace(s);
+  }
+
+  /**
+   * In words, where the standard's reset of the insertion mode from the stack of {@code s} stops,
+   * and the SVG or MathML element above it that validator.nu stops at instead: "the <td> that
+   * holds the <svg>", or "the <tr>" when none is open any more.
+   */
+  static String resetPlace(ParserState s) {
+    OpenElement foreign = null;
+    for (int i = s.stack().size() - 1; i >= 0; i--) {
+      OpenElement e = s.stack().get(i);
+      if (!OpenElement.HTML.equals(e.namespace())) {
+        foreign = e;
+      } else if (RESET_STOPS.contains(e.localName())) {
+        return "the <" + e.localName() + ">" + (foreign == null ? "" : " that holds the <" + foreign.localName() + ">");
+      }
+    }
+    return foreign == null ? "the table" : "the table that holds the <" + foreign.localName() + ">";
+  }
+
+  /** HTML elements at which the standard's reset of the insertion mode stops. */
+  private static final Set<String> RESET_STOPS = Backports.setOf("td", "th", "tr", "tbody", "thead", "tfoot", "caption",
+      "colgroup", "table", "template", "head", "body", "frameset", "html", "select");
+
+  /**
+   * The mode the HTML standard's "reset the insertion mode appropriately" (§13.2.4.1) picks from
+   * the stack of {@code s}. Its steps name HTML elements only, so it walks past SVG and MathML
+   * elements. For the classic engine, the standard of its time, which also has the {@code select}
+   * step (classic {@code <select>} parsing).
+   */
+  static InsertionMode standardReset(ParserState s) {
+    List<OpenElement> stack = s.stack();
+    boolean classic = s.engine().equals(Engines.CLASSIC.name());
+    for (int i = stack.size() - 1; i >= 0; i--) {
+      boolean last = i == 0;
+      OpenElement node = last && s.fragmentContext() != null ? s.fragmentContext() : stack.get(i);
+      if (!OpenElement.HTML.equals(node.namespace())) {
+        continue;
+      }
+      String name = node.localName();
+      if (classic && name.equals("select")) {
+        if (!last) {
+          for (int j = i - 1; j >= 0; j--) {
+            OpenElement ancestor = stack.get(j);
+            if (ancestor.isHtml("template")) {
+              break;
+            }
+            if (ancestor.isHtml("table")) {
+              return InsertionMode.IN_SELECT_IN_TABLE;
+            }
+          }
+        }
+        return InsertionMode.IN_SELECT;
+      }
+      InsertionMode m = resetStep(s, name, last);
+      if (m != null) {
+        return m;
+      }
+      if (last) {
+        return InsertionMode.IN_BODY;
+      }
+    }
+    return InsertionMode.IN_BODY;
+  }
+
+  /**
+   * The mode validator.nu's {@code TreeBuilder.resetTheInsertionMode} picks from the stack of
+   * {@code s} (26.10.12 and 1.4.16, which adds the {@code select} step). It compares the table
+   * names before the namespace, and at the first other SVG or MathML element it picks "in body"
+   * ({@code else if ("http://www.w3.org/1999/xhtml" != ns) mode = IN_BODY}), where the standard
+   * walks on.
+   */
+  static InsertionMode vnuReset(ParserState s) {
+    List<OpenElement> stack = s.stack();
+    boolean classic = s.engine().equals(Engines.CLASSIC.name());
+    OpenElement context = s.fragmentContext();
+    for (int i = stack.size() - 1; i >= 0; i--) {
+      OpenElement node = stack.get(i);
+      if (i == 0 && context != null) {
+        if (context.isHtml("td") || context.isHtml("th")) {
+          return InsertionMode.IN_BODY;
+        }
+        node = context;
+      }
+      String name = node.localName();
+      if (classic && name.equals("select")) {
+        for (int j = i; j > 0; j--) {
+          OpenElement ancestor = stack.get(j);
+          if (ancestor.isHtml("template")) {
+            break;
+          }
+          if (ancestor.isHtml("table")) {
+            return InsertionMode.IN_SELECT_IN_TABLE;
+          }
+        }
+        return InsertionMode.IN_SELECT;
+      }
+      if (TABLE_RESET_NAMES.contains(name)) {
+        return resetStep(s, name, false);
+      }
+      if (!OpenElement.HTML.equals(node.namespace())) {
+        return InsertionMode.IN_BODY;
+      }
+      if (name.equals("head")) {
+        return context != null && context.localName().equals("head") ? InsertionMode.IN_BODY : InsertionMode.IN_HEAD;
+      }
+      InsertionMode m = resetStep(s, name, false);
+      if (m != null) {
+        return m;
+      }
+      if (i == 0) {
+        return InsertionMode.IN_BODY;
+      }
+    }
+    return InsertionMode.IN_BODY;
+  }
+
+  private static final Set<String> TABLE_RESET_NAMES =
+      Backports.setOf("td", "th", "tr", "tbody", "thead", "tfoot", "caption", "colgroup", "table");
+
+  /** The standard's reset step for an HTML element {@code name}, or null to walk on. */
+  private static InsertionMode resetStep(ParserState s, String name, boolean last) {
+    switch (name) {
+      case "td":
+      case "th":
+        return last ? null : InsertionMode.IN_CELL;
+      case "tr":
+        return InsertionMode.IN_ROW;
+      case "tbody":
+      case "thead":
+      case "tfoot":
+        return InsertionMode.IN_TABLE_BODY;
+      case "caption":
+        return InsertionMode.IN_CAPTION;
+      case "colgroup":
+        return InsertionMode.IN_COLUMN_GROUP;
+      case "table":
+        return InsertionMode.IN_TABLE;
+      case "template":
+        List<InsertionMode> t = s.templateModes();
+        return t.isEmpty() ? InsertionMode.IN_TEMPLATE : t.get(t.size() - 1);
+      case "head":
+        return last ? null : InsertionMode.IN_HEAD;
+      case "body":
+        return InsertionMode.IN_BODY;
+      case "frameset":
+        return InsertionMode.IN_FRAMESET;
+      case "html":
+        return s.headPointer() ? InsertionMode.AFTER_HEAD : InsertionMode.BEFORE_HEAD;
+      default:
+        return null;
+    }
   }
 
   /**

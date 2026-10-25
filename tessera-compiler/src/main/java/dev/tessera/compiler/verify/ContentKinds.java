@@ -238,9 +238,9 @@ public final class ContentKinds {
    *       close them.
    *   <li>Three or more formatting entries of one name after the last marker: one more is
    *       dropped from the list (the Noah's Ark clause), whatever its attributes.
-   *   <li>In cell or caption mode, an SVG or MathML element above the cell: a {@code </table>} in
-   *       the value resets the mode to "in cell" by the standard, but to "in body" in
-   *       validator.nu, which stops at the foreign element.
+   *   <li>An SVG or MathML element above a cell, caption or table part: a {@code </table>} in the
+   *       value resets the mode to "in cell" (say) by the standard, but to "in body" in
+   *       validator.nu, which stops at the foreign element ({@link Rules#resetDivergence}).
    * </ul>
    *
    * <p>Not here, because FLOW content can't close them: an open {@code li}, {@code dd} or {@code dt}
@@ -268,23 +268,11 @@ public final class ContentKinds {
         return "an open <" + name + ">";
       }
     }
-    if (s.mode() == InsertionMode.IN_CELL || s.mode() == InsertionMode.IN_CAPTION) {
-      // A </table> in the value resets the insertion mode from the stack. The HTML standard walks
-      // down to the cell; validator.nu stops at the first SVG or MathML element and picks "in
-      // body". The parsers disagree on the state after the value, so it is rejected.
-      String foreign = null;
-      for (int i = stack.size() - 1; i >= 0; i--) {
-        OpenElement e = stack.get(i);
-        if (e.isHtml("td") || e.isHtml("th") || e.isHtml("caption")) {
-          if (foreign != null) {
-            return "the <" + e.localName() + "> that holds the <" + foreign + ">";
-          }
-          break;
-        }
-        if (!OpenElement.HTML.equals(e.namespace())) {
-          foreign = e.localName();
-        }
-      }
+    // A </table> in the value resets the insertion mode from the stack, where validator.nu stops
+    // at an SVG or MathML element and the standard walks on (#398, Rules#resetDivergence).
+    String reset = Rules.resetDivergence(s);
+    if (reset != null) {
+      return reset;
     }
     Map<String, Integer> counts = new HashMap<>();
     List<Integer> list = s.activeFormatting();
