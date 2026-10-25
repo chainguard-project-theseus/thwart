@@ -2,9 +2,12 @@ package dev.tessera.compiler.testing;
 
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.DiagnosticSink;
+import dev.tessera.compiler.TemplateCompiler;
+import dev.tessera.compiler.TemplateSource;
 import dev.tessera.compiler.messages.MessageBundle;
 import dev.tessera.compiler.processor.ProcessorOptions;
 import dev.tessera.compiler.processor.TesseraProcessor;
+import dev.tessera.compiler.verify.ContextVerifier;
 import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.compiler.verify.SkeletonMatcher;
 import dev.tessera.runtime.RenderContext;
@@ -145,6 +148,7 @@ public final class Compilation {
     private final List<Processor> before = new ArrayList<>();
     private final List<Processor> after = new ArrayList<>();
     private Map<String, Skeleton.TemplateSkeleton> extraSkeletons = Map.of();
+    private boolean verifierOnly;
 
     /** Adds a template at {@code path} relative to the templates root, e.g. {@code owners/list.html}. */
     public Builder template(String path, String content) {
@@ -234,6 +238,17 @@ public final class Compilation {
       return this;
     }
 
+    /**
+     * Test-only (#367): reports only the context verifier's errors. The templates are compiled
+     * with every other diagnostic dropped, the profile's included, and the verifier runs on the
+     * skeletons whatever they reported; nothing is generated. Proves that the verifier rejects a
+     * template on its own.
+     */
+    public Builder verifierOnly() {
+      this.verifierOnly = true;
+      return this;
+    }
+
     public Compilation compile() {
       Path dir = null;
       try {
@@ -292,7 +307,8 @@ public final class Compilation {
         }
         processors.addAll(before);
         TesseraProcessor tessera = new TesseraProcessor();
-        processors.add(tessera);
+        VerifierOnlyProcessor verifier = verifierOnly ? new VerifierOnlyProcessor(templates) : null;
+        processors.add(verifierOnly ? verifier : tessera);
         processors.addAll(after);
         JavaCompiler.CompilationTask task = javac.getTask(null, mem, collector, args, null, units);
         task.setProcessors(processors);
@@ -313,7 +329,7 @@ public final class Compilation {
             ok,
             mem,
             options.getOrDefault(ProcessorOptions.PACKAGE, CompilerEnv.DEFAULT_PACKAGE),
-            merge(tessera.skeletons(), extraSkeletons),
+            merge(verifierOnly ? verifier.skeletons : tessera.skeletons(), extraSkeletons),
             upstream);
       } catch (IOException e) {
         throw new UncheckedIOException(e);
@@ -651,6 +667,48 @@ public final class Compilation {
         throw new ClassNotFoundException(name);
       }
       return defineClass(name, b, 0, b.length);
+    }
+  }
+
+  /** {@link Builder#verifierOnly()}: the compiler with its diagnostics dropped, then the verifier. */
+  private static final class VerifierOnlyProcessor extends AbstractProcessor {
+    private final Map<String, String> templates;
+    private boolean done;
+    Map<String, Skeleton.TemplateSkeleton> skeletons = Map.of();
+
+    VerifierOnlyProcessor(Map<String, String> templates) {
+      this.templates = templates;
+    }
+
+    @Override
+    public Set<String> getSupportedAnnotationTypes() {
+      return Set.of("*");
+    }
+
+    @Override
+    public SourceVersion getSupportedSourceVersion() {
+      return SourceVersion.latestSupported();
+    }
+
+    @Override
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+      if (done) {
+        return false;
+      }
+      done = true;
+      List<TemplateSource> sources = new ArrayList<>();
+      templates.forEach((path, content) -> sources.add(
+          new TemplateSource(path.substring(0, path.length() - ".html".length()), path, content)));
+      try {
+        skeletons = new TemplateCompiler(env(processingEnv, d -> {})).run(sources).skeletons();
+      } catch (RuntimeException e) {
+        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "compiler failed without its checks: " + e);
+        return false;
+      }
+      ContextVerifier.verify(skeletons, d -> processingEnv.getMessager().printMessage(
+          d.severity() == dev.tessera.compiler.Diagnostic.Severity.ERROR ? Diagnostic.Kind.ERROR : Diagnostic.Kind.WARNING,
+          d.toString()));
+      return false;
     }
   }
 

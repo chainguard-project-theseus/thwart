@@ -194,12 +194,13 @@ class FragmentParsingContextTest {
   @Test
   void rawHtmlInHtmlContentStillRenders() {
     Compilation c =
+        // Not directly in MathML <mi>: the verifier takes HTML only where the current node is HTML (#367).
         raw("<div t:utext=\"${h}\"></div><p>[(${h})]</p><svg><foreignObject><div t:utext=\"${h}\"></div></foreignObject>"
-                + "</svg><math><mi>[(${h})]</mi></math>")
+                + "</svg><math><mi><span>[(${h})]</span></mi></math>")
             .assertSuccess();
     assertEquals(
         "<body>\n<div><b>h</b></div><p><b>h</b></p><svg><foreignObject><div><b>h</b></div></foreignObject></svg>"
-            + "<math><mi><b>h</b></mi></math></body>",
+            + "<math><mi><span><b>h</b></span></mi></math></body>",
         c.render("page", Map.of("h", SafeHtml.sanitize("<b>h</b>"))));
   }
 
