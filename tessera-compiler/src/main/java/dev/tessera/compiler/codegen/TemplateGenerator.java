@@ -80,6 +80,11 @@ public final class TemplateGenerator implements CodegenContext {
   private String rawTextHost;
   /** Whether the content being generated is inside an {@code <svg>} or {@code <math>} element. */
   private boolean inForeign;
+  /**
+   * The {@code <form>}s around the element being rendered (#314): null outside any, TRUE if one of
+   * them may get the CSRF token or the element is rendered standalone, FALSE if none does.
+   */
+  private Boolean csrfForm;
 
   public TemplateGenerator(
       CompilerEnv env, TemplateIndex index, ExpressionParser parser, ExpressionCompiler expressions) {
@@ -111,6 +116,7 @@ public final class TemplateGenerator implements CodegenContext {
     constants = new LinkedHashMap<>();
     members = new ArrayList<>();
     fresh = 0;
+    csrfForm = null;
     whitespaceBefore = new IdentityHashMap<>();
     indexWhitespace(document.children());
     htmxSubmits = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -203,6 +209,10 @@ public final class TemplateGenerator implements CodegenContext {
     boolean foreign = inForeign;
     rawTextHost = null;
     inForeign = false;
+    // ... and may be inserted into a POST form that gets the CSRF token, where a browser drops the
+    // start tag of a <form> inside it, so its buttons submit that form (#314).
+    Boolean form = csrfForm;
+    csrfForm = Boolean.TRUE;
     try {
       Code c = new Code();
       element(c, element, scope, ignoredAttributes);
@@ -210,6 +220,7 @@ public final class TemplateGenerator implements CodegenContext {
     } finally {
       rawTextHost = host;
       inForeign = foreign;
+      csrfForm = form;
       if (ws != null) {
         whitespaceBefore.put(element, ws);
       }
@@ -229,6 +240,11 @@ public final class TemplateGenerator implements CodegenContext {
   @Override
   public boolean htmxSubmits(Element element) {
     return htmxSubmits.contains(element);
+  }
+
+  @Override
+  public boolean mayPostCsrfToken(Element element) {
+    return !Boolean.FALSE.equals(csrfForm) || CsrfInjector.hasFormAttribute(element);
   }
 
   @Override
@@ -364,6 +380,7 @@ public final class TemplateGenerator implements CodegenContext {
   private void element(Code c, Element e, Scope scope, Set<String> ignored) {
     String outer = rawTextHost;
     boolean outerForeign = inForeign;
+    Boolean outerForm = csrfForm;
     String host = rawTextElement(e) ? e.name() : outer;
     // Processors (t:remove="all-but-first") and emit generate the content.
     rawTextHost = host;
@@ -394,7 +411,14 @@ public final class TemplateGenerator implements CodegenContext {
         AttributeProcessors.forName(a.localName()).ifPresent(p -> p.process(this, a, plan));
       }
       if (e.name().equalsIgnoreCase("form")) {
-        CsrfInjector.apply(this, plan);
+        boolean token = CsrfInjector.apply(this, plan);
+        if (!plan.tagOmitted()) {
+          // A browser drops a nested form's start tag: the inner one's buttons submit the outer form.
+          csrfForm = Boolean.TRUE.equals(outerForm) || token;
+        }
+      }
+      if (!plan.removed() && plan.replacement() == null) {
+        CsrfInjector.checkSubmitter(this, plan);
       }
       if (e.name().equalsIgnoreCase("option")) {
         FieldProcessor.option(this, plan);
@@ -403,6 +427,7 @@ public final class TemplateGenerator implements CodegenContext {
     } finally {
       rawTextHost = outer;
       inForeign = outerForeign;
+      csrfForm = outerForm;
     }
   }
 
