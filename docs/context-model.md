@@ -209,8 +209,33 @@ fine.
 |---|---|---|
 | `html.sanitize`, `html.sanitizeRich`, every `HtmlPolicy` | yes: `HtmlSanitizer` places each element where a browser's tree builder keeps it as written (no block in `p`, heading or phrasing; no `a` in `a`, no formatting element in itself; `li` only in `ul`/`ol`; table parts only in `table`, with `tbody`/`tr` written out and no text directly in table, section or row) and closes everything it opens | `FlowProducerTest` (exit state equals entry state at 14 `FLOW` insertion points, both engines, scripting on and off; hostile and fuzzed input, five policies); `SanitizerBalanceTest` (the parsed tree equals the one the tags spell); the #329 PR's parse5 run |
 | `SafeHtml.escape`, `SafeHtml.concat` of `FLOW` values | yes (text; concatenation of balanced content) | `FlowProducerTest` |
-| A rendered partial template (`SafeHtml.of`, a `Fragment` value from Java) | if it is a partial of such content; the verifier can't see which template a value renders, so this is the caller's promise. Not `FLOW`: a whole page, a list-item or table-row partial, a template with a `form` | `FlowProducerTest` (sample partials with hostile values; that a top-level `li` and a nested `form` break it) |
-| `SafeHtml.unchecked` | the caller's responsibility | none |
+| A rendered partial template (`SafeHtml.of`, `Fragment.of`) | only if the compiler proved it a `FLOW` partial (#396, below); the runtime refuses any other template with an `IllegalArgumentException` naming it | `FlowPartialTest` (the #329 review's partials are refused, each shown to change the state at a position the predicate accepts; ordinary partials are marked); `FlowProducerTest` (sample partials with hostile values); `Jdk8ProcessorTest` |
+| `SafeHtml.unchecked`, a hand-written `Fragment` lambda or `Template` | the caller's responsibility | none |
+
+**Verified `FLOW` partials** (#396, `ContextVerifier.whyNotFlowPartial`). After a build the verifier
+accepts, it marks each template whose output it proves `FLOW` content: the generated class
+overrides `Template.verifiedFlowPartial()` to return `true`, and `SafeHtml.of(template, ctx)` and
+`Fragment.of(template)` throw for any template without the mark. No reflection: the mark is a
+generated method. A template is marked if:
+
+- it is a partial: not a page (a doctype or `<html>` start, the same inference as its entry
+  contexts), and its root needs no context but `<body>` (not `li`, `tr`, `td`, `th`, `option`,
+  `optgroup`);
+- inserted at each of `ContentKinds.PARTIAL_PROBES` (after `<body>`, `<ul><li>`, `<dl><dd>`,
+  `<table><tr><td>` and `<template>`, all accepted by the predicate) it has no verifier finding
+  and leaves all four parsers in the state it found them (in `<template>`, or in the state after
+  `<span></span>`). The original insertion mode is ignored outside the "text" mode, the only mode
+  that reads it (validator.nu keeps it after a `textarea`, `script` or `template`);
+- and, after every tag in the `<body>` probe, it keeps the producer promise: no `form` (the form
+  pointer is never set), no formatting element in an entry of its own name after the last marker
+  (whatever the attributes, which the Noah's Ark clause compares), no top-level `li`, `dd`, `dt`
+  or table part, and no `head`, `body`, `html` or `frameset` start tag.
+
+The probes catch what the promise forbids where a single `<body>` can't: an `li` or `dd` inside a
+`div` still closes an open `li` or `dd`, and a table part closes a cell or switches a template's
+mode. So the bench corpus's two call sites pass: budgetmaster's `NotificationLinkTemplate` (an `a`)
+is marked, and so is espd run-3's `PrintContentTemplate` once its HTML messages pass the verifier
+(they fail `MESSAGE_CHANGES_STATE` since #329, independently of this).
 
 `PHRASING`, `HEAD` and `TABLE_ROWS` are not added. On the bench corpus the `p` clause rejects 6
 call sites, `<p t:utext="${...}">` and the like, and nothing needs `HEAD` or `TABLE_ROWS` (the #329

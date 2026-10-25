@@ -611,6 +611,19 @@ output, and `SafeHtml.concat(a, b, ...)` joins parts (`concat(escape(a), sanitiz
 escape(b))`). `SafeHtml.unchecked(html)` is a review point, and `TrustedUrl.unchecked(url)` is the
 same for URLs.
 
+`SafeHtml.of(template, ctx)`, and `Fragment.of(template)` for a `Fragment` value, accept only a
+template the compiler verified as a flow partial: one whose output can't close or reopen anything
+around the place it is inserted. A `div`, `section`, `span` or `a` partial, text, lists and
+tables inside it are fine. Not accepted: a whole page; a partial whose root is an `li`, `dd`,
+`dt` or table row or cell, or that has one outside its own `ul`, `dl` or `table` (even inside a
+`div`); a partial with a `form`; and one with a formatting element such as `<b>` inside another
+of the same name. Anything else throws an `IllegalArgumentException` naming the template. The fix
+is to wrap the root in a `<div>` (list items in their own `<ul>`, rows in their own `<table>`),
+move the `form` out, or render the page through a view. For markup used as data rather than
+inserted into a page (mailed, or written into an attribute), `template.renderToString(ctx)` gives
+a `String`, which a template escapes. A hand-written `Fragment` lambda is a review point, like
+`unchecked`.
+
 CSS has no escaping that makes an arbitrary string safe, so a `style` attribute is built only from
 pieces that cannot end a declaration or call an unchecked `url(...)`: literals, numbers and `CssValue`s.
 `css.color(s)` and `css.length(s)` (or `CssValue.color`/`CssValue.length` in Java) validate a
@@ -1181,8 +1194,9 @@ over a stored string.
   scope="session">`, filling in a form object's lists) move to the controller, a `@ModelAttribute`
   method or an interceptor. `<c:set var>` of a value is `t:with`; `<c:set var>` that captures markup
   to repeat it is a fragment. Markup needed as data (written into a hidden field, mailed) is a
-  second template rendered in Java: `SafeHtml.of(XTemplate.of(...), ctx)` (section 4.4), with
-  `ctx` from `SpringRenderContexts.create(request, response, model)` in a controller.
+  second template rendered in Java: `SafeHtml.of(XTemplate.of(...), ctx)` for a flow partial
+  inserted into a page, or `XTemplate.of(...).renderToString(ctx)` for a `String` (section 4.4),
+  with `ctx` from `SpringRenderContexts.create(request, response, model)` in a controller.
 - EL implicit objects (`param`, `sessionScope`, `header`, `cookie`,
   `pageContext.request.contextPath`) are model values (section 1); a context-path prefix is `@{...}`.
 

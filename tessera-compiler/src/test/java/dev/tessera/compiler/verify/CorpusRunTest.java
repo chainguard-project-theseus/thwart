@@ -134,7 +134,7 @@ class CorpusRunTest {
     task.call();
     long total = (System.nanoTime() - t0) / 1_000_000;
     w.println(name + "\t#app\t" + verify.profileErrors + "\t" + verify.rejected + "/" + verify.templates + "\t"
-        + verify.verifyMillis + "\tjavac+processor " + total + " ms, compile " + verify.compileMillis + " ms");
+        + verify.verifyMillis + "\tflow partials " + verify.flowMillis + " ms, javac+processor " + total + " ms, compile " + verify.compileMillis + " ms");
   }
 
   private static String classpath(Path app) throws Exception {
@@ -165,6 +165,7 @@ class CorpusRunTest {
     int rejected;
     int profileErrors;
     long verifyMillis;
+    long flowMillis;
     long compileMillis;
 
     Verify(String name, Map<String, String> options, PrintWriter w) {
@@ -244,6 +245,15 @@ class CorpusRunTest {
           w.println(name + "\t" + t.viewName() + "\t" + (p == null ? "ok" : "ERROR " + oneLine(p)) + "\t"
               + (found.isEmpty() ? "ACCEPT" : "REJECT") + "\t" + ms + "\t"
               + (found.isEmpty() ? "" : found.size() + " " + found.get(0).at + ": " + oneLine(VerifierMessages.message(found.get(0)))));
+          if (found.isEmpty()) {
+            // #396: whether SafeHtml.of and Fragment.of would accept it, and what that costs.
+            long f0 = System.nanoTime();
+            String why = v.whyNotFlowPartial(t);
+            long fms = (System.nanoTime() - f0) / 1_000_000;
+            flowMillis += fms;
+            w.println(name + "\t#flow\t" + t.viewName() + "\t" + (why == null ? "FLOW" : "NOT") + "\t" + fms + "\t"
+                + (why == null ? "" : oneLine(why)));
+          }
           if (Boolean.getBoolean("tessera.verify.all")) {
             // Every finding, for counting false positives per rule and call site (#329).
             for (Finding f : found) {
