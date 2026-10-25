@@ -34,9 +34,9 @@ JDK 21+. The table names the main classes only.
 |---|---|---|---|
 | `tessera-runtime` | `dev.tessera.runtime` | `Template`, `RenderContext`, `Output`, `Escapers`, `SafeHtml`, `TrustedUrl`, `Messages`/`ResourceBundleMessages`, `Links`/`DefaultLinks`, `Forms`, `Field`, `Fragment`, `LoopStatus`, `Conditions`, `Values`, `TemplateRegistry`/`TemplateEntry`, `TemplateModelException`, `StringOutput`/`WriterOutput`, annotations | none |
 | | `dev.tessera.runtime.fn` | built-in function namespaces | |
-| `tessera-compiler` | `dev.tessera.compiler` | pipeline (`TemplateCompiler`), `Diagnostic`, `SourcePos`, `CompilerEnv` | runtime |
+| `tessera-compiler` | `dev.tessera.compiler` | pipeline (`TemplateCompiler`), `Diagnostic`, `SourcePos`, `CompilerEnv` | runtime; shades `tessera-html5-*` |
 | | `.model` | template node model, `OutputContext` | |
-| | `.html` | `HtmlParser`, `MarkupTokenizer` (no third-party parser), `Contexts` (escaping-context table) | |
+| | `.html` | `HtmlParser`, `MarkupTokenizer` (its own tokenizer for Tessera's tree), `Contexts` (escaping-context table) | |
 | | `.expr` | `Expr` AST, `ExpressionParser` | |
 | | `.types` | `ExpressionCompiler`, `ViewSafety`, `FunctionRegistry`, `Scope` | |
 | | `.messages`, `.links`, `.forms` | `#{}`, `@{}` and `fields.*` compilation, `MessageBundle` | |
@@ -44,6 +44,8 @@ JDK 21+. The table names the main classes only.
 | | `.codegen.attr` | one processor class per attribute family + hooks | |
 | | `.processor` | `TesseraProcessor` (javac entry point), options, discovery | |
 | | `.verify` | `Skeleton`: what each generated class writes, recorded by `Emitted` | |
+| | `.verify.engine` | `Engine`, `Parser`, `ParserState`: the two spec HTML parsers the build-time verifier runs (security-architecture.md §11.4) | |
+| `tessera-html5/current`, `tessera-html5/classic` | `dev.tessera.compiler.internal.html5.{current,classic}` | build only: validator.nu htmlparser source from Maven Central (`validator:26.10.12:sources`, `htmlparser:1.4.16:sources`), pinned by SHA-256, renamed and compiled for Java 8, plus a `TesseraAccess` accessor; shaded into the `tessera-compiler` jar with their MIT notices | none |
 | `tessera-spring-boot-starter` | `dev.tessera.spring{,.view,.context,.fn}` | auto-config, plain-Spring config, view resolver, return values, request `RenderContext`, `auth` | runtime; Spring 4.3+ / Boot 1.5+, Servlet 3.0+ from the app (`jakarta.servlet`) |
 | `tessera-spring-boot-starter-javax` | same | the starter jar shaded with `jakarta.servlet` relocated to `javax.servlet` | runtime |
 | `tessera-spring-tests` | | the starter's test sources run on Boot 3.5, 2.7, 2.0 and 1.5 and on Spring MVC 5.0 and 4.3 without Boot | |

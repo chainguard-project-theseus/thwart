@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>dev.tessera</groupId>
+    <artifactId>tessera-html5</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>tessera-html5-current</artifactId>
+  <name>Tessera HTML5 engine: current validator.nu htmlparser (build only)</name>
+
+  <!-- The htmlparser source inside nu.validator:validator 26.10.12 (released Oct 12, 2026; the
+       build tested in the parser bake-off). Bumping it is its own PR with the corpus and seed
+       verdicts diffed (security-architecture.md §11.4). -->
+  <properties>
+    <html5.source.groupId>nu.validator</html5.source.groupId>
+    <html5.source.artifactId>validator</html5.source.artifactId>
+    <html5.source.version>26.10.12</html5.source.version>
+    <html5.source.sha256>cc76e9ad8d028b176d5166d7383633b8371cd510d7f9f5be499356e2bb08aa40</html5.source.sha256>
+    <html5.package>dev.tessera.compiler.internal.html5.current</html5.package>
+    <html5.package.path>dev/tessera/compiler/internal/html5/current</html5.package.path>
+  </properties>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>
