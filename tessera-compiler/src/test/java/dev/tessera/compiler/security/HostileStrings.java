@@ -5,11 +5,11 @@ import java.util.Random;
 import java.util.function.BiConsumer;
 
 /** Known XSS vectors and a generator of random strings biased towards context-breaking input. */
-final class HostileStrings {
+public final class HostileStrings {
   private HostileStrings() {}
 
   /** Classic vectors for every output context. */
-  static final List<String> VECTORS =
+  public static final List<String> VECTORS =
       List.of(
           "\"><script>alert(1)</script>",
           "' onmouseover='alert(1)",
@@ -67,7 +67,7 @@ final class HostileStrings {
   };
 
   /** A random string of up to {@code maxPieces} pieces and arbitrary chars. */
-  static String random(Random rnd, int maxPieces) {
+  public static String random(Random rnd, int maxPieces) {
     StringBuilder sb = new StringBuilder();
     int n = rnd.nextInt(maxPieces + 1);
     for (int i = 0; i < n; i++) {

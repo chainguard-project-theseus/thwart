@@ -149,6 +149,7 @@ public final class Compilation {
     private final List<Processor> after = new ArrayList<>();
     private Map<String, Skeleton.TemplateSkeleton> extraSkeletons = Map.of();
     private boolean verifierOnly;
+    private boolean withoutVerifier;
 
     /** Adds a template at {@code path} relative to the templates root, e.g. {@code owners/list.html}. */
     public Builder template(String path, String content) {
@@ -249,6 +250,17 @@ public final class Compilation {
       return this;
     }
 
+    /**
+     * Test-only (#324): compiles and generates as usual but doesn't run the context verifier, so
+     * the oracle gate can render a template the verifier rejects and report it as a false-positive
+     * candidate when the value checks find nothing. The profile's errors still fail the build. Never
+     * use it to make a template compile.
+     */
+    public Builder withoutVerifier() {
+      this.withoutVerifier = true;
+      return this;
+    }
+
     public Compilation compile() {
       Path dir = null;
       try {
@@ -308,7 +320,8 @@ public final class Compilation {
         processors.addAll(before);
         TesseraProcessor tessera = new TesseraProcessor();
         VerifierOnlyProcessor verifier = verifierOnly ? new VerifierOnlyProcessor(templates) : null;
-        processors.add(verifierOnly ? verifier : tessera);
+        UnverifiedProcessor unverified = withoutVerifier ? new UnverifiedProcessor(templates) : null;
+        processors.add(verifierOnly ? verifier : withoutVerifier ? unverified : tessera);
         processors.addAll(after);
         JavaCompiler.CompilationTask task = javac.getTask(null, mem, collector, args, null, units);
         task.setProcessors(processors);
@@ -329,7 +342,8 @@ public final class Compilation {
             ok,
             mem,
             options.getOrDefault(ProcessorOptions.PACKAGE, CompilerEnv.DEFAULT_PACKAGE),
-            merge(verifierOnly ? verifier.skeletons : tessera.skeletons(), extraSkeletons),
+            merge(verifierOnly ? verifier.skeletons : withoutVerifier ? unverified.skeletons : tessera.skeletons(),
+                extraSkeletons),
             upstream);
       } catch (IOException e) {
         throw new UncheckedIOException(e);
@@ -717,6 +731,73 @@ public final class Compilation {
       ContextVerifier.verify(skeletons, d -> processingEnv.getMessager().printMessage(
           d.severity() == dev.tessera.compiler.Diagnostic.Severity.ERROR ? Diagnostic.Kind.ERROR : Diagnostic.Kind.WARNING,
           d.toString()));
+      return false;
+    }
+  }
+
+  /**
+   * {@link Builder#withoutVerifier()}: the compiler with its diagnostics reported and its files
+   * written when it has no errors, without the context verifier. No Lombok rounds, no function index.
+   */
+  private static final class UnverifiedProcessor extends AbstractProcessor {
+    private final Map<String, String> templates;
+    private boolean done;
+    Map<String, Skeleton.TemplateSkeleton> skeletons = Map.of();
+
+    UnverifiedProcessor(Map<String, String> templates) {
+      this.templates = templates;
+    }
+
+    @Override
+    public Set<String> getSupportedAnnotationTypes() {
+      return Set.of("*");
+    }
+
+    @Override
+    public SourceVersion getSupportedSourceVersion() {
+      return SourceVersion.latestSupported();
+    }
+
+    @Override
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+      if (done) {
+        return false;
+      }
+      done = true;
+      List<TemplateSource> sources = new ArrayList<>();
+      templates.forEach((path, content) -> sources.add(
+          new TemplateSource(path.substring(0, path.length() - ".html".length()), path, content)));
+      List<dev.tessera.compiler.Diagnostic> errors = new ArrayList<>();
+      TemplateCompiler.Result result;
+      try {
+        result = new TemplateCompiler(env(processingEnv, d -> {
+          processingEnv.getMessager().printMessage(
+              d.severity() == dev.tessera.compiler.Diagnostic.Severity.ERROR ? Diagnostic.Kind.ERROR : Diagnostic.Kind.WARNING,
+              d.toString());
+          if (d.severity() == dev.tessera.compiler.Diagnostic.Severity.ERROR) {
+            errors.add(d);
+          }
+        })).run(sources);
+      } catch (RuntimeException e) {
+        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Tessera: internal compiler error: " + e);
+        return false;
+      }
+      if (!errors.isEmpty()) {
+        return false;
+      }
+      try {
+        for (dev.tessera.compiler.GeneratedFile f : result.files()) {
+          FileObject fo = f.kind() == dev.tessera.compiler.GeneratedFile.Kind.JAVA
+              ? processingEnv.getFiler().createSourceFile(f.name())
+              : processingEnv.getFiler().createResource(StandardLocation.CLASS_OUTPUT, "", f.name());
+          try (java.io.Writer w = fo.openWriter()) {
+            w.write(f.content());
+          }
+        }
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
+      skeletons = result.skeletons();
       return false;
     }
   }

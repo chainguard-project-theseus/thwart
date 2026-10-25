@@ -1,15 +1,129 @@
-# Known open holes for the spec-parser oracle gate (#308, #324) and the Node job (#322).
+# Known open holes for the oracle gate (ProfileOracleTest, #324) and the Node job (#322).
 #
 # One hole per line:
 #
 #   <case-id> <KIND> <engine or *> #<issue> <note>
 #
 #   case-id  first 12 hex chars of the SHA-256 of the case's template (OracleCase.idOf)
-#   KIND     a Finding.Kind: STRUCTURE_CHANGED, MARKER_IN_NAME, LIVE_SCRIPT, LIVE_HANDLER, JS_URL,
-#            CROSS_ORIGIN_RESOURCE, JS_NOT_LITERAL, JS_UNPARSABLE, CONTEXT_MISMATCH, CSTI
+#   KIND     only a family C, D or E kind, the value checks the build-time verifier (#367) doesn't
+#            cover: JS_NOT_LITERAL, JS_UNPARSABLE, LIVE_SCRIPT (inside an HTML script's data only)
+#            (C, script lexical position), CSTI (D, client frameworks), JS_URL,
+#            CROSS_ORIGIN_RESOURCE (E, URL policy). A line with a family A/B kind
+#            (STRUCTURE_CHANGED, MARKER_IN_NAME, LIVE_HANDLER, CONTEXT_MISMATCH) is a format error:
+#            an A/B finding on a template the verifier accepted is a verifier soundness bug, fixed
+#            in the verifier, never listed. So is a LIVE_SCRIPT a value reached through markup.
 #   engine   vnu-1.4, vnu-26, rhino, parse5, chromium, firefox, webkit, or * for any engine
-#   #issue   the issue or PR that fixes it (required: a line without one is a format error)
-#   note     free text
+#   #issue   the issue that fixes it (required: a line without one is a format error)
+#   note     free text: the seed name, or the generator's description of the case
 #
 # A finding with no line here fails the gate; a line whose finding no longer occurs fails too
-# ("delete its line"), so this list only shrinks. Lines starting with # are comments.
+# ("delete its line"), so this list only shrinks. The Java gate reports stale lines for its engines
+# and *; the Node job for parse5, chromium, firefox and webkit. Lines starting with # are comments.
+
+# Family C, script lexical position (#332, the data-prelude rule): a JSON hole the compiler accepts
+# in a position where its value is not exactly one literal in expression position (inside a string,
+# template literal, comment or regex, or after a regex/division mix-up). Rhino reports
+# JS_NOT_LITERAL; parse5 with acorn reports it where acorn parses the script.
+7ca869845bb1 JS_NOT_LITERAL * #332 306-A2
+83f13fb1448d JS_NOT_LITERAL * #332 306-A32
+8e0dd6a7d90f JS_NOT_LITERAL * #332 306-A33
+cc8dee4b9085 JS_NOT_LITERAL * #332 306-A35
+cca07f96a599 JS_NOT_LITERAL * #332 pr290-1
+2774383acde5 JS_NOT_LITERAL * #332 pr290-10
+65676ef484ed JS_NOT_LITERAL * #332 pr290-11
+49dca0d66c58 JS_NOT_LITERAL * #332 pr290-12
+fca23bb24d52 JS_NOT_LITERAL * #332 pr290-13
+73f95349b933 JS_NOT_LITERAL * #332 pr290-14
+075f6eb75ba6 JS_NOT_LITERAL * #332 pr290-17
+330d4b80c406 JS_NOT_LITERAL * #332 pr290-18
+0cf214a82a93 JS_NOT_LITERAL * #332 pr290-19
+ad4544c64334 JS_NOT_LITERAL * #332 pr290-2
+259376cefbbf JS_NOT_LITERAL * #332 pr290-20
+b280bafe4495 JS_NOT_LITERAL * #332 pr290-21
+ccd7dcb37380 JS_NOT_LITERAL * #332 pr290-22
+c939a1ced5b5 JS_NOT_LITERAL * #332 pr290-23
+094b5d86d1be JS_NOT_LITERAL * #332 pr290-24
+1fe215b5bfd0 JS_NOT_LITERAL * #332 pr290-25
+e57c05e8575a JS_NOT_LITERAL * #332 pr290-26
+c595600664c2 JS_NOT_LITERAL * #332 pr290-27
+b95a5c0aff28 JS_NOT_LITERAL * #332 pr290-28
+ef3de875308c JS_NOT_LITERAL * #332 pr290-29
+3bb6ef9d5680 JS_NOT_LITERAL * #332 pr290-3
+5670a74243f9 JS_NOT_LITERAL * #332 pr290-30
+475ae8379a47 JS_NOT_LITERAL * #332 pr290-31
+ba1da4a54a84 JS_NOT_LITERAL * #332 pr290-32
+9df83ade5992 JS_NOT_LITERAL * #332 pr290-33
+7256ab8b00e9 JS_NOT_LITERAL * #332 pr290-34
+9b6f63530c79 JS_NOT_LITERAL * #332 pr290-35
+e3bef8f33eac JS_NOT_LITERAL * #332 pr290-36
+e392a1f580f3 JS_NOT_LITERAL * #332 pr290-37
+bfeda5bc6498 JS_NOT_LITERAL * #332 pr290-39
+05d55b053553 JS_NOT_LITERAL * #332 pr290-4
+818fe63a2d56 JS_NOT_LITERAL * #332 pr290-40
+1e9632196845 JS_NOT_LITERAL * #332 pr290-41
+c9d048debf2e JS_NOT_LITERAL * #332 pr290-42
+8238f143b16d JS_NOT_LITERAL * #332 pr290-43
+ef1b86cb7943 JS_NOT_LITERAL * #332 pr290-44
+504135db29e0 JS_NOT_LITERAL * #332 pr290-6
+42bea2371d5e JS_NOT_LITERAL * #332 pr290-7
+dd83c10cf105 JS_NOT_LITERAL * #332 pr290-8
+721cbc37c267 JS_NOT_LITERAL * #332 pr290-9
+45e90939a295 JS_NOT_LITERAL * #332 xss-lines-18
+d85c57632583 JS_NOT_LITERAL * #332 gen div div table>tbody>tr | </textarea> | script:/*[[s]]*/ | none
+14f7f4fa2ec2 JS_NOT_LITERAL * #332 gen div div | &amp | script:x\n/"/.test(y); [[s]] | t:insert into table
+e9857dfbadec JS_NOT_LITERAL * #332 gen div math>annotation-xml script | </svg> | script:/*[[s]]*/ | t:insert into svg>foreignObject
+6b4ecb1de3fc JS_NOT_LITERAL * #332 gen math svg>foreignObject math>mi | /*</svg><img src=x title=*/..//> | script:'[[s]]' | t:insert into table
+6c504a0945df JS_NOT_LITERAL * #332 gen math>annotation-xml table>tbody>tr>td math>annotation-xml | <font color=red> | script:`[[s]]` | t:insert into svg>foreignObject
+3dae28513912 JS_NOT_LITERAL * #332 gen math>mtext a | " | script:`${[[s]]}` | t:replace into svg>foreignObject
+33bdc653f35f JS_NOT_LITERAL * #332 gen math>mtext math>mtext li | </noscript> | script:/*[[s]]*/ | t:insert into div
+f3084da83985 JS_NOT_LITERAL * #332 gen math>mtext table>tbody>tr>td script | &#60;script&#62; | script:// [[s]] | none
+faae37a02b18 JS_NOT_LITERAL * #332 gen math>mtext template math>mi | ' | script:`[[s]]` | t:replace into table>tbody>tr>td
+ee4ee039f31e JS_NOT_LITERAL * #332 gen math>mtext template math>mtext | </title> | script:/*[[s]]*/ | none
+85ca92afca34 JS_NOT_LITERAL * #332 gen noscript math>mtext math>mtext | &amp | script:`[[s]]` | none
+7c016dc61dce JS_NOT_LITERAL * #332 gen noscript table>tbody>tr>td math>mi | &lt; | script:"[[s]]" | none
+aecf5116a494 JS_NOT_LITERAL * #332 gen svg svg>foreignObject template | </ x> | script:/*[[s]]*/ | none
+681a9510b6ee JS_NOT_LITERAL * #332 gen svg>foreignObject div p | /*</svg><img src=x title=*/..//> | script:// [[s]] | t:replace into math>mi
+3bf0418a6b20 JS_NOT_LITERAL * #332 gen svg>foreignObject table | &amp | script:// [[s]] | none
+0a362a6059eb JS_NOT_LITERAL * #332 gen svg>foreignObject table>tbody>tr>td table>tbody>tr>td | none | script:/*[[s]]*/ | t:replace into div
+58635911a51c JS_NOT_LITERAL * #332 gen table>caption label | " | script:`[[s]]` | none
+62aa0cfc8d25 JS_NOT_LITERAL * #332 gen table>caption script | // | <img src=x onerror=[[s]]> | Fragment f
+60066adc7a11 JS_NOT_LITERAL * #332 gen table>tbody>tr>td math>mtext template | &quot;..&quot; | script:// [[s]] | t:insert into table>tbody>tr>td
+85d26e1c643f JS_NOT_LITERAL * #332 gen table>tbody>tr>td table>caption a | &#60;script&#62; | script:x\n/"/.test(y); [[s]] | t:remove=tag
+786fd53093ab JS_NOT_LITERAL * #332 gen table>tbody>tr>td table>tbody>tr>td table | <![CDATA[ > | script:x\n/"/.test(y); [[s]] | t:remove=tag
+aff25b3b005f JS_NOT_LITERAL * #332 gen table>tbody>tr>td template label | <textarea\u3000> | script:x\n/"/.test(y); [[s]] | none
+ba847c2c31ea JS_NOT_LITERAL * #332 gen table>tbody>tr>td template | none | script:/*[[s]]*/ | t:replace into template
+09b3070a4313 JS_NOT_LITERAL * #332 gen template div table>tbody>tr>td | <textarea\u3000> | script:`[[s]]` | t:remove=tag
+adddc81825dc JS_NOT_LITERAL * #332 gen template svg>foreignObject a | <textarea\u3000> | script:// [[s]] | t:insert into div
+3d9b47060e7c JS_NOT_LITERAL * #332 gen template template label | &quot;..&quot; | script:/*[[s]]*/ | Fragment f
+21d749245075 JS_NOT_LITERAL * #332 gen template template noframes | </title> | script:x\n/"/.test(y); [[s]] | t:remove=tag
+
+# Family C (#332): Rhino can't parse the benign script (ES modules, classes, or a JSON hole that
+# breaks it outside a marker), so the script check can't vouch for it. The Node job's acorn
+# covers some of these.
+2172c217ad61 JS_UNPARSABLE * #332 306-A51
+0aa7ff863a5a JS_UNPARSABLE * #332 306-A52
+09d51e6c46a9 JS_UNPARSABLE * #332 pr290-38
+fbf1f303182e JS_UNPARSABLE * #332 review-pr290-1
+f1ddcbaa146c JS_UNPARSABLE * #332 review-pr290-2
+d269e93fd079 JS_UNPARSABLE * #332 review-pr290-3
+595d90cd8c91 JS_UNPARSABLE * #332 review-pr290-4
+b6feddeb7eb2 JS_UNPARSABLE * #332 review-pr290-5
+a903dad9f23f JS_UNPARSABLE * #332 gen div div li | </ x> | script:a / b; [[s]] | Fragment f
+1e8714bc2bf5 JS_UNPARSABLE * #332 gen div math>mtext table>caption | <img title=" | script:var a = [[s]]; | t:insert into math>mi
+6ba5f815f040 JS_UNPARSABLE * #332 gen div table>tbody>tr>td table>caption | <!x> | script:a / b; [[s]] | none
+eb12ee86eae7 JS_UNPARSABLE * #332 gen math>annotation-xml button | </svg> | script:a / b; [[s]] | none
+6c1eb19924fb JS_UNPARSABLE * #332 gen math>annotation-xml math>annotation-xml table>tbody>tr | &quot;..&quot; | script:`${[[s]]}` | none
+99a41c3e02e0 JS_UNPARSABLE * #332 gen math>mtext math>annotation-xml table | ' | script:a / b; [[s]] | none
+bc38b0ca19ac JS_UNPARSABLE * #332 gen math>mtext noscript | <![CDATA[ > | script:var a = [[s]]; | t:insert into div
+c89133b0704a JS_UNPARSABLE * #332 gen noscript li | &amp | script:`${[[s]]}` | none
+dea3945987a2 JS_UNPARSABLE * #332 gen svg template svg>foreignObject | <!x> | script:a / b; [[s]] | t:insert into table>tbody>tr>td
+6e7726b5c029 JS_UNPARSABLE * #332 gen svg>foreignObject math>annotation-xml script | </noscript> | script:var a = [[s]]; | none
+dfc12824ced8 JS_UNPARSABLE * #332 gen table>caption math>annotation-xml template | <textarea\u2028> | script:// [[s]] | Fragment f
+5ccfa35c35e7 JS_UNPARSABLE * #332 gen table>tbody>tr>td math>annotation-xml table | <textarea\u3000> | script:`${[[s]]}` | t:replace into svg>foreignObject
+7e2870c35402 JS_UNPARSABLE * #332 gen table>tbody>tr>td table | </svg> | script:`${[[s]]}` | t:remove=tag
+de787504bd69 JS_UNPARSABLE * #332 gen table>tbody>tr>td table>tbody>tr>td a | &amp | script:a / b; [[s]] | t:insert into table>tbody>tr>td
+34730fe2782d JS_UNPARSABLE * #332 gen table>tbody>tr>td table>tbody>tr>td table>tbody>tr>td | <textarea\u2028> | script:var a = [[s]]; | Fragment f
+
+# Family D, client frameworks (#336, cross-node {{ as a source-order rule): {{ split across statics
+# and a hole (306-A18, the case the #390 review's fuzzing found).
+11db5dfd0be8 CSTI * #336 306-A18
