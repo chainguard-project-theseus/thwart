@@ -245,4 +245,43 @@ final class ConversionRules {
 
   static final String FRAGMENT_SIGNATURE_MESSAGE =
       "fragment signature `%s` was not understood; write it as `name(Type a, Type b)`";
+
+  /** {@link Layouts}: page skeleton elements nested by a layout call, and other parse errors. */
+  private static final String PARSE_ERROR_REJECTED = "a parse error, which the build rejects";
+  static final String LAYOUT_REMOVE_TAG_MESSAGE =
+      "rewritten: added `t:remove=\"tag\"` to the `<%s>` this page passes to `%s`, which inserts it inside its own `<%s>`, so only its content is passed (a second one is "
+          + PARSE_ERROR_REJECTED + "; guide section 4.8, Layouts)";
+  static final String LAYOUT_ATTRIBUTES_MESSAGE =
+      "`%s` is passed to `%s`, which inserts it inside its own `<%s>`: a second `<%s>` is " + PARSE_ERROR_REJECTED
+          + ". Not rewritten, because `t:remove=\"tag\"` would drop its attributes (a browser merges them into the layout's `<%s>`): move them to the layout's element (a `String` parameter for a class, say), then mark this element `t:remove=\"tag\"` (guide section 4.8, Layouts)";
+  static final String LAYOUT_UNRESOLVED_MESSAGE =
+      "the `<%s>` passed to `%s` was not checked (the fragment or its parameter is not among the converted templates); if the fragment inserts it inside its own `<%s>`, mark this `<%s>` `t:remove=\"tag\"` (guide section 4.8, Layouts)";
+  static final String INNER_PAGE_ELEMENT_MESSAGE =
+      "rewritten: deleted the tags of a `<%s>` inside a `<body>`; a browser ignored them, and a second `<%s>` is "
+          + PARSE_ERROR_REJECTED + " (the page's `<%s>` is the layout's or its own)";
+  static final String INNER_PAGE_ELEMENT_ATTRIBUTES_MESSAGE =
+      "`%s` is inside a `<body>`: a browser ignores the tag and merges its attributes into the page's `<%s>`, and a second `<%s>` is "
+          + PARSE_ERROR_REJECTED + ". Not rewritten, because deleting it would drop the attributes: move them to the `<%s>` the page renders (in a layout, a `String` parameter for a class, say), then delete this `<%s>` and its `</%s>`";
+  static final String HEAD_IN_BODY_MESSAGE =
+      "`<head>` inside a `<body>`: a browser ignores its tags and keeps its elements in the body ("
+          + PARSE_ERROR_REJECTED + "): move the elements into the `<head>` the page passes to the layout (`<head t:remove=\"tag\">` passed as `~{::head}`), and drop those the layout's `<head>` already has";
+  static final String FRAGMENT_DOCUMENT_REWRITE_MESSAGE =
+      "rewritten: fragment `%s` wrote a whole document (`<html>`, `<head>`, `<body>`) into page bodies; a browser ignored those tags, and they are "
+          + PARSE_ERROR_REJECTED + ". Deleted its `<html>` and `<body>` tags and its `<head>`, which held %s: put what the pages need in the layout's `<head>`";
+  static final String FRAGMENT_DOCUMENT_MESSAGE =
+      "fragment `%s` writes a whole document (`<html>`, `<head>`, `<body>`) inside another element; where it is inserted these tags are "
+          + PARSE_ERROR_REJECTED + ": keep only the body's content in the fragment, and move what its head needs to the layout's `<head>`";
+  static final String BEFORE_LAYOUT_MESSAGE =
+      "`<%s>` is written before the layout `%s` writes its doctype, so a browser ignores the doctype and renders the page in quirks mode ("
+          + PARSE_ERROR_REJECTED + "): move it into the `<head>` the page passes to the layout (`<head t:remove=\"tag\">` passed as `~{::head}`)";
+  static final String BLOCK_IN_P_MESSAGE =
+      "`<%s>` inside the `<p>` of line %d closes that paragraph, so the `</p>` on line %d has no `<p>` to close ("
+          + PARSE_ERROR_REJECTED + "): use a `<div>` instead of the `<p>`";
+  static final String BETWEEN_HEAD_AND_BODY_MESSAGE =
+      "`<%s>` between `</head>` and `<body>` is " + PARSE_ERROR_REJECTED + ": move it into the `<head>` or the `<body>`";
+  static final String IN_TABLE_MESSAGE =
+      "`<%s>` directly in a `<%s>`: a browser moves it in front of the table (" + PARSE_ERROR_REJECTED
+          + "): put it in a `<td>` or `<th>`, or outside the table";
+  static final String ATTRIBUTE_SPACE_MESSAGE =
+      "no space before attribute `%s` (" + PARSE_ERROR_REJECTED + "): add a space";
 }

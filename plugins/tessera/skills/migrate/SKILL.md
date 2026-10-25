@@ -69,6 +69,13 @@ The old application is the specification. Work the way an expert would, keeping 
    `java -jar .tessera/tessera-migrate.jar <old-templates-dir> <new-templates-dir> --report migrate-report.md`
    first, then finish what it reports.
 
+   A page passes its `<body>` to the layout marked `t:remove="tag"`, so the layout doesn't write a
+   second `<body>` inside its own; a second `<html>`, `<head>` or `<body>` anywhere (a nested
+   pair, a copied include that writes a whole document, an element before the layout's doctype) is
+   a build error (guide section 4.8, Layouts). `tessera-migrate` fixes the cases where a browser
+   would merge nothing from the removed tag and reports the rest; when a removed `<body>` carries
+   attributes, such as a class, move them to the layout's `<body>`.
+
    Stored HTML that the old page printed raw (`th:utext`, `[(...)]`, JSP `${...}`, Velocity)
    stays a `String` and goes through `t:utext="html.sanitize(x)"`, `html.sanitizeRich(x)` for
    editor or Markdown output, or the app's own `HtmlPolicy` behind a `@TemplateFunctions`

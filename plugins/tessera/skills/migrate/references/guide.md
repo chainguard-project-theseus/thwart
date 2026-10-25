@@ -296,8 +296,9 @@ fix each error with the catalogue (section 6).
 For Thymeleaf, `tessera-migrate` does the mechanical rewrite of a whole directory first:
 `java -jar $MIGRATE <old-templates-dir> <new-templates-dir> --report migrate-report.md`. It
 converts `th:` attributes, utility objects and common string-built links, stubs `t:params` and
-fragment parameter types as `Object` (which fails to compile until you write the real types), and
-lists what it could not convert by `file:line`. In a JavaScript or JSON `<script>` it drops the
+fragment parameter types as `Object` (which fails to compile until you write the real types),
+fixes layout markup that nests a second `<body>` (section 4.8, Layouts), and lists what it could
+not convert by `file:line`. In a JavaScript or JSON `<script>` it drops the
 quotes around a `"..."` or `'...'` string that is only an inline (`"[[${x}]]"` becomes `[[${x}]]`,
 which writes JSON with its own quotes) and reports any other `[[...]]` inside a string, template
 literal or comment. An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
@@ -1000,6 +1001,34 @@ inserted (without it you get a `<body>` inside the layout's `<body>`):
 This replaces decorator layouts (`layout:decorate`, Mustache parents, JSP layout tags). What a
 decorator merged, the layout takes as parameters: the title (and its pattern), page-specific
 `<head>` content as a `Fragment` from a same-file fragment or `null`, the active menu entry.
+
+A page has one `<html>`, one `<head>` and one `<body>`. A browser reads a second one by error
+recovery (it ignores the tag and merges its attributes into the first), and the build rejects it
+(`PARSE_ERROR`, section 7). Thymeleaf layouts often pass the page's whole `<body>`:
+
+```html
+<html th:replace="~{fragments/layout :: layout(~{::body}, 'home')}">
+<body>
+  <h2>Welcome</h2>
+</body>
+</html>
+```
+
+Mark the passed element `t:remove="tag"`, as in `guide/home.html` above, and pass a `<head>` the
+same way. `t:remove="tag"` drops the element's own attributes, so move them to the layout's element
+first (a `String` parameter for a class, say). Delete the tags of any other `<html>`, `<head>` or
+`<body>` inside the page's body, and of those a fragment writes when it holds a whole document
+(an include copied from another engine); move what such a `<head>` needs into the layout's
+`<head>`. Nothing may come before the layout call either: an element there is written before the
+layout's doctype, so put it in the `<head>` the page passes.
+
+`tessera-migrate` does the mechanical part and reports each change. It adds `t:remove="tag"` where
+the layout inserts the passed `<body>` (or `<head>`, `<html>`) inside its own element of that name,
+deletes the tags of a nested `<body>` or `<html>`, and unwraps a fragment that writes a whole
+document into page bodies. It changes a tag only if a browser would merge nothing new from it:
+the tag has no attributes, or the element it merges into already has them. Otherwise it reports
+the element with the fix, as it does for an element before the layout call and a `<head>` inside a
+`<body>`.
 
 **Reusable form fields.** A `Field` parameter takes a field path that the compiler checks against
 the caller's `t:object`:
