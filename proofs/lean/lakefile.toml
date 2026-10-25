@@ -1,0 +1,17 @@
+name = "TesseraT1"
+defaultTargets = ["TesseraT1"]
+
+[[lean_lib]]
+name = "TesseraT1"
+
+[[lean_exe]]
+name = "html5lib-diff"
+root = "Diff.Main"
+
+[[lean_exe]]
+name = "wpt-tree-diff"
+root = "Diff.Tree"
+
+[[lean_exe]]
+name = "wpt-tree-diff-s"
+root = "Diff.TreeS"
