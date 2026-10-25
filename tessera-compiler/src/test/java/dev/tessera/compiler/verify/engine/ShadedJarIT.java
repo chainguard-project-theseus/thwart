@@ -19,8 +19,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The packaged {@code tessera-compiler} jar (#365), checked after {@code package} by failsafe: the
- * two engines are inlined under Tessera's own packages as Java 8 bytecode with their licenses, and
- * the published pom no longer names them, so a consumer's dependency tree has no htmlparser.
+ * engine is inlined under Tessera's own packages as Java 8 bytecode with its license, and the
+ * published pom no longer names it, so a consumer's dependency tree has no htmlparser.
  */
 class ShadedJarIT {
 
@@ -31,7 +31,7 @@ class ShadedJarIT {
   }
 
   @Test
-  void enginesAreInlinedUnderTesseraPackagesAsJava8() throws IOException {
+  void engineIsInlinedUnderTesseraPackagesAsJava8() throws IOException {
     List<String> outside = new ArrayList<>();
     List<String> tooNew = new ArrayList<>();
     int engineClasses = 0;
@@ -45,6 +45,7 @@ class ShadedJarIT {
         if (name.endsWith(".class")) {
           if (name.startsWith("dev/tessera/compiler/internal/html5/")) {
             engineClasses++;
+            assertTrue(name.startsWith("dev/tessera/compiler/internal/html5/current/"), "only the current engine: " + name);
           }
           try (InputStream in = jar.getInputStream(e)) {
             byte[] head = in.readNBytes(8);
@@ -57,17 +58,20 @@ class ShadedJarIT {
       }
       assertEquals(List.of(), outside, "entries outside dev/tessera and META-INF (no nu/validator)");
       assertEquals(List.of(), tooNew, "classes newer than Java 8");
-      assertTrue(engineClasses > 100, "engine classes: " + engineClasses);
+      assertTrue(engineClasses > 50, "engine classes: " + engineClasses);
       assertTrue(jar.getEntry("dev/tessera/compiler/internal/html5/current/impl/Tokenizer.class") != null);
-      assertTrue(jar.getEntry("dev/tessera/compiler/internal/html5/classic/impl/Tokenizer.class") != null);
-      for (String version : List.of("26.10.12", "1.4.16")) {
-        JarEntry license = jar.getJarEntry("META-INF/LICENSE-validator-htmlparser-" + version + ".txt");
-        assertTrue(license != null, "license for " + version);
-        try (InputStream in = jar.getInputStream(license)) {
-          String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-          assertTrue(text.contains("Permission is hereby granted, free of charge"), text);
-          assertTrue(text.contains("Mozilla Foundation"), text);
+      List<String> licenses = new ArrayList<>();
+      for (Enumeration<JarEntry> en = jar.entries(); en.hasMoreElements(); ) {
+        String name = en.nextElement().getName();
+        if (name.startsWith("META-INF/LICENSE-validator-htmlparser-")) {
+          licenses.add(name);
         }
+      }
+      assertEquals(List.of("META-INF/LICENSE-validator-htmlparser-26.10.12.txt"), licenses);
+      try (InputStream in = jar.getInputStream(jar.getJarEntry(licenses.get(0)))) {
+        String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        assertTrue(text.contains("Permission is hereby granted, free of charge"), text);
+        assertTrue(text.contains("Mozilla Foundation"), text);
       }
     }
     long size = Files.size(jar());
@@ -75,7 +79,7 @@ class ShadedJarIT {
     assertTrue(size < 1024 * 1024, "jar is " + size + " bytes; the target is under 1 MB");
   }
 
-  /** The reduced pom is what consumers resolve: no engine modules, htmlparser only in test scope. */
+  /** The reduced pom is what consumers resolve: no engine module, validator.nu only in test scope. */
   @Test
   void publishedPomHasNoEngineDependency() throws IOException {
     Path pom = Path.of(System.getProperty("tessera.compiler.pom", ""));

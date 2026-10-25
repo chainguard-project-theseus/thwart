@@ -9,7 +9,6 @@ import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.DefaultLinks;
 import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.StringOutput;
-import java.io.StringReader;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -17,14 +16,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
-import nu.validator.htmlparser.common.XmlViolationPolicy;
-import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
-import org.xml.sax.InputSource;
+import org.w3c.dom.Node;
 
 class ContextCheckTest {
-  private static final List<SpecParser> PARSERS = List.of(SpecParsers.named(SpecParsers.VNU_14));
+  private static final List<SpecParser> PARSERS = List.of(SpecParsers.named(SpecParsers.VNU_26));
 
   private static final String FP = Fingerprint.value(1);
 
@@ -63,7 +60,7 @@ class ContextCheckTest {
     assertFalse(findings.isEmpty(), "expected CONTEXT_MISMATCH for " + body);
     for (Finding f : findings) {
       assertEquals(Finding.Kind.CONTEXT_MISMATCH, f.kind(), f.toString());
-      assertEquals("vnu-1.4", f.engine());
+      assertEquals("vnu-26", f.engine());
       assertEquals(FP, f.value());
     }
     String all = findings.toString();
@@ -259,12 +256,9 @@ class ContextCheckTest {
 
           @Override
           public Document parse(String html, boolean scripting) {
-            try {
-              return new HtmlDocumentBuilder(XmlViolationPolicy.ALLOW)
-                  .parse(new InputSource(new StringReader(html)));
-            } catch (Exception e) {
-              throw new IllegalStateException(e);
-            }
+            Document d = SpecParsers.named(SpecParsers.VNU_26).parse(html, scripting);
+            dropComments(d);
+            return d;
           }
         };
     IllegalStateException e =
@@ -356,6 +350,19 @@ class ContextCheckTest {
       String render = c.render("page" + i, Map.of("s", FP));
       assertTrue(render.contains(Fingerprint.marker(1)), render);
       assertEquals(List.of(), ContextCheck.check(render, PARSERS), COMPILED.get(i) + " -> " + render);
+    }
+  }
+
+  /** Removes every comment node under {@code n}. */
+  private static void dropComments(Node n) {
+    for (Node c = n.getFirstChild(); c != null; ) {
+      Node next = c.getNextSibling();
+      if (c.getNodeType() == Node.COMMENT_NODE) {
+        n.removeChild(c);
+      } else {
+        dropComments(c);
+      }
+      c = next;
     }
   }
 }

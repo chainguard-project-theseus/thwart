@@ -7,8 +7,8 @@ import java.util.Objects;
  * the context check (#323) produce these; the gate (#324) ratchets them against {@link KnownHoles}.
  *
  * @param kind what was found
- * @param engine the parser that saw it, exactly as named in {@code known-holes.txt}: {@code vnu-1.4},
- *     {@code vnu-26}, {@code rhino}, or a Node engine ({@code parse5}, {@code chromium},
+ * @param engine the parser that saw it, exactly as named in {@code known-holes.txt}: {@code vnu-26},
+ *     {@code rhino}, or a Node engine ({@code parse5}, {@code chromium},
  *     {@code firefox}, {@code webkit}, #322). No flags here, or known-holes lines wouldn't match
  * @param where where it was seen: the scripting flag, if the check depends on it, then a node path,
  *     e.g. {@code scripting-off /html/body/div/svg[svg]/title[svg]}

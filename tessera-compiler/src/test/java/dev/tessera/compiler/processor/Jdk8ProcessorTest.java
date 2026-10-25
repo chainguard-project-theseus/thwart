@@ -26,8 +26,8 @@ import org.junit.jupiter.api.io.TempDir;
  * on its processor path, then rendered on a JDK 8 JVM. A second javac run compiles the templates
  * against the first's output, finding the function class through the function index (#118).
  *
- * <p>The processor path also holds the verifier's two spec HTML parsers (#365), which the
- * {@code tessera-compiler} jar shades; {@link #shadedEnginesRunOnJava8} runs them on JDK 8.
+ * <p>The processor path also holds the verifier's spec HTML parser (#365), which the
+ * {@code tessera-compiler} jar shades; {@link #shadedEngineRunsOnJava8} runs it on JDK 8.
  *
  * <p>The JDK comes from {@code -Dtessera.jdk8.home}, which the pom fills from {@code JDK8_HOME}.
  * Without it the test is skipped locally and fails in CI ({@code CI=true}).
@@ -185,7 +185,7 @@ class Jdk8ProcessorTest {
   void lombokGettersAreTemplatePropertiesInEitherProcessorOrder() throws Exception {
     Path jdk = jdk8();
     Path runtime = codeSource(Escapers.class);
-    // The processor with the engines its verifier runs (#367).
+    // The processor with the engine its verifier runs (#367).
     String tessera = processor();
     Path lombok16 = Path.of(System.getProperty("tessera.lombok16.jar", ""));
     assertTrue(Files.isRegularFile(lombok16), "no Lombok 1.16 jar at " + lombok16 + " (see the pom)");
@@ -265,11 +265,11 @@ class Jdk8ProcessorTest {
   }
 
   /**
-   * #365: the shaded engines are Java 8 bytecode that a JDK 8 javac accepts and a JDK 8 JVM runs,
-   * with assertions on (their own asserts are switched off by the engine), through the engine API.
+   * #365: the shaded engine is Java 8 bytecode that a JDK 8 javac accepts and a JDK 8 JVM runs,
+   * with assertions on, through the engine API.
    */
   @Test
-  void shadedEnginesRunOnJava8() throws Exception {
+  void shadedEngineRunsOnJava8() throws Exception {
     Path jdk = jdk8();
     Path src = dir.resolve("smoke/EngineSmoke.java");
     write(
@@ -281,14 +281,13 @@ class Jdk8ProcessorTest {
         import dev.tessera.compiler.verify.engine.Parser;
         public final class EngineSmoke {
           public static void main(String[] args) throws Exception {
-            for (Engine e : Engines.all()) {
-              Parser p = e.document(true);
-              p.feed("<!DOCTYPE html><p>&drop</span><a href=\\"x");
-              Parser q = p.fork();
-              q.feed("\\"><select><title><script>");
-              System.out.println(e.name() + " " + p.state().tokenizer() + " " + p.state().attributeName()
-                  + " " + q.state().tokenizer() + " " + q.state().currentNode());
-            }
+            Engine e = Engines.CURRENT;
+            Parser p = e.document(true);
+            p.feed("<!DOCTYPE html><p>&drop</span><a href=\\"x");
+            Parser q = p.fork();
+            q.feed("\\"><select><title><script>");
+            System.out.println(e.name() + " " + p.state().tokenizer() + " " + p.state().attributeName()
+                + " " + q.state().tokenizer() + " " + q.state().currentNode());
           }
         }
         """);
@@ -299,17 +298,15 @@ class Jdk8ProcessorTest {
     assertEquals(
         """
         htmlparser@validator-26.10.12 ATTRIBUTE_VALUE_DOUBLE_QUOTED href RCDATA title
-        htmlparser-1.4.16 ATTRIBUTE_VALUE_DOUBLE_QUOTED href SCRIPT_DATA script
         """,
         output);
   }
 
-  /** The processor as the tessera-compiler jar ships it: its classes and the two shaded engines. */
+  /** The processor as the tessera-compiler jar ships it: its classes and the shaded engine. */
   private static String processor() throws URISyntaxException {
     return join(
         codeSource(TesseraProcessor.class),
-        codeSource(dev.tessera.compiler.internal.html5.current.impl.TesseraAccess.class),
-        codeSource(dev.tessera.compiler.internal.html5.classic.impl.TesseraAccess.class));
+        codeSource(dev.tessera.compiler.internal.html5.current.impl.TesseraAccess.class));
   }
 
   /** The configured JDK 8; skips the test locally, fails it in CI, when there is none. */

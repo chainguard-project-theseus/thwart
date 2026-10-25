@@ -11,20 +11,19 @@
 
   <artifactId>tessera-html5</artifactId>
   <packaging>pom</packaging>
-  <name>Tessera HTML5 engines (build only)</name>
+  <name>Tessera HTML5 engine (build only)</name>
   <description>
-    The two spec HTML parsers the build-time verifier runs (#365, security-architecture.md §11.4):
+    The spec HTML parser the build-time verifier runs (#365, security-architecture.md §11.4):
     validator.nu htmlparser source from Maven Central, pinned by SHA-256, renamed into a
-    Tessera-owned package and compiled for Java 8. tessera-compiler shades both into its jar;
-    nothing else depends on them.
+    Tessera-owned package and compiled for Java 8. tessera-compiler shades it into its jar;
+    nothing else depends on it.
   </description>
 
   <modules>
     <module>current</module>
-    <module>classic</module>
   </modules>
 
-  <!-- Each child sets the source coordinates, its pinned SHA-256 and the target package. -->
+  <!-- The child sets the source coordinates, its pinned SHA-256 and the target package. -->
   <properties>
     <maven.compiler.release>8</maven.compiler.release>
     <html5.source.groupId/>

@@ -103,7 +103,7 @@ public final class ContentKinds {
    * as markup fed after the start of an HTML fragment parsed in a {@code <body>}. Each is a state
    * the {@link #problem predicate} accepts, and the template must leave each as it found it (in
    * {@code <template>}, or in the "in body" state a flow start tag switches to there), with no
-   * verifier finding, in all four parsers. Between them they break every clause of the producer
+   * verifier finding, in every parser. Between them they break every clause of the producer
    * promise ({@link Kind#FLOW}) a template can break:
    *
    * <ul>

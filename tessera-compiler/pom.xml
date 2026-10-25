@@ -29,15 +29,11 @@
       <groupId>dev.tessera</groupId>
       <artifactId>tessera-runtime</artifactId>
     </dependency>
-    <!-- The verifier's two spec HTML parsers (#365), already renamed into
-         dev.tessera.compiler.internal.html5. Shaded into this jar below; consumers never see them. -->
+    <!-- The verifier's spec HTML parser (#365), already renamed into
+         dev.tessera.compiler.internal.html5. Shaded into this jar below; consumers never see it. -->
     <dependency>
       <groupId>dev.tessera</groupId>
       <artifactId>tessera-html5-current</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>dev.tessera</groupId>
-      <artifactId>tessera-html5-classic</artifactId>
     </dependency>
     <!-- Test only: the reference parser in HtmlParserDifferentialTest (#170). -->
     <dependency>
@@ -45,14 +41,8 @@
       <artifactId>attoparser</artifactId>
       <scope>test</scope>
     </dependency>
-    <!-- Test only: the spec-parser oracle (#317). The validator jar (current spec parser) is not on
-         the classpath: it is copied below and loaded in its own class loader, because it shares
-         package names with htmlparser 1.4.16. -->
-    <dependency>
-      <groupId>nu.validator</groupId>
-      <artifactId>htmlparser</artifactId>
-      <scope>test</scope>
-    </dependency>
+    <!-- Test only: the spec-parser oracle (#317) is the validator jar, copied below and loaded in
+         its own class loader (SpecParsers), so its many bundled libraries stay off the classpath. -->
     <dependency>
       <groupId>org.mozilla</groupId>
       <artifactId>rhino</artifactId>
@@ -82,8 +72,8 @@
           <proc>none</proc>
         </configuration>
       </plugin>
-      <!-- Inline the two engines (#365). They are relocated at the source level already, so there is
-           no further relocation; the reduced pom drops them from the published dependencies. -->
+      <!-- Inline the engine (#365). It is relocated at the source level already, so there is no
+           further relocation; the reduced pom drops it from the published dependencies. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
@@ -98,7 +88,6 @@
               <artifactSet>
                 <includes>
                   <include>dev.tessera:tessera-html5-current</include>
-                  <include>dev.tessera:tessera-html5-classic</include>
                 </includes>
               </artifactSet>
               <filters>

@@ -3,9 +3,8 @@ package dev.tessera.compiler.oracle;
 import org.w3c.dom.Document;
 
 /**
- * A spec-conformant HTML parser the oracle parses renders with. The implementations
- * ({@code vnu-1.4}: htmlparser 1.4.16, classic {@code <select>}; {@code vnu-26}: validator 26.10.12,
- * current spec) come in #318.
+ * A spec-conformant HTML parser the oracle parses renders with ({@link SpecParsers}: {@code vnu-26},
+ * validator 26.10.12, current spec).
  */
 public interface SpecParser {
 

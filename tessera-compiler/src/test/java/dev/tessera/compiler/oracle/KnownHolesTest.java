@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 class KnownHolesTest {
 
-  private static final Finding LIVE_VNU14 = new Finding(Finding.Kind.LIVE_SCRIPT, "vnu-1.4", "/html", "v");
+  private static final Finding LIVE_FIREFOX = new Finding(Finding.Kind.LIVE_SCRIPT, "firefox", "/html", "v");
 
   @Test
   void checkedInFileParses() {
@@ -22,17 +22,17 @@ class KnownHolesTest {
     KnownHoles holes =
         KnownHoles.parse(
             "t.txt",
-            "# header\n\n0123456789ab LIVE_SCRIPT vnu-1.4 #305 classic select only\n"
+            "# header\n\n0123456789ab LIVE_SCRIPT firefox #305 select only\n"
                 + "abcdef012345 CSTI * #248\n");
     assertEquals(2, holes.entries().size());
     KnownHoles.Entry first = holes.entries().get(0);
     assertEquals(305, first.issue());
-    assertEquals("classic select only", first.note());
+    assertEquals("select only", first.note());
     assertEquals("", holes.entries().get(1).note());
 
-    assertNotNull(holes.find("0123456789ab", LIVE_VNU14));
+    assertNotNull(holes.find("0123456789ab", LIVE_FIREFOX));
     assertNull(holes.find("0123456789ab", new Finding(Finding.Kind.LIVE_SCRIPT, "vnu-26", "/html", "v")));
-    assertNull(holes.find("0123456789ab", new Finding(Finding.Kind.LIVE_HANDLER, "vnu-1.4", "/html", "v")));
+    assertNull(holes.find("0123456789ab", new Finding(Finding.Kind.LIVE_HANDLER, "firefox", "/html", "v")));
     assertNotNull(holes.find("abcdef012345", new Finding(Finding.Kind.CSTI, "chromium", "/html", "v")));
   }
 
@@ -41,7 +41,7 @@ class KnownHolesTest {
     IllegalArgumentException e =
         assertThrows(
             IllegalArgumentException.class,
-            () -> KnownHoles.parse("t.txt", "# ok\n0123456789ab LIVE_SCRIPT vnu-1.4 classic select\n"));
+            () -> KnownHoles.parse("t.txt", "# ok\n0123456789ab LIVE_SCRIPT firefox select\n"));
     assertTrue(e.getMessage().startsWith("t.txt:2: "), e.getMessage());
   }
 
@@ -49,8 +49,8 @@ class KnownHolesTest {
   void otherFormatErrorsFail() {
     for (String bad :
         new String[] {
-          "0123456789ab LIVE_SCRIPT vnu-1.4 #", // empty issue number
-          "0123456789ab LIVE_SCRIPT vnu-1.4 #0", // not an issue number
+          "0123456789ab LIVE_SCRIPT firefox #", // empty issue number
+          "0123456789ab LIVE_SCRIPT firefox #0", // not an issue number
           "0123456789ab LIVE_SCRIPT #305", // missing engine
           "0123456789AB LIVE_SCRIPT * #305", // id not lower-case hex
           "0123456789 LIVE_SCRIPT * #305", // id too short

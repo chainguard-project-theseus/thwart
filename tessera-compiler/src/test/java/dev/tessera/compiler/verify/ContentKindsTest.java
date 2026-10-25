@@ -149,21 +149,21 @@ class ContentKindsTest {
    */
   @Test
   void templateModeContinuesFromBothStates() throws Exception {
-    for (Engine e : Engines.all()) {
-      Parser p = e.document(true);
-      p.feed("<template>");
-      ParserState entry = p.state();
-      assertNull(ContentKinds.problem(ContentKinds.Kind.FLOW, entry));
-      assertTrue(ContentKinds.switchesMode(ContentKinds.Kind.FLOW, entry));
-      Parser text = p.fork();
-      text.feed("plain &amp; text");
-      assertEquals(entry, text.state());
-      Parser flow = p.fork();
-      flow.feed("<p>a <b>b</b></p><ul><li>x</li></ul>");
-      Parser representative = p.fork();
-      representative.feed(ContentKinds.REPRESENTATIVE);
-      assertEquals(representative.state(), flow.state());
-    }
+    Engine e = Engines.CURRENT;
+    Parser p = e.document(true);
+    p.feed("<template>");
+    ParserState entry = p.state();
+    assertNull(ContentKinds.problem(ContentKinds.Kind.FLOW, entry));
+    assertTrue(ContentKinds.switchesMode(ContentKinds.Kind.FLOW, entry));
+    Parser text = p.fork();
+    text.feed("plain &amp; text");
+    assertEquals(entry, text.state());
+    Parser flow = p.fork();
+    flow.feed("<p>a <b>b</b></p><ul><li>x</li></ul>");
+    Parser representative = p.fork();
+    representative.feed(ContentKinds.REPRESENTATIVE);
+    assertEquals(representative.state(), flow.state());
+
     // In template mode a <col> starts a column group, where text is table text; after a flow
     // element it is ignored. The first reading is the one the verifier must not lose.
     reject(Problem.TEXT_IN_TABLE, st("<template>"), raw(), st("<col>"), text());

@@ -224,7 +224,7 @@ class ProfileOracleGateTest {
     assertEquals(Family.C, ProfileOracleTest.family(inHtml, List.of(html, svg)));
     assertEquals(Family.AB, ProfileOracleTest.family(inSvg, List.of(html, svg)));
     assertEquals(Family.AB, ProfileOracleTest.family(
-        new Finding(Finding.Kind.LIVE_SCRIPT, "vnu-1.4", html.where(), "v"), List.of(html))); // other engine
+        new Finding(Finding.Kind.LIVE_SCRIPT, "parse5", html.where(), "v"), List.of(html))); // other engine
     Finding rhino = new Finding(Finding.Kind.LIVE_SCRIPT, "rhino", "x", "v");
     assertEquals(Family.C, ProfileOracleTest.scriptFamily(rhino, html));
     assertEquals(Family.AB, ProfileOracleTest.scriptFamily(rhino, svg));
@@ -251,7 +251,7 @@ class ProfileOracleGateTest {
     assertEquals(List.of(), xmp.failures);
     assertEquals(List.of(), xmp.findings);
     assertFalse(xmp.inert.isEmpty());
-    // An attribute value the classic engine drops with its <span> inside <select>: since #406 the
+    // An attribute value classic <select> parsing drops with its <span> inside <select>: since #406 the
     // verifier rejects the <span> there (exclusion (c)), so no accepted template has one.
     Compilation.builder()
         .template("t.html", P + "<table><tbody><tr><td t:fragment=\"frag(String s)\"><span t:title=\"s\">x</span></td>"
