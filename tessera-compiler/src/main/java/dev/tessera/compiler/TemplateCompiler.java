@@ -10,9 +10,12 @@ import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.verify.Skeleton;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The compile pipeline: parse every template (HTML + t: attributes), index template parameters
@@ -43,10 +46,32 @@ public final class TemplateCompiler {
   public static final class Result {
     private final List<GeneratedFile> files;
     private final Map<String, Skeleton.TemplateSkeleton> skeletons;
+    /** The class each template's generated file is named by, by view name. */
+    private final Map<String, String> classes;
 
-    Result(List<GeneratedFile> files, Map<String, Skeleton.TemplateSkeleton> skeletons) {
+    Result(List<GeneratedFile> files, Map<String, Skeleton.TemplateSkeleton> skeletons, Map<String, String> classes) {
       this.files = Collections.unmodifiableList(files);
       this.skeletons = Collections.unmodifiableMap(skeletons);
+      this.classes = classes;
+    }
+
+    /**
+     * {@link #files()}, with the classes of the templates in {@code flowPartials} (view names, as
+     * {@code ContextVerifier.flowPartials} returns them) marked as verified {@code FLOW} partials
+     * (#396).
+     */
+    public List<GeneratedFile> files(Set<String> flowPartials) {
+      Set<String> marked = new HashSet<>();
+      for (String view : flowPartials) {
+        if (classes.containsKey(view)) {
+          marked.add(classes.get(view));
+        }
+      }
+      List<GeneratedFile> out = new ArrayList<>(files.size());
+      for (GeneratedFile f : files) {
+        out.add(f.kind() == GeneratedFile.Kind.JAVA && marked.contains(f.name()) ? TemplateGenerator.markFlowPartial(f) : f);
+      }
+      return out;
     }
 
     public List<GeneratedFile> files() {
@@ -75,11 +100,17 @@ public final class TemplateCompiler {
     TemplateGenerator generator = new TemplateGenerator(env, index, exprParser, exprCompiler);
     List<GeneratedFile> out = new ArrayList<>();
     Map<String, Skeleton.TemplateSkeleton> skeletons = new LinkedHashMap<>();
+    Map<String, String> classes = new HashMap<>();
     for (Document doc : docs) {
-      out.addAll(generator.generate(doc));
+      for (GeneratedFile f : generator.generate(doc)) {
+        out.add(f);
+        if (f.kind() == GeneratedFile.Kind.JAVA) {
+          classes.put(doc.source().viewName(), f.name());
+        }
+      }
       skeletons.put(doc.source().viewName(), generator.skeleton());
     }
     out.addAll(new RegistryGenerator(env, index).generate());
-    return new Result(out, skeletons);
+    return new Result(out, skeletons, classes);
   }
 }
