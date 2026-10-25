@@ -566,7 +566,7 @@ document parses identically, and the value is in the node the parser reported.
 
 | Engine | Source | Why |
 |---|---|---|
-| Current | upstream `validator/htmlparser` at a pinned commit, the Java source Gecko's parser is translated from | current spec, 99.7% of html5lib tree-construction tests |
+| Current | upstream htmlparser from the pinned validator 26.10.12 sources release (`nu.validator:validator:26.10.12:sources`), the Java source Gecko's parser is translated from | current spec, 99.7% of html5lib tree-construction tests |
 | Classic | `nu.validator:htmlparser:1.4.16` | classic `<select>` parsing, as in Firefox ESR, and the old fragment-case foreign-content breakout |
 
 Accepting only what both accept covers the supported-browser intersection for the known
@@ -575,7 +575,7 @@ the compiler (memo §10).
 
 **Packaging (#365).**
 
-- **Build.** A build-only module per version fetches the source with a pinned SHA-256 and
+- **Build.** A build-only module per version fetches the sources jar from Maven Central with a pinned SHA-256 and
   compiles it with `--release 8`. Upstream doesn't publish a Java 8 jar; its pom targets 1.8, and
   the source builds that way.
 - **Relocation.** Each version is relocated to `dev.tessera.compiler.internal.html5.current` and
@@ -584,7 +584,7 @@ the compiler (memo §10).
   source itself isn't patched.
 - **Shading.** `tessera-compiler` shades both into its jar with their MIT notices. Consumers see
   no new dependency, and the processor still runs in a JDK 8 javac (`Jdk8ProcessorTest`).
-- **Bumps.** Bumping the upstream commit is its own PR, with the corpus and seed verdicts diffed.
+- **Bumps.** Bumping the pinned validator release is its own PR, with the corpus and seed verdicts diffed.
 
 ### 11.5 What the verifier doesn't cover
 

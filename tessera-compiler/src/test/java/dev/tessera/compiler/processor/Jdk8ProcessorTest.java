@@ -26,6 +26,9 @@ import org.junit.jupiter.api.io.TempDir;
  * on its processor path, then rendered on a JDK 8 JVM. A second javac run compiles the templates
  * against the first's output, finding the function class through the function index (#118).
  *
+ * <p>The processor path also holds the verifier's two spec HTML parsers (#365), which the
+ * {@code tessera-compiler} jar shades; {@link #shadedEnginesRunOnJava8} runs them on JDK 8.
+ *
  * <p>The JDK comes from {@code -Dtessera.jdk8.home}, which the pom fills from {@code JDK8_HOME}.
  * Without it the test is skipped locally and fails in CI ({@code CI=true}).
  */
@@ -37,7 +40,7 @@ class Jdk8ProcessorTest {
   void jdk8JavacRunsTheProcessorAndTheAppRendersOnJava8() throws Exception {
     Path jdk = jdk8();
     Path runtime = codeSource(Escapers.class);
-    String processorPath = join(codeSource(TesseraProcessor.class), runtime);
+    String processorPath = processor() + File.pathSeparator + runtime;
 
     Path src = dir.resolve("src");
     Path templates = dir.resolve("templates");
@@ -212,6 +215,54 @@ class Jdk8ProcessorTest {
         assertTrue(failed.contains("1 error"), what + ": " + failed);
       }
     }
+  }
+
+  /**
+   * #365: the shaded engines are Java 8 bytecode that a JDK 8 javac accepts and a JDK 8 JVM runs,
+   * with assertions on (their own asserts are switched off by the engine), through the engine API.
+   */
+  @Test
+  void shadedEnginesRunOnJava8() throws Exception {
+    Path jdk = jdk8();
+    Path src = dir.resolve("smoke/EngineSmoke.java");
+    write(
+        src,
+        """
+        package smoke;
+        import dev.tessera.compiler.verify.engine.Engine;
+        import dev.tessera.compiler.verify.engine.Engines;
+        import dev.tessera.compiler.verify.engine.Parser;
+        public final class EngineSmoke {
+          public static void main(String[] args) throws Exception {
+            for (Engine e : Engines.all()) {
+              Parser p = e.document(true);
+              p.feed("<!DOCTYPE html><p>&drop</span><a href=\\"x");
+              Parser q = p.fork();
+              q.feed("\\"><select><title><script>");
+              System.out.println(e.name() + " " + p.state().tokenizer() + " " + p.state().attributeName()
+                  + " " + q.state().tokenizer() + " " + q.state().currentNode());
+            }
+          }
+        }
+        """);
+    Path out = Files.createDirectories(dir.resolve("smoke-classes"));
+    String classpath = processor();
+    run(List.of(jdk.resolve("bin/javac").toString(), "-proc:none", "-d", out.toString(), "-classpath", classpath, src.toString()));
+    String output = run(List.of(jdk.resolve("bin/java").toString(), "-ea", "-cp", join(out) + File.pathSeparator + classpath, "smoke.EngineSmoke"));
+    assertEquals(
+        """
+        htmlparser@validator-26.10.12 ATTRIBUTE_VALUE_DOUBLE_QUOTED href RCDATA title
+        htmlparser-1.4.16 ATTRIBUTE_VALUE_DOUBLE_QUOTED href SCRIPT_DATA script
+        """,
+        output);
+  }
+
+  /** The processor as the tessera-compiler jar ships it: its classes and the two shaded engines. */
+  private static String processor() throws URISyntaxException {
+    return join(
+        codeSource(TesseraProcessor.class),
+        codeSource(dev.tessera.compiler.internal.html5.current.impl.TesseraAccess.class),
+        codeSource(dev.tessera.compiler.internal.html5.classic.impl.TesseraAccess.class));
   }
 
   /** The configured JDK 8; skips the test locally, fails it in CI, when there is none. */
