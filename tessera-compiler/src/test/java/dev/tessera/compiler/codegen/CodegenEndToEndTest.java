@@ -78,12 +78,16 @@ class CodegenEndToEndTest {
         Compilation.builder()
             .template(
                 "page.html",
-                "<tr xmlns:t=\"https://tessera.dev\" t:params=\"String s\"><td t:text=\"s\" /><td />"
+                "<tr xmlns:t=\"https://tessera.dev\" t:params=\"String s\"><td t:text=\"s\" />"
                     + "<td class=\"a\" t:text=\"s\"/></tr>")
             .compile()
             .assertSuccess();
-    assertEquals(
-        "<tr><td>&lt;b&gt;</td><td /><td class=\"a\">&lt;b&gt;</td></tr>", c.render("page", Map.of("s", "<b>")));
+    assertEquals("<tr><td>&lt;b&gt;</td><td class=\"a\">&lt;b&gt;</td></tr>", c.render("page", Map.of("s", "<b>")));
+    // An empty <td /> is written as it is: "/>" on a non-void element is a parse error (#406).
+    Compilation.builder()
+        .template("page.html", "<tr xmlns:t=\"https://tessera.dev\" t:params=\"String s\"><td t:text=\"s\" /><td /></tr>")
+        .compile()
+        .assertError("page.html:1:", "Self-closing syntax", "[verifier:PARSE_ERROR]");
   }
 
   @Test

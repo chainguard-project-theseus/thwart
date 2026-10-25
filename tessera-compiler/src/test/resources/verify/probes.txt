@@ -40,8 +40,9 @@
 <select><option>[[s]]</option></select>
 ====
 # name: T9-form-directly-in-table
-# expect: ACCEPT
-# profile: main rejects <form> directly in <table> (#351's table rule); a browser parses it the same way whatever the value
+# expect: VERIFIER
+# A browser parses it the same way whatever the value, but a <form> directly in a <table> is a parse
+# error (#406); main's profile rejects it too (#351's table rule).
 <table><form><tr><td>[[s]]</td></tr></form></table>
 ====
 # name: T10-template-in-table
@@ -57,7 +58,8 @@
 <div t:params="java.util.List<String> xs"><table><tr t:each="x : xs"><td t:text="x"></td></tr></table></div>
 ====
 # name: T13-p-in-p
-# expect: ACCEPT
+# expect: VERIFIER
+# The second </p> closes no <p>: a parse error (#406).
 <p>a<p>[[s]]</p></p>
 ====
 # name: T14-cell-closed-by-td
@@ -100,7 +102,8 @@
 <p><b>x</p>[[s]]</div>
 ====
 # name: T23-table-in-p-quirks
-# expect: ACCEPT
+# expect: VERIFIER
+# Outside quirks mode the <table> closes the <p>, so the </p> after it closes nothing: a parse error (#406).
 <p><table><tr><td>[[s]]</td></tr></table></p>
 ====
 # name: pr351-text-before-row

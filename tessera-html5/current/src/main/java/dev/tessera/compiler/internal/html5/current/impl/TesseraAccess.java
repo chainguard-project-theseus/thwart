@@ -2,7 +2,9 @@ package dev.tessera.compiler.internal.html5.current.impl;
 
 import dev.tessera.compiler.internal.html5.current.common.XmlViolationPolicy;
 import java.util.Arrays;
+import org.xml.sax.ErrorHandler;
 import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
 
 /**
  * Tessera's accessor for this htmlparser build (#365). It lives in the parser's own package so it
@@ -12,7 +14,8 @@ import org.xml.sax.SAXException;
  *
  * <p>Everything it returns is a JDK type. {@code dev.tessera.compiler.verify.engine} maps it to
  * Tessera's engine-independent {@code ParserState}. The classic build has a copy of this class
- * that differs only in its package and in the two constant tables at the end.
+ * that differs only in its package and in the two constant tables at the end, and has no
+ * {@link Listener} (#406: only this build reports parse errors).
  */
 public final class TesseraAccess {
 
@@ -28,8 +31,27 @@ public final class TesseraAccess {
   private final String contextNamespace;
   private final String contextName;
   private final NullTree tree = new NullTree();
-  private final Tokenizer tokenizer;
+  private final ErrorReportingTokenizer tokenizer;
   private boolean lastCR;
+  /** Who hears about parse errors and pushed elements during the current {@link #feed}, or null. */
+  private Listener listener;
+
+  /**
+   * What the parser reports while it parses (#406). Positions are the tokenizer's: line (from 1)
+   * and column (from 1, in UTF-16 units) of the character it was reading, counted from the start of
+   * the first {@link #feed} of this instance (every {@link #fork} starts counting afresh).
+   */
+  public interface Listener {
+    /** A tokenizer or tree-builder parse error, in the parser's own words. */
+    void error(String message, int line, int column);
+
+    /**
+     * An element was inserted: pushed onto the stack of open elements, or, for a void element,
+     * inserted and popped at once ({@code onStack} false). The stack accessors read the stack as it
+     * is now.
+     */
+    void pushed(String namespace, String localName, boolean onStack, int line, int column);
+  }
 
   private TesseraAccess(boolean scripting, String contextNamespace, String contextName)
       throws SAXException {
@@ -41,7 +63,26 @@ public final class TesseraAccess {
     if (contextName != null) {
       tree.setFragmentContext(contextName.intern(), contextNamespace.intern(), null, false);
     }
-    tokenizer = new Tokenizer(tree, false);
+    // The error-reporting tokenizer tracks line and column and reports tokenizer errors; with an
+    // error handler, the tree builder reports its own (#406). Neither changes what is parsed.
+    tokenizer = new ErrorReportingTokenizer(tree, false);
+    ErrorHandler errors = new ErrorHandler() {
+      @Override
+      public void warning(SAXParseException e) {}
+
+      @Override
+      public void error(SAXParseException e) {
+        report(e);
+      }
+
+      @Override
+      public void fatalError(SAXParseException e) {
+        report(e);
+      }
+    };
+    tokenizer.setErrorHandler(errors);
+    tree.setErrorHandler(errors);
+    tree.access = this;
     tokenizer.setCommentPolicy(XmlViolationPolicy.ALLOW);
     tokenizer.setContentNonXmlCharPolicy(XmlViolationPolicy.ALLOW);
     tokenizer.setContentSpacePolicy(XmlViolationPolicy.ALLOW);
@@ -80,14 +121,64 @@ public final class TesseraAccess {
    * a CR at the end of one chunk swallows an LF at the start of the next.
    */
   public void feed(char[] chars, int start, int end) throws SAXException {
-    UTF16Buffer buffer = new UTF16Buffer(chars, start, end);
-    while (buffer.hasMore()) {
-      buffer.adjust(lastCR);
-      lastCR = false;
-      if (buffer.hasMore()) {
-        lastCR = tokenizer.tokenizeBuffer(buffer);
+    feed(chars, start, end, null);
+  }
+
+  /** {@link #feed(char[], int, int)}, telling {@code listener} (if not null) what happens. */
+  public void feed(char[] chars, int start, int end, Listener listener) throws SAXException {
+    this.listener = listener;
+    try {
+      UTF16Buffer buffer = new UTF16Buffer(chars, start, end);
+      while (buffer.hasMore()) {
+        buffer.adjust(lastCR);
+        lastCR = false;
+        if (buffer.hasMore()) {
+          lastCR = tokenizer.tokenizeBuffer(buffer);
+        }
       }
+    } finally {
+      this.listener = null;
     }
+  }
+
+  /** At the character being read, not at the locator of the exception (an older element's for some). */
+  private void report(SAXParseException e) {
+    if (listener != null) {
+      listener.error(e.getMessage(), tokenizer.getLine(), tokenizer.getCol());
+    }
+  }
+
+  private void pushed(String ns, String name, Object node) {
+    if (listener != null) {
+      int top = tree.getStackLength() - 1;
+      boolean onStack = top >= 0 && tree.getStack()[top].node == node;
+      listener.pushed(ns, name, onStack, tokenizer.getLine(), tokenizer.getCol());
+    }
+  }
+
+  /** The number of open elements now (also while a {@link Listener} is called). */
+  public int stackLength() {
+    return tree.getStackLength();
+  }
+
+  /** The namespace URI of open element {@code i}, from 0 (the root). */
+  public String stackNamespace(int i) {
+    return tree.getStack()[i].ns;
+  }
+
+  /** The local name of open element {@code i}, from 0 (the root), as {@link Tree#stackNames}. */
+  public String stackName(int i) {
+    return tree.getStack()[i].popName;
+  }
+
+  /** The number of entries in the stack of template insertion modes now. */
+  public int templateModeCount() {
+    return tree.getTemplateModeStackLength();
+  }
+
+  /** Template insertion mode {@code i}, from 0 (the outermost), as {@link #modeName}. */
+  public String templateMode(int i) {
+    return modeName(tree.getTemplateModeStack()[i]);
   }
 
   /**
@@ -280,6 +371,13 @@ public final class TesseraAccess {
 
   /** A tree builder that builds nothing. Parser state never depends on the tree (no hasChildren calls). */
   private static final class NullTree extends TreeBuilder<Object> {
+    TesseraAccess access;
+
+    @Override
+    protected void elementPushed(String ns, String name, Object node) {
+      access.pushed(ns, name, node);
+    }
+
     @Override
     protected Object createElement(String ns, String name, HtmlAttributes attributes, Object intendedParent) {
       return new Object();

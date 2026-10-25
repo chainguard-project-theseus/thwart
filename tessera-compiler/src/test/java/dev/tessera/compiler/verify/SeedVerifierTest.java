@@ -89,10 +89,11 @@ class SeedVerifierTest {
     Map<String, Expectation> e = expectations();
     Set<String> names = Seeds.load().stream().map(Seeds.Seed::name).collect(Collectors.toCollection(TreeSet::new));
     assertEquals(names, new TreeSet<>(e.keySet()));
-    // #367: the classic-<select> seeds are rejected, by the classic engine; and these three must be
-    // rejected by the verifier (the prototype missed pr304-9, the value oracle pr305-4 and 306-A29).
+    // #367: the classic-<select> seeds are rejected; since #406 by exclusion (c) in the current
+    // engine too (ErrorFreeTest checks them with the classic engine switched off); and these three
+    // must be rejected by the verifier (the prototype missed pr304-9, the value oracle pr305-4 and 306-A29).
     for (String n : List.of("306-A31", "pr304-7", "pr305-1", "pr305-2", "pr305-3", "pr305-4", "pr305-5", "pr305-6", "pr305-7")) {
-      assertTrue(e.get(n).classicOnly(), n);
+      assertTrue(e.get(n).rules().contains("SELECT_CONTENT"), n);
     }
     for (String n : List.of("pr304-9", "pr305-4", "306-A29")) {
       assertEquals("VERIFIER", e.get(n).expect(), n);

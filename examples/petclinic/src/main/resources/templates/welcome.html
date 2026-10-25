@@ -2,7 +2,7 @@
 
 <html xmlns:t="https://tessera.dev" t:replace="~{fragments/layout :: layout (~{::body},'home')}">
 
-<body>
+<body t:remove="tag">
 
   <h2 t:text="#{welcome}">Welcome</h2>
   <div class="row">

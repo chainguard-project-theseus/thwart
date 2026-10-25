@@ -1303,3 +1303,7 @@ var t = "${" + "[[x]]";</script></div>
 # note: pr305 review
 <select><option><svg><title><script>[[s]]</script></title></svg></option></select>
 ====
+# name: review-pr394-1
+# expect-0dda2f1: CLEAN
+# note: pr394 review, #398: a table inside svg/math in a cell. Both vnu engines reset to "in body" after the inner </table> and foster-parent the input whatever its type; the spec (parse5, Chromium, WebKit) returns to "in cell" and keeps an input type=hidden in the <tr>. Accepted on 0dda2f1, clean with the #320 values (none is 'hidden'). Rejected since #406 by exclusion (a), FOREIGN_IN_TABLE, and the parse errors after it
+<table><tbody><tr><td><svg><foreignObject><div><table></table></div></foreignObject></svg></td><input t:type="s"></tr></tbody></table>

@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Every message text of the context verifier, in one place (#368). A message says, in plain words,
@@ -35,7 +37,7 @@ final class VerifierMessages {
       sb.append("; this happens only because the fragment calls itself, so the markup structure depends on data: ")
           .append(RICH_TEXT);
     }
-    sb.append(engines(f.states, f.parsers));
+    sb.append(reportedByParser(f.problem) ? scripting(f.states) : engines(f.states, f.parsers));
     sb.append(" [verifier:").append(f.problem.name()).append(']');
     return sb.toString();
   }
@@ -118,9 +120,105 @@ final class VerifierMessages {
       case UNKNOWN_NODE:
         return "Tessera can't check what a browser does here: " + f.detail + " is unknown to the verifier;"
             + " this is a compiler bug, report it with the template";
+      case PARSE_ERROR:
+        return parseError(f.detail);
+      case FOREIGN_IN_TABLE:
+        return f.detail + ": browsers parse a nested table, <template> or <select> that ends inside <svg> or <math>"
+            + " in a table differently (Firefox goes on as if outside the table, Chrome and Safari go back to the"
+            + " cell), so Tessera doesn't accept <svg> or <math> anywhere in a table or <template>; move it out of"
+            + " the table, or show the image with <img src=\"....svg\">";
+      case TABLE_IN_TEMPLATE:
+        return f.detail + ": browsers handle a </table> inside it differently (Firefox closes a table around the"
+            + " <template>, Chrome and Safari ignore it), so Tessera doesn't accept table parts directly in a"
+            + " <template>; put a whole <table> in the <template>";
+      case SELECT_CONTENT:
+        return f.detail + ": browsers that parse <select> the classic way (Firefox ESR) drop everything in it but"
+            + " <option>, <optgroup> and <hr>, and newer ones keep it, so the rest of the page can parse differently;"
+            + " insert only <option>, <optgroup> and <hr> into a <select> (also from fragments, t:remove=\"tag\" and"
+            + " <template>)";
       default:
         throw new AssertionError(f.problem);
     }
+  }
+
+  /** Problems a parser reports while it parses (#406), not found in a state at a hole. */
+  private static boolean reportedByParser(Problem p) {
+    return p == Problem.PARSE_ERROR || p == Problem.FOREIGN_IN_TABLE || p == Problem.TABLE_IN_TEMPLATE
+        || p == Problem.SELECT_CONTENT;
+  }
+
+  /** A second {@code <html>}, {@code <head>} or {@code <body>}, as the parser words it. */
+  private static final Pattern SECOND_PAGE_ELEMENT = Pattern.compile(
+      "Start tag \u201C(html|head|body)\u201D seen but an element of the same type was already open\\.|"
+          + "Stray (start|end) tag \u201C(html|head|body)\u201D\\.");
+
+  /** An end tag after the body was closed (by a second {@code </body>}, say). */
+  private static final String AFTER_BODY = "Saw an end tag after \u201Cbody\u201D had been closed.";
+
+  /** A {@code </body>} with elements still open in the body. */
+  private static final Pattern BODY_UNCLOSED =
+      Pattern.compile("End tag for +\u201Cbody\u201D seen, but there were unclosed elements\\.");
+
+  private static final Pattern BETWEEN_HEAD_AND_BODY =
+      Pattern.compile("\u201C(\\w+)\u201D element between \u201Chead\u201D and \u201Cbody\u201D\\.");
+
+  private static final Pattern IN_TABLE = Pattern.compile("Start tag \u201C(\\w+)\u201D seen in \u201Ctable\u201D\\.");
+
+  /** How a browser recovers from the parse error {@code message} (the parser's words), and the fix. */
+  private static String parseError(String message) {
+    String layout = "; a page has one <html>, <head> and <body>: a layout call such as"
+        + " t:replace=\"~{layout :: layout(~{::body})}\" passes the whole element into the layout's own, so mark"
+        + " the element the page passes t:remove=\"tag\" (<body t:remove=\"tag\">) to pass only its content"
+        + " (guide section 4.8, Layouts)";
+    Matcher m = SECOND_PAGE_ELEMENT.matcher(message);
+    if (m.matches()) {
+      String name = m.group(1) != null ? m.group(1) : m.group(3);
+      return m.group(1) != null || "start".equals(m.group(2))
+          ? "a browser finds a second <" + name + "> here and merges it into the first" + layout
+          : "a browser finds an extra </" + name + "> here and ignores it" + layout;
+    }
+    if (message.equals(AFTER_BODY)) {
+      return "a browser reads this end tag after a </body> closed the body, and goes back into the body" + layout;
+    }
+    if (BODY_UNCLOSED.matcher(message).matches()) {
+      return "a browser closes the elements still open in the body at this </body>; close each element before"
+          + " </body>, and if this </body> is a second one" + layout.substring(1);
+    }
+    if (message.equals("No \u201Cp\u201D element in scope but a \u201Cp\u201D end tag seen.")) {
+      return "a browser closes an open <p> at the first block element inside it (<div>, <form>, <ul>, <table>, a"
+          + " heading, ...), so this </p> has no <p> to close and adds an empty paragraph; a <p> can't hold block"
+          + " elements: use a <div> instead of the <p>";
+    }
+    m = BETWEEN_HEAD_AND_BODY.matcher(message);
+    if (m.matches()) {
+      return "a browser moves this <" + m.group(1) + "> from between </head> and <body> back into the <head>; write"
+          + " it inside the <head> or inside the <body>";
+    }
+    m = IN_TABLE.matcher(message);
+    if (m.matches()) {
+      return "a browser moves this <" + m.group(1) + "> out of the table, in front of it, because only table parts"
+          + " may sit directly in a <table>; put it in a <td> or <th>, or outside the table";
+    }
+    if (message.equals("Start tag for \u201Ctable\u201D seen but the previous \u201Ctable\u201D is still open.")) {
+      return "a browser closes the open table at a <table> directly inside it, outside any cell; put the nested"
+          + " table in a <td> or <th>";
+    }
+    if (message.equals("No space between attributes.")) {
+      return "two attributes are written without a space between them, which a browser reads only by error"
+          + " recovery; write a space between the attributes";
+    }
+    return "the HTML parser reports \"" + message + "\" here: a browser reads this markup only by error recovery,"
+        + " where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup";
+  }
+
+  /** For a problem the parsers report: which scripting mode alone reports it, if one does. */
+  private static String scripting(List<ParserState> states) {
+    for (ParserState s : states) {
+      if (s.scripting()) {
+        return "";
+      }
+    }
+    return states.isEmpty() ? "" : " (only with scripting off)";
   }
 
   /** What is written at the hole: the value, or for an attribute, the attribute's value. */

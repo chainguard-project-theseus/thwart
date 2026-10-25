@@ -2,7 +2,7 @@
 
 <html xmlns:t="https://tessera.dev" t:replace="~{fragments/layout :: layout (~{::body},'owners')}" t:import="org.springframework.samples.petclinic.owner.*" t:params="Pet pet, Owner owner, Collection<PetType> types">
 
-<body>
+<body t:remove="tag">
 
   <h2>
     <t:block t:if="pet.isNew()" t:text="#{new}">New </t:block>
