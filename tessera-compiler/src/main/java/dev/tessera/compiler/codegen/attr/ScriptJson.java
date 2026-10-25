@@ -4,7 +4,9 @@ import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.CodegenContext;
+import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.types.CompiledExpr;
+import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.StringOutput;
 import java.util.ArrayDeque;
@@ -113,7 +115,7 @@ final class ScriptJson {
   }
 
   /** A statement writing the whole JSON value, or null after reporting an error. */
-  static String statement(CodegenContext ctx, CompiledExpr c) {
+  static Emitted statement(CodegenContext ctx, CompiledExpr c) {
     ScriptJson json = new ScriptJson(ctx);
     String code = json.convert(c.type(), "o$", "0", "0");
     if (code == null) {
@@ -121,14 +123,11 @@ final class ScriptJson {
       return null;
     }
     if (code.equals("o$")) {
-      return "dev.tessera.runtime.Escapers.json(out, " + c.code() + ");\n";
+      return Emitted.hole(Skeleton.Escaper.JSON, ctx.hostElement(), null, c.pos(), c.code()).then("\n");
     }
     String helper = ctx.freshName("jsonOutput");
-    ctx.addMember("private static void " + helper
-        + "(java.lang.Object o$, dev.tessera.runtime.Output out) {\n"
-        + "java.lang.StringBuilder s$ = new java.lang.StringBuilder();\n"
-        + code + ";\nout.write(s$.toString());\n}\n");
-    return helper + "(" + c.code() + ", out);\n";
+    ctx.addMember(Emitted.jsonHelperMethod(helper, code));
+    return Emitted.jsonHelperHole(helper, ctx.hostElement(), c.pos(), c.code()).then("\n");
   }
 
   /**

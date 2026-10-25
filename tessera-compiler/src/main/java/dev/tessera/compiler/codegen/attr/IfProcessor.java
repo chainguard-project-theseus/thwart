@@ -6,6 +6,7 @@ import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.types.CompiledExpr;
+import dev.tessera.compiler.verify.Skeleton;
 
 /**
  * {@code t:if="cond"} / {@code t:unless="cond"}: wraps the element in {@code if} using
@@ -25,6 +26,6 @@ public final class IfProcessor implements AttributeProcessor {
       return;
     }
     String code = attr.localName().equals("unless") ? "!(" + cond.code() + ")" : cond.code();
-    plan.wrap("if (" + code + ") {", "}");
+    plan.wrapOpt(Skeleton.OptKind.CONDITION, "if (" + code + ") {", "}", attr.pos());
   }
 }

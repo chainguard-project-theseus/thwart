@@ -19,10 +19,12 @@ import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.model.Text;
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.compiler.types.ExpressionCompiler;
+import dev.tessera.compiler.verify.Skeleton;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -143,8 +145,10 @@ final class HandBuilt {
   static Run run(Compilation.Builder builder, Function<ProcessingEnvironment, List<TemplateIndex.TemplateInfo>> templates) {
     Diagnostics diagnostics = new Diagnostics();
     List<GeneratedFile> files = new ArrayList<>();
+    Map<String, Skeleton.TemplateSkeleton> skeletons = new LinkedHashMap<>();
     Compilation c =
         builder
+            .skeletons(skeletons)
             .inProcessor(
                 pe -> {
                   CompilerEnv env = Compilation.env(pe, diagnostics);
@@ -153,6 +157,7 @@ final class HandBuilt {
                       new TemplateGenerator(env, index, new ExpressionParser(), new ExpressionCompiler(env));
                   for (TemplateIndex.TemplateInfo t : index.templates()) {
                     files.addAll(gen.generate(t.document()));
+                    skeletons.put(t.viewName(), gen.skeleton());
                   }
                   files.addAll(new RegistryGenerator(env, index).generate());
                   if (!diagnostics.hasErrors()) {

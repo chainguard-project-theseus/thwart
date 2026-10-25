@@ -7,8 +7,12 @@ import dev.tessera.compiler.expr.ExpressionParser;
 import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.model.Document;
 import dev.tessera.compiler.types.ExpressionCompiler;
+import dev.tessera.compiler.verify.Skeleton;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The compile pipeline: parse every template (HTML + t: attributes), index template parameters
@@ -32,10 +36,34 @@ public final class TemplateCompiler {
   }
 
   public List<GeneratedFile> compile(List<TemplateSource> sources) {
-    return generate(sources);
+    return run(sources).files();
   }
 
-  private List<GeneratedFile> generate(List<TemplateSource> sources) {
+  /** The generated files and, in memory only, the skeleton of every template (#366). */
+  public static final class Result {
+    private final List<GeneratedFile> files;
+    private final Map<String, Skeleton.TemplateSkeleton> skeletons;
+
+    Result(List<GeneratedFile> files, Map<String, Skeleton.TemplateSkeleton> skeletons) {
+      this.files = Collections.unmodifiableList(files);
+      this.skeletons = Collections.unmodifiableMap(skeletons);
+    }
+
+    public List<GeneratedFile> files() {
+      return files;
+    }
+
+    /**
+     * What each template's class writes, by view name: recorded where the generator writes it,
+     * so it is exact ({@link Skeleton}). Meaningful only if no errors were reported.
+     */
+    public Map<String, Skeleton.TemplateSkeleton> skeletons() {
+      return skeletons;
+    }
+  }
+
+  /** As {@link #compile}, also returning the skeletons. */
+  public Result run(List<TemplateSource> sources) {
     HtmlParser html = new HtmlParser();
     List<Document> docs = new ArrayList<>();
     for (TemplateSource src : sources) {
@@ -46,10 +74,12 @@ public final class TemplateCompiler {
     TemplateIndex index = TemplateIndex.build(docs, exprParser, exprCompiler, env);
     TemplateGenerator generator = new TemplateGenerator(env, index, exprParser, exprCompiler);
     List<GeneratedFile> out = new ArrayList<>();
+    Map<String, Skeleton.TemplateSkeleton> skeletons = new LinkedHashMap<>();
     for (Document doc : docs) {
       out.addAll(generator.generate(doc));
+      skeletons.put(doc.source().viewName(), generator.skeleton());
     }
     out.addAll(new RegistryGenerator(env, index).generate());
-    return out;
+    return new Result(out, skeletons);
   }
 }

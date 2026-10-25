@@ -40,9 +40,10 @@ JDK 21+. The table names the main classes only.
 | | `.expr` | `Expr` AST, `ExpressionParser` | |
 | | `.types` | `ExpressionCompiler`, `ViewSafety`, `FunctionRegistry`, `Scope` | |
 | | `.messages`, `.links`, `.forms` | `#{}`, `@{}` and `fields.*` compilation, `MessageBundle` | |
-| | `.codegen` | `TemplateGenerator`, `ElementPlan`, `AttributeProcessors`, `TemplateIndex`, `RegistryGenerator` | |
+| | `.codegen` | `TemplateGenerator`, `ElementPlan`, `AttributeProcessors`, `TemplateIndex`, `RegistryGenerator`, `Emitted` (the single output path) | |
 | | `.codegen.attr` | one processor class per attribute family + hooks | |
 | | `.processor` | `TesseraProcessor` (javac entry point), options, discovery | |
+| | `.verify` | `Skeleton`: what each generated class writes, recorded by `Emitted` | |
 | `tessera-spring-boot-starter` | `dev.tessera.spring{,.view,.context,.fn}` | auto-config, plain-Spring config, view resolver, return values, request `RenderContext`, `auth` | runtime; Spring 4.3+ / Boot 1.5+, Servlet 3.0+ from the app (`jakarta.servlet`) |
 | `tessera-spring-boot-starter-javax` | same | the starter jar shaded with `jakarta.servlet` relocated to `javax.servlet` | runtime |
 | `tessera-spring-tests` | | the starter's test sources run on Boot 3.5, 2.7, 2.0 and 1.5 and on Spring MVC 5.0 and 4.3 without Boot | |
@@ -64,6 +65,7 @@ templates/**/*.html ─ TemplateDiscovery ─▶ TemplateSource(viewName, path, 
          └ ExpressionParser ─▶ Expr ─ ExpressionCompiler (ViewSafety, FunctionRegistry,
                                        MessageCompiler, LinkCompiler) ─▶ CompiledExpr(code, type)
    ─▶ one Java class per template + TesseraRegistry + META-INF/services entry ─ Filer ─▶ javac
+   ─▶ in memory: one Skeleton per template (static text, holes, control flow, fragment calls)
 ```
 
 Every stage reports to a `DiagnosticSink` and continues; errors print as
@@ -80,7 +82,11 @@ Stages are concrete classes; the only interface with several implementations is 
 - `ExpressionCompiler.compile/compileCondition/elementType/resolveType/checkOutputType` → `CompiledExpr(code, type, pos)`.
 - `AttributeProcessor.process(CodegenContext, Attribute, ElementPlan)`. A processor adds wrappers
   (loops/ifs/locals), sets/removes attributes, replaces the body or element, or removes/omits the
-  tag. It never writes output directly; `TemplateGenerator` emits the plan.
+  tag. It never writes output directly; `TemplateGenerator` emits the plan. Every write in generated
+  code (static text, escaper calls, raw HTML, fragment calls, and the conditions and loops around
+  them) is built with `Emitted`, which records the template's `Skeleton` in the same call (#366).
+  `EmissionGuardTest` fails on output written any other way, and the `Compilation` test harness
+  checks every render against its skeleton.
 - Hooks called by the generator: `TextInlining.render` (text nodes), `CsrfInjector.apply`
   (`<form>`), `FieldProcessor.option` (`<option>`), `FragmentMethods.generate` (once per template).
 
