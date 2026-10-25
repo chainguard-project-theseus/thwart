@@ -6,9 +6,9 @@ this doc describes the target and the plan, not the current code. Where it and
 [mvp-design.md](mvp-design.md) disagree, mvp-design describes what ships today.
 
 **Amended Oct 25, 2026:** a build-time verifier (§11) replaces the profile as the security
-boundary for markup contexts (families A and B). A spec HTML parser checks every template, inside
-the annotation processor. §11.7 says which parts of §5 are now friendly errors or
-browser-divergence exclusions.
+boundary for markup contexts (families A and B), enforced once #367 lands. Two spec HTML parsers
+check every template, inside the annotation processor. §11.7 says which parts of §5 are now
+friendly errors or browser-divergence exclusions.
 
 ## 0. Summary
 
@@ -381,9 +381,9 @@ Text now in AGENTS.md:
 And under "Keep it simple": *a security fix that adds a special case to the parser or context
 table is a smell. Prefer shrinking the profile.*
 
-Amended Oct 25, 2026 (§11): the keep-it-simple
-line now sends parser-differential and composition fixes to the verifier. `tessera-compiler` may
-shade the pinned validator.nu htmlparser, and nothing else.
+Amended Oct 25, 2026 (§11): the keep-it-simple line now sends parser-differential and composition
+fixes to the verifier. `tessera-compiler` may shade the two pinned validator.nu htmlparser
+versions (§11.4), and nothing else.
 
 ## 7. Process: where we went wrong and what changes
 
@@ -407,7 +407,8 @@ ways.
 
 Smallest first. Each phase lists what it closes and the gate that shows it's done. The phases are
 tracked as GitHub issues. Since Oct 25, 2026 the build-time verifier (#364, §11) comes before the
-rest of phase 2, and phase 2 shrinks as §11.7 says.
+rest of phase 2, and phase 2 shrinks as §11.7 says. CSP nonces (#335) move earlier, out of
+phase 4.
 
 | Phase | Work | Closes | Gate |
 |---|---|---|---|
@@ -418,9 +419,9 @@ rest of phase 2, and phase 2 shrinks as §11.7 says.
 | **4. Frameworks** | Framework table as data; Vue bind targets as an allow-list; nightly framework harness; CSP nonces in the starter; guide section on the boundary | Bounds family D; #273 (Datastar), #303's cross-node `{{` in its smaller form | Harness green nightly; guide states the boundary |
 | **5. Optional** | A test kit so apps can run the oracle over their own MockMvc pages; OpenJML proofs (#302) | Evidence for customers | n/a |
 
-After phase 2, a new parser-differential report is handled by asking "which profile rule admits
-this?" and narrowing that rule plus adding the generator case. It is never handled by adding a
-special case.
+A new parser-differential or composition report becomes a verifier test case (§11.7). Other
+reports are handled by asking "which profile rule admits this?" and narrowing that rule plus
+adding the generator case. Neither is ever handled by adding a special case.
 
 ## 9. Open PRs and issues: decisions
 
@@ -516,9 +517,9 @@ them.
 **The tree builder treats the value uniformly.**
 
 - In data state the value produces only character tokens, and for `text` empty comments.
-- The modes in body, in cell, in caption, in select, in template, foreign content and text
-  handle every character token the same way: reconstruct the active formatting elements, then
-  append.
+- The modes in body, in cell, in caption, in select (and in select in table), in template,
+  foreign content and text handle every character token the same way: reconstruct the active
+  formatting elements, then append.
 - The verifier rejects text holes in every other mode (table, table body, row, column group,
   head and the rest). It also rejects them when reconstruction wouldn't be a no-op, and when
   three or more identical formatting elements carry holes in their attributes (the Noah's Ark
@@ -552,8 +553,9 @@ document parses identically, and the value is in the node the parser reported.
    predicates on the insertion state, plus a check on producers (#329). `SafeHtml.unchecked`
    stays the caller's responsibility.
 3. **Parser version.** The guarantee is relative to the WHATWG algorithm as the two embedded
-   parsers implement it. Real browsers are checked by the Node job (#322, #345) and WebKit
-   (#354).
+   parsers implement it. They bracket the known splits (classic and customizable `<select>`, the
+   fragment-case foreign-content breakout), not unknown ones. The Node job (#322, #345) checks
+   Chromium, Firefox ESR and parse5; WebKit isn't checked yet (#354).
 4. **Entry context of partials.** A fragment rendered on its own (htmx, `innerHTML`) is checked
    by fragment parsing in the context its root element implies, and by document parsing.
 5. **The inertness lemma itself.** It's argued here and tested by #324 (state unchanged across
@@ -596,11 +598,14 @@ the compiler (memo §10).
 
 Measured with the prototype (memo §5):
 
-- **Seeds.** It flagged 120 of the 121 family A/B seeds live on 0dda2f1. The one miss was a
-  prototype lowering artefact. It also found 2 holes the value oracle missed.
-- **Corpus.** 1,585 converted templates. The only real rejections are 25 (1.8%) recursive
-  rich-text fragments. That pattern is data-dependent structure, a build error by decision. The
-  fix-it is `html.sanitize` to `SafeHtml` (#369, #262).
+- **Seeds.** It flagged 120 of the 121 family A/B seeds live on 0dda2f1. The one miss
+  (`pr304-9`) was a prototype lowering artefact. It also found 2 holes the value oracle missed.
+- **Corpus.** 1,585 converted templates, 1,372 of which main's parser accepts. The only real
+  rejections are 25 (1.8% of 1,372) recursive rich-text fragments. That pattern is data-dependent
+  structure, a build error by decision. The fix-it is `html.sanitize` to `SafeHtml` (#369, #262).
+  398 more were flagged only because the prototype couldn't resolve an insert, 395 of them layout
+  `Fragment` parameters in `<head>`. #367 analyses those at the call site; if it can't, they are
+  false positives to fix before it is enforced.
 - **Build time.** The naive prototype took p95 155 ms per template; the targets with
   memoisation are in #367 (p95 ≤ 50 ms, under 10% of javac time).
 - **Size.** About 21k lines of parser source per version, outside our code. The checker is
@@ -617,6 +622,10 @@ Measured with the prototype (memo §5):
 | §5.5 content kinds (#329) | **Redefined** as parser-state predicates (`FLOW` first; `PHRASING`, `HEAD`, `TABLE_ROWS` only if needed), checked by the verifier |
 | §5.6 attribute names, framework table, CSP | Unchanged (family D) |
 | §5.7 oracle gate (#324) | **Repurposed.** It tests skeleton fidelity and the inertness lemma, and keeps value checks for C, D and E |
+| §5.8 what doesn't change | All of it, except the compiler's dependencies: `tessera-compiler` shades the two parsers (§11.4). The runtime, the starters and generated code stay dependency-free |
 
 A new parser-differential or composition report becomes a verifier test case, not a special
-case in `HtmlParser`, `MarkupTokenizer` or `Contexts` (handoff.md).
+case in `HtmlParser`, `MarkupTokenizer` or `Contexts` (handoff.md). For families A and B this
+replaces §7's "fix it by shrinking the profile". Once the verifier has run on main without
+false-positive reports for a while, #378 chooses escapers from the parser state and deletes the
+name-based context tables.

@@ -10,9 +10,9 @@ pilot of Chainguard's secure-by-design library portfolio.
 ## Design principles (non-negotiable)
 
 Every change must uphold all seven. If a task seems to require breaking one, stop and say so
-in the PR/issue instead of working around it. The build-time spec-parser check in 5 is being built
-under #364 ([docs/security-architecture.md](docs/security-architecture.md) §11), and the rest of the
-profile in the phases of §8; new code moves toward them, never away.
+in the PR/issue instead of working around it. The spec-parser check in 5 is being built as the
+build-time verifier under #364 ([docs/security-architecture.md](docs/security-architecture.md)
+§11), and the rest of the profile in 3 in the phases of §8; new code moves toward them, never away.
 
 1. **Templates are code.** Compiled at build time into Java classes. The runtime has no
    template parser and no API that accepts template source as a `String`.
@@ -50,7 +50,8 @@ This is an MVP built tonight. Prefer the smallest thing that is correct and secu
 
 - A security fix that adds a special case to the parser or context table is a smell. A parser
   differential or composition bug is fixed in the build-time verifier or its test cases
-  (security-architecture.md §11), not with a new special case.
+  (security-architecture.md §11), not with a new special case. Elsewhere, prefer shrinking the
+  profile.
 - Do exactly the issue's scope. No speculative abstractions, plugin systems, config knobs,
   or "future-proofing". No new modules or dependencies unless the issue says so.
 - Plain Java. `tessera-runtime`, `tessera-compiler` (the annotation processor runs inside the

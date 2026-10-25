@@ -26,7 +26,10 @@ deny-by-default rules.
 The guarantee holds for the profile as context-model.md specifies it. Rows marked `phase 2` or
 with an open PR there are gaps on `main` today. Once the build-time verifier (#367) lands, the
 first point holds for every template the compiler accepts: two spec HTML parsers check each hole
-at build time, whatever the profile's rules say (security-architecture.md §11).
+at build time, whatever the profile's rules say. It holds relative to those two parsers and within
+the limits in security-architecture.md §11.3: skeleton fidelity, dynamic `SafeHtml` and `Fragment`
+kinds, parser version, the entry context of partials, and the inertness lemma, which is argued,
+not proved.
 
 ## 2. Actors and trust
 
@@ -37,7 +40,7 @@ at build time, whatever the profile's rules say (security-architecture.md §11).
 | **Message bundles** (`messages*.properties`) | Trusted at build time | The bundles the compiler sees are the ones that ship | HTML messages are checked at build time (`MessageCompiler`). At render time, `Escapers.htmlMessage` returns HTML only if the message has no `<` or matches a checked pattern; anything else is escaped as text |
 | **Application Java code** (controllers, `@TemplateFunction`s, view-safe types) | Trusted | It decides what goes into the model, and what it marks as safe | Principles 2-4: allow-listed functions and properties, no reflection |
 | **`SafeHtml.unchecked`, `TrustedUrl.unchecked`** | Review points | The caller vouches for the content. Every call site is a security review point; the names are greppable | Nothing at render time. `t:utext` and `[(...)]` accept only `SafeHtml`; a `TrustedUrl` skips the URL checks |
-| **Other `SafeHtml` sources** (`escape`, `sanitize`, a rendered `Template`, `concat`) | Trusted by construction | `HtmlSanitizer` copies no input through, so its output is safe however a browser parsed the original | `SafeHtml` is inserted only where the parser state meets its kind's predicate, and producers are checked to emit balanced content (#329, checked by the verifier) |
+| **Other `SafeHtml` sources** (`escape`, `sanitize`, a rendered `Template`, `concat`) | Trusted by construction | `HtmlSanitizer` copies no input through, so its output is safe however a browser parsed the original | Today, #304 (open). Once #367 and #329 land, `SafeHtml` is inserted only where the parser state meets its kind's predicate, and producers are checked to emit balanced content |
 | **The build** (javac, the annotation processor, the compiler's dependencies) | Trusted | Template sources and bundles come from the application's repository. The shaded validator.nu htmlparser is pinned by commit and SHA-256 (#365) | Out of scope |
 | **Browsers** | The supported set | Chromium (current), Firefox (current), Firefox ESR and Safari/WebKit (current) (context-model.md §7, decision 7). Safari is supported but not yet verified: WebKit is not in the oracle yet (#354). A rule must hold in all of them; where they differ (classic and new `<select>` parsing), the profile accepts only the intersection | At build time, the verifier runs current upstream htmlparser and 1.4.16 and accepts a hole only if both do (#367). In tests, validator.nu htmlparser 1.4.16 and validator 26.10.12 (#344); parse5, headless Chromium and Firefox 140 ESR in the Node job (#345; on Chainguard Checks after every merge and on request, over a fixture until #324) |
 | **Page JavaScript and client frameworks** | Outside, except the framework table | Code that re-reads the DOM as code (Vue in-DOM templates, Alpine, htmx, AngularJS) can turn safe output into code execution | Deny-by-default names (#330), the framework table (#333), `{{` breaking, strict CSP with nonces (#335) |
@@ -78,8 +81,8 @@ The hostile value set used in tests is `HostileStrings.VECTORS` plus the #320 va
 | Class | In scope? | Notes |
 |---|---|---|
 | Server-side template injection, code execution | Yes | Closed by principles 1-4. No reported case |
-| XSS through a parser differential (the compiler's tree is not the browser's) | Yes | Family A; closed by the build-time verifier (#367), relative to the embedded parsers; the profile (context-model.md §2-§3) gives earlier errors |
-| XSS through composition (fragments, `SafeHtml`, messages in the wrong context) | Yes | Family B; static composition by the verifier at each call site, dynamic values by content-kind predicates (context-model.md §5, #329) |
+| XSS through a parser differential (the compiler's tree is not the browser's) | Yes | Family A; closed by the build-time verifier once #367 lands, relative to the embedded parsers; the profile (context-model.md §2-§3) gives earlier errors |
+| XSS through composition (fragments, `SafeHtml`, messages in the wrong context) | Yes | Family B; once #367 and #329 land, static composition by the verifier at each call site, dynamic values by content-kind predicates (context-model.md §5) |
 | XSS through a script hole in the wrong lexical position | Yes | Family C; data-prelude rule (context-model.md §4) |
 | A URL or resource from another origin | Yes | Family E; URL classes (context-model.md §6.1) |
 | Client-side template injection in a listed framework | Bounded | Family D. Deny-by-default names, the framework table and `{{` breaking. Gaps are listed in guide §7 |
@@ -119,5 +122,5 @@ threat model:
 | The generated code calls the escaper the context table names | Tested by the generated-code checker (tcnghia/harder#15), not proved (G7) |
 | Scripting is enabled, for the `noscript` proof | With scripting disabled, `noscript` content is markup; the profile's rules are argued safe for both readings, but only one is proved |
 | Tree construction (implied end tags, foster parenting, nested `form`) doesn't move a hole into another context | Not modeled in Lean; checked per template by the verifier once #367 lands, watched by the oracle (#344) |
-| The embedded parsers (current upstream htmlparser, 1.4.16) read the states the verifier accepts as browsers do | The verifier's guarantee is relative to them. The two versions bracket the known `<select>` and foreign-content splits; the Node job (#345) and WebKit (#354) check real engines |
+| The embedded parsers (current upstream htmlparser, 1.4.16) read the states the verifier accepts as browsers do | The verifier's guarantee is relative to them. The two versions bracket the known `<select>` and foreign-content splits; the Node job (#345) checks Chromium and Firefox ESR; WebKit isn't checked yet (#354) |
 | Escaper output is inert in the states the verifier accepts (the inertness lemma) | Argued in security-architecture.md §11.2; tested on every hostile render by #324; not proved |

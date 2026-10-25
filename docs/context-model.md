@@ -11,11 +11,13 @@ behaviour, mvp-design.md describes what ships. This document describes the targe
 every gap.
 
 **Since Oct 25, 2026 the security boundary for markup contexts is the build-time verifier**
-([security-architecture.md](security-architecture.md) §11, tracker #364). It runs every template
-through two spec HTML parsers and enforces section 1 per hole, whether or not a row below has its
-own rule. The rows in sections 2, 3 and 5 are now friendly early errors or browser-divergence
-exclusions (security-architecture.md §11.7). Sections 4 and 6 are unchanged: the verifier doesn't
-cover script lexical position, URL policy or client frameworks.
+([security-architecture.md](security-architecture.md) §11, tracker #364), enforced once #367
+lands. It runs every template through two spec HTML parsers and enforces section 1 per hole,
+whether or not a row below has its own rule. The profile of principle 3 is then what the verifier
+accepts, narrowed by the rows below. Once #367 lands, the rows in sections 2, 3 and 5 are friendly
+early errors or browser-divergence exclusions (security-architecture.md §11.7); until then they
+are what `main` enforces. Sections 4 and 6 are unchanged: the verifier doesn't cover script
+lexical position, URL policy or client frameworks.
 
 ## How to keep this document current
 
@@ -79,9 +81,9 @@ nodes, the same way for every value, without moving a hole out of its context.
 ## 2. Token-level rules (§5.2)
 
 The tokenizer accepts only these forms. Anything else is a build error with file, line and
-column. These rules are friendly early errors: the verifier (#367) is the boundary. #327 is
-re-scoped to rules that give a better message than the verifier; the `phase 2 (#327)` rows below
-are kept only if they do.
+column. Once the verifier (#367) lands, these rules are friendly early errors and it is the
+boundary. #327 is re-scoped to rules that give a better message than the verifier; the
+`phase 2 (#327)` rows below are kept only if they do.
 
 | Construct | Accepted | Rejected | Status | Checked by | Proof |
 |---|---|---|---|---|---|

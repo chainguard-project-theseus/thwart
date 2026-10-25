@@ -17,9 +17,9 @@ Since then:
   support Spring Framework 4.3+ / Boot 1.5+ (#156, #178), with a `javax.servlet` variant and
   `TesseraConfiguration` for Spring MVC without Boot (#156).
 - **No third-party compile dependencies** in `tessera-runtime` or the starters. `tessera-compiler`
-  has its own `MarkupTokenizer` (#170); from #365 on it also shades the pinned validator.nu
-  htmlparser for the build-time verifier (#364), and nothing else. `tessera-migrate`, a developer
-  tool, bundles attoparser and jsoup.
+  has its own `MarkupTokenizer` (#170); from #365 on it also shades two pinned validator.nu
+  htmlparser versions for the build-time verifier (#364), and nothing else. `tessera-migrate`, a
+  developer tool, bundles attoparser and jsoup.
 - **Migration benchmark** in [bench/migration](../bench/migration/README.md) (#115, #151): an
   agent migrates real apps from the guide alone, scored with `tessera-migrate compare`. The gaps
   it found are open issues labelled `migration-bench` (#118 to #137), and #151 tracks the
@@ -50,8 +50,8 @@ Since then:
 From [security-architecture.md](security-architecture.md) §7 (accepted Oct 24, 2026) and §11
 (the build-time verifier, decided Oct 25, 2026):
 
-- **The verifier is the boundary for markup contexts.** Since #364, two spec HTML parsers check
-  every template at build time. A new parser-differential or composition report (family A/B)
+- **The verifier is the boundary for markup contexts.** Once #367 lands, two spec HTML parsers
+  check every template at build time. A new parser-differential or composition report (family A/B)
   becomes a verifier test case: a seed the verifier must reject. If the verifier accepted it,
   fix the verifier or its rule table. Don't patch `HtmlParser`, `MarkupTokenizer` or
   `Contexts` with a special case for it. Early, friendly errors there are welcome only when the
