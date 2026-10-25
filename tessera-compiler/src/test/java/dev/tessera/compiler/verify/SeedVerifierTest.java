@@ -119,7 +119,7 @@ class SeedVerifierTest {
         }
         if (e.classicOnly()) {
           // Browsers differ here (classic and customizable <select>): the classic engine rejects it.
-          assertTrue(c.errors().stream().allMatch(m -> m.contains("only in browsers with classic <select> parsing")), c.errors().toString());
+          assertTrue(c.errors().stream().allMatch(m -> m.contains("only in the older HTML parsing some browsers still use")), c.errors().toString());
         }
       }
       case "ACCEPT" -> {

@@ -33,11 +33,11 @@
 == TEXT_NOT_IN_TEXT: <svg><textarea> isn't raw text, so the expression is inside a tag
 -- t.html
 <svg><textarea><img src="x" alt=[[${s}]]></textarea></svg>
-=> t.html:1:92: error: a browser reads this value inside a tag, as attribute names, not as text; check the markup before it: a browser started a tag there [verifier:TEXT_NOT_IN_TEXT]
+=> t.html:1:92: error: a browser reads this value inside an unquoted attribute value, not as text; check the markup before it: a browser started a tag there [verifier:TEXT_NOT_IN_TEXT]
 == TEXT_IN_SCRIPT: <script> inside SVG <title> is an HTML script
 -- t.html
 <svg><title><script>var a = [[${s}]];</script></title></svg>
-=> t.html:1:88: error: a browser runs this value as the code of <script>, where escaping for text doesn't keep it inert; write data into a script as [[${...}]] directly in an HTML <script>, or put it in a data-* attribute [verifier:TEXT_IN_SCRIPT]
+=> t.html:1:88: error: a browser runs this value as the code of <script>, where escaping for text doesn't keep it inert; this <script> starts in the markup before it, where the template shows none: move a <script> out of a <title> inside <svg>, <math> or <select>, and write a literal '<' in attribute values, comments and CDATA sections as &lt; [verifier:TEXT_IN_SCRIPT]
 == TEXT_IN_SCRIPT: <svg><textarea> isn't raw text, so the <script> is an SVG script
 -- t.html
 <svg><textarea><script>var a = [[${s}]];</script></textarea></svg>
@@ -118,11 +118,10 @@
 <!DOCTYPE html>
 <html $NS t:params="String s"><frameset><frame t:src="s"></frameset></html>
 => t.html:2:57: error: <frameset> isn't supported: a browser uses it only if no body content came before it, so the page would depend on what precedes it; use an <iframe> or an ordinary layout [verifier:FRAMESET]
-=> t.html:1:1: error: <frameset> isn't supported: a browser uses it only if no body content came before it, so the page would depend on what precedes it; use an <iframe> or an ordinary layout [verifier:FRAMESET]
 == NOAHS_ARK: three nested <b>, one with a computed class
 -- t.html
 <b t:class="s"><b><b>x</b></b></b>
-=> t.html:1:56: error: three or more identical formatting elements (<b>, <i>, <a>, ...) are open here, one with a computed attribute: a browser reopens at most three of them, comparing attribute values, so the structure depends on the value; close them before opening another, or move the computed attribute to a <span> [verifier:NOAHS_ARK]
+=> t.html:1:56: error: three or more identical formatting elements (<b>, <i>, <a>, ...) are open here, one with a computed attribute: a browser reopens at most three of them, comparing attribute values, so the structure can depend on the value; close them before opening another, or move the computed attribute to a <span> [verifier:NOAHS_ARK]
 == STRUCTURE_DEPENDS_ON_DATA: a fragment that inserts itself, deeper each time
 -- rich.html
 <div $NS t:import="java.util.List" t:params="List<String> nodes"><t:block t:fragment="nodes(List<String> ns)"><t:block t:each="n : ns"><ul t:if="n == 'ul'"><li t:insert="~{rich :: nodes(ns)}"></li></ul></t:block></t:block><section t:insert="~{rich :: nodes(nodes)}"></section></div>

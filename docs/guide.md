@@ -1092,8 +1092,8 @@ leaving a particular one. Read the part for your engine before converting.
 in the template instead, with a fragment that inserts itself, one `t:case` per tag name, over a
 tree parsed in Java. There the data decides which element nests in which (a `p` inside a `p`,
 text directly inside a `table`), so the compiler can't check what the browser will build from
-the page. Don't write such a fragment: it is a build error once the compiler's build-time
-context verifier is enforced. `tessera-migrate` reports every `th:utext` and
+the page. Don't write such a fragment: the compiler's build-time context verifier rejects it
+(`STRUCTURE_DEPENDS_ON_DATA`, section 7). `tessera-migrate` reports every `th:utext` and
 `[(...)]` it converts, and every fragment of this shape with its call sites.
 
 An example from a real port: fredbet's info pages print HTML written in a Summernote editor.
@@ -1997,7 +1997,8 @@ Gaps in Tessera today, each with what to do until it is fixed.
 ### Verifier errors
 
 After its other checks, the compiler runs every template through two spec HTML parsers (current
-validator.nu, and an older one with classic `<select>` parsing) and checks that each value lands
+validator.nu, and an older version whose parsing some browsers still use, such as classic
+`<select>`) and checks that each value lands
 where its escaping keeps it inert. It follows every `t:if` branch and `t:each` pass, and checks a
 fragment at each place it is inserted. Most templates a browser would misread fail an earlier,
 more specific check from section 6 first. These errors catch the rest, often markup a browser
@@ -2005,14 +2006,14 @@ parses differently from how it looks: `<textarea>` or `<title>` inside `<svg>`, 
 outside `<svg>` and `<math>`.
 
 An error ends with `[verifier:RULE]`. For an expression inside a fragment, the error is at the
-call site and the message names the fragment and the expression's position in it. "Only in
-browsers with classic `<select>` parsing" or "only with scripting on" means browsers differ
-there; fix the template all the same.
+call site and the message names the fragment and the expression's position in it. "Only in the
+older HTML parsing some browsers still use", "only in current HTML parsing" or "only with
+scripting on" means browsers differ there; fix the template all the same.
 
 | Rule | What a browser does | Fix |
 |---|---|---|
 | `TEXT_NOT_IN_TEXT` | Reads the value inside markup: a tag after a literal `<` or `</`, a character reference after `&`, a comment, a CDATA section, the rest of the page after `<plaintext>` | Write a literal `<` as `&lt;` and `&` as `&amp;`; move the expression out of the comment or CDATA section; use `<pre>`, not `<plaintext>` |
-| `TEXT_IN_SCRIPT` | Runs the value as script code, or reads it as CSS, where escaping for text doesn't help | Write data into an HTML `<script>` as `[[${...}]]`, outside `<svg>` and `<math>`, or into a `data-*` attribute; set a class, not CSS |
+| `TEXT_IN_SCRIPT` | Runs the value as script code, or reads it as CSS, where escaping for text doesn't help: a `<script>` starts in markup where the template shows none, or the script is an SVG `<script>` | Move a `<script>` out of a `<title>` inside `<svg>`, `<math>` or `<select>`, and write a literal `<` in attribute values, comments and CDATA sections as `&lt;`; write an SVG script as an HTML `<script>` outside `<svg>` and `<math>`, with data as `[[${...}]]`; remove a `<!--` from a script; set a class, not CSS |
 | `TEXT_IN_TABLE` | Reads text directly in a `<table>`, `<tbody>`, `<tr>` or `<colgroup>` and moves it in front of the table | Put it in a `<td>` or `<th>` |
 | `TEXT_OUTSIDE_BODY` | Reads text in the `<head>` (which ends the head there) or after `</body>` (which it moves into the body) | Put it in `<title>`, `<meta content>` or an element in the body |
 | `TEXT_RECONSTRUCTS` | Reopens formatting elements (`<b>`, `<i>`, `<a>`) that an end tag closed out of order, and puts the value inside the copies | Close elements in the reverse order they were opened (`</b>` before `</p>`) |

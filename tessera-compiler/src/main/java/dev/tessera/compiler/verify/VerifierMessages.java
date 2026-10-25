@@ -94,7 +94,7 @@ final class VerifierMessages {
       case NOAHS_ARK:
         return "three or more identical formatting elements (<b>, <i>, <a>, ...) are open here, one with a computed"
             + " attribute: a browser reopens at most three of them, comparing attribute values, so the structure"
-            + " depends on the value; close them before opening another, or move the computed attribute to a <span>";
+            + " can depend on the value; close them before opening another, or move the computed attribute to a <span>";
       case LOOP_NO_FIXED_POINT:
         return "each pass of this loop leaves a browser with more elements open (it doesn't settle in "
             + ContextVerifier.MAX_ROUNDS + " passes); close inside the loop every element the loop opens";
@@ -264,7 +264,11 @@ final class VerifierMessages {
     if (s != null && escapedScript(s)) {
       return "remove the '<!--' (and any '<script' after it) from the script";
     }
-    return "write data into a script as [[${...}]] directly in an HTML <script>, or put it in a data-* attribute";
+    // Tessera wrote this hole as text, so the template shows no <script> here: one starts in the
+    // markup before it, where Tessera and a browser read the markup differently.
+    return "this <script> starts in the markup before it, where the template shows none: move a <script>"
+        + " out of a <title> inside <svg>, <math> or <select>, and write a literal '<' in attribute values, comments"
+        + " and CDATA sections as &lt;";
   }
 
   /** Whether the current node is SVG or MathML. */
@@ -342,18 +346,19 @@ final class VerifierMessages {
       case ATTRIBUTE_VALUE_SINGLE_QUOTED:
         return "inside a single-quoted attribute value";
       case ATTRIBUTE_VALUE_UNQUOTED:
+      case BEFORE_ATTRIBUTE_VALUE:
         return "inside an unquoted attribute value";
       case TAG_OPEN:
       case TAG_NAME:
         return "as a tag name, after a literal '<'";
-      case CLOSE_TAG_OPEN:
       case RAWTEXT_RCDATA_LESS_THAN_SIGN:
+        return "as the start of an end tag, after a literal '<'";
+      case CLOSE_TAG_OPEN:
       case NON_DATA_END_TAG_NAME:
         return "as the name of an end tag, after a literal '</'";
       case BEFORE_ATTRIBUTE_NAME:
       case ATTRIBUTE_NAME:
       case AFTER_ATTRIBUTE_NAME:
-      case BEFORE_ATTRIBUTE_VALUE:
       case AFTER_ATTRIBUTE_VALUE_QUOTED:
       case SELF_CLOSING_START_TAG:
         return "inside a tag, as attribute names";
@@ -392,7 +397,8 @@ final class VerifierMessages {
       return "check the markup before it";
     }
     String reading = reading(s);
-    if (reading.startsWith("as a tag name") || reading.startsWith("as the name of an end tag")) {
+    if (reading.startsWith("as a tag name") || reading.startsWith("as the name of an end tag")
+        || reading.startsWith("as the start of an end tag")) {
       return "write the literal '<' before it as &lt;";
     }
     if (reading.startsWith("as part of a character reference")) {
@@ -430,8 +436,8 @@ final class VerifierMessages {
     List<String> parts = new ArrayList<>();
     if (engines.size() < Engines.all().size()) {
       parts.add(engines.iterator().next().equals(Engines.CLASSIC.name())
-          ? "in browsers with classic <select> parsing, such as Firefox ESR"
-          : "in browsers with customizable <select> parsing, such as current Chromium");
+          ? "in the older HTML parsing some browsers still use"
+          : "in current HTML parsing");
     }
     if (scripting.size() == 1 && parsers == 2 * Engines.all().size()) {
       parts.add(scripting.iterator().next() ? "with scripting on" : "with scripting off");

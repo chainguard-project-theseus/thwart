@@ -140,7 +140,7 @@ class ContextVerifierRulesTest {
     // Classic <select> parsing only: the message names the engine.
     List<Finding> f = check(seq(st("<select>"), raw()));
     assertEquals(List.of(Problem.RAW_NOT_FLOW), problems(f));
-    assertTrue(VerifierMessages.message(f.get(0)).contains("only in browsers with classic <select> parsing, such as Firefox ESR: browsers differ here"),
+    assertTrue(VerifierMessages.message(f.get(0)).contains("only in the older HTML parsing some browsers still use: browsers differ here"),
         VerifierMessages.message(f.get(0)));
   }
 

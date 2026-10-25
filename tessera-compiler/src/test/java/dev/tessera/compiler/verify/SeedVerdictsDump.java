@@ -37,7 +37,7 @@ class SeedVerdictsDump {
           if (m.find()) {
             rules.add(m.group(1));
           }
-          classic &= e.contains("only in browsers with classic <select> parsing");
+          classic &= e.contains("only in the older HTML parsing some browsers still use");
         }
         String verdict = v.success() ? "ACCEPT" : "REJECT " + String.join(",", rules) + (classic ? " @classic" : "");
         w.println(String.join("\t", s.name(), s.expected().toString(), verdict, full.success() ? "OK" : "PROFILE",
