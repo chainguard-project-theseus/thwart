@@ -58,7 +58,8 @@ The old application is the specification. Work the way an expert would, keeping 
 3. **Set up the build** (guide section 2): the app builds with JDK 8+ and runs on Java 8+ with
    Spring 4.3+ or Boot 1.5+ (Servlet 3.0+; keep the app's Spring version), and the starter is
    `tessera-spring-boot-starter` for `jakarta.servlet` or `tessera-spring-boot-starter-javax` for
-   `javax.servlet`. Tessera can sit next to the old engine while you migrate.
+   `javax.servlet`. Tessera can sit next to the old engine while you migrate; until it is
+   removed it still renders every view Tessera doesn't know, with its own injection risks.
 4. **Convert one template at a time**, shared fragments and layouts first (guide section 4.10 for
    your engine). Convert templates that share a layout or form fragments in one context rather
    than splitting them across subagents. For each one, find every value it reads and make the
@@ -84,9 +85,10 @@ The old application is the specification. Work the way an expert would, keeping 
    every run (times, random ids) can be masked with `--ignore REGEX`; keep it narrow, since what it
    matches is never compared. Few differences are right. An empty value or a 500 nearly always
    means a value the old template took from outside the model.
-6. **Remove the old engine**: its templates, its dependency and its configuration. Diff
-   `mvn dependency:list` from before and after, and declare the libraries the app still uses that
-   came with the old engine. Then build, test and compare once more.
+6. **Remove the old engine**: this completes the security guarantee. Remove its templates, its
+   dependency and its configuration. Diff `mvn dependency:list` from before and after, and declare
+   the libraries the app still uses that came with the old engine. Then build, test and compare
+   once more.
 
 ## Time
 
@@ -105,7 +107,9 @@ The migration is checked against these facts. Work towards them, and report agai
 - Security isn't weakened. Don't use `SafeHtml.unchecked` or `TrustedUrl.unchecked` to get around
   escaping, and don't turn off CSRF or escaping. Output that the old engine printed raw and that
   Tessera now escapes is intended.
-- The old engine is gone: no templates, dependency or configuration remain.
+- The old engine is gone: no templates, dependency or configuration remain (`mvn dependency:list`
+  shows none of its artifacts, no view resolver of the old engine is configured, and there is no
+  `Tessera: another template engine is still configured` warning at startup).
 
 A `pages.txt` that skips pages or states makes `compare` pass without proving anything, so list
 every page.

@@ -6,6 +6,7 @@ import dev.tessera.spring.view.RenderContextFactory;
 import dev.tessera.spring.view.TesseraViewResolver;
 import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -80,6 +81,12 @@ public class TesseraAutoConfiguration {
         new FilterRegistrationBean<>(new ResourceUrlEncodingFilter());
     registration.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ERROR);
     return registration;
+  }
+
+  /** Warns at startup while another template engine's view resolver is still configured. */
+  @Bean
+  public SmartInitializingSingleton tesseraOldEngineWarning() {
+    return new OldEngineWarning();
   }
 
   @Bean
