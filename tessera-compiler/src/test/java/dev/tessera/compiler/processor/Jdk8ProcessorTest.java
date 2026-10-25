@@ -247,7 +247,7 @@ class Jdk8ProcessorTest {
     write(templates.resolve("bad.html"),
         "<div xmlns:t=\"https://tessera.dev\" t:params=\"String s\">\n<svg><script>var s = [[${s}]];</script></svg></div>");
     String failed = runFailing(javac);
-    assertTrue(failed.contains("bad.html:2:26: error: a browser reads this value (json escaper) inside SVG <script>"), failed);
+    assertTrue(failed.contains("bad.html:2:26: error: a browser reads this value (written as JSON for a script) inside SVG <script>"), failed);
     assertTrue(failed.contains("[verifier:JSON_NOT_IN_SCRIPT]"), failed);
   }
 

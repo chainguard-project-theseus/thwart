@@ -1951,8 +1951,8 @@ Gaps in Tessera today, each with what to do until it is fixed.
   and images from other hosts only with `allowRemoteImages()`, which lets whoever wrote the
   content see each reader's visit. Editor output that depends on them
   loses them: map what you need to classes in Java before sanitizing, or accept the loss.
-  Rebuilding the HTML in a template from a tree parsed in Java is a build error once the
-  build-time context verifier is enforced, and `SafeHtml.unchecked` is not a way around it
+  Rebuilding the HTML in a template from a tree parsed in Java is a build error
+  (`STRUCTURE_DEPENDS_ON_DATA` below), and `SafeHtml.unchecked` is not a way around it
   (section 4.10, Rich text).
 - **Framework attribute names.** Only the default names of client-side framework attributes are
   known (section 4.4). An Alpine prefix (`Alpine.prefix('data-x-')`), a Knockout binding provider
@@ -1993,3 +1993,38 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **Runtime errors** are model type mismatches (`TemplateModelException`), missing primitive
   parameters, reading a property of `null`, and `null` link path variables. Everything else is a
   build error.
+
+### Verifier errors
+
+After its other checks, the compiler runs every template through two spec HTML parsers (current
+validator.nu, and an older one with classic `<select>` parsing) and checks that each value lands
+where its escaping keeps it inert. It follows every `t:if` branch and `t:each` pass, and checks a
+fragment at each place it is inserted. Most templates a browser would misread fail an earlier,
+more specific check from section 6 first. These errors catch the rest, often markup a browser
+parses differently from how it looks: `<textarea>` or `<title>` inside `<svg>`, `<![CDATA[`
+outside `<svg>` and `<math>`.
+
+An error ends with `[verifier:RULE]`. For an expression inside a fragment, the error is at the
+call site and the message names the fragment and the expression's position in it. "Only in
+browsers with classic `<select>` parsing" or "only with scripting on" means browsers differ
+there; fix the template all the same.
+
+| Rule | What a browser does | Fix |
+|---|---|---|
+| `TEXT_NOT_IN_TEXT` | Reads the value inside markup: a tag after a literal `<` or `</`, a character reference after `&`, a comment, a CDATA section, the rest of the page after `<plaintext>` | Write a literal `<` as `&lt;` and `&` as `&amp;`; move the expression out of the comment or CDATA section; use `<pre>`, not `<plaintext>` |
+| `TEXT_IN_SCRIPT` | Runs the value as script code, or reads it as CSS, where escaping for text doesn't help | Write data into an HTML `<script>` as `[[${...}]]`, outside `<svg>` and `<math>`, or into a `data-*` attribute; set a class, not CSS |
+| `TEXT_IN_TABLE` | Reads text directly in a `<table>`, `<tbody>`, `<tr>` or `<colgroup>` and moves it in front of the table | Put it in a `<td>` or `<th>` |
+| `TEXT_OUTSIDE_BODY` | Reads text in the `<head>` (which ends the head there) or after `</body>` (which it moves into the body) | Put it in `<title>`, `<meta content>` or an element in the body |
+| `TEXT_RECONSTRUCTS` | Reopens formatting elements (`<b>`, `<i>`, `<a>`) that an end tag closed out of order, and puts the value inside the copies | Close elements in the reverse order they were opened (`</b>` before `</p>`) |
+| `RCDATA_NOT_IN_RCDATA` | Reads text escaped for `<title>` or `<textarea>` as ordinary text, where a `{{` in it could run in Vue or AngularJS | Insert the `<title>` or `<textarea>` outside `<svg>` and `<math>` |
+| `ATTRIBUTE_NOT_IN_VALUE` | Reads an attribute's value outside the attribute: earlier markup ended the tag or started raw text | Fix the markup before the tag |
+| `ATTRIBUTE_WRONG_NAME` | Reads the value as another attribute's, or drops a duplicate attribute | Write each attribute once |
+| `ATTRIBUTE_VALUE_CHANGES_PARSE` | Decides from the value where the element goes: `type` on an `<input>` directly in a table, `encoding` on MathML `<annotation-xml>` | Move the input into a `<td>`, or write the attribute as a static value |
+| `JSON_NOT_IN_SCRIPT` | Reads `[[...]]` JSON outside the code of an HTML `<script>`, for example in an SVG `<script>` | Write the script as an HTML `<script>` outside `<svg>` and `<math>` |
+| `RAW_NOT_FLOW` | Parses `SafeHtml`, a `Fragment` value or an HTML message outside body content: in the head, a table, a `<select>`, `<svg>`, `<math>`, or raw text such as `<noscript>` | Insert it in an element such as `<div>` in the body, or in a `<td>` |
+| `FRAMESET` | Uses a `<frameset>` only if no body content came before it | Use an `<iframe>` or an ordinary layout |
+| `NOAHS_ARK` | Reopens at most three identical formatting elements, comparing attribute values, one of them computed | Close them before opening another, or move the computed attribute to a `<span>` |
+| `LOOP_NO_FIXED_POINT` | Has more elements open after each `t:each` pass | Close inside the loop every element it opens |
+| `STRUCTURE_DEPENDS_ON_DATA` | Nests deeper at each call of a fragment that inserts itself, so the page's structure depends on data | For stored rich text, `t:utext="html.sanitize(...)"`, `html.sanitizeRich` or an application `HtmlPolicy` (section 4.10, Rich text), and delete the fragment; for other trees, render a fixed depth or flatten the tree in Java |
+| `TOO_MANY_STATES` | Can be in more than 24 different states (different elements open) after the branches and loops before this point | Close inside each `t:if`, `t:switch` and `t:each` the elements it opens, or split the template into fragments |
+| `ENGINE_FAILURE`, `UNKNOWN_NODE` | (Tessera couldn't check the template) | A compiler bug: report it with the template |

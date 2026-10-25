@@ -1,0 +1,134 @@
+# Golden: the context verifier's errors, one or more templates per rule id (VerifierMessagesTest).
+#
+#   == RULE_ID: what the template shows
+#   -- file.html      (a template; without $NS it is wrapped in <div xmlns:t=... t:params="String s">)
+#   => file.html:line:col: error: message   (each error the verifier alone reports, in order)
+#
+# The guide's verifier catalogue (section 7) quotes these. Regenerate the => lines with
+# -Dtessera.golden.update=true and review the diff.
+== TEXT_NOT_IN_TEXT: after a literal '<'
+-- t.html
+<p>1 <[[${s}]]</p>
+=> t.html:1:66: error: a browser reads this value as a tag name, after a literal '<', not as text; write the literal '<' before it as &lt; [verifier:TEXT_NOT_IN_TEXT]
+== TEXT_NOT_IN_TEXT: after a literal '&'
+-- t.html
+<p>&[[${s}]]</p>
+=> t.html:1:64: error: a browser reads this value as part of a character reference, after a literal '&', not as text; write the literal '&' before it as &amp; [verifier:TEXT_NOT_IN_TEXT]
+== TEXT_NOT_IN_TEXT: after '</' in a title
+-- t.html
+<title></[[${s}]]</title>
+=> t.html:1:69: error: a browser reads this value (escaped for <title> or <textarea>) as the name of an end tag, after a literal '</', not as text; write the literal '<' before it as &lt; [verifier:TEXT_NOT_IN_TEXT]
+== TEXT_NOT_IN_TEXT: after <plaintext>
+-- t.html
+<plaintext>[[${s}]]
+=> t.html:1:71: error: a browser reads this value as plain text after <plaintext>, not as text; remove the <plaintext>, which makes the rest of the page plain text; use <pre> instead [verifier:TEXT_NOT_IN_TEXT]
+== TEXT_NOT_IN_TEXT: in a CDATA section in SVG
+-- t.html
+<svg><![CDATA[ [[${s}]] ]]></svg>
+=> t.html:1:75: error: a browser reads this value inside a CDATA section, not as text; move the expression out of the CDATA section [verifier:TEXT_NOT_IN_TEXT]
+== TEXT_NOT_IN_TEXT: <![CDATA[ outside SVG and MathML is a comment up to the next '>'
+-- t.html
+<p><![CDATA[ [[${s}]] ]]></p>
+=> t.html:1:73: error: a browser reads this value inside a comment that a '<!' or '<?' started and the next '>' ends, not as text; write the '<' of the '<!' or '<?' before it as &lt; [verifier:TEXT_NOT_IN_TEXT]
+== TEXT_NOT_IN_TEXT: <svg><textarea> isn't raw text, so the expression is inside a tag
+-- t.html
+<svg><textarea><img src="x" alt=[[${s}]]></textarea></svg>
+=> t.html:1:92: error: a browser reads this value inside a tag, as attribute names, not as text; check the markup before it: a browser started a tag there [verifier:TEXT_NOT_IN_TEXT]
+== TEXT_IN_SCRIPT: <script> inside SVG <title> is an HTML script
+-- t.html
+<svg><title><script>var a = [[${s}]];</script></title></svg>
+=> t.html:1:88: error: a browser runs this value as the code of <script>, where escaping for text doesn't keep it inert; write data into a script as [[${...}]] directly in an HTML <script>, or put it in a data-* attribute [verifier:TEXT_IN_SCRIPT]
+== TEXT_IN_SCRIPT: <svg><textarea> isn't raw text, so the <script> is an SVG script
+-- t.html
+<svg><textarea><script>var a = [[${s}]];</script></textarea></svg>
+=> t.html:1:91: error: a browser runs this value as the code of SVG <script>, where escaping for text doesn't keep it inert; write the script as an HTML <script> outside <svg> and <math>, with data as [[${...}]] [verifier:TEXT_IN_SCRIPT]
+== TEXT_IN_SCRIPT: <style> inside SVG <title> is an HTML style sheet
+-- t.html
+<svg><title><style>[[${s}]]</style></title></svg>
+=> t.html:1:79: error: a browser reads this value as CSS in <style>, where escaping for text doesn't keep it inert; Tessera doesn't write values into style sheets: set a class instead [verifier:TEXT_IN_SCRIPT]
+== TEXT_IN_TABLE: text directly in a table
+-- t.html
+<table><tr><td>a</td></tr>[[${s}]]</table>
+=> t.html:1:86: error: a browser reads this value as table text and moves it in front of the table; put it in a <td> or <th> [verifier:TEXT_IN_TABLE]
+== TEXT_IN_TABLE: text in a colgroup
+-- t.html
+<table><colgroup>[[${s}]]</colgroup></table>
+=> t.html:1:77: error: a browser reads this value as text in a <colgroup>, which ends the column group, and moves it in front of the table; put it in a <td> or <th> [verifier:TEXT_IN_TABLE]
+== TEXT_IN_TABLE: an htmx row partial, also checked as rows of a table
+-- row.html
+<tr $NS t:params="String s">[[${s}]]<td>x</td></tr>
+=> row.html:1:59: error: a browser reads this value as table text and moves it in front of the table; put it in a <td> or <th> [verifier:TEXT_IN_TABLE]
+== TEXT_OUTSIDE_BODY: text in the head
+-- t.html
+<!DOCTYPE html>
+<html $NS t:params="String s"><head>[[${s}]]</head><body></body></html>
+=> t.html:2:67: error: a browser reads this value as text in the <head>, which ends the head there, so the rest of the head lands in the body; put it in <title>, in <meta content>, or in an element in the body [verifier:TEXT_OUTSIDE_BODY]
+== TEXT_OUTSIDE_BODY: text after </body>
+-- t.html
+<!DOCTYPE html>
+<html $NS t:params="String s"><head></head><body></body>[[${s}]]</html>
+=> t.html:2:87: error: a browser reads this value as text after </body> and moves it back into the body; put it in an element in the body [verifier:TEXT_OUTSIDE_BODY]
+== TEXT_OUTSIDE_BODY: a fragment inserted in the head; the error is at the call site
+-- c.html
+<!DOCTYPE html>
+<html $NS t:params="String s"><head><t:block t:replace="~{h :: h(s)}"></t:block></head><body></body></html>
+-- h.html
+<div $NS><t:block t:fragment="h(String v)">[[${v}]]</t:block></div>
+=> c.html:2:83: error: in fragment h :: h, inserted here, at h.html:1:74: a browser reads this value as text in the <head>, which ends the head there, so the rest of the head lands in the body; put it in <title>, in <meta content>, or in an element in the body [verifier:TEXT_OUTSIDE_BODY]
+== TEXT_RECONSTRUCTS: </p> closes the <b> out of order
+-- t.html
+<p><b>x</p>[[${s}]]
+=> t.html:1:71: error: before this value a browser reopens formatting elements (<b>, <i>, <a>, ...) that an end tag closed out of order, and puts the value inside the copies; close elements in the reverse order they were opened (</b> before </p>) [verifier:TEXT_RECONSTRUCTS]
+== RCDATA_NOT_IN_RCDATA: a <title> fragment inserted inside <svg>
+-- t.html
+<title t:fragment="f(String v)" t:text="v">x</title><svg><t:block t:replace="~{t :: f(s)}"></t:block></svg>
+=> t.html:1:133: error: in fragment t :: f, inserted here, at t.html:1:96: this value is escaped for the text of <title> or <textarea>, but a browser reads it as text inside SVG <title>, where a {{ in it could run in Vue or AngularJS; insert the <title> or <textarea> outside <svg> and <math> [verifier:RCDATA_NOT_IN_RCDATA]
+== ATTRIBUTE_NOT_IN_VALUE: <![CDATA[ outside SVG ends at the first '>', so <script> starts there
+-- t.html
+<div><![CDATA[ > <script>//]]><b t:title="s">x</b></div><script></script>
+=> t.html:1:89: error: a browser reads this value of 'title' as the code of <script>, not inside the double-quoted value of 'title'; check the markup before the tag: a browser ended the tag, or started raw text, there [verifier:ATTRIBUTE_NOT_IN_VALUE]
+=> t.html:1:112: error: a browser reads this value of 'nonce' as the code of <script>, not inside the double-quoted value of 'nonce'; check the markup before the tag: a browser ended the tag, or started raw text, there [verifier:ATTRIBUTE_NOT_IN_VALUE]
+== ATTRIBUTE_VALUE_CHANGES_PARSE: a computed input type directly in a table
+-- t.html
+<table><input t:type="s"></table>
+=> t.html:1:70: error: a computed 'type' on an <input> directly in a table decides where a browser puts it (type=hidden stays in the table, any other input is moved in front of it); move the input into a <td>, or write the type as a static value [verifier:ATTRIBUTE_VALUE_CHANGES_PARSE]
+== ATTRIBUTE_VALUE_CHANGES_PARSE: a computed MathML encoding
+-- t.html
+<math><annotation-xml t:encoding="s"></annotation-xml></math>
+=> t.html:1:78: error: a computed 'encoding' on MathML <annotation-xml> decides whether a browser parses its content as HTML or as MathML; write the encoding as a static value [verifier:ATTRIBUTE_VALUE_CHANGES_PARSE]
+== JSON_NOT_IN_SCRIPT: [[...]] in an SVG script
+-- t.html
+<svg><script>var a = [[${s}]];</script></svg>
+=> t.html:1:81: error: a browser reads this value (written as JSON for a script) inside SVG <script>, where a browser decodes character references and reads tags; JSON is safe only as the code of an HTML <script>; write the script as an HTML <script> outside <svg> and <math> [verifier:JSON_NOT_IN_SCRIPT]
+== RAW_NOT_FLOW: SafeHtml in the head
+-- t.html
+<!DOCTYPE html>
+<html $NS t:import="dev.tessera.runtime.SafeHtml" t:params="SafeHtml h"><head><t:block t:utext="h"></t:block></head><body></body></html>
+=> t.html:2:123: error: a browser parses this SafeHtml value in the <head>, not as content of the body; insert HTML only in the body, and write head content (<link>, <meta>) in the template or pass it as a fragment [verifier:RAW_NOT_FLOW]
+== RAW_NOT_FLOW: SafeHtml directly in a table
+-- t.html
+<table $NS t:import="dev.tessera.runtime.SafeHtml" t:params="SafeHtml h"><t:block t:utext="h"></t:block></table>
+=> t.html:1:118: error: a browser parses this SafeHtml value in a table outside any cell, not as content of the body, and moves what isn't table markup in front of the table; put it in a <td> or <th> [verifier:RAW_NOT_FLOW]
+== RAW_NOT_FLOW: SafeHtml in <noscript>, which is text with scripting on
+-- t.html
+<noscript><p t:utext="html.sanitize(s)">x</p></noscript>
+=> t.html:1:78: error: a browser parses this SafeHtml value as the raw text of <noscript>, not as content of the body, so its markup is shown or dropped; insert it outside <noscript> (only with scripting on) [verifier:RAW_NOT_FLOW]
+== FRAMESET: a frameset page
+-- t.html
+<!DOCTYPE html>
+<html $NS t:params="String s"><frameset><frame t:src="s"></frameset></html>
+=> t.html:2:57: error: <frameset> isn't supported: a browser uses it only if no body content came before it, so the page would depend on what precedes it; use an <iframe> or an ordinary layout [verifier:FRAMESET]
+=> t.html:1:1: error: <frameset> isn't supported: a browser uses it only if no body content came before it, so the page would depend on what precedes it; use an <iframe> or an ordinary layout [verifier:FRAMESET]
+== NOAHS_ARK: three nested <b>, one with a computed class
+-- t.html
+<b t:class="s"><b><b>x</b></b></b>
+=> t.html:1:56: error: three or more identical formatting elements (<b>, <i>, <a>, ...) are open here, one with a computed attribute: a browser reopens at most three of them, comparing attribute values, so the structure depends on the value; close them before opening another, or move the computed attribute to a <span> [verifier:NOAHS_ARK]
+== STRUCTURE_DEPENDS_ON_DATA: a fragment that inserts itself, deeper each time
+-- rich.html
+<div $NS t:import="java.util.List" t:params="List<String> nodes"><t:block t:fragment="nodes(List<String> ns)"><t:block t:each="n : ns"><ul t:if="n == 'ul'"><li t:insert="~{rich :: nodes(ns)}"></li></ul></t:block></t:block><section t:insert="~{rich :: nodes(nodes)}"></section></div>
+=> rich.html:1:268: error: fragment rich :: nodes calls itself (at rich.html:1:197), and each call nests deeper in a browser (it doesn't settle in 4 calls), so the markup structure depends on data; for stored rich text, print it with t:utext="html.sanitize(...)" (or html.sanitizeRich, or an application HtmlPolicy; guide section 4.10, Rich text) and delete the fragment; for other trees, render a fixed depth or flatten the tree in Java [verifier:STRUCTURE_DEPENDS_ON_DATA]
+== TOO_MANY_STATES: five t:if blocks, each leaving a different formatting element to reopen
+-- t.html
+<t:block t:if="s == '0'"><p><b>x</p></t:block><t:block t:if="s == '1'"><p><i>x</p></t:block><t:block t:if="s == '2'"><p><u>x</p></t:block><t:block t:if="s == '3'"><p><s>x</p></t:block><t:block t:if="s == '4'"><p><em>x</p></t:block>[[${s}]]
+=> t.html:1:249: error: the branches and loops before this point can leave a browser in more than 24 different states (different elements open), more than Tessera checks; close inside each t:if, t:switch and t:each the elements it opens, or split the template into fragments [verifier:TOO_MANY_STATES]
+=> t.html:1:291: error: before this value a browser reopens formatting elements (<b>, <i>, <a>, ...) that an end tag closed out of order, and puts the value inside the copies; close elements in the reverse order they were opened (</b> before </p>) [verifier:TEXT_RECONSTRUCTS]
