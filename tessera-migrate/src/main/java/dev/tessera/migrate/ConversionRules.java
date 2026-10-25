@@ -253,7 +253,18 @@ final class ConversionRules {
           + PARSE_ERROR_REJECTED + "; guide section 4.8, Layouts)";
   static final String LAYOUT_ATTRIBUTES_MESSAGE =
       "`%s` is passed to `%s`, which inserts it inside its own `<%s>`: a second `<%s>` is " + PARSE_ERROR_REJECTED
-          + ". Not rewritten, because `t:remove=\"tag\"` would drop its attributes (a browser merges them into the layout's `<%s>`): move them to the layout's element (a `String` parameter for a class, say), then mark this element `t:remove=\"tag\"` (guide section 4.8, Layouts)";
+          + ". Not rewritten, because `t:remove=\"tag\"` would drop the attributes a browser merges into the layout's `<%s>`. Fix: %s, then mark this `<%s>` `t:remove=\"tag\"` (guide section 4.8, Layouts)";
+  /** Where to move attributes a removed tag would drop; {@link Layouts}. */
+  static final String LAYOUT_PARAMETER_FIX =
+      "give `%s` a `String` parameter for %s and set it on its `<%s>` (for example `String %s` and `<%s t:%s=\"%s\">`), and pass %s from this page and `null` from the layout's other calls";
+  static final String PAGE_ELEMENT_FIX = "move %s to this page's `<%s>` on line %d";
+  static final String ELEMENT_FIX = "move %s to the `<%s>` the page renders";
+  /** How a page passes its {@code <head>} content to a layout; {@link Layouts}. */
+  static final String HEAD_PARAMETER_FIX =
+      "move it into a `<head t:remove=\"tag\">` in this page (beside its `<body>`) and pass `~{::head}` as the `%s` argument of `%s`";
+  static final String NO_HEAD_PARAMETER_FIX =
+      "`%s` takes no `<head>` content: give it a `Fragment head` parameter written as `<t:block t:replace=\"head\"></t:block>` in its `<head>`, move this into a `<head t:remove=\"tag\">` in this page and pass `~{::head}` for it (and `null` from the layout's other calls)";
+  static final String PAGE_HEAD_FIX = "move it into this page's `<head>`";
   static final String LAYOUT_UNRESOLVED_MESSAGE =
       "the `<%s>` passed to `%s` was not checked (the fragment or its parameter is not among the converted templates); if the fragment inserts it inside its own `<%s>`, mark this `<%s>` `t:remove=\"tag\"` (guide section 4.8, Layouts)";
   static final String INNER_PAGE_ELEMENT_MESSAGE =
@@ -261,19 +272,21 @@ final class ConversionRules {
           + PARSE_ERROR_REJECTED + " (the page's `<%s>` is the layout's or its own)";
   static final String INNER_PAGE_ELEMENT_ATTRIBUTES_MESSAGE =
       "`%s` is inside a `<body>`: a browser ignores the tag and merges its attributes into the page's `<%s>`, and a second `<%s>` is "
-          + PARSE_ERROR_REJECTED + ". Not rewritten, because deleting it would drop the attributes: move them to the `<%s>` the page renders (in a layout, a `String` parameter for a class, say), then delete this `<%s>` and its `</%s>`";
+          + PARSE_ERROR_REJECTED + ". Not rewritten, because deleting it would drop them. Fix: %s, then delete this `<%s>` and its `</%s>` (guide section 4.8, Layouts)";
   static final String HEAD_IN_BODY_MESSAGE =
       "`<head>` inside a `<body>`: a browser ignores its tags and keeps its elements in the body ("
-          + PARSE_ERROR_REJECTED + "): move the elements into the `<head>` the page passes to the layout (`<head t:remove=\"tag\">` passed as `~{::head}`), and drop those the layout's `<head>` already has";
+          + PARSE_ERROR_REJECTED + "). Fix: delete its `<head>` and `</head>` and the elements the page's `<head>` already has; for each of the rest, %s";
   static final String FRAGMENT_DOCUMENT_REWRITE_MESSAGE =
       "rewritten: fragment `%s` wrote a whole document (`<html>`, `<head>`, `<body>`) into page bodies; a browser ignored those tags, and they are "
-          + PARSE_ERROR_REJECTED + ". Deleted its `<html>` and `<body>` tags and its `<head>`, which held %s: put what the pages need in the layout's `<head>`";
+          + PARSE_ERROR_REJECTED + ". Deleted those tags and kept their content where a browser put it, in the page body%s";
+  static final String FRAGMENT_HEAD_KEPT =
+      ", including what the `<head>` held (%s): delete those the layout's `<head>` already has and move the rest there";
   static final String FRAGMENT_DOCUMENT_MESSAGE =
       "fragment `%s` writes a whole document (`<html>`, `<head>`, `<body>`) inside another element; where it is inserted these tags are "
           + PARSE_ERROR_REJECTED + ": keep only the body's content in the fragment, and move what its head needs to the layout's `<head>`";
   static final String BEFORE_LAYOUT_MESSAGE =
       "`<%s>` is written before the layout `%s` writes its doctype, so a browser ignores the doctype and renders the page in quirks mode ("
-          + PARSE_ERROR_REJECTED + "): move it into the `<head>` the page passes to the layout (`<head t:remove=\"tag\">` passed as `~{::head}`)";
+          + PARSE_ERROR_REJECTED + "). Fix: %s";
   static final String BLOCK_IN_P_MESSAGE =
       "`<%s>` inside the `<p>` of line %d closes that paragraph, so the `</p>` on line %d has no `<p>` to close ("
           + PARSE_ERROR_REJECTED + "): use a `<div>` instead of the `<p>`";

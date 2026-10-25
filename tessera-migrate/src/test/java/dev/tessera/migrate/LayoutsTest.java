@@ -111,6 +111,27 @@ class LayoutsTest {
   }
 
   @Test
+  void attributeTheLayoutSetsDynamicallyIsReportedNotDropped() {
+    // t:class replaces the static class and omits it when null, so the page's class may be merged.
+    String layout = LAYOUT.replace("<body class=\"app\">", "<body class=\"app\" t:class=\"null\">");
+    String page = "<html xmlns:t=\"https://tessera.dev\" t:replace=\"~{layout :: layout(~{::body}, null)}\">\n"
+        + "<body class=\"app\">\n<h1>Hi</h1>\n</body>\n</html>\n";
+    Layouts.Result r = rewrite("layout.html", layout, "page.html", page);
+    assertEquals(page, r.templates().get("page.html"));
+    assertMessages(r, "page.html:2: `<body class=\"app\">` is passed to `layout :: layout`");
+    assertTrue(r.items().get(0).message().contains("`String bodyClass` and `<body t:class=\"bodyClass\">`"),
+        messages(r).toString());
+  }
+
+  @Test
+  void layoutPathWithALeadingSlashIsResolved() {
+    String page = "<html xmlns:t=\"https://tessera.dev\" t:replace=\"~{/fragments/layout :: layout(~{::body}, null)}\">\n"
+        + "<body>\n<h1>Hi</h1>\n</body>\n</html>\n";
+    Layouts.Result r = rewrite("fragments/layout.html", LAYOUT, "page.html", page);
+    assertEquals(page.replace("<body>", "<body t:remove=\"tag\">"), r.templates().get("page.html"));
+  }
+
+  @Test
   void unknownLayoutIsReportedNotRewritten() {
     String page = "<html xmlns:t=\"https://tessera.dev\" t:replace=\"~{missing :: layout(~{::body})}\">\n"
         + "<body>\n<h1>Hi</h1>\n</body>\n</html>\n";
@@ -155,10 +176,11 @@ class LayoutsTest {
     String page = "<html xmlns:t=\"https://tessera.dev\" t:replace=\"~{layout :: layout(~{::body}, null)}\">\n"
         + "<body t:remove=\"tag\">\n<t:block t:replace=\"~{navbar :: navbar('ann')}\"></t:block>\n</body>\n</html>\n";
     Layouts.Result r = rewrite("layout.html", LAYOUT, "navbar.html", NAVBAR, "page.html", page);
+    // Only the tags a browser ignores go; the head's elements stay where a browser put them.
     assertEquals("<div xmlns:t=\"https://tessera.dev\">\n<t:block t:fragment=\"navbar(String user)\">\n"
-        + "  <nav t:text=\"user\">u</nav>\n</t:block>\n</div>\n", r.templates().get("navbar.html"));
+        + "  <title>T</title>\n  <nav t:text=\"user\">u</nav>\n</t:block>\n</div>\n", r.templates().get("navbar.html"));
     assertMessages(r, "navbar.html:3: rewritten: fragment `navbar :: navbar` wrote a whole document");
-    assertTrue(r.items().get(0).message().contains("held `<title>`"), messages(r).toString());
+    assertTrue(r.items().get(0).message().contains("what the `<head>` held (`<title>`)"), messages(r).toString());
   }
 
   @Test
@@ -174,6 +196,16 @@ class LayoutsTest {
         + "<body t:remove=\"tag\">\n<t:block t:replace=\"~{navbar :: navbar('ann')}\"></t:block>\n</body>\n</html>\n";
     r = rewrite("layout.html", LAYOUT, "navbar.html", fr, "page.html", inBody);
     assertEquals(fr, r.templates().get("navbar.html"));
+    assertMessages(r, "navbar.html:3: fragment `navbar :: navbar` writes a whole document");
+  }
+
+  @Test
+  void fragmentThatWritesADocumentAndIsPassedAsAnArgumentIsReported() {
+    // The layout may insert an argument anywhere, so the page body inserts don't cover it.
+    String page = "<html xmlns:t=\"https://tessera.dev\" t:replace=\"~{layout :: layout(~{::body}, ~{navbar :: navbar('x')})}\">\n"
+        + "<body t:remove=\"tag\">\n<t:block t:replace=\"~{navbar :: navbar('ann')}\"></t:block>\n</body>\n</html>\n";
+    Layouts.Result r = rewrite("layout.html", LAYOUT, "navbar.html", NAVBAR, "page.html", page);
+    assertEquals(NAVBAR, r.templates().get("navbar.html"));
     assertMessages(r, "navbar.html:3: fragment `navbar :: navbar` writes a whole document");
   }
 

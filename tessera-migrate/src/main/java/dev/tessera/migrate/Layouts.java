@@ -10,7 +10,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.attoparser.AbstractMarkupHandler;
 import org.attoparser.MarkupParser;
 import org.attoparser.ParseException;
@@ -317,18 +316,21 @@ final class Layouts {
       } else {
         items.add(new Report.Item(c.tree.file, selected.line, String.format(
             ConversionRules.LAYOUT_ATTRIBUTES_MESSAGE, startTag(c.tree, selected), display(c.target),
-            selected.name, selected.name, selected.name)));
+            selected.name, selected.name, selected.name, moveFix(selected, selected.name, c, null),
+            selected.name)));
       }
     }
     for (Tree t : trees) {
       for (El e : t.all) {
         if ((e.name.equals("body") || e.name.equals("html")) && e.hasAncestor("body", null)) {
-          innerPageElement(t, e, passedInto, items);
+          innerPageElement(t, e, passedInto, passedBy, items);
         } else if (e.name.equals("head") && e.hasAncestor("body", null)) {
-          items.add(new Report.Item(t.file, e.line, ConversionRules.HEAD_IN_BODY_MESSAGE));
+          Call layout = passedBy.get(outerBody(e));
+          items.add(new Report.Item(t.file, e.line, String.format(ConversionRules.HEAD_IN_BODY_MESSAGE,
+              layout == null ? ConversionRules.PAGE_HEAD_FIX : headFix(layout, defs))));
         }
         if (e.name.equals("html") && e.parent != t.root && !e.hasAncestor("html", null)) {
-          documentInFragment(t, e, calls, passedInto, items);
+          documentInFragment(t, e, trees, calls, passedInto, items);
         }
       }
       reportOtherErrors(t, items);
@@ -336,7 +338,7 @@ final class Layouts {
     for (Call c : calls) {
       Def d = defs.get(c.target);
       if (d != null && d.el.name.equals("html")) {
-        beforeLayout(c, items);
+        beforeLayout(c, defs, items);
       }
     }
 
@@ -366,7 +368,8 @@ final class Layouts {
         String value = e.t(attr);
         Matcher m = value == null ? null : CALL.matcher(value);
         if (m != null && m.matches()) {
-          String path = m.group(1).isEmpty() || m.group(1).equals(THIS_TEMPLATE) ? t.template : m.group(1);
+          String path = m.group(1).isEmpty() || m.group(1).equals(THIS_TEMPLATE) ? t.template
+              : m.group(1).startsWith("/") ? m.group(1).substring(1) : m.group(1);
           calls.add(new Call(t, e, path + "::" + m.group(2), m.group(3)));
         }
       }
@@ -389,9 +392,13 @@ final class Layouts {
     if (into == null) {
       return false;
     }
+    if (into.t("remove") != null || into.t("attr") != null) {
+      return false;
+    }
     Map<String, String> theirs = into.htmlAttrs();
     for (Map.Entry<String, String> a : mine.entrySet()) {
-      if (!a.getValue().equals(theirs.get(a.getKey()))) {
+      // t:<name> replaces the static value and omits it when null
+      if (!a.getValue().equals(theirs.get(a.getKey())) || into.t(a.getKey()) != null) {
         return false;
       }
     }
@@ -404,12 +411,7 @@ final class Layouts {
    * {@code null} if not known.
    */
   private static El documentElement(Tree t, El inside, String tag, Map<El, El> passedInto) {
-    El body = null; // the outermost: a browser merges inner ones into it
-    for (El p = inside; p != null; p = p.parent) {
-      if (p.name.equals("body")) {
-        body = p;
-      }
-    }
+    El body = outerBody(inside); // a browser merges inner ones into it
     if (body == null) {
       return null;
     }
@@ -424,6 +426,63 @@ final class Layouts {
       }
     }
     return null;
+  }
+
+  /** The outermost {@code <body>} that is {@code e} or holds it, or {@code null}. */
+  private static El outerBody(El e) {
+    El body = null;
+    for (El p = e; p != null; p = p.parent) {
+      if (p.name.equals("body")) {
+        body = p;
+      }
+    }
+    return body;
+  }
+
+  /**
+   * The fix for attributes of {@code e} that deleting its tag would drop: move them to the
+   * {@code <tag>} of {@code layout}'s fragment, or to {@code pageTarget}, the page's own element.
+   */
+  private static String moveFix(El e, String tag, Call layout, El pageTarget) {
+    List<String> list = new ArrayList<>();
+    e.htmlAttrs().forEach((k, v) -> list.add("`" + k + (v.isEmpty() ? "" : "=\"" + v + "\"") + "`"));
+    String attrs = String.join(", ", list);
+    if (layout != null && !list.isEmpty()) {
+      Map.Entry<String, String> first = e.htmlAttrs().entrySet().iterator().next();
+      String key = first.getKey();
+      boolean expression = key.startsWith(ConversionRules.TESSERA_PREFIX) || key.startsWith(ConversionRules.THYMELEAF_PREFIX);
+      String name = expression ? key.substring(key.indexOf(':') + 1) : key;
+      StringBuilder param = new StringBuilder(tag);
+      boolean upper = true;
+      for (char ch : name.toCharArray()) {
+        if (!Character.isLetterOrDigit(ch)) {
+          upper = true;
+        } else {
+          param.append(upper ? Character.toUpperCase(ch) : ch);
+          upper = false;
+        }
+      }
+      return String.format(ConversionRules.LAYOUT_PARAMETER_FIX, display(layout.target), attrs, tag, param, tag,
+          name, param, expression ? "`" + first.getValue() + "`" : "`'" + first.getValue() + "'`");
+    }
+    if (pageTarget != null) {
+      return String.format(ConversionRules.PAGE_ELEMENT_FIX, attrs, tag, pageTarget.line);
+    }
+    return String.format(ConversionRules.ELEMENT_FIX, attrs, tag);
+  }
+
+  /** How the page that makes {@code layout} call passes {@code <head>} content to it. */
+  private static String headFix(Call layout, Map<String, Def> defs) {
+    Def d = defs.get(layout.target);
+    if (d == null) {
+      return String.format(ConversionRules.HEAD_PARAMETER_FIX, "head", display(layout.target));
+    }
+    for (String p : d.params) {
+      if (insertedInside(d, p, "head") != null) {
+        return String.format(ConversionRules.HEAD_PARAMETER_FIX, p, display(layout.target));
+      }
+    }
+    return String.format(ConversionRules.NO_HEAD_PARAMETER_FIX, display(layout.target));
   }
 
   private static String startTag(Tree t, El e) {
@@ -506,24 +565,28 @@ final class Layouts {
   }
 
   /** A literal {@code <body>} or {@code <html>} inside a {@code <body>}: a browser ignores its tags. */
-  private static void innerPageElement(Tree t, El e, Map<El, El> passedInto, List<Report.Item> items) {
-    if (e.closeStart >= 0 && attributesMerge(e, documentElement(t, e.parent, e.name, passedInto))) {
+  private static void innerPageElement(Tree t, El e, Map<El, El> passedInto, Map<El, Call> passedBy,
+      List<Report.Item> items) {
+    El into = documentElement(t, e.parent, e.name, passedInto);
+    if (attributesMerge(e, into)) {
       t.deleteTags(e);
       items.add(new Report.Item(t.file, e.line,
           String.format(ConversionRules.INNER_PAGE_ELEMENT_MESSAGE, e.name, e.name, e.name)));
     } else {
+      Call layout = passedBy.get(outerBody(e.parent));
+      String fix = moveFix(e, e.name, layout, layout == null ? into : null);
       items.add(new Report.Item(t.file, e.line, String.format(
-          ConversionRules.INNER_PAGE_ELEMENT_ATTRIBUTES_MESSAGE, startTag(t, e), e.name, e.name, e.name, e.name, e.name)));
+          ConversionRules.INNER_PAGE_ELEMENT_ATTRIBUTES_MESSAGE, startTag(t, e), e.name, e.name, fix, e.name, e.name)));
     }
   }
 
   /**
    * A fragment that writes a whole {@code <html>} document (a copied include), inserted only into
    * page bodies: a browser ignores its {@code <html>}, {@code <head>} and {@code <body>} tags and
-   * keeps the head's elements in the body.
+   * keeps the head's elements in the body. Only those tags are deleted.
    */
-  private static void documentInFragment(Tree t, El html, List<Call> calls, Map<El, El> passedInto,
-      List<Report.Item> items) {
+  private static void documentInFragment(Tree t, El html, List<Tree> trees, List<Call> calls,
+      Map<El, El> passedInto, List<Report.Item> items) {
     El fragment = null;
     for (El p = html.parent; p != null && fragment == null; p = p.parent) {
       if (p.t("fragment") != null) {
@@ -545,10 +608,12 @@ final class Layouts {
       }
     }
     boolean rewritable = false;
+    int inserts = 0;
     for (Call c : calls) {
       if (!c.target.equals(key)) {
         continue;
       }
+      inserts++;
       // Every insert is in a page body, and a browser merges nothing new into that page.
       rewritable = attributesMerge(html, documentElement(c.tree, c.host, "html", passedInto));
       for (El b : bodies) {
@@ -560,43 +625,61 @@ final class Layouts {
       }
     }
     for (El h : heads) {
-      rewritable &= h.attrs.isEmpty() && staticMarkup(h);
+      rewritable &= h.attrs.isEmpty();
     }
+    // A reference that isn't a plain insert (an argument, a conditional) may insert it elsewhere.
+    rewritable &= references(trees, t, key) <= inserts;
     if (!rewritable) {
       items.add(new Report.Item(t.file, html.line,
           String.format(ConversionRules.FRAGMENT_DOCUMENT_MESSAGE, display(key))));
       return;
     }
     t.deleteTags(html);
-    List<String> dropped = new ArrayList<>();
+    List<String> kept = new ArrayList<>();
     for (El h : heads) {
       for (El c : h.children) {
-        dropped.add(startTag(t, c));
+        kept.add("`" + startTag(t, c) + "`");
       }
-      t.delete(h.start, h.closeStart >= 0 ? h.closeEnd : h.openEnd);
+      t.deleteTags(h);
     }
     for (El b : bodies) {
       t.deleteTags(b);
     }
     items.add(new Report.Item(t.file, html.line, String.format(
-        ConversionRules.FRAGMENT_DOCUMENT_REWRITE_MESSAGE, display(key),
-        dropped.isEmpty() ? "nothing" : dropped.stream().map(s -> "`" + s + "`").collect(Collectors.joining(", ")))));
+        ConversionRules.FRAGMENT_DOCUMENT_REWRITE_MESSAGE, display(key), kept.isEmpty() ? ""
+            : String.format(ConversionRules.FRAGMENT_HEAD_KEPT, String.join(", ", kept)))));
   }
 
-  private static boolean staticMarkup(El e) {
-    if (e.hasTemplateAttrs() || e.name.contains(":")) {
-      return false;
-    }
-    for (El c : e.children) {
-      if (!staticMarkup(c)) {
-        return false;
+  /** How many template attributes in {@code trees} name fragment {@code key} of {@code t}. */
+  private static int references(List<Tree> trees, Tree t, String key) {
+    int sep = key.indexOf("::");
+    String name = Pattern.quote(key.substring(sep + 2)) + "(?![\\w-])";
+    Pattern other = Pattern.compile("(?<![\\w/.-])/?" + Pattern.quote(key.substring(0, sep)) + "\\s*::\\s*" + name);
+    Pattern same = Pattern.compile("(?:^|[^\\w/.-])(?:this\\s*)?::\\s*" + name);
+    int n = 0;
+    for (Tree tree : trees) {
+      for (El e : tree.all) {
+        for (Map.Entry<String, String> a : e.attrs.entrySet()) {
+          if (a.getKey().startsWith(ConversionRules.TESSERA_PREFIX) || a.getKey().startsWith(ConversionRules.THYMELEAF_PREFIX)) {
+            Matcher m = other.matcher(a.getValue());
+            while (m.find()) {
+              n++;
+            }
+            if (tree == t) {
+              m = same.matcher(a.getValue());
+              while (m.find()) {
+                n++;
+              }
+            }
+          }
+        }
       }
     }
-    return true;
+    return n;
   }
 
   /** Elements a page writes before the layout it calls, so before the layout's doctype. */
-  private static void beforeLayout(Call c, List<Report.Item> items) {
+  private static void beforeLayout(Call c, Map<String, Def> defs, List<Report.Item> items) {
     for (El h = c.host; h != null && h != c.tree.root; h = h.parent) {
       El parent = h.parent;
       for (El sibling : parent.children) {
@@ -608,7 +691,7 @@ final class Layouts {
           continue;
         }
         items.add(new Report.Item(c.tree.file, sibling.line, String.format(
-            ConversionRules.BEFORE_LAYOUT_MESSAGE, sibling.name, display(c.target))));
+            ConversionRules.BEFORE_LAYOUT_MESSAGE, sibling.name, display(c.target), headFix(c, defs))));
       }
     }
   }
