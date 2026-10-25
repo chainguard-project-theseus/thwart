@@ -113,10 +113,11 @@ class ProfileOracleTest {
     E,
     /**
      * Not a finding: a {@code CONTEXT_MISMATCH} where the value is inert by the verifier's rule
-     * table. Over-escaped text in the raw text of an element that never runs ({@code noscript} with
-     * scripting on, {@code iframe}, {@code xmp}, {@code noembed}, {@code noframes}: seed family
-     * {@code OVER}), or an attribute value the parser dropped with its start tag (an element the
-     * insertion mode ignores, such as {@code <span>} under classic {@code <select>} parsing). Counted.
+     * table. A value, whatever its escaper, in the raw text of an element that never runs ({@code
+     * noscript} with scripting on, {@code iframe}, {@code xmp}, {@code noembed}, {@code noframes};
+     * Rules.hole's first rule; seed family {@code OVER}), or an attribute value the parser dropped
+     * with its start tag (an element the insertion mode ignores, such as {@code <span>} under classic
+     * {@code <select>} parsing). Counted, and listed in the report.
      */
     INERT
   }
@@ -535,7 +536,7 @@ class ProfileOracleTest {
 
   /**
    * The family of a {@link ContextCheck} finding on {@code render} (the fingerprint render), whose
-   * holes are at {@code spans}: {@link Family#INERT} for over-escaping in never-run raw text, and
+   * holes are at {@code spans}: {@link Family#INERT} for any escaping in never-run raw text, and
    * for a marker the parser dropped when every occurrence of it is in an attribute hole (an
    * attribute value goes nowhere but its element, so the element was ignored); A/B otherwise.
    */
@@ -544,7 +545,11 @@ class ProfileOracleTest {
       return family(f, List.of());
     }
     String where = f.where().replaceFirst("^scripting-o(n|ff) ", "");
-    if (NEVER_RUN_RAW_TEXT.matcher(where).find()) {
+    Matcher raw = NEVER_RUN_RAW_TEXT.matcher(where);
+    // Rules.hole's first rule: any escaper is inert in the raw text of an element a browser never
+    // runs or renders (no escaper writes '<', and the lemma checks the value stays inside). A
+    // <noscript> is raw text only with scripting on.
+    if (raw.find() && (!raw.group(1).equals("noscript") || f.where().startsWith("scripting-on "))) {
       return Family.INERT;
     }
     Matcher m = NOWHERE.matcher(where);
@@ -571,12 +576,16 @@ class ProfileOracleTest {
     return last.startsWith("script") && !last.contains("[");
   }
 
-  /** The family of a {@link ScriptInvariant} finding on {@code slot}. */
+  /**
+   * The family of a {@link ScriptInvariant} finding on {@code slot}: family C only in an HTML
+   * {@code <script>}. A script hole anywhere else (SVG {@code <script>}, say) is one the verifier
+   * must reject ({@code JSON_NOT_IN_SCRIPT}), so any finding there is A/B, not a listable C hole.
+   */
   static Family scriptFamily(Finding f, HtmlInvariant.ScriptSlot slot) {
-    if (f.kind() == Finding.Kind.LIVE_SCRIPT) {
-      return htmlScript(slot) ? Family.C : Family.AB;
+    if (!htmlScript(slot)) {
+      return Family.AB;
     }
-    return family(f, List.of());
+    return f.kind() == Finding.Kind.LIVE_SCRIPT ? Family.C : family(f, List.of());
   }
 
   /**
@@ -849,7 +858,12 @@ class ProfileOracleTest {
     int refused = 0;
     int lemmaPaths = 0;
     int clean = 0;
+    List<String> inert = new ArrayList<>();
     for (CaseResult r : results) {
+      for (Classified cf : r.inert) {
+        inert.add(label(r.gateCase) + " " + cf.finding().engine() + " " + cf.finding().where() + "; template: "
+            + show(r.gateCase.oracleCase().template()));
+      }
       renders += r.renders;
       refused += r.refused;
       lemmaPaths += r.lemmaPaths;
@@ -886,7 +900,7 @@ class ProfileOracleTest {
     long t3 = System.nanoTime();
 
     List<String> report = report(cases, compiled, clean, renders, refused, lemmaPaths, memo, byFamily, falsePositives,
-        failures, new long[] {t0 - start, t1 - t0, t2 - t1, t3 - t2});
+        inert, failures, new long[] {t0 - start, t1 - t0, t2 - t1, t3 - t2});
     Path dir = Files.createDirectories(Path.of("target", "oracle"));
     Files.write(dir.resolve("report.txt"), report, StandardCharsets.UTF_8);
     System.out.println(String.join("\n", report.subList(0, Math.max(0, report.indexOf("")))));
@@ -967,7 +981,7 @@ class ProfileOracleTest {
 
   private static List<String> report(List<GateCase> cases, List<Compiled> compiled, int clean, int renders, int refused,
       int lemmaPaths, LemmaMemo memo, Map<Family, Map<String, Integer>> byFamily, List<String> falsePositives,
-      Map<String, List<String>> failures, long[] nanos) {
+      List<String> inert, Map<String, List<String>> failures, long[] nanos) {
     List<String> r = new ArrayList<>();
     long seeds = cases.stream().filter(c -> c.oracleCase().origin() == OracleCase.Origin.SEED).count();
     long accepted = compiled.stream().filter(Compiled::accepted).count();
@@ -991,6 +1005,9 @@ class ProfileOracleTest {
     r.add("");
     r.add("failures:");
     failures.forEach((k, v) -> v.forEach(f -> r.add("  " + k + ": " + f)));
+    r.add("");
+    r.add("inert context mismatches (family INERT, counted, not findings):");
+    inert.forEach(f -> r.add("  " + f));
     r.add("");
     r.add("false-positive candidates:");
     falsePositives.forEach(f -> r.add("  " + f));

@@ -228,6 +228,12 @@ class ProfileOracleGateTest {
     Finding rhino = new Finding(Finding.Kind.LIVE_SCRIPT, "rhino", "x", "v");
     assertEquals(Family.C, ProfileOracleTest.scriptFamily(rhino, html));
     assertEquals(Family.AB, ProfileOracleTest.scriptFamily(rhino, svg));
+    // A JSON hole in an SVG <script> (the verifier's JSON_NOT_IN_SCRIPT): not a listable C hole.
+    Finding notLiteral = new Finding(Finding.Kind.JS_NOT_LITERAL, "rhino", "x", "v");
+    assertEquals(Family.C, ProfileOracleTest.scriptFamily(notLiteral, html));
+    assertEquals(Family.AB, ProfileOracleTest.scriptFamily(notLiteral, svg));
+    assertEquals(Family.AB,
+        ProfileOracleTest.scriptFamily(new Finding(Finding.Kind.JS_UNPARSABLE, "rhino", "x", "v"), svg));
     assertEquals(Family.D, ProfileOracleTest.family(new Finding(Finding.Kind.CSTI, "vnu-26", "/", "v"), List.of()));
     assertEquals(Family.E, ProfileOracleTest.family(new Finding(Finding.Kind.JS_URL, "vnu-26", "/", "v"), List.of()));
     assertEquals(Family.E,
@@ -262,6 +268,29 @@ class ProfileOracleGateTest {
     Finding script = new Finding(Finding.Kind.CONTEXT_MISMATCH, "vnu-26",
         "/html/body/div/p text: [SCRIPT] json escaping in HTML element text (<p>)", "v");
     assertEquals(Family.AB, ProfileOracleTest.contextFamily(script, render, spans));
+    // Near misses of the raw-text rule: a <noscript> without scripting, raw text that runs or
+    // applies (script, style, plaintext), and HTML element text.
+    for (String where : List.of(
+        "scripting-off /html/body/div/noscript text: [TEXT] text escaping in raw-text element text (<noscript>)",
+        "/html/body/div/noscript text: [TEXT] text escaping in raw-text element text (<noscript>)",
+        "/html/body/div/script text: [TEXT] text escaping in raw-text element text (<script>)",
+        "/html/body/div/style text: [TEXT] text escaping in raw-text element text (<style>)",
+        "/html/body/div/plaintext text: [TEXT] text escaping in raw-text element text (<plaintext>)",
+        "/html/body/div/xmp/p text: [SCRIPT] json escaping in HTML element text (<p>)")) {
+      assertEquals(Family.AB, ProfileOracleTest.contextFamily(
+          new Finding(Finding.Kind.CONTEXT_MISMATCH, "vnu-26", where, "v"), render, spans), where);
+    }
+    assertEquals(Family.INERT, ProfileOracleTest.contextFamily(new Finding(Finding.Kind.CONTEXT_MISMATCH, "vnu-26",
+        "scripting-on /html/body/div/noscript text: [TEXT] text escaping in raw-text element text (<noscript>)", "v"),
+        render, spans));
+    // A dropped marker with one occurrence in an attribute hole and one in a text hole (a live
+    // sibling) is not inert.
+    GateCase both = gateCase(P + "<span t:title=\"s\">x</span><p>[[s]]</p></div>");
+    Compilation bc = compile(both);
+    String bothRender = bc.render(both.view(), Compilation.model("s", Fingerprint.value(1)));
+    List<SkeletonMatcher.Span> bothSpans =
+        SkeletonMatcher.holes(bc.skeleton(both.view()).body(), bothRender, bc::fragmentSkeleton);
+    assertEquals(Family.AB, ProfileOracleTest.contextFamily(nowhere, bothRender, bothSpans));
   }
 
   // ---- known-holes.txt ----
