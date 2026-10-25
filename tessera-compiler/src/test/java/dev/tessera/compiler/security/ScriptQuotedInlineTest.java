@@ -68,6 +68,15 @@ class ScriptQuotedInlineTest {
           "<script>#!/*\nvar a = \"[[x]]\";</script>",
           // "-->" after code on its line is "--" and ">".
           "<script>var a = b --> \"[[x]]\";</script>",
+          // A regex follows a spread, "for await (...)", "export default" and "extends".
+          "<script>var a = [.../\"/.exec(s) || [], \"[[x]]\"];</script>",
+          "<script>var r = [.../`/.source];\nvar t = \"${\" + \"[[x]]\";</script>",
+          "<script type=\"module\">for await (const c of s) /\"/.test(c); var y = \"[[x]]\";</script>",
+          "<script type=\"module\">export default /\"/; var y = \"[[x]]\";</script>",
+          "<script>class A extends /\"/.constructor {}; var y = \"[[x]]\";</script>",
+          // A word right after '.' is a property, not a keyword, so the '/' is division.
+          "<script>var n = o.return / \"[[x]]\".length;</script>",
+          "<script>var n = o?.typeof / \"[[x]]\".length;</script>",
           // After an identifier '/' is division, so "/; [[x]]" is a string.
           "<script>var z = y /\"/; [[x]]\";</script>",
           // Template-literal text: the value is inert there, but arrives with its own quotes.
@@ -102,6 +111,14 @@ class ScriptQuotedInlineTest {
           "<script>var t = `${[[x]]}`;</script>",
           "<script>var t = `a ${`b ${[[x]]}`}`;</script>",
           "<script>var r = a /[[b]]/ 2;</script>",
+          "<script>var q = o.if(a) / 2; var s = \"/\"; var b = [[x]];</script>",
+          "<script>var q = (i++) / 2; var b = [[x]];</script>",
+          "<script>var q = ({}) / 2; var b = [[x]];</script>",
+          "<script>var q = a + + /\"/.source.length; var b = [[x]];</script>",
+          "<script>var f = [...a, /\"/]; var b = [[x]];</script>",
+          "<script>var t = `${a}` / 2; var b = [[x]];</script>",
+          "<script>var o = { a: 1 }; var b = [[x]];</script>",
+          "<script>if (a) { b(); } // done\nvar c = [[x]];</script>",
           "<script>var a = \"x\u2028\"; var b = [[x]];</script>",
           "<script>\n--> \"x\"\nvar b = [[x]];</script>",
           "<script>#! \"x\"\nvar b = [[x]];</script>",
@@ -125,6 +142,20 @@ class ScriptQuotedInlineTest {
           "<script>#! \"[[x]]\"\n</script>",
           "<script type=\"module\">/*[[x]]*/</script>",
           "<script type=\"application/json\">/*[[x]]*/</script>");
+
+  /**
+   * Scripts where the lexer cannot tell a {@code /} from a regex: every {@code [[...]]} after it is
+   * an error (#307: reject when unsure); the last {@code [[} is the one at fault.
+   */
+  static final List<String> REJECTED_UNSURE =
+      List.of(
+          "<script>var o = {} / \"[[x]]\";</script>",
+          "<script>var o = {}/[[x]];</script>",
+          "<script>var n = i++ / \"[[x]]\".length;</script>",
+          "<script>var n = i-- / 2; var b = [[x]];</script>",
+          "<script>function f() {}\n/\"/.test(s); var a = [[x]];</script>",
+          "<script>for (const k of /\"/.exec(s)) {} var b = [[x]];</script>",
+          "<script>function* g() { var y = yield / 2; } var b = [[x]];</script>");
 
   /** Scripts with a {@code [[...]]} inside a regex literal; the last {@code [[} is the one at fault. */
   static final List<String> REJECTED_REGEX =
@@ -166,6 +197,19 @@ class ScriptQuotedInlineTest {
     assertNull(c.generatedSource("tessera.generated.PageTemplate"), "nothing may be generated");
   }
 
+  @ParameterizedTest
+  @FieldSource("REJECTED_UNSURE")
+  void inlineAfterAnAmbiguousSlashFailsToBuild(String markup) {
+    assertOneErrorAtLastInline(markup, "could be a division or start a regular expression");
+  }
+
+  @Test
+  void ambiguousSlashErrorPointsAtTheSlash() {
+    Compilation c = compile("<script>\nvar o = {}\n/ 2; var a = [[x]];</script>");
+    c.assertError("page.html:4:", "after a '/' at 4:1 ", "(/.../)");
+    assertEquals(1, c.errors().size(), c.errors().toString());
+  }
+
   @Test
   void regexInlineResolvesTheSlashBeforeIt() {
     // The '/' before the first inline starts a regex, so the next '/' ends it and the second
@@ -188,7 +232,7 @@ class ScriptQuotedInlineTest {
         Compilation.builder()
             .template("page.html", "<div t:params=\"String x\">\n<script>\n  var a = \"[[x]]\";\n</script></div>")
             .compile();
-    c.assertError("page.html:3:14", "(\"...\")", "remove the quotes, e.g. var a = [[...]];");
+    c.assertError("page.html:3:14", "(\"...\")", "remove the quotes, e.g. var a = [[...]]; or \"Hello \" + [[...]]");
     assertEquals(1, c.errors().size(), c.errors().toString());
     compile("<script>var a = '[[x]]';</script>").assertError("('...')");
     compile("<script>var a = `[[x]]`;</script>").assertError("(`...`)");

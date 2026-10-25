@@ -2,6 +2,7 @@ package dev.tessera.compiler.codegen.attr;
 
 import static dev.tessera.compiler.types.ExpressionCompiler.isDeclared;
 
+import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.Emitted;
@@ -17,8 +18,6 @@ import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.SafeHtml;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import javax.lang.model.type.TypeKind;
@@ -58,6 +57,7 @@ public final class TextInlining {
     boolean rawText = ctx.template().parsingContexts().insideRawText(text);
     boolean inMustache = false;
     JsLexState js = text.context() == OutputContext.SCRIPT ? new JsLexState() : null;
+    int lastSlash = -1;
     int i = 0;
     while (i < raw.length()) {
       boolean escaped = raw.startsWith("[[", i);
@@ -94,7 +94,8 @@ public final class TextInlining {
             // Still emitted: nothing is written on error, and the skeleton keeps the hole for the
             // verifier's own check (#367).
           }
-          String misplaced = escaped && js != null ? misplacedInScript(js) : null;
+          String misplaced =
+              escaped && js != null ? misplacedInScript(js, text.pos().advance(raw, Math.max(lastSlash, 0))) : null;
           if (misplaced != null) {
             ctx.diagnostics().error(pos, misplaced);
             i = end + 2;
@@ -110,6 +111,9 @@ public final class TextInlining {
       }
       if (js != null) {
         js.feed(raw.charAt(i));
+        if (raw.charAt(i) == '/' && !js.unsure()) {
+          lastSlash = i;
+        }
       }
       literal.append(raw.charAt(i));
       i++;
@@ -219,13 +223,20 @@ public final class TextInlining {
    * {@code <script>} the value is a complete JSON value, so it goes only where a JavaScript
    * expression goes, not inside a string, comment or regular expression literal (#281, #315).
    */
-  private static String misplacedInScript(JsLexState js) {
-    switch (js.position()) {
+  private static String misplacedInScript(JsLexState js, SourcePos slash) {
+    JsLexState.Position position = js.position();
+    if (js.unsure()) {
+      return "[[...]] comes after a '/' at " + slash.line() + ":" + slash.column() + " that could be a"
+          + " division or start a regular expression, so it is unclear where the value would be written; make"
+          + " that '/' unambiguous: wrap a regular expression in parentheses, (/.../), or the left operand of a"
+          + " division, (...) / 2";
+    }
+    switch (position) {
       case STRING:
         char q = js.quote();
         return "[[...]] is inside a quoted JavaScript string (" + q + "..." + q + "), but it writes a"
             + " complete JSON value with its own quotes, which would close a \"...\" string and run"
-            + " as code, or end up quoted twice; remove the quotes, e.g. var a = [[...]];";
+            + " as code, or end up quoted twice; remove the quotes, e.g. var a = [[...]]; or \"Hello \" + [[...]]";
       case COMMENT:
         return "[[...]] is inside a JavaScript comment (" + js.commentOpener() + "), so its value is written"
             + " inside the comment and the page never uses it; move it out of the comment: Thymeleaf's"
@@ -252,13 +263,14 @@ public final class TextInlining {
    *
    * <p>As in Go's {@code html/template}, whether a {@code /} starts a regex or is a division is
    * decided from the previous significant token: a regex follows an operator, punctuator or one of
-   * {@link #KEYWORDS_BEFORE_REGEX}, a division follows an identifier, a number, a literal,
+   * {@link #KEYWORDS_BEFORE_REGEX} (not as a property name: a word right after a single
+   * {@code .}), or a spread {@code ...}; a division follows an identifier, a number, a literal,
    * {@code )}, {@code ]} or an inlined value; but after the {@code )} that closes the condition of
-   * {@code if}, {@code while}, {@code for} or {@code with} a regex follows. Known limits: after a
-   * closing brace (block or object literal?) and after {@code ++}/{@code --} a regex is assumed;
-   * and a property named like one of the keywords ({@code o.return / 2}, {@code o.if(x) / 2}) is
-   * taken for the keyword. A misread there can hide a string in contrived code
-   * ({@code x = {}\n/"[[x]]"/ 1}) as well as raise a spurious error.
+   * {@code if}, {@code while}, {@code for}, {@code for await} or {@code with} a regex follows.
+   * Where the tokens cannot tell (after a closing brace: a block or an object literal; after
+   * {@code ++} or {@code --}; after {@code of}, {@code yield} or {@code await}, which may be
+   * identifiers), the lexer is {@link #unsure} and every {@code [[...]]} after that {@code /} is an
+   * error, so a guess never leads to accepting a value (security-architecture.md, section 9).
    */
   static final class JsLexState {
     private enum S { CODE, SLASH, DQ, SQ, TPL, LINE_COMMENT, BLOCK_COMMENT, REGEX, REGEX_CLASS }
@@ -267,14 +279,15 @@ public final class TextInlining {
     private static final String BEFORE_REGEX = "(,=:[!&|?{};+-*%<>~^";
 
     private static final Set<String> KEYWORDS_BEFORE_REGEX =
-        new HashSet<>(
-            Arrays.asList(
-                "return", "typeof", "instanceof", "in", "of", "new", "delete", "void", "throw", "case", "do",
-                "else", "yield", "await"));
+        Backports.setOf(
+            "return", "typeof", "instanceof", "in", "of", "new", "delete", "void", "throw", "case", "do", "else",
+            "yield", "await", "default", "extends");
+
+    /** Words that are keywords only in some places, so a {@code /} after them may be a division too. */
+    private static final Set<String> CONTEXTUAL_KEYWORDS = Backports.setOf("of", "yield", "await");
 
     /** Keywords whose parenthesized condition is followed by a statement, so a regex may follow its ')'. */
-    private static final Set<String> KEYWORDS_BEFORE_CONDITION =
-        new HashSet<>(Arrays.asList("if", "while", "for", "with"));
+    private static final Set<String> KEYWORDS_BEFORE_CONDITION = Backports.setOf("if", "while", "for", "with");
 
     private S s = S.CODE;
     private boolean escape;
@@ -297,13 +310,23 @@ public final class TextInlining {
     /** Chars fed so far, inlined values included; "#!" is a hashbang only at the very start. */
     private int fed;
     private String commentOpener = "";
+    /** The word before {@link #word}, if only whitespace separates them ("for" in "for await"). */
+    private String previousWord = "";
+    /** {@link #word} directly follows a single '.', so it is a property name, never a keyword. */
+    private boolean wordAfterDot;
+    /** Consecutive '.' chars ending at {@code prevSignificant}: 3 is a spread. */
+    private int dots;
+    /** {@code prevSignificant} is the second char of {@code ++} or {@code --}. */
+    private boolean incDec;
+    /** A {@code /} could have been a division or a regex; nothing after it can be trusted. */
+    private boolean unsure;
 
     enum Position { CODE, STRING, COMMENT, REGEX }
 
     /** Where the next char would be; a {@code /} before it is decided first (#281, #315). */
     Position position() {
       if (s == S.SLASH) {
-        s = regexMayFollow() ? S.REGEX : S.CODE;
+        s = slashStartsRegex() ? S.REGEX : S.CODE;
       }
       switch (s) {
         case DQ:
@@ -333,7 +356,7 @@ public final class TextInlining {
     /** An inlined value: inside code it is an expression, so a {@code /} after it is division. */
     void expression() {
       if (s == S.SLASH) {
-        s = regexMayFollow() ? S.REGEX : S.CODE;
+        s = slashStartsRegex() ? S.REGEX : S.CODE;
       }
       if (s == S.CODE) {
         value();
@@ -441,7 +464,7 @@ public final class TextInlining {
             return;
           }
           lineStart = false;
-          if (regexMayFollow()) {
+          if (slashStartsRegex()) {
             s = S.REGEX;
             prev = 0;
             feed(c);
@@ -484,7 +507,9 @@ public final class TextInlining {
         return;
       } else if (c == '(') {
         parens.push(
-            Character.isJavaIdentifierPart(prevSignificant) && KEYWORDS_BEFORE_CONDITION.contains(word.toString()));
+            keyword()
+                && (KEYWORDS_BEFORE_CONDITION.contains(word.toString())
+                    || (word.toString().equals("await") && previousWord.equals("for"))));
       } else if (c == ')') {
         if (!parens.isEmpty() && parens.pop()) {
           operator(); // "if (c) /re/.test(s)": the statement after a condition may start with a regex
@@ -504,37 +529,68 @@ public final class TextInlining {
         wordOpen = false;
       } else if (Character.isJavaIdentifierPart(c)) {
         if (!wordOpen) {
+          previousWord = word.toString();
+          wordAfterDot = prevSignificant == '.' && dots == 1;
           word.setLength(0);
           wordOpen = true;
         }
         word.append(c);
         prevSignificant = c;
+        dots = 0;
+        incDec = false;
       } else {
         word.setLength(0);
         wordOpen = false;
+        dots = c != '.' ? 0 : prevSignificant == '.' && p == '.' ? dots + 1 : 1;
+        incDec = (c == '+' || c == '-') && p == c;
         prevSignificant = c;
       }
     }
 
-    private boolean regexMayFollow() {
-      if (BEFORE_REGEX.indexOf(prevSignificant) >= 0) {
-        return true;
+    /** Decides a {@code /} in code; a guess (#307: reject when unsure) makes {@link #unsure} true. */
+    private boolean slashStartsRegex() {
+      if (prevSignificant == '}' || incDec || (keyword() && CONTEXTUAL_KEYWORDS.contains(word.toString()))) {
+        unsure = true; // a block or an object literal; postfix or prefix; a keyword or an identifier
       }
-      return Character.isJavaIdentifierPart(prevSignificant) && KEYWORDS_BEFORE_REGEX.contains(word.toString());
+      if (prevSignificant == '.') {
+        return dots == 3; // a spread
+      }
+      return BEFORE_REGEX.indexOf(prevSignificant) >= 0
+          || (keyword() && KEYWORDS_BEFORE_REGEX.contains(word.toString()));
+    }
+
+    /** {@code prevSignificant} ends a word that may be a keyword (not a property name). */
+    private boolean keyword() {
+      return Character.isJavaIdentifierPart(prevSignificant) && !wordAfterDot;
+    }
+
+    /**
+     * A {@code /} could have been a division or a regex (after a closing brace, {@code ++},
+     * {@code --}, {@code of}, {@code yield} or {@code await}), so the position of anything after it
+     * is a guess.
+     */
+    boolean unsure() {
+      return unsure;
     }
 
     /** The end of an operand: a {@code /} after it is division. */
     private void value() {
       prevSignificant = ')';
-      word.setLength(0);
-      wordOpen = false;
+      endToken();
     }
 
     /** The end of an operator: a {@code /} after it starts a regex. */
     private void operator() {
       prevSignificant = '*';
+      endToken();
+    }
+
+    private void endToken() {
       word.setLength(0);
       wordOpen = false;
+      wordAfterDot = false;
+      dots = 0;
+      incDec = false;
     }
 
     private void newLine() {

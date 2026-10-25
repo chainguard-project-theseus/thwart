@@ -1759,7 +1759,7 @@ These come from the annotation processor itself, without a template position.
   `t:utext` and `[(...)]` inside `<svg>`, `<math>` or `<select>` (contexts as in the fragment
   messages below; inside raw text, the raw-text error above applies). Inside `<svg>`, a `<p>` in the value
   ends the `<svg>`, and a `<title>` holds HTML, where a `<script>` runs.
-- `[[...]] is inside a quoted JavaScript string (<q>...<q>), but it writes a complete JSON value with its own quotes, which would close a "..." string and run as code, or end up quoted twice; remove the quotes, e.g. var a = [[...]];`:
+- `[[...]] is inside a quoted JavaScript string (<q>...<q>), but it writes a complete JSON value with its own quotes, which would close a "..." string and run as code, or end up quoted twice; remove the quotes, e.g. var a = [[...]]; or "Hello " + [[...]]`:
   `<q>` is `"`, `'` or `` ` `` (template-literal text; `${[[...]]}` inside it is code and
   allowed). A Thymeleaf default-mode page wrote `var a = "[[${x}]]";`; write `var a = [[x]];` (a
   string renders `"Alice"` as before; a number renders `42`, not `"42"`). For
@@ -1773,6 +1773,13 @@ These come from the annotation processor itself, without a template position.
 - `[[...]] is inside a JavaScript regular expression literal (/.../), but it writes a complete JSON value with its own quotes, and its characters would change or break the pattern; build the pattern from the value in code, e.g. new RegExp([[...]])`:
   `/[[${x}]]/` becomes `new RegExp([[${x}]])` (escape the value in Java if it is not meant as a
   pattern).
+- `[[...]] comes after a '/' at <line>:<col> that could be a division or start a regular expression, so it is unclear where the value would be written; make that '/' unambiguous: wrap a regular expression in parentheses, (/.../), or the left operand of a division, (...) / 2`:
+  to find strings, comments and regular expressions, the compiler has to tell a regular expression
+  from a division, and after a `}` (a block or an object literal?), `++` or `--`, or the words `of`,
+  `yield` and `await` it cannot. It then rejects every `[[...]]` after that `/` rather than guess.
+  `function f() {}
+/x/.test(s)` becomes `(/x/).test(s)`; `{} / 2` becomes `({}) / 2`; `i++ / 2`
+  becomes `(i++) / 2`.
 - `[[...]] is inside a client-side {{ ... }} interpolation: Vue or AngularJS would run the value as code, whatever the escaping. Pass the value in a data-* attribute or a <script> with [[...]] and read it from there`
   (also `[(...)]`): the text has a `{{` with no `}}` before the expression. Character references
   for braces count, as the framework decodes them.
