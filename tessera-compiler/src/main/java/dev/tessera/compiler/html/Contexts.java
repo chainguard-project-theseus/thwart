@@ -351,7 +351,9 @@ public final class Contexts {
    * Context for text directly inside {@code element}: SCRIPT
    * inside {@code <script>} with no type or a JavaScript/module/JSON type, FORBIDDEN inside
    * other script types, STYLE inside {@code <style>}, RCDATA inside {@code <title>} and
-   * {@code <textarea>} (#248), otherwise TEXT.
+   * {@code <textarea>} (#248), otherwise TEXT. A {@link Element#foreign foreign} {@code <title>} or
+   * {@code <textarea>} (inside {@code <svg>} or {@code <math>}) is TEXT: a browser parses its content
+   * as markup, and frameworks interpolate {@code {{ }}} in it (#277).
    *
    * <p>A {@code <script>} whose type is set by a {@code t:type} attribute is FORBIDDEN: the
    * content type must be known at build time.
@@ -364,7 +366,7 @@ public final class Contexts {
         return OutputContext.STYLE;
       case "title":
       case "textarea":
-        return OutputContext.RCDATA;
+        return element.foreign() ? OutputContext.TEXT : OutputContext.RCDATA;
       default:
         return OutputContext.TEXT;
     }

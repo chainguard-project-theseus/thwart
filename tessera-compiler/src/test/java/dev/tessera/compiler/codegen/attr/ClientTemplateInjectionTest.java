@@ -75,6 +75,11 @@ class ClientTemplateInjectionTest {
     assertEquals("<math><mi><!---->{<!---->{x}}</mi></math>", render("<math><mi t:text=\"s\">x</mi></math>", "{{x}}"));
     assertEquals("<template><p><!---->{<!---->{x}}</p></template>",
         render("<template><p t:text=\"s\">x</p></template>", "{{x}}"));
+    // Inside svg and math, <title> and <textarea> are not RCDATA: a comment is a real node there (#277).
+    assertEquals("<svg><title><!---->{<!---->{x}}</title><title>a <!---->{<!---->{x}}</title></svg>",
+        render("<svg><title t:text=\"s\">t</title><title>a [[s]]</title></svg>", "{{x}}"));
+    assertEquals("<math><textarea><!---->{<!---->{x}}</textarea></math>",
+        render("<math><textarea>[[s]]</textarea></math>", "{{x}}"));
   }
 
   @Test
@@ -106,6 +111,7 @@ class ClientTemplateInjectionTest {
         "<p>{{ [(h)] }}</p>",
         "<title>{{ [[s]] }}</title>",
         "<textarea>{{ [[s]] }}</textarea>",
+        "<svg><title>{{ [[s]] }}</title></svg>",
       })
   void expressionInsideStaticMustacheIsABuildError(String body) {
     compile(body).assertError("t.html:1:", "inside a client-side {{ ... }} interpolation", "data-*");

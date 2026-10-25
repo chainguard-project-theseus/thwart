@@ -31,7 +31,10 @@ import java.util.regex.Pattern;
  * classifies every text node's {@code OutputContext} via {@link Contexts}.
  *
  * <p>The content of {@code <script>}, {@code <style>}, {@code <textarea>} and {@code <title>}
- * is a single raw {@link Text} node: markup inside it is not parsed.
+ * is a single raw {@link Text} node: markup inside it is not parsed. Inside {@code <svg>} and
+ * {@code <math>} a browser does parse it, so there that content must not contain markup (see
+ * {@link #foreignMarkup}), nor, in a script or style, character references (see {@link
+ * #foreignReference}); elements there are {@link Element#foreign foreign}.
  *
  * <p>The content of {@code <xmp>}, {@code <iframe>}, {@code <noembed>}, {@code <noframes>} and
  * {@code <noscript>} is parsed as markup, but a browser reads it as raw text (for {@code
@@ -84,6 +87,193 @@ public final class HtmlParser {
       m = m.substring(0, nl);
     }
     return m.length() > 80 ? m.substring(0, 80) + "..." : m;
+  }
+
+  /** Namespaces of {@link #namespace}. */
+  static final String HTML = "html";
+  static final String SVG = "svg";
+  static final String MATHML = "math";
+
+  /** SVG elements whose children a browser parses as HTML (HTML integration points). */
+  private static final Set<String> SVG_HTML_PARENTS = Backports.setOf("foreignobject", "desc", "title");
+  /** MathML text integration points: their children are HTML, except {@code mglyph}/{@code malignmark}. */
+  private static final Set<String> MATHML_TEXT_PARENTS = Backports.setOf("mi", "mo", "mn", "ms", "mtext");
+
+  /**
+   * The namespace a browser gives element {@code name} whose nearest rendered parent (see {@link
+   * #omitsTag}) is element {@code parentName} of namespace {@code parentNs} (null at the top level,
+   * which is HTML): {@link #SVG} inside {@code <svg>} and {@link #MATHML} inside {@code <math>}
+   * until an HTML integration point (SVG {@code foreignObject}, {@code desc}, {@code title}; MathML
+   * {@code mi mo mn ms mtext}, and {@code annotation-xml} with an HTML {@code encoding}, see {@link
+   * #htmlAnnotation}). A breakout tag such as {@code <p>} in foreign content is a build error
+   * ({@link #breaksOut}).
+   */
+  static String namespace(String parentNs, String parentName, String name) {
+    String parent = parentName == null ? null : asciiLower(parentName);
+    String el = asciiLower(name);
+    if (SVG.equals(parentNs) && !SVG_HTML_PARENTS.contains(parent)) {
+      return SVG;
+    }
+    if (MATHML.equals(parentNs) && !MATHML_TEXT_PARENTS.contains(parent)) {
+      return "annotation-xml".equals(parent) && el.equals("svg") ? SVG : MATHML;
+    }
+    if (MATHML.equals(parentNs) && (el.equals("mglyph") || el.equals("malignmark"))) {
+      return MATHML;
+    }
+    return el.equals("svg") ? SVG : el.equals("math") ? MATHML : HTML;
+  }
+
+  /** {@code s} with only A-Z lowercased, as a browser compares names and encodings. */
+  static String asciiLower(String s) {
+    StringBuilder sb = new StringBuilder(s.length());
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      sb.append(c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c);
+    }
+    return sb.toString();
+  }
+
+  /**
+   * Whether MathML element {@code name} is an {@code annotation-xml} that a browser parses as an
+   * HTML integration point: its static {@code encoding} is {@code text/html} or {@code
+   * application/xhtml+xml} (ASCII case-insensitive), and no {@code t:encoding} or {@code t:attr*}
+   * could change it. Otherwise its children are MathML.
+   */
+  static boolean htmlAnnotation(String namespace, String name, List<Attribute> attributes) {
+    if (!namespace.equals(MATHML) || !asciiLower(name).equals("annotation-xml")) {
+      return false;
+    }
+    boolean html = false;
+    for (Attribute a : attributes) {
+      String local = asciiLower(a.localName());
+      if (a.isTessera() && (local.equals("encoding") || local.startsWith("attr"))) {
+        return false;
+      }
+      if (!a.isTessera() && local.equals("encoding") && a.value() != null) {
+        String v = asciiLower(a.value());
+        html = v.equals("text/html") || v.equals("application/xhtml+xml");
+      }
+    }
+    return html;
+  }
+
+  /** Start tags that end foreign content in a browser; {@code font} only with color, face or size. */
+  private static final Set<String> BREAKOUT_TAGS =
+      Backports.setOf(
+          "b", "big", "blockquote", "body", "br", "center", "code", "dd", "div", "dl", "dt", "em", "embed",
+          "h1", "h2", "h3", "h4", "h5", "h6", "head", "hr", "i", "img", "li", "listing", "menu", "meta",
+          "nobr", "ol", "p", "pre", "ruby", "s", "small", "span", "strike", "strong", "sub", "sup", "table",
+          "tt", "u", "ul", "var");
+
+  /**
+   * Whether a rendered element {@code name} of foreign {@code namespace} is a breakout tag: a
+   * browser closes the open {@code <svg>}/{@code <math>} elements there and parses it as HTML, so
+   * the contexts after it would differ from Tessera's. A {@code <font>} counts when it has a
+   * {@code color}, {@code face} or {@code size}, or a {@code t:attr*} that could add one.
+   */
+  static boolean breaksOut(String namespace, String name, List<Attribute> attributes) {
+    if (namespace.equals(HTML) || omitsTag(name, attributes)) {
+      return false;
+    }
+    String el = asciiLower(name);
+    if (BREAKOUT_TAGS.contains(el)) {
+      return true;
+    }
+    if (!el.equals("font")) {
+      return false;
+    }
+    for (Attribute a : attributes) {
+      String local = asciiLower(a.localName());
+      if (local.equals("color") || local.equals("face") || local.equals("size")
+          || (a.isTessera() && local.startsWith("attr"))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Whether the output leaves out the tag of element {@code name} with {@code attributes}:
+   * {@code <t:block>} and {@code t:remove="tag"}. A browser then parses its children in its parent.
+   */
+  static boolean omitsTag(String name, List<Attribute> attributes) {
+    if (name.equals("t:block")) {
+      return true;
+    }
+    for (Attribute a : attributes) {
+      if (a.name().equals("t:remove") && a.value() != null && a.value().trim().equals("tag")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Index in {@code body}, the content of a {@code <script>}, {@code <style>}, {@code <title>} or
+   * {@code <textarea>} inside {@code <svg>} or {@code <math>}, of the first {@code <} followed by
+   * an ASCII letter, {@code !}, {@code /} or {@code ?}, or -1. A browser parses such content as
+   * markup, not as raw text, so the contexts after that {@code <} could differ from Tessera's. A
+   * {@code <![CDATA[ ... ]]>} that ends inside {@code body} is skipped: it is text in both readings.
+   */
+  static int foreignMarkup(String body) {
+    for (int i = body.indexOf('<'); i >= 0 && i + 1 < body.length(); i = body.indexOf('<', i + 1)) {
+      if (body.startsWith("<![CDATA[", i)) {
+        int end = body.indexOf("]]>", i + "<![CDATA[".length());
+        if (end < 0) {
+          return i;
+        }
+        i = end;
+        continue;
+      }
+      char c = body.charAt(i + 1);
+      if (c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '!' || c == '/' || c == '?') {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Index in {@code body}, the content of a {@code <title>} inside {@code <svg>} or {@code <math>},
+   * of a {@code >} inside a {@code <![CDATA[ ... ]]>} section before its {@code ]]>}, or -1. An SVG
+   * {@code <title>} is an HTML integration point, where browsers disagree whether {@code <![CDATA[}
+   * starts a CDATA section or a comment that ends at the first {@code >}; see {@link #earlyEnd}.
+   */
+  static int foreignTitleCdataEnd(String body) {
+    for (int i = body.indexOf("<![CDATA["); i >= 0; i = body.indexOf("<![CDATA[", i + 1)) {
+      int end = body.indexOf("]]>", i + "<![CDATA[".length());
+      if (end < 0) {
+        return -1;
+      }
+      int gt = earlyEnd(body.substring(i, end + "]]>".length()));
+      if (gt >= 0) {
+        return i + gt;
+      }
+      i = end;
+    }
+    return -1;
+  }
+
+  /**
+   * Index in {@code body}, the content of a {@code <script>} or {@code <style>} inside {@code <svg>}
+   * or {@code <math>} without markup (see {@link #foreignMarkup}), of the first {@code &} outside a
+   * {@code <![CDATA[ ... ]]>} section, or -1. There a browser decodes character references before
+   * the script or style sees the text, so {@code &quot;} would be a quote that Tessera did not see.
+   */
+  static int foreignReference(String body) {
+    for (int i = 0; i < body.length(); i++) {
+      if (body.startsWith("<![CDATA[", i)) {
+        int end = body.indexOf("]]>", i + "<![CDATA[".length());
+        if (end >= 0) {
+          i = end + "]]>".length() - 1;
+          continue;
+        }
+      }
+      if (body.charAt(i) == '&') {
+        return i;
+      }
+    }
+    return -1;
   }
 
   /**
@@ -160,6 +350,26 @@ public final class HtmlParser {
     }
     return "malformed markup: '>' inside <!DOCTYPE> is not supported: a browser ends it at the first '>';"
         + " write <!DOCTYPE html>";
+  }
+
+  /**
+   * Index in {@code body}, the content of raw-text element {@code name}, of the first {@code </}
+   * followed by a name that equals {@code name} only under Unicode case folding (for {@code script},
+   * {@code script} spelled with U+017F) and then whitespace, {@code /}, {@code >} or the end, or -1.
+   * It reads as the end tag, but a browser folds ASCII letters only and goes on.
+   */
+  static int confusableEndTag(String body, String name) {
+    for (int i = body.indexOf("</"); i >= 0; i = body.indexOf("</", i + 1)) {
+      int next = i + 2 + name.length();
+      if (next <= body.length()) {
+        String candidate = body.substring(i + 2, next);
+        if (candidate.equalsIgnoreCase(name) && !asciiLower(candidate).equals(asciiLower(name))
+            && (next == body.length() || " \t\n\f\r/>".indexOf(body.charAt(next)) >= 0)) {
+          return i;
+        }
+      }
+    }
+    return -1;
   }
 
   /**
@@ -254,14 +464,35 @@ public final class HtmlParser {
     OutputContext textContext = OutputContext.TEXT;
     /** For a {@link Contexts#browserRawText} element, where a browser ends it; -1 if nowhere. */
     int browserEnd = -1;
+    /** See {@link HtmlParser#namespace}. */
+    final String namespace;
+    /**
+     * The rendered element the children are parsed in, as a browser sees it: this one, or for
+     * a tag that is not rendered ({@link #omitsTag}) the parent's.
+     */
+    String contextNamespace;
+    String contextName;
 
-    Open(String name, SourcePos pos) {
+    Open(String name, SourcePos pos, Open parent) {
       this.name = name;
       this.pos = pos;
+      this.contextNamespace = parent == null ? null : parent.contextNamespace;
+      this.contextName = parent == null ? null : parent.contextName;
+      this.namespace = namespace(contextNamespace, contextName, name);
+    }
+
+    /** Called once the attributes are known. */
+    void opened() {
+      if (omitsTag(name, attributes)) {
+        return;
+      }
+      boolean html = htmlAnnotation(namespace, name, attributes);
+      contextNamespace = html ? HTML : namespace;
+      contextName = html ? null : name;
     }
 
     Element toElement(boolean selfClosing, boolean hasEndTag) {
-      return new Element(name, attributes, children, selfClosing, hasEndTag, pos);
+      return new Element(name, attributes, children, selfClosing, hasEndTag, pos, !namespace.equals(HTML));
     }
   }
 
@@ -402,7 +633,7 @@ public final class HtmlParser {
       }
       flushText();
       String name = str(lt + 1, nameEnd);
-      tag = new Open(name, position(lt));
+      tag = new Open(name, position(lt), stack.peek());
       if (name.equalsIgnoreCase("plaintext")) {
         diagnostics.error(tag.pos, "<" + name + "> is not supported: a browser treats the rest of the page as plain"
             + " text; use <pre>");
@@ -450,8 +681,17 @@ public final class HtmlParser {
         diagnostics.error(tag.pos, "<" + lower + "/> is not self-closing in HTML: the browser treats everything"
             + " after it as " + lower + "; write <" + lower + " ...></" + lower + ">");
       }
+      checkBreakout(tag);
       children().add(tag.toElement(minimized, false));
       tag = null;
+    }
+
+    /** Reports a breakout tag ({@link HtmlParser#breaksOut}) inside svg or math. */
+    private void checkBreakout(Open open) {
+      if (breaksOut(open.namespace, open.name, open.attributes)) {
+        diagnostics.error(open.pos, "malformed markup: <" + open.name + "> inside <svg> or <math> is HTML in a"
+            + " browser and ends the <svg> or <math> there: close it first, or put HTML inside <foreignObject>");
+      }
     }
 
     @Override
@@ -461,6 +701,8 @@ public final class HtmlParser {
       }
       Open open = tag;
       tag = null;
+      open.opened();
+      checkBreakout(open);
       open.textContext = Contexts.text(open.toElement(false, false));
       stack.push(open);
       if (RAW_TEXT_ELEMENTS.contains(open.name.toLowerCase(Locale.ROOT))) {
@@ -496,7 +738,8 @@ public final class HtmlParser {
       String name = str(lt + 2, nameEnd);
       SourcePos closePos = position(lt);
       if (raw != null) {
-        if (!raw.name.equalsIgnoreCase(name)) {
+        // Only ASCII letters fold: a browser does not end <script> at </script> spelled with U+017F.
+        if (!HtmlParser.asciiLower(raw.name).equals(HtmlParser.asciiLower(name))) {
           return;
         }
         if (lt != rawEnd) {
@@ -577,7 +820,34 @@ public final class HtmlParser {
       if (end > rawStart) {
         String body = content.substring(rawStart, end);
         int comment = body.indexOf("<!--");
-        if (raw.name.equalsIgnoreCase("script") && comment >= 0) {
+        int confusable = HtmlParser.confusableEndTag(body, raw.name);
+        if (confusable >= 0) {
+          // It reads as the end tag, but a browser goes on past it. Fail closed.
+          diagnostics.error(position(rawStart + confusable), "malformed markup: '"
+              + body.substring(confusable, confusable + 2 + raw.name.length()) + "' inside <" + raw.name
+              + "> looks like its end tag but a browser doesn't end the element there: remove it");
+        }
+        boolean foreign = !raw.namespace.equals(HTML);
+        int markup = foreign ? foreignMarkup(body) : -1;
+        int reference = foreign && markup < 0 && (raw.name.equalsIgnoreCase("script")
+            || raw.name.equalsIgnoreCase("style")) ? foreignReference(body) : -1;
+        int cdataEnd = foreign && raw.name.equalsIgnoreCase("title") ? foreignTitleCdataEnd(body) : -1;
+        if (cdataEnd >= 0) {
+          // A browser may read the CDATA section as a comment that ends at this '>', and the
+          // rest as HTML that foreignMarkup skipped. Fail closed (#296).
+          diagnostics.error(position(rawStart + cdataEnd), earlyEndMessage("<![CDATA["));
+        } else if (markup >= 0) {
+          // Inside svg and math a browser parses this content as markup (SVG <title> as HTML), so
+          // a tag in it is a real element that Tessera reads as text. Fail closed.
+          diagnostics.error(position(rawStart + markup), "malformed markup: '<' inside <" + raw.name
+              + "> in <svg> or <math> starts markup in a browser, not text: write &lt; for a literal '<'");
+        } else if (reference >= 0) {
+          // There a browser also decodes &quot; and the like before the script or style sees the
+          // text, so the JS or CSS state at a hole is not the one Tessera lexed. Title and textarea
+          // are TEXT, where both readings decode. Fail closed.
+          diagnostics.error(position(rawStart + reference), "malformed markup: '&' inside <" + raw.name
+              + "> in <svg> or <math> is decoded by a browser: write the character itself, or use a CDATA section");
+        } else if (raw.name.equalsIgnoreCase("script") && comment >= 0) {
           // Browsers apply script-data escape rules after "<!--" ("<script" inside it hides
           // the next "</script>"); the tokenizer does not. Fail closed.
           diagnostics.error(position(rawStart + comment),

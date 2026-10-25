@@ -171,14 +171,30 @@ final class AttoparserHtmlParser {
     OutputContext textContext = OutputContext.TEXT;
     /** For a {@link Contexts#browserRawText} element, where a browser ends it; -1 if nowhere. */
     int browserEnd = -1;
+    final String namespace;
+    String contextNamespace;
+    String contextName;
 
-    Open(String name, SourcePos pos) {
+    Open(String name, SourcePos pos, Open parent) {
       this.name = name;
       this.pos = pos;
+      this.contextNamespace = parent == null ? null : parent.contextNamespace;
+      this.contextName = parent == null ? null : parent.contextName;
+      this.namespace = HtmlParser.namespace(contextNamespace, contextName, name);
+    }
+
+    void opened() {
+      if (HtmlParser.omitsTag(name, attributes)) {
+        return;
+      }
+      boolean html = HtmlParser.htmlAnnotation(namespace, name, attributes);
+      contextNamespace = html ? HtmlParser.HTML : namespace;
+      contextName = html ? null : name;
     }
 
     Element toElement(boolean selfClosing, boolean hasEndTag) {
-      return new Element(name, attributes, children, selfClosing, hasEndTag, pos);
+      return new Element(name, attributes, children, selfClosing, hasEndTag, pos,
+          !namespace.equals(HtmlParser.HTML));
     }
   }
 
@@ -367,7 +383,7 @@ final class AttoparserHtmlParser {
       }
       flushText();
       String name = new String(buffer, offset, len);
-      tag = new Open(name, pos(line, col));
+      tag = new Open(name, pos(line, col), stack.peek());
       if (name.equalsIgnoreCase("plaintext")) {
         diagnostics.error(tag.pos, "<" + name + "> is not supported: a browser treats the rest of the page as plain"
             + " text; use <pre>");
@@ -424,8 +440,17 @@ final class AttoparserHtmlParser {
         diagnostics.error(tag.pos, "<" + lower + "/> is not self-closing in HTML: the browser treats everything"
             + " after it as " + lower + "; write <" + lower + " ...></" + lower + ">");
       }
+      checkBreakout(tag);
       children().add(tag.toElement(minimized, false));
       tag = null;
+    }
+
+    /** Reports a breakout tag ({@link HtmlParser#breaksOut}) inside svg or math. */
+    private void checkBreakout(Open open) {
+      if (HtmlParser.breaksOut(open.namespace, open.name, open.attributes)) {
+        diagnostics.error(open.pos, "malformed markup: <" + open.name + "> inside <svg> or <math> is HTML in a"
+            + " browser and ends the <svg> or <math> there: close it first, or put HTML inside <foreignObject>");
+      }
     }
 
     @Override
@@ -435,6 +460,8 @@ final class AttoparserHtmlParser {
       }
       Open open = tag;
       tag = null;
+      open.opened();
+      checkBreakout(open);
       open.textContext = Contexts.text(open.toElement(false, false));
       stack.push(open);
       if (RAW_TEXT_ELEMENTS.contains(open.name.toLowerCase(Locale.ROOT))) {
@@ -475,7 +502,7 @@ final class AttoparserHtmlParser {
     private void closeTag(String name, int line, int col) {
       SourcePos closePos = pos(line, col);
       if (raw != null) {
-        if (!raw.name.equalsIgnoreCase(name)) {
+        if (!HtmlParser.asciiLower(raw.name).equals(HtmlParser.asciiLower(name))) {
           return;
         }
         int end = offset(line, col);
@@ -565,7 +592,27 @@ final class AttoparserHtmlParser {
       if (end > rawStart) {
         String body = content.substring(rawStart, end);
         int comment = body.indexOf("<!--");
-        if (raw.name.equalsIgnoreCase("script") && comment >= 0) {
+        int confusable = HtmlParser.confusableEndTag(body, raw.name);
+        if (confusable >= 0) {
+          // It reads as the end tag, but a browser goes on past it. Fail closed.
+          diagnostics.error(position(rawStart + confusable), "malformed markup: '"
+              + body.substring(confusable, confusable + 2 + raw.name.length()) + "' inside <" + raw.name
+              + "> looks like its end tag but a browser doesn't end the element there: remove it");
+        }
+        boolean foreign = !raw.namespace.equals(HtmlParser.HTML);
+        int markup = foreign ? HtmlParser.foreignMarkup(body) : -1;
+        int reference = foreign && markup < 0 && (raw.name.equalsIgnoreCase("script")
+            || raw.name.equalsIgnoreCase("style")) ? HtmlParser.foreignReference(body) : -1;
+        int cdataEnd = foreign && raw.name.equalsIgnoreCase("title") ? HtmlParser.foreignTitleCdataEnd(body) : -1;
+        if (cdataEnd >= 0) {
+          diagnostics.error(position(rawStart + cdataEnd), HtmlParser.earlyEndMessage("<![CDATA["));
+        } else if (markup >= 0) {
+          diagnostics.error(position(rawStart + markup), "malformed markup: '<' inside <" + raw.name
+              + "> in <svg> or <math> starts markup in a browser, not text: write &lt; for a literal '<'");
+        } else if (reference >= 0) {
+          diagnostics.error(position(rawStart + reference), "malformed markup: '&' inside <" + raw.name
+              + "> in <svg> or <math> is decoded by a browser: write the character itself, or use a CDATA section");
+        } else if (raw.name.equalsIgnoreCase("script") && comment >= 0) {
           // Browsers apply script-data escape rules after "<!--" ("<script" inside it hides
           // the next "</script>"); attoparser does not. Fail closed.
           diagnostics.error(position(rawStart + comment),
