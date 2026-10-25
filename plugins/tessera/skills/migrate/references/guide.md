@@ -592,8 +592,11 @@ Then `t:utext="notices.html(notice.body)"`. The builder accepts only names from 
 options are `allowClasses` (exact names, `prefix*` or `*`; only letters, digits, `-` and `_`, and
 never a name AngularJS reads as a directive: `ng-*`, `ng_*` or `ngX`, also after `x-` or `data-`),
 `idPrefix` (a letter first, ending in `-`), `allowLinkTarget` (`target="_blank"` with `noopener`),
-`allowRemoteImages` (any `img src` that passes the URL check, not only same-origin paths) and
-`allowDataImages` (base64 PNG, GIF, JPEG and WebP `data:` URLs in `img src`).
+`allowRemoteImages` (any `img src` that passes the URL check, not only same-origin paths, so
+every reader's browser fetches from hosts the content's author picks, who can then track them) and
+`allowDataImages` (base64 PNG, GIF, JPEG and WebP `data:` URLs in `img src`). Allow the classes
+the content needs by name: with `*`, content can use any of the page's own CSS classes, to cover
+the page or dress up as its controls.
 
 Under every policy the output is rebuilt, never copied through, and balanced: every element is
 closed, and placed only where a browser's parser keeps it as written. A block element closes an
@@ -1058,9 +1061,10 @@ leaving a particular one. Read the part for your engine before converting.
   templates as a review point, and replace it according to where the value comes from:
   - plain data: an escaped `t:text` or attribute. If the page now shows `&lt;b&gt;` where the old
     one rendered `<b>`, the old page was injectable. That difference is the fix: keep it and say so.
-  - stored rich text: `html.sanitize` (section 4.4). If the HTML needs what the sanitizer drops
-    (`class`, `id`, images: editor output, Markdown with code blocks), parse it in Java into an
-    allow-listed tree of records and render that with a recursive fragment (section 7, Rich text).
+  - stored rich text: keep it a `String` and write `t:utext="html.sanitize(article.text)"`;
+    `html.sanitizeRich` for editor or Markdown output (images, tables, code-block classes); or a
+    policy of your own for any other mix (section 4.4). Don't parse it in Java into a tree of
+    records and rebuild it with a recursive fragment: see Rich text below.
   - markup the application builds in Java (a `StringBuilder` of HTML): build records instead and
     let the template render them; for a few pieces, `SafeHtml.concat`/`SafeHtml.escape`.
   - constant HTML: write it in the template; a bundle message with markup: `t:utext="#{key}"`
@@ -1083,6 +1087,71 @@ leaving a particular one. Read the part for your engine before converting.
 - `numbers.sequence(1, n)` counts down when `n` is below 1 (`sequence(1, 0)` is `[1, 0]`): guard the
   loop where the old one ran zero times. Whitespace between `t:case` siblings and HTML comments are
   output; that matters only in whitespace-sensitive markup (`<pre>`, inline text).
+
+**Rich text.** Stored HTML goes through a sanitizer policy into a `SafeHtml`. Don't rebuild it
+in the template instead, with a fragment that inserts itself, one `t:case` per tag name, over a
+tree parsed in Java. There the data decides which element nests in which (a `p` inside a `p`,
+text directly inside a `table`), so the compiler can't check what the browser will build from
+the page. Don't write such a fragment: it is a build error once the compiler's build-time
+context verifier is enforced. `tessera-migrate` reports every `th:utext` and
+`[(...)]` it converts, and every fragment of this shape with its call sites.
+
+An example from a real port: fredbet's info pages print HTML written in a Summernote editor.
+The Thymeleaf template had `<div th:remove="tag" th:utext="${textContent}"></div>`. A port that
+parsed the HTML into records rendered it like this, with `RichTextParser.parse(content)` in the
+controller and `<t:block t:replace="~{fragments/rich_html :: nodes(textContent)}"></t:block>` on
+each page:
+
+```html
+<t:block t:fragment="nodes(List<HtmlNode> nodes)"><t:block t:each="n : nodes" t:switch="n.tag"><t:block
+    t:case="'#text'" t:text="n.text"></t:block><p t:case="'p'" t:class="n.attrs['class']"><t:block
+    t:replace="~{fragments/rich_html :: nodes(n.children)}"></t:block></p><img t:case="'img'"
+    t:class="n.attrs['class']" t:src="n.attrs['src']" t:alt="n.attrs['alt']" /><!-- and 36 more cases --></t:block></t:block>
+```
+
+Delete the fragment, the node records and the parser, and pass the HTML string. The editor
+stores images inline as `data:` URLs, and the controller adds `class="img-responsive"` to them.
+`html.sanitizeRich` would drop both, so the application exposes its own policy:
+
+<!-- compile: java -->
+```java
+package com.example.guide;
+
+import dev.tessera.runtime.HtmlPolicy;
+import dev.tessera.runtime.SafeHtml;
+import dev.tessera.runtime.TemplateFunction;
+import dev.tessera.runtime.TemplateFunctions;
+
+@TemplateFunctions("info")
+public final class InfoFunctions {
+  // RICH's elements and attributes, plus one class and inline images.
+  private static final HtmlPolicy POLICY =
+      HtmlPolicy.builder()
+          .allowElements(HtmlPolicy.ELEMENTS.toArray(new String[0]))
+          .allowAttributes(HtmlPolicy.ATTRIBUTES.toArray(new String[0]))
+          .allowClasses("language-*", "img-responsive")
+          .allowLinkTarget()
+          .allowDataImages()
+          .build();
+
+  private InfoFunctions() {}
+
+  @TemplateFunction
+  public static SafeHtml html(Object text) {
+    return SafeHtml.sanitize(text == null ? null : text.toString(), POLICY);
+  }
+}
+```
+
+<!-- compile: template guide/info.html -->
+```html
+<div class="col-12" t:params="String textContent" t:utext="info.html(textContent)"></div>
+```
+
+Without those two needs, `t:utext="html.sanitizeRich(textContent)"` is all it takes. If trusted
+markup needs more than any policy allows (a `style`, an `iframe`), build that piece in Java as a
+`SafeHtml` from escaped parts (`SafeHtml.concat`, section 4.4), never with `SafeHtml.unchecked`
+over a stored string.
 
 **JSP, JSTL and Spring form tags, with Tiles or SiteMesh.**
 
@@ -1876,9 +1945,15 @@ Gaps in Tessera today, each with what to do until it is fixed.
   extra getters are not written, and Jackson annotations are ignored. `numbers.*` has no grouping
   or locale; `temporals.format` uses English names. Thymeleaf parser-level comments
   `<!--/* ... */-->` are emitted like any comment; delete them.
-- **Rich text.** `html.sanitize` has one fixed policy: no images, tables, `class` or `style`, and
-  links don't keep `target`. If the stored HTML needs more, build the markup in Java (a template
-  over a parsed model, or `SafeHtml.concat`) rather than widening it with `SafeHtml.unchecked`.
+- **Rich text.** Stored HTML is printed through a sanitizer policy: `html.sanitize`,
+  `html.sanitizeRich`, or one built with `HtmlPolicy.builder()` (section 4.4). The builder takes
+  names only from a closed set, so `style`, `iframe`, `video`, `svg` and forms are never kept,
+  and images from other hosts only with `allowRemoteImages()`, which lets whoever wrote the
+  content see each reader's visit. Editor output that depends on them
+  loses them: map what you need to classes in Java before sanitizing, or accept the loss.
+  Rebuilding the HTML in a template from a tree parsed in Java is a build error once the
+  build-time context verifier is enforced, and `SafeHtml.unchecked` is not a way around it
+  (section 4.10, Rich text).
 - **Framework attribute names.** Only the default names of client-side framework attributes are
   known (section 4.4). An Alpine prefix (`Alpine.prefix('data-x-')`), a Knockout binding provider
   or a _hyperscript `attributes` setting that reads other names is not detected, so expressions

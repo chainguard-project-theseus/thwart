@@ -152,11 +152,31 @@ class MigratorTest {
     assertEquals("<html xmlns:t=\"https://tessera.dev\""
             + " t:params=\"Object form, Object owner, Object query, Object user, Object t, Object count, Object html\">",
         convert(src).lines().findFirst().orElseThrow());
-    assertMessages(src,
+    assertMessages(src, "2: `[(...)]` prints `html` without escaping",
         "1: `form` is declared as `Object`", "1: `owner` is declared as `Object`",
         "1: `query` is declared as `Object`", "1: `user` is declared as `Object`",
         "1: `t` is declared as `Object`", "1: `count` is declared as `Object`",
         "1: `html` is declared as `Object`");
+  }
+
+  // ---- raw output ----
+
+  @Test
+  void rawOutputIsReportedWithTheSanitizeRecipe() throws Exception {
+    String src = "<div t:params=\"Article a\"><p th:utext=\"${a.body}\"></p>\n<p>[(${a.bio})]</p></div>";
+    assertEquals("<div t:params=\"Article a\"><p t:utext=\"a.body\"></p>\n<p>[(${a.bio})]</p></div>", convert(src));
+    assertEquals(List.of(
+            "1: " + String.format(ConversionRules.UTEXT_MESSAGE, "th:utext", "a.body", "a.body"),
+            "2: " + String.format(ConversionRules.UTEXT_MESSAGE, "[(...)]", "a.bio", "a.bio")),
+        messages(src));
+  }
+
+  @Test
+  void messagesAndSanitizedOutputAreNotReported() throws Exception {
+    String src = "<div t:params=\"Article a\"><p th:utext=\"#{intro(${a.title})}\"></p>"
+        + "<p th:utext=\"${html.sanitize(a.body)}\"></p><p t:utext=\"a.body\"></p>"
+        + "<p>[(${html.sanitizeRich(a.bio)})]</p></div>";
+    assertEquals(List.of(), messages(src));
   }
 
   @Test
