@@ -89,9 +89,9 @@ final class VerifierMessages {
       case RAW_NOT_FLOW:
         return rawNotFlow(f.source, s);
       case RAW_CLOSES_ELEMENT:
-        return "a browser lets the markup of " + source(f.source) + " close " + f.detail + " around it (a <p>, <div>,"
-            + " heading or link in the value ends it), so the rest of the page would parse differently; insert it in a"
-            + " <div> instead, outside the open element";
+        return "a browser lets the markup of " + source(f.source) + " close " + f.detail + " around it"
+            + closedBy(f.detail) + ", so the rest of the page would parse differently; insert it in a <div> instead,"
+            + " outside the open element";
       case MESSAGE_CHANGES_STATE:
         return "a browser parses the markup of this HTML message so that it " + f.detail + ", and the rest of the"
             + " page would be parsed differently; close every element the message opens, and insert it where its"
@@ -191,6 +191,23 @@ final class VerifierMessages {
       return head + "; write the script as an HTML <script> outside <svg> and <math>";
     }
     return head + "; check the markup before it: a browser ended the <script>, or never started it, there";
+  }
+
+  /** Which markup in a value closes {@code detail} ({@code ContentKinds.closer}), in parentheses, or "". */
+  private static String closedBy(String detail) {
+    if (detail == null) {
+      return "";
+    }
+    if (detail.equals("an open <p>")) {
+      return " (a <p>, <div>, list, table or heading in the value ends it)";
+    }
+    if (detail.matches("an open <h[1-6]>")) {
+      return " (a heading in the value ends it)";
+    }
+    if (detail.equals("an open <a>")) {
+      return " (a link in the value ends it)";
+    }
+    return "";
   }
 
   private static String rawNotFlow(Skeleton.Source source, ParserState s) {
