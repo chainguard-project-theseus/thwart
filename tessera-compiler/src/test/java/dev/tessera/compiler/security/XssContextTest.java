@@ -477,7 +477,25 @@ class XssContextTest {
           "<svg><desc><title><a b=\"</title><script>\">[[s]]</a></title></desc></svg>",
           // A breakout tag ends the svg even when it is not rendered (#291).
           "<svg><p t:remove=\"all\"></p><title><script>[[s]]</script></title></svg>",
-          "<svg><p t:if=\"s == null\"></p><title><script>[[s]]</script></title></svg>");
+          "<svg><p t:if=\"s == null\"></p><title><script>[[s]]</script></title></svg>",
+          // A fragment compiled in HTML content but rendered in <svg> content or raw text, and back.
+          "<a t:fragment=\"x(String v)\"><title><script>[[v]]</script></title></a><svg><g t:insert=\"~{:: x(s)}\"></g></svg>",
+          "<a t:fragment=\"x(String v)\"><title><script>[[v]]</script></title></a><svg><g t:replace=\"~{:: x(s)}\"></g></svg>",
+          "<g t:fragment=\"x(String v)\"><textarea><script>[[v]]</script></textarea></g><svg t:insert=\"~{:: x(s)}\"></svg>",
+          "<b t:fragment=\"x(String v)\"><!-- </textarea><script> -->[[v]]<!-- </script> --></b><textarea t:insert=\"~{:: x(s)}\"></textarea>",
+          "<b t:fragment=\"x(String v)\"><!-- </noscript><script> -->[[v]]<!-- </script> --></b><noscript><i t:insert=\"~{:: x(s)}\"></i></noscript>",
+          "<svg><g t:fragment=\"x(String v)\"><text><![CDATA[ x><script>/*]]>*/[[v]]/*<![CDATA[*/</script>]]></text></g></svg><div t:insert=\"~{:: x(s)}\"></div>",
+          "<span t:fragment=\"f(String v)\"><style><script></style>[[v]]</span><select><option t:insert=\"~{:: f(s)}\"></option></select>",
+          "<svg><g t:replace=\"~{::f(s)}\"></g></svg><title t:fragment=\"f(String s)\"><script>[[s]]</script></title>",
+          "<svg><g t:fragment=\"y(String v)\"><text><![CDATA[ x><script>/*]]>*/[[v]]/*<![CDATA[*/</script>]]></text></g></svg><svg><svg t:fragment=\"x(String v)\" t:replace=\"~{:: y(v)}\"></svg></svg><div t:insert=\"~{:: x(s)}\"></div>",
+          // A fragment under <svg t:replace> or <svg t:remove="tag"> is compiled as SVG content.
+          "<svg t:replace=\"~{:: y}\"><g t:fragment=\"x(String v)\"><text><![CDATA[ x><script>/*]]>*/[[v]]/*<![CDATA[*/</script>]]></text></g></svg><b t:fragment=\"y\">y</b><div t:insert=\"~{:: x(s)}\"></div>",
+          "<svg t:remove=\"tag\"><g t:fragment=\"x(String v)\"><text><![CDATA[ x><script>/*]]>*/[[v]]/*<![CDATA[*/</script>]]></text></g></svg><div t:insert=\"~{:: x(s)}\"></div>",
+          // Raw HTML outside HTML content: a <p> in the value ends the <svg>.
+          "<svg><g t:utext=\"html.sanitize(s)\"></g></svg>",
+          "<svg>[(#html.sanitize(s))]</svg>",
+          "<select><option t:utext=\"html.sanitize(s)\"></option></select>",
+          "<option t:fragment=\"o(String v)\" t:utext=\"html.sanitize(v)\"></option><select t:insert=\"~{:: o(s)}\"></select>");
 
   /** The built-in {@code html.sanitize} turns stored rich text into SafeHtml for raw output. */
   @Test

@@ -7,6 +7,7 @@ import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.html.HtmlParser;
+import dev.tessera.compiler.html.ParsingContexts;
 import dev.tessera.compiler.messages.MessageCompiler;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.model.Text;
@@ -43,6 +44,8 @@ public final class TextInlining {
     StringBuilder literal = new StringBuilder();
     boolean found = false;
     boolean html = text.context() == OutputContext.TEXT || text.context() == OutputContext.RCDATA;
+    String parsing = ctx.template().parsingContexts().text(text);
+    boolean rawText = ctx.template().parsingContexts().insideRawText(text);
     boolean inMustache = false;
     int i = 0;
     while (i < raw.length()) {
@@ -79,7 +82,7 @@ public final class TextInlining {
             i = end + 2;
             continue;
           }
-          code.append(inline(ctx, text.context(), raw.substring(i + 2, end), pos, escaped, scope));
+          code.append(inline(ctx, text.context(), parsing, rawText, raw.substring(i + 2, end), pos, escaped, scope));
           i = end + 2;
           continue;
         }
@@ -215,7 +218,8 @@ public final class TextInlining {
   }
 
   private static String inline(
-      CodegenContext ctx, OutputContext context, String source, SourcePos pos, boolean escaped, Scope scope) {
+      CodegenContext ctx, OutputContext context, String parsing, boolean rawText, String source, SourcePos pos,
+      boolean escaped, Scope scope) {
     String form = escaped ? "[[...]]" : "[(...)]";
     if (context.escaper() == null) {
       ctx.diagnostics().error(pos, form + " is not allowed " + where(context));
@@ -226,11 +230,33 @@ public final class TextInlining {
           .error(pos, "[(...)] is only allowed in element text; inside <script> use [[...]], which outputs JSON");
       return "";
     }
+    if (!escaped && !requireHtmlContent(ctx, parsing, rawText, pos, form)) {
+      return "";
+    }
     Expr e = ctx.parser().parseExpression(source, pos, ctx.diagnostics());
     if (e == null) {
       return "";
     }
     return escaped ? valueStatement(ctx, e, context, scope) : safeHtmlStatement(ctx, e, form, scope);
+  }
+
+  /**
+   * Reports and returns false unless raw HTML written by {@code form} at {@code pos} lands in HTML
+   * content: {@code parsing} is its {@link ParsingContexts} context. A {@code SafeHtml} or an HTML
+   * message is HTML content, like a {@code Fragment} value. {@code rawText}: inside a {@link
+   * ParsingContexts#rawTextElement}, where the raw-text rule (TemplateGenerator) reports it instead.
+   */
+  static boolean requireHtmlContent(CodegenContext ctx, String parsing, boolean rawText, SourcePos pos, String form) {
+    if (parsing.equals(ParsingContexts.HTML) || rawText) {
+      return true;
+    }
+    ctx.diagnostics()
+        .error(
+            pos,
+            form + " with a SafeHtml value or HTML message is only allowed in HTML content, not in "
+                + ParsingContexts.describe(parsing) + " content, where a browser parses its markup differently: write"
+                + " the markup in the template, or move the " + form + " into HTML content");
+    return false;
   }
 
   /** Where an expression cannot go, for error messages. */

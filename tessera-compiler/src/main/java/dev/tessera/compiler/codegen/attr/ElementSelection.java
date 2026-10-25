@@ -3,6 +3,7 @@ package dev.tessera.compiler.codegen.attr;
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.expr.FragmentRef;
+import dev.tessera.compiler.html.ParsingContexts;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
@@ -39,6 +40,9 @@ final class ElementSelection {
     if (!ref.args().isEmpty()) {
       ctx.diagnostics()
           .error(ref.pos(), "~{::" + ref.selector() + "} selects an element, which takes no arguments");
+      return null;
+    }
+    if (!InsertReplaceProcessor.fitsHtml(ctx, ref, target, ctx.template().parsingContexts())) {
       return null;
     }
     if (contains(target, host)) {

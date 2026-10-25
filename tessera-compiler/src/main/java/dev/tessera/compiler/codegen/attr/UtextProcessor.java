@@ -5,6 +5,7 @@ import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.html.Contexts;
+import dev.tessera.compiler.html.ParsingContexts;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.OutputContext;
 
@@ -15,7 +16,10 @@ public final class UtextProcessor implements AttributeProcessor {
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
-    if (!requireHtmlText(ctx, attr, plan)) {
+    ParsingContexts contexts = ctx.template().parsingContexts();
+    boolean rawText = contexts.insideRawText(plan.element()) || ParsingContexts.rawTextElement(plan.element());
+    if (!requireHtmlText(ctx, attr, plan)
+        || !TextInlining.requireHtmlContent(ctx, contexts.content(plan.element()), rawText, attr.pos(), attr.name())) {
       return;
     }
     Expr e = ctx.parse(attr);
