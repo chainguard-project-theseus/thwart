@@ -188,8 +188,8 @@ class SkeletonTest {
                     + "<section t:fragment=\"card(Fragment content)\">[<i t:replace=\"content\">c</i>]</section>"
                     + "<section t:fragment=\"outer(Fragment inner)\">(<b t:replace=\"~{:: card(${inner})}\">o</b>)</section>"
                     + "<em t:fragment=\"leaf\">leaf</em>"
-                    + "<p t:insert=\"~{:: outer(~{:: leaf})}\">p</p>"
-                    + "<p t:insert=\"~{:: card(~{::span})}\">q</p><span t:text=\"s\">s</span></div>")
+                    + "<div t:insert=\"~{:: outer(~{:: leaf})}\">p</div>"
+                    + "<div t:insert=\"~{:: card(~{::span})}\">q</div><span t:text=\"s\">s</span></div>")
             .compile()
             .assertSuccess();
     Skeleton.TemplateSkeleton t = c.skeleton("f");
@@ -197,8 +197,8 @@ class SkeletonTest {
     assertTrue(t.fragments().get("outer").toString().contains("call{f :: card {content=$param{inner}}}"), t.toString());
     assertTrue(t.body().toString().contains("call{f :: outer {inner=call{f :: leaf}}}"), t.toString());
     assertEquals(
-        "<div><em>leaf</em><p><section>(<section>[<em>leaf</em>]</section>)</section></p>"
-            + "<p><section>[<span>v</span>]</section></p><span>v</span></div>",
+        "<div><em>leaf</em><div><section>(<section>[<em>leaf</em>]</section>)</section></div>"
+            + "<div><section>[<span>v</span>]</section></div><span>v</span></div>",
         c.render("f", model("s", "v")));
   }
 

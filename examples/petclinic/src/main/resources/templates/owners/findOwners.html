@@ -2,7 +2,7 @@
 
 <html xmlns:t="https://tessera.dev" t:replace="~{fragments/layout :: layout (~{::body},'owners')}" t:import="org.springframework.samples.petclinic.owner.*" t:params="Owner owner">
 
-<body>
+<body t:remove="tag">
 
   <h2 t:text="#{findOwners}">Find Owners</h2>
 

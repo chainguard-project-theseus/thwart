@@ -116,7 +116,8 @@ class ContextVerifierTest {
                     + "<section t:insert=\"~{rich :: nodes(nodes)}\"></section></div>")
             .compile();
     c.assertError("rich.html:1:", "markup structure depends on data", "html.sanitize", "guide section 4.10, Rich text");
-    assertEquals(1, c.errors().size(), c.errors().toString());
+    // One error for the recursion; the other is the parse error a <ul> in a <p> makes (#406).
+    assertEquals(1, c.errors().stream().filter(e -> !e.endsWith("[verifier:PARSE_ERROR]")).count(), c.errors().toString());
   }
 
   @Test
@@ -131,5 +132,31 @@ class ContextVerifierTest {
         .verifierOnly()
         .compile()
         .assertError("row.html:1:", "[verifier:TEXT_IN_TABLE]");
+  }
+
+  @Test
+  void aTableEndingInsideSvgInACellIsAnErrorInEveryBuild() {
+    // #398: the profile accepts this; the verifier's parsers (and Firefox) leave the table after the
+    // inner </table>, Chrome and Safari don't, so the computed type decides where the input goes.
+    // Exclusion (a) rejects the <svg> in the cell (#406).
+    String inner = "<svg><foreignObject><div><table></table></div></foreignObject></svg>";
+    Compilation.builder()
+        .template("t.html", "<div " + NS + " t:params=\"String s\"><table><tbody><tr><td>" + inner
+            + "</td><input t:type=\"s\"></tr></tbody></table></div>")
+        .verifierOnly()
+        .compile()
+        .assertError("t.html:1:", "<svg> inside <td>", "[verifier:FOREIGN_IN_TABLE]");
+    // A static fragment that brings the </table>.
+    Compilation.builder()
+        .template("t.html", "<div " + NS + " t:params=\"String s\"><table><tr><td><svg><foreignObject><table>"
+            + "<t:block t:replace=\"~{parts :: end}\"></t:block></foreignObject></svg></td><td t:text=\"s\">x</td>"
+            + "</tr></table></div>")
+        .template("parts.html", "<div " + NS + "><t:block t:fragment=\"end\"></table></t:block></div>")
+        .verifierOnly()
+        .compile()
+        .assertError("t.html:1:", "[verifier:FOREIGN_IN_TABLE]");
+    // The same SVG outside the table compiles.
+    compile("<svg><foreignObject><div>[[${s}]]</div></foreignObject></svg>"
+        + "<table><tbody><tr><td t:title=\"s\">x</td></tr></tbody></table>").assertSuccess();
   }
 }

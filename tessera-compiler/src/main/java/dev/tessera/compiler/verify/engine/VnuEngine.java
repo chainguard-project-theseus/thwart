@@ -17,9 +17,16 @@ abstract class VnuEngine implements Engine {
   }
 
   private final String name;
+  private final boolean reportsErrors;
 
+  /** A build whose parsers report no parse errors. */
   VnuEngine(String name) {
+    this(name, false);
+  }
+
+  VnuEngine(String name, boolean reportsErrors) {
     this.name = name;
+    this.reportsErrors = reportsErrors;
   }
 
   abstract RawParser rawDocument(boolean scripting) throws Exception;
@@ -29,6 +36,11 @@ abstract class VnuEngine implements Engine {
   @Override
   public final String name() {
     return name;
+  }
+
+  @Override
+  public final boolean reportsErrors() {
+    return reportsErrors;
   }
 
   @Override

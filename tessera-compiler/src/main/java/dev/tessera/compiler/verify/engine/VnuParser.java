@@ -18,6 +18,9 @@ import java.util.List;
  * inside a token: an unmatched named reference ({@code &x}) followed by the buffer's last
  * character drops that character, so {@code "&x<" + "script>"} would not open a script. A raw
  * parser is never fed in place (each feed works on a fork), so forks share them.
+ *
+ * <p>A {@link Parser.Listener} may hear again, at offset 0, what the replay reports in the input
+ * fed before (#406).
  */
 final class VnuParser implements Parser {
   private final VnuEngine engine;
@@ -63,7 +66,7 @@ final class VnuParser implements Parser {
   }
 
   @Override
-  public void feed(String chunk) throws EngineException {
+  public void feed(String chunk, Listener listener) throws EngineException {
     checkUsable();
     if (chunk.isEmpty()) {
       return;
@@ -75,7 +78,7 @@ final class VnuParser implements Parser {
         ParserState here = state();
         next = raw.fork();
         char[] chars = chunk.toCharArray();
-        next.feed(chars, 0, chars.length);
+        next.feed(chars, 0, chars.length, events(listener, next, chars, 0));
         if (!next.betweenTokens()) {
           anchorRaw = raw;
           anchor = here;
@@ -83,11 +86,13 @@ final class VnuParser implements Parser {
           pending.append(chunk);
         }
       } else {
-        // Mid-token: replay the input since the anchor and this chunk as one buffer.
+        // Mid-token: replay the input since the anchor and this chunk as one buffer. What the
+        // replay reports before this chunk was reported when that input was fed.
+        int replayed = pending.length();
         pending.append(chunk);
         next = anchorRaw.fork();
         char[] chars = pending.toString().toCharArray();
-        next.feed(chars, 0, chars.length);
+        next.feed(chars, 0, chars.length, events(listener, next, chars, replayed));
         if (next.betweenTokens()) {
           anchorRaw = null;
           anchor = null;
@@ -103,6 +108,108 @@ final class VnuParser implements Parser {
       broken = failure(engine, "parsing", e);
       throw broken;
     }
+  }
+
+  /**
+   * Passes what {@code raw} reports while it parses {@code chars} on to {@code listener}, at
+   * offsets into the chunk that starts at {@code from} in {@code chars}. What a replay reports
+   * before the chunk was reported when that input was fed, and the verifier reports each rule
+   * once per path, so it is passed on at offset 0 rather than dropped: a position that maps
+   * before the chunk by mistake must never lose an error (fail closed).
+   */
+  private RawParser.RawListener events(final Listener listener, final RawParser raw, final char[] chars, final int from) {
+    if (listener == null || !engine.reportsErrors()) {
+      return null;
+    }
+    return new RawParser.RawListener() {
+      /** Where line {@code curLine} starts in {@code chars}: events come in input order. */
+      private int curLine = 1;
+      private int curStart;
+
+      /**
+       * The index in {@code chars} of the character at {@code line} and {@code column} as the
+       * tokenizer counts them (a line starts after LF, CR or CRLF, which is one line break; columns
+       * count UTF-16 units from 1), clamped to the input.
+       */
+      private int offset(int line, int column) {
+        if (line < curLine) {
+          curLine = 1;
+          curStart = 0;
+        }
+        while (curLine < line && curStart < chars.length) {
+          char c = chars[curStart++];
+          if (c == '\r' && curStart < chars.length && chars[curStart] == '\n') {
+            curStart++; // the tokenizer swallows the LF of a CRLF
+          }
+          if (c == '\n' || c == '\r') {
+            curLine++;
+          }
+        }
+        return Math.max(0, Math.min(curStart + Math.max(column, 1) - 1, chars.length - 1));
+      }
+
+      @Override
+      public void error(String message, int line, int column) {
+        listener.error(message, Math.max(offset(line, column) - from, 0));
+      }
+
+      @Override
+      public void pushed(final String namespace, final String localName, final boolean onStack, int line, int column) {
+        int at = Math.max(offset(line, column), from);
+        listener.pushed(new Stack() {
+          @Override
+          public OpenElement context() {
+            return context;
+          }
+
+          @Override
+          public int size() {
+            return raw.stackLength();
+          }
+
+          @Override
+          public String namespace(int i) {
+            return raw.stackNamespace(i);
+          }
+
+          @Override
+          public String localName(int i) {
+            return raw.stackName(i);
+          }
+
+          @Override
+          public String insertedNamespace() {
+            return namespace;
+          }
+
+          @Override
+          public String insertedName() {
+            return localName;
+          }
+
+          @Override
+          public boolean insertedOnStack() {
+            return onStack;
+          }
+
+          @Override
+          public int templateModeCount() {
+            return raw.templateModeCount();
+          }
+
+          @Override
+          public InsertionMode templateMode(int i) {
+            for (InsertionMode m : InsertionMode.values()) {
+              if (m.name().equals(raw.templateMode(i))) {
+                return m;
+              }
+            }
+            // Fails the feed, and so the parser (fail closed).
+            throw new IllegalStateException("unknown template insertion mode");
+          }
+        }, at - from);
+      }
+    };
   }
 
   @Override
