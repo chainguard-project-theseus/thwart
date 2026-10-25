@@ -1291,8 +1291,9 @@ These come from the annotation processor itself, without a template position.
   letters only, so `</ſcript>` (with U+017F) or `</tıtle>` (with U+0131) is text to it, not the end
   tag. Remove the look-alike.
 - `<<tag>/> is not self-closing in HTML: the browser treats everything after it as <tag>; write <<tag> ...></<tag>>`:
-  reported for `<script/>` and `<style/>`; a browser ignores the `/` and treats the rest of the
-  page as script or CSS. Write the end tag, e.g. `<script src="a.js"></script>`.
+  reported for `<script/>`, `<style/>` and `<select/>`; a browser ignores the `/` and treats the
+  rest of the page as script, CSS or select content. Write the end tag, e.g.
+  `<script src="a.js"></script>`.
   Also reported for `<textarea/>`, `<title/>`, `<xmp/>`, `<iframe/>`,
   `<noembed/>`, `<noframes/>` and `<noscript/>` when Tessera writes them as they are: a browser
   reads the rest of the page as their text. With content from `t:text`, `t:field` or another
@@ -1345,6 +1346,13 @@ These come from the annotation processor itself, without a template position.
   a browser closes the `<svg>` or `<math>` at `<p>`, `<div>`, `<span>`, `<b>`, `<br>`, `<img>`,
   `<table>` and the other HTML "breakout" tags (and `<font>` with `color`, `face` or `size`), so the
   markup after it is not where the template puts it.
+- `<<tag>> inside <select> is not supported: browsers with the classic select parser ignore most tags there and parse their content as markup; move the <<tag>> out of the <select> (a <select> holds only <option>, <optgroup>, <hr> and <t:block>)`:
+  reported for any other start tag inside a `<select>`, also inside its `<option>` or `<optgroup>`,
+  and also for `<svg>` and `<math>` and the elements in them. Firefox 140 and other browsers
+  without customizable select ignore those start tags in a select and parse what is inside them
+  as markup, so a `<script>` in a `<title>`, a `<style>` or an svg `<![CDATA[` runs, and later
+  holes can land in it. A `t:remove` on the select does not change this. Move the element out of
+  the `<select>`; wrap repeated options in `<t:block t:each="...">` or put `t:each` on the `<option>`.
 
 ### Template structure
 
