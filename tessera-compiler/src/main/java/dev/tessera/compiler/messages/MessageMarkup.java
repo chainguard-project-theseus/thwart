@@ -36,7 +36,7 @@ final class MessageMarkup {
   private MessageMarkup() {}
 
   /** Stands for a formatted argument in the MessageFormat view of a message. */
-  private static final char ARG = '';
+  static final char ARG = '';
 
   static final Set<String> ELEMENTS =
       Backports.setOf(
@@ -72,7 +72,7 @@ final class MessageMarkup {
     }
   }
 
-  private static final class Bad extends Exception {
+  static final class Bad extends Exception {
     private static final long serialVersionUID = 1L;
 
     Bad(String message) {
@@ -84,7 +84,7 @@ final class MessageMarkup {
   // MessageFormat view
 
   /** The message as MessageFormat outputs it, with {@link #ARG} for each placeholder. */
-  private static String formatted(String s) throws Bad {
+  static String formatted(String s) throws Bad {
     StringBuilder sb = new StringBuilder(s.length());
     int n = s.length();
     int i = 0;

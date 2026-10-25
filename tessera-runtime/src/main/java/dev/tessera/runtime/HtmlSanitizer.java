@@ -22,7 +22,10 @@ import java.util.Set;
  * <ul>
  *   <li>{@code p}, headings, {@code pre} and phrasing elements hold only phrasing elements; a
  *       block element first closes them, as a browser's implied end tags would.
- *   <li>{@code a} never nests in {@code a}; {@code li} only in {@code ul}/{@code ol}.
+ *   <li>{@code a} never nests in {@code a}; {@code li} only in {@code ul}/{@code ol}. No other
+ *       formatting element nests in one of its own name either (the inner tag is dropped, its text
+ *       kept): two identical ones, with one more around the insertion point, would make a browser
+ *       drop that one from its list of active formatting elements (the Noah's Ark clause).
  *   <li>Table parts only inside a {@code table}, with the {@code tbody} and {@code tr} a browser
  *       would imply written out; no text, and nothing else, directly in a table, section or row.
  *   <li>An end tag closes up to its matching open element, unmatched end tags are ignored, and
@@ -54,6 +57,9 @@ final class HtmlSanitizer {
           "code", "kbd", "span", "p", "h1", "h2", "h3", "h4", "h5", "h6", "pre");
 
   private static final Set<String> TABLE_SECTIONS = set("thead", "tbody", "tfoot");
+
+  /** Formatting elements that are dropped (text kept) inside an open element of the same name. */
+  private static final Set<String> NO_SELF_NESTING = set("b", "code", "em", "i", "s", "small", "strong", "u");
 
   /** Open elements a start tag never closes implicitly; past them a tag that doesn't fit is dropped. */
   private static final Set<String> BOUNDARY =
@@ -250,6 +256,12 @@ final class HtmlSanitizer {
         open.add(e);
       }
       return true;
+    }
+    if (NO_SELF_NESTING.contains(name) && open.contains(name)) {
+      // Nested in itself it would be a second identical entry in a browser's list of active
+      // formatting elements; with one more around the insertion point, a third would drop the
+      // outermost one (the Noah's Ark clause), which changes the parser state (#329).
+      return false;
     }
     int keep = open.size();
     if (name.equals("a")) {

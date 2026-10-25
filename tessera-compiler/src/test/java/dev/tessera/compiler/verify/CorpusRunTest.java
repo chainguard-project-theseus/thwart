@@ -244,6 +244,13 @@ class CorpusRunTest {
           w.println(name + "\t" + t.viewName() + "\t" + (p == null ? "ok" : "ERROR " + oneLine(p)) + "\t"
               + (found.isEmpty() ? "ACCEPT" : "REJECT") + "\t" + ms + "\t"
               + (found.isEmpty() ? "" : found.size() + " " + found.get(0).at + ": " + oneLine(VerifierMessages.message(found.get(0)))));
+          if (Boolean.getBoolean("tessera.verify.all")) {
+            // Every finding, for counting false positives per rule and call site (#329).
+            for (Finding f : found) {
+              w.println(name + "\t#finding\t" + t.viewName() + "\t" + f.problem + "\t" + f.at + "\t"
+                  + (f.inner == null ? "" : f.fragment + " @ " + f.inner) + "\t" + oneLine(VerifierMessages.message(f)));
+            }
+          }
         }
       } catch (IOException | RuntimeException e) {
         w.println(name + "\t#crash\t\t\t\t" + oneLine(e.toString()));

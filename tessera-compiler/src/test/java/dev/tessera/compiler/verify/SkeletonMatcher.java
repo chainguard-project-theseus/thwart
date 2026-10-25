@@ -14,8 +14,8 @@ import java.util.function.Function;
  * Decides whether a rendered output is in the language of a {@link Skeleton} (#366): statics
  * byte-equal; each hole in its escaper's output language (memo §3.1); {@code Opt}, {@code Alt} and
  * {@code Rep} as the regex operators; a {@code Call} as the target's skeleton with its fragment
- * arguments bound; a bound {@code ParamInsert} as its argument or nothing; a {@code RawInsert} or an
- * unbound {@code ParamInsert} as anything.
+ * arguments bound; a bound {@code ParamInsert} as its argument or nothing; a {@code RawInsert} as its
+ * content if it has one (an HTML message), else as anything, like an unbound {@code ParamInsert}.
  *
  * <p>Works on sets of end offsets, memoized per (sequence, index, offset, bindings), so ambiguity
  * between a hole and the static text after it costs no backtracking. A recursive call that
@@ -290,7 +290,7 @@ public final class SkeletonMatcher {
 
       @Override
       public BitSet visitRawInsert(Skeleton.RawInsert r) {
-        return anything(offset);
+        return r.content() != null ? seq(r.content(), offset, env) : anything(offset);
       }
 
       @Override

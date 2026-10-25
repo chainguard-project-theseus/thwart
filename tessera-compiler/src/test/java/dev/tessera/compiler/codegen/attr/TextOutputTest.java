@@ -111,9 +111,9 @@ class TextOutputTest {
 
   @Test
   void utextWithSafeHtmlRendersRaw() {
-    Compilation c = compile("SafeHtml h", "<p t:utext=\"h\">x</p>").assertSuccess();
-    assertEquals("<div><p><b>bold</b></p></div>", c.render("page", model("h", SafeHtml.unchecked("<b>bold</b>"))));
-    assertEquals("<div><p></p></div>", c.render("page", model()));
+    Compilation c = compile("SafeHtml h", "<div t:utext=\"h\">x</div>").assertSuccess();
+    assertEquals("<div><div><b>bold</b></div></div>", c.render("page", model("h", SafeHtml.unchecked("<b>bold</b>"))));
+    assertEquals("<div><div></div></div>", c.render("page", model()));
   }
 
   @Test
@@ -227,8 +227,8 @@ class TextOutputTest {
 
   @Test
   void unescapedInlineAcceptsSafeHtmlOnly() {
-    Compilation c = compile("SafeHtml h", "<p>a [(h)] b</p>").assertSuccess();
-    assertEquals("<div><p>a <i>x</i> b</p></div>", c.render("page", model("h", SafeHtml.unchecked("<i>x</i>"))));
+    Compilation c = compile("SafeHtml h", "<div>a [(h)] b</div>").assertSuccess();
+    assertEquals("<div><div>a <i>x</i> b</div></div>", c.render("page", model("h", SafeHtml.unchecked("<i>x</i>"))));
     compile("String s", "<p>[(s)]</p>").assertError("page.html:1:", "[(...)]", "SafeHtml", "java.lang.String");
     compile("String s", "<p>[(#{x})]</p>").assertError("[(...)] with a message #{...} needs -Atessera.messages");
   }

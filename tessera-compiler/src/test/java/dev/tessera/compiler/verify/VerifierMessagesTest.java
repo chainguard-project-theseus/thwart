@@ -66,7 +66,14 @@ class VerifierMessagesTest {
     List<String> failures = new ArrayList<>();
     for (Case c : cases) {
       Compilation.Builder b = Compilation.builder().verifierOnly();
-      c.templates().forEach((name, body) -> b.template(name, wrap(body)));
+      // A "messages.properties" entry is the message bundle (HTML messages, #329).
+      c.templates().forEach((name, body) -> {
+        if (name.equals("messages.properties")) {
+          b.messages(body);
+        } else {
+          b.template(name, wrap(body));
+        }
+      });
       List<String> errors = b.compile().errors();
       if (!UPDATE) {
         errors.forEach(VerifierMessagesTest::checkPlain);
