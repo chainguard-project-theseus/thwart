@@ -1472,6 +1472,26 @@ These come from the annotation processor itself, without a template position.
 - `[[...]] is inside a client-side {{ ... }} interpolation: Vue or AngularJS would run the value as code, whatever the escaping. Pass the value in a data-* attribute or a <script> with [[...]] and read it from there`
   (also `[(...)]`): the text has a `{{` with no `}}` before the expression. Character references
   for braces count, as the framework decodes them.
+- `[[...]] directly inside <tr> is not supported: a browser moves the text in front of the table but leaves the comments that break {{ in the value inside it, so Vue or AngularJS could run the value as code; put the value in a <td>, <th> or <caption>`
+  (also `[(...)]`, `t:text`, `t:utext` and `t:errors`, and `<table>`, `<tbody>`, `<thead>`, `<tfoot>`
+  and `<colgroup>`): a value directly in a table, also through `<t:block>` or `t:remove="tag"`.
+  Whitespace and static text are allowed. Move the value into a cell (`<tr><td>[[...]]</td></tr>`),
+  or put `t:each` rows on the `<tr>` itself.
+- `<tr> inside <td> is not supported: a browser would close elements to place it (a <tr> ends a <td>, a <form> in a table is closed at once), and then move text after it in front of the table, leaving the comments that break {{ in a value behind, so Vue or AngularJS could run the value as code; write table parts only directly in the part that takes them (<tr> in <tbody>, <td> in <tr>)`
+  (any of `<caption>`, `<colgroup>`, `<col>`, `<tbody>`, `<thead>`, `<tfoot>`, `<tr>`, `<td>` and
+  `<th>` not directly in the part that takes it, also through other elements as in `<td><p><tr>`,
+  and `<form>` directly in a table; `here` for one at the top of a fragment). Also
+  `t:insert of a fragment that writes <tr> inside <td> is not supported: ...`: the same check on
+  the top level of what `t:insert`/`t:replace` writes, looking through `<t:block>` and
+  `t:remove="tag"` fragment roots.
+- `t:insert writes computed text or a Fragment value directly inside <tbody>, which is not supported: a browser moves the text in front of the table but leaves the comments that break {{ in the value inside it, so Vue or AngularJS could run the value as code; put the value in a <td>, <th> or <caption>, or insert a fragment whose top element is a table row or cell`
+  (also `t:replace`, and any table part that holds no text): a fragment with a value at its top
+  level, or a `Fragment` value, inserted directly in a table.
+- `t:insert inside a table must insert a fragment Tessera can follow (~{template :: name})` (also
+  `t:replace`): the fragment reference cannot be resolved, or nests too deeply, so Tessera cannot
+  check what it writes in the table.
+- `~{:: row} writes <tr>, which is not supported in a Fragment value: inserted in a <td> or a <div> a browser would close elements to place it and move text after it out of the table; insert the fragment with t:insert/t:replace directly in the table part that takes it`:
+  a fragment passed as a `Fragment` argument may have no table part other than `<table>` at its top.
 - `[[...]] may not follow '<MARKUP>' directly: the browser would read the value as markup; write &lt; for a literal '<'`
   (also `[(...)]`), where `<MARKUP>` is `<`, `<!`, `<!-`, `<?`, or `</` and any letters, at the end
   of the static text before the expression, in element text, `<title>` or `<textarea>`. In element

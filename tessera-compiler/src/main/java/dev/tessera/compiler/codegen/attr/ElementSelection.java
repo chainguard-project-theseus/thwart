@@ -90,7 +90,7 @@ final class ElementSelection {
     return helper + "(" + String.join(", ", captured) + ")";
   }
 
-  private static Element find(List<Node> nodes, String tag) {
+  static Element find(List<Node> nodes, String tag) {
     for (Node n : nodes) {
       if (n instanceof Element) {
         Element e = (Element) n;

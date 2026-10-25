@@ -114,6 +114,17 @@ public final class TextInlining {
     return -1;
   }
 
+  /** Offset of the first {@code [[...]]} or {@code [(...)]} in {@code raw} that {@link #render} writes as an expression, or -1. */
+  public static int firstHole(String raw) {
+    for (int i = 0; i < raw.length(); i++) {
+      boolean escaped = raw.startsWith("[[", i);
+      if ((escaped || raw.startsWith("[(", i)) && findEnd(raw, i + 2, escaped ? "]]" : ")]") >= 0) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
   /**
    * Whether a client-side {@code {{} interpolation is open after the static text {@code literal},
    * given whether one was open before it. Frameworks read the decoded text, so character
