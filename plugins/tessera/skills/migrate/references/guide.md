@@ -1133,8 +1133,12 @@ AngularJS) are covered only by the build errors and `{{` breaking in section 4.4
 section 7. A strict Content Security Policy is the control that reaches past that.
 
 **The nonce.** When the `RenderContext` has a CSP nonce, every `<script>` and `<style>` start tag
-the template writes gets `nonce="..."`: inline or `src`, in fragments wherever they are inserted,
-and in SVG too. With no nonce, nothing is added. Markup the compiler didn't write never gets one:
+the template writes gets `nonce="..."`: inline or `src`, and in fragments wherever they are
+inserted. The exception is a script or style a browser does not read as HTML: inside `<svg>` or
+`<math>` (also when a fragment is inserted there), or inside `<noscript>`, `<xmp>`, `<iframe>`,
+`<noembed>` or `<noframes>`. Those get no nonce, so a nonce policy blocks them; move scripts out of
+SVG. The content of `<iframe srcdoc>` inherits the page's policy but gets no nonce, so its
+scripts don't run either. With no nonce, nothing is added. Markup the compiler didn't write never gets one:
 `html.sanitize` removes scripts and styles, and a script in a `SafeHtml.unchecked` value does not
 run under a nonce policy. (`SafeHtml.of(template, ctx)` is another template's output, stamped with
 the nonce of the `ctx` it was rendered with.) A nonce in the template is a build error, static or computed, so delete
@@ -1146,7 +1150,8 @@ for your policy header; it is also the request attribute `CspNonce.ATTRIBUTE`. T
 no policy header itself: a strict policy blocks `on*` attributes and `javascript:` URLs in your
 templates, so turning it on is your decision. Without Spring, pass the nonce to
 `new RenderContext(locale, messages, links, forms, nonce)` or call `ctx.withCspNonce(nonce)`, with
-a new value for every response.
+a new value for every response. Because the nonce changes on every response, an ETag computed from the
+body (Spring's `ShallowEtagHeaderFilter`) never matches for a page with a script or style.
 
 **The policy.** Send this header, with the request's nonce, on every page:
 

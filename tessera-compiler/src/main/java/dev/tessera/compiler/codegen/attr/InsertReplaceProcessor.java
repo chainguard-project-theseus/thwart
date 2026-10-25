@@ -99,7 +99,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
                     + " content, where a browser parses its markup differently: " + fix);
         return null;
       }
-      return call == null ? null : "{\n" + pre + call.invoke("ctx", "out") + ";\n}";
+      return call == null ? null : "{\n" + pre + call.invoke(ctx.insertionContext(), "out") + ";\n}";
     }
     CompiledExpr e = ctx.compile(attr, plan.scope());
     if (e == null) {
@@ -129,7 +129,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       return null;
     }
     String f = ctx.freshName("f");
-    return "{ " + FRAGMENT + " " + f + " = " + e.code() + "; if (" + f + " != null) { " + f + ".render(ctx, out); } }";
+    return "{ " + FRAGMENT + " " + f + " = " + e.code() + "; if (" + f + " != null) { " + f + ".render(" + ctx.insertionContext() + ", out); } }";
   }
 
   /** What to do where no fragment fits ({@code point} is unwrapped or mixed content), or null. */

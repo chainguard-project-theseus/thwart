@@ -286,6 +286,11 @@ public final class TemplateGenerator implements CodegenContext {
     return selecting;
   }
 
+  @Override
+  public String insertionContext() {
+    return inForeign || rawTextHost != null ? "ctx.withCspNonce(null)" : "ctx";
+  }
+
   /** Records {@link #whitespaceBefore} for every element preceded by a text sibling. */
   private void indexWhitespace(List<Node> nodes) {
     Node previous = null;
@@ -693,8 +698,12 @@ public final class TemplateGenerator implements CodegenContext {
 
   /**
    * Whether the start tag gets the render's CSP nonce (#335): every {@code <script>} and {@code
-   * <style>} the template writes, in HTML, SVG or MathML alike, so the decision does not depend on
-   * the compiler's namespace tracking. Markup written at runtime ({@code SafeHtml}) never gets one.
+   * <style>} the template writes where a browser reads it as an HTML element. One inside {@code
+   * <svg>} or {@code <math>} (whose content a browser parses differently, decoding character
+   * references) or inside a raw text element such as {@code <noscript>} or {@code <xmp>} (where it
+   * is text) gets none, and fragments inserted there are rendered without the nonce ({@link
+   * #insertionContext}). If the tracking is wrong, a script loses its nonce and does not run under
+   * the policy; it never gains one. Markup written at runtime ({@code SafeHtml}) never gets one.
    * A nonce in the template itself is an error: it would be the same on every response, or a
    * second, conflicting nonce attribute (the browser keeps the first).
    */
@@ -715,7 +724,7 @@ public final class TemplateGenerator implements CodegenContext {
               + " writes the render's CSP nonce (RenderContext.cspNonce, set per request by the Spring starter) on"
               + " every <script> and <style>; remove the nonce attribute (static, t:nonce or t:attr nonce=...)");
     }
-    return true;
+    return !inForeign && rawTextHost == null;
   }
 
   /**
