@@ -361,6 +361,60 @@ class MigratorTest {
         "2: `th:include` is not supported; use `t:insert` or `t:replace`");
   }
 
+  private static final String SVG_STYLE = "on an SVG element is not converted: Tessera reads";
+
+  /** SVG attributes that take a CSS url() are CSS in Tessera: left in place and reported, like th:style. */
+  @Test
+  void svgCssAttributesAreNotConverted() throws Exception {
+    String src = "<svg th:cursor=\"${c}\">\n<rect th:fill=\"${color}\" th:stroke=\"${s}\" th:width=\"${w}\"/>\n"
+        + "<g th:clip-path=\"${a}\" th:mask=\"${b}\" th:filter=\"${f}\"><path th:marker-start=\"${m}\""
+        + " th:marker-mid=\"${m}\" th:marker-end=\"${m}\" th:marker=\"${m}\"/></g>\n<RECT TH:FILL=\"${color}\"/></svg>";
+    String out = convert(src);
+    assertTrue(out.contains("<rect th:fill=\"${color}\" th:stroke=\"${s}\" t:width=\"w\"/>"), out);
+    assertTrue(out.contains("<RECT TH:FILL=\"${color}\"/>"), out);
+    assertMessages(src,
+        "1: `th:cursor` " + SVG_STYLE + " `cursor` as CSS, like `style`, so a `String` value is a build error;"
+            + " rewrite it as `t:cursor` from literals, numbers and `css.color(...)`/`css.url(...)`",
+        "2: `th:fill` " + SVG_STYLE + " `fill` as CSS",
+        "2: `th:stroke` " + SVG_STYLE,
+        "3: `th:clip-path` " + SVG_STYLE,
+        "3: `th:mask` " + SVG_STYLE,
+        "3: `th:filter` " + SVG_STYLE,
+        "3: `th:marker-start` " + SVG_STYLE,
+        "3: `th:marker-mid` " + SVG_STYLE,
+        "3: `th:marker-end` " + SVG_STYLE,
+        "3: `th:marker` " + SVG_STYLE,
+        "4: `TH:FILL` " + SVG_STYLE + " `FILL` as CSS, like `style`, so a `String` value is a build error;"
+            + " rewrite it as `t:FILL`",
+        "1: `w` is declared as `Object`");
+  }
+
+  /** Outside SVG, inside foreignObject, desc and title, and on an animation's timing fill, the names are plain attributes. */
+  @Test
+  void otherFillAttributesAreConverted() throws Exception {
+    String src = "<div t:params=\"Object c\"><p th:fill=\"${c}\">x</p><svg><rect><animate th:fill=\"${c}\"/>"
+        + "<animateMotion th:fill=\"${c}\"/><set th:fill=\"${c}\"/></rect><rect th:fill-opacity=\"${c}\"/>"
+        + "<foreignObject><div th:fill=\"${c}\" th:stroke=\"${c}\">x</div></foreignObject>"
+        + "<desc><b th:fill=\"${c}\">x</b></desc><title><i th:mask=\"${c}\">x</i></title></svg></div>";
+    assertEquals(src.replace("th:", "t:").replace("${c}", "c"), convert(src));
+    assertEquals(List.of(), messages(src));
+  }
+
+  /** A th:attr entry naming one is converted (its other entries still need it) and reported. */
+  @Test
+  void svgCssAttributesInThAttrAreReported() throws Exception {
+    String src = "<div t:params=\"Object c\"><svg><rect th:attr=\"fill=${c},data-x=${c}, Stroke = ${c}\"/>"
+        + "<animate th:attr=\"fill=${c}\"/></svg><p th:attr=\"fill=${c}\">x</p></div>";
+    assertEquals(
+        "<div t:params=\"Object c\"><svg><rect t:attr=\"fill=c,data-x=c, Stroke = c\"/>"
+            + "<animate t:attr=\"fill=c\"/></svg><p t:attr=\"fill=c\">x</p></div>",
+        convert(src));
+    assertMessages(src,
+        "1: `fill` in `th:attr` on an SVG element is CSS in Tessera, like `style`, so a `String` value is a"
+            + " build error; write it from literals, numbers and `css.color(...)`/`css.url(...)`",
+        "1: `Stroke` in `th:attr` on an SVG element is CSS in Tessera");
+  }
+
   @Test
   void unsupportedConstructsInInlinedTextAreReported() throws Exception {
     String src = "<p>[[${T(System).getenv()}]]</p>";
