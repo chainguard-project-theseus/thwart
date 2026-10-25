@@ -30,11 +30,18 @@ class EmissionGuardTest {
   private static final List<Pattern> WRITES =
       List.of(
           Pattern.compile("\\bout\\s*\\.\\s*write\\b"),
-          Pattern.compile("[(,]\\s*out\\s*[,)]"),
-          Pattern.compile("^\\s*out\\s*$"),
+          // The output variable used in any other way: passed on, aliased (Output o = out), ...
+          // but not declared (Output out) and not the English word (out of the table).
+          Pattern.compile("(?<![\\w$.])(?<!Output\\s)out(?![\\w$])(?!\\s+of\\b)"),
           Pattern.compile("\\bEscapers\\.(text|rcdata|attr|url|urlList|resourceUrl|refresh|html|json|jsonAttr)\\s*\\("),
           Pattern.compile("\\.(text|rcdata|attr|url|urlList|resourceUrl|refresh|html|json|jsonAttr)\\s*\\(\\s*(out\\b|$)"),
           Pattern.compile("\\.render\\s*\\("));
+
+  /**
+   * Code (outside literals) that takes the Java text out of an {@link Emitted} without its skeleton:
+   * {@code Emitted.code(e.java())} or a wrapper string built from it would write unrecorded bytes.
+   */
+  private static final Pattern UNRECORDED = Pattern.compile("\\.(java|open)\\(\\)");
 
   /**
    * Methods allowed to write, as {@code file#method}, each with why it records nothing. Everything
@@ -49,7 +56,18 @@ class EmissionGuardTest {
           "codegen/RegistryGenerator.java#adapter",
           // Names the parameters of a Fragment lambda: it writes nothing where it is created, and
           // the skeleton of what it writes is recorded as the fragment argument (Skeleton.Call).
-          "codegen/attr/InsertReplaceProcessor.java#fragmentValue");
+          "codegen/attr/InsertReplaceProcessor.java#fragmentValue",
+          // Take an Emitted's Java whose skeleton is recorded separately: the template's render
+          // body (TemplateSkeleton.body), each fragment method (TemplateSkeleton.fragments) and a
+          // ~{::tag} selection helper (the fragment argument's skeleton).
+          "codegen/TemplateGenerator.java#generate",
+          "codegen/attr/FragmentMethods.java#generate",
+          "codegen/attr/ElementSelection.java#helperCall",
+          // Wrapper's own accessor and value methods.
+          "codegen/ElementPlan.java#open",
+          "codegen/ElementPlan.java#equals",
+          "codegen/ElementPlan.java#hashCode",
+          "codegen/ElementPlan.java#toString");
 
   /** A literal that writes output, outside the allow-list. */
   record Finding(String file, int line, String method, String literal) {
@@ -114,6 +132,12 @@ class EmissionGuardTest {
           static String g(String code) {
             return code + ";\\nout.write(s$.toString());\\n}\\n";
           }
+          static Emitted h(Emitted e) {
+            return Emitted.code(e.java()); // unrecorded
+          }
+          static String i(String v) {
+            return "dev.tessera.runtime.Output o$ = out; o$.write(" + v + ");";
+          }
           static String fine(String v) {
             // out.write in a comment, "out" of the table in a message
             return "dev.tessera.runtime.Escapers.toText(" + v + ") + \\" it goes out of the table\\"";
@@ -122,7 +146,7 @@ class EmissionGuardTest {
         """;
     List<Finding> f = scan("X.java", src);
     assertEquals(
-        List.of("a", "b", "c", "c", "d", "e", "g"), f.stream().map(Finding::method).collect(Collectors.toList()), f.toString());
+        List.of("a", "b", "c", "c", "d", "e", "g", "h", "i"), f.stream().map(Finding::method).collect(Collectors.toList()), f.toString());
   }
 
   private static final Pattern METHOD =
@@ -186,7 +210,13 @@ class EmissionGuardTest {
         }
         i = k + 1;
       } else {
-        i++;
+        Matcher m = UNRECORDED.matcher(src).region(i, Math.min(n, i + 8));
+        if (m.lookingAt()) {
+          out.add(new Finding(file, line, method, "<code> " + m.group()));
+          i = m.end();
+        } else {
+          i++;
+        }
       }
     }
     return out;
