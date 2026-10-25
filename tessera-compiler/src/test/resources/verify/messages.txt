@@ -111,8 +111,28 @@
 => t.html:1:118: error: a browser parses this SafeHtml value in a table outside any cell, not as content of the body, and moves what isn't table markup in front of the table; put it in a <td> or <th> [verifier:RAW_NOT_FLOW]
 == RAW_NOT_FLOW: SafeHtml in <noscript>, which is text with scripting on
 -- t.html
-<noscript><p t:utext="html.sanitize(s)">x</p></noscript>
-=> t.html:1:78: error: a browser parses this SafeHtml value as the raw text of <noscript>, not as content of the body, so its markup is shown or dropped; insert it outside <noscript> (only with scripting on) [verifier:RAW_NOT_FLOW]
+<noscript><div t:utext="html.sanitize(s)">x</div></noscript>
+=> t.html:1:80: error: a browser parses this SafeHtml value as the raw text of <noscript>, not as content of the body, so its markup is shown or dropped; insert it outside <noscript> (only with scripting on) [verifier:RAW_NOT_FLOW]
+== RAW_CLOSES_ELEMENT: sanitized HTML in a paragraph, which a <p> or <div> in it would close
+-- t.html
+<p>Note: <span t:utext="html.sanitize(s)">x</span></p>
+=> t.html:1:80: error: a browser lets the markup of this SafeHtml value close an open <p> around it (a <p>, <div>, heading or link in the value ends it), so the rest of the page would parse differently; insert it in a <div> instead, outside the open element [verifier:RAW_CLOSES_ELEMENT]
+== RAW_CLOSES_ELEMENT: a Fragment value in a link
+-- t.html
+<a $NS t:import="dev.tessera.runtime.Fragment" t:params="Fragment f" href="/x"><span t:insert="f">x</span></a>
+=> t.html:1:122: error: a browser lets the markup of this Fragment value close an open <a> around it (a <p>, <div>, heading or link in the value ends it), so the rest of the page would parse differently; insert it in a <div> instead, outside the open element [verifier:RAW_CLOSES_ELEMENT]
+== MESSAGE_CHANGES_STATE: an HTML message with a paragraph, in a paragraph
+-- messages.properties
+m=<p>Read this first.</p>
+-- t.html
+<p><span t:utext="#{m}">x</span></p>
+=> t.html:1:74: error: a browser parses the markup of this HTML message so that it closes an open <p> around it, and the rest of the page would be parsed differently; close every element the message opens, and insert it where its markup fits (a message with a <p> in a <div>, not in a <p>) [verifier:MESSAGE_CHANGES_STATE]
+== MESSAGE_CHANGES_STATE: an HTML message that leaves its paragraph open
+-- messages.properties
+m=First.<p>Second.
+-- t.html
+<span t:utext="#{m}">x</span>
+=> t.html:1:71: error: a browser parses the markup of this HTML message so that it leaves <p> open, and the rest of the page would be parsed differently; close every element the message opens, and insert it where its markup fits (a message with a <p> in a <div>, not in a <p>) [verifier:MESSAGE_CHANGES_STATE]
 == FRAMESET: a frameset page
 -- t.html
 <!DOCTYPE html>
