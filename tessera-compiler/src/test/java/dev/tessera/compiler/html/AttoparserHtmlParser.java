@@ -603,7 +603,10 @@ final class AttoparserHtmlParser {
         int markup = foreign ? HtmlParser.foreignMarkup(body) : -1;
         int reference = foreign && markup < 0 && (raw.name.equalsIgnoreCase("script")
             || raw.name.equalsIgnoreCase("style")) ? HtmlParser.foreignReference(body) : -1;
-        if (markup >= 0) {
+        int cdataEnd = foreign && raw.name.equalsIgnoreCase("title") ? HtmlParser.foreignTitleCdataEnd(body) : -1;
+        if (cdataEnd >= 0) {
+          diagnostics.error(position(rawStart + cdataEnd), HtmlParser.earlyEndMessage("<![CDATA["));
+        } else if (markup >= 0) {
           diagnostics.error(position(rawStart + markup), "malformed markup: '<' inside <" + raw.name
               + "> in <svg> or <math> starts markup in a browser, not text: write &lt; for a literal '<'");
         } else if (reference >= 0) {

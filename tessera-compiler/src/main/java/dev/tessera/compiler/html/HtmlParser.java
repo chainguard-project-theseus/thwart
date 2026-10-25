@@ -234,6 +234,27 @@ public final class HtmlParser {
   }
 
   /**
+   * Index in {@code body}, the content of a {@code <title>} inside {@code <svg>} or {@code <math>},
+   * of a {@code >} inside a {@code <![CDATA[ ... ]]>} section before its {@code ]]>}, or -1. An SVG
+   * {@code <title>} is an HTML integration point, where browsers disagree whether {@code <![CDATA[}
+   * starts a CDATA section or a comment that ends at the first {@code >}; see {@link #earlyEnd}.
+   */
+  static int foreignTitleCdataEnd(String body) {
+    for (int i = body.indexOf("<![CDATA["); i >= 0; i = body.indexOf("<![CDATA[", i + 1)) {
+      int end = body.indexOf("]]>", i + "<![CDATA[".length());
+      if (end < 0) {
+        return -1;
+      }
+      int gt = earlyEnd(body.substring(i, end + "]]>".length()));
+      if (gt >= 0) {
+        return i + gt;
+      }
+      i = end;
+    }
+    return -1;
+  }
+
+  /**
    * Index in {@code body}, the content of a {@code <script>} or {@code <style>} inside {@code <svg>}
    * or {@code <math>} without markup (see {@link #foreignMarkup}), of the first {@code &} outside a
    * {@code <![CDATA[ ... ]]>} section, or -1. There a browser decodes character references before
@@ -810,7 +831,12 @@ public final class HtmlParser {
         int markup = foreign ? foreignMarkup(body) : -1;
         int reference = foreign && markup < 0 && (raw.name.equalsIgnoreCase("script")
             || raw.name.equalsIgnoreCase("style")) ? foreignReference(body) : -1;
-        if (markup >= 0) {
+        int cdataEnd = foreign && raw.name.equalsIgnoreCase("title") ? foreignTitleCdataEnd(body) : -1;
+        if (cdataEnd >= 0) {
+          // A browser may read the CDATA section as a comment that ends at this '>', and the
+          // rest as HTML that foreignMarkup skipped. Fail closed (#296).
+          diagnostics.error(position(rawStart + cdataEnd), earlyEndMessage("<![CDATA["));
+        } else if (markup >= 0) {
           // Inside svg and math a browser parses this content as markup (SVG <title> as HTML), so
           // a tag in it is a real element that Tessera reads as text. Fail closed.
           diagnostics.error(position(rawStart + markup), "malformed markup: '<' inside <" + raw.name
