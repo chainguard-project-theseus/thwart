@@ -1,9 +1,9 @@
 package dev.tessera.compiler.codegen.attr;
 
-import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
+import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.expr.EachSpec;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
@@ -11,6 +11,7 @@ import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.model.Text;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.Variable;
+import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.LoopStatus;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -101,16 +102,22 @@ public final class EachProcessor implements AttributeProcessor {
       open.append("for (final ").append(elementType).append(' ').append(var).append(" : ").append(items).append(") { ");
     }
     String ws = plan.element().name().equals("t:block") ? null : ctx.whitespaceBefore(plan.element());
+    Emitted separator = Emitted.EMPTY;
     if (ws != null) {
-      open.append("if (").append(index).append(" > 0) { out.write(")
-          .append(JavaStrings.literal(ws)).append("); } ");
+      open.append("if (").append(index).append(" > 0) { ");
+      separator = Emitted.text(ws, null);
     }
+    StringBuilder rest = new StringBuilder(ws != null ? " } " : "");
     if (needsStatus) {
-      open.append("final ").append(LOOP_STATUS).append(' ').append(stat).append(" = ")
+      rest.append("final ").append(LOOP_STATUS).append(' ').append(stat).append(" = ")
           .append(LOOP_STATUS).append(".of(").append(index).append(", ").append(size).append("); ");
     }
     String close = source.getKind() == TypeKind.ARRAY ? "} } }" : index + "++; } } }";
-    plan.wrap(open.toString(), close);
+    plan.wrapRep(
+        Skeleton.RepKind.EACH,
+        Emitted.concat(Emitted.code(open.toString()), separator, Emitted.code(rest.toString())),
+        close,
+        attr.pos());
 
     TypeMirror statType = ctx.env().elements().getTypeElement(LOOP_STATUS).asType();
     plan.scope(

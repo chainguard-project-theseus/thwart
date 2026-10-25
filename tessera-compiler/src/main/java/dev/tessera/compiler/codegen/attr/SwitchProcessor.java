@@ -7,6 +7,7 @@ import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.Variable;
+import dev.tessera.compiler.verify.Skeleton;
 import java.util.Optional;
 import javax.lang.model.type.TypeKind;
 
@@ -69,6 +70,6 @@ public final class SwitchProcessor implements AttributeProcessor {
       }
       cond = "!" + m + " && (" + c.code() + ")";
     }
-    plan.wrap("if (" + cond + ") { " + m + " = true; ", "}");
+    plan.wrapOpt(Skeleton.OptKind.CASE, "if (" + cond + ") { " + m + " = true; ", "}", attr.pos());
   }
 }

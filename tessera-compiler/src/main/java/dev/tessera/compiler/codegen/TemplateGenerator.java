@@ -1,7 +1,5 @@
 package dev.tessera.compiler.codegen;
 
-import static dev.tessera.compiler.JavaStrings.literal;
-
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.GeneratedFile;
@@ -26,6 +24,7 @@ import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
+import dev.tessera.compiler.verify.Skeleton;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -53,7 +52,6 @@ import java.util.Set;
  * <p>Not thread-safe: one instance generates one template at a time.
  */
 public final class TemplateGenerator implements CodegenContext {
-  private static final String RT = "dev.tessera.runtime.";
   /** Static text is split into constants of at most this many chars (constant-pool limit). */
   private static final int CHUNK = 8192;
 
@@ -80,6 +78,15 @@ public final class TemplateGenerator implements CodegenContext {
   private int[] lineStarts;
   private Map<String, String> constants;
   private List<String> members;
+  /** The skeleton of the template generated last (#366). */
+  private Skeleton.TemplateSkeleton skeleton;
+  /** The fragment whose method is being generated, or null. */
+  private TemplateIndex.FragmentInfo fragment;
+  /**
+   * The lower-case name of the nearest element being generated whose tag is written, or null:
+   * the element of a text hole ({@link #hostElement}).
+   */
+  private String hostElement;
   private int fresh;
   private Map<Element, String> whitespaceBefore;
   private Set<Element> htmxSubmits;
@@ -152,13 +159,28 @@ public final class TemplateGenerator implements CodegenContext {
     for (TemplateIndex.Param p : info.params()) {
       scope = scope.with(new Variable(p.name(), p.type(), javaName(p.name())));
     }
-    Code body = new Code();
+    hostElement = null;
+    fragment = null;
+    Emitted.Builder body = builder();
     for (Node n : document.children()) {
       node(body, n, scope);
     }
-    String bodyCode = body.build();
-    FragmentMethods.generate(this);
-    return Backports.listOf(new GeneratedFile(GeneratedFile.Kind.JAVA, info.className(), TemplateClassSource.render(info, constants, members, bodyCode)));
+    Emitted bodyCode = body.build();
+    Map<String, Skeleton.Seq> fragments = FragmentMethods.generate(this);
+    skeleton = new Skeleton.TemplateSkeleton(info.viewName(), bodyCode.seq(), fragments);
+    return Backports.listOf(new GeneratedFile(GeneratedFile.Kind.JAVA, info.className(), TemplateClassSource.render(info, constants, members, bodyCode.java())));
+  }
+
+  /**
+   * The skeleton of the template {@link #generate} generated last: exactly what its class writes
+   * (#366). Meaningful only if no errors were reported.
+   */
+  public Skeleton.TemplateSkeleton skeleton() {
+    return skeleton;
+  }
+
+  private Emitted.Builder builder() {
+    return new Emitted.Builder(this::constant, CHUNK);
   }
 
   // ---- CodegenContext ----
@@ -219,14 +241,35 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   @Override
-  public String renderNode(Node node, Scope scope) {
-    Code c = new Code();
+  public Emitted renderNode(Node node, Scope scope) {
+    Emitted.Builder c = builder();
     node(c, node, scope);
     return c.build();
   }
 
   @Override
-  public String renderElement(Element element, Scope scope, Set<String> ignoredAttributes) {
+  public Emitted renderFragment(TemplateIndex.FragmentInfo f, Scope scope) {
+    TemplateIndex.FragmentInfo outer = fragment;
+    fragment = f;
+    try {
+      return renderElement(f.element(), scope, Backports.setOf("fragment"));
+    } finally {
+      fragment = outer;
+    }
+  }
+
+  @Override
+  public TemplateIndex.FragmentInfo fragment() {
+    return fragment;
+  }
+
+  @Override
+  public String hostElement() {
+    return hostElement;
+  }
+
+  @Override
+  public Emitted renderElement(Element element, Scope scope, Set<String> ignoredAttributes) {
     // Rendered standalone (fragment method, ~{::selector} helper): no preceding sibling text.
     String ws = whitespaceBefore.remove(element);
     // ... and rendered where it is inserted, which is checked there, not inside its source parent.
@@ -235,8 +278,10 @@ public final class TemplateGenerator implements CodegenContext {
     String table = tableHost;
     String tablePart = tableCtx;
     boolean direct = tableDirect;
+    String outerHost = hostElement;
     rawTextHost = null;
     inForeign = false;
+    hostElement = null;
     // ... and may be inserted into a POST form that gets the CSRF token, where a browser drops the
     // start tag of a <form> inside it, so its buttons submit that form (#314).
     Boolean form = csrfForm;
@@ -245,10 +290,11 @@ public final class TemplateGenerator implements CodegenContext {
     tableCtx = SOMEWHERE;
     tableDirect = true;
     try {
-      Code c = new Code();
+      Emitted.Builder c = builder();
       element(c, element, scope, ignoredAttributes);
       return c.build();
     } finally {
+      hostElement = outerHost;
       rawTextHost = host;
       inForeign = foreign;
       csrfForm = form;
@@ -391,7 +437,7 @@ public final class TemplateGenerator implements CodegenContext {
     }
   }
 
-  private void node(Code c, Node n, Scope scope) {
+  private void node(Emitted.Builder c, Node n, Scope scope) {
     if (n instanceof Text) {
       Text t = (Text) n;
       if (rawTextHost != null
@@ -405,23 +451,24 @@ public final class TemplateGenerator implements CodegenContext {
       if (hole >= 0) {
         textInTable(t.pos().advance(t.raw(), hole + 2), t.raw().startsWith("[[", hole) ? "[[...]]" : "[(...)]");
       }
-      String code = TextInlining.render(this, t, scope);
+      Emitted code = TextInlining.render(this, t, scope);
       if (code == null) {
-        c.text(t.raw());
+        c.text(t.raw(), t.pos());
       } else {
-        c.stmt(code);
+        c.add(code);
       }
     } else if (n instanceof Comment) {
-      c.text(((Comment) n).raw());
+      c.text(((Comment) n).raw(), ((Comment) n).pos());
     } else if (n instanceof DocType) {
-      c.text(((DocType) n).raw());
+      c.text(((DocType) n).raw(), ((DocType) n).pos());
     } else {
       element(c, (Element) n, scope, Collections.emptySet());
     }
   }
 
-  private void element(Code c, Element e, Scope scope, Set<String> ignored) {
+  private void element(Emitted.Builder c, Element e, Scope scope, Set<String> ignored) {
     String outer = rawTextHost;
+    String outerHost = hostElement;
     boolean outerForeign = inForeign;
     Boolean outerForm = csrfForm;
     String outerTable = tableHost;
@@ -433,6 +480,7 @@ public final class TemplateGenerator implements CodegenContext {
     inForeign = outerForeign || e.name().equalsIgnoreCase("svg") || e.name().equalsIgnoreCase("math");
     if (!FragmentTop.tagNotRendered(e)) {
       String lower = e.name().toLowerCase(Locale.ROOT);
+      hostElement = lower;
       // A t:replace'd element is not written: what replaces it is checked below.
       if (!e.attribute("t:replace").isPresent()) {
         if (TABLE_PARTS.contains(lower) && !tablePartFits(lower, tableCtx, tableDirect)) {
@@ -498,6 +546,7 @@ public final class TemplateGenerator implements CodegenContext {
       }
       emit(c, plan);
     } finally {
+      hostElement = outerHost;
       rawTextHost = outer;
       inForeign = outerForeign;
       csrfForm = outerForm;
@@ -610,15 +659,15 @@ public final class TemplateGenerator implements CodegenContext {
             + " outside the element");
   }
 
-  private void emit(Code c, ElementPlan plan) {
+  private void emit(Emitted.Builder c, ElementPlan plan) {
     Element e = plan.element();
     List<ElementPlan.Wrapper> wrappers = plan.wrappers();
     for (ElementPlan.Wrapper w : wrappers) {
-      c.stmt(w.open());
+      c.open(w);
     }
     if (!plan.removed()) {
       if (plan.replacement() != null) {
-        c.stmt(plan.replacement());
+        c.add(plan.replacement());
       } else {
         if (!plan.tagOmitted() && e.selfClosing() && rawTextElement(e) && !opensSelfClosing(plan)) {
           selfClosingRawText(e);
@@ -626,23 +675,23 @@ public final class TemplateGenerator implements CodegenContext {
         if (!plan.tagOmitted()) {
           startTag(c, plan);
         }
-        for (String s : plan.afterStartTagStatements()) {
-          c.stmt(s);
+        for (Emitted s : plan.afterStartTagStatements()) {
+          c.add(s);
         }
         if (plan.body() != null) {
-          c.stmt(plan.body());
+          c.add(plan.body());
         } else {
           for (Node n : e.children()) {
             node(c, n, plan.scope());
           }
         }
         if (!plan.tagOmitted() && (e.hasEndTag() || opensSelfClosing(plan))) {
-          c.text("</" + e.name() + ">");
+          c.text("</" + e.name() + ">", e.pos());
         }
       }
     }
     for (int i = wrappers.size() - 1; i >= 0; i--) {
-      c.stmt(wrappers.get(i).close());
+      c.close(wrappers.get(i));
     }
   }
 
@@ -665,34 +714,44 @@ public final class TemplateGenerator implements CodegenContext {
             + lower + "; write <" + lower + " ...></" + lower + ">");
   }
 
-  private void startTag(Code c, ElementPlan plan) {
+  private void startTag(Emitted.Builder c, ElementPlan plan) {
     Element e = plan.element();
     boolean nonce = takesCspNonce(plan);
     String source = sourceStartTag(e);
     if (source != null && !nonce && unchanged(e, plan)) {
-      c.text(source);
+      c.text(source, e.pos());
       return;
     }
-    c.text("<" + e.name());
+    c.text("<" + e.name(), e.pos());
     for (ElementPlan.Attr a : plan.attributes()) {
       if (a instanceof ElementPlan.StaticAttr) {
-        c.text(" " + a.name() + ((ElementPlan.StaticAttr) a).source().sourceValue());
+        Attribute source1 = ((ElementPlan.StaticAttr) a).source();
+        c.text(" " + a.name() + source1.sourceValue(), source1.pos());
       } else {
-        c.stmt(dynamicAttr((ElementPlan.DynamicAttr) a));
+        c.add(dynamicAttr(e, (ElementPlan.DynamicAttr) a));
       }
     }
     if (nonce) {
       String n = freshName("nonce");
-      c.stmt("{ java.util.Optional<java.lang.String> " + n + " = ctx.cspNonce(); if (" + n
-          + ".isPresent()) { out.write(" + literal(" nonce=\"") + "); " + RT + "Escapers."
-          + OutputContext.ATTRIBUTE.escaper() + "(out, " + n + ".get()); out.write('\"'); } }");
+      c.add(
+          Emitted.opt(
+              Skeleton.OptKind.CSP_NONCE,
+              e.pos(),
+              "{ java.util.Optional<java.lang.String> " + n + " = ctx.cspNonce(); if (" + n + ".isPresent()) { ",
+              Emitted.concat(
+                  Emitted.text(" nonce=\"", null),
+                  Emitted.code(" "),
+                  Emitted.hole(Skeleton.Escaper.ATTR, e.name(), "nonce", e.pos(), n + ".get()"),
+                  Emitted.code(" "),
+                  Emitted.text('"', null)),
+              " } }"));
     }
     if (!e.selfClosing() || opensSelfClosing(plan)) {
-      c.text(">");
+      c.text(">", e.pos());
     } else if (source != null && source.length() > 2 && Character.isWhitespace(source.charAt(source.length() - 3))) {
-      c.text(" />");
+      c.text(" />", e.pos());
     } else {
-      c.text("/>");
+      c.text("/>", e.pos());
     }
   }
 
@@ -753,7 +812,7 @@ public final class TemplateGenerator implements CodegenContext {
     return true;
   }
 
-  private String dynamicAttr(ElementPlan.DynamicAttr d) {
+  private Emitted dynamicAttr(Element e, ElementPlan.DynamicAttr d) {
     // Only attribute contexts: e.g. the SCRIPT (json) escaper does not escape '"'. A STYLE
     // attribute is attribute-escaped; GenericAttrProcessor admits only safe style values (#182).
     OutputContext ctx = d.context();
@@ -765,25 +824,21 @@ public final class TemplateGenerator implements CodegenContext {
     if (escaper == null) {
       diagnostics().error(d.pos(), "an expression cannot be used in attribute " + d.name() + " (" + d.context()
               + " context): write a literal value");
-      return "";
+      return Emitted.EMPTY;
     }
     String v = freshName("v");
+    Emitted attribute =
+        Emitted.concat(
+            Emitted.text(" " + d.name() + "=\"", d.pos()),
+            Emitted.code(" "),
+            Emitted.hole(Skeleton.Escaper.forMethod(escaper), e.name(), d.name(), d.pos(), v),
+            Emitted.code(" "),
+            Emitted.text('"', d.pos()));
+    String before = "{ java.lang.Object " + v + " = " + d.valueCode() + "; if (";
     // A JSON value (SCRIPT_ATTRIBUTE, #246) is written even when null, as JSON null.
-    return "{ java.lang.Object "
-        + v
-        + " = "
-        + d.valueCode()
-        + "; if ("
-        + (ctx == OutputContext.SCRIPT_ATTRIBUTE ? "true" : v + " != null")
-        + ") { out.write("
-        + literal(" " + d.name() + "=\"")
-        + "); "
-        + RT
-        + "Escapers."
-        + escaper
-        + "(out, "
-        + v
-        + "); out.write('\"'); } }";
+    return ctx == OutputContext.SCRIPT_ATTRIBUTE
+        ? Emitted.wrap(before + "true) { ", attribute, " } }")
+        : Emitted.opt(Skeleton.OptKind.ATTRIBUTE, d.pos(), before + v + " != null) { ", attribute, " } }");
   }
 
   /**
@@ -823,43 +878,5 @@ public final class TemplateGenerator implements CodegenContext {
    */
   private String constant(String text) {
     return constants.computeIfAbsent(text, k -> "S$" + constants.size());
-  }
-
-  /** Accumulates statements, coalescing adjacent static text into constant writes. */
-  private final class Code {
-    private final StringBuilder code = new StringBuilder();
-    private final StringBuilder text = new StringBuilder();
-
-    void text(String s) {
-      text.append(s);
-    }
-
-    void stmt(String s) {
-      flush();
-      if (!s.isEmpty()) {
-        code.append(s);
-        if (!s.endsWith("\n")) {
-          code.append('\n');
-        }
-      }
-    }
-
-    String build() {
-      flush();
-      return code.toString();
-    }
-
-    private void flush() {
-      int i = 0;
-      while (i < text.length()) {
-        int end = Math.min(text.length(), i + CHUNK);
-        if (end < text.length() && Character.isHighSurrogate(text.charAt(end - 1))) {
-          end--;
-        }
-        code.append("out.write(").append(constant(text.substring(i, end))).append(");\n");
-        i = end;
-      }
-      text.setLength(0);
-    }
   }
 }

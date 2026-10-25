@@ -3,13 +3,14 @@ package dev.tessera.compiler.codegen.attr;
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
+import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.Scope;
-import dev.tessera.runtime.Escapers;
+import dev.tessera.compiler.verify.Skeleton;
 import java.util.Optional;
 
 /**
@@ -40,7 +41,8 @@ public final class ErrorsProcessor implements AttributeProcessor {
     }
     String errors = ctx.freshName("errors");
     String i = ctx.freshName("i");
-    plan.wrap(
+    plan.wrapOpt(
+        Skeleton.OptKind.ERRORS,
         "{ java.util.List<java.lang.String> "
             + errors
             + " = "
@@ -48,12 +50,20 @@ public final class ErrorsProcessor implements AttributeProcessor {
             + "; if (!"
             + errors
             + ".isEmpty()) {",
-        "} }");
+        "} }",
+        attr.pos());
     OutputContext context = Contexts.text(plan.element()); // TEXT, or RCDATA in <title>/<textarea>
     plan.replaceBody(
-        "for (int " + i + " = 0; " + i + " < " + errors + ".size(); " + i + "++) { if (" + i
-            + " > 0) { out.write(\"<br />\"); } " + Escapers.class.getName() + "." + context.escaper()
-            + "(out, " + errors + ".get(" + i + ")); }",
+        Emitted.rep(
+            Skeleton.RepKind.ERRORS,
+            attr.pos(),
+            "for (int " + i + " = 0; " + i + " < " + errors + ".size(); " + i + "++) { if (" + i + " > 0) { ",
+            Emitted.text("<br />", null),
+            " } ",
+            Emitted.hole(
+                Skeleton.Escaper.forMethod(context.escaper()), ctx.hostElement(), null, attr.pos(),
+                errors + ".get(" + i + ")"),
+            " }"),
         context);
   }
 }

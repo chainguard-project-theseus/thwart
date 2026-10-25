@@ -8,12 +8,14 @@ import dev.tessera.compiler.GeneratedFile;
 import dev.tessera.compiler.TemplateCompiler;
 import dev.tessera.compiler.TemplateSource;
 import dev.tessera.compiler.messages.MessageBundle;
+import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.TemplateFunctions;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -61,6 +63,8 @@ public final class TesseraProcessor extends AbstractProcessor {
   private boolean warnedSkippedMessages;
   /** What the processor wrote, compared with a last-round compile (#233), or null. */
   private List<GeneratedFile> written;
+  /** The skeletons of the templates whose classes were written (#366); empty until then. */
+  private Map<String, Skeleton.TemplateSkeleton> skeletons = Collections.emptyMap();
   private final Set<String> functionClassNames = new LinkedHashSet<>();
 
   @Override
@@ -99,7 +103,8 @@ public final class TesseraProcessor extends AbstractProcessor {
     try {
       Diagnostics diagnostics = new Diagnostics();
       List<TypeElement> functionClasses = functionClasses();
-      List<GeneratedFile> files = compile(diagnostics, functionClasses);
+      TemplateCompiler.Result result = compile(diagnostics, functionClasses);
+      List<GeneratedFile> files = new ArrayList<>(result.files());
       if (diagnostics.hasErrors() && !round.processingOver()) {
         // #233: another processor (Lombok) may still be adding members to the classes the templates
         // read; javac re-enters every class before the next round, so try again then and only
@@ -115,6 +120,7 @@ public final class TesseraProcessor extends AbstractProcessor {
       if (!diagnostics.hasErrors()) {
         write(files);
         written = files;
+        skeletons = result.skeletons();
       }
     } catch (IOException | RuntimeException e) {
       done = true;
@@ -123,7 +129,16 @@ public final class TesseraProcessor extends AbstractProcessor {
     return false;
   }
 
-  private List<GeneratedFile> compile(Diagnostics diagnostics, List<TypeElement> functionClasses) throws IOException {
+  /**
+   * What each template's class writes, by view name, recorded where the generator writes it
+   * ({@link Skeleton}; in memory only), for the templates this processor wrote; empty if it wrote
+   * none.
+   */
+  public Map<String, Skeleton.TemplateSkeleton> skeletons() {
+    return skeletons;
+  }
+
+  private TemplateCompiler.Result compile(Diagnostics diagnostics, List<TypeElement> functionClasses) throws IOException {
     List<TemplateSource> sources = TemplateDiscovery.discover(options.templates());
     MessageBundle messages =
         options.messages().isEmpty() ? MessageBundle.unchecked() : MessageBundle.load(options.messages());
@@ -145,7 +160,7 @@ public final class TesseraProcessor extends AbstractProcessor {
             messages,
             functionClasses,
             this::indexedFunctionClass);
-    return new ArrayList<>(new TemplateCompiler(env).compile(sources));
+    return new TemplateCompiler(env).run(sources);
   }
 
   /**
@@ -157,7 +172,7 @@ public final class TesseraProcessor extends AbstractProcessor {
     List<GeneratedFile> again;
     try {
       List<TypeElement> functionClasses = functionClasses();
-      again = compile(new Diagnostics(), functionClasses);
+      again = new ArrayList<>(compile(new Diagnostics(), functionClasses).files());
       again.addAll(functionIndex(functionClasses));
     } catch (IOException | RuntimeException e) {
       return; // the build already has its output; this is only a check
