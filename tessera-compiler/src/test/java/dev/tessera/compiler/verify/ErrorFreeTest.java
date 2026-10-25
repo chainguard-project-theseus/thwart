@@ -195,6 +195,53 @@ class ErrorFreeTest {
   }
 
   /**
+   * A tag with an attribute hole is fed in two chunks, and the parser replays the tag's start when
+   * it completes it. With CRLF line breaks before the hole, what the parser reported in the second
+   * chunk mapped back before it and was dropped: the <svg> in a cell and the nested <a> were
+   * accepted. Nothing a replay reports may be lost.
+   */
+  @Test
+  void crlfLineBreaksBeforeAnAttributeHoleLoseNothing() {
+    String crlf = "\r\n\r\n\r\n\r\n";
+    build("<table><tr><td><svg class=\"" + crlf + "y\" t:attr=\"width=${s.length()}\"><rect></rect></svg></td></tr></table>")
+        .assertError("t.html:1:", "<svg> inside <td>", "[verifier:FOREIGN_IN_TABLE]");
+    verify("<a href=\"/1\">x<a title=\"" + crlf + "y\" t:href=\"@{/x(q=${s})}\">z</a></a>")
+        .assertError("t.html:1:", "Start tag \u201Ca\u201D seen but an element of the same type was already open",
+            "[verifier:PARSE_ERROR]");
+    verify("<select><option>a</option><span title=\"" + crlf + "y\" t:text=\"s\">z</span></select>")
+        .assertError("t.html:1:", "[verifier:SELECT_CONTENT]");
+    // Without the error, the same shapes compile.
+    build("<div><svg class=\"" + crlf + "y\" t:attr=\"width=${s.length()}\"><rect></rect></svg></div>").assertSuccess();
+  }
+
+  /**
+   * SVG or MathML in a SafeHtml or Fragment value lands in a cell at run time, where exclusion (a)
+   * can't see it: a partial with them isn't a verified FLOW partial (the <td> probe), so
+   * SafeHtml.of and Fragment.of refuse it.
+   */
+  @Test
+  void aPartialWithSvgOrMathIsNotFlow() {
+    String[][] partials = {
+      {"icon", "<span " + NS + " t:params=\"String a\"><svg viewBox=\"0 0 1 1\"><path d=\"M0 0\"></path></svg>"
+          + "<b t:text=\"a\">x</b></span>"},
+      {"fo", "<div " + NS + " t:params=\"String a\"><svg><foreignObject><table></table></foreignObject></svg>"
+          + "<b t:text=\"a\">x</b></div>"},
+      {"mi", "<p " + NS + " t:params=\"String a\"><math><mi t:text=\"a\">x</mi></math></p>"},
+    };
+    Compilation.Builder b = Compilation.builder();
+    for (String[] t : partials) {
+      b.template("p/" + t[0] + ".html", t[1]);
+    }
+    Compilation c = b.compile().assertSuccess();
+    for (String[] t : partials) {
+      Map<String, Skeleton.TemplateSkeleton> all = new LinkedHashMap<>();
+      all.put("p/" + t[0], c.skeleton("p/" + t[0]));
+      String why = new ContextVerifier(all).whyNotFlowPartial(c.skeleton("p/" + t[0]));
+      assertTrue(why != null && why.contains("FOREIGN_IN_TABLE"), t[0] + ": " + why);
+    }
+  }
+
+  /**
    * The parse5 deviation PR #402 found: parse5 handles the end tag of an SVG integration point
    * with an HTML formatting element open differently from validator.nu and the browsers. The
    * markup is a parse error, so the verifier never accepts it.

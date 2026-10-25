@@ -19,7 +19,8 @@ import java.util.List;
  * character drops that character, so {@code "&x<" + "script>"} would not open a script. A raw
  * parser is never fed in place (each feed works on a fork), so forks share them.
  *
- * <p>A {@link Parser.Listener} hears what the replay reports only past the input fed before (#406).
+ * <p>A {@link Parser.Listener} may hear again, at offset 0, what the replay reports in the input
+ * fed before (#406).
  */
 final class VnuParser implements Parser {
   private final VnuEngine engine;
@@ -111,8 +112,10 @@ final class VnuParser implements Parser {
 
   /**
    * Passes what {@code raw} reports while it parses {@code chars} on to {@code listener}, at
-   * offsets into the chunk that starts at {@code from} in {@code chars}; what lies before it is
-   * dropped.
+   * offsets into the chunk that starts at {@code from} in {@code chars}. What a replay reports
+   * before the chunk was reported when that input was fed, and the verifier reports each rule
+   * once per path, so it is passed on at offset 0 rather than dropped: a position that maps
+   * before the chunk by mistake must never lose an error (fail closed).
    */
   private RawParser.RawListener events(final Listener listener, final RawParser raw, final char[] chars, final int from) {
     if (listener == null || !engine.reportsErrors()) {
@@ -125,8 +128,8 @@ final class VnuParser implements Parser {
 
       /**
        * The index in {@code chars} of the character at {@code line} and {@code column} as the
-       * tokenizer counts them (a line starts after LF or CR; columns count UTF-16 units from 1),
-       * clamped to the input.
+       * tokenizer counts them (a line starts after LF, CR or CRLF, which is one line break; columns
+       * count UTF-16 units from 1), clamped to the input.
        */
       private int offset(int line, int column) {
         if (line < curLine) {
@@ -135,6 +138,9 @@ final class VnuParser implements Parser {
         }
         while (curLine < line && curStart < chars.length) {
           char c = chars[curStart++];
+          if (c == '\r' && curStart < chars.length && chars[curStart] == '\n') {
+            curStart++; // the tokenizer swallows the LF of a CRLF
+          }
           if (c == '\n' || c == '\r') {
             curLine++;
           }
@@ -144,18 +150,12 @@ final class VnuParser implements Parser {
 
       @Override
       public void error(String message, int line, int column) {
-        int at = offset(line, column);
-        if (at >= from) {
-          listener.error(message, at - from);
-        }
+        listener.error(message, Math.max(offset(line, column) - from, 0));
       }
 
       @Override
       public void pushed(final String namespace, final String localName, final boolean onStack, int line, int column) {
-        int at = offset(line, column);
-        if (at < from) {
-          return;
-        }
+        int at = Math.max(offset(line, column), from);
         listener.pushed(new Stack() {
           @Override
           public OpenElement context() {
