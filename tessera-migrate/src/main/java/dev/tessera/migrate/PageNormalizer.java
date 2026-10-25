@@ -33,7 +33,9 @@ import org.jsoup.nodes.TextNode;
  *       {@code value} on an {@code input} other than a checkbox or radio is dropped;
  *   <li>CSRF tokens and session ids are masked: the {@code value}/{@code content} of an element
  *       named or id'd {@code *csrf*}, {@code _csrf=} query parameters, and {@code ;jsessionid=}
- *       path parameters.
+ *       path parameters;
+ *   <li>{@code nonce} attributes are dropped: the Tessera starter puts a fresh CSP nonce on every
+ *       script and style (#335), which the old page did not have or had with another value.
  * </ul>
  */
 final class PageNormalizer {
@@ -169,6 +171,9 @@ final class PageNormalizer {
     Map<String, String> attrs = new TreeMap<>();
     for (Attribute a : e.attributes()) {
       String name = a.getKey().toLowerCase();
+      if (name.equals("nonce")) {
+        continue;
+      }
       String value = Compat.strip(WS.matcher(a.getValue()).replaceAll(" "));
       if (name.equals("class")) {
         String[] tokens = value.isEmpty() ? new String[0] : value.split(" ");

@@ -981,7 +981,7 @@ must match exactly; other names fall through to other resolvers. A model value o
 fails with `TemplateModelException`. A controller can also return `ListTemplate.of(owners)`, checked
 by `javac`. Without Spring, call `FunctionsTemplate.of(order).renderToString(ctx)` with a
 `RenderContext(locale, messages, links, forms)`, the whole ambient surface (`RenderContext.defaults()`,
-`ResourceBundleMessages`, `DefaultLinks(contextPath)`). The generated class is
+`ResourceBundleMessages`, `DefaultLinks(contextPath)`), plus an optional CSP nonce (section 4.11). The generated class is
 `<tessera.package>.<path>Template` with `of(...)` taking the `t:params` in order (section 4.1).
 This is how code outside a request (a command-line tool, a mail job) renders a template that the
 old app rendered with its engine's API. `TemplateRegistry.load(classLoader)` finds templates by
@@ -1121,6 +1121,69 @@ The page puts its selected elements outside `<body>`, or they would also render 
   or build a record. `map['key']` works. An `Optional` has `isPresent()` (or `present`) and prints
   its value or nothing, but `get()` can't be called. Printing a `@TemplateView` object prints its
   `toString()`.
+
+### 4.11 Content Security Policy
+
+**Where the guarantee ends.** Tessera guarantees what the browser's HTML parser does with the page:
+every value lands in text, an attribute value, a checked URL or a JSON value in a script, so no
+value runs as a script, an event handler or a `javascript:` URL, or loads a script from another
+origin. It does not see what the page's JavaScript does with the DOM afterwards. Client frameworks
+that read the DOM as code (Vue in-DOM templates, petite-vue, Alpine, Knockout, htmx `hx-on`,
+AngularJS) are covered only by the build errors and `{{` breaking in section 4.4, with the gaps in
+section 7. A strict Content Security Policy is the control that reaches past that.
+
+**The nonce.** When the `RenderContext` has a CSP nonce, every `<script>` and `<style>` start tag
+the template writes gets `nonce="..."`: inline or `src`, in fragments wherever they are inserted,
+and in SVG too. With no nonce, nothing is added. Markup the compiler didn't write never gets one:
+`html.sanitize` removes scripts and styles, and a script in a `SafeHtml.unchecked` value does not
+run under a nonce policy. (`SafeHtml.of(template, ctx)` is another template's output, stamped with
+the nonce of the `ctx` it was rendered with.) A nonce in the template is a build error, static or computed, so delete
+Thymeleaf's `th:nonce="${nonce}"` and `th:attr="nonce=${nonce}"` when you port.
+
+The Spring starter puts a fresh nonce (128 random bits, base64) in every request's
+`RenderContext`. `CspNonce.get(request)` (`dev.tessera.spring.CspNonce`) returns the same value,
+for your policy header; it is also the request attribute `CspNonce.ATTRIBUTE`. The starter sends
+no policy header itself: a strict policy blocks `on*` attributes and `javascript:` URLs in your
+templates, so turning it on is your decision. Without Spring, pass the nonce to
+`new RenderContext(locale, messages, links, forms, nonce)` or call `ctx.withCspNonce(nonce)`, with
+a new value for every response.
+
+**The policy.** Send this header, with the request's nonce, on every page:
+
+```text
+Content-Security-Policy: script-src 'nonce-<nonce>' 'strict-dynamic'; object-src 'none'; base-uri 'self'
+```
+
+Don't add `'unsafe-eval'` or `'unsafe-inline'`. Then a script runs only if the page's own markup
+or one of its scripts loaded it: an injected `<script>`, an `on*` handler and a `javascript:` URL
+don't run, and `eval` and `new Function` throw. That turns Vue in-DOM templates, petite-vue,
+Alpine, Knockout and htmx `hx-on` from code execution into, at worst, access to the component's
+state: they compile expressions with `new Function`, so under this policy those expressions don't
+run at all, and their CSP builds (Alpine's `@alpinejs/csp`, Vue with precompiled templates) only
+read and call what the component exposes. Set `htmx.config.allowEval = false` too. AngularJS is
+not bounded this way: its CSP mode still evaluates expressions that can reach `window`, so keep
+`ng-non-bindable` (section 7). Before you turn the policy on, move inline handlers into scripts
+(`addEventListener`) and send the same policy as `Content-Security-Policy-Report-Only` for a while
+to find what it would block. The policy above covers scripts only; `style-src 'nonce-...'` would
+also block every `style` attribute.
+
+With Spring Security, add a header writer that reads the nonce. It works on Spring Security 4.2
+(Spring 4.3, Boot 1.5) and later, whether headers are written before or after the view:
+
+```java
+import dev.tessera.spring.CspNonce;
+import org.springframework.security.web.header.HeaderWriter;
+
+HeaderWriter csp = (request, response) -> response.setHeader("Content-Security-Policy",
+    "script-src 'nonce-" + CspNonce.get(request) + "' 'strict-dynamic'; object-src 'none'; base-uri 'self'");
+
+http.headers(headers -> headers.addHeaderWriter(csp)); // Spring Security 5.2 and later
+http.headers().addHeaderWriter(csp);                   // Spring Security 4.2 to 6.x
+```
+
+`contentSecurityPolicy("...")` takes a fixed string, so it cannot carry the nonce. Without Spring
+Security, a servlet `Filter` that sets the header from `CspNonce.get(request)` before
+`chain.doFilter` does the same.
 
 ## 5. Worked example
 
@@ -1600,6 +1663,7 @@ These come from the annotation processor itself, without a template position.
 - `<label>: the type of a <script> cannot be computed; its content type must be known at build time, so write a static type attribute`.
 - `<label>: the http-equiv of a <meta> cannot be computed; it decides whether content is a refresh URL, so write a static http-equiv attribute`.
 - `<label> on <<tag>> loads code or a document: use a literal-path link such as @{/js/app.js} or a TrustedUrl value, not a <type>`.
+- `a nonce on <script> is not supported: Tessera writes the render's CSP nonce (RenderContext.cspNonce, set per request by the Spring starter) on every <script> and <style>; remove the nonce attribute (static, t:nonce or t:attr nonce=...)`. Also on `<style>`. Delete Thymeleaf's `th:nonce`; the nonce comes from the `RenderContext` (section 4.11).
 - `t:attr needs a value, e.g. t:attr="title=owner.name, data-id=owner.id"`.
 - `t:attr cannot set t:<name>; write the t: attribute directly`.
 
@@ -1785,7 +1849,8 @@ Gaps in Tessera today, each with what to do until it is fixed.
   the tag; `<td >` (after a removed attribute) renders as `<td>`; a `null` attribute value omits
   the attribute (Thymeleaf writes `value=""`); a `null` link path variable fails the render;
   element text from a value with `{{`, or starting or ending with `{`, gets empty comments next
-  to those braces (section 4.4).
+  to those braces (section 4.4); with the Spring starter every `<script>` and `<style>` has a
+  `nonce` attribute (section 4.11), which `tessera-migrate compare` ignores.
 - **Runtime errors** are model type mismatches (`TemplateModelException`), missing primitive
   parameters, reading a property of `null`, and `null` link path variables. Everything else is a
   build error.

@@ -34,6 +34,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -661,8 +662,9 @@ public final class TemplateGenerator implements CodegenContext {
 
   private void startTag(Code c, ElementPlan plan) {
     Element e = plan.element();
+    boolean nonce = takesCspNonce(plan);
     String source = sourceStartTag(e);
-    if (source != null && unchanged(e, plan)) {
+    if (source != null && !nonce && unchanged(e, plan)) {
       c.text(source);
       return;
     }
@@ -674,6 +676,12 @@ public final class TemplateGenerator implements CodegenContext {
         c.stmt(dynamicAttr((ElementPlan.DynamicAttr) a));
       }
     }
+    if (nonce) {
+      String n = freshName("nonce");
+      c.stmt("{ java.util.Optional<java.lang.String> " + n + " = ctx.cspNonce(); if (" + n
+          + ".isPresent()) { out.write(" + literal(" nonce=\"") + "); " + RT + "Escapers."
+          + OutputContext.ATTRIBUTE.escaper() + "(out, " + n + ".get()); out.write('\"'); } }");
+    }
     if (!e.selfClosing() || opensSelfClosing(plan)) {
       c.text(">");
     } else if (source != null && source.length() > 2 && Character.isWhitespace(source.charAt(source.length() - 3))) {
@@ -681,6 +689,33 @@ public final class TemplateGenerator implements CodegenContext {
     } else {
       c.text("/>");
     }
+  }
+
+  /**
+   * Whether the start tag gets the render's CSP nonce (#335): every {@code <script>} and {@code
+   * <style>} the template writes, in HTML, SVG or MathML alike, so the decision does not depend on
+   * the compiler's namespace tracking. Markup written at runtime ({@code SafeHtml}) never gets one.
+   * A nonce in the template itself is an error: it would be the same on every response, or a
+   * second, conflicting nonce attribute (the browser keeps the first).
+   */
+  private boolean takesCspNonce(ElementPlan plan) {
+    String lower = plan.element().name().toLowerCase(Locale.ROOT);
+    if (!lower.equals("script") && !lower.equals("style")) {
+      return false;
+    }
+    Optional<ElementPlan.Attr> own = plan.attribute("nonce");
+    if (own.isPresent()) {
+      ElementPlan.Attr a = own.get();
+      SourcePos pos =
+          a instanceof ElementPlan.StaticAttr
+              ? ((ElementPlan.StaticAttr) a).source().pos()
+              : ((ElementPlan.DynamicAttr) a).pos();
+      diagnostics()
+          .error(pos == null ? plan.element().pos() : pos, "a nonce on <" + lower + "> is not supported: Tessera"
+              + " writes the render's CSP nonce (RenderContext.cspNonce, set per request by the Spring starter) on"
+              + " every <script> and <style>; remove the nonce attribute (static, t:nonce or t:attr nonce=...)");
+    }
+    return true;
   }
 
   /**

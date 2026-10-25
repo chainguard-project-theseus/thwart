@@ -257,6 +257,19 @@ Frameworks configured to read other names (an Alpine prefix, a Knockout binding 
 hyperscript `attributes` setting) are not detected (G5). This is outside the guarantee; see
 [security-model.md](security-model.md).
 
+### 6.4 The CSP nonce (#335)
+
+Defence in depth beyond the guarantee (security-model.md §1): with a nonce-based `script-src`,
+which the application sends (guide §4.11), only the scripts the compiler wrote run. The nonce
+comes from `RenderContext.cspNonce()`; the Spring starter sets a fresh one per request.
+
+| Rule | Status | Checked by |
+|---|---|---|
+| Every `<script>` and `<style>` start tag the compiler writes gets ` nonce="..."` after its other attributes, written with `Escapers.attr`; nothing when the context has no nonce | #PR | `CspNonceTest` (static, `src`, `t:if`/`t:each`, fragments by `t:insert`/`t:replace` and `~{::selector}`, hostile nonce values) |
+| Stamped in HTML, SVG and MathML alike, so whether a script is allowed never depends on the compiler's namespace tracking; SVG scripts and styles take the `nonce` attribute too | #PR | `CspNonceTest` |
+| A `nonce` on `<script>` or `<style>` in the template (static, `t:nonce`, `t:attr`) is an error | #PR | `CspNonceTest` |
+| Markup the compiler did not write gets no nonce: `html.sanitize` drops `script` and `style` with their content; `SafeHtml.unchecked` is copied as is | #PR | `CspNonceTest`, `HtmlSanitizerTest` |
+
 ## 7. Decisions (Oct 25, 2026)
 
 dlorenc decided the profile questions on #349, following security-architecture.md: fail closed,

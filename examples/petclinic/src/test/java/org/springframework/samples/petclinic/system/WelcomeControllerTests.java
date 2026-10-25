@@ -51,9 +51,10 @@ class WelcomeControllerTests {
 					"<a class=\"nav-link\" href=\"/vets.html\" title=\"veterinarians\">",
 					"<a class=\"nav-link\" href=\"/oups\"", "<h2>Welcome</h2>",
 					"<img class=\"img-responsive\" src=\"/resources/images/pets.png\" />")))
-			// Versioned by the starter's ResourceUrlEncodingFilter (webjars-bootstrap.version).
+			// Versioned by the starter's ResourceUrlEncodingFilter (webjars-bootstrap.version), with
+			// the request's CSP nonce.
 			.andExpect(content().string(matchesRegex(
-					"(?s).*<script src=\"/webjars/bootstrap/\\d[^/\"]*/dist/js/bootstrap\\.bundle\\.min\\.js\"></script>.*")));
+					"(?s).*<script src=\"/webjars/bootstrap/\\d[^/\"]*/dist/js/bootstrap\\.bundle\\.min\\.js\" nonce=\"[A-Za-z0-9+/]{22}==\"></script>.*")));
 	}
 
 }
