@@ -1,6 +1,6 @@
 # tessera-migrate report
 
-Converted 7 template(s); 26 item(s) need manual attention.
+Converted 7 template(s); 27 item(s) need manual attention.
 
 ## fragments/inputField.html
 
@@ -29,6 +29,7 @@ Converted 7 template(s); 26 item(s) need manual attention.
 - `misc/unsupported.html:14`: `data-th-text` (HTML5 data-th-* syntax) is not converted; rewrite it as `t:text`
 - `misc/unsupported.html:15`: object creation with `new` is not supported (never); compute the value in Java
 - `misc/unsupported.html:16`: `th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or move data to `data-*` attributes
+- `misc/unsupported.html:19`: `[(...)]` prints `user.bio` without escaping; `t:utext` takes a `SafeHtml`. For stored HTML write `t:utext="html.sanitize(user.bio)"` (`html.sanitizeRich` for editor or Markdown output, or an application `HtmlPolicy` in a `@TemplateFunctions` namespace; guide section 4.10, Rich text), never a recursive fragment over a tree parsed in Java; for markup built in Java return a `SafeHtml`; for plain text use `t:text`
 
 ## owners/createOrUpdateOwnerForm.html
 

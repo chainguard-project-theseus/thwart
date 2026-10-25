@@ -42,6 +42,11 @@ final class Report {
     items.addAll(fileItems);
   }
 
+  /** Items from a check across templates; they don't count as templates. */
+  void addItems(List<Item> more) {
+    items.addAll(more);
+  }
+
   int templates() {
     return templates;
   }

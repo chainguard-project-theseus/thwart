@@ -13,17 +13,22 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * Golden files in {@code src/test/resources/golden/petclinic}: {@code input/} is spring-petclinic
- * style Thymeleaf, {@code expected/} the converted templates, {@code expected-report.md} the report.
+ * Golden files in {@code src/test/resources/golden/<app>}: {@code input/} the templates,
+ * {@code expected/} the converted templates (absent: the input, unchanged), and
+ * {@code expected-report.md} the report. {@code petclinic} is spring-petclinic style Thymeleaf; the
+ * others are reduced copies of converted bench templates with a recursive rich-text fragment
+ * (#369), which only the report changes.
  */
 class GoldenFileTest {
 
   @TempDir Path tmp;
 
-  private static Path golden(String name) throws URISyntaxException {
-    return Path.of(GoldenFileTest.class.getResource("/golden/petclinic/" + name).toURI());
+  private static Path golden(String app, String name) throws URISyntaxException {
+    return Path.of(GoldenFileTest.class.getResource("/golden/" + app + "/").toURI()).resolve(name);
   }
 
   private static int run(String... args) {
@@ -31,15 +36,17 @@ class GoldenFileTest {
     return Main.run(args, sink, sink);
   }
 
-  @Test
-  void convertsPetclinicTemplatesAndWritesReport() throws Exception {
+  @ParameterizedTest
+  @ValueSource(strings = {"petclinic", "purl-server", "fredbet", "luckyblog", "ewp-registry"})
+  void convertsTemplatesAndWritesReport(String app) throws Exception {
     Path out = tmp.resolve("out");
     Path report = tmp.resolve("report.md");
 
-    assertEquals(0, run(golden("input").toString(), out.toString(), "--report", report.toString()));
+    assertEquals(0, run(golden(app, "input").toString(), out.toString(), "--report", report.toString()));
 
-    assertSameTree(golden("expected"), out);
-    assertEquals(Files.readString(golden("expected-report.md")), Files.readString(report));
+    Path expected = golden(app, "expected");
+    assertSameTree(Files.isDirectory(expected) ? expected : golden(app, "input"), out);
+    assertEquals(Files.readString(golden(app, "expected-report.md")), Files.readString(report));
   }
 
   @Test
@@ -47,7 +54,7 @@ class GoldenFileTest {
     Path once = tmp.resolve("once");
     Path twice = tmp.resolve("twice");
 
-    assertEquals(0, run(golden("input").toString(), once.toString(), "--report", tmp.resolve("r1.md").toString()));
+    assertEquals(0, run(golden("petclinic", "input").toString(), once.toString(), "--report", tmp.resolve("r1.md").toString()));
     assertEquals(0, run(once.toString(), twice.toString(), "--report", tmp.resolve("r2.md").toString()));
 
     assertSameTree(once, twice);

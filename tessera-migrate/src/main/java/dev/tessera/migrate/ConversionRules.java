@@ -202,6 +202,18 @@ final class ConversionRules {
       "`%s` is declared as `Object` in the generated `t:params` stub; replace it with its view type";
   static final String FRAGMENT_PARAMS_MESSAGE =
       "fragment `%s` parameters declared as `Object` (%s); replace each with its type (`Fragment` for markup arguments such as `~{::body}`)";
+  /** Raw output that the converter keeps; reported unless it is a message or already sanitized. */
+  static final String UTEXT = "utext";
+  static final Pattern SAFE_UTEXT = Pattern.compile("\\s*#\\{.*|.*\\bsanitize\\w*\\s*\\(.*", Pattern.DOTALL);
+  static final String UTEXT_MESSAGE =
+      "`%s` prints `%s` without escaping; `t:utext` takes a `SafeHtml`. For stored HTML write `t:utext=\"html.sanitize(%s)\"` (`html.sanitizeRich` for editor or Markdown output, or an application `HtmlPolicy` in a `@TemplateFunctions` namespace; guide section 4.10, Rich text), never a recursive fragment over a tree parsed in Java; for markup built in Java return a `SafeHtml`; for plain text use `t:text`";
+
+  /** {@link RichTextCheck}: at the fragment, and at each insert of it from outside its recursion. */
+  static final String RICH_TEXT_FRAGMENT_MESSAGE =
+      "fragment `%s` rebuilds rich text from a tree parsed in Java: it inserts itself under a `t:switch` on the tag name, so the data decides which element nests in which, and the compiler rejects that. Keep the stored HTML as a `String` and print it with `t:utext=\"html.sanitize(text)\"` where the fragment is inserted (`html.sanitizeRich` for editor or Markdown output, or an application `HtmlPolicy` in a `@TemplateFunctions` namespace for other classes or images), then delete this fragment and the Java code that builds its nodes (guide section 4.10, Rich text)";
+  static final String RICH_TEXT_CALL_SITE_MESSAGE =
+      "inserts the recursive rich-text fragment `%s` (see `%s:%d`); replace the insert with `t:utext=\"html.sanitize(text)\"` over the HTML string its nodes were parsed from (or `html.sanitizeRich`, or an application `HtmlPolicy`)";
+
   static final String FRAGMENT_SIGNATURE_MESSAGE =
       "fragment signature `%s` was not understood; write it as `name(Type a, Type b)`";
 }
