@@ -11,10 +11,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.FieldSource;
 
 /**
- * In a {@code <script>}, {@code [[...]]} writes a complete JSON value with its own quotes, so
- * inside a JavaScript string literal the value would close the string and run as code (#281).
- * That is a build error; comments, regex literals and {@code ${...}} code in template literals
- * keep compiling.
+ * In a {@code <script>}, {@code [[...]]} writes a complete JSON value with its own quotes, so it
+ * goes only where a JavaScript expression goes. Inside a string literal the value would close the
+ * string and run as code (#281); inside a comment the page would never use it, as in Thymeleaf's
+ * natural-template {@code /*[[${x}]]*}{@code /} (#315); inside a regex literal it would change
+ * the pattern. All three are build errors; {@code ${...}} code in a template literal keeps
+ * compiling.
  */
 class ScriptQuotedInlineTest {
   private static final String PARAMS = "<div t:params=\"String x, int a, int b\">\n";
@@ -52,7 +54,6 @@ class ScriptQuotedInlineTest {
           "<script>var a = \"x\u2028 [[x]]\";</script>",
           // An inlined value is an expression: the '/' after it is division, not a regex.
           "<script>var q = [[a]] / \"[[x]]\".length;</script>",
-          "<script>var r = /[[x]]/; var a = \"[[x]]\";</script>",
           // A regex may start the statement after a control-flow condition.
           "<script>if (true) /\"/.test(s); var a = \"[[x]]\";</script>",
           "<script>while (f(s)) /\"/.exec(s); var a = \"[[x]]\";</script>",
@@ -93,8 +94,6 @@ class ScriptQuotedInlineTest {
           "<script>function f() { return /\"/.test(\"a\"); } var b = [[x]];</script>",
           "<script>// \"c\"\n var b = [[x]];</script>",
           "<script>/* \"c\" */ var b = [[x]];</script>",
-          "<script>// \"[[x]]\"\n</script>",
-          "<script>/* \"[[x]]\" */</script>",
           "<script>/*/ \"c\" */ var b = [[x]];</script>",
           "<script>var t = `\"`; var b = [[x]];</script>",
           "<script>var t = `a ${\"}\"} b`; var c = [[x]];</script>",
@@ -102,13 +101,40 @@ class ScriptQuotedInlineTest {
           "<script>var t = `\\${`; var b = [[x]];</script>",
           "<script>var t = `${[[x]]}`;</script>",
           "<script>var t = `a ${`b ${[[x]]}`}`;</script>",
-          "<script>var r = /[[x]]/; var a = [[x]];</script>",
-          "<script>/*[[x]]*/</script>",
-          "<script>// [[x]]\n</script>",
+          "<script>var r = a /[[b]]/ 2;</script>",
           "<script>var a = \"x\u2028\"; var b = [[x]];</script>",
-          "<script>\n--> \"[[x]]\"\nvar b = [[x]];</script>",
-          "<script>#! \"[[x]]\"\nvar b = [[x]];</script>",
+          "<script>\n--> \"x\"\nvar b = [[x]];</script>",
+          "<script>#! \"x\"\nvar b = [[x]];</script>",
           "<script type=\"application/json\">{\"a\": [[x]]}</script>");
+
+  /** Scripts with a {@code [[...]]} inside a comment; the last {@code [[} is the one at fault. */
+  static final List<String> REJECTED_COMMENT =
+      List.of(
+          "<script>var a = /*[[${x}]]*/ 'd';</script>",
+          "<script>var n = /*[[a]]*/ 0;</script>",
+          "<script>/*[[x]]*/</script>",
+          "<script>/* \"[[x]]\" */</script>",
+          "<script>/*/[[x]]*/</script>",
+          "<script>// [[x]]\n</script>",
+          "<script>// \"[[x]]\"\n</script>",
+          "<script>var a = 1; // note [[x]]\n</script>",
+          "<script>var b = [[x]];\n--> \"[[x]]\"\n</script>",
+          "<script>--> [[x]]\n</script>",
+          "<script>\n  /* c */ --> [[x]]\n</script>",
+          "<script>#![[x]]\n</script>",
+          "<script>#! \"[[x]]\"\n</script>",
+          "<script type=\"module\">/*[[x]]*/</script>",
+          "<script type=\"application/json\">/*[[x]]*/</script>");
+
+  /** Scripts with a {@code [[...]]} inside a regex literal; the last {@code [[} is the one at fault. */
+  static final List<String> REJECTED_REGEX =
+      List.of(
+          "<script>var r = /[[x]]/;</script>",
+          "<script>var a = [[x]]; var r = /[[x]]/;</script>",
+          "<script>var r = /a[[x]]b/;</script>",
+          "<script>var r = /[\"[[x]]]/;</script>",
+          "<script>if (c) /[[x]]/.test(s);</script>",
+          "<script>function f() { return /[[x]]/; }</script>");
 
   private static Compilation compile(String markup) {
     return Compilation.builder().template("page.html", PARAMS + markup + "\n</div>").compile();
@@ -117,11 +143,37 @@ class ScriptQuotedInlineTest {
   @ParameterizedTest
   @FieldSource("REJECTED")
   void quotedInlineFailsToBuild(String markup) {
+    assertOneErrorAtLastInline(markup, "is inside a quoted JavaScript string");
+  }
+
+  @ParameterizedTest
+  @FieldSource("REJECTED_COMMENT")
+  void inlineInCommentFailsToBuild(String markup) {
+    assertOneErrorAtLastInline(markup, "is inside a JavaScript comment");
+  }
+
+  @ParameterizedTest
+  @FieldSource("REJECTED_REGEX")
+  void inlineInRegexFailsToBuild(String markup) {
+    assertOneErrorAtLastInline(markup, "is inside a JavaScript regular expression literal");
+  }
+
+  private static void assertOneErrorAtLastInline(String markup, String fragment) {
     Compilation c = compile(markup);
     int line = 2 + (int) markup.substring(0, markup.lastIndexOf("[[")).chars().filter(ch -> ch == '\n').count();
-    c.assertError("page.html:" + line + ":", "is inside a quoted JavaScript string");
+    c.assertError("page.html:" + line + ":", fragment);
     assertEquals(1, c.errors().size(), c.errors().toString());
     assertNull(c.generatedSource("tessera.generated.PageTemplate"), "nothing may be generated");
+  }
+
+  @Test
+  void regexInlineResolvesTheSlashBeforeIt() {
+    // The '/' before the first inline starts a regex, so the next '/' ends it and the second
+    // inline is in a string, not in a line comment.
+    Compilation c = compile("<script>var r = /[[x]]/; var a = \"[[x]]\";</script>");
+    c.assertError("is inside a JavaScript regular expression literal");
+    c.assertError("is inside a quoted JavaScript string");
+    assertEquals(2, c.errors().size(), c.errors().toString());
   }
 
   @ParameterizedTest
@@ -143,8 +195,23 @@ class ScriptQuotedInlineTest {
   }
 
   @Test
+  void commentErrorPointsAtTheExpressionAndNamesTheOpener() {
+    Compilation c =
+        Compilation.builder()
+            .template("page.html", "<div t:params=\"String x\">\n<script>\n  var a = /*[[x]]*/ 'd';\n</script></div>")
+            .compile();
+    c.assertError("page.html:3:15", "(/* */)", "becomes var a = [[${x}]];");
+    assertEquals(1, c.errors().size(), c.errors().toString());
+    compile("<script>// [[x]]\n</script>").assertError("(//)");
+    compile("<script>--> [[x]]\n</script>").assertError("(-->)");
+    compile("<script>#![[x]]\n</script>").assertError("(#!)");
+    compile("<script>var r = /[[x]]/;</script>").assertError("e.g. new RegExp([[...]])");
+  }
+
+  @Test
   void rawInlineInAStringKeepsItsOwnError() {
     compile("<script>var a = \"[(x)]\";</script>").assertError("page.html:2:", "[(...)] is only allowed in element text");
+    compile("<script>/*[(x)]*/</script>").assertError("page.html:2:", "[(...)] is only allowed in element text");
   }
 
   @Test

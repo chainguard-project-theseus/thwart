@@ -29,7 +29,8 @@ import javax.lang.model.type.TypeKind;
  * and {@code [(expr)]} (SafeHtml or a checked bundle message, TEXT and RCDATA only).
  * STYLE/FORBIDDEN contexts with inlined expressions are build errors, and so is an expression
  * inside a static client-side {@code {{ ... }}} interpolation in TEXT or RCDATA (#248), and a
- * {@code [[expr]]} inside a JavaScript string literal in SCRIPT (#281).
+ * {@code [[expr]]} in SCRIPT that is not in a JavaScript expression position: inside a string
+ * literal, comment or regex literal (#281, #315).
  *
  * <p>Also holds the output helpers shared with {@code t:text} and {@code t:utext}.
  */
@@ -93,14 +94,9 @@ public final class TextInlining {
             // Still emitted: nothing is written on error, and the skeleton keeps the hole for the
             // verifier's own check (#367).
           }
-          if (escaped && js != null && js.inStringLiteral()) {
-            char q = js.quote();
-            ctx.diagnostics()
-                .error(
-                    pos,
-                    "[[...]] is inside a quoted JavaScript string (" + q + "..." + q + "), but it writes a"
-                        + " complete JSON value with its own quotes, which would close a \"...\" string and run"
-                        + " as code, or end up quoted twice; remove the quotes, e.g. var a = [[...]];");
+          String misplaced = escaped && js != null ? misplacedInScript(js) : null;
+          if (misplaced != null) {
+            ctx.diagnostics().error(pos, misplaced);
             i = end + 2;
             continue;
           }
@@ -219,13 +215,38 @@ public final class TextInlining {
   }
 
   /**
+   * The error for a {@code [[...]]} where {@code js} is, or null in an expression position: in a
+   * {@code <script>} the value is a complete JSON value, so it goes only where a JavaScript
+   * expression goes, not inside a string, comment or regular expression literal (#281, #315).
+   */
+  private static String misplacedInScript(JsLexState js) {
+    switch (js.position()) {
+      case STRING:
+        char q = js.quote();
+        return "[[...]] is inside a quoted JavaScript string (" + q + "..." + q + "), but it writes a"
+            + " complete JSON value with its own quotes, which would close a \"...\" string and run"
+            + " as code, or end up quoted twice; remove the quotes, e.g. var a = [[...]];";
+      case COMMENT:
+        return "[[...]] is inside a JavaScript comment (" + js.commentOpener() + "), so its value is written"
+            + " inside the comment and the page never uses it; move it out of the comment: Thymeleaf's"
+            + " natural-template var a = /*[[${x}]]*/ 'd'; becomes var a = [[${x}]];";
+      case REGEX:
+        return "[[...]] is inside a JavaScript regular expression literal (/.../), but it writes a complete"
+            + " JSON value with its own quotes, and its characters would change or break the pattern; build"
+            + " the pattern from the value in code, e.g. new RegExp([[...]])";
+      default:
+        return null;
+    }
+  }
+
+  /**
    * Minimal JavaScript lexical state over the literal text of a {@code <script>}, enough to tell
-   * whether a {@code [[...]]} sits inside a string literal ({@code "..."}, {@code '...'} or
-   * template-literal text), where the JSON value's own quotes would close the string or land
-   * inside it. Comments, regex literals and {@code ${...}} code in template literals are tracked
-   * so that quotes inside them do not count; a {@code [[...]]} inside them stays allowed (the JSON
-   * escaper keeps it inert there). Fed only the static text; {@link #expression} stands for each
-   * inlined value. Annex B comments count too: {@code -->} after only whitespace and comments on
+   * whether a {@code [[...]]} sits in an expression position ({@link #position}): not inside a
+   * string literal ({@code "..."}, {@code '...'} or template-literal text), where the JSON value's
+   * own quotes would close the string or land inside it, a comment, where the page would never use
+   * the value, or a regex literal, whose pattern the value would change. {@code ${...}} code in a
+   * template literal is an expression position. Fed only the static text; {@link #expression}
+   * stands for each inlined value. Annex B comments count too: {@code -->} after only whitespace and comments on
    * its line, and {@code #!} at the very start (a hashbang); either is a comment or a syntax error
    * in a browser, so taking it for a comment is safe.
    *
@@ -275,9 +296,34 @@ public final class TextInlining {
     private int dashes;
     /** Chars fed so far, inlined values included; "#!" is a hashbang only at the very start. */
     private int fed;
+    private String commentOpener = "";
 
-    boolean inStringLiteral() {
-      return s == S.DQ || s == S.SQ || s == S.TPL;
+    enum Position { CODE, STRING, COMMENT, REGEX }
+
+    /** Where the next char would be; a {@code /} before it is decided first (#281, #315). */
+    Position position() {
+      if (s == S.SLASH) {
+        s = regexMayFollow() ? S.REGEX : S.CODE;
+      }
+      switch (s) {
+        case DQ:
+        case SQ:
+        case TPL:
+          return Position.STRING;
+        case LINE_COMMENT:
+        case BLOCK_COMMENT:
+          return Position.COMMENT;
+        case REGEX:
+        case REGEX_CLASS:
+          return Position.REGEX;
+        default:
+          return Position.CODE;
+      }
+    }
+
+    /** How the comment the lexer is in started: {@code //}, a block comment, {@code -->} or {@code #!}. */
+    String commentOpener() {
+      return commentOpener;
     }
 
     char quote() {
@@ -385,10 +431,12 @@ public final class TextInlining {
           // The char after a '/': a comment, a regex or a division.
           if (c == '/') {
             s = S.LINE_COMMENT;
+            commentOpener = "//";
             return;
           }
           if (c == '*') {
             s = S.BLOCK_COMMENT;
+            commentOpener = "/* */";
             prev = 0; // "/*/" does not close the comment
             return;
           }
@@ -408,6 +456,7 @@ public final class TextInlining {
       }
       if (index == 1 && p == '#' && c == '!') {
         s = S.LINE_COMMENT; // hashbang
+        commentOpener = "#!";
         return;
       }
       if (lineTerminator(c)) {
@@ -415,6 +464,7 @@ public final class TextInlining {
       } else if (lineStart) {
         if (c == '>' && dashes == 2) {
           s = S.LINE_COMMENT; // Annex B "-->" at the start of a line
+          commentOpener = "-->";
           return;
         }
         if (c == '-' && dashes < 2) {
