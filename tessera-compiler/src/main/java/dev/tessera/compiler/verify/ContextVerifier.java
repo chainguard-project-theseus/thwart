@@ -143,7 +143,10 @@ public final class ContextVerifier {
     Set<String> roots = new LinkedHashSet<>();
     firstElementsBudget = 256;
     firstElements(template.body().nodes(), 0, roots, 0);
-    if (roots.contains("!doctype") || roots.contains("html")) {
+    // A page only if every way it can start is a doctype or <html>.
+    roots.remove("!doctype");
+    roots.remove("html");
+    if (roots.isEmpty() && firstElementsBudget >= 0) {
       return out;
     }
     Set<String> contexts = new LinkedHashSet<>();
@@ -434,6 +437,7 @@ public final class ContextVerifier {
     List<Path> all = new ArrayList<>();
     for (Path p : in) {
       ParserState[] entry = p.states();
+      boolean pendingBoundary = p.tagBoundary;
       List<Path> written = seq(o.body(), Collections.singletonList(p.fork()), env);
       boolean merge = name != null && !PRESENCE_MATTERS.contains(name) && !written.isEmpty();
       boolean afterTagName = false;
@@ -450,7 +454,7 @@ public final class ContextVerifier {
       }
       if (merge) {
         for (Path w : written) {
-          w.tagBoundary |= afterTagName;
+          w.tagBoundary |= afterTagName || pendingBoundary;
           w.key = null;
         }
       } else {
@@ -472,10 +476,9 @@ public final class ContextVerifier {
   /** Zero or more {@code body}, separated: iterate until no new state appears. */
   private List<Path> rep(Skeleton.Rep r, List<Path> in, Env env, SourcePos pos) throws EngineException {
     List<Path> all = dedupe(in, pos);
+    // States after at least one iteration, kept apart from the entry states: an iteration that
+    // returns to an entry state is still followed by separator + body.
     Set<String> seen = new HashSet<>();
-    for (Path p : all) {
-      seen.add(p.key());
-    }
     List<Path> fresh = all;
     for (int round = 0; ; round++) {
       List<Path> next = forks(fresh);
@@ -560,11 +563,12 @@ public final class ContextVerifier {
         continue;
       }
       // A formatting element with a computed attribute may be in the list of active formatting
-      // elements: feed each formatting start tag on its own and check the Noah's Ark clause after
-      // each, so no push and pop inside one static goes unseen.
+      // elements: feed each tag on its own and check the Noah's Ark clause after each, so no push
+      // and pop inside one static goes unseen (also of the element whose start tag holds the
+      // hole, which ends in this static).
       int from = 0;
       for (int i = text.indexOf('<'); i >= 0; i = text.indexOf('<', i + 1)) {
-        if (i > from && formattingStartTag(text, i)) {
+        if (i > from) {
           feedAndCheck(p, text.substring(from, i), pos);
           from = i;
         }

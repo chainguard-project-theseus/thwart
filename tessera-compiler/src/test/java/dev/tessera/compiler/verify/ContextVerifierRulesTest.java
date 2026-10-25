@@ -152,6 +152,9 @@ class ContextVerifierRulesTest {
     reject(Problem.NOAHS_ARK, st("<b><b><b class=\""), attr("class"), st("\">x"));
     // Pushed and popped inside one static: still seen.
     reject(Problem.NOAHS_ARK, st("<b class=\""), attr("class"), st("\"><i><b><b><b></b></b></b></i>x"));
+    // ... also when the element with the computed attribute is pushed and popped in the static after it.
+    reject(Problem.NOAHS_ARK, st("<p><b class=\"x\">1<b class=\"x\">2<b class=\"x\">3<b class=\""), attr("class"),
+        st("\">4</b></b></p>z"));
     accept(st("<b><b><b><b>x")); // static only: the parse doesn't depend on a value
   }
 
@@ -177,6 +180,10 @@ class ContextVerifierRulesTest {
     nodes.add(st(">"));
     nodes.add(text());
     accept(nodes.toArray(new Node[0]));
+    // Neither attribute written: what follows the tag name must still end it.
+    reject(Problem.UNKNOWN_NODE, st("<input"),
+        new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" a=\""), attr("a"), st("\"")), pos()),
+        new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" b=\""), attr("b"), st("\"")), pos()), st("x>"));
     // A computed type is kept as a branch: whether it is there decides how an input parses in a table.
     reject(Problem.ATTRIBUTE_VALUE_CHANGES_PARSE, st("<table><input"),
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" type=\""), attr("type"), st("\"")), pos()), st(">"));
@@ -201,6 +208,9 @@ class ContextVerifierRulesTest {
     accept(st("<ul>"), rep(seq(st("<li>"), text())), st("</ul>")); // an open li closes the last
     reject(Problem.LOOP_NO_FIXED_POINT, rep(seq(st("<div>"), text())));
     reject(Problem.TEXT_IN_TABLE, st("<table><tr>"), rep(seq(st("<td>a</td>"), text())));
+    // The separator runs before every iteration but the first, also when an iteration ends where it began.
+    reject(Problem.TEXT_IN_TABLE, st("<div>"),
+        new Skeleton.Rep(Skeleton.RepKind.EACH, seq(text()), seq(st("<table>")), pos()));
   }
 
   // ---- fragments ----
@@ -269,6 +279,9 @@ class ContextVerifierRulesTest {
     accept(st("<option>"), text(), st("</option>"));
     // A page is a document only.
     accept(st("<!DOCTYPE html><html><body><table><tr><td>"), text());
+    // ... but a template that may also start otherwise is a partial too.
+    reject(Problem.TEXT_IN_TABLE, alt(seq(st("<!DOCTYPE html><html><body>x</body></html>")),
+        seq(st("<tr>"), text(), st("<td>a</td></tr>"))));
   }
 
   @Test
