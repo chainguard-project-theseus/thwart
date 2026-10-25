@@ -11,12 +11,12 @@ behaviour, mvp-design.md describes what ships. This document describes the targe
 every gap.
 
 **Since Oct 25, 2026 the security boundary for markup contexts is the build-time verifier**
-([security-architecture.md](security-architecture.md) §11, tracker #364), enforced once #367
-lands. It runs every template through two spec HTML parsers and enforces section 1 per hole,
-whether or not a row below has its own rule. The profile of principle 3 is then what the verifier
-accepts, narrowed by the rows below. Once #367 lands, the rows in sections 2, 3 and 5 are friendly
-early errors or browser-divergence exclusions (security-architecture.md §11.7); until then they
-are what `main` enforces. Sections 4 and 6 are unchanged: the verifier doesn't cover script
+([security-architecture.md](security-architecture.md) §11, tracker #364), enforced in every build
+since #367. It runs every template through two spec HTML parsers and enforces section 1 per hole,
+whether or not a row below has its own rule; its rule table is section 9. The profile of principle
+3 is what the verifier accepts, narrowed by the rows below. The rows in sections 2, 3 and 5 run
+first, as friendly early errors or browser-divergence exclusions (security-architecture.md
+§11.7). Sections 4 and 6 are unchanged: the verifier doesn't cover script
 lexical position, URL policy or client frameworks.
 
 ## How to keep this document current
@@ -32,7 +32,7 @@ lexical position, URL policy or client frameworks.
 
 | Column | Meaning |
 |---|---|
-| **Status** | `verifier (#367)`: enforced for every template by the build-time verifier once #367 lands. `main`: enforced on `main` (f135112). `#N`: enforced in open PR #N, not yet on `main`. `phase N (#M)`: not implemented; issue #M owns it, in that phase of security-architecture.md §8. `not enforced`: no check and no issue. `partial`: the row says which part is on `main` |
+| **Status** | `verifier (#367)`: enforced for every template by the build-time verifier (`verify/ContextVerifier`, rule table `verify/Rules`, section 9), whatever the row's own rule says. `main`: enforced on `main` (f135112). `#N`: enforced in open PR #N, not yet on `main`. `phase N (#M)`: not implemented; issue #M owns it, in that phase of security-architecture.md §8. `not enforced`: no check and no issue. `partial`: the row says which part is on `main` |
 | **Checked by** | Unit tests on `main`, plus the oracle: seed IDs `A0`-`A62` and `B0`-`B11` from the #320 seed corpus (#347), and axis values of the template generator (#343). The oracle checks are #344 (tree invariant, merged), #341 (script slots, merged) and #342 (context check, merged). Their unit tests run in `mvn verify`; the oracle runs over the seeds and generated cases only once the gate (#324) lands |
 | **Proof** | `Lean`: a predicate in the Lean model of T1 (tcnghia/harder#16, not upstream). `JML`: an OpenJML contract in `docs/rule-contracts.md` on tcnghia/harder#18 (the rule functions on `main` 99e35c5), or on a fork branch where the row names one (not upstream). `Esc`: an escaper postcondition proved on tcnghia/harder#11 (not upstream). `not yet` means no proof states the row |
 
@@ -73,40 +73,41 @@ nodes, the same way for every value, without moving a hole out of its context.
 
 | Part | Status | Checked by | Proof |
 |---|---|---|---|
-| Static structure is the same for every value | verifier (#367); until then partial: the rules below | #344 `STRUCTURE_CHANGED`, `MARKER_IN_NAME` over every seed and generated case | not proved; the oracle checks it |
-| Each value lands in the node, context and namespace the compiler chose | verifier (#367); until then partial | #342 `CONTEXT_MISMATCH` | Lean token-level T1 (`t1_profile_tree`; not CDATA in foreign content, the tree-level effects of tables and `template`, or fragment insertion) |
+| Static structure is the same for every value | verifier (#367); the rules below are early errors | `ContextVerifierRulesTest`, `SeedVerifierTest`; #344 `STRUCTURE_CHANGED`, `MARKER_IN_NAME` over every seed and generated case | not proved; the oracle checks it |
+| Each value lands in the node, context and namespace the compiler chose | verifier (#367): the parser state at each hole | `ContextVerifierRulesTest`, `SeedVerifierTest`; #342 `CONTEXT_MISMATCH` | Lean token-level T1 (`t1_profile_tree`; not CDATA in foreign content, the tree-level effects of tables and `template`, or fragment insertion) |
 | No value runs as script, handler or `javascript:` URL, or loads a cross-origin resource | partial | #344 `LIVE_SCRIPT`, `LIVE_HANDLER`, `JS_URL`, `CROSS_ORIGIN_RESOURCE`; #341 `JS_NOT_LITERAL` | `Esc` for `text`, `attr`, `url`, `json` strings |
 | Static structure does not depend on the browser | verifier (#367) for the two embedded parsers (current upstream and 1.4.16, both must accept); real engines checked by the Node job | validator.nu htmlparser 1.4.16 and the htmlparser inside validator 26.10.12 in #344; parse5, headless Chromium, Firefox 140 ESR and WebKit (Playwright's build) in the Node job (#345, #354; on Chainguard Checks after every merge and on request, over a fixture until #324) | not yet |
 
 ## 2. Token-level rules (§5.2)
 
 The tokenizer accepts only these forms. Anything else is a build error with file, line and
-column. Once the verifier (#367) lands, these rules are friendly early errors and it is the
-boundary. #327 is re-scoped to rules that give a better message than the verifier; the
+column. These rules are friendly early errors; the verifier (#367) is the boundary. A row marked
+`verifier (#367) for holes` is one where a value next to the construct lands in a parser state the
+verifier rejects (a tag, a comment, a character reference, CDATA, raw text after `<`). #327 is re-scoped to rules that give a better message than the verifier; the
 `phase 2 (#327)` rows below are kept only if they do.
 
 | Construct | Accepted | Rejected | Status | Checked by | Proof |
 |---|---|---|---|---|---|
 | Element name | `[A-Za-z][A-Za-z0-9_.:-]*` | anything else | main | `HtmlParserTest`; `<scr[[s]]ipt>` in `ValueAfterLessThanTest` | Lean `validElementName` |
-| Start tag separators | ASCII whitespace (TAB, LF, FF, CR, SPACE) | U+000B, U+001C-U+001F and other Java-only whitespace in a tag (#338) | main (#297) | `XssContextTest.REJECTED`; generator interference "U+000B/U+001F/U+2028/U+3000 in a tag" | Lean `TagAttrsOK` (assumes ASCII separators); JML `tagEnd` (fork branch `proof-b-tse`) |
-| Quotes in tags | `"` or `'` only as the delimiters of a quoted value | a quote in a name, in an unquoted value, or right after a quoted value | main (#297) | seed `A13`; `HtmlParserTest`, `XssContextTest` | JML `tagEnd` (fork branch `proof-b-tse`); Lean `SrcTagOK` |
+| Start tag separators | ASCII whitespace (TAB, LF, FF, CR, SPACE) | U+000B, U+001C-U+001F and other Java-only whitespace in a tag (#338) | verifier (#367) for holes; main (#297) | `XssContextTest.REJECTED`; generator interference "U+000B/U+001F/U+2028/U+3000 in a tag" | Lean `TagAttrsOK` (assumes ASCII separators); JML `tagEnd` (fork branch `proof-b-tse`) |
+| Quotes in tags | `"` or `'` only as the delimiters of a quoted value | a quote in a name, in an unquoted value, or right after a quoted value | verifier (#367) for holes; main (#297) | seed `A13`; `HtmlParserTest`, `XssContextTest` | JML `tagEnd` (fork branch `proof-b-tse`); Lean `SrcTagOK` |
 | Attribute names | names without `=`, `<` or quotes | `=`, `<` or a quote in a name | main | `HtmlParserTest` | Lean `validSrcAttrName` |
-| Unquoted values | `[A-Za-z0-9_.:/#-]`, not ending in `/` before `>` | other characters | partial: `/` before `>` and quotes on main (#297); a value starting with `=` on main (#353); the character class is phase 2 (#327) | generator interference `<textarea x=y/>` | Lean `SrcValue.ok` (weaker: any non-space, non-quote, non-`>`) |
+| Unquoted values | `[A-Za-z0-9_.:/#-]`, not ending in `/` before `>` | other characters | verifier (#367) for holes; partial: `/` before `>` and quotes on main (#297); a value starting with `=` on main (#353); the character class is phase 2 (#327) | generator interference `<textarea x=y/>` | Lean `SrcValue.ok` (weaker: any non-space, non-quote, non-`>`) |
 | Attribute values: `&` | only as a complete character reference | an incomplete `&name` (decision 13) | phase 2 (#327) | generator interference `&amp` | not yet (a decoding rule; the token-level proof doesn't need it) |
 | Duplicate attributes | one attribute per name | two attributes with the same lowercased name (`toLowerCase(Locale.ROOT)` on main; ASCII in the target) | main | `HtmlParserTest` | Lean `TagAttrsOK` (`Nodup`) |
 | `/>` | on void HTML elements and foreign elements | on non-void HTML elements, except where Tessera writes the end tag (`<textarea t:field/>`) | partial: `script`, `style`, `title`, `textarea`, `xmp`, `iframe`, `noembed`, `noframes`, `noscript` on main (#298); `<div/>` and other non-void elements phase 2 (#327); anything but `>` after `/` on main (#353) | seeds `A11`, `A12`; `BrowserRawTextTest` | Lean `NodeOK` (`selfClosing = false` on non-void); `t:field` case not modeled |
 | End tag | `</name>` matching the open element | stray or mismatched end tags; `</` + non-letter | main (#296) | `HtmlParserTest`; generator interference `</ x>` | Lean slice 2 `run_endTag`; JML §3 `bogusComment` |
-| Comment | `<!--` text `-->`; text does not start with `>` or `->` and has no `--!>`, `<!--` or `-->` | early-ending comments | partial: `<!-->`, `<!--->`, `--!>` on main (#295); a nested `<!--` check is fork-only hardening (tcnghia/harder#17), not a browser difference (G10) | seed `A14`; `HtmlParserTest`, `XssContextTest` | JML §2 `earlyCommentEnd`; Lean `CommentTessera` |
+| Comment | `<!--` text `-->`; text does not start with `>` or `->` and has no `--!>`, `<!--` or `-->` | early-ending comments | verifier (#367) for holes; partial: `<!-->`, `<!--->`, `--!>` on main (#295); a nested `<!--` check is fork-only hardening (tcnghia/harder#17), not a browser difference (G10) | seed `A14`; `HtmlParserTest`, `XssContextTest` | JML §2 `earlyCommentEnd`; Lean `CommentTessera` |
 | Conditional comments | as written in petclinic (`<!--[if ...]>...<![endif]-->`) | | main | #296 corpus scan | Lean `CommentTessera` |
 | Doctype | `<!DOCTYPE html>`, ASCII case-insensitive, first token only | other DOCTYPEs; a DOCTYPE after other content | partial: DOCTYPE with an early `>` rejected on main (#296); the exact form and position phase 2 (#327) | `HtmlParserTest` | Lean `DoctypeOK`, first node only (`InProfile`) |
 | `<?`, `<!` other forms | none | processing instructions, bogus comments | partial: `<?`, `<!x` in text and early `>` on main (#296); a whole `<?...?>` with no early `>` still compiles until phase 2 (#327) | generator interference `<?x>`, `<!x>`; `HtmlParserTest` | JML §3 `earlyEnd`, `bogusComment` |
-| CDATA | inside SVG and MathML only, with no hole and no `>` before `]]>` | CDATA in HTML content, including the HTML descendants of `foreignObject`, where it is a bogus comment (decision 11) | partial: CDATA with an early `>` or a hole rejected on main (#296); CDATA in HTML content phase 2 (#327) | seeds `A10`, `A54`, `A55` | JML §3 `earlyEnd`, `cdataHole`; Lean: not modeled (sink) |
+| CDATA | inside SVG and MathML only, with no hole and no `>` before `]]>` | CDATA in HTML content, including the HTML descendants of `foreignObject`, where it is a bogus comment (decision 11) | verifier (#367) for holes; partial: CDATA with an early `>` or a hole rejected on main (#296); CDATA in HTML content phase 2 (#327) | seeds `A10`, `A54`, `A55` | JML §3 `earlyEnd`, `cdataHole`; Lean: not modeled (sink) |
 | Text: `<` | only as the start of an accepted tag or comment | a literal `<` that is not a tag (write `&lt;`) | partial: `<` followed by `!`, `?` or `/`+non-letter on main (#296); `a < b` still compiles until phase 2 (#327) | `ValueAfterLessThanTest` (controls) | Lean `TextOK` (`'<' ∉ s`); `StaticText` for main's rule |
-| Text: hole after `<` | a hole after any other text | a hole after static `<`, `<!`, `<!-`, `<?`, `</`+letters | main (#299) | seed `A15`; `ValueAfterLessThanTest` | JML §5 `htmlMarkupStart`, `scriptMarkupStart` (`markupBefore` on main); Lean `NoLtBeforeHole` |
+| Text: hole after `<` | a hole after any other text | a hole after static `<`, `<!`, `<!-`, `<?`, `</`+letters | verifier (#367) for holes; main (#299) | seed `A15`; `ValueAfterLessThanTest` | JML §5 `htmlMarkupStart`, `scriptMarkupStart` (`markupBefore` on main); Lean `NoLtBeforeHole` |
 | Text: `&` | only as a complete character reference | an incomplete `&name` (decision 13) | phase 2 (#327) | generator interference `&amp` | not yet (a decoding rule; Lean treats references as transparent) |
 | NUL | no U+0000 | U+0000 anywhere in static markup: text, tags, RCDATA and raw text (decision 8) | phase 2 (#327) | none yet | Lean assumes it (G8) |
-| RCDATA and RAWTEXT content | text with no `</name` + whitespace, `/` or `>` before the element's end tag, no hole right after `<` or `</` + letters, and no NUL (decision 10) | the rest | partial: end-tag rule on main (#298); hole after `<` on main (#299); NUL phase 2 (#327) | seeds `A8`, `A28`-`A30`; `BrowserRawTextTest`, `ValueAfterLessThanTest` | Lean `RawOK` (`NoRawDanger`, `NoRawLtBeforeHole`); JML §4 `browserEndTag`, §5 |
-| Holes | `[[...]]`, `[(...)]` in text; `t:*` attributes | holes in comments, tags, attribute names, element names | partial: in element names an error on main (#299); in comments and static attributes `[[...]]` is copied as literal text, not a hole; an error in phase 2 (#327) | `HtmlParserTest`, `TextOutputTest` | Lean `Node.hole` placement |
+| RCDATA and RAWTEXT content | text with no `</name` + whitespace, `/` or `>` before the element's end tag, no hole right after `<` or `</` + letters, and no NUL (decision 10) | the rest | verifier (#367) for holes; partial: end-tag rule on main (#298); hole after `<` on main (#299); NUL phase 2 (#327) | seeds `A8`, `A28`-`A30`; `BrowserRawTextTest`, `ValueAfterLessThanTest` | Lean `RawOK` (`NoRawDanger`, `NoRawLtBeforeHole`); JML §4 `browserEndTag`, §5 |
+| Holes | `[[...]]`, `[(...)]` in text; `t:*` attributes | holes in comments, tags, attribute names, element names | verifier (#367) for holes; partial: in element names an error on main (#299); in comments and static attributes `[[...]]` is copied as literal text, not a hole; an error in phase 2 (#327) | `HtmlParserTest`, `TextOutputTest` | Lean `Node.hole` placement |
 
 ## 3. Parse modes (§5.3)
 
@@ -122,35 +123,35 @@ moves to phase 4 (#311).
 | Mode | Entered by | Children accepted | Holes | Status | Checked by | Proof |
 |---|---|---|---|---|---|---|
 | `HTML` | document root; `foreignObject` | allow-listed HTML elements, including `template` (3.2) and the obsolete `center`, `font`, `tt`, `big`, `strike`, `marquee` (decision 6); custom elements (name with `-`); names the framework table lists | TEXT | partial: no allow-list on main, any valid name is accepted (#272); phase 2 (#328) | generator container axis (HTML values) | Lean `NodeOK .html`, `HtmlName` |
-| `RAWTEXT(script)` | `<script>` in HTML mode | static script text | SCRIPT (§4) | main | seeds `A1`-`A2`, `A32`-`A36` | Lean slice 3 `ScriptOK`; JML §4 `browserEndTag` |
-| `RAWTEXT(style)` | `<style>` in HTML mode | static CSS | none | main | seed `A53` | Lean slice 4 `RawKindOK`; JML §4 |
-| `RCDATA` | `<title>`, `<textarea>` in HTML mode | text | RCDATA | main | seed `A50`; `BrowserRawTextTest` | Lean slice 4 `RawOK`; JML §4 |
-| `SVG` | `<svg>` | SVG 2 element names only | TEXT | #301 (breakout list); allow-list phase 2 (#328) | seeds `A3`-`A7`, `A19`, `A21`, `A25`-`A27`, `A54`-`A56`, `A58`, `B0`, `B7`-`B11` | JML (fork branch `proof-b-301`); Lean `NodeOK .svg`, `SvgName`, `svg_no_breakout`; token-level T1 (`t1_profile_tree`) without CDATA (not yet) |
-| `MATHML` | `<math>` | MathML Core element names only | TEXT | #301 (breakout list); allow-list phase 2 (#328) | seeds `A20`, `A22`, `A40`, `A57` | JML (fork branch `proof-b-301`); Lean `NodeOK .math`, `MathName`, `math_no_breakout`; token-level T1 (`t1_profile_tree`) without CDATA (not yet) |
-| `SELECT` | `<select>` | `option`, `optgroup` (not nested, decision 3), `hr`, text | TEXT | #305; no nested `optgroup` phase 2 (#328) | seed `A31`; `<select>` wrapper axis | JML `selectContent` (fork branch `proof-b-305`); Lean `NodeOK .select`, `NoOptgroup`; token-level T1 (`t1_profile_tree`) |
-| `NOSCRIPT` | `<noscript>` in HTML mode | HTML elements except RCDATA, raw-text, script, `select`, `svg` and `math` elements, at every depth (decision 1); an empty `iframe` | TEXT | partial: end-tag rule and no runtime HTML on main (#298); the descendant rule phase 2 (#328) | seeds `A9`, `A59`; `BrowserRawTextTest` (GTM `<noscript><iframe>`) | Lean slice 5 `NoscriptOK`, `NoscriptBodyOK` (scripting enabled; empty `iframe` allowed) |
+| `RAWTEXT(script)` | `<script>` in HTML mode | static script text | SCRIPT (§4) | verifier (#367): JSON only in an HTML script's data; main | seeds `A1`-`A2`, `A32`-`A36` | Lean slice 3 `ScriptOK`; JML §4 `browserEndTag` |
+| `RAWTEXT(style)` | `<style>` in HTML mode | static CSS | none | verifier (#367); main | seed `A53` | Lean slice 4 `RawKindOK`; JML §4 |
+| `RCDATA` | `<title>`, `<textarea>` in HTML mode | text | RCDATA | verifier (#367); main | seed `A50`; `BrowserRawTextTest` | Lean slice 4 `RawOK`; JML §4 |
+| `SVG` | `<svg>` | SVG 2 element names only | TEXT | verifier (#367) for holes; #301 (breakout list); allow-list phase 2 (#328) | seeds `A3`-`A7`, `A19`, `A21`, `A25`-`A27`, `A54`-`A56`, `A58`, `B0`, `B7`-`B11` | JML (fork branch `proof-b-301`); Lean `NodeOK .svg`, `SvgName`, `svg_no_breakout`; token-level T1 (`t1_profile_tree`) without CDATA (not yet) |
+| `MATHML` | `<math>` | MathML Core element names only | TEXT | verifier (#367) for holes; #301 (breakout list); allow-list phase 2 (#328) | seeds `A20`, `A22`, `A40`, `A57` | JML (fork branch `proof-b-301`); Lean `NodeOK .math`, `MathName`, `math_no_breakout`; token-level T1 (`t1_profile_tree`) without CDATA (not yet) |
+| `SELECT` | `<select>` | `option`, `optgroup` (not nested, decision 3), `hr`, text | TEXT | verifier (#367) for holes, classic and customizable parsing; #305; no nested `optgroup` phase 2 (#328) | seed `A31`; `<select>` wrapper axis | JML `selectContent` (fork branch `proof-b-305`); Lean `NodeOK .select`, `NoOptgroup`; token-level T1 (`t1_profile_tree`) |
+| `NOSCRIPT` | `<noscript>` in HTML mode | HTML elements except RCDATA, raw-text, script, `select`, `svg` and `math` elements, at every depth (decision 1); an empty `iframe` | TEXT | verifier (#367) for holes, scripting on and off; partial: end-tag rule and no runtime HTML on main (#298); the descendant rule phase 2 (#328) | seeds `A9`, `A59`; `BrowserRawTextTest` (GTM `<noscript><iframe>`) | Lean slice 5 `NoscriptOK`, `NoscriptBodyOK` (scripting enabled; empty `iframe` allowed) |
 
 ### 3.2 Transitions and element rules
 
 | Rule | Status | Checked by | Proof |
 |---|---|---|---|
-| `script`, `style` are raw text and `title`, `textarea` are RCDATA only in HTML mode | #301 | seeds `A5`, `A6`, `A21`-`A23`, `A27`; `<svg title>` wrapper axis | Lean `NodeOK .svg` (SVG `script`/`style`/`title`) |
-| A browser ends raw text and RCDATA at the first ASCII-case `</name` + whitespace, `/` or `>`; it must be the element's own end tag | main (#298, ASCII case folding) | seeds `A8`, `A28`-`A30`; `BrowserRawTextTest` | JML §4 `browserEndTag`; Lean `NoRawDanger`, `NoScriptDanger` |
-| `<!--` inside `<script>` is an error | main | seed `A36`; `HtmlParserTest` | Lean `NoScriptDanger` (S6b); JML not yet |
+| `script`, `style` are raw text and `title`, `textarea` are RCDATA only in HTML mode | verifier (#367); #301 | seeds `A5`, `A6`, `A21`-`A23`, `A27`; `<svg title>` wrapper axis | Lean `NodeOK .svg` (SVG `script`/`style`/`title`) |
+| A browser ends raw text and RCDATA at the first ASCII-case `</name` + whitespace, `/` or `>`; it must be the element's own end tag | verifier (#367) for holes; main (#298, ASCII case folding) | seeds `A8`, `A28`-`A30`; `BrowserRawTextTest` | JML §4 `browserEndTag`; Lean `NoRawDanger`, `NoScriptDanger` |
+| `<!--` inside `<script>` is an error | verifier (#367) for holes; main | seed `A36`; `HtmlParserTest` | Lean `NoScriptDanger` (S6b); JML not yet |
 | `plaintext` is an error | main | seed `A62` | Lean: excluded (`htmlNames`) |
-| `xmp`, `noembed`, `noframes`, `frameset`, `frame` are errors | phase 2 (#328); on main their end tag must match (#298) | seeds `A8`, `A28`, `A29`, `A60` | Lean: excluded (`htmlNames`) |
+| `xmp`, `noembed`, `noframes`, `frameset`, `frame` are errors | verifier (#367): `frameset` is an error; phase 2 (#328); on main their end tag must match (#298) | seeds `A8`, `A28`, `A29`, `A60` | Lean: excluded (`htmlNames`) |
 | `iframe` must be empty | phase 2 (#328); on main its end tag must match (#298) | seed `A30` | Lean `RawKindOK` (`iframe`, empty body) |
 | `noscript`: no `</noscript` before its own end tag, including in comments and static attribute values (decision 2) | main (#298) | seed `A9` | Lean `NoscriptBodyOK` (stricter: no `<` in comments or static attribute values) |
 | `noscript`: no `t:insert`, `t:utext`, `[(...)]` | main (#298) | `BrowserRawTextTest` | Lean: raw holes not modeled |
-| `svg`, `math` enter SVG/MathML mode; HTML breakout tags (`p`, `b`, `font` with `color`/`face`/`size`, ...) are errors there | #301 | seeds `A25`, `A26`, `B10`; generator interference "breakout tags" | JML (fork branch `proof-b-301`); Lean `svg_no_breakout`, `math_no_breakout` |
+| `svg`, `math` enter SVG/MathML mode; HTML breakout tags (`p`, `b`, `font` with `color`/`face`/`size`, ...) are errors there | verifier (#367) for holes; #301 | seeds `A25`, `A26`, `B10`; generator interference "breakout tags" | JML (fork branch `proof-b-301`); Lean `svg_no_breakout`, `math_no_breakout` |
 | Integration points `title`, `desc` (SVG) and `mi`, `mo`, `mn`, `ms`, `mtext` (MathML) take text and TEXT holes only, with `{{` broken | #301 (TEXT context); text-only content phase 2 (#328) | seeds `A7`, `A21`, `A22`, `A48` | Lean `TextOnly` |
-| SVG `script` and `style` take no holes, no `<` and no `&` | partial: `<` and `&` in #301; no holes phase 3 (#332) | seeds `A3`, `A4`, `A55`, `A56`, `A58`, `B0`, `B11` | Lean `StaticNoAmp` |
+| SVG `script` and `style` take no holes, no `<` and no `&` | verifier (#367): no holes; partial: `<` and `&` in #301; no holes phase 3 (#332) | seeds `A3`, `A4`, `A55`, `A56`, `A58`, `B0`, `B11` | Lean `StaticNoAmp` |
 | `foreignObject` holds an HTML subtree under these rules | #301 | seeds `A23`, `B9`; `foreignObject` wrapper axis | Lean `NodeOK .svg` (`foreignobject`) |
-| `annotation-xml` with `encoding="text/html"` or `"application/xhtml+xml"` is an HTML integration point | #301 (static `encoding`); a computed `encoding`: in fragments #304, everywhere phase 2 (#328) (decision 4) | `annotation-xml` wrapper axis | Lean: MathML content only (stricter) |
+| `annotation-xml` with `encoding="text/html"` or `"application/xhtml+xml"` is an HTML integration point | verifier (#367): a computed `encoding` in MathML is an error; #301 (static `encoding`); a computed `encoding`: in fragments #304, everywhere phase 2 (#328) (decision 4) | `annotation-xml` wrapper axis | Lean: MathML content only (stricter) |
 | `select` takes only `option`, `optgroup`, `hr`, `t:block` and text | #305 | seed `A31`; `<select>` wrapper axis | JML `selectContent` (fork branch `proof-b-305`); Lean `NodeOK .select` |
 | No nested `optgroup` inside `select` (decision 3) | phase 2 (#328) | none yet | Lean `NoOptgroup` |
 | No nested `<form>` | phase 2 (#328) | none yet | not modeled (tree level) |
-| Tables are allowed; foster parenting moves text, not its context | main (#351): computed text directly in `table`, `tbody`, `thead`, `tfoot`, `tr`, `colgroup` is an error, table parts must sit directly in the part that takes them, and `form` may not sit directly in a table part | seed `A24`; `ClientTemplateInjectionTest`, `XssContextTest`; `table`, `table>tbody>tr` container values | not modeled (tree level, G1) |
+| Tables are allowed; foster parenting moves text, not its context | verifier (#367): text holes in a table part, and raw HTML anywhere in a table outside a cell or caption, are errors; main (#351): computed text directly in `table`, `tbody`, `thead`, `tfoot`, `tr`, `colgroup` is an error, table parts must sit directly in the part that takes them, and `form` may not sit directly in a table part | seed `A24`; `ClientTemplateInjectionTest`, `XssContextTest`; `table`, `table>tbody>tr` container values | not modeled (tree level, G1) |
 | `template` holds flow content under the body profile; `col`, `colgroup`, `caption`, `tbody`, `thead`, `tfoot`, `tr`, `td`, `th` as direct children are errors (decision 5) | phase 2 (#328); on main `template` content is not checked | seeds `A61`, `B8`; `template` wrapper axis | not yet (Lean leaves `template` out) |
 
 ## 4. Scripts: the data-prelude rule (§5.4)
@@ -186,17 +187,19 @@ site. The rows below are #304's name-based rules on the way there.
 
 | Value or position | Kind | Status | Checked by | Proof |
 |---|---|---|---|---|
-| Fragment (`t:fragment`) | the parse mode of its host element | #304 (`TemplateInfo.parsingContexts`) | `FragmentParsingContextTest` (#304); generator composition axis `t:insert`, `t:replace` | not yet |
-| `Fragment` parameter or value | `HTML_FLOW` | #304 | `FragmentParsingContextTest`; composition value `Fragment f` | not yet |
-| `SafeHtml` (`t:utext`, `[(...)]`) | `HTML_FLOW` | #304 | `FragmentParsingContextTest`; hole values `[(h)]`, `t:utext` | not yet |
-| HTML message (`#{...}` as HTML) | `HTML_FLOW`, checked where used | #304; messages are checked at build time on main (`MessageCompilerTest`) | `HtmlMessageTest`, `MessageMarkupTest` | not yet (G4: the runtime re-check in `Escapers.htmlMessage` is tested, not proved) |
-| `t:insert`, `t:utext`, `[(...)]` into RCDATA or raw text | error | main (#298) | `BrowserRawTextTest`; hole values `[(h)]`, `t:utext` in the `title` and `noscript` wrappers | Lean: raw holes not modeled |
+| Fragment (`t:fragment`) | the parse mode of its host element | verifier (#367): checked at each static call site; #304 (`TemplateInfo.parsingContexts`) | `FragmentParsingContextTest` (#304); generator composition axis `t:insert`, `t:replace` | not yet |
+| `Fragment` parameter or value | `HTML_FLOW` | verifier (#367): bound arguments at the call site, otherwise `FLOW` without the open-element part (#329); #304 | `FragmentParsingContextTest`; composition value `Fragment f` | not yet |
+| `SafeHtml` (`t:utext`, `[(...)]`) | `HTML_FLOW` | verifier (#367): `FLOW` without the open-element part (#329); #304 | `FragmentParsingContextTest`; hole values `[(h)]`, `t:utext` | not yet |
+| HTML message (`#{...}` as HTML) | `HTML_FLOW`, checked where used | verifier (#367): `FLOW` without the open-element part (#329); #304; messages are checked at build time on main (`MessageCompilerTest`) | `HtmlMessageTest`, `MessageMarkupTest` | not yet (G4: the runtime re-check in `Escapers.htmlMessage` is tested, not proved) |
+| `t:insert`, `t:utext`, `[(...)]` into RCDATA or raw text | error | verifier (#367); main (#298) | `BrowserRawTextTest`; hole values `[(h)]`, `t:utext` in the `title` and `noscript` wrappers | Lean: raw holes not modeled |
 | `t:replace` with a whole `<title>` fragment | allowed (the fix-it) | main | `FragmentsTest` | n/a |
-| `t:remove="tag"` on raw-text, RCDATA or foreign elements | error | main (#300) | seeds `A16`, `A17`; `ControlFlowTest`, `FragmentsTest`; composition value `t:remove="tag"` | not yet |
+| `t:remove="tag"` on raw-text, RCDATA or foreign elements | error | verifier (#367) for holes; main (#300) | seeds `A16`, `A17`; `ControlFlowTest`, `FragmentsTest`; composition value `t:remove="tag"` | not yet |
 | Fragment declared inside `noscript`, `iframe`, `xmp`, `noembed`, `noframes` | fits nowhere | #304 | `FragmentParsingContextTest` | not yet |
 | HTML fragment inside `select` | only without `title`, `style`, `svg`, `math`, `t:insert`, `t:replace`, `t:utext`, `[(...)]` | #304 | `FragmentParsingContextTest` | not yet |
 
-#329 replaces #304's checks with the predicates. `SafeHtml` and `Fragment` values are `FLOW`.
+#329 replaces #304's checks with the predicates. `SafeHtml` and `Fragment` values are `FLOW`. The
+verifier (#367) checks `FLOW` without its last part (no open element the producer's tags would
+close) until #329 adds it with the producer checks.
 
 The producer side for `html.sanitize`, `html.sanitizeRich` and every `HtmlPolicy` (#262):
 `HtmlSanitizer` writes only elements it places where a browser's tree builder keeps them as
@@ -313,3 +316,33 @@ dlorenc decided these on the research memo for #364
 | 16 | The parsers are shaded into `tessera-compiler`, relocated and built for Java 8; the runtime and starters stay dependency-free | Upstream ships no Java 8 jar; the processor runs in a JDK 8 javac |
 | 17 | Markup structure that depends on data (recursive rich-text fragments) is a build error, with a `SafeHtml` fix-it; `tessera-migrate` reports it | It breaks the per-hole invariant; 25 of 1,585 corpus templates |
 | 18 | Scripts (#332), URL policy and client frameworks (phase 4) stay as planned; CSP auto-nonce (#335) moves earlier | The verifier doesn't cover them |
+
+## 9. The verifier's rule table (#367)
+
+`verify/Rules` and `verify/ContextVerifier`. Each path through a template holds four parsers
+(current upstream and 1.4.16, scripting on and off); a hole is accepted only if all four accept it.
+The id in brackets ends every error message (`[verifier:ID]`), for #368's fix-its.
+
+| Id | Rejects | Accepted instead |
+|---|---|---|
+| `TEXT_NOT_IN_TEXT` | a `text` or `rcdata` hole inside a tag, comment, character reference, CDATA, doctype or `plaintext` | data state; RCDATA; RAWTEXT of `noscript` (scripting on), `iframe`, `xmp`, `noembed`, `noframes` |
+| `TEXT_IN_SCRIPT` | a `text` or `rcdata` hole in script data, `style`, or SVG/MathML `script`/`style` | as above |
+| `TEXT_IN_TABLE` | a `text` hole in a table, table body, row or column group whose current node is a table part (foster-parented table text) | in a cell or caption; in an element foster-parented out of the table |
+| `TEXT_OUTSIDE_BODY` | a `text` hole before `<html>`, in or after the head, after the body, in a frameset | in body, cell, caption, `select`, `template`; in foreign content |
+| `TEXT_RECONSTRUCTS` | a `text` hole where formatting elements closed out of order would be reopened first | |
+| `RCDATA_NOT_IN_RCDATA` | an `rcdata` hole (no `{{` breaking) a browser reads as ordinary text | RCDATA, never-run raw text |
+| `ATTRIBUTE_NOT_IN_VALUE`, `ATTRIBUTE_WRONG_NAME` | an attribute hole outside a double-quoted value, or in another attribute's value (or a dropped duplicate) | the double-quoted value of the attribute the compiler wrote, compared case-insensitively |
+| `ATTRIBUTE_VALUE_CHANGES_PARSE` | a computed `type` in a table mode, a computed `encoding` in MathML | static values |
+| `JSON_NOT_IN_SCRIPT` | a `json` hole outside the script data of an HTML `<script>` (SVG `script`, escaped script data, CDATA) | script data, also right after `<` (no JSON starts with `/` or `!`) |
+| `RAW_NOT_FLOW` | `SafeHtml`, an unbound or dynamic `Fragment`, an HTML message outside data state, HTML namespace, body/cell/caption/template mode, or with formatting elements to reopen | flow content |
+| `FRAMESET` | any `<frameset>` start tag (frameset-ok is not tracked exactly) | |
+| `NOAHS_ARK` | three or more identical formatting elements, one of them with a computed attribute | |
+| `LOOP_NO_FIXED_POINT`, `STRUCTURE_DEPENDS_ON_DATA` | a loop, or a fragment calling itself, that reaches new parser states after 4 rounds (or more than 24 states for one recursive fragment); anything reached only through recursion | loops and recursion that settle |
+| `TOO_MANY_STATES` | more than 24 distinct parser states at a join | |
+| `ENGINE_FAILURE`, `UNKNOWN_NODE` | a parser that throws or reports an unnamed state; a fragment the skeleton doesn't define | |
+
+A computed attribute (`[ name="..."]`) inside a start tag is one path: writing it or not leaves the
+tokenizer in states that parse what follows alike, except for `type`, `encoding`, `color`, `face`
+and `size`, which stay two paths. A partial (a view whose output doesn't start with a doctype or
+`<html>`) is also checked by fragment parsing in the context its first element implies (`tr`:
+`tbody`; `td`, `th`: `tr`; `option`, `optgroup`: `select`; `li`: `ul`; otherwise `body`).

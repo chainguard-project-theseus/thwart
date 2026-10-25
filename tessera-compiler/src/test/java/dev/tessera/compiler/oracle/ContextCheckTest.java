@@ -337,7 +337,6 @@ class ContextCheckTest {
           "<a t:href=\"${s}\">x</a>",
           "<script>var a = [[${s}]];</script>",
           "<svg><text>[[${s}]]</text></svg>",
-          "<svg><script>var a = [[${s}]];</script></svg>",
           "<script type=\"application/json\">[[${s}]]</script>",
           "<a t:href=\"@{/x/{id}(id=${s})}\">x</a>",
           "<a t:href=\"@{/x(q=${s})}\">x</a>",

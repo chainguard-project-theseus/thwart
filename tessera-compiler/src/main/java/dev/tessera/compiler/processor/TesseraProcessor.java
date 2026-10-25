@@ -8,6 +8,7 @@ import dev.tessera.compiler.GeneratedFile;
 import dev.tessera.compiler.TemplateCompiler;
 import dev.tessera.compiler.TemplateSource;
 import dev.tessera.compiler.messages.MessageBundle;
+import dev.tessera.compiler.verify.ContextVerifier;
 import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.TemplateFunctions;
 import java.io.IOException;
@@ -112,6 +113,10 @@ public final class TesseraProcessor extends AbstractProcessor {
         return false;
       }
       done = true;
+      if (!diagnostics.hasErrors()) {
+        // The security boundary for markup contexts (#367): runs on every build, after the profile.
+        ContextVerifier.verify(result.skeletons(), diagnostics);
+      }
       files.addAll(functionIndex(functionClasses));
       for (Diagnostic d : diagnostics.all()) {
         messager.printMessage(kind(d.severity()), d.toString());
