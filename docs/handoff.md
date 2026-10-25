@@ -17,8 +17,9 @@ Since then:
   support Spring Framework 4.3+ / Boot 1.5+ (#156, #178), with a `javax.servlet` variant and
   `TesseraConfiguration` for Spring MVC without Boot (#156).
 - **No third-party compile dependencies** in `tessera-runtime` or the starters. `tessera-compiler`
-  has its own `MarkupTokenizer` (#170); from #365 on it also shades two pinned validator.nu
-  htmlparser versions for the build-time verifier (#364), and nothing else. `tessera-migrate`, a
+  has its own `MarkupTokenizer` (#170); from #365 on it also shades the pinned validator.nu
+  htmlparser for the build-time verifier (#364), and nothing else (the classic 1.4.16 copy goes
+  in #408). `tessera-migrate`, a
   developer tool, bundles attoparser and jsoup.
 - **Migration benchmark** in [bench/migration](../bench/migration/README.md) (#115, #151): an
   agent migrates real apps from the guide alone, scored with `tessera-migrate compare`. The gaps
@@ -50,14 +51,19 @@ Since then:
 From [security-architecture.md](security-architecture.md) §7 (accepted Oct 24, 2026) and §11
 (the build-time verifier, decided Oct 25, 2026):
 
-- **The verifier is the boundary for markup contexts.** Once #367 lands, two spec HTML parsers
-  check every template at build time. A new parser-differential or composition report (family A/B)
-  becomes a verifier test case: a seed the verifier must reject. If the verifier accepted it,
-  fix the verifier or its rule table. Don't patch `HtmlParser`, `MarkupTokenizer` or
-  `Contexts` with a special case for it. Early, friendly errors there are welcome only when the
-  verifier already rejects the template and the message is better.
-- **Engine bumps are their own PR.** A PR that moves the pinned upstream htmlparser commit runs
-  the seeds and the corpus and lists every change in verdict.
+- **The verifier is the boundary for markup contexts.** The pinned spec HTML parser checks every
+  template at build time (#367). It accepts only error-free parses outside three coarse
+  exclusions (#406, security-architecture.md §11.4). A new parser-differential or composition
+  report (family A/B) becomes a verifier test case: a seed the verifier must reject. If the
+  verifier accepted it, fix the verifier or its rule table. Don't patch `HtmlParser`,
+  `MarkupTokenizer` or `Contexts` with a special case for it. Early, friendly errors there are
+  welcome only when the verifier already rejects the template and the message is better.
+- **Reject error recovery; don't model it.** If the parser and a supported browser build
+  different trees (the nightly detector, #399, or a report), add a coarse exclusion and a test.
+  Never model the browser's algorithm in the verifier, and never patch the parser. Don't widen
+  the error allow-list without a corpus measurement.
+- **Engine bumps are their own PR.** A PR that moves the pinned validator release runs the seeds,
+  the corpus and the nightly detector, and lists every change in verdict.
 
 - **Two specs.** [security-model.md](security-model.md) is the threat model and trust
   boundaries. [context-model.md](context-model.md) is the HTML profile as tables, with each

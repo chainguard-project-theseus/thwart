@@ -52,6 +52,9 @@ This is an MVP built tonight. Prefer the smallest thing that is correct and secu
   differential or composition bug is fixed in the build-time verifier or its test cases
   (security-architecture.md §11), not with a new special case. Elsewhere, prefer shrinking the
   profile.
+- The verifier rejects error-recovery parsing; it doesn't model it. If the parser and a supported
+  browser disagree, add a coarse exclusion and a test. Never model a browser's algorithm, and
+  never patch the parser.
 - Do exactly the issue's scope. No speculative abstractions, plugin systems, config knobs,
   or "future-proofing". No new modules or dependencies unless the issue says so.
 - Plain Java. `tessera-runtime`, `tessera-compiler` (the annotation processor runs inside the
@@ -63,9 +66,9 @@ This is an MVP built tonight. Prefer the smallest thing that is correct and secu
   Boot 1.5 and Servlet 3.0 (`tessera-spring-tests`, also `--release 8`). Benchmarks, examples and the tests of
   the runtime, compiler and migrate are Java 21. `tessera-runtime` has **zero third-party
   dependencies** outside test scope, and the starters pass on only `tessera-runtime`.
-  `tessera-compiler` has one exception: for the build-time verifier it shades the pinned
-  validator.nu htmlparser (current upstream and the 1.4.16 classic snapshot, relocated, built for
-  Java 8) into its jar, and nothing else. It keeps its own `MarkupTokenizer` for its tree;
+  `tessera-compiler` has one exception: for the build-time verifier it shades one pinned
+  validator.nu htmlparser (current upstream, relocated, built for Java 8) into its jar, and
+  nothing else. It keeps its own `MarkupTokenizer` for its tree;
   attoparser is only a test oracle. Nothing from the parser runs at render time. Otherwise only
   `tessera-migrate`, a developer tool, bundles libraries (attoparser, jsoup).
 - Error messages from the compiler must name the template file, line and column.
