@@ -13,10 +13,11 @@ every gap.
 **Since Oct 25, 2026 the security boundary for markup contexts is the build-time verifier**
 ([security-architecture.md](security-architecture.md) §11, tracker #364), enforced in every build
 since #367. It runs every template through the pinned spec HTML parser and enforces section 1
-per hole, whether or not a row below has its own rule; its rule table is section 9. It accepts
-only parses with no parse errors (missing-doctype aside), outside three coarse exclusions where
-browsers split (#406, security-architecture.md §11.4). Markup that parses only through error
-recovery (foster parenting, misnested formatting, a second `<body>`) is rejected, not modelled.
+per hole, whether or not a row below has its own rule; its rule table is section 9. Once #406
+lands it accepts only parses with no parse errors (missing-doctype aside), outside three coarse
+exclusions where browsers split (security-architecture.md §11.4). Markup that parses only through
+error recovery (foster parenting, misnested formatting, a second `<body>`) is then rejected, not
+modelled; until then `main` still models it.
 The profile of principle 3 is what the verifier accepts, narrowed by the rows below. The rows in
 sections 2, 3 and 5 run first, as friendly early errors (security-architecture.md §11.7). Sections 4 and 6 are unchanged: the verifier doesn't cover script
 lexical position, URL policy or client frameworks.
@@ -381,9 +382,9 @@ dlorenc decided these on the research memo for #364
 | 17 | Markup structure that depends on data (recursive rich-text fragments) is a build error, with a `SafeHtml` fix-it; `tessera-migrate` reports it | It breaks the per-hole invariant; 25 of 1,585 corpus templates |
 | 18 | Scripts (#332), URL policy and client frameworks (phase 4) stay as planned; CSP auto-nonce (#335) moves earlier | The verifier doesn't cover them |
 | 19 | One engine: the pinned current validator.nu htmlparser; the classic 1.4.16 engine goes (#408) | No template, seed or generator case needs it once the error-free rule and exclusion (c) apply |
-| 20 | Error-free parses only: on every path, scripting on and off, no parse error except the missing-doctype messages; partials only in their implied fragment context (#406) | Error recovery is where engines and browsers split; the corpus barely uses it (9% of templates, 80% of those one layout idiom) |
+| 20 | Error-free parses only: on every path, scripting on and off, no parse error except the missing-doctype messages; partials only in their implied fragment context (#406) | Error recovery is where engines and browsers split; the corpus barely uses it (101 of 1,120 accepted templates, 80 of those one layout idiom) |
 | 21 | Three coarse exclusions: SVG/MathML above a table part or `template`; table parts directly in `template`; only `option`/`optgroup`/`hr` above `select` (#406) | The known splits (#398, #401, #305), covered by a stack shape rather than a model |
-| 22 | A divergence the nightly detector finds becomes a coarse exclusion plus a test, never a modelled algorithm or an engine patch | Ends the modelling treadmill; PR #402 is closed in favour of exclusion (a) |
+| 22 | A divergence the nightly detector finds becomes a coarse exclusion plus a test, never a modelled algorithm or an engine patch | Ends the modelling treadmill; #406 replaces PR #402 with exclusion (a) |
 | 23 | The hole-state rules and `ContentKinds.closer` stay | Values are invisible to the error check |
 
 ## 9. The verifier's rule table (#367)

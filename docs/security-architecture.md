@@ -7,9 +7,9 @@ this doc describes the target and the plan, not the current code. Where it and
 
 **Amended Oct 25, 2026:** a build-time verifier (§11) replaces the profile as the security
 boundary for markup contexts (families A and B), enforced since #367. The pinned spec HTML parser
-checks every template inside the annotation processor, and accepts only error-free parses outside
-three coarse exclusions (simplified the same day, #404). §11.7 says which parts of §5 are now
-friendly errors or exclusions.
+checks every template inside the annotation processor. Simplified the same day (#404): it is to
+accept only error-free parses outside three coarse exclusions (#406). §11.7 says which parts of
+§5 are now friendly errors or exclusions.
 
 ## 0. Summary
 
@@ -483,17 +483,21 @@ memo and prototype are on local branch `research-systemic` (456680e, 05c4d7f).
 
 **Simplified Oct 25, 2026 (#404, tracker #405).** An independent architecture review found that
 the verifier tried to accept every spec-safe template, including markup that parses only through
-error recovery. That forced us to model engine and browser splits forever (#398, #401). The
-corpus uses none of it. @dlorenc decided:
+error recovery. That forced us to model engine and browser splits forever (#398, #401). No
+corpus template reaches those splits, and only 9% of the accepted ones use error recovery at
+all, most of them one layout idiom. @dlorenc decided:
 
 - one engine;
 - error-free parses only;
 - three coarse exclusions where browsers are known to split;
 - a divergence the nightly detector finds becomes an exclusion, never a modelled algorithm.
 
-§11.4 states the boundary. The tracker's wave plan takes the code there. Where the code on `main`
-still runs two engines or models error recovery, it is stricter than this section requires, not
-weaker.
+§11.4 states the boundary; this section describes the target. The tracker's wave plan takes the
+code there. Until #406 lands, `main` has no error check: it accepts some markup that parses only
+through error recovery (101 of the 1,120 corpus templates it accepts) and checks it by modelling
+recovery, which has the known gaps #398 and #401. So on that markup `main` is weaker than this
+section, not stricter. Until #408 lands, `main` also requires the classic 1.4.16 engine to
+accept, which is stricter.
 
 ### 11.1 Decision
 
@@ -545,7 +549,8 @@ them.
   no misnested formatting element is reopened, no element is closed by an end tag that isn't
   its own or an implied end tag the spec allows, and the adoption agency only pops the element
   its end tag names. The Noah's Ark clause and reconstruction never change anything. Neither
-  does `frameset-ok`, because `<frameset>` is excluded.
+  does `frameset-ok`: a `<frameset>` start tag in body is always a parse error, and the verifier
+  rejects `<frameset>` anyway.
 - In data state the value produces only character tokens, and for `text` empty comments.
 - The modes in body, in cell, in caption, in select (and in select in table), in template,
   foreign content and text handle every character token the same way: append.
@@ -585,9 +590,10 @@ document parses identically, and the value is in the node the parser reported.
    caller's responsibility.
 3. **One parser.** The guarantee is relative to the WHATWG algorithm as the pinned engine
    implements it, on error-free parses, outside the exclusions. The supported browsers are tested
-   to agree there, not proved to. The nightly detector (#399) compares the engine's trees with
-   parse5, Chromium, Firefox and WebKit on every accepted case. A split it hasn't found yet is a
-   gap until it does.
+   to agree there, not proved to. The nightly detector (#399, not yet on `main`) is to compare the
+   engine's trees with parse5, Chromium, Firefox and WebKit on the cases it exports that the
+   verifier accepts (seeds, generator cases, fixtures). Until it lands, the Node job compares
+   renders across browsers only. A split it hasn't found yet is a gap until it does.
 4. **The allow-list.** Errors on the allow-list are accepted. It holds only the missing-doctype
    messages, which say nothing about the tree. Widening it needs a measurement and an argument in
    the PR.
@@ -641,7 +647,7 @@ and a supported browser building different trees for markup the verifier accepts
    class, with a negative test and a positive one;
 3. never model either algorithm in the verifier, and never patch the engine.
 
-PR #402 modelled both reset algorithms. It is closed in favour of exclusion (a), and its tests
+PR #402 modelled both reset algorithms. #406 replaces it with exclusion (a), and its tests
 and its 45,056-variant differential become test cases. Known deviations are listed in
 [security-model.md](security-model.md) §7.1.
 
