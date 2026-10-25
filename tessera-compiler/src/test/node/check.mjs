@@ -1,8 +1,9 @@
 // The Node oracle (#322): runs the cases ProfileOracleTest exports (#324) through parse5 and headless
-// Chromium and Firefox, and ratchets the findings against known-holes.txt like the Java gate does.
-// Not part of `mvn verify`; Chainguard Checks runs it through run.sh (.chainguard/ci/oracle-node.yaml).
+// Chromium, Firefox and WebKit, and ratchets the findings against known-holes.txt like the Java gate
+// does. Not part of `mvn verify`; Chainguard Checks runs it through run.sh
+// (.chainguard/ci/oracle-node.yaml).
 //
-//   node check.mjs [--engines parse5,chromium,firefox] [--known-holes <file>] <cases.jsonl>
+//   node check.mjs [--engines parse5,chromium,firefox,webkit] [--known-holes <file>] <cases.jsonl>
 //
 // Input: ExportRecord JSONL, {"id","name","template","value","render","verdict"}, one line per
 // (case, value). Per case, the benign render is the record whose value is a bare marker
@@ -10,12 +11,12 @@
 // Rejected cases (render null) are skipped. A case with hostile renders and no benign one fails.
 //
 // Engines: parse5 (scripting on) runs #318's checks 1-5 and 7 and an acorn version of #319's script
-// check. Chromium (CHROMIUM_PATH) and Firefox (FIREFOX_PATH, WebDriver BiDi) load each render and
-// report marker calls (LIVE_SCRIPT, LIVE_HANDLER) and benign/hostile DOM differences
-// (STRUCTURE_CHANGED); see browsers.mjs.
+// check. Chromium (CHROMIUM_PATH), Firefox (FIREFOX_PATH, WebDriver BiDi) and WebKit (WEBKIT_PATH,
+// Playwright's build) load each render and report marker calls (LIVE_SCRIPT, LIVE_HANDLER) and
+// benign/hostile DOM differences (STRUCTURE_CHANGED); see browsers.mjs.
 //
 // Ratchet: a finding with no known-holes line fails ("new hole"); a line for an engine this job ran
-// (parse5, chromium, firefox) that matched nothing fails ("delete its line"). `*` lines cover
+// (parse5, chromium, firefox, webkit) that matched nothing fails ("delete its line"). `*` lines cover
 // findings here but only the Java gate reports them stale.
 
 import fs from 'node:fs';
@@ -30,7 +31,7 @@ import {
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const BENIGN = /^tqm\d{4}$/;
 const FINGERPRINT = /^tqf\d{4}/;
-const NODE_ENGINES = ['parse5', 'chromium', 'firefox'];
+const NODE_ENGINES = ['parse5', 'chromium', 'firefox', 'webkit'];
 const KINDS = new Set([
   'STRUCTURE_CHANGED', 'MARKER_IN_NAME', 'LIVE_SCRIPT', 'LIVE_HANDLER', 'JS_URL',
   'CROSS_ORIGIN_RESOURCE', 'JS_NOT_LITERAL', 'JS_UNPARSABLE', 'CONTEXT_MISMATCH', 'CSTI',
@@ -276,7 +277,7 @@ async function main(argv) {
     else files.push(argv[i]);
   }
   if (files.length !== 1 || engines.some((e) => !NODE_ENGINES.includes(e))) {
-    console.error('usage: node check.mjs [--engines parse5,chromium,firefox] [--known-holes <file>] <cases.jsonl>');
+    console.error('usage: node check.mjs [--engines parse5,chromium,firefox,webkit] [--known-holes <file>] <cases.jsonl>');
     return 2;
   }
   const cases = readCases(fs.readFileSync(files[0], 'utf8'));

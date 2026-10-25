@@ -7,7 +7,7 @@
 #   case-id  first 12 hex chars of the SHA-256 of the case's template (OracleCase.idOf)
 #   KIND     a Finding.Kind: STRUCTURE_CHANGED, MARKER_IN_NAME, LIVE_SCRIPT, LIVE_HANDLER, JS_URL,
 #            CROSS_ORIGIN_RESOURCE, JS_NOT_LITERAL, JS_UNPARSABLE, CONTEXT_MISMATCH, CSTI
-#   engine   vnu-1.4, vnu-26, rhino, parse5, chromium, firefox, or * for any engine
+#   engine   vnu-1.4, vnu-26, rhino, parse5, chromium, firefox, webkit, or * for any engine
 #   #issue   the issue or PR that fixes it (required: a line without one is a format error)
 #   note     free text
 #
