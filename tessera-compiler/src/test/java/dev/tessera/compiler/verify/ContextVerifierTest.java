@@ -50,7 +50,7 @@ class ContextVerifierTest {
     // The profile lets JSON into an SVG <script>; a browser runs it as script that isn't an HTML
     // script's data, so the escaper doesn't apply (security-architecture.md §11.2).
     compile("\n<svg><script>var a = [[${s}]];</script></svg>")
-        .assertError("t.html:2:26: error: a browser reads this value (json escaper) inside SVG <script>",
+        .assertError("t.html:2:26: error: a browser reads this value (written as JSON for a script) inside SVG <script>",
             "[verifier:JSON_NOT_IN_SCRIPT]");
   }
 
@@ -94,7 +94,7 @@ class ContextVerifierTest {
             .template("h.html", "<div " + NS + "><t:block t:fragment=\"h(String v)\">[[${v}]]</t:block></div>")
             .compile();
     assertFalse(bad.success());
-    bad.assertError("c.html:1:", "as text in the <head>", "in fragment h :: h at h.html:1:", "[verifier:TEXT_OUTSIDE_BODY]");
+    bad.assertError("c.html:1:", "as text in the <head>", "in fragment h :: h, inserted here, at h.html:1:", "[verifier:TEXT_OUTSIDE_BODY]");
   }
 
   @Test

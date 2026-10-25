@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.oracle.Seeds;
 import dev.tessera.compiler.testing.Compilation;
-import dev.tessera.compiler.verify.engine.Engines;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -120,7 +119,7 @@ class SeedVerifierTest {
         }
         if (e.classicOnly()) {
           // Browsers differ here (classic and customizable <select>): the classic engine rejects it.
-          assertTrue(c.errors().stream().allMatch(m -> m.contains(Engines.CLASSIC.name() + " only")), c.errors().toString());
+          assertTrue(c.errors().stream().allMatch(m -> m.contains("only in the older HTML parsing some browsers still use")), c.errors().toString());
         }
       }
       case "ACCEPT" -> {
