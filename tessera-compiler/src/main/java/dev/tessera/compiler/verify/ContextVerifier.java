@@ -319,11 +319,13 @@ public final class ContextVerifier {
     List<Path> cur = in;
     StringBuilder statics = new StringBuilder();
     SourcePos staticPos = null;
+    boolean frameset = false;
     for (Skeleton.Node n : seq.nodes()) {
       if (n instanceof Skeleton.Static) {
         String text = ((Skeleton.Static) n).text();
         if (containsIgnoreCase(text, "<frameset")) {
           add(Problem.FRAMESET, at(n), null, null, null, Collections.<ParserState>emptyList(), null);
+          frameset = true;
         }
         statics.append(text);
         if (staticPos == null) {
@@ -332,14 +334,15 @@ public final class ContextVerifier {
         continue;
       }
       if (statics.length() > 0) {
-        cur = statics(cur, statics.toString(), staticPos);
+        cur = statics(cur, statics.toString(), staticPos, !frameset);
         statics.setLength(0);
         staticPos = null;
+        frameset = false;
       }
       cur = node(n, cur, env);
     }
     if (statics.length() > 0) {
-      cur = statics(cur, statics.toString(), staticPos);
+      cur = statics(cur, statics.toString(), staticPos, !frameset);
     }
     return cur;
   }
@@ -531,13 +534,14 @@ public final class ContextVerifier {
     return out;
   }
 
-  private List<Path> statics(List<Path> in, String text, SourcePos pos) throws EngineException {
+  /** {@code frameset}: whether to report a {@code <frameset>} (seq already reported one inside a single static). */
+  private List<Path> statics(List<Path> in, String text, SourcePos pos, boolean frameset) throws EngineException {
     if (pos != null) {
       near = pos;
     }
     pos = near;
-    if (containsIgnoreCase(text, "<frameset")) {
-      // Also split across statics (each is checked in seq).
+    if (frameset && containsIgnoreCase(text, "<frameset")) {
+      // Split across statics (each one is checked in seq).
       add(Problem.FRAMESET, pos, null, null, null, Collections.<ParserState>emptyList(), null);
     }
     for (Path p : in) {
