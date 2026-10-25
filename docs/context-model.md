@@ -192,7 +192,9 @@ HTML messages need none either: their markup is known at build time (below).
   otherwise): a `p` in button scope; a heading as the current node; an `a` in the list of active
   formatting elements after the last marker; a `button`, `nobr` or `ruby` in scope; a `select`,
   `option` or `optgroup` anywhere on the stack; three formatting entries of one name after the
-  last marker (one more would drop the first, the Noah's Ark clause).
+  last marker (one more would drop the first, the Noah's Ark clause); in cell or caption mode, an
+  SVG or MathML element above the cell (a `</table>` in the value resets the mode, and
+  validator.nu stops at the foreign element where the standard goes on to the cell).
 
 In template mode the first flow start tag switches to "in body"; the verifier then continues
 from both states (the second is the state after `<span></span>`).
@@ -362,7 +364,7 @@ The id in brackets ends every error message (`[verifier:ID]`), for #368's fix-it
 | `ATTRIBUTE_VALUE_CHANGES_PARSE` | a computed `type` in a table mode, a computed `encoding` in MathML | static values |
 | `JSON_NOT_IN_SCRIPT` | a `json` hole outside the script data of an HTML `<script>` (SVG `script`, escaped script data, CDATA) | script data, also right after `<` (no JSON starts with `/` or `!`) |
 | `RAW_NOT_FLOW` | `SafeHtml`, an unbound or dynamic `Fragment` outside data state, HTML namespace, body/cell/caption/template mode, or with formatting elements to reopen | flow content (section 5) |
-| `RAW_CLOSES_ELEMENT` | the same where flow content would close, reopen or adopt an open element: `p` in button scope, a current heading, an active `a`, `button`/`nobr`/`ruby` in scope, `select`/`option`/`optgroup`, three identical formatting entries | flow content (section 5) |
+| `RAW_CLOSES_ELEMENT` | the same where flow content would close, reopen or adopt an open element: `p` in button scope, a current heading, an active `a`, `button`/`nobr`/`ruby` in scope, `select`/`option`/`optgroup`, three identical formatting entries, SVG or MathML above a cell | flow content (section 5) |
 | `MESSAGE_CHANGES_STATE` | an HTML message whose markup (any locale, either form) leaves the parser in another state than it found it | a message that closes what it opens, where its markup fits |
 | `FRAMESET` | any `<frameset>` start tag (frameset-ok is not tracked exactly) | |
 | `NOAHS_ARK` | three or more identical formatting elements, one of them with a computed attribute | |

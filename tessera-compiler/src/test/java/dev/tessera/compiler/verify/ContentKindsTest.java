@@ -113,6 +113,25 @@ class ContentKindsTest {
     accept(st("<b><b><table><tr><td><b>"), raw()); // a marker in between
   }
 
+  /**
+   * A table in the value resets the insertion mode from the stack: the standard walks down to the
+   * cell, validator.nu stops at an SVG or MathML element and picks "in body".
+   */
+  @Test
+  void flowContentInACellBehindForeignContent() {
+    rejectCloser("the <td> that holds the <svg>", st("<table><tr><td><svg><foreignObject><div>"), raw());
+    rejectCloser("the <th> that holds the <math>", st("<table><tr><th><math><mi><span>"), raw());
+    rejectCloser("the <caption> that holds the <svg>", st("<table><caption><svg><desc><div>"), raw());
+    accept(st("<svg><foreignObject><table><tr><td><div>"), raw()); // the cell is above the foreign element
+    accept(st("<table><tr><td><svg></svg><div>"), raw());
+    Compilation.builder()
+        .template("page.html", "<table " + NS + " t:params=\"String v\"><tr><td><svg><foreignObject>"
+            + "<div t:utext=\"${html.sanitizeRich(v)}\">x</div></foreignObject></svg></td></tr></table>")
+        .verifierOnly()
+        .compile()
+        .assertError("page.html:1:", "the <td> that holds the <svg>", "[verifier:RAW_CLOSES_ELEMENT]");
+  }
+
   @Test
   void eachSourceOfRuntimeHtmlIsChecked() {
     reject(Problem.RAW_CLOSES_ELEMENT, st("<p>"), new Skeleton.RawInsert(Skeleton.Source.FRAGMENT_VALUE, pos()));
