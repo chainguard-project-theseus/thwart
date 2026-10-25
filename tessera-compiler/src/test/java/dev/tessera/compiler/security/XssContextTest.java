@@ -316,6 +316,21 @@ class XssContextTest {
     assertTrue(out.contains("<p>&lt;/script&gt;&lt;b&gt;</p>"), out);
   }
 
+  @Test
+  void nonAsciiEndTagIsWrittenWithTheStartTagName() {
+    // Java folds U+017F to s and a browser does not, so a browser would not end <noscript> at
+    // </noſcript>. Tessera ends it there and writes </noscript>, where a browser ends it too.
+    Compilation c =
+        Compilation.builder()
+            .template("page.html", "<div t:params=\"String s\"><noscript></noſcript><p t:title=\"s\">[[s]]</p></div>")
+            .compile();
+    c.assertSuccess();
+    String out = c.render("page", Map.of("s", "</noscript><img src=x onerror=alert(1)>"));
+    assertTrue(out.startsWith("<div><noscript></noscript><p title=\""), out);
+    assertTrue(out.endsWith("&lt;/noscript&gt;&lt;img src=x onerror=alert(1)&gt;</p></div>"), out);
+    assertEquals(-1, out.indexOf("<img"), out);
+  }
+
   /** Markup that must fail to build: these contexts cannot be escaped. */
   static final List<String> REJECTED =
       List.of(

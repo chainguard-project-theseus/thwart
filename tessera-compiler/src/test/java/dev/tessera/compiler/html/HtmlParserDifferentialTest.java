@@ -56,6 +56,8 @@ class HtmlParserDifferentialTest {
   private static final List<String> TAG_ERRORS = List.of("malformed markup: quote ", "malformed markup: U+",
       "malformed markup: '/' before '>'", "malformed markup: a name after '/'", "malformed markup: '/' in a tag",
       "malformed markup: '=' starting an");
+  /** A diagnostic for the {@code </name} a browser ends an element at (see {@code HtmlParser.hiddenEndTag}). */
+  private static final Pattern HIDDEN_END_TAG = Pattern.compile("contains '</([^']*)' before its end tag");
 
   /** Building blocks for mutations and random documents: everything the tokenizer treats specially. */
   private static final String[] TOKENS = {
@@ -112,6 +114,8 @@ class HtmlParserDifferentialTest {
     "<div a=1 a=2 A=3>", "<div\n a=1\n a=2>", "<a b=\"x\"=y>", "<a =x>", "</a b>", "</a\n>", "</>", "<>",
     "<!---->", "<!--->-->", "<!-- -- -->", "<![CDATA[]]>", "<?ab?>", "<?a?>?>", "<!doctype html><html></html>",
     "<!-- " + "x".repeat(200), "<div class=\"" + "y".repeat(300), "<?xml version=\"1.0\" encoding=\"" + "z".repeat(100) + "\"",
+    // U+017F folds to s in Java, not in a browser; the tag error then masks the read-ahead '</noscript'
+    "<noscript></noſcript><title</noscript></title>",
   };
 
   @Test
@@ -196,17 +200,15 @@ class HtmlParserDifferentialTest {
         SourcePos pos = tagError.pos();
         int[] lineStarts = source(input).lineStarts();
         int error = lineStarts[pos.line() - 1] + pos.column() - 1;
-        // A diagnostic past the error is about text the mask replaces (a check that reads ahead,
-        // such as for the '</noscript' a browser ends <noscript> at, and reports at column 0 when
-        // it finds none), so the masked input has none.
+        // A diagnostic past the error is about text the mask replaces, so the masked input has none
+        // (see beforeError).
         List<String> before = new ArrayList<>();
         int tagErrorAt = 0;
         for (int i = 0; i < all.size(); i++) {
-          SourcePos p = all.get(i).pos();
           if (i == at) {
             tagErrorAt = before.size();
             before.add(got.get(i));
-          } else if (p.column() >= 1 && lineStarts[p.line() - 1] + p.column() - 1 < error) {
+          } else if (beforeError(all.get(i), lineStarts, error)) {
             before.add(got.get(i));
           }
         }
@@ -224,6 +226,22 @@ class HtmlParserDifferentialTest {
   }
 
   /**
+   * Whether {@code d} is about text before {@code error}, the offset a mask starts at. A check that
+   * reads ahead reports at column 0 when it finds nothing, and when it finds the {@code </name} a
+   * browser ends an element at, it reports there: that is before the error only if the name and the
+   * char after it (whitespace, {@code /} or {@code >}) are too, since the mask replaces them.
+   */
+  private static boolean beforeError(Diagnostic d, int[] lineStarts, int error) {
+    SourcePos p = d.pos();
+    if (p.column() < 1) {
+      return false;
+    }
+    int at = lineStarts[p.line() - 1] + p.column() - 1;
+    Matcher endTag = HIDDEN_END_TAG.matcher(d.message());
+    return endTag.find() ? at + endTag.group(1).length() + 2 < error : at < error;
+  }
+
+  /**
    * Compares what comes before a tag error of Tessera's own (see {@link #TAG_ERRORS}: attoparser
    * reads on where a browser and Tessera do not). The tokenizer stops inside the tag that holds the
    * error, so with the offending char and everything after it replaced by {@code mask} (same
@@ -238,11 +256,9 @@ class HtmlParserDifferentialTest {
     String masked = input.substring(0, error) + mask.repeat(input.length() - error);
     Diagnostics d = new Diagnostics();
     Document doc = new HtmlParser().parse(source(masked), d);
-    // The same holds for the masked input: a check that reads ahead and finds nothing reports
-    // outside the text before the error.
     int[] lineStarts = source(masked).lineStarts();
     List<String> maskedGot = d.all().stream()
-        .filter(m -> m.pos().column() >= 1 && lineStarts[m.pos().line() - 1] + m.pos().column() - 1 < error)
+        .filter(m -> beforeError(m, lineStarts, error))
         .map(Diagnostic::toString)
         .toList();
     List<String> others = new ArrayList<>(got);
