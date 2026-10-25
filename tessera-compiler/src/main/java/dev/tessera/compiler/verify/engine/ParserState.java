@@ -39,6 +39,7 @@ public final class ParserState {
   private final List<OpenElement> stack;
   private final List<Integer> activeFormatting;
   private final List<OpenElement> activeFormattingElements;
+  private final List<List<String>> activeFormattingAttributes;
   private final List<InsertionMode> templateModes;
   private final boolean formPointer;
   private final boolean headPointer;
@@ -48,9 +49,8 @@ public final class ParserState {
   private final boolean pendingTableText;
   private final String signature;
 
-  // activeFormattingAttributes is folded into the signature only: reconstruction and the Noah's
-  // Ark clause compare attributes. framesetOk is left out of it, see
-  // framesetOk().
+  // activeFormattingAttributes is in the signature: reconstruction and the Noah's Ark clause
+  // compare attributes. framesetOk is left out of it, see framesetOk().
   ParserState(
       String engine,
       OpenElement fragmentContext,
@@ -86,6 +86,7 @@ public final class ParserState {
     this.stack = Collections.unmodifiableList(stack);
     this.activeFormatting = Collections.unmodifiableList(activeFormatting);
     this.activeFormattingElements = Collections.unmodifiableList(activeFormattingElements);
+    this.activeFormattingAttributes = Collections.unmodifiableList(activeFormattingAttributes);
     this.templateModes = Collections.unmodifiableList(templateModes);
     this.formPointer = formPointer;
     this.headPointer = headPointer;
@@ -228,6 +229,14 @@ public final class ParserState {
   /** The elements of {@link #activeFormatting()}, null for markers. */
   public List<OpenElement> activeFormattingElements() {
     return activeFormattingElements;
+  }
+
+  /**
+   * The attributes of each {@link #activeFormatting()} entry as {@code name=value} strings in
+   * source order, null for markers (#367: the verifier's Noah's Ark check).
+   */
+  public List<List<String>> activeFormattingAttributes() {
+    return activeFormattingAttributes;
   }
 
   /**
