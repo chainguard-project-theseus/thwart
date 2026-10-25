@@ -641,7 +641,12 @@ Thymeleaf, a `null` query value renders `name=`, a parameter with no value rende
 (`@{/cart(add, itemId=i.id)}` is `/cart?add&itemId=...`), and a collection repeats the parameter
 per element (`?t=a&t=b`; a `null` element is the bare `t`). A `null` path variable fails the
 render. A URL computed in Java goes in `t:href` as a `String` (scheme-checked)
-or `TrustedUrl`, without the context path.
+or `TrustedUrl`, without the context path. A context path of `/` or one ending in `/` loses the
+trailing `/`, so `@{/a}` never renders as the protocol-relative `//a`. Where a link must be
+same-origin (a `<base href>`, an htmx request URL, a refresh URL, a boosted or htmx form's
+`action`/`formaction`, a `formaction` that may receive the CSRF token; section 4.7), the built URL
+is checked again when rendering: if a custom `Links` makes it anything but a path starting with a
+single `/`, the render fails.
 
 ### 4.6 Functions
 

@@ -429,6 +429,22 @@ class EscapersTest {
     assertFalse(Escapers.isSameOriginUrl(TrustedUrl.unchecked("//evil/")));
   }
 
+  /** #358: a link built for a same-origin slot passes only if it is a path starting with one '/'. */
+  @Test
+  void sameOriginLinkAcceptsOnlySingleSlashPaths() {
+    for (String u : new String[] {"/", "/a", "/app/a", "/%2F/evil", "/%5Cevil", "/app/../a", "/..//evil", "/a?b=//c#//d"}) {
+      assertEquals(u, Escapers.sameOriginLink(u), u);
+    }
+    for (String u :
+        new String[] {
+          "//a", "/\\a", "\\/a", "\\a", "/\t/a", "/\n\\a", " //a", " /a", "\u0000/a", "https://evil/a", "http:/a",
+          "javascript:alert(1)//", "a", "", "?a", "#a", "./a", "../a"
+        }) {
+      assertThrows(IllegalStateException.class, () -> Escapers.sameOriginLink(u), u);
+    }
+    assertThrows(IllegalStateException.class, () -> Escapers.sameOriginLink(null));
+  }
+
   @Test
   void urlEntityEncodedSchemeStaysInert() {
     // The '#' makes these relative URLs; '&' is encoded so the browser never decodes the entity.

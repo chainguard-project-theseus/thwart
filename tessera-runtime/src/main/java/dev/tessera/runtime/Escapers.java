@@ -488,6 +488,24 @@ public final class Escapers {
     return true;
   }
 
+  /**
+   * {@code url}, a link built by {@link Links} for a slot that must stay on the page's origin (a
+   * {@code <base href>}, an htmx request URL, a refresh URL, the {@code action}/{@code formaction}
+   * of a boosted or htmx form, a {@code formaction} that may receive the CSRF token), if it starts
+   * with {@code /} and {@linkplain #isSameOriginUrl is same-origin}. The compiler checks only the
+   * literal path; a context path ending in {@code /}, a custom {@link Links}, or a path variable can
+   * still turn {@code /a} into the protocol-relative {@code //a} (#358). Anything else fails the
+   * render with an {@link IllegalStateException} rather than leave the origin.
+   */
+  public static String sameOriginLink(String url) {
+    if (url == null || !url.startsWith("/") || !isSameOriginUrl(url)) {
+      throw new IllegalStateException(
+          "link must be a same-origin path starting with a single '/' (the Links implementation or the"
+              + " context path produced " + (url == null ? "null" : "'" + url + "'") + ")");
+    }
+    return url;
+  }
+
   /** {@code s} if it {@linkplain #isAllowedUrl passes the scheme check}, else {@link #INVALID_URL}. */
   private static String checkedUrl(String s) {
     return isAllowedUrl(s) ? s : INVALID_URL;
