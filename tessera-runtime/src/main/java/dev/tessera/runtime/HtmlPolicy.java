@@ -80,14 +80,17 @@ public final class HtmlPolicy {
    * {@code width}, {@code height}), tables ({@code table caption thead tbody tfoot tr th td} with
    * {@code colspan}, {@code rowspan}, {@code align}), {@code ol start reversed}, {@code li value},
    * {@code title}, {@code id} (prefixed {@value #DEFAULT_ID_PREFIX}, with {@code href="#x"} links
-   * rewritten to match) and any {@code class} token of the safe form. Links keep
-   * {@code target="_blank"} and get {@code rel="nofollow noopener"}.
+   * rewritten to match) and {@code language-*} class tokens (code highlighting). An image is kept
+   * only if its {@code src} is a same-origin path (one {@code /}, not {@code //} or {@code /\}), so
+   * viewing stored content never sends the reader to another host. Links keep
+   * {@code target="_blank"} and get {@code rel="nofollow noopener"}. For other classes or remote
+   * images, build a policy with {@link Builder#allowClasses} and {@link Builder#allowRemoteImages}.
    */
   public static final HtmlPolicy RICH =
       builder()
           .allowElements(ELEMENTS.toArray(new String[0]))
           .allowAttributes(ATTRIBUTES.toArray(new String[0]))
-          .allowClasses("*")
+          .allowClasses("language-*")
           .allowLinkTarget()
           .build();
 
@@ -102,6 +105,7 @@ public final class HtmlPolicy {
 
   final boolean linkTarget;
   final boolean dataImages;
+  final boolean remoteImages;
 
   private HtmlPolicy(Builder b) {
     this.elements = Collections.unmodifiableSet(new HashSet<>(b.elements));
@@ -124,6 +128,7 @@ public final class HtmlPolicy {
     this.idPrefix = b.idPrefix;
     this.linkTarget = b.linkTarget;
     this.dataImages = b.dataImages;
+    this.remoteImages = b.remoteImages;
     Set<String> relTokens = new LinkedHashSet<>(b.rel);
     if (linkTarget) {
       relTokens.add("noopener");
@@ -171,6 +176,7 @@ public final class HtmlPolicy {
     private String idPrefix = DEFAULT_ID_PREFIX;
     private boolean linkTarget;
     private boolean dataImages;
+    private boolean remoteImages;
 
     private Builder() {}
 
@@ -213,15 +219,15 @@ public final class HtmlPolicy {
     /**
      * The prefix written before every kept {@code id} (default {@value #DEFAULT_ID_PREFIX}), so
      * user content cannot clobber {@code window} or {@code document} properties or the page's own
-     * ids. It must be a letter followed by {@code [A-Za-z0-9_-]} and end in {@code -} or
-     * {@code _}; an empty prefix isn't allowed.
+     * ids. It must be a letter followed by {@code [A-Za-z0-9_-]} and end in {@code -}, so a kept id
+     * is never a JavaScript identifier; an empty prefix isn't allowed.
      */
     public Builder idPrefix(String prefix) {
       if (prefix == null
           || prefix.length() < 2
           || !isAsciiLetter(prefix.charAt(0))
           || !isClassToken(prefix)
-          || "-_".indexOf(prefix.charAt(prefix.length() - 1)) < 0) {
+          || prefix.charAt(prefix.length() - 1) != '-') {
         throw new IllegalArgumentException("not an allowed id prefix: " + prefix);
       }
       this.idPrefix = prefix;
@@ -243,6 +249,16 @@ public final class HtmlPolicy {
     /** Keeps {@code target="_blank"} on links (any other target is dropped) and adds {@code noopener}. */
     public Builder allowLinkTarget() {
       this.linkTarget = true;
+      return this;
+    }
+
+    /**
+     * Images are kept only with a same-origin path {@code src} unless this is called; with it, any
+     * {@code src} that passes the URL scheme check ({@code http}, {@code https}, or relative) is
+     * kept. Remote images tell the image host the reader's IP address and the page they read.
+     */
+    public Builder allowRemoteImages() {
+      this.remoteImages = true;
       return this;
     }
 

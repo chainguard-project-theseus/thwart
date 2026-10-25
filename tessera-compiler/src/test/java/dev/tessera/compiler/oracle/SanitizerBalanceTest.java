@@ -41,6 +41,16 @@ class SanitizerBalanceTest {
   static {
     POLICIES.put("BASIC", HtmlPolicy.BASIC);
     POLICIES.put("RICH", HtmlPolicy.RICH);
+    // RICH widened: any class and remote images
+    POLICIES.put(
+        "wide",
+        HtmlPolicy.builder()
+            .allowElements(HtmlPolicy.ELEMENTS.toArray(new String[0]))
+            .allowAttributes(HtmlPolicy.ATTRIBUTES.toArray(new String[0]))
+            .allowClasses("*")
+            .allowRemoteImages()
+            .allowLinkTarget()
+            .build());
     // Table parts and li without their containers, and a without phrasing parents, must still balance.
     POLICIES.put(
         "partial",
@@ -439,9 +449,9 @@ class SanitizerBalanceTest {
   @Test
   void naiveTreeSeesEveryToken() {
     // the TOKEN pattern must not skip output it doesn't understand
-    String out = SafeHtml.sanitize("<p class=a id=b title=\"&eacute;\">x<br>y</p>", HtmlPolicy.RICH).html();
-    assertEquals("<p id=\"user-content-b\" class=\"a\" title=\"&eacute;\">x<br>y</p>", out);
-    assertEquals("<p class=\"a\" id=\"user-content-b\" title=\"é\">x<br>y</p>", canonical(naiveTree(out)));
+    String out = SafeHtml.sanitize("<p class=language-a id=b title=\"&eacute;\">x<br>y</p>", HtmlPolicy.RICH).html();
+    assertEquals("<p id=\"user-content-b\" class=\"language-a\" title=\"&eacute;\">x<br>y</p>", out);
+    assertEquals("<p class=\"language-a\" id=\"user-content-b\" title=\"é\">x<br>y</p>", canonical(naiveTree(out)));
     assertFalse(canonical(naiveTree("a")).isEmpty());
   }
 }

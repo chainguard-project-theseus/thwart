@@ -405,16 +405,21 @@ final class HtmlSanitizer {
   }
 
   /**
-   * The escaped value of a URL attribute that passes the scheme check (for an image, also a
-   * base64 {@code data:image/...} URL if the policy allows them), or {@code null}.
+   * The escaped value of a URL attribute that passes the scheme check, or {@code null}. An image
+   * {@code src} must also be a same-origin path unless the policy allows remote images, or a base64
+   * {@code data:image/...} URL if the policy allows those.
    */
   private String url(String raw, boolean image) {
     if (raw == null) {
       return null;
     }
     String url = decode(raw);
-    if (!Escapers.isAllowedUrl(url) && !(image && policy.dataImages && isDataImage(url))) {
+    boolean data = image && policy.dataImages && isDataImage(url);
+    if (!data && !Escapers.isAllowedUrl(url)) {
       return null;
+    }
+    if (image && !data && !policy.remoteImages && !(url.startsWith("/") && Escapers.isSameOriginUrl(url))) {
+      return null; // not a same-origin path: '/' not followed by '/' or '\' (tab, CR, LF ignored)
     }
     if (!image && policy.attributes.contains("id") && url.length() > 1 && url.charAt(0) == '#'
         && HtmlPolicy.isClassToken(url.substring(1)) && !url.startsWith(policy.idPrefix, 1)) {

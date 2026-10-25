@@ -547,13 +547,13 @@ and all other attributes (`on*`, `style`, `class`, `id`, `target`, ...).
 
 For editor or Markdown output that needs more, write `html.sanitizeRich(article.text)`
 (`HtmlPolicy.RICH.sanitize(text)` in Java). It also keeps `del ins kbd`; images (`img` with a `src`
-that passes the URL check, `alt`, `title`, `width`, `height`); tables (`table caption thead tbody
+that is a same-origin path, `alt`, `title`, `width`, `height`); tables (`table caption thead tbody
 tfoot tr th td` with `colspan`, `rowspan`, `align`); `ol start reversed` and `li value`; `title`;
-`class` tokens made only of letters, digits, `-` and `_` (never one AngularJS reads as a
-directive: `ng-*`, `ng_*` or `ngX`, also after `x-` or `data-`); and `id`, written as
-`user-content-<id>` so stored content can't shadow `window` or `document` properties or the page's
-own ids, with `href="#<id>"` links rewritten to match. Links keep `target="_blank"`. An attribute
-value containing `{{` is dropped, as is an `img` whose `src` fails the check.
+`language-*` class tokens (code highlighting); and `id`, written as `user-content-<id>` so stored
+content can't shadow `window` or `document` properties or the page's own ids, with `href="#<id>"`
+links rewritten to match. Links keep `target="_blank"`. An image `src` must start with a single
+`/` (not `//` or `/\`), so that showing stored content never makes the reader's browser contact
+another host; other images are dropped. An attribute value containing `{{` is dropped.
 
 For any other mix, build a policy once in Java with `HtmlPolicy.builder()` and expose it through
 your own function namespace (section 4.6):
@@ -589,7 +589,10 @@ public final class NoticeFunctions {
 Then `t:utext="notices.html(notice.body)"`. The builder accepts only names from a closed set
 (`HtmlPolicy.ELEMENTS`, `HtmlPolicy.ATTRIBUTES`, `REL_TOKENS`) and throws for anything else, so
 `style`, `on*`, framework directives and script-capable elements can't be switched on. Its other
-options are `idPrefix` (non-empty), `allowLinkTarget` (`target="_blank"` with `noopener`) and
+options are `allowClasses` (exact names, `prefix*` or `*`; only letters, digits, `-` and `_`, and
+never a name AngularJS reads as a directive: `ng-*`, `ng_*` or `ngX`, also after `x-` or `data-`),
+`idPrefix` (a letter first, ending in `-`), `allowLinkTarget` (`target="_blank"` with `noopener`),
+`allowRemoteImages` (any `img src` that passes the URL check, not only same-origin paths) and
 `allowDataImages` (base64 PNG, GIF, JPEG and WebP `data:` URLs in `img src`).
 
 Under every policy the output is rebuilt, never copied through, and balanced: every element is
@@ -715,7 +718,7 @@ Templates call functions as `namespace.fn(args)` or `#namespace.fn(args)`.
 | `temporals` | `format(temporal, pattern)` (English month and day names), `formatIso(temporal)` |
 | `lists` | `size`, `isEmpty`, `contains(list, x)` |
 | `css` | `color(s)` (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, a CSS named colour), `length(s)` (a number with optional `px`, `em`, `rem`, `%`, `vh`, `vw`), `url(s)` (`url("...")` for a relative or `http`/`https` URL, percent-encoded): a `CssValue`, or `null` for anything else |
-| `html` | `sanitize(s)`: stored rich text as `SafeHtml` for `t:utext`; `sanitizeRich(s)`: the same with images, tables, `class` and `id` (section 4.4) |
+| `html` | `sanitize(s)`: stored rich text as `SafeHtml` for `t:utext`; `sanitizeRich(s)`: the same with same-origin images, tables, `language-*` classes and `id` (section 4.4) |
 | `auth` (Spring starter) | `isAuthenticated()`, `hasRole('ADMIN')`, `hasAnyRole('A', 'B')`, `name()` |
 | `fields` (inside `t:object`) | `hasErrors('path')`, `hasErrors('*')`, `errors('path')`, section 4.7 |
 

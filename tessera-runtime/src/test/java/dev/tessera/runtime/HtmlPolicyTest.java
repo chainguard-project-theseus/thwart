@@ -31,7 +31,7 @@ class HtmlPolicyTest {
   @Test
   void richKeepsTablesImagesClassesAndIds() {
     assertEquals(
-        "<table class=\"data\"><thead><tr><th align=\"left\">Name</th><th colspan=\"2\">Score</th></tr></thead>"
+        "<table><thead><tr><th align=\"left\">Name</th><th colspan=\"2\">Score</th></tr></thead>"
             + "<tbody><tr><td rowspan=\"2\">Ann</td><td>1</td><td>2</td></tr></tbody></table>",
         rich("<table class=data><thead><tr><th align=LEFT>Name</th><th colspan=2>Score</th></tr></thead>"
             + "<tbody><tr><td rowspan=2>Ann</td><td>1</td><td>2</td></tr></tbody></table>"));
@@ -61,9 +61,9 @@ class HtmlPolicyTest {
 
   @Test
   void htmlFunctionsUseTheirPolicies() {
-    String in = "<p class=x><img src=/a.png>t</p>";
+    String in = "<p class=language-x><img src=/a.png>t</p>";
     assertEquals("<p>t</p>", Html.sanitize(in).html());
-    assertEquals("<p class=\"x\"><img src=\"/a.png\">t</p>", Html.sanitizeRich(in).html());
+    assertEquals("<p class=\"language-x\"><img src=\"/a.png\">t</p>", Html.sanitizeRich(in).html());
     assertSame(SafeHtml.EMPTY, Html.sanitizeRich(null));
     assertSame(SafeHtml.EMPTY, HtmlPolicy.RICH.sanitize(null));
   }
@@ -97,8 +97,21 @@ class HtmlPolicyTest {
     assertEquals("", rich("<img alt=x>"));
     assertEquals("", rich("<img src=vbscript:x>"));
     assertEquals("<img src=\"/x%7B%7Ba}}\">", rich("<img src=\"/x{{a}}\">"));
+    // RICH keeps only same-origin paths: remote images leak the reader's IP address and the page
+    for (String remote : new String[] {"https://evil.example/t.gif", "http://evil.example/t.gif", "//evil.example/t.gif",
+        "/\\evil.example/t.gif", "\\\\evil.example/t.gif", "/\t/evil.example/t.gif", " //evil.example/t.gif", "t.gif",
+        "../t.gif", "?x", "#x", "mailto:a@b", "&#x2f;/evil.example/t.gif"}) {
+      assertEquals("", rich("<img src=\"" + remote + "\">"), remote);
+    }
+    assertEquals("<img src=\"/a/b.png?x#y\">", rich("<img src=\"/a/b.png?x#y\">"));
+    HtmlPolicy remote = HtmlPolicy.builder().allowElements("img").allowRemoteImages().build();
+    assertEquals("<img src=\"https://cdn.example/a.png\">", remote.sanitize("<img src=\"https://cdn.example/a.png\">").html());
+    assertEquals("<img src=\"t.gif\">", remote.sanitize("<img src=t.gif>").html());
+    assertEquals("", remote.sanitize("<img src=javascript:alert(1)>").html());
+    assertEquals("", remote.sanitize("<img src=\"data:image/png;base64,iVBOR=\">").html());
     HtmlPolicy data = HtmlPolicy.builder().allowElements("img").allowDataImages().build();
     assertEquals("<img src=\"data:image/png;base64,iVBOR=\">", data.sanitize("<img src=\"data:image/png;base64,iVBOR=\">").html());
+    assertEquals("", data.sanitize("<img src=\"https://cdn.example/a.png\">").html()); // data images aren't remote images
     assertEquals("", data.sanitize("<img src=\"data:image/svg+xml;base64,PHN2Zz4=\">").html());
     assertEquals("<img src=\"DATA:image/PNG;base64,iVBOR\">", data.sanitize("<img src=\"DATA:image/PNG;base64,iVBOR\">").html());
     assertEquals("", data.sanitize("<img src=\"data:image/png,<svg onload=alert(1)>\">").html());
@@ -107,13 +120,17 @@ class HtmlPolicyTest {
 
   @Test
   void classesAreFilteredToTheSafeForm() {
+    // RICH keeps only code-highlighting classes: others could restyle the page with its own classes
+    assertEquals("<code class=\"language-java\">x</code>", rich("<code class=\"hidden language-java fixed inset-0 lang-x\">x</code>"));
+    assertEquals("<p>x</p>", rich("<p class=\"note\">x</p>"));
+    HtmlPolicy any = HtmlPolicy.builder().allowElements("p").allowClasses("*").build();
     // AngularJS reads directives from class values ("ng-init: expr"); ':' ';' '{' are never kept
-    assertEquals("<p class=\"a b-c d_e\">x</p>", rich("<p class=\"a ng-init:x; b-c NG-bind {{x}} d_e ng-include\">x</p>"));
-    assertEquals("<p>x</p>", rich("<p class=\"ng-init: constructor.constructor('alert(1)')()\">x</p>"));
+    assertEquals("<p class=\"a b-c d_e\">x</p>", any.sanitize("<p class=\"a ng-init:x; b-c NG-bind {{x}} d_e ng-include\">x</p>").html());
+    assertEquals("<p>x</p>", any.sanitize("<p class=\"ng-init: constructor.constructor('alert(1)')()\">x</p>").html());
     // AngularJS normalizes directive names: x-/data- prefixes, '_' delimiters and the camel-case
     // form a class keeps all name ngBind (framework table, context-model.md 6.3)
     assertEquals("<p class=\"ngrok angular x-ngx nga\">x</p>",
-        rich("<p class=\"data-ng-bind x-ng-bind ng_bind data_ng_init X-NG-bind ngBind ng ngrok angular x-ngx nga\">x</p>"));
+        any.sanitize("<p class=\"data-ng-bind x-ng-bind ng_bind data_ng_init X-NG-bind ngBind ng ngrok angular x-ngx nga\">x</p>").html());
     HtmlPolicy some = HtmlPolicy.builder().allowElements("p").allowClasses("note", "lang-*").build();
     assertEquals("<p class=\"note lang-java\">x</p>", some.sanitize("<p class=\"note lang-java hidden fixed inset-0\">x</p>").html());
     assertEquals("<p>x</p>", basic("<p class=\"note\">x</p>"));
@@ -177,7 +194,7 @@ class HtmlPolicyTest {
     for (String c : new String[] {"ng-*", "ng-init", "NG-x", "ng_*", "data-ng-*", "x-ng-bind", "ngBind", "a:b", "a b", "{{x}}", "", "a;b", "**"}) {
       assertThrows(IllegalArgumentException.class, () -> HtmlPolicy.builder().allowClasses(c), c);
     }
-    for (String p : new String[] {"", "-", "x", "1a-", "a b-", "a:b-", "ab", null}) {
+    for (String p : new String[] {"", "-", "x", "1a-", "a b-", "a:b-", "ab", "my_", "a_b", null}) {
       assertThrows(IllegalArgumentException.class, () -> HtmlPolicy.builder().idPrefix(p), String.valueOf(p));
     }
     for (String r : new String[] {"opener", "", "nofollow noopener", "external"}) {

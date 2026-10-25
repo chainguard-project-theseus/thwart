@@ -20,9 +20,9 @@ public final class Html {
   }
 
   /**
-   * {@code target}'s text cleaned with {@link HtmlPolicy#RICH}: as {@link #sanitize}, plus images,
-   * tables, {@code class}, prefixed {@code id}, {@code title} and {@code target="_blank"}, for
-   * stored editor or Markdown output. {@code null} renders nothing.
+   * {@code target}'s text cleaned with {@link HtmlPolicy#RICH}: as {@link #sanitize}, plus
+   * same-origin images, tables, {@code language-*} classes, prefixed {@code id}, {@code title} and
+   * {@code target="_blank"}, for stored editor or Markdown output. {@code null} renders nothing.
    */
   @TemplateFunction
   public static SafeHtml sanitizeRich(Object target) {
