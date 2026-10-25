@@ -452,7 +452,32 @@ class XssContextTest {
           "<svg><g t:if=\"true\" x / >[[s]]</g></svg>",
           "<svg><script t:if=\"true\" / >var a = [[s]];</script></svg>",
           // a browser reads the value as '=javascript:...', the rebuilt tag as 'javascript:...'
-          "<a t:if=\"true\" href==javascript:alert(1)>[[s]]</a>");
+          "<a t:if=\"true\" href==javascript:alert(1)>[[s]]</a>",
+          // Inside svg and math a browser parses these as markup, not raw text.
+          "<svg><title><script>[[s]]</script></title></svg>",
+          "<svg><style><p><script>/*</style>*/[[s]]//<script></script></svg>",
+          "<math><textarea><p><script>[[s]]</script></p></textarea></math>",
+          "<svg><textarea><img src=x onerror=[[s]]></textarea></svg>",
+          "<math><title><img src=x onerror=[[s]]></title></math>",
+          "<svg><title><script>const x = `[[s]]`;</script></title></svg>",
+          "<svg><foreignObject t:remove=\"tag\"><title><script>[[s]]</script></title></foreignObject></svg>",
+          "<math><mi><t:block><mglyph><textarea><p><script>[[s]]</script></p></textarea></mglyph></t:block></mi></math>",
+          // Inside svg and math a browser decodes character references in <script> and <style>.
+          "<svg><script>var a = &quot;[[s]]&quot;;</script></svg>",
+          "<svg><script><![CDATA[ var a = 1; ]]> &quot;[[s]]&quot;</script></svg>",
+          "<math><script>var a = &#39;[[s]]&#39;;</script></math>",
+          "<svg><style>a::before { content: &quot;[[s]]&quot; }</style></svg>",
+          // Probes from the security architecture (#306).
+          "<table><caption><svg><title><script>var a=[[s]];</script></title></svg></caption></table>",
+          "<template><svg><title><script>var a=[[s]];</script></title></svg></template>",
+          "<svg><foreignObject><svg><title><script>var a=[[s]];</script></title></svg></foreignObject></svg>",
+          "<svg><script>/*</svg><img src=x title=*/[[s]]//></script></svg>",
+          // An HTML textarea/title inside foreign content still ends at the first end tag (#291).
+          "<svg><foreignObject><textarea><a title=\"</textarea><script>/*\">*/[[s]]//</a></textarea></foreignObject></svg>",
+          "<svg><desc><title><a b=\"</title><script>\">[[s]]</a></title></desc></svg>",
+          // A breakout tag ends the svg even when it is not rendered (#291).
+          "<svg><p t:remove=\"all\"></p><title><script>[[s]]</script></title></svg>",
+          "<svg><p t:if=\"s == null\"></p><title><script>[[s]]</script></title></svg>");
 
   /** The built-in {@code html.sanitize} turns stored rich text into SafeHtml for raw output. */
   @Test
