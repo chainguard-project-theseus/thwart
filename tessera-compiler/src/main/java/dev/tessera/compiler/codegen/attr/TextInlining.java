@@ -98,8 +98,7 @@ public final class TextInlining {
               escaped && js != null ? misplacedInScript(js, text.pos().advance(raw, Math.max(lastSlash, 0))) : null;
           if (misplaced != null) {
             ctx.diagnostics().error(pos, misplaced);
-            i = end + 2;
-            continue;
+            // Still emitted, as above: the skeleton keeps the hole for the verifier's own check.
           }
           code.add(inline(ctx, text.context(), parsing, rawText, raw.substring(i + 2, end), pos, escaped, scope));
           if (js != null) {
@@ -229,7 +228,7 @@ public final class TextInlining {
       return "[[...]] comes after a '/' at " + slash.line() + ":" + slash.column() + " that could be a"
           + " division or start a regular expression, so it is unclear where the value would be written; make"
           + " that '/' unambiguous: wrap a regular expression in parentheses, (/.../), or the left operand of a"
-          + " division, (...) / 2";
+          + " division, (...) / 2, and keep a division's '/' on the line of its left operand";
     }
     switch (position) {
       case STRING:
@@ -269,8 +268,15 @@ public final class TextInlining {
    * {@code if}, {@code while}, {@code for}, {@code for await} or {@code with} a regex follows.
    * Where the tokens cannot tell (after a closing brace: a block or an object literal; after
    * {@code ++} or {@code --}; after {@code of}, {@code yield} or {@code await}, which may be
-   * identifiers), the lexer is {@link #unsure} and every {@code [[...]]} after that {@code /} is an
-   * error, so a guess never leads to accepting a value (security-architecture.md, section 9).
+   * identifiers; after an inlined value that does not follow an operator, which may be {@code {}},
+   * a block; a division at the start of a line, where automatic semicolon insertion may end the
+   * statement before it, as after {@code break} or {@code var a}; after a word that follows a
+   * number and a {@code .}, which may be a decimal point; anywhere after a {@code \} in code, an
+   * identifier escape), the lexer is
+   * {@link #unsure} and every {@code [[...]]} after that {@code /} is an error, so a guess never
+   * leads to accepting a value (security-architecture.md, section 9). A word right after {@code #}
+   * is a private name, and any non-ASCII char that is not whitespace is part of a word (in
+   * JavaScript it is an identifier char or a syntax error), so neither ends a word before a keyword.
    */
   static final class JsLexState {
     private enum S { CODE, SLASH, DQ, SQ, TPL, LINE_COMMENT, BLOCK_COMMENT, REGEX, REGEX_CLASS }
@@ -293,7 +299,8 @@ public final class TextInlining {
     private boolean escape;
     /** A backslash escaped a CR in a string literal, so a following LF continues the line too. */
     private boolean escapedCr;
-    private char prevSignificant = '(';
+    /** The start is a statement start, like after ';'. */
+    private char prevSignificant = ';';
     /** The identifier (or number) that {@code prevSignificant} ends, if it is one. */
     private final StringBuilder word = new StringBuilder();
     private boolean wordOpen;
@@ -320,6 +327,21 @@ public final class TextInlining {
     private boolean incDec;
     /** A {@code /} could have been a division or a regex; nothing after it can be trusted. */
     private boolean unsure;
+    /** A line terminator since the last token, so automatic semicolon insertion may end the statement. */
+    private boolean newlineBefore;
+    /**
+     * The last token is an inlined value not after an operator: it may be {@code {}}, a block (at a
+     * statement start, after {@code )} or {@code =>}), after which a regex follows.
+     */
+    private boolean afterValue;
+    /** {@code prevSignificant} is the {@code >} of {@code =>}. */
+    private boolean arrow;
+    /** The {@code .}s ending at {@code prevSignificant} follow a number, so the first may be its decimal point. */
+    private boolean dotAfterNumber;
+    /** {@link #word} follows a number and a {@code .}: it may be a property or a keyword after ASI. */
+    private boolean wordAfterNumber;
+    /** A token could not be classified (a {@code \} in code); every later {@code /} is unsure. */
+    private boolean guessed;
 
     enum Position { CODE, STRING, COMMENT, REGEX }
 
@@ -359,7 +381,9 @@ public final class TextInlining {
         s = slashStartsRegex() ? S.REGEX : S.CODE;
       }
       if (s == S.CODE) {
+        boolean operand = "=([,?+-*%<!~^&|".indexOf(prevSignificant) >= 0 || (prevSignificant == '>' && !arrow);
         value();
+        afterValue = !operand;
       }
       escape = false;
       escapedCr = false;
@@ -505,14 +529,21 @@ public final class TextInlining {
       } else if (c == '/') {
         s = S.SLASH;
         return;
+      } else if (c == '\\') {
+        guessed = true; // only a Unicode escape in a name, whose braces hide where the word ends
       } else if (c == '(') {
+        if (identifierPart(prevSignificant) && wordAfterNumber) {
+          guessed = true; // "1.\nif (x)" is an if statement, "1..if(x)" a call
+        }
         parens.push(
             keyword()
                 && (KEYWORDS_BEFORE_CONDITION.contains(word.toString())
                     || (word.toString().equals("await") && previousWord.equals("for"))));
       } else if (c == ')') {
         if (!parens.isEmpty() && parens.pop()) {
-          operator(); // "if (c) /re/.test(s)": the statement after a condition may start with a regex
+          // "if (c) /re/.test(s)": a statement follows a condition, and may start with a regex
+          endToken();
+          prevSignificant = ';';
           return;
         }
       } else if (c == '{') {
@@ -527,10 +558,15 @@ public final class TextInlining {
       }
       if (space(c)) {
         wordOpen = false;
-      } else if (Character.isJavaIdentifierPart(c)) {
+        return;
+      }
+      newlineBefore = false;
+      afterValue = false;
+      if (identifierPart(c)) {
         if (!wordOpen) {
           previousWord = word.toString();
-          wordAfterDot = prevSignificant == '.' && dots == 1;
+          wordAfterDot = (prevSignificant == '.' && dots == 1) || prevSignificant == '#';
+          wordAfterNumber = prevSignificant == '.' && dotAfterNumber && !Character.isDigit(c);
           word.setLength(0);
           wordOpen = true;
         }
@@ -538,11 +574,17 @@ public final class TextInlining {
         prevSignificant = c;
         dots = 0;
         incDec = false;
+        arrow = false;
       } else {
+        dots = c != '.' ? 0 : prevSignificant == '.' && p == '.' ? dots + 1 : 1;
+        if (dots == 1) {
+          // A number with no '.' yet ("1", not "1.5" or ".5"), so this '.' may be its decimal point.
+          dotAfterNumber = word.length() > 0 && Character.isDigit(word.charAt(0)) && !wordAfterDot;
+        }
         word.setLength(0);
         wordOpen = false;
-        dots = c != '.' ? 0 : prevSignificant == '.' && p == '.' ? dots + 1 : 1;
         incDec = (c == '+' || c == '-') && p == c;
+        arrow = c == '>' && p == '=';
         prevSignificant = c;
       }
     }
@@ -552,16 +594,31 @@ public final class TextInlining {
       if (prevSignificant == '}' || incDec || (keyword() && CONTEXTUAL_KEYWORDS.contains(word.toString()))) {
         unsure = true; // a block or an object literal; postfix or prefix; a keyword or an identifier
       }
-      if (prevSignificant == '.') {
-        return dots == 3; // a spread
+      if (guessed || afterValue || (identifierPart(prevSignificant) && wordAfterNumber)) {
+        unsure = true; // after an escape; "{}" or a value; "1.\nreturn" or "1..return"
       }
-      return BEFORE_REGEX.indexOf(prevSignificant) >= 0
-          || (keyword() && KEYWORDS_BEFORE_REGEX.contains(word.toString()));
+      boolean regex =
+          prevSignificant == '.'
+              ? dots == 3 // a spread
+              : BEFORE_REGEX.indexOf(prevSignificant) >= 0
+                  || (keyword() && KEYWORDS_BEFORE_REGEX.contains(word.toString()));
+      if (!regex && newlineBefore) {
+        unsure = true; // "break\n/re/", "var a\n/re/": ASI ends the statement, so a regex follows
+      }
+      return regex;
     }
 
     /** {@code prevSignificant} ends a word that may be a keyword (not a property name). */
     private boolean keyword() {
-      return Character.isJavaIdentifierPart(prevSignificant) && !wordAfterDot;
+      return identifierPart(prevSignificant) && !wordAfterDot;
+    }
+
+    /**
+     * Part of a word: a Java identifier char, or any other non-ASCII char that is not whitespace (in
+     * JavaScript an identifier char such as U+00B7 or half of an astral one, or a syntax error).
+     */
+    private static boolean identifierPart(char c) {
+      return Character.isJavaIdentifierPart(c) || (c > 0x7f && !space(c));
     }
 
     /**
@@ -589,13 +646,18 @@ public final class TextInlining {
       word.setLength(0);
       wordOpen = false;
       wordAfterDot = false;
+      wordAfterNumber = false;
       dots = 0;
       incDec = false;
+      arrow = false;
+      newlineBefore = false;
+      afterValue = false;
     }
 
     private void newLine() {
       lineStart = true;
       dashes = 0;
+      newlineBefore = true;
     }
 
     /** JavaScript WhiteSpace or LineTerminator. */

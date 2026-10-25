@@ -81,7 +81,16 @@ class ScriptQuotedInlineTest {
           "<script>var z = y /\"/; [[x]]\";</script>",
           // Template-literal text: the value is inert there, but arrives with its own quotes.
           "<script>var t = `[[x]]`;</script>",
-          "<script>var t = `a ${1} [[x]]`;</script>");
+          "<script>var t = `a ${1} [[x]]`;</script>",
+          // A word right after '#' is a private name, not a keyword, so the '/' is division.
+          "<script>class A { #return = 1; m() { return this.#return /\"/ + [[a]] + \"[[x]]\"; } }</script>",
+          "<script>class A { #if(v) { return v } m() { return this.#if(1) /\"/ + [[a]] + \"[[x]]\"; } }</script>",
+          // A non-ASCII char is part of the word (an identifier char in JavaScript), so no keyword ends it.
+          "<script>var n = \u2118return /\"/ + [[a]] + \"[[x]]\";</script>",
+          "<script>var n = x\u00b7return /\"/ + [[a]] + \"[[x]]\";</script>",
+          "<script>var n = \u309breturn /\"/ + [[a]] + \"[[x]]\";</script>",
+          "<script>var n = \ud835\udc65return /\"/ + [[a]] + \"[[x]]\";</script>",
+          "<script>var n = x\u00b7if(1) /\"/ + [[a]] + \"[[x]]\";</script>");
 
   static final List<String> ALLOWED =
       List.of(
@@ -122,7 +131,11 @@ class ScriptQuotedInlineTest {
           "<script>var a = \"x\u2028\"; var b = [[x]];</script>",
           "<script>\n--> \"x\"\nvar b = [[x]];</script>",
           "<script>#! \"x\"\nvar b = [[x]];</script>",
-          "<script type=\"application/json\">{\"a\": [[x]]}</script>");
+          "<script type=\"application/json\">{\"a\": [[x]]}</script>",
+          // After an operator an inlined value is an expression, and a '/' after it is division.
+          "<script>var n = [[a]] / 100; var b = [[x]];</script>",
+          "<script>var n = 1.5.toFixed(2) / 2; var b = [[x]];</script>",
+          "<script>var n = (a + b) /\n  2; var b = [[x]];</script>");
 
   /** Scripts with a {@code [[...]]} inside a comment; the last {@code [[} is the one at fault. */
   static final List<String> REJECTED_COMMENT =
@@ -155,7 +168,29 @@ class ScriptQuotedInlineTest {
           "<script>var n = i-- / 2; var b = [[x]];</script>",
           "<script>function f() {}\n/\"/.test(s); var a = [[x]];</script>",
           "<script>for (const k of /\"/.exec(s)) {} var b = [[x]];</script>",
-          "<script>function* g() { var y = yield / 2; } var b = [[x]];</script>");
+          "<script>function* g() { var y = yield / 2; } var b = [[x]];</script>",
+          // A '/' at the start of a line after an operand: ASI may end the statement before it.
+          "<script>for (;;) { break\n/\"/.test(s); var y = \"[[x]]\"; }</script>",
+          "<script>for (;;) { continue\n/\"/.test(s); var y = \"[[x]]\"; }</script>",
+          "<script>L: for (;;) { break L\n/\"/.test(s); var y = \"[[x]]\"; }</script>",
+          "<script>debugger\n/\"/.test(s); var y = \"[[x]]\";</script>",
+          "<script>var q\n/\"/.test(s); var y = \"[[x]]\";</script>",
+          "<script>let p = 1, q\u2028/\"/.test(s); var y = \"[[x]]\";</script>",
+          "<script>var q = 1 /*\n*/ /\"/.test(s); var y = \"[[x]]\";</script>",
+          "<script type=\"module\">import \"m\"\n/\"/.test(s); var y = \"[[x]]\";</script>",
+          "<script>var n = (a + b)\n  / 2; var y = [[x]];</script>",
+          // An inlined value not after an operator may be {}, a block, after which a regex follows.
+          "<script>[[a]]\n/\"/.test(s); var y = \"[[x]]\";</script>",
+          "<script>var f = () => [[a]]\n/\"/.test(s); var y = \"[[x]]\";</script>",
+          "<script>if (c) [[a]] /\"/.test(s); var y = \"[[x]]\";</script>",
+          // After a number and '.', a word may be a property (1..typeof) or a keyword after ASI (1.\ntypeof).
+          "<script>var n = 1..typeof /\"/ + 1 + \"[[x]]\";</script>",
+          "<script>var n = 1.\ntypeof /\"/; var y = \"[[x]]\";</script>",
+          "<script>function f(s) { var n = 1.\nreturn /\"/.test(s) ? \"[[x]]\" : 0; }</script>",
+          "<script>var n = 1..if(c) /\"/ + 1 + \"[[x]]\";</script>",
+          "<script>function f(s) { var n = 1.\nif (s) /\"/.test(s); var y = \"[[x]]\"; }</script>",
+          // A '\\' in code is a Unicode escape in a name, whose braces hide where the word ends.
+          "<script>var n = a\\u{62}return /\"/ + 1 + \"[[x]]\";</script>");
 
   /** Scripts with a {@code [[...]]} inside a regex literal; the last {@code [[} is the one at fault. */
   static final List<String> REJECTED_REGEX =
