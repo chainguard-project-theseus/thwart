@@ -10,6 +10,13 @@ ships today. Where this document and [mvp-design.md](mvp-design.md) disagree abo
 behaviour, mvp-design.md describes what ships. This document describes the target and marks
 every gap.
 
+**Since Oct 25, 2026 the security boundary for markup contexts is the build-time verifier**
+([security-architecture.md](security-architecture.md) §11, tracker #364). It runs every template
+through two spec HTML parsers and enforces section 1 per hole, whether or not a row below has its
+own rule. The rows in sections 2, 3 and 5 are now friendly early errors or browser-divergence
+exclusions (security-architecture.md §11.7). Sections 4 and 6 are unchanged: the verifier doesn't
+cover script lexical position, URL policy or client frameworks.
+
 ## How to keep this document current
 
 - A PR that changes `HtmlParser`, `MarkupTokenizer`, `Contexts`, `TextInlining`, `Escapers` or
@@ -23,7 +30,7 @@ every gap.
 
 | Column | Meaning |
 |---|---|
-| **Status** | `main`: enforced on `main` (f135112). `#N`: enforced in open PR #N, not yet on `main`. `phase N (#M)`: not implemented; issue #M owns it, in that phase of security-architecture.md §8. `not enforced`: no check and no issue. `partial`: the row says which part is on `main` |
+| **Status** | `verifier (#367)`: enforced for every template by the build-time verifier once #367 lands. `main`: enforced on `main` (f135112). `#N`: enforced in open PR #N, not yet on `main`. `phase N (#M)`: not implemented; issue #M owns it, in that phase of security-architecture.md §8. `not enforced`: no check and no issue. `partial`: the row says which part is on `main` |
 | **Checked by** | Unit tests on `main`, plus the oracle: seed IDs `A0`-`A62` and `B0`-`B11` from the #320 seed corpus (#347), and axis values of the template generator (#343). The oracle checks are #344 (tree invariant, merged), #341 (script slots, merged) and #342 (context check, merged). Their unit tests run in `mvn verify`; the oracle runs over the seeds and generated cases only once the gate (#324) lands |
 | **Proof** | `Lean`: a predicate in the Lean model of T1 (tcnghia/harder#16, not upstream). `JML`: an OpenJML contract in `docs/rule-contracts.md` on tcnghia/harder#18 (the rule functions on `main` 99e35c5), or on a fork branch where the row names one (not upstream). `Esc`: an escaper postcondition proved on tcnghia/harder#11 (not upstream). `not yet` means no proof states the row |
 
@@ -64,16 +71,17 @@ nodes, the same way for every value, without moving a hole out of its context.
 
 | Part | Status | Checked by | Proof |
 |---|---|---|---|
-| Static structure is the same for every value | partial: the rules below | #344 `STRUCTURE_CHANGED`, `MARKER_IN_NAME` over every seed and generated case | not proved; the oracle checks it |
-| Each value lands in the node, context and namespace the compiler chose | partial | #342 `CONTEXT_MISMATCH` | Lean token-level T1 (`t1_profile_tree`; not CDATA in foreign content, the tree-level effects of tables and `template`, or fragment insertion) |
+| Static structure is the same for every value | verifier (#367); until then partial: the rules below | #344 `STRUCTURE_CHANGED`, `MARKER_IN_NAME` over every seed and generated case | not proved; the oracle checks it |
+| Each value lands in the node, context and namespace the compiler chose | verifier (#367); until then partial | #342 `CONTEXT_MISMATCH` | Lean token-level T1 (`t1_profile_tree`; not CDATA in foreign content, the tree-level effects of tables and `template`, or fragment insertion) |
 | No value runs as script, handler or `javascript:` URL, or loads a cross-origin resource | partial | #344 `LIVE_SCRIPT`, `LIVE_HANDLER`, `JS_URL`, `CROSS_ORIGIN_RESOURCE`; #341 `JS_NOT_LITERAL` | `Esc` for `text`, `attr`, `url`, `json` strings |
-| Static structure does not depend on the browser | partial | validator.nu htmlparser 1.4.16 and the htmlparser inside validator 26.10.12 in #344; parse5, headless Chromium and Firefox 140 ESR in the Node job (#345; on Chainguard Checks after every merge and on request, over a fixture until #324); WebKit not yet (#354) | not yet |
+| Static structure does not depend on the browser | verifier (#367) for the two embedded parsers (current upstream and 1.4.16, both must accept); real engines checked by the Node job | validator.nu htmlparser 1.4.16 and the htmlparser inside validator 26.10.12 in #344; parse5, headless Chromium and Firefox 140 ESR in the Node job (#345; on Chainguard Checks after every merge and on request, over a fixture until #324); WebKit not yet (#354) | not yet |
 
 ## 2. Token-level rules (§5.2)
 
 The tokenizer accepts only these forms. Anything else is a build error with file, line and
-column. Phase 2 (#327) replaces today's deny-list checks with this positive grammar and keeps
-their tests.
+column. These rules are friendly early errors: the verifier (#367) is the boundary. #327 is
+re-scoped to rules that give a better message than the verifier; the `phase 2 (#327)` rows below
+are kept only if they do.
 
 | Construct | Accepted | Rejected | Status | Checked by | Proof |
 |---|---|---|---|---|---|
@@ -102,7 +110,10 @@ their tests.
 
 The parser keeps a parse mode for every open element. Today `HtmlParser` keeps none: it
 decides raw text from the local name (`RAW_TEXT_ELEMENTS`, `Contexts.browserRawText`), and it
-has no namespaces. #301 adds namespaces; #328 adds the modes and the element allow-lists.
+has no namespaces. #301 adds namespaces. The verifier (#367) reads the real mode and namespace
+from the spec parsers, so #328 is re-scoped to the browser-divergence exclusions (`select`
+content, nested `optgroup`, `frameset`, `plaintext`) and friendly errors. The element allow-list
+moves to phase 4 (#311).
 
 ### 3.1 Modes and what they accept
 
@@ -164,8 +175,12 @@ job (#345) checks them with acorn.
 
 ## 5. Composition: content kinds (§5.5)
 
-A content kind is the parse mode a piece of markup is written for: `HTML_FLOW`, `SVG`, `MATHML`,
-`SELECT_OPTIONS`. An insertion is legal only when the kinds match.
+A content kind is a predicate on the spec parser's state at the insertion point, plus a promise
+about what the producer emits (#329, redefined Oct 25, 2026). `FLOW`: data state, HTML namespace,
+mode in body, cell, caption or template, no pending reconstruction, and no open element the
+producer's tags would close. `PHRASING`, `HEAD` and `TABLE_ROWS` are added only if the corpus
+needs them. Statically known fragments need no kind: the verifier analyses them at each call
+site. The rows below are #304's name-based rules on the way there.
 
 | Value or position | Kind | Status | Checked by | Proof |
 |---|---|---|---|---|
@@ -179,7 +194,7 @@ A content kind is the parse mode a piece of markup is written for: `HTML_FLOW`, 
 | Fragment declared inside `noscript`, `iframe`, `xmp`, `noembed`, `noframes` | fits nowhere | #304 | `FragmentParsingContextTest` | not yet |
 | HTML fragment inside `select` | only without `title`, `style`, `svg`, `math`, `t:insert`, `t:replace`, `t:utext`, `[(...)]` | #304 | `FragmentParsingContextTest` | not yet |
 
-#329 replaces #304's checks with explicit kinds on the types. Existing code is `HTML_FLOW`.
+#329 replaces #304's checks with the predicates. `SafeHtml` and `Fragment` values are `FLOW`.
 
 ## 6. Attributes (§5.6)
 
@@ -261,3 +276,16 @@ their phase issue.
 | 11 | CDATA under the HTML descendants of `foreignObject` is an error | A browser reads it as a bogus comment there |
 | 12 | `iframe` content must be empty; #298's pinned end tag is the current implementation, and phase 2 tightens it | Its content is never shown |
 | 13 | The `&` complete-reference rule is part of the text and attribute value rows | It is a decoding rule, not a tokenizer one |
+
+## 8. Verifier decisions (Oct 25, 2026)
+
+dlorenc decided these on the research memo for #364
+([security-architecture.md](security-architecture.md) §11).
+
+| # | Decision | Reason |
+|---|---|---|
+| 14 | The build-time verifier is the boundary for markup contexts, enforced in every build, not first in test scope | The hand-written model is what kept failing; the spec algorithm decides instead |
+| 15 | Two parsers: pinned current upstream validator.nu htmlparser and the 1.4.16 classic snapshot; a hole is accepted only if both accept | Covers the classic and customizable `<select>` split (Firefox ESR) by construction |
+| 16 | The parsers are shaded into `tessera-compiler`, relocated and built for Java 8; the runtime and starters stay dependency-free | Upstream ships no Java 8 jar; the processor runs in a JDK 8 javac |
+| 17 | Markup structure that depends on data (recursive rich-text fragments) is a build error, with a `SafeHtml` fix-it; `tessera-migrate` reports it | It breaks the per-hole invariant; 25 of 1,585 corpus templates |
+| 18 | Scripts (#332), URL policy and client frameworks (phase 4) stay as planned; CSP auto-nonce (#335) moves earlier | The verifier doesn't cover them |

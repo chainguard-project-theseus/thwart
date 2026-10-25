@@ -10,9 +10,9 @@ pilot of Chainguard's secure-by-design library portfolio.
 ## Design principles (non-negotiable)
 
 Every change must uphold all seven. If a task seems to require breaking one, stop and say so
-in the PR/issue instead of working around it. The profile and the CI spec-parser check in 3
-and 5 are being built in the phases of [docs/security-architecture.md](docs/security-architecture.md)
-§8; new code moves toward them, never away.
+in the PR/issue instead of working around it. The build-time spec-parser check in 5 is being built
+under #364 ([docs/security-architecture.md](docs/security-architecture.md) §11), and the rest of the
+profile in the phases of §8; new code moves toward them, never away.
 
 1. **Templates are code.** Compiled at build time into Java classes. The runtime has no
    template parser and no API that accepts template source as a `String`.
@@ -48,8 +48,9 @@ and 5 are being built in the phases of [docs/security-architecture.md](docs/secu
 
 This is an MVP built tonight. Prefer the smallest thing that is correct and secure.
 
-- A security fix that adds a special case to the parser or context table is a smell. Prefer
-  shrinking the profile.
+- A security fix that adds a special case to the parser or context table is a smell. A parser
+  differential or composition bug is fixed in the build-time verifier or its test cases
+  (security-architecture.md §11), not with a new special case.
 - Do exactly the issue's scope. No speculative abstractions, plugin systems, config knobs,
   or "future-proofing". No new modules or dependencies unless the issue says so.
 - Plain Java. `tessera-runtime`, `tessera-compiler` (the annotation processor runs inside the
@@ -59,11 +60,13 @@ This is an MVP built tonight. Prefer the smallest thing that is correct and secu
   compiler has `Backports` and migrate `Compat` for the latter); javac `--release 8` and the
   release-8 and JDK 8 test runs enforce it. The starter must also keep working on Spring 4.3 /
   Boot 1.5 and Servlet 3.0 (`tessera-spring-tests`, also `--release 8`). Benchmarks, examples and the tests of
-  the runtime, compiler and migrate are Java 21. `tessera-runtime` and `tessera-compiler` have
-  **zero third-party dependencies** outside test scope (the compiler has its own
-  `MarkupTokenizer`; attoparser is only a test oracle), and the starters pass on only
-  `tessera-runtime`. Only `tessera-migrate`, a developer tool, bundles libraries (attoparser,
-  jsoup).
+  the runtime, compiler and migrate are Java 21. `tessera-runtime` has **zero third-party
+  dependencies** outside test scope, and the starters pass on only `tessera-runtime`.
+  `tessera-compiler` has one exception: for the build-time verifier it shades the pinned
+  validator.nu htmlparser (current upstream and the 1.4.16 classic snapshot, relocated, built for
+  Java 8) into its jar, and nothing else. It keeps its own `MarkupTokenizer` for its tree;
+  attoparser is only a test oracle. Nothing from the parser runs at render time. Otherwise only
+  `tessera-migrate`, a developer tool, bundles libraries (attoparser, jsoup).
 - Error messages from the compiler must name the template file, line and column.
 - Security-relevant behaviour gets a test, including a negative test (the bad thing fails).
 - If something is out of scope, leave a `// TODO(#issue)` or open an issue; don't build it.
