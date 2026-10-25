@@ -381,9 +381,10 @@ Text now in AGENTS.md:
 And under "Keep it simple": *a security fix that adds a special case to the parser or context
 table is a smell. Prefer shrinking the profile.*
 
-Amended Oct 25, 2026 (§11): the keep-it-simple line now sends parser-differential and composition
-fixes to the verifier. `tessera-compiler` may shade the two pinned validator.nu htmlparser
-versions (§11.4), and nothing else.
+Amended Oct 25, 2026 (§11): principle 5's "checks this against a spec parser in CI" now reads
+"checks this at build time, for every template, against two spec HTML parsers". The keep-it-simple
+line now sends parser-differential and composition fixes to the verifier. `tessera-compiler` may
+shade the two pinned validator.nu htmlparser versions (§11.4), and nothing else.
 
 ## 7. Process: where we went wrong and what changes
 

@@ -31,9 +31,9 @@ build-time verifier under #364 ([docs/security-architecture.md](docs/security-ar
    `MethodHandle`, SpEL, OGNL, or `ScriptEngine` in runtime or generated code.
 5. **Contexts are proven, not guessed; escaping cannot be forgotten.** The compiler accepts only
    templates in which it can classify every output position exactly as every supported browser
-   parses it, and checks this against a spec parser in CI. Within that, it picks the escaper
-   from the context. Raw output needs a safe type of the right content kind (`SafeHtml`,
-   `TrustedUrl`, `Fragment`), never a flag on a string.
+   parses it, and checks this at build time, for every template, against two spec HTML parsers.
+   Within that, it picks the escaper from the context. Raw output needs a safe type of the right
+   content kind (`SafeHtml`, `TrustedUrl`, `Fragment`), never a flag on a string.
 6. **Familiar before novel, inside the profile.** Track Thymeleaf syntax and behaviour where it
    is safe, so migration is mechanical. Where Thymeleaf accepts something outside the profile,
    Tessera rejects it with a fix-it and `tessera-migrate` rewrites it where it can. Parity never
