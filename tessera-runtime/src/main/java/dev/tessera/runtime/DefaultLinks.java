@@ -18,13 +18,40 @@ package dev.tessera.runtime;
  * <p>A path variable value that is {@code null}, empty, {@code .} or {@code ..} is rejected with
  * an {@link IllegalArgumentException}: browsers resolve dot segments even when percent-encoded,
  * and an empty first segment would turn {@code /{x}/y} into the protocol-relative URL {@code //y}.
+ *
+ * <p>The context path loses any trailing {@code /} ({@code "/"} is the root, {@code ""}; #358), so
+ * {@code /a} never becomes the protocol-relative {@code //a}. One that is neither empty nor a path
+ * starting with a single {@code /}, or that has {@code \}, {@code ?}, {@code #}, a space or a
+ * control character, is rejected with an {@link IllegalArgumentException}.
  */
 public final class DefaultLinks implements Links {
   private final String contextPath;
 
-  /** @param contextPath servlet context path, {@code ""} for root; must not end with {@code /} */
+  /** @param contextPath servlet context path, {@code ""} or {@code "/"} for root */
   public DefaultLinks(String contextPath) {
-    this.contextPath = contextPath;
+    this.contextPath = checkContextPath(contextPath);
+  }
+
+  /** {@code contextPath} without trailing {@code /}; fails closed on anything but a plain path. */
+  private static String checkContextPath(String contextPath) {
+    if (contextPath == null) {
+      throw new IllegalArgumentException("context path must not be null");
+    }
+    int end = contextPath.length();
+    while (end > 0 && contextPath.charAt(end - 1) == '/') {
+      end--;
+    }
+    String p = contextPath.substring(0, end);
+    boolean ok = p.isEmpty() || (p.charAt(0) == '/' && p.charAt(1) != '/');
+    for (int i = 0; ok && i < p.length(); i++) {
+      char c = p.charAt(i);
+      ok = c > ' ' && c != 0x7f && c != '\\' && c != '?' && c != '#';
+    }
+    if (!ok) {
+      throw new IllegalArgumentException(
+          "context path must be empty or a path starting with a single '/' (was '" + contextPath + "')");
+    }
+    return p;
   }
 
   @Override
