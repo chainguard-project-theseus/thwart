@@ -81,6 +81,10 @@ public final class ContextVerifier {
   private int firstElementsBudget;
   /** The last source position seen, for nodes that have none (generated markup). */
   private SourcePos near;
+  /** In the first FLOW-partial probe (#396): check the producer promise after every tag. */
+  private boolean promiseCheck;
+  /** How the template broke the producer promise in that probe, in words, or null. */
+  private String breach;
 
   ContextVerifier(Map<String, Skeleton.TemplateSkeleton> templates) {
     for (Skeleton.TemplateSkeleton t : templates.values()) {
@@ -88,6 +92,11 @@ public final class ContextVerifier {
         fragments.put(new Skeleton.FragmentId(t.viewName(), f.getKey()), f.getValue());
       }
     }
+  }
+
+  /** A fresh analysis (no memo) over the same fragments. */
+  private ContextVerifier(ContextVerifier other) {
+    fragments.putAll(other.fragments);
   }
 
   /**
@@ -101,6 +110,110 @@ public final class ContextVerifier {
         diagnostics.error(f.at, VerifierMessages.message(f));
       }
     }
+  }
+
+  /**
+   * The view names of the templates in {@code templates} that the verifier proves {@code FLOW}
+   * partials (#396, {@link #whyNotFlowPartial}). The generated class of each says so
+   * ({@code Template.verifiedFlowPartial()}), and only those may be rendered into a
+   * {@code SafeHtml} or {@code Fragment} value. Call it only when {@link #verify} reported nothing.
+   */
+  public static Set<String> flowPartials(Map<String, Skeleton.TemplateSkeleton> templates) {
+    ContextVerifier v = new ContextVerifier(templates);
+    Set<String> out = new LinkedHashSet<>();
+    for (Skeleton.TemplateSkeleton t : templates.values()) {
+      if (v.whyNotFlowPartial(t) == null) {
+        out.add(t.viewName());
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Why {@code template}'s output may not be FLOW content, in words, or null if it is: it is a
+   * partial (not a page), its root needs no other context than {@code <body>}, and inserted at each
+   * of {@link ContentKinds#PARTIAL_PROBES} it has no finding and leaves the parser as it found it
+   * in all four parsers, keeping the producer promise after every tag. It fails closed: an engine
+   * failure or a probe the predicate doesn't accept is a "no".
+   */
+  String whyNotFlowPartial(Skeleton.TemplateSkeleton template) {
+    List<String> entries = entries(template);
+    if (entries.size() == 1) {
+      return "it is a page (it starts with a doctype or <html>)";
+    }
+    if (entries.size() != 2 || !"body".equals(entries.get(1))) {
+      return "its root is a list item, table part or option, which needs another element around it";
+    }
+    boolean first = true;
+    for (String context : ContentKinds.PARTIAL_PROBES) {
+      String why = new ContextVerifier(this).probe(template, context, first);
+      first = false;
+      if (why != null) {
+        return why;
+      }
+    }
+    return null;
+  }
+
+  /** Why {@code template} isn't FLOW content inserted after {@code context} in a {@code <body>}, or null. */
+  private String probe(Skeleton.TemplateSkeleton template, String context, boolean checkPromise) {
+    boolean scriptingOff = mentionsNoscript(template.body(), Collections.newSetFromMap(new IdentityHashMap<Object, Boolean>()));
+    parserCount = (scriptingOff ? 2 : 1) * Engines.all().size();
+    promiseCheck = checkPromise;
+    List<Finding> found = new ArrayList<>();
+    sink = found;
+    near = firstPos(template);
+    String where = context.isEmpty() ? "in a <body>" : "after " + context;
+    try {
+      Path entry = Path.start("body", scriptingOff);
+      entry.feed(context);
+      for (ParserState s : entry.states()) {
+        if (ContentKinds.problem(ContentKinds.Kind.FLOW, s) != null) {
+          return "the probe " + where + " is not a FLOW position";
+        }
+      }
+      // As for an HTML message (known): the exit must be the entry, or in template mode the state
+      // a flow start tag switches to.
+      Set<String> allowed = new HashSet<>();
+      allowed.add(flowKey(entry));
+      for (ParserState s : entry.states()) {
+        if (ContentKinds.switchesMode(ContentKinds.Kind.FLOW, s)) {
+          Path written = entry.fork();
+          written.feed(ContentKinds.REPRESENTATIVE);
+          allowed.add(flowKey(written));
+          break;
+        }
+      }
+      List<Path> exits = seq(template.body(), Collections.singletonList(entry.fork()), Env.EMPTY);
+      if (breach != null) {
+        return breach;
+      }
+      for (Finding f : found) {
+        return "inserted " + where + ", the verifier rejects it (" + f.problem + ")";
+      }
+      ParserState[] before = entry.states();
+      for (Path exit : exits) {
+        if (!allowed.contains(flowKey(exit))) {
+          ParserState[] after = exit.states();
+          for (int i = 0; i < after.length; i++) {
+            if (!ContentKinds.flowSignature(after[i]).equals(ContentKinds.flowSignature(before[i]))) {
+              return "inserted " + where + ", it " + ContentKinds.difference(before[i], after[i]);
+            }
+          }
+        }
+      }
+    } catch (EngineException e) {
+      return "the verifier's parser failed: " + e.getMessage();
+    }
+    return null;
+  }
+
+  private static String flowKey(Path p) throws EngineException {
+    StringBuilder sb = new StringBuilder();
+    for (ParserState s : p.states()) {
+      sb.append(ContentKinds.flowSignature(s)).append('\u0000');
+    }
+    return sb.toString();
   }
 
   /** What the verifier rejects in {@code template}, deduplicated, in order. */
@@ -551,7 +664,7 @@ public final class ContextVerifier {
         p.tagBoundary = false;
         p.key = null;
       }
-      if (!p.tagHole && !p.markedFormatting) {
+      if (!p.tagHole && !p.markedFormatting && !promiseCheck) {
         int lt = text.lastIndexOf('<');
         if (lt > 0 && text.indexOf('>', lt) < 0) {
           // A tag that goes on past this static: feed the text before it on its own, so the
@@ -580,6 +693,17 @@ public final class ContextVerifier {
   }
 
   private void feedAndCheck(Path p, String piece, SourcePos pos) throws EngineException {
+    ParserState[] before = null;
+    if (promiseCheck && breach == null && piece.startsWith("</")) {
+      // An end tag on its own, so the state right after it shows whether it closed anything.
+      int gt = piece.indexOf('>');
+      if (gt > 0 && gt + 1 < piece.length()) {
+        feedAndCheck(p, piece.substring(0, gt + 1), pos);
+        feedAndCheck(p, piece.substring(gt + 1), pos);
+        return;
+      }
+      before = p.states();
+    }
     p.feed(piece);
     boolean between = true;
     boolean marked = false;
@@ -598,6 +722,17 @@ public final class ContextVerifier {
       p.tagHole = false;
     }
     p.markedFormatting = marked;
+    if (promiseCheck && breach == null) {
+      breach = ContentKinds.pageTag(piece);
+      if (breach == null && before != null) {
+        breach = ContentKinds.strayEndTag(piece, before, p.states());
+      }
+      for (ParserState s : p.states()) {
+        if (breach == null) {
+          breach = ContentKinds.promiseBreach(s);
+        }
+      }
+    }
   }
 
   private static boolean hasFormattingStartTag(String text) {

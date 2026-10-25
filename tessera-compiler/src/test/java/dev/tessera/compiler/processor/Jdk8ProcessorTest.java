@@ -96,6 +96,7 @@ class Jdk8ProcessorTest {
         """
         package app;
         import dev.tessera.runtime.RenderContext;
+        import dev.tessera.runtime.SafeHtml;
         import dev.tessera.runtime.StringOutput;
         import dev.tessera.runtime.TemplateRegistry;
         import java.util.Arrays;
@@ -110,6 +111,14 @@ class Jdk8ProcessorTest {
             TemplateRegistry.load(Main.class.getClassLoader()).find("owners/details").get()
                 .renderer().render(model, RenderContext.defaults(), out);
             System.out.print(out);
+            // #396: a verified FLOW partial wraps; a list-item partial is refused.
+            System.out.print(SafeHtml.of(tessera.generated.owners.BadgeTemplate.of("<i>"), RenderContext.defaults()));
+            try {
+              SafeHtml.of(tessera.generated.owners.RowTemplate.of("x"), RenderContext.defaults());
+              System.out.print("|accepted");
+            } catch (IllegalArgumentException e) {
+              System.out.print("|refused");
+            }
           }
         }
         """);
@@ -124,6 +133,10 @@ class Jdk8ProcessorTest {
         <script>var id = [[${owner.id}]]; var owner = [[owner]];</script>
         </div>
         """);
+    write(templates.resolve("owners/badge.html"),
+        "<span xmlns:t=\"https://tessera.dev\" t:params=\"String name\" t:text=\"name\">n</span>");
+    write(templates.resolve("owners/row.html"),
+        "<li xmlns:t=\"https://tessera.dev\" t:params=\"String name\" t:text=\"name\">n</li>");
 
     List<String> javac = new ArrayList<>();
     javac.add(jdk.resolve("bin/javac").toString());
@@ -159,7 +172,7 @@ class Jdk8ProcessorTest {
         <p>ANN &lt;B&gt;!</p>
         <script>var id = 7; var owner = {"id":7,"name":"Ann \\u003cb\\u003e","pets":[{"name":"Rex","kind":"DOG"},{"name":"Tom","kind":"CAT"}],"regular":true};</script>
         </div>
-        """,
+        <span>&lt;i&gt;</span>|refused""",
         rendered);
   }
 
