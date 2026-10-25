@@ -50,6 +50,9 @@ class FlowPartialTest {
     {"buttonInButton", "<div " + NS + " t:params=\"String a\"><button><div><button t:text=\"a\">x</button></div></button></div>", "</button>"},
     {"page", "<!DOCTYPE html>\n<html " + NS + " t:params=\"String a\"><head><title>t</title></head><body><p t:text=\"a\">x</p></body></html>", "page"},
     {"htmlRoot", "<html " + NS + " t:params=\"String a\"><body><p t:text=\"a\">x</p></body></html>", "page"},
+    // Fine in a <div>, but in a <td> the </table> resets the mode through the <svg> (#398).
+    {"tableInSvg", "<div " + NS + " t:params=\"String a\"><svg><foreignObject><table></table></foreignObject></svg>"
+        + "<p t:text=\"a\">x</p></div>", "NESTED_TABLE_IN_FOREIGN"},
   };
 
   /** Ordinary partials: FLOW. */
