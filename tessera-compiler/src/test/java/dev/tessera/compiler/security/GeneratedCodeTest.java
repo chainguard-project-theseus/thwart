@@ -50,7 +50,7 @@ class GeneratedCodeTest {
                 "owners/details.html",
                 "<html " + NS + " t:import=\"com.example.*\" t:params=\"Owner owner, SafeHtml note, String q, Map<String, Owner> owners\""
                     + " t:replace=\"~{fragments/layout :: layout(~{::body}, #{title(owner.name)})}\">"
-                    + "<body>"
+                    + "<body t:remove=\"tag\">"
                     + "<h1 t:text=\"owner.name\">n</h1><div t:utext=\"note\">n</div>"
                     + "<p>[[fmt.up(owner.name)]] [[#strings.isEmpty(q)]]</p>"
                     + "<a t:href=\"@{/owners/{id}(id=owner.name, q=q)}\" t:title=\"|Owner ${owner.name}|\">x</a>"

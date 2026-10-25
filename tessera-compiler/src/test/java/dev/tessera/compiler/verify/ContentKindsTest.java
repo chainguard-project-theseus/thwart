@@ -123,7 +123,8 @@ class ContentKindsTest {
     rejectCloser("the <th> that holds the <math>", st("<table><tr><th><math><mi><span>"), raw());
     rejectCloser("the <caption> that holds the <svg>", st("<table><caption><svg><desc><div>"), raw());
     accept(st("<svg><foreignObject><table><tr><td><div>"), raw()); // the cell is above the foreign element
-    accept(st("<table><tr><td><svg></svg><div>"), raw());
+    // Exclusion (a) rejects any <svg> or <math> in a table part, closed or not (#406).
+    reject(Problem.FOREIGN_IN_TABLE, st("<table><tr><td><svg></svg><div>"), raw());
     Compilation.builder()
         .template("page.html", "<table " + NS + " t:params=\"String v\"><tr><td><svg><foreignObject>"
             + "<div t:utext=\"${html.sanitizeRich(v)}\">x</div></foreignObject></svg></td></tr></table>")
@@ -192,7 +193,7 @@ class ContentKindsTest {
   @Test
   void everyLocaleOfAMessageIsChecked() {
     Compilation c = Compilation.builder()
-        .template("page.html", "<body " + NS + " t:params=\"String v\">\n<p><span t:utext=\"#{m}\">x</span></p></body>")
+        .template("page.html", "<div " + NS + " t:params=\"String v\">\n<p><span t:utext=\"#{m}\">x</span></p></div>")
         .messages("m=<b>fine</b>\n")
         .localeMessages("de", "m=<p>nicht</p>\n")
         .verifierOnly()
@@ -214,7 +215,7 @@ class ContentKindsTest {
   @Test
   void htmlMessageSkeletonIsItsMarkup() {
     Compilation c = Compilation.builder()
-        .template("page.html", "<body " + NS + " t:params=\"String v\">\n<div t:utext=\"#{m(v)}\">x</div></body>")
+        .template("page.html", "<div " + NS + " t:params=\"String v\">\n<div t:utext=\"#{m(v)}\">x</div></div>")
         .messages("m=It''s <b>{0}</b>\n")
         .compile()
         .assertSuccess();
@@ -224,10 +225,10 @@ class ContentKindsTest {
     RenderContext ctx = new RenderContext(Locale.ROOT,
         (k, a) -> a.length == 0 ? "It''s <b>{0}</b>" : new MessageFormat("It''s <b>{0}</b>", Locale.ROOT).format(a),
         new DefaultLinks(""), Forms.NONE);
-    assertEquals("<body>\n<div>It's <b>&lt;i&gt;</b></div></body>", c.render("page", Map.of("v", "<i>"), ctx));
+    assertEquals("<div>\n<div>It's <b>&lt;i&gt;</b></div></div>", c.render("page", Map.of("v", "<i>"), ctx));
     // A message the build didn't see is written escaped: the text hole.
     RenderContext other = new RenderContext(Locale.ROOT, (k, a) -> "<p>other</p>", new DefaultLinks(""), Forms.NONE);
-    assertEquals("<body>\n<div>&lt;p&gt;other&lt;/p&gt;</div></body>", c.render("page", Map.of("v", "x"), other));
+    assertEquals("<div>\n<div>&lt;p&gt;other&lt;/p&gt;</div></div>", c.render("page", Map.of("v", "x"), other));
   }
 
   // ---- helpers ----
@@ -236,7 +237,7 @@ class ContentKindsTest {
 
   private static Compilation message(String body, String properties) {
     return Compilation.builder()
-        .template("page.html", "<body " + NS + " t:params=\"String v\">\n" + body + "</body>")
+        .template("page.html", "<div " + NS + " t:params=\"String v\">\n" + body + "</div>")
         .messages(properties)
         .verifierOnly()
         .compile();

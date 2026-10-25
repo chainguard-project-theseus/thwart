@@ -70,30 +70,21 @@ dd83c10cf105 JS_NOT_LITERAL * #332 pr290-8
 721cbc37c267 JS_NOT_LITERAL * #332 pr290-9
 45e90939a295 JS_NOT_LITERAL * #332 xss-lines-18
 d85c57632583 JS_NOT_LITERAL * #332 gen div div table>tbody>tr | </textarea> | script:/*[[s]]*/ | none
-14f7f4fa2ec2 JS_NOT_LITERAL * #332 gen div div | &amp | script:x\n/"/.test(y); [[s]] | t:insert into table
 e9857dfbadec JS_NOT_LITERAL * #332 gen div math>annotation-xml script | </svg> | script:/*[[s]]*/ | t:insert into svg>foreignObject
-6b4ecb1de3fc JS_NOT_LITERAL * #332 gen math svg>foreignObject math>mi | /*</svg><img src=x title=*/..//> | script:'[[s]]' | t:insert into table
-6c504a0945df JS_NOT_LITERAL * #332 gen math>annotation-xml table>tbody>tr>td math>annotation-xml | <font color=red> | script:`[[s]]` | t:insert into svg>foreignObject
 3dae28513912 JS_NOT_LITERAL * #332 gen math>mtext a | " | script:`${[[s]]}` | t:replace into svg>foreignObject
 33bdc653f35f JS_NOT_LITERAL * #332 gen math>mtext math>mtext li | </noscript> | script:/*[[s]]*/ | t:insert into div
 f3084da83985 JS_NOT_LITERAL * #332 gen math>mtext table>tbody>tr>td script | &#60;script&#62; | script:// [[s]] | none
-faae37a02b18 JS_NOT_LITERAL * #332 gen math>mtext template math>mi | ' | script:`[[s]]` | t:replace into table>tbody>tr>td
-ee4ee039f31e JS_NOT_LITERAL * #332 gen math>mtext template math>mtext | </title> | script:/*[[s]]*/ | none
 85ca92afca34 JS_NOT_LITERAL * #332 gen noscript math>mtext math>mtext | &amp | script:`[[s]]` | none
-7c016dc61dce JS_NOT_LITERAL * #332 gen noscript table>tbody>tr>td math>mi | &lt; | script:"[[s]]" | none
 aecf5116a494 JS_NOT_LITERAL * #332 gen svg svg>foreignObject template | </ x> | script:/*[[s]]*/ | none
 681a9510b6ee JS_NOT_LITERAL * #332 gen svg>foreignObject div p | /*</svg><img src=x title=*/..//> | script:// [[s]] | t:replace into math>mi
 3bf0418a6b20 JS_NOT_LITERAL * #332 gen svg>foreignObject table | &amp | script:// [[s]] | none
-0a362a6059eb JS_NOT_LITERAL * #332 gen svg>foreignObject table>tbody>tr>td table>tbody>tr>td | none | script:/*[[s]]*/ | t:replace into div
 58635911a51c JS_NOT_LITERAL * #332 gen table>caption label | " | script:`[[s]]` | none
 62aa0cfc8d25 JS_NOT_LITERAL * #332 gen table>caption script | // | <img src=x onerror=[[s]]> | Fragment f
-60066adc7a11 JS_NOT_LITERAL * #332 gen table>tbody>tr>td math>mtext template | &quot;..&quot; | script:// [[s]] | t:insert into table>tbody>tr>td
 85d26e1c643f JS_NOT_LITERAL * #332 gen table>tbody>tr>td table>caption a | &#60;script&#62; | script:x\n/"/.test(y); [[s]] | t:remove=tag
 786fd53093ab JS_NOT_LITERAL * #332 gen table>tbody>tr>td table>tbody>tr>td table | <![CDATA[ > | script:x\n/"/.test(y); [[s]] | t:remove=tag
 aff25b3b005f JS_NOT_LITERAL * #332 gen table>tbody>tr>td template label | <textarea\u3000> | script:x\n/"/.test(y); [[s]] | none
 ba847c2c31ea JS_NOT_LITERAL * #332 gen table>tbody>tr>td template | none | script:/*[[s]]*/ | t:replace into template
 09b3070a4313 JS_NOT_LITERAL * #332 gen template div table>tbody>tr>td | <textarea\u3000> | script:`[[s]]` | t:remove=tag
-adddc81825dc JS_NOT_LITERAL * #332 gen template svg>foreignObject a | <textarea\u3000> | script:// [[s]] | t:insert into div
 3d9b47060e7c JS_NOT_LITERAL * #332 gen template template label | &quot;..&quot; | script:/*[[s]]*/ | Fragment f
 21d749245075 JS_NOT_LITERAL * #332 gen template template noframes | </title> | script:x\n/"/.test(y); [[s]] | t:remove=tag
 
@@ -109,7 +100,6 @@ d269e93fd079 JS_UNPARSABLE * #332 review-pr290-3
 595d90cd8c91 JS_UNPARSABLE * #332 review-pr290-4
 b6feddeb7eb2 JS_UNPARSABLE * #332 review-pr290-5
 a903dad9f23f JS_UNPARSABLE * #332 gen div div li | </ x> | script:a / b; [[s]] | Fragment f
-1e8714bc2bf5 JS_UNPARSABLE * #332 gen div math>mtext table>caption | <img title=" | script:var a = [[s]]; | t:insert into math>mi
 6ba5f815f040 JS_UNPARSABLE * #332 gen div table>tbody>tr>td table>caption | <!x> | script:a / b; [[s]] | none
 eb12ee86eae7 JS_UNPARSABLE * #332 gen math>annotation-xml button | </svg> | script:a / b; [[s]] | none
 6c1eb19924fb JS_UNPARSABLE * #332 gen math>annotation-xml math>annotation-xml table>tbody>tr | &quot;..&quot; | script:`${[[s]]}` | none
@@ -118,8 +108,6 @@ bc38b0ca19ac JS_UNPARSABLE * #332 gen math>mtext noscript | <![CDATA[ > | script
 c89133b0704a JS_UNPARSABLE * #332 gen noscript li | &amp | script:`${[[s]]}` | none
 dea3945987a2 JS_UNPARSABLE * #332 gen svg template svg>foreignObject | <!x> | script:a / b; [[s]] | t:insert into table>tbody>tr>td
 6e7726b5c029 JS_UNPARSABLE * #332 gen svg>foreignObject math>annotation-xml script | </noscript> | script:var a = [[s]]; | none
-dfc12824ced8 JS_UNPARSABLE * #332 gen table>caption math>annotation-xml template | <textarea\u2028> | script:// [[s]] | Fragment f
-5ccfa35c35e7 JS_UNPARSABLE * #332 gen table>tbody>tr>td math>annotation-xml table | <textarea\u3000> | script:`${[[s]]}` | t:replace into svg>foreignObject
 7e2870c35402 JS_UNPARSABLE * #332 gen table>tbody>tr>td table | </svg> | script:`${[[s]]}` | t:remove=tag
 de787504bd69 JS_UNPARSABLE * #332 gen table>tbody>tr>td table>tbody>tr>td a | &amp | script:a / b; [[s]] | t:insert into table>tbody>tr>td
 34730fe2782d JS_UNPARSABLE * #332 gen table>tbody>tr>td table>tbody>tr>td table>tbody>tr>td | <textarea\u2028> | script:var a = [[s]]; | Fragment f

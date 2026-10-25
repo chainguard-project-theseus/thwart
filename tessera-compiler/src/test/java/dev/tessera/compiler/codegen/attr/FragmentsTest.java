@@ -126,11 +126,21 @@ class FragmentsTest {
 
   @Test
   void petclinicLayoutPattern() {
+    // Petclinic passes ~{::body}, so the layout writes the page's <body> inside its own: a second
+    // <body> is a parse error (#406). t:remove="tag" on the page's <body> passes only its content.
+    Compilation.builder()
+        .template("fragments/layout.html", LAYOUT)
+        .template("owners/list.html", "<!DOCTYPE html>\n<html " + NS + " t:params=\"Fragment extra\""
+            + " t:replace=\"~{fragments/layout :: layout(~{::body}, 'owners')}\">\n"
+            + "<body><h2>Owners</h2><div t:insert=\"extra\">x</div></body>\n</html>\n")
+        .compile()
+        .assertError("owners/list.html:2:", "a browser finds a second <body>", "<body t:remove=\"tag\">",
+            "[verifier:PARSE_ERROR]");
     String page =
         "<!DOCTYPE html>\n"
             + "<html " + NS + " t:params=\"Fragment extra\""
             + " t:replace=\"~{fragments/layout :: layout(~{::body}, 'owners')}\">\n"
-            + "<body><h2>Owners</h2><div t:insert=\"extra\">x</div></body>\n"
+            + "<body t:remove=\"tag\"><h2>Owners</h2><div t:insert=\"extra\">x</div></body>\n"
             + "</html>\n";
     Compilation c =
         Compilation.builder()
@@ -142,7 +152,7 @@ class FragmentsTest {
         "<!DOCTYPE html>\n"
             + "<html>\n"
             + "<head><title>PetClinic</title></head>\n"
-            + "<body><nav>nav</nav><div class=\"container\"><body><h2>Owners</h2><div>EXTRA</div></body></div></body>\n"
+            + "<body><nav>nav</nav><div class=\"container\"><h2>Owners</h2><div>EXTRA</div></div></body>\n"
             + "</html>\n",
         c.render("owners/list", Map.of("extra", text("EXTRA"))));
     // The layout itself is a parameterized fragment on the root element: renders as the doctype only.

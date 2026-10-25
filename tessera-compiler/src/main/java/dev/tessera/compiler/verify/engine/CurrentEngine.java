@@ -7,7 +7,7 @@ final class CurrentEngine extends VnuEngine {
   static final String NAME = "htmlparser@validator-26.10.12";
 
   CurrentEngine() {
-    super(NAME);
+    super(NAME, true);
   }
 
   @Override
@@ -30,6 +30,46 @@ final class CurrentEngine extends VnuEngine {
     @Override
     public void feed(char[] chars, int start, int end) throws Exception {
       a.feed(chars, start, end);
+    }
+
+    @Override
+    public void feed(char[] chars, int start, int end, final RawListener listener) throws Exception {
+      a.feed(chars, start, end, listener == null ? null : new TesseraAccess.Listener() {
+        @Override
+        public void error(String message, int line, int column) {
+          listener.error(message, line, column);
+        }
+
+        @Override
+        public void pushed(String namespace, String localName, boolean onStack, int line, int column) {
+          listener.pushed(namespace, localName, onStack, line, column);
+        }
+      });
+    }
+
+    @Override
+    public int stackLength() {
+      return a.stackLength();
+    }
+
+    @Override
+    public String stackNamespace(int i) {
+      return a.stackNamespace(i);
+    }
+
+    @Override
+    public String stackName(int i) {
+      return a.stackName(i);
+    }
+
+    @Override
+    public int templateModeCount() {
+      return a.templateModeCount();
+    }
+
+    @Override
+    public String templateMode(int i) {
+      return a.templateMode(i);
     }
 
     @Override

@@ -24,9 +24,9 @@ import java.util.TreeMap;
 
 /**
  * The build-time context verifier (#367, docs/security-architecture.md §11): the security boundary
- * for markup contexts. It runs each template's {@link Skeleton} through two spec HTML parsers
+ * for markup contexts. It runs each template's {@link Skeleton} through the spec HTML parsers
  * ({@link Engines#all()}), with scripting on and off, and accepts a hole only if its escaper's
- * output is inert in the parser state there in all four ({@link Rules}). A template it doesn't
+ * output is inert in the parser state there in all of them ({@link Rules}). A template it doesn't
  * accept is a build error at the hole's file, line and column.
  *
  * <p>It is an abstract interpretation with the parsers as the transfer function. A path holds the
@@ -36,6 +36,12 @@ import java.util.TreeMap;
  * {@code t:case}, a computed attribute) is the union of skipping it and writing it, a loop runs
  * to a fixed point, and a static fragment call is analysed at each call site, memoised per
  * (fragment, entry state, bound fragment arguments), with recursion as a fixed point too.
+ *
+ * <p>It accepts only error-free parses (#406, security-architecture.md §11.4): every parse error an
+ * engine that reports them ({@link Engine#reportsErrors()}) finds on any path, with scripting on
+ * and off, is {@link Problem#PARSE_ERROR} at the static that holds it, except the allow-list
+ * ({@link Rules#allowedError}); a partial counts them only in its fragment contexts. And it checks
+ * the three coarse exclusions ({@link Rules#exclusion}) at every element the parser inserts.
  *
  * <p>It fails closed: an engine failure, too many states, a loop or recursion without a fixed
  * point and a node it can't interpret are build errors.
@@ -64,6 +70,8 @@ public final class ContextVerifier {
     PARTIAL_CONTEXTS.put("li", "ul");
   }
 
+  /** The engines a path runs, {@link Engines#all()} outside tests. */
+  private final List<Engine> engines;
   private final Map<Skeleton.FragmentId, Skeleton.Seq> fragments = new HashMap<>();
   private final Map<String, Memo> memo = new HashMap<>();
   private final Map<String, InProgress> inProgress = new HashMap<>();
@@ -87,6 +95,12 @@ public final class ContextVerifier {
   private String breach;
 
   ContextVerifier(Map<String, Skeleton.TemplateSkeleton> templates) {
+    this(templates, Engines.all());
+  }
+
+  /** A verifier that runs only {@code engines} (tests: the classic engine switched off). */
+  ContextVerifier(Map<String, Skeleton.TemplateSkeleton> templates, List<Engine> engines) {
+    this.engines = engines;
     for (Skeleton.TemplateSkeleton t : templates.values()) {
       for (Map.Entry<String, Skeleton.Seq> f : t.fragments().entrySet()) {
         fragments.put(new Skeleton.FragmentId(t.viewName(), f.getKey()), f.getValue());
@@ -96,6 +110,7 @@ public final class ContextVerifier {
 
   /** A fresh analysis (no memo) over the same fragments. */
   private ContextVerifier(ContextVerifier other) {
+    engines = other.engines;
     fragments.putAll(other.fragments);
   }
 
@@ -158,15 +173,15 @@ public final class ContextVerifier {
   /** Why {@code template} isn't FLOW content inserted after {@code context} in a {@code <body>}, or null. */
   private String probe(Skeleton.TemplateSkeleton template, String context, boolean checkPromise) {
     boolean scriptingOff = mentionsNoscript(template.body(), Collections.newSetFromMap(new IdentityHashMap<Object, Boolean>()));
-    parserCount = (scriptingOff ? 2 : 1) * Engines.all().size();
+    parserCount = (scriptingOff ? 2 : 1) * engines.size();
     promiseCheck = checkPromise;
     List<Finding> found = new ArrayList<>();
     sink = found;
     near = firstPos(template);
     String where = context.isEmpty() ? "in a <body>" : "after " + context;
     try {
-      Path entry = Path.start("body", scriptingOff);
-      entry.feed(context);
+      Path entry = start("body", scriptingOff);
+      entry.feed(context, near);
       for (ParserState s : entry.states()) {
         if (ContentKinds.problem(ContentKinds.Kind.FLOW, s) != null) {
           return "the probe " + where + " is not a FLOW position";
@@ -179,7 +194,7 @@ public final class ContextVerifier {
       for (ParserState s : entry.states()) {
         if (ContentKinds.switchesMode(ContentKinds.Kind.FLOW, s)) {
           Path written = entry.fork();
-          written.feed(ContentKinds.REPRESENTATIVE);
+          written.feed(ContentKinds.REPRESENTATIVE, near);
           allowed.add(flowKey(written));
           break;
         }
@@ -223,19 +238,25 @@ public final class ContextVerifier {
     // The scripting flag changes only how a <noscript> tag parses: without one, the parsers with
     // scripting off stay in the states of those with it on.
     boolean scriptingOff = mentionsNoscript(template.body(), Collections.newSetFromMap(new IdentityHashMap<Object, Boolean>()));
-    parserCount = (scriptingOff ? 2 : 1) * Engines.all().size();
-    for (String context : entries(template)) {
+    parserCount = (scriptingOff ? 2 : 1) * engines.size();
+    List<String> entries = entries(template);
+    for (String context : entries) {
       List<Finding> found = new ArrayList<>();
       sink = found;
       near = start;
       try {
-        List<Path> paths = Collections.singletonList(Path.start(context, scriptingOff));
+        List<Path> paths = Collections.singletonList(start(context, scriptingOff));
         seq(template.body(), paths, Env.EMPTY);
       } catch (EngineException e) {
         found.add(new Finding(Problem.ENGINE_FAILURE, near, null, null, null, null, null,
             Collections.<ParserState>emptyList(), parserCount, e.getMessage(), false));
       }
       for (Finding f : found) {
+        if (f.problem == Problem.PARSE_ERROR && context == null && entries.size() > 1) {
+          // A partial counts parse errors only in the fragment contexts its root implies (#406):
+          // as a document, a <tr> partial is a stray start tag.
+          continue;
+        }
         // Data-dependent structure is one error per place, not one per hole it reaches.
         String key = f.recursive || f.problem == Problem.STRUCTURE_DEPENDS_ON_DATA ? "recursive " + f.at : f.key();
         if (!out.containsKey(key)) {
@@ -430,7 +451,7 @@ public final class ContextVerifier {
   /** The exit paths of {@code seq} from {@code in}. May consume the paths in {@code in}. */
   private List<Path> seq(Skeleton.Seq seq, List<Path> in, Env env) throws EngineException {
     List<Path> cur = in;
-    StringBuilder statics = new StringBuilder();
+    Located.Builder statics = new Located.Builder();
     SourcePos staticPos = null;
     boolean frameset = false;
     for (Skeleton.Node n : seq.nodes()) {
@@ -440,22 +461,23 @@ public final class ContextVerifier {
           add(Problem.FRAMESET, at(n), null, null, null, Collections.<ParserState>emptyList(), null);
           frameset = true;
         }
-        statics.append(text);
         if (staticPos == null) {
           staticPos = n.pos();
         }
+        // Each static keeps its position, so a parse error points at the markup that holds it.
+        statics.append(text, n.pos() != null ? n.pos() : staticPos != null ? staticPos : near);
         continue;
       }
-      if (statics.length() > 0) {
-        cur = statics(cur, statics.toString(), staticPos, !frameset);
-        statics.setLength(0);
+      if (!statics.isEmpty()) {
+        cur = statics(cur, statics.build(), staticPos, !frameset);
+        statics = new Located.Builder();
         staticPos = null;
         frameset = false;
       }
       cur = node(n, cur, env);
     }
-    if (statics.length() > 0) {
-      cur = statics(cur, statics.toString(), staticPos, !frameset);
+    if (!statics.isEmpty()) {
+      cur = statics(cur, statics.build(), staticPos, !frameset);
     }
     return cur;
   }
@@ -645,11 +667,12 @@ public final class ContextVerifier {
   }
 
   /** {@code frameset}: whether to report a {@code <frameset>} (seq already reported one inside a single static). */
-  private List<Path> statics(List<Path> in, String text, SourcePos pos, boolean frameset) throws EngineException {
+  private List<Path> statics(List<Path> in, Located located, SourcePos pos, boolean frameset) throws EngineException {
     if (pos != null) {
       near = pos;
     }
     pos = near;
+    String text = located.text;
     if (frameset && containsIgnoreCase(text, "<frameset")) {
       // Split across statics (each one is checked in seq).
       add(Problem.FRAMESET, pos, null, null, null, Collections.<ParserState>emptyList(), null);
@@ -669,10 +692,10 @@ public final class ContextVerifier {
         if (lt > 0 && text.indexOf('>', lt) < 0) {
           // A tag that goes on past this static: feed the text before it on its own, so the
           // parser replays only the tag's own input while it is inside it (VnuParser).
-          p.feed(text.substring(0, lt));
-          p.defer(text.substring(lt));
+          p.feed(located.sub(0, lt));
+          p.defer(located.sub(lt, text.length()));
         } else {
-          p.feed(text);
+          p.feed(located);
         }
         continue;
       }
@@ -683,28 +706,29 @@ public final class ContextVerifier {
       int from = 0;
       for (int i = text.indexOf('<'); i >= 0; i = text.indexOf('<', i + 1)) {
         if (i > from) {
-          feedAndCheck(p, text.substring(from, i), pos);
+          feedAndCheck(p, located.sub(from, i), pos);
           from = i;
         }
       }
-      feedAndCheck(p, text.substring(from), pos);
+      feedAndCheck(p, located.sub(from, text.length()), pos);
     }
     return in;
   }
 
-  private void feedAndCheck(Path p, String piece, SourcePos pos) throws EngineException {
+  private void feedAndCheck(Path p, Located located, SourcePos pos) throws EngineException {
+    String piece = located.text;
     ParserState[] before = null;
     if (promiseCheck && breach == null && piece.startsWith("</")) {
       // An end tag on its own, so the state right after it shows whether it closed anything.
       int gt = piece.indexOf('>');
       if (gt > 0 && gt + 1 < piece.length()) {
-        feedAndCheck(p, piece.substring(0, gt + 1), pos);
-        feedAndCheck(p, piece.substring(gt + 1), pos);
+        feedAndCheck(p, located.sub(0, gt + 1), pos);
+        feedAndCheck(p, located.sub(gt + 1, piece.length()), pos);
         return;
       }
       before = p.states();
     }
-    p.feed(piece);
+    p.feed(located);
     boolean between = true;
     boolean marked = false;
     List<ParserState> ark = new ArrayList<>();
@@ -783,14 +807,14 @@ public final class ContextVerifier {
       add(e.getKey(), pos, h.escaper(), null, h.attribute(), e.getValue(), null);
     }
     if (h.escaper().inAttribute()) {
-      p.defer(Rules.MARK);
+      p.defer(Rules.MARK, pos);
       p.tagHole |= formattingTag;
     } else if (h.escaper() == Skeleton.Escaper.JSON) {
       for (ParserState s : p.states()) {
         if (s.tokenizer() == TokenizerState.SCRIPT_DATA_LESS_THAN_SIGN) {
           // A JSON value is never empty and never starts with '/' or '!': any first character
           // ends the '<' alike. Elsewhere it is inert, so this is the exit state of every value.
-          p.defer("0");
+          p.defer("0", pos);
           break;
         }
       }
@@ -826,7 +850,7 @@ public final class ContextVerifier {
       }
       if (switches) {
         Path written = p.fork();
-        written.feed(ContentKinds.REPRESENTATIVE);
+        written.feed(ContentKinds.REPRESENTATIVE, pos);
         out.add(written);
       }
     }
@@ -852,7 +876,7 @@ public final class ContextVerifier {
       }
       if (template) {
         Path written = p.fork();
-        written.feed(ContentKinds.REPRESENTATIVE);
+        written.feed(ContentKinds.REPRESENTATIVE, pos);
         allowed.add(written.key());
       }
       ParserState[] entry = p.states();
@@ -977,6 +1001,10 @@ public final class ContextVerifier {
         sink = found;
         running.used = false;
         exits = seq(target, Collections.singletonList(p.fork()), callee);
+        for (Path e : exits) {
+          // Input the fragment deferred is the fragment's: its errors belong to this call.
+          e.flush();
+        }
         exits = dedupe(exits, pos);
         readApprox = Math.min(readApprox, approxDepth);
         if (!running.used || keys(exits).equals(keys(running.approx))) {
@@ -1077,8 +1105,130 @@ public final class ContextVerifier {
 
   // ---- paths ----
 
+  /**
+   * A path at the start of a template: document parsing (null {@code context}) or fragment
+   * parsing in an HTML {@code context}, in each engine, with scripting on and, if {@code
+   * scriptingOff}, off.
+   */
+  private Path start(String context, boolean scriptingOff) throws EngineException {
+    List<Parser> ps = new ArrayList<>();
+    for (Engine e : engines) {
+      for (boolean on : scriptingOff ? new boolean[] {true, false} : new boolean[] {true}) {
+        ps.add(context == null ? e.document(on) : e.fragment(OpenElement.HTML, context, on));
+      }
+    }
+    return new Path(this, ps.toArray(new Parser[0]));
+  }
+
+  /**
+   * What the parsers of a path reported while they parsed one chunk (#406): parse errors not on
+   * the allow-list, and excluded stack shapes, each with the parsers that reported it.
+   */
+  private void reported(Path p, Map<String, Reported> issues) throws EngineException {
+    for (Reported r : issues.values()) {
+      List<ParserState> states = new ArrayList<>();
+      for (int i : r.parsers) {
+        states.add(p.parsers[i].state());
+      }
+      add(r.problem, r.pos != null ? r.pos : near, null, null, null, states, r.detail);
+    }
+  }
+
+  /** One parse error or excluded shape at one position. */
+  private static final class Reported {
+    final Problem problem;
+    final String detail;
+    final SourcePos pos;
+    final List<Integer> parsers = new ArrayList<>();
+
+    Reported(Problem problem, String detail, SourcePos pos) {
+      this.problem = problem;
+      this.detail = detail;
+      this.pos = pos;
+    }
+  }
+
+  /** Text and the source position of each part of it (the statics it was written from). */
+  private static final class Located {
+    final String text;
+    /** Where each part starts in {@link #text}, ascending, the first at 0. */
+    private final int[] starts;
+    private final SourcePos[] positions;
+
+    Located(String text, SourcePos pos) {
+      this(text, new int[] {0}, new SourcePos[] {pos});
+    }
+
+    private Located(String text, int[] starts, SourcePos[] positions) {
+      this.text = text;
+      this.starts = starts;
+      this.positions = positions;
+    }
+
+    /** The position of the part that holds {@code offset}. */
+    SourcePos at(int offset) {
+      int k = 0;
+      while (k + 1 < starts.length && starts[k + 1] <= offset) {
+        k++;
+      }
+      return positions[k];
+    }
+
+    Located sub(int from, int to) {
+      Builder b = new Builder();
+      for (int k = 0; k < starts.length; k++) {
+        int s = Math.max(from, starts[k]);
+        int e = Math.min(to, k + 1 < starts.length ? starts[k + 1] : text.length());
+        if (s < e) {
+          b.append(text.substring(s, e), positions[k]);
+        }
+      }
+      return b.build();
+    }
+
+    static final class Builder {
+      private final StringBuilder text = new StringBuilder();
+      private final List<Integer> starts = new ArrayList<>();
+      private final List<SourcePos> positions = new ArrayList<>();
+
+      boolean isEmpty() {
+        return text.length() == 0;
+      }
+
+      Builder append(String s, SourcePos pos) {
+        if (!s.isEmpty()) {
+          starts.add(text.length());
+          positions.add(pos);
+          text.append(s);
+        }
+        return this;
+      }
+
+      Builder append(Located l) {
+        for (int k = 0; k < l.starts.length; k++) {
+          append(l.text.substring(l.starts[k], k + 1 < l.starts.length ? l.starts[k + 1] : l.text.length()),
+              l.positions[k]);
+        }
+        return this;
+      }
+
+      Located build() {
+        if (starts.isEmpty()) {
+          return new Located("", null);
+        }
+        int[] s = new int[starts.size()];
+        for (int i = 0; i < s.length; i++) {
+          s[i] = starts.get(i);
+        }
+        return new Located(text.toString(), s, positions.toArray(new SourcePos[0]));
+      }
+    }
+  }
+
   /** One path through the template: a parser per engine and scripting mode, in the same input. */
   private static final class Path {
+    /** The verifier the parsers report parse errors and excluded shapes to. */
+    private final ContextVerifier owner;
     private final Parser[] parsers;
     /**
      * An attribute hole was written since the parser was last between tokens, in a tag that may be
@@ -1095,24 +1245,18 @@ public final class ContextVerifier {
     private ParserState[] states;
     String key;
     /** Input written to no parser yet: fed with the next input, before any state is read. */
-    private final StringBuilder deferred = new StringBuilder();
-
-    private Path(Parser[] parsers) {
-      this.parsers = parsers;
-    }
-
+    private Located.Builder deferred = new Located.Builder();
     /**
-     * Document parsing (null {@code context}) or fragment parsing in an HTML {@code context}, in
-     * each engine, with scripting on and, if {@code scriptingOff}, off.
+     * Per parser, the problems it reported on this path (bits by {@link Problem#ordinal}): each is
+     * reported once, at its first occurrence, so the errors that follow from the first one (a
+     * stray end tag after a misplaced start tag) don't bury it. Part of the {@link #key}.
      */
-    static Path start(String context, boolean scriptingOff) throws EngineException {
-      List<Parser> ps = new ArrayList<>();
-      for (Engine e : Engines.all()) {
-        for (boolean scripting : scriptingOff ? new boolean[] {true, false} : new boolean[] {true}) {
-          ps.add(context == null ? e.document(scripting) : e.fragment(OpenElement.HTML, context, scripting));
-        }
-      }
-      return new Path(ps.toArray(new Parser[0]));
+    private final long[] reported;
+
+    private Path(ContextVerifier owner, Parser[] parsers) {
+      this.owner = owner;
+      this.parsers = parsers;
+      this.reported = new long[parsers.length];
     }
 
     int size() {
@@ -1125,7 +1269,8 @@ public final class ContextVerifier {
       for (int i = 0; i < parsers.length; i++) {
         copy[i] = parsers[i].fork();
       }
-      Path p = new Path(copy);
+      Path p = new Path(owner, copy);
+      System.arraycopy(reported, 0, p.reported, 0, reported.length);
       p.tagHole = tagHole;
       p.markedFormatting = markedFormatting;
       p.tagBoundary = tagBoundary;
@@ -1134,31 +1279,80 @@ public final class ContextVerifier {
       return p;
     }
 
-    void feed(String text) throws EngineException {
+    void feed(String text, SourcePos pos) throws EngineException {
+      defer(text, pos);
+      flush();
+    }
+
+    void feed(Located text) throws EngineException {
       defer(text);
       flush();
     }
 
     /** Feeds {@code text} with the next input: one parser feed fewer per attribute hole. */
-    void defer(String text) {
+    void defer(String text, SourcePos pos) {
       if (!text.isEmpty()) {
+        deferred.append(text, pos);
+        states = null;
+        key = null;
+      }
+    }
+
+    void defer(Located text) {
+      if (!text.text.isEmpty()) {
         deferred.append(text);
         states = null;
         key = null;
       }
     }
 
-    private void flush() throws EngineException {
-      if (deferred.length() == 0) {
+    void flush() throws EngineException {
+      if (deferred.isEmpty()) {
         return;
       }
-      String text = deferred.toString();
-      deferred.setLength(0);
-      for (Parser parser : parsers) {
-        parser.feed(text);
+      final Located text = deferred.build();
+      deferred = new Located.Builder();
+      final Map<String, Reported> issues = new LinkedHashMap<>();
+      for (int i = 0; i < parsers.length; i++) {
+        final int parser = i;
+        parsers[i].feed(text.text, new Parser.Listener() {
+          @Override
+          public void error(String message, int offset) {
+            if (!Rules.allowedError(message)) {
+              note(Problem.PARSE_ERROR, message, offset);
+            }
+          }
+
+          @Override
+          public void pushed(Parser.Stack stack, int offset) {
+            Rules.Excluded x = Rules.exclusion(stack);
+            if (x != null) {
+              note(x.problem, x.detail, offset);
+            }
+          }
+
+          private void note(Problem problem, String detail, int offset) {
+            long bit = 1L << problem.ordinal();
+            if ((reported[parser] & bit) != 0) {
+              return;
+            }
+            reported[parser] |= bit;
+            SourcePos pos = text.at(offset);
+            String k = problem + "\u0000" + detail + "\u0000" + pos;
+            Reported r = issues.get(k);
+            if (r == null) {
+              r = new Reported(problem, detail, pos);
+              issues.put(k, r);
+            }
+            r.parsers.add(parser);
+          }
+        });
       }
       states = null;
       key = null;
+      if (!issues.isEmpty()) {
+        owner.reported(this, issues);
+      }
     }
 
     ParserState[] states() throws EngineException {
@@ -1181,6 +1375,9 @@ public final class ContextVerifier {
           sb.append(s.signature()).append('\u0000');
         }
         sb.append(tagHole ? 'h' : '-').append(markedFormatting ? 'm' : '-').append(tagBoundary ? 'b' : '-');
+        for (long r : reported) {
+          sb.append(r == 0 ? "" : Long.toHexString(r)).append(',');
+        }
         key = sb.toString();
       }
       return key;

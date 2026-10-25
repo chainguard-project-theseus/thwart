@@ -105,10 +105,10 @@ class UnusedLoopStatusTest {
     Compilation c = page("Iterable<String> items, LoopStatus itemStat",
         "<aside>[[itemStat.count]]</aside>"
             + "<div t:fragment=\"wrap(Fragment body)\"><i t:replace=\"body\"></i></div>"
-            + "<p t:each=\"item : items\"><i t:replace=\"~{::wrap(~{::aside})}\"></i></p>").compile();
+            + "<section t:each=\"item : items\"><i t:replace=\"~{::wrap(~{::aside})}\"></i></section>").compile();
     assertTrue(source(c).contains("new java.util.ArrayList"));
-    assertEquals("<html><aside>1</aside><p><div><aside>1</aside></div></p>"
-            + "<p><div><aside>2</aside></div></p></html>",
+    assertEquals("<html><aside>1</aside><section><div><aside>1</aside></div></section>"
+            + "<section><div><aside>2</aside></div></section></html>",
         c.render("page", model("items", once("a", "b"), "itemStat", dev.tessera.runtime.LoopStatus.of(0, 1))));
   }
 

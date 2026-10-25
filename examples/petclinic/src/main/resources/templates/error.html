@@ -2,7 +2,7 @@
 
 <html xmlns:t="https://tessera.dev" t:replace="~{fragments/layout :: layout (~{::body},'error')}" t:params="Integer status, String message">
 
-<body>
+<body t:remove="tag">
   <img src="../static/resources/images/pets.png" t:src="@{/resources/images/pets.png}" />
   <!-- Title: Something happened -->
   <h2 t:text="#{somethingHappened}">Something happened...</h2>

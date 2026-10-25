@@ -10,6 +10,12 @@ public interface Engine {
   /** The parser and its version, for messages: {@code htmlparser@validator-26.10.12}, {@code htmlparser-1.4.16}. */
   String name();
 
+  /**
+   * Whether its parsers report parse errors and inserted elements to a {@link Parser.Listener}
+   * (#406: {@link Engines#CURRENT} only).
+   */
+  boolean reportsErrors();
+
   /** Document parsing from the initial insertion mode. */
   Parser document(boolean scripting) throws EngineException;
 

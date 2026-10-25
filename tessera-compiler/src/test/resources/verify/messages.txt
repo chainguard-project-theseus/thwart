@@ -10,6 +10,7 @@
 -- t.html
 <p>1 <[[${s}]]</p>
 => t.html:1:66: error: a browser reads this value as a tag name, after a literal '<', not as text; write the literal '<' before it as &lt; [verifier:TEXT_NOT_IN_TEXT]
+=> t.html:1:56: error: the HTML parser reports "Bad character “<” after “<”. Probable cause: Unescaped “<”. Try escaping it as “&lt;”." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
 == TEXT_NOT_IN_TEXT: after a literal '&'
 -- t.html
 <p>&[[${s}]]</p>
@@ -30,10 +31,12 @@
 -- t.html
 <p><![CDATA[ [[${s}]] ]]></p>
 => t.html:1:73: error: a browser reads this value inside a comment that a '<!' or '<?' started and the next '>' ends, not as text; write the '<' of the '<!' or '<?' before it as &lt; [verifier:TEXT_NOT_IN_TEXT]
+=> t.html:1:59: error: the HTML parser reports "Bogus comment." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
 == TEXT_NOT_IN_TEXT: <svg><textarea> isn't raw text, so the expression is inside a tag
 -- t.html
 <svg><textarea><img src="x" alt=[[${s}]]></textarea></svg>
 => t.html:1:92: error: a browser reads this value inside an unquoted attribute value, not as text; check the markup before it: a browser started a tag there [verifier:TEXT_NOT_IN_TEXT]
+=> t.html:1:96: error: the HTML parser reports "Attribute value missing." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
 == TEXT_IN_SCRIPT: <script> inside SVG <title> is an HTML script
 -- t.html
 <svg><title><script>var a = [[${s}]];</script></title></svg>
@@ -79,6 +82,7 @@
 -- t.html
 <p><b>x</p>[[${s}]]
 => t.html:1:71: error: before this value a browser reopens formatting elements (<b>, <i>, <a>, ...) that an end tag closed out of order, and puts the value inside the copies; close elements in the reverse order they were opened (</b> before </p>) [verifier:TEXT_RECONSTRUCTS]
+=> t.html:1:56: error: the HTML parser reports "End tag “p” seen, but there were open elements." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
 == RCDATA_NOT_IN_RCDATA: a <title> fragment inserted inside <svg>
 -- t.html
 <title t:fragment="f(String v)" t:text="v">x</title><svg><t:block t:replace="~{t :: f(s)}"></t:block></svg>
@@ -88,10 +92,12 @@
 <div><![CDATA[ > <script>//]]><b t:title="s">x</b></div><script></script>
 => t.html:1:89: error: a browser reads this value of 'title' as the code of <script>, not inside the double-quoted value of 'title'; check the markup before the tag: a browser ended the tag, or started raw text, there [verifier:ATTRIBUTE_NOT_IN_VALUE]
 => t.html:1:112: error: a browser reads this value of 'nonce' as the code of <script>, not inside the double-quoted value of 'nonce'; check the markup before the tag: a browser ended the tag, or started raw text, there [verifier:ATTRIBUTE_NOT_IN_VALUE]
+=> t.html:1:61: error: the HTML parser reports "Bogus comment." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
 == ATTRIBUTE_VALUE_CHANGES_PARSE: a computed input type directly in a table
 -- t.html
 <table><input t:type="s"></table>
 => t.html:1:70: error: a computed 'type' on an <input> directly in a table decides where a browser puts it (type=hidden stays in the table, any other input is moved in front of it); move the input into a <td>, or write the type as a static value [verifier:ATTRIBUTE_VALUE_CHANGES_PARSE]
+=> t.html:1:63: error: a browser moves this <input> out of the table, in front of it, because only table parts may sit directly in a <table>; put it in a <td> or <th>, or outside the table [verifier:PARSE_ERROR]
 == ATTRIBUTE_VALUE_CHANGES_PARSE: a computed MathML encoding
 -- t.html
 <math><annotation-xml t:encoding="s"></annotation-xml></math>
@@ -127,6 +133,7 @@ m=<p>Read this first.</p>
 -- t.html
 <p><span t:utext="#{m}">x</span></p>
 => t.html:1:74: error: a browser parses the markup of this HTML message so that it closes an open <p> around it, and the rest of the page would be parsed differently; close every element the message opens, and insert it where its markup fits (a message with a <p> in a <div>, not in a <p>) [verifier:MESSAGE_CHANGES_STATE]
+=> t.html:1:74: error: the HTML parser reports "End tag “p” implied, but there were open elements." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
 == MESSAGE_CHANGES_STATE: an HTML message that leaves its paragraph open
 -- messages.properties
 m=First.<p>Second.
@@ -151,3 +158,52 @@ m=First.<p>Second.
 <t:block t:if="s == '0'"><p><b>x</p></t:block><t:block t:if="s == '1'"><p><i>x</p></t:block><t:block t:if="s == '2'"><p><u>x</p></t:block><t:block t:if="s == '3'"><p><s>x</p></t:block><t:block t:if="s == '4'"><p><em>x</p></t:block>[[${s}]]
 => t.html:1:249: error: the branches and loops before this point can leave a browser in more than 24 different states (different elements open), more than Tessera checks; close inside each t:if, t:switch and t:each the elements it opens, or split the template into fragments [verifier:TOO_MANY_STATES]
 => t.html:1:291: error: before this value a browser reopens formatting elements (<b>, <i>, <a>, ...) that an end tag closed out of order, and puts the value inside the copies; close elements in the reverse order they were opened (</b> before </p>) [verifier:TEXT_RECONSTRUCTS]
+=> t.html:1:81: error: the HTML parser reports "End tag “p” seen, but there were open elements." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
+=> t.html:1:127: error: the HTML parser reports "End tag “p” seen, but there were open elements." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
+=> t.html:1:173: error: the HTML parser reports "End tag “p” seen, but there were open elements." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
+=> t.html:1:219: error: the HTML parser reports "End tag “p” seen, but there were open elements." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
+=> t.html:1:265: error: the HTML parser reports "End tag “p” seen, but there were open elements." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
+== PARSE_ERROR: a layout call that passes the page's <body>, so the layout writes a second <body>
+-- layout.html
+<html $NS t:import="dev.tessera.runtime.Fragment" t:fragment="layout(Fragment content)"><head><title>t</title></head><body><main t:replace="${content}">c</main></body></html>
+-- t.html
+<html $NS t:params="String s" t:replace="~{layout :: layout(~{::body})}"><body><p t:text="s">x</p></body></html>
+=> t.html:1:68: error: in fragment layout :: layout, inserted here, at t.html:1:100: a browser finds a second <body> here and merges it into the first; a page has one <html>, <head> and <body>: a layout call such as t:replace="~{layout :: layout(~{::body})}" passes the whole element into the layout's own, so mark the element the page passes t:remove="tag" (<body t:remove="tag">) to pass only its content (guide section 4.8, Layouts) [verifier:PARSE_ERROR]
+== PARSE_ERROR: a block element in a <p>
+-- t.html
+<p>Intro <div>[[${s}]]</div></p>
+=> t.html:1:56: error: a browser closes an open <p> at the first block element inside it (<div>, <form>, <ul>, <table>, a heading, ...), so this </p> has no <p> to close and adds an empty paragraph; a <p> can't hold block elements: use a <div> instead of the <p> [verifier:PARSE_ERROR]
+== PARSE_ERROR: a script between </head> and <body>
+-- t.html
+<!DOCTYPE html>
+<html $NS t:params="String s"><head><title>t</title></head><script src="/a.js"></script><body><p t:text="s">x</p></body></html>
+=> t.html:2:86: error: a browser moves this <script> from between </head> and <body> back into the <head>; write it inside the <head> or inside the <body> [verifier:PARSE_ERROR]
+== PARSE_ERROR: a heading directly in a <table>
+-- t.html
+<table><h3>Title</h3><tr><td t:text="s">x</td></tr></table>
+=> t.html:1:63: error: a browser moves this <h3> out of the table, in front of it, because only table parts may sit directly in a <table>; put it in a <td> or <th>, or outside the table [verifier:PARSE_ERROR]
+== PARSE_ERROR: no space between attributes
+-- t.html
+<p class='a'title='b'>[[${s}]]</p>
+=> t.html:1:56: error: two attributes are written without a space between them, which a browser reads only by error recovery; write a space between the attributes [verifier:PARSE_ERROR]
+== PARSE_ERROR: any other error, in the parser's words
+-- t.html
+<h1>Title <h2 t:text="s">x</h2></h1>
+=> t.html:1:66: error: the HTML parser reports "Heading cannot be a child of another heading." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
+== PARSE_ERROR: markup in a <noscript> in the head, which is markup only with scripting off
+-- t.html
+<!DOCTYPE html>
+<html $NS t:params="String s"><head><noscript><div>no js</div></noscript></head><body><p t:text="s">x</p></body></html>
+=> t.html:2:73: error: the HTML parser reports "Bad start tag in “div” in “noscript” in “head”." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup (only with scripting off) [verifier:PARSE_ERROR]
+== FOREIGN_IN_TABLE: an SVG icon in a table cell
+-- t.html
+<table><tr><td><svg viewBox="0 0 1 1"><path d="M0 0"/></svg> <span t:text="s">x</span></td></tr></table>
+=> t.html:1:71: error: <svg> inside <td>: browsers parse a nested table, <template> or <select> that ends inside <svg> or <math> in a table differently (Firefox goes on as if outside the table, Chrome and Safari go back to the cell), so Tessera doesn't accept <svg> or <math> anywhere in a table or <template>; move it out of the table, or show the image with <img src="....svg"> [verifier:FOREIGN_IN_TABLE]
+== TABLE_IN_TEMPLATE: rows directly in a <template>
+-- t.html
+<template><tr><td t:text="s">x</td></tr></template>
+=> t.html:1:66: error: <tr> directly in <template>: browsers handle a </table> inside it differently (Firefox closes a table around the <template>, Chrome and Safari ignore it), so Tessera doesn't accept table parts directly in a <template>; put a whole <table> in the <template> [verifier:TABLE_IN_TEMPLATE]
+== SELECT_CONTENT: a fragment that writes a <span> into a <select>
+-- t.html
+<select><option t:insert="~{:: label(s)}">o</option></select><span t:fragment="label(String v)" t:text="v">l</span>
+=> t.html:1:82: error: in fragment t :: label, inserted here, at t.html:1:117: <span> in a <select>: browsers that parse <select> the classic way (Firefox ESR) drop everything in it but <option>, <optgroup> and <hr>, and newer ones keep it, so the rest of the page can parse differently; insert only <option>, <optgroup> and <hr> into a <select> (also from fragments, t:remove="tag" and <template>) [verifier:SELECT_CONTENT]

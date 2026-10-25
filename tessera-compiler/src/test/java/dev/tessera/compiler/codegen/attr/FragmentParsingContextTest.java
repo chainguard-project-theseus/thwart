@@ -34,7 +34,7 @@ class FragmentParsingContextTest {
   private static Compilation page(String body) {
     return Compilation.builder()
         .template("frags.html", FRAGS)
-        .template("page.html", "<body " + NS + " t:params=\"String v\">\n" + body + "\n</body>")
+        .template("page.html", "<div " + NS + " t:params=\"String v\">\n" + body + "\n</div>")
         .compile();
   }
 
@@ -63,7 +63,7 @@ class FragmentParsingContextTest {
     // An SVG <title> holds HTML, so the RCDATA-escaped hole would run inside the <script>.
     Compilation.builder()
         .template("frag.html", "<title " + NS + " t:fragment=\"payload(String x)\"><script>[[x]]//</script></title>")
-        .template("page.html", "<body " + NS + " t:params=\"String x\">\n<svg><g t:replace=\"~{frag :: payload(x)}\"></g></svg></body>")
+        .template("page.html", "<div " + NS + " t:params=\"String x\">\n<svg><g t:replace=\"~{frag :: payload(x)}\"></g></svg></div>")
         .compile()
         .assertError("page.html:2:20", "fragment 'frag :: payload' is declared in HTML content but t:replace puts it in"
             + " <svg> content");
@@ -93,7 +93,7 @@ class FragmentParsingContextTest {
     rawTextError(page("<textarea t:insert=\"~{frags :: plain}\"></textarea>"), "page.html:2:11", "t:insert", "textarea");
     rawTextError(
         Compilation.builder()
-            .template("page.html", "<body " + NS + " t:params=\"Fragment f\">\n<title t:insert=\"${f}\"></title></body>")
+            .template("page.html", "<div " + NS + " t:params=\"Fragment f\">\n<title t:insert=\"${f}\"></title></div>")
             .compile(),
         "page.html:2:8", "t:insert", "title");
     rawTextError(page("<svg><title t:insert=\"~{frags :: r(v)}\"></title></svg>"), "page.html:2:13", "t:insert", "title");
@@ -124,7 +124,7 @@ class FragmentParsingContextTest {
         .assertError("page.html:2:", message);
     Compilation.builder()
         .template("frags.html", "<div " + NS + "><svg t:replace=\"~{:: y}\">" + x + "</svg><b t:fragment=\"y\">y</b></div>")
-        .template("page.html", "<body " + NS + " t:params=\"String v\">\n<div t:replace=\"~{frags :: x(v)}\"></div></body>")
+        .template("page.html", "<div " + NS + " t:params=\"String v\">\n<div t:replace=\"~{frags :: x(v)}\"></div></div>")
         .compile()
         .assertError("page.html:2:", "fragment 'frags :: x' is declared in <svg> content but t:replace puts it in HTML"
             + " content");
@@ -184,7 +184,7 @@ class FragmentParsingContextTest {
     Compilation messages =
         Compilation.builder()
             .messages("m=<p>x</p>")
-            .template("page.html", "<body " + NS + ">\n<svg><g t:utext=\"#{m}\"></g>[(#{m})]</svg></body>")
+            .template("page.html", "<div " + NS + ">\n<svg><g t:utext=\"#{m}\"></g>[(#{m})]</svg></div>")
             .compile();
     messages.assertError("page.html:2:9", "t:utext with a SafeHtml value or HTML message is only allowed in HTML content,"
         + " not in <svg> content");
@@ -199,14 +199,14 @@ class FragmentParsingContextTest {
                 + "</svg><math><mi><span>[(${h})]</span></mi></math>")
             .assertSuccess();
     assertEquals(
-        "<body>\n<div><b>h</b></div><div><b>h</b></div><svg><foreignObject><div><b>h</b></div></foreignObject></svg>"
-            + "<math><mi><span><b>h</b></span></mi></math></body>",
+        "<div>\n<div><b>h</b></div><div><b>h</b></div><svg><foreignObject><div><b>h</b></div></foreignObject></svg>"
+            + "<math><mi><span><b>h</b></span></mi></math></div>",
         c.render("page", Map.of("h", SafeHtml.sanitize("<b>h</b>"))));
   }
 
   private static Compilation raw(String body) {
     return Compilation.builder()
-        .template("page.html", "<body " + NS + " t:params=\"SafeHtml h\">\n" + body + "</body>")
+        .template("page.html", "<div " + NS + " t:params=\"SafeHtml h\">\n" + body + "</div>")
         .compile();
   }
 
@@ -280,14 +280,14 @@ class FragmentParsingContextTest {
         Compilation.builder()
             .template("frags.html", "<div " + NS + ">\n<option t:fragment=\"o(SafeHtml h)\" t:utext=\"${h}\"></option>\n"
                 + "<option t:fragment=\"p(SafeHtml h)\"><b>[(${h})]</b></option></div>")
-            .template("page.html", "<body " + NS + " t:params=\"SafeHtml h\">\n<select t:insert=\"~{frags :: o(h)}\">"
-                + "</select><select t:insert=\"~{frags :: p(h)}\"></select></body>")
+            .template("page.html", "<div " + NS + " t:params=\"SafeHtml h\">\n<select t:insert=\"~{frags :: o(h)}\">"
+                + "</select><select t:insert=\"~{frags :: p(h)}\"></select></div>")
             .compile();
     raw.assertError("page.html:2:19", "fragment 'frags :: o' is declared in HTML content but t:insert puts it in <select>");
     raw.assertError("page.html:2:", "fragment 'frags :: p' is declared in HTML content but t:insert puts it in <select>");
     Compilation.builder()
         .template("frags.html", "<div " + NS + ">\n<option t:fragment=\"o(String s)\">[[${s}]]</option></div>")
-        .template("page.html", "<body " + NS + " t:params=\"String v\">\n<select t:insert=\"~{frags :: o(v)}\"></select></body>")
+        .template("page.html", "<div " + NS + " t:params=\"String v\">\n<select t:insert=\"~{frags :: o(v)}\"></select></div>")
         .compile()
         .assertSuccess();
   }
@@ -316,7 +316,7 @@ class FragmentParsingContextTest {
                 + "<title t:replace=\"~{frags :: plain}\"></title>")
             .assertSuccess();
     assertEquals(
-        "<body>\n"
+        "<div>\n"
             + "<svg viewBox=\"0 0 1 1\"><title>Check</title><path d=\"M0 0\"/></svg>"
             + "<svg><path d=\"M0 0\"/></svg>"
             + "<svg class=\"icon\"><svg viewBox=\"0 0 1 1\"><title>Check</title><path d=\"M0 0\"/></svg></svg>"
@@ -328,7 +328,7 @@ class FragmentParsingContextTest {
             + "<math><mrow><mi>x</mi></mrow></math>"
             + "<section><b>&lt;v&gt;</b></section><template><b>&lt;v&gt;</b></template>"
             + "<i>plain</i>\n"
-            + "</body>",
+            + "</div>",
         c.render("page", Map.of("v", "<v>")));
   }
 }
