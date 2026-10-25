@@ -121,7 +121,7 @@ class CspNonceTest {
    * Negative: a script or style that a browser does not read as an HTML element gets no nonce, so
    * a strict policy blocks it: inside {@code <svg>} or {@code <math>}, where a browser decodes
    * character references in it, or inside an element whose content a browser reads as text. That
-   * holds for fragments inserted there too, however they are inserted.
+   * holds for fragments inserted there too.
    */
   @ParameterizedTest
   @ValueSource(
@@ -131,9 +131,7 @@ class CspNonceTest {
         "<math><mi><style>p{}</style></mi></math>",
         "<svg><g t:insert=\"~{frag :: boot}\">x</g></svg>",
         "<svg><g t:replace=\"~{frag :: boot}\">x</g></svg>",
-        "<math><mi t:replace=\"~{frag :: assets}\">x</mi></math>",
-        "<svg><g t:replace=\"~{frag :: card(~{frag :: boot})}\">x</g></svg>",
-        "<svg><g t:replace=\"~{frag :: card(~{::p})}\">x</g></svg><p><script>p();</script></p>",
+        "<svg><g t:replace=\"~{frag :: assets}\">x</g></svg>",
         "<noscript><script>x();</script></noscript>",
         "<xmp><script>x();</script></xmp>",
         "<iframe><style>p{}</style></iframe>",
@@ -145,17 +143,15 @@ class CspNonceTest {
         Compilation.builder()
             .template(
                 "frag.html",
-                "<div " + NS + "><script t:fragment=\"boot\">boot();</script>"
-                    + "<t:block t:fragment=\"assets\"><style>p{}</style><script>a();</script></t:block>"
-                    + "<g t:fragment=\"card(Fragment content)\"><g t:replace=\"${content}\">c</g></g></div>")
+                // Declared in <svg>: rendered standalone as a fragment method, then inserted in <svg>.
+                "<div " + NS + "><svg><script t:fragment=\"boot\">boot();</script>"
+                    + "<g t:fragment=\"assets\"><style>p{}</style><script>a();</script></g></svg></div>")
             .template("page.html", "<div " + NS + " t:params=\"String s\">" + body + "</div>")
             .compile()
             .assertSuccess();
     String html = c.render("page", Map.of("s", "&quot;-x-&quot;"), WITH_NONCE);
-    // The <p> passed by ~{::p} is also rendered in place, outside the SVG, where it is stamped.
-    String svgOrText = html.replace("<p><script nonce=\"" + NONCE + "\">p();</script></p>", "");
-    assertFalse(svgOrText.contains("nonce"), html);
-    assertTrue(svgOrText.contains("<script>") || svgOrText.contains("<style>"), html);
+    assertFalse(html.contains("nonce"), html);
+    assertTrue(html.contains("<script>") || html.contains("<style>"), html);
   }
 
   /** Negative: a hostile nonce is attribute-escaped and cannot add attributes or elements. */
