@@ -172,7 +172,8 @@ class Jdk8ProcessorTest {
   void lombokGettersAreTemplatePropertiesInEitherProcessorOrder() throws Exception {
     Path jdk = jdk8();
     Path runtime = codeSource(Escapers.class);
-    Path tessera = codeSource(TesseraProcessor.class);
+    // The processor with the engines its verifier runs (#367).
+    String tessera = processor();
     Path lombok16 = Path.of(System.getProperty("tessera.lombok16.jar", ""));
     assertTrue(Files.isRegularFile(lombok16), "no Lombok 1.16 jar at " + lombok16 + " (see the pom)");
     Path src = dir.resolve("demo/PageInfo.java");
@@ -195,7 +196,9 @@ class Jdk8ProcessorTest {
     for (Path lombok : List.of(lombok16, codeSource(lombok.Getter.class))) {
       for (boolean lombokFirst : List.of(true, false)) {
         String processorPath =
-            lombokFirst ? join(lombok, tessera, runtime) : join(tessera, runtime, lombok);
+            lombokFirst
+                ? join(lombok) + File.pathSeparator + tessera + File.pathSeparator + join(runtime)
+                : tessera + File.pathSeparator + join(runtime, lombok);
         Path out = Files.createDirectories(dir.resolve("lombok-" + lombok.getFileName() + "-" + lombokFirst));
         List<String> javac =
             List.of(
@@ -215,6 +218,37 @@ class Jdk8ProcessorTest {
         assertTrue(failed.contains("1 error"), what + ": " + failed);
       }
     }
+  }
+
+  /**
+   * #367: the context verifier runs in a JDK 8 javac. It accepts an ordinary page (the first test
+   * renders one) and rejects a value the profile lets through but a browser runs as script: JSON
+   * in an SVG {@code <script>}, which is no HTML script. The error names the hole's position.
+   */
+  @Test
+  void theVerifierRunsInAJdk8Javac() throws Exception {
+    Path jdk = jdk8();
+    Path runtime = codeSource(Escapers.class);
+    Path templates = dir.resolve("templates");
+    Path src = dir.resolve("src/app/Placeholder.java");
+    write(src, "package app; class Placeholder {}");
+    Path out = Files.createDirectories(dir.resolve("verifier-classes"));
+    List<String> javac =
+        List.of(
+            jdk.resolve("bin/javac").toString(), "-encoding", "UTF-8", "-d", out.toString(),
+            "-classpath", runtime.toString(), "-processorpath", processor() + File.pathSeparator + runtime,
+            "-Atessera.templates=" + templates, src.toString());
+    write(templates.resolve("ok.html"),
+        "<div xmlns:t=\"https://tessera.dev\" t:params=\"String s\"><p t:title=\"${s}\">[[${s}]]</p>"
+            + "<script>var s = [[${s}]];</script></div>");
+    String compiled = run(javac);
+    assertTrue(Files.exists(out.resolve("tessera/generated/OkTemplate.class")), compiled);
+
+    write(templates.resolve("bad.html"),
+        "<div xmlns:t=\"https://tessera.dev\" t:params=\"String s\">\n<svg><script>var s = [[${s}]];</script></svg></div>");
+    String failed = runFailing(javac);
+    assertTrue(failed.contains("bad.html:2:26: error: a browser reads this value (json escaper) inside SVG <script>"), failed);
+    assertTrue(failed.contains("[verifier:JSON_NOT_IN_SCRIPT]"), failed);
   }
 
   /**

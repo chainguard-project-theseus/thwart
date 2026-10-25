@@ -126,7 +126,8 @@ class CspNonceTest {
   @ParameterizedTest
   @ValueSource(
       strings = {
-        "<svg><script>var s = [[${s}]];</script><style>circle { fill: red }</style></svg>",
+        // A value in an SVG <script> is a verifier error (#367), so this one is static.
+        "<svg><script>var s = 1;</script><style>circle { fill: red }</style></svg>",
         "<svg><foreignObject><script>x();</script></foreignObject></svg>",
         "<math><mi><style>p{}</style></mi></math>",
         "<svg><g t:insert=\"~{frag :: boot}\">x</g></svg>",

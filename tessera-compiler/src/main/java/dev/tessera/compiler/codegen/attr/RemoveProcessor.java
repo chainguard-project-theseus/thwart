@@ -42,9 +42,7 @@ public final class RemoveProcessor implements AttributeProcessor {
                   "t:remove=\"tag\" is not allowed on <" + tag + ">: it is <svg> or <math> or inside one, and"
                       + " without the tag a browser would parse its content as HTML, not as SVG or MathML (or the"
                       + " reverse); keep the tag, or use t:remove=\"all\" to drop the element");
-          break;
-        }
-        if (HtmlParser.isRawText(tag)) {
+        } else if (HtmlParser.isRawText(tag)) {
           // Without its tags the raw text would be parsed as HTML, with holes escaped for the
           // wrong context: <title t:remove="tag"><script>[[s]]</script></title> runs s.
           ctx.diagnostics()
@@ -53,8 +51,9 @@ public final class RemoveProcessor implements AttributeProcessor {
                   "t:remove=\"tag\" is not allowed on <" + tag + ">: its content is text only inside <" + tag
                       + ">, and without the tags a browser would parse it as HTML; keep the tag, or use"
                       + " t:remove=\"all\" to drop the element");
-          break;
         }
+        // Also after an error: nothing is written then, and the skeleton keeps what the template
+        // asks for, for the verifier's own check (#367).
         plan.omitTag();
         break;
       case "all-but-first":
