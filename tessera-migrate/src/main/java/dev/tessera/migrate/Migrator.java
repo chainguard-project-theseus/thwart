@@ -91,6 +91,17 @@ final class Migrator {
     }
   }
 
+  /** An open element: its lower-case name and whether {@code th:inline="none"} governs its body. */
+  private static final class Open {
+    private final String name;
+    private final boolean noInline;
+
+    Open(String name, boolean noInline) {
+      this.name = name;
+      this.noInline = noInline;
+    }
+  }
+
   private static final class Handler extends AbstractMarkupHandler {
     private final String file;
     private final char[] doc;
@@ -109,6 +120,14 @@ final class Migrator {
     private String scriptType;
     /** True between the start and end tag of a JavaScript or JSON {@code <script>}. */
     private boolean inScript;
+    /** The {@code th:inline} value (stripped, lower case) of that element, or {@code null}. */
+    private String inlineMode;
+    /**
+     * Open elements, innermost first. An approximation of the HTML tree: attoparser (no balancing)
+     * reports no implied end tags, so a close tag pops to the innermost element of its name and a
+     * stray close tag pops nothing; a misread can only cost a missed rewrite or report.
+     */
+    private final Deque<Open> open = new ArrayDeque<>();
 
     Handler(String file, char[] doc) {
       this.file = file;
@@ -128,7 +147,10 @@ final class Migrator {
 
     @Override
     public void handleOpenElementEnd(char[] buffer, int nameOffset, int nameLen, int line, int col) {
-      inScript = ConversionRules.SCRIPT.equals(openName) && scriptType != null
+      // The nearest th:inline wins; Thymeleaf leaves [[...]] alone in a th:inline="none" body.
+      boolean none = inlineMode == null ? noInline() : inlineMode.equals(ConversionRules.INLINE_NONE);
+      open.push(new Open(openName, none));
+      inScript = !none && ConversionRules.SCRIPT.equals(openName) && scriptType != null
           && ConversionRules.SCRIPT_TYPES.contains(Compat.strip(scriptType).toLowerCase(Locale.ROOT));
     }
 
@@ -136,6 +158,22 @@ final class Migrator {
     public void handleCloseElementStart(char[] buffer, int nameOffset, int nameLen, int line, int col) {
       inScript = false;
       renameElement(buffer, nameOffset, nameLen);
+      closeElement(new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT));
+    }
+
+    private void closeElement(String name) {
+      for (Open o : open) {
+        if (o.name.equals(name)) {
+          while (open.pop() != o) {
+            // implicitly closed children
+          }
+          return;
+        }
+      }
+    }
+
+    private boolean noInline() {
+      return !open.isEmpty() && open.peek().noInline;
     }
 
     @Override
@@ -148,6 +186,7 @@ final class Migrator {
       checkBuffer(buffer);
       openName = new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT);
       scriptType = "";
+      inlineMode = null;
       inScript = false;
       inRoot = !rootSeen;
       if (!rootSeen) {
@@ -191,6 +230,9 @@ final class Migrator {
             || lower.equals(ConversionRules.TESSERA_PREFIX + ConversionRules.TYPE)) {
           scriptType = null;
         }
+      }
+      if (lower.equals(ConversionRules.THYMELEAF_INLINE) && value != null) {
+        inlineMode = Compat.strip(value).toLowerCase(Locale.ROOT);
       }
 
       if (lower.equals(ConversionRules.THYMELEAF_XMLNS)) {
@@ -359,6 +401,9 @@ final class Migrator {
     @Override
     public void handleText(char[] buffer, int offset, int len, int line, int col) {
       checkBuffer(buffer);
+      if (noInline()) {
+        return; // literal text in Thymeleaf: no rewrite and no roots
+      }
       String text = new String(buffer, offset, len);
       if (inScript) {
         quotedInlines(text, offset, line);
@@ -379,8 +424,11 @@ final class Migrator {
      * A {@code "..."} or {@code '...'} literal that is exactly one inline loses its quotes; any other
      * inline in a literal is reported, including {@code `[[...]]`} (the backticks may follow a tag,
      * {@code String.raw`...`}, which dropping them would break). The scan tracks strings, template
-     * literal {@code ${...}} and comments, not regular expression literals; the compiler is the safety
-     * net, so a misread only misses or adds a report, and dropping the quotes can't make it unsafe.
+     * literal {@code ${...}} and comments, not regular expression literals, with the compiler's rules
+     * (#281): an unterminated {@code '}/{@code "} string ends at {@code \n} or {@code \r}, not at
+     * U+2028/U+2029 (ES2019), and {@code \} followed by CRLF is a line continuation. The compiler is
+     * the safety net, so a misread only misses or adds a report, and dropping the quotes can't make
+     * it unsafe.
      */
     private void quotedInlines(String text, int offset, int line) {
       int state = CODE;
@@ -391,7 +439,7 @@ final class Migrator {
       for (int i = 0; i < text.length(); i++) {
         char c = text.charAt(i);
         if (text.startsWith("[[", i)) {
-          int end = text.indexOf("]]", i + 2);
+          int end = Expressions.inlineEnd(text, i + 2, "]]");
           if (end < 0) {
             return;
           }
@@ -449,7 +497,10 @@ final class Migrator {
             quoteAt = -1;
             if (c == '\\') {
               i++;
-            } else if (c == quote || (lineEnd && quote != '`')) {
+              if (text.startsWith("\r\n", i)) {
+                i++; // "\" + CRLF is one line continuation
+              }
+            } else if (c == quote || ((c == '\n' || c == '\r') && quote != '`')) {
               state = CODE;
             } else if (quote == '`' && text.startsWith("${", i)) {
               templates.push(braces);
@@ -484,7 +535,7 @@ final class Migrator {
     private void inline(String text, int line, String open, String close) {
       int at = text.indexOf(open);
       while (at >= 0) {
-        int end = text.indexOf(close, at + open.length());
+        int end = Expressions.inlineEnd(text, at + open.length(), close);
         if (end < 0) {
           return;
         }

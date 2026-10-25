@@ -386,9 +386,10 @@ class MigratorTest {
         "<div t:with=\"a=1\" t:params=\"Object user\"><script>var a = [[${user.name}]]; var b = [[${user.id}]];</script></div>",
         convert(src));
     assertMessages(src,
-        "1: `\"[[${user.name}]]\"` in a script " + UNQUOTED
-            + " (a string renders the same; any other value renders as JSON, such as `42`, `true` or `{...}`,"
-            + " instead of a quoted string)",
+        "1: `\"[[${user.name}]]\"` in a script " + UNQUOTED + "; a string renders the same, but a non-string"
+            + " value now renders as JSON (`42`, `true`, `null`, an array or object), not a quoted string: check"
+            + " `== \"true\"`, `.length` and string concatenation on it (`[[|${x}|]]` keeps a string for a"
+            + " non-null value)",
         "1: `'[[${user.id}]]'` in a script " + UNQUOTED,
         "1: `user` is declared as `Object` in the generated `t:params` stub");
   }
@@ -475,7 +476,8 @@ class MigratorTest {
         "// \"[[${x}]]\"\nvar a = 1;",
         "/* \"[[${x}]]\" */ var a = 1;",
         "/*/ \"[[${x}]]\" */",
-        "var a = /*[[${x}]]*/ 'd';",
+        // TODO(#315): /*[[${x}]]*/ 'd' (a JavaScript natural template) is rewritten or reported there.
+        "var a = \"x\u2028\"; var b = [[${x}]];",
         "var a = `${[[${x}]]}`;",
         "var a = `${ {b: \"}\"} }` + [[${x}]];",
         "var a = \"done\"; var b = [[${x}]]; var c = 'it\\'s';",
@@ -496,6 +498,67 @@ class MigratorTest {
     String dynamic = script(" th:type=\"${y}\"", "\"[[${x}]]\"");
     assertEquals(script(" t:type=\"y\"", "\"[[${x}]]\""), convert(dynamic));
     assertEquals(List.of(), messages(dynamic));
+  }
+
+  @Test
+  void thInlineNoneLeavesScriptsAlone() throws Exception {
+    // th:inline="none" is Thymeleaf's way to leave [[ alone: no rewrite, no roots, only the th:inline item.
+    for (String attributes : List.of(" th:inline=\"none\"", " TH:INLINE=\" None \"", " th:inline='none'")) {
+      String src = "<script" + attributes + ">var d = [\"[[\", \"]]\"]; var s = \"[[${x}]]\";</script>";
+      assertEquals(src, convert(src), attributes);
+      assertMessages(src, "1: `th:inline` is not supported");
+    }
+    // Only "none" turns inlining off; th:inline="text" still processes [[...]].
+    String text = script(" th:inline=\"text\"", "var a = \"[[${x}]]\";");
+    assertEquals(script(" th:inline=\"text\"", "var a = [[${x}]];"), convert(text));
+    assertMessages(text, "1: `th:inline` is not supported", "1: `\"[[${x}]]\"` in a script " + UNQUOTED);
+  }
+
+  @Test
+  void thInlineNoneOnAnAncestorAppliesUntilOverridden() throws Exception {
+    String ancestor = "<div th:inline=\"none\" t:params=\"String x\"><p>[[${y}]]</p>"
+        + "<script>var s = \"[[${x}]]\";</script></div>";
+    assertEquals(ancestor, convert(ancestor));
+    assertMessages(ancestor, "1: `th:inline` is not supported");
+    // The nearest th:inline wins.
+    String nested = "<div th:inline=\"none\" t:params=\"String x\"><script th:inline=\"javascript\">"
+        + "var a = \"[[${x}]]\";</script><script>var b = \"[[${x}]]\";</script></div>";
+    assertEquals(nested.replace("var a = \"[[${x}]]\"", "var a = [[${x}]]"), convert(nested));
+    assertMessages(nested, "1: `th:inline` is not supported", "1: `th:inline` is not supported",
+        "1: `\"[[${x}]]\"` in a script " + UNQUOTED);
+    // A close tag ends unclosed children; a stray close tag ends nothing.
+    String closes = "<body t:params=\"String x\"><div th:inline=\"none\"><p>a<p>b</div></b>"
+        + "<script>var s = \"[[${x}]]\";</script></body>";
+    assertEquals(closes.replace("\"[[${x}]]\"", "[[${x}]]"), convert(closes));
+    assertMessages(closes, "1: `th:inline` is not supported", "1: `\"[[${x}]]\"` in a script " + UNQUOTED);
+  }
+
+  @Test
+  void lineTerminatorsInsideStringsFollowEs2019() throws Exception {
+    // U+2028 and U+2029 don't end a string, and "\" + CRLF is a line continuation.
+    for (String body : List.of("var a = \"x\u2028 [[${x}]]\";", "var a = \"x\u2029 [[${x}]]\";",
+        "var a = \"line \\\r\n[[${x}]]\";", "var a = \"line \\\n[[${x}]]\";", "var a = \"line \\\r[[${x}]]\";")) {
+      String src = script("", body);
+      assertEquals(src, convert(src), body);
+      assertMessages(src, (body.contains("\n") ? "2" : "1") + ": `[[${x}]]` " + IN_STRING);
+    }
+    // A bare line break still ends an unterminated string.
+    String bare = script("", "var a = \"x\n[[${x}]]\";");
+    assertEquals(bare, convert(bare));
+    assertEquals(List.of(), messages(bare));
+  }
+
+  @Test
+  void quotesInsideTheInlineExpressionDoNotEndIt() throws Exception {
+    // A '...' string in the expression may hold "]]"; the end is found the way the compiler finds it.
+    String whole = "<div t:params=\"Object m\"><script>var k = \"[[${m['k]]']}]]\";</script></div>";
+    assertEquals("<div t:params=\"Object m\"><script>var k = [[${m['k]]']}]];</script></div>", convert(whole));
+    assertMessages(whole, "1: `\"[[${m['k]]']}]]\"` in a script " + UNQUOTED);
+    String part = "<div t:params=\"Object m\"><script>var r = \"a [[${m['k]]']}]]\";</script></div>";
+    assertEquals(part, convert(part));
+    assertMessages(part, "1: `[[${m['k]]']}]]` " + IN_STRING + "; rewrite as `\"text \" + [[${m['k]]']}]] + \" text\"`");
+    String roots = "<div><script>var k = \"[[${m['k]]']}]]\";</script></div>";
+    assertEquals("<div t:params=\"Object m\"><script>var k = [[${m['k]]']}]];</script></div>", convert(roots));
   }
 
   @Test

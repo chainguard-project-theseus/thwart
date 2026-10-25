@@ -325,8 +325,8 @@ browser) and saves the pages; `compare` fetches them from the new app and report
 `tessera-migrate <in> <out> [--report r.md]` (attoparser, source-preserving): `th:` → `t:`,
 `xmlns:th` → `xmlns:t`, drop redundant `${}`, `#lists.isEmpty(x)` → `x.isEmpty()`,
 `#strings.`/`#numbers.`/`#temporals.` → namespace calls, `th:fragment="f(a,b)"` → `f(Object a, Object b)`
-plus a report item to type it, `"[[${x}]]"`/`'[[${x}]]'` in a JavaScript or JSON `<script>` → `[[${x}]]`
-plus a report item (other `[[...]]` inside a JavaScript string or template literal: reported, #282), `__${x}__`, `T(...)`, `th:inline`, `th:style`, `th:on*`, `layout:*`,
+plus a report item to type it, `"[[${x}]]"`/`'[[${x}]]'` in a JavaScript or JSON `<script>` (not under `th:inline="none"`) →
+`[[${x}]]` plus a report item naming the non-string value change (other `[[...]]` inside a JavaScript string or template literal: reported, #282), `__${x}__`, `T(...)`, `th:inline`, `th:style`, `th:on*`, `layout:*`,
 `sec:*`, unknown dialects and selection/projection → left in place and reported with file:line.
 It inserts a `t:params` stub listing every root variable it saw, with `Object` types and a report
 item each. Exit code 0 even with report items (the report is the audit).

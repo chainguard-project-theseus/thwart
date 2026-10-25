@@ -32,7 +32,7 @@ final class ConversionRules {
    * attribute names; {@code th:on*} is handled by {@link #unsupportedAttribute}.
    */
   private static final Map<String, String> UNSUPPORTED_ATTRIBUTES = Compat.mapOf(
-      "th:inline", "`th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or move data to `data-*` attributes",
+      ConversionRules.THYMELEAF_INLINE, "`th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or move data to `data-*` attributes",
       "th:style", "`th:style` is not converted; rewrite it as `t:style` from literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (guide section 4.4), otherwise use `t:classappend` or a `t:data-*` attribute",
       "th:styleappend", "`th:styleappend` is not supported; merge it into one `t:style` from literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (guide section 4.4), otherwise use `t:classappend`",
       "th:include", "`th:include` is not supported; use `t:insert` or `t:replace` (check the host-element semantics)",
@@ -205,12 +205,19 @@ final class ConversionRules {
   static final Set<String> SCRIPT_TYPES = Compat.setOf("", "text/javascript", "application/javascript",
       "text/ecmascript", "application/ecmascript", "module", "application/json", "application/ld+json");
 
+  /** Thymeleaf's inlining switch; {@code th:inline="none"} leaves {@code [[...]]} in its body alone. */
+  static final String THYMELEAF_INLINE = "th:inline";
+  static final String INLINE_NONE = "none";
+
   static final String SCRIPT = "script";
   static final String TYPE = "type";
 
   /** {@code %s} is the literal as a Markdown code span. */
   static final String SCRIPT_INLINE_UNQUOTED_MESSAGE =
-      "%s in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes (a string renders the same; any other value renders as JSON, such as `42`, `true` or `{...}`, instead of a quoted string)";
+      "%s in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes; a string renders"
+          + " the same, but a non-string value now renders as JSON (`42`, `true`, `null`, an array or object), not a"
+          + " quoted string: check `== \"true\"`, `.length` and string concatenation on it (`[[|${x}|]]` keeps a"
+          + " string for a non-null value)";
   /** {@code %s} is the template literal as a Markdown code span. */
   static final String SCRIPT_INLINE_TEMPLATE_LITERAL_MESSAGE =
       "%s in a script is a template literal, and `[[...]]` inside it is a build error in Tessera (it writes a JSON value with its own quotes); drop the backticks, or for a tagged template keep them and write ``tag`${[[...]]}` ``";

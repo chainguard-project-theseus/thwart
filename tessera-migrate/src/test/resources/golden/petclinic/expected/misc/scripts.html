@@ -13,6 +13,9 @@
     var path = String.raw`[[${page.path}]]`;
     var label = 'Page ' + [[${page.number}]];
   </script>
+  <script th:inline="none">
+    var d = ["[[", "]]"]; var s = "[[${page.number}]]";
+  </script>
   <script type="module">import { start } from "/app.js"; start([[${page.title}]]);</script>
   <script type="application/json" id="data">{"user": [[${user.name}]], "page": [[${page.number}]]}</script>
   <script type="text/x-template" id="row"><td>"[[${user.name}]]"</td></script>

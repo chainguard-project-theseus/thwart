@@ -1,6 +1,6 @@
 # tessera-migrate report
 
-Converted 8 template(s); 37 item(s) need manual attention.
+Converted 8 template(s); 38 item(s) need manual attention.
 
 ## fragments/inputField.html
 
@@ -19,15 +19,16 @@ Converted 8 template(s); 37 item(s) need manual attention.
 
 - `misc/scripts.html:2`: `user` is declared as `Object` in the generated `t:params` stub; replace it with its view type
 - `misc/scripts.html:2`: `page` is declared as `Object` in the generated `t:params` stub; replace it with its view type
-- `misc/scripts.html:5`: `"[[${user.name}]]"` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes (a string renders the same; any other value renders as JSON, such as `42`, `true` or `{...}`, instead of a quoted string)
-- `misc/scripts.html:6`: `'[[${user.id}]]'` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes (a string renders the same; any other value renders as JSON, such as `42`, `true` or `{...}`, instead of a quoted string)
+- `misc/scripts.html:5`: `"[[${user.name}]]"` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes; a string renders the same, but a non-string value now renders as JSON (`42`, `true`, `null`, an array or object), not a quoted string: check `== "true"`, `.length` and string concatenation on it (`[[|${x}|]]` keeps a string for a non-null value)
+- `misc/scripts.html:6`: `'[[${user.id}]]'` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes; a string renders the same, but a non-string value now renders as JSON (`42`, `true`, `null`, an array or object), not a quoted string: check `== "true"`, `.length` and string concatenation on it (`[[|${x}|]]` keeps a string for a non-null value)
 - `misc/scripts.html:7`: `[[${user.name}]]` inside a quoted JavaScript string is a build error in Tessera (it writes a JSON value with its own quotes); rewrite as `"text " + [[${user.name}]] + " text"`
 - `misc/scripts.html:11`: `th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or move data to `data-*` attributes
 - `misc/scripts.html:12`: `` `[[${page.title}]]` `` in a script is a template literal, and `[[...]]` inside it is a build error in Tessera (it writes a JSON value with its own quotes); drop the backticks, or for a tagged template keep them and write ``tag`${[[...]]}` ``
 - `misc/scripts.html:13`: `` `[[${page.path}]]` `` in a script is a template literal, and `[[...]]` inside it is a build error in Tessera (it writes a JSON value with its own quotes); drop the backticks, or for a tagged template keep them and write ``tag`${[[...]]}` ``
-- `misc/scripts.html:14`: `"[[${page.number}]]"` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes (a string renders the same; any other value renders as JSON, such as `42`, `true` or `{...}`, instead of a quoted string)
-- `misc/scripts.html:16`: `"[[${page.title}]]"` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes (a string renders the same; any other value renders as JSON, such as `42`, `true` or `{...}`, instead of a quoted string)
-- `misc/scripts.html:17`: `"[[${user.name}]]"` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes (a string renders the same; any other value renders as JSON, such as `42`, `true` or `{...}`, instead of a quoted string)
+- `misc/scripts.html:14`: `"[[${page.number}]]"` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes; a string renders the same, but a non-string value now renders as JSON (`42`, `true`, `null`, an array or object), not a quoted string: check `== "true"`, `.length` and string concatenation on it (`[[|${x}|]]` keeps a string for a non-null value)
+- `misc/scripts.html:16`: `th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or move data to `data-*` attributes
+- `misc/scripts.html:19`: `"[[${page.title}]]"` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes; a string renders the same, but a non-string value now renders as JSON (`42`, `true`, `null`, an array or object), not a quoted string: check `== "true"`, `.length` and string concatenation on it (`[[|${x}|]]` keeps a string for a non-null value)
+- `misc/scripts.html:20`: `"[[${user.name}]]"` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes; a string renders the same, but a non-string value now renders as JSON (`42`, `true`, `null`, an array or object), not a quoted string: check `== "true"`, `.length` and string concatenation on it (`[[|${x}|]]` keeps a string for a non-null value)
 
 ## misc/unsupported.html
 
