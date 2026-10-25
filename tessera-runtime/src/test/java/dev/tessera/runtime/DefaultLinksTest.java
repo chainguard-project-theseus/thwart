@@ -23,6 +23,31 @@ class DefaultLinksTest {
     return values;
   }
 
+  /** #358: a context path ending in '/' must not turn /a into the protocol-relative //a. */
+  @Test
+  void trailingSlashInContextPathIsDropped() {
+    assertEquals("/a", new DefaultLinks("/").build("/a", n(), v()));
+    assertEquals("/a", new DefaultLinks("//").build("/a", n(), v()));
+    assertEquals("/a?q=1", new DefaultLinks("/").build("/a", n("q"), v(1)));
+    assertEquals("/x/a", new DefaultLinks("/").build("/{p}/a", n("p"), v("x")));
+    assertEquals("/app/a", new DefaultLinks("/app/").build("/a", n(), v()));
+    assertEquals("/app/a?q=1", new DefaultLinks("/app//").build("/a", n("q"), v(1)));
+    assertEquals("/app/", new DefaultLinks("/app/").build("/", n(), v()));
+  }
+
+  /** Negative (#358): a context path that is not a plain single-slash path is rejected. */
+  @Test
+  void contextPathThatIsNotAPlainPathIsRejected() {
+    for (String bad :
+        new String[] {
+          "//evil.example", "//evil.example/", "/\\evil.example", "\\evil.example", "app", " /app", "/a pp",
+          "/app\t", "/app?x", "/app#x", "https://evil.example", "/\u007f"
+        }) {
+      assertThrows(IllegalArgumentException.class, () -> new DefaultLinks(bad), bad);
+    }
+    assertThrows(IllegalArgumentException.class, () -> new DefaultLinks(null));
+  }
+
   @Test
   void contextPathPrependedToContextRelativePaths() {
     assertEquals("/app/owners", app.build("/owners", n(), v()));
