@@ -852,6 +852,15 @@ parameters**, never the caller's variables.
   tag `name` (`~{::dl}`), rendered with the call site's variables. Put it inside the host so it
   does not also render in place. Other selectors (`#id`, `.class`) are not supported.
 - A `null` `Fragment` renders nothing, so a `Fragment` parameter can be optional.
+- A fragment goes only where a browser parses markup the way it does where the fragment is
+  declared: in HTML content, or inside `<svg>`, `<math>` or `<select>`. Inside `<svg>`, `<title>`
+  and `<textarea>` hold markup and `<![CDATA[` is text, so an HTML fragment could run a value as
+  script there. For `<svg t:insert>`, declare the icon inside an `<svg>` in its template
+  (`<svg><g t:fragment="check">...</g></svg>`), or make it a whole `<svg t:fragment="check">`,
+  which fits in HTML and `<svg>` content. `Fragment` values (`~{::tag}` arguments, `Fragment`
+  parameters) are HTML content, and so are `t:utext` and `[(...)]` values. No fragment fits inside a
+  raw-text element such as `<title>`, `<textarea>` or `<noscript>` (the raw-text error in section 6):
+  use `t:text`.
 - A parameterized fragment is skipped when its template renders as a page; one without parameters
   renders in place. Fragments may call themselves.
 
@@ -1507,6 +1516,10 @@ These come from the annotation processor itself, without a template position.
   `</noscript>` and end the element early. `t:replace` on the element itself is allowed, as it
   replaces the whole element: `<noscript t:replace="~{fragments :: gtm}"></noscript>`.
 - `[(...)] is only allowed in element text; inside <script> use [[...]], which outputs JSON`.
+- `<form> with a SafeHtml value or HTML message is only allowed in HTML content, not in <context> content, where a browser parses its markup differently: write the markup in the template, or move the <form> into HTML content`:
+  `t:utext` and `[(...)]` inside `<svg>`, `<math>` or `<select>` (contexts as in the fragment
+  messages below; inside raw text, the raw-text error above applies). Inside `<svg>`, a `<p>` in the value
+  ends the `<svg>`, and a `<title>` holds HTML, where a `<script>` runs.
 - `[[...]] is inside a client-side {{ ... }} interpolation: Vue or AngularJS would run the value as code, whatever the escaping. Pass the value in a data-* attribute or a <script> with [[...]] and read it from there`
   (also `[(...)]`): the text has a `{{` with no `}}` before the expression. Character references
   for braces count, as the framework decodes them.
@@ -1668,6 +1681,31 @@ These come from the annotation processor itself, without a template position.
   select a sibling (`~{::body}` from `<html>` works because `<html>` is the caller).
 - `~{::<name>} selects an element inside this element's t:object, but t:insert/t:replace runs before t:object, so the selection would render without it: move t:object to an enclosing element`.
 - `~{::<name>} and the selections inside it include each other, so rendering would never end: no selected element may pass ~{::...} of an element that selects it`.
+- `fragment '<template> :: <name>' is declared in <context> content but <t:insert> puts it in <context> content, where a browser parses its markup differently: insert it in <context> content, or declare the fragment inside <element> in its template`
+  (`or declare the fragment outside <element>` when it is put in HTML content). A context is
+  `HTML`, `<svg>`, `<math>`, `<annotation-xml>`, `<select>` or a raw-text element such as
+  `<noscript>`; SVG `foreignObject`, `desc` and `title`, MathML `mi mo mn ms mtext` and
+  `<annotation-xml encoding="text/html">` hold HTML. Contexts follow the tags as written, so a
+  fragment inside `<svg t:replace>` is declared in `<svg>` content. `<svg t:replace>` puts the
+  fragment where the `<svg>` is, `<svg t:insert>` inside it. A whole `<svg t:fragment>` fits in
+  `<svg>` content too. Nothing fits in a
+  `mixed <svg>/<math> (one holding an HTML element such as <p>)`, where the message ends
+  `no fragment fits in mixed content: move the HTML element out of the <svg> or <math> or into a <foreignObject>, or write the <annotation-xml> encoding as a static attribute`.
+  - A fragment declared in raw text fits nowhere: the message ends `declare the fragment outside <noscript>`.
+    Inside raw text itself, only the raw-text error above is reported.
+  - Under `t:remove="tag"` on an element whose tag changes the context (such as `<select>`; on
+    `<svg>`, `<math>` and raw-text elements it is an error of its own), the context is `t:remove="tag" (on an element whose tag changes how its content is parsed)`
+    and the message ends `no fragment fits there: drop the t:remove="tag"`.
+  - In `<select>` content, an HTML fragment fits only without `<title>`, `<style>`, `<svg>`,
+    `<math>`, `t:insert`, `t:replace`, `t:utext` and `[(...)]`: `insert it in HTML content, or keep <title>, <style>, <svg>, <math>, t:insert, t:replace, t:utext and [(...)] out of the fragment, since some browsers ignore those tags in a <select> and parse their content as markup`.
+- `fragment ~{...} is in or holds an <svg> or <math> with an HTML element such as <p> in it, where a browser leaves foreign content early, so it fits nowhere: move the HTML element out of the <svg> or <math>, or into a <foreignObject>`.
+  An `<annotation-xml>` whose `encoding` is computed (`t:encoding`, `t:attr`), and MathML
+  `mglyph` and `malignmark`, and a `<noscript>`, `<iframe>`, `<xmp>`, `<noembed>` or `<noframes>` inside
+  `<svg>` or `<math>`, count the same way.
+- `fragment ~{...} is in or is an element with t:remove="tag" whose tag changes how its content is parsed, so it is compiled for one context and rendered in another and fits nowhere: drop the t:remove="tag", or move the fragment out of that element`.
+- `<t:insert> with a Fragment value is only allowed in HTML content, not in <context> content, where a browser parses the fragment's markup differently: insert a ~{template :: name} declared inside <context>`
+  (under `t:remove="tag"` and in mixed content, the message ends as above).
+- `fragment argument ~{...} is declared in <context> content, but a Fragment value is inserted in HTML content, where a browser parses its markup differently: pass a fragment or element declared outside <context>`.
 
 ## 7. Known limitations
 
