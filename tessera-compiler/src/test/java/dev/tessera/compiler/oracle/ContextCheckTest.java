@@ -24,34 +24,7 @@ import org.w3c.dom.Document;
 import org.xml.sax.InputSource;
 
 class ContextCheckTest {
-
-  /**
-   * Stand-in for #318's {@code vnu-1.4} parser so this PR and #318 merge in either order.
-   * TODO(#318): replace with SpecParsers (both engines) once it is on main.
-   */
-  private static final SpecParser VNU_14 =
-      new SpecParser() {
-        @Override
-        public String name() {
-          return "vnu-1.4";
-        }
-
-        @Override
-        public Document parse(String html, boolean scripting) {
-          try {
-            HtmlDocumentBuilder builder = new HtmlDocumentBuilder(XmlViolationPolicy.ALLOW);
-            builder.setScriptingEnabled(scripting);
-            builder.setIgnoringComments(false);
-            // Names such as :title aren't valid in a namespace-aware DOM; the parser escapes them.
-            builder.setNamePolicy(XmlViolationPolicy.ALTER_INFOSET);
-            return builder.parse(new InputSource(new StringReader(html)));
-          } catch (Exception e) {
-            throw new IllegalStateException(e);
-          }
-        }
-      };
-
-  private static final List<SpecParser> PARSERS = List.of(VNU_14);
+  private static final List<SpecParser> PARSERS = List.of(SpecParsers.named(SpecParsers.VNU_14));
 
   private static final String FP = Fingerprint.value(1);
 
