@@ -298,7 +298,7 @@ class XssContextTest {
     // inside a template literal is code.
     String out = render("`;alert(1);/*${x}*/");
     assertTrue(
-        out.contains("var t = `${\"\\u0060;alert(1);\\/*\\u0024{x}*\\/\"}`;"),
+        out.contains("var t = `${\"\\u0060;alert(1);\\/*\\u0024\\u007bx}*\\/\"}`;"),
         out);
   }
 

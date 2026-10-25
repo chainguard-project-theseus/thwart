@@ -543,7 +543,14 @@ not it shows a mount point, since the app is often mounted from JavaScript or in
 same applies to `SafeHtml.escape`, `html.sanitize` (which also percent-encodes `{` in the links it
 keeps) and the arguments of an HTML message. An expression inside a static `{{ ... }}` in the
 template is a build error, since the framework would run the value as code: pass it in a
-`data-*` attribute or a `<script>` with `[[...]]`. Attribute values and `<title>`/`<textarea>` text are not changed (section 7).
+`data-*` attribute or a `<script>` with `[[...]]`. A static `{{` with no `}}` after it in the
+same element is a build error too, since a value written after it, here or where a template
+inserts the element as a fragment, would be inside it: write a literal `{{` as `{<!---->{`. The `}}`
+may be in a child element (`<p>{{ <b>x</b> }}</p>`), but `<b>{{</b> }}` is an error; a `}}` that
+may not render where the `{{` does, such as one inside `t:if`, does not close it. A `<script>` with `[[...]]` stays a safe place for a
+value: its JSON writes `{` in a string as `\u007b`, so petite-vue, which interpolates script text,
+never sees `{{` there (Vue and AngularJS do not interpolate script text). A value after a `{{` with
+no `}}` between them in the same script is a build error. Attribute values and `<title>`/`<textarea>` text are not changed (section 7).
 
 In a script, a record or `@TemplateView` bean becomes a JSON object of the properties a template
 can read, as Thymeleaf's Jackson output does: `var chart = [[${chart}]];` works unchanged. Record
@@ -1110,8 +1117,8 @@ leaving a particular one. Read the part for your engine before converting.
     `[[...]]` and read it from there.
 
   Never `SafeHtml.unchecked`.
-- **Scripts.** `[[...]]` in a `<script>` writes JSON with, among others, `/`, `&`, `<` and `'`
-  escaped as `\/`, `\u0026`, `\u003c` and `\u0027`. The JavaScript value is the same, so a
+- **Scripts.** `[[...]]` in a `<script>` writes JSON with, among others, `/`, `&`, `<`, `'` and `{`
+  escaped as `\/`, `\u0026`, `\u003c`, `\u0027` and `\u007b`. The JavaScript value is the same, so a
   difference that compare shows there against a page that printed the value raw or HTML-escaped is
   expected (an `&amp;` inside an old `<script>` was a bug: the string contained `&amp;`). Remove
   the quotes a default-mode page put around an inline: `var a = "[[${x}]]";` becomes
@@ -1784,8 +1791,17 @@ These come from the annotation processor itself, without a template position.
 /x/.test(s)` becomes `(/x/).test(s)`; `{} / 2` becomes `({}) / 2`; `i++ / 2`
   becomes `(i++) / 2`.
 - `[[...]] is inside a client-side {{ ... }} interpolation: Vue or AngularJS would run the value as code, whatever the escaping. Pass the value in a data-* attribute or a <script> with [[...]] and read it from there`
-  (also `[(...)]`): the text has a `{{` with no `}}` before the expression. Character references
-  for braces count, as the framework decodes them.
+  (also `[(...)]`): the text has a `{{` with no `}}` before the expression, in element text,
+  `<title>`, `<textarea>` or a `<script>`. Character references for braces count outside scripts,
+  as the framework decodes them.
+- `a client-side {{ is never closed inside <p>: Vue or AngularJS would run a value written after it as code, also where the element is inserted as a fragment. Close it with }} inside the same element, or write a literal {{ as {<!---->{`:
+  element text, `<title>` or `<textarea>` has a static `{{` with no `}}` after it in the same
+  element (`<p>{{</p>`, `<p><b>{{</b> }}</p>`, `<t:block t:fragment="f">{{</t:block>}}`), since a
+  fragment or a selector inserts the element without what follows it. Character references for
+  braces count. A `}}` inside an element that may not render where the `{{` does (`t:if`, `t:unless`, `t:each`, `t:switch`, `t:case`,
+  `t:field`, `t:remove` other than `"tag"` and `"none"`) does not close it, and the body of an element
+  that `t:text`, `t:utext`, `t:insert`, `t:replace`, `t:errors` or `t:remove="all"`/`"body"` replaces or
+  drops is not read, except for the elements in it, which a template can still insert.
 - `[[...]] directly inside <tr> is not supported: a browser moves the text in front of the table but leaves the comments that break {{ in the value inside it, so Vue or AngularJS could run the value as code; put the value in a <td>, <th> or <caption>`
   (also `[(...)]`, `t:text`, `t:utext` and `t:errors`, and `<table>`, `<tbody>`, `<thead>`, `<tfoot>`
   and `<colgroup>`): a value directly in a table, also through `<t:block>` or `t:remove="tag"`.
@@ -2038,6 +2054,8 @@ Gaps in Tessera today, each with what to do until it is fixed.
   broken, so keep the default `{{ }}` or mark the region. The check for an expression inside a
   static `{{ }}` only sees one text: a `{{` before a tag or comment and an expression after it
   are not reported. `SafeHtml.unchecked` text is not changed.
+  are not reported when a `}}` follows later in the template (#336). `SafeHtml.unchecked` text is not changed, and neither is SVG `<title>` text,
+  which the frameworks interpolate too: add `v-pre`/`ng-non-bindable` there as well.
 - **Security functions.** `auth` has `hasRole`/`hasAnyRole`, not `hasAuthority`; compute anything
   else in the controller.
 - **Selections.** `~{::tag}` selects fragment names and plain tag names only: not hyphenated tags,
