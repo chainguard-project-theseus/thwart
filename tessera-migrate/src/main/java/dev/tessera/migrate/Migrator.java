@@ -128,6 +128,8 @@ final class Migrator {
      * stray close tag pops nothing; a misread can only cost a missed rewrite or report.
      */
     private final Deque<Open> open = new ArrayDeque<>();
+    /** The end of the previous attribute's quoted value in this tag, or -1. */
+    private int quotedValueEnd = -1;
 
     Handler(String file, char[] doc) {
       this.file = file;
@@ -188,6 +190,7 @@ final class Migrator {
       scriptType = "";
       inlineMode = null;
       inScript = false;
+      quotedValueEnd = -1;
       inRoot = !rootSeen;
       if (!rootSeen) {
         rootSeen = true;
@@ -234,6 +237,10 @@ final class Migrator {
       if (lower.equals(ConversionRules.THYMELEAF_INLINE) && value != null) {
         inlineMode = Compat.strip(value).toLowerCase(Locale.ROOT);
       }
+      if (quotedValueEnd == nameOffset) {
+        report(nameLine, String.format(ConversionRules.ATTRIBUTE_SPACE_MESSAGE, name));
+      }
+      quotedValueEnd = quoted ? valueOuterOffset + valueOuterLen : -1;
 
       if (lower.equals(ConversionRules.THYMELEAF_XMLNS)) {
         edits.add(new Edit(nameOffset, nameLen, ConversionRules.TESSERA_XMLNS));

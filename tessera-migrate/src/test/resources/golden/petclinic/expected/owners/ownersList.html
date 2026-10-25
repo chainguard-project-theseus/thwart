@@ -3,7 +3,7 @@
 <html xmlns:t="https://tessera.dev"
   t:replace="~{fragments/layout :: layout(~{::body},'owners')}" t:params="Object listOwners, Object totalPages, Object currentPage">
 
-<body>
+<body t:remove="tag">
 
   <h2>Owners</h2>
 

@@ -131,9 +131,6 @@ public final class Main {
       try {
         String source = Compat.readString(template);
         Migrator.Result result = Migrator.migrate(name, source);
-        Path target = outDir.resolve(rel);
-        Files.createDirectories(target.getParent());
-        Compat.writeString(target, result.output());
         report.addTemplate(result.items());
         converted.put(name, result.output());
       } catch (ParseException e) {
@@ -144,7 +141,19 @@ public final class Main {
         failed = true;
       }
     }
-    report.addItems(RichTextCheck.check(converted));
+    Layouts.Result layouts = Layouts.rewrite(converted);
+    report.addItems(layouts.items());
+    for (Map.Entry<String, String> e : layouts.templates().entrySet()) {
+      Path target = outDir.resolve(e.getKey());
+      try {
+        Files.createDirectories(target.getParent());
+        Compat.writeString(target, e.getValue());
+      } catch (IOException ex) {
+        err.println(e.getKey() + ": error: " + ex.getMessage());
+        failed = true;
+      }
+    }
+    report.addItems(RichTextCheck.check(layouts.templates()));
 
     String markdown = report.toMarkdown();
     if (reportFile == null) {

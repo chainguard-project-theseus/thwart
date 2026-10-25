@@ -1,0 +1,18 @@
+<html xmlns:t="https://tessera.dev" t:import="kg.attractor.jobsearch.dto.*"
+      t:params="List<GroupsDto> groups, UserDto authorizedUser"
+      t:replace="~{fragments/layout :: layout(~{::head}, ~{::body})}">
+<head t:remove="tag">
+<link rel="stylesheet" href="/static/css/groups.css">
+</head>
+<body t:remove="tag">
+    <body>
+    <t:block t:replace="~{fragments/navbar :: navbar(authorizedUser)}"></t:block>
+    <div class="page-header">
+        <h1>[[#{groups.title}]]</h1>
+    </div>
+    <ul>
+        <li t:each="group : groups" t:text="group.name">Group</li>
+    </ul>
+    </body>
+</body>
+</html>

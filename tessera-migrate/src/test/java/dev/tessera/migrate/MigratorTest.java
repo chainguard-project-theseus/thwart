@@ -54,6 +54,14 @@ class MigratorTest {
   // ---- attribute and element names ----
 
   @Test
+  void reportsAMissingSpaceBetweenAttributes() throws Exception {
+    assertMessages("<a href=\"/a\"class=\"x\" title='t'id=\"i\" data-x=y lang=\"en\">a</a>\n",
+        "1: no space before attribute `class`", "1: no space before attribute `id`");
+    assertMessages("<a href=\"/a\" class=\"x\">a</a><b title=\"t\"\n>b</b>\n");
+  }
+
+
+  @Test
   void renamesNamespaceAttributesAndBlocks() throws Exception {
     assertEquals(
         "<html xmlns:t=\"https://tessera.dev\"><t:block t:if=\"ok\">x</t:block><t:block t:insert=\"f\"/></html>",
