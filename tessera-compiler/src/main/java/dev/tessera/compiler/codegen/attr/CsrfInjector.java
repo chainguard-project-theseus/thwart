@@ -139,6 +139,31 @@ public final class CsrfInjector {
     }
   }
 
+  /**
+   * Checks the static {@code href} of a {@code <base>} (#350): every relative URL on the page
+   * resolves against it, so a cross-origin base would send a form with a relative action, CSRF token
+   * included, to another site. It must be same-origin by shape, like a static {@code action}. This
+   * is checked on every {@code <base>}, whether or not the template has a form: a layout's
+   * {@code <base>} applies to forms that fragments from other templates insert. A computed one must
+   * be a same-origin link ({@code GenericAttrProcessor}). Every {@code href} is checked, since a
+   * browser uses the first and the plan keeps the last.
+   */
+  public static void checkBase(CodegenContext ctx, Element element) {
+    for (Attribute a : element.attributes()) {
+      if (!a.isTessera() && a.name().equalsIgnoreCase("href") && !isSameOriginStatic(a.value())) {
+        ctx.diagnostics()
+            .error(a.pos(), a.name() + "=\"" + a.value() + "\" on <base> is not allowed: " + BASE_MOVES_URLS
+                + ", and this URL is not same-origin; use a same-origin path such as /app/, or remove <base>"
+                + " and write absolute URLs where another origin is meant");
+      }
+    }
+  }
+
+  /** Starts the reason for the {@code <base href>} errors. */
+  static final String BASE_MOVES_URLS =
+      "every relative URL on the page resolves against <base href>, so a POST form with a relative action would"
+          + " send the CSRF token there";
+
   /** Starts the reason for the formaction errors. */
   static final String IN_TOKEN_FORM =
       "this button may submit a POST form that gets the CSRF token, which then goes to the button's formaction";
