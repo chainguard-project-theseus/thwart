@@ -7,7 +7,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
@@ -121,6 +123,7 @@ public final class Main {
     }
 
     Report report = new Report();
+    Map<String, String> converted = new LinkedHashMap<>();
     boolean failed = false;
     for (Path template : templates) {
       Path rel = in.relativize(template);
@@ -132,6 +135,7 @@ public final class Main {
         Files.createDirectories(target.getParent());
         Compat.writeString(target, result.output());
         report.addTemplate(result.items());
+        converted.put(name, result.output());
       } catch (ParseException e) {
         err.println(name + ":" + e.getLine() + ":" + e.getCol() + ": error: " + e.getMessage());
         failed = true;
@@ -140,6 +144,7 @@ public final class Main {
         failed = true;
       }
     }
+    report.addItems(RichTextCheck.check(converted));
 
     String markdown = report.toMarkdown();
     if (reportFile == null) {
