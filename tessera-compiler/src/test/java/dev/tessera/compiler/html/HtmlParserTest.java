@@ -260,6 +260,74 @@ class HtmlParserTest {
     assertEquals(List.of(), errors("<svg><title/></svg><textarea/>"));
   }
 
+  private static String inSelect(String pos, String tag) {
+    return "dir/t.html:" + pos + ": error: <" + tag + "> inside <select> is not supported: browsers with the classic"
+        + " select parser ignore most tags there and parse their content as markup; move the <" + tag + "> out of"
+        + " the <select> (a <select> holds only <option>, <optgroup>, <hr> and <t:block>)";
+  }
+
+  /**
+   * {@code first}, then the errors for a {@code <![CDATA[><script>[[...} at column {@code col} of
+   * line 1: its '>' and its hole.
+   */
+  private static List<String> withCdata(int col, String... first) {
+    List<String> all = new ArrayList<>(List.of(first));
+    all.addAll(List.of(
+        "dir/t.html:1:" + (col + 9) + ": error: malformed markup: '>' inside a CDATA section is not supported, even in"
+            + " <svg> and <math>: elsewhere a browser ends it at the first '>'; write the text without <![CDATA[,"
+            + " with '>' as &gt;",
+        "dir/t.html:1:" + (col + 18) + ": error: malformed markup: [[...]] and [(...)] are not supported inside a"
+            + " CDATA section: outside <svg> and <math> a browser reads the section as a comment, and inside them it"
+            + " shows &lt; as written; write the text without <![CDATA["));
+    return all;
+  }
+
+  @Test
+  void selectHoldsOnlyOptionsAndOptgroups() {
+    // Firefox 140 ignores other start tags in a select: the <script> in the title runs, and the
+    // hole after the select lands in the <script> that the ignored <style> hid from Tessera.
+    assertEquals(List.of(inSelect("1:9", "title")), errors("<select><title><script>[[${x}]]</script></title></select>"));
+    assertEquals(List.of(inSelect("2:10", "style")),
+        errors("<SELECT>\n<option>a<STYLE><script></STYLE></option></SELECT>[[${x}]]"));
+    // By name, whatever the namespace: the classic select parser ignores <svg> and <math> too.
+    assertEquals(List.of(inSelect("1:17", "svg"), inSelect("1:22", "title"), foreignMarkup(29, "title")),
+        errors("<select><option><svg><title><script>[[${x}]]</script></title></svg></option></select>"));
+    // The CDATA '>' and hole are also errors on their own (in every browser the section ends early).
+    assertEquals(withCdata(34, inSelect("1:29", "svg")),
+        errors("<select><optgroup label=\"g\"><svg><![CDATA[><script>[[${x}]]</script>]]></svg></optgroup></select>"));
+    assertEquals(withCdata(22, inSelect("1:9", "math"), inSelect("1:15", "mtext")),
+        errors("<select><math><mtext><![CDATA[><script>[[${x}]]</script>]]></mtext></math></select>"));
+    for (String tag : List.of("svg", "math", "button", "div", "noscript", "xmp")) {
+      assertEquals(withCdata(9 + tag.length() + 2, inSelect("1:9", tag)),
+          errors("<select><" + tag + "><![CDATA[><script>[[${x}]]</script>]]></" + tag + "></select>"));
+    }
+    // Start tags that close the select or run in every browser, and nested selects, are rejected too.
+    assertEquals(
+        List.of(inSelect("1:9", "input"), inSelect("1:16", "textarea"), inSelect("1:38", "script"),
+            inSelect("1:58", "template"), inSelect("1:68", "title")),
+        errors("<select><input><textarea>t</textarea><script>f()</script><template><title>t</title></template></select>"));
+    assertEquals(List.of(inSelect("1:17", "select")), errors("<select><option><select></select></option></select>"));
+    // t:remove on the select does not exempt its content.
+    assertEquals(List.of(inSelect("1:24", "title")), errors("<select t:remove=\"tag\"><title>t</title></select>"));
+    // A browser ignores the '/' and keeps the select open.
+    assertEquals(
+        withCdata(20, "dir/t.html:1:6: error: <select/> is not self-closing in HTML: the browser treats everything"
+            + " after it as select; write <select ...></select>"),
+        errors("<div><select/><svg><![CDATA[><script>[[${x}]]</script>]]></svg></div>"));
+    // What a select may hold: options, groups, separators, t:block, text, comments and holes.
+    assertEquals(
+        List.of(),
+        errors("<select><option>a</option><optgroup label=\"g\"><option>b</option></optgroup><hr>"
+            + "<t:block t:each=\"o : ${os}\"><option t:text=\"${o}\">o</option></t:block><!-- c --> [[${x}]] </select>"
+            + "<SELECT><OPTION>a<HR></OPTION></SELECT>"));
+    // Elements around a select, or a select in a template's content, are not inside it.
+    assertEquals(
+        List.of(),
+        errors("<template><select><option>a</option></select></template><select></select>"
+            + "<title>[[${x}]]</title><style>p{}</style><svg><title>t</title></svg>"
+            + "<table><title>[[${x}]]</title><style>p{}</style><tr><td><select></select></td></tr></table>"));
+  }
+
   @Test
   void markupABrowserEndsAtItsFirstGreaterThanIsAnError() {
     // Outside svg and math a browser reads <![CDATA[ as a bogus comment ending at the first '>',

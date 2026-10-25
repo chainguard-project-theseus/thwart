@@ -495,7 +495,22 @@ class XssContextTest {
           "<svg><g t:utext=\"html.sanitize(s)\"></g></svg>",
           "<svg>[(#html.sanitize(s))]</svg>",
           "<select><option t:utext=\"html.sanitize(s)\"></option></select>",
-          "<option t:fragment=\"o(String v)\" t:utext=\"html.sanitize(v)\"></option><select t:insert=\"~{:: o(s)}\"></select>");
+          "<option t:fragment=\"o(String v)\" t:utext=\"html.sanitize(v)\"></option><select t:insert=\"~{:: o(s)}\"></select>",
+          "<select><title><script>[[s]]</script></title></select>",
+          "<select><option><style><script></style></option></select>[[s]]",
+          "<select/><title><script>[[s]]</script></title>",
+          "<select><input t:if=\"s != null\"><title><script>[[s]]</script></title></select>",
+          "<select><option><svg><title><script>[[s]]</script></title></svg></option></select>",
+          "<select><svg><![CDATA[><script>[[s]]</script>]]></svg></select>",
+          "<select><option><svg><![CDATA[><script>[[s]]</script>]]></svg></option></select>",
+          "<select><optgroup><svg><![CDATA[><script>[[s]]</script>]]></svg></optgroup></select>",
+          "<select><math><![CDATA[><script>[[s]]</script>]]></math></select>",
+          "<select><math><mtext><![CDATA[><script>[[s]]</script>]]></mtext></math></select>",
+          "<select><button><![CDATA[><script>[[s]]</script>]]></button></select>",
+          "<select><div><![CDATA[><script>[[s]]</script>]]></div></select>",
+          "<select><noscript><![CDATA[><script>[[s]]</script>]]></noscript></select>",
+          "<select><xmp><![CDATA[><script>[[s]]</script>]]></xmp></select>",
+          "<select/><svg><![CDATA[><script>[[s]]</script>]]></svg>");
 
   /** The built-in {@code html.sanitize} turns stored rich text into SafeHtml for raw output. */
   @Test

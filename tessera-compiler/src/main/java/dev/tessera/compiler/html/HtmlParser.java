@@ -43,11 +43,19 @@ import java.util.regex.Pattern;
  *
  * <p>Build errors (reported, then parsing continues): unclosed or mismatched non-void elements,
  * duplicate attributes on one element, malformed markup (including markup a browser would end
- * earlier than the tokenizer does).
+ * earlier than the tokenizer does), any start tag inside a {@code <select>} other than
+ * {@code <option>}, {@code <optgroup>}, {@code <hr>} and {@code <t:block>}.
  */
 public final class HtmlParser {
 
   private static final Set<String> RAW_TEXT_ELEMENTS = Backports.setOf("script", "style", "textarea", "title");
+  /**
+   * The start tags allowed anywhere inside a select. Browsers with the classic "in select"
+   * insertion mode (Firefox 140) ignore most other start tags there, svg and math included, and
+   * parse their content as markup: a {@code <script>} in a {@code <title>}, {@code <style>} or
+   * svg CDATA runs. The {@code <t:block>} tag is never rendered.
+   */
+  static final Set<String> SELECT_CONTENT = Backports.setOf("option", "optgroup", "hr", "t:block");
   private static final Pattern ELEMENT_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_.:-]*");
   private static final Map<String, String> NAMED_REFERENCES = new HashMap<>();
 
@@ -454,6 +462,13 @@ public final class HtmlParser {
     return comment.indexOf("--!>", 4);
   }
 
+  /** The error for a start tag, lower-cased, that is not in {@link #SELECT_CONTENT} inside a select. */
+  static String notInSelect(String lower) {
+    return "<" + lower + "> inside <select> is not supported: browsers with the classic select parser ignore"
+        + " most tags there and parse their content as markup; move the <" + lower + "> out of the <select>"
+        + " (a <select> holds only <option>, <optgroup>, <hr> and <t:block>)";
+  }
+
   /** An element whose end tag has not been seen yet. */
   private static final class Open {
     final String name;
@@ -642,6 +657,20 @@ public final class HtmlParser {
         diagnostics.error(tag.pos, "malformed markup: invalid element name '" + name
             + "': element names start with a letter and use letters, digits, '-', '_', ':' and '.'");
       }
+      // By name only: a classic select parser keeps svg and math there as HTML.
+      String lower = name.toLowerCase(Locale.ROOT);
+      if (!SELECT_CONTENT.contains(lower) && inSelect()) {
+        diagnostics.error(tag.pos, notInSelect(lower));
+      }
+    }
+
+    private boolean inSelect() {
+      for (Open o : stack) {
+        if (o.name.equalsIgnoreCase("select")) {
+          return true;
+        }
+      }
+      return false;
     }
 
     @Override
@@ -674,10 +703,10 @@ public final class HtmlParser {
         return;
       }
       String lower = tag.name.toLowerCase(Locale.ROOT);
-      if (minimized && (lower.equals("script") || lower.equals("style"))) {
+      if (minimized && (lower.equals("script") || lower.equals("style") || lower.equals("select"))) {
         // A browser treats <script/> as an open tag, so the template text after it would run as
-        // script (or style) while Tessera escaped it for TEXT. <textarea/>, <title/> and the other
-        // raw text elements are checked where Tessera writes them (TemplateGenerator).
+        // script (or style, or select content) while Tessera escaped it for TEXT. <textarea/>, <title/>
+        // and the other raw text elements are checked where Tessera writes them (TemplateGenerator).
         diagnostics.error(tag.pos, "<" + lower + "/> is not self-closing in HTML: the browser treats everything"
             + " after it as " + lower + "; write <" + lower + " ...></" + lower + ">");
       }
