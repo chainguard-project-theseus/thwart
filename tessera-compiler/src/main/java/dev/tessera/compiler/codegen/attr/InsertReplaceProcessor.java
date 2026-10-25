@@ -104,7 +104,8 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
                 "fragment '" + call.name + "' is declared in " + ParsingContexts.describe(origin) + " content but "
                     + attr.name() + " puts it in " + ParsingContexts.describe(point)
                     + " content, where a browser parses its markup differently: " + fix);
-        return null;
+        // The call is still emitted: nothing is written on error, and the skeleton keeps it for the
+        // verifier's own check (#367).
       }
       return call == null ? null : Emitted.wrap("{\n" + pre, call.emit(ref.pos(), ctx.insertionContext()).then("\n"), "}");
     }
@@ -389,6 +390,10 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
         fragmentArgs.put(param.name(), new Skeleton.Seq(skeleton));
       }
       return local;
+    }
+    if (wantsFragment && arg.value() instanceof Expr.Literal && ((Expr.Literal) arg.value()).value() == null) {
+      // null: the callee writes nothing for it (#367 checks the callee with that).
+      fragmentArgs.put(param.name(), Skeleton.Seq.empty());
     }
     if (wantsFragment && arg.value() instanceof Expr.Var) {
       // A Fragment parameter of the caller passed on: bound to whatever the caller's caller bound.
