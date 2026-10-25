@@ -23,14 +23,14 @@ every gap.
 
 | Column | Meaning |
 |---|---|
-| **Status** | `main`: enforced on `main` (6d92149). `#N`: enforced in open PR #N, not yet on `main`. `phase N (#M)`: not implemented; issue #M owns it, in that phase of security-architecture.md §8. `not enforced`: no check and no issue. `partial`: the row says which part is on `main` |
-| **Checked by** | Unit tests on `main`, plus the oracle: seed IDs `A0`-`A62` and `B0`-`B11` from the #320 seed corpus (#347), and axis values of the template generator (#343). The oracle checks are #344 (tree invariant, open), #341 (script slots, merged) and #342 (context check, merged). Their unit tests run in `mvn verify`; the oracle runs over the seeds and generated cases only once the gate (#324) lands |
+| **Status** | `main`: enforced on `main` (f135112). `#N`: enforced in open PR #N, not yet on `main`. `phase N (#M)`: not implemented; issue #M owns it, in that phase of security-architecture.md §8. `not enforced`: no check and no issue. `partial`: the row says which part is on `main` |
+| **Checked by** | Unit tests on `main`, plus the oracle: seed IDs `A0`-`A62` and `B0`-`B11` from the #320 seed corpus (#347), and axis values of the template generator (#343). The oracle checks are #344 (tree invariant, merged), #341 (script slots, merged) and #342 (context check, merged). Their unit tests run in `mvn verify`; the oracle runs over the seeds and generated cases only once the gate (#324) lands |
 | **Proof** | `Lean`: a predicate in the Lean model of T1 (tcnghia/harder#16, not upstream). `JML`: an OpenJML contract in `docs/rule-contracts.md` on tcnghia/harder#18 (the rule functions on `main` 99e35c5), or on a fork branch where the row names one (not upstream). `Esc`: an escaper postcondition proved on tcnghia/harder#11 (not upstream). `not yet` means no proof states the row |
 
 The JML contracts on tcnghia/harder#18 are stated over the rule functions on `main`. Some proofs
 rewrote a function without changing its behaviour (`indexOf` to a loop, for example). Where the
 name on `main` differs, the row gives both. The tag-end, namespace and `select` contracts are on
-fork branches `proof-b-tse`, `proof-b-301` and `proof-b-305`, stacked on #353, #301 and #305.
+fork branches `proof-b-tse`, `proof-b-301` and `proof-b-305`, stacked on #353 (merged), #301 and #305.
 
 The Lean model is token-level. It proves that a WHATWG tokenizer, with the tree builder's
 tokenizer switches, reads `render(T, M)` as the tokens the compiler assigned. It does not model
@@ -81,10 +81,10 @@ their tests.
 | Start tag separators | ASCII whitespace (TAB, LF, FF, CR, SPACE) | U+000B, U+001C-U+001F and other Java-only whitespace in a tag (#338) | main (#297) | `XssContextTest.REJECTED`; generator interference "U+000B/U+001F/U+2028/U+3000 in a tag" | Lean `TagAttrsOK` (assumes ASCII separators); JML `tagEnd` (fork branch `proof-b-tse`) |
 | Quotes in tags | `"` or `'` only as the delimiters of a quoted value | a quote in a name, in an unquoted value, or right after a quoted value | main (#297) | seed `A13`; `HtmlParserTest`, `XssContextTest` | JML `tagEnd` (fork branch `proof-b-tse`); Lean `SrcTagOK` |
 | Attribute names | names without `=`, `<` or quotes | `=`, `<` or a quote in a name | main | `HtmlParserTest` | Lean `validSrcAttrName` |
-| Unquoted values | `[A-Za-z0-9_.:/#-]`, not ending in `/` before `>` | other characters | partial: `/` before `>` and quotes on main (#297); a value starting with `=` in #353 (open); the character class is phase 2 (#327) | generator interference `<textarea x=y/>` | Lean `SrcValue.ok` (weaker: any non-space, non-quote, non-`>`) |
+| Unquoted values | `[A-Za-z0-9_.:/#-]`, not ending in `/` before `>` | other characters | partial: `/` before `>` and quotes on main (#297); a value starting with `=` on main (#353); the character class is phase 2 (#327) | generator interference `<textarea x=y/>` | Lean `SrcValue.ok` (weaker: any non-space, non-quote, non-`>`) |
 | Attribute values: `&` | only as a complete character reference | an incomplete `&name` (decision 13) | phase 2 (#327) | generator interference `&amp` | not yet (a decoding rule; the token-level proof doesn't need it) |
 | Duplicate attributes | one attribute per name | two attributes with the same lowercased name (`toLowerCase(Locale.ROOT)` on main; ASCII in the target) | main | `HtmlParserTest` | Lean `TagAttrsOK` (`Nodup`) |
-| `/>` | on void HTML elements and foreign elements | on non-void HTML elements, except where Tessera writes the end tag (`<textarea t:field/>`) | partial: `script`, `style`, `title`, `textarea`, `xmp`, `iframe`, `noembed`, `noframes`, `noscript` on main (#298); `<div/>` and other non-void elements phase 2 (#327); anything but `>` after `/` in #353 (open) | seeds `A11`, `A12`; `BrowserRawTextTest` | Lean `NodeOK` (`selfClosing = false` on non-void); `t:field` case not modeled |
+| `/>` | on void HTML elements and foreign elements | on non-void HTML elements, except where Tessera writes the end tag (`<textarea t:field/>`) | partial: `script`, `style`, `title`, `textarea`, `xmp`, `iframe`, `noembed`, `noframes`, `noscript` on main (#298); `<div/>` and other non-void elements phase 2 (#327); anything but `>` after `/` on main (#353) | seeds `A11`, `A12`; `BrowserRawTextTest` | Lean `NodeOK` (`selfClosing = false` on non-void); `t:field` case not modeled |
 | End tag | `</name>` matching the open element | stray or mismatched end tags; `</` + non-letter | main (#296) | `HtmlParserTest`; generator interference `</ x>` | Lean slice 2 `run_endTag`; JML §3 `bogusComment` |
 | Comment | `<!--` text `-->`; text does not start with `>` or `->` and has no `--!>`, `<!--` or `-->` | early-ending comments | partial: `<!-->`, `<!--->`, `--!>` on main (#295); a nested `<!--` check is fork-only hardening (tcnghia/harder#17), not a browser difference (G10) | seed `A14`; `HtmlParserTest`, `XssContextTest` | JML §2 `earlyCommentEnd`; Lean `CommentTessera` |
 | Conditional comments | as written in petclinic (`<!--[if ...]>...<![endif]-->`) | | main | #296 corpus scan | Lean `CommentTessera` |
@@ -137,7 +137,7 @@ has no namespaces. #301 adds namespaces; #328 adds the modes and the element all
 | `select` takes only `option`, `optgroup`, `hr`, `t:block` and text | #305 | seed `A31`; `<select>` wrapper axis | JML `selectContent` (fork branch `proof-b-305`); Lean `NodeOK .select` |
 | No nested `optgroup` inside `select` (decision 3) | phase 2 (#328) | none yet | Lean `NoOptgroup` |
 | No nested `<form>` | phase 2 (#328) | none yet | not modeled (tree level) |
-| Tables are allowed; foster parenting moves text, not its context | main (no check); #351 (open) rejects computed text directly in `table`, `tbody`, `thead`, `tfoot`, `tr`, `colgroup` | seed `A24`; `table`, `table>tbody>tr` container values | not modeled (tree level, G1) |
+| Tables are allowed; foster parenting moves text, not its context | main (#351): computed text directly in `table`, `tbody`, `thead`, `tfoot`, `tr`, `colgroup` is an error, table parts must sit directly in the part that takes them, and `form` may not sit directly in a table part | seed `A24`; `ClientTemplateInjectionTest`, `XssContextTest`; `table`, `table>tbody>tr` container values | not modeled (tree level, G1) |
 | `template` holds flow content under the body profile; `col`, `colgroup`, `caption`, `tbody`, `thead`, `tfoot`, `tr`, `td`, `th` as direct children are errors (decision 5) | phase 2 (#328); on main `template` content is not checked | seeds `A61`, `B8`; `template` wrapper axis | not yet (Lean leaves `template` out) |
 
 ## 4. Scripts: the data-prelude rule (§5.4)
