@@ -1,0 +1,48 @@
+package dev.tessera.compiler.verify;
+
+/**
+ * What the context verifier rejects (#367). The names are stable rule ids: each error message
+ * carries one ({@link VerifierMessages}), and #368 maps them to fix-its. Add new kinds at the end;
+ * never rename one.
+ */
+public enum Problem {
+  /** A text or RCDATA hole where the tokenizer isn't in data, RCDATA or never-executed raw text. */
+  TEXT_NOT_IN_TEXT,
+  /** A text or RCDATA hole in script data, style raw text, or an SVG/MathML {@code script}/{@code style}. */
+  TEXT_IN_SCRIPT,
+  /** A text hole in a table mode: the parser foster-parents the value (or holds it back) out of the table. */
+  TEXT_IN_TABLE,
+  /** A text hole where only head content, whitespace or nothing may appear (before or in head, after body). */
+  TEXT_OUTSIDE_BODY,
+  /** A text hole where inserting a character would first reconstruct misnested formatting elements. */
+  TEXT_RECONSTRUCTS,
+  /**
+   * An RCDATA hole (escaped for {@code <title>}/{@code <textarea>}, without the comments that break
+   * double braces) that a browser reads as ordinary text, where client frameworks look for them.
+   */
+  RCDATA_NOT_IN_RCDATA,
+  /** An attribute hole that isn't in a double-quoted attribute value. */
+  ATTRIBUTE_NOT_IN_VALUE,
+  /** An attribute hole in a value of a different attribute than the compiler wrote (or a dropped duplicate). */
+  ATTRIBUTE_WRONG_NAME,
+  /** An attribute hole whose value decides how the rest parses ({@code input type} in a table, MathML {@code encoding}). */
+  ATTRIBUTE_VALUE_CHANGES_PARSE,
+  /** A JSON hole outside the script data of an HTML {@code <script>}. */
+  JSON_NOT_IN_SCRIPT,
+  /** A {@code SafeHtml}, {@code Fragment} value or HTML message outside flow content. */
+  RAW_NOT_FLOW,
+  /** A {@code <frameset>} start tag: whether it applies depends on the text before it. */
+  FRAMESET,
+  /** Three or more identical formatting elements, one with a computed attribute (the Noah's Ark clause). */
+  NOAHS_ARK,
+  /** A loop whose parser states don't reach a fixed point. */
+  LOOP_NO_FIXED_POINT,
+  /** A fragment that recurses into states that don't reach a fixed point, or reach a bad state only through recursion. */
+  STRUCTURE_DEPENDS_ON_DATA,
+  /** More distinct parser states at a join than the verifier tracks. */
+  TOO_MANY_STATES,
+  /** A parser engine failed. */
+  ENGINE_FAILURE,
+  /** A skeleton node the verifier can't interpret (an unknown fragment). */
+  UNKNOWN_NODE
+}

@@ -84,8 +84,8 @@ public final class TextInlining {
                             + " '<!--'; write a space after '<'"
                         : form + " may not follow '" + markup + "' directly: the browser would read the value as"
                             + " markup; write &lt; for a literal '<'");
-            i = end + 2;
-            continue;
+            // Still emitted: nothing is written on error, and the skeleton keeps the hole for the
+            // verifier's own check (#367).
           }
           code.add(inline(ctx, text.context(), parsing, rawText, raw.substring(i + 2, end), pos, escaped, scope));
           i = end + 2;

@@ -1,0 +1,342 @@
+# The context verifier's verdict on each oracle seed (#367), checked by SeedVerifierTest.
+# Derived by running the verifier on the skeletons main writes for the seeds, with the profile's
+# diagnostics suppressed (Compilation.Builder#verifierOnly), and reconciled seed by seed with the
+# research prototype's run on 0dda2f1 (~/tessera-handoff/tv/seeds-0dda.tsv, memo §5.1).
+#
+# name  family  expect  [rules] [@classic]  [# note]
+#   family   AB: a parser-differential or composition seed live on 0dda2f1 (plus pr305-4 and
+#            306-A29, which the value oracle missed). C, D, E: script position, client frameworks,
+#            URL policy (not markup contexts). OVER: over-escaping in raw text. -: clean or rejected
+#            on 0dda2f1.
+#   expect   VERIFIER: the verifier alone rejects it, with each rule listed; @classic: only the
+#            classic engine (htmlparser-1.4.16) rejects it, where browsers differ.
+#            ACCEPT: the verifier accepts what main writes for it.
+#            PROFILE: main's profile rejects it before there is anything to verify (the note says
+#            why); the build fails.
+306-A0          -    ACCEPT
+306-A1          -    ACCEPT
+306-A2          C    ACCEPT
+306-A3          AB   VERIFIER JSON_NOT_IN_SCRIPT
+306-A4          AB   VERIFIER JSON_NOT_IN_SCRIPT
+306-A5          AB   VERIFIER TEXT_IN_SCRIPT
+306-A6          AB   VERIFIER TEXT_IN_SCRIPT
+306-A7          AB   ACCEPT  # fixed on main: text escaper in SVG <title> (#301)
+306-A8          AB   VERIFIER TEXT_IN_SCRIPT
+306-A9          AB   VERIFIER TEXT_IN_SCRIPT
+306-A10         AB   VERIFIER ATTRIBUTE_NOT_IN_VALUE TEXT_IN_SCRIPT
+306-A11         AB   VERIFIER TEXT_IN_SCRIPT
+306-A12         AB   VERIFIER TEXT_IN_SCRIPT
+306-A13         AB   PROFILE  # no tree: malformed markup: quote " in an unquoted attribute value: quote the value and write &quot; in it
+306-A14         AB   VERIFIER TEXT_IN_SCRIPT
+306-A15         AB   VERIFIER TEXT_NOT_IN_TEXT
+306-A16         AB   VERIFIER TEXT_IN_SCRIPT
+306-A17         AB   VERIFIER JSON_NOT_IN_SCRIPT
+306-A18         D    ACCEPT
+306-A19         -    VERIFIER TEXT_IN_SCRIPT
+306-A20         -    ACCEPT
+306-A21         -    ACCEPT
+306-A22         -    ACCEPT
+306-A23         -    ACCEPT
+306-A24         AB   VERIFIER TEXT_IN_SCRIPT
+306-A25         -    VERIFIER TEXT_IN_SCRIPT
+306-A26         -    VERIFIER TEXT_IN_SCRIPT @classic
+306-A27         AB   VERIFIER TEXT_IN_SCRIPT
+306-A28         AB   VERIFIER TEXT_IN_SCRIPT
+306-A29         AB   VERIFIER FRAMESET TEXT_IN_SCRIPT TEXT_OUTSIDE_BODY
+306-A30         AB   VERIFIER TEXT_IN_SCRIPT
+306-A31         AB   VERIFIER TEXT_IN_SCRIPT @classic
+306-A32         C    ACCEPT
+306-A33         C    ACCEPT
+306-A34         -    ACCEPT
+306-A35         C    ACCEPT
+306-A36         -    VERIFIER JSON_NOT_IN_SCRIPT
+306-A37         -    ACCEPT
+306-A38         -    ACCEPT
+306-A39         -    ACCEPT
+306-A40         -    ACCEPT
+306-A41         -    ACCEPT
+306-A42         -    ACCEPT
+306-A43         -    ACCEPT
+306-A44         -    ACCEPT
+306-A45         -    ACCEPT
+306-A46         -    ACCEPT
+306-A47         -    ACCEPT
+306-A48         AB   ACCEPT  # fixed on main: text escaper in SVG <title> (#301)
+306-A49         -    ACCEPT
+306-A50         -    ACCEPT
+306-A51         C    ACCEPT
+306-A52         C    ACCEPT
+306-A53         -    ACCEPT
+306-A54         AB   ACCEPT  # fixed on main: text escaper in SVG <title> (#301)
+306-A55         -    VERIFIER JSON_NOT_IN_SCRIPT
+306-A56         -    VERIFIER JSON_NOT_IN_SCRIPT
+306-A57         -    VERIFIER JSON_NOT_IN_SCRIPT
+306-A58         AB   VERIFIER JSON_NOT_IN_SCRIPT
+306-A59         OVER ACCEPT
+306-A60         OVER ACCEPT
+306-A61         -    ACCEPT
+306-A62         -    VERIFIER TEXT_NOT_IN_TEXT
+306-B0          AB   VERIFIER JSON_NOT_IN_SCRIPT
+306-B1          E    ACCEPT
+306-B2          E    ACCEPT
+306-B3          -    ACCEPT
+306-B4          -    ACCEPT
+306-B5          -    ACCEPT
+306-B6          -    ACCEPT
+306-B7          -    VERIFIER JSON_NOT_IN_SCRIPT
+306-B8          AB   VERIFIER TEXT_IN_SCRIPT
+306-B9          AB   VERIFIER TEXT_IN_SCRIPT
+306-B10         AB   VERIFIER JSON_NOT_IN_SCRIPT
+306-B11         -    VERIFIER JSON_NOT_IN_SCRIPT
+pr295-1         -    ACCEPT
+pr295-2         AB   VERIFIER TEXT_IN_SCRIPT
+pr295-3         AB   VERIFIER TEXT_IN_SCRIPT
+pr296-1         AB   VERIFIER TEXT_IN_SCRIPT
+pr296-2         AB   VERIFIER TEXT_NOT_IN_TEXT
+pr296-3         AB   VERIFIER TEXT_IN_SCRIPT
+pr296-4         AB   VERIFIER TEXT_IN_SCRIPT
+pr296-5         AB   VERIFIER TEXT_IN_SCRIPT
+pr296-6         AB   VERIFIER TEXT_IN_SCRIPT
+pr296-7         AB   VERIFIER TEXT_IN_SCRIPT
+pr296-8         AB   VERIFIER TEXT_IN_SCRIPT
+pr296-9         AB   VERIFIER TEXT_IN_SCRIPT
+pr296-10        AB   VERIFIER TEXT_IN_SCRIPT
+pr296-11        AB   VERIFIER TEXT_IN_SCRIPT
+pr299-1         AB   VERIFIER TEXT_NOT_IN_TEXT
+pr299-2         AB   VERIFIER TEXT_NOT_IN_TEXT
+pr299-3         -    VERIFIER TEXT_NOT_IN_TEXT
+pr299-4         -    VERIFIER TEXT_NOT_IN_TEXT
+pr299-5         -    VERIFIER TEXT_NOT_IN_TEXT
+pr299-6         -    VERIFIER JSON_NOT_IN_SCRIPT
+pr289-1         AB   VERIFIER TEXT_IN_SCRIPT
+pr289-2         AB   VERIFIER TEXT_IN_SCRIPT
+pr289-3         AB   VERIFIER TEXT_IN_SCRIPT
+pr289-4         AB   VERIFIER TEXT_IN_SCRIPT
+pr289-5         AB   VERIFIER TEXT_IN_SCRIPT
+pr289-6         AB   VERIFIER TEXT_NOT_IN_TEXT
+pr289-7         AB   VERIFIER RAW_NOT_FLOW
+pr289-8         AB   VERIFIER RAW_NOT_FLOW
+pr289-9         AB   VERIFIER RAW_NOT_FLOW
+pr289-10        AB   VERIFIER RAW_NOT_FLOW
+pr290-1         C    ACCEPT
+pr290-2         C    ACCEPT
+pr290-3         C    ACCEPT
+pr290-4         C    ACCEPT
+pr290-5         -    ACCEPT
+pr297-1         -    ACCEPT
+pr297-2         -    ACCEPT
+pr298-1         AB   VERIFIER TEXT_IN_SCRIPT
+pr298-2         AB   VERIFIER TEXT_IN_SCRIPT
+pr298-3         AB   VERIFIER TEXT_IN_SCRIPT
+pr298-4         -    ACCEPT
+pr298-5         AB   VERIFIER RAW_NOT_FLOW
+pr300-1         AB   VERIFIER TEXT_IN_SCRIPT
+pr300-2         AB   VERIFIER TEXT_IN_SCRIPT
+pr301-1         AB   VERIFIER TEXT_IN_SCRIPT
+pr301-2         AB   VERIFIER TEXT_IN_SCRIPT
+pr301-3         AB   VERIFIER TEXT_IN_SCRIPT
+pr301-4         AB   VERIFIER TEXT_NOT_IN_TEXT
+pr301-5         AB   VERIFIER TEXT_NOT_IN_TEXT
+pr301-6         AB   VERIFIER TEXT_IN_SCRIPT
+pr301-7         AB   VERIFIER TEXT_IN_SCRIPT
+pr301-8         AB   VERIFIER TEXT_IN_SCRIPT
+pr304-1         AB   VERIFIER TEXT_IN_SCRIPT
+pr304-2         AB   VERIFIER TEXT_IN_SCRIPT
+pr304-3         AB   VERIFIER TEXT_IN_SCRIPT
+pr304-4         AB   PROFILE  # not emitted: t:insert inside <textarea> is not supported: a browser reads the content of <textarea> as text up to the first
+pr304-5         AB   PROFILE  # not emitted: t:insert inside <noscript> is not supported: a browser reads the content of <noscript> as text up to the first
+pr304-6         AB   VERIFIER TEXT_IN_SCRIPT
+pr304-7         AB   VERIFIER TEXT_IN_SCRIPT @classic
+pr304-8         AB   VERIFIER TEXT_IN_SCRIPT
+pr304-9         AB   VERIFIER TEXT_IN_SCRIPT
+pr305-1         AB   VERIFIER TEXT_IN_SCRIPT @classic
+pr305-2         AB   VERIFIER TEXT_IN_SCRIPT @classic
+pr305-3         AB   VERIFIER TEXT_IN_SCRIPT @classic
+pr305-4         AB   VERIFIER TEXT_IN_SCRIPT @classic
+pr289-11        AB   VERIFIER TEXT_IN_SCRIPT
+pr290-6         C    ACCEPT
+pr290-7         C    ACCEPT
+pr290-8         C    ACCEPT
+pr290-9         C    ACCEPT
+pr290-10        C    ACCEPT
+pr290-11        C    ACCEPT
+pr290-12        C    ACCEPT
+pr290-13        C    ACCEPT
+pr290-14        C    ACCEPT
+pr290-15        -    ACCEPT
+pr290-16        -    ACCEPT
+pr290-17        C    ACCEPT
+pr290-18        C    ACCEPT
+pr290-19        C    ACCEPT
+pr290-20        C    ACCEPT
+pr290-21        C    ACCEPT
+pr290-22        C    ACCEPT
+pr290-23        C    ACCEPT
+pr290-24        C    ACCEPT
+pr290-25        C    ACCEPT
+pr290-26        C    ACCEPT
+pr290-27        C    ACCEPT
+pr290-28        C    ACCEPT
+pr290-29        C    ACCEPT
+pr290-30        C    ACCEPT
+pr290-31        C    ACCEPT
+pr290-32        C    ACCEPT
+pr290-33        C    ACCEPT
+pr290-34        C    ACCEPT
+pr290-35        C    ACCEPT
+pr290-36        C    ACCEPT
+pr290-37        C    ACCEPT
+pr290-38        C    ACCEPT
+pr290-39        C    ACCEPT
+pr290-40        C    ACCEPT
+pr290-41        C    ACCEPT
+pr290-42        C    ACCEPT
+pr290-43        C    ACCEPT
+pr290-44        C    ACCEPT
+pr296-12        AB   VERIFIER TEXT_IN_SCRIPT
+pr296-13        AB   VERIFIER TEXT_NOT_IN_TEXT
+pr296-14        AB   VERIFIER TEXT_NOT_IN_TEXT
+pr296-15        -    ACCEPT
+pr296-16        AB   VERIFIER TEXT_IN_SCRIPT
+pr297-3         AB   PROFILE  # no tree: malformed markup: quote " in an unquoted attribute value: quote the value and write &quot; in it
+pr298-6         AB   VERIFIER TEXT_IN_SCRIPT
+pr298-7         AB   VERIFIER TEXT_IN_SCRIPT
+pr298-8         AB   VERIFIER TEXT_NOT_IN_TEXT
+pr298-9         AB   VERIFIER TEXT_IN_SCRIPT
+pr298-10        AB   VERIFIER TEXT_IN_SCRIPT
+pr298-11        -    ACCEPT
+pr298-12        -    ACCEPT
+pr298-13        -    ACCEPT
+pr298-14        -    ACCEPT
+pr299-7         AB   VERIFIER TEXT_NOT_IN_TEXT
+pr299-8         AB   VERIFIER TEXT_NOT_IN_TEXT
+pr299-9         AB   VERIFIER TEXT_NOT_IN_TEXT
+pr299-10        AB   VERIFIER TEXT_NOT_IN_TEXT
+pr299-11        AB   VERIFIER TEXT_NOT_IN_TEXT
+pr299-12        AB   VERIFIER TEXT_NOT_IN_TEXT
+pr299-13        -    VERIFIER TEXT_NOT_IN_TEXT
+pr299-14        -    VERIFIER TEXT_NOT_IN_TEXT
+pr299-15        -    VERIFIER TEXT_NOT_IN_TEXT
+pr299-16        -    VERIFIER TEXT_NOT_IN_TEXT
+pr299-17        -    VERIFIER TEXT_NOT_IN_TEXT
+pr299-18        -    VERIFIER TEXT_NOT_IN_TEXT
+pr299-19        AB   VERIFIER TEXT_NOT_IN_TEXT
+pr299-20        AB   VERIFIER TEXT_NOT_IN_TEXT
+pr299-21        -    VERIFIER JSON_NOT_IN_SCRIPT
+pr300-3         -    ACCEPT
+pr300-4         -    ACCEPT
+pr300-5         -    ACCEPT
+pr300-6         AB   ACCEPT  # fixed on main: text escaper in SVG content (#301)
+pr300-7         AB   ACCEPT  # fixed on main: text escaper in SVG content (#301)
+pr300-8         -    ACCEPT
+pr300-9         -    ACCEPT
+pr300-10        -    ACCEPT
+pr300-11        -    ACCEPT
+pr300-12        -    ACCEPT
+pr300-13        -    ACCEPT
+pr301-9         AB   VERIFIER TEXT_IN_SCRIPT
+pr301-10        AB   VERIFIER TEXT_IN_SCRIPT
+pr301-11        AB   VERIFIER TEXT_IN_SCRIPT
+pr301-12        AB   VERIFIER TEXT_IN_SCRIPT
+pr301-13        AB   ACCEPT  # fixed on main: text escaper where <p> leaves MathML (#301)
+pr301-14        -    ACCEPT
+pr301-15        -    ACCEPT
+pr301-16        -    ACCEPT
+pr303-1         -    ACCEPT
+pr303-2         -    ACCEPT
+pr303-3         -    ACCEPT
+pr303-4         -    ACCEPT
+pr303-5         -    ACCEPT
+pr304-10        AB   VERIFIER TEXT_IN_SCRIPT
+pr304-11        -    ACCEPT
+pr304-12        -    ACCEPT
+pr304-13        -    ACCEPT
+pr304-14        -    ACCEPT
+pr305-5         AB   VERIFIER TEXT_IN_SCRIPT @classic
+pr305-6         AB   VERIFIER TEXT_IN_SCRIPT @classic
+pr305-7         AB   VERIFIER TEXT_IN_SCRIPT @classic
+pr305-8         -    ACCEPT
+pr305-9         -    ACCEPT
+pr305-10        -    ACCEPT
+pr340-1         E    ACCEPT
+pr340-2         -    ACCEPT
+pr340-3         -    ACCEPT
+pr340-4         -    ACCEPT
+pr340-5         -    ACCEPT
+pr340-6         E    ACCEPT
+pr340-7         E    ACCEPT
+pr340-8         -    ACCEPT
+pr340-9         -    ACCEPT
+review-pr298-1  AB   VERIFIER TEXT_IN_SCRIPT
+review-pr290-1  C    ACCEPT
+review-pr290-2  C    ACCEPT
+review-pr290-3  C    ACCEPT
+review-pr290-4  C    ACCEPT
+review-pr290-5  C    ACCEPT
+review-pr298-2  AB   VERIFIER TEXT_IN_SCRIPT
+review-pr299-1  AB   VERIFIER TEXT_NOT_IN_TEXT
+review-pr338-1  AB   PROFILE  # no tree: malformed markup: U+000B in a tag is not HTML whitespace: replace it with a space
+review-pr338-2  AB   PROFILE  # no tree: malformed markup: U+000B in a tag is not HTML whitespace: replace it with a space
+review-pr338-3  AB   PROFILE  # no tree: malformed markup: U+000B in a tag is not HTML whitespace: replace it with a space
+review-pr298-3  AB   PROFILE  # no tree: malformed markup: '/' before '>' belongs to the unquoted value, not to '/>': quote the value
+review-pr301-1  AB   VERIFIER JSON_NOT_IN_SCRIPT
+review-pr305-1  AB   VERIFIER TEXT_IN_SCRIPT TEXT_NOT_IN_TEXT
+review-pr304-1  AB   VERIFIER TEXT_IN_SCRIPT
+review-pr304-2  AB   VERIFIER TEXT_IN_SCRIPT
+review-pr296-1  AB   VERIFIER TEXT_IN_SCRIPT TEXT_NOT_IN_TEXT
+review-pr305-2  AB   VERIFIER TEXT_IN_SCRIPT
+xss-rejected-1  -    ACCEPT
+xss-rejected-2  -    ACCEPT
+xss-rejected-3  -    ACCEPT
+xss-rejected-4  -    ACCEPT
+xss-rejected-5  -    ACCEPT
+xss-rejected-6  -    ACCEPT
+xss-rejected-7  -    ACCEPT
+xss-rejected-8  -    ACCEPT
+xss-rejected-9  -    ACCEPT
+xss-rejected-10 -    ACCEPT
+xss-rejected-11 -    ACCEPT
+xss-rejected-12 -    ACCEPT
+xss-rejected-13 -    ACCEPT
+xss-rejected-14 -    ACCEPT
+xss-rejected-15 -    ACCEPT
+xss-rejected-16 -    ACCEPT
+xss-rejected-17 -    ACCEPT
+xss-rejected-18 -    ACCEPT
+xss-rejected-19 -    ACCEPT
+xss-rejected-20 -    ACCEPT
+xss-rejected-21 -    ACCEPT
+xss-rejected-22 -    ACCEPT
+xss-rejected-23 -    ACCEPT
+xss-rejected-24 -    ACCEPT
+xss-rejected-25 -    ACCEPT
+xss-rejected-26 -    ACCEPT
+xss-rejected-27 -    ACCEPT
+xss-rejected-28 -    ACCEPT
+xss-rejected-29 -    ACCEPT
+xss-rejected-30 -    ACCEPT
+xss-rejected-31 -    ACCEPT
+xss-rejected-32 -    ACCEPT
+xss-rejected-33 -    ACCEPT
+xss-rejected-34 -    ACCEPT
+xss-rejected-35 -    ACCEPT
+xss-rejected-36 -    ACCEPT
+xss-lines-1     -    ACCEPT
+xss-lines-2     -    ACCEPT
+xss-lines-3     -    ACCEPT
+xss-lines-4     OVER ACCEPT
+xss-lines-5     OVER ACCEPT
+xss-lines-6     -    ACCEPT
+xss-lines-7     -    ACCEPT
+xss-lines-8     -    ACCEPT
+xss-lines-9     -    ACCEPT
+xss-lines-10    -    ACCEPT
+xss-lines-11    -    ACCEPT
+xss-lines-12    -    ACCEPT
+xss-lines-13    -    ACCEPT
+xss-lines-14    -    ACCEPT
+xss-lines-15    -    ACCEPT
+xss-lines-16    -    ACCEPT
+xss-lines-17    -    ACCEPT
+xss-lines-18    C    ACCEPT
+xss-lines-19    -    ACCEPT

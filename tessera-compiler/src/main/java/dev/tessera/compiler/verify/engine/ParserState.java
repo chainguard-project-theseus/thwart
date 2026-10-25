@@ -39,6 +39,7 @@ public final class ParserState {
   private final List<OpenElement> stack;
   private final List<Integer> activeFormatting;
   private final List<OpenElement> activeFormattingElements;
+  private final List<List<String>> activeFormattingAttributes;
   private final List<InsertionMode> templateModes;
   private final boolean formPointer;
   private final boolean headPointer;
@@ -46,11 +47,11 @@ public final class ParserState {
   private final boolean framesetOk;
   private final boolean dropsNextLineFeed;
   private final boolean pendingTableText;
-  private final String signature;
+  /** Built on first use: most states are only checked, and a signature is long. */
+  private String signature;
 
-  // activeFormattingAttributes is folded into the signature only: reconstruction and the Noah's
-  // Ark clause compare attributes. framesetOk is left out of it, see
-  // framesetOk().
+  // activeFormattingAttributes is in the signature: reconstruction and the Noah's Ark clause
+  // compare attributes. framesetOk is left out of it, see framesetOk().
   ParserState(
       String engine,
       OpenElement fragmentContext,
@@ -86,6 +87,7 @@ public final class ParserState {
     this.stack = Collections.unmodifiableList(stack);
     this.activeFormatting = Collections.unmodifiableList(activeFormatting);
     this.activeFormattingElements = Collections.unmodifiableList(activeFormattingElements);
+    this.activeFormattingAttributes = Collections.unmodifiableList(activeFormattingAttributes);
     this.templateModes = Collections.unmodifiableList(templateModes);
     this.formPointer = formPointer;
     this.headPointer = headPointer;
@@ -93,7 +95,9 @@ public final class ParserState {
     this.framesetOk = framesetOk;
     this.dropsNextLineFeed = dropsNextLineFeed;
     this.pendingTableText = pendingTableText;
+  }
 
+  private String buildSignature() {
     StringBuilder sb = new StringBuilder(128);
     // The engines parse some input differently (<select>), so their states never merge either.
     sb.append(engine).append(' ');
@@ -139,10 +143,18 @@ public final class ParserState {
     if (!pendingInput.isEmpty()) {
       sb.append(" pending=").append(quote(pendingInput));
     }
-    this.signature = sb.toString();
+    return sb.toString();
   }
 
   private static String quote(String s) {
+    boolean plain = true;
+    for (int i = 0; i < s.length() && plain; i++) {
+      char c = s.charAt(i);
+      plain = c != '"' && c != '\\' && c >= 0x20 && c != 0x7f;
+    }
+    if (plain) {
+      return '"' + s + '"';
+    }
     StringBuilder sb = new StringBuilder(s.length() + 2).append('"');
     for (int i = 0; i < s.length(); i++) {
       char c = s.charAt(i);
@@ -231,6 +243,14 @@ public final class ParserState {
   }
 
   /**
+   * The attributes of each {@link #activeFormatting()} entry as {@code name=value} strings in
+   * source order, null for markers (#367: the verifier's Noah's Ark check).
+   */
+  public List<List<String>> activeFormattingAttributes() {
+    return activeFormattingAttributes;
+  }
+
+  /**
    * True if text inserted now would first reconstruct the active formatting elements: an entry
    * after the last marker isn't on the stack.
    */
@@ -289,21 +309,24 @@ public final class ParserState {
 
   /** A deterministic description of the whole state, with names only. */
   public String signature() {
+    if (signature == null) {
+      signature = buildSignature();
+    }
     return signature;
   }
 
   @Override
   public boolean equals(Object o) {
-    return o instanceof ParserState && signature.equals(((ParserState) o).signature);
+    return o instanceof ParserState && signature().equals(((ParserState) o).signature());
   }
 
   @Override
   public int hashCode() {
-    return signature.hashCode();
+    return signature().hashCode();
   }
 
   @Override
   public String toString() {
-    return signature;
+    return signature();
   }
 }
