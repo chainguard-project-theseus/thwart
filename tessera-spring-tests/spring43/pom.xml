@@ -91,6 +91,10 @@
             <testInclude>dev/tessera/spring/plain/**</testInclude>
             <testInclude>dev/tessera/spring/OldEngineWarningTest.java</testInclude>
             <testInclude>org/thymeleaf/test/**</testInclude>
+            <testInclude>org/springframework/web/servlet/view/tiles2/test/**</testInclude>
+            <testInclude>org/springframework/web/servlet/view/tiles3/test/**</testInclude>
+            <testInclude>com/mitchellbosecke/pebble/test/**</testInclude>
+            <testInclude>io/pebbletemplates/test/**</testInclude>
             <testInclude>dev/tessera/spring/e2e/Signup.java</testInclude>
             <testInclude>dev/tessera/spring/e2e/SmokeController.java</testInclude>
           </testIncludes>

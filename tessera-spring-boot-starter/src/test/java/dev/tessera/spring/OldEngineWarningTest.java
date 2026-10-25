@@ -31,6 +31,10 @@ import org.springframework.web.servlet.view.ViewResolverComposite;
 import org.springframework.web.servlet.view.freemarker.FreeMarkerViewResolver;
 import org.springframework.web.servlet.view.groovy.GroovyMarkupViewResolver;
 import org.springframework.web.servlet.view.script.ScriptTemplateViewResolver;
+import com.mitchellbosecke.pebble.test.FakeLegacyPebbleViewResolver;
+import io.pebbletemplates.test.FakePebbleViewResolver;
+import org.springframework.web.servlet.view.tiles2.test.FakeTiles2ViewResolver;
+import org.springframework.web.servlet.view.tiles3.test.FakeTiles3ViewResolver;
 import org.thymeleaf.test.FakeThymeleafViewResolver;
 
 /**
@@ -186,6 +190,29 @@ class OldEngineWarningTest {
                 + GroovyMarkupViewResolver.class.getName()
                 + ", "
                 + ScriptTemplateViewResolver.class.getName()),
+        OldEngineWarning.message(beans));
+  }
+
+  @Test
+  void matchesTilesAndPebbleResolvers() {
+    // Tiles 2 (Spring 4.3) and 3 (4.3-5.3), and Pebble's old (up to 3.1) and new (3.2+) packages.
+    // Fakes in sub-packages, as for Thymeleaf: the real classes aren't on Spring 6/7's classpath.
+    DefaultListableBeanFactory beans = new DefaultListableBeanFactory();
+    beans.registerBeanDefinition("tiles2", new RootBeanDefinition(FakeTiles2ViewResolver.class));
+    beans.registerBeanDefinition("tiles3", new RootBeanDefinition(FakeTiles3ViewResolver.class));
+    beans.registerBeanDefinition(
+        "oldPebble", new RootBeanDefinition(FakeLegacyPebbleViewResolver.class));
+    beans.registerBeanDefinition("pebble", new RootBeanDefinition(FakePebbleViewResolver.class));
+    assertEquals(
+        String.format(
+            OldEngineWarning.MESSAGE,
+            FakeLegacyPebbleViewResolver.class.getName()
+                + ", "
+                + FakePebbleViewResolver.class.getName()
+                + ", "
+                + FakeTiles2ViewResolver.class.getName()
+                + ", "
+                + FakeTiles3ViewResolver.class.getName()),
         OldEngineWarning.message(beans));
   }
 

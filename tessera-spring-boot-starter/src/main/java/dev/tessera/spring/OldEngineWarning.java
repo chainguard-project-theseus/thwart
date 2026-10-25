@@ -24,16 +24,17 @@ import org.springframework.web.servlet.view.ViewResolverComposite;
  * resolver's class (or a superclass) by name, so no engine is needed on the classpath, and names
  * it without a CGLIB proxy suffix. Resolvers registered through {@code ViewResolverRegistry} are
  * found inside {@code mvcViewResolver}. JSP's {@code InternalResourceViewResolver} is not
- * reported: Boot registers one in every app. There is no switch to silence the warning; removing
- * the engine does.
+ * reported, since Boot registers one in every app (#316); a JSP application that renders through
+ * Tiles is reported by its {@code TilesViewResolver}. There is no switch to silence the warning;
+ * removing the engine does.
  */
 final class OldEngineWarning implements SmartInitializingSingleton, ApplicationContextAware {
 
   static final String MESSAGE =
       "Tessera: another template engine is still configured (%s); it renders every view name"
           + " Tessera doesn't know, so Tessera's guarantees (no template injection, contextual"
-          + " escaping) cover only Tessera's views until it is removed. See the Tessera guide,"
-          + " section 3, step 6.";
+          + " escaping, CSRF token only in same-origin POST forms) cover only Tessera's views"
+          + " until it is removed. See the Tessera guide, section 3, step 6.";
 
   /** Class-name prefixes of other engines' resolvers, Spring 4.3 / Boot 1.5 through 7 / 4. */
   private static final String[] ENGINES = {
@@ -41,10 +42,16 @@ final class OldEngineWarning implements SmartInitializingSingleton, ApplicationC
     "org.springframework.web.servlet.view.freemarker.",
     "org.springframework.web.servlet.view.groovy.",
     "org.springframework.web.servlet.view.script.",
+    "org.springframework.web.servlet.view.tiles2.", // Spring 4.3
+    "org.springframework.web.servlet.view.tiles3.", // Spring 4.3-5.3
     "org.springframework.web.servlet.view.velocity.",
     "org.springframework.boot.autoconfigure.mustache.", // Boot 1.5
     "org.springframework.boot.web.servlet.view.MustacheViewResolver", // Boot 2.0-3.x
     "org.springframework.boot.mustache.", // Boot 4
+    "com.mitchellbosecke.pebble.", // Pebble up to 3.1 (pebble-spring3/4/5)
+    "io.pebbletemplates.", // Pebble 3.2+ (pebble-spring5/6/7, both Boot starters)
+    // TODO(#316): report JSP's InternalResourceViewResolver unless it is Boot's
+    // defaultViewResolver.
   };
 
   private static final Log LOG = LogFactory.getLog(OldEngineWarning.class);
