@@ -29,6 +29,16 @@
       <groupId>dev.tessera</groupId>
       <artifactId>tessera-runtime</artifactId>
     </dependency>
+    <!-- The verifier's two spec HTML parsers (#365), already renamed into
+         dev.tessera.compiler.internal.html5. Shaded into this jar below; consumers never see them. -->
+    <dependency>
+      <groupId>dev.tessera</groupId>
+      <artifactId>tessera-html5-current</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>dev.tessera</groupId>
+      <artifactId>tessera-html5-classic</artifactId>
+    </dependency>
     <!-- Test only: the reference parser in HtmlParserDifferentialTest (#170). -->
     <dependency>
       <groupId>org.attoparser</groupId>
@@ -72,11 +82,63 @@
           <proc>none</proc>
         </configuration>
       </plugin>
+      <!-- Inline the two engines (#365). They are relocated at the source level already, so there is
+           no further relocation; the reduced pom drops them from the published dependencies. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>shade-html5</id>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <artifactSet>
+                <includes>
+                  <include>dev.tessera:tessera-html5-current</include>
+                  <include>dev.tessera:tessera-html5-classic</include>
+                </includes>
+              </artifactSet>
+              <filters>
+                <filter>
+                  <artifact>dev.tessera:tessera-html5-*</artifact>
+                  <excludes>
+                    <exclude>META-INF/MANIFEST.MF</exclude>
+                    <exclude>META-INF/maven/**</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+              <createDependencyReducedPom>true</createDependencyReducedPom>
+              <dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml</dependencyReducedPomLocation>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- After package: check the shaded jar and the reduced pom (#365). -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+            <configuration>
+              <systemPropertyVariables>
+                <tessera.compiler.jar>${project.build.directory}/${project.build.finalName}.jar</tessera.compiler.jar>
+                <tessera.compiler.pom>${project.build.directory}/dependency-reduced-pom.xml</tessera.compiler.pom>
+              </systemPropertyVariables>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <!-- Jdk8ProcessorTest also runs JDK 8 javac with Lombok 1.16 on the processor path (#233). -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.8.1</version>
         <executions>
           <execution>
             <id>lombok-1.16</id>
@@ -146,6 +208,7 @@
                 <exclude>dev/tessera/compiler/processor/Jdk8ProcessorTest.java</exclude>
                 <exclude>dev/tessera/compiler/html/HtmlParserDifferentialTest.java</exclude>
                 <exclude>dev/tessera/compiler/oracle/**</exclude>
+                <exclude>dev/tessera/compiler/verify/engine/**</exclude>
               </excludes>
             </configuration>
           </execution>
