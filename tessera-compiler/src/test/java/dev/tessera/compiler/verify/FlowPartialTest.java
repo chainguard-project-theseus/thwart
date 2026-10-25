@@ -160,11 +160,10 @@ class FlowPartialTest {
   @Test
   void everyProbeIsAFlowPosition() throws EngineException {
     for (String probe : ContentKinds.PARTIAL_PROBES) {
-      for (dev.tessera.compiler.verify.engine.Engine e : Engines.all()) {
-        Parser p = e.fragment(dev.tessera.compiler.verify.engine.OpenElement.HTML, "body", true);
-        p.feed(probe);
-        assertNull(ContentKinds.problem(ContentKinds.Kind.FLOW, p.state()), probe);
-      }
+      dev.tessera.compiler.verify.engine.Engine e = Engines.CURRENT;
+      Parser p = e.fragment(dev.tessera.compiler.verify.engine.OpenElement.HTML, "body", true);
+      p.feed(probe);
+      assertNull(ContentKinds.problem(ContentKinds.Kind.FLOW, p.state()), probe);
     }
   }
 
@@ -213,11 +212,10 @@ class FlowPartialTest {
 
   private static java.util.List<Parser> entries(String context) throws EngineException {
     java.util.List<Parser> out = new java.util.ArrayList<>();
-    for (dev.tessera.compiler.verify.engine.Engine e : Engines.all()) {
-      Parser p = e.document(true);
-      p.feed(context);
-      out.add(p);
-    }
+    dev.tessera.compiler.verify.engine.Engine e = Engines.CURRENT;
+    Parser p = e.document(true);
+    p.feed(context);
+    out.add(p);
     return out;
   }
 }

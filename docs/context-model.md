@@ -79,7 +79,7 @@ nodes, the same way for every value, without moving a hole out of its context.
 | Static structure is the same for every value | verifier (#367); the rules below are early errors | `ContextVerifierRulesTest`, `SeedVerifierTest`; #344 `STRUCTURE_CHANGED`, `MARKER_IN_NAME` over every seed and generated case | not proved; the oracle checks it |
 | Each value lands in the node, context and namespace the compiler chose | verifier (#367): the parser state at each hole | `ContextVerifierRulesTest`, `SeedVerifierTest`; #342 `CONTEXT_MISMATCH` | Lean token-level T1 (`t1_profile_tree`; not CDATA in foreign content, the tree-level effects of tables and `template`, or fragment insertion) |
 | No value runs as script, handler or `javascript:` URL, or loads a cross-origin resource | partial | #344 `LIVE_SCRIPT`, `LIVE_HANDLER`, `JS_URL`, `CROSS_ORIGIN_RESOURCE`; #341 `JS_NOT_LITERAL` | `Esc` for `text`, `attr`, `url`, `json` strings |
-| Static structure does not depend on the browser | verifier (#367): error-free parses outside the exclusions (#406); the classic 1.4.16 engine still runs until #408; real engines checked by the nightly detector (#399) | validator.nu htmlparser 1.4.16 and the htmlparser inside validator 26.10.12 in #344; parse5, headless Chromium, Firefox 140 ESR and WebKit (Playwright's build) in the Node job (#345, #354; on Chainguard Checks after every merge and on request, over a fixture until #324) | not yet |
+| Static structure does not depend on the browser | verifier (#367): error-free parses outside the exclusions (#406), in one engine (#408); real engines checked by the nightly detector (#399) | the htmlparser inside validator 26.10.12 in #344; parse5, headless Chromium, Firefox 140 ESR and WebKit (Playwright's build) in the Node job (#345, #354; on Chainguard Checks after every merge and on request, over a fixture until #324) | not yet |
 
 ## 2. Token-level rules (§5.2)
 
@@ -214,7 +214,7 @@ fine.
 
 | Producer | Meets the promise | Checked by |
 |---|---|---|
-| `html.sanitize`, `html.sanitizeRich`, every `HtmlPolicy` | yes: `HtmlSanitizer` places each element where a browser's tree builder keeps it as written (no block in `p`, heading or phrasing; no `a` in `a`, no formatting element in itself; `li` only in `ul`/`ol`; table parts only in `table`, with `tbody`/`tr` written out and no text directly in table, section or row) and closes everything it opens | `FlowProducerTest` (exit state equals entry state at 14 `FLOW` insertion points, both engines, scripting on and off; hostile and fuzzed input, five policies); `SanitizerBalanceTest` (the parsed tree equals the one the tags spell); the #329 PR's parse5 run |
+| `html.sanitize`, `html.sanitizeRich`, every `HtmlPolicy` | yes: `HtmlSanitizer` places each element where a browser's tree builder keeps it as written (no block in `p`, heading or phrasing; no `a` in `a`, no formatting element in itself; `li` only in `ul`/`ol`; table parts only in `table`, with `tbody`/`tr` written out and no text directly in table, section or row) and closes everything it opens | `FlowProducerTest` (exit state equals entry state at 14 `FLOW` insertion points, scripting on and off; hostile and fuzzed input, five policies); `SanitizerBalanceTest` (the parsed tree equals the one the tags spell); the #329 PR's parse5 run |
 | `SafeHtml.escape`, `SafeHtml.concat` of `FLOW` values | yes (text; concatenation of balanced content) | `FlowProducerTest` |
 | A rendered partial template (`SafeHtml.of`, `Fragment.of`) | only if the compiler proved it a `FLOW` partial (#396, below); the runtime refuses any other template with an `IllegalArgumentException` naming it | `FlowPartialTest` (the #329 review's partials are refused, each shown to change the state at a position the predicate accepts; ordinary partials are marked); `FlowProducerTest` (sample partials with hostile values); `Jdk8ProcessorTest` |
 | `SafeHtml.unchecked`, a hand-written `Fragment` lambda or `Template` | the caller's responsibility | none |
@@ -390,9 +390,8 @@ dlorenc decided these on the research memo for #364
 ## 9. The verifier's rule table (#367)
 
 `verify/Rules` and `verify/ContextVerifier`. Each path through a template holds the parser twice,
-scripting on and off; a template is accepted only if both accept it. Until #408 the classic 1.4.16
-engine also runs, so four parsers, all of which must accept. Rows marked #406 or #410 are their
-target.
+scripting on and off; a template is accepted only if both accept it. Rows marked #406 or #410 are
+their target.
 The id in brackets ends every error message (`[verifier:ID]`), for #368's fix-its.
 
 | Id | Rejects | Accepted instead |

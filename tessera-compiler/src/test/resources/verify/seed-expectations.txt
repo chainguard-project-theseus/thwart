@@ -3,14 +3,12 @@
 # diagnostics suppressed (Compilation.Builder#verifierOnly), and reconciled seed by seed with the
 # research prototype's run on 0dda2f1 (~/tessera-handoff/tv/seeds-0dda.tsv, memo §5.1).
 #
-# name  family  expect  [rules] [@classic]  [# note]
+# name  family  expect  [rules]  [# note]
 #   family   AB: a parser-differential or composition seed live on 0dda2f1 (plus pr305-4 and
 #            306-A29, which the value oracle missed). C, D, E: script position, client frameworks,
 #            URL policy (not markup contexts). OVER: over-escaping in raw text. -: clean or rejected
 #            on 0dda2f1.
-#   expect   VERIFIER: the verifier alone rejects it, with each rule listed; @classic: only the
-#            classic engine (htmlparser-1.4.16) rejects it, where browsers differ (none since #406:
-#            exclusion (c), SELECT_CONTENT, rejects the classic-<select> seeds in the current engine).
+#   expect   VERIFIER: the verifier alone rejects it, with each rule listed.
 #            ACCEPT: the verifier accepts what main writes for it.
 #            PROFILE: main's profile rejects it before there is anything to verify (the note says
 #            why); the build fails.
@@ -40,12 +38,12 @@
 306-A23         -    ACCEPT
 306-A24         AB   VERIFIER TEXT_IN_SCRIPT
 306-A25         -    VERIFIER TEXT_IN_SCRIPT
-306-A26         -    VERIFIER TEXT_IN_SCRIPT PARSE_ERROR
+306-A26         -    VERIFIER PARSE_ERROR
 306-A27         AB   VERIFIER TEXT_IN_SCRIPT
 306-A28         AB   VERIFIER TEXT_IN_SCRIPT
 306-A29         AB   VERIFIER FRAMESET TEXT_IN_SCRIPT TEXT_OUTSIDE_BODY
 306-A30         AB   VERIFIER TEXT_IN_SCRIPT
-306-A31         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT
+306-A31         AB   VERIFIER SELECT_CONTENT
 306-A32         C    ACCEPT
 306-A33         C    ACCEPT
 306-A34         -    ACCEPT
@@ -147,13 +145,13 @@ pr304-3         AB   VERIFIER TEXT_IN_SCRIPT
 pr304-4         AB   PROFILE  # not emitted: t:insert inside <textarea> is not supported: a browser reads the content of <textarea> as text up to the first
 pr304-5         AB   PROFILE  # not emitted: t:insert inside <noscript> is not supported: a browser reads the content of <noscript> as text up to the first
 pr304-6         AB   VERIFIER TEXT_IN_SCRIPT
-pr304-7         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT
+pr304-7         AB   VERIFIER SELECT_CONTENT
 pr304-8         AB   VERIFIER TEXT_IN_SCRIPT
 pr304-9         AB   VERIFIER TEXT_IN_SCRIPT
-pr305-1         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT
-pr305-2         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT
-pr305-3         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT PARSE_ERROR
-pr305-4         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT PARSE_ERROR
+pr305-1         AB   VERIFIER SELECT_CONTENT
+pr305-2         AB   VERIFIER SELECT_CONTENT
+pr305-3         AB   VERIFIER SELECT_CONTENT PARSE_ERROR
+pr305-4         AB   VERIFIER SELECT_CONTENT PARSE_ERROR
 pr289-11        AB   VERIFIER TEXT_IN_SCRIPT
 pr290-6         C    ACCEPT
 pr290-7         C    ACCEPT
@@ -253,9 +251,9 @@ pr304-11        -    ACCEPT
 pr304-12        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
 pr304-13        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
 pr304-14        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
-pr305-5         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT
-pr305-6         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT
-pr305-7         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT PARSE_ERROR
+pr305-5         AB   VERIFIER SELECT_CONTENT
+pr305-6         AB   VERIFIER SELECT_CONTENT
+pr305-7         AB   VERIFIER SELECT_CONTENT PARSE_ERROR
 pr305-8         -    VERIFIER SELECT_CONTENT  # #406: exclusion (c), <template> unwrapped into a <select>
 pr305-9         -    VERIFIER SELECT_CONTENT  # #406: exclusion (c), t:remove unwrapped into a <select>
 pr305-10        -    ACCEPT
@@ -281,10 +279,10 @@ review-pr338-2  AB   PROFILE  # no tree: malformed markup: U+000B in a tag is no
 review-pr338-3  AB   PROFILE  # no tree: malformed markup: U+000B in a tag is not HTML whitespace: replace it with a space
 review-pr298-3  AB   PROFILE  # no tree: malformed markup: '/' before '>' belongs to the unquoted value, not to '/>': quote the value
 review-pr301-1  AB   VERIFIER JSON_NOT_IN_SCRIPT
-review-pr305-1  AB   VERIFIER TEXT_IN_SCRIPT TEXT_NOT_IN_TEXT
+review-pr305-1  AB   VERIFIER SELECT_CONTENT TEXT_NOT_IN_TEXT
 review-pr304-1  AB   VERIFIER TEXT_IN_SCRIPT
 review-pr304-2  AB   VERIFIER TEXT_IN_SCRIPT
-review-pr296-1  AB   VERIFIER TEXT_IN_SCRIPT TEXT_NOT_IN_TEXT
+review-pr296-1  AB   VERIFIER SELECT_CONTENT TEXT_NOT_IN_TEXT
 review-pr305-2  AB   VERIFIER TEXT_IN_SCRIPT
 review-pr394-1  AB   VERIFIER FOREIGN_IN_TABLE PARSE_ERROR  # #398: a table inside svg in a cell; both vnu engines reset to 'in body', the spec returns to the cell. Exclusion (a) since #406
 xss-rejected-1  -    ACCEPT

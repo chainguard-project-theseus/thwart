@@ -1,59 +1,27 @@
 package dev.tessera.compiler.verify.engine;
 
-/** An {@link Engine} over one validator.nu htmlparser build. */
-abstract class VnuEngine implements Engine {
-  static {
-    // The parsers' own Java asserts are developer checks that vnu ships disabled, and some are
-    // wrong: under -ea, htmlparser 1.4.16 throws "strBufLen not reset after previous use!" on
-    // "&drop</s" (an unmatched named character reference leaves its buffer dirty; the next line
-    // resets it, so the parse is right), and its "assert fragment" checks fire on template
-    // contents in documents. Run them as shipped, with or without -ea (javac -J-ea, surefire),
-    // before any of their classes is initialized. Real failures still surface: an exception is an
-    // EngineException, and an unknown state is too.
-    ClassLoader loader = VnuEngine.class.getClassLoader();
-    if (loader != null) {
-      loader.setPackageAssertionStatus("dev.tessera.compiler.internal.html5", false);
-    }
-  }
+import dev.tessera.compiler.internal.html5.current.impl.TesseraAccess;
 
-  private final String name;
-  private final boolean reportsErrors;
-
-  /** A build whose parsers report no parse errors. */
-  VnuEngine(String name) {
-    this(name, false);
-  }
-
-  VnuEngine(String name, boolean reportsErrors) {
-    this.name = name;
-    this.reportsErrors = reportsErrors;
-  }
-
-  abstract RawParser rawDocument(boolean scripting) throws Exception;
-
-  abstract RawParser rawFragment(String namespace, String name, boolean scripting) throws Exception;
+/** The current upstream htmlparser (customizable {@code <select>}), from validator 26.10.12. */
+final class VnuEngine implements Engine {
+  static final String NAME = "htmlparser@validator-26.10.12";
 
   @Override
-  public final String name() {
-    return name;
+  public String name() {
+    return NAME;
   }
 
   @Override
-  public final boolean reportsErrors() {
-    return reportsErrors;
-  }
-
-  @Override
-  public final Parser document(boolean scripting) throws EngineException {
+  public Parser document(boolean scripting) throws EngineException {
     try {
-      return new VnuParser(this, rawDocument(scripting));
+      return new VnuParser(this, new Raw(TesseraAccess.document(scripting)));
     } catch (Exception | AssertionError e) {
       throw VnuParser.failure(this, "starting a document parser", e);
     }
   }
 
   @Override
-  public final Parser fragment(String contextNamespace, String contextName, boolean scripting)
+  public Parser fragment(String contextNamespace, String contextName, boolean scripting)
       throws EngineException {
     if (!OpenElement.HTML.equals(contextNamespace) && !OpenElement.SVG.equals(contextNamespace)
         && !OpenElement.MATHML.equals(contextNamespace)) {
@@ -64,7 +32,7 @@ abstract class VnuEngine implements Engine {
     }
     try {
       return new VnuParser(this, new OpenElement(contextNamespace, contextName, false),
-          rawFragment(contextNamespace, contextName, scripting));
+          new Raw(TesseraAccess.fragment(contextNamespace, contextName, scripting)));
     } catch (Exception | AssertionError e) {
       throw VnuParser.failure(this, "starting a fragment parser in <" + contextName + ">", e);
     }
@@ -72,6 +40,113 @@ abstract class VnuEngine implements Engine {
 
   @Override
   public String toString() {
-    return name;
+    return NAME;
+  }
+
+  /** {@link RawParser} over the shaded build's {@code TesseraAccess}. */
+  private static final class Raw implements RawParser {
+    private final TesseraAccess a;
+
+    Raw(TesseraAccess a) {
+      this.a = a;
+    }
+
+    @Override
+    public void feed(char[] chars, int start, int end, final RawListener listener) throws Exception {
+      a.feed(chars, start, end, listener == null ? null : new TesseraAccess.Listener() {
+        @Override
+        public void error(String message, int line, int column) {
+          listener.error(message, line, column);
+        }
+
+        @Override
+        public void pushed(String namespace, String localName, boolean onStack, int line, int column) {
+          listener.pushed(namespace, localName, onStack, line, column);
+        }
+      });
+    }
+
+    @Override
+    public int stackLength() {
+      return a.stackLength();
+    }
+
+    @Override
+    public String stackNamespace(int i) {
+      return a.stackNamespace(i);
+    }
+
+    @Override
+    public String stackName(int i) {
+      return a.stackName(i);
+    }
+
+    @Override
+    public int templateModeCount() {
+      return a.templateModeCount();
+    }
+
+    @Override
+    public String templateMode(int i) {
+      return a.templateMode(i);
+    }
+
+    @Override
+    public RawParser fork() throws Exception {
+      return new Raw(a.fork());
+    }
+
+    @Override
+    public boolean scripting() {
+      return a.scripting();
+    }
+
+    @Override
+    public String tokenizerState() {
+      return a.tokenizerState();
+    }
+
+    @Override
+    public String attributeName() {
+      return a.attributeName();
+    }
+
+    @Override
+    public boolean betweenTokens() {
+      return a.betweenTokens();
+    }
+
+    @Override
+    public String endTagExpectation() {
+      return a.endTagExpectation();
+    }
+
+    @Override
+    public boolean lastCR() {
+      return a.lastCR();
+    }
+
+    @Override
+    public RawTree tree() throws Exception {
+      TesseraAccess.Tree t = a.tree();
+      RawTree r = new RawTree();
+      r.stackNamespaces = t.stackNamespaces;
+      r.stackNames = t.stackNames;
+      r.stackHtmlIntegrationPoints = t.stackHtmlIntegrationPoints;
+      r.formattingStackIndex = t.formattingStackIndex;
+      r.formattingNamespaces = t.formattingNamespaces;
+      r.formattingNames = t.formattingNames;
+      r.formattingAttributes = t.formattingAttributes;
+      r.templateModes = t.templateModes;
+      r.mode = t.mode;
+      r.originalMode = t.originalMode;
+      r.framesetOk = t.framesetOk;
+      r.formPointer = t.formPointer;
+      r.headPointer = t.headPointer;
+      r.quirks = t.quirks;
+      r.needToDropLF = t.needToDropLF;
+      r.pendingTableText = t.pendingTableText;
+      return r;
+    }
   }
 }

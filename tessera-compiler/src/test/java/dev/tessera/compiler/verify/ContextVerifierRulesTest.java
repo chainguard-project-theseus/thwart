@@ -139,14 +139,9 @@ class ContextVerifierRulesTest {
     reject(Problem.RAW_NOT_FLOW, st("<math><mi>"), raw());
     reject(Problem.RAW_NOT_FLOW, st("<title>"), raw());
     reject(Problem.RAW_NOT_FLOW, st("<p><b>x</p>"), raw());
-    // Classic <select> parsing reads it in select mode; customizable <select> parsing in body mode,
-    // where a <p> or <div> in the value closes the select (#329). The messages name the engines.
-    List<Finding> f = check(seq(st("<select>"), raw()));
-    assertEquals(Set.of(Problem.RAW_NOT_FLOW, Problem.RAW_CLOSES_ELEMENT), Set.copyOf(problems(f)));
-    for (Finding x : f) {
-      String engine = x.problem == Problem.RAW_NOT_FLOW ? "the older HTML parsing some browsers still use" : "current HTML parsing";
-      assertTrue(VerifierMessages.message(x).contains("only in " + engine + ": browsers differ here"), VerifierMessages.message(x));
-    }
+    // Customizable <select> parsing reads it in body mode, where a <p> or <div> in the value closes
+    // the select (#329).
+    reject(Problem.RAW_CLOSES_ELEMENT, st("<select>"), raw());
   }
 
   @Test
@@ -166,7 +161,7 @@ class ContextVerifierRulesTest {
   // ---- error-free parses and the three exclusions (#406) ----
 
   /**
-   * #398 and PR #402's variants: a table (or template, or classic select) that ends inside SVG or
+   * #398 and PR #402's variants: a table (or template, or select) that ends inside SVG or
    * MathML in a table. validator.nu and Firefox reset the insertion mode to "in body" at the foreign
    * element; the standard, Chromium and WebKit walk on down to the cell. Exclusion (a) rejects the
    * shape itself, so it doesn't matter what follows, or whether anything does. PR #402's
@@ -198,7 +193,7 @@ class ContextVerifierRulesTest {
     // A <template> ends there instead; a nested table with rows.
     reject(p, st(svgCell + "<template></template>"), text());
     reject(p, st(svgCell + "<table><tr><td>a</td></tr></table>"), text());
-    // Classic <select> parsing: </select> resets too.
+    // A </select> resets too, where browsers parse <select> the classic way.
     reject(p, st(svgCell + "<select><option>a</option></select>"), text());
     // The </table> comes from a fragment; the SVG from another static.
     Map<String, Seq> end = Map.of("end", seq(st("</table>")));

@@ -497,8 +497,7 @@ all, most of them one layout idiom. @dlorenc decided:
 code there. Until #406 lands, `main` has no error check: it accepts some markup that parses only
 through error recovery (101 of the 1,120 corpus templates it accepts) and checks it by modelling
 recovery, which has the known gaps #398 and #401. So on that markup `main` is weaker than this
-section, not stricter. Until #408 lands, `main` also requires the classic 1.4.16 engine to
-accept, which is stricter.
+section, not stricter.
 
 ### 11.1 Decision
 
@@ -612,10 +611,11 @@ document parses identically, and the value is in the node the parser reported.
 |---|---|---|
 | Current | upstream htmlparser from the pinned validator 26.10.12 sources release (`nu.validator:validator:26.10.12:sources`), the Java source Gecko's parser is translated from | current spec, 99.7% of html5lib tree-construction tests |
 
-The classic 1.4.16 snapshot goes (#408). It was there to bracket two known splits: classic and
-customizable `<select>` parsing, and the old fragment-case foreign-content breakout. Exclusion (c)
-covers the first. The second is a parse error. The measurement found no template, seed,
-probe or generator case that only the classic engine rejects and the new rule accepts.
+Until #408 a second engine ran, the htmlparser 1.4.16 snapshot, and a template needed both. It was
+there to bracket two known splits: classic and customizable `<select>` parsing, and the old
+fragment-case foreign-content breakout. Exclusion (c) covers the first. The second is a parse
+error. The measurement found no template, seed, probe or generator case that only the 1.4.16
+engine rejects and the new rule accepts, and #408 removed it with no verdict change.
 
 **Error-free parses only** (#406).
 

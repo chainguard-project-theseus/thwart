@@ -44,8 +44,8 @@ JDK 21+. The table names the main classes only.
 | | `.codegen.attr` | one processor class per attribute family + hooks | |
 | | `.processor` | `TesseraProcessor` (javac entry point), options, discovery | |
 | | `.verify` | `Skeleton`: what each generated class writes, recorded by `Emitted` | |
-| | `.verify.engine` | `Engine`, `Parser`, `ParserState`: the two spec HTML parsers the build-time verifier runs (security-architecture.md §11.4) | |
-| `tessera-html5/current`, `tessera-html5/classic` | `dev.tessera.compiler.internal.html5.{current,classic}` | build only: validator.nu htmlparser source from Maven Central (`validator:26.10.12:sources`, `htmlparser:1.4.16:sources`), pinned by SHA-256, renamed and compiled for Java 8, plus a `TesseraAccess` accessor; shaded into the `tessera-compiler` jar with their MIT notices | none |
+| | `.verify.engine` | `Engine`, `Parser`, `ParserState`: the spec HTML parser the build-time verifier runs (security-architecture.md §11.4) | |
+| `tessera-html5/current` | `dev.tessera.compiler.internal.html5.current` | build only: validator.nu htmlparser source from Maven Central (`validator:26.10.12:sources`), pinned by SHA-256, renamed and compiled for Java 8, plus a `TesseraAccess` accessor; shaded into the `tessera-compiler` jar with its MIT notice | none |
 | `tessera-spring-boot-starter` | `dev.tessera.spring{,.view,.context,.fn}` | auto-config, plain-Spring config, view resolver, return values, request `RenderContext`, `auth` | runtime; Spring 4.3+ / Boot 1.5+, Servlet 3.0+ from the app (`jakarta.servlet`) |
 | `tessera-spring-boot-starter-javax` | same | the starter jar shaded with `jakarta.servlet` relocated to `javax.servlet` | runtime |
 | `tessera-spring-tests` | | the starter's test sources run on Boot 3.5, 2.7, 2.0 and 1.5 and on Spring MVC 5.0 and 4.3 without Boot | |
