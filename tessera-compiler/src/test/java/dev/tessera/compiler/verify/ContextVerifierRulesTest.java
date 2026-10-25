@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
@@ -137,11 +138,14 @@ class ContextVerifierRulesTest {
     reject(Problem.RAW_NOT_FLOW, st("<math><mi>"), raw());
     reject(Problem.RAW_NOT_FLOW, st("<title>"), raw());
     reject(Problem.RAW_NOT_FLOW, st("<p><b>x</p>"), raw());
-    // Classic <select> parsing only: the message names the engine.
+    // Classic <select> parsing reads it in select mode; customizable <select> parsing in body mode,
+    // where a <p> or <div> in the value closes the select (#329). The messages name the engines.
     List<Finding> f = check(seq(st("<select>"), raw()));
-    assertEquals(List.of(Problem.RAW_NOT_FLOW), problems(f));
-    assertTrue(VerifierMessages.message(f.get(0)).contains("only in the older HTML parsing some browsers still use: browsers differ here"),
-        VerifierMessages.message(f.get(0)));
+    assertEquals(Set.of(Problem.RAW_NOT_FLOW, Problem.RAW_CLOSES_ELEMENT), Set.copyOf(problems(f)));
+    for (Finding x : f) {
+      String engine = x.problem == Problem.RAW_NOT_FLOW ? "the older HTML parsing some browsers still use" : "current HTML parsing";
+      assertTrue(VerifierMessages.message(x).contains("only in " + engine + ": browsers differ here"), VerifierMessages.message(x));
+    }
   }
 
   @Test

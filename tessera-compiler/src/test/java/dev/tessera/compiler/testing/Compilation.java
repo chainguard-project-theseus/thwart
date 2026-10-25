@@ -700,7 +700,16 @@ public final class Compilation {
       templates.forEach((path, content) -> sources.add(
           new TemplateSource(path.substring(0, path.length() - ".html".length()), path, content)));
       try {
-        skeletons = new TemplateCompiler(env(processingEnv, d -> {})).run(sources).skeletons();
+        // The message bundle, if any, so HTML messages are recorded as their markup (#329).
+        String bundles = processingEnv.getOptions().get("tessera.messages");
+        List<Path> paths = new ArrayList<>();
+        if (bundles != null) {
+          for (String b : bundles.split(",")) {
+            paths.add(Path.of(b.trim()));
+          }
+        }
+        MessageBundle messages = paths.isEmpty() ? MessageBundle.unchecked() : MessageBundle.load(paths);
+        skeletons = new TemplateCompiler(env(processingEnv, d -> {}, messages, List.of())).run(sources).skeletons();
       } catch (RuntimeException e) {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "compiler failed without its checks: " + e);
         return false;

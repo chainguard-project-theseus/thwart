@@ -210,7 +210,7 @@ class SkeletonTest {
             .template(
                 "j.html",
                 "<div " + NS + " t:import=\"com.example.Item, dev.tessera.runtime.SafeHtml, dev.tessera.runtime.Fragment\""
-                    + " t:params=\"SafeHtml h, Item item, String s, Fragment f\"><p t:utext=\"h\">u</p>[(${h})]"
+                    + " t:params=\"SafeHtml h, Item item, String s, Fragment f\"><div t:utext=\"h\">u</div>[(${h})]"
                     + "<div t:insert=\"f\">f</div>"
                     + "<script>var a = [[${item}]]; var b = [[${s}]];</script></div>")
             .compile()
@@ -228,7 +228,7 @@ class SkeletonTest {
                 "s", "x'y",
                 "f", (dev.tessera.runtime.Fragment) (cx, o) -> o.write("<hr>")));
     assertEquals(
-        "<div><p><b>B</b></p><b>B</b><div><hr></div><script>var a = {\"name\":\"\\u003c\\/script\\u003e\",\"n\":3};"
+        "<div><div><b>B</b></div><b>B</b><div><hr></div><script>var a = {\"name\":\"\\u003c\\/script\\u003e\",\"n\":3};"
             + " var b = \"x\\u0027y\";</script></div>",
         out);
   }
