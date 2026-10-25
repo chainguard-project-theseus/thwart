@@ -125,6 +125,59 @@ class CsrfActionOriginTest {
         renderWith(c, "u", "https://evil.example/steal"));
   }
 
+  /**
+   * Negative: the action is converted to text once, and that text is both checked and written. A
+   * value whose {@code toString()} alternates between a relative and an absolute URL must never get
+   * the token next to the absolute one, whichever it returns first.
+   */
+  @Test
+  void computedActionIsCheckedAsWritten() {
+    for (String attr : new String[] {"t:action=\"u\"", "t:attr=\"action=u\""}) {
+      Compilation c = compileFlip("method=\"post\" " + attr);
+      assertEquals(
+          "<div><form method=\"post\" action=\"https://evil/\">x</form></div>",
+          renderWith(c, "u", flip(c, 1, "/x", "https://evil/")),
+          attr);
+      assertEquals(
+          "<div><form method=\"post\" action=\"/x\">" + INPUT + "x</form></div>",
+          renderWith(c, "u", flip(c, 0, "/x", "https://evil/")),
+          attr);
+    }
+  }
+
+  /** Negative: the same for a computed method, so a form written as GET never gets the token. */
+  @Test
+  void computedMethodIsCheckedAsWritten() {
+    Compilation c = compileFlip("t:method=\"u\" action=\"/x\"");
+    assertEquals(
+        "<div><form action=\"/x\" method=\"get\">x</form></div>", renderWith(c, "u", flip(c, 1, "post", "get")));
+    assertEquals(
+        "<div><form action=\"/x\" method=\"post\">" + INPUT + "x</form></div>",
+        renderWith(c, "u", flip(c, 0, "post", "get")));
+  }
+
+  /** A form whose parameter {@code u} is a {@code Flip}: its {@code toString()} alternates two values. */
+  private static Compilation compileFlip(String formAttrs) {
+    return Compilation.builder()
+        .java(
+            "com.example.Flip",
+            "package com.example; @dev.tessera.runtime.TemplateView public class Flip {"
+                + " private final String[] values; private int next;"
+                + " public Flip(int first, String a, String b) { values = new String[] {a, b}; next = first; }"
+                + " @Override public String toString() { return values[next++ % 2]; } }")
+        .template(
+            "form.html",
+            "<div xmlns:t=\"https://tessera.dev\" t:params=\"com.example.Flip u\"><form " + formAttrs
+                + ">x</form></div>")
+        .compile()
+        .assertSuccess();
+  }
+
+  /** A {@code Flip} whose first {@code toString()} returns {@code first == 0 ? a : b}. */
+  private static Object flip(Compilation c, int first, String a, String b) {
+    return c.newInstance("com.example.Flip", first, a, b);
+  }
+
   @Test
   void attrActionIsCheckedToo() {
     Compilation c = compile("String u", "method=\"post\" t:attr=\"action=u\"");
