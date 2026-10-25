@@ -1,0 +1,54 @@
+# Known holes for fixture.jsonl only (#322), in known-holes.txt's format. fixture.jsonl holds renders
+# from 0dda2f1 (A0, A1, A5, A25, A31) and hand-written synthetic renders (S1-S8), so these never go
+# stale; run.sh also checks that an empty list reports every one. The synthetic cases give every
+# detector of every engine a line, so a detector that goes blind fails the self-check.
+# Until #324 exports the real cases, the job ratchets the fixture against this file.
+#
+# A5 <svg><title><script>: live in every engine (svg <title> is an HTML integration point).
+f09d02af175e LIVE_SCRIPT parse5 #301 A5
+f09d02af175e JS_NOT_LITERAL parse5 #301 A5
+f09d02af175e LIVE_SCRIPT chromium #301 A5
+f09d02af175e LIVE_SCRIPT firefox #301 A5
+# A31 <select><title><script>: live under classic <select> parsing (parse5 8, Firefox 140 ESR); not
+# in Chromium 149, which parses the new customizable <select>.
+c42d98097d59 LIVE_SCRIPT parse5 #305 A31
+c42d98097d59 JS_NOT_LITERAL parse5 #305 A31
+c42d98097d59 LIVE_SCRIPT firefox #305 A31
+#
+# Synthetic detector self-test (hand-written renders, not Tessera output). S3's handler is seen only
+# through the recorded call (the marker is split), S2's only through the attribute (it never fires),
+# S5's script runs in an <iframe srcdoc> (a child frame in the browsers).
+2937913dbbcc LIVE_SCRIPT parse5 #322 S1-new-script
+2937913dbbcc LIVE_SCRIPT chromium #322 S1-new-script
+2937913dbbcc LIVE_SCRIPT firefox #322 S1-new-script
+2937913dbbcc STRUCTURE_CHANGED parse5 #322 S1-new-script
+2937913dbbcc STRUCTURE_CHANGED chromium #322 S1-new-script
+2937913dbbcc STRUCTURE_CHANGED firefox #322 S1-new-script
+6319d9350419 LIVE_HANDLER parse5 #322 S2-unfired-handler
+6319d9350419 LIVE_HANDLER chromium #322 S2-unfired-handler
+6319d9350419 LIVE_HANDLER firefox #322 S2-unfired-handler
+6319d9350419 STRUCTURE_CHANGED parse5 #322 S2-unfired-handler
+6319d9350419 STRUCTURE_CHANGED chromium #322 S2-unfired-handler
+6319d9350419 STRUCTURE_CHANGED firefox #322 S2-unfired-handler
+2b9618c58207 LIVE_HANDLER chromium #322 S3-fired-split-handler
+2b9618c58207 LIVE_HANDLER firefox #322 S3-fired-split-handler
+2b9618c58207 STRUCTURE_CHANGED parse5 #322 S3-fired-split-handler
+2b9618c58207 STRUCTURE_CHANGED chromium #322 S3-fired-split-handler
+2b9618c58207 STRUCTURE_CHANGED firefox #322 S3-fired-split-handler
+02fd127457b1 JS_URL parse5 #322 S4-js-url
+02fd127457b1 JS_URL chromium #322 S4-js-url
+02fd127457b1 JS_URL firefox #322 S4-js-url
+ee142ded0f61 LIVE_SCRIPT parse5 #322 S5-srcdoc-script
+ee142ded0f61 LIVE_SCRIPT chromium #322 S5-srcdoc-script
+ee142ded0f61 LIVE_SCRIPT firefox #322 S5-srcdoc-script
+ee142ded0f61 STRUCTURE_CHANGED parse5 #322 S5-srcdoc-script
+ee142ded0f61 STRUCTURE_CHANGED chromium #322 S5-srcdoc-script
+ee142ded0f61 STRUCTURE_CHANGED firefox #322 S5-srcdoc-script
+d24369fe5291 CSTI parse5 #322 S6-csti
+d15f2c2f8b69 CROSS_ORIGIN_RESOURCE parse5 #322 S7-cross-origin-script
+ed647dc9e62b MARKER_IN_NAME parse5 #322 S8-marker-in-name
+ed647dc9e62b MARKER_IN_NAME chromium #322 S8-marker-in-name
+ed647dc9e62b MARKER_IN_NAME firefox #322 S8-marker-in-name
+ed647dc9e62b STRUCTURE_CHANGED parse5 #322 S8-marker-in-name
+ed647dc9e62b STRUCTURE_CHANGED chromium #322 S8-marker-in-name
+ed647dc9e62b STRUCTURE_CHANGED firefox #322 S8-marker-in-name
