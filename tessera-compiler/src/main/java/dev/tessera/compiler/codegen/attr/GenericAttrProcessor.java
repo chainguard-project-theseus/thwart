@@ -24,7 +24,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
 /**
- * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. A Vue/Alpine binding with an ordinary target ({@code :prop}, SCRIPT_ATTRIBUTE) takes only a JSON-serializable value, written as JSON. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}; an htmx request URL ({@code hx-get}, ...), the {@code action}/{@code formaction} of a form htmx submits ({@link CodegenContext#htmxSubmits}), and a {@code formaction} that may receive the CSRF token ({@link CodegenContext#mayPostCsrfToken}), only a same-origin link; there a computed {@code formmethod} is a build error.
+ * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. A Vue/Alpine binding with an ordinary target ({@code :prop}, SCRIPT_ATTRIBUTE) takes only a JSON-serializable value, written as JSON. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}; a {@code <base href>} (#350), an htmx request URL ({@code hx-get}, ...), the {@code action}/{@code formaction} of a form htmx submits ({@link CodegenContext#htmxSubmits}), and a {@code formaction} that may receive the CSRF token ({@link CodegenContext#mayPostCsrfToken}), only a same-origin link; there a computed {@code formmethod} is a build error.
  */
 public final class GenericAttrProcessor implements AttributeProcessor {
 
@@ -112,6 +112,11 @@ public final class GenericAttrProcessor implements AttributeProcessor {
         String code = "((" + cond.code() + ") ? " + JavaStrings.literal(name) + " : null)";
         plan.setAttribute(name, code, pos);
       }
+      return;
+    }
+    if (lower.equals("href") && element.equalsIgnoreCase("base")) {
+      // #350: every relative URL on the page, a token-bearing form's action included, resolves against it.
+      htmxRequestUrl(ctx, plan, name, value, pos, label, CsrfInjector.BASE_MOVES_URLS, "", "a <base href>");
       return;
     }
     if (context == OutputContext.RESOURCE_URL && Contexts.isHtmxRequestUrl(name)) {

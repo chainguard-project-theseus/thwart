@@ -193,7 +193,7 @@ escapers below ship today; [mvp-design.md](mvp-design.md) has a similar table, w
 | `ATTRIBUTE` | ordinary attribute values | `Escapers.attr` | main | seeds `A38`, `A39`, `A49`; hole values `t:title`, `t:data-x`, `t:value`, `t:class` | `Esc` `htmlSafe`; Lean slice 2 |
 | `URL` | `href src action formaction cite poster background longdesc usemap ping xlink:href`; `to from by` on SVG `animate`/`set` | `Escapers.url` | main | seeds `A40`, `A41`, `A44`-`A46` | `Esc` `htmlSafe`; scheme check not yet |
 | `URL_LIST` | `values` on SVG `animate`/`set` | `Escapers.urlList` | main (#288) | seed `A47` | `Esc` `htmlSafe` |
-| `RESOURCE_URL` | `script[src|href|xlink:href]`, `iframe/frame/embed[src]`, `object[data]`, `base/link[href]`, htmx request URLs | `Escapers.resourceUrl` | main; protocol-relative `/\` paths rejected for every link (#340) | seeds `A42`, `A43`, `B1`, `B2`, `B4`; `LinkCompilerTest` | `Esc` `htmlSafe`; origin fixed by the literal; not proved |
+| `RESOURCE_URL` | `script[src|href|xlink:href]`, `iframe/frame/embed[src]`, `object[data]`, `base/link[href]`, htmx request URLs | `Escapers.resourceUrl` | main; protocol-relative `/\` paths rejected for every link (#340); every `<base href>`, static or computed, must be same-origin, main (#357) | seeds `A42`, `A43`, `B1`, `B2`, `B4`; `LinkCompilerTest`, `CsrfBaseTest` | `Esc` `htmlSafe`; origin fixed by the literal; not proved |
 | `REFRESH` | `content` of `<meta http-equiv="refresh">` | `Escapers.refresh` | main | seed `B3` | `Esc` `htmlSafe` |
 | `SCRIPT_ATTRIBUTE` | Vue/Alpine JSON bindings (`:x`, `v-bind:x`, `x-bind:x`) | `Escapers.jsonAttr` | main | `JsonBindingTest` | `Esc` `htmlSafe` (attribute half) |
 | `STYLE` | `style` attribute | `Escapers.attr`, literals, numbers and `CssValue` only | main | `StyleAttributeTest` | not yet |
@@ -212,6 +212,7 @@ Static attributes are copied verbatim and are not affected by these rules.
 | Name listed in the framework table | as the table says | as the hard-coded lists in `Contexts` say | phase 4 (#333) | `FrameworkDirectivesTest` |
 | Any other name | error ("use `data-*`") | accepted as `ATTRIBUTE` | phase 2 (#330) | none yet; closes #273 (Unpoly) and #276 |
 | Computed `formaction` inside a POST form | same-origin link only, or the CSRF token is withheld | same-origin `formaction` required where a button may submit the CSRF token | main (#346, #314) | seeds `A45`, `B6`; `CsrfFormactionTest` |
+| Computed `href` on `<base>` | same-origin link only, in every template (a static one must be same-origin by shape) | same-origin link required; static `href` checked like a static `action` | main (#357) | `CsrfBaseTest` |
 
 ### 6.3 The framework table
 
