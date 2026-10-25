@@ -50,6 +50,26 @@ class RichTextCheckTest {
         check("rich.html", rich, "lib/node.html", node, "page.html", PAGE));
   }
 
+  @Test
+  void casesBelowTheSwitchAndElementsBelowCaseBlocksAreReported() {
+    String rich = "<div>\n<t:block t:fragment=\"nodes(List<Node> nodes)\"><t:block t:each=\"n : nodes\" t:switch=\"n.tag\"><t:block>"
+        + "<t:block t:case=\"'p'\"><t:block t:if=\"n.shown\"><p t:insert=\"~{rich :: nodes(n.children)}\"></p></t:block></t:block>"
+        + "<em t:case=\"'em'\" t:insert=\"~{rich :: nodes(n.children)}\"></em>"
+        + "</t:block></t:block></t:block></div>";
+    assertEquals(List.of("rich.html:2", "page.html:2"), check("rich.html", rich, "page.html", PAGE));
+  }
+
+  @Test
+  void recursionThroughAFragmentArgumentIsReported() {
+    String rich = "<div>\n<t:block t:fragment=\"nodes(List<Node> nodes)\"><t:block t:each=\"n : nodes\" t:switch=\"n.tag\">"
+        + "<p t:case=\"'p'\" t:insert=\"~{wrap :: w(~{rich :: nodes(n.children)})}\"></p>"
+        + "<em t:case=\"'em'\" t:insert=\"~{wrap :: w(~{this :: nodes(n.children)})}\"></em>"
+        + "</t:block></t:block></div>";
+    String wrap = "<t:block t:fragment=\"w(Fragment content)\" t:replace=\"content\"></t:block>";
+    assertEquals(List.of("rich.html:2", "page.html:2"),
+        check("rich.html", rich, "wrap.html", wrap, "page.html", PAGE));
+  }
+
   // ---- not reported ----
 
   @Test
@@ -78,6 +98,15 @@ class RichTextCheckTest {
         + "<li t:case=\"'file'\"><a t:href=\"item.url\" t:text=\"item.name\"></a></li>"
         + "</t:block></ul>";
     assertEquals(List.of(), check("tree.html", tree));
+  }
+
+  @Test
+  void recursiveMenuSwitchingOnAnEnumIsNotReported() {
+    String menu = "<ul t:fragment=\"menu(List<Item> items)\"><li t:each=\"item : items\" t:switch=\"item.kind\">"
+        + "<a t:case=\"'LINK'\" t:href=\"item.url\" t:text=\"item.title\"></a>"
+        + "<span t:case=\"'HEADER'\" t:text=\"item.title\"></span>"
+        + "<t:block t:case=\"'SUBMENU'\" t:replace=\"~{menu :: menu(item.children)}\"></t:block></li></ul>";
+    assertEquals(List.of(), check("menu.html", menu));
   }
 
   @Test

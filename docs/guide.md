@@ -592,8 +592,11 @@ Then `t:utext="notices.html(notice.body)"`. The builder accepts only names from 
 options are `allowClasses` (exact names, `prefix*` or `*`; only letters, digits, `-` and `_`, and
 never a name AngularJS reads as a directive: `ng-*`, `ng_*` or `ngX`, also after `x-` or `data-`),
 `idPrefix` (a letter first, ending in `-`), `allowLinkTarget` (`target="_blank"` with `noopener`),
-`allowRemoteImages` (any `img src` that passes the URL check, not only same-origin paths) and
-`allowDataImages` (base64 PNG, GIF, JPEG and WebP `data:` URLs in `img src`).
+`allowRemoteImages` (any `img src` that passes the URL check, not only same-origin paths, so
+every reader's browser fetches from hosts the content's author picks, who can then track them) and
+`allowDataImages` (base64 PNG, GIF, JPEG and WebP `data:` URLs in `img src`). Allow the classes
+the content needs by name: with `*`, content can use any of the page's own CSS classes, to cover
+the page or dress up as its controls.
 
 Under every policy the output is rebuilt, never copied through, and balanced: every element is
 closed, and placed only where a browser's parser keeps it as written. A block element closes an
@@ -1089,7 +1092,8 @@ leaving a particular one. Read the part for your engine before converting.
 in the template instead, with a fragment that inserts itself, one `t:case` per tag name, over a
 tree parsed in Java. There the data decides which element nests in which (a `p` inside a `p`,
 text directly inside a `table`), so the compiler can't check what the browser will build from
-the page, and it rejects such a fragment. `tessera-migrate` reports every `th:utext` and
+the page. Don't write such a fragment: it is a build error once the compiler's build-time
+context verifier is enforced. `tessera-migrate` reports every `th:utext` and
 `[(...)]` it converts, and every fragment of this shape with its call sites.
 
 An example from a real port: fredbet's info pages print HTML written in a Summernote editor.
@@ -1944,10 +1948,12 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **Rich text.** Stored HTML is printed through a sanitizer policy: `html.sanitize`,
   `html.sanitizeRich`, or one built with `HtmlPolicy.builder()` (section 4.4). The builder takes
   names only from a closed set, so `style`, `iframe`, `video`, `svg` and forms are never kept,
-  and images from other hosts only with `allowRemoteImages()`. Editor output that depends on them
+  and images from other hosts only with `allowRemoteImages()`, which lets whoever wrote the
+  content see each reader's visit. Editor output that depends on them
   loses them: map what you need to classes in Java before sanitizing, or accept the loss.
-  Rebuilding the HTML in a template from a tree parsed in Java is a build error, and
-  `SafeHtml.unchecked` is not a way around it (section 4.10, Rich text).
+  Rebuilding the HTML in a template from a tree parsed in Java is a build error once the
+  build-time context verifier is enforced, and `SafeHtml.unchecked` is not a way around it
+  (section 4.10, Rich text).
 - **Framework attribute names.** Only the default names of client-side framework attributes are
   known (section 4.4). An Alpine prefix (`Alpine.prefix('data-x-')`), a Knockout binding provider
   or a _hyperscript `attributes` setting that reads other names is not detected, so expressions

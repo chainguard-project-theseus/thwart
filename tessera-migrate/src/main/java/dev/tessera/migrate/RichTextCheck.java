@@ -30,9 +30,13 @@ final class RichTextCheck {
 
   private static final MarkupParser PARSER = new MarkupParser(parseConfiguration());
 
-  /** {@code tpl :: name(args)}, optionally in {@code ~{...}}; groups: template, fragment name. */
+  /**
+   * {@code tpl :: name(args)} at the start of a value or in a {@code ~{...}} anywhere in it (a
+   * fragment argument such as {@code ~{layout :: wrap(~{this :: nodes(n.children)})}} counts too);
+   * groups: template, fragment name.
+   */
   private static final Pattern REFERENCE =
-      Pattern.compile("\\s*(?:~\\{)?\\s*([\\w./-]*)\\s*::\\s*([\\w-]+).*", Pattern.DOTALL);
+      Pattern.compile("(?:^|~\\{)\\s*([\\w./-]*)\\s*::\\s*([\\w-]+)");
   private static final Pattern FRAGMENT_NAME = Pattern.compile("\\s*([\\w-]+).*", Pattern.DOTALL);
   private static final Pattern CASE_LITERAL = Pattern.compile("\\s*'([A-Za-z][A-Za-z0-9]*)'\\s*");
   private static final Set<String> VOID_ELEMENTS = Compat.setOf("area", "base", "br", "col", "embed",
@@ -235,8 +239,8 @@ final class RichTextCheck {
     }
     for (String attr : new String[] {"insert", "replace"}) {
       String value = node.attrs.get(attr);
-      Matcher m = value == null ? null : REFERENCE.matcher(value);
-      if (m != null && m.matches()) {
+      Matcher m = value == null ? null : REFERENCE.matcher(Compat.strip(value));
+      while (m != null && m.find()) {
         String target = m.group(1).isEmpty() || m.group(1).equals(THIS_TEMPLATE) ? template : m.group(1);
         refs.add(new Ref(file, node.line, fragment, target + "::" + m.group(2),
             fragment != null && underTagSwitch(node)));
@@ -261,24 +265,33 @@ final class RichTextCheck {
   }
 
   /**
-   * A {@code t:switch} at least two of whose cases render the element their literal names:
-   * {@code <p t:case="'p'">}, or {@code <t:block t:case="'p'"><p>}.
+   * A {@code t:switch} at least two of whose cases (descendants, not inside a nested switch) render
+   * the element their literal names: {@code <p t:case="'p'">}, or {@code <t:block t:case="'p'">}
+   * whose first element, through further blocks, is a {@code <p>}.
    */
   private static boolean isTagSwitch(Node sw) {
     Set<String> tags = new HashSet<>();
-    for (Node c : sw.children) {
+    collectCaseTags(sw, tags);
+    return tags.size() >= 2;
+  }
+
+  private static void collectCaseTags(Node parent, Set<String> tags) {
+    for (Node c : parent.children) {
       String value = c.attrs.get("case");
       Matcher m = value == null ? null : CASE_LITERAL.matcher(value);
-      if (m == null || !m.matches()) {
-        continue;
-      }
-      Node rendered = c.isBlock() && !c.children.isEmpty() ? c.children.get(0) : c;
-      String tag = m.group(1).toLowerCase(Locale.ROOT);
-      if (rendered.name.equals(tag)) {
-        tags.add(tag);
+      if (m != null && m.matches()) {
+        Node rendered = c;
+        while (rendered.isBlock() && !rendered.children.isEmpty()) {
+          rendered = rendered.children.get(0);
+        }
+        String tag = m.group(1).toLowerCase(Locale.ROOT);
+        if (rendered.name.equals(tag)) {
+          tags.add(tag);
+        }
+      } else if (value == null && !c.attrs.containsKey("switch")) {
+        collectCaseTags(c, tags);
       }
     }
-    return tags.size() >= 2;
   }
 
   private static Node parse(String source) throws ParseException {

@@ -73,9 +73,10 @@ The old application is the specification. Work the way an expert would, keeping 
    editor or Markdown output, or the app's own `HtmlPolicy` behind a `@TemplateFunctions`
    function when it needs other classes or images (guide section 4.10, Rich text). Don't parse
    it in Java into records and rebuild it with a fragment that inserts itself under a `t:switch`
-   on the tag name: the compiler rejects that. `tessera-migrate` reports each raw output with
-   this recipe, and each such fragment with its call sites. The fix is in Java: delete the
-   parser, the records and the fragment, pass the HTML string, and sanitize it at each call site.
+   on the tag name: that is a build error once the compiler's build-time context verifier is
+   enforced. `tessera-migrate` reports each raw output with this recipe, and each such fragment
+   with its call sites. The fix is in Java: delete the parser, the records and the fragment, pass
+   the HTML string, and sanitize it at each call site.
 5. **Compare** the new app, started from the same data, after each template or small group:
    `java -jar .tessera/tessera-migrate.jar compare <base-url> pages.txt baseline/`
    Judge each difference: fix it, or decide that it is right and write down why. A `reordered`
