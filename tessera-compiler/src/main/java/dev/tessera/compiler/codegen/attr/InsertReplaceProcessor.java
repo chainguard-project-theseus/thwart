@@ -9,6 +9,7 @@ import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.FragmentRef;
 import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.html.Contexts;
+import dev.tessera.compiler.html.ParsingContexts;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.types.CompiledExpr;
@@ -42,7 +43,13 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     if (!replace && !UtextProcessor.requireHtmlText(ctx, attr, plan)) {
       return;
     }
-    String code = code(ctx, attr, plan);
+    ParsingContexts contexts = ctx.template().parsingContexts();
+    String point = replace ? contexts.place(plan.element()) : contexts.content(plan.element());
+    // Inside raw text the raw-text rule (TemplateGenerator) reports this; a fragment declared there
+    // fits nowhere, so it never renders where that rule does not look.
+    boolean rawText =
+        contexts.insideRawText(plan.element()) || (!replace && ParsingContexts.rawTextElement(plan.element()));
+    String code = rawText ? null : code(ctx, attr, plan, point);
     // On error, render nothing in its place so the children do not cascade into more errors.
     String stmts = code == null ? "" : code;
     if (replace) {
@@ -52,7 +59,8 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     }
   }
 
-  private static String code(CodegenContext ctx, Attribute attr, ElementPlan plan) {
+  /** {@code point}: the {@link ParsingContexts} context the fragment's markup lands in. */
+  private static String code(CodegenContext ctx, Attribute attr, ElementPlan plan, String point) {
     if (attr.value() == null || Backports.isBlank(attr.value())) {
       ctx.diagnostics().error(attr.pos(), attr.name() + " needs a fragment reference, e.g. ~{fragments/layout :: header}");
       return null;
@@ -64,6 +72,33 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
         return null;
       }
       Call call = resolve(ctx, ref, plan.scope(), plan.element(), pre);
+      if (call != null && !call.contexts.fits(call.root, point)) {
+        if (mixedFragment(ctx, ref, call.root, call.contexts)) {
+          return null;
+        }
+        String origin = call.contexts.place(call.root);
+        String fix = fitsNothing(point);
+        if (fix == null && ParsingContexts.isRawText(origin)) {
+          // Nothing fits in raw text, so a fragment declared there fits nowhere.
+          fix = "declare the fragment outside " + ParsingContexts.describe(origin);
+        } else if (fix == null) {
+          fix = "insert it in " + ParsingContexts.describe(origin) + " content, or "
+              + (point.equals(ParsingContexts.HTML)
+                  ? "declare the fragment outside " + ParsingContexts.describe(origin)
+                  : ParsingContexts.isSelect(point) && origin.equals(ParsingContexts.HTML)
+                      ? "keep <title>, <style>, <svg>, <math>, t:insert, t:replace, t:utext and [(...)] out of the"
+                          + " fragment, since some browsers ignore those tags in a <select> and parse their content as"
+                          + " markup"
+                      : "declare the fragment inside " + ParsingContexts.describe(point) + " in its template");
+        }
+        ctx.diagnostics()
+            .error(
+                ref.pos(),
+                "fragment '" + call.name + "' is declared in " + ParsingContexts.describe(origin) + " content but "
+                    + attr.name() + " puts it in " + ParsingContexts.describe(point)
+                    + " content, where a browser parses its markup differently: " + fix);
+        return null;
+      }
       return call == null ? null : "{\n" + pre + call.invoke("ctx", "out") + ";\n}";
     }
     CompiledExpr e = ctx.compile(attr, plan.scope());
@@ -80,20 +115,55 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
                   + e.type());
       return null;
     }
+    if (!point.equals(ParsingContexts.HTML)) {
+      // A template builds Fragment values only from markup that fits in HTML content (fitsHtml).
+      ctx.diagnostics()
+          .error(
+              e.pos(),
+              attr.name() + " with a Fragment value is only allowed in HTML content, not in "
+                  + ParsingContexts.describe(point) + " content, where a browser parses the fragment's markup"
+                  + " differently: "
+                  + (fitsNothing(point) != null
+                      ? fitsNothing(point)
+                      : "insert a ~{template :: name} declared inside " + ParsingContexts.describe(point)));
+      return null;
+    }
     String f = ctx.freshName("f");
     return "{ " + FRAGMENT + " " + f + " = " + e.code() + "; if (" + f + " != null) { " + f + ".render(ctx, out); } }";
   }
 
-  /** A resolved call of {@code method(args..., ctx, out)}; {@code types} are the parameter types. */
+  /** What to do where no fragment fits ({@code point} is unwrapped or mixed content), or null. */
+  private static String fitsNothing(String point) {
+    if (ParsingContexts.isUnwrapped(point)) {
+      return "no fragment fits there: drop the t:remove=\"tag\"";
+    }
+    if (ParsingContexts.isMixed(point)) {
+      return "no fragment fits in mixed content: move the HTML element out of the <svg> or <math> or into a"
+          + " <foreignObject>, or write the <annotation-xml> encoding as a static attribute";
+    }
+    return null;
+  }
+
+  /**
+   * A resolved call of {@code method(args..., ctx, out)}; {@code types} are the parameter types.
+   * {@code name} is the fragment as {@code template :: name}, {@code root} its element and
+   * {@code contexts} the {@link ParsingContexts} of its template.
+   */
   private static final class Call {
     private final String method;
     private final List<String> args;
     private final List<String> types;
+    private final String name;
+    private final Element root;
+    private final ParsingContexts contexts;
 
-    private Call(String method, List<String> args, List<String> types) {
+    private Call(String method, List<String> args, List<String> types, String name, Element root, ParsingContexts contexts) {
       this.method = method;
       this.args = args;
       this.types = types;
+      this.name = name;
+      this.root = root;
+      this.contexts = contexts;
     }
 
     public String method() {
@@ -182,7 +252,12 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       codes.add(code);
     }
     List<String> types = f.params().stream().map(TemplateIndex.Param::javaType).collect(Collectors.toList());
-    return ok ? new Call(target.className() + "." + f.methodName(), codes, types) : null;
+    if (!ok) {
+      return null;
+    }
+    return new Call(
+        target.className() + "." + f.methodName(), codes, types, target.viewName() + " :: " + f.name(), f.element(),
+        target.parsingContexts());
   }
 
   /**
@@ -348,7 +423,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       call = ElementSelection.helperCall(ctx, ref, scope, host, pre, c, o);
     } else {
       Call target = resolve(ctx, ref, scope, host, pre);
-      if (target == null) {
+      if (target == null || !fitsHtml(ctx, ref, target.root, target.contexts)) {
         return null;
       }
       // Evaluate the arguments now, into effectively final locals the lambda can capture.
@@ -359,7 +434,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
             .append(target.args().get(i)).append(";\n");
         captured.add(a);
       }
-      call = new Call(target.method(), captured, target.types()).invoke(c, o);
+      call = new Call(target.method(), captured, target.types(), target.name, target.root, target.contexts).invoke(c, o);
     }
     if (call == null) {
       return null;
@@ -367,6 +442,59 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     pre.append(FRAGMENT).append(' ').append(local).append(" = (").append(c).append(", ").append(o).append(") -> ")
         .append(call).append(";\n");
     return local;
+  }
+
+  /**
+   * Reports and returns true if the content of {@code root}, the element of {@code ref}, is {@link
+   * ParsingContexts#isMixed mixed}: then it fits nowhere.
+   */
+  private static boolean mixedFragment(CodegenContext ctx, FragmentRef ref, Element root, ParsingContexts contexts) {
+    String content = contexts.content(root);
+    if (!ParsingContexts.isMixed(content)) {
+      return false;
+    }
+    if (ParsingContexts.isUnwrapped(content)) {
+      ctx.diagnostics()
+          .error(
+              ref.pos(),
+              "fragment " + written(ref) + " is in or is an element with t:remove=\"tag\" whose tag changes how its"
+                  + " content is parsed, so it is compiled for one context and rendered in another and fits nowhere:"
+                  + " drop the t:remove=\"tag\", or move the fragment out of that element");
+      return true;
+    }
+    ctx.diagnostics()
+        .error(
+            ref.pos(),
+            "fragment " + written(ref) + " is in or holds an <svg> or <math> with an HTML element such as <p> in it, where"
+                + " a browser leaves foreign content early, so it fits nowhere: move the HTML element out of the <svg>"
+                + " or <math>, or into a <foreignObject>");
+    return true;
+  }
+
+  private static String written(FragmentRef ref) {
+    return ref.template() == null ? "~{::" + ref.selector() + "}" : "~{" + ref.template() + " :: " + ref.selector() + "}";
+  }
+
+  /**
+   * Reports and returns false unless {@code root}, the fragment or element of fragment argument
+   * {@code ref} in a template with {@code contexts}, {@link ParsingContexts#fits fits} in HTML
+   * content: a {@code Fragment} value is only inserted in HTML content.
+   */
+  static boolean fitsHtml(CodegenContext ctx, FragmentRef ref, Element root, ParsingContexts contexts) {
+    if (contexts.fits(root, ParsingContexts.HTML)) {
+      return true;
+    }
+    if (mixedFragment(ctx, ref, root, contexts)) {
+      return false;
+    }
+    String origin = contexts.place(root);
+    ctx.diagnostics()
+        .error(
+            ref.pos(),
+            "fragment argument " + written(ref) + " is declared in " + ParsingContexts.describe(origin)
+                + " content, but a Fragment value is inserted in HTML content, where a browser parses its markup"
+                + " differently: pass a fragment or element declared outside " + ParsingContexts.describe(origin));
+    return false;
   }
 
   /** {@code a/b} with no empty, {@code .} or {@code ..} segments (so no leading {@code /}). */

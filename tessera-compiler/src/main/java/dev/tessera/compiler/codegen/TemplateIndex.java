@@ -8,6 +8,7 @@ import dev.tessera.compiler.expr.ExpressionParser;
 import dev.tessera.compiler.expr.FragmentSignature;
 import dev.tessera.compiler.expr.ParamDecl;
 import dev.tessera.compiler.forms.FormPaths;
+import dev.tessera.compiler.html.ParsingContexts;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Document;
 import dev.tessera.compiler.model.Element;
@@ -161,6 +162,8 @@ public final class TemplateIndex {
     private final List<String> imports;
     private final List<Param> params;
     private final Map<String, FragmentInfo> fragments;
+    /** Computed on first use; not part of equals. */
+    private ParsingContexts parsingContexts;
 
     public TemplateInfo(
         Document document,
@@ -193,6 +196,14 @@ public final class TemplateIndex {
 
     public Map<String, FragmentInfo> fragments() {
       return fragments;
+    }
+
+    /** How a browser parses each element of {@link #document} (computed once). */
+    public ParsingContexts parsingContexts() {
+      if (parsingContexts == null) {
+        parsingContexts = ParsingContexts.of(document);
+      }
+      return parsingContexts;
     }
 
     @Override
