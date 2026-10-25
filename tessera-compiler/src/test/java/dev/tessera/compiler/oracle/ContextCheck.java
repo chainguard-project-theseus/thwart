@@ -349,10 +349,22 @@ public final class ContextCheck {
       Set.of("hx-vals", "hx-vars", "hx-headers", "hx-request", "hx-trigger", "script");
 
   /**
+   * SVG presentation attributes whose value (SVG 2, CSS Fill and Stroke, CSS Masking, Filter
+   * Effects, CSS UI) may be a CSS {@code url()}: a string there is CSS, like {@code style}.
+   * The {@code marker} shorthand is animatable (SVG 1.1 section 11.6.3) though not a presentation
+   * attribute. {@code fill} on an animation element is the timing attribute ({@code freeze}), not CSS.
+   */
+  private static final Set<String> SVG_URL_PROPERTIES =
+      Set.of("fill", "stroke", "clip-path", "mask", "filter", "marker-start", "marker-mid", "marker-end", "marker", "cursor");
+
+  private static final Set<String> SVG_ANIMATIONS = Set.of("animate", "set", "animateMotion", "animateTransform", "animateColor");
+
+  /**
    * An attribute an entity-escaped string is correct in. Not: an event handler (every WHATWG event
    * handler content attribute starts with {@code on}; the prefix is the fail-closed superset),
-   * {@code style}, {@code srcdoc}, a {@code <script type>} or {@code <meta http-equiv>} (they
-   * decide how other content is read), the {@code content} of a refresh {@code <meta>} (a
+   * {@code style} and the {@link #SVG_URL_PROPERTIES} of an SVG element (CSS), {@code srcdoc}, a
+   * {@code <script type>} or {@code <meta http-equiv>} (they decide how other content is read),
+   * the {@code content} of a refresh {@code <meta>} (a
    * navigation: only REFRESH is correct there), or a client-framework attribute evaluated as code:
    * Vue/petite-vue {@code v-*} and {@code : @ # .} shorthands, Alpine {@code x-*}, Knockout
    * {@code data-bind} and custom-element {@code params}, _hyperscript {@code _}, and
@@ -366,6 +378,8 @@ public final class ContextCheck {
         || (el.equals("script") && a.equals("type"))
         || (el.equals("meta") && a.equals("http-equiv"))
         || isRefreshContent(element, attribute)
+        || (SVG.equals(element.getNamespaceURI()) && SVG_URL_PROPERTIES.contains(a)
+            && !(a.equals("fill") && SVG_ANIMATIONS.contains(el)))
         || a.startsWith(":") || a.startsWith("@") || a.startsWith("#") || a.startsWith(".")
         || a.startsWith("v-") || a.startsWith("x-") || a.equals("data-bind") || a.equals("_")
         || (a.equals("params") && el.indexOf('-') >= 0)

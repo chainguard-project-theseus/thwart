@@ -148,6 +148,58 @@ class StyleAttributeTest {
         .assertError("t.html:1:", "is not allowed", "not a java.lang.Character");
   }
 
+  // ------------------------------------------------------------- SVG presentation attributes
+
+  /** An SVG attribute that takes a CSS url() is CSS: it takes what t:style takes. */
+  @Test
+  void svgCssUrlAttributesTakeCssValues() {
+    assertEquals(
+        "<svg><rect fill=\"#ff8800\" stroke=\"url(&quot;/p.svg#g&quot;)\"/></svg>",
+        render("<svg><rect t:fill=\"css.color(s)\" t:stroke=\"css.url('/p.svg#g')\"/></svg>", "s", "#ff8800"));
+    assertEquals(
+        "<svg><g clip-path=\"url(#c)\" cursor=\"pointer\"/></svg>",
+        render("<svg><g t:clip-path=\"'url(#c)'\" t:cursor=\"b ? 'move' : 'pointer'\"/></svg>"));
+    assertEquals(
+        "<svg><rect fill=\"null\"/></svg>",
+        render("<svg><rect t:fill=\"|${css.color(s)}|\"/></svg>", "s", "url(javascript:alert(1))"));
+    assertEquals("<svg><rect/></svg>", render("<svg><rect t:mask=\"css.url(s)\"/></svg>", "s", "javascript:alert(1)"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<svg><rect t:fill=\"s\"/></svg>",
+        "<svg><rect t:stroke=\"|url(${s})|\"/></svg>",
+        "<svg><g t:clip-path=\"'url(' + s + ')'\"/></svg>",
+        "<svg><g t:mask=\"s\"/></svg>",
+        "<svg><g t:filter=\"s\"/></svg>",
+        "<svg><path t:marker-start=\"s\" /></svg>",
+        "<svg><path t:marker-mid=\"s\" /></svg>",
+        "<svg><path t:marker-end=\"s\" /></svg>",
+        "<svg><path t:marker=\"s\" /></svg>",
+        "<svg t:cursor=\"s\"></svg>",
+        "<svg><RECT t:FILL=\"s\"/></svg>",
+        "<svg><rect t:attr=\"fill=s\"/></svg>",
+        "<svg><rect><animate t:stroke=\"s\"/></rect></svg>",
+      })
+  void svgCssUrlAttributesRejectStrings(String body) {
+    compile(body).assertError("t.html:1:", "is not allowed", "style value");
+  }
+
+  /** Outside SVG, and on an animation's timing fill, the names are ordinary attributes. */
+  @Test
+  void otherFillAttributesStayOrdinary() {
+    assertEquals("<p fill=\"url(x)\">x</p>", render("<p t:fill=\"s\">x</p>", "s", "url(x)"));
+    assertEquals(
+        "<svg><rect><animate fill=\"freeze\"/></rect></svg>",
+        render("<svg><rect><animate t:fill=\"s\"/></rect></svg>", "s", "freeze"));
+    assertEquals(
+        "<svg><rect><animateMotion fill=\"freeze\"/><animateTransform fill=\"remove\"/></rect></svg>",
+        render("<svg><rect><animateMotion t:fill=\"s\"/><animateTransform t:fill=\"'remove'\"/></rect></svg>", "s", "freeze"));
+    assertEquals(
+        "<svg><rect fill-opacity=\"0.5\"/></svg>", render("<svg><rect t:fill-opacity=\"s\"/></svg>", "s", "0.5"));
+  }
+
   @Test
   void errorNamesTheOffendingPieceAndItsType() {
     compile("<p t:style=\"|color: ${css.color(s)}; width: ${s}|\">x</p>")

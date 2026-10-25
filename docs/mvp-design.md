@@ -216,7 +216,7 @@ table is what ships today. The target profile, with the status of each rule, is 
 | `RESOURCE_URL` | `script[src] script[href] script[xlink:href] iframe[src] frame[src] embed[src] object[data] base[href] link[href]` | `Escapers.resourceUrl` | only a literal-path `@{}` link or `TrustedUrl`; else build error |
 | `SCRIPT` | text in `<script>` (no type or JS/module/JSON) | `Escapers.json` | `[[...]]` only; JSON-able types only; also escapes `/`, backtick and `$` so a value cannot leave a JS comment, regex or template literal; `[[...]]` inside a JS string literal (also template-literal text), comment or regex literal is a build error (#281, #315) |
 | `REFRESH` | `content` of `<meta http-equiv="refresh">` | `Escapers.refresh` | only `'<seconds>;url=' + @{/path}` with a literal path starting with a single `/` (#237); else build error |
-| `STYLE` | `<style>`, `style` attribute | — | build error |
+| `STYLE` | `<style>`, `style` attribute, SVG `fill stroke clip-path mask filter marker-start marker-mid marker-end marker cursor` (CSS that may hold a `url()`; not `fill` on an animation element) | — | build error in `<style>`; the attributes take only literals, numbers and `CssValue`s (#182), attribute-escaped |
 | `EVENT_HANDLER` | `on*` attributes | — | build error; use `data-*` + script |
 | `FORBIDDEN` | `srcdoc`, non-JS `<script type>`, odd attribute names | — | build error; `http-equiv` on `<meta>` and `type` on `<script>` cannot be computed |
 
