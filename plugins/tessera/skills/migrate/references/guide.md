@@ -1199,10 +1199,14 @@ public record Address(String street) {}
   (`action="https://pay.example/..."`, or a computed URL with a scheme or starting with `//`) gets
   no token, so the session's token is never sent to another site. An absolute URL to the
   application's own host counts as elsewhere, and Spring Security then rejects the POST: write it
-  as `@{/...}`. A submit button sends the form, token included, to its `formaction`, so a button
-  that may submit a form with the token (inside a POST form that may get it, with a `form`
-  attribute, or in a fragment, which can be inserted into such a form) takes only a same-origin
-  `formaction`: a computed one must be a link with a literal path starting with a single `/`
+  as `@{/...}`. A POST form whose `t:action` (or `t:attr="action=..."`) is a link with a literal
+  scheme or `//` (`@{https://www.example.com/owners}`, this application's own host written
+  absolutely, as `MvcUriComponentsBuilder` URLs are) gets a build warning saying so; write the path
+  (`@{/owners}`), or, where another site is meant, a static `action="https://..."`. A submit button
+  sends the form, token included, to its `formaction`, so a button that may submit a form with the
+  token (inside a POST form that may get it, with a `form` attribute, or in a fragment, which can be
+  inserted into such a form) takes only a same-origin `formaction`: a computed one must be a link
+  with a literal path starting with a single `/`
   (`t:formaction="@{/items/{id}/delete(id=${item.id})}"`), a static one must be same-origin like a
   static `action`, and `formmethod` must be a static `post` or `dialog` (anything else submits as
   GET with the token in the URL). Anything else is a build error: use a link, or move the button
@@ -2403,6 +2407,13 @@ These come from the annotation processor itself, without a template position.
 - `fields.<fn> takes one string literal (a field path such as 'lastName', '*' for all errors or 'global' for the form object's own), a field expression such as *{items[i].name}, or a Field parameter`.
 - `unknown function ids.<fn>: the ids namespace has seq('name'), next('name') and prev('name')`.
 - `ids.<fn> takes one argument, the id (a field name such as 'roles')`.
+- `<label>="@{<path>}" has a scheme or starts with //, so this POST form gets no CSRF token: write a path such as @{/...} if it posts to this application, or a static action="..." if another site is meant`
+  (warning): the form's `method` is a static `post` and its action is a link whose literal path is
+  absolute or protocol-relative, which is not the page's origin by shape (section 4.7), so Spring
+  Security rejects the POST if the link is this application. Write the path only (`@{/owners}`); a
+  form that really posts to another site takes a static `action`, which is never warned about.
+  A computed action (`t:action="url"`) or method is decided at render time and gets no warning,
+  and neither does a form with `t:remove`.
 
 ### Fragments
 

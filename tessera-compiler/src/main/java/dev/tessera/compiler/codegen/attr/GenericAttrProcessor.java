@@ -158,6 +158,18 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     if (c == null) {
       return;
     }
+    if (lower.equals("action") && element.equalsIgnoreCase("form") && value instanceof Expr.Link) {
+      String path = ((Expr.Link) value).path();
+      if (!Escapers.isSameOriginUrl(path) && CsrfInjector.isRenderedStaticPost(plan.element())) {
+        // #285: the form gets no token at render time. A link is how a template names a URL of this
+        // application, so an absolute one is most likely the application's own host, where Spring
+        // Security then rejects the POST. Warn, don't fail: the template is safe either way.
+        ctx.diagnostics()
+            .warning(pos, label + "=\"@{" + path + "}\" has a scheme or starts with //, so this POST form"
+                + " gets no CSRF token: write a path such as @{/...} if it posts to this application, or a"
+                + " static action=\"...\" if another site is meant");
+      }
+    }
     if (context == OutputContext.RESOURCE_URL
         && !(value instanceof Expr.Link)
         && !isDeclared(c.type(), TrustedUrl.class.getName())) {

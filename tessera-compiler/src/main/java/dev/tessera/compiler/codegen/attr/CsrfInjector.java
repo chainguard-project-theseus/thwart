@@ -35,7 +35,8 @@ import java.util.regex.Pattern;
  * ({@code t:action}, {@code t:attr="action=..."}, links included) is evaluated once before the
  * start tag and converted to text, like a computed method, and the token is written only if that
  * text passes. An absolute URL to the application's own host gets no token: write it as
- * {@code @{/...}}.
+ * {@code @{/...}}; a literal absolute link on a static POST form gets a build warning
+ * ({@code GenericAttrProcessor}).
  *
  * <p>A submit button can send the form elsewhere (#314). Where it may submit a form that gets the
  * token ({@link CodegenContext#mayPostCsrfToken}), a computed {@code formaction} must be a
@@ -150,6 +151,31 @@ public final class CsrfInjector {
 
   /** {@code t:attr} setting {@code form}: the first assignment, or one after a comma. */
   private static final Pattern ATTR_SETS_FORM = Pattern.compile("(?i)(^|,)\\s*form\\s*=");
+
+  /** {@code t:attr} setting {@code method}: the first assignment, or one after a comma. */
+  private static final Pattern ATTR_SETS_METHOD = Pattern.compile("(?i)(^|,)\\s*method\\s*=");
+
+  /**
+   * Whether {@code element}'s method is a static {@code post} (as {@link #apply} reads it), not also
+   * computed ({@code t:method}, {@code t:attr="method=..."}), and the element has no {@code t:remove},
+   * whatever the order of its attributes: a computed method is decided at render time, and a removed
+   * form has no token to lose, so neither is warned about.
+   */
+  static boolean isRenderedStaticPost(Element element) {
+    boolean post = false;
+    for (Attribute a : element.attributes()) {
+      String n = a.name().toLowerCase(Locale.ROOT);
+      if (n.equals(Attribute.PREFIX + "method")
+          || n.equals(Attribute.PREFIX + "remove")
+          || (n.equals(Attribute.PREFIX + "attr") && a.value() != null && ATTR_SETS_METHOD.matcher(a.value()).find())) {
+        return false;
+      }
+      if (n.equals("method") && a.value() != null && a.value().toLowerCase(Locale.ROOT).equals("post")) {
+        post = true;
+      }
+    }
+    return post;
+  }
 
   /**
    * Whether {@code element} has a {@code form} attribute, static or computed ({@code t:form},
