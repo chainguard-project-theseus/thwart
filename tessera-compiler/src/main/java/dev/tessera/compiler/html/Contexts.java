@@ -43,12 +43,13 @@ public final class Contexts {
    * {@code x-bind:x} with an ordinary target {@code x}) are SCRIPT_ATTRIBUTE; other
    * {@link #isFrameworkDirective framework directives} and {@code on*} are EVENT_HANDLER, {@code style} is STYLE, {@code srcdoc} and
    * names that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*} are FORBIDDEN, resource URLs are
-   * RESOURCE_URL, other URL attributes are URL, everything else ATTRIBUTE. The values of SVG
-   * {@code <animate>}/{@code <set>} ({@code to from by}) are URL too: they can set an
-   * {@code href} to {@code javascript:}. Their {@code values} is URL_LIST: a {@code ;}-separated
-   * list whose items SVG applies in turn, so every item is checked (#284). The {@code content} of a
-   * {@code <meta http-equiv="refresh">} is REFRESH: its {@code url=} part navigates the page, so
-   * only a same-origin link is allowed there (#237).
+   * RESOURCE_URL, other URL attributes are URL, everything else ATTRIBUTE. The {@code to from by}
+   * of an SVG {@code <animate>} and the {@code to} of a {@code <set>} are URL too: they can set an
+   * {@code href} to {@code javascript:}. The {@code values} of an {@code <animate>} is URL_LIST: a
+   * {@code ;}-separated list whose items SVG applies in turn, so every item is checked (#284).
+   * {@code <set>} ignores {@code values from by}, but they are checked the same way. The
+   * {@code content} of a {@code <meta http-equiv="refresh">} is REFRESH: its {@code url=} part
+   * navigates the page, so only a same-origin link is allowed there (#237).
    * The {@code type} of a {@code <script>} is FORBIDDEN: it decides whether the content is
    * JavaScript. The {@code http-equiv} of a {@code <meta>} is FORBIDDEN: it decides whether
    * {@code content} is a refresh URL. The {@link #isHtmxRequestUrl htmx request URLs}
