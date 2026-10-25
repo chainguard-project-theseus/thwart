@@ -97,4 +97,14 @@ public interface CodegenContext {
    * and remove in a {@code finally}.
    */
   Set<Element> selecting();
+
+  /**
+   * The {@code RenderContext} expression to pass to markup inserted at the element being rendered
+   * now: {@code ctx}, or {@code ctx} without its CSP nonce inside {@code <svg>}, {@code <math>} or
+   * a raw text element, so a fragment's {@code <script>} and {@code <style>} get the nonce only
+   * where a browser reads them as HTML (#335).
+   */
+  default String insertionContext() {
+    return "ctx";
+  }
 }

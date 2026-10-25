@@ -4,6 +4,7 @@ import dev.tessera.runtime.DefaultLinks;
 import dev.tessera.runtime.Links;
 import dev.tessera.runtime.Messages;
 import dev.tessera.runtime.RenderContext;
+import dev.tessera.spring.CspNonce;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.HashMap;
@@ -17,7 +18,8 @@ import org.springframework.web.servlet.support.RequestContextUtils;
 /**
  * Builds the per-request {@link RenderContext}: locale from the LocaleResolver, messages from
  * the MessageSource, links with the request context path (and {@code response.encodeURL}),
- * forms from the model's {@code BindingResult}s, and the CSRF token request attribute.
+ * forms from the model's {@code BindingResult}s, the CSRF token request attribute, and the
+ * request's CSP nonce ({@link CspNonce}).
  */
 public final class SpringRenderContexts {
   private SpringRenderContexts() {}
@@ -35,7 +37,8 @@ public final class SpringRenderContexts {
         locale,
         messages(requestContext.getMessageSource(), locale),
         links(new DefaultLinks(request.getContextPath()), response),
-        new SpringForms(requestContext, model, request));
+        new SpringForms(requestContext, model, request),
+        CspNonce.get(request));
   }
 
   /** {@link Messages} over a {@link MessageSource}; a missing key renders {@code ??key_locale??}. */
