@@ -1,6 +1,6 @@
 # tessera-migrate report
 
-Converted 8 template(s); 41 item(s) need manual attention.
+Converted 8 template(s); 45 item(s) need manual attention.
 
 ## fragments/inputField.html
 
