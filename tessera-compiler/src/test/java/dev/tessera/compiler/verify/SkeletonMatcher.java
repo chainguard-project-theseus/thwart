@@ -196,6 +196,236 @@ public final class SkeletonMatcher {
     return new Result(false, at, expected);
   }
 
+  /** Where one hole's output is in a render, from {@link #holes}: {@code [start, end)}. */
+  public static final class Span {
+    private final Skeleton.Hole hole;
+    private final int start;
+    private final int end;
+
+    Span(Skeleton.Hole hole, int start, int end) {
+      this.hole = hole;
+      this.start = start;
+      this.end = end;
+    }
+
+    public Skeleton.Hole hole() {
+      return hole;
+    }
+
+    public int start() {
+      return start;
+    }
+
+    public int end() {
+      return end;
+    }
+
+    @Override
+    public String toString() {
+      return hole + "[" + start + "," + end + ")";
+    }
+  }
+
+  /**
+   * One derivation of {@code output} through {@code body} (#324): the span of each hole written, in
+   * output order, or null if {@code output} isn't in the skeleton's language. Where the language
+   * is ambiguous (a hole followed by static text in its escaper's alphabet) any derivation may be
+   * returned; zero-width choices (an omitted {@code Opt}, no {@code Rep} iteration, a null
+   * fragment) are preferred. Raw inserts aren't listed.
+   */
+  public static List<Span> holes(Skeleton.Seq body, String output, Function<Skeleton.FragmentId, Skeleton.Seq> fragments) {
+    SkeletonMatcher m = new SkeletonMatcher(output, fragments);
+    if (!m.seq(body, 0, Env.EMPTY).get(output.length())) {
+      return null;
+    }
+    List<Span> out = new ArrayList<>();
+    if (!m.derive(body, 0, 0, output.length(), Env.EMPTY, out)) {
+      throw new AssertionError("the output matches but no derivation was found");
+    }
+    return out;
+  }
+
+  /** Memo of {@link #suffix}. */
+  private final Map<Key, BitSet> suffixes = new HashMap<>();
+  /** (node, offset, end, env) being derived, to cut zero-progress cycles through calls. */
+  private final Set<Key> deriving = new HashSet<>();
+
+  /** The offsets matching nodes {@code i..} of {@code seq} from {@code offset} can end at. */
+  private BitSet suffix(Skeleton.Seq seq, int i, int offset, Env env) {
+    List<Skeleton.Node> nodes = seq.nodes();
+    if (i >= nodes.size()) {
+      BitSet b = new BitSet();
+      b.set(offset);
+      return b;
+    }
+    Key key = new Key(seq, i, offset, env);
+    BitSet cached = suffixes.get(key);
+    if (cached != null) {
+      return cached;
+    }
+    BitSet out = new BitSet();
+    BitSet first = node(nodes.get(i), offset, env);
+    for (int j = first.nextSetBit(0); j >= 0; j = first.nextSetBit(j + 1)) {
+      out.or(suffix(seq, i + 1, j, env));
+    }
+    suffixes.put(key, out);
+    return out;
+  }
+
+  /** Derives nodes {@code i..} of {@code seq} from {@code offset} to {@code end}, appending hole spans. */
+  private boolean derive(Skeleton.Seq seq, int i, int offset, int end, Env env, List<Span> out) {
+    List<Skeleton.Node> nodes = seq.nodes();
+    for (; i < nodes.size(); i++) {
+      Skeleton.Node n = nodes.get(i);
+      BitSet ends = node(n, offset, env);
+      int chosen = -1;
+      for (int j = ends.nextSetBit(offset); j >= 0 && j <= end; j = ends.nextSetBit(j + 1)) {
+        if (!suffix(seq, i + 1, j, env).get(end)) {
+          continue;
+        }
+        int mark = out.size();
+        if (deriveNode(n, offset, j, env, out)) {
+          chosen = j;
+          break;
+        }
+        out.subList(mark, out.size()).clear();
+      }
+      if (chosen < 0) {
+        return false;
+      }
+      offset = chosen;
+    }
+    return offset == end;
+  }
+
+  /** Derives node {@code n} from {@code offset} to {@code end}. */
+  private boolean deriveNode(Skeleton.Node n, int offset, int end, Env env, List<Span> out) {
+    Key key = new Key(n, offset, end, env);
+    if (!deriving.add(key)) {
+      return false;
+    }
+    try {
+      return n.accept(new Skeleton.Visitor<Boolean>() {
+        @Override
+        public Boolean visitStatic(Skeleton.Static s) {
+          return true;
+        }
+
+        @Override
+        public Boolean visitHole(Skeleton.Hole h) {
+          out.add(new Span(h, offset, end));
+          return true;
+        }
+
+        @Override
+        public Boolean visitRawInsert(Skeleton.RawInsert r) {
+          return true;
+        }
+
+        @Override
+        public Boolean visitCall(Skeleton.Call c) {
+          return derive(fragments.apply(c.target()), 0, offset, end, callee(c, env), out);
+        }
+
+        @Override
+        public Boolean visitParamInsert(Skeleton.ParamInsert p) {
+          Skeleton.Seq bound = env.args.get(p.param());
+          if (bound == null || end == offset) {
+            return true;
+          }
+          return derive(bound, 0, offset, end, env.caller == null ? Env.EMPTY : env.caller, out);
+        }
+
+        @Override
+        public Boolean visitSeq(Skeleton.Seq q) {
+          return derive(q, 0, offset, end, env, out);
+        }
+
+        @Override
+        public Boolean visitOpt(Skeleton.Opt o) {
+          return end == offset || derive(o.body(), 0, offset, end, env, out);
+        }
+
+        @Override
+        public Boolean visitAlt(Skeleton.Alt a) {
+          for (Skeleton.Seq b : a.branches()) {
+            if (seq(b, offset, env).get(end)) {
+              int mark = out.size();
+              if (derive(b, 0, offset, end, env, out)) {
+                return true;
+              }
+              out.subList(mark, out.size()).clear();
+            }
+          }
+          return false;
+        }
+
+        @Override
+        public Boolean visitRep(Skeleton.Rep r) {
+          if (end == offset) {
+            return true;
+          }
+          // Breadth-first over iteration ends: how each was reached (previous end, separator end).
+          Map<Integer, int[]> how = new HashMap<>();
+          java.util.ArrayDeque<Integer> todo = new java.util.ArrayDeque<>();
+          BitSet first = seq(r.body(), offset, env);
+          for (int e = first.nextSetBit(0); e >= 0; e = first.nextSetBit(e + 1)) {
+            if (how.putIfAbsent(e, new int[] {-1, offset}) == null) {
+              todo.add(e);
+            }
+          }
+          while (!todo.isEmpty() && !how.containsKey(end)) {
+            int e = todo.poll();
+            BitSet afterSep = seq(r.separator(), e, env);
+            for (int s = afterSep.nextSetBit(0); s >= 0; s = afterSep.nextSetBit(s + 1)) {
+              BitSet next = seq(r.body(), s, env);
+              for (int e2 = next.nextSetBit(0); e2 >= 0; e2 = next.nextSetBit(e2 + 1)) {
+                if (how.putIfAbsent(e2, new int[] {e, s}) == null) {
+                  todo.add(e2);
+                }
+              }
+            }
+          }
+          if (!how.containsKey(end)) {
+            return false;
+          }
+          List<int[]> steps = new ArrayList<>(); // {previous end, separator end, body end}
+          for (int e = end; e >= 0 && how.containsKey(e); ) {
+            int[] h = how.get(e);
+            steps.add(new int[] {h[0], h[1], e});
+            if (h[0] < 0) {
+              break;
+            }
+            e = h[0];
+          }
+          java.util.Collections.reverse(steps);
+          for (int[] st : steps) {
+            if (st[0] >= 0 && !derive(r.separator(), 0, st[0], st[1], env, out)) {
+              return false;
+            }
+            if (!derive(r.body(), 0, st[1], st[2], env, out)) {
+              return false;
+            }
+          }
+          return true;
+        }
+      });
+    } finally {
+      deriving.remove(key);
+    }
+  }
+
+  /** The bindings a call's target is matched in: one Env per (call node, caller Env). */
+  private Env callee(Skeleton.Call c, Env env) {
+    Key k = new Key(c, 0, 0, env);
+    Env callee = envs.get(k);
+    if (callee == null) {
+      callee = new Env(c.fragmentArgs(), env);
+      envs.put(k, callee);
+    }
+    return callee;
+  }
+
   /** Records how far a match got: the description is only built on failure. */
   private void reached(int offset, String what, Skeleton.Node node, int chars) {
     if (offset > furthest) {
@@ -299,12 +529,7 @@ public final class SkeletonMatcher {
         if (target == null) {
           throw new AssertionError("no skeleton for fragment " + c.target());
         }
-        Key k = new Key(c, 0, 0, env);
-        Env callee = envs.get(k);
-        if (callee == null) {
-          callee = new Env(c.fragmentArgs(), env);
-          envs.put(k, callee);
-        }
+        Env callee = callee(c, env);
         path = new Path(c, path);
         try {
           return seq(target, offset, callee);

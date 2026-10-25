@@ -3,7 +3,8 @@
 # cases, ratcheted against known holes. Chainguard Checks runs it (.chainguard/ci/oracle-node.yaml);
 # it is not part of `mvn verify`.
 #
-# Locally: CHROMIUM_PATH=... [FIREFOX_PATH=...] [WEBKIT_PATH=...] [ORACLE_ENGINES=parse5,chromium] bash run.sh
+# Locally: CHROMIUM_PATH=... [FIREFOX_PATH=...] [WEBKIT_PATH=...] [ORACLE_ENGINES=parse5,chromium]
+# [ORACLE_EXPORT_VALUES=10] bash run.sh (JAVA_HOME a JDK 21+, mvn on PATH)
 # Without FIREFOX_PATH it downloads the pinned Firefox ESR (linux-x86_64) and checks its SHA-256.
 # Without WEBKIT_PATH it downloads Playwright's pinned WebKit build (linux-x86_64, Ubuntu 26.04) and
 # the Ubuntu 26.04 libraries it links that Wolfi doesn't ship, and checks every SHA-256.
@@ -95,6 +96,17 @@ while read -r id kind engine _; do
 done <fixture-known-holes.txt
 echo "self-check: ok"
 
-# TODO(#324): export the real cases with ProfileOracleTest (-Dtessera.oracle.export) and ratchet
-# against ../resources/oracle/known-holes.txt instead of the fixture.
-node check.mjs --engines "$engines" --known-holes fixture-known-holes.txt fixture.jsonl
+# The real cases: ProfileOracleTest (#324) compiles the seeds and the generator's default cases and
+# exports every accepted case's benign, fingerprint and first $export_values hostile renders (the #320
+# values come first), then the job ratchets them against ../resources/oracle/known-holes.txt. The
+# value count keeps the three browsers inside the job's timeout.
+export_values=${ORACLE_EXPORT_VALUES:-10}
+cases=$work/cases.jsonl
+mkdir -p "$work"
+rm -f "$cases"
+started=$(date +%s)
+(cd "$here/../../../.." && mvn -B -ntp -q -pl tessera-compiler -am test -Dtest=ProfileOracleTest \
+  -Dsurefire.failIfNoSpecifiedTests=false -Dtessera.oracle.export="$cases" \
+  -Dtessera.oracle.export.values="$export_values")
+echo "oracle-node: exported $(wc -l <"$cases") records ($export_values hostile values per case) in $(($(date +%s) - started)) s"
+node check.mjs --engines "$engines" "$cases"
