@@ -12,11 +12,14 @@ every gap.
 
 **Since Oct 25, 2026 the security boundary for markup contexts is the build-time verifier**
 ([security-architecture.md](security-architecture.md) §11, tracker #364), enforced in every build
-since #367. It runs every template through two spec HTML parsers and enforces section 1 per hole,
-whether or not a row below has its own rule; its rule table is section 9. The profile of principle
-3 is what the verifier accepts, narrowed by the rows below. The rows in sections 2, 3 and 5 run
-first, as friendly early errors or browser-divergence exclusions (security-architecture.md
-§11.7). Sections 4 and 6 are unchanged: the verifier doesn't cover script
+since #367. It runs every template through the pinned spec HTML parser and enforces section 1
+per hole, whether or not a row below has its own rule; its rule table is section 9. Once #406
+lands it accepts only parses with no parse errors (missing-doctype aside), outside three coarse
+exclusions where browsers split (security-architecture.md §11.4). Markup that parses only through
+error recovery (foster parenting, misnested formatting, a second `<body>`) is then rejected, not
+modelled; until then `main` still models it.
+The profile of principle 3 is what the verifier accepts, narrowed by the rows below. The rows in
+sections 2, 3 and 5 run first, as friendly early errors (security-architecture.md §11.7). Sections 4 and 6 are unchanged: the verifier doesn't cover script
 lexical position, URL policy or client frameworks.
 
 ## How to keep this document current
@@ -76,7 +79,7 @@ nodes, the same way for every value, without moving a hole out of its context.
 | Static structure is the same for every value | verifier (#367); the rules below are early errors | `ContextVerifierRulesTest`, `SeedVerifierTest`; #344 `STRUCTURE_CHANGED`, `MARKER_IN_NAME` over every seed and generated case | not proved; the oracle checks it |
 | Each value lands in the node, context and namespace the compiler chose | verifier (#367): the parser state at each hole | `ContextVerifierRulesTest`, `SeedVerifierTest`; #342 `CONTEXT_MISMATCH` | Lean token-level T1 (`t1_profile_tree`; not CDATA in foreign content, the tree-level effects of tables and `template`, or fragment insertion) |
 | No value runs as script, handler or `javascript:` URL, or loads a cross-origin resource | partial | #344 `LIVE_SCRIPT`, `LIVE_HANDLER`, `JS_URL`, `CROSS_ORIGIN_RESOURCE`; #341 `JS_NOT_LITERAL` | `Esc` for `text`, `attr`, `url`, `json` strings |
-| Static structure does not depend on the browser | verifier (#367) for the two embedded parsers (current upstream and 1.4.16, both must accept); real engines checked by the Node job | validator.nu htmlparser 1.4.16 and the htmlparser inside validator 26.10.12 in #344; parse5, headless Chromium, Firefox 140 ESR and WebKit (Playwright's build) in the Node job (#345, #354; on Chainguard Checks after every merge and on request, over a fixture until #324) | not yet |
+| Static structure does not depend on the browser | verifier (#367): error-free parses outside the exclusions (#406); the classic 1.4.16 engine still runs until #408; real engines checked by the nightly detector (#399) | validator.nu htmlparser 1.4.16 and the htmlparser inside validator 26.10.12 in #344; parse5, headless Chromium, Firefox 140 ESR and WebKit (Playwright's build) in the Node job (#345, #354; on Chainguard Checks after every merge and on request, over a fixture until #324) | not yet |
 
 ## 2. Token-level rules (§5.2)
 
@@ -114,8 +117,8 @@ verifier rejects (a tag, a comment, a character reference, CDATA, raw text after
 The parser keeps a parse mode for every open element. Today `HtmlParser` keeps none: it
 decides raw text from the local name (`RAW_TEXT_ELEMENTS`, `Contexts.browserRawText`), and it
 has no namespaces. #301 adds namespaces. The verifier (#367) reads the real mode and namespace
-from the spec parsers, so #328 is re-scoped to the browser-divergence exclusions (`select`
-content, nested `optgroup`, `frameset`, `plaintext`) and friendly errors. The element allow-list
+from the spec parser, and owns the browser splits as exclusions (#406). #328 is re-scoped to
+friendly errors, and #411 drops the `HtmlParser` rules whose message the verifier matches. The element allow-list
 moves to phase 4 (#311).
 
 ### 3.1 Modes and what they accept
@@ -139,20 +142,20 @@ moves to phase 4 (#311).
 | A browser ends raw text and RCDATA at the first ASCII-case `</name` + whitespace, `/` or `>`; it must be the element's own end tag | verifier (#367) for holes; main (#298, ASCII case folding) | seeds `A8`, `A28`-`A30`; `BrowserRawTextTest` | JML §4 `browserEndTag`; Lean `NoRawDanger`, `NoScriptDanger` |
 | `<!--` inside `<script>` is an error | verifier (#367) for holes; main | seed `A36`; `HtmlParserTest` | Lean `NoScriptDanger` (S6b); JML not yet |
 | `plaintext` is an error | main | seed `A62` | Lean: excluded (`htmlNames`) |
-| `xmp`, `noembed`, `noframes`, `frameset`, `frame` are errors | verifier (#367): `frameset` is an error; phase 2 (#328); on main their end tag must match (#298) | seeds `A8`, `A28`, `A29`, `A60` | Lean: excluded (`htmlNames`) |
+| `xmp`, `noembed`, `noframes`, `frameset`, `frame` are errors | verifier (#367): `frameset` is an error (a coarse exclusion after #410); phase 2 (#328); on main their end tag must match (#298) | seeds `A8`, `A28`, `A29`, `A60` | Lean: excluded (`htmlNames`) |
 | `iframe` must be empty | phase 2 (#328); on main its end tag must match (#298) | seed `A30` | Lean `RawKindOK` (`iframe`, empty body) |
 | `noscript`: no `</noscript` before its own end tag, including in comments and static attribute values (decision 2) | main (#298) | seed `A9` | Lean `NoscriptBodyOK` (stricter: no `<` in comments or static attribute values) |
 | `noscript`: no `t:insert`, `t:utext`, `[(...)]` | main (#298) | `BrowserRawTextTest` | Lean: raw holes not modeled |
-| `svg`, `math` enter SVG/MathML mode; HTML breakout tags (`p`, `b`, `font` with `color`/`face`/`size`, ...) are errors there | verifier (#367) for holes; #301 | seeds `A25`, `A26`, `B10`; generator interference "breakout tags" | JML (fork branch `proof-b-301`); Lean `svg_no_breakout`, `math_no_breakout` |
+| `svg`, `math` enter SVG/MathML mode; HTML breakout tags (`p`, `b`, `font` with `color`/`face`/`size`, ...) are errors there | verifier (#367) for holes; a breakout is a parse error (#406); #301 | seeds `A25`, `A26`, `B10`; generator interference "breakout tags" | JML (fork branch `proof-b-301`); Lean `svg_no_breakout`, `math_no_breakout` |
 | Integration points `title`, `desc` (SVG) and `mi`, `mo`, `mn`, `ms`, `mtext` (MathML) take text and TEXT holes only, with `{{` broken | #301 (TEXT context); text-only content phase 2 (#328) | seeds `A7`, `A21`, `A22`, `A48` | Lean `TextOnly` |
 | SVG `script` and `style` take no holes, no `<` and no `&` | verifier (#367): no holes; partial: `<` and `&` in #301; no holes phase 3 (#332) | seeds `A3`, `A4`, `A55`, `A56`, `A58`, `B0`, `B11` | Lean `StaticNoAmp` |
 | `foreignObject` holds an HTML subtree under these rules | #301 | seeds `A23`, `B9`; `foreignObject` wrapper axis | Lean `NodeOK .svg` (`foreignobject`) |
 | `annotation-xml` with `encoding="text/html"` or `"application/xhtml+xml"` is an HTML integration point | verifier (#367): a computed `encoding` in MathML is an error; #301 (static `encoding`); a computed `encoding`: in fragments #304, everywhere phase 2 (#328) (decision 4) | `annotation-xml` wrapper axis | Lean: MathML content only (stricter) |
-| `select` takes only `option`, `optgroup`, `hr`, `t:block` and text | #305 | seed `A31`; `<select>` wrapper axis | JML `selectContent` (fork branch `proof-b-305`); Lean `NodeOK .select` |
+| `select` takes only `option`, `optgroup`, `hr`, `t:block` and text | #305 in the template's source; verifier exclusion (c) `SELECT_CONTENT` on composed output, including fragments and unwrapped elements (#406) | seed `A31`; `<select>` wrapper axis | JML `selectContent` (fork branch `proof-b-305`); Lean `NodeOK .select` |
 | No nested `optgroup` inside `select` (decision 3) | phase 2 (#328) | none yet | Lean `NoOptgroup` |
 | No nested `<form>` | phase 2 (#328) | none yet | not modeled (tree level) |
-| Tables are allowed; foster parenting moves text, not its context | verifier (#367): text holes in a table part, and raw HTML anywhere in a table outside a cell or caption, are errors; main (#351): computed text directly in `table`, `tbody`, `thead`, `tfoot`, `tr`, `colgroup` is an error, table parts must sit directly in the part that takes them, and `form` may not sit directly in a table part | seed `A24`; `ClientTemplateInjectionTest`, `XssContextTest`; `table`, `table>tbody>tr` container values | not modeled (tree level, G1) |
-| `template` holds flow content under the body profile; `col`, `colgroup`, `caption`, `tbody`, `thead`, `tfoot`, `tr`, `td`, `th` as direct children are errors (decision 5) | phase 2 (#328); on main `template` content is not checked | seeds `A61`, `B8`; `template` wrapper axis | not yet (Lean leaves `template` out) |
+| Tables are allowed; foster parenting is an error | verifier (#367): text holes in a table part, and raw HTML anywhere in a table outside a cell or caption, are errors; static content that would be foster-parented is a parse error (#406); SVG or MathML anywhere inside a table part is exclusion (a) `FOREIGN_IN_TABLE` (#406); main (#351): computed text directly in `table`, `tbody`, `thead`, `tfoot`, `tr`, `colgroup` is an error, table parts must sit directly in the part that takes them, and `form` may not sit directly in a table part | seed `A24`; `ClientTemplateInjectionTest`, `XssContextTest`; `table`, `table>tbody>tr` container values | not modeled (tree level, G1) |
+| `template` holds flow content under the body profile; `col`, `colgroup`, `caption`, `tbody`, `thead`, `tfoot`, `tr`, `td`, `th` as direct children are errors (decision 5) | verifier exclusion (b) `TABLE_IN_TEMPLATE` (#406); in the profile phase 2 (#328) | seeds `A61`, `B8`; `template` wrapper axis | not yet (Lean leaves `template` out) |
 
 ## 4. Scripts: the data-prelude rule (§5.4)
 
@@ -184,7 +187,10 @@ they let the verifier take the state after a value known only at render time to 
 before it. Statically known fragments need no kind: the verifier analyses them at each call site.
 HTML messages need none either: their markup is known at build time (below).
 
-**`FLOW`, the predicate** (`ContentKinds.problem`), in all four parsers:
+**`FLOW`, the predicate** (`ContentKinds.problem`), with scripting on and off. #410 deletes the
+clauses that only error recovery reaches (the Noah's Ark clause, formatting reconstruction, and
+SVG or MathML above a cell, which exclusion (a) covers). `closer` itself stays: a runtime value is
+invisible to the error check.
 
 - data state, between tokens; the current node is HTML; the mode is in body, in cell, in caption
   or in template; no formatting element is waiting to be reopened (`RAW_NOT_FLOW` otherwise);
@@ -199,7 +205,8 @@ HTML messages need none either: their markup is known at build time (below).
 In template mode the first flow start tag switches to "in body"; the verifier then continues
 from both states (the second is the state after `<span></span>`).
 
-**`FLOW`, the producer promise:** balanced content (it closes every element it opens); no
+**`FLOW`, the producer promise** (#410 drops the checks that the error-free rule now makes in the
+partial probes: stray end tags, page tags, top-level `li`/`dd`/`dt`/table parts)**:** balanced content (it closes every element it opens); no
 formatting element nested in one of its own name; no `form`; and no top-level `li`, `dd`, `dt`,
 table part, `head`, `body`, `html` or `frameset`. That is why an open `li`, `dd`, `dt` or `form`
 is not in the predicate: `<li t:utext="${html.sanitize(x)}">` and sanitized text in a form are
@@ -370,15 +377,22 @@ dlorenc decided these on the research memo for #364
 | # | Decision | Reason |
 |---|---|---|
 | 14 | The build-time verifier is the boundary for markup contexts, enforced in every build, not first in test scope | The hand-written model is what kept failing; the spec algorithm decides instead |
-| 15 | Two parsers: pinned current upstream validator.nu htmlparser and the 1.4.16 classic snapshot; a hole is accepted only if both accept | Covers the classic and customizable `<select>` split (Firefox ESR) by construction |
+| 15 | ~~Two parsers: pinned current upstream validator.nu htmlparser and the 1.4.16 classic snapshot; a hole is accepted only if both accept~~ Superseded by 19 | Covered the classic and customizable `<select>` split (Firefox ESR); exclusion (c) does now |
 | 16 | The parsers are shaded into `tessera-compiler`, relocated and built for Java 8; the runtime and starters stay dependency-free | Upstream ships no Java 8 jar; the processor runs in a JDK 8 javac |
 | 17 | Markup structure that depends on data (recursive rich-text fragments) is a build error, with a `SafeHtml` fix-it; `tessera-migrate` reports it | It breaks the per-hole invariant; 25 of 1,585 corpus templates |
 | 18 | Scripts (#332), URL policy and client frameworks (phase 4) stay as planned; CSP auto-nonce (#335) moves earlier | The verifier doesn't cover them |
+| 19 | One engine: the pinned current validator.nu htmlparser; the classic 1.4.16 engine goes (#408) | No template, seed or generator case needs it once the error-free rule and exclusion (c) apply |
+| 20 | Error-free parses only: on every path, scripting on and off, no parse error except the missing-doctype messages; partials only in their implied fragment context (#406) | Error recovery is where engines and browsers split; the corpus barely uses it (101 of 1,120 accepted templates, 80 of those one layout idiom) |
+| 21 | Three coarse exclusions: SVG/MathML above a table part or `template`; table parts directly in `template`; only `option`/`optgroup`/`hr` above `select` (#406) | The known splits (#398, #401, #305), covered by a stack shape rather than a model |
+| 22 | A divergence the nightly detector finds becomes a coarse exclusion plus a test, never a modelled algorithm or an engine patch | Ends the modelling treadmill; #406 replaces PR #402 with exclusion (a) |
+| 23 | The hole-state rules and `ContentKinds.closer` stay | Values are invisible to the error check |
 
 ## 9. The verifier's rule table (#367)
 
-`verify/Rules` and `verify/ContextVerifier`. Each path through a template holds four parsers
-(current upstream and 1.4.16, scripting on and off); a hole is accepted only if all four accept it.
+`verify/Rules` and `verify/ContextVerifier`. Each path through a template holds the parser twice,
+scripting on and off; a template is accepted only if both accept it. Until #408 the classic 1.4.16
+engine also runs, so four parsers, all of which must accept. Rows marked #406 or #410 are their
+target.
 The id in brackets ends every error message (`[verifier:ID]`), for #368's fix-its.
 
 | Id | Rejects | Accepted instead |
@@ -387,16 +401,20 @@ The id in brackets ends every error message (`[verifier:ID]`), for #368's fix-it
 | `TEXT_IN_SCRIPT` | a `text` or `rcdata` hole in script data, `style`, or SVG/MathML `script`/`style` | as above |
 | `TEXT_IN_TABLE` | a `text` hole in a table, table body, row or column group whose current node is a table part (foster-parented table text) | in a cell or caption; in an element foster-parented out of the table |
 | `TEXT_OUTSIDE_BODY` | a `text` hole before `<html>`, in or after the head, after the body, in a frameset | in body, cell, caption, `select`, `template`; in foreign content |
-| `TEXT_RECONSTRUCTS` | a `text` hole where formatting elements closed out of order would be reopened first | |
+| `TEXT_RECONSTRUCTS` | a `text` hole where formatting elements closed out of order would be reopened first. Retired by #410: the misnesting is a parse error | |
 | `RCDATA_NOT_IN_RCDATA` | an `rcdata` hole (no `{{` breaking) a browser reads as ordinary text | RCDATA, never-run raw text |
 | `ATTRIBUTE_NOT_IN_VALUE`, `ATTRIBUTE_WRONG_NAME` | an attribute hole outside a double-quoted value, or in another attribute's value (or a dropped duplicate) | the double-quoted value of the attribute the compiler wrote, compared case-insensitively |
-| `ATTRIBUTE_VALUE_CHANGES_PARSE` | a computed `type` in a table mode, a computed `encoding` in MathML | static values |
+| `ATTRIBUTE_VALUE_CHANGES_PARSE` | a computed `encoding` in MathML; a computed `type` in a table mode until #410 (an `<input>` there is a parse error unless `hidden`) | static values |
 | `JSON_NOT_IN_SCRIPT` | a `json` hole outside the script data of an HTML `<script>` (SVG `script`, escaped script data, CDATA) | script data, also right after `<` (no JSON starts with `/` or `!`) |
 | `RAW_NOT_FLOW` | `SafeHtml`, an unbound or dynamic `Fragment` outside data state, HTML namespace, body/cell/caption/template mode, or with formatting elements to reopen | flow content (section 5) |
 | `RAW_CLOSES_ELEMENT` | the same where flow content would close, reopen or adopt an open element: `p` in button scope, a current heading, an active `a`, `button`/`nobr`/`ruby` in scope, `select`/`option`/`optgroup`, three identical formatting entries, SVG or MathML above a cell | flow content (section 5) |
 | `MESSAGE_CHANGES_STATE` | an HTML message whose markup (any locale, either form) leaves the parser in another state than it found it | a message that closes what it opens, where its markup fits |
-| `FRAMESET` | any `<frameset>` start tag (frameset-ok is not tracked exactly) | |
-| `NOAHS_ARK` | three or more identical formatting elements, one of them with a computed attribute | |
+| `FRAMESET` | any `<frameset>` start tag (a coarse exclusion; #410 deletes the frameset-ok handling) | |
+| `NOAHS_ARK` | three or more identical formatting elements, one of them with a computed attribute. Retired by #410: the clause only matters after a parse error | |
+| `PARSE_ERROR` (#406) | any tokenizer or tree-builder error on any path, scripting on or off, except the missing-doctype messages; a partial only in its implied fragment context | markup that parses without errors |
+| `FOREIGN_IN_TABLE` (#406) | an `svg` or `math` element open with `td`, `th`, `caption`, `tr`, `tbody`, `thead`, `tfoot`, `table` or `template` below it (the fragment context counts) | SVG and MathML outside tables; a table inside `foreignObject` outside any table |
+| `TABLE_IN_TEMPLATE` (#406) | an HTML table part directly in `template`, or a table mode in the template-mode stack | flow content in `template` |
+| `SELECT_CONTENT` (#406) | any element other than `option`, `optgroup` or `hr` open above `select`, in composed output | option, optgroup, hr and text |
 | `LOOP_NO_FIXED_POINT`, `STRUCTURE_DEPENDS_ON_DATA` | a loop, or a fragment calling itself, that reaches new parser states after 4 rounds (or more than 24 states for one recursive fragment); anything reached only through recursion | loops and recursion that settle |
 | `TOO_MANY_STATES` | more than 24 distinct parser states at a join | |
 | `ENGINE_FAILURE`, `UNKNOWN_NODE` | a parser that throws or reports an unnamed state; a fragment the skeleton doesn't define | |
