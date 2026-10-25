@@ -121,7 +121,7 @@ class GuideExamplesTest {
     String html = render("guide/messages-html", Map.of("name", "<i>Ann</i>"));
     assertTrue(
         html.contains("<p class=\"alert\">This version is being phased out: see <a href=\"/phaseout\""
-            + " class=\"alert-link\">the plan</a>.<p/>Save your work.</p>"),
+            + " class=\"alert-link\">the plan</a>.<br>Save your work.</p>"),
         html);
     assertTrue(html.contains("<p>Hello <b>&lt;i&gt;Ann&lt;/i&gt;</b>!</p>"), html);
   }

@@ -251,12 +251,13 @@ class ProfileOracleGateTest {
     assertEquals(List.of(), xmp.failures);
     assertEquals(List.of(), xmp.findings);
     assertFalse(xmp.inert.isEmpty());
-    // An attribute value the classic engine drops with its <span> inside <select>.
-    CaseResult dropped = run(P + "<table><tbody><tr><td t:fragment=\"frag(String s)\"><span t:title=\"s\">x</span></td>"
-        + "</tr></tbody></table><select><t:block t:replace=\"~{:: frag(s)}\"></t:block></select></div>");
-    assertEquals(List.of(), dropped.failures);
-    assertTrue(dropped.inert.stream().anyMatch(f -> f.finding().where().startsWith("(nowhere)")
-        && f.finding().engine().equals(SpecParsers.VNU_14)), dropped.inert.toString());
+    // An attribute value the classic engine drops with its <span> inside <select>: since #406 the
+    // verifier rejects the <span> there (exclusion (c)), so no accepted template has one.
+    Compilation.builder()
+        .template("t.html", P + "<table><tbody><tr><td t:fragment=\"frag(String s)\"><span t:title=\"s\">x</span></td>"
+            + "</tr></tbody></table><select><t:block t:replace=\"~{:: frag(s)}\"></t:block></select></div>")
+        .compile()
+        .assertError("[verifier:SELECT_CONTENT]");
     // A text marker that is nowhere is not inert.
     Finding nowhere = new Finding(Finding.Kind.CONTEXT_MISMATCH, "vnu-26",
         "(nowhere): marker tqf0001 is in the render but not in the parsed tree", "v");

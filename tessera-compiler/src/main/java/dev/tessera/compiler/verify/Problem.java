@@ -56,5 +56,17 @@ public enum Problem {
    * element open around it (a {@code <p>} in a {@code <p>}, an {@code <a>} in an {@code <a>}), or
    * leaves one of its own open (a {@code <p>} without {@code </p>}).
    */
-  MESSAGE_CHANGES_STATE
+  MESSAGE_CHANGES_STATE,
+  /**
+   * The parser reports a parse error (#406): the markup parses only by error recovery (foster
+   * parenting, misnested or stray tags, a second {@code <body>}, ...), where browsers may build
+   * different trees. The missing-doctype messages are allowed ({@link Rules#allowedError}).
+   */
+  PARSE_ERROR,
+  /** An {@code svg} or {@code math} element inside a table part or {@code <template>} (#398, exclusion (a)). */
+  FOREIGN_IN_TABLE,
+  /** An HTML table part directly in {@code <template>} (#401, exclusion (b)). */
+  TABLE_IN_TEMPLATE,
+  /** An element other than {@code option}, {@code optgroup} or {@code hr} in a {@code <select>} (#305, exclusion (c)). */
+  SELECT_CONTENT
 }

@@ -255,6 +255,8 @@ class ClientTemplateInjectionTest {
         "<table><tr><td><b t:replace=\"~{f :: row(s)}\"></b>[[s]]</td></tr></table>",
         "<table><tbody t:insert=\"~{f :: form(s)}\"></tbody></table>",
         "<t:block t:replace=\"~{f :: layout(~{::tr})}\"></t:block><table><tr><td t:text=\"s\">x</td></tr></table>",
+        // Rows in a <div>: a browser drops the <tr> and <td> tags, a parse error (#406).
+        "<div t:insert=\"~{f :: rows(s)}\"></div>",
       })
   void insertedTextOrTablePartInTableIsABuildError(String body) {
     Compilation c = compileWithFragments("\n" + body);
@@ -279,7 +281,6 @@ class ClientTemplateInjectionTest {
             "<table><tbody t:insert=\"~{f :: rows(s)}\"></tbody>"
                 + "<tbody><tr t:replace=\"~{f :: row(s)}\"></tr><t:block t:replace=\"~{f :: rows(s)}\"></t:block></tbody>"
                 + "<tr><td t:insert=\"~{f :: box(s)}\"></td><td t:insert=\"~{f :: text(s)}\"></td></tr></table>"
-                + "<div t:insert=\"~{f :: rows(s)}\"></div>"
                 + "<t:block t:replace=\"~{f :: layout(~{::p})}\"></t:block><p t:text=\"s\">x</p>")
         .assertSuccess();
   }

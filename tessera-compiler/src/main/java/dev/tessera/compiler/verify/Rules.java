@@ -3,6 +3,7 @@ package dev.tessera.compiler.verify;
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.verify.engine.InsertionMode;
 import dev.tessera.compiler.verify.engine.OpenElement;
+import dev.tessera.compiler.verify.engine.Parser;
 import dev.tessera.compiler.verify.engine.ParserState;
 import dev.tessera.compiler.verify.engine.TokenizerState;
 import java.util.EnumSet;
@@ -213,5 +214,102 @@ final class Rules {
       }
     }
     return false;
+  }
+
+  // ---- error-free parses and the coarse exclusions (#406, security-architecture.md §11.4) ----
+
+  /**
+   * Whether a parse error is on the allow-list, the measurement's (#406): the missing-doctype
+   * messages ("... without seeing a doctype first"), which say nothing about the tree (most views
+   * are partials, and many pages start with {@code <html>}); and "Duplicate ID", which isn't a
+   * parse error in the HTML standard but a conformance check of validator.nu's tree builder, and
+   * which it makes only among the elements of one chunk of input. Don't widen it without a corpus
+   * measurement.
+   */
+  static boolean allowedError(String message) {
+    return message.contains("without seeing a doctype first") || message.startsWith("Duplicate ID \u201C");
+  }
+
+  /** Below SVG or MathML on the stack, these split browsers (#398): exclusion (a). */
+  private static final Set<String> TABLE_PARTS_BELOW_FOREIGN =
+      Backports.setOf("td", "th", "caption", "tr", "tbody", "thead", "tfoot", "table", "template");
+
+  /** Directly in {@code <template>}, these split browsers (#401): exclusion (b). */
+  private static final Set<String> TABLE_PARTS_IN_TEMPLATE =
+      Backports.setOf("caption", "colgroup", "col", "tbody", "thead", "tfoot", "tr", "td", "th");
+
+  /** Template modes a table part directly in {@code <template>} switches to: exclusion (b). */
+  private static final Set<InsertionMode> TABLE_TEMPLATE_MODES = EnumSet.of(
+      InsertionMode.IN_TABLE, InsertionMode.IN_TABLE_BODY, InsertionMode.IN_ROW, InsertionMode.IN_COLUMN_GROUP);
+
+  /** What classic {@code <select>} parsing keeps in a select (#305): exclusion (c). */
+  private static final Set<String> SELECT_CONTENT = Backports.setOf("option", "optgroup", "hr");
+
+  /** An excluded stack shape: the rule and the shape in words, for the message. */
+  static final class Excluded {
+    final Problem problem;
+    final String detail;
+
+    Excluded(Problem problem, String detail) {
+      this.problem = problem;
+      this.detail = detail;
+    }
+  }
+
+  /**
+   * Whether the stack, right after an element was inserted, has a shape where supported browsers
+   * are known to build different trees (security-architecture.md §11.4), or null. Every element
+   * is checked when it is inserted, so the shapes are found also when they last only inside one
+   * static. The checks are coarse on purpose: they reject the whole shape, not only the markup
+   * after it that splits browsers.
+   *
+   * <ul>
+   *   <li>(a) {@link Problem#FOREIGN_IN_TABLE}: an {@code svg} or {@code math} element open with a
+   *       table part or {@code template} below it (the fragment context counts);
+   *   <li>(b) {@link Problem#TABLE_IN_TEMPLATE}: an HTML table part directly in {@code
+   *       <template>}, or a table mode in the template-mode stack;
+   *   <li>(c) {@link Problem#SELECT_CONTENT}: any element but {@code option}, {@code optgroup} and
+   *       {@code hr} inserted into an open {@code select} (the fragment context counts).
+   * </ul>
+   */
+  static Excluded exclusion(Parser.Stack s) {
+    String ns = s.insertedNamespace();
+    String name = s.insertedName();
+    boolean html = OpenElement.HTML.equals(ns);
+    // The elements below the inserted one, the top first; then the fragment context.
+    int below = s.insertedOnStack() ? s.size() - 2 : s.size() - 1;
+    if (!html && ("svg".equals(name) || "math".equals(name))) {
+      for (int i = below; i >= -1; i--) {
+        String part = htmlName(s, i);
+        if (part != null && TABLE_PARTS_BELOW_FOREIGN.contains(part)) {
+          return new Excluded(Problem.FOREIGN_IN_TABLE, "<" + name + "> inside <" + part + ">");
+        }
+      }
+    }
+    if (html && TABLE_PARTS_IN_TEMPLATE.contains(name) && "template".equals(htmlName(s, below))) {
+      return new Excluded(Problem.TABLE_IN_TEMPLATE, "<" + name + "> directly in <template>");
+    }
+    for (int i = 0; i < s.templateModeCount(); i++) {
+      if (TABLE_TEMPLATE_MODES.contains(s.templateMode(i))) {
+        return new Excluded(Problem.TABLE_IN_TEMPLATE, "a table part directly in <template>");
+      }
+    }
+    if (!(html && SELECT_CONTENT.contains(name))) {
+      for (int i = below; i >= -1; i--) {
+        if ("select".equals(htmlName(s, i))) {
+          return new Excluded(Problem.SELECT_CONTENT, "<" + name + "> in a <select>");
+        }
+      }
+    }
+    return null;
+  }
+
+  /** The local name of HTML element {@code i} on the stack ({@code -1}: the fragment context), else null. */
+  private static String htmlName(Parser.Stack s, int i) {
+    if (i < 0) {
+      OpenElement c = i == -1 ? s.context() : null;
+      return c != null && OpenElement.HTML.equals(c.namespace()) ? c.localName() : null;
+    }
+    return OpenElement.HTML.equals(s.namespace(i)) ? s.localName(i) : null;
   }
 }

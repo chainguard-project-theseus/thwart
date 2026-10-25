@@ -224,12 +224,15 @@ class CsrfFormactionTest {
         compile("<form method=\"get\"><button t:formaction=\"${u}\" t:formmethod=\"${m}\">A</button></form>"
             + "<form><button formaction=\"https://evil.example/x\" formmethod=\"get\">B</button></form>"
             + "<form method=\"post\" action=\"https://pay.example/\"><button t:formaction=\"${u}\">C</button></form>"
-            + "<form method=\"get\"><div><form method=\"get\"><input type=\"submit\" t:attr=\"formaction=${u}\"></form></div></form>")
+            + "<form method=\"get\"><div><input type=\"submit\" t:attr=\"formaction=${u}\"></div></form>")
             .assertSuccess();
     String out = render(c);
     assertFalse(out.contains("_csrf"), out);
     assertTrue(out.contains("<button formaction=\"" + EVIL + "\" formmethod=\"get\">A</button>"), out);
     assertTrue(out.contains("<button formaction=\"" + EVIL + "\">C</button>"), out);
     assertTrue(out.contains("<input type=\"submit\" formaction=\"" + EVIL + "\">"), out);
+    // A nested <form> is a parse error (a browser drops it): a build error since #406.
+    compile("<form method=\"get\"><div><form method=\"get\"><input type=\"submit\" t:attr=\"formaction=${u}\"></form></div></form>")
+        .assertError("page.html:2:", "Nested forms are not allowed", "[verifier:PARSE_ERROR]");
   }
 }

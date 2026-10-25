@@ -9,7 +9,8 @@
 #            URL policy (not markup contexts). OVER: over-escaping in raw text. -: clean or rejected
 #            on 0dda2f1.
 #   expect   VERIFIER: the verifier alone rejects it, with each rule listed; @classic: only the
-#            classic engine (htmlparser-1.4.16) rejects it, where browsers differ.
+#            classic engine (htmlparser-1.4.16) rejects it, where browsers differ (none since #406:
+#            exclusion (c), SELECT_CONTENT, rejects the classic-<select> seeds in the current engine).
 #            ACCEPT: the verifier accepts what main writes for it.
 #            PROFILE: main's profile rejects it before there is anything to verify (the note says
 #            why); the build fails.
@@ -33,18 +34,18 @@
 306-A17         AB   VERIFIER JSON_NOT_IN_SCRIPT
 306-A18         D    ACCEPT
 306-A19         -    VERIFIER TEXT_IN_SCRIPT
-306-A20         -    ACCEPT
+306-A20         -    VERIFIER PARSE_ERROR  # #406: <mglyph> directly in a table is foster-parented
 306-A21         -    ACCEPT
 306-A22         -    ACCEPT
 306-A23         -    ACCEPT
 306-A24         AB   VERIFIER TEXT_IN_SCRIPT
 306-A25         -    VERIFIER TEXT_IN_SCRIPT
-306-A26         -    VERIFIER TEXT_IN_SCRIPT @classic
+306-A26         -    VERIFIER TEXT_IN_SCRIPT PARSE_ERROR
 306-A27         AB   VERIFIER TEXT_IN_SCRIPT
 306-A28         AB   VERIFIER TEXT_IN_SCRIPT
 306-A29         AB   VERIFIER FRAMESET TEXT_IN_SCRIPT TEXT_OUTSIDE_BODY
 306-A30         AB   VERIFIER TEXT_IN_SCRIPT
-306-A31         AB   VERIFIER TEXT_IN_SCRIPT @classic
+306-A31         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT
 306-A32         C    ACCEPT
 306-A33         C    ACCEPT
 306-A34         -    ACCEPT
@@ -146,13 +147,13 @@ pr304-3         AB   VERIFIER TEXT_IN_SCRIPT
 pr304-4         AB   PROFILE  # not emitted: t:insert inside <textarea> is not supported: a browser reads the content of <textarea> as text up to the first
 pr304-5         AB   PROFILE  # not emitted: t:insert inside <noscript> is not supported: a browser reads the content of <noscript> as text up to the first
 pr304-6         AB   VERIFIER TEXT_IN_SCRIPT
-pr304-7         AB   VERIFIER TEXT_IN_SCRIPT @classic
+pr304-7         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT
 pr304-8         AB   VERIFIER TEXT_IN_SCRIPT
 pr304-9         AB   VERIFIER TEXT_IN_SCRIPT
-pr305-1         AB   VERIFIER TEXT_IN_SCRIPT @classic
-pr305-2         AB   VERIFIER TEXT_IN_SCRIPT @classic
-pr305-3         AB   VERIFIER TEXT_IN_SCRIPT @classic
-pr305-4         AB   VERIFIER TEXT_IN_SCRIPT @classic
+pr305-1         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT
+pr305-2         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT
+pr305-3         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT PARSE_ERROR
+pr305-4         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT PARSE_ERROR
 pr289-11        AB   VERIFIER TEXT_IN_SCRIPT
 pr290-6         C    ACCEPT
 pr290-7         C    ACCEPT
@@ -196,7 +197,7 @@ pr290-44        C    ACCEPT
 pr296-12        AB   VERIFIER TEXT_IN_SCRIPT
 pr296-13        AB   VERIFIER TEXT_NOT_IN_TEXT
 pr296-14        AB   VERIFIER TEXT_NOT_IN_TEXT
-pr296-15        -    ACCEPT
+pr296-15        -    VERIFIER PARSE_ERROR  # #406: a processing instruction (<?) is a parse error
 pr296-16        AB   VERIFIER TEXT_IN_SCRIPT
 pr297-3         AB   PROFILE  # no tree: malformed markup: quote " in an unquoted attribute value: quote the value and write &quot; in it
 pr298-6         AB   VERIFIER TEXT_IN_SCRIPT
@@ -225,7 +226,7 @@ pr299-20        AB   VERIFIER TEXT_NOT_IN_TEXT
 pr299-21        -    VERIFIER JSON_NOT_IN_SCRIPT
 pr300-3         -    ACCEPT
 pr300-4         -    ACCEPT
-pr300-5         -    ACCEPT
+pr300-5         -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
 pr300-6         AB   ACCEPT  # fixed on main: text escaper in SVG content (#301)
 pr300-7         AB   ACCEPT  # fixed on main: text escaper in SVG content (#301)
 pr300-8         -    ACCEPT
@@ -238,10 +239,10 @@ pr301-9         AB   VERIFIER TEXT_IN_SCRIPT
 pr301-10        AB   VERIFIER TEXT_IN_SCRIPT
 pr301-11        AB   VERIFIER TEXT_IN_SCRIPT
 pr301-12        AB   VERIFIER TEXT_IN_SCRIPT
-pr301-13        AB   ACCEPT  # fixed on main: text escaper where <p> leaves MathML (#301)
-pr301-14        -    ACCEPT
-pr301-15        -    ACCEPT
-pr301-16        -    ACCEPT
+pr301-13        AB   VERIFIER PARSE_ERROR  # fixed on main: text escaper where <p> leaves MathML (#301); since #406 the breakout itself is a parse error
+pr301-14        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
+pr301-15        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
+pr301-16        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
 pr303-1         -    ACCEPT
 pr303-2         -    ACCEPT
 pr303-3         -    ACCEPT
@@ -249,14 +250,14 @@ pr303-4         -    ACCEPT
 pr303-5         -    ACCEPT
 pr304-10        AB   VERIFIER TEXT_IN_SCRIPT
 pr304-11        -    ACCEPT
-pr304-12        -    ACCEPT
-pr304-13        -    ACCEPT
-pr304-14        -    ACCEPT
-pr305-5         AB   VERIFIER TEXT_IN_SCRIPT @classic
-pr305-6         AB   VERIFIER TEXT_IN_SCRIPT @classic
-pr305-7         AB   VERIFIER TEXT_IN_SCRIPT @classic
-pr305-8         -    ACCEPT
-pr305-9         -    ACCEPT
+pr304-12        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
+pr304-13        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
+pr304-14        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
+pr305-5         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT
+pr305-6         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT
+pr305-7         AB   VERIFIER TEXT_IN_SCRIPT SELECT_CONTENT PARSE_ERROR
+pr305-8         -    VERIFIER SELECT_CONTENT  # #406: exclusion (c), <template> unwrapped into a <select>
+pr305-9         -    VERIFIER SELECT_CONTENT  # #406: exclusion (c), t:remove unwrapped into a <select>
 pr305-10        -    ACCEPT
 pr340-1         E    ACCEPT
 pr340-2         -    ACCEPT
@@ -285,6 +286,7 @@ review-pr304-1  AB   VERIFIER TEXT_IN_SCRIPT
 review-pr304-2  AB   VERIFIER TEXT_IN_SCRIPT
 review-pr296-1  AB   VERIFIER TEXT_IN_SCRIPT TEXT_NOT_IN_TEXT
 review-pr305-2  AB   VERIFIER TEXT_IN_SCRIPT
+review-pr394-1  AB   VERIFIER FOREIGN_IN_TABLE PARSE_ERROR  # #398: a table inside svg in a cell; both vnu engines reset to 'in body', the spec returns to the cell. Exclusion (a) since #406
 xss-rejected-1  -    ACCEPT
 xss-rejected-2  -    ACCEPT
 xss-rejected-3  -    ACCEPT
@@ -296,7 +298,7 @@ xss-rejected-8  -    ACCEPT
 xss-rejected-9  -    ACCEPT
 xss-rejected-10 -    ACCEPT
 xss-rejected-11 -    ACCEPT
-xss-rejected-12 -    ACCEPT
+xss-rejected-12 -    VERIFIER PARSE_ERROR  # #406: a second <body>
 xss-rejected-13 -    ACCEPT
 xss-rejected-14 -    ACCEPT
 xss-rejected-15 -    ACCEPT
@@ -310,7 +312,7 @@ xss-rejected-22 -    ACCEPT
 xss-rejected-23 -    ACCEPT
 xss-rejected-24 -    ACCEPT
 xss-rejected-25 -    ACCEPT
-xss-rejected-26 -    ACCEPT
+xss-rejected-26 -    VERIFIER PARSE_ERROR  # #406: <frame> outside a frameset is a stray start tag
 xss-rejected-27 -    ACCEPT
 xss-rejected-28 -    ACCEPT
 xss-rejected-29 -    ACCEPT

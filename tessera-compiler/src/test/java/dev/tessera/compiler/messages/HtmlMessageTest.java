@@ -20,7 +20,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /** {@code t:utext="#{key(args)}"} and {@code [(#{...})]}: bundle messages rendered as HTML (#236). */
 class HtmlMessageTest {
   private static final String BUNDLE =
-      "intro=See <a href=\"/phase-out\" class=\"alert-link\">the phase-out</a>.<p/>Next paragraph.\n"
+      "intro=See <a href=\"/phase-out\" class=\"alert-link\">the phase-out</a>.<br>Next paragraph.\n"
           + "greet=Hello <b>{0}</b>, you have {1,number,integer} items\n"
           + "plain=Don''t <i>panic</i>\n";
 
@@ -55,7 +55,7 @@ class HtmlMessageTest {
     Compilation c = compile(BUNDLE, PAGE).assertSuccess();
     String html = c.render("page", Map.of("name", "Ann", "n", 1234), ctx(BUNDLE));
     assertEquals(
-        "<div><p>See <a href=\"/phase-out\" class=\"alert-link\">the phase-out</a>.<p/>Next paragraph.</p>"
+        "<div><p>See <a href=\"/phase-out\" class=\"alert-link\">the phase-out</a>.<br>Next paragraph.</p>"
             + "<p>Hello <b>Ann</b>, you have 1,234 items</p>"
             + "<span>Hello <b>Ann</b>, you have 1,234 items</span></div>",
         html);
@@ -66,7 +66,7 @@ class HtmlMessageTest {
     Compilation c = compile(BUNDLE, PAGE).assertSuccess();
     String html = c.render("page", Map.of("name", "<script>alert(1)</script>\"'&", "n", 1), ctx(BUNDLE));
     assertEquals(
-        "<div><p>See <a href=\"/phase-out\" class=\"alert-link\">the phase-out</a>.<p/>Next paragraph.</p>"
+        "<div><p>See <a href=\"/phase-out\" class=\"alert-link\">the phase-out</a>.<br>Next paragraph.</p>"
             + "<p>Hello <b>&lt;script&gt;alert(1)&lt;/script&gt;&quot;&#39;&amp;</b>, you have 1 items</p>"
             + "<span>Hello <b>&lt;script&gt;alert(1)&lt;/script&gt;&quot;&#39;&amp;</b>, you have 1 items</span></div>",
         html);
@@ -77,7 +77,7 @@ class HtmlMessageTest {
     Compilation c = compile(BUNDLE, "<p t:params=\"String name\" t:text=\"#{intro}\">x</p>").assertSuccess();
     assertEquals(
         "<p>See &lt;a href=&quot;/phase-out&quot; class=&quot;alert-link&quot;&gt;the phase-out&lt;/a&gt;."
-            + "&lt;p/&gt;Next paragraph.</p>",
+            + "&lt;br&gt;Next paragraph.</p>",
         c.render("page", Map.of("name", "x"), ctx(BUNDLE)));
   }
 

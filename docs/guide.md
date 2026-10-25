@@ -682,7 +682,8 @@ naming the file and key, unless the value is markup from this allow-list:
   values; an `href` must be relative or `http`/`https`/`mailto`/`tel`, with no `&` other than
   `&amp;`; no `style` and no `on*`;
 - every end tag matches, and every element is closed except `p li dt dd`. `<p/>` is a `<p>` and is
-  printed as written, as Thymeleaf does.
+  printed as written, as Thymeleaf does, but `/>` on an element that isn't void is a parse error,
+  which the build rejects (section 7): write `<br>`.
 - the message does not end with `<` (write `&lt;`): the template text after it would continue it.
 
 Arguments are HTML-escaped before they are formatted into the message (numbers and `Date`s are
@@ -697,7 +698,7 @@ the allow-list, move the markup into the template and keep the text in the bundl
 
 <!-- compile: messages -->
 ```properties
-phaseout.notice=This version is being phased out: see <a href="/phaseout" class="alert-link">the plan</a>.<p/>Save your work.
+phaseout.notice=This version is being phased out: see <a href="/phaseout" class="alert-link">the plan</a>.<br>Save your work.
 welcome.html=Hello <b>{0}</b>!
 ```
 
@@ -2010,19 +2011,30 @@ Gaps in Tessera today, each with what to do until it is fixed.
 
 ### Verifier errors
 
-After its other checks, the compiler runs every template through two spec HTML parsers (current
-validator.nu, and an older version whose parsing some browsers still use, such as classic
-`<select>`) and checks that each value lands
-where its escaping keeps it inert. It follows every `t:if` branch and `t:each` pass, and checks a
-fragment at each place it is inserted. Most templates a browser would misread fail an earlier,
-more specific check from section 6 first. These errors catch the rest, often markup a browser
-parses differently from how it looks: `<textarea>` or `<title>` inside `<svg>`, `<![CDATA[`
-outside `<svg>` and `<math>`.
+After its other checks, the compiler runs every template through a spec HTML parser (current
+validator.nu; for now also an older version whose parsing some browsers still use, such as classic
+`<select>`). It accepts a template only if the parser reads it without a parse error (a missing
+doctype aside) and outside three constructs where browsers are known to build different trees,
+and it checks that each value lands where its escaping keeps it inert. It follows every `t:if`
+branch and `t:each` pass, and checks a fragment at each place it is inserted. A partial (a
+template that doesn't start with a doctype or `<html>`) is parsed where its first element goes:
+a `<tr>` in a `<tbody>`, a `<td>` or `<th>` in a `<tr>`, an `<option>` or `<optgroup>` in a
+`<select>`, an `<li>` in a `<ul>`, anything else in a `<body>`. Most templates a browser would
+misread fail an earlier, more specific check from section 6 first. These errors catch the rest,
+often markup a browser parses differently from how it looks: `<textarea>` or `<title>` inside
+`<svg>`, `<![CDATA[` outside `<svg>` and `<math>`.
+
+Markup a browser reads only by error recovery is an error even where browsers agree on it: a
+second `<body>`, a `<div>` inside a `<p>`, an `<h3>` directly in a `<table>`, a stray end tag. The
+most common one comes from a layout call: `t:replace="~{layout :: layout(~{::body})}"` passes
+the page's whole `<body>` element, so the layout writes a `<body>` inside its own. Mark the page's
+`<body>` `t:remove="tag"` so that only its children are passed (section 4.8, Layouts).
 
 An error ends with `[verifier:RULE]`. For an expression inside a fragment, the error is at the
 call site and the message names the fragment and the expression's position in it. "Only in the
-older HTML parsing some browsers still use", "only in current HTML parsing" or "only with
-scripting on" means browsers differ there; fix the template all the same.
+older HTML parsing some browsers still use", "only in current HTML parsing", "only with
+scripting on" or "only with scripting off" means browsers differ there; fix the template all the
+same.
 
 | Rule | What a browser does | Fix |
 |---|---|---|
@@ -2042,4 +2054,8 @@ scripting on" means browsers differ there; fix the template all the same.
 | `LOOP_NO_FIXED_POINT` | Has more elements open after each `t:each` pass | Close inside the loop every element it opens |
 | `STRUCTURE_DEPENDS_ON_DATA` | Nests deeper at each call of a fragment that inserts itself, so the page's structure depends on data | For stored rich text, `t:utext="html.sanitize(...)"`, `html.sanitizeRich` or an application `HtmlPolicy` (section 4.10, Rich text), and delete the fragment; for other trees, render a fixed depth or flatten the tree in Java |
 | `TOO_MANY_STATES` | Can be in more than 24 different states (different elements open) after the branches and loops before this point | Close inside each `t:if`, `t:switch` and `t:each` the elements it opens, or split the template into fragments |
+| `PARSE_ERROR` | Reads the markup only by error recovery: a second `<body>`, `<head>` or `<html>` (often from `layout(~{::body})`), a block element that closes an open `<p>`, a `<script>`, `<meta>`, `<link>` or `<title>` between `</head>` and `<body>`, content directly in a `<table>`, attributes without a space between them, a stray end tag, `/>` on an element that isn't void | Mark a `<body>` passed to a layout `t:remove="tag"`; use a `<div>` instead of the `<p>`; move the element into the head or the body; put table content in a `<td>` or `<th>`; write a space between attributes. For other errors the message quotes the parser: fix the markup it names |
+| `FOREIGN_IN_TABLE` | Builds different trees for a nested table, `<template>` or `<select>` that ends inside `<svg>` or `<math>` in a table (Firefox goes on as if outside the table, Chrome and Safari go back to the cell); Tessera rejects any `<svg>` or `<math>` in a table part or `<template>` | Move it out of the table, or show the image with `<img src="....svg">` |
+| `TABLE_IN_TEMPLATE` | Handles a `</table>` inside a `<template>` that holds table parts directly differently (Firefox closes a table around the `<template>`) | Put a whole `<table>` in the `<template>` |
+| `SELECT_CONTENT` | Drops everything in a `<select>` but `<option>`, `<optgroup>` and `<hr>` in classic `<select>` parsing (Firefox ESR), and keeps it in newer browsers | Insert only those into a `<select>`, also from fragments, `t:remove="tag"` and `<template>` |
 | `ENGINE_FAILURE`, `UNKNOWN_NODE` | (Tessera couldn't check the template) | A compiler bug: report it with the template |

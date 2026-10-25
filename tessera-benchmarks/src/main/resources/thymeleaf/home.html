@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/layout :: layout(~{::body}, 'owners')}">
-<body>
+<body th:remove="tag">
 <h2>Featured owners</h2>
 <div class="cards"><div class="col" th:each="owner : ${owners}"><div th:replace="~{fragments/cards :: card(${owner})}">Card</div></div>
 </div>

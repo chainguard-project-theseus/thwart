@@ -40,7 +40,8 @@ class ContextVerifierRulesTest {
     reject(Problem.TEXT_OUTSIDE_BODY, st("<noscript>"), text()); // in the head without scripting
     accept(st("<select><option>"), text());
     accept(st("<pre>"), text(), st("\nx</pre>"));
-    accept(st("<table><h3>"), text()); // a foster-parented element: its text is not table text
+    // A foster-parented element: its text is not table text, but the <h3> is a parse error (#406).
+    onlyParseErrors(st("<table><h3>"), text());
   }
 
   @Test
@@ -162,6 +163,142 @@ class ContextVerifierRulesTest {
     accept(st("<b><b><b><b>x")); // static only: the parse doesn't depend on a value
   }
 
+  // ---- error-free parses and the three exclusions (#406) ----
+
+  /**
+   * #398 and PR #402's variants: a table (or template, or classic select) that ends inside SVG or
+   * MathML in a table. validator.nu and Firefox reset the insertion mode to "in body" at the foreign
+   * element; the standard, Chromium and WebKit walk on down to the cell. Exclusion (a) rejects the
+   * shape itself, so it doesn't matter what follows, or whether anything does. PR #402's
+   * differential (45,056 variants) and the #406 measurement's (98,260 variants, /tmp/rv402/diff):
+   * every one of the 10,837 variants where Chromium and Firefox disagree is rejected, by the parse
+   * errors alone; exclusion (a) also rejects 4,318 of those where they agree.
+   */
+  @Test
+  void aResetInsideForeignContentInATableIsRejected() {
+    Problem p = Problem.FOREIGN_IN_TABLE;
+    String svgCell = "<table><tbody><tr><td><svg><foreignObject><div>";
+    // The repro: a computed type then decides where the <input> goes in a browser.
+    reject(p, st(svgCell + "<table></table></div></foreignObject></svg></td><input type=\""), attr("type"),
+        st("\"></tr></tbody></table>"));
+    // Text and attribute holes after it, and no hole at all.
+    reject(p, st(svgCell + "<table></table></div></foreignObject></svg></td><td title=\""), attr("title"), st("\">"),
+        text(), st("</td></tr></tbody></table>"));
+    reject(p, st(svgCell + "<table></table></div></foreignObject></svg>"), text(), st("</td></tr></tbody></table>"));
+    reject(p, st(svgCell + "<table></table></div></foreignObject></svg></td><td>x</td></tr></tbody></table>"));
+    // A caption instead of a cell; MathML instead of SVG; annotation-xml as the integration point.
+    reject(p, st("<table><caption><svg><desc><table></table></desc></svg>"), text());
+    reject(p, st("<table><tr><th><math><mi><table><tr><td>x</td></tr></table></mi></math></th></tr></table>"));
+    reject(p, st("<table><tr><td><math><annotation-xml encoding=\"text/html\"><table></table>"
+        + "</annotation-xml></math></td></tr></table>"));
+    reject(p, st("<table><tr><td><svg><title><table></table></title></svg></td></tr></table>"));
+    // Deeper: SVG in a cell of a table inside SVG in a cell.
+    reject(p, st("<table><tr><td><svg><foreignObject><table><tr><td><svg><foreignObject><table></table>"));
+    reject(p, st("<table><tr><td><svg><foreignObject><div><svg><foreignObject><p><table></table>"));
+    // A <template> ends there instead; a nested table with rows.
+    reject(p, st(svgCell + "<template></template>"), text());
+    reject(p, st(svgCell + "<table><tr><td>a</td></tr></table>"), text());
+    // Classic <select> parsing: </select> resets too.
+    reject(p, st(svgCell + "<select><option>a</option></select>"), text());
+    // The </table> comes from a fragment; the SVG from another static.
+    Map<String, Seq> end = Map.of("end", seq(st("</table>")));
+    reject(end, p, st(svgCell + "<table>"), call("end"), text());
+    reject(p, st("<table><tr><td><svg>"), st("<foreignObject><table>"), st("</table>"), text());
+    // The SVG comes from a fragment called in the cell.
+    reject(Map.of("icon", seq(st("<svg viewBox=\"0 0 1 1\"><path d=\"M0 0\"/></svg>"))), p,
+        st("<table><tr><td>"), call("icon"), st("</td></tr></table>"));
+    // The table opens in one branch.
+    reject(p, st(svgCell), opt(st("<table></table>")), text());
+    // Coarse on purpose: any SVG or MathML in a table part or <template>, closed or not, with or
+    // without a nested table, and in a partial whose fragment context is a table part.
+    reject(p, st("<table><tr><td><svg></svg></td></tr></table>"));
+    reject(p, st("<table><tr><td><math><mi>x</mi></math></td><td>"), text(), st("</td></tr></table>"));
+    reject(p, st("<template><svg></svg></template>"));
+    reject(p, st("<td><svg></svg></td>"));
+  }
+
+  @Test
+  void foreignContentOutsideTablesIsAccepted() {
+    accept(st("<div><svg viewBox=\"0 0 1 1\"><path d=\"M0 0\"/></svg>"), text(), st("</div>"));
+    accept(st("<p><math><mi>x</mi></math>"), text(), st("</p>"));
+    // A table inside SVG outside any table; a nested table in a cell without SVG.
+    accept(st("<div><svg><foreignObject><table><tr><td>x</td></tr></table></foreignObject></svg>"), text());
+    accept(st("<div><svg><foreignObject><table><tr><td>"), text(), st("</td></tr></table></foreignObject></svg></div>"));
+    accept(st("<table><tr><td><div><table><tr><td>a</td></tr></table></div>"), text(), st("</td></tr></table>"));
+    // SVG closed before the table.
+    accept(st("<div><svg></svg><table><tr><td>"), text(), st("</td></tr></table></div>"));
+  }
+
+  /** #401: a table part directly in <template>, where vnu and Firefox close an outer table at </table>. */
+  @Test
+  void tablePartsDirectlyInATemplateAreRejected() {
+    Problem p = Problem.TABLE_IN_TEMPLATE;
+    reject(p, st("<table><tr><td><template><caption></table>W"));
+    reject(p, st("<td><template><caption>c</caption><table></table></template>"));
+    reject(p, st("<td><template><caption>c</caption><table></table></template>"), text());
+    reject(p, st("<template><tr><td>"), text(), st("</td></tr></template>"));
+    reject(p, st("<template><col></template>")); // a void table part
+    reject(p, st("<template><tbody>"), text());
+    // Flow content in a template, and a whole table in it, are fine.
+    accept(st("<template><p>"), text(), st("</p></template>"));
+    accept(st("<template><table><tr><td>"), text(), st("</td></tr></table></template>"));
+  }
+
+  /**
+   * #305 on composed output: classic select parsing (Firefox ESR, parse5) drops what customizable
+   * select parsing (Chromium, current Firefox, WebKit, vnu 26) keeps. The profile's own rule
+   * (HtmlParser.SELECT_CONTENT) sees one template's source; exclusion (c) sees fragments, t:remove
+   * and template contents unwrapped into a select.
+   */
+  @Test
+  void onlyOptionsGroupsAndRulesInASelect() {
+    Problem p = Problem.SELECT_CONTENT;
+    Map<String, Seq> span = Map.of("f", seq(st("<span>"), text(), st("</span>")));
+    reject(span, p, st("<select><option>"), call("f"), st("</option></select>")); // pr304-7's shape
+    reject(span, p, st("<select>"), call("f"), st("</select>"));
+    reject(p, st("<select><div>"), text());
+    reject(p, st("<select><option><b>"), text());
+    reject(p, st("<select><img>")); // a void element too
+    reject(p, st("<select><title>"), text()); // pr305-8/9: what <template> or t:remove left there
+    reject(p, st("<option><span>"), text()); // an <option> partial: its fragment context is <select>
+    accept(st("<select><option>a</option><optgroup label=\"g\"><option>"), text(),
+        st("</option></optgroup><hr><option selected>b</option></select>"));
+    accept(Map.of("o", seq(st("<option>"), text(), st("</option>"))), st("<select>"), call("o"), call("o"), st("</select>"));
+  }
+
+  @Test
+  void anyParseErrorIsRejectedWherePathsReachIt() {
+    Problem p = Problem.PARSE_ERROR;
+    reject(p, st("<p><div>x</div></p>"));
+    reject(p, st("<div a=\"1\"b=\"2\">x</div>"));
+    reject(p, st("<!DOCTYPE html><html><head></head><script></script><body>"));
+    // Only in a branch, only in a loop's second round, only at one of a fragment's call sites.
+    reject(p, st("<div>"), opt(st("</span>")), text());
+    reject(p, st("<div>"), alt(seq(st("<p>a</p>")), seq(st("<p>a</p></p>"))), text());
+    reject(p, st("<div>"), new Skeleton.Rep(Skeleton.RepKind.EACH, seq(text()), seq(st("</i>")), pos()));
+    Map<String, Seq> cell = Map.of("cell", seq(st("<td>"), text(), st("</td>")));
+    accept(cell, st("<table><tr>"), call("cell"), st("</tr></table>"));
+    reject(cell, p, st("<div>"), call("cell"));
+    // Only with scripting off: <noscript> in the head is markup then.
+    reject(p, st("<!DOCTYPE html><html><head><noscript><div>"));
+    accept(st("<!DOCTYPE html><html><head><title>t</title></head><body><p>"), text(), st("</p></body></html>"));
+    // The allow-list: the missing-doctype messages only.
+    accept(st("<html><body><p>"), text());
+    accept(st("<p>"), text());
+  }
+
+  @Test
+  void aPartialCountsParseErrorsOnlyInItsFragmentContext() {
+    // As a document, a <tr> is a stray start tag; in <tbody>, its fragment context, it isn't.
+    accept(st("<tr><td>"), text(), st("</td></tr><tr><td>b</td></tr>"));
+    accept(st("<td>"), text(), st("</td><th>h</th>"));
+    accept(st("<li>"), text(), st("</li><li>b</li>"));
+    accept(st("<option>"), text(), st("</option><optgroup label=\"g\"></optgroup>"));
+    // ... and anything else in <body>.
+    reject(Problem.PARSE_ERROR, st("<caption>"), text());
+    reject(Problem.PARSE_ERROR, st("<body><p>"), text());
+  }
+
   // ---- control flow ----
 
   @Test
@@ -224,10 +361,14 @@ class ContextVerifierRulesTest {
     Map<String, Seq> frags = Map.of("cell", seq(st("<td>"), text(), st("</td>")));
     accept(frags, st("<table><tr>"), call("cell"), st("</tr></table>"));
     List<Finding> f = check(frags, seq(st("<table>"), call("cell"), call("cell")));
-    // Reported at the call site in the page; the fragment's hole is named.
-    assertTrue(f.isEmpty(), f.toString()); // a td in a table implies tbody and tr
+    // A td directly in a table implies tbody and tr: the text stays in the cell, but a cell without
+    // a row is a parse error (#406).
+    assertEquals(List.of(Problem.PARSE_ERROR), problems(f));
     f = check(frags, seq(st("<div>"), call("cell")));
-    assertTrue(f.isEmpty(), f.toString()); // a td in a div is ignored: the text stays text
+    // A td in a div is ignored, so the text stays text, but it is a parse error (#406), at the call.
+    assertEquals(List.of(Problem.PARSE_ERROR), problems(f));
+    assertTrue(VerifierMessages.message(f.get(0)).contains("in fragment t :: cell, inserted here, at t.html:1:"),
+        VerifierMessages.message(f.get(0)));
     f = check(Map.of("x", seq(text())), seq(st("<table>"), call("x")));
     assertEquals(List.of(Problem.TEXT_IN_TABLE), problems(f));
     assertEquals("t.html", f.get(0).at.file());
@@ -379,6 +520,16 @@ class ContextVerifierRulesTest {
     List<Finding> f = check(fragments, seq(nodes));
     assertTrue(f.isEmpty(), seq(nodes) + " -> " + f.stream().map(VerifierMessages::message).collect(Collectors.toList()));
   }
+
+  /** Rejected only by the parse-error rule and the exclusions (#406): every hole is accepted. */
+  private static void onlyParseErrors(Node... nodes) {
+    List<Finding> f = check(Map.of(), seq(nodes));
+    assertTrue(!f.isEmpty() && f.stream().allMatch(x -> PARSER_REPORTED.contains(x.problem)),
+        seq(nodes) + " -> " + f.stream().map(VerifierMessages::message).collect(Collectors.toList()));
+  }
+
+  private static final Set<Problem> PARSER_REPORTED =
+      Set.of(Problem.PARSE_ERROR, Problem.FOREIGN_IN_TABLE, Problem.TABLE_IN_TEMPLATE, Problem.SELECT_CONTENT);
 
   private static void reject(Problem expected, Node... nodes) {
     reject(Map.of(), expected, nodes);

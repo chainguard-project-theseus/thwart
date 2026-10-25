@@ -3,6 +3,7 @@ package dev.tessera.compiler.codegen.attr;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import dev.tessera.compiler.testing.Compilation;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -12,7 +13,8 @@ import org.junit.jupiter.params.provider.CsvSource;
  * An inlined value right after a static {@code <} would continue it into markup: the tokenizer
  * reads {@code <[[s]]} as text, but with {@code s = "img src=x onerror=alert(1)"} a browser reads
  * an {@code <img>} (HTML text escaping leaves letters, spaces, {@code =} and parentheses alone).
- * Such holes are build errors; a {@code &lt;} or a space keeps the {@code <} text.
+ * Such holes are build errors; a {@code &lt;} keeps the {@code <} text. (A {@code <} and a space
+ * stays text too, but it is a parse error, which the verifier rejects since #406.)
  */
 class ValueAfterLessThanTest {
 
@@ -90,8 +92,9 @@ class ValueAfterLessThanTest {
   void lessThanThatStaysTextStillCompiles() {
     String s = "img src=x onerror=alert(1)";
     assertEquals("<p>&lt;img src=x onerror=alert(1)></p>", render("<p>&lt;[[s]]></p>", s, 0));
-    assertEquals("<p>a < img src=x onerror=alert(1) b</p>", render("<p>a < [[s]] b</p>", s, 0));
-    assertEquals("<p>img src=x onerror=alert(1)< b</p>", render("<p>[[s]]< b</p>", s, 0));
+    for (String parseError : List.of("<p>a < [[s]] b</p>", "<p>[[s]]< b</p>")) {
+      compile(parseError).assertError("page.html:2:", "Unescaped \u201C<\u201D", "[verifier:PARSE_ERROR]");
+    }
     assertEquals("<p>a<b>img src=x onerror=alert(1)</b></p>", render("<p>a<b>[[s]]</b></p>", s, 0));
     assertEquals("<p>&lt;img src=x onerror=alert(1)</p>", render("<p t:text=\"|<${s}|\">x</p>", s, 0));
     assertEquals(
