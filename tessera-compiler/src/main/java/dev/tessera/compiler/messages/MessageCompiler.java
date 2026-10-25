@@ -2,12 +2,17 @@ package dev.tessera.compiler.messages;
 
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.JavaStrings;
+import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.types.Scope;
+import dev.tessera.compiler.verify.Skeleton;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -70,6 +75,56 @@ public final class MessageCompiler {
     // The runtime prints the message as HTML only if it is what one of the checked values produces.
     return "dev.tessera.runtime.Escapers.htmlMessage(ctx, " + JavaStrings.literal(key) + ", " + args
         + ", new java.lang.String[] {" + String.join(", ", checked) + "})";
+  }
+
+  /**
+   * The skeleton of what {@link #htmlValue}'s code writes (#329): the message is known at build
+   * time, so it is recorded as the static markup it is, not as HTML known only at render time. One
+   * branch per value of the key in the bundle files the build sees, in each of the two forms
+   * {@code Escapers.htmlMessage} writes it: as written (a message without arguments), and as
+   * {@link java.text.MessageFormat} formats it, with a text hole for each placeholder (arguments
+   * are escaped text, numbers or dates). One more branch is a text hole: a message that is none of
+   * those is written escaped, or as is if it has no {@code <}, which is text too. {@code element} is
+   * the element whose content the message is ({@link Skeleton.Hole#element}).
+   */
+  public static Skeleton.Node htmlSkeleton(Expr.Message message, CompilerEnv env, String element) {
+    SourcePos pos = message.pos();
+    element = element == null ? null : element.toLowerCase(Locale.ROOT);
+    Map<String, Skeleton.Seq> branches = new LinkedHashMap<>();
+    for (String value : env.messages().values(message.key()).values()) {
+      List<Skeleton.Node> written = new ArrayList<>();
+      if (!value.isEmpty()) {
+        written.add(new Skeleton.Static(value, pos));
+      }
+      Skeleton.Seq asWritten = new Skeleton.Seq(written);
+      branches.put(asWritten.toString(), asWritten);
+      String formatted;
+      try {
+        formatted = MessageMarkup.formatted(value);
+      } catch (MessageMarkup.Bad e) {
+        continue; // reported by htmlValue; nothing is generated
+      }
+      List<Skeleton.Node> nodes = new ArrayList<>();
+      int from = 0;
+      for (int i = formatted.indexOf(MessageMarkup.ARG); ; i = formatted.indexOf(MessageMarkup.ARG, from)) {
+        int end = i < 0 ? formatted.length() : i;
+        if (end > from) {
+          nodes.add(new Skeleton.Static(formatted.substring(from, end), pos));
+        }
+        if (i < 0) {
+          break;
+        }
+        nodes.add(new Skeleton.Hole(Skeleton.Escaper.TEXT, element, null, pos));
+        from = i + 1;
+      }
+      Skeleton.Seq seq = new Skeleton.Seq(nodes);
+      branches.put(seq.toString(), seq);
+    }
+    Skeleton.Seq escaped = new Skeleton.Seq(
+        Collections.singletonList(new Skeleton.Hole(Skeleton.Escaper.TEXT, element, null, pos)));
+    branches.put(escaped.toString(), escaped);
+    Skeleton.Alt alt = new Skeleton.Alt(new ArrayList<>(branches.values()), pos);
+    return new Skeleton.RawInsert(Skeleton.Source.HTML_MESSAGE, pos, new Skeleton.Seq(Collections.singletonList(alt)));
   }
 
   /**

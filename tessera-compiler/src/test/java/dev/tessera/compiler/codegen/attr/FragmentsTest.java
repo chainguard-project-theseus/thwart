@@ -130,7 +130,7 @@ class FragmentsTest {
         "<!DOCTYPE html>\n"
             + "<html " + NS + " t:params=\"Fragment extra\""
             + " t:replace=\"~{fragments/layout :: layout(~{::body}, 'owners')}\">\n"
-            + "<body><h2>Owners</h2><p t:insert=\"extra\">x</p></body>\n"
+            + "<body><h2>Owners</h2><div t:insert=\"extra\">x</div></body>\n"
             + "</html>\n";
     Compilation c =
         Compilation.builder()
@@ -142,7 +142,7 @@ class FragmentsTest {
         "<!DOCTYPE html>\n"
             + "<html>\n"
             + "<head><title>PetClinic</title></head>\n"
-            + "<body><nav>nav</nav><div class=\"container\"><body><h2>Owners</h2><p>EXTRA</p></body></div></body>\n"
+            + "<body><nav>nav</nav><div class=\"container\"><body><h2>Owners</h2><div>EXTRA</div></body></div></body>\n"
             + "</html>\n",
         c.render("owners/list", Map.of("extra", text("EXTRA"))));
     // The layout itself is a parameterized fragment on the root element: renders as the doctype only.
@@ -153,10 +153,10 @@ class FragmentsTest {
   void nullFragmentValueInsertsNothing() {
     Compilation c =
         Compilation.builder()
-            .template("page.html", "<main " + NS + " t:params=\"Fragment f\"><p t:insert=\"f\">x</p></main>")
+            .template("page.html", "<main " + NS + " t:params=\"Fragment f\"><div t:insert=\"f\">x</div></main>")
             .compile()
             .assertSuccess();
-    assertEquals("<main><p></p></main>", c.render("page", Map.of()));
+    assertEquals("<main><div></div></main>", c.render("page", Map.of()));
   }
 
   @Test

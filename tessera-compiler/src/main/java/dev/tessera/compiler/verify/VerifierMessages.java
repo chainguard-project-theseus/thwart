@@ -88,6 +88,14 @@ final class VerifierMessages {
         return jsonNotInScript(value, s);
       case RAW_NOT_FLOW:
         return rawNotFlow(f.source, s);
+      case RAW_CLOSES_ELEMENT:
+        return "a browser lets the markup of " + source(f.source) + " close " + f.detail + " around it (a <p>, <div>,"
+            + " heading or link in the value ends it), so the rest of the page would parse differently; insert it in a"
+            + " <div> instead, outside the open element";
+      case MESSAGE_CHANGES_STATE:
+        return "a browser parses the markup of this HTML message so that it " + f.detail + ", and the rest of the"
+            + " page would be parsed differently; close every element the message opens, and insert it where its"
+            + " markup fits (a message with a <p> in a <div>, not in a <p>)";
       case FRAMESET:
         return "<frameset> isn't supported: a browser uses it only if no body content came before it, so the page"
             + " would depend on what precedes it; use an <iframe> or an ordinary layout";

@@ -179,36 +179,63 @@ job (#345) checks them with acorn.
 ## 5. Composition: content kinds (§5.5)
 
 A content kind is a predicate on the spec parser's state at the insertion point, plus a promise
-about what the producer emits (#329, redefined Oct 25, 2026). `FLOW`: data state, HTML namespace,
-mode in body, cell, caption or template, no pending reconstruction, and no open element the
-producer's tags would close. `PHRASING`, `HEAD` and `TABLE_ROWS` are added only if the corpus
-needs them. Statically known fragments need no kind: the verifier analyses them at each call
-site. The rows below are #304's name-based rules on the way there.
+about what the producer emits (#329, redefined Oct 25, 2026; `verify/ContentKinds`). Together
+they let the verifier take the state after a value known only at render time to be the state
+before it. Statically known fragments need no kind: the verifier analyses them at each call site.
+HTML messages need none either: their markup is known at build time (below).
+
+**`FLOW`, the predicate** (`ContentKinds.problem`), in all four parsers:
+
+- data state, between tokens; the current node is HTML; the mode is in body, in cell, in caption
+  or in template; no formatting element is waiting to be reopened (`RAW_NOT_FLOW` otherwise);
+- and no open element that flow content would close, reopen or adopt (`RAW_CLOSES_ELEMENT`
+  otherwise): a `p` in button scope; a heading as the current node; an `a` in the list of active
+  formatting elements after the last marker; a `button`, `nobr` or `ruby` in scope; a `select`,
+  `option` or `optgroup` anywhere on the stack; three formatting entries of one name after the
+  last marker (one more would drop the first, the Noah's Ark clause).
+
+In template mode the first flow start tag switches to "in body"; the verifier then continues
+from both states (the second is the state after `<span></span>`).
+
+**`FLOW`, the producer promise:** balanced content (it closes every element it opens); no
+formatting element nested in one of its own name; no `form`; and no top-level `li`, `dd`, `dt`,
+table part, `head`, `body`, `html` or `frameset`. That is why an open `li`, `dd`, `dt` or `form`
+is not in the predicate: `<li t:utext="${html.sanitize(x)}">` and sanitized text in a form are
+fine.
+
+| Producer | Meets the promise | Checked by |
+|---|---|---|
+| `html.sanitize`, `html.sanitizeRich`, every `HtmlPolicy` | yes: `HtmlSanitizer` places each element where a browser's tree builder keeps it as written (no block in `p`, heading or phrasing; no `a` in `a`, no formatting element in itself; `li` only in `ul`/`ol`; table parts only in `table`, with `tbody`/`tr` written out and no text directly in table, section or row) and closes everything it opens | `FlowProducerTest` (exit state equals entry state at 14 `FLOW` insertion points, both engines, scripting on and off; hostile and fuzzed input, five policies); `SanitizerBalanceTest` (the parsed tree equals the one the tags spell); the #329 PR's parse5 run |
+| `SafeHtml.escape`, `SafeHtml.concat` of `FLOW` values | yes (text; concatenation of balanced content) | `FlowProducerTest` |
+| A rendered partial template (`SafeHtml.of`, a `Fragment` value from Java) | if it is a partial of such content; the verifier can't see which template a value renders, so this is the caller's promise. Not `FLOW`: a whole page, a list-item or table-row partial, a template with a `form` | `FlowProducerTest` (sample partials with hostile values; that a top-level `li` and a nested `form` break it) |
+| `SafeHtml.unchecked` | the caller's responsibility | none |
+
+`PHRASING`, `HEAD` and `TABLE_ROWS` are not added. On the bench corpus the `p` clause rejects 6
+call sites, `<p t:utext="${...}">` and the like, and nothing needs `HEAD` or `TABLE_ROWS` (the #329
+PR has the counts). The fix is a `<div>`. A `PHRASING` kind would need its own safe type, since
+the compiler sees only `SafeHtml`.
+
+**HTML messages** (`#{...}` in `t:utext` or `[(...)]`) are recorded with their markup: one
+branch per value of the key in the bundle files the build sees, as written and as `MessageFormat`
+formats it (each placeholder a `text` hole), plus a `text` hole for a message the build didn't see
+(written escaped). The verifier analyses each branch at the insertion point and requires it to
+leave the parser where it found it (`MESSAGE_CHANGES_STATE`): a message with a `<p>` inside a
+`<p>`, or one that leaves its own `<p>` open, is an error.
 
 | Value or position | Kind | Status | Checked by | Proof |
 |---|---|---|---|---|
-| Fragment (`t:fragment`) | the parse mode of its host element | verifier (#367): checked at each static call site; #304 (`TemplateInfo.parsingContexts`) | `FragmentParsingContextTest` (#304); generator composition axis `t:insert`, `t:replace` | not yet |
-| `Fragment` parameter or value | `HTML_FLOW` | verifier (#367): bound arguments at the call site, otherwise `FLOW` without the open-element part (#329); #304 | `FragmentParsingContextTest`; composition value `Fragment f` | not yet |
-| `SafeHtml` (`t:utext`, `[(...)]`) | `HTML_FLOW` | verifier (#367): `FLOW` without the open-element part (#329); #304 | `FragmentParsingContextTest`; hole values `[(h)]`, `t:utext` | not yet |
-| HTML message (`#{...}` as HTML) | `HTML_FLOW`, checked where used | verifier (#367): `FLOW` without the open-element part (#329); #304; messages are checked at build time on main (`MessageCompilerTest`) | `HtmlMessageTest`, `MessageMarkupTest` | not yet (G4: the runtime re-check in `Escapers.htmlMessage` is tested, not proved) |
+| Fragment (`t:fragment`) | none: analysed at each call site | verifier (#367); #304 (`TemplateInfo.parsingContexts`) | `FragmentParsingContextTest` (#304); generator composition axis `t:insert`, `t:replace` | not yet |
+| `Fragment` parameter or value | `FLOW` | verifier (#367, #329): bound arguments at the call site, otherwise `FLOW`; #304 | `ContentKindsTest`, `FlowProducerTest`, `FragmentParsingContextTest`; composition value `Fragment f` | not yet |
+| `SafeHtml` (`t:utext`, `[(...)]`) | `FLOW` | verifier (#367, #329); #304 | `ContentKindsTest`, `FlowProducerTest`, `FragmentParsingContextTest`; hole values `[(h)]`, `t:utext` | not yet |
+| HTML message (`#{...}` as HTML) | none: its markup, analysed where used | verifier (#329); #304; messages are checked at build time on main (`MessageCompilerTest`) | `ContentKindsTest`, `HtmlMessageTest`, `MessageMarkupTest` | not yet (G4: the runtime re-check in `Escapers.htmlMessage` is tested, not proved) |
 | `t:insert`, `t:utext`, `[(...)]` into RCDATA or raw text | error | verifier (#367); main (#298) | `BrowserRawTextTest`; hole values `[(h)]`, `t:utext` in the `title` and `noscript` wrappers | Lean: raw holes not modeled |
 | `t:replace` with a whole `<title>` fragment | allowed (the fix-it) | main | `FragmentsTest` | n/a |
 | `t:remove="tag"` on raw-text, RCDATA or foreign elements | error | verifier (#367) for holes; main (#300) | seeds `A16`, `A17`; `ControlFlowTest`, `FragmentsTest`; composition value `t:remove="tag"` | not yet |
 | Fragment declared inside `noscript`, `iframe`, `xmp`, `noembed`, `noframes` | fits nowhere | #304 | `FragmentParsingContextTest` | not yet |
 | HTML fragment inside `select` | only without `title`, `style`, `svg`, `math`, `t:insert`, `t:replace`, `t:utext`, `[(...)]` | #304 | `FragmentParsingContextTest` | not yet |
 
-#329 replaces #304's checks with the predicates. `SafeHtml` and `Fragment` values are `FLOW`. The
-verifier (#367) checks `FLOW` without its last part (no open element the producer's tags would
-close) until #329 adds it with the producer checks.
-
-The producer side for `html.sanitize`, `html.sanitizeRich` and every `HtmlPolicy` (#262):
-`HtmlSanitizer` writes only elements it places where a browser's tree builder keeps them as
-written (no block in `p`, heading or phrasing; no `a` in `a`; `li` only in `ul`/`ol`; table parts
-only in `table`, with `tbody`/`tr` written out and no text directly in table, section or row), and
-closes everything it opens. `SanitizerBalanceTest` checks this with both spec parsers, scripting
-on and off, at body, `div`, `td`, `li` and `template` insertion points, over mXSS vectors and
-fuzzed input: the parsed tree must equal the one the tags spell, and the next element must stay
-the insertion point's next sibling. #329's producer test will reuse it.
+#304's name-based checks still run first, as friendly early errors; removing them is left to a
+follow-up (#329 PR).
 
 ## 6. Attributes (§5.6)
 
@@ -334,7 +361,9 @@ The id in brackets ends every error message (`[verifier:ID]`), for #368's fix-it
 | `ATTRIBUTE_NOT_IN_VALUE`, `ATTRIBUTE_WRONG_NAME` | an attribute hole outside a double-quoted value, or in another attribute's value (or a dropped duplicate) | the double-quoted value of the attribute the compiler wrote, compared case-insensitively |
 | `ATTRIBUTE_VALUE_CHANGES_PARSE` | a computed `type` in a table mode, a computed `encoding` in MathML | static values |
 | `JSON_NOT_IN_SCRIPT` | a `json` hole outside the script data of an HTML `<script>` (SVG `script`, escaped script data, CDATA) | script data, also right after `<` (no JSON starts with `/` or `!`) |
-| `RAW_NOT_FLOW` | `SafeHtml`, an unbound or dynamic `Fragment`, an HTML message outside data state, HTML namespace, body/cell/caption/template mode, or with formatting elements to reopen | flow content |
+| `RAW_NOT_FLOW` | `SafeHtml`, an unbound or dynamic `Fragment` outside data state, HTML namespace, body/cell/caption/template mode, or with formatting elements to reopen | flow content (section 5) |
+| `RAW_CLOSES_ELEMENT` | the same where flow content would close, reopen or adopt an open element: `p` in button scope, a current heading, an active `a`, `button`/`nobr`/`ruby` in scope, `select`/`option`/`optgroup`, three identical formatting entries | flow content (section 5) |
+| `MESSAGE_CHANGES_STATE` | an HTML message whose markup (any locale, either form) leaves the parser in another state than it found it | a message that closes what it opens, where its markup fits |
 | `FRAMESET` | any `<frameset>` start tag (frameset-ok is not tracked exactly) | |
 | `NOAHS_ARK` | three or more identical formatting elements, one of them with a computed attribute | |
 | `LOOP_NO_FIXED_POINT`, `STRUCTURE_DEPENDS_ON_DATA` | a loop, or a fragment calling itself, that reaches new parser states after 4 rounds (or more than 24 states for one recursive fragment); anything reached only through recursion | loops and recursion that settle |

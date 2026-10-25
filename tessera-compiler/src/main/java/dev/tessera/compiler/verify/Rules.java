@@ -35,10 +35,6 @@ final class Rules {
       InsertionMode.IN_BODY, InsertionMode.IN_CELL, InsertionMode.IN_CAPTION, InsertionMode.IN_SELECT,
       InsertionMode.IN_SELECT_IN_TABLE, InsertionMode.IN_TEMPLATE);
 
-  /** Modes where a {@code SafeHtml}/{@code Fragment} value is flow content (#329 refines this into kinds). */
-  private static final Set<InsertionMode> FLOW_MODES = EnumSet.of(
-      InsertionMode.IN_BODY, InsertionMode.IN_CELL, InsertionMode.IN_CAPTION, InsertionMode.IN_TEMPLATE);
-
   /** Modes where text is table text. */
   private static final Set<InsertionMode> TABLE_MODES = EnumSet.of(
       InsertionMode.IN_TABLE, InsertionMode.IN_TABLE_BODY, InsertionMode.IN_ROW, InsertionMode.IN_COLUMN_GROUP);
@@ -163,22 +159,6 @@ final class Rules {
       return Problem.ATTRIBUTE_VALUE_CHANGES_PARSE;
     }
     return null;
-  }
-
-  /**
-   * The problem with HTML known only at render time ({@code SafeHtml}, a {@code Fragment} value,
-   * an HTML message) in state {@code s}, or null: it must be flow content, in data state, HTML
-   * namespace, a body-like mode, and with nothing to reconstruct.
-   */
-  // TODO(#329): content kinds as predicates (FLOW without an open p, PHRASING, TABLE_ROWS), and
-  // checks that producers emit only content of their kind.
-  static Problem raw(ParserState s) {
-    OpenElement current = s.currentNode();
-    if (s.tokenizer() == TokenizerState.DATA && current != null && OpenElement.HTML.equals(current.namespace())
-        && FLOW_MODES.contains(s.mode()) && !s.reconstructionPending()) {
-      return null;
-    }
-    return Problem.RAW_NOT_FLOW;
   }
 
   /**

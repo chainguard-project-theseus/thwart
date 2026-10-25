@@ -115,9 +115,13 @@ public final class Emitted {
     return of(ESCAPERS + "html(out, " + valueCode + ");", new Skeleton.RawInsert(Skeleton.Source.SAFE_HTML, pos));
   }
 
-  /** A bundle message checked as HTML: {@code out.write(<messageCode>);} ({@code Escapers.htmlMessage(...)}). */
-  public static Emitted htmlMessage(SourcePos pos, String messageCode) {
-    return of("out.write(" + messageCode + ");", new Skeleton.RawInsert(Skeleton.Source.HTML_MESSAGE, pos));
+  /**
+   * A bundle message checked as HTML: {@code out.write(<messageCode>);} ({@code Escapers.htmlMessage(...)}),
+   * which writes what {@code skeleton} describes ({@code MessageCompiler#htmlSkeleton}: the
+   * message's markup, known at build time, #329).
+   */
+  public static Emitted htmlMessage(String messageCode, Skeleton.Node skeleton) {
+    return of("out.write(" + messageCode + ");", skeleton);
   }
 
   /**
