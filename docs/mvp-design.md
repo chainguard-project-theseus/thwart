@@ -290,7 +290,9 @@ code (`TemplateGenerator.javaName`), so names like `java`, `class` or `ctx` cann
 - `TesseraAutoConfiguration`: merged `TemplateRegistry.load(classLoader)`, a `TesseraViewResolver`
   ordered before Thymeleaf's that returns `null` for unknown names (fall-through; never parses a
   name), and a return-value handler so controllers can `return OwnerDetailsTemplate.of(owner)`.
-  `redirect:`/`forward:` prefixes are left to Spring.
+  `redirect:`/`forward:` prefixes are left to Spring. While another engine is configured it
+  renders every unknown name; the guarantees cover Tessera-rendered views, and a startup warning
+  (log only, matched on the class names of the other engines' view resolvers) says so.
 - Supported range: Spring 4.3+ / Boot 1.5+, Servlet 3.0+ (`request.getServletContext()`). One
   source tree (`jakarta.servlet`, `--release 8`) compiled against Boot 4.1; `tessera-spring-boot-starter-javax` relocates it to `javax.servlet`.
   An application uses exactly one of the two. To work on every generation the auto-configuration
