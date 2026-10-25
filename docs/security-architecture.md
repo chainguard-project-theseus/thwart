@@ -169,11 +169,14 @@ and the boundary we can't prove is stated and bounded.
 
 For every template T the compiler accepts, and every model M:
 
-> A spec HTML parser (and every supported browser) parsing `render(T, M)` builds the tree the
-> compiler recorded for T, with each hole's value inside the node and context the compiler chose,
-> whatever the values are.
+> When a spec HTML parser (or any supported browser) parses `render(T, M)`, each hole's value
+> lands in the node, context and namespace the compiler chose, and the static structure is the
+> same for every value: the trees for benign and hostile values are equal.
 
-Static structure must not depend on values, and must not depend on which browser parses it. The
+Static structure must not depend on values, and must not depend on which browser parses it. It
+doesn't claim that the parsed tree is the one the compiler recorded: implied end tags, foster
+parenting and the adoption agency can move static nodes, the same way for every value, without
+moving a hole out of its context (decided on #349). The
 profile is the set of templates for which we can guarantee this with simple local rules. Anything
 else is a build error naming file, line and column, with a fix-it.
 

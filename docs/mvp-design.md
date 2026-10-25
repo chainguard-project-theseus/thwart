@@ -192,7 +192,9 @@ observe this ordering; templates should not depend on an eager snapshot when sta
 
 ## Escaping contexts
 
-`Contexts` decides the context from element and attribute names; the template author cannot.
+`Contexts` decides the context from element and attribute names; the template author cannot. This
+table is what ships today. The target profile, with the status of each rule, is in
+[context-model.md](context-model.md), and the threat model is in [security-model.md](security-model.md).
 
 | Context | Where | Escaper | Notes |
 |---|---|---|---|
