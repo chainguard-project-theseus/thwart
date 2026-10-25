@@ -389,8 +389,9 @@ shade the two pinned validator.nu htmlparser versions (§11.4), and nothing else
 
 Simplified Oct 25, 2026 (#404): the shade exception names one pinned parser, and keep-it-simple
 says the verifier rejects error-recovery parsing rather than model it, with the divergence policy
-of §11.4. A change to principle 5 to match ("against the spec parser, on error-free parses") is
-proposed in #404 and needs @dlorenc's sign-off.
+of §11.4. Principle 5 now reads "checks this at build time, for every template, against the spec
+HTML parser, and accepts only parses without errors, outside the constructs where browsers are
+known to split".
 
 ## 7. Process: where we went wrong and what changes
 
