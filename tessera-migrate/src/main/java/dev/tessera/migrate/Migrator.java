@@ -199,6 +199,10 @@ final class Migrator {
       String converted = local.equals(ConversionRules.FRAGMENT)
           ? fragmentSignature(value, nameLine)
           : expressionValue(local, value, thymeleaf, nameLine);
+      if (thymeleaf && local.equals(ConversionRules.UTEXT)
+          && Expressions.unsupported(Expressions.rewriteLinks(value)).isEmpty()) {
+        rawOutput(nameLine, name, converted);
+      }
       if (!converted.equals(value)) {
         boolean singleQuoted = quoted && buffer[valueOuterOffset] == '\'';
         boolean needsQuoting = converted.chars().anyMatch(
@@ -343,8 +347,19 @@ final class Migrator {
         problems.forEach(p -> report(exprLine, p));
         if (problems.isEmpty()) {
           roots.addAll(Expressions.roots(expr, false));
+          if (open.equals("[(")) {
+            rawOutput(exprLine, "[(...)]", Expressions.rewrite(expr));
+          }
         }
         at = text.indexOf(open, end + close.length());
+      }
+    }
+
+    /** Reports raw output of {@code expr} (Tessera syntax), unless a message or already sanitized. */
+    private void rawOutput(int line, String construct, String expr) {
+      String e = Compat.strip(expr);
+      if (!ConversionRules.SAFE_UTEXT.matcher(e).matches()) {
+        report(line, String.format(ConversionRules.UTEXT_MESSAGE, construct, e, e));
       }
     }
 

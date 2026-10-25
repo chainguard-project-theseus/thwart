@@ -1,0 +1,10 @@
+<html xmlns:t="https://tessera.dev" t:params="String message, MarkupFunctions markup">
+<body>
+  <table>
+    <tr>
+      <th>Message</th>
+      <td t:insert="~{fragments/markup :: nodes(markup.parse(message))}"></td>
+    </tr>
+  </table>
+</body>
+</html>

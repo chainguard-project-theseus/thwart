@@ -1,0 +1,8 @@
+<html xmlns:t="https://tessera.dev" t:params="String titleHtml, MarkupFunctions markup">
+<body>
+  <div class="row">
+    <div class="col-8" t:insert="~{fragments/markup :: nodes(markup.parse(titleHtml))}">
+    </div>
+  </div>
+</body>
+</html>
