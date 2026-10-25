@@ -69,7 +69,7 @@ environment:
     - libevdev
     - libudev
     - krb5-libs
-    # ProfileOracleTest exports the cases once #324 lands.
+    # ProfileOracleTest exports the cases (#324): run.sh builds tessera-compiler with Maven.
     - openjdk-21-default-jdk
     - maven-3.9
   vars:

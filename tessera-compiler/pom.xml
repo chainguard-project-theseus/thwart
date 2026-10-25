@@ -190,8 +190,9 @@
         <executions>
           <!-- Generated code must compile for the Java 8 floor (#154): run the template tests again
                with the Compilation harness at javac release 8. Excluded: tests whose own Java snippets
-               need Java 9+ (types) or that assert record-accessor code text, and tests that do not
-               compile templates (the parser differential test, the spec-parser oracle). -->
+               need Java 9+ (types) or that assert record-accessor code text, tests that do not
+               compile templates (the parser differential test), and the spec-parser oracle and its
+               gate (#324), which run once, in the default execution. -->
           <execution>
             <id>release-8</id>
             <goals>
