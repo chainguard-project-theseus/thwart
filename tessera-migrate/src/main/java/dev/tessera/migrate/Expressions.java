@@ -417,6 +417,30 @@ final class Expressions {
     return parts;
   }
 
+  /**
+   * Index of the first {@code close} at or after {@code from} outside a {@code '...'} string literal,
+   * or -1: the compiler's {@code TextInlining.findEnd}, so both tools read where an inline ends the
+   * same way ({@code [[${m['k]]']}]]}).
+   */
+  static int inlineEnd(String text, int from, String close) {
+    boolean inString = false;
+    for (int i = from; i < text.length(); i++) {
+      char c = text.charAt(i);
+      if (inString) {
+        if (c == '\\') {
+          i++;
+        } else if (c == '\'') {
+          inString = false;
+        }
+      } else if (c == '\'') {
+        inString = true;
+      } else if (text.startsWith(close, i)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
   /** Index of the first top-level {@code ch} outside literals and brackets, or -1. */
   static int indexOfTopLevel(String s, char ch) {
     String masked = mask(s, false);

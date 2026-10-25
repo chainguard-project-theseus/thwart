@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+  <script>
+    var name = "[[${user.name}]]";
+    var id = '[[${user.id}]]';
+    var greeting = "Hello [[${user.name}]]!";
+    // "[[${user.name}]]" in a comment stays
+    var roles = [[${user.roles}]];
+  </script>
+  <script th:inline="javascript">
+    var title = `[[${page.title}]]`;
+    var path = String.raw`[[${page.path}]]`;
+    var label = 'Page ' + "[[${page.number}]]";
+  </script>
+  <script th:inline="none">
+    var d = ["[[", "]]"]; var s = "[[${page.number}]]";
+  </script>
+  <script type="module">import { start } from "/app.js"; start("[[${page.title}]]");</script>
+  <script type="application/json" id="data">{"user": "[[${user.name}]]", "page": [[${page.number}]]}</script>
+  <script type="text/x-template" id="row"><td>"[[${user.name}]]"</td></script>
+  <p>"[[${user.name}]]"</p>
+</body>
+</html>
