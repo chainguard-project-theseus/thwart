@@ -693,6 +693,17 @@ public final class ContextVerifier {
   }
 
   private void feedAndCheck(Path p, String piece, SourcePos pos) throws EngineException {
+    ParserState[] before = null;
+    if (promiseCheck && breach == null && piece.startsWith("</")) {
+      // An end tag on its own, so the state right after it shows whether it closed anything.
+      int gt = piece.indexOf('>');
+      if (gt > 0 && gt + 1 < piece.length()) {
+        feedAndCheck(p, piece.substring(0, gt + 1), pos);
+        feedAndCheck(p, piece.substring(gt + 1), pos);
+        return;
+      }
+      before = p.states();
+    }
     p.feed(piece);
     boolean between = true;
     boolean marked = false;
@@ -713,6 +724,9 @@ public final class ContextVerifier {
     p.markedFormatting = marked;
     if (promiseCheck && breach == null) {
       breach = ContentKinds.pageTag(piece);
+      if (breach == null && before != null) {
+        breach = ContentKinds.strayEndTag(piece, before, p.states());
+      }
       for (ParserState s : p.states()) {
         if (breach == null) {
           breach = ContentKinds.promiseBreach(s);

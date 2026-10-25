@@ -42,7 +42,12 @@ class FlowPartialTest {
     {"bbAttributes", "<span " + NS + " t:params=\"String a\"><b class=\"x\"><b class=\"x\" t:text=\"a\">x</b></b></span>", "<b> inside another <b>"},
     {"iInEmInI", "<div " + NS + " t:params=\"String a\"><i><em><i t:text=\"a\">x</i></em></i></div>", "<i> inside another <i>"},
     {"tr", "<tr " + NS + " t:params=\"String a\"><td t:text=\"a\">x</td></tr>", "table part"},
-    {"caption", "<caption " + NS + " t:params=\"String a\" t:text=\"a\">x</caption>", "after <table><tr><td>"},
+    {"caption", "<caption " + NS + " t:params=\"String a\" t:text=\"a\">x</caption>", "</caption>"},
+    // The parser closes an element before its end tag, which then closes nothing in the probes but
+    // closes an element of that name open around the insertion point.
+    {"headings", "<div " + NS + " t:params=\"String a\"><h1><h2 t:text=\"a\">x</h2></h1></div>", "</h1>"},
+    {"ddInDt", "<dl " + NS + " t:params=\"String a\"><dt>k<dd t:text=\"a\">v</dd></dt></dl>", "</dt>"},
+    {"buttonInButton", "<div " + NS + " t:params=\"String a\"><button><div><button t:text=\"a\">x</button></div></button></div>", "</button>"},
     {"page", "<!DOCTYPE html>\n<html " + NS + " t:params=\"String a\"><head><title>t</title></head><body><p t:text=\"a\">x</p></body></html>", "page"},
     {"htmlRoot", "<html " + NS + " t:params=\"String a\"><body><p t:text=\"a\">x</p></body></html>", "page"},
   };
@@ -55,6 +60,7 @@ class FlowPartialTest {
     {"span", "<span " + NS + " t:params=\"String a\" t:text=\"a\">x</span>"},
     {"link", "<a " + NS + " t:params=\"String href, String name\" t:href=\"href\" class=\"text-default\" t:text=\"name\">name</a>"},
     {"text", "<t:block " + NS + " t:params=\"String a\">Hello, [[${a}]]!</t:block>"},
+    {"pAroundDiv", "<div " + NS + " t:params=\"String a\"><p><div t:text=\"a\">x</div></p><address><p><address>y</address></p></address></div>"},
     {"siblings", "<div " + NS + " t:params=\"String a\"><b>1</b><b t:text=\"a\">2</b><i><b>3</b></i></div>"},
     {"sanitized", "<div " + NS + " t:params=\"String a\" t:utext=\"${html.sanitizeRich(a)}\">x</div>"},
     {"fragmentCall", "<div " + NS + " t:params=\"String a\"><p t:replace=\"~{:: note(a)}\">n</p>"
@@ -123,6 +129,9 @@ class FlowPartialTest {
       {"tr", "<!DOCTYPE html><template>"},
       {"caption", "<!DOCTYPE html><table><tr><td>"},
       {"page", "<!DOCTYPE html><body><div>"},
+      {"headings", "<!DOCTYPE html><h3><span>"},
+      {"ddInDt", "<!DOCTYPE html><dl><dt>"},
+      {"buttonInButton", "<!DOCTYPE html><div>"},
     };
     for (String[] k : cases) {
       String html = instance(c, k[0]).renderToString(RenderContext.defaults());

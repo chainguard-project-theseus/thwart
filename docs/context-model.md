@@ -229,7 +229,11 @@ generated method. A template is marked if:
 - and, after every tag in the `<body>` probe, it keeps the producer promise: no `form` (the form
   pointer is never set), no formatting element in an entry of its own name after the last marker
   (whatever the attributes, which the Noah's Ark clause compares), no top-level `li`, `dd`, `dt`
-  or table part, and no `head`, `body`, `html` or `frameset` start tag.
+  or table part, no `head`, `body`, `html` or `frameset` start tag, and no end tag that closes
+  nothing (`</p>` and `</br>` aside, which insert an element). An end tag closes nothing there when
+  the parser already closed its element, as `<h2>` closes an open `<h1>`, `<dd>` a `<dt>`, and
+  `<button>` an open `<button>` with the `<div>` inside it; inserted inside an `h3`, `dt` or `div`,
+  the same end tag closes that one.
 
 The probes catch what the promise forbids where a single `<body>` can't: an `li` or `dd` inside a
 `div` still closes an open `li` or `dd`, and a table part closes a cell or switches a template's

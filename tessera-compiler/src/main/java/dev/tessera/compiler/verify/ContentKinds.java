@@ -9,6 +9,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -107,9 +108,10 @@ public final class ContentKinds {
    *
    * <ul>
    *   <li>{@code ""}: content that isn't balanced. Here the compiler also checks the promise after
-   *       every tag ({@link #promiseBreach}, {@link #pageTag}): a {@code form}, nested formatting
-   *       elements of one name (with any attributes, which the Noah's Ark clause compares) and a
-   *       top-level list item.
+   *       every tag ({@link #promiseBreach}, {@link #pageTag}, {@link #strayEndTag}): a {@code
+   *       form}, nested formatting elements of one name (with any attributes, which the Noah's Ark
+   *       clause compares), a top-level list item, and an end tag that closes nothing here but would
+   *       close an element of its name open around the insertion point.
    *   <li>{@code <ul><li>} and {@code <dl><dd>}: an {@code li}, {@code dd} or {@code dt} outside
    *       its own list, which closes the open one, even inside a {@code div}.
    *   <li>{@code <table><tr><td>} and {@code <template>}: a top-level table part, which closes
@@ -168,6 +170,41 @@ public final class ContentKinds {
     int at = sig.indexOf(" original=");
     int end = at < 0 ? -1 : sig.indexOf(' ', at + 1);
     return at < 0 || end < 0 ? sig : sig.substring(0, at) + sig.substring(end);
+  }
+
+  /**
+   * The breach if {@code piece}, fed alone, is an end tag that closed nothing in one of the parsers
+   * ({@code before} and {@code after} are their states around it), else null. In the {@code ""}
+   * {@link #PARTIAL_PROBES probe} that means the parser had already closed the element the tag was
+   * written for, as an {@code <h2>} closes an open {@code <h1>}, a {@code <dd>} a {@code <dt>} and
+   * a {@code <button>} an open {@code <button>} with the {@code <div>} inside it. Inserted where an
+   * element of that name is open around the content, the same tag closes that one. A {@code </p>}
+   * and a {@code </br>} are exempt: with no {@code p} to close they insert an element, the same
+   * wherever FLOW is accepted (the predicate rejects an open {@code p} in button scope). It fails
+   * closed: an end tag still unfinished after the piece is a breach.
+   */
+  static String strayEndTag(String piece, ParserState[] before, ParserState[] after) {
+    int end = 2;
+    while (end < piece.length() && Character.isLetterOrDigit(piece.charAt(end))) {
+      end++;
+    }
+    if (end == 2 || !Character.isLetter(piece.charAt(2))) {
+      return null; // not an end tag (a bogus comment, or text in data)
+    }
+    String name = piece.substring(2, end).toLowerCase(Locale.ROOT);
+    for (int i = 0; i < before.length; i++) {
+      if (before[i].tokenizer() != TokenizerState.DATA || !before[i].pendingInput().isEmpty()) {
+        continue; // inside raw text, a comment or a tag: not an end tag here
+      }
+      if (after[i].tokenizer() != TokenizerState.DATA || !after[i].pendingInput().isEmpty()) {
+        return "it has a </" + name + "> end tag that doesn't end where the verifier can see it";
+      }
+      if (!name.equals("p") && !name.equals("br") && before[i].stack().equals(after[i].stack())) {
+        return "it has a </" + name + "> end tag that closes nothing it opened (the <" + name
+            + "> was already closed by what came after it)";
+      }
+    }
+    return null;
   }
 
   /** The breach if {@code piece} (markup from one {@code <} on) starts with a page element's start tag, else null. */
