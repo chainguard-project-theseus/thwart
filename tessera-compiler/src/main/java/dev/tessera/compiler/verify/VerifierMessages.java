@@ -27,7 +27,7 @@ final class VerifierMessages {
     }
     if (f.recursive && f.problem != Problem.STRUCTURE_DEPENDS_ON_DATA) {
       sb.append("; the fragment reaches this only by calling itself, so the markup structure depends on data: "
-          + "render rich text as SafeHtml with html.sanitize(...) or html.sanitizeRich(...) instead (guide §4.10)");
+          + "render rich text as SafeHtml with html.sanitize(...) or html.sanitizeRich(...) instead (guide section 4.10, Rich text)");
     }
     sb.append(engines(f.states));
     sb.append(" [verifier:").append(f.problem.name()).append(']');
@@ -84,7 +84,7 @@ final class VerifierMessages {
       case STRUCTURE_DEPENDS_ON_DATA:
         return "markup structure depends on data: this fragment calls itself into ever new parser states (it"
             + " doesn't settle in " + ContextVerifier.MAX_ROUNDS + " calls); render rich text as SafeHtml with"
-            + " html.sanitize(...) or html.sanitizeRich(...) instead (guide §4.10)";
+            + " html.sanitize(...) or html.sanitizeRich(...) instead (guide section 4.10, Rich text)";
       case TOO_MANY_STATES:
         return "too many distinct parser states here (more than " + ContextVerifier.MAX_STATES
             + "); split the template";

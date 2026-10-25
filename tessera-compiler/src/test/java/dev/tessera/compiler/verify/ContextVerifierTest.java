@@ -115,7 +115,7 @@ class ContextVerifierTest {
                     + "</t:block></t:block>"
                     + "<section t:insert=\"~{rich :: nodes(nodes)}\"></section></div>")
             .compile();
-    c.assertError("rich.html:1:", "markup structure depends on data", "html.sanitize", "guide §4.10");
+    c.assertError("rich.html:1:", "markup structure depends on data", "html.sanitize", "guide section 4.10, Rich text");
     assertEquals(1, c.errors().size(), c.errors().toString());
   }
 
