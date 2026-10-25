@@ -47,6 +47,7 @@ class PageNormalizerTest {
       csrf query parameter           | <a href="/logout?_csrf=abc&x=1">o</a>    | <a href="/logout?_csrf=xyz&x=1">o</a>
       jsessionid path parameter      | <a href="/owners;jsessionid=A1B2?x=1">o</a> | <a href="/owners?x=1">o</a>
       jsessionid in form action      | <form action="/f;jsessionid=A1B2"></form> | <form action="/f"></form>
+      csp nonce (#335)               | <script nonce="abc">x()</script><style nonce="d">p{}</style> | <script>x()</script><style>p{}</style>
       """)
   void sameAsABrowserSeesIt(String rule, String a, String b) {
     check(SAME, a.replace("\\n", "\n"), b.replace("\\n", "\n"));

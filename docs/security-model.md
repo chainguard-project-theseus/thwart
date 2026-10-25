@@ -21,7 +21,9 @@ page. For every template the compiler accepts and every model:
 
 It does not guarantee what page JavaScript does with the DOM afterwards, except for the
 frameworks in the framework table (context-model.md §6.3), and there only by the table's
-deny-by-default rules.
+deny-by-default rules. Past that boundary, the defence in depth is a strict CSP: Tessera puts the
+request's nonce on every script and style the compiler writes (context-model.md §6.4), and the
+application sends the policy (guide §4.11).
 
 The guarantee holds for the profile as context-model.md specifies it. Rows marked `phase 2` or
 with an open PR there are gaps on `main` today. Once the build-time verifier (#367) lands, the
@@ -43,8 +45,9 @@ not proved.
 | **Other `SafeHtml` sources** (`escape`, `sanitize`, a rendered `Template`, `concat`) | Trusted by construction | `HtmlSanitizer` copies no input through, so its output is safe however a browser parsed the original | Today, #304 (open). Once #367 and #329 land, `SafeHtml` is inserted only where the parser state meets its kind's predicate, and producers are checked to emit balanced content |
 | **The build** (javac, the annotation processor, the compiler's dependencies) | Trusted | Template sources and bundles come from the application's repository. The shaded validator.nu htmlparser is pinned by commit and SHA-256 (#365) | Out of scope |
 | **Browsers** | The supported set | Chromium (current), Firefox (current), Firefox ESR and Safari/WebKit (current) (context-model.md §7, decision 7). Safari is checked through Playwright's WebKit build (the WPE port: WebKit's HTML parser and script engine, not Safari's shell) (#354). A rule must hold in all of them; where they differ (classic and new `<select>` parsing), the profile accepts only the intersection | At build time, the verifier runs current upstream htmlparser and 1.4.16 and accepts a hole only if both do (#367). In tests, validator.nu htmlparser 1.4.16 and validator 26.10.12 (#344); parse5, headless Chromium, Firefox 140 ESR and WebKit in the Node job (#345, #354; on Chainguard Checks after every merge and on request, over a fixture until #324) |
-| **Page JavaScript and client frameworks** | Outside, except the framework table | Code that re-reads the DOM as code (Vue in-DOM templates, Alpine, htmx, AngularJS) can turn safe output into code execution | Deny-by-default names (#330), the framework table (#333), `{{` breaking, strict CSP with nonces (#335) |
+| **Page JavaScript and client frameworks** | Outside, except the framework table | Code that re-reads the DOM as code (Vue in-DOM templates, Alpine, htmx, AngularJS) can turn safe output into code execution | Deny-by-default names (#330), the framework table (#333), `{{` breaking, strict CSP with nonces (#335: the nonce on compiler-written scripts; the policy header is the application's) |
 | **The request** (headers, URL, session) | Untrusted | It reaches a template only through model values or `RenderContext` | As model values; CSRF tokens only on same-origin POST forms |
+| **The CSP nonce** (`RenderContext.cspNonce`) | Trusted, but escaped | The application (or the starter, from `SecureRandom`) supplies a fresh, unguessable value per response and the same value in its policy | Written only on compiler-written `<script>` and `<style>` start tags a browser reads as HTML (not in SVG, MathML or raw text), with `Escapers.attr`; a nonce in the template is a build error |
 
 ## 3. Trust boundaries
 
@@ -61,6 +64,7 @@ point.
 | `unchecked` call to output | Application code asserts that a string is safe | Code review | Call sites of `SafeHtml.unchecked`, `TrustedUrl.unchecked` |
 | Rendered page to browser parser | The browser parses the page | The invariant: each hole is in the node, context and namespace the compiler chose, and the benign and hostile trees are equal | The verifier at build time (#367); the oracle gate (#324) tests the verifier |
 | Browser DOM to client framework | Page JavaScript reads attributes and text as code | Framework table entries; `{{` breaking; CSP | Beyond the guarantee except as bounded here |
+| Rendered page to the application's CSP | The browser decides which scripts and styles run | The nonce is on exactly the start tags the compiler writes, never on `SafeHtml` content (context-model.md §6.4) | `TemplateGenerator.startTag`; `CspNonceTest` |
 
 ## 4. What the attacker can and cannot do
 
@@ -86,7 +90,7 @@ The hostile value set used in tests is `HostileStrings.VECTORS` plus the #320 va
 | XSS through a script hole in the wrong lexical position | Yes | Family C; data-prelude rule (context-model.md §4) |
 | A URL or resource from another origin | Yes | Family E; URL classes (context-model.md §6.1) |
 | Client-side template injection in a listed framework | Bounded | Family D. Deny-by-default names, the framework table and `{{` breaking. Gaps are listed in guide §7 |
-| Client frameworks not in the table, or configured to read other names | No | Outside the guarantee. Strict CSP (#335) limits the damage |
+| Client frameworks not in the table, or configured to read other names | No | Outside the guarantee. A strict CSP without `'unsafe-eval'` limits the damage (#335, guide §4.11) |
 | What page JavaScript does with values it reads from the DOM | No | Principle 7 |
 | Content an `unchecked` call vouched for | No | The call site owns it |
 | CSS injection | Yes, by restriction | No holes in `<style>`; a `style` attribute takes only literals, numbers and `CssValue` |

@@ -1,5 +1,8 @@
 package dev.tessera.spring.plain;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -7,8 +10,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import dev.tessera.spring.CspNonce;
 import dev.tessera.spring.TesseraConfiguration;
 import dev.tessera.spring.e2e.SmokeController;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +32,7 @@ import org.springframework.context.support.ResourceBundleMessageSource;
 import org.springframework.mock.web.MockServletContext;
 import org.springframework.stereotype.Controller;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
@@ -93,6 +106,41 @@ class PlainSpringMvcTest {
     // No fallback resolver: an unknown name is an error, never a template lookup by pattern.
     Exception e = assertThrows(Exception.class, () -> mvc.perform(get("/unknown")));
     assertTrue(String.valueOf(e.getMessage()).contains("nope"), e.toString());
+  }
+
+  /**
+   * Every script and style gets a fresh per-request nonce (#335), which the application's own
+   * filter, running before the view, reads for its policy header. Servlet 3.0 has no default
+   * methods on {@code Filter}, hence the anonymous class.
+   */
+  @Test
+  void cspNonceIsPerRequestAndSharedWithTheApplication() throws Exception {
+    Filter policy =
+        new Filter() {
+          @Override
+          public void init(FilterConfig config) {}
+
+          @Override
+          public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+              throws IOException, ServletException {
+            ((HttpServletResponse) response)
+                .setHeader("Content-Security-Policy", "script-src 'nonce-" + CspNonce.get(request) + "'");
+            chain.doFilter(request, response);
+          }
+
+          @Override
+          public void destroy() {}
+        };
+    MockMvc withPolicy = MockMvcBuilders.webAppContextSetup(context).addFilters(policy).build();
+    MvcResult first = withPolicy.perform(get("/csp")).andExpect(status().isOk()).andReturn();
+    String nonce = CspPages.assertStamped(first);
+    assertEquals("script-src 'nonce-" + nonce + "'", first.getResponse().getHeader("Content-Security-Policy"));
+    String second = CspPages.assertStamped(withPolicy.perform(get("/csp")).andReturn());
+    assertNotEquals(nonce, second);
+    // Without the application's filter the page still gets a nonce, and no policy header is sent.
+    MvcResult plain = mvc.perform(get("/csp")).andExpect(status().isOk()).andReturn();
+    CspPages.assertStamped(plain);
+    assertNull(plain.getResponse().getHeader("Content-Security-Policy"));
   }
 
   @Configuration

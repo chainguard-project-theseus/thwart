@@ -73,7 +73,8 @@ Stages are concrete classes; the only interface with several implementations is 
 
 ## Key interfaces (all in code; read the javadoc)
 
-- Runtime: `Template.render(RenderContext, Output)`; `RenderContext(locale, messages, links, forms)`
+- Runtime: `Template.render(RenderContext, Output)`; `RenderContext(locale, messages, links, forms)`,
+  plus an optional CSP nonce written on every `<script>`/`<style>` start tag (#335),
   is the *entire* ambient surface of a template; `Escapers.{text,attr,url,resourceUrl,html,json}`.
 - `ExpressionParser.parseExpression/parseEach/parseAssignments/parseParams/parseImports/parseFragmentSignature/parseFragmentRef`.
 - `ExpressionCompiler.compile/compileCondition/elementType/resolveType/checkOutputType` → `CompiledExpr(code, type, pos)`.
@@ -294,7 +295,8 @@ code (`TemplateGenerator.javaName`), so names like `java`, `class` or `ctx` cann
 - `TesseraView` renders the registry entry with the model and `SpringRenderContexts.create(...)`:
   locale (`LocaleResolver`), `MessageSource` messages, `DefaultLinks(contextPath)` +
   `response.encodeURL`, `Forms` over `BindingResult`/`BindStatus`, CSRF token from the request
-  attribute `_csrf`. Content type `text/html;charset=UTF-8`.
+  attribute `_csrf`, and a per-request CSP nonce (`CspNonce.get(request)`, 128 bits from
+  `SecureRandom`; no policy header is sent). Content type `text/html;charset=UTF-8`.
 - `auth` namespace (`dev.tessera.spring.fn.Auth`): `isAuthenticated()`, `hasRole(String)`,
   `hasAnyRole(String...)`, `name()`, via `SecurityContextHolder` (optional dependency).
 
