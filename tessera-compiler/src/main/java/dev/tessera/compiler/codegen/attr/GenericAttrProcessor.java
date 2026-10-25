@@ -97,6 +97,9 @@ public final class GenericAttrProcessor implements AttributeProcessor {
                 : lower.equals("http-equiv")
                 ? "the http-equiv of a <meta> cannot be computed; it decides whether content is"
                     + " a refresh URL, so write a static http-equiv attribute"
+                : lower.equals("attributename")
+                ? "the attributeName of an SVG animation cannot be computed; it decides whether values, to,"
+                    + " from and by are CSS or a URL, so write a static attributeName attribute"
                 : Contexts.isHtmxBoost(name)
                 ? "'" + name + "' cannot be computed; it decides whether htmx submits the forms inside with AJAX"
                     + " and swaps the response into the page, so write " + name + "=\"true\" or " + name
@@ -114,7 +117,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     }
     if (hint != null) {
       boolean computedType = context == OutputContext.FORBIDDEN
-          && (lower.equals("type") || lower.equals("http-equiv"));
+          && (lower.equals("type") || lower.equals("http-equiv") || lower.equals("attributename"));
       ctx.diagnostics().error(pos, label + (computedType ? ": " : " is not allowed: ") + hint);
       return;
     }

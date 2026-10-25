@@ -109,7 +109,7 @@ The hostile value set used in tests is `HostileStrings.VECTORS` plus the #320 va
 | Client frameworks not in the table, or configured to read other names | No | Outside the guarantee. A strict CSP without `'unsafe-eval'` limits the damage (#335, guide §4.11) |
 | What page JavaScript does with values it reads from the DOM | No | Principle 7 |
 | Content an `unchecked` call vouched for | No | The call site owns it |
-| CSS injection | Yes, by restriction | No holes in `<style>`; a `style` attribute, and an SVG attribute that takes a CSS `url()` (`fill`, `stroke`, `mask`, ...), takes only literals, numbers and `CssValue` |
+| CSS injection | Yes, by restriction | No holes in `<style>`; a `style` attribute, and an SVG attribute that takes a CSS `url()` (`fill`, `stroke`, `mask`, ...) or an animation of one, takes only literals, numbers and `CssValue` |
 | Denial of service, timing, clickjacking, response headers | No | Application and server concerns |
 | Browsers outside the supported set | No | A difference there is a request to widen the supported set, not a bug |
 

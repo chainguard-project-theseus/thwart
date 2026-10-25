@@ -60,9 +60,13 @@ public final class Contexts {
    * of an SVG {@code <animate>} and the {@code to} of a {@code <set>} are URL too: they can set an
    * {@code href} to {@code javascript:}. The {@code values} of an {@code <animate>} is URL_LIST: a
    * {@code ;}-separated list whose items SVG applies in turn, so every item is checked (#284).
-   * {@code <set>} ignores {@code values from by}, but they are checked the same way. The
-   * {@code content} of a {@code <meta http-equiv="refresh">} is REFRESH: its {@code url=} part
-   * navigates the page, so only a same-origin link is allowed there (#237).
+   * {@code <set>} ignores {@code values from by}, but they are checked the same way. When the
+   * static {@code attributeName} of an animation element names one of those SVG attributes
+   * ({@code fill}, {@code mask}, ...), its {@code values to from by} are STYLE instead, and the
+   * {@code attributeName} of an animation element is FORBIDDEN: a computed one could retarget the
+   * values from a URL-checked attribute to CSS. The {@code content} of a
+   * {@code <meta http-equiv="refresh">} is REFRESH: its {@code url=} part navigates the page, so
+   * only a same-origin link is allowed there (#237).
    * The {@code type} of a {@code <script>} is FORBIDDEN: it decides whether the content is
    * JavaScript. The {@code http-equiv} of a {@code <meta>} is FORBIDDEN: it decides whether
    * {@code content} is a refresh URL. The {@link #isHtmxRequestUrl htmx request URLs}
@@ -91,7 +95,7 @@ public final class Contexts {
     if (attr.startsWith("on")) {
       return OutputContext.EVENT_HANDLER;
     }
-    if (attr.equals("style") || isSvgCssUrl(element, el, attr)) {
+    if (attr.equals("style") || isSvgCssUrl(element, el, attr) || animatesSvgCssUrl(element, el, attr)) {
       return OutputContext.STYLE;
     }
     if (isHtmxRequestUrl(attr)) {
@@ -109,7 +113,8 @@ public final class Contexts {
     }
     if (attr.equals("srcdoc")
         || (el.equals("script") && attr.equals("type"))
-        || (el.equals("meta") && attr.equals("http-equiv"))) {
+        || (el.equals("meta") && attr.equals("http-equiv"))
+        || (TIMED_ANIMATIONS.contains(el) && attr.equals("attributename"))) {
       return OutputContext.FORBIDDEN;
     }
     if (isResourceUrl(el, attr)) {
@@ -371,6 +376,33 @@ public final class Contexts {
   private static boolean isSvgCssUrl(Element element, String el, String attr) {
     return element.foreign() && SVG_CSS_URL_ATTRIBUTES.contains(attr)
         && !(attr.equals("fill") && TIMED_ANIMATIONS.contains(el));
+  }
+
+  /** The attributes of an SVG animation element that hold the values it sets. */
+  private static final Set<String> ANIMATION_VALUES = Backports.setOf("values", "to", "from", "by");
+
+  /**
+   * Whether {@code attr} on {@code element} is a value ({@code values to from by}) of a
+   * {@link #TIMED_ANIMATIONS timed animation element} whose static {@code attributeName} names one
+   * of the {@link #SVG_CSS_URL_ATTRIBUTES}: the animation sets that CSS, so the value is CSS too.
+   * The name is compared stripped and ASCII case-insensitively, after any {@code prefix:}, which
+   * fails closed for names a browser would not match. A {@code values} list is CSS as a whole: a
+   * {@code CssValue} cannot start a {@code url(} after a {@code ;} (it percent-encodes
+   * {@code (}). The {@code attributeName} itself cannot be computed ({@link #attribute}).
+   */
+  private static boolean animatesSvgCssUrl(Element element, String el, String attr) {
+    if (!TIMED_ANIMATIONS.contains(el) || !ANIMATION_VALUES.contains(attr)) {
+      return false;
+    }
+    for (Attribute a : element.attributes()) {
+      if (!a.isTessera() && a.name().equalsIgnoreCase("attributeName") && a.value() != null) {
+        String target = Backports.strip(a.value()).toLowerCase(Locale.ROOT);
+        if (SVG_CSS_URL_ATTRIBUTES.contains(target.substring(target.lastIndexOf(':') + 1))) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private static boolean isAnimation(String el) {
