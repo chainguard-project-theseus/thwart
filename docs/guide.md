@@ -489,6 +489,18 @@ The compiler decides the context from the element and attribute name. You cannot
 | Event handler | `on*` attributes, and framework directives (below) | Build error; put data in `data-*` attributes and read them from a script. |
 | Forbidden | `srcdoc`, non-JS `<script type>` | Build error. `<script type>` and `<meta http-equiv>` cannot be computed. |
 
+A browser drops a line feed right after a `<pre>`, `<listing>` or `<textarea>` start tag. When an
+attribute such as `t:text`, `t:utext`, `t:field` or `t:insert` sets the element's content, or the
+content starts with `[[...]]`, a `t:if` or a `t:each`, Tessera writes one line feed after the start
+tag, which the browser drops: the value is shown exactly, a value's own leading line feed
+included, and so is a line feed written after the expression, also when the value is empty.
+`<textarea t:field="*{bio}">` renders as `<textarea id="bio" name="bio">` + line feed + the value,
+so a test that matches the rendered bytes (`">Main St</textarea>"`) needs the line feed
+(`">\nMain St</textarea>"`). Thymeleaf's `th:field` on a `<textarea>` adds a line feed only when the
+value starts with one, and `th:text` and `[[...]]` add none, so there the browser drops a value's
+leading line feed, or the template's line feed after an empty value or a loop with no items.
+Content that starts with static text is written as is.
+
 Client-side frameworks run some attribute values as JavaScript once they mount the element, so
 attribute escaping does not protect them and an expression there is a build error, as for `on*`:
 Vue's `v-*` (every directive, `v-html` included) and its `:x`, `@x`, `#x` and `.x` shorthands;
