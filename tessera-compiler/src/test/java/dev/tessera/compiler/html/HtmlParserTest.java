@@ -610,7 +610,7 @@ class HtmlParserTest {
   }
 
   @Test
-  void rawTextEndTagHiddenFromAttoparserIsAnError() {
+  void rawTextEndTagHiddenInAttributeOrCommentIsAnError() {
     // A browser ends <textarea>/<title> at the first </textarea>, even inside what looks like
     // an attribute value or comment, so the <script> below would be live script.
     assertEquals(
@@ -626,6 +626,45 @@ class HtmlParserTest {
             + " '</script' before its end tag: escape it (in a script string, write '<\\/script')"),
         errors("<script type=\"text/html\"><a b=\"</script><p>\"></script>"));
     parseOk("<textarea></textareax></textarea>");
+  }
+
+  /**
+   * The parser never throws: any input, including input cut off in every tokenizer state, gives a
+   * document and diagnostics that name the file and a line. Kept from the attoparser differential
+   * (#325), which also caught crashes; the inputs are its edge cases and seeded soups of its pieces.
+   */
+  @Test
+  void anyInputParsesWithoutThrowing() {
+    List<String> inputs = new ArrayList<>(List.of(
+        "", "<", "<a", "<a ", "<a b", "<a b=", "<a b='", "<a b='c", "<a b='c'", "</", "</a", "</a ", "<!", "<!-",
+        "<!--", "<!-- x", "<!-- x --", "<![CDATA[", "<![CDATA[x]", "<![CDATA[x]]", "<!DOCTYPE", "<!DOCTYPE html",
+        "<!DOCTYPE html [", "<?", "<?x", "<?xml", "<?xml ", "<?xml version='1'?", "<script>", "<script>x</script",
+        "<style>a</STYLE>", "<title>a</title", "<p>a\r\nb</p>", "<div a=1 a=2 A=3>", "<a b=\"x\"=y>", "<a =x>",
+        "</a b>", "</a\n>", "</>", "<>", "<!---->", "<!--->-->", "<![CDATA[]]>", "<?ab?>", "<?a?>?>",
+        "<noscript></noſcript><title</noscript></title>", "<svg><script/>", "<math><p>", "<xmp><i title=\"</xmp>"));
+    String[] pieces = {
+      "<", ">", "/", "!", "-", "?", "[", "]", "\"", "'", "=", " ", "\t", "\n", "\r", " ", "\u000B", "&", "a",
+      "x", "script", "SCRIPT", "style", "textarea", "title", "xmp", "noscript", "svg", "math", "br", "DOCTYPE",
+      "CDATA", "xml", "t:text", "[[${x}]]", "ſ",
+    };
+    java.util.Random random = new java.util.Random(325);
+    for (int i = 0; i < 20_000; i++) {
+      StringBuilder sb = new StringBuilder();
+      for (int n = 1 + random.nextInt(40); n > 0; n--) {
+        sb.append(pieces[random.nextInt(pieces.length)]);
+      }
+      inputs.add(sb.toString());
+    }
+    for (String input : inputs) {
+      try {
+        parse(input);
+      } catch (RuntimeException e) {
+        throw new AssertionError("HtmlParser threw on " + input, e);
+      }
+      for (Diagnostic d : diagnostics.all()) {
+        assertTrue(d.toString().startsWith("dir/t.html:") && d.pos().line() >= 1, input + " -> " + d);
+      }
+    }
   }
 
   private static String hiddenEndTag(int line, int col, String tag) {

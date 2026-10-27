@@ -346,7 +346,7 @@ tcnghia's PRs already did by hand. Framework re-interpretation is covered by a *
 harness**, also nightly: jsdom with Vue 2/3, petite-vue, AngularJS, Alpine and htmx 1/2/4, mounted
 over generated pages. Neither is in `mvn verify`, because both need Node.
 
-`HtmlParserDifferentialTest` against attoparser should be deleted once the oracle lands. It tests
+`HtmlParserDifferentialTest` against attoparser was deleted once the oracle landed (#325). It tested
 agreement with the wrong reference.
 
 ### 5.8 What doesn't change
