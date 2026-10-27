@@ -67,7 +67,10 @@ The old application is the specification. Work the way an expert would, keeping 
    `mvn clean compile` and fix each error using the diagnostic catalogue (guide section 6). For
    Thymeleaf, run
    `java -jar .tessera/tessera-migrate.jar <old-templates-dir> <new-templates-dir> --report migrate-report.md`
-   first, then finish what it reports.
+   first, then finish what it reports. Its report lists each read of the session, request
+   parameters, request, servlet context, CSRF token, Thymeleaf's context, a bean or a static, with
+   where the controller should get the value instead: that is the controller-side checklist
+   (guide section 3, step 4).
 
    A page passes its `<body>` to the layout marked `t:remove="tag"`, so the layout doesn't write a
    second `<body>` inside its own; a second `<html>`, `<head>` or `<body>` anywhere (a nested

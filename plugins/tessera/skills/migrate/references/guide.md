@@ -37,7 +37,8 @@ those scopes when a name is not in the model. Tessera doesn't: **a missing model
 `NullPointerException` (write `a?.b` where `null` is expected). So before converting a template,
 find everything it reads that the controller does not put in the model, and make the controller
 provide it. Values every page needs (the current user, the request URI) come from `@ModelAttribute`
-methods in a `@ControllerAdvice`.
+methods in a `@ControllerAdvice`. For Thymeleaf, `tessera-migrate` lists the reads of these
+scopes that it can see, with where each value should come from (section 3, step 4).
 
 **Templates read data; they don't run code.** A template reads record components and
 `getX()`/`isX()` getters of *view-safe* types (records, enums, JDK value types, collections, and
@@ -398,6 +399,18 @@ ones that htmx reads the same with `data-` (`th:hx-target` becomes `t:data-hx-ta
 in `th:attr` too. It adds a missing space between attributes (`href="/a"class="b"`).
 It also reports each `th:value`, `th:href`, `th:src`, `th:action`, `th:name` and `th:type` whose
 value may be `null`: Thymeleaf wrote the attribute empty, and Tessera omits it (section 4.3).
+It reports each read of a scope the template cannot see, at its line, with the fix-it for the
+controller, and leaves the read in place: `session.x` (`@SessionAttribute`), `param.x`
+(`@RequestParam`), `application.x`, `_csrf` (the starter already adds the `_csrf` input to
+same-origin POST forms), `#request`, `#httpServletRequest`, `#response`, `#session`,
+`#servletContext`, `#ctx`, `#vars`, `#root`, `#execInfo`, `@bean` and `T(...)`. Each value moves
+into the model and `t:params`; one that every page needs, such as the current user or the request
+URI, comes from a `@ModelAttribute` method in a `@ControllerAdvice`. A `session`, `param` or
+`application` root does not get an `Object` stub, and isn't reported where the template declares
+the name itself (`t:params`, `th:with`, `th:each`, a fragment parameter). The list is the
+controller-side checklist, but not a complete one: a plain name that Thymeleaf found in request
+attributes rather than the model looks like any other parameter, and shows up in compare as an
+empty value or a 500.
 
 **Nulls are where a converted page most often fails at runtime.** A `null` link path variable
 fails the render (a 500), where Thymeleaf wrote an empty segment: for an owner whose `id` is

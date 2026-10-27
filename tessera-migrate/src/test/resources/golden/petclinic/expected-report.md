@@ -50,9 +50,9 @@ Converted 9 template(s); 61 item(s) need manual attention.
 
 - `misc/unsupported.html:2`: `user` is declared as `Object` in the generated `t:params` stub; replace it with its view type
 - `misc/unsupported.html:3`: `layout:decorate` belongs to the `layout:` dialect, which Tessera does not support; port it by hand
-- `misc/unsupported.html:5`: `T(...)` static class access is not supported (never); expose the value through a view type or a `@TemplateFunction`
-- `misc/unsupported.html:6`: Spring bean references (`@bean`) are not supported (never); pass the value as a parameter
-- `misc/unsupported.html:7`: Thymeleaf utility object `#ctx` has no Tessera equivalent; use a `@TemplateFunctions` namespace or a view-type property
+- `misc/unsupported.html:5`: `T(...)` static class access is not supported (never); compute the value in the controller, add it to the model and declare it in `t:params`, or call a static `@TemplateFunction`
+- `misc/unsupported.html:6`: Spring bean references (`@bean`) are not supported (never); call the bean in the controller (or in a `@ModelAttribute` method of a `@ControllerAdvice` for a value every page needs), add the result to the model and declare it in `t:params`
+- `misc/unsupported.html:7`: `#ctx.request` reads Thymeleaf's evaluation context, which Tessera does not have; a template sees only its `t:params`: read the parameter by name, and add any value the controller does not provide to the model and to `t:params` (guide section 1)
 - `misc/unsupported.html:10`: collection selection/projection is not supported; compute the collection in Java
 - `misc/unsupported.html:11`: `th:onclick` is a build error by design (no dynamic event handlers); use a `data-*` attribute read by a script
 - `misc/unsupported.html:11`: `th:style` is not converted; rewrite it as `t:style` from literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (guide section 4.4), otherwise use `t:classappend` or a `t:data-*` attribute
