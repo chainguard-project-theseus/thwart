@@ -243,8 +243,12 @@ Security 4.2):
   for tests (surefire `argLine`). Spring 5.3 (Boot 2.7) does not.
 
 **Error pages.** Under Boot, `templates/error.html` renders errors with Boot's error attributes as
-the model (`Integer status`, `String error`, `String message`, `String path`; `timestamp` is a
-`Date` and not view-safe).
+the model (`Integer status`, `String error`, `String message`, `String path`). Boot's `timestamp`
+is a `java.util.Date`, which is not view-safe; declare it `Instant timestamp` or
+`ZonedDateTime timestamp` and the starter passes it converted (a `Date` model attribute fills any
+`Instant` or `ZonedDateTime` param; the zone is the JVM default, as for `Date.toString()`).
+Thymeleaf's `${timestamp}` is `t:text="temporals.format(timestamp, 'EEE MMM dd HH:mm:ss zzz yyyy')"`
+on a `ZonedDateTime`.
 
 ## 3. The migration loop
 
