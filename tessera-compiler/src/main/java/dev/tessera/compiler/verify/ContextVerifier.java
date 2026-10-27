@@ -31,7 +31,7 @@ import java.util.TreeMap;
  * <p>It is an abstract interpretation with the parsers as the transfer function. A path holds the
  * two parsers (one, when the template has no {@code <noscript>}). Statics are fed as they are. A
  * hole is checked and leaves the state as it was (that is what "inert" means), except that an
- * attribute hole writes {@link Rules#MARK}. Paths are merged by their parser states' signatures
+ * attribute hole writes {@link Rules#MARK} into the value. Paths are merged by their parser states' signatures
  * at every join: an optional part ({@code t:if}, {@code t:case}, a computed attribute) is the
  * union of skipping it and writing it, a loop runs to a fixed point, and a static fragment call is
  * analysed at each call site, memoised per (fragment, entry state, bound fragment arguments), with
@@ -41,7 +41,7 @@ import java.util.TreeMap;
  * engine finds on any path, with scripting on and off, is {@link Problem#PARSE_ERROR} at the static
  * that holds it, except the allow-list ({@link Rules#allowedError}); a partial counts them only in
  * its fragment contexts. And it checks
- * the three coarse exclusions ({@link Rules#exclusion}) at every element the parser inserts.
+ * the coarse exclusions ({@link Rules#exclusion}) at every element the parser inserts.
  *
  * <p>It fails closed: an engine failure, too many states, a loop or recursion without a fixed
  * point and a node it can't interpret are build errors.
@@ -87,7 +87,7 @@ public final class ContextVerifier {
   private int firstElementsBudget;
   /** The last source position seen, for nodes that have none (generated markup). */
   private SourcePos near;
-  /** In the first FLOW-partial probe (#396): check the producer promise after every tag. */
+  /** In the first FLOW-partial probe (#396): check the producer promise at every element inserted. */
   private boolean promiseCheck;
   /** How the template broke the producer promise in that probe, in words, or null. */
   private String breach;
@@ -139,7 +139,7 @@ public final class ContextVerifier {
    * Why {@code template}'s output may not be FLOW content, in words, or null if it is: it is a
    * partial (not a page), its root needs no other context than {@code <body>}, and inserted at each
    * of {@link ContentKinds#PARTIAL_PROBES} it has no finding and leaves the parser as it found it
-   * in every parser, keeping the producer promise after every tag. It fails closed: an engine
+   * in every parser, keeping the producer promise ({@link ContentKinds#promiseBreach}). It fails closed: an engine
    * failure or a probe the predicate doesn't accept is a "no".
    */
   String whyNotFlowPartial(Skeleton.TemplateSkeleton template) {
@@ -444,14 +444,9 @@ public final class ContextVerifier {
     List<Path> cur = in;
     Located.Builder statics = new Located.Builder();
     SourcePos staticPos = null;
-    boolean frameset = false;
     for (Skeleton.Node n : seq.nodes()) {
       if (n instanceof Skeleton.Static) {
         String text = ((Skeleton.Static) n).text();
-        if (containsIgnoreCase(text, "<frameset")) {
-          add(Problem.FRAMESET, at(n), null, null, null, Collections.<ParserState>emptyList(), null);
-          frameset = true;
-        }
         if (staticPos == null) {
           staticPos = n.pos();
         }
@@ -460,15 +455,14 @@ public final class ContextVerifier {
         continue;
       }
       if (!statics.isEmpty()) {
-        cur = statics(cur, statics.build(), staticPos, !frameset);
+        cur = statics(cur, statics.build(), staticPos);
         statics = new Located.Builder();
         staticPos = null;
-        frameset = false;
       }
       cur = node(n, cur, env);
     }
     if (!statics.isEmpty()) {
-      cur = statics(cur, statics.build(), staticPos, !frameset);
+      cur = statics(cur, statics.build(), staticPos);
     }
     return cur;
   }
@@ -547,8 +541,10 @@ public final class ContextVerifier {
    * continuation alike (before an attribute name, after a quoted value; after the tag name, when
    * the next character is whitespace, '/' or '>', which {@link Path#tagBoundary} checks), so the
    * two differ only in the element's attribute list. That list matters to the tree builder only
-   * through the names in {@link #PRESENCE_MATTERS} and through duplicate names, where the written
-   * attribute is the stricter case (a later duplicate is dropped). So the written path alone stands
+   * through {@link #PRESENCE_MATTERS}, through duplicate names, and where the attribute makes a
+   * parse error ({@code <font color>} in SVG), where the written attribute is the stricter case
+   * (a later duplicate is dropped). An {@code <input>} in a table is a parse error with any
+   * {@code type}. So the written path alone stands
    * for both, and a tag with many computed attributes doesn't multiply the states. Otherwise both
    * are kept, as for any optional part.
    */
@@ -565,7 +561,7 @@ public final class ContextVerifier {
       ParserState[] entry = p.states();
       boolean pendingBoundary = p.tagBoundary;
       List<Path> written = seq(o.body(), Collections.singletonList(p.fork()), env);
-      boolean merge = name != null && !PRESENCE_MATTERS.contains(name) && !written.isEmpty();
+      boolean merge = name != null && !PRESENCE_MATTERS.equals(name) && !written.isEmpty();
       boolean afterTagName = false;
       for (ParserState s : entry) {
         TokenizerState t = s.tokenizer();
@@ -592,12 +588,10 @@ public final class ContextVerifier {
   }
 
   /**
-   * Attributes whose presence changes how the rest parses: {@code type} ({@code <input>} in a
-   * table), {@code encoding} (MathML {@code annotation-xml}), and {@code color}, {@code face},
-   * {@code size} ({@code <font>} breaks out of SVG and MathML with them).
+   * The attribute whose presence changes how the rest parses without a parse error either way:
+   * {@code encoding} (MathML {@code annotation-xml} is an HTML integration point with it).
    */
-  private static final Set<String> PRESENCE_MATTERS =
-      new HashSet<>(java.util.Arrays.asList("type", "encoding", "color", "face", "size"));
+  private static final String PRESENCE_MATTERS = "encoding";
 
   /** Zero or more {@code body}, separated: iterate until no new state appears. */
   private List<Path> rep(Skeleton.Rep r, List<Path> in, Env env, SourcePos pos) throws EngineException {
@@ -657,17 +651,12 @@ public final class ContextVerifier {
     return out;
   }
 
-  /** {@code frameset}: whether to report a {@code <frameset>} (seq already reported one inside a single static). */
-  private List<Path> statics(List<Path> in, Located located, SourcePos pos, boolean frameset) throws EngineException {
+  private List<Path> statics(List<Path> in, Located located, SourcePos pos) throws EngineException {
     if (pos != null) {
       near = pos;
     }
     pos = near;
     String text = located.text;
-    if (frameset && containsIgnoreCase(text, "<frameset")) {
-      // Split across statics (each one is checked in seq).
-      add(Problem.FRAMESET, pos, null, null, null, Collections.<ParserState>emptyList(), null);
-    }
     for (Path p : in) {
       if (p.tagBoundary) {
         char c = text.charAt(0);
@@ -678,7 +667,7 @@ public final class ContextVerifier {
         p.tagBoundary = false;
         p.key = null;
       }
-      if (!p.tagHole && !p.markedFormatting && !promiseCheck) {
+      if (!p.tagHole && !p.markedFormatting) {
         int lt = text.lastIndexOf('<');
         if (lt > 0 && text.indexOf('>', lt) < 0) {
           // A tag that goes on past this static: feed the text before it on its own, so the state
@@ -708,18 +697,6 @@ public final class ContextVerifier {
   }
 
   private void feedAndCheck(Path p, Located located, SourcePos pos) throws EngineException {
-    String piece = located.text;
-    ParserState[] before = null;
-    if (promiseCheck && breach == null && piece.startsWith("</")) {
-      // An end tag on its own, so the state right after it shows whether it closed anything.
-      int gt = piece.indexOf('>');
-      if (gt > 0 && gt + 1 < piece.length()) {
-        feedAndCheck(p, located.sub(0, gt + 1), pos);
-        feedAndCheck(p, located.sub(gt + 1, piece.length()), pos);
-        return;
-      }
-      before = p.states();
-    }
     p.feed(located);
     boolean between = true;
     boolean marked = false;
@@ -738,17 +715,6 @@ public final class ContextVerifier {
       p.tagHole = false;
     }
     p.markedFormatting = marked;
-    if (promiseCheck && breach == null) {
-      breach = ContentKinds.pageTag(piece);
-      if (breach == null && before != null) {
-        breach = ContentKinds.strayEndTag(piece, before, p.states());
-      }
-      for (ParserState s : p.states()) {
-        if (breach == null) {
-          breach = ContentKinds.promiseBreach(s);
-        }
-      }
-    }
   }
 
   private static boolean hasFormattingStartTag(String text) {
@@ -765,15 +731,6 @@ public final class ContextVerifier {
       int end = lt + 1 + name.length();
       if (text.regionMatches(true, lt + 1, name, 0, name.length())
           && (end == text.length() || isSpace(text.charAt(end)) || text.charAt(end) == '/' || text.charAt(end) == '>')) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private static boolean containsIgnoreCase(String text, String needle) {
-    for (int i = text.indexOf('<'); i >= 0; i = text.indexOf('<', i + 1)) {
-      if (text.regionMatches(true, i, needle, 0, needle.length())) {
         return true;
       }
     }
@@ -1317,6 +1274,9 @@ public final class ContextVerifier {
             Rules.Excluded x = Rules.exclusion(stack);
             if (x != null) {
               note(x.problem, x.detail, offset);
+            }
+            if (owner.promiseCheck && owner.breach == null) {
+              owner.breach = ContentKinds.promiseBreach(stack);
             }
           }
 

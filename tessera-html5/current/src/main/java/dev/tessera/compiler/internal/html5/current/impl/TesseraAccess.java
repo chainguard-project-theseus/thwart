@@ -313,7 +313,6 @@ public final class TesseraAccess {
     }
     t.mode = modeName(s.getMode());
     t.originalMode = modeName(s.getOriginalMode());
-    t.framesetOk = s.isFramesetOk();
     t.formPointer = s.getFormPointer() != null;
     t.headPointer = s.getHeadPointer() != null;
     t.quirks = s.isQuirks();
@@ -359,7 +358,6 @@ public final class TesseraAccess {
     public String[] templateModes;
     public String mode;
     public String originalMode;
-    public boolean framesetOk;
     public boolean formPointer;
     public boolean headPointer;
     public boolean quirks;

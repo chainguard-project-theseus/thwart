@@ -66,7 +66,6 @@ interface RawParser {
     String[] templateModes;
     String mode;
     String originalMode;
-    boolean framesetOk;
     boolean formPointer;
     boolean headPointer;
     boolean quirks;

@@ -35,7 +35,7 @@ class FlowPartialTest {
     {"li", "<li " + NS + " t:params=\"String a\" t:text=\"a\">x</li>", "list item"},
     {"liInDiv", "<div " + NS + " t:params=\"String a\"><li t:text=\"a\">x</li></div>", "after <ul><li>"},
     {"dd", "<dd " + NS + " t:params=\"String a\" t:text=\"a\">x</dd>", "<dd>"},
-    {"dt", "<dt " + NS + " t:params=\"String a\" t:text=\"a\">x</dt>", "<dt>"},
+    {"dt", "<dt " + NS + " t:params=\"String a\" t:text=\"a\">x</dt>", "after <dl><dd>"},
     {"form", "<form " + NS + " t:params=\"String a\" method=\"get\" action=\"/s\"><input name=\"q\" t:value=\"a\"></form>", "<form>"},
     {"formInDiv", "<div " + NS + " t:params=\"String a\"><form method=\"get\" action=\"/s\"><input name=\"q\" t:value=\"a\"></form></div>", "<form>"},
     {"bb", "<span " + NS + " t:params=\"String a\"><b><b t:text=\"a\">x</b></b></span>", "<b> inside another <b>"},
