@@ -27,6 +27,7 @@ import java.util.Optional;
  *     if removed:            nothing
  *     else if replacement:   replacement
  *     else:
+ *                            beforeStartTag
  *       [unless tagOmitted]  "&lt;name" + attributes + "&gt;"   (dynamic attrs: see below)
  *                            afterStartTag
  *                            body if set, else children (rendered in {@link #scope()})
@@ -251,6 +252,7 @@ public final class ElementPlan {
   private Scope scope;
   private final List<Wrapper> wrappers = new ArrayList<>();
   private final Map<String, Attr> attributes = new LinkedHashMap<>();
+  private final List<Emitted> beforeStartTag = new ArrayList<>();
   private final List<Emitted> afterStartTag = new ArrayList<>();
   private Emitted body;
   private Emitted replacement;
@@ -337,6 +339,18 @@ public final class ElementPlan {
 
   public void removeAttribute(String name) {
     attributes.remove(key(name));
+  }
+
+  /**
+   * Statements emitted right before the start tag, inside the wrappers (e.g. the hidden
+   * {@code _name} marker of a {@code <select multiple t:field>}).
+   */
+  public void beforeStartTag(Emitted statements) {
+    beforeStartTag.add(statements);
+  }
+
+  public List<Emitted> beforeStartTagStatements() {
+    return Backports.listCopy(beforeStartTag);
   }
 
   /** Statements emitted right after the start tag (e.g. the CSRF hidden input). */
