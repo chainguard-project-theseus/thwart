@@ -80,12 +80,10 @@ class ValueAfterLessThanTest {
 
   @Test
   void negativeNumberAfterBangDashInScriptFailsToBuild() {
-    // n = -1 renders "<!--1", and a browser then hides the "</script>" after "<script".
+    // n = -1 renders "<!--1", and a browser then hides the "</script>" after "<script". The data-prelude
+    // rule (#332) rejects the "<!" before the value.
     compile("<script>\nvar x = 2 <!-[[n]]\nvar y = \"<script>\";\n</script>")
-        .assertError(
-            "page.html:3:16:",
-            "[[...]] may not follow '<!-' directly in <script>: a negative number would make it '<!--';"
-                + " write a space after '<'");
+        .assertError("page.html:3:11:", "'<!' (a value or code after it can make '<!--', an HTML-like comment)");
   }
 
   @Test

@@ -2,7 +2,6 @@ package dev.tessera.compiler.codegen.attr;
 
 import static dev.tessera.compiler.types.ExpressionCompiler.isDeclared;
 
-import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.Emitted;
@@ -19,10 +18,8 @@ import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.SafeHtml;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import javax.lang.model.type.TypeKind;
 
 /**
@@ -31,8 +28,9 @@ import javax.lang.model.type.TypeKind;
  * and {@code [(expr)]} (SafeHtml or a checked bundle message, TEXT and RCDATA only).
  * STYLE/FORBIDDEN contexts with inlined expressions are build errors, and so is an expression
  * inside a static client-side {@code {{ ... }}} interpolation in TEXT, RCDATA or SCRIPT text
- * (#248), and a {@code [[expr]]} in SCRIPT that is not in a JavaScript expression position:
- * inside a string literal, comment or regex literal (#281, #315). {@link #checkMustachesClosed}
+ * (#248), and SCRIPT text that breaks the data-prelude rule ({@link #checkDataPrelude}, #332): a
+ * {@code [[expr]]} inside a string or comment (#281, #315), or code before the last value that a
+ * lexer without ambiguous tokens can't read. {@link #checkMustachesClosed}
  * rejects a static {@code {{} that is never closed.
  *
  * <p>Also holds the output helpers shared with {@code t:text} and {@code t:utext}.
@@ -62,8 +60,10 @@ public final class TextInlining {
     String parsing = ctx.template().parsingContexts().text(text);
     boolean rawText = ctx.template().parsingContexts().insideRawText(text);
     boolean inMustache = false;
-    JsLexState js = text.context() == OutputContext.SCRIPT ? new JsLexState() : null;
-    int lastSlash = -1;
+    if (text.context() == OutputContext.SCRIPT) {
+      // Reported only: the code is still emitted, and the skeleton keeps each hole for the verifier (#367).
+      checkDataPrelude(ctx, text);
+    }
     int i = 0;
     while (i < raw.length()) {
       boolean escaped = raw.startsWith("[[", i);
@@ -92,32 +92,14 @@ public final class TextInlining {
             ctx.diagnostics()
                 .error(
                     pos,
-                    text.context() == OutputContext.SCRIPT
-                        ? form + " may not follow '<!-' directly in <script>: a negative number would make it"
-                            + " '<!--'; write a space after '<'"
-                        : form + " may not follow '" + markup + "' directly: the browser would read the value as"
-                            + " markup; write &lt; for a literal '<'");
+                    form + " may not follow '" + markup + "' directly: the browser would read the value as markup;"
+                        + " write &lt; for a literal '<'");
             // Still emitted: nothing is written on error, and the skeleton keeps the hole for the
             // verifier's own check (#367).
           }
-          String misplaced =
-              escaped && js != null ? misplacedInScript(js, text.pos().advance(raw, Math.max(lastSlash, 0))) : null;
-          if (misplaced != null) {
-            ctx.diagnostics().error(pos, misplaced);
-            // Still emitted, as above: the skeleton keeps the hole for the verifier's own check.
-          }
           code.add(inline(ctx, text.context(), parsing, rawText, raw.substring(i + 2, end), pos, escaped, scope));
-          if (js != null) {
-            js.expression();
-          }
           i = end + 2;
           continue;
-        }
-      }
-      if (js != null) {
-        js.feed(raw.charAt(i));
-        if (raw.charAt(i) == '/' && !js.unsure()) {
-          lastSlash = i;
         }
       }
       literal.append(raw.charAt(i));
@@ -344,13 +326,9 @@ public final class TextInlining {
    * it: the tokenizer reads them as text (in TEXT, {@code <} or {@code </} and a letter would start
    * a tag), but a browser reads {@code <} and a value starting with a letter as a tag, and in RCDATA
    * {@code </text} and a value {@code area} (even {@code </textarea} and an empty value) as the
-   * end tag. In SCRIPT it is {@code <!-}: a negative number makes it {@code <!--}, and a browser
-   * then hides the next {@code </script>} after a {@code <script} in the code.
+   * end tag. In SCRIPT, {@link #checkDataPrelude} rejects {@code <!} before a value.
    */
   private static String markupBefore(OutputContext context, String before) {
-    if (context == OutputContext.SCRIPT) {
-      return before.endsWith("<!-") ? "<!-" : null;
-    }
     if (context != OutputContext.TEXT && context != OutputContext.RCDATA) {
       return null;
     }
@@ -375,456 +353,110 @@ public final class TextInlining {
   }
 
   /**
-   * The error for a {@code [[...]]} where {@code js} is, or null in an expression position: in a
-   * {@code <script>} the value is a complete JSON value, so it goes only where a JavaScript
-   * expression goes, not inside a string, comment or regular expression literal (#281, #315).
+   * The data-prelude rule (security-architecture.md §5.4, #332) for the script text {@code text}:
+   * reports the first token before the last inlined value that a lexer without ambiguous tokens
+   * does not read, or the first {@code [[...]]} inside a string or comment. Before the last value
+   * the text may hold only identifiers, numbers, punctuators other than {@code /}, {@code "..."} and
+   * {@code '...'} strings, {@code //} and {@code /* *}{@code /} comments, and whitespace. Without
+   * {@code /}, template literals and Annex B comments ({@code -->}, {@code #!}, and {@code <!}, which
+   * a value or code can complete to {@code <!--}), JavaScript tokenization is context-free, so this
+   * is exact, not a guess. After the last value anything goes: the value is one complete JSON token
+   * sequence, so code after it can't change how it parses.
    */
-  private static String misplacedInScript(JsLexState js, SourcePos slash) {
-    JsLexState.Position position = js.position();
-    if (js.unsure()) {
-      return "[[...]] comes after a '/' at " + slash.line() + ":" + slash.column() + " that could be a"
-          + " division or start a regular expression, so it is unclear where the value would be written; make"
-          + " that '/' unambiguous: wrap a regular expression in parentheses, (/.../), or the left operand of a"
-          + " division, (...) / 2, and keep a division's '/' on the line of its left operand";
-    }
-    switch (position) {
-      case STRING:
-        char q = js.quote();
-        return "[[...]] is inside a quoted JavaScript string (" + q + "..." + q + "), but it writes a"
-            + " complete JSON value with its own quotes, which would close a \"...\" string and run"
-            + " as code, or end up quoted twice; remove the quotes, e.g. var a = [[...]]; or \"Hello \" + [[...]]";
-      case COMMENT:
-        return "[[...]] is inside a JavaScript comment (" + js.commentOpener() + "), so its value is written"
-            + " inside the comment and the page never uses it; move it out of the comment: Thymeleaf's"
-            + " natural-template var a = /*[[${x}]]*/ 'd'; becomes var a = [[${x}]];";
-      case REGEX:
-        return "[[...]] is inside a JavaScript regular expression literal (/.../), but it writes a complete"
-            + " JSON value with its own quotes, and its characters would change or break the pattern; build"
-            + " the pattern from the value in code, e.g. new RegExp([[...]])";
-      default:
-        return null;
+  private static void checkDataPrelude(CodegenContext ctx, Text text) {
+    String raw = text.raw();
+    char state = 0; // 0 in code, '"' or '\'' in a string, '/' in a line comment, '*' in a block comment
+    boolean escape = false;
+    for (int i = 0, last = lastHole(raw); i <= last; i++) {
+      int end = holeEnd(raw, i);
+      if (end >= 0) {
+        if (raw.charAt(i + 1) == '[' && state != 0) {
+          ctx.diagnostics().error(text.pos().advance(raw, i + 2), misplaced(state));
+          return;
+        }
+        // An escape before a value is in a string, reported above; [(...)] has its own error.
+        i = end + 1;
+        continue;
+      }
+      char c = raw.charAt(i);
+      String bad = null;
+      int at = i;
+      if (c == '\u2028' || c == '\u2029') {
+        bad = c == '\u2028' ? "U+2028 (LINE SEPARATOR)" : "U+2029 (PARAGRAPH SEPARATOR)";
+      } else if (state == '"' || state == '\'') {
+        if (escape) {
+          escape = false;
+          bad = c == '\n' || c == '\r' ? "a backslash line continuation" : null;
+          at = i - 1;
+        } else if (c == '\\') {
+          escape = true;
+        } else if (c == state || c == '\n' || c == '\r') {
+          state = 0;
+        }
+      } else if (state == '/') {
+        state = c == '\n' || c == '\r' ? 0 : state;
+      } else if (state == '*') {
+        if (raw.startsWith("*/", i)) {
+          state = 0;
+          i++;
+        }
+      } else if (raw.startsWith("//", i) || raw.startsWith("/*", i)) {
+        state = raw.charAt(++i);
+      } else if (c == '/') {
+        bad = "a '/' (a division or a regular expression)";
+      } else if (c == '`') {
+        bad = "a backtick (a template literal)";
+      } else if (raw.startsWith("<!", i)) {
+        bad = "'<!' (a value or code after it can make '<!--', an HTML-like comment)";
+      } else if (raw.startsWith("-->", i)) {
+        bad = "'-->' (an HTML-like comment)";
+      } else if (raw.startsWith("#!", i)) {
+        bad = "'#!' (a hashbang comment)";
+      } else if (c == '"' || c == '\'') {
+        state = c;
+      }
+      if (bad != null) {
+        ctx.diagnostics()
+            .error(
+                text.pos().advance(raw, at),
+                bad + " before the last [[...]] of a <script>: the compiler reads the code before the last value"
+                    + " only with a lexer that has no ambiguous tokens, so it can prove where each value goes"
+                    + ": move the [[...]] above the code (declare the data first, var data = [[...]];), or write"
+                    + " the value into a <script type=\"application/json\"> and read it with JSON.parse");
+        return;
+      }
     }
   }
 
-  /**
-   * Minimal JavaScript lexical state over the literal text of a {@code <script>}, enough to tell
-   * whether a {@code [[...]]} sits in an expression position ({@link #position}): not inside a
-   * string literal ({@code "..."}, {@code '...'} or template-literal text), where the JSON value's
-   * own quotes would close the string or land inside it, a comment, where the page would never use
-   * the value, or a regex literal, whose pattern the value would change. {@code ${...}} code in a
-   * template literal is an expression position. Fed only the static text; {@link #expression}
-   * stands for each inlined value. Annex B comments count too: {@code -->} after only whitespace and comments on
-   * its line, and {@code #!} at the very start (a hashbang); either is a comment or a syntax error
-   * in a browser, so taking it for a comment is safe.
-   *
-   * <p>As in Go's {@code html/template}, whether a {@code /} starts a regex or is a division is
-   * decided from the previous significant token: a regex follows an operator, punctuator or one of
-   * {@link #KEYWORDS_BEFORE_REGEX} (not as a property name: a word right after a single
-   * {@code .}), or a spread {@code ...}; a division follows an identifier, a number, a literal,
-   * {@code )}, {@code ]} or an inlined value; but after the {@code )} that closes the condition of
-   * {@code if}, {@code while}, {@code for}, {@code for await} or {@code with} a regex follows.
-   * Where the tokens cannot tell (after a closing brace: a block or an object literal; after
-   * {@code ++} or {@code --}; after {@code of}, {@code yield} or {@code await}, which may be
-   * identifiers; after an inlined value that does not follow an operator, which may be {@code {}},
-   * a block; a division at the start of a line, where automatic semicolon insertion may end the
-   * statement before it, as after {@code break} or {@code var a}; after a word that follows a
-   * number and a {@code .}, which may be a decimal point; anywhere after a {@code \} in code, an
-   * identifier escape), the lexer is
-   * {@link #unsure} and every {@code [[...]]} after that {@code /} is an error, so a guess never
-   * leads to accepting a value (security-architecture.md, section 9). A word right after {@code #}
-   * is a private name, and any non-ASCII char that is not whitespace is part of a word (in
-   * JavaScript it is an identifier char or a syntax error), so neither ends a word before a keyword.
-   */
-  static final class JsLexState {
-    private enum S { CODE, SLASH, DQ, SQ, TPL, LINE_COMMENT, BLOCK_COMMENT, REGEX, REGEX_CLASS }
+  /** The error for a {@code [[...]]} in the string or comment {@code state} of {@link #checkDataPrelude}. */
+  private static String misplaced(char state) {
+    if (state == '/' || state == '*') {
+      return "[[...]] is inside a JavaScript comment (" + (state == '/' ? "//" : "/* */") + "), so its value is"
+          + " written inside the comment and the page never uses it; move it out of the comment: Thymeleaf's"
+          + " natural-template var a = /*[[${x}]]*/ 'd'; becomes var a = [[${x}]];";
+    }
+    return "[[...]] is inside a quoted JavaScript string (" + state + "..." + state + "), but it writes a"
+        + " complete JSON value with its own quotes, which would close a \"...\" string and run as code, or end"
+        + " up quoted twice; remove the quotes, e.g. var a = [[...]]; or \"Hello \" + [[...]]";
+  }
 
-    /** Last significant char of code after which a {@code /} starts a regex. */
-    private static final String BEFORE_REGEX = "(,=:[!&|?{};+-*%<>~^";
-
-    private static final Set<String> KEYWORDS_BEFORE_REGEX =
-        Backports.setOf(
-            "return", "typeof", "instanceof", "in", "of", "new", "delete", "void", "throw", "case", "do", "else",
-            "yield", "await", "default", "extends");
-
-    /** Words that are keywords only in some places, so a {@code /} after them may be a division too. */
-    private static final Set<String> CONTEXTUAL_KEYWORDS = Backports.setOf("of", "yield", "await");
-
-    /** Keywords whose parenthesized condition is followed by a statement, so a regex may follow its ')'. */
-    private static final Set<String> KEYWORDS_BEFORE_CONDITION = Backports.setOf("if", "while", "for", "with");
-
-    private S s = S.CODE;
-    private boolean escape;
-    /** A backslash escaped a CR in a string literal, so a following LF continues the line too. */
-    private boolean escapedCr;
-    /** The start is a statement start, like after ';'. */
-    private char prevSignificant = ';';
-    /** The identifier (or number) that {@code prevSignificant} ends, if it is one. */
-    private final StringBuilder word = new StringBuilder();
-    private boolean wordOpen;
-    private char prev;
-    private int braceDepth;
-    /** Brace depths at which an open {@code ${} of a template literal started. */
-    private final ArrayDeque<Integer> tplBraces = new ArrayDeque<>();
-    /** For each open '(': whether it starts the condition of an if, while, for or with. */
-    private final ArrayDeque<Boolean> parens = new ArrayDeque<>();
-    /** Only whitespace and comments since the start of the text or the last line break. */
-    private boolean lineStart = true;
-    /** Dashes seen at the start of a line, towards an Annex B "-->" comment. */
-    private int dashes;
-    /** Chars fed so far, inlined values included; "#!" is a hashbang only at the very start. */
-    private int fed;
-    private String commentOpener = "";
-    /** The word before {@link #word}, if only whitespace separates them ("for" in "for await"). */
-    private String previousWord = "";
-    /** {@link #word} directly follows a single '.', so it is a property name, never a keyword. */
-    private boolean wordAfterDot;
-    /** Consecutive '.' chars ending at {@code prevSignificant}: 3 is a spread. */
-    private int dots;
-    /** {@code prevSignificant} is the second char of {@code ++} or {@code --}. */
-    private boolean incDec;
-    /** A {@code /} could have been a division or a regex; nothing after it can be trusted. */
-    private boolean unsure;
-    /** A line terminator since the last token, so automatic semicolon insertion may end the statement. */
-    private boolean newlineBefore;
-    /**
-     * The last token is an inlined value not after an operator: it may be {@code {}}, a block (at a
-     * statement start, after {@code )} or {@code =>}), after which a regex follows.
-     */
-    private boolean afterValue;
-    /** {@code prevSignificant} is the {@code >} of {@code =>}. */
-    private boolean arrow;
-    /** The {@code .}s ending at {@code prevSignificant} follow a number, so the first may be its decimal point. */
-    private boolean dotAfterNumber;
-    /** {@link #word} follows a number and a {@code .}: it may be a property or a keyword after ASI. */
-    private boolean wordAfterNumber;
-    /** A token could not be classified (a {@code \} in code); every later {@code /} is unsure. */
-    private boolean guessed;
-
-    enum Position { CODE, STRING, COMMENT, REGEX }
-
-    /** Where the next char would be; a {@code /} before it is decided first (#281, #315). */
-    Position position() {
-      if (s == S.SLASH) {
-        s = slashStartsRegex() ? S.REGEX : S.CODE;
-      }
-      switch (s) {
-        case DQ:
-        case SQ:
-        case TPL:
-          return Position.STRING;
-        case LINE_COMMENT:
-        case BLOCK_COMMENT:
-          return Position.COMMENT;
-        case REGEX:
-        case REGEX_CLASS:
-          return Position.REGEX;
-        default:
-          return Position.CODE;
+  /** Offset of the last {@code [[...]]} or {@code [(...)]} in {@code raw} that {@link #render} writes, or -1. */
+  private static int lastHole(String raw) {
+    int last = -1;
+    for (int i = 0; i < raw.length(); i++) {
+      int end = holeEnd(raw, i);
+      if (end >= 0) {
+        last = i;
+        i = end + 1;
       }
     }
+    return last;
+  }
 
-    /** How the comment the lexer is in started: {@code //}, a block comment, {@code -->} or {@code #!}. */
-    String commentOpener() {
-      return commentOpener;
-    }
-
-    char quote() {
-      return s == S.DQ ? '"' : s == S.SQ ? '\'' : '`';
-    }
-
-    /** An inlined value: inside code it is an expression, so a {@code /} after it is division. */
-    void expression() {
-      if (s == S.SLASH) {
-        s = slashStartsRegex() ? S.REGEX : S.CODE;
-      }
-      if (s == S.CODE) {
-        boolean operand = "=([,?+-*%<!~^&|".indexOf(prevSignificant) >= 0 || (prevSignificant == '>' && !arrow);
-        value();
-        afterValue = !operand;
-      }
-      escape = false;
-      escapedCr = false;
-      prev = 0;
-      lineStart = false;
-      fed++;
-    }
-
-    void feed(char c) {
-      char p = prev;
-      prev = c;
-      int index = fed++;
-      switch (s) {
-        case DQ:
-        case SQ:
-          if (escape) {
-            escape = false;
-            escapedCr = c == '\r';
-          } else if (c == '\n' && escapedCr) {
-            escapedCr = false;
-          } else {
-            escapedCr = false;
-            if (c == '\\') {
-              escape = true;
-            } else if (c == (s == S.DQ ? '"' : '\'') || c == '\n' || c == '\r') {
-              // LS and PS are allowed in a string literal (ES2019); an unterminated one ends at a line break.
-              s = S.CODE;
-              value();
-              if (c == '\n' || c == '\r') {
-                newLine();
-              }
-            }
-          }
-          return;
-        case TPL:
-          if (escape) {
-            escape = false;
-            prev = 0;
-          } else if (c == '\\') {
-            escape = true;
-          } else if (c == '`') {
-            s = S.CODE;
-            value();
-          } else if (c == '{' && p == '$') {
-            tplBraces.push(braceDepth);
-            s = S.CODE;
-            operator();
-          }
-          return;
-        case LINE_COMMENT:
-          if (lineTerminator(c)) {
-            s = S.CODE;
-            newLine();
-          }
-          return;
-        case BLOCK_COMMENT:
-          if (c == '/' && p == '*') {
-            s = S.CODE;
-          } else if (lineTerminator(c)) {
-            newLine();
-          }
-          return;
-        case REGEX:
-          if (escape) {
-            escape = false;
-          } else if (c == '\\') {
-            escape = true;
-          } else if (c == '[') {
-            s = S.REGEX_CLASS;
-          } else if (c == '/' || lineTerminator(c)) {
-            s = S.CODE;
-            value();
-            if (c != '/') {
-              newLine();
-            }
-          }
-          return;
-        case REGEX_CLASS:
-          if (escape) {
-            escape = false;
-          } else if (c == '\\') {
-            escape = true;
-          } else if (c == ']') {
-            s = S.REGEX;
-          } else if (lineTerminator(c)) {
-            s = S.CODE;
-            value();
-            newLine();
-          }
-          return;
-        case SLASH:
-          // The char after a '/': a comment, a regex or a division.
-          if (c == '/') {
-            s = S.LINE_COMMENT;
-            commentOpener = "//";
-            return;
-          }
-          if (c == '*') {
-            s = S.BLOCK_COMMENT;
-            commentOpener = "/* */";
-            prev = 0; // "/*/" does not close the comment
-            return;
-          }
-          lineStart = false;
-          if (slashStartsRegex()) {
-            s = S.REGEX;
-            prev = 0;
-            feed(c);
-            return;
-          }
-          s = S.CODE;
-          operator();
-          break;
-        case CODE:
-        default:
-          break;
-      }
-      if (index == 1 && p == '#' && c == '!') {
-        s = S.LINE_COMMENT; // hashbang
-        commentOpener = "#!";
-        return;
-      }
-      if (lineTerminator(c)) {
-        newLine();
-      } else if (lineStart) {
-        if (c == '>' && dashes == 2) {
-          s = S.LINE_COMMENT; // Annex B "-->" at the start of a line
-          commentOpener = "-->";
-          return;
-        }
-        if (c == '-' && dashes < 2) {
-          dashes++;
-        } else if (dashes > 0 || !(space(c) || c == '/')) {
-          lineStart = false; // a '/' may open a comment, which keeps the line start
-        }
-      }
-      if (c == '"') {
-        s = S.DQ;
-      } else if (c == '\'') {
-        s = S.SQ;
-      } else if (c == '`') {
-        s = S.TPL;
-      } else if (c == '/') {
-        s = S.SLASH;
-        return;
-      } else if (c == '\\') {
-        guessed = true; // only a Unicode escape in a name, whose braces hide where the word ends
-      } else if (c == '(') {
-        if (identifierPart(prevSignificant) && wordAfterNumber) {
-          guessed = true; // "1.\nif (x)" is an if statement, "1..if(x)" a call
-        }
-        parens.push(
-            keyword()
-                && (KEYWORDS_BEFORE_CONDITION.contains(word.toString())
-                    || (word.toString().equals("await") && previousWord.equals("for"))));
-      } else if (c == ')') {
-        if (!parens.isEmpty() && parens.pop()) {
-          // "if (c) /re/.test(s)": a statement follows a condition, and may start with a regex
-          endToken();
-          prevSignificant = ';';
-          return;
-        }
-      } else if (c == '{') {
-        braceDepth++;
-      } else if (c == '}') {
-        if (!tplBraces.isEmpty() && tplBraces.peek() == braceDepth) {
-          tplBraces.pop();
-          s = S.TPL;
-          return;
-        }
-        braceDepth--;
-      }
-      if (space(c)) {
-        wordOpen = false;
-        return;
-      }
-      newlineBefore = false;
-      afterValue = false;
-      if (identifierPart(c)) {
-        if (!wordOpen) {
-          previousWord = word.toString();
-          wordAfterDot = (prevSignificant == '.' && dots == 1) || prevSignificant == '#';
-          wordAfterNumber = prevSignificant == '.' && dotAfterNumber && !Character.isDigit(c);
-          word.setLength(0);
-          wordOpen = true;
-        }
-        word.append(c);
-        prevSignificant = c;
-        dots = 0;
-        incDec = false;
-        arrow = false;
-      } else {
-        dots = c != '.' ? 0 : prevSignificant == '.' && p == '.' ? dots + 1 : 1;
-        if (dots == 1) {
-          // A number with no '.' yet ("1", not "1.5" or ".5"), so this '.' may be its decimal point.
-          dotAfterNumber = word.length() > 0 && Character.isDigit(word.charAt(0)) && !wordAfterDot;
-        }
-        word.setLength(0);
-        wordOpen = false;
-        incDec = (c == '+' || c == '-') && p == c;
-        arrow = c == '>' && p == '=';
-        prevSignificant = c;
-      }
-    }
-
-    /** Decides a {@code /} in code; a guess (#307: reject when unsure) makes {@link #unsure} true. */
-    private boolean slashStartsRegex() {
-      if (prevSignificant == '}' || incDec || (keyword() && CONTEXTUAL_KEYWORDS.contains(word.toString()))) {
-        unsure = true; // a block or an object literal; postfix or prefix; a keyword or an identifier
-      }
-      if (guessed || afterValue || (identifierPart(prevSignificant) && wordAfterNumber)) {
-        unsure = true; // after an escape; "{}" or a value; "1.\nreturn" or "1..return"
-      }
-      boolean regex =
-          prevSignificant == '.'
-              ? dots == 3 // a spread
-              : BEFORE_REGEX.indexOf(prevSignificant) >= 0
-                  || (keyword() && KEYWORDS_BEFORE_REGEX.contains(word.toString()));
-      if (!regex && newlineBefore) {
-        unsure = true; // "break\n/re/", "var a\n/re/": ASI ends the statement, so a regex follows
-      }
-      return regex;
-    }
-
-    /** {@code prevSignificant} ends a word that may be a keyword (not a property name). */
-    private boolean keyword() {
-      return identifierPart(prevSignificant) && !wordAfterDot;
-    }
-
-    /**
-     * Part of a word: a Java identifier char, or any other non-ASCII char that is not whitespace (in
-     * JavaScript an identifier char such as U+00B7 or half of an astral one, or a syntax error).
-     */
-    private static boolean identifierPart(char c) {
-      return Character.isJavaIdentifierPart(c) || (c > 0x7f && !space(c));
-    }
-
-    /**
-     * A {@code /} could have been a division or a regex (after a closing brace, {@code ++},
-     * {@code --}, {@code of}, {@code yield} or {@code await}), so the position of anything after it
-     * is a guess.
-     */
-    boolean unsure() {
-      return unsure;
-    }
-
-    /** The end of an operand: a {@code /} after it is division. */
-    private void value() {
-      prevSignificant = ')';
-      endToken();
-    }
-
-    /** The end of an operator: a {@code /} after it starts a regex. */
-    private void operator() {
-      prevSignificant = '*';
-      endToken();
-    }
-
-    private void endToken() {
-      word.setLength(0);
-      wordOpen = false;
-      wordAfterDot = false;
-      wordAfterNumber = false;
-      dots = 0;
-      incDec = false;
-      arrow = false;
-      newlineBefore = false;
-      afterValue = false;
-    }
-
-    private void newLine() {
-      lineStart = true;
-      dashes = 0;
-      newlineBefore = true;
-    }
-
-    /** JavaScript WhiteSpace or LineTerminator. */
-    private static boolean space(char c) {
-      return Character.isWhitespace(c) || Character.isSpaceChar(c) || c == '\ufeff';
-    }
-
-    private static boolean lineTerminator(char c) {
-      return c == '\n' || c == '\r' || c == '\u2028' || c == '\u2029';
-    }
+  /** The offset of the {@code ]]} or {@code )]} of a {@code [[...]]} or {@code [(...)]} that starts at {@code i}, or -1. */
+  private static int holeEnd(String raw, int i) {
+    boolean escaped = raw.startsWith("[[", i);
+    return escaped || raw.startsWith("[(", i) ? findEnd(raw, i + 2, escaped ? "]]" : ")]") : -1;
   }
 
   /** Index of the first {@code close} at or after {@code from} outside a '...' string, or -1. */

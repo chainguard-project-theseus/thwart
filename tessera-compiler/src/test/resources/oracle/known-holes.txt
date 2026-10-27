@@ -23,23 +23,6 @@
 # ("delete its line"), so this list only shrinks. The Java gate reports stale lines for its engines
 # and *; the Node job for parse5, chromium, firefox and webkit. Lines starting with # are comments.
 
-# Family C, script lexical position (#332, the data-prelude rule): a JSON hole the compiler accepts
-# in a position where its value is not exactly one literal in expression position (inside a string,
-# template literal, comment or regex, or after a regex/division mix-up). Rhino reports
-# JS_NOT_LITERAL; parse5 with acorn reports it where acorn parses the script.
-83f13fb1448d JS_NOT_LITERAL * #332 306-A32
-
-# Family C (#332): Rhino can't parse the benign script (ES modules, classes, or a JSON hole that
-# breaks it outside a marker), so the script check can't vouch for it. The Node job's acorn
-# covers some of these.
-6ba5f815f040 JS_UNPARSABLE * #332 gen div table>tbody>tr>td table>caption | <!x> | script:a / b; [[s]] | none
-6c1eb19924fb JS_UNPARSABLE * #332 gen math>annotation-xml math>annotation-xml table>tbody>tr | &quot;..&quot; | script:`${[[s]]}` | none
-bc38b0ca19ac JS_UNPARSABLE * #332 gen math>mtext noscript | <![CDATA[ > | script:var a = [[s]]; | t:insert into div
-c89133b0704a JS_UNPARSABLE * #332 gen noscript li | &amp | script:`${[[s]]}` | none
-dea3945987a2 JS_UNPARSABLE * #332 gen svg template svg>foreignObject | <!x> | script:a / b; [[s]] | t:insert into table>tbody>tr>td
-de787504bd69 JS_UNPARSABLE * #332 gen table>tbody>tr>td table>tbody>tr>td a | &amp | script:a / b; [[s]] | t:insert into table>tbody>tr>td
-34730fe2782d JS_UNPARSABLE * #332 gen table>tbody>tr>td table>tbody>tr>td table>tbody>tr>td | <textarea\u2028> | script:var a = [[s]]; | Fragment f
-
 # Family D, client frameworks (#336, cross-node {{ as a source-order rule): {{ split across statics
 # and a hole (306-A18, the case the #390 review's fuzzing found).
 11db5dfd0be8 CSTI * #336 306-A18

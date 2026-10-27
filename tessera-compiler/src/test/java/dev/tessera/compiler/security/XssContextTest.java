@@ -77,7 +77,8 @@ class XssContextTest {
           new Line("<p t:text=\"|a ${s} b|\">x</p>", Kind.TEXT_PART),
           new Line("<script t:text=\"s\"></script>", Kind.JSON),
           new Line(
-              "<script>var a = [[s]]; var t = `${[[s]]}`; var r = /x/; var b = [[s]]; var n = a / 2 + [[s]]; /* c */ var d = [[s]]; // done\n</script>",
+              "<script>var a = [[s]]; var t = [[s]]; var b = [[s]]; /* c */ var d = [[s]]; var n = [[s]] + a / 2;"
+                  + " var r = /x/; var u = `${n}`; // done\n</script>",
               Kind.JSON, Kind.JSON, Kind.JSON, Kind.JSON, Kind.JSON),
           new Line("<SCRIPT type=\"application/json\">[[s]]</SCRIPT>", Kind.JSON),
           new Line(
@@ -293,13 +294,13 @@ class XssContextTest {
   }
 
   @Test
-  void scriptInlineInTemplateSubstitutionIsInert() {
-    // Template-literal text, comments and regex literals are build errors (#281, #315); ${...}
-    // inside a template literal is code.
-    String out = render("`;alert(1);/*${x}*/");
-    assertTrue(
-        out.contains("var t = `${\"\\u0060;alert(1);\\/*\\u0024\\u007bx}*\\/\"}`;"),
-        out);
+  void scriptInlineInTemplateSubstitutionFailsToBuild() {
+    // A backtick before the last value is a build error, ${...} code included (the data-prelude
+    // rule, #332); so are strings, comments and regex literals (#281, #315).
+    Compilation.builder()
+        .template("page.html", "<div t:params=\"String s\"><script>var t = `${[[s]]}`;</script></div>")
+        .compile()
+        .assertError("page.html:1:", "a backtick (a template literal) before the last [[...]]");
   }
 
   @Test

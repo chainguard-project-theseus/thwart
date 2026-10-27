@@ -88,8 +88,8 @@ class ProfileOracleGateTest {
   void theCompilerSortsRejectionsByLayer() {
     GateCase ok = gateCase(P + "<p>[[s]]</p></div>");
     GateCase profile = gateCase(P + "<p><[[s]]></p></div>");
-    // 306-A55: JSON in an SVG <script>'s CDATA section, which the profile lets through.
-    GateCase verifier = gateCase(P + "<svg><script><![CDATA[ var a = [[s]]; ]]></script></svg></div>");
+    // JSON in an SVG <script> (as in 306-A4), which the profile lets through.
+    GateCase verifier = gateCase(P + "<svg><script>var a = [[s]];</script></svg></div>");
     List<Compiled> out = ProfileOracleTest.compile(List.of(ok, profile, verifier));
     assertTrue(out.get(0).accepted());
     assertFalse(out.get(1).accepted());
