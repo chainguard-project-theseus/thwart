@@ -334,7 +334,13 @@ quotes around a `"..."` or `'...'` string that is only an inline (`"[[${x}]]"` b
 which writes JSON with its own quotes) and reports any other `[[...]]` inside a string, template
 literal or comment. In a `th:inline="javascript"` script it rewrites a natural-template comment
 followed by one literal, `/*[[${x}]]*/ 'd'`, to `[[${x}]]`, as Thymeleaf rendered it, and reports
-one followed by anything else (`/*[[${x}]]*/ a + b`). An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
+one followed by anything else (`/*[[${x}]]*/ a + b`). It reports a script whose code before the
+last `[[...]]` the data-prelude rule rejects (a `/`, a backtick, ..., section 6), because moving the data
+above the code is not mechanical. An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
+It reports a computed name that is not a known attribute (section 6), and rewrites the htmx
+ones that htmx reads the same with `data-` (`th:hx-target` becomes `t:data-hx-target`; also
+`hx-swap`, `hx-select`, `hx-confirm` and the other htmx selector, swap and text attributes),
+in `th:attr` too. It adds a missing space between attributes (`href="/a"class="b"`).
 It also reports each `th:value`, `th:href`, `th:src`, `th:action`, `th:name` and `th:type` whose
 value may be `null`: Thymeleaf wrote the attribute empty, and Tessera omits it (section 4.3).
 
@@ -1931,7 +1937,8 @@ These come from the annotation processor itself, without a template position.
   `var chart = [[${chart}]]; $(function () { ... })`. Otherwise move the declarations up, or put
   the data in `<script type="application/json" id="data">[[${data}]]</script>` and read it with
   `JSON.parse(document.getElementById('data').textContent)`. A pattern built from a value
-  (`/[[${x}]]/`) becomes `var p = [[${x}]];` first and `new RegExp(p)` after it.
+  (`/[[${x}]]/`) becomes `var p = [[${x}]];` first and `new RegExp(p)` after it. `tessera-migrate`
+  reports these scripts.
 - `[[...]] is inside a client-side {{ ... }} interpolation: Vue or AngularJS would run the value as code, whatever the escaping. Pass the value in a data-* attribute or a <script> with [[...]] and read it from there`
   (also `[(...)]`): the text has a `{{` with no `}}` before the expression, in element text,
   `<title>`, `<textarea>` or a `<script>`. Character references for braces count outside scripts,
@@ -2006,7 +2013,9 @@ These come from the annotation processor itself, without a template position.
 - `formaction="<url>" is not allowed here: this button may submit a POST form that gets the CSRF token, which then goes to the button's formaction, and this URL is not same-origin; use a same-origin URL such as /items or @{/items/{id}(id=${item.id})}, or move the button into its own form`. A static `formaction` with a scheme or starting with `//` or `/\` in such a form.
 - `formmethod="<value>" is not allowed here: this button may submit a POST form that gets the CSRF token, and a formmethod other than post submits as GET with the token in the URL; remove formmethod, or move the button into its own GET form`. Also `<label> is not allowed: ...` for a computed `formmethod` there; only a static `post` or `dialog` is allowed.
 - `<form/> is not self-closing in HTML: the browser treats everything after it as inside the form; write <form ...></form>`. A browser drops the start tag of every later form, so their buttons and CSRF token inputs land in it.
-- `<label> is not allowed: '<name>' is not a known attribute; a computed attribute must be a standard HTML, SVG, MathML or ARIA attribute, a data-* attribute, or a plain [a-z][a-z0-9]* prop on a custom element. If it is data for your script, use data-<name>; if a framework reads it, write it as a static attribute`. On a computed name that is not a standard attribute, `data-*`, a custom element's prop or a framework attribute Tessera classifies (section 4.4), such as `t:up-on-loaded`, `t:hx-action`, `t:hx-target` or `t:attr="foo=..."`.
+- `<label> is not allowed: '<name>' is not a known attribute; a computed attribute must be a standard HTML, SVG, MathML or ARIA attribute, a data-* attribute, or a plain [a-z][a-z0-9]* prop on a custom element. If it is data for your script, use data-<name>; if a framework reads it, write it as a static attribute`. On a computed name that is not a standard attribute, `data-*`, a custom element's prop or a framework attribute Tessera classifies (section 4.4), such as `t:up-on-loaded`, `t:hx-action`, `t:hx-target` or `t:attr="foo=..."`. htmx reads every
+  `hx-*` attribute the same with a `data-` prefix, so `t:hx-target` becomes `t:data-hx-target`;
+  `tessera-migrate` does this for htmx's selector, swap and text attributes and reports the rest.
 - `<label> is not allowed: '<name>' cannot be computed; it decides whether htmx submits the forms inside with AJAX and swaps the response into the page, so write <name>="true" or <name>="false" statically`. On `hx-boost` and `data-hx-boost`.
 - `<label> is not allowed: attribute name '<name>' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*`.
 - `<label>: the type of a <script> cannot be computed; its content type must be known at build time, so write a static type attribute`.

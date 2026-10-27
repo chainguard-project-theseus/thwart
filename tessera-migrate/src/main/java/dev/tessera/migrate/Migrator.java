@@ -266,6 +266,8 @@ final class Migrator {
         inlineMode = Compat.strip(value).toLowerCase(Locale.ROOT);
       }
       if (quotedValueEnd == nameOffset) {
+        // A browser reads the two attributes the same with or without the space (#331).
+        edits.add(new Edit(nameOffset, 0, " "));
         report(nameLine, String.format(ConversionRules.ATTRIBUTE_SPACE_MESSAGE, name));
       }
       quotedValueEnd = quoted ? valueOuterOffset + valueOuterLen : -1;
@@ -289,18 +291,32 @@ final class Migrator {
             name.substring(ConversionRules.THYMELEAF_PREFIX.length())));
         return;
       }
-      // TODO(#331): report a computed name the compiler does not know (#330): not a standard HTML,
-      // SVG, MathML or ARIA attribute, data-*, a custom element's prop or a framework name, such as
-      // th:hx-target (fix-it: th:data-hx-target) or th:up-on-loaded.
       String local;
       if (thymeleaf) {
         local = lower.substring(ConversionRules.THYMELEAF_PREFIX.length());
-        edits.add(new Edit(nameOffset, ConversionRules.THYMELEAF_PREFIX.length(),
-            ConversionRules.TESSERA_PREFIX));
       } else if (lower.startsWith(ConversionRules.TESSERA_PREFIX)) {
         local = lower.substring(ConversionRules.TESSERA_PREFIX.length());
       } else {
         return; // plain HTML attribute
+      }
+      int prefixLength = thymeleaf ? ConversionRules.THYMELEAF_PREFIX.length() : ConversionRules.TESSERA_PREFIX.length();
+      boolean renamed = false;
+      if (!ConversionRules.PROCESSORS.contains(local) && unknownName(local)) {
+        String original = name.substring(prefixLength);
+        if (ConversionRules.HTMX_DATA_EQUIVALENT.contains(local)) {
+          edits.add(new Edit(nameOffset, nameLen, ConversionRules.TESSERA_PREFIX + "data-" + original));
+          report(nameLine, String.format(ConversionRules.UNKNOWN_NAME_REWRITTEN_MESSAGE, name,
+              ConversionRules.TESSERA_PREFIX + "data-" + original, original));
+          local = "data-" + local;
+          renamed = true;
+        } else {
+          report(nameLine, String.format(ConversionRules.UNKNOWN_NAME_MESSAGE, name, original,
+              name.substring(0, prefixLength) + "data-" + original));
+        }
+      }
+      if (thymeleaf && !renamed) {
+        edits.add(new Edit(nameOffset, ConversionRules.THYMELEAF_PREFIX.length(),
+            ConversionRules.TESSERA_PREFIX));
       }
       if (inRoot && (ConversionRules.TESSERA_PREFIX + local).equals(ConversionRules.PARAMS)) {
         rootHasParams = true;
@@ -327,6 +343,30 @@ final class Migrator {
           edits.add(new Edit(valueContentOffset, valueContentLen, converted));
         }
       }
+    }
+
+    /**
+     * Whether the compiler rejects {@code name} (lower case) as a computed attribute of the element
+     * being read because the name is unknown (#330): a well-formed name that is not a standard HTML,
+     * SVG, MathML or ARIA attribute, {@code data-*}, a plain prop on a custom element, or a framework
+     * name the compiler classifies. Mirrors {@code Contexts.isUnknownName}; a miss only costs the
+     * report, since the compiler rejects the name with the same fix-it.
+     */
+    private boolean unknownName(String name) {
+      if (!ConversionRules.ATTRIBUTE_NAME.matcher(name).matches() || ConversionRules.KNOWN_ATTRIBUTES.contains(name)
+          || (name.startsWith("data-") && name.length() > "data-".length()) || name.startsWith("on")) {
+        return false;
+      }
+      boolean custom = openName.indexOf('-') >= 0 && !inSvg();
+      if (custom && (name.equals("params") || ConversionRules.CUSTOM_ELEMENT_PROP.matcher(name).matches())) {
+        return false;
+      }
+      for (String prefix : ConversionRules.FRAMEWORK_PREFIXES) {
+        if (name.startsWith(prefix)) {
+          return false;
+        }
+      }
+      return !ConversionRules.FRAMEWORK_NAMES.contains(name);
     }
 
     /** {@code f(a, b)} becomes {@code f(Object a, Object b)} plus a report item to type it. */
@@ -437,8 +477,18 @@ final class Migrator {
           continue;
         }
         String target = Compat.strip(part.substring(0, eq));
+        String head = part.substring(0, eq + 1);
+        String lowerTarget = target.toLowerCase(Locale.ROOT);
         if (local.equals(ConversionRules.WITH)) {
           locals.add(target);
+        } else if (unknownName(lowerTarget)) {
+          if (ConversionRules.HTMX_DATA_EQUIVALENT.contains(lowerTarget)) {
+            head = head.substring(0, head.indexOf(target)) + "data-" + head.substring(head.indexOf(target));
+            report(line, String.format(ConversionRules.UNKNOWN_NAME_IN_ATTR_REWRITTEN_MESSAGE, target, name,
+                "data-" + target));
+          } else {
+            report(line, String.format(ConversionRules.UNKNOWN_NAME_IN_ATTR_MESSAGE, target, name, "data-" + target));
+          }
         } else if (thymeleaf && inSvg()
             && ConversionRules.svgStyleAttribute(target.toLowerCase(Locale.ROOT), openName)) {
           report(line, String.format(ConversionRules.SVG_STYLE_IN_ATTR_MESSAGE,
@@ -449,7 +499,7 @@ final class Migrator {
             Expressions.rewrite(thymeleaf ? Expressions.quoteTokens(expr, false) : expr));
         roots.addAll(Expressions.roots(rewritten, false));
         nullablePathVariables(line, rewritten);
-        parts.add(part.substring(0, eq + 1) + rewritten);
+        parts.add(head + rewritten);
       }
       return String.join(",", parts);
     }
@@ -487,10 +537,117 @@ final class Migrator {
       }
       String text = new String(buffer, offset, len);
       if (inScript) {
+        int first = edits.size();
+        misplaced = false;
         quotedInlines(text, offset, line);
+        if (!misplaced) {
+          dataPrelude(text, offset, line, edits.subList(first, edits.size()));
+        }
       }
       inline(text, line, "[[", "]]");
       inline(text, line, "[(", ")]");
+    }
+
+    /** Set by {@link #quotedInlines} when it reports an inline that stays in a string or comment. */
+    private boolean misplaced;
+
+    /**
+     * Reports the first token before the last inline of the converted script that the compiler's
+     * data-prelude rule (#332, {@code TextInlining.checkDataPrelude}) rejects: a {@code /}, a
+     * backtick, {@code -->}, {@code #!}, {@code <!}, a backslash line continuation in a string, or
+     * U+2028/U+2029. {@code text} is the script text at {@code offset} of the document, and
+     * {@code scriptEdits} the edits {@link #quotedInlines} made to it, which are applied first. Not
+     * rewritten: the fix, moving the data above the code, is not mechanical. Not called when an
+     * inline stays in a string or comment, which is already reported and where the compiler stops.
+     */
+    private void dataPrelude(String text, int offset, int line, List<Edit> scriptEdits) {
+      StringBuilder converted = new StringBuilder(text.length());
+      int pos = 0;
+      for (Edit e : scriptEdits) {
+        converted.append(text, pos, e.offset() - offset).append(e.replacement());
+        pos = e.offset() - offset + e.length();
+      }
+      String raw = converted.append(text, pos, text.length()).toString();
+      char state = 0; // 0 in code, '"' or '\'' in a string, '/' in a line comment, '*' in a block comment
+      boolean escape = false;
+      for (int i = 0, last = lastHole(raw); i <= last; i++) {
+        int end = holeEnd(raw, i);
+        if (end >= 0) {
+          i = end + 1;
+          continue;
+        }
+        char c = raw.charAt(i);
+        String bad = null;
+        int at = i;
+        if (c == '\u2028' || c == '\u2029') {
+          bad = c == '\u2028' ? "U+2028 (LINE SEPARATOR)" : "U+2029 (PARAGRAPH SEPARATOR)";
+        } else if (state == '"' || state == '\'') {
+          if (escape) {
+            escape = false;
+            bad = c == '\n' || c == '\r' ? "a backslash line continuation" : null;
+            at = i - 1;
+          } else if (c == '\\') {
+            escape = true;
+          } else if (c == state || c == '\n' || c == '\r') {
+            state = 0;
+          }
+        } else if (state == '/') {
+          state = c == '\n' || c == '\r' ? 0 : state;
+        } else if (state == '*') {
+          if (raw.startsWith("*/", i)) {
+            state = 0;
+            i++;
+          }
+        } else if (raw.startsWith("//", i) || raw.startsWith("/*", i)) {
+          state = raw.charAt(++i);
+        } else if (c == '/') {
+          bad = "a `/` (a division or a regular expression)";
+        } else if (c == '`') {
+          bad = "a backtick (a template literal)";
+        } else if (raw.startsWith("<!", i)) {
+          bad = "`<!` (a value or code after it can make `<!--`, an HTML-like comment)";
+        } else if (raw.startsWith("-->", i)) {
+          bad = "`-->` (an HTML-like comment)";
+        } else if (raw.startsWith("#!", i)) {
+          bad = "`#!` (a hashbang comment)";
+        } else if (c == '"' || c == '\'') {
+          state = c;
+        }
+        if (bad != null) {
+          // Back to the line in the source: the edits before `at` may have removed line breaks.
+          int source = at;
+          int shift = 0;
+          for (Edit e : scriptEdits) {
+            int start = e.offset() - offset + shift;
+            if (start >= at) {
+              break;
+            }
+            shift += e.replacement().length() - e.length();
+            source = at - shift;
+          }
+          report(lineAt(text, line, source), String.format(ConversionRules.SCRIPT_DATA_PRELUDE_MESSAGE, bad));
+          return;
+        }
+      }
+    }
+
+    /** Offset of the last {@code [[...]]} or {@code [(...)]} in {@code raw}, or -1. */
+    private static int lastHole(String raw) {
+      int last = -1;
+      for (int i = 0; i < raw.length(); i++) {
+        int end = holeEnd(raw, i);
+        if (end >= 0) {
+          last = i;
+          i = end + 1;
+        }
+      }
+      return last;
+    }
+
+    /** The offset of the {@code ]]} or {@code )]} of a {@code [[...]]} or {@code [(...)]} at {@code i}, or -1. */
+    private static int holeEnd(String raw, int i) {
+      boolean escaped = raw.startsWith("[[", i);
+      return escaped || raw.startsWith("[(", i) ? Expressions.inlineEnd(raw, i + 2, escaped ? "]]" : ")]") : -1;
     }
 
     private static final int CODE = 0;
@@ -513,9 +670,6 @@ final class Migrator {
      * it unsafe.
      */
     private void quotedInlines(String text, int offset, int line) {
-      // TODO(#331): report code before the last inline that the compiler's data-prelude rule (#332)
-      // rejects (a '/', a backtick, "-->", "#!", "<!", a line continuation, U+2028/U+2029): the fix,
-      // moving the data above the code, is not mechanical.
       int state = CODE;
       char quote = 0;
       int quoteAt = -1; // the opening quote when the current literal so far is only that quote
@@ -534,6 +688,7 @@ final class Migrator {
             int at = lineAt(text, line, i);
             boolean whole = quoteAt == i - 1 && after < text.length() && text.charAt(after) == quote;
             if (whole && quote == '`') {
+              misplaced = true;
               report(at, String.format(ConversionRules.SCRIPT_INLINE_TEMPLATE_LITERAL_MESSAGE,
                   codeSpan(quote + inline + quote)));
               state = CODE;
@@ -549,12 +704,14 @@ final class Migrator {
               i = after; // the closing quote
               continue;
             }
+            misplaced = true;
             report(at, String.format(ConversionRules.SCRIPT_INLINE_IN_STRING_MESSAGE, inline, inline));
             quoteAt = -1;
           } else if (state == LINE_COMMENT || state == BLOCK_COMMENT) {
             // The compiler rejects an inline in a comment (#281); a natural-template comment in a
             // th:inline="javascript" script was handled by naturalComment.
             String inline = text.substring(i, after);
+            misplaced = true;
             report(lineAt(text, line, i), String.format(ConversionRules.SCRIPT_INLINE_IN_COMMENT_MESSAGE, inline));
           }
           i = after - 1;
@@ -646,6 +803,7 @@ final class Migrator {
       int at = lineAt(text, line, i);
       boolean one = Expressions.inlineEnd(text, i + 4, escaped ? "]]" : ")]") == close - 2;
       if (!one || !naturalDefault(Compat.strip(dropped))) {
+        misplaced = true;
         report(at, String.format(ConversionRules.SCRIPT_NATURAL_COMMENT_MANUAL_MESSAGE,
             codeSpan(comment), codeSpan(Compat.strip(dropped))));
         return dropEnd; // Thymeleaf drops that text, so nothing in it is rewritten

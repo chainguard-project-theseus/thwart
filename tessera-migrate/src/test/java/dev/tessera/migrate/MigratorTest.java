@@ -54,10 +54,68 @@ class MigratorTest {
   // ---- attribute and element names ----
 
   @Test
-  void reportsAMissingSpaceBetweenAttributes() throws Exception {
-    assertMessages("<a href=\"/a\"class=\"x\" title='t'id=\"i\" data-x=y lang=\"en\">a</a>\n",
-        "1: no space before attribute `class`", "1: no space before attribute `id`");
-    assertMessages("<a href=\"/a\" class=\"x\">a</a><b title=\"t\"\n>b</b>\n");
+  void addsAMissingSpaceBetweenAttributes() throws Exception {
+    String src = "<a href=\"/a\"class=\"x\" title='t'id=\"i\" data-x=y lang=\"en\">a</a>\n";
+    assertEquals("<a href=\"/a\" class=\"x\" title='t' id=\"i\" data-x=y lang=\"en\">a</a>\n", convert(src));
+    assertMessages(src, "1: no space before attribute `class`", "1: no space before attribute `id`");
+    assertTrue(messages(src).get(0).endsWith(": a space was added, which a browser reads the same"));
+    String thymeleaf = "<a t:params=\"String x\" th:href=\"@{/a}\"th:text=\"${x}\">a</a>";
+    assertEquals("<a t:params=\"String x\" t:href=\"@{/a}\" t:text=\"x\">a</a>", convert(thymeleaf));
+    // Negative: a space, a line break, or an unquoted value before the next attribute.
+    for (String ok : List.of("<a href=\"/a\" class=\"x\">a</a><b title=\"t\"\n>b</b>\n", "<b title=\"t\"\nid=\"i\">b</b>")) {
+      assertEquals(ok, convert(ok));
+      assertMessages(ok);
+    }
+  }
+
+  @Test
+  void unknownComputedNameIsReportedWithTheDataFixIt() throws Exception {
+    String src = "<div t:params=\"String x\"><a th:up-on-loaded=\"${x}\" th:items=\"${x}\" t:foo=\"x\">a</a></div>";
+    assertEquals("<div t:params=\"String x\"><a t:up-on-loaded=\"x\" t:items=\"x\" t:foo=\"x\">a</a></div>", convert(src));
+    assertMessages(src,
+        "1: `th:up-on-loaded`: `up-on-loaded` is not a known attribute, and a computed attribute must be a standard"
+            + " HTML, SVG, MathML or ARIA attribute, a `data-*` attribute or a plain prop on a custom element (a build"
+            + " error in Tessera); if it is data for your script, write `th:data-up-on-loaded`; if a framework reads it,"
+            + " write it as a static attribute",
+        "1: `th:items`: `items` is not a known attribute",
+        "1: `t:foo`: `foo` is not a known attribute");
+    String attr = "<div t:params=\"String x\"><a th:attr=\"up-on-loaded=${x},title=${x}\">a</a></div>";
+    assertEquals("<div t:params=\"String x\"><a t:attr=\"up-on-loaded=x,title=x\">a</a></div>", convert(attr));
+    assertMessages(attr, "1: `up-on-loaded` in `th:attr` is not a known attribute, and a computed attribute must be a"
+        + " standard HTML, SVG, MathML or ARIA attribute, a `data-*` attribute or a plain prop on a custom element (a"
+        + " build error in Tessera); if it is data for your script, write `data-up-on-loaded`");
+  }
+
+  @Test
+  void htmxNameThatHtmxAlsoReadsWithDataIsRewritten() throws Exception {
+    String src = "<div t:params=\"String x\"><a th:hx-target=\"${x}\" th:HX-Swap=\"'innerHTML'\" t:hx-confirm=\"x\">a</a></div>";
+    assertEquals("<div t:params=\"String x\"><a t:data-hx-target=\"x\" t:data-HX-Swap=\"'innerHTML'\""
+        + " t:data-hx-confirm=\"x\">a</a></div>", convert(src));
+    assertMessages(src,
+        "1: `th:hx-target` was rewritten to `t:data-hx-target`: `hx-target` is not a known attribute, which is a build"
+            + " error for a computed attribute in Tessera, and htmx reads `data-hx-target` the same way",
+        "1: `th:HX-Swap` was rewritten to `t:data-HX-Swap`",
+        "1: `t:hx-confirm` was rewritten to `t:data-hx-confirm`");
+    String attr = "<div t:params=\"String x\"><a th:attr=\"hx-target=${x}, hx-select = ${x}\">a</a></div>";
+    assertEquals("<div t:params=\"String x\"><a t:attr=\"data-hx-target=x, data-hx-select = x\">a</a></div>", convert(attr));
+    assertMessages(attr, "1: `hx-target` in `th:attr` was rewritten to `data-hx-target`: `hx-target` is not a known"
+        + " attribute, which is a build error for a computed attribute in Tessera, and htmx reads `data-hx-target` the"
+        + " same way", "1: `hx-select` in `th:attr` was rewritten to `data-hx-select`");
+  }
+
+  @Test
+  void knownAndFrameworkComputedNamesAreNotReported() throws Exception {
+    // Standard names, data-*, processors, a custom element's props, and the framework names the
+    // compiler classifies itself (an htmx script attribute is its own build error).
+    String src = "<div t:params=\"String x\"><a th:href=\"@{/a}\" th:aria-label=\"${x}\" th:data-hx-target=\"${x}\""
+        + " th:text=\"${x}\" th:classappend=\"${x}\" th:v-bind:title=\"${x}\" th:hx-get=\"@{/a}\" th:hx-vals=\"${x}\""
+        + " th:x-text=\"${x}\">a</a><my-list th:items=\"${x}\" th:params=\"${x}\"></my-list>"
+        + "<svg><path th:d=\"${x}\"/></svg></div>";
+    convert(src);
+    assertMessages(src);
+    // An unknown name the compiler rejects for another reason first is left to it.
+    String odd = "<div t:params=\"String x\"><a th:attr=\"1a=${x}\" th:hx-ext=\"${x}\">a</a></div>";
+    assertMessages(odd, "1: `th:hx-ext`: `hx-ext` is not a known attribute");
   }
 
 
@@ -593,7 +651,55 @@ class MigratorTest {
     // A quoted inline inside template code is still unquoted.
     String nested = script("", "var a = `${\"[[${x}]]\"}`;");
     assertEquals(script("", "var a = `${[[${x}]]}`;"), convert(nested));
-    assertMessages(nested, "1: `\"[[${x}]]\"` in a script " + UNQUOTED);
+    assertMessages(nested, "1: `\"[[${x}]]\"` in a script " + UNQUOTED, "1: a backtick (a template literal) " + PRELUDE);
+  }
+
+  // ---- the data-prelude rule (#332): code before the last inline ----
+
+  private static final String PRELUDE = "before the last `[[...]]` of a `<script>` is a build error in Tessera";
+
+  @Test
+  void codeBeforeTheLastInlineThatTheCompilerRejectsIsReported() throws Exception {
+    String[][] cases = {
+        {"var r = /a/g; var a = [[${x}]];", "a `/` (a division or a regular expression)"},
+        {"var h = w / 2; var a = [[${x}]];", "a `/` (a division or a regular expression)"},
+        {"var a = `${[[${x}]]}`;", "a backtick (a template literal)"},
+        {"var t = `a`; var a = [[${x}]];", "a backtick (a template literal)"},
+        {"x --> 0; var a = [[${x}]];", "`-->` (an HTML-like comment)"},
+        {"#!x\nvar a = [[${x}]];", "`#!` (a hashbang comment)"},
+        {"if (a <!b) {} var a = [[${x}]];", "`<!` (a value or code after it can make `<!--`, an HTML-like comment)"},
+        {"var s = \"a\\\nb\"; var a = [[${x}]];", "a backslash line continuation"},
+        {"var s = \"x\u2028\"; var b = [[${x}]];", "U+2028 (LINE SEPARATOR)"},
+        {"// x\u2029\nvar b = [[${x}]];", "U+2029 (PARAGRAPH SEPARATOR)"},
+    };
+    for (String[] c : cases) {
+      String src = script("", c[0]);
+      assertEquals(src, convert(src), c[0]);
+      assertMessages(src, "1: " + c[1] + " " + PRELUDE + ": the compiler reads the code before the last value only"
+          + " with a lexer that has no ambiguous tokens, so it can prove where each value goes; move the `[[...]]` above"
+          + " the code (declare the data first, `var data = [[...]];`), or write the value into a"
+          + " `<script type=\"application/json\">` and read it with `JSON.parse`");
+    }
+    // The converted text is checked: an unquoted string becomes code, and a natural-template
+    // default is dropped. The report names the token's source line.
+    String unquoted = script("", "var a = \"[[${x}]]\" / 2;\nvar b = [[${y}]];");
+    assertMessages(unquoted, "1: `\"[[${x}]]\"` in a script " + UNQUOTED, "1: a `/` (a division or a regular expression) " + PRELUDE);
+    String natural = script(JS, "var a = /*[[${x}]]*/ {\"k\": [1,\n 2]};\nvar r = /a/;\nvar b = [[${y}]];");
+    assertMessages(natural, TH_INLINE, "1: `/*[[${x}]]*/ {", "3: a `/` (a division or a regular expression) " + PRELUDE);
+    String dropped = script(JS, "var a = /*[[${x}]]*/ '/a/';\nvar b = [[${y}]];");
+    assertMessages(dropped, TH_INLINE, "1: `/*[[${x}]]*/ '/a/'` in a script was rewritten");
+    // One report per script, and none where an inline already stays in a string or comment.
+    String two = script("", "var r = /a/; var t = `b`; var a = [[${x}]];");
+    assertMessages(two, "1: a `/` (a division or a regular expression) " + PRELUDE);
+    String misplaced = script("", "var r = /a/; var a = \"Hello [[${x}]]\";");
+    assertMessages(misplaced, "1: `[[${x}]]` " + IN_STRING);
+    // Not a JavaScript script, or th:inline="none": not checked.
+    for (String src : List.of(script(" type=\"text/x-template\"", "var r = /a/; [[${x}]]"),
+        "<script th:inline=\"none\">var r = /a/; [[${x}]]</script>")) {
+      assertEquals(src, convert(src), src);
+      assertEquals(src.contains("none") ? List.of("1: `th:inline` is not supported; use `[[...]]` in `<script>`"
+          + " (JSON-escaped) or move data to `data-*` attributes") : List.of(), messages(src), src);
+    }
   }
 
   @Test
@@ -754,9 +860,8 @@ class MigratorTest {
     for (String body : List.of(
         "var a = [[${x}]];",
         "var a = \"a\" + [[${x}]] + \"b\";",
-        "var a = \"x\u2028\"; var b = [[${x}]];",
-        "var a = `${[[${x}]]}`;",
-        "var a = `${ {b: \"}\"} }` + [[${x}]];",
+        "var a = [[${x}]]; var r = /a/g; var t = `${b}`; var c = 1 / 2; #!",
+        "var re = \"a/b`\"; var a = [[${x}]].length;",
         "var a = \"done\"; var b = [[${x}]]; var c = 'it\\'s';",
         "var a = \"unterminated\nvar b = [[${x}]];")) {
       String src = script("", body);
