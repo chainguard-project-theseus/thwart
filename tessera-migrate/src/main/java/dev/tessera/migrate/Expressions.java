@@ -1,6 +1,7 @@
 package dev.tessera.migrate;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -229,27 +230,11 @@ final class Expressions {
    * Thymeleaf splits {@code base(args)}. Link parameters without a value are names, kept as is.
    */
   private static String withQuotedArguments(String content, boolean positional) {
-    String trimmed = Compat.strip(content);
-    int lead = content.indexOf(trimmed);
-    int close = lead + trimmed.length() - 1;
-    if (trimmed.isEmpty() || content.charAt(close) != ')') {
+    int open = argumentsOpen(content);
+    if (open < 0) {
       return content;
     }
-    String masked = mask(content, false);
-    int depth = 0;
-    int open = -1;
-    for (int i = close; i >= lead; i--) {
-      char c = masked.charAt(i);
-      if (c == ')') {
-        depth++;
-      } else if (c == '(' && --depth == 0) {
-        open = i;
-        break;
-      }
-    }
-    if (open <= lead) {
-      return content; // no base before the parentheses: not an argument list
-    }
+    int close = content.lastIndexOf(')');
     List<String> args = new ArrayList<>();
     for (String arg : splitTopLevel(content.substring(open + 1, close), false)) {
       int eq = indexOfTopLevel(arg, '=');
@@ -260,6 +245,86 @@ final class Expressions {
       }
     }
     return content.substring(0, open + 1) + String.join(",", args) + content.substring(close);
+  }
+
+  /**
+   * The index of the {@code (} opening the trailing {@code (...)} arguments of link or fragment
+   * content, or -1 if there are none or nothing comes before them (not an argument list). The
+   * arguments end at the last {@code )}.
+   */
+  private static int argumentsOpen(String content) {
+    String trimmed = Compat.strip(content);
+    int lead = content.indexOf(trimmed);
+    int close = lead + trimmed.length() - 1;
+    if (trimmed.isEmpty() || content.charAt(close) != ')') {
+      return -1;
+    }
+    String masked = mask(content, false);
+    int depth = 0;
+    for (int i = close; i >= lead; i--) {
+      char c = masked.charAt(i);
+      if (c == ')') {
+        depth++;
+      } else if (c == '(' && --depth == 0) {
+        return i > lead ? i : -1;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * The path variables of each link in {@code expr} (Tessera syntax) whose value is not a
+   * non-empty string or number literal: the link source to its {@code name -> value} pairs, in
+   * order. Links inside string literals and the text of {@code |...|} are not read.
+   */
+  static Map<String, Map<String, String>> linkPathVariables(String expr) {
+    Map<String, Map<String, String>> links = new LinkedHashMap<>();
+    int at = indexOutsideLiterals(expr, "@{", 0);
+    while (at >= 0) {
+      int close = matchBrace(expr, at + 1);
+      if (close < 0) {
+        break;
+      }
+      Map<String, String> vars = pathVariables(expr.substring(at + 2, close));
+      if (!vars.isEmpty()) {
+        links.put(expr.substring(at, close + 1), vars);
+      }
+      at = indexOutsideLiterals(expr, "@{", close + 1);
+    }
+    return links;
+  }
+
+  private static final Pattern PATH_VARIABLE = Pattern.compile("\\{\\s*([^{}\\s]+)\\s*\\}");
+  private static final Pattern NON_EMPTY_LITERAL =
+      Pattern.compile("'(?:[^'\\\\]|\\\\.)+'|" + ConversionRules.NUMBER.pattern());
+
+  /** {@link #linkPathVariables} of one link's content, {@code /p/{id}(id=x)}. */
+  private static Map<String, String> pathVariables(String content) {
+    Map<String, String> vars = new LinkedHashMap<>();
+    int open = argumentsOpen(content);
+    if (open < 0) {
+      return vars;
+    }
+    Set<String> names = new LinkedHashSet<>();
+    Matcher m = PATH_VARIABLE.matcher(content.substring(0, open));
+    while (m.find()) {
+      names.add(m.group(1));
+    }
+    if (names.isEmpty()) {
+      return vars;
+    }
+    for (String arg : splitTopLevel(content.substring(open + 1, content.lastIndexOf(')')), false)) {
+      int eq = indexOfTopLevel(arg, '=');
+      if (eq < 0 || (eq + 1 < arg.length() && arg.charAt(eq + 1) == '=')) {
+        continue;
+      }
+      String name = Compat.strip(arg.substring(0, eq));
+      String value = Compat.strip(arg.substring(eq + 1));
+      if (names.contains(name) && !NON_EMPTY_LITERAL.matcher(value).matches()) {
+        vars.put(name, value);
+      }
+    }
+    return vars;
   }
 
   /** {@code #{key(args)}}: the key is literal, each argument is an expression. */

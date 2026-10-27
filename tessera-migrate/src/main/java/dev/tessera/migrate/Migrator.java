@@ -8,6 +8,7 @@ import java.util.Deque;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -382,6 +383,7 @@ final class Migrator {
       if (!selection) {
         roots.addAll(Expressions.roots(rewritten, fragmentReference));
       }
+      nullablePathVariables(line, rewritten);
       return rewritten;
     }
 
@@ -430,9 +432,23 @@ final class Migrator {
         String expr = part.substring(eq + 1);
         String rewritten = Expressions.rewrite(thymeleaf ? Expressions.quoteTokens(expr, false) : expr);
         roots.addAll(Expressions.roots(rewritten, false));
+        nullablePathVariables(line, rewritten);
         parts.add(part.substring(0, eq + 1) + rewritten);
       }
       return String.join(",", parts);
+    }
+
+    /**
+     * Reports each link in {@code expr} (Tessera syntax) with a path variable that is not a literal:
+     * Tessera fails the render on a {@code null} one, where Thymeleaf wrote an empty segment.
+     */
+    private void nullablePathVariables(int line, String expr) {
+      for (Map.Entry<String, Map<String, String>> link : Expressions.linkPathVariables(expr).entrySet()) {
+        String vars = link.getValue().entrySet().stream()
+            .map(v -> "`" + v.getKey() + "` = " + codeSpan(v.getValue()))
+            .collect(Collectors.joining(", "));
+        report(line, String.format(ConversionRules.NULL_PATH_VARIABLE_MESSAGE, codeSpan(link.getKey()), vars));
+      }
     }
 
     /**

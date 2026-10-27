@@ -160,7 +160,8 @@ class MigratorTest {
     assertEquals("<html xmlns:t=\"https://tessera.dev\""
             + " t:params=\"Object form, Object owner, Object query, Object user, Object t, Object count, Object html\">",
         convert(src).lines().findFirst().orElseThrow());
-    assertMessages(src, "2: `[(...)]` prints `html` without escaping",
+    assertMessages(src, "2: link `@{/o/{id}(id=owner.id, q=query)}` fails the render if a path variable is `null`",
+        "2: `[(...)]` prints `html` without escaping",
         "1: `form` is declared as `Object`", "1: `owner` is declared as `Object`",
         "1: `query` is declared as `Object`", "1: `user` is declared as `Object`",
         "1: `t` is declared as `Object`", "1: `count` is declared as `Object`",
@@ -262,6 +263,34 @@ class MigratorTest {
     }
     String literal = "<p th:text=\"|@{'/o?a=' + ${x}}|\">x</p>";
     assertTrue(convert(literal).contains("t:text=\"|@{'/o?a=' + ${x}}|\""), convert(literal));
+  }
+
+  @Test
+  void linksWithAComputedPathVariableAreReported() throws Exception {
+    // petclinic (#430): a fixture owner with a null id made this link a 500.
+    String src = "<p t:params=\"Owner owner, Pet pet\"><a th:href=\"@{/owners/{ownerId}(ownerId=${owner.id})}\">a</a>\n"
+        + "<a th:href=\"@{/owners/{o}/pets/{p}/edit(o=${owner.id},p=${pet?.id}, q=${pet.name})}\">b</a>\n"
+        + "<a th:attr=\"href=@{{id}/edit(id=${owner.id})}\">c</a></p>";
+    assertEquals(src.replace("th:", "t:").replace("${owner.id}", "owner.id").replace("${pet?.id}", "pet?.id")
+        .replace("${pet.name}", "pet.name"), convert(src));
+    assertMessages(src,
+        "1: link `@{/owners/{ownerId}(ownerId=owner.id)}` fails the render if a path variable is `null`"
+            + " (`ownerId` = `owner.id`), where Thymeleaf wrote an empty segment (`/owners//edit`);"
+            + " if it can be `null`, guard the link with `t:if`",
+        "2: link `@{/owners/{o}/pets/{p}/edit(o=owner.id,p=pet?.id, q=pet.name)}` fails the render if a path"
+            + " variable is `null` (`o` = `owner.id`, `p` = `pet?.id`)",
+        "3: link `@{{id}/edit(id=owner.id)}` fails the render if a path variable is `null` (`id` = `owner.id`)");
+  }
+
+  @Test
+  void linksWithoutAComputedPathVariableAreNotReported() throws Exception {
+    assertMessages("<p t:params=\"Owner owner\"><a th:href=\"@{/owners/{id}(id=1)}\">a</a>"
+        + "<a th:href=\"@{/owners/{id}/edit(id='new')}\">b</a><a th:href=\"@{/owners(page=${owner.id})}\">c</a>"
+        + "<a th:href=\"@{/owners/{id}}\">d</a><a th:href=\"@{/owners/list(id=${owner.id})}\">e</a>"
+        + "<b th:text=\"'@{/o/{id}(id=x)}'\">f</b><b th:text=\"|@{/o/{id}(id=${owner.id})}|\">g</b></p>");
+    // An empty literal is rejected like null.
+    assertMessages("<a t:params=\"Owner owner\" th:href=\"@{/owners/{id}(id='')}\">a</a>",
+        "1: link `@{/owners/{id}(id='')}` fails the render if a path variable is `null` (`id` = `''`)");
   }
 
   @Test
