@@ -82,6 +82,10 @@
 -- t.html
 <title t:fragment="f(String v)" t:text="v">x</title><svg><t:block t:replace="~{t :: f(s)}"></t:block></svg>
 => t.html:1:133: error: in fragment t :: f, inserted here, at t.html:1:96: this value is escaped for the text of <title> or <textarea>, but a browser reads it as text inside SVG <title>, where a {{ in it could run in Vue or AngularJS; insert the <title> or <textarea> outside <svg> and <math> [verifier:RCDATA_NOT_IN_RCDATA]
+== TEXT_IN_RCDATA: an SVG <title> fragment inserted in HTML content
+-- t.html
+<svg><title t:fragment="f(String v)" t:text="v">x</title></svg><t:block t:replace="~{t :: f(s)}"></t:block>
+=> t.html:1:139: error: in fragment t :: f, inserted here, at t.html:1:101: this value is escaped as text, with comments that break {{, but a browser reads it as the text of <title>, where the comments show as text; declare the <title> or <textarea> in HTML content, not inside <svg> or <math>, or check the markup before it [verifier:TEXT_IN_RCDATA]
 == ATTRIBUTE_NOT_IN_VALUE: <![CDATA[ outside SVG ends at the first '>', so <script> starts there
 -- t.html
 <div><![CDATA[ > <script>//]]><b t:title="s">x</b></div><script></script>

@@ -416,7 +416,11 @@ public final class Contexts {
    *
    * <p>A {@code <script>} whose type is set by a {@code t:type} attribute is FORBIDDEN: the
    * content type must be known at build time.
+   *
+   * <p>The verifier checks the TEXT/RCDATA choice against the parser state ({@code Rules.hole}).
    */
+  // TODO(#378): choose TEXT or RCDATA from the parser state. The generated code is written before
+  // the verifier runs, and a fragment no call reaches has no state, so the name decides for now.
   public static OutputContext text(Element element) {
     switch (element.name().toLowerCase(Locale.ROOT)) {
       case "script":
