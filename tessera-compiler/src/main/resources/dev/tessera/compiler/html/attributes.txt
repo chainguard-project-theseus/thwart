@@ -1,0 +1,476 @@
+# Attribute names a computed attribute (t:<name> or a t:attr entry) may have (#330,
+# docs/security-architecture.md section 5.6, docs/context-model.md section 6.2), besides data-*,
+# plain [a-z][a-z0-9]* names on a custom element, and the framework names Contexts classifies.
+# Contexts.attribute still classifies each name (URL, STYLE, FORBIDDEN, ...); this file only
+# says which names exist. Static attributes are not checked against it.
+#
+# One lower-case name per line, sorted, then the sources it comes from:
+#   html           WHATWG HTML Living Standard (26 October 2026), indices.html, table
+#                  "List of attributes (excluding event handler content attributes)"
+#   html-obsolete  same, obsolete.html section 16 (element-attr definitions), and the font
+#                  element's face from rendering.html section 15.3
+#   svg            SVG 2 (W3C Candidate Recommendation 04 October 2018), attindex.html (regular
+#                  and presentation attributes, including those it links to SVG Animations and
+#                  Filter Effects) and propidx.html, plus d (paths.html), missing from the index
+#   mathml         MathML Core (W3C Candidate Recommendation Snapshot 24 June 2025), attribute
+#                  definitions
+#   aria           WAI-ARIA 1.2 (W3C Recommendation 06 June 2023), states and properties, plus role
+# Event handlers (on*) are left out: Contexts makes every on* name EVENT_HANDLER, a build error.
+abbr html html-obsolete
+accent mathml
+accentunder mathml
+accept html html-obsolete
+accept-charset html
+accesskey html
+accumulate svg
+action html
+actiontype mathml
+additive svg
+align html-obsolete
+alignment-baseline svg
+alink html-obsolete
+allow html
+allowfullscreen html
+allowtransparency html-obsolete
+alpha html
+alt html
+alttext mathml
+amplitude svg
+archive html-obsolete
+arg mathml
+aria-activedescendant aria svg
+aria-atomic aria svg
+aria-autocomplete aria svg
+aria-busy aria svg
+aria-checked aria svg
+aria-colcount aria svg
+aria-colindex aria svg
+aria-colspan aria svg
+aria-controls aria svg
+aria-current aria svg
+aria-describedby aria svg
+aria-details aria svg
+aria-disabled aria svg
+aria-dropeffect aria svg
+aria-errormessage aria svg
+aria-expanded aria svg
+aria-flowto aria svg
+aria-grabbed aria svg
+aria-haspopup aria svg
+aria-hidden aria svg
+aria-invalid aria svg
+aria-keyshortcuts aria svg
+aria-label aria svg
+aria-labelledby aria svg
+aria-level aria svg
+aria-live aria svg
+aria-modal aria svg
+aria-multiline aria svg
+aria-multiselectable aria svg
+aria-orientation aria svg
+aria-owns aria svg
+aria-placeholder aria svg
+aria-posinset aria svg
+aria-pressed aria svg
+aria-readonly aria svg
+aria-relevant aria svg
+aria-required aria svg
+aria-roledescription aria svg
+aria-rowcount aria svg
+aria-rowindex aria svg
+aria-rowspan aria svg
+aria-selected aria svg
+aria-setsize aria svg
+aria-sort aria svg
+aria-valuemax aria svg
+aria-valuemin aria svg
+aria-valuenow aria svg
+aria-valuetext aria svg
+as html
+async html
+attributename svg
+autocapitalize html
+autocomplete html
+autocorrect html
+autofocus html mathml svg
+autoplay html
+axis html-obsolete
+azimuth svg
+background html-obsolete
+basefrequency svg
+baseline-shift svg
+begin svg
+behavior html-obsolete
+bgcolor html-obsolete
+bias svg
+blocking html
+border html-obsolete
+bordercolor html-obsolete
+bottommargin html-obsolete
+by svg
+calcmode svg
+cellpadding html-obsolete
+cellspacing html-obsolete
+char html-obsolete
+charoff html-obsolete
+charset html html-obsolete
+checked html
+cite html
+class html mathml svg
+classid html-obsolete
+clear html-obsolete
+clip svg
+clip-path svg
+clip-rule svg
+clippathunits svg
+closedby html
+code html-obsolete
+codebase html-obsolete
+codetype html-obsolete
+color html html-obsolete svg
+color-interpolation svg
+color-interpolation-filters svg
+colorspace html
+cols html
+colspan html
+command html
+commandfor html
+compact html-obsolete
+content html
+contenteditable html
+contextmenu html-obsolete
+controls html
+coords html html-obsolete
+crossorigin html svg
+cursor svg
+cx svg
+cy svg
+d svg
+data html
+datafld html-obsolete
+dataformatas html-obsolete
+datapagesize html-obsolete
+datasrc html-obsolete
+datetime html
+declare html-obsolete
+decoding html
+default html
+defer html
+depth mathml
+diffuseconstant svg
+dir html mathml
+direction html-obsolete svg
+dirname html
+disabled html
+display mathml svg
+displaystyle mathml
+divisor svg
+dominant-baseline svg
+download html svg
+draggable html
+dropzone html-obsolete
+dur svg
+dx svg
+dy svg
+edgemode svg
+elevation svg
+encoding mathml
+enctype html
+end svg
+enterkeyhint html
+event html-obsolete
+exponent svg
+face html-obsolete
+fence mathml
+fetchpriority html
+fill svg
+fill-opacity svg
+fill-rule svg
+filter svg
+filterunits svg
+flood-color svg
+flood-opacity svg
+font-family svg
+font-size svg
+font-size-adjust svg
+font-stretch svg
+font-style svg
+font-variant svg
+font-weight svg
+for html html-obsolete
+form html mathml
+formaction html
+formenctype html
+formmethod html
+formnovalidate html
+formtarget html
+fr svg
+frame html-obsolete
+frameborder html-obsolete
+framespacing html-obsolete
+from svg
+fx svg
+fy svg
+glyph-orientation-horizontal svg
+glyph-orientation-vertical svg
+gradienttransform svg
+gradientunits svg
+headers html
+headingoffset html
+headingreset html
+height html html-obsolete mathml svg
+hidden html
+high html
+href html svg
+hreflang html html-obsolete svg
+hspace html-obsolete
+http-equiv html
+id html mathml svg
+image-rendering svg
+imagesizes html
+imagesrcset html
+in svg
+in2 svg
+inert html
+inputmode html
+integrity html
+intent mathml
+intercept svg
+is html
+ismap html html-obsolete
+itemid html
+itemprop html
+itemref html
+itemscope html
+itemtype html
+k1 svg
+k2 svg
+k3 svg
+k4 svg
+kernelmatrix svg
+kernelunitlength svg
+keypoints svg
+keysplines svg
+keytimes svg
+kind html
+label html html-obsolete
+lang html svg
+language html-obsolete
+largeop mathml
+leftmargin html-obsolete
+lengthadjust svg
+letter-spacing svg
+lighting-color svg
+limitingconeangle svg
+linethickness mathml
+link html-obsolete
+list html
+loading html
+longdesc html-obsolete
+loop html html-obsolete
+low html
+lowsrc html-obsolete
+lspace mathml
+manifest html-obsolete
+marginheight html-obsolete
+marginwidth html-obsolete
+marker svg
+marker-end svg
+marker-mid svg
+marker-start svg
+markerheight svg
+markerunits svg
+markerwidth svg
+mask svg
+mask-type svg
+maskcontentunits svg
+maskunits svg
+mathbackground mathml
+mathcolor mathml
+mathsize mathml
+mathvariant mathml
+max html svg
+maxlength html
+maxsize mathml
+media html svg
+method html svg
+methods html-obsolete
+min html svg
+minlength html
+minsize mathml
+mode svg
+movablelimits mathml
+multiple html
+muted html
+name html html-obsolete
+nohref html-obsolete
+nomodule html
+nonce html mathml
+noshade html-obsolete
+novalidate html
+nowrap html-obsolete
+numoctaves svg
+offset svg
+opacity svg
+open html
+operator svg
+optimum html
+order svg
+orient svg
+origin svg
+overflow svg
+paint-order svg
+path svg
+path-length svg
+pathlength svg
+pattern html
+patterncontentunits svg
+patterntransform svg
+patternunits svg
+ping html svg
+placeholder html
+playbackorder svg
+playsinline html
+pointer-events svg
+points svg
+pointsatx svg
+pointsaty svg
+pointsatz svg
+popover html
+popovertarget html
+popovertargetaction html
+poster html
+preload html
+preservealpha svg
+preserveaspectratio svg
+primitiveunits svg
+profile html-obsolete
+r svg
+radius svg
+readonly html
+referrerpolicy html svg
+refx svg
+refy svg
+rel html svg
+repeatcount svg
+repeatdur svg
+required html
+requiredextensions svg
+restart svg
+result svg
+rev html-obsolete
+reversed html
+rightmargin html-obsolete
+role aria svg
+rotate svg
+rows html
+rowspan html
+rspace mathml
+rules html-obsolete
+rx svg
+ry svg
+sandbox html
+scale svg
+scheme html-obsolete
+scope html html-obsolete
+scriptlevel mathml
+scrolling html-obsolete
+seed svg
+selected html
+selection mathml
+separator mathml
+shadowrootclonable html
+shadowrootcustomelementregistry html
+shadowrootdelegatesfocus html
+shadowrootmode html
+shadowrootserializable html
+shadowrootslotassignment html
+shape html html-obsolete
+shape-rendering svg
+side svg
+size html html-obsolete
+sizes html
+slope svg
+slot html
+spacing svg
+span html
+specularconstant svg
+specularexponent svg
+spellcheck html
+spreadmethod svg
+src html
+srcdoc html
+srclang html
+srcset html
+standby html-obsolete
+start html
+startoffset svg
+stddeviation svg
+step html
+stitchtiles svg
+stop-color svg
+stop-opacity svg
+stretchy mathml
+stroke svg
+stroke-dasharray svg
+stroke-dashoffset svg
+stroke-linecap svg
+stroke-linejoin svg
+stroke-miterlimit svg
+stroke-opacity svg
+stroke-width svg
+style html mathml svg
+summary html-obsolete
+surfacescale svg
+symmetric mathml
+systemlanguage svg
+tabindex html mathml svg
+tablevalues svg
+target html html-obsolete svg
+targetx svg
+targety svg
+text html-obsolete
+text-anchor svg
+text-decoration svg
+text-rendering svg
+textlength svg
+timelinebegin svg
+title html svg
+to svg
+topmargin html-obsolete
+transform svg
+transform-origin svg
+translate html
+truespeed html-obsolete
+type html html-obsolete svg
+typemustmatch html-obsolete
+unicode-bidi svg
+urn html-obsolete
+usemap html html-obsolete
+valign html-obsolete
+value html
+values svg
+vector-effect svg
+version html-obsolete
+viewbox svg
+visibility svg
+vlink html-obsolete
+voffset mathml
+vspace html-obsolete
+width html html-obsolete mathml svg
+word-spacing svg
+wrap html
+writing-mode svg
+writingsuggestions html
+x svg
+x1 svg
+x2 svg
+xchannelselector svg
+xlink:href svg
+xlink:title svg
+xml:space svg
+y svg
+y1 svg
+y2 svg
+ychannelselector svg
+z svg

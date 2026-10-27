@@ -516,7 +516,7 @@ The compiler decides the context from the element and attribute name. You cannot
 | Text | element text, `t:text`, `[[...]]` | `& < > " '` escaped, and `{{` broken with an empty comment (below). |
 | Title and textarea | text in `<title>` and `<textarea>` (also `t:field`), outside `<svg>` and `<math>` (there they are Text) | `& < > " '` escaped; `{{` is left as is. |
 | Raw HTML | `t:utext`, `[(...)]` | Only `SafeHtml`, or a bundle message checked at build time (section 4.5), compiles. Not inside `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>`, `<noscript>`, `<textarea>` or `<title>`, which a browser reads as text up to their end tag (nor are `t:insert` and `t:replace`). |
-| Attribute | any other attribute value | Escaped, always double-quoted. |
+| Attribute | any other standard HTML, SVG, MathML or ARIA attribute, `data-*`, or a plain prop on a custom element | Escaped, always double-quoted. Any other computed name is a build error (below). |
 | URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, `manifest`, `hx-push-url`, `hx-replace-url`, `values`, `to`, `from` and `by` of SVG `<animate>`, `to` of SVG `<set>` (`<set>` ignores `values`, `from` and `by`, but they are checked the same way), ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. `values` of `<animate>` is a `;`-separated list and every item is checked; one bad item replaces the whole list with `about:invalid#tessera`. A `TrustedUrl` there vouches for every item. A computed `srcset` or `imagesrcset` holds a comma-separated list of image candidates, which Tessera does not check one by one, so it compiles only as a `TrustedUrl`. |
 | Resource URL | `script[src]`, `iframe[src]`, `embed[src]`, `object[data]`, `base[href]`, `link[href]` | Only a literal-path `@{...}` link or a `TrustedUrl` compiles. A `<base href>` must be same-origin (section 4.7). |
 | htmx request URL | `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect`, `ws-connect` (also with `data-`) | Only a link whose literal path starts with a single `/` compiles, as for a refresh: htmx swaps the response into the page as HTML, and htmx 1.x also requests other origins. Static values are copied verbatim. htmx 1.x's `hx-sse` and `hx-ws` (`connect:<url>`) take no expression at all. |
@@ -569,9 +569,18 @@ Only these bindings take JSON; anything else stays a build error:
 
 Otherwise, to hand server data to a component, put it in a `data-*` attribute or a `<script>`
 with `[[${...}]]` and read it from there. Other
-`data-*` attributes and htmx attributes that hold selectors or text (`hx-target`, `hx-swap`,
-`hx-select`, `hx-confirm`) are ordinary attributes. Port `th:hx-get="@{/items/{id}(id=${id})}"`
+`data-*` attributes are ordinary attributes, and so are htmx attributes that hold selectors or text
+when written with `data-` (`t:data-hx-target`, `t:data-hx-swap`, `t:data-hx-select`,
+`t:data-hx-confirm`), which htmx reads like `hx-target`. Port `th:hx-get="@{/items/{id}(id=${id})}"`
 to the same `t:hx-get`; a URL computed in Java (`t:hx-get="${url}"`) has to become a link.
+
+A computed attribute (`t:<name>` or a `t:attr` entry) must have a name the compiler knows: a
+standard HTML, SVG, MathML or ARIA attribute, a `data-*` attribute, a plain `[a-z][a-z0-9]*` prop on
+a custom element (an element whose name has a `-`), or one of the framework attributes above. Any
+other name is a build error, because a client library may run its value as code (Unpoly's
+`up-on-loaded`) or fetch it (htmx 4's `hx-action`), and the compiler cannot know which. Static
+attributes are not checked and are copied verbatim. If the value is data for your script, use
+`t:data-<name>`; a computed `t:hx-target` becomes `t:data-hx-target`.
 
 Inside `hx-boost` htmx submits every form with AJAX to its `action` and swaps the response into
 the page as HTML, without checking the origin (htmx 1.x, or 2.x with `selfRequestsOnly` off), and a
@@ -1954,6 +1963,7 @@ These come from the annotation processor itself, without a template position.
 - `formaction="<url>" is not allowed here: this button may submit a POST form that gets the CSRF token, which then goes to the button's formaction, and this URL is not same-origin; use a same-origin URL such as /items or @{/items/{id}(id=${item.id})}, or move the button into its own form`. A static `formaction` with a scheme or starting with `//` or `/\` in such a form.
 - `formmethod="<value>" is not allowed here: this button may submit a POST form that gets the CSRF token, and a formmethod other than post submits as GET with the token in the URL; remove formmethod, or move the button into its own GET form`. Also `<label> is not allowed: ...` for a computed `formmethod` there; only a static `post` or `dialog` is allowed.
 - `<form/> is not self-closing in HTML: the browser treats everything after it as inside the form; write <form ...></form>`. A browser drops the start tag of every later form, so their buttons and CSRF token inputs land in it.
+- `<label> is not allowed: '<name>' is not a known attribute; a computed attribute must be a standard HTML, SVG, MathML or ARIA attribute, a data-* attribute, or a plain [a-z][a-z0-9]* prop on a custom element. If it is data for your script, use data-<name>; if a framework reads it, write it as a static attribute`. On a computed name that is not a standard attribute, `data-*`, a custom element's prop or a framework attribute Tessera classifies (section 4.4), such as `t:up-on-loaded`, `t:hx-action`, `t:hx-target` or `t:attr="foo=..."`.
 - `<label> is not allowed: '<name>' cannot be computed; it decides whether htmx submits the forms inside with AJAX and swaps the response into the page, so write <name>="true" or <name>="false" statically`. On `hx-boost` and `data-hx-boost`.
 - `<label> is not allowed: attribute name '<name>' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*`.
 - `<label>: the type of a <script> cannot be computed; its content type must be known at build time, so write a static type attribute`.

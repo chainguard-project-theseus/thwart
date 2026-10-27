@@ -55,7 +55,8 @@ public final class Contexts {
    * {@link #isFrameworkDirective framework directives} and {@code on*} are EVENT_HANDLER, {@code style} and
    * the SVG presentation attributes that take a CSS {@code url()} ({@code fill}, {@code mask}, ...)
    * are STYLE, {@code srcdoc} and names that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*} are FORBIDDEN, resource URLs are
-   * RESOURCE_URL, other URL attributes are URL, everything else ATTRIBUTE. The {@code to from by}
+   * RESOURCE_URL, other URL attributes are URL, other {@link #isKnownName known names} ATTRIBUTE, and
+   * every other name FORBIDDEN (#330). The {@code to from by}
    * of an SVG {@code <animate>} and the {@code to} of a {@code <set>} are URL too: they can set an
    * {@code href} to {@code javascript:}. The {@code values} of an {@code <animate>} is URL_LIST: a
    * {@code ;}-separated list whose items SVG applies in turn, so every item is checked (#284).
@@ -71,6 +72,11 @@ public final class Contexts {
    * which form actions htmx requests (#258).
    */
   public static OutputContext attribute(Element element, String attributeName) {
+    return attribute(element, attributeName, true);
+  }
+
+  /** {@link #attribute(Element, String)}, where {@code knownNames} false accepts any name as ATTRIBUTE. */
+  private static OutputContext attribute(Element element, String attributeName, boolean knownNames) {
     if (attributeName != null && isJsonBinding(element, attributeName)) {
       return OutputContext.SCRIPT_ATTRIBUTE;
     }
@@ -116,7 +122,30 @@ public final class Contexts {
         || (isAnimation(el) && (attr.equals("to") || attr.equals("from") || attr.equals("by")))) {
       return OutputContext.URL;
     }
-    return OutputContext.ATTRIBUTE;
+    return !knownNames || KnownAttributes.accepts(element, attr) ? OutputContext.ATTRIBUTE : OutputContext.FORBIDDEN;
+  }
+
+  /**
+   * Whether {@code attributeName} may be computed on {@code element} as far as its name goes
+   * (#330, security-architecture.md section 5.6): a standard HTML, SVG, MathML or ARIA attribute,
+   * a {@code data-*} name, or a plain {@code [a-z][a-z0-9]*} name on a custom element (a name with
+   * a {@code -}). The framework names {@link #attribute} classifies (directives, htmx URLs, ...)
+   * are the framework table. {@link #attribute} decides whether a known name may hold an
+   * expression. Case-insensitive.
+   */
+  public static boolean isKnownName(Element element, String attributeName) {
+    return KnownAttributes.accepts(element, attributeName);
+  }
+
+  /**
+   * Whether {@code attributeName} is FORBIDDEN on {@code element} only because its name is not
+   * known (#330): it is a well-formed name that no framework rule classifies and that is not
+   * {@link #isKnownName known}, such as {@code up-on-loaded}, {@code hx-action} or {@code foo}.
+   */
+  public static boolean isUnknownName(Element element, String attributeName) {
+    return attributeName != null
+        && attribute(element, attributeName, false) == OutputContext.ATTRIBUTE
+        && !KnownAttributes.accepts(element, attributeName);
   }
 
   /**
@@ -253,7 +282,8 @@ public final class Contexts {
     if (el.equals("script") || el.equals("style") || el.equals("meta")) {
       return false;
     }
-    return attribute(element, target) == OutputContext.ATTRIBUTE;
+    // TODO(#333): bind targets become an allow-list; until then any ordinary name, known or not.
+    return attribute(element, target, false) == OutputContext.ATTRIBUTE;
   }
 
   /** htmx attributes ({@code hx-} or {@code data-hx-}) whose value is evaluated as JavaScript. */
