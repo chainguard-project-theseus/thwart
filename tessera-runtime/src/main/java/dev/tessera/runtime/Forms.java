@@ -1,7 +1,11 @@
 package dev.tessera.runtime;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -25,6 +29,44 @@ public interface Forms {
    */
   default String selectedValue(String objectName, String path, Object currentValue) {
     return currentValue == null ? null : value(objectName, path, currentValue);
+  }
+
+  /**
+   * Whether a checkbox, radio button or option of a {@code t:field} with value {@code candidate}
+   * is checked or selected, as Thymeleaf's {@code SpringSelectedValueComparator} (and Spring's
+   * {@code SelectedValueComparator}) decide: {@code candidate} equals the {@link #selectedValue},
+   * or {@code currentValue} is a Collection, an array or a Map one of whose elements (keys) has the
+   * display text {@code candidate}, or {@code currentValue} itself has it. An enum's display text
+   * is its name or its {@code toString()}. A null {@code currentValue} matches only through the
+   * {@link #selectedValue} (after a failed bind, the rejected value).
+   */
+  default boolean selected(String objectName, String path, Object currentValue, String candidate) {
+    if (candidate.equals(selectedValue(objectName, path, currentValue))) {
+      return true;
+    }
+    if (currentValue == null) {
+      return false;
+    }
+    List<Object> values =
+        new ArrayList<>(
+            currentValue instanceof Collection
+                ? (Collection<?>) currentValue
+                : currentValue instanceof Map
+                    ? ((Map<?, ?>) currentValue).keySet()
+                    : currentValue instanceof Object[]
+                        ? Arrays.asList((Object[]) currentValue)
+                        : Collections.emptyList());
+    values.add(currentValue);
+    for (Object v : values) {
+      boolean matches =
+          v instanceof Enum
+              ? ((Enum<?>) v).name().equals(candidate) || v.toString().equals(candidate)
+              : Escapers.toText(v).equals(candidate);
+      if (matches) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Resolved error messages for a field; {@code path} {@code "*"} means all errors. */
