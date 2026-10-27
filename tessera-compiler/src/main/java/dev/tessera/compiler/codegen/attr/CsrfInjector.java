@@ -7,6 +7,7 @@ import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.Escapers;
+import dev.tessera.runtime.TrustedUrl;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -21,14 +22,16 @@ import java.util.regex.Pattern;
  * into the URL. A static {@code method} is checked at build time. A computed one ({@code t:method},
  * {@code t:attr="method=..."}) is evaluated once before the start tag and written from that value,
  * as in Thymeleaf, where {@code th:method} runs before the CSRF processor, so a computed POST form
- * cannot lose its token.
+ * cannot lose its token. The value is converted to text there, once, so the check and the start tag
+ * see the same text.
  *
  * <p>The action must be same-origin by shape ({@link Escapers#isSameOriginUrl}): absent, empty, or
  * relative without a scheme and not protocol-relative, so the session's token is never posted to
  * another site (#285). A static {@code action} is checked at build time; a computed one
  * ({@code t:action}, {@code t:attr="action=..."}, links included) is evaluated once before the
- * start tag, like a computed method, and the token is written only if its value passes. An
- * absolute URL to the application's own host gets no token: write it as {@code @{/...}}.
+ * start tag and converted to text, like a computed method, and the token is written only if that
+ * text passes. An absolute URL to the application's own host gets no token: write it as
+ * {@code @{/...}}.
  *
  * <p>A submit button can send the form elsewhere (#314). Where it may submit a form that gets the
  * token ({@link CodegenContext#mayPostCsrfToken}), a computed {@code formaction} must be a
@@ -202,11 +205,17 @@ public final class CsrfInjector {
 
   /**
    * Evaluates a computed attribute once, before the start tag, into a fresh local, and makes the
-   * start tag write that local; returns its name.
+   * start tag write that local; returns its name. A value other than {@code null} (the attribute is
+   * omitted) or a {@link TrustedUrl} is converted to its text there, once, so the token's condition
+   * and the start tag see the same {@code String} even if its {@code toString()} changes between
+   * calls.
    */
   private static String hoist(CodegenContext ctx, ElementPlan plan, ElementPlan.DynamicAttr d, String name) {
     String v = ctx.freshName(name);
-    plan.wrap("{ java.lang.Object " + v + " = " + d.valueCode() + ";", "}");
+    plan.wrap(
+        "{ java.lang.Object " + v + " = " + d.valueCode() + "; if (" + v + " != null && !(" + v + " instanceof "
+            + TrustedUrl.class.getName() + ")) " + v + " = " + Escapers.class.getName() + ".toText(" + v + ");",
+        "}");
     plan.setAttribute(d.name(), v, d.pos());
     return v;
   }
