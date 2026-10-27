@@ -226,6 +226,27 @@ public final class ContextVerifier {
   }
 
   /**
+   * The fragments of {@code templates} the verifier accepts on their own, as a response body
+   * (#131), named {@code page :: fragment}: checked as {@link #checkUncalled} checks a fragment no
+   * template calls. A called fragment was checked only in the states its calls write it in, so it is
+   * checked here again; one with a finding, or that fits nowhere, is left out (it gets no registry
+   * entry) and is not an error. Call it only when {@link #verify} reported nothing.
+   */
+  public static Set<String> servableFragments(Map<String, Skeleton.TemplateSkeleton> templates) {
+    ContextVerifier v = new ContextVerifier(templates);
+    Set<String> out = new LinkedHashSet<>();
+    for (Skeleton.TemplateSkeleton t : templates.values()) {
+      for (String name : t.fragments().keySet()) {
+        Skeleton.FragmentId id = new Skeleton.FragmentId(t.viewName(), name);
+        if (v.checkUncalled(id).isEmpty()) {
+          out.add(id.toString());
+        }
+      }
+    }
+    return out;
+  }
+
+  /**
    * The view names of the templates in {@code templates} that the verifier proves {@code FLOW}
    * partials (#396, {@link #whyNotFlowPartial}). The generated class of each says so
    * ({@code Template.verifiedFlowPartial()}), and only those may be rendered into a

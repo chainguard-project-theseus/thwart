@@ -103,6 +103,15 @@ class SmokeTest {
   }
 
   @Test
+  void fragmentViewNameRendersTheFragmentFromPathVariablesAndModel() throws Exception {
+    // "smoke/rows :: row" (#131): only the <tr>, as an htmx partial; secret is not a declared param.
+    mvc.perform(get("/owners/7/row"))
+        .andExpect(status().isOk())
+        .andExpect(content().contentType("text/html;charset=UTF-8"))
+        .andExpect(content().string("<tr id=\"row\"><td>7</td><td>Ann</td></tr>"));
+  }
+
+  @Test
   void templateReturnValueRenders() throws Exception {
     mvc.perform(get("/typed"))
         .andExpect(status().isOk())

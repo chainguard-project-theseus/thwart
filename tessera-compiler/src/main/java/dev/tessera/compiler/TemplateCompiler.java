@@ -48,11 +48,17 @@ public final class TemplateCompiler {
     private final Map<String, Skeleton.TemplateSkeleton> skeletons;
     /** The class each template's generated file is named by, by view name. */
     private final Map<String, String> classes;
+    /** What the registry is generated from, to add fragment entries to it ({@link #files(Set, Set)}). */
+    private final CompilerEnv env;
+    private final TemplateIndex index;
 
-    Result(List<GeneratedFile> files, Map<String, Skeleton.TemplateSkeleton> skeletons, Map<String, String> classes) {
+    Result(List<GeneratedFile> files, Map<String, Skeleton.TemplateSkeleton> skeletons, Map<String, String> classes,
+        CompilerEnv env, TemplateIndex index) {
       this.files = Collections.unmodifiableList(files);
       this.skeletons = Collections.unmodifiableMap(skeletons);
       this.classes = classes;
+      this.env = env;
+      this.index = index;
     }
 
     /**
@@ -70,6 +76,26 @@ public final class TemplateCompiler {
       List<GeneratedFile> out = new ArrayList<>(files.size());
       for (GeneratedFile f : files) {
         out.add(f.kind() == GeneratedFile.Kind.JAVA && marked.contains(f.name()) ? TemplateGenerator.markFlowPartial(f) : f);
+      }
+      return out;
+    }
+
+    /**
+     * {@link #files(Set)}, with a registry that also has an entry for each fragment in {@code
+     * servable} ({@code page :: fragment}, as {@code ContextVerifier.servableFragments} returns
+     * them) whose parameters a model can supply (#131).
+     */
+    public List<GeneratedFile> files(Set<String> flowPartials, Set<String> servable) {
+      List<GeneratedFile> out = files(flowPartials);
+      if (servable.isEmpty()) {
+        return out;
+      }
+      for (GeneratedFile registry : new RegistryGenerator(env, index, servable).generate()) {
+        for (int i = 0; i < out.size(); i++) {
+          if (out.get(i).kind() == registry.kind() && out.get(i).name().equals(registry.name())) {
+            out.set(i, registry);
+          }
+        }
       }
       return out;
     }
@@ -111,6 +137,6 @@ public final class TemplateCompiler {
       skeletons.put(doc.source().viewName(), generator.skeleton());
     }
     out.addAll(new RegistryGenerator(env, index).generate());
-    return new Result(out, skeletons, classes);
+    return new Result(out, skeletons, classes, env, index);
   }
 }
