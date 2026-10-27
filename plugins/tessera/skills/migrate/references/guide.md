@@ -837,7 +837,7 @@ Templates call functions as `namespace.fn(args)` or `#namespace.fn(args)`.
 | `lists` | `size`, `isEmpty`, `contains(list, x)` |
 | `css` | `color(s)` (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, a CSS named colour), `length(s)` (a number with optional `px`, `em`, `rem`, `%`, `vh`, `vw`), `url(s)` (`url("...")` for a relative or `http`/`https` URL, percent-encoded): a `CssValue`, or `null` for anything else |
 | `html` | `sanitize(s)`: stored rich text as `SafeHtml` for `t:utext`; `sanitizeRich(s)`: the same with same-origin images, tables, `language-*` classes and `id` (section 4.4) |
-| `auth` (Spring starter) | `isAuthenticated()`, `hasRole('ADMIN')`, `hasAnyRole('A', 'B')`, `name()` |
+| `auth` (Spring starter) | `isAuthenticated()`, `hasRole('ADMIN')`, `hasAnyRole('A', 'B')` (`ROLE_` is added unless present), `hasAuthority('PERM_X')`, `hasAnyAuthority('A', 'B')` (compared exactly), `name()` |
 | `fields` (inside `t:object`) | `hasErrors('path')`, `hasErrors('*')`, `errors('path')`, section 4.7 |
 
 All built-ins are null-tolerant. Add your own namespace with a class in your application:
@@ -1341,6 +1341,10 @@ over a stored string.
   second template rendered in Java: `SafeHtml.of(XTemplate.of(...), ctx)` for a flow partial
   inserted into a page, or `XTemplate.of(...).renderToString(ctx)` for a `String` (section 4.4),
   with `ctx` from `SpringRenderContexts.create(request, response, model)` in a controller.
+- **Spring Security.** Thymeleaf's `sec:authorize="hasRole('A')"` and JSP's
+  `<sec:authorize access="hasRole('A')">` become `t:if="auth.hasRole('A')"`; likewise
+  `hasAnyRole`, `hasAuthority('PERM_X')`, `hasAnyAuthority` and `isAuthenticated()`, and
+  `sec:authentication="name"` is `t:text="auth.name()"` (section 4.6).
 - EL implicit objects (`param`, `sessionScope`, `header`, `cookie`,
   `pageContext.request.contextPath`) are model values (section 1); a context-path prefix is `@{...}`.
 
@@ -2174,8 +2178,9 @@ Gaps in Tessera today, each with what to do until it is fixed.
   are not reported. `SafeHtml.unchecked` text is not changed.
   are not reported when a `}}` follows later in the template (#336). `SafeHtml.unchecked` text is not changed, and neither is SVG `<title>` text,
   which the frameworks interpolate too: add `v-pre`/`ng-non-bindable` there as well.
-- **Security functions.** `auth` has `hasRole`/`hasAnyRole`, not `hasAuthority`; compute anything
-  else in the controller.
+- **Security functions.** `auth` has `isAuthenticated`, `hasRole`/`hasAnyRole` and
+  `hasAuthority`/`hasAnyAuthority`. They check the granted authorities as given, without a role
+  hierarchy. Compute any other Spring Security expression in the controller.
 - **Selections.** `~{::tag}` selects fragment names and plain tag names only: not hyphenated tags,
   `t:block`, ids or classes. Give the element a `t:fragment` name instead.
 - **Not supported, by design:** runtime template loading, `__${...}__` preprocessing, dynamic
