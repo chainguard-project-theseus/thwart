@@ -3,13 +3,17 @@ package dev.tessera.spring.e2e;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import dev.tessera.runtime.TemplateModelException;
 import dev.tessera.spring.CspNonce;
 import dev.tessera.spring.plain.CspPages;
 import dev.tessera.spring.testing.SpringTestContext;
@@ -67,6 +71,35 @@ class SmokeTest {
         .andExpect(content().string(containsString("value=\"Ada\"")))
         .andExpect(content().string(not(containsString("class=\"error\""))))
         .andExpect(content().string(not(containsString("_csrf"))));
+  }
+
+  @Test
+  void pathVariablesFillDeclaredParams() throws Exception {
+    mvc.perform(get("/owners/7/pets/secret-pet"))
+        .andExpect(status().isOk())
+        .andExpect(content().string(containsString("<p id=\"owner\">7</p>")))
+        .andExpect(content().string(containsString("<p id=\"name\"></p>")))
+        // petId is a path variable but not a t:param: it never reaches the template.
+        .andExpect(content().string(not(containsString("secret-pet"))));
+  }
+
+  @Test
+  void modelAttributeWinsOverPathVariable() throws Exception {
+    mvc.perform(get("/owners/7/as/ann"))
+        .andExpect(status().isOk())
+        .andExpect(content().string(containsString("<p id=\"owner\">7</p>")))
+        .andExpect(content().string(containsString("<p id=\"name\">model-ann</p>")));
+  }
+
+  @Test
+  void pathVariableOfTheWrongTypeFailsTheRender() {
+    Exception e = assertThrows(Exception.class, () -> mvc.perform(get("/owners/named/7")));
+    Throwable cause = e;
+    while (cause != null && !(cause instanceof TemplateModelException)) {
+      cause = cause.getCause();
+    }
+    assertNotNull(cause, "TemplateModelException in " + e);
+    assertTrue(cause.getMessage().contains("'ownerId' must be java.lang.Long"), cause.getMessage());
   }
 
   @Test
