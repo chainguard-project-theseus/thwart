@@ -136,7 +136,6 @@ final class VnuEngine implements Engine {
       r.formattingStackIndex = t.formattingStackIndex;
       r.formattingNamespaces = t.formattingNamespaces;
       r.formattingNames = t.formattingNames;
-      r.formattingAttributes = t.formattingAttributes;
       r.templateModes = t.templateModes;
       r.mode = t.mode;
       r.originalMode = t.originalMode;

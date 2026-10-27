@@ -7,7 +7,6 @@ import dev.tessera.compiler.verify.engine.Parser;
 import dev.tessera.compiler.verify.engine.ParserState;
 import dev.tessera.compiler.verify.engine.TokenizerState;
 import java.util.EnumSet;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -17,14 +16,6 @@ import java.util.Set;
  */
 final class Rules {
   private Rules() {}
-
-  /**
-   * What the verifier writes for an attribute hole: a private-use character, which the double
-   * quoted attribute value state takes as is. It marks the formatting elements that carry a
-   * computed attribute ({@link #noahsArk}); nothing else reads attribute values (the value that
-   * changes parsing is rejected, {@link Problem#ATTRIBUTE_VALUE_CHANGES_PARSE}).
-   */
-  static final String MARK = "\uE000";
 
   /** Modes whose character tokens are all appended as they are. */
   private static final Set<InsertionMode> TEXT_MODES = EnumSet.of(
@@ -132,60 +123,6 @@ final class Rules {
       return Problem.ATTRIBUTE_VALUE_CHANGES_PARSE;
     }
     return null;
-  }
-
-  /**
-   * Whether the active formatting list may depend on a computed attribute (memo §3.4.3): an entry
-   * after the last marker carries {@link #MARK}, and at least two others have its name, so the
-   * next element of that name can make the parser compare the computed value.
-   */
-  static boolean noahsArk(ParserState s) {
-    List<Integer> list = s.activeFormatting();
-    int start = list.size();
-    while (start > 0 && list.get(start - 1) != ParserState.MARKER) {
-      start--;
-    }
-    for (int i = start; i < list.size(); i++) {
-      if (!marked(s.activeFormattingAttributes().get(i))) {
-        continue;
-      }
-      OpenElement e = s.activeFormattingElements().get(i);
-      int same = 0;
-      for (int j = start; j < list.size(); j++) {
-        if (e.equals(s.activeFormattingElements().get(j))) {
-          same++;
-        }
-      }
-      if (same >= 3) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Whether an active formatting entry carries a computed attribute (also before a marker, which
-   * a later end tag can remove).
-   */
-  static boolean hasMarkedFormatting(ParserState s) {
-    for (int i = 0; i < s.activeFormatting().size(); i++) {
-      if (marked(s.activeFormattingAttributes().get(i))) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private static boolean marked(List<String> attributes) {
-    if (attributes == null) {
-      return false;
-    }
-    for (String a : attributes) {
-      if (a.contains(MARK)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   // ---- error-free parses and the coarse exclusions (#406, security-architecture.md §11.4) ----

@@ -7,9 +7,7 @@ import dev.tessera.compiler.verify.engine.Parser;
 import dev.tessera.compiler.verify.engine.ParserState;
 import dev.tessera.compiler.verify.engine.TokenizerState;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -193,13 +191,15 @@ public final class ContentKinds {
    *   <li>{@code select}, {@code option} or {@code optgroup} open: their start tags, and in
    *       customizable {@code <select>} parsing also {@code input}, {@code textarea} and others,
    *       close them.
-   *   <li>Three or more formatting entries of one name after the last marker: one more is
-   *       dropped from the list (the Noah's Ark clause), whatever its attributes.
    * </ul>
    *
    * <p>Not here: SVG or MathML above a cell, where a {@code </table>} in the value resets the mode
    * differently in validator.nu and the standard. Exclusion (a) rejects any {@code <svg>} or
    * {@code <math>} in a table part ({@link Rules#exclusion}, #410).
+   *
+   * <p>Not here: three or more formatting entries of one name. One more drops the oldest from the
+   * list (the Noah's Ark clause), but that element stays open, and in an error-free parse the list
+   * changes the tree only through entries that are no longer open (#444).
    *
    * <p>Not here, because FLOW content can't close them: an open {@code li}, {@code dd} or {@code dt}
    * (FLOW content writes those only inside its own list, whose {@code ul}/{@code ol}/{@code dl}
@@ -226,17 +226,10 @@ public final class ContentKinds {
         return "an open <" + name + ">";
       }
     }
-    Map<String, Integer> counts = new HashMap<>();
     List<Integer> list = s.activeFormatting();
     for (int i = list.size() - 1; i >= 0 && list.get(i) != ParserState.MARKER; i--) {
-      OpenElement e = s.activeFormattingElements().get(i);
-      if (e.isHtml("a")) {
+      if (s.activeFormattingElements().get(i).isHtml("a")) {
         return "an open <a>";
-      }
-      Integer n = counts.get(e.localName());
-      counts.put(e.localName(), n == null ? 1 : n + 1);
-      if (n != null && n + 1 >= 3) {
-        return "three open <" + e.localName() + "> elements";
       }
     }
     return null;

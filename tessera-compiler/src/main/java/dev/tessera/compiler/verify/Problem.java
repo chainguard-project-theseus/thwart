@@ -39,7 +39,11 @@ public enum Problem {
    * <frameset>} start tag applies depends on the content before it.
    */
   FRAMESET,
-  /** Three or more identical formatting elements, one with a computed attribute (the Noah's Ark clause). */
+  /**
+   * Retired (#444), no longer reported: three or more identical formatting elements, one with a
+   * computed attribute (the Noah's Ark clause). In an error-free parse the value can't change the
+   * tree, and misnested they are a {@link #PARSE_ERROR}.
+   */
   NOAHS_ARK,
   /** A loop whose parser states don't reach a fixed point. */
   LOOP_NO_FIXED_POINT,

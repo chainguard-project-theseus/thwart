@@ -107,11 +107,16 @@ class ContentKindsTest {
     rejectCloser("an open <select>", st("<div><select><div>"), raw()); // customizable <select> parsing
   }
 
+  /**
+   * A fourth identical formatting element in the value drops the oldest from the list of active
+   * formatting elements (the Noah's Ark clause), but that element stays open, and in an error-free
+   * parse the list changes the tree only through entries that are no longer open (#444).
+   */
   @Test
-  void flowContentDropsAFourthIdenticalFormattingEntry() {
-    rejectCloser("three open <b> elements", st("<b><b><b>"), raw());
-    rejectCloser("three open <em> elements", st("<em><i><em><em>"), raw());
-    accept(st("<b><b><table><tr><td><b>"), raw()); // a marker in between
+  void flowContentMayDropAFourthIdenticalFormattingEntry() {
+    accept(st("<b><b><b>"), raw());
+    accept(st("<em><i><em><em>"), raw());
+    accept(st("<b><b><table><tr><td><b>"), raw());
   }
 
   /**
