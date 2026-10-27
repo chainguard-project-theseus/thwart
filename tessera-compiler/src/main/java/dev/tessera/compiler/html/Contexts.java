@@ -23,7 +23,7 @@ public final class Contexts {
   private static final Set<String> URL_ATTRIBUTES =
       Backports.setOf(
           "href", "src", "action", "formaction", "cite", "poster", "background", "longdesc",
-          "usemap", "ping", "xlink:href");
+          "usemap", "ping", "manifest", "srcset", "imagesrcset", "xlink:href");
 
   /**
    * SVG presentation attributes whose value is CSS that may hold a {@code url()}: a paint server
