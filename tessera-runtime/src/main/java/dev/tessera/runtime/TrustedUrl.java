@@ -4,8 +4,9 @@ import java.util.Objects;
 
 /**
  * A URL the application vouches for. URL attributes skip the scheme check for it, and resource
- * URL attributes ({@code <script src>}, {@code <iframe src>}, ...) accept it. Only constructed via
- * {@link #unchecked(String)} (greppable, lint-bannable).
+ * URL attributes ({@code <script src>}, {@code <iframe src>}, ...) accept it. As the
+ * {@code values} list of an SVG {@code <animate>} it vouches for every {@code ;}-separated item.
+ * Only constructed via {@link #unchecked(String)} (greppable, lint-bannable).
  */
 public final class TrustedUrl {
   private final String url;
