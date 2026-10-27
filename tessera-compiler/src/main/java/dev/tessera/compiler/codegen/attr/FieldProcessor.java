@@ -30,9 +30,11 @@ import javax.lang.model.type.TypeMirror;
  *
  * <p>{@code id} is only added when the element has none; checkboxes on non-boolean fields and
  * radios get no generated {@code id} (Thymeleaf numbers them per request). Password inputs never
- * echo the bound value. Boolean checkboxes get Spring's {@code _name} hidden marker so an
- * unchecked box binds {@code false}, unless the checkbox is disabled (a {@code disabled}
- * attribute, or a {@code t:disabled} that is true), as in Thymeleaf.
+ * echo the bound value. A checkbox on a non-boolean field, a radio and an option are checked
+ * (selected) when their value matches the bound value or, for a Collection, array or Map, one of
+ * its elements, as in Thymeleaf. Checkboxes get Spring's {@code _name} hidden marker so an
+ * unchecked box binds {@code false} (or an empty collection), unless the checkbox is disabled (a
+ * {@code disabled} attribute, or a {@code t:disabled} that is true), as in Thymeleaf.
  *
  * <p>Inside a fragment, {@code t:field="name"} where {@code name} is a {@code Field} parameter uses
  * the path the caller passed (and checked). Its value has static type {@code Object}, so a checkbox
@@ -42,11 +44,15 @@ public final class FieldProcessor implements AttributeProcessor {
   private static final String ESCAPERS = Escapers.class.getName();
 
   /**
-   * Internal variable (unreachable from templates: contains {@code $}) holding the bound display
-   * value of the enclosing {@code <select t:field>} (null when the bound value is null), used by
-   * {@link #option}.
+   * Internal variable (unreachable from templates: contains {@code $}) holding the bound value of
+   * the enclosing {@code <select t:field>}, used by {@link #option}.
    */
   static final String SELECTED = "select$value";
+
+  /** Internal variables holding the path and object name of the enclosing {@code <select t:field>}. */
+  static final String SELECTED_PATH = "select$path";
+
+  static final String SELECTED_OBJECT = "select$object";
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
@@ -61,7 +67,7 @@ public final class FieldProcessor implements AttributeProcessor {
     String tag = plan.element().name().toLowerCase(Locale.ROOT);
     switch (tag) {
       case "input":
-        input(ctx, attr, plan, name, id, display, current);
+        input(ctx, attr, plan, field, display);
         break;
       case "textarea":
         nameAndId(plan, attr, name, id);
@@ -73,22 +79,32 @@ public final class FieldProcessor implements AttributeProcessor {
         break;
       case "select":
         nameAndId(plan, attr, name, id);
-        // Like Spring's SelectedValueComparator: a null bound value selects no option (not the
-        // placeholder <option value="">, which a null's "" display value would match).
-        String local = ctx.freshName("selected");
+        // The options compare with the field's value, path and object name (evaluated once).
+        String value = ctx.freshName("selected");
+        String path = ctx.freshName("selectedPath");
+        String object = ctx.freshName("selectedObject");
         plan.wrap(
-            "{ java.lang.String "
-                + local
-                + " = ctx.forms().selectedValue("
-                + field.objectName()
-                + ", "
-                + name
-                + ", "
+            "{ java.lang.Object "
+                + value
+                + " = "
                 + current.code()
-                + ");",
+                + "; java.lang.String "
+                + path
+                + " = "
+                + name
+                + "; java.lang.String "
+                + object
+                + " = "
+                + field.objectName()
+                + ";",
             "}");
         TypeMirror string = ctx.env().elements().getTypeElement("java.lang.String").asType();
-        plan.scope(plan.scope().with(new Variable(SELECTED, string, local)));
+        TypeMirror objectType = ctx.env().elements().getTypeElement("java.lang.Object").asType();
+        plan.scope(
+            plan.scope()
+                .with(new Variable(SELECTED, objectType, value))
+                .with(new Variable(SELECTED_PATH, string, path))
+                .with(new Variable(SELECTED_OBJECT, string, object)));
         break;
       default:
         ctx.diagnostics()
@@ -96,15 +112,11 @@ public final class FieldProcessor implements AttributeProcessor {
     }
   }
 
-  /** {@code name} and {@code id} are Java code (Strings) for the field path and element id. */
   private static void input(
-      CodegenContext ctx,
-      Attribute attr,
-      ElementPlan plan,
-      String name,
-      String id,
-      String display,
-      CompiledExpr current) {
+      CodegenContext ctx, Attribute attr, ElementPlan plan, FormPaths.FormField field, String display) {
+    CompiledExpr current = field.value();
+    String name = field.path();
+    String id = field.id();
     String type = staticValue(plan, "type").map(t -> Backports.strip(t).toLowerCase(Locale.ROOT)).orElse("text");
     switch (type) {
       case "checkbox":
@@ -115,35 +127,13 @@ public final class FieldProcessor implements AttributeProcessor {
           }
           plan.setAttribute(
               "checked", "java.lang.Boolean.TRUE.equals(" + current.code() + ") ? \"checked\" : null", attr.pos());
-          // Made up: no source position.
-          Emitted marker =
-              Emitted.concat(
-                  Emitted.text("<input type=\"hidden\" name=\"_", null),
-                  Emitted.code(" "),
-                  Emitted.hole(Skeleton.Escaper.ATTR, "input", "name", attr.pos(), name),
-                  Emitted.code(" "),
-                  Emitted.text("\" value=\"on\" />", null));
-          // Like Thymeleaf, no marker for a disabled checkbox (it is not submitted, so the marker
-          // would reset the value to false). Thymeleaf checks for a disabled attribute of any
-          // value after t:disabled/t:attr ran, as here (they precede t:field).
-          Optional<ElementPlan.Attr> disabled = plan.attribute("disabled");
-          if (!disabled.isPresent()) {
-            plan.afterStartTag(marker);
-          } else if (disabled.get() instanceof ElementPlan.DynamicAttr) {
-            // Evaluate once: the attribute and the marker share the value (null omits both ways).
-            ElementPlan.DynamicAttr dynamic = (ElementPlan.DynamicAttr) disabled.get();
-            String local = ctx.freshName("disabled");
-            plan.wrap("{ java.lang.Object " + local + " = " + dynamic.valueCode() + ";", "}");
-            plan.setAttribute(dynamic.name(), local, dynamic.pos());
-            plan.afterStartTag(
-                Emitted.opt(Skeleton.OptKind.CHECKBOX_MARKER, attr.pos(), "if (" + local + " == null) { ", marker, " }"));
-          }
-        } else {
-          checkedByValue(ctx, attr, plan, name, display);
+          marker(ctx, attr, plan, name);
+        } else if (checkedByValue(ctx, attr, plan, field)) {
+          marker(ctx, attr, plan, name);
         }
         break;
       case "radio":
-        checkedByValue(ctx, attr, plan, name, display);
+        checkedByValue(ctx, attr, plan, field);
         break;
       case "file":
         nameAndId(plan, attr, name, id);
@@ -158,16 +148,62 @@ public final class FieldProcessor implements AttributeProcessor {
     }
   }
 
-  /** Radio, or checkbox on a non-boolean field: checked when its value equals the bound value. */
-  private static void checkedByValue(CodegenContext ctx, Attribute attr, ElementPlan plan, String name, String display) {
+  /**
+   * Radio, or checkbox on a non-boolean field: checked when its value matches the bound value or,
+   * for a Collection, array or Map, one of its elements ({@code Forms.selected}). Returns false
+   * after reporting a missing value attribute.
+   */
+  private static boolean checkedByValue(
+      CodegenContext ctx, Attribute attr, ElementPlan plan, FormPaths.FormField field) {
     String value = valueCode(plan, "value");
     if (value == null) {
       ctx.diagnostics()
           .error(attr.pos(), "t:field on a radio button or a non-boolean checkbox needs a value attribute (or t:value)");
-      return;
+      return false;
     }
-    nameAndId(plan, attr, name, null);
-    plan.setAttribute("checked", display + ".equals(" + value + ") ? \"checked\" : null", attr.pos());
+    nameAndId(plan, attr, field.path(), null);
+    plan.setAttribute(
+        "checked",
+        "ctx.forms().selected("
+            + field.objectName()
+            + ", "
+            + field.path()
+            + ", "
+            + field.value().code()
+            + ", "
+            + value
+            + ") ? \"checked\" : null",
+        attr.pos());
+    return true;
+  }
+
+  /**
+   * Spring's {@code _name} hidden marker after a checkbox, so that an unchecked box binds
+   * {@code false} (or an empty collection). Like Thymeleaf, none for a disabled checkbox (it is not
+   * submitted, so the marker would reset the value): Thymeleaf checks for a disabled attribute of
+   * any value after t:disabled/t:attr ran, as here (they precede t:field).
+   */
+  private static void marker(CodegenContext ctx, Attribute attr, ElementPlan plan, String name) {
+    // Made up: no source position.
+    Emitted marker =
+        Emitted.concat(
+            Emitted.text("<input type=\"hidden\" name=\"_", null),
+            Emitted.code(" "),
+            Emitted.hole(Skeleton.Escaper.ATTR, "input", "name", attr.pos(), name),
+            Emitted.code(" "),
+            Emitted.text("\" value=\"on\" />", null));
+    Optional<ElementPlan.Attr> disabled = plan.attribute("disabled");
+    if (!disabled.isPresent()) {
+      plan.afterStartTag(marker);
+    } else if (disabled.get() instanceof ElementPlan.DynamicAttr) {
+      // Evaluate once: the attribute and the marker share the value (null omits both ways).
+      ElementPlan.DynamicAttr dynamic = (ElementPlan.DynamicAttr) disabled.get();
+      String local = ctx.freshName("disabled");
+      plan.wrap("{ java.lang.Object " + local + " = " + dynamic.valueCode() + ";", "}");
+      plan.setAttribute(dynamic.name(), local, dynamic.pos());
+      plan.afterStartTag(
+          Emitted.opt(Skeleton.OptKind.CHECKBOX_MARKER, attr.pos(), "if (" + local + " == null) { ", marker, " }"));
+    }
   }
 
   /** {@code name} and {@code id} are Java code (Strings); a null {@code id} adds no id. */
@@ -180,9 +216,10 @@ public final class FieldProcessor implements AttributeProcessor {
 
   /**
    * Hook for every {@code <option>} (called by the generator after its attribute processors):
-   * inside a {@code <select t:field>}, sets {@code selected} when the option's value equals the
-   * bound value (never when the bound value is null, like Spring's
-   * {@code SelectedValueComparator}). A static {@code selected} is replaced, as in Thymeleaf (a
+   * inside a {@code <select t:field>}, sets {@code selected} when the option's value matches the
+   * bound value or, for a Collection, array or Map ({@code <select multiple>}), one of its elements
+   * ({@code Forms.selected}, like Spring's {@code SelectedValueComparator}: a null bound value
+   * selects nothing). A static {@code selected} is replaced, as in Thymeleaf (a
    * natural-template mock-up), but an option with a {@code t:selected} keeps it: the explicit
    * expression wins. Options without a value attribute are left unchanged.
    */
@@ -196,10 +233,17 @@ public final class FieldProcessor implements AttributeProcessor {
     if (value == null) {
       return;
     }
-    String local = selected.get().javaName();
     plan.setAttribute(
         "selected",
-        "(" + local + " != null && " + local + ".equals(" + value + ")) ? \"selected\" : null",
+        "ctx.forms().selected("
+            + plan.scope().lookup(SELECTED_OBJECT).get().javaName()
+            + ", "
+            + plan.scope().lookup(SELECTED_PATH).get().javaName()
+            + ", "
+            + selected.get().javaName()
+            + ", "
+            + value
+            + ") ? \"selected\" : null",
         plan.element().pos());
   }
 

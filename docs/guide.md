@@ -922,8 +922,12 @@ public record Address(String street) {}
   `<select>` and `<textarea>`. It writes `id` (unless present; not on radios), `name` and the
   `BindingResult`'s display value (omitted when null; never on passwords). Checkboxes and radios
   get `checked`, options of a `<select t:field>` get `selected` when their value matches (none
-  when the bound value is `null`, so a placeholder `<option value="">` stays unselected). A static
-  `selected` on such an option is replaced, as in Thymeleaf; a `t:selected` is kept.
+  when the bound value is `null`, so a placeholder `<option value="">` stays unselected). Bound to
+  a collection, array or map (`Set<String> roles`, `<select multiple>`), every input or option
+  whose value is an element (key) matches, as with Thymeleaf's `th:field`; an enum matches by name
+  or `toString()`. Every checkbox that is not `disabled` is followed by Spring's `_name` hidden
+  marker, so unchecking all boxes binds `false` or an empty collection. A static `selected` on
+  such an option is replaced, as in Thymeleaf; a `t:selected` is kept.
 - `t:errors` renders the field's messages escaped and joined by `<br />`, or removes the element
   if there are none (`*` for all). For other markup, loop over `fields.errors('email')`.
 - `t:errorclass="error"` next to `t:field` appends the class when the field has errors.
@@ -2116,8 +2120,9 @@ Gaps in Tessera today, each with what to do until it is fixed.
   parameter and property types; declare `List`/`Map`. A `Boolean` getter named `getIsX()` (Lombok
   on a `Boolean isX` field) is reachable only as `x.getIsX()`. `java.util.Date`/`Calendar` are not
   view-safe.
-- **Forms.** No map keys in paths (`map[key]`), no `checked` for checkboxes bound to a collection,
-  no global (object-level) errors apart from `fields.errors('*')`, no `t:field` on fields whose
+- **Forms.** No map keys in paths (`map[key]`), no global (object-level) errors apart from
+  `fields.errors('*')`, no `_name` marker before a `<select multiple t:field>` (Thymeleaf writes
+  `<input type="hidden" name="_roles" value="1"/>`; add it by hand), no `t:field` on fields whose
   type is not view-safe (`MultipartFile`: write the `name` attribute by hand), and `Field`
   fragments cannot read the value. Radios get no `id`.
 - **CSRF and other ways a form posts elsewhere.** The CSRF input is left out of a form whose
