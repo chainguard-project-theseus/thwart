@@ -36,7 +36,22 @@ public final class Auth {
   /** True if the current user has any of {@code roles}; {@code ROLE_} is prepended unless present. */
   @TemplateFunction
   public static boolean hasAnyRole(String... roles) {
-    return SECURITY_PRESENT && Security.hasAnyRole(roles);
+    return SECURITY_PRESENT && Security.hasAny("ROLE_", roles);
+  }
+
+  /**
+   * True if the current (authenticated) user has {@code authority}, compared exactly: no {@code
+   * ROLE_} prefix is added (Spring Security's {@code hasAuthority}).
+   */
+  @TemplateFunction
+  public static boolean hasAuthority(String authority) {
+    return hasAnyAuthority(authority);
+  }
+
+  /** True if the current user has any of {@code authorities}, each compared exactly. */
+  @TemplateFunction
+  public static boolean hasAnyAuthority(String... authorities) {
+    return SECURITY_PRESENT && Security.hasAny("", authorities);
   }
 
   /** Name of the current authentication (including the anonymous user), or {@code null} if none. */
@@ -63,18 +78,19 @@ public final class Auth {
           && !TRUST.isAnonymous(authentication);
     }
 
-    static boolean hasAnyRole(String... roles) {
+    /** True if an authority equals one of {@code names}, {@code prefix} added unless present. */
+    static boolean hasAny(String prefix, String... names) {
       org.springframework.security.core.Authentication authentication = current();
-      if (authentication == null || !authentication.isAuthenticated() || roles == null) {
+      if (authentication == null || !authentication.isAuthenticated() || names == null) {
         return false;
       }
       for (org.springframework.security.core.GrantedAuthority granted :
           authentication.getAuthorities()) {
         String authority = granted.getAuthority();
-        for (String role : roles) {
-          if (role != null
+        for (String name : names) {
+          if (name != null
               && authority != null
-              && authority.equals(role.startsWith("ROLE_") ? role : "ROLE_" + role)) {
+              && authority.equals(name.startsWith(prefix) ? name : prefix + name)) {
             return true;
           }
         }

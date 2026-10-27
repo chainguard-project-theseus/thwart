@@ -23,6 +23,11 @@ class AuthWithoutSecurityTest {
       assertEquals(
           false,
           auth.getMethod("hasAnyRole", String[].class).invoke(null, (Object) new String[] {"USER"}));
+      assertEquals(false, auth.getMethod("hasAuthority", String.class).invoke(null, "PERM_X"));
+      assertEquals(
+          false,
+          auth.getMethod("hasAnyAuthority", String[].class)
+              .invoke(null, (Object) new String[] {"PERM_X"}));
       assertNull(auth.getMethod("name").invoke(null));
     }
   }
