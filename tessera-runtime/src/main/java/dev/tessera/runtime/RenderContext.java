@@ -1,6 +1,8 @@
 package dev.tessera.runtime;
 
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -12,7 +14,8 @@ import java.util.Optional;
  * {@code links} builds {@code @{/path/{id}(id=x)}} URLs; {@code forms} is the form-binding state
  * for {@code t:field}/{@code t:errors} and CSRF tokens; {@code cspNonce}, if set, is written as
  * {@code nonce="..."} on every {@code <script>} and {@code <style>} start tag the template
- * writes.
+ * writes. A context also numbers the ids {@code t:field} writes on checkboxes and radio buttons
+ * ({@link #sequenceId}), so use a new one for every render, as the Spring integration does.
  */
 public final class RenderContext {
   private final Locale locale;
@@ -20,6 +23,8 @@ public final class RenderContext {
   private final Links links;
   private final Forms forms;
   private final String cspNonce;
+  /** Per-render id counters ({@link #sequenceId}); not part of equals, hashCode or toString. */
+  private final Map<String, Integer> idSequences = new HashMap<>();
 
   public RenderContext(Locale locale, Messages messages, Links links, Forms forms) {
     this(locale, messages, links, forms, null);
@@ -73,6 +78,20 @@ public final class RenderContext {
 
   public Forms forms() {
     return forms;
+  }
+
+  /**
+   * {@code id} followed by the number of times this context was asked for it, starting at 1:
+   * {@code roles1}, {@code roles2}, ... Thymeleaf's {@code IdentifierSequences} (one per render),
+   * used for the ids {@code t:field} writes on checkboxes and radio buttons.
+   */
+  public String sequenceId(String id) {
+    synchronized (idSequences) {
+      Integer previous = idSequences.get(id);
+      int next = previous == null ? 1 : previous + 1;
+      idSequences.put(id, next);
+      return id + next;
+    }
   }
 
   /** The Content Security Policy nonce written on every {@code <script>} and {@code <style>}. */
