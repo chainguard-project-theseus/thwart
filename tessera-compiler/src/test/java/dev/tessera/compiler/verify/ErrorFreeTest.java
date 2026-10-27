@@ -1,14 +1,19 @@
 package dev.tessera.compiler.verify;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.oracle.Seeds;
+import dev.tessera.compiler.oracle.SpecParsers;
 import dev.tessera.compiler.testing.Compilation;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 
 /**
  * The verifier accepts only error-free parses, outside three coarse exclusions (#406,
@@ -250,6 +255,44 @@ class ErrorFreeTest {
   }
 
   /**
+   * Identical formatting elements, one with a computed attribute, written in order (#444, which
+   * retired NOAHS_ARK): the value decides whether the Noah's Ark clause drops the outer {@code <b>}
+   * from the list of active formatting elements when the fourth opens, but the element stays open,
+   * and in an error-free parse the list changes the tree only through entries that are no longer
+   * open. So the template is accepted, and every value renders the same structure.
+   */
+  @Test
+  void aComputedAttributeCantChangeTheTreeOfIdenticalFormattingElements() {
+    verify("<b t:class=\"s\"><b><b>x</b></b></b>").assertSuccess();
+    Compilation c = build("<p><b t:class=\"s\"><b><b>x<b>y</b>z</b></b></b>w</p>").assertSuccess();
+    String expected = null;
+    for (String v : new String[] {null, "", "x", "a b", "<b>", "\""}) {
+      Map<String, Object> model = new HashMap<>();
+      model.put("s", v);
+      Node doc = SpecParsers.named(SpecParsers.VNU_26).parse("<!DOCTYPE html>" + c.render("t", model), false);
+      String structure = structure(doc);
+      if (expected == null) {
+        expected = structure;
+        assertEquals("[html[head][body[div[p[b[b[b{x}[b{y}]{z}]]]{w}]]]]", structure);
+      }
+      assertEquals(expected, structure, "s = " + v);
+    }
+  }
+
+  /** Element names and text, without attributes. */
+  private static String structure(Node n) {
+    StringBuilder sb = new StringBuilder();
+    for (Node k = n.getFirstChild(); k != null; k = k.getNextSibling()) {
+      if (k instanceof Element) {
+        sb.append('[').append(((Element) k).getLocalName()).append(structure(k)).append(']');
+      } else if (k.getNodeType() == Node.TEXT_NODE) {
+        sb.append('{').append(k.getNodeValue()).append('}');
+      }
+    }
+    return sb.toString();
+  }
+
+  /**
    * The negatives of the rules #410 retired, narrowed, folded into an exclusion or kept: each
    * still fails to compile.
    */
@@ -257,10 +300,9 @@ class ErrorFreeTest {
   void theNegativesOfRetiredRulesStillFail() {
     // TEXT_RECONSTRUCTS: </p> closes the <b> out of order, and the value would go into a copy.
     verify("<p><b>x</p>[[${s}]]").assertError("t.html:1:", "[verifier:PARSE_ERROR]");
-    // Kept: NOAHS_ARK. Three identical formatting elements, one with a computed attribute, written
-    // in order parse without errors, so only the rule rejects them; misnested, they are a parse
-    // error too.
-    verify("<b t:class=\"s\"><b><b>x</b></b></b>").assertError("t.html:1:", "[verifier:NOAHS_ARK]");
+    // NOAHS_ARK (retired by #444): identical formatting elements with a computed attribute,
+    // misnested, are a parse error. Written in order they are accepted
+    // (aComputedAttributeCantChangeTheTreeOfIdenticalFormattingElements).
     verify("<p><b class=\"x\">1<b class=\"x\">2<b class=\"x\">3<b t:class=\"s\">4</b></b></p>z")
         .assertError("t.html:1:", "[verifier:PARSE_ERROR]");
     // ATTRIBUTE_VALUE_CHANGES_PARSE for a computed input type: an <input> directly in a table.

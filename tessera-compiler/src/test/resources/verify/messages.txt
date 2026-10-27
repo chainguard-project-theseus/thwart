@@ -135,10 +135,6 @@ m=First.<p>Second.
 <!DOCTYPE html>
 <html $NS t:params="String s"><frameset><frame t:src="s"></frameset></html>
 => t.html:2:57: error: <frameset> isn't supported: a browser uses it only if no body content came before it, so the page would depend on what precedes it; use an <iframe> or an ordinary layout [verifier:FRAMESET]
-== NOAHS_ARK: three nested <b>, one with a computed class
--- t.html
-<b t:class="s"><b><b>x</b></b></b>
-=> t.html:1:56: error: three or more identical formatting elements (<b>, <i>, <a>, ...) are open here, one with a computed attribute: a browser reopens at most three of them, comparing attribute values, so the structure can depend on the value; close them before opening another, or move the computed attribute to a <span> [verifier:NOAHS_ARK]
 == STRUCTURE_DEPENDS_ON_DATA: a fragment that inserts itself, deeper each time
 -- rich.html
 <div $NS t:import="java.util.List" t:params="List<String> nodes"><t:block t:fragment="nodes(List<String> ns)"><t:block t:each="n : ns"><ul t:if="n == 'ul'"><li t:insert="~{rich :: nodes(ns)}"></li></ul></t:block></t:block><section t:insert="~{rich :: nodes(nodes)}"></section></div>

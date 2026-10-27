@@ -471,7 +471,7 @@ class ProfileOracleTest {
         String.valueOf(s.tokenizer()), String.valueOf(s.attributeName()), String.valueOf(s.endTagExpectation()),
         String.valueOf(s.mode()), String.valueOf(s.originalMode()), String.valueOf(s.stack()),
         String.valueOf(s.activeFormatting()), String.valueOf(s.activeFormattingElements()),
-        String.valueOf(s.activeFormattingAttributes()), String.valueOf(s.templateModes()),
+        String.valueOf(s.templateModes()),
         String.valueOf(s.formPointer()), String.valueOf(s.headPointer()), String.valueOf(s.quirks()),
         String.valueOf(s.pendingTableText()));
   }

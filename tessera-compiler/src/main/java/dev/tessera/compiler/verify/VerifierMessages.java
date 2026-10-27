@@ -89,10 +89,6 @@ final class VerifierMessages {
       case FRAMESET:
         return "<frameset> isn't supported: a browser uses it only if no body content came before it, so the page"
             + " would depend on what precedes it; use an <iframe> or an ordinary layout";
-      case NOAHS_ARK:
-        return "three or more identical formatting elements (<b>, <i>, <a>, ...) are open here, one with a computed"
-            + " attribute: a browser reopens at most three of them, comparing attribute values, so the structure"
-            + " can depend on the value; close them before opening another, or move the computed attribute to a <span>";
       case LOOP_NO_FIXED_POINT:
         return "each pass of this loop leaves a browser with more elements open (it doesn't settle in "
             + ContextVerifier.MAX_ROUNDS + " passes); close inside the loop every element the loop opens";

@@ -280,7 +280,6 @@ public final class TesseraAccess {
     t.formattingStackIndex = new int[listLength];
     t.formattingNamespaces = new String[listLength];
     t.formattingNames = new String[listLength];
-    t.formattingAttributes = new String[listLength][];
     for (int i = 0; i < listLength; i++) {
       StackNode<Object> entry = list[i];
       if (entry == null) {
@@ -297,14 +296,6 @@ public final class TesseraAccess {
       t.formattingStackIndex[i] = index;
       t.formattingNamespaces[i] = entry.ns;
       t.formattingNames[i] = entry.popName;
-      HtmlAttributes attributes = entry.attributes;
-      int n = attributes == null ? 0 : attributes.getLength();
-      String[] pairs = new String[2 * n];
-      for (int k = 0; k < n; k++) {
-        pairs[2 * k] = attributes.getAttributeNameNoBoundsCheck(k).getLocal(AttributeName.HTML);
-        pairs[2 * k + 1] = attributes.getValueNoBoundsCheck(k);
-      }
-      t.formattingAttributes[i] = pairs;
     }
     int[] templateModes = s.getTemplateModeStack();
     t.templateModes = new String[s.getTemplateModeStackLength()];
@@ -353,8 +344,6 @@ public final class TesseraAccess {
     public int[] formattingStackIndex;
     public String[] formattingNamespaces;
     public String[] formattingNames;
-    /** Per entry: name, value, name, value, ...; null for a marker. */
-    public String[][] formattingAttributes;
     public String[] templateModes;
     public String mode;
     public String originalMode;
