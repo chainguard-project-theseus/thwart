@@ -58,6 +58,10 @@ final class TypesHarness {
         public class Account {
           public String getId() { return "a1"; }
           public boolean isActive() { return true; }
+          public Boolean getIsApproved() { return Boolean.TRUE; }
+          public boolean isPrimary() { return true; }
+          public String getIsPrimary() { return "getIsPrimary"; }
+          public Thread getIsRunning() { return null; }
           public String secret() { return "s"; }
           public void close() {}
           public Thread getThread() { return null; }
