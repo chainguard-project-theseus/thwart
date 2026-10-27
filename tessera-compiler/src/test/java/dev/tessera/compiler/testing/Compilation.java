@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -251,7 +252,8 @@ public final class Compilation {
     }
 
     /**
-     * Test-only (#324): compiles and generates as usual but doesn't run the context verifier, so
+     * Test-only (#324): compiles and generates as usual but drops the context verifier's findings
+     * (it still names the escaper of element text, #378), so
      * the oracle gate can render a template the verifier rejects and report it as a false-positive
      * candidate when the value checks find nothing. The profile's errors still fail the build. Never
      * use it to make a template compile.
@@ -748,7 +750,8 @@ public final class Compilation {
 
   /**
    * {@link Builder#withoutVerifier()}: the compiler with its diagnostics reported and its files
-   * written when it has no errors, without the context verifier. No Lombok rounds, no function index.
+   * written when it has no errors, without the context verifier's findings. No Lombok rounds, no
+   * function index.
    */
   private static final class UnverifiedProcessor extends AbstractProcessor {
     private final Map<String, String> templates;
@@ -797,7 +800,7 @@ public final class Compilation {
         return false;
       }
       try {
-        for (dev.tessera.compiler.GeneratedFile f : result.files()) {
+        for (dev.tessera.compiler.GeneratedFile f : result.files(Set.of(), unverifiedEscapers(result.skeletons()))) {
           FileObject fo = f.kind() == dev.tessera.compiler.GeneratedFile.Kind.JAVA
               ? processingEnv.getFiler().createSourceFile(f.name())
               : processingEnv.getFiler().createResource(StandardLocation.CLASS_OUTPUT, "", f.name());
@@ -810,6 +813,37 @@ public final class Compilation {
       }
       skeletons = result.skeletons();
       return false;
+    }
+  }
+
+  /**
+   * Test-only (#378): the escaper of each element-text hole in {@code skeletons}, for code written
+   * without the verifier's findings. The verifier names it where it reaches the hole; in a template
+   * it rejects it may not reach every hole, and those take the escaper the host element's name
+   * implies ({@code rcdata} in a title or textarea), as the compiler chose before #378.
+   */
+  public static Map<Skeleton.Hole, Skeleton.Escaper> unverifiedEscapers(Map<String, Skeleton.TemplateSkeleton> skeletons) {
+    Map<Skeleton.Hole, Skeleton.Escaper> escapers = new IdentityHashMap<>(ContextVerifier.verify(skeletons, d -> {}));
+    for (Skeleton.TemplateSkeleton t : skeletons.values()) {
+      textHoles(t.body(), escapers);
+      t.fragments().values().forEach(f -> textHoles(f, escapers));
+    }
+    return escapers;
+  }
+
+  private static void textHoles(Skeleton.Node n, Map<Skeleton.Hole, Skeleton.Escaper> escapers) {
+    switch (n) {
+      case Skeleton.Hole h when h.escaper() == Skeleton.Escaper.TEXT -> escapers.putIfAbsent(
+          h, Set.of("title", "textarea").contains(h.element()) ? Skeleton.Escaper.RCDATA : Skeleton.Escaper.TEXT);
+      case Skeleton.Seq s -> s.nodes().forEach(c -> textHoles(c, escapers));
+      case Skeleton.Opt o -> textHoles(o.body(), escapers);
+      case Skeleton.Alt a -> a.branches().forEach(b -> textHoles(b, escapers));
+      case Skeleton.Rep r -> {
+        textHoles(r.body(), escapers);
+        textHoles(r.separator(), escapers);
+      }
+      case Skeleton.Call c -> c.fragmentArgs().values().forEach(b -> textHoles(b, escapers));
+      default -> { }
     }
   }
 

@@ -123,9 +123,11 @@ public final class TesseraProcessor extends AbstractProcessor {
         return false;
       }
       done = true;
+      Map<Skeleton.Hole, Skeleton.Escaper> escapers = Collections.emptyMap();
       if (!diagnostics.hasErrors()) {
         // The security boundary for markup contexts (#367): runs on every build, after the profile.
-        ContextVerifier.verify(result.skeletons(), diagnostics);
+        // It also names each element-text hole's escaper from the parser state (#378).
+        escapers = ContextVerifier.verify(result.skeletons(), diagnostics);
       }
       if (!diagnostics.hasErrors()) {
         // #396: which templates SafeHtml.of and Fragment.of accept, marked in their classes.
@@ -133,13 +135,13 @@ public final class TesseraProcessor extends AbstractProcessor {
         // #131: which fragments get a "page :: fragment" registry entry.
         servableFragments = ContextVerifier.servableFragments(result.skeletons());
       }
-      List<GeneratedFile> files = new ArrayList<>(result.files(flowPartials, servableFragments));
-      files.addAll(functionIndex(functionClasses));
       for (Diagnostic d : diagnostics.all()) {
         messager.printMessage(kind(d.severity()), d.toString());
       }
       // The only place that enforces "nothing is written on error".
       if (!diagnostics.hasErrors()) {
+        List<GeneratedFile> files = new ArrayList<>(result.files(flowPartials, escapers, servableFragments));
+        files.addAll(functionIndex(functionClasses));
         write(files);
         writeFingerprint(TemplateFingerprint.of(sources));
         written = files;
@@ -197,7 +199,9 @@ public final class TesseraProcessor extends AbstractProcessor {
     try {
       List<TypeElement> functionClasses = functionClasses();
       // The same marks: if the skeletons changed, so did the classes.
-      again = new ArrayList<>(compile(new Diagnostics(), functionClasses).files(flowPartials, servableFragments));
+      TemplateCompiler.Result result = compile(new Diagnostics(), functionClasses);
+      again = new ArrayList<>(result.files(
+          flowPartials, ContextVerifier.verify(result.skeletons(), new Diagnostics()), servableFragments));
       again.addAll(functionIndex(functionClasses));
     } catch (IOException | RuntimeException e) {
       return; // the build already has its output; this is only a check

@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * What a generated template class writes, recorded while the generator writes it (#366): the
@@ -166,9 +167,14 @@ public final class Skeleton {
    * A value written with {@code escaper}. {@code element} is the lower-case name of the element
    * whose content or start tag the value is in, as the generator sees it (the nearest element whose
    * tag is written; null at the top level of a template or fragment). {@code attribute} is the
-   * attribute name for an attribute escaper, else null. {@code pos} is the expression.
+   * attribute name for an attribute escaper, else null. {@code pos} is the expression. A
+   * {@link Escaper#TEXT} hole is element text: the verifier names its escaper ({@code text} or
+   * {@code rcdata}) from the parser state, and the hole's {@link #id} finds it in the generated code
+   * (#378).
    */
   public static final class Hole implements Node {
+    private static final AtomicInteger IDS = new AtomicInteger();
+    private final int id = IDS.incrementAndGet();
     private final Escaper escaper;
     private final String element;
     private final String attribute;
@@ -183,6 +189,11 @@ public final class Skeleton {
 
     public Escaper escaper() {
       return escaper;
+    }
+
+    /** Unique among the holes made in this JVM. */
+    public int id() {
+      return id;
     }
 
     public String element() {
