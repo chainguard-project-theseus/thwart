@@ -45,7 +45,7 @@ Converted 8 template(s); 49 item(s) need manual attention.
 - `misc/unsupported.html:14`: `data-th-text` (HTML5 data-th-* syntax) is not converted; rewrite it as `t:text`
 - `misc/unsupported.html:15`: object creation with `new` is not supported (never); compute the value in Java
 - `misc/unsupported.html:16`: `th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or move data to `data-*` attributes
-- `misc/unsupported.html:17`: `[[${user.name}]]` inside a JavaScript comment is a build error in Tessera (its value would be written inside the comment and the page would never use it); move it out of the comment: Thymeleaf's natural template `var a = /*[[${x}]]*/ 'd';` becomes `var a = [[${x}]];`
+- `misc/unsupported.html:17`: `/*[[${user.name}]]*/ 'x'` in a script was rewritten to `[[${user.name}]]`: Thymeleaf's natural template wrote the value in place of the comment and dropped the default `'x'`, and `[[...]]` inside a comment is a build error in Tessera
 - `misc/unsupported.html:19`: `[(...)]` prints `user.bio` without escaping; `t:utext` takes a `SafeHtml`. For stored HTML write `t:utext="html.sanitize(user.bio)"` (`html.sanitizeRich` for editor or Markdown output, or an application `HtmlPolicy` in a `@TemplateFunctions` namespace; guide section 4.10, Rich text), never a recursive fragment over a tree parsed in Java; for markup built in Java return a `SafeHtml`; for plain text use `t:text`
 
 ## owners/createOrUpdateOwnerForm.html
