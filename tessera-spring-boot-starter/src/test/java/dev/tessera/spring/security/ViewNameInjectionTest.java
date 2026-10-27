@@ -46,8 +46,8 @@ import org.springframework.web.context.WebApplicationContext;
 /**
  * Spring View Manipulation through the starter: whatever a controller returns as a view name
  * (from a parameter, header, cookie, path variable, a {@code "prefix" + input} or
- * {@code "page :: " + selector} concatenation, or a void handler's URI) is looked up verbatim,
- * exactly once, in the build-time registry. Nothing is preprocessed, evaluated or split, no
+ * {@code "page :: " + selector} concatenation, or a void handler's URI) is looked up verbatim
+ * (less one leading {@code /}, #131), exactly once, in the build-time registry. Nothing is preprocessed, evaluated or split, no
  * template renders, and the name falls through to the next resolver.
  */
 @ExtendWith(SpringTestContext.class)
@@ -88,7 +88,10 @@ class ViewNameInjectionTest {
           "Greeting",
           "greeting.html",
           "./greeting",
-          "/greeting",
+          "//greeting",
+          "/./greeting",
+          "/../greeting",
+          "/greeting :: frag",
           "../greeting",
           "owners/../greeting",
           "owners/./details",
@@ -121,7 +124,8 @@ class ViewNameInjectionTest {
     assertThat(registry.renders.get()).as("templates rendered").isZero();
     // Exactly one lookup, of exactly the name the controller produced.
     if (!expectedName.startsWith("redirect:") && !expectedName.startsWith("forward:")) {
-      assertThat(registry.lookups).containsExactly(expectedName);
+      String lookup = expectedName.startsWith("/") ? expectedName.substring(1) : expectedName;
+      assertThat(registry.lookups).containsExactly(lookup);
       // Boot's ContentNegotiatingViewResolver asks every resolver, so the next one sees it too.
       assertThat(fallback.names).containsExactly(expectedName);
     }
@@ -214,6 +218,16 @@ class ViewNameInjectionTest {
   void exactNameStillRenders() throws Exception {
     // Control: the same plumbing renders a real template name.
     mvc.perform(get("/param").param("v", "greeting"))
+        .andExpect(status().isOk())
+        .andExpect(content().string("<p>greeting</p>"));
+    assertThat(registry.renders.get()).isEqualTo(1);
+    assertThat(registry.lookups).containsExactly("greeting");
+  }
+
+  @Test
+  void leadingSlashSelectsOnlyTheSameTemplate() throws Exception {
+    // One leading "/" is dropped (#131): "/greeting" is "greeting", nothing more.
+    mvc.perform(get("/param").param("v", "/greeting"))
         .andExpect(status().isOk())
         .andExpect(content().string("<p>greeting</p>"));
     assertThat(registry.renders.get()).isEqualTo(1);

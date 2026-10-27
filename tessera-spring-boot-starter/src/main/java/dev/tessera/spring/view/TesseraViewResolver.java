@@ -11,9 +11,11 @@ import org.springframework.web.servlet.ViewResolver;
 
 /**
  * Resolves a view name by exact lookup in the build-time {@link TemplateRegistry}. The name is
- * never parsed, concatenated or normalized: anything that is not exactly a compiled template's
- * name (including {@code redirect:} and {@code forward:} names, which no template file can be
- * called) yields {@code null} so the next resolver runs. Construction logs how many compiled
+ * never parsed, concatenated or normalized, except that one leading {@code /} is dropped: Thymeleaf
+ * and FreeMarker put their prefix in front of the name, so {@code "/auth/register"} finds the same
+ * file as {@code "auth/register"}. Anything else that is not exactly a compiled template's name
+ * (including {@code redirect:} and {@code forward:} names, which no template file can be called,
+ * and {@code page :: fragment} names, #131) yields {@code null} so the next resolver runs. Construction logs how many compiled
  * templates the registry holds, and warns when there are none, since then every view silently
  * falls through.
  */
@@ -54,7 +56,8 @@ public final class TesseraViewResolver implements ViewResolver, Ordered {
     if (viewName == null) {
       return null;
     }
-    return registry.find(viewName).map(e -> TesseraView.of(e, contexts)).orElse(null);
+    String name = viewName.startsWith("/") ? viewName.substring(1) : viewName;
+    return registry.find(name).map(e -> TesseraView.of(e, contexts)).orElse(null);
   }
 
   @Override
