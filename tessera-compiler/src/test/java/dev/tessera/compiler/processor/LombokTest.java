@@ -2,6 +2,7 @@ package dev.tessera.compiler.processor;
 
 import static dev.tessera.compiler.testing.Compilation.model;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dev.tessera.compiler.testing.Compilation;
 import java.util.ServiceLoader;
@@ -16,6 +17,13 @@ import org.junit.jupiter.params.provider.ValueSource;
  * later rounds and reports errors only in the last one.
  */
 class LombokTest {
+  /**
+   * The newest JDK whose javac the test-scope Lombok ({@code lombok.version}, 1.18.48) supports.
+   * Lombok reflects into javac internals, so an older Lombok fails to initialize on a newer JDK
+   * (1.18.36 on JDK 24+: {@code NoSuchFieldException: TypeTag :: UNKNOWN}, #433). Raise both together.
+   */
+  private static final int LOMBOK_MAX_JDK = 27;
+
   private static final String PAGE =
       """
       package demo;
@@ -56,6 +64,11 @@ class LombokTest {
       """;
 
   private static Compilation.Builder withLombok(boolean lombokFirst) {
+    int jdk = Runtime.version().feature();
+    assumeTrue(
+        jdk <= LOMBOK_MAX_JDK,
+        "test-scope Lombok supports javac up to JDK " + LOMBOK_MAX_JDK + ", not " + jdk
+            + ": raise lombok.version in tessera-compiler/pom.xml and LombokTest.LOMBOK_MAX_JDK");
     return Compilation.builder().processor(lombok(), lombokFirst);
   }
 

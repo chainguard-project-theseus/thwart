@@ -63,14 +63,17 @@ Each principle removes a class of bugs. The full rules are in [AGENTS.md](AGENTS
 
 - **Your application:** builds with JDK 8+ javac and Maven, and runs on Java 8+. The runtime, the
   Spring starters and the annotation processor are Java 8 class files, and the generated code
-  compiles at release 8.
+  compiles at release 8. CI compiles applications with JDK 8 javac (`Jdk8ProcessorTest`) and JDK
+  21 javac (everything else); newer JDKs are expected to work but are not run in CI.
 - **Spring:** Spring Framework 4.3+ or Spring Boot 1.5+, on Servlet 3.0+. Tested on Boot 1.5,
   2.0, 2.7, 3.5 and 4.1 and on plain Spring MVC 4.3 and 5.0. Below Spring 4.3 is untested. The
   build needs `maven-compiler-plugin` 3.5+ for `annotationProcessorPaths` (Boot 1.5's parent pins
   3.1: override it).
 - **Dependencies:** `tessera-runtime` has none. The starters pass on only `tessera-runtime`;
   Spring, the servlet API and Spring Security come from your application.
-- **Building this repo:** JDK 21+ and Maven 3.9+.
+- **Building this repo:** JDK 21+ and Maven 3.9+. CI builds it with JDK 21 and Maven 3.9 (plus a
+  JDK 8 javac for `Jdk8ProcessorTest`). On a newer JDK, `LombokTest` is skipped with a message once
+  the JDK is newer than its test-scope Lombok supports (JDK 27 today).
 
 Artifacts are `0.1.0-SNAPSHOT` and not published to a remote repository yet. Run
 `mvn -B -ntp install` in this repo to put them in your local Maven repository.
