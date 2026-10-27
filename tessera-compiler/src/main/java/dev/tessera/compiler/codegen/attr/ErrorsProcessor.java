@@ -58,7 +58,7 @@ public final class ErrorsProcessor implements AttributeProcessor {
             + ".isEmpty()) {",
         "} }",
         attr.pos());
-    OutputContext context = Contexts.text(plan.element()); // TEXT, or RCDATA in <title>/<textarea>
+    OutputContext context = Contexts.text(plan.element()); // TEXT: the verifier names text or rcdata (#378)
     plan.replaceBody(
         Emitted.rep(
             Skeleton.RepKind.ERRORS,

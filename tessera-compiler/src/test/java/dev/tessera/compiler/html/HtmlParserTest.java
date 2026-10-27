@@ -142,7 +142,7 @@ class HtmlParserTest {
     assertEquals(List.of("a<b>c</b>", "<i>x", "p>q{}", "<p a=1 a=1>"),
         top.stream().map(n -> ((Text) el(n).children().get(0)).raw()).toList());
     assertEquals(
-        List.of(OutputContext.RCDATA, OutputContext.RCDATA, OutputContext.STYLE, OutputContext.FORBIDDEN),
+        List.of(OutputContext.TEXT, OutputContext.TEXT, OutputContext.STYLE, OutputContext.FORBIDDEN),
         top.stream().map(n -> ((Text) el(n).children().get(0)).context()).toList());
     assertEquals(0, el(parseOk("<script src=\"/a.js\"></script>").rootElement()).children().size());
   }
@@ -797,7 +797,7 @@ class HtmlParserTest {
     Element div = el(fo.children().get(0));
     assertFalse(div.foreign());
     assertEquals(
-        List.of(OutputContext.RCDATA, OutputContext.RCDATA, OutputContext.STYLE, OutputContext.SCRIPT),
+        List.of(OutputContext.TEXT, OutputContext.TEXT, OutputContext.STYLE, OutputContext.SCRIPT),
         div.children().stream().map(n -> ((Text) el(n).children().get(0)).context()).toList());
     parseOk("<math><mtext><textarea><b>x</b></textarea></mtext><mi><title><i>t</i></title></mi></math>");
     parseOk("<svg><desc><b>x</b></desc></svg>");
@@ -888,7 +888,8 @@ class HtmlParserTest {
 
   @Test
   void htmlTitleAndTextareaInsideForeignContentStayRcdata() {
-    // In an integration point (or outside the svg) these are HTML elements: RCDATA, raw text.
+    // In an integration point (or outside the svg) these are HTML elements: raw text in Tessera's
+    // tree, RCDATA for the verifier, which names their escaper (#378, ContextVerifierRulesTest).
     for (String html :
         List.of(
             "<svg><foreignObject><textarea><i>x</textarea></foreignObject></svg>",
@@ -907,7 +908,7 @@ class HtmlParserTest {
             // (RemoveProcessor then rejects t:remove="tag" inside svg and math, #300.)
             "<svg t:remove=\"tag\"><title><i>x</title></svg>",
             "<math><mi><mglyph t:remove=\"tag\"><textarea><i>x</textarea></mglyph></mi></math>")) {
-      assertEquals(List.of("<i>x=RCDATA"), texts(parseOk(html).children()), html);
+      assertEquals(List.of("<i>x=TEXT"), texts(parseOk(html).children()), html);
     }
     parseOk("<math><annotation-xml t:remove=\"tag\"><svg></svg></annotation-xml></math>");
     parseOk("<math><mi><t:block><mglyph></mglyph></t:block></mi></math>");

@@ -13,7 +13,8 @@ public enum OutputContext {
   TEXT("text"),
   /**
    * Text in {@code <title>} or {@code <textarea>} (RCDATA, #248). Escaped like TEXT, but
-   * {@code {{} is not broken: a comment would show as text there.
+   * {@code {{} is not broken: a comment would show as text there. The parser never picks it: the
+   * verifier names this escaper for TEXT where a browser reads RCDATA (#378).
    */
   RCDATA("rcdata"),
   /** Quoted value of an ordinary attribute. Generated attributes are always double-quoted. */

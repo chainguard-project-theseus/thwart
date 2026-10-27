@@ -76,7 +76,7 @@ public final class FieldProcessor implements AttributeProcessor {
         break;
       case "textarea":
         nameAndId(plan, attr, name, id);
-        // RCDATA, or TEXT for a textarea inside svg or math
+        // TEXT: the verifier names rcdata in a textarea (#378)
         OutputContext content = Contexts.text(plan.element());
         plan.replaceBody(
             Emitted.hole(Skeleton.Escaper.forMethod(content.escaper()), plan.element().name(), null, attr.pos(), display),

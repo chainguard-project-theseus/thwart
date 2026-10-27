@@ -1,5 +1,6 @@
 package dev.tessera.compiler;
 
+import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.codegen.RegistryGenerator;
 import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.codegen.TemplateIndex;
@@ -38,10 +39,6 @@ public final class TemplateCompiler {
     this.env = env;
   }
 
-  public List<GeneratedFile> compile(List<TemplateSource> sources) {
-    return run(sources).files();
-  }
-
   /** The generated files and, in memory only, the skeleton of every template (#366). */
   public static final class Result {
     private final List<GeneratedFile> files;
@@ -62,11 +59,12 @@ public final class TemplateCompiler {
     }
 
     /**
-     * {@link #files()}, with the classes of the templates in {@code flowPartials} (view names, as
-     * {@code ContextVerifier.flowPartials} returns them) marked as verified {@code FLOW} partials
-     * (#396).
+     * {@link #files()}, with the escaper of each element-text hole set to the one in {@code
+     * escapers} (as {@code ContextVerifier.verify} returns them, #378), and the classes of the
+     * templates in {@code flowPartials} (view names, as {@code ContextVerifier.flowPartials}
+     * returns them) marked as verified {@code FLOW} partials (#396).
      */
-    public List<GeneratedFile> files(Set<String> flowPartials) {
+    public List<GeneratedFile> files(Set<String> flowPartials, Map<Skeleton.Hole, Skeleton.Escaper> escapers) {
       Set<String> marked = new HashSet<>();
       for (String view : flowPartials) {
         if (classes.containsKey(view)) {
@@ -75,18 +73,22 @@ public final class TemplateCompiler {
       }
       List<GeneratedFile> out = new ArrayList<>(files.size());
       for (GeneratedFile f : files) {
+        if (f.kind() == GeneratedFile.Kind.JAVA) {
+          f = new GeneratedFile(f.kind(), f.name(), Emitted.resolve(f.content(), escapers));
+        }
         out.add(f.kind() == GeneratedFile.Kind.JAVA && marked.contains(f.name()) ? TemplateGenerator.markFlowPartial(f) : f);
       }
       return out;
     }
 
     /**
-     * {@link #files(Set)}, with a registry that also has an entry for each fragment in {@code
+     * {@link #files(Set, Map)}, with a registry that also has an entry for each fragment in {@code
      * servable} ({@code page :: fragment}, as {@code ContextVerifier.servableFragments} returns
      * them) whose parameters a model can supply (#131).
      */
-    public List<GeneratedFile> files(Set<String> flowPartials, Set<String> servable) {
-      List<GeneratedFile> out = files(flowPartials);
+    public List<GeneratedFile> files(
+        Set<String> flowPartials, Map<Skeleton.Hole, Skeleton.Escaper> escapers, Set<String> servable) {
+      List<GeneratedFile> out = files(flowPartials, escapers);
       if (servable.isEmpty()) {
         return out;
       }
@@ -100,6 +102,7 @@ public final class TemplateCompiler {
       return out;
     }
 
+    /** The generated files, with the escaper of each element-text hole still to be set ({@link #files(Set, Map)}). */
     public List<GeneratedFile> files() {
       return files;
     }
@@ -113,7 +116,7 @@ public final class TemplateCompiler {
     }
   }
 
-  /** As {@link #compile}, also returning the skeletons. */
+  /** Parses and generates {@code sources}: the generated files and the skeletons. */
   public Result run(List<TemplateSource> sources) {
     HtmlParser html = new HtmlParser();
     List<Document> docs = new ArrayList<>();

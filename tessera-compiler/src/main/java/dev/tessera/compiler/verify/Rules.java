@@ -34,12 +34,13 @@ final class Rules {
   /**
    * The problem with {@code hole} in state {@code s}, or null if it is accepted.
    *
-   * <p>The state names the one escaper a hole there may have (#378): data, {@code text}; RCDATA,
-   * {@code rcdata}; the script data of an HTML {@code <script>}, {@code json}; a double-quoted
-   * attribute value, an attribute escaper for that attribute (which one is policy, {@code
-   * Contexts.attribute}). In never-run raw text any escaper is inert. A hole with another escaper
-   * is rejected, so a hole whose paths reach states that name different escapers is rejected on
-   * one of them (the branch rule).
+   * <p>The state names the one escaper a hole there may have (#378): the script data of an HTML
+   * {@code <script>}, {@code json}; a double-quoted attribute value, an attribute escaper for that
+   * attribute (which one is policy, {@code Contexts.attribute}); element text, {@link #textEscaper}.
+   * In never-run raw text any escaper is inert. A hole with another escaper is rejected, so a hole
+   * whose paths reach states that name different escapers is rejected on one of them (the branch
+   * rule). A {@code text} hole is element text whose escaper the verifier takes from the state
+   * ({@code ContextVerifier#textEscaper}), so only where it is text at all is checked here.
    */
   static Problem hole(Skeleton.Hole hole, ParserState s) {
     if (s.tokenizer() == TokenizerState.RAWTEXT && neverRun(s)) {
@@ -49,9 +50,7 @@ final class Rules {
     }
     switch (hole.escaper()) {
       case TEXT:
-        // With the comments that break {{: they would show as text in RCDATA.
-        Problem t = text(s);
-        return t == null && s.tokenizer() == TokenizerState.RCDATA ? Problem.TEXT_IN_RCDATA : t;
+        return text(s);
       case RCDATA:
         // Without the comments that break {{ in text: inert only where the text isn't DOM text a
         // client framework reads (memo §3.1), RCDATA and never-run raw text.
@@ -68,6 +67,18 @@ final class Rules {
       default:
         return attribute(hole, s);
     }
+  }
+
+  /**
+   * The escaper element text takes in {@code s}, where {@link #text} accepts text: {@code rcdata} in
+   * RCDATA, without the comments that break {{ (they would show as text there); {@code text}, with
+   * them, elsewhere; null in never-run raw text, where any escaper is inert.
+   */
+  static Skeleton.Escaper textEscaper(ParserState s) {
+    if (s.tokenizer() == TokenizerState.RCDATA) {
+      return Skeleton.Escaper.RCDATA;
+    }
+    return s.tokenizer() == TokenizerState.RAWTEXT && neverRun(s) ? null : Skeleton.Escaper.TEXT;
   }
 
   private static Problem text(ParserState s) {

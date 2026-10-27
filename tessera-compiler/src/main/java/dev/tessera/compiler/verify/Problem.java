@@ -21,7 +21,8 @@ public enum Problem {
   TEXT_RECONSTRUCTS,
   /**
    * An RCDATA hole (escaped for {@code <title>}/{@code <textarea>}, without the comments that break
-   * double braces) that a browser reads as ordinary text, where client frameworks look for them.
+   * double braces) that a browser reads as ordinary text, where client frameworks look for them:
+   * also element text that one path or call writes in RCDATA and another as text (#378).
    */
   RCDATA_NOT_IN_RCDATA,
   /** An attribute hole that isn't in a double-quoted attribute value. */
@@ -80,9 +81,9 @@ public enum Problem {
   /** An element other than {@code option}, {@code optgroup} or {@code hr} in a {@code <select>} (#305, exclusion (c)). */
   SELECT_CONTENT,
   /**
-   * A text hole (escaped with the comments that break double braces) that a browser reads as the
-   * text of a {@code <title>} or {@code <textarea>}, where the comments show as text (#378: the
-   * state names the escaper).
+   * Element text that one path or call writes as text (escaped with the comments that break
+   * double braces) and another as the text of a {@code <title>} or {@code <textarea>}, where the
+   * comments show as text (#378: the state names the escaper, so the two need different ones).
    */
   TEXT_IN_RCDATA,
   /**
