@@ -528,7 +528,7 @@ The compiler decides the context from the element and attribute name. You cannot
 | Resource URL | `script[src]`, `iframe[src]`, `embed[src]`, `object[data]`, `base[href]`, `link[href]` | Only a literal-path `@{...}` link or a `TrustedUrl` compiles. A `<base href>` must be same-origin (section 4.7). |
 | htmx request URL | `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect`, `ws-connect` (also with `data-`) | Only a link whose literal path starts with a single `/` compiles, as for a refresh: htmx swaps the response into the page as HTML, and htmx 1.x also requests other origins. Static values are copied verbatim. htmx 1.x's `hx-sse` and `hx-ws` (`connect:<url>`) take no expression at all. |
 | htmx form URL | `action` of a `<form>` inside `hx-boost`; `formaction` inside `hx-boost` or inside a `<form>` with an htmx request attribute | Same rule as an htmx request URL: htmx submits the form with AJAX and swaps the response in. `hx-boost="false"` on the form opts out. `hx-boost` itself cannot be computed. Links (`href`) are not affected. |
-| Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, records and `@TemplateView` beans, collections, String-keyed maps). Don't quote it: `var a = [[${x}]];`, not `"[[${x}]]"`: the value brings its own quotes, and an inline inside a JavaScript string (`"..."`, `'...'` or template-literal text), comment or regular expression literal is a build error (section 6): `[[...]]` goes only where a JavaScript expression goes. |
+| Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, records and `@TemplateView` beans, collections, String-keyed maps). Don't quote it: `var a = [[${x}]];`, not `"[[${x}]]"`: the value brings its own quotes, and an inline inside a JavaScript string (`"..."` or `'...'`) or comment is a build error (section 6): `[[...]]` goes only where a JavaScript expression goes. Before the last `[[...]]` the code may not use `/`, template literals or a few rare tokens (the data-prelude rule, section 6): declare the data first. |
 | Style | `<style>` text, the `style` attribute, and the SVG attributes that take a CSS `url()`: `fill`, `stroke`, `clip-path`, `mask`, `filter`, `marker-start`, `marker-mid`, `marker-end`, `marker` and `cursor` (not `fill` on `<animate>`, `<set>`, `<animateMotion>`, `<animateTransform>` or `<animateColor>`, which is timing) | In `<style>`, expressions are a build error. A `style` attribute or one of those SVG attributes takes only string literals, numbers and `CssValue`s, combined with `+`, `\|...\|`, `?:` and `? :`; anything else (a `String` value) is a build error. Write `t:fill="${css.color(c)}"` or `t:mask="${css.url(u)}"`. |
 | Refresh | `content` of `<meta http-equiv="refresh">` | Only `'<seconds>;url=' + @{/path...}` compiles: a literal delay and a link whose literal path starts with a single `/`, so the refresh stays on the same origin. Path variables and parameters are encoded as usual, and `; , ' "`, `\` and whitespace in the URL are percent-encoded. Rendered as `<seconds>;url=<url>`. |
 | Vue/Alpine binding | `:x`, `v-bind:x`, `x-bind:x` whose target `x` is an ordinary attribute (below) | Only a value `[[...]]` accepts in a script compiles; it is written as the same JSON, then attribute-escaped. `null` is written as `null`. |
@@ -1895,26 +1895,28 @@ These come from the annotation processor itself, without a template position.
   messages below; inside raw text, the raw-text error above applies). Inside `<svg>`, a `<p>` in the value
   ends the `<svg>`, and a `<title>` holds HTML, where a `<script>` runs.
 - `[[...]] is inside a quoted JavaScript string (<q>...<q>), but it writes a complete JSON value with its own quotes, which would close a "..." string and run as code, or end up quoted twice; remove the quotes, e.g. var a = [[...]]; or "Hello " + [[...]]`:
-  `<q>` is `"`, `'` or `` ` `` (template-literal text; `${[[...]]}` inside it is code and
-  allowed). A Thymeleaf default-mode page wrote `var a = "[[${x}]]";`; write `var a = [[x]];` (a
-  string renders `"Alice"` as before; a number renders `42`, not `"42"`). For
-  `"Hello [[${x}]]"` write `"Hello " + [[x]]`. An inline inside a comment or a regular
-  expression literal is an error too (next entries).
+  `<q>` is `"` or `'`. A Thymeleaf default-mode page wrote `var a = "[[${x}]]";`; write
+  `var a = [[x]];` (a string renders `"Alice"` as before; a number renders `42`, not `"42"`). For
+  `"Hello [[${x}]]"` write `"Hello " + [[x]]`. An inline inside a comment is an error too (next
+  entry), and so is one in a template literal or a regular expression, at its backtick or `/` (the
+  data-prelude entry below).
 - `[[...]] is inside a JavaScript comment (<c>), so its value is written inside the comment and the page never uses it; move it out of the comment: Thymeleaf's natural-template var a = /*[[${x}]]*/ 'd'; becomes var a = [[${x}]];`:
-  `<c>` is `//`, `/* */`, `-->` (an HTML-like comment, when it starts a line of a classic script)
-  or `#!` (a hashbang at the start of the script). Thymeleaf's JavaScript natural templates put the
-  value in a comment and a default literal after it; Tessera writes the value where the inline is,
-  so the page would run with the default (#315). Drop the comment markers and the default.
-- `[[...]] is inside a JavaScript regular expression literal (/.../), but it writes a complete JSON value with its own quotes, and its characters would change or break the pattern; build the pattern from the value in code, e.g. new RegExp([[...]])`:
-  `/[[${x}]]/` becomes `new RegExp([[${x}]])` (escape the value in Java if it is not meant as a
-  pattern).
-- `[[...]] comes after a '/' at <line>:<col> that could be a division or start a regular expression, so it is unclear where the value would be written; make that '/' unambiguous: wrap a regular expression in parentheses, (/.../), or the left operand of a division, (...) / 2`:
-  to find strings, comments and regular expressions, the compiler has to tell a regular expression
-  from a division, and after a `}` (a block or an object literal?), `++` or `--`, or the words `of`,
-  `yield` and `await` it cannot. It then rejects every `[[...]]` after that `/` rather than guess.
-  `function f() {}
-/x/.test(s)` becomes `(/x/).test(s)`; `{} / 2` becomes `({}) / 2`; `i++ / 2`
-  becomes `(i++) / 2`.
+  `<c>` is `//` or `/* */`. Thymeleaf's JavaScript natural templates put the value in a comment
+  and a default literal after it; Tessera writes the value where the inline is, so the page would
+  run with the default (#315). Drop the comment markers and the default.
+- `<token> before the last [[...]] of a <script>: the compiler reads the code before the last value only with a lexer that has no ambiguous tokens, so it can prove where each value goes: move the [[...]] above the code (declare the data first, var data = [[...]];), or write the value into a <script type="application/json"> and read it with JSON.parse`:
+  the data-prelude rule (#332). To know that each `[[...]]` is outside every string and comment,
+  the compiler reads the script text before the last `[[...]]` with a lexer that needs no
+  context: identifiers, numbers, punctuators, `"..."` and `'...'` strings, `//` and `/* */`
+  comments, and whitespace. `<token>` is what it can't read without guessing: a `/` (a division
+  or a regular expression?), a backtick (a template literal, `${...}` included), `-->`, `#!` or
+  `<!` (HTML-like and hashbang comments; a negative value after `<!-` would make `<!--`), a
+  backslash line continuation in a string, or U+2028/U+2029. After the last `[[...]]` anything
+  goes. The usual shape, data first and code after it, compiles unchanged:
+  `var chart = [[${chart}]]; $(function () { ... })`. Otherwise move the declarations up, or put
+  the data in `<script type="application/json" id="data">[[${data}]]</script>` and read it with
+  `JSON.parse(document.getElementById('data').textContent)`. A pattern built from a value
+  (`/[[${x}]]/`) becomes `var p = [[${x}]];` first and `new RegExp(p)` after it.
 - `[[...]] is inside a client-side {{ ... }} interpolation: Vue or AngularJS would run the value as code, whatever the escaping. Pass the value in a data-* attribute or a <script> with [[...]] and read it from there`
   (also `[(...)]`): the text has a `{{` with no `}}` before the expression, in element text,
   `<title>`, `<textarea>` or a `<script>`. Character references for braces count outside scripts,
@@ -1954,8 +1956,6 @@ These come from the annotation processor itself, without a template position.
   `s = "img src=x onerror=..."`). In `<title>` and `<textarea>` only an end tag matters: `</text`
   and a value `area`, or `</textarea` and an empty value, end the element early. The other endings
   are rejected there too, to fail closed. Write `&lt;[[s]]`.
-- `[[...]] may not follow '<!-' directly in <script>: a negative number would make it '<!--'; write a space after '<'`:
-  after `<!--` a browser hides the next `</script>` that follows a `<script` in the code.
 - `cannot output a value of type <type> inside <script>: only strings, numbers, booleans, enums, java.time values, records and @TemplateView classes of those, and Optionals, collections, arrays and String-keyed maps of those can be serialized as JSON`:
   when a property of a record or bean is the problem, the message ends with
   `; property '<name>' of <type> has type <type>` (or `; <type> contains itself with different type arguments`).
@@ -2148,6 +2148,11 @@ Gaps in Tessera today, each with what to do until it is fixed.
   as `hx-post="https://other.example/"` on the form or a button in it, and a `<form>` nested in
   another (a browser ignores the inner start tag, so the inner form's token lands in the outer
   form). Give an external target its own form, and don't nest forms.
+- **Scripts.** In a `<script>` with `[[...]]`, the code before the last `[[...]]` can't use `/`
+  (division, regular expressions), template literals, `-->`, `#!`, `<!`, a backslash line
+  continuation or U+2028/U+2029 (section 6): the compiler proves where each value goes without a
+  JavaScript parser. Declare the data at the top of the script, or use a
+  `<script type="application/json">` and `JSON.parse`.
 - **Output.** `[[...]]` in a script serializes only the properties of the static type: a subclass's
   extra getters are not written, and Jackson annotations are ignored. `numbers.*` has no grouping
   or locale; `temporals.format` uses English names. Thymeleaf parser-level comments

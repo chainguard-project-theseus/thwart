@@ -505,6 +505,9 @@ final class Migrator {
      * it unsafe.
      */
     private void quotedInlines(String text, int offset, int line) {
+      // TODO(#331): report code before the last inline that the compiler's data-prelude rule (#332)
+      // rejects (a '/', a backtick, "-->", "#!", "<!", a line continuation, U+2028/U+2029): the fix,
+      // moving the data above the code, is not mechanical.
       int state = CODE;
       char quote = 0;
       int quoteAt = -1; // the opening quote when the current literal so far is only that quote

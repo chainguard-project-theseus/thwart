@@ -174,17 +174,17 @@ Applies to a `<script>` with no `type` or a JavaScript, module or JSON type
 |---|---|---|---|
 | Holes take a JSON value written by `Escapers.json`, which also escapes `<`, `>`, `&`, `'`, `/`, backtick, `$`, U+2028 and U+2029 | main | `ScriptJsonTest`; #341 slot check | `Esc` `jsonScriptSafe` (strings); `JsonFirst` for other values unproved |
 | `{` in JSON strings is written as `\u007b` | #303 | `ScriptJsonTest` (#303) | not yet (G3) |
-| Before the last hole, the static text uses only identifiers, numbers, punctuators other than `/`, `"..."` and `'...'` strings, `//` and `/* */` comments, and whitespace | phase 3 (#332); #290 rejects holes in `"..."`, `'...'` and template-literal strings, comments and regex literals, decides regex vs division from the previous token, and rejects every hole after a `/` it cannot classify (after `}`, `++`/`--`, `of`/`yield`/`await`) instead of guessing (security-architecture.md §9) | seeds `A32`, `A33`, `A51`, `A52`; generator script positions "after `a / b;`", "after `x\n/"/.test(y);`" | not yet (Lean does not model JavaScript) |
-| A backtick, `<!--`, `-->`, a backslash line continuation, U+2028 or U+2029 before the last hole is an error | phase 3 (#332); `<!--` anywhere is already an error on main | seeds `A34`, `A36` | Lean `NoScriptDanger` (`<!--` only) |
-| Each hole is in expression position: not inside a string or comment | main for strings, comments and regex literals (#290, the compiler half of #315); phase 3 (#332) re-derives it from the data-prelude rule; `tessera-migrate` unquotes `"[[x]]"` in #287 | seeds `A2`, `A35`; generator positions `"[[s]]"`, `'[[s]]'`, `/*[[s]]*/`, `// [[s]]` | not yet |
-| A hole after static `<!-` is an error | main (#299) | `ValueAfterLessThanTest` | JML §5 `htmlMarkupStart`, `scriptMarkupStart` (`markupBefore` on main) (SCRIPT); Lean `NoScriptLtBeforeHole` |
-| After the last hole, any script text | target | #341 aligns the AST after the slot | n/a |
-| No holes in SVG `<script>` | phase 3 (#332) | seeds `A55`, `A56`, `A58`, `B0`, `B11` | Lean `StaticNoAmp` |
+| Before the last hole, the static text uses only identifiers, numbers, punctuators other than `/`, `"..."` and `'...'` strings, `//` and `/* */` comments, and whitespace | main (#332, `TextInlining.checkDataPrelude`, which replaced #290's regex-vs-division lexer) | `ScriptQuotedInlineTest`; seeds `A32`, `A33`, `A51`, `A52`; generator script positions "after `a / b;`", "after `x\n/"/.test(y);`" (rejected) | not yet (Lean does not model JavaScript) |
+| A backtick, `<!`, `-->`, `#!`, a backslash line continuation, U+2028 or U+2029 before the last hole is an error | main (#332). `<!` stands for `<!--`, which is a markup error anywhere in a script: a value or code after `<!` can complete it | `ScriptQuotedInlineTest`; seeds `A34`, `A36`; generator positions `` `[[s]]` ``, `` `${[[s]]}` `` (rejected) | Lean `NoScriptDanger` (`<!--` only) |
+| Each hole is in expression position: not inside a string or comment | main (#332; #290 first, the compiler half of #315); a hole in a regex or template literal comes after a `/` or backtick, so the row above rejects it; `tessera-migrate` unquotes `"[[x]]"` in #287 | seeds `A2`, `A35`; generator positions `"[[s]]"`, `'[[s]]'`, `/*[[s]]*/`, `// [[s]]` | not yet |
+| A hole after static `<!-` is an error | main (#299; since #332 the `<!` before the last hole rule) | `ValueAfterLessThanTest` | JML §5 `htmlMarkupStart`, `scriptMarkupStart` (SCRIPT; `markupBefore` before #332, now `checkDataPrelude`); Lean `NoScriptLtBeforeHole` |
+| After the last hole, any script text | main (#332) | #341 aligns the AST after the slot | n/a |
+| No holes in SVG `<script>` | main: the verifier's `JSON_NOT_IN_SCRIPT` (#367) | seeds `A55`, `A56`, `A58`, `B0`, `B11` | Lean `StaticNoAmp` |
 | An unclosed static `{{` before a hole in the same script is an error | #303 | `ClientTemplateInjectionTest` (#303) | not yet |
 
-Rhino, the #341 engine, cannot parse ES modules, classes, `for await` or object spread. Seeds
-`A51` and `A52` report `JS_UNPARSABLE`, which the gate counts as a known false negative; the Node
-job (#345) checks them with acorn.
+Rhino, the #341 engine, cannot parse ES modules, classes, `for await` or object spread, and reports
+`JS_UNPARSABLE` for an accepted script it can't parse; the Node job (#345) checks those with acorn.
+Since #332 the gate lists none: seeds `A51` and `A52` are rejected at their `/`.
 
 ## 5. Composition: content kinds (§5.5)
 
