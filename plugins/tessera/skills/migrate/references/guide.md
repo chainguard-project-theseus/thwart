@@ -323,13 +323,17 @@ fix each error with the catalogue (section 6).
 
 For Thymeleaf, `tessera-migrate` does the mechanical rewrite of a whole directory first:
 `java -jar $MIGRATE <old-templates-dir> <new-templates-dir> --report migrate-report.md`. It
-converts `th:` attributes, utility objects and common string-built links, stubs `t:params` and
-fragment parameter types as `Object` (which fails to compile until you write the real types),
+converts `th:` attributes, utility objects and common string-built links, splits a selection
+over several properties (`*{firstName + ' ' + lastName}` becomes
+`*{firstName} + ' ' + *{lastName}`), stubs `t:params` and fragment parameter types as `Object`
+(which fails to compile until you write the real types),
 fixes layout markup that nests a second `<body>` (section 4.8, Layouts), and lists what it could
 not convert by `file:line`. In a JavaScript or JSON `<script>` it drops the
 quotes around a `"..."` or `'...'` string that is only an inline (`"[[${x}]]"` becomes `[[${x}]]`,
 which writes JSON with its own quotes) and reports any other `[[...]]` inside a string, template
 literal or comment. An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
+It also reports each `th:value`, `th:href`, `th:src`, `th:action`, `th:name` and `th:type` whose
+value may be `null`: Thymeleaf wrote the attribute empty, and Tessera omits it (section 4.3).
 
 **Nulls are where a converted page most often fails at runtime.** A `null` link path variable
 fails the render (a 500), where Thymeleaf wrote an empty segment: for an owner whose `id` is
@@ -479,8 +483,9 @@ Expressions and attributes are Thymeleaf's Standard dialect with `t:` for `th:`,
 that runs code. What differs:
 
 - `${...}` is optional (`t:text="owner.name"`). `*{...}` works only inside `t:object`, for one
-  property path. Utility objects are function namespaces (section 4.6); `#ctx`, `#request`,
-  `#dates` and the rest don't exist.
+  property path: Thymeleaf's `*{firstName + ' ' + lastName}` is `*{firstName} + ' ' + *{lastName}`.
+  Utility objects are function namespaces (section 4.6); `#ctx`, `#request`, `#dates` and the rest
+  don't exist.
 - Message keys, link paths and fragment references are literals. Not supported: `T(...)`, `new`,
   `@bean`, `__...__`, assignment, lambdas, `.?[...]`/`.![...]`, `div`/`mod` (use `/`, `%`).
 - `==` is `Objects.equals`; an enum compared with a string literal compares the constant name, and
@@ -499,9 +504,11 @@ that runs code. What differs:
   `<script>`, `<style>`, `<title>` or `<textarea>`, whose content is text only inside their own
   tags, nor on `<svg>`, `<math>` or any element inside them, whose content a browser parses
   differently without the enclosing tag. The other values keep the tag, so they are allowed on these elements.
-- Any `t:<name>` sets that attribute; `null` omits it, and boolean attributes (`t:checked`,
-  `t:disabled`, ...) render `name="name"` or nothing. `t:utext` and `[(...)]` need a `SafeHtml`
-  or a checked bundle message (section 4.5).
+- Any `t:<name>` sets that attribute; `null` omits it, where Thymeleaf's `th:value`, `th:href`,
+  `th:src`, `th:action`, `th:name` and `th:type` wrote it empty (`value=""`). Where the empty
+  attribute matters, write `x ?: ''` for a `String` and `x == null ? '' : '' + x` otherwise.
+  Boolean attributes (`t:checked`, `t:disabled`, ...) render `name="name"` or nothing. `t:utext`
+  and `[(...)]` need a `SafeHtml` or a checked bundle message (section 4.5).
 - Not supported: `th:attrappend`/`attrprepend`, `th:alt-title`, `th:lang-xmllang`, `th:assert`,
   `th:include` (use `t:insert`) and `th:inline` (in a `<script>`, `[[...]]` writes JSON; drop the
   quotes a Thymeleaf default-mode page put around it: `"[[${x}]]"` becomes `[[${x}]]`, and a
