@@ -190,15 +190,16 @@ HTML messages need none either: their markup is known at build time (below).
 **`FLOW`, the predicate** (`ContentKinds.problem`), with scripting on and off. `closer` stays: a
 runtime value is invisible to the error check. Formatting elements waiting to be reopened are
 reached only by error recovery, and SVG or MathML above a cell only past exclusion (a), so #410
-dropped both clauses.
+dropped both clauses. #444 dropped three formatting entries of one name: one more makes the Noah's
+Ark clause drop the oldest from the list, but that element stays open, and in an error-free parse
+the list changes the tree only through entries that are no longer open.
 
 - data state, between tokens; the current node is HTML; the mode is in body, in cell, in caption
   or in template (`RAW_NOT_FLOW` otherwise);
 - and no open element that flow content would close, reopen or adopt (`RAW_CLOSES_ELEMENT`
   otherwise): a `p` in button scope; a heading as the current node; an `a` in the list of active
   formatting elements after the last marker; a `button`, `nobr` or `ruby` in scope; a `select`,
-  `option` or `optgroup` anywhere on the stack; three formatting entries of one name after the
-  last marker (one more would drop the first, the Noah's Ark clause).
+  `option` or `optgroup` anywhere on the stack.
 
 In template mode the first flow start tag switches to "in body"; the verifier then continues
 from both states (the second is the state after `<span></span>`).
@@ -400,10 +401,10 @@ The id in brackets ends every error message (`[verifier:ID]`), for #368's fix-it
 | `ATTRIBUTE_VALUE_CHANGES_PARSE` | a computed `encoding` in MathML (an `<input>` in a table mode is a parse error with any `type`) | static values |
 | `JSON_NOT_IN_SCRIPT` | a `json` hole outside the script data of an HTML `<script>` (SVG `script`, escaped script data, CDATA) | script data, also right after `<` (no JSON starts with `/` or `!`) |
 | `RAW_NOT_FLOW` | `SafeHtml`, an unbound or dynamic `Fragment` outside data state, HTML namespace, or body/cell/caption/template mode | flow content (section 5) |
-| `RAW_CLOSES_ELEMENT` | the same where flow content would close, reopen or adopt an open element: `p` in button scope, a current heading, an active `a`, `button`/`nobr`/`ruby` in scope, `select`/`option`/`optgroup`, three formatting entries of one name | flow content (section 5) |
+| `RAW_CLOSES_ELEMENT` | the same where flow content would close, reopen or adopt an open element: `p` in button scope, a current heading, an active `a`, `button`/`nobr`/`ruby` in scope, `select`/`option`/`optgroup` | flow content (section 5) |
 | `MESSAGE_CHANGES_STATE` | an HTML message whose markup (any locale, either form) leaves the parser in another state than it found it | a message that closes what it opens, where its markup fits |
 | `FRAMESET` | any `frameset` element the parser inserts, a coarse exclusion (#410); where a `<frameset>` start tag doesn't apply, it is a parse error | |
-| `NOAHS_ARK` | three or more identical formatting elements, one of them with a computed attribute. Kept by #410: written in order they parse without errors, so the error check doesn't reject them | |
+| `NOAHS_ARK` | retired (#444): three or more identical formatting elements, one of them with a computed attribute. The value decides which entry the Noah's Ark clause drops from the list of active formatting elements, but the element stays open, and in an error-free parse the list changes the tree only through entries that are no longer open. Misnested, they are a parse error | |
 | `PARSE_ERROR` (#406) | any tokenizer or tree-builder error on any path, scripting on or off, except the missing-doctype messages; a partial only in its implied fragment context. The current engine reports them; each parser reports each rule once per path, at its first occurrence. validator.nu's "Duplicate ID" isn't a parse error and is allowed (it is checked only within one chunk of input) | markup that parses without errors |
 | `FOREIGN_IN_TABLE` (#406) | an `svg` or `math` element open with `td`, `th`, `caption`, `tr`, `tbody`, `thead`, `tfoot`, `table` or `template` below it (the fragment context counts) | SVG and MathML outside tables; a table inside `foreignObject` outside any table |
 | `TABLE_IN_TEMPLATE` (#406) | an HTML table part directly in `template`, or a table mode in the template-mode stack | flow content in `template` |

@@ -153,21 +153,18 @@ class ContextVerifierRulesTest {
     reject(Problem.FRAMESET, st("<!DOCTYPE html><html><FRAMESET>"));
     reject(Problem.FRAMESET, st("<!DOCTYPE html><html><head></head><frameset></frameset></html>"));
     onlyParseErrors(st("<p>x<frameset>"));
+    // Identical formatting elements with a computed attribute: the Noah's Ark clause drops an entry
+    // from the list depending on the value, but the element stays open, and in an error-free parse
+    // the list changes the tree only through entries that are no longer open (#444).
     accept(st("<b class=\""), attr("class"), st("\"><b class=\""), attr("class"), st("\">x"));
-    reject(Problem.NOAHS_ARK, st("<b class=\""), attr("class"), st("\"><b><b>x"));
-    reject(Problem.NOAHS_ARK, st("<b><b><b class=\""), attr("class"), st("\">x"));
-    // Kept by #410: nested as written, no parse error rejects it.
-    reject(Problem.NOAHS_ARK, st("<b class=\""), attr("class"), st("\"><b><b>x</b></b></b>"));
-    // Pushed and popped inside one static: still seen.
-    reject(Problem.NOAHS_ARK, st("<b class=\""), attr("class"), st("\"><i><b><b><b></b></b></b></i>x"));
-    // ... also when the element with the computed attribute is pushed and popped in the static after
-    // it. Misnested, it is a parse error too.
-    String misnested = "\">4</b></b></p>z";
-    reject(Problem.NOAHS_ARK, st("<p><b class=\"x\">1<b class=\"x\">2<b class=\"x\">3<b class=\""), attr("class"),
-        st(misnested));
-    reject(Problem.PARSE_ERROR, st("<p><b class=\"x\">1<b class=\"x\">2<b class=\"x\">3<b class=\""), attr("class"),
-        st(misnested));
-    accept(st("<b><b><b><b>x")); // static only: the parse doesn't depend on a value
+    accept(st("<b class=\""), attr("class"), st("\"><b><b>x"));
+    accept(st("<b><b><b class=\""), attr("class"), st("\">x"));
+    accept(st("<b class=\""), attr("class"), st("\"><b><b>x</b></b></b>"));
+    accept(st("<b class=\""), attr("class"), st("\"><i><b><b><b></b></b></b></i>x"));
+    accept(st("<b><b><b><b>x"));
+    // Misnested, it is a parse error.
+    onlyParseErrors(st("<p><b class=\"x\">1<b class=\"x\">2<b class=\"x\">3<b class=\""), attr("class"),
+        st("\">4</b></b></p>z"));
   }
 
   // ---- error-free parses and the three exclusions (#406) ----

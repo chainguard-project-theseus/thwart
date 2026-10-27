@@ -233,21 +233,13 @@ final class VnuParser implements Parser {
     int n = t.formattingStackIndex.length;
     List<Integer> formatting = new ArrayList<>(n);
     List<OpenElement> formattingElements = new ArrayList<>(n);
-    List<List<String>> formattingAttributes = new ArrayList<>(n);
     for (int i = 0; i < n; i++) {
       int index = t.formattingStackIndex[i];
       formatting.add(index);
       if (index == ParserState.MARKER) {
         formattingElements.add(null);
-        formattingAttributes.add(null);
       } else {
         formattingElements.add(new OpenElement(t.formattingNamespaces[i], t.formattingNames[i], false));
-        String[] pairs = t.formattingAttributes[i];
-        List<String> attributes = new ArrayList<>(pairs.length / 2);
-        for (int k = 0; k < pairs.length; k += 2) {
-          attributes.add(pairs[k] + "=" + pairs[k + 1]);
-        }
-        formattingAttributes.add(attributes);
       }
     }
     List<InsertionMode> templateModes = new ArrayList<>(t.templateModes.length);
@@ -268,7 +260,6 @@ final class VnuParser implements Parser {
         stack,
         formatting,
         formattingElements,
-        formattingAttributes,
         templateModes,
         t.formPointer,
         t.headPointer,
