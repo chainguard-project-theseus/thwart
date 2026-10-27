@@ -373,8 +373,9 @@ java -jar $MIGRATE compare http://localhost:8080 pages.txt baseline/
 ```
 
 It compares the status, the final URL after redirects, and the page as a browser would build it,
-not the bytes: whitespace runs, attribute and class order, optional end tags, comments and CSRF
-tokens don't count. Each page prints one line, `NN same|reordered|differs REQUEST`. `reordered`
+not the bytes: whitespace runs, attribute and class order, optional end tags, comments, CSRF
+tokens and whitespace between JSON tokens in scripts (`[ "a" ]` against `["a"]`, but not
+inside strings) don't count. Each page prints one line, `NN same|reordered|differs REQUEST`. `reordered`
 means the same elements with siblings in another order; it passes, but its diff is printed so you
 can check that what moved is harmless (validation messages from a `HashSet`, yes; table rows that
 lost their sort order, no). A `differs` page lists a changed status or final URL and a unified
