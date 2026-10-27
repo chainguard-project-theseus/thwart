@@ -92,14 +92,17 @@ final class Migrator {
     }
   }
 
-  /** An open element: its lower-case name and whether {@code th:inline="none"} governs its body. */
+  /**
+   * An open element: its lower-case name and the {@code th:inline} mode (stripped, lower case) that
+   * governs its body, its own or the nearest ancestor's, or {@code null}.
+   */
   private static final class Open {
     private final String name;
-    private final boolean noInline;
+    private final String inline;
 
-    Open(String name, boolean noInline) {
+    Open(String name, String inline) {
       this.name = name;
-      this.noInline = noInline;
+      this.inline = inline;
     }
   }
 
@@ -121,6 +124,8 @@ final class Migrator {
     private String scriptType;
     /** True between the start and end tag of a JavaScript or JSON {@code <script>}. */
     private boolean inScript;
+    /** True if that script is inlined as JavaScript ({@code th:inline="javascript"} on it or an ancestor). */
+    private boolean javaScriptInline;
     /** The {@code th:inline} value (stripped, lower case) of that element, or {@code null}. */
     private String inlineMode;
     /**
@@ -151,10 +156,12 @@ final class Migrator {
     @Override
     public void handleOpenElementEnd(char[] buffer, int nameOffset, int nameLen, int line, int col) {
       // The nearest th:inline wins; Thymeleaf leaves [[...]] alone in a th:inline="none" body.
-      boolean none = inlineMode == null ? noInline() : inlineMode.equals(ConversionRules.INLINE_NONE);
-      open.push(new Open(openName, none));
+      String mode = inlineMode != null ? inlineMode : open.isEmpty() ? null : open.peek().inline;
+      boolean none = ConversionRules.INLINE_NONE.equals(mode);
+      open.push(new Open(openName, mode));
       inScript = !none && ConversionRules.SCRIPT.equals(openName) && scriptType != null
           && ConversionRules.SCRIPT_TYPES.contains(Compat.strip(scriptType).toLowerCase(Locale.ROOT));
+      javaScriptInline = ConversionRules.INLINE_JAVASCRIPT.equals(mode);
     }
 
     @Override
@@ -176,7 +183,7 @@ final class Migrator {
     }
 
     private boolean noInline() {
-      return !open.isEmpty() && open.peek().noInline;
+      return !open.isEmpty() && ConversionRules.INLINE_NONE.equals(open.peek().inline);
     }
 
     /**
@@ -497,7 +504,8 @@ final class Migrator {
      * quotes, so a Thymeleaf {@code "[[${x}]]"} would close the string (the compiler rejects it, #281).
      * A {@code "..."} or {@code '...'} literal that is exactly one inline loses its quotes; any other
      * inline in a literal is reported, including {@code `[[...]]`} (the backticks may follow a tag,
-     * {@code String.raw`...`}, which dropping them would break), and so is an inline in a comment. The scan tracks strings, template
+     * {@code String.raw`...`}, which dropping them would break), and so is an inline in a comment,
+     * except a natural-template comment ({@link #naturalComment}). The scan tracks strings, template
      * literal {@code ${...}} and comments, not regular expression literals, with the compiler's rules
      * (#281): an unterminated {@code '}/{@code "} string ends at {@code \n} or {@code \r}, not at
      * U+2028/U+2029 (ES2019), and {@code \} followed by CRLF is a line continuation. The compiler is
@@ -544,8 +552,8 @@ final class Migrator {
             report(at, String.format(ConversionRules.SCRIPT_INLINE_IN_STRING_MESSAGE, inline, inline));
             quoteAt = -1;
           } else if (state == LINE_COMMENT || state == BLOCK_COMMENT) {
-            // The compiler rejects an inline in a comment (#281). TODO(#315): rewrite the natural
-            // template /*[[${x}]]*/ 'd' to [[${x}]] instead of only reporting it.
+            // The compiler rejects an inline in a comment (#281); a natural-template comment in a
+            // th:inline="javascript" script was handled by naturalComment.
             String inline = text.substring(i, after);
             report(lineAt(text, line, i), String.format(ConversionRules.SCRIPT_INLINE_IN_COMMENT_MESSAGE, inline));
           }
@@ -555,7 +563,10 @@ final class Migrator {
         boolean lineEnd = c == '\n' || c == '\r' || c == '\u2028' || c == '\u2029';
         switch (state) {
           case CODE:
-            if (c == '"' || c == '\'' || c == '`') {
+            int natural = javaScriptInline && text.startsWith("/*", i) ? naturalComment(text, offset, line, i) : -1;
+            if (natural >= 0) {
+              i = natural - 1;
+            } else if (c == '"' || c == '\'' || c == '`') {
               state = STRING;
               quote = c;
               quoteAt = i;
@@ -603,6 +614,115 @@ final class Migrator {
             break;
         }
       }
+    }
+
+    /** A default that a natural-template comment may drop: a string, number, boolean or {@code null}. */
+    private static final Pattern NATURAL_DEFAULT = Pattern.compile(
+        "\"[^\"\\r\\n]*\"|'[^'\\r\\n]*'|-?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?|true|false|null");
+
+    /**
+     * Thymeleaf's JavaScript natural template (#315): in a {@code th:inline="javascript"} script, a
+     * {@code /*...*}{@code /} comment whose whole content is {@code [[...]]} or {@code [(...)]} is
+     * replaced by its value, and the text after it is dropped up to the next {@code ;}, {@code ,},
+     * {@code )}, {@code }}, {@code ]}, {@code //} or line feed outside quotes, brackets and braces
+     * ({@code CommentProcessorTextHandler.computeFilterOffset} in thymeleaf 3.1), or up to the next
+     * comment. For the comment at {@code i} of {@code text} (which starts at {@code offset} of the
+     * document), rewrites the comment and the dropped text to the inline if that text is empty or one
+     * literal (a string, number, boolean, {@code null}, array or object) and returns the offset after
+     * it; reports it for a manual rewrite if it is anything else and returns the same offset; returns
+     * -1 if the comment is not a natural-template comment.
+     */
+    private int naturalComment(String text, int offset, int line, int i) {
+      int close = text.indexOf("*/", i + 2);
+      String content = close < 0 ? "" : text.substring(i + 2, close);
+      boolean escaped = content.startsWith("[[") && content.endsWith("]]");
+      if (content.length() < 4 || !escaped && !(content.startsWith("[(") && content.endsWith(")]"))) {
+        return -1;
+      }
+      int end = close + 2;
+      int dropEnd = naturalDefaultEnd(text, end);
+      String dropped = text.substring(end, dropEnd);
+      String comment = text.substring(i, end);
+      int at = lineAt(text, line, i);
+      boolean one = Expressions.inlineEnd(text, i + 4, escaped ? "]]" : ")]") == close - 2;
+      if (!one || !naturalDefault(Compat.strip(dropped))) {
+        report(at, String.format(ConversionRules.SCRIPT_NATURAL_COMMENT_MANUAL_MESSAGE,
+            codeSpan(comment), codeSpan(Compat.strip(dropped))));
+        return dropEnd; // Thymeleaf drops that text, so nothing in it is rewritten
+      }
+      edits.add(new Edit(offset + i, dropEnd - i, content));
+      String def = Compat.strip(dropped).isEmpty() ? "no default" : "the default " + codeSpan(Compat.strip(dropped));
+      report(at, String.format(ConversionRules.SCRIPT_NATURAL_COMMENT_MESSAGE, codeSpan(comment + dropped.replaceAll("\\s+$", "")),
+          codeSpan(content), def) + (escaped ? "" : ConversionRules.SCRIPT_NATURAL_UNESCAPED_MESSAGE));
+      return dropEnd;
+    }
+
+    /**
+     * The end of the text that Thymeleaf drops after a natural-template comment that ends at
+     * {@code from}: {@code computeFilterOffset}, which stops at the next comment too because the
+     * dropped text ends at the next structure of its text parser.
+     */
+    private static int naturalDefaultEnd(String text, int from) {
+      char quote = 0;
+      int depth = 0;
+      for (int i = from; i < text.length(); i++) {
+        char c = text.charAt(i);
+        if (quote != 0) {
+          if (c == quote && text.charAt(i - 1) != '\\') {
+            quote = 0;
+          }
+        } else if (c == '\'' || c == '"') {
+          quote = c;
+        } else if (text.startsWith("/*", i)) {
+          return i;
+        } else if (c == '{' || c == '[') {
+          depth++;
+        } else if (depth > 0 && (c == '}' || c == ']')) {
+          depth--;
+        } else if (depth == 0 && (c == '\n' || c == ';' || c == ',' || c == ')' || c == '}' || c == ']'
+            || text.startsWith("//", i))) {
+          return i;
+        }
+      }
+      return text.length();
+    }
+
+    /**
+     * Whether {@code s} (stripped) may be dropped by the rewrite: empty, a {@link #NATURAL_DEFAULT},
+     * or an array or object. It must hold no backslash, backtick, {@code [[}, {@code [(} or
+     * {@code [#}, and no {@code /} outside quotes (which Thymeleaf's text parser reads as an escape,
+     * template literal, inline, element, comment or regular expression), so that the rewrite drops
+     * exactly what Thymeleaf drops.
+     */
+    private static boolean naturalDefault(String s) {
+      if (s.indexOf('\\') >= 0 || s.indexOf('`') >= 0 || s.contains("[[") || s.contains("[(") || s.contains("[#")) {
+        return false;
+      }
+      if (s.isEmpty() || NATURAL_DEFAULT.matcher(s).matches()) {
+        return true;
+      }
+      char first = s.charAt(0);
+      if (first != '[' && first != '{') {
+        return false;
+      }
+      // The bracket that opens s closes at its last character.
+      char quote = 0;
+      int depth = 0;
+      for (int i = 0; i < s.length(); i++) {
+        char c = s.charAt(i);
+        if (quote != 0) {
+          quote = c == quote ? 0 : quote;
+        } else if (c == '\'' || c == '"') {
+          quote = c;
+        } else if (c == '/') {
+          return false;
+        } else if (c == '[' || c == '{') {
+          depth++;
+        } else if ((c == ']' || c == '}') && --depth == 0) {
+          return i == s.length() - 1;
+        }
+      }
+      return false;
     }
 
     private static String codeSpan(String s) {

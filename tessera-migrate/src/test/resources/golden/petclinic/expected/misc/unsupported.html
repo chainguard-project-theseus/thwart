@@ -14,7 +14,7 @@
   <span data-th-text="${user.name}">data-th</span>
   <p t:text="${new java.util.Date()}">new</p>
   <script th:inline="javascript">
-    var name = /*[[${user.name}]]*/ 'x';
+    var name = [[${user.name}]];
   </script>
   <p>[(${user.bio})]</p>
 </body>

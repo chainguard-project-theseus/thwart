@@ -650,6 +650,105 @@ class MigratorTest {
     assertMessages(two, "1: `[[${x}]]` " + IN_COMMENT, "2: `[[${y}]]` " + IN_COMMENT);
   }
 
+  // ---- natural-template comments in th:inline="javascript" scripts (#315) ----
+
+  private static final String TH_INLINE = "1: `th:inline` is not supported";
+  private static final String JS = " th:inline=\"javascript\"";
+
+  @Test
+  void naturalTemplateCommentIsRewrittenToItsInline() throws Exception {
+    // Each expected output is what thymeleaf 3.1.3 renders for the input, with the inline in place
+    // of its value (checked by hand against Thymeleaf; it is not a dependency of tessera-migrate).
+    String[][] cases = {
+        {"var a = /*[[${x}]]*/ \"d\";", "var a = [[${x}]];", "`/*[[${x}]]*/ \"d\"`", "the default `\"d\"`"},
+        {"f(/*[[${x}]]*/ null);", "f([[${x}]]);", "`/*[[${x}]]*/ null`", "the default `null`"},
+        {"var a = /*[[${x}]]*/ -1.5e3;", "var a = [[${x}]];", "`/*[[${x}]]*/ -1.5e3`", "the default `-1.5e3`"},
+        {"var a = /*[[${x}]]*/ 'x/y';", "var a = [[${x}]];", "`/*[[${x}]]*/ 'x/y'`", "the default `'x/y'`"},
+        {"var a = /*[[${x}]]*/ [ 'a;b' ];", "var a = [[${x}]];", "`/*[[${x}]]*/ [ 'a;b' ]`", "the default"},
+        {"var a = /*[[${x}]]*/ {\"k\": [1,\n 2]};\nvar c;", "var a = [[${x}]];\nvar c;",
+            "`/*[[${x}]]*/ {\"k\": [1,\n 2]}`", "the default"},
+        {"var a = /*[[${x}]]*/;", "var a = [[${x}]];", "`/*[[${x}]]*/`", "no default"},
+        {"var a = /*[[${x}]]*/\nvar b;", "var a = [[${x}]]\nvar b;", "`/*[[${x}]]*/`", "no default"},
+        {"var a = /*[[${x}]]*/ 'd'", "var a = [[${x}]]", "`/*[[${x}]]*/ 'd'`", "the default `'d'`"},
+        {"var a = /*[[${x}]]*/ 'd' /* c */;", "var a = [[${x}]]/* c */;", "`/*[[${x}]]*/ 'd'`", "the default"},
+        {"var a = /*[[${x}]]*/ 'd' // c\nvar b;", "var a = [[${x}]]// c\nvar b;", "`/*[[${x}]]*/ 'd'`", "the default"},
+    };
+    for (String[] c : cases) {
+      String src = script(JS, c[0]);
+      assertEquals(script(JS, c[1]), convert(src), c[0]);
+      assertMessages(src, TH_INLINE, "1: " + c[2] + " in a script was rewritten to `[[${x}]]`: Thymeleaf's natural"
+          + " template wrote the value in place of the comment and dropped " + c[3]);
+    }
+    String two = script(JS, "var a = /*[[${x}]]*/ 0, b = /*[[${y}]]*/ true;");
+    assertEquals(script(JS, "var a = [[${x}]], b = [[${y}]];"), convert(two));
+    assertMessages(two, TH_INLINE, "1: `/*[[${x}]]*/ 0` in a script was rewritten",
+        "1: `/*[[${y}]]*/ true` in a script was rewritten");
+    // A JSON script, and th:inline="javascript" on an ancestor.
+    String json = script(JS + " type=\"application/json\"", "{\"a\": /*[[${x}]]*/ \"d\"}");
+    assertEquals(script(JS + " type=\"application/json\"", "{\"a\": [[${x}]]}"), convert(json));
+    String ancestor = "<div th:inline=\"javascript\" t:params=\"String x\"><script>var a = /*[[${x}]]*/ 'd';</script></div>";
+    assertEquals(ancestor.replace("/*[[${x}]]*/ 'd'", "[[${x}]]"), convert(ancestor));
+    assertMessages(ancestor, TH_INLINE, "1: `/*[[${x}]]*/ 'd'` in a script was rewritten");
+    // [(...)] the same way; Tessera rejects it in a script, which the report says.
+    String raw = script(JS, "var a = /*[(${y})]*/ 0;");
+    assertEquals(script(JS, "var a = [(${y})];"), convert(raw));
+    assertMessages(raw, TH_INLINE, "1: `/*[(${y})]*/ 0` in a script was rewritten to `[(${y})]`", "1: `[(...)]` prints");
+    assertTrue(messages(raw).get(1).endsWith("; `[(...)]` is a build error in a Tessera script: write `[[...]]`,"
+        + " which outputs a JSON value, or pass code another way"), messages(raw).toString());
+  }
+
+  @Test
+  void naturalTemplateCommentWithoutOneLiteralIsReportedNotRewritten() throws Exception {
+    String manual = " in a script is a Thymeleaf natural-template comment, but it is not one inline followed by one"
+        + " literal (Thymeleaf drops ";
+    String[][] cases = {
+        {"var a = /*[[${x}]]*/ 'd' + 'e';", "`/*[[${x}]]*/`", "`'d' + 'e'`"},
+        {"var a = /*[[${x}]]*/ foo.bar(1);", "`/*[[${x}]]*/`", "`foo.bar(1`"},
+        {"var a = /*[[${x}]]*/ 'a\\'b';", "`/*[[${x}]]*/`", "`'a\\'b'`"},
+        {"var a = /*[[${x}]]*/ `d`;", "`/*[[${x}]]*/`", "`` `d` ``"},
+        {"var a = /*[[${x}]]*/ 1 / 2;", "`/*[[${x}]]*/`", "`1 / 2`"},
+        {"var a = /*[[${x}]]*/ ['[[${y}]]'];", "`/*[[${x}]]*/`", "`['[[${y}]]']`"},
+        {"var a = /*[[${x}]] + [[${y}]]*/ 'd';", "`/*[[${x}]] + [[${y}]]*/`", "`'d'`"},
+    };
+    for (String[] c : cases) {
+      String src = script(JS, c[0]);
+      assertEquals(src, convert(src), c[0]);
+      List<String> messages = messages(src);
+      assertTrue(messages.get(0).startsWith(TH_INLINE), c[0]);
+      assertEquals("1: " + c[1] + manual + c[2] + " after it, up to", messages.get(1).substring(0,
+          ("1: " + c[1] + manual + c[2] + " after it, up to").length()), c[0]);
+    }
+  }
+
+  @Test
+  void commentsThatAreNotNaturalTemplatesAreNotRewritten() throws Exception {
+    // Without th:inline="javascript" Thymeleaf writes the value inside the comment and keeps the default.
+    for (String attributes : List.of("", " th:inline=\"text\"")) {
+      String src = script(attributes, "var a = /*[[${x}]]*/ 'd';");
+      assertEquals(src, convert(src), attributes);
+      assertTrue(messages(src).contains("1: `[[${x}]]` " + IN_COMMENT
+          + " and the page would never use it); move it out of the comment: Thymeleaf's natural template"
+          + " `var a = /*[[${x}]]*/ 'd';` becomes `var a = [[${x}]];`"), messages(src).toString());
+    }
+    // Not the whole comment, in a line comment, or in a string: Thymeleaf leaves them alone too.
+    for (String body : List.of("var a = /* [[${x}]] */ 'd';", "var a = /*[[${x}]] */ 'd';",
+        "// /*[[${x}]]*/ 'd'\nvar a = 1;")) {
+      String src = script(JS, body);
+      assertEquals(src, convert(src), body);
+      assertMessages(src, TH_INLINE, "1: `[[${x}]]` " + IN_COMMENT);
+    }
+    String string = script(JS, "var a = '/*[[${x}]]*/ d';");
+    assertEquals(string, convert(string));
+    assertMessages(string, TH_INLINE, "1: `[[${x}]]` " + IN_STRING);
+    // th:inline="none" and a non-JavaScript script are untouched.
+    for (String src : List.of(
+        "<script th:inline=\"none\">var a = /*[[${x}]]*/ 'd';</script>",
+        "<div th:inline=\"javascript\" t:params=\"String x\"><script type=\"text/x-template\">var a = /*[[${x}]]*/ 'd';</script></div>")) {
+      assertEquals(src, convert(src), src);
+      assertMessages(src, TH_INLINE);
+    }
+  }
+
   @Test
   void inlinesOutsideJavaScriptStringsAreUnchanged() throws Exception {
     for (String body : List.of(
