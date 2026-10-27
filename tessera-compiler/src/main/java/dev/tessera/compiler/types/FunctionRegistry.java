@@ -40,6 +40,8 @@ import javax.lang.model.util.Types;
  */
 final class FunctionRegistry {
   static final String RESERVED = "fields";
+  /** The reserved {@code ids} namespace ({@code IdsCompiler}, Thymeleaf's {@code #ids}). */
+  static final String IDS = "ids";
   private static final String FUNCTIONS = TemplateFunctions.class.getName();
   private static final String FUNCTION = "dev.tessera.runtime.TemplateFunction";
 
@@ -140,6 +142,10 @@ final class FunctionRegistry {
     }
     if (ns.equals(RESERVED)) {
       env.diagnostics().error(pos, "function namespace '" + RESERVED + "' on " + className + " is reserved for form errors");
+      return;
+    }
+    if (ns.equals(IDS)) {
+      env.diagnostics().error(pos, "function namespace '" + IDS + "' on " + className + " is reserved for element ids");
       return;
     }
     TypeElement existing = classes.get(ns);
