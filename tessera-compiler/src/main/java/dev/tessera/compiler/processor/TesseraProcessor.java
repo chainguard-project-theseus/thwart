@@ -209,7 +209,7 @@ public final class TesseraProcessor extends AbstractProcessor {
           Kind.ERROR,
           "Tessera: " + changed.get(0).name() + " was generated before another annotation processor"
               + " (Lombok?) finished adding members to the classes its templates read; list that"
-              + " processor before Tessera in annotationProcessorPaths");
+              + " processor before Tessera in annotationProcessorPaths (Gradle: annotationProcessor)");
     }
   }
 
