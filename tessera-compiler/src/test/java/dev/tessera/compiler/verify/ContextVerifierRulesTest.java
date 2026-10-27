@@ -40,8 +40,8 @@ class ContextVerifierRulesTest {
     reject(Problem.TEXT_OUTSIDE_BODY, st("<noscript>"), text()); // in the head without scripting
     accept(st("<select><option>"), text());
     accept(st("<pre>"), text(), st("\nx</pre>"));
-    // A foster-parented element: its text is not table text, but the <h3> is a parse error (#406).
-    onlyParseErrors(st("<table><h3>"), text());
+    // A foster-parented element is a parse error (#406, #410).
+    reject(Problem.PARSE_ERROR, st("<table><h3>"), text());
   }
 
   @Test
@@ -75,7 +75,8 @@ class ContextVerifierRulesTest {
     reject(Problem.TEXT_OUTSIDE_BODY, st("<!DOCTYPE html><html><head>"), text());
     reject(Problem.TEXT_OUTSIDE_BODY, st("<!DOCTYPE html><html><head></head>"), text());
     reject(Problem.TEXT_OUTSIDE_BODY, st("<!DOCTYPE html><html><body></body>"), text());
-    reject(Problem.TEXT_RECONSTRUCTS, st("<p><b>x</p>"), text()); // probe T22
+    // Probe T22: misnested formatting elements, reopened before the text, are a parse error (#410).
+    onlyParseErrors(st("<p><b>x</p>"), text());
   }
 
   @Test
@@ -104,8 +105,10 @@ class ContextVerifierRulesTest {
   @Test
   void attributeValuesThatDecideTheParseAreRejected() {
     accept(st("<input type=\""), attr("type"), st("\">"));
-    reject(Problem.ATTRIBUTE_VALUE_CHANGES_PARSE, st("<table><input type=\""), attr("type"));
-    reject(Problem.ATTRIBUTE_VALUE_CHANGES_PARSE, st("<table><tr><input type=\""), attr("type"));
+    // An <input> in a table mode is a parse error whatever its type, hidden too (#410).
+    onlyParseErrors(st("<table><input type=\""), attr("type"), st("\">"));
+    onlyParseErrors(st("<table><tr><input type=\""), attr("type"), st("\">"));
+    onlyParseErrors(st("<table><input type=\"hidden\">"));
     reject(Problem.ATTRIBUTE_VALUE_CHANGES_PARSE, st("<math><annotation-xml encoding=\""), attr("encoding"));
   }
 
@@ -138,7 +141,7 @@ class ContextVerifierRulesTest {
     reject(Problem.RAW_NOT_FLOW, st("<svg>"), raw());
     reject(Problem.RAW_NOT_FLOW, st("<math><mi>"), raw());
     reject(Problem.RAW_NOT_FLOW, st("<title>"), raw());
-    reject(Problem.RAW_NOT_FLOW, st("<p><b>x</p>"), raw());
+    onlyParseErrors(st("<p><b>x</p>"), raw()); // formatting elements to reopen (#410)
     // Customizable <select> parsing reads it in body mode, where a <p> or <div> in the value closes
     // the select (#329).
     reject(Problem.RAW_CLOSES_ELEMENT, st("<select>"), raw());
@@ -146,15 +149,24 @@ class ContextVerifierRulesTest {
 
   @Test
   void framesetAndTheNoahsArkClause() {
+    // Any frameset element: a coarse exclusion. Where it doesn't apply, it is a parse error.
     reject(Problem.FRAMESET, st("<!DOCTYPE html><html><FRAMESET>"));
+    reject(Problem.FRAMESET, st("<!DOCTYPE html><html><head></head><frameset></frameset></html>"));
+    onlyParseErrors(st("<p>x<frameset>"));
     accept(st("<b class=\""), attr("class"), st("\"><b class=\""), attr("class"), st("\">x"));
     reject(Problem.NOAHS_ARK, st("<b class=\""), attr("class"), st("\"><b><b>x"));
     reject(Problem.NOAHS_ARK, st("<b><b><b class=\""), attr("class"), st("\">x"));
+    // Kept by #410: nested as written, no parse error rejects it.
+    reject(Problem.NOAHS_ARK, st("<b class=\""), attr("class"), st("\"><b><b>x</b></b></b>"));
     // Pushed and popped inside one static: still seen.
     reject(Problem.NOAHS_ARK, st("<b class=\""), attr("class"), st("\"><i><b><b><b></b></b></b></i>x"));
-    // ... also when the element with the computed attribute is pushed and popped in the static after it.
+    // ... also when the element with the computed attribute is pushed and popped in the static after
+    // it. Misnested, it is a parse error too.
+    String misnested = "\">4</b></b></p>z";
     reject(Problem.NOAHS_ARK, st("<p><b class=\"x\">1<b class=\"x\">2<b class=\"x\">3<b class=\""), attr("class"),
-        st("\">4</b></b></p>z"));
+        st(misnested));
+    reject(Problem.PARSE_ERROR, st("<p><b class=\"x\">1<b class=\"x\">2<b class=\"x\">3<b class=\""), attr("class"),
+        st(misnested));
     accept(st("<b><b><b><b>x")); // static only: the parse doesn't depend on a value
   }
 
@@ -320,9 +332,13 @@ class ContextVerifierRulesTest {
     reject(Problem.UNKNOWN_NODE, st("<input"),
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" a=\""), attr("a"), st("\"")), pos()),
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" b=\""), attr("b"), st("\"")), pos()), st("x>"));
-    // A computed type is kept as a branch: whether it is there decides how an input parses in a table.
-    reject(Problem.ATTRIBUTE_VALUE_CHANGES_PARSE, st("<table><input"),
+    // An <input> in a table is a parse error with or without its computed type (#410).
+    onlyParseErrors(st("<table><input"),
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" type=\""), attr("type"), st("\"")), pos()), st(">"));
+    // A computed encoding is kept as a branch: whether it is there decides how the content parses.
+    reject(Problem.ATTRIBUTE_VALUE_CHANGES_PARSE, st("<math><annotation-xml"),
+        new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" encoding=\""), attr("encoding"), st("\"")), pos()),
+        st("><div>"));
   }
 
   @Test
@@ -524,7 +540,8 @@ class ContextVerifierRulesTest {
   }
 
   private static final Set<Problem> PARSER_REPORTED =
-      Set.of(Problem.PARSE_ERROR, Problem.FOREIGN_IN_TABLE, Problem.TABLE_IN_TEMPLATE, Problem.SELECT_CONTENT);
+      Set.of(Problem.PARSE_ERROR, Problem.FOREIGN_IN_TABLE, Problem.TABLE_IN_TEMPLATE, Problem.SELECT_CONTENT,
+          Problem.FRAMESET);
 
   private static void reject(Problem expected, Node... nodes) {
     reject(Map.of(), expected, nodes);

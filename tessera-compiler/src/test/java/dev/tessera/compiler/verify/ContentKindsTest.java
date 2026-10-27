@@ -71,9 +71,10 @@ class ContentKindsTest {
     reject(Problem.RAW_NOT_FLOW, st("<table><colgroup>"), raw());
   }
 
+  /** Formatting elements waiting to be reopened are reached only by error recovery (#410). */
   @Test
-  void flowNeedsNothingToReconstruct() {
-    reject(Problem.RAW_NOT_FLOW, st("<p><b>x</p>"), raw());
+  void formattingElementsToReopenAreAParseError() {
+    reject(Problem.PARSE_ERROR, st("<p><b>x</p>"), raw());
   }
 
   @Test
@@ -115,22 +116,43 @@ class ContentKindsTest {
 
   /**
    * A table in the value resets the insertion mode from the stack: the standard walks down to the
-   * cell, validator.nu stops at an SVG or MathML element and picks "in body".
+   * cell, validator.nu stops at an SVG or MathML element and picks "in body". Exclusion (a)
+   * rejects any {@code <svg>} or {@code <math>} in a table part, closed or not (#406, #410).
    */
   @Test
   void flowContentInACellBehindForeignContent() {
-    rejectCloser("the <td> that holds the <svg>", st("<table><tr><td><svg><foreignObject><div>"), raw());
-    rejectCloser("the <th> that holds the <math>", st("<table><tr><th><math><mi><span>"), raw());
-    rejectCloser("the <caption> that holds the <svg>", st("<table><caption><svg><desc><div>"), raw());
+    reject(Problem.FOREIGN_IN_TABLE, st("<table><tr><td><svg><foreignObject><div>"), raw());
+    reject(Problem.FOREIGN_IN_TABLE, st("<table><tr><th><math><mi><span>"), raw());
+    reject(Problem.FOREIGN_IN_TABLE, st("<table><caption><svg><desc><div>"), raw());
     accept(st("<svg><foreignObject><table><tr><td><div>"), raw()); // the cell is above the foreign element
-    // Exclusion (a) rejects any <svg> or <math> in a table part, closed or not (#406).
     reject(Problem.FOREIGN_IN_TABLE, st("<table><tr><td><svg></svg><div>"), raw());
     Compilation.builder()
         .template("page.html", "<table " + NS + " t:params=\"String v\"><tr><td><svg><foreignObject>"
             + "<div t:utext=\"${html.sanitizeRich(v)}\">x</div></foreignObject></svg></td></tr></table>")
         .verifierOnly()
         .compile()
-        .assertError("page.html:1:", "the <td> that holds the <svg>", "[verifier:RAW_CLOSES_ELEMENT]");
+        .assertError("page.html:1:", "<svg> inside <td>", "[verifier:FOREIGN_IN_TABLE]");
+  }
+
+  /**
+   * A partial whose markup closes an element it didn't open, or writes a list item outside its
+   * own list, isn't FLOW content: the first is a parse error in the partial's fragment context,
+   * and the second closes the open list item of the {@code <ul><li>} probe (#410).
+   */
+  @Test
+  void strayEndTagsAndListItemsOutsideTheirListAreNotFlow() {
+    Seq stray = seq(st("<span>"), text(), st("</span></div>"));
+    assertEquals(List.of(Problem.PARSE_ERROR), problems(check(Map.of(), stray)));
+    assertTrue(whyNot(stray).contains("PARSE_ERROR"), whyNot(stray));
+    Seq li = seq(st("<span>x</span><li>"), text(), st("</li>"));
+    assertEquals(List.of(), problems(check(Map.of(), li)));
+    assertTrue(whyNot(li).contains("after <ul><li>"), whyNot(li));
+    Seq form = seq(st("<div><form>"), text(), st("</form></div>"));
+    assertEquals(List.of(), problems(check(Map.of(), form)));
+    assertTrue(whyNot(form).contains("<form>"), whyNot(form));
+    Seq bb = seq(st("<i><em><i>"), text(), st("</i></em></i>"));
+    assertTrue(whyNot(bb).contains("<i> inside another <i>"), whyNot(bb));
+    assertNull(whyNot(seq(st("<i><em>"), text(), st("</em></i><i>x</i><template><form></form></template>"))));
   }
 
   @Test
@@ -268,6 +290,13 @@ class ContentKindsTest {
     Map<String, Skeleton.TemplateSkeleton> all = new LinkedHashMap<>();
     all.put("t", t);
     return new ContextVerifier(all).check(t);
+  }
+
+  private static String whyNot(Seq body) {
+    Skeleton.TemplateSkeleton t = new Skeleton.TemplateSkeleton("t", body, Map.of());
+    Map<String, Skeleton.TemplateSkeleton> all = new LinkedHashMap<>();
+    all.put("t", t);
+    return new ContextVerifier(all).whyNotFlowPartial(t);
   }
 
   private static List<Problem> problems(List<Finding> f) {

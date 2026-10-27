@@ -187,26 +187,23 @@ they let the verifier take the state after a value known only at render time to 
 before it. Statically known fragments need no kind: the verifier analyses them at each call site.
 HTML messages need none either: their markup is known at build time (below).
 
-**`FLOW`, the predicate** (`ContentKinds.problem`), with scripting on and off. #410 deletes the
-clauses that only error recovery reaches (the Noah's Ark clause, formatting reconstruction, and
-SVG or MathML above a cell, which exclusion (a) covers). `closer` itself stays: a runtime value is
-invisible to the error check.
+**`FLOW`, the predicate** (`ContentKinds.problem`), with scripting on and off. `closer` stays: a
+runtime value is invisible to the error check. Formatting elements waiting to be reopened are
+reached only by error recovery, and SVG or MathML above a cell only past exclusion (a), so #410
+dropped both clauses.
 
 - data state, between tokens; the current node is HTML; the mode is in body, in cell, in caption
-  or in template; no formatting element is waiting to be reopened (`RAW_NOT_FLOW` otherwise);
+  or in template (`RAW_NOT_FLOW` otherwise);
 - and no open element that flow content would close, reopen or adopt (`RAW_CLOSES_ELEMENT`
   otherwise): a `p` in button scope; a heading as the current node; an `a` in the list of active
   formatting elements after the last marker; a `button`, `nobr` or `ruby` in scope; a `select`,
   `option` or `optgroup` anywhere on the stack; three formatting entries of one name after the
-  last marker (one more would drop the first, the Noah's Ark clause); in cell or caption mode, an
-  SVG or MathML element above the cell (a `</table>` in the value resets the mode, and
-  validator.nu stops at the foreign element where the standard goes on to the cell).
+  last marker (one more would drop the first, the Noah's Ark clause).
 
 In template mode the first flow start tag switches to "in body"; the verifier then continues
 from both states (the second is the state after `<span></span>`).
 
-**`FLOW`, the producer promise** (#410 drops the checks that the error-free rule now makes in the
-partial probes: stray end tags, page tags, top-level `li`/`dd`/`dt`/table parts)**:** balanced content (it closes every element it opens); no
+**`FLOW`, the producer promise:** balanced content (it closes every element it opens); no
 formatting element nested in one of its own name; no `form`; and no top-level `li`, `dd`, `dt`,
 table part, `head`, `body`, `html` or `frameset`. That is why an open `li`, `dd`, `dt` or `form`
 is not in the predicate: `<li t:utext="${html.sanitize(x)}">` and sanitized text in a form are
@@ -233,18 +230,15 @@ generated method. A template is marked if:
   and leaves all four parsers in the state it found them (in `<template>`, or in the state after
   `<span></span>`). The original insertion mode is ignored outside the "text" mode, the only mode
   that reads it (validator.nu keeps it after a `textarea`, `script` or `template`);
-- and, after every tag in the `<body>` probe, it keeps the producer promise: no `form` (the form
-  pointer is never set), no formatting element in an entry of its own name after the last marker
-  (whatever the attributes, which the Noah's Ark clause compares), no top-level `li`, `dd`, `dt`
-  or table part, no `head`, `body`, `html` or `frameset` start tag, and no end tag that closes
-  nothing (`</p>` and `</br>` aside, which insert an element). An end tag closes nothing there when
-  the parser already closed its element, as `<h2>` closes an open `<h1>`, `<dd>` a `<dt>`, and
-  `<button>` an open `<button>` with the `<div>` inside it; inserted inside an `h3`, `dt` or `div`,
-  the same end tag closes that one.
+- and, at every element inserted in the `<body>` probe (`ContentKinds.promiseBreach`), it keeps
+  the two clauses of the producer promise that aren't parse errors: no `form` outside a
+  `template`, and no formatting element inside one of its own name with no marker between
+  (whatever the attributes, which the Noah's Ark clause compares).
 
-The probes catch what the promise forbids where a single `<body>` can't: an `li` or `dd` inside a
-`div` still closes an open `li` or `dd`, and a table part closes a cell or switches a template's
-mode. So the bench corpus's two call sites pass: budgetmaster's `NotificationLinkTemplate` (an `a`)
+The rest of the promise needs no check of its own (#410): in the `<body>` probe a stray end tag,
+a top-level table part and a `head`, `body`, `html` or `frameset` start tag are parse errors, an
+`li` or `dd` outside its own list (inside a `div` too) closes the open `li` or `dd` of the list
+probes, and a table part closes a cell or switches a template's mode. So the bench corpus's two call sites pass: budgetmaster's `NotificationLinkTemplate` (an `a`)
 is marked, and so is espd run-3's `PrintContentTemplate` once its HTML messages pass the verifier
 (they fail `MESSAGE_CHANGES_STATE` since #329, independently of this).
 
@@ -390,26 +384,26 @@ dlorenc decided these on the research memo for #364
 ## 9. The verifier's rule table (#367)
 
 `verify/Rules` and `verify/ContextVerifier`. Each path through a template holds the parser twice,
-scripting on and off; a template is accepted only if both accept it. Rows marked #406 or #410 are
-their target.
+scripting on and off; a template is accepted only if both accept it. Retired ids are no longer
+reported; their names stay reserved.
 The id in brackets ends every error message (`[verifier:ID]`), for #368's fix-its.
 
 | Id | Rejects | Accepted instead |
 |---|---|---|
 | `TEXT_NOT_IN_TEXT` | a `text` or `rcdata` hole inside a tag, comment, character reference, CDATA, doctype or `plaintext` | data state; RCDATA; RAWTEXT of `noscript` (scripting on), `iframe`, `xmp`, `noembed`, `noframes` |
 | `TEXT_IN_SCRIPT` | a `text` or `rcdata` hole in script data, `style`, or SVG/MathML `script`/`style` | as above |
-| `TEXT_IN_TABLE` | a `text` hole in a table, table body, row or column group whose current node is a table part (foster-parented table text) | in a cell or caption; in an element foster-parented out of the table |
+| `TEXT_IN_TABLE` | a `text` hole in a table, table body, row or column group (foster-parented table text; an element foster-parented out of the table is a parse error) | in a cell or caption |
 | `TEXT_OUTSIDE_BODY` | a `text` hole before `<html>`, in or after the head, after the body, in a frameset | in body, cell, caption, `select`, `template`; in foreign content |
-| `TEXT_RECONSTRUCTS` | a `text` hole where formatting elements closed out of order would be reopened first. Retired by #410: the misnesting is a parse error | |
+| `TEXT_RECONSTRUCTS` | retired (#410): a `text` hole where formatting elements closed out of order would be reopened first. The misnesting is a parse error | |
 | `RCDATA_NOT_IN_RCDATA` | an `rcdata` hole (no `{{` breaking) a browser reads as ordinary text | RCDATA, never-run raw text |
 | `ATTRIBUTE_NOT_IN_VALUE`, `ATTRIBUTE_WRONG_NAME` | an attribute hole outside a double-quoted value, or in another attribute's value (or a dropped duplicate) | the double-quoted value of the attribute the compiler wrote, compared case-insensitively |
-| `ATTRIBUTE_VALUE_CHANGES_PARSE` | a computed `encoding` in MathML; a computed `type` in a table mode until #410 (an `<input>` there is a parse error unless `hidden`) | static values |
+| `ATTRIBUTE_VALUE_CHANGES_PARSE` | a computed `encoding` in MathML (an `<input>` in a table mode is a parse error with any `type`) | static values |
 | `JSON_NOT_IN_SCRIPT` | a `json` hole outside the script data of an HTML `<script>` (SVG `script`, escaped script data, CDATA) | script data, also right after `<` (no JSON starts with `/` or `!`) |
-| `RAW_NOT_FLOW` | `SafeHtml`, an unbound or dynamic `Fragment` outside data state, HTML namespace, body/cell/caption/template mode, or with formatting elements to reopen | flow content (section 5) |
-| `RAW_CLOSES_ELEMENT` | the same where flow content would close, reopen or adopt an open element: `p` in button scope, a current heading, an active `a`, `button`/`nobr`/`ruby` in scope, `select`/`option`/`optgroup`, three identical formatting entries, SVG or MathML above a cell | flow content (section 5) |
+| `RAW_NOT_FLOW` | `SafeHtml`, an unbound or dynamic `Fragment` outside data state, HTML namespace, or body/cell/caption/template mode | flow content (section 5) |
+| `RAW_CLOSES_ELEMENT` | the same where flow content would close, reopen or adopt an open element: `p` in button scope, a current heading, an active `a`, `button`/`nobr`/`ruby` in scope, `select`/`option`/`optgroup`, three formatting entries of one name | flow content (section 5) |
 | `MESSAGE_CHANGES_STATE` | an HTML message whose markup (any locale, either form) leaves the parser in another state than it found it | a message that closes what it opens, where its markup fits |
-| `FRAMESET` | any `<frameset>` start tag (a coarse exclusion; #410 deletes the frameset-ok handling) | |
-| `NOAHS_ARK` | three or more identical formatting elements, one of them with a computed attribute. Retired by #410: the clause only matters after a parse error | |
+| `FRAMESET` | any `frameset` element the parser inserts, a coarse exclusion (#410); where a `<frameset>` start tag doesn't apply, it is a parse error | |
+| `NOAHS_ARK` | three or more identical formatting elements, one of them with a computed attribute. Kept by #410: written in order they parse without errors, so the error check doesn't reject them | |
 | `PARSE_ERROR` (#406) | any tokenizer or tree-builder error on any path, scripting on or off, except the missing-doctype messages; a partial only in its implied fragment context. The current engine reports them; each parser reports each rule once per path, at its first occurrence. validator.nu's "Duplicate ID" isn't a parse error and is allowed (it is checked only within one chunk of input) | markup that parses without errors |
 | `FOREIGN_IN_TABLE` (#406) | an `svg` or `math` element open with `td`, `th`, `caption`, `tr`, `tbody`, `thead`, `tfoot`, `table` or `template` below it (the fragment context counts) | SVG and MathML outside tables; a table inside `foreignObject` outside any table |
 | `TABLE_IN_TEMPLATE` (#406) | an HTML table part directly in `template`, or a table mode in the template-mode stack | flow content in `template` |

@@ -8,7 +8,6 @@ import dev.tessera.compiler.verify.engine.ParserState;
 import dev.tessera.compiler.verify.engine.TokenizerState;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -22,35 +21,17 @@ final class Rules {
   /**
    * What the verifier writes for an attribute hole: a private-use character, which the double
    * quoted attribute value state takes as is. It marks the formatting elements that carry a
-   * computed attribute ({@link #noahsArk}); nothing else reads attribute values (the two values
-   * that change parsing are rejected, {@link Problem#ATTRIBUTE_VALUE_CHANGES_PARSE}).
+   * computed attribute ({@link #noahsArk}); nothing else reads attribute values (the value that
+   * changes parsing is rejected, {@link Problem#ATTRIBUTE_VALUE_CHANGES_PARSE}).
    */
-  static final String MARK = "";
+  static final String MARK = "\uE000";
 
-  /**
-   * Modes whose character tokens are all handled alike: reconstruct the active formatting
-   * elements, then append. Text in any other mode is held back, foster-parented,
-   * ignored, or closes elements, depending on whether it is whitespace.
-   */
+  /** Modes whose character tokens are all appended as they are. */
   private static final Set<InsertionMode> TEXT_MODES = EnumSet.of(
       InsertionMode.IN_BODY, InsertionMode.IN_CELL, InsertionMode.IN_CAPTION, InsertionMode.IN_TEMPLATE);
 
   /** Modes where text is table text. */
   private static final Set<InsertionMode> TABLE_MODES = EnumSet.of(
-      InsertionMode.IN_TABLE, InsertionMode.IN_TABLE_BODY, InsertionMode.IN_ROW, InsertionMode.IN_COLUMN_GROUP);
-
-  /** Modes whose text is table text when the current node is a table part. */
-  private static final Set<InsertionMode> FOSTER_MODES = EnumSet.of(
-      InsertionMode.IN_TABLE, InsertionMode.IN_TABLE_BODY, InsertionMode.IN_ROW);
-
-  /** The table parts whose text a browser holds back and foster-parents. */
-  private static final Set<String> FOSTER_PARENTS = Backports.setOf("table", "tbody", "thead", "tfoot", "tr", "template");
-
-  /**
-   * Modes where an {@code <input>} start tag is handled by the "in table" rules, which keep an
-   * {@code input type=hidden} in the table and foster-parent any other.
-   */
-  private static final Set<InsertionMode> INPUT_TYPE_MODES = EnumSet.of(
       InsertionMode.IN_TABLE, InsertionMode.IN_TABLE_BODY, InsertionMode.IN_ROW, InsertionMode.IN_COLUMN_GROUP);
 
   /** HTML elements whose raw text a browser never runs or renders as markup. */
@@ -100,16 +81,12 @@ final class Rules {
           // In foreign content every character is appended as it is, whatever the mode.
           return null;
         }
-        if (FOSTER_MODES.contains(s.mode()) && current != null && OpenElement.HTML.equals(current.namespace())
-            && !FOSTER_PARENTS.contains(current.localName()) && !s.pendingTableText()) {
-          // In a table mode, text goes to an element that isn't a table part (a foster-parented
-          // <h3>, say) as in body: reconstruct, then append. Only text in a table part is table text.
-          return s.reconstructionPending() ? Problem.TEXT_RECONSTRUCTS : null;
-        }
+        // Formatting elements to reopen first, or a foster-parented element in a table mode, are
+        // reached only by error recovery: parse errors (#406, #410).
         if (!TEXT_MODES.contains(s.mode())) {
           return TABLE_MODES.contains(s.mode()) ? Problem.TEXT_IN_TABLE : Problem.TEXT_OUTSIDE_BODY;
         }
-        return s.reconstructionPending() ? Problem.TEXT_RECONSTRUCTS : null;
+        return null;
       case RCDATA:
         return null;
       case RAWTEXT:
@@ -149,12 +126,9 @@ final class Rules {
     if (name == null || hole.attribute() == null || !name.equalsIgnoreCase(hole.attribute())) {
       return Problem.ATTRIBUTE_WRONG_NAME;
     }
-    String lower = name.toLowerCase(Locale.ROOT);
-    if (lower.equals("type") && INPUT_TYPE_MODES.contains(s.mode())) {
-      return Problem.ATTRIBUTE_VALUE_CHANGES_PARSE;
-    }
+    // An <input> in a table mode is a parse error whatever its type (#410).
     OpenElement current = s.currentNode();
-    if (lower.equals("encoding") && current != null && OpenElement.MATHML.equals(current.namespace())) {
+    if (name.equalsIgnoreCase("encoding") && current != null && OpenElement.MATHML.equals(current.namespace())) {
       return Problem.ATTRIBUTE_VALUE_CHANGES_PARSE;
     }
     return null;
@@ -267,7 +241,10 @@ final class Rules {
    *   <li>(b) {@link Problem#TABLE_IN_TEMPLATE}: an HTML table part directly in {@code
    *       <template>}, or a table mode in the template-mode stack;
    *   <li>(c) {@link Problem#SELECT_CONTENT}: any element but {@code option}, {@code optgroup} and
-   *       {@code hr} inserted into an open {@code select} (the fragment context counts).
+   *       {@code hr} inserted into an open {@code select} (the fragment context counts);
+   *   <li>{@link Problem#FRAMESET}: any {@code frameset} element. Whether a {@code <frameset>}
+   *       start tag applies depends on the content before it; where it doesn't, it is a parse
+   *       error.
    * </ul>
    */
   static Excluded exclusion(Parser.Stack s) {
@@ -276,6 +253,9 @@ final class Rules {
     boolean html = OpenElement.HTML.equals(ns);
     // The elements below the inserted one, the top first; then the fragment context.
     int below = s.insertedOnStack() ? s.size() - 2 : s.size() - 1;
+    if (html && "frameset".equals(name)) {
+      return new Excluded(Problem.FRAMESET, "<frameset>");
+    }
     if (!html && ("svg".equals(name) || "math".equals(name))) {
       for (int i = below; i >= -1; i--) {
         String part = htmlName(s, i);

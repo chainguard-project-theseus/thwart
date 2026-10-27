@@ -250,6 +250,32 @@ class ErrorFreeTest {
   }
 
   /**
+   * The negatives of the rules #410 retired, narrowed, folded into an exclusion or kept: each
+   * still fails to compile.
+   */
+  @Test
+  void theNegativesOfRetiredRulesStillFail() {
+    // TEXT_RECONSTRUCTS: </p> closes the <b> out of order, and the value would go into a copy.
+    verify("<p><b>x</p>[[${s}]]").assertError("t.html:1:", "[verifier:PARSE_ERROR]");
+    // Kept: NOAHS_ARK. Three identical formatting elements, one with a computed attribute, written
+    // in order parse without errors, so only the rule rejects them; misnested, they are a parse
+    // error too.
+    verify("<b t:class=\"s\"><b><b>x</b></b></b>").assertError("t.html:1:", "[verifier:NOAHS_ARK]");
+    verify("<p><b class=\"x\">1<b class=\"x\">2<b class=\"x\">3<b t:class=\"s\">4</b></b></p>z")
+        .assertError("t.html:1:", "[verifier:PARSE_ERROR]");
+    // ATTRIBUTE_VALUE_CHANGES_PARSE for a computed input type: an <input> directly in a table.
+    verify("<table><input t:type=\"s\"></table>").assertError("t.html:1:", "moves this <input> out of the table",
+        "[verifier:PARSE_ERROR]");
+    // FRAMESET: any frameset element.
+    Compilation.builder()
+        .template("t.html", "<!DOCTYPE html>\n<html " + NS + " t:params=\"String s\"><frameset><frame t:src=\"s\">"
+            + "</frameset></html>")
+        .verifierOnly()
+        .compile()
+        .assertError("t.html:2:", "<frameset> isn't supported", "[verifier:FRAMESET]");
+  }
+
+  /**
    * The seeds that only the 1.4.16 engine rejected before #406 (where browsers parse {@code
    * <select>} the classic way) are rejected by exclusion (c), now that the verifier runs one
    * engine (#408).

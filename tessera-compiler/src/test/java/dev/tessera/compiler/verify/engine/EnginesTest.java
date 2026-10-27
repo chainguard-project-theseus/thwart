@@ -106,23 +106,18 @@ class EnginesTest {
 
     s = doc(e, "<!DOCTYPE html><b><i>");
     assertEquals(List.of(2, 3), s.activeFormatting());
-    assertFalse(s.reconstructionPending());
     s = doc(e, "<!DOCTYPE html><p><b></p>");
     assertEquals(List.of(ParserState.NOT_ON_STACK), s.activeFormatting());
-    assertTrue(s.reconstructionPending());
     assertEquals("b", s.activeFormattingElements().get(0).localName());
     s = doc(e, "<!DOCTYPE html><p><b></p><table><tr><td>");
     assertEquals(List.of(ParserState.NOT_ON_STACK, ParserState.MARKER), s.activeFormatting());
-    assertFalse(s.reconstructionPending(), "the marker stops reconstruction");
-    // Attributes of formatting entries are part of the state: reconstruction clones them.
+    // Attributes of formatting entries are part of the state: the Noah's Ark clause compares them.
     assertNotEquals(doc(e, "<p><b class=x></p>"), doc(e, "<p><b class=y></p>"));
 
     assertTrue(doc(e, "<form>").formPointer());
     assertTrue(doc(e, "<p>").headPointer());
     assertTrue(doc(e, "<p>").quirks());
     assertFalse(doc(e, "<!DOCTYPE html><p>").quirks());
-    assertTrue(doc(e, "<!DOCTYPE html><p>").framesetOk());
-    assertFalse(doc(e, "<!DOCTYPE html><p>x").framesetOk());
     assertEquals(List.of(InsertionMode.IN_TEMPLATE, InsertionMode.IN_TEMPLATE), doc(e, "<template><template>").templateModes());
     assertEquals(List.of(InsertionMode.IN_TABLE_BODY), doc(e, "<template><tr>").templateModes());
   }

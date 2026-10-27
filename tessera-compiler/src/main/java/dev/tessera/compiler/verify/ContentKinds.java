@@ -3,13 +3,12 @@ package dev.tessera.compiler.verify;
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.verify.engine.InsertionMode;
 import dev.tessera.compiler.verify.engine.OpenElement;
+import dev.tessera.compiler.verify.engine.Parser;
 import dev.tessera.compiler.verify.engine.ParserState;
 import dev.tessera.compiler.verify.engine.TokenizerState;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -66,16 +65,15 @@ public final class ContentKinds {
    * the parser in {@code s} (for {@code IN_TEMPLATE}: in {@code s}, or in the "in body" state a
    * flow start tag switches to there, see {@link #switchesMode}).
    *
-   * <p>{@link Problem#RAW_NOT_FLOW}: not in data state; the current node isn't HTML; the mode isn't
-   * in body, in cell, in caption or in template; or the next character token or start tag would
-   * first reconstruct formatting elements. {@link Problem#RAW_CLOSES_ELEMENT}: an open element
-   * that a flow start tag closes or adopts ({@link #closer}).
+   * <p>{@link Problem#RAW_NOT_FLOW}: not in data state; the current node isn't HTML; or the mode
+   * isn't in body, in cell, in caption or in template. {@link Problem#RAW_CLOSES_ELEMENT}: an open
+   * element that a flow start tag closes or adopts ({@link #closer}). Formatting elements waiting
+   * to be reopened are reached only by error recovery, a {@link Problem#PARSE_ERROR} (#410).
    */
   public static Problem problem(Kind kind, ParserState s) {
     OpenElement current = s.currentNode();
     if (s.tokenizer() != TokenizerState.DATA || !s.pendingInput().isEmpty() || current == null
-        || !OpenElement.HTML.equals(current.namespace()) || !FLOW_MODES.contains(s.mode())
-        || s.reconstructionPending()) {
+        || !OpenElement.HTML.equals(current.namespace()) || !FLOW_MODES.contains(s.mode())) {
       return Problem.RAW_NOT_FLOW;
     }
     return closer(s) == null ? null : Problem.RAW_CLOSES_ELEMENT;
@@ -107,11 +105,10 @@ public final class ContentKinds {
    * promise ({@link Kind#FLOW}) a template can break:
    *
    * <ul>
-   *   <li>{@code ""}: content that isn't balanced. Here the compiler also checks the promise after
-   *       every tag ({@link #promiseBreach}, {@link #pageTag}, {@link #strayEndTag}): a {@code
-   *       form}, nested formatting elements of one name (with any attributes, which the Noah's Ark
-   *       clause compares), a top-level list item, and an end tag that closes nothing here but would
-   *       close an element of its name open around the insertion point.
+   *   <li>{@code ""}: content that isn't balanced. Stray end tags, a top-level table part and page
+   *       elements ({@code head}, {@code body}, {@code html}, {@code frameset}) are parse errors
+   *       here. The two clauses that aren't are checked at every element inserted here ({@link
+   *       #promiseBreach}): a {@code form}, and a formatting element inside one of its own name.
    *   <li>{@code <ul><li>} and {@code <dl><dd>}: an {@code li}, {@code dd} or {@code dt} outside
    *       its own list, which closes the open one, even inside a {@code div}.
    *   <li>{@code <table><tr><td>} and {@code <template>}: a top-level table part, which closes
@@ -121,38 +118,45 @@ public final class ContentKinds {
   public static final List<String> PARTIAL_PROBES =
       Backports.listOf("", "<ul><li>", "<dl><dd>", "<table><tr><td>", "<template>");
 
-  /** Top-level elements FLOW content doesn't have (the producer promise, {@link Kind#FLOW}). */
-  static final Set<String> NOT_TOP_LEVEL =
-      Backports.setOf("li", "dd", "dt", "caption", "colgroup", "col", "tbody", "thead", "tfoot", "tr", "td", "th",
-          "head", "body", "html", "frameset");
+  /** Formatting elements (the list of active formatting elements holds these). */
+  private static final Set<String> FORMATTING = Backports.setOf(
+      "a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small", "strike", "strong", "tt", "u");
 
-  /** Elements of a page, never of FLOW content: in body their start tags push nothing, so they are found by name. */
-  private static final Set<String> PAGE_ELEMENTS = Backports.setOf("head", "body", "html", "frameset");
+  /** HTML elements that put a marker on the list of active formatting elements. */
+  private static final Set<String> MARKERS = Backports.setOf("applet", "object", "marquee", "template", "td", "th",
+      "caption");
 
   /**
-   * How the content written so far breaks the FLOW producer promise, in words, or null. {@code s} is
-   * the state of a parser that started in the {@code ""} {@link #PARTIAL_PROBES probe}: a fragment
-   * in {@code <body>}, so the stack holds only {@code html} below the content, and there is no
-   * form and no formatting entry before it.
+   * How an element just inserted ({@code s}) breaks the FLOW producer promise, in words, or null:
+   * a {@code form} outside a {@code template}, or a formatting element inside one of its own name
+   * (whatever the attributes) with no marker between them. Neither is a parse error, but inserted
+   * where a {@code form}, or that formatting element, is open around the content, the first is
+   * ignored and its end tag closes the open form, and the second can drop an entry of the list of
+   * active formatting elements. {@code s} is from the {@code ""} {@link #PARTIAL_PROBES probe}.
    */
-  static String promiseBreach(ParserState s) {
-    if (s.formPointer()) {
-      return "it has a <form>";
+  static String promiseBreach(Parser.Stack s) {
+    if (!OpenElement.HTML.equals(s.insertedNamespace())) {
+      return null;
     }
-    List<OpenElement> stack = s.stack();
-    if (stack.size() > 1 && OpenElement.HTML.equals(stack.get(1).namespace())
-        && NOT_TOP_LEVEL.contains(stack.get(1).localName())) {
-      return "its root is a <" + stack.get(1).localName() + ">";
+    String name = s.insertedName();
+    boolean form = name.equals("form");
+    if (!form && !FORMATTING.contains(name)) {
+      return null;
     }
-    Set<String> seen = new HashSet<>();
-    List<Integer> list = s.activeFormatting();
-    for (int i = list.size() - 1; i >= 0 && list.get(i) != ParserState.MARKER; i--) {
-      String name = s.activeFormattingElements().get(i).localName();
-      if (!seen.add(name)) {
+    for (int i = s.insertedOnStack() ? s.size() - 2 : s.size() - 1; i >= 0; i--) {
+      boolean html = OpenElement.HTML.equals(s.namespace(i));
+      String below = s.localName(i);
+      if (html && below.equals("template")) {
+        return null;
+      }
+      if (!form && html && below.equals(name)) {
         return "it has a <" + name + "> inside another <" + name + ">";
       }
+      if (!form && html && MARKERS.contains(below)) {
+        return null;
+      }
     }
-    return null;
+    return form ? "it has a <form>" : null;
   }
 
   /**
@@ -170,53 +174,6 @@ public final class ContentKinds {
     int at = sig.indexOf(" original=");
     int end = at < 0 ? -1 : sig.indexOf(' ', at + 1);
     return at < 0 || end < 0 ? sig : sig.substring(0, at) + sig.substring(end);
-  }
-
-  /**
-   * The breach if {@code piece}, fed alone, is an end tag that closed nothing in one of the parsers
-   * ({@code before} and {@code after} are their states around it), else null. In the {@code ""}
-   * {@link #PARTIAL_PROBES probe} that means the parser had already closed the element the tag was
-   * written for, as an {@code <h2>} closes an open {@code <h1>}, a {@code <dd>} a {@code <dt>} and
-   * a {@code <button>} an open {@code <button>} with the {@code <div>} inside it. Inserted where an
-   * element of that name is open around the content, the same tag closes that one. A {@code </p>}
-   * and a {@code </br>} are exempt: with no {@code p} to close they insert an element, the same
-   * wherever FLOW is accepted (the predicate rejects an open {@code p} in button scope). It fails
-   * closed: an end tag still unfinished after the piece is a breach.
-   */
-  static String strayEndTag(String piece, ParserState[] before, ParserState[] after) {
-    int end = 2;
-    while (end < piece.length() && Character.isLetterOrDigit(piece.charAt(end))) {
-      end++;
-    }
-    if (end == 2 || !Character.isLetter(piece.charAt(2))) {
-      return null; // not an end tag (a bogus comment, or text in data)
-    }
-    String name = piece.substring(2, end).toLowerCase(Locale.ROOT);
-    for (int i = 0; i < before.length; i++) {
-      if (before[i].tokenizer() != TokenizerState.DATA || !before[i].pendingInput().isEmpty()) {
-        continue; // inside raw text, a comment or a tag: not an end tag here
-      }
-      if (after[i].tokenizer() != TokenizerState.DATA || !after[i].pendingInput().isEmpty()) {
-        return "it has a </" + name + "> end tag that doesn't end where the verifier can see it";
-      }
-      if (!name.equals("p") && !name.equals("br") && before[i].stack().equals(after[i].stack())) {
-        return "it has a </" + name + "> end tag that closes nothing it opened (the <" + name
-            + "> was already closed by what came after it)";
-      }
-    }
-    return null;
-  }
-
-  /** The breach if {@code piece} (markup from one {@code <} on) starts with a page element's start tag, else null. */
-  static String pageTag(String piece) {
-    for (String name : PAGE_ELEMENTS) {
-      int end = 1 + name.length();
-      if (piece.regionMatches(true, 0, "<" + name, 0, end)
-          && (piece.length() == end || " \t\n\r\f/>".indexOf(piece.charAt(end)) >= 0)) {
-        return "it has a <" + name + "> tag";
-      }
-    }
-    return null;
   }
 
   /**
@@ -238,10 +195,11 @@ public final class ContentKinds {
    *       close them.
    *   <li>Three or more formatting entries of one name after the last marker: one more is
    *       dropped from the list (the Noah's Ark clause), whatever its attributes.
-   *   <li>In cell or caption mode, an SVG or MathML element above the cell: a {@code </table>} in
-   *       the value resets the mode to "in cell" by the standard, but to "in body" in
-   *       validator.nu, which stops at the foreign element.
    * </ul>
+   *
+   * <p>Not here: SVG or MathML above a cell, where a {@code </table>} in the value resets the mode
+   * differently in validator.nu and the standard. Exclusion (a) rejects any {@code <svg>} or
+   * {@code <math>} in a table part ({@link Rules#exclusion}, #410).
    *
    * <p>Not here, because FLOW content can't close them: an open {@code li}, {@code dd} or {@code dt}
    * (FLOW content writes those only inside its own list, whose {@code ul}/{@code ol}/{@code dl}
@@ -266,24 +224,6 @@ public final class ContentKinds {
     for (String name : new String[] {"button", "nobr", "ruby"}) {
       if (inScope(stack, name, false)) {
         return "an open <" + name + ">";
-      }
-    }
-    if (s.mode() == InsertionMode.IN_CELL || s.mode() == InsertionMode.IN_CAPTION) {
-      // A </table> in the value resets the insertion mode from the stack. The HTML standard walks
-      // down to the cell; validator.nu stops at the first SVG or MathML element and picks "in
-      // body". The parsers disagree on the state after the value, so it is rejected.
-      String foreign = null;
-      for (int i = stack.size() - 1; i >= 0; i--) {
-        OpenElement e = stack.get(i);
-        if (e.isHtml("td") || e.isHtml("th") || e.isHtml("caption")) {
-          if (foreign != null) {
-            return "the <" + e.localName() + "> that holds the <" + foreign + ">";
-          }
-          break;
-        }
-        if (!OpenElement.HTML.equals(e.namespace())) {
-          foreign = e.localName();
-        }
       }
     }
     Map<String, Integer> counts = new HashMap<>();
@@ -349,8 +289,6 @@ public final class ContentKinds {
     if (common < b.size()) {
       return "leaves <" + b.get(common).localName() + "> open";
     }
-    return before.tokenizer() != after.tokenizer() ? "ends inside markup"
-        : before.reconstructionPending() != after.reconstructionPending() ? "leaves formatting elements to reopen"
-        : "changes how what follows is parsed";
+    return before.tokenizer() != after.tokenizer() ? "ends inside markup" : "changes how what follows is parsed";
   }
 }

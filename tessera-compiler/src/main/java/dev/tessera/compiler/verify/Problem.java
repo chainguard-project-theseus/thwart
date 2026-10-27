@@ -3,7 +3,7 @@ package dev.tessera.compiler.verify;
 /**
  * What the context verifier rejects (#367). The names are stable rule ids: each error message
  * carries one ({@link VerifierMessages}), and #368 maps them to fix-its. Add new kinds at the end;
- * never rename one.
+ * never rename or delete one: a retired id is no longer reported, and its constant stays.
  */
 public enum Problem {
   /** A text or RCDATA hole where the tokenizer isn't in data, RCDATA or never-executed raw text. */
@@ -14,7 +14,10 @@ public enum Problem {
   TEXT_IN_TABLE,
   /** A text hole where only head content, whitespace or nothing may appear (before or in head, after body). */
   TEXT_OUTSIDE_BODY,
-  /** A text hole where inserting a character would first reconstruct misnested formatting elements. */
+  /**
+   * Retired (#410), no longer reported: a text hole where inserting a character would first
+   * reconstruct misnested formatting elements. The misnesting is a {@link #PARSE_ERROR}.
+   */
   TEXT_RECONSTRUCTS,
   /**
    * An RCDATA hole (escaped for {@code <title>}/{@code <textarea>}, without the comments that break
@@ -25,13 +28,16 @@ public enum Problem {
   ATTRIBUTE_NOT_IN_VALUE,
   /** An attribute hole in a value of a different attribute than the compiler wrote (or a dropped duplicate). */
   ATTRIBUTE_WRONG_NAME,
-  /** An attribute hole whose value decides how the rest parses ({@code input type} in a table, MathML {@code encoding}). */
+  /** An attribute hole whose value decides how the rest parses (MathML {@code encoding}). */
   ATTRIBUTE_VALUE_CHANGES_PARSE,
   /** A JSON hole outside the script data of an HTML {@code <script>}. */
   JSON_NOT_IN_SCRIPT,
   /** A {@code SafeHtml}, {@code Fragment} value or HTML message outside flow content. */
   RAW_NOT_FLOW,
-  /** A {@code <frameset>} start tag: whether it applies depends on the text before it. */
+  /**
+   * A {@code frameset} element (a coarse exclusion, {@link Rules#exclusion}): whether a {@code
+   * <frameset>} start tag applies depends on the content before it.
+   */
   FRAMESET,
   /** Three or more identical formatting elements, one with a computed attribute (the Noah's Ark clause). */
   NOAHS_ARK,
