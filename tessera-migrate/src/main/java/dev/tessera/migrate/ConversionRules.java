@@ -141,7 +141,8 @@ final class ConversionRules {
       "#numbers", "numbers",
       "#temporals", "temporals",
       "#lists", "lists",
-      "#fields", "fields");
+      "#fields", "fields",
+      "#ids", "ids");
 
   /** Utility calls {@code #obj.fn(x)} that become a built-in method on the argument, {@code x.m()}. */
   static final Map<String, String> RECEIVER_CALLS = Compat.mapOf(

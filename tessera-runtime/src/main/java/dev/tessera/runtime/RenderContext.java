@@ -15,7 +15,8 @@ import java.util.Optional;
  * for {@code t:field}/{@code t:errors} and CSRF tokens; {@code cspNonce}, if set, is written as
  * {@code nonce="..."} on every {@code <script>} and {@code <style>} start tag the template
  * writes. A context also numbers the ids {@code t:field} writes on checkboxes and radio buttons
- * ({@link #sequenceId}), so use a new one for every render, as the Spring integration does.
+ * and {@code ids.seq/next/prev} return ({@link #sequenceId}), so use a new one for every render,
+ * as the Spring integration does.
  */
 public final class RenderContext {
   private final Locale locale;
@@ -91,6 +92,34 @@ public final class RenderContext {
       int next = previous == null ? 1 : previous + 1;
       idSequences.put(id, next);
       return id + next;
+    }
+  }
+
+  /**
+   * The id the next {@link #sequenceId} call for {@code id} will return, without counting it:
+   * {@code roles1} before the first. Thymeleaf's {@code IdentifierSequences.getNextIDSeq}
+   * ({@code #ids.next}).
+   */
+  public String nextSequenceId(String id) {
+    synchronized (idSequences) {
+      Integer previous = idSequences.get(id);
+      return id + (previous == null ? 1 : previous + 1);
+    }
+  }
+
+  /**
+   * The id the last {@link #sequenceId} call for {@code id} returned. Thymeleaf's
+   * {@code IdentifierSequences.getPreviousIDSeq} ({@code #ids.prev}).
+   *
+   * @throws IllegalStateException if this context has not numbered {@code id} yet
+   */
+  public String previousSequenceId(String id) {
+    synchronized (idSequences) {
+      Integer previous = idSequences.get(id);
+      if (previous == null) {
+        throw new IllegalStateException("Cannot obtain previous ID count for ID \"" + id + "\"");
+      }
+      return id + previous;
     }
   }
 

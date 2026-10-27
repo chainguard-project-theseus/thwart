@@ -196,6 +196,84 @@ class FormsTest {
   }
 
   @Test
+  void idsFunctionsShareTheFieldIdCounter() {
+    // #458: Thymeleaf's #ids over the same IdentifierSequences counter as t:field's numbered ids:
+    // next peeks (a label before its input), prev is the last id numbered (a label after it), seq
+    // counts. #ids.prev (the Thymeleaf spelling) compiles too.
+    Compilation c =
+        compileForm(
+                "<form xmlns:t=\"https://tessera.dev\" t:import=\"com.example.*\""
+                    + " t:params=\"Owner owner, List<String> pets\" t:object=\"owner\">"
+                    + "<div t:each=\"p : ${pets}\"><label t:for=\"${ids.next('pet')}\" t:text=\"${p}\"></label>"
+                    + "<input type=\"radio\" t:value=\"${p}\" t:field=\"*{pet}\">"
+                    + "<label t:for=\"${#ids.prev('pet')}\">after</label></div>"
+                    + "<input type=\"checkbox\" t:field=\"*{active}\"><label t:for=\"${ids.prev('active')}\">A</label>"
+                    + "<span t:id=\"${ids.seq('pet')}\" t:text=\"${ids.next('pet')} + ' ' + ${ids.prev('pet')}\"></span>"
+                    + "<input type=\"radio\" value=\"z\" t:field=\"*{pet}\"></form>")
+            .assertSuccess();
+    Map<String, Object> model = new HashMap<>();
+    model.put("owner", owner(c, "Ann", null));
+    model.put("pets", List.of("fish", "dog"));
+    String out = c.render("form", model, ctx(new TestForms()));
+    assertEquals(
+        "<form><div><label for=\"pet1\">fish</label><input type=\"radio\" value=\"fish\" id=\"pet1\" name=\"pet\">"
+            + "<label for=\"pet1\">after</label></div>"
+            + "<div><label for=\"pet2\">dog</label><input type=\"radio\" value=\"dog\" id=\"pet2\" name=\"pet\" checked=\"checked\">"
+            + "<label for=\"pet2\">after</label></div>"
+            + "<input type=\"checkbox\" id=\"active1\" name=\"active\" value=\"true\" checked=\"checked\">"
+            + "<input type=\"hidden\" name=\"_active\" value=\"on\" /><label for=\"active1\">A</label>"
+            + "<span id=\"pet3\">pet4 pet3</span>"
+            + "<input type=\"radio\" value=\"z\" id=\"pet4\" name=\"pet\"></form>",
+        out);
+    // A new render starts again at 1.
+    assertEquals(out, c.render("form", model, ctx(new TestForms())));
+  }
+
+  @Test
+  void idsAreEscapedForTheirContext() {
+    // The id is any expression converted to text, escaped like any other value.
+    Compilation c =
+        compile(
+            "<label t:for=\"${ids.seq(owner.firstName)}\" t:text=\"${ids.prev(owner.firstName)}\"></label>"
+                + "<i t:title=\"${ids.next(42)}\"></i>");
+    assertEquals(
+        "<form><label for=\"&quot; onclick=&quot;x1\">&quot; onclick=&quot;x1</label><i title=\"421\"></i></form>",
+        render(c, owner(c, "\" onclick=\"x", null), new TestForms()).replace("&#34;", "&quot;"));
+  }
+
+  @Test
+  void idsPrevBeforeAnyIdAndNullIdFailTheRender() {
+    // Thymeleaf's getPreviousIDSeq throws when nothing was numbered; #ids rejects a null id.
+    Compilation c = compile("<label t:for=\"${ids.prev('pet')}\">x</label>");
+    Throwable t = org.junit.jupiter.api.Assertions.assertThrows(
+        Throwable.class, () -> render(c, owner(c, "Ann", null), new TestForms()));
+    assertTrue(String.valueOf(rootCause(t).getMessage()).contains("Cannot obtain previous ID count for ID \"pet\""), t.toString());
+    Compilation n = compile("<label t:for=\"${ids.next(owner.address)}\">x</label>");
+    Throwable u = org.junit.jupiter.api.Assertions.assertThrows(
+        Throwable.class, () -> render(n, owner(n, "Ann", null), new TestForms()));
+    assertTrue(String.valueOf(rootCause(u).getMessage()).contains("ids.next: the id is null"), u.toString());
+  }
+
+  private static Throwable rootCause(Throwable t) {
+    while (t.getCause() != null && t.getCause() != t) {
+      t = t.getCause();
+    }
+    return t;
+  }
+
+  @Test
+  void unknownIdsFunctionOrArityIsBuildError() {
+    compileForm(HEAD + ">\n<label t:for=\"${ids.last('pet')}\">x</label></form>")
+        .assertError("form.html:2:", "unknown function ids.last: the ids namespace has seq('name'), next('name') and prev('name')");
+    compileForm(HEAD + "><label t:for=\"${ids.prev()}\">x</label></form>")
+        .assertError("ids.prev takes one argument, the id");
+    compileForm(HEAD + "><label t:for=\"${#ids.seq('a', 'b')}\">x</label></form>")
+        .assertError("ids.seq takes one argument, the id");
+    compileForm(HEAD + "><label t:for=\"${ids.prev}\">x</label></form>")
+        .assertError("'ids.prev' is a function");
+  }
+
+  @Test
   void computedIdTakesNoNumber() {
     // A t:id runs before t:field: the radio keeps it, and the next radio is still pet1.
     Compilation c =

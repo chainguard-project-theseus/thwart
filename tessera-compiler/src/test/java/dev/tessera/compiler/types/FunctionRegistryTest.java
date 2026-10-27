@@ -163,17 +163,20 @@ class FunctionRegistryTest {
     String strings = "package com.example; @dev.tessera.runtime.TemplateFunctions(\"strings\") public final class MyStrings {}";
     String fields = "package com.example; @dev.tessera.runtime.TemplateFunctions(\"fields\") public final class Fields {}";
     String hidden = "package com.example; @dev.tessera.runtime.TemplateFunctions(\"hidden\") final class Hidden {}";
+    String ids = "package com.example; @dev.tessera.runtime.TemplateFunctions(\"ids\") public final class Ids {}";
     TypesHarness.create()
         .java("com.example.DupA", a)
         .java("com.example.DupB", b)
         .java("com.example.MyStrings", strings)
         .java("com.example.Fields", fields)
         .java("com.example.Hidden", hidden)
+        .java("com.example.Ids", ids)
         .functions("com.example.DupA")
         .functions("com.example.DupB")
         .functions("com.example.MyStrings")
         .functions("com.example.Fields")
         .functions("com.example.Hidden")
+        .functions("com.example.Ids")
         .run(
             f -> {
               f.compiler().functions();
@@ -184,7 +187,8 @@ class FunctionRegistryTest {
                   all);
               assertTrue(all.contains("function namespace 'fields' on com.example.Fields is reserved"), all);
               assertTrue(all.contains("@TemplateFunctions class com.example.Hidden must be public"), all);
-              assertEquals(4, f.errors().size(), all);
+              assertTrue(all.contains("function namespace 'ids' on com.example.Ids is reserved for element ids"), all);
+              assertEquals(5, f.errors().size(), all);
             });
   }
 }
