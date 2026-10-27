@@ -369,7 +369,7 @@ final class Migrator {
       }
       boolean convertible = problems.isEmpty();
       if (local.equals(ConversionRules.EACH)) {
-        return eachValue(original, value, convertible);
+        return eachValue(original, value, convertible, line);
       }
       if (!convertible) {
         return original; // left in place for the compiler to reject; roots would be guesses
@@ -384,9 +384,14 @@ final class Migrator {
       }
       String rewritten = Expressions.rewrite(value);
       if (!selection) {
+        rewritten = selections(line, rewritten);
         roots.addAll(Expressions.roots(rewritten, fragmentReference));
       }
       nullablePathVariables(line, rewritten);
+      if (thymeleaf && ConversionRules.EMPTY_FOR_NULL.contains(local) && Expressions.mayBeNull(rewritten)) {
+        report(line, String.format(ConversionRules.NULL_ATTRIBUTE_MESSAGE, name, codeSpan(Compat.strip(rewritten)),
+            name.substring(name.indexOf(':') + 1)));
+      }
       return rewritten;
     }
 
@@ -394,7 +399,7 @@ final class Migrator {
      * {@code th:each="x, st : expr"}: the loop variables become locals even when the expression
      * is not convertible, so they are never mistaken for parameters elsewhere in the template.
      */
-    private String eachValue(String original, String value, boolean convertible) {
+    private String eachValue(String original, String value, boolean convertible, int line) {
       int colon = Expressions.indexOfTopLevel(value, ':');
       if (colon < 0) {
         return original; // not a loop expression; the compiler reports it
@@ -407,7 +412,7 @@ final class Migrator {
       if (!convertible) {
         return original;
       }
-      String rewritten = Expressions.rewrite(value.substring(colon + 1));
+      String rewritten = selections(line, Expressions.rewrite(value.substring(colon + 1)));
       roots.addAll(Expressions.roots(rewritten, false));
       return value.substring(0, colon + 1) + rewritten;
     }
@@ -433,12 +438,21 @@ final class Migrator {
               name, target));
         }
         String expr = part.substring(eq + 1);
-        String rewritten = Expressions.rewrite(thymeleaf ? Expressions.quoteTokens(expr, false) : expr);
+        String rewritten = selections(line,
+            Expressions.rewrite(thymeleaf ? Expressions.quoteTokens(expr, false) : expr));
         roots.addAll(Expressions.roots(rewritten, false));
         nullablePathVariables(line, rewritten);
         parts.add(part.substring(0, eq + 1) + rewritten);
       }
       return String.join(",", parts);
+    }
+
+    /** {@link Expressions#splitSelections}, reporting the compound selections it leaves in place. */
+    private String selections(int line, String expr) {
+      for (String selection : Expressions.compoundSelections(expr)) {
+        report(line, String.format(ConversionRules.COMPOUND_SELECTION_MESSAGE, codeSpan(selection)));
+      }
+      return Expressions.splitSelections(expr);
     }
 
     /**

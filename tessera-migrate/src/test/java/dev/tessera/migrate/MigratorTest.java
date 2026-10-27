@@ -294,6 +294,68 @@ class MigratorTest {
   }
 
   @Test
+  void selectionsOverSeveralPropertiesAreSplitIntoOnePathEach() throws Exception {
+    // petclinic ownerDetails.html (#435): Tessera's *{...} holds one property path.
+    String src = "<p t:params=\"Owner owner\"><b th:object=\"${owner}\">"
+        + "<i th:text=\"*{firstName + ' ' + lastName}\"></i>"
+        + "<i th:text=\"'Owner: ' + *{firstName + ' ' + address?.city}\"></i>"
+        + "<i th:if=\"*{pets.size() > 0 and !active}\"></i>"
+        + "<i th:with=\"label=*{ age >= 18 ? 'adult' : 'child' }\" th:each=\"p : *{pets ?: others}\"></i>"
+        + "<i th:text=\"*{name}\" th:field=\"*{name}\"></i></b></p>";
+    assertEquals("<p t:params=\"Owner owner\"><b t:object=\"owner\">"
+            + "<i t:text=\"*{firstName} + ' ' + *{lastName}\"></i>"
+            + "<i t:text=\"'Owner: ' + (*{firstName} + ' ' + *{address?.city})\"></i>"
+            + "<i t:if=\"*{pets.size()} > 0 and !*{active}\"></i>"
+            + "<i t:with=\"label=*{age} >= 18 ? 'adult' : 'child'\" t:each=\"p : *{pets} ?: *{others}\"></i>"
+            + "<i t:text=\"*{name}\" t:field=\"*{name}\"></i></b></p>",
+        convert(src));
+    assertMessages(src);
+  }
+
+  @Test
+  void selectionsThatAreNotOnlyPathsAndOperatorsAreReportedNotSplit() throws Exception {
+    String src = "<p t:params=\"Owner owner\"><b th:object=\"${owner}\">"
+        + "<i th:text=\"*{pets[0].name + ' ' + lastName}\"></i>\n"
+        + "<i th:text=\"*{#strings.toUpperCase(name) + '!'}\"></i>\n"
+        + "<i th:if=\"*{name matches 'A.*'}\"></i>\n"
+        + "<i th:text=\"|Hi *{firstName + lastName}|\"></i><i th:text=\"'*{a + b}'\"></i><i th:field=\"*{a + b}\"></i>"
+        + "</b></p>";
+    String out = convert(src);
+    assertTrue(out.contains("t:text=\"*{pets[0].name + ' ' + lastName}\""), out);
+    assertTrue(out.contains("t:text=\"*{strings.toUpperCase(name) + '!'}\""), out);
+    assertTrue(out.contains("t:if=\"*{name matches 'A.*'}\""), out);
+    assertTrue(out.contains("t:text=\"|Hi *{firstName + lastName}|\"></i><i t:text=\"'*{a + b}'\"></i><i t:field=\"*{a + b}\""), out);
+    assertMessages(src,
+        "1: `*{pets[0].name + ' ' + lastName}` is not converted: in Tessera `*{...}` holds one property path",
+        "2: `*{strings.toUpperCase(name) + '!'}` is not converted",
+        "3: `*{name matches 'A.*'}` is not converted");
+  }
+
+  @Test
+  void attributesThymeleafWritesEmptyForNullAreReported() throws Exception {
+    String src = "<form t:params=\"Owner owner, String u\" th:action=\"${u}\">"
+        + "<input th:value=\"${owner.name}\" th:name=\"${owner.field}\">\n"
+        + "<a th:href=\"${owner.url}\">a</a><img th:src=\"${owner.photo}\"><button th:type=\"${owner.kind}\">b</button>"
+        + "</form>";
+    assertMessages(src,
+        "1: `th:action` = `u`: for a `null` value Thymeleaf wrote `action=\"\"`, but Tessera omits the attribute;"
+            + " if it can be `null` and the empty attribute matters, write `x ?: ''` for a `String`",
+        "1: `th:value` = `owner.name`: for a `null` value Thymeleaf wrote `value=\"\"`",
+        "1: `th:name` = `owner.field`: for a `null` value Thymeleaf wrote `name=\"\"`",
+        "2: `th:href` = `owner.url`: for a `null` value Thymeleaf wrote `href=\"\"`",
+        "2: `th:src` = `owner.photo`: for a `null` value Thymeleaf wrote `src=\"\"`",
+        "2: `th:type` = `owner.kind`: for a `null` value Thymeleaf wrote `type=\"\"`");
+  }
+
+  @Test
+  void attributesThatCannotBeNullOrThatThymeleafOmitsAreNotReported() throws Exception {
+    assertMessages("<form t:params=\"Owner owner\" th:action=\"@{/owners/new}\">"
+        + "<input th:value=\"'x'\" th:name=\"|f${owner.id}|\"><input th:value=\"42\" th:type=\"#{input.type}\">"
+        + "<input th:title=\"${owner.name}\" th:attr=\"value=${owner.name}\"><input t:value=\"owner.name\">"
+        + "<input th:value=\"checkbox\"></form>");
+  }
+
+  @Test
   void literalTokensAreQuoted() throws Exception {
     assertEquals("<ul t:params=\"Object nav_x\"><li t:class=\"'nav-item'\" t:text=\"'item.name'\" t:value=\"42\""
             + " t:if=\"true\" t:with=\"c=nav_x\" t:attr=\"data-k='a-b'\">x</li></ul>",
@@ -603,7 +665,7 @@ class MigratorTest {
     // A type set by an expression is not a JavaScript script (the compiler rejects inlines there).
     String dynamic = script(" th:type=\"${y}\"", "\"[[${x}]]\"");
     assertEquals(script(" t:type=\"y\"", "\"[[${x}]]\""), convert(dynamic));
-    assertEquals(List.of(), messages(dynamic));
+    assertMessages(dynamic, "1: `th:type` = `y`: for a `null` value Thymeleaf wrote `type=\"\"`"); // #435
   }
 
   @Test
