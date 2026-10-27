@@ -27,7 +27,6 @@ class FragmentParsingContextTest {
           + "<math><mrow t:fragment=\"row\"><mi>x</mi></mrow></math>\n"
           + "<span t:fragment=\"sel(String s)\"><style><script></style>[[s]]</span>\n"
           + "<option t:fragment=\"opt(String s)\" t:text=\"s\">x</option><t:block t:fragment=\"opts\"><option>a</option></t:block>\n"
-          + "<option t:fragment=\"nest\"><b t:replace=\"~{:: plain}\"></b></option>\n"
           + "<section t:fragment=\"card(Fragment content)\"><div t:replace=\"${content}\">c</div></section>\n"
           + "</div>";
 
@@ -274,7 +273,14 @@ class FragmentParsingContextTest {
     page("<select><option t:insert=\"~{frags :: sel(v)}\"></option></select>")
         .assertError("page.html:2:27", "fragment 'frags :: sel' is declared in HTML content but t:insert puts it in <select>"
             + " content, where a browser parses its markup differently: " + fix);
-    page("<select t:insert=\"~{frags :: nest}\"></select>").assertError("page.html:2:19", fix);
+    // Its own template: no template could insert it anywhere, so the verifier rejects it on its own
+    // where nothing calls it (#461).
+    Compilation.builder()
+        .template("nest.html", "<div " + NS + "><i t:fragment=\"plain\">plain</i>"
+            + "<option t:fragment=\"nest\"><b t:replace=\"~{:: plain}\"></b></option></div>")
+        .template("page.html", "<div " + NS + " t:params=\"String v\">\n<select t:insert=\"~{nest :: nest}\"></select></div>")
+        .compile()
+        .assertError("page.html:2:19", fix);
     // A SafeHtml could hold a <style> that a <select> ignores.
     Compilation raw =
         Compilation.builder()
