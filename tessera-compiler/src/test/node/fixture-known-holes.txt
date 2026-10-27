@@ -64,3 +64,12 @@ ed647dc9e62b STRUCTURE_CHANGED parse5 #322 S8-marker-in-name
 ed647dc9e62b STRUCTURE_CHANGED chromium #322 S8-marker-in-name
 ed647dc9e62b STRUCTURE_CHANGED webkit #322 S8-marker-in-name
 ed647dc9e62b STRUCTURE_CHANGED firefox #322 S8-marker-in-name
+#
+# Engine drift (#399). S9's trees are what the vnu engine builds for its renders (VnuTreesTest
+# checks that), with whitespace-only table text, sorted attributes, template contents and an
+# xlink:href: no engine may drift on it, and with --mutate-normal-form (whitespace dropped) parse5
+# must (run.sh). S10's trees are injected: vnu "builds" <b> where every engine builds <p>.
+11f27c60526a ENGINE_DRIFT parse5 #399 S10-drift-injected
+11f27c60526a ENGINE_DRIFT chromium #399 S10-drift-injected
+11f27c60526a ENGINE_DRIFT webkit #399 S10-drift-injected
+11f27c60526a ENGINE_DRIFT firefox #399 S10-drift-injected

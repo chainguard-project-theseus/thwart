@@ -181,3 +181,89 @@ export function attrFindings(el, p) {
   }
   return f;
 }
+
+// ---- the engine-drift normal form (#399) ----
+//
+// The form VnuTrees.java writes for the vnu engine, so a parse5 tree or a browser DOM can be
+// compared with them: a text node is a string, an element [name, ns, attrs, kids] with ns 'html',
+// 'svg', 'math' (or the URI) and attrs [[name, value]] sorted by name. Comments are dropped and the
+// text around them merged (normalizeParse5/normalizeDom already do that); whitespace-only text is
+// kept exactly. xmlns and xmlns:* attributes are dropped (vnu's DOM can't hold them). A template's
+// contents are its '#content' child; an <iframe srcdoc>'s document is its '#srcdoc' child unless
+// the frame has a sandbox attribute (not compared). Change VnuTrees.java with this.
+
+const NS_SHORT = {
+  'http://www.w3.org/1999/xhtml': 'html',
+  'http://www.w3.org/2000/svg': 'svg',
+  'http://www.w3.org/1998/Math/MathML': 'math',
+};
+
+/** A normalized tree (normalizeParse5, normalizeDom) in the engine-drift normal form. */
+export function compact(kids) {
+  return kids.flatMap((k) => {
+    if (k.t === 'text') return [k.v];
+    const attrs = k.attrs
+      .filter(([n]) => n !== 'xmlns' && !n.startsWith('xmlns:'))
+      .map(([n, v]) => [n, v])
+      .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+    const sandboxed = k.name === 'iframe' && k.ns === HTML_NS && k.attrs.some(([n]) => n === 'sandbox');
+    const children = sandboxed ? k.kids.filter((c) => !(c.t === 'el' && c.name === '#srcdoc')) : k.kids;
+    return [[k.name, k.name.startsWith('#') ? '' : (NS_SHORT[k.ns] ?? String(k.ns)), attrs, compact(children)]];
+  });
+}
+
+const showText = (s) => JSON.stringify(s.length > 60 ? s.slice(0, 60) + '...' : s);
+const elKey = (e) => (e[1] === 'html' || e[1] === '' ? e[0] : `${e[1]}:${e[0]}`);
+
+/** Where two trees in the normal form first differ (want: a vnu tree; got: the engine's), or null. */
+export function treeDiff(want, got, path = '') {
+  const n = Math.max(want.length, got.length);
+  for (let i = 0; i < n; i++) {
+    const w = want[i];
+    const g = got[i];
+    const at = path || '/';
+    const what = (x) => (x === undefined ? 'nothing' : typeof x === 'string' ? `text ${showText(x)}` : `<${elKey(x)}>`);
+    if (w === undefined || g === undefined || typeof w !== typeof g) {
+      return `${at} child ${i}: vnu has ${what(w)}, engine has ${what(g)}`;
+    }
+    if (typeof w === 'string') {
+      if (w !== g) return `${at} child ${i}: vnu has ${what(w)}, engine has ${what(g)}`;
+      continue;
+    }
+    const p = `${path}/${elKey(w)}`;
+    if (w[0] !== g[0] || w[1] !== g[1]) return `${at} child ${i}: vnu has ${what(w)}, engine has ${what(g)}`;
+    if (JSON.stringify(w[2]) !== JSON.stringify(g[2])) {
+      return `${p}: vnu has attributes ${JSON.stringify(w[2]).slice(0, 200)}, engine has ${JSON.stringify(g[2]).slice(0, 200)}`;
+    }
+    const d = treeDiff(w[3], g[3], p);
+    if (d) return d;
+  }
+  return null;
+}
+
+/**
+ * A deliberately wrong normal form, for the self-check (run.sh, --mutate-normal-form): drops
+ * whitespace-only text, the kind of policy slip that would make the comparison report drift that
+ * isn't there or, worse, agree where it shouldn't. The job must report it as drift.
+ */
+export function mutateNormalForm(kids) {
+  return kids.filter((k) => typeof k !== 'string' || k.trim() !== '').map((k) =>
+    typeof k === 'string' ? k : [k[0], k[1], k[2], mutateNormalForm(k[3])]);
+}
+
+/**
+ * The engine-drift check (#399) for one render: `tree` is the engine's normalized tree
+ * (normalizeParse5/normalizeDom) with scripting on or off, `trees` the export's vnu trees for the
+ * render (VnuTrees.java). Drift is a tree other than the one the vnu engine (the verifier's one
+ * engine) builds with the same scripting flag: the verifier then reasoned about a document this
+ * engine doesn't build. Returns null, or where the tree first differs from vnu's.
+ */
+export function engineDrift(tree, trees, scripting, mutate = false) {
+  const mode = scripting ? 'scripting-on' : 'scripting-off';
+  const vnu = trees[mode];
+  if (!Array.isArray(vnu)) throw new Error('export trees without ' + mode);
+  let got = compact(tree);
+  if (mutate) got = mutateNormalForm(got);
+  if (JSON.stringify(vnu) === JSON.stringify(got)) return null;
+  return `${mode}: ${treeDiff(vnu, got)}`;
+}
