@@ -178,6 +178,26 @@ final class Migrator {
       return !open.isEmpty() && open.peek().noInline;
     }
 
+    /**
+     * Whether the element whose start tag is being read is an SVG element: {@code <svg>} or one of
+     * the {@link ConversionRules#SVG_HTML_PARENTS}, or inside an {@code <svg>} and not inside one of
+     * those (their content is HTML). MathML is not tracked: it has none of these attributes.
+     */
+    private boolean inSvg() {
+      if (openName.equals(ConversionRules.SVG) || ConversionRules.SVG_HTML_PARENTS.contains(openName)) {
+        return true;
+      }
+      for (Open o : open) {
+        if (o.name.equals(ConversionRules.SVG)) {
+          return true;
+        }
+        if (ConversionRules.SVG_HTML_PARENTS.contains(o.name)) {
+          return false;
+        }
+      }
+      return false;
+    }
+
     @Override
     public void handleUnmatchedCloseElementStart(
         char[] buffer, int nameOffset, int nameLen, int line, int col) {
@@ -255,6 +275,12 @@ final class Migrator {
         return;
       }
       boolean thymeleaf = lower.startsWith(ConversionRules.THYMELEAF_PREFIX);
+      if (thymeleaf && inSvg()
+          && ConversionRules.svgStyleAttribute(lower.substring(ConversionRules.THYMELEAF_PREFIX.length()), openName)) {
+        report(nameLine, String.format(ConversionRules.SVG_STYLE_MESSAGE, name,
+            name.substring(ConversionRules.THYMELEAF_PREFIX.length())));
+        return;
+      }
       String local;
       if (thymeleaf) {
         local = lower.substring(ConversionRules.THYMELEAF_PREFIX.length());
@@ -273,7 +299,7 @@ final class Migrator {
       }
       String converted = local.equals(ConversionRules.FRAGMENT)
           ? fragmentSignature(value, nameLine)
-          : expressionValue(local, value, thymeleaf, nameLine);
+          : expressionValue(local, value, thymeleaf, name, nameLine);
       if (thymeleaf && local.equals(ConversionRules.UTEXT)
           && Expressions.unsupported(Expressions.rewriteLinks(value)).isEmpty()) {
         rawOutput(nameLine, name, converted);
@@ -331,7 +357,7 @@ final class Migrator {
      * literal tokens ({@code th:class="nav-item"}, {@code @{/r(mode=mixed)}}) are quoted;
      * {@code t:} values are already Tessera, which keeps the rewrite idempotent.
      */
-    private String expressionValue(String local, String original, boolean thymeleaf, int line) {
+    private String expressionValue(String local, String original, boolean thymeleaf, String name, int line) {
       String value = Expressions.rewriteLinks(original);
       List<String> problems = Expressions.unsupported(value);
       for (String problem : problems) {
@@ -345,7 +371,7 @@ final class Migrator {
         return original; // left in place for the compiler to reject; roots would be guesses
       }
       if (ConversionRules.ASSIGNMENT_VALUES.contains(local)) {
-        return assignmentsValue(local, value, thymeleaf);
+        return assignmentsValue(local, value, thymeleaf, name, line);
       }
       boolean selection = ConversionRules.SELECTION_VALUES.contains(local);
       boolean fragmentReference = ConversionRules.FRAGMENT_REFERENCES.contains(local);
@@ -381,8 +407,11 @@ final class Migrator {
       return value.substring(0, colon + 1) + rewritten;
     }
 
-    /** {@code name=expr, ...}: each expression is rewritten; {@code with} names become locals. */
-    private String assignmentsValue(String local, String value, boolean thymeleaf) {
+    /**
+     * {@code name=expr, ...}: each expression is rewritten; {@code with} names become locals, and
+     * a {@code th:attr} entry that sets a CSS attribute of an SVG element is reported.
+     */
+    private String assignmentsValue(String local, String value, boolean thymeleaf, String name, int line) {
       List<String> parts = new ArrayList<>();
       for (String part : Expressions.splitTopLevel(value, false)) {
         int eq = Expressions.indexOfTopLevel(part, '=');
@@ -390,8 +419,13 @@ final class Migrator {
           parts.add(part);
           continue;
         }
+        String target = Compat.strip(part.substring(0, eq));
         if (local.equals(ConversionRules.WITH)) {
-          locals.add(Compat.strip(part.substring(0, eq)));
+          locals.add(target);
+        } else if (thymeleaf && inSvg()
+            && ConversionRules.svgStyleAttribute(target.toLowerCase(Locale.ROOT), openName)) {
+          report(line, String.format(ConversionRules.SVG_STYLE_IN_ATTR_MESSAGE,
+              name, target));
         }
         String expr = part.substring(eq + 1);
         String rewritten = Expressions.rewrite(thymeleaf ? Expressions.quoteTokens(expr, false) : expr);

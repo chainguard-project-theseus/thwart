@@ -72,6 +72,38 @@ final class ConversionRules {
   }
 
   /**
+   * SVG presentation attributes, lower case, whose value is CSS that may hold a {@code url()}. On
+   * an SVG element the Tessera compiler gives them the {@code style} rules: a {@code String} value
+   * is a build error. The compiler's {@code Contexts} has the same list.
+   */
+  private static final Set<String> SVG_STYLE_ATTRIBUTES = Compat.setOf(
+      "fill", "stroke", "clip-path", "mask", "filter", "marker-start", "marker-mid", "marker-end", "marker", "cursor");
+
+  /** SVG animation elements, lower case, whose {@code fill} is timing ({@code freeze}), not CSS. */
+  private static final Set<String> SVG_TIMED_ANIMATIONS =
+      Compat.setOf("animate", "set", "animatemotion", "animatetransform", "animatecolor");
+
+  static final String SVG = "svg";
+  /** SVG elements whose content is HTML again (the compiler's HTML integration points). */
+  static final Set<String> SVG_HTML_PARENTS = Compat.setOf("foreignobject", "desc", "title");
+
+  /**
+   * Whether {@code local} (an attribute name without prefix, lower case) on the SVG element
+   * {@code element} (lower case) takes the {@code style} rules in Tessera.
+   */
+  static boolean svgStyleAttribute(String local, String element) {
+    return SVG_STYLE_ATTRIBUTES.contains(local)
+        && !(local.equals("fill") && SVG_TIMED_ANIMATIONS.contains(element));
+  }
+
+  /** {@code %1$s} is the attribute, {@code %2$s} its name without {@code th:}. */
+  static final String SVG_STYLE_MESSAGE =
+      "`%1$s` on an SVG element is not converted: Tessera reads `%2$s` as CSS, like `style`, so a `String` value is a build error; rewrite it as `t:%2$s` from literals, numbers and `css.color(...)`/`css.url(...)` (guide section 4.4)";
+  /** {@code %1$s} is the {@code th:attr} attribute, {@code %2$s} the attribute it sets. */
+  static final String SVG_STYLE_IN_ATTR_MESSAGE =
+      "`%2$s` in `%1$s` on an SVG element is CSS in Tessera, like `style`, so a `String` value is a build error; write it from literals, numbers and `css.color(...)`/`css.url(...)` (guide section 4.4)";
+
+  /**
    * Attributes whose value is a keyword, literal or declaration, not an expression (renamed only).
    * {@code import} names classes and {@code params} declares types and names; neither holds roots.
    */
