@@ -97,9 +97,9 @@ class FrameworkDirectivesTest {
   @Test
   void dataAttributesStayOrdinary() {
     Compilation c =
-        compile("<p t:data-security=\"s\" t:hx-target=\"s\" t:data-action=\"s\">x</p>").assertSuccess();
+        compile("<p t:data-security=\"s\" t:data-hx-target=\"s\" t:data-action=\"s\">x</p>").assertSuccess();
     assertEquals(
-        "<div><p data-security=\"&quot;);alert(1)//\" hx-target=\"&quot;);alert(1)//\""
+        "<div><p data-security=\"&quot;);alert(1)//\" data-hx-target=\"&quot;);alert(1)//\""
             + " data-action=\"&quot;);alert(1)//\">x</p></div>",
         c.render("t", Map.of("s", "\");alert(1)//")));
   }
@@ -190,12 +190,19 @@ class FrameworkDirectivesTest {
         c.render("t", Map.of("s", "javascript:alert(1)")));
   }
 
-  /** The selector and swap attributes next to a request URL stay ordinary, escaped attributes. */
+  /**
+   * The selector and swap attributes next to a request URL stay ordinary, escaped attributes as
+   * {@code data-hx-*}. Without {@code data-} they are not in the framework table, so they are
+   * unknown names (#330), with a fix-it.
+   */
   @Test
   void htmxTargetAndSwapStayOrdinary() {
-    Compilation c = compile("<p t:hx-target=\"s\" t:hx-swap=\"s\" t:hx-select=\"s\">x</p>").assertSuccess();
+    Compilation c =
+        compile("<p t:data-hx-target=\"s\" t:data-hx-swap=\"s\" t:data-hx-select=\"s\">x</p>").assertSuccess();
     assertEquals(
-        "<div><p hx-target=\"&quot;&gt;\" hx-swap=\"&quot;&gt;\" hx-select=\"&quot;&gt;\">x</p></div>",
+        "<div><p data-hx-target=\"&quot;&gt;\" data-hx-swap=\"&quot;&gt;\" data-hx-select=\"&quot;&gt;\">x</p></div>",
         c.render("t", Map.of("s", "\">")));
+    compile("<p t:hx-target=\"s\">x</p>")
+        .assertError("t.html:1:", "t:hx-target is not allowed", "not a known attribute", "use data-hx-target");
   }
 }

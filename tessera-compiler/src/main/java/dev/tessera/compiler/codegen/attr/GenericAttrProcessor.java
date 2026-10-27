@@ -25,7 +25,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
 /**
- * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. A Vue/Alpine binding with an ordinary target ({@code :prop}, SCRIPT_ATTRIBUTE) takes only a JSON-serializable value, written as JSON. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}; {@link #TRUSTED_URL_LISTS srcset and imagesrcset} only a {@code TrustedUrl}; a {@code <base href>} (#350), an htmx request URL ({@code hx-get}, ...), the {@code action}/{@code formaction} of a form htmx submits ({@link CodegenContext#htmxSubmits}), and a {@code formaction} that may receive the CSRF token ({@link CodegenContext#mayPostCsrfToken}), only a same-origin link; there a computed {@code formmethod} is a build error.
+ * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. A Vue/Alpine binding with an ordinary target ({@code :prop}, SCRIPT_ATTRIBUTE) takes only a JSON-serializable value, written as JSON. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}; {@link #TRUSTED_URL_LISTS srcset and imagesrcset} only a {@code TrustedUrl}; a {@code <base href>} (#350), an htmx request URL ({@code hx-get}, ...), the {@code action}/{@code formaction} of a form htmx submits ({@link CodegenContext#htmxSubmits}), and a {@code formaction} that may receive the CSRF token ({@link CodegenContext#mayPostCsrfToken}), only a same-origin link; there a computed {@code formmethod} is a build error. A name that is not a standard HTML, SVG, MathML or ARIA attribute, {@code data-*}, a plain prop on a custom element or a framework name Contexts classifies is a build error ({@link Contexts#isUnknownName}, #330).
  */
 public final class GenericAttrProcessor implements AttributeProcessor {
 
@@ -59,6 +59,10 @@ public final class GenericAttrProcessor implements AttributeProcessor {
   static void set(CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label) {
     String element = plan.element().name();
     String lower = name.toLowerCase(Locale.ROOT);
+    if (Contexts.isUnknownName(plan.element(), name)) {
+      ctx.diagnostics().error(pos, label + " is not allowed: " + unknownName(name));
+      return;
+    }
     OutputContext context = Contexts.attribute(plan.element(), name);
     String hint;
     switch (context) {
@@ -169,6 +173,15 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       return;
     }
     plan.setAttribute(name, c.code(), pos);
+  }
+
+  /** Why {@code name}, which is not {@link Contexts#isKnownName known} (#330), cannot be computed. */
+  static String unknownName(String name) {
+    String data = name.toLowerCase(Locale.ROOT);
+    return "'" + name + "' is not a known attribute; a computed attribute must be a standard HTML, SVG,"
+        + " MathML or ARIA attribute, a data-* attribute, or a plain [a-z][a-z0-9]* prop on a custom"
+        + " element. If it is data for your script, use data-" + data + "; if a framework reads it,"
+        + " write it as a static attribute";
   }
 
   private static final Pattern BIND = Pattern.compile("[vx]-bind([:.].*)?");
