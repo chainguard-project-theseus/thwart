@@ -63,6 +63,136 @@ final class Expressions {
     return s;
   }
 
+  /** A property path in a selection: {@code a}, {@code a.b}, {@code a?.b}. */
+  private static final Pattern SELECTION_PATH = Pattern.compile("[A-Za-z_]\\w*(?:\\??\\.[A-Za-z_]\\w*)*");
+
+  /**
+   * {@code *{firstName + ' ' + lastName}} becomes {@code *{firstName} + ' ' + *{lastName}}, in
+   * parentheses unless it is the whole value: Tessera's {@code *{...}} holds one property path, and
+   * in Thymeleaf every name inside a selection is a property of the selected object, so each path
+   * becomes its own selection. Only selections made of paths ({@code a.b}, {@code a?.b}, ending in at
+   * most one {@code ()} after a {@code .}), literals, word operators, parentheses and operators are
+   * split; the others are left in place, and {@link #compoundSelections} reports those that are not
+   * one path ({@code *{items[0]}} is). Selections inside string literals and the text of
+   * {@code |...|} are not read.
+   */
+  static String splitSelections(String expr) {
+    return selections(expr, null);
+  }
+
+  /** The compound selections ({@code *{a[0] + b}}) that {@link #splitSelections} leaves in place. */
+  static List<String> compoundSelections(String expr) {
+    List<String> unsplit = new ArrayList<>();
+    selections(expr, unsplit);
+    return unsplit;
+  }
+
+  private static String selections(String expr, List<String> unsplit) {
+    String masked = mask(expr, false);
+    StringBuilder sb = new StringBuilder();
+    int pos = 0;
+    int at = masked.indexOf("*{");
+    while (at >= 0) {
+      int close = matchBrace(expr, at + 1);
+      if (close < 0) {
+        break;
+      }
+      String content = Compat.strip(expr.substring(at + 2, close));
+      String split = splitSelection(content);
+      if (split == null) {
+        if (unsplit != null && needsParens(content)) {
+          unsplit.add(expr.substring(at, close + 1)); // not one path: the compiler rejects it
+        }
+      } else if (!split.equals("*{" + content + "}")) {
+        boolean whole = Compat.strip(expr.substring(0, at)).isEmpty()
+            && Compat.strip(expr.substring(close + 1)).isEmpty();
+        sb.append(expr, pos, at).append(whole || !needsParens(split) ? split : "(" + split + ")");
+        pos = close + 1;
+      }
+      at = masked.indexOf("*{", close + 1);
+    }
+    return sb.append(expr, pos, expr.length()).toString();
+  }
+
+  /** Word operators of SpEL that are not Tessera keywords; a selection holding one is not split. */
+  private static final Set<String> SPEL_OPERATORS = Compat.setOf("matches", "instanceof", "between", "this");
+
+  /** {@link #splitSelections} of one selection's content, or {@code null} if it does not qualify. */
+  private static String splitSelection(String content) {
+    StringBuilder out = new StringBuilder();
+    int paths = 0;
+    int i = 0;
+    while (i < content.length()) {
+      char c = content.charAt(i);
+      if (c == '\'') {
+        int end = endOfString(content, i, content.length());
+        if (content.charAt(end - 1) != '\'' || end - 1 == i) {
+          return null; // unterminated
+        }
+        out.append(content, i, end);
+        i = end;
+      } else if (Character.isDigit(c)) {
+        Matcher m = ConversionRules.NUMBER.matcher(content).region(i, content.length());
+        m.lookingAt();
+        out.append(m.group());
+        i = m.end();
+      } else if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_') {
+        Matcher m = SELECTION_PATH.matcher(content).region(i, content.length());
+        m.lookingAt();
+        String path = m.group();
+        int end = m.end();
+        String lower = path.toLowerCase(Locale.ROOT);
+        if (SPEL_OPERATORS.contains(lower)) {
+          return null;
+        }
+        if (ConversionRules.KEYWORDS.contains(lower)) {
+          out.append(path);
+        } else {
+          if (path.indexOf('.') >= 0 && content.startsWith("()", end)) {
+            path += "()";
+            end += 2;
+          }
+          char next = nextNonSpace(content, end);
+          if (next == '(' || next == '.' || next == '[') {
+            return null; // a call with arguments, a call on a call, or an index
+          }
+          out.append("*{").append(path).append('}');
+          paths++;
+        }
+        i = end;
+      } else if (Character.isWhitespace(c) || "+-*/%<>=!?:()".indexOf(c) >= 0) {
+        out.append(c);
+        i++;
+      } else {
+        return null;
+      }
+    }
+    return paths > 0 ? out.toString() : null;
+  }
+
+  /**
+   * False if {@code expr} (Tessera syntax) is one link, message, string literal, {@code |...|} or
+   * number, which are never {@code null}.
+   */
+  static boolean mayBeNull(String expr) {
+    String e = Compat.strip(expr);
+    if (e.isEmpty()) {
+      return false;
+    }
+    char c = e.charAt(0);
+    int end;
+    if ((c == '@' || c == '#') && e.startsWith("{", 1)) {
+      end = matchBrace(e, 1) + 1;
+    } else if (c == '\'') {
+      end = endOfString(e, 0, e.length());
+    } else if (c == '|') {
+      end = endOfSubstitution(e, 0);
+    } else {
+      return !ConversionRules.NUMBER.matcher(e).matches();
+    }
+    return end != e.length();
+  }
+
   /** {@code ${x}} becomes {@code x}; a compound {@code ${...}} inside a larger value keeps parentheses. */
   private static String dropDollar(String expr) {
     String masked = mask(expr, false);
