@@ -450,7 +450,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       }
       return forwarded.javaName();
     } else if (FormPaths.fieldRoot(arg.value(), scope).isPresent()) {
-      f = FormPaths.resolveSubPath(arg.value(), FormPaths.fieldRoot(arg.value(), scope).get(), scope, ctx.expressions(), true);
+      f = FormPaths.resolveSubPath(arg.value(), FormPaths.fieldRoot(arg.value(), scope).get(), scope, ctx.expressions(), FormPaths.Check.VALUE);
       if (f == null) {
         return null;
       }

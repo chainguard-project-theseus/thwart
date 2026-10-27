@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
@@ -59,17 +60,27 @@ public final class FieldProcessor implements AttributeProcessor {
 
   static final String SELECTED_OBJECT = "select$object";
 
+  /**
+   * Input types whose {@code t:field} writes only {@code name} and {@code id}, never the bound value
+   * (Thymeleaf's file field processor writes none either). The value is not read, so its type need
+   * not be view-safe, e.g. a {@code MultipartFile} (#129).
+   */
+  private static final Set<String> NAME_ONLY = Backports.setOf("file", "password");
+
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
-    FormPaths.FormField field = field(ctx, attr, plan.scope(), true);
+    String tag = plan.element().name().toLowerCase(Locale.ROOT);
+    boolean nameOnly = tag.equals("input") && NAME_ONLY.contains(inputType(plan));
+    FormPaths.FormField field = field(ctx, attr, plan.scope(), nameOnly ? FormPaths.Check.PATH : FormPaths.Check.VALUE);
     if (field == null) {
       return;
     }
     CompiledExpr current = field.value();
     String name = field.path();
     String id = field.id();
-    String display = "ctx.forms().value(" + field.objectName() + ", " + name + ", " + current.code() + ")";
-    String tag = plan.element().name().toLowerCase(Locale.ROOT);
+    // No value (null) for a name-only input bound to a path; a Field parameter always has one.
+    String display =
+        current == null ? null : "ctx.forms().value(" + field.objectName() + ", " + name + ", " + current.code() + ")";
     switch (tag) {
       case "input":
         input(ctx, attr, plan, field, display);
@@ -123,8 +134,7 @@ public final class FieldProcessor implements AttributeProcessor {
     CompiledExpr current = field.value();
     String name = field.path();
     String id = field.id();
-    String type = staticValue(plan, "type").map(t -> Backports.strip(t).toLowerCase(Locale.ROOT)).orElse("text");
-    switch (type) {
+    switch (inputType(plan)) {
       case "checkbox":
         if (isBoolean(current.type())) {
           nameAndId(plan, attr, name, sequenceId(id));
@@ -306,6 +316,11 @@ public final class FieldProcessor implements AttributeProcessor {
         .orElse(null);
   }
 
+  /** The input's static type, lower-cased; {@code text} if it has none or a computed one. */
+  private static String inputType(ElementPlan plan) {
+    return staticValue(plan, "type").map(t -> Backports.strip(t).toLowerCase(Locale.ROOT)).orElse("text");
+  }
+
   private static Optional<String> staticValue(ElementPlan plan, String attribute) {
     return plan.attribute(attribute)
         .filter(a -> a instanceof ElementPlan.StaticAttr)
@@ -321,11 +336,12 @@ public final class FieldProcessor implements AttributeProcessor {
    * fragment parameter) or a sub-path of one ({@code name.answer}, {@link FormPaths#resolveSubPath}),
    * or a property path ({@code lastName}, {@code *{lastName}}, {@code *{address.city}},
    * {@code *{items[i].name}}) checked against the {@code t:object} selection in {@code scope}
-   * ({@link FormPaths#resolve}). Reports and returns null on error. With
-   * {@code report} false it reports nothing, compiles only the path's index expressions, and
-   * leaves the value null.
+   * ({@link FormPaths#resolve}), checked as {@code check} says. Reports and returns null on error.
+   * With {@link FormPaths.Check#NONE} it reports nothing, compiles only the path's index
+   * expressions, and leaves the value null.
    */
-  static FormPaths.FormField field(CodegenContext ctx, Attribute attr, Scope scope, boolean report) {
+  static FormPaths.FormField field(CodegenContext ctx, Attribute attr, Scope scope, FormPaths.Check check) {
+    boolean report = check != FormPaths.Check.NONE;
     DiagnosticSink sink = report ? ctx.diagnostics() : d -> {};
     if (attr.value() == null || Backports.isBlank(attr.value())) {
       sink.error(attr.pos(), attr.name() + " needs a field path, e.g. " + attr.name() + "=\"*{lastName}\"");
@@ -369,7 +385,7 @@ public final class FieldProcessor implements AttributeProcessor {
                     ctx.env().functionNamespaces(),
                     ctx.env().functionIndex()));
     return fieldRoot.isPresent()
-        ? FormPaths.resolveSubPath(e, fieldRoot.get(), scope, expressions, report)
-        : FormPaths.resolve(e, scope, expressions, report);
+        ? FormPaths.resolveSubPath(e, fieldRoot.get(), scope, expressions, check)
+        : FormPaths.resolve(e, scope, expressions, check);
   }
 }
