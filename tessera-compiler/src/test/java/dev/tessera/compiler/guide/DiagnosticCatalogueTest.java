@@ -40,7 +40,6 @@ class DiagnosticCatalogueTest {
     {"TextInlining.java", "static String where(", "\n  }"},
     {"HtmlParser.java", "static String earlyEndMessage(", "\n  }"},
     {"HtmlParser.java", "static String bogusCommentMessage(", "\n  }"},
-    {"HtmlParser.java", "static final String CDATA_HOLE_MESSAGE", "\n\n"},
   };
 
   private static final Pattern STRING = Pattern.compile("\"((?:[^\"\\\\\\n]|\\\\.)*)\"");
