@@ -466,6 +466,34 @@ class FormsTest {
   }
 
   @Test
+  void globalErrorsRenderOnlyTheObjectsOwnErrors() {
+    Compilation c =
+        compile(
+            "<p t:errors=\"*{global}\">G</p><b t:errors=\"global\">G</b>"
+                + "<ul t:if=\"fields.hasErrors('global')\"><li t:each=\"e : fields.errors('global')\" t:text=\"e\">e</li></ul>");
+    TestForms forms = new TestForms();
+    forms.errors.put("firstName", List.of("is required"));
+    assertEquals("<form></form>", render(c, owner(c, "Ann", null), forms));
+    forms.errors.put("global", List.of("<already> exists"));
+    assertEquals(
+        "<form><p>&lt;already&gt; exists</p><b>&lt;already&gt; exists</b>"
+            + "<ul><li>&lt;already&gt; exists</li></ul></form>",
+        render(c, owner(c, "Ann", null), forms));
+  }
+
+  @Test
+  void globalErrorsNegative() {
+    compileForm(
+            "<form xmlns:t=\"https://tessera.dev\" t:import=\"com.example.*\" t:params=\"Owner owner\">"
+                + "<span t:errors=\"*{global}\"></span></form>")
+        .assertError("t:errors can only be used inside t:object");
+    compileForm(HEAD + "><script t:errors=\"global\"></script></form>")
+        .assertError("t:errors is only allowed on elements whose content is HTML text, not <script> or <style>");
+    compileForm(HEAD + "><span t:errors=\"*{globals}\"></span></form>")
+        .assertError("'globals' is not a property of com.example.Owner");
+  }
+
+  @Test
   void errorsNegative() {
     compileForm(HEAD + "><span t:errors=\"*{nope}\"></span></form>")
         .assertError("'nope' is not a property of com.example.Owner");

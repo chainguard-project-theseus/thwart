@@ -16,8 +16,9 @@ import javax.lang.model.util.Types;
 
 /**
  * The reserved {@code fields} namespace (Thymeleaf's {@code #fields}), valid only inside
- * {@code t:object}: {@code fields.hasErrors('path')} / {@code fields.hasErrors('*')} (boolean)
- * and {@code fields.errors('path')} ({@code List<String>}). Paths are string literals
+ * {@code t:object}: {@code fields.hasErrors('path')} / {@code fields.hasErrors('*')} /
+ * {@code fields.hasErrors('global')} (the form object's own errors) (boolean) and
+ * {@code fields.errors('path')} ({@code List<String>}). Paths are string literals
  * ({@code 'items[0].name'} allowed) checked against the selection type; for an index held in a
  * variable, pass the path as a selection expression, {@code fields.hasErrors(*{items[i].name})}. A
  * {@code Field} fragment parameter, or a sub-path of one ({@code name.answer}), may stand in for the path. Compiles to {@code ctx.forms().hasErrors(objectName, path)}
@@ -58,8 +59,11 @@ public final class FieldsCompiler {
       return null;
     }
     Expr arg = args.size() == 1 ? args.get(0) : null;
-    if (arg instanceof Expr.Literal && FormPaths.ALL.equals(((Expr.Literal) arg).value())) {
-      return new CompiledExpr(FormPaths.literal(selection.get(), FormPaths.ALL, null).formsCall(function), type, pos);
+    if (arg instanceof Expr.Literal
+        && (FormPaths.ALL.equals(((Expr.Literal) arg).value())
+            || FormPaths.GLOBAL.equals(((Expr.Literal) arg).value()))) {
+      String keyword = (String) ((Expr.Literal) arg).value();
+      return new CompiledExpr(FormPaths.literal(selection.get(), keyword, null).formsCall(function), type, pos);
     }
     if (arg instanceof Expr.Literal && ((Expr.Literal) arg).value() instanceof String) {
       String path = (String) ((Expr.Literal) arg).value();
@@ -74,7 +78,8 @@ public final class FieldsCompiler {
     }
     diagnostics.error(
         pos,
-        "fields." + function + " takes one string literal (a field path such as 'lastName', or '*' for all errors),"
+        "fields." + function + " takes one string literal (a field path such as 'lastName', '*' for all errors or"
+            + " 'global' for the form object's own),"
             + " a field expression such as *{items[i].name}, or a Field parameter");
     return null;
   }

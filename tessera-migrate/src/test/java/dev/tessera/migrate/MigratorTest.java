@@ -419,6 +419,16 @@ class MigratorTest {
   }
 
   @Test
+  void globalErrorsConvert() throws Exception {
+    assertEquals("<form t:object=\"o\" t:params=\"Object o\"><i t:if=\"fields.hasErrors('global')\"></i>"
+            + "<i t:each=\"e : fields.errors('global')\"></i><i t:if=\"fields.hasErrors('global')\"></i>"
+            + "<i t:errors=\"*{global}\"></i></form>",
+        convert("<form th:object=\"${o}\"><i th:if=\"${#fields.hasGlobalErrors()}\"></i>"
+            + "<i th:each=\"e : ${#fields.globalErrors()}\"></i><i th:if=\"${#fields.hasErrors('global')}\"></i>"
+            + "<i th:errors=\"*{global}\"></i></form>"));
+  }
+
+  @Test
   void renamesDoNotApplyInsideStringLiterals() throws Exception {
     String src = "<p th:text=\"'#fields.allErrors() x[' + 'new' + ']' + |#strings.listJoin( ['new']|\">x</p>";
     assertEquals(src.replace("th:", "t:"), convert(src));
