@@ -84,5 +84,10 @@ public enum Problem {
    * text of a {@code <title>} or {@code <textarea>}, where the comments show as text (#378: the
    * state names the escaper).
    */
-  TEXT_IN_RCDATA
+  TEXT_IN_RCDATA,
+  /**
+   * A CDATA section in an HTML or MathML text integration point (#441, exclusion (d), {@link
+   * Rules#cdata}): some browsers read a comment there that ends at the first {@code >}.
+   */
+  CDATA_IN_INTEGRATION_POINT
 }
