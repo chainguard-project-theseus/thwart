@@ -69,8 +69,8 @@ This is an MVP built tonight. Prefer the smallest thing that is correct and secu
   dependencies** outside test scope, and the starters pass on only `tessera-runtime`.
   `tessera-compiler` has one exception: for the build-time verifier it shades one pinned
   validator.nu htmlparser (current upstream, relocated, built for Java 8) into its jar, and
-  nothing else. It keeps its own `MarkupTokenizer` for its tree;
-  attoparser is only a test oracle. Nothing from the parser runs at render time. Otherwise only
+  nothing else. It keeps its own `MarkupTokenizer` for its tree
+  and does not use attoparser, even in tests. Nothing from the parser runs at render time. Otherwise only
   `tessera-migrate`, a developer tool, bundles libraries (attoparser, jsoup).
 - Error messages from the compiler must name the template file, line and column.
 - Security-relevant behaviour gets a test, including a negative test (the bad thing fails).

@@ -36,12 +36,6 @@
       <groupId>dev.tessera</groupId>
       <artifactId>tessera-html5-current</artifactId>
     </dependency>
-    <!-- Test only: the reference parser in HtmlParserDifferentialTest (#170). -->
-    <dependency>
-      <groupId>org.attoparser</groupId>
-      <artifactId>attoparser</artifactId>
-      <scope>test</scope>
-    </dependency>
     <!-- Test only: the spec-parser oracle (#317) is the validator jar, copied below and loaded in
          its own class loader (SpecParsers), so its many bundled libraries stay off the classpath. -->
     <dependency>
@@ -197,7 +191,6 @@
                 <exclude>dev/tessera/compiler/testing/CompilationTest.java</exclude>
                 <exclude>dev/tessera/compiler/links/LinkCompilerTest.java</exclude>
                 <exclude>dev/tessera/compiler/processor/Jdk8ProcessorTest.java</exclude>
-                <exclude>dev/tessera/compiler/html/HtmlParserDifferentialTest.java</exclude>
                 <exclude>dev/tessera/compiler/oracle/**</exclude>
                 <exclude>dev/tessera/compiler/verify/engine/**</exclude>
               </excludes>
