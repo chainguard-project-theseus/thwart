@@ -8,6 +8,7 @@ import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.TypeRef;
 import dev.tessera.compiler.forms.FieldsCompiler;
 import dev.tessera.compiler.forms.FormPaths;
+import dev.tessera.compiler.forms.IdsCompiler;
 import dev.tessera.compiler.links.LinkCompiler;
 import dev.tessera.compiler.messages.MessageCompiler;
 import dev.tessera.runtime.Fragment;
@@ -115,9 +116,13 @@ public final class ExpressionCompiler {
       return index((Expr.Index) expr, scope);
     } else if (expr instanceof Expr.FunctionCall) {
       Expr.FunctionCall f = (Expr.FunctionCall) expr;
-      return f.namespace().equals(FunctionRegistry.RESERVED)
-          ? FieldsCompiler.compile(f.name(), f.args(), f.pos(), scope, this)
-          : function(f.namespace(), f.name(), f.args(), f.pos(), scope);
+      if (f.namespace().equals(FunctionRegistry.RESERVED)) {
+        return FieldsCompiler.compile(f.name(), f.args(), f.pos(), scope, this);
+      }
+      if (f.namespace().equals(FunctionRegistry.IDS)) {
+        return IdsCompiler.compile(f.name(), f.args(), f.pos(), scope, this);
+      }
+      return function(f.namespace(), f.name(), f.args(), f.pos(), scope);
     } else if (expr instanceof Expr.Unary) {
       return unary((Expr.Unary) expr, scope);
     } else if (expr instanceof Expr.Binary) {
@@ -335,6 +340,9 @@ public final class ExpressionCompiler {
       Expr.Var v = (Expr.Var) m.target();
       if (v.name().equals(FunctionRegistry.RESERVED)) {
         return FieldsCompiler.compile(m.name(), m.args(), m.pos(), scope, this);
+      }
+      if (v.name().equals(FunctionRegistry.IDS)) {
+        return IdsCompiler.compile(m.name(), m.args(), m.pos(), scope, this);
       }
       if (functions().isNamespace(v.name())) {
         return function(v.name(), m.name(), m.args(), m.pos(), scope);
@@ -820,7 +828,7 @@ public final class ExpressionCompiler {
   }
 
   private boolean isNamespace(String name) {
-    return name.equals(FunctionRegistry.RESERVED) || functions().isNamespace(name);
+    return name.equals(FunctionRegistry.RESERVED) || name.equals(FunctionRegistry.IDS) || functions().isNamespace(name);
   }
 
   private boolean isNamespaceRef(Expr.Var v, Scope scope) {
