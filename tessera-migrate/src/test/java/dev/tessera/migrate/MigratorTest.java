@@ -280,8 +280,9 @@ class MigratorTest {
   void staticClassAccessIsLeftInPlaceAndReported() throws Exception {
     String src = "<p th:text=\"${T(java.lang.Runtime).getRuntime().exec('id')}\">x</p>";
     assertEquals("<p t:text=\"${T(java.lang.Runtime).getRuntime().exec('id')}\">x</p>", convert(src));
-    assertEquals(List.of("1: `T(...)` static class access is not supported (never); expose the value through"
-        + " a view type or a `@TemplateFunction`"), messages(src));
+    assertEquals(List.of("1: `T(...)` static class access is not supported (never); compute the value in the"
+        + " controller, add it to the model and declare it in `t:params`, or call a static `@TemplateFunction`"),
+        messages(src));
   }
 
   @Test
@@ -514,10 +515,73 @@ class MigratorTest {
     assertMessages(src,
         "1: Spring bean references (`@bean`) are not supported",
         "1: object creation with `new` is not supported",
-        "1: Thymeleaf utility object `#request` has no Tessera equivalent",
-        "1: Thymeleaf utility object `#ctx` has no Tessera equivalent",
+        "1: `#request` reads the servlet request, which a Tessera template cannot see",
+        "1: `#ctx.session` reads Thymeleaf's evaluation context",
         "1: collection selection/projection is not supported",
         "1: link with a non-literal path");
+  }
+
+  // ---- ambient reads (#436): left in place and reported with where the value comes from ----
+
+  @Test
+  void ambientScopeReadsAreReportedWithAFixIt() throws Exception {
+    String src = "<div>\n<p th:text=\"${session.user.name}\"></p>\n<p th:if=\"${param.error}\">e</p>\n"
+        + "<p th:text=\"${application.version}\"></p>\n<meta name=\"_csrf\" th:content=\"${_csrf.token}\">\n"
+        + "<p>[[${param['q']}]] [[${session}]]</p>\n<p th:text=\"${owner.name}\"></p></div>";
+    String out = convert(src);
+    assertTrue(out.contains("t:text=\"session.user.name\"") && out.contains("t:if=\"param.error\""),
+        "reads are not rewritten: " + out);
+    assertTrue(out.startsWith("<div t:params=\"Object owner\">"), "no `Object` stub for a scope: " + out);
+    assertMessages(src,
+        "2: `session.user` reads the HTTP session, which a Tessera template cannot see; in the controller add `user`"
+            + " to the model (`@SessionAttribute(name = \"user\", required = false)` on the handler method, or a"
+            + " `@ModelAttribute(\"user\")` method in a `@ControllerAdvice` for a value every page needs), declare it in"
+            + " `t:params` and read it as `user`",
+        "3: `param.error` reads a request parameter, which a Tessera template cannot see; in the controller take it"
+            + " as `@RequestParam(name = \"error\", required = false) String error`, add it to the model",
+        "4: `application.version` reads an application (servlet context) attribute",
+        "5: `_csrf.token` reads Spring Security's CSRF token request attribute, which a Tessera template cannot see;"
+            + " the starter already adds the `_csrf` hidden input to every same-origin POST form",
+        "6: `param['q']` reads a request parameter, which a Tessera template cannot see; in the controller take it"
+            + " as `@RequestParam(name = \"q\"",
+        "6: `session` reads the HTTP session, which a Tessera template cannot see; in the controller add `value`",
+        "1: `owner` is declared as `Object`");
+  }
+
+  @Test
+  void ambientExpressionObjectsAreReportedWithAFixIt() throws Exception {
+    String src = "<div><p th:text=\"${#httpServletRequest.requestURI}\"></p>"
+        + "<p th:text=\"${#session.getAttribute('u')}\"></p><p th:text=\"${#servletContext.contextPath}\"></p>"
+        + "<p th:text=\"${#vars['x']}\"></p><p th:text=\"${#execInfo.templateName}\"></p>"
+        + "<a th:href=\"${#response.encodeURL('/a')}\"></a><p th:text=\"${#requests.x}\"></p></div>";
+    assertEquals(src.replace("th:", "t:"), convert(src));
+    assertMessages(src,
+        "1: `#httpServletRequest.requestURI` reads the servlet request, which a Tessera template cannot see;"
+            + " compute the value in the controller, add it to the model and declare it in `t:params` (a value every"
+            + " page needs, such as the request URI, comes from a `@ModelAttribute` method",
+        "1: `#session` reads the HTTP session",
+        "1: `#servletContext.contextPath` reads the servlet context",
+        "1: `#vars` reads Thymeleaf's evaluation context",
+        "1: `#execInfo.templateName` reads Thymeleaf's execution info",
+        "1: `#response` uses the servlet response",
+        "1: Thymeleaf utility object `#requests` has no Tessera equivalent");
+  }
+
+  @Test
+  void theTemplatesOwnVariablesNamedLikeAScopeAreNotReported() throws Exception {
+    // Declared in t:params, by th:with, by th:each, as a fragment parameter: the model's or the
+    // template's own variable, not the scope.
+    assertMessages("<div t:params=\"User session\"><p th:text=\"${session.name}\"></p></div>");
+    assertMessages("<div th:with=\"param=${form}\"><p th:text=\"${param.q}\"></p></div>",
+        "1: `form` is declared as `Object`");
+    assertMessages("<ul><li th:each=\"application : ${apps}\" th:text=\"${application.name}\"></li></ul>",
+        "1: `apps` is declared as `Object`");
+    assertMessages("<div th:fragment=\"card(session)\"><p th:text=\"${session.title}\"></p></div>",
+        "1: fragment `card` parameters declared as `Object`");
+    // A property, a selection, a string or a message key named like a scope is not a read.
+    assertMessages("<div t:params=\"Order order\"><p th:text=\"${order.session}\"></p>"
+        + "<form th:object=\"${order}\"><p th:text=\"*{param}\"></p></form>"
+        + "<p th:text=\"'session.user'\"></p><p th:text=\"#{session.expired}\"></p></div>");
   }
 
   @Test
