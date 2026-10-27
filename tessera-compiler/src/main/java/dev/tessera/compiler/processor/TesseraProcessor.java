@@ -12,6 +12,7 @@ import dev.tessera.compiler.verify.ContextVerifier;
 import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.TemplateFunctions;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -54,6 +55,10 @@ import javax.tools.StandardLocation;
  * that is not in this compilation is looked up there on the classpath. So test compilation and
  * incremental builds, which compile templates without recompiling the function classes, still
  * find them (Maven puts the main output directory on both classpaths).
+ *
+ * <p>Template fingerprint (#425): after a successful compile it writes {@link
+ * TemplateFingerprint#RESOURCE}, the paths and hashes of the templates it compiled, which {@code
+ * tessera-maven-plugin} checks before the next build.
  */
 public final class TesseraProcessor extends AbstractProcessor {
   private static final String FUNCTIONS_ANNOTATION = TemplateFunctions.class.getName();
@@ -68,6 +73,8 @@ public final class TesseraProcessor extends AbstractProcessor {
   private Map<String, Skeleton.TemplateSkeleton> skeletons = Collections.emptyMap();
   /** The view names of the templates the verifier proved FLOW partials (#396). */
   private Set<String> flowPartials = Collections.emptySet();
+  /** The templates the last {@link #compile} read (#425). */
+  private List<TemplateSource> sources = Collections.emptyList();
   private final Set<String> functionClassNames = new LinkedHashSet<>();
 
   @Override
@@ -130,6 +137,7 @@ public final class TesseraProcessor extends AbstractProcessor {
       // The only place that enforces "nothing is written on error".
       if (!diagnostics.hasErrors()) {
         write(files);
+        writeFingerprint(TemplateFingerprint.of(sources));
         written = files;
         skeletons = result.skeletons();
       }
@@ -151,6 +159,7 @@ public final class TesseraProcessor extends AbstractProcessor {
 
   private TemplateCompiler.Result compile(Diagnostics diagnostics, List<TypeElement> functionClasses) throws IOException {
     List<TemplateSource> sources = TemplateDiscovery.discover(options.templates());
+    this.sources = sources;
     MessageBundle messages =
         options.messages().isEmpty() ? MessageBundle.unchecked() : MessageBundle.load(options.messages());
     if (!warnedSkippedMessages) {
@@ -293,6 +302,13 @@ public final class TesseraProcessor extends AbstractProcessor {
       try (Writer w = fo.openWriter()) {
         w.write(f.content());
       }
+    }
+  }
+
+  private void writeFingerprint(byte[] fingerprint) throws IOException {
+    FileObject fo = processingEnv.getFiler().createResource(StandardLocation.CLASS_OUTPUT, "", TemplateFingerprint.RESOURCE);
+    try (OutputStream out = fo.openOutputStream()) {
+      out.write(fingerprint);
     }
   }
 
