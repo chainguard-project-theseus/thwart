@@ -109,6 +109,38 @@ class ExpressionCompilerTest {
   }
 
   @Test
+  void javaUtilImplementationsReadAsTheirInterface() {
+    // #135: an ArrayList, TreeMap, SortedMap, ArrayDeque or SimpleEntry is read as its List, Map,
+    // Collection or Map.Entry: built-ins, index access and the interface's getters only.
+    TypesHarness h = TypesHarness.create()
+        .local("al", "java.util.ArrayList<com.example.Item>", "new java.util.ArrayList<>(" + ITEMS + ")")
+        .local("tm", "java.util.TreeMap<java.lang.String, java.lang.Integer>", "new java.util.TreeMap<>(java.util.Map.of(\"b\", 2, \"a\", 1))")
+        .local("sm", "java.util.SortedMap<java.lang.String, java.lang.Integer>", "new java.util.TreeMap<>(java.util.Map.of(\"a\", 1))")
+        .local("dq", "java.util.ArrayDeque<java.lang.String>", "new java.util.ArrayDeque<>(java.util.List.of(\"x\", \"y\"))")
+        .local("en", "java.util.AbstractMap.SimpleEntry<java.lang.String, java.lang.Integer>", "new java.util.AbstractMap.SimpleEntry<>(\"k\", 3)");
+    assertEquals(2, h.eval(prop(v("al"), "size")));
+    assertEquals(false, h.eval(prop(v("al"), "empty")));
+    assertEquals("pen", h.eval(prop(prop(v("al"), "first"), "name")));
+    assertEquals("ink", h.eval(prop(idx(v("al"), lit(1)), "name")));
+    assertEquals(2, h.eval(prop(v("tm"), "size")));
+    assertEquals(1, h.eval(idx(v("tm"), lit("a"))));
+    assertEquals(1, h.eval(call(v("sm"), "size")));
+    assertEquals(2, h.eval(prop(v("dq"), "size")));
+    assertEquals("k", h.eval(prop(v("en"), "key")));
+    assertEquals(3, h.eval(call(v("en"), "getValue")));
+    // The classes' own methods stay unreachable, getter-shaped or not.
+    h.compile(call(v("al"), "ensureCapacity", lit(10))).assertError("method call 'ensureCapacity(...)' is not allowed");
+    h.compile(call(v("al"), "trimToSize")).assertError("'trimToSize' is not a property of java.util.ArrayList<com.example.Item>");
+    h.compile(call(v("tm"), "pollFirstEntry")).assertError("'pollFirstEntry' is not a property");
+    h.compile(call(v("tm"), "firstKey")).assertError("'firstKey' is not a property");
+    h.compile(prop(v("sm"), "comparator")).assertError("'comparator' is not a property");
+    h.compile(call(v("dq"), "getFirst")).assertError("'getFirst' is not a property of java.util.ArrayDeque<java.lang.String>");
+    h.compile(prop(v("dq"), "first")).assertError("'first' is not a property");
+    h.compile(call(v("en"), "setValue", lit(1))).assertError("is not allowed");
+    h.compile(call(v("al"), "getClass")).assertError("java.lang.Object method");
+  }
+
+  @Test
   void arbitraryMethodsAreRejected() {
     TypesHarness h = users();
     h.compile(call(v("u"), "delete")).assertError("'delete' is not a property of com.example.User");
