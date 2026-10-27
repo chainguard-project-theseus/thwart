@@ -311,6 +311,53 @@ class ProfileOracleGateTest {
   }
 
   @Test
+  void anEngineDriftLineNamesANodeEngine() {
+    // #399: listable, with an issue, for the engine that drifts; never '*' or a vnu engine (the Java
+    // gate would report a '*' line stale, and vnu is what the others are compared with).
+    for (String engine : List.of("*", "vnu-26", "rhino")) {
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+          () -> ProfileOracleTest.holes("t.txt", "0123456789ab ENGINE_DRIFT " + engine + " #398 x\n"));
+      assertTrue(e.getMessage().startsWith("t.txt:1: an ENGINE_DRIFT line names the engine that drifts"), e.getMessage());
+    }
+    assertEquals(1, ProfileOracleTest.holes("t.txt", "0123456789ab ENGINE_DRIFT webkit #398 x\n").entries().size());
+  }
+
+  @Test
+  void anEngineDriftLineGoesStaleInTheJavaGateOnceItsCaseIsRejected() {
+    OracleCase c = OracleCase.of("t", P + "x</div>", OracleCase.Origin.SEED);
+    Ratchet ratchet = new Ratchet(ProfileOracleTest.holes("t.txt", c.id() + " ENGINE_DRIFT parse5 #398 x\n"), "t.txt");
+    // Accepted: the Node job reports whether it still drifts.
+    assertEquals(List.of(), ratchet.stale(null, java.util.Set.of(c.id())));
+    // Rejected (the verifier fix landed) or gone: delete the line in the same change.
+    List<String> stale = ratchet.stale(null, java.util.Set.of());
+    assertEquals(1, stale.size(), stale.toString());
+    assertTrue(stale.get(0).startsWith("known hole " + c.id() + " ENGINE_DRIFT parse5 #398: the case is rejected now"),
+        stale.get(0));
+    // A partial run that didn't run the case says nothing.
+    assertEquals(List.of(), ratchet.stale(java.util.Set.of(), java.util.Set.of()));
+  }
+
+  @Test
+  void theExportCarriesTheVnuTreesOfEachRender() {
+    GateCase g = gateCase(P + "<p>[[s]]</p></div>");
+    CaseResult r = ProfileOracleTest.check(Subject.of(g, compile(g)), ProfileOracleTest.RUNTIME, new LemmaMemo(), 1);
+    assertEquals(3, r.export.size()); // benign, fingerprint, the first hostile value
+    for (ExportRecord e : r.export) {
+      assertEquals(VnuTrees.json(e.render()), e.trees());
+      assertTrue(e.toJsonLine().endsWith(",\"trees\":" + e.trees() + "}"), e.toJsonLine());
+    }
+  }
+
+  @Test
+  void theStructureValuesComeRightAfterTheSeedValues() {
+    // The Node job exports the first EXPORT_DEFAULT values: the #320 values and the ones the tree
+    // builder reads, including a '</' break-out.
+    List<String> exported = ProfileOracleTest.HOSTILE.subList(0, ProfileOracleTest.EXPORT_DEFAULT);
+    assertTrue(exported.containsAll(List.of("hidden", "text/html", "application/xhtml+xml")), exported.toString());
+    assertTrue(exported.stream().anyMatch(v -> v.contains("</")), exported.toString());
+  }
+
+  @Test
   void aLineWithoutAnIssueFails() {
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
         () -> ProfileOracleTest.holes("t.txt", "0123456789ab CSTI * no issue\n"));

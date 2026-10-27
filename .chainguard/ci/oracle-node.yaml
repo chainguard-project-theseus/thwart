@@ -1,6 +1,8 @@
 version: 1
 # The Node oracle (#322): parse5, headless Chromium (Wolfi), Firefox 140 ESR and Playwright's WebKit
-# build (#354; pinned downloads, SHA-256 checked in run.sh) over the spec-parser oracle's cases. Not part of `mvn verify`.
+# build (#354; pinned downloads, SHA-256 checked in run.sh) over the spec-parser oracle's cases, and
+# each engine's tree of each render compared with the vnu engine's (engine drift, #399). Not part of
+# `mvn verify`. The three browsers run at the same time (check.mjs).
 # Chainguard Checks has no cron, so it runs after every merge to main, and on a PR on request.
 environment:
   packages:
