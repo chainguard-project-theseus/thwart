@@ -259,6 +259,10 @@ final class ConversionRules {
   static final String SCRIPT_INLINE_IN_STRING_MESSAGE =
       "`%s` inside a quoted JavaScript string is a build error in Tessera (it writes a JSON value with its own quotes); rewrite as `\"text \" + %s + \" text\"`";
 
+  /** {@code %1$s} is the link as a Markdown code span, {@code %2$s} its path variables and values. */
+  static final String NULL_PATH_VARIABLE_MESSAGE =
+      "link %1$s fails the render if a path variable is `null` (%2$s), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide section 3, step 4)";
+
   static final String PARAM_STUB_MESSAGE =
       "`%s` is declared as `Object` in the generated `t:params` stub; replace it with its view type";
   static final String FRAGMENT_PARAMS_MESSAGE =

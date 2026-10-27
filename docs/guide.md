@@ -331,6 +331,17 @@ quotes around a `"..."` or `'...'` string that is only an inline (`"[[${x}]]"` b
 which writes JSON with its own quotes) and reports any other `[[...]]` inside a string, template
 literal or comment. An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
 
+**Nulls are where a converted page most often fails at runtime.** A `null` link path variable
+fails the render (a 500), where Thymeleaf wrote an empty segment: for an owner whose `id` is
+`null`, `@{/owners/{ownerId}(ownerId=owner.id)}` rendered `/owners/` and now throws. Where a path
+variable can be `null`, guard the link with `t:if`; `?: ''` is no fix, because an empty value is
+rejected too (section 4.5). `tessera-migrate` reports every link whose path variable is not a
+literal. Reading a property of `null` (`a.b` with a `null` `a`) fails as it did in Thymeleaf, so a
+new `NullPointerException` there means `a` is `null` now and wasn't before, nearly always a value
+the old template got from outside the model (section 1). Write `a?.b` where `null` is expected; a
+`null` result prints nothing. Tests catch these only if a fixture holds the `null`, such as a list
+entry that was never saved and so has no `id`: add one.
+
 **5. Compare** against the new app, started from the same data:
 
 ```sh
@@ -789,8 +800,9 @@ links must be `http`/`https`. Links get the context path and `response.encodeURL
 Thymeleaf, a `null` query value renders `name=`, a parameter with no value renders the bare name
 (`@{/cart(add, itemId=i.id)}` is `/cart?add&itemId=...`), and a collection repeats the parameter
 per element (`?t=a&t=b`; a `null` element is the bare `t`). A `null` path variable fails the
-render. A URL computed in Java goes in `t:href` as a `String` (scheme-checked)
-or `TrustedUrl`, without the context path. A context path of `/` or one ending in `/` loses the
+render, where Thymeleaf wrote an empty segment (`/owners//edit`); so does an empty one, `.` or
+`..`. Guard a link whose path variable can be `null` with `t:if`. A URL computed in
+Java goes in `t:href` as a `String` (scheme-checked) or `TrustedUrl`, without the context path. A context path of `/` or one ending in `/` loses the
 trailing `/`, so `@{/a}` never renders as the protocol-relative `//a`. Where a link must be
 same-origin (a `<base href>`, an htmx request URL, a refresh URL, a boosted or htmx form's
 `action`/`formaction`, a `formaction` that may receive the CSRF token; sections 4.4 and 4.7), the built URL
@@ -2144,7 +2156,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
   attributes, and Kotlin.
 - **Expected output differences from Thymeleaf:** attributes set by `t:` attributes may move within
   the tag; `<td >` (after a removed attribute) renders as `<td>`; a `null` attribute value omits
-  the attribute (Thymeleaf writes `value=""`); a `null` link path variable fails the render;
+  the attribute (Thymeleaf writes `value=""`); a `null` link path variable fails the render (section 3, step 4);
   element text from a value with `{{`, or starting or ending with `{`, gets empty comments next
   to those braces (section 4.4); with the Spring starter every `<script>` and `<style>` has a
   `nonce` attribute (section 4.11), which `tessera-migrate compare` ignores.
