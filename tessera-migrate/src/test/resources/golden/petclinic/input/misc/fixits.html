@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+  <!-- Computed names the compiler does not know (#330): htmx's data- form is rewritten, others reported. -->
+  <button th:hx-get="@{/owners}" th:hx-target="${'#owner-' + owner.id}" th:hx-swap="${swap}">load</button>
+  <div th:attr="hx-select=${selector},title=${owner.lastName}">attr</div>
+  <div th:up-on-loaded="${callback}">unpoly</div>
+  <div th:data-hx-target="${selector}" th:aria-label="${owner.lastName}">known names</div>
+  <!-- A missing space between attributes is added. -->
+  <a href="/owners"class="btn" th:text="${owner.lastName}">owner</a>
+  <a href="/owners" class="btn">spaced</a>
+  <!-- Code before the last inline that the data-prelude rule rejects is reported. -->
+  <script th:inline="javascript">
+    var path = location.pathname.split(/\//);
+    var owner = /*[[${owner.id}]]*/ 0;
+  </script>
+  <script>
+    var owner = [[${owner.id}]];
+    var path = location.pathname.split(/\//);
+  </script>
+</body>
+</html>

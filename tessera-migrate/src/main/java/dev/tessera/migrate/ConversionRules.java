@@ -1,5 +1,10 @@
 package dev.tessera.migrate;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -357,5 +362,86 @@ final class ConversionRules {
       "`<%s>` directly in a `<%s>`: a browser moves it in front of the table (" + PARSE_ERROR_REJECTED
           + "): put it in a `<td>` or `<th>`, or outside the table";
   static final String ATTRIBUTE_SPACE_MESSAGE =
-      "no space before attribute `%s` (" + PARSE_ERROR_REJECTED + "): add a space";
+      "no space before attribute `%s` (" + PARSE_ERROR_REJECTED + "): a space was added, which a browser reads the same";
+
+  // ---- computed attribute names the compiler does not know (#330, #331) ----
+
+  /**
+   * {@code t:}/{@code th:} local names that are processors, not the name of an attribute to set:
+   * Tessera's ({@code AttributeProcessors}) and Thymeleaf's that Tessera lacks (reported elsewhere
+   * or by the compiler).
+   */
+  static final Set<String> PROCESSORS = Compat.setOf(
+      "params", "import", "fragment", "insert", "replace", "each", "if", "unless", "switch", "case", "object",
+      "with", "attr", "field", "classappend", "errorclass", "text", "utext", "errors", "remove",
+      "block", "inline", "include", "substituteby", "ref", "assert", "attrappend", "attrprepend", "alt-title",
+      "lang-xmllang", "styleappend");
+
+  /** A name the compiler classifies at all ({@code Contexts}' {@code PLAIN_NAME}); others have their own error. */
+  static final Pattern ATTRIBUTE_NAME = Pattern.compile("[A-Za-z_][A-Za-z0-9_.:-]*");
+  /** A component prop on a custom element. */
+  static final Pattern CUSTOM_ELEMENT_PROP = Pattern.compile("[a-z][a-z0-9]*");
+  /** The framework names the compiler classifies by prefix ({@code Contexts.isFrameworkDirective}). */
+  static final List<String> FRAMEWORK_PREFIXES = Compat.listOf("v-", "x-", "hx-on", "ng-", "ng:", "ng_");
+  /** The framework names the compiler classifies by name: hyperscript and htmx script, URL and boost names. */
+  static final Set<String> FRAMEWORK_NAMES = Compat.setOf(
+      "_", "script", "hx-vals", "hx-vars", "hx-headers", "hx-request", "hx-trigger",
+      "hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete", "sse-connect", "ws-connect",
+      "hx-sse", "hx-ws", "hx-boost", "hx-push-url", "hx-replace-url");
+  /**
+   * htmx attributes that are unknown names to the compiler and that htmx reads the same with a
+   * {@code data-} prefix (its {@code getAttributeValue} reads {@code hx-x} or {@code data-hx-x}):
+   * {@code th:hx-target} becomes {@code t:data-hx-target}. Only the htmx 2 reference names whose
+   * value is a selector, swap style, text or option list, never script; the script ones
+   * ({@code hx-vals}, {@code hx-trigger}, ...) are classified by the compiler with or without
+   * {@code data-}.
+   */
+  static final Set<String> HTMX_DATA_EQUIVALENT = Compat.setOf(
+      "hx-target", "hx-swap", "hx-swap-oob", "hx-select", "hx-select-oob", "hx-confirm", "hx-prompt",
+      "hx-indicator", "hx-include", "hx-disabled-elt", "hx-sync", "hx-params", "hx-encoding");
+
+  /**
+   * The standard HTML, SVG, MathML and ARIA attribute names: the compiler's
+   * {@code dev/tessera/compiler/html/attributes.txt}, which the build copies next to this class.
+   */
+  static final Set<String> KNOWN_ATTRIBUTES = loadKnownAttributes();
+
+  private static Set<String> loadKnownAttributes() {
+    try (InputStream in = ConversionRules.class.getResourceAsStream("attributes.txt")) {
+      if (in == null) {
+        throw new IllegalStateException("dev/tessera/migrate/attributes.txt is missing");
+      }
+      Set<String> names = new HashSet<>();
+      for (String line : new String(Compat.readAllBytes(in), StandardCharsets.UTF_8).split("\\r?\\n")) {
+        if (!line.isEmpty() && !line.startsWith("#")) {
+          int space = line.indexOf(' ');
+          names.add(space < 0 ? line : line.substring(0, space));
+        }
+      }
+      return Collections.unmodifiableSet(names);
+    } catch (IOException e) {
+      throw new IllegalStateException("cannot read dev/tessera/migrate/attributes.txt", e);
+    }
+  }
+
+  private static final String UNKNOWN_NAME =
+      "`%2$s` is not a known attribute, and a computed attribute must be a standard HTML, SVG, MathML or ARIA"
+          + " attribute, a `data-*` attribute or a plain prop on a custom element (a build error in Tessera)";
+  /** {@code %1$s} the attribute, {@code %2$s} its name, {@code %3$s} the attribute with {@code data-}. */
+  static final String UNKNOWN_NAME_MESSAGE =
+      "`%1$s`: " + UNKNOWN_NAME + "; if it is data for your script, write `%3$s`; if a framework reads it, write it as a static attribute";
+  /** {@code %1$s} the attribute, {@code %2$s} the new attribute, {@code %3$s} its old name. */
+  static final String UNKNOWN_NAME_REWRITTEN_MESSAGE =
+      "`%1$s` was rewritten to `%2$s`: `%3$s` is not a known attribute, which is a build error for a computed attribute in Tessera, and htmx reads `data-%3$s` the same way";
+  /** {@code %1$s} the entry's name, {@code %2$s} the attribute, {@code %3$s} the name with {@code data-}. */
+  static final String UNKNOWN_NAME_IN_ATTR_MESSAGE =
+      "`%1$s` in `%2$s` is not a known attribute, and a computed attribute must be a standard HTML, SVG, MathML or ARIA"
+          + " attribute, a `data-*` attribute or a plain prop on a custom element (a build error in Tessera); if it is"
+          + " data for your script, write `%3$s`; if a framework reads it, write it as a static attribute";
+  static final String UNKNOWN_NAME_IN_ATTR_REWRITTEN_MESSAGE =
+      "`%1$s` in `%2$s` was rewritten to `%3$s`: `%1$s` is not a known attribute, which is a build error for a computed attribute in Tessera, and htmx reads `%3$s` the same way";
+
+  /** {@code %s} is the token the compiler's data-prelude rule rejects (#332). */
+  static final String SCRIPT_DATA_PRELUDE_MESSAGE =
+      "%s before the last `[[...]]` of a `<script>` is a build error in Tessera: the compiler reads the code before the last value only with a lexer that has no ambiguous tokens, so it can prove where each value goes; move the `[[...]]` above the code (declare the data first, `var data = [[...]];`), or write the value into a `<script type=\"application/json\">` and read it with `JSON.parse`";
 }

@@ -81,6 +81,12 @@ The old application is the specification. Work the way an expert would, keeping 
    `tessera-migrate` reports each link with a path variable that is not a literal (guide section 3,
    step 4).
 
+   A computed attribute must have a standard name, a `data-*` name or a custom element's prop
+   name: `t:up-on-loaded` is a build error, and `t:data-up-on-loaded` is not. `tessera-migrate`
+   rewrites htmx's `th:hx-target` and its kind to `t:data-hx-target` (htmx reads both) and reports
+   the rest. In a `<script>`, declare the data before code that uses `/` or template literals
+   (the data-prelude rule, guide section 6); `tessera-migrate` reports the scripts that don't.
+
    Stored HTML that the old page printed raw (`th:utext`, `[(...)]`, JSP `${...}`, Velocity)
    stays a `String` and goes through `t:utext="html.sanitize(x)"`, `html.sanitizeRich(x)` for
    editor or Markdown output, or the app's own `HtmlPolicy` behind a `@TemplateFunctions`
