@@ -196,3 +196,7 @@ m=First.<p>Second.
 -- t.html
 <select><option t:insert="~{:: label(s)}">o</option></select><span t:fragment="label(String v)" t:text="v">l</span>
 => t.html:1:82: error: in fragment t :: label, inserted here, at t.html:1:117: <span> in a <select>: browsers that parse <select> the classic way (Firefox ESR) drop everything in it but <option>, <optgroup> and <hr>, and newer ones keep it, so the rest of the page can parse differently; insert only <option>, <optgroup> and <hr> into a <select> (also from fragments, t:remove="tag" and <template>) [verifier:SELECT_CONTENT]
+== CDATA_IN_INTEGRATION_POINT: a CDATA section in an SVG <title>, which some browsers read as a comment that ends at the first '>'
+-- t.html
+<svg><title><![CDATA[ > <script> ]]></title></svg><p>[[${s}]]</p>
+=> t.html:1:68: error: a CDATA section in SVG <title>, an integration point: Firefox reads a CDATA section there, as the standard does, but Chrome reads a comment that ends at the first '>', so the markup after it would differ; write the text without <![CDATA[ and ]]>, with '<' as &lt; and '>' as &gt; [verifier:CDATA_IN_INTEGRATION_POINT]

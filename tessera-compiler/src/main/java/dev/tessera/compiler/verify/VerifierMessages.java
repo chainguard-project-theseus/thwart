@@ -124,6 +124,11 @@ final class VerifierMessages {
             + " <option>, <optgroup> and <hr>, and newer ones keep it, so the rest of the page can parse differently;"
             + " insert only <option>, <optgroup> and <hr> into a <select> (also from fragments, t:remove=\"tag\" and"
             + " <template>)";
+      case CDATA_IN_INTEGRATION_POINT:
+        return "a CDATA section in " + f.detail + ", an integration point: Firefox reads a CDATA section there, as the"
+            + " standard does, but Chrome reads a comment that ends at the first '>', so the markup after it would"
+            + " differ; write the text without"
+            + " <![CDATA[ and ]]>, with '<' as &lt; and '>' as &gt;";
       default:
         throw new AssertionError(f.problem);
     }
@@ -132,7 +137,7 @@ final class VerifierMessages {
   /** Problems a parser reports while it parses (#406), not found in a state at a hole. */
   private static boolean reportedByParser(Problem p) {
     return p == Problem.PARSE_ERROR || p == Problem.FOREIGN_IN_TABLE || p == Problem.TABLE_IN_TEMPLATE
-        || p == Problem.SELECT_CONTENT || p == Problem.FRAMESET;
+        || p == Problem.SELECT_CONTENT || p == Problem.FRAMESET || p == Problem.CDATA_IN_INTEGRATION_POINT;
   }
 
   /** A second {@code <html>}, {@code <head>} or {@code <body>}, as the parser words it. */
@@ -382,7 +387,7 @@ final class VerifierMessages {
   }
 
   /** The element, as written: {@code <style>}, {@code SVG <script>}. */
-  private static String element(OpenElement e) {
+  static String element(OpenElement e) {
     if (e == null) {
       return "the element";
     }

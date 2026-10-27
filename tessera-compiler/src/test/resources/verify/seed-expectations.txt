@@ -279,7 +279,7 @@ review-pr338-2  AB   PROFILE  # no tree: malformed markup: U+000B in a tag is no
 review-pr338-3  AB   PROFILE  # no tree: malformed markup: U+000B in a tag is not HTML whitespace: replace it with a space
 review-pr298-3  AB   PROFILE  # no tree: malformed markup: '/' before '>' belongs to the unquoted value, not to '/>': quote the value
 review-pr301-1  AB   VERIFIER JSON_NOT_IN_SCRIPT
-review-pr305-1  AB   VERIFIER SELECT_CONTENT TEXT_NOT_IN_TEXT
+review-pr305-1  AB   VERIFIER SELECT_CONTENT TEXT_NOT_IN_TEXT CDATA_IN_INTEGRATION_POINT
 review-pr304-1  AB   VERIFIER TEXT_IN_SCRIPT
 review-pr304-2  AB   VERIFIER TEXT_IN_SCRIPT
 review-pr296-1  AB   VERIFIER SELECT_CONTENT TEXT_NOT_IN_TEXT

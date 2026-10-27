@@ -49,6 +49,12 @@ public final class TesseraAccess {
      * is now.
      */
     void pushed(String namespace, String localName, boolean onStack, int line, int column);
+
+    /**
+     * The tokenizer read {@code <![} where the tree builder allows a CDATA section: the current
+     * node (its namespace, local name and whether it is an HTML integration point) is not HTML.
+     */
+    void cdata(String namespace, String localName, boolean htmlIntegrationPoint, int line, int column);
   }
 
   private TesseraAccess(boolean scripting, String contextNamespace, String contextName)
@@ -151,6 +157,14 @@ public final class TesseraAccess {
       int top = tree.getStackLength() - 1;
       boolean onStack = top >= 0 && tree.getStack()[top].node == node;
       listener.pushed(ns, name, onStack, tokenizer.getLine(), tokenizer.getCol());
+    }
+  }
+
+  private void cdata() {
+    if (listener != null) {
+      StackNode<Object> current = tree.getStack()[tree.getStackLength() - 1];
+      listener.cdata(current.ns, current.popName, current.isHtmlIntegrationPoint(), tokenizer.getLine(),
+          tokenizer.getCol());
     }
   }
 
@@ -361,6 +375,16 @@ public final class TesseraAccess {
     @Override
     protected void elementPushed(String ns, String name, Object node) {
       access.pushed(ns, name, node);
+    }
+
+    /** Where the tokenizer asks whether {@code <![} starts a CDATA section (#441). */
+    @Override
+    public boolean cdataSectionAllowed() throws SAXException {
+      boolean allowed = super.cdataSectionAllowed();
+      if (allowed) {
+        access.cdata();
+      }
+      return allowed;
     }
 
     @Override

@@ -133,6 +133,11 @@ final class VnuParser implements Parser {
       }
 
       @Override
+      public void cdata(String namespace, String localName, boolean htmlIntegrationPoint, int line, int column) {
+        listener.cdata(new OpenElement(namespace, localName, htmlIntegrationPoint), offset(line, column));
+      }
+
+      @Override
       public void pushed(final String namespace, final String localName, final boolean onStack, int line, int column) {
         listener.pushed(new Stack() {
           @Override

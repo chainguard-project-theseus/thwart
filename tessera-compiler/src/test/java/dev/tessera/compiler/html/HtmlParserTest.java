@@ -766,20 +766,10 @@ class HtmlParserTest {
   }
 
   @Test
-  void cdataWithGreaterThanInForeignTitleIsRejected() {
-    // An SVG <title> is an HTML integration point: parse5 reads <![CDATA[ there as a comment that
-    // ends at the first '>', so the <script> after it is live, not CDATA text (#296).
-    String cdata = "error: malformed markup: '>' inside a CDATA section is not supported, even in <svg> and <math>:"
-        + " elsewhere a browser ends it at the first '>'; write the text without <![CDATA[, with '>' as &gt;";
-    assertEquals(List.of("dir/t.html:1:23: " + cdata),
-        errors("<svg><title><![CDATA[ > <script>[[${x}]]</script> ]]></title></svg>"));
-    assertEquals(List.of("dir/t.html:1:26: " + cdata),
-        errors("<svg><title><![CDATA[ ]] > <img src=x onerror=[[${x}]]> ]]></title></svg>"));
-    assertEquals(List.of("dir/t.html:1:38: " + cdata),
-        errors("<svg><title><![CDATA[ a ]]><![CDATA[ > <script>[[${x}]]</script> ]]></title></svg>"));
-    assertEquals(List.of("dir/t.html:1:24: " + cdata),
-        errors("<math><title><![CDATA[ > <script>[[${x}]]</script> ]]></title></math>"));
-    // Without a '>' before its ']]>' both readings end the section at the same place.
+  void cdataInForeignTitleIsLeftToTheVerifier() {
+    // A CDATA section in an SVG <title>, an integration point where browsers disagree, is the
+    // verifier's exclusion (d) (#441, verify/CdataHoleTest); here it is raw text without markup.
+    parseOk("<svg><title><![CDATA[ > <script>[[${x}]]</script> ]]></title></svg>");
     parseOk("<svg><title><![CDATA[ a < b ]]> [[${x}]]</title></svg>");
     // Script and style keep CDATA with '>': they are not integration points.
     parseOk("<svg><script><![CDATA[ if (a > b) { f([[${x}]]); } ]]></script>"
