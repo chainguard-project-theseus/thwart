@@ -57,10 +57,6 @@ final class VerifierMessages {
                 + " or <th>";
       case TEXT_OUTSIDE_BODY:
         return textOutsideBody(value, s);
-      case TEXT_RECONSTRUCTS:
-        return "before " + value + " a browser reopens formatting elements (<b>, <i>, <a>, ...) that an end tag"
-            + " closed out of order, and puts the value inside the copies; close elements in the reverse order they"
-            + " were opened (</b> before </p>)";
       case RCDATA_NOT_IN_RCDATA:
         return "this value is escaped for the text of <title> or <textarea>, but a browser reads it " + reading(s)
             + ", where a {{ in it could run in Vue or AngularJS; " + (foreign(s)
@@ -76,12 +72,8 @@ final class VerifierMessages {
             : "a browser reads " + value + " as the value of '" + (s == null ? "?" : s.attributeName())
                 + "', not of '" + f.attribute + "'; check the markup before it in the tag";
       case ATTRIBUTE_VALUE_CHANGES_PARSE:
-        return "encoding".equalsIgnoreCase(f.attribute)
-            ? "a computed 'encoding' on MathML <annotation-xml> decides whether a browser parses its content as HTML"
-                + " or as MathML; write the encoding as a static value"
-            : "a computed '" + f.attribute + "' on an <input> directly in a table decides where a browser puts it"
-                + " (type=hidden stays in the table, any other input is moved in front of it); move the input into"
-                + " a <td>, or write the type as a static value";
+        return "a computed 'encoding' on MathML <annotation-xml> decides whether a browser parses its content as HTML"
+            + " or as MathML; write the encoding as a static value";
       case JSON_NOT_IN_SCRIPT:
         return jsonNotInScript(value, s);
       case RAW_NOT_FLOW:
@@ -140,7 +132,7 @@ final class VerifierMessages {
   /** Problems a parser reports while it parses (#406), not found in a state at a hole. */
   private static boolean reportedByParser(Problem p) {
     return p == Problem.PARSE_ERROR || p == Problem.FOREIGN_IN_TABLE || p == Problem.TABLE_IN_TEMPLATE
-        || p == Problem.SELECT_CONTENT;
+        || p == Problem.SELECT_CONTENT || p == Problem.FRAMESET;
   }
 
   /** A second {@code <html>}, {@code <head>} or {@code <body>}, as the parser words it. */
@@ -335,10 +327,6 @@ final class VerifierMessages {
       case IN_COLUMN_GROUP:
         return head + ", and moves what isn't table markup in front of the table; put it in a <td> or <th>";
       default:
-        if (s.reconstructionPending()) {
-          return head + ", because formatting elements (<b>, <i>, <a>, ...) were closed out of order before it;"
-              + " close elements in the reverse order they were opened";
-        }
         return head + "; insert it in an element such as <div> in the body";
     }
   }
