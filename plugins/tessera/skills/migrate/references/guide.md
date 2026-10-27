@@ -332,7 +332,9 @@ fixes layout markup that nests a second `<body>` (section 4.8, Layouts), and lis
 not convert by `file:line`. In a JavaScript or JSON `<script>` it drops the
 quotes around a `"..."` or `'...'` string that is only an inline (`"[[${x}]]"` becomes `[[${x}]]`,
 which writes JSON with its own quotes) and reports any other `[[...]]` inside a string, template
-literal or comment. An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
+literal or comment. In a `th:inline="javascript"` script it rewrites a natural-template comment
+followed by one literal, `/*[[${x}]]*/ 'd'`, to `[[${x}]]`, as Thymeleaf rendered it, and reports
+one followed by anything else (`/*[[${x}]]*/ a + b`). An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
 It also reports each `th:value`, `th:href`, `th:src`, `th:action`, `th:name` and `th:type` whose
 value may be `null`: Thymeleaf wrote the attribute empty, and Tessera omits it (section 4.3).
 
@@ -1910,7 +1912,11 @@ These come from the annotation processor itself, without a template position.
 - `[[...]] is inside a JavaScript comment (<c>), so its value is written inside the comment and the page never uses it; move it out of the comment: Thymeleaf's natural-template var a = /*[[${x}]]*/ 'd'; becomes var a = [[${x}]];`:
   `<c>` is `//` or `/* */`. Thymeleaf's JavaScript natural templates put the value in a comment
   and a default literal after it; Tessera writes the value where the inline is, so the page would
-  run with the default (#315). Drop the comment markers and the default.
+  run with the default (#315). Drop the comment markers and the default. `tessera-migrate` does
+  this in a `th:inline="javascript"` script when the default is a string, number, `true`, `false`,
+  `null`, array or object (or missing), and reports any other text after the comment. Thymeleaf
+  dropped that text up to the next `;`, `,`, `)`, `}`, `]`, `//` or line end, so check what the
+  code meant.
 - `<token> before the last [[...]] of a <script>: the compiler reads the code before the last value only with a lexer that has no ambiguous tokens, so it can prove where each value goes: move the [[...]] above the code (declare the data first, var data = [[...]];), or write the value into a <script type="application/json"> and read it with JSON.parse`:
   the data-prelude rule (#332). To know that each `[[...]]` is outside every string and comment,
   the compiler reads the script text before the last `[[...]]` with a lexer that needs no
