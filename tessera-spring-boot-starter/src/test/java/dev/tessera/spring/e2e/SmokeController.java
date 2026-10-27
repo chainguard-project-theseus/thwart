@@ -7,6 +7,7 @@ import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -31,6 +32,30 @@ public class SmokeController {
   public String action(@RequestParam("target") String target, Model model) {
     model.addAttribute("target", target);
     return "smoke/action";
+  }
+
+  /**
+   * {@code smoke/owner} declares {@code Long ownerId, String name}; the path variables fill them
+   * (#124). {@code petId} is not declared, so the template never sees it.
+   */
+  @GetMapping("/owners/{ownerId}/pets/{petId}")
+  public String owner(
+      @PathVariable("ownerId") Long ownerId, @PathVariable("petId") String petId) {
+    return "smoke/owner";
+  }
+
+  /** A model attribute wins over the path variable of the same name. */
+  @GetMapping("/owners/{ownerId}/as/{name}")
+  public String ownerAs(
+      @PathVariable("ownerId") Long ownerId, @PathVariable("name") String name, Model model) {
+    model.addAttribute("name", "model-" + name);
+    return "smoke/owner";
+  }
+
+  /** A path variable of the wrong type fails the render, like a model attribute. */
+  @GetMapping("/owners/named/{ownerId}")
+  public String ownerNamed(@PathVariable("ownerId") String ownerId) {
+    return "smoke/owner";
   }
 
   @GetMapping("/typed")

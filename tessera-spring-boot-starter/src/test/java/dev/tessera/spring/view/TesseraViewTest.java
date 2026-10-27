@@ -8,16 +8,19 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.servlet.View;
 
 /**
  * A {@link Date} in the model (Boot's error {@code timestamp}) reaches a param declared {@code
- * Instant} or {@code ZonedDateTime} converted; anything else is passed through unchanged.
+ * Instant} or {@code ZonedDateTime} converted; anything else is passed through unchanged. The
+ * handler's path variables are merged under the model.
  */
 class TesseraViewTest {
 
@@ -48,7 +51,37 @@ class TesseraViewTest {
     assertThat(seen.get("instant")).isEqualTo(Instant.EPOCH);
   }
 
+  @Test
+  void pathVariablesAreMergedUnderTheModel() throws Exception {
+    Map<String, Object> vars = new HashMap<String, Object>();
+    vars.put("text", "from path");
+    vars.put("ownerId", 7L);
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.setAttribute(View.PATH_VARIABLES, vars);
+    Map<String, Object> model = new HashMap<String, Object>();
+    model.put("instant", Instant.EPOCH);
+    Map<String, ?> seen = render(model, request);
+    assertThat(seen.get("text")).isEqualTo("from path");
+    assertThat(seen.get("ownerId")).isEqualTo(7L);
+    assertThat(model).containsOnlyKeys("instant"); // the caller's model is not changed
+
+    model.put("text", "from model");
+    assertThat(render(model, request).get("text")).isEqualTo("from model"); // the model wins
+  }
+
+  @Test
+  void pathVariablesAreMergedUnderANullModel() throws Exception {
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.setAttribute(View.PATH_VARIABLES, Collections.singletonMap("text", "x"));
+    assertThat(render(null, request).get("text")).isEqualTo("x");
+  }
+
   private static Map<String, ?> render(Map<String, Object> model) throws Exception {
+    return render(model, new MockHttpServletRequest());
+  }
+
+  private static Map<String, ?> render(Map<String, Object> model, MockHttpServletRequest req)
+      throws Exception {
     final Map<String, Object> seen = new HashMap<String, Object>();
     TemplateEntry entry =
         new TemplateEntry(
@@ -59,7 +92,7 @@ class TesseraViewTest {
                 new TemplateEntry.Param("text", "java.lang.String")),
             (m, ctx, out) -> seen.putAll(m));
     TesseraView.of(entry, (request, response, m) -> RenderContext.defaults())
-        .render(model, new MockHttpServletRequest(), new MockHttpServletResponse());
+        .render(model, req, new MockHttpServletResponse());
     return seen;
   }
 }
