@@ -11,9 +11,8 @@ import java.util.Locale;
  * input parses the same way from both: the verifier merges paths on it. Where Tessera can't read
  * a part of the state exactly, the signature keeps more than needed, so equal signatures still
  * mean equal parses. Equal parses may have different signatures; that costs the verifier a merge,
- * never soundness. States from different engines or fragment contexts are never equal. The one
- * exception is {@link #framesetOk()}, which only matters to a {@code <frameset>} start tag.
- * Inside a token (a tag, comment, doctype or character reference) the state is described by
+ * never soundness. States from different engines or fragment contexts are never equal. Inside a
+ * token (a tag, comment, doctype or character reference) the state is described by
  * {@link #pendingInput()}.
  *
  * <p>No part of it is an engine's numeric constant.
@@ -44,14 +43,12 @@ public final class ParserState {
   private final boolean formPointer;
   private final boolean headPointer;
   private final boolean quirks;
-  private final boolean framesetOk;
   private final boolean dropsNextLineFeed;
   private final boolean pendingTableText;
   /** Built on first use: most states are only checked, and a signature is long. */
   private String signature;
 
-  // activeFormattingAttributes is in the signature: reconstruction and the Noah's Ark clause
-  // compare attributes. framesetOk is left out of it, see framesetOk().
+  // activeFormattingAttributes is in the signature: the Noah's Ark clause compares attributes.
   ParserState(
       String engine,
       OpenElement fragmentContext,
@@ -71,7 +68,6 @@ public final class ParserState {
       boolean formPointer,
       boolean headPointer,
       boolean quirks,
-      boolean framesetOk,
       boolean dropsNextLineFeed,
       boolean pendingTableText) {
     this.engine = engine;
@@ -92,7 +88,6 @@ public final class ParserState {
     this.formPointer = formPointer;
     this.headPointer = headPointer;
     this.quirks = quirks;
-    this.framesetOk = framesetOk;
     this.dropsNextLineFeed = dropsNextLineFeed;
     this.pendingTableText = pendingTableText;
   }
@@ -250,23 +245,6 @@ public final class ParserState {
     return activeFormattingAttributes;
   }
 
-  /**
-   * True if text inserted now would first reconstruct the active formatting elements: an entry
-   * after the last marker isn't on the stack.
-   */
-  public boolean reconstructionPending() {
-    for (int i = activeFormatting.size() - 1; i >= 0; i--) {
-      int index = activeFormatting.get(i);
-      if (index == MARKER) {
-        return false;
-      }
-      if (index == NOT_ON_STACK) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   /** The stack of template insertion modes, bottom to top. */
   public List<InsertionMode> templateModes() {
     return templateModes;
@@ -282,16 +260,6 @@ public final class ParserState {
 
   public boolean quirks() {
     return quirks;
-  }
-
-  /**
-   * The frameset-ok flag. It is <em>not</em> part of the {@link #signature()}: it only decides what
-   * a later {@code <frameset>} start tag does, which the verifier rejects outright, and
-   * validator.nu doesn't track it independently of how the input is split (a run of whitespace
-   * and then text in one chunk leaves it set; split before the text, it is cleared).
-   */
-  public boolean framesetOk() {
-    return framesetOk;
   }
 
   /** A line feed right after {@code <pre>}, {@code <listing>} or {@code <textarea>} is dropped. */

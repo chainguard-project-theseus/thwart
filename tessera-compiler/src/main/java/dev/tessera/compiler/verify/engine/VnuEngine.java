@@ -140,7 +140,6 @@ final class VnuEngine implements Engine {
       r.templateModes = t.templateModes;
       r.mode = t.mode;
       r.originalMode = t.originalMode;
-      r.framesetOk = t.framesetOk;
       r.formPointer = t.formPointer;
       r.headPointer = t.headPointer;
       r.quirks = t.quirks;
