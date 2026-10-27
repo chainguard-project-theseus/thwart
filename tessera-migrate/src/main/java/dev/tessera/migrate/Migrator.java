@@ -282,6 +282,9 @@ final class Migrator {
             name.substring(ConversionRules.THYMELEAF_PREFIX.length())));
         return;
       }
+      // TODO(#331): report a computed name the compiler does not know (#330): not a standard HTML,
+      // SVG, MathML or ARIA attribute, data-*, a custom element's prop or a framework name, such as
+      // th:hx-target (fix-it: th:data-hx-target) or th:up-on-loaded.
       String local;
       if (thymeleaf) {
         local = lower.substring(ConversionRules.THYMELEAF_PREFIX.length());

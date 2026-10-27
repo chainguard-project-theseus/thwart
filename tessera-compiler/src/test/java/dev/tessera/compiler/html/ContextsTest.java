@@ -38,8 +38,6 @@ class ContextsTest {
     "div, title, ATTRIBUTE",
     "img, alt, ATTRIBUTE",
     "img, sizes, ATTRIBUTE",
-    "a, _x, ATTRIBUTE",
-    "div, xmlns:t, ATTRIBUTE",
     "div, aria-label, ATTRIBUTE",
     "div, type, ATTRIBUTE",
     // URL
@@ -149,9 +147,11 @@ class ContextsTest {
     "div, data-id, ATTRIBUTE",
     "div, data-action, ATTRIBUTE",
     "div, data-binding, ATTRIBUTE",
-    "div, hx-target, ATTRIBUTE",
-    "div, hx-swap, ATTRIBUTE",
-    "div, hx-confirm, ATTRIBUTE",
+    "div, data-hx-target, ATTRIBUTE",
+    // htmx names the framework table does not list are unknown (#330): use data-hx-target
+    "div, hx-target, FORBIDDEN",
+    "div, hx-swap, FORBIDDEN",
+    "div, hx-confirm, FORBIDDEN",
     // htmx request URLs: the response is swapped in as HTML (#249)
     "div, hx-get, RESOURCE_URL",
     "form, hx-post, RESOURCE_URL",
@@ -183,19 +183,46 @@ class ContextsTest {
     "form, :action, EVENT_HANDLER",
     "button, v-bind:formaction, EVENT_HANDLER",
     "form, x-bind:action, EVENT_HANDLER",
-    "div, hx-select, ATTRIBUTE",
-    "div, hx-getter, ATTRIBUTE",
+    "div, hx-select, FORBIDDEN",
+    "div, hx-getter, FORBIDDEN",
     // _hyperscript (#249)
     "button, _, EVENT_HANDLER",
     "div, script, EVENT_HANDLER",
     "div, data-script, EVENT_HANDLER",
     "div, DATA-SCRIPT, EVENT_HANDLER",
-    "div, __, ATTRIBUTE",
     "div, data-scripts, ATTRIBUTE",
-    "div, params, ATTRIBUTE",
-    "div, xml:lang, ATTRIBUTE",
-    "div, ngx, ATTRIBUTE",
-    "div, vue, ATTRIBUTE",
+    // deny-by-default names (#330): only standard, data-* and custom-element props are ATTRIBUTE
+    "div, __, FORBIDDEN",
+    "a, _x, FORBIDDEN",
+    "div, params, FORBIDDEN",
+    "div, xml:lang, FORBIDDEN",
+    "div, xmlns:t, FORBIDDEN",
+    "div, ngx, FORBIDDEN",
+    "div, vue, FORBIDDEN",
+    "div, up-on-loaded, FORBIDDEN",
+    "div, UP-ON-LOADED, FORBIDDEN",
+    "a, up-href, FORBIDDEN",
+    "form, hx-action, FORBIDDEN",
+    "form, hx-method, FORBIDDEN",
+    "div, foo, FORBIDDEN",
+    "div, aria-foo, FORBIDDEN",
+    "div, data-, FORBIDDEN",
+    "div, prop, FORBIDDEN",
+    "my-el, my-prop, FORBIDDEN",
+    "my-el, prop_x, FORBIDDEN",
+    "div, onfoo, EVENT_HANDLER",
+    "div, data-x, ATTRIBUTE",
+    "div, data-up-on-loaded, ATTRIBUTE",
+    "div, role, ATTRIBUTE",
+    "div, aria-describedby, ATTRIBUTE",
+    "td, bgcolor, ATTRIBUTE",
+    "font, color, ATTRIBUTE",
+    "font, face, ATTRIBUTE",
+    "my-el, prop, ATTRIBUTE",
+    "my-el, Prop2, ATTRIBUTE",
+    "my-el, title, ATTRIBUTE",
+    // until #333, a JSON binding's target is any ordinary name, known or not
+    "div, :foo, SCRIPT_ATTRIBUTE",
     // SCRIPT_ATTRIBUTE: Vue/Alpine bindings of an ordinary target take JSON (#246)
     "api-entry, :security, SCRIPT_ATTRIBUTE",
     "div, v-bind:title, SCRIPT_ATTRIBUTE",
@@ -278,6 +305,42 @@ class ContextsTest {
   })
   void attributeTable(String element, String attribute, OutputContext expected) {
     assertEquals(expected, Contexts.attribute(element(element), attribute));
+  }
+
+  /** SVG and MathML names are known (#330); a foreign name with a {@code -} is not a custom element. */
+  @ParameterizedTest(name = "<{0} {1}> (foreign) -> {2}")
+  @CsvSource({
+    "path, stroke-dasharray, ATTRIBUTE",
+    "path, d, ATTRIBUTE",
+    "svg, viewbox, ATTRIBUTE",
+    "svg, viewBox, ATTRIBUTE",
+    "animate, attributename, ATTRIBUTE",
+    "text, xml:space, ATTRIBUTE",
+    "use, xlink:href, URL",
+    "mi, mathvariant, ATTRIBUTE",
+    "annotation-xml, encoding, ATTRIBUTE",
+    "font-face, prop, FORBIDDEN",
+    "rect, foo, FORBIDDEN",
+  })
+  void foreignNames(String element, String attribute, OutputContext expected) {
+    Element e = new Element(element, List.of(), List.of(), false, true, POS, true);
+    assertEquals(expected, Contexts.attribute(e, attribute));
+  }
+
+  /** Only names that fail the known-name rule are unknown; framework and malformed names are not (#330). */
+  @Test
+  void unknownNames() {
+    Element div = element("div");
+    assertEquals(true, Contexts.isUnknownName(div, "up-on-loaded"));
+    assertEquals(true, Contexts.isUnknownName(div, "hx-action"));
+    assertEquals(false, Contexts.isUnknownName(div, "title"));
+    assertEquals(false, Contexts.isUnknownName(div, "data-x"));
+    assertEquals(false, Contexts.isUnknownName(div, "hx-boost"));
+    assertEquals(false, Contexts.isUnknownName(div, "hx-get"));
+    assertEquals(false, Contexts.isUnknownName(div, "v-html"));
+    assertEquals(false, Contexts.isUnknownName(div, "onfoo"));
+    assertEquals(false, Contexts.isUnknownName(div, "a=b"));
+    assertEquals(false, Contexts.isUnknownName(element("my-el"), "prop"));
   }
 
   /** SVG presentation attributes that take a CSS url() are STYLE on a foreign element only. */
