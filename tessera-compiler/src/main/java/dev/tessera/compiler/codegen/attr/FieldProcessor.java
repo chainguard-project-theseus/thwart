@@ -20,6 +20,8 @@ import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
 import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.Escapers;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import javax.lang.model.type.TypeKind;
@@ -35,7 +37,9 @@ import javax.lang.model.type.TypeMirror;
  * (selected) when their value matches the bound value or, for a Collection, array or Map, one of
  * its elements, as in Thymeleaf. Checkboxes get Spring's {@code _name} hidden marker so an
  * unchecked box binds {@code false} (or an empty collection), unless the checkbox is disabled (a
- * {@code disabled} attribute, or a {@code t:disabled} that is true), as in Thymeleaf.
+ * {@code disabled} attribute, or a {@code t:disabled} that is true), as in Thymeleaf. A
+ * {@code <select multiple>} gets the marker before it, with the same rule, as Thymeleaf's
+ * {@code SpringSelectFieldTagProcessor} does.
  *
  * <p>Inside a fragment, {@code t:field="name"} where {@code name} is a {@code Field} parameter uses
  * the path the caller passed (and checked). Its value has static type {@code Object}, so a checkbox
@@ -80,6 +84,7 @@ public final class FieldProcessor implements AttributeProcessor {
         break;
       case "select":
         nameAndId(plan, attr, name, id);
+        marker(ctx, attr, plan, name, true);
         // The options compare with the field's value, path and object name (evaluated once).
         String value = ctx.freshName("selected");
         String path = ctx.freshName("selectedPath");
@@ -128,9 +133,9 @@ public final class FieldProcessor implements AttributeProcessor {
           }
           plan.setAttribute(
               "checked", "java.lang.Boolean.TRUE.equals(" + current.code() + ") ? \"checked\" : null", attr.pos());
-          marker(ctx, attr, plan, name);
+          marker(ctx, attr, plan, name, false);
         } else if (checkedByValue(ctx, attr, plan, field)) {
-          marker(ctx, attr, plan, name);
+          marker(ctx, attr, plan, name, false);
         }
         break;
       case "radio":
@@ -179,12 +184,32 @@ public final class FieldProcessor implements AttributeProcessor {
   }
 
   /**
-   * Spring's {@code _name} hidden marker after a checkbox, so that an unchecked box binds
-   * {@code false} (or an empty collection). Like Thymeleaf, none for a disabled checkbox (it is not
-   * submitted, so the marker would reset the value): Thymeleaf checks for a disabled attribute of
-   * any value after t:disabled/t:attr ran, as here (they precede t:field).
+   * Spring's {@code _name} hidden marker, so that an unchecked box binds {@code false} (or an empty
+   * collection) and a {@code <select multiple>} with nothing selected binds an empty collection:
+   * {@code value="on"} after a checkbox, {@code value="1"} before a select ({@code select}), as
+   * Thymeleaf's checkbox and select field processors write them. A select gets one only if it is
+   * {@code multiple}. Like Thymeleaf, none for a disabled element (it is not submitted, so the
+   * marker would reset the value): Thymeleaf checks for a {@code multiple} or {@code disabled}
+   * attribute of any value after t:multiple/t:disabled/t:attr ran, as here (they precede t:field).
    */
-  private static void marker(CodegenContext ctx, Attribute attr, ElementPlan plan, String name) {
+  private static void marker(CodegenContext ctx, Attribute attr, ElementPlan plan, String name, boolean select) {
+    List<String> conditions = new ArrayList<>();
+    if (select) {
+      Optional<ElementPlan.Attr> multiple = plan.attribute("multiple");
+      if (!multiple.isPresent()) {
+        return;
+      }
+      if (multiple.get() instanceof ElementPlan.DynamicAttr) {
+        conditions.add(once(ctx, plan, (ElementPlan.DynamicAttr) multiple.get()) + " != null");
+      }
+    }
+    Optional<ElementPlan.Attr> disabled = plan.attribute("disabled");
+    if (disabled.isPresent()) {
+      if (!(disabled.get() instanceof ElementPlan.DynamicAttr)) {
+        return;
+      }
+      conditions.add(once(ctx, plan, (ElementPlan.DynamicAttr) disabled.get()) + " == null");
+    }
     // Made up: no source position.
     Emitted marker =
         Emitted.concat(
@@ -192,19 +217,32 @@ public final class FieldProcessor implements AttributeProcessor {
             Emitted.code(" "),
             Emitted.hole(Skeleton.Escaper.ATTR, "input", "name", attr.pos(), name),
             Emitted.code(" "),
-            Emitted.text("\" value=\"on\" />", null));
-    Optional<ElementPlan.Attr> disabled = plan.attribute("disabled");
-    if (!disabled.isPresent()) {
-      plan.afterStartTag(marker);
-    } else if (disabled.get() instanceof ElementPlan.DynamicAttr) {
-      // Evaluate once: the attribute and the marker share the value (null omits both ways).
-      ElementPlan.DynamicAttr dynamic = (ElementPlan.DynamicAttr) disabled.get();
-      String local = ctx.freshName("disabled");
-      plan.wrap("{ java.lang.Object " + local + " = " + dynamic.valueCode() + ";", "}");
-      plan.setAttribute(dynamic.name(), local, dynamic.pos());
-      plan.afterStartTag(
-          Emitted.opt(Skeleton.OptKind.CHECKBOX_MARKER, attr.pos(), "if (" + local + " == null) { ", marker, " }"));
+            Emitted.text(select ? "\" value=\"1\" />" : "\" value=\"on\" />", null));
+    if (!conditions.isEmpty()) {
+      marker =
+          Emitted.opt(
+              Skeleton.OptKind.CHECKBOX_MARKER,
+              attr.pos(),
+              "if (" + String.join(" && ", conditions) + ") { ",
+              marker,
+              " }");
     }
+    if (select) {
+      plan.beforeStartTag(marker);
+    } else {
+      plan.afterStartTag(marker);
+    }
+  }
+
+  /**
+   * Evaluates a computed attribute once, into a local the attribute and the marker share (null
+   * omits the attribute, and is what the marker tests). Returns the local's name.
+   */
+  private static String once(CodegenContext ctx, ElementPlan plan, ElementPlan.DynamicAttr dynamic) {
+    String local = ctx.freshName(dynamic.name());
+    plan.wrap("{ java.lang.Object " + local + " = " + dynamic.valueCode() + ";", "}");
+    plan.setAttribute(dynamic.name(), local, dynamic.pos());
+    return local;
   }
 
   /**

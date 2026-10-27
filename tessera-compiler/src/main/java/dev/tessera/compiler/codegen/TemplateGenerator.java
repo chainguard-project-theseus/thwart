@@ -699,6 +699,9 @@ public final class TemplateGenerator implements CodegenContext {
       if (plan.replacement() != null) {
         c.add(plan.replacement());
       } else {
+        for (Emitted s : plan.beforeStartTagStatements()) {
+          c.add(s);
+        }
         if (!plan.tagOmitted() && e.selfClosing() && rawTextElement(e) && !opensSelfClosing(plan)) {
           selfClosingRawText(e);
         }

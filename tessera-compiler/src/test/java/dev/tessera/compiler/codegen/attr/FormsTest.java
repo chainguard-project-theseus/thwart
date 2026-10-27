@@ -385,11 +385,61 @@ class FormsTest {
             "<select multiple t:field=\"*{roles}\"><option value=\"ROLE_ADMIN\">A</option>"
                 + "<option value=\"ROLE_USER\">U</option><option value=\"ROLE_GUEST\">G</option></select>");
     assertEquals(
-        "<form><select multiple id=\"roles\" name=\"roles\"><option value=\"ROLE_ADMIN\" selected=\"selected\">A</option>"
+        "<form><input type=\"hidden\" name=\"_roles\" value=\"1\" />"
+            + "<select multiple id=\"roles\" name=\"roles\"><option value=\"ROLE_ADMIN\" selected=\"selected\">A</option>"
             + "<option value=\"ROLE_USER\" selected=\"selected\">U</option><option value=\"ROLE_GUEST\">G</option>"
             + "</select></form>",
         renderUser(c, new TreeSet<>(List.of("ROLE_ADMIN", "ROLE_USER")), null, List.of(), null));
     assertFalse(renderUser(c, null, null, List.of(), null).contains("selected"));
+  }
+
+  @Test
+  void multipleSelectMarkerFollowsThymeleaf() {
+    // #457: SpringSelectFieldTagProcessor writes <input type="hidden" name="_<name>" value="1"/>
+    // before a <select> that has a multiple attribute and no disabled attribute (of any value),
+    // so deselecting every option binds an empty collection. A single select gets none.
+    Compilation c =
+        compileUser(
+            "<select t:field=\"*{level}\"><option value=\"LOW\">L</option></select>"
+                + "<select multiple=\"multiple\" disabled t:field=\"*{roles}\"></select>"
+                + "<select multiple disabled=\"false\" t:field=\"*{roles}\"></select>"
+                + "<select multiple t:field=\"*{tags}\"></select>");
+    assertEquals(
+        "<form><select id=\"level\" name=\"level\"><option value=\"LOW\">L</option></select>"
+            + "<select multiple=\"multiple\" disabled id=\"roles\" name=\"roles\"></select>"
+            + "<select multiple disabled=\"false\" id=\"roles\" name=\"roles\"></select>"
+            + "<input type=\"hidden\" name=\"_tags\" value=\"1\" /><select multiple id=\"tags\" name=\"tags\"></select>"
+            + "</form>",
+        renderUser(c, Set.of(), null, List.of(), null));
+  }
+
+  @Test
+  void computedMultipleAndDisabledDecideTheSelectMarker() {
+    // t:multiple and t:disabled run before t:field: the marker is written only when the select
+    // ends up multiple and not disabled, and each expression is evaluated once.
+    Compilation c =
+        compileUser(
+            "<select t:multiple=\"${user.level != null}\" t:disabled=\"${user.levels.isEmpty()}\""
+                + " t:field=\"*{roles}\"></select>");
+    assertEquals(
+        "<form><input type=\"hidden\" name=\"_roles\" value=\"1\" />"
+            + "<select multiple=\"multiple\" id=\"roles\" name=\"roles\"></select></form>",
+        renderUser(c, Set.of(), null, List.of("LOW"), "LOW"));
+    assertEquals(
+        "<form><select id=\"roles\" name=\"roles\"></select></form>",
+        renderUser(c, Set.of(), null, List.of("LOW"), null));
+    assertEquals(
+        "<form><select multiple=\"multiple\" disabled=\"disabled\" id=\"roles\" name=\"roles\"></select></form>",
+        renderUser(c, Set.of(), null, List.of(), "LOW"));
+  }
+
+  @Test
+  void multipleSelectMarkerIsInsideItsLoop() {
+    Compilation c =
+        compileUser(
+            "<select multiple t:each=\"r : ${user.roles}\" t:field=\"*{roles}\"></select>");
+    String out = renderUser(c, new TreeSet<>(List.of("a", "b")), null, List.of(), null);
+    assertEquals(2, out.split("name=\"_roles\" value=\"1\"", -1).length - 1, out);
   }
 
   @Test
