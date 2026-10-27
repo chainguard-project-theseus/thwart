@@ -62,7 +62,6 @@ interface RawParser {
     int[] formattingStackIndex;
     String[] formattingNamespaces;
     String[] formattingNames;
-    String[][] formattingAttributes;
     String[] templateModes;
     String mode;
     String originalMode;

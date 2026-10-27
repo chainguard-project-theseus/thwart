@@ -175,6 +175,11 @@ class FlowProducerTest {
    * Each clause of the predicate is needed: outside {@code FLOW}, ordinary FLOW content changes the
    * state. And the producer promise is needed: content that isn't FLOW (a list item at the top, a
    * form) changes the state at insertion points the predicate accepts.
+   *
+   * <p>A fourth {@code <b>} inside three open ones changes the state too, but the predicate accepts
+   * it (#444): the Noah's Ark clause drops the oldest {@code <b>} from the list of active formatting
+   * elements, and that element stays open. In an error-free parse the list changes the tree only
+   * through entries that are no longer open, so the change can't reach the tree.
    */
   @Test
   void outsideTheKindTheStateChanges() throws EngineException {
@@ -183,9 +188,10 @@ class FlowProducerTest {
       {"<!DOCTYPE html><p><span>", "<div>x</div>"},
       {"<!DOCTYPE html><h2>", "<h3>x</h3>"}, // pops the heading
       {"<!DOCTYPE html><a href=\"/1\">", "<a href=\"/2\">x</a>"}, // adoption agency
-      {"<!DOCTYPE html><b><b><b>", "<b>x</b>"}, // Noah's Ark
       {"<!DOCTYPE html><button>", "<button>x</button>"},
       {"<!DOCTYPE html><table>", "x"}, // table text, held back: not a FLOW mode
+      // Accepted by the predicate (#444): only the list changes.
+      {"<!DOCTYPE html><b><b><b>", "<b>x</b>"}, // Noah's Ark
       // Not FLOW content, where the predicate holds:
       {"<!DOCTYPE html><ul><li>", "<li>x</li>"},
       {"<!DOCTYPE html><form>", "<form>x</form>"},
@@ -199,7 +205,10 @@ class FlowProducerTest {
       }
       assertTrue(changed, () -> c[1] + " in " + c[0] + " left the state as it was");
     }
-    for (int i = 0; i < 7; i++) {
+    for (Parser entry : entries(cases[6][0])) {
+      assertNull(ContentKinds.problem(ContentKinds.Kind.FLOW, entry.state()), cases[6][0]);
+    }
+    for (int i = 0; i < 6; i++) {
       for (Parser entry : entries(cases[i][0])) {
         assertNotNull(ContentKinds.problem(ContentKinds.Kind.FLOW, entry.state()), cases[i][0]);
       }

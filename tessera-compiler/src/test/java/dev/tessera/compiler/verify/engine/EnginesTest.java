@@ -111,8 +111,9 @@ class EnginesTest {
     assertEquals("b", s.activeFormattingElements().get(0).localName());
     s = doc(e, "<!DOCTYPE html><p><b></p><table><tr><td>");
     assertEquals(List.of(ParserState.NOT_ON_STACK, ParserState.MARKER), s.activeFormatting());
-    // Attributes of formatting entries are part of the state: the Noah's Ark clause compares them.
-    assertNotEquals(doc(e, "<p><b class=x></p>"), doc(e, "<p><b class=y></p>"));
+    // Attributes of formatting entries are not part of the state: only the Noah's Ark clause reads
+    // them, and in an error-free parse it can't change the tree (#444).
+    assertEquals(doc(e, "<p><b class=x></p>"), doc(e, "<p><b class=y></p>"));
 
     assertTrue(doc(e, "<form>").formPointer());
     assertTrue(doc(e, "<p>").headPointer());
@@ -619,7 +620,6 @@ class EnginesTest {
       t.formattingStackIndex = new int[0];
       t.formattingNamespaces = new String[0];
       t.formattingNames = new String[0];
-      t.formattingAttributes = new String[0][];
       t.templateModes = new String[0];
       t.mode = "INITIAL";
       t.originalMode = "INITIAL";

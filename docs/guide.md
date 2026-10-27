@@ -2148,7 +2148,6 @@ same.
 | `JSON_NOT_IN_SCRIPT` | Reads `[[...]]` JSON outside the code of an HTML `<script>`, for example in an SVG `<script>` | Write the script as an HTML `<script>` outside `<svg>` and `<math>` |
 | `RAW_NOT_FLOW` | Parses `SafeHtml`, a `Fragment` value or an HTML message outside body content: in the head, a table, a `<select>`, `<svg>`, `<math>`, or raw text such as `<noscript>` | Insert it in an element such as `<div>` in the body, or in a `<td>` |
 | `FRAMESET` | Uses a `<frameset>` only if no body content came before it | Use an `<iframe>` or an ordinary layout |
-| `NOAHS_ARK` | Reopens at most three identical formatting elements, comparing attribute values, one of them computed | Close them before opening another, or move the computed attribute to a `<span>` |
 | `LOOP_NO_FIXED_POINT` | Has more elements open after each `t:each` pass | Close inside the loop every element it opens |
 | `STRUCTURE_DEPENDS_ON_DATA` | Nests deeper at each call of a fragment that inserts itself, so the page's structure depends on data | For stored rich text, `t:utext="html.sanitize(...)"`, `html.sanitizeRich` or an application `HtmlPolicy` (section 4.10, Rich text), and delete the fragment; for other trees, render a fixed depth or flatten the tree in Java |
 | `TOO_MANY_STATES` | Can be in more than 24 different states (different elements open) after the branches and loops before this point | Close inside each `t:if`, `t:switch` and `t:each` the elements it opens, or split the template into fragments |

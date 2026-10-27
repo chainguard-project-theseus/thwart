@@ -30,8 +30,8 @@ import java.util.TreeMap;
  *
  * <p>It is an abstract interpretation with the parsers as the transfer function. A path holds the
  * two parsers (one, when the template has no {@code <noscript>}). Statics are fed as they are. A
- * hole is checked and leaves the state as it was (that is what "inert" means), except that an
- * attribute hole writes {@link Rules#MARK} into the value. Paths are merged by their parser states' signatures
+ * hole is checked and leaves the state as it was (that is what "inert" means); an attribute hole
+ * writes nothing into the value. Paths are merged by their parser states' signatures
  * at every join: an optional part ({@code t:if}, {@code t:case}, a computed attribute) is the
  * union of skipping it and writing it, a loop runs to a fixed point, and a static fragment call is
  * analysed at each call site, memoised per (fragment, entry state, bound fragment arguments), with
@@ -52,11 +52,6 @@ public final class ContextVerifier {
 
   /** A loop or a recursion must reach its fixed point within this many rounds. */
   static final int MAX_ROUNDS = 4;
-
-  /** Formatting elements (the list of active formatting elements holds these). */
-  private static final String[] FORMATTING = {
-    "a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small", "strike", "strong", "tt", "u"
-  };
 
   /** Fragment parsing contexts a partial's root element implies (memo §3.4.6); anything else: body. */
   private static final Map<String, String> PARTIAL_CONTEXTS = new HashMap<>();
@@ -667,83 +662,24 @@ public final class ContextVerifier {
         p.tagBoundary = false;
         p.key = null;
       }
-      if (!p.tagHole && !p.markedFormatting) {
-        int lt = text.lastIndexOf('<');
-        if (lt > 0 && text.indexOf('>', lt) < 0) {
-          // A tag that goes on past this static: feed the text before it on its own, so the state
-          // inside the tag is described by the state before it plus only the tag's own input
-          // (VnuParser), and paths that differ only before the tag still merge.
-          p.feed(located.sub(0, lt));
-          p.defer(located.sub(lt, text.length()));
-        } else {
-          p.feed(located);
-        }
-        continue;
+      int lt = text.lastIndexOf('<');
+      if (lt > 0 && text.indexOf('>', lt) < 0) {
+        // A tag that goes on past this static: feed the text before it on its own, so the state
+        // inside the tag is described by the state before it plus only the tag's own input
+        // (VnuParser), and paths that differ only before the tag still merge.
+        p.feed(located.sub(0, lt));
+        p.defer(located.sub(lt, text.length()));
+      } else {
+        p.feed(located);
       }
-      // A formatting element with a computed attribute may be in the list of active formatting
-      // elements: feed each tag on its own and check the Noah's Ark clause after each, so no push
-      // and pop inside one static goes unseen (also of the element whose start tag holds the
-      // hole, which ends in this static).
-      int from = 0;
-      for (int i = text.indexOf('<'); i >= 0; i = text.indexOf('<', i + 1)) {
-        if (i > from) {
-          feedAndCheck(p, located.sub(from, i), pos);
-          from = i;
-        }
-      }
-      feedAndCheck(p, located.sub(from, text.length()), pos);
     }
     return in;
-  }
-
-  private void feedAndCheck(Path p, Located located, SourcePos pos) throws EngineException {
-    p.feed(located);
-    boolean between = true;
-    boolean marked = false;
-    List<ParserState> ark = new ArrayList<>();
-    for (ParserState s : p.states()) {
-      between &= s.pendingInput().isEmpty();
-      marked |= Rules.hasMarkedFormatting(s);
-      if (Rules.noahsArk(s)) {
-        ark.add(s);
-      }
-    }
-    if (!ark.isEmpty()) {
-      add(Problem.NOAHS_ARK, pos, null, null, null, ark, null);
-    }
-    if (between) {
-      p.tagHole = false;
-    }
-    p.markedFormatting = marked;
-  }
-
-  private static boolean hasFormattingStartTag(String text) {
-    for (int i = text.indexOf('<'); i >= 0; i = text.indexOf('<', i + 1)) {
-      if (formattingStartTag(text, i)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private static boolean formattingStartTag(String text, int lt) {
-    for (String name : FORMATTING) {
-      int end = lt + 1 + name.length();
-      if (text.regionMatches(true, lt + 1, name, 0, name.length())
-          && (end == text.length() || isSpace(text.charAt(end)) || text.charAt(end) == '/' || text.charAt(end) == '>')) {
-        return true;
-      }
-    }
-    return false;
   }
 
   private void hole(Skeleton.Hole h, Path p, SourcePos pos) throws EngineException {
     boundary(p, pos);
     Map<Problem, List<ParserState>> problems = new LinkedHashMap<>();
-    boolean formattingTag = false;
     for (ParserState s : p.states()) {
-      // The tag being read starts in the input since the parser was last between tokens.
-      formattingTag |= h.escaper().inAttribute() && hasFormattingStartTag(s.pendingInput());
       Problem problem = Rules.hole(h, s);
       if (problem != null) {
         if (!problems.containsKey(problem)) {
@@ -755,10 +691,7 @@ public final class ContextVerifier {
     for (Map.Entry<Problem, List<ParserState>> e : problems.entrySet()) {
       add(e.getKey(), pos, h.escaper(), null, h.attribute(), e.getValue(), null);
     }
-    if (h.escaper().inAttribute()) {
-      p.defer(Rules.MARK, pos);
-      p.tagHole |= formattingTag;
-    } else if (h.escaper() == Skeleton.Escaper.JSON) {
+    if (h.escaper() == Skeleton.Escaper.JSON) {
       for (ParserState s : p.states()) {
         if (s.tokenizer() == TokenizerState.SCRIPT_DATA_LESS_THAN_SIGN) {
           // A JSON value is never empty and never starts with '/' or '!': any first character
@@ -1177,13 +1110,6 @@ public final class ContextVerifier {
     private final ContextVerifier owner;
     private final Parser[] parsers;
     /**
-     * An attribute hole was written since the parser was last between tokens, in a tag that may be
-     * a formatting element's.
-     */
-    boolean tagHole;
-    /** A formatting element with a computed attribute is in the list of active formatting elements. */
-    boolean markedFormatting;
-    /**
      * This path stands also for a computed attribute right after the tag name not written: the
      * next character must be whitespace, '/' or '>' ({@link ContextVerifier#attribute}).
      */
@@ -1217,8 +1143,6 @@ public final class ContextVerifier {
       }
       Path p = new Path(owner, copy);
       System.arraycopy(reported, 0, p.reported, 0, reported.length);
-      p.tagHole = tagHole;
-      p.markedFormatting = markedFormatting;
       p.tagBoundary = tagBoundary;
       p.states = states;
       p.key = key;
@@ -1323,7 +1247,7 @@ public final class ContextVerifier {
         for (ParserState s : states()) {
           sb.append(s.signature()).append('\u0000');
         }
-        sb.append(tagHole ? 'h' : '-').append(markedFormatting ? 'm' : '-').append(tagBoundary ? 'b' : '-');
+        sb.append(tagBoundary ? 'b' : '-');
         for (long r : reported) {
           sb.append(r == 0 ? "" : Long.toHexString(r)).append(',');
         }
