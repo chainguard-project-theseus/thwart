@@ -65,6 +65,11 @@ public final class TemplateGenerator implements CodegenContext {
   private static final Set<String> TABLE_PARTS = FragmentTop.TABLE_PARTS;
   /** {@link #tableCtx} of an element rendered standalone (a fragment): where it lands is checked there. */
   private static final String SOMEWHERE = "?";
+  /**
+   * Elements whose start tag makes a browser drop a line feed right after it (HTML 13.2.6.4.7,
+   * "in body": the next token is ignored if it is U+000A); see {@link #emit}.
+   */
+  private static final Set<String> LEADING_LINE_FEED = Backports.setOf("pre", "listing", "textarea");
 
   private final CompilerEnv env;
   private final TemplateIndex index;
@@ -484,6 +489,11 @@ public final class TemplateGenerator implements CodegenContext {
     String outerCtx = tableCtx;
     boolean outerDirect = tableDirect;
     String host = rawTextElement(e) ? e.name() : outer;
+    // In raw text (<xmp>, <iframe>, <noembed>, <noframes>) the tag is text, so nothing is dropped.
+    // Inside <noscript> the content is markup with scripting off, and raw text a browser never
+    // renders with it on, so the line feed is written there too.
+    boolean leadingLineFeed = (outer == null || outer.equalsIgnoreCase("noscript")) && !e.foreign()
+        && LEADING_LINE_FEED.contains(e.name().toLowerCase(Locale.ROOT));
     // Processors (t:remove="all-but-first") and emit generate the content.
     rawTextHost = host;
     inForeign = outerForeign || e.name().equalsIgnoreCase("svg") || e.name().equalsIgnoreCase("math");
@@ -553,7 +563,7 @@ public final class TemplateGenerator implements CodegenContext {
       if (e.name().equalsIgnoreCase("option")) {
         FieldProcessor.option(this, plan);
       }
-      emit(c, plan);
+      emit(c, plan, leadingLineFeed);
     } finally {
       hostElement = outerHost;
       rawTextHost = outer;
@@ -668,7 +678,14 @@ public final class TemplateGenerator implements CodegenContext {
             + " outside the element");
   }
 
-  private void emit(Emitted.Builder c, ElementPlan plan) {
+  /**
+   * Writes the element. A browser drops a line feed right after a {@code <pre>}, {@code <listing>}
+   * or {@code <textarea>} start tag ({@code leadingLineFeed}), so when the content may start with a
+   * value, an inserted fragment or anything else but static text, one line feed is written after the
+   * start tag: the browser drops it, and keeps a value's own leading line feed and a static line feed
+   * after an empty value. Content that starts with static text is written as is, as Thymeleaf does.
+   */
+  private void emit(Emitted.Builder c, ElementPlan plan, boolean leadingLineFeed) {
     Element e = plan.element();
     List<ElementPlan.Wrapper> wrappers = plan.wrappers();
     for (ElementPlan.Wrapper w : wrappers) {
@@ -684,15 +701,24 @@ public final class TemplateGenerator implements CodegenContext {
         if (!plan.tagOmitted()) {
           startTag(c, plan);
         }
+        boolean lineFeed = leadingLineFeed && !plan.tagOmitted();
+        Emitted.Builder content = lineFeed ? builder() : c;
         for (Emitted s : plan.afterStartTagStatements()) {
-          c.add(s);
+          content.add(s);
         }
         if (plan.body() != null) {
-          c.add(plan.body());
+          content.add(plan.body());
         } else {
           for (Node n : e.children()) {
-            node(c, n, plan.scope());
+            node(content, n, plan.scope());
           }
+        }
+        if (lineFeed) {
+          Emitted written = content.build();
+          if (!startsWithStatic(written.nodes())) {
+            c.text("\n", e.pos());
+          }
+          c.add(written);
         }
         if (!plan.tagOmitted() && (e.hasEndTag() || opensSelfClosing(plan))) {
           c.text("</" + e.name() + ">", e.pos());
@@ -702,6 +728,19 @@ public final class TemplateGenerator implements CodegenContext {
     for (int i = wrappers.size() - 1; i >= 0; i--) {
       c.close(wrappers.get(i));
     }
+  }
+
+  /** Whether {@code nodes} start with non-empty static text, or write nothing. */
+  private static boolean startsWithStatic(List<Skeleton.Node> nodes) {
+    for (Skeleton.Node n : nodes) {
+      if (!(n instanceof Skeleton.Static)) {
+        return false;
+      }
+      if (!((Skeleton.Static) n).text().isEmpty()) {
+        return true;
+      }
+    }
+    return true;
   }
 
   /**
