@@ -168,6 +168,19 @@
           </compilerArgs>
         </configuration>
       </plugin>
+      <!-- Recompiles when only a template changed (#425). -->
+      <plugin>
+        <groupId>dev.tessera</groupId>
+        <artifactId>tessera-maven-plugin</artifactId>
+        <version>${project.version}</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>

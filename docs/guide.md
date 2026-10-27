@@ -135,6 +135,19 @@ keeps its version.
     </compilerArgs>
   </configuration>
 </plugin>
+
+<plugin>
+  <groupId>dev.tessera</groupId>
+  <artifactId>tessera-maven-plugin</artifactId>
+  <version>${tessera.version}</version>
+  <executions>
+    <execution>
+      <goals><goal>check</goal></goals>
+    </execution>
+  </executions>
+  <!-- only when tessera.templates is not the default:
+  <configuration><templates>${project.basedir}/src/main/webapp/templates</templates></configuration> -->
+</plugin>
 ```
 
 `tessera.templates` (required) is the absolute templates root; every `**/*.html` below it is a
@@ -175,7 +188,18 @@ Spring falls back to (the system locale unless the app sets one). Facts about th
 - The processor also runs in test compilation and regenerates the templates there. It finds
   `@TemplateFunctions` classes compiled earlier (the main classes, or an incremental compile that
   skips them) through the index it writes to `META-INF/tessera/functions/`, so no `<proc>none</proc>`
-  is needed. Maven doesn't recompile when only a template changes: use `mvn clean compile`.
+  is needed.
+- `tessera-maven-plugin` makes a template-only change recompile. Maven runs javac, and so the
+  processor, only when Java sources or the classpath change, so without it an edited template
+  keeps its old generated class and the build stays green. The processor records the templates it
+  compiled (`META-INF/tessera/templates.fingerprint` in the class output). The `check` goal runs
+  before `compile` (phase `process-sources`), and when a template was added, edited or deleted it
+  deletes the module's compile output (`target/classes`, `target/test-classes`, the generated
+  sources and the compiler plugin's incremental state), so `compile` builds the module again.
+  Its `templates` parameter is the `tessera.templates` directory, by default
+  `${project.basedir}/src/main/resources/templates`. It needs Maven 3.6.3+ and runs on Java 8+.
+  It doesn't watch message bundles: after changing only a `.properties` file, run
+  `mvn clean compile`.
 - Templates under `src/main/resources` are copied into the jar as resources, so resource
   filtering rewrites `${...}` in them unless `templates/**` is excluded.
 
@@ -2030,8 +2054,9 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **Versions.** Spring 4.3+ / Boot 1.5+ on Servlet 3.0+; anything older is untested. Upgrade to
   Spring 4.3 first, or wire the classes by hand at your own risk.
 - **Build.** Tested with Maven only. Gradle is untested and has no docs or plugin: the processor
-  needs only javac options (section 2), so it should work, but it isn't verified. Template-only
-  changes need `mvn clean compile`; there is no hot reload.
+  needs only javac options (section 2), so it should work, but it isn't verified. A template-only
+  change is recompiled only with `tessera-maven-plugin` (section 2), and a message-only change
+  needs `mvn clean compile`; there is no hot reload.
 - **Messages.** `-Atessera.messages` checks the basenames it lists, read from the file system. Keys
   that only a jar or a database-backed `MessageSource` provides fail the build; give those pages a
   `@TemplateFunction` that looks them up, and accept that they are not checked.

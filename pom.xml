@@ -20,6 +20,7 @@
     <module>tessera-spring-boot-starter-javax</module>
     <module>tessera-spring-tests</module>
     <module>tessera-migrate</module>
+    <module>tessera-maven-plugin</module>
     <module>examples/petclinic</module>
     <module>tessera-benchmarks</module>
   </modules>

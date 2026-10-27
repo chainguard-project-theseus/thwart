@@ -50,6 +50,7 @@ JDK 21+. The table names the main classes only.
 | `tessera-spring-boot-starter-javax` | same | the starter jar shaded with `jakarta.servlet` relocated to `javax.servlet` | runtime |
 | `tessera-spring-tests` | | the starter's test sources run on Boot 3.5, 2.7, 2.0 and 1.5 and on Spring MVC 5.0 and 4.3 without Boot | |
 | `tessera-migrate` | `dev.tessera.migrate` | CLI: page record/compare (`Crawler`, `PageNormalizer`, `Parity`) and the Thymeleaf → Tessera converter (`Migrator`) | attoparser, jsoup (bundled into the jar) |
+| `tessera-maven-plugin` | `dev.tessera.maven` | `CheckMojo` (`tessera:check`, phase `process-sources`): compares the templates with the fingerprint the processor wrote and deletes the module's compile output when they differ, so a template-only change recompiles (#425). Java 8, Maven 3.6.3+ | `maven-plugin-api`, `maven-plugin-annotations` (provided) |
 | `tessera-benchmarks` | | JMH, Tessera vs Thymeleaf | Thymeleaf, JMH |
 | `examples/petclinic` | `org.springframework.samples.petclinic` | spring-petclinic on Tessera | starter |
 
@@ -247,8 +248,11 @@ templates in the first round; if that has errors it retries in each later round 
 last round's errors, so getters another processor (Lombok) adds are visible whatever the order. A
 successful early compile is repeated in the last round and the build fails if the output changed
 (script JSON of a Lombok bean with Tessera listed first). With `tessera.messages` set, `#{}` keys are checked against `<base>.properties`.
-**Known limitation:** Maven's incremental compile does not see template edits; run
-`mvn clean compile` (or touch a Java file) after changing only templates.
+Maven's incremental compile does not see template edits, so after a successful compile the
+processor writes `META-INF/tessera/templates.fingerprint` (each template's path and SHA-256, sorted)
+to the class output, and `tessera-maven-plugin`'s `check` goal, before `compile`, deletes the
+module's compile output when the templates no longer match it (#425). Message bundles are not
+fingerprinted: run `mvn clean compile` after changing only those.
 
 ## Generated code
 
