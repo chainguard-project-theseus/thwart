@@ -10,6 +10,7 @@ import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.compiler.verify.engine.EngineException;
 import dev.tessera.compiler.verify.engine.Engines;
 import dev.tessera.compiler.verify.engine.Parser;
+import dev.tessera.compiler.verify.engine.ParserState;
 import dev.tessera.runtime.Fragment;
 import dev.tessera.runtime.RenderContext;
 import dev.tessera.runtime.SafeHtml;
@@ -38,9 +39,6 @@ class FlowPartialTest {
     {"dt", "<dt " + NS + " t:params=\"String a\" t:text=\"a\">x</dt>", "after <dl><dd>"},
     {"form", "<form " + NS + " t:params=\"String a\" method=\"get\" action=\"/s\"><input name=\"q\" t:value=\"a\"></form>", "<form>"},
     {"formInDiv", "<div " + NS + " t:params=\"String a\"><form method=\"get\" action=\"/s\"><input name=\"q\" t:value=\"a\"></form></div>", "<form>"},
-    {"bb", "<span " + NS + " t:params=\"String a\"><b><b t:text=\"a\">x</b></b></span>", "<b> inside another <b>"},
-    {"bbAttributes", "<span " + NS + " t:params=\"String a\"><b class=\"x\"><b class=\"x\" t:text=\"a\">x</b></b></span>", "<b> inside another <b>"},
-    {"iInEmInI", "<div " + NS + " t:params=\"String a\"><i><em><i t:text=\"a\">x</i></em></i></div>", "<i> inside another <i>"},
     {"tr", "<tr " + NS + " t:params=\"String a\"><td t:text=\"a\">x</td></tr>", "table part"},
     {"page", "<!DOCTYPE html>\n<html " + NS + " t:params=\"String a\"><head><title>t</title></head><body><p t:text=\"a\">x</p></body></html>", "page"},
     {"htmlRoot", "<html " + NS + " t:params=\"String a\"><body><p t:text=\"a\">x</p></body></html>", "page"},
@@ -63,6 +61,10 @@ class FlowPartialTest {
     {"rawText", "<div " + NS + " t:params=\"String a\"><pre t:text=\"a\">p</pre><textarea name=\"t\" t:text=\"a\">t</textarea>"
         + "<script>var a = [[${a}]];</script><style>p { color: red }</style></div>"},
     {"templateElement", "<div " + NS + " t:params=\"String a\"><template><p t:text=\"a\">x</p></template></div>"},
+    // A formatting element inside one of its own name (#448): see nestedFormattingChangesOnlyTheList.
+    {"bb", "<span " + NS + " t:params=\"String a\"><b><b t:text=\"a\">x</b></b></span>"},
+    {"bbAttributes", "<span " + NS + " t:params=\"String a\"><b class=\"x\"><b class=\"x\" t:text=\"a\">x</b></b></span>"},
+    {"iInEmInI", "<div " + NS + " t:params=\"String a\"><i><em><i t:text=\"a\">x</i></em></i></div>"},
   };
 
   /**
@@ -138,8 +140,6 @@ class FlowPartialTest {
       {"dt", "<!DOCTYPE html><dl><dd>"},
       {"form", "<!DOCTYPE html><form>"},
       {"formInDiv", "<!DOCTYPE html><form>"},
-      {"bb", "<!DOCTYPE html><b><b>"},
-      {"bbAttributes", "<!DOCTYPE html><b class=\"x\"><b class=\"x\">"},
       {"tr", "<!DOCTYPE html><table><tr><td>"},
       {"tr", "<!DOCTYPE html><template>"},
       {"page", "<!DOCTYPE html><body><div>"},
@@ -155,6 +155,65 @@ class FlowPartialTest {
       }
       assertTrue(changed, k[0] + " in " + k[1]);
     }
+  }
+
+  /**
+   * #448: a formatting element inside one of its own name is FLOW content. Inserted where more of
+   * that name are open, the Noah's Ark clause drops the oldest entry from the list of active
+   * formatting elements, so the parser state changes. But that element stays open: the stack is the
+   * same, the parse has no error, and once the page closes its own elements the state is the one
+   * it would be without the value, so nothing after it parses differently (#444).
+   */
+  @Test
+  void nestedFormattingChangesOnlyTheList() throws Exception {
+    Compilation c = compile(FLOW);
+    String[][] around = {
+      {"<b>", "</b>"},
+      {"<b><b>", "</b></b>"},
+      {"<b><b><b>", "</b></b></b>"},
+      {"<b class=\"x\"><b class=\"x\"><b class=\"x\">", "</b></b></b>"},
+      {"<i><i><i>", "</i></i></i>"},
+      {"<i><em><i><i>", "</i></i></em></i>"},
+    };
+    boolean changed = false;
+    for (String name : new String[] {"bb", "bbAttributes", "iInEmInI"}) {
+      String html = instance(c, name).renderToString(RenderContext.defaults());
+      for (String[] a : around) {
+        String where = name + " in " + a[0];
+        java.util.List<String> errors = new java.util.ArrayList<>();
+        Parser p = Engines.CURRENT.document(true);
+        p.feed("<!DOCTYPE html><body>" + a[0]);
+        ParserState before = p.state();
+        assertNull(ContentKinds.problem(ContentKinds.Kind.FLOW, before), where);
+        p.feed(html, errors(errors));
+        ParserState after = p.state();
+        assertEquals(before.stack(), after.stack(), where);
+        assertEquals(before.mode(), after.mode(), where);
+        assertEquals(before.tokenizer(), after.tokenizer(), where);
+        changed |= !after.equals(before);
+        p.feed(a[1] + "<p>z</p>", errors(errors));
+        assertEquals(java.util.List.of(), errors, where);
+        Parser without = Engines.CURRENT.document(true);
+        without.feed("<!DOCTYPE html><body>" + a[0] + a[1] + "<p>z</p>");
+        assertEquals(without.state(), p.state(), where);
+      }
+    }
+    assertTrue(changed, "the Noah's Ark clause dropped an entry somewhere");
+  }
+
+  private static Parser.Listener errors(java.util.List<String> out) {
+    return new Parser.Listener() {
+      @Override
+      public void error(String message, int offset) {
+        out.add(message);
+      }
+
+      @Override
+      public void pushed(Parser.Stack stack, int offset) {}
+
+      @Override
+      public void cdata(dev.tessera.compiler.verify.engine.OpenElement current, int offset) {}
+    };
   }
 
   @Test
