@@ -78,7 +78,7 @@ but inside `|...|` and `+` a `null` prints `null`.
 | builds a view name, fragment name, message key or link path from strings | Conditionals between literals; link `{placeholders}`; a `Fragment` argument. |
 | evaluates a string as a template (`?eval`, `#evaluate`, `__${...}__`) | Not possible. Compute the value in Java. |
 | prints a string unescaped | Stored rich text: `t:utext="html.sanitize(article.text)"` (section 4.4). Markup built in Java: a `SafeHtml`. |
-| puts expressions in `style` or `on*` | `t:style` with literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (section 4.4); otherwise `t:classappend`; `t:data-*` attributes read by a script. |
+| puts expressions in `style`, SVG `fill`/`stroke`/`mask`/... or `on*` | `t:style` (or `t:fill`, ...) with literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (section 4.4); otherwise `t:classappend`; `t:data-*` attributes read by a script. |
 | includes a file, calls a macro or tag with a body, or extends a layout | A fragment call with `Fragment` arguments (section 4.8). |
 | binds a form through form tags or macros | `t:object`, `t:field`, `t:errors`, `fields.*` (section 4.7). |
 | posts a form back to the current URL by default | Write the `action` with `@{...}`, or put the URL in the model. |
@@ -511,7 +511,7 @@ The compiler decides the context from the element and attribute name. You cannot
 | htmx request URL | `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect`, `ws-connect` (also with `data-`) | Only a link whose literal path starts with a single `/` compiles, as for a refresh: htmx swaps the response into the page as HTML, and htmx 1.x also requests other origins. Static values are copied verbatim. htmx 1.x's `hx-sse` and `hx-ws` (`connect:<url>`) take no expression at all. |
 | htmx form URL | `action` of a `<form>` inside `hx-boost`; `formaction` inside `hx-boost` or inside a `<form>` with an htmx request attribute | Same rule as an htmx request URL: htmx submits the form with AJAX and swaps the response in. `hx-boost="false"` on the form opts out. `hx-boost` itself cannot be computed. Links (`href`) are not affected. |
 | Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, records and `@TemplateView` beans, collections, String-keyed maps). Don't quote it: `var a = [[${x}]];`, not `"[[${x}]]"`: the value brings its own quotes, and an inline inside a JavaScript string (`"..."`, `'...'` or template-literal text), comment or regular expression literal is a build error (section 6): `[[...]]` goes only where a JavaScript expression goes. |
-| Style | `<style>` text and `style` attribute | In `<style>`, expressions are a build error. A `style` attribute takes only string literals, numbers and `CssValue`s, combined with `+`, `\|...\|`, `?:` and `? :`; anything else (a `String` value) is a build error. |
+| Style | `<style>` text, the `style` attribute, and the SVG attributes that take a CSS `url()`: `fill`, `stroke`, `clip-path`, `mask`, `filter`, `marker-start`, `marker-mid`, `marker-end`, `marker` and `cursor` (not `fill` on `<animate>`, `<set>`, `<animateMotion>`, `<animateTransform>` or `<animateColor>`, which is timing) | In `<style>`, expressions are a build error. A `style` attribute or one of those SVG attributes takes only string literals, numbers and `CssValue`s, combined with `+`, `\|...\|`, `?:` and `? :`; anything else (a `String` value) is a build error. Write `t:fill="${css.color(c)}"` or `t:mask="${css.url(u)}"`. |
 | Refresh | `content` of `<meta http-equiv="refresh">` | Only `'<seconds>;url=' + @{/path...}` compiles: a literal delay and a link whose literal path starts with a single `/`, so the refresh stays on the same origin. Path variables and parameters are encoded as usual, and `; , ' "`, `\` and whitespace in the URL are percent-encoded. Rendered as `<seconds>;url=<url>`. |
 | Vue/Alpine binding | `:x`, `v-bind:x`, `x-bind:x` whose target `x` is an ordinary attribute (below) | Only a value `[[...]]` accepts in a script compiles; it is written as the same JSON, then attribute-escaped. `null` is written as `null`. |
 | Event handler | `on*` attributes, and framework directives (below) | Build error; put data in `data-*` attributes and read them from a script. |
@@ -706,6 +706,12 @@ protocol-relative (`//cdn/a.png`) or `http`/`https`; `data:`, `javascript:`, eve
 control characters (newlines included) and URLs over 4096 characters give `null`. Quotes,
 backslashes, parentheses, `*`, spaces, a stray `%` and non-ASCII are percent-encoded, so the value
 cannot leave the quoted URL.
+
+The SVG attributes that take a CSS value with a `url()` follow the same rule: `fill`, `stroke`,
+`clip-path`, `mask`, `filter`, `marker-start`, `marker-mid`, `marker-end`, `marker` and `cursor` on an SVG
+element. Write `t:fill="${css.color(series.color)}"` or `t:mask="${css.url(m)}"`; `t:fill="${color}"`
+with a `String` is a build error. `fill` on `<animate>`, `<set>`, `<animateMotion>`, `<animateTransform>`
+and `<animateColor>` is timing (`freeze`), not CSS, and stays an ordinary attribute.
 
 <!-- compile: template guide/contexts.html -->
 ```html
