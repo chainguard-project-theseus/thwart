@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # The Node oracle job (#322): parse5, headless Chromium, Firefox ESR and WebKit over the oracle's
-# cases, ratcheted against known holes. Chainguard Checks runs it (.chainguard/ci/oracle-node.yaml);
+# cases, ratcheted against known holes, and each engine's tree of each render compared with the vnu
+# engine's tree (engine drift, #399). Chainguard Checks runs it (.chainguard/ci/oracle-node.yaml);
 # it is not part of `mvn verify`.
 #
 # Locally: CHROMIUM_PATH=... [FIREFOX_PATH=...] [WEBKIT_PATH=...] [ORACLE_ENGINES=parse5,chromium]
-# [ORACLE_EXPORT_VALUES=10] bash run.sh (JAVA_HOME a JDK 21+, mvn on PATH)
+# [ORACLE_EXPORT_VALUES=<n>] [ORACLE_CONCURRENCY=<pages per browser>] [ORACLE_CONCURRENCY_FIREFOX=<pages>] [ORACLE_SERIAL=1] bash run.sh
+# (JAVA_HOME a JDK 21+, mvn on PATH)
 # Without FIREFOX_PATH it downloads the pinned Firefox ESR (linux-x86_64) and checks its SHA-256.
 # Without WEBKIT_PATH it downloads Playwright's pinned WebKit build (linux-x86_64, Ubuntu 26.04) and
 # the Ubuntu 26.04 libraries it links that Wolfi doesn't ship, and checks every SHA-256.
@@ -75,6 +77,7 @@ if [[ $engines == *webkit* && -z ${WEBKIT_PATH:-} ]]; then
 fi
 
 cd "$here"
+echo "oracle-node: $(nproc 2>/dev/null || sysctl -n hw.ncpu) CPUs, ORACLE_CONCURRENCY=${ORACLE_CONCURRENCY:-4}, ORACLE_CONCURRENCY_FIREFOX=${ORACLE_CONCURRENCY_FIREFOX:-12}"
 npm ci --ignore-scripts --no-audit --no-fund
 
 # Self-check on the fixture (renders from 0dda2f1 and synthetic renders for every detector): with no
@@ -94,19 +97,37 @@ while read -r id kind engine _; do
     exit 1
   fi
 done <fixture-known-holes.txt
+# With its own list the fixture is clean: no finding beyond the listed ones, none stale. S9's trees
+# are real vnu trees (VnuTreesTest), so no engine may drift on it...
+if ! node check.mjs --engines "$engines" --known-holes fixture-known-holes.txt fixture.jsonl >/dev/null; then
+  node check.mjs --engines "$engines" --known-holes fixture-known-holes.txt fixture.jsonl | grep -E '^(FAIL|  drift)' >&2 || true
+  echo "self-check: the fixture isn't clean against fixture-known-holes.txt" >&2
+  exit 1
+fi
+# ...and a deliberately wrong normal form (whitespace-only text dropped) must be reported as drift.
+if [[ $engines == *parse5* ]]; then
+  out=$(node check.mjs --engines parse5 --mutate-normal-form --known-holes fixture-known-holes.txt fixture.jsonl) \
+    && status=0 || status=$?
+  if [[ $status -ne 1 ]] || ! grep -Eq '^FAIL new hole: 646b066c48b3 \(S9-drift-none\) ENGINE_DRIFT parse5 at ' <<<"$out"; then
+    echo "$out" >&2
+    echo "self-check: a mutated normal form was not reported as ENGINE_DRIFT (exit $status)" >&2
+    exit 1
+  fi
+fi
 echo "self-check: ok"
 
-# The real cases: ProfileOracleTest (#324) compiles the seeds and the generator's default cases and
-# exports every accepted case's benign, fingerprint and first $export_values hostile renders (the #320
-# values come first), then the job ratchets them against ../resources/oracle/known-holes.txt. The
-# value count keeps the three browsers inside the job's timeout.
-export_values=${ORACLE_EXPORT_VALUES:-10}
+# The real cases: ProfileOracleTest (#324) compiles the seeds and the generator's cases and exports
+# every accepted case's benign, fingerprint and first hostile renders (default: the #320 values and
+# the structure values, ProfileOracleTest.EXPORT_DEFAULT; ORACLE_EXPORT_VALUES overrides), each with
+# its vnu trees. The job ratchets them against ../resources/oracle/known-holes.txt, and every render
+# must carry its trees. The value count keeps the three browsers inside the job's timeout.
 cases=$work/cases.jsonl
 mkdir -p "$work"
 rm -f "$cases"
 started=$(date +%s)
+values=()
+[[ -n ${ORACLE_EXPORT_VALUES:-} ]] && values=("-Dtessera.oracle.export.values=$ORACLE_EXPORT_VALUES")
 (cd "$here/../../../.." && mvn -B -ntp -q -pl tessera-compiler -am test -Dtest=ProfileOracleTest \
-  -Dsurefire.failIfNoSpecifiedTests=false -Dtessera.oracle.export="$cases" \
-  -Dtessera.oracle.export.values="$export_values")
-echo "oracle-node: exported $(wc -l <"$cases") records ($export_values hostile values per case) in $(($(date +%s) - started)) s"
-node check.mjs --engines "$engines" "$cases"
+  -Dsurefire.failIfNoSpecifiedTests=false -Dtessera.oracle.export="$cases" "${values[@]}")
+echo "oracle-node: exported $(wc -l <"$cases") records in $(($(date +%s) - started)) s"
+node check.mjs --engines "$engines" --require-trees "$cases"

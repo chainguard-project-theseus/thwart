@@ -14,12 +14,18 @@
 // WebKit: WEBKIT_PATH (Playwright's WebKit build, its pw_run.sh), driven by playwright-core, since
 // puppeteer has no WebKit. Playwright can't remove an init script, so each case gets a fresh browser
 // context (cheap in WebKit) with the case's markers.
+//
+// Engine drift (#399): each render's DOM, in tree.mjs's normal form, must be the tree the vnu engine
+// builds with scripting on (engineDrift); otherwise ENGINE_DRIFT.
 
 import puppeteer from 'puppeteer-core';
 import { webkit } from 'playwright-core';
-import { MARKER, normalizeDom, structureDiff, eachElement, attrFindings } from './tree.mjs';
+import { MARKER, normalizeDom, structureDiff, eachElement, attrFindings, engineDrift } from './tree.mjs';
 
+// Pages per browser. Firefox over BiDi spends most of a render waiting on round trips (#399: 768 s
+// for 8,588 renders at 4 pages, against 282 s for Chromium), so it gets more pages by default.
 const CONCURRENCY = Number(process.env.ORACLE_CONCURRENCY || 4);
+const CONCURRENCY_FIREFOX = Number(process.env.ORACLE_CONCURRENCY_FIREFOX || 12);
 const TIMEOUT_MS = 15000;
 
 function launchOptions(engine) {
@@ -76,10 +82,20 @@ async function load(page, html) {
 const markersOf = (c) =>
   [...new Set((c.benign + c.hostile.map((h) => h.render).join('')).match(new RegExp(MARKER.source, 'gi')) || [])];
 
-/** Findings for one case on a page whose documents already run defineMarkers(markersOf(c)). */
-async function checkCase(page, engine, c) {
+/**
+ * Findings for one case on a page whose documents already run defineMarkers(markersOf(c)), and the
+ * number of DOMs compared with the vnu trees.
+ */
+async function checkCase(page, engine, c, options) {
   const out = [];
+  let compared = 0;
   const add = (kind, where, value) => out.push({ kind, engine, where, value });
+  const drift = (r, trees, value) => {
+    if (trees == null || r.navigated) return; // a navigated page is STRUCTURE_CHANGED already
+    compared++;
+    const d = engineDrift(r.tree, trees, true, options.mutate);
+    if (d) add('ENGINE_DRIFT', d, value);
+  };
   const findings = (r, value) => {
     if (r.navigated) add('STRUCTURE_CHANGED', `the render navigated the page to ${r.url.slice(0, 200)}`, value);
     for (const call of r.calls) {
@@ -91,45 +107,47 @@ async function checkCase(page, engine, c) {
   };
   const benign = await load(page, c.benign);
   findings(benign, '');
-  for (const { value, render } of c.hostile) {
+  drift(benign, c.benignTrees, '');
+  for (const { value, render, trees } of c.hostile) {
     const r = await load(page, render);
     const diff = structureDiff(benign.tree, r.tree);
     if (diff) add('STRUCTURE_CHANGED', diff, value);
     findings(r, value);
+    drift(r, trees, value);
   }
-  return out;
+  return { findings: out, compared };
 }
 
 /** Puppeteer (Chromium, Firefox): one page reused case after case, markers swapped per case. */
-async function puppeteerCase(page, engine, c) {
+async function puppeteerCase(page, engine, c, options) {
   const { identifier } = await page.evaluateOnNewDocument(defineMarkers, markersOf(c));
   try {
-    return await checkCase(page, engine, c);
+    return await checkCase(page, engine, c, options);
   } finally {
     await page.removeScriptToEvaluateOnNewDocument(identifier);
   }
 }
 
 /** Playwright (WebKit): a fresh context per case, since init scripts can't be removed. */
-async function playwrightCase(browser, c) {
+async function playwrightCase(browser, c, options) {
   const context = await browser.newContext();
   try {
     await context.addInitScript(defineMarkers, markersOf(c));
     const page = await context.newPage();
     page.on('dialog', (d) => d.dismiss().catch(() => {}));
-    return await checkCase(page, 'webkit', c);
+    return await checkCase(page, 'webkit', c, options);
   } finally {
     await context.close();
   }
 }
 
-async function launch(engine) {
+async function launch(engine, options) {
   if (engine === 'webkit') {
     if (!process.env.WEBKIT_PATH) throw new Error('WEBKIT_PATH is not set');
     const browser = await webkit.launch({ executablePath: process.env.WEBKIT_PATH, headless: true });
     return {
       version: browser.version(),
-      worker: async (run) => run((c) => playwrightCase(browser, c)),
+      worker: async (run) => run((c) => playwrightCase(browser, c, options)),
       close: () => browser.close(),
     };
   }
@@ -139,31 +157,39 @@ async function launch(engine) {
     worker: async (run) => {
       const page = await browser.newPage();
       page.on('dialog', (d) => d.dismiss().catch(() => {}));
-      await run((c) => puppeteerCase(page, engine, c));
+      await run((c) => puppeteerCase(page, engine, c, options));
     },
     close: () => browser.close(),
   };
 }
 
-/** Findings per case, in the order of cases. Any browser error fails the run: never guess. */
-export async function runBrowser(engine, cases) {
-  const browser = await launch(engine);
+/**
+ * {findings: findings per case, in the order of cases; compared: DOMs compared with the vnu trees}.
+ * Any browser error fails the run: never guess. options.mutate: compare a deliberately wrong normal
+ * form (tree.mjs, mutateNormalForm).
+ */
+export async function runBrowser(engine, cases, options = {}) {
+  const browser = await launch(engine, options);
   try {
     console.log(`oracle-node: ${engine} ${browser.version}`);
     const results = new Array(cases.length);
+    let compared = 0;
     let next = 0;
     const run = async (check) => {
       while (next < cases.length) {
         const i = next++;
         try {
-          results[i] = await check(cases[i]);
+          const r = await check(cases[i]);
+          results[i] = r.findings;
+          compared += r.compared;
         } catch (e) {
           throw new Error(`${engine}: case ${cases[i].id} (${cases[i].name}): ${e.message}`, { cause: e });
         }
       }
     };
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, cases.length) }, () => browser.worker(run)));
-    return results;
+    const pages = engine === 'firefox' ? CONCURRENCY_FIREFOX : CONCURRENCY;
+    await Promise.all(Array.from({ length: Math.min(pages, cases.length) }, () => browser.worker(run)));
+    return { findings: results, compared };
   } finally {
     await browser.close();
   }
