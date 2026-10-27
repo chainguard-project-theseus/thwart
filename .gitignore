@@ -1,4 +1,7 @@
 target/
+# examples/gradle (#427)
+build/
+.gradle/
 .idea/
 *.iml
 .vscode/
