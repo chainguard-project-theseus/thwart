@@ -943,8 +943,11 @@ public record Address(String street) {}
   a collection, array or map (`Set<String> roles`, `<select multiple>`), every input or option
   whose value is an element (key) matches, as with Thymeleaf's `th:field`; an enum matches by name
   or `toString()`. Every checkbox that is not `disabled` is followed by Spring's `_name` hidden
-  marker, so unchecking all boxes binds `false` or an empty collection. A static `selected` on
-  such an option is replaced, as in Thymeleaf; a `t:selected` is kept.
+  marker, so unchecking all boxes binds `false` or an empty collection, and every
+  `<select multiple>` that is not `disabled` is preceded by one
+  (`<input type="hidden" name="_roles" value="1" />`), so deselecting every option binds an empty
+  collection, as in Thymeleaf. A static `selected` on such an option is replaced, as in Thymeleaf;
+  a `t:selected` is kept.
 - Checkboxes and radios get a numbered `id`, as in Thymeleaf and Spring's JSP tags: the field
   name (without `[` and `]`) and a counter per name that starts at 1 for every render, so the
   radios of `t:field="*{roles}"` are `roles1`, `roles2`, … in page order (a boolean checkbox
@@ -2194,8 +2197,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
   parameter and property types; declare `List`/`Map`. A `Boolean` getter named `getIsX()` (Lombok
   on a `Boolean isX` field) is reachable only as `x.getIsX()`. `java.util.Date`/`Calendar` are not
   view-safe.
-- **Forms.** No map keys in paths (`map[key]`), no `_name` marker before a `<select multiple t:field>` (Thymeleaf writes
-  `<input type="hidden" name="_roles" value="1"/>`; add it by hand), no `t:field` on fields whose
+- **Forms.** No map keys in paths (`map[key]`), no `t:field` on fields whose
   type is not view-safe (`MultipartFile`: write the `name` attribute by hand), and `Field`
   fragments cannot read the value. No `#ids.seq`, `#ids.next` or `#ids.prev`.
 - **CSRF and other ways a form posts elsewhere.** The CSRF input is left out of a form whose
