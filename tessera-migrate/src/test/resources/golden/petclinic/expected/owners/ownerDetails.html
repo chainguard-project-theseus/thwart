@@ -13,7 +13,7 @@
   <table class="table table-striped" t:object="owner">
     <tr>
       <th>Name</th>
-      <td><b t:text="*{firstName + ' ' + lastName}"></b></td>
+      <td><b t:text="*{firstName} + ' ' + *{lastName}"></b></td>
     </tr>
     <tr>
       <th>Telephone</th>

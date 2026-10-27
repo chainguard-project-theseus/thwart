@@ -263,6 +263,18 @@ final class ConversionRules {
   static final String NULL_PATH_VARIABLE_MESSAGE =
       "link %1$s fails the render if a path variable is `null` (%2$s), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide section 3, step 4)";
 
+  /**
+   * Thymeleaf attributes that write an empty value for {@code null} (its non-removable attribute
+   * processors), where Tessera omits the attribute.
+   */
+  static final Set<String> EMPTY_FOR_NULL = Compat.setOf("value", "href", "src", "action", "name", "type");
+  /** {@code %1$s} is the attribute, {@code %2$s} its converted value as a code span, {@code %3$s} the HTML name. */
+  static final String NULL_ATTRIBUTE_MESSAGE =
+      "`%1$s` = %2$s: for a `null` value Thymeleaf wrote `%3$s=\"\"`, but Tessera omits the attribute; if it can be `null` and the empty attribute matters, write `x ?: ''` for a `String` or `x == null ? '' : '' + x` (guide section 4.3)";
+  /** {@code %s} is the selection as a code span. */
+  static final String COMPOUND_SELECTION_MESSAGE =
+      "%s is not converted: in Tessera `*{...}` holds one property path; write each path as its own selection, as in `*{firstName} + ' ' + *{lastName}` (guide section 4.3)";
+
   static final String PARAM_STUB_MESSAGE =
       "`%s` is declared as `Object` in the generated `t:params` stub; replace it with its view type";
   static final String FRAGMENT_PARAMS_MESSAGE =
