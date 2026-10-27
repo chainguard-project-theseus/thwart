@@ -126,8 +126,8 @@ final class ContextOracle {
   }
 
   /**
-   * The {@code values} list of an SVG {@code <animate>}/{@code <set>} (#284): safe as an
-   * attribute, and the scheme a browser would see in every {@code ;}-separated item is allowed
+   * The {@code values} list of an SVG {@code <animate>} (#284; also checked on {@code <set>},
+   * which ignores it): safe as an attribute, and the scheme a browser would see in every {@code ;}-separated item is allowed
    * (SVG applies the items in turn), unless the whole list was replaced. Unless replaced, it must
    * decode to {@code expected}.
    */
