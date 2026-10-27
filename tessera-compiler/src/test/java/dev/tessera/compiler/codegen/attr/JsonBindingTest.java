@@ -249,7 +249,7 @@ class JsonBindingTest {
         ":onclick", "v-bind:onmouseover", ":innerHTML", ":innerhtml", ":outerHTML", ":is", ":inner-h-t-m-l",
         ":protocol", "v-bind:host", ":hostname", ":pathname", ":search", ":hash", ":port", ":username", ":password", ":srcdoc", ":v-html",
         ":x-data", ":x-on:click", ":hx-get", ":hx-vals", ":hx-on:click", ":data-bind", ":ng-click", ":_",
-        ":script", ":data-script", ":xlink:href", ".title", "@click", "v-on:click", "x-on:click", "x-data",
+        ":script", ":data-script", ":xlink:href", ":srcset", "v-bind:srcset", ":imagesrcset", ":manifest", ".title", "@click", "v-on:click", "x-on:click", "x-data",
         "x-init", "v-html", "v-text", "v-model", "hx-on:click", "ng-bind", "data-bind",
       })
   void otherDirectivesStillReject(String name) {

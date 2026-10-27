@@ -402,7 +402,7 @@ public final class ContextCheck {
    */
   private static final Set<String> NOT_BIND_TARGETS =
       Set.of("action", "archive", "background", "cite", "classid", "codebase", "data", "formaction",
-          "href", "icon", "itemtype", "longdesc", "lowsrc", "manifest", "ping", "poster", "profile",
+          "href", "icon", "imagesrcset", "itemtype", "longdesc", "lowsrc", "manifest", "ping", "poster", "profile",
           "src", "srcset", "usemap", "xlink:href", "is", "innerhtml", "outerhtml", "protocol",
           "host", "hostname", "port", "pathname", "search", "hash", "username", "password");
 

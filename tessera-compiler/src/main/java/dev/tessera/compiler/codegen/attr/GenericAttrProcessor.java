@@ -25,7 +25,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
 /**
- * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. A Vue/Alpine binding with an ordinary target ({@code :prop}, SCRIPT_ATTRIBUTE) takes only a JSON-serializable value, written as JSON. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}; a {@code <base href>} (#350), an htmx request URL ({@code hx-get}, ...), the {@code action}/{@code formaction} of a form htmx submits ({@link CodegenContext#htmxSubmits}), and a {@code formaction} that may receive the CSRF token ({@link CodegenContext#mayPostCsrfToken}), only a same-origin link; there a computed {@code formmethod} is a build error.
+ * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. A Vue/Alpine binding with an ordinary target ({@code :prop}, SCRIPT_ATTRIBUTE) takes only a JSON-serializable value, written as JSON. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}; {@link #TRUSTED_URL_LISTS srcset and imagesrcset} only a {@code TrustedUrl}; a {@code <base href>} (#350), an htmx request URL ({@code hx-get}, ...), the {@code action}/{@code formaction} of a form htmx submits ({@link CodegenContext#htmxSubmits}), and a {@code formaction} that may receive the CSRF token ({@link CodegenContext#mayPostCsrfToken}), only a same-origin link; there a computed {@code formmethod} is a build error.
  */
 public final class GenericAttrProcessor implements AttributeProcessor {
 
@@ -36,6 +36,13 @@ public final class GenericAttrProcessor implements AttributeProcessor {
           "disabled", "formnovalidate", "hidden", "inert", "ismap", "itemscope", "loop", "multiple",
           "muted", "nomodule", "novalidate", "nowrap", "open", "playsinline", "pubdate", "readonly",
           "required", "reversed", "scoped", "seamless", "selected");
+
+  /**
+   * URL attributes that hold a list of URLs, which Tessera does not split and check one by one, so
+   * a computed value must be a {@code TrustedUrl}: {@code srcset} and {@code imagesrcset} are
+   * comma-separated image candidates.
+   */
+  private static final Set<String> TRUSTED_URL_LISTS = Backports.setOf("srcset", "imagesrcset");
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
@@ -153,6 +160,12 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       ctx.diagnostics()
           .error(pos, label + " on <" + element + "> loads code or a document: use a literal-path link such as"
               + " @{/js/app.js} or a TrustedUrl value, not a " + c.type());
+      return;
+    }
+    if (TRUSTED_URL_LISTS.contains(lower) && !isDeclared(c.type(), TrustedUrl.class.getName())) {
+      ctx.diagnostics()
+          .error(pos, label + " on <" + element + "> is a list of URLs that Tessera does not check one by one:"
+              + " use a TrustedUrl value or a static attribute, not a " + c.type());
       return;
     }
     plan.setAttribute(name, c.code(), pos);
