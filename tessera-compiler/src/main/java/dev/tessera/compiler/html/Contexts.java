@@ -25,6 +25,17 @@ public final class Contexts {
           "href", "src", "action", "formaction", "cite", "poster", "background", "longdesc",
           "usemap", "ping", "xlink:href");
 
+  /**
+   * SVG presentation attributes whose value is CSS that may hold a {@code url()}: a paint server
+   * ({@code fill}, {@code stroke}), a reference ({@code clip-path}, {@code mask}, {@code filter},
+   * {@code marker-*}) or a cursor image. A browser reads them as the CSS property of the same name.
+   * The {@code marker} shorthand is not a presentation attribute (SVG 2 section 6.6) but is
+   * animatable (SVG 1.1 section 11.6.3), so its animations set CSS too; as an attribute it fails closed.
+   */
+  private static final Set<String> SVG_CSS_URL_ATTRIBUTES =
+      Backports.setOf(
+          "fill", "stroke", "clip-path", "mask", "filter", "marker-start", "marker-mid", "marker-end", "marker", "cursor");
+
   /** {@code <script type>} values whose content is JavaScript or JSON. */
   private static final Set<String> SCRIPT_TYPES =
       Backports.setOf(
@@ -41,8 +52,9 @@ public final class Contexts {
    * Context for the value of attribute {@code attributeName} (without {@code t:}) on
    * {@code element}: {@link #isJsonBinding JSON bindings} ({@code :x}, {@code v-bind:x},
    * {@code x-bind:x} with an ordinary target {@code x}) are SCRIPT_ATTRIBUTE; other
-   * {@link #isFrameworkDirective framework directives} and {@code on*} are EVENT_HANDLER, {@code style} is STYLE, {@code srcdoc} and
-   * names that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*} are FORBIDDEN, resource URLs are
+   * {@link #isFrameworkDirective framework directives} and {@code on*} are EVENT_HANDLER, {@code style} and
+   * the SVG presentation attributes that take a CSS {@code url()} ({@code fill}, {@code mask}, ...)
+   * are STYLE, {@code srcdoc} and names that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*} are FORBIDDEN, resource URLs are
    * RESOURCE_URL, other URL attributes are URL, everything else ATTRIBUTE. The {@code to from by}
    * of an SVG {@code <animate>} and the {@code to} of a {@code <set>} are URL too: they can set an
    * {@code href} to {@code javascript:}. The {@code values} of an {@code <animate>} is URL_LIST: a
@@ -73,7 +85,7 @@ public final class Contexts {
     if (attr.startsWith("on")) {
       return OutputContext.EVENT_HANDLER;
     }
-    if (attr.equals("style")) {
+    if (attr.equals("style") || isSvgCssUrl(element, el, attr)) {
       return OutputContext.STYLE;
     }
     if (isHtmxRequestUrl(attr)) {
@@ -313,6 +325,22 @@ public final class Contexts {
       }
     }
     return false;
+  }
+
+  /** SVG animation elements, lower-cased, whose {@code fill} is a timing attribute. */
+  private static final Set<String> TIMED_ANIMATIONS =
+      Backports.setOf("animate", "set", "animatemotion", "animatetransform", "animatecolor");
+
+  /**
+   * Whether {@code attr} on {@code element} is an SVG presentation attribute whose CSS value may
+   * hold a {@code url()} ({@link #SVG_CSS_URL_ATTRIBUTES}): on a {@link Element#foreign foreign}
+   * element (SVG, and also MathML, which has no such attributes: failing closed there is harmless),
+   * except {@code fill} on a {@link #TIMED_ANIMATIONS timed animation element}, where it is the
+   * timing attribute ({@code freeze}, {@code remove}).
+   */
+  private static boolean isSvgCssUrl(Element element, String el, String attr) {
+    return element.foreign() && SVG_CSS_URL_ATTRIBUTES.contains(attr)
+        && !(attr.equals("fill") && TIMED_ANIMATIONS.contains(el));
   }
 
   private static boolean isAnimation(String el) {

@@ -276,6 +276,39 @@ class ContextsTest {
     assertEquals(expected, Contexts.attribute(element(element), attribute));
   }
 
+  /** SVG presentation attributes that take a CSS url() are STYLE on a foreign element only. */
+  @ParameterizedTest(name = "<{0} {1}> (foreign: {2}) -> {3}")
+  @CsvSource({
+    "rect, fill, true, STYLE",
+    "path, stroke, true, STYLE",
+    "g, clip-path, true, STYLE",
+    "g, mask, true, STYLE",
+    "g, filter, true, STYLE",
+    "path, marker-start, true, STYLE",
+    "path, marker-mid, true, STYLE",
+    "line, marker-end, true, STYLE",
+    "path, marker, true, STYLE",
+    "svg, cursor, true, STYLE",
+    "RECT, FILL, true, STYLE",
+    "rect, fill-opacity, true, ATTRIBUTE",
+    "rect, stroke-width, true, ATTRIBUTE",
+    "rect, width, true, ATTRIBUTE",
+    "animate, fill, true, ATTRIBUTE",
+    "set, fill, true, ATTRIBUTE",
+    "animateMotion, fill, true, ATTRIBUTE",
+    "animateTransform, fill, true, ATTRIBUTE",
+    "animateColor, fill, true, ATTRIBUTE",
+    "animate, stroke, true, STYLE",
+    "set, mask, true, STYLE",
+    "div, fill, false, ATTRIBUTE",
+    "div, cursor, false, ATTRIBUTE",
+    "rect, :fill, true, EVENT_HANDLER",
+  })
+  void svgCssUrlAttributes(String element, String attribute, boolean foreign, OutputContext expected) {
+    Element e = new Element(element, List.of(), List.of(), false, true, POS, foreign);
+    assertEquals(expected, Contexts.attribute(e, attribute));
+  }
+
   @Test
   void attributeOddNames() {
     assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("div"), ""));

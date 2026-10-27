@@ -285,7 +285,7 @@ escapers below ship today; [mvp-design.md](mvp-design.md) has a similar table, w
 | `RESOURCE_URL` | `script[src|href|xlink:href]`, `iframe/frame/embed[src]`, `object[data]`, `base/link[href]`, htmx request URLs | `Escapers.resourceUrl` | main; protocol-relative `/\` paths rejected for every link (#340); every `<base href>`, static or computed, must be same-origin, main (#357); a link in a same-origin slot is re-checked when rendered, so a context path or custom `Links` cannot make it protocol-relative, main (#358) | seeds `A42`, `A43`, `B1`, `B2`, `B4`; `LinkCompilerTest`, `CsrfBaseTest`, `SameOriginLinkRenderTest` | `Esc` `htmlSafe`; origin fixed by the literal; not proved |
 | `REFRESH` | `content` of `<meta http-equiv="refresh">` | `Escapers.refresh` | main | seed `B3` | `Esc` `htmlSafe` |
 | `SCRIPT_ATTRIBUTE` | Vue/Alpine JSON bindings (`:x`, `v-bind:x`, `x-bind:x`) | `Escapers.jsonAttr` | main | `JsonBindingTest` | `Esc` `htmlSafe` (attribute half) |
-| `STYLE` | `style` attribute | `Escapers.attr`, literals, numbers and `CssValue` only | main | `StyleAttributeTest` | not yet |
+| `STYLE` | `style` attribute; SVG `fill stroke clip-path mask filter marker-start marker-mid marker-end marker cursor` (not `fill` on an animation element) | `Escapers.attr`, literals, numbers and `CssValue` only | main | `StyleAttributeTest`, `ContextsTest` | not yet |
 | `EVENT_HANDLER` | `on*`, framework directives | none: build error | main | `FrameworkDirectivesTest` | n/a |
 | `FORBIDDEN` | `srcdoc`, `<script type>`, `<meta http-equiv>`, `hx-boost`, `hx-sse`, `hx-ws`, names outside `[A-Za-z_][A-Za-z0-9_.:-]*` | none: build error | main | `ContextsTest`, `HtmxBoostTest` | n/a |
 

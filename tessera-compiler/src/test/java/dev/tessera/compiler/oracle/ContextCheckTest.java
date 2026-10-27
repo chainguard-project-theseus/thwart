@@ -234,6 +234,16 @@ class ContextCheckTest {
     assertMismatch("<svg><textarea>" + rcdata(FP) + "</textarea></svg>", "textarea[svg] text");
     assertMismatch("<math><annotation-xml><title>" + rcdata(FP) + "</title></annotation-xml></math>",
         "title[math] text");
+    // An SVG presentation attribute that takes a CSS url() is CSS, like style; an animation's fill
+    // is its timing attribute, and an HTML element's fill is plain.
+    assertMismatch("<svg><rect fill=\"" + attr(FP) + "\"/></svg>", "@fill");
+    assertMismatch("<svg><g CLIP-PATH=\"" + attr(FP) + "\"/></svg>", "@clip-path");
+    assertMismatch("<svg><path marker-end=\"" + attr(FP) + "\"/></svg>", "@marker-end");
+    assertMismatch("<svg><path marker=\"" + attr(FP) + "\"/></svg>", "@marker");
+    assertClean("<svg><rect><animate fill=\"" + attr(FP) + "\"/></rect></svg>");
+    assertClean("<svg><rect><animateTransform fill=\"" + attr(FP) + "\"/><animateMotion fill=\"" + attr(FP) + "\"/></rect></svg>");
+    assertMismatch("<svg><rect><animate stroke=\"" + attr(FP) + "\"/></rect></svg>", "@stroke");
+    assertClean("<p fill=\"" + attr(FP) + "\">x</p>");
     // A query-encoded link value is still entity-escaped: wrong in an event handler.
     String query = new DefaultLinks("").build("/", new String[] {"q"}, new Object[] {FP});
     assertTrue(query.contains("%3C'"), query);
