@@ -24,9 +24,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 /**
  * With the resource chain enabled, links to static resources are versioned on normal pages and on
  * Boot's error page: the starter registers {@code ResourceUrlEncodingFilter} for REQUEST and ERROR
- * dispatches, as Boot's Thymeleaf auto-configuration does. Needs a real server: MockMvc neither
- * applies filter registrations nor makes ERROR dispatches. Both property generations are set
- * (Boot 1.5-2.3 {@code spring.resources}, 2.4+ {@code spring.web.resources}).
+ * dispatches, as Boot's Thymeleaf auto-configuration does. The error page also shows Boot's
+ * {@code Date timestamp}, which the starter passes as a {@code ZonedDateTime}. Needs a real
+ * server: MockMvc neither applies filter registrations nor makes ERROR dispatches. Both property
+ * generations are set (Boot 1.5-2.3 {@code spring.resources}, 2.4+ {@code spring.web.resources}).
  */
 @ExtendWith(SpringTestContext.class)
 @SpringBootTest(
@@ -57,6 +58,15 @@ class ResourceChainTest {
     Response page = get("/no-such-page");
     assertThat(page.status).isEqualTo(404);
     assertThat(page.body).contains("<h1>404</h1>").containsPattern(VERSIONED);
+  }
+
+  @Test
+  void errorPageRendersTimestampAsDateToStringDoes() throws IOException {
+    Response page = get("/no-such-page");
+    assertThat(page.status).isEqualTo(404);
+    assertThat(page.body)
+        .containsPattern(
+            "<p id=\"timestamp\">[A-Z][a-z]{2} [A-Z][a-z]{2} \\d{2} \\d{2}:\\d{2}:\\d{2} \\S+ \\d{4}</p>");
   }
 
   private Response get(String path) throws IOException {
