@@ -67,6 +67,8 @@ public final class ContextVerifier {
   }
 
   private final Map<Skeleton.FragmentId, Skeleton.Seq> fragments = new HashMap<>();
+  /** The parsing context each fragment is declared in ({@link Skeleton.TemplateSkeleton#fragmentContext}). */
+  private final Map<Skeleton.FragmentId, String> fragmentContexts = new HashMap<>();
   private final Map<String, Memo> memo = new HashMap<>();
   private final Map<String, InProgress> inProgress = new HashMap<>();
   private final List<Skeleton.FragmentId> callStack = new ArrayList<>();
@@ -91,7 +93,9 @@ public final class ContextVerifier {
   ContextVerifier(Map<String, Skeleton.TemplateSkeleton> templates) {
     for (Skeleton.TemplateSkeleton t : templates.values()) {
       for (Map.Entry<String, Skeleton.Seq> f : t.fragments().entrySet()) {
-        fragments.put(new Skeleton.FragmentId(t.viewName(), f.getKey()), f.getValue());
+        Skeleton.FragmentId id = new Skeleton.FragmentId(t.viewName(), f.getKey());
+        fragments.put(id, f.getValue());
+        fragmentContexts.put(id, t.fragmentContext(f.getKey()));
       }
     }
   }
@@ -99,6 +103,7 @@ public final class ContextVerifier {
   /** A fresh analysis (no memo) over the same fragments. */
   private ContextVerifier(ContextVerifier other) {
     fragments.putAll(other.fragments);
+    fragmentContexts.putAll(other.fragmentContexts);
   }
 
   /**
@@ -112,6 +117,112 @@ public final class ContextVerifier {
         diagnostics.error(f.at, VerifierMessages.message(f));
       }
     }
+    for (Skeleton.FragmentId id : uncalled(templates)) {
+      for (Finding f : v.checkUncalled(id)) {
+        diagnostics.error(f.at, VerifierMessages.message(f));
+      }
+    }
+  }
+
+  /**
+   * The fragments that no template's body reaches through fragment calls, in declaration order
+   * (#461). The verifier sees the others in the states their calls write them in; these it checks
+   * on their own ({@link #checkUncalled}). A fragment that only such a fragment calls is checked
+   * through that call.
+   */
+  static List<Skeleton.FragmentId> uncalled(Map<String, Skeleton.TemplateSkeleton> templates) {
+    Map<Skeleton.FragmentId, Skeleton.Seq> all = new LinkedHashMap<>();
+    List<Skeleton.Seq> work = new ArrayList<>();
+    for (Skeleton.TemplateSkeleton t : templates.values()) {
+      for (Map.Entry<String, Skeleton.Seq> f : t.fragments().entrySet()) {
+        all.put(new Skeleton.FragmentId(t.viewName(), f.getKey()), f.getValue());
+      }
+      work.add(t.body());
+    }
+    Set<Skeleton.FragmentId> reached = new HashSet<>();
+    List<Skeleton.FragmentId> out = new ArrayList<>();
+    for (Map.Entry<Skeleton.FragmentId, Skeleton.Seq> f : all.entrySet()) {
+      while (!work.isEmpty()) {
+        calls(work.remove(work.size() - 1), all, reached, work);
+      }
+      if (reached.add(f.getKey())) {
+        out.add(f.getKey());
+        work.add(f.getValue());
+      }
+    }
+    return out;
+  }
+
+  /** Adds the fragments {@code n} calls, and their skeletons to {@code work}, to {@code reached}. */
+  private static void calls(Skeleton.Node n, Map<Skeleton.FragmentId, Skeleton.Seq> all,
+      Set<Skeleton.FragmentId> reached, List<Skeleton.Seq> work) {
+    if (n instanceof Skeleton.Seq) {
+      for (Skeleton.Node c : ((Skeleton.Seq) n).nodes()) {
+        calls(c, all, reached, work);
+      }
+    } else if (n instanceof Skeleton.Opt) {
+      calls(((Skeleton.Opt) n).body(), all, reached, work);
+    } else if (n instanceof Skeleton.Rep) {
+      calls(((Skeleton.Rep) n).body(), all, reached, work);
+    } else if (n instanceof Skeleton.Alt) {
+      for (Skeleton.Seq b : ((Skeleton.Alt) n).branches()) {
+        calls(b, all, reached, work);
+      }
+    } else if (n instanceof Skeleton.RawInsert && ((Skeleton.RawInsert) n).content() != null) {
+      calls(((Skeleton.RawInsert) n).content(), all, reached, work);
+    } else if (n instanceof Skeleton.Call) {
+      Skeleton.Call c = (Skeleton.Call) n;
+      for (Skeleton.Seq a : c.fragmentArgs().values()) {
+        calls(a, all, reached, work);
+      }
+      if (all.containsKey(c.target()) && reached.add(c.target())) {
+        work.add(all.get(c.target()));
+      }
+    }
+  }
+
+  /** Fragment parsing contexts for fragments declared outside HTML content, by declared context. */
+  private static final Map<String, OpenElement> DECLARED_CONTEXTS = new HashMap<>();
+
+  static {
+    DECLARED_CONTEXTS.put("svg", new OpenElement(OpenElement.SVG, "svg", false));
+    DECLARED_CONTEXTS.put("math", new OpenElement(OpenElement.MATHML, "math", false));
+    DECLARED_CONTEXTS.put("annotation-xml", new OpenElement(OpenElement.MATHML, "annotation-xml", false));
+    DECLARED_CONTEXTS.put("select", new OpenElement(OpenElement.HTML, "select", false));
+  }
+
+  /**
+   * What the verifier rejects in a fragment no template calls ({@link #uncalled}, #461), checked on
+   * its own like a partial: declared in HTML content, in the fragment contexts its root elements
+   * imply (as a document only if it is a page); declared in {@code <svg>}, {@code <math>} or
+   * {@code <select>} content, in that element. Declared where no fragment fits (raw text, mixed
+   * {@code <svg>}/{@code <math>}, {@code t:remove="tag"} content), it can't be checked: {@link
+   * Problem#UNCALLED_FRAGMENT_FITS_NOWHERE}.
+   */
+  List<Finding> checkUncalled(Skeleton.FragmentId id) {
+    Skeleton.TemplateSkeleton t =
+        new Skeleton.TemplateSkeleton(id.view(), fragments.get(id), Collections.<String, Skeleton.Seq>emptyMap());
+    String declared = fragmentContexts.get(id);
+    List<OpenElement> contexts = new ArrayList<>();
+    if ("HTML".equals(declared)) {
+      List<String> entries = entries(t);
+      for (String e : entries.size() == 1 ? entries : entries.subList(1, entries.size())) {
+        contexts.add(e == null ? null : new OpenElement(OpenElement.HTML, e, false));
+      }
+    } else if (DECLARED_CONTEXTS.containsKey(declared)) {
+      contexts.add(DECLARED_CONTEXTS.get(declared));
+    } else {
+      SourcePos at = firstPos(t);
+      for (Skeleton.Node n : t.body().nodes()) {
+        if (n.pos() != null) {
+          at = n.pos();
+          break;
+        }
+      }
+      return Collections.singletonList(new Finding(Problem.UNCALLED_FRAGMENT_FITS_NOWHERE, at, null, null, null, null,
+          null, Collections.<ParserState>emptyList(), 1, id.toString(), false));
+    }
+    return check(t, contexts);
   }
 
   /**
@@ -167,7 +278,7 @@ public final class ContextVerifier {
     near = firstPos(template);
     String where = context.isEmpty() ? "in a <body>" : "after " + context;
     try {
-      Path entry = start("body", scriptingOff);
+      Path entry = start(new OpenElement(OpenElement.HTML, "body", false), scriptingOff);
       entry.feed(context, near);
       for (ParserState s : entry.states()) {
         if (ContentKinds.problem(ContentKinds.Kind.FLOW, s) != null) {
@@ -220,14 +331,22 @@ public final class ContextVerifier {
 
   /** What the verifier rejects in {@code template}, deduplicated, in order. */
   List<Finding> check(Skeleton.TemplateSkeleton template) {
+    List<OpenElement> contexts = new ArrayList<>();
+    for (String e : entries(template)) {
+      contexts.add(e == null ? null : new OpenElement(OpenElement.HTML, e, false));
+    }
+    return check(template, contexts);
+  }
+
+  /** What the verifier rejects in {@code template} parsed in each of {@code entries} (null: as a document). */
+  private List<Finding> check(Skeleton.TemplateSkeleton template, List<OpenElement> entries) {
     Map<String, Finding> out = new LinkedHashMap<>();
     SourcePos start = firstPos(template);
     // The scripting flag changes only how a <noscript> tag parses: without one, the parsers with
     // scripting off stay in the states of those with it on.
     boolean scriptingOff = mentionsNoscript(template.body(), Collections.newSetFromMap(new IdentityHashMap<Object, Boolean>()));
     parserCount = scriptingOff ? 2 : 1;
-    List<String> entries = entries(template);
-    for (String context : entries) {
+    for (OpenElement context : entries) {
       List<Finding> found = new ArrayList<>();
       sink = found;
       near = start;
@@ -990,12 +1109,13 @@ public final class ContextVerifier {
 
   /**
    * A path at the start of a template: document parsing (null {@code context}) or fragment
-   * parsing in an HTML {@code context}, with scripting on and, if {@code scriptingOff}, off.
+   * parsing in {@code context}, with scripting on and, if {@code scriptingOff}, off.
    */
-  private Path start(String context, boolean scriptingOff) throws EngineException {
+  private Path start(OpenElement context, boolean scriptingOff) throws EngineException {
     List<Parser> ps = new ArrayList<>();
     for (boolean on : scriptingOff ? new boolean[] {true, false} : new boolean[] {true}) {
-      ps.add(context == null ? Engines.CURRENT.document(on) : Engines.CURRENT.fragment(OpenElement.HTML, context, on));
+      ps.add(context == null ? Engines.CURRENT.document(on)
+          : Engines.CURRENT.fragment(context.namespace(), context.localName(), on));
     }
     return new Path(this, ps.toArray(new Parser[0]));
   }

@@ -129,6 +129,10 @@ final class VerifierMessages {
             + " standard does, but Chrome reads a comment that ends at the first '>', so the markup after it would"
             + " differ; write the text without"
             + " <![CDATA[ and ]]>, with '<' as &lt; and '>' as &gt;";
+      case UNCALLED_FRAGMENT_FITS_NOWHERE:
+        return "no template inserts fragment " + f.detail + ", and it is declared where no fragment fits (in raw text, in"
+            + " an <svg> or <math> that holds an HTML element, or under t:remove=\"tag\"), so Tessera can't check what it"
+            + " writes on its own; declare it in HTML, <svg> or <math> content, or delete it";
       default:
         throw new AssertionError(f.problem);
     }
