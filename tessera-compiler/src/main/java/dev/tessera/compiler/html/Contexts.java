@@ -409,27 +409,19 @@ public final class Contexts {
   /**
    * Context for text directly inside {@code element}: SCRIPT
    * inside {@code <script>} with no type or a JavaScript/module/JSON type, FORBIDDEN inside
-   * other script types, STYLE inside {@code <style>}, RCDATA inside {@code <title>} and
-   * {@code <textarea>} (#248), otherwise TEXT. A {@link Element#foreign foreign} {@code <title>} or
-   * {@code <textarea>} (inside {@code <svg>} or {@code <math>}) is TEXT: a browser parses its content
-   * as markup, and frameworks interpolate {@code {{ }}} in it (#277).
+   * other script types, STYLE inside {@code <style>}, otherwise TEXT. A TEXT hole is escaped for
+   * the parser state the verifier finds there: {@code rcdata} in the text of a {@code <title>} or
+   * {@code <textarea>}, {@code text} elsewhere (#378, {@code ContextVerifier}).
    *
    * <p>A {@code <script>} whose type is set by a {@code t:type} attribute is FORBIDDEN: the
    * content type must be known at build time.
-   *
-   * <p>The verifier checks the TEXT/RCDATA choice against the parser state ({@code Rules.hole}).
    */
-  // TODO(#378): choose TEXT or RCDATA from the parser state. The generated code is written before
-  // the verifier runs, so the name decides for now (every fragment has a state since #461).
   public static OutputContext text(Element element) {
     switch (element.name().toLowerCase(Locale.ROOT)) {
       case "script":
         return scriptContext(element);
       case "style":
         return OutputContext.STYLE;
-      case "title":
-      case "textarea":
-        return element.foreign() ? OutputContext.TEXT : OutputContext.RCDATA;
       default:
         return OutputContext.TEXT;
     }

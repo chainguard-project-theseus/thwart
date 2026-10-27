@@ -6,6 +6,7 @@ import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.verify.Skeleton;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -81,12 +82,46 @@ public final class Emitted {
     return of("out.write(" + literal + ");", new Skeleton.Static(String.valueOf(c), pos));
   }
 
-  /** {@code Escapers.<escaper>(out, <valueCode>);} */
+  /**
+   * {@code Escapers.<escaper>(out, <valueCode>);}. For element text ({@link Skeleton.Escaper#TEXT})
+   * the method is a marker until {@link #resolve} puts in the one the verifier names (#378).
+   */
   public static Emitted hole(
       Skeleton.Escaper escaper, String element, String attribute, SourcePos pos, String valueCode) {
-    return of(
-        ESCAPERS + escaper.method() + "(out, " + valueCode + ");",
-        new Skeleton.Hole(escaper, lower(element), attribute, pos));
+    Skeleton.Hole hole = new Skeleton.Hole(escaper, lower(element), attribute, pos);
+    String method = escaper == Skeleton.Escaper.TEXT ? MARK + hole.id() + MARK : escaper.method();
+    return of(ESCAPERS + method + "(out, " + valueCode + ");", hole);
+  }
+
+  /** Delimits a text hole's id in place of its method; never in generated code otherwise ({@link JavaStrings}). */
+  private static final String MARK = "\0";
+
+  /**
+   * {@code java} with the method of every text hole in it set to the escaper in {@code escapers},
+   * which the verifier names from the parser state there ({@code ContextVerifier#verify}).
+   *
+   * @throws IllegalStateException if {@code escapers} has no escaper for one of them
+   */
+  public static String resolve(String java, Map<Skeleton.Hole, Skeleton.Escaper> escapers) {
+    if (java.indexOf(MARK) < 0) {
+      return java;
+    }
+    Map<Integer, Skeleton.Escaper> byId = new HashMap<>();
+    for (Map.Entry<Skeleton.Hole, Skeleton.Escaper> e : escapers.entrySet()) {
+      byId.put(e.getKey().id(), e.getValue());
+    }
+    StringBuilder out = new StringBuilder(java.length());
+    int i = 0;
+    for (int start = java.indexOf(MARK); start >= 0; start = java.indexOf(MARK, i)) {
+      int end = java.indexOf(MARK, start + 1);
+      Skeleton.Escaper e = byId.get(Integer.valueOf(java.substring(start + 1, end)));
+      if (e == null) {
+        throw new IllegalStateException("the verifier reached no text hole " + java.substring(start + 1, end));
+      }
+      out.append(java, i, start).append(e.method());
+      i = end + 1;
+    }
+    return out.append(java, i, java.length()).toString();
   }
 
   /**

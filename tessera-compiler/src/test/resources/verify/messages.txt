@@ -18,7 +18,7 @@
 == TEXT_NOT_IN_TEXT: after '</' in a title
 -- t.html
 <title></[[${s}]]</title>
-=> t.html:1:69: error: a browser reads this value (escaped for <title> or <textarea>) as the name of an end tag, after a literal '</', not as text; write the literal '<' before it as &lt; [verifier:TEXT_NOT_IN_TEXT]
+=> t.html:1:69: error: a browser reads this value as the name of an end tag, after a literal '</', not as text; write the literal '<' before it as &lt; [verifier:TEXT_NOT_IN_TEXT]
 == TEXT_NOT_IN_TEXT: after <plaintext>
 -- t.html
 <plaintext>[[${s}]]
@@ -78,14 +78,14 @@
 -- h.html
 <div $NS><t:block t:fragment="h(String v)">[[${v}]]</t:block></div>
 => c.html:2:83: error: in fragment h :: h, inserted here, at h.html:1:74: a browser reads this value as text in the <head>, which ends the head there, so the rest of the head lands in the body; put it in <title>, in <meta content>, or in an element in the body [verifier:TEXT_OUTSIDE_BODY]
-== RCDATA_NOT_IN_RCDATA: a <title> fragment inserted inside <svg>
+== RCDATA_NOT_IN_RCDATA: a <title> fragment inserted in HTML content and inside <svg>
 -- t.html
-<title t:fragment="f(String v)" t:text="v">x</title><svg><t:block t:replace="~{t :: f(s)}"></t:block></svg>
-=> t.html:1:133: error: in fragment t :: f, inserted here, at t.html:1:96: this value is escaped for the text of <title> or <textarea>, but a browser reads it as text inside SVG <title>, where a {{ in it could run in Vue or AngularJS; insert the <title> or <textarea> outside <svg> and <math> [verifier:RCDATA_NOT_IN_RCDATA]
-== TEXT_IN_RCDATA: an SVG <title> fragment inserted in HTML content
+<title t:fragment="f(String v)" t:text="v">x</title><t:block t:replace="~{t :: f(s)}"></t:block><svg><t:block t:replace="~{t :: f(s)}"></t:block></svg>
+=> t.html:1:177: error: in fragment t :: f, inserted here, at t.html:1:96: this value is escaped for the text of <title> or <textarea>, but a browser reads it as text inside SVG <title>, where a {{ in it could run in Vue or AngularJS; insert the <title> or <textarea> outside <svg> and <math> [verifier:RCDATA_NOT_IN_RCDATA]
+== TEXT_IN_RCDATA: an SVG <title> fragment inserted inside <svg> and in HTML content
 -- t.html
-<svg><title t:fragment="f(String v)" t:text="v">x</title></svg><t:block t:replace="~{t :: f(s)}"></t:block>
-=> t.html:1:139: error: in fragment t :: f, inserted here, at t.html:1:101: this value is escaped as text, with comments that break {{, but a browser reads it as the text of <title>, where the comments show as text; declare the <title> or <textarea> in HTML content, not inside <svg> or <math>, or check the markup before it [verifier:TEXT_IN_RCDATA]
+<svg><title t:fragment="f(String v)" t:text="v">x</title><t:block t:replace="~{t :: f(s)}"></t:block></svg><t:block t:replace="~{t :: f(s)}"></t:block>
+=> t.html:1:183: error: in fragment t :: f, inserted here, at t.html:1:101: this value is escaped as text, with comments that break {{, but a browser reads it as the text of <title>, where the comments show as text; declare the <title> or <textarea> in HTML content, not inside <svg> or <math>, or check the markup before it [verifier:TEXT_IN_RCDATA]
 == ATTRIBUTE_NOT_IN_VALUE: <![CDATA[ outside SVG ends at the first '>', so <script> starts there
 -- t.html
 <div><![CDATA[ > <script>//]]><b t:title="s">x</b></div><script></script>

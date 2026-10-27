@@ -35,7 +35,7 @@ public final class UtextProcessor implements AttributeProcessor {
    */
   static boolean requireHtmlText(CodegenContext ctx, Attribute attr, ElementPlan plan) {
     OutputContext context = Contexts.text(plan.element());
-    if (context != OutputContext.TEXT && context != OutputContext.RCDATA) {
+    if (context != OutputContext.TEXT) {
       ctx.diagnostics()
           .error(attr.pos(), attr.name() + " is only allowed on elements whose content is HTML text, not <script> or <style>");
       return false;

@@ -23,11 +23,11 @@ import java.util.List;
 import javax.lang.model.type.TypeKind;
 
 /**
- * Text inlining: {@code [[expr]]} (escaped for the text node's context: TEXT via
- * {@code Escapers.text}, RCDATA via {@code Escapers.rcdata}, SCRIPT via {@code Escapers.json})
- * and {@code [(expr)]} (SafeHtml or a checked bundle message, TEXT and RCDATA only).
+ * Text inlining: {@code [[expr]]} (escaped for the text node's context: TEXT via {@code Escapers.text},
+ * or {@code Escapers.rcdata} where the verifier finds RCDATA (#378), SCRIPT via {@code Escapers.json})
+ * and {@code [(expr)]} (SafeHtml or a checked bundle message, TEXT only).
  * STYLE/FORBIDDEN contexts with inlined expressions are build errors, and so is an expression
- * inside a static client-side {@code {{ ... }}} interpolation in TEXT, RCDATA or SCRIPT text
+ * inside a static client-side {@code {{ ... }}} interpolation in TEXT or SCRIPT text
  * (#248), and SCRIPT text that breaks the data-prelude rule ({@link #checkDataPrelude}, #332): a
  * {@code [[expr]]} inside a string or comment (#281, #315), or code before the last value that a
  * lexer without ambiguous tokens can't read. {@link #checkMustachesClosed}
@@ -54,7 +54,7 @@ public final class TextInlining {
     // Offset in raw of the first char of literal.
     int literalStart = 0;
     boolean found = false;
-    boolean refs = text.context() == OutputContext.TEXT || text.context() == OutputContext.RCDATA;
+    boolean refs = text.context() == OutputContext.TEXT;
     // petite-vue interpolates script text too, where references are not decoded.
     boolean interpolated = refs || text.context() == OutputContext.SCRIPT;
     String parsing = ctx.template().parsingContexts().text(text);
@@ -207,7 +207,7 @@ public final class TextInlining {
         }
       } else if (n instanceof Text) {
         Text t = (Text) n;
-        if (t.context() == OutputContext.TEXT || t.context() == OutputContext.RCDATA) {
+        if (t.context() == OutputContext.TEXT) {
           open = openMustache(t, open, closes);
         }
       }
@@ -321,7 +321,7 @@ public final class TextInlining {
 
   /**
    * The ending of {@code before} (the static text right before an inlined expression) that the
-   * value would continue into markup in {@code context}, or null. In TEXT and RCDATA these are
+   * value would continue into markup in {@code context}, or null. In TEXT these are
    * {@code <}, {@code <!}, {@code <!-}, {@code <?} and {@code </} with any ASCII letters after
    * it: the tokenizer reads them as text (in TEXT, {@code <} or {@code </} and a letter would start
    * a tag), but a browser reads {@code <} and a value starting with a letter as a tag, and in RCDATA
@@ -329,7 +329,7 @@ public final class TextInlining {
    * end tag. In SCRIPT, {@link #checkDataPrelude} rejects {@code <!} before a value.
    */
   private static String markupBefore(OutputContext context, String before) {
-    if (context != OutputContext.TEXT && context != OutputContext.RCDATA) {
+    if (context != OutputContext.TEXT) {
       return null;
     }
     int lt = before.lastIndexOf('<');
@@ -494,7 +494,7 @@ public final class TextInlining {
       ctx.diagnostics().error(pos, form + " is not allowed " + where(context));
       return Emitted.EMPTY;
     }
-    if (!escaped && context != OutputContext.TEXT && context != OutputContext.RCDATA) {
+    if (!escaped && context != OutputContext.TEXT) {
       ctx.diagnostics()
           .error(pos, "[(...)] is only allowed in element text; inside <script> use [[...]], which outputs JSON");
       return Emitted.EMPTY;
@@ -541,7 +541,7 @@ public final class TextInlining {
   }
 
   /**
-   * A statement writing {@code e} escaped for {@code context} (TEXT, RCDATA or SCRIPT), or nothing
+   * A statement writing {@code e} escaped for {@code context} (TEXT or SCRIPT), or nothing
    * after reporting an error. The value must be view-safe; in SCRIPT it must also be
    * JSON-serializable ({@link ScriptJson}).
    */
