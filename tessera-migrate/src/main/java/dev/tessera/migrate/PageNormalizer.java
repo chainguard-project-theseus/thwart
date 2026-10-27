@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -35,7 +36,10 @@ import org.jsoup.nodes.TextNode;
  *       named or id'd {@code *csrf*}, {@code _csrf=} query parameters, and {@code ;jsessionid=}
  *       path parameters;
  *   <li>{@code nonce} attributes are dropped: the Tessera starter puts a fresh CSP nonce on every
- *       script and style (#335), which the old page did not have or had with another value.
+ *       script and style (#335), which the old page did not have or had with another value;
+ *   <li>in JavaScript and JSON scripts, whitespace next to {@code [ ] { } , :} outside string
+ *       literals is dropped: {@code [[...]]} writes compact JSON where the old page often had
+ *       {@code [ "a", "b" ]} (#183). Whitespace inside strings still counts.
  * </ul>
  */
 final class PageNormalizer {
@@ -55,6 +59,7 @@ final class PageNormalizer {
       Pattern.CASE_INSENSITIVE);
   private static final Pattern CSRF_PARAM = Pattern.compile("([?&]_csrf=)[^&#\"'\\s]*");
   static final String MASK = "MASKED";
+  private static final String JSON_PUNCTUATION = "[]{},:";
 
   /** A printed node and its children. */
   private static final class Line {
@@ -134,7 +139,8 @@ final class PageNormalizer {
         continue;
       }
       if (node instanceof DataNode) { // script and style content
-        text.append(((DataNode) node).getWholeData());
+        String data = ((DataNode) node).getWholeData();
+        text.append(isScript(parent) ? tightenJson(data) : data);
         continue;
       }
       if (node instanceof Element || node instanceof DocumentType) {
@@ -151,6 +157,78 @@ final class PageNormalizer {
     }
     flushText(text, out);
     return out;
+  }
+
+  /** A script element whose content is JavaScript or JSON (not, say, a {@code text/template}): the
+   * converter's and compiler's list of script types. */
+  private static boolean isScript(Node parent) {
+    if (!(parent instanceof Element) || !((Element) parent).normalName().equals("script")) {
+      return false;
+    }
+    String type = Compat.strip(parent.attr("type")).toLowerCase(Locale.ROOT);
+    return ConversionRules.SCRIPT_TYPES.contains(type);
+  }
+
+  /**
+   * Drops whitespace next to JSON punctuation ({@code [ ] { } , :}) outside string literals, so
+   * {@code [ "a", "b" ]} and {@code ["a","b"]} print the same. A string runs from a quote
+   * ({@code "}, {@code '} or a backtick) to the matching unescaped quote; a {@code "} or
+   * {@code '} string also ends at a line break, so a stray quote (an apostrophe in a comment)
+   * cannot swallow the rest of the script. Quote style is left alone.
+   */
+  static String tightenJson(String script) {
+    StringBuilder out = new StringBuilder(script.length());
+    int n = script.length();
+    int i = 0;
+    while (i < n) {
+      char c = script.charAt(i);
+      if (c == '"' || c == '\'' || c == '`') {
+        int end = stringEnd(script, i);
+        out.append(script, i, end);
+        i = end;
+      } else if (isWhitespace(c)) {
+        int j = i;
+        while (j < n && isWhitespace(script.charAt(j))) {
+          j++;
+        }
+        boolean afterPunctuation = out.length() > 0
+            && JSON_PUNCTUATION.indexOf(out.charAt(out.length() - 1)) >= 0;
+        boolean beforePunctuation = j < n && JSON_PUNCTUATION.indexOf(script.charAt(j)) >= 0;
+        if (!afterPunctuation && !beforePunctuation) {
+          out.append(script, i, j);
+        }
+        i = j;
+      } else {
+        out.append(c);
+        i++;
+      }
+    }
+    return out.toString();
+  }
+
+  /** The index just past the string literal that starts with the quote at {@code start}. */
+  private static int stringEnd(String s, int start) {
+    char quote = s.charAt(start);
+    int i = start + 1;
+    while (i < s.length()) {
+      char c = s.charAt(i);
+      if (c == '\\') {
+        i += 2;
+        continue;
+      }
+      if (c == quote) {
+        return i + 1;
+      }
+      if (quote != '`' && (c == '\n' || c == '\r')) {
+        return i;
+      }
+      i++;
+    }
+    return s.length();
+  }
+
+  private static boolean isWhitespace(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r';
   }
 
   private static String publicId(DocumentType dt) {

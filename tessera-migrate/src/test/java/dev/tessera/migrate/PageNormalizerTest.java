@@ -48,6 +48,11 @@ class PageNormalizerTest {
       jsessionid path parameter      | <a href="/owners;jsessionid=A1B2?x=1">o</a> | <a href="/owners?x=1">o</a>
       jsessionid in form action      | <form action="/f;jsessionid=A1B2"></form> | <form action="/f"></form>
       csp nonce (#335)               | <script nonce="abc">x()</script><style nonce="d">p{}</style> | <script>x()</script><style>p{}</style>
+      json array spacing (#183)      | <script>const f = [ "name", "description" ];</script> | <script>const f = ["name","description"];</script>
+      empty json array and object    | <script>var t = [ ]; var a = { };</script> | <script>var t = []; var a = {};</script>
+      pretty-printed json object     | <script>var o = {\\n  "a": 1,\\n  "b": [ 2 ]\\n};</script> | <script>var o = {"a":1,"b":[2]};</script>
+      json script type               | <script type="application/json">{ "a" : 1 }</script> | <script type="application/json">{"a":1}</script>
+      apostrophe in a comment        | <script>// don't\\nvar a = [ 1 ];</script> | <script>// don't\\nvar a = [1];</script>
       """)
   void sameAsABrowserSeesIt(String rule, String a, String b) {
     check(SAME, a.replace("\\n", "\n"), b.replace("\\n", "\n"));
@@ -73,6 +78,14 @@ class PageNormalizerTest {
       unescaped markup in text       | <p>O'Neil &lt;b&gt;</p>                  | <p>O'Neil <b></b></p>
       comment text is not kept       | <p>a<!-- b -->c</p>                      | <p>a b c</p>
       script content                 | <script>var a = 1;</script>              | <script>var a = 2;</script>
+      whitespace in a json string    | <script>var f = [ "a b" ];</script>      | <script>var f = ["ab"];</script>
+      punctuation in a json string   | <script>var f = [ "a, b: c" ];</script>  | <script>var f = ["a,b:c"];</script>
+      punctuation in a quoted string | <script>var f = 'a , b';</script>        | <script>var f = 'a,b';</script>
+      json value                     | <script>var f = [ "name" ];</script>     | <script>var f = ["names"];</script>
+      json quote style               | <script>var f = [ 'a' ];</script>        | <script>var f = ["a"];</script>
+      text next to punctuation       | <p>a, b</p>                              | <p>a,b</p>
+      style is not json              | <style>p { color: red }</style>          | <style>p{color:red}</style>
+      template script is not json    | <script type="text/template"><p>a, b</p></script> | <script type="text/template"><p>a,b</p></script>
       jsessionid is not the path     | <a href="/owners;jsessionid=A1">o</a>    | <a href="/owner">o</a>
       """)
   void differentPages(String rule, String a, String b) {
