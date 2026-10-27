@@ -57,5 +57,55 @@ class CdataHoleTest {
   @Test
   void withoutAnExpressionACdataSectionInSvgStillCompiles() {
     compile("<svg><text><![CDATA[ a < b ]]></text></svg><p>[[${x}]]</p>").assertSuccess();
+    // SVG <style> and <script> and MathML outside the text integration points aren't integration
+    // points: browsers agree on CDATA there (#441).
+    compile("<svg><style><![CDATA[ a > b { fill: red } ]]></style></svg><p>[[${x}]]</p>").assertSuccess();
+    compile("<svg><script><![CDATA[ if (a > b) f(); ]]></script></svg><p>[[${x}]]</p>").assertSuccess();
+    compile("<svg><g><![CDATA[ a < b ]]></g></svg><math><mrow><![CDATA[ a < b ]]></mrow></math><p>[[${x}]]</p>")
+        .assertSuccess();
+  }
+
+  private static final String INTEGRATION_POINT = ", an integration point: Firefox reads a CDATA section there, as the"
+      + " standard does, but Chrome reads a comment that ends at the first '>', so the markup after it would differ;"
+      + " write the text without <![CDATA[ and ]]>, with '<' as &lt; and '>' as &gt; [verifier:CDATA_IN_INTEGRATION_POINT]";
+
+  /**
+   * Exclusion (d) (#441): no CDATA section in an HTML or MathML text integration point. There the
+   * engine reads a CDATA section, but parse5 and Chromium read a comment that ends at the first
+   * {@code >}, so in their reading the {@code <script>} is live and the later hole is in it.
+   * {@code HtmlParser} rejected the SVG {@code <title>} case with a '>' only as an early error
+   * ({@code foreignTitleCdataEnd}, deleted); these are its former negative tests too.
+   */
+  @Test
+  void aCdataSectionInAnIntegrationPointIsRejected() {
+    compile("<svg><title><![CDATA[ > <script> ]]></title></svg><p>[[${x}]]</p>")
+        .assertError("t.html:2:13: error: a CDATA section in SVG <title>" + INTEGRATION_POINT);
+    compile("<svg><title><![CDATA[ > <img src=x title=\" ]]></title></svg><p>[[${x}]]</p>")
+        .assertError("t.html:2:13: error: a CDATA section in SVG <title>" + INTEGRATION_POINT);
+    compile("<svg><title><![CDATA[ > <script>[[${x}]]</script> ]]></title></svg>")
+        .assertError("t.html:2:13: error: a CDATA section in SVG <title>" + INTEGRATION_POINT);
+    compile("<svg><title><![CDATA[ ]] > <img src=x onerror=[[${x}]]> ]]></title></svg>")
+        .assertError("t.html:2:13: error: a CDATA section in SVG <title>" + INTEGRATION_POINT);
+    compile("<svg><title><![CDATA[ a ]]><![CDATA[ > <script>[[${x}]]</script> ]]></title></svg>")
+        .assertError("t.html:2:13: error: a CDATA section in SVG <title>" + INTEGRATION_POINT);
+    // Coarse: without a '>' too, and in every integration point. (Outside raw text, HtmlParser
+    // rejects a '>' in a CDATA section itself.)
+    compile("<svg><title><![CDATA[ a < b ]]> [[${x}]]</title></svg>")
+        .assertError("t.html:2:13: error: a CDATA section in SVG <title>" + INTEGRATION_POINT);
+    compile("<svg><desc><![CDATA[ a < b ]]></desc></svg>")
+        .assertError("t.html:2:12: error: a CDATA section in SVG <desc>" + INTEGRATION_POINT);
+    compile("<svg><foreignObject><![CDATA[ a < b ]]></foreignObject></svg>")
+        .assertError("t.html:2:21: error: a CDATA section in SVG <foreignObject>" + INTEGRATION_POINT);
+    compile("<math><mi><![CDATA[ a < b ]]></mi></math>")
+        .assertError("t.html:2:11: error: a CDATA section in MathML <mi>" + INTEGRATION_POINT);
+    compile("<math><annotation-xml encoding=\"text/html\"><![CDATA[ a < b ]]></annotation-xml></math>")
+        .assertError("t.html:2:44: error: a CDATA section in MathML <annotation-xml>" + INTEGRATION_POINT);
+  }
+
+  /** A MathML {@code <title>} isn't an integration point: the hole is in the CDATA section in every browser. */
+  @Test
+  void aCdataSectionInAMathTitleHidesTheHole() {
+    compile("<math><title><![CDATA[ > <script>[[${x}]]</script> ]]></title></math>")
+        .assertError("t.html:2:38: error: a browser reads this value inside a CDATA section", "[verifier:TEXT_NOT_IN_TEXT]");
   }
 }

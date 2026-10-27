@@ -381,8 +381,40 @@ class EnginesTest {
           }
           out.add(sb.toString());
         }
+
+        @Override
+        public void cdata(OpenElement current, int offset) {
+          out.add((base[0] + offset) + " cdata " + current);
+        }
       });
       base[0] += chunk.length();
+    }
+    return out;
+  }
+
+  /**
+   * The listener hears each CDATA section the parser starts, with the current node (#441): only
+   * where the current node is SVG or MathML. In HTML content {@code <![CDATA[} is a bogus comment.
+   */
+  @Test
+  void cdataSectionsAreReportedWithTheCurrentNode() throws EngineException {
+    assertEquals(List.of("svg:svg"), cdata("<svg><![CDATA[ a > b ]]></svg>"));
+    assertEquals(List.of("svg:title+hip"), cdata("<svg><title><![CDATA[ > ]]></title></svg>"));
+    assertEquals(List.of("svg:foreignObject+hip", "svg:style"),
+        cdata("<svg><foreignObject><![CDATA[x]]></foreignObject><style><![CDATA[x]]></style></svg>"));
+    assertEquals(List.of("math:mi"), cdata("<math><mi><![CDATA[x]]></mi></math>"));
+    assertEquals(List.of("math:annotation-xml+hip"),
+        cdata("<math><annotation-xml encoding=\"text/html\"><![CDATA[x]]></annotation-xml></math>"));
+    assertEquals(List.of(), cdata("<div><![CDATA[x]]></div><svg><foreignObject><p><![CDATA[x]]></p></foreignObject></svg>"));
+  }
+
+  private static List<String> cdata(String input) throws EngineException {
+    List<String> out = new ArrayList<>();
+    for (String x : events(Engines.CURRENT, true, input)) {
+      int at = x.indexOf(" cdata ");
+      if (at >= 0) {
+        out.add(x.substring(at + " cdata ".length()));
+      }
     }
     return out;
   }

@@ -230,6 +230,19 @@ final class Rules {
     return null;
   }
 
+  /**
+   * The problem with a CDATA section the parser starts while {@code current} (not HTML) is the
+   * current node, or null: exclusion (d), {@link Problem#CDATA_IN_INTEGRATION_POINT} (#441). In an
+   * HTML integration point ({@code foreignObject}, {@code desc} and {@code title} in SVG, an HTML
+   * {@code annotation-xml}) or a MathML text integration point, the engine and Firefox read a CDATA
+   * section, as the standard does, but parse5 and Chromium read a comment that ends at the
+   * first {@code >}. Coarse on purpose: any CDATA section there, whatever is in it. Elsewhere in
+   * SVG and MathML (a {@code <style>}, a {@code <script>}, a {@code <text>}) they agree.
+   */
+  static Problem cdata(OpenElement current) {
+    return foreignCharacters(current) ? null : Problem.CDATA_IN_INTEGRATION_POINT;
+  }
+
   /** The local name of HTML element {@code i} on the stack ({@code -1}: the fragment context), else null. */
   private static String htmlName(Parser.Stack s, int i) {
     if (i < 0) {
