@@ -1,6 +1,6 @@
 # tessera-migrate report
 
-Converted 8 template(s); 45 item(s) need manual attention.
+Converted 8 template(s); 49 item(s) need manual attention.
 
 ## fragments/inputField.html
 
@@ -58,6 +58,10 @@ Converted 8 template(s); 45 item(s) need manual attention.
 - `owners/ownerDetails.html:3`: `message` is declared as `Object` in the generated `t:params` stub; replace it with its view type
 - `owners/ownerDetails.html:3`: `owner` is declared as `Object` in the generated `t:params` stub; replace it with its view type
 - `owners/ownerDetails.html:5`: rewritten: added `t:remove="tag"` to the `<body>` this page passes to `fragments/layout :: layout`, which inserts it inside its own `<body>`, so only its content is passed (a second one is a parse error, which the build rejects; guide section 4.8, Layouts)
+- `owners/ownerDetails.html:24`: link `@{{id}/edit(id=owner.id)}` fails the render if a path variable is `null` (`id` = `owner.id`), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide section 3, step 4)
+- `owners/ownerDetails.html:25`: link `@{{id}/pets/new(id=owner.id)}` fails the render if a path variable is `null` (`id` = `owner.id`), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide section 3, step 4)
+- `owners/ownerDetails.html:49`: link `@{{ownerId}/pets/{petId}/edit(ownerId=owner.id,petId=pet.id)}` fails the render if a path variable is `null` (`ownerId` = `owner.id`, `petId` = `pet.id`), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide section 3, step 4)
+- `owners/ownerDetails.html:50`: link `@{{ownerId}/pets/{petId}/visits/new(ownerId=owner.id,petId=pet.id)}` fails the render if a path variable is `null` (`ownerId` = `owner.id`, `petId` = `pet.id`), where Thymeleaf wrote an empty segment (`/owners//edit`); if it can be `null`, guard the link with `t:if` (a default of `''` is no fix, since an empty value is rejected too; guide section 3, step 4)
 
 ## owners/ownersList.html
 
