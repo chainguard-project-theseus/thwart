@@ -31,7 +31,16 @@ final class Rules {
   /** MathML text integration points: their character tokens go through the insertion mode. */
   private static final Set<String> MATHML_TEXT_POINTS = Backports.setOf("mi", "mo", "mn", "ms", "mtext");
 
-  /** The problem with {@code hole} in state {@code s}, or null if it is accepted. */
+  /**
+   * The problem with {@code hole} in state {@code s}, or null if it is accepted.
+   *
+   * <p>The state names the one escaper a hole there may have (#378): data, {@code text}; RCDATA,
+   * {@code rcdata}; the script data of an HTML {@code <script>}, {@code json}; a double-quoted
+   * attribute value, an attribute escaper for that attribute (which one is policy, {@code
+   * Contexts.attribute}). In never-run raw text any escaper is inert. A hole with another escaper
+   * is rejected, so a hole whose paths reach states that name different escapers is rejected on
+   * one of them (the branch rule).
+   */
   static Problem hole(Skeleton.Hole hole, ParserState s) {
     if (s.tokenizer() == TokenizerState.RAWTEXT && neverRun(s)) {
       // No escaper writes '<', so none can end this raw text, which a browser neither renders as
@@ -40,7 +49,9 @@ final class Rules {
     }
     switch (hole.escaper()) {
       case TEXT:
-        return text(s);
+        // With the comments that break {{: they would show as text in RCDATA.
+        Problem t = text(s);
+        return t == null && s.tokenizer() == TokenizerState.RCDATA ? Problem.TEXT_IN_RCDATA : t;
       case RCDATA:
         // Without the comments that break {{ in text: inert only where the text isn't DOM text a
         // client framework reads (memo §3.1), RCDATA and never-run raw text.
