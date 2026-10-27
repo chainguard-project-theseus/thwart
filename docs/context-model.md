@@ -284,7 +284,7 @@ escapers below ship today; [mvp-design.md](mvp-design.md) has a similar table, w
 
 | Class (`OutputContext`) | Where | Escaper | Status | Checked by | Proof |
 |---|---|---|---|---|---|
-| `ATTRIBUTE` | ordinary attribute values | `Escapers.attr` | main | seeds `A38`, `A39`, `A49`; hole values `t:title`, `t:data-x`, `t:value`, `t:class` | `Esc` `htmlSafe`; Lean slice 2 |
+| `ATTRIBUTE` | other attribute values whose name is known (6.2); an unknown name is `FORBIDDEN` (#330) | `Escapers.attr` | main | seeds `A38`, `A39`, `A49`; hole values `t:title`, `t:data-x`, `t:value`, `t:class` | `Esc` `htmlSafe`; Lean slice 2 |
 | `URL` | `href src action formaction cite poster background longdesc usemap ping manifest srcset imagesrcset xlink:href`; `to from by` on SVG `animate`, `to` on SVG `set` (`set` ignores `from by`, but they are checked the same way) | `Escapers.url` | main; a computed `srcset` or `imagesrcset` (a list of URLs) only a `TrustedUrl` | seeds `A40`, `A41`, `A44`-`A46`; `AttributesEndToEndTest` (`srcset`, `manifest`) | `Esc` `htmlSafe`; scheme check not yet |
 | `URL_LIST` | `values` on SVG `animate` (also on `set`, which ignores it) | `Escapers.urlList` | main (#288) | seed `A47` | `Esc` `htmlSafe` |
 | `RESOURCE_URL` | `script[src|href|xlink:href]`, `iframe/frame/embed[src]`, `object[data]`, `base/link[href]`, htmx request URLs | `Escapers.resourceUrl` | main; protocol-relative `/\` paths rejected for every link (#340); every `<base href>`, static or computed, must be same-origin, main (#357); a link in a same-origin slot is re-checked when rendered, so a context path or custom `Links` cannot make it protocol-relative, main (#358) | seeds `A42`, `A43`, `B1`, `B2`, `B4`; `LinkCompilerTest`, `CsrfBaseTest`, `SameOriginLinkRenderTest` | `Esc` `htmlSafe`; origin fixed by the literal; not proved |
@@ -300,11 +300,11 @@ Static attributes are copied verbatim and are not affected by these rules.
 
 | Name | Target | Today on main | Status | Checked by |
 |---|---|---|---|---|
-| Standard HTML, SVG, MathML or ARIA attribute | accepted, classified as in 6.1 | accepted | main | `ContextsTest` |
+| Standard HTML, SVG, MathML or ARIA attribute | accepted, classified as in 6.1 | accepted; the names are `tessera-compiler/src/main/resources/dev/tessera/compiler/html/attributes.txt` (WHATWG HTML index and obsolete attributes, SVG 2 attribute and property indexes, MathML Core, WAI-ARIA 1.2; the file names the versions) | main | `ContextsTest`, `KnownAttributesTest` |
 | `data-*` | accepted, except names the framework table marks as code | accepted, except `data-bind`, `data-hx-on*`, `data-ng-*` and the other framework names in 6.3 | main | `FrameworkDirectivesTest` |
-| Plain name `[a-z][a-z0-9]*` on a custom element | accepted (component props) | accepted | main | `ContextsTest` |
+| Plain name `[a-z][a-z0-9]*` on a custom element | accepted (component props) | accepted on an HTML element whose name has a `-` (not SVG `font-face`) | main | `ContextsTest`, `UnknownAttributeNamesTest` |
 | Name listed in the framework table | as the table says | as the hard-coded lists in `Contexts` say | phase 4 (#333) | `FrameworkDirectivesTest` |
-| Any other name | error ("use `data-*`") | accepted as `ATTRIBUTE` | phase 2 (#330) | none yet; closes #273 (Unpoly) and #276 |
+| Any other name | error ("use `data-*`") | error with a `data-<name>` fix-it, including htmx names the table does not list (`hx-target`, `hx-swap`: use `data-hx-target`). A JSON binding's target (`:x`) is not checked yet (#333) | main (#330) | `UnknownAttributeNamesTest`, `ContextsTest`; covers #273's Unpoly half and #276's `hx-action`/`hx-method` |
 | Computed `formaction` inside a POST form | same-origin link only, or the CSRF token is withheld | same-origin `formaction` required where a button may submit the CSRF token | main (#346, #314) | seeds `A45`, `B6`; `CsrfFormactionTest` |
 | Computed `href` on `<base>` | same-origin link only, in every template (a static one must be same-origin by shape) | same-origin link required; static `href` checked like a static `action` | main (#357) | `CsrfBaseTest` |
 
