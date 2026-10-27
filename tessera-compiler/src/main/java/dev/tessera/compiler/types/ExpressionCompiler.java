@@ -310,7 +310,7 @@ public final class ExpressionCompiler {
       return error(s.pos(), "*{" + s.name() + "} can only be used inside t:object: put t:object=\"...\" on this element or an"
           + " enclosing one, or write the full path (owner." + s.name() + ")");
     }
-    return member(new CompiledExpr(sel.get().code(), sel.get().type(), s.pos()), s.name(), false, s.pos());
+    return member(new CompiledExpr(sel.get().code(), sel.get().type(), s.pos()), s.name(), false, false, s.pos());
   }
 
   private CompiledExpr property(Expr.Property p, Scope scope) {
@@ -319,7 +319,7 @@ public final class ExpressionCompiler {
       return error(p.pos(), "'" + v.name() + "." + p.name() + "' is a function: call it as " + v.name() + "." + p.name() + "(...)");
     }
     CompiledExpr target = compile(p.target(), scope);
-    return target == null ? null : member(target, p.name(), p.nullSafe(), p.pos());
+    return target == null ? null : member(target, p.name(), p.nullSafe(), false, p.pos());
   }
 
   private CompiledExpr methodCall(Expr.MethodCall m, Scope scope) {
@@ -347,11 +347,14 @@ public final class ExpressionCompiler {
           "method call '" + m.name() + "(...)' is not allowed: templates can read record components, getX()/isX()"
               + " getters and built-ins, and call @TemplateFunction functions");
     }
-    return member(target, m.name(), m.nullSafe(), m.pos());
+    return member(target, m.name(), m.nullSafe(), true, m.pos());
   }
 
-  /** {@code target.name}, {@code target.name()} or {@code target.getName()}. */
-  private CompiledExpr member(CompiledExpr target, String name, boolean nullSafe, SourcePos pos) {
+  /**
+   * {@code target.name}, {@code target.name()} or {@code target.getName()}; {@code call} is true
+   * for the method-call forms.
+   */
+  private CompiledExpr member(CompiledExpr target, String name, boolean nullSafe, boolean call, SourcePos pos) {
     TypeMirror type = normalize(target.type());
     if (type.getKind() == TypeKind.NULL) {
       return error(pos, "cannot read '" + name + "' of null: the expression is the literal null");
@@ -384,7 +387,7 @@ public final class ExpressionCompiler {
             "cannot read '" + name + "': " + describe(type) + " is not view-safe"
                 + badTypeArgument(type, " (make it a record or annotate it @TemplateView)"));
       }
-      ExecutableElement accessor = type.getKind() == TypeKind.DECLARED ? findAccessor((DeclaredType) type, name) : null;
+      ExecutableElement accessor = type.getKind() == TypeKind.DECLARED ? findAccessor((DeclaredType) type, name, call) : null;
       if (accessor == null) {
         return error(
             pos,
@@ -469,8 +472,12 @@ public final class ExpressionCompiler {
     return null;
   }
 
-  /** A record component accessor or public no-arg getter for {@code name}, or null. */
-  private ExecutableElement findAccessor(DeclaredType type, String name) {
+  /**
+   * A record component accessor or public no-arg getter for {@code name}, or null. The property
+   * {@code x.isActive} (not the call {@code x.isActive()}) also tries {@code getIsActive()}, first,
+   * as SpEL, OGNL and JavaBeans do: Lombok generates it for a {@code Boolean isActive} field (#130).
+   */
+  private ExecutableElement findAccessor(DeclaredType type, String name, boolean call) {
     TypeElement te = (TypeElement) type.asElement();
     Set<String> components = new HashSet<>();
     if (ViewSafety.isRecord(te)) {
@@ -485,6 +492,9 @@ public final class ExpressionCompiler {
       candidates.add(name);
     }
     if (isGetterName(name)) {
+      if (!call && name.startsWith("is")) {
+        candidates.add("get" + capitalize(name));
+      }
       candidates.add(name);
       String prop = decapitalize(name.substring(name.startsWith("get") ? 3 : 2));
       if (components.contains(prop)) {

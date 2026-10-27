@@ -452,7 +452,9 @@ On a view-safe type a template can read:
 
 - record components: `owner.name` calls `owner.name()`;
 - public no-argument getters: `owner.name`, `owner.name()` and `owner.getName()` all call
-  `getName()`; `isX()` for booleans (`new` is a keyword: write `pet.isNew()`);
+  `getName()`; `isX()` for booleans (`new` is a keyword: write `pet.isNew()`). As in SpEL, the
+  property `skill.isApproved` calls `getIsApproved()` (what Lombok generates for a `Boolean
+  isApproved` field) if there is one, else `isApproved()`;
 - built-ins: `size()`/`isEmpty()` on collections and maps, `length` on arrays, `length()` and
   `isEmpty()` on strings, `first`/`last` on lists;
 - index access: `list[0]`, `array[i]`, `map['key']`.
