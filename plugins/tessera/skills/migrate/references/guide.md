@@ -1216,8 +1216,7 @@ public record Espd(Criterion exclusion, List<Criterion> selection) {}
 With Spring (Boot's auto-configuration, or `TesseraConfiguration` without Boot), `return
 "owners/list";` renders `templates/owners/list.html` from the model. The name
 must match exactly, except that one leading `/` is dropped (`"/owners/list"`, which Thymeleaf and
-FreeMarker also accept); other names, including `page :: fragment`, fall through to other
-resolvers (section 7). As with Spring's `AbstractView`
+FreeMarker also accept); other names fall through to other resolvers (section 7). As with Spring's `AbstractView`
 and Thymeleaf, the handler's `@PathVariable` values are added under the model (a model attribute of
 the same name wins), so `@GetMapping("/owners/{ownerId}")` fills `t:params="Long ownerId"`; only
 declared params are read, and an undeclared path variable is never visible. A path variable holds
@@ -1230,6 +1229,30 @@ by `javac`. Without Spring, call `FunctionsTemplate.of(order).renderToString(ctx
 This is how code outside a request (a command-line tool, a mail job) renders a template that the
 old app rendered with its engine's API. `TemplateRegistry.load(classLoader)` finds templates by
 view name.
+
+**Fragment view names.** `return "owners/list :: rows";`, as for an htmx or Turbo partial
+response, renders only the fragment `rows` of `templates/owners/list.html`. Its declared parameters
+are filled from the model and the path variables exactly as a page's `t:params` are, so
+`<tr t:fragment="rows(List<OwnerView> owners)" t:each="o : owners">` reads the model attribute
+`owners` and nothing else. Spaces around `::` are optional, as in Thymeleaf (`"owners/list::rows"`),
+and one leading `/` is dropped. The part after `::` must be a fragment name. Thymeleaf's other forms
+fall through to other resolvers, because Tessera looks the name up and never parses it: arguments
+(`page :: rows(x=${x})`; put the values in the model instead), selectors (`page :: #id`,
+`page :: .class`, `page :: tr`) and `~{...}`. A name built from request input can select only a
+fragment that has an entry, as `"prefix" + input` can select only a compiled page.
+
+A fragment has an entry only if the compiler verified it as a response body, in the context its
+root element implies (a `<tr>` in a `<tbody>`, an `<li>` in a `<ul>`, an `<option>` in a
+`<select>`, anything else in a `<body>`), and only if a model can supply all of its parameters.
+Fragments without an entry fall through:
+
+- fragments with a `Fragment` or `Field` parameter (layouts and form widgets), which only a fragment
+  call can supply;
+- fragments whose root needs a context Tessera doesn't infer, such as `<head>`, `<body>`, `<tbody>`,
+  `<thead>` or `<caption>`, which the verifier checks only at the calls that insert them: serve
+  their rows (`<tr t:fragment>`) or a fragment that wraps them (`<table>`) instead.
+
+`TemplateRegistry.fragments()` lists the fragment entries. They are not in `all()`.
 
 ### 4.10 Notes for specific engines
 
@@ -2158,9 +2181,12 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **Messages.** `-Atessera.messages` checks the basenames it lists, read from the file system. Keys
   that only a jar or a database-backed `MessageSource` provides fail the build; give those pages a
   `@TemplateFunction` that looks them up, and accept that they are not checked.
-- **View resolution.** Names are matched exactly, less one leading `/`. A `page :: fragment` view
-  name (an htmx partial response) falls through to other resolvers: make the fragment its own
-  template and return its name.
+- **View resolution.** Names are matched exactly, less one leading `/` and the spaces around a
+  `::`. A `page :: fragment` view name (an htmx partial response) renders the fragment if it has an
+  entry (section 4.9). `page :: name(args)`, selectors (`page :: #id`, `page :: .class`) and
+  `~{...}` fall through to other resolvers, and so does a fragment with a `Fragment` or `Field`
+  parameter or a `<head>`, `<body>` or table-section root: put arguments in the model, and give the
+  response its own fragment or template.
 - **Mixed engines.** During a migration the old engine renders every view Tessera doesn't know
   (section 2), so an app part-way through is protected only on the ported views; finish by
   removing the engine (section 3, step 6).

@@ -471,7 +471,18 @@ public final class Compilation {
     StringOutput out = new StringOutput();
     entry.renderer().render(model, ctx, out);
     String output = out.toString();
-    assertInSkeleton(viewName, output);
+    int sep = viewName.indexOf(" :: ");
+    if (sep < 0) {
+      assertInSkeleton(viewName, output);
+    } else {
+      // A fragment entry (#131): the output is in the fragment's skeleton.
+      Skeleton.FragmentId id = new Skeleton.FragmentId(viewName.substring(0, sep), viewName.substring(sep + 4));
+      SkeletonMatcher.Result r = SkeletonMatcher.match(fragmentSkeleton(id), output, this::fragmentSkeleton);
+      if (!r.matches()) {
+        throw new AssertionError("render of " + viewName + " is not in its skeleton at offset " + r.offset()
+            + "\nexpected: " + r.expected() + "\noutput: " + output);
+      }
+    }
     return output;
   }
 

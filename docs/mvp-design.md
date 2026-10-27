@@ -288,12 +288,17 @@ the static `render`. Registered via `META-INF/services/dev.tessera.runtime.Templ
 reflection anywhere. A template without `t:params` has no static `render` (it would clash with the
 instance method): call `XTemplate.of().render(ctx, out)`. Every param gets a `$` suffix in generated
 code (`TemplateGenerator.javaName`), so names like `java`, `class` or `ctx` cannot clash.
+The registry also has `fragments()` (#131): an entry named `page :: name` per fragment that
+`ContextVerifier.servableFragments` accepts as a response body and that has no `Fragment` or
+`Field` param, adapting the model to the fragment's declared params the same way and calling
+`fragment_<name>`. `find` finds both kinds; `all()` lists only templates.
 
 ## Spring integration
 
 - `TesseraAutoConfiguration`: merged `TemplateRegistry.load(classLoader)`, a `TesseraViewResolver`
   ordered before Thymeleaf's that returns `null` for unknown names (fall-through; never parses a
-  name), and a return-value handler so controllers can `return OwnerDetailsTemplate.of(owner)`.
+  name: it drops one leading `/` and makes the spaces around a `::` single, then does one exact
+  lookup), and a return-value handler so controllers can `return OwnerDetailsTemplate.of(owner)`.
   `redirect:`/`forward:` prefixes are left to Spring. While another engine is configured it
   renders every unknown name; the guarantees cover Tessera-rendered views, and a startup warning
   (log only, matched on the class names of the other engines' view resolvers) says so.

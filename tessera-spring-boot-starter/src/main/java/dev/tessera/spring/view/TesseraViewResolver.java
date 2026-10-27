@@ -10,12 +10,15 @@ import org.springframework.web.servlet.View;
 import org.springframework.web.servlet.ViewResolver;
 
 /**
- * Resolves a view name by exact lookup in the build-time {@link TemplateRegistry}. The name is
- * never parsed, concatenated or normalized, except that one leading {@code /} is dropped: Thymeleaf
+ * Resolves a view name by one exact lookup in the build-time {@link TemplateRegistry}. The name is
+ * never parsed, evaluated or normalized, except that one leading {@code /} is dropped (Thymeleaf
  * and FreeMarker put their prefix in front of the name, so {@code "/auth/register"} finds the same
- * file as {@code "auth/register"}. Anything else that is not exactly a compiled template's name
- * (including {@code redirect:} and {@code forward:} names, which no template file can be called,
- * and {@code page :: fragment} names, #131) yields {@code null} so the next resolver runs. Construction logs how many compiled
+ * file as {@code "auth/register"}) and that the spaces around a {@code ::} are made single
+ * ({@link #lookupName}), so {@code "owners/list::rows"} finds the fragment entry {@code
+ * owners/list :: rows} (#131). Anything else that is not exactly a compiled template's or
+ * fragment entry's name (including {@code redirect:} and {@code forward:} names, which no template
+ * file can be called, and fragment selectors such as {@code page :: #id} or {@code page ::
+ * rows(x)}) yields {@code null} so the next resolver runs. Construction logs how many compiled
  * templates the registry holds, and warns when there are none, since then every view silently
  * falls through.
  */
@@ -56,8 +59,26 @@ public final class TesseraViewResolver implements ViewResolver, Ordered {
     if (viewName == null) {
       return null;
     }
-    String name = viewName.startsWith("/") ? viewName.substring(1) : viewName;
-    return registry.find(name).map(e -> TesseraView.of(e, contexts)).orElse(null);
+    return registry.find(lookupName(viewName)).map(e -> TesseraView.of(e, contexts)).orElse(null);
+  }
+
+  /**
+   * The registry name {@code viewName} is looked up by: {@code viewName} less one leading {@code /}.
+   * A name with {@code ::} (#131) is cut at the first one into two literal halves, each trimmed as
+   * Thymeleaf trims them ({@link String#trim}), the page half less one leading {@code /}, and joined
+   * as {@code page :: fragment}, the name of a fragment entry. Nothing is evaluated: a selector,
+   * arguments or a second {@code ::} stay in the name, which then matches nothing.
+   */
+  static String lookupName(String viewName) {
+    int sep = viewName.indexOf("::");
+    if (sep < 0) {
+      return dropSlash(viewName);
+    }
+    return dropSlash(viewName.substring(0, sep).trim()) + " :: " + viewName.substring(sep + 2).trim();
+  }
+
+  private static String dropSlash(String name) {
+    return name.startsWith("/") ? name.substring(1) : name;
   }
 
   @Override

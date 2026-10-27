@@ -58,6 +58,17 @@ public class SmokeController {
     return "smoke/owner";
   }
 
+  /**
+   * An htmx partial response (#131): the fragment {@code row} of {@code smoke/rows}, filled from
+   * the path variable and the model by its own declared params. {@code secret} is not one of them.
+   */
+  @GetMapping("/owners/{ownerId}/row")
+  public String ownerRow(@PathVariable("ownerId") Long ownerId, Model model) {
+    model.addAttribute("name", "Ann");
+    model.addAttribute("secret", "s3cret");
+    return "smoke/rows :: row";
+  }
+
   @GetMapping("/typed")
   public PageTemplate typed() {
     return PageTemplate.of(new Signup("Grace"));
