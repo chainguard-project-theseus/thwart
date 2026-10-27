@@ -61,7 +61,7 @@ Each principle removes a class of bugs. The full rules are in [AGENTS.md](AGENTS
 
 ## Requirements
 
-- **Your application:** builds with JDK 8+ javac and Maven, and runs on Java 8+. The runtime, the
+- **Your application:** builds with JDK 8+ javac and Maven or Gradle, and runs on Java 8+. The runtime, the
   Spring starters and the annotation processor are Java 8 class files, and the generated code
   compiles at release 8. CI compiles applications with JDK 8 javac (`Jdk8ProcessorTest`) and JDK
   21 javac (everything else); newer JDKs are expected to work but are not run in CI.
@@ -124,6 +124,11 @@ Add the starter for your servlet API (use exactly one) and run the annotation pr
   </executions>
 </plugin>
 ```
+
+With Gradle there is no plugin either: put `tessera-compiler` on the `annotationProcessor`
+configuration, pass the same `-A` options through `options.compilerArgs`, and declare the
+templates directory as an input of `compileJava` so a template-only edit recompiles. See
+[examples/gradle](examples/gradle/build.gradle) (built in CI) and section 2 of the guide.
 
 With Spring Boot, auto-configuration registers the view resolver. It runs before Thymeleaf's and
 falls through for names it doesn't know, so both engines can run side by side during a migration.
