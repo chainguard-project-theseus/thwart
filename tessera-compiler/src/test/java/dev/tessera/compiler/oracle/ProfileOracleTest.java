@@ -3,6 +3,7 @@ package dev.tessera.compiler.oracle;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import dev.tessera.compiler.oracle.gen.Deciding;
 import dev.tessera.compiler.oracle.gen.GeneratedCase;
 import dev.tessera.compiler.oracle.gen.Generator;
 import dev.tessera.compiler.oracle.gen.Shape;
@@ -65,7 +66,7 @@ import org.junit.jupiter.api.Test;
  * <ol>
  *   <li><b>Skeleton fidelity.</b> Every render is in the language of the case's skeleton (#366's
  *       {@link SkeletonMatcher}): the verifier checked what the generated class writes.
- *   <li><b>The inertness lemma.</b> At each hole of each render path, in both engines, scripting on
+ *   <li><b>The inertness lemma.</b> At each hole of each render path, in the engine, scripting on
  *       and off, document and {@code <body>} fragment parsing, the parser state is the same after
  *       the hole's escaper wrote any of the {@linkplain #LEMMA_VALUES lemma values} as before it
  *       ({@link #lemmaKey}). This is the prototype's stand-in check, run at the states the real
@@ -87,9 +88,10 @@ import org.junit.jupiter.api.Test;
  * seed-expectations.txt} says the verifier or the profile rejects must be rejected.
  *
  * <p>Writes {@code target/oracle/report.txt}. With {@code -Dtessera.oracle.export=<file>} it also
- * writes the JSONL the Node job (#322) reads ({@link ExportRecord}); {@code
- * -Dtessera.oracle.export.values=<n>} keeps the first {@code n} hostile values per case there (the
- * #320 values come first), to fit the browsers' time budget. {@code -Dtessera.oracle.gen.max} and
+ * writes the JSONL the Node job (#322) reads ({@link ExportRecord}, with each render's vnu trees
+ * for the engine-drift check, #399); {@code -Dtessera.oracle.export.values=<n>} keeps the first
+ * {@code n} hostile values per case there (default {@link #EXPORT_DEFAULT}: the #320 values, then
+ * the {@link #STRUCTURE_VALUES}), to fit the browsers' time budget. {@code -Dtessera.oracle.gen.max} and
  * {@code -Dtessera.oracle.explore} work as in {@link Generator}; with either set, lines for cases
  * that didn't run are not reported stale.
  */
@@ -122,14 +124,21 @@ class ProfileOracleTest {
     INERT
   }
 
-  /** The kinds a known-holes line may name: families C, D and E. */
+  /**
+   * The kinds a known-holes line may name: families C, D and E, and the Node job's {@link
+   * Finding.Kind#ENGINE_DRIFT} (#399; for a Node engine only, see {@link #holes}).
+   */
   static final Set<Finding.Kind> LISTABLE =
       Collections.unmodifiableSet(EnumSet.of(
           Finding.Kind.JS_NOT_LITERAL, Finding.Kind.JS_UNPARSABLE, Finding.Kind.CSTI,
-          Finding.Kind.CROSS_ORIGIN_RESOURCE, Finding.Kind.JS_URL, Finding.Kind.LIVE_SCRIPT));
+          Finding.Kind.CROSS_ORIGIN_RESOURCE, Finding.Kind.JS_URL, Finding.Kind.LIVE_SCRIPT,
+          Finding.Kind.ENGINE_DRIFT));
 
   /** The engines this gate runs; a known-holes line for another engine is the Node job's. */
   static final Set<String> ENGINES = Set.of(SpecParsers.VNU_26, ScriptInvariant.ENGINE, "*");
+
+  /** The Node job's engines (#322), the only ones an {@code ENGINE_DRIFT} line may name. */
+  static final Set<String> NODE_ENGINES = Set.of("parse5", "chromium", "firefox", "webkit");
 
   /** The #320 values (security-model.md §4), {@code PWN} standing for the slot's marker. */
   static final List<String> SEED_VALUES =
@@ -137,10 +146,28 @@ class ProfileOracleTest {
           "\\evil.example", "/evil.example", "//evil.example", "img src=x onerror=PWN()");
 
   /**
-   * The hostile values: the #320 values, then {@link HostileStrings#VECTORS} with {@code alert(1)}
-   * written {@code PWN()}. {@code PWN} becomes each String slot's marker.
+   * Values the tree builder reads (#399): {@code input type=hidden} stays in a table where any other
+   * input is foster-parented; {@code annotation-xml encoding=text/html} or {@code
+   * application/xhtml+xml} makes it an HTML integration point; {@code font} with {@code
+   * color}/{@code face}/{@code size} breaks out of foreign content (the attribute's presence decides,
+   * these are ordinary values for it). Then two that break out with {@code </}: the #320 values
+   * have none, so without these only the fingerprint brought {@code </} to the browsers.
+   */
+  static final List<String> STRUCTURE_VALUES =
+      List.of("hidden", "text/html", "application/xhtml+xml", "red", "Arial", "7",
+          "</td></tr></table><img src=x onerror=PWN()>",
+          "</textarea></title></style></noscript></script></svg></math><script>PWN()</script>");
+
+  /**
+   * The hostile values: the #320 values, the {@link #STRUCTURE_VALUES}, then {@link
+   * HostileStrings#VECTORS} with {@code alert(1)} written {@code PWN()}. {@code PWN} becomes each
+   * String slot's marker. The export takes the first {@code tessera.oracle.export.values}, so the
+   * Node job gets the first two groups ({@link #EXPORT_DEFAULT}).
    */
   static final List<String> HOSTILE;
+
+  /** How many hostile values the Node job's export takes by default: the #320 and structure values. */
+  static final int EXPORT_DEFAULT = SEED_VALUES.size() + STRUCTURE_VALUES.size();
 
   /** The prototype's stand-ins ({@code Validator.STANDINS}, research memo §3). */
   static final List<String> STANDINS =
@@ -151,6 +178,7 @@ class ProfileOracleTest {
 
   static {
     Set<String> hostile = new LinkedHashSet<>(SEED_VALUES);
+    hostile.addAll(STRUCTURE_VALUES);
     for (String v : HostileStrings.VECTORS) {
       hostile.add(v.replace("alert(1)", "PWN()"));
     }
@@ -215,7 +243,10 @@ class ProfileOracleTest {
     return out;
   }
 
-  /** The seeds, then the generator's cases (default enumeration, or explore mode), each id once. */
+  /**
+   * The seeds, then the generator's cases (default enumeration, the {@link Deciding} positions, or
+   * explore mode), each id once.
+   */
   static List<GateCase> cases() {
     Map<String, String> expect = seedExpectations();
     Map<String, GateCase> out = new LinkedHashMap<>();
@@ -226,6 +257,7 @@ class ProfileOracleTest {
       seedTemplates.add(s.template());
     }
     List<GeneratedCase> generated = new ArrayList<>(Generator.defaultCases());
+    generated.addAll(Deciding.cases());
     generated.addAll(Generator.exploreFromSystemProperties(seedTemplates));
     for (GeneratedCase g : generated) {
       out.putIfAbsent(g.oracleCase().id(), new GateCase(g.oracleCase(), g.params(), null));
@@ -519,6 +551,8 @@ class ProfileOracleTest {
     return switch (f.kind()) {
       case JS_NOT_LITERAL, JS_UNPARSABLE -> Family.C;
       case CSTI -> Family.D;
+      // Never reported here: the Node job compares the vnu trees with parse5 and the browsers.
+      case ENGINE_DRIFT -> Family.AB;
       case JS_URL, CROSS_ORIGIN_RESOURCE -> Family.E;
       // Family C only inside the data of an HTML script that holds a slot in the benign tree too;
       // anywhere else the value made or reached a script through markup.
@@ -601,10 +635,15 @@ class ProfileOracleTest {
       if (line.isEmpty() || line.startsWith("#")) {
         continue;
       }
-      String kind = line.split("\\s+")[1];
+      String[] f = line.split("\\s+");
+      String kind = f[1];
       if (!LISTABLE.contains(Finding.Kind.valueOf(kind))) {
         throw new IllegalArgumentException(file + ":" + (i + 1) + ": " + kind + " is a family A/B kind: the verifier"
             + " (#367) must reject the template, so it can't be a known hole; only " + LISTABLE + " may be listed");
+      }
+      if (kind.equals(Finding.Kind.ENGINE_DRIFT.name()) && !NODE_ENGINES.contains(f[2])) {
+        throw new IllegalArgumentException(file + ":" + (i + 1) + ": an ENGINE_DRIFT line names the engine that"
+            + " drifts from vnu, one of " + new TreeSet<>(NODE_ENGINES) + ", not " + f[2]);
       }
     }
     return holes;
@@ -651,11 +690,25 @@ class ProfileOracleTest {
 
     /** Lines for this gate's engines that matched nothing, for cases in {@code ran} (all if null). */
     List<String> stale(Set<String> ran) {
+      return stale(ran, null);
+    }
+
+    /**
+     * {@link #stale(Set)}, and {@code ENGINE_DRIFT} lines (the Node job's) whose case isn't in
+     * {@code accepted} (unless null): once the verifier rejects the case (the fix for the drift,
+     * #398), nothing is exported to drift, so the line must go in the same change, not after the
+     * next Node run.
+     */
+    List<String> stale(Set<String> ran, Set<String> accepted) {
       List<String> failures = new ArrayList<>();
       for (KnownHoles.Entry e : holes.entries()) {
-        if (!used.contains(e) && ENGINES.contains(e.engine()) && (ran == null || ran.contains(e.caseId()))) {
+        boolean inRun = ran == null || ran.contains(e.caseId());
+        if (!used.contains(e) && ENGINES.contains(e.engine()) && inRun) {
           failures.add("known hole " + e.caseId() + " " + e.kind() + " " + e.engine() + " #" + e.issue()
               + " no longer occurs (fixed, rejected, or the case is gone): delete its line from " + file);
+        } else if (e.kind() == Finding.Kind.ENGINE_DRIFT && inRun && accepted != null && !accepted.contains(e.caseId())) {
+          failures.add("known hole " + e.caseId() + " ENGINE_DRIFT " + e.engine() + " #" + e.issue()
+              + ": the case is rejected now (or gone), so no engine can drift on it: delete its line from " + file);
         }
       }
       return failures;
@@ -813,7 +866,7 @@ class ProfileOracleTest {
     Ratchet ratchet = new Ratchet(holes(holesFile, resource(KnownHoles.RESOURCE)), holesFile);
     LemmaMemo memo = new LemmaMemo();
     String exportFile = System.getProperty(EXPORT);
-    int exportValues = exportFile == null ? -1 : Integer.getInteger(EXPORT_VALUES, HOSTILE.size());
+    int exportValues = exportFile == null ? -1 : Integer.getInteger(EXPORT_VALUES, EXPORT_DEFAULT);
 
     List<Compiled> accepted = compiled.stream().filter(Compiled::accepted).toList();
     CaseResult[] results = new CaseResult[accepted.size()];
@@ -889,7 +942,11 @@ class ProfileOracleTest {
     for (Compiled c : compiled) {
       ran.add(c.gateCase().oracleCase().id());
     }
-    List<String> stale = ratchet.stale(partialRun ? ran : null);
+    Set<String> acceptedIds = new HashSet<>();
+    for (Compiled c : accepted) {
+      acceptedIds.add(c.gateCase().oracleCase().id());
+    }
+    List<String> stale = ratchet.stale(partialRun ? ran : null, acceptedIds);
     if (!stale.isEmpty()) {
       failures.put("known-holes.txt", stale);
     }
@@ -989,6 +1046,15 @@ class ProfileOracleTest {
     r.add("oracle gate (#324): " + cases.size() + " cases (" + seeds + " seeds, " + (cases.size() - seeds) + " generated)");
     r.add("  REJECTED " + (profile + verifier) + ": profile " + profile + ", verifier " + verifier);
     r.add("  accepted " + accepted + ": CLEAN " + clean + ", FINDINGS " + (accepted - clean));
+    Set<String> deciding = new HashSet<>();
+    for (GeneratedCase g : Deciding.cases()) {
+      deciding.add(g.oracleCase().id());
+    }
+    List<Compiled> dc = compiled.stream().filter(c -> deciding.contains(c.gateCase().oracleCase().id())).toList();
+    r.add("  of them the verifier-deciding positions (Deciding, #399): " + dc.size() + " cases, accepted "
+        + dc.stream().filter(Compiled::accepted).count() + ", rejected by the verifier "
+        + dc.stream().filter(c -> !c.accepted() && c.layer() == Layer.VERIFIER).count() + ", by the profile "
+        + dc.stream().filter(c -> !c.accepted() && c.layer() == Layer.PROFILE).count());
     r.add("  renders " + renders + " (" + refused + " refused by an escaper), every one in its skeleton unless listed below");
     r.add("  lemma: " + lemmaPaths + " render paths, " + memo.verdicts.size() + " distinct (state, escaper) pairs, "
         + memo.feeds.get() + " escaped values fed, " + LEMMA_VALUES.size() + " values x " + LEMMA_PARSERS.size() + " parsers");

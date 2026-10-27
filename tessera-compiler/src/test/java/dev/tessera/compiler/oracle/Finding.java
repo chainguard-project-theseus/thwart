@@ -37,7 +37,13 @@ public record Finding(Kind kind, String engine, String where, String value) {
     /** The escaper the compiler chose doesn't match where the parser put the value (#323). */
     CONTEXT_MISMATCH,
     /** A marker inside {@code {{ ... }}} in text a client framework would interpolate (#318). */
-    CSTI
+    CSTI,
+    /**
+     * A Node engine (parse5, a browser) builds a tree for an accepted render that the vnu engine
+     * doesn't build (#399): the verifier's proof is about a document this engine doesn't parse.
+     * Only the Node job reports it; a known-holes line for it names that engine and an issue.
+     */
+    ENGINE_DRIFT
   }
 
   public Finding {
