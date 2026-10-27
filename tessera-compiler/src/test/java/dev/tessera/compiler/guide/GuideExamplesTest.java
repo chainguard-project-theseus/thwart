@@ -186,6 +186,6 @@ class GuideExamplesTest {
     assertTrue(form.contains("<option value=\"PRO\" selected=\"selected\">PRO</option>"), form);
     assertTrue(form.contains("value=\"a@example.com\""), form);
     assertTrue(form.contains("checked=\"checked\""), form);
-    assertTrue(form.contains(">Main St</textarea>"), form);
+    assertTrue(form.contains(">\nMain St</textarea>"), form);
   }
 }

@@ -85,7 +85,7 @@ class FormsTest {
   void textareaBody() {
     Compilation c = compile("<textarea t:field=\"*{bio}\">placeholder</textarea>");
     assertEquals(
-        "<form><textarea id=\"bio\" name=\"bio\">a &lt;b&gt;bio&lt;/b&gt;</textarea></form>",
+        "<form><textarea id=\"bio\" name=\"bio\">\na &lt;b&gt;bio&lt;/b&gt;</textarea></form>",
         render(c, owner(c, "Ann", null), new TestForms()));
   }
 

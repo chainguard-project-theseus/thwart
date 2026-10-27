@@ -85,7 +85,7 @@ class BrowserRawTextTest {
   @Test
   void selfClosingElementsTesseraWritesWithAnEndTagStillBuild() {
     assertEquals(
-        "<div>\n<textarea>&lt;/noscript&gt;&lt;/iframe&gt;&lt;/xmp&gt;&lt;/textarea&gt;&lt;script&gt;alert(1)"
+        "<div>\n<textarea>\n&lt;/noscript&gt;&lt;/iframe&gt;&lt;/xmp&gt;&lt;/textarea&gt;&lt;script&gt;alert(1)"
             + "&lt;/script&gt;</textarea><title>x</title>\n</div>",
         render("<textarea t:text=\"s\"/><title t:text=\"'x'\"/>"));
     assertEquals("<div>\n<svg><title></title></svg>\n</div>", render("<svg><title></title></svg>"));
