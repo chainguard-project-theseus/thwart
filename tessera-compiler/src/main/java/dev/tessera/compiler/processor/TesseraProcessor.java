@@ -73,6 +73,8 @@ public final class TesseraProcessor extends AbstractProcessor {
   private Map<String, Skeleton.TemplateSkeleton> skeletons = Collections.emptyMap();
   /** The view names of the templates the verifier proved FLOW partials (#396). */
   private Set<String> flowPartials = Collections.emptySet();
+  /** #131: the fragments the verifier checked as response bodies, as {@code page :: fragment}. */
+  private Set<String> servableFragments = Collections.emptySet();
   /** The templates the last {@link #compile} read (#425). */
   private List<TemplateSource> sources = Collections.emptyList();
   private final Set<String> functionClassNames = new LinkedHashSet<>();
@@ -128,8 +130,10 @@ public final class TesseraProcessor extends AbstractProcessor {
       if (!diagnostics.hasErrors()) {
         // #396: which templates SafeHtml.of and Fragment.of accept, marked in their classes.
         flowPartials = ContextVerifier.flowPartials(result.skeletons());
+        // #131: which fragments get a "page :: fragment" registry entry.
+        servableFragments = ContextVerifier.servableFragments(result.skeletons());
       }
-      List<GeneratedFile> files = new ArrayList<>(result.files(flowPartials));
+      List<GeneratedFile> files = new ArrayList<>(result.files(flowPartials, servableFragments));
       files.addAll(functionIndex(functionClasses));
       for (Diagnostic d : diagnostics.all()) {
         messager.printMessage(kind(d.severity()), d.toString());
@@ -193,7 +197,7 @@ public final class TesseraProcessor extends AbstractProcessor {
     try {
       List<TypeElement> functionClasses = functionClasses();
       // The same marks: if the skeletons changed, so did the classes.
-      again = new ArrayList<>(compile(new Diagnostics(), functionClasses).files(flowPartials));
+      again = new ArrayList<>(compile(new Diagnostics(), functionClasses).files(flowPartials, servableFragments));
       again.addAll(functionIndex(functionClasses));
     } catch (IOException | RuntimeException e) {
       return; // the build already has its output; this is only a check

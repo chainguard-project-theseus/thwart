@@ -40,6 +40,70 @@ class TesseraViewResolverTest {
   @ParameterizedTest
   @ValueSource(
       strings = {
+        "owners/details :: row",
+        "owners/details::row",
+        "owners/details   ::  row",
+        "owners/details\t::\nrow",
+        " owners/details :: row ",
+        "/owners/details :: row",
+        " /owners/details::row"
+      })
+  void fragmentNamesResolve(String name) {
+    // Thymeleaf's "page :: fragment" view names (#131): whitespace around "::" as it trims it.
+    assertThat(TesseraViewResolver.lookupName(name)).isEqualTo("owners/details :: row");
+    assertThat(resolver.resolveViewName(name, Locale.ROOT)).isInstanceOf(TesseraView.class);
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        // Thymeleaf fragment syntax Tessera doesn't support (#131): it is never parsed.
+        "owners/details :: row(x=1)",
+        "owners/details :: row()",
+        "owners/details :: row (x)",
+        "owners/details :: #row",
+        "owners/details :: .row",
+        "owners/details :: tr",
+        "owners/details :: [id='row']",
+        "owners/details :: ${frag}",
+        "owners/details :: __${frag}__",
+        "~{owners/details :: row}",
+        "~{owners/details :: row",
+        "owners/details :: ~{row}",
+        "owners/details :: row :: row",
+        "owners/details :: details :: row",
+        "owners/details :: ROW",
+        "owners/details :: ",
+        "owners/details ::",
+        ":: row",
+        "this :: row",
+        "owners/details : : row",
+        "owners/details :: row/",
+        "owners/details :: r ow",
+        "owners/details :: row\u0000x",
+        // Traversal and other names a page name doesn't resolve either.
+        "owners/../owners/details :: row",
+        "owners/./details :: row",
+        "../owners/details :: row",
+        "//owners/details :: row",
+        "owners/details.html :: row",
+        "owners/details/ :: row",
+        "owners :: details :: row",
+        "Owners/details :: row",
+        "owners/details :: ../row",
+        "owners/details :: row.html",
+        "greeting :: row",
+        "redirect:owners/details :: row",
+        // A fragment entry's name is not a template name.
+        "owners/details :: greeting"
+      })
+  void unsupportedFragmentNamesFallThrough(String name) {
+    assertThat(resolver.resolveViewName(name, Locale.ROOT)).isNull();
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
         "",
         "nope",
         "../greeting",

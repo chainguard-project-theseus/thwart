@@ -46,9 +46,12 @@ import org.springframework.web.context.WebApplicationContext;
 /**
  * Spring View Manipulation through the starter: whatever a controller returns as a view name
  * (from a parameter, header, cookie, path variable, a {@code "prefix" + input} or
- * {@code "page :: " + selector} concatenation, or a void handler's URI) is looked up verbatim
- * (less one leading {@code /}, #131), exactly once, in the build-time registry. Nothing is preprocessed, evaluated or split, no
- * template renders, and the name falls through to the next resolver.
+ * {@code "page :: " + selector} concatenation, or a void handler's URI) is looked up exactly once,
+ * in the build-time registry, verbatim except for one dropped leading {@code /} and single spaces
+ * around a {@code ::} (#131). Nothing is preprocessed or evaluated, no template renders, and the
+ * name falls through to the next resolver. A name can select a registered fragment entry
+ * ({@code greeting :: row}) only by its exact name, as a page name selects a page: no selector,
+ * arguments or traversal reach any other fragment.
  */
 @ExtendWith(SpringTestContext.class)
 @SpringBootTest(classes = ViewNameInjectionTest.App.class)
@@ -79,6 +82,32 @@ class ViewNameInjectionTest {
           "greeting :: ${T(java.lang.Runtime)}",
           "greeting :: __${T(java.lang.Runtime)}__",
           "greeting::__${7*7}__",
+          // Fragment syntax Tessera doesn't support, and names near the registered "greeting :: row".
+          "greeting :: row(x=1)",
+          "greeting::row()",
+          "greeting :: row (x)",
+          "greeting :: #row",
+          "greeting :: .row",
+          "greeting :: tr",
+          "greeting :: [id='row']",
+          "greeting :: ${row}",
+          "greeting :: __${row}__",
+          "~{greeting :: row}",
+          "greeting :: ~{row}",
+          "greeting :: row :: row",
+          "greeting :: greeting :: row",
+          "greeting :: ROW",
+          "greeting :: ../row",
+          "greeting :: row/",
+          "greeting :: ",
+          ":: row",
+          "this :: row",
+          "../greeting :: row",
+          "//greeting :: row",
+          "owners/../greeting :: row",
+          "greeting.html :: row",
+          "greeting : : row",
+          "owners/details :: row",
           "|greeting|",
           "greeting ",
           " greeting",
@@ -124,11 +153,23 @@ class ViewNameInjectionTest {
     assertThat(registry.renders.get()).as("templates rendered").isZero();
     // Exactly one lookup, of exactly the name the controller produced.
     if (!expectedName.startsWith("redirect:") && !expectedName.startsWith("forward:")) {
-      String lookup = expectedName.startsWith("/") ? expectedName.substring(1) : expectedName;
-      assertThat(registry.lookups).containsExactly(lookup);
+      assertThat(registry.lookups).containsExactly(lookupName(expectedName));
       // Boot's ContentNegotiatingViewResolver asks every resolver, so the next one sees it too.
       assertThat(fallback.names).containsExactly(expectedName);
     }
+  }
+
+  /**
+   * The name the resolver looks up (written out here rather than shared, as an oracle): less one
+   * leading {@code /}; with a {@code ::}, the trimmed halves joined by {@code " :: "}.
+   */
+  static String lookupName(String name) {
+    int sep = name.indexOf("::");
+    if (sep < 0) {
+      return name.startsWith("/") ? name.substring(1) : name;
+    }
+    String page = name.substring(0, sep).trim();
+    return (page.startsWith("/") ? page.substring(1) : page) + " :: " + name.substring(sep + 2).trim();
   }
 
   @ParameterizedTest
@@ -211,7 +252,8 @@ class ViewNameInjectionTest {
     assertThat(registry.renders.get()).isZero();
     assertThat(registry.lookups).hasSize(1);
     assertThat(registry.lookups.get(0)).startsWith("doc/__$");
-    assertThat(fallback.names).isEqualTo(registry.lookups);
+    assertThat(fallback.names).hasSize(1);
+    assertThat(registry.lookups).containsExactly(lookupName(fallback.names.get(0)));
   }
 
   @Test
@@ -234,6 +276,30 @@ class ViewNameInjectionTest {
     assertThat(registry.lookups).containsExactly("greeting");
   }
 
+  @Test
+  void fragmentNameSelectsOnlyThatFragment() throws Exception {
+    // A registered fragment entry (#131) renders by its name, with the spaces Thymeleaf allows.
+    for (String name : Arrays.asList("greeting :: row", "greeting::row", "/greeting  ::  row")) {
+      registry.lookups.clear();
+      registry.renders.set(0);
+      mvc.perform(get("/param").param("v", name))
+          .andExpect(status().isOk())
+          .andExpect(content().string("<tr><td>row</td></tr>"));
+      assertThat(registry.renders.get()).isEqualTo(1);
+      assertThat(registry.lookups).containsExactly("greeting :: row");
+    }
+  }
+
+  @Test
+  void selectorFromInputSelectsOnlyARegisteredFragment() throws Exception {
+    // "greeting :: " + input reaches the page's registered fragments, as "prefix" + input reaches
+    // registered pages, and nothing else (the payloads above).
+    mvc.perform(get("/section").param("section", "row"))
+        .andExpect(status().isOk())
+        .andExpect(content().string("<tr><td>row</td></tr>"));
+    assertThat(registry.lookups).containsExactly("greeting :: row");
+  }
+
   /** A registry that records every lookup and every render. */
   static final class RecordingRegistry implements TemplateRegistry {
     final List<String> lookups = new CopyOnWriteArrayList<>();
@@ -253,7 +319,15 @@ class ViewNameInjectionTest {
                   new TemplateEntry(
                       "owners/details", Collections.<TemplateEntry.Param>emptyList(), r),
                   new TemplateEntry(
-                      "user/en/welcome", Collections.<TemplateEntry.Param>emptyList(), r)));
+                      "user/en/welcome", Collections.<TemplateEntry.Param>emptyList(), r)),
+              Collections.singletonList(
+                  new TemplateEntry(
+                      "greeting :: row",
+                      Collections.<TemplateEntry.Param>emptyList(),
+                      (model, ctx, out) -> {
+                        renders.incrementAndGet();
+                        out.write("<tr><td>row</td></tr>");
+                      })));
     }
 
     @Override
@@ -265,6 +339,11 @@ class ViewNameInjectionTest {
     @Override
     public Collection<TemplateEntry> all() {
       return delegate.all();
+    }
+
+    @Override
+    public Collection<TemplateEntry> fragments() {
+      return delegate.fragments();
     }
   }
 

@@ -72,6 +72,17 @@ class TesseraMvcTest {
   }
 
   @Test
+  void fragmentViewNameRenders() throws Exception {
+    // return "owners/details :: row"; as for an htmx partial response (#131).
+    for (String name : Arrays.asList("owners/details :: row", "owners/details::row", "/owners/details :: row")) {
+      mvc.perform(get("/view").param("v", name))
+          .andExpect(status().isOk())
+          .andExpect(content().contentType("text/html;charset=UTF-8"))
+          .andExpect(content().string("<tr><td>row</td></tr>"));
+    }
+  }
+
+  @Test
   void templateReturnValueRenders() throws Exception {
     mvc.perform(get("/typed").param("name", "Grace"))
         .andExpect(status().isOk())
@@ -152,7 +163,13 @@ class TesseraMvcTest {
             "owners/details",
             Collections.<TemplateEntry.Param>emptyList(),
             (model, ctx, out) -> out.write("<h1>details</h1>"));
-    return TemplateRegistry.of(Arrays.asList(greeting, details));
+    // A fragment entry, as the compiler generates for a fragment a "page :: name" view can render (#131).
+    TemplateEntry row =
+        new TemplateEntry(
+            "owners/details :: row",
+            Collections.<TemplateEntry.Param>emptyList(),
+            (model, ctx, out) -> out.write("<tr><td>row</td></tr>"));
+    return TemplateRegistry.of(Arrays.asList(greeting, details), Collections.singletonList(row));
   }
 
   @SpringBootConfiguration
