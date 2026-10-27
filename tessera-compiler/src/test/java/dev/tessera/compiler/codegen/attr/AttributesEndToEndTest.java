@@ -275,6 +275,34 @@ class AttributesEndToEndTest {
   }
 
   @Test
+  void attributesTheTreeBuilderReadsAreABuildError() {
+    // A browser reads these values while it builds the page, before any escaping applies.
+    compile("\n<p t:is=\"s\">x</p>").assertError("t.html:2:4", "t:is is not allowed", "custom element");
+    compile("\n<p t:attr=\"is=s\">x</p>").assertError("t.html:2:", "t:attr is is not allowed", "custom element");
+    compile("\n<svg t:xmlns=\"s\"></svg>").assertError("t.html:2:", "t:xmlns is not allowed", "namespace");
+    compile("\n<svg t:xmlns:xlink=\"s\"></svg>").assertError("t.html:2:", "t:xmlns:xlink is not allowed", "namespace");
+    compile("\n<template t:shadowrootmode=\"s\"><p>x</p></template>")
+        .assertError("t.html:2:", "t:shadowrootmode is not allowed", "shadow root");
+    compile("\n<template shadowrootmode=\"open\" t:shadowrootclonable=\"b\"><p>x</p></template>")
+        .assertError("t.html:2:", "t:shadowrootclonable is not allowed", "shadow root");
+    compile("\n<template t:for=\"s\"><p>x</p></template>").assertError("t.html:2:", "t:for is not allowed", "<template>");
+    compile("\n<meta t:charset=\"s\">").assertError("t.html:2:7", "t:charset is not allowed", "encoding");
+    compile("\n<meta http-equiv=\"Content-Type\" t:content=\"s\">")
+        .assertError("t.html:2:", "t:content is not allowed", "encoding", "Content-Type response header");
+    compile("\n<meta t:content=\"s\" http-equiv=\"content-type\">").assertError("t.html:2:", "t:content is not allowed");
+    compile("\n<meta http-equiv=\"Content-Type\" t:attr=\"content=s\">").assertError("t.html:2:", "t:attr content is not allowed");
+    // The same values written statically, and the same names where no tree builder reads them, compile.
+    assertEquals(
+        "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"><meta charset=\"utf-8\">",
+        render("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"><meta charset=\"utf-8\">",
+            model()));
+    compile("<p is=\"x-p\">x</p><svg xmlns=\"http://www.w3.org/2000/svg\"></svg>"
+        + "<template shadowrootmode=\"open\" for=\"x\"><p>x</p></template>").assertSuccess();
+    compile("<meta name=\"q\" t:content=\"s\"><meta http-equiv=\"content-language\" t:content=\"s\">"
+        + "<label t:for=\"s\">x</label><div t:shadowrootmode=\"s\">x</div>").assertSuccess();
+  }
+
+  @Test
   void metaRefreshAcceptsADelayAndASameOriginLink() {
     // #237: '<seconds>;url=' + @{/path...}, normalized to <seconds>;url=<url>.
     assertEquals(
