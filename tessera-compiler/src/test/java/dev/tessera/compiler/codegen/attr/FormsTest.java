@@ -10,9 +10,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.tessera.compiler.codegen.attr.FormFixture.TestForms;
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.Forms;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import org.junit.jupiter.api.Test;
 
 /** t:object, t:field, t:errors, t:errorclass and CSRF injection, end to end. */
@@ -237,6 +240,116 @@ class FormsTest {
         "<form><select id=\"pet\" name=\"pet\"><option value=\"cat\" selected=\"selected\">Cat</option>"
             + "<option value=\"dog\">Dog</option><option value=\"fish\">Fish</option></select></form>",
         render(c, owner(c, "Ann", null), new TestForms()));
+  }
+
+  // ---- collections and arrays (#126) ----
+
+  private static final String USER_HEAD =
+      "<form xmlns:t=\"https://tessera.dev\" t:import=\"com.example.*\" t:params=\"User user\" t:object=\"user\">";
+
+  /** A form over {@code User(Set<String> roles, String[] tags, List<Level> levels, Level level)}. */
+  private static Compilation compileUser(String body) {
+    return Compilation.builder()
+        .java(
+            "com.example.Level",
+            "package com.example; public enum Level { LOW, HIGH;"
+                + " @Override public String toString() { return name().toLowerCase(); } }")
+        .java(
+            "com.example.User",
+            "package com.example; import java.util.List; import java.util.Set;"
+                + " public record User(Set<String> roles, String[] tags, List<Level> levels, Level level) {}")
+        .template("user.html", USER_HEAD + body + "</form>")
+        .compile()
+        .assertSuccess();
+  }
+
+  private static String renderUser(Compilation c, Set<String> roles, String[] tags, List<String> levels, String level) {
+    List<Object> levelValues = new ArrayList<>();
+    for (String l : levels) {
+      levelValues.add(c.enumConstant("com.example.Level", l));
+    }
+    Object user =
+        c.newInstance(
+            "com.example.User", roles, tags, levelValues, level == null ? null : c.enumConstant("com.example.Level", level));
+    Map<String, Object> model = new HashMap<>();
+    model.put("user", user);
+    return c.render("user", model, ctx(Forms.NONE));
+  }
+
+  @Test
+  void checkboxesBoundToCollectionAreCheckedByContainment() {
+    // Thymeleaf's SpringSelectedValueComparator: a checkbox is checked when the bound Collection
+    // contains its value; every checkbox gets the _name marker, as for a boolean field.
+    Compilation c =
+        compileUser(
+            "<input type=\"checkbox\" value=\"ROLE_ADMIN\" t:field=\"*{roles}\">"
+                + "<input type=\"checkbox\" value=\"ROLE_USER\" t:field=\"*{roles}\">");
+    assertEquals(
+        "<form><input type=\"checkbox\" value=\"ROLE_ADMIN\" name=\"roles\">"
+            + "<input type=\"hidden\" name=\"_roles\" value=\"on\" />"
+            + "<input type=\"checkbox\" value=\"ROLE_USER\" name=\"roles\" checked=\"checked\">"
+            + "<input type=\"hidden\" name=\"_roles\" value=\"on\" /></form>",
+        renderUser(c, new TreeSet<>(List.of("ROLE_USER")), new String[0], List.of(), null));
+    // Neither: not the collection's display text "[ROLE_ADMIN, ROLE_USER]", and nothing for empty or null.
+    String both = renderUser(c, new TreeSet<>(List.of("ROLE_ADMIN", "ROLE_USER")), new String[0], List.of(), null);
+    assertEquals(2, both.split("checked=", -1).length - 1, both);
+    assertFalse(renderUser(c, Set.of(), new String[0], List.of(), null).contains("checked"));
+    assertFalse(renderUser(c, null, new String[0], List.of(), null).contains("checked"));
+    assertFalse(renderUser(c, Set.of("ROLE_ADMINISTRATOR", "ROLE"), null, List.of(), null).contains("checked"));
+  }
+
+  @Test
+  void checkboxesBoundToArrayAndRadiosBoundToCollection() {
+    Compilation c =
+        compileUser(
+            "<input type=\"checkbox\" value=\"a\" t:field=\"*{tags}\"><input type=\"checkbox\" value=\"b\" t:field=\"*{tags}\">"
+                + "<input type=\"radio\" value=\"ROLE_ADMIN\" t:field=\"*{roles}\">"
+                + "<input type=\"radio\" value=\"ROLE_USER\" t:field=\"*{roles}\">");
+    assertEquals(
+        "<form><input type=\"checkbox\" value=\"a\" name=\"tags\"><input type=\"hidden\" name=\"_tags\" value=\"on\" />"
+            + "<input type=\"checkbox\" value=\"b\" name=\"tags\" checked=\"checked\">"
+            + "<input type=\"hidden\" name=\"_tags\" value=\"on\" />"
+            + "<input type=\"radio\" value=\"ROLE_ADMIN\" name=\"roles\" checked=\"checked\">"
+            + "<input type=\"radio\" value=\"ROLE_USER\" name=\"roles\"></form>",
+        renderUser(c, Set.of("ROLE_ADMIN"), new String[] {"b", "c"}, List.of(), null));
+  }
+
+  @Test
+  void enumsMatchByNameOrToString() {
+    // An enum element matches its name and its toString(), as in SpringSelectedValueComparator.
+    Compilation c =
+        compileUser(
+            "<input type=\"checkbox\" value=\"LOW\" t:field=\"*{levels}\">"
+                + "<input type=\"checkbox\" value=\"high\" t:field=\"*{levels}\">"
+                + "<input type=\"radio\" value=\"low\" t:field=\"*{level}\">"
+                + "<input type=\"radio\" value=\"HIGH\" t:field=\"*{level}\">");
+    String out = renderUser(c, Set.of(), null, List.of("HIGH"), "LOW");
+    assertTrue(out.contains("value=\"LOW\" name=\"levels\"><"), out);
+    assertTrue(out.contains("value=\"high\" name=\"levels\" checked=\"checked\">"), out);
+    assertTrue(out.contains("value=\"low\" name=\"level\" checked=\"checked\">"), out);
+    assertTrue(out.contains("value=\"HIGH\" name=\"level\"></form>"), out);
+  }
+
+  @Test
+  void multipleSelectMarksEveryContainedOption() {
+    Compilation c =
+        compileUser(
+            "<select multiple t:field=\"*{roles}\"><option value=\"ROLE_ADMIN\">A</option>"
+                + "<option value=\"ROLE_USER\">U</option><option value=\"ROLE_GUEST\">G</option></select>");
+    assertEquals(
+        "<form><select multiple id=\"roles\" name=\"roles\"><option value=\"ROLE_ADMIN\" selected=\"selected\">A</option>"
+            + "<option value=\"ROLE_USER\" selected=\"selected\">U</option><option value=\"ROLE_GUEST\">G</option>"
+            + "</select></form>",
+        renderUser(c, new TreeSet<>(List.of("ROLE_ADMIN", "ROLE_USER")), null, List.of(), null));
+    assertFalse(renderUser(c, null, null, List.of(), null).contains("selected"));
+  }
+
+  @Test
+  void disabledCollectionCheckboxHasNoMarker() {
+    Compilation c = compileUser("<input type=\"checkbox\" disabled value=\"ROLE_USER\" t:field=\"*{roles}\">");
+    assertEquals(
+        "<form><input type=\"checkbox\" disabled value=\"ROLE_USER\" name=\"roles\" checked=\"checked\"></form>",
+        renderUser(c, Set.of("ROLE_USER"), null, List.of(), null));
   }
 
   @Test
