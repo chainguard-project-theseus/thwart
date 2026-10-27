@@ -531,11 +531,28 @@ public final class Skeleton {
     private final String viewName;
     private final Seq body;
     private final Map<String, Seq> fragments;
+    private final Map<String, String> fragmentContexts;
 
     public TemplateSkeleton(String viewName, Seq body, Map<String, Seq> fragments) {
+      this(viewName, body, fragments, Collections.<String, String>emptyMap());
+    }
+
+    /**
+     * {@code fragmentContexts}: the parsing context each fragment is declared in, as {@code
+     * html.ParsingContexts} names it ({@code HTML}, {@code svg}, {@code math}, {@code
+     * annotation-xml}, {@code select}, or one where no fragment fits); HTML if absent (#461).
+     */
+    public TemplateSkeleton(String viewName, Seq body, Map<String, Seq> fragments, Map<String, String> fragmentContexts) {
       this.viewName = Objects.requireNonNull(viewName);
       this.body = Objects.requireNonNull(body);
       this.fragments = Collections.unmodifiableMap(new LinkedHashMap<>(fragments));
+      this.fragmentContexts = Collections.unmodifiableMap(new LinkedHashMap<>(fragmentContexts));
+    }
+
+    /** The parsing context fragment {@code name} is declared in (see the constructor). */
+    public String fragmentContext(String name) {
+      String c = fragmentContexts.get(name);
+      return c == null ? "HTML" : c;
     }
 
     public String viewName() {

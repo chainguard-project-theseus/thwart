@@ -89,5 +89,11 @@ public enum Problem {
    * A CDATA section in an HTML or MathML text integration point (#441, exclusion (d), {@link
    * Rules#cdata}): some browsers read a comment there that ends at the first {@code >}.
    */
-  CDATA_IN_INTEGRATION_POINT
+  CDATA_IN_INTEGRATION_POINT,
+  /**
+   * A fragment that no template calls, declared where no fragment fits (raw text, mixed {@code
+   * <svg>}/{@code <math>}, {@code t:remove="tag"} content), so the verifier can't check it on its
+   * own (#461, {@link ContextVerifier#checkUncalled}).
+   */
+  UNCALLED_FRAGMENT_FITS_NOWHERE
 }
