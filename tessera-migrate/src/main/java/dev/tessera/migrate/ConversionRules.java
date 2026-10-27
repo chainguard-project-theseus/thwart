@@ -242,6 +242,8 @@ final class ConversionRules {
   /** Thymeleaf's inlining switch; {@code th:inline="none"} leaves {@code [[...]]} in its body alone. */
   static final String THYMELEAF_INLINE = "th:inline";
   static final String INLINE_NONE = "none";
+  /** {@code th:inline="javascript"}: Thymeleaf's natural-template comments apply (#315). */
+  static final String INLINE_JAVASCRIPT = "javascript";
 
   static final String SCRIPT = "script";
   static final String TYPE = "type";
@@ -258,6 +260,15 @@ final class ConversionRules {
   /** {@code %s} is the inline (its own Markdown code span). */
   static final String SCRIPT_INLINE_IN_COMMENT_MESSAGE =
       "`%s` inside a JavaScript comment is a build error in Tessera (its value would be written inside the comment and the page would never use it); move it out of the comment: Thymeleaf's natural template `var a = /*[[${x}]]*/ 'd';` becomes `var a = [[${x}]];`";
+  /** {@code %1$s} is the comment and default, {@code %2$s} the inline, {@code %3$s} the dropped default. */
+  static final String SCRIPT_NATURAL_COMMENT_MESSAGE =
+      "%1$s in a script was rewritten to %2$s: Thymeleaf's natural template wrote the value in place of the comment and dropped %3$s, and `[[...]]` inside a comment is a build error in Tessera";
+  /** Appended to {@link #SCRIPT_NATURAL_COMMENT_MESSAGE} for {@code [(...)]}. */
+  static final String SCRIPT_NATURAL_UNESCAPED_MESSAGE =
+      "; `[(...)]` is a build error in a Tessera script: write `[[...]]`, which outputs a JSON value, or pass code another way";
+  /** {@code %1$s} is the comment, {@code %2$s} the text after it that Thymeleaf drops. */
+  static final String SCRIPT_NATURAL_COMMENT_MANUAL_MESSAGE =
+      "%1$s in a script is a Thymeleaf natural-template comment, but it is not one inline followed by one literal (Thymeleaf drops %2$s after it, up to the next `;`, `,`, `)`, `}`, `]`, `//` or line end), so it was not rewritten; `[[...]]` inside a comment is a build error in Tessera: replace the comment and the text Thymeleaf drops with the inline, as in `var a = /*[[${x}]]*/ 'd';` to `var a = [[${x}]];`";
   static final String SCRIPT_INLINE_IN_STRING_MESSAGE =
       "`%s` inside a quoted JavaScript string is a build error in Tessera (it writes a JSON value with its own quotes); rewrite as `\"text \" + %s + \" text\"`";
 
