@@ -87,8 +87,8 @@ class ClientTemplateInjectionTest {
     // RCDATA: a comment would show as text there (guide section 7).
     assertEquals("<title>{{x}} &amp;</title>", render("<title t:text=\"s\">t</title>", "{{x}} &"));
     assertEquals("<title>a {{x}} &amp;</title>", render("<title>a [[s]]</title>", "{{x}} &"));
-    assertEquals("<textarea>{{x}}</textarea>", render("<textarea t:text=\"s\"></textarea>", "{{x}}"));
-    assertEquals("<textarea>{{x}}</textarea>", render("<textarea>[[s]]</textarea>", "{{x}}"));
+    assertEquals("<textarea>\n{{x}}</textarea>", render("<textarea t:text=\"s\"></textarea>", "{{x}}"));
+    assertEquals("<textarea>\n{{x}}</textarea>", render("<textarea>[[s]]</textarea>", "{{x}}"));
     assertEquals("<TITLE>{{x}}</TITLE>", render("<TITLE t:text=\"s\">t</TITLE>", "{{x}}"));
   }
 
