@@ -1556,10 +1556,13 @@ These come from the annotation processor itself, without a template position.
   to the first `</<tag>`. That must be the element's own end tag, not one inside a nested
   `<textarea>`, `<title>` or `<script>`, a comment, an attribute value or a nested `<noscript>`.
   (Inside `<svg>` or `<math>` these are ordinary elements to a browser, but the check still applies.)
+  Tessera still parses a `t:remove="all"` subtree, so the check also applies there: remove the
+  markup even though it is not rendered.
 - `malformed markup: '</<name>' inside <<tag>> looks like its end tag but a browser doesn't end the element there: remove it`:
   in `<script>`, `<style>`, `<title>` and `<textarea>` a browser matches the end tag with ASCII
   letters only, so `</ſcript>` (with U+017F) or `</tıtle>` (with U+0131) is text to it, not the end
-  tag. Remove the look-alike.
+  tag. Remove the look-alike. Tessera still parses a `t:remove="all"` subtree, so the check also
+  applies there.
 - `<<tag>/> is not self-closing in HTML: the browser treats everything after it as <tag>; write <<tag> ...></<tag>>`:
   reported for `<script/>`, `<style/>` and `<select/>`; a browser ignores the `/` and treats the
   rest of the page as script, CSS or select content. Write the end tag, e.g.
