@@ -105,8 +105,8 @@ public final class ContentKinds {
    * <ul>
    *   <li>{@code ""}: content that isn't balanced. Stray end tags, a top-level table part and page
    *       elements ({@code head}, {@code body}, {@code html}, {@code frameset}) are parse errors
-   *       here. The two clauses that aren't are checked at every element inserted here ({@link
-   *       #promiseBreach}): a {@code form}, and a formatting element inside one of its own name.
+   *       here. The one clause that isn't is checked at every element inserted here ({@link
+   *       #promiseBreach}): a {@code form}.
    *   <li>{@code <ul><li>} and {@code <dl><dd>}: an {@code li}, {@code dd} or {@code dt} outside
    *       its own list, which closes the open one, even inside a {@code div}.
    *   <li>{@code <table><tr><td>} and {@code <template>}: a top-level table part, which closes
@@ -116,45 +116,30 @@ public final class ContentKinds {
   public static final List<String> PARTIAL_PROBES =
       Backports.listOf("", "<ul><li>", "<dl><dd>", "<table><tr><td>", "<template>");
 
-  /** Formatting elements (the list of active formatting elements holds these). */
-  private static final Set<String> FORMATTING = Backports.setOf(
-      "a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small", "strike", "strong", "tt", "u");
-
-  /** HTML elements that put a marker on the list of active formatting elements. */
-  private static final Set<String> MARKERS = Backports.setOf("applet", "object", "marquee", "template", "td", "th",
-      "caption");
-
   /**
    * How an element just inserted ({@code s}) breaks the FLOW producer promise, in words, or null:
-   * a {@code form} outside a {@code template}, or a formatting element inside one of its own name
-   * (whatever the attributes) with no marker between them. Neither is a parse error, but inserted
-   * where a {@code form}, or that formatting element, is open around the content, the first is
-   * ignored and its end tag closes the open form, and the second can drop an entry of the list of
-   * active formatting elements. {@code s} is from the {@code ""} {@link #PARTIAL_PROBES probe}.
+   * a {@code form} outside a {@code template}. It isn't a parse error, but inserted where a {@code
+   * form} is open around the content, it is ignored and its end tag closes the open form. {@code s}
+   * is from the {@code ""} {@link #PARTIAL_PROBES probe}.
+   *
+   * <p>Not here: a formatting element inside one of its own name (#448). Inserted where more of that
+   * name are open, it can make the Noah's Ark clause drop the oldest entry from the list of active
+   * formatting elements, but that element stays open, and in an error-free parse the list changes
+   * the tree only through entries that are no longer open (the argument that retired {@link
+   * Problem#NOAHS_ARK}, #444). The page and the partial are each verified error-free, and {@link
+   * #closer} keeps the partial from closing anything around it, so the composed parse is error-free
+   * too.
    */
   static String promiseBreach(Parser.Stack s) {
-    if (!OpenElement.HTML.equals(s.insertedNamespace())) {
-      return null;
-    }
-    String name = s.insertedName();
-    boolean form = name.equals("form");
-    if (!form && !FORMATTING.contains(name)) {
+    if (!OpenElement.HTML.equals(s.insertedNamespace()) || !s.insertedName().equals("form")) {
       return null;
     }
     for (int i = s.insertedOnStack() ? s.size() - 2 : s.size() - 1; i >= 0; i--) {
-      boolean html = OpenElement.HTML.equals(s.namespace(i));
-      String below = s.localName(i);
-      if (html && below.equals("template")) {
-        return null;
-      }
-      if (!form && html && below.equals(name)) {
-        return "it has a <" + name + "> inside another <" + name + ">";
-      }
-      if (!form && html && MARKERS.contains(below)) {
+      if (OpenElement.HTML.equals(s.namespace(i)) && s.localName(i).equals("template")) {
         return null;
       }
     }
-    return form ? "it has a <form>" : null;
+    return "it has a <form>";
   }
 
   /**

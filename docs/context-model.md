@@ -212,7 +212,7 @@ In template mode the first flow start tag switches to "in body"; the verifier th
 from both states (the second is the state after `<span></span>`).
 
 **`FLOW`, the producer promise:** balanced content (it closes every element it opens); no
-formatting element nested in one of its own name; no `form`; and no top-level `li`, `dd`, `dt`,
+`form`; and no top-level `li`, `dd`, `dt`,
 table part, `head`, `body`, `html` or `frameset`. That is why an open `li`, `dd`, `dt` or `form`
 is not in the predicate: `<li t:utext="${html.sanitize(x)}">` and sanitized text in a form are
 fine.
@@ -239,9 +239,11 @@ generated method. A template is marked if:
   `<span></span>`). The original insertion mode is ignored outside the "text" mode, the only mode
   that reads it (validator.nu keeps it after a `textarea`, `script` or `template`);
 - and, at every element inserted in the `<body>` probe (`ContentKinds.promiseBreach`), it keeps
-  the two clauses of the producer promise that aren't parse errors: no `form` outside a
-  `template`, and no formatting element inside one of its own name with no marker between
-  (whatever the attributes, which the Noah's Ark clause compares).
+  the one clause of the producer promise that isn't a parse error: no `form` outside a
+  `template`. A formatting element inside one of its own name is allowed (#448): where more of
+  that name are open around the value, the Noah's Ark clause may drop the oldest entry from the
+  list of active formatting elements, but that element stays open, and in an error-free parse the
+  list changes the tree only through entries that are no longer open (#444).
 
 The rest of the promise needs no check of its own (#410): in the `<body>` probe a stray end tag,
 a top-level table part and a `head`, `body`, `html` or `frameset` start tag are parse errors, an
