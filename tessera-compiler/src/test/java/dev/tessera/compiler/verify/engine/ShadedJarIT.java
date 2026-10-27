@@ -92,7 +92,8 @@ class ShadedJarIT {
       String d = m.group(1);
       assertTrue(!d.contains("tessera-html5"), "engine modules are shaded, not dependencies: " + d);
       boolean test = d.contains("<scope>test</scope>");
-      if (d.contains("<groupId>nu.validator</groupId>") || d.contains("attoparser")) {
+      assertTrue(!d.contains("attoparser"), "attoparser is no dependency of the compiler, not even in tests: " + d);
+      if (d.contains("<groupId>nu.validator</groupId>")) {
         assertTrue(test, "only test scope: " + d);
       }
       if (!test) {
