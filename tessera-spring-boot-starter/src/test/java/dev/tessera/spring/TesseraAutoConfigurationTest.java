@@ -131,8 +131,26 @@ class TesseraAutoConfigurationTest {
       FilterRegistrationBean registration =
           ctx.getBean("tesseraResourceUrlEncodingFilter", FilterRegistrationBean.class);
       assertThat(registration.getFilter()).isInstanceOf(ResourceUrlEncodingFilter.class);
-      // REQUEST and ERROR dispatches: ResourceChainTest renders both through a real server.
+      // Dispatch types: ResourceChainTest renders both through a real server.
     }
+  }
+
+  @Test
+  void errorDispatchFromBoot206AsThymeleafsAutoConfiguration() {
+    // Boot 1.5 and 2.0.0-2.0.5 declared a plain filter bean (REQUEST only); 2.0.6+ a
+    // FilterRegistrationBean for REQUEST and ERROR.
+    assertThat(TesseraAutoConfiguration.registersForErrorDispatch("1.5.22.RELEASE")).isFalse();
+    assertThat(TesseraAutoConfiguration.registersForErrorDispatch("2.0.0.RELEASE")).isFalse();
+    assertThat(TesseraAutoConfiguration.registersForErrorDispatch("2.0.0.M7")).isFalse();
+    assertThat(TesseraAutoConfiguration.registersForErrorDispatch("2.0.5.RELEASE")).isFalse();
+    assertThat(TesseraAutoConfiguration.registersForErrorDispatch("2.0.6.RELEASE")).isTrue();
+    assertThat(TesseraAutoConfiguration.registersForErrorDispatch("2.0.10.RELEASE")).isTrue();
+    assertThat(TesseraAutoConfiguration.registersForErrorDispatch("2.1.0.RELEASE")).isTrue();
+    assertThat(TesseraAutoConfiguration.registersForErrorDispatch("2.7.18")).isTrue();
+    assertThat(TesseraAutoConfiguration.registersForErrorDispatch("3.5.0")).isTrue();
+    assertThat(TesseraAutoConfiguration.registersForErrorDispatch("4.0.0-M1")).isTrue();
+    assertThat(TesseraAutoConfiguration.registersForErrorDispatch(null)).isTrue();
+    assertThat(TesseraAutoConfiguration.registersForErrorDispatch("unknown")).isTrue();
   }
 
   @Test
