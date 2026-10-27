@@ -123,8 +123,10 @@ decides raw text from the local name (`RAW_TEXT_ELEMENTS`, `Contexts.browserRawT
 has no namespaces. #301 adds namespaces. The verifier (#367) reads the real mode and namespace
 from the spec parser, and owns the browser splits as exclusions (#406). #328 is re-scoped to
 friendly errors. #411 took the inventory of the `HtmlParser` rules in this section and kept them
-all: each row says what the verifier would miss or say less clearly without it. The element
-allow-list moves to phase 4 (#311).
+all: each row says what the verifier would miss or say less clearly without it. #378 kept the
+name tables too: Tessera's tree needs them before there is a skeleton, and the profile's
+messages use them. The verifier checks the escaper they lead to against the parser state
+(section 9). The element allow-list moves to phase 4 (#311).
 
 ### 3.1 Modes and what they accept
 
@@ -394,6 +396,14 @@ scripting on and off; a template is accepted only if both accept it. Retired ids
 reported; their names stay reserved.
 The id in brackets ends every error message (`[verifier:ID]`), for #368's fix-its.
 
+The parser state names the one escaper a hole may have (#378): data `text`, RCDATA `rcdata`, the
+script data of an HTML `<script>` `json`, a double-quoted attribute value an attribute escaper
+for that attribute (which one is policy, `Contexts.attribute`). In never-run raw text any escaper
+is inert. A hole with another escaper is rejected, so a hole whose paths reach states that name
+different escapers is rejected (Go's branch rule). The compiler still picks the escaper by name
+(`Contexts.text`): the generated code is written before the verifier runs, and a fragment that no
+call reaches has no parser state. The verifier checks that choice.
+
 | Id | Rejects | Accepted instead |
 |---|---|---|
 | `TEXT_NOT_IN_TEXT` | a `text` or `rcdata` hole inside a tag, comment, character reference, CDATA, doctype or `plaintext` | data state; RCDATA; RAWTEXT of `noscript` (scripting on), `iframe`, `xmp`, `noembed`, `noframes` |
@@ -402,6 +412,7 @@ The id in brackets ends every error message (`[verifier:ID]`), for #368's fix-it
 | `TEXT_OUTSIDE_BODY` | a `text` hole before `<html>`, in or after the head, after the body, in a frameset | in body, cell, caption, `select`, `template`; in foreign content |
 | `TEXT_RECONSTRUCTS` | retired (#410): a `text` hole where formatting elements closed out of order would be reopened first. The misnesting is a parse error | |
 | `RCDATA_NOT_IN_RCDATA` | an `rcdata` hole (no `{{` breaking) a browser reads as ordinary text | RCDATA, never-run raw text |
+| `TEXT_IN_RCDATA` (#378) | a `text` hole (with the comments that break `{{`) a browser reads as the text of `<title>` or `<textarea>`, where the comments would show | data state, never-run raw text |
 | `ATTRIBUTE_NOT_IN_VALUE`, `ATTRIBUTE_WRONG_NAME` | an attribute hole outside a double-quoted value, or in another attribute's value (or a dropped duplicate) | the double-quoted value of the attribute the compiler wrote, compared case-insensitively |
 | `ATTRIBUTE_VALUE_CHANGES_PARSE` | a computed `encoding` in MathML (an `<input>` in a table mode is a parse error with any `type`) | static values |
 | `JSON_NOT_IN_SCRIPT` | a `json` hole outside the script data of an HTML `<script>` (SVG `script`, escaped script data, CDATA) | script data, also right after `<` (no JSON starts with `/` or `!`) |

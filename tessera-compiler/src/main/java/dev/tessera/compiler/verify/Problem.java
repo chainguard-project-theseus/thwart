@@ -78,5 +78,11 @@ public enum Problem {
   /** An HTML table part directly in {@code <template>} (#401, exclusion (b)). */
   TABLE_IN_TEMPLATE,
   /** An element other than {@code option}, {@code optgroup} or {@code hr} in a {@code <select>} (#305, exclusion (c)). */
-  SELECT_CONTENT
+  SELECT_CONTENT,
+  /**
+   * A text hole (escaped with the comments that break double braces) that a browser reads as the
+   * text of a {@code <title>} or {@code <textarea>}, where the comments show as text (#378: the
+   * state names the escaper).
+   */
+  TEXT_IN_RCDATA
 }

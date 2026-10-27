@@ -719,5 +719,7 @@ The error-free rule, measured on `main` 49060ba (`~/tessera-handoff/errorfree-me
 A new parser-differential or composition report becomes a verifier test case, not a special case
 in `HtmlParser`, `MarkupTokenizer` or `Contexts` (handoff.md). If browsers split on it, it also
 becomes a coarse exclusion (§11.4). For families A and B this replaces §7's "fix it by shrinking
-the profile". #378 then chooses escapers from the parser state and deletes the name-based context
-tables.
+the profile". #378 makes the parser state name each hole's escaper: a hole written with another
+escaper is rejected, also when only some of its paths reach that state. The name-based tables
+stay: Tessera's tree needs them before a skeleton exists, the profile's messages use them, and
+the escaper is chosen when the code is generated, before the verifier runs.

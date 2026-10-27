@@ -62,6 +62,10 @@ final class VerifierMessages {
             + ", where a {{ in it could run in Vue or AngularJS; " + (foreign(s)
                 ? "insert the <title> or <textarea> outside <svg> and <math>"
                 : "check the markup before it");
+      case TEXT_IN_RCDATA:
+        return "this value is escaped as text, with comments that break {{, but a browser reads it " + reading(s)
+            + ", where the comments show as text; declare the <title> or <textarea> in HTML content, not inside"
+            + " <svg> or <math>, or check the markup before it";
       case ATTRIBUTE_NOT_IN_VALUE:
         return "a browser reads " + value + " " + reading(s) + ", not inside the double-quoted value of '"
             + f.attribute + "'; check the markup before the tag: a browser ended the tag, or started raw text, there";
