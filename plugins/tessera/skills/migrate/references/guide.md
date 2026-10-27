@@ -87,11 +87,14 @@ but inside `|...|` and `+` a `null` prints `null`.
 
 ## 2. Build setup
 
-The build needs JDK 8+ and Maven, and the application runs on Java 8+. The annotation processor
+The build needs JDK 8+ and Maven, and the application runs on Java 8+. Tessera's CI compiles
+applications with JDK 8 and JDK 21 javac; newer JDKs are expected to work but are not run in CI.
+The annotation processor
 (`tessera-compiler`) runs inside the application's javac, and it, `tessera-runtime` and the Spring
 starter are Java 8 class files; the generated template code compiles with `release` 8. On Java 8
 there are no records, so give the model classes `getX()` getters and `@TemplateView`. JDK 8's
-javac has no `--release`: there, set `<source>` and `<target>` 1.8 instead of `<release>` below.
+javac has no `--release`: there, set `<source>` and `<target>` 1.8 (a Boot 1.5 or 2.x parent sets
+them from `<java.version>`).
 
 The Spring integration supports **Spring Framework 4.3+ and Spring Boot 1.5+**, on Servlet 3.0+
 (Tomcat 7+). The test suite runs on Boot 1.5, 2.0, 2.7, 3.5 and 4.1 and on plain Spring MVC 4.3
@@ -119,7 +122,7 @@ keeps its version.
   <groupId>org.apache.maven.plugins</groupId>
   <artifactId>maven-compiler-plugin</artifactId>
   <configuration>
-    <release>21</release>
+    <!-- no <release> under a Spring Boot parent: it comes from <java.version> (see below) -->
     <parameters>true</parameters>
     <annotationProcessorPaths>
       <path>
@@ -160,6 +163,14 @@ and the full text is in a locale file (`messages_en.properties`), name that file
 (`.../i18n/messages_en`): it means basename `messages` with default locale `en`. Use the locale
 Spring falls back to (the system locale unless the app sets one). Facts about the build today:
 
+- Templates compile in the application's own javac run, at its release level, so set the level
+  in one place. Under a Spring Boot parent, leave `<release>` off the plugin and set
+  `<java.version>`: the Boot 3+ parent passes it as `maven.compiler.release`, and the Boot 1.5 and
+  2.x parents as `maven.compiler.source` and `target`. A `<release>` on the plugin overrides the
+  parent, so `<release>21</release>` in an app with `<java.version>17</java.version>` builds class
+  files, the templates included, that a Java 17 runtime cannot load. Without a Boot parent, set
+  `<release>` (or the property `maven.compiler.release`) to the Java version the application runs
+  on. The Boot 2+ parent already sets `<parameters>true</parameters>`.
 - `annotationProcessorPaths` needs `maven-compiler-plugin` 3.5+ (`<parameters>` needs 3.6.2+).
   Older parents pin older versions (Boot 1.5: 3.1); override it, for example with the property
   `<maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>` under a Boot parent, or

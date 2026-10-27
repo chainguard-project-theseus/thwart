@@ -19,8 +19,9 @@
     <maven.compiler.testRelease>21</maven.compiler.testRelease>
     <!-- JDK 8 home for Jdk8ProcessorTest; CI sets JDK8_HOME. -->
     <tessera.jdk8.home>${env.JDK8_HOME}</tessera.jdk8.home>
-    <!-- Test only (#233): Lombok on the processor path. 1.16.6 (espd's version) only for the JDK 8 javac test. -->
-    <lombok.version>1.18.36</lombok.version>
+    <!-- Test only (#233): Lombok on the processor path. 1.16.6 (espd's version) only for the JDK 8 javac test.
+         lombok.version must support the JDK the tests run on: raise LombokTest.LOMBOK_MAX_JDK with it (#433). -->
+    <lombok.version>1.18.48</lombok.version>
     <lombok16.version>1.16.6</lombok16.version>
   </properties>
 
