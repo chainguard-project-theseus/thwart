@@ -71,6 +71,8 @@ public final class ExpressionCompiler {
   private final TypeResolver resolver;
   private FunctionRegistry functions;
   private int lambdas;
+  /** Set while {@link #pathType} resolves a form path whose value is never read. */
+  private boolean pathOnly;
 
   public ExpressionCompiler(CompilerEnv env) {
     this.env = env;
@@ -91,6 +93,26 @@ public final class ExpressionCompiler {
       functions = new FunctionRegistry(env);
     }
     return functions;
+  }
+
+  /**
+   * The static type of the form field path {@code e} (property and index steps from a variable or a
+   * {@code *{...}} selection) for a field that is bound by name only and whose value is never read
+   * (#129): {@code t:errors}, {@code fields.*}, {@code t:field} on a file input. The steps resolve
+   * as in {@link #compile}, so a property is still only resolved on a view-safe type, but a step's
+   * own type may be one that is never view-safe, such as {@code MultipartFile} or
+   * {@code List<MultipartFile>}. Only the type is returned, never code, so nothing can read the
+   * value. Reports and returns null on error.
+   */
+  public TypeMirror pathType(Expr e, Scope scope) {
+    boolean was = pathOnly;
+    pathOnly = true;
+    try {
+      CompiledExpr c = compile(e, scope);
+      return c == null ? null : c.type();
+    } finally {
+      pathOnly = was;
+    }
   }
 
   /** Compiles {@code e} and checks its value may be output; reports and returns null on error. */
@@ -417,7 +439,7 @@ public final class ExpressionCompiler {
       result = normalize(et.getReturnType());
     }
     Optional<String> bad = safety.neverViewSafeReason(result);
-    if (bad.isPresent()) {
+    if (bad.isPresent() && !pathOnly) {
       return error(pos, "cannot read '" + name + "' of " + type + ": it returns " + result + ", and " + bad.get());
     }
     if (!nullSafe) {
@@ -574,7 +596,7 @@ public final class ExpressionCompiler {
       return error(i.pos(), "cannot index raw type " + t + ": declare its type arguments");
     }
     Optional<String> bad = safety.neverViewSafeReason(result);
-    if (bad.isPresent()) {
+    if (bad.isPresent() && !pathOnly) {
       return error(i.pos(), "cannot index " + t + ": " + bad.get());
     }
     return new CompiledExpr(code, result, i.pos());

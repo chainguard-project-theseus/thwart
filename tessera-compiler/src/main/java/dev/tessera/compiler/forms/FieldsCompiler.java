@@ -50,7 +50,7 @@ public final class FieldsCompiler {
     // A sub-path of one, fields.hasErrors(name.answer) (#239).
     Optional<Variable> root = args.size() == 1 ? FormPaths.fieldRoot(args.get(0), scope) : Optional.empty();
     if (root.isPresent()) {
-      FormPaths.FormField f = FormPaths.resolveSubPath(args.get(0), root.get(), scope, expressions, true);
+      FormPaths.FormField f = FormPaths.resolveSubPath(args.get(0), root.get(), scope, expressions, FormPaths.Check.PATH);
       return f == null ? null : new CompiledExpr(f.formsCall(function), type, pos);
     }
     Optional<Scope.Selection> selection = scope.selection();
@@ -67,13 +67,14 @@ public final class FieldsCompiler {
     }
     if (arg instanceof Expr.Literal && ((Expr.Literal) arg).value() instanceof String) {
       String path = (String) ((Expr.Literal) arg).value();
-      if (FormPaths.compile(path, arg.pos(), scope, expressions) == null) {
+      // Only the errors are read, never the value, so the field's type need not be view-safe (#129).
+      if (FormPaths.literalField(path, arg.pos(), scope, expressions, FormPaths.Check.PATH) == null) {
         return null;
       }
       return new CompiledExpr(FormPaths.literal(selection.get(), path, null).formsCall(function), type, pos);
     }
     if (arg != null && FormPaths.root(arg) instanceof Expr.SelectionVar) {
-      FormPaths.FormField resolved = FormPaths.resolve(arg, scope, expressions, true);
+      FormPaths.FormField resolved = FormPaths.resolve(arg, scope, expressions, FormPaths.Check.PATH);
       return resolved == null ? null : new CompiledExpr(resolved.formsCall(function), type, pos);
     }
     diagnostics.error(
