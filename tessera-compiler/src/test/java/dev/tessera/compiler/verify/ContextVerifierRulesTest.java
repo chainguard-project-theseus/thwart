@@ -29,8 +29,6 @@ class ContextVerifierRulesTest {
   @Test
   void textIsAcceptedWhereEveryValueIsCharacters() {
     accept(st("<p>"), text(), st("</p>"));
-    accept(st("<title>"), text(), st("</title>"));
-    accept(st("<textarea>"), text(), st("</textarea>"));
     accept(st("<table><tr><td>"), text(), st("</td></tr></table>"));
     accept(st("<table><caption>"), text());
     accept(st("<template>"), text());
@@ -82,8 +80,34 @@ class ContextVerifierRulesTest {
   @Test
   void rcdataEscapingOnlyInRcdata() {
     accept(st("<title>"), hole(Escaper.RCDATA, null), st("</title>"));
+    accept(st("<textarea>"), hole(Escaper.RCDATA, null), st("</textarea>"));
     reject(Problem.RCDATA_NOT_IN_RCDATA, st("<svg><title>"), hole(Escaper.RCDATA, null)); // #306 A7
     reject(Problem.RCDATA_NOT_IN_RCDATA, st("<p>"), hole(Escaper.RCDATA, null));
+  }
+
+  @Test
+  void theParserStateNamesTheTextEscaper() { // #378
+    // RCDATA takes rcdata, not text: the comments that break {{ would show in the title.
+    reject(Problem.TEXT_IN_RCDATA, st("<title>"), text(), st("</title>"));
+    reject(Problem.TEXT_IN_RCDATA, st("<textarea>"), text(), st("</textarea>"));
+    reject(Problem.TEXT_IN_RCDATA, st("<svg><foreignObject><title>"), text());
+    accept(st("<svg><foreignObject><title>"), hole(Escaper.RCDATA, null));
+    accept(st("<svg><title>"), text()); // an SVG <title> is foreign content: data, text
+    // Never-run raw text takes any escaper: none writes '<'.
+    accept(st("<xmp>"), text());
+    accept(st("<xmp>"), hole(Escaper.RCDATA, null));
+    accept(st("<p><noscript><title>"), hole(Escaper.RCDATA, null)); // raw text with scripting on, RCDATA without
+  }
+
+  @Test
+  void aHoleWhosePathsNameDifferentEscapersIsRejected() { // #378, the branch rule
+    reject(Problem.TEXT_IN_RCDATA, alt(seq(st("<p>")), seq(st("<title>"))), text());
+    reject(Problem.RCDATA_NOT_IN_RCDATA, alt(seq(st("<p>")), seq(st("<title>"))), hole(Escaper.RCDATA, null));
+    reject(Problem.JSON_NOT_IN_SCRIPT, alt(seq(st("<script>")), seq(st("<p>"))), json());
+    reject(Problem.TEXT_IN_SCRIPT, alt(seq(st("<script>")), seq(st("<p>"))), text());
+    Map<String, Seq> f = Map.of("f", seq(text()));
+    accept(f, st("<p>"), call("f"), st("</p>"));
+    reject(f, Problem.TEXT_IN_RCDATA, st("<p>"), call("f"), st("</p><title>"), call("f"), st("</title>"));
   }
 
   @Test
