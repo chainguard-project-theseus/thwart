@@ -28,8 +28,9 @@ import javax.lang.model.type.TypeMirror;
 /**
  * {@code t:field="name"} / {@code t:field="*{name}"} inside {@code t:object}: checks the property path at build time and emits {@code id}, {@code name} and the bound value ({@code ctx.forms().value(...)}) for input/select/textarea; checkbox and radio get {@code checked}; select options are marked {@code selected}.
  *
- * <p>{@code id} is only added when the element has none; checkboxes on non-boolean fields and
- * radios get no generated {@code id} (Thymeleaf numbers them per request). Password inputs never
+ * <p>{@code id} is only added when the element has none; checkboxes and radios get a numbered
+ * {@code id} ({@code roles1}, {@code roles2}, ..., counted per render by
+ * {@code RenderContext.sequenceId}), as in Thymeleaf. Password inputs never
  * echo the bound value. A checkbox on a non-boolean field, a radio and an option are checked
  * (selected) when their value matches the bound value or, for a Collection, array or Map, one of
  * its elements, as in Thymeleaf. Checkboxes get Spring's {@code _name} hidden marker so an
@@ -121,7 +122,7 @@ public final class FieldProcessor implements AttributeProcessor {
     switch (type) {
       case "checkbox":
         if (isBoolean(current.type())) {
-          nameAndId(plan, attr, name, id);
+          nameAndId(plan, attr, name, sequenceId(id));
           if (!plan.attribute("value").isPresent()) {
             plan.setAttribute("value", "\"true\"", attr.pos());
           }
@@ -161,7 +162,7 @@ public final class FieldProcessor implements AttributeProcessor {
           .error(attr.pos(), "t:field on a radio button or a non-boolean checkbox needs a value attribute (or t:value)");
       return false;
     }
-    nameAndId(plan, attr, field.path(), null);
+    nameAndId(plan, attr, field.path(), sequenceId(field.id()));
     plan.setAttribute(
         "checked",
         "ctx.forms().selected("
@@ -204,6 +205,15 @@ public final class FieldProcessor implements AttributeProcessor {
       plan.afterStartTag(
           Emitted.opt(Skeleton.OptKind.CHECKBOX_MARKER, attr.pos(), "if (" + local + " == null) { ", marker, " }"));
     }
+  }
+
+  /**
+   * Java code for {@code id} (Java code) numbered per render, as Thymeleaf's
+   * {@code AbstractSpringFieldTagProcessor.computeId} numbers checkbox and radio ids. Evaluated only
+   * when the element has no {@code id}, so an explicit id takes no number, as in Thymeleaf.
+   */
+  private static String sequenceId(String id) {
+    return "ctx.sequenceId(" + id + ")";
   }
 
   /** {@code name} and {@code id} are Java code (Strings); a null {@code id} adds no id. */
