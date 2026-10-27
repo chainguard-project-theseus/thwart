@@ -713,8 +713,8 @@ template the compiler verified as a flow partial: one whose output can't close o
 around the place it is inserted. A `div`, `section`, `span` or `a` partial, text, lists and
 tables inside it are fine. Not accepted: a whole page; a partial whose root is an `li`, `dd`,
 `dt` or table row or cell, or that has one outside its own `ul`, `dl` or `table` (even inside a
-`div`); a partial with a `form`; and one with a formatting element such as `<b>` inside another
-of the same name. Anything else throws an `IllegalArgumentException` naming the template. The fix
+`div`); and a partial with a `form`. Anything else throws an `IllegalArgumentException` naming
+the template. The fix
 is to wrap the root in a `<div>` (list items in their own `<ul>`, rows in their own `<table>`),
 move the `form` out, or render the page through a view. For markup used as data rather than
 inserted into a page (mailed, or written into an attribute), `template.renderToString(ctx)` gives

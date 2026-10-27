@@ -155,8 +155,8 @@ class ContentKindsTest {
     Seq form = seq(st("<div><form>"), text(), st("</form></div>"));
     assertEquals(List.of(), problems(check(Map.of(), form)));
     assertTrue(whyNot(form).contains("<form>"), whyNot(form));
-    Seq bb = seq(st("<i><em><i>"), text(), st("</i></em></i>"));
-    assertTrue(whyNot(bb).contains("<i> inside another <i>"), whyNot(bb));
+    // A formatting element inside one of its own name is FLOW content (#448, FlowPartialTest).
+    assertNull(whyNot(seq(st("<i><em><i>"), text(), st("</i></em></i>"))));
     assertNull(whyNot(seq(st("<i><em>"), text(), st("</em></i><i>x</i><template><form></form></template>"))));
   }
 
