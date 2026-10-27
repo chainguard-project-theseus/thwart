@@ -1004,6 +1004,13 @@ public record Address(String street) {}
   (`<input type="hidden" name="_roles" value="1" />`), so deselecting every option binds an empty
   collection, as in Thymeleaf. A static `selected` on such an option is replaced, as in Thymeleaf;
   a `t:selected` is kept.
+- A field whose type is not view-safe, such as a `MultipartFile` or `List<MultipartFile>`, can
+  be bound wherever its value is never read: `t:field` on `<input type="file">` (which writes
+  only `id` and `name`, as Thymeleaf's does) or `type="password"`, `t:errors`, `t:errorclass` and
+  `fields.hasErrors(...)`/`fields.errors(...)`. The path is still checked, and every step before
+  the last must be view-safe (`'file.originalFilename'` is rejected). Anything that reads the
+  value is rejected: `t:field` on any other input, a `<select>` or a `<textarea>`, `t:value`,
+  `[[*{file}]]`, or passing the field to a `Field` parameter.
 - Checkboxes and radios get a numbered `id`, as in Thymeleaf and Spring's JSP tags: the field
   name (without `[` and `]`) and a counter per name that starts at 1 for every render, so the
   radios of `t:field="*{roles}"` are `roles1`, `roles2`, … in page order (a boolean checkbox
@@ -2259,9 +2266,9 @@ Gaps in Tessera today, each with what to do until it is fixed.
   parameter and property types; declare `List`/`Map`. A `Boolean` getter named `getIsX()` (Lombok
   on a `Boolean isX` field) is reachable only as `x.getIsX()`. `java.util.Date`/`Calendar` are not
   view-safe.
-- **Forms.** No map keys in paths (`map[key]`), no `t:field` on fields whose
-  type is not view-safe (`MultipartFile`: write the `name` attribute by hand), and `Field`
-  fragments cannot read the value.
+- **Forms.** No map keys in paths (`map[key]`), no `t:field` that writes the value of a field
+  whose type is not view-safe (a file input is fine, section 4.7), and `Field` fragments cannot
+  read the value.
 - **CSRF and other ways a form posts elsewhere.** The CSRF input is left out of a form whose
   `action` is on another origin, a submit button's `formaction` must be same-origin where it
   may submit a form with the token, and so must every `<base href>` (section 4.7). Not seen: a static htmx request attribute such
