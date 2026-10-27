@@ -176,14 +176,24 @@ class SmokeTest {
   void authenticationIsVisibleToTemplates() throws Exception {
     mvc.perform(get("/page"))
         .andExpect(content().string(containsString("<p id=\"user\"></p>")))
-        .andExpect(content().string(not(containsString("id=\"admin\""))));
+        .andExpect(content().string(not(containsString("id=\"admin\""))))
+        .andExpect(content().string(not(containsString("perm\""))));
     SecurityContextHolder.getContext()
         .setAuthentication(
             new UsernamePasswordAuthenticationToken(
                 "alice", "pw", AuthorityUtils.createAuthorityList("ROLE_ADMIN")));
     mvc.perform(get("/page"))
         .andExpect(content().string(containsString("<p id=\"user\">alice</p>")))
-        .andExpect(content().string(containsString("<p id=\"admin\">admin</p>")));
+        .andExpect(content().string(containsString("<p id=\"admin\">admin</p>")))
+        .andExpect(content().string(not(containsString("perm\""))));
+    SecurityContextHolder.getContext()
+        .setAuthentication(
+            new UsernamePasswordAuthenticationToken(
+                "bob", "pw", AuthorityUtils.createAuthorityList("PERM_EDIT")));
+    mvc.perform(get("/page"))
+        .andExpect(content().string(not(containsString("id=\"admin\""))))
+        .andExpect(content().string(containsString("<p id=\"perm\">perm</p>")))
+        .andExpect(content().string(containsString("<p id=\"anyperm\">anyperm</p>")));
   }
 
   /**
