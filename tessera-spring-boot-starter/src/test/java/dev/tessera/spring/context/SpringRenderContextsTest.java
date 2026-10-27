@@ -12,6 +12,7 @@ import dev.tessera.spring.CspNonce;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -34,6 +35,7 @@ class SpringRenderContextsTest {
     private String lastName;
     private int age;
     private Address address = new Address();
+    private List<String> roles;
 
     public String getLastName() {
       return lastName;
@@ -57,6 +59,14 @@ class SpringRenderContextsTest {
 
     public void setAddress(Address address) {
       this.address = address;
+    }
+
+    public List<String> getRoles() {
+      return roles;
+    }
+
+    public void setRoles(List<String> roles) {
+      this.roles = roles;
     }
   }
 
@@ -203,6 +213,38 @@ class SpringRenderContextsTest {
     Forms forms = create(bind(map("age", "abc"))).forms();
     assertNull(forms.selectedValue("owner", "lastName", null));
     assertEquals("abc", forms.selectedValue("owner", "age", null));
+  }
+
+  @Test
+  void selectedComparesLikeSelectedValueComparator() {
+    // #126: a Collection value selects the candidates it contains (checkboxes, radios and
+    // <select multiple> bound to it), with or without a BindingResult; null selects nothing.
+    MutablePropertyValues values = new MutablePropertyValues();
+    values.add("roles", new String[] {"ROLE_A", "ROLE_B"});
+    values.add("age", "42");
+    DataBinder binder = new DataBinder(new Owner(), "owner");
+    binder.bind(values);
+    Forms forms = create(new HashMap<>(binder.getBindingResult().getModel())).forms();
+    assertTrue(forms.selected("owner", "roles", null, "ROLE_A"));
+    assertTrue(forms.selected("owner", "roles", null, "ROLE_B"));
+    assertFalse(forms.selected("owner", "roles", null, "ROLE_C"));
+    assertFalse(forms.selected("owner", "roles", null, "ROLE"));
+    assertTrue(forms.selected("owner", "age", 0, "42"));
+    assertFalse(forms.selected("owner", "age", 0, "4"));
+    assertFalse(forms.selected("owner", "lastName", null, ""));
+    // After a failed bind the rejected value matches, and so does the raw property value (as in
+    // SelectedValueComparator, which also compares BindStatus.getActualValue()).
+    Forms rejected = create(bind(map("age", "abc"))).forms();
+    assertTrue(rejected.selected("owner", "age", 0, "abc"));
+    assertTrue(rejected.selected("owner", "age", 0, "0"));
+    assertFalse(rejected.selected("owner", "age", 0, "1"));
+
+    Forms unbound = create(Collections.singletonMap("owner", new Owner())).forms();
+    assertTrue(unbound.selected("owner", "roles", Arrays.asList("ROLE_A", "ROLE_B"), "ROLE_B"));
+    assertTrue(unbound.selected("owner", "roles", new String[] {"ROLE_A"}, "ROLE_A"));
+    assertFalse(unbound.selected("owner", "roles", Arrays.asList("ROLE_A"), "ROLE_B"));
+    assertFalse(unbound.selected("owner", "roles", null, ""));
+    assertTrue(unbound.selected("owner", "age", 42, "42"));
   }
 
   @Test
