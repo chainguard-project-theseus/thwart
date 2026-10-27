@@ -588,7 +588,7 @@ class MigratorTest {
       assertEquals(src, convert(src), body);
       assertMessages(src, "1: `` `[[${x}]]` `` in a script is a template literal, and `[[...]]` inside it is a"
           + " build error in Tessera (it writes a JSON value with its own quotes); drop the backticks, or for a"
-          + " tagged template keep them and write ``tag`${[[...]]}` ``");
+          + " tagged template declare the value above the code (`var v = [[...]];`) and write ``tag`${v}` `` after it");
     }
     // A quoted inline inside template code is still unquoted.
     String nested = script("", "var a = `${\"[[${x}]]\"}`;");

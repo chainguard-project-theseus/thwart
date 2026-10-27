@@ -254,7 +254,7 @@ final class ConversionRules {
           + " string for a non-null value)";
   /** {@code %s} is the template literal as a Markdown code span. */
   static final String SCRIPT_INLINE_TEMPLATE_LITERAL_MESSAGE =
-      "%s in a script is a template literal, and `[[...]]` inside it is a build error in Tessera (it writes a JSON value with its own quotes); drop the backticks, or for a tagged template keep them and write ``tag`${[[...]]}` ``";
+      "%s in a script is a template literal, and `[[...]]` inside it is a build error in Tessera (it writes a JSON value with its own quotes); drop the backticks, or for a tagged template declare the value above the code (`var v = [[...]];`) and write ``tag`${v}` `` after it";
   /** {@code %s} is the inline (its own Markdown code span). */
   static final String SCRIPT_INLINE_IN_COMMENT_MESSAGE =
       "`%s` inside a JavaScript comment is a build error in Tessera (its value would be written inside the comment and the page would never use it); move it out of the comment: Thymeleaf's natural template `var a = /*[[${x}]]*/ 'd';` becomes `var a = [[${x}]];`";
