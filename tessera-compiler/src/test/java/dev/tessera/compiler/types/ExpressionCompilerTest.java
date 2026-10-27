@@ -89,6 +89,26 @@ class ExpressionCompilerTest {
   }
 
   @Test
+  void isPropertyReadsGetIsGetterAsSpelDoes() {
+    // #130: Lombok generates getIsApproved() for a Boolean isApproved field; SpEL, OGNL and
+    // JavaBeans resolve the property x.isApproved to it.
+    TypesHarness h = users();
+    assertEquals(true, h.eval(prop(v("a"), "isApproved")));
+    assertEquals("a.getIsApproved()", h.compile(prop(v("a"), "isApproved")).code());
+    assertEquals(true, h.eval(safe(v("a"), "isApproved")));
+    assertEquals(true, h.eval(call(v("a"), "getIsApproved")));
+    // The property prefers getIsPrimary() as SpEL does; the call isPrimary() is exactly that method.
+    assertEquals("getIsPrimary", h.eval(prop(v("a"), "isPrimary")));
+    assertEquals(true, h.eval(call(v("a"), "isPrimary")));
+    assertEquals(true, h.eval(prop(v("a"), "primary")));
+    // isX() still resolves as before when there is no getIsX().
+    assertEquals(true, h.eval(prop(v("a"), "isActive")));
+    // The call form does not fall back to getIsApproved(), and the deny-list still applies.
+    h.compile(call(v("a"), "isApproved")).assertError("'isApproved' is not a property of com.example.Account");
+    h.compile(prop(v("a"), "isRunning")).assertError("returns java.lang.Thread", "never view-safe");
+  }
+
+  @Test
   void arbitraryMethodsAreRejected() {
     TypesHarness h = users();
     h.compile(call(v("u"), "delete")).assertError("'delete' is not a property of com.example.User");
