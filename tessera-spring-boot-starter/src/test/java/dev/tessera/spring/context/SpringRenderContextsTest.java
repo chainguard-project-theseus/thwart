@@ -271,6 +271,20 @@ class SpringRenderContextsTest {
         Arrays.asList("ungültig", "Last name is required", "Owner already exists"),
         forms.errors("owner", "*"));
     assertTrue(forms.hasErrors("owner", "*"));
+    assertEquals(Arrays.asList("Owner already exists"), forms.errors("owner", "global"));
+    assertTrue(forms.hasErrors("owner", "global"));
+  }
+
+  @Test
+  void fieldErrorsAreNotGlobalErrors() {
+    Map<String, Object> model = bind(map("lastName", ""));
+    BindingResult result = (BindingResult) model.get(BindingResult.MODEL_KEY_PREFIX + "owner");
+    result.rejectValue("lastName", "required", "Last name is required");
+    Forms forms = create(model).forms();
+    assertTrue(forms.hasErrors("owner", "*"));
+    assertEquals(Collections.emptyList(), forms.errors("owner", "global"));
+    assertFalse(forms.hasErrors("owner", "global"));
+    assertEquals(Collections.emptyList(), create(bind(map("age", "abc"))).forms().errors("other", "global"));
   }
 
   @Test

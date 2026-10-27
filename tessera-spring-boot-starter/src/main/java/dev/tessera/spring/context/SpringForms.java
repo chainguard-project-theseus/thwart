@@ -146,7 +146,10 @@ final class SpringForms implements Forms {
     if (!hasBindingResult(objectName)) {
       return Collections.emptyList();
     }
-    return Arrays.asList(bindStatus(objectName + "." + path).getErrorMessages());
+    // "global": the BindStatus of the object name alone holds its global errors (Thymeleaf's
+    // #fields.globalErrors(), th:errors="*{global}").
+    String bindPath = path.equals("global") ? objectName : objectName + "." + path;
+    return Arrays.asList(bindStatus(bindPath).getErrorMessages());
   }
 
   /**

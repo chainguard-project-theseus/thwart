@@ -74,6 +74,27 @@ class FieldsCompilerTest {
   }
 
   @Test
+  void globalErrors() {
+    List<Result> r =
+        compile(
+            true,
+            List.of(
+                fields("hasErrors", lit("global")),
+                fields("errors", lit("global")),
+                fields("hasErrors", new Expr.SelectionVar("global", P))));
+    assertEquals(new Result("ctx.forms().hasErrors(\"owner\", \"global\")", "boolean", List.of()), r.get(0));
+    assertEquals(
+        new Result("ctx.forms().errors(\"owner\", \"global\")", "java.util.List<java.lang.String>", List.of()),
+        r.get(1));
+    // Only the literal 'global' names the object's errors; *{global} is a property path.
+    assertTrue(
+        String.join("; ", r.get(2).errors()).contains("'global' is not a property of com.example.Owner"),
+        r.get(2).toString());
+    Result outside = compile(false, List.of(fields("hasErrors", lit("global")))).getFirst();
+    assertTrue(String.join("; ", outside.errors()).contains("can only be used inside t:object"), outside.toString());
+  }
+
+  @Test
   void negative() {
     List<Result> r =
         compile(
