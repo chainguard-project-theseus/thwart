@@ -268,6 +268,14 @@ public final class ExpressionCompiler {
     return true;
   }
 
+  /**
+   * {@code type} seen as the container interface it implements if it is a {@code java.util}
+   * implementation such as {@code ArrayList} or {@code TreeMap} (#135), else {@code type}.
+   */
+  public TypeMirror containerView(TypeMirror type) {
+    return safety.containerView(type);
+  }
+
   /** Why {@code type} is never view-safe (the deny-list in {@link ViewSafety}), or empty. */
   public Optional<String> neverViewSafeReason(TypeMirror type) {
     return safety.neverViewSafeReason(type);
@@ -387,14 +395,16 @@ public final class ExpressionCompiler {
             "cannot read '" + name + "': " + describe(type) + " is not view-safe"
                 + badTypeArgument(type, " (make it a record or annotate it @TemplateView)"));
       }
-      ExecutableElement accessor = type.getKind() == TypeKind.DECLARED ? findAccessor((DeclaredType) type, name, call) : null;
+      // An ArrayList or TreeMap is read as its List or Map: only the interface's getters (#135).
+      TypeMirror owner = safety.containerView(type);
+      ExecutableElement accessor = owner.getKind() == TypeKind.DECLARED ? findAccessor((DeclaredType) owner, name, call) : null;
       if (accessor == null) {
         return error(
             pos,
             "'" + name + "' is not a property of " + type + ": templates can read record components, public"
                 + " getX()/isX() getters and built-ins (size, isEmpty, length, first, last)");
       }
-      ExecutableType et = (ExecutableType) types().asMemberOf((DeclaredType) type, accessor);
+      ExecutableType et = (ExecutableType) types().asMemberOf((DeclaredType) owner, accessor);
       suffix = "." + accessor.getSimpleName() + "()";
       result = normalize(et.getReturnType());
     }
