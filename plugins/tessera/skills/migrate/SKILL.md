@@ -76,6 +76,11 @@ The old application is the specification. Work the way an expert would, keeping 
    would merge nothing from the removed tag and reports the rest; when a removed `<body>` carries
    attributes, such as a class, move them to the layout's `<body>`.
 
+   A `null` link path variable fails the render where Thymeleaf wrote an empty segment, and an
+   empty one is rejected too: guard a link whose path variable can be `null` with `t:if`.
+   `tessera-migrate` reports each link with a path variable that is not a literal (guide section 3,
+   step 4).
+
    Stored HTML that the old page printed raw (`th:utext`, `[(...)]`, JSP `${...}`, Velocity)
    stays a `String` and goes through `t:utext="html.sanitize(x)"`, `html.sanitizeRich(x)` for
    editor or Markdown output, or the app's own `HtmlPolicy` behind a `@TemplateFunctions`
