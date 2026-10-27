@@ -448,7 +448,13 @@ chain.
 **View-safe:** primitives and their boxes, `String`/`CharSequence`, enums, records, `java.time`
 values, `BigDecimal`, `BigInteger`, `Optional`, `Iterable`, `Collection`, `List`, `Set`, `Map`,
 `Map.Entry` and arrays of view-safe types, `LoopStatus`, `SafeHtml`, `TrustedUrl`, and classes
-annotated `@TemplateView`. `Fragment` and `Field` are allowed as fragment parameters.
+annotated `@TemplateView`. `Fragment` and `Field` are allowed as fragment parameters. A public
+`java.util` type that implements `List`, `Set`, `Map`, `Map.Entry` or `Collection` (`ArrayList`,
+`LinkedHashMap`, `TreeMap`, `SortedMap`, `TreeSet`, `ArrayDeque`, ...) is accepted as that
+interface: a template reads it exactly as it reads a `List` or `Map`, and the class's own methods
+(`ensureCapacity`, `pollFirstEntry`, `ArrayDeque.getFirst()`) are not reachable. Other packages'
+collections (`java.util.concurrent`, Guava) and your own subclasses of them are not view-safe:
+declare the getter's return type as the interface.
 
 **Never view-safe**, even if annotated: `Object` and its methods, `Class`, reflection, threads,
 processes, `System`, files, scripting, servlet types, and Spring context, bean, environment and

@@ -30,7 +30,8 @@ import javax.lang.model.type.WildcardType;
  *
  * <p>View-safe: primitives and boxes, String/CharSequence, enums, records, {@code java.time}
  * value types, BigDecimal/BigInteger, Optional/List/Set/Collection/Iterable/Map/Map.Entry of
- * view-safe types, arrays of view-safe types, {@code LoopStatus}, {@code SafeHtml}, {@code TrustedUrl}, {@code CssValue},
+ * view-safe types (and public {@code java.util} types that implement one of them, seen as that
+ * interface: {@link #containerView}), arrays of view-safe types, {@code LoopStatus}, {@code SafeHtml}, {@code TrustedUrl}, {@code CssValue},
  * and classes annotated {@code @TemplateView}.
  *
  * <p>Never view-safe, even if annotated or registered: {@code Object} (as a declared type and
@@ -110,6 +111,13 @@ final class ViewSafety {
           "java.util.Set",
           "java.util.Map",
           "java.util.Map.Entry");
+
+  /**
+   * The interfaces a public {@code java.util} type is seen as ({@link #containerView}), most
+   * specific first. Not Iterable: {@code ServiceLoader} is one, and iterating it loads classes.
+   */
+  private static final List<String> CONTAINER_VIEWS =
+      Backports.listOf("java.util.List", "java.util.Set", "java.util.Map", "java.util.Map.Entry", "java.util.Collection");
 
   /**
    * {@code java.time} types that are not values: Clock/InstantSource read ambient state, and
@@ -197,6 +205,50 @@ final class ViewSafety {
   }
 
   /**
+   * {@code type} seen as the container interface it implements, if it is a public {@code java.util}
+   * type other than those interfaces (#135): {@code ArrayList<E>} and {@code LinkedList<E>} as
+   * {@code List<E>}, {@code TreeSet<E>} as {@code Set<E>}, {@code TreeMap<K, V>} and
+   * {@code SortedMap<K, V>} as {@code Map<K, V>}, {@code ArrayDeque<E>} as {@code Collection<E>}.
+   * Templates then see only the interface's members, never the class's own methods (such as
+   * {@code ArrayDeque.getFirst()}). Otherwise {@code type} itself.
+   */
+  TypeMirror containerView(TypeMirror type) {
+    if (type.getKind() != TypeKind.DECLARED) {
+      return type;
+    }
+    TypeElement te = (TypeElement) ((DeclaredType) type).asElement();
+    if (CONTAINERS.contains(te.getQualifiedName().toString())
+        || !isPublic(te)
+        || !env.elements().getPackageOf(te).getQualifiedName().contentEquals("java.util")) {
+      return type;
+    }
+    for (String view : CONTAINER_VIEWS) {
+      TypeMirror s = supertype(type, view);
+      if (s != null) {
+        return s;
+      }
+    }
+    return type;
+  }
+
+  /** {@code type}'s supertype named {@code name}, with its type arguments, or null. */
+  private TypeMirror supertype(TypeMirror type, String name) {
+    Deque<TypeMirror> work = new ArrayDeque<>();
+    work.add(type);
+    while (!work.isEmpty()) {
+      TypeMirror t = work.poll();
+      if (t.getKind() != TypeKind.DECLARED) {
+        continue;
+      }
+      if (((TypeElement) ((DeclaredType) t).asElement()).getQualifiedName().contentEquals(name)) {
+        return t;
+      }
+      work.addAll(env.types().directSupertypes(t));
+    }
+    return null;
+  }
+
+  /**
    * Why the parameterized container {@code type} (e.g. {@code Map.Entry<K, V>}) is not view-safe,
    * naming the first type argument that isn't (searched depth-first through nested containers and
    * arrays): {@code "its type argument com.example.Hidden is not public, not a record and not
@@ -207,7 +259,7 @@ final class ViewSafety {
     if (type.getKind() != TypeKind.DECLARED) {
       return Optional.empty();
     }
-    DeclaredType dt = (DeclaredType) type;
+    DeclaredType dt = (DeclaredType) containerView(type);
     if (!CONTAINERS.contains(((TypeElement) dt.asElement()).getQualifiedName().toString())) {
       return Optional.empty();
     }
@@ -246,11 +298,12 @@ final class ViewSafety {
         if (never.isPresent() && deniedSelfOrSupertype(dt) != null) {
           return never.get(); // the type itself is deny-listed
         }
-        if (CONTAINERS.contains(te.getQualifiedName().toString())) {
-          if (dt.getTypeArguments().isEmpty()) {
+        DeclaredType view = (DeclaredType) containerView(dt);
+        if (CONTAINERS.contains(((TypeElement) view.asElement()).getQualifiedName().toString())) {
+          if (view.getTypeArguments().isEmpty()) {
             return type + " is raw: declare its type arguments";
           }
-          for (TypeMirror arg : dt.getTypeArguments()) {
+          for (TypeMirror arg : view.getTypeArguments()) {
             String why = whyNotAllowed(arg);
             if (why != null) {
               return why;
@@ -352,7 +405,8 @@ final class ViewSafety {
       }
       return true;
     }
-    return false;
+    TypeMirror view = containerView(type);
+    return view != type && allowed(view);
   }
 
   /**
