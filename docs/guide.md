@@ -1199,7 +1199,9 @@ public record Espd(Criterion exclusion, List<Criterion> selection) {}
 
 With Spring (Boot's auto-configuration, or `TesseraConfiguration` without Boot), `return
 "owners/list";` renders `templates/owners/list.html` from the model. The name
-must match exactly; other names fall through to other resolvers. As with Spring's `AbstractView`
+must match exactly, except that one leading `/` is dropped (`"/owners/list"`, which Thymeleaf and
+FreeMarker also accept); other names, including `page :: fragment`, fall through to other
+resolvers (section 7). As with Spring's `AbstractView`
 and Thymeleaf, the handler's `@PathVariable` values are added under the model (a model attribute of
 the same name wins), so `@GetMapping("/owners/{ownerId}")` fills `t:params="Long ownerId"`; only
 declared params are read, and an undeclared path variable is never visible. A path variable holds
@@ -2133,9 +2135,9 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **Messages.** `-Atessera.messages` checks the basenames it lists, read from the file system. Keys
   that only a jar or a database-backed `MessageSource` provides fail the build; give those pages a
   `@TemplateFunction` that looks them up, and accept that they are not checked.
-- **View resolution.** Names are matched exactly: a leading `/` or a `page :: fragment` view name
-  falls through to other resolvers. Return the plain template name (make the fragment its own
-  template if needed).
+- **View resolution.** Names are matched exactly, less one leading `/`. A `page :: fragment` view
+  name (an htmx partial response) falls through to other resolvers: make the fragment its own
+  template and return its name.
 - **Mixed engines.** During a migration the old engine renders every view Tessera doesn't know
   (section 2), so an app part-way through is protected only on the ported views; finish by
   removing the engine (section 3, step 6).

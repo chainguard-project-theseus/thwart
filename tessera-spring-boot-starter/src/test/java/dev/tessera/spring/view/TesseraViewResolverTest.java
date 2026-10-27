@@ -29,6 +29,14 @@ class TesseraViewResolverTest {
         .isEqualTo("text/html;charset=UTF-8");
   }
 
+  @Test
+  void oneLeadingSlashIsDropped() {
+    // As with Thymeleaf's and FreeMarker's prefix + name (#131).
+    assertThat(resolver.resolveViewName("/greeting", Locale.ROOT)).isInstanceOf(TesseraView.class);
+    assertThat(resolver.resolveViewName("/owners/details", Locale.ROOT))
+        .isInstanceOf(TesseraView.class);
+  }
+
   @ParameterizedTest
   @ValueSource(
       strings = {
@@ -47,7 +55,15 @@ class TesseraViewResolverTest {
         "greeting.html",
         "owners/../greeting",
         "owners/./details",
-        "/owners/details",
+        "/",
+        "//greeting",
+        "//owners/details",
+        "/./greeting",
+        "/../greeting",
+        "/ greeting",
+        "/greeting/",
+        "/greeting :: frag",
+        "\\greeting",
         "redirect:greeting",
         "forward:greeting",
         "greeting\u0000"

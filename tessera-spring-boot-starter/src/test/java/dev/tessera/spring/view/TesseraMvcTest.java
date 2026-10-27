@@ -65,6 +65,13 @@ class TesseraMvcTest {
   }
 
   @Test
+  void leadingSlashViewNameRenders() throws Exception {
+    mvc.perform(get("/slash"))
+        .andExpect(status().isOk())
+        .andExpect(content().string("<h1>details</h1>"));
+  }
+
+  @Test
   void templateReturnValueRenders() throws Exception {
     mvc.perform(get("/typed").param("name", "Grace"))
         .andExpect(status().isOk())
@@ -183,6 +190,11 @@ class TesseraMvcTest {
     @GetMapping("/view")
     String view(@RequestParam("v") String v) {
       return v;
+    }
+
+    @GetMapping("/slash")
+    String slash() {
+      return "/owners/details"; // as Thymeleaf and FreeMarker accept (#131)
     }
 
     @GetMapping("/typed")
