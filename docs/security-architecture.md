@@ -725,6 +725,7 @@ A new parser-differential or composition report becomes a verifier test case, no
 in `HtmlParser`, `MarkupTokenizer` or `Contexts` (handoff.md). If browsers split on it, it also
 becomes a coarse exclusion (§11.4). For families A and B this replaces §7's "fix it by shrinking
 the profile". #378 makes the parser state name each hole's escaper: a hole written with another
-escaper is rejected, also when only some of its paths reach that state. The name-based tables
-stay: Tessera's tree needs them before a skeleton exists, the profile's messages use them, and
-the escaper is chosen when the code is generated, before the verifier runs.
+escaper is rejected, also when only some of its paths reach that state. For element text the
+verifier chooses `text` or `rcdata` itself, and the processor sets it in the generated code
+between verifying and writing. The raw-text name tables stay: Tessera's tree needs them before a
+skeleton exists, and the profile's messages use them.

@@ -459,7 +459,7 @@ public final class TemplateGenerator implements CodegenContext {
     if (n instanceof Text) {
       Text t = (Text) n;
       if (rawTextHost != null
-          && (t.context() == OutputContext.TEXT || t.context() == OutputContext.RCDATA)) {
+          && t.context() == OutputContext.TEXT) {
         int unescaped = TextInlining.firstUnescaped(t.raw());
         if (unescaped >= 0) {
           runtimeHtmlInRawText(t.pos().advance(t.raw(), unescaped), "[(...)]", rawTextHost);

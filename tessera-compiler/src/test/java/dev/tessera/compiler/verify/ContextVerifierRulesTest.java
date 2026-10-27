@@ -88,15 +88,22 @@ class ContextVerifierRulesTest {
   @Test
   void theParserStateNamesTheTextEscaper() { // #378
     // RCDATA takes rcdata, not text: the comments that break {{ would show in the title.
-    reject(Problem.TEXT_IN_RCDATA, st("<title>"), text(), st("</title>"));
-    reject(Problem.TEXT_IN_RCDATA, st("<textarea>"), text(), st("</textarea>"));
-    reject(Problem.TEXT_IN_RCDATA, st("<svg><foreignObject><title>"), text());
+    assertEquals(Escaper.RCDATA, textEscaper(st("<title>"), text(), st("</title>")));
+    assertEquals(Escaper.RCDATA, textEscaper(st("<textarea>"), text(), st("</textarea>")));
+    assertEquals(Escaper.RCDATA, textEscaper(st("<svg><foreignObject><title>"), text()));
+    assertEquals(Escaper.RCDATA, textEscaper(st("<math><mi><textarea>"), text()));
+    assertEquals(Escaper.RCDATA, textEscaper(st("<svg></svg><textarea>"), text()));
+    assertEquals(Escaper.TEXT, textEscaper(st("<p>"), text(), st("</p>")));
+    assertEquals(Escaper.TEXT, textEscaper(st("<svg><title>"), text())); // foreign content: data, text
+    assertEquals(Escaper.TEXT, textEscaper(st("<svg><textarea>"), text()));
     accept(st("<svg><foreignObject><title>"), hole(Escaper.RCDATA, null));
-    accept(st("<svg><title>"), text()); // an SVG <title> is foreign content: data, text
-    // Never-run raw text takes any escaper: none writes '<'.
+    accept(st("<svg><title>"), text());
+    // Never-run raw text takes any escaper: none writes '<'. Element text there is text.
     accept(st("<xmp>"), text());
+    assertEquals(Escaper.TEXT, textEscaper(st("<xmp>"), text()));
     accept(st("<xmp>"), hole(Escaper.RCDATA, null));
     accept(st("<p><noscript><title>"), hole(Escaper.RCDATA, null)); // raw text with scripting on, RCDATA without
+    assertEquals(Escaper.RCDATA, textEscaper(st("<p><noscript><title>"), text()));
   }
 
   @Test
@@ -108,6 +115,10 @@ class ContextVerifierRulesTest {
     Map<String, Seq> f = Map.of("f", seq(text()));
     accept(f, st("<p>"), call("f"), st("</p>"));
     reject(f, Problem.TEXT_IN_RCDATA, st("<p>"), call("f"), st("</p><title>"), call("f"), st("</title>"));
+    // Element text takes the escaper of the first state that names one; the other is rejected.
+    reject(Problem.RCDATA_NOT_IN_RCDATA, alt(seq(st("<title>")), seq(st("<p>"))), text());
+    reject(f, Problem.RCDATA_NOT_IN_RCDATA, st("<title>"), call("f"), st("</title><p>"), call("f"), st("</p>"));
+    accept(f, st("<title>"), call("f"), st("</title><textarea>"), call("f"), st("</textarea>"));
   }
 
   @Test
@@ -527,6 +538,16 @@ class ContextVerifierRulesTest {
 
   private static Seq seq(Node... nodes) {
     return new Seq(List.of(nodes));
+  }
+
+  /** The escaper the verifier names for the only element-text hole in {@code nodes}, which it accepts. */
+  private static Escaper textEscaper(Node... nodes) {
+    Skeleton.TemplateSkeleton t = new Skeleton.TemplateSkeleton("t", seq(nodes), Map.of());
+    List<String> errors = new ArrayList<>();
+    Map<Skeleton.Hole, Escaper> escapers = ContextVerifier.verify(Map.of("t", t), d -> errors.add(d.toString()));
+    assertEquals(List.of(), errors, seq(nodes).toString());
+    assertEquals(1, escapers.size(), seq(nodes).toString());
+    return escapers.values().iterator().next();
   }
 
   private static List<Finding> check(Seq body) {

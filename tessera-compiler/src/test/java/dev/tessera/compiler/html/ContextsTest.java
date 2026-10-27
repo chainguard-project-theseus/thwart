@@ -434,8 +434,9 @@ class ContextsTest {
     assertEquals(OutputContext.SCRIPT, Contexts.text(element("Script", "src", "/a.js")));
     assertEquals(OutputContext.STYLE, Contexts.text(element("style")));
     assertEquals(OutputContext.STYLE, Contexts.text(element("STYLE")));
-    assertEquals(OutputContext.RCDATA, Contexts.text(element("title")));
-    assertEquals(OutputContext.RCDATA, Contexts.text(element("TextArea")));
+    // The verifier names rcdata or text from the parser state (#378).
+    assertEquals(OutputContext.TEXT, Contexts.text(element("title")));
+    assertEquals(OutputContext.TEXT, Contexts.text(element("TextArea")));
     assertEquals(OutputContext.TEXT, Contexts.text(element("xmp")));
     assertEquals(OutputContext.TEXT, Contexts.text(element("option")));
     assertEquals(OutputContext.TEXT, Contexts.text(element("div")));
