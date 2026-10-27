@@ -1,6 +1,7 @@
 package dev.tessera.compiler.codegen.attr;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.TrustedUrl;
@@ -122,6 +123,43 @@ class AttributesEndToEndTest {
     compile("<link t:href=\"s\">").assertError("t:href on <link>");
     compile("<script t:attr=\"src=s\"></script>").assertError("t:attr src on <script>");
     compile("<object t:data=\"s + 'x'\"></object>").assertError("t:data on <object>");
+  }
+
+  /** {@code manifest} is a URL: the scheme check applies. */
+  @Test
+  void manifestIsAUrl() {
+    Compilation c = Compilation.builder()
+        .template("m.html", "<html xmlns:t=\"https://tessera.dev\" t:params=\"String s\" t:manifest=\"s\"><body></body></html>")
+        .compile()
+        .assertSuccess();
+    String ok = c.render("m", Compilation.model("s", "/app.appcache"));
+    assertTrue(ok.contains("<html manifest=\"/app.appcache\">"), ok);
+    String bad = c.render("m", Compilation.model("s", "javascript:alert(1)"));
+    assertTrue(bad.contains("<html manifest=\"about:invalid#tessera\">"), bad);
+  }
+
+  /** {@code srcset} and {@code imagesrcset} are lists of image candidates: only a TrustedUrl compiles. */
+  @Test
+  void srcsetAcceptsTrustedUrl() {
+    assertEquals(
+        "<img srcset=\"/a.png 1x, /b.png 2x\">",
+        render("<img t:srcset=\"u\">", model("u", TrustedUrl.unchecked("/a.png 1x, /b.png 2x"))));
+    assertEquals(
+        "<link rel=\"preload\" as=\"image\" imagesrcset=\"/a.png 100w\">",
+        render("<link rel=\"preload\" as=\"image\" t:imagesrcset=\"u\">", model("u", TrustedUrl.unchecked("/a.png 100w"))));
+    assertEquals(
+        "<picture><source srcset=\"/a.webp\"></picture>",
+        render("<picture><source t:attr=\"srcset=u\"></picture>", model("u", TrustedUrl.unchecked("/a.webp"))));
+  }
+
+  @Test
+  void srcsetRejectsStrings() {
+    compile("<img t:srcset=\"s\">").assertError("t.html:1:", "t:srcset on <img>", "list of URLs", "TrustedUrl", "String");
+    compile("<img t:srcset=\"'/a.png 1x, javascript:x 2x'\">").assertError("t:srcset on <img>", "TrustedUrl");
+    compile("<img t:srcset=\"@{/a.png}\">").assertError("t:srcset on <img>", "TrustedUrl");
+    compile("<source t:attr=\"srcset=s\">").assertError("t:attr srcset on <source>", "TrustedUrl");
+    compile("<link t:imagesrcset=\"s\">").assertError("t:imagesrcset on <link>", "TrustedUrl");
+    compile("<img t:SrcSet=\"s\">").assertError("t:SrcSet on <img>", "TrustedUrl");
   }
 
   /** A type-use annotation does not change the type: the RESOURCE_URL gate still sees TrustedUrl. */
