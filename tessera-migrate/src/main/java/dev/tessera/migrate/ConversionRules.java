@@ -223,15 +223,104 @@ final class ConversionRules {
       new Unsupported(Pattern.compile("^(?!.*\\*\\{\\s*__).*__", Pattern.DOTALL), true,
           "`__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field"),
       new Unsupported(Pattern.compile("(?<![\\w.])T\\s*\\("), false,
-          "`T(...)` static class access is not supported (never); expose the value through a view type or a `@TemplateFunction`"),
+          "`T(...)` static class access is not supported (never); compute the value in the controller, add it to the model and declare it in `t:params`, or call a static `@TemplateFunction`"),
       new Unsupported(Pattern.compile("(?<![\\w.])new\\s+[A-Za-z_]"), false,
           "object creation with `new` is not supported (never); compute the value in Java"),
       new Unsupported(Pattern.compile("(?<!\\w)@[A-Za-z_]"), false,
-          "Spring bean references (`@bean`) are not supported (never); pass the value as a parameter"),
+          "Spring bean references (`@bean`) are not supported (never); call the bean in the controller (or in a `@ModelAttribute` method of a `@ControllerAdvice` for a value every page needs), add the result to the model and declare it in `t:params`"),
       new Unsupported(Pattern.compile("\\.[?!^$]\\["), false,
           "collection selection/projection is not supported; compute the collection in Java"),
       new Unsupported(Pattern.compile("@\\{\\s*['$|(*]"), false,
           "link with a non-literal path; Tessera links take a literal path with placeholders, e.g. `@{/owners(page=p)}` or `@{/owners/{id}(id=x)}`"));
+
+  /** How to move a value a template read from outside the model into it (guide section 1). */
+  private static final String TO_MODEL = "declare it in `t:params` and read it as `%2$s` (guide section 1)";
+  private static final String EVERY_PAGE = "a `@ModelAttribute(\"%2$s\")` method in a `@ControllerAdvice`";
+
+  /**
+   * Thymeleaf's ambient scopes, read as root variables: a Tessera template sees only its
+   * {@code t:params}, so each read moves into the model. Keys are the root names; {@code %1$s} is the
+   * read as a code span ({@code `session.user`}), {@code %2$s} the name to give the value in the
+   * model. Not reported where the template declares the name itself ({@code t:params},
+   * {@code th:with}, {@code th:each}, a fragment parameter).
+   */
+  static final Map<String, String> AMBIENT_ROOTS = Compat.mapOf(
+      "session",
+      "%1$s reads the HTTP session, which a Tessera template cannot see; in the controller add `%2$s` to the model"
+          + " (`@SessionAttribute(name = \"%2$s\", required = false)` on the handler method, or " + EVERY_PAGE
+          + " for a value every page needs), " + TO_MODEL,
+      "param",
+      "%1$s reads a request parameter, which a Tessera template cannot see; in the controller take it as"
+          + " `@RequestParam(name = \"%2$s\", required = false) String %2$s`, add it to the model, " + TO_MODEL,
+      "application",
+      "%1$s reads an application (servlet context) attribute, which a Tessera template cannot see; add `%2$s` to"
+          + " the model from " + EVERY_PAGE + ", " + TO_MODEL,
+      "_csrf",
+      "%1$s reads Spring Security's CSRF token request attribute, which a Tessera template cannot see; the starter"
+          + " already adds the `_csrf` hidden input to every same-origin POST form, so delete a hand-written one;"
+          + " anywhere else (a `<meta>` for JavaScript) add the token (`CsrfToken.getToken()`) to the model from "
+          + EVERY_PAGE + ", " + TO_MODEL);
+
+  /** The model name suggested for an ambient read without a property ({@code ${session}}). */
+  static final String AMBIENT_VALUE = "value";
+  private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z_]\\w*");
+
+  /**
+   * Thymeleaf expression objects that read the request, session, servlet context or evaluation
+   * context. Keys are names without {@code #}; {@code %s} is the read as a code span. They are left
+   * in place and reported with this fix-it instead of {@link #UNKNOWN_UTILITY_MESSAGE}.
+   */
+  private static final String REQUEST_MESSAGE =
+      "%s reads the servlet request, which a Tessera template cannot see; compute the value in the controller, add"
+          + " it to the model and declare it in `t:params` (a value every page needs, such as the request URI, comes"
+          + " from a `@ModelAttribute` method in a `@ControllerAdvice` returning `request.getRequestURI()`; guide"
+          + " section 1)";
+  private static final String RESPONSE_MESSAGE =
+      "%s uses the servlet response, which a Tessera template cannot see; do it in the controller, and pass any"
+          + " value the page prints through the model and `t:params` (guide section 1)";
+  private static final String SESSION_MESSAGE =
+      "%s reads the HTTP session, which a Tessera template cannot see; in the controller add the value to the"
+          + " model (`@SessionAttribute` on the handler method, or a `@ModelAttribute` method in a"
+          + " `@ControllerAdvice` for a value every page needs) and declare it in `t:params` (guide section 1)";
+  private static final String SERVLET_CONTEXT_MESSAGE =
+      "%s reads the servlet context, which a Tessera template cannot see; add the value to the model from a"
+          + " `@ModelAttribute` method in a `@ControllerAdvice` and declare it in `t:params` (guide section 1)";
+  private static final String CONTEXT_MESSAGE =
+      "%s reads Thymeleaf's evaluation context, which Tessera does not have; a template sees only its"
+          + " `t:params`: read the parameter by name, and add any value the controller does not provide to the"
+          + " model and to `t:params` (guide section 1)";
+  static final Map<String, String> AMBIENT_OBJECTS = Compat.mapOf(
+      "request", REQUEST_MESSAGE,
+      "httpServletRequest", REQUEST_MESSAGE,
+      "response", RESPONSE_MESSAGE,
+      "httpServletResponse", RESPONSE_MESSAGE,
+      "session", SESSION_MESSAGE,
+      "httpSession", SESSION_MESSAGE,
+      "servletContext", SERVLET_CONTEXT_MESSAGE,
+      "ctx", CONTEXT_MESSAGE,
+      "vars", CONTEXT_MESSAGE,
+      "root", CONTEXT_MESSAGE,
+      "execInfo",
+      "%s reads Thymeleaf's execution info (template name and mode, time), which Tessera does not have; write"
+          + " the value as a literal, or add it to the model and declare it in `t:params` (guide section 1)");
+
+  /**
+   * The report message for an ambient root read such as {@code session.user} or
+   * {@code param['q']}: its {@link #AMBIENT_ROOTS} entry, with the property as the model name.
+   */
+  static String ambientReadMessage(String read) {
+    int end = 0;
+    while (end < read.length() && (Character.isLetterOrDigit(read.charAt(end)) || read.charAt(end) == '_')) {
+      end++;
+    }
+    String root = read.substring(0, end);
+    String name = read.startsWith(".", end) ? read.substring(end + 1)
+        : read.startsWith("['", end) ? read.substring(end + 2, read.length() - 2) : AMBIENT_VALUE;
+    if (!IDENTIFIER.matcher(name).matches()) {
+      name = AMBIENT_VALUE;
+    }
+    return String.format(AMBIENT_ROOTS.get(root), "`" + read + "`", name);
+  }
 
   /** Word operators and literals that are never variables. */
   static final Set<String> KEYWORDS = Compat.setOf(

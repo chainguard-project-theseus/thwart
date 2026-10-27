@@ -22,6 +22,12 @@ final class Expressions {
 
   private static final Pattern IDENT = Pattern.compile("(?<![\\w$#.@])[A-Za-z_]\\w*");
   private static final Pattern UTILITY = Pattern.compile("(?<![\\w$])#([A-Za-z_]\\w*)\\s*\\.");
+  /** {@code #request}, {@code #ctx.session}, ...: an ambient expression object and its property, if any. */
+  private static final Pattern AMBIENT_OBJECT = Pattern.compile("(?<![\\w$])#("
+      + String.join("|", ConversionRules.AMBIENT_OBJECTS.keySet()) + ")(?![\\w$])(?:\\s*\\.\\s*([A-Za-z_]\\w*)(?![\\w$]|\\s*\\())?");
+  /** What follows an ambient root: {@code .name}, {@code ?.name} or {@code ['key']}. */
+  private static final Pattern AMBIENT_PROPERTY =
+      Pattern.compile("\\s*(?:\\??\\.\\s*([A-Za-z_]\\w*)(?![\\w$]|\\s*\\()|\\[\\s*'([^']*)'\\s*\\])");
 
   /** Report messages for every unsupported construct in {@code expr} (empty if convertible). */
   static List<String> unsupported(String expr) {
@@ -32,11 +38,19 @@ final class Expressions {
         messages.add(u.message());
       }
     }
-    Matcher m = UTILITY.matcher(masked);
     Set<String> seen = new LinkedHashSet<>();
+    Matcher a = AMBIENT_OBJECT.matcher(masked);
+    while (a.find()) {
+      String read = "#" + a.group(1) + (a.group(2) == null ? "" : "." + a.group(2));
+      if (seen.add(read)) {
+        messages.add(String.format(ConversionRules.AMBIENT_OBJECTS.get(a.group(1)), "`" + read + "`"));
+      }
+    }
+    Matcher m = UTILITY.matcher(masked);
     while (m.find()) {
       String name = m.group(1);
-      if (!ConversionRules.NAMESPACES.containsKey("#" + name) && seen.add(name)) {
+      if (!ConversionRules.NAMESPACES.containsKey("#" + name) && !ConversionRules.AMBIENT_OBJECTS.containsKey(name)
+          && seen.add(name)) {
         messages.add(String.format(ConversionRules.UNKNOWN_UTILITY_MESSAGE, name));
       }
     }
@@ -569,26 +583,51 @@ final class Expressions {
    * {@code bareFragmentReference}, a leading {@code tpl :: name} (no {@code ~{}}) is skipped.
    */
   static Set<String> roots(String expr, boolean bareFragmentReference) {
-    String masked = mask(expr, true);
-    if (bareFragmentReference) {
-      masked = maskBareFragmentReference(expr, masked);
-    }
+    String masked = rootMask(expr, bareFragmentReference);
     Set<String> roots = new LinkedHashSet<>();
     Matcher m = IDENT.matcher(masked);
     while (m.find()) {
-      String name = m.group();
-      char prev = prevNonSpace(masked, m.start());
-      char next = nextNonSpace(masked, m.end());
-      int nextAt = nextNonSpaceIndex(masked, m.end());
-      boolean assignment = next == '=' && !(nextAt + 1 < masked.length() && masked.charAt(nextAt + 1) == '=');
-      boolean namespace = next == '.' && ConversionRules.NAMESPACES.containsKey("#" + name);
-      if (prev == '.' || next == '(' || assignment || namespace
-          || ConversionRules.KEYWORDS.contains(name)) {
-        continue;
+      if (isRoot(masked, m)) {
+        roots.add(m.group());
       }
-      roots.add(name);
     }
     return roots;
+  }
+
+  /**
+   * The reads of Thymeleaf's ambient scopes ({@link ConversionRules#AMBIENT_ROOTS}) among the roots
+   * of {@code expr}, in order and without repeats, each with its property: {@code session.user},
+   * {@code param['q']}, or the bare root ({@code session}).
+   */
+  static Set<String> ambientReads(String expr, boolean bareFragmentReference) {
+    String masked = rootMask(expr, bareFragmentReference);
+    Set<String> reads = new LinkedHashSet<>();
+    Matcher m = IDENT.matcher(masked);
+    while (m.find()) {
+      if (!ConversionRules.AMBIENT_ROOTS.containsKey(m.group()) || !isRoot(masked, m)) {
+        continue;
+      }
+      Matcher p = AMBIENT_PROPERTY.matcher(expr).region(m.end(), expr.length());
+      String property = !p.lookingAt() ? "" : p.group(1) != null ? "." + p.group(1) : "['" + p.group(2) + "']";
+      reads.add(m.group() + property);
+    }
+    return reads;
+  }
+
+  private static String rootMask(String expr, boolean bareFragmentReference) {
+    String masked = mask(expr, true);
+    return bareFragmentReference ? maskBareFragmentReference(expr, masked) : masked;
+  }
+
+  /** Whether the identifier {@code m} found in {@code masked} is a root variable. */
+  private static boolean isRoot(String masked, Matcher m) {
+    String name = m.group();
+    char prev = prevNonSpace(masked, m.start());
+    char next = nextNonSpace(masked, m.end());
+    int nextAt = nextNonSpaceIndex(masked, m.end());
+    boolean assignment = next == '=' && !(nextAt + 1 < masked.length() && masked.charAt(nextAt + 1) == '=');
+    boolean namespace = next == '.' && ConversionRules.NAMESPACES.containsKey("#" + name);
+    return !(prev == '.' || next == '(' || assignment || namespace || ConversionRules.KEYWORDS.contains(name));
   }
 
   /** Splits at top-level commas (outside literals and brackets, including {@code <>} if asked). */
