@@ -1,6 +1,6 @@
 # tessera-migrate report
 
-Converted 8 template(s); 49 item(s) need manual attention.
+Converted 9 template(s); 61 item(s) need manual attention.
 
 ## fragments/inputField.html
 
@@ -14,6 +14,21 @@ Converted 8 template(s); 49 item(s) need manual attention.
 - `fragments/layout.html:2`: fragment `layout` parameters declared as `Object` (`template`, `menu`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`)
 - `fragments/layout.html:34`: fragment `menuItem` parameters declared as `Object` (`link`, `active`, `title`, `glyph`, `text`); replace each with its type (`Fragment` for markup arguments such as `~{::body}`)
 - `fragments/layout.html:35`: `__...__` preprocessing is not supported (never); inline the dynamic part, e.g. one element per field
+
+## misc/fixits.html
+
+- `misc/fixits.html:2`: `owner` is declared as `Object` in the generated `t:params` stub; replace it with its view type
+- `misc/fixits.html:2`: `swap` is declared as `Object` in the generated `t:params` stub; replace it with its view type
+- `misc/fixits.html:2`: `selector` is declared as `Object` in the generated `t:params` stub; replace it with its view type
+- `misc/fixits.html:2`: `callback` is declared as `Object` in the generated `t:params` stub; replace it with its view type
+- `misc/fixits.html:5`: `th:hx-target` was rewritten to `t:data-hx-target`: `hx-target` is not a known attribute, which is a build error for a computed attribute in Tessera, and htmx reads `data-hx-target` the same way
+- `misc/fixits.html:5`: `th:hx-swap` was rewritten to `t:data-hx-swap`: `hx-swap` is not a known attribute, which is a build error for a computed attribute in Tessera, and htmx reads `data-hx-swap` the same way
+- `misc/fixits.html:6`: `hx-select` in `th:attr` was rewritten to `data-hx-select`: `hx-select` is not a known attribute, which is a build error for a computed attribute in Tessera, and htmx reads `data-hx-select` the same way
+- `misc/fixits.html:7`: `th:up-on-loaded`: `up-on-loaded` is not a known attribute, and a computed attribute must be a standard HTML, SVG, MathML or ARIA attribute, a `data-*` attribute or a plain prop on a custom element (a build error in Tessera); if it is data for your script, write `th:data-up-on-loaded`; if a framework reads it, write it as a static attribute
+- `misc/fixits.html:10`: no space before attribute `class` (a parse error, which the build rejects): a space was added, which a browser reads the same
+- `misc/fixits.html:13`: `th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or move data to `data-*` attributes
+- `misc/fixits.html:14`: a `/` (a division or a regular expression) before the last `[[...]]` of a `<script>` is a build error in Tessera: the compiler reads the code before the last value only with a lexer that has no ambiguous tokens, so it can prove where each value goes; move the `[[...]]` above the code (declare the data first, `var data = [[...]];`), or write the value into a `<script type="application/json">` and read it with `JSON.parse`
+- `misc/fixits.html:15`: `/*[[${owner.id}]]*/ 0` in a script was rewritten to `[[${owner.id}]]`: Thymeleaf's natural template wrote the value in place of the comment and dropped the default `0`, and `[[...]]` inside a comment is a build error in Tessera
 
 ## misc/scripts.html
 
