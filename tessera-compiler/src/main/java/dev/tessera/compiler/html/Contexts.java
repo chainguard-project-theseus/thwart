@@ -420,7 +420,7 @@ public final class Contexts {
    * <p>The verifier checks the TEXT/RCDATA choice against the parser state ({@code Rules.hole}).
    */
   // TODO(#378): choose TEXT or RCDATA from the parser state. The generated code is written before
-  // the verifier runs, and a fragment no call reaches has no state, so the name decides for now.
+  // the verifier runs, so the name decides for now (every fragment has a state since #461).
   public static OutputContext text(Element element) {
     switch (element.name().toLowerCase(Locale.ROOT)) {
       case "script":

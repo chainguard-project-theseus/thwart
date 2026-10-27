@@ -173,7 +173,11 @@ public final class TemplateGenerator implements CodegenContext {
     }
     Emitted bodyCode = body.build();
     Map<String, Skeleton.Seq> fragments = FragmentMethods.generate(this);
-    skeleton = new Skeleton.TemplateSkeleton(info.viewName(), bodyCode.seq(), fragments);
+    Map<String, String> declared = new LinkedHashMap<>();
+    for (TemplateIndex.FragmentInfo f : info.fragments().values()) {
+      declared.put(f.name(), info.parsingContexts().place(f.element()));
+    }
+    skeleton = new Skeleton.TemplateSkeleton(info.viewName(), bodyCode.seq(), fragments, declared);
     return Backports.listOf(new GeneratedFile(GeneratedFile.Kind.JAVA, info.className(), TemplateClassSource.render(info, constants, members, bodyCode.java())));
   }
 

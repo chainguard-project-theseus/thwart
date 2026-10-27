@@ -624,6 +624,10 @@ engine rejects and the new rule accepts, and #408 removed it with no verdict cha
 - The allow-list is the missing-doctype messages only. Most views are partials.
 - A partial counts errors only in its implied fragment context (`tr`: `tbody`; `td`, `th`: `tr`;
   `option`, `optgroup`: `select`; `li`: `ul`; otherwise `body`), not as a document.
+- A fragment no template calls is checked on its own (#461): declared in HTML content, in the
+  fragment contexts its root implies, as above (as a document only if it is a page); declared in
+  `<svg>`, `<math>` or `<select>` content, in that element. Declared where no fragment fits (raw
+  text, mixed `<svg>`/`<math>`, `t:remove="tag"`), it is rejected (`UNCALLED_FRAGMENT_FITS_NOWHERE`).
 - The error is reported at the static that holds it, with a fix-it for the common classes: a
   second `<body>`, a block element in `<p>`, content between `</head>` and `<body>`, content
   directly in a table, a missing space between attributes.
