@@ -99,11 +99,13 @@ public final class Escapers {
   }
 
   /**
-   * The {@code values} list of an SVG {@code <animate>}/{@code <set>} (OutputContext.URL_LIST,
-   * #284). SVG applies the {@code ;}-separated items in turn, so every item is scheme-checked as
-   * in {@link #url}; if any item fails, the whole attribute is replaced by
-   * {@code about:invalid#tessera}. A {@link TrustedUrl} is attribute-encoded as is. Lists without
-   * a scheme ({@code 0;1}, {@code red;blue}) pass.
+   * The {@code values} list of an SVG {@code <animate>} (OutputContext.URL_LIST, #284). SVG
+   * applies the {@code ;}-separated items in turn, so every item is scheme-checked as in
+   * {@link #url}; if any item fails, the whole attribute is replaced by
+   * {@code about:invalid#tessera}. {@code <set>} ignores {@code values}, but it is checked the
+   * same way. A {@link TrustedUrl} is attribute-encoded as is: it vouches
+   * for the whole list, so every {@code ;}-separated item is written unchecked. Lists without a
+   * scheme ({@code 0;1}, {@code red;blue}) pass.
    */
   public static void urlList(Output out, Object value) {
     if (value instanceof TrustedUrl) {
