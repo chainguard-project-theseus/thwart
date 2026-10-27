@@ -1,10 +1,12 @@
 package dev.tessera.migrate;
 
+import java.util.AbstractMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -113,6 +115,10 @@ final class Migrator {
     private final List<Report.Item> items = new ArrayList<>();
     private final Set<String> roots = new LinkedHashSet<>();
     private final Set<String> locals = new LinkedHashSet<>();
+    /** Names declared in a {@code t:params} already in the template. */
+    private final Set<String> declared = new LinkedHashSet<>();
+    /** Reads of ambient scopes ({@code session.user}), each with its line; see {@link #addRoots}. */
+    private final List<Map.Entry<Integer, String>> ambientReads = new ArrayList<>();
     private boolean rootSeen;
     private boolean inRoot;
     private boolean rootHasParams;
@@ -321,6 +327,12 @@ final class Migrator {
       if (inRoot && (ConversionRules.TESSERA_PREFIX + local).equals(ConversionRules.PARAMS)) {
         rootHasParams = true;
       }
+      if (value != null && (ConversionRules.TESSERA_PREFIX + local).equals(ConversionRules.PARAMS)) {
+        for (String param : Expressions.splitTopLevel(value, true)) {
+          String[] tokens = Compat.strip(param).split("\\s+");
+          declared.add(tokens[tokens.length - 1]);
+        }
+      }
       if (value == null || ConversionRules.LITERAL_VALUES.contains(local)) {
         return;
       }
@@ -432,7 +444,7 @@ final class Migrator {
       String rewritten = Expressions.rewrite(value);
       if (!selection) {
         rewritten = selections(line, rewritten);
-        roots.addAll(Expressions.roots(rewritten, fragmentReference));
+        addRoots(line, rewritten, fragmentReference);
       }
       nullablePathVariables(line, rewritten);
       if (thymeleaf && ConversionRules.EMPTY_FOR_NULL.contains(local) && Expressions.mayBeNull(rewritten)) {
@@ -460,7 +472,7 @@ final class Migrator {
         return original;
       }
       String rewritten = selections(line, Expressions.rewrite(value.substring(colon + 1)));
-      roots.addAll(Expressions.roots(rewritten, false));
+      addRoots(line, rewritten, false);
       return value.substring(0, colon + 1) + rewritten;
     }
 
@@ -497,11 +509,23 @@ final class Migrator {
         String expr = part.substring(eq + 1);
         String rewritten = selections(line,
             Expressions.rewrite(thymeleaf ? Expressions.quoteTokens(expr, false) : expr));
-        roots.addAll(Expressions.roots(rewritten, false));
+        addRoots(line, rewritten, false);
         nullablePathVariables(line, rewritten);
         parts.add(head + rewritten);
       }
       return String.join(",", parts);
+    }
+
+    /**
+     * Adds the roots of {@code expr} on {@code line}, and records its reads of ambient scopes
+     * ({@code session.user}, {@code param.q}): {@link #finish} reports those whose root the template
+     * does not declare itself.
+     */
+    private void addRoots(int line, String expr, boolean bareFragmentReference) {
+      roots.addAll(Expressions.roots(expr, bareFragmentReference));
+      for (String read : Expressions.ambientReads(expr, bareFragmentReference)) {
+        ambientReads.add(new AbstractMap.SimpleImmutableEntry<>(line, read));
+      }
     }
 
     /** {@link Expressions#splitSelections}, reporting the compound selections it leaves in place. */
@@ -904,7 +928,7 @@ final class Migrator {
         List<String> problems = Expressions.unsupported(expr);
         problems.forEach(p -> report(exprLine, p));
         if (problems.isEmpty()) {
-          roots.addAll(Expressions.roots(expr, false));
+          addRoots(exprLine, expr, false);
           if (open.equals("[(")) {
             rawOutput(exprLine, "[(...)]", Expressions.rewrite(expr));
           }
@@ -934,6 +958,18 @@ final class Migrator {
     Result finish(String source) {
       Set<String> params = new LinkedHashSet<>(roots);
       params.removeAll(locals);
+      // An ambient read moves into the model under its own name: no `Object session` stub for it.
+      Set<String> reported = new HashSet<>();
+      for (Map.Entry<Integer, String> read : ambientReads) {
+        String root = read.getValue().split("[.\\[]", 2)[0];
+        if (locals.contains(root) || declared.contains(root)) {
+          continue; // the template's own variable, not the scope
+        }
+        params.remove(root);
+        if (reported.add(read.getKey() + " " + read.getValue())) {
+          report(read.getKey(), ConversionRules.ambientReadMessage(read.getValue()));
+        }
+      }
       if (rootSeen && !rootHasParams && !params.isEmpty()) {
         edits.add(new Edit(rootInsertAt, 0, " " + ConversionRules.PARAMS + "=\""
             + params.stream().map(p -> ConversionRules.UNKNOWN_TYPE + " " + p)
