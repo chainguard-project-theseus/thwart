@@ -69,7 +69,10 @@ public interface Forms {
     return false;
   }
 
-  /** Resolved error messages for a field; {@code path} {@code "*"} means all errors. */
+  /**
+   * Resolved error messages for a field; {@code path} {@code "*"} means all errors and {@code
+   * "global"} the form object's own (object-level) errors, without its fields'.
+   */
   List<String> errors(String objectName, String path);
 
   default boolean hasErrors(String objectName, String path) {

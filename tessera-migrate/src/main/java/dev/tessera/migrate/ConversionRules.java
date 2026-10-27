@@ -150,7 +150,9 @@ final class ConversionRules {
   static final Map<String, String> RENAMED_CALLS = Compat.mapOf(
       "#strings.listJoin(", "strings.join(",
       "#fields.hasAnyErrors()", "fields.hasErrors('*')",
-      "#fields.allErrors()", "fields.errors('*')");
+      "#fields.allErrors()", "fields.errors('*')",
+      "#fields.hasGlobalErrors()", "fields.hasErrors('global')",
+      "#fields.globalErrors()", "fields.errors('global')");
 
   /** Thymeleaf's {@code x['new']}: SpEL property access for {@code isNew()} ({@code new} is a keyword). */
   static final Pattern NEW_INDEX = Pattern.compile("\\[\\s*'new'\\s*\\]");
