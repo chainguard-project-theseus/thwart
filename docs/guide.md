@@ -919,7 +919,7 @@ public record Address(String street) {}
 ```
 
 - `t:field` (`email` or `*{email}`, checked against the `t:object` type) works on `<input>`,
-  `<select>` and `<textarea>`. It writes `id` (unless present; not on radios), `name` and the
+  `<select>` and `<textarea>`. It writes `id` (unless present), `name` and the
   `BindingResult`'s display value (omitted when null; never on passwords). Checkboxes and radios
   get `checked`, options of a `<select t:field>` get `selected` when their value matches (none
   when the bound value is `null`, so a placeholder `<option value="">` stays unselected). Bound to
@@ -928,6 +928,12 @@ public record Address(String street) {}
   or `toString()`. Every checkbox that is not `disabled` is followed by Spring's `_name` hidden
   marker, so unchecking all boxes binds `false` or an empty collection. A static `selected` on
   such an option is replaced, as in Thymeleaf; a `t:selected` is kept.
+- Checkboxes and radios get a numbered `id`, as in Thymeleaf and Spring's JSP tags: the field
+  name (without `[` and `]`) and a counter per name that starts at 1 for every render, so the
+  radios of `t:field="*{roles}"` are `roles1`, `roles2`, … in page order (a boolean checkbox
+  too: `active1`). An input with its own `id` (or `t:id`) keeps it and takes no number. There
+  is no `#ids`: for a label in a `t:each`, write the id yourself, e.g.
+  `t:id="${'role-' + role}"` on the input and `t:for="${'role-' + role}"` on the label.
 - `t:errors` renders the field's messages escaped and joined by `<br />`, or removes the element
   if there are none (`*` for all). For other markup, loop over `fields.errors('email')`.
 - `t:errorclass="error"` next to `t:field` appends the class when the field has errors.
@@ -2124,7 +2130,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
   `fields.errors('*')`, no `_name` marker before a `<select multiple t:field>` (Thymeleaf writes
   `<input type="hidden" name="_roles" value="1"/>`; add it by hand), no `t:field` on fields whose
   type is not view-safe (`MultipartFile`: write the `name` attribute by hand), and `Field`
-  fragments cannot read the value. Radios get no `id`.
+  fragments cannot read the value. No `#ids.seq`, `#ids.next` or `#ids.prev`.
 - **CSRF and other ways a form posts elsewhere.** The CSRF input is left out of a form whose
   `action` is on another origin, a submit button's `formaction` must be same-origin where it
   may submit a form with the token, and so must every `<base href>` (section 4.7). Not seen: a static htmx request attribute such

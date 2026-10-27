@@ -109,14 +109,15 @@ class FormsTest {
                 + "<input type=\"radio\" value=\"cat\" t:field=\"*{pet}\"><input type=\"radio\" value=\"dog\" t:field=\"*{pet}\">");
     String out = render(c, owner(c, "Ann", null), new TestForms());
     assertEquals(
-        "<form><input type=\"checkbox\" id=\"active\" name=\"active\" value=\"true\" checked=\"checked\">"
+        "<form><input type=\"checkbox\" id=\"active1\" name=\"active\" value=\"true\" checked=\"checked\">"
             + "<input type=\"hidden\" name=\"_active\" value=\"on\" />"
-            + "<input type=\"radio\" value=\"cat\" name=\"pet\"><input type=\"radio\" value=\"dog\" name=\"pet\" checked=\"checked\">"
+            + "<input type=\"radio\" value=\"cat\" id=\"pet1\" name=\"pet\">"
+            + "<input type=\"radio\" value=\"dog\" id=\"pet2\" name=\"pet\" checked=\"checked\">"
             + "</form>",
         out);
     TestForms forms = new TestForms();
     forms.rejected.put("pet", "cat");
-    assertTrue(render(c, owner(c, "Ann", null), forms).contains("value=\"cat\" name=\"pet\" checked=\"checked\">"));
+    assertTrue(render(c, owner(c, "Ann", null), forms).contains("value=\"cat\" id=\"pet1\" name=\"pet\" checked=\"checked\">"));
   }
 
   @Test
@@ -128,8 +129,8 @@ class FormsTest {
             "<input type=\"checkbox\" disabled t:field=\"*{active}\">"
                 + "<input type=\"checkbox\" disabled=\"false\" t:field=\"*{active}\">");
     assertEquals(
-        "<form><input type=\"checkbox\" disabled id=\"active\" name=\"active\" value=\"true\" checked=\"checked\">"
-            + "<input type=\"checkbox\" disabled=\"false\" id=\"active\" name=\"active\" value=\"true\""
+        "<form><input type=\"checkbox\" disabled id=\"active1\" name=\"active\" value=\"true\" checked=\"checked\">"
+            + "<input type=\"checkbox\" disabled=\"false\" id=\"active2\" name=\"active\" value=\"true\""
             + " checked=\"checked\"></form>",
         render(c, owner(c, "Ann", null), new TestForms()));
   }
@@ -143,15 +144,15 @@ class FormsTest {
             "<input type=\"checkbox\" t:field=\"*{active}\" t:disabled=\"${owner.firstName == 'Ann'}\">"
                 + "<input type=\"checkbox\" disabled t:disabled=\"false\" t:field=\"*{active}\">");
     assertEquals(
-        "<form><input type=\"checkbox\" disabled=\"disabled\" id=\"active\" name=\"active\" value=\"true\""
+        "<form><input type=\"checkbox\" disabled=\"disabled\" id=\"active1\" name=\"active\" value=\"true\""
             + " checked=\"checked\">"
-            + "<input type=\"checkbox\" id=\"active\" name=\"active\" value=\"true\" checked=\"checked\">"
+            + "<input type=\"checkbox\" id=\"active2\" name=\"active\" value=\"true\" checked=\"checked\">"
             + "<input type=\"hidden\" name=\"_active\" value=\"on\" /></form>",
         render(c, owner(c, "Ann", null), new TestForms()));
     assertEquals(
-        "<form><input type=\"checkbox\" id=\"active\" name=\"active\" value=\"true\" checked=\"checked\">"
+        "<form><input type=\"checkbox\" id=\"active1\" name=\"active\" value=\"true\" checked=\"checked\">"
             + "<input type=\"hidden\" name=\"_active\" value=\"on\" />"
-            + "<input type=\"checkbox\" id=\"active\" name=\"active\" value=\"true\" checked=\"checked\">"
+            + "<input type=\"checkbox\" id=\"active2\" name=\"active\" value=\"true\" checked=\"checked\">"
             + "<input type=\"hidden\" name=\"_active\" value=\"on\" /></form>",
         render(c, owner(c, "Bob", null), new TestForms()));
   }
@@ -160,6 +161,52 @@ class FormsTest {
   void checkboxDisabledThroughAttrHasNoMarker() {
     Compilation c = compile("<input type=\"checkbox\" t:attr=\"disabled=${true}\" t:field=\"*{active}\">");
     assertFalse(render(c, owner(c, "Ann", null), new TestForms()).contains("_active"));
+  }
+
+  @Test
+  void checkboxAndRadioIdsAreNumberedPerRender() {
+    // #136: Thymeleaf's computeId numbers checkbox and radio ids per field (idFromName + a
+    // per-render sequence starting at 1). An explicit id is kept and takes no number; other
+    // inputs are not numbered.
+    Compilation c =
+        compileForm(
+                "<form xmlns:t=\"https://tessera.dev\" t:import=\"com.example.*\""
+                    + " t:params=\"Owner owner, List<String> pets\" t:object=\"owner\">"
+                    + "<input type=\"radio\" value=\"cat\" t:field=\"*{pet}\">"
+                    + "<input type=\"radio\" id=\"own\" value=\"dog\" t:field=\"*{pet}\">"
+                    + "<input type=\"checkbox\" t:field=\"*{active}\">"
+                    + "<label t:each=\"p : ${pets}\"><input type=\"radio\" t:value=\"${p}\" t:field=\"*{pet}\"></label>"
+                    + "<input t:field=\"*{firstName}\"></form>")
+            .assertSuccess();
+    Map<String, Object> model = new HashMap<>();
+    model.put("owner", owner(c, "Ann", null));
+    model.put("pets", List.of("fish", "dog"));
+    String out = c.render("form", model, ctx(new TestForms()));
+    assertEquals(
+        "<form><input type=\"radio\" value=\"cat\" id=\"pet1\" name=\"pet\">"
+            + "<input type=\"radio\" id=\"own\" value=\"dog\" name=\"pet\" checked=\"checked\">"
+            + "<input type=\"checkbox\" id=\"active1\" name=\"active\" value=\"true\" checked=\"checked\">"
+            + "<input type=\"hidden\" name=\"_active\" value=\"on\" />"
+            + "<label><input type=\"radio\" value=\"fish\" id=\"pet2\" name=\"pet\"></label>"
+            + "<label><input type=\"radio\" value=\"dog\" id=\"pet3\" name=\"pet\" checked=\"checked\"></label>"
+            + "<input id=\"firstName\" name=\"firstName\" value=\"Ann\"></form>",
+        out);
+    // A new render (a new RenderContext) starts again at 1.
+    assertEquals(out, c.render("form", model, ctx(new TestForms())));
+  }
+
+  @Test
+  void computedIdTakesNoNumber() {
+    // A t:id runs before t:field: the radio keeps it, and the next radio is still pet1.
+    Compilation c =
+        compile(
+            "<input type=\"radio\" t:id=\"${'pet-' + owner.pet}\" value=\"x\" t:field=\"*{pet}\">"
+                + "<label t:for=\"${'pet-' + owner.pet}\">X</label>"
+                + "<input type=\"radio\" value=\"y\" t:field=\"*{pet}\">");
+    assertEquals(
+        "<form><input type=\"radio\" value=\"x\" id=\"pet-dog\" name=\"pet\"><label for=\"pet-dog\">X</label>"
+            + "<input type=\"radio\" value=\"y\" id=\"pet1\" name=\"pet\"></form>",
+        render(c, owner(c, "Ann", null), new TestForms()));
   }
 
   @Test
@@ -285,9 +332,9 @@ class FormsTest {
             "<input type=\"checkbox\" value=\"ROLE_ADMIN\" t:field=\"*{roles}\">"
                 + "<input type=\"checkbox\" value=\"ROLE_USER\" t:field=\"*{roles}\">");
     assertEquals(
-        "<form><input type=\"checkbox\" value=\"ROLE_ADMIN\" name=\"roles\">"
+        "<form><input type=\"checkbox\" value=\"ROLE_ADMIN\" id=\"roles1\" name=\"roles\">"
             + "<input type=\"hidden\" name=\"_roles\" value=\"on\" />"
-            + "<input type=\"checkbox\" value=\"ROLE_USER\" name=\"roles\" checked=\"checked\">"
+            + "<input type=\"checkbox\" value=\"ROLE_USER\" id=\"roles2\" name=\"roles\" checked=\"checked\">"
             + "<input type=\"hidden\" name=\"_roles\" value=\"on\" /></form>",
         renderUser(c, new TreeSet<>(List.of("ROLE_USER")), new String[0], List.of(), null));
     // Neither: not the collection's display text "[ROLE_ADMIN, ROLE_USER]", and nothing for empty or null.
@@ -306,11 +353,12 @@ class FormsTest {
                 + "<input type=\"radio\" value=\"ROLE_ADMIN\" t:field=\"*{roles}\">"
                 + "<input type=\"radio\" value=\"ROLE_USER\" t:field=\"*{roles}\">");
     assertEquals(
-        "<form><input type=\"checkbox\" value=\"a\" name=\"tags\"><input type=\"hidden\" name=\"_tags\" value=\"on\" />"
-            + "<input type=\"checkbox\" value=\"b\" name=\"tags\" checked=\"checked\">"
+        "<form><input type=\"checkbox\" value=\"a\" id=\"tags1\" name=\"tags\">"
             + "<input type=\"hidden\" name=\"_tags\" value=\"on\" />"
-            + "<input type=\"radio\" value=\"ROLE_ADMIN\" name=\"roles\" checked=\"checked\">"
-            + "<input type=\"radio\" value=\"ROLE_USER\" name=\"roles\"></form>",
+            + "<input type=\"checkbox\" value=\"b\" id=\"tags2\" name=\"tags\" checked=\"checked\">"
+            + "<input type=\"hidden\" name=\"_tags\" value=\"on\" />"
+            + "<input type=\"radio\" value=\"ROLE_ADMIN\" id=\"roles1\" name=\"roles\" checked=\"checked\">"
+            + "<input type=\"radio\" value=\"ROLE_USER\" id=\"roles2\" name=\"roles\"></form>",
         renderUser(c, Set.of("ROLE_ADMIN"), new String[] {"b", "c"}, List.of(), null));
   }
 
@@ -324,10 +372,10 @@ class FormsTest {
                 + "<input type=\"radio\" value=\"low\" t:field=\"*{level}\">"
                 + "<input type=\"radio\" value=\"HIGH\" t:field=\"*{level}\">");
     String out = renderUser(c, Set.of(), null, List.of("HIGH"), "LOW");
-    assertTrue(out.contains("value=\"LOW\" name=\"levels\"><"), out);
-    assertTrue(out.contains("value=\"high\" name=\"levels\" checked=\"checked\">"), out);
-    assertTrue(out.contains("value=\"low\" name=\"level\" checked=\"checked\">"), out);
-    assertTrue(out.contains("value=\"HIGH\" name=\"level\"></form>"), out);
+    assertTrue(out.contains("value=\"LOW\" id=\"levels1\" name=\"levels\"><"), out);
+    assertTrue(out.contains("value=\"high\" id=\"levels2\" name=\"levels\" checked=\"checked\">"), out);
+    assertTrue(out.contains("value=\"low\" id=\"level1\" name=\"level\" checked=\"checked\">"), out);
+    assertTrue(out.contains("value=\"HIGH\" id=\"level2\" name=\"level\"></form>"), out);
   }
 
   @Test
@@ -348,7 +396,7 @@ class FormsTest {
   void disabledCollectionCheckboxHasNoMarker() {
     Compilation c = compileUser("<input type=\"checkbox\" disabled value=\"ROLE_USER\" t:field=\"*{roles}\">");
     assertEquals(
-        "<form><input type=\"checkbox\" disabled value=\"ROLE_USER\" name=\"roles\" checked=\"checked\"></form>",
+        "<form><input type=\"checkbox\" disabled value=\"ROLE_USER\" id=\"roles1\" name=\"roles\" checked=\"checked\"></form>",
         renderUser(c, Set.of("ROLE_USER"), null, List.of(), null));
   }
 

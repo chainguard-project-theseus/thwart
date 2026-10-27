@@ -64,11 +64,11 @@ class FieldSubPathsTest {
     forms.errors.put("criteria[1].answer", List.of("required"));
     forms.rejected.put("criteria[1].description", "\"><b>");
     assertEquals(
-        "<form><div><input type=\"checkbox\" id=\"exclusion.answer\" name=\"exclusion.answer\" value=\"true\""
+        "<form><div><input type=\"checkbox\" id=\"exclusion.answer1\" name=\"exclusion.answer\" value=\"true\""
             + " checked=\"checked\" /><input type=\"hidden\" name=\"_exclusion.answer\" value=\"on\" />"
             + "<input type=\"text\" id=\"exclusion.description\" name=\"exclusion.description\" value=\"x&lt;y\" />"
             + "<textarea id=\"exclusion.description\" name=\"exclusion.description\">\nx&lt;y</textarea></div>"
-            + "<div class=\"bad\"><input type=\"checkbox\" id=\"criteria1.answer\" name=\"criteria[1].answer\" value=\"true\" />"
+            + "<div class=\"bad\"><input type=\"checkbox\" id=\"criteria1.answer1\" name=\"criteria[1].answer\" value=\"true\" />"
             + "<input type=\"hidden\" name=\"_criteria[1].answer\" value=\"on\" />"
             + "<input type=\"text\" id=\"criteria1.description\" name=\"criteria[1].description\""
             + " value=\"&quot;&gt;&lt;b&gt;\" class=\"err\" /><span>too &lt;short&gt;</span>"
