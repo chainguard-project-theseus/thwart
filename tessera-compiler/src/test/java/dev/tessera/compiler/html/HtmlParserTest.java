@@ -267,18 +267,15 @@ class HtmlParserTest {
   }
 
   /**
-   * {@code first}, then the errors for a {@code <![CDATA[><script>[[...} at column {@code col} of
-   * line 1: its '>' and its hole.
+   * {@code first}, then the error for a {@code <![CDATA[><script>[[...} at column {@code col} of
+   * line 1: its '>'. The hole in it is the verifier's error (#411, {@code CdataHoleTest}).
    */
   private static List<String> withCdata(int col, String... first) {
     List<String> all = new ArrayList<>(List.of(first));
-    all.addAll(List.of(
+    all.add(
         "dir/t.html:1:" + (col + 9) + ": error: malformed markup: '>' inside a CDATA section is not supported, even in"
             + " <svg> and <math>: elsewhere a browser ends it at the first '>'; write the text without <![CDATA[,"
-            + " with '>' as &gt;",
-        "dir/t.html:1:" + (col + 18) + ": error: malformed markup: [[...]] and [(...)] are not supported inside a"
-            + " CDATA section: outside <svg> and <math> a browser reads the section as a comment, and inside them it"
-            + " shows &lt; as written; write the text without <![CDATA["));
+            + " with '>' as &gt;");
     return all;
   }
 
@@ -292,7 +289,7 @@ class HtmlParserTest {
     // By name, whatever the namespace: the classic select parser ignores <svg> and <math> too.
     assertEquals(List.of(inSelect("1:17", "svg"), inSelect("1:22", "title"), foreignMarkup(29, "title")),
         errors("<select><option><svg><title><script>[[${x}]]</script></title></svg></option></select>"));
-    // The CDATA '>' and hole are also errors on their own (in every browser the section ends early).
+    // The CDATA '>' is also an error on its own (in every browser the section ends early).
     assertEquals(withCdata(34, inSelect("1:29", "svg")),
         errors("<select><optgroup label=\"g\"><svg><![CDATA[><script>[[${x}]]</script>]]></svg></optgroup></select>"));
     assertEquals(withCdata(22, inSelect("1:9", "math"), inSelect("1:15", "mtext")),
@@ -335,15 +332,9 @@ class HtmlParserTest {
     String cdata = "dir/t.html:1:15: error: malformed markup: '>' inside a CDATA section is not supported, even in"
         + " <svg> and <math>: elsewhere a browser ends it at the first '>'; write the text without <![CDATA[,"
         + " with '>' as &gt;";
-    String hole = "error: malformed markup: [[...]] and [(...)] are not supported inside a CDATA section: outside"
-        + " <svg> and <math> a browser reads the section as a comment, and inside them it shows &lt; as written;"
-        + " write the text without <![CDATA[";
-    assertEquals(
-        List.of(cdata, "dir/t.html:1:24: " + hole), errors("<p><![CDATA[ x><script>[[${x}]]</script> ]]></p>"));
-    // Without a '>' an expression would still not be element text to a browser.
-    assertEquals(List.of("dir/t.html:1:16: " + hole), errors("<div><![CDATA[ [[${x}]] ]]></div>"));
-    assertEquals(List.of("dir/t.html:1:16: " + hole), errors("<svg><![CDATA[ [(${x})] ]]></svg>"));
-    assertEquals(List.of("dir/t.html:1:9: " + hole), errors("<![CDATA[[${x}]]>"));
+    assertEquals(List.of(cdata), errors("<p><![CDATA[ x><script>[[${x}]]</script> ]]></p>"));
+    // An expression in a CDATA section is the verifier's error, not the parser's (#411, CdataHoleTest).
+    assertEquals(List.of(), errors("<div><![CDATA[ [[${x}]] ]]></div><svg><![CDATA[ [(${x})] ]]></svg><![CDATA[[${x}]]>"));
     assertEquals(List.of(cdata.replace("1:15", "2:2")), errors("<svg><![cdata[\n >]]></svg>"));
     String pi = "error: malformed markup: '>' inside '<?...?>' is not supported: a browser ends it at the first '>';"
         + " remove the '>'";
