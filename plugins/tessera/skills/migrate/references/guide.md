@@ -838,7 +838,7 @@ Templates call functions as `namespace.fn(args)` or `#namespace.fn(args)`.
 | `css` | `color(s)` (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, a CSS named colour), `length(s)` (a number with optional `px`, `em`, `rem`, `%`, `vh`, `vw`), `url(s)` (`url("...")` for a relative or `http`/`https` URL, percent-encoded): a `CssValue`, or `null` for anything else |
 | `html` | `sanitize(s)`: stored rich text as `SafeHtml` for `t:utext`; `sanitizeRich(s)`: the same with same-origin images, tables, `language-*` classes and `id` (section 4.4) |
 | `auth` (Spring starter) | `isAuthenticated()`, `hasRole('ADMIN')`, `hasAnyRole('A', 'B')` (`ROLE_` is added unless present), `hasAuthority('PERM_X')`, `hasAnyAuthority('A', 'B')` (compared exactly), `name()` |
-| `fields` (inside `t:object`) | `hasErrors('path')`, `hasErrors('*')`, `errors('path')`, section 4.7 |
+| `fields` (inside `t:object`) | `hasErrors('path')`, `hasErrors('*')`, `hasErrors('global')`, `errors('path')`, section 4.7 |
 
 All built-ins are null-tolerant. Add your own namespace with a class in your application:
 
@@ -936,6 +936,12 @@ public record Address(String street) {}
   `t:id="${'role-' + role}"` on the input and `t:for="${'role-' + role}"` on the label.
 - `t:errors` renders the field's messages escaped and joined by `<br />`, or removes the element
   if there are none (`*` for all). For other markup, loop over `fields.errors('email')`.
+- `global` instead of a path means the form object's own errors (`BindingResult.reject(...)`,
+  a class-level constraint), without the fields' errors: `t:errors="*{global}"` (or
+  `t:errors="global"`), `fields.hasErrors('global')`, `fields.errors('global')`. These are
+  Thymeleaf's `th:errors="*{global}"`, `#fields.hasGlobalErrors()` and `#fields.globalErrors()`.
+  As in Thymeleaf, `'global'` always means this, even if the form object has a property named
+  `global`.
 - `t:errorclass="error"` next to `t:field` appends the class when the field has errors.
 - `fields.*` arguments are string literal paths (or a field expression, below). A
   `<form method="post">` gets the CSRF input automatically when Spring Security provides a token,
@@ -1314,8 +1320,9 @@ over a stored string.
 
 - `<form:form modelAttribute="x">` is `t:object="x"`; `<form:input>`, `<form:select>`,
   `<form:checkbox>`, `<form:radiobutton>` and `<form:textarea path="p">` are the HTML element with
-  `t:field="*{p}"` (write `<form:options>` as a `t:each` over `<option>`); `<form:errors>` is
-  `t:errors`. `t:field` writes Spring's ids, names, checkbox `_name` markers and `selected`/`checked`.
+  `t:field="*{p}"` (write `<form:options>` as a `t:each` over `<option>`); `<form:errors path="p">` is
+  `t:errors="*{p}"`, `path="*"` is `t:errors="*"`, and `<form:errors/>` with no path (the form
+  object's own errors only) is `t:errors="*{global}"`. `t:field` writes Spring's ids, names, checkbox `_name` markers and `selected`/`checked`.
 - **Computed paths.** A tag file or Tiles fragment that binds `path="${field}.answer"` becomes a
   fragment with a `Field<T>` parameter that binds `t:field="c.answer"` (section 4.8, Binding
   properties of a `Field`). The caller can't yet pass a `Field` indexed by its own loop variable
@@ -2053,9 +2060,10 @@ These come from the annotation processor itself, without a template position.
 - `t:errorclass needs literal class names (letters, digits, '-', '_'), e.g. t:errorclass="error"`.
 - `t:errorclass needs t:field on the same element`.
 - `unknown function fields.<fn>: the fields namespace has hasErrors('path') and errors('path')`:
-  `#fields.hasAnyErrors()` → `fields.hasErrors('*')`, `#fields.allErrors()` → `fields.errors('*')`.
+  `#fields.hasAnyErrors()` → `fields.hasErrors('*')`, `#fields.allErrors()` → `fields.errors('*')`,
+  `#fields.hasGlobalErrors()` → `fields.hasErrors('global')`, `#fields.globalErrors()` → `fields.errors('global')`.
 - `fields.<fn>(...) can only be used inside t:object, or with a Field parameter`.
-- `fields.<fn> takes one string literal (a field path such as 'lastName', or '*' for all errors), a field expression such as *{items[i].name}, or a Field parameter`.
+- `fields.<fn> takes one string literal (a field path such as 'lastName', '*' for all errors or 'global' for the form object's own), a field expression such as *{items[i].name}, or a Field parameter`.
 
 ### Fragments
 
@@ -2130,8 +2138,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
   parameter and property types; declare `List`/`Map`. A `Boolean` getter named `getIsX()` (Lombok
   on a `Boolean isX` field) is reachable only as `x.getIsX()`. `java.util.Date`/`Calendar` are not
   view-safe.
-- **Forms.** No map keys in paths (`map[key]`), no global (object-level) errors apart from
-  `fields.errors('*')`, no `_name` marker before a `<select multiple t:field>` (Thymeleaf writes
+- **Forms.** No map keys in paths (`map[key]`), no `_name` marker before a `<select multiple t:field>` (Thymeleaf writes
   `<input type="hidden" name="_roles" value="1"/>`; add it by hand), no `t:field` on fields whose
   type is not view-safe (`MultipartFile`: write the `name` attribute by hand), and `Field`
   fragments cannot read the value. No `#ids.seq`, `#ids.next` or `#ids.prev`.

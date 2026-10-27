@@ -32,6 +32,12 @@ public final class FormPaths {
   /** Path meaning "all errors of the form object" for {@code t:errors} and {@code fields.*}. */
   public static final String ALL = "*";
 
+  /**
+   * Path meaning the form object's own (global, object-level) errors, not a field's, for {@code
+   * t:errors} and {@code fields.*}: Spring's BindStatus of the object name, as in Thymeleaf.
+   */
+  public static final String GLOBAL = "global";
+
   /** The runtime type of {@code Field} fragment parameters. */
   public static final String FIELD = Field.class.getName();
 

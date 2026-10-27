@@ -14,7 +14,9 @@ import dev.tessera.compiler.verify.Skeleton;
 import java.util.Optional;
 
 /**
- * {@code t:errors="name"} (or {@code "*"}): if the field has errors, renders them escaped and joined by {@code <br />} as the body; otherwise removes the element.
+ * {@code t:errors="name"} (or {@code "*"} for all errors, {@code "global"} for the form object's
+ * own): if the field has errors, renders them escaped and joined by {@code <br />} as the body;
+ * otherwise removes the element.
  * Inside a fragment, {@code name} may be a {@code Field} parameter.
  */
 public final class ErrorsProcessor implements AttributeProcessor {
@@ -26,13 +28,17 @@ public final class ErrorsProcessor implements AttributeProcessor {
     }
     FormPaths.FormField field;
     String value = attr.value() == null ? "" : Backports.strip(attr.value());
-    if (value.equals(FormPaths.ALL) || value.equals("*{*}")) {
+    String keyword =
+        value.equals(FormPaths.ALL) || value.equals("*{*}")
+            ? FormPaths.ALL
+            : value.equals(FormPaths.GLOBAL) || value.equals("*{global}") ? FormPaths.GLOBAL : null;
+    if (keyword != null) {
       Optional<Scope.Selection> selection = plan.scope().selection();
       if (!selection.isPresent()) {
         ctx.diagnostics().error(attr.pos(), "t:errors can only be used inside t:object (on this element or an ancestor)");
         return;
       }
-      field = FormPaths.literal(selection.get(), FormPaths.ALL, null);
+      field = FormPaths.literal(selection.get(), keyword, null);
     } else {
       field = FieldProcessor.field(ctx, attr, plan.scope(), true);
       if (field == null) {
