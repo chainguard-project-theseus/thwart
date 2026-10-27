@@ -35,6 +35,9 @@ interface RawParser {
 
     /** An element inserted; {@code onStack}: pushed, not a void element (already popped). */
     void pushed(String namespace, String localName, boolean onStack, int line, int column);
+
+    /** A CDATA section starts; the current node is not HTML. */
+    void cdata(String namespace, String localName, boolean htmlIntegrationPoint, int line, int column);
   }
 
   RawParser fork() throws Exception;

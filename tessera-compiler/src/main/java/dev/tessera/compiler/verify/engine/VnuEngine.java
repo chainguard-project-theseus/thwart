@@ -63,6 +63,11 @@ final class VnuEngine implements Engine {
         public void pushed(String namespace, String localName, boolean onStack, int line, int column) {
           listener.pushed(namespace, localName, onStack, line, column);
         }
+
+        @Override
+        public void cdata(String namespace, String localName, boolean htmlIntegrationPoint, int line, int column) {
+          listener.cdata(namespace, localName, htmlIntegrationPoint, line, column);
+        }
       });
     }
 

@@ -33,9 +33,10 @@ gaps #398 and #401; security-architecture.md §11):
 
 - It holds relative to the WHATWG parsing algorithm as the pinned parser (validator.nu
   htmlparser, security-architecture.md §11.4) implements it.
-- It holds only on parses with no parse errors (missing-doctype aside), outside three coarse
-  exclusions: SVG or MathML above a table part, table parts directly in `<template>`, and
-  anything but `option`, `optgroup` and `hr` in a `<select>` (#406).
+- It holds only on parses with no parse errors (missing-doctype aside), outside the coarse
+  exclusions: SVG or MathML above a table part, table parts directly in `<template>`,
+  anything but `option`, `optgroup` and `hr` in a `<select>` (#406), and a CDATA section in an
+  integration point (#441).
 - On that markup the supported browsers are tested to agree with the parser, not proved to.
   The nightly detector (#399, not yet on `main`) is to compare the parser's trees with parse5,
   Chromium, Firefox and WebKit on the cases it exports; until then the Node job compares renders

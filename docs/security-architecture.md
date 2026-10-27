@@ -628,13 +628,14 @@ engine rejects and the new rule accepts, and #408 removed it with no verdict cha
   second `<body>`, a block element in `<p>`, content between `</head>` and `<body>`, content
   directly in a table, a missing space between attributes.
 
-**Three coarse exclusions**, checked after every tag, where browsers are known to split:
+**Coarse exclusions**, checked after every tag ((d): at every CDATA section), where browsers are known to split:
 
 | | Rejected | Why | Issue |
 |---|---|---|---|
 | (a) | an `svg` or `math` element open with `td`, `th`, `caption`, `tr`, `tbody`, `thead`, `tfoot`, `table` or `template` below it on the stack (the fragment context counts) | vnu and Firefox reset the insertion mode to "in body" at the foreign element, while the spec, Chromium and WebKit go on to the cell | #398 |
 | (b) | an HTML table part directly in `<template>`, or a table mode in the template-mode stack | vnu and Firefox handle `</table>` there with `findLast`, not table scope, and close the outer table | #401 |
 | (c) | any element other than `option`, `optgroup` and `hr` open above `<select>`, in composed output | classic `<select>` parsing (Firefox ESR, parse5) drops what customizable `<select>` (Chromium, current Firefox, WebKit, vnu) keeps | #305, #328 |
+| (d) | a CDATA section whose current node is an HTML integration point (SVG `foreignObject`, `desc`, `title`; an HTML `annotation-xml`) or a MathML text integration point (`mi`, `mo`, `mn`, `ms`, `mtext`), with or without a `>` in it | vnu and Firefox read a CDATA section there, as the standard does; parse5 and Chromium read a bogus comment that ends at the first `>`, so the markup after it is live HTML | #296, #441 |
 
 They are coarse on purpose. Exclusion (a) rejects every `<svg>` in a table cell, not only the
 ones that reset. A wider exclusion that is obviously right beats a narrow one that models a

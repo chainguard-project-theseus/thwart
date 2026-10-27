@@ -15,8 +15,8 @@ public interface Parser {
   }
 
   /**
-   * {@link #feed(String)}, telling {@code listener} (if not null) about each parse error and each
-   * element inserted while parsing {@code chunk}.
+   * {@link #feed(String)}, telling {@code listener} (if not null) about each parse error, each
+   * element inserted and each CDATA section started while parsing {@code chunk}.
    */
   void feed(String chunk, Listener listener) throws EngineException;
 
@@ -33,6 +33,9 @@ public interface Parser {
 
     /** An element was inserted at {@code offset}; {@code stack} may be read only during this call. */
     void pushed(Stack stack, int offset);
+
+    /** A CDATA section starts at {@code offset}, with {@code current} (not HTML) the current node (#441). */
+    void cdata(OpenElement current, int offset);
   }
 
   /** The stack of open elements when an element is inserted ({@link Listener#pushed}). */
