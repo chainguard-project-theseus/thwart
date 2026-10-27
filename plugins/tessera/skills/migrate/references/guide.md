@@ -1007,9 +1007,12 @@ public record Address(String street) {}
 - Checkboxes and radios get a numbered `id`, as in Thymeleaf and Spring's JSP tags: the field
   name (without `[` and `]`) and a counter per name that starts at 1 for every render, so the
   radios of `t:field="*{roles}"` are `roles1`, `roles2`, … in page order (a boolean checkbox
-  too: `active1`). An input with its own `id` (or `t:id`) keeps it and takes no number. There
-  is no `#ids`: for a label in a `t:each`, write the id yourself, e.g.
-  `t:id="${'role-' + role}"` on the input and `t:for="${'role-' + role}"` on the label.
+  too: `active1`). An input with its own `id` (or `t:id`) keeps it and takes no number. Point a
+  label at one with `ids` (Thymeleaf's `#ids`), which shares the counter: `ids.prev('roles')` is
+  the id the last input got (a label after its input, `<label t:for="${ids.prev('roles')}">`;
+  before any input the render fails, as in Thymeleaf), `ids.next('roles')` the id the next input
+  will get, without counting it (a label before its input), and `ids.seq('roles')` counts and
+  returns a new one. The argument is the field name without `[` and `]`.
 - `t:errors` renders the field's messages escaped and joined by `<br />`, or removes the element
   if there are none (`*` for all). For other markup, loop over `fields.errors('email')`.
 - `global` instead of a path means the form object's own errors (`BindingResult.reject(...)`,
@@ -1975,6 +1978,7 @@ These come from the annotation processor itself, without a template position.
 - `<ns>.<fn> returns <type>: <reason>`.
 - `invalid function namespace '<ns>' on <class>: must be a Java identifier`.
 - `function namespace 'fields' on <class> is reserved for form errors`: choose another name.
+- `function namespace 'ids' on <class> is reserved for element ids`: choose another name.
 - `duplicate function namespace '<ns>': declared by <class> and <class>`.
 - `@TemplateFunctions class <class> must be public`.
 - `@TemplateFunction <method> must be public static`, `@TemplateFunction <method> must return a value`.
@@ -2176,6 +2180,8 @@ These come from the annotation processor itself, without a template position.
   `#fields.hasGlobalErrors()` → `fields.hasErrors('global')`, `#fields.globalErrors()` → `fields.errors('global')`.
 - `fields.<fn>(...) can only be used inside t:object, or with a Field parameter`.
 - `fields.<fn> takes one string literal (a field path such as 'lastName', '*' for all errors or 'global' for the form object's own), a field expression such as *{items[i].name}, or a Field parameter`.
+- `unknown function ids.<fn>: the ids namespace has seq('name'), next('name') and prev('name')`.
+- `ids.<fn> takes one argument, the id (a field name such as 'roles')`.
 
 ### Fragments
 
@@ -2255,7 +2261,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
   view-safe.
 - **Forms.** No map keys in paths (`map[key]`), no `t:field` on fields whose
   type is not view-safe (`MultipartFile`: write the `name` attribute by hand), and `Field`
-  fragments cannot read the value. No `#ids.seq`, `#ids.next` or `#ids.prev`.
+  fragments cannot read the value.
 - **CSRF and other ways a form posts elsewhere.** The CSRF input is left out of a form whose
   `action` is on another origin, a submit button's `formaction` must be same-origin where it
   may submit a form with the token, and so must every `<base href>` (section 4.7). Not seen: a static htmx request attribute such

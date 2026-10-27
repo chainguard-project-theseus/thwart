@@ -487,6 +487,16 @@ class MigratorTest {
   }
 
   @Test
+  void idsUtilityConverts() throws Exception {
+    // #458: fredbet's labels after t:field checkboxes and radios (bench counts.json: #ids.prev x3).
+    assertEquals("<div t:params=\"Object level\">"
+            + "<label class=\"form-check-label\" t:for=\"ids.prev('level')\" t:text=\"level\"></label>"
+            + "<label t:for=\"ids.next('roles')\"></label><i t:id=\"ids.seq('roles')\"></i></div>",
+        convert("<div><label class=\"form-check-label\" th:for=\"${#ids.prev('level')}\" th:text=\"${level}\"></label>"
+            + "<label th:for=\"${#ids.next('roles')}\"></label><i th:id=\"${#ids.seq('roles')}\"></i></div>"));
+  }
+
+  @Test
   void renamesDoNotApplyInsideStringLiterals() throws Exception {
     String src = "<p th:text=\"'#fields.allErrors() x[' + 'new' + ']' + |#strings.listJoin( ['new']|\">x</p>";
     assertEquals(src.replace("th:", "t:"), convert(src));
