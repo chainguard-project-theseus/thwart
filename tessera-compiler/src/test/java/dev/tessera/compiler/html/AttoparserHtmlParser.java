@@ -294,11 +294,6 @@ final class AttoparserHtmlParser {
       }
       flushText();
       checkEarlyEnd(new String(buffer, outerOffset, outerLen), line, col);
-      String cdata = new String(buffer, outerOffset, outerLen);
-      int hole = HtmlParser.cdataHole(cdata);
-      if (hole >= 0) {
-        diagnostics.error(after(pos(line, col), cdata, hole), HtmlParser.CDATA_HOLE_MESSAGE);
-      }
       children().add(new Text(new String(buffer, outerOffset, outerLen), textContext(), pos(line, col)));
     }
 

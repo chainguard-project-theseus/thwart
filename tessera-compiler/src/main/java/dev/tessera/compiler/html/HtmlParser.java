@@ -328,24 +328,6 @@ public final class HtmlParser {
         + " write &lt; for a literal '<'";
   }
 
-  /**
-   * Index in the CDATA section {@code outer} of the first {@code [[} or {@code [(}, which {@code
-   * TextInlining} would render as an expression, or -1. Outside svg and math a browser reads the
-   * section as a comment, and inside them as text that does not decode {@code &lt;}; in neither is
-   * the value element text, so no escaping fits.
-   */
-  static int cdataHole(String outer) {
-    int a = outer.indexOf("[[");
-    int b = outer.indexOf("[(");
-    return a < 0 ? b : b < 0 ? a : Math.min(a, b);
-  }
-
-  /** The build error when {@link #cdataHole} finds an expression. */
-  static final String CDATA_HOLE_MESSAGE =
-      "malformed markup: [[...]] and [(...)] are not supported inside a CDATA section: outside <svg> and <math>"
-          + " a browser reads the section as a comment, and inside them it shows &lt; as written; write the text"
-          + " without <![CDATA[";
-
   /** The build error for {@code outer} when {@link #earlyEnd} finds a {@code >}. */
   static String earlyEndMessage(String outer) {
     if (outer.startsWith("<![")) {
@@ -616,10 +598,7 @@ public final class HtmlParser {
       }
       flushText();
       checkEarlyEnd(start, end);
-      int hole = cdataHole(str(start, end));
-      if (hole >= 0) {
-        diagnostics.error(position(start + hole), CDATA_HOLE_MESSAGE);
-      }
+      // An expression inside is a TEXT_NOT_IN_TEXT for the verifier, which names the CDATA section (#411).
       children().add(new Text(str(start, end), textContext(), position(start)));
     }
 
