@@ -87,7 +87,7 @@ but inside `|...|` and `+` a `null` prints `null`.
 
 ## 2. Build setup
 
-The build needs JDK 8+ and Maven, and the application runs on Java 8+. Tessera's CI compiles
+The build needs JDK 8+ and Maven or Gradle, and the application runs on Java 8+. Tessera's CI compiles
 applications with JDK 8 and JDK 21 javac; newer JDKs are expected to work but are not run in CI.
 The annotation processor
 (`tessera-compiler`) runs inside the application's javac, and it, `tessera-runtime` and the Spring
@@ -214,6 +214,50 @@ Spring falls back to (the system locale unless the app sets one). Facts about th
   `mvn clean compile`.
 - Templates under `src/main/resources` are copied into the jar as resources, so resource
   filtering rewrites `${...}` in them unless `templates/**` is excluded.
+
+**Gradle.** The same processor runs under Gradle, with no plugin. `examples/gradle` is a minimal
+build that CI runs with Gradle 9 (`.chainguard/ci/gradle.yaml`). The wiring, in the Groovy DSL:
+
+```groovy
+dependencies {
+  implementation "dev.tessera:tessera-spring-boot-starter:$tesseraVersion" // javax: -javax; without Spring: tessera-runtime
+  annotationProcessor "dev.tessera:tessera-compiler:$tesseraVersion" // after Lombok and the other processors
+}
+
+def templates = file('src/main/resources/templates')
+def messages = file('src/main/resources/messages')
+
+tasks.named('compileJava') {
+  options.compilerArgs += [
+    "-Atessera.templates=$templates",
+    '-Atessera.package=com.example.templates',
+    "-Atessera.messages=$messages",
+  ]
+  inputs.dir(templates).withPropertyName('tesseraTemplates').withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.file("${messages}.properties").withPropertyName('tesseraMessages').withPathSensitivity(PathSensitivity.RELATIVE)
+}
+```
+
+- The `inputs` lines do what `tessera-maven-plugin` does under Maven. javac reads the templates
+  and message files, but Gradle doesn't know that: without them, a template-only or message-only
+  edit leaves `compileJava` UP-TO-DATE and the old generated classes stay in the build. With them,
+  any edit reruns `compileJava`. Declare every message file `tessera.messages` names (with a
+  locale file such as `messages_en`, that file).
+- `annotationProcessor` is the processor path, like `annotationProcessorPaths`, and javac runs the
+  processors in the order they are declared: declare Lombok, MapStruct and the others there too,
+  Lombok before Tessera (the Lombok bullet above says why).
+- Tessera does not declare itself an incremental processor to Gradle (no
+  `META-INF/gradle/incremental.annotation.processors`), so Gradle recompiles the whole source set
+  when a source changes (`--info` says "Full recompilation is required because ... TesseraProcessor
+  is not incremental"). That is on purpose: the generated classes depend on template files and on
+  every type the templates read, not on one annotated element (an isolating processor) or on the
+  set of annotated elements (an aggregating one), so either declaration would let Gradle skip a
+  regeneration that is needed.
+- Gradle runs processors on test sources only if `testAnnotationProcessor` lists them; tests see
+  the main generated classes without it. Templates are copied into the jar by `processResources`,
+  unfiltered unless the build adds `expand` or `filter`.
+- The release level is the build's own (`options.release` or the Java toolchain), and the
+  templates compile at it.
 
 **Spring Boot.** The starter's auto-configuration registers the view resolver, the `Template`
 return-value handler and the template registry. Tessera's resolver runs before Thymeleaf's and
@@ -1654,7 +1698,7 @@ These come from the annotation processor itself, without a template position.
   (warning): a file beside a basename such as `messages_en-US.properties` or
   `messages_backup.properties`. Rename a locale file to Java's form (`messages_en_US.properties`);
   ignore the warning for other files.
-- `Tessera: <file> was generated before another annotation processor (Lombok?) finished adding members to the classes its templates read; list that processor before Tessera in annotationProcessorPaths`:
+- `Tessera: <file> was generated before another annotation processor (Lombok?) finished adding members to the classes its templates read; list that processor before Tessera in annotationProcessorPaths (Gradle: annotationProcessor)`:
   move Lombok ahead of Tessera in `annotationProcessorPaths` (section 2), then `mvn clean compile`.
 - `Tessera: internal compiler error: <exception>`: a compiler bug. Report it with the template
   that triggers it.
@@ -2188,10 +2232,10 @@ Gaps in Tessera today, each with what to do until it is fixed.
 
 - **Versions.** Spring 4.3+ / Boot 1.5+ on Servlet 3.0+; anything older is untested. Upgrade to
   Spring 4.3 first, or wire the classes by hand at your own risk.
-- **Build.** Tested with Maven only. Gradle is untested and has no docs or plugin: the processor
-  needs only javac options (section 2), so it should work, but it isn't verified. A template-only
-  change is recompiled only with `tessera-maven-plugin` (section 2), and a message-only change
-  needs `mvn clean compile`; there is no hot reload.
+- **Build.** Maven and Gradle (section 2); there is no Gradle plugin, only the processor wiring.
+  Under Maven, a template-only change is recompiled only with `tessera-maven-plugin` (section 2),
+  and a message-only change needs `mvn clean compile`. Under Gradle, the `compileJava` inputs
+  cover both. There is no hot reload.
 - **Messages.** `-Atessera.messages` checks the basenames it lists, read from the file system. Keys
   that only a jar or a database-backed `MessageSource` provides fail the build; give those pages a
   `@TemplateFunction` that looks them up, and accept that they are not checked.

@@ -1,0 +1,38 @@
+// Tessera in a Gradle build (#427): the same javac annotation processor as under Maven, no plugin.
+// Tessera isn't published yet: run `mvn install` in the repo root first; it resolves from mavenLocal().
+plugins {
+  id 'application'
+}
+
+repositories {
+  mavenLocal()
+}
+
+def tesseraVersion = '0.1.0-SNAPSHOT'
+
+dependencies {
+  // A Spring app uses tessera-spring-boot-starter (or -javax) here instead.
+  implementation "dev.tessera:tessera-runtime:$tesseraVersion"
+  // List every other processor the build uses (Lombok, MapStruct, ...) before Tessera.
+  annotationProcessor "dev.tessera:tessera-compiler:$tesseraVersion"
+}
+
+application {
+  mainClass = 'com.example.Main'
+}
+
+def templates = file('src/main/resources/templates')
+def messages = file('src/main/resources/messages')
+
+tasks.named('compileJava') {
+  options.release = 17
+  options.compilerArgs += [
+    "-Atessera.templates=$templates",
+    '-Atessera.package=com.example.templates',
+    "-Atessera.messages=$messages",
+  ]
+  // javac reads the templates and messages, not Gradle: declare them as inputs, or a template- or
+  // message-only edit leaves compileJava UP-TO-DATE with the old generated classes.
+  inputs.dir(templates).withPropertyName('tesseraTemplates').withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.file("${messages}.properties").withPropertyName('tesseraMessages').withPathSensitivity(PathSensitivity.RELATIVE)
+}

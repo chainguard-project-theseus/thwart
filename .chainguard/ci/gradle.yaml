@@ -1,0 +1,17 @@
+version: 1
+environment:
+  packages: [openjdk-21-default-jdk, maven-3.9, gradle-9, bash]
+  vars:
+    JAVA_HOME: /usr/lib/jvm/default-jvm
+    LANG: C.UTF-8
+    CI: "true"
+    MAVEN_OPTS: -Djava.io.tmpdir=/var/tmp
+checks:
+  example:
+    description: Builds examples/gradle with Gradle against the installed artifacts (#427).
+    trigger: [presubmit, postsubmit]
+    resources: medium
+    timeout: 15m
+    network:
+      egress: [repo.maven.apache.org, repo1.maven.org]
+    cmd: [bash, -c, "mvn -B -ntp install -DskipTests -pl tessera-compiler -am && sh examples/gradle/verify.sh"]
