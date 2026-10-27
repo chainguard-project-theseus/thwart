@@ -38,6 +38,20 @@ public final class FormPaths {
    */
   public static final String GLOBAL = "global";
 
+  /** What resolving a field path checks and compiles. */
+  public enum Check {
+    /** Nothing: only the path's index expressions are compiled, and the value is null. */
+    NONE,
+    /**
+     * The path, but not the field's value, which is null: for a field bound by name only, whose
+     * value is never read ({@code t:errors}, {@code fields.*}, {@code t:field} on a file input), so
+     * its type need not be view-safe ({@link ExpressionCompiler#pathType}, #129).
+     */
+    PATH,
+    /** The path and the field's current value, whose type must not be on the deny-list. */
+    VALUE
+  }
+
   /** The runtime type of {@code Field} fragment parameters. */
   public static final String FIELD = Field.class.getName();
 
@@ -157,7 +171,7 @@ public final class FormPaths {
    * whose type is not known.
    */
   public static FormField resolveSubPath(
-      Expr e, Variable field, Scope scope, ExpressionCompiler expressions, boolean withValue) {
+      Expr e, Variable field, Scope scope, ExpressionCompiler expressions, Check check) {
     Expr root = root(e);
     TypeMirror type = fieldType(field.type());
     if (type == null) {
@@ -173,7 +187,7 @@ public final class FormPaths {
     // The value chain starts at the field's value, seen under the field's own name.
     Scope valueScope = scope.with(new Variable(field.name(), type, j + ".value()"));
     return steps(
-        j + ".objectName()", name, id, new StringBuilder(), root, valueScope, e, scope, expressions, withValue);
+        j + ".objectName()", name, id, new StringBuilder(), root, valueScope, e, scope, expressions, check);
   }
 
   /**
@@ -207,10 +221,9 @@ public final class FormPaths {
    * {@code expressions}' diagnostics and returns null on error. The caller checks that there is a
    * selection and that {@code e} {@link #isPath is a path}.
    *
-   * @param withValue compile the field's current value (and check the property types); without
-   *     it only the index expressions are compiled and the value is null
+   * @param check what to check and compile: with {@link Check#VALUE} the field's current value
    */
-  public static FormField resolve(Expr e, Scope scope, ExpressionCompiler expressions, boolean withValue) {
+  public static FormField resolve(Expr e, Scope scope, ExpressionCompiler expressions, Check check) {
     if (!isPath(e)) {
       throw new IllegalArgumentException("not a field path: " + e);
     }
@@ -227,7 +240,7 @@ public final class FormPaths {
         e,
         scope,
         expressions,
-        withValue);
+        check);
   }
 
   /**
@@ -247,14 +260,15 @@ public final class FormPaths {
       Expr e,
       Scope scope,
       ExpressionCompiler expressions,
-      boolean withValue) {
+      Check check) {
     DiagnosticSink diagnostics = expressions.env().diagnostics();
     List<Expr> chain = new ArrayList<>();
     for (Expr step = e; step != null; step = target(step)) {
       chain.add(0, step);
     }
-    CompiledExpr current = withValue ? expressions.compile(value, valueScope) : null;
-    if (withValue && current == null) {
+    CompiledExpr current = check == Check.VALUE ? expressions.compile(value, valueScope) : null;
+    TypeMirror type = type(current, value, valueScope, expressions, check);
+    if (check != Check.NONE && type == null) {
       return null;
     }
     for (Expr step : chain.subList(1, chain.size())) {
@@ -264,11 +278,11 @@ public final class FormPaths {
         value = new Expr.Property(value, property, true, step.pos());
       } else {
         Expr.Index index = (Expr.Index) step;
-        if (withValue && !isListOrArray(current.type(), expressions)) {
+        if (check != Check.NONE && !isListOrArray(type, expressions)) {
           // TODO(#190): Map keys (Spring's map[key]) need a safe key encoding; only ints for now.
           diagnostics.error(
               step.pos(),
-              "cannot index " + current.type() + " in a field path: [...] works on a List or an array");
+              "cannot index " + type + " in a field path: [...] works on a List or an array");
           return null;
         }
         String code = index(index.index(), scope, expressions);
@@ -286,15 +300,25 @@ public final class FormPaths {
         text.append(']');
         value = new Expr.Index(value, index.index(), step.pos());
       }
-      if (withValue) {
+      if (check == Check.VALUE) {
         current = expressions.compile(value, valueScope);
-        if (current == null) {
-          return null;
-        }
+      }
+      type = type(current, value, valueScope, expressions, check);
+      if (check != Check.NONE && type == null) {
+        return null;
       }
     }
     flush(text, name, id);
     return new FormField(objectName, concat(name), concat(id), current);
+  }
+
+  /** The type of the path so far: {@code current}'s for VALUE, resolved without reading it for PATH. */
+  private static TypeMirror type(
+      CompiledExpr current, Expr value, Scope valueScope, ExpressionCompiler expressions, Check check) {
+    if (check == Check.VALUE) {
+      return current == null ? null : current.type();
+    }
+    return check == Check.PATH ? expressions.pathType(value, valueScope) : null;
   }
 
   /**
@@ -430,6 +454,17 @@ public final class FormPaths {
    * property, bad path).
    */
   public static CompiledExpr compile(String path, SourcePos pos, Scope scope, ExpressionCompiler expressions) {
+    FormField field = literalField(path, pos, scope, expressions, Check.VALUE);
+    return field == null ? null : field.value();
+  }
+
+  /**
+   * Resolves the string-literal {@code path} against the selection in {@code scope}, as
+   * {@link #compile} but with {@code check} ({@link Check#PATH}: the value is not compiled and is
+   * null). Reports and returns null on error.
+   */
+  public static FormField literalField(
+      String path, SourcePos pos, Scope scope, ExpressionCompiler expressions, Check check) {
     if (!scope.selection().isPresent()) {
       expressions.env().diagnostics().error(pos, "field '" + path + "' can only be used inside t:object: put t:object=\"...\" on"
               + " this element or an enclosing one");
@@ -441,8 +476,7 @@ public final class FormPaths {
           + " items[0].name");
       return null;
     }
-    FormField field = resolve(e, scope, expressions, true);
-    return field == null ? null : field.value();
+    return resolve(e, scope, expressions, check);
   }
 
   /** True if {@code s} is an ASCII identifier: {@code [A-Za-z_][A-Za-z0-9_]*}. */

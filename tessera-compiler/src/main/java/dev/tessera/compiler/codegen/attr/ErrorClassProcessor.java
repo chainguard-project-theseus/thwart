@@ -35,7 +35,7 @@ public final class ErrorClassProcessor implements AttributeProcessor {
       return;
     }
     // t:field reports a missing t:object or a bad path; don't report it twice.
-    FormPaths.FormField formField = FieldProcessor.field(ctx, field.get(), plan.scope(), false);
+    FormPaths.FormField formField = FieldProcessor.field(ctx, field.get(), plan.scope(), FormPaths.Check.NONE);
     if (formField == null) {
       return;
     }
