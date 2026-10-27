@@ -29,8 +29,9 @@ templates. When the compiler rejects something, one of the rules below is the re
 
 **A template sees only its typed parameters.** The first element declares them
 (`t:params="Owner owner, List<Pet> pets"`), and with Spring each is read from the model attribute
-of the same name. Nothing else is visible: no request, session, application or bean scope, no
-request parameters, cookies, headers or path variables. Engines you are leaving often fall back to
+of the same name, or else from the handler's `@PathVariable` of that name, as Spring's own views
+do. Nothing else is visible: no request, session, application or bean scope, no request
+parameters, cookies or headers. Engines you are leaving often fall back to
 those scopes when a name is not in the model. Tessera doesn't: **a missing model attribute is
 `null`**, which prints nothing, and reading a property of it fails the render with a
 `NullPointerException` (write `a?.b` where `null` is expected). So before converting a template,
@@ -71,7 +72,7 @@ but inside `|...|` and `+` a `null` prints `null`.
 
 | If the old template... | Do this instead |
 |---|---|
-| reads the request, session, application scope, cookies, headers or path variables, or falls back to them | Put the value in the model and declare it in `t:params`. Nothing warns you when you miss one. |
+| reads the request, session, application scope, cookies or headers, or falls back to them | Put the value in the model and declare it in `t:params`. Nothing warns you when you miss one. (A `@PathVariable` fills the param of the same name without this.) |
 | calls a method with arguments, a static method, a bean or a constructor | A getter, a record built by the controller, or a `@TemplateFunction`. |
 | filters, sorts, groups or projects a collection | Do it in the controller. |
 | assigns a variable | `t:with="x=..."`: an immutable local for one element. |
@@ -1198,7 +1199,11 @@ public record Espd(Criterion exclusion, List<Criterion> selection) {}
 
 With Spring (Boot's auto-configuration, or `TesseraConfiguration` without Boot), `return
 "owners/list";` renders `templates/owners/list.html` from the model. The name
-must match exactly; other names fall through to other resolvers. A model value of the wrong type
+must match exactly; other names fall through to other resolvers. As with Spring's `AbstractView`
+and Thymeleaf, the handler's `@PathVariable` values are added under the model (a model attribute of
+the same name wins), so `@GetMapping("/owners/{ownerId}")` fills `t:params="Long ownerId"`; only
+declared params are read, and an undeclared path variable is never visible. A path variable holds
+the handler argument's type (`Long` for `@PathVariable Long ownerId`). A model value of the wrong type
 fails with `TemplateModelException`. A controller can also return `ListTemplate.of(owners)`, checked
 by `javac`. Without Spring, call `FunctionsTemplate.of(order).renderToString(ctx)` with a
 `RenderContext(locale, messages, links, forms)`, the whole ambient surface (`RenderContext.defaults()`,
@@ -2130,7 +2135,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
   `@TemplateFunction` that looks them up, and accept that they are not checked.
 - **View resolution.** Names are matched exactly: a leading `/` or a `page :: fragment` view name
   falls through to other resolvers. Return the plain template name (make the fragment its own
-  template if needed). Path variables are not in the model unless the controller adds them.
+  template if needed).
 - **Mixed engines.** During a migration the old engine renders every view Tessera doesn't know
   (section 2), so an app part-way through is protected only on the ported views; finish by
   removing the engine (section 3, step 6).
