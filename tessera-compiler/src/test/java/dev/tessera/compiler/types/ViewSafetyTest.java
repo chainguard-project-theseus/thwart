@@ -87,6 +87,8 @@ class ViewSafetyTest {
           "java.util.List<java.lang.Thread>",
           "java.util.Map<java.lang.String,java.lang.Class<java.lang.String>>",
           "java.util.Optional<java.lang.reflect.Method>",
+          "java.util.ArrayList<java.lang.Thread>",
+          "java.util.TreeMap<java.lang.String,java.lang.Class<java.lang.String>>",
           "java.lang.Thread[]",
           "com.example.Box<java.lang.Runtime>");
 
@@ -163,6 +165,19 @@ class ViewSafetyTest {
                       "java.util.Map<java.lang.String,java.util.List<com.example.Item>>",
                       "java.util.Map.Entry<java.lang.String,java.lang.Integer>",
                       "java.util.Optional<java.lang.String>",
+                      // java.util implementations and sub-interfaces, seen as their interface (#135).
+                      "java.util.ArrayList<java.lang.String>",
+                      "java.util.LinkedList<com.example.Item>",
+                      "java.util.HashSet<java.lang.String>",
+                      "java.util.TreeSet<java.lang.String>",
+                      "java.util.SortedSet<java.lang.String>",
+                      "java.util.LinkedHashMap<java.lang.String,com.example.Item>",
+                      "java.util.TreeMap<java.lang.String,java.util.List<com.example.Item>>",
+                      "java.util.SortedMap<java.lang.String,java.lang.Integer>",
+                      "java.util.NavigableMap<java.lang.String,java.lang.Integer>",
+                      "java.util.EnumMap<com.example.Status,java.lang.Integer>",
+                      "java.util.ArrayDeque<java.lang.String>",
+                      "java.util.AbstractMap.SimpleEntry<java.lang.String,java.lang.Integer>",
                       "com.example.Item[]",
                       "int[]",
                       "com.example.Holder")) {
@@ -173,7 +188,14 @@ class ViewSafetyTest {
                       "com.example.Pojo",
                       "java.util.List<com.example.Pojo>",
                       "java.util.List",
-                      "java.util.ArrayList<java.lang.String>",
+                      "java.util.ArrayList",
+                      "java.util.ArrayList<com.example.Pojo>",
+                      "java.util.TreeMap<java.lang.String,com.example.Pojo>",
+                      // Map<Object, Object>; Iterable only (iterating it loads classes); not java.util.
+                      "java.util.Properties",
+                      "java.util.ServiceLoader<java.lang.String>",
+                      "java.util.Iterator<java.lang.String>",
+                      "java.util.concurrent.ConcurrentHashMap<java.lang.String,java.lang.String>",
                       "java.time.Clock",
                       "java.time.InstantSource",
                       "java.time.DateTimeException",
@@ -183,6 +205,30 @@ class ViewSafetyTest {
                 assertFalse(vs.isViewSafe(t), name);
                 assertTrue(vs.neverViewSafeReason(t).isEmpty(), name);
               }
+            });
+  }
+
+  @Test
+  void javaUtilContainerNamesItsBadTypeArgument() {
+    harness()
+        .run(
+            f -> {
+              ViewSafety vs = f.safety();
+              assertEquals(
+                  "its type argument com.example.Pojo is not a record or annotated @TemplateView",
+                  vs.badTypeArgument(f.type("java.util.TreeMap<java.lang.String,com.example.Pojo>")).get());
+              assertEquals(
+                  "java.util.List<java.lang.String>", vs.containerView(f.type("java.util.ArrayList<java.lang.String>")).toString());
+              assertEquals(
+                  "java.util.Map<java.lang.String,java.lang.Integer>",
+                  vs.containerView(f.type("java.util.TreeMap<java.lang.String,java.lang.Integer>")).toString());
+              assertEquals(
+                  "java.util.Collection<java.lang.String>",
+                  vs.containerView(f.type("java.util.ArrayDeque<java.lang.String>")).toString());
+              assertNull(f.compiler().resolveType(ref("ArrayList<Pojo>"), List.of("com.example.*")));
+              String err = f.errors().getLast();
+              assertTrue(err.startsWith("t.html:1:1: error: parameter type"), err);
+              assertTrue(err.contains("its type argument com.example.Pojo"), err);
             });
   }
 

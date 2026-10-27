@@ -61,6 +61,21 @@ class ScriptJsonTest {
   }
 
   @Test
+  void javaUtilImplementationsSerializeAsTheirInterface() {
+    // #135: an ArrayList is a List and a TreeMap a Map, in scripts and in t:each.
+    Compilation c = compile(
+            "ArrayList<Point> l, TreeMap<String, Point> m",
+            "<script>var l = [[l]]; var m = [[m]];</script><p t:each=\"e : m\" t:text=\"e.key\"></p>")
+        .assertSuccess();
+    Object a = c.newInstance("com.example.Point", 1, "a");
+    Object b = c.newInstance("com.example.Point", 2, "b");
+    assertEquals(
+        "<div><script>var l = [{\"x\":1,\"label\":\"a\"}]; var m = {\"x\":{\"x\":1,\"label\":\"a\"},"
+            + "\"y\":{\"x\":2,\"label\":\"b\"}};</script><p>x</p><p>y</p></div>",
+        c.render("page", model("l", new java.util.ArrayList<>(List.of(a)), "m", new java.util.TreeMap<>(Map.of("y", b, "x", a)))));
+  }
+
+  @Test
   void recordIsAnObjectOfItsComponentsInOrder() {
     Compilation c = compile("Point p", "<script>var p = [[p]];</script>").assertSuccess();
     Object p = c.newInstance("com.example.Point", 3, "a");

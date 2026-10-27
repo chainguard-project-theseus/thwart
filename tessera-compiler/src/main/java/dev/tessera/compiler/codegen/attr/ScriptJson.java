@@ -197,6 +197,7 @@ final class ScriptJson {
       default:
         return null;
     }
+    t = ctx.expressions().containerView(t); // an ArrayList or TreeMap as its List or Map (#135)
     DeclaredType dt = (DeclaredType) t;
     TypeElement te = (TypeElement) dt.asElement();
     String name = te.getQualifiedName().toString();
@@ -343,6 +344,7 @@ final class ScriptJson {
       default:
         return null;
     }
+    t = ctx.expressions().containerView(t); // an ArrayList or TreeMap as its List or Map (#135)
     DeclaredType dt = (DeclaredType) t;
     TypeElement te = (TypeElement) dt.asElement();
     String name = te.getQualifiedName().toString();
