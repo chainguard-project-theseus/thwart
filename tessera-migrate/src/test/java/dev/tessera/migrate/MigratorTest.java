@@ -52,6 +52,13 @@ class MigratorTest {
   }
 
   @Test
+  void tagSelectorsKeepHyphensAndTBlock() throws Exception {
+    // ~{::my-card} and ~{::th:block} select by tag name (#137); <th:block> is <t:block>.
+    assertEquals("<div t:replace=\"~{layout :: layout(~{::my-card}, ~{::t:block})}\">x</div>",
+        convert("<div th:replace=\"~{layout :: layout(~{::my-card}, ~{::th:block})}\">x</div>"));
+  }
+
+  @Test
   void prototypeOnlyCommentMarkersAreDropped() throws Exception {
     // Thymeleaf renders the content of <!--/*/ ... /*/-->; Tessera rejects the markers (#132).
     assertEquals("<p t:params=\"Object x\"> <b t:text=\"x\">y</b> </p>\n<!--/* a */-->",
