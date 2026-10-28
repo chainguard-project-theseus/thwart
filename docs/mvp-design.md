@@ -16,7 +16,7 @@ built-in `strings`/`numbers`/`temporals`/`lists`/`css`/`html` and Spring `auth` 
 contextual escaping, `${...}`/`*{...}` wrappers, the Spring Boot starter, `tessera-migrate`,
 and a petclinic port.
 
-**Out:** sandbox, devtools/hot reload, LSP, Kotlin, Gradle, Maven plugin, the layout dialect,
+**Out:** sandbox, devtools/hot reload, LSP, Kotlin, a Gradle plugin, the layout dialect,
 `th:inline` modes and JS natural-template comments (`/*[[...]]*/`), markup selectors other than
 fragment names and `~{::tag}`, `__...__` preprocessing (never), `T(...)`/`new`/`@bean` (never),
 collection selection/projection, `th:style`/`th:onclick` (build errors by design), byte-array output.
