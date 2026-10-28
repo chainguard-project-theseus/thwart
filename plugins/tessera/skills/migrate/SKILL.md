@@ -38,7 +38,7 @@ java -jar .tessera/tessera-migrate.jar --help
 
 Run the command as written (don't add `-o`: Maven may need to fetch the dependency plugin
 itself). The Tessera artifacts aren't published to a remote repository yet, so it resolves only
-where Tessera has been built with `mvn install` (from `github.com/chainguard-dev/harder`). If it
+where Tessera has been built with `mvn install` (from `github.com/wolfi-dev/tessera`). If it
 fails, read the error. If the missing artifact is `dev.tessera:tessera-migrate`, stop and say that
 Tessera needs to be installed into the local Maven repository first. Any other failure (plugin
 resolution, network) is a Maven problem, not a missing Tessera. Either way, if the jar is in the
