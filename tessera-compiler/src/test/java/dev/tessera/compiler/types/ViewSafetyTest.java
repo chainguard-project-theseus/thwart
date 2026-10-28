@@ -336,7 +336,7 @@ class ViewSafetyTest {
   /** A container that isn't view-safe names the type argument that isn't, and why (#260). */
   private static Compilation entries(String mapType, String body) {
     return Compilation.builder()
-        .java("com.example.Hidden", "package com.example; class Hidden { public String getId() { return \"h\"; } }")
+        .java("com.example.Hidden", "package com.example; public class Hidden { public String getId() { return \"h\"; } }")
         .java("com.example.Pojo", "package com.example; public class Pojo { public String getName() { return \"p\"; } }")
         .java(
             "com.example.Holder",
@@ -349,7 +349,7 @@ class ViewSafetyTest {
   void containerNamesTheTypeArgumentThatIsNotViewSafe() {
     Compilation c = entries("java.util.Map<Hidden, String>", "<p t:each=\"e : h.map\">[[e.key]]</p>");
     c.assertError("page.html:2:25: ", "cannot read 'key'", "is not view-safe: its type argument com.example.Hidden is not"
-        + " public, not a record and not annotated @TemplateView");
+        + " a record or annotated @TemplateView");
     // The container itself is view-safe: don't tell the user to annotate Map.Entry.
     assertFalse(String.join("\n", c.errors()).contains("make it a record"), c.errors().toString());
   }
@@ -359,7 +359,7 @@ class ViewSafetyTest {
     entries(
             "java.util.Map<String, java.util.Map<Hidden, java.util.List<String>>>",
             "<p t:each=\"e : h.map\">[[e.key]]</p>")
-        .assertError("page.html:2:", "cannot read 'key'", "its type argument com.example.Hidden is not public");
+        .assertError("page.html:2:", "cannot read 'key'", "its type argument com.example.Hidden is not a record");
     entries("java.util.Map<String, String>", "<p t:each=\"p : h.pojos\">[[p.name]]</p><i>[[h.pojos]]</i>")
         .assertError("page.html:2:", "com.example.Pojo is not view-safe (make it a record or annotate it @TemplateView)")
         .assertError(
