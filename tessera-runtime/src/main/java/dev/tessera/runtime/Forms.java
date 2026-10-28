@@ -138,4 +138,36 @@ public interface Forms {
           return Optional.empty();
         }
       };
+
+  /**
+   * Whether {@code key} can be a map key segment of a field path, {@code prices[key]} (#190):
+   * non-null, non-empty, and without '[', ']' or quotes (' and "). Spring's property paths have no escape,
+   * so such a key would end the segment early or have its quotes stripped and bind another path.
+   */
+  static boolean isPathKey(String key) {
+    if (key == null || key.isEmpty()) {
+      return false;
+    }
+    for (int i = 0; i < key.length(); i++) {
+      char c = key.charAt(i);
+      if (c == '[' || c == ']' || c == '\'' || c == '"') {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * {@code key} for the map key segment of a field path, checked by {@link #isPathKey}; generated
+   * code calls it for a key held in a variable. Throws {@code IllegalArgumentException} for a key
+   * that cannot be bound.
+   */
+  static String pathKey(String key) {
+    if (!isPathKey(key)) {
+      throw new IllegalArgumentException(
+          "map key " + (key == null ? "null" : "'" + key + "'") + " cannot be bound in a form field path: a key must be"
+              + " non-empty and contain no '[', ']' or quotes");
+    }
+    return key;
+  }
 }

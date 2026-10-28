@@ -9,6 +9,8 @@ import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
 import dev.tessera.runtime.Field;
+import dev.tessera.runtime.Forms;
+import dev.tessera.runtime.Values;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -19,8 +21,8 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 
 /**
- * Form field paths ({@code lastName}, {@code address.city}, {@code items[i].name}) relative to the {@code t:object}
- * selection. Paths are checked at build time against the selection type, so an unknown field
+ * Form field paths ({@code lastName}, {@code address.city}, {@code items[i].name},
+ * {@code prices[key]}) relative to the {@code t:object} selection. Paths are checked at build time against the selection type, so an unknown field
  * is a build error naming the type.
  *
  * <p>Inside a fragment, a parameter of type {@code dev.tessera.runtime.Field} stands for a path
@@ -214,10 +216,13 @@ public final class FormPaths {
   /**
    * Resolves a field path expression against the {@code t:object} selection in {@code scope}:
    * {@code lastName}, {@code *{address.city}}, or with index segments {@code *{items[0].name}},
-   * {@code *{items[i].name}}, {@code *{items[${iterStat.index}].name}}. An index is an int literal
-   * or an int-typed variable or property chain (a loop variable, {@code iterStat.index}), and the
-   * indexed property must be a List or an array; the path string is built from the literal names
-   * and the int, so it never contains user-controlled text. Reports through
+   * {@code *{items[i].name}}, {@code *{items[${iterStat.index}].name}}, or with map key segments
+   * {@code *{prices[key]}}, {@code *{prices['x']}} (#190). A List or array index is an int literal
+   * or an int-typed variable or property chain (a loop variable, {@code iterStat.index}); a Map key
+   * is a literal or a variable or property chain of type int, long, String or an enum, written as
+   * Spring's {@code BeanWrapper} reads it, unquoted: {@code prices[x]}. A String key is checked by
+   * {@link Forms#pathKey} (at build time if literal), so it cannot change the path's structure.
+   * Reports through
    * {@code expressions}' diagnostics and returns null on error. The caller checks that there is a
    * selection and that {@code e} {@link #isPath is a path}.
    *
@@ -278,14 +283,15 @@ public final class FormPaths {
         value = new Expr.Property(value, property, true, step.pos());
       } else {
         Expr.Index index = (Expr.Index) step;
-        if (check != Check.NONE && !isListOrArray(type, expressions)) {
-          // TODO(#190): Map keys (Spring's map[key]) need a safe key encoding; only ints for now.
+        boolean map = check != Check.NONE && isMap(type, expressions);
+        if (check != Check.NONE && !map && !isListOrArray(type, expressions)) {
           diagnostics.error(
               step.pos(),
-              "cannot index " + type + " in a field path: [...] works on a List or an array");
+              "cannot index " + type + " in a field path: [...] works on a List, an array or a Map");
           return null;
         }
-        String code = index(index.index(), scope, expressions);
+        // Without a check the container is unknown: allow both (t:field reports).
+        String code = index(index.index(), scope, expressions, map || check == Check.NONE);
         if (code == null) {
           return null;
         }
@@ -322,13 +328,18 @@ public final class FormPaths {
   }
 
   /**
-   * The Java code (an int, as a decimal literal if constant) of a field path index, or null after
-   * reporting: an int literal, or an int variable or property chain.
+   * A field path index or map key, or null after reporting: for a literal, the path text (an int
+   * as a decimal, a String key checked by {@link Forms#isPathKey}); otherwise Java code for an int
+   * or a {@code String}. An index is an int literal or an int variable or property chain; with
+   * {@code mapKey}, a key may also be a long, a String or an enum (its name, as Spring converts it
+   * back), and a variable String key is checked by {@link Forms#pathKey} when the page renders.
    */
-  private static String index(Expr e, Scope scope, ExpressionCompiler expressions) {
+  private static String index(Expr e, Scope scope, ExpressionCompiler expressions, boolean mapKey) {
+    DiagnosticSink diagnostics = expressions.env().diagnostics();
     if (!(e instanceof Expr.Literal) && !isVariableChain(e)) {
-      expressions.env().diagnostics().error(e.pos(), "a field path index must be an int literal or an int variable such as i or"
-          + " iterStat.index, not an expression");
+      diagnostics.error(e.pos(), mapKey
+          ? "a map key in a field path must be a literal or a variable such as key or entry.key, not an expression"
+          : "a field path index must be an int literal or an int variable such as i or iterStat.index, not an expression");
       return null;
     }
     CompiledExpr c = expressions.compile(e, scope);
@@ -343,14 +354,33 @@ public final class FormPaths {
             || ExpressionCompiler.isDeclared(t, "java.lang.Integer")
             || ExpressionCompiler.isDeclared(t, "java.lang.Short")
             || ExpressionCompiler.isDeclared(t, "java.lang.Byte");
-    if (!isInt) {
-      expressions.env().diagnostics().error(e.pos(), "a field path index must be an int, got " + t);
+    boolean isLong = t.getKind() == TypeKind.LONG || ExpressionCompiler.isDeclared(t, "java.lang.Long");
+    boolean isString = ExpressionCompiler.isDeclared(t, "java.lang.String");
+    Types types = expressions.env().types();
+    TypeMirror enumType = types.erasure(expressions.env().elements().getTypeElement("java.lang.Enum").asType());
+    boolean isEnum = t.getKind() == TypeKind.DECLARED && types.isSubtype(types.erasure(t), enumType);
+    if (!isInt && !(mapKey && (isLong || isString || isEnum))) {
+      diagnostics.error(e.pos(), mapKey
+          ? "a map key in a field path must be an int, a long, a String or an enum, got " + t
+          : "a field path index must be an int, got " + t);
       return null;
     }
     if (e instanceof Expr.Literal) {
-      return String.valueOf(((Expr.Literal) e).value());
+      String text = String.valueOf(((Expr.Literal) e).value());
+      if (isString && !Forms.isPathKey(text)) {
+        diagnostics.error(e.pos(), "map key '" + text + "' cannot be bound in a field path: a key must be non-empty and"
+            + " contain no '[', ']' or quotes, which Spring's property paths cannot escape");
+        return null;
+      }
+      return text;
     }
-    return "((int) " + c.code() + ")";
+    if (isString) {
+      return Forms.class.getName() + ".pathKey(" + c.code() + ")";
+    }
+    if (isEnum) {
+      return Forms.class.getName() + ".pathKey(" + Values.class.getName() + ".enumName(" + c.code() + "))";
+    }
+    return (isLong ? "((long) " : "((int) ") + c.code() + ")";
   }
 
   private static boolean isVariableChain(Expr e) {
@@ -385,6 +415,12 @@ public final class FormPaths {
       return ((Expr.Property) e).target();
     }
     return e instanceof Expr.Index ? ((Expr.Index) e).target() : null;
+  }
+
+  private static boolean isMap(TypeMirror t, ExpressionCompiler expressions) {
+    Types types = expressions.env().types();
+    TypeMirror map = types.erasure(expressions.env().elements().getTypeElement("java.util.Map").asType());
+    return t.getKind() == TypeKind.DECLARED && types.isSubtype(types.erasure(t), map);
   }
 
   private static boolean isListOrArray(TypeMirror t, ExpressionCompiler expressions) {
@@ -422,8 +458,9 @@ public final class FormPaths {
 
   /**
    * Parses a string-literal field path ({@code lastName}, {@code address.city},
-   * {@code items[0].name}) into the expression {@link #resolve} takes, or returns null if
-   * {@code path} is not one. Indexes are decimal ints without leading zeros.
+   * {@code items[0].name}, {@code prices[x]}) into the expression {@link #resolve} takes, or returns
+   * null if {@code path} is not one. Indexes are decimal ints without leading zeros; a map key is
+   * an identifier, unquoted as Spring writes it (#190).
    */
   static Expr parseLiteral(String path, SourcePos pos) {
     Expr e = null;
@@ -437,10 +474,17 @@ public final class FormPaths {
       String rest = bracket < 0 ? "" : segment.substring(bracket);
       while (!rest.isEmpty()) {
         int close = rest.indexOf(']');
-        if (!rest.startsWith("[") || close < 0 || !rest.substring(1, close).matches("0|[1-9][0-9]{0,8}")) {
+        if (!rest.startsWith("[") || close < 0) {
           return null;
         }
-        e = new Expr.Index(e, new Expr.Literal(Integer.valueOf(rest.substring(1, close)), pos), pos);
+        String key = rest.substring(1, close);
+        if (key.matches("0|[1-9][0-9]{0,8}")) {
+          e = new Expr.Index(e, new Expr.Literal(Integer.valueOf(key), pos), pos);
+        } else if (isIdentifier(key)) {
+          e = new Expr.Index(e, new Expr.Literal(key, pos), pos);
+        } else {
+          return null;
+        }
         rest = rest.substring(close + 1);
       }
     }
