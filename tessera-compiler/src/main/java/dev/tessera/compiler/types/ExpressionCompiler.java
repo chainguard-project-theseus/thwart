@@ -638,9 +638,12 @@ public final class ExpressionCompiler {
     if (bad.isPresent()) {
       return error(pos, ns + "." + name + " returns " + result + ": " + bad.get());
     }
-    String code =
-        owner.get().getQualifiedName() + "." + name + "("
-            + compiled.stream().map(CompiledExpr::code).collect(Collectors.joining(", ")) + ")";
+    List<String> argCode = new ArrayList<>();
+    if (functions().takesLocale(m.get())) {
+      argCode.add("ctx.locale()");
+    }
+    compiled.forEach(c -> argCode.add(c.code()));
+    String code = owner.get().getQualifiedName() + "." + name + "(" + String.join(", ", argCode) + ")";
     return new CompiledExpr(code, result, pos);
   }
 

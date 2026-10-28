@@ -20,9 +20,10 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 /**
  * Built-in {@code temporals} namespace (Thymeleaf's {@code #temporals}). Always registered.
  *
- * <p>A {@code null} temporal formats as {@code null} (renders as nothing). Text fields (month and
- * day names) use {@link Locale#ENGLISH}: unlike Thymeleaf, which uses the request locale, a
- * static function cannot see the {@code RenderContext}.
+ * <p>A {@code null} temporal formats as {@code null} (renders as nothing). The leading {@link
+ * Locale} parameter of {@link #format} is the render locale ({@code RenderContext.locale()}),
+ * supplied by the compiler, so month and day names follow it, as in Thymeleaf. {@link Locale#ROOT}
+ * (no locale, as in {@code RenderContext.empty()}) formats them in English.
  */
 @TemplateFunctions("temporals")
 public final class Temporals {
@@ -31,36 +32,42 @@ public final class Temporals {
 
   private Temporals() {}
 
-  /** Formats {@code temporal} with a {@link DateTimeFormatter} pattern such as {@code yyyy-MM-dd}. */
+  /**
+   * Formats {@code temporal} with a {@link DateTimeFormatter} pattern such as {@code yyyy-MM-dd},
+   * with text fields in {@code locale}.
+   */
   @TemplateFunction
-  public static String format(TemporalAccessor temporal, String pattern) {
+  public static String format(Locale locale, TemporalAccessor temporal, String pattern) {
     if (temporal == null) {
       return null;
     }
-    return formatter(pattern).format(temporal);
+    return formatter(Locale.ROOT.equals(locale) ? Locale.ENGLISH : locale, pattern).format(temporal);
   }
 
-  private static DateTimeFormatter formatter(String pattern) {
+  private static DateTimeFormatter formatter(Locale locale, String pattern) {
+    Objects.requireNonNull(locale, "locale");
     Objects.requireNonNull(pattern, "pattern");
     // Also bound the size of each retained pattern and its compiled formatter.
     if (pattern.length() > 128) {
-      return DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH);
+      return DateTimeFormatter.ofPattern(pattern, locale);
     }
-    int slot = pattern.hashCode() & (FORMATS.length() - 1);
+    int slot = (31 * pattern.hashCode() + locale.hashCode()) & (FORMATS.length() - 1);
     PatternFormat cached = FORMATS.get(slot);
-    if (cached != null && cached.pattern.equals(pattern)) {
+    if (cached != null && cached.pattern.equals(pattern) && cached.locale.equals(locale)) {
       return cached.format;
     }
-    DateTimeFormatter format = DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH);
-    FORMATS.set(slot, new PatternFormat(pattern, format));
+    DateTimeFormatter format = DateTimeFormatter.ofPattern(pattern, locale);
+    FORMATS.set(slot, new PatternFormat(locale, pattern, format));
     return format;
   }
 
   private static final class PatternFormat {
+    final Locale locale;
     final String pattern;
     final DateTimeFormatter format;
 
-    PatternFormat(String pattern, DateTimeFormatter format) {
+    PatternFormat(Locale locale, String pattern, DateTimeFormatter format) {
+      this.locale = locale;
       this.pattern = pattern;
       this.format = format;
     }

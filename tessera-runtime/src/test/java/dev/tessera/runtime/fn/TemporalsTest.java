@@ -29,16 +29,29 @@ class TemporalsTest {
 
   @Test
   void format() {
-    assertEquals("2024-01-05", Temporals.format(LocalDate.of(2024, 1, 5), "yyyy-MM-dd"));
-    assertEquals("5 Jan 2024 Fri", Temporals.format(LocalDate.of(2024, 1, 5), "d MMM yyyy EEE"));
-    assertEquals("10:15", Temporals.format(DT, "HH:mm"));
-    assertNull(Temporals.format(null, "yyyy"));
+    assertEquals("2024-01-05", Temporals.format(Locale.ROOT, LocalDate.of(2024, 1, 5), "yyyy-MM-dd"));
+    assertEquals("5 Jan 2024 Fri", Temporals.format(Locale.ROOT, LocalDate.of(2024, 1, 5), "d MMM yyyy EEE"));
+    assertEquals("10:15", Temporals.format(Locale.ROOT, DT, "HH:mm"));
+    assertNull(Temporals.format(Locale.ROOT, null, "yyyy"));
+  }
+
+  @Test
+  void formatUsesTheLocale() {
+    LocalDate d = LocalDate.of(2024, 3, 5);
+    assertEquals("5. März 2024, Dienstag", Temporals.format(Locale.GERMANY, d, "d. MMMM yyyy, EEEE"));
+    assertEquals("5 March 2024, Tuesday", Temporals.format(Locale.UK, d, "d MMMM yyyy, EEEE"));
+    assertEquals("5 March 2024", Temporals.format(Locale.ROOT, d, "d MMMM yyyy"));
+    // The cache keys on the locale as well as the pattern.
+    for (int i = 0; i < 3; i++) {
+      assertEquals("März", Temporals.format(Locale.GERMAN, d, "MMMM"));
+      assertEquals("March", Temporals.format(Locale.ENGLISH, d, "MMMM"));
+    }
   }
 
   @Test
   void formatRejectsFieldsTheValueLacks() {
-    assertThrows(RuntimeException.class, () -> Temporals.format(LocalDate.of(2024, 1, 5), "HH:mm"));
-    assertThrows(IllegalArgumentException.class, () -> Temporals.format(DT, "{bad"));
+    assertThrows(RuntimeException.class, () -> Temporals.format(Locale.ROOT, LocalDate.of(2024, 1, 5), "HH:mm"));
+    assertThrows(IllegalArgumentException.class, () -> Temporals.format(Locale.ROOT, DT, "{bad"));
   }
 
   @Test
@@ -51,15 +64,15 @@ class TemporalsTest {
     for (int i = 0; i < 50; i++) {
       for (String pattern : List.of(first, second, longPattern, "", "d MMM yyyy EEE")) {
         assertEquals(DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH).format(DT),
-            Temporals.format(DT, pattern));
+            Temporals.format(Locale.ROOT, DT, pattern));
       }
     }
-    assertThrows(NullPointerException.class, () -> Temporals.format(DT, null));
-    assertNull(Temporals.format(null, null));
-    assertNull(Temporals.format(null, "{bad"));
+    assertThrows(NullPointerException.class, () -> Temporals.format(Locale.ROOT, DT, null));
+    assertNull(Temporals.format(Locale.ROOT, null, null));
+    assertNull(Temporals.format(Locale.ROOT, null, "{bad"));
     // A failed pattern must not poison a previously cached valid formatter.
-    assertThrows(IllegalArgumentException.class, () -> Temporals.format(DT, "{bad"));
-    assertEquals("2024-01-05 Aa", Temporals.format(DT, first));
+    assertThrows(IllegalArgumentException.class, () -> Temporals.format(Locale.ROOT, DT, "{bad"));
+    assertEquals("2024-01-05 Aa", Temporals.format(Locale.ROOT, DT, first));
   }
 
   @Test
@@ -71,7 +84,7 @@ class TemporalsTest {
       final String expected = DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH).format(date);
       calls.add(() -> {
         for (int i = 0; i < 500; i++) {
-          assertEquals(expected, Temporals.format(date, pattern));
+          assertEquals(expected, Temporals.format(Locale.ROOT, date, pattern));
         }
         return null;
       });

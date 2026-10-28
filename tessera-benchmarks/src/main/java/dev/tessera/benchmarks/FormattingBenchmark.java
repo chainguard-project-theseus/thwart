@@ -4,6 +4,7 @@ import dev.tessera.runtime.fn.Numbers;
 import dev.tessera.runtime.fn.Temporals;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -39,26 +40,26 @@ public class FormattingBenchmark {
 
   @Benchmark
   public String integer() {
-    return Numbers.formatInteger(number, 8);
+    return Numbers.formatInteger(Locale.ROOT, number, 8);
   }
 
   @Benchmark
   public String decimal() {
-    return Numbers.formatDecimal(number, 1, 2);
+    return Numbers.formatDecimal(Locale.ROOT, number, 1, 2);
   }
 
   @Benchmark
   public String temporalRepeated() {
-    return Temporals.format(date, patterns[0]);
+    return Temporals.format(Locale.ROOT, date, patterns[0]);
   }
 
   @Benchmark
   public String temporalAlternating() {
-    return Temporals.format(date, patterns[index++ & 3]);
+    return Temporals.format(Locale.ROOT, date, patterns[index++ & 3]);
   }
 
   @Benchmark
   public String temporalChurn() {
-    return Temporals.format(date, changingPatterns[index++ & 127]);
+    return Temporals.format(Locale.ROOT, date, changingPatterns[index++ & 127]);
   }
 }
