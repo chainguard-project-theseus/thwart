@@ -19,30 +19,68 @@ import org.junit.jupiter.api.Test;
 class NumbersTest {
   @Test
   void formatInteger() {
-    assertEquals("007", Numbers.formatInteger(7, 3));
-    assertEquals("12345", Numbers.formatInteger(12345L, 3));
-    assertEquals("-07", Numbers.formatInteger(-7, 2));
-    assertEquals("3", Numbers.formatInteger(2.5, 1));
+    assertEquals("007", Numbers.formatInteger(Locale.ROOT, 7, 3));
+    assertEquals("12345", Numbers.formatInteger(Locale.ROOT, 12345L, 3));
+    assertEquals("-07", Numbers.formatInteger(Locale.ROOT, -7, 2));
+    assertEquals("3", Numbers.formatInteger(Locale.ROOT, 2.5, 1));
     assertEquals("123456789012345678901234567890",
-        Numbers.formatInteger(new BigInteger("123456789012345678901234567890"), 1));
-    assertNull(Numbers.formatInteger(null, 2));
+        Numbers.formatInteger(Locale.ROOT, new BigInteger("123456789012345678901234567890"), 1));
+    assertNull(Numbers.formatInteger(Locale.ROOT, null, 2));
   }
 
   @Test
   void formatDecimal() {
-    assertEquals("3.14", Numbers.formatDecimal(3.14159, 1, 2));
-    assertEquals("03.00", Numbers.formatDecimal(3, 2, 2));
-    assertEquals("0.13", Numbers.formatDecimal(new BigDecimal("0.125"), 1, 2));
-    assertEquals("0.10", Numbers.formatDecimal(0.1f, 1, 2));
-    assertEquals("1234567.50", Numbers.formatDecimal(1234567.5, 1, 2));
-    assertNull(Numbers.formatDecimal(null, 1, 2));
+    assertEquals("3.14", Numbers.formatDecimal(Locale.ROOT, 3.14159, 1, 2));
+    assertEquals("03.00", Numbers.formatDecimal(Locale.ROOT, 3, 2, 2));
+    assertEquals("0.13", Numbers.formatDecimal(Locale.ROOT, new BigDecimal("0.125"), 1, 2));
+    assertEquals("0.10", Numbers.formatDecimal(Locale.ROOT, 0.1f, 1, 2));
+    assertEquals("1234567.50", Numbers.formatDecimal(Locale.ROOT, 1234567.5, 1, 2));
+    assertNull(Numbers.formatDecimal(Locale.ROOT, null, 1, 2));
+  }
+
+  @Test
+  void groupingAndDecimalPointTypes() {
+    assertEquals("1,234,567", Numbers.formatInteger(Locale.ROOT, 1234567, 1, "COMMA"));
+    assertEquals("1.234.567", Numbers.formatInteger(Locale.ROOT, 1234567, 1, "POINT"));
+    assertEquals("1 234 567", Numbers.formatInteger(Locale.ROOT, 1234567, 1, "WHITESPACE"));
+    assertEquals("1234567", Numbers.formatInteger(Locale.ROOT, 1234567, 1, "NONE"));
+    assertEquals("-2,550", Numbers.formatInteger(Locale.US, -2550, 1, "DEFAULT"));
+    assertEquals("-2.550", Numbers.formatInteger(Locale.GERMANY, -2550, 1, "DEFAULT"));
+    assertEquals("3,14", Numbers.formatDecimal(Locale.ROOT, 3.14159, 1, 2, "COMMA"));
+    assertEquals("3.14", Numbers.formatDecimal(Locale.GERMANY, 3.14159, 1, 2, "POINT"));
+    assertEquals("1.234.567,50", Numbers.formatDecimal(Locale.ROOT, 1234567.5, 1, "POINT", 2, "COMMA"));
+    assertEquals("1,234,567.50", Numbers.formatDecimal(Locale.GERMANY, 1234567.5, 1, "COMMA", 2, "POINT"));
+    assertEquals("1.234.567,50", Numbers.formatDecimal(Locale.GERMANY, 1234567.5, 1, "DEFAULT", 2, "DEFAULT"));
+    assertNull(Numbers.formatInteger(Locale.ROOT, null, 1, "COMMA"));
+    assertThrows(IllegalArgumentException.class, () -> Numbers.formatInteger(Locale.ROOT, 1, 1, "comma"));
+    assertThrows(IllegalArgumentException.class, () -> Numbers.formatDecimal(Locale.ROOT, 1, 1, 2, "NONE"));
+    assertThrows(IllegalArgumentException.class, () -> Numbers.formatDecimal(Locale.ROOT, 1, 1, 2, null));
+  }
+
+  @Test
+  void decimalPointFollowsTheLocale() {
+    assertEquals("3,14", Numbers.formatDecimal(Locale.GERMANY, 3.14159, 1, 2));
+    assertEquals("1234567,50", Numbers.formatDecimal(Locale.GERMANY, 1234567.5, 1, 2));
+    assertEquals("3.14", Numbers.formatDecimal(Locale.US, 3.14159, 1, 2));
+    assertEquals("2550", Numbers.formatInteger(Locale.GERMANY, 2550, 1));
+  }
+
+  @Test
+  void percentAndCurrency() {
+    assertEquals("12.5%", Numbers.formatPercent(Locale.US, 0.125, 1, 1));
+    assertEquals("13%", Numbers.formatPercent(Locale.US, 0.125, 1, 0));
+    assertEquals("$1,234.50", Numbers.formatCurrency(Locale.US, 1234.5));
+    assertEquals("1.234,50\u00a0\u20ac", Numbers.formatCurrency(Locale.GERMANY, new BigDecimal("1234.5")));
+    assertNull(Numbers.formatPercent(Locale.US, null, 1, 1));
+    assertNull(Numbers.formatCurrency(Locale.US, null));
+    assertThrows(IllegalArgumentException.class, () -> Numbers.formatCurrency(Locale.US, "1"));
   }
 
   @Test
   void formatRejectsNonNumbersAndNonFinite() {
-    assertThrows(IllegalArgumentException.class, () -> Numbers.formatInteger("7", 1));
-    assertThrows(IllegalArgumentException.class, () -> Numbers.formatDecimal(Double.NaN, 1, 2));
-    assertThrows(IllegalArgumentException.class, () -> Numbers.formatDecimal(Float.POSITIVE_INFINITY, 1, 2));
+    assertThrows(IllegalArgumentException.class, () -> Numbers.formatInteger(Locale.ROOT, "7", 1));
+    assertThrows(IllegalArgumentException.class, () -> Numbers.formatDecimal(Locale.ROOT, Double.NaN, 1, 2));
+    assertThrows(IllegalArgumentException.class, () -> Numbers.formatDecimal(Locale.ROOT, Float.POSITIVE_INFINITY, 1, 2));
   }
 
   @Test
@@ -62,7 +100,7 @@ class NumbersTest {
       String expected = reference.format(value);
       calls.add(() -> {
         for (int i = 0; i < 500; i++) {
-          assertEquals(expected, Numbers.formatDecimal(value, digits, decimals));
+          assertEquals(expected, Numbers.formatDecimal(Locale.ROOT, value, digits, decimals));
         }
         return null;
       });
@@ -72,8 +110,8 @@ class NumbersTest {
         result.get();
       }
     }
-    assertEquals("3", Numbers.formatInteger(2.5, 1));
-    assertNull(Numbers.formatDecimal(null, -1, -1));
+    assertEquals("3", Numbers.formatInteger(Locale.ROOT, 2.5, 1));
+    assertNull(Numbers.formatDecimal(Locale.ROOT, null, -1, -1));
   }
 
   @Test

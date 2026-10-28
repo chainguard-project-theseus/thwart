@@ -66,7 +66,7 @@ calls.
 checked at build time. Choose between literals with a conditional.
 
 **Values print with `String.valueOf`**, with no locale-aware formatting: use `numbers.*`,
-`temporals.*` or your own function. `null` text renders empty and a `null` attribute is omitted,
+`temporals.*` (which follow the render locale) or your own function. `null` text renders empty and a `null` attribute is omitted,
 but inside `|...|` and `+` a `null` prints `null`.
 
 ### Things Tessera deliberately doesn't do, and what to do instead
@@ -858,8 +858,8 @@ Spring resolves those as it did before the port. A key computed from data
 (`'criterion.' + c.code`) has no template form: resolve those messages in Java with Spring's
 `MessageSource` and the request `Locale` (in the controller or a `@ModelAttribute` method) and pass
 the strings in the model. A
-`@TemplateFunction` can't see the locale or Spring beans; don't reach them through
-`RequestContextHolder` or other static state.
+`@TemplateFunction` can't see Spring beans, and sees the locale only as a leading `Locale`
+parameter (section 4.6); don't reach them through `RequestContextHolder` or other static state.
 
 **Messages with markup.** A bundle is part of the application, so a message that holds markup
 (Thymeleaf `th:utext="#{key(args)}"`, JSP `<spring:message>` without escaping) can be printed as
@@ -924,15 +924,28 @@ Templates call functions as `namespace.fn(args)` or `#namespace.fn(args)`.
 | Namespace | Functions |
 |---|---|
 | `strings` | `isEmpty`, `isBlank`, `defaultString(s, def)`, `abbreviate(s, max)`, `toUpperCase`, `toLowerCase`, `capitalize`, `trim`, `contains(s, part)`, `startsWith`, `endsWith`, `substring(s, start[, end])`, `replace(s, before, after)`, `join(iterable, sep)` |
-| `numbers` | `formatInteger(n, minDigits)`, `formatDecimal(n, minIntDigits, decimals)` (no grouping, `.` as decimal point), `sequence(from, to)` (a `List<Integer>`) |
-| `temporals` | `format(temporal, pattern)` (English month and day names), `formatIso(temporal)` |
+| `numbers` | `formatInteger(n, minDigits[, thousandsPoint])`, `formatDecimal(n, minIntDigits, decimals[, decimalPoint])`, `formatDecimal(n, minIntDigits, thousandsPoint, decimals, decimalPoint)`, `formatPercent(n, minIntDigits, decimals)`, `formatCurrency(n)`, `sequence(from, to)` (a `List<Integer>`); see below |
+| `temporals` | `format(temporal, pattern)` (month and day names in the render locale), `formatIso(temporal)` |
 | `lists` | `size`, `isEmpty`, `contains(list, x)` |
 | `css` | `color(s)` (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, a CSS named colour), `length(s)` (a number with optional `px`, `em`, `rem`, `%`, `vh`, `vw`), `url(s)` (`url("...")` for a relative or `http`/`https` URL, percent-encoded): a `CssValue`, or `null` for anything else |
 | `html` | `sanitize(s)`: stored rich text as `SafeHtml` for `t:utext`; `sanitizeRich(s)`: the same with same-origin images, tables, `language-*` classes and `id` (section 4.4) |
 | `auth` (Spring starter) | `isAuthenticated()`, `hasRole('ADMIN')`, `hasAnyRole('A', 'B')` (`ROLE_` is added unless present), `hasAuthority('PERM_X')`, `hasAnyAuthority('A', 'B')` (compared exactly), `name()` |
 | `fields` (inside `t:object`) | `hasErrors('path')`, `hasErrors('*')`, `hasErrors('global')`, `errors('path')`, section 4.7 |
 
-All built-ins are null-tolerant. Add your own namespace with a class in your application:
+All built-ins are null-tolerant. `numbers.*` and `temporals.format` format in the render locale
+(`RenderContext.locale()`, which the Spring starter takes from the `LocaleResolver`), as
+Thymeleaf's `#numbers` and `#temporals` do; `RenderContext.empty()` has `Locale.ROOT`, which
+formats numbers with `.` as the decimal point and `,` for grouping, and month names in English.
+Without a point type `formatInteger` and `formatDecimal` don't group and use the locale's decimal
+point. A point type is one of the literals `'POINT'` (`.`), `'COMMA'` (`,`), `'WHITESPACE'` (a
+space) or `'DEFAULT'` (the locale's), and for thousands also `'NONE'` (no grouping):
+`numbers.formatInteger(n, 1, 'COMMA')` prints `-2,550`, and
+`numbers.formatDecimal(n, 1, 'POINT', 2, 'COMMA')` prints `1.234,50` in any locale. Another
+string fails the render. `formatPercent(0.125, 1, 1)` is `12.5%` in English, and
+`formatCurrency` uses the locale's currency, so it needs a locale with a country (`en_US`, not
+`en`). Unlike Thymeleaf, `numbers.*` rounds half up.
+
+Add your own namespace with a class in your application:
 
 <!-- compile: java -->
 ```java
@@ -961,7 +974,9 @@ public final class Money {
 ```
 
 The class is public; each method is `public static`, annotated `@TemplateFunction`, and returns a
-value whose type is not never-view-safe (`Object` is allowed for parameters). The class must be in
+value whose type is not never-view-safe (`Object` is allowed for parameters). A leading
+`java.util.Locale` parameter is not a template argument: the compiler passes the render locale, so
+`public static String day(Locale locale, LocalDate d)` is called as `fmt.day(d)`. The class must be in
 the same `javac` run as the templates (section 2). `fields` is reserved.
 
 ### 4.7 Forms
@@ -2325,8 +2340,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
   JavaScript parser. Declare the data at the top of the script, or use a
   `<script type="application/json">` and `JSON.parse`.
 - **Output.** `[[...]]` in a script serializes only the properties of the static type: a subclass's
-  extra getters are not written, and Jackson annotations are ignored. `numbers.*` has no grouping
-  or locale; `temporals.format` uses English names. Thymeleaf parser-level comments
+  extra getters are not written, and Jackson annotations are ignored. Thymeleaf parser-level comments
   `<!--/* ... */-->` are emitted like any comment; delete them.
 - **Rich text.** Stored HTML is printed through a sanitizer policy: `html.sanitize`,
   `html.sanitizeRich`, or one built with `HtmlPolicy.builder()` (section 4.4). The builder takes
