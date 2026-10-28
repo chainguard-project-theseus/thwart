@@ -30,6 +30,17 @@ class CodegenEndToEndTest {
     assertEquals(STATIC.replace(" xmlns:t=\"https://tessera.dev\"", ""), c.render("static", Map.of()));
   }
 
+
+  @Test
+  void templateCommentsAreNotCompiledOrWritten() {
+    // Thymeleaf's parser-level comment <!--/* ... */-->: nothing inside is compiled, verified or written.
+    String page = "<html xmlns:t=\"https://tessera.dev\" t:params=\"String name\">"
+        + "<p>a<!--/* [[${name}]] */-->b</p><!--/*\n<div t:text=\"${nope.x}\" t:fragment=\"f()\">[[${bogus}]]</div>\n"
+        + "<script>[[${name}]]</script><a href=\"[[${name}]]\" onclick=\"[[${name}]]\"></a>\n*/-->"
+        + "<!-- /* kept */ --></html>";
+    Compilation c = Compilation.builder().template("page.html", page).compile().assertSuccess();
+    assertEquals("<html><p>ab</p><!-- /* kept */ --></html>", c.render("page", Map.of("name", "n")));
+  }
   @Test
   void classNamesAndServicesFile() {
     Compilation c =

@@ -517,6 +517,12 @@ public record Order(String number, BigDecimal total) {}
   `of(Customer, List<Order>, boolean)`.
 - Static attribute values and text are prototypes that `t:` attributes replace. `<t:block>`
   renders only its content. HTML comments are copied to the output.
+- The template comment is Thymeleaf's parser-level comment `<!--/* ... */-->`: the compiler drops
+  it with everything inside, up to the first `*/-->`, so nothing in it is compiled or written. It
+  may span lines and wrap markup. `<!-- /* ... */ -->` (with a space) is an ordinary comment. Inside
+  `<script>`, `<style>`, `<title>` and `<textarea>`, where a browser reads it as text, `<!--/*` is
+  an error. Thymeleaf's prototype-only comment `<!--/*/ ... /*/-->`, whose content Thymeleaf
+  renders, is an error too: remove its markers (`tessera-migrate` does).
 
 ### 4.2 View types
 
@@ -1479,6 +1485,9 @@ leaving a particular one. Read the part for your engine before converting.
 
 **Every engine.**
 
+- **Comments.** Write template-only comments (`{{! }}`, `<%-- --%>`, `<#-- -->`, `##`, `#* *#`,
+  `{# #}`) as `<!--/* ... */-->`, which is never written (section 4.1). An HTML comment
+  `<!-- -->` is written to the page, so don't put internals in one.
 - **Raw output.** Velocity prints everything raw, JSP prints EL `${x}` raw outside `<c:out>` and
   the form tags, and Pebble's `| raw` turns escaping off. Treat each raw output in the old
   templates as a review point, and replace it according to where the value comes from:
@@ -1948,6 +1957,15 @@ These come from the annotation processor itself, without a template position.
   and `malformed markup: '--!>' ends a comment in a browser: end the comment with '-->' or remove the '!'`:
   a browser ends the comment earlier than Tessera would, so the markup after it would be live. Write
   `<!-- -->`-style comments that end only at `-->`.
+- `malformed markup: '<!--/*' starts a template comment that is not closed: end it with '*/-->'`:
+  a template comment (section 4.1) runs to the first `*/-->`; add it, or write `<!-- -->` for an
+  HTML comment.
+- `malformed markup: '<!--/*' inside <<tag>> is text, not a template comment: move the comment outside <<tag>>`:
+  in `<style>`, `<title>` and `<textarea>` a browser reads it as text, so Tessera would write it
+  where Thymeleaf drops it. In `<script>` it is the `'<!--' inside <script>` error above.
+- `Thymeleaf prototype-only comments '<!--/*/ ... /*/-->' are not supported: remove the '<!--/*/' and '/*/-->' markers to make the content part of the template`:
+  Thymeleaf renders the content of these blocks, so remove the markers and keep the content.
+  `tessera-migrate` does this.
 - `malformed markup: '>' inside a CDATA section is not supported, even in <svg> and <math>: elsewhere a browser ends it at the first '>'; write the text without <![CDATA[, with '>' as &gt;`:
   Tessera ends a CDATA section at `]]>`, but in HTML a browser ends it at the first `>`, so the
   markup after it would be read differently. Inside `<svg>` and `<math>` a browser ends a CDATA
@@ -2443,8 +2461,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
   JavaScript parser. Declare the data at the top of the script, or use a
   `<script type="application/json">` and `JSON.parse`.
 - **Output.** `[[...]]` in a script serializes only the properties of the static type: a subclass's
-  extra getters are not written, and Jackson annotations are ignored. Thymeleaf parser-level comments
-  `<!--/* ... */-->` are emitted like any comment; delete them.
+  extra getters are not written, and Jackson annotations are ignored.
 - **Rich text.** Stored HTML is printed through a sanitizer policy: `html.sanitize`,
   `html.sanitizeRich`, or one built with `HtmlPolicy.builder()` (section 4.4). The builder takes
   names only from a closed set, so `style`, `iframe`, `video`, `svg` and forms are never kept,

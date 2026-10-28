@@ -49,6 +49,11 @@ import java.util.regex.Pattern;
 public final class HtmlParser {
 
   private static final Set<String> RAW_TEXT_ELEMENTS = Backports.setOf("script", "style", "textarea", "title");
+  /** Starts a Thymeleaf prototype-only comment, whose content Thymeleaf renders (not supported). */
+  private static final String PROTOTYPE_COMMENT = "<!--/*/";
+  private static final String PROTOTYPE_COMMENT_MESSAGE = "Thymeleaf prototype-only comments '<!--/*/ ... /*/-->'"
+      + " are not supported: remove the '<!--/*/' and '/*/-->' markers to make the content part of the"
+      + " template";
   /**
    * The start tags allowed anywhere inside a select. Browsers with the classic "in select"
    * insertion mode (Firefox 140) ignore most other start tags there, svg and math included, and
@@ -524,6 +529,22 @@ public final class HtmlParser {
       children().add(new Comment(comment, position(start)));
     }
 
+    /**
+     * A template comment is dropped: nothing in it is parsed, compiled or written (#132). The text
+     * on either side stays two nodes, so positions in the second stay right.
+     */
+    @Override
+    public void templateComment(int start, int end) {
+      if (raw != null) {
+        return;
+      }
+      flushText();
+      int prototype = content.substring(start, end).indexOf(PROTOTYPE_COMMENT);
+      if (prototype >= 0) {
+        diagnostics.error(position(start + prototype), PROTOTYPE_COMMENT_MESSAGE);
+      }
+    }
+
     @Override
     public void cdata(int start, int end) {
       if (raw != null) {
@@ -751,6 +772,7 @@ public final class HtmlParser {
       if (end > rawStart) {
         String body = content.substring(rawStart, end);
         int comment = body.indexOf("<!--");
+        int templateComment = body.indexOf("<!--/*");
         int confusable = HtmlParser.confusableEndTag(body, raw.name);
         if (confusable >= 0) {
           // It reads as the end tag, but a browser goes on past it. Fail closed.
@@ -779,6 +801,10 @@ public final class HtmlParser {
           // the next "</script>"); the tokenizer does not. Fail closed.
           diagnostics.error(position(rawStart + comment),
               "malformed markup: '<!--' inside <script> is not supported: remove it (it is not needed in HTML5)");
+        } else if (templateComment >= 0) {
+          // A browser reads it as text here, but Thymeleaf drops it everywhere. Fail closed.
+          diagnostics.error(position(rawStart + templateComment), "malformed markup: '<!--/*' inside <"
+              + raw.name + "> is text, not a template comment: move the comment outside <" + raw.name + ">");
         }
         raw.children.add(new Text(body, raw.textContext, position(rawStart)));
       }
