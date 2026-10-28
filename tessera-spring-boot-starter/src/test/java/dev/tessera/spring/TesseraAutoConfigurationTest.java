@@ -17,10 +17,16 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DeferredImportSelector;
+import org.springframework.context.annotation.Import;
 import org.springframework.core.env.MapPropertySource;
+import org.springframework.core.type.AnnotationMetadata;
 import org.springframework.mock.web.MockServletContext;
+import org.springframework.util.ClassUtils;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 import org.springframework.web.servlet.resource.ResourceUrlEncodingFilter;
+import org.springframework.web.servlet.view.ContentNegotiatingViewResolver;
+import org.springframework.web.servlet.view.InternalResourceViewResolver;
 import org.thymeleaf.test.FakeThymeleafViewResolver;
 
 /**
@@ -46,16 +52,21 @@ class TesseraAutoConfigurationTest {
   /** {@code resourceChain} sets the chain's enabled property (Boot 1.5-2.3 and 2.4+ names). */
   private static AnnotationConfigWebApplicationContext web(
       Boolean resourceChain, Class<?>... userConfiguration) {
-    AnnotationConfigWebApplicationContext ctx = new AnnotationConfigWebApplicationContext();
-    ctx.setServletContext(new MockServletContext());
+    Map<String, Object> properties = new HashMap<>();
     if (resourceChain != null) {
-      Map<String, Object> properties = new HashMap<>();
       properties.put("spring.resources.chain.enabled", resourceChain.toString());
       properties.put("spring.web.resources.chain.enabled", resourceChain.toString());
-      ctx.getEnvironment()
-          .getPropertySources()
-          .addFirst(new MapPropertySource("resourceChain", properties));
     }
+    return withProperties(properties, userConfiguration);
+  }
+
+  private static AnnotationConfigWebApplicationContext withProperties(
+      Map<String, Object> properties, Class<?>... userConfiguration) {
+    AnnotationConfigWebApplicationContext ctx = new AnnotationConfigWebApplicationContext();
+    ctx.setServletContext(new MockServletContext());
+    ctx.getEnvironment()
+        .getPropertySources()
+        .addFirst(new MapPropertySource("test", properties));
     // As Boot 2.1+ does: a second set of Tessera beans fails instead of silently overriding.
     ctx.setAllowBeanDefinitionOverriding(false);
     if (userConfiguration.length > 0) {
@@ -115,12 +126,87 @@ class TesseraAutoConfigurationTest {
   }
 
   @Test
-  void noWarningWithoutAnotherEngine() {
+  void noWarningForBootsDefaultViewResolver() {
+    // Boot's WebMvcAutoConfiguration registers an InternalResourceViewResolver named
+    // defaultViewResolver in every web app, and its content-negotiating viewResolver holds it.
     try (AnnotationConfigWebApplicationContext ctx =
-        web(OldEngineWarningTest.Jsp.class, OldEngineWarningTest.Recording.class)) {
+        web(BootWebMvc.class, OldEngineWarningTest.Recording.class)) {
+      assertThat(ctx.getBean("defaultViewResolver"))
+          .isExactlyInstanceOf(InternalResourceViewResolver.class);
+      assertThat(ctx.getBean("viewResolver")).isInstanceOf(ContentNegotiatingViewResolver.class);
       assertThat(ctx.getBeanNamesForType(OldEngineWarning.class))
           .contains("tesseraOldEngineWarning");
       assertThat(ctx.getBean(OldEngineWarningTest.RecordingLog.class).warn).isEmpty();
+    }
+  }
+
+  @Test
+  void warnsWhenBootsDefaultViewResolverServesJsps() {
+    for (String property :
+        new String[] {"spring.mvc.view.suffix", "spring.mvc.view.prefix"}) {
+      Map<String, Object> properties = new HashMap<>();
+      properties.put(property, property.endsWith("suffix") ? ".jsp" : "/WEB-INF/jsp/");
+      try (AnnotationConfigWebApplicationContext ctx =
+          withProperties(properties, BootWebMvc.class, OldEngineWarningTest.Recording.class)) {
+        assertThat(ctx.getBean(OldEngineWarningTest.RecordingLog.class).warn)
+            .as(property)
+            .containsExactly(
+                String.format(
+                    OldEngineWarning.MESSAGE, InternalResourceViewResolver.class.getName()));
+      }
+    }
+  }
+
+  @Test
+  void warnsForAUserJspResolverInABootApp() {
+    // Boot backs off for the user's InternalResourceViewResolver.
+    try (AnnotationConfigWebApplicationContext ctx =
+        web(UserJsp.class, BootWebMvc.class, OldEngineWarningTest.Recording.class)) {
+      assertThat(ctx.getBeanNamesForType(InternalResourceViewResolver.class))
+          .containsExactly("jspViewResolver");
+      assertThat(ctx.getBean(OldEngineWarningTest.RecordingLog.class).warn)
+          .containsExactly(
+              String.format(OldEngineWarning.MESSAGE, InternalResourceViewResolver.class.getName()));
+    }
+  }
+
+  @Configuration
+  static class UserJsp {
+    @Bean
+    InternalResourceViewResolver jspViewResolver() {
+      InternalResourceViewResolver resolver = new InternalResourceViewResolver();
+      resolver.setPrefix("/WEB-INF/jsp/");
+      resolver.setSuffix(".jsp");
+      return resolver;
+    }
+  }
+
+  /**
+   * Boot's {@code WebMvcAutoConfiguration}, applied after the user configuration as
+   * auto-configuration is. Its package differs between Boot 1.5, 2-3 and 4, so it is named here.
+   */
+  @Configuration
+  @Import(BootWebMvc.Selector.class)
+  static class BootWebMvc {
+    static final class Selector implements DeferredImportSelector {
+      @Override
+      public String[] selectImports(AnnotationMetadata metadata) {
+        for (String[] names :
+            new String[][] {
+              {"org.springframework.boot.webmvc.autoconfigure.WebMvcAutoConfiguration"},
+              {"org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration"},
+              // Boot 1.5's also needs the HttpMessageConverters bean.
+              {
+                "org.springframework.boot.autoconfigure.web.HttpMessageConvertersAutoConfiguration",
+                "org.springframework.boot.autoconfigure.web.WebMvcAutoConfiguration"
+              },
+            }) {
+          if (ClassUtils.isPresent(names[names.length - 1], Selector.class.getClassLoader())) {
+            return names;
+          }
+        }
+        throw new IllegalStateException("no WebMvcAutoConfiguration on the classpath");
+      }
     }
   }
 
