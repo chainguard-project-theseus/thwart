@@ -17,6 +17,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -232,7 +233,7 @@ final class ScriptJson {
               + "java.lang.Object e$ = x$.getValue();\nm$.put((java.lang.String) k$, " + item + ");\n}\n"
               + "return m$;\n");
     }
-    if (isBean(te) && !ctx.expressions().neverViewSafeReason(t).isPresent()) {
+    if (isBean(te) && !ctx.expressions().neverViewSafeReason(t).isPresent() && accessible(t)) {
       return treeBean(dt, code, depth);
     }
     return null;
@@ -382,7 +383,7 @@ final class ScriptJson {
               + "dev.tessera.runtime.Escapers.appendJson(s$, k$, 0);\ns$.append(':');\n"
               + "java.lang.Object e$ = x$.getValue();\n" + item + ";\n}\ns$.append('}');\n");
     }
-    if (isBean(te) && !ctx.expressions().neverViewSafeReason(t).isPresent()) {
+    if (isBean(te) && !ctx.expressions().neverViewSafeReason(t).isPresent() && accessible(t)) {
       return bean(dt, code, depth, jsonDepth);
     }
     return null;
@@ -575,6 +576,15 @@ final class ScriptJson {
     return t.getKind() == TypeKind.BOOLEAN
         || (t.getKind() == TypeKind.DECLARED
             && ((TypeElement) ((DeclaredType) t).asElement()).getQualifiedName().contentEquals("java.lang.Boolean"));
+  }
+
+  /** Whether the generated helper can name {@code t}; if not, says why in {@link #failure} (#269). */
+  private boolean accessible(TypeMirror t) {
+    Optional<String> why = ctx.expressions().inaccessibleReason(t);
+    if (why.isPresent() && failure == null) {
+      failure = why.get();
+    }
+    return !why.isPresent();
   }
 
   private static boolean isBean(TypeElement te) {
