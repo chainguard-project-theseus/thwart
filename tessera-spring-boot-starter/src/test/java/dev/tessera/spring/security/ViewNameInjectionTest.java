@@ -57,7 +57,10 @@ import org.springframework.web.context.WebApplicationContext;
 @SpringBootTest(classes = ViewNameInjectionTest.App.class)
 class ViewNameInjectionTest {
 
-  /** Payloads from the Thymeleaf SSTI write-ups (docs/research.md) plus fragment selectors. */
+  /**
+   * View names that Thymeleaf evaluated as expressions (Spring View Manipulation, CVE-2021-43466,
+   * CVE-2026-40478), plus fragment selectors.
+   */
   static final List<String> PAYLOADS =
       Arrays.asList(
           "__${T(java.lang.Runtime).getRuntime().exec('id')}__::.x",
