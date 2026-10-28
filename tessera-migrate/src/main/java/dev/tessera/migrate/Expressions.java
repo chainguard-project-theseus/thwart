@@ -309,6 +309,13 @@ final class Expressions {
     return s;
   }
 
+  private static final Pattern BLOCK_SELECTOR = Pattern.compile("::(\\s*)th:block(?![\\w:-])");
+
+  /** {@code ~{::th:block}} selects Tessera's {@code <t:block>}, so it becomes {@code ~{::t:block}} (#137). */
+  static String rewriteBlockSelectors(String expr) {
+    return replaceOutsideLiterals(expr, BLOCK_SELECTOR, m -> "::" + m.group(1) + "t:block");
+  }
+
   /**
    * Quotes Thymeleaf token literals in a {@code th:} value: outside {@code ${...}}, {@code *{...}},
    * string literals and {@code |...|} text, a run of token characters such as {@code nav-item} or
@@ -838,7 +845,7 @@ final class Expressions {
   }
 
   private static boolean isNameChar(char c) {
-    return Character.isLetterOrDigit(c) || c == '_' || c == '-' || c == '/' || c == '.';
+    return Character.isLetterOrDigit(c) || c == '_' || c == '-' || c == '/' || c == '.' || c == ':';
   }
 
   private static void blank(char[] m, int from, int to) {

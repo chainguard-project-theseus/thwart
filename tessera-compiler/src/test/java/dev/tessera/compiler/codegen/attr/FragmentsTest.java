@@ -284,6 +284,44 @@ class FragmentsTest {
         .assertError("selects an element, which takes no arguments");
   }
 
+
+  @Test
+  void selectsHyphenatedTagsAndTBlock() {
+    // Thymeleaf's markup selectors take any tag name: custom elements and th:block (#137).
+    Compilation c =
+        base()
+            .template(
+                "page.html",
+                "<main " + NS + " t:params=\"String s\">"
+                    + "<div t:replace=\"~{fragments/cards :: card('A', ~{::my-card})}\">x</div>"
+                    + "<div t:replace=\"~{fragments/cards :: card('B', ~{::t:block})}\">x</div>"
+                    + "<div t:replace=\"~{fragments/cards :: card('C', ~{ :: page-content-2 })}\">x</div>"
+                    + "<my-card t:text=\"s\">m</my-card><t:block>[[${s}]] block</t:block>"
+                    + "<page-content-2 t:remove=\"tag\"><b>p</b></page-content-2></main>")
+            .compile()
+            .assertSuccess();
+    assertEquals(
+        "<main><section><h3>T</h3><my-card>v</my-card></section><section><h3>T</h3>v block</section>"
+            + "<section><h3>T</h3><b>p</b></section><my-card>v</my-card>v block<b>p</b></main>",
+        c.render("page", Map.of("s", "v")));
+  }
+
+  @Test
+  void invalidTagSelectorsAreErrors() {
+    page("<div t:replace=\"~{fragments/cards :: card('a', ~{::th:block})}\"></div>\n")
+        .assertError("page.html:2:52", "'th:block' after '::': the only tag name with a prefix that can be selected is"
+            + " t:block (Tessera's name for th:block)");
+    page("<div t:replace=\"~{fragments/cards :: card('a', ~{::svg:rect})}\"></div>\n")
+        .assertError("page.html:2:52", "'svg:rect' after '::'");
+    page("<div t:replace=\"~{fragments/cards :: card('a', ~{::#main})}\"></div>\n")
+        .assertError("page.html:2:52", "expected a fragment or tag name after '::'");
+    page("<div t:replace=\"~{fragments/cards :: card('a', ~{::my-})}\"></div>\n")
+        .assertError("page.html:2:", "expected '}'");
+    page("<div t:replace=\"~{fragments/cards :: card('a', ~{::my-card})}\"></div>\n")
+        .assertError("page.html:2:48", "no fragment or element named 'my-card'");
+    page("<div t:insert=\"~{fragments/cards :: my-card}\"></div>\n")
+        .assertError("page.html:2:16", "template 'fragments/cards' has no fragment 'my-card'");
+  }
   @Test
   void insertOfANonFragmentValueIsAnError() {
     page("<div t:insert=\"u\"></div>\n")

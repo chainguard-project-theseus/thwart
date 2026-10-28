@@ -835,6 +835,32 @@ public final class ExpressionParser {
       return ref;
     }
 
+    /**
+     * The name after {@code ::}: a fragment name or, in a same-template selection, a tag name. A tag
+     * name may contain '-' (a custom element such as {@code my-card}), and {@code t:block} is the one
+     * with a prefix (#137). Other markup selectors ({@code #id}, {@code .class}, paths) are not
+     * supported.
+     */
+    String selector() {
+      String name = ident("a fragment or tag name after '::' (markup selectors such as #id and .class are not"
+          + " supported)");
+      int start = i - name.length();
+      while (at("-") && identPart(peekAt(1))) {
+        i++;
+        name += "-" + identRaw();
+      }
+      if (at(":") && !at("::")) {
+        i++;
+        String qualified = name + ":" + (identStart(peek()) ? identRaw() : "");
+        if (!qualified.equals("t:block")) {
+          throw error(start, "'" + qualified + "' after '::': the only tag name with a prefix that can be selected is"
+              + " t:block" + (qualified.equals("th:block") ? " (Tessera's name for th:block)" : ""));
+        }
+        name = qualified;
+      }
+      return name;
+    }
+
     /** {@code [template | this] :: selector [(args)]}, the ref positioned at {@code at}. */
     FragmentRef fragmentBody(int at) {
       ws();
@@ -857,7 +883,7 @@ public final class ExpressionParser {
         }
       }
       i += 2;
-      String selector = ident("a fragment name after '::' (markup selectors are not supported)");
+      String selector = selector();
       List<FragmentRef.Arg> args = new ArrayList<>();
       ws();
       if (at("(")) {
