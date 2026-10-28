@@ -126,7 +126,7 @@ class BigNumberSubclassTest {
     assertEquals(want, render(c, new BigDecimal("1E+3"), y));
     assertEquals(want, c.render("page", Map.of("x", new BigDecimal("1E+3"), "y", y)));
     assertEquals(
-        "<div><script>var a = -0.000012345, b = [];</script><p :v=\"-0.000012345\" :w=\"[]\">p</p></div>",
+        "<div><script>var a = (-0.000012345), b = [];</script><p :v=\"-0.000012345\" :w=\"[]\">p</p></div>",
         render(c, new BigDecimal(BigInteger.valueOf(-12345), 9), List.of()));
     // A subclass whose text is a JSON number renders as that number.
     assertEquals(

@@ -48,6 +48,9 @@ public final class Contexts {
           "application/json",
           "application/ld+json");
 
+  /** The {@link #SCRIPT_TYPES} whose content is JSON data, not JavaScript. */
+  private static final Set<String> JSON_SCRIPT_TYPES = Backports.setOf("application/json", "application/ld+json");
+
   /**
    * Context for the value of attribute {@code attributeName} (without {@code t:}) on
    * {@code element}: {@link #isJsonBinding JSON bindings} ({@code :x}, {@code v-bind:x},
@@ -485,6 +488,23 @@ public final class Contexts {
       default:
         return OutputContext.TEXT;
     }
+  }
+
+  /**
+   * Whether {@code element} is a {@code <script>} whose content is JSON data
+   * ({@code type="application/json"} or {@code "application/ld+json"}), not JavaScript.
+   */
+  public static boolean isJsonScript(Element element) {
+    if (!element.name().equalsIgnoreCase("script")) {
+      return false;
+    }
+    String type = null;
+    for (Attribute a : element.attributes()) {
+      if (!a.isTessera() && a.name().equalsIgnoreCase("type")) {
+        type = a.value() == null ? "" : a.value();
+      }
+    }
+    return type != null && JSON_SCRIPT_TYPES.contains(Backports.strip(type).toLowerCase(Locale.ROOT));
   }
 
   private static OutputContext scriptContext(Element script) {

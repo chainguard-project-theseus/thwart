@@ -289,8 +289,9 @@ public final class Escapers {
   }
 
   /**
-   * JavaScript value inside {@code <script>} (OutputContext.SCRIPT). Serializes as JSON:
-   * null, Boolean, Number, CharSequence, Character, Enum (name), java.time values (ISO string),
+   * Value inside a {@code <script>} of JSON data (OutputContext.SCRIPT with type
+   * {@code application/json} or {@code application/ld+json}; a JavaScript {@code <script>} uses
+   * {@link #javaScript}). Serializes as JSON: null, Boolean, Number, CharSequence, Character, Enum (name), java.time values (ISO string),
    * Optional, Collection, array and Map with String keys. Escapes {@code <}, {@code >},
    * {@code &}, {@code '}, U+2028 and U+2029 so the value cannot close the script element, and
    * {@code /}, {@code `} and {@code $} so a string cannot leave a JS comment, regex literal or
@@ -309,6 +310,22 @@ public final class Escapers {
     StringBuilder sb = new StringBuilder();
     writeJson(sb, value, 0);
     out.write(sb.toString());
+  }
+
+  /**
+   * Value inside a JavaScript {@code <script>} (OutputContext.SCRIPT with no type, a JavaScript
+   * type or {@code module}): serialized exactly as {@link #json}, except that a value starting with
+   * {@code -} (a negative number, or {@code -0}) is wrapped in parentheses. JavaScript's unary minus
+   * binds more loosely than a member access, call or index after it, and {@code -2 ** 2} is a
+   * syntax error: {@code -1.5.toFixed(2)} is {@code -(1.5.toFixed(2))}, the number {@code -1.5},
+   * but {@code (-1.5).toFixed(2)} is the string {@code "-1.50"}. Only a top-level number starts
+   * with {@code -}; values inside an array or object are unchanged. The value is fully serialized
+   * before anything is written, so a failure writes nothing.
+   */
+  public static void javaScript(Output out, Object value) {
+    StringBuilder sb = new StringBuilder();
+    writeJson(sb, value, 0);
+    out.write(sb.length() > 0 && sb.charAt(0) == '-' ? "(" + sb + ")" : sb.toString());
   }
 
   /**

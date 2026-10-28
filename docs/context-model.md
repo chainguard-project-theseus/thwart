@@ -175,7 +175,8 @@ Applies to a `<script>` with no `type` or a JavaScript, module or JSON type
 
 | Rule | Status | Checked by | Proof |
 |---|---|---|---|
-| Holes take a JSON value written by `Escapers.json`, which also escapes `<`, `>`, `&`, `'`, `/`, backtick, `$`, U+2028 and U+2029 | main | `ScriptJsonTest`; #341 slot check | `Esc` `jsonScriptSafe` (strings); `JsonFirst` for other values unproved |
+| Holes take a JSON value written by `Escapers.javaScript` (`Escapers.json` in a JSON script), which also escapes `<`, `>`, `&`, `'`, `/`, backtick, `$`, U+2028 and U+2029 | main | `ScriptJsonTest`; #341 slot check | `Esc` `jsonScriptSafe` (strings); `JsonFirst` for other values unproved |
+| In a JavaScript script, a top-level negative number is written in parentheses (`Escapers.javaScript`), so a member access, call or index after it applies to the number; JSON scripts (`application/json`, `application/ld+json`) and nested values keep `Escapers.json` | main | `ScriptNegativeNumberTest`, `EscapersTest` | not yet |
 | `{` in JSON strings is written as `\u007b` | #303 | `ScriptJsonTest` (#303) | not yet (G3) |
 | Before the last hole, the static text uses only identifiers, numbers, punctuators other than `/`, `"..."` and `'...'` strings, `//` and `/* */` comments, and whitespace | main (#332, `TextInlining.checkDataPrelude`, which replaced #290's regex-vs-division lexer) | `ScriptQuotedInlineTest`; seeds `A32`, `A33`, `A51`, `A52`; generator script positions "after `a / b;`", "after `x\n/"/.test(y);`" (rejected) | not yet (Lean does not model JavaScript) |
 | A backtick, `<!`, `-->`, `#!`, a backslash line continuation, U+2028 or U+2029 before the last hole is an error | main (#332). `<!` stands for `<!--`, which is a markup error anywhere in a script: a value or code after `<!` can complete it | `ScriptQuotedInlineTest`; seeds `A34`, `A36`; generator positions `` `[[s]]` ``, `` `${[[s]]}` `` (rejected) | Lean `NoScriptDanger` (`<!--` only) |
