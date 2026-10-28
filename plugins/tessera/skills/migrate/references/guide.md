@@ -534,6 +534,11 @@ interface: a template reads it exactly as it reads a `List` or `Map`, and the cl
 collections (`java.util.concurrent`, Guava) and your own subclasses of them are not view-safe:
 declare the getter's return type as the interface.
 
+A view type must be **public**, and so must any class it is nested in and its type arguments:
+templates compile to classes in their own packages, which can't reach a package-private record,
+a `private` nested record or the `Hidden` in `Gen<Hidden>`. A public record nested in a public
+class (`Outer.Row`) is fine.
+
 **Never view-safe**, even if annotated: `Object` and its methods, `Class`, reflection, threads,
 processes, `System`, files, scripting, servlet types, and Spring context, bean, environment and
 expression types.
@@ -2086,6 +2091,12 @@ These come from the annotation processor itself, without a template position.
   `<why>` is `is not a record or annotated @TemplateView`, `is not public, not a record and not
   annotated @TemplateView`, `is raw: declare its type arguments`, or a never-view-safe reason. Fix
   that type (make it a public record or annotate it `@TemplateView`), not the container.
+- `<type> is not public: make it public, and any class it is nested in (templates compile to classes in their own packages)`:
+  the type, or a type argument of it at any depth, is otherwise view-safe but the generated code
+  can't name it (section 4.2). It ends the messages above, `cannot read '<name>': ...` and
+  `cannot output ...`, and `'<name>' of <type> has type <result>, which is not view-safe: ...`
+  (reading a property) or `<ns>.<fn>(...) has type <result>, which is not view-safe: ...`
+  (calling a function) when the value's type holds such a class.
 
 ### Properties, calls and operators
 

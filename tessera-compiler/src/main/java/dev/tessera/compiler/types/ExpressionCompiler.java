@@ -308,6 +308,15 @@ public final class ExpressionCompiler {
     return safety.neverViewSafeReason(type);
   }
 
+  /**
+   * Why generated code can't name a class in {@code type} (it, or a class it is nested in, is not
+   * public; also as a type argument), or empty (#269).
+   */
+  public Optional<String> inaccessibleReason(TypeMirror type) {
+    String hidden = safety.inaccessible(type);
+    return hidden == null ? Optional.empty() : Optional.of(ViewSafety.notPublic(hidden));
+  }
+
   // ---------------------------------------------------------------- expressions
 
   private CompiledExpr literal(Expr.Literal l) {
@@ -441,6 +450,9 @@ public final class ExpressionCompiler {
     Optional<String> bad = safety.neverViewSafeReason(result);
     if (bad.isPresent() && !pathOnly) {
       return error(pos, "cannot read '" + name + "' of " + type + ": it returns " + result + ", and " + bad.get());
+    }
+    if (!pathOnly && inaccessibleResult(result, "'" + name + "' of " + type, pos)) {
+      return null;
     }
     if (!nullSafe) {
       return new CompiledExpr(prefix + target.code() + suffix, result, pos);
@@ -637,6 +649,9 @@ public final class ExpressionCompiler {
     Optional<String> bad = safety.neverViewSafeReason(result);
     if (bad.isPresent()) {
       return error(pos, ns + "." + name + " returns " + result + ": " + bad.get());
+    }
+    if (inaccessibleResult(result, ns + "." + name + "(...)", pos)) {
+      return null;
     }
     List<String> argCode = new ArrayList<>();
     if (functions().takesLocale(m.get())) {
@@ -1027,8 +1042,24 @@ public final class ExpressionCompiler {
    * {@code type} not view-safe (#260), else {@code otherwise} (advice about {@code type} itself).
    */
   private String badTypeArgument(TypeMirror type, String otherwise) {
+    Optional<String> access = safety.accessReason(type);
+    if (access.isPresent()) {
+      return ": " + access.get();
+    }
     Optional<String> arg = safety.badTypeArgument(type);
     return arg.isPresent() ? ": " + arg.get() : otherwise;
+  }
+
+  /**
+   * Reports at {@code pos} if {@code result}, the type of {@code what}, holds a class the generated
+   * code can't name (#269); otherwise javac would fail on the generated code with no template position.
+   */
+  private boolean inaccessibleResult(TypeMirror result, String what, SourcePos pos) {
+    Optional<String> why = inaccessibleReason(result);
+    if (why.isPresent()) {
+      env.diagnostics().error(pos, what + " has type " + result + ", which is not view-safe: " + why.get());
+    }
+    return why.isPresent();
   }
 
   private static String describe(TypeMirror t) {
