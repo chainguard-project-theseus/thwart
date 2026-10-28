@@ -952,7 +952,9 @@ naming the file and key, unless the value is markup from this allow-list:
   dd span div a abbr cite q kbd del ins`; no comments, `script`, `style` or anything else;
 - attributes `class id title lang dir`, plus `href target rel hreflang` on `a`, with quoted
   values; an `href` must be relative or `http`/`https`/`mailto`/`tel`, with no `&` other than
-  `&amp;`; no `style` and no `on*`;
+  `&amp;` and no whitespace or control characters inside it; spaces, tabs and newlines at either
+  end are allowed (`href=" https://..."`), because browsers strip them, and the scheme is checked
+  without them; no `style` and no `on*`;
 - every end tag matches, and every element is closed except `p li dt dd`. `<p/>` is a `<p>` and is
   printed as written, as Thymeleaf does, but `/>` on an element that isn't void is a parse error,
   which the build rejects (section 7): write `<br>`.
