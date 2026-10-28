@@ -11,10 +11,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.FieldSource;
 
 /**
- * Every Thymeleaf SSTI payload class from docs/research.md, placed in every expression site a
- * template has, must fail to build with a Tessera diagnostic on that site's line, and nothing may
- * be generated. This suite must stay green forever: if a payload starts compiling, that is a
- * vulnerability, not a test to update.
+ * Every Thymeleaf SSTI payload class (from the public CVEs and write-ups, grouped below), placed in
+ * every expression site a template has, must fail to build with a Tessera diagnostic on that
+ * site's line, and nothing may be generated. This suite must stay green forever: if a payload
+ * starts compiling, that is a vulnerability, not a test to update.
  */
 class SstiPayloadTest {
 
