@@ -59,7 +59,8 @@ final class Expressions {
 
   /**
    * Applies the expression rewrites: drop redundant {@code ${...}}, receiver calls such as
-   * {@code #lists.isEmpty(x)} to {@code x.isEmpty()}, and utility objects to namespaces. Callers
+   * {@code #lists.isEmpty(x)} to {@code x.isEmpty()}, {@code *{{path}}} to
+   * {@code fields.value('path')}, and utility objects to namespaces. Callers
    * must check {@link #unsupported} first; values with unsupported constructs stay untouched.
    */
   static String rewrite(String expr) {
@@ -68,6 +69,7 @@ final class Expressions {
       s = replaceOutsideLiterals(s, e.getKey(), e.getValue());
     }
     s = replaceOutsideLiterals(s, ConversionRules.NEW_INDEX, m -> ConversionRules.IS_NEW);
+    s = replaceOutsideLiterals(s, ConversionRules.DOUBLE_BRACE_SELECTION, m -> "fields.value('" + m.group(1) + "')");
     for (Map.Entry<String, String> e : ConversionRules.RECEIVER_CALLS.entrySet()) {
       s = receiverCall(s, e.getKey(), e.getValue());
     }

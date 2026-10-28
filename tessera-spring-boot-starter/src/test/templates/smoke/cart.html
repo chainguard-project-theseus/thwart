@@ -7,6 +7,9 @@
         <input type="text" t:field="*{lines[lineStat.index].due}" />
         <span class="error" t:errors="*{lines[lineStat.index].name}">error</span>
         <span class="error" t:errors="*{lines[lineStat.index].due}">error</span>
+        <b class="due" t:text="fields.value(*{lines[lineStat.index].due})">due</b>
+        <i class="due-error" t:if="fields.hasErrors(*{lines[lineStat.index].due})"
+           t:text="fields.errors(*{lines[lineStat.index].due}).first">error</i>
       </div>
     </form>
   </body>

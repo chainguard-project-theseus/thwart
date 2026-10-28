@@ -119,6 +119,7 @@ class NameOnlyFieldsTest {
     compile("<p>[[*{file}]]</p>").assertError(never);
     compile("<p t:text=\"*{attachments[0]}\"></p>").assertError(never);
     compile("<p t:if=\"*{file} != null\"></p>").assertError(never);
+    compile("<p t:text=\"${fields.value('file')}\"></p>").assertError(never);
   }
 
   @Test

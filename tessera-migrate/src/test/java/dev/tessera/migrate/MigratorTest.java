@@ -488,6 +488,15 @@ class MigratorTest {
   }
 
   @Test
+  void doubleBraceSelectionBecomesFieldsValue() throws Exception {
+    // #133: *{{path}} in th:object is the field's BindStatus display value, as fields.value is.
+    assertEquals("<form t:object=\"o\" t:params=\"Object o\"><b t:text=\"fields.value('due')\"></b>"
+            + "<i t:title=\"fields.value('lines[0].due')\"></i><s t:text=\"'*{{due}}'\"></s></form>",
+        convert("<form th:object=\"${o}\"><b th:text=\"*{{due}}\"></b><i th:title=\"*{{ lines[0].due }}\"></i>"
+            + "<s th:text=\"'*{{due}}'\"></s></form>"));
+  }
+
+  @Test
   void idsUtilityConverts() throws Exception {
     // #458: fredbet's labels after t:field checkboxes and radios (bench counts.json: #ids.prev x3).
     assertEquals("<div t:params=\"Object level\">"
