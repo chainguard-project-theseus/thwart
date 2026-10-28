@@ -140,7 +140,10 @@ public final class ExpressionParser {
   }
 
   private static final class ParseError extends RuntimeException {
-    final SourcePos pos;
+    private static final long serialVersionUID = 1L;
+
+    // Caught inside run() and never serialized; SourcePos is not Serializable.
+    final transient SourcePos pos;
 
     ParseError(SourcePos pos, String message) {
       super(message, null, false, false);
