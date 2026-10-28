@@ -522,7 +522,7 @@ final class HtmlSanitizer {
     while (pos < n && !isSpace(s.charAt(pos)) && s.charAt(pos) != '/' && s.charAt(pos) != '>') {
       pos++;
     }
-    return lower(s.substring(start, pos));
+    return HtmlPolicy.lower(s.substring(start, pos));
   }
 
   /**
@@ -549,7 +549,7 @@ final class HtmlSanitizer {
       while (pos < n && !isSpace(s.charAt(pos)) && "/>=".indexOf(s.charAt(pos)) < 0) {
         pos++;
       }
-      String name = lower(s.substring(start, pos));
+      String name = HtmlPolicy.lower(s.substring(start, pos));
       while (pos < n && isSpace(s.charAt(pos))) {
         pos++;
       }
@@ -776,17 +776,6 @@ final class HtmlSanitizer {
 
   private static boolean isSpace(char c) {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f';
-  }
-
-  /** ASCII-only lower-casing, so {@code K} (Kelvin) never becomes {@code k}. */
-  private static String lower(String name) {
-    char[] cs = name.toCharArray();
-    for (int i = 0; i < cs.length; i++) {
-      if (cs[i] >= 'A' && cs[i] <= 'Z') {
-        cs[i] = (char) (cs[i] + ('a' - 'A'));
-      }
-    }
-    return new String(cs);
   }
 
   private static Set<String> set(String... names) {
