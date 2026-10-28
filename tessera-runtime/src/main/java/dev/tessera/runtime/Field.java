@@ -9,7 +9,7 @@ import java.util.Objects;
  * string literal checked at build time against the caller's {@code t:object} type; generated code
  * creates the {@code Field}. Inside the fragment {@code t:field="name"}, {@code t:errors="name"},
  * {@code t:errorclass} and {@code fields.hasErrors(name)} accept it. Output as text it is its
- * path ({@code t:for="name"}). Templates cannot read its value.
+ * element id ({@code t:for="name"}), the path without brackets. Templates cannot read its value.
  *
  * <p>Declared with its type, {@code Field<Criterion> name}, the fragment can also bind the
  * field's properties: {@code t:field="name.answer"} is the path {@code <name>.answer}, checked
@@ -45,10 +45,17 @@ public final class Field<T> {
     return value;
   }
 
-  /** The path, so that {@code t:for="name"} writes the field's id. */
-  // TODO(#193): for an indexed path (items[1].name) the id drops the brackets (items1.name).
+  /**
+   * The element id {@code t:field} writes for this field: the path without '[' and ']', as Spring
+   * and Thymeleaf write it ({@code items1.name} for {@code items[1].name}, #193).
+   */
+  public String id() {
+    return path.replace("[", "").replace("]", "");
+  }
+
+  /** The {@link #id}, so that {@code t:for="name"} points at the input {@code t:field="name"} writes. */
   @Override
   public String toString() {
-    return path;
+    return id();
   }
 }
