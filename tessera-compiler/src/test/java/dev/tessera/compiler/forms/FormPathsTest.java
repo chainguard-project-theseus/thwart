@@ -37,13 +37,15 @@ class FormPathsTest {
   @Test
   void parsesLiteralPathsWithIntIndexes() {
     SourcePos pos = new SourcePos("f.html", 1, 1);
-    for (String s : new String[] {"a", "a.b", "items[0].name", "m[12][3]", "a[999999999]"}) {
+    for (String s : new String[] {"a", "a.b", "items[0].name", "m[12][3]", "a[999999999]", "m[x]", "m[k_1].v"}) {
       assertNotNull(FormPaths.parseLiteral(s, pos), s);
     }
     Expr e = FormPaths.parseLiteral("items[7].name", pos);
     Expr.Index index = (Expr.Index) ((Expr.Property) e).target();
     assertEquals(7, ((Expr.Literal) index.index()).value());
-    for (String s : new String[] {"", "a.", "[0]", "a[]", "a[01]", "a[-1]", "a[x]", "a['k']", "a[0", "a[0]x", "a[0]]",
+    Expr.Index key = (Expr.Index) FormPaths.parseLiteral("m[x]", pos);
+    assertEquals("x", ((Expr.Literal) key.index()).value());
+    for (String s : new String[] {"", "a.", "[0]", "a[]", "a[01]", "a[-1]", "a['k']", "a[a b]", "a[a.b]", "a[0", "a[0]x", "a[0]]",
         "a[1000000000]", "a[ 0]", "a.[0]"}) {
       assertNull(FormPaths.parseLiteral(s, pos), s);
     }
