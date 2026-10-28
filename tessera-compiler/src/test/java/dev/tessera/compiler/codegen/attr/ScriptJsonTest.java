@@ -119,7 +119,7 @@ class ScriptJsonTest {
 
   @Test
   void beansNestInCollectionsMapsOptionalsAndArrays() throws Exception {
-    Compilation c = compile("Shapes s, List<Point> ps", "<script>[[s]] [[ps]]</script>").assertSuccess();
+    Compilation c = compile("Shapes s, List<Point> ps", "<script>var v = [[s]], w = [[ps]];</script>").assertSuccess();
     Object a = c.newInstance("com.example.Point", 1, "a");
     Object b = c.newInstance("com.example.Point", 2, "b");
     Object[] array = (Object[]) java.lang.reflect.Array.newInstance(c.classLoader().loadClass("com.example.Point"), 1);
@@ -128,12 +128,12 @@ class ScriptJsonTest {
     String pa = "{\"x\":1,\"label\":\"a\"}";
     String pb = "{\"x\":2,\"label\":\"b\"}";
     assertEquals(
-        "<div><script>{\"list\":[" + pa + "," + pb + "],\"byName\":{\"k\":" + pa + "},\"maybe\":" + pb + ",\"array\":["
-            + pb + "],\"tags\":[\"t\"]} [" + pa + "]</script></div>",
+        "<div><script>var v = {\"list\":[" + pa + "," + pb + "],\"byName\":{\"k\":" + pa + "},\"maybe\":" + pb + ",\"array\":["
+            + pb + "],\"tags\":[\"t\"]}, w = [" + pa + "];</script></div>",
         c.render("page", model("s", s, "ps", List.of(a))));
     Object empty = c.newInstance("com.example.Shapes", null, null, Optional.empty(), null, null);
     assertEquals(
-        "<div><script>{\"list\":null,\"byName\":null,\"maybe\":null,\"array\":null,\"tags\":null} []</script></div>",
+        "<div><script>var v = {\"list\":null,\"byName\":null,\"maybe\":null,\"array\":null,\"tags\":null}, w = [];</script></div>",
         c.render("page", model("s", empty, "ps", List.of())));
   }
 
