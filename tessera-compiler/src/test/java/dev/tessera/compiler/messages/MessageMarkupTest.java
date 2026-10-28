@@ -28,6 +28,10 @@ class MessageMarkupTest {
         "&lt;{0}&gt; and &amp; {0}",
         "< {0}",
         "a <b>&lt;</b>",
+        "<a href=\" https://ec.europa.eu/docsroom/documents/31041\">x</a>",
+        "<a href=\"https://example.com/ \">x</a>",
+        "<a href=\"\t\n\r\f https://example.com/x?a=1&amp;b=2 \n\">x</a>",
+        "<a href=\" /relative \">x</a> <a href=\" \">empty</a>",
       })
   void accepts(String message) {
     assertNull(MessageMarkup.problem(message), message);
@@ -48,8 +52,13 @@ class MessageMarkupTest {
         "<b class=\"x>y</b>^ is not closed",
         "<a href=\"javascript:alert(1)\">x</a>^ only http, https, mailto, tel and relative",
         "<a href=\"JaVaScRiPt:x\">x</a>^ only http, https, mailto, tel and relative",
-        "<a href=\" javascript:x\">x</a>^ whitespace or a control character",
+        "<a href=\" javascript:alert(1)\">x</a>^ only http, https, mailto, tel and relative",
+        "<a href=\" data:text/html,x \">x</a>^ only http, https, mailto, tel and relative",
         "<a href=\"java\tscript:x\">x</a>^ whitespace or a control character",
+        "<a href=\"java&#9;script:x\">x</a>^ the only character reference allowed",
+        "<a href=\" https://example.com/a b\">x</a>^ whitespace or a control character",
+        "<a href=\"\u0001https://example.com/\">x</a>^ whitespace or a control character",
+        "<a href=\"https://example.com/\u0000\">x</a>^ whitespace or a control character",
         "<a href=\"javascript&colon;x\">x</a>^ the only character reference allowed",
         "<a href=\"data:text/html,x\">x</a>^ only http, https, mailto, tel and relative",
         "<b title=\"{0}\">x</b>^ a placeholder may not be inside a tag",
@@ -74,6 +83,24 @@ class MessageMarkupTest {
         "<b\u00a0onclick=\"x\">y</b>^ malformed tag",
       })
   void rejects(String message, String reason) {
+    String problem = MessageMarkup.problem(message);
+    assertNotNull(problem, message);
+    assertTrue(problem.contains(reason.trim()), message + " -> " + problem);
+  }
+
+  /** The CSV source above splits on line breaks, so these are listed here. */
+  @ParameterizedTest
+  @CsvSource(
+      delimiter = '^',
+      value = {
+        "\\n\\tjavascript:alert(1) ^ only http, https, mailto, tel and relative",
+        "java\\nscript:x^ whitespace or a control character",
+        " java\\rscript:x^ whitespace or a control character",
+        "java\\fscript:x^ whitespace or a control character",
+      })
+  void rejectsLineBreaksInHref(String href, String reason) {
+    String unescaped = href.replace("\\n", "\n").replace("\\r", "\r").replace("\\t", "\t").replace("\\f", "\f");
+    String message = "<a href=\"" + unescaped + "\">x</a>";
     String problem = MessageMarkup.problem(message);
     assertNotNull(problem, message);
     assertTrue(problem.contains(reason.trim()), message + " -> " + problem);
