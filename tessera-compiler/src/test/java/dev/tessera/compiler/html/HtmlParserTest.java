@@ -400,6 +400,49 @@ class HtmlParserTest {
   }
 
   @Test
+  void endTagsMatchFoldingAsciiLettersOnly() {
+    // A browser lowercases A-Z only, so these close their elements, SVG camelCase names included.
+    Document doc = parseOk("<SPAN>a</span><Div></DIV><t:block></T:Block>"
+        + "<svg><foreignObject></foreignobject><linearGradient></LINEARGRADIENT></svg>");
+    assertEquals("<SPAN>a</SPAN><Div></Div><t:block></t:block>"
+        + "<svg><foreignObject></foreignObject><linearGradient></linearGradient></svg>", serialize(doc.children()));
+  }
+
+  private static String invalidEndTagName(int col, String name) {
+    return "dir/t.html:1:" + col + ": error: malformed markup: invalid element name '" + name + "' in end tag </"
+        + name + ">: element names start with a letter and use letters, digits, '-', '_', ':' and '.'";
+  }
+
+  @Test
+  void nonAsciiEndTagNamesAreErrors() {
+    // Each name equals the open element's only under Unicode case folding (U+017F long s, U+0131
+    // dotless i, U+212A Kelvin sign). A browser does not read it as that element's end tag, so the
+    // element would stay open there, while Tessera would close it and write the end tag itself.
+    assertEquals(
+        List.of(invalidEndTagName(8, "\u017Fpan"), "dir/t.html:1:1: error: element <span> is not closed: add </span>"),
+        errors("<span>a</\u017Fpan><p>b</p>"));
+    assertEquals(
+        List.of(invalidEndTagName(10, "\u0131frame"),
+            "dir/t.html:1:1: error: element <iframe> is not closed: add </iframe>"),
+        errors("<iframe>a</\u0131frame>"));
+    assertEquals(
+        List.of(invalidEndTagName(12, "no\u017Fcript"),
+            "dir/t.html:1:1: error: element <noscript> is not closed: add </noscript>"),
+        errors("<noscript>a</no\u017Fcript>"));
+    assertEquals(
+        List.of(invalidEndTagName(27, "\u017Felect"),
+            "dir/t.html:1:1: error: element <select> is not closed: add </select>"),
+        errors("<select><option>a</option></\u017Felect>"));
+    assertEquals(
+        List.of(invalidEndTagName(7, "\u212Abd"), "dir/t.html:1:1: error: element <kbd> is not closed: add </kbd>"),
+        errors("<kbd>a</\u212Abd>"));
+    // ASCII names outside the start-tag grammar too
+    assertEquals(
+        List.of(invalidEndTagName(7, "d!v"), "dir/t.html:1:1: error: element <div> is not closed: add </div>"),
+        errors("<div>a</d!v>"));
+  }
+
+  @Test
   void malformedMarkup() {
     assertEquals(
         List.of("dir/t.html:1:6: error: malformed markup: invalid attribute name '<p': attribute names cannot contain <, quotes or ="),
@@ -681,9 +724,13 @@ class HtmlParserTest {
     // unquoted attribute value, and '/' after the name
     assertEquals(List.of(hiddenEndTag(1, 15, "xmp")), errors("<xmp><p title=</xmp>x</p></xmp>"));
     assertEquals(List.of(hiddenEndTag(1, 10, "xmp")), errors("<xmp><!--</xmp/>--></xmp>"));
-    // browsers fold ASCII letters only: </noſcript> is no end tag to them, so the </noscript> in
-    // the title is where a browser ends the element
-    assertEquals(List.of(hiddenEndTag(1, 29, "noscript")), errors("<noscript></no\u017Fcript><title></noscript></title>"));
+    // browsers fold ASCII letters only: </no\u017Fcript> is no end tag to them (and an error here), so
+    // the </noscript> in the title is where a browser ends the element
+    assertEquals(
+        List.of("dir/t.html:1:11: error: malformed markup: invalid element name 'no\u017Fcript' in end tag"
+                + " </no\u017Fcript>: element names start with a letter and use letters, digits, '-', '_', ':' and '.'",
+            "dir/t.html:1:1: error: element <noscript> is not closed: add </noscript>"),
+        errors("<noscript></no\u017Fcript><title></noscript></title>"));
 
     Element noscript = el(parseOk("<noscript><img t:src=\"@{/p.gif}\"><p>[[${x}]]</p></noscript>").children().get(0));
     assertEquals("p", el(noscript.children().get(1)).name());

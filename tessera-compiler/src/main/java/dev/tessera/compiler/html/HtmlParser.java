@@ -702,7 +702,15 @@ public final class HtmlParser {
         endRaw(lt);
       }
       flushText();
-      boolean open = stack.stream().anyMatch(o -> o.name.equalsIgnoreCase(name));
+      if (!ELEMENT_NAME.matcher(name).matches()) {
+        // As for start tags: a browser does not take </span> spelled with U+017F for </span>.
+        diagnostics.error(closePos, "malformed markup: invalid element name '" + name + "' in end tag </" + name
+            + ">: element names start with a letter and use letters, digits, '-', '_', ':' and '.'");
+        return;
+      }
+      // Only ASCII letters fold, as in a browser: </foreignobject> closes <foreignObject>.
+      String lower = HtmlParser.asciiLower(name);
+      boolean open = stack.stream().anyMatch(o -> HtmlParser.asciiLower(o.name).equals(lower));
       if (!open) {
         diagnostics.error(closePos, "end tag </" + name + "> does not match any open element: remove it or add the"
             + " matching <" + name + ">");
@@ -710,7 +718,7 @@ public final class HtmlParser {
       }
       while (true) {
         Open top = stack.pop();
-        if (top.name.equalsIgnoreCase(name)) {
+        if (HtmlParser.asciiLower(top.name).equals(lower)) {
           if (top.browserEnd >= 0 && top.browserEnd != lt) {
             // A comment, attribute value, nested raw text or a nested <noscript> hid the end tag
             // a browser uses: it would end the element there and parse the rest as markup.
