@@ -19,8 +19,10 @@ import java.util.Set;
  *       {@code <}, which the template text after it would continue.
  *   <li>Attributes: {@link #GLOBAL_ATTRIBUTES} on every element, plus {@link #LINK_ATTRIBUTES} on
  *       {@code a}; values must be quoted. An {@code href} must be relative or
- *       {@code http}/{@code https}/{@code mailto}/{@code tel}, with no whitespace, control
- *       characters or character references other than {@code &amp;}.
+ *       {@code http}/{@code https}/{@code mailto}/{@code tel}, with no whitespace or control
+ *       characters inside it and no character references other than {@code &amp;}. ASCII
+ *       whitespace at either end is allowed: the browser's URL parser strips it, so the scheme is
+ *       checked on the stripped value (#279).
  *   <li>Balance: every end tag matches an open element, and every element is closed, except
  *       {@link #IMPLIED_END} ones, whose end tag HTML lets you leave out. {@code <p/>} is a
  *       {@code <p>}, as in a browser.
@@ -270,11 +272,27 @@ final class MessageMarkup {
     return j + 1;
   }
 
+  /**
+   * Checks an {@code href}. Leading and trailing ASCII whitespace is stripped first, as the
+   * browser does: the WHATWG URL parser strips leading and trailing C0 controls and spaces, a
+   * superset of what is stripped here, so the scheme check sees the URL the browser uses. Any
+   * whitespace or control character left inside is rejected, because the browser removes tab and
+   * newline anywhere in a URL ({@code java\tscript:} is {@code javascript:}).
+   */
   private static void checkUrl(String value) throws Bad {
-    String url = value.replace("&amp;", "&");
     if (value.replace("&amp;", "").indexOf('&') >= 0) {
       throw new Bad("href \"" + value + "\": the only character reference allowed in a URL is &amp;");
     }
+    String url = value.replace("&amp;", "&");
+    int from = 0;
+    int to = url.length();
+    while (from < to && isSpace(url.charAt(from))) {
+      from++;
+    }
+    while (to > from && isSpace(url.charAt(to - 1))) {
+      to--;
+    }
+    url = url.substring(from, to);
     for (int k = 0; k < url.length(); k++) {
       char c = url.charAt(k);
       if (c <= ' ' || c == 0x7f) {
