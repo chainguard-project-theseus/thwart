@@ -137,7 +137,7 @@ public final class HtmlParser {
   }
 
   /** {@code s} with only A-Z lowercased, as a browser compares names and encodings. */
-  static String asciiLower(String s) {
+  public static String asciiLower(String s) {
     StringBuilder sb = new StringBuilder(s.length());
     for (int i = 0; i < s.length(); i++) {
       char c = s.charAt(i);
@@ -612,7 +612,7 @@ public final class HtmlParser {
         diagnostics.error(namePos, "malformed markup: invalid attribute name '" + name
             + "': attribute names cannot contain <, quotes or =");
       }
-      if (!tag.attributeNames.add(name.toLowerCase(Locale.ROOT))) {
+      if (!tag.attributeNames.add(HtmlParser.asciiLower(name))) {
         diagnostics.error(namePos, "duplicate attribute '" + name + "' on <" + tag.name + ">: remove one of them");
       }
       Attribute attribute;

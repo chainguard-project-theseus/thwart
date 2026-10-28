@@ -135,6 +135,9 @@ class ContextVerifierRulesTest {
     reject(Problem.ATTRIBUTE_NOT_IN_VALUE, st("<p title=\"a\" "), attr("title"));
     reject(Problem.ATTRIBUTE_WRONG_NAME, st("<p alt=\""), attr("title"));
     reject(Problem.ATTRIBUTE_WRONG_NAME, st("<p title=\"a\" title=\""), attr("title")); // dropped duplicate
+    // A browser folds A-Z only: \u017Frc (long s) is not src, \u212Aind (Kelvin sign) is not kind.
+    reject(Problem.ATTRIBUTE_WRONG_NAME, st("<img \u017Frc=\""), attr("src"));
+    reject(Problem.ATTRIBUTE_WRONG_NAME, st("<track \u212Aind=\""), attr("kind"));
   }
 
   @Test
@@ -145,6 +148,11 @@ class ContextVerifierRulesTest {
     onlyParseErrors(st("<table><tr><input type=\""), attr("type"), st("\">"));
     onlyParseErrors(st("<table><input type=\"hidden\">"));
     reject(Problem.ATTRIBUTE_VALUE_CHANGES_PARSE, st("<math><annotation-xml encoding=\""), attr("encoding"));
+    reject(Problem.ATTRIBUTE_VALUE_CHANGES_PARSE, st("<math><annotation-xml ENCODING=\""), attr("ENCODING"));
+    // encod\u0131ng and encod\u0130ng are not encoding to a browser: their value decides nothing.
+    for (String name : List.of("encod\u0131ng", "encod\u0130ng")) {
+      accept(st("<math><annotation-xml " + name + "=\""), attr(name), st("\"></annotation-xml></math>"));
+    }
   }
 
   @Test

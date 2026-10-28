@@ -341,16 +341,19 @@ public final class Contexts {
         || unprefixed.startsWith("ng_");
   }
 
-  /** {@code content} on a {@code <meta>} whose static {@code http-equiv} is {@code refresh}. */
+  /**
+   * {@code content} on a {@code <meta>} whose static {@code http-equiv} is {@code refresh}. The name and value fold
+   * A-Z only, as in a browser: {@code http-equ\u0131v} is not {@code http-equiv}.
+   */
   private static boolean isRefreshContent(Element element, String el, String attr) {
     if (!attr.equals("content") || !el.equals("meta")) {
       return false;
     }
     for (Attribute a : element.attributes()) {
       if (!a.isTessera()
-          && a.name().equalsIgnoreCase("http-equiv")
+          && HtmlParser.asciiLower(a.name()).equals("http-equiv")
           && a.value() != null
-          && Backports.strip(a.value()).equalsIgnoreCase("refresh")) {
+          && HtmlParser.asciiLower(Backports.strip(a.value())).equals("refresh")) {
         return true;
       }
     }

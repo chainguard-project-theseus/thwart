@@ -97,6 +97,15 @@ class AttributesEndToEndTest {
   }
 
   @Test
+  void attributesThatDifferBeyondAsciiCaseAllRender() {
+    // A browser lower-cases A-Z only, so these are two attributes each, and both are written.
+    String p = "<p data-\u00C9=\"a\" data-\u00E9=\"b\">x</p>";
+    assertEquals(p, render(p, model()));
+    String track = "<video><track \u212Aind=\"a\" kind=\"b\"></video>";
+    assertEquals(track, render(track, model()));
+  }
+
+  @Test
   void trustedUrlPasses() {
     assertEquals(
         "<a href=\"javascript:void(0)\">x</a>",
