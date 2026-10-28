@@ -56,9 +56,9 @@ import javax.tools.StandardLocation;
  * incremental builds, which compile templates without recompiling the function classes, still
  * find them (Maven puts the main output directory on both classpaths).
  *
- * <p>Template fingerprint (#425): after a successful compile it writes {@link
- * TemplateFingerprint#RESOURCE}, the paths and hashes of the templates it compiled, which {@code
- * tessera-maven-plugin} checks before the next build.
+ * <p>Template fingerprint (#425, #447): after a successful compile it writes {@link
+ * TemplateFingerprint#RESOURCE}, the paths and hashes of the templates and message files it read,
+ * which {@code tessera-maven-plugin} checks before the next build.
  */
 public final class TesseraProcessor extends AbstractProcessor {
   private static final String FUNCTIONS_ANNOTATION = TemplateFunctions.class.getName();
@@ -143,7 +143,7 @@ public final class TesseraProcessor extends AbstractProcessor {
         List<GeneratedFile> files = new ArrayList<>(result.files(flowPartials, escapers, servableFragments));
         files.addAll(functionIndex(functionClasses));
         write(files);
-        writeFingerprint(TemplateFingerprint.of(sources));
+        writeFingerprint(TemplateFingerprint.of(sources, options.messages()));
         written = files;
         skeletons = result.skeletons();
       }

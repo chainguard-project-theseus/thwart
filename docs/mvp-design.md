@@ -249,10 +249,10 @@ last round's errors, so getters another processor (Lombok) adds are visible what
 successful early compile is repeated in the last round and the build fails if the output changed
 (script JSON of a Lombok bean with Tessera listed first). With `tessera.messages` set, `#{}` keys are checked against `<base>.properties`.
 Maven's incremental compile does not see template edits, so after a successful compile the
-processor writes `META-INF/tessera/templates.fingerprint` (each template's path and SHA-256, sorted)
-to the class output, and `tessera-maven-plugin`'s `check` goal, before `compile`, deletes the
-module's compile output when the templates no longer match it (#425). Message bundles are not
-fingerprinted: run `mvn clean compile` after changing only those.
+processor writes `META-INF/tessera/templates.fingerprint` (each template's path and SHA-256, sorted,
+then each message basename's `.properties` files) to the class output, and `tessera-maven-plugin`'s
+`check` goal, before `compile`, deletes the module's compile output when the templates or message
+files no longer match it (#425, #447).
 
 ## Generated code
 

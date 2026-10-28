@@ -136,7 +136,9 @@ keeps its version.
     <compilerArgs combine.children="append">
       <arg>-Atessera.templates=${project.basedir}/src/main/resources/templates</arg>
       <arg>-Atessera.package=com.example.templates</arg>
-      <arg>-Atessera.messages=${project.basedir}/src/main/resources/messages</arg>
+      <!-- the property tessera.messages, e.g. ${project.basedir}/src/main/resources/messages,
+           which tessera-maven-plugin reads too -->
+      <arg>-Atessera.messages=${tessera.messages}</arg>
     </compilerArgs>
   </configuration>
 </plugin>
@@ -202,17 +204,19 @@ Spring falls back to (the system locale unless the app sets one). Facts about th
   `@TemplateFunctions` classes compiled earlier (the main classes, or an incremental compile that
   skips them) through the index it writes to `META-INF/tessera/functions/`, so no `<proc>none</proc>`
   is needed.
-- `tessera-maven-plugin` makes a template-only change recompile. Maven runs javac, and so the
-  processor, only when Java sources or the classpath change, so without it an edited template
-  keeps its old generated class and the build stays green. The processor records the templates it
-  compiled (`META-INF/tessera/templates.fingerprint` in the class output). The `check` goal runs
-  before `compile` (phase `process-sources`), and when a template was added, edited or deleted it
-  deletes the module's compile output (`target/classes`, `target/test-classes`, the generated
-  sources and the compiler plugin's incremental state), so `compile` builds the module again.
-  Its `templates` parameter is the `tessera.templates` directory, by default
-  `${project.basedir}/src/main/resources/templates`. It needs Maven 3.6.3+ and runs on Java 8+.
-  It doesn't watch message bundles: after changing only a `.properties` file, run
-  `mvn clean compile`.
+- `tessera-maven-plugin` makes a template-only or message-only change recompile. Maven runs javac,
+  and so the processor, only when Java sources or the classpath change, so without it an edited
+  template or message keeps its old generated class and its old build-time checks, and the build
+  stays green. The processor records the templates and message files it read
+  (`META-INF/tessera/templates.fingerprint` in the class output). The `check` goal runs before
+  `compile` (phase `process-sources`), and when one of them was added, edited or deleted it deletes
+  the module's compile output (`target/classes`, `target/test-classes`, the generated sources and
+  the compiler plugin's incremental state), so `compile` builds the module again. Its `templates`
+  parameter is the `tessera.templates` directory, by default
+  `${project.basedir}/src/main/resources/templates`. Its `messages` parameter is the
+  `tessera.messages` value, read from the property of that name, so set the property and pass it
+  to the compiler as in the snippet. If the two differ, the goal warns and every build recompiles
+  the module. It needs Maven 3.6.3+ and runs on Java 8+.
 - Templates under `src/main/resources` are copied into the jar as resources, so resource
   filtering rewrites `${...}` in them unless `templates/**` is excluded.
 
@@ -2273,9 +2277,8 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **Versions.** Spring 4.3+ / Boot 1.5+ on Servlet 3.0+; anything older is untested. Upgrade to
   Spring 4.3 first, or wire the classes by hand at your own risk.
 - **Build.** Maven and Gradle (section 2); there is no Gradle plugin, only the processor wiring.
-  Under Maven, a template-only change is recompiled only with `tessera-maven-plugin` (section 2),
-  and a message-only change needs `mvn clean compile`. Under Gradle, the `compileJava` inputs
-  cover both. There is no hot reload.
+  Under Maven, a template-only or message-only change is recompiled only with
+  `tessera-maven-plugin` (section 2). Under Gradle, the `compileJava` inputs cover both. There is no hot reload.
 - **Messages.** `-Atessera.messages` checks the basenames it lists, read from the file system. Keys
   that only a jar or a database-backed `MessageSource` provides fail the build; give those pages a
   `@TemplateFunction` that looks them up, and accept that they are not checked.

@@ -2,12 +2,15 @@ package dev.tessera.maven;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Stream;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -16,23 +19,34 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
 /**
- * Makes {@code compile} run the Tessera annotation processor again when templates changed (#425).
+ * Makes {@code compile} run the Tessera annotation processor again when templates or message
+ * bundles changed (#425, #447).
  *
  * <p>maven-compiler-plugin runs javac only when Java sources, the source set or the classpath
- * change, so a template-only edit used to leave the old generated classes and a green build. The
- * processor records the templates it compiled ({@link TemplateFingerprint#RESOURCE} in the class
- * output). Before {@code compile}, this goal compares that record with the templates directory. If
- * a template was added, edited or deleted, or the class output has no record, it deletes the
- * compile output (the main and test class directories, the processors' generated sources and the
- * compiler plugin's incremental state), as {@code mvn clean} would, so the compiler plugin compiles
- * the module from scratch whatever its version or incremental mode. A first build (no output yet)
- * is left alone.
+ * change, so a template-only or message-only edit used to leave the old generated classes and a
+ * green build. The processor records the templates and message files it read ({@link
+ * TemplateFingerprint#RESOURCE} in the class output). Before {@code compile}, this goal compares
+ * that record with the templates directory and the {@code messages} basenames. If a file was added,
+ * edited or deleted, or the class output has no record, it deletes the compile output (the main and
+ * test class directories, the processors' generated sources and the compiler plugin's incremental
+ * state), as {@code mvn clean} would, so the compiler plugin compiles the module from scratch
+ * whatever its version or incremental mode. A first build (no output yet) is left alone.
  */
 @Mojo(name = "check", defaultPhase = LifecyclePhase.PROCESS_SOURCES, threadSafe = true)
 public final class CheckMojo extends AbstractMojo {
   /** The templates root: the same directory as {@code -Atessera.templates}. */
   @Parameter(defaultValue = "${project.basedir}/src/main/resources/templates", required = true)
   File templates;
+
+  /**
+   * The same value as {@code -Atessera.messages}: comma-separated bundle basenames without {@code
+   * .properties}. Empty when the build does not set that option.
+   */
+  @Parameter(property = "tessera.messages")
+  String messages;
+
+  @Parameter(defaultValue = "${project.basedir}", readonly = true, required = true)
+  File basedir;
 
   @Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true, required = true)
   File outputDirectory;
@@ -46,17 +60,21 @@ public final class CheckMojo extends AbstractMojo {
   @Override
   public void execute() throws MojoExecutionException {
     try {
-      byte[] current = templates.isDirectory() ? TemplateFingerprint.of(templates.toPath()) : null;
+      byte[] current = templates.isDirectory() ? TemplateFingerprint.of(templates.toPath(), messagePaths()) : null;
       String reason = staleReason(outputDirectory.toPath(), current, true);
       if (reason == null) {
         // The processor also runs in test compilation, which writes its own record.
         reason = staleReason(testOutputDirectory.toPath(), current, false);
       }
       if (reason == null) {
-        getLog().debug("Tessera: templates unchanged since the last compile");
+        getLog().debug("Tessera: templates and messages unchanged since the last compile");
         return;
       }
-      getLog().info("Tessera: " + reason + "; deleting the compile output so the templates are compiled again");
+      if (reason.startsWith(OTHER_MESSAGES)) {
+        getLog().warn("Tessera: " + reason);
+      } else {
+        getLog().info("Tessera: " + reason + "; deleting the compile output so the templates are compiled again");
+      }
       Path build = buildDirectory.toPath();
       delete(outputDirectory.toPath());
       delete(testOutputDirectory.toPath());
@@ -70,6 +88,21 @@ public final class CheckMojo extends AbstractMojo {
     }
   }
 
+  /** {@link #messages} parsed like the processor option; relative paths are against the project. */
+  List<Path> messagePaths() {
+    List<Path> out = new ArrayList<>();
+    if (messages != null) {
+      for (String base : messages.split(",")) {
+        if (!base.trim().isEmpty()) {
+          out.add(basedir.toPath().resolve(base.trim()));
+        }
+      }
+    }
+    return out;
+  }
+
+  static final String OTHER_MESSAGES = "the last compile read other message bundles";
+
   /**
    * Why the output in {@code classes} is stale, or null. Main output without a record is stale (a
    * failed or pre-#425 compile); test output without one is not (its compile may not run the
@@ -78,11 +111,37 @@ public final class CheckMojo extends AbstractMojo {
   static String staleReason(Path classes, byte[] current, boolean main) throws IOException {
     Path recorded = classes.resolve(TemplateFingerprint.RESOURCE);
     if (Files.isRegularFile(recorded)) {
-      return current != null && Arrays.equals(current, Files.readAllBytes(recorded))
-          ? null
-          : "templates changed since the last compile";
+      byte[] last = Files.readAllBytes(recorded);
+      if (current != null && Arrays.equals(current, last)) {
+        return null;
+      }
+      String[] was = new String(last, StandardCharsets.UTF_8).split("\n", -1);
+      if (!was[0].equals(TemplateFingerprint.VERSION)) {
+        return "the template fingerprint is from another version of Tessera";
+      }
+      if (current != null) {
+        List<String> now = bundles(new String(current, StandardCharsets.UTF_8).split("\n", -1));
+        if (!now.equals(bundles(was))) {
+          // Every build would recompile: the processor and this goal disagree on the bundles.
+          return OTHER_MESSAGES + " (-Atessera.messages: " + bundles(was) + ") than the tessera-maven-plugin"
+              + " messages parameter (" + now + "); set it to the same value, for example with the property"
+              + " tessera.messages, or every build recompiles the module";
+        }
+      }
+      return "templates or messages changed since the last compile";
     }
     return main && hasFiles(classes) ? "no template fingerprint in " + classes : null;
+  }
+
+  /** The {@code messages <name>} lines of a fingerprint. */
+  private static List<String> bundles(String[] lines) {
+    List<String> out = new ArrayList<>();
+    for (String l : lines) {
+      if (l.startsWith("messages ")) {
+        out.add(l.substring("messages ".length()));
+      }
+    }
+    return out;
   }
 
   private static boolean hasFiles(Path dir) throws IOException {
