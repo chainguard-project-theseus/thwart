@@ -365,6 +365,20 @@ class FormsTest {
         "<form><select id=\"pet\" name=\"pet\"><option value=\"cat\" selected=\"selected\">Cat</option>"
             + "<option value=\"dog\">Dog</option><option value=\"fish\">Fish</option></select></form>",
         render(c, owner(c, "Ann", null), new TestForms()));
+    // The t:selected replaces the bound-value match for its option, it does not add to it (#278):
+    // bound to "dog", the dog option stays unselected, and fish (no t:selected) is still matched.
+    TestForms dog = new TestForms();
+    dog.rejected.put("pet", "dog");
+    assertEquals(
+        "<form><select id=\"pet\" name=\"pet\"><option value=\"cat\" selected=\"selected\">Cat</option>"
+            + "<option value=\"dog\">Dog</option><option value=\"fish\">Fish</option></select></form>",
+        render(c, owner(c, "Ann", null), dog));
+    TestForms fish = new TestForms();
+    fish.rejected.put("pet", "fish");
+    assertEquals(
+        "<form><select id=\"pet\" name=\"pet\"><option value=\"cat\" selected=\"selected\">Cat</option>"
+            + "<option value=\"dog\">Dog</option><option value=\"fish\" selected=\"selected\">Fish</option></select></form>",
+        render(c, owner(c, "Ann", null), fish));
   }
 
   // ---- collections and arrays (#126) ----
