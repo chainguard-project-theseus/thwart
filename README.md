@@ -112,7 +112,8 @@ Add the starter for your servlet API (use exactly one) and run the annotation pr
   </configuration>
 </plugin>
 
-<!-- Recompiles when only a template changed (Maven's incremental compile can't see templates). -->
+<!-- Recompiles when only a template or message file changed (Maven's incremental compile can't
+     see them). With -Atessera.messages, set the property tessera.messages; this plugin reads it. -->
 <plugin>
   <groupId>dev.tessera</groupId>
   <artifactId>tessera-maven-plugin</artifactId>
@@ -190,7 +191,7 @@ Thymeleaf directory and reports, by `file:line`, what it couldn't convert.
 | `tessera-spring-boot-starter-javax` | The same starter relocated to `javax.servlet` |
 | `tessera-spring-tests` | Runs the starter's tests on Boot 3.5, 2.7, 2.0 and 1.5 and plain Spring MVC 5.0 and 4.3 |
 | `tessera-migrate` | Page record/compare and the Thymeleaf converter (bundles attoparser and jsoup) |
-| `tessera-maven-plugin` | `tessera:check`: recompiles a module when only its templates changed |
+| `tessera-maven-plugin` | `tessera:check`: recompiles a module when only its templates or message files changed |
 | `tessera-benchmarks` | JMH benchmarks against Thymeleaf ([results](tessera-benchmarks/RESULTS.md)) |
 | `examples/petclinic` | Spring PetClinic ported to Tessera ([porting notes](examples/petclinic/PORTING.md)) |
 | `plugins/tessera` | The Claude Code migration skill ([marketplace](.claude-plugin/marketplace.json)) |
@@ -204,8 +205,8 @@ mvn -B -ntp verify
 
 Needs JDK 21+. Set `JDK8_HOME` to a JDK 8 home to also run `Jdk8ProcessorTest`, which builds a
 small app with a real JDK 8 javac; without it that test is skipped locally. Only petclinic uses
-`tessera-maven-plugin`, so in the other modules Maven doesn't recompile when only a template
-changes: use `mvn clean verify` when in doubt. CI is Chainguard
+`tessera-maven-plugin`, so in the other modules Maven doesn't recompile when only a template or
+message file changes: use `mvn clean verify` when in doubt. CI is Chainguard
 Checks running the same command ([.chainguard/ci/maven.yaml](.chainguard/ci/maven.yaml)).
 
 The guide's examples are compiled by `GuideExamplesTest` and its diagnostic catalogue is checked
