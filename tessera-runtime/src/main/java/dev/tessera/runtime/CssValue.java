@@ -6,17 +6,23 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * A single CSS value that is safe to place in a {@code style} attribute (#182): a colour, a
- * length or an image URL. Only built by the validating factories {@link #color(String)},
- * {@link #length(String)} and {@link #url(String)}, which return {@code null} for anything else.
- * The text of a colour or length contains only ASCII letters, digits, {@code #}, {@code .},
- * {@code %} and {@code -}, so it can never end a declaration ({@code ;}, <code>}</code>), call a
- * function ({@code url(...)}, {@code expression(...)}), open a string or comment, or carry a CSS
- * escape ({@code \}). A URL is {@code url("...")} whose quoted part contains only URL characters
- * that have no meaning inside a CSS string (see {@link #url(String)}).
+ * length, an image URL or a custom property reference. Only built by the validating factories
+ * {@link #color(String)}, {@link #length(String)}, {@link #url(String)} and {@link #var(String)},
+ * which return {@code null} for anything else. Each accepts a strict positive grammar and rebuilds
+ * the value from what it parsed. The text of a colour, length or {@code var(...)} contains only
+ * ASCII letters, digits, {@code #}, {@code .}, {@code %}, {@code -}, and in a colour function or
+ * {@code var} the parentheses, {@code ,}, space and {@code /} followed by a space. The only
+ * functions are {@code rgb}, {@code rgba}, {@code hsl}, {@code hsla} and {@code var} with
+ * numbers or one name as arguments. So the value can never end a declaration ({@code ;},
+ * <code>}</code>), call another function ({@code url(...)}, {@code expression(...)}), open a
+ * string or comment, or carry a CSS escape ({@code \}). A URL is {@code url("...")} whose quoted
+ * part contains only URL characters that have no meaning inside a CSS string (see
+ * {@link #url(String)}).
  *
  * <p>Templates build one with the built-in {@code css} namespace ({@code css.color(c)}), and the
  * {@code style} attribute accepts it next to string literals and numbers.
@@ -25,6 +31,22 @@ public final class CssValue {
   private static final Pattern HEX = Pattern.compile("#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})");
   private static final Pattern LENGTH =
       Pattern.compile("-?(?:[0-9]{1,10}(?:\\.[0-9]{1,10})?|\\.[0-9]{1,10})(?:px|em|rem|%|vh|vw)?");
+
+  /** A colour function argument: a number with an optional unit ({@code 255}, {@code 50%}, {@code 120deg}, {@code .5}). */
+  private static final String ARG = "-?(?:[0-9]{1,10}(?:\\.[0-9]{1,10})?|\\.[0-9]{1,10})(?:%|deg|rad|grad|turn)?";
+
+  /** {@code rgb(255, 0, 0)}, {@code hsla(120deg, 50%, 50%, .5)}: comma-separated arguments (#429). */
+  private static final Pattern COLOR_COMMAS =
+      Pattern.compile(
+          "(rgba?|hsla?)\\( *(" + ARG + ") *, *(" + ARG + ") *, *(" + ARG + ") *(?:, *(" + ARG + ") *)?\\)");
+
+  /** {@code rgb(255 0 0)}, {@code hsl(120deg 50% 50% / .5)}: space-separated, alpha after {@code /} (#429). */
+  private static final Pattern COLOR_SPACES =
+      Pattern.compile(
+          "(rgba?|hsla?)\\( *(" + ARG + ") +(" + ARG + ") +(" + ARG + ") *(?:/ *(" + ARG + ") *)?\\)");
+
+  /** A custom property name (#429): {@code --} and an identifier. */
+  private static final Pattern CUSTOM_PROPERTY = Pattern.compile("--[a-zA-Z-][a-zA-Z0-9-]{0,255}");
 
   /** CSS Color Module Level 4 named colours, plus {@code transparent} and {@code currentcolor}. */
   private static final Set<String> NAMED =
@@ -63,9 +85,15 @@ public final class CssValue {
   }
 
   /**
-   * A colour: {@code #rgb}, {@code #rgba}, {@code #rrggbb}, {@code #rrggbbaa} or a CSS named
-   * colour (case-insensitive; names are lower-cased). Surrounding whitespace is ignored. Returns
-   * {@code null} for {@code null} and for anything else, including {@code rgb(...)}.
+   * A colour: {@code #rgb}, {@code #rgba}, {@code #rrggbb}, {@code #rrggbbaa}, a CSS named
+   * colour (case-insensitive; names are lower-cased), or (#429) {@code rgb}, {@code rgba}, {@code hsl} or
+   * {@code hsla} with three or four numeric arguments, each a number with an optional {@code %},
+   * {@code deg}, {@code rad}, {@code grad} or {@code turn}, separated by commas
+   * ({@code rgb(0, 128, 255)}, {@code hsla(120deg, 50%, 50%, .5)}) or by spaces with the alpha after
+   * {@code /} ({@code rgb(0 128 255 / 50%)}). A colour function is rebuilt from its parsed numbers,
+   * lower-cased, with single spaces. Nothing else is accepted inside the parentheses: no nested
+   * function ({@code calc}, {@code var}), keyword ({@code none}, {@code from}) or other text.
+   * Surrounding whitespace is ignored. Returns {@code null} for {@code null} and for anything else.
    */
   public static CssValue color(String s) {
     if (s == null) {
@@ -76,7 +104,25 @@ public final class CssValue {
       return new CssValue(t);
     }
     String lower = t.toLowerCase(Locale.ROOT);
-    return NAMED.contains(lower) ? new CssValue(lower) : null;
+    if (NAMED.contains(lower)) {
+      return new CssValue(lower);
+    }
+    Matcher m = COLOR_COMMAS.matcher(lower);
+    if (m.matches()) {
+      return colorFunction(m, ", ", ", ");
+    }
+    m = COLOR_SPACES.matcher(lower);
+    return m.matches() ? colorFunction(m, " ", " / ") : null;
+  }
+
+  /** {@code fn(a<sep>b<sep>c)} or {@code fn(a<sep>b<sep>c<alphaSep>d)} from a matched colour function. */
+  private static CssValue colorFunction(Matcher m, String sep, String alphaSep) {
+    StringBuilder b = new StringBuilder(m.group(1)).append('(').append(m.group(2)).append(sep).append(m.group(3))
+        .append(sep).append(m.group(4));
+    if (m.group(5) != null) {
+      b.append(alphaSep).append(m.group(5));
+    }
+    return new CssValue(b.append(')').toString());
   }
 
   /**
@@ -90,6 +136,20 @@ public final class CssValue {
     }
     String t = s.trim();
     return LENGTH.matcher(t).matches() ? new CssValue(t) : null;
+  }
+
+  /**
+   * A reference to a custom property (#429): {@code var(--name)} for {@code --name}, an identifier
+   * after {@code --} (ASCII letters, digits and {@code -}, not starting with a digit, at most 258
+   * chars in all). Surrounding whitespace is ignored. Returns {@code null} for {@code null} and for
+   * anything else, including a name without {@code --} and a fallback ({@code --a, red}).
+   */
+  public static CssValue var(String name) {
+    if (name == null) {
+      return null;
+    }
+    String t = name.trim();
+    return CUSTOM_PROPERTY.matcher(t).matches() ? new CssValue("var(" + t + ")") : null;
   }
 
   /** Longest URL {@link #url(String)} accepts, in chars. */
