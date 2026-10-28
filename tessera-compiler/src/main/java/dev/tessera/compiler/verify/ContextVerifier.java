@@ -72,6 +72,8 @@ public final class ContextVerifier {
   private final Map<String, Memo> memo = new HashMap<>();
   private final Map<String, InProgress> inProgress = new HashMap<>();
   private final List<Skeleton.FragmentId> callStack = new ArrayList<>();
+  /** The position of each call on {@link #callStack}, for a recursion's cycle in messages (#393). */
+  private final List<SourcePos> callSites = new ArrayList<>();
   /** Per fragment that is on the call stack: how many states it was entered in by recursion. */
   private final Map<Skeleton.FragmentId, Integer> recursiveEntries = new HashMap<>();
   private final Map<Skeleton.Seq, Integer> seqIds = new IdentityHashMap<>();
@@ -844,7 +846,7 @@ public final class ContextVerifier {
       }
     }
     for (Map.Entry<Problem, List<ParserState>> e : problems.entrySet()) {
-      add(e.getKey(), pos, h.escaper(), null, h.attribute(), e.getValue(), null);
+      add(p, e.getKey(), pos, h.escaper(), null, h.attribute(), e.getValue(), null);
     }
     if (h.escaper() == Skeleton.Escaper.JSON) {
       for (ParserState s : p.states()) {
@@ -901,7 +903,7 @@ public final class ContextVerifier {
       }
       for (Map.Entry<Problem, List<ParserState>> e : problems.entrySet()) {
         String detail = e.getKey() == Problem.RAW_CLOSES_ELEMENT ? ContentKinds.closer(e.getValue().get(0)) : null;
-        add(e.getKey(), pos, null, source, null, e.getValue(), detail);
+        add(p, e.getKey(), pos, null, source, null, e.getValue(), detail);
       }
       if (switches) {
         Path written = p.fork();
@@ -974,6 +976,67 @@ public final class ContextVerifier {
     sink.add(new Finding(problem, pos, null, null, escaper, source, attribute, states, parserCount, detail, recursive()));
   }
 
+  /**
+   * {@link #add}, naming as the cause (#393) the element the first state reads the value in because
+   * of earlier markup ({@link #causeIndex}), with where path {@code p} inserted it.
+   */
+  private void add(Path p, Problem problem, SourcePos pos, Skeleton.Escaper escaper, Skeleton.Source source,
+      String attribute, List<ParserState> states, String detail) throws EngineException {
+    Finding f = new Finding(problem, pos, null, null, escaper, source, attribute, states, parserCount, detail,
+        recursive());
+    ParserState s = states.get(0);
+    int index = causeIndex(s);
+    ParserState[] all = p.states();
+    for (int i = 0; i < all.length && index >= 0; i++) {
+      if (all[i] == s) {
+        OpenElement e = s.stack().get(index);
+        SourcePos openedAt = p.openedAt(i, index, e);
+        if (openedAt != null) {
+          f = f.causedBy(e, openedAt);
+        }
+        break;
+      }
+    }
+    sink.add(f);
+  }
+
+  /**
+   * The index on {@code s}'s stack of the element whose start tag put the parser where it reads the
+   * next value (#393), or -1: in raw text, the raw-text element; in text in SVG or MathML, the
+   * outermost foreign element around it; in text directly in a table part, that part.
+   */
+  static int causeIndex(ParserState s) {
+    List<OpenElement> stack = s.stack();
+    int top = stack.size() - 1;
+    TokenizerState t = s.tokenizer();
+    if (top < 0) {
+      return -1;
+    }
+    if (t == TokenizerState.RCDATA || t == TokenizerState.RAWTEXT || t == TokenizerState.PLAINTEXT
+        || t.name().startsWith("SCRIPT_DATA")) {
+      return top;
+    }
+    if (t != TokenizerState.DATA) {
+      return -1;
+    }
+    if (!OpenElement.HTML.equals(stack.get(top).namespace())) {
+      int i = top;
+      while (i > 0 && !OpenElement.HTML.equals(stack.get(i - 1).namespace())) {
+        i--;
+      }
+      return i;
+    }
+    switch (s.mode()) {
+      case IN_TABLE:
+      case IN_TABLE_BODY:
+      case IN_ROW:
+      case IN_COLUMN_GROUP:
+        return top;
+      default:
+        return -1;
+    }
+  }
+
   /** Whether a fragment is on the call stack twice: this is reached only through recursion. */
   private boolean recursive() {
     return new HashSet<>(callStack).size() < callStack.size();
@@ -995,6 +1058,8 @@ public final class ContextVerifier {
     final int depth;
     List<Path> approx = Collections.emptyList();
     boolean used;
+    /** The calls by which the analysis first came back to this one ({@link #cycle}), or null. */
+    List<Finding.Step> cycle;
 
     InProgress(int depth) {
       this.depth = depth;
@@ -1018,6 +1083,9 @@ public final class ContextVerifier {
     if (running != null) {
       // Recursion into the same state: use the approximation so far, and iterate to a fixed point.
       running.used = true;
+      if (running.cycle == null) {
+        running.cycle = cycle(running.depth, c.target(), pos);
+      }
       approxDepth = Math.min(approxDepth, running.depth);
       return forks(running.approx);
     }
@@ -1036,13 +1104,15 @@ public final class ContextVerifier {
     if (same >= MAX_ROUNDS || entries > MAX_STATES) {
       // Recursion into ever new states (deeper nesting each time): the structure depends on data.
       sink.add(new Finding(Problem.STRUCTURE_DEPENDS_ON_DATA, pos, null, null, null, null, null,
-          Collections.<ParserState>emptyList(), parserCount, null, true));
+          Collections.<ParserState>emptyList(), parserCount, null, true)
+          .withCycle(cycle(callStack.lastIndexOf(c.target()), c.target(), pos)));
       return Collections.emptyList();
     }
     int depth = callStack.size();
     running = new InProgress(depth);
     inProgress.put(key, running);
     callStack.add(c.target());
+    callSites.add(pos);
     int outerApprox = approxDepth;
     int readApprox = Integer.MAX_VALUE;
     List<Finding> outer = sink;
@@ -1066,8 +1136,9 @@ public final class ContextVerifier {
           break;
         }
         if (round + 1 >= MAX_ROUNDS) {
-          found.add(new Finding(Problem.STRUCTURE_DEPENDS_ON_DATA, pos, null, null, null, null, null,
-              Collections.<ParserState>emptyList(), parserCount, null, true));
+          Finding f = new Finding(Problem.STRUCTURE_DEPENDS_ON_DATA, pos, null, null, null, null, null,
+              Collections.<ParserState>emptyList(), parserCount, null, true);
+          found.add(running.cycle == null ? f : f.withCycle(running.cycle));
           break;
         }
         running.approx = exits;
@@ -1076,6 +1147,7 @@ public final class ContextVerifier {
       sink = outer;
       near = outerNear;
       callStack.remove(callStack.size() - 1);
+      callSites.remove(callSites.size() - 1);
       inProgress.remove(key);
       if (!callStack.contains(c.target())) {
         recursiveEntries.remove(c.target());
@@ -1089,6 +1161,19 @@ public final class ContextVerifier {
     }
     emit(found, pos, c.target());
     return exits;
+  }
+
+  /**
+   * The cycle of a recursion that enters {@code target} again at {@code pos}, where {@code from}
+   * is the index of {@code target}'s call on the call stack: each call after it, then this one.
+   */
+  private List<Finding.Step> cycle(int from, Skeleton.FragmentId target, SourcePos pos) {
+    List<Finding.Step> out = new ArrayList<>();
+    for (int i = from + 1; i < callStack.size(); i++) {
+      out.add(new Finding.Step(callStack.get(i), callSites.get(i)));
+    }
+    out.add(new Finding.Step(target, pos));
+    return out;
   }
 
   private void emit(List<Finding> found, SourcePos callSite, Skeleton.FragmentId target) {
@@ -1250,6 +1335,19 @@ public final class ContextVerifier {
     }
 
     /**
+     * Where the tag the parser read at {@code offset} starts: at the last {@code <} before it that
+     * starts markup, in whichever part holds it; else at the part that holds {@code offset}.
+     */
+    SourcePos tagAt(int offset) {
+      int lt = markupStart(text, offset, 0);
+      int k = lt < 0 ? -1 : part(lt);
+      if (k < 0 || positions[k] == null) {
+        return at(offset);
+      }
+      return positions[k].advance(text.substring(starts[k], lt), lt - starts[k]);
+    }
+
+    /**
      * The markup a parse error at {@code offset} of {@code text} is in, for its message: from the
      * last {@code <} at or before it that starts markup up to the next {@code >} (at most 64
      * chars), or "". {@code before} is the input written just before {@code text}, which holds the
@@ -1328,6 +1426,19 @@ public final class ContextVerifier {
     }
   }
 
+  /** An element the parser inserted, and where its start tag is. */
+  private static final class Opened {
+    final String namespace;
+    final String name;
+    final SourcePos at;
+
+    Opened(String namespace, String name, SourcePos at) {
+      this.namespace = namespace;
+      this.name = name;
+      this.at = at;
+    }
+  }
+
   /** One path through the template: a parser per scripting mode, in the same input. */
   private static final class Path {
     /** The verifier the parsers report parse errors and excluded shapes to. */
@@ -1350,11 +1461,29 @@ public final class ContextVerifier {
     private final long[] reported;
     /** The last chars written to the parsers, for the markup a parse error names ({@link Located#markup}). */
     private String tail = "";
+    /**
+     * Per parser, where each element on its stack of open elements was inserted, by stack index
+     * (#393): the cause a message names. Not part of the {@link #key}: merged paths keep the first's.
+     */
+    private final List<List<Opened>> opened = new ArrayList<>();
 
     private Path(ContextVerifier owner, Parser[] parsers) {
       this.owner = owner;
       this.parsers = parsers;
       this.reported = new long[parsers.length];
+      for (int i = 0; i < parsers.length; i++) {
+        opened.add(new ArrayList<Opened>());
+      }
+    }
+
+    /**
+     * Where the start tag of the element at {@code index} on parser {@code parser}'s stack is, if
+     * that element is {@code e}; else null.
+     */
+    SourcePos openedAt(int parser, int index, OpenElement e) {
+      List<Opened> o = opened.get(parser);
+      Opened x = index >= 0 && index < o.size() ? o.get(index) : null;
+      return x != null && x.name.equals(e.localName()) && x.namespace.equals(e.namespace()) ? x.at : null;
     }
 
     int size() {
@@ -1373,6 +1502,9 @@ public final class ContextVerifier {
       p.states = states;
       p.key = key;
       p.tail = tail;
+      for (int i = 0; i < parsers.length; i++) {
+        p.opened.get(i).addAll(opened.get(i));
+      }
       return p;
     }
 
@@ -1427,6 +1559,17 @@ public final class ContextVerifier {
 
           @Override
           public void pushed(Parser.Stack stack, int offset) {
+            if (stack.insertedOnStack()) {
+              List<Opened> o = opened.get(parser);
+              int index = stack.size() - 1;
+              while (o.size() > index) {
+                o.remove(o.size() - 1);
+              }
+              while (o.size() < index) {
+                o.add(null);
+              }
+              o.add(new Opened(stack.insertedNamespace(), stack.insertedName(), text.tagAt(offset)));
+            }
             Rules.Excluded x = Rules.exclusion(stack);
             if (x != null) {
               note(x.problem, x.detail, offset);
