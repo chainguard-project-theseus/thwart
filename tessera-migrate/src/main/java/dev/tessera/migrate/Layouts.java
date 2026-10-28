@@ -10,7 +10,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.attoparser.AbstractMarkupHandler;
 import org.attoparser.ParseException;
 
 /**
@@ -760,24 +759,49 @@ final class Layouts {
   }
 
   /** Builds the element tree with offsets; void elements and {@code <x/>} have no children. */
-  private static final class Builder extends AbstractMarkupHandler {
+  private static final class Builder extends TreeBuilder<El> {
     private final String source;
-    final El root = new El("#root", 1, null, 0);
-    private El current = root;
-    private El pending;
-    private boolean pendingClosed;
 
     Builder(String source) {
+      super(new El("#root", 1, null, 0));
       this.source = source;
     }
 
-    private void start(char[] buffer, int offset, int len, int line, boolean standalone) {
-      String name = new String(buffer, offset, len).toLowerCase(Locale.ROOT);
-      pending = new El(name, line, current, offset - 1);
-      pending.nameEnd = offset + len;
-      pending.openEnd = tagEnd(offset + len);
-      pendingClosed = standalone || Markup.VOID_ELEMENTS.contains(name);
-      current.children.add(pending);
+    @Override
+    El newNode(String name, int line, El parent, int nameOffset, int nameEnd) {
+      El el = new El(name, line, parent, nameOffset - 1);
+      el.nameEnd = nameEnd;
+      el.openEnd = tagEnd(nameEnd);
+      return el;
+    }
+
+    @Override
+    String name(El node) {
+      return node.name;
+    }
+
+    @Override
+    El parent(El node) {
+      return node.parent;
+    }
+
+    @Override
+    List<El> children(El node) {
+      return node.children;
+    }
+
+    @Override
+    void closed(El node, int nameOffset, int line) {
+      node.closeStart = nameOffset - 2;
+      node.closeEnd = tagEnd(nameOffset);
+      node.closeLine = line;
+    }
+
+    @Override
+    void attribute(El node, char[] buffer, int nameOffset, int nameLen, int operatorLen,
+        int valueContentOffset, int valueContentLen) {
+      String name = new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT);
+      node.attrs.put(name, operatorLen == 0 ? "" : new String(buffer, valueContentOffset, valueContentLen));
     }
 
     /** The offset after the {@code >} that ends the tag, skipping quoted values. */
@@ -796,73 +820,6 @@ final class Layouts {
         }
       }
       return source.length();
-    }
-
-    private void end() {
-      if (pending != null && !pendingClosed) {
-        current = pending;
-      }
-      pending = null;
-    }
-
-    @Override
-    public void handleOpenElementStart(char[] buffer, int nameOffset, int nameLen, int line, int col) {
-      start(buffer, nameOffset, nameLen, line, false);
-    }
-
-    @Override
-    public void handleOpenElementEnd(char[] buffer, int nameOffset, int nameLen, int line, int col) {
-      end();
-    }
-
-    @Override
-    public void handleStandaloneElementStart(
-        char[] buffer, int nameOffset, int nameLen, boolean minimized, int line, int col) {
-      start(buffer, nameOffset, nameLen, line, true);
-    }
-
-    @Override
-    public void handleStandaloneElementEnd(
-        char[] buffer, int nameOffset, int nameLen, boolean minimized, int line, int col) {
-      end();
-    }
-
-    @Override
-    public void handleCloseElementStart(char[] buffer, int nameOffset, int nameLen, int line, int col) {
-      close(new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT), nameOffset, line);
-    }
-
-    @Override
-    public void handleUnmatchedCloseElementStart(
-        char[] buffer, int nameOffset, int nameLen, int line, int col) {
-      close(new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT), nameOffset, line);
-    }
-
-    /** Closes the innermost open element of that name and everything inside it; else ignored. */
-    private void close(String name, int nameOffset, int line) {
-      for (El n = current; n != root; n = n.parent) {
-        if (n.name.equals(name)) {
-          n.closeStart = nameOffset - 2;
-          n.closeEnd = tagEnd(nameOffset);
-          n.closeLine = line;
-          current = n.parent;
-          return;
-        }
-      }
-    }
-
-    @Override
-    public void handleAttribute(
-        char[] buffer,
-        int nameOffset, int nameLen, int nameLine, int nameCol,
-        int operatorOffset, int operatorLen, int operatorLine, int operatorCol,
-        int valueContentOffset, int valueContentLen, int valueOuterOffset, int valueOuterLen,
-        int valueLine, int valueCol) {
-      if (pending == null) {
-        return;
-      }
-      String name = new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT);
-      pending.attrs.put(name, operatorLen == 0 ? "" : new String(buffer, valueContentOffset, valueContentLen));
     }
   }
 }

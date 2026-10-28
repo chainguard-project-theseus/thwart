@@ -12,7 +12,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.attoparser.AbstractMarkupHandler;
 import org.attoparser.ParseException;
 
 /**
@@ -289,77 +288,35 @@ final class RichTextCheck {
   }
 
   /** Builds the element tree; void elements and {@code <x/>} have no children. */
-  private static final class Builder extends AbstractMarkupHandler {
-    final Node root = new Node("#root", 1, null);
-    private Node current = root;
-    private Node pending;
-    private boolean pendingClosed;
-
-    private void start(char[] buffer, int offset, int len, int line, boolean standalone) {
-      String name = new String(buffer, offset, len).toLowerCase(Locale.ROOT);
-      pending = new Node(name, line, current);
-      pendingClosed = standalone || Markup.VOID_ELEMENTS.contains(name);
-      current.children.add(pending);
-    }
-
-    private void end() {
-      if (pending != null && !pendingClosed) {
-        current = pending;
-      }
-      pending = null;
+  private static final class Builder extends TreeBuilder<Node> {
+    Builder() {
+      super(new Node("#root", 1, null));
     }
 
     @Override
-    public void handleOpenElementStart(char[] buffer, int nameOffset, int nameLen, int line, int col) {
-      start(buffer, nameOffset, nameLen, line, false);
+    Node newNode(String name, int line, Node parent, int nameOffset, int nameEnd) {
+      return new Node(name, line, parent);
     }
 
     @Override
-    public void handleOpenElementEnd(char[] buffer, int nameOffset, int nameLen, int line, int col) {
-      end();
+    String name(Node node) {
+      return node.name;
     }
 
     @Override
-    public void handleStandaloneElementStart(
-        char[] buffer, int nameOffset, int nameLen, boolean minimized, int line, int col) {
-      start(buffer, nameOffset, nameLen, line, true);
+    Node parent(Node node) {
+      return node.parent;
     }
 
     @Override
-    public void handleStandaloneElementEnd(
-        char[] buffer, int nameOffset, int nameLen, boolean minimized, int line, int col) {
-      end();
+    List<Node> children(Node node) {
+      return node.children;
     }
 
     @Override
-    public void handleCloseElementStart(char[] buffer, int nameOffset, int nameLen, int line, int col) {
-      close(new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT));
-    }
-
-    @Override
-    public void handleUnmatchedCloseElementStart(
-        char[] buffer, int nameOffset, int nameLen, int line, int col) {
-      close(new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT));
-    }
-
-    /** Closes the innermost open element of that name and everything inside it; else ignored. */
-    private void close(String name) {
-      for (Node n = current; n != root; n = n.parent) {
-        if (n.name.equals(name)) {
-          current = n.parent;
-          return;
-        }
-      }
-    }
-
-    @Override
-    public void handleAttribute(
-        char[] buffer,
-        int nameOffset, int nameLen, int nameLine, int nameCol,
-        int operatorOffset, int operatorLen, int operatorLine, int operatorCol,
-        int valueContentOffset, int valueContentLen, int valueOuterOffset, int valueOuterLen,
-        int valueLine, int valueCol) {
-      if (pending == null || operatorLen == 0) {
+    void attribute(Node node, char[] buffer, int nameOffset, int nameLen, int operatorLen,
+        int valueContentOffset, int valueContentLen) {
+      if (operatorLen == 0) {
         return;
       }
       String name = new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT);
@@ -369,7 +326,7 @@ final class RichTextCheck {
               ? name.substring(ConversionRules.THYMELEAF_PREFIX.length())
               : null;
       if (local != null) {
-        pending.attrs.put(local, new String(buffer, valueContentOffset, valueContentLen));
+        node.attrs.put(local, new String(buffer, valueContentOffset, valueContentLen));
       }
     }
   }
