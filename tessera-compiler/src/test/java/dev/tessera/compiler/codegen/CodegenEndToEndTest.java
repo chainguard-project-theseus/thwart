@@ -87,7 +87,8 @@ class CodegenEndToEndTest {
     Compilation.builder()
         .template("page.html", "<tr xmlns:t=\"https://tessera.dev\" t:params=\"String s\"><td t:text=\"s\" /><td /></tr>")
         .compile()
-        .assertError("page.html:1:", "Self-closing syntax", "[verifier:PARSE_ERROR]");
+        .assertError("page.html:1:72: error: a browser ignores the '/' of <td/>",
+            "write the end tag: <td ...></td> [verifier:PARSE_ERROR]");
   }
 
   @Test
