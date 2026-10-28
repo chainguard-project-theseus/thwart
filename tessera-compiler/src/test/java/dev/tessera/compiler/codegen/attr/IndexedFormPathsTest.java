@@ -2,6 +2,7 @@ package dev.tessera.compiler.codegen.attr;
 
 import static dev.tessera.compiler.codegen.attr.FormFixture.ctx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import dev.tessera.compiler.codegen.attr.FormFixture.TestForms;
 import dev.tessera.compiler.testing.Compilation;
@@ -99,6 +100,29 @@ class IndexedFormPathsTest {
     assertEquals(
         "<form><textarea id=\"items1.name\" name=\"items[1].name\">\nb&lt;</textarea><span>bad</span></form>",
         render(c, forms));
+  }
+
+  @Test
+  void fieldFragmentLabelPointsAtTheIndexedInput() {
+    // t:for on a Field writes the id t:field writes, items1.name, not the path items[1].name (#193).
+    Compilation c =
+        model()
+            .template(
+                "fields.html",
+                "<div xmlns:t=\"https://tessera.dev\"><t:block t:fragment=\"in(Field name)\">"
+                    + "<label t:for=\"name\">L</label><input t:field=\"name\"><i t:text=\"name\">p</i></t:block></div>")
+            .template(
+                "form.html",
+                HEAD + "<t:block t:replace=\"~{fields :: in('items[1].name')}\"></t:block>"
+                    + "<t:block t:replace=\"~{fields :: in('note')}\"></t:block></form>")
+            .compile()
+            .assertSuccess();
+    String html = render(c, new TestForms());
+    assertEquals(
+        "<form><label for=\"items1.name\">L</label><input id=\"items1.name\" name=\"items[1].name\" value=\"b&lt;\">"
+            + "<i>items1.name</i><label for=\"note\">L</label><input id=\"note\" name=\"note\" value=\"n\"><i>note</i></form>",
+        html);
+    assertFalse(html.contains("for=\"items[1].name\""), html);
   }
 
   @Test
