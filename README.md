@@ -160,7 +160,7 @@ Ask Claude Code to move an app's views to Tessera, or run `/tessera:migrate`. In
 repo's marketplace:
 
 ```sh
-claude plugin marketplace add chainguard-dev/harder   # private repo: needs git access (gh auth setup-git)
+claude plugin marketplace add wolfi-dev/tessera   # private repo: needs git access (gh auth setup-git)
 claude plugin install tessera@chainguard-harder
 ```
 
