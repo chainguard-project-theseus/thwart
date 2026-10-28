@@ -107,6 +107,9 @@ class AuthTest {
         new UsernamePasswordAuthenticationToken(
             "bob", "pw", AuthorityUtils.createAuthorityList("PERM_EDIT", "ROLE_USER", "admin"));
     login(authentication);
+    // Older Spring Security lines this test runs against have neither the generic type nor the
+    // replacement constructor.
+    @SuppressWarnings({"deprecation", "rawtypes"})
     SecurityExpressionRoot spring = new SecurityExpressionRoot(authentication) {};
     String[] names = {"PERM_EDIT", "ROLE_USER", "USER", "admin", "ADMIN", "ROLE_admin", "PERM"};
     for (String name : names) {
