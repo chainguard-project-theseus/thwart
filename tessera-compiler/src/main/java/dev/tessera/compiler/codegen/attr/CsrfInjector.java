@@ -1,13 +1,17 @@
 package dev.tessera.compiler.codegen.attr;
 
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
+import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.TrustedUrl;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -37,6 +41,12 @@ import java.util.regex.Pattern;
  * token ({@link CodegenContext#mayPostCsrfToken}), a computed {@code formaction} must be a
  * same-origin link ({@code GenericAttrProcessor}), a static one must be same-origin by shape, and
  * {@code formmethod} must be a static {@code post} or {@code dialog}: {@link #checkSubmitter}.
+ *
+ * <p>A form that writes its own token input (#225) keeps it and gets no second one: a direct child
+ * {@code <input type="hidden">} whose literal {@code name} equals the token's parameter name at
+ * render time ({@link #ownTokenNames}). Only an input that is always written, in the same place
+ * as the automatic one, counts, so a form never loses its token unless the template visibly
+ * writes one.
  */
 public final class CsrfInjector {
   /** A named character reference the parser did not decode (a browser may; see below). */
@@ -90,10 +100,52 @@ public final class CsrfInjector {
       // A static action on another origin is the author's choice; it just gets no token.
       return false;
     }
-    Emitted token = tokenInput(ctx);
+    Emitted token = tokenInput(ctx, ownTokenNames(plan));
     plan.afterStartTag(
         condition == null ? token : Emitted.opt(Skeleton.OptKind.CSRF_TOKEN, null, "if (" + condition + ") ", token, ""));
     return true;
+  }
+
+  /**
+   * The literal {@code name}s of the form's own token inputs: direct children
+   * {@code <input type="hidden" name="...">} with a static {@code type} ({@code hidden}, ASCII
+   * case-insensitive) and a static, non-empty {@code name}, written whenever the form's start tag
+   * is. So the input has no {@code t:} attribute except {@code t:value} and {@code t:id} (nothing
+   * that can drop it or change its type or name), no {@code disabled} (not submitted) and no
+   * {@code form} (submits another form), and the form's body is not replaced ({@code t:text},
+   * {@code t:remove="body"}, ...). The automatic input is left out when one of these names equals
+   * the token's parameter name.
+   */
+  static List<String> ownTokenNames(ElementPlan plan) {
+    List<String> names = new ArrayList<>();
+    if (plan.body() != null) {
+      return names;
+    }
+    for (Node n : plan.element().children()) {
+      if (!(n instanceof Element) || !((Element) n).name().equalsIgnoreCase("input")) {
+        continue;
+      }
+      String type = null;
+      String name = null;
+      boolean always = true;
+      for (Attribute a : ((Element) n).attributes()) {
+        String an = a.name().toLowerCase(Locale.ROOT);
+        if (a.isTessera()) {
+          always &= an.equals(Attribute.PREFIX + "value") || an.equals(Attribute.PREFIX + "id");
+        } else if (an.equals("type")) {
+          type = type == null ? a.value() : type;
+        } else if (an.equals("name")) {
+          name = name == null ? a.value() : name;
+        } else if (an.equals("disabled") || an.equals("form")) {
+          always = false;
+        }
+      }
+      if (always && type != null && type.toLowerCase(Locale.ROOT).equals("hidden") && name != null
+          && !name.isEmpty()) {
+        names.add(name);
+      }
+    }
+    return names;
   }
 
   /** {@code t:attr} setting {@code form}: the first assignment, or one after a comma. */
@@ -220,8 +272,11 @@ public final class CsrfInjector {
     return v;
   }
 
-  /** The hidden input, written when the request has a token (made up: no source position). */
-  private static Emitted tokenInput(CodegenContext ctx) {
+  /**
+   * The hidden input, written when the request has a token whose parameter name is none of
+   * {@code ownNames} (made up: no source position).
+   */
+  private static Emitted tokenInput(CodegenContext ctx, List<String> ownNames) {
     String t = ctx.freshName("csrf");
     Emitted input =
         Emitted.concat(
@@ -234,11 +289,16 @@ public final class CsrfInjector {
             Emitted.hole(Skeleton.Escaper.ATTR, "input", "value", null, t + ".get().token()"),
             Emitted.code(" "),
             Emitted.text("\" />", null));
+    StringBuilder notOwn = new StringBuilder();
+    for (String name : ownNames) {
+      notOwn.append(" && !").append(t).append(".get().parameterName().equals(")
+          .append(JavaStrings.literal(name)).append(')');
+    }
     return Emitted.opt(
         Skeleton.OptKind.CSRF_TOKEN,
         null,
         "{ java.util.Optional<dev.tessera.runtime.Forms.CsrfToken> " + t + " = ctx.forms().csrfToken(); if (" + t
-            + ".isPresent()) { ",
+            + ".isPresent()" + notOwn + ") { ",
         input,
         " } }");
   }

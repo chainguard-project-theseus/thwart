@@ -1071,6 +1071,17 @@ public record Address(String street) {}
   static `action` (`/app/`, `app/`), a computed one a link with a literal path starting with a
   single `/` (`t:href="@{/app/}"`). Anything else, a `TrustedUrl` included, is a build error;
   where another origin is meant, drop `<base>` and write absolute URLs.
+  A form that writes its own token input keeps it and gets no second one: a direct child
+  `<input type="hidden">` whose literal `name` equals the token's parameter name at render time
+  (`_csrf` by default), as FreeMarker and JSP pages write it to read the token by id
+  (`<input type="hidden" name="_csrf" id="token" t:value="${token}" />`, with the token's value
+  passed as a parameter). It counts only if it is always written and submitted with the form: a
+  static `type="hidden"` and `name`, no `t:` attribute other than `t:value` and `t:id`, no
+  `disabled` or `form` attribute, and the form's body not replaced (`t:text`, `t:remove="body"`).
+  Any other input (another name, `t:name`, under `t:if`, inside a `<div>`) leaves the automatic
+  one in place, so a POST form never ends up without a token unless it writes one. Thymeleaf has
+  no such rule (`th:action` adds its input next to a hand-written one); prefer dropping the
+  hand-written input when nothing reads it.
 - **Lists of beans.** A path may index a `List` or an array with an int literal or an int
   variable: `*{items[0].name}`, `*{items[itemStat.index].name}`, `*{items[${i}].name}`. This
   replaces Thymeleaf's `*{items[__${itemStat.index}__].name}` and FreeMarker's
