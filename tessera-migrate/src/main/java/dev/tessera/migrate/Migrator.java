@@ -64,10 +64,30 @@ final class Migrator {
    * @throws ParseException if attoparser cannot parse the markup
    */
   static Result migrate(String file, String source) throws ParseException {
+    source = prototypeOnlyContent(source);
     char[] doc = source.toCharArray();
     Handler handler = new Handler(file, doc);
     PARSER.parse(doc, handler);
     return handler.finish(source);
+  }
+
+  /**
+   * {@code source} without the markers of Thymeleaf's prototype-only comments {@code <!--/*&#47; ...
+   * /*&#47;-->}: Thymeleaf drops them before parsing and renders the content, and Tessera rejects
+   * them (#132). Like Thymeleaf, it applies everywhere, and leaves one without its end alone.
+   */
+  static String prototypeOnlyContent(String source) {
+    StringBuilder sb = new StringBuilder();
+    int from = 0;
+    for (int start = source.indexOf("<!--/*/"); start >= 0; start = source.indexOf("<!--/*/", from)) {
+      int end = source.indexOf("/*/-->", start + 7);
+      if (end < 0) {
+        break;
+      }
+      sb.append(source, from, start).append(source, start + 7, end);
+      from = end + 6;
+    }
+    return from == 0 ? source : sb.append(source, from, source.length()).toString();
   }
 
   private static final class Edit {

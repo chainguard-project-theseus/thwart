@@ -51,6 +51,14 @@ class MigratorTest {
     assertEquals(List.of(), messages(in));
   }
 
+  @Test
+  void prototypeOnlyCommentMarkersAreDropped() throws Exception {
+    // Thymeleaf renders the content of <!--/*/ ... /*/-->; Tessera rejects the markers (#132).
+    assertEquals("<p t:params=\"Object x\"> <b t:text=\"x\">y</b> </p>\n<!--/* a */-->",
+        convert("<p><!--/*/ <b th:text=\"${x}\">y</b> /*/--></p>\n<!--/* a */-->"));
+    assertEquals("<!--/*/ x -->", convert("<!--/*/ x -->"));
+  }
+
   // ---- attribute and element names ----
 
   @Test
