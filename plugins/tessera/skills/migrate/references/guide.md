@@ -151,7 +151,7 @@ keeps its version.
   <version>${tessera.version}</version>
   <executions>
     <execution>
-      <goals><goal>check</goal></goals>
+      <goals><goal>check</goal><goal>review</goal></goals>
     </execution>
   </executions>
   <!-- only when tessera.templates is not the default:
@@ -219,6 +219,15 @@ Spring falls back to (the system locale unless the app sets one). Facts about th
   `tessera.messages` value, read from the property of that name, so set the property and pass it
   to the compiler as in the snippet. If the two differ, the goal warns and every build recompiles
   the module. It needs Maven 3.6.3+ and runs on Java 8+.
+- The `review` goal lists the code Tessera trusts but cannot check, for a security review (#428).
+  It runs after `compile` (phase `process-classes`, so `mvn package` runs it and `mvn compile`
+  does not), reads the bytecode in `target/classes` and writes `target/tessera-review.txt`: every
+  `@TemplateFunction` with its signature and source line, marked when it returns a safe type
+  (`SafeHtml`, `TrustedUrl`, `Fragment`, `CssValue`), and every `SafeHtml.unchecked` and
+  `TrustedUrl.unchecked` call at its source line, however the source writes it (qualified, static
+  import or method reference). With `<configuration><failOnUnchecked>true</failOnUnchecked></configuration>`
+  (or `-Dtessera.failOnUnchecked=true`) an `unchecked` call fails the build, naming its file and
+  line. A hand-written `Fragment` lambda or `Template` is not listed. Gradle has no equivalent yet.
 - Templates under `src/main/resources` are copied into the jar as resources, so resource
   filtering rewrites `${...}` in them unless `templates/**` is excluded.
 
@@ -874,7 +883,8 @@ So the output works as flow content wherever a `div` could hold it. Text is re-e
 In Java, `SafeHtml.escape(text)` escapes text, `SafeHtml.of(template, ctx)` wraps another template's
 output, and `SafeHtml.concat(a, b, ...)` joins parts (`concat(escape(a), sanitize("<br>"),
 escape(b))`). `SafeHtml.unchecked(html)` is a review point, and `TrustedUrl.unchecked(url)` is the
-same for URLs.
+same for URLs. The `tessera:review` goal lists every call of either, and can fail the build on one
+(section 2).
 
 `SafeHtml.of(template, ctx)`, and `Fragment.of(template)` for a `Fragment` value, accept only a
 template the compiler verified as a flow partial: one whose output can't close or reopen anything

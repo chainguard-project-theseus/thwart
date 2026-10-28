@@ -12,7 +12,7 @@
   <artifactId>tessera-maven-plugin</artifactId>
   <packaging>maven-plugin</packaging>
   <name>Tessera Maven Plugin</name>
-  <description>Forces a recompile when only templates changed since the last compile (#425).</description>
+  <description>Forces a recompile when only templates changed since the last compile (#425), and reports the code Tessera cannot check (#428).</description>
 
   <!-- Runs inside the application's Maven, which may run on Java 8; its tests stay on 21. -->
   <properties>

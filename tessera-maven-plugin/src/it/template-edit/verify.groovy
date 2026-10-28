@@ -27,4 +27,8 @@ assert log.contains("message 'greeting' in ") && log.contains('messages_fr.prope
 assert !log.contains('read other message bundles')
 def last = log.substring(log.lastIndexOf('Tessera: no template fingerprint'))
 assert last.contains('Nothing to compile') : 'invocation 9 recompiled'
+// #428: the review goal ran after compile (invocation 9) and wrote its report.
+def review = new File(basedir, 'target/tessera-review.txt').text
+assert review.contains('## @TemplateFunctions (0)\n') && review.contains('calls (0)\n') : review
+assert log.contains('Tessera: 0 @TemplateFunction(s), 0 returning a safe type, and 0 unchecked call(s)')
 return true
