@@ -284,12 +284,14 @@ cover only the views Tessera renders, within the limits in the security model
 (`docs/security-model.md` section 1). Removing the old engine (section 3, step 6) is what stops
 unknown view names from reaching an engine that can be injected. While the other engine's view
 resolver is still configured, the starter logs a warning at startup naming it (Thymeleaf,
-FreeMarker, Groovy markup, Mustache, Pebble, script templates, Tiles and Velocity are recognized;
-other engines, such as JTE, are not). There is no setting to silence the warning; removing the
-engine does. Plain JSP is not reported, since Boot registers its `InternalResourceViewResolver` in
-every app, but it falls through the same way; a JSP application that renders through Tiles is
-reported, by its `TilesViewResolver`. Never build a view name from request data, whichever engine
-renders it. The jar registers itself for every Boot generation, including `@WebMvcTest` slices.
+FreeMarker, Groovy markup, JSP, Mustache, Pebble, script templates, Tiles and Velocity are
+recognized; other engines, such as JTE, are not). There is no setting to silence the warning;
+removing the engine does. JSP is reported by its `InternalResourceViewResolver`, except the one
+Boot registers in every web app (`defaultViewResolver`) while `spring.mvc.view.prefix` and
+`spring.mvc.view.suffix` are unset; set either and it serves JSPs, so it is reported too. A JSP
+application that renders through Tiles is also reported by its `TilesViewResolver`. Never build a
+view name from request data, whichever engine renders it. The jar registers itself for every
+Boot generation, including `@WebMvcTest` slices.
 
 **Spring MVC without Boot.** Import `dev.tessera.spring.TesseraConfiguration`. It needs only
 `spring-webmvc`, and logs the same startup warning while another engine is configured:

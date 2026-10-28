@@ -72,12 +72,30 @@ class OldEngineWarningTest {
   }
 
   @Test
-  void silentWithOnlyTesseraAndJspResolvers() {
-    // TesseraConfiguration's redirect resolver, plus the InternalResourceViewResolver Boot
-    // registers in every app and plain-Spring JSP apps declare.
-    try (AnnotationConfigWebApplicationContext ctx =
-        context(null, Plain.class, Jsp.class, Recording.class)) {
+  void silentWithOnlyTessera() {
+    // TesseraConfiguration's redirect resolver and @EnableWebMvc's mvcViewResolver.
+    try (AnnotationConfigWebApplicationContext ctx = context(null, Plain.class, Recording.class)) {
       assertEquals(Collections.emptyList(), warnings(ctx));
+    }
+  }
+
+  @Test
+  void warnsForJspResolvers() {
+    // Without Boot, a resolver named defaultViewResolver is the app's own (#316); so is one under
+    // another name, with or without a prefix and suffix, and one added with registry.jsp().
+    for (Class<?> jsp : Arrays.<Class<?>>asList(Jsp.class, UnconfiguredJsp.class, RegistryJsp.class)) {
+      try (AnnotationConfigWebApplicationContext ctx =
+          context(
+              null,
+              jsp == RegistryJsp.class ? TesseraConfiguration.class : Plain.class,
+              jsp,
+              Recording.class)) {
+        assertEquals(
+            Collections.singletonList(
+                String.format(OldEngineWarning.MESSAGE, InternalResourceViewResolver.class.getName())),
+            warnings(ctx),
+            jsp.getSimpleName());
+      }
     }
   }
 
@@ -219,7 +237,6 @@ class OldEngineWarningTest {
   @Test
   void ignoresSpringsGenericResolvers() {
     DefaultListableBeanFactory beans = new DefaultListableBeanFactory();
-    beans.registerBeanDefinition("jsp", new RootBeanDefinition(InternalResourceViewResolver.class));
     beans.registerBeanDefinition("url", new RootBeanDefinition(UrlBasedViewResolver.class));
     beans.registerBeanDefinition("beanName", new RootBeanDefinition(BeanNameViewResolver.class));
     beans.registerBeanDefinition(
@@ -291,6 +308,22 @@ class OldEngineWarningTest {
       resolver.setPrefix("/WEB-INF/jsp/");
       resolver.setSuffix(".jsp");
       return resolver;
+    }
+  }
+
+  @Configuration
+  static class UnconfiguredJsp {
+    @Bean
+    ViewResolver jspViewResolver() {
+      return new InternalResourceViewResolver();
+    }
+  }
+
+  @Configuration
+  static class RegistryJsp extends WebMvcConfigurationSupport {
+    @Override
+    protected void configureViewResolvers(ViewResolverRegistry registry) {
+      registry.jsp();
     }
   }
 
