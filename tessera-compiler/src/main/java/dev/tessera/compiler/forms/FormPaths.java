@@ -185,7 +185,7 @@ public final class FormPaths {
     List<String> name = new ArrayList<>();
     name.add(j + ".path()");
     List<String> id = new ArrayList<>();
-    id.add(j + ".path().replace(\"[\", \"\").replace(\"]\", \"\")");
+    id.add(j + ".id()");
     // The value chain starts at the field's value, seen under the field's own name.
     Scope valueScope = scope.with(new Variable(field.name(), type, j + ".value()"));
     return steps(
@@ -204,7 +204,7 @@ public final class FormPaths {
     return new FormField(
         j + ".objectName()",
         j + ".path()",
-        j + ".path().replace(\"[\", \"\").replace(\"]\", \"\")",
+        j + ".id()",
         new CompiledExpr(j + ".value()", object, pos));
   }
 
