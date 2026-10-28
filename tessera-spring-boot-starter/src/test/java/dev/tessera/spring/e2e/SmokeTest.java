@@ -147,7 +147,10 @@ class SmokeTest {
         .andExpect(content().string(containsString("<b class=\"due\"></b>")))
         .andExpect(content().string(not(containsString("due-error"))))
         .andExpect(content().string(not(containsString("class=\"error\""))))
-        .andExpect(content().string(not(containsString("has-error"))));
+        .andExpect(content().string(not(containsString("has-error"))))
+        // A map key path: Spring's qty[tea] name and Thymeleaf's bracket-free id (#190).
+        .andExpect(
+            content().string(containsString("<input type=\"text\" id=\"qtytea\" name=\"qty[tea]\" value=\"1\" />")));
   }
 
   @Test
@@ -157,7 +160,8 @@ class SmokeTest {
                 .param("lines[0].name", "Tea")
                 .param("lines[0].due", "31.12.2024")
                 .param("lines[1].name", "")
-                .param("lines[1].due", "soon"))
+                .param("lines[1].due", "soon")
+                .param("qty[tea]", "lots"))
         .andExpect(status().isOk())
         .andExpect(content().string(containsString("value=\"31.12.2024\"")))
         .andExpect(content().string(containsString("name=\"lines[1].due\" value=\"soon\"")))
@@ -166,7 +170,9 @@ class SmokeTest {
         .andExpect(content().string(containsString("<span class=\"error\">Failed to convert")))
         // fields.value is the rejected value, fields.errors(...).first the first error (#133).
         .andExpect(content().string(containsString("<b class=\"due\">soon</b>")))
-        .andExpect(content().string(containsString("<i class=\"due-error\">Failed to convert")));
+        .andExpect(content().string(containsString("<i class=\"due-error\">Failed to convert")))
+        // A map key path: the rejected value and its conversion error, through BindStatus (#190).
+        .andExpect(content().string(containsString("id=\"qtytea\" name=\"qty[tea]\" value=\"lots\"")));
   }
 
   @Test

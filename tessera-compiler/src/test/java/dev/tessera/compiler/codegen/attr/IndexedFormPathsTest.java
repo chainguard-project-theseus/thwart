@@ -111,16 +111,18 @@ class IndexedFormPathsTest {
     compile("<input t:field=\"*{items['0'].name}\">").assertError("a field path index must be an int, got java.lang.String");
     compile("<b t:if=\"fields.hasErrors(*{items[owner.note].name})\">x</b>")
         .assertError("a field path index must be an int, got java.lang.String");
-    compile("<b t:if=\"fields.hasErrors('items[x].name')\">x</b>").assertError("'items[x].name' is not a field path");
+    compile("<b t:if=\"fields.hasErrors('items[x].name')\">x</b>")
+        .assertError("a field path index must be an int, got java.lang.String");
     compile("<b t:if=\"fields.hasErrors('items[01].name')\">x</b>").assertError("'items[01].name' is not a field path");
     compile("<b t:if=\"fields.hasErrors('items[0]].name')\">x</b>").assertError("'items[0]].name' is not a field path");
   }
 
   @Test
-  void onlyListsAndArraysCanBeIndexed() {
+  void onlyListsArraysAndMapsCanBeIndexed() {
     compile("<input t:field=\"*{note[0]}\">")
-        .assertError("form.html:1:", "cannot index java.lang.String in a field path: [...] works on a List or an array");
-    compile("<input t:field=\"*{byId[0].name}\">").assertError("in a field path: [...] works on a List or an array");
+        .assertError(
+            "form.html:1:", "cannot index java.lang.String in a field path: [...] works on a List, an array or a Map");
+    compile("<input t:field=\"*{byId[0].name}\">").assertSuccess(); // a Map key (#190)
     compile("<span t:errors=\"*{items[0].name[0]}\">e</span>").assertError("cannot index java.lang.String");
   }
 
