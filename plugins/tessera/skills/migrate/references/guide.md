@@ -2556,7 +2556,10 @@ the page's whole `<body>` element, so the layout writes a `<body>` inside its ow
 `<body>` `t:remove="tag"` so that only its children are passed (section 4.8, Layouts).
 
 An error ends with `[verifier:RULE]`. For an expression inside a fragment, the error is at the
-call site and the message names the fragment and the expression's position in it. "Only with
+call site and the message names the fragment and the expression's position in it, and each call
+on the way when fragments insert each other. When markup before the value put a browser where it
+reads it, the message also names that element and where its start tag is: the raw-text element
+(often a `<script>` the template doesn't show), the `<svg>` or `<math>`, or the table part. "Only with
 scripting on" or "only with scripting off" means browsers differ there; fix the template all the
 same.
 
@@ -2577,7 +2580,7 @@ same.
 | `RAW_NOT_FLOW` | Parses `SafeHtml`, a `Fragment` value or an HTML message outside body content: in the head, a table, a `<select>`, `<svg>`, `<math>`, or raw text such as `<noscript>` | Insert it in an element such as `<div>` in the body, or in a `<td>` |
 | `FRAMESET` | Uses a `<frameset>` only if no body content came before it | Use an `<iframe>` or an ordinary layout |
 | `LOOP_NO_FIXED_POINT` | Has more elements open after each `t:each` pass | Close inside the loop every element it opens |
-| `STRUCTURE_DEPENDS_ON_DATA` | Nests deeper at each call of a fragment that inserts itself, so the page's structure depends on data | For stored rich text, `t:utext="html.sanitize(...)"`, `html.sanitizeRich` or an application `HtmlPolicy` (section 4.10, Rich text), and delete the fragment; for other trees, render a fixed depth or flatten the tree in Java |
+| `STRUCTURE_DEPENDS_ON_DATA` | Nests deeper at each call of a fragment that inserts itself, directly or through other fragments (the message names each call in the cycle), so the page's structure depends on data | For stored rich text, `t:utext="html.sanitize(...)"`, `html.sanitizeRich` or an application `HtmlPolicy` (section 4.10, Rich text), and delete the fragment; for other trees, render a fixed depth or flatten the tree in Java |
 | `TOO_MANY_STATES` | Can be in more than 24 different states (different elements open) after the branches and loops before this point | Close inside each `t:if`, `t:switch` and `t:each` the elements it opens, or split the template into fragments |
 | `PARSE_ERROR` | Reads the markup only by error recovery: a second `<body>`, `<head>` or `<html>` (often from `layout(~{::body})`), a block element that closes an open `<p>`, a `<script>`, `<meta>`, `<link>` or `<title>` between `</head>` and `<body>`, content directly in a `<table>`, attributes without a space between them, a stray end tag, `/>` on an element that isn't void, an HTML element such as `<p>` inside `<svg>` or `<math>`, a `<?...?>`, a malformed DOCTYPE (a `>` inside it), `'<!'` or `'</'` not followed by a letter in text (a comment up to the next `>`), `<![CDATA[` outside `<svg>` and `<math>` | Mark a `<body>` passed to a layout `t:remove="tag"`; use a `<div>` instead of the `<p>`; move the element into the head or the body; put table content in a `<td>` or `<th>`; write a space between attributes; write the end tag (`<script ...></script>`); close the `<svg>` or `<math>` first, or put the HTML in a `<foreignObject>`; remove the `<?...?>`; write `<!doctype html>`; write `&lt;` for a literal `<`. For other errors the message quotes the parser: fix the markup it names |
 | `FOREIGN_IN_TABLE` | Builds different trees for a nested table, `<template>` or `<select>` that ends inside `<svg>` or `<math>` in a table (Firefox goes on as if outside the table, Chrome and Safari go back to the cell); Tessera rejects any `<svg>` or `<math>` in a table part or `<template>` | Move it out of the table, or show the image with `<img src="....svg">` |
