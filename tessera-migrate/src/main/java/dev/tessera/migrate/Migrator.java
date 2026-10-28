@@ -441,7 +441,7 @@ final class Migrator {
      * {@code t:} values are already Tessera, which keeps the rewrite idempotent.
      */
     private String expressionValue(String local, String original, boolean thymeleaf, String name, int line) {
-      String value = Expressions.rewriteLinks(original);
+      String value = Expressions.rewriteLinks(thymeleaf ? Expressions.rewriteBlockSelectors(original) : original);
       List<String> problems = Expressions.unsupported(value);
       for (String problem : problems) {
         report(line, problem);
