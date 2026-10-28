@@ -81,6 +81,10 @@ class MessageMarkupTest {
         "</ b>^ malformed end tag",
         "<b/x>^ must be separated by whitespace",
         "<b\u00a0onclick=\"x\">y</b>^ malformed tag",
+        // A browser folds only A-Z in names and schemes: U+0130 and U+212A (Kelvin) never match
+        "<a href=\"ma\u0130lto:a@example.com\">x</a>^ only http, https, mailto, tel and relative",
+        "<bloc\u212Aquote>x</bloc\u212Aquote>^ malformed tag",
+        "<b \u212Alass=\"x\">y</b>^ malformed attribute",
       })
   void rejects(String message, String reason) {
     String problem = MessageMarkup.problem(message);
