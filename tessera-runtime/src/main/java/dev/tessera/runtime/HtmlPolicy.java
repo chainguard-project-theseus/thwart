@@ -6,7 +6,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -321,8 +320,19 @@ public final class HtmlPolicy {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
   }
 
+  /**
+   * {@code s} with only A-Z lower-cased, as a browser folds names and keywords. Not
+   * {@code toLowerCase}: that maps U+212A (Kelvin) to {@code k} and U+0130 to {@code i} plus a
+   * combining dot, so a value a browser reads as another would match here.
+   */
   static String lower(String s) {
-    return s.toLowerCase(Locale.ROOT);
+    char[] cs = s.toCharArray();
+    for (int i = 0; i < cs.length; i++) {
+      if (cs[i] >= 'A' && cs[i] <= 'Z') {
+        cs[i] = (char) (cs[i] + ('a' - 'A'));
+      }
+    }
+    return new String(cs);
   }
 
   private static Set<String> unmodifiable(String... names) {

@@ -3,7 +3,6 @@ package dev.tessera.compiler.messages;
 import dev.tessera.compiler.Backports;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -186,7 +185,7 @@ final class MessageMarkup {
     while (j < n && isLetterOrDigit(s.charAt(j))) {
       j++;
     }
-    String name = s.substring(lt + 1, j).toLowerCase(Locale.ROOT);
+    String name = lower(s.substring(lt + 1, j));
     if (j < n && !isSpace(s.charAt(j)) && s.charAt(j) != '/' && s.charAt(j) != '>') {
       throw new Bad("malformed tag <" + s.substring(lt + 1, j + 1));
     }
@@ -215,7 +214,7 @@ final class MessageMarkup {
       while (j < n && (isLetterOrDigit(s.charAt(j)) || s.charAt(j) == '-')) {
         j++;
       }
-      String attr = s.substring(nameStart, j).toLowerCase(Locale.ROOT);
+      String attr = lower(s.substring(nameStart, j));
       if (!GLOBAL_ATTRIBUTES.contains(attr) && !(name.equals("a") && LINK_ATTRIBUTES.contains(attr))) {
         throw new Bad("attribute " + attr + " is not allowed on <" + name + ">");
       }
@@ -250,7 +249,7 @@ final class MessageMarkup {
     while (j < n && isLetterOrDigit(s.charAt(j))) {
       j++;
     }
-    String name = s.substring(lt + 2, j).toLowerCase(Locale.ROOT);
+    String name = lower(s.substring(lt + 2, j));
     while (j < n && isSpace(s.charAt(j))) {
       j++;
     }
@@ -305,7 +304,7 @@ final class MessageMarkup {
         return;
       }
       if (c == ':') {
-        String scheme = url.substring(0, k).toLowerCase(Locale.ROOT);
+        String scheme = lower(url.substring(0, k));
         if (scheme.equals("http") || scheme.equals("https") || scheme.equals("mailto") || scheme.equals("tel")) {
           return;
         }
@@ -320,6 +319,19 @@ final class MessageMarkup {
 
   private static boolean isLetterOrDigit(char c) {
     return isLetter(c) || (c >= '0' && c <= '9');
+  }
+
+  /**
+   * {@code s} with only A-Z lower-cased, as a browser folds names and schemes ({@code toLowerCase}
+   * also folds U+212A and U+0130). TODO(#506): use HtmlParser.asciiLower once it is public.
+   */
+  private static String lower(String s) {
+    StringBuilder sb = new StringBuilder(s.length());
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      sb.append(c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c);
+    }
+    return sb.toString();
   }
 
   /** HTML whitespace. */

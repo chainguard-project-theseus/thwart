@@ -119,6 +119,26 @@ class HtmlPolicyTest {
   }
 
   @Test
+  void onlyAsciiLettersFoldInNamesAndKeywords() {
+    // A browser folds only A-Z. toLowerCase(Locale.ROOT) also maps U+212A (Kelvin) to k and U+0130
+    // to i plus a combining dot, so a value a browser reads as something else must not pass as a
+    // keyword here.
+    assertEquals("k", HtmlPolicy.lower("K"));
+    assertEquals("\u212a", HtmlPolicy.lower("\u212a"));
+    assertEquals("\u0130", HtmlPolicy.lower("\u0130"));
+    // "_blan" and U+212A names a browsing context; it is not _blank, so the target is dropped
+    assertEquals("<a href=\"/x\" rel=\"nofollow noopener\">x</a>", rich("<a href=\"/x\" target=\"_blan\u212a\">x</a>"));
+    assertEquals("<a href=\"/x\" rel=\"nofollow noopener\">x</a>", rich("<a href=\"/x\" target=\"_blan&#x212a;\">x</a>"));
+    // Kelvin is not base64
+    HtmlPolicy data = HtmlPolicy.builder().allowElements("img").allowDataImages().build();
+    assertEquals("", data.sanitize("<img src=\"data:image/png;base64,iVBOR\u212a\">").html());
+    assertEquals("", data.sanitize("<img src=\"data:\u0130mage/png;base64,iVBOR\">").html());
+    // names: an element or attribute spelled with Kelvin is a different, unknown name
+    assertEquals("x", rich("<bloc\u212aquote>x</bloc\u212aquote>"));
+    assertEquals("<p>x</p>", rich("<p \u212alass=\"language-x\">x</p>"));
+  }
+
+  @Test
   void classesAreFilteredToTheSafeForm() {
     // RICH keeps only code-highlighting classes: others could restyle the page with its own classes
     assertEquals("<code class=\"language-java\">x</code>", rich("<code class=\"hidden language-java fixed inset-0 lang-x\">x</code>"));
