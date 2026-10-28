@@ -227,6 +227,7 @@ original app, and a check that security wasn't weakened. See
 ## Documentation
 
 - [docs/guide.md](docs/guide.md): porting guide and reference (syntax, every compiler diagnostic, known limitations)
+- [docs/comparison.md](docs/comparison.md): how Tessera compares with JTE, Rocker, JStachio and Qute, and when to pick another engine
 - [docs/mvp-design.md](docs/mvp-design.md): how the compiler, runtime and starter work
 - [docs/tessera-vision.md](docs/tessera-vision.md): long-term design
 - [docs/strategy.md](docs/strategy.md): the secure-by-design library portfolio
