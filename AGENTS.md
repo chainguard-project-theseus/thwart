@@ -103,7 +103,7 @@ keep the change additive and minimal and call it out in the PR description.
 - Work in your own git worktree on a branch named `issue-<n>-<slug>`. Never commit to `main`
   directly.
 - One issue per PR. PR title `<summary> (#<n>)`, body says `Fixes #<n>`.
-- Remotes: `origin` = `wolfi-dev/tessera`, `fork` = `dlorenc/harder`. Push branches to
+- Remotes: `origin` = `wolfi-dev/tessera`, `fork` = `dlorenc/tessera`. Push branches to
   `fork` and open PRs against origin:
   `gh pr create --repo wolfi-dev/tessera --head dlorenc:<branch> --base main`.
 - Rebase on `origin/main` before pushing; resolve conflicts yourself.
