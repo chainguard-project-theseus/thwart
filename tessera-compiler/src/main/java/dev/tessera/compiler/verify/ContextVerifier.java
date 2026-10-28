@@ -1220,11 +1220,61 @@ public final class ContextVerifier {
 
     /** The position of the part that holds {@code offset}. */
     SourcePos at(int offset) {
+      return positions[part(offset)];
+    }
+
+    private int part(int offset) {
       int k = 0;
       while (k + 1 < starts.length && starts[k + 1] <= offset) {
         k++;
       }
+      return k;
+    }
+
+    /**
+     * Where a parse error at {@code offset} is reported. In a part that is text (it doesn't start
+     * with {@code <}), at the {@code <} before the offset that starts markup, so a bogus comment in
+     * text is reported at its {@code <!}, {@code <?} or {@code </} (#442); else at the part, which
+     * is the tag, comment or doctype.
+     */
+    SourcePos errorAt(int offset) {
+      int k = part(offset);
+      int from = starts[k];
+      if (positions[k] != null && from < text.length() && text.charAt(from) != '<') {
+        int lt = markupStart(text, offset, from);
+        if (lt >= 0) {
+          return positions[k].advance(text.substring(from, lt), lt - from);
+        }
+      }
       return positions[k];
+    }
+
+    /**
+     * The markup a parse error at {@code offset} of {@code text} is in, for its message: from the
+     * last {@code <} at or before it that starts markup up to the next {@code >} (at most 64
+     * chars), or "". {@code before} is the input written just before {@code text}, which holds the
+     * tag name when the tag goes on past a computed attribute.
+     */
+    static String markup(String before, String text, int offset) {
+      String s = before + text;
+      int at = before.length() + offset;
+      int lt = markupStart(s, at, 0);
+      int gt = lt < 0 ? -1 : s.indexOf('>', lt);
+      if (lt < 0 || gt >= 0 && gt + 1 < at) {
+        return "";
+      }
+      return s.substring(lt, Math.min(gt < 0 ? s.length() : gt + 1, lt + 64));
+    }
+
+    /** The last {@code <} in {@code s} at or before {@code offset}, not before {@code from}, that starts markup; or -1. */
+    private static int markupStart(String s, int offset, int from) {
+      for (int i = Math.min(offset, s.length() - 2); i >= from; i--) {
+        char c = s.charAt(i + 1);
+        if (s.charAt(i) == '<' && (c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '!' || c == '/' || c == '?')) {
+          return i;
+        }
+      }
+      return -1;
     }
 
     Located sub(int from, int to) {
@@ -1298,6 +1348,8 @@ public final class ContextVerifier {
      * stray end tag after a misplaced start tag) don't bury it. Part of the {@link #key}.
      */
     private final long[] reported;
+    /** The last chars written to the parsers, for the markup a parse error names ({@link Located#markup}). */
+    private String tail = "";
 
     private Path(ContextVerifier owner, Parser[] parsers) {
       this.owner = owner;
@@ -1320,6 +1372,7 @@ public final class ContextVerifier {
       p.tagBoundary = tagBoundary;
       p.states = states;
       p.key = key;
+      p.tail = tail;
       return p;
     }
 
@@ -1356,6 +1409,9 @@ public final class ContextVerifier {
       }
       final Located text = deferred.build();
       deferred = new Located.Builder();
+      final String before = tail;
+      String last = text.text.length() >= 64 ? text.text.substring(text.text.length() - 64) : tail + text.text;
+      tail = last.substring(Math.max(0, last.length() - 64));
       final Map<String, Reported> issues = new LinkedHashMap<>();
       for (int i = 0; i < parsers.length; i++) {
         final int parser = i;
@@ -1363,7 +1419,9 @@ public final class ContextVerifier {
           @Override
           public void error(String message, int offset) {
             if (!Rules.allowedError(message)) {
-              note(Problem.PARSE_ERROR, message, offset);
+              // With the markup it is in, for the fix-it, and at that markup's '<' (#442).
+              note(Problem.PARSE_ERROR, VerifierMessages.parseErrorDetail(message, Located.markup(before, text.text,
+                  offset)), offset, text.errorAt(offset));
             }
           }
 
@@ -1388,12 +1446,15 @@ public final class ContextVerifier {
           }
 
           private void note(Problem problem, String detail, int offset) {
+            note(problem, detail, offset, text.at(offset));
+          }
+
+          private void note(Problem problem, String detail, int offset, SourcePos pos) {
             long bit = 1L << problem.ordinal();
             if ((reported[parser] & bit) != 0) {
               return;
             }
             reported[parser] |= bit;
-            SourcePos pos = text.at(offset);
             String k = problem + "\u0000" + detail + "\u0000" + pos;
             Reported r = issues.get(k);
             if (r == null) {

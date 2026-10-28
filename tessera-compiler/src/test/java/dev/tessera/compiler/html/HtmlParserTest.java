@@ -240,20 +240,11 @@ class HtmlParserTest {
   // ---- errors (negative tests) ----
 
   @Test
-  void selfClosingScriptOrStyleIsAnError() {
-    // A browser treats <script/> as an open tag, so text after it would run as script.
-    assertEquals(
-        List.of("dir/t.html:1:1: error: <script/> is not self-closing in HTML: the browser treats everything"
-            + " after it as script; write <script ...></script>"),
-        errors("<script/>[[${x}]]<script>f()</script>"));
-    assertEquals(
-        List.of("dir/t.html:2:3: error: <script/> is not self-closing in HTML: the browser treats everything"
-            + " after it as script; write <script ...></script>"),
-        errors("<p></p>\n  <SCRIPT src=\"a.js\"/>"));
-    assertEquals(
-        List.of("dir/t.html:1:6: error: <style/> is not self-closing in HTML: the browser treats everything"
-            + " after it as style; write <style ...></style>"),
-        errors("<div><style/></div>"));
+  void selfClosingScriptStyleOrSelectIsLeftToTheVerifier() {
+    // A browser treats <script/> as an open tag: the verifier's parse error, with the fix-it
+    // (#442, verify/ParseErrorFixItTest). Tessera's tree reads these as self-closed.
+    assertEquals(List.of(), errors("<script/>[[${x}]]<script>f()</script>"));
+    assertEquals(List.of(), errors("<p></p>\n  <SCRIPT src=\"a.js\"/><div><style/><select/></div>"));
     assertEquals(List.of(), errors("<script></script><style></style>"));
     // TemplateGenerator checks <textarea/>, <title/> and the other raw text elements, where it knows
     // whether it writes them with an end tag (<textarea t:text="x"/>).
@@ -306,11 +297,8 @@ class HtmlParserTest {
     assertEquals(List.of(inSelect("1:17", "select")), errors("<select><option><select></select></option></select>"));
     // t:remove on the select does not exempt its content.
     assertEquals(List.of(inSelect("1:24", "title")), errors("<select t:remove=\"tag\"><title>t</title></select>"));
-    // A browser ignores the '/' and keeps the select open.
-    assertEquals(
-        withCdata(20, "dir/t.html:1:6: error: <select/> is not self-closing in HTML: the browser treats everything"
-            + " after it as select; write <select ...></select>"),
-        errors("<div><select/><svg><![CDATA[><script>[[${x}]]</script>]]></svg></div>"));
+    // A browser ignores the '/' and keeps the select open: the verifier's parse error (#442).
+    assertEquals(withCdata(20), errors("<div><select/><svg><![CDATA[><script>[[${x}]]</script>]]></svg></div>"));
     // What a select may hold: options, groups, separators, t:block, text, comments and holes.
     assertEquals(
         List.of(),
@@ -336,14 +324,11 @@ class HtmlParserTest {
     // An expression in a CDATA section is the verifier's error, not the parser's (#411, CdataHoleTest).
     assertEquals(List.of(), errors("<div><![CDATA[ [[${x}]] ]]></div><svg><![CDATA[ [(${x})] ]]></svg><![CDATA[[${x}]]>"));
     assertEquals(List.of(cdata.replace("1:15", "2:2")), errors("<svg><![cdata[\n >]]></svg>"));
-    String pi = "error: malformed markup: '>' inside '<?...?>' is not supported: a browser ends it at the first '>';"
-        + " remove the '>'";
-    assertEquals(List.of("dir/t.html:1:6: " + pi), errors("<?php><script>[[${x}]]</script> ?>"));
-    assertEquals(List.of("dir/t.html:1:31: " + pi), errors("<?xml version=\"1.0\" encoding=\"><script>\"?>"));
-    assertEquals(
-        List.of("dir/t.html:1:24: error: malformed markup: '>' inside <!DOCTYPE> is not supported: a browser ends it"
-            + " at the first '>'; write <!DOCTYPE html>"),
-        errors("<!DOCTYPE html PUBLIC \"><script>\" \"x\">"));
+    // A '>' in a <?...?> or DOCTYPE is the verifier's parse error, with the fix-it (#442,
+    // verify/ParseErrorFixItTest).
+    assertEquals(List.of(), errors("<?php><script>[[${x}]]</script> ?>"));
+    assertEquals(List.of(), errors("<?xml version=\"1.0\" encoding=\"><script>\"?>"));
+    assertEquals(List.of(), errors("<!DOCTYPE html PUBLIC \"><script>\" \"x\">"));
     // Without an earlier '>', a browser ends them where Tessera does.
     assertEquals(
         List.of(),
@@ -353,20 +338,11 @@ class HtmlParserTest {
   }
 
   @Test
-  void textABrowserReadsAsABogusCommentIsAnError() {
-    // A browser starts a bogus comment at "</ " that ends at the first '>', inside Tessera's
-    // comment, so it would run this <script> while Tessera escaped [[${x}]] as text.
-    String bogus = " starts a comment in a browser that ends at the first '>': write &lt; for a literal '<'";
-    assertEquals(
-        List.of("dir/t.html:1:6: error: malformed markup: '</' not followed by a letter" + bogus),
-        errors("<p>a </ b <!-- > <script> -->[[${x}]]<!-- </script> --></p>"));
-    assertEquals(
-        List.of("dir/t.html:2:3: error: malformed markup: '</' not followed by a letter" + bogus),
-        errors("<p>\n  </ x></p>"));
-    assertEquals(List.of("dir/t.html:1:3: error: malformed markup: '<?'" + bogus), errors("a <? b ?>"));
-    for (String start : List.of("<!-x>", "<!/x>", "<!?x>", "<!!x>", "<![if !IE]>")) {
-      assertEquals(List.of("dir/t.html:1:6: error: malformed markup: '<!'" + bogus), errors("<i>a " + start + "</i>"));
-    }
+  void textABrowserReadsAsABogusCommentIsLeftToTheVerifier() {
+    // A browser starts a bogus comment at "</ ", "<?" or "<!" in text that ends at the first '>':
+    // the verifier's parse error, at the '<' and with the fix-it (#442, verify/ParseErrorFixItTest).
+    assertEquals(List.of(), errors("<p>a </ b <!-- > <script> -->[[${x}]]<!-- </script> --></p>"));
+    assertEquals(List.of(), errors("<p>\n  </ x></p>a <? b ?><i>a <!-x> <![if !IE]></i>"));
     // A '<' that starts no tag or comment in a browser stays text.
     assertEquals(List.of(), errors("<p>x < y, a <- b, a <[b], a &lt;!b, a &lt;/ b</p>"));
     // RCDATA and raw text have no comments in a browser.

@@ -1816,13 +1816,13 @@ These come from the annotation processor itself, without a template position.
   tag. Remove the look-alike. Tessera still parses a `t:remove="all"` subtree, so the check also
   applies there.
 - `<<tag>/> is not self-closing in HTML: the browser treats everything after it as <tag>; write <<tag> ...></<tag>>`:
-  reported for `<script/>`, `<style/>` and `<select/>`; a browser ignores the `/` and treats the
-  rest of the page as script, CSS or select content. Write the end tag, e.g.
-  `<script src="a.js"></script>`.
-  Also reported for `<textarea/>`, `<title/>`, `<xmp/>`, `<iframe/>`,
+  reported for `<textarea/>`, `<title/>`, `<xmp/>`, `<iframe/>`,
   `<noembed/>`, `<noframes/>` and `<noscript/>` when Tessera writes them as they are: a browser
   reads the rest of the page as their text. With content from `t:text`, `t:field` or another
   attribute (`<textarea t:field="*{bio}"/>`) Tessera writes the end tag, and they compile.
+  `<script/>`, `<style/>`, `<select/>` and any other non-void element written with `/>` are the
+  verifier's `PARSE_ERROR` (section 7): `a browser ignores the '/' of <script/>, ...; write the end
+  tag: <script ...></script>`.
 - `<title/> is not supported inside <svg> or <math>: Tessera cannot tell an SVG title from an HTML one (in <foreignObject> or after <b>), after which a browser reads the rest of the page as title text; write <title></title>`:
   a real SVG `<title/>` is self-closing, but Tessera does not track where a browser leaves SVG
   (`<foreignObject>`, `<mtext>`, a `<b>` or `<p>` inside `<svg>`), so it rejects them all.
@@ -1839,19 +1839,14 @@ These come from the annotation processor itself, without a template position.
   and `malformed markup: '--!>' ends a comment in a browser: end the comment with '-->' or remove the '!'`:
   a browser ends the comment earlier than Tessera would, so the markup after it would be live. Write
   `<!-- -->`-style comments that end only at `-->`.
-- `malformed markup: '>' inside a CDATA section is not supported, even in <svg> and <math>: elsewhere a browser ends it at the first '>'; write the text without <![CDATA[, with '>' as &gt;`,
-  `malformed markup: '>' inside '<?...?>' is not supported: a browser ends it at the first '>'; remove the '>'`
-  and `malformed markup: '>' inside <!DOCTYPE> is not supported: a browser ends it at the first '>'; write <!DOCTYPE html>`:
-  Tessera ends these at `]]>`, `?>` or the last `>` outside quotes, but in HTML a browser ends them
-  at the first `>`, so the markup after it would be read differently. Inside `<svg>` and `<math>` a
-  browser ends a CDATA section at `]]>` too; Tessera does not track those namespaces and rejects the
-  `>` there as well. A CDATA section inside `<script>` or `<style>` is script or CSS text and is not
-  checked.
-- `malformed markup: <markup> starts a comment in a browser that ends at the first '>': write &lt; for a literal '<'`:
-  `<markup>` is `'<!'`, `'<?'` or `'</' not followed by a letter`, in element text where Tessera
-  reads no tag or comment (for example `a </ b`, `<? x ?>`, `<![if !IE]>`). A browser hides
-  everything up to the next `>` in a comment, including markup Tessera reads. Write `&lt;` for a
-  literal `<`; `x < y` stays allowed.
+- `malformed markup: '>' inside a CDATA section is not supported, even in <svg> and <math>: elsewhere a browser ends it at the first '>'; write the text without <![CDATA[, with '>' as &gt;`:
+  Tessera ends a CDATA section at `]]>`, but in HTML a browser ends it at the first `>`, so the
+  markup after it would be read differently. Inside `<svg>` and `<math>` a browser ends a CDATA
+  section at `]]>` too; Tessera does not track those namespaces and rejects the `>` there as well.
+  A CDATA section inside `<script>` or `<style>` is script or CSS text and is not checked. A `>`
+  inside a `<?...?>` or a DOCTYPE, and `'<!'`, `'<?'` or `'</'` not followed by a letter in text
+  (`a </ b`, `<? x ?>`, `<![if !IE]>`), are the verifier's `PARSE_ERROR` (section 7), reported at
+  the `<` with the fix.
 - `malformed markup: '<' inside <<tag>> in <svg> or <math> starts markup in a browser, not text: write &lt; for a literal '<'`:
   inside `<svg>` and `<math>`, a browser parses the content of `<script>`, `<style>`, `<title>` and
   `<textarea>` as markup (SVG `<title>` and `<desc>` as HTML), so `<svg><title><script>` is a real
@@ -2422,7 +2417,7 @@ same.
 | `LOOP_NO_FIXED_POINT` | Has more elements open after each `t:each` pass | Close inside the loop every element it opens |
 | `STRUCTURE_DEPENDS_ON_DATA` | Nests deeper at each call of a fragment that inserts itself, so the page's structure depends on data | For stored rich text, `t:utext="html.sanitize(...)"`, `html.sanitizeRich` or an application `HtmlPolicy` (section 4.10, Rich text), and delete the fragment; for other trees, render a fixed depth or flatten the tree in Java |
 | `TOO_MANY_STATES` | Can be in more than 24 different states (different elements open) after the branches and loops before this point | Close inside each `t:if`, `t:switch` and `t:each` the elements it opens, or split the template into fragments |
-| `PARSE_ERROR` | Reads the markup only by error recovery: a second `<body>`, `<head>` or `<html>` (often from `layout(~{::body})`), a block element that closes an open `<p>`, a `<script>`, `<meta>`, `<link>` or `<title>` between `</head>` and `<body>`, content directly in a `<table>`, attributes without a space between them, a stray end tag, `/>` on an element that isn't void | Mark a `<body>` passed to a layout `t:remove="tag"`; use a `<div>` instead of the `<p>`; move the element into the head or the body; put table content in a `<td>` or `<th>`; write a space between attributes. For other errors the message quotes the parser: fix the markup it names |
+| `PARSE_ERROR` | Reads the markup only by error recovery: a second `<body>`, `<head>` or `<html>` (often from `layout(~{::body})`), a block element that closes an open `<p>`, a `<script>`, `<meta>`, `<link>` or `<title>` between `</head>` and `<body>`, content directly in a `<table>`, attributes without a space between them, a stray end tag, `/>` on an element that isn't void, an HTML element such as `<p>` inside `<svg>` or `<math>`, a `<?...?>`, a malformed DOCTYPE (a `>` inside it), `'<!'` or `'</'` not followed by a letter in text (a comment up to the next `>`), `<![CDATA[` outside `<svg>` and `<math>` | Mark a `<body>` passed to a layout `t:remove="tag"`; use a `<div>` instead of the `<p>`; move the element into the head or the body; put table content in a `<td>` or `<th>`; write a space between attributes; write the end tag (`<script ...></script>`); close the `<svg>` or `<math>` first, or put the HTML in a `<foreignObject>`; remove the `<?...?>`; write `<!doctype html>`; write `&lt;` for a literal `<`. For other errors the message quotes the parser: fix the markup it names |
 | `FOREIGN_IN_TABLE` | Builds different trees for a nested table, `<template>` or `<select>` that ends inside `<svg>` or `<math>` in a table (Firefox goes on as if outside the table, Chrome and Safari go back to the cell); Tessera rejects any `<svg>` or `<math>` in a table part or `<template>` | Move it out of the table, or show the image with `<img src="....svg">` |
 | `TABLE_IN_TEMPLATE` | Handles a `</table>` inside a `<template>` that holds table parts directly differently (Firefox closes a table around the `<template>`) | Put a whole `<table>` in the `<template>` |
 | `SELECT_CONTENT` | Drops everything in a `<select>` but `<option>`, `<optgroup>` and `<hr>` in classic `<select>` parsing (Firefox ESR), and keeps it in newer browsers | Insert only those into a `<select>`, also from fragments, `t:remove="tag"` and `<template>` |

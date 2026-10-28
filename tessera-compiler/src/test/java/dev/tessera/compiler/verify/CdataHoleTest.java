@@ -24,7 +24,8 @@ class CdataHoleTest {
         + " not as text; write the '<' of the '<!' or '<?' before it as &lt; [verifier:TEXT_NOT_IN_TEXT]";
     compile("<div><![CDATA[ [[${x}]] ]]></div>")
         .assertError("t.html:2:20: error: " + comment)
-        .assertError("t.html:2:6: error: the HTML parser reports \"Bogus comment.\"", "[verifier:PARSE_ERROR]");
+        .assertError("t.html:2:6: error: a browser reads <![CDATA[ outside <svg> and <math> as the start of a comment",
+            "write the text without <![CDATA[ and ]]>, with '<' as &lt; and '>' as &gt; [verifier:PARSE_ERROR]");
     compile("<![CDATA[[${x}]]>").assertError("t.html:2:13: error: " + comment);
     compile("<svg><foreignObject><![CDATA[ [[${x}]] ]]></foreignObject></svg>")
         .assertError("t.html:2:35: error: a browser reads this value inside a CDATA section", "[verifier:TEXT_NOT_IN_TEXT]");
