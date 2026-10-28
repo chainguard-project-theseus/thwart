@@ -1135,7 +1135,13 @@ public record Address(String street) {}
   `<select multiple>` that is not `disabled` is preceded by one
   (`<input type="hidden" name="_roles" value="1" />`), so deselecting every option binds an empty
   collection, as in Thymeleaf. A static `selected` on such an option is replaced, as in Thymeleaf;
-  a `t:selected` is kept.
+  a `t:selected` *replaces* the bound-value match for that option: the option is selected exactly
+  when the expression is true, whatever the bound value. To keep the match and add a default,
+  write the match into the expression, for example
+  `t:selected="${curr == form.currency || (form.currency == null && curr == defaultCurrency)}"`.
+  Options without a `t:selected` are still matched. (Thymeleaf does the opposite: its `th:field`
+  match overrides a `th:selected` on the option, so a `th:selected` there has no effect; drop it
+  when porting such a select.)
 - A field whose type is not view-safe, such as a `MultipartFile` or `List<MultipartFile>`, can
   be bound wherever its value is never read: `t:field` on `<input type="file">` (which writes
   only `id` and `name`, as Thymeleaf's does) or `type="password"`, `t:errors`, `t:errorclass` and
