@@ -1297,8 +1297,10 @@ parameters**, never the caller's variables.
 - Arguments are positional or all named, and type-checked. A `String` argument can be a link
   `@{...}` or a message.
 - `~{::name}` is a `Fragment` over the same-file fragment `name`, or else the first element with
-  tag `name` (`~{::dl}`), rendered with the call site's variables. Put it inside the host so it
-  does not also render in place. Other selectors (`#id`, `.class`) are not supported.
+  tag `name` (`~{::dl}`, `~{::my-card}`), rendered with the call site's variables. Put it inside
+  the host so it does not also render in place. `~{::t:block}` (Thymeleaf's `~{::th:block}`)
+  selects the first `<t:block>`, which leaves no tag. Thymeleaf selects every match; Tessera only
+  the first. Other selectors (`#id`, `.class`) are not supported.
 - A `null` `Fragment` renders nothing, so a `Fragment` parameter can be optional.
 - A fragment goes only where a browser parses markup the way it does where the fragment is
   declared: in HTML content, or inside `<svg>`, `<math>` or `<select>`. Inside `<svg>`, `<title>`
@@ -1672,17 +1674,17 @@ over a stored string.
   `{% include %}` a fragment call, and `{% extends %}` with `{% block %}`s a layout whose `Fragment`
   parameters are the blocks.
 - **Extends chains.** A layout that extends another layout is a fragment that replaces itself with
-  the outer layout and passes its own markup as a selection. The selected element needs a plain tag
-  name you invent (`~{::tag}` can't select `t:block` or hyphenated names), with `t:remove="tag"`:
+  the outer layout and passes its own markup as a selection: a `<t:block>` (`~{::t:block}`, the
+  first in the file), or an element with a name you invent (`~{::page-tools}`) and `t:remove="tag"`:
 
 <!-- compile: template guide/fragments/toolbar-layout.html -->
 ```html
 <html xmlns:t="https://tessera.dev" t:fragment="toolbarLayout(String title, Fragment tools, Fragment content)"
-      t:replace="~{guide/fragments/layout :: layout(~{::withtoolbar}, title, null)}">
-<withtoolbar t:remove="tag">
+      t:replace="~{guide/fragments/layout :: layout(~{::t:block}, title, null)}">
+<t:block>
   <div class="toolbar" t:insert="tools">tools</div>
   <div t:replace="content">content</div>
-</withtoolbar>
+</t:block>
 </html>
 ```
 
@@ -1690,8 +1692,8 @@ over a stored string.
 ```html
 <!DOCTYPE html>
 <html xmlns:t="https://tessera.dev" t:params="String name"
-      t:replace="~{guide/fragments/toolbar-layout :: toolbarLayout('Report', ~{::tools}, ~{::body})}">
-<tools t:remove="tag"><a t:href="@{/report.csv}">CSV</a></tools>
+      t:replace="~{guide/fragments/toolbar-layout :: toolbarLayout('Report', ~{::page-tools}, ~{::body})}">
+<page-tools t:remove="tag"><a t:href="@{/report.csv}">CSV</a></page-tools>
 <body t:remove="tag">
   <h1 t:text="name">Report</h1>
 </body>
@@ -2089,8 +2091,10 @@ These come from the annotation processor itself, without a template position.
   pick between literal references with `t:if`, or pass a `Fragment`.
 - `expected '::' in fragment reference (e.g. ~{template :: name}) but <found>`.
 - `invalid character '<c>' in template name '<name>': names use letters, digits, '/', '-', '_' and '.'`.
-- `expected a fragment name after '::' (markup selectors are not supported) but <found>`: select
-  by fragment or tag name only.
+- `expected a fragment or tag name after '::' (markup selectors such as #id and .class are not supported) but <found>`:
+  select by fragment or tag name only.
+- `'<name>' after '::': the only tag name with a prefix that can be selected is t:block`, ending in
+  ` (Tessera's name for th:block)` for `th:block`: write `~{::t:block}` for Thymeleaf's `~{::th:block}`.
 - `fragment arguments must be all named or all positional, e.g. f(a, b) or f(x=a, y=b)`.
 - `expected an attribute or variable name but <found>`: in `t:with`/`t:attr` assignments.
 - `wildcard types are not supported: write the element type, e.g. List<Owner>`.
@@ -2513,8 +2517,9 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **Security functions.** `auth` has `isAuthenticated`, `hasRole`/`hasAnyRole` and
   `hasAuthority`/`hasAnyAuthority`. They check the granted authorities as given, without a role
   hierarchy. Compute any other Spring Security expression in the controller.
-- **Selections.** `~{::tag}` selects fragment names and plain tag names only: not hyphenated tags,
-  `t:block`, ids or classes. Give the element a `t:fragment` name instead.
+- **Selections.** `~{::tag}` selects fragment names and tag names (hyphenated ones and `t:block`
+  too), and only the first match: not ids, classes or every match as in Thymeleaf. Give the
+  element a `t:fragment` name instead.
 - **Not supported, by design:** runtime template loading, `__${...}__` preprocessing, dynamic
   names, the layout dialect, `th:inline` modes and `/*[[...]]*/` natural-template comments,
   collection selection/projection, expressions in `<style>` and `on*`, `String` values in `style`

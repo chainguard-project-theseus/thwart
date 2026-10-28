@@ -236,6 +236,8 @@ class ExpressionParserTest {
     assertEquals("null::f", show(ref("~{:: f}")));
     assertEquals("null::f", show(ref("~{this :: f}")));
     assertEquals("null::body", show(ref("~{::body}")));
+    assertEquals("null::my-card", show(ref("~{::my-card}")));
+    assertEquals("null::t:block", show(ref("~{ :: t:block }")));
     assertEquals("null::f", show(ref(":: f")));
     assertEquals("fragments/layout::layout (frag null::body) 'T'", show(ref("fragments/layout :: layout(~{::body}, 'T')")));
     assertEquals("x::f a=(EQ b c)", show(ref("x :: f(a = b == c)")));
@@ -251,7 +253,11 @@ class ExpressionParserTest {
     Parse<FragmentRef> p = (t, d) -> parser.parseFragmentRef(t, START, d);
     assertEquals("fragment arguments must be all named or all positional, e.g. f(a, b) or f(x=a, y=b)", error("a :: f(x, n=y)", p).message());
     assertTrue(error("template", p).message().startsWith("expected '::'"));
-    assertTrue(error("~{a :: #id}", p).message().contains("markup selectors are not supported"));
+    assertTrue(error("~{a :: #id}", p).message().startsWith("expected a fragment or tag name after"));
+    assertTrue(error("~{:: .c}", p).message().contains("markup selectors such as #id and .class are not supported"));
+    assertTrue(error("~{::th:block}", p).message().endsWith("(Tessera's name for th:block)"));
+    assertTrue(error("~{::t:}", p).message().startsWith("'t:' after"));
+    assertTrue(error("~{::a--b}", p).message().startsWith("expected '}'"));
     assertTrue(error("~{${t} :: f}", p).message().startsWith("dynamic template names are not supported"));
     assertTrue(error("~{a b :: f}", p).message().startsWith("invalid character ' '"));
     assertTrue(error("~{a :: f", p).message().startsWith("expected '}' to close '~{'"));
