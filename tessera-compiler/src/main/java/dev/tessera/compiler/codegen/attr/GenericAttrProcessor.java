@@ -288,7 +288,10 @@ public final class GenericAttrProcessor implements AttributeProcessor {
 
   private static final String HTMX_URL = "an htmx request URL";
 
-  /** Boxed and big number types whose text is only digits, sign, '.', 'E', NaN or Infinity. */
+  /**
+   * Boxed and big number types whose text is only digits, sign, '.', 'E', NaN or Infinity.
+   * BigDecimal and BigInteger are not final, so {@link #styleCode} checks their text at render time.
+   */
   private static final Set<String> NUMBER_TYPES =
       Backports.setOf(
           "java.lang.Byte", "java.lang.Short", "java.lang.Integer", "java.lang.Long", "java.lang.Float",
@@ -299,7 +302,9 @@ public final class GenericAttrProcessor implements AttributeProcessor {
    * pieces that cannot change the declaration structure: literals (written by the template
    * author), numbers and {@link CssValue}s, joined by {@code +}, {@code |...|}, {@code c ? a : b} and
    * {@code a ?: b}. Any other piece, such as a String expression, is a build error. The
-   * result is then attribute-escaped like any attribute.
+   * result is then attribute-escaped like any attribute. A {@code BigDecimal} or {@code BigInteger}
+   * piece goes through {@link Escapers#styleNumber}, which fails the render if a subclass's
+   * {@code toString()} is not a number.
    */
   private static void style(CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label) {
     if (!styleSafe(ctx, value, plan, label)) {
@@ -307,8 +312,76 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     }
     CompiledExpr c = ctx.expressions().compileOutput(value, plan.scope());
     if (c != null) {
-      plan.setAttribute(name, c.code(), pos);
+      plan.setAttribute(name, styleCode(ctx, value, plan), pos);
     }
+  }
+
+  /**
+   * The code of a style value that {@link #styleSafe} accepted: what the expression compiler
+   * writes, except that each {@code BigDecimal} or {@code BigInteger} piece is wrapped in
+   * {@link Escapers#styleNumber}. A {@code +} with a String operand is concatenation; any other
+   * {@code +} is arithmetic on primitives and boxes, so it has no such piece.
+   * As in the compiler's {@code ?:}, both operands of an elvis are evaluated, so a hostile fallback
+   * fails the render even when the value is not null.
+   */
+  private static String styleCode(CodegenContext ctx, Expr e, ElementPlan plan) {
+    String whole = code(ctx, e, plan);
+    if (e instanceof Expr.Literal) {
+      return whole;
+    }
+    if (e instanceof Expr.Interpolation) {
+      StringBuilder code = new StringBuilder("(\"\"");
+      for (Expr part : ((Expr.Interpolation) e).parts()) {
+        code.append(" + ").append(styleCode(ctx, part, plan));
+      }
+      return code.append(')').toString();
+    }
+    if (e instanceof Expr.Binary && ((Expr.Binary) e).op() == Expr.BinaryOp.ADD) {
+      Expr.Binary b = (Expr.Binary) e;
+      return isDeclared(type(ctx, e, plan), "java.lang.String")
+          ? "(" + styleCode(ctx, b.left(), plan) + " + " + styleCode(ctx, b.right(), plan) + ")"
+          : whole;
+    }
+    if (e instanceof Expr.Conditional) {
+      Expr.Conditional c = (Expr.Conditional) e;
+      String then = styleCode(ctx, c.then(), plan);
+      String otherwise = c.otherwise() == null ? "null" : styleCode(ctx, c.otherwise(), plan);
+      if (then.equals(code(ctx, c.then(), plan))
+          && (c.otherwise() == null || otherwise.equals(code(ctx, c.otherwise(), plan)))) {
+        return whole;
+      }
+      return "(" + ctx.expressions().compileCondition(c.condition(), plan.scope()).code()
+          + " ? (java.lang.Object) " + then + " : (java.lang.Object) " + otherwise + ")";
+    }
+    if (e instanceof Expr.Elvis) {
+      Expr.Elvis el = (Expr.Elvis) e;
+      String value = styleCode(ctx, el.value(), plan);
+      String fallback = styleCode(ctx, el.fallback(), plan);
+      if (value.equals(code(ctx, el.value(), plan)) && fallback.equals(code(ctx, el.fallback(), plan))) {
+        return whole;
+      }
+      TypeMirror t = type(ctx, el.value(), plan);
+      if (t.getKind().isPrimitive()) {
+        return value; // never null
+      }
+      if (t.getKind() == TypeKind.NULL) {
+        return fallback;
+      }
+      return "dev.tessera.runtime.Values.<java.lang.Object>elvis((java.lang.Object) " + value
+          + ", (java.lang.Object) " + fallback + ")";
+    }
+    TypeMirror t = type(ctx, e, plan);
+    return isDeclared(t, "java.math.BigDecimal") || isDeclared(t, "java.math.BigInteger")
+        ? Escapers.class.getName() + ".styleNumber(" + whole + ")"
+        : whole;
+  }
+
+  private static String code(CodegenContext ctx, Expr e, ElementPlan plan) {
+    return ctx.expressions().compile(e, plan.scope()).code();
+  }
+
+  private static TypeMirror type(CodegenContext ctx, Expr e, ElementPlan plan) {
+    return ctx.expressions().compile(e, plan.scope()).type();
   }
 
   private static boolean styleSafe(CodegenContext ctx, Expr e, ElementPlan plan, String label) {
