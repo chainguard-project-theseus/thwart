@@ -10,7 +10,6 @@
   </parent>
 
   <artifactId>tessera-html5</artifactId>
-  <packaging>pom</packaging>
   <name>Tessera HTML5 engine (build only)</name>
   <description>
     The spec HTML parser the build-time verifier runs (#365, security-architecture.md §11.4):
@@ -19,116 +18,112 @@
     nothing else depends on it.
   </description>
 
-  <modules>
-    <module>current</module>
-  </modules>
-
-  <!-- The child sets the source coordinates, its pinned SHA-256 and the target package. -->
+  <!-- The htmlparser source inside nu.validator:validator 26.10.12 (released Oct 12, 2026; the
+       build tested in the parser bake-off). Bumping it is its own PR with the corpus and seed
+       verdicts diffed (security-architecture.md §11.4). -->
   <properties>
     <maven.compiler.release>8</maven.compiler.release>
-    <html5.source.groupId/>
-    <html5.source.artifactId/>
-    <html5.source.version/>
-    <html5.source.sha256/>
-    <html5.package/>
-    <html5.package.path/>
+    <html5.source.groupId>nu.validator</html5.source.groupId>
+    <html5.source.artifactId>validator</html5.source.artifactId>
+    <html5.source.version>26.10.12</html5.source.version>
+    <html5.source.sha256>cc76e9ad8d028b176d5166d7383633b8371cd510d7f9f5be499356e2bb08aa40</html5.source.sha256>
+    <html5.package>dev.tessera.compiler.internal.html5.current</html5.package>
+    <html5.package.path>dev/tessera/compiler/internal/html5/current</html5.package.path>
     <html5.upstream>${project.build.directory}/html5-upstream</html5.upstream>
     <html5.generated>${project.build.directory}/generated-sources/html5</html5.generated>
   </properties>
 
   <build>
-    <pluginManagement>
-      <plugins>
-        <!-- 1. Fetch the sources jar from Maven Central. -->
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-dependency-plugin</artifactId>
-          <executions>
-            <execution>
-              <id>html5-fetch</id>
-              <phase>generate-sources</phase>
-              <goals>
-                <goal>copy</goal>
-              </goals>
-              <configuration>
-                <artifactItems>
-                  <artifactItem>
-                    <groupId>${html5.source.groupId}</groupId>
-                    <artifactId>${html5.source.artifactId}</artifactId>
-                    <version>${html5.source.version}</version>
-                    <classifier>sources</classifier>
-                    <destFileName>upstream-sources.jar</destFileName>
-                  </artifactItem>
-                </artifactItems>
-                <outputDirectory>${html5.upstream}</outputDirectory>
-                <overWriteReleases>true</overWriteReleases>
-              </configuration>
-            </execution>
-          </executions>
-        </plugin>
-        <!-- 2. Verify the pinned SHA-256, unpack impl, common (minus Heuristics) and annotation,
-             and rename nu.validator.htmlparser to the Tessera package. The upstream source is
-             otherwise unchanged. -->
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-antrun-plugin</artifactId>
-          <executions>
-            <execution>
-              <id>html5-relocate</id>
-              <phase>generate-sources</phase>
-              <goals>
-                <goal>run</goal>
-              </goals>
-              <configuration>
-                <target>
-                  <checksum file="${html5.upstream}/upstream-sources.jar" algorithm="SHA-256"
-                            property="html5.actual.sha256"/>
-                  <fail message="SHA-256 mismatch for ${html5.source.groupId}:${html5.source.artifactId}:${html5.source.version}:sources: expected ${html5.source.sha256}, got ${html5.actual.sha256}">
-                    <condition>
-                      <not>
-                        <equals arg1="${html5.actual.sha256}" arg2="${html5.source.sha256}"/>
-                      </not>
-                    </condition>
-                  </fail>
-                  <delete dir="${html5.upstream}/src"/>
-                  <delete dir="${html5.generated}"/>
-                  <unzip src="${html5.upstream}/upstream-sources.jar" dest="${html5.upstream}/src">
-                    <patternset>
-                      <include name="nu/validator/htmlparser/impl/*.java"/>
-                      <include name="nu/validator/htmlparser/common/*.java"/>
-                      <include name="nu/validator/htmlparser/annotation/*.java"/>
-                      <exclude name="nu/validator/htmlparser/common/Heuristics.java"/>
-                    </patternset>
-                  </unzip>
-                  <copy todir="${html5.generated}/${html5.package.path}" encoding="UTF-8"
-                        outputencoding="UTF-8" preservelastmodified="true">
-                    <fileset dir="${html5.upstream}/src/nu/validator/htmlparser"/>
-                    <filterchain>
-                      <replacestring from="nu.validator.htmlparser" to="${html5.package}"/>
-                    </filterchain>
-                  </copy>
-                </target>
-              </configuration>
-            </execution>
-          </executions>
-        </plugin>
-        <!-- 3. Compile the renamed source and the hand-written accessor with release 8. -->
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-compiler-plugin</artifactId>
-          <configuration>
-            <compileSourceRoots>
-              <root>${project.basedir}/src/main/java</root>
-              <root>${html5.generated}</root>
-            </compileSourceRoots>
-            <!-- Upstream code: its raw types and casts are not ours to lint. -->
-            <compilerArgs combine.self="override">
-              <arg>-nowarn</arg>
-              <arg>-Xlint:none</arg>
-            </compilerArgs>
-          </configuration>
-        </plugin>
-      </plugins>
-    </pluginManagement>
+    <plugins>
+      <!-- 1. Fetch the sources jar from Maven Central. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>html5-fetch</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>copy</goal>
+            </goals>
+            <configuration>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>${html5.source.groupId}</groupId>
+                  <artifactId>${html5.source.artifactId}</artifactId>
+                  <version>${html5.source.version}</version>
+                  <classifier>sources</classifier>
+                  <destFileName>upstream-sources.jar</destFileName>
+                </artifactItem>
+              </artifactItems>
+              <outputDirectory>${html5.upstream}</outputDirectory>
+              <overWriteReleases>true</overWriteReleases>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- 2. Verify the pinned SHA-256, unpack impl, common (minus Heuristics) and annotation,
+           and rename nu.validator.htmlparser to the Tessera package. The upstream source is
+           otherwise unchanged. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>html5-relocate</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <checksum file="${html5.upstream}/upstream-sources.jar" algorithm="SHA-256"
+                          property="html5.actual.sha256"/>
+                <fail message="SHA-256 mismatch for ${html5.source.groupId}:${html5.source.artifactId}:${html5.source.version}:sources: expected ${html5.source.sha256}, got ${html5.actual.sha256}">
+                  <condition>
+                    <not>
+                      <equals arg1="${html5.actual.sha256}" arg2="${html5.source.sha256}"/>
+                    </not>
+                  </condition>
+                </fail>
+                <delete dir="${html5.upstream}/src"/>
+                <delete dir="${html5.generated}"/>
+                <unzip src="${html5.upstream}/upstream-sources.jar" dest="${html5.upstream}/src">
+                  <patternset>
+                    <include name="nu/validator/htmlparser/impl/*.java"/>
+                    <include name="nu/validator/htmlparser/common/*.java"/>
+                    <include name="nu/validator/htmlparser/annotation/*.java"/>
+                    <exclude name="nu/validator/htmlparser/common/Heuristics.java"/>
+                  </patternset>
+                </unzip>
+                <copy todir="${html5.generated}/${html5.package.path}" encoding="UTF-8"
+                      outputencoding="UTF-8" preservelastmodified="true">
+                  <fileset dir="${html5.upstream}/src/nu/validator/htmlparser"/>
+                  <filterchain>
+                    <replacestring from="nu.validator.htmlparser" to="${html5.package}"/>
+                  </filterchain>
+                </copy>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- 3. Compile the renamed source and the hand-written accessor with release 8. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <compileSourceRoots>
+            <root>${project.basedir}/src/main/java</root>
+            <root>${html5.generated}</root>
+          </compileSourceRoots>
+          <!-- Upstream code: its raw types and casts are not ours to lint. -->
+          <compilerArgs combine.self="override">
+            <arg>-nowarn</arg>
+            <arg>-Xlint:none</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+    </plugins>
   </build>
 </project>
