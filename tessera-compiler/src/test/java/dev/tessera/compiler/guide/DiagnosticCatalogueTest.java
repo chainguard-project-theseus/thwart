@@ -39,7 +39,6 @@ class DiagnosticCatalogueTest {
     {"GenericAttrProcessor.java", "String hint;", "hint = null;"},
     {"TextInlining.java", "static String where(", "\n  }"},
     {"HtmlParser.java", "static String earlyEndMessage(", "\n  }"},
-    {"HtmlParser.java", "static String bogusCommentMessage(", "\n  }"},
   };
 
   private static final Pattern STRING = Pattern.compile("\"((?:[^\"\\\\\\n]|\\\\.)*)\"");

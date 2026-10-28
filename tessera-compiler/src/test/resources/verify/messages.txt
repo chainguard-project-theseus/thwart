@@ -31,7 +31,7 @@
 -- t.html
 <p><![CDATA[ [[${s}]] ]]></p>
 => t.html:1:73: error: a browser reads this value inside a comment that a '<!' or '<?' started and the next '>' ends, not as text; write the '<' of the '<!' or '<?' before it as &lt; [verifier:TEXT_NOT_IN_TEXT]
-=> t.html:1:59: error: the HTML parser reports "Bogus comment." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
+=> t.html:1:59: error: a browser reads <![CDATA[ outside <svg> and <math> as the start of a comment that ends at the first '>', so the markup up to there is hidden; write the text without <![CDATA[ and ]]>, with '<' as &lt; and '>' as &gt; [verifier:PARSE_ERROR]
 == TEXT_NOT_IN_TEXT: <svg><textarea> isn't raw text, so the expression is inside a tag
 -- t.html
 <svg><textarea><img src="x" alt=[[${s}]]></textarea></svg>
@@ -91,7 +91,7 @@
 <div><![CDATA[ > <script>//]]><b t:title="s">x</b></div><script></script>
 => t.html:1:89: error: a browser reads this value of 'title' as the code of <script>, not inside the double-quoted value of 'title'; check the markup before the tag: a browser ended the tag, or started raw text, there [verifier:ATTRIBUTE_NOT_IN_VALUE]
 => t.html:1:112: error: a browser reads this value of 'nonce' as the code of <script>, not inside the double-quoted value of 'nonce'; check the markup before the tag: a browser ended the tag, or started raw text, there [verifier:ATTRIBUTE_NOT_IN_VALUE]
-=> t.html:1:61: error: the HTML parser reports "Bogus comment." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
+=> t.html:1:61: error: a browser reads <![CDATA[ outside <svg> and <math> as the start of a comment that ends at the first '>', so the markup up to there is hidden; write the text without <![CDATA[ and ]]>, with '<' as &lt; and '>' as &gt; [verifier:PARSE_ERROR]
 == ATTRIBUTE_VALUE_CHANGES_PARSE: a computed MathML encoding
 -- t.html
 <math><annotation-xml t:encoding="s"></annotation-xml></math>

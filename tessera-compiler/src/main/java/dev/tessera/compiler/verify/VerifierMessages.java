@@ -5,6 +5,7 @@ import dev.tessera.compiler.verify.engine.OpenElement;
 import dev.tessera.compiler.verify.engine.ParserState;
 import dev.tessera.compiler.verify.engine.TokenizerState;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -161,8 +162,65 @@ final class VerifierMessages {
 
   private static final Pattern IN_TABLE = Pattern.compile("Start tag \u201C(\\w+)\u201D seen in \u201Ctable\u201D\\.");
 
-  /** How a browser recovers from the parse error {@code message} (the parser's words), and the fix. */
-  private static String parseError(String message) {
+  private static final String SELF_CLOSING = "Self-closing syntax (\u201C/>\u201D) used on a non-void HTML element."
+      + " Ignoring the slash and treating as a start tag.";
+
+  private static final Pattern FOREIGN_HTML =
+      Pattern.compile("HTML start tag \u201C([^\u201D]+)\u201D in a foreign namespace context\\.");
+
+  private static final Pattern TAG_NAME = Pattern.compile("<([A-Za-z][^\\s/>]*)");
+
+  /** What a hidden-markup fix-it says a bogus comment does. */
+  private static final String BOGUS = " as the start of a comment that ends at the first '>', so the markup up to"
+      + " there is hidden; ";
+
+  /**
+   * The detail of a {@link Problem#PARSE_ERROR}: the parser's {@code message} and the {@code
+   * markup} it is in (from its {@code <}, or ""), which some fix-its name (#442).
+   */
+  static String parseErrorDetail(String message, String markup) {
+    return markup.isEmpty() ? message : message + '\u0000' + markup;
+  }
+
+  /** How a browser recovers from the parse error in {@code detail} ({@link #parseErrorDetail}), and the fix. */
+  private static String parseError(String detail) {
+    int split = detail.indexOf('\u0000');
+    String message = split < 0 ? detail : detail.substring(0, split);
+    String markup = split < 0 ? "" : detail.substring(split + 1);
+    if (message.equals(SELF_CLOSING)) {
+      Matcher t = TAG_NAME.matcher(markup);
+      String name = t.lookingAt() ? t.group(1).toLowerCase(Locale.ROOT) : null;
+      return name == null
+          ? "a browser ignores the '/' of '/>' on an element that isn't void and reads a start tag, so what follows"
+              + " is inside the element; write the end tag"
+          : "a browser ignores the '/' of <" + name + "/>, because <" + name + "> isn't a void element, and reads what"
+              + " follows as inside the <" + name + ">; write the end tag: <" + name + " ...></" + name + ">";
+    }
+    Matcher f = FOREIGN_HTML.matcher(message);
+    if (f.matches()) {
+      String name = f.group(1);
+      return "a browser reads <" + name + "> inside <svg> or <math> as HTML: it closes the <svg> or <math> there and"
+          + " parses the rest as HTML; close the <svg> or <math> before the <" + name + ">, or put the HTML in a"
+          + " <foreignObject> (in <math>, an <mtext>)";
+    }
+    if (markup.regionMatches(true, 0, "<!doctype", 0, "<!doctype".length())) {
+      return "a browser reads this <!doctype> only by error recovery (the HTML parser reports \"" + message + "\")"
+          + " and ends it at its first '>'; write <!doctype html>";
+    }
+    if (message.startsWith("Saw \u201C<?\u201D.")) {
+      return "a browser reads '<?'" + BOGUS + "HTML has no processing instructions: remove the <?...?>, or write"
+          + " &lt; for a literal '<'";
+    }
+    if (message.equals("Bogus comment.")) {
+      return markup.startsWith("<![CDATA[")
+          ? "a browser reads <![CDATA[ outside <svg> and <math>" + BOGUS + "write the text without <![CDATA[ and ]]>,"
+              + " with '<' as &lt; and '>' as &gt;"
+          : "a browser reads '<!' that doesn't start '<!--' or '<!doctype'" + BOGUS + "write &lt; for a literal"
+              + " '<', or write a comment as <!-- ... -->";
+    }
+    if (message.equals("Garbage after \u201C</\u201D.")) {
+      return "a browser reads '</' not followed by a letter" + BOGUS + "write &lt; for a literal '<'";
+    }
     String layout = "; a page has one <html>, <head> and <body>: a layout call such as"
         + " t:replace=\"~{layout :: layout(~{::body})}\" passes the whole element into the layout's own, so mark"
         + " the element the page passes t:remove=\"tag\" (<body t:remove=\"tag\">) to pass only its content"

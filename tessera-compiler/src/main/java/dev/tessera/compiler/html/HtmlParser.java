@@ -264,61 +264,21 @@ public final class HtmlParser {
   }
 
   /**
-   * Index of a {@code >} before the last char of {@code outer}, a CDATA section, DOCTYPE, XML
-   * declaration or processing instruction as the tokenizer read it, or -1. A browser ends each of
-   * these at its first {@code >} (outside svg and math, a CDATA section is a bogus comment; a
-   * {@code <?...>} always is), quotes and brackets included, so the contexts after an earlier
-   * {@code >} would differ from Tessera's.
+   * Index of a {@code >} before the last char of {@code outer}, a CDATA section as the tokenizer
+   * read it, or -1. Outside svg and math a browser reads it as a bogus comment that ends at the
+   * first {@code >}, so the contexts after an earlier {@code >} would differ from Tessera's. (The
+   * verifier accepts such a section in svg and math. A {@code >} in a DOCTYPE or {@code <?...?>},
+   * and text a browser reads as a bogus comment, are its parse errors, #442.)
    */
   static int earlyEnd(String outer) {
     int gt = outer.indexOf('>');
     return gt < outer.length() - 1 ? gt : -1;
   }
 
-  /**
-   * Index in {@code text}, element text the tokenizer did not read as markup, of a {@code <!},
-   * {@code <?} or {@code </} not followed by an ASCII letter or {@code >}, or -1. A browser starts
-   * a bogus comment there that ends at the first {@code >}, hiding markup Tessera reads.
-   */
-  static int bogusComment(CharSequence text) {
-    for (int i = 0; i + 1 < text.length(); i++) {
-      if (text.charAt(i) != '<') {
-        continue;
-      }
-      char c = text.charAt(i + 1);
-      if (c == '!' || c == '?') {
-        return i;
-      }
-      if (c == '/') {
-        char d = i + 2 < text.length() ? text.charAt(i + 2) : ' ';
-        if (!(d >= 'a' && d <= 'z' || d >= 'A' && d <= 'Z' || d == '>')) {
-          return i;
-        }
-      }
-    }
-    return -1;
-  }
-
-  /** The build error for the {@link #bogusComment} at {@code i} of {@code text}. */
-  static String bogusCommentMessage(CharSequence text, int i) {
-    char c = text.charAt(i + 1);
-    String what = c == '!' ? "'<!'" : c == '?' ? "'<?'" : "'</' not followed by a letter";
-    return "malformed markup: " + what + " starts a comment in a browser that ends at the first '>':"
-        + " write &lt; for a literal '<'";
-  }
-
-  /** The build error for {@code outer} when {@link #earlyEnd} finds a {@code >}. */
-  static String earlyEndMessage(String outer) {
-    if (outer.startsWith("<![")) {
-      return "malformed markup: '>' inside a CDATA section is not supported, even in <svg> and <math>: elsewhere a"
-          + " browser ends it at the first '>'; write the text without <![CDATA[, with '>' as &gt;";
-    }
-    if (outer.startsWith("<?")) {
-      return "malformed markup: '>' inside '<?...?>' is not supported: a browser ends it at the first '>';"
-          + " remove the '>'";
-    }
-    return "malformed markup: '>' inside <!DOCTYPE> is not supported: a browser ends it at the first '>';"
-        + " write <!DOCTYPE html>";
+  /** The build error for a CDATA section when {@link #earlyEnd} finds a {@code >}. */
+  static String earlyEndMessage() {
+    return "malformed markup: '>' inside a CDATA section is not supported, even in <svg> and <math>: elsewhere a"
+        + " browser ends it at the first '>'; write the text without <![CDATA[, with '>' as &gt;";
   }
 
   /**
@@ -493,7 +453,6 @@ public final class HtmlParser {
 
     private final StringBuilder text = new StringBuilder();
     private SourcePos textPos;
-    private int textStart;
 
     Builder(TemplateSource source, char[] chars, DiagnosticSink diagnostics) {
       this.file = source.path();
@@ -532,10 +491,6 @@ public final class HtmlParser {
 
     private void flushText() {
       if (text.length() != 0) {
-        int bogus = bogusComment(text);
-        if (bogus >= 0) {
-          diagnostics.error(position(textStart + bogus), bogusCommentMessage(text, bogus));
-        }
         children().add(new Text(text.toString(), textContext(), textPos));
         text.setLength(0);
       }
@@ -548,7 +503,6 @@ public final class HtmlParser {
       }
       if (text.length() == 0) {
         textPos = position(start);
-        textStart = start;
       }
       text.append(chars, start, end - start);
     }
@@ -576,7 +530,11 @@ public final class HtmlParser {
         return;
       }
       flushText();
-      checkEarlyEnd(start, end);
+      String outer = str(start, end);
+      int gt = earlyEnd(outer);
+      if (gt >= 0) {
+        diagnostics.error(position(start + gt), earlyEndMessage());
+      }
       // An expression inside is a TEXT_NOT_IN_TEXT for the verifier, which names the CDATA section (#411).
       children().add(new Text(str(start, end), textContext(), position(start)));
     }
@@ -587,16 +545,7 @@ public final class HtmlParser {
         return;
       }
       flushText();
-      checkEarlyEnd(start, end);
       children().add(new DocType(str(start, end), position(start)));
-    }
-
-    private void checkEarlyEnd(int start, int end) {
-      String outer = str(start, end);
-      int gt = earlyEnd(outer);
-      if (gt >= 0) {
-        diagnostics.error(position(start + gt), earlyEndMessage(outer));
-      }
     }
 
     @Override
@@ -660,14 +609,9 @@ public final class HtmlParser {
       if (raw != null || tag == null) {
         return;
       }
-      String lower = tag.name.toLowerCase(Locale.ROOT);
-      if (minimized && (lower.equals("script") || lower.equals("style") || lower.equals("select"))) {
-        // A browser treats <script/> as an open tag, so the template text after it would run as
-        // script (or style, or select content) while Tessera escaped it for TEXT. <textarea/>, <title/>
-        // and the other raw text elements are checked where Tessera writes them (TemplateGenerator).
-        diagnostics.error(tag.pos, "<" + lower + "/> is not self-closing in HTML: the browser treats everything"
-            + " after it as " + lower + "; write <" + lower + " ...></" + lower + ">");
-      }
+      // A browser reads <script/>, <style/> or <select/> in HTML as a start tag: the verifier's parse
+      // error (#442). <textarea/>, <title/> and the other raw text elements are checked where Tessera
+      // writes them (TemplateGenerator).
       checkBreakout(tag);
       children().add(tag.toElement(minimized, false));
       tag = null;
