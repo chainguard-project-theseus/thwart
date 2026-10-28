@@ -178,6 +178,97 @@ class MessageBundlesTest {
     assertTrue(c.diagnostics().stream().noneMatch(d -> d.contains("message file")), c.diagnostics().toString());
   }
 
+  private List<String> warnings(Compilation c, String start) {
+    return c.diagnostics().stream().filter(d -> d.startsWith("WARNING: ") && d.contains(start)).toList();
+  }
+
+  /** #271: a suffix whose language is not a language code is not a locale. */
+  @Test
+  void suffixWithoutALanguageIsNotALocale() throws IOException {
+    write("messages.properties", "k=<b>Hi</b>\n");
+    write("messages_faq.properties", "k=<script>alert(1)</script>\n");
+    Compilation c = compile(dir.resolve("messages").toString(), "<p t:utext=\"#{k}\">x</p>").assertSuccess();
+    List<String> skipped = warnings(c, "Tessera: message file");
+    assertEquals(1, skipped.size(), c.diagnostics().toString());
+    assertTrue(skipped.get(0).contains("messages_faq.properties is not loaded"), skipped.get(0));
+  }
+
+  /** #271: a three-letter language the JDK knows (Filipino) is still a locale, and is checked. */
+  @Test
+  void threeLetterLanguageIsALocale() throws IOException {
+    write("messages.properties", "k=<b>Hi</b>\n");
+    write("messages_fil.properties", "k=<b onclick=\"x()\">Kumusta</b>\n");
+    compile(dir.resolve("messages").toString(), "<p t:utext=\"#{k}\">x</p>")
+        .assertError("messages_fil.properties", "attribute onclick is not allowed");
+  }
+
+  /** #271: Spring names a variant without a country {@code _en__POSIX}; that file is loaded and checked. */
+  @Test
+  void variantAfterAnEmptyCountryIsALocale() throws IOException {
+    write("messages.properties", "k=<b>Hi</b>\n");
+    write("messages_en__POSIX.properties", "k=<b onclick=\"x()\">Hi</b>\n");
+    Compilation c = compile(dir.resolve("messages").toString(), "<p t:utext=\"#{k}\">x</p>");
+    c.assertError("messages_en__POSIX.properties", "attribute onclick is not allowed");
+    assertEquals(List.of(), warnings(c, "Tessera: message file"));
+  }
+
+  /** #271: Spring never reads {@code _de_formal} (its name for that locale is {@code _de__formal}). */
+  @Test
+  void variantWithoutACountrySeparatorIsNotALocale() throws IOException {
+    write("messages.properties", "k=<b>Hi</b>\n");
+    write("messages_de_formal.properties", "k=<script>alert(1)</script>\n");
+    write("messages_en_US_POSIX.properties", "k=<b>Hi</b>\n");
+    Compilation c = compile(dir.resolve("messages").toString(), "<p t:utext=\"#{k}\">x</p>").assertSuccess();
+    List<String> skipped = warnings(c, "Tessera: message file");
+    assertEquals(1, skipped.size(), c.diagnostics().toString());
+    assertTrue(skipped.get(0).contains("messages_de_formal.properties is not loaded"), skipped.get(0));
+  }
+
+  /** #271: with default locale pt_BR, Spring falls back to messages_pt too. */
+  @Test
+  void defaultLocaleFallsBackToItsLanguageFile() throws IOException {
+    write("messages.properties", "title=T\n");
+    write("messages_pt_BR.properties", "title=T\nbr=x\n");
+    write("messages_pt.properties", "pt=x\n");
+    write("messages_fr.properties", "title=T\npt=x\nfr=x\n");
+    String option = dir.resolve("messages_pt_BR").toString();
+    Compilation c = compile(option, "<div><p t:text=\"#{pt}\">x</p><p t:text=\"#{br}\">x</p></div>").assertSuccess();
+    compile(option, "<p t:text=\"#{fr}\">x</p>")
+        .assertError("unknown message key 'fr'", "messages_pt_BR.properties", "messages_pt.properties", "it is only in");
+    // A key in the pt_BR file is missing for pt and fr requests under ResourceBundleMessageSource.
+    List<String> gaps = warnings(c, "message key");
+    assertEquals(1, gaps.size(), c.diagnostics().toString());
+    assertTrue(gaps.get(0).contains("message key 'br'") && gaps.get(0).contains("messages_fr.properties, messages_pt.properties"), gaps.get(0));
+  }
+
+  /**
+   * #271: Boot's ResourceBundleMessageSource does not fall back to the default locale for a
+   * locale with its own file, so a key only the default locale has is a warning naming that file.
+   */
+  @Test
+  void warnsWhereResourceBundleMessageSourceWouldNotFindTheKey() throws IOException {
+    espd(); // intro is in _en and _de, not in the base file
+    write("i18n/messages_fr.properties", "title=Titre\n");
+    write("i18n/messages_de_AT.properties", "title=Titel\n");
+    Compilation c =
+        compile(
+                dir.resolve("i18n/messages_en").toString(),
+                "<div><div t:utext=\"#{intro}\">x</div><div t:utext=\"#{intro}\">x</div><h1 t:text=\"#{title}\">x</h1></div>")
+            .assertSuccess();
+    List<String> gaps = warnings(c, "message key");
+    // Once per key; de_AT falls back to _de, which has it; title is in the base file.
+    assertEquals(1, gaps.size(), c.diagnostics().toString());
+    assertTrue(gaps.get(0).contains("message key 'intro'") && gaps.get(0).contains("in messages_fr.properties (or"), gaps.get(0));
+    assertTrue(gaps.get(0).contains("ReloadableResourceBundleMessageSource does"), gaps.get(0));
+  }
+
+  @Test
+  void noFallbackWarningWhenEveryLocaleHasTheKey() throws IOException {
+    espd();
+    Compilation c = compile(dir.resolve("i18n/messages_en").toString(), "<div t:utext=\"#{intro}\">x</div>").assertSuccess();
+    assertEquals(List.of(), warnings(c, "message key"));
+  }
+
   @Test
   void optionIsACommaSeparatedList() {
     assertEquals(

@@ -853,8 +853,15 @@ and `<animateColor>` is timing (`freeze`), not CSS, and stays an ordinary attrib
 computed choice, use a conditional: `active ? #{status.active} : #{status.inactive}`. A message is
 text and is escaped. A missing key renders `??key_locale??` at runtime; with `-Atessera.messages`
 it is a build error instead. A key is known when it is in a basename's base file or its default
-locale's file (section 2); other locale files (`messages_fr.properties`) may leave keys out, and
-Spring resolves those as it did before the port. A key computed from data
+locale's files (section 2; for `pt_BR`, `messages_pt_BR.properties` and then
+`messages_pt.properties`); other locale files (`messages_fr.properties`) may leave keys out, and
+Spring resolves those as it did before the port. That fallback is what
+`ReloadableResourceBundleMessageSource` does. Spring Boot's default `ResourceBundleMessageSource`
+falls back to the default locale only for a locale that has no file of its own, so for a key that
+is not in the base file the build warns, naming the locale files that lack it. A locale file is
+named as Spring names it: `messages_fr`, `messages_pt_BR`, `messages_zh_Hant_TW`,
+`messages_en__POSIX` (a variant after an empty country), with a known language code, so
+`messages_faq.properties` is not a locale file. A key computed from data
 (`'criterion.' + c.code`) has no template form: resolve those messages in Java with Spring's
 `MessageSource` and the request `Locale` (in the controller or a `@ModelAttribute` method) and pass
 the strings in the model. A
@@ -1763,9 +1770,11 @@ These come from the annotation processor itself, without a template position.
   (`messages_en`) the locale's file must exist. When the base file is missing but locale files
   exist, the message lists them: name the default locale's file, e.g. `.../messages_en`.
 - `Tessera: message file <file> is not loaded: its name does not end in a locale (_fr, _pt_BR, ...), so its keys are not checked and its HTML messages are escaped`
-  (warning): a file beside a basename such as `messages_en-US.properties` or
-  `messages_backup.properties`. Rename a locale file to Java's form (`messages_en_US.properties`);
-  ignore the warning for other files.
+  (warning): a file beside a basename such as `messages_en-US.properties`,
+  `messages_backup.properties`, `messages_faq.properties` or `messages_de_formal.properties`.
+  Rename a locale file to Java's form (`messages_en_US.properties`, and `messages_de__formal` for a
+  variant without a country); list another bundle in `-Atessera.messages`; ignore the warning for
+  other files.
 - `Tessera: <file> was generated before another annotation processor (Lombok?) finished adding members to the classes its templates read; list that processor before Tessera in annotationProcessorPaths (Gradle: annotationProcessor)`:
   move Lombok ahead of Tessera in `annotationProcessorPaths` (section 2), then `mvn clean compile`.
 - `Tessera: internal compiler error: <exception>`: a compiler bug. Report it with the template
@@ -2207,6 +2216,11 @@ These come from the annotation processor itself, without a template position.
   the default locale in -Atessera.messages, e.g. <base>_en, or add the key to the base file)`, the
   key is only in a locale file: name the default locale in the option (`.../messages_en`, section
   2) or add the key to the base file.
+- `message key '<key>' is only in the default locale's files, not in the base file or in <files> (or the files they fall back to): Spring Boot's default ResourceBundleMessageSource falls back to the default locale only for a locale with no file of its own, so it does not find the key in those locales (ReloadableResourceBundleMessageSource does); add the key to them or to the base file`
+  (warning, once per key): with Boot's default message source a request in `fr` reads
+  `messages_fr.properties` and then the base file, so the key renders as missing there. Add it to
+  the files named or to the base file. With `ReloadableResourceBundleMessageSource` (and the default
+  locale named in `-Atessera.messages`) the key resolves and the warning can be ignored.
 - `message keys in this template are not checked: set -Atessera.messages=<bundle base path> to check #{...} keys at build time`
   (warning): set the option (section 2).
 - `duplicate link parameter '<name>' in @{<path>}`.
