@@ -27,9 +27,19 @@ final class VerifierMessages {
   static String message(Finding f) {
     StringBuilder sb = new StringBuilder();
     if (f.inner != null && f.problem != Problem.STRUCTURE_DEPENDS_ON_DATA) {
-      sb.append("in fragment ").append(f.fragment).append(", inserted here, at ").append(f.inner).append(": ");
+      sb.append("in fragment ").append(f.fragment).append(", inserted here, at ").append(f.inner);
+      if (f.calls.size() > 1) {
+        sb.append(", through the calls ").append(chain(f.calls, "here"));
+      }
+      sb.append(": ");
     }
     sb.append(text(f));
+    if (f.causeAt != null) {
+      // The markup before the value that put the parser there (#393): <svg> itself is named without "SVG".
+      String name = f.cause.localName().equals("svg") || f.cause.localName().equals("math")
+          ? "<" + f.cause.localName() + ">" : element(f.cause);
+      sb.append("; a browser opened the ").append(name).append(" it is in at ").append(f.causeAt);
+    }
     if (f.recursive && f.problem != Problem.STRUCTURE_DEPENDS_ON_DATA) {
       sb.append("; this happens only because the fragment calls itself, so the markup structure depends on data: ")
           .append(RICH_TEXT);
@@ -398,9 +408,36 @@ final class VerifierMessages {
     }
   }
 
+  /**
+   * Fragment calls in words: {@code first} inserts {@code a :: x}, which at {@code a.html:3:5}
+   * inserts {@code b :: y}, ... ({@code first} is where the first call is).
+   */
+  private static String chain(List<Finding.Step> steps, String first) {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < steps.size(); i++) {
+      Finding.Step s = steps.get(i);
+      sb.append(i == 0 ? first + " inserts " : ", which at " + s.at + " inserts ").append(s.fragment);
+    }
+    return sb.toString();
+  }
+
   private static String structure(Finding f) {
-    String who = f.fragment == null ? "this fragment calls itself" : "fragment " + f.fragment + " calls itself"
-        + (f.inner == null ? "" : " (at " + f.inner + ")");
+    String who;
+    if (f.cycle.size() > 1) {
+      // Mutual recursion: the whole cycle, each call with its position.
+      Finding.Step last = f.cycle.get(f.cycle.size() - 1);
+      StringBuilder sb = new StringBuilder("fragments call each other in a cycle: ").append(last.fragment);
+      for (Finding.Step s : f.cycle) {
+        sb.append(" calls ").append(s.fragment).append(" (at ")
+            .append(s.at).append(')').append(s == last ? "" : ", which");
+      }
+      who = sb.toString();
+    } else if (f.cycle.size() == 1) {
+      who = "fragment " + f.cycle.get(0).fragment + " calls itself (at " + f.cycle.get(0).at + ")";
+    } else {
+      who = f.fragment == null ? "this fragment calls itself" : "fragment " + f.fragment + " calls itself"
+          + (f.inner == null ? "" : " (at " + f.inner + ")");
+    }
     return who + ", and each call nests deeper in a browser (it doesn't settle in " + ContextVerifier.MAX_ROUNDS
         + " calls), so the markup structure depends on data; " + RICH_TEXT + " and delete the fragment; for"
         + " other trees, render a fixed depth or flatten the tree in Java";

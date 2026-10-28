@@ -22,7 +22,7 @@
 == TEXT_NOT_IN_TEXT: after <plaintext>
 -- t.html
 <plaintext>[[${s}]]
-=> t.html:1:71: error: a browser reads this value as plain text after <plaintext>, not as text; remove the <plaintext>, which makes the rest of the page plain text; use <pre> instead [verifier:TEXT_NOT_IN_TEXT]
+=> t.html:1:71: error: a browser reads this value as plain text after <plaintext>, not as text; remove the <plaintext>, which makes the rest of the page plain text; use <pre> instead; a browser opened the <plaintext> it is in at t.html:1:56 [verifier:TEXT_NOT_IN_TEXT]
 == TEXT_NOT_IN_TEXT: in a CDATA section in SVG
 -- t.html
 <svg><![CDATA[ [[${s}]] ]]></svg>
@@ -40,27 +40,27 @@
 == TEXT_IN_SCRIPT: <script> inside SVG <title> is an HTML script
 -- t.html
 <svg><title><script>var a = [[${s}]];</script></title></svg>
-=> t.html:1:88: error: a browser runs this value as the code of <script>, where escaping for text doesn't keep it inert; this <script> starts in the markup before it, where the template shows none: move a <script> out of a <title> inside <svg>, <math> or <select>, and write a literal '<' in attribute values, comments and CDATA sections as &lt; [verifier:TEXT_IN_SCRIPT]
+=> t.html:1:88: error: a browser runs this value as the code of <script>, where escaping for text doesn't keep it inert; this <script> starts in the markup before it, where the template shows none: move a <script> out of a <title> inside <svg>, <math> or <select>, and write a literal '<' in attribute values, comments and CDATA sections as &lt;; a browser opened the <script> it is in at t.html:1:68 [verifier:TEXT_IN_SCRIPT]
 == TEXT_IN_SCRIPT: <svg><textarea> isn't raw text, so the <script> is an SVG script
 -- t.html
 <svg><textarea><script>var a = [[${s}]];</script></textarea></svg>
-=> t.html:1:91: error: a browser runs this value as the code of SVG <script>, where escaping for text doesn't keep it inert; write the script as an HTML <script> outside <svg> and <math>, with data as [[${...}]] [verifier:TEXT_IN_SCRIPT]
+=> t.html:1:91: error: a browser runs this value as the code of SVG <script>, where escaping for text doesn't keep it inert; write the script as an HTML <script> outside <svg> and <math>, with data as [[${...}]]; a browser opened the <svg> it is in at t.html:1:56 [verifier:TEXT_IN_SCRIPT]
 == TEXT_IN_SCRIPT: <style> inside SVG <title> is an HTML style sheet
 -- t.html
 <svg><title><style>[[${s}]]</style></title></svg>
-=> t.html:1:79: error: a browser reads this value as CSS in <style>, where escaping for text doesn't keep it inert; Tessera doesn't write values into style sheets: set a class instead [verifier:TEXT_IN_SCRIPT]
+=> t.html:1:79: error: a browser reads this value as CSS in <style>, where escaping for text doesn't keep it inert; Tessera doesn't write values into style sheets: set a class instead; a browser opened the <style> it is in at t.html:1:68 [verifier:TEXT_IN_SCRIPT]
 == TEXT_IN_TABLE: text directly in a table
 -- t.html
 <table><tr><td>a</td></tr>[[${s}]]</table>
-=> t.html:1:86: error: a browser reads this value as table text and moves it in front of the table; put it in a <td> or <th> [verifier:TEXT_IN_TABLE]
+=> t.html:1:86: error: a browser reads this value as table text and moves it in front of the table; put it in a <td> or <th>; a browser opened the <tbody> it is in at t.html:1:63 [verifier:TEXT_IN_TABLE]
 == TEXT_IN_TABLE: text in a colgroup
 -- t.html
 <table><colgroup>[[${s}]]</colgroup></table>
-=> t.html:1:77: error: a browser reads this value as text in a <colgroup>, which ends the column group, and moves it in front of the table; put it in a <td> or <th> [verifier:TEXT_IN_TABLE]
+=> t.html:1:77: error: a browser reads this value as text in a <colgroup>, which ends the column group, and moves it in front of the table; put it in a <td> or <th>; a browser opened the <colgroup> it is in at t.html:1:63 [verifier:TEXT_IN_TABLE]
 == TEXT_IN_TABLE: an htmx row partial, also checked as rows of a table
 -- row.html
 <tr $NS t:params="String s">[[${s}]]<td>x</td></tr>
-=> row.html:1:59: error: a browser reads this value as table text and moves it in front of the table; put it in a <td> or <th> [verifier:TEXT_IN_TABLE]
+=> row.html:1:59: error: a browser reads this value as table text and moves it in front of the table; put it in a <td> or <th>; a browser opened the <tr> it is in at row.html:1:1 [verifier:TEXT_IN_TABLE]
 == TEXT_OUTSIDE_BODY: text in the head
 -- t.html
 <!DOCTYPE html>
@@ -81,16 +81,20 @@
 == RCDATA_NOT_IN_RCDATA: a <title> fragment inserted in HTML content and inside <svg>
 -- t.html
 <title t:fragment="f(String v)" t:text="v">x</title><t:block t:replace="~{t :: f(s)}"></t:block><svg><t:block t:replace="~{t :: f(s)}"></t:block></svg>
-=> t.html:1:177: error: in fragment t :: f, inserted here, at t.html:1:96: this value is escaped for the text of <title> or <textarea>, but a browser reads it as text inside SVG <title>, where a {{ in it could run in Vue or AngularJS; insert the <title> or <textarea> outside <svg> and <math> [verifier:RCDATA_NOT_IN_RCDATA]
+=> t.html:1:177: error: in fragment t :: f, inserted here, at t.html:1:96: this value is escaped for the text of <title> or <textarea>, but a browser reads it as text inside SVG <title>, where a {{ in it could run in Vue or AngularJS; insert the <title> or <textarea> outside <svg> and <math>; a browser opened the <svg> it is in at t.html:1:152 [verifier:RCDATA_NOT_IN_RCDATA]
+== RCDATA_NOT_IN_RCDATA: a <title> fragment inserted inside <svg> through another fragment
+-- t.html
+<title t:fragment="f(String v)" t:text="v">x</title><t:block t:fragment="g(String v)"><t:block t:replace="~{t :: f(v)}"></t:block></t:block><t:block t:replace="~{t :: f(s)}"></t:block><svg><t:block t:replace="~{t :: g(s)}"></t:block></svg>
+=> t.html:1:265: error: in fragment t :: f, inserted here, at t.html:1:96, through the calls here inserts t :: g, which at t.html:1:162 inserts t :: f: this value is escaped for the text of <title> or <textarea>, but a browser reads it as text inside SVG <title>, where a {{ in it could run in Vue or AngularJS; insert the <title> or <textarea> outside <svg> and <math>; a browser opened the <svg> it is in at t.html:1:240 [verifier:RCDATA_NOT_IN_RCDATA]
 == TEXT_IN_RCDATA: an SVG <title> fragment inserted inside <svg> and in HTML content
 -- t.html
 <svg><title t:fragment="f(String v)" t:text="v">x</title><t:block t:replace="~{t :: f(s)}"></t:block></svg><t:block t:replace="~{t :: f(s)}"></t:block>
-=> t.html:1:183: error: in fragment t :: f, inserted here, at t.html:1:101: this value is escaped as text, with comments that break {{, but a browser reads it as the text of <title>, where the comments show as text; declare the <title> or <textarea> in HTML content, not inside <svg> or <math>, or check the markup before it [verifier:TEXT_IN_RCDATA]
+=> t.html:1:183: error: in fragment t :: f, inserted here, at t.html:1:101: this value is escaped as text, with comments that break {{, but a browser reads it as the text of <title>, where the comments show as text; declare the <title> or <textarea> in HTML content, not inside <svg> or <math>, or check the markup before it; a browser opened the <title> it is in at t.html:1:61 [verifier:TEXT_IN_RCDATA]
 == ATTRIBUTE_NOT_IN_VALUE: <![CDATA[ outside SVG ends at the first '>', so <script> starts there
 -- t.html
 <div><![CDATA[ > <script>//]]><b t:title="s">x</b></div><script></script>
-=> t.html:1:89: error: a browser reads this value of 'title' as the code of <script>, not inside the double-quoted value of 'title'; check the markup before the tag: a browser ended the tag, or started raw text, there [verifier:ATTRIBUTE_NOT_IN_VALUE]
-=> t.html:1:112: error: a browser reads this value of 'nonce' as the code of <script>, not inside the double-quoted value of 'nonce'; check the markup before the tag: a browser ended the tag, or started raw text, there [verifier:ATTRIBUTE_NOT_IN_VALUE]
+=> t.html:1:89: error: a browser reads this value of 'title' as the code of <script>, not inside the double-quoted value of 'title'; check the markup before the tag: a browser ended the tag, or started raw text, there; a browser opened the <script> it is in at t.html:1:73 [verifier:ATTRIBUTE_NOT_IN_VALUE]
+=> t.html:1:112: error: a browser reads this value of 'nonce' as the code of <script>, not inside the double-quoted value of 'nonce'; check the markup before the tag: a browser ended the tag, or started raw text, there; a browser opened the <script> it is in at t.html:1:73 [verifier:ATTRIBUTE_NOT_IN_VALUE]
 => t.html:1:61: error: a browser reads <![CDATA[ outside <svg> and <math> as the start of a comment that ends at the first '>', so the markup up to there is hidden; write the text without <![CDATA[ and ]]>, with '<' as &lt; and '>' as &gt; [verifier:PARSE_ERROR]
 == ATTRIBUTE_VALUE_CHANGES_PARSE: a computed MathML encoding
 -- t.html
@@ -99,7 +103,7 @@
 == JSON_NOT_IN_SCRIPT: [[...]] in an SVG script
 -- t.html
 <svg><script>var a = [[${s}]];</script></svg>
-=> t.html:1:81: error: a browser reads this value (written as JSON for a script) inside SVG <script>, where a browser decodes character references and reads tags; JSON is safe only as the code of an HTML <script>; write the script as an HTML <script> outside <svg> and <math> [verifier:JSON_NOT_IN_SCRIPT]
+=> t.html:1:81: error: a browser reads this value (written as JSON for a script) inside SVG <script>, where a browser decodes character references and reads tags; JSON is safe only as the code of an HTML <script>; write the script as an HTML <script> outside <svg> and <math>; a browser opened the <svg> it is in at t.html:1:56 [verifier:JSON_NOT_IN_SCRIPT]
 == RAW_NOT_FLOW: SafeHtml in the head
 -- t.html
 <!DOCTYPE html>
@@ -108,11 +112,11 @@
 == RAW_NOT_FLOW: SafeHtml directly in a table
 -- t.html
 <table $NS t:import="dev.tessera.runtime.SafeHtml" t:params="SafeHtml h"><t:block t:utext="h"></t:block></table>
-=> t.html:1:118: error: a browser parses this SafeHtml value in a table outside any cell, not as content of the body, and moves what isn't table markup in front of the table; put it in a <td> or <th> [verifier:RAW_NOT_FLOW]
+=> t.html:1:118: error: a browser parses this SafeHtml value in a table outside any cell, not as content of the body, and moves what isn't table markup in front of the table; put it in a <td> or <th>; a browser opened the <table> it is in at t.html:1:1 [verifier:RAW_NOT_FLOW]
 == RAW_NOT_FLOW: SafeHtml in <noscript>, which is text with scripting on
 -- t.html
 <noscript><div t:utext="html.sanitize(s)">x</div></noscript>
-=> t.html:1:80: error: a browser parses this SafeHtml value as the raw text of <noscript>, not as content of the body, so its markup is shown or dropped; insert it outside <noscript> (only with scripting on) [verifier:RAW_NOT_FLOW]
+=> t.html:1:80: error: a browser parses this SafeHtml value as the raw text of <noscript>, not as content of the body, so its markup is shown or dropped; insert it outside <noscript>; a browser opened the <noscript> it is in at t.html:1:56 (only with scripting on) [verifier:RAW_NOT_FLOW]
 == RAW_CLOSES_ELEMENT: sanitized HTML in a paragraph, which a <p> or <div> in it would close
 -- t.html
 <p>Note: <span t:utext="html.sanitize(s)">x</span></p>
@@ -143,6 +147,10 @@ m=First.<p>Second.
 -- rich.html
 <div $NS t:import="java.util.List" t:params="List<String> nodes"><t:block t:fragment="nodes(List<String> ns)"><t:block t:each="n : ns"><ul t:if="n == 'ul'"><li t:insert="~{rich :: nodes(ns)}"></li></ul></t:block></t:block><section t:insert="~{rich :: nodes(nodes)}"></section></div>
 => rich.html:1:268: error: fragment rich :: nodes calls itself (at rich.html:1:197), and each call nests deeper in a browser (it doesn't settle in 4 calls), so the markup structure depends on data; for stored rich text, print it with t:utext="html.sanitize(...)" (or html.sanitizeRich, or an application HtmlPolicy; guide section 4.10, Rich text) and delete the fragment; for other trees, render a fixed depth or flatten the tree in Java [verifier:STRUCTURE_DEPENDS_ON_DATA]
+== STRUCTURE_DEPENDS_ON_DATA: two fragments that insert each other, deeper each time
+-- rich.html
+<div $NS t:import="java.util.List" t:params="List<String> nodes"><t:block t:fragment="nodes(List<String> ns)"><t:block t:each="n : ns"><ul t:if="n == 'ul'"><li t:insert="~{rich :: item(ns)}"></li></ul></t:block></t:block><t:block t:fragment="item(List<String> ns)"><div t:insert="~{rich :: nodes(ns)}"></div></t:block><section t:insert="~{rich :: nodes(nodes)}"></section></div>
+=> rich.html:1:364: error: fragments call each other in a cycle: rich :: nodes calls rich :: item (at rich.html:1:197), which calls rich :: nodes (at rich.html:1:307), and each call nests deeper in a browser (it doesn't settle in 4 calls), so the markup structure depends on data; for stored rich text, print it with t:utext="html.sanitize(...)" (or html.sanitizeRich, or an application HtmlPolicy; guide section 4.10, Rich text) and delete the fragment; for other trees, render a fixed depth or flatten the tree in Java [verifier:STRUCTURE_DEPENDS_ON_DATA]
 == TOO_MANY_STATES: five t:if blocks, each leaving a different formatting element to reopen
 -- t.html
 <t:block t:if="s == '0'"><p><b>x</p></t:block><t:block t:if="s == '1'"><p><i>x</p></t:block><t:block t:if="s == '2'"><p><u>x</p></t:block><t:block t:if="s == '3'"><p><s>x</p></t:block><t:block t:if="s == '4'"><p><em>x</p></t:block>[[${s}]]
