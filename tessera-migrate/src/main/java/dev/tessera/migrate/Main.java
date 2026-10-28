@@ -53,33 +53,7 @@ public final class Main {
 
   static int run(String[] args, PrintStream out, PrintStream err) {
     if (args.length > 0 && (args[0].equals("record") || args[0].equals("compare"))) {
-      List<String> positional = new ArrayList<>();
-      List<Pattern> ignore = new ArrayList<>();
-      for (int i = 1; i < args.length; i++) {
-        if (args[i].equals("--ignore") && args[0].equals("compare")) {
-          if (++i >= args.length) {
-            return usage(err, "--ignore needs a regular expression");
-          }
-          try {
-            ignore.add(Pattern.compile(args[i]));
-          } catch (PatternSyntaxException e) {
-            return usage(err, "bad --ignore pattern: " + e.getMessage());
-          }
-        } else {
-          positional.add(args[i]);
-        }
-      }
-      if (positional.size() != 3) {
-        return usage(err, args[0] + " needs <base-url> <pages.txt> <dir>");
-      }
-      Path pages = Paths.get(positional.get(1));
-      if (!Files.isRegularFile(pages)) {
-        return usage(err, "not a file: " + pages);
-      }
-      Path dir = Paths.get(positional.get(2));
-      return args[0].equals("record")
-          ? Parity.record(positional.get(0), pages, dir, LocalDate.now(), out, err)
-          : Parity.compare(positional.get(0), pages, dir, LocalDate.now(), ignore, out, err);
+      return parity(args, out, err);
     }
     Path in = null;
     Path outDir = null;
@@ -110,7 +84,43 @@ public final class Main {
     if (!Files.isDirectory(in)) {
       return usage(err, "not a directory: " + in);
     }
+    return convert(in, outDir, reportFile, out, err);
+  }
 
+  /** The page-parity check; args[0] is {@code record} or {@code compare}. */
+  private static int parity(String[] args, PrintStream out, PrintStream err) {
+    List<String> positional = new ArrayList<>();
+    List<Pattern> ignore = new ArrayList<>();
+    for (int i = 1; i < args.length; i++) {
+      if (args[i].equals("--ignore") && args[0].equals("compare")) {
+        if (++i >= args.length) {
+          return usage(err, "--ignore needs a regular expression");
+        }
+        try {
+          ignore.add(Pattern.compile(args[i]));
+        } catch (PatternSyntaxException e) {
+          return usage(err, "bad --ignore pattern: " + e.getMessage());
+        }
+      } else {
+        positional.add(args[i]);
+      }
+    }
+    if (positional.size() != 3) {
+      return usage(err, args[0] + " needs <base-url> <pages.txt> <dir>");
+    }
+    Path pages = Paths.get(positional.get(1));
+    if (!Files.isRegularFile(pages)) {
+      return usage(err, "not a file: " + pages);
+    }
+    Path dir = Paths.get(positional.get(2));
+    return args[0].equals("record")
+        ? Parity.record(positional.get(0), pages, dir, LocalDate.now(), out, err)
+        : Parity.compare(positional.get(0), pages, dir, LocalDate.now(), ignore, out, err);
+  }
+
+  /** Converts every template under {@code in} into {@code outDir} and writes the report. */
+  private static int convert(Path in, Path outDir, Path reportFile, PrintStream out,
+      PrintStream err) {
     List<Path> templates;
     try (Stream<Path> files = Files.walk(in)) {
       templates = files
