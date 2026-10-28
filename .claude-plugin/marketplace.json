@@ -1,6 +1,6 @@
 {
-  "name": "chainguard-harder",
-  "description": "Claude Code plugins for Chainguard's secure-by-design libraries",
+  "name": "tessera",
+  "description": "Claude Code plugins for Tessera, a secure-by-design Java templating library",
   "owner": {
     "name": "Chainguard"
   },
