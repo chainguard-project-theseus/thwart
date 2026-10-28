@@ -1,3 +1,5 @@
+import java.security.MessageDigest
+
 // #425: after a template-only edit (invocation 4) the generated class has the new text.
 def generated = new File(basedir, 'target/generated-sources/annotations/com/example/templates')
 def sources = []
@@ -5,13 +7,24 @@ generated.eachFileRecurse { if (it.name.endsWith('.java') && it.text.contains('v
 assert sources.size() == 1 : "one generated template class in ${generated}: ${sources}"
 def text = sources[0].text
 assert text.contains('version three') && !text.contains('version two') : "stale generated class ${sources[0]}"
-assert new File(basedir, 'target/classes/META-INF/tessera/templates.fingerprint').isFile()
 
-// build.log has every invocation: the plugin saw both edits (2, 4) and the missing record after the
-// failed build (3), and kept the output when nothing changed (5).
+// #447: the record covers the message files as they are after the last edit (invocation 8).
+def fingerprint = new File(basedir, 'target/classes/META-INF/tessera/templates.fingerprint').text
+def sha = { f -> MessageDigest.getInstance('SHA-256').digest(new File(basedir, f).bytes).encodeHex().toString() }
+assert fingerprint.startsWith('tessera-templates 2\n') : fingerprint
+assert fingerprint.contains('messages messages\n') : fingerprint
+assert fingerprint.contains(sha('src/main/resources/messages.properties') + ' messages.properties\n') : fingerprint
+assert fingerprint.contains(sha('src/main/resources/messages_fr.properties') + ' messages_fr.properties\n') : fingerprint
+
+// build.log has every invocation: the plugin saw the template edits (2, 4) and the message edits
+// (6, 7), the missing record after each failed build (3, 8), and kept the output when nothing
+// changed (5, 9). Invocation 7 failed on the locale file's markup.
 def log = new File(basedir, 'build.log').text
-assert log.count('Tessera: templates changed since the last compile') == 2
-assert log.count('Tessera: no template fingerprint') == 1
-def last = log.substring(log.lastIndexOf('Tessera: templates changed'))
-assert last.contains('Nothing to compile') : 'invocation 5 recompiled'
+assert log.count('Tessera: templates or messages changed since the last compile') == 4
+assert log.count('Tessera: no template fingerprint') == 2
+assert log.count('Nothing to compile') == 2 : 'invocation 5 or 9 recompiled'
+assert log.contains("message 'greeting' in ") && log.contains('messages_fr.properties') && log.contains('<img> is not allowed')
+assert !log.contains('read other message bundles')
+def last = log.substring(log.lastIndexOf('Tessera: no template fingerprint'))
+assert last.contains('Nothing to compile') : 'invocation 9 recompiled'
 return true

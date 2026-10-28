@@ -4,13 +4,16 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <!-- #425: an app that edits only a template between builds (see invoker.properties). -->
+  <!-- #425, #447: an app that edits only a template or a message file between builds (see
+       invoker.properties). -->
   <groupId>dev.tessera.it</groupId>
   <artifactId>template-edit</artifactId>
   <version>1.0</version>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- One value for -Atessera.messages and the check goal (its messages parameter). -->
+    <tessera.messages>${project.basedir}/src/main/resources/messages</tessera.messages>
   </properties>
 
   <dependencies>
@@ -39,6 +42,7 @@
           <compilerArgs>
             <arg>-Atessera.templates=${project.basedir}/src/main/resources/templates</arg>
             <arg>-Atessera.package=com.example.templates</arg>
+            <arg>-Atessera.messages=${tessera.messages}</arg>
           </compilerArgs>
         </configuration>
       </plugin>
@@ -54,7 +58,8 @@
           </execution>
         </executions>
       </plugin>
-      <!-- The edits: resources:copy-resources@<id> overwrites welcome.html with edits/<id>/. -->
+      <!-- The edits: resources:copy-resources@<id> overwrites welcome.html or a message file with
+           edits/<id>/. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-resources-plugin</artifactId>
@@ -82,6 +87,30 @@
               <outputDirectory>${project.basedir}/src/main/resources/templates</outputDirectory>
               <overwrite>true</overwrite>
               <resources><resource><directory>edits/v3</directory></resource></resources>
+            </configuration>
+          </execution>
+          <execution>
+            <id>msg-v2</id>
+            <configuration>
+              <outputDirectory>${project.basedir}/src/main/resources</outputDirectory>
+              <overwrite>true</overwrite>
+              <resources><resource><directory>edits/msg-v2</directory></resource></resources>
+            </configuration>
+          </execution>
+          <execution>
+            <id>msg-unsafe</id>
+            <configuration>
+              <outputDirectory>${project.basedir}/src/main/resources</outputDirectory>
+              <overwrite>true</overwrite>
+              <resources><resource><directory>edits/msg-unsafe</directory></resource></resources>
+            </configuration>
+          </execution>
+          <execution>
+            <id>msg-fixed</id>
+            <configuration>
+              <outputDirectory>${project.basedir}/src/main/resources</outputDirectory>
+              <overwrite>true</overwrite>
+              <resources><resource><directory>edits/msg-fixed</directory></resource></resources>
             </configuration>
           </execution>
         </executions>
