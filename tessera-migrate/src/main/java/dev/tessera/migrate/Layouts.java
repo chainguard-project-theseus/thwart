@@ -11,9 +11,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.attoparser.AbstractMarkupHandler;
-import org.attoparser.MarkupParser;
 import org.attoparser.ParseException;
-import org.attoparser.config.ParseConfiguration;
 
 /**
  * Layout markup that a browser reads only by error recovery, which the build rejects (#406, #409):
@@ -36,17 +34,6 @@ import org.attoparser.config.ParseConfiguration;
  */
 final class Layouts {
   private Layouts() {}
-
-  private static final MarkupParser PARSER = new MarkupParser(parseConfiguration());
-
-  private static ParseConfiguration parseConfiguration() {
-    ParseConfiguration config = ParseConfiguration.htmlConfiguration();
-    config.setElementBalancing(ParseConfiguration.ElementBalancing.NO_BALANCING);
-    return config;
-  }
-
-  private static final Set<String> VOID_ELEMENTS = Compat.setOf("area", "base", "br", "col", "embed",
-      "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr");
 
   /** Start tags that close an open {@code <p>} (the HTML parser's "close a p element"). */
   private static final Set<String> CLOSES_P = Compat.setOf("address", "article", "aside",
@@ -768,7 +755,7 @@ final class Layouts {
 
   private static El parse(String source) throws ParseException {
     Builder b = new Builder(source);
-    PARSER.parse(source.toCharArray(), b);
+    Markup.PARSER.parse(source.toCharArray(), b);
     return b.root;
   }
 
@@ -789,7 +776,7 @@ final class Layouts {
       pending = new El(name, line, current, offset - 1);
       pending.nameEnd = offset + len;
       pending.openEnd = tagEnd(offset + len);
-      pendingClosed = standalone || VOID_ELEMENTS.contains(name);
+      pendingClosed = standalone || Markup.VOID_ELEMENTS.contains(name);
       current.children.add(pending);
     }
 
