@@ -44,7 +44,8 @@ scopes that it can see, with where each value should come from (section 3, step 
 `getX()`/`isX()` getters of *view-safe* types (records, enums, JDK value types, collections, and
 classes annotated `@TemplateView`), plus built-ins such as `size()`. It cannot call other methods,
 construct objects or reach static members. Logic lives in Java: a getter, a record the controller
-builds, or a static `@TemplateFunction`.
+builds, or a static `@TemplateFunction`. The recommended model is a view record per page, built by
+the controller from its entities, rather than the entities themselves (section 4.2).
 
 **The output context picks the escaper.** Text, attribute values, URLs and `<script>` blocks are
 each escaped for where they appear, with no switch to turn it off. Raw markup must be a `SafeHtml`
@@ -93,7 +94,8 @@ applications with JDK 8 and JDK 21 javac; newer JDKs are expected to work but ar
 The annotation processor
 (`tessera-compiler`) runs inside the application's javac, and it, `tessera-runtime` and the Spring
 starter are Java 8 class files; the generated template code compiles with `release` 8. On Java 8
-there are no records, so give the model classes `getX()` getters and `@TemplateView`. JDK 8's
+there are no records, so write the view types as classes with `getX()` getters and annotate them
+`@TemplateView`. JDK 8's
 javac has no `--release`: there, set `<source>` and `<target>` 1.8 (a Boot 1.5 or 2.x parent sets
 them from `<java.version>`).
 
@@ -376,8 +378,9 @@ time or the host name will differ on every run: fix the data, drop the request, 
 narrow, because whatever it matches is never compared. `compare`
 refuses a `pages.txt` that doesn't match the recording, so if you change it, record again.
 
-**3. Set up the build** (section 2). Add `@TemplateView` to the classes templates read, or make
-them records.
+**3. Set up the build** (section 2). Give the templates view types: preferably a record per page
+that the controller builds, or, as a shortcut, `@TemplateView` on the classes they already read
+(section 4.2).
 
 **4. Convert one template at a time.** Shared fragments and layouts first, since pages depend on
 them. For each template: find every value it reads and make sure the model provides it; declare
@@ -546,8 +549,73 @@ On a view-safe type a template can read:
   `isEmpty()` on strings, `first`/`last` on lists;
 - index access: `list[0]`, `array[i]`, `map['key']`.
 
-Nothing else. For entities and other classes, add `@TemplateView`; getters inherited from an
-unannotated superclass (a JPA `@MappedSuperclass`) resolve through the annotated class:
+Nothing else.
+
+**Recommended: a view record per page.** The controller builds a record that holds exactly what
+the page shows and passes that, not the entity:
+
+<!-- compile: java -->
+```java
+package com.example.guide;
+
+import java.util.List;
+
+public record OwnerPage(long id, String name, String city, List<PetRow> pets) {}
+```
+
+<!-- compile: java -->
+```java
+package com.example.guide;
+
+public record PetRow(String name, String type) {}
+```
+
+<!-- compile: template guide/owner.html -->
+```html
+<!DOCTYPE html>
+<html xmlns:t="https://tessera.dev" t:import="com.example.guide.*" t:params="OwnerPage owner">
+  <body>
+    <h1 t:text="owner.name">Ann Lee</h1>
+    <ul>
+      <li t:each="p : owner.pets" t:text="|${p.name} (${p.type})|">Leo (cat)</li>
+    </ul>
+  </body>
+</html>
+```
+
+```java
+@GetMapping("/owners/{ownerId}")
+String show(@PathVariable int ownerId, Model model) {
+  Owner o = owners.findById(ownerId).orElseThrow();
+  List<PetRow> pets = o.getPets().stream()
+      .map(p -> new PetRow(p.getName(), p.getType().getName()))
+      .toList();
+  model.addAttribute("owner", new OwnerPage(o.getId(), o.getFirstName() + " " + o.getLastName(), o.getCity(), pets));
+  return "guide/owner";
+}
+```
+
+Why a record rather than the entity:
+
+- **Lazy loading happens in the controller.** Spring Boot leaves open-session-in-view on by
+  default, so a template that walks a lazy association runs a query while rendering, one per row
+  inside a `t:each` (N+1); with it off, the same read throws `LazyInitializationException`
+  halfway through the page. Building the record runs those reads where the query is visible and
+  can be fetched in one go.
+- **The template sees only what the record lists.** An annotated entity exposes every public
+  getter to every template that receives it, including fields and associations added later
+  (`getPasswordHash()`, `getOrders()`). A record's components are the whole surface.
+- **Shaping lives in Java.** Formatting a name, flattening `p.getType().getName()` or picking the
+  rows to show is plain, testable Java, which is where Tessera puts logic anyway.
+
+On Java 8, where there are no records, write the view type as a small class with getters and
+annotate it `@TemplateView`.
+
+**Shortcut: `@TemplateView` on existing classes.** For a large port it can be quicker to annotate
+the entities and domain classes the templates already read. That works, with the caveats above:
+lazy associations load during rendering, every public getter is readable, and every class the
+template reaches through a getter must be annotated too. Getters inherited from an unannotated
+superclass (a JPA `@MappedSuperclass`) resolve through the annotated class:
 
 <!-- compile: java -->
 ```java

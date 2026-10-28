@@ -18,7 +18,10 @@ This records every manual step and deviation from porting the twelve Thymeleaf t
 2. **Make the model view-safe.** Added `@TemplateView` to the entities the templates read: `Owner`,
    `Pet`, `PetType`, `Visit`, `Vet`, `Specialty`. Getters inherited from `BaseEntity`, `NamedEntity` and
    `Person` resolve through the annotated subclass, so the mapped superclasses needed nothing.
-   `Owner.getPet(String)` and other methods with arguments stay unreachable.
+   `Owner.getPet(String)` and other methods with arguments stay unreachable. This is the
+   shortcut from guide section 4.2, kept so the port stays close to upstream; a new application would
+   pass view records built in the controller instead, for the lazy-loading and exposure reasons given
+   there.
 3. **Type the `t:params` stubs.** Each page imports `org.springframework.samples.petclinic.owner.*` (or
    `vet.Vet`) and declares what its controller puts in the model:
 
