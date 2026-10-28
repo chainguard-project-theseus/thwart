@@ -36,7 +36,9 @@ import javax.lang.model.util.Types;
  * still be annotated {@code @TemplateFunctions} with that namespace and goes through the same
  * checks. Duplicate namespaces, non-static or non-public methods, and signatures using
  * never-view-safe types are build errors (reported once, when the class is registered, at
- * {@code path/To/Class.java:1:1}).
+ * {@code path/To/Class.java:1:1}). A leading {@code java.util.Locale} parameter is not a template
+ * argument: the compiler passes the render locale ({@code ctx.locale()}) to it ({@link
+ * #takesLocale}).
  */
 final class FunctionRegistry {
   static final String RESERVED = "fields";
@@ -187,7 +189,7 @@ final class FunctionRegistry {
       env.diagnostics().error(pos, "@TemplateFunction " + fn + " returns " + m.getReturnType() + ": " + r.get());
       ok = false;
     }
-    for (VariableElement p : m.getParameters()) {
+    for (VariableElement p : templateParameters(m)) {
       Optional<String> pr = safety.reason(p.asType(), true);
       if (pr.isPresent()) {
         env.diagnostics()
@@ -266,11 +268,27 @@ final class FunctionRegistry {
     return true;
   }
 
-  /** Parameter types; erased for generic methods (their type variables are not inferred). */
+  /** Whether {@code m}'s first parameter is a {@code java.util.Locale}, which receives the render locale. */
+  boolean takesLocale(ExecutableElement m) {
+    List<? extends VariableElement> params = m.getParameters();
+    if (params.isEmpty() || params.get(0).asType().getKind() != TypeKind.DECLARED) {
+      return false;
+    }
+    Element type = env.types().asElement(params.get(0).asType());
+    return type instanceof TypeElement && ((TypeElement) type).getQualifiedName().contentEquals("java.util.Locale");
+  }
+
+  /** The parameters a template passes arguments to: all but a leading render-locale parameter. */
+  private List<? extends VariableElement> templateParameters(ExecutableElement m) {
+    List<? extends VariableElement> params = m.getParameters();
+    return takesLocale(m) ? params.subList(1, params.size()) : params;
+  }
+
+  /** Template parameter types; erased for generic methods (their type variables are not inferred). */
   private List<TypeMirror> paramTypes(ExecutableElement m) {
     boolean generic = !m.getTypeParameters().isEmpty();
     List<TypeMirror> out = new ArrayList<>();
-    for (VariableElement p : m.getParameters()) {
+    for (VariableElement p : templateParameters(m)) {
       out.add(generic ? env.types().erasure(p.asType()) : p.asType());
     }
     return out;
