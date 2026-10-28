@@ -1303,7 +1303,9 @@ the caller's `t:object`:
 ```
 
 The argument is a string literal (or a `Field` passed on) inside `t:object`. The form attributes
-and `fields.*` accept it; printing it writes the path. The fragment reads the field's display
+and `fields.*` accept it; printing it writes the field's id, the path without brackets as
+`t:field` writes it (`items1.name` for `'items[1].name'`), so `<label t:for="name">` points at the
+input. Thymeleaf's `th:for="${name}"` with a string writes the bracketed path instead. The fragment reads the field's display
 value with `fields.value(name)` and its first error with `fields.errors(name).first` (under a
 `fields.hasErrors(name)` guard), as a JSP tag file does with `spring:bind`'s `status.value` and `status.errorMessage`: petclinic's "valid" icon
 is `t:if="${!fields.hasErrors(name) and !fields.value(name).isEmpty}"`.
@@ -1515,7 +1517,7 @@ over a stored string.
 - **Computed paths.** A tag file or Tiles fragment that binds `path="${field}.answer"` becomes a
   fragment with a `Field<T>` parameter that binds `t:field="c.answer"` (section 4.8, Binding
   properties of a `Field`). The caller can't yet pass a `Field` indexed by its own loop variable
-  (`*{criteria[i]}`, #193): pass the list both as a value to loop over and as a `Field<List<T>>`,
+  (`*{criteria[i]}`): pass the list both as a value to loop over and as a `Field<List<T>>`,
   and bind `cs[st.index].answer` inside the fragment's loop; or keep those controls at the call
   site, where `*{criteria[st.index].answer}` works, and pass them in as a `Fragment`
   (`~{::controls}` renders with the call site's variables).
