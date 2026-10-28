@@ -34,7 +34,7 @@
          dev.tessera.compiler.internal.html5. Shaded into this jar below; consumers never see it. -->
     <dependency>
       <groupId>dev.tessera</groupId>
-      <artifactId>tessera-html5-current</artifactId>
+      <artifactId>tessera-html5</artifactId>
     </dependency>
     <!-- Test only: the spec-parser oracle (#317) is the validator jar, copied below and loaded in
          its own class loader (SpecParsers), so its many bundled libraries stay off the classpath. -->
@@ -82,12 +82,12 @@
             <configuration>
               <artifactSet>
                 <includes>
-                  <include>dev.tessera:tessera-html5-current</include>
+                  <include>dev.tessera:tessera-html5</include>
                 </includes>
               </artifactSet>
               <filters>
                 <filter>
-                  <artifact>dev.tessera:tessera-html5-*</artifact>
+                  <artifact>dev.tessera:tessera-html5</artifact>
                   <excludes>
                     <exclude>META-INF/MANIFEST.MF</exclude>
                     <exclude>META-INF/maven/**</exclude>
