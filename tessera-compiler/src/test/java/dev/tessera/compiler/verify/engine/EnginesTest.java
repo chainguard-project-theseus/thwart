@@ -329,7 +329,7 @@ class EnginesTest {
   @Test
   void eventsDoNotDependOnSplitPoints() throws EngineException {
     Engine e = Engines.CURRENT;
-    int errors = 0;
+    long errors = 0;
     for (boolean scripting : new boolean[] {true, false}) {
       for (String input : INPUTS) {
         List<String> whole = events(e, scripting, input);

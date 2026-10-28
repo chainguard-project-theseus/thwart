@@ -24,6 +24,8 @@ public final class SpringTestContext
   private static final ExtensionContext.Namespace NAMESPACE =
       ExtensionContext.Namespace.create(SpringTestContext.class);
 
+  // computeIfAbsent, the replacement, is missing from the older JUnit 5 releases this runs on.
+  @SuppressWarnings("deprecation")
   private static TestContextManager manager(ExtensionContext context) {
     Class<?> testClass = context.getRequiredTestClass();
     return context
