@@ -204,9 +204,10 @@ mvn -B -ntp verify
 ```
 
 Needs JDK 21+. Set `JDK8_HOME` to a JDK 8 home to also run `Jdk8ProcessorTest`, which builds a
-small app with a real JDK 8 javac; without it that test is skipped locally. Only petclinic uses
-`tessera-maven-plugin`, so in the other modules Maven doesn't recompile when only a template or
-message file changes: use `mvn clean verify` when in doubt. CI is Chainguard
+small app with a real JDK 8 javac; without it that test is skipped locally. No module in this
+build applies `tessera-maven-plugin` (its invoker integration test, `tessera-maven-plugin/src/it`,
+exercises it), so Maven doesn't recompile when only a template or message file changes: use
+`mvn clean verify` when in doubt. CI is Chainguard
 Checks running the same command ([.chainguard/ci/maven.yaml](.chainguard/ci/maven.yaml)).
 
 The guide's examples are compiled by `GuideExamplesTest` and its diagnostic catalogue is checked
