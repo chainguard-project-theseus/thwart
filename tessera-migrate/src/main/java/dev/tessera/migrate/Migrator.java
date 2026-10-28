@@ -16,9 +16,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.attoparser.AbstractMarkupHandler;
-import org.attoparser.MarkupParser;
 import org.attoparser.ParseException;
-import org.attoparser.config.ParseConfiguration;
 
 /**
  * Converts one Thymeleaf template to Tessera syntax. The rewrite is source-preserving: attoparser
@@ -47,16 +45,8 @@ final class Migrator {
     }
   }
 
-  private static final MarkupParser PARSER = new MarkupParser(parseConfiguration());
-
   private static final Pattern FRAGMENT_SIGNATURE =
       Pattern.compile("(\\s*)([\\w-]+)\\s*(?:\\((.*)\\))?(\\s*)", Pattern.DOTALL);
-
-  private static ParseConfiguration parseConfiguration() {
-    ParseConfiguration config = ParseConfiguration.htmlConfiguration();
-    config.setElementBalancing(ParseConfiguration.ElementBalancing.NO_BALANCING);
-    return config;
-  }
 
   /**
    * Converts {@code source}; {@code file} is the path used in report items.
@@ -67,7 +57,7 @@ final class Migrator {
     source = prototypeOnlyContent(source);
     char[] doc = source.toCharArray();
     Handler handler = new Handler(file, doc);
-    PARSER.parse(doc, handler);
+    Markup.PARSER.parse(doc, handler);
     return handler.finish(source);
   }
 

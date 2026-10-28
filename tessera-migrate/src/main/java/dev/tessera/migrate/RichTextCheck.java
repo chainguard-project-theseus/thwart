@@ -13,9 +13,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.attoparser.AbstractMarkupHandler;
-import org.attoparser.MarkupParser;
 import org.attoparser.ParseException;
-import org.attoparser.config.ParseConfiguration;
 
 /**
  * Finds recursive rich-text fragments in converted templates: a fragment that inserts itself,
@@ -28,8 +26,6 @@ import org.attoparser.config.ParseConfiguration;
 final class RichTextCheck {
   private RichTextCheck() {}
 
-  private static final MarkupParser PARSER = new MarkupParser(parseConfiguration());
-
   /**
    * {@code tpl :: name(args)} at the start of a value or in a {@code ~{...}} anywhere in it (a
    * fragment argument such as {@code ~{layout :: wrap(~{this :: nodes(n.children)})}} counts too);
@@ -39,15 +35,7 @@ final class RichTextCheck {
       Pattern.compile("(?:^|~\\{)\\s*([\\w./-]*)\\s*::\\s*([\\w-]+)");
   private static final Pattern FRAGMENT_NAME = Pattern.compile("\\s*([\\w-]+).*", Pattern.DOTALL);
   private static final Pattern CASE_LITERAL = Pattern.compile("\\s*'([A-Za-z][A-Za-z0-9]*)'\\s*");
-  private static final Set<String> VOID_ELEMENTS = Compat.setOf("area", "base", "br", "col", "embed",
-      "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr");
   private static final String THIS_TEMPLATE = "this";
-
-  private static ParseConfiguration parseConfiguration() {
-    ParseConfiguration config = ParseConfiguration.htmlConfiguration();
-    config.setElementBalancing(ParseConfiguration.ElementBalancing.NO_BALANCING);
-    return config;
-  }
 
   /** An element; {@code attrs} holds Tessera attributes by local name ({@code th:} too). */
   private static final class Node {
@@ -296,7 +284,7 @@ final class RichTextCheck {
 
   private static Node parse(String source) throws ParseException {
     Builder builder = new Builder();
-    PARSER.parse(source.toCharArray(), builder);
+    Markup.PARSER.parse(source.toCharArray(), builder);
     return builder.root;
   }
 
@@ -310,7 +298,7 @@ final class RichTextCheck {
     private void start(char[] buffer, int offset, int len, int line, boolean standalone) {
       String name = new String(buffer, offset, len).toLowerCase(Locale.ROOT);
       pending = new Node(name, line, current);
-      pendingClosed = standalone || VOID_ELEMENTS.contains(name);
+      pendingClosed = standalone || Markup.VOID_ELEMENTS.contains(name);
       current.children.add(pending);
     }
 
