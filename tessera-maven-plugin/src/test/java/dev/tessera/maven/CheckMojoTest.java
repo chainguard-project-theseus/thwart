@@ -1,5 +1,6 @@
 package dev.tessera.maven;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -10,7 +11,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** #425: the compile output is deleted exactly when the templates differ from the last compile's. */
+/**
+ * #425, #447: the compile output is deleted exactly when the templates or messages differ from the
+ * last compile's.
+ */
 class CheckMojoTest {
   @TempDir Path base;
   private Path templates;
@@ -31,11 +35,12 @@ class CheckMojoTest {
     mojo.outputDirectory = classes.toFile();
     mojo.testOutputDirectory = testClasses.toFile();
     mojo.buildDirectory = target.toFile();
+    mojo.basedir = base.toFile();
   }
 
   /** What a successful compile leaves: classes, generated sources, compiler state, the record. */
   private void compiled() throws Exception {
-    byte[] fp = TemplateFingerprint.of(templates);
+    byte[] fp = TemplateFingerprint.of(templates, mojo.messagePaths());
     write(classes.resolve("com/example/WelcomeTemplate.class"), "x");
     Files.createDirectories(classes.resolve(TemplateFingerprint.RESOURCE).getParent());
     Files.write(classes.resolve(TemplateFingerprint.RESOURCE), fp);
@@ -121,6 +126,85 @@ class CheckMojoTest {
     mojo.execute();
     assertDeleted(false);
     assertTrue(Files.exists(testClasses));
+  }
+
+  private Path messages() throws Exception {
+    Path dir = base.resolve("src/main/resources");
+    write(dir.resolve("messages.properties"), "greeting=Hello");
+    write(dir.resolve("messages_fr.properties"), "greeting=Bonjour");
+    mojo.messages = " src/main/resources/messages , ";
+    return dir;
+  }
+
+  @Test
+  void unchangedMessagesKeepTheOutput() throws Exception {
+    messages();
+    compiled();
+    mojo.execute();
+    assertDeleted(false);
+  }
+
+  @Test
+  void editedMessageDeletesTheOutput() throws Exception {
+    Path dir = messages();
+    compiled();
+    write(dir.resolve("messages.properties"), "greeting=Hi");
+    mojo.execute();
+    assertDeleted(true);
+  }
+
+  @Test
+  void editedLocaleFileDeletesTheOutput() throws Exception {
+    Path dir = messages();
+    compiled();
+    write(dir.resolve("messages_fr.properties"), "greeting=<b onclick=\"alert(1)\">Salut</b>");
+    mojo.execute();
+    assertDeleted(true);
+  }
+
+  @Test
+  void addedOrDeletedLocaleFileDeletesTheOutput() throws Exception {
+    Path dir = messages();
+    compiled();
+    write(dir.resolve("messages_pt_BR.properties"), "greeting=Oi");
+    mojo.execute();
+    assertDeleted(true);
+    compiled();
+    Files.delete(dir.resolve("messages_fr.properties"));
+    mojo.execute();
+    assertDeleted(true);
+  }
+
+  @Test
+  void otherPropertiesFilesAreIgnored() throws Exception {
+    Path dir = messages();
+    compiled();
+    write(dir.resolve("application.properties"), "server.port=8081");
+    mojo.execute();
+    assertDeleted(false);
+  }
+
+  @Test
+  void recordFromAnotherVersionDeletesTheOutput() throws Exception {
+    compiled();
+    Files.write(classes.resolve(TemplateFingerprint.RESOURCE), "tessera-templates 1\n".getBytes(StandardCharsets.UTF_8));
+    assertEquals(
+        "the template fingerprint is from another version of Tessera",
+        CheckMojo.staleReason(classes, TemplateFingerprint.of(templates, mojo.messagePaths()), true));
+    mojo.execute();
+    assertDeleted(true);
+  }
+
+  /** The processor read bundles the goal was not told about: recompile, and say how to fix it. */
+  @Test
+  void bundlesTheGoalDoesNotKnowDeleteTheOutputAndSaySo() throws Exception {
+    messages();
+    compiled();
+    mojo.messages = null;
+    String reason = CheckMojo.staleReason(classes, TemplateFingerprint.of(templates, mojo.messagePaths()), true);
+    assertTrue(reason.startsWith(CheckMojo.OTHER_MESSAGES) && reason.contains("[messages]"), reason);
+    mojo.execute();
+    assertDeleted(true);
   }
 
   private static void write(Path p, String s) throws Exception {

@@ -6,24 +6,31 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Stream;
 
 /**
- * The fingerprint the annotation processor writes after compiling the templates (#425): one line
- * per {@code **}{@code /*.html} file under the templates root, {@code <sha-256 of its bytes> <path
- * relative to the root>}, sorted by path, after a version line. A copy of tessera-compiler's {@code
- * dev.tessera.compiler.processor.TemplateFingerprint}, which reads the same files (its {@code
- * TemplateDiscovery}); both are tested against the same expected bytes.
+ * The fingerprint the annotation processor writes after compiling the templates (#425, #447):
+ * after a version line, one line per {@code **}{@code /*.html} file under the templates root,
+ * {@code <sha-256 of its bytes> <path relative to the root>}, sorted by path; then, for each
+ * {@code -Atessera.messages} basename in option order, a line {@code messages <its file name>}
+ * followed by one {@code <sha-256> <file name>} line per message file beside it, sorted by name. A
+ * copy of tessera-compiler's {@code dev.tessera.compiler.processor.TemplateFingerprint}, which
+ * reads the same files (its {@code TemplateDiscovery}); both are tested against the same expected
+ * bytes.
  */
 final class TemplateFingerprint {
   /** Where the processor writes it, relative to the class output directory. */
   static final String RESOURCE = "META-INF/tessera/templates.fingerprint";
 
+  /** The first line; the processor bumps it when the format changes. */
+  static final String VERSION = "tessera-templates 2";
+
   private TemplateFingerprint() {}
 
-  static byte[] of(Path root) throws IOException {
+  static byte[] of(Path root, List<Path> messages) throws IOException {
     Map<String, String> byPath = new TreeMap<>();
     try (Stream<Path> s = Files.walk(root)) {
       for (Path f : (Iterable<Path>) s::iterator) {
@@ -33,11 +40,45 @@ final class TemplateFingerprint {
         }
       }
     }
-    StringBuilder sb = new StringBuilder("tessera-templates 1\n");
+    StringBuilder sb = new StringBuilder(VERSION + "\n");
     for (Map.Entry<String, String> e : byPath.entrySet()) {
       sb.append(e.getValue()).append(' ').append(e.getKey()).append('\n');
     }
+    appendMessages(sb, messages);
     return sb.toString().getBytes(StandardCharsets.UTF_8);
+  }
+
+  /**
+   * Each basename and the files of its family: {@code <p>.properties} and {@code
+   * <p>_*.properties}, where {@code <p>} is the basename's file name up to its first {@code _}. That
+   * is every file the processor's {@code MessageBundle} can read for it (the base file, a named
+   * default locale and every locale file) and a few more.
+   */
+  private static void appendMessages(StringBuilder sb, List<Path> messages) throws IOException {
+    for (Path entry : messages) {
+      Path fileName = entry.getFileName();
+      String name = fileName == null ? "" : fileName.toString();
+      sb.append("messages ").append(name).append('\n');
+      int underscore = name.indexOf('_');
+      String family = underscore < 0 ? name : name.substring(0, underscore);
+      Map<String, String> byName = new TreeMap<>();
+      Path dir = entry.toAbsolutePath().getParent();
+      if (dir != null && Files.isDirectory(dir)) {
+        try (Stream<Path> s = Files.list(dir)) {
+          for (Path f : (Iterable<Path>) s::iterator) {
+            String n = f.getFileName().toString();
+            if (n.endsWith(".properties")
+                && (n.equals(family + ".properties") || n.startsWith(family + "_"))
+                && Files.isRegularFile(f)) {
+              byName.put(n, sha256(Files.readAllBytes(f)));
+            }
+          }
+        }
+      }
+      for (Map.Entry<String, String> e : byName.entrySet()) {
+        sb.append(e.getValue()).append(' ').append(e.getKey()).append('\n');
+      }
+    }
   }
 
   private static String sha256(byte[] bytes) {
