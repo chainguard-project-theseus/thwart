@@ -197,6 +197,63 @@ public final class Escapers {
     }
   }
 
+  /** How far from the decimal point a {@link BigDecimal} message argument may reach; see {@link #messageArgs}. */
+  static final int MAX_MESSAGE_NUMBER_DIGITS = 10000;
+
+  /**
+   * Checks the arguments of a message {@code #{key(args)}} before they are formatted, in every form
+   * of the message: generated code calls it before {@link Messages#get} (escaped text, an attribute,
+   * a {@code <script>}) and passes its result to {@link Messages#get}, and {@link #htmlMessage}
+   * calls it for the HTML form. Returns {@code args} if it holds no {@code BigDecimal} or
+   * {@code BigInteger} subclass, otherwise a copy with each one replaced (below).
+   *
+   * <p>{@link MessageFormat} writes a number in plain notation, one character per integer digit,
+   * so a {@link BigDecimal} with a large exponent expands: {@code 1E+999999999}, 12 characters,
+   * formats as {@code {0}} to 1,333,333,333 characters, which took 25 s and 2.5 GB of heap. A
+   * {@code BigDecimal} with more than 10,000 integer digits ({@code precision() - scale()}) throws
+   * {@link IllegalArgumentException}. That is far more than any quantity a page shows, and caps a
+   * formatted argument at about 13,300 characters with grouping separators. One whose first digit is
+   * more than 10,000 places below the decimal point ({@code precision() - scale() <= -10000}, so
+   * {@code 1E-10000} passes and {@code 1E-10001} throws) throws too: it formats as 0, and turning it
+   * into a {@code long}, as {@code {0,date}} does, can compute a power of ten that large (JDK 8
+   * does). Zero passes whatever its scale. Other numbers are bounded already: a {@code double} has
+   * at most 309 integer digits, and a {@code BigInteger} writes the digits it holds.
+   *
+   * <p>{@link MessageFormat} formats a {@link BigDecimal} or {@link BigInteger} from its
+   * {@code toString()}, copying its characters as digits, and both classes can be subclassed. A
+   * subclass is replaced by the JDK value of its {@code toString()}, which must be a JSON number
+   * (and, for a {@code BigInteger}, an integer); other text throws {@link IllegalArgumentException}.
+   * The bound is checked on that JDK value, not on the subclass's own {@code precision()} and
+   * {@code scale()}, and the formatter never calls the subclass's methods.
+   */
+  public static Object[] messageArgs(Object[] args) {
+    Object[] checked = args;
+    for (int i = 0; i < args.length; i++) {
+      Object a = args[i];
+      if (a instanceof BigDecimal && a.getClass() != BigDecimal.class) {
+        a = new BigDecimal(numberText((Number) a));
+      } else if (a instanceof BigInteger && a.getClass() != BigInteger.class) {
+        a = new BigInteger(numberText((Number) a));
+      }
+      if (a != args[i]) {
+        if (checked == args) {
+          checked = args.clone();
+        }
+        checked[i] = a;
+      }
+      if (a instanceof BigDecimal) {
+        BigDecimal d = (BigDecimal) a;
+        long magnitude = (long) d.precision() - d.scale();
+        if (d.signum() != 0
+            && (magnitude > MAX_MESSAGE_NUMBER_DIGITS || magnitude <= -MAX_MESSAGE_NUMBER_DIGITS)) {
+          throw new IllegalArgumentException(
+              "a message argument has a decimal exponent beyond " + MAX_MESSAGE_NUMBER_DIGITS + " either way");
+        }
+      }
+    }
+    return checked;
+  }
+
   /**
    * A bundle message rendered as HTML ({@code t:utext="#{key(args)}"}, {@code [(#{...})]}; #236).
    * {@code checked} holds the key's values in every bundle file the compiler checked as HTML. The
@@ -264,28 +321,18 @@ public final class Escapers {
    * {@link #text}, except {@link Number} and
    * {@link java.util.Date}, which {@link MessageFormat} formats itself (to digits and locale
    * symbols or names, never markup) and which must stay numbers and dates for {@code {0,number}}
-   * and {@code {0,date}}. {@code null} stays {@code null}, as with the escaped form. Returns a new
-   * array.
-   *
-   * <p>{@link MessageFormat} can format a {@link BigDecimal} or {@link BigInteger} from its
-   * {@code toString()}, copying its characters as digits, and both classes can be subclassed. A
-   * subclass is replaced by the JDK value of its {@code toString()}, which must be a JSON number
-   * (and, for a {@code BigInteger}, an integer), so the formatter never calls the subclass's
-   * methods. Other text throws {@link IllegalArgumentException}.
+   * and {@code {0,date}}. {@code null} stays {@code null}, as with the escaped form. The result
+   * then goes through {@link #messageArgs}, which replaces a {@code BigDecimal} or
+   * {@code BigInteger} subclass by the JDK value of its {@code toString()} and bounds a
+   * {@code BigDecimal}, so the formatter never calls a subclass's methods. Returns a new array.
    */
   static Object[] htmlMessageArgs(Object[] args) {
     Object[] escaped = new Object[args.length];
     for (int i = 0; i < args.length; i++) {
       Object a = args[i];
-      if (a instanceof BigDecimal && a.getClass() != BigDecimal.class) {
-        escaped[i] = new BigDecimal(numberText((Number) a));
-      } else if (a instanceof BigInteger && a.getClass() != BigInteger.class) {
-        escaped[i] = new BigInteger(numberText((Number) a));
-      } else {
-        escaped[i] = a == null || a instanceof Number || a instanceof java.util.Date ? a : escapeText(toText(a));
-      }
+      escaped[i] = a == null || a instanceof Number || a instanceof java.util.Date ? a : escapeText(toText(a));
     }
-    return escaped;
+    return messageArgs(escaped);
   }
 
   /**

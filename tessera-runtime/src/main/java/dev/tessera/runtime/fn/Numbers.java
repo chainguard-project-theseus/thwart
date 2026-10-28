@@ -20,10 +20,24 @@ import java.util.Locale;
  * which a point type ({@code 'POINT'}, {@code 'COMMA'}, {@code 'WHITESPACE'}, {@code 'DEFAULT'}
  * for the locale's own, and for grouping {@code 'NONE'} for none) can override. Unlike Thymeleaf,
  * rounding is half-up. A {@code null} number formats as {@code null} (renders as nothing).
+ *
+ * <p>{@link DecimalFormat} writes a number in plain notation, one character per digit, so a
+ * {@link BigDecimal} with a large exponent expands: {@code formatInteger(1E+999999999, 1, 'COMMA')},
+ * 12 characters of input, writes 1,333,333,333 characters and took 31 s. As for message arguments
+ * ({@code Escapers.messageArgs}), a nonzero number, of any {@link Number} type (anything but a JDK
+ * {@code BigDecimal}, a {@code BigDecimal} subclass included, is converted to one from its
+ * {@code toString()}, and the converted value is what is formatted), with more than 10,000 integer digits
+ * ({@code precision() - scale() > 10000}) or whose first digit is more than 10,000 places below the decimal point
+ * ({@code precision() - scale() <= -10000}), and a digit count ({@code minIntDigits},
+ * {@code minDigits}, {@code decimals}) above 10,000, throw {@link IllegalArgumentException}.
+ * {@code formatPercent} multiplies by 100, which adds two digits.
  */
 @TemplateFunctions("numbers")
 public final class Numbers {
   private Numbers() {}
+
+  /** The bound on how far a value reaches from the decimal point, and on a requested digit count. */
+  private static final int MAX_DIGITS = 10000;
 
   /** {@code n} rounded to an integer and left-padded with zeros to {@code minDigits} digits, ungrouped. */
   @TemplateFunction
@@ -69,12 +83,14 @@ public final class Numbers {
     if (n == null) {
       return null;
     }
+    BigDecimal value = toBigDecimal(n);
+    checkDigits(minIntDigits, decimals);
     NumberFormat format = NumberFormat.getPercentInstance(locale);
     format.setMinimumIntegerDigits(minIntDigits);
     format.setMinimumFractionDigits(decimals);
     format.setMaximumFractionDigits(decimals);
     format.setRoundingMode(RoundingMode.HALF_UP);
-    return format.format(toBigDecimal(n));
+    return format.format(value);
   }
 
   /**
@@ -120,6 +136,7 @@ public final class Numbers {
       symbols.setDecimalSeparator(decimal);
     }
     BigDecimal value = toBigDecimal(n);
+    checkDigits(minIntDigits, decimals);
     NumberFormat localeFormat = NumberFormat.getNumberInstance(locale);
     DecimalFormat format = localeFormat instanceof DecimalFormat ? (DecimalFormat) localeFormat : new DecimalFormat("#,##0.###");
     format.setDecimalFormatSymbols(symbols);
@@ -160,16 +177,29 @@ public final class Numbers {
             + (grouping ? ", 'NONE'" : "") + " or 'DEFAULT'");
   }
 
+  private static void checkDigits(int minIntDigits, int decimals) {
+    if (minIntDigits > MAX_DIGITS || decimals > MAX_DIGITS) {
+      throw new IllegalArgumentException("cannot format more than " + MAX_DIGITS + " integer or fraction digits");
+    }
+  }
+
   private static BigDecimal toBigDecimal(Object n) {
     if (!(n instanceof Number)) {
       throw new IllegalArgumentException("not a number: " + n.getClass().getName());
     }
-    if (n instanceof BigDecimal) {
-      return (BigDecimal) n;
-    }
     if ((n instanceof Double || n instanceof Float) && !Double.isFinite(((Number) n).doubleValue())) {
       throw new IllegalArgumentException("not finite: " + n);
     }
-    return new BigDecimal(n.toString());
+    // Any Number can say 1e999999999 (Gson's LazilyParsedNumber does), and so can a BigDecimal
+    // subclass whose own precision() and scale() say 1, since DecimalFormat copies its toString().
+    // So anything but a JDK BigDecimal is converted from its text, and the bound is checked on, and
+    // DecimalFormat formats, the converted value.
+    BigDecimal d = n.getClass() == BigDecimal.class ? (BigDecimal) n : new BigDecimal(n.toString());
+    long magnitude = (long) d.precision() - d.scale();
+    if (d.signum() != 0 && (magnitude > MAX_DIGITS || magnitude <= -MAX_DIGITS)) {
+      throw new IllegalArgumentException(
+          "cannot format a number more than " + MAX_DIGITS + " places from the decimal point");
+    }
+    return d;
   }
 }
