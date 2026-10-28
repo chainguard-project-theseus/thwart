@@ -88,12 +88,12 @@ From [security-architecture.md](security-architecture.md) §7 (accepted Oct 24, 
 
 ## Mechanics
 
-- Remotes: `origin` is `chainguard-dev/harder` (private), `fork` is `dlorenc/harder`. Push to the
+- Remotes: `origin` is `wolfi-dev/tessera` (private), `fork` is `dlorenc/harder`. Push to the
   fork and open PRs against origin.
 - CI is Chainguard Checks (`.chainguard/ci/maven.yaml`), not GitHub Actions.
-  - Wait on PRs with `gh pr checks <n> --repo chainguard-dev/harder --watch`; the check to watch
+  - Wait on PRs with `gh pr checks <n> --repo wolfi-dev/tessera --watch`; the check to watch
     is "Chainguard Checks (presubmit)".
-  - Read logs with `chainctl checks logs chainguard-dev/harder#<n> --check verify --errors`.
+  - Read logs with `chainctl checks logs wolfi-dev/tessera#<n> --check verify --errors`.
 - Merge on green CI. Review is not required. Commits are unsigned; ignore the signing check.
 - Labels used so far: `wave-1` through `wave-4`, `refactor-wave-1` through `refactor-wave-4`,
   `migration-bench`, `documentation`, `security`, `security-phase-0` through `security-phase-5`,
