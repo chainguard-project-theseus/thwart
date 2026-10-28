@@ -160,6 +160,14 @@ final class ConversionRules {
       "#fields.hasGlobalErrors()", "fields.hasErrors('global')",
       "#fields.globalErrors()", "fields.errors('global')");
 
+  /**
+   * Thymeleaf's double-brace selection of a field path, {@code *{{due}}}: inside {@code th:object}
+   * the field's BindStatus display value (rejected or formatted), which is {@code fields.value('due')}
+   * (#133). Group 1 is the path: names and int indexes.
+   */
+  static final Pattern DOUBLE_BRACE_SELECTION =
+      Pattern.compile("\\*\\{\\{\\s*([A-Za-z_]\\w*(?:\\[\\d+\\])*(?:\\.[A-Za-z_]\\w*(?:\\[\\d+\\])*)*)\\s*\\}\\}");
+
   /** Thymeleaf's {@code x['new']}: SpEL property access for {@code isNew()} ({@code new} is a keyword). */
   static final Pattern NEW_INDEX = Pattern.compile("\\[\\s*'new'\\s*\\]");
   static final String IS_NEW = ".isNew()";
