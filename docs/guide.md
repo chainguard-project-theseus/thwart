@@ -74,7 +74,7 @@ but inside `|...|` and `+` a `null` prints `null`.
 
 | If the old template... | Do this instead |
 |---|---|
-| reads the request, session, application scope, cookies or headers, or falls back to them | Put the value in the model and declare it in `t:params`. Nothing warns you when you miss one. (A `@PathVariable` fills the param of the same name without this.) |
+| reads the request, session, application scope, cookies or headers, or falls back to them | Put the value in the model and declare it in `t:params`. `tessera-migrate` reports the scope reads it can see (section 3), but not a plain name the old engine found in a request attribute. (A `@PathVariable` fills the param of the same name without this.) |
 | calls a method with arguments, a static method, a bean or a constructor | A getter, a record built by the controller, or a `@TemplateFunction`. |
 | filters, sorts, groups or projects a collection | Do it in the controller. |
 | assigns a variable | `t:with="x=..."`: an immutable local for one element. |
@@ -1175,8 +1175,8 @@ public record Address(String street) {}
   GET with the token in the URL). Anything else is a build error: use a link, or move the button
   into its own form. Inside a GET form, or a form with a static cross-origin `action`, which gets
   no token, `formaction` and `formmethod` are unchanged, except in a fragment (a browser drops the
-  start tag of a form inserted into another). A form with `t:remove="tag"` gets no token. A static `hx-post` and nested forms are
-  not checked (section 7). Every relative URL on the page, a form's `action` and a button's
+  start tag of a form inserted into another). A form with `t:remove="tag"` gets no token. A static `hx-post` is
+  not checked (section 7); a `<form>` nested in another is a build error (`PARSE_ERROR`). Every relative URL on the page, a form's `action` and a button's
   `formaction` included, resolves against `<base href>`, so a `<base>` must be same-origin, in any
   template (a layout's `<base>` applies to the forms its fragments insert): a static `href` like a
   static `action` (`/app/`, `app/`), a computed one a link with a literal path starting with a
@@ -2426,19 +2426,17 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **Mixed engines.** During a migration the old engine renders every view Tessera doesn't know
   (section 2), so an app part-way through is protected only on the ported views; finish by
   removing the engine (section 3, step 6).
-- **Types.** Concrete collection types (`ArrayList`, `TreeMap`, `SortedMap`) are rejected as
-  parameter and property types; declare `List`/`Map`. A `Boolean` getter named `getIsX()` (Lombok
-  on a `Boolean isX` field) is reachable only as `x.getIsX()`. `java.util.Date`/`Calendar` are not
-  view-safe.
-- **Forms.** No map keys in paths (`map[key]`), no `t:field` that writes the value of a field
+- **Types.** Collections outside `java.util` (`java.util.concurrent`, Guava, your own subclasses)
+  are rejected as parameter and property types; declare the interface (`List`/`Map`, section 4.2).
+  `java.util.Date`/`Calendar` are not view-safe; declare `Instant` or `ZonedDateTime` (section 2).
+- **Forms.** No `t:field` that writes the value of a field
   whose type is not view-safe (a file input is fine, section 4.7). A `Field` fragment reads the
   value only as the display String (`fields.value(name)`).
 - **CSRF and other ways a form posts elsewhere.** The CSRF input is left out of a form whose
   `action` is on another origin, a submit button's `formaction` must be same-origin where it
   may submit a form with the token, and so must every `<base href>` (section 4.7). Not seen: a static htmx request attribute such
-  as `hx-post="https://other.example/"` on the form or a button in it, and a `<form>` nested in
-  another (a browser ignores the inner start tag, so the inner form's token lands in the outer
-  form). Give an external target its own form, and don't nest forms.
+  as `hx-post="https://other.example/"` on the form or a button in it. Give an external target its
+  own form.
 - **Scripts.** In a `<script>` with `[[...]]`, the code before the last `[[...]]` can't use `/`
   (division, regular expressions), template literals, `-->`, `#!`, `<!`, a backslash line
   continuation or U+2028/U+2029 (section 6): the compiler proves where each value goes without a
@@ -2465,7 +2463,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
   the form where it is written (section 4.4). Boosting from a layout or a fragment caller
   (`<body hx-boost="true">` in a layout that receives the page's content, or a boosted element of
   the same template that inserts the fragment), set from JavaScript, and a submit button outside
-  its form (`form="id"`) are not seen. On htmx 1.9.5 and later set
+  its form (`form="id"`) are not seen (#498). On htmx 1.9.5 and later set
   `htmx.config.selfRequestsOnly = true` (the default from 2.0) so htmx requests only the page's
   origin; older htmx 1.x has no such setting, so upgrade.
 - **Client-side templates (`{{ }}`).** Tessera breaks `{{` only in element text (section 4.4).
@@ -2477,9 +2475,8 @@ Gaps in Tessera today, each with what to do until it is fixed.
   region. Custom delimiters (Vue `delimiters`, AngularJS `$interpolateProvider`) are not
   broken, so keep the default `{{ }}` or mark the region. The check for an expression inside a
   static `{{ }}` only sees one text: a `{{` before a tag or comment and an expression after it
-  are not reported. `SafeHtml.unchecked` text is not changed.
-  are not reported when a `}}` follows later in the template (#336). `SafeHtml.unchecked` text is not changed, and neither is SVG `<title>` text,
-  which the frameworks interpolate too: add `v-pre`/`ng-non-bindable` there as well.
+  are not reported when a `}}` follows later in the element (#336). `SafeHtml.unchecked` text is
+  not changed.
 - **Security functions.** `auth` has `isAuthenticated`, `hasRole`/`hasAnyRole` and
   `hasAuthority`/`hasAnyAuthority`. They check the granted authorities as given, without a role
   hierarchy. Compute any other Spring Security expression in the controller.
@@ -2496,8 +2493,9 @@ Gaps in Tessera today, each with what to do until it is fixed.
   to those braces (section 4.4); with the Spring starter every `<script>` and `<style>` has a
   `nonce` attribute (section 4.11), which `tessera-migrate compare` ignores.
 - **Runtime errors** are model type mismatches (`TemplateModelException`), missing primitive
-  parameters, reading a property of `null`, and `null` link path variables. Everything else is a
-  build error.
+  parameters, reading a property of `null`, `null` link path variables, `first`/`last` of an empty
+  list, `ids.prev` before any input (section 4.7) and a variable form-path map key Spring can't
+  bind (section 4.7). Everything else is a build error.
 
 ### Verifier errors
 
@@ -2536,6 +2534,8 @@ same.
 | `ATTRIBUTE_WRONG_NAME` | Reads the value as another attribute's, or drops a duplicate attribute | Write each attribute once |
 | `ATTRIBUTE_VALUE_CHANGES_PARSE` | Decides from the value how the content parses: `encoding` on MathML `<annotation-xml>` | Write the attribute as a static value |
 | `JSON_NOT_IN_SCRIPT` | Reads `[[...]]` JSON outside the code of an HTML `<script>`, for example in an SVG `<script>` | Write the script as an HTML `<script>` outside `<svg>` and `<math>` |
+| `RAW_CLOSES_ELEMENT` | Lets the markup of `SafeHtml`, a `Fragment` value or an HTML message close an element open around it (an open `<p>`, `<a>`, heading or `<form>`), so the rest of the page parses differently | Insert it in a `<div>` instead, outside the open element |
+| `MESSAGE_CHANGES_STATE` | Parses an HTML message's markup so that it closes an element open around it (a `<p>` in a `<p>`, an `<a>` in an `<a>`) or leaves one of its own open | Close every element the message opens, and insert it where its markup fits (a message with a `<p>` in a `<div>`, not in a `<p>`) |
 | `RAW_NOT_FLOW` | Parses `SafeHtml`, a `Fragment` value or an HTML message outside body content: in the head, a table, a `<select>`, `<svg>`, `<math>`, or raw text such as `<noscript>` | Insert it in an element such as `<div>` in the body, or in a `<td>` |
 | `FRAMESET` | Uses a `<frameset>` only if no body content came before it | Use an `<iframe>` or an ordinary layout |
 | `LOOP_NO_FIXED_POINT` | Has more elements open after each `t:each` pass | Close inside the loop every element it opens |
