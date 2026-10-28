@@ -1102,8 +1102,18 @@ public record Address(String street) {}
   `"cart.items[${index}].name"`. The element type is checked, `name` is Spring's `items[1].name`
   and `id` is `items1.name`, and values and errors come from the `BindingResult` for that path, so
   `@DateTimeFormat` and converters apply. In `fields.*` write a literal `'items[0].name'` or, for a
-  variable index, the path itself: `fields.hasErrors(*{items[itemStat.index].name})`. Map keys
-  (`map[key]`) are not supported.
+  variable index, the path itself: `fields.hasErrors(*{items[itemStat.index].name})`.
+- **Maps.** A path may also index a `Map` by key: `*{prices[e.key]}` (iterating
+  `t:each="e : form.prices"`), `*{prices[key]}`, `*{prices['x']}`, `*{byId[e.key].name}`. As with
+  Spring's `BeanWrapper` the key is written unquoted, so `name` is `prices[x]`, and `id` drops the
+  brackets as Thymeleaf's `th:field` does, `pricesx`; this replaces Thymeleaf's
+  `*{prices[__${key}__]}`. The value type comes from the Map's type arguments and is checked like
+  any other field (view-safe where the value is read). A key is a literal or a variable of type
+  `String`, `int`, `long` or an enum (written as its `name()`, which Spring converts back), and
+  must match the Map's key type. Spring's paths have no escape, so a `String` key must be
+  non-empty and contain no `[`, `]`, `'` or `"`: a literal key that does is a build error, and a
+  variable one throws `IllegalArgumentException` when the page renders. In `fields.*` and `Field`
+  arguments a literal path takes identifier keys, `'prices[x]'`.
 
 <!-- compile: template guide/cart.html -->
 ```html
@@ -2217,7 +2227,10 @@ These come from the annotation processor itself, without a template position.
 - `a field path index must be an int literal or an int variable such as i or iterStat.index, not an expression`:
   compute the index with `t:with="i=..."` first.
 - `a field path index must be an int, got <type>`.
-- `cannot index <type> in a field path: [...] works on a List or an array`.
+- `a map key in a field path must be a literal or a variable such as key or entry.key, not an expression`.
+- `a map key in a field path must be an int, a long, a String or an enum, got <type>`.
+- `map key '<key>' cannot be bound in a field path: a key must be non-empty and contain no '[', ']' or quotes, which Spring's property paths cannot escape`.
+- `cannot index <type> in a field path: [...] works on a List, an array or a Map`.
 - `field '<path>' can only be used inside t:object: put t:object="..." on this element or an enclosing one`.
 - `'<path>' is not a field path: use names like lastName, address.city or items[0].name`.
 - `*{<name>} can only be used inside t:object: put t:object="..." on this element or an enclosing one, or write the full path (owner.<name>)`.
