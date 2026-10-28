@@ -165,6 +165,22 @@ class StyleAttributeTest {
     assertEquals("<svg><rect/></svg>", render("<svg><rect t:mask=\"css.url(s)\"/></svg>", "s", "javascript:alert(1)"));
   }
 
+  /** #429: colour functions and custom properties from data, in style and in SVG presentation attributes. */
+  @Test
+  void colorFunctionsAndCustomProperties() {
+    String color = "<p t:style=\"|color: ${css.color(s)}|\">x</p>";
+    assertEquals("<p style=\"color: rgb(0 128 255 / .5)\">x</p>", render(color, "s", "RGB(0 128 255/.5)"));
+    assertEquals("<p style=\"color: null\">x</p>", render(color, "s", "rgb(0, 0, 0);background:url(//evil)"));
+    String var = "<p t:style=\"|border-color: ${css.var(s)}|\">x</p>";
+    assertEquals("<p style=\"border-color: var(--brand)\">x</p>", render(var, "s", "--brand"));
+    assertEquals("<p style=\"border-color: null\">x</p>", render(var, "s", "--a);background:url(//evil"));
+    // Numbers from the model need no css.* function: the literal holds the function.
+    assertEquals("<p style=\"color: rgb(7, 0, 0)\">x</p>", render("<p t:style=\"|color: rgb(${n}, 0, 0)|\">x</p>", "n", 7));
+    assertEquals(
+        "<svg><rect fill=\"hsl(120deg, 50%, 50%)\" stroke=\"var(--line)\"/></svg>",
+        render("<svg><rect t:fill=\"css.color(s)\" t:stroke=\"css.var('--line')\"/></svg>", "s", "hsl(120deg, 50%, 50%)"));
+  }
+
   @ParameterizedTest
   @ValueSource(
       strings = {
@@ -235,7 +251,8 @@ class StyleAttributeTest {
         "red;",
         "'red'",
         "\"red\"",
-        "rgb(1,2,3)",
+        "rgb(1,2,3);x:y",
+        "rgb(url(x),2,3)",
         "#ggg",
         "#12345",
         "",
