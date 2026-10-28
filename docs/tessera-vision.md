@@ -171,8 +171,8 @@ Shares syntax and escapers, none of the trust. Data is an immutable tree of valu
 | View-name injection | Eliminated | Names resolve against a build-time registry |
 | Sandbox escape via reflection chains | Eliminated | Unsafe types rejected by the compiler |
 | XSS from a forgotten escape | Eliminated by default | Contextual escaping is automatic; raw output needs a safe type |
-| XSS from `SafeHtml.unchecked` misuse | Residual, reviewable | Greppable, lint-bannable |
-| Unsafe registered functions | Residual, reviewable | The function list is the whole extension surface |
+| XSS from `SafeHtml.unchecked` misuse | Residual, reviewable | Listed, and bannable with `failOnUnchecked`, by `tessera:review` (#428) |
+| Unsafe registered functions | Residual, reviewable | The function list is the whole extension surface; `tessera:review` reports it (#428) |
 | Information disclosure | Reduced | Only declared parameters and allow-listed accessors visible |
 | DoS from template logic | Reduced (main), bounded (sandbox) | |
 | Dev reloader in production | Residual, packaging | Separate artifact; refuses production profile |
