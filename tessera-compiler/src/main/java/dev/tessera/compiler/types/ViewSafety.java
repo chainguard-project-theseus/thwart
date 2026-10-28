@@ -32,7 +32,8 @@ import javax.lang.model.type.WildcardType;
  * value types, BigDecimal/BigInteger, Optional/List/Set/Collection/Iterable/Map/Map.Entry of
  * view-safe types (and public {@code java.util} types that implement one of them, seen as that
  * interface: {@link #containerView}), arrays of view-safe types, {@code LoopStatus}, {@code SafeHtml}, {@code TrustedUrl}, {@code CssValue},
- * and classes annotated {@code @TemplateView}.
+ * and classes annotated {@code @TemplateView}; all of them public, as are any classes they are
+ * nested in and their type arguments, so the generated code can name them ({@link #inaccessible}, #269).
  *
  * <p>Never view-safe, even if annotated or registered: {@code Object} (as a declared type and
  * its methods), {@code Class}, {@code ClassLoader}, {@code java.lang.reflect.*},
@@ -135,7 +136,59 @@ final class ViewSafety {
   }
 
   boolean isViewSafe(TypeMirror type) {
-    return !neverViewSafeReason(type).isPresent() && allowed(type);
+    return !neverViewSafeReason(type).isPresent() && allowed(type) && inaccessible(type) == null;
+  }
+
+  /**
+   * The first class in {@code type} (itself, an array component, a wildcard bound or a type
+   * argument, depth-first) that generated code can't name because it, or a class it is nested in,
+   * is not public; or null. Generated template classes are in their own packages, so
+   * package-private access never works for them.
+   */
+  String inaccessible(TypeMirror type) {
+    switch (type.getKind()) {
+      case ARRAY:
+        return inaccessible(((ArrayType) type).getComponentType());
+      case WILDCARD: {
+        WildcardType w = (WildcardType) type;
+        TypeMirror bound = w.getExtendsBound() != null ? w.getExtendsBound() : w.getSuperBound();
+        return bound == null ? null : inaccessible(bound);
+      }
+      case DECLARED: {
+        DeclaredType dt = (DeclaredType) type;
+        TypeElement te = (TypeElement) dt.asElement();
+        if (!isPublic(te)) {
+          return te.getQualifiedName().toString();
+        }
+        for (TypeMirror arg : dt.getTypeArguments()) {
+          String hidden = inaccessible(arg);
+          if (hidden != null) {
+            return hidden;
+          }
+        }
+        return null;
+      }
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * {@code "com.example.Hidden is not public: make it ..."} if the only thing keeping {@code type}
+   * from being view-safe is a class in it that generated code can't name, else empty.
+   */
+  Optional<String> accessReason(TypeMirror type) {
+    if (!allowed(type) || neverViewSafeReason(type).isPresent()) {
+      return Optional.empty();
+    }
+    String hidden = inaccessible(type);
+    return hidden == null ? Optional.empty() : Optional.of(notPublic(hidden));
+  }
+
+  /** Why the generated code can't name the class {@code name}, and the fix. */
+  static String notPublic(String name) {
+    return name + " is not public: make it public, and any class it is nested in (templates compile to classes in"
+        + " their own packages)";
   }
 
   /** Why {@code type} is never view-safe, or empty if it is not on the deny-list. */
@@ -275,7 +328,8 @@ final class ViewSafety {
   /** {@code "<innermost offending type> <why>"}, or null if {@code type} is view-safe. */
   private String whyNotAllowed(TypeMirror type) {
     if (allowed(type) && !neverViewSafeReason(type).isPresent()) {
-      return null;
+      String hidden = inaccessible(type);
+      return hidden == null ? null : notPublic(hidden);
     }
     switch (type.getKind()) {
       case ARRAY:
