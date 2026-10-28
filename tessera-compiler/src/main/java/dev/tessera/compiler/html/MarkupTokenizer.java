@@ -35,6 +35,14 @@ package dev.tessera.compiler.html;
  * splits or ends the tag differently there. Raw text that a browser does not tokenize ({@link
  * Handler#rawText}) is exempt.
  *
+ * <p>Thymeleaf's parser-level comment {@code <!--/* ... *&#47;-->} is a template comment, also
+ * Tessera's own: from {@code <!--/*} to the first {@code *&#47;-->} it is one {@link
+ * Handler#templateComment} token, never output and never parsed (#132). One without its end is
+ * fatal. In raw text ({@link Handler#rawText}, and the untokenized content of {@code <script>} and
+ * {@code <style>}) it is not recognized, as a browser reads it as text there; {@code HtmlParser}
+ * rejects it in that content. Thymeleaf's prototype-only comment {@code <!--/*&#47; ... /*&#47;-->} starts
+ * the same way and is read as one too, which {@code HtmlParser} rejects.
+ *
  * <p>Offsets index the buffer, which the handler may change ahead of the tokenizer (see {@code
  * HtmlParser.Builder.matchEndTagCase}).
  */
@@ -45,6 +53,9 @@ final class MarkupTokenizer {
     void text(int start, int end);
 
     void comment(int start, int end);
+
+    /** A template comment {@code <!--/* ... *&#47;-->}, which is dropped. */
+    void templateComment(int start, int end);
 
     void cdata(int start, int end);
 
@@ -105,6 +116,9 @@ final class MarkupTokenizer {
   private static final int DOCTYPE = 5;
   private static final int XML_DECLARATION = 6;
   private static final int PROCESSING_INSTRUCTION = 7;
+  private static final int TEMPLATE_COMMENT = 8;
+
+  private static final char[] TEMPLATE_COMMENT_END = "*/-->".toCharArray();
 
   private final char[] buf;
   private final int n;
@@ -156,6 +170,9 @@ final class MarkupTokenizer {
     }
     if (n - i > 2 && buf[i + 1] == '/' && isElementName(i + 2, n)) {
       return END_TAG;
+    }
+    if (startsWith(i, "<!--/*") && !handler.rawText()) {
+      return TEMPLATE_COMMENT;
     }
     if (startsWith(i, "<!--")) {
       return COMMENT;
@@ -223,6 +240,15 @@ final class MarkupTokenizer {
         int end = delimitedEnd(start, "<!---->", "--");
         handler.comment(start, end + 1);
         return end;
+      }
+      case TEMPLATE_COMMENT: {
+        int end = indexOf(TEMPLATE_COMMENT_END, start + 6);
+        if (end < 0) {
+          throw new MarkupException("'<!--/*' starts a template comment that is not closed: end it with '*/-->'",
+              start);
+        }
+        handler.templateComment(start, end + TEMPLATE_COMMENT_END.length);
+        return end + TEMPLATE_COMMENT_END.length - 1;
       }
       case CDATA: {
         int end = delimitedEnd(start, "<![CDATA[]]>", "]]");

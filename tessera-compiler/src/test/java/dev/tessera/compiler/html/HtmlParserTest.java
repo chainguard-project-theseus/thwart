@@ -729,10 +729,60 @@ class HtmlParserTest {
     parseOk("<p><!----><!-- --><!-- -- --><!-- - -><!-- a --!--><!-- !> --></p>");
     // "--!>" ends a comment only when its dashes follow "<!--"
     parseOk("<!--!> --><!---!> -->");
-    // Thymeleaf parser-level and prototype-only comment blocks
-    parseOk("<!--/* hidden */--><!--/*/ <p>shown</p> /*/--><!--/**/-->");
+    // Thymeleaf parser-level comments are dropped (templateCommentsAreDropped)
+    parseOk("<!--/* hidden */--><!--/**/-->");
     // inside raw text a comment is text to a browser
     parseOk("<textarea><!--> --></textarea><title><!-- --!> --></title>");
+  }
+
+  @Test
+  void templateCommentsAreDropped() {
+    // Thymeleaf's parser-level comment: multi-line, around markup and a "-->", ends at the first "*/-->"
+    Document doc = parseOk("<p>a<!--/* x */-->b</p>\n<!--/*\n<div t:text=\"${x}\"><!-- c --> [[${y}]]\n*/-->"
+        + "<!--/**/--><!-- /* not a template comment */ --><i>[[${z}]]</i>");
+    assertEquals("<p>ab</p>\n<!-- /* not a template comment */ --><i>[[${z}]]</i>", serialize(doc.children()));
+    Element p = el(doc.children().get(0));
+    assertEquals(List.of(new Text("a", OutputContext.TEXT, pos(1, 4)), new Text("b", OutputContext.TEXT, pos(1, 19))),
+        p.children());
+    // Nothing inside is parsed: unbalanced markup and a "--!>" are fine.
+    parseOk("<!--/* <div> </p> <!--> --!> <script> */-->");
+    assertEquals("x", serialize(parseOk("<!--/* a */-->x<!--/* b */-->").children()));
+  }
+
+  @Test
+  void unclosedTemplateCommentIsAnError() {
+    assertEquals(
+        List.of("dir/t.html:2:19: error: malformed markup: '<!--/*' starts a template comment that is not closed:"
+            + " end it with '*/-->'"),
+        errors("<p>\n<p><!--/* x */--> <!--/* y */ --> z</p>"));
+  }
+
+  @Test
+  void prototypeOnlyCommentIsAnError() {
+    String message = "error: Thymeleaf prototype-only comments '<!--/*/ ... /*/-->' are not supported: remove the"
+        + " '<!--/*/' and '/*/-->' markers to make the content part of the template";
+    assertEquals(List.of("dir/t.html:1:4: " + message), errors("<p><!--/*/ <b t:text=\"${x}\">y</b> /*/--></p>"));
+    // Thymeleaf removes its markers inside a parser-level comment too.
+    assertEquals(List.of("dir/t.html:1:13: " + message), errors("<!--/* a <b><!--/*/ c /*/--> d */-->"));
+  }
+
+  @Test
+  void templateCommentInRawTextIsAnError() {
+    // A browser reads it as text there, but Thymeleaf would drop it.
+    assertEquals(
+        List.of("dir/t.html:1:8: error: malformed markup: '<!--/*' inside <style> is text, not a template comment:"
+            + " move the comment outside <style>"),
+        errors("<style><!--/* a */--> p {}</style>"));
+    assertEquals(
+        List.of("dir/t.html:1:11: error: malformed markup: '<!--/*' inside <textarea> is text, not a template"
+            + " comment: move the comment outside <textarea>"),
+        errors("<textarea><!--/* a */--></textarea>"));
+    assertEquals(
+        List.of("dir/t.html:1:9: error: malformed markup: '<!--' inside <script> is not supported: remove it (it is"
+            + " not needed in HTML5)"),
+        errors("<script><!--/* a */--></script>"));
+    // Elsewhere in a script or style, "/*" is a comment in JavaScript and CSS.
+    parseOk("<script>/* a */</script><style>/* b */</style>");
   }
 
   private static String foreignMarkup(int col, String tag) {
