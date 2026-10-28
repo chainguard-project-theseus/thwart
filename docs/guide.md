@@ -81,7 +81,7 @@ but inside `|...|` and `+` a `null` prints `null`.
 | builds a view name, fragment name, message key or link path from strings | Conditionals between literals; link `{placeholders}`; a `Fragment` argument. |
 | evaluates a string as a template (`?eval`, `#evaluate`, `__${...}__`) | Not possible. Compute the value in Java. |
 | prints a string unescaped | Stored rich text: `t:utext="html.sanitize(article.text)"` (section 4.4). Markup built in Java: a `SafeHtml`. |
-| puts expressions in `style`, SVG `fill`/`stroke`/`mask`/... or `on*` | `t:style` (or `t:fill`, ...) with literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (section 4.4); otherwise `t:classappend`; `t:data-*` attributes read by a script. |
+| puts expressions in `style`, SVG `fill`/`stroke`/`mask`/... or `on*` | `t:style` (or `t:fill`, ...) with literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)`/`css.var(...)` (section 4.4); otherwise `t:classappend`; `t:data-*` attributes read by a script. |
 | includes a file, calls a macro or tag with a body, or extends a layout | A fragment call with `Fragment` arguments (section 4.8). |
 | binds a form through form tags or macros | `t:object`, `t:field`, `t:errors`, `fields.*` (section 4.7). |
 | posts a form back to the current URL by default | Write the `action` with `@{...}`, or put the URL in the model. |
@@ -906,8 +906,17 @@ string and return `null` for anything else, so user data such as a category colo
 them: `t:style="|background-color: ${css.color(category.color)}|"`. An invalid colour prints
 `background-color: null`, which the browser ignores as an invalid declaration; a `t:style` that is
 only a `null` value is omitted. Choices between literals work as before:
-`t:style="${soldOut} ? 'opacity:.5' : 'opacity:1'"`. `rgb(...)`, `var(...)` and other functions are
-not accepted; compute a hex colour in Java or use a class. For a background image such as an
+`t:style="${soldOut} ? 'opacity:.5' : 'opacity:1'"`. Besides hex and named colours, `css.color`
+accepts `rgb`, `rgba`, `hsl` and `hsla` with three or four numbers, each with an optional `%`,
+`deg`, `rad`, `grad` or `turn`, separated by commas (`rgb(0, 128, 255)`,
+`hsla(120deg, 50%, 50%, .5)`) or by spaces with the alpha after `/` (`rgb(0 128 255 / 50%)`). It
+writes them lower-cased, rebuilt from the numbers. `css.var(name)` (`CssValue.var`) takes a custom
+property name, `--` and an identifier of ASCII letters, digits and `-` not starting with a digit,
+and writes `var(--name)`: `t:style="|color: ${css.var(theme.accent)}|"`. Nothing else is
+accepted: no `calc(...)`, nested functions, keywords such as `none`, `var` fallbacks, comments,
+escapes, quotes, `;`, braces, `<`, `>` or `@`. With numbers in the model, write the function as a
+literal around them instead: `t:style="|color: rgb(${r}, ${g}, ${b})|"`. For anything else,
+compute a hex colour in Java or use a class. For a background image such as an
 uploaded avatar, `css.url(s)` (`CssValue.url`) writes `url("...")`:
 `t:style="|background: ${css.url(user.avatar)} no-repeat center|"`. The URL must be relative,
 protocol-relative (`//cdn/a.png`) or `http`/`https`; `data:`, `javascript:`, every other scheme,

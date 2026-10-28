@@ -14,7 +14,7 @@ import dev.tessera.runtime.TemplateFunctions;
 public final class Css {
   private Css() {}
 
-  /** {@link CssValue#color(String)}: {@code #rgb}, {@code #rrggbb}, a named colour, ... */
+  /** {@link CssValue#color(String)}: {@code #rgb}, {@code #rrggbb}, a named colour, {@code rgb(0, 128, 255)}, {@code hsl(...)}, ... */
   @TemplateFunction
   public static CssValue color(String s) {
     return CssValue.color(s);
@@ -30,5 +30,11 @@ public final class Css {
   @TemplateFunction
   public static CssValue url(String s) {
     return CssValue.url(s);
+  }
+
+  /** {@link CssValue#var(String)}: {@code var(--brand)} for the custom property name {@code --brand} (#429). */
+  @TemplateFunction
+  public static CssValue var(String name) {
+    return CssValue.var(name);
   }
 }
