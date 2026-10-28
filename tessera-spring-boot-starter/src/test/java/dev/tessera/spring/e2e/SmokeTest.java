@@ -142,6 +142,10 @@ class SmokeTest {
                     containsString(
                         "<input type=\"text\" id=\"lines0.due\" name=\"lines[0].due\" value=\"05.03.2024\" />")))
         .andExpect(content().string(containsString("id=\"lines1.due\" name=\"lines[1].due\" value=\"\"")))
+        // fields.value: the same display value, formatted through the BindingResult (#133).
+        .andExpect(content().string(containsString("<b class=\"due\">05.03.2024</b>")))
+        .andExpect(content().string(containsString("<b class=\"due\"></b>")))
+        .andExpect(content().string(not(containsString("due-error"))))
         .andExpect(content().string(not(containsString("class=\"error\""))))
         .andExpect(content().string(not(containsString("has-error"))));
   }
@@ -159,7 +163,10 @@ class SmokeTest {
         .andExpect(content().string(containsString("name=\"lines[1].due\" value=\"soon\"")))
         .andExpect(content().string(containsString("<div class=\"has-error\">")))
         .andExpect(content().string(containsString("<span class=\"error\">Name is required</span>")))
-        .andExpect(content().string(containsString("<span class=\"error\">Failed to convert")));
+        .andExpect(content().string(containsString("<span class=\"error\">Failed to convert")))
+        // fields.value is the rejected value, fields.errors(...).first the first error (#133).
+        .andExpect(content().string(containsString("<b class=\"due\">soon</b>")))
+        .andExpect(content().string(containsString("<i class=\"due-error\">Failed to convert")));
   }
 
   @Test

@@ -1036,7 +1036,17 @@ public record Address(String street) {}
   will get, without counting it (a label before its input), and `ids.seq('roles')` counts and
   returns a new one. The argument is the field name without `[` and `]`.
 - `t:errors` renders the field's messages escaped and joined by `<br />`, or removes the element
-  if there are none (`*` for all). For other markup, loop over `fields.errors('email')`.
+  if there are none (`*` for all). For other markup, loop over `fields.errors('email')`;
+  `fields.errors('email').first` is the first message (JSP `spring:bind`'s
+  `status.errorMessage`); `first` fails on an empty list, so guard it with
+  `t:if="fields.hasErrors('email')"`.
+- `fields.value('email')` is the field's display value, the String `t:field` writes: after a
+  failed bind the rejected value, otherwise the value formatted through the field's property
+  editor or conversion service (`@DateTimeFormat`), and `''` for null. This is JSP `spring:bind`'s
+  `status.value` (Spring's `BindStatus.getDisplayValue()`) and Thymeleaf's double-brace
+  `*{{email}}` inside `th:object`, which `tessera-migrate` rewrites to it. It is a String, so it
+  is escaped as usual. The field's type must not be on the deny-list, as for `t:field`, and `'*'` and `'global'`
+  have no value.
 - `global` instead of a path means the form object's own errors (`BindingResult.reject(...)`,
   a class-level constraint), without the fields' errors: `t:errors="*{global}"` (or
   `t:errors="global"`), `fields.hasErrors('global')`, `fields.errors('global')`. These are
@@ -1246,8 +1256,10 @@ the caller's `t:object`:
 ```
 
 The argument is a string literal (or a `Field` passed on) inside `t:object`. The form attributes
-and `fields.*` accept it; printing it writes the path. The fragment cannot read the field's value:
-pass it as another argument if needed.
+and `fields.*` accept it; printing it writes the path. The fragment reads the field's display
+value with `fields.value(name)` and its first error with `fields.errors(name).first` (under a
+`fields.hasErrors(name)` guard), as a JSP tag file does with `spring:bind`'s `status.value` and `status.errorMessage`: petclinic's "valid" icon
+is `t:if="${!fields.hasErrors(name) and !fields.value(name).isEmpty}"`.
 
 **Binding properties of a `Field`.** Declare the field's type, `Field<Criterion> c`, and the
 fragment can bind its properties: `t:field="c.answer"` binds `<c's path>.answer`, as JSP's
@@ -2197,9 +2209,12 @@ These come from the annotation processor itself, without a template position.
 - `t:errors can only be used inside t:object (on this element or an ancestor)`.
 - `t:errorclass needs literal class names (letters, digits, '-', '_'), e.g. t:errorclass="error"`.
 - `t:errorclass needs t:field on the same element`.
-- `unknown function fields.<fn>: the fields namespace has hasErrors('path') and errors('path')`:
+- `unknown function fields.<fn>: the fields namespace has hasErrors('path'), errors('path') and value('path')`:
   `#fields.hasAnyErrors()` → `fields.hasErrors('*')`, `#fields.allErrors()` → `fields.errors('*')`,
-  `#fields.hasGlobalErrors()` → `fields.hasErrors('global')`, `#fields.globalErrors()` → `fields.errors('global')`.
+  `#fields.hasGlobalErrors()` → `fields.hasErrors('global')`, `#fields.globalErrors()` → `fields.errors('global')`,
+  `*{{p}}` → `fields.value('p')`.
+- `fields.value takes a field path such as 'lastName', not '<keyword>': only a field has a value`:
+  `'*'` and `'global'` name errors, not a field.
 - `fields.<fn>(...) can only be used inside t:object, or with a Field parameter`.
 - `fields.<fn> takes one string literal (a field path such as 'lastName', '*' for all errors or 'global' for the form object's own), a field expression such as *{items[i].name}, or a Field parameter`.
 - `unknown function ids.<fn>: the ids namespace has seq('name'), next('name') and prev('name')`.
@@ -2282,8 +2297,8 @@ Gaps in Tessera today, each with what to do until it is fixed.
   on a `Boolean isX` field) is reachable only as `x.getIsX()`. `java.util.Date`/`Calendar` are not
   view-safe.
 - **Forms.** No map keys in paths (`map[key]`), no `t:field` that writes the value of a field
-  whose type is not view-safe (a file input is fine, section 4.7), and `Field` fragments cannot
-  read the value.
+  whose type is not view-safe (a file input is fine, section 4.7). A `Field` fragment reads the
+  value only as the display String (`fields.value(name)`).
 - **CSRF and other ways a form posts elsewhere.** The CSRF input is left out of a form whose
   `action` is on another origin, a submit button's `formaction` must be same-origin where it
   may submit a form with the token, and so must every `<base href>` (section 4.7). Not seen: a static htmx request attribute such
