@@ -147,6 +147,18 @@ public final class MessageCompiler {
                           + " to (name the default locale in -Atessera.messages, e.g. <base>_en, or add the key"
                           + " to the base file)"));
       ok = false;
+    } else if (bundle.isChecked()) {
+      Set<String> gaps = bundle.firstFallbackGaps(key);
+      if (!gaps.isEmpty()) {
+        env.diagnostics()
+            .warning(
+                message.pos(),
+                "message key '" + key + "' is only in the default locale's files, not in the base file or in "
+                    + String.join(", ", gaps) + " (or the files they fall back to): Spring Boot's default"
+                    + " ResourceBundleMessageSource falls back to the default locale only for a locale with no"
+                    + " file of its own, so it does not find the key in those locales"
+                    + " (ReloadableResourceBundleMessageSource does); add the key to them or to the base file");
+      }
     } else if (bundle.firstUncheckedUse(message.pos().file())) {
       env.diagnostics()
           .warning(

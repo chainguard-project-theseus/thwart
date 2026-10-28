@@ -11,6 +11,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -18,6 +19,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -30,23 +33,34 @@ import java.util.stream.Stream;
  * {@code .properties} (#134). A basename may carry a locale suffix, {@code messages_en}, meaning
  * basename {@code messages} with default locale {@code en}. For each basename the build loads
  * {@code <base>.properties} (if it exists) and every locale file beside it ({@code
- * <base>_fr.properties}, {@code <base>_pt_BR.properties}, ...; #236). A request in another locale
- * falls back to the default locale's file and then to the base file, so a key is known when it is
- * in the base file or the default locale's file of some basename; a locale file may leave keys out.
- * A message rendered as HTML is checked in every loaded file.
+ * <base>_fr.properties}, {@code <base>_pt_BR.properties}, ...; #236), named as Spring names them
+ * for a {@link Locale} (#271). A request in another locale falls back to the default locale's files
+ * ({@code _pt_BR}, then {@code _pt}) and then to the base file
+ * ({@code ReloadableResourceBundleMessageSource}), so a key is known when it is in the base file or
+ * one of the default locale's files of some basename; a locale file may leave keys out. Spring
+ * Boot's default {@code ResourceBundleMessageSource} falls back to the default locale only for a
+ * locale with no file of its own, so {@link #firstFallbackGaps} names the locale files where it
+ * would not find such a key. A message rendered as HTML is checked in every loaded file.
  */
 public final class MessageBundle {
   /**
-   * {@code _<language>[_<Script>][_<COUNTRY>|_<region>][_<variant>]}, the suffix of a locale file
-   * ({@code _zh_Hant_TW} is the JDK's name for Taiwan).
+   * {@code _<language>[_<Script>][_<COUNTRY>|_<region>]} or {@code
+   * _<language>[_<Script>](_<COUNTRY>|_<region>|_)_<variant>}, the suffix Spring and {@code
+   * ResourceBundle} give a locale file ({@code _zh_Hant_TW}, {@code _en__POSIX}). The language must
+   * be one {@link #LANGUAGES} knows.
    */
   private static final Pattern LOCALE_SUFFIX =
-      Pattern.compile("_[a-z]{2,3}(_[A-Z][a-z]{3})?(_[A-Z]{2}|_[0-9]{3})?(_[A-Za-z0-9]+)?");
+      Pattern.compile("_([a-z]{2,3})(_[A-Z][a-z]{3})?((_[A-Z]{2}|_[0-9]{3}|_)_[A-Za-z0-9]+|_[A-Z]{2}|_[0-9]{3})?");
 
   /** A trailing locale on a basename: {@code messages_en}, {@code messages_pt_BR}. */
   private static final Pattern NAMED_LOCALE = Pattern.compile("(.+?)_([a-z]{2})(_[A-Z]{2}|_[0-9]{3})?");
 
-  private static final Set<String> LANGUAGES = new HashSet<>(Arrays.asList(Locale.getISOLanguages()));
+  /**
+   * ISO 639 languages, the languages of the JVM's locales (three-letter ones such as {@code fil})
+   * and both forms of the codes Java 17 renamed, so a file such as {@code messages_faq.properties}
+   * is not taken for a locale.
+   */
+  private static final Set<String> LANGUAGES = languages();
 
   private static final String SUFFIX = ".properties";
 
@@ -55,25 +69,61 @@ public final class MessageBundle {
   /** Every loaded file (per basename: the base, the default locale, then locale files) to its entries. */
   private final Map<String, Map<String, String>> files;
   private final List<Path> skipped;
+  private final List<Bundle> bundles;
 
   private final Set<String> warnedFiles = new HashSet<>();
+  private final Set<String> warnedGaps = new HashSet<>();
 
-  private MessageBundle(Set<String> keys, String source, Map<String, Map<String, String>> files, List<Path> skipped) {
+  private MessageBundle(
+      Set<String> keys, String source, Map<String, Map<String, String>> files, List<Path> skipped, List<Bundle> bundles) {
     this.keys = keys;
     this.source = source;
     this.files = files;
     this.skipped = skipped;
+    this.bundles = bundles;
   }
 
   /** No bundle configured: keys are not checked. */
   public static MessageBundle unchecked() {
     return new MessageBundle(
-        null, null, Collections.<String, Map<String, String>>emptyMap(), Collections.<Path>emptyList());
+        null,
+        null,
+        Collections.<String, Map<String, String>>emptyMap(),
+        Collections.<Path>emptyList(),
+        Collections.<Bundle>emptyList());
   }
 
   /** The properties file for {@code basePath}: {@code basePath + ".properties"}. */
   public static Path file(Path basePath) {
     return Paths.get(basePath + SUFFIX);
+  }
+
+  private static Set<String> languages() {
+    Set<String> out = new HashSet<>(Arrays.asList(Locale.getISOLanguages()));
+    for (Locale l : Locale.getAvailableLocales()) {
+      if (!l.getLanguage().isEmpty()) {
+        out.add(l.getLanguage());
+      }
+    }
+    out.addAll(Arrays.asList("he", "id", "yi", "iw", "in", "ji"));
+    return out;
+  }
+
+  /**
+   * A locale file suffix and the ones a request in that locale falls back to, most specific first:
+   * {@code _pt_BR, _pt}; {@code _en__POSIX, _en}; {@code _zh_Hant_TW, _zh_Hant, _zh}.
+   */
+  private static List<String> chain(String suffix) {
+    List<String> out = new ArrayList<>();
+    String s = suffix;
+    while (!s.isEmpty()) {
+      out.add(s);
+      s = s.substring(0, s.lastIndexOf('_'));
+      while (s.endsWith("_")) {
+        s = s.substring(0, s.length() - 1);
+      }
+    }
+    return out;
   }
 
   /** A basename split into its base path and default locale ({@code null} when none is named). */
@@ -87,7 +137,16 @@ public final class MessageBundle {
     }
 
     Path defaultFile() {
-      return defaultLocale == null ? null : file(Paths.get(base + "_" + defaultLocale));
+      return defaultLocale == null ? null : localeFile("_" + defaultLocale);
+    }
+
+    Path localeFile(String suffix) {
+      return file(Paths.get(base + suffix));
+    }
+
+    /** The default locale's file and the files it falls back to before the base file. */
+    List<String> defaultChain() {
+      return defaultLocale == null ? Collections.<String>emptyList() : chain("_" + defaultLocale);
     }
 
     static Base parse(Path entry) {
@@ -98,6 +157,47 @@ public final class MessageBundle {
         return new Base(entry.resolveSibling(m.group(1)), locale);
       }
       return new Base(entry, null);
+    }
+  }
+
+  /** One loaded basename: its base file's entries (null when absent) and locale files by suffix. */
+  private static final class Bundle {
+    final Base base;
+    final Map<String, String> baseEntries;
+    final Map<String, Map<String, String>> locales;
+
+    Bundle(Base base, Map<String, String> baseEntries, Map<String, Map<String, String>> locales) {
+      this.base = base;
+      this.baseEntries = baseEntries;
+      this.locales = locales;
+    }
+
+    /**
+     * Whether {@code ResourceBundleMessageSource} finds {@code key} for a request in the locale of
+     * {@code suffix} (the base file aside): in the locale's own files if it has any, else in the
+     * default locale's.
+     */
+    boolean resolves(String suffix, String key) {
+      boolean own = false;
+      for (String s : chain(suffix)) {
+        Map<String, String> f = locales.get(s);
+        if (f != null) {
+          own = true;
+          if (f.containsKey(key)) {
+            return true;
+          }
+        }
+      }
+      if (own) {
+        return false;
+      }
+      for (String s : base.defaultChain()) {
+        Map<String, String> f = locales.get(s);
+        if (f != null && f.containsKey(key)) {
+          return true;
+        }
+      }
+      return false;
     }
   }
 
@@ -113,7 +213,7 @@ public final class MessageBundle {
     if (Files.isRegularFile(file(b.base))) {
       return null;
     }
-    List<Path> locales = localeFiles(b.base);
+    List<Path> locales = new ArrayList<>(localeFiles(b.base).values());
     if (locales.isEmpty()) {
       return "message bundle does not exist: " + file(b.base);
     }
@@ -136,45 +236,70 @@ public final class MessageBundle {
     Map<String, Map<String, String>> files = new LinkedHashMap<>();
     Set<String> keys = new HashSet<>();
     List<String> sources = new ArrayList<>();
-    Set<Path> loaded = new HashSet<>();
-    List<Base> bases = new ArrayList<>();
+    Map<Path, Map<String, String>> read = new HashMap<>();
+    List<Bundle> bundles = new ArrayList<>();
     for (Path entry : entries) {
       Base b = Base.parse(entry);
-      bases.add(b);
+      Map<String, Path> localeFiles = localeFiles(b.base);
+      Map<String, Map<String, String>> locales = new HashMap<>();
       // The files every locale falls back to: they define which keys exist.
-      for (Path f : Arrays.asList(file(b.base), b.defaultFile())) {
-        if (f != null && Files.isRegularFile(f) && loaded.add(f.toAbsolutePath().normalize())) {
-          Map<String, String> entriesOf = read(f);
-          files.put(f.toString(), entriesOf);
+      List<Path> fallback = new ArrayList<>();
+      fallback.add(file(b.base));
+      for (String s : b.defaultChain()) {
+        fallback.add(b.localeFile(s));
+      }
+      Map<String, String> baseEntries = null;
+      for (Path f : fallback) {
+        if (Files.isRegularFile(f)) {
+          Map<String, String> entriesOf = read(f, read, files);
           keys.addAll(entriesOf.keySet());
-          sources.add(f.toString());
+          if (!sources.contains(f.toString())) {
+            sources.add(f.toString());
+          }
+          if (f.equals(file(b.base))) {
+            baseEntries = entriesOf;
+          }
         }
       }
-      for (Path locale : localeFiles(b.base)) {
-        if (loaded.add(locale.toAbsolutePath().normalize())) {
-          files.put(locale.toString(), read(locale));
-        }
+      for (Map.Entry<String, Path> locale : localeFiles.entrySet()) {
+        locales.put(locale.getKey(), read(locale.getValue(), read, files));
       }
+      bundles.add(new Bundle(b, baseEntries, locales));
     }
+    Set<Path> loaded = read.keySet();
     List<Path> skipped = new ArrayList<>();
-    for (Base b : bases) {
-      for (Path p : list(b.base, "_")) {
+    for (Bundle bundle : bundles) {
+      for (Path p : list(bundle.base.base, "_")) {
         if (!loaded.contains(p.toAbsolutePath().normalize()) && !skipped.contains(p)) {
           skipped.add(p);
         }
       }
     }
-    return new MessageBundle(Backports.setCopy(keys), String.join(", ", sources), files, skipped);
+    return new MessageBundle(Backports.setCopy(keys), String.join(", ", sources), files, skipped, bundles);
   }
 
-  /** The locale files of {@code base}, sorted. */
-  private static List<Path> localeFiles(Path base) {
+  /** The entries of {@code file}, read once; the first read also adds it to {@code files}. */
+  private static Map<String, String> read(Path file, Map<Path, Map<String, String>> read, Map<String, Map<String, String>> files) {
+    Path key = file.toAbsolutePath().normalize();
+    Map<String, String> entries = read.get(key);
+    if (entries == null) {
+      entries = read(file);
+      read.put(key, entries);
+      files.put(file.toString(), entries);
+    }
+    return entries;
+  }
+
+  /** The locale files of {@code base} by suffix ({@code _fr}), sorted by file name. */
+  private static Map<String, Path> localeFiles(Path base) {
     String prefix = base.getFileName().toString();
-    List<Path> found = new ArrayList<>();
+    Map<String, Path> found = new LinkedHashMap<>();
     for (Path p : list(base, "")) {
       String name = p.getFileName().toString();
-      if (LOCALE_SUFFIX.matcher(name.substring(prefix.length(), name.length() - SUFFIX.length())).matches()) {
-        found.add(p);
+      String suffix = name.substring(prefix.length(), name.length() - SUFFIX.length());
+      Matcher m = LOCALE_SUFFIX.matcher(suffix);
+      if (m.matches() && LANGUAGES.contains(m.group(1))) {
+        found.put(suffix, p);
       }
     }
     return found;
@@ -263,6 +388,41 @@ public final class MessageBundle {
    */
   public List<Path> skipped() {
     return skipped;
+  }
+
+  /**
+   * For a known {@code key} that is in no base file, the first time it is asked: the locale files
+   * whose locale does not find it with Spring Boot's default {@code ResourceBundleMessageSource}
+   * (a request in a locale with a file of its own falls back to that file's parents and the base
+   * file, not to the default locale), by name; otherwise empty. {@code
+   * ReloadableResourceBundleMessageSource} finds the key in the default locale's files.
+   */
+  Set<String> firstFallbackGaps(String key) {
+    Set<String> gaps = new TreeSet<>();
+    if (!isChecked() || !keys.contains(key) || !warnedGaps.add(key)) {
+      return gaps;
+    }
+    Map<String, String> requests = new TreeMap<>(); // locale suffix -> a file of that locale
+    for (Bundle b : bundles) {
+      if (b.baseEntries != null && b.baseEntries.containsKey(key)) {
+        return gaps;
+      }
+      for (String suffix : b.locales.keySet()) {
+        if (!requests.containsKey(suffix)) {
+          requests.put(suffix, b.base.localeFile(suffix).getFileName().toString());
+        }
+      }
+    }
+    for (Map.Entry<String, String> r : requests.entrySet()) {
+      boolean found = false;
+      for (Bundle b : bundles) {
+        found |= b.resolves(r.getKey(), key);
+      }
+      if (!found) {
+        gaps.add(r.getValue());
+      }
+    }
+    return gaps;
   }
 
   /**
