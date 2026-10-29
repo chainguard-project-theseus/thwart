@@ -1,0 +1,9 @@
+# Ownership for the Checks review gate. One approval from dlorenc or from the
+# tessera Checks reviewer (bot:tessera, .chainguard/reviewers.yaml) passes the
+# gate for every path; the protected paths (reviewers files, prompt files,
+# AGENTS.md, CLAUDE.md and this file) still need a person.
+version: 1
+entries:
+  - pattern: "*"
+    owners: [dlorenc, 'bot:tessera']
+    gate: 1

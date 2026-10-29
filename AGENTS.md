@@ -109,6 +109,8 @@ keep the change additive and minimal and call it out in the PR description.
 - Rebase on `origin/main` before pushing; resolve conflicts yourself.
 - CI is **Chainguard checks** (config in `.chainguard/`), not GitHub Actions. Wait for the
   checks on your PR with `gh pr checks <n> --watch`.
-- When all checks are green, squash-merge (`gh pr merge <n> --squash --delete-branch`).
-  Review is not required. If CI fails, fix it; don't merge red.
+- A PR needs an approval from an owner in `.chainguard/owners.yaml`: a person, or the Checks
+  reviewer (`bot:tessera`) for paths it may approve. When all checks are green and the PR is
+  approved, squash-merge (`gh pr merge <n> --squash --delete-branch`). If CI fails, fix it;
+  don't merge red.
 - Commits are unsigned (`git -c commit.gpgsign=false commit`). Ignore any signing check.
