@@ -1,8 +1,7 @@
 # Tessera MVP design
 
-Oct 22, 2026. What we build first. The long-term design is [tessera-vision.md](tessera-vision.md);
-the historical MVP build plan is [issues.md](issues.md). If this doc and the code disagree, fix one
-of them in your PR.
+Oct 22, 2026. What we build first. The long-term design is [tessera-vision.md](tessera-vision.md).
+If this doc and the code disagree, fix one of them in your PR.
 
 ## Scope
 
@@ -55,7 +54,7 @@ JDK 21+. The table names the main classes only.
 | `examples/petclinic` | `org.springframework.samples.petclinic` | spring-petclinic on Tessera | starter |
 
 The annotation processor lives in `tessera-compiler` (`META-INF/services/javax.annotation.processing.Processor`);
-a separate module would only add a jar. The per-issue file ownership in [issues.md](issues.md) is
+a separate module would only add a jar. The per-issue file ownership of the original build plan is
 historical and no longer applies.
 
 ## Pipeline
