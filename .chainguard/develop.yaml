@@ -1,0 +1,25 @@
+# The environment a `chainctl develop` session on tessera opens on. CI never
+# reads this file. It starts from maven.yaml's environment, so the JDKs (21
+# and the JDK 8 that Jdk8ProcessorTest needs), Maven and the variables match
+# what the verify check builds with, and adds the tools a person works with.
+# The Maven repository (~/.m2) and target/ directories persist for the
+# session's life.
+version: 1
+
+from: .chainguard/ci/maven.yaml
+
+environment:
+  packages:
+    - apk-tools
+    - busybox
+    - findutils
+    - diffutils
+    - grep
+    - sed
+    - ripgrep
+    - less
+    - gh
+
+# A full `mvn -B verify` (CI runs it on medium) with room for parallel
+# module builds.
+resources: large
