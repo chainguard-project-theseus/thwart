@@ -88,7 +88,7 @@ From [security-architecture.md](security-architecture.md) §7 (accepted Oct 24, 
 
 ## Mechanics
 
-- Remotes: `origin` is `wolfi-dev/tessera` (private), `fork` is `dlorenc/tessera`. Push to the
+- Remotes: `origin` is `wolfi-dev/tessera`, `fork` is `dlorenc/tessera`. Push to the
   fork and open PRs against origin.
 - CI is Chainguard Checks (`.chainguard/ci/maven.yaml`), not GitHub Actions.
   - Wait on PRs with `gh pr checks <n> --repo wolfi-dev/tessera --watch`; the check to watch

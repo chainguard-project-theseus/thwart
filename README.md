@@ -160,7 +160,7 @@ Ask Claude Code to move an app's views to Tessera, or run `/tessera:migrate`. In
 repo's marketplace:
 
 ```sh
-claude plugin marketplace add wolfi-dev/tessera   # private repo: needs git access (gh auth setup-git)
+claude plugin marketplace add wolfi-dev/tessera
 claude plugin install tessera@tessera
 ```
 
@@ -232,4 +232,3 @@ original app, and a check that security wasn't weakened. See
 - [docs/tessera-vision.md](docs/tessera-vision.md): long-term design
 - [docs/strategy.md](docs/strategy.md): the secure-by-design library portfolio
 - [AGENTS.md](AGENTS.md): rules for contributors, human or agent; [docs/handoff.md](docs/handoff.md): how the work is orchestrated
-- [docs/research.md](docs/research.md) (research memo) and [docs/issues.md](docs/issues.md) (MVP build plan): historical

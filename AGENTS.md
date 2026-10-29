@@ -1,6 +1,6 @@
 # AGENTS.md — read this before touching code
 
-This repo prototypes **Tessera**, a compiled, safe-by-design successor to Thymeleaf, the
+This repo is **Tessera**, a compiled, safe-by-design successor to Thymeleaf, the
 pilot of Chainguard's secure-by-design library portfolio.
 
 - Strategy: [docs/strategy.md](docs/strategy.md)
@@ -47,7 +47,7 @@ verifier of #364, simplified under #405 ([docs/security-architecture.md](docs/se
 
 ## Keep it simple
 
-This is an MVP built tonight. Prefer the smallest thing that is correct and secure.
+Tessera is young and pre-release. Prefer the smallest thing that is correct and secure.
 
 - A security fix that adds a special case to the parser or context table is a smell. A parser
   differential or composition bug is fixed in the build-time verifier or its test cases
