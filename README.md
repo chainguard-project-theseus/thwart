@@ -232,3 +232,8 @@ original app, and a check that security wasn't weakened. See
 - [docs/tessera-vision.md](docs/tessera-vision.md): long-term design
 - [docs/strategy.md](docs/strategy.md): the secure-by-design library portfolio
 - [AGENTS.md](AGENTS.md): rules for contributors, human or agent; [docs/handoff.md](docs/handoff.md): how the work is orchestrated
+
+## License
+
+Tessera is licensed under the [Apache License, Version 2.0](LICENSE). [NOTICE](NOTICE) lists the
+third-party material the repository and its artifacts contain.
