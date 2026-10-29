@@ -133,16 +133,16 @@ Severity is about the compiler, not the author.
 
 ## 7. Assumptions the proofs make
 
-The Lean model of T1 (tcnghia/harder#16) and the OpenJML proofs (rule functions on
-tcnghia/harder#18 and fork branches; escapers on tcnghia/harder#11) are on forks, not upstream.
+The Lean model of T1 and the OpenJML proofs (of the rule functions and the escapers) are not
+published in this repository.
 Where they are cited in context-model.md, they rely on these assumptions, which are part of this
 threat model:
 
 | Assumption | Why it matters |
 |---|---|
 | Browsers follow the WHATWG tokenizer for the states the profile reaches | Lean checks its tokenizer model against the html5lib tokenizer tests and the WPT tree tests; real browsers are checked only by the PRs' manual runs and the Node job (#345), which runs over a fixture until #324 |
-| The escapers meet their postconditions (`htmlTextSafe`, `htmlSafe`, `jsonScriptSafe`) | Proved for strings on tcnghia/harder#11; JSON numbers, booleans and structures are assumed |
-| The generated code calls the escaper the context table names | Tested by the generated-code checker (tcnghia/harder#15), not proved (G7) |
+| The escapers meet their postconditions (`htmlTextSafe`, `htmlSafe`, `jsonScriptSafe`) | Proved for strings (unpublished); JSON numbers, booleans and structures are assumed |
+| The generated code calls the escaper the context table names | Tested by a generated-code checker (unpublished), not proved (G7) |
 | Scripting is enabled, for the `noscript` proof | With scripting disabled, `noscript` content is markup; the profile's rules are argued safe for both readings, but only one is proved |
 | Tree construction (implied end tags, nested `form`) doesn't move a hole into another context | Not modeled in Lean; checked per template by the verifier (#367). Error recovery (foster parenting, reconstruction, misnesting) is rejected, not checked (#406). Watched by the oracle (#344) |
 | The pinned parser (current upstream htmlparser) reads error-free markup outside the exclusions as browsers do | The verifier's guarantee is relative to it. The exclusions cover the known splits (§7.1); the nightly detector (#399, not yet on `main`) is to compare it with parse5, Chromium, Firefox and WebKit on the accepted cases it exports |
