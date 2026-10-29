@@ -480,7 +480,7 @@ author's call; the actions below are what we recommend to them.
 
 This section supersedes §4 (b) ("no in main code"), and it supersedes §5 as the security argument
 for families A and B. §11.7 says what happens to each part of §5. Tracker: #364. The research
-memo and prototype are on local branch `research-systemic` (456680e, 05c4d7f).
+memo and prototype are not published.
 
 **Simplified Oct 25, 2026 (#404, tracker #405).** An independent architecture review found that
 the verifier tried to accept every spec-safe template, including markup that parses only through
