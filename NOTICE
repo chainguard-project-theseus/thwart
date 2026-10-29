@@ -1,0 +1,83 @@
+Tessera
+Copyright (c) Chainguard, Inc.
+
+This product is licensed under the Apache License, Version 2.0 (LICENSE).
+It contains, bundles or is derived in part from the third-party material
+listed below, each under its own licence. Tessera's compiler, runtime and
+Spring starters are written for Tessera; they follow Thymeleaf's template
+syntax for compatibility but contain no Thymeleaf source code.
+
+--------------------------------------------------------------------------
+validator.nu htmlparser (MIT; shaded into tessera-compiler)
+
+  tessera-html5/ (build) -> tessera-compiler jar,
+  package dev.tessera.compiler.internal.html5.current
+
+tessera-html5 fetches the htmlparser sources from
+nu.validator:validator:26.10.12 (Maven Central, pinned by SHA-256),
+renames their packages and compiles them; tessera-compiler shades the
+result into its jar for the build-time verifier. The sources are not
+checked into this repository. The licence text ships in the jar as
+META-INF/LICENSE-validator-htmlparser-26.10.12.txt.
+
+  Copyright (c) 2005-2007 Henri Sivonen
+  Copyright (c) 2007-2023 Mozilla Foundation
+  Portions of comments Copyright 2004-2010 Apple Computer, Inc., Mozilla
+  Foundation, and Opera Software ASA.
+
+--------------------------------------------------------------------------
+attoparser (Apache-2.0; bundled into the tessera-migrate jar)
+
+  Copyright (c) The ATTOPARSER team (https://www.attoparser.org)
+
+--------------------------------------------------------------------------
+jsoup (MIT; bundled into the tessera-migrate jar)
+
+  Copyright (c) 2009-present Jonathan Hedley <https://jsoup.org/>
+
+--------------------------------------------------------------------------
+Spring PetClinic (Apache-2.0; example only)
+
+  examples/petclinic/
+  tessera-migrate/src/test/resources/golden/petclinic/ (test-only)
+  tessera-migrate/src/test/resources/golden/spring-petclinic-boot/ (test-only)
+
+Code, templates and resources from
+https://github.com/spring-projects/spring-petclinic, with modifications.
+Copyright 2002-2025 the original author or authors.
+examples/petclinic/NOTICE and examples/petclinic/LICENSE.txt describe the
+import and the changes.
+
+--------------------------------------------------------------------------
+html5lib-tests (MIT; test-only)
+
+  tessera-compiler/src/test/resources/verify/engine/html5lib-sample.dat
+
+A sample of the tree-construction inputs from
+https://github.com/html5lib/html5lib-tests.
+Copyright (c) 2006-2013 James Graham, Geoffrey Sneddon, and other
+contributors.
+
+--------------------------------------------------------------------------
+Application templates used as converter test inputs (test-only)
+
+  tessera-migrate/src/test/resources/golden/<app>/
+
+Reduced excerpts of templates from open-source applications, used as
+inputs and expected outputs of tessera-migrate's converter tests. They are
+not part of any Tessera artifact.
+
+  fredbet         https://github.com/fred4jupiter/fredbet (MIT)
+  ewp-registry    https://github.com/erasmus-without-paper/ewp-registry-service (MIT)
+  luckyblog       https://github.com/MSUNorg/luckyBlog (Apache-2.0)
+  purl-server     https://github.com/ubrostock/purl_server (Apache-2.0)
+  jobsearch       https://github.com/AscelOttaku/JobSearch
+
+--------------------------------------------------------------------------
+Migration benchmark results (bench/migration/results/)
+
+The benchmark's recorded runs include diffs (diff.patch) and rendered-page
+comparisons of third-party applications migrated by an agent. Their
+context and removed lines are those applications' source, under each
+application's own licence; bench/migration/apps/<app>/app.json names the
+repository and commit. They are not part of any Tessera artifact.
