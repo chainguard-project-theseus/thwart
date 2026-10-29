@@ -231,5 +231,17 @@ original app, and a check that security wasn't weakened. See
 - [docs/mvp-design.md](docs/mvp-design.md): how the compiler, runtime and starter work
 - [docs/tessera-vision.md](docs/tessera-vision.md): long-term design
 - [docs/strategy.md](docs/strategy.md): the secure-by-design library portfolio
-- [AGENTS.md](AGENTS.md): rules for contributors, human or agent; [docs/handoff.md](docs/handoff.md): how the work is orchestrated
+- [AGENTS.md](AGENTS.md): rules for maintainers, human or agent ([CONTRIBUTING.md](CONTRIBUTING.md) is the summary); [docs/handoff.md](docs/handoff.md): how the work is orchestrated
 - [docs/research.md](docs/research.md) (research memo) and [docs/issues.md](docs/issues.md) (MVP build plan): historical
+
+## Status and contributing
+
+We're building Tessera in the open at Chainguard. We don't publish it to
+any package registry; it ships only from Chainguard's own repositories.
+
+We don't accept pull requests from external contributors. If you and your
+organization would seriously like to get involved, email
+dlorenc@chainguard.dev.
+
+Use of the Tessera and Chainguard names is governed by Chainguard's
+trademark policy.
