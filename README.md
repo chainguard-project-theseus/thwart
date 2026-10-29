@@ -245,3 +245,8 @@ dlorenc@chainguard.dev.
 
 Use of the Tessera and Chainguard names is governed by Chainguard's
 trademark policy.
+
+## License
+
+Tessera is licensed under the [Apache License, Version 2.0](LICENSE). [NOTICE](NOTICE) lists the
+third-party material the repository and its artifacts contain.

@@ -11,6 +11,14 @@
   <name>Tessera</name>
   <description>Compiled, safe-by-design successor to Thymeleaf.</description>
 
+  <licenses>
+    <license>
+      <name>Apache-2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
   <modules>
     <module>tessera-runtime</module>
     <!-- Build only: the verifier's spec HTML parsers, shaded into tessera-compiler (#365). -->
