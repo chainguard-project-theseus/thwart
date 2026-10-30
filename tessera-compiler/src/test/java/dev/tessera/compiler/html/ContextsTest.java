@@ -139,6 +139,26 @@ class ContextsTest {
     "div, ng_if, EVENT_HANDLER",
     "div, data-ng-click, EVENT_HANDLER",
     "div, x-ng-click, EVENT_HANDLER",
+    // AngularJS strips one x or data prefix followed by :, - or _, then a leading run of them
+    "div, data:ng-click, EVENT_HANDLER",
+    "div, data_ng-click, EVENT_HANDLER",
+    "div, x:ng-click, EVENT_HANDLER",
+    "div, x_ng-click, EVENT_HANDLER",
+    "div, DATA:ng-click, EVENT_HANDLER",
+    "div, X_NG_bind, EVENT_HANDLER",
+    "div, data-ng:bind, EVENT_HANDLER",
+    "div, :data_ng-click, EVENT_HANDLER",
+    "div, v-bind:x_ng-click, EVENT_HANDLER",
+    "div, data--ng-click, EVENT_HANDLER",
+    "div, data-_ng-click, EVENT_HANDLER",
+    "div, data-:ng-click, EVENT_HANDLER",
+    "div, _ng-click, EVENT_HANDLER",
+    "div, x__ng_bind, EVENT_HANDLER",
+    // what AngularJS reads as dataNgClick, xngClick or ng is not a directive
+    "div, data-data-ng-click, ATTRIBUTE",
+    "div, data-xng-click, ATTRIBUTE",
+    "div, data-ng, ATTRIBUTE",
+    "div, data-ngx, ATTRIBUTE",
     "div, data-bind, EVENT_HANDLER",
     "my-component, params, EVENT_HANDLER",
     "my-component, PARAMS, EVENT_HANDLER",
@@ -333,6 +353,10 @@ class ContextsTest {
     Element div = element("div");
     assertEquals(true, Contexts.isUnknownName(div, "up-on-loaded"));
     assertEquals(true, Contexts.isUnknownName(div, "hx-action"));
+    assertEquals(true, Contexts.isUnknownName(div, "data:foo"));
+    assertEquals(true, Contexts.isUnknownName(div, "data_ngx"));
+    assertEquals(false, Contexts.isUnknownName(div, "data:ng-click"));
+    assertEquals(false, Contexts.isUnknownName(div, "x_ng-click"));
     assertEquals(false, Contexts.isUnknownName(div, "title"));
     assertEquals(false, Contexts.isUnknownName(div, "data-x"));
     assertEquals(false, Contexts.isUnknownName(div, "hx-boost"));

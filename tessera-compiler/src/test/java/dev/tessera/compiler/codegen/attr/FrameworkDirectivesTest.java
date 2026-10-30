@@ -104,6 +104,48 @@ class FrameworkDirectivesTest {
         c.render("t", Map.of("s", "\");alert(1)//")));
   }
 
+  /**
+   * AngularJS's {@code directiveNormalize} strips one {@code x} or {@code data} prefix followed
+   * by {@code :}, {@code -} or {@code _}, then a leading run of those separators, so each of these
+   * names is {@code ngClick} (or {@code ngInit}) to it: a build error, as a computed attribute and
+   * as the target of a Vue or Alpine binding, whose JSON value Vue would write into it.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "data:ng-click", "data_ng-click", "x:ng-click", "x_ng-click", "DATA:ng-click", "X_NG-CLICK",
+        "Data_Ng:click", "data--ng-click", "data-_ng-click", "data-:ng-click", "_ng-click", "x_-ng_init",
+      })
+  void angularPrefixSpellingsAreBuildErrors(String name) {
+    compile("<p t:" + name + "=\"s\">x</p>")
+        .assertError("t.html:1:", "t:" + name + " is not allowed", "AngularJS", "run as JavaScript");
+    compile("<p t:attr=\"" + name + "=s\">x</p>").assertError("t.html:1:", "t:attr " + name, "run as JavaScript");
+    if (name.indexOf(':') < 0) {
+      compile("<p t::" + name + "=\"s\">x</p>").assertError("t.html:1:", "t::" + name + " is not allowed");
+      compile("<p t:v-bind:" + name + "=\"s\">x</p>").assertError("t.html:1:", "t:v-bind:" + name + " is not allowed");
+    }
+  }
+
+  /**
+   * Names AngularJS does not read as {@code ng} directives keep their treatment: static
+   * {@code data:foo} is copied, {@code data-*} names whose rest is not {@code ng} plus a separator
+   * take expressions, and a binding may target {@code data_foo}.
+   */
+  @Test
+  void otherPrefixedNamesStayOrdinary() {
+    Compilation c =
+        compile("<p data:foo=\"a\" x_foo=\"b\" data:ng-click=\"go()\">x</p>"
+                + "<p t:data-data-ng-click=\"s\" t:data-xng-click=\"s\" t:data-ngx=\"s\">y</p>"
+                + "<p t::data_foo=\"s\">z</p>")
+            .assertSuccess();
+    assertEquals(
+        "<div><p data:foo=\"a\" x_foo=\"b\" data:ng-click=\"go()\">x</p>"
+            + "<p data-data-ng-click=\"go()\" data-xng-click=\"go()\" data-ngx=\"go()\">y</p>"
+            + "<p :data_foo=\"&quot;go()&quot;\">z</p></div>",
+        c.render("t", Map.of("s", "go()")));
+    compile("<p t:data:foo=\"s\">x</p>").assertError("t.html:1:", "'data:foo' is not a known attribute", "data-data:foo");
+  }
+
   // ------------------------------------------------------------- htmx request URLs (#249)
 
   private static final String[] HTMX_REQUESTS = {

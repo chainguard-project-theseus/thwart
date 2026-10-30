@@ -342,8 +342,8 @@ public final class ContextCheck {
   /**
    * Framework attributes whose value is evaluated as code (with or without a {@code data-} prefix):
    * htmx {@code hx-on*} and {@code hx-vals}/{@code hx-vars}/{@code hx-headers}/{@code hx-request}
-   * ({@code js:} values), {@code hx-trigger} ({@code [filter]}); AngularJS {@code ng-}/{@code ng:}/
-   * {@code ng_}; _hyperscript {@code script}.
+   * ({@code js:} values), {@code hx-trigger} ({@code [filter]}); _hyperscript {@code script}.
+   * AngularJS directives are {@link #angularDirective}.
    */
   private static final Set<String> CODE_UNPREFIXED =
       Set.of("hx-vals", "hx-vars", "hx-headers", "hx-request", "hx-trigger", "script");
@@ -367,8 +367,8 @@ public final class ContextCheck {
    * the {@code content} of a refresh {@code <meta>} (a
    * navigation: only REFRESH is correct there), or a client-framework attribute evaluated as code:
    * Vue/petite-vue {@code v-*} and {@code : @ # .} shorthands, Alpine {@code x-*}, Knockout
-   * {@code data-bind} and custom-element {@code params}, _hyperscript {@code _}, and
-   * {@link #CODE_UNPREFIXED}.
+   * {@code data-bind} and custom-element {@code params}, _hyperscript {@code _}, AngularJS
+   * {@link #angularDirective directives}, and {@link #CODE_UNPREFIXED}.
    */
   static boolean plainAttribute(Element element, String attribute) {
     String a = attribute.toLowerCase(Locale.ROOT);
@@ -384,7 +384,32 @@ public final class ContextCheck {
         || a.startsWith("v-") || a.startsWith("x-") || a.equals("data-bind") || a.equals("_")
         || (a.equals("params") && el.indexOf('-') >= 0)
         || unprefixed.startsWith("hx-on") || CODE_UNPREFIXED.contains(unprefixed)
-        || unprefixed.startsWith("ng-") || unprefixed.startsWith("ng:") || unprefixed.startsWith("ng_"));
+        || angularDirective(a));
+  }
+
+  /** AngularJS 1.8.3 {@code PREFIX_REGEXP} (src/ng/compile.js line 4247). */
+  private static final Pattern NG_PREFIX = Pattern.compile("^(?:x|data)[:\\-_]");
+
+  /** AngularJS 1.8.3 {@code SPECIAL_CHARS_REGEXP} (src/ng/compile.js line 4248). */
+  private static final Pattern NG_SPECIAL_CHARS = Pattern.compile("[:\\-_]+(.)");
+
+  /**
+   * Whether AngularJS reads attribute {@code lower} (lower-cased, as AngularJS lower-cases it) as
+   * an {@code ng} directive: AngularJS 1.8.3 {@code directiveNormalize} (src/ng/compile.js lines
+   * 4254-4260) removes one {@link #NG_PREFIX}, then replaces each run of {@link #NG_SPECIAL_CHARS}
+   * and the character after it by that character, upper-cased except at the start; a directive
+   * name is {@code ng} and an upper-case letter ({@code ngClick}).
+   */
+  private static boolean angularDirective(String lower) {
+    Matcher m = NG_SPECIAL_CHARS.matcher(NG_PREFIX.matcher(lower).replaceFirst(""));
+    StringBuilder normalized = new StringBuilder();
+    while (m.find()) {
+      String letter = m.group(1);
+      m.appendReplacement(normalized, Matcher.quoteReplacement(m.start() == 0 ? letter : letter.toUpperCase(Locale.ROOT)));
+    }
+    m.appendTail(normalized);
+    return normalized.length() > 2 && normalized.charAt(0) == 'n' && normalized.charAt(1) == 'g'
+        && Character.isUpperCase(normalized.charAt(2));
   }
 
   /** The {@code content} of an HTML {@code <meta>} whose {@code http-equiv} is {@code refresh}. */

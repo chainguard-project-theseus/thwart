@@ -225,6 +225,14 @@ class ContextCheckTest {
     assertMismatch("<p data-hx-trigger=\"" + attr(FP) + "\">x</p>", "@data-hx-trigger");
     assertMismatch("<p _=\"" + attr(FP) + "\">x</p>", "@_");
     assertMismatch("<p ng:click=\"" + attr(FP) + "\">x</p>", "@ng:click");
+    // AngularJS strips one x or data prefix and a run of : - _, so each of these is ngClick
+    assertMismatch("<p data--ng-click=\"" + attr(FP) + "\">x</p>", "@data--ng-click");
+    assertMismatch("<p data_ng-click=\"" + attr(FP) + "\">x</p>", "@data_ng-click");
+    assertMismatch("<p x:ng-click=\"" + attr(FP) + "\">x</p>", "@x:ng-click");
+    assertMismatch("<p _ng-click=\"" + attr(FP) + "\">x</p>", "@_ng-click");
+    assertMismatch("<p :data_ng-click=\"" + jsonAttr(FP) + "\">x</p>", "@:data_ng-click");
+    assertClean("<p data-data-ng-click=\"" + attr(FP) + "\" data-ngx=\"" + attr(FP) + "\">x</p>");
+    assertClean("<p :data_foo=\"" + jsonAttr(FP) + "\">x</p>");
     assertMismatch("<x-c params=\"" + attr(FP) + "\">x</x-c>", "@params");
     assertMismatch("<script type=\"" + attr(FP) + "\"></script>", "@type");
     assertMismatch("<meta http-equiv=\"refresh\" content=\"0;url=/?q=" + attr(FP) + "\">", "@content");
