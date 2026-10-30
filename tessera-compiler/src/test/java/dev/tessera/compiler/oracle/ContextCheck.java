@@ -359,10 +359,24 @@ public final class ContextCheck {
 
   private static final Set<String> SVG_ANIMATIONS = Set.of("animate", "set", "animateMotion", "animateTransform", "animateColor");
 
+  /** The attributes of an SVG animation element that hold the values it sets. */
+  private static final Set<String> ANIMATION_VALUES = Set.of("values", "to", "from", "by");
+
+  /**
+   * Whether an SVG animation element sets one of the {@link #SVG_URL_PROPERTIES}: its values are
+   * then that CSS. SVG matches {@code attributeName} exactly; ignoring case and a prefix is the
+   * fail-closed superset.
+   */
+  private static boolean animatesCss(Element element) {
+    String target = element.getAttribute("attributeName").strip().toLowerCase(Locale.ROOT);
+    return SVG_URL_PROPERTIES.contains(target.substring(target.lastIndexOf(':') + 1));
+  }
+
   /**
    * An attribute an entity-escaped string is correct in. Not: an event handler (every WHATWG event
    * handler content attribute starts with {@code on}; the prefix is the fail-closed superset),
-   * {@code style} and the {@link #SVG_URL_PROPERTIES} of an SVG element (CSS), {@code srcdoc}, a
+   * {@code style} and the {@link #SVG_URL_PROPERTIES} of an SVG element (CSS), the values of an SVG animation
+   * of one of them (CSS) and an animation's {@code attributeName} (it decides what they are), {@code srcdoc}, a
    * {@code <script type>} or {@code <meta http-equiv>} (they decide how other content is read),
    * the {@code content} of a refresh {@code <meta>} (a
    * navigation: only REFRESH is correct there), or a client-framework attribute evaluated as code:
@@ -380,6 +394,8 @@ public final class ContextCheck {
         || isRefreshContent(element, attribute)
         || (SVG.equals(element.getNamespaceURI()) && SVG_URL_PROPERTIES.contains(a)
             && !(a.equals("fill") && SVG_ANIMATIONS.contains(el)))
+        || (SVG.equals(element.getNamespaceURI()) && SVG_ANIMATIONS.contains(el)
+            && (a.equals("attributename") || (ANIMATION_VALUES.contains(a) && animatesCss(element))))
         || a.startsWith(":") || a.startsWith("@") || a.startsWith("#") || a.startsWith(".")
         || a.startsWith("v-") || a.startsWith("x-") || a.equals("data-bind") || a.equals("_")
         || (a.equals("params") && el.indexOf('-') >= 0)

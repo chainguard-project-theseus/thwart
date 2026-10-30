@@ -244,6 +244,12 @@ class ContextCheckTest {
     assertClean("<svg><rect><animateTransform fill=\"" + attr(FP) + "\"/><animateMotion fill=\"" + attr(FP) + "\"/></rect></svg>");
     assertMismatch("<svg><rect><animate stroke=\"" + attr(FP) + "\"/></rect></svg>", "@stroke");
     assertClean("<p fill=\"" + attr(FP) + "\">x</p>");
+    // An animation of one of them sets CSS: its values are CSS too, and its attributeName decides that.
+    assertMismatch("<svg><rect><animate attributeName=\"fill\" values=\"" + attr(FP) + "\"/></rect></svg>", "@values");
+    assertMismatch("<svg><rect><set attributeName=\"MASK\" to=\"" + attr(FP) + "\"/></rect></svg>", "@to");
+    assertMismatch("<svg><rect><animate attributeName=\"" + attr(FP) + "\"/></rect></svg>", "animate[svg]/@attribute");
+    assertClean("<svg><a><set attributeName=\"href\" to=\"" + attr(FP) + "\"/></a></svg>");
+    assertClean("<svg><rect><animate attributeName=\"opacity\" values=\"" + attr(FP) + "\"/></rect></svg>");
     // A query-encoded link value is still entity-escaped: wrong in an event handler.
     String query = new DefaultLinks("").build("/", new String[] {"q"}, new Object[] {FP});
     assertTrue(query.contains("%3C'"), query);
