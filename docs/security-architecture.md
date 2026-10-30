@@ -252,9 +252,28 @@ hole is decidable without a JS parser:
   and U+2028/U+2029 are build errors before the last hole. Without `/` and template literals, JS
   tokenization is context-free, so this lexer is exact, not heuristic.
 - Each hole must be in **expression position**: not inside a string or comment token. `"[[x]]"`
-  is an error with a fix-it, and `tessera-migrate` unquotes it (#287).
-- After the last hole, anything goes. The value is a complete JSON token sequence, so code after
-  it can't change how it parses.
+  is an error with a fix-it, and `tessera-migrate` unquotes it (#287). The value must also be an
+  operand of the code around it. The token before the hole (skipping whitespace, comments and
+  line breaks) must be one after which an operand starts: `(`, `[`, `,`, `?`, `:`, an assignment
+  or binary operator, `+ - ! ~`, `...`, one of `return typeof void delete new in instanceof case
+  throw else do`, or `of` as the keyword of a `for (...)` head: after `]`, `}` or a binding name, an
+  allow-list, since after `instanceof`, `extends`, `yield` and other reserved words `of` is an
+  identifier. So `globalThis[[${l}]]`, `x[[${n}]]`,
+  `o.[[${b}]]`, `f()[[${l}]]`, `{[[${s}]]: 1}` and `[[${a}]][[${b}]]` are errors: the value
+  would pick a property, extend a name or merge with the value before it. A word or `-` right
+  before the hole needs a space (`return[[${n}]]` would be `return5`), and a word followed by a
+  line break is an error: a reserved word is also a class field name, and ASI would end the field
+  there (`class A { in\n[[${l}]] = f }`). The hole may not be followed directly by an identifier
+  character or by a `.` that doesn't start a property name (`[[${n}]]e3`, `[[${n}]].5`), nor,
+  after whitespace or comments, by `(`, a backtick, `?.(` or `` ?.` `` (a call), or by `:` after a
+  `,` (an object key). A hole that starts a statement (at the start of the script or
+  after `;`) is an error unless only a `;` follows it: a string there would be a `"use strict"`
+  directive, and in a class body a list would be a computed field name.
+- After the last hole, anything else goes except `-->`: at the start of a line it is an Annex B
+  comment that would hide the token after a value from the checks above, and that code isn't
+  lexed, so `-->` after the last hole is an error even in a string or comment. The value is a
+  complete JSON token sequence in operand position, and the checks above cover the tokens next to
+  it.
 - No holes in `<svg><script>`: browsers decode character references and parse markup there.
 - JSON strings also escape `{` as `{` (#303's cheap part), so petite-vue can't interpolate
   a value in script text.

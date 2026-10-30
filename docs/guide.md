@@ -2244,12 +2244,48 @@ These come from the annotation processor itself, without a template position.
   or a regular expression?), a backtick (a template literal, `${...}` included), `-->`, `#!` or
   `<!` (HTML-like and hashbang comments; a negative value after `<!-` would make `<!--`), a
   backslash line continuation in a string, or U+2028/U+2029. After the last `[[...]]` anything
-  goes. The usual shape, data first and code after it, compiles unchanged:
-  `var chart = [[${chart}]]; $(function () { ... })`. Otherwise move the declarations up, or put
-  the data in `<script type="application/json" id="data">[[${data}]]</script>` and read it with
+  goes except `-->` (entry after next), but each `[[...]]` must be in expression position (next entry). The usual shape,
+  data first and code after it, compiles unchanged: `var chart = [[${chart}]]; $(function () { ... })`.
+  Otherwise move the declarations up, or put the data in `<script type="application/json" id="data">[[${data}]]</script>` and read it with
   `JSON.parse(document.getElementById('data').textContent)`. A pattern built from a value
   (`/[[${x}]]/`) becomes `var p = [[${x}]];` first and `new RegExp(p)` after it. `tessera-migrate`
   reports these scripts.
+- `[[...]] in a <script> must be in expression position, <why>: its value would change what the code around it means. Declare the value first (var v = [[...]];) and use v`:
+  the value of a `[[...]]` must be an operand of the code around it (security-architecture.md
+  §5.4). `<why>` names the problem:
+  - The token before it, skipping whitespace, comments and line breaks, must be one after which
+    an operand starts: `(`, `[`, `,`, `?`, `:`, an assignment or binary operator, `+ - ! ~`,
+    `...`, `return`, `typeof`, `void`, `delete`, `new`, `in`, `instanceof`, `case`, `throw`,
+    `else`, `do`, or `of` as the keyword of a `for (...)` head (after `]`, `}` or a binding name).
+    After an identifier, a number, a string, another `[[...]]`, `)`, `]`, `}`, `.`, `?.` or `#`
+    the value would continue that expression:
+    `globalThis[[${l}]]([[${s}]])` with `l = ["eval"]` renders `globalThis["eval"](...)`, and
+    `x[[${n}]]` renders the name `x5`. A line break doesn't help: JavaScript inserts no `;`
+    before a `[`. After `{` or `=>` a map would be a block, and after `yield`, `await` or any other
+    `of` (also identifiers, as in `for (x of a instanceof of [[${l}]])`) the value could index a
+    variable.
+  - A word or `-` right before it needs a space: `return[[${n}]]` renders `return5`, and
+    `-[[${n}]]` renders `--1` for `-1`.
+  - A word and then a line break before it, in whitespace or a comment: a reserved word such as
+    `in` is also a class field name, and the line break ends the field, so `class A { in
+    [[${l}]] = f }` would name a computed field after the value. Put them on one line.
+  - It may not be followed directly by a letter, digit, `_`, `$` or `\` (`[[${n}]]e3` renders
+    `5e3`) or by a `.` that doesn't start a property name (`[[${n}]].5`), nor by `(` or a backtick
+    (a call or a method name), nor by `?.` and then `(` or a backtick (`[[${l}]]?.(...)`), nor by
+    `:` after a `,` (an object key, `{a: 1, [[${k}]]: 2}`).
+  - At the start of the script or after `;`, a `[[...]]` that starts a statement may be followed
+    only by a `;`: a string there is a directive, and `"use strict"` changes how the code after
+    it runs; in a class body a list is a computed field name.
+
+  `var v = [[...]];` above the code, then `v`, always compiles: `globalThis[v](...)`,
+  `o[v] = ...`, `v.forEach(...)`.
+- `'-->' after a [[...]] of a <script>: at the start of a line it is an HTML-like comment, which can hide the code next to a value from the compiler's checks; remove it, or write '--\x3e' in a string`:
+  a script with a `[[...]]` has `-->` after its last `[[...]]` (before it, the data-prelude entry
+  above reports it). At the start of a line JavaScript reads `-->` as a comment, so in
+  `{a: 1, [[${k}]]\n-->\n: f}` the `:` that makes the value an object key is hidden from the
+  expression-position check, and the compiler doesn't lex the code after the last value to tell.
+  Every `-->` there is an error, also in a string or a comment: an old `//-->` comment end can go,
+  since HTML5 needs no comment around script code.
 - `[[...]] is inside a client-side {{ ... }} interpolation: Vue or AngularJS would run the value as code, whatever the escaping. Pass the value in a data-* attribute or a <script> with [[...]] and read it from there`
   (also `[(...)]`): the text has a `{{` with no `}}` before the expression, in element text,
   `<title>`, `<textarea>` or a `<script>`. Character references for braces count outside scripts,
