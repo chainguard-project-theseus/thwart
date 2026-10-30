@@ -322,6 +322,22 @@ class ContextsTest {
     "script, type, FORBIDDEN",
     "SCRIPT, TYPE, FORBIDDEN",
     "meta, http-equiv, FORBIDDEN",
+    "p, is, FORBIDDEN",
+    "P, IS, FORBIDDEN",
+    "svg, xmlns, FORBIDDEN",
+    "svg, xmlns:xlink, FORBIDDEN",
+    "div, xmlns, FORBIDDEN",
+    "template, shadowrootmode, FORBIDDEN",
+    "template, shadowrootclonable, FORBIDDEN",
+    "template, shadowrootdelegatesfocus, FORBIDDEN",
+    "TEMPLATE, ShadowRootMode, FORBIDDEN",
+    "template, for, FORBIDDEN",
+    "meta, charset, FORBIDDEN",
+    "META, CharSet, FORBIDDEN",
+    // The same names elsewhere are ordinary attributes.
+    "label, for, ATTRIBUTE",
+    "div, shadowrootmode, ATTRIBUTE",
+    "p, charset, ATTRIBUTE",
   })
   void attributeTable(String element, String attribute, OutputContext expected) {
     assertEquals(expected, Contexts.attribute(element(element), attribute));
@@ -505,6 +521,27 @@ class ContextsTest {
         OutputContext.ATTRIBUTE, Contexts.attribute(element("meta", "http-equiv", "refre\u017Fh"), "content"));
     assertEquals(
         OutputContext.REFRESH, Contexts.attribute(element("meta", "Http-Equiv", "REFRESH"), "content"));
+  }
+
+  @Test
+  void metaContentTypeContentIsForbidden() {
+    // The tree builder reads it for the page's encoding.
+    assertEquals(
+        OutputContext.FORBIDDEN,
+        Contexts.attribute(element("meta", "http-equiv", "Content-Type"), "content"));
+    assertEquals(
+        OutputContext.FORBIDDEN,
+        Contexts.attribute(element("META", "HTTP-EQUIV", " content-TYPE "), "Content"));
+    assertEquals(
+        OutputContext.FORBIDDEN,
+        Contexts.attribute(element("meta", "content", "text/html", "http-equiv", "content-type"), "content"));
+    // Other http-equiv values, and the same attributes on another element, are ordinary.
+    assertEquals(
+        OutputContext.ATTRIBUTE,
+        Contexts.attribute(element("meta", "http-equiv", "content-language"), "content"));
+    assertEquals(
+        OutputContext.ATTRIBUTE,
+        Contexts.attribute(element("div", "http-equiv", "Content-Type"), "content"));
   }
 
   @Test

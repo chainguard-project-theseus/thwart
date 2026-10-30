@@ -73,7 +73,8 @@ public final class Contexts {
    * ({@code hx-get}, {@code hx-post}, ...) are RESOURCE_URL: htmx fetches them and swaps the
    * response into the page as HTML (#249). {@code hx-push-url} and {@code hx-replace-url} only
    * change the address bar and are URL. {@link #isHtmxBoost hx-boost} is FORBIDDEN: it decides
-   * which form actions htmx requests (#258).
+   * which form actions htmx requests (#258). The {@link #isTreeBuilderInput attributes the tree
+   * builder reads} ({@code is}, {@code xmlns}, a {@code <meta>}'s {@code charset}, ...) are FORBIDDEN.
    */
   public static OutputContext attribute(Element element, String attributeName) {
     return attribute(element, attributeName, true);
@@ -114,7 +115,8 @@ public final class Contexts {
     if (attr.equals("srcdoc")
         || (el.equals("script") && attr.equals("type"))
         || (el.equals("meta") && attr.equals("http-equiv"))
-        || (TIMED_ANIMATIONS.contains(el) && attr.equals("attributename"))) {
+        || (TIMED_ANIMATIONS.contains(el) && attr.equals("attributename"))
+        || isTreeBuilderInput(element, attributeName)) {
       return OutputContext.FORBIDDEN;
     }
     if (isResourceUrl(el, attr)) {
@@ -376,14 +378,19 @@ public final class Contexts {
    * A-Z only, as in a browser: {@code http-equ\u0131v} is not {@code http-equiv}.
    */
   private static boolean isRefreshContent(Element element, String el, String attr) {
-    if (!attr.equals("content") || !el.equals("meta")) {
-      return false;
-    }
+    return attr.equals("content") && el.equals("meta") && hasHttpEquiv(element, "refresh");
+  }
+
+  /**
+   * Whether {@code element} has a static {@code http-equiv} equal to the lower-case {@code value},
+   * folding A-Z only after trimming whitespace.
+   */
+  private static boolean hasHttpEquiv(Element element, String value) {
     for (Attribute a : element.attributes()) {
       if (!a.isTessera()
           && HtmlParser.asciiLower(a.name()).equals("http-equiv")
           && a.value() != null
-          && HtmlParser.asciiLower(Backports.strip(a.value())).equals("refresh")) {
+          && HtmlParser.asciiLower(Backports.strip(a.value())).equals(value)) {
         return true;
       }
     }
@@ -431,6 +438,28 @@ public final class Contexts {
       }
     }
     return false;
+  }
+
+  /**
+   * Whether the HTML tree builder reads attribute {@code attributeName} of {@code element} while it
+   * builds the page (HTML 13.2.6), so a computed value is FORBIDDEN: {@code is} (which custom
+   * element to create), {@code xmlns} and {@code xmlns:xlink} (checked against the namespace) on any
+   * element; a {@code <template>}'s {@code shadowroot*} attributes (a declarative shadow root) and
+   * {@code for}; a {@code <meta>}'s {@code charset}, and its {@code content} when its static
+   * {@code http-equiv} is {@code Content-Type} (the encoding the page is read in; a computed
+   * {@code http-equiv} is FORBIDDEN itself). Case-insensitive.
+   */
+  public static boolean isTreeBuilderInput(Element element, String attributeName) {
+    String el = element.name().toLowerCase(Locale.ROOT);
+    String attr = attributeName.toLowerCase(Locale.ROOT);
+    if (attr.equals("is") || attr.equals("xmlns") || attr.equals("xmlns:xlink")) {
+      return true;
+    }
+    if (el.equals("template")) {
+      return attr.startsWith("shadowroot") || attr.equals("for");
+    }
+    return el.equals("meta")
+        && (attr.equals("charset") || (attr.equals("content") && hasHttpEquiv(element, "content-type")));
   }
 
   private static boolean isAnimation(String el) {

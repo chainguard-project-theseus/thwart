@@ -270,6 +270,42 @@ class JsonBindingTest {
     compile("String v", "<my-widget t::params=\"${v}\"></my-widget>").assertError("t.html:1:", "is not allowed");
   }
 
+  /**
+   * A binding whose target the HTML tree builder reads ({@code xmlns}; a {@code <template>}'s
+   * {@code for} and {@code shadowroot*}) is not a JSON binding: the target is FORBIDDEN, so the
+   * binding stays a directive and rejects any expression. {@code :is}, {@code :xmlns:xlink} and
+   * bindings on {@code <meta>} ({@code :charset}) are rejected for their own reasons.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<svg t::xmlns=\"${v}\"></svg>",
+        "<p t:v-bind:xmlns=\"${v}\">x</p>",
+        "<template t::for=\"${v}\"><p>x</p></template>",
+        "<template t:x-bind:shadowrootmode=\"${v}\"><p>x</p></template>",
+        "<template t::shadowrootdelegatesfocus=\"${v}\"><p>x</p></template>",
+        "<template shadowrootmode=\"open\" t:v-bind:shadowrootclonable=\"${v}\"><p>x</p></template>",
+        "<template t::shadowrootserializable=\"${v}\"><p>x</p></template>",
+        "<svg t::xmlns:xlink=\"${v}\"></svg>",
+        "<p t::is=\"${v}\">x</p>",
+        "<meta t::charset=\"${v}\">",
+      })
+  void bindingOfAnAttributeTheTreeBuilderReadsIsRejected(String body) {
+    compile("String v", "\n" + body)
+        .assertError("t.html:2:", "is not allowed", "Vue or Alpine binding", "run as JavaScript");
+  }
+
+  /** The same targets on an element whose tree builder ignores them stay JSON bindings. */
+  @Test
+  void bindingOfForOrShadowRootOutsideTemplateIsJson() {
+    Compilation c =
+        compile("String v", "<label t::for=\"${v}\">x</label><div t:x-bind:shadowrootmode=\"${v}\">x</div>")
+            .assertSuccess();
+    assertEquals(
+        "<div><label :for=\"&quot;a&quot;\">x</label><div x-bind:shadowrootmode=\"&quot;a&quot;\">x</div></div>",
+        c.render("t", model("v", "a")));
+  }
+
   /** Literal (non-t:) bindings are the author's code and are copied verbatim. */
   @Test
   void literalBindingsAreUnchanged() {
