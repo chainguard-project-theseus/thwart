@@ -930,6 +930,26 @@ class EscapersTest {
         Escapers.htmlMessage(messages((k, a) -> "<b>x</b>"), "k", new Object[] {"text"}, new String[] {"<b>{0,number}</b>"}));
   }
 
+  @Test
+  void htmlMessageEscapesAnUncheckedMessageWhoseAmpersandAValueCanFinish() {
+    // Without '<', but a browser decodes "&" and an argument "#123;" to "{", so the message
+    // "&{0}" writes a "{" no escaper let through.
+    Messages amp = (k, a) -> new java.text.MessageFormat("&{0}", java.util.Locale.US).format(a);
+    for (String s : new String[] {"#123;x", "#x7b;x", "lbrace;x"}) {
+      assertEquals("&amp;" + s, Escapers.htmlMessage(messages(amp), "k", new Object[] {s}, new String[0]));
+    }
+    // A message ending in '&' would let the value after it finish a reference.
+    assertEquals("&amp;", Escapers.htmlMessage(messages((k, a) -> "&"), "k", new Object[0], new String[0]));
+    assertEquals("&amp;#", Escapers.htmlMessage(messages((k, a) -> "&#"), "k", new Object[0], new String[0]));
+    // The references the escapers write stay, from the message or from an escaped argument.
+    Messages plain = (k, a) -> new java.text.MessageFormat("Tom &amp; Jerry {0}", java.util.Locale.US).format(a);
+    assertEquals(
+        "Tom &amp; Jerry &quot;&amp;&lt;&gt;&#39;",
+        Escapers.htmlMessage(messages(plain), "k", new Object[] {"\"&<>'"}, new String[0]));
+    // Any other reference is escaped: the message might have had a bare '&' that an argument finished.
+    assertEquals("caf&amp;eacute;", Escapers.htmlMessage(messages((k, a) -> "caf&eacute;"), "k", new Object[0], new String[0]));
+  }
+
   // Client-side template delimiters (#248)
 
   private static String rcdata(Object v) {
