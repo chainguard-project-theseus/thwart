@@ -4,6 +4,8 @@ import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.TemplateSource;
+import dev.tessera.compiler.expr.Assignment;
+import dev.tessera.compiler.expr.ExpressionParser;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Comment;
 import dev.tessera.compiler.model.DocType;
@@ -149,8 +151,8 @@ public final class HtmlParser {
   /**
    * Whether MathML element {@code name} is an {@code annotation-xml} that a browser parses as an
    * HTML integration point: its static {@code encoding} is {@code text/html} or {@code
-   * application/xhtml+xml} (ASCII case-insensitive), and no {@code t:encoding} or {@code t:attr*}
-   * could change it. Otherwise its children are MathML.
+   * application/xhtml+xml} (ASCII case-insensitive), and no {@code t:encoding} or {@code t:attr}
+   * {@link #attrMaySet may set} it. Otherwise its children are MathML.
    */
   static boolean htmlAnnotation(String namespace, String name, List<Attribute> attributes) {
     if (!namespace.equals(MATHML) || !asciiLower(name).equals("annotation-xml")) {
@@ -159,7 +161,7 @@ public final class HtmlParser {
     boolean html = false;
     for (Attribute a : attributes) {
       String local = asciiLower(a.localName());
-      if (a.isTessera() && (local.equals("encoding") || local.startsWith("attr"))) {
+      if (a.isTessera() && (local.equals("encoding") || attrMaySet(a, "encoding"))) {
         return false;
       }
       if (!a.isTessera() && local.equals("encoding") && a.value() != null) {
@@ -168,6 +170,35 @@ public final class HtmlParser {
       }
     }
     return html;
+  }
+
+  /**
+   * Whether {@code a} is a {@code t:attr*} attribute that may set attribute {@code name}
+   * (lower-case): a {@code t:attr} sets only the attributes it names, which the template writes as
+   * literals ({@code t:attr="id=${s}"} cannot set {@code encoding}). A {@code t:attr} that does not
+   * parse, and any other {@code t:attr*}, may set anything; AttrProcessor reports the parse error.
+   */
+  static boolean attrMaySet(Attribute a, String name) {
+    String local = asciiLower(a.localName());
+    if (!a.isTessera() || !local.startsWith("attr")) {
+      return false;
+    }
+    if (!local.equals("attr")) {
+      return true;
+    }
+    if (a.value() == null) {
+      return false;
+    }
+    List<Assignment> assignments = new ExpressionParser().parseAssignments(a.value(), a.valuePos(), d -> {});
+    if (assignments == null) {
+      return true;
+    }
+    for (Assignment assignment : assignments) {
+      if (asciiLower(assignment.name()).equals(name)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Start tags that end foreign content in a browser; {@code font} only with color, face or size. */
@@ -182,7 +213,7 @@ public final class HtmlParser {
    * Whether a rendered element {@code name} of foreign {@code namespace} is a breakout tag: a
    * browser closes the open {@code <svg>}/{@code <math>} elements there and parses it as HTML, so
    * the contexts after it would differ from Tessera's. A {@code <font>} counts when it has a
-   * {@code color}, {@code face} or {@code size}, or a {@code t:attr*} that could add one.
+   * {@code color}, {@code face} or {@code size}, or a {@code t:attr} that {@link #attrMaySet may set} one.
    */
   static boolean breaksOut(String namespace, String name, List<Attribute> attributes) {
     if (namespace.equals(HTML) || omitsTag(name, attributes)) {
@@ -198,7 +229,7 @@ public final class HtmlParser {
     for (Attribute a : attributes) {
       String local = asciiLower(a.localName());
       if (local.equals("color") || local.equals("face") || local.equals("size")
-          || (a.isTessera() && local.startsWith("attr"))) {
+          || attrMaySet(a, "color") || attrMaySet(a, "face") || attrMaySet(a, "size")) {
         return true;
       }
     }

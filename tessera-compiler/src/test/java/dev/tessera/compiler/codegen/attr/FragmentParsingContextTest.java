@@ -263,6 +263,11 @@ class FragmentParsingContextTest {
             + "</annotation-xml></math>")
         .assertError("page.html:2:", "fragment 'page :: payload' is declared in <annotation-xml> content but t:replace puts"
             + " it in mixed <svg>/<math>");
+    page("<math><annotation-xml encoding=\"text/html\" t:attr=\"id=${v}, encoding=${v}\"><t:block"
+            + " t:replace=\"~{::payload(v)}\"></t:block></annotation-xml><annotation-xml><mrow t:fragment=\"payload(String s)\">"
+            + "[[s]]</mrow></annotation-xml></math>")
+        .assertError("page.html:2:", "fragment 'page :: payload' is declared in <annotation-xml> content but t:replace puts"
+            + " it in mixed <svg>/<math>");
   }
 
   @Test
@@ -302,6 +307,11 @@ class FragmentParsingContextTest {
   void htmlAnnotationXmlHoldsHtml() {
     page("<math><annotation-xml encoding=\"text/html\"><div t:fragment=\"h\">x</div></annotation-xml></math>"
             + "<math><mrow t:insert=\"~{:: h}\"></mrow></math>")
+        .assertError("page.html:2:", "fragment 'page :: h' is declared in HTML content but t:insert puts it in <math>"
+            + " content");
+    // A t:attr that names only other attributes keeps the static encoding.
+    page("<math><annotation-xml encoding=\"text/html\" t:attr=\"id=${v}\"><div t:fragment=\"h\">x</div></annotation-xml>"
+            + "</math><math><mrow t:insert=\"~{:: h}\"></mrow></math>")
         .assertError("page.html:2:", "fragment 'page :: h' is declared in HTML content but t:insert puts it in <math>"
             + " content");
   }
