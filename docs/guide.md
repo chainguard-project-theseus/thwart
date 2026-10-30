@@ -734,7 +734,7 @@ attribute escaping does not protect them and an expression there is a build erro
 Vue's `v-*` (every directive, `v-html` included) and its `:x`, `@x`, `#x` and `.x` shorthands;
 Alpine's `x-*`; htmx's `hx-on*`, `hx-vals`, `hx-vars`, `hx-headers`, `hx-request` and `hx-trigger`
 (also with `data-`); _hyperscript's `_`, `script` and `data-script`; AngularJS's `ng-*`, `ng:*`
-and `ng_*` (also with `data-` or `x-`); and Knockout's `data-bind` and `params` on a custom element. Static directives are copied verbatim, shorthand names included: write
+and `ng_*` (also after `x` or `data` followed by `-`, `:` or `_`, and after leading `-`, `:` or `_`, as in `data:ng-click`, `x_ng-click`, `data--ng-click` or `_ng-click`); and Knockout's `data-bind` and `params` on a custom element. Static directives are copied verbatim, shorthand names included: write
 `<api-entry :security="security" @click="open">` as in the old page.
 
 The one exception is a binding that hands a value to a component or attribute: Vue's
