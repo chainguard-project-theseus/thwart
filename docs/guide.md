@@ -866,7 +866,7 @@ Then `t:utext="notices.html(notice.body)"`. The builder accepts only names from 
 (`HtmlPolicy.ELEMENTS`, `HtmlPolicy.ATTRIBUTES`, `REL_TOKENS`) and throws for anything else, so
 `style`, `on*`, framework directives and script-capable elements can't be switched on. Its other
 options are `allowClasses` (exact names, `prefix*` or `*`; only letters, digits, `-` and `_`, and
-never a name AngularJS reads as a directive: `ng-*`, `ng_*` or `ngX`, also after `x-` or `data-`),
+never a name AngularJS reads as a directive: `ng-*`, `ng_*` or `ngX`, also after one `x` or `data` prefix followed by `-` or `_` and after a run of `-` and `_`, as in `data-ng-bind`, `data--ng-bind` or `_ng-bind`),
 `idPrefix` (a letter first, ending in `-`), `allowLinkTarget` (`target="_blank"` with `noopener`),
 `allowRemoteImages` (any `img src` that passes the URL check, not only same-origin paths, so
 every reader's browser fetches from hosts the content's author picks, who can then track them) and
