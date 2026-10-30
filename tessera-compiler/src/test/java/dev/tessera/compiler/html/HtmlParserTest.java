@@ -366,6 +366,19 @@ class HtmlParserTest {
   }
 
   @Test
+  void duplicateAttributesFoldOnlyAscii() {
+    // A browser lower-cases A-Z only, so each pair is two attributes: Kelvin sign and k, \u00C9 and \u00E9,
+    // dotted capital I and i + combining dot, long s and s.
+    assertEquals(List.of(), errors("<track \u212Aind=\"a\" kind=\"b\">"));
+    assertEquals(List.of(), errors("<p data-\u00C9=\"a\" data-\u00E9=\"b\"></p>"));
+    assertEquals(List.of(), errors("<p \u0130d=\"a\" i\u0307d=\"b\"></p>"));
+    assertEquals(List.of(), errors("<p \u017Ftyle=\"a\" style=\"b\"></p>"));
+    assertEquals(
+        List.of("dir/t.html:1:14: error: duplicate attribute 'style' on <p>: remove one of them"),
+        errors("<p STYLE=\"a\" style=\"b\"></p>"));
+  }
+
+  @Test
   void duplicateAttributeAcrossLines() {
     assertEquals(
         List.of("dir/t.html:2:3: error: duplicate attribute 'href' on <a>: remove one of them"),
