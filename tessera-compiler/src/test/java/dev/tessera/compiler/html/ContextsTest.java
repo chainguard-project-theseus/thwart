@@ -459,6 +459,22 @@ class ContextsTest {
   }
 
   @Test
+  void animatedSvgCssUrlNameFoldsOnlyAscii() {
+    // A browser lower-cases A-Z only: attr\u0131buteName (dotless i) and attr\u0130buteName (dotted capital I) are
+    // not attributeName, so they leave the values of an href animation URL-checked, before or after the real one.
+    for (String decoy : List.of("attr\u0131buteName", "attr\u0130buteName")) {
+      assertEquals(OutputContext.URL_LIST,
+          Contexts.attribute(element("animate", "attributeName", "href", decoy, "fill"), "values"), decoy);
+      assertEquals(OutputContext.URL_LIST,
+          Contexts.attribute(element("animate", decoy, "fill", "attributeName", "href"), "values"), decoy);
+      assertEquals(OutputContext.URL, Contexts.attribute(element("set", decoy, "fill"), "to"), decoy);
+    }
+    // The name it holds folds A-Z only too: mas\u212A (Kelvin sign) is not mask.
+    assertEquals(OutputContext.URL, Contexts.attribute(element("set", "attributeName", "mas\u212A"), "to"));
+    assertEquals(OutputContext.STYLE, Contexts.attribute(element("set", "AttributeName", "MASK"), "to"));
+  }
+
+  @Test
   void attributeOddNames() {
     assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("div"), ""));
     assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("div"), "a\u0000b"));

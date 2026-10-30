@@ -6,6 +6,7 @@ import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.CssValue;
 import java.math.BigDecimal;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -278,6 +279,35 @@ class StyleAttributeTest {
         "<svg><rect><animate attributeName=\"fill-opacity\" values=\"0;1\"/></rect></svg>",
         render("<svg><rect><animate attributeName=\"fill-opacity\" t:values=\"s\"/></rect></svg>", "s", "0;1"));
     assertEquals("<p attributeName=\"fill\">x</p>", render("<p t:attributeName=\"s\">x</p>", "s", "fill"));
+  }
+
+  /**
+   * A browser folds A-Z only: attr\u0131buteName (dotless i) and attr\u0130buteName (dotted capital I) are
+   * unknown attributes, so the animation animates href, which the real attributeName names, and splits its
+   * values at ';'. They stay URL-checked: a decoy naming fill must not make them CSS.
+   */
+  @Test
+  void attributeNameFoldsOnlyAscii() {
+    String hostile = "/a;javascript:alert(1)//";
+    for (String decoy : List.of("attr\u0131buteName=\"fill\"", "attr\u0130buteName=\"fill\"")) {
+      for (String names : List.of("attributeName=\"href\" " + decoy, decoy + " attributeName=\"href\"")) {
+        assertEquals(
+            "<svg><a href=\"/x\"><animate " + names + " values=\"about:invalid#tessera\"/>x</a></svg>",
+            render("<svg><a href=\"/x\"><animate " + names + " t:values=\"css.url(s)\"/>x</a></svg>", "s", hostile),
+            names);
+        assertEquals(
+            "<svg><a href=\"/x\"><set " + names + " to=\"about:invalid#tessera\"/>x</a></svg>",
+            render("<svg><a href=\"/x\"><set " + names + " t:to=\"s\"/>x</a></svg>", "s", "javascript:alert(1)"),
+            names);
+      }
+    }
+    // The real attributeName still makes the values CSS, in any ASCII case; an ASCII-case duplicate is an error.
+    assertEquals(
+        "<svg><rect><animate ATTRIBUTENAME=\"fill\" values=\"url(&quot;/a;javascript:alert%281%29//&quot;)\"/>"
+            + "</rect></svg>",
+        render("<svg><rect><animate ATTRIBUTENAME=\"fill\" t:values=\"css.url(s)\"/></rect></svg>", "s", hostile));
+    compile("<svg><a><animate attributeName=\"href\" ATTRIBUTENAME=\"fill\" t:values=\"css.url(s)\"/></a></svg>")
+        .assertError("t.html:1:", "duplicate attribute 'ATTRIBUTENAME'");
   }
 
   @Test
