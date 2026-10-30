@@ -724,6 +724,114 @@ class EscapersTest {
     assertThrows(IllegalArgumentException.class, () -> json(new AtomicInteger(1)));
   }
 
+  /** An application subclass of BigDecimal whose toString() returns its label. */
+  static final class Labeled extends BigDecimal {
+    private static final long serialVersionUID = 1L;
+    private final String label;
+
+    Labeled(String label) {
+      super(1);
+      this.label = label;
+    }
+
+    @Override
+    public String toString() {
+      return label;
+    }
+  }
+
+  /** An application subclass of BigInteger whose toString() returns its label. */
+  static final class LabeledInt extends BigInteger {
+    private static final long serialVersionUID = 1L;
+    private final String label;
+
+    LabeledInt(String label) {
+      super("123456789012345678901234567890");
+      this.label = label;
+    }
+
+    @Override
+    public String toString() {
+      return label;
+    }
+  }
+
+  @Test
+  void jsonBigNumbersFromTheJdkAreUnchanged() {
+    assertEquals("1E+3", json(new BigDecimal("1E+3")));
+    assertEquals("0.00", json(new BigDecimal("-0.00")));
+    assertEquals("1E-7", json(new BigDecimal("1E-7")));
+    assertEquals("1.0E-7", json(BigDecimal.valueOf(1e-7)));
+    assertEquals("1E+5", json(new BigDecimal(BigInteger.ONE, -5)));
+    assertEquals("0E-10", json(new BigDecimal("0E-10")));
+    assertEquals("-1.5E-10", json(new BigDecimal("-1.5E-10")));
+    assertEquals("-0.000012345", json(new BigDecimal(BigInteger.valueOf(-12345), 9)));
+    assertEquals("1E+2147483647", json(new BigDecimal(BigInteger.ONE, Integer.MIN_VALUE + 1)));
+    assertEquals("-123456789012345678901234567890", json(new BigInteger("-123456789012345678901234567890")));
+    assertEquals("0", json(BigInteger.ZERO));
+    assertEquals("[1E+3,-7]", json(List.of(new BigDecimal("1E+3"), BigInteger.valueOf(-7))));
+    assertEquals("1E+3", run(Escapers::jsonAttr, new BigDecimal("1E+3")));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"0", "-0", "7", "-12", "1E+3", "1e+3", "1E-7", "1.0E-7", "0E-10", "0.00", "-1.5E10",
+      "123456789012345678901234567890"})
+  void jsonBigNumberSubclassWithJsonNumberTextIsWritten(String text) {
+    assertEquals(text, json(new Labeled(text)));
+    assertEquals(text, json(new LabeledInt(text)));
+    assertEquals(text, run(Escapers::jsonAttr, new Labeled(text)));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"0;alert(1)//</script><script>alert(2)</script>", "1-2", "1+2", "1E5E5", "01", "-01",
+      "-", "", "1.", ".5", "+1", "1e", "1E+", "--1", "1.5.5", "Infinity", "NaN", "0x10", " 1", "1 ", "1_000",
+      "١", "1E+3)", "1/2", "1.e3"})
+  void jsonRejectsBigNumberSubclassWhoseTextIsNotAJsonNumber(String text) {
+    for (Object hostile : new Object[] {new Labeled(text), new LabeledInt(text)}) {
+      StringOutput out = new StringOutput();
+      assertThrows(IllegalArgumentException.class, () -> Escapers.json(out, hostile));
+      assertThrows(IllegalArgumentException.class, () -> Escapers.jsonAttr(out, hostile));
+      assertThrows(IllegalArgumentException.class, () -> Escapers.json(out, List.of(1, hostile)));
+      assertThrows(IllegalArgumentException.class, () -> Escapers.appendJson(new StringBuilder(), hostile, 0));
+      assertEquals("", out.toString());
+      assertThrows(IllegalArgumentException.class, () -> Escapers.htmlMessageArgs(new Object[] {hostile}));
+    }
+  }
+
+  @Test
+  void styleNumberChecksBigNumberText() {
+    assertEquals("1E+3", Escapers.styleNumber(new BigDecimal("1E+3")));
+    assertEquals("-7", Escapers.styleNumber(BigInteger.valueOf(-7)));
+    assertEquals("2.50", Escapers.styleNumber(new Labeled("2.50")));
+    assertEquals(null, Escapers.styleNumber(null));
+    assertThrows(IllegalArgumentException.class, () -> Escapers.styleNumber(new Labeled("1;background-image:url(x)")));
+    assertThrows(IllegalArgumentException.class, () -> Escapers.styleNumber(new LabeledInt("1-2")));
+  }
+
+  @Test
+  void htmlMessageArgsReplaceBigNumberSubclassesWithJdkValues() {
+    BigDecimal plain = new BigDecimal("1.5");
+    BigInteger plainInt = new BigInteger("-123456789012345678901234567890");
+    Object[] out = Escapers.htmlMessageArgs(new Object[] {plain, plainInt, new Labeled("2.5E+3"), new LabeledInt("-7")});
+    assertTrue(out[0] == plain);
+    assertTrue(out[1] == plainInt);
+    assertEquals(BigDecimal.class, out[2].getClass());
+    assertEquals(new BigDecimal("2.5E+3"), out[2]);
+    assertEquals(BigInteger.class, out[3].getClass());
+    assertEquals(BigInteger.valueOf(-7), out[3]);
+  }
+
+  @Test
+  void messageFormatCopiesTheTextOfABigNumberSubclass() {
+    // Why htmlMessageArgs replaces subclasses: MessageFormat copies their toString() as digits.
+    java.text.MessageFormat f = new java.text.MessageFormat("Now <b>{0}</b>", java.util.Locale.ROOT);
+    assertEquals("Now <b><b></b>", f.format(new Object[] {new Labeled("<b>")}));
+    assertEquals("Now <b><b></b>", f.format(new Object[] {new LabeledInt("<b>")}));
+    assertThrows(IllegalArgumentException.class, () -> f.format(Escapers.htmlMessageArgs(new Object[] {new Labeled("<b>")})));
+    // A JSON number that is not an integer is not a BigInteger.
+    assertThrows(IllegalArgumentException.class, () -> Escapers.htmlMessageArgs(new Object[] {new LabeledInt("1.5")}));
+  }
+
   @Test
   void jsonRejectsNonStringKeys() {
     assertThrows(IllegalArgumentException.class, () -> json(Map.of(1, "a")));

@@ -179,6 +179,17 @@ public final class Escapers {
     escapeHtml(out, sb.toString());
   }
 
+  /**
+   * A {@code BigDecimal} or {@code BigInteger} piece of a {@code style} attribute value (#182),
+   * which generated code joins with literals and {@link CssValue}s before {@link #attr} escapes it.
+   * Neither class is final, so the value's {@code toString()} must be a JSON number, as in
+   * {@link #json}; other text throws {@link IllegalArgumentException}. {@code null} stays
+   * {@code null}.
+   */
+  public static String styleNumber(Number value) {
+    return value == null ? null : numberText(value);
+  }
+
   /** Raw HTML (t:utext and {@code [(...)]}). Only {@link SafeHtml} is accepted. */
   public static void html(Output out, SafeHtml value) {
     if (value != null) {
@@ -231,12 +242,24 @@ public final class Escapers {
    * symbols or names, never markup) and which must stay numbers and dates for {@code {0,number}}
    * and {@code {0,date}}. {@code null} stays {@code null}, as with the escaped form. Returns a new
    * array.
+   *
+   * <p>{@link MessageFormat} can format a {@link BigDecimal} or {@link BigInteger} from its
+   * {@code toString()}, copying its characters as digits, and both classes can be subclassed. A
+   * subclass is replaced by the JDK value of its {@code toString()}, which must be a JSON number
+   * (and, for a {@code BigInteger}, an integer), so the formatter never calls the subclass's
+   * methods. Other text throws {@link IllegalArgumentException}.
    */
   static Object[] htmlMessageArgs(Object[] args) {
     Object[] escaped = new Object[args.length];
     for (int i = 0; i < args.length; i++) {
       Object a = args[i];
-      escaped[i] = a == null || a instanceof Number || a instanceof java.util.Date ? a : escapeText(toText(a));
+      if (a instanceof BigDecimal && a.getClass() != BigDecimal.class) {
+        escaped[i] = new BigDecimal(numberText((Number) a));
+      } else if (a instanceof BigInteger && a.getClass() != BigInteger.class) {
+        escaped[i] = new BigInteger(numberText((Number) a));
+      } else {
+        escaped[i] = a == null || a instanceof Number || a instanceof java.util.Date ? a : escapeText(toText(a));
+      }
     }
     return escaped;
   }
@@ -252,8 +275,11 @@ public final class Escapers {
    *
    * <p>Numbers are limited to the JDK types ({@code Byte}, {@code Short}, {@code Integer},
    * {@code Long}, {@code Float}, {@code Double}, {@code BigInteger}, {@code BigDecimal}); a
-   * non-finite float or double becomes {@code null}, as with {@code JSON.stringify}. The value
-   * is fully serialized before anything is written, so a failure writes nothing.
+   * non-finite float or double becomes {@code null}, as with {@code JSON.stringify}. A
+   * {@code BigInteger} or {@code BigDecimal} is written as its {@code toString()},
+   * which must be a JSON number: a subclass can override it, and other text throws
+   * IllegalArgumentException. The value is fully serialized before anything is written, so a
+   * failure writes nothing.
    */
   public static void json(Output out, Object value) {
     StringBuilder sb = new StringBuilder();
@@ -558,7 +584,7 @@ public final class Escapers {
       Double v = (Double) value;
       writeDouble(sb, v, Double.toString(v));
     } else if (value instanceof BigInteger || value instanceof BigDecimal) {
-      sb.append(value.toString());
+      sb.append(numberText((Number) value));
     } else if (value instanceof CharSequence) {
       writeJsonString(sb, value.toString());
     } else if (value instanceof Character) {
@@ -638,6 +664,68 @@ public final class Escapers {
       element.accept(i);
     }
     sb.append(']');
+  }
+
+  /**
+   * The {@code toString()} of a {@link BigInteger} or {@link BigDecimal}, checked against the JSON
+   * number grammar {@code -?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?}. The JDK classes always
+   * produce such text ({@code BigDecimal} writes {@code 1E+3}, {@code 1E-7}, {@code 0.00}, and JSON
+   * allows the {@code +}), but neither class is final: an application subclass can override
+   * {@code toString()} to return anything, such as a label. Other text throws
+   * {@link IllegalArgumentException}; the exception does not quote it. The text is read once, and
+   * the value is never rebuilt from {@code unscaledValue()} or {@code scale()}, which a subclass
+   * can override too.
+   */
+  private static String numberText(Number value) {
+    String s = value.toString();
+    if (!isJsonNumber(s)) {
+      throw new IllegalArgumentException(
+          "toString() of " + value.getClass().getName() + " is not a JSON number");
+    }
+    return s;
+  }
+
+  /** Whether {@code s} matches {@code -?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?}. */
+  private static boolean isJsonNumber(String s) {
+    int n = s.length();
+    int i = 0;
+    if (i < n && s.charAt(i) == '-') {
+      i++;
+    }
+    if (i < n && s.charAt(i) == '0') {
+      i++;
+    } else if (i < n && s.charAt(i) >= '1' && s.charAt(i) <= '9') {
+      i = skipDigits(s, i + 1);
+    } else {
+      return false;
+    }
+    if (i < n && s.charAt(i) == '.') {
+      int end = skipDigits(s, i + 1);
+      if (end == i + 1) {
+        return false;
+      }
+      i = end;
+    }
+    if (i < n && (s.charAt(i) == 'e' || s.charAt(i) == 'E')) {
+      i++;
+      if (i < n && (s.charAt(i) == '+' || s.charAt(i) == '-')) {
+        i++;
+      }
+      int end = skipDigits(s, i);
+      if (end == i) {
+        return false;
+      }
+      i = end;
+    }
+    return i == n;
+  }
+
+  /** The index of the first character at or after {@code i} that is not an ASCII digit. */
+  private static int skipDigits(String s, int i) {
+    while (i < s.length() && s.charAt(i) >= '0' && s.charAt(i) <= '9') {
+      i++;
+    }
+    return i;
   }
 
   private static void writeDouble(StringBuilder sb, double d, String text) {
