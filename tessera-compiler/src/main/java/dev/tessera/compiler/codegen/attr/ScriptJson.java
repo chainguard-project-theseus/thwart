@@ -38,7 +38,8 @@ import javax.lang.model.util.Types;
  * Serializes {@code [[...]]} and {@code t:text} values inside {@code <script>}, and the values of
  * Vue/Alpine binding attributes ({@link #attributeValue}, #246).
  *
- * <p>Values without beans go directly to {@code Escapers.json}. Records and
+ * <p>Values without beans go directly to {@code Escapers.javaScript} ({@code Escapers.json} in a
+ * JSON {@code <script>}). Records and
  * {@code @TemplateView} classes use generated static helpers that append JSON to one private
  * buffer, without building intermediate maps or lists. Only the completed buffer is written to
  * the output. Properties are
@@ -115,7 +116,14 @@ final class ScriptJson {
     this.ctx = ctx;
   }
 
-  /** A statement writing the whole JSON value, or null after reporting an error. */
+  /**
+   * A statement writing the whole JSON value, or null after reporting an error. A value without
+   * beans goes to {@code Escapers.javaScript}, which puts a negative number in parentheses, or in
+   * a JSON {@code <script>} ({@link CodegenContext#inJsonScript}) to {@code Escapers.json}. A value
+   * with beans goes to a generated helper. Its top-level value is a bean, a container or an Optional
+   * of one of those, so it is written as a
+   * JSON object, an array or {@code null}, never a number.
+   */
   static Emitted statement(CodegenContext ctx, CompiledExpr c) {
     ScriptJson json = new ScriptJson(ctx);
     String code = json.convert(c.type(), "o$", "0", "0");
@@ -124,7 +132,8 @@ final class ScriptJson {
       return null;
     }
     if (code.equals("o$")) {
-      return Emitted.hole(Skeleton.Escaper.JSON, ctx.hostElement(), null, c.pos(), c.code()).then("\n");
+      Skeleton.Escaper escaper = ctx.inJsonScript() ? Skeleton.Escaper.JSON : Skeleton.Escaper.JAVASCRIPT;
+      return Emitted.hole(escaper, ctx.hostElement(), null, c.pos(), c.code()).then("\n");
     }
     String helper = ctx.freshName("jsonOutput");
     ctx.addMember(Emitted.jsonHelperMethod(helper, code));

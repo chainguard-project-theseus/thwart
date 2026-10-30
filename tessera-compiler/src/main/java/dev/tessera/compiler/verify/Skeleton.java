@@ -64,6 +64,7 @@ public final class Skeleton {
     RESOURCE_URL("resourceUrl"),
     REFRESH("refresh"),
     JSON("json"),
+    JAVASCRIPT("javaScript"),
     JSON_ATTR("jsonAttr");
 
     private final String method;
@@ -79,7 +80,7 @@ public final class Skeleton {
 
     /** Whether the hole is inside a double-quoted attribute value. */
     public boolean inAttribute() {
-      return this != TEXT && this != RCDATA && this != JSON;
+      return this != TEXT && this != RCDATA && this != JSON && this != JAVASCRIPT;
     }
 
     /** The escaper whose {@code Escapers} method is {@code method}. */

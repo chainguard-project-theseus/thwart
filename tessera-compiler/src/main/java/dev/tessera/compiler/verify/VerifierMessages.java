@@ -297,6 +297,7 @@ final class VerifierMessages {
       case RCDATA:
         return "this value (escaped for <title> or <textarea>)";
       case JSON:
+      case JAVASCRIPT:
         return "this value (written as JSON for a script)";
       default:
         return f.attribute == null ? "this attribute value" : "this value of '" + f.attribute + "'";
