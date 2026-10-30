@@ -190,7 +190,9 @@ public final class Escapers {
    * A bundle message rendered as HTML ({@code t:utext="#{key(args)}"}, {@code [(#{...})]}; #236).
    * {@code checked} holds the key's values in every bundle file the compiler checked as HTML. The
    * arguments are HTML-escaped (numbers and dates are kept for MessageFormat) and the message is looked up; the result is
-   * returned as HTML only if it contains no {@code <}, or if it is exactly what one of the
+   * returned as HTML only if it contains no {@code <} and every {@code &} in it starts one of the five
+   * references the escapers write (a bare {@code &} and an argument such as {@code #123;} would make {@code &#123;},
+   * which a browser decodes to {@code {}), or if it is exactly what one of the
    * {@code checked} patterns produces (as written, or formatted by {@link MessageFormat} in the
    * context's locale with the escaped arguments). Anything else (a bundle the build did not see,
    * a database-backed message source, a file changed after the build, a missing key) is escaped
@@ -202,9 +204,10 @@ public final class Escapers {
     if (message == null) {
       return "";
     }
-    if (message.replace(BRACE_BREAK, "").indexOf('<') < 0) {
-      // cannot open a tag, comment or other markup in text; the only markup is the empty
-      // comments an argument's braces got (#248)
+    String text = message.replace(BRACE_BREAK, "");
+    if (text.indexOf('<') < 0 && onlyEscaperReferences(text)) {
+      // cannot open a tag, comment or other markup in text, and no argument or later value can
+      // finish a reference; the only markup is the empty comments an argument's braces got (#248)
       return message;
     }
     for (String pattern : checked) {
@@ -220,6 +223,27 @@ public final class Escapers {
       }
     }
     return escapeText(message);
+  }
+
+  /** The character references {@link #escapeHtml} writes. */
+  private static final String[] ESCAPER_REFERENCES = {"&amp;", "&lt;", "&gt;", "&quot;", "&#39;"};
+
+  /**
+   * Whether every {@code &} in {@code s} starts one of {@link #ESCAPER_REFERENCES}. Each decodes to a
+   * character that is text where a message is written, so {@code s} has no {@code &} that an argument
+   * or the value after it could finish into another reference.
+   */
+  private static boolean onlyEscaperReferences(String s) {
+    for (int i = s.indexOf('&'); i >= 0; i = s.indexOf('&', i + 1)) {
+      boolean known = false;
+      for (String r : ESCAPER_REFERENCES) {
+        known |= s.startsWith(r, i);
+      }
+      if (!known) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
