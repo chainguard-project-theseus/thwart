@@ -29,7 +29,9 @@ public final class MessageCompiler {
       return null;
     }
     // An explicit array: a lone null or array argument must not be taken as the varargs array.
-    String code = "ctx.messages().get(" + JavaStrings.literal(message.key()) + ", " + args + ")";
+    // Arguments go through Escapers.messageArgs, which bounds how long a formatted number can be.
+    String code = "ctx.messages().get(" + JavaStrings.literal(message.key()) + ", "
+        + (message.args().isEmpty() ? args : "dev.tessera.runtime.Escapers.messageArgs(" + args + ")") + ")";
     CompilerEnv env = expressions.env();
     return new CompiledExpr(code, env.elements().getTypeElement("java.lang.String").asType(), message.pos());
   }
