@@ -118,8 +118,9 @@ final class ScriptJson {
 
   /**
    * A statement writing the whole JSON value, or null after reporting an error. A value without
-   * beans goes to {@code Escapers.javaScript}, which puts a negative number in parentheses, or in
-   * a JSON {@code <script>} ({@link CodegenContext#inJsonScript}) to {@code Escapers.json}. A value
+   * beans goes to {@code Escapers.javaScript}, which puts a negative number or an integer in
+   * parentheses, or in a JSON {@code <script>} ({@link CodegenContext#inJsonScript}) to
+   * {@code Escapers.json}. A value
    * with beans goes to a generated helper. Its top-level value is a bean, a container or an Optional
    * of one of those, so it is written as a
    * JSON object, an array or {@code null}, never a number.

@@ -103,7 +103,7 @@ class ValueAfterLessThanTest {
 
   @Test
   void comparisonsInScriptStillCompile() {
-    assertEquals("<script>if (1<2) {}</script>", render("<script>if (1<[[n]]) {}</script>", "", 2));
-    assertEquals("<script>var b = 1 < !- 2;</script>", render("<script>var b = 1 < !- [[n]];</script>", "", 2));
+    assertEquals("<script>if (1<(2)) {}</script>", render("<script>if (1<[[n]]) {}</script>", "", 2));
+    assertEquals("<script>var b = 1 < !- (2);</script>", render("<script>var b = 1 < !- [[n]];</script>", "", 2));
   }
 }

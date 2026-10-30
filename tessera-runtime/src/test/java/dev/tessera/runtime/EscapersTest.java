@@ -573,15 +573,30 @@ class EscapersTest {
   }
 
   @Test
+  void javaScriptParenthesizesATopLevelInteger() {
+    assertEquals("(0)", javaScript(0));
+    assertEquals("(7)", javaScript(7));
+    assertEquals("(9223372036854775807)", javaScript(Long.MAX_VALUE));
+    assertEquals("(5)", javaScript((short) 5));
+    assertEquals("(6)", javaScript((byte) 6));
+    assertEquals("(12345678901234567890)", javaScript(new BigInteger("12345678901234567890")));
+    assertEquals("(100)", javaScript(new BigDecimal("100")));
+    assertEquals("(7)", javaScript(Optional.of(7)));
+  }
+
+  @Test
   void javaScriptWritesOtherValuesAsJson() {
     for (Object v : new Object[] {
-      1.5, 0.0, 0, Long.MAX_VALUE, new BigDecimal("1.10"), Double.NEGATIVE_INFINITY, null, true, "-1", "a<b",
+      1.5, 0.0, 1.5f, new BigDecimal("1.10"), new BigDecimal("1E+3"), Double.NEGATIVE_INFINITY, null, true, "-1",
+      "7", "a<b", List.of(1), new int[] {7},
       List.of(-1, 2), new int[] {-1}, new double[] {-0.0}, Map.of("a", -1), Optional.empty(), Color.GREEN
     }) {
       assertEquals(json(v), javaScript(v), String.valueOf(v));
     }
     assertEquals("[-1,2]", javaScript(List.of(-1, 2)));
     assertEquals("\"-1\"", javaScript("-1"));
+    assertEquals("[1]", javaScript(List.of(1)));
+    assertEquals("1E+3", javaScript(new BigDecimal("1E+3")));
   }
 
   @Test
