@@ -152,7 +152,10 @@ class JsonBindingTest {
         c.render("t", model("s", "\"); alert(1); (\"</script>")));
   }
 
-  /** The text is the same as for [[...]] inside a script, for every JSON-able type. */
+  /**
+   * The text is the same as for [[...]] inside a script, for every JSON-able type, except that the
+   * script puts a top-level integer in parentheses ({@code Escapers.javaScript}).
+   */
   @Test
   void sameJsonAsInsideScript() {
     String params = "Api api, Integer n, boolean b, Kind k, java.util.List<String> l, java.util.Map<String, Integer> m,"
@@ -179,7 +182,8 @@ class JsonBindingTest {
     Matcher m2 = Pattern.compile("<p id=\"(\\w+)\" :v=\"([^\"]*)\">x</p><script>(.*?)</script>").matcher(html);
     int found = 0;
     while (m2.find()) {
-      assertEquals(m2.group(3), m2.group(2).replace("&quot;", "\""), m2.group(1));
+      String script = m2.group(1).equals("n") ? "(" + m2.group(2) + ")" : m2.group(2).replace("&quot;", "\"");
+      assertEquals(m2.group(3), script, m2.group(1));
       found++;
     }
     assertEquals(values.length, found, html);
