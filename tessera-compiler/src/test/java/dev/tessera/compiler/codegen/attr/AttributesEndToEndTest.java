@@ -162,6 +162,26 @@ class AttributesEndToEndTest {
     compile("<img t:SrcSet=\"s\">").assertError("t:SrcSet on <img>", "TrustedUrl");
   }
 
+  /** {@code ping} is a whitespace-separated list of URLs: only a TrustedUrl compiles. */
+  @Test
+  void pingAcceptsTrustedUrl() {
+    assertEquals(
+        "<a ping=\"/a https://t.example/b\">x</a>",
+        render("<a t:ping=\"u\">x</a>", model("u", TrustedUrl.unchecked("/a https://t.example/b"))));
+    assertEquals(
+        "<area ping=\"/a\">",
+        render("<area t:attr=\"ping=u\">", model("u", TrustedUrl.unchecked("/a"))));
+  }
+
+  @Test
+  void pingRejectsStrings() {
+    compile("<a t:ping=\"s\">x</a>").assertError("t.html:1:", "t:ping on <a>", "list of URLs", "TrustedUrl", "String");
+    compile("<a t:ping=\"'/a javascript:x'\">x</a>").assertError("t:ping on <a>", "TrustedUrl");
+    compile("<a t:ping=\"@{/track}\">x</a>").assertError("t:ping on <a>", "TrustedUrl");
+    compile("<area t:attr=\"ping=s\">").assertError("t:attr ping on <area>", "TrustedUrl");
+    compile("<a t:PING=\"s\">x</a>").assertError("t:PING on <a>", "TrustedUrl");
+  }
+
   /** A type-use annotation does not change the type: the RESOURCE_URL gate still sees TrustedUrl. */
   @Test
   void resourceUrlAcceptsTypeAnnotatedTrustedUrl() {
