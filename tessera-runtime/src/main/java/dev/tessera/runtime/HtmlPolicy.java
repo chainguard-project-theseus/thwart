@@ -284,22 +284,35 @@ public final class HtmlPolicy {
 
   /**
    * Whether AngularJS could read class token {@code token} as one of its {@code ng} directives
-   * (it reads directives from classes): after an optional {@code x-}/{@code data-} prefix (also
-   * with {@code _}), {@code ng} (any case) followed by {@code -}, {@code _}, an upper-case letter
-   * ({@code ngBind}) or nothing. These are the {@code ng-*}, {@code ng_*} rows of the framework
-   * table (context-model.md 6.3), plus the camel-case form a class keeps.
+   * (it reads directives from classes). AngularJS 1.8.3 runs each class name through
+   * {@code directiveNormalize} (src/ng/compile.js lines 4247-4260): it strips one {@code x} or
+   * {@code data} prefix (any case) followed by {@code :}, {@code -} or {@code _}, then drops a
+   * leading run of those separators and camel-cases at every later run, so {@code _ng-bind},
+   * {@code data--ng-bind} and {@code x__ng_bind} are all {@code ngBind}. After that prefix and
+   * run, a token is a directive here when it is {@code ng} (any case) followed by {@code -},
+   * {@code _}, an upper-case letter ({@code ngBind}) or nothing. These are the {@code ng-*},
+   * {@code ng_*} rows of the framework table (context-model.md 6.3), plus the camel-case form a
+   * class keeps.
    */
   static boolean isAngularClass(String token) {
     String l = lower(token);
-    int start = l.startsWith("x-") || l.startsWith("x_") ? 2 : l.startsWith("data-") || l.startsWith("data_") ? 5 : 0;
-    if (!l.startsWith("ng", start)) {
+    int i = l.startsWith("x") ? 1 : l.startsWith("data") ? 4 : 0;
+    i = i > 0 && i < l.length() && isAngularSeparator(l.charAt(i)) ? i + 1 : 0;
+    while (i < l.length() && isAngularSeparator(l.charAt(i))) {
+      i++;
+    }
+    if (!l.startsWith("ng", i)) {
       return false;
     }
-    if (token.length() == start + 2) {
+    if (token.length() == i + 2) {
       return true;
     }
-    char c = token.charAt(start + 2);
+    char c = token.charAt(i + 2);
     return c == '-' || c == '_' || (c >= 'A' && c <= 'Z');
+  }
+
+  private static boolean isAngularSeparator(char c) {
+    return c == ':' || c == '-' || c == '_';
   }
 
   /** Whether {@code s} is non-empty and only {@code [A-Za-z0-9_-]}. */

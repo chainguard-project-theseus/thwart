@@ -151,6 +151,11 @@ class HtmlPolicyTest {
     // form a class keeps all name ngBind (framework table, context-model.md 6.3)
     assertEquals("<p class=\"ngrok angular x-ngx nga\">x</p>",
         any.sanitize("<p class=\"data-ng-bind x-ng-bind ng_bind data_ng_init X-NG-bind ngBind ng ngrok angular x-ngx nga\">x</p>").html());
+    // after the prefix, AngularJS also drops a leading run of - and _: each of these is ngBind or ngInit;
+    // a second prefix, or ng without a separator or upper-case letter, is not a directive
+    assertEquals("<p class=\"data-data-ng-bind x-xng-bind data-ngx _ngx\">x</p>",
+        any.sanitize("<p class=\"_ng-bind __ng_bind data--ng-bind data-_ng-bind DATA_-ngInit x__ng_bind x-_ngBind -ngBind"
+            + " data-data-ng-bind x-xng-bind data-ngx _ngx\">x</p>").html());
     HtmlPolicy some = HtmlPolicy.builder().allowElements("p").allowClasses("note", "lang-*").build();
     assertEquals("<p class=\"note lang-java\">x</p>", some.sanitize("<p class=\"note lang-java hidden fixed inset-0\">x</p>").html());
     assertEquals("<p>x</p>", basic("<p class=\"note\">x</p>"));
@@ -211,7 +216,7 @@ class HtmlPolicyTest {
         "class", "data-bind", "v-html", "x-data", "hx-get", "ng-click", "is", "target", "rel", "ID"}) {
       assertThrows(IllegalArgumentException.class, () -> HtmlPolicy.builder().allowAttributes(a), a);
     }
-    for (String c : new String[] {"ng-*", "ng-init", "NG-x", "ng_*", "data-ng-*", "x-ng-bind", "ngBind", "a:b", "a b", "{{x}}", "", "a;b", "**"}) {
+    for (String c : new String[] {"ng-*", "ng-init", "NG-x", "ng_*", "data-ng-*", "x-ng-bind", "ngBind", "_ng-*", "data--ng-*", "x__ng_bind", "-ngBind", "a:b", "a b", "{{x}}", "", "a;b", "**"}) {
       assertThrows(IllegalArgumentException.class, () -> HtmlPolicy.builder().allowClasses(c), c);
     }
     for (String p : new String[] {"", "-", "x", "1a-", "a b-", "a:b-", "ab", "my_", "a_b", null}) {
