@@ -216,6 +216,70 @@ class StyleAttributeTest {
         "<svg><rect fill-opacity=\"0.5\"/></svg>", render("<svg><rect t:fill-opacity=\"s\"/></svg>", "s", "0.5"));
   }
 
+  /** An animation of one of those attributes sets CSS: its values take what t:fill takes. */
+  @Test
+  void animatedSvgCssUrlAttributesTakeCssValues() {
+    assertEquals(
+        "<svg><rect><animate attributeName=\"fill\" values=\"red;#ff8800\" to=\"url(&quot;/p.svg#g&quot;)\"/></rect></svg>",
+        render("<svg><rect><animate attributeName=\"fill\" t:values=\"|red;${css.color(s)}|\""
+            + " t:to=\"css.url('/p.svg#g')\"/></rect></svg>", "s", "#ff8800"));
+    assertEquals(
+        "<svg><rect><set attributeName=\"mask\" to=\"url(#m)\"/></rect></svg>",
+        render("<svg><rect><set attributeName=\"mask\" t:to=\"b ? 'none' : 'url(#m)'\"/></rect></svg>"));
+    // css.url keeps the URL in one quoted url(): a ';' in it cannot start another list item's url(.
+    assertEquals(
+        "<svg><rect><animate attributeName=\"fill\" values=\"url(&quot;/a;url%28//evil/x%29&quot;)\"/></rect></svg>",
+        render("<svg><rect><animate attributeName=\"fill\" t:values=\"css.url(s)\"/></rect></svg>",
+            "s", "/a;url(//evil/x)"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<svg><rect><animate attributeName=\"fill\" t:values=\"s\"/></rect></svg>",
+        "<svg><rect><animate attributeName=\"fill\" t:values=\"|red;${s}|\"/></rect></svg>",
+        "<svg><rect><animate attributeName=\"fill\" t:to=\"s\"/></rect></svg>",
+        "<svg><rect><animate attributeName=\"stroke\" t:from=\"s\"/></rect></svg>",
+        "<svg><rect><animate attributeName=\"clip-path\" t:by=\"s\"/></rect></svg>",
+        "<svg><rect><set attributeName=\"mask\" t:to=\"s\"/></rect></svg>",
+        "<svg><g><set attributeName=\"filter\" t:attr=\"to=s\"/></g></svg>",
+        "<svg><path><set attributeName=\"marker-end\" t:to=\"s\"/></path></svg>",
+        "<svg><rect><animateColor attributeName=\"fill\" t:values=\"s\"/></rect></svg>",
+        "<svg><rect><ANIMATE ATTRIBUTENAME=\" FILL \" t:VALUES=\"s\"/></rect></svg>",
+        "<svg><rect><set attributeName=\"cursor\" t:to=\"s\"/></rect></svg>",
+        "<svg><path><set attributeName=\"marker\" t:to=\"s\"/></path></svg>",
+      })
+  void animatedSvgCssUrlAttributesRejectStrings(String body) {
+    compile(body).assertError("t.html:1:", "is not allowed", "style value");
+  }
+
+  /** A computed attributeName could retarget an href animation's URL-checked values to CSS. */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<svg><a><animate t:attributeName=\"s\" values=\"red\"/></a></svg>",
+        "<svg><a><set t:attributeName=\"b ? 'href' : 'fill'\" t:to=\"s\"/></a></svg>",
+        "<svg><a><set t:attr=\"attributeName='fill'\"/></a></svg>",
+        "<svg><a><animateTransform t:attributeName=\"s\"/></a></svg>",
+        "<svg><a><animateMotion t:AttributeName=\"s\"/></a></svg>",
+        "<svg><a><animateColor t:attributeName=\"s\"/></a></svg>",
+      })
+  void animationAttributeNameCannotBeComputed(String body) {
+    compile(body).assertError("t.html:1:", "attributeName of an SVG animation cannot be computed");
+  }
+
+  /** Other animations keep their contexts: an href animation's values are URL-checked strings. */
+  @Test
+  void otherAnimationsStayUrlChecked() {
+    assertEquals(
+        "<svg><a><set attributeName=\"href\" to=\"about:invalid#tessera\"/></a></svg>",
+        render("<svg><a><set attributeName=\"href\" t:to=\"s\"/></a></svg>", "s", "javascript:alert(1)"));
+    assertEquals(
+        "<svg><rect><animate attributeName=\"fill-opacity\" values=\"0;1\"/></rect></svg>",
+        render("<svg><rect><animate attributeName=\"fill-opacity\" t:values=\"s\"/></rect></svg>", "s", "0;1"));
+    assertEquals("<p attributeName=\"fill\">x</p>", render("<p t:attributeName=\"s\">x</p>", "s", "fill"));
+  }
+
   @Test
   void errorNamesTheOffendingPieceAndItsType() {
     compile("<p t:style=\"|color: ${css.color(s)}; width: ${s}|\">x</p>")
