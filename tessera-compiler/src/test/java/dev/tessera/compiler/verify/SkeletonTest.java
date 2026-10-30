@@ -306,6 +306,8 @@ class SkeletonTest {
     assertEquals(2, ends(Skeleton.Escaper.TEXT, "😀").length() - 1);
     assertEquals(10, ends(Skeleton.Escaper.JSON, "{\"a\":\"\\/\"}<").length() - 1);
     assertEquals(0, ends(Skeleton.Escaper.JSON, "'").length() - 1);
+    assertEquals(6, ends(Skeleton.Escaper.JAVASCRIPT, "(-1.5)<").length() - 1);
+    assertEquals(0, ends(Skeleton.Escaper.JAVASCRIPT, "'").length() - 1);
     assertEquals(0, ends(Skeleton.Escaper.JSON, " ").length() - 1);
   }
 

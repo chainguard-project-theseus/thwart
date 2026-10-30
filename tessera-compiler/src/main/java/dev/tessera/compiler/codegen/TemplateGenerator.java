@@ -102,6 +102,8 @@ public final class TemplateGenerator implements CodegenContext {
   private String rawTextHost;
   /** Whether the content being generated is inside an {@code <svg>} or {@code <math>} element. */
   private boolean inForeign;
+  /** Whether the element whose content is being generated is a JSON {@code <script>} ({@link #inJsonScript}). */
+  private boolean jsonScript;
   /**
    * The {@code <form>}s around the element being rendered (#314): null outside any, TRUE if one of
    * them may get the CSRF token or the element is rendered standalone, FALSE if none does.
@@ -284,6 +286,11 @@ public final class TemplateGenerator implements CodegenContext {
   @Override
   public String hostElement() {
     return hostElement;
+  }
+
+  @Override
+  public boolean inJsonScript() {
+    return jsonScript;
   }
 
   @Override
@@ -488,6 +495,7 @@ public final class TemplateGenerator implements CodegenContext {
     String outer = rawTextHost;
     String outerHost = hostElement;
     boolean outerForeign = inForeign;
+    boolean outerJson = jsonScript;
     Boolean outerForm = csrfForm;
     String outerTable = tableHost;
     String outerCtx = tableCtx;
@@ -501,6 +509,7 @@ public final class TemplateGenerator implements CodegenContext {
     // Processors (t:remove="all-but-first") and emit generate the content.
     rawTextHost = host;
     inForeign = outerForeign || e.name().equalsIgnoreCase("svg") || e.name().equalsIgnoreCase("math");
+    jsonScript = Contexts.isJsonScript(e);
     if (!FragmentTop.tagNotRendered(e)) {
       String lower = e.name().toLowerCase(Locale.ROOT);
       hostElement = lower;
@@ -572,6 +581,7 @@ public final class TemplateGenerator implements CodegenContext {
       hostElement = outerHost;
       rawTextHost = outer;
       inForeign = outerForeign;
+      jsonScript = outerJson;
       csrfForm = outerForm;
       tableHost = outerTable;
       tableCtx = outerCtx;

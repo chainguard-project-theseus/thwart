@@ -9,7 +9,7 @@ import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.OutputContext;
 
 /**
- * {@code t:text="expr"}: replaces the body with the value escaped for the element's text context ({@code Escapers.text}, or {@code Escapers.json} inside {@code <script>}). The value must be an output-safe type.
+ * {@code t:text="expr"}: replaces the body with the value escaped for the element's text context ({@code Escapers.text}, or {@code Escapers.javaScript} inside {@code <script>}, {@code Escapers.json} inside a JSON one). The value must be an output-safe type.
  */
 public final class TextProcessor implements AttributeProcessor {
 
