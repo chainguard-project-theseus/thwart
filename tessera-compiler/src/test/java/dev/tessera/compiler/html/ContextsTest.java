@@ -429,6 +429,19 @@ class ContextsTest {
   }
 
   @Test
+  void metaRefreshFoldsOnlyAscii() {
+    // A browser lower-cases A-Z only: http-equ\u0131v (dotless i) and http-equ\u0130v (dotted capital I) are
+    // not http-equiv, and refre\u017Fh (long s) is not refresh, so this content is an ordinary attribute.
+    for (String name : List.of("http-equ\u0131v", "http-equ\u0130v")) {
+      assertEquals(OutputContext.ATTRIBUTE, Contexts.attribute(element("meta", name, "refresh"), "content"), name);
+    }
+    assertEquals(
+        OutputContext.ATTRIBUTE, Contexts.attribute(element("meta", "http-equiv", "refre\u017Fh"), "content"));
+    assertEquals(
+        OutputContext.REFRESH, Contexts.attribute(element("meta", "Http-Equiv", "REFRESH"), "content"));
+  }
+
+  @Test
   void textContexts() {
     assertEquals(OutputContext.SCRIPT, Contexts.text(element("script")));
     assertEquals(OutputContext.SCRIPT, Contexts.text(element("Script", "src", "/a.js")));

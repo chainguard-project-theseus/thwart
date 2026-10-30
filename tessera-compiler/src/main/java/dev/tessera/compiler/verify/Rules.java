@@ -135,16 +135,30 @@ final class Rules {
     if (s.tokenizer() != TokenizerState.ATTRIBUTE_VALUE_DOUBLE_QUOTED) {
       return Problem.ATTRIBUTE_NOT_IN_VALUE;
     }
-    String name = s.attributeName();
-    if (name == null || hole.attribute() == null || !name.equalsIgnoreCase(hole.attribute())) {
+    // Names fold A-Z only, as in a browser: \u017Frc is not src, encod\u0131ng is not encoding.
+    String name = s.attributeName() == null ? null : asciiLower(s.attributeName());
+    if (name == null || hole.attribute() == null || !name.equals(asciiLower(hole.attribute()))) {
       return Problem.ATTRIBUTE_WRONG_NAME;
     }
     // An <input> in a table mode is a parse error whatever its type (#410).
     OpenElement current = s.currentNode();
-    if (name.equalsIgnoreCase("encoding") && current != null && OpenElement.MATHML.equals(current.namespace())) {
+    if (name.equals("encoding") && current != null && OpenElement.MATHML.equals(current.namespace())) {
       return Problem.ATTRIBUTE_VALUE_CHANGES_PARSE;
     }
     return null;
+  }
+
+  /**
+   * {@code s} with only A-Z lowercased, as a browser compares names. The verifier keeps its own copy, so it shares
+   * no code with the parser it checks.
+   */
+  private static String asciiLower(String s) {
+    StringBuilder sb = new StringBuilder(s.length());
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      sb.append(c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c);
+    }
+    return sb.toString();
   }
 
   // ---- error-free parses and the coarse exclusions (#406, security-architecture.md §11.4) ----
