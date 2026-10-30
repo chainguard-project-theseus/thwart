@@ -931,6 +931,33 @@ class HtmlParserTest {
     parseOk("<math><annotation-xml><svg><title>t</title></svg></annotation-xml></math><title><b>html</b></title>");
   }
 
+  @Test
+  void parsingContextsFoldOnlyAsciiInAttributeNames() {
+    // A browser lower-cases A-Z only: encod\u0131ng (dotless i) and encod\u0130ng (dotted capital I) are not
+    // encoding, so this annotation-xml holds MathML, in the parser and in ParsingContexts alike.
+    for (String name : List.of("encod\u0131ng", "encod\u0130ng")) {
+      Document doc = parseOk("<math><annotation-xml " + name + "=\"text/html\"><mrow></mrow></annotation-xml></math>");
+      Element annotation = el(el(doc.rootElement()).children().get(0));
+      assertTrue(el(annotation.children().get(0)).foreign(), name);
+      assertEquals("annotation-xml", ParsingContexts.of(doc).content(annotation), name);
+    }
+    Document doc = parseOk("<math><annotation-xml ENCODING=\"TEXT/HTML\"><mrow></mrow></annotation-xml></math>");
+    Element annotation = el(el(doc.rootElement()).children().get(0));
+    assertFalse(el(annotation.children().get(0)).foreign());
+    assertEquals(ParsingContexts.HTML, ParsingContexts.of(doc).content(annotation));
+  }
+
+  @Test
+  void fontBreakoutFoldsOnlyAscii() {
+    // sıze (dotless i) and sİze (dotted capital I) are not size to a browser, so this <font> stays in
+    // the SVG, in the parser and in ParsingContexts alike.
+    for (String name : List.of("sıze", "sİze")) {
+      Document doc = parseOk("<svg><font " + name + "=\"1\"><title>t</title></font></svg>");
+      assertEquals("svg", ParsingContexts.of(doc).content(el(doc.rootElement())), name);
+    }
+    assertEquals(List.of(breakout(6, "font")), errors("<svg><font SIZE=\"1\"><title>t</title></font></svg>"));
+  }
+
   private static String breakout(int col, String tag) {
     return "dir/t.html:1:" + col + ": error: malformed markup: <" + tag + "> inside <svg> or <math> is HTML in a"
         + " browser and ends the <svg> or <math> there: close it first, or put HTML inside <foreignObject>";
