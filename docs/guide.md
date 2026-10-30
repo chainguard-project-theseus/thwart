@@ -1914,6 +1914,9 @@ These come from the annotation processor itself, without a template position.
   markup (unclosed quote, stray `<`).
 - `malformed markup: invalid element name '<name>': element names start with a letter and use letters, digits, '-', '_', ':' and '.'`:
   fix the tag name, or escape a literal `<` in text as `&lt;`.
+- `malformed markup: invalid element name '<name>' in end tag </<name>>: element names start with a letter and use letters, digits, '-', '_', ':' and '.'`:
+  the same rule for end tags. A browser folds ASCII letters only, so `</ſpan>` (with U+017F) does
+  not close a `<span>` there; fix the tag name.
 - `malformed markup: invalid attribute name '<name>': attribute names cannot contain <, quotes or =`:
   usually a missing quote or space before the attribute.
 - `malformed markup: quote <quote> in an unquoted attribute value: quote the value and write <reference> in it`:

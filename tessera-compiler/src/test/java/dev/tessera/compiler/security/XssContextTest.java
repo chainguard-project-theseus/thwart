@@ -320,18 +320,14 @@ class XssContextTest {
   }
 
   @Test
-  void nonAsciiEndTagIsWrittenWithTheStartTagName() {
+  void nonAsciiEndTagFailsToBuild() {
     // Java folds U+017F to s and a browser does not, so a browser would not end <noscript> at
-    // </noſcript>. Tessera ends it there and writes </noscript>, where a browser ends it too.
-    Compilation c =
-        Compilation.builder()
-            .template("page.html", "<div t:params=\"String s\"><noscript></noſcript><p t:title=\"s\">[[s]]</p></div>")
-            .compile();
-    c.assertSuccess();
-    String out = c.render("page", Map.of("s", "</noscript><img src=x onerror=alert(1)>"));
-    assertTrue(out.startsWith("<div><noscript></noscript><p title=\""), out);
-    assertTrue(out.endsWith("&lt;/noscript&gt;&lt;img src=x onerror=alert(1)&gt;</p></div>"), out);
-    assertEquals(-1, out.indexOf("<img"), out);
+    // </no\u017Fcript>. Tessera must not end it there either, and writing </noscript> would hide
+    // the difference: the end tag is a build error, as an invalid start-tag name is.
+    Compilation.builder()
+        .template("page.html", "<div t:params=\"String s\"><noscript></no\u017Fcript><p t:title=\"s\">[[s]]</p></div>")
+        .compile()
+        .assertError("page.html:1:36:", "invalid element name 'no\u017Fcript' in end tag </no\u017Fcript>");
   }
 
   /** Markup that must fail to build: these contexts cannot be escaped. */
