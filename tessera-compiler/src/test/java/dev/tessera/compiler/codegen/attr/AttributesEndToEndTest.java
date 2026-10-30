@@ -80,7 +80,10 @@ class AttributesEndToEndTest {
         render("<svg><a><animate attributeName=\"href\" t:from=\"s\"/></a></svg>", model("s", "javascript:alert(1)")));
   }
 
-  /** Numeric and colour animations keep working: their items have no scheme. */
+  /**
+   * Numeric animations keep working: their items have no scheme. A colour animation's values are
+   * CSS, like the attribute it animates: literals and css values.
+   */
   @Test
   void animationValuesKeepPlainLists() {
     assertEquals(
@@ -89,7 +92,11 @@ class AttributesEndToEndTest {
             model("s", "0.5")));
     assertEquals(
         "<svg><rect><animate attributeName=\"fill\" values=\"red;blue\"/></rect></svg>",
-        render("<svg><rect><animate attributeName=\"fill\" t:values=\"s\"/></rect></svg>", model("s", "red;blue")));
+        render("<svg><rect><animate attributeName=\"fill\" t:values=\"'red;blue'\"/></rect></svg>", model()));
+    assertEquals(
+        "<svg><rect><animate attributeName=\"fill\" values=\"red;#00f\"/></rect></svg>",
+        render("<svg><rect><animate attributeName=\"fill\" t:values=\"|red;${css.color(c)}|\"/></rect></svg>",
+            model("c", "#00f")));
     assertEquals(
         "<svg><a><animate attributeName=\"href\" values=\"javascript:void(0);/a\"/></a></svg>",
         render("<svg><a><animate attributeName=\"href\" t:values=\"u\"/></a></svg>",

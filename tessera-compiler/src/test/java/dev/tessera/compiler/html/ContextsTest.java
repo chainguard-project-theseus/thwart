@@ -314,7 +314,9 @@ class ContextsTest {
     "path, d, ATTRIBUTE",
     "svg, viewbox, ATTRIBUTE",
     "svg, viewBox, ATTRIBUTE",
-    "animate, attributename, ATTRIBUTE",
+    "animate, dur, ATTRIBUTE",
+    // Known, but a computed attributeName could retarget the values to CSS.
+    "animate, attributename, FORBIDDEN",
     "text, xml:space, ATTRIBUTE",
     "use, xlink:href, URL",
     "mi, mathvariant, ATTRIBUTE",
@@ -374,6 +376,46 @@ class ContextsTest {
   void svgCssUrlAttributes(String element, String attribute, boolean foreign, OutputContext expected) {
     Element e = new Element(element, List.of(), List.of(), false, true, POS, foreign);
     assertEquals(expected, Contexts.attribute(e, attribute));
+  }
+
+  /**
+   * The values of an animation whose static attributeName is one of those attributes are STYLE;
+   * the attributeName of an animation element cannot be computed.
+   */
+  @ParameterizedTest(name = "<{0} {1}=\"{2}\"> {3} -> {4}")
+  @CsvSource({
+    "animate, attributeName, fill, values, STYLE",
+    "animate, attributeName, fill, to, STYLE",
+    "animate, attributeName, stroke, from, STYLE",
+    "animate, attributeName, clip-path, by, STYLE",
+    "set, attributeName, mask, to, STYLE",
+    "set, attributeName, filter, to, STYLE",
+    "set, attributeName, marker-start, to, STYLE",
+    "animate, attributeName, marker-mid, values, STYLE",
+    "animate, attributeName, marker-end, values, STYLE",
+    "set, attributeName, cursor, to, STYLE",
+    "set, attributeName, marker, to, STYLE",
+    "animateColor, attributeName, fill, values, STYLE",
+    "animateTransform, attributeName, fill, values, STYLE",
+    "ANIMATE, ATTRIBUTENAME, ' Fill ', VALUES, STYLE",
+    "animate, attributeName, svg:fill, values, STYLE",
+    "animate, attributeName, fill, fill, ATTRIBUTE",
+    "animate, attributeName, fill, begin, ATTRIBUTE",
+    "animate, attributeName, href, values, URL_LIST",
+    "set, attributeName, xlink:href, to, URL",
+    "animate, attributeName, fill-opacity, values, URL_LIST",
+    "animate, attributeName, opacity, to, URL",
+    "animate, t:attributeName, fill, values, URL_LIST",
+    "rect, attributeName, fill, values, ATTRIBUTE",
+    "animate, attributeName, fill, attributeName, FORBIDDEN",
+    "set, attributeName, fill, ATTRIBUTENAME, FORBIDDEN",
+    "animateMotion, attributeName, fill, attributeName, FORBIDDEN",
+    "animateTransform, attributeName, fill, attributeName, FORBIDDEN",
+    "animateColor, attributeName, fill, attributeName, FORBIDDEN",
+    "rect, attributeName, fill, attributeName, ATTRIBUTE",
+  })
+  void animatedSvgCssUrlValues(String element, String name, String value, String attribute, OutputContext expected) {
+    assertEquals(expected, Contexts.attribute(element(element, name, value), attribute));
   }
 
   @Test
