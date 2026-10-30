@@ -3,12 +3,14 @@ package dev.tessera.runtime.fn;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -112,6 +114,133 @@ class NumbersTest {
     }
     assertEquals("3", Numbers.formatInteger(Locale.ROOT, 2.5, 1));
     assertNull(Numbers.formatDecimal(Locale.ROOT, null, -1, -1));
+  }
+
+  /** Every function that hands a value to DecimalFormat, with the default digit counts. */
+  private static final List<java.util.function.Function<Object, String>> FORMATS =
+      List.of(
+          n -> Numbers.formatInteger(Locale.ROOT, n, 1),
+          n -> Numbers.formatInteger(Locale.ROOT, n, 1, "COMMA"),
+          n -> Numbers.formatDecimal(Locale.ROOT, n, 1, 2),
+          n -> Numbers.formatDecimal(Locale.ROOT, n, 1, 2, "COMMA"),
+          n -> Numbers.formatDecimal(Locale.ROOT, n, 1, "POINT", 2, "COMMA"),
+          n -> Numbers.formatPercent(Locale.ROOT, n, 1, 1),
+          n -> Numbers.formatCurrency(Locale.US, n));
+
+  @Test
+  void bigDecimalsFarFromThePointFailFast() {
+    for (String value : new String[] {"1E+999999999", "-1E+999999999", "1E+10000", "1E-10001", "1E-999999999"}) {
+      for (var format : FORMATS) {
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(5),
+            () -> assertThrows(IllegalArgumentException.class, () -> format.apply(new BigDecimal(value))),
+            value);
+      }
+    }
+  }
+
+  /** A Number that holds its text, as Gson's LazilyParsedNumber does. */
+  private static final class TextNumber extends Number {
+    private static final long serialVersionUID = 1L;
+    private final String text;
+
+    TextNumber(String text) {
+      this.text = text;
+    }
+
+    @Override
+    public int intValue() {
+      return 0;
+    }
+
+    @Override
+    public long longValue() {
+      return 0;
+    }
+
+    @Override
+    public float floatValue() {
+      return 0;
+    }
+
+    @Override
+    public double doubleValue() {
+      return 0;
+    }
+
+    @Override
+    public String toString() {
+      return text;
+    }
+  }
+
+  @Test
+  void otherNumbersFarFromThePointFailFast() {
+    for (var format : FORMATS) {
+      assertTimeoutPreemptively(
+          Duration.ofSeconds(5),
+          () -> assertThrows(IllegalArgumentException.class, () -> format.apply(new TextNumber("1e999999999"))));
+    }
+    assertEquals("1,234.50", Numbers.formatDecimal(Locale.ROOT, new TextNumber("1234.5"), 1, "COMMA", 2, "POINT"));
+  }
+
+  /** An application subclass of BigDecimal whose own precision and scale say 1 but whose toString() is its label. */
+  private static final class LabeledDecimal extends BigDecimal {
+    private static final long serialVersionUID = 1L;
+    private final String label;
+
+    LabeledDecimal(String label) {
+      super(1);
+      this.label = label;
+    }
+
+    @Override
+    public String toString() {
+      return label;
+    }
+  }
+
+  @Test
+  void bigDecimalSubclassesAreCheckedAndFormattedAsTheJdkValueOfTheirText() {
+    // DecimalFormat copies a BigDecimal's toString() as digits, so the subclass's own precision()
+    // and scale() must not decide the bound.
+    assertEquals(1, new LabeledDecimal("1E+999999999").precision());
+    for (var format : FORMATS) {
+      assertTimeoutPreemptively(
+          Duration.ofSeconds(5),
+          () -> assertThrows(IllegalArgumentException.class, () -> format.apply(new LabeledDecimal("1E+999999999"))));
+      assertThrows(IllegalArgumentException.class, () -> format.apply(new LabeledDecimal("1E-10001")));
+      assertThrows(IllegalArgumentException.class, () -> format.apply(new LabeledDecimal("<b>")));
+    }
+    // Within the bound, the JDK value of the text is what is formatted.
+    assertEquals("1,234.50", Numbers.formatDecimal(Locale.ROOT, new LabeledDecimal("1234.5"), 1, "COMMA", 2, "POINT"));
+    assertEquals("1,000", Numbers.formatInteger(Locale.ROOT, new LabeledDecimal("1E+3"), 1, "COMMA"));
+  }
+
+  @Test
+  void bigDecimalsWithinTheBoundFormatAsBefore() {
+    assertEquals("1,000", Numbers.formatInteger(Locale.ROOT, new BigDecimal("1E+3"), 1, "COMMA"));
+    assertEquals("1234.50", Numbers.formatDecimal(Locale.ROOT, new BigDecimal("1234.5"), 1, 2));
+    assertEquals("0.00", Numbers.formatDecimal(Locale.ROOT, new BigDecimal("1E-10000"), 1, 2));
+    assertEquals("$1,234.50", Numbers.formatCurrency(Locale.US, new BigDecimal("1234.5")));
+    // 10,000 integer digits is the most that formats; formatPercent's x100 adds two.
+    assertEquals(10000, Numbers.formatInteger(Locale.ROOT, new BigDecimal("1E+9999"), 1).length());
+    assertEquals(13336, Numbers.formatPercent(Locale.ROOT, new BigDecimal("1E+9999"), 1, 0).length());
+    // Zero formats as 0 whatever its scale.
+    assertEquals("0", Numbers.formatInteger(Locale.ROOT, new BigDecimal("0E+10001"), 1));
+    assertEquals("0.00", Numbers.formatDecimal(Locale.ROOT, new BigDecimal(BigInteger.ZERO, 10002), 1, 2));
+  }
+
+  @Test
+  void digitCountsAboveTheBoundFailFast() {
+    assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+      assertThrows(IllegalArgumentException.class, () -> Numbers.formatInteger(Locale.ROOT, 7, 1000000000));
+      assertThrows(IllegalArgumentException.class, () -> Numbers.formatDecimal(Locale.ROOT, 7, 1, 1000000000));
+      assertThrows(IllegalArgumentException.class, () -> Numbers.formatPercent(Locale.ROOT, 7, 1, 1000000000));
+      assertThrows(IllegalArgumentException.class, () -> Numbers.formatPercent(Locale.ROOT, 7, 10001, 0));
+    });
+    assertEquals(10000, Numbers.formatInteger(Locale.ROOT, 7, 10000).length());
+    assertEquals(10002, Numbers.formatDecimal(Locale.ROOT, 7, 1, 10000).length());
   }
 
   @Test
