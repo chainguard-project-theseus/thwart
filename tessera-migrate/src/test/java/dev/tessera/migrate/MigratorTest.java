@@ -1,9 +1,11 @@
 package dev.tessera.migrate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 /** Single-file conversion rules, byte preservation and the unsupported-construct audit. */
@@ -131,6 +133,33 @@ class MigratorTest {
     // An unknown name the compiler rejects for another reason first is left to it.
     String odd = "<div t:params=\"String x\"><a th:attr=\"1a=${x}\" th:hx-ext=\"${x}\">a</a></div>";
     assertMessages(odd, "1: `th:hx-ext`: `hx-ext` is not a known attribute");
+  }
+
+  @Test
+  void angularDirectiveSpellingsAreLeftToTheCompiler() throws Exception {
+    // AngularJS's directiveNormalize reads each of these as ngClick (or ngInit, ngBind); the
+    // compiler rejects them as framework directives, not as unknown names.
+    for (String name : List.of("data:ng-click", "data_ng-click", "x:ng-click", "x_ng-click", "data--ng-click",
+        "_ng-click", "DATA:Ng-Click", "X_NG_init", "x_-ng:bind", "data-_ng-click")) {
+      assertTrue(ConversionRules.angularDirective(name.toLowerCase(Locale.ROOT)), name);
+      String src = "<div t:params=\"String x\"><a th:" + name + "=\"${x}\" th:attr=\"" + name + "=${x}\">a</a></div>";
+      assertEquals("<div t:params=\"String x\"><a t:" + name + "=\"x\" t:attr=\"" + name + "=x\">a</a></div>",
+          convert(src));
+      assertMessages(src);
+    }
+    // What AngularJS reads as dataFoo, dataNgx or dataDataNgClick is not a directive: data-* names
+    // stay ordinary, and other names are unknown.
+    for (String name : List.of("data:foo", "data_ngx", "data-ngx", "data-data-ng-click", "data-xng-click", "data-ng",
+        "xng-click", "ng")) {
+      assertFalse(ConversionRules.angularDirective(name), name);
+    }
+    String other = "<div t:params=\"String x\"><a th:data:foo=\"${x}\" th:data_ngx=\"${x}\" th:data-ngx=\"${x}\""
+        + " th:data-data-ng-click=\"${x}\">a</a></div>";
+    assertMessages(other,
+        "1: `th:data:foo`: `data:foo` is not a known attribute, and a computed attribute must be a standard HTML,"
+            + " SVG, MathML or ARIA attribute, a `data-*` attribute or a plain prop on a custom element (a build error"
+            + " in Tessera); if it is data for your script, write `th:data-data:foo`",
+        "1: `th:data_ngx`: `data_ngx` is not a known attribute");
   }
 
 
