@@ -55,6 +55,31 @@ class ElementPlanTest {
   }
 
   @Test
+  void attributeNamesFoldOnlyAscii() {
+    // data-\u00C9 and data-\u00E9 are two attributes to a browser, which lower-cases A-Z only; DATA-X is data-x.
+    ElementPlan p =
+        plan(
+            "p",
+            new Attribute("data-\u00C9", "a", "a", '"', POS, POS),
+            new Attribute("data-\u00E9", "b", "b", '"', POS, POS),
+            new Attribute("DATA-X", "c", "c", '"', POS, POS));
+    assertEquals(3, p.attributes().size());
+    assertEquals("\"a\"", p.attribute("data-\u00C9").orElseThrow().valueCode());
+    assertEquals("\"b\"", p.attribute("data-\u00E9").orElseThrow().valueCode());
+    assertEquals("\"c\"", p.attribute("data-x").orElseThrow().valueCode());
+  }
+
+  @Test
+  void setAttributeKeepsANameThatDiffersBeyondAsciiCase() {
+    // A static \u212Aind (Kelvin sign) is not kind to a browser: a computed kind is a second attribute.
+    ElementPlan p = plan("track", new Attribute("\u212Aind", "a", "a", '"', POS, POS));
+    p.setAttribute("kind", "k", POS);
+    assertEquals(2, p.attributes().size());
+    assertEquals("\"a\"", p.attribute("\u212Aind").orElseThrow().valueCode());
+    assertEquals("k", p.attribute("kind").orElseThrow().valueCode());
+  }
+
+  @Test
   void valueCode() {
     ElementPlan p =
         plan(

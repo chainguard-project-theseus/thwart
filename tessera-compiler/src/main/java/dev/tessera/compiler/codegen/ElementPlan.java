@@ -4,6 +4,7 @@ import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.html.Contexts;
+import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.OutputContext;
@@ -12,7 +13,6 @@ import dev.tessera.compiler.verify.Skeleton;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -269,8 +269,12 @@ public final class ElementPlan {
     }
   }
 
+  /**
+   * Names fold A-Z only, as in a browser and the parser's duplicate check: {@code data-\u00C9} is not
+   * {@code data-\u00E9}.
+   */
   private static String key(String name) {
-    return name.toLowerCase(Locale.ROOT);
+    return HtmlParser.asciiLower(name);
   }
 
   public Element element() {
@@ -323,7 +327,7 @@ public final class ElementPlan {
     return Backports.listCopy(attributes.values());
   }
 
-  /** Case-insensitive lookup. */
+  /** ASCII-case-insensitive lookup. */
   public Optional<Attr> attribute(String name) {
     return Optional.ofNullable(attributes.get(key(name)));
   }
