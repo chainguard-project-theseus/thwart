@@ -361,18 +361,45 @@ public final class Escapers {
 
   /**
    * Value inside a JavaScript {@code <script>} (OutputContext.SCRIPT with no type, a JavaScript
-   * type or {@code module}): serialized exactly as {@link #json}, except that a value starting with
-   * {@code -} (a negative number, or {@code -0}) is wrapped in parentheses. JavaScript's unary minus
-   * binds more loosely than a member access, call or index after it, and {@code -2 ** 2} is a
-   * syntax error: {@code -1.5.toFixed(2)} is {@code -(1.5.toFixed(2))}, the number {@code -1.5},
-   * but {@code (-1.5).toFixed(2)} is the string {@code "-1.50"}. Only a top-level number starts
-   * with {@code -}; values inside an array or object are unchanged. The value is fully serialized
-   * before anything is written, so a failure writes nothing.
+   * type or {@code module}): serialized exactly as {@link #json}, except that a top-level number
+   * that starts with {@code -} (a negative number, or {@code -0}) or is an integer literal (no
+   * {@code .}, {@code e} or {@code E}) is wrapped in parentheses. JavaScript's unary minus binds
+   * more loosely than a member access, call or index after it, and {@code -2 ** 2} is a syntax
+   * error: {@code -1.5.toFixed(2)} is {@code -(1.5.toFixed(2))}, the number {@code -1.5}, but
+   * {@code (-1.5).toFixed(2)} is the string {@code "-1.50"}. In an integer literal a {@code .}
+   * after it is read as the decimal point: {@code 1.toFixed(2)} is a syntax error, but
+   * {@code (1).toFixed(2)} is the string {@code "1.00"}. Values inside an array or object are
+   * unchanged. The value is fully serialized before anything is written, so a failure writes
+   * nothing.
    */
   public static void javaScript(Output out, Object value) {
     StringBuilder sb = new StringBuilder();
     writeJson(sb, value, 0);
-    out.write(sb.length() > 0 && sb.charAt(0) == '-' ? "(" + sb + ")" : sb.toString());
+    out.write(needsParentheses(sb) ? "(" + sb + ")" : sb.toString());
+  }
+
+  /**
+   * Whether serialized JSON {@code s} is a number that starts with {@code -} or is an integer
+   * literal. Only a number starts with {@code -} or a digit.
+   */
+  private static boolean needsParentheses(CharSequence s) {
+    if (s.length() == 0) {
+      return false;
+    }
+    char c = s.charAt(0);
+    if (c == '-') {
+      return true;
+    }
+    if (c < '0' || c > '9') {
+      return false;
+    }
+    for (int i = 1; i < s.length(); i++) {
+      char d = s.charAt(i);
+      if (d == '.' || d == 'e' || d == 'E') {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**

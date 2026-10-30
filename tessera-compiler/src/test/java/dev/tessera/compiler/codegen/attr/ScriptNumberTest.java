@@ -2,6 +2,7 @@ package dev.tessera.compiler.codegen.attr;
 
 import static dev.tessera.compiler.testing.Compilation.model;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.tessera.compiler.testing.Compilation;
 import java.math.BigDecimal;
@@ -12,14 +13,16 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mozilla.javascript.Context;
+import org.mozilla.javascript.EvaluatorException;
 import org.mozilla.javascript.Scriptable;
 
 /**
- * A negative number in a JavaScript {@code <script>} is written in parentheses, so a member access,
- * call or index after it applies to the number, not its absolute value: {@code -1.5.toFixed(2)} is
- * {@code -(1.5.toFixed(2))}. JSON scripts and values nested in arrays or objects are unchanged.
+ * A negative number or an integer in a JavaScript {@code <script>} is written in parentheses, so a
+ * member access, call or index after it applies to the number: {@code -1.5.toFixed(2)} is
+ * {@code -(1.5.toFixed(2))}, and {@code 1.toFixed(2)} is a syntax error. JSON scripts and values
+ * nested in arrays or objects are unchanged.
  */
-class ScriptNegativeNumberTest {
+class ScriptNumberTest {
   private static Compilation compile(String params, String body) {
     return Compilation.builder()
         .template("page.html", "<div t:params=\"" + params + "\">" + body + "</div>")
@@ -96,9 +99,62 @@ class ScriptNegativeNumberTest {
     other.put("s", (short) 5);
     other.put("b", (byte) 6);
     assertEquals(
-        "var i = 3; var l = 9223372036854775807; var d = 0.0; var f = null; var bd = 1.10;"
-            + " var bi = 0; var o = null; var s = 5; var b = 6;",
+        "var i = (3); var l = (9223372036854775807); var d = 0.0; var f = null; var bd = 1.10;"
+            + " var bi = (0); var o = null; var s = (5); var b = (6);",
         script(c.render("page", other)));
+  }
+
+  @Test
+  void memberAccessAfterAnIntegerParses() {
+    Compilation c = compile(
+        "int i, long l, java.math.BigInteger bi, java.math.BigDecimal bd",
+        "<script>var a = [[${i}]].toFixed(2); var b = [[${l}]].toFixed(2); var c = [[${bi}]].toFixed(2);"
+            + " var d = [[${bd}]].toFixed(2);</script>");
+    String js = script(c.render("page", model("i", 1, "l", 1L, "bi", BigInteger.ONE, "bd", new BigDecimal("1"))));
+    assertEquals(
+        "var a = (1).toFixed(2); var b = (1).toFixed(2); var c = (1).toFixed(2); var d = (1).toFixed(2);", js);
+    for (String v : new String[] {"a", "b", "c", "d"}) {
+      assertEquals("1.00", run(js, v), v);
+    }
+  }
+
+  @Test
+  void anUnparenthesizedIntegerBeforeAMemberAccessIsASyntaxError() {
+    // Why the parentheses exist: without them the output does not parse.
+    assertThrows(EvaluatorException.class, () -> run("var s = 1.toFixed(2);", "s"));
+  }
+
+  @Test
+  void aNumberWithADecimalPointOrExponentIsUnchanged() {
+    Compilation c = compile(
+        "double d, java.math.BigDecimal bd, java.math.BigDecimal e",
+        "<script>var a = [[${d}]].toFixed(2); var b = [[${bd}]].toFixed(2); var c = [[${e}]].toFixed(2);</script>");
+    String js = script(c.render("page", model("d", 1.5, "bd", new BigDecimal("1.0"), "e", new BigDecimal("1E+3"))));
+    assertEquals("var a = 1.5.toFixed(2); var b = 1.0.toFixed(2); var c = 1E+3.toFixed(2);", js);
+    assertEquals("1.50", run(js, "a"));
+    assertEquals("1.00", run(js, "b"));
+    assertEquals("1000.00", run(js, "c"));
+  }
+
+  @Test
+  void nestedIntegersAreUnchanged() {
+    Compilation c = compile(
+        "java.util.List<Integer> l, int[] a, java.util.Map<String, Long> m",
+        "<script>var l = [[${l}]].length; var a = [[${a}]]; var m = [[${m}]];</script>");
+    String js = script(c.render("page", model("l", List.of(1), "a", new int[] {1}, "m", Map.of("x", 7L))));
+    assertEquals("var l = [1].length; var a = [1]; var m = {\"x\":7};", js);
+    assertEquals(1, ((Number) run(js, "l")).intValue());
+  }
+
+  @Test
+  void jsonScriptTypesKeepIntegers() {
+    // Negative test: (7) is not JSON, so a JSON script keeps the plain number.
+    Compilation c = compile(
+        "int n",
+        "<script type=\"application/json\">[[${n}]]</script><script type=\"application/json\" t:text=\"${n}\"></script>");
+    assertEquals(
+        "<div><script type=\"application/json\">7</script><script type=\"application/json\">7</script></div>",
+        c.render("page", model("n", 7)));
   }
 
   @Test

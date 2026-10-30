@@ -170,7 +170,7 @@ class Jdk8ProcessorTest {
         <a href="/owners/7">edit</a>
         <ul><li>1. Rex (DOG)</li><li>2. Tom (CAT)</li></ul>
         <p>ANN &lt;B&gt;!</p>
-        <script>var id = 7; var owner = {"id":7,"name":"Ann \\u003cb\\u003e","pets":[{"name":"Rex","kind":"DOG"},{"name":"Tom","kind":"CAT"}],"regular":true};</script>
+        <script>var id = (7); var owner = {"id":7,"name":"Ann \\u003cb\\u003e","pets":[{"name":"Rex","kind":"DOG"},{"name":"Tom","kind":"CAT"}],"regular":true};</script>
         </div>
         <span>&lt;i&gt;</span>|refused""",
         rendered);
