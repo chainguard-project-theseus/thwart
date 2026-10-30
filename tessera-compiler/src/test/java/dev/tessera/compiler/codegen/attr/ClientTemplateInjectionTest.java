@@ -90,6 +90,10 @@ class ClientTemplateInjectionTest {
     assertEquals("<textarea>\n{{x}}</textarea>", render("<textarea t:text=\"s\"></textarea>", "{{x}}"));
     assertEquals("<textarea>\n{{x}}</textarea>", render("<textarea>[[s]]</textarea>", "{{x}}"));
     assertEquals("<TITLE>{{x}}</TITLE>", render("<TITLE t:text=\"s\">t</TITLE>", "{{x}}"));
+    // An <annotation-xml> whose t:attr names only other attributes keeps its HTML encoding: an HTML title.
+    assertEquals("<math><annotation-xml encoding=\"text/html\" id=\"{{x}}\"><title>{{x}}</title></annotation-xml></math>",
+        render("<math><annotation-xml encoding=\"text/html\" t:attr=\"id=s\"><title>[[s]]</title></annotation-xml></math>",
+            "{{x}}"));
   }
 
   @Test

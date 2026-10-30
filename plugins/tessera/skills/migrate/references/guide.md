@@ -2446,7 +2446,7 @@ These come from the annotation processor itself, without a template position.
   - In `<select>` content, an HTML fragment fits only without `<title>`, `<style>`, `<svg>`,
     `<math>`, `t:insert`, `t:replace`, `t:utext` and `[(...)]`: `insert it in HTML content, or keep <title>, <style>, <svg>, <math>, t:insert, t:replace, t:utext and [(...)] out of the fragment, since some browsers ignore those tags in a <select> and parse their content as markup`.
 - `fragment ~{...} is in or holds an <svg> or <math> with an HTML element such as <p> in it, where a browser leaves foreign content early, so it fits nowhere: move the HTML element out of the <svg> or <math>, or into a <foreignObject>`.
-  An `<annotation-xml>` whose `encoding` is computed (`t:encoding`, `t:attr`), and MathML
+  An `<annotation-xml>` whose `encoding` is computed (`t:encoding`, or a `t:attr` that names `encoding`), and MathML
   `mglyph` and `malignmark`, and a `<noscript>`, `<iframe>`, `<xmp>`, `<noembed>` or `<noframes>` inside
   `<svg>` or `<math>`, count the same way.
 - `fragment ~{...} is in or is an element with t:remove="tag" whose tag changes how its content is parsed, so it is compiled for one context and rendered in another and fits nowhere: drop the t:remove="tag", or move the fragment out of that element`.

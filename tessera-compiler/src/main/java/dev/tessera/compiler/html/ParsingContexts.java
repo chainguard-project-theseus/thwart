@@ -349,10 +349,10 @@ public final class ParsingContexts {
     return null;
   }
 
-  /** Whether {@code t:<name>} or a {@code t:attr}, {@code t:attrappend} or {@code t:attrprepend} may set {@code name}. */
+  /** Whether {@code t:<name>} or a {@code t:attr} {@link HtmlParser#attrMaySet may set} {@code name} (lower-case). */
   private static boolean computed(Element e, String name) {
     for (Attribute a : e.attributes()) {
-      if (a.isTessera() && (a.localName().equalsIgnoreCase(name) || a.localName().toLowerCase(Locale.ROOT).startsWith("attr"))) {
+      if (a.isTessera() && (a.localName().equalsIgnoreCase(name) || HtmlParser.attrMaySet(a, name))) {
         return true;
       }
     }

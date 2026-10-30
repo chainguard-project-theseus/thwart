@@ -900,6 +900,10 @@ class HtmlParserTest {
     assertEquals(List.of(breakout(6, "p")), errors("<svg><p t:if=\"${x} == null\"></p><title>x</title></svg>"));
     assertEquals(List.of(breakout(6, "font")), errors("<svg><font t:size=\"${x}\"></font></svg>"));
     assertEquals(List.of(breakout(6, "font")), errors("<svg><font t:attr=\"face=${x}\"></font></svg>"));
+    assertEquals(List.of(breakout(6, "font")), errors("<svg><font t:attr=\"id=${x}, Color=${x}\"></font></svg>"));
+    // A t:attr that names other attributes cannot add a color, face or size.
+    parseOk("<svg><font t:attr=\"id=${x}, title=${x}\">f</font></svg>");
+    assertEquals(List.of(breakout(6, "font")), errors("<svg><font t:attrappend=\"id=${x}\"></font></svg>"));
     assertEquals(List.of(breakout(7, "p")), errors("<math><p></p></math>"));
     parseOk("<svg><foreignObject><p>x</p></foreignObject><desc><b>d</b></desc><font></font></svg>");
     parseOk("<math><mtext><p>x</p></mtext><annotation-xml encoding=\"text/html\"><div>d</div></annotation-xml></math>");
@@ -982,16 +986,51 @@ class HtmlParserTest {
 
   @Test
   void foreignTitleTakesTheNamespaceABrowserGivesIt() {
-    // <svg> directly in <math> is a MathML element, so its <title> is a MathML title: TEXT.
-    assertEquals(List.of("[[${x}]]=TEXT"), texts(parseOk("<math><svg><title>[[${x}]]</title></svg></math>").children()));
-    assertEquals(List.of("[[${x}]]=TEXT"), texts(parseOk("<svg><math><title>[[${x}]]</title></math></svg>").children()));
+    // <svg> directly in <math> is a MathML element, so its <title> is a MathML title. The parser
+    // gives every title TEXT; the namespace is what tells the verifier to name RCDATA (#378).
+    for (String html :
+        List.of(
+            "<math><svg><title>[[${x}]]</title></svg></math>", "<svg><math><title>[[${x}]]</title></math></svg>")) {
+      Document doc = parseOk(html);
+      assertEquals(List.of("[[${x}]]=TEXT"), texts(doc.children()), html);
+      assertEquals(List.of("title=foreign"), titles(doc.children()), html);
+    }
     // A computed encoding may or may not be HTML: Tessera takes the stricter, MathML reading.
     for (String html :
         List.of(
             "<math><annotation-xml t:encoding=\"${x}\"><title>[[${x}]]</title></annotation-xml></math>",
-            "<math><annotation-xml t:attr=\"encoding=${x}\"><title>[[${x}]]</title></annotation-xml></math>")) {
-      assertEquals(List.of("[[${x}]]=TEXT"), texts(parseOk(html).children()), html);
+            "<math><annotation-xml t:attr=\"encoding=${x}\"><title>[[${x}]]</title></annotation-xml></math>",
+            "<math><annotation-xml encoding=\"text/html\" t:attr=\"id=${x}, ENCODING=${x}\"><title>[[${x}]]</title>"
+                + "</annotation-xml></math>",
+            // A t:attr that does not parse, or any other t:attr*, may set anything.
+            "<math><annotation-xml encoding=\"text/html\" t:attr=\"id ${x}\"><title>[[${x}]]</title></annotation-xml></math>",
+            "<math><annotation-xml encoding=\"text/html\" t:attr=\"__${n}__=${x}\"><title>[[${x}]]</title></annotation-xml></math>",
+            "<math><annotation-xml encoding=\"text/html\" t:attrappend=\"id=${x}\"><title>[[${x}]]</title></annotation-xml></math>")) {
+      Document doc = parseOk(html);
+      assertEquals(List.of("[[${x}]]=TEXT"), texts(doc.children()), html);
+      assertEquals(List.of("title=foreign"), titles(doc.children()), html);
     }
+    // A t:attr that names only other attributes keeps the static encoding: the title is an HTML
+    // title, which a browser parses as RCDATA.
+    Document doc = parseOk("<math><annotation-xml encoding=\"text/html\" t:attr=\"id=${x}\"><title>[[${x}]]</title>"
+        + "</annotation-xml></math>");
+    assertEquals(List.of("[[${x}]]=TEXT"), texts(doc.children()));
+    assertEquals(List.of("title=html"), titles(doc.children()));
+    parseOk("<math><annotation-xml encoding=\"text/html\" t:attr=\"id=${x}\"><p>[[${x}]]</p></annotation-xml></math>");
+  }
+
+  /** {@code title=html} or {@code title=foreign} for each {@code <title>} in {@code nodes}, in order. */
+  private static List<String> titles(List<Node> nodes) {
+    List<String> out = new ArrayList<>();
+    for (Node n : nodes) {
+      if (n instanceof Element e) {
+        if (e.name().equalsIgnoreCase("title")) {
+          out.add("title=" + (e.foreign() ? "foreign" : "html"));
+        }
+        out.addAll(titles(e.children()));
+      }
+    }
+    return out;
   }
 
   @Test
