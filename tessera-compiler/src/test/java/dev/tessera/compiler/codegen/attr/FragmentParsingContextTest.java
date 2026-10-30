@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.SafeHtml;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -314,6 +315,22 @@ class FragmentParsingContextTest {
             + "</math><math><mrow t:insert=\"~{:: h}\"></mrow></math>")
         .assertError("page.html:2:", "fragment 'page :: h' is declared in HTML content but t:insert puts it in <math>"
             + " content");
+  }
+
+  @Test
+  void annotationXmlEncodingNameFoldsOnlyAscii() {
+    // encod\u0131ng and encod\u0130ng are not encoding to a browser, so the annotation-xml holds MathML: there
+    // <title> holds markup and <mi> holds HTML, so the HTML fragment's RCDATA <script> would run s.
+    for (String name : List.of("encod\u0131ng", "encod\u0130ng")) {
+      Compilation.builder()
+          .template("frags.html", "<div " + NS + ">\n<a t:fragment=\"m(String s)\"><title><mi><script>[[s]]</script>"
+              + "</mi></title></a></div>")
+          .template("page.html", "<div " + NS + " t:params=\"String v\">\n<math><annotation-xml " + name
+              + "=\"text/html\" t:insert=\"~{frags :: m(v)}\"></annotation-xml></math></div>")
+          .compile()
+          .assertError("page.html:2:", "fragment 'frags :: m' is declared in HTML content but t:insert puts it in"
+              + " <annotation-xml> content");
+    }
   }
 
   @Test
