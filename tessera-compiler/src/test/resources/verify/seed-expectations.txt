@@ -285,6 +285,30 @@ review-pr304-2  AB   VERIFIER TEXT_IN_SCRIPT
 review-pr296-1  AB   VERIFIER SELECT_CONTENT TEXT_NOT_IN_TEXT
 review-pr305-2  AB   VERIFIER TEXT_IN_SCRIPT
 review-pr394-1  AB   VERIFIER FOREIGN_IN_TABLE PARSE_ERROR  # #398: a table inside svg in a cell; both vnu engines reset to 'in body', the spec returns to the cell. Exclusion (a) since #406
+ax-pos-1        -    ACCEPT
+ax-pos-2        -    ACCEPT
+ax-pos-3        -    ACCEPT
+ax-pos-4        -    ACCEPT
+ax-pos-5        -    ACCEPT
+ax-pos-6        -    ACCEPT
+ax-attr-1       -    ACCEPT
+ax-attr-2       -    ACCEPT
+ax-attr-3       -    ACCEPT
+ax-attr-4       -    ACCEPT
+ax-attr-5       -    ACCEPT
+ax-attr-6       -    ACCEPT
+ax-attr-7       -    ACCEPT
+ax-attr-8       -    PROFILE  # t:attr "id ${s}" does not parse: expected '=' after 'id'
+ax-enc-1        AB   VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-2        -    VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-3        -    VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-4        -    VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-5        -    VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-6        -    VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-7        AB   VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-8        AB   VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-9        -    PROFILE  # t:attrappend is not supported: assignment (=) is not supported in its value
+ax-enc-10       -    PROFILE  # t:attrprepend is not supported: assignment (=) is not supported in its value
 xss-rejected-1  -    ACCEPT
 xss-rejected-2  -    ACCEPT
 xss-rejected-3  -    ACCEPT
