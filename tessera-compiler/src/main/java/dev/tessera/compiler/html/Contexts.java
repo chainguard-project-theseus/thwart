@@ -423,9 +423,11 @@ public final class Contexts {
    * Whether {@code attr} on {@code element} is a value ({@code values to from by}) of a
    * {@link #TIMED_ANIMATIONS timed animation element} whose static {@code attributeName} names one
    * of the {@link #SVG_CSS_URL_ATTRIBUTES}: the animation sets that CSS, so the value is CSS too.
-   * The name is compared stripped and ASCII case-insensitively, after any {@code prefix:}, which
-   * fails closed for names a browser would not match. A {@code values} list is CSS as a whole: a
-   * {@code CssValue} cannot start a {@code url(} after a {@code ;} (it percent-encodes
+   * The {@code attributeName} attribute is found folding A-Z only, as in a browser: {@code
+   * attr\u0131buteName} is not {@code attributeName}, so the browser animates what the real one names.
+   * The name it holds is compared stripped and ASCII case-insensitively, after any {@code prefix:},
+   * which fails closed for names a browser would not match. A {@code values} list is CSS as a
+   * whole: a {@code CssValue} cannot start a {@code url(} after a {@code ;} (it percent-encodes
    * {@code (}). The {@code attributeName} itself cannot be computed ({@link #attribute}).
    */
   private static boolean animatesSvgCssUrl(Element element, String el, String attr) {
@@ -433,8 +435,8 @@ public final class Contexts {
       return false;
     }
     for (Attribute a : element.attributes()) {
-      if (!a.isTessera() && a.name().equalsIgnoreCase("attributeName") && a.value() != null) {
-        String target = Backports.strip(a.value()).toLowerCase(Locale.ROOT);
+      if (!a.isTessera() && HtmlParser.asciiLower(a.name()).equals("attributename") && a.value() != null) {
+        String target = HtmlParser.asciiLower(Backports.strip(a.value()));
         if (SVG_CSS_URL_ATTRIBUTES.contains(target.substring(target.lastIndexOf(':') + 1))) {
           return true;
         }
