@@ -218,7 +218,7 @@ table is what ships today. The target profile, with the status of each rule, is 
 | `REFRESH` | `content` of `<meta http-equiv="refresh">` | `Escapers.refresh` | only `'<seconds>;url=' + @{/path}` with a literal path starting with a single `/` (#237); else build error |
 | `STYLE` | `<style>`, `style` attribute, SVG `fill stroke clip-path mask filter marker-start marker-mid marker-end marker cursor` (CSS that may hold a `url()`; not `fill` on an animation element); `values to from by` of an animation whose static `attributeName` is one of them | — | build error in `<style>`; the attributes take only literals, numbers and `CssValue`s (#182), attribute-escaped |
 | `EVENT_HANDLER` | `on*` attributes | — | build error; use `data-*` + script |
-| `FORBIDDEN` | `srcdoc`, non-JS `<script type>`, odd attribute names | — | build error; `http-equiv` on `<meta>`, `type` on `<script>` and `attributeName` on an SVG animation element cannot be computed |
+| `FORBIDDEN` | `srcdoc`, non-JS `<script type>`, odd attribute names | — | build error; `http-equiv` on `<meta>`, `type` on `<script>` and `attributeName` on an SVG animation element cannot be computed, nor can the attributes the tree builder reads (`is`, `xmlns`, `xmlns:xlink`; `<template>` `shadowroot*` and `for`; `<meta>` `charset`, and `content` under `http-equiv="Content-Type"`) |
 
 ## Discovery and processor configuration
 

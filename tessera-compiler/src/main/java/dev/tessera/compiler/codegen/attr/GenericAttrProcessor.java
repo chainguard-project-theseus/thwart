@@ -108,6 +108,8 @@ public final class GenericAttrProcessor implements AttributeProcessor {
                 ? "htmx 1.x '" + name + "' holds connect:<url>, a URL htmx connects to and swaps into the page as"
                     + " HTML, so it cannot be computed; write it as a static attribute, or use the sse/ws"
                     + " extension's sse-connect/ws-connect with a same-origin link such as @{/events}"
+                : Contexts.isTreeBuilderInput(plan.element(), name)
+                ? treeBuilderInput(name, lower)
                 : lower.equals("srcdoc")
                 ? "srcdoc is a whole HTML document and cannot contain expressions; use src with a URL"
                 : "attribute name '" + name + "' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*";
@@ -208,6 +210,28 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     if (code != null) {
       plan.setAttribute(name, code, pos);
     }
+  }
+
+  /** Why attribute {@code name}, which the HTML tree builder reads ({@link Contexts#isTreeBuilderInput}), cannot be computed. */
+  private static String treeBuilderInput(String name, String lower) {
+    String computed = "a computed '" + name + "' ";
+    if (lower.equals("is")) {
+      return computed + "decides which custom element a browser creates; write it as a static value";
+    }
+    if (lower.startsWith("xmlns")) {
+      return computed + "must name the element's namespace, which a browser checks while it parses; write it"
+          + " as a static value, or omit it";
+    }
+    if (lower.startsWith("shadowroot") || lower.equals("for")) {
+      return computed + "on a <template> decides whether a browser attaches its content as a shadow root, or"
+          + " where it moves it; write it as a static value";
+    }
+    if (lower.equals("content")) {
+      return computed + "on a <meta http-equiv=\"Content-Type\"> sets the encoding a browser reads the page in;"
+          + " write it as a static value, or set the encoding in the Content-Type response header";
+    }
+    return computed + "on a <meta> sets the encoding a browser reads the page in; write it as a static value,"
+        + " such as <meta charset=\"utf-8\">";
   }
 
   private static final Pattern REFRESH_PREFIX =
