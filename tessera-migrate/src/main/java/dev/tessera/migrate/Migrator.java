@@ -388,7 +388,7 @@ final class Migrator {
           return false;
         }
       }
-      return !ConversionRules.FRAMEWORK_NAMES.contains(name);
+      return !ConversionRules.FRAMEWORK_NAMES.contains(name) && !ConversionRules.angularDirective(name);
     }
 
     /** {@code f(a, b)} becomes {@code f(Object a, Object b)} plus a report item to type it. */
