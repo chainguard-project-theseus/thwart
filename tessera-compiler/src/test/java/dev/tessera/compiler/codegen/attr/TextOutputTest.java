@@ -196,11 +196,11 @@ class TextOutputTest {
         Compilation.builder()
             .template(
                 "page.html",
-                "<div t:import=\"java.time.*\" t:params=\"ZoneOffset zone, ZoneId id\"><script>[[zone]] [[id]]</script></div>")
+                "<div t:import=\"java.time.*\" t:params=\"ZoneOffset zone, ZoneId id\"><script>var z = [[zone]], i = [[id]];</script></div>")
             .compile()
             .assertSuccess();
     assertEquals(
-        "<div><script>\"+02:00\" \"Europe\\/Paris\"</script></div>",
+        "<div><script>var z = \"+02:00\", i = \"Europe\\/Paris\";</script></div>",
         c.render("page", model("zone", ZoneOffset.ofHours(2), "id", ZoneId.of("Europe/Paris"))));
   }
 
