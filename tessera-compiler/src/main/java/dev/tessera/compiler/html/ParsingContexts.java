@@ -324,7 +324,7 @@ public final class ParsingContexts {
             return MIXED;
           }
           String encoding = staticValue(e, "encoding");
-          encoding = encoding == null ? "" : encoding.toLowerCase(Locale.ROOT);
+          encoding = encoding == null ? "" : HtmlParser.asciiLower(encoding);
           return encoding.equals("text/html") || encoding.equals("application/xhtml+xml") ? HTML : "annotation-xml";
         }
         return "math";
@@ -339,10 +339,14 @@ public final class ParsingContexts {
     return staticValue(e, name) != null || computed(e, name);
   }
 
-  /** The value of {@code e}'s written attribute {@code name} (ASCII-case-insensitive), "" if it has none, or null. */
+  /**
+   * The value of {@code e}'s written attribute {@code name} (lower-case), "" if it has no value, or null if it has
+   * none. Names fold A-Z only, as in a browser and {@link HtmlParser#htmlAnnotation}: {@code encod\u0131ng} is not
+   * {@code encoding}.
+   */
   private static String staticValue(Element e, String name) {
     for (Attribute a : e.attributes()) {
-      if (!a.isTessera() && a.name().equalsIgnoreCase(name)) {
+      if (!a.isTessera() && HtmlParser.asciiLower(a.name()).equals(name)) {
         return a.value() == null ? "" : a.value();
       }
     }
@@ -352,7 +356,7 @@ public final class ParsingContexts {
   /** Whether {@code t:<name>} or a {@code t:attr} {@link HtmlParser#attrMaySet may set} {@code name} (lower-case). */
   private static boolean computed(Element e, String name) {
     for (Attribute a : e.attributes()) {
-      if (a.isTessera() && (a.localName().equalsIgnoreCase(name) || HtmlParser.attrMaySet(a, name))) {
+      if (a.isTessera() && (HtmlParser.asciiLower(a.localName()).equals(name) || HtmlParser.attrMaySet(a, name))) {
         return true;
       }
     }
