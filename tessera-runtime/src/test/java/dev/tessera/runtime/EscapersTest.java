@@ -3,6 +3,8 @@ package dev.tessera.runtime;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -822,6 +824,7 @@ class EscapersTest {
       assertThrows(IllegalArgumentException.class, () -> Escapers.json(out, List.of(1, hostile)));
       assertThrows(IllegalArgumentException.class, () -> Escapers.appendJson(new StringBuilder(), hostile, 0));
       assertEquals("", out.toString());
+      assertThrows(IllegalArgumentException.class, () -> Escapers.messageArgs(new Object[] {hostile}));
       assertThrows(IllegalArgumentException.class, () -> Escapers.htmlMessageArgs(new Object[] {hostile}));
     }
   }
@@ -850,8 +853,35 @@ class EscapersTest {
   }
 
   @Test
+  void messageArgsReplaceBigNumberSubclassesWithJdkValues() {
+    // Generated code passes the result of messageArgs to Messages.get for escaped text, attributes
+    // and scripts, so MessageFormat sees the JDK values, never the subclass.
+    BigDecimal plain = new BigDecimal("1.5");
+    Object[] in = {plain, "text", null, new Labeled("1E+3"), new LabeledInt("-7")};
+    Object[] out = Escapers.messageArgs(in);
+    assertNotSame(in, out);
+    assertEquals(Labeled.class, in[3].getClass());
+    assertSame(plain, out[0]);
+    assertEquals("text", out[1]);
+    assertEquals(null, out[2]);
+    assertEquals(BigDecimal.class, out[3].getClass());
+    assertEquals(new BigDecimal("1E+3"), out[3]);
+    assertEquals(BigInteger.class, out[4].getClass());
+    assertEquals(BigInteger.valueOf(-7), out[4]);
+    assertEquals("1,000 -7", new java.text.MessageFormat("{3} {4}", java.util.Locale.ROOT).format(out));
+    // Every pattern sees the JDK value: {0,date} reads longValue() of 1E+3, not the subclass's 1.
+    assertEquals(
+        new java.text.MessageFormat("{0,date,yyyy-MM-dd HH:mm:ss.SSS}", java.util.Locale.ROOT).format(new Object[] {1000L}),
+        new java.text.MessageFormat("{3,date,yyyy-MM-dd HH:mm:ss.SSS}", java.util.Locale.ROOT).format(out));
+    // The subclass says precision 1, scale 0; its text, which MessageFormat would copy, is checked.
+    assertEquals(1, new Labeled("1E+999999999").precision());
+    assertThrows(IllegalArgumentException.class, () -> Escapers.messageArgs(new Object[] {new Labeled("1E+999999999")}));
+    assertThrows(IllegalArgumentException.class, () -> Escapers.messageArgs(new Object[] {new LabeledInt("1E+3")}));
+  }
+
+  @Test
   void messageFormatCopiesTheTextOfABigNumberSubclass() {
-    // Why htmlMessageArgs replaces subclasses: MessageFormat copies their toString() as digits.
+    // Why messageArgs replaces subclasses: MessageFormat copies their toString() as digits.
     java.text.MessageFormat f = new java.text.MessageFormat("Now <b>{0}</b>", java.util.Locale.ROOT);
     assertEquals("Now <b><b></b>", f.format(new Object[] {new Labeled("<b>")}));
     assertEquals("Now <b><b></b>", f.format(new Object[] {new LabeledInt("<b>")}));
@@ -899,6 +929,39 @@ class EscapersTest {
     assertThrows(IllegalArgumentException.class, () -> Escapers.appendJson(new StringBuilder(), List.of("value"), 64));
   }
 
+
+  @Test
+  void messageArgsKeepNumbersThatFormatToABoundedLength() {
+    Object[] args = {
+      new BigDecimal("1234.5"), new BigDecimal("1E+3"), new BigDecimal("-0.000012345"), new BigDecimal("1E+9999"),
+      new BigDecimal("1E-10000"), new BigInteger("123456789012345678901234567890"), Double.MAX_VALUE, "text", null
+    };
+    assertSame(args, Escapers.messageArgs(args));
+    assertEquals(
+        "1,234.5 1,000 -0 0",
+        new java.text.MessageFormat("{0} {1} {2} {4}", java.util.Locale.ROOT).format(Escapers.messageArgs(args)));
+    assertEquals(
+        13333, new java.text.MessageFormat("{3}", java.util.Locale.ROOT).format(Escapers.messageArgs(args)).length());
+  }
+
+  @Test
+  void messageArgsKeepZeroWhateverItsScale() {
+    Object[] zeros = {new BigDecimal("0E+10001"), new BigDecimal(BigInteger.ZERO, 10002)};
+    assertSame(zeros, Escapers.messageArgs(zeros));
+    assertEquals("0 0", new java.text.MessageFormat("{0} {1}", java.util.Locale.ROOT).format(zeros));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"1E+10000", "1E+999999999", "-1E+999999999", "12345678901234567890E+9990", "1E-10001",
+      "1E-10002", "1E-999999999"})
+  void messageArgsRejectBigDecimalsMoreThanTenThousandPlacesFromThePoint(String value) {
+    Object[] args = {"a", new BigDecimal(value)};
+    assertThrows(IllegalArgumentException.class, () -> Escapers.messageArgs(args));
+    assertThrows(IllegalArgumentException.class, () -> Escapers.htmlMessageArgs(args));
+    // A subclass whose own precision and scale say 1 is checked as the JDK value of its toString().
+    assertThrows(IllegalArgumentException.class, () -> Escapers.messageArgs(new Object[] {new Labeled(value)}));
+    assertThrows(IllegalArgumentException.class, () -> Escapers.htmlMessageArgs(new Object[] {new Labeled(value)}));
+  }
 
   @Test
   void htmlMessageArgsEscapeTextButKeepNumbersAndDates() {
