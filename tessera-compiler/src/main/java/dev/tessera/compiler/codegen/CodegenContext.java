@@ -84,6 +84,13 @@ public interface CodegenContext {
    */
   String hostElement();
 
+  /**
+   * Whether the element whose content is being generated is a {@code <script>} with a JSON type
+   * ({@code Contexts.isJsonScript}): its SCRIPT values are JSON data, written by {@code Escapers.json}.
+   * Other SCRIPT values are JavaScript, written by {@code Escapers.javaScript}.
+   */
+  boolean inJsonScript();
+
   /** Adds a member (method or constant) to the generated class. */
   void addMember(String javaCode);
 

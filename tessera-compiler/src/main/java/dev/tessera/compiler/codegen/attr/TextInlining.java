@@ -26,7 +26,8 @@ import javax.lang.model.type.TypeKind;
 
 /**
  * Text inlining: {@code [[expr]]} (escaped for the text node's context: TEXT via {@code Escapers.text},
- * or {@code Escapers.rcdata} where the verifier finds RCDATA (#378), SCRIPT via {@code Escapers.json})
+ * or {@code Escapers.rcdata} where the verifier finds RCDATA (#378), SCRIPT via {@code Escapers.javaScript},
+ * or {@code Escapers.json} in a JSON {@code <script>})
  * and {@code [(expr)]} (SafeHtml or a checked bundle message, TEXT only).
  * STYLE/FORBIDDEN contexts with inlined expressions are build errors, and so is an expression
  * inside a static client-side {@code {{ ... }}} interpolation in TEXT or SCRIPT text

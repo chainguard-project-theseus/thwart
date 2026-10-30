@@ -56,7 +56,7 @@ public final class SkeletonMatcher {
     int i = from;
     ends.set(i);
     while (i < s.length()) {
-      int next = escaper == Skeleton.Escaper.JSON ? jsonToken(s, i) : htmlToken(s, i, escaper == Skeleton.Escaper.TEXT);
+      int next = escaper == Skeleton.Escaper.JSON || escaper == Skeleton.Escaper.JAVASCRIPT ? jsonToken(s, i) : htmlToken(s, i, escaper == Skeleton.Escaper.TEXT);
       if (next < 0) {
         break;
       }

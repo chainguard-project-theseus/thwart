@@ -57,7 +57,8 @@ final class Rules {
         Problem p = text(s);
         return p == null && s.tokenizer() == TokenizerState.DATA ? Problem.RCDATA_NOT_IN_RCDATA : p;
       case JSON:
-        // Right after '<' too: JSON never starts with '/' or '!', so its first character returns
+      case JAVASCRIPT:
+        // Right after '<' too: JSON, parenthesized or not, never starts with '/' or '!', so its first character returns
         // the tokenizer to script data (the verifier feeds one, see ContextVerifier#hole).
         OpenElement current = s.currentNode();
         return (s.tokenizer() == TokenizerState.SCRIPT_DATA || s.tokenizer() == TokenizerState.SCRIPT_DATA_LESS_THAN_SIGN)

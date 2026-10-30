@@ -162,6 +162,11 @@ class ContextVerifierRulesTest {
     accept(st("<script>if (1<"), json(), st("/2) {}</script>")); // ... so '<' + value + '/' is no end tag
     reject(Problem.JSON_NOT_IN_SCRIPT, st("<svg><script>var a = "), json());
     reject(Problem.JSON_NOT_IN_SCRIPT, st("<p>"), json());
+    // A JavaScript value, (-1.5) for a negative number, follows the same rules.
+    accept(st("<script>var a = "), javaScript(), st(";</script>"));
+    accept(st("<script>if (1<"), javaScript(), st("/2) {}</script>"));
+    reject(Problem.JSON_NOT_IN_SCRIPT, st("<svg><script>var a = "), javaScript());
+    reject(Problem.JSON_NOT_IN_SCRIPT, st("<p>"), javaScript());
     reject(Problem.JSON_NOT_IN_SCRIPT, st("<script><!--<script>"), json());
     reject(Problem.JSON_NOT_IN_SCRIPT, st("<script>a<!"), json());
     reject(Problem.JSON_NOT_IN_SCRIPT, st("<style>"), json());
@@ -510,6 +515,10 @@ class ContextVerifierRulesTest {
 
   private Skeleton.Hole json() {
     return hole(Escaper.JSON, null);
+  }
+
+  private Skeleton.Hole javaScript() {
+    return hole(Escaper.JAVASCRIPT, null);
   }
 
   private Skeleton.Hole attr(String name) {

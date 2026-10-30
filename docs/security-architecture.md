@@ -272,8 +272,13 @@ hole is decidable without a JS parser:
 - After the last hole, anything else goes except `-->`: at the start of a line it is an Annex B
   comment that would hide the token after a value from the checks above, and that code isn't
   lexed, so `-->` after the last hole is an error even in a string or comment. The value is a
-  complete JSON token sequence in operand position, and the checks above cover the tokens next to
-  it.
+  complete JSON token sequence (in parentheses for a negative number, below) in operand
+  position, and the checks above cover the tokens next to it.
+- In a JavaScript `<script>` (not `application/json` or `application/ld+json`), a top-level negative
+  number is written in parentheses (`Escapers.javaScript`): JavaScript's unary minus binds more
+  loosely than a member access, call or index after it, so `-1.5.toFixed(2)` would be
+  `-(1.5.toFixed(2))`, the number `-1.5`, where `(-1.5).toFixed(2)` is `"-1.50"`. Numbers inside
+  arrays and objects, and every value in a JSON script, stay plain JSON.
 - No holes in `<svg><script>`: browsers decode character references and parse markup there.
 - JSON strings also escape `{` as `{` (#303's cheap part), so petite-vue can't interpolate
   a value in script text.

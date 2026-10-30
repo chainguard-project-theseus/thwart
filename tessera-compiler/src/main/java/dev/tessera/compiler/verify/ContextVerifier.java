@@ -848,7 +848,7 @@ public final class ContextVerifier {
     for (Map.Entry<Problem, List<ParserState>> e : problems.entrySet()) {
       add(p, e.getKey(), pos, h.escaper(), null, h.attribute(), e.getValue(), null);
     }
-    if (h.escaper() == Skeleton.Escaper.JSON) {
+    if (h.escaper() == Skeleton.Escaper.JSON || h.escaper() == Skeleton.Escaper.JAVASCRIPT) {
       for (ParserState s : p.states()) {
         if (s.tokenizer() == TokenizerState.SCRIPT_DATA_LESS_THAN_SIGN) {
           // A JSON value is never empty and never starts with '/' or '!': any first character

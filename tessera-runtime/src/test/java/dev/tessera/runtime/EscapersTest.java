@@ -66,6 +66,10 @@ class EscapersTest {
     return run(Escapers::json, v);
   }
 
+  private static String javaScript(Object v) {
+    return run(Escapers::javaScript, v);
+  }
+
   private static String html(SafeHtml v) {
     StringOutput out = new StringOutput();
     Escapers.html(out, v);
@@ -552,6 +556,30 @@ class EscapersTest {
     assertEquals("\"sb\"", json(new StringBuilder("sb")));
     assertEquals("\"x\"", json('x'));
     assertEquals("\"\"", json(""));
+  }
+
+  @Test
+  void javaScriptParenthesizesATopLevelNegativeNumber() {
+    assertEquals("(-1.5)", javaScript(-1.5));
+    assertEquals("(-0.0)", javaScript(-0.0));
+    assertEquals("(-0.0)", javaScript(-0.0f));
+    assertEquals("(-3)", javaScript(-3));
+    assertEquals("(-9223372036854775808)", javaScript(Long.MIN_VALUE));
+    assertEquals("(-1.10)", javaScript(new BigDecimal("-1.10")));
+    assertEquals("(-12345678901234567890)", javaScript(new BigInteger("-12345678901234567890")));
+    assertEquals("(-2.0)", javaScript(Optional.of(-2.0)));
+  }
+
+  @Test
+  void javaScriptWritesOtherValuesAsJson() {
+    for (Object v : new Object[] {
+      1.5, 0.0, 0, Long.MAX_VALUE, new BigDecimal("1.10"), Double.NEGATIVE_INFINITY, null, true, "-1", "a<b",
+      List.of(-1, 2), new int[] {-1}, new double[] {-0.0}, Map.of("a", -1), Optional.empty(), Color.GREEN
+    }) {
+      assertEquals(json(v), javaScript(v), String.valueOf(v));
+    }
+    assertEquals("[-1,2]", javaScript(List.of(-1, 2)));
+    assertEquals("\"-1\"", javaScript("-1"));
   }
 
   @Test
