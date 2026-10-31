@@ -1000,7 +1000,8 @@ appear inside a tag. The value is checked both as written and as `MessageFormat`
 runtime the message is printed as HTML only if it is exactly what one of the checked values
 produces; the runtime never decides a message is safe by looking at it. A message from a source
 the build did not check (another directory or jar, a database-backed `MessageSource`, a file
-changed after the build) is escaped as text, `{{` broken, even if it has no markup. Where a message's markup does not fit
+changed after the build) is formatted with its arguments as plain text and the result escaped as
+text, `{{` broken, even if it has no markup. Where a message's markup does not fit
 the allow-list, move the markup into the template and keep the text in the bundle.
 
 <!-- compile: messages -->
