@@ -45,6 +45,31 @@ class AsciiWhitespaceTest {
   }
 
   @Test
+  void scriptTypeStripsOnlyHtmlWhitespace() {
+    // A browser strips ASCII whitespace from type; anything else makes an inert data block, which
+    // Tessera does not write into. A match here turns FORBIDDEN into SCRIPT, so it must not over-strip.
+    for (String type : List.of("\u00a0", "\u0001text/javascript", "\u000btext/javascript", "\u2000text/javascript",
+        "\u00a0application/json")) {
+      compile("<script type=\"" + type + "\">var a = [[${s}]];</script>").assertError("not JavaScript");
+    }
+    assertEquals(
+        "<div><script type=\" text/javascript\t\">var a = \"x\";</script></div>",
+        compile("<script type=\" text/javascript\t\">var a = [[${s}]];</script>").assertSuccess()
+            .render("t", Map.of("s", "x")));
+  }
+
+  @Test
+  void numericReferencesNeedAsciiDigits() {
+    // Character.digit accepts Arabic-Indic and fullwidth digits; a browser leaves such a reference as text.
+    assertEquals("pos&#\u0661\u0661\u0666;", HtmlParser.decode("pos&#\u0661\u0661\u0666;"));
+    assertEquals("pos&#x\uff17\uff14;", HtmlParser.decode("pos&#x\uff17\uff14;"));
+    assertEquals("post", HtmlParser.decode("pos&#116;"));
+    assertEquals("post", HtmlParser.decode("pos&#x74;"));
+    assertEquals("post", HtmlParser.decode("pos&#X74;"));
+    assertEquals("posJ", HtmlParser.decode("pos&#x4a;"));
+  }
+
+  @Test
   void refreshPrefixSkipsOnlyHtmlWhitespace() {
     // Java's \\s matched U+000B, which a browser does not skip before url=.
     compile("<meta http-equiv=\"refresh\" t:content=\"'3;\u000burl=' + @{/a}\">").assertError("t:content is not allowed");

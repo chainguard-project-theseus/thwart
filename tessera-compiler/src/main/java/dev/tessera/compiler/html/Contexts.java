@@ -534,7 +534,7 @@ public final class Contexts {
         type = a.value() == null ? "" : a.value();
       }
     }
-    return type != null && JSON_SCRIPT_TYPES.contains(HtmlParser.asciiLower(HtmlParser.stripAnySpace(type)));
+    return type != null && JSON_SCRIPT_TYPES.contains(HtmlParser.asciiLower(HtmlParser.stripHtmlWhitespace(type)));
   }
 
   private static OutputContext scriptContext(Element script) {
@@ -550,7 +550,7 @@ public final class Contexts {
     if (type == null) {
       return OutputContext.SCRIPT;
     }
-    return SCRIPT_TYPES.contains(HtmlParser.asciiLower(HtmlParser.stripAnySpace(type)))
+    return SCRIPT_TYPES.contains(HtmlParser.asciiLower(HtmlParser.stripHtmlWhitespace(type)))
         ? OutputContext.SCRIPT
         : OutputContext.FORBIDDEN;
   }

@@ -397,7 +397,7 @@ public final class TemplateGenerator implements CodegenContext {
       Boolean boost = Contexts.staticHtmxBoost(e);
       if (Boolean.FALSE.equals(boost)
           && (e.name().equals("t:block")
-              || e.attribute("t:remove").map(Attribute::value).map(String::trim).filter("tag"::equals).isPresent())) {
+              || e.attribute("t:remove").map(Attribute::value).map(JavaStrings::trimJava).filter("tag"::equals).isPresent())) {
         boost = null;
       }
       boolean b = boost == null ? boosted : boost;

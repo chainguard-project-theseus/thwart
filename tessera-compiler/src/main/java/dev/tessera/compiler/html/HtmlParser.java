@@ -473,6 +473,18 @@ public final class HtmlParser {
     return out.toString();
   }
 
+  /**
+   * The value of ASCII digit {@code c} (with {@code hex}, also a-f and A-F), or -1. Not
+   * {@code Character.digit}, which accepts non-ASCII digits a browser does not read in a reference.
+   */
+  private static int asciiDigitValue(char c, boolean hex) {
+    if (isAsciiDigit(c)) {
+      return c - '0';
+    }
+    char l = asciiLower(c);
+    return hex && l >= 'a' && l <= 'f' ? l - 'a' + 10 : -1;
+  }
+
   /** Decodes the reference at {@code amp}; returns the index after it, or -1 if none. */
   private static int decodeOne(String s, int amp, StringBuilder out) {
     int i = amp + 1;
@@ -484,9 +496,9 @@ public final class HtmlParser {
       }
       int start = i;
       long cp = 0;
-      while (i < s.length() && Character.digit(s.charAt(i), hex ? 16 : 10) >= 0) {
+      while (i < s.length() && asciiDigitValue(s.charAt(i), hex) >= 0) {
         if (cp <= 0x10FFFF) {
-          cp = cp * (hex ? 16 : 10) + Character.digit(s.charAt(i), hex ? 16 : 10);
+          cp = cp * (hex ? 16 : 10) + asciiDigitValue(s.charAt(i), hex);
         }
         i++;
       }

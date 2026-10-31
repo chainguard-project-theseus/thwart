@@ -33,6 +33,11 @@ class AsciiOnlyTest {
               + "|Character\\.(isWhitespace|isSpaceChar|isLetter|isLetterOrDigit|isDigit|isAlphabetic"
               + "|isJavaIdentifierStart|isJavaIdentifierPart|isUnicodeIdentifierStart|isUnicodeIdentifierPart)\\("
               + "|\\.trim\\(\\)|\\.(strip|stripLeading|stripTrailing|isBlank)\\("
+              // method references and Character.digit, which accepts non-ASCII digits
+              + "|::(equalsIgnoreCase|compareToIgnoreCase|toLowerCase|toUpperCase|toTitleCase|trim|strip"
+              + "|stripLeading|stripTrailing|isBlank|isWhitespace|isSpaceChar|isLetter|isLetterOrDigit|isDigit"
+              + "|isAlphabetic|isJavaIdentifierStart|isJavaIdentifierPart|isUnicodeIdentifierStart"
+              + "|isUnicodeIdentifierPart)\\b|Character\\.digit\\("
               // regex shorthands: \\s includes U+000B, \\b is Unicode on JDK 8; spell the ASCII set
               + "|\\\\\\\\[sSbBdDwWhHvV]|\\\\\\\\[pP]\\{");
 

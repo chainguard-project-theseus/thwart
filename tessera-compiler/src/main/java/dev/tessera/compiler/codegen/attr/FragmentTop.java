@@ -2,6 +2,7 @@ package dev.tessera.compiler.codegen.attr;
 
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.Diagnostics;
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.TemplateIndex;
 import dev.tessera.compiler.expr.FragmentRef;
@@ -38,7 +39,7 @@ public final class FragmentTop {
   /** Whether {@code e} is written without its tags: {@code <t:block>} or a static {@code t:remove="tag"}. */
   public static boolean tagNotRendered(Element e) {
     return e.name().equals("t:block")
-        || e.attribute("t:remove").map(Attribute::value).map(String::trim).filter("tag"::equals).isPresent();
+        || e.attribute("t:remove").map(Attribute::value).map(JavaStrings::trimJava).filter("tag"::equals).isPresent();
   }
 
   /** The top level written by {@code attr}, a {@code t:insert} or {@code t:replace} in the current template. */
