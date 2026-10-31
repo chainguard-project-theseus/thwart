@@ -336,7 +336,7 @@ nightly framework harness (#334). Today the entries are hard-coded in `Contexts`
 | `{{` broken in SVG/MathML text | #301 (TEXT context) | seed `A7` |
 | `{` as `\u007b` in JSON strings | #303 | `ScriptJsonTest` (#303) |
 | Unclosed static `{{` before a hole is an error | #303 (same text node or script); across nodes #336 | seed `A18`; generator interference `{{..}}` |
-| A static `&` that starts a character reference before a hole is an error, so a value can't spell `{` as `&#123;` (`&[[a]]&[[b]]`, a = b = `#123;`); an HTML message the build did not check is printed as HTML only if every `&` in it starts one of the five references the escapers write | verifier (`TEXT_NOT_IN_TEXT`, §2 "Text: hole after `&`"); runtime (`Escapers.htmlMessage`) | `ValueAfterAmpersandTest`, `EscapersTest` |
+| A static `&` that starts a character reference before a hole is an error, so a value can't spell `{` as `&#123;` (`&[[a]]&[[b]]`, a = b = `#123;`); an HTML message the build did not check is escaped as text | verifier (`TEXT_NOT_IN_TEXT`, §2 "Text: hole after `&`"); runtime (`Escapers.htmlMessage`) | `ValueAfterAmpersandTest`, `EscapersTest` |
 | Attributes and RCDATA: no lossless break | documented limitation (guide §7), bounded by `v-pre`, `ng-non-bindable` and CSP (#335) | seed `A37`; #344 CSTI check |
 
 Frameworks configured to read other names (an Alpine prefix, a Knockout binding provider, a
