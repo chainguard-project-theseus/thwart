@@ -407,11 +407,18 @@ over several properties (`*{firstName + ' ' + lastName}` becomes
 fixes layout markup that nests a second `<body>` (section 4.8, Layouts), and lists what it could
 not convert by `file:line`. In a JavaScript or JSON `<script>` it drops the
 quotes around a `"..."` or `'...'` string that is only an inline (`"[[${x}]]"` becomes `[[${x}]]`,
-which writes JSON with its own quotes) and reports any other `[[...]]` inside a string, template
-literal or comment. In a `th:inline="javascript"` script it rewrites a natural-template comment
-followed by one literal, `/*[[${x}]]*/ 'd'`, to `[[${x}]]`, as Thymeleaf rendered it, and reports
-one followed by anything else (`/*[[${x}]]*/ a + b`). Until #541 it checks scripts only against the old
-data-prelude rule (a `/`, backtick or `-->` before the last `[[...]]`), so a converted script whose values are not all in prelude declarations at the top, including one these rewrites produce, fails to build with the script prelude error (section 6) until you hoist them; #541 makes migrate hoist them. An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
+which writes JSON with its own quotes) and reports any other `[[...]]` inside a JSON string, a
+template literal or a comment. In a `th:inline="javascript"` script it rewrites a natural-template
+comment followed by one literal, `/*[[${x}]]*/ 'd'`, to `[[${x}]]`, as Thymeleaf rendered it, and
+reports one followed by anything else (`/*[[${x}]]*/ a + b`). After those rewrites it hoists each
+`[[...]]` of a JavaScript script that is not already the value of a prelude declaration (the script
+prelude rule, section 6) into `var _t1 = [[...]];` at the top of the script, and writes `_t1` where
+the value was: `x = [[${x}]];` becomes `var _t1 = [[${x}]];` above the code and `x = _t1;`, and a
+value inside a string splits it, `"Hello [[${x}]]"` becoming `"Hello " + _t1`. It uses `var`, so a
+fragment included twice doesn't redeclare a `const`. The names are numbered per file, skipping names
+the file already uses; in a classic script they are globals, so rename one if two scripts of a page
+use the same name and read it later. It reports a value in a template literal or a regular
+expression, which it leaves in place, and a `"use strict"` that no longer starts the script. An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
 It reports a computed name that is not a known attribute (section 6), and rewrites the htmx
 ones that htmx reads the same with `data-` (`th:hx-target` becomes `t:data-hx-target`; also
 `hx-swap`, `hx-select`, `hx-confirm` and the other htmx selector, swap and text attributes),
@@ -2261,8 +2268,8 @@ These come from the annotation processor itself, without a template position.
   name: `const d = [[${d}]];` then `d.split(".")`; `x = [[${x}]];` becomes `var x = [[${x}]];` at
   the top of a classic script (or `const x0 = [[${x}]]; x = x0;`). Or put the data in
   `<script type="application/json" id="data">[[${data}]]</script>` and read it with
-  `JSON.parse(document.getElementById('data').textContent)`. `tessera-migrate` will hoist values
-  into the prelude (see its notes).
+  `JSON.parse(document.getElementById('data').textContent)`. `tessera-migrate` hoists each value
+  into `var _t1 = [[...]];` at the top and uses `_t1` in its place (section 3).
 - `t:text is not allowed on a JavaScript <script>: declare the value at the top of the script, const name = [[...]];, or write it into a <script type="application/json"> and read it with JSON.parse`:
   the whole body would be one value with no declaration around it (the script prelude rule above).
   Write `<script>const config = [[${config}]];</script>`, or

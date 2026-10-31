@@ -831,53 +831,115 @@ class MigratorTest {
           + " build error in Tessera (it writes a JSON value with its own quotes); drop the backticks, or for a"
           + " tagged template declare the value above the code (`var v = [[...]];`) and write ``tag`${v}` `` after it");
     }
-    // A quoted inline inside template code is still unquoted.
+    // A quoted inline inside template code is still unquoted, and then reported.
     String nested = script("", "var a = `${\"[[${x}]]\"}`;");
     assertEquals(script("", "var a = `${[[${x}]]}`;"), convert(nested));
-    assertMessages(nested, "1: `\"[[${x}]]\"` in a script " + UNQUOTED, "1: a backtick (a template literal) " + PRELUDE);
+    assertMessages(nested, "1: `\"[[${x}]]\"` in a script " + UNQUOTED, "1: `[[${x}]]` " + IN_TEMPLATE);
   }
 
-  // ---- the data-prelude rule (#332): code before the last inline ----
+  // ---- the script prelude (#540): values outside it are hoisted (#541) ----
 
-  private static final String PRELUDE = "before the last `[[...]]` of a `<script>` is a build error in Tessera";
+  private static final String HOISTED = "in a script was moved into";
+  private static final String IN_TEMPLATE = "inside a template literal is a build error in Tessera and was not rewritten";
+  private static final String IN_REGEX =
+      "inside a JavaScript regular expression is a build error in Tessera and was not rewritten";
 
   @Test
-  void codeBeforeTheLastInlineThatTheCompilerRejectsIsReported() throws Exception {
+  void valueOutsideThePreludeIsHoistedIntoAVarDeclaration() throws Exception {
+    // Each case is a shape from the bench apps; the hoisted declarations go above the first code.
     String[][] cases = {
-        {"var r = /a/g; var a = [[${x}]];", "a `/` (a division or a regular expression)"},
-        {"var h = w / 2; var a = [[${x}]];", "a `/` (a division or a regular expression)"},
-        {"var a = `${[[${x}]]}`;", "a backtick (a template literal)"},
-        {"var t = `a`; var a = [[${x}]];", "a backtick (a template literal)"},
-        {"x --> 0; var a = [[${x}]];", "`-->` (an HTML-like comment)"},
-        {"#!x\nvar a = [[${x}]];", "`#!` (a hashbang comment)"},
-        {"if (a <!b) {} var a = [[${x}]];", "`<!` (a value or code after it can make `<!--`, an HTML-like comment)"},
-        {"var s = \"a\\\nb\"; var a = [[${x}]];", "a backslash line continuation"},
-        {"var s = \"x\u2028\"; var b = [[${x}]];", "U+2028 (LINE SEPARATOR)"},
-        {"// x\u2029\nvar b = [[${x}]];", "U+2029 (PARAGRAPH SEPARATOR)"},
+        {"var d = [[${x}]].split(\".\");", "var _t1 = [[${x}]]; var d = _t1.split(\".\");"},
+        {"init([[${x}]], 2);", "var _t1 = [[${x}]]; init(_t1, 2);"},
+        {"var o = {a: [[${x}]], b: [[${y}]]};", "var _t1 = [[${x}]]; var _t2 = [[${y}]]; var o = {a: _t1, b: _t2};"},
+        {"var a = [[${x}]]; f(a); var b = [[${y}]];", "var a = [[${x}]]; var _t1 = [[${y}]]; f(a); var b = _t1;"},
+        {"const a = [[${x}]]", "var _t1 = [[${x}]]; const a = _t1"},
+        {"let a = [[${x}]] + 1;", "var _t1 = [[${x}]]; let a = _t1 + 1;"},
+        {"return[[${x}]]", "var _t1 = [[${x}]]; return _t1"},
+        {"var location = [[${x}]];", "var _t1 = [[${x}]]; var location = _t1;"},
+    };
+    for (String[] c : cases) {
+      String src = script("", c[0]);
+      assertEquals(script("", c[1]), convert(src), c[0]);
+    }
+    String message = script("", "f([[${x}]]);");
+    assertMessages(message, "1: `[[${x}]]` in a script was moved into `var _t1 = [[${x}]];` at the top of the script"
+        + " and replaced by `_t1`: in a Tessera script `[[...]]` is allowed only as the whole value of a declaration"
+        + " at the top, before any other code; `_t1` is a global variable in a classic script, so rename it if another"
+        + " script on the page uses that name");
+    assertEquals(1, messages(message).size());
+  }
+
+  @Test
+  void keywordFreeAssignmentIsHoisted() throws Exception {
+    // budgetmaster: the declarations go on their own lines, at the indentation of the first code.
+    String src = "<div t:params=\"String x, String y\">\n    <script>\n"
+        + "        numberValidationMessage = [[${x}]];\n"
+        + "        numberValidationMessageZeroAllowed = [[${y}]];\n    </script></div>";
+    assertEquals("<div t:params=\"String x, String y\">\n    <script>\n"
+        + "        var _t1 = [[${x}]];\n        var _t2 = [[${y}]];\n"
+        + "        numberValidationMessage = _t1;\n"
+        + "        numberValidationMessageZeroAllowed = _t2;\n    </script></div>", convert(src));
+    assertMessages(src, "3: `[[${x}]]` " + HOISTED + " `var _t1", "4: `[[${y}]]` " + HOISTED + " `var _t2");
+    // After a prelude, below it; a CRLF script keeps CRLF; // comments stay above.
+    String crlf = script("", "\r\n  // data\r\n  var a = [[${x}]];\r\n  f(a, [[${y}]]);\r\n");
+    assertEquals(script("", "\r\n  // data\r\n  var a = [[${x}]];\r\n  var _t1 = [[${y}]];\r\n  f(a, _t1);\r\n"),
+        convert(crlf));
+  }
+
+  @Test
+  void hoistedNamesAreNewInTheFile() throws Exception {
+    // Numbered across the scripts of a file, skipping the names the file already uses.
+    String src = "<div t:params=\"String x, String y\"><script>var _t1 = 1; f([[${x}]]);</script>"
+        + "<script>g([[${y}]]);</script></div>";
+    assertEquals("<div t:params=\"String x, String y\"><script>var _t2 = [[${x}]]; var _t1 = 1; f(_t2);</script>"
+        + "<script>var _t3 = [[${y}]]; g(_t3);</script></div>", convert(src));
+  }
+
+  @Test
+  void valuesInTemplateLiteralsAndRegularExpressionsAreReportedNotHoisted() throws Exception {
+    String[][] cases = {
+        {"var a = `${[[${x}]]}`;", IN_TEMPLATE},
+        {"var a = `${f(\"a [[${x}]]\")}`;", IN_TEMPLATE},
+        {"var r = /a[[${x}]]/g;", IN_REGEX},
+        {"if (/[/][[${x}]]/.test(s)) {}", IN_REGEX},
+        {"return /[[${x}]]/;", IN_REGEX},
     };
     for (String[] c : cases) {
       String src = script("", c[0]);
       assertEquals(src, convert(src), c[0]);
-      assertMessages(src, "1: " + c[1] + " " + PRELUDE + ": the compiler reads the code before the last value only"
-          + " with a lexer that has no ambiguous tokens, so it can prove where each value goes; move the `[[...]]` above"
-          + " the code (declare the data first, `var data = [[...]];`), or write the value into a"
-          + " `<script type=\"application/json\">` and read it with `JSON.parse`");
+      assertMessages(src, "1: `[[${x}]]` " + c[1]);
     }
-    // The converted text is checked: an unquoted string becomes code, and a natural-template
-    // default is dropped. The report names the token's source line.
+    // A division is not a regular expression: the value after it is hoisted, and so are the
+    // others of a script with a reported one.
+    String division = script("", "var h = w / 2; var a = [[${x}]] / 2; var r = /[[${y}]]/;");
+    assertEquals(script("", "var _t1 = [[${x}]]; var h = w / 2; var a = _t1 / 2; var r = /[[${y}]]/;"),
+        convert(division));
+    assertMessages(division, "1: `[[${x}]]` " + HOISTED, "1: `[[${y}]]` " + IN_REGEX);
+  }
+
+  @Test
+  void useStrictThatNoLongerStartsTheScriptIsReported() throws Exception {
+    String src = script("", "'use strict';\nf([[${x}]]);");
+    assertEquals(script("", "var _t1 = [[${x}]]; 'use strict';\nf(_t1);"), convert(src));
+    assertMessages(src, "2: `[[${x}]]` " + HOISTED, "1: `'use strict'` no longer starts the script");
+  }
+
+  @Test
+  void naturalTemplateDefaultsAndUnquotedStringsAreRewrittenBeforeHoisting() throws Exception {
     String unquoted = script("", "var a = \"[[${x}]]\" / 2;\nvar b = [[${y}]];");
-    assertMessages(unquoted, "1: `\"[[${x}]]\"` in a script " + UNQUOTED, "1: a `/` (a division or a regular expression) " + PRELUDE);
+    assertEquals(script("", "var _t1 = [[${x}]]; var _t2 = [[${y}]]; var a = _t1 / 2;\nvar b = _t2;"),
+        convert(unquoted));
+    assertMessages(unquoted, "1: `\"[[${x}]]\"` in a script " + UNQUOTED, "1: `[[${x}]]` " + HOISTED,
+        "2: `[[${y}]]` " + HOISTED);
     String natural = script(JS, "var a = /*[[${x}]]*/ {\"k\": [1,\n 2]};\nvar r = /a/;\nvar b = [[${y}]];");
-    assertMessages(natural, TH_INLINE, "1: `/*[[${x}]]*/ {", "3: a `/` (a division or a regular expression) " + PRELUDE);
-    String dropped = script(JS, "var a = /*[[${x}]]*/ '/a/';\nvar b = [[${y}]];");
-    assertMessages(dropped, TH_INLINE, "1: `/*[[${x}]]*/ '/a/'` in a script was rewritten");
-    // One report per script, and none where an inline already stays in a string or comment.
-    String two = script("", "var r = /a/; var t = `b`; var a = [[${x}]];");
-    assertMessages(two, "1: a `/` (a division or a regular expression) " + PRELUDE);
-    String misplaced = script("", "var r = /a/; var a = \"Hello [[${x}]]\";");
-    assertMessages(misplaced, "1: `[[${x}]]` " + IN_STRING);
-    // Not a JavaScript script, or th:inline="none": not checked.
+    assertEquals(script(JS, "var a = [[${x}]];\nvar _t1 = [[${y}]];\nvar r = /a/;\nvar b = _t1;"), convert(natural));
+    assertMessages(natural, TH_INLINE, "1: `/*[[${x}]]*/ {", "4: `[[${y}]]` " + HOISTED);
+    // The text Thymeleaf drops after a natural-template comment it reports stays as it is.
+    String manual = script(JS, "var a = /*[[${x}]]*/ [[[${y}]], 1 + 2];");
+    assertEquals(manual, convert(manual));
+    // Not a JavaScript script, or th:inline="none": not rewritten.
     for (String src : List.of(script(" type=\"text/x-template\"", "var r = /a/; [[${x}]]"),
+        script(" type=\"application/json\"", "{\"a\": [1, [[${x}]]]}"),
         "<script th:inline=\"none\">var r = /a/; [[${x}]]</script>")) {
       assertEquals(src, convert(src), src);
       assertEquals(src.contains("none") ? List.of("1: `th:inline` is not supported; use `[[...]]` in `<script>`"
@@ -889,8 +951,8 @@ class MigratorTest {
   void stringsAroundAnUnquotedInlineAreKept() throws Exception {
     // Exactly one inline between two quotes is a whole string literal, even between concatenations.
     String src = script("", "var a = 'a' + \"[[${x}]]\" + 'b';");
-    assertEquals(script("", "var a = 'a' + [[${x}]] + 'b';"), convert(src));
-    assertMessages(src, "1: `\"[[${x}]]\"` in a script " + UNQUOTED);
+    assertEquals(script("", "var _t1 = [[${x}]]; var a = 'a' + _t1 + 'b';"), convert(src));
+    assertMessages(src, "1: `\"[[${x}]]\"` in a script " + UNQUOTED, "1: `[[${x}]]` " + HOISTED);
     // Quotes inside the expression don't end or start a string.
     String quotes = script("", "var a = [[${x == '\"'}]]; var b = \"[[${y + 'a'}]]\";");
     assertEquals(script("", "var a = [[${x == '\"'}]]; var b = [[${y + 'a'}]];"), convert(quotes));
@@ -898,28 +960,47 @@ class MigratorTest {
   }
 
   @Test
-  void inlineSharingAStringWithOtherTextIsReportedNotRewritten() throws Exception {
-    for (String body : List.of(
-        "var a = \"Hello [[${x}]]!\";",
-        "var a = 'Hello [[${x}]]';",
-        "var a = \"[[${x}]]!\";",
-        "var a = \"\\\"[[${x}]]\";",
-        "var a = `a ${1} [[${x}]]`;",
-        "var a = `${\"a [[${x}]]\"}`;")) {
-      String src = script("", body);
-      assertEquals(src, convert(src), body);
-      assertMessages(src, "1: `[[${x}]]` " + IN_STRING + "; rewrite as `\"text \" + [[${x}]] + \" text\"`");
+  void inlineSharingAStringWithOtherTextIsHoistedAndTheStringSplit() throws Exception {
+    String[][] cases = {
+        {"var a = \"Hello [[${x}]]!\";", "var _t1 = [[${x}]]; var a = \"Hello \" + _t1 + \"!\";"},
+        {"var a = 'Hello [[${x}]]';", "var _t1 = [[${x}]]; var a = 'Hello ' + _t1;"},
+        {"var a = \"[[${x}]]!\";", "var _t1 = [[${x}]]; var a = _t1 + \"!\";"},
+        {"var a = \"\\\"[[${x}]]\";", "var _t1 = [[${x}]]; var a = \"\\\"\" + _t1;"},
+        {"var a = \"[[${x}]] [[${y}]]\";", "var _t1 = [[${x}]]; var _t2 = [[${y}]]; var a = _t1 + \" \" + _t2;"},
+        {"var a = \"[[${x}]][[${y}]]\";", "var _t1 = [[${x}]]; var _t2 = [[${y}]]; var a = \"\" + _t1 + _t2;"},
+        {"f('a [[${x}]]', 1);", "var _t1 = [[${x}]]; f('a ' + _t1, 1);"},
+        {"return 'a [[${x}]]'", "var _t1 = [[${x}]]; return 'a ' + _t1"},
+        // In parentheses where the tokens around the string bind tighter than +.
+        {"var n = \"a [[${x}]]\".length;", "var _t1 = [[${x}]]; var n = (\"a \" + _t1).length;"},
+        {"var n = 1 - 'a [[${x}]]';", "var _t1 = [[${x}]]; var n = 1 - ('a ' + _t1);"},
+        {"var n = !'a [[${x}]]';", "var _t1 = [[${x}]]; var n = !('a ' + _t1);"},
+    };
+    for (String[] c : cases) {
+      String src = script("", c[0]);
+      assertEquals(script("", c[1]), convert(src), c[0]);
     }
-    String two = script("", "var a = \"[[${x}]] [[${y}]]\";");
-    assertEquals(two, convert(two));
-    assertMessages(two, "1: `[[${x}]]` " + IN_STRING, "1: `[[${y}]]` " + IN_STRING);
+    String src = script("", "var a = 'Hello [[${x}]]';");
+    assertMessages(src, "1: `[[${x}]]` " + HOISTED + " `var _t1 = [[${x}]];`");
+    assertTrue(messages(src).get(0).endsWith("; it was inside a quoted string, which is now joined with `+`: a"
+        + " non-string value renders as JSON (`null`, not an empty string)"), messages(src).toString());
+    // A template literal is reported, not split.
+    String template = script("", "var a = `a ${1} [[${x}]]`;");
+    assertEquals(template, convert(template));
+    assertMessages(template, "1: `[[${x}]]` " + IN_STRING + "; rewrite as `\"text \" + [[${x}]] + \" text\"`");
+    // In a JSON script a string is reported.
+    String json = script(" type=\"application/json\"", "{\"a\": \"Hello [[${x}]]\"}");
+    assertEquals(json, convert(json));
+    assertMessages(json, "1: `[[${x}]]` " + IN_STRING);
   }
 
   @Test
   void quotedInlineIsReportedOnItsOwnLine() throws Exception {
     String src = "<div t:params=\"String x\">\n<script>\n  var a = 1;\n  var b = \"x [[${x}]]\";\n"
         + "  var c = \"[[${x}]]\";\n</script></div>";
-    assertMessages(src, "4: `[[${x}]]` " + IN_STRING, "5: `\"[[${x}]]\"` in a script " + UNQUOTED);
+    assertEquals("<div t:params=\"String x\">\n<script>\n  var _t1 = [[${x}]];\n  var _t2 = [[${x}]];\n"
+        + "  var a = 1;\n  var b = \"x \" + _t1;\n  var c = _t2;\n</script></div>", convert(src));
+    assertMessages(src, "5: `\"[[${x}]]\"` in a script " + UNQUOTED, "4: `[[${x}]]` " + HOISTED,
+        "5: `[[${x}]]` " + HOISTED);
   }
 
   @Test
@@ -948,30 +1029,41 @@ class MigratorTest {
   void naturalTemplateCommentIsRewrittenToItsInline() throws Exception {
     // Each expected output is what thymeleaf 3.1.3 renders for the input, with the inline in place
     // of its value (checked by hand against Thymeleaf; it is not a dependency of tessera-migrate).
+    // The fifth column is the output after a value outside the prelude is hoisted (#541).
     String[][] cases = {
         {"var a = /*[[${x}]]*/ \"d\";", "var a = [[${x}]];", "`/*[[${x}]]*/ \"d\"`", "the default `\"d\"`"},
-        {"f(/*[[${x}]]*/ null);", "f([[${x}]]);", "`/*[[${x}]]*/ null`", "the default `null`"},
+        {"f(/*[[${x}]]*/ null);", "f([[${x}]]);", "`/*[[${x}]]*/ null`", "the default `null`",
+            "var _t1 = [[${x}]]; f(_t1);"},
         {"var a = /*[[${x}]]*/ -1.5e3;", "var a = [[${x}]];", "`/*[[${x}]]*/ -1.5e3`", "the default `-1.5e3`"},
         {"var a = /*[[${x}]]*/ 'x/y';", "var a = [[${x}]];", "`/*[[${x}]]*/ 'x/y'`", "the default `'x/y'`"},
         {"var a = /*[[${x}]]*/ [ 'a;b' ];", "var a = [[${x}]];", "`/*[[${x}]]*/ [ 'a;b' ]`", "the default"},
         {"var a = /*[[${x}]]*/ {\"k\": [1,\n 2]};\nvar c;", "var a = [[${x}]];\nvar c;",
             "`/*[[${x}]]*/ {\"k\": [1,\n 2]}`", "the default"},
         {"var a = /*[[${x}]]*/;", "var a = [[${x}]];", "`/*[[${x}]]*/`", "no default"},
-        {"var a = /*[[${x}]]*/\nvar b;", "var a = [[${x}]]\nvar b;", "`/*[[${x}]]*/`", "no default"},
-        {"var a = /*[[${x}]]*/ 'd'", "var a = [[${x}]]", "`/*[[${x}]]*/ 'd'`", "the default `'d'`"},
-        {"var a = /*[[${x}]]*/ 'd' /* c */;", "var a = [[${x}]]/* c */;", "`/*[[${x}]]*/ 'd'`", "the default"},
-        {"var a = /*[[${x}]]*/ 'd' // c\nvar b;", "var a = [[${x}]]// c\nvar b;", "`/*[[${x}]]*/ 'd'`", "the default"},
+        {"var a = /*[[${x}]]*/\nvar b;", "var a = [[${x}]]\nvar b;", "`/*[[${x}]]*/`", "no default",
+            "var _t1 = [[${x}]]; var a = _t1\nvar b;"},
+        {"var a = /*[[${x}]]*/ 'd'", "var a = [[${x}]]", "`/*[[${x}]]*/ 'd'`", "the default `'d'`",
+            "var _t1 = [[${x}]]; var a = _t1"},
+        {"var a = /*[[${x}]]*/ 'd' /* c */;", "var a = [[${x}]]/* c */;", "`/*[[${x}]]*/ 'd'`", "the default",
+            "var _t1 = [[${x}]]; var a = _t1/* c */;"},
+        {"var a = /*[[${x}]]*/ 'd' // c\nvar b;", "var a = [[${x}]]// c\nvar b;", "`/*[[${x}]]*/ 'd'`", "the default",
+            "var _t1 = [[${x}]]; var a = _t1// c\nvar b;"},
     };
     for (String[] c : cases) {
       String src = script(JS, c[0]);
-      assertEquals(script(JS, c[1]), convert(src), c[0]);
-      assertMessages(src, TH_INLINE, "1: " + c[2] + " in a script was rewritten to `[[${x}]]`: Thymeleaf's natural"
-          + " template wrote the value in place of the comment and dropped " + c[3]);
+      assertEquals(script(JS, c.length > 4 ? c[4] : c[1]), convert(src), c[0]);
+      String rewritten = "1: " + c[2] + " in a script was rewritten to `[[${x}]]`: Thymeleaf's natural"
+          + " template wrote the value in place of the comment and dropped " + c[3];
+      if (c.length > 4) {
+        assertMessages(src, TH_INLINE, rewritten, "1: `[[${x}]]` " + HOISTED);
+      } else {
+        assertMessages(src, TH_INLINE, rewritten);
+      }
     }
     String two = script(JS, "var a = /*[[${x}]]*/ 0, b = /*[[${y}]]*/ true;");
-    assertEquals(script(JS, "var a = [[${x}]], b = [[${y}]];"), convert(two));
+    assertEquals(script(JS, "var _t1 = [[${x}]]; var _t2 = [[${y}]]; var a = _t1, b = _t2;"), convert(two));
     assertMessages(two, TH_INLINE, "1: `/*[[${x}]]*/ 0` in a script was rewritten",
-        "1: `/*[[${y}]]*/ true` in a script was rewritten");
+        "1: `/*[[${y}]]*/ true` in a script was rewritten", "1: `[[${x}]]` " + HOISTED, "1: `[[${y}]]` " + HOISTED);
     // A JSON script, and th:inline="javascript" on an ancestor.
     String json = script(JS + " type=\"application/json\"", "{\"a\": /*[[${x}]]*/ \"d\"}");
     assertEquals(script(JS + " type=\"application/json\"", "{\"a\": [[${x}]]}"), convert(json));
@@ -1027,8 +1119,8 @@ class MigratorTest {
       assertMessages(src, TH_INLINE, "1: `[[${x}]]` " + IN_COMMENT);
     }
     String string = script(JS, "var a = '/*[[${x}]]*/ d';");
-    assertEquals(string, convert(string));
-    assertMessages(string, TH_INLINE, "1: `[[${x}]]` " + IN_STRING);
+    assertEquals(script(JS, "var _t1 = [[${x}]]; var a = '/*' + _t1 + '*/ d';"), convert(string));
+    assertMessages(string, TH_INLINE, "1: `[[${x}]]` " + HOISTED);
     // th:inline="none" and a non-JavaScript script are untouched.
     for (String src : List.of(
         "<script th:inline=\"none\">var a = /*[[${x}]]*/ 'd';</script>",
@@ -1042,14 +1134,24 @@ class MigratorTest {
   void inlinesOutsideJavaScriptStringsAreUnchanged() throws Exception {
     for (String body : List.of(
         "var a = [[${x}]];",
-        "var a = \"a\" + [[${x}]] + \"b\";",
         "var a = [[${x}]]; var r = /a/g; var t = `${b}`; var c = 1 / 2; #!",
-        "var re = \"a/b`\"; var a = [[${x}]].length;",
-        "var a = \"done\"; var b = [[${x}]]; var c = 'it\\'s';",
-        "var a = \"unterminated\nvar b = [[${x}]];")) {
+        "// a\n  const a = [[${x}]];\n  let b = [[${y}]]; f(a, b);")) {
       String src = script("", body);
       assertEquals(src, convert(src), body);
       assertEquals(List.of(), messages(src), body);
+    }
+    // Outside the prelude they are hoisted, with no other change.
+    String[][] hoisted = {
+        {"var a = \"a\" + [[${x}]] + \"b\";", "var _t1 = [[${x}]]; var a = \"a\" + _t1 + \"b\";"},
+        {"var re = \"a/b`\"; var a = [[${x}]].length;", "var _t1 = [[${x}]]; var re = \"a/b`\"; var a = _t1.length;"},
+        {"var a = \"done\"; var b = [[${x}]]; var c = 'it\\'s';",
+            "var _t1 = [[${x}]]; var a = \"done\"; var b = _t1; var c = 'it\\'s';"},
+        {"var a = \"unterminated\nvar b = [[${x}]];", "var _t1 = [[${x}]]; var a = \"unterminated\nvar b = _t1;"},
+    };
+    for (String[] c : hoisted) {
+      String src = script("", c[0]);
+      assertEquals(script("", c[1]), convert(src), c[0]);
+      assertMessages(src, (c[0].contains("\n") ? "2" : "1") + ": `[[${x}]]` " + HOISTED);
     }
     for (String src : List.of(
         "<div t:params=\"String x\"><p>\"[[${x}]]\"</p><b title=\"'[[${x}]]'\" onclick=\"f('[[${x}]]')\">b</b></div>",
@@ -1101,16 +1203,16 @@ class MigratorTest {
   @Test
   void lineTerminatorsInsideStringsFollowEs2019() throws Exception {
     // U+2028 and U+2029 don't end a string, and "\" + CRLF is a line continuation.
-    for (String body : List.of("var a = \"x\u2028 [[${x}]]\";", "var a = \"x\u2029 [[${x}]]\";",
+    for (String body : List.of("var a = \"x  [[${x}]]\";", "var a = \"x  [[${x}]]\";",
         "var a = \"line \\\r\n[[${x}]]\";", "var a = \"line \\\n[[${x}]]\";", "var a = \"line \\\r[[${x}]]\";")) {
       String src = script("", body);
-      assertEquals(src, convert(src), body);
-      assertMessages(src, (body.contains("\n") ? "2" : "1") + ": `[[${x}]]` " + IN_STRING);
+      assertEquals(script("", "var _t1 = [[${x}]]; " + body.replace("[[${x}]]\"", "\" + _t1")), convert(src), body);
+      assertMessages(src, (body.contains("\n") ? "2" : "1") + ": `[[${x}]]` " + HOISTED);
     }
     // A bare line break still ends an unterminated string.
     String bare = script("", "var a = \"x\n[[${x}]]\";");
-    assertEquals(bare, convert(bare));
-    assertEquals(List.of(), messages(bare));
+    assertEquals(script("", "var _t1 = [[${x}]]; var a = \"x\n_t1\";"), convert(bare));
+    assertMessages(bare, "2: `[[${x}]]` " + HOISTED);
   }
 
   @Test
@@ -1120,8 +1222,9 @@ class MigratorTest {
     assertEquals("<div t:params=\"Object m\"><script>var k = [[${m['k]]']}]];</script></div>", convert(whole));
     assertMessages(whole, "1: `\"[[${m['k]]']}]]\"` in a script " + UNQUOTED);
     String part = "<div t:params=\"Object m\"><script>var r = \"a [[${m['k]]']}]]\";</script></div>";
-    assertEquals(part, convert(part));
-    assertMessages(part, "1: `[[${m['k]]']}]]` " + IN_STRING + "; rewrite as `\"text \" + [[${m['k]]']}]] + \" text\"`");
+    assertEquals("<div t:params=\"Object m\"><script>var _t1 = [[${m['k]]']}]]; var r = \"a \" + _t1;</script></div>",
+        convert(part));
+    assertMessages(part, "1: `[[${m['k]]']}]]` " + HOISTED);
     String roots = "<div><script>var k = \"[[${m['k]]']}]]\";</script></div>";
     assertEquals("<div t:params=\"Object m\"><script>var k = [[${m['k]]']}]];</script></div>", convert(roots));
   }

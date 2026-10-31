@@ -89,7 +89,8 @@ The old application is the specification. Work the way an expert would, keeping 
    rewrites htmx's `th:hx-target` and its kind to `t:data-hx-target` (htmx reads both) and reports
    the rest. In a JavaScript `<script>`, each `[[...]]` must be the whole value of a declaration at
    the top, `const x = [[${x}]];`, before any other code (the script prelude rule, guide section 6);
-   hoist the values there by hand until `tessera-migrate` does it (#541).
+   `tessera-migrate` hoists the other values into `var _t1 = [[...]];` declarations there and reports
+   the ones in template literals and regular expressions, which you move by hand.
 
    Stored HTML that the old page printed raw (`th:utext`, `[(...)]`, JSP `${...}`, Velocity)
    stays a `String` and goes through `t:utext="html.sanitize(x)"`, `html.sanitizeRich(x)` for
