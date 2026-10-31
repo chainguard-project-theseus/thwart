@@ -207,7 +207,7 @@ class SmokeTest {
         .andExpect(status().isOk())
         .andExpect(
             content()
-                .string(containsString("<form id=\"computed\" method=\"post\" action=\"/app/signup\">" + token)))
+                .string(containsString("<form id=\"computed\" method=\"get\" action=\"/app/signup\"></form>")))
         .andExpect(
             content().string(containsString("<form id=\"link\" method=\"post\" action=\"/app/signup\">" + token)))
         .andExpect(
@@ -223,7 +223,7 @@ class SmokeTest {
             content()
                 .string(
                     containsString(
-                        "<form id=\"computed\" method=\"post\" action=\"https://evil.example/steal\"></form>")))
+                        "<form id=\"computed\" method=\"get\" action=\"https://evil.example/steal\"></form>")))
         .andExpect(content().string(containsString("action=\"/signup\">" + token)));
   }
 

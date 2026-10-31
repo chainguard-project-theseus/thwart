@@ -149,18 +149,18 @@ class HtmxBoostTest {
   void boostFalseOptsOut() {
     Compilation c =
         compile("<main hx-boost=\"true\"><form hx-boost=\"false\" t:action=\"s\"></form>"
-                + "<div data-hx-boost=\"false\"><form t:action=\"s\"><button t:formaction=\"s\">x</button>"
+                + "<div data-hx-boost=\"false\"><form t:action=\"s\">"
                 + "</form></div></main>")
             .assertSuccess();
     assertEquals(
         "<div><main hx-boost=\"true\"><form hx-boost=\"false\" action=\"about:invalid#tessera\"></form>"
             + "<div data-hx-boost=\"false\"><form action=\"about:invalid#tessera\">"
-            + "<button formaction=\"about:invalid#tessera\">x</button></form></div></main></div>",
+            + "</form></div></main></div>",
         render(c, "javascript:alert(1)"));
     assertEquals(
         "<div><main hx-boost=\"true\"><form hx-boost=\"false\" action=\"https://pay.example/x\"></form>"
             + "<div data-hx-boost=\"false\"><form action=\"https://pay.example/x\">"
-            + "<button formaction=\"https://pay.example/x\">x</button></form></div></main></div>",
+            + "</form></div></main></div>",
         render(c, "https://pay.example/x"));
   }
 
@@ -172,14 +172,14 @@ class HtmxBoostTest {
   void outsideTheRuleIsUnchanged() {
     Compilation c =
         compile("<nav hx-boost=\"true\"><a t:href=\"s\">x</a><form action=\"https://pay.example/x\"></form></nav>"
-                + "<form t:action=\"s\"><button t:formaction=\"s\">x</button></form>"
+                + "<form t:action=\"s\"></form>"
                 + "<form hx-post=\"/save\" t:action=\"s\"></form>"
                 + "<form hx-boost=\"false\"></form><div data-hx-boost=\"true\"></div>")
             .assertSuccess();
     assertEquals(
         "<div><nav hx-boost=\"true\"><a href=\"https://evil.example/x\">x</a>"
             + "<form action=\"https://pay.example/x\"></form></nav>"
-            + "<form action=\"https://evil.example/x\"><button formaction=\"https://evil.example/x\">x</button></form>"
+            + "<form action=\"https://evil.example/x\"></form>"
             + "<form hx-post=\"/save\" action=\"https://evil.example/x\"></form>"
             + "<form hx-boost=\"false\"></form><div data-hx-boost=\"true\"></div></div>",
         render(c, "https://evil.example/x"));

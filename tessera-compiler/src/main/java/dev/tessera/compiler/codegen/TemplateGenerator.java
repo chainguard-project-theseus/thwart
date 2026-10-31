@@ -106,11 +106,6 @@ public final class TemplateGenerator implements CodegenContext {
   /** Whether the element whose content is being generated is a JSON {@code <script>} ({@link #inJsonScript}). */
   private boolean jsonScript;
   /**
-   * The {@code <form>}s around the element being rendered (#314): null outside any, TRUE if one of
-   * them may get the CSRF token or the element is rendered standalone, FALSE if none does.
-   */
-  private Boolean csrfForm;
-  /**
    * The table element ({@link #TABLE_HOSTS}) whose direct content is being generated, or null
    * (#348). A browser moves text out of it in front of the table but keeps comments in place, so
    * the empty comments that break {@code {{} in a value are left behind and the braces join up
@@ -156,7 +151,6 @@ public final class TemplateGenerator implements CodegenContext {
     constants = new LinkedHashMap<>();
     members = new ArrayList<>();
     fresh = 0;
-    csrfForm = null;
     whitespaceBefore = new IdentityHashMap<>();
     indexWhitespace(document.children());
     htmxSubmits = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -308,10 +302,6 @@ public final class TemplateGenerator implements CodegenContext {
     rawTextHost = null;
     inForeign = false;
     hostElement = null;
-    // ... and may be inserted into a POST form that gets the CSRF token, where a browser drops the
-    // start tag of a <form> inside it, so its buttons submit that form (#314).
-    Boolean form = csrfForm;
-    csrfForm = Boolean.TRUE;
     tableHost = null;
     tableCtx = SOMEWHERE;
     tableDirect = true;
@@ -323,7 +313,6 @@ public final class TemplateGenerator implements CodegenContext {
       hostElement = outerHost;
       rawTextHost = host;
       inForeign = foreign;
-      csrfForm = form;
       tableHost = table;
       tableCtx = tablePart;
       tableDirect = direct;
@@ -346,11 +335,6 @@ public final class TemplateGenerator implements CodegenContext {
   @Override
   public boolean htmxSubmits(Element element) {
     return htmxSubmits.contains(element);
-  }
-
-  @Override
-  public boolean mayPostCsrfToken(Element element) {
-    return !Boolean.FALSE.equals(csrfForm) || CsrfInjector.hasFormAttribute(element);
   }
 
   @Override
@@ -497,7 +481,6 @@ public final class TemplateGenerator implements CodegenContext {
     String outerHost = hostElement;
     boolean outerForeign = inForeign;
     boolean outerJson = jsonScript;
-    Boolean outerForm = csrfForm;
     String outerTable = tableHost;
     String outerCtx = tableCtx;
     boolean outerDirect = tableDirect;
@@ -563,18 +546,12 @@ public final class TemplateGenerator implements CodegenContext {
         AttributeProcessors.forName(a.localName()).ifPresent(p -> p.process(this, a, plan));
       }
       if (HtmlParser.asciiEqualsIgnoreCase(e.name(), "form")) {
-        boolean token = CsrfInjector.apply(this, plan);
-        if (!plan.tagOmitted()) {
-          // A browser drops a nested form's start tag: the inner one's buttons submit the outer form.
-          csrfForm = Boolean.TRUE.equals(outerForm) || token;
-        }
+        CsrfInjector.apply(this, plan);
       }
       if (!plan.removed() && plan.replacement() == null) {
         CsrfInjector.checkSubmitter(this, plan);
       }
-      if (HtmlParser.asciiEqualsIgnoreCase(e.name(), "base")) {
-        CsrfInjector.checkBase(this, e);
-      }
+      CsrfInjector.checkStaticUrls(this, e);
       if (HtmlParser.asciiEqualsIgnoreCase(e.name(), "option")) {
         FieldProcessor.option(this, plan);
       }
@@ -584,7 +561,6 @@ public final class TemplateGenerator implements CodegenContext {
       rawTextHost = outer;
       inForeign = outerForeign;
       jsonScript = outerJson;
-      csrfForm = outerForm;
       tableHost = outerTable;
       tableCtx = outerCtx;
       tableDirect = outerDirect;

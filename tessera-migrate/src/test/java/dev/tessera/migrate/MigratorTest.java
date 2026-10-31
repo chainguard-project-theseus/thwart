@@ -459,6 +459,41 @@ class MigratorTest {
   }
 
   @Test
+  void postFormActionThatIsNotALinkIsReported() throws Exception {
+    // #550: the compiler rejects it; the fix is to drop the action or write a link.
+    String src = "<div t:params=\"String formAction, Owner owner\">"
+        + "<form method=\"post\" th:action=\"${formAction}\"></form>\n"
+        + "<form th:action=\"${formAction}\" class=\"f\" METHOD=\"Post\"></form>\n"
+        + "<form method=\"post\" t:action=\"formAction\"></form>\n"
+        + "<form method=\"post\" th:action=\"|/owners/${owner.id}|\"></form></div>";
+    String nullAction = "`th:action` = `formAction`: for a `null` value Thymeleaf wrote `action=\"\"`";
+    assertMessages(src,
+        "1: " + nullAction,
+        "1: `th:action` = `formAction` on a `<form method=\"post\">` is not a link: Tessera adds the CSRF token to a"
+            + " POST form only when its action is a same-origin link it can check, so any other computed action is"
+            + " a build error; remove `th:action` if the form posts to the page's own URL (a form without an action"
+            + " posts to the page URL), or write the action as a link such as `@{/items/{id}(id=${item.id})}`",
+        "2: " + nullAction,
+        "2: `th:action` = `formAction` on a `<form method=\"post\">` is not a link",
+        "3: `t:action` = `formAction` on a `<form method=\"post\">` is not a link",
+        "4: `th:action` = `|/owners/${owner.id}|` on a `<form method=\"post\">` is not a link");
+    assertTrue(convert(src).contains("<form method=\"post\" t:action=\"formAction\"></form>"));
+  }
+
+  @Test
+  void postFormActionThatIsALinkOrNotPostIsNotReported() throws Exception {
+    assertMessages("<div t:params=\"String formAction, Owner owner\">"
+        + "<form method=\"post\" th:action=\"@{/owners/{id}(id=${owner.id})}\"></form>\n"
+        + "<form method=\"post\" th:action=\" @{/owners/new} \"></form>"
+        + "<form method=\"get\" t:action=\"formAction\"></form>"
+        + "<form method=\" post\" t:action=\"formAction\"></form>"
+        + "<form method=\"get\" method=\"post\" t:action=\"formAction\"></form>"
+        + "<form t:action=\"formAction\"></form>"
+        + "<div method=\"post\" t:data-action=\"formAction\"></div></div>",
+        "1: link `@{/owners/{id}(id=owner.id)}` fails the render if a path variable is `null`");
+  }
+
+  @Test
   void literalTokensAreQuoted() throws Exception {
     assertEquals("<ul t:params=\"Object nav_x\"><li t:class=\"'nav-item'\" t:text=\"'item.name'\" t:value=\"42\""
             + " t:if=\"true\" t:with=\"c=nav_x\" t:attr=\"data-k='a-b'\">x</li></ul>",
