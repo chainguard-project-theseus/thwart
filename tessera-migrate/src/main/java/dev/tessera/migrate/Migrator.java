@@ -676,7 +676,7 @@ final class Migrator {
       Deque<Boolean> blocks = new ArrayDeque<>();
       Deque<Integer> templates = new ArrayDeque<>(); // block depth at each ${ of a template literal
       int parens = 0;
-      Deque<Integer> arrows = new ArrayDeque<>(); // paren depth at each => whose body may still run later
+      Deque<Integer> arrows = new ArrayDeque<>(); // paren and bracket depth at each => whose body may still run later
       for (int i = insertAt; i < raw.length(); i++) {
         char c = raw.charAt(i);
         int end = holeEnd(raw, i);
@@ -763,9 +763,9 @@ final class Migrator {
             } else if (raw.startsWith("=>", i)) {
               arrows.push(parens);
               out.append(raw.charAt(++i));
-            } else if (c == '(') {
+            } else if (c == '(' || c == '[') {
               parens++;
-            } else if (c == ')') {
+            } else if (c == ')' || c == ']') {
               parens--;
               while (!arrows.isEmpty() && arrows.peek() > parens) {
                 arrows.pop();
@@ -843,15 +843,21 @@ final class Migrator {
      * Puts the split string that starts at {@code stringStart} of {@code out} and ends there in
      * parentheses unless the token before it and the one at {@code next} of {@code raw} bind looser
      * than {@code +}, so that {@code "a [[${x}]]".length} keeps its meaning. A {@code +} before it
-     * binds looser only if the split string still starts with a string: {@code n + "[[${x}]]!"} is
-     * {@code n + (_t1 + "!")}, since {@code n + _t1} would add two numbers.
+     * binds looser only if it is binary and the split string still starts with a string:
+     * {@code n + "[[${x}]]!"} is {@code n + (_t1 + "!")}, since {@code n + _t1} would add two numbers,
+     * and {@code +"0.[[${x}]]"} is {@code +("0." + _t1)}.
      */
     private static void parenthesize(StringBuilder out, int stringStart, String raw, int next) {
       int p = stringStart - 1;
       while (p >= 0 && " \t\n\r".indexOf(out.charAt(p)) >= 0) {
         p--;
       }
-      String loose = "\"'".indexOf(out.charAt(stringStart)) >= 0 ? "=(,[:?{;+&|<>" : "=(,[:?{;&|<>";
+      int q = p - 1;
+      while (q >= 0 && " \t\n\r".indexOf(out.charAt(q)) >= 0) {
+        q--;
+      }
+      boolean binary = q >= 0 && (isNameChar(out.charAt(q)) || ")]\"'`".indexOf(out.charAt(q)) >= 0);
+      String loose = binary && "\"'".indexOf(out.charAt(stringStart)) >= 0 ? "=(,[:?{;+&|<>" : "=(,[:?{;&|<>";
       boolean before = p < 0 || loose.indexOf(out.charAt(p)) >= 0
           || p >= 5 && out.substring(p - 5, p + 1).equals("return") && (p == 5 || !isNameChar(out.charAt(p - 6)));
       while (next < raw.length() && (raw.charAt(next) == ' ' || raw.charAt(next) == '\t')) {
