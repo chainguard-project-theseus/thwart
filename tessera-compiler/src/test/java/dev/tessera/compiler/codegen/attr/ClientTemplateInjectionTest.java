@@ -10,11 +10,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * Client-side template injection (#248): Vue, petite-vue and AngularJS compile the rendered DOM
- * as a template, so {@code {{ }}} in an escaped value would run as an expression. Element text
- * breaks every {@code {{} with an empty comment; {@code <title>}/{@code <textarea>} (RCDATA),
- * attributes and scripts are unchanged; an expression inside a static {@code {{ }}} is a build
- * error.
+ * Client-side template injection (#248, #336, #571): Vue and petite-vue compile the rendered DOM
+ * as a template, so a {@code {{ }}} that reaches a value would run it as an expression. Element
+ * text writes every brace of a value between two empty comments; {@code <title>}/{@code
+ * <textarea>} (RCDATA) get {@code v-pre} instead; attributes and scripts are unchanged. A static
+ * brace in element text is allowed only in a complete {@code {{ ... }}} in one literal, so
+ * nothing ever forms a new {@code {{}, without looking at what is next to it.
  */
 class ClientTemplateInjectionTest {
 
@@ -22,7 +23,9 @@ class ClientTemplateInjectionTest {
       "<div xmlns:t=\"https://tessera.dev\" t:import=\"dev.tessera.runtime.SafeHtml\""
           + " t:params=\"String s, String a, String b, SafeHtml h\">";
   private static final String PAYLOAD = "{{ constructor.constructor('alert(1)')() }}";
-  private static final String BROKEN = "<!---->{<!---->{ constructor.constructor(&#39;alert(1)&#39;)() }}";
+  private static final String BROKEN =
+      "<!---->{<!---->{<!----> constructor.constructor(&#39;alert(1)&#39;)() <!---->}<!---->}<!---->";
+  private static final String XX = "<!---->{<!---->{<!---->x<!---->}<!---->}<!---->";
 
   private static Compilation compile(String body) {
     return Compilation.builder().template("t.html", HEADER + body + "</div>").compile();
@@ -49,36 +52,35 @@ class ClientTemplateInjectionTest {
   }
 
   @Test
-  void bracesNeverMeetAcrossStaticTextOrValues() {
-    // static "{" then a value starting with "{"
-    assertEquals("<p>{<!---->{x}}</p>", render("<p>{[[s]]</p>", "{x}}"));
-    // a value ending with "{" then static "{"
-    assertEquals("<p>a{<!---->{x}}</p>", render("<p>[[s]]{x}}</p>", "a{"));
-    // two adjacent values
-    assertEquals("<p><!---->{<!----><!---->{x}}</p>", render("<p>[[a]][[b]]</p>", "", "{", "{x}}"));
-    assertEquals("<p>{<!---->{<!---->{x}}}</p>", render("<p>{[[s]]</p>", "{{x}}}"));
+  void valueBracesNeverMeet() {
+    // Two adjacent values, and an empty value between two others.
+    assertEquals("<p><!---->{<!----><!---->{<!---->x<!---->}<!---->}<!----></p>",
+        render("<p>[[a]][[b]]</p>", "", "{", "{x}}"));
+    assertEquals("<p><!---->{<!----><!---->{<!----></p>", render("<p>[[a]][[s]][[b]]</p>", "", "{", "{"));
+    // Next to a complete static {{ ... }}.
+    assertEquals("<p>{{ x }}<!---->}<!---->}<!----></p>", render("<p>{{ x }}[[s]]</p>", "}}"));
   }
 
   @Test
   void valuesWithoutBracesAreUnchanged() {
-    assertEquals("<p>a &amp; b }} {</p>", render("<p>[[s]] {</p>", "a & b }}"));
+    assertEquals("<p>a &amp; b x</p>", render("<p>[[s]] x</p>", "a & b"));
     assertEquals("<p>{{ static }}</p>", render("<p>{{ static }}</p>", ""));
   }
 
   @Test
   void textInOtherHtmlElementsIsBroken() {
-    // Comments are harmless in options, SVG and MathML text, and in raw-text fallbacks.
-    assertEquals("<select><option><!---->{<!---->{x}}</option></select>",
+    // Comments are harmless in options, SVG and MathML text.
+    assertEquals("<select><option>" + XX + "</option></select>",
         render("<select><option t:text=\"s\">o</option></select>", "{{x}}"));
-    assertEquals("<svg><text><!---->{<!---->{x}}</text><desc><!---->{<!---->{x}}</desc></svg>",
+    assertEquals("<svg><text>" + XX + "</text><desc>" + XX + "</desc></svg>",
         render("<svg><text t:text=\"s\">t</text><desc>[[s]]</desc></svg>", "{{x}}"));
-    assertEquals("<math><mi><!---->{<!---->{x}}</mi></math>", render("<math><mi t:text=\"s\">x</mi></math>", "{{x}}"));
-    assertEquals("<template><p><!---->{<!---->{x}}</p></template>",
+    assertEquals("<math><mi>" + XX + "</mi></math>", render("<math><mi t:text=\"s\">x</mi></math>", "{{x}}"));
+    assertEquals("<template><p>" + XX + "</p></template>",
         render("<template><p t:text=\"s\">x</p></template>", "{{x}}"));
     // Inside svg and math, <title> and <textarea> are not RCDATA: a comment is a real node there (#277).
-    assertEquals("<svg><title v-pre><!---->{<!---->{x}}</title><title v-pre>a <!---->{<!---->{x}}</title></svg>",
+    assertEquals("<svg><title v-pre>" + XX + "</title><title v-pre>a " + XX + "</title></svg>",
         render("<svg><title t:text=\"s\">t</title><title>a [[s]]</title></svg>", "{{x}}"));
-    assertEquals("<math><textarea v-pre><!---->{<!---->{x}}</textarea></math>",
+    assertEquals("<math><textarea v-pre>" + XX + "</textarea></math>",
         render("<math><textarea>[[s]]</textarea></math>", "{{x}}"));
   }
 
@@ -104,10 +106,20 @@ class ClientTemplateInjectionTest {
     assertEquals("<script>var v = (\"\\u007b\\u007bx}}\");</script>", render("<script>var v = [[s]];</script>", "{{x}}"));
   }
 
-  /** A value inside a static {{ }}: the {{ is not closed in its own text. */
+  private static final String LONE = "outside a complete {{ ... }} is not supported in element text";
+  private static final String FIX = "write the text as a value with [[...]] or t:text";
+  private static final String TITLE = "in the static text of a <title> or <textarea> is not supported";
+
+  /**
+   * #571: in element text a static brace is allowed only inside a complete {{ ... }} that opens and
+   * closes in one literal (before any value, tag or comment). Every other one is an error, wherever
+   * it is: next to a value or a tag that may not render, a fragment's edge, an empty value, in a
+   * CDATA section. Nothing about the neighbours is looked at.
+   */
   @ParameterizedTest
   @ValueSource(
       strings = {
+        // A value inside a static {{ }}: the {{ is not closed in its own text.
         "<p>{{ greet('[[s]]') }}</p>",
         "<p>{{ f([[s]]) }}</p>",
         "<p>{{[[s]]}}</p>",
@@ -115,35 +127,116 @@ class ClientTemplateInjectionTest {
         "<p>&#123;&#123; [[s]] }}</p>",
         "<p>&#x7B;&lbrace; [[s]] }}</p>",
         "<p>{{ [(h)] }}</p>",
+        // Not closed in its own text, around a tag, comment or condition.
+        "<p>{{</p>",
+        "<p t:fragment=\"f\">{{ </p>",
+        "<p>a</p>{{",
+        "<code>{{</code>",
+        "<p>{{ a }} {{</p>",
+        "<p>{{ a }}</p><p>{{ <b>x</b></p>",
+        "<p>&lbrace;&#123;</p>",
+        "<p>{{ <!-- }} --></p>",
+        "<p>{{ [[s]]</p>",
+        "<p>{{ [['}}']]</p>",
+        "<p>{{</p><script>var a = '}}';</script>",
+        "<p>{{ <b>x</b> }}</p>",
+        "<p>{{<t:block t:if=\"${s != null}\">}}</t:block>[[s]]</p>",
+        "<p>{{<b t:remove=\"all\">}}</b>[[s]]</p>",
+        "<p><b>x {{</b> }}</p>",
+        "<p t:text=\"s\"><b t:fragment=\"f\">{{</b>}}</p>",
+        "<p t:remove=\"all\">{{</p>",
+        // Lone braces: next to a value, a tag, a comment, another brace.
+        "<p>}} [[s]]</p>",
+        "<p>{ { [[s]] }}</p>",
+        "<p>{<!---->{</p>",
+        "<p>{<b></b>{ x</p>",
+        "<p>{ {</p>",
+        "<p>{</p>",
+        "<p>}</p>",
+        "<p>{[[s]]}</p>",
+        "<p>a {<b t:text=\"s\">x</b>{ b</p>",
+        "<div>a {<div t:with=\"v=${s}\" t:utext=\"h\">x</div>{ b</div>",
+        // Next to a <t:block>, t:if, a fragment's edge, t:remove, all-but-first.
+        "<p>{<t:block>{ [[s]] }}</t:block></p>",
+        "<p>a {<span t:if=\"${s != null}\">x</span>{ b }}</p>",
+        "<p><t:block t:if=\"${s != null}\">{</t:block>x</p>",
+        "<t:block t:fragment=\"f\">{</t:block>",
+        "<p><b t:remove=\"tag\">x {</b></p>",
+        "<div t:remove=\"all-but-first\"><b>x</b>{<i>y</i>{ [[s]] }}</div>",
+        "<div t:remove=\"all-but-first\"><b>x</b>a {<i>y</i></div>",
+        // A fragment with parameters is dropped where it is defined.
+        "<p>{<b t:fragment=\"f(String x)\">[[x]]</b>{ [[s]] }}</p>",
+        "<p>a {<span t:remove=\"none\">x</span></p>",
+        "<p>a {<span t:case=\"'x'\">x</span></p>",
+        "<p><t:block>a {[[s]]</t:block>x</p>",
+        // An empty value writes nothing, so a '{' on each side of it would form {{.
+        "<p>{[[s]]{ [[a]] }}</p>",
+        "<div>{[(h)]{ [[a]] }}</div>",
+        "<p>{[[s]][[a]]{ [[b]] }}</p>",
+        // A browser joins a CDATA section in foreign content to the text around it.
+        "<svg><text><![CDATA[{]]><![CDATA[{]]> [[s]] }}</text></svg>",
+        "<svg><text><![CDATA[{]]>[[a]]{ [[s]] }}</text></svg>",
+        "<math><mi><![CDATA[ x { y ]]></mi></math>",
+        // A static v-pre does not help: the tag may not be written (t:remove="tag", t:block), a
+        // fragment inside it is written elsewhere, and AngularJS ignores it.
+        "<p><span v-pre t:remove=\"tag\">{{ [[s]] }}</span></p>",
+        "<t:block v-pre>{{ [[s]] }}</t:block>",
+        "<div v-pre><p t:fragment=\"f\">{{ [[s]] }}</p></div><div t:insert=\"~{::f}\"></div>",
+        "<p v-pre>{{ [[s]] }}</p>",
+        "<div V-PRE><p>}</p>{</div>",
+      })
+  void loneStaticBraceIsABuildError(String body) {
+    Compilation c = compile(body);
+    c.assertError("t.html:1:", LONE, FIX);
+    assertNull(c.generatedSource("tessera.generated.TTemplate"), body);
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
         "<title>{{ [[s]] }}</title>",
         "<textarea>{{ [[s]] }}</textarea>",
         "<svg><title>{{ [[s]] }}</title></svg>",
+        "<title>{{</title>",
+        "<textarea>{{</textarea>",
       })
-  void expressionInsideStaticMustacheIsABuildError(String body) {
-    compile(body).assertError("t.html:1:", NOT_CLOSED, "data-*");
+  void braceInTitleOrTextareaIsABuildError(String body) {
+    compile(body).assertError("t.html:1:", TITLE);
   }
 
-  private static final String NOT_CLOSED = "a client-side {{ is not closed by }} in the same text";
-
   @Test
-  void mustacheErrorNamesTheOpeningPosition() {
-    compile("\n<p>\n  {{ greet('[[s]]') }}</p>").assertError("t.html:3:3:");
+  void braceErrorNamesItsPosition() {
+    compile("\n<p>\n  {{ greet('[[s]]') }}</p>").assertError("t.html:3:3:", LONE);
+    Compilation c = compile("\n<p>{{ a }}\n  x {{</p>");
+    c.assertError("t.html:3:5:", LONE);
+    assertEquals(1, c.errors().size(), String.join("\n", c.errors()));
+    // a character reference moves offsets: the position is the start of the text
+    compile("\n<p>x &lbrace;{</p>").assertError("t.html:2:4:", LONE);
   }
 
   @ParameterizedTest
   @ValueSource(
       strings = {
         "<p>{{ a }} [[s]] {{ b }}</p>",
-        "<p>}} [[s]]</p>",
-        "<p>{ { [[s]] }}</p>",
         "<p>{{ x &#125;} [[s]]</p>",
         "<p>&amp;#123;&amp;#123; [[s]]</p>",
         "<script>var v = [[s]]; var t = '{{}}';</script>",
         "<p>{{ a }}<b t:text=\"s\">x</b></p>",
+        "<p>{{ a }}</p>",
+        "<p>&amp;#123;&amp;#123;</p>",
+        "<p title=\"{{\">x</p>",
+        "<!-- {{ --><p>x</p>",
+        "<script>const open = '{{}}';</script>",
+        // Text that a value or fragment replaces is never written.
+        "<p t:text=\"s\">{{</p>",
+        "<p t:insert=\"~{::f}\">{{</p><t:block t:fragment=\"f\">x</t:block>",
+        "<p t:if=\"${s != null}\">{{ a }}</p>",
       })
-  void expressionOutsideStaticMustacheCompiles(String body) {
+  void closedOrNonTextBracesCompile(String body) {
     compile(body).assertSuccess();
   }
+
+  private static final String NOT_CLOSED = "a client-side {{ is not closed by }} in the same text";
 
   private static final String TEXT_IN_TABLE = "[verifier:TEXT_IN_TABLE]";
   private static final String PARSE_ERROR = "[verifier:PARSE_ERROR]";
@@ -351,113 +444,7 @@ class ClientTemplateInjectionTest {
         "<script>var t = '{{}} {{'; var v = [[s]];</script>",
       })
   void expressionAfterOpenMustacheInScriptIsABuildError(String body) {
-    compile(body).assertError("t.html:1:", NOT_CLOSED, "data-*");
-  }
-
-  /**
-   * #336: a {{ is closed in the literal that opens it, so nothing another node writes (a value, a
-   * tag, a fragment, text that may not render) is ever inside one. Coarse: also a {{ }} around a tag.
-   */
-  @ParameterizedTest
-  @ValueSource(
-      strings = {
-        "<p>{{</p>",
-        "<p t:fragment=\"f\">{{ </p>",
-        "<p>a</p>{{",
-        "<code>{{</code>",
-        "<p>{{ a }} {{</p>",
-        "<p>{{ a }}</p><p>{{ <b>x</b></p>",
-        "<p>&lbrace;&#123;</p>",
-        "<p>{{ <!-- }} --></p>",
-        "<p>{{ [[s]]</p>",
-        "<p>{{ [['}}']]</p>",
-        "<title>{{</title>",
-        "<textarea>{{</textarea>",
-        "<p>{{</p><script>var a = '}}';</script>",
-        "<p>{{ <b>x</b> }}</p>",
-        "<p>{{<t:block t:if=\"${s != null}\">}}</t:block>[[s]]</p>",
-        "<p>{{<b t:remove=\"all\">}}</b>[[s]]</p>",
-        "<p><b>x {{</b> }}</p>",
-        "<p t:text=\"s\"><b t:fragment=\"f\">{{</b>}}</p>",
-        "<p t:remove=\"all\">{{</p>",
-      })
-  void mustacheNotClosedInItsOwnTextIsABuildError(String body) {
-    compile(body).assertError("t.html:1:", NOT_CLOSED, "{<!---->{");
-  }
-
-  @Test
-  void unclosedMustacheErrorNamesItsPosition() {
-    Compilation c = compile("\n<p>{{ a }}\n  x {{</p>");
-    c.assertError("t.html:3:5:", NOT_CLOSED);
-    assertEquals(1, c.errors().size(), String.join("\n", c.errors()));
-    // a character reference moves offsets: the position is the start of the text
-    compile("\n<p>x &lbrace;{</p>").assertError("t.html:2:4:", NOT_CLOSED);
-  }
-
-  @ParameterizedTest
-  @ValueSource(
-      strings = {
-        "<p>{<!---->{</p>",
-        "<p>{<b></b>{ x</p>",
-        "<p>{ {</p>",
-        "<p>{{ a }}</p>",
-        "<p>{</p>",
-        "<p>{[[s]]}</p>",
-        "<p>&amp;#123;&amp;#123;</p>",
-        "<p title=\"{{\">x</p>",
-        "<!-- {{ --><p>x</p>",
-        "<script>const open = '{{}}';</script>",
-        "<p t:text=\"s\">{{</p>",
-        "<p t:insert=\"~{::f}\">{{</p><t:block t:fragment=\"f\">x</t:block>",
-        "<p t:if=\"${s != null}\">{{ a }}</p>",
-        // Elements whose attributes all keep the tag are boundaries.
-        "<p>a {<b t:text=\"s\">x</b>{ b</p>",
-        "<p>a {<b t:title=\"s\" t:classappend=\"'c'\">x</b>{ b</p>",
-        "<div>a {<div t:with=\"v=${s}\" t:utext=\"h\">x</div>{ b</div>",
-      })
-  void closedOrNonTextMustacheCompiles(String body) {
-    compile(body).assertSuccess();
-  }
-
-  /**
-   * #336: a '{' at the edge of a text node meets a '{' from the text next to it where no tag or
-   * comment always renders between them: a t:block, a t:if, a fragment's edge.
-   */
-  @ParameterizedTest
-  @ValueSource(
-      strings = {
-        "<p>{<t:block>{ [[s]] }}</t:block></p>",
-        "<p>a {<span t:if=\"${s != null}\">x</span>{ b }}</p>",
-        "<p><t:block t:if=\"${s != null}\">{</t:block>x</p>",
-        "<t:block t:fragment=\"f\">{</t:block>",
-        "<p><b t:remove=\"tag\">x {</b></p>",
-        // all-but-first drops the elements after the first and keeps the text around them.
-        "<div t:remove=\"all-but-first\"><b>x</b>{<i>y</i>{ [[s]] }}</div>",
-        "<div t:remove=\"all-but-first\"><b>x</b>a {<i>y</i></div>",
-        // A fragment with parameters is dropped where it is defined.
-        "<p>{<b t:fragment=\"f(String x)\">[[x]]</b>{ [[s]] }}</p>",
-        // Fail closed: only attributes known to keep the tag make a boundary.
-        "<p>a {<span t:remove=\"none\">x</span></p>",
-        "<p>a {<span t:case=\"'x'\">x</span></p>",
-        // An empty value at the end of the text: the '{' before it is the text's last.
-        "<p><t:block>a {[[s]]</t:block>x</p>",
-      })
-  void braceAtAnOpenTextEdgeIsABuildError(String body) {
-    compile(body).assertError("t.html:1:", "with '{' next to a <t:block>", "<!---->");
-  }
-
-  /** A browser joins a CDATA section in foreign content to the text around it. */
-  @ParameterizedTest
-  @ValueSource(
-      strings = {
-        "<svg><text><![CDATA[{]]><![CDATA[{]]> [[s]] }}</text></svg>",
-        "<svg><text><![CDATA[{]]>[[a]]{ [[s]] }}</text></svg>",
-        "<math><mi><![CDATA[ x { y ]]></mi></math>",
-      })
-  void braceInCdataIsABuildError(String body) {
-    Compilation c = compile(body);
-    c.assertError("t.html:1:", "'{' in a CDATA section is not supported");
-    assertNull(c.generatedSource("tessera.generated.TTemplate"), body);
+    compile(body).assertError("t.html:1:", NOT_CLOSED);
   }
 
   @Test
@@ -465,24 +452,7 @@ class ClientTemplateInjectionTest {
     compile("<svg><text><![CDATA[ x < y ]]>[[s]]</text></svg>").assertSuccess();
   }
 
-  /** An empty value writes nothing, so a '{' on each side of it forms {{ (s = null, t = the payload). */
-  @ParameterizedTest
-  @ValueSource(
-      strings = {
-        "<p>{[[s]]{ [[t]] }}</p>", "<div>{[(h)]{ [[t]] }}</div>", "<p>{[[s]][[a]]{ [[t]] }}</p>",
-        // Raw-text elements other than <title> and <textarea> get no v-pre.
-        "<xmp>{[[s]]{ [[t]] }}</xmp>", "<noembed>{[[s]]{ [[t]] }}</noembed>",
-      })
-  void braceOnBothSidesOfAValueIsABuildError(String body) {
-    Compilation c =
-        Compilation.builder()
-            .template("t.html", HEADER.replace("String b,", "String b, String t,") + body + "</div>")
-            .compile();
-    c.assertError("t.html:1:", "this text starts with '{' right after a value that follows a '{'", "<!---->{");
-    assertNull(c.generatedSource("tessera.generated.TTemplate"), body);
-  }
-
-  /** t:errors renders its element only when there are errors, so the texts around it can meet. */
+  /** t:errors renders its element only when there are errors: a brace next to it is lone. */
   @Test
   void braceNextToErrorsIsABuildError() {
     Compilation c =
@@ -493,8 +463,7 @@ class ClientTemplateInjectionTest {
                 "<form xmlns:t=\"https://tessera.dev\" t:import=\"com.example.Owner\" t:params=\"Owner owner\""
                     + " t:object=\"owner\">\n<p>{<span t:errors=\"firstName\">E</span>{ [[${owner.firstName}]] }}</p></form>")
             .compile();
-    c.assertError("t.html:2:4:", "this text ends with '{' next to a <t:block>, t:if, t:each, t:remove, t:replace, t:errors");
-    c.assertError("t.html:2:", "this text starts with '{'");
+    c.assertError("t.html:2:4:", LONE);
     assertNull(c.generatedSource("tessera.generated.TTemplate"));
   }
 
@@ -505,6 +474,6 @@ class ClientTemplateInjectionTest {
         .template("frag.html", "<div xmlns:t=\"https://tessera.dev\"><t:block t:fragment=\"f\">{ [[${1}]] }}</t:block></div>")
         .template("t.html", HEADER + "<p>x<t:block t:insert=\"~{frag :: f}\"></t:block></p></div>")
         .compile()
-        .assertError("frag.html:1:", "with '{' next to a <t:block>");
+        .assertError("frag.html:1:", LONE);
   }
 }

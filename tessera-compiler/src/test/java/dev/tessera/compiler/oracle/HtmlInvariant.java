@@ -28,7 +28,7 @@ import org.w3c.dom.Node;
  * interpolates; and a resource URL must not leave the origin by shape. Scripts that hold a marker
  * in the benign tree are passed on as {@link ScriptSlot}s for the script check (#319).
  *
- * <p>Tessera breaks a <code>{{</code> in element text with an empty comment next to a <code>{</code>
+ * <p>Tessera breaks a <code>{{</code> in element text with an empty comment next to each brace
  * (#248), so such comments join the text around them when comparing structure.
  *
  * <p>An {@code <iframe srcdoc>} value is a document of its own: both values are parsed and checked
@@ -147,8 +147,8 @@ public final class HtmlInvariant {
   }
 
   /**
-   * Whether {@code n} is the empty comment Tessera writes next to a <code>{</code> in element text
-   * (#248): it ends text that ends with <code>{</code> or starts text that starts with one.
+   * Whether {@code n} is the empty comment Tessera writes next to a brace in element text
+   * (#248, #571): it ends text that ends with a brace or starts text that starts with one.
    */
   private static boolean braceBreak(Node n) {
     if (n.getNodeType() != Node.COMMENT_NODE || !n.getNodeValue().isEmpty()) {
@@ -156,8 +156,12 @@ public final class HtmlInvariant {
     }
     Node prev = n.getPreviousSibling();
     Node next = n.getNextSibling();
-    return (prev != null && prev.getNodeType() == Node.TEXT_NODE && prev.getNodeValue().endsWith("{"))
-        || (next != null && next.getNodeType() == Node.TEXT_NODE && next.getNodeValue().startsWith("{"));
+    return (prev != null && prev.getNodeType() == Node.TEXT_NODE && brace(prev.getNodeValue(), prev.getNodeValue().length() - 1))
+        || (next != null && next.getNodeType() == Node.TEXT_NODE && brace(next.getNodeValue(), 0));
+  }
+
+  private static boolean brace(String s, int i) {
+    return i >= 0 && i < s.length() && (s.charAt(i) == '{' || s.charAt(i) == '}');
   }
 
   /** The first difference between the children of {@code b} and {@code h}, or null. */

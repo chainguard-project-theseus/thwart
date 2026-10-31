@@ -24,7 +24,6 @@ class MessageMarkupTest {
         "<a href=\"tel:+123\">x</a> <a href=\"#top\">top</a> <a href=\"x/y:z\">rel</a>",
         "<span title=\"a > b\" lang=\"en\" dir=\"ltr\" id=\"x\">t</span>",
         "Don''t {0,number,integer} {1,date,short} {2,time} {3,number,percent}",
-        "'{0}' is literal",
         "&lt;{0}&gt; and &amp; {0}",
         "< {0}",
         "a <b>&lt;</b>",
@@ -135,18 +134,26 @@ class MessageMarkupTest {
     assertTrue(problem.contains("a character reference for '{' or '}' is not supported"), message + " -> " + problem);
   }
 
-  /** #336: with an empty argument, a '{' on each side of a placeholder forms {{. */
+  /**
+   * #571: as MessageFormat formats it, a brace outside a complete {{ ... }} is rejected, so no
+   * argument, empty or not, sits between two braces that could meet (a '{' on each side of a
+   * placeholder forms {{ with an empty argument).
+   */
   @ParameterizedTest
-  @ValueSource(strings = {"'{'{0}'{' {1} '}}'", "a '{'{0}{1}'{'", "'{'{0}'{{' x '}}'"})
-  void braceOnBothSidesOfAPlaceholderIsRejected(String message) {
+  @ValueSource(
+      strings = {
+        "'{'{0}'{' {1} '}}'", "a '{'{0}{1}'{'", "'{'{0}'{{' x '}}'", "{0} '{' {1}", "'{'{0} '{'", "'{'{0}<b>x</b>",
+        "'{0}' is literal", "a '}'"
+      })
+  void loneBraceIsRejected(String message) {
     String problem = MessageMarkup.problem(message);
     assertNotNull(problem, message);
-    assertTrue(problem.contains("a '{' on both sides of a placeholder is not supported"), message + " -> " + problem);
+    assertTrue(problem.contains("or a '{' or '}' is outside one"), message + " -> " + problem);
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"Hi '{{' a '}}' {0}", "{0} '{' {1}", "<b title=\"'{{'\">x</b>", "'{'{0} '{'", "'{'{0}<b>x</b>"})
-  void closedOrSingleBracesPass(String message) {
+  @ValueSource(strings = {"Hi '{{' a '}}' {0}", "<b title=\"'{{'\">x</b>", "{0} '{{' a '}}' {1}"})
+  void closedBracesPass(String message) {
     assertNull(MessageMarkup.problem(message), message);
   }
 }

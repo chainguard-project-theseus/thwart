@@ -228,11 +228,11 @@ class ProfileOracleGateTest {
 
   @Test
   void contextMismatchesTheVerifierProvesInertAreNotFindings() {
-    // 306-A60: text escaping in <xmp>, which never runs: over-escaped, inert (seed family OVER).
-    CaseResult xmp = run(P + "<xmp>[[s]]</xmp></div>");
-    assertEquals(List.of(), xmp.failures);
-    assertEquals(List.of(), xmp.findings);
-    assertFalse(xmp.inert.isEmpty());
+    // 306-A60: a value in <xmp>, raw text in a browser, is a build error since #571.
+    Compilation.builder()
+        .template("t.html", P + "<xmp>[[s]]</xmp></div>")
+        .compile()
+        .assertError("a value, condition or loop inside <xmp> is not supported");
     // An attribute value classic <select> parsing drops with its <span> inside <select>: since #406 the
     // verifier rejects the <span> there (exclusion (c)), so no accepted template has one.
     Compilation.builder()
