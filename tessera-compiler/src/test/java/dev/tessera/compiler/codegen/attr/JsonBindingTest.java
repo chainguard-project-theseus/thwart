@@ -163,8 +163,8 @@ class JsonBindingTest {
     String[] values = {"api", "n", "b", "k", "l", "m", "t", "o", "p", "a", "d"};
     StringBuilder body = new StringBuilder();
     for (String v : values) {
-      body.append("<p id=\"").append(v).append("\" t::v=\"${").append(v).append("}\">x</p><script>[[${")
-          .append(v).append("}]]</script>");
+      body.append("<p id=\"").append(v).append("\" t::v=\"${").append(v).append("}\">x</p><script>var v = [[${")
+          .append(v).append("}]];</script>");
     }
     Compilation c = compile(params, body.toString()).assertSuccess();
     Object p1 = c.newInstance("com.example.Point", 1, "a\"</script>");
@@ -179,10 +179,10 @@ class JsonBindingTest {
         "t", c.newInstance("com.example.Tree", "root", List.of(leaf, leaf)), "o", Optional.of(p2), "p", p1,
         "a", new int[] {1, 2}, "d", java.time.LocalDate.of(2026, 1, 2));
     String html = c.render("t", model);
-    Matcher m2 = Pattern.compile("<p id=\"(\\w+)\" :v=\"([^\"]*)\">x</p><script>(.*?)</script>").matcher(html);
+    Matcher m2 = Pattern.compile("<p id=\"(\\w+)\" :v=\"([^\"]*)\">x</p><script>var v = \\((.*?)\\);</script>").matcher(html);
     int found = 0;
     while (m2.find()) {
-      String script = m2.group(1).equals("n") ? "(" + m2.group(2) + ")" : m2.group(2).replace("&quot;", "\"");
+      String script = m2.group(2).replace("&quot;", "\"");
       assertEquals(m2.group(3), script, m2.group(1));
       found++;
     }

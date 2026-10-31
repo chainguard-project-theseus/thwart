@@ -167,7 +167,7 @@ messages use them. The verifier names the escaper of element text from the parse
 | Tables are allowed; foster parenting is an error | verifier (#367): text holes in a table part, and raw HTML anywhere in a table outside a cell or caption, are errors; static content that would be foster-parented is a parse error (#406); SVG or MathML anywhere inside a table part is exclusion (a) `FOREIGN_IN_TABLE` (#406); generator (#351, not an `HtmlParser` rule): computed text directly in `table`, `tbody`, `thead`, `tfoot`, `tr`, `colgroup` is an error, table parts must sit directly in the part that takes them, and `form` may not sit directly in a table part | seed `A24`; `ClientTemplateInjectionTest`, `XssContextTest`; `table`, `table>tbody>tr` container values | not modeled (tree level, G1) |
 | `template` holds flow content under the body profile; `col`, `colgroup`, `caption`, `tbody`, `thead`, `tfoot`, `tr`, `td`, `th` as direct children are errors (decision 5) | verifier exclusion (b) `TABLE_IN_TEMPLATE` (#406); in the profile phase 2 (#328) | seeds `A61`, `B8`; `template` wrapper axis | not yet (Lean leaves `template` out) |
 
-## 4. Scripts: the data-prelude rule (§5.4)
+## 4. Scripts: the script prelude rule (§5.4)
 
 Applies to a `<script>` with no `type` or a JavaScript, module or JSON type
 (`Contexts.SCRIPT_TYPES`). Holes in other script types are errors (`FORBIDDEN`), and a computed
@@ -176,19 +176,19 @@ Applies to a `<script>` with no `type` or a JavaScript, module or JSON type
 | Rule | Status | Checked by | Proof |
 |---|---|---|---|
 | Holes take a JSON value written by `Escapers.javaScript` (`Escapers.json` in a JSON script), which also escapes `<`, `>`, `&`, `'`, `/`, backtick, `$`, U+2028 and U+2029 | main | `ScriptJsonTest`; #341 slot check | `Esc` `jsonScriptSafe` (strings); `JsonFirst` for other values unproved |
-| In a JavaScript script, a top-level negative number or integer is written in parentheses (`Escapers.javaScript`), so a member access, call or index after it applies to the number and parses; JSON scripts (`application/json`, `application/ld+json`) and nested values keep `Escapers.json` | main | `ScriptNumberTest`, `EscapersTest` | not yet |
+| In a JavaScript script every value is written in parentheses, `(json)` (`Escapers.javaScript` and the generated bean serializers), so it is one primary expression whatever its type; JSON scripts (`application/json`, `application/ld+json`) keep plain JSON (`Escapers.json`) | main (#540, replacing #511 and #533) | `ScriptNumberTest`, `ScriptJsonTest`, `EscapersTest` | not yet |
+| A `BigDecimal` or `BigInteger` is written only if its class is exactly the JDK class; a subclass fails the render (scripts, bindings, messages, styles) | main (#540, replacing #508's text check) | `BigNumberSubclassTest`, `EscapersTest` | n/a |
 | `{` in JSON strings is written as `\u007b` | #303 | `ScriptJsonTest` (#303) | not yet (G3) |
-| Before the last hole, the static text uses only identifiers, numbers, punctuators other than `/`, `"..."` and `'...'` strings, `//` and `/* */` comments, and whitespace | main (#332, `TextInlining.checkDataPrelude`, which replaced #290's regex-vs-division lexer) | `ScriptQuotedInlineTest`; seeds `A32`, `A33`, `A51`, `A52`; generator script positions "after `a / b;`", "after `x\n/"/.test(y);`" (rejected) | not yet (Lean does not model JavaScript) |
-| A backtick, `<!`, `-->`, `#!`, a backslash line continuation, U+2028 or U+2029 before the last hole is an error | main (#332). `<!` stands for `<!--`, which is a markup error anywhere in a script: a value or code after `<!` can complete it | `ScriptQuotedInlineTest`; seeds `A34`, `A36`; generator positions `` `[[s]]` ``, `` `${[[s]]}` `` (rejected) | Lean `NoScriptDanger` (`<!--` only) |
-| Each hole is in expression position: not inside a string or comment | main (#332; #290 first, the compiler half of #315); a hole in a regex or template literal comes after a `/` or backtick, so the row above rejects it; `tessera-migrate` unquotes `"[[x]]"` in #287 | seeds `A2`, `A35`; generator positions `"[[s]]"`, `'[[s]]'`, `/*[[s]]*/`, `// [[s]]` | not yet |
-| A hole after static `<!-` is an error | main (#299; since #332 the `<!` before the last hole rule) | `ValueAfterLessThanTest` | JML §5 `htmlMarkupStart`, `scriptMarkupStart` (SCRIPT; `markupBefore` before #332, now `checkDataPrelude`); Lean `NoScriptLtBeforeHole` |
-| After the last hole, any script text | main (#332) | #341 aligns the AST after the slot | n/a |
+| In a JavaScript script each hole is the whole value of a declaration `const\|let\|var NAME = [[...]];` (a space or tab after the keyword; `NAME` an ASCII identifier, not a reserved word or `location`, whose setter `var location = v` would call; one hole per declaration), and the declarations form a prelude at the top: before, between and after them only ASCII spaces, tabs, line breaks and `//` comments. No form without a keyword. Any other hole is an error with a fix-it (a prelude declaration, or a JSON script and `JSON.parse`); `tessera-migrate` hoists values (#541) | main (#540, `TextInlining.checkPrelude`, replacing #332's `checkDataPrelude` lexer and #509's expression-position checks) | `ScriptPreludeTest`, `ScriptQuotedInlineTest`, `ValueAfterLessThanTest`; seeds `A2`, `A32`-`A36`, `A51`, `A52`; generator script positions (rejected outside the prelude) | not yet (Lean does not model JavaScript) |
+| `t:text` and `t:utext` on a JavaScript `<script>` are errors, with the same fix-it; on a JSON script `t:text` writes one JSON value | main (#540) | `ScriptPreludeTest`, `TextOutputTest` | n/a |
+| In a JSON script each hole is outside a `"..."` string, and there is no `/` outside strings | main (#540) | `ScriptPreludeTest` | n/a |
+| After the prelude, any static script text (no holes) | main (#540) | #341 aligns the AST after the slot | n/a |
 | No holes in SVG `<script>` | main: the verifier's `JSON_NOT_IN_SCRIPT` (#367) | seeds `A55`, `A56`, `A58`, `B0`, `B11` | Lean `StaticNoAmp` |
 | An unclosed static `{{` before a hole in the same script is an error | #303 | `ClientTemplateInjectionTest` (#303) | not yet |
 
 Rhino, the #341 engine, cannot parse ES modules, classes, `for await` or object spread, and reports
 `JS_UNPARSABLE` for an accepted script it can't parse; the Node job (#345) checks those with acorn.
-Since #332 the gate lists none: seeds `A51` and `A52` are rejected at their `/`.
+The gate lists none: seeds `A51` and `A52` are rejected, their holes outside the prelude.
 
 ## 5. Composition: content kinds (§5.5)
 

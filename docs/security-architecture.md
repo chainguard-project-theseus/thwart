@@ -240,56 +240,38 @@ allow-listed:
   get the same checks on the fragment's top level; `Fragment` values never start with a table part.
   The oracle (§5.7) watches the rest of this claim.
 
-### 5.4 Scripts: the data-prelude rule
+### 5.4 Scripts: the script prelude rule
 
-Don't lex JavaScript in general. Restrict where holes may go, so that the lexical state at each
-hole is decidable without a JS parser:
+Don't lex JavaScript. Fix the code around every hole with a closed grammar instead (#540,
+replacing #332's data-prelude lexer and the #509 expression-position checks):
 
-- In a `<script>` (no type, JS, module or JSON) that contains a hole, the static text **before
-  the last hole** must tokenize with a lexer that has **no ambiguous tokens**: identifiers,
-  numbers, punctuators other than `/`, `"..."` and `'...'` strings, `//` and `/* */` comments, and
-  whitespace. A `/` operator or regex, a backtick, `<!--`, `-->`, a backslash line continuation
-  and U+2028/U+2029 are build errors before the last hole. Without `/` and template literals, JS
-  tokenization is context-free, so this lexer is exact, not heuristic.
-- Each hole must be in **expression position**: not inside a string or comment token. `"[[x]]"`
-  is an error with a fix-it, and `tessera-migrate` unquotes it (#287). The value must also be an
-  operand of the code around it. The token before the hole (skipping whitespace, comments and
-  line breaks) must be one after which an operand starts: `(`, `[`, `,`, `?`, `:`, an assignment
-  or binary operator, `+ - ! ~`, `...`, one of `return typeof void delete new in instanceof case
-  throw else do`, or `of` as the keyword of a `for (...)` head: after `]`, `}` or a binding name, an
-  allow-list, since after `instanceof`, `extends`, `yield` and other reserved words `of` is an
-  identifier. So `globalThis[[${l}]]`, `x[[${n}]]`,
-  `o.[[${b}]]`, `f()[[${l}]]`, `{[[${s}]]: 1}` and `[[${a}]][[${b}]]` are errors: the value
-  would pick a property, extend a name or merge with the value before it. A word or `-` right
-  before the hole needs a space (`return[[${n}]]` would be `return5`), and a word followed by a
-  line break is an error: a reserved word is also a class field name, and ASI would end the field
-  there (`class A { in\n[[${l}]] = f }`). The hole may not be followed directly by an identifier
-  character or by a `.` that doesn't start a property name (`[[${n}]]e3`, `[[${n}]].5`), nor,
-  after whitespace or comments, by `(`, a backtick, `?.(` or `` ?.` `` (a call), or by `:` after a
-  `,` (an object key). A hole that starts a statement (at the start of the script or
-  after `;`) is an error unless only a `;` follows it: a string there would be a `"use strict"`
-  directive, and in a class body a list would be a computed field name.
-- After the last hole, anything else goes except `-->`: at the start of a line it is an Annex B
-  comment that would hide the token after a value from the checks above, and that code isn't
-  lexed, so `-->` after the last hole is an error even in a string or comment. The value is a
-  complete JSON token sequence (in parentheses for a negative number or an integer, below) in operand
-  position, and the checks above cover the tokens next to it.
-- In a JavaScript `<script>` (not `application/json` or `application/ld+json`), a top-level negative
-  number or integer (no `.`, `e` or `E`) is written in parentheses (`Escapers.javaScript`):
-  JavaScript's unary minus binds more loosely than a member access, call or index after it, so
-  `-1.5.toFixed(2)` would be `-(1.5.toFixed(2))`, the number `-1.5`, where `(-1.5).toFixed(2)` is
-  `"-1.50"`; and the `.` after an integer is read as its decimal point, so `1.toFixed(2)` would be a
-  syntax error, where `(1).toFixed(2)` is `"1.00"`. Numbers inside arrays and objects, and every
-  value in a JSON script, stay plain JSON.
+- In a JavaScript `<script>` (no type, a JavaScript type or `module`), each hole is the whole value
+  of a declaration `const|let|var NAME = [[...]];` (at least one space or tab after the keyword; an
+  ASCII identifier that is not a reserved word or `location`, since `var location = v` in a classic script calls the navigating `window.location` setter; one hole per declaration), and these declarations
+  form a prelude at the top of the script: before, between and after them, up to the first other
+  code, only ASCII spaces, tabs, line breaks and `//` comments (a hole in a comment ends the
+  prelude). There is no form without a keyword (`x = [[...]];`). Every hole after that is a build
+  error with a fix-it: move the value into a declaration at the top, or use
+  `<script type="application/json">` and `JSON.parse`. The code after the prelude is static and may
+  use anything (`/`, template literals, `-->`): no value follows it. `tessera-migrate` hoists
+  values into the prelude (#541).
+- `t:text` and `t:utext` on a JavaScript `<script>` are build errors with the same fix-it: the whole
+  body would be one value with no code around it.
+- Every value in a JavaScript script is written in parentheses, `(json)` (`Escapers.javaScript`, and
+  the generated bean serializers), so it is one primary expression whatever its type. The code next
+  to it is always ` = ` and `;`.
+- In a JSON script (`application/json`, `application/ld+json`), which a browser never runs, values
+  stay plain JSON. Each hole must be outside a `"..."` string and the text has no `/` outside
+  strings; JSON's tokens are context-free, so this is exact.
+- Numbers are written from their text only for the JDK classes themselves: a `BigDecimal` or
+  `BigInteger` subclass (whose `toString()` an application can override) fails the render, in
+  scripts, bindings, messages and styles.
 - No holes in `<svg><script>`: browsers decode character references and parse markup there.
 - JSON strings also escape `{` as `{` (#303's cheap part), so petite-vue can't interpolate
   a value in script text.
 
-Migration cost looks low. In the 1,215 converted templates of the latest migration-bench runs, all
-48 scripts with holes declare their data before any division, regex or template literal (crude
-scan; the gate in §8 measures it properly). The usual Thymeleaf shape, `var chart = [[${chart}]];
-$(function () { ... })`, is unchanged. The fix-it for the rare failure is to move the hole above
-the code, or to use `<script type="application/json">` and `JSON.parse`.
+In the latest migration-bench runs, 33 of the 36 JavaScript scripts with holes need their values
+hoisted into declarations at the top; the hoist is mechanical (#541).
 
 ### 5.5 Composition: content kinds
 
@@ -700,7 +682,7 @@ and its 45,056-variant differential become test cases. Known deviations are list
 
 | Family | Status | Owner |
 |---|---|---|
-| C. JS lexical position | Not covered. The verifier makes one input exact: a `json` hole is in an HTML script's data | data-prelude rule, #332 |
+| C. JS lexical position | Not covered. The verifier makes one input exact: a `json` hole is in an HTML script's data | script prelude rule, #540 |
 | D. Client frameworks | Not covered | deny-by-default names (#330), framework table (#333), harness (#334), CSP nonces (#335, PR #361) |
 | E. URL and CSRF policy | Not covered. The element and attribute a value lands in become exact | URL classes, `LinkCompiler`, `CsrfInjector` |
 | CSS inside `style` | Not covered beyond "the value stays in its attribute" | `CssValue` rules |
@@ -741,7 +723,7 @@ The error-free rule, measured on `main` 49060ba (`~/tessera-handoff/errorfree-me
 | §5.1 invariant | Unchanged. The verifier enforces it at build time; the oracle (#324) tests the verifier |
 | §5.2 token rules (#327) | **Friendly early errors**, not the boundary. `MarkupTokenizer`'s positive grammar stays for its messages. Further rules only where they give a better message than the verifier |
 | §5.3 parse modes and allow-lists (#328) | The verifier's exclusions (§11.4) own the browser splits. `HtmlParser`'s mode rules stay only where their message is better (#411). `plaintext` stays an error. The element allow-list moves to phase 4 as a framework/typo rule |
-| §5.4 data-prelude rule (#332) | Unchanged |
+| §5.4 script prelude rule (#540) | Unchanged |
 | §5.5 content kinds (#329) | **Redefined** as one parser-state predicate, `FLOW`, checked by the verifier. `PHRASING` is backlog (#397) |
 | §5.6 attribute names, framework table, CSP | Unchanged (family D) |
 | §5.7 oracle gate (#324) | **Repurposed.** It tests skeleton fidelity and the inertness lemma, and keeps value checks for C, D and E. Its Node job is the nightly divergence detector (#399) |

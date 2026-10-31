@@ -53,7 +53,7 @@ class AsciiWhitespaceTest {
       compile("<script type=\"" + type + "\">var a = [[${s}]];</script>").assertError("not JavaScript");
     }
     assertEquals(
-        "<div><script type=\" text/javascript\t\">var a = \"x\";</script></div>",
+        "<div><script type=\" text/javascript\t\">var a = (\"x\");</script></div>",
         compile("<script type=\" text/javascript\t\">var a = [[${s}]];</script>").assertSuccess()
             .render("t", Map.of("s", "x")));
   }
