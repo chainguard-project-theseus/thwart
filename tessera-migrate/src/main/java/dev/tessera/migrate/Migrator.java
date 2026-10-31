@@ -497,6 +497,11 @@ final class Migrator {
         report(line, String.format(ConversionRules.NULL_ATTRIBUTE_MESSAGE, name, codeSpan(Compat.strip(rewritten)),
             name.substring(name.indexOf(':') + 1)));
       }
+      // #539: target takes only literals in Tessera; a component prop on a custom element takes anything.
+      if (thymeleaf && local.equals(ConversionRules.TARGET) && !(openName.indexOf('-') >= 0 && !inSvg())
+          && !ConversionRules.literalChoice(rewritten)) {
+        report(line, String.format(ConversionRules.TARGET_MESSAGE, name, codeSpan(Compat.strip(rewritten))));
+      }
       return rewritten;
     }
 

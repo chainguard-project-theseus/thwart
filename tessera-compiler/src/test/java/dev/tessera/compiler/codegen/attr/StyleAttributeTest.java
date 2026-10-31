@@ -203,18 +203,21 @@ class StyleAttributeTest {
     compile(body).assertError("t.html:1:", "is not allowed", "style value");
   }
 
-  /** Outside SVG, and on an animation's timing fill, the names are ordinary attributes. */
+  /**
+   * Outside SVG, and on an animation's timing fill, the names are not STYLE, but they are not
+   * inert-text attributes either (#539): literals and numbers compile, a String does not.
+   */
   @Test
   void otherFillAttributesStayOrdinary() {
-    assertEquals("<p fill=\"url(x)\">x</p>", render("<p t:fill=\"s\">x</p>", "s", "url(x)"));
-    assertEquals(
-        "<svg><rect><animate fill=\"freeze\"/></rect></svg>",
-        render("<svg><rect><animate t:fill=\"s\"/></rect></svg>", "s", "freeze"));
+    assertEquals("<p fill=\"url(x)\">x</p>", render("<p t:fill=\"'url(x)'\">x</p>"));
+    compile("<p t:fill=\"s\">x</p>").assertError("t.html:1:", "t:fill is not allowed", "inert-text", "String");
+    compile("<svg><rect><animate t:fill=\"s\"/></rect></svg>").assertError("t:fill is not allowed", "inert-text");
     assertEquals(
         "<svg><rect><animateMotion fill=\"freeze\"/><animateTransform fill=\"remove\"/></rect></svg>",
-        render("<svg><rect><animateMotion t:fill=\"s\"/><animateTransform t:fill=\"'remove'\"/></rect></svg>", "s", "freeze"));
+        render("<svg><rect><animateMotion t:fill=\"b ? 'remove' : 'freeze'\"/><animateTransform t:fill=\"'remove'\"/></rect></svg>",
+            "b", false));
     assertEquals(
-        "<svg><rect fill-opacity=\"0.5\"/></svg>", render("<svg><rect t:fill-opacity=\"s\"/></svg>", "s", "0.5"));
+        "<svg><rect fill-opacity=\"0.5\"/></svg>", render("<svg><rect t:fill-opacity=\"d\"/></svg>", "d", 0.5));
   }
 
   /** An animation of one of those attributes sets CSS: its values take what t:fill takes. */
@@ -278,7 +281,8 @@ class StyleAttributeTest {
     assertEquals(
         "<svg><rect><animate attributeName=\"fill-opacity\" values=\"0;1\"/></rect></svg>",
         render("<svg><rect><animate attributeName=\"fill-opacity\" t:values=\"s\"/></rect></svg>", "s", "0;1"));
-    assertEquals("<p attributeName=\"fill\">x</p>", render("<p t:attributeName=\"s\">x</p>", "s", "fill"));
+    assertEquals("<p attributeName=\"fill\">x</p>", render("<p t:attributeName=\"'fill'\">x</p>"));
+    compile("<p t:attributeName=\"s\">x</p>").assertError("t:attributeName is not allowed", "inert-text");
   }
 
   /**

@@ -47,7 +47,7 @@ class ElementPlanTest {
   void setAttributeDerivesContextFromElementAndName() {
     ElementPlan a = plan("a");
     a.setAttribute("href", "h", POS);
-    a.setAttribute("VALUE", "v", POS);
+    a.setAttribute("TITLE", "v", POS);
     a.setAttribute("onclick", "c", POS);
     List<OutputContext> contexts =
         a.attributes().stream().map(x -> ((ElementPlan.DynamicAttr) x).context()).toList();

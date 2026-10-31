@@ -298,8 +298,11 @@ class AttributesEndToEndTest {
             model()));
     compile("<p is=\"x-p\">x</p><svg xmlns=\"http://www.w3.org/2000/svg\"></svg>"
         + "<template shadowrootmode=\"open\" for=\"x\"><p>x</p></template>").assertSuccess();
-    compile("<meta name=\"q\" t:content=\"s\"><meta http-equiv=\"content-language\" t:content=\"s\">"
-        + "<label t:for=\"s\">x</label><div t:shadowrootmode=\"s\">x</div>").assertSuccess();
+    compile("<meta name=\"q\" t:content=\"s\">"
+        + "<label t:for=\"s\">x</label>").assertSuccess();
+    // #539: shadowrootmode is no inert-text attribute anywhere, and content under another http-equiv takes a safe value.
+    compile("<meta http-equiv=\"content-language\" t:content=\"s\">").assertError("t.html:1:", "t:content is not allowed", "inert-text");
+    compile("<div t:shadowrootmode=\"s\">x</div>").assertError("t.html:1:", "t:shadowrootmode is not allowed", "inert-text");
   }
 
   @Test
