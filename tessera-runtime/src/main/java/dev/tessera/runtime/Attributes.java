@@ -56,12 +56,12 @@ public final class Attributes {
     int n = token.length();
     int i = 0;
     while (i < n) {
-      if (!isWordOrDash(token.charAt(i))) {
+      if (!HtmlPolicy.isClassChar(token.charAt(i))) {
         i++;
         continue;
       }
       int start = i;
-      while (i < n && isWordOrDash(token.charAt(i))) {
+      while (i < n && HtmlPolicy.isClassChar(token.charAt(i))) {
         i++;
       }
       if (HtmlPolicy.isAngularClass(token.substring(start, i))) {
@@ -69,9 +69,5 @@ public final class Attributes {
       }
     }
     return false;
-  }
-
-  private static boolean isWordOrDash(char c) {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-';
   }
 }
