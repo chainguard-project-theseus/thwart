@@ -23,7 +23,7 @@ public final class TextProcessor implements AttributeProcessor {
       ctx.diagnostics().error(attr.pos(), attr.name() + " is not allowed " + TextInlining.where(context));
       return;
     }
-    if (context == OutputContext.SCRIPT && !Contexts.isJsonScript(plan.element())) {
+    if (context == OutputContext.SCRIPT && !ctx.inJsonScript()) {
       ctx.diagnostics()
           .error(
               attr.pos(),
