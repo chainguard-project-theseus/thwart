@@ -9,14 +9,16 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.FieldSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * Each {@code [[...]]} in a {@code <script>} must be in expression position (security-architecture.md
- * §5.4): the static code uses its value as an operand, and the value can't change what that code
- * means. Before this rule {@code globalThis[[${l}]]([[${s}]])} built, and with
- * {@code l = ["eval"]} it rendered {@code globalThis["eval"]("...")}, which runs {@code s} as code.
+ * Each {@code [[...]]} in a JavaScript {@code <script>} must be the whole value of a declaration
+ * {@code const|let|var x = [[...]];} at the top of the script (security-architecture.md §5.4).
+ * Before #509, {@code globalThis[[${l}]]([[${s}]])} built, and with {@code l = ["eval"]} it
+ * rendered {@code globalThis["eval"]("...")}, which runs {@code s} as code. The lists below are the
+ * #509 lexer's cases: every one is now rejected by the one grammar rule.
  */
-class ScriptExpressionPositionTest {
+class ScriptPreludeTest {
   private static final String PARAMS =
       "<div t:params=\"String s, int n, boolean b, java.util.List<String> l, java.util.Map<String, String> m\">\n";
 
@@ -120,14 +122,11 @@ class ScriptExpressionPositionTest {
           "<script>var o = {a: 1, [[${l}]]\n-->\n: f};</script>",
           "<script>var o = {a: 1, [[${s}]]\n-->\n() {}};</script>",
           "<script>var o = {a: 1, [[${l}]] /*\n*/ --> c\n: f};</script>",
-          "<script>class A { *[[${s}]]\n-->\n() {} }</script>",
-          "<script>var a = [[${s}]]; // --></script>",
-          "<script>var a = [[${s}]]; f(\"-->\");</script>");
+          "<script>class A { *[[${s}]]\n-->\n() {} }</script>");
 
-  /** Common script shapes that keep building. */
-  static final List<String> ALLOWED =
+  /** Old expression-position cases that the prelude rule now rejects: the value is not a declaration at the top. */
+  static final List<String> NOT_PRELUDE =
       List.of(
-          "<script>var a = [[${s}]];</script>",
           "<script>f([[${s}]], [[${n}]]);</script>",
           "<script>var o = {k: [[${s}]]};</script>",
           "<script>var o = {k: [[${s}]], j: [[${n}]]};</script>",
@@ -165,44 +164,39 @@ class ScriptExpressionPositionTest {
           "<script>for (x of [[${l}]]) { f(x); }</script>",
           "<script>for (let {a} of [[${l}]]) { f(a); }</script>",
           "<script>var a = 1; // x-->\nvar b = [[${n}]];</script>",
-          // A whole statement with no code after it.
           "<script>[[${l}]]</script>",
-          "<script>[[${l}]];</script>",
+          "<script>[[${l}]];</script>");
+
+  /** Prelude declarations, and JSON scripts (not JavaScript, so not held to the prelude). */
+  static final List<String> ALLOWED =
+      List.of(
+          "<script>var a = [[${s}]];</script>",
           "<script type=\"module\">var a = [[${s}]];</script>",
           "<script type=\"application/json\">[[${m}]]</script>",
           "<script type=\"application/json\">{\"a\": [[${s}]], \"b\": [[${l}]]}</script>",
-          "<script type=\"application/ld+json\">{\"@type\": \"Person\", \"name\": [[${s}]]}</script>");
+          "<script type=\"application/ld+json\">{\"@type\": \"Person\", \"name\": [[${s}]]}</script>",
+          "<script>const a = [[${s}]];</script>",
+          "<script>\n  // data\n  let a = [[${s}]];\n  var b=[[${n}]] ;\n\n  f(a, b); var c = a / 2; `${b}`;</script>",
+          "<script>var a = [[${s}]]; // -->\n</script>",
+          "<script>var a = [[${s}]]; f(\"-->\");</script>",
+          "<script>var a = [[${l}]];\nclass A { in\n[a] = 1 }</script>");
 
   private static Compilation compile(String markup) {
     return Compilation.builder().template("page.html", PARAMS + markup + "\n</div>").compile();
   }
 
   @ParameterizedTest
-  @FieldSource("REJECTED")
-  void valueOutsideExpressionPositionFailsToBuild(String markup) {
+  @FieldSource({"REJECTED", "NOT_PRELUDE", "CLOSE_COMMENT"})
+  void valueOutsideThePreludeFailsToBuild(String markup) {
     Compilation c = compile(markup);
-    c.assertError("must be in expression position");
+    c.assertError("only allowed as the whole value of a declaration");
     assertEquals(1, c.errors().size(), c.errors().toString());
     assertNull(c.generatedSource("tessera.generated.PageTemplate"), "nothing may be generated");
-  }
-
-  @ParameterizedTest
-  @FieldSource("CLOSE_COMMENT")
-  void closeCommentAfterAValueFailsToBuild(String markup) {
-    Compilation c = compile(markup);
-    c.assertError("'-->' after a [[...]] of a <script>");
-    assertEquals(1, c.errors().size(), c.errors().toString());
-    assertNull(c.generatedSource("tessera.generated.PageTemplate"), "nothing may be generated");
-  }
-
-  @Test
-  void openCommentAfterAValueFailsToBuild() {
-    compile("<script>var o = {a: 1, [[${l}]] <!-- c\n: f};</script>").assertError("'<!--' inside <script>");
   }
 
   @ParameterizedTest
   @FieldSource("ALLOWED")
-  void valueInExpressionPositionBuilds(String markup) {
+  void preludeDeclarationBuilds(String markup) {
     compile(markup).assertSuccess();
   }
 
@@ -214,30 +208,71 @@ class ScriptExpressionPositionTest {
                 "page.html",
                 "<div t:params=\"java.util.List<String> l, String s\"><script>globalThis[[${l}]]([[${s}]]);</script></div>")
             .compile();
-    c.assertError("page.html:1:", "must be in expression position", "the token before it is 'globalThis'");
+    c.assertError("page.html:1:", "only allowed as the whole value of a declaration", "const name = [[...]];", "application/json");
     assertEquals(1, c.errors().size(), c.errors().toString());
     assertNull(c.generatedSource("tessera.generated.PageTemplate"), "nothing may be generated");
   }
 
   @Test
-  void errorNamesTheTokenAndPointsAtTheValue() {
-    Compilation c = compile("<script>\nvar f = globalThis\n  [[${l}]]([[${s}]]);</script>");
-    c.assertError("page.html:4:5", "the token before it is 'globalThis'", "var v = [[...]];");
-    compile("<script>var a = [[${n}]][[${n}]];</script>").assertError("page.html:2:", "another [[...]]");
-    compile("<script>var a = 1.[[${n}]];</script>").assertError("a number");
-    compile("<script>var a = Math.[[${b}]];</script>").assertError("'.'");
-    compile("<script>var a = o.return [[${l}]];</script>").assertError("a property name");
-    compile("<script>var a = [[${n}]]e3;</script>").assertError("followed directly by 'e'");
-    compile("<script>var a = [[${n}]].5;</script>").assertError("read as its decimal point");
-    compile("<script>var o = {a: 1, [[${s}]]: 2};</script>").assertError("an object key");
-    compile("<script>var o = {[[${s}]]: 1};</script>").assertError("the token before it is '{'");
-    compile("<script>[[${s}]]; x = 1;</script>").assertError("a directive such as \"use strict\"");
-    compile("<script>for (x of a instanceof of [[${l}]]) {}</script>")
-        .assertError("'of' where it is an identifier, not the keyword of a for (...) head");
-    compile("<script>var a = [[${l}]]?.([[${s}]]);</script>").assertError("followed by '?.' and '('");
-    compile("<script>class A { in\n[[${l}]] = handler }</script>")
-        .assertError("page.html:3:3", "a line break is between it and 'in'");
-    compile("<script>var o = {a: 1, [[${l}]]\n-->\n: f};</script>").assertError("page.html:3:1", "'-->' after");
+  void errorPointsAtTheFirstValueOutsideThePrelude() {
+    compile("<script>\nvar a = [[${n}]];\nf();\n  var b = [[${l}]];</script>").assertError("page.html:5:13", "only allowed as the whole value of a declaration");
+    compile("<script>\nvar f = globalThis\n  [[${l}]]([[${s}]]);</script>").assertError("page.html:4:5");
+    // A value in a line comment before the prelude ends it.
+    compile("<script>// [[${s}]]\nvar a = [[${n}]];</script>").assertError("page.html:2:14");
+    compile("<script>var a = /*[[${s}]]*/ 'd';</script>").assertError("page.html:2:");
+    compile("<script>var a = [[${s}]]</script>").assertError("page.html:2:");
+    compile("<script>a = [[${s}]];</script>").assertError("page.html:2:");
+    compile("<script>var a = [[${s}]], b = 1;</script>").assertError("page.html:2:");
+    compile("<script>var a\u2028= [[${s}]];</script>").assertError("page.html:2:");
+  }
+
+  @Test
+  void keywordNeedsASpaceAfterIt() {
+    // An assignment to a global named constx, not a declaration.
+    compile("<script>constx = [[${s}]];</script>").assertError("page.html:2:", "only allowed as the whole value");
+    compile("<script>varx = [[${s}]];</script>").assertError("page.html:2:", "only allowed as the whole value");
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"if", "in", "let", "yield", "await", "this", "null", "class"})
+  void reservedWordIsNotADeclaredName(String name) {
+    compile("<script>var " + name + " = [[${s}]];</script>").assertError("page.html:2:", "only allowed as the whole value");
+    compile("<script>var " + name + "x = [[${s}]];</script>").assertSuccess();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"var", "let", "const"})
+  void locationIsNotADeclaredName(String keyword) {
+    // In a classic script, var location = (json) calls window.location's setter: with
+    // "javascript:alert(1)" the browser runs the value as code.
+    Compilation c = compile("<script>" + keyword + " location = [[${s}]];</script>");
+    c.assertError("page.html:2:", "only allowed as the whole value", "not a reserved word or location");
+    assertNull(c.generatedSource("tessera.generated.PageTemplate"), "nothing may be generated");
+    compile("<script type=\"module\">" + keyword + " location = [[${s}]];</script>").assertError("page.html:2:");
+    compile("<script>" + keyword + " locationUrl = [[${s}]];</script>").assertSuccess();
+  }
+
+  @Test
+  void textOnAJavaScriptScriptFailsToBuild() {
+    for (String script : new String[] {"<script t:text=\"${s}\"></script>", "<script type=\"module\" t:text=\"${l}\"></script>"}) {
+      Compilation c = compile(script);
+      c.assertError("page.html:2:", "t:text is not allowed on a JavaScript <script>", "const name = [[...]];", "application/json");
+      assertNull(c.generatedSource("tessera.generated.PageTemplate"), "nothing may be generated");
+    }
+    compile("<script t:utext=\"${s}\"></script>")
+        .assertError("page.html:2:", "t:utext is only allowed on elements whose content is HTML text", "const name = [[...]];");
+    // A JSON script takes a whole value.
+    compile("<script type=\"application/json\" t:text=\"${m}\"></script>").assertSuccess();
+  }
+
+  @Test
+  void jsonScriptValueIsOutsideStringsAndComments() {
+    compile("<script type=\"application/json\">{\"a\": \"x[[${s}]]\"}</script>")
+        .assertError("page.html:2:", "inside a quoted string of a JSON <script>");
+    compile("<script type=\"application/json\">{\"a\": \"\\\\\\\"\", \"b\": \"[[${s}]]\"}</script>")
+        .assertError("page.html:2:", "inside a quoted string of a JSON <script>");
+    compile("<script type=\"application/json\">// c\n[[${s}]]</script>").assertError("page.html:2:", "JSON has no comments");
+    compile("<script type=\"application/json\">{\"a/b\": [[${s}]]}</script>").assertSuccess();
   }
 
   @Test
@@ -247,6 +282,6 @@ class ScriptExpressionPositionTest {
             .template("page.html", "<div t:params=\"java.util.List<String> l\"><script>var a = [[${l}]];</script></div>")
             .compile()
             .assertSuccess();
-    assertEquals("<div><script>var a = [\"eval\"];</script></div>", c.render("page", Map.of("l", List.of("eval"))));
+    assertEquals("<div><script>var a = ([\"eval\"]);</script></div>", c.render("page", Map.of("l", List.of("eval"))));
   }
 }

@@ -37,7 +37,13 @@ public final class UtextProcessor implements AttributeProcessor {
     OutputContext context = Contexts.text(plan.element());
     if (context != OutputContext.TEXT) {
       ctx.diagnostics()
-          .error(attr.pos(), attr.name() + " is only allowed on elements whose content is HTML text, not <script> or <style>");
+          .error(
+              attr.pos(),
+              attr.name() + " is only allowed on elements whose content is HTML text, not <script> or <style>"
+                  + (context == OutputContext.SCRIPT
+                      ? ": pass a value to a script as const name = [[...]]; at its top, or in a"
+                          + " <script type=\"application/json\"> read with JSON.parse"
+                      : ""));
       return false;
     }
     return true;

@@ -126,23 +126,24 @@ public final class Emitted {
 
   /**
    * A {@code <script>} JSON value serialized by generated helper {@code helper} ({@link #jsonHelperMethod}),
-   * which writes with {@code Escapers.appendJson}: {@code helper(<valueCode>, out);}
+   * which writes with {@code Escapers.appendJson}: {@code helper(<valueCode>, out);}. With
+   * {@code javaScript} the helper writes the value in parentheses, as {@code Escapers.javaScript} does.
    */
-  public static Emitted jsonHelperHole(String helper, String element, SourcePos pos, String valueCode) {
+  public static Emitted jsonHelperHole(String helper, String element, SourcePos pos, String valueCode, boolean javaScript) {
     return of(
         helper + "(" + valueCode + ", out);",
-        new Skeleton.Hole(Skeleton.Escaper.JSON, lower(element), null, pos));
+        new Skeleton.Hole(javaScript ? Skeleton.Escaper.JAVASCRIPT : Skeleton.Escaper.JSON, lower(element), null, pos));
   }
 
   /**
    * The member method behind {@link #jsonHelperHole}: {@code body} appends JSON to the buffer
    * {@code s$} only with {@code Escapers.appendJson} and literal JSON punctuation, then the buffer is
-   * written. Returns the whole method.
+   * written, in parentheses with {@code javaScript}. Returns the whole method.
    */
-  public static String jsonHelperMethod(String helper, String body) {
+  public static String jsonHelperMethod(String helper, String body, boolean javaScript) {
     return "private static void " + helper + "(java.lang.Object o$, dev.tessera.runtime.Output out) {\n"
         + "java.lang.StringBuilder s$ = new java.lang.StringBuilder();\n"
-        + body + ";\nout.write(s$.toString());\n}\n";
+        + body + ";\nout.write(" + (javaScript ? "\"(\" + s$ + \")\"" : "s$.toString()") + ");\n}\n";
   }
 
   /** A {@code SafeHtml} value: {@code Escapers.html(out, <valueCode>);} */

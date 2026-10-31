@@ -112,26 +112,26 @@ class BigNumberSubclassTest {
     Compilation c = compile("<p t:utext=\"#{price(x)}\">x</p>");
     assertThrows(IllegalArgumentException.class, () -> render(c, new Price("<b>"), List.of()));
     assertEquals("<div><p>Now <b>1,234</b></p></div>", render(c, new BigDecimal("1234"), List.of()));
-    assertEquals("<div><p>Now <b>1</b></p></div>", render(c, new Price("1"), List.of()));
+    // Only the JDK class itself: a subclass fails even when its text is a number.
+    assertThrows(IllegalArgumentException.class, () -> render(c, new Price("1"), List.of()));
   }
 
   @Test
   void jdkValuesRenderUnchanged() {
     Compilation c =
-        compile("<script>var a = [[${x}]], b = [[${y}]];</script><p t::v=\"${x}\" t::w=\"${y}\">p</p>");
+        compile("<script>var a = [[${x}]]; var b = [[${y}]];</script><p t::v=\"${x}\" t::w=\"${y}\">p</p>");
     List<BigInteger> y = List.of(new BigInteger("-123456789012345678901234567890"), BigInteger.ZERO);
     String want =
-        "<div><script>var a = 1E+3, b = [-123456789012345678901234567890,0];</script>"
+        "<div><script>var a = (1E+3); var b = ([-123456789012345678901234567890,0]);</script>"
             + "<p :v=\"1E+3\" :w=\"[-123456789012345678901234567890,0]\">p</p></div>";
     assertEquals(want, render(c, new BigDecimal("1E+3"), y));
     assertEquals(want, c.render("page", Map.of("x", new BigDecimal("1E+3"), "y", y)));
     assertEquals(
-        "<div><script>var a = (-0.000012345), b = [];</script><p :v=\"-0.000012345\" :w=\"[]\">p</p></div>",
+        "<div><script>var a = (-0.000012345); var b = ([]);</script><p :v=\"-0.000012345\" :w=\"[]\">p</p></div>",
         render(c, new BigDecimal(BigInteger.valueOf(-12345), 9), List.of()));
-    // A subclass whose text is a JSON number renders as that number.
-    assertEquals(
-        "<div><script>var a = 2.50, b = [7];</script><p :v=\"2.50\" :w=\"[7]\">p</p></div>",
-        render(c, new Price("2.50"), List.of(new Count("7"))));
+    // Only the JDK classes themselves: a subclass fails even when its text is a JSON number.
+    assertThrows(IllegalArgumentException.class, () -> render(c, new Price("2.50"), List.of()));
+    assertThrows(IllegalArgumentException.class, () -> render(c, BigDecimal.ONE, List.of(new Count("7"))));
   }
 
   // style attributes (#182): CSS cannot be escaped, so a number's text must be a number.
@@ -195,8 +195,8 @@ class BigNumberSubclassTest {
         renderStyle(STYLES.get(5), x, z));
     assertEquals("<div><p style=\"width: 12.5px\">p</p></div>", renderStyle(STYLES.get(6), x, z));
     assertEquals("<div><p style=\"width: 1E+3px\">p</p></div>", renderStyle(STYLES.get(1), new BigDecimal("1E+3"), z));
-    // A subclass whose text is a number renders as that number.
-    assertEquals("<div><p style=\"width: 2.50px\">p</p></div>", renderStyle(STYLES.get(1), new Price("2.50"), z));
+    // Only the JDK class itself: a subclass fails even when its text is a number.
+    assertThrows(IllegalArgumentException.class, () -> renderStyle(STYLES.get(1), new Price("2.50"), z));
     // null behaves as before: the attribute is omitted, the default is used, or "null" is printed.
     assertEquals("<div><p>p</p></div>", renderStyle(STYLES.get(0), null, z));
     assertEquals("<div><p style=\"width: 1px\">p</p></div>", renderStyle(STYLES.get(3), null, z));

@@ -37,7 +37,7 @@ class ContextVerifierTest {
                     + "<td><a t:href=\"@{/items/{n}(n=${i.n})}\" t:text=\"i.n\">1</a></td></tr></tbody></table>\n"
                     + "<ul><li t:each=\"i : items\" t:if=\"i.n > 0\">[[${i.name}]]</li></ul>\n"
                     + "<select><option t:each=\"i : items\" t:value=\"i.name\" t:text=\"i.name\">o</option></select>\n"
-                    + "<textarea t:text=\"q\"></textarea><script>var items = [[${items}]]; if (1<[[${items.size()}]]) {}</script>\n"
+                    + "<textarea t:text=\"q\"></textarea><script>var items = [[${items}]]; var size = [[${items.size()}]]; if (1<size) {}</script>\n"
                     + "</body>\n</html>")
             .compile()
             .assertSuccess();

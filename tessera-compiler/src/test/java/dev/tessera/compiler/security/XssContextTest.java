@@ -75,9 +75,9 @@ class XssContextTest {
           new Line("<script t:src=\"@{/js/{f}(f='x' + s)}\"></script>", Kind.PATH_SEGMENT),
           new Line("<p t:text=\"#{greet(s)}\">x</p><i t:title=\"#{greet(s)}\">y</i>", Kind.TEXT, Kind.HTML),
           new Line("<p t:text=\"|a ${s} b|\">x</p>", Kind.TEXT_PART),
-          new Line("<script t:text=\"s\"></script>", Kind.JSON),
+          new Line("<script type=\"application/json\" t:text=\"s\"></script>", Kind.JSON),
           new Line(
-              "<script>var a = [[s]]; var t = [[s]]; var b = [[s]]; /* c */ var d = [[s]]; var n = [[s]] + a / 2;"
+              "<script>var a = [[s]]; var t = [[s]]; var b = [[s]];\n// c\nvar d = [[s]]; var e = [[s]]; var n = e + a / 2;"
                   + " var r = /x/; var u = `${n}`; // done\n</script>",
               Kind.JSON, Kind.JSON, Kind.JSON, Kind.JSON, Kind.JSON),
           new Line("<SCRIPT type=\"application/json\">[[s]]</SCRIPT>", Kind.JSON),
@@ -295,12 +295,12 @@ class XssContextTest {
 
   @Test
   void scriptInlineInTemplateSubstitutionFailsToBuild() {
-    // A backtick before the last value is a build error, ${...} code included (the data-prelude
-    // rule, #332); so are strings, comments and regex literals (#281, #315).
+    // A value in a template literal is outside the script prelude, ${...} code included; so are
+    // strings, comments and regex literals (#281, #315).
     Compilation.builder()
         .template("page.html", "<div t:params=\"String s\"><script>var t = `${[[s]]}`;</script></div>")
         .compile()
-        .assertError("page.html:1:", "a backtick (a template literal) before the last [[...]]");
+        .assertError("page.html:1:", "only allowed as the whole value of a declaration");
   }
 
   @Test
@@ -315,7 +315,7 @@ class XssContextTest {
             .compile();
     c.assertSuccess();
     String out = c.render("page", Map.of("s", "</script><b>"));
-    assertTrue(out.contains("<Script>var a = \"\\u003c\\/script\\u003e\\u003cb\\u003e\";</Script>"), out);
+    assertTrue(out.contains("<Script>var a = (\"\\u003c\\/script\\u003e\\u003cb\\u003e\");</Script>"), out);
     assertTrue(out.contains("<p>&lt;/script&gt;&lt;b&gt;</p>"), out);
   }
 

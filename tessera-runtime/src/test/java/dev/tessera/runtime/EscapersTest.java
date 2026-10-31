@@ -561,42 +561,19 @@ class EscapersTest {
   }
 
   @Test
-  void javaScriptParenthesizesATopLevelNegativeNumber() {
-    assertEquals("(-1.5)", javaScript(-1.5));
-    assertEquals("(-0.0)", javaScript(-0.0));
-    assertEquals("(-0.0)", javaScript(-0.0f));
-    assertEquals("(-3)", javaScript(-3));
-    assertEquals("(-9223372036854775808)", javaScript(Long.MIN_VALUE));
-    assertEquals("(-1.10)", javaScript(new BigDecimal("-1.10")));
-    assertEquals("(-12345678901234567890)", javaScript(new BigInteger("-12345678901234567890")));
-    assertEquals("(-2.0)", javaScript(Optional.of(-2.0)));
-  }
-
-  @Test
-  void javaScriptParenthesizesATopLevelInteger() {
-    assertEquals("(0)", javaScript(0));
-    assertEquals("(7)", javaScript(7));
-    assertEquals("(9223372036854775807)", javaScript(Long.MAX_VALUE));
-    assertEquals("(5)", javaScript((short) 5));
-    assertEquals("(6)", javaScript((byte) 6));
-    assertEquals("(12345678901234567890)", javaScript(new BigInteger("12345678901234567890")));
-    assertEquals("(100)", javaScript(new BigDecimal("100")));
-    assertEquals("(7)", javaScript(Optional.of(7)));
-  }
-
-  @Test
-  void javaScriptWritesOtherValuesAsJson() {
+  void javaScriptParenthesizesEveryValue() {
     for (Object v : new Object[] {
-      1.5, 0.0, 1.5f, new BigDecimal("1.10"), new BigDecimal("1E+3"), Double.NEGATIVE_INFINITY, null, true, "-1",
-      "7", "a<b", List.of(1), new int[] {7},
-      List.of(-1, 2), new int[] {-1}, new double[] {-0.0}, Map.of("a", -1), Optional.empty(), Color.GREEN
+      -1.5, -0.0, -3, Long.MIN_VALUE, 0, 7, new BigDecimal("-1.10"), new BigInteger("12345678901234567890"),
+      Optional.of(-2.0), 1.5, new BigDecimal("1E+3"), Double.NEGATIVE_INFINITY, null, true, "-1", "a<b",
+      List.of(-1, 2), new int[] {-1}, Map.of("a", -1), Optional.empty(), Color.GREEN
     }) {
-      assertEquals(json(v), javaScript(v), String.valueOf(v));
+      assertEquals("(" + json(v) + ")", javaScript(v), String.valueOf(v));
     }
-    assertEquals("[-1,2]", javaScript(List.of(-1, 2)));
-    assertEquals("\"-1\"", javaScript("-1"));
-    assertEquals("[1]", javaScript(List.of(1)));
-    assertEquals("1E+3", javaScript(new BigDecimal("1E+3")));
+    assertEquals("(-1.5)", javaScript(-1.5));
+    assertEquals("(7)", javaScript(7));
+    assertEquals("([-1,2])", javaScript(List.of(-1, 2)));
+    assertEquals("(\"-1\")", javaScript("-1"));
+    assertEquals("(null)", javaScript(null));
   }
 
   @Test
@@ -821,10 +798,12 @@ class EscapersTest {
   @ParameterizedTest
   @ValueSource(strings = {"0", "-0", "7", "-12", "1E+3", "1e+3", "1E-7", "1.0E-7", "0E-10", "0.00", "-1.5E10",
       "123456789012345678901234567890"})
-  void jsonBigNumberSubclassWithJsonNumberTextIsWritten(String text) {
-    assertEquals(text, json(new Labeled(text)));
-    assertEquals(text, json(new LabeledInt(text)));
-    assertEquals(text, run(Escapers::jsonAttr, new Labeled(text)));
+  void jsonBigNumberSubclassIsRejectedEvenWithJsonNumberText(String text) {
+    // Only the JDK classes themselves: toString() of a subclass is never called.
+    assertThrows(IllegalArgumentException.class, () -> json(new Labeled(text)));
+    assertThrows(IllegalArgumentException.class, () -> json(new LabeledInt(text)));
+    assertThrows(IllegalArgumentException.class, () -> run(Escapers::jsonAttr, new Labeled(text)));
+    assertThrows(IllegalArgumentException.class, () -> Escapers.messageArgs(new Object[] {new Labeled(text)}));
   }
 
   @ParameterizedTest
@@ -848,55 +827,28 @@ class EscapersTest {
   void styleNumberChecksBigNumberText() {
     assertEquals("1E+3", Escapers.styleNumber(new BigDecimal("1E+3")));
     assertEquals("-7", Escapers.styleNumber(BigInteger.valueOf(-7)));
-    assertEquals("2.50", Escapers.styleNumber(new Labeled("2.50")));
+    assertThrows(IllegalArgumentException.class, () -> Escapers.styleNumber(new Labeled("2.50")));
     assertEquals(null, Escapers.styleNumber(null));
     assertThrows(IllegalArgumentException.class, () -> Escapers.styleNumber(new Labeled("1;background-image:url(x)")));
     assertThrows(IllegalArgumentException.class, () -> Escapers.styleNumber(new LabeledInt("1-2")));
   }
 
   @Test
-  void htmlMessageArgsReplaceBigNumberSubclassesWithJdkValues() {
+  void messageArgsRejectBigNumberSubclasses() {
     BigDecimal plain = new BigDecimal("1.5");
     BigInteger plainInt = new BigInteger("-123456789012345678901234567890");
-    Object[] out = Escapers.htmlMessageArgs(new Object[] {plain, plainInt, new Labeled("2.5E+3"), new LabeledInt("-7")});
-    assertTrue(out[0] == plain);
-    assertTrue(out[1] == plainInt);
-    assertEquals(BigDecimal.class, out[2].getClass());
-    assertEquals(new BigDecimal("2.5E+3"), out[2]);
-    assertEquals(BigInteger.class, out[3].getClass());
-    assertEquals(BigInteger.valueOf(-7), out[3]);
-  }
-
-  @Test
-  void messageArgsReplaceBigNumberSubclassesWithJdkValues() {
-    // Generated code passes the result of messageArgs to Messages.get for escaped text, attributes
-    // and scripts, so MessageFormat sees the JDK values, never the subclass.
-    BigDecimal plain = new BigDecimal("1.5");
-    Object[] in = {plain, "text", null, new Labeled("1E+3"), new LabeledInt("-7")};
-    Object[] out = Escapers.messageArgs(in);
-    assertNotSame(in, out);
-    assertEquals(Labeled.class, in[3].getClass());
+    Object[] in = {plain, plainInt, "text", null};
+    assertSame(in, Escapers.messageArgs(in));
+    Object[] out = Escapers.htmlMessageArgs(in);
     assertSame(plain, out[0]);
-    assertEquals("text", out[1]);
-    assertEquals(null, out[2]);
-    assertEquals(BigDecimal.class, out[3].getClass());
-    assertEquals(new BigDecimal("1E+3"), out[3]);
-    assertEquals(BigInteger.class, out[4].getClass());
-    assertEquals(BigInteger.valueOf(-7), out[4]);
-    assertEquals("1,000 -7", new java.text.MessageFormat("{3} {4}", java.util.Locale.ROOT).format(out));
-    // Every pattern sees the JDK value: {0,date} reads longValue() of 1E+3, not the subclass's 1.
-    assertEquals(
-        new java.text.MessageFormat("{0,date,yyyy-MM-dd HH:mm:ss.SSS}", java.util.Locale.ROOT).format(new Object[] {1000L}),
-        new java.text.MessageFormat("{3,date,yyyy-MM-dd HH:mm:ss.SSS}", java.util.Locale.ROOT).format(out));
-    // The subclass says precision 1, scale 0; its text, which MessageFormat would copy, is checked.
-    assertEquals(1, new Labeled("1E+999999999").precision());
-    assertThrows(IllegalArgumentException.class, () -> Escapers.messageArgs(new Object[] {new Labeled("1E+999999999")}));
-    assertThrows(IllegalArgumentException.class, () -> Escapers.messageArgs(new Object[] {new LabeledInt("1E+3")}));
+    assertSame(plainInt, out[1]);
+    assertThrows(IllegalArgumentException.class, () -> Escapers.htmlMessageArgs(new Object[] {new Labeled("2.5E+3")}));
+    assertThrows(IllegalArgumentException.class, () -> Escapers.messageArgs(new Object[] {new LabeledInt("-7")}));
   }
 
   @Test
   void messageFormatCopiesTheTextOfABigNumberSubclass() {
-    // Why messageArgs replaces subclasses: MessageFormat copies their toString() as digits.
+    // Why messageArgs rejects subclasses: MessageFormat copies their toString() as digits.
     java.text.MessageFormat f = new java.text.MessageFormat("Now <b>{0}</b>", java.util.Locale.ROOT);
     assertEquals("Now <b><b></b>", f.format(new Object[] {new Labeled("<b>")}));
     assertEquals("Now <b><b></b>", f.format(new Object[] {new LabeledInt("<b>")}));
@@ -1105,9 +1057,10 @@ class EscapersTest {
         () -> Escapers.htmlMessage(messages(unchecked), "k", new Object[] {new BigDecimal("1E+999999999")}, new String[0]));
     assertThrows(IllegalArgumentException.class, () -> Escapers.messageTextArgs(new Object[] {new BigDecimal("1E+999999999")}));
     assertThrows(IllegalArgumentException.class, () -> Escapers.messageTextArgs(new Object[] {new Labeled("1E+999999999")}));
-    Object[] text = Escapers.messageTextArgs(new Object[] {"<b>", 42, null, SafeHtml.unchecked("<i>"), new Labeled("2.5")});
+    // A subclass is rejected, never formatted from its toString().
+    assertThrows(IllegalArgumentException.class, () -> Escapers.messageTextArgs(new Object[] {new Labeled("2.5")}));
+    Object[] text = Escapers.messageTextArgs(new Object[] {"<b>", 42, null, SafeHtml.unchecked("<i>"), new BigDecimal("2.5")});
     assertEquals(java.util.Arrays.asList("<b>", 42, null, "<i>", new BigDecimal("2.5")), java.util.Arrays.asList(text));
-    assertSame(BigDecimal.class, text[4].getClass());
   }
 
   // Client-side template delimiters (#248)

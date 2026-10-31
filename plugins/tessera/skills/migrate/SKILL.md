@@ -87,8 +87,9 @@ The old application is the specification. Work the way an expert would, keeping 
    A computed attribute must have a standard name, a `data-*` name or a custom element's prop
    name: `t:up-on-loaded` is a build error, and `t:data-up-on-loaded` is not. `tessera-migrate`
    rewrites htmx's `th:hx-target` and its kind to `t:data-hx-target` (htmx reads both) and reports
-   the rest. In a `<script>`, declare the data before code that uses `/` or template literals
-   (the data-prelude rule, guide section 6); `tessera-migrate` reports the scripts that don't.
+   the rest. In a JavaScript `<script>`, each `[[...]]` must be the whole value of a declaration at
+   the top, `const x = [[${x}]];`, before any other code (the script prelude rule, guide section 6);
+   hoist the values there by hand until `tessera-migrate` does it (#541).
 
    Stored HTML that the old page printed raw (`th:utext`, `[(...)]`, JSP `${...}`, Velocity)
    stays a `String` and goes through `t:utext="html.sanitize(x)"`, `html.sanitizeRich(x)` for
