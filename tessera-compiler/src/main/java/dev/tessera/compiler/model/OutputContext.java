@@ -58,9 +58,8 @@ public enum OutputContext {
   /**
    * A standard attribute that is not an inert-text attribute ({@code inert-attributes.txt}) and
    * has no more specific context, such as {@code sandbox}, {@code rel}, {@code target}, an SVG
-   * {@code transform} or {@code x}. The value may only combine string literals, numbers and a safe
-   * type ({@code TrustedUrl} on an HTML element, {@code CssValue} on an SVG or MathML one); a String
-   * or other plain value is a build error. Written attribute-escaped.
+   * {@code transform} or {@code x}. The value may only combine string literals and numbers (#565);
+   * a String, other plain value or safe type is a build error. Written attribute-escaped.
    */
   TYPED_ATTRIBUTE(null),
   /**

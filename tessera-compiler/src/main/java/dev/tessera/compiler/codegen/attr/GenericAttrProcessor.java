@@ -84,11 +84,11 @@ public final class GenericAttrProcessor implements AttributeProcessor {
                     + " read it from a script";
         break;
       case STYLE:
-        style(ctx, plan, name, value, pos, label, null);
+        style(ctx, plan, name, value, pos, label, false);
         return;
       case TYPED_ATTRIBUTE:
         if (!BOOLEAN_ATTRIBUTES.contains(lower)) {
-          style(ctx, plan, name, value, pos, label, plan.element().foreign() ? CssValue.class : TrustedUrl.class);
+          style(ctx, plan, name, value, pos, label, true);
           return;
         }
         hint = null;
@@ -352,12 +352,11 @@ public final class GenericAttrProcessor implements AttributeProcessor {
    * piece goes through {@link Escapers#styleNumber}, which fails the render if a subclass's
    * {@code toString()} is not a number.
    *
-   * <p>A TYPED_ATTRIBUTE (#539) is checked the same way with {@code typed} as the
-   * safe type ({@code TrustedUrl} on an HTML element, {@code CssValue} on an SVG or MathML one);
-   * {@code typed} is null for STYLE.
+   * <p>A TYPED_ATTRIBUTE ({@code typed}, #539, #565) is checked the same way but takes no safe
+   * type: only literals and numbers.
    */
   private static void style(
-      CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label, Class<?> typed) {
+      CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label, boolean typed) {
     if (!styleSafe(ctx, value, plan, label, name, typed)) {
       return;
     }
@@ -435,7 +434,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     return ctx.expressions().compile(e, plan.scope()).type();
   }
 
-  private static boolean styleSafe(CodegenContext ctx, Expr e, ElementPlan plan, String label, String name, Class<?> typed) {
+  private static boolean styleSafe(CodegenContext ctx, Expr e, ElementPlan plan, String label, String name, boolean typed) {
     if (e instanceof Expr.Literal) {
       return true;
     }
@@ -465,17 +464,16 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       return false;
     }
     TypeMirror t = c.type();
-    if (isDeclared(t, (typed == null ? CssValue.class : typed).getName()) || isNumber(t)) {
+    if (isNumber(t) || !typed && isDeclared(t, CssValue.class.getName())) {
       return true;
     }
     String type = t.getKind() == TypeKind.NULL ? "null" : t.toString();
-    if (typed != null) {
-      String safe = typed == TrustedUrl.class ? "TrustedUrls" : "CssValues such as css.length(l) or css.color(c)";
+    if (typed) {
       ctx.diagnostics()
           .error(
               e.pos(),
               label + " is not allowed: '" + name + "' is not an inert-text attribute on <" + plan.element().name()
-                  + ">, so a computed value can only combine string literals, numbers and " + safe + ", not a "
+                  + ">, so a computed value can only combine string literals and numbers, not a "
                   + type + "; write a static attribute, choose between literals such as ${c} ? 'a' : 'b', or"
                   + " use a data-* attribute if a script reads it");
       return false;
