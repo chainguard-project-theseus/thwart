@@ -617,6 +617,12 @@ final class ConversionRules {
   static final String SCRIPT_HOISTED_STRING_MESSAGE =
       "; it was inside a quoted string, which is now joined with `+`: a non-string value renders as JSON (`null`,"
           + " not an empty string)";
+  /** Appended to {@link #SCRIPT_HOISTED_MESSAGE} for an inline inside a block or function; {@code %s} is the variable. */
+  static final String SCRIPT_HOISTED_DEFERRED_MESSAGE =
+      "; it was inside a block or function: code that runs later, such as a callback or event handler, now"
+          + " reads the global `%1$s` when it runs, and if the script is included more than once (a fragment per"
+          + " row) each copy overwrites it, so every callback reads the last copy's value; give each copy its own"
+          + " value, for example from a `data-*` attribute of the element it handles";
   /** {@code %s} is the inline. */
   static final String SCRIPT_INLINE_IN_REGEX_MESSAGE =
       "`%s` inside a JavaScript regular expression is a build error in Tessera and was not rewritten: declare the"

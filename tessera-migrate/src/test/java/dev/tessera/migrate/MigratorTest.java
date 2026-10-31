@@ -895,6 +895,38 @@ class MigratorTest {
         + "<script>var _t3 = [[${y}]]; g(_t3);</script></div>", convert(src));
   }
 
+  private static final String DEFERRED = "; it was inside a block or function: code that runs later, such as a"
+      + " callback or event handler, now reads the global `_t1` when it runs, and if the script is included more than"
+      + " once (a fragment per row) each copy overwrites it, so every callback reads the last copy's value; give each"
+      + " copy its own value, for example from a `data-*` attribute of the element it handles";
+
+  @Test
+  void valueInsideABlockOrFunctionIsHoistedAndReported() throws Exception {
+    // A row fragment: every copy assigns the same global before the callbacks run.
+    for (String body : List.of("$(function () { $('#del').click(function () { remove([[${x}]]); }); });",
+        "if (a) { f([[${x}]]); }", "el.addEventListener('click', () => { f({id: [[${x}]]}); });")) {
+      String src = script("", body);
+      assertEquals(script("", "var _t1 = [[${x}]]; " + body.replace("[[${x}]]", "_t1")), convert(src), body);
+      List<String> messages = messages(src);
+      assertEquals(1, messages.size(), messages.toString());
+      assertTrue(messages.get(0).endsWith(DEFERRED), messages.toString());
+    }
+    // Not in an object literal or a call at the top level.
+    for (String body : List.of("var o = {a: [[${x}]]};", "f({a: [[${x}]]});", "init([[${x}]]);")) {
+      List<String> messages = messages(script("", body));
+      assertTrue(!messages.get(0).contains("inside a block or function"), messages.toString());
+    }
+  }
+
+  @Test
+  void preludeNamesMayStartWithADollarSign() throws Exception {
+    // The compiler's grammar: an ASCII identifier, $ and _ included, not starting with a digit.
+    String src = script("", "var $form = [[${x}]]; const _a1 = [[${y}]];");
+    assertEquals(src, convert(src));
+    String digit = script("", "var 1a = [[${x}]];");
+    assertEquals(script("", "var _t1 = [[${x}]]; var 1a = _t1;"), convert(digit));
+  }
+
   @Test
   void valuesInTemplateLiteralsAndRegularExpressionsAreReportedNotHoisted() throws Exception {
     String[][] cases = {

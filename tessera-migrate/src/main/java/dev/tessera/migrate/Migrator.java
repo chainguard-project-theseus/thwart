@@ -672,8 +672,9 @@ final class Migrator {
       boolean split = false; // a value was hoisted out of the current string
       boolean afterValue = false; // the current string continues right after a hoisted value
       boolean inClass = false; // in a [...] class of a regular expression
-      int braces = 0;
-      Deque<Integer> templates = new ArrayDeque<>(); // brace depth at each ${ of a template literal
+      // For each open brace: true for a block or function body, false for an object literal.
+      Deque<Boolean> blocks = new ArrayDeque<>();
+      Deque<Integer> templates = new ArrayDeque<>(); // block depth at each ${ of a template literal
       for (int i = insertAt; i < raw.length(); i++) {
         char c = raw.charAt(i);
         int end = holeEnd(raw, i);
@@ -716,6 +717,9 @@ final class Migrator {
               split = true;
               message += ConversionRules.SCRIPT_HOISTED_STRING_MESSAGE;
             }
+            if (blocks.contains(Boolean.TRUE)) {
+              message += String.format(ConversionRules.SCRIPT_HOISTED_DEFERRED_MESSAGE, name);
+            }
             report(at, message);
           } else {
             if (value && !dropped && state == REGEX) {
@@ -755,13 +759,13 @@ final class Migrator {
               state = REGEX;
               inClass = false;
             } else if (c == '{') {
-              braces++;
-            } else if (c == '}' && !templates.isEmpty() && templates.peek() == braces) {
+              blocks.push(!objectLiteral(out, out.length() - 1));
+            } else if (c == '}' && !templates.isEmpty() && templates.peek() == blocks.size()) {
               templates.pop();
               state = STRING;
               quote = '`';
-            } else if (c == '}') {
-              braces--;
+            } else if (c == '}' && !blocks.isEmpty()) {
+              blocks.pop();
             }
             break;
           case STRING:
@@ -778,7 +782,7 @@ final class Migrator {
             } else if (lineEnd && quote != '`') {
               state = CODE;
             } else if (quote == '`' && raw.startsWith("${", i)) {
-              templates.push(braces);
+              templates.push(blocks.size());
               state = CODE;
               out.append(raw.charAt(++i));
             }
@@ -838,6 +842,20 @@ final class Migrator {
       if (!before || !after) {
         out.insert(stringStart, '(').append(')');
       }
+    }
+
+    /**
+     * Whether the opening brace at {@code brace} of {@code out} starts an object literal: after
+     * {@code =}, {@code (}, {@code ,}, {@code :}, {@code [}, {@code ?} or {@code return}. Anything
+     * else, such as {@code )}, {@code =>} or {@code else}, opens a block or function body.
+     */
+    private static boolean objectLiteral(StringBuilder out, int brace) {
+      int p = brace - 1;
+      while (p >= 0 && " \t\n\r".indexOf(out.charAt(p)) >= 0) {
+        p--;
+      }
+      return p >= 0 && ("=(,:[?".indexOf(out.charAt(p)) >= 0
+          || p >= 5 && out.substring(p - 5, p + 1).equals("return") && (p == 5 || !isNameChar(out.charAt(p - 6))));
     }
 
     /** Words after which a {@code /} starts a regular expression. */
@@ -956,7 +974,7 @@ final class Migrator {
         return -1;
       }
       j = name;
-      while (j < raw.length() && isNameChar(raw.charAt(j)) && (j > name || raw.charAt(j) > '9')) {
+      while (j < raw.length() && isNameChar(raw.charAt(j)) && (j > name || raw.charAt(j) < '0' || raw.charAt(j) > '9')) {
         j++;
       }
       if (j == name || PRELUDE_RESERVED.contains(raw.substring(name, j))) {

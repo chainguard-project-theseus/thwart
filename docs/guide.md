@@ -417,8 +417,11 @@ the value was: `x = [[${x}]];` becomes `var _t1 = [[${x}]];` above the code and 
 value inside a string splits it, `"Hello [[${x}]]"` becoming `"Hello " + _t1`. It uses `var`, so a
 fragment included twice doesn't redeclare a `const`. The names are numbered per file, skipping names
 the file already uses; in a classic script they are globals, so rename one if two scripts of a page
-use the same name and read it later. It reports a value in a template literal or a regular
-expression, which it leaves in place, and a `"use strict"` that no longer starts the script. An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
+use the same name and read it later. A value hoisted out of a block or function is reported too:
+a callback or event handler now reads the global when it runs, so if the script is included more
+than once (a fragment per row) every callback reads the last copy's value; give each copy its own
+value, for example from a `data-*` attribute of the element it handles. It reports a value in a
+template literal or a regular expression, which it leaves in place, and a `"use strict"` that no longer starts the script. An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
 It reports a computed name that is not a known attribute (section 6), and rewrites the htmx
 ones that htmx reads the same with `data-` (`th:hx-target` becomes `t:data-hx-target`; also
 `hx-swap`, `hx-select`, `hx-confirm` and the other htmx selector, swap and text attributes),

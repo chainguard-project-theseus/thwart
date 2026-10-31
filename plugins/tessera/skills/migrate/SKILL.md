@@ -90,7 +90,9 @@ The old application is the specification. Work the way an expert would, keeping 
    the rest. In a JavaScript `<script>`, each `[[...]]` must be the whole value of a declaration at
    the top, `const x = [[${x}]];`, before any other code (the script prelude rule, guide section 6);
    `tessera-migrate` hoists the other values into `var _t1 = [[...]];` declarations there and reports
-   the ones in template literals and regular expressions, which you move by hand.
+   the ones in template literals and regular expressions, which you move by hand, and the ones it
+   hoists out of a block or function: a callback then reads a global that every copy of an included
+   fragment overwrites.
 
    Stored HTML that the old page printed raw (`th:utext`, `[(...)]`, JSP `${...}`, Velocity)
    stays a `String` and goes through `t:utext="html.sanitize(x)"`, `html.sanitizeRich(x)` for
