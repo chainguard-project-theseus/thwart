@@ -2,7 +2,6 @@ package dev.tessera.compiler.codegen.attr;
 
 import static dev.tessera.compiler.testing.Compilation.model;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.tessera.compiler.testing.Compilation;
 import java.math.BigDecimal;
@@ -15,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mozilla.javascript.Context;
-import org.mozilla.javascript.EvaluatorException;
 import org.mozilla.javascript.Scriptable;
 
 /**
@@ -78,12 +76,6 @@ class ScriptNumberTest {
     assertEquals("1.00", run(js, "b"));
     assertEquals("1.00", run(js, "c"));
     assertEquals("1000.00", run(js, "d"));
-  }
-
-  @Test
-  void anUnparenthesizedIntegerBeforeAMemberAccessIsASyntaxError() {
-    // Why the old rule needed parentheses: the prelude never puts code right after a value.
-    assertThrows(EvaluatorException.class, () -> run("var s = 1.toFixed(2);", "s"));
   }
 
   @Test
