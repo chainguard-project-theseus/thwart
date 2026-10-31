@@ -25,7 +25,15 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
 /**
- * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. A Vue/Alpine binding with an ordinary target ({@code :prop}, SCRIPT_ATTRIBUTE) takes only a JSON-serializable value, written as JSON. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}; TRUSTED_URL (an attribute that holds URLs but is not exactly one URL: {@code ping}, {@code srcset}, {@code imagesrcset}, an SVG animation's {@code values to from by}) only literals, numbers and {@code TrustedUrl}s (#539); a {@code <base href>} (#350), an htmx request URL ({@code hx-get}, ...), the {@code action}/{@code formaction} of a form htmx submits ({@link CodegenContext#htmxSubmits}), the {@code action} of a static POST form and every {@code formaction} (they may receive the CSRF token, {@link CsrfInjector}), only a same-origin link; a computed {@code formmethod}, or {@code method} on a {@code <form>}, is a build error. A name that is not a standard HTML, SVG, MathML or ARIA attribute, {@code data-*}, a plain prop on a custom element or a framework name Contexts classifies is a build error ({@link Contexts#isUnknownName}, #330).
+ * Any other {@code t:<name>} ({@code t:href}, {@code t:id}, {@code t:data-x}, ...): sets attribute
+ * {@code name} from the expression, escaped for {@link Contexts#attribute}, whose contexts
+ * ({@link OutputContext}) say what each attribute accepts. This processor adds: boolean attributes
+ * ({@code checked}, {@code disabled}, ...) take a condition; a {@code <base href>} (#350), an htmx
+ * request URL, the {@code action}/{@code formaction} of a form htmx submits
+ * ({@link CodegenContext#htmxSubmits}), the {@code action} of a static POST form and every
+ * {@code formaction} (they may receive the CSRF token, {@link CsrfInjector}) take only a
+ * same-origin link; and a computed {@code formmethod}, or {@code method} on a {@code <form>}, is a
+ * build error.
  */
 public final class GenericAttrProcessor implements AttributeProcessor {
 
@@ -76,9 +84,6 @@ public final class GenericAttrProcessor implements AttributeProcessor {
                 : "event-handler attributes cannot contain expressions; put the value in a data-* attribute and"
                     + " read it from a script";
         break;
-      case STYLE:
-        style(ctx, plan, name, value, pos, label, context);
-        return;
       case TYPED_ATTRIBUTE:
         if (!BOOLEAN_ATTRIBUTES.contains(lower)) {
           style(ctx, plan, name, value, pos, label, context);
@@ -86,6 +91,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
         }
         hint = null;
         break;
+      case STYLE:
       case TRUSTED_URL:
         style(ctx, plan, name, value, pos, label, context);
         return;
@@ -187,7 +193,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     plan.setAttribute(name, c.code(), pos);
   }
 
-  /** Why {@code name}, which is not {@link Contexts#isKnownName known} (#330), cannot be computed. */
+  /** Why {@code name}, which is not a known name ({@link Contexts#isUnknownName}, #330), cannot be computed. */
   static String unknownName(String name) {
     String data = HtmlParser.asciiLower(name);
     return "'" + name + "' is not a known attribute; a computed attribute must be a standard HTML, SVG,"

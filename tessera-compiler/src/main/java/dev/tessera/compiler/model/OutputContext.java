@@ -17,7 +17,11 @@ public enum OutputContext {
    * verifier names this escaper for TEXT where a browser reads RCDATA (#378).
    */
   RCDATA("rcdata"),
-  /** Quoted value of an ordinary attribute. Generated attributes are always double-quoted. */
+  /**
+   * Quoted value of a plain-text attribute: an inert-text attribute ({@code inert-attributes.txt}),
+   * a named {@code <meta>}'s {@code content}, {@code data-*} or a custom element's prop. Generated
+   * attributes are always double-quoted.
+   */
   ATTRIBUTE("attr"),
   /**
    * An attribute whose grammar is exactly one URL: href, src, action, formaction, cite, poster, ...
@@ -74,8 +78,11 @@ public enum OutputContext {
    */
   EVENT_HANDLER(null),
   /**
-   * Anything else we cannot escape safely ({@code srcdoc}, non-JS {@code <script type>},
-   * attribute names that are not plain identifiers): expressions are a build error.
+   * Anything else we cannot escape safely ({@code srcdoc}, non-JS {@code <script type>}), an
+   * attribute that decides how others are read (a {@code <script>}'s {@code type}, a
+   * {@code <meta>}'s {@code http-equiv}, an animation's {@code attributeName}, {@code hx-boost},
+   * {@code hx-ws}, {@code hx-sse}, tree-builder inputs), and names that are not plain identifiers
+   * or not known (#330): expressions are a build error.
    */
   FORBIDDEN(null);
 
