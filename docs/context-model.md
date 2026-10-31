@@ -178,13 +178,13 @@ Applies to a `<script>` with no `type` or a JavaScript, module or JSON type
 | Holes take a JSON value written by `Escapers.javaScript` (`Escapers.json` in a JSON script), which also escapes `<`, `>`, `&`, `'`, `/`, backtick, `$`, U+2028 and U+2029 | main | `ScriptJsonTest`; #341 slot check | `Esc` `jsonScriptSafe` (strings); `JsonFirst` for other values unproved |
 | In a JavaScript script every value is written in parentheses, `(json)` (`Escapers.javaScript` and the generated bean serializers), so it is one primary expression whatever its type; JSON scripts (`application/json`, `application/ld+json`) keep plain JSON (`Escapers.json`) | main (#540, replacing #511 and #533) | `ScriptNumberTest`, `ScriptJsonTest`, `EscapersTest` | not yet |
 | A `BigDecimal` or `BigInteger` is written only if its class is exactly the JDK class; a subclass fails the render (scripts, bindings, messages, styles) | main (#540, replacing #508's text check) | `BigNumberSubclassTest`, `EscapersTest` | n/a |
-| `{` in JSON strings is written as `\u007b` | #303 | `ScriptJsonTest` (#303) | not yet (G3) |
+| `{` in JSON strings is written as `\u007b` | main (#303) | `ScriptJsonTest` (#303) | not yet (G3) |
 | In a JavaScript script each hole is the whole value of a declaration `const\|let\|var NAME = [[...]];` (a space or tab after the keyword; `NAME` an ASCII identifier, not a reserved word or `location`, whose setter `var location = v` would call; one hole per declaration), and the declarations form a prelude at the top: before, between and after them only ASCII spaces, tabs, line breaks and `//` comments. No form without a keyword. Any other hole is an error with a fix-it (a prelude declaration, or a JSON script and `JSON.parse`); `tessera-migrate` hoists values (#541) | main (#540, `TextInlining.checkPrelude`, replacing #332's `checkDataPrelude` lexer and #509's expression-position checks) | `ScriptPreludeTest`, `ValueAfterLessThanTest`; seeds `A2`, `A32`-`A36`, `A51`, `A52`; generator script positions (rejected outside the prelude) | not yet (Lean does not model JavaScript) |
 | `t:text` and `t:utext` on a JavaScript `<script>` are errors, with the same fix-it; on a JSON script `t:text` writes one JSON value | main (#540) | `ScriptPreludeTest`, `TextOutputTest` | n/a |
 | In a JSON script each hole is outside a `"..."` string, and there is no `/` outside strings | main (#540) | `ScriptPreludeTest` | n/a |
 | After the prelude, any static script text (no holes) | main (#540) | #341 aligns the AST after the slot | n/a |
 | No holes in SVG `<script>` | main: the verifier's `JSON_NOT_IN_SCRIPT` (#367) | seeds `A55`, `A56`, `A58`, `B0`, `B11` | Lean `StaticNoAmp` |
-| An unclosed static `{{` before a hole in the same script is an error | #303 | `ClientTemplateInjectionTest` (#303) | not yet |
+| An unclosed static `{{` before a hole in the same script is an error | main (#303) | `ClientTemplateInjectionTest` (#303) | not yet |
 
 Rhino, the #341 engine, cannot parse ES modules, classes, `for await` or object spread, and reports
 `JS_UNPARSABLE` for an accepted script it can't parse; the Node job (#345) checks those with acorn.
@@ -288,7 +288,7 @@ follow-up (#329 PR).
 ### 6.1 Attribute classes
 
 `Contexts.attribute(element, name)` picks the class of a computed attribute. The classes and
-escapers below ship today; [mvp-design.md](mvp-design.md) has a similar table, without `SCRIPT_ATTRIBUTE`.
+escapers below ship today.
 
 | Class (`OutputContext`) | Where | Escaper | Status | Checked by | Proof |
 |---|---|---|---|---|---|
@@ -314,7 +314,7 @@ Static attributes are copied verbatim and are not affected by these rules.
 | Plain name `[a-z][a-z0-9]*` on a custom element | accepted (component props) | accepted on an HTML element whose name has a `-` (not SVG `font-face`) | main | `ContextsTest`, `UnknownAttributeNamesTest` |
 | Name listed in the framework table | as the table says | as the hard-coded lists in `Contexts` say | phase 4 (#333) | `FrameworkDirectivesTest` |
 | Any other name | error ("use `data-*`") | error with a `data-<name>` fix-it, including htmx names the table does not list (`hx-target`, `hx-swap`: use `data-hx-target`). A JSON binding's target (`:x`) is not checked yet (#333) | main (#330) | `UnknownAttributeNamesTest`, `ContextsTest`; covers #273's Unpoly half and #276's `hx-action`/`hx-method` |
-| Computed `formaction` inside a POST form | same-origin link only, or the CSRF token is withheld | same-origin `formaction` required where a button may submit the CSRF token | main (#346, #314) | seeds `A45`, `B6`; `CsrfFormactionTest` |
+| Computed `formaction` | same-origin link only | same-origin link required on every element, since any form may get the CSRF token | main (#346, #314) | seeds `A45`, `B6`; `CsrfFormactionTest` |
 | Computed `href` on `<base>` | same-origin link only, in every template (a static one must be same-origin by shape) | same-origin link required; static `href` checked like a static `action` | main (#357) | `CsrfBaseTest` |
 
 ### 6.3 The framework table
@@ -335,12 +335,12 @@ nightly framework harness (#334). Today the entries are hard-coded in `Contexts`
 |---|---|---|
 | Every `{` and `}` of an element text value between two `<!---->` (#571) | main | hostile value `{{PWN()}}`; `EscapersTest`, `TextChokePointTest`, `ClientTemplateInjectionTest` |
 | `{{` broken in SVG/MathML text | #301 (TEXT context) | seed `A7` |
-| `{` as `\u007b` in JSON strings | #303 | `ScriptJsonTest` (#303) |
-| A static `{` or `}` in element text (CDATA in foreign content included) outside a complete `{{ ... }}` in one literal is an error, whatever is next to it; in a script, an unclosed static `{{` before a hole | #571 (replaces the #336 edge rule; nothing about neighbours is looked at); script #303 | seed `A18`; `ClientTemplateInjectionTest` |
+| `{` as `\u007b` in JSON strings | main (#303) | `ScriptJsonTest` (#303) |
+| A static `{` or `}` in element text (CDATA in foreign content included) outside a complete `{{ ... }}` in one literal is an error, whatever is next to it; in a script, an unclosed static `{{` before a hole | main (#571, replacing the #336 edge rule; nothing about neighbours is looked at); script main (#303) | seed `A18`; `ClientTemplateInjectionTest` |
 | A static `&` that starts a character reference before a hole is an error, so a value can't spell `{` as `&#123;` (`&[[a]]&[[b]]`, a = b = `#123;`); an HTML message the build did not check is escaped as text | verifier (`TEXT_NOT_IN_TEXT`, §2 "Text: hole after `&`"); runtime (`Escapers.htmlMessage`) | `ValueAfterAmpersandTest`, `EscapersTest` |
 | RCDATA (`<title>`, `<textarea>`): no lossless break, so a computed one gets `v-pre` (Vue 3, petite-vue); a Vue directive on it, or any static brace in it, is an error (#571); no duplicate `v-pre` | main (#549) | `VPreRcdataTest` (output and errors); that Vue 3.5.44 and petite-vue 0.4.1 skip it was checked by hand in Chromium (the hostile value runs without `v-pre`, not with it), framework harness rows #334 |
 | RAWTEXT (`xmp`, `iframe`, `noembed`, `noframes`, `noscript`): no break at all, so a value, condition or loop inside is an error | main (#571) | `BrowserRawTextTest` |
-| Attributes, and RCDATA under AngularJS: no lossless break | documented limitation (guide §7), bounded by `ng-non-bindable` and CSP (#335) | seed `A37`; #344 CSTI check |
+| Attributes and RCDATA under AngularJS: not supported (guide §7) | documented limitation, bounded by `ng-non-bindable` and CSP (#335) | seed `A37`; #344 CSTI check |
 
 Frameworks configured to read other names (an Alpine prefix, a Knockout binding provider, a
 hyperscript `attributes` setting) are not detected (G5). This is outside the guarantee; see

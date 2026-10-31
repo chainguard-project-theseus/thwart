@@ -134,8 +134,8 @@ them through human adversarial review, one at a time.
 |---|---|---|
 | A. Parser differentials | **Yes** | Accept only a profile where the compiler's model is exact and stable across browsers (§5.2-5.3), verified against a spec parser (§5.7) |
 | B. Composition | **Yes** | Content kinds on fragments, `SafeHtml` and insertion points, checked at build time (§5.5) |
-| C. JS position | **Yes, by restriction** | Holes only in a script prefix whose tokenization is unambiguous: no `/` operator, no template literal before the last hole (§5.4). Don't try to lex all of JS |
-| E. URL/policy | **Mostly** | One URL-shape function used everywhere (resource, htmx, refresh, CSRF), and list attributes typed as lists |
+| C. JS position | **Yes, by restriction** | Holes only as the whole value of a declaration in a closed prelude at the top of the script (§12.3). Don't try to lex all of JS |
+| E. URL/policy | **Mostly** | One URL-shape function used everywhere (resource, htmx, refresh, CSRF), and attributes that are not exactly one URL take only literals or a `TrustedUrl` (§12.2) |
 | D. Client frameworks | **No** | The interpreter, its configuration and its mount points are chosen at runtime. We can *bound* it (§5.6), not prove it. Go `html/template`, Soy and React don't claim this either |
 
 The honest boundary: **Tessera guarantees what the browser's HTML parser and its built-in sinks do
@@ -443,7 +443,7 @@ phase 4.
 | **0. Now (days)** | Land the ready fail-closed fixes in a fixed order, one integrator, and close duplicates (§9). Apply the `/\` rule to resource URLs (`@{/\evil}` in `t:src`/`base`) | Live XSS in families A, B, C; #281 (high severity) | Each PR's repros in `XssContextTest.REJECTED`; `mvn verify` green |
 | **1. Oracle (1-2 weeks)** | `ProfileOracleTest` with validator.nu in test scope; generator v1 (the §1 probes and the open PRs' repros as seeds); JS token check; delete the attoparser differential; nightly parse5 + browser job | Nothing directly. It **finds** what's left, and it's the gate for phases 2-3 | It reproduces the 25 live cases on 0dda2f1 and passes on main after phase 0; known false negatives are listed |
 | **2. Profile (2-3 weeks)** | Write docs/context-model.md and docs/security-model.md; positive-grammar tokenizer (§5.2); parse modes and allow-lists (§5.3); content kinds (§5.5); deny-by-default attribute names (§5.6). Fold in the phase-0 rules, keeping their tests | Families A and B by construction; #272, #273 (Unpoly), #276 | Oracle green on the generated set; profile false positives on the 1,513-template corpus reported in the PR (target: a handful, each with a fix-it); lines in `html/` + `Contexts` go down, not up |
-| **3. Scripts** | Replace #290's regex/division heuristic with the data-prelude rule (§5.4); `{` in JSON; no holes in SVG `<script>` | Family C by construction | JS oracle green; corpus: no new rejections beyond the quoted ones #287 rewrites |
+| **3. Scripts** | Replace #290's regex/division heuristic with the closed prelude grammar (§12.3); `{` in JSON; no holes in SVG `<script>` | Family C by construction | JS oracle green; corpus: no new rejections beyond the quoted ones #287 rewrites |
 | **4. Frameworks** | Framework table as data; Vue bind targets as an allow-list; nightly framework harness; CSP nonces in the starter; guide section on the boundary | Bounds family D; #273 (Datastar), #303's cross-node `{{` in its smaller form | Harness green nightly; guide states the boundary |
 | **5. Optional** | A test kit so apps can run the oracle over their own MockMvc pages; OpenJML proofs (#302) | Evidence for customers | n/a |
 
@@ -851,18 +851,28 @@ and same-origin by shape, or a computed `@{/literal-path}` link re-checked at re
 eight case-by-case patches, and closed two live leaks (`hx-post` on the form, and an `hx-ws`
 socket around it).
 
-### 12.8 `{{` through one function (#547)
+### 12.8 `{{` through one function (#547, #571)
 
-Planned in PR #569, not yet merged. At runtime `Escapers.appendText` is to be the only function
-that writes value text into element text, enforced by `TextChokePointTest`. At build time a static
-`{{` must close with `}}` in the same literal (#336), in templates and checked messages. With
-AngularJS gone (#551), the PR also deletes the sanitizer's attribute brace handling.
+At runtime `Escapers.appendText` is the only function that writes value text into element text
+(`t:text`, `SafeHtml.escape`, sanitizer text, HTML message arguments), and it writes every `{` and
+`}` of a value between two empty comments, so a value's brace never meets another brace, even
+when the value is empty. `Escapers.rawEdges` breaks a `{` at the edges of a `SafeHtml` and of a
+checked HTML message. `TextChokePointTest` enforces both (PR #569, PR #577). At build time the rule
+is coarse and looks at no neighbours: in element text, CDATA in foreign content included, a static
+`{` or `}` is allowed only inside a complete `{{ ... }}` that opens and closes in one literal, and
+any other static brace is an error. Checked messages get the same rule as formatted, and a script
+`{{` must close before the next hole. #569's per-literal edge rule is deleted. In `<xmp>`,
+`<iframe>`, `<noembed>`, `<noframes>` and `<noscript>`, where a comment can't break a brace, a
+value is an error. A computed `<title>` or `<textarea>` gets `v-pre` (#549), and any static brace
+in one is an error. With AngularJS gone (#551), the sanitizer no longer handles braces in
+attributes.
 
 ### 12.9 Mechanical discovery (#543)
 
-`HostileSweepTest` runs in `mvn verify` (in the compiler module's default surefire execution only,
-not again under `release-8`). On the commits before their fixes, its spike found 10 of 11 historic
-bugs. It missed #531, in the sanitizer, so the sanitizer is now one of its three passes:
+`HostileSweepTest` (PR #570) runs in `mvn verify` (in the compiler module's default surefire
+execution only, not again under `release-8`). On the commits before their fixes, its spike found
+10 of 11 historic bugs. It missed #531, in the sanitizer, so the sanitizer is now one of its three
+passes:
 
 - **Attributes.** Renders every computed (element, attribute) pair the compiler accepts with
   hostile values, parses the output with validator.nu, and classifies each attribute against a

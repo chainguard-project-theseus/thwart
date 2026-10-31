@@ -44,12 +44,12 @@ JDK 21+. The table names the main classes only.
 | | `.processor` | `TesseraProcessor` (javac entry point), options, discovery | |
 | | `.verify` | `Skeleton`: what each generated class writes, recorded by `Emitted` | |
 | | `.verify.engine` | `Engine`, `Parser`, `ParserState`: the spec HTML parser the build-time verifier runs (security-architecture.md §11.4) | |
-| `tessera-html5/current` | `dev.tessera.compiler.internal.html5.current` | build only: validator.nu htmlparser source from Maven Central (`validator:26.10.12:sources`), pinned by SHA-256, renamed and compiled for Java 8, plus a `TesseraAccess` accessor; shaded into the `tessera-compiler` jar with its MIT notice | none |
+| `tessera-html5` | `dev.tessera.compiler.internal.html5.current` | build only: validator.nu htmlparser source from Maven Central (`validator:26.10.12:sources`), pinned by SHA-256, renamed and compiled for Java 8, plus a `TesseraAccess` accessor; shaded into the `tessera-compiler` jar with its MIT notice | none |
 | `tessera-spring-boot-starter` | `dev.tessera.spring{,.view,.context,.fn}` | auto-config, plain-Spring config, view resolver, return values, request `RenderContext`, `auth` | runtime; Spring 4.3+ / Boot 1.5+, Servlet 3.0+ from the app (`jakarta.servlet`) |
 | `tessera-spring-boot-starter-javax` | same | the starter jar shaded with `jakarta.servlet` relocated to `javax.servlet` | runtime |
 | `tessera-spring-tests` | | the starter's test sources run on Boot 3.5, 2.7, 2.0 and 1.5 and on Spring MVC 5.0 and 4.3 without Boot | |
 | `tessera-migrate` | `dev.tessera.migrate` | CLI: page record/compare (`Crawler`, `PageNormalizer`, `Parity`) and the Thymeleaf → Tessera converter (`Migrator`) | attoparser, jsoup (bundled into the jar) |
-| `tessera-maven-plugin` | `dev.tessera.maven` | `CheckMojo` (`tessera:check`, phase `process-sources`): compares the templates with the fingerprint the processor wrote and deletes the module's compile output when they differ, so a template-only change recompiles (#425). Java 8, Maven 3.6.3+ | `maven-plugin-api`, `maven-plugin-annotations` (provided) |
+| `tessera-maven-plugin` | `dev.tessera.maven` | `CheckMojo` (`tessera:check`, phase `process-sources`): compares the templates with the fingerprint the processor wrote and deletes the module's compile output when they differ, so a template-only change recompiles (#425). `ReviewMojo` (`tessera:review`): lists the `@TemplateFunction`s and `unchecked` calls, and can ban the latter (#428). Java 8, Maven 3.6.3+ | `maven-plugin-api`, `maven-plugin-annotations` (provided) |
 | `tessera-benchmarks` | | JMH, Tessera vs Thymeleaf | Thymeleaf, JMH |
 | `examples/petclinic` | `org.springframework.samples.petclinic` | spring-petclinic on Tessera | starter |
 
@@ -90,7 +90,7 @@ Stages are concrete classes; the only interface with several implementations is 
   `EmissionGuardTest` fails on output written any other way, and the `Compilation` test harness
   checks every render against its skeleton.
 - Hooks called by the generator: `TextInlining.render` (text nodes), `CsrfInjector.apply`
-  (`<form>`), `FieldProcessor.option` (`<option>`), `FragmentMethods.generate` (once per template).
+  (`<form>`), `CsrfInjector.checkSubmitter` and `checkStaticUrls` (every element), `FieldProcessor.option` (`<option>`), `FragmentMethods.generate` (once per template).
 
 ## Template syntax
 
@@ -207,18 +207,15 @@ table is what ships today. The target profile, with the status of each rule, is 
 
 | Context | Where | Escaper | Notes |
 |---|---|---|---|
-| `TEXT` | element text, `t:text`, `[[...]]` | `Escapers.text` | `& < > " '`; `{{` broken with an empty comment, also before a leading and after a trailing `{` (#248) |
-| `RCDATA` | text a browser reads as RCDATA: `<title>`, `<textarea>` (not inside `<svg>`/`<math>`, #277); the verifier names it from the parser state (#378) | `Escapers.rcdata` | `& < > " '`; no comment, it would show (#248) |
+| `TEXT` | element text, `t:text`, `[[...]]` | `Escapers.text` | `& < > " '`; every `{` and `}` written between two empty comments, so a value never forms `{{` (#571) |
+| `RCDATA` | text a browser reads as RCDATA: `<title>`, `<textarea>` (not inside `<svg>`/`<math>`, #277); the verifier names it from the parser state (#378) | `Escapers.rcdata` | `& < > " '`; no comment, it would show, so a computed one gets `v-pre` (#549) |
 | — | `t:utext`, `[(...)]` | `Escapers.html(SafeHtml)` | non-`SafeHtml` is a build error |
-| `ATTRIBUTE` | any other attribute value | `Escapers.attr` | output always double-quoted |
-| `URL` | attributes whose grammar is exactly one URL: `href src action formaction cite poster background longdesc manifest` (`xlink:href`) | `Escapers.url` | http/https/mailto/tel/relative, else `about:invalid#tessera`; `TrustedUrl` passes |
-| `TRUSTED_URL` | attributes that hold URLs but are not exactly one URL: `ping srcset imagesrcset`, and `values to from by` on SVG `animate` and `set` (unless they animate a `STYLE` attribute) (#539) | `Escapers.attr` | only literals, numbers, a choice between literals and `TrustedUrl`; else build error |
-| `RESOURCE_URL` | `script[src] script[href] script[xlink:href] iframe[src] frame[src] embed[src] object[data] base[href] link[href]` | `Escapers.resourceUrl` | only a literal-path `@{}` link or `TrustedUrl`; else build error |
-| `SCRIPT` | text in `<script>` (no type or JS/module/JSON) | `Escapers.json` | `[[...]]` only; JSON-able types only; also escapes `/`, backtick and `$` so a value cannot leave a JS comment, regex or template literal; `[[...]]` inside a JS string literal (also template-literal text), comment or regex literal is a build error (#281, #315) |
-| `REFRESH` | `content` of `<meta http-equiv="refresh">` | `Escapers.refresh` | only `'<seconds>;url=' + @{/path}` with a literal path starting with a single `/` (#237); else build error |
-| `STYLE` | `<style>`, `style` attribute, SVG `fill stroke clip-path mask filter marker-start marker-mid marker-end marker cursor` (CSS that may hold a `url()`; not `fill` on an animation element); `values to from by` of an animation whose static `attributeName` is one of them | — | build error in `<style>`; the attributes take only literals, numbers and `CssValue`s (#182), attribute-escaped |
-| `EVENT_HANDLER` | `on*` attributes | — | build error; use `data-*` + script |
-| `FORBIDDEN` | `srcdoc`, non-JS `<script type>`, odd attribute names | — | build error; `http-equiv` on `<meta>`, `type` on `<script>` and `attributeName` on an SVG animation element cannot be computed, nor can the attributes the tree builder reads (`is`, `xmlns`, `xmlns:xlink`; `<template>` `shadowroot*` and `for`; `<meta>` `charset`, and `content` under `http-equiv="Content-Type"`) |
+| `SCRIPT` | text in `<script>` (no type or JS/module/JSON) | `Escapers.javaScript` (`Escapers.json` in a JSON script) | `[[...]]` only; JSON-able types only; in a JavaScript script only the whole value of a declaration at the top of the script (the prelude rule, #540), in a JSON script only outside a string |
+| `STYLE` | `<style>` | — | build error |
+
+Attribute contexts (`ATTRIBUTE`, `TYPED_ATTRIBUTE`, `URL`, `TRUSTED_URL`, `RESOURCE_URL`, `REFRESH`,
+`SCRIPT_ATTRIBUTE`, `STYLE`, `EVENT_HANDLER`, `FORBIDDEN`) are in [context-model.md](context-model.md)
+section 6.1.
 
 ## Discovery and processor configuration
 
@@ -334,7 +331,7 @@ browser) and saves the pages; `compare` fetches them from the new app and report
 `xmlns:th` → `xmlns:t`, drop redundant `${}`, `#lists.isEmpty(x)` → `x.isEmpty()`,
 `#strings.`/`#numbers.`/`#temporals.` → namespace calls, `th:fragment="f(a,b)"` → `f(Object a, Object b)`
 plus a report item to type it, `"[[${x}]]"`/`'[[${x}]]'` in a JavaScript or JSON `<script>` (not under `th:inline="none"`) →
-`[[${x}]]` plus a report item naming the non-string value change (other `[[...]]` inside a JavaScript string, template literal or comment: reported, #282), `__${x}__`, `T(...)`, `th:inline`, `th:style`, `th:fill`/`th:stroke`/`th:mask`/... on an SVG element (CSS in Tessera; a `th:attr` entry naming one is converted and reported), `th:on*`, `layout:*`,
+`[[${x}]]` plus a report item naming the non-string value change, any other `[[...]]` of a JavaScript script → hoisted into a `var` declaration at the top of the script (#541); `__${x}__`, `T(...)`, `th:inline`, `th:style`, `th:fill`/`th:stroke`/`th:mask`/... on an SVG element (CSS in Tessera; a `th:attr` entry naming one is converted and reported), `th:on*`, `layout:*`,
 `sec:*`, unknown dialects and selection/projection → left in place and reported with file:line.
 It inserts a `t:params` stub listing every root variable it saw, with `Object` types and a report
 item each. Exit code 0 even with report items (the report is the audit).
