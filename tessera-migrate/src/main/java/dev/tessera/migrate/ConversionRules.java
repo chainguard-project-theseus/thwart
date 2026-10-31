@@ -372,8 +372,9 @@ final class ConversionRules {
   /** {@code %1$s} is the comment, {@code %2$s} the text after it that Thymeleaf drops. */
   static final String SCRIPT_NATURAL_COMMENT_MANUAL_MESSAGE =
       "%1$s in a script is a Thymeleaf natural-template comment, but it is not one inline followed by one literal (Thymeleaf drops %2$s after it, up to the next `;`, `,`, `)`, `}`, `]`, `//` or line end), so it was not rewritten; `[[...]]` inside a comment is a build error in Tessera: replace the comment and the text Thymeleaf drops with the inline, as in `var a = /*[[${x}]]*/ 'd';` to `var a = [[${x}]];`";
-  static final String SCRIPT_INLINE_IN_STRING_MESSAGE =
-      "`%s` inside a quoted JavaScript string is a build error in Tessera (it writes a JSON value with its own quotes); rewrite as `\"text \" + %s + \" text\"`";
+  /** {@code %s} is the inline. */
+  static final String SCRIPT_INLINE_IN_JSON_STRING_MESSAGE =
+      "`%s` inside a quoted string of a JSON script is a build error in Tessera (it writes a JSON value with its own quotes) and was not rewritten: make it the whole value, `{\"name\": [[...]]}`, and build any text around it in the model";
 
   /** {@code %1$s} is the link as a Markdown code span, {@code %2$s} its path variables and values. */
   static final String NULL_PATH_VARIABLE_MESSAGE =
@@ -528,7 +529,7 @@ final class ConversionRules {
    * besides AngularJS's ({@link #angularDirective}).
    */
   static final List<String> FRAMEWORK_PREFIXES = Compat.listOf("v-", "x-", "hx-on");
-  /** The framework names the compiler classifies by name: hyperscript and htmx script, URL and boost names. */
+  /** The framework names the compiler handles by name: hyperscript and htmx script, URL and boost names, and htmx 1.x's hx-sse and hx-ws, which are build errors. */
   static final Set<String> FRAMEWORK_NAMES = Compat.setOf(
       "_", "script", "hx-vals", "hx-vars", "hx-headers", "hx-request", "hx-trigger",
       "hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete", "sse-connect", "ws-connect",
