@@ -2303,6 +2303,9 @@ These come from the annotation processor itself, without a template position.
   another right after it (`<p>{[[s]]{ [[t]] }}</p>`). An empty value (`null`, `""`, an empty
   `SafeHtml`) writes nothing, so the braces meet. Put other text between them, or write the second
   one as `<!---->{`.
+- `'{' in a CDATA section is not supported: a browser joins it to the text around the section, where it can form a client-side {{ that Vue and petite-vue would run as code; write the brace outside the CDATA section`:
+  a `<![CDATA[...]]>` section inside `<svg>` or `<math>` holds a `{`. Write the text without
+  the CDATA section, so the brace rules above apply to it.
 - `v-model on a <textarea> with computed content is not supported: Tessera adds v-pre there, because a comment cannot break {{ in a value in <textarea>, and v-pre would turn v-model off; drop v-model, or move the value into Vue (v-model or v-text with the value in the app's data) instead of writing it with Tessera`
   (also `<title>`, and any Vue directive or binding: `v-*`, `:x`, `@x`, `#x`, `.x`): the element's
   content is computed, so it gets `v-pre` (section 4.4), under which Vue would ignore the

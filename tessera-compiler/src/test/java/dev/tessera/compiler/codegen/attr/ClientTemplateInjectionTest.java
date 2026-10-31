@@ -446,6 +446,25 @@ class ClientTemplateInjectionTest {
     compile(body).assertError("t.html:1:", "with '{' next to a <t:block>", "<!---->");
   }
 
+  /** A browser joins a CDATA section in foreign content to the text around it. */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<svg><text><![CDATA[{]]><![CDATA[{]]> [[s]] }}</text></svg>",
+        "<svg><text><![CDATA[{]]>[[a]]{ [[s]] }}</text></svg>",
+        "<math><mi><![CDATA[ x { y ]]></mi></math>",
+      })
+  void braceInCdataIsABuildError(String body) {
+    Compilation c = compile(body);
+    c.assertError("t.html:1:", "'{' in a CDATA section is not supported");
+    assertNull(c.generatedSource("tessera.generated.TTemplate"), body);
+  }
+
+  @Test
+  void cdataWithoutBracesCompiles() {
+    compile("<svg><text><![CDATA[ x < y ]]>[[s]]</text></svg>").assertSuccess();
+  }
+
   /** An empty value writes nothing, so a '{' on each side of it forms {{ (s = null, t = the payload). */
   @ParameterizedTest
   @ValueSource(strings = {"<p>{[[s]]{ [[t]] }}</p>", "<div>{[(h)]{ [[t]] }}</div>", "<p>{[[s]][[a]]{ [[t]] }}</p>"})

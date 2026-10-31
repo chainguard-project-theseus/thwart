@@ -168,7 +168,20 @@ public final class TextInlining {
       } else if (n instanceof Text && !replaced) {
         Text t = (Text) n;
         OutputContext c = t.context();
-        if (c == OutputContext.TEXT || c == OutputContext.RCDATA || c == OutputContext.SCRIPT) {
+        if (c == OutputContext.TEXT && t.raw().startsWith("<![CDATA[")) {
+          // Foreign content: the browser joins the section's characters to the text around it, so
+          // a brace in it is outside the literal checks (which see the wrapper). Shrink the profile.
+          // A value in the section is the verifier's error (TEXT_NOT_IN_TEXT): only static braces here.
+          int brace = staticBrace(t.raw());
+          if (brace >= 0) {
+            ctx.diagnostics()
+                .error(
+                    t.pos().advance(t.raw(), brace),
+                    "'{' in a CDATA section is not supported: a browser joins it to the text around the section,"
+                        + " where it can form a client-side {{ that Vue and petite-vue would run as code; write the"
+                        + " brace outside the CDATA section");
+          }
+        } else if (c == OutputContext.TEXT || c == OutputContext.RCDATA || c == OutputContext.SCRIPT) {
           boolean text = c == OutputContext.TEXT;
           boolean first = k == 0;
           boolean last = k == nodes.size() - 1;
@@ -178,6 +191,23 @@ public final class TextInlining {
         }
       }
     }
+  }
+
+  /** Offset of the first '{' in {@code raw} outside a {@code [[...]]} or {@code [(...)]}, or -1. */
+  private static int staticBrace(String raw) {
+    int i = 0;
+    while (i < raw.length()) {
+      boolean escaped = raw.startsWith("[[", i);
+      int end = escaped || raw.startsWith("[(", i) ? findEnd(raw, i + 2, escaped ? "]]" : ")]") : -1;
+      if (end >= 0) {
+        i = end + 2;
+      } else if (raw.charAt(i) == '{') {
+        return i;
+      } else {
+        i++;
+      }
+    }
+    return -1;
   }
 
   /**
