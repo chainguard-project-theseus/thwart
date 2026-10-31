@@ -141,7 +141,7 @@ final class Rules {
     if (name == null || hole.attribute() == null || !name.equals(asciiLower(hole.attribute()))) {
       return Problem.ATTRIBUTE_WRONG_NAME;
     }
-    // An <input> in a table mode is a parse error whatever its type (#410).
+    // A MathML encoding decides whether an <annotation-xml> is an HTML integration point.
     OpenElement current = s.currentNode();
     if (name.equals("encoding") && current != null && OpenElement.MATHML.equals(current.namespace())) {
       return Problem.ATTRIBUTE_VALUE_CHANGES_PARSE;

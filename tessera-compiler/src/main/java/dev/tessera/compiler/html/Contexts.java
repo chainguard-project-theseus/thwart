@@ -64,33 +64,21 @@ public final class Contexts {
 
   /**
    * Context for the value of attribute {@code attributeName} (without {@code t:}) on
-   * {@code element}: {@link #isJsonBinding JSON bindings} ({@code :x}, {@code v-bind:x},
-   * {@code x-bind:x} with an ordinary target {@code x}) are SCRIPT_ATTRIBUTE; other
-   * {@link #isFrameworkDirective framework directives} and {@code on*} are EVENT_HANDLER, {@code style} and
-   * the SVG presentation attributes that take a CSS {@code url()} ({@code fill}, {@code mask}, ...)
-   * are STYLE, {@code srcdoc} and names that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*} are FORBIDDEN, resource URLs are
-   * RESOURCE_URL, the {@link #URL_ATTRIBUTES attributes whose grammar is exactly one URL} are URL,
-   * the URL lists {@code ping srcset imagesrcset} are TRUSTED_URL, the other standard names that are
-   * not inert-text attributes ({@code inert-attributes.txt}) TYPED_ATTRIBUTE, other
-   * {@link #isKnownName known names} ATTRIBUTE, and every other name FORBIDDEN (#330). The
-   * {@code values to from by} of an SVG {@code <animate>} or {@code <set>} are TRUSTED_URL too
-   * (#539): what they hold depends on the {@code attributeName} ({@code values} is a
-   * {@code ;}-separated list, and an animated {@code href} can be set to {@code javascript:}), so
-   * they are not exactly one URL. When the static {@code attributeName} of an animation element
-   * names one of those SVG attributes ({@code fill}, {@code mask}, ...), its {@code values to from by}
-   * are STYLE instead, and the {@code attributeName} of an animation element is FORBIDDEN: a
-   * computed one could retarget the values from a TRUSTED_URL attribute to CSS. The {@code content} of a
-   * {@code <meta http-equiv="refresh">} is REFRESH: its {@code url=} part navigates the page, so
-   * only a same-origin link is allowed there (#237). Any other {@code content} of a {@code <meta>}
-   * is TYPED_ATTRIBUTE unless the element {@link #isNamedMetaContent names plain metadata} (#539).
-   * The {@code type} of a {@code <script>} is FORBIDDEN: it decides whether the content is
-   * JavaScript. The {@code http-equiv} of a {@code <meta>} is FORBIDDEN: it decides whether
-   * {@code content} is a refresh URL. The {@link #isHtmxRequestUrl htmx request URLs}
-   * ({@code hx-get}, {@code hx-post}, ...) are RESOURCE_URL: htmx fetches them and swaps the
-   * response into the page as HTML (#249). {@code hx-push-url} and {@code hx-replace-url} only
-   * change the address bar and are URL. {@link #isHtmxBoost hx-boost} is FORBIDDEN: it decides
-   * which form actions htmx requests (#258). The {@link #isTreeBuilderInput attributes the tree
-   * builder reads} ({@code is}, {@code xmlns}, a {@code <meta>}'s {@code charset}, ...) are FORBIDDEN.
+   * {@code element} (#330; the table is docs/context-model.md section 6.1). In order:
+   * {@link #isJsonBinding JSON bindings} are SCRIPT_ATTRIBUTE, other {@link #isFrameworkDirective
+   * framework directives} and {@code on*} EVENT_HANDLER; names that are not
+   * {@code [A-Za-z_][A-Za-z0-9_.:-]*} FORBIDDEN; {@code style} and the {@link #isSvgCssUrl SVG
+   * attributes that take a CSS url()} (also {@link #animatesSvgCssUrl animated}) STYLE;
+   * {@link #isHtmxRequestUrl htmx request URLs} RESOURCE_URL, {@link #isLegacyHtmxConnect hx-ws,
+   * hx-sse} and {@link #isHtmxBoost hx-boost} FORBIDDEN, {@code hx-push-url hx-replace-url} URL; a
+   * refresh {@code content} REFRESH ({@link OutputContext#REFRESH}); {@code srcdoc}, the attributes
+   * that decide how another value is read and {@link #isTreeBuilderInput tree-builder inputs}
+   * FORBIDDEN; {@link #isResourceUrl resource URLs} RESOURCE_URL; {@link #URL_LIST_ATTRIBUTES URL
+   * lists} and {@link #ANIMATION_VALUES animation values} TRUSTED_URL; {@link #URL_ATTRIBUTES} URL;
+   * other standard names that are not inert ({@code inert-attributes.txt}) and a {@code content}
+   * of a {@code <meta>} that does not {@link #isNamedMetaContent name plain metadata}
+   * TYPED_ATTRIBUTE; other {@link KnownAttributes#accepts known names} ATTRIBUTE; and every other
+   * name FORBIDDEN.
    */
   public static OutputContext attribute(Element element, String attributeName) {
     return attribute(element, attributeName, true);
@@ -98,13 +86,16 @@ public final class Contexts {
 
   /** {@link #attribute(Element, String)}, where {@code knownNames} false accepts any name as ATTRIBUTE. */
   private static OutputContext attribute(Element element, String attributeName, boolean knownNames) {
-    if (attributeName != null && isJsonBinding(element, attributeName)) {
+    if (attributeName == null) {
+      return OutputContext.FORBIDDEN;
+    }
+    if (isJsonBinding(element, attributeName)) {
       return OutputContext.SCRIPT_ATTRIBUTE;
     }
-    if (attributeName != null && isFrameworkDirective(element, attributeName)) {
+    if (isFrameworkDirective(element, attributeName)) {
       return OutputContext.EVENT_HANDLER;
     }
-    if (attributeName == null || !PLAIN_NAME.matcher(attributeName).matches()) {
+    if (!PLAIN_NAME.matcher(attributeName).matches()) {
       return OutputContext.FORBIDDEN;
     }
     String el = HtmlParser.asciiLower(element.name());
@@ -121,13 +112,15 @@ public final class Contexts {
     if (isLegacyHtmxConnect(attr) || isHtmxBoost(attr)) {
       return OutputContext.FORBIDDEN;
     }
-    String unprefixed = attr.startsWith("data-") ? attr.substring("data-".length()) : attr;
-    if (unprefixed.equals("hx-push-url") || unprefixed.equals("hx-replace-url")) {
+    String htmx = unprefixed(attr);
+    if (htmx.equals("hx-push-url") || htmx.equals("hx-replace-url")) {
       return OutputContext.URL;
     }
     if (isRefreshContent(element, el, attr)) {
       return OutputContext.REFRESH;
     }
+    // A <script>'s type decides whether its content is JavaScript, a <meta>'s http-equiv whether
+    // content is a refresh URL, an animation's attributeName whether values, to, from, by are CSS.
     if (attr.equals("srcdoc")
         || (el.equals("script") && attr.equals("type"))
         || (el.equals("meta") && attr.equals("http-equiv"))
@@ -152,21 +145,9 @@ public final class Contexts {
   }
 
   /**
-   * Whether {@code attributeName} may be computed on {@code element} as far as its name goes
-   * (#330, security-architecture.md section 5.6): a standard HTML, SVG, MathML or ARIA attribute,
-   * a {@code data-*} name, or a plain {@code [a-z][a-z0-9]*} name on a custom element (a name with
-   * a {@code -}). The framework names {@link #attribute} classifies (directives, htmx URLs, ...)
-   * are the framework table. {@link #attribute} decides whether a known name may hold an
-   * expression. Case-insensitive.
-   */
-  public static boolean isKnownName(Element element, String attributeName) {
-    return KnownAttributes.accepts(element, attributeName);
-  }
-
-  /**
    * Whether {@code attributeName} is FORBIDDEN on {@code element} only because its name is not
    * known (#330): it is a well-formed name that no framework rule classifies and that is not
-   * {@link #isKnownName known}, such as {@code up-on-loaded}, {@code hx-action} or {@code foo}.
+   * {@link KnownAttributes#accepts known}, such as {@code up-on-loaded}, {@code hx-action} or {@code foo}.
    */
   public static boolean isUnknownName(Element element, String attributeName) {
     return attributeName != null
@@ -189,8 +170,12 @@ public final class Contexts {
    * same-origin link. Case-insensitive.
    */
   public static boolean isHtmxRequestUrl(String attributeName) {
-    String a = HtmlParser.asciiLower(attributeName);
-    return HTMX_REQUEST_ATTRIBUTES.contains(a.startsWith("data-") ? a.substring("data-".length()) : a);
+    return HTMX_REQUEST_ATTRIBUTES.contains(unprefixed(HtmlParser.asciiLower(attributeName)));
+  }
+
+  /** {@code lowerName} without a leading {@code data-}, which htmx ignores. */
+  private static String unprefixed(String lowerName) {
+    return lowerName.startsWith("data-") ? lowerName.substring("data-".length()) : lowerName;
   }
 
   /**
@@ -199,8 +184,7 @@ public final class Contexts {
    * computed (#562): {@link #LEGACY_HTMX_CONNECT}. Case-insensitive.
    */
   public static boolean isLegacyHtmxConnect(String attributeName) {
-    String a = HtmlParser.asciiLower(attributeName);
-    String unprefixed = a.startsWith("data-") ? a.substring("data-".length()) : a;
+    String unprefixed = unprefixed(HtmlParser.asciiLower(attributeName));
     return unprefixed.equals("hx-sse") || unprefixed.equals("hx-ws");
   }
 
@@ -215,8 +199,7 @@ public final class Contexts {
    * into the page, so the compiler must know it to check their actions. Case-insensitive.
    */
   public static boolean isHtmxBoost(String attributeName) {
-    String a = HtmlParser.asciiLower(attributeName);
-    return a.equals("hx-boost") || a.equals("data-hx-boost");
+    return unprefixed(HtmlParser.asciiLower(attributeName)).equals("hx-boost");
   }
 
   /**
@@ -378,12 +361,11 @@ public final class Contexts {
     if (a.equals("params") && element.name().indexOf('-') >= 0) {
       return true;
     }
-    if (a.startsWith(":") || a.startsWith("@") || a.startsWith("#") || a.startsWith(".")
-        || a.startsWith("v-") || a.startsWith("x-") || a.equals("data-bind")
+    if (isVueDirective(a) || a.startsWith("x-") || a.equals("data-bind")
         || a.equals("_") || a.equals("script") || a.equals("data-script")) {
       return true;
     }
-    String unprefixed = a.startsWith("data-") ? a.substring("data-".length()) : a;
+    String unprefixed = unprefixed(a);
     return unprefixed.startsWith("hx-on")
         || HTMX_SCRIPT_ATTRIBUTES.contains(unprefixed)
         || isAngularDirective(attributeName);
@@ -475,7 +457,13 @@ public final class Contexts {
         && !(attr.equals("fill") && TIMED_ANIMATIONS.contains(el));
   }
 
-  /** The attributes of an SVG animation element that hold the values it sets. */
+  /**
+   * The attributes of an SVG animation element that hold the values it sets. On {@code <animate>}
+   * and {@code <set>} they are TRUSTED_URL (#539), not URL: what they hold depends on the
+   * {@code attributeName} ({@code values} is a {@code ;}-separated list, and an animated
+   * {@code href} can be set to {@code javascript:}). STYLE when {@link #animatesSvgCssUrl the
+   * animation sets CSS}, which is why a computed {@code attributeName} is FORBIDDEN.
+   */
   private static final Set<String> ANIMATION_VALUES = Backports.setOf("values", "to", "from", "by");
 
   /**
@@ -585,33 +573,28 @@ public final class Contexts {
    * ({@code type="application/json"} or {@code "application/ld+json"}), not JavaScript.
    */
   public static boolean isJsonScript(Element element) {
-    if (!HtmlParser.asciiEqualsIgnoreCase(element.name(), "script")) {
-      return false;
-    }
-    String type = null;
-    for (Attribute a : element.attributes()) {
-      if (!a.isTessera() && HtmlParser.asciiEqualsIgnoreCase(a.name(), "type")) {
-        type = a.value() == null ? "" : a.value();
-      }
-    }
-    return type != null && JSON_SCRIPT_TYPES.contains(HtmlParser.asciiLower(HtmlParser.stripHtmlWhitespace(type)));
+    String type = HtmlParser.asciiEqualsIgnoreCase(element.name(), "script") ? staticType(element) : null;
+    return type != null && JSON_SCRIPT_TYPES.contains(type);
   }
 
   private static OutputContext scriptContext(Element script) {
-    String type = null;
     for (Attribute a : script.attributes()) {
       if (a.isTessera() && HtmlParser.asciiEqualsIgnoreCase(a.localName(), "type")) {
         return OutputContext.FORBIDDEN;
       }
+    }
+    String type = staticType(script);
+    return type == null || SCRIPT_TYPES.contains(type) ? OutputContext.SCRIPT : OutputContext.FORBIDDEN;
+  }
+
+  /** The last static {@code type} of {@code script}, trimmed and A-Z folded, or null if it has none. */
+  private static String staticType(Element script) {
+    String type = null;
+    for (Attribute a : script.attributes()) {
       if (!a.isTessera() && HtmlParser.asciiEqualsIgnoreCase(a.name(), "type")) {
         type = a.value() == null ? "" : a.value();
       }
     }
-    if (type == null) {
-      return OutputContext.SCRIPT;
-    }
-    return SCRIPT_TYPES.contains(HtmlParser.asciiLower(HtmlParser.stripHtmlWhitespace(type)))
-        ? OutputContext.SCRIPT
-        : OutputContext.FORBIDDEN;
+    return type == null ? null : HtmlParser.asciiLower(HtmlParser.stripHtmlWhitespace(type));
   }
 }
