@@ -126,7 +126,7 @@ class ContextVerifierRulesTest {
     accept(st("<p title=\""), attr("title"), st("\">x</p>"));
     accept(st("<p TITLE=\""), attr("title"), st("\">x</p>"));
     accept(st("<svg viewBox=\""), attr("viewBox"), st("\"></svg>"));
-    for (Escaper e : List.of(Escaper.URL, Escaper.URL_LIST, Escaper.RESOURCE_URL, Escaper.REFRESH, Escaper.JSON_ATTR)) {
+    for (Escaper e : List.of(Escaper.URL, Escaper.RESOURCE_URL, Escaper.REFRESH, Escaper.JSON_ATTR)) {
       accept(st("<a href=\""), hole(e, "href"), st("\">x</a>"));
     }
     reject(Problem.ATTRIBUTE_NOT_IN_VALUE, st("<p title='"), attr("title"));

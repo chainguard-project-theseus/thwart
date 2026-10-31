@@ -60,7 +60,6 @@ public final class Skeleton {
     RCDATA("rcdata"),
     ATTR("attr"),
     URL("url"),
-    URL_LIST("urlList"),
     RESOURCE_URL("resourceUrl"),
     REFRESH("refresh"),
     JSON("json"),
