@@ -110,7 +110,7 @@ class LombokTest {
   void scriptJsonHasLombokPropertiesWithLombokFirst() {
     Compilation c = withLombok(true).java("demo.Owner", OWNER).template("owner.html", OWNER_JSON).compile().assertSuccess();
     assertEquals(
-        "<script>var o = {\"name\":\"Ann\",\"visits\":3};</script>",
+        "<script>var o = ({\"name\":\"Ann\",\"visits\":3});</script>",
         c.render("owner", model("owner", c.newInstance("demo.Owner", "Ann", 3))));
   }
 

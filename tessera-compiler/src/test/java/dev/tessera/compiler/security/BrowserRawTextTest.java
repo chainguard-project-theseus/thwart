@@ -129,8 +129,8 @@ class BrowserRawTextTest {
     assertEquals(
         "<div>\n<noscript><p title=\"&lt;/noscript&gt;&lt;/iframe&gt;&lt;/xmp&gt;&lt;/textarea&gt;&lt;script&gt;"
             + "alert(1)&lt;/script&gt;\">&lt;/noscript&gt;&lt;/iframe&gt;&lt;/xmp&gt;&lt;/textarea&gt;&lt;script&gt;"
-            + "alert(1)&lt;/script&gt;</p><script>var a = \"\\u003c\\/noscript\\u003e\\u003c\\/iframe\\u003e\\u003c\\/xmp"
-            + "\\u003e\\u003c\\/textarea\\u003e\\u003cscript\\u003ealert(1)\\u003c\\/script\\u003e\";</script></noscript>\n</div>",
+            + "alert(1)&lt;/script&gt;</p><script>var a = (\"\\u003c\\/noscript\\u003e\\u003c\\/iframe\\u003e\\u003c\\/xmp"
+            + "\\u003e\\u003c\\/textarea\\u003e\\u003cscript\\u003ealert(1)\\u003c\\/script\\u003e\");</script></noscript>\n</div>",
         render("<noscript><p t:title=\"s\">[[s]]</p><script>var a = [[s]];</script></noscript>"));
     // The Google Tag Manager snippet, t:text of a SafeHtml (escaped), and t:replace of the element itself.
     compile("<noscript><iframe src=\"https://www.googletagmanager.com/ns.html?id=GTM-X\" height=\"0\" width=\"0\""

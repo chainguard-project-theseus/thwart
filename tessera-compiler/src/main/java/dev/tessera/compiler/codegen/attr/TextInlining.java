@@ -32,10 +32,8 @@ import javax.lang.model.type.TypeKind;
  * and {@code [(expr)]} (SafeHtml or a checked bundle message, TEXT only).
  * STYLE/FORBIDDEN contexts with inlined expressions are build errors, and so is an expression
  * inside a static client-side {@code {{ ... }}} interpolation in TEXT or SCRIPT text
- * (#248), and SCRIPT text that breaks the data-prelude rule ({@link #checkDataPrelude}, #332): a
- * {@code [[expr]]} inside a string or comment (#281, #315), or code before the last value that a
- * lexer without ambiguous tokens can't read, or a {@code [[expr]]} that is not in expression
- * position ({@link #checkExpressionPositions}). {@link #checkMustachesClosed}
+ * (#248), and a {@code [[expr]]} in JavaScript {@code <script>} text that is not the value of a
+ * declaration in the script's prelude ({@link #checkPrelude}). {@link #checkMustachesClosed}
  * rejects a static {@code {{} that is never closed.
  *
  * <p>Also holds the output helpers shared with {@code t:text} and {@code t:utext}.
@@ -67,8 +65,10 @@ public final class TextInlining {
     boolean inMustache = false;
     if (text.context() == OutputContext.SCRIPT) {
       // Reported only: the code is still emitted, and the skeleton keeps each hole for the verifier (#367).
-      if (checkDataPrelude(ctx, text)) {
-        checkExpressionPositions(ctx, text);
+      if (ctx.inJsonScript()) {
+        checkJsonScript(ctx, text);
+      } else {
+        checkPrelude(ctx, text);
       }
     }
     int i = 0;
@@ -333,7 +333,7 @@ public final class TextInlining {
    * it: the tokenizer reads them as text (in TEXT, {@code <} or {@code </} and a letter would start
    * a tag), but a browser reads {@code <} and a value starting with a letter as a tag, and in RCDATA
    * {@code </text} and a value {@code area} (even {@code </textarea} and an empty value) as the
-   * end tag. In SCRIPT, {@link #checkDataPrelude} rejects {@code <!} before a value.
+   * end tag. In SCRIPT, {@link #checkPrelude} allows only a declaration before a value.
    */
   private static String markupBefore(OutputContext context, String before) {
     if (context != OutputContext.TEXT) {
@@ -360,445 +360,167 @@ public final class TextInlining {
   }
 
   /**
-   * The data-prelude rule (security-architecture.md §5.4, #332) for the script text {@code text}:
-   * reports the first token before the last inlined value that a lexer without ambiguous tokens
-   * does not read, or the first {@code [[...]]} inside a string or comment. Before the last value
-   * the text may hold only identifiers, numbers, punctuators other than {@code /}, {@code "..."} and
-   * {@code '...'} strings, {@code //} and {@code /* *}{@code /} comments, and whitespace. Without
-   * {@code /}, template literals and Annex B comments ({@code -->}, {@code #!}, and {@code <!}, which
-   * a value or code can complete to {@code <!--}), JavaScript tokenization is context-free, so this
-   * is exact, not a guess. After the last value anything goes, except {@code -->} anywhere (it can
-   * start a comment that the next check doesn't skip) and the tokens around each value, which {@link
-   * #checkExpressionPositions} checks. Returns false if it reported an error.
+   * The script prelude rule (security-architecture.md §5.4) for the text {@code text} of a
+   * JavaScript {@code <script>}: each {@code [[...]]} must be the whole value of a declaration
+   * {@code const|let|var NAME = [[...]];} in a prelude at the top of the script, one value per
+   * declaration, before any other code. Only ASCII spaces, tabs, line breaks and {@code //} line
+   * comments may come before and between the declarations, and {@code NAME} is an ASCII identifier.
+   * The code after the prelude is static. So the code around every value is fixed by this grammar,
+   * not found by lexing JavaScript, and {@code Escapers.javaScript} writes each value in parentheses
+   * as a whole JSON value. Reports the first {@code [[...]]} outside the prelude.
    */
-  private static boolean checkDataPrelude(CodegenContext ctx, Text text) {
+  private static void checkPrelude(CodegenContext ctx, Text text) {
     String raw = text.raw();
-    char state = 0; // 0 in code, '"' or '\'' in a string, '/' in a line comment, '*' in a block comment
-    boolean escape = false;
-    for (int i = 0, last = lastHole(raw); i <= last; i++) {
+    int i = 0;
+    while (true) {
+      i = skipBlank(raw, i);
+      int end = declaration(raw, i);
+      if (end < 0) {
+        break;
+      }
+      i = end;
+    }
+    for (; i < raw.length(); i++) {
       int end = holeEnd(raw, i);
-      if (end >= 0) {
-        if (raw.charAt(i + 1) == '[' && state != 0) {
-          ctx.diagnostics().error(text.pos().advance(raw, i + 2), misplaced(state));
-          return false;
-        }
-        // An escape before a value is in a string, reported above; [(...)] has its own error.
-        i = end + 1;
-        continue;
-      }
-      char c = raw.charAt(i);
-      String bad = null;
-      int at = i;
-      if (c == '\u2028' || c == '\u2029') {
-        bad = c == '\u2028' ? "U+2028 (LINE SEPARATOR)" : "U+2029 (PARAGRAPH SEPARATOR)";
-      } else if (state == '"' || state == '\'') {
-        if (escape) {
-          escape = false;
-          bad = c == '\n' || c == '\r' ? "a backslash line continuation" : null;
-          at = i - 1;
-        } else if (c == '\\') {
-          escape = true;
-        } else if (c == state || c == '\n' || c == '\r') {
-          state = 0;
-        }
-      } else if (state == '/') {
-        state = c == '\n' || c == '\r' ? 0 : state;
-      } else if (state == '*') {
-        if (raw.startsWith("*/", i)) {
-          state = 0;
-          i++;
-        }
-      } else if (raw.startsWith("//", i) || raw.startsWith("/*", i)) {
-        state = raw.charAt(++i);
-      } else if (c == '/') {
-        bad = "a '/' (a division or a regular expression)";
-      } else if (c == '`') {
-        bad = "a backtick (a template literal)";
-      } else if (raw.startsWith("<!", i)) {
-        bad = "'<!' (a value or code after it can make '<!--', an HTML-like comment)";
-      } else if (raw.startsWith("-->", i)) {
-        bad = "'-->' (an HTML-like comment)";
-      } else if (raw.startsWith("#!", i)) {
-        bad = "'#!' (a hashbang comment)";
-      } else if (c == '"' || c == '\'') {
-        state = c;
-      }
-      if (bad != null) {
+      if (end >= 0 && raw.charAt(i + 1) == '[') {
         ctx.diagnostics()
             .error(
-                text.pos().advance(raw, at),
-                bad + " before the last [[...]] of a <script>: the compiler reads the code before the last value"
-                    + " only with a lexer that has no ambiguous tokens, so it can prove where each value goes"
-                    + ": move the [[...]] above the code (declare the data first, var data = [[...]];), or write"
-                    + " the value into a <script type=\"application/json\"> and read it with JSON.parse");
-        return false;
+                text.pos().advance(raw, i + 2),
+                "[[...]] in a JavaScript <script> is only allowed as the whole value of a declaration at the"
+                    + " top of the script, before any other code: const name = [[...]]; (one value per"
+                    + " declaration, only whitespace and // comments before it). Move the value into such a"
+                    + " declaration at the top and use the name in the code below, or write it into a"
+                    + " <script type=\"application/json\"> and read it with JSON.parse");
+        return;
       }
+      // [(...)] has its own error.
+      i = end >= 0 ? end + 1 : i;
     }
-    // After the last value nothing is lexed, so a line that starts with --> (an HTML-like comment)
-    // could hide the token after a value from checkExpressionPositions. Fail closed.
-    int last = lastHole(raw);
-    int close = last < 0 ? -1 : raw.indexOf("-->", holeEnd(raw, last) + 2);
-    if (close >= 0) {
-      ctx.diagnostics()
-          .error(
-              text.pos().advance(raw, close),
-              "'-->' after a [[...]] of a <script>: at the start of a line it is an HTML-like comment, which"
-                  + " can hide the code next to a value from the compiler's checks; remove it, or write '--\\x3e'"
-                  + " in a string");
-      return false;
-    }
-    return true;
   }
 
-  /** {@link #checkExpressionPositions}: the token before a value is a value, a string or a number. */
-  private static final String VALUE = "\0value";
-  private static final String STRING = "\0string";
-  private static final String NUMBER = "\0number";
-  /** An identifier or keyword after {@code .}, {@code ?.} or {@code #}: a property or private name. */
-  private static final String NAME = "\0name";
-
-  /** Punctuators other than {@code /}, longest first: {@link #checkExpressionPositions} reads them by maximal munch. */
-  private static final String[] PUNCTUATORS = {
-    ">>>=", "...", "===", "!==", "**=", "<<=", ">>=", ">>>", "&&=", "||=", "??=", "=>", "==", "!=", "<=", ">=",
-    "&&", "||", "??", "?.", "++", "--", "+=", "-=", "*=", "%=", "&=", "|=", "^=", "**", "<<", ">>"
-  };
-
   /**
-   * The tokens after which the next token starts an expression (ECMAScript's operand position):
-   * openers, separators, binary operators, the unary operators {@code + - ! ~}, and the reserved
-   * words that take an expression. Not the end of a value, string, number, identifier, {@code this}
-   * or literal keyword, or a closing parenthesis, bracket or brace (the value would continue that
-   * expression: index, call or merge with it), {@code .} {@code ?.} {@code #} (it would be a
-   * property name), {@code ++ --}, {@code =>} (a map would be the function body), an opening brace (a
-   * block or an object key), and {@code yield}, {@code await}, {@code let}, {@code async}, which are
-   * also identifiers. {@code of} is here only as the keyword of a {@code for (...)} head; the lexer
-   * reads any other {@code of} as an identifier.
+   * The rule for a JSON {@code <script>} ({@code application/json}, {@code application/ld+json}),
+   * which a browser never runs: each {@code [[...]]} is a JSON value outside a {@code "..."} string,
+   * and the text has no {@code /} outside strings (JSON has no comments). JSON's tokens are
+   * context-free, so this is exact. Reports the first offender.
    */
-  private static final Set<String> EXPRESSION_BEFORE =
-      Backports.setOf(
-          "(", "[", ",", "?", ":", "=", "+=", "-=", "*=", "%=", "**=", "<<=", ">>=", ">>>=", "&=", "|=", "^=",
-          "&&=", "||=", "??=", "==", "!=", "===", "!==", "<", ">", "<=", ">=", "<<", ">>", ">>>", "+", "-", "*",
-          "%", "**", "&", "|", "^", "!", "~", "&&", "||", "??", "...", "return", "typeof", "void", "delete", "new",
-          "in", "instanceof", "case", "throw", "else", "do", "of");
-
-  /**
-   * Words that are not a binding name: ECMAScript's reserved words, strict mode's, and the
-   * contextual keywords {@code yield}, {@code await}, {@code let}, {@code async} and {@code of}. In
-   * a {@code for (...)} head, {@code of} is the keyword only after {@code ]}, {@code }} or a word
-   * not in this set; after {@code instanceof}, {@code extends}, {@code yield} or any other word here
-   * it is an identifier.
-   */
-  private static final Set<String> NOT_A_BINDING =
-      Backports.setOf(
-          "await", "break", "case", "catch", "class", "const", "continue", "debugger", "default", "delete", "do",
-          "else", "enum", "export", "extends", "false", "finally", "for", "function", "if", "import", "in",
-          "instanceof", "new", "null", "return", "super", "switch", "this", "throw", "true", "try", "typeof", "var",
-          "void", "while", "with", "yield", "implements", "interface", "let", "package", "private", "protected",
-          "public", "static", "async", "of");
-
-  /**
-   * Each {@code [[...]]} of the script text {@code text} must be in expression position
-   * (security-architecture.md §5.4): its value is one whole JSON value that the static code around
-   * it uses as an operand, and can't change what that code means. Runs after {@link
-   * #checkDataPrelude} accepted the text, so the code before the last value has only the tokens it
-   * allows and this lexer reads them exactly. Reports the first value that:
-   *
-   * <ul>
-   *   <li>follows a token that isn't in {@link #EXPRESSION_BEFORE}, skipping whitespace, comments and
-   *       line breaks (JavaScript inserts no {@code ;} before {@code [}, and the check doesn't
-   *       depend on the value's type): {@code globalThis[[${l}]]} would read the property the value
-   *       names, {@code x[[${n}]]} would make the name {@code x5};
-   *   <li>follows a word or {@code -} with no space between: {@code return[[${n}]]} would make the
-   *       name {@code return5}, and {@code -[[${n}]]} the operator {@code --} for a negative number;
-   *   <li>follows a word with a line break between, in whitespace or a comment: a reserved word is
-   *       also a class field name, and JavaScript ends the field at the line break, so in {@code
-   *       class A { in\n[[${l}]] = f }} the value names a computed field;
-   *   <li>is followed directly by an identifier character, or by a {@code .} that doesn't start a
-   *       property name ({@code [[${n}]]e3}, {@code [[${n}]].5}, {@code [[${n}]].} and a line break);
-   *   <li>is followed by {@code (}, a backtick, or {@code ?.} and then one of them (the value would be
-   *       called or tag a template, or name a method), or by {@code :} after a {@code ,} (an object
-   *       key);
-   *   <li>starts a statement (at the start of the script or after {@code ;}) with code after it: a
-   *       string there is a directive ({@code "use strict"} changes how that code runs), and in a
-   *       class body a list is a computed field name.
-   * </ul>
-   */
-  private static void checkExpressionPositions(CodegenContext ctx, Text text) {
+  private static void checkJsonScript(CodegenContext ctx, Text text) {
     String raw = text.raw();
-    String prev = null; // the significant token before i, or null at the start
-    int prevEnd = -1; // the offset after prev
-    int depth = 0; // brackets ( [ { open at i
-    List<Integer> forHeads = new ArrayList<>(); // the depth inside each open for (...) head
-    String beforePrev = null;
-    for (int i = 0, last = lastHole(raw); i <= last; ) {
+    boolean inString = false;
+    for (int i = 0; i < raw.length(); i++) {
       char c = raw.charAt(i);
       int end = holeEnd(raw, i);
-      String token;
       if (end >= 0) {
-        String why = raw.charAt(i + 1) == '[' ? notExpression(raw, prev, prevEnd, i, end + 2) : null;
-        if (why != null) {
+        if (inString && raw.charAt(i + 1) == '[') {
           ctx.diagnostics()
               .error(
                   text.pos().advance(raw, i + 2),
-                  "[[...]] in a <script> must be in expression position, " + why + ": its value would change"
-                      + " what the code around it means. Declare the value first (var v = [[...]];) and use v");
+                  "[[...]] is inside a quoted string of a JSON <script>, but it writes a complete JSON value"
+                      + " with its own quotes; remove the quotes: {\"name\": [[...]]}");
           return;
         }
-        token = VALUE;
-        i = end + 2;
-      } else if (raw.startsWith("//", i)) {
-        i = lineEnd(raw, i);
-        continue;
-      } else if (raw.startsWith("/*", i)) {
-        int close = raw.indexOf("*/", i + 2);
-        i = close < 0 ? raw.length() : close + 2;
-        continue;
-      } else if (isJsSpace(c) || isLineBreak(c)) {
-        i++;
-        continue;
-      } else if (c == '"' || c == '\'') {
-        int j = i + 1;
-        while (j < raw.length() && raw.charAt(j) != c && !isLineBreak(raw.charAt(j))) {
-          j += raw.charAt(j) == '\\' ? 2 : 1;
+        i = end + 1;
+      } else if (inString) {
+        if (c == '\\') {
+          i++;
+        } else if (c == '"') {
+          inString = false;
         }
-        token = STRING;
-        i = j + 1;
-      } else if ((c >= '0' && c <= '9') || (c == '.' && isDigit(raw, i + 1))) {
-        boolean hex = raw.startsWith("0x", i) || raw.startsWith("0X", i);
-        int j = i + 1;
-        while (j < raw.length()) {
-          char d = raw.charAt(j);
-          char before = raw.charAt(j - 1);
-          if (!(isIdentifierPart(d) || d == '.' || (!hex && (d == '+' || d == '-') && (before == 'e' || before == 'E')))) {
-            break;
-          }
-          j++;
-        }
-        token = NUMBER;
-        i = j;
-      } else if (isIdentifierPart(c)) {
-        int j = i + 1;
-        while (j < raw.length() && isIdentifierPart(raw.charAt(j))) {
-          j++;
-        }
-        String word = raw.substring(i, j);
-        boolean forOf = word.equals("of") && !forHeads.isEmpty() && forHeads.get(forHeads.size() - 1) == depth
-            && prev != null && (prev.equals("]") || prev.equals("}") || isWord(prev) && !NOT_A_BINDING.contains(prev));
-        if (".".equals(prev) || "?.".equals(prev) || "#".equals(prev)) {
-          token = NAME;
-        } else if (word.equals("of") && !forOf) {
-          token = "\0of"; // an identifier named of
-        } else {
-          token = word;
-        }
-        i = j;
-      } else {
-        token = String.valueOf(c);
-        for (String q : PUNCTUATORS) {
-          if (raw.startsWith(q, i)) {
-            // "?." before a digit is "?" and a number (a ? .5 : b).
-            token = q.equals("?.") && isDigit(raw, i + 2) ? "?" : q;
-            break;
-          }
-        }
-        i += token.length();
-        if (token.equals("(") || token.equals("[") || token.equals("{")) {
-          depth++;
-          if (token.equals("(") && ("for".equals(prev) || ("await".equals(prev) && "for".equals(beforePrev)))) {
-            forHeads.add(depth);
-          }
-        } else if (token.equals(")") || token.equals("]") || token.equals("}")) {
-          if (!forHeads.isEmpty() && forHeads.get(forHeads.size() - 1) == depth) {
-            forHeads.remove(forHeads.size() - 1);
-          }
-          depth--;
-        }
+      } else if (c == '"') {
+        inString = true;
+      } else if (c == '/') {
+        ctx.diagnostics()
+            .error(
+                text.pos().advance(raw, i),
+                "'/' outside a string of a JSON <script> with a [[...]]: JSON has no comments or division;"
+                    + " write only JSON around the values");
+        return;
       }
-      beforePrev = prev;
-      prev = token;
-      prevEnd = i;
     }
   }
 
-  /**
-   * Why a value whose {@code [[...]]} ends at {@code after} is not in expression position, after the
-   * token {@code prev}, which ends at {@code prevEnd} ({@link #checkExpressionPositions}), or null if it is.
-   * The {@code [[} is at {@code at}, and only whitespace and comments are between the two.
-   */
-  private static String notExpression(String raw, String prev, int prevEnd, int at, int after) {
-    boolean start = prev == null || prev.equals(";");
-    if (!start && !EXPRESSION_BEFORE.contains(prev)) {
-      return "but the token before it is " + describeToken(prev);
-    }
-    if (prevEnd == at && prev != null && (isWord(prev) || prev.equals("-"))) {
-      return "but it follows '" + prev + "' directly, which would join the value's first token; put a space"
-          + " between them";
-    }
-    if (prev != null && isWord(prev) && containsLineBreak(raw, prevEnd, at)) {
-      return "but a line break is between it and '" + prev + "', where JavaScript can end a class field named '"
-          + prev + "' and make the value a computed field name; put them on one line";
-    }
-    if (after < raw.length()) {
-      char c = raw.charAt(after);
-      if (isIdentifierPart(c)) {
-        return "but it is followed directly by '" + c + "', which would join the value's last token";
-      }
-      if (c == '.' && !(after + 1 < raw.length() && isIdentifierStart(raw.charAt(after + 1))
-          && !isExponent(raw, after + 1))) {
-        return "but it is followed directly by a '.' that doesn't start a property name, which a number"
-            + " value would read as its decimal point";
-      }
-    }
-    int next = nextToken(raw, after);
-    if (next < 0) {
-      return null;
-    }
-    char n = raw.charAt(next);
-    if (n == '(' || n == '`') {
-      return "but it is followed by '" + n + "', which would call the value or make it a method name";
-    }
-    if (raw.startsWith("?.", next) && !isDigit(raw, next + 2)) {
-      int call = nextToken(raw, next + 2);
-      if (call >= 0 && (raw.charAt(call) == '(' || raw.charAt(call) == '`')) {
-        return "but it is followed by '?.' and '" + raw.charAt(call) + "', which would call the value";
-      }
-    }
-    if (n == ':' && ",".equals(prev)) {
-      return "but it is followed by ':' after ',', which makes the value an object key";
-    }
-    if (start && (n != ';' || nextToken(raw, next + 1) >= 0)) {
-      return "but it starts a statement " + (prev == null ? "at the start of the script" : "after ';'")
-          + " with code after it, where a string is a directive such as \"use strict\" and a list can be a"
-          + " class field name";
-    }
-    return null;
-  }
-
-  private static boolean isWord(String token) {
-    return !token.isEmpty() && token.charAt(0) != '\0' && isIdentifierPart(token.charAt(0));
-  }
-
-  private static String describeToken(String token) {
-    switch (token) {
-      case VALUE:
-        return "another [[...]]";
-      case STRING:
-        return "a string";
-      case NUMBER:
-        return "a number";
-      case NAME:
-        return "a property name";
-      case "\0of":
-        return "'of' where it is an identifier, not the keyword of a for (...) head";
-      default:
-        return "'" + token + "'";
-    }
-  }
-
-  /** The offset of the first token at or after {@code from}, skipping whitespace, line breaks and comments, or -1. */
-  private static int nextToken(String raw, int from) {
-    int i = from;
+  /** The offset of the first character at or after {@code i} that isn't an ASCII space, tab, line break or in a {@code //} comment. */
+  private static int skipBlank(String raw, int i) {
     while (i < raw.length()) {
       char c = raw.charAt(i);
-      if (raw.startsWith("//", i)) {
-        i = lineEnd(raw, i);
-      } else if (raw.startsWith("/*", i)) {
-        int close = raw.indexOf("*/", i + 2);
-        if (close < 0) {
-          return -1;
-        }
-        i = close + 2;
-      } else if (isJsSpace(c) || isLineBreak(c)) {
+      if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
         i++;
+      } else if (raw.startsWith("//", i)) {
+        // Stops at a value in the comment, which is then outside the prelude.
+        while (i < raw.length() && !isLineBreak(raw.charAt(i)) && holeEnd(raw, i) < 0) {
+          i++;
+        }
+        if (i < raw.length() && !isLineBreak(raw.charAt(i))) {
+          return i;
+        }
       } else {
-        return i;
+        break;
       }
     }
-    return -1;
+    return i;
   }
 
-  /** The offset of the line break that ends the line comment at {@code i}, or the length of {@code raw}. */
-  private static int lineEnd(String raw, int i) {
-    int j = i;
-    while (j < raw.length() && !isLineBreak(raw.charAt(j))) {
+  /** JavaScript's reserved words, and the strict-mode and module ones, which cannot be a declared name. */
+  private static final Set<String> RESERVED = Backports.setOf(
+      "await", "break", "case", "catch", "class", "const", "continue", "debugger", "default", "delete", "do",
+      "else", "enum", "export", "extends", "false", "finally", "for", "function", "if", "implements", "import",
+      "in", "instanceof", "interface", "let", "new", "null", "package", "private", "protected", "public",
+      "return", "static", "super", "switch", "this", "throw", "true", "try", "typeof", "var", "void", "while",
+      "with", "yield");
+
+  /**
+   * The offset after the declaration {@code const|let|var NAME = [[...]];} at {@code i}, or -1. At
+   * least one space or tab follows the keyword, and {@code NAME} is not a {@link #RESERVED} word.
+   */
+  private static int declaration(String raw, int i) {
+    int j = -1;
+    for (String keyword : new String[] {"const", "let", "var"}) {
+      if (raw.startsWith(keyword, i)) {
+        j = i + keyword.length();
+      }
+    }
+    if (j < 0) {
+      return -1;
+    }
+    int name = spaces(raw, j);
+    if (name == j) {
+      return -1;
+    }
+    j = name;
+    while (j < raw.length() && isNameChar(raw.charAt(j), j > name)) {
       j++;
     }
-    return j;
+    if (j == name || RESERVED.contains(raw.substring(name, j))) {
+      return -1;
+    }
+    j = spaces(raw, j);
+    if (!raw.startsWith("=", j)) {
+      return -1;
+    }
+    j = spaces(raw, j + 1);
+    int end = raw.startsWith("[[", j) ? holeEnd(raw, j) : -1;
+    if (end < 0) {
+      return -1;
+    }
+    j = spaces(raw, end + 2);
+    return raw.startsWith(";", j) ? j + 1 : -1;
   }
 
-  /** Whether {@code raw} has a line break from {@code from} up to {@code to}. */
-  private static boolean containsLineBreak(String raw, int from, int to) {
-    for (int i = from; i < to; i++) {
-      if (isLineBreak(raw.charAt(i))) {
-        return true;
-      }
+  /** The offset after the ASCII spaces and tabs at {@code i}. */
+  private static int spaces(String raw, int i) {
+    while (i < raw.length() && (raw.charAt(i) == ' ' || raw.charAt(i) == '\t')) {
+      i++;
     }
-    return false;
+    return i;
+  }
+
+  /** Whether {@code c} is an ASCII identifier character: a letter, {@code _}, {@code $}, or with {@code digit} a digit. */
+  private static boolean isNameChar(char c, boolean digit) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '$' || (digit && c >= '0' && c <= '9');
   }
 
   private static boolean isLineBreak(char c) {
-    return c == '\n' || c == '\r' || c == '\u2028' || c == '\u2029';
-  }
-
-  /** JavaScript WhiteSpace other than line breaks: tab, VT, FF, U+FEFF and every Zs character (space, NBSP, ...). */
-  private static boolean isJsSpace(char c) {
-    return c == '\t' || c == '\u000b' || c == '\f' || c == '\ufeff' || Character.getType(c) == Character.SPACE_SEPARATOR;
-  }
-
-  /**
-   * Whether {@code c} can continue an identifier or a number: ASCII letters, digits, {@code _},
-   * {@code $}, {@code \} (an escape), and every non-ASCII character that isn't whitespace or a
-   * line break (more than ECMAScript's ID_Continue, which only rejects more).
-   */
-  private static boolean isIdentifierPart(char c) {
-    return (c >= '0' && c <= '9') || isIdentifierStart(c);
-  }
-
-  /** {@link #isIdentifierPart} without the digits. */
-  private static boolean isIdentifierStart(char c) {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '$' || c == '\\'
-        || (c >= 0x80 && !isJsSpace(c) && !isLineBreak(c));
-  }
-
-  private static boolean isDigit(String raw, int i) {
-    return i < raw.length() && raw.charAt(i) >= '0' && raw.charAt(i) <= '9';
-  }
-
-  /** Whether an exponent ({@code e3}, {@code E+3}, {@code e-3}) starts at {@code i}. */
-  private static boolean isExponent(String raw, int i) {
-    if (i >= raw.length() || (raw.charAt(i) != 'e' && raw.charAt(i) != 'E')) {
-      return false;
-    }
-    int j = i + 1;
-    if (j < raw.length() && (raw.charAt(j) == '+' || raw.charAt(j) == '-')) {
-      j++;
-    }
-    return isDigit(raw, j);
-  }
-
-  /** The error for a {@code [[...]]} in the string or comment {@code state} of {@link #checkDataPrelude}. */
-  private static String misplaced(char state) {
-    if (state == '/' || state == '*') {
-      return "[[...]] is inside a JavaScript comment (" + (state == '/' ? "//" : "/* */") + "), so its value is"
-          + " written inside the comment and the page never uses it; move it out of the comment: Thymeleaf's"
-          + " natural-template var a = /*[[${x}]]*/ 'd'; becomes var a = [[${x}]];";
-    }
-    return "[[...]] is inside a quoted JavaScript string (" + state + "..." + state + "), but it writes a"
-        + " complete JSON value with its own quotes, which would close a \"...\" string and run as code, or end"
-        + " up quoted twice; remove the quotes, e.g. var a = [[...]]; or \"Hello \" + [[...]]";
-  }
-
-  /** Offset of the last {@code [[...]]} or {@code [(...)]} in {@code raw} that {@link #render} writes, or -1. */
-  private static int lastHole(String raw) {
-    int last = -1;
-    for (int i = 0; i < raw.length(); i++) {
-      int end = holeEnd(raw, i);
-      if (end >= 0) {
-        last = i;
-        i = end + 1;
-      }
-    }
-    return last;
+    return c == '\n' || c == '\r' || c == ' ' || c == ' ';
   }
 
   /** The offset of the {@code ]]} or {@code )]} of a {@code [[...]]} or {@code [(...)]} that starts at {@code i}, or -1. */

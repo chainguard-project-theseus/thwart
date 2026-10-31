@@ -70,8 +70,8 @@ class ScriptJsonTest {
     Object a = c.newInstance("com.example.Point", 1, "a");
     Object b = c.newInstance("com.example.Point", 2, "b");
     assertEquals(
-        "<div><script>var l = [{\"x\":1,\"label\":\"a\"}]; var m = {\"x\":{\"x\":1,\"label\":\"a\"},"
-            + "\"y\":{\"x\":2,\"label\":\"b\"}};</script><p>x</p><p>y</p></div>",
+        "<div><script>var l = ([{\"x\":1,\"label\":\"a\"}]); var m = ({\"x\":{\"x\":1,\"label\":\"a\"},"
+            + "\"y\":{\"x\":2,\"label\":\"b\"}});</script><p>x</p><p>y</p></div>",
         c.render("page", model("l", new java.util.ArrayList<>(List.of(a)), "m", new java.util.TreeMap<>(Map.of("y", b, "x", a)))));
   }
 
@@ -79,8 +79,8 @@ class ScriptJsonTest {
   void recordIsAnObjectOfItsComponentsInOrder() {
     Compilation c = compile("Point p", "<script>var p = [[p]];</script>").assertSuccess();
     Object p = c.newInstance("com.example.Point", 3, "a");
-    assertEquals("<div><script>var p = {\"x\":3,\"label\":\"a\"};</script></div>", c.render("page", model("p", p)));
-    assertEquals("<div><script>var p = null;</script></div>", c.render("page", model("p", null)));
+    assertEquals("<div><script>var p = ({\"x\":3,\"label\":\"a\"});</script></div>", c.render("page", model("p", p)));
+    assertEquals("<div><script>var p = (null);</script></div>", c.render("page", model("p", null)));
   }
 
   @Test
@@ -90,7 +90,7 @@ class ScriptJsonTest {
     // As Thymeleaf 3.1 with Jackson 2.17: fields order the properties (title, visible, data), then
     // the getter-only ones; getURL is "url".
     assertEquals(
-        "<div><script>var chart = {\"title\":\"Sales\",\"visible\":true,\"data\":[1,2],\"url\":\"\\/c\",\"boxed\":true};</script></div>",
+        "<div><script>var chart = ({\"title\":\"Sales\",\"visible\":true,\"data\":[1,2],\"url\":\"\\/c\",\"boxed\":true});</script></div>",
         c.render("page", model("chart", chart)));
   }
 
@@ -112,14 +112,14 @@ class ScriptJsonTest {
     Compilation c = compile("Point p", "<script>var p = [[p]];</script>").assertSuccess();
     Object p = c.newInstance("com.example.Point", 1, "</script><script>alert(1)</script>");
     assertEquals(
-        "<div><script>var p = {\"x\":1,\"label\":\"\\u003c\\/script\\u003e\\u003cscript\\u003ealert(1)\\u003c\\/script\\u003e\"};"
+        "<div><script>var p = ({\"x\":1,\"label\":\"\\u003c\\/script\\u003e\\u003cscript\\u003ealert(1)\\u003c\\/script\\u003e\"});"
             + "</script></div>",
         c.render("page", model("p", p)));
   }
 
   @Test
   void beansNestInCollectionsMapsOptionalsAndArrays() throws Exception {
-    Compilation c = compile("Shapes s, List<Point> ps", "<script>var v = [[s]], w = [[ps]];</script>").assertSuccess();
+    Compilation c = compile("Shapes s, List<Point> ps", "<script>var v = [[s]]; var w = [[ps]];</script>").assertSuccess();
     Object a = c.newInstance("com.example.Point", 1, "a");
     Object b = c.newInstance("com.example.Point", 2, "b");
     Object[] array = (Object[]) java.lang.reflect.Array.newInstance(c.classLoader().loadClass("com.example.Point"), 1);
@@ -128,34 +128,34 @@ class ScriptJsonTest {
     String pa = "{\"x\":1,\"label\":\"a\"}";
     String pb = "{\"x\":2,\"label\":\"b\"}";
     assertEquals(
-        "<div><script>var v = {\"list\":[" + pa + "," + pb + "],\"byName\":{\"k\":" + pa + "},\"maybe\":" + pb + ",\"array\":["
-            + pb + "],\"tags\":[\"t\"]}, w = [" + pa + "];</script></div>",
+        "<div><script>var v = ({\"list\":[" + pa + "," + pb + "],\"byName\":{\"k\":" + pa + "},\"maybe\":" + pb + ",\"array\":["
+            + pb + "],\"tags\":[\"t\"]}); var w = ([" + pa + "]);</script></div>",
         c.render("page", model("s", s, "ps", List.of(a))));
     Object empty = c.newInstance("com.example.Shapes", null, null, Optional.empty(), null, null);
     assertEquals(
-        "<div><script>var v = {\"list\":null,\"byName\":null,\"maybe\":null,\"array\":null,\"tags\":null}, w = [];</script></div>",
+        "<div><script>var v = ({\"list\":null,\"byName\":null,\"maybe\":null,\"array\":null,\"tags\":null}); var w = ([]);</script></div>",
         c.render("page", model("s", empty, "ps", List.of())));
   }
 
   @Test
   void genericRecordUsesItsTypeArguments() {
-    Compilation c = compile("Page<Point> page", "<script>[[page]]</script>").assertSuccess();
+    Compilation c = compile("Page<Point> page", "<script>var v = [[page]];</script>").assertSuccess();
     Object page = c.newInstance("com.example.Page", List.of(c.newInstance("com.example.Point", 1, "a")), 1);
     assertEquals(
-        "<div><script>{\"content\":[{\"x\":1,\"label\":\"a\"}],\"total\":1}</script></div>",
+        "<div><script>var v = ({\"content\":[{\"x\":1,\"label\":\"a\"}],\"total\":1});</script></div>",
         c.render("page", model("page", page)));
   }
 
   @Test
   void recursiveTypesSerializeAndCyclesFailBeforeWriting() throws Exception {
-    Compilation c = compile("Tree t", "<script>[[t]]</script>").assertSuccess();
+    Compilation c = compile("Tree t", "<script>var v = [[t]];</script>").assertSuccess();
     Object leaf = c.newInstance("com.example.Tree", "leaf", List.of());
     Object root = c.newInstance("com.example.Tree", "root", List.of(leaf));
     assertEquals(
-        "<div><script>{\"name\":\"root\",\"children\":[{\"name\":\"leaf\",\"children\":[]}]}</script></div>",
+        "<div><script>var v = ({\"name\":\"root\",\"children\":[{\"name\":\"leaf\",\"children\":[]}]});</script></div>",
         c.render("page", model("t", root)));
 
-    Compilation cyclic = compile("Link l", "<p>before</p><script>[[l]]</script>").assertSuccess();
+    Compilation cyclic = compile("Link l", "<p>before</p><script>var v = [[l]];</script>").assertSuccess();
     Object link = cyclic.newInstance("com.example.Link");
     link.getClass().getMethod("setNext", link.getClass()).invoke(link, link);
     IllegalArgumentException e =
@@ -164,10 +164,10 @@ class ScriptJsonTest {
   }
 
   @Test
-  void textOnScriptSerializesBeans() {
-    Compilation c = compile("Point p", "<script t:text=\"p\"></script>").assertSuccess();
+  void textOnJsonScriptSerializesBeans() {
+    Compilation c = compile("Point p", "<script type=\"application/json\" t:text=\"p\"></script>").assertSuccess();
     assertEquals(
-        "<div><script>{\"x\":1,\"label\":\"a\"}</script></div>",
+        "<div><script type=\"application/json\">{\"x\":1,\"label\":\"a\"}</script></div>",
         c.render("page", model("p", c.newInstance("com.example.Point", 1, "a"))));
   }
 
@@ -212,15 +212,15 @@ class ScriptJsonTest {
                 "com.example.Rec",
                 "package com.example; public record Rec(String name, Thread thread, ClassLoader loader,"
                     + " java.util.List<Object> objects) {}")
-            .template("evil.html", "<div t:import=\"com.example.*\" t:params=\"Evil e\"><script>[[e]]</script></div>")
-            .template("rec.html", "<div t:import=\"com.example.*\" t:params=\"Rec r\"><script>[[r]]</script></div>")
+            .template("evil.html", "<div t:import=\"com.example.*\" t:params=\"Evil e\"><script>var v = [[e]];</script></div>")
+            .template("rec.html", "<div t:import=\"com.example.*\" t:params=\"Rec r\"><script>var v = [[r]];</script></div>")
             .compile()
             .assertSuccess();
     assertEquals(
-        "<div><script>{\"name\":\"e\",\"inherited\":\"i\",\"nick\":\"n\"}</script></div>",
+        "<div><script>var v = ({\"name\":\"e\",\"inherited\":\"i\",\"nick\":\"n\"});</script></div>",
         c.render("evil", model("e", c.newInstance("com.example.Evil"))));
     assertEquals(
-        "<div><script>{\"name\":\"a\"}</script></div>",
+        "<div><script>var v = ({\"name\":\"a\"});</script></div>",
         c.render("rec", model("r", c.newInstance("com.example.Rec", "a", null, null, null))));
     for (String hidden : List.of("getClassLoader", "getSecret", "getType", "getThreads", "getMethods", "getRuntime",
         "thread()", "loader()", "objects()", "getClass")) {
@@ -232,7 +232,7 @@ class ScriptJsonTest {
             "com.example.Worker",
             "package com.example; @dev.tessera.runtime.TemplateView public class Worker extends Thread {\n"
                 + "  public String getLabel() { return \"w\"; } }")
-        .template("w.html", "<div t:import=\"com.example.*\" t:params=\"Worker w\"><script>[[w]]</script></div>")
+        .template("w.html", "<div t:import=\"com.example.*\" t:params=\"Worker w\"><script>var v = [[w]];</script></div>")
         .compile()
         .assertError("w.html:1:", "java.lang.Thread");
   }
@@ -240,10 +240,10 @@ class ScriptJsonTest {
   void scriptBreakersAreEscapedInNestedBeansAndPropertyNames() {
     Compilation c = Compilation.builder()
         .java("com.example.Value", "package com.example; public record Value(String a$name) {}")
-        .template("page.html", "<script t:params=\"com.example.Value value\">[[value]]</script>")
+        .template("page.html", "<script t:params=\"com.example.Value value\">var v = [[value]];</script>")
         .compile().assertSuccess();
     Object value = c.newInstance("com.example.Value", "*/ `${x}` </script>\u2028\u2029\ud800");
-    assertEquals("<script>{\"a\\u0024name\":\"*\\/ \\u0060\\u0024\\u007bx}\\u0060 \\u003c\\/script\\u003e\\u2028\\u2029\\ud800\"}</script>",
+    assertEquals("<script>var v = ({\"a\\u0024name\":\"*\\/ \\u0060\\u0024\\u007bx}\\u0060 \\u003c\\/script\\u003e\\u2028\\u2029\\ud800\"});</script>",
         c.render("page", model("value", value)));
   }
 
@@ -255,16 +255,16 @@ class ScriptJsonTest {
             + " public String getFirst() { if (++calls != 1) throw new AssertionError(); return \"first\"; }"
             + " public String getSecond() { if (++calls != 2) throw new AssertionError();"
             + " if (fail) throw new IllegalArgumentException(\"getter failed\"); return \"second\"; } }")
-        .template("page.html", "<script t:params=\"com.example.Checked value\">[[value]]</script>")
+        .template("page.html", "<script t:params=\"com.example.Checked value\">var v = [[value]];</script>")
         .compile().assertSuccess();
-    assertEquals("<script>{\"first\":\"first\",\"second\":\"second\"}</script>",
+    assertEquals("<script>var v = ({\"first\":\"first\",\"second\":\"second\"});</script>",
         c.render("page", model("value", c.newInstance("com.example.Checked", false))));
     assertFailsBeforeJson(c, model("value", c.newInstance("com.example.Checked", true)));
   }
 
   @Test
   void invalidNestedMapKeysFailWithoutWritingJson() {
-    Compilation c = compile("Shapes s", "<script>[[s]]</script>").assertSuccess();
+    Compilation c = compile("Shapes s", "<script>var v = [[s]];</script>").assertSuccess();
     Object p = c.newInstance("com.example.Point", 1, "first");
     Map<Object, Object> keys = new java.util.LinkedHashMap<>();
     keys.put("good", p);
@@ -287,7 +287,7 @@ class ScriptJsonTest {
 
   private static void assertDepthBoundary(String type, String source, int accepted, boolean optional, boolean list) {
     Compilation c = Compilation.builder().java(type, source)
-        .template("page.html", "<script t:params=\"" + type + " value\">[[value]]</script>")
+        .template("page.html", "<script t:params=\"" + type + " value\">var v = [[value]];</script>")
         .compile().assertSuccess();
     Object value = null;
     for (int i = 0; i < accepted; i++) {
@@ -304,7 +304,7 @@ class ScriptJsonTest {
   void scalarContainersWithinBeansKeepTheirRuntimeDepthLimit() {
     Compilation c = Compilation.builder()
         .java("com.example.Node", "package com.example; public record Node(java.util.Optional<String> text, Node next) {}")
-        .template("page.html", "<script t:params=\"com.example.Node value\">[[value]]</script>")
+        .template("page.html", "<script t:params=\"com.example.Node value\">var v = [[value]];</script>")
         .compile().assertSuccess();
     Object value = null;
     for (int i = 0; i < 63; i++) {
@@ -320,7 +320,7 @@ class ScriptJsonTest {
     assertThrows(IllegalArgumentException.class,
         () -> c.registry().find("page").orElseThrow().renderer()
             .render(model, dev.tessera.runtime.RenderContext.defaults(), out));
-    assertTrue(out.toString().endsWith("<script>"), out.toString());
+    assertTrue(out.toString().endsWith("<script>var v = "), out.toString());
     assertFalse(out.toString().contains("{"), out.toString());
   }
 
@@ -331,9 +331,9 @@ class ScriptJsonTest {
             + " private final java.util.List<String> values = new java.util.ArrayList<>(java.util.Arrays.asList(\"original\"));"
             + " public java.util.List<String> getValues() { return values; }"
             + " public String getLast() { values.set(0, \"changed\"); return \"last\"; } }")
-        .template("page.html", "<script t:params=\"com.example.Mutable value\">[[value]]</script>")
+        .template("page.html", "<script t:params=\"com.example.Mutable value\">var v = [[value]];</script>")
         .compile().assertSuccess();
-    assertEquals("<script>{\"values\":[\"original\"],\"last\":\"last\"}</script>",
+    assertEquals("<script>var v = ({\"values\":[\"original\"],\"last\":\"last\"});</script>",
         c.render("page", model("value", c.newInstance("com.example.Mutable"))));
   }
   @Test
@@ -341,9 +341,9 @@ class ScriptJsonTest {
     Compilation c = Compilation.builder().release(8)
         .java("com.example.Bean", "package com.example; @dev.tessera.runtime.TemplateView public class Bean {"
             + " public String getName() { return \"ok\"; } }")
-        .template("page.html", "<script t:params=\"Map<String, List<Optional<com.example.Bean>>> values\">[[values]]</script>")
+        .template("page.html", "<script t:params=\"Map<String, List<Optional<com.example.Bean>>> values\">var v = [[values]];</script>")
         .compile().assertSuccess();
-    assertEquals("<script>{\"key\":[{\"name\":\"ok\"}]}</script>",
+    assertEquals("<script>var v = ({\"key\":[{\"name\":\"ok\"}]});</script>",
         c.render("page", model("values", Map.of("key", List.of(Optional.of(c.newInstance("com.example.Bean")))))));
   }
 }
