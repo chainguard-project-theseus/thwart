@@ -956,7 +956,7 @@ public final class TemplateGenerator implements CodegenContext {
         ctx == OutputContext.ATTRIBUTE || ctx == OutputContext.URL || ctx == OutputContext.URL_LIST
             || ctx == OutputContext.RESOURCE_URL || ctx == OutputContext.REFRESH || ctx == OutputContext.SCRIPT_ATTRIBUTE
             ? ctx.escaper()
-            : ctx == OutputContext.STYLE ? OutputContext.ATTRIBUTE.escaper() : null;
+            : ctx == OutputContext.STYLE || ctx == OutputContext.TYPED_ATTRIBUTE ? OutputContext.ATTRIBUTE.escaper() : null;
     if (escaper == null) {
       diagnostics().error(d.pos(), "an expression cannot be used in attribute " + d.name() + " (" + d.context()
               + " context): write a literal value");

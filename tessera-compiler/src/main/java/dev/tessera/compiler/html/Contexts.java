@@ -57,8 +57,9 @@ public final class Contexts {
    * {@link #isFrameworkDirective framework directives} and {@code on*} are EVENT_HANDLER, {@code style} and
    * the SVG presentation attributes that take a CSS {@code url()} ({@code fill}, {@code mask}, ...)
    * are STYLE, {@code srcdoc} and names that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*} are FORBIDDEN, resource URLs are
-   * RESOURCE_URL, other URL attributes are URL, other {@link #isKnownName known names} ATTRIBUTE, and
-   * every other name FORBIDDEN (#330). The {@code to from by}
+   * RESOURCE_URL, other URL attributes are URL, the other standard names that are not inert-text
+   * attributes ({@code inert-attributes.txt}) TYPED_ATTRIBUTE, other {@link #isKnownName known
+   * names} ATTRIBUTE, and every other name FORBIDDEN (#330). The {@code to from by}
    * of an SVG {@code <animate>} and the {@code to} of a {@code <set>} are URL too: they can set an
    * {@code href} to {@code javascript:}. The {@code values} of an {@code <animate>} is URL_LIST: a
    * {@code ;}-separated list whose items SVG applies in turn, so every item is checked (#284).
@@ -68,7 +69,8 @@ public final class Contexts {
    * {@code attributeName} of an animation element is FORBIDDEN: a computed one could retarget the
    * values from a URL-checked attribute to CSS. The {@code content} of a
    * {@code <meta http-equiv="refresh">} is REFRESH: its {@code url=} part navigates the page, so
-   * only a same-origin link is allowed there (#237).
+   * only a same-origin link is allowed there (#237). Any other {@code content} of a {@code <meta>}
+   * is TYPED_ATTRIBUTE unless the element {@link #isNamedMetaContent names plain metadata} (#539).
    * The {@code type} of a {@code <script>} is FORBIDDEN: it decides whether the content is
    * JavaScript. The {@code http-equiv} of a {@code <meta>} is FORBIDDEN: it decides whether
    * {@code content} is a refresh URL. The {@link #isHtmxRequestUrl htmx request URLs}
@@ -130,6 +132,10 @@ public final class Contexts {
     if (URL_ATTRIBUTES.contains(attr)
         || (isAnimation(el) && (attr.equals("to") || attr.equals("from") || attr.equals("by")))) {
       return OutputContext.URL;
+    }
+    if (KnownAttributes.needsSafeValue(element, attr)
+        || (el.equals("meta") && attr.equals("content") && !isNamedMetaContent(element))) {
+      return OutputContext.TYPED_ATTRIBUTE;
     }
     return !knownNames || KnownAttributes.accepts(element, attr) ? OutputContext.ATTRIBUTE : OutputContext.FORBIDDEN;
   }
@@ -401,6 +407,39 @@ public final class Contexts {
    */
   private static boolean isRefreshContent(Element element, String el, String attr) {
     return attr.equals("content") && el.equals("meta") && hasHttpEquiv(element, "refresh");
+  }
+
+  /**
+   * Whether the {@code content} of {@code element} (a {@code <meta>}) is plain metadata text (#539):
+   * the element has a static {@code name} that is not {@code referrer} (a referrer policy) or
+   * {@code viewport} (it can disable zoom), no computed {@code name} ({@code t:name}, or a
+   * {@code t:attr*} that {@link HtmlParser#attrMaySet may set} it) that could replace it, and no
+   * static {@code http-equiv} (a pragma such as
+   * {@code content-security-policy} or {@code default-style}; a computed one is FORBIDDEN). Names
+   * and values fold A-Z only, as in a browser.
+   */
+  private static boolean isNamedMetaContent(Element element) {
+    boolean named = false;
+    for (Attribute a : element.attributes()) {
+      if (a.isTessera()) {
+        if (HtmlParser.asciiLower(a.localName()).equals("name") || HtmlParser.attrMaySet(a, "name")) {
+          return false; // a computed name may replace the static one
+        }
+        continue;
+      }
+      String n = HtmlParser.asciiLower(a.name());
+      if (n.equals("http-equiv")) {
+        return false;
+      }
+      if (n.equals("name")) {
+        String v = a.value() == null ? "" : HtmlParser.asciiLower(HtmlParser.stripAnySpace(a.value()));
+        if (v.equals("referrer") || v.equals("viewport")) {
+          return false;
+        }
+        named = true;
+      }
+    }
+    return named;
   }
 
   /**

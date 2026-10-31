@@ -56,6 +56,14 @@ public enum OutputContext {
    */
   STYLE(null),
   /**
+   * A standard attribute that is not an inert-text attribute ({@code inert-attributes.txt}) and
+   * has no more specific context, such as {@code sandbox}, {@code rel}, {@code target}, an SVG
+   * {@code transform} or {@code x}. The value may only combine string literals, numbers and a safe
+   * type ({@code TrustedUrl} on an HTML element, {@code CssValue} on an SVG or MathML one); a String
+   * or other plain value is a build error. Written attribute-escaped.
+   */
+  TYPED_ATTRIBUTE(null),
+  /**
    * {@code on*} event-handler attribute, or a client-side framework directive whose value runs as
    * JavaScript ({@code v-*}, {@code x-*}, {@code hx-on*}, ...; see
    * {@code Contexts.isFrameworkDirective}): expressions are a build error.

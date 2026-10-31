@@ -59,7 +59,7 @@ class UnknownAttributeNamesTest {
   void knownNamesCompile() {
     Compilation c =
         compile("<p t:data-x=\"s\" t:aria-label=\"s\" t:role=\"s\" t:data-up-on-loaded=\"s\">x</p>"
-                + "<svg><path t:stroke-dasharray=\"s\" t:d=\"s\"/></svg>"
+                + "<svg><path t:stroke-dasharray=\"'1 2'\" t:d=\"'M0 0'\"/></svg>"
                 + "<my-el t:prop=\"s\" t:title=\"s\"></my-el>"
                 + "<font t:color=\"s\" t:face=\"s\">x</font>"
                 + "<math><mi t:mathvariant=\"s\">x</mi></math>"
@@ -67,7 +67,7 @@ class UnknownAttributeNamesTest {
             .assertSuccess();
     assertEquals(
         "<div><p data-x=\"&quot;\" aria-label=\"&quot;\" role=\"&quot;\" data-up-on-loaded=\"&quot;\">x</p>"
-            + "<svg><path stroke-dasharray=\"&quot;\" d=\"&quot;\"/></svg>"
+            + "<svg><path stroke-dasharray=\"1 2\" d=\"M0 0\"/></svg>"
             + "<my-el prop=\"&quot;\" title=\"&quot;\"></my-el>"
             + "<font color=\"&quot;\" face=\"&quot;\">x</font>"
             + "<math><mi mathvariant=\"&quot;\">x</mi></math>"

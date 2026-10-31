@@ -1,0 +1,272 @@
+# The inert-text attributes (#539): the standard attributes (attributes.txt) whose
+# computed value may be a plain value (String, number, enum, ...), escaped as an ordinary attribute.
+# Every other standard name gets a specific context from Contexts.attribute (URL, RESOURCE_URL,
+# STYLE, URL_LIST, REFRESH, FORBIDDEN, ...) or is TYPED_ATTRIBUTE: its value may only combine string
+# literals, numbers and a safe type (TrustedUrl on an HTML element, CssValue on an SVG/MathML one).
+# data-* names and plain [a-z][a-z0-9]* props on a custom element are not listed and stay ordinary
+# attributes, as before; the framework names Contexts classifies (hx-*, data-bind, ...) are
+# classified before this file is asked.
+#
+# Format: one lower-case name per line, sorted, then the scope it is inert in, then its group:
+#   html     on an HTML element (Element.foreign() false)
+#   foreign  on an SVG or MathML element (Element.foreign() true)
+#   any      on both
+# and, optionally, the only HTML elements it is inert on (comma-separated): for is an ID reference
+# on <label> and <output>, but on <template> the spec's "Text" moves the content (#419).
+#
+# Rule. A name is inert when the value type of every definition of the name in its scope is one of
+#   Text, an enumerated keyword, a number / integer / date or time, a boolean attribute, an ID or a
+#   set of ID references, a BCP 47 language tag, or a set of space-separated tokens,
+# and none of those definitions lets the value change what the browser fetches, submits, navigates
+# to, runs, grants (permissions, sandbox, CSP) or how it parses the page. Sources:
+#   HTML  WHATWG HTML Living Standard (30 October 2026), indices.html, "List of attributes (excluding
+#         event handler content attributes)", column "Value"; obsolete.html for html-obsolete names.
+#   ARIA  WAI-ARIA 1.2 (W3C Recommendation 06 June 2023), section 6.6 value types: true/false,
+#         tristate, true/false/undefined, ID reference (list), integer, number, string, token (list).
+#   MathML Core (CR Snapshot 24 June 2025), attribute definitions.
+#   SVG   SVG 2 (CR 04 October 2018). Conservative: SVG regular attributes are mostly numbers,
+#         lengths, references, timing and transform micro-syntaxes, and the presentation attributes
+#         are parsed as CSS property values, so none of them is inert; only text and language
+#         attributes are listed. Their numbers still compile (TYPED_ATTRIBUTE takes numbers).
+#
+# Groups:
+#   text      HTML value type "Text" (alt, title, placeholder, value, ...)
+#   keyword   HTML enumerated attribute (dir, autocomplete, contenteditable, type, ...)
+#   number    HTML valid integer / floating-point number / date-time string (colspan, max, ...)
+#   boolean   HTML boolean attribute (checked, disabled, ...); allowfullscreen is left out (a permission)
+#   idref     HTML ID / set of space-separated IDs (for, form, list, headers, ...)
+#   tokens    HTML set of space-separated tokens without URLs (class, accesskey), language tags,
+#             media queries and source size lists (they select among already-checked URLs)
+#   obsolete  html-obsolete presentational attributes (colours in the legacy colour syntax, lengths,
+#             keywords and text: bgcolor, border, align, ...)
+#   aria      every WAI-ARIA 1.2 state and property, and role (any scope)
+#   mathml    MathML Core booleans, keywords, integers and text; the length attributes are CSS
+#             lengths and mathcolor / mathbackground CSS colours, so they are left out
+#   svg       SVG text and language attributes
+#
+# Left out on purpose (HTML; each has a specific context already or becomes TYPED_ATTRIBUTE):
+#   URL types: action, cite, data, formaction, href, itemid, itemprop, itemtype, manifest, ping,
+#     poster, src, srcset, imagesrcset, usemap, background, classid, codebase, archive, longdesc,
+#     lowsrc, profile, datasrc, urn
+#   fetch / submit / navigate: accept-charset, as, blocking, crossorigin, decoding, enctype,
+#     fetchpriority, formenctype, formtarget, integrity, loading, preload, referrerpolicy, rel,
+#     target
+#   grants or decides: allow, allowfullscreen, sandbox, color (but on <font> and <hr>; on <link> a CSS colour), charset, http-equiv,
+#     is, srcdoc, style, shadowroot*, language (script), code, codetype, declare, event, datafld,
+#     dataformatas, datapagesize, methods, scheme, standby, typemustmatch, version, rev, nohref,
+#     contextmenu, dropzone, allowtransparency
+# Kept on purpose: name (also <meta name>), type (not <script>, which Contexts forbids), nonce
+#   (CSP; it can only allow the template's own static script), pattern (a regular expression the
+#   browser only matches input against), command, method and formmethod (CsrfInjector checks a
+#   computed method at render time and rejects a computed formmethod where the token may go).
+# content is listed for <meta> only, and Contexts narrows it further: it is inert only on a <meta>
+#   with a static name other than referrer or viewport and no http-equiv. Elsewhere on <meta> it
+#   is REFRESH (http-equiv=refresh), FORBIDDEN (http-equiv=Content-Type) or TYPED_ATTRIBUTE
+#   (another http-equiv such as content-security-policy or default-style, name=referrer,
+#   name=viewport, or no static name).
+abbr html text
+accent foreign mathml
+accentunder foreign mathml
+accept html tokens
+accesskey html tokens
+actiontype foreign mathml
+align html obsolete
+alink html obsolete
+alpha html boolean
+alt html text
+alttext foreign mathml
+arg foreign mathml
+aria-activedescendant any aria
+aria-atomic any aria
+aria-autocomplete any aria
+aria-busy any aria
+aria-checked any aria
+aria-colcount any aria
+aria-colindex any aria
+aria-colspan any aria
+aria-controls any aria
+aria-current any aria
+aria-describedby any aria
+aria-details any aria
+aria-disabled any aria
+aria-dropeffect any aria
+aria-errormessage any aria
+aria-expanded any aria
+aria-flowto any aria
+aria-grabbed any aria
+aria-haspopup any aria
+aria-hidden any aria
+aria-invalid any aria
+aria-keyshortcuts any aria
+aria-label any aria
+aria-labelledby any aria
+aria-level any aria
+aria-live any aria
+aria-modal any aria
+aria-multiline any aria
+aria-multiselectable any aria
+aria-orientation any aria
+aria-owns any aria
+aria-placeholder any aria
+aria-posinset any aria
+aria-pressed any aria
+aria-readonly any aria
+aria-relevant any aria
+aria-required any aria
+aria-roledescription any aria
+aria-rowcount any aria
+aria-rowindex any aria
+aria-rowspan any aria
+aria-selected any aria
+aria-setsize any aria
+aria-sort any aria
+aria-valuemax any aria
+aria-valuemin any aria
+aria-valuenow any aria
+aria-valuetext any aria
+async html boolean
+autocapitalize html keyword
+autocomplete html keyword
+autocorrect html keyword
+autofocus any boolean
+autoplay html boolean
+axis html obsolete
+behavior html obsolete
+bgcolor html obsolete
+border html obsolete
+bordercolor html obsolete
+bottommargin html obsolete
+cellpadding html obsolete
+cellspacing html obsolete
+char html obsolete
+charoff html obsolete
+checked html boolean
+class any tokens
+clear html obsolete
+closedby html keyword
+color html obsolete font,hr
+colorspace html keyword
+cols html number
+colspan html number
+command html keyword
+commandfor html idref
+compact html obsolete
+content html text meta
+contenteditable html keyword
+controls html boolean
+coords html number
+datetime html number
+default html boolean
+defer html boolean
+dir any keyword
+direction html obsolete
+dirname html text
+disabled html boolean
+display foreign mathml
+displaystyle foreign mathml
+download html text
+draggable html keyword
+enterkeyhint html keyword
+face html obsolete
+fence foreign mathml
+for html idref label,output
+form any idref
+formmethod html keyword
+formnovalidate html boolean
+frame html obsolete
+frameborder html obsolete
+framespacing html obsolete
+headers html idref
+headingoffset html number
+headingreset html boolean
+height html number
+hidden html keyword
+high html number
+hreflang html tokens
+hspace html obsolete
+id any text
+imagesizes html tokens
+inert html boolean
+inputmode html keyword
+intent foreign mathml
+ismap html boolean
+itemref html idref
+itemscope html boolean
+kind html keyword
+label html text
+lang any tokens
+largeop foreign mathml
+leftmargin html obsolete
+link html obsolete
+list html idref
+loop html boolean
+low html number
+marginheight html obsolete
+marginwidth html obsolete
+mathvariant foreign mathml
+max html number
+maxlength html number
+media html tokens
+method html keyword
+min html number
+minlength html number
+movablelimits foreign mathml
+multiple html boolean
+muted html boolean
+name html text
+nomodule html boolean
+nonce any text
+noshade html obsolete
+novalidate html boolean
+nowrap html obsolete
+open html boolean
+optimum html number
+pattern html text
+placeholder html text
+playsinline html boolean
+popover html keyword
+popovertarget html idref
+popovertargetaction html keyword
+readonly html boolean
+required html boolean
+reversed html boolean
+rightmargin html obsolete
+role any aria
+rows html number
+rowspan html number
+rules html obsolete
+scope html keyword
+scriptlevel foreign mathml
+scrolling html obsolete
+selected html boolean
+selection foreign mathml
+separator foreign mathml
+shape html keyword
+size html number
+sizes html tokens
+slot html text
+span html number
+spellcheck html keyword
+srclang html tokens
+start html number
+step html number
+stretchy foreign mathml
+summary html obsolete
+symmetric foreign mathml
+systemlanguage foreign svg
+tabindex any number
+text html obsolete
+title any text
+topmargin html obsolete
+translate html keyword
+truespeed html obsolete
+type html keyword
+valign html obsolete
+value html text
+vlink html obsolete
+vspace html obsolete
+width html number
+wrap html keyword
+writingsuggestions html keyword
+xlink:title foreign svg
+xml:space foreign svg
