@@ -325,7 +325,7 @@ nightly framework harness (#334). Today the entries are hard-coded in `Contexts`
 |---|---|---|---|---|---|---|
 | Vue 2/3, petite-vue | every `v-*`; `:x`, `@x`, `#x`, `.x` | none | `:x`, `v-bind:x` with an ordinary target, except `BIND_DENIED_TARGETS` (target: an allow-list, #333) | `{{ }}` | `component` (target: listed, with a static `is`, #272) | `v-pre`: added to a `<title>` or `<textarea>` with computed content; a Vue directive there, or a static `{{` beside the value, is an error |
 | Alpine.js | every `x-*`; `:x`, `@x` | none | `:x`, `x-bind:x`, as Vue | none | none | none |
-| htmx 1/2 | `hx-on*`, `hx-vals`, `hx-vars`, `hx-headers`, `hx-request`, `hx-trigger` (also `data-hx-`) | `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect`, `ws-connect`; form actions under `hx-boost` | none | none | none | none |
+| htmx 2 | `hx-on*`, `hx-vals`, `hx-vars`, `hx-headers`, `hx-request`, `hx-trigger` (also `data-hx-`); htmx 1.x's `hx-ws` and `hx-sse` are build errors, static or computed (use `ws-connect`, `sse-connect`; #562) | `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect`, `ws-connect`; form actions under `hx-boost` | none | none | none | none |
 | AngularJS | `ng-*`, `ng:*`, `ng_*`, also after one prefix `x` or `data` followed by `:`, `-` or `_`, and after a run of `:`, `-`, `_` (`data:ng-click`, `x_ng-click`, `data--ng-click`, `_ng-click`; angular.js `directiveNormalize`) | none | none | `{{ }}` | none | none (AngularJS ignores `v-pre`: use `ng-non-bindable`, guide §7) |
 | Knockout | `data-bind`; `params` on a custom element | none | none | none | none | none |
 | _hyperscript | `_`, `script`, `data-script` | none | none | none | none | none |
