@@ -105,9 +105,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
                     + " and swaps the response into the page, so write " + name + "=\"true\" or " + name
                     + "=\"false\" statically"
                 : Contexts.isLegacyHtmxConnect(name)
-                ? "htmx 1.x '" + name + "' holds connect:<url>, a URL htmx connects to and swaps into the page as"
-                    + " HTML, so it cannot be computed; write it as a static attribute, or use the sse/ws"
-                    + " extension's sse-connect/ws-connect with a same-origin link such as @{/events}"
+                ? Contexts.LEGACY_HTMX_CONNECT
                 : Contexts.isTreeBuilderInput(plan.element(), name)
                 ? treeBuilderInput(name, lower)
                 : lower.equals("srcdoc")
