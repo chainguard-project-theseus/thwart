@@ -19,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -796,6 +797,24 @@ class HostileSweepTest {
         .startsWith("SCRIPT_ELEMENT_CHANGED"));
   }
 
+  /** The ratchet fails on an unlisted hit and on a listed hit that no longer occurs. */
+  @Test
+  void ratchetFailsOnNewHitsAndStaleLines() throws IOException {
+    Hit listed = new Hit("URL_CROSS_ORIGIN_CODE", "svg:use", "href", "//evil.example/x", "", "");
+    Hit fresh = new Hit("URL_SCRIPT_SCHEME", "a", "href", "javascript:alert(1)", "", "<a t:href=\"${s}\">");
+    Hit known = new Hit("KNOWN_LIMITATION_CSTI", "a", "title", "{{x}}", "", "");
+    Map<String, String> baseline = Map.of(listed.key(), "why", "svg:image href CSS_FETCH", "why");
+    assertEquals(List.of("NEW a href URL_SCRIPT_SCHEME", "STALE svg:image href CSS_FETCH"),
+        problems(baseline, List.of(listed, fresh, known)));
+    assertEquals(List.of(), problems(Map.of(listed.key(), "why"), List.of(listed, known)));
+    // The gate itself, against the checked-in baseline: the unlisted hit fails the build.
+    Map<String, Hit> hits = new HashMap<>();
+    put(hits, listed);
+    put(hits, fresh);
+    AssertionError e = assertThrows(AssertionError.class, () -> gate("ratchet-selftest", "", hits, ""));
+    assertTrue(e.getMessage().contains("NEW a href URL_SCRIPT_SCHEME"), e.getMessage());
+  }
+
   /** A baseline line needs a justification; a malformed one fails the load. */
   @Test
   void baselineLinesNeedAJustification() {
@@ -813,6 +832,25 @@ class HostileSweepTest {
     hits.putIfAbsent(h.key(), h);
   }
 
+  /** The hits the gate reports, sorted: every kind but the documented limitations ({@code KNOWN_*}). */
+  static List<Hit> reported(Collection<Hit> hits) {
+    return hits.stream().filter(h -> !h.kind().startsWith("KNOWN_"))
+        .sorted((x, y) -> x.key().compareTo(y.key())).toList();
+  }
+
+  /**
+   * The ratchet's decision: {@code "NEW <key>"} for each reported hit the baseline doesn't list,
+   * then {@code "STALE <key>"} for each baseline line no hit matches. Empty means pass.
+   */
+  static List<String> problems(Map<String, String> baseline, Collection<Hit> hits) {
+    List<Hit> reported = reported(hits);
+    List<String> out = new ArrayList<>();
+    reported.stream().filter(h -> !baseline.containsKey(h.key())).forEach(h -> out.add("NEW " + h.key()));
+    Set<String> seen = reported.stream().map(Hit::key).collect(Collectors.toSet());
+    new TreeSet<>(baseline.keySet()).stream().filter(k -> !seen.contains(k)).forEach(k -> out.add("STALE " + k));
+    return out;
+  }
+
   /** The ratchet: hits not in the baseline fail, and so do baseline lines of this pass with no hit. */
   static void gate(String pass, String stats, Map<String, Hit> hits, String accepts) throws IOException {
     boolean sanitizer = pass.equals("sanitize");
@@ -824,11 +862,10 @@ class HostileSweepTest {
         }
       });
     }
-    List<Hit> reported = hits.values().stream().filter(h -> !h.kind().startsWith("KNOWN_"))
-        .sorted((x, y) -> x.key().compareTo(y.key())).toList();
-    List<Hit> fresh = reported.stream().filter(h -> !baseline.containsKey(h.key())).toList();
-    Set<String> seen = reported.stream().map(Hit::key).collect(Collectors.toSet());
-    List<String> stale = baseline.keySet().stream().filter(k -> !seen.contains(k)).toList();
+    List<Hit> reported = reported(hits.values());
+    List<String> problems = problems(baseline, hits.values());
+    List<Hit> fresh = reported.stream().filter(h -> problems.contains("NEW " + h.key())).toList();
+    List<String> stale = problems.stream().filter(p -> p.startsWith("STALE ")).map(p -> p.substring(6)).toList();
 
     StringBuilder sb = new StringBuilder();
     sb.append(pass).append(": ").append(stats).append('\n');
