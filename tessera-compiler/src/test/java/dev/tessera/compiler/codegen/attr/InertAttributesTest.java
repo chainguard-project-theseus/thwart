@@ -79,6 +79,20 @@ class InertAttributesTest {
     compile("<a t:rel=\"v\">x</a>").assertError("t:rel is not allowed", "TrustedUrls");
   }
 
+  /**
+   * A boolean attribute that is not inert text (declare on HTML; hidden, disabled on SVG, where
+   * the inert scope is html) keeps the condition handling: present or absent, never a value.
+   */
+  @Test
+  void typedBooleanAttributesTakeACondition() {
+    String body = "<object t:declare=\"b\"></object><svg><rect t:hidden=\"b\" t:disabled=\"!b\"/></svg>";
+    assertEquals("<object declare=\"declare\"></object><svg><rect hidden=\"hidden\"/></svg>", render(body, "b", true));
+    assertEquals("<object></object><svg><rect disabled=\"disabled\"/></svg>", render(body, "b", false));
+    // A String next to it, in a non-boolean typed attribute, still fails.
+    compile("<object t:declare=\"b\"></object>\n<iframe t:sandbox=\"s\"></iframe>")
+        .assertError("t.html:2:", "t:sandbox is not allowed", "is not an inert-text attribute");
+  }
+
   /** A JSON binding's target must be an inert-text attribute too. */
   @Test
   void bindTargetsMustBeInert() {
