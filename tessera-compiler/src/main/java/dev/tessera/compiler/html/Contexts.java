@@ -66,8 +66,8 @@ public final class Contexts {
    * Context for the value of attribute {@code attributeName} (without {@code t:}) on
    * {@code element} (#330; the table is docs/context-model.md section 6.1). In order:
    * {@link #isJsonBinding JSON bindings} are SCRIPT_ATTRIBUTE, other {@link #isFrameworkDirective
-   * framework directives} and {@code on*} EVENT_HANDLER; names that are not
-   * {@code [A-Za-z_][A-Za-z0-9_.:-]*} FORBIDDEN; {@code style} and the {@link #isSvgCssUrl SVG
+   * framework directives} EVENT_HANDLER; names that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*}
+   * FORBIDDEN; {@code on*} EVENT_HANDLER; {@code style} and the {@link #isSvgCssUrl SVG
    * attributes that take a CSS url()} (also {@link #animatesSvgCssUrl animated}) STYLE;
    * {@link #isHtmxRequestUrl htmx request URLs} RESOURCE_URL, {@link #isLegacyHtmxConnect hx-ws,
    * hx-sse} and {@link #isHtmxBoost hx-boost} FORBIDDEN, {@code hx-push-url hx-replace-url} URL; a
