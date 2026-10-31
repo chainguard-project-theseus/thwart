@@ -467,7 +467,12 @@ class ClientTemplateInjectionTest {
 
   /** An empty value writes nothing, so a '{' on each side of it forms {{ (s = null, t = the payload). */
   @ParameterizedTest
-  @ValueSource(strings = {"<p>{[[s]]{ [[t]] }}</p>", "<div>{[(h)]{ [[t]] }}</div>", "<p>{[[s]][[a]]{ [[t]] }}</p>"})
+  @ValueSource(
+      strings = {
+        "<p>{[[s]]{ [[t]] }}</p>", "<div>{[(h)]{ [[t]] }}</div>", "<p>{[[s]][[a]]{ [[t]] }}</p>",
+        // Raw-text elements other than <title> and <textarea> get no v-pre.
+        "<xmp>{[[s]]{ [[t]] }}</xmp>", "<noembed>{[[s]]{ [[t]] }}</noembed>",
+      })
   void braceOnBothSidesOfAValueIsABuildError(String body) {
     Compilation c =
         Compilation.builder()

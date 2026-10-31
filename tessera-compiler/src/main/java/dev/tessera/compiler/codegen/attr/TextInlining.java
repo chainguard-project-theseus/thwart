@@ -185,12 +185,22 @@ public final class TextInlining {
           boolean text = c == OutputContext.TEXT;
           boolean first = k == 0;
           boolean last = k == nodes.size() - 1;
-          checkBraces(ctx, t, c != OutputContext.SCRIPT, text && !ctx.template().parsingContexts().insideRawText(t),
+          checkBraces(ctx, t, c != OutputContext.SCRIPT, text && !vPreHost(parent),
               text && !boundary(first ? parent : nodes.get(k - 1), first, dropsChildren),
               text && !boundary(last ? parent : nodes.get(k + 1), last, dropsChildren));
         }
       }
     }
+  }
+
+  /**
+   * Whether text directly in {@code parent} gets {@code v-pre} once it holds a value: a
+   * {@code <textarea>} or {@code <title>} (#549, TemplateGenerator.addsVPre). Other raw-text
+   * elements ({@code <xmp>}, {@code <noembed>}, ...) do not.
+   */
+  private static boolean vPreHost(Element parent) {
+    String name = parent == null ? "" : HtmlParser.asciiLower(parent.name());
+    return name.equals("textarea") || name.equals("title");
   }
 
   /** Offset of the first '{' in {@code raw} outside a {@code [[...]]} or {@code [(...)]}, or -1. */
