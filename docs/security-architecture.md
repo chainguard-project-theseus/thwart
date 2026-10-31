@@ -853,11 +853,10 @@ socket around it).
 
 ### 12.8 `{{` through one function (#547)
 
-Planned in PR #569, not yet merged. At runtime `Escapers.appendText` is to
-be the only function that writes value text into element text, enforced by `TextChokePointTest`.
-At build time a static `{{` must close with `}}` in the same literal (#336), in templates and
-checked messages. With AngularJS gone (#551), the spike also deletes the sanitizer's attribute
-brace handling.
+Planned in PR #569, not yet merged. At runtime `Escapers.appendText` is to be the only function
+that writes value text into element text, enforced by `TextChokePointTest`. At build time a static
+`{{` must close with `}}` in the same literal (#336), in templates and checked messages. With
+AngularJS gone (#551), the PR also deletes the sanitizer's attribute brace handling.
 
 ### 12.9 Mechanical discovery (#543)
 
