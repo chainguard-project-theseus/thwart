@@ -47,14 +47,14 @@ class ValueAfterAmpersandTest {
         // s = "#123;" twice: "&#123;&#123;", a {{
         "<p>&[[a]]&[[b]]</p>|7",
         // the value finishes the reference: "#123;x" after "&", "7b;x" after "&#x", "ace;x" after "&lbr"
-        "<p>{&[[s]]</p>|8",
-        "<p>{&#x[[s]]</p>|10",
-        "<p>{&lbr[[s]]</p>|11",
-        "<title>{&[[s]]</title>|12",
+        "<p>&[[s]]</p>|7",
+        "<p>&#x[[s]]</p>|9",
+        "<p>&lbr[[s]]</p>|10",
+        "<title>&[[s]]</title>|11",
         "<textarea>&[[s]]</textarea>|14",
-        "<svg><text>{&[[s]]</text></svg>|16",
-        "<p>{&<t:block>[[s]]</t:block></p>|17",
-        "<p>{&<span t:remove=\"tag\" t:text=\"s\">x</span></p>|35",
+        "<svg><text>&[[s]]</text></svg>|15",
+        "<p>&<t:block>[[s]]</t:block></p>|16",
+        "<p>&<span t:remove=\"tag\" t:text=\"s\">x</span></p>|34",
         "<p><t:block t:if=\"${s != null}\">&</t:block>[[s]]</p>|46",
       })
   void valueAfterAmpersandFailsToBuild(String body, int column) {
@@ -63,7 +63,7 @@ class ValueAfterAmpersandTest {
 
   @Test
   void valueInAFragmentAfterAmpersandFailsToBuild() {
-    compile("<p>{&<t:block t:replace=\"~{:: v(${s})}\"/></p><t:block t:fragment=\"v(String x)\">[[${x}]]</t:block>")
+    compile("<p>&<t:block t:replace=\"~{:: v(${s})}\"/></p><t:block t:fragment=\"v(String x)\">[[${x}]]</t:block>")
         .assertError("page.html:2:", "in fragment page :: v, inserted here", CHARREF);
   }
 
@@ -80,12 +80,12 @@ class ValueAfterAmpersandTest {
   void uncheckedMessageEndingInAmpersandIsEscaped() {
     // The build checked m=ok; a message source it never saw returns "&", which the value would finish.
     Compilation c = Compilation.builder()
-        .template("page.html", "<div t:params=\"String s\">\n<p>{[(#{m})][[s]]</p>\n</div>")
+        .template("page.html", "<div t:params=\"String s\">\n<p>[(#{m})][[s]]</p>\n</div>")
         .messages("m=ok\n")
         .compile()
         .assertSuccess();
     RenderContext ctx = new RenderContext(Locale.US, (k, a) -> "&", new DefaultLinks(""), Forms.NONE);
-    assertEquals("<div>\n<p>{&amp;#123;x</p>\n</div>", c.render("page", Map.of("s", "#123;x"), ctx));
+    assertEquals("<div>\n<p>&amp;#123;x</p>\n</div>", c.render("page", Map.of("s", "#123;x"), ctx));
   }
 
   @Test

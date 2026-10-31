@@ -50,8 +50,8 @@ public final class Escapers {
   }
 
   /**
-   * Written between two {@code {} characters in element text, so that client-side frameworks
-   * that compile the page's DOM as a template (Vue 2/3, petite-vue) never see a {@code {{}
+   * Written on both sides of every {@code {} and {@code }} of a value in element text, so that
+   * client-side frameworks that compile the page's DOM as a template (Vue 2/3, petite-vue) never see a {@code {{}
    * interpolation in the value (#248). An empty comment is a node boundary: the text that the
    * page shows, {@code textContent} and copied text are unchanged. Only {@link #appendText} and
    * {@link #rawEdges} write it.
@@ -398,8 +398,8 @@ public final class Escapers {
 
   /**
    * The one way a value reaches element text (#248, #336): escaped as {@link #appendHtml}, with
-   * the empty comments {@link #appendEscapedHtml} writes so that a {@code {} in the value never
-   * meets another one, inside it or next to it. {@link #text}, {@link SafeHtml#escape}, the
+   * an empty comment on both sides of every {@code {} and {@code }} (#571), so that a brace in the
+   * value never meets another one, inside it or next to it. {@link #text}, {@link SafeHtml#escape}, the
    * sanitizer's text, HTML message arguments and unchecked messages all call it, and
    * {@code TextChokePointTest} fails if runtime code escapes text another way.
    */
@@ -447,16 +447,13 @@ public final class Escapers {
     sb.append(s, 0, i);
     for (; i < n; i++) {
       char c = s.charAt(i);
-      if (c == '{' && text) {
-        // Never let two braces meet: not inside the value, and not with whatever is written
-        // before or after it (static text, another value).
-        if (i == 0) {
+      if ((c == '{' || c == '}') && text) {
+        // Every brace stands alone (#571): it never meets another one, inside the value or next
+        // to it, whatever is written around the value and even when the value is empty.
+        if (i == 0 || s.charAt(i - 1) != '{' && s.charAt(i - 1) != '}') {
           sb.append(BRACE_BREAK);
         }
-        sb.append('{');
-        if (i + 1 == n || s.charAt(i + 1) == '{') {
-          sb.append(BRACE_BREAK);
-        }
+        sb.append(c).append(BRACE_BREAK);
         continue;
       }
       switch (c) {
@@ -495,6 +492,7 @@ public final class Escapers {
     char c = s.charAt(i);
     switch (c) {
       case '{':
+      case '}':
         return text;
       case '&':
       case '<':

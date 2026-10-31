@@ -102,15 +102,14 @@ class LeadingLineFeedTest {
 
   @Test
   void htmlElementsInOtherPlacesGetTheLineFeed() {
-    // An HTML integration point, upper-case tag names, and <noscript>, which is markup with scripting off.
+    // An HTML integration point and upper-case tag names. (A value inside <noscript> is a build
+    // error since #571.)
     Compilation c = compile("<svg><foreignObject><textarea>[[${s}]]\nx</textarea></foreignObject></svg>"
-        + "<PRE>[[${s}]]\nx</PRE><noscript><listing>[[${s}]]\nx</listing></noscript>");
+        + "<PRE>[[${s}]]\nx</PRE>");
     for (String s : VALUES) {
       String html = render(c, s);
       assertEquals(s + "\nx", dom(html, "textarea"), html);
       assertEquals(s + "\nx", dom(html, "pre"), html);
-      Document off = SpecParsers.named(SpecParsers.VNU_26).parse(html, false);
-      assertEquals(s + "\nx", ((Element) off.getElementsByTagName("listing").item(0)).getTextContent(), html);
     }
   }
 

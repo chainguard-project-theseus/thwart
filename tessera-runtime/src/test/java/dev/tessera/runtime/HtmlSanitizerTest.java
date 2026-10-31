@@ -127,14 +127,14 @@ class HtmlSanitizerTest {
   void textBreaksMustacheDelimiters() {
     // #248: sanitized text lands in element text, so {{ is broken as by t:text, including braces
     // written as character references and braces on either side of a tag or kept reference.
-    assertEquals("<p><!---->{<!---->{ x }}</p>", clean("<p>{{ x }}</p>"));
-    assertEquals("<!---->{<!---->{x}}", clean("&#123;&#x7b;x}}"));
-    assertEquals("<!---->{<!---->{x}}", clean("&lbrace;&lcub;x}}"));
-    assertEquals("<!---->{<!----><b><!---->{x}}</b>", clean("{<b>{x}}</b>"));
+    assertEquals("<p><!---->{<!---->{<!----> x <!---->}<!---->}<!----></p>", clean("<p>{{ x }}</p>"));
+    assertEquals("<!---->{<!---->{<!---->x<!---->}<!---->}<!---->", clean("&#123;&#x7b;x}}"));
+    assertEquals("<!---->{<!---->{<!---->x<!---->}<!---->}<!---->", clean("&lbrace;&lcub;x}}"));
+    assertEquals("<!---->{<!----><b><!---->{<!---->x<!---->}<!---->}<!----></b>", clean("{<b>{x}}</b>"));
     assertEquals("<!---->{<!---->&eacute;<!---->{<!---->", clean("{&eacute;{"));
-    assertEquals("}}", clean("&rbrace;&rcub;"));
+    assertEquals("<!---->}<!---->}<!---->", clean("&rbrace;&rcub;"));
     // Numeric references a browser decodes without ';' or with leading zeros.
-    assertEquals("<!---->{<!---->{<!---->{x}}", clean("&#123&#x7B&#0000123;x}}"));
+    assertEquals("<!---->{<!---->{<!---->{<!---->x<!---->}<!---->}<!---->", clean("&#123&#x7B&#0000123;x}}"));
     assertEquals("&amp;lbrace&amp;lbrace", clean("&lbrace&lbrace"));
   }
 

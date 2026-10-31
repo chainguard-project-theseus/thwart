@@ -5,7 +5,6 @@ import static dev.tessera.compiler.types.ExpressionCompiler.isDeclared;
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
-import dev.tessera.compiler.codegen.AttributeProcessors;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.expr.Expr;
@@ -13,7 +12,6 @@ import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.html.ParsingContexts;
 import dev.tessera.compiler.messages.MessageCompiler;
 import dev.tessera.compiler.model.Attribute;
-import dev.tessera.compiler.model.Comment;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.model.OutputContext;
@@ -131,204 +129,108 @@ public final class TextInlining {
         || e.attribute("t:remove").map(Attribute::value).map(JavaStrings::trimJava).filter("tag"::equals).isPresent();
   }
 
+  /** Attributes whose element's own text never renders: a value or fragment replaces it. */
+  private static final Set<String> REPLACES_TEXT = Backports.setOf("t:text", "t:utext", "t:insert", "t:replace", "t:errors");
+
   /**
-   * Checks the client-side interpolation rule (#248, #336) on the static text of {@code nodes}:
-   * text that Vue or petite-vue read ({@code TEXT}, the RCDATA of {@code <title>} and
-   * {@code <textarea>}, and script text, which petite-vue reads) never lets a value into a
-   * {@code {{ ... }}}. The runtime writes every value's braces so that they never meet another
-   * brace ({@code Escapers.appendText}), so only static text can open one, and the rule is checked
-   * on each static literal (the text between two values, tags or comments) on its own:
+   * Checks the client-side interpolation rule (#248, #336, #571) on the static text of {@code nodes}.
+   * The runtime writes every brace of a value between two empty comments ({@code
+   * Escapers.appendText}), so only static text can form a {@code {{}, and the rule looks at each
+   * static literal (the text between two values, tags or comments) on its own, never at its
+   * neighbours:
    *
    * <ul>
-   *   <li>a {@code {{} is closed by a {@code }}} in the same literal;
-   *   <li>in element text, a literal that starts or ends a text node does not start with a lone
-   *       {@code {} or end with {@code {} unless a tag or comment that always renders is next to
-   *       it: after a {@code <t:block>}, a {@code t:if} or a fragment's edge the text next to it is
-   *       other static text, and the two braces would meet.
+   *   <li>in element text (CDATA in foreign content included), a {@code {} or {@code }} is allowed
+   *       only inside a complete {@code {{ ... }}} in one literal, the author's own Vue template;
+   *   <li>in a {@code <title>} or {@code <textarea>}, which get {@code v-pre} once computed (#549),
+   *       not even there;
+   *   <li>in script text, which petite-vue reads, a {@code {{} is closed in the same literal.
    * </ul>
-   *
-   * Nothing is tracked across nodes, so nothing about fragments, conditions or tables is modelled.
    */
-  public static void checkBraces(CodegenContext ctx, List<Node> nodes, Element parent) {
-    // Text that a value or fragment replaces never renders (an element in it may, as a fragment).
+  public static void checkBraces(CodegenContext ctx, List<Node> nodes, Element parent, boolean vPreHost) {
     boolean replaced = false;
-    for (String name : new String[] {"text", "utext", "insert", "replace", "errors"}) {
-      replaced |= parent != null && parent.attribute(Attribute.PREFIX + name).isPresent();
+    if (parent != null) {
+      for (Attribute a : parent.attributes()) {
+        replaced |= REPLACES_TEXT.contains(a.name());
+      }
+      String lower = HtmlParser.asciiLower(parent.name());
+      vPreHost |= lower.equals("title") || lower.equals("textarea");
     }
-    // t:remove="all-but-first" (and any other value but "tag" and "none") may drop the elements
-    // between two texts and keep the texts, so no element child is a boundary.
-    String remove = parent == null
-        ? ""
-        : parent.attribute(Attribute.PREFIX + "remove").map(a -> JavaStrings.trimJava(a.value())).orElse("");
-    boolean dropsChildren = !remove.isEmpty() && !remove.equals("tag") && !remove.equals("none");
-    for (int k = 0; k < nodes.size(); k++) {
-      Node n = nodes.get(k);
+    for (Node n : nodes) {
       if (n instanceof Element) {
-        checkBraces(ctx, ((Element) n).children(), (Element) n);
+        checkBraces(ctx, ((Element) n).children(), (Element) n, vPreHost);
       } else if (n instanceof Text && !replaced) {
         Text t = (Text) n;
         OutputContext c = t.context();
-        if (c == OutputContext.TEXT && t.raw().startsWith("<![CDATA[")) {
-          // Foreign content: the browser joins the section's characters to the text around it, so
-          // a brace in it is outside the literal checks (which see the wrapper). Shrink the profile.
-          // A value in the section is the verifier's error (TEXT_NOT_IN_TEXT): only static braces here.
-          int brace = staticBrace(t.raw());
-          if (brace >= 0) {
-            ctx.diagnostics()
-                .error(
-                    t.pos().advance(t.raw(), brace),
-                    "'{' in a CDATA section is not supported: a browser joins it to the text around the section,"
-                        + " where it can form a client-side {{ that Vue and petite-vue would run as code; write the"
-                        + " brace outside the CDATA section");
+        if (c != OutputContext.TEXT && c != OutputContext.RCDATA && c != OutputContext.SCRIPT) {
+          continue;
+        }
+        // A CDATA section's characters join the text around it, and its wrapper holds no brace.
+        boolean refs = c != OutputContext.SCRIPT && !t.raw().startsWith("<![CDATA[");
+        String raw = t.raw();
+        int start = 0;
+        for (int i = 0; i <= raw.length(); i++) {
+          int end = i == raw.length() ? i : holeEnd(raw, i);
+          if (end >= 0) {
+            checkLiteral(ctx, t, start, raw.substring(start, i), refs, c != OutputContext.SCRIPT, vPreHost);
+            start = end + 2;
+            i = end + 1;
           }
-        } else if (c == OutputContext.TEXT || c == OutputContext.RCDATA || c == OutputContext.SCRIPT) {
-          boolean text = c == OutputContext.TEXT;
-          boolean first = k == 0;
-          boolean last = k == nodes.size() - 1;
-          checkBraces(ctx, t, c != OutputContext.SCRIPT, text && !vPreHost(parent),
-              text && !boundary(first ? parent : nodes.get(k - 1), first, dropsChildren),
-              text && !boundary(last ? parent : nodes.get(k + 1), last, dropsChildren));
         }
       }
     }
   }
 
-  /**
-   * Whether text directly in {@code parent} gets {@code v-pre} once it holds a value: a
-   * {@code <textarea>} or {@code <title>} (#549, TemplateGenerator.addsVPre). Other raw-text
-   * elements ({@code <xmp>}, {@code <noembed>}, ...) do not.
-   */
-  private static boolean vPreHost(Element parent) {
-    String name = parent == null ? "" : HtmlParser.asciiLower(parent.name());
-    return name.equals("textarea") || name.equals("title");
+  private static void checkLiteral(
+      CodegenContext ctx, Text text, int start, String literal, boolean refs, boolean lone, boolean vPreHost) {
+    String s = decode(literal, refs);
+    int at = lone ? loneBrace(s, !vPreHost) : unclosed(s);
+    if (at < 0) {
+      return;
+    }
+    String message;
+    if (!lone) {
+      message = "a client-side {{ is not closed by }} in the same text: petite-vue would run a value written"
+          + " after it in this script as code; close it before any [[...]]";
+    } else if (vPreHost) {
+      message = "'" + s.charAt(at) + "' in the static text of a <title> or <textarea> is not supported: Tessera"
+          + " adds v-pre there once the content is computed, because a comment cannot break {{ in a value in it,"
+          + " and v-pre would show a static {{ ... }} as text; write the whole content with Tessera, or bind it"
+          + " with Vue";
+    } else {
+      message = "'" + s.charAt(at) + "' outside a complete {{ ... }} is not supported in element text: with a"
+          + " brace from other text it could form a client-side {{ that Vue and petite-vue would run as code (a"
+          + " character reference does not help). A static brace is allowed only in a {{ ... }} that opens and"
+          + " closes before any [[...]], tag or comment; write the text as a value with [[...]] or t:text ([['{']])";
+    }
+    ctx.diagnostics().error(text.pos().advance(text.raw(), start + (s.equals(literal) ? at : 0)), message);
   }
 
-  /** Offset of the first '{' in {@code raw} outside a {@code [[...]]} or {@code [(...)]}, or -1. */
-  private static int staticBrace(String raw) {
-    int i = 0;
-    while (i < raw.length()) {
-      boolean escaped = raw.startsWith("[[", i);
-      int end = escaped || raw.startsWith("[(", i) ? findEnd(raw, i + 2, escaped ? "]]" : ")]") : -1;
-      if (end >= 0) {
-        i = end + 2;
-      } else if (raw.charAt(i) == '{') {
+  /**
+   * The offset of the first '{' or '}' in {@code s} outside a complete {@code {{ ... }}} (with
+   * {@code pairs}; without, of the first brace), or -1: the rule for static element text and
+   * checked message text (#571).
+   */
+  public static int loneBrace(String s, boolean pairs) {
+    for (int i = 0; i < s.length(); i++) {
+      int close = pairs && s.startsWith("{{", i) ? s.indexOf("}}", i + 2) : -1;
+      if (close >= 0) {
+        i = close + 1;
+      } else if (s.charAt(i) == '{' || s.charAt(i) == '}') {
         return i;
-      } else {
-        i++;
       }
     }
     return -1;
   }
 
-  /**
-   * Whether {@code n} always writes a tag or comment where it meets a text node: a comment, or an
-   * element whose tag renders whenever the text does. {@code parent} is whether {@code n} is the
-   * text's parent element (null at the top of the template), whose own conditions decide whether
-   * the text renders at all; {@code dropped} is whether the parent may drop its element children.
-   */
-  private static boolean boundary(Node n, boolean parent, boolean dropped) {
-    if (n instanceof Comment) {
-      return true;
-    }
-    if (!(n instanceof Element) || tagNotRendered((Element) n)) {
-      return false;
-    }
-    Element e = (Element) n;
-    if (parent) {
-      return true;
-    }
-    if (dropped) {
-      return false;
-    }
-    // Fail closed: only attributes known to keep the tag. Everything else (t:if, t:each, t:case,
-    // t:errors, t:replace, t:remove, a t:fragment with parameters, ...) may drop the element.
-    for (Attribute a : e.tesseraAttributes()) {
-      String name = a.localName();
-      if (!KEEPS_TAG.contains(name)
-          && !(AttributeProcessors.forName(name).orElse(null) instanceof GenericAttrProcessor)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  /** {@code t:} attributes whose element always writes its tag where it stands. */
-  private static final Set<String> KEEPS_TAG =
-      Backports.setOf("object", "with", "attr", "field", "classappend", "errorclass", "text", "utext", "insert", "switch");
-
-  private static void checkBraces(
-      CodegenContext ctx, Text text, boolean refs, boolean elementText, boolean startEdge, boolean endEdge) {
-    String raw = text.raw();
-    int start = 0;
-    int i = 0;
-    boolean first = true;
-    // Whether this text ends with '{' before the current value: an empty value writes nothing, so
-    // the literals around it meet, and at an edge that is not a boundary, other text meets the brace.
-    boolean braceBefore = false;
-    while (i <= raw.length()) {
-      boolean escaped = raw.startsWith("[[", i);
-      int end = i < raw.length() && (escaped || raw.startsWith("[(", i)) ? findEnd(raw, i + 2, escaped ? "]]" : ")]") : -1;
-      if (end >= 0 || i == raw.length()) {
-        boolean last = i == raw.length();
-        String literal = raw.substring(start, i);
-        String s = decode(literal, refs);
-        // In <title> and <textarea> a value brings v-pre (#549), so Vue never reads the text.
-        if (!first && elementText && braceBefore && s.startsWith("{")) {
-          ctx.diagnostics()
-              .error(
-                  pos(text, start, literal, s, 0),
-                  "this text starts with '{' right after a value that follows a '{': when the value is empty the"
-                      + " two braces form a client-side {{ that Vue and petite-vue would run as code; write it as"
-                      + " <!---->{");
-        }
-        checkLiteral(ctx, text, start, literal, refs, first && startEdge, last && endEdge);
-        if (!first && last && endEdge && s.isEmpty() && braceBefore) {
-          reportEdge(ctx, pos(text, start, literal, s, 0), "ends", "{<!---->");
-        }
-        braceBefore = s.isEmpty() ? braceBefore : s.endsWith("{");
-        first = false;
-        start = end + 2;
-        i = last ? i + 1 : start;
-        continue;
-      }
-      i++;
-    }
-  }
-
-  private static void checkLiteral(
-      CodegenContext ctx, Text text, int start, String literal, boolean refs, boolean startEdge, boolean endEdge) {
-    String s = decode(literal, refs);
+  /** The offset of the first {@code {{} in {@code s} not closed by a {@code }}} after it, or -1. */
+  public static int unclosed(String s) {
     for (int open = s.indexOf("{{"); open >= 0; open = s.indexOf("{{", s.indexOf("}}", open + 2) + 2)) {
       if (s.indexOf("}}", open + 2) < 0) {
-        ctx.diagnostics()
-            .error(
-                pos(text, start, literal, s, open),
-                "a client-side {{ is not closed by }} in the same text: Vue and petite-vue would run a value, tag or"
-                    + " text written after it as code. Close it before any [[...]], tag or comment; pass a value in a"
-                    + " data-* attribute or a <script> with [[...]]; write a literal {{ as {<!---->{");
-        return;
+        return open;
       }
     }
-    if (startEdge && s.startsWith("{") && !s.startsWith("{{")) {
-      reportEdge(ctx, pos(text, start, literal, s, 0), "starts", "<!---->{");
-    } else if (endEdge && s.endsWith("{")) {
-      reportEdge(ctx, pos(text, start, literal, s, s.length() - 1), "ends", "{<!---->");
-    }
-  }
-
-  private static void reportEdge(CodegenContext ctx, SourcePos pos, String where, String fix) {
-    ctx.diagnostics()
-        .error(
-            pos,
-            "this text " + where + " with '{' next to a <t:block>, t:if, t:each, t:remove, t:replace, t:errors, a t:fragment with"
-                + " parameters or the edge of the"
-                + " template, where it can meet a '{' from other text and form a client-side {{ that Vue and"
-                + " petite-vue would run as code; write it as " + fix + " or move it inside an element");
-  }
-
-  /** Decoded references move offsets: then the position is the literal's start. */
-  private static SourcePos pos(Text text, int start, String literal, String decoded, int offset) {
-    return text.pos().advance(text.raw(), start + (decoded.equals(literal) ? offset : 0));
+    return -1;
   }
 
   /** Text as the frameworks read it: with {@code refs}, decoded, brace character references included. */
