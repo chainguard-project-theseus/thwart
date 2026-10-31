@@ -239,8 +239,8 @@ allow-listed:
   a value read as table text is `TEXT_IN_TABLE`, `SafeHtml` or a `Fragment` value outside a cell is
   `RAW_NOT_FLOW`, and a misplaced table part or `<form>` (a `<tr>` that ends a `<td>`) is a parse
   error, so foster parenting never happens. The verifier composes a `Fragment` argument only where
-  the callee inserts the parameter by itself, so a template-built `Fragment` value never starts
-  with a table part (#561). The oracle (§5.7) watches the rest of this claim.
+  the callee inserts the parameter by itself, so the compiler rejects a template-built `Fragment`
+  value that starts with a table part (TODO #561). The oracle (§5.7) watches the rest of this claim.
 
 ### 5.4 Scripts: the script prelude rule
 
