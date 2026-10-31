@@ -106,7 +106,9 @@ public final class ParsingContexts {
   /**
    * Whether a browser may read the content of {@code e} as text up to its end tag, the elements
    * TemplateGenerator's raw-text rule checks: {@code <title>}, {@code <textarea>} and {@link
-   * Contexts#browserRawText} elements, by name in any namespace.
+   * Contexts#browserRawText} elements, by name in any namespace: a browser reads {@code <title>} in
+   * {@code <svg>} or {@code <math>} as RCDATA in an HTML integration point or after a tag that ends
+   * foreign content ({@code <b>}).
    */
   public static boolean rawTextElement(Element e) {
     String name = HtmlParser.asciiLower(e.name());

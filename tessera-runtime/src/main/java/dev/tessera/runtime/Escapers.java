@@ -585,9 +585,9 @@ public final class Escapers {
 
   /**
    * {@code url}, a link built by {@link Links} for a slot that must stay on the page's origin (a
-   * {@code <base href>}, an htmx request URL, a refresh URL, the {@code action}/{@code formaction}
-   * of a boosted or htmx form, the {@code action} of a static POST form and every
-   * {@code formaction}, which may receive the CSRF token), if it starts
+   * {@code <base href>}, an htmx request URL, a refresh URL, the {@code action} of a boosted form,
+   * the {@code action} of a static POST form and every {@code formaction}, which may receive the
+   * CSRF token), if it starts
    * with {@code /} and {@linkplain #isSameOriginUrl is same-origin}. The compiler checks only the
    * literal path; a context path ending in {@code /}, a custom {@link Links}, or a path variable can
    * still turn {@code /a} into the protocol-relative {@code //a} (#358). Anything else fails the

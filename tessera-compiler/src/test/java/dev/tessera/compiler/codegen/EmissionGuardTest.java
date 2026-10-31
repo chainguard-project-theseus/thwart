@@ -63,10 +63,7 @@ class EmissionGuardTest {
           "codegen/TemplateGenerator.java#generate",
           "codegen/attr/FragmentMethods.java#generate",
           "codegen/attr/ElementSelection.java#helperCall",
-          // Wrapper's own accessor and value methods.
-          "codegen/ElementPlan.java#open",
-          "codegen/ElementPlan.java#equals",
-          "codegen/ElementPlan.java#hashCode",
+          // Wrapper.toString, for error messages.
           "codegen/ElementPlan.java#toString");
 
   /** A literal that writes output, outside the allow-list. */
