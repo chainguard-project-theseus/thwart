@@ -79,7 +79,7 @@ public interface Forms {
     return !errors(objectName, path).isEmpty();
   }
 
-  /** CSRF token to insert into {@code method="post"} forms, if any. */
+  /** CSRF token to insert into a form with a static {@code method="post"} that posts to the page's origin, if any. */
   Optional<CsrfToken> csrfToken();
 
   /** CSRF token parameter name and value. */

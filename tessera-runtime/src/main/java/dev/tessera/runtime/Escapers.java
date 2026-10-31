@@ -44,8 +44,6 @@ public final class Escapers {
 
   private static final char[] HEX = "0123456789abcdef".toCharArray();
 
-  private static final char[] HEX_UPPER = "0123456789ABCDEF".toCharArray();
-
   /** Converts a value to its display text ({@code null} becomes {@code ""}). */
   public static String toText(Object value) {
     return value == null ? "" : String.valueOf(value);
@@ -73,7 +71,8 @@ public final class Escapers {
   /**
    * Text in {@code <title>} or {@code <textarea>} (OutputContext.RCDATA). Encodes
    * {@code & < > " '} like {@link #attr}. A comment cannot be written there (the browser shows it
-   * as text), so {@code {{} is not broken; see guide section 7.
+   * as text), so {@code {{} is not broken: the compiler adds {@code v-pre} to a computed
+   * {@code <title>} or {@code <textarea>} for Vue and petite-vue instead (#549); see guide section 7.
    */
   public static void rcdata(Output out, Object value) {
     escapeHtml(out, toText(value));
@@ -143,7 +142,7 @@ public final class Escapers {
     for (int i = sep + ";url=".length(); i < s.length(); i++) {
       char c = s.charAt(i);
       if (c <= 0x20 || c == 0x7f || ";,'\"\\".indexOf(c) >= 0) {
-        sb.append('%').append(HEX_UPPER[c >> 4]).append(HEX_UPPER[c & 0xF]);
+        UrlEncoding.percent(sb, c);
       } else {
         sb.append(c);
       }
@@ -162,7 +161,7 @@ public final class Escapers {
    * a subclass throws {@link IllegalArgumentException}. {@code null} stays {@code null}.
    */
   public static String styleNumber(Number value) {
-    return value == null ? null : jdkNumberText(value);
+    return value == null ? null : requireJdkNumber(value).toString();
   }
 
   /**
@@ -244,7 +243,8 @@ public final class Escapers {
    * {@link #text}, so each argument is escaped once (#537). {@code null} becomes {@code ""}.
    */
   public static String htmlMessage(RenderContext ctx, String key, Object[] args, String[] checked) {
-    Object[] escaped = htmlMessageArgs(args);
+    Object[] text = messageTextArgs(args);
+    Object[] escaped = escapeTextArgs(text);
     String message = ctx.messages().get(key, escaped);
     if (message == null) {
       return "";
@@ -261,8 +261,8 @@ public final class Escapers {
         // an argument does not fit the pattern (e.g. text for {0,number}): not this pattern
       }
     }
-    String text = ctx.messages().get(key, messageTextArgs(args));
-    return text == null ? "" : escapeText(text);
+    String fallback = ctx.messages().get(key, text);
+    return fallback == null ? "" : escapeText(fallback);
   }
 
   /**
@@ -272,7 +272,12 @@ public final class Escapers {
    * argument needs. Returns a new array.
    */
   static Object[] htmlMessageArgs(Object[] args) {
-    Object[] escaped = messageTextArgs(args);
+    return escapeTextArgs(messageTextArgs(args));
+  }
+
+  /** A copy of {@code text} with each {@code String} escaped as HTML text. */
+  private static Object[] escapeTextArgs(Object[] text) {
+    Object[] escaped = text.clone();
     for (int i = 0; i < escaped.length; i++) {
       if (escaped[i] instanceof String) {
         escaped[i] = escapeText((String) escaped[i]);
@@ -544,8 +549,9 @@ public final class Escapers {
    * {@code / ? #} is a scheme, so an absolute URL to the page's own host is not same-origin. A
    * {@link TrustedUrl} is checked too: it vouches for the scheme, not for the origin. Any other
    * value is checked as {@link #url} writes it, so one that fails the scheme check (written as
-   * {@code about:invalid#tessera}) is not same-origin. Used for the CSRF token, which goes only into
-   * forms that post to the page's origin (#285).
+   * {@code about:invalid#tessera}) is not same-origin. Used by the compiler for a static form action
+   * that may get the CSRF token (#285), by the sanitizer for a same-origin image, and by
+   * {@link #sameOriginLink}.
    */
   public static boolean isSameOriginUrl(Object value) {
     if (value == null) {
@@ -582,7 +588,8 @@ public final class Escapers {
   /**
    * {@code url}, a link built by {@link Links} for a slot that must stay on the page's origin (a
    * {@code <base href>}, an htmx request URL, a refresh URL, the {@code action}/{@code formaction}
-   * of a boosted or htmx form, a {@code formaction} that may receive the CSRF token), if it starts
+   * of a boosted or htmx form, the {@code action} of a static POST form and every
+   * {@code formaction}, which may receive the CSRF token), if it starts
    * with {@code /} and {@linkplain #isSameOriginUrl is same-origin}. The compiler checks only the
    * literal path; a context path ending in {@code /}, a custom {@link Links}, or a path variable can
    * still turn {@code /a} into the protocol-relative {@code //a} (#358). Anything else fails the
@@ -647,7 +654,7 @@ public final class Escapers {
       Double v = (Double) value;
       writeDouble(sb, v, Double.toString(v));
     } else if (value instanceof BigInteger || value instanceof BigDecimal) {
-      sb.append(jdkNumberText((Number) value));
+      sb.append(requireJdkNumber((Number) value).toString());
     } else if (value instanceof CharSequence) {
       writeJsonString(sb, value.toString());
     } else if (value instanceof Character) {
@@ -730,16 +737,11 @@ public final class Escapers {
   }
 
   /**
-   * The {@code toString()} of a {@link BigInteger} or {@link BigDecimal} whose class is exactly
-   * that JDK class, which always writes a JSON number ({@code 1E+3}, {@code 1E-7}, {@code 0.00};
-   * JSON allows the {@code +}). Neither class is final, and an application subclass can override
+   * {@code value} if its class is exactly {@link BigInteger} or {@link BigDecimal}, whose
+   * {@code toString()} always writes a JSON number ({@code 1E+3}, {@code 1E-7}, {@code 0.00}; JSON
+   * allows the {@code +}). Neither class is final, and an application subclass can override
    * {@code toString()} to return anything: it throws {@link IllegalArgumentException}.
    */
-  private static String jdkNumberText(Number value) {
-    return requireJdkNumber(value).toString();
-  }
-
-  /** {@code value} if its class is exactly {@link BigInteger} or {@link BigDecimal}, else throws {@link IllegalArgumentException}. */
   private static Number requireJdkNumber(Number value) {
     if (value.getClass() != BigInteger.class && value.getClass() != BigDecimal.class) {
       throw new IllegalArgumentException(
