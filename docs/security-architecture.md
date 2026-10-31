@@ -695,7 +695,7 @@ and its 45,056-variant differential become test cases. Known deviations are list
 | Family | Status | Owner |
 |---|---|---|
 | C. JS lexical position | Not covered. The verifier makes one input exact: a `json` hole is in an HTML script's data | closed prelude grammar (§12.3) |
-| D. Client frameworks | Not covered | deny-by-default names (#330), framework table (#333), harness (#334), CSP nonces (#335, PR #361); AngularJS unsupported (§12.4) |
+| D. Client frameworks | Not covered | deny-by-default names (#330), framework table (#333), harness (#334), CSP nonces (#335, PR #361); dropping AngularJS for a coarse `ng` deny is planned (§12.4) |
 | E. URL and CSRF policy | Not covered. The element and attribute a value lands in become exact | inert-text list and single-URL grammar (§12.2), closed form shape (§12.7) |
 | CSS inside `style` | Not covered beyond "the value stays in its attribute" | `CssValue` rules |
 
@@ -815,17 +815,16 @@ An attribute nobody classified is now a build error, not a plain attribute.
 
 ### 12.4 Frameworks (#542)
 
-PR #551 (CI green, awaiting review) does the first two:
+The first two are planned in PR #551, not yet merged. Until it lands, `main` still models
+AngularJS and the guide still documents that handling.
 
-- **AngularJS is unsupported.** Tessera stops modelling `directiveNormalize`, the model behind
-  #529, #531 and #532.
-- **Coarse `ng` deny.** A name or class token is denied when, ignoring A-Z case and `- _ :`, it
-  starts with `ng`, `xng` or `datang`: a superset of every spelling AngularJS reads, in the
-  compiler, migrate, the sanitizer and the test oracle. Computed class tokens have no check on
-  `main`: `<span t:class="${s}">` with
-  `s = "x ng-init:constructor.constructor('alert(document.domain)')()"` runs code under AngularJS
-  1.8.3 (AngularJS pages only). `Attributes.classes` drops matching tokens at render time, at the
-  one place a computed attribute is written.
+- **AngularJS unsupported (planned).** Tessera stops modelling `directiveNormalize`, the model
+  behind #529, #531 and #532.
+- **Coarse `ng` deny (planned).** A name or class token is denied when, ignoring A-Z case and
+  `- _ :`, it starts with `ng`, `xng` or `datang`: a superset of every spelling AngularJS reads, in
+  the compiler, migrate, the sanitizer and the test oracle. It also covers computed class tokens,
+  which `main` doesn't check (AngularJS pages only): PR #551 drops matching tokens at render time,
+  at the one place a computed attribute is written.
 - **Vue in RCDATA** (#549, PR #560): a framework-table entry adds `v-pre` to a `<title>` or
   `<textarea>` with computed content, where a comment can't break `{{`.
 - **htmx 1.x sockets** (#562, PR #564): `hx-ws`/`hx-sse` are build errors, instead of parsing
@@ -857,19 +856,19 @@ socket around it).
 
 ### 12.8 `{{` through one function (#547)
 
-Spike `spike-brace-chokepoint`, not yet merged. At runtime `Escapers.appendText` is the only
-function that writes value text into element text, and `TextChokePointTest` enforces it. At build
-time a static `{{` must close with `}}` in the same literal (#336), in templates and checked
-messages. With AngularJS gone, the sanitizer's attribute brace handling is deleted.
+Planned; spike `spike-brace-chokepoint`, not yet merged. At runtime `Escapers.appendText` is to
+be the only function that writes value text into element text, enforced by `TextChokePointTest`.
+At build time a static `{{` must close with `}}` in the same literal (#336), in templates and
+checked messages. Once #551 removes AngularJS, the sanitizer's attribute brace handling goes too.
 
 ### 12.9 Mechanical discovery (#543)
 
-Spike `spike-hostile-sweep`, not yet merged. `HostileSweepTest` renders every computed (element,
-attribute) pair the compiler accepts, and the script shapes, with hostile values, and checks the
-output against a sink table written from the specs and against Rhino. On the commits before their
-fixes it found 10 of 11 historic bugs (it missed #531, in the sanitizer). The plan: the script
-sweep in `mvn verify`, the attribute sweep as a ratchet against a checked-in baseline, then a
-sanitizer pass.
+Planned; spike `spike-hostile-sweep`, not yet merged. `HostileSweepTest` renders every computed
+(element, attribute) pair the compiler accepts, and the script shapes, with hostile values, and
+checks the output against a sink table written from the specs and against Rhino. On the commits
+before their fixes it found 10 of 11 historic bugs (it missed #531, in the sanitizer). The plan:
+the script sweep in `mvn verify`, the attribute sweep as a ratchet against a checked-in baseline,
+then a sanitizer pass.
 
 ### 12.10 Policy going forward
 
@@ -877,6 +876,7 @@ sanitizer pass.
   grammar. It doesn't add a case. The PR names the class it closes.
 - In a converted area, a report means the list or grammar is wrong: fix the entry and add a
   negative test, and add a sweep row so the class stays found.
-- Removing support (AngularJS, htmx 1.x sockets, safe types in typed attributes) beats modelling
-  it. The cost is a build error with a fix-it, and `tessera-migrate` rewrites what it can.
+- Removing support (htmx 1.x sockets, safe types in typed attributes, and AngularJS with #551)
+  beats modelling it. The cost is a build error with a fix-it, and `tessera-migrate` rewrites
+  what it can.
 - Parser and composition reports still go to the verifier (§11.4).
