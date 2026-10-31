@@ -86,7 +86,7 @@ public final class MessageCompiler {
    * {@code Escapers.htmlMessage} writes it: as written (a message without arguments), and as
    * {@link java.text.MessageFormat} formats it, with a text hole for each placeholder (arguments
    * are escaped text, numbers or dates). One more branch is a text hole: a message that is none of
-   * those is written escaped, or as is if it has no {@code <}, which is text too. {@code element} is
+   * those is written escaped as text. {@code element} is
    * the element whose content the message is ({@link Skeleton.Hole#element}).
    */
   public static Skeleton.Node htmlSkeleton(Expr.Message message, CompilerEnv env, String element) {

@@ -997,10 +997,10 @@ formatted by `MessageFormat` as usual), so `{0}` is always text. Placeholders mu
 `{n,number[,integer|currency|percent]}` or `{n,date|time[,short|medium|long|full]}`, and may not
 appear inside a tag. The value is checked both as written and as `MessageFormat` formats it, where
 `'` quotes text: use double quotes around attribute values and `''` for an apostrophe. At
-runtime the message is printed as HTML only if it contains no `<` and every `&` in it starts
-`&amp;`, `&lt;`, `&gt;`, `&quot;` or `&#39;` (a bare `&` and an argument `#123;` would make `{`),
-or is exactly what one of the checked values produces; a message from a source the build did not check (another directory or
-jar, a database-backed `MessageSource`, a file changed after the build) is escaped as text. Where a message's markup does not fit
+runtime the message is printed as HTML only if it is exactly what one of the checked values
+produces; the runtime never decides a message is safe by looking at it. A message from a source
+the build did not check (another directory or jar, a database-backed `MessageSource`, a file
+changed after the build) is escaped as text, `{{` broken, even if it has no markup. Where a message's markup does not fit
 the allow-list, move the markup into the template and keep the text in the bundle.
 
 <!-- compile: messages -->

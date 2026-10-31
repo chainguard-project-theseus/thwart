@@ -1011,9 +1011,11 @@ class EscapersTest {
     // Unformatted (no arguments, as Spring returns it) and a second locale's pattern.
     assertEquals(
         "Salut <b>{0}</b>", Escapers.htmlMessage(messages((k, a) -> "Salut <b>{0}</b>"), "k", new Object[0], checked));
-    // Text without '<' cannot hold markup.
-    assertEquals("plain &amp; simple", Escapers.htmlMessage(messages((k, a) -> "plain &amp; simple"), "k", new Object[0], checked));
-    assertEquals("", Escapers.htmlMessage(messages((k, a) -> null), "k", new Object[0], checked));
+    // A checked message without markup is printed as it is.
+    assertEquals(
+        "plain &amp; simple",
+        Escapers.htmlMessage(messages((k, a) -> "plain &amp; simple"), "k", new Object[0], new String[] {"plain &amp; simple"}));
+    assertEquals("",Escapers.htmlMessage(messages((k, a) -> null), "k", new Object[0], checked));
   }
 
   @Test
@@ -1037,6 +1039,22 @@ class EscapersTest {
   }
 
   @Test
+  void htmlMessageEscapesAnUncheckedMessageWithoutMarkup() {
+    // The runtime never decides a message is safe by looking at it (#535): a message no checked
+    // pattern produces is text, even without '<', so its "{{" is broken for Vue and AngularJS.
+    String[] checked = {"Hi <b>{0}</b>"};
+    assertEquals(
+        "<!---->{<!---->{constructor.constructor(&#39;alert(1)&#39;)()}}",
+        Escapers.htmlMessage(
+            messages((k, a) -> "{{constructor.constructor('alert(1)')()}}"), "k", new Object[0], checked));
+    assertEquals(
+        "<!---->{<!---->{x}}",
+        Escapers.htmlMessage(messages((k, a) -> "{{x}}"), "k", new Object[0], new String[0]));
+    assertEquals(
+        "Tom &amp;amp; Jerry", Escapers.htmlMessage(messages((k, a) -> "Tom &amp; Jerry"), "k", new Object[0], checked));
+  }
+
+  @Test
   void htmlMessageEscapesAnUncheckedMessageWhoseAmpersandAValueCanFinish() {
     // Without '<', but a browser decodes "&" and an argument "#123;" to "{", so the message
     // "&{0}" writes a "{" no escaper let through.
@@ -1047,12 +1065,14 @@ class EscapersTest {
     // A message ending in '&' would let the value after it finish a reference.
     assertEquals("&amp;", Escapers.htmlMessage(messages((k, a) -> "&"), "k", new Object[0], new String[0]));
     assertEquals("&amp;#", Escapers.htmlMessage(messages((k, a) -> "&#"), "k", new Object[0], new String[0]));
-    // The references the escapers write stay, from the message or from an escaped argument.
+    // References from a checked pattern or an escaped argument stay; unchecked, they are escaped.
     Messages plain = (k, a) -> new java.text.MessageFormat("Tom &amp; Jerry {0}", java.util.Locale.US).format(a);
     assertEquals(
         "Tom &amp; Jerry &quot;&amp;&lt;&gt;&#39;",
+        Escapers.htmlMessage(messages(plain), "k", new Object[] {"\"&<>'"}, new String[] {"Tom &amp; Jerry {0}"}));
+    assertEquals(
+        "Tom &amp;amp; Jerry &amp;quot;&amp;amp;&amp;lt;&amp;gt;&amp;#39;",
         Escapers.htmlMessage(messages(plain), "k", new Object[] {"\"&<>'"}, new String[0]));
-    // Any other reference is escaped: the message might have had a bare '&' that an argument finished.
     assertEquals("caf&amp;eacute;", Escapers.htmlMessage(messages((k, a) -> "caf&eacute;"), "k", new Object[0], new String[0]));
   }
 
@@ -1115,10 +1135,14 @@ class EscapersTest {
     assertEquals(
         "Hi <!---->{<!---->{x}}",
         Escapers.htmlMessage(messages(plain), "k", new Object[] {"{{x}}"}, new String[] {"Hi {0}"}));
-    // An unchecked message (no bundle the build saw) with no markup but the argument's comments
-    // is printed as it is, not escaped into visible "&lt;!----&gt;".
+    // A checked pattern with markup and brace-containing arguments in more than one placeholder.
+    Messages two = (k, a) -> new java.text.MessageFormat("<i>{0}</i>{1}", java.util.Locale.US).format(a);
     assertEquals(
-        "Hi <!---->{<!---->{x}}",
+        "<i><!---->{<!---->{a}}</i>b}}{<!---->",
+        Escapers.htmlMessage(messages(two), "k", new Object[] {"{{a}}", "b}}{"}, new String[] {"<i>{0}</i>{1}"}));
+    // An unchecked message (no bundle the build saw) is escaped as text, the argument's comments too.
+    assertEquals(
+        "Hi &lt;!----&gt;{&lt;!----&gt;{x}}",
         Escapers.htmlMessage(messages(plain), "k", new Object[] {"{{x}}"}, new String[0]));
     // An unchecked message is escaped as text, braces broken.
     assertEquals(
