@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:t="https://tessera.dev" t:params="String target">
   <body>
-    <form id="computed" method="post" t:action="target"></form>
+    <form id="computed" method="get" t:action="target"></form>
     <form id="link" method="post" t:action="@{/signup}"></form>
     <form id="external" method="post" action="https://other.example/"></form>
   </body>

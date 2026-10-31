@@ -16,8 +16,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * A submit button sends its form, CSRF token included, to its {@code formaction} (#314). Where the
- * button may submit a POST form that gets the token, a computed formaction must be a same-origin
- * link, a static one must be same-origin by shape, and formmethod must stay POST.
+ * form may get the token, and a form attribute or a fragment can make a button submit any form, every
+ * computed formaction must be a same-origin link, every static one same-origin by shape, and every
+ * formmethod a static POST or dialog, in any form or none (closed shape).
  */
 class CsrfFormactionTest {
   private static final String INPUT = "<input type=\"hidden\" name=\"_csrf\" value=\"tok\" />";
@@ -74,8 +75,8 @@ class CsrfFormactionTest {
     rejected(
         POST + "<button t:formaction=\"${u}\">Go</button></form>",
         "page.html:2:48:",
-        "may submit a POST form that gets the CSRF token",
-        "use a same-origin link such as @{/items/{id}(id=${item.id})}, or move the button into its own form");
+        "t:formaction is not allowed: a submit button sends its form, CSRF token included, to its formaction;"
+            + " use a same-origin link such as @{/items/{id}(id=${item.id})}");
     rejected(
         POST + "<button t:formaction=\"@{//evil.example/x}\">Go</button></form>",
         "must be a same-origin path starting with a single '/', not @{//evil.example/x}");
@@ -149,7 +150,7 @@ class CsrfFormactionTest {
         "<button t:attr=\"formmethod='post'\">Go</button>",
       })
   void formmethodInTokenFormFails(String button) {
-    rejected(POST + button + "</form>", "formmethod", "with the token in the URL");
+    rejected(POST + button + "</form>", "formmethod", "with its CSRF token in the URL");
   }
 
   /** Negative: htmx sends the enclosing form's inputs, token included; its URL must be a same-origin link. */
@@ -174,7 +175,7 @@ class CsrfFormactionTest {
             .template("frag.html", "<div xmlns:t=\"https://tessera.dev\">\n"
                 + "<form t:fragment=\"g(String u)\" method=\"get\"><button t:formaction=\"${u}\">Go</button></form></div>")
             .compile();
-    c.assertError("frag.html:2:", "t:formaction is not allowed", "may submit a POST form that gets the CSRF token");
+    c.assertError("frag.html:2:", "t:formaction is not allowed", "sends its form, CSRF token included");
   }
 
   /**
@@ -217,22 +218,29 @@ class CsrfFormactionTest {
         render(c));
   }
 
-  /** Positive: inside forms that never get the token, formaction and formmethod are unchanged. */
+  /**
+   * Negative: formaction and formmethod are checked in every form, also GET forms and forms posting
+   * to another site, so no rule depends on which form owns the button.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<form method=\"get\"><button t:formaction=\"${u}\">A</button></form>",
+        "<form method=\"get\"><button t:formmethod=\"${m}\">A</button></form>",
+        "<form><button formaction=\"https://evil.example/x\">B</button></form>",
+        "<form><button formmethod=\"get\">B</button></form>",
+        "<form method=\"post\" action=\"https://pay.example/\"><button t:formaction=\"${u}\">C</button></form>",
+        "<form method=\"get\"><div><input type=\"submit\" t:attr=\"formaction=${u}\"></div></form>",
+        "<button formaction=\"//evil.example/x\">D</button>",
+      })
+  void everyFormIsChecked(String body) {
+    rejected(body, "is not allowed");
+  }
+
+  /** A nested {@code <form>} is a parse error (a browser drops it): a build error since #406. */
   @Test
-  void formWithoutTokenIsUnchanged() {
-    Compilation c =
-        compile("<form method=\"get\"><button t:formaction=\"${u}\" t:formmethod=\"${m}\">A</button></form>"
-            + "<form><button formaction=\"https://evil.example/x\" formmethod=\"get\">B</button></form>"
-            + "<form method=\"post\" action=\"https://pay.example/\"><button t:formaction=\"${u}\">C</button></form>"
-            + "<form method=\"get\"><div><input type=\"submit\" t:attr=\"formaction=${u}\"></div></form>")
-            .assertSuccess();
-    String out = render(c);
-    assertFalse(out.contains("_csrf"), out);
-    assertTrue(out.contains("<button formaction=\"" + EVIL + "\" formmethod=\"get\">A</button>"), out);
-    assertTrue(out.contains("<button formaction=\"" + EVIL + "\">C</button>"), out);
-    assertTrue(out.contains("<input type=\"submit\" formaction=\"" + EVIL + "\">"), out);
-    // A nested <form> is a parse error (a browser drops it): a build error since #406.
-    compile("<form method=\"get\"><div><form method=\"get\"><input type=\"submit\" t:attr=\"formaction=${u}\"></form></div></form>")
+  void nestedFormFails() {
+    compile("<form method=\"get\"><div><form method=\"post\"><button>x</button></form></div></form>")
         .assertError("page.html:2:", "Nested forms are not allowed", "[verifier:PARSE_ERROR]");
   }
 }

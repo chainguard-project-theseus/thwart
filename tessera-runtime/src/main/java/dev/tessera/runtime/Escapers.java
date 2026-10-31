@@ -596,14 +596,6 @@ public final class Escapers {
     return url;
   }
 
-  /**
-   * Whether {@code method}, the text of a computed form {@code method}, is {@code post} folding A-Z
-   * only, as a browser reads the enumerated attribute; the CSRF token is written only then (#285).
-   */
-  public static boolean isPostMethod(Object method) {
-    return method != null && HtmlPolicy.lower(String.valueOf(method)).equals("post");
-  }
-
   /** {@code s} if it {@linkplain #isAllowedUrl passes the scheme check}, else {@link #INVALID_URL}. */
   private static String checkedUrl(String s) {
     return isAllowedUrl(s) ? s : INVALID_URL;

@@ -112,7 +112,7 @@ public final class Skeleton {
     CASE,
     /** A computed attribute, omitted when its value is null: {@code [ name="<hole>"]}. */
     ATTRIBUTE,
-    /** The CSRF hidden input: a token is present, and a computed method is POST and action same-origin. */
+    /** The CSRF hidden input: a token is present. */
     CSRF_TOKEN,
     /** The {@code t:field} checkbox's hidden {@code _name} input, when a computed {@code disabled} is null. */
     CHECKBOX_MARKER,
