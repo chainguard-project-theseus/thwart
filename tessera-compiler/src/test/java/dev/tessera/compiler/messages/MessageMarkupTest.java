@@ -109,4 +109,19 @@ class MessageMarkupTest {
     assertNotNull(problem, message);
     assertTrue(problem.contains(reason.trim()), message + " -> " + problem);
   }
+
+  /** #336: a static {{ in a message is closed before the next tag or argument. */
+  @ParameterizedTest
+  @ValueSource(strings = {"Hi '{{' {0} '}}'", "'{{' <b>x</b> '}}'", "a &#123;&#123; {0}", "'{{'"})
+  void unclosedMustacheIsRejected(String message) {
+    String problem = MessageMarkup.problem(message);
+    assertNotNull(problem, message);
+    assertTrue(problem.contains("a client-side {{ is not closed"), message + " -> " + problem);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"Hi '{{' a '}}' {0}", "{0} '{' {1}", "<b title=\"'{{'\">x</b>"})
+  void closedOrSingleBracesPass(String message) {
+    assertNull(MessageMarkup.problem(message), message);
+  }
 }

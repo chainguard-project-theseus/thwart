@@ -55,7 +55,7 @@ class ValueAfterAmpersandTest {
         "<svg><text>{&[[s]]</text></svg>|16",
         "<p>{&<t:block>[[s]]</t:block></p>|17",
         "<p>{&<span t:remove=\"tag\" t:text=\"s\">x</span></p>|35",
-        "<p>{<t:block t:if=\"${s != null}\">&</t:block>[[s]]</p>|47",
+        "<p><t:block t:if=\"${s != null}\">&</t:block>[[s]]</p>|46",
       })
   void valueAfterAmpersandFailsToBuild(String body, int column) {
     compile(body).assertError("page.html:2:" + column + ":", CHARREF);

@@ -42,7 +42,7 @@ public final class HtmlPolicy {
    * Attributes a policy may allow, besides {@code a[href]}, {@code img[src]} and {@code class}
    * ({@link Builder#allowClasses}). Each is kept only on the elements listed here, and only with
    * a value of the stated form: {@code title} on any element and {@code alt} on {@code img} (any
-   * text without {@code {{}), {@code width}/{@code height} on {@code img} and
+   * text), {@code width}/{@code height} on {@code img} and
    * {@code colspan}/{@code rowspan} on {@code td}/{@code th} (digits), {@code align} on
    * {@code td}/{@code th} ({@code left}, {@code center}, {@code right}, {@code justify}),
    * {@code start} and {@code reversed} on {@code ol}, {@code value} on {@code li} (an integer), and

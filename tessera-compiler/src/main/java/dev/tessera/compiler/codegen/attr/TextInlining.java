@@ -12,6 +12,7 @@ import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.html.ParsingContexts;
 import dev.tessera.compiler.messages.MessageCompiler;
 import dev.tessera.compiler.model.Attribute;
+import dev.tessera.compiler.model.Comment;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.model.OutputContext;
@@ -30,11 +31,10 @@ import javax.lang.model.type.TypeKind;
  * or {@code Escapers.rcdata} where the verifier finds RCDATA (#378), SCRIPT via {@code Escapers.javaScript},
  * or {@code Escapers.json} in a JSON {@code <script>})
  * and {@code [(expr)]} (SafeHtml or a checked bundle message, TEXT only).
- * STYLE/FORBIDDEN contexts with inlined expressions are build errors, and so is an expression
- * inside a static client-side {@code {{ ... }}} interpolation in TEXT or SCRIPT text
- * (#248), and a {@code [[expr]]} in JavaScript {@code <script>} text that is not the value of a
- * declaration in the script's prelude ({@link #checkPrelude}). {@link #checkMustachesClosed}
- * rejects a static {@code {{} that is never closed.
+ * STYLE/FORBIDDEN contexts with inlined expressions are build errors, and so is a
+ * {@code [[expr]]} in JavaScript {@code <script>} text that is not the value of a declaration in
+ * the script's prelude ({@link #checkPrelude}). {@link #checkBraces} holds static text to the
+ * client-side interpolation rule (#248, #336).
  *
  * <p>Also holds the output helpers shared with {@code t:text} and {@code t:utext}.
  */
@@ -57,12 +57,8 @@ public final class TextInlining {
     // Offset in raw of the first char of literal.
     int literalStart = 0;
     boolean found = false;
-    boolean refs = text.context() == OutputContext.TEXT;
-    // petite-vue interpolates script text too, where references are not decoded.
-    boolean interpolated = refs || text.context() == OutputContext.SCRIPT;
     String parsing = ctx.template().parsingContexts().text(text);
     boolean rawText = ctx.template().parsingContexts().insideRawText(text);
-    boolean inMustache = false;
     if (text.context() == OutputContext.SCRIPT) {
       // Reported only: the code is still emitted, and the skeleton keeps each hole for the verifier (#367).
       if (ctx.inJsonScript()) {
@@ -80,19 +76,8 @@ public final class TextInlining {
           found = true;
           SourcePos pos = text.pos().advance(raw, i + 2);
           String before = literal.toString();
-          inMustache = interpolated && inMustache(inMustache, decode(before, refs));
           flush(code, literal, text.pos().advance(raw, literalStart));
           literalStart = end + 2;
-          if (inMustache) {
-            ctx.diagnostics()
-                .error(
-                    pos,
-                    (escaped ? "[[...]]" : "[(...)]") + " is inside a client-side {{ ... }} interpolation: Vue or"
-                        + " AngularJS would run the value as code, whatever the escaping. Pass the value in a"
-                        + " data-* attribute or a <script> with [[...]] and read it from there");
-            i = end + 2;
-            continue;
-          }
           String markup = markupBefore(text.context(), before);
           if (markup != null) {
             String form = escaped ? "[[...]]" : "[(...)]";
@@ -146,153 +131,126 @@ public final class TextInlining {
   }
 
   /**
-   * Reports a static client-side {@code {{} in element text, {@code <title>} or {@code <textarea>}
-   * that no {@code }}} closes inside the same element (#248): a value written after it, in this
-   * template or in one that inserts the element or a part of it, could become Vue or AngularJS
-   * code. An element is the smallest unit a fragment or selector inserts, so the rule holds for
-   * every way of inserting one. Script text is checked per script by {@link #render}.
+   * Checks the client-side interpolation rule (#248, #336) on the static text of {@code nodes}:
+   * text that Vue or petite-vue read ({@code TEXT}, the RCDATA of {@code <title>} and
+   * {@code <textarea>}, and script text, which petite-vue reads) never lets a value into a
+   * {@code {{ ... }}}. The runtime writes every value's braces so that they never meet another
+   * brace ({@code Escapers.appendText}), so only static text can open one, and the rule is checked
+   * on each static literal (the text between two values, tags or comments) on its own:
+   *
+   * <ul>
+   *   <li>a {@code {{} is closed by a {@code }}} in the same literal;
+   *   <li>in element text, a literal that starts or ends a text node does not start with a lone
+   *       {@code {} or end with {@code {} unless a tag or comment that always renders is next to
+   *       it: after a {@code <t:block>}, a {@code t:if} or a fragment's edge the text next to it is
+   *       other static text, and the two braces would meet.
+   * </ul>
+   *
+   * Nothing is tracked across nodes, so nothing about fragments, conditions or tables is modelled.
    */
-  public static void checkMustachesClosed(CodegenContext ctx, List<Node> nodes) {
-    // TODO(#336): a value between a static {{ and a }} in another text is not reported yet.
-    checkElements(ctx, nodes);
-    SourcePos open = openMustache(nodes, null, true);
-    if (open != null) {
-      reportUnclosed(ctx, open, "");
-    }
-  }
-
-  private static void reportUnclosed(CodegenContext ctx, SourcePos open, String where) {
-    ctx.diagnostics()
-        .error(
-            open,
-            "a client-side {{ is never closed" + where + ": Vue or AngularJS would run a value written after it as"
-                + " code, also where the element is inserted as a fragment. Close it with }} inside the same"
-                + " element, or write a literal {{ as {<!---->{");
-  }
-
-  /**
-   * Reports a {@code {{} that an element in {@code nodes} opens and does not close. A fragment or a
-   * selector renders an element on its own, with nothing open before it, so each element is read
-   * from an empty state, also in a body that does not render here.
-   */
-  private static void checkElements(CodegenContext ctx, List<Node> nodes) {
-    for (Node n : nodes) {
-      if (n instanceof Element) {
-        Element e = (Element) n;
-        if (bodyRendered(e)) {
-          SourcePos open = openMustache(e.children(), null, true);
-          if (open != null) {
-            reportUnclosed(ctx, open, " inside <" + e.name() + ">");
-          }
-        }
-        checkElements(ctx, e.children());
-      }
-    }
-  }
-
-  /**
-   * The position of the {@code {{} left open after {@code nodes}, given the one open before. With
-   * {@code close} false the nodes may not render whenever that one does, so a {@code }}} in them
-   * does not close it; a {@code {{} opened in them is closed by a {@code }}} that renders with it.
-   * A {@code {{} an element leaves open is reported by {@link #checkElements}, so it does not count
-   * here.
-   */
-  private static SourcePos openMustache(List<Node> nodes, SourcePos open, boolean close) {
-    SourcePos before = open;
-    for (Node n : nodes) {
-      boolean closes = close || open != before;
-      if (n instanceof Element) {
-        Element e = (Element) n;
-        if (bodyRendered(e)) {
-          SourcePos after = openMustache(e.children(), open, closes && bodyAlwaysRendered(e));
-          open = after == open ? open : null;
-        }
-      } else if (n instanceof Text) {
-        Text t = (Text) n;
-        if (t.context() == OutputContext.TEXT) {
-          open = openMustache(t, open, closes);
-        }
-      }
-    }
-    return open;
-  }
-
-  /**
-   * Whether the children of {@code e} can render: not when a value or fragment replaces them
-   * ({@code t:text}, {@code t:utext}, {@code t:insert}, {@code t:replace}, {@code t:errors}) or
-   * {@code t:remove="all"} or {@code "body"} drops them.
-   */
-  private static boolean bodyRendered(Element e) {
+  public static void checkBraces(CodegenContext ctx, List<Node> nodes, Element parent) {
+    // Text that a value or fragment replaces never renders (an element in it may, as a fragment).
+    boolean replaced = false;
     for (String name : new String[] {"text", "utext", "insert", "replace", "errors"}) {
-      if (e.attribute(Attribute.PREFIX + name).isPresent()) {
-        return false;
+      replaced |= parent != null && parent.attribute(Attribute.PREFIX + name).isPresent();
+    }
+    for (int k = 0; k < nodes.size(); k++) {
+      Node n = nodes.get(k);
+      if (n instanceof Element) {
+        checkBraces(ctx, ((Element) n).children(), (Element) n);
+      } else if (n instanceof Text && !replaced) {
+        Text t = (Text) n;
+        OutputContext c = t.context();
+        if (c == OutputContext.TEXT || c == OutputContext.RCDATA || c == OutputContext.SCRIPT) {
+          boolean text = c == OutputContext.TEXT;
+          checkBraces(ctx, t, c != OutputContext.SCRIPT, text && !boundary(k == 0 ? parent : nodes.get(k - 1), k == 0),
+              text && !boundary(k == nodes.size() - 1 ? parent : nodes.get(k + 1), k == nodes.size() - 1));
+        }
       }
     }
-    String remove = removeValue(e);
-    return !remove.equals("all") && !remove.equals("body");
   }
 
   /**
-   * Whether the children of {@code e} render whenever {@code e} does: not under a condition, a
-   * loop, a switch or case, {@code t:field} (which replaces a textarea's body) or a
-   * {@code t:remove} other than {@code "tag"} and {@code "none"}.
+   * Whether {@code n} always writes a tag or comment where it meets a text node: a comment, or an
+   * element whose tag renders whenever the text does. {@code parent} is the text's parent element
+   * (null at the top of the template), whose own conditions decide whether the text renders at all.
    */
-  private static boolean bodyAlwaysRendered(Element e) {
-    for (String name : new String[] {"if", "unless", "each", "switch", "case", "field"}) {
+  private static boolean boundary(Node n, boolean parent) {
+    if (n instanceof Comment) {
+      return true;
+    }
+    if (!(n instanceof Element) || tagNotRendered((Element) n)) {
+      return false;
+    }
+    Element e = (Element) n;
+    if (parent) {
+      return true;
+    }
+    for (String name : new String[] {"if", "unless", "each", "switch", "case", "replace", "remove"}) {
       if (e.attribute(Attribute.PREFIX + name).isPresent()) {
         return false;
       }
     }
-    String remove = removeValue(e);
-    return remove.isEmpty() || remove.equals("tag") || remove.equals("none");
+    return true;
   }
 
-  private static String removeValue(Element e) {
-    return e.attribute(Attribute.PREFIX + "remove").map(a -> JavaStrings.trimJava(a.value())).orElse("");
-  }
-
-  private static SourcePos openMustache(Text text, SourcePos open, boolean close) {
-    SourcePos before = open;
+  private static void checkBraces(CodegenContext ctx, Text text, boolean refs, boolean startEdge, boolean endEdge) {
     String raw = text.raw();
     int start = 0;
     int i = 0;
-    while (i < raw.length()) {
+    boolean first = true;
+    while (i <= raw.length()) {
       boolean escaped = raw.startsWith("[[", i);
-      if (escaped || raw.startsWith("[(", i)) {
-        int end = findEnd(raw, i + 2, escaped ? "]]" : ")]");
-        if (end >= 0) {
-          open = openMustache(text, start, raw.substring(start, i), open, close || open != before);
-          start = end + 2;
-          i = start;
-          continue;
-        }
+      int end = i < raw.length() && (escaped || raw.startsWith("[(", i)) ? findEnd(raw, i + 2, escaped ? "]]" : ")]") : -1;
+      if (end >= 0 || i == raw.length()) {
+        boolean last = i == raw.length();
+        checkLiteral(ctx, text, start, raw.substring(start, i), refs, first && startEdge, last && endEdge);
+        first = false;
+        start = end + 2;
+        i = last ? i + 1 : start;
+        continue;
       }
       i++;
     }
-    return openMustache(text, start, raw.substring(start), open, close || open != before);
   }
 
-  /** The same for the static {@code literal} at offset {@code start} of {@code text}. */
-  private static SourcePos openMustache(Text text, int start, String literal, SourcePos open, boolean close) {
-    String s = decode(literal, true);
-    int i = 0;
-    while (true) {
-      if (open != null && !close) {
-        return open;
+  private static void checkLiteral(
+      CodegenContext ctx, Text text, int start, String literal, boolean refs, boolean startEdge, boolean endEdge) {
+    String s = decode(literal, refs);
+    for (int open = s.indexOf("{{"); open >= 0; open = s.indexOf("{{", s.indexOf("}}", open + 2) + 2)) {
+      if (s.indexOf("}}", open + 2) < 0) {
+        ctx.diagnostics()
+            .error(
+                pos(text, start, literal, s, open),
+                "a client-side {{ is not closed by }} in the same text: Vue and petite-vue would run a value, tag or"
+                    + " text written after it as code. Close it before any [[...]], tag or comment; pass a value in a"
+                    + " data-* attribute or a <script> with [[...]]; write a literal {{ as {<!---->{");
+        return;
       }
-      int next = s.indexOf(open != null ? "}}" : "{{", i);
-      if (next < 0) {
-        return open;
-      }
-      // Decoded references move offsets: then the position is the literal's start.
-      open = open != null ? null : text.pos().advance(text.raw(), start + (s.equals(literal) ? next : 0));
-      close = true;
-      i = next + 2;
+    }
+    if (startEdge && s.startsWith("{") && !s.startsWith("{{")) {
+      reportEdge(ctx, pos(text, start, literal, s, 0), "starts", "<!---->{");
+    } else if (endEdge && s.endsWith("{")) {
+      reportEdge(ctx, pos(text, start, literal, s, s.length() - 1), "ends", "{<!---->");
     }
   }
 
+  private static void reportEdge(CodegenContext ctx, SourcePos pos, String where, String fix) {
+    ctx.diagnostics()
+        .error(
+            pos,
+            "this text " + where + " with '{' next to a <t:block>, t:if, t:each, t:remove, t:replace or the edge of the"
+                + " template, where it can meet a '{' from other text and form a client-side {{ that Vue and"
+                + " petite-vue would run as code; write it as " + fix + " or move it inside an element");
+  }
+
+  /** Decoded references move offsets: then the position is the literal's start. */
+  private static SourcePos pos(Text text, int start, String literal, String decoded, int offset) {
+    return text.pos().advance(text.raw(), start + (decoded.equals(literal) ? offset : 0));
+  }
+
   /** Text as the frameworks read it: with {@code refs}, decoded, brace character references included. */
-  private static String decode(String literal, boolean refs) {
+  public static String decode(String literal, boolean refs) {
     if (!refs) {
       return literal;
     }
@@ -302,23 +260,6 @@ public final class TextInlining {
             .replace("&lcub;", "{")
             .replace("&rbrace;", "}")
             .replace("&rcub;", "}"));
-  }
-
-  /**
-   * Whether a client-side {@code {{} interpolation is open after the text {@code s} as the
-   * frameworks read it, given whether one was open before it. As in Vue and AngularJS, the first
-   * {@code }}} after {@code {{} closes it.
-   */
-  private static boolean inMustache(boolean open, String s) {
-    int i = 0;
-    while (true) {
-      int next = s.indexOf(open ? "}}" : "{{", i);
-      if (next < 0) {
-        return open;
-      }
-      open = !open;
-      i = next + 2;
-    }
   }
 
   /**

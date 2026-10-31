@@ -2,10 +2,12 @@ package dev.tessera.compiler.messages;
 
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.JavaStrings;
+import dev.tessera.compiler.codegen.attr.TextInlining;
 import dev.tessera.compiler.html.HtmlParser;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * The build-time check for a bundle message rendered as HTML ({@code t:utext="#{key}"}, #236).
@@ -62,11 +64,14 @@ final class MessageMarkup {
   static String problem(String message) {
     try {
       check(message);
+      braces(message);
     } catch (Bad e) {
       return e.getMessage();
     }
     try {
-      check(formatted(message));
+      String formatted = formatted(message);
+      check(formatted);
+      braces(formatted);
       return null;
     } catch (Bad e) {
       return e.getMessage()
@@ -80,6 +85,33 @@ final class MessageMarkup {
 
     Bad(String message) {
       super(message, null, false, false);
+    }
+  }
+
+  /** A tag the grammar accepts: quoted attribute values may hold {@code >}. */
+  private static final Pattern TAG =
+      Pattern.compile("</?[A-Za-z][^>\"']*(?:(?:\"[^\"]*\"|'[^']*')[^>\"']*)*>");
+
+  /**
+   * The client-side interpolation rule for template text (#248, #336), on the message's text: a
+   * {@code {{} is closed by a {@code }}} before the next tag or argument. The runtime breaks a
+   * {@code {} at either end of the message ({@code Escapers.rawEdges}) and in arguments.
+   */
+  private static void braces(String s) throws Bad {
+    for (String run : TAG.split(s, -1)) {
+      for (String literal : run.split(String.valueOf(ARG), -1)) {
+        String text = TextInlining.decode(literal, true);
+        int open = text.indexOf("{{");
+        while (open >= 0) {
+          int close = text.indexOf("}}", open + 2);
+          if (close < 0) {
+            throw new Bad("a client-side {{ is not closed by }} before the next tag or placeholder: Vue and"
+                + " petite-vue would run what follows as code; write a literal {{ as {<!---->{ in template text,"
+                + " not in a message");
+          }
+          open = text.indexOf("{{", close + 2);
+        }
+      }
     }
   }
 
