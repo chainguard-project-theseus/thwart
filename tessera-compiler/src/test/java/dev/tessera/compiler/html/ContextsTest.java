@@ -539,6 +539,7 @@ class ContextsTest {
     "name=referrer | TYPED_ATTRIBUTE",
     "Name=REFERRER | TYPED_ATTRIBUTE",
     "name=viewport | TYPED_ATTRIBUTE",
+    "name=HTMX-Config | TYPED_ATTRIBUTE",
     "name=description http-equiv=default-style | TYPED_ATTRIBUTE",
     "http-equiv=content-security-policy | TYPED_ATTRIBUTE",
     "http-equiv=default-style | TYPED_ATTRIBUTE",

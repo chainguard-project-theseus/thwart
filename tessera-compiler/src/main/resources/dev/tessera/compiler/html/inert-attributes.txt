@@ -62,10 +62,10 @@
 #   browser only matches input against), command, method and formmethod (CsrfInjector checks a
 #   computed method at render time and rejects a computed formmethod where the token may go).
 # content is listed for <meta> only, and Contexts narrows it further: it is inert only on a <meta>
-#   with a static name other than referrer or viewport and no http-equiv. Elsewhere on <meta> it
-#   is REFRESH (http-equiv=refresh), FORBIDDEN (http-equiv=Content-Type) or TYPED_ATTRIBUTE
+#   with a static name other than referrer, viewport or htmx-config and no http-equiv. Elsewhere on
+#   <meta> it is REFRESH (http-equiv=refresh), FORBIDDEN (http-equiv=Content-Type) or TYPED_ATTRIBUTE
 #   (another http-equiv such as content-security-policy or default-style, name=referrer,
-#   name=viewport, or no static name).
+#   name=viewport, name=htmx-config, which htmx merges into its config, or no static name).
 abbr html text
 accent foreign mathml
 accentunder foreign mathml

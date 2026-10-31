@@ -411,8 +411,9 @@ public final class Contexts {
 
   /**
    * Whether the {@code content} of {@code element} (a {@code <meta>}) is plain metadata text (#539):
-   * the element has a static {@code name} that is not {@code referrer} (a referrer policy) or
-   * {@code viewport} (it can disable zoom), no computed {@code name} ({@code t:name}, or a
+   * the element has a static {@code name} that is not {@code referrer} (a referrer policy),
+   * {@code viewport} (it can disable zoom) or {@code htmx-config} (htmx merges it into its config,
+   * which can turn its mitigations off; framework table), no computed {@code name} ({@code t:name}, or a
    * {@code t:attr*} that {@link HtmlParser#attrMaySet may set} it) that could replace it, and no
    * static {@code http-equiv} (a pragma such as
    * {@code content-security-policy} or {@code default-style}; a computed one is FORBIDDEN). Names
@@ -433,7 +434,7 @@ public final class Contexts {
       }
       if (n.equals("name")) {
         String v = a.value() == null ? "" : HtmlParser.asciiLower(HtmlParser.stripAnySpace(a.value()));
-        if (v.equals("referrer") || v.equals("viewport")) {
+        if (v.equals("referrer") || v.equals("viewport") || v.equals("htmx-config")) {
           return false;
         }
         named = true;

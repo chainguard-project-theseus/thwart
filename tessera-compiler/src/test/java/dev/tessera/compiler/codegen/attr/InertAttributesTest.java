@@ -124,6 +124,8 @@ class InertAttributesTest {
   @ValueSource(strings = {
     "<meta name=\"referrer\" t:content=\"s\">",
     "<meta NAME=\" Viewport \" t:content=\"s\">",
+    // htmx merges it into htmx.config: {"selfRequestsOnly":false,"allowEval":true}
+    "<meta name=\"htmx-config\" t:content=\"s\">",
     "<meta http-equiv=\"content-security-policy\" t:content=\"s\">",
     "<meta http-equiv=\"default-style\" t:content=\"s\">",
     "<meta name=\"description\" http-equiv=\"default-style\" t:content=\"s\">",
