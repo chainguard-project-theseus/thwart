@@ -3,30 +3,6 @@
 Rules for all agents are in [AGENTS.md](../AGENTS.md): the seven design principles, keep-it-simple,
 and the PR workflow. This doc covers how the work gets orchestrated.
 
-## State (2026-10-22)
-
-The Tessera MVP is done: the compiler, the runtime, the Spring starters (`jakarta` and `javax`),
-`tessera-migrate` (page record/compare and the Thymeleaf converter), the petclinic port, a
-security suite, JMH benchmarks, [guide.md](guide.md) (the porting guide written for agents) and
-the Claude Code migration skill in `plugins/tessera`. A code-quality pass followed (#85).
-
-Since then:
-
-- **Java 8 and Spring 4.3 floors.** Application code built against Tessera compiles with JDK 8+
-  javac and runs on Java 8+ (#154, #166); `tessera-migrate` runs on Java 8+ (#167). The starters
-  support Spring Framework 4.3+ / Boot 1.5+ (#156, #178), with a `javax.servlet` variant and
-  `TesseraConfiguration` for Spring MVC without Boot (#156).
-- **No third-party compile dependencies** in `tessera-runtime` or the starters. `tessera-compiler`
-  has its own `MarkupTokenizer` (#170); from #365 on it also shades the pinned validator.nu
-  htmlparser for the build-time verifier (#364), and nothing else. `tessera-migrate`, a
-  developer tool, bundles attoparser and jsoup.
-- **Migration benchmark** in [bench/migration](../bench/migration/README.md) (#115, #151): an
-  agent migrates real apps from the guide alone, scored with `tessera-migrate compare`. The gaps
-  it found are open issues labelled `migration-bench` (#118 to #137), and #151 tracks the
-  benchmark itself.
-
-`mvn clean verify` is green.
-
 ## Orchestration pattern
 
 1. **Main session stays small.** It plans, files issues, launches workflows, and reads summaries.
@@ -101,9 +77,10 @@ From [security-architecture.md](security-architecture.md) §7 (accepted Oct 24, 
 
 ## Known limits relevant to migration work
 
-- Maven only: nothing tests Gradle, and there is no Maven or Gradle plugin. The processor needs
-  `-Atessera.templates=<absolute dir>`.
-- Maven doesn't recompile when only a template changes. Use `mvn clean`.
+- Maven or Gradle ([examples/gradle](../examples/gradle/build.gradle), built in CI). The processor
+  needs `-Atessera.templates=<absolute dir>`.
+- javac doesn't recompile when only a template changes. With Maven, `tessera:check`
+  (`tessera-maven-plugin`) deletes the stale output so it does (#425).
 - The processor also runs in test compilation. It finds `@TemplateFunctions` classes from an
   earlier compile through the index it writes to `META-INF/tessera/functions/` (#118).
 - Artifacts are not published. A target app consumes Tessera through `mvn install` of this

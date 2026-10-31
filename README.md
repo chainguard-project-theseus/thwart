@@ -186,7 +186,8 @@ Thymeleaf directory and reports, by `file:line`, what it couldn't convert.
 | Module | What it is |
 |---|---|
 | `tessera-runtime` | Runtime: escapers, safe types, links, messages, forms. No dependencies |
-| `tessera-compiler` | Template compiler and annotation processor. No dependencies outside Tessera |
+| `tessera-html5` | Build only: the pinned validator.nu HTML parser, renamed and compiled for Java 8, for the build-time verifier |
+| `tessera-compiler` | Template compiler and annotation processor. Shades `tessera-html5` and nothing else |
 | `tessera-spring-boot-starter` | Spring MVC integration (`jakarta.servlet`): view resolver, typed return values, forms, CSRF, i18n, `auth` functions |
 | `tessera-spring-boot-starter-javax` | The same starter relocated to `javax.servlet` |
 | `tessera-spring-tests` | Runs the starter's tests on Boot 3.5, 2.7, 2.0 and 1.5 and plain Spring MVC 5.0 and 4.3 |
