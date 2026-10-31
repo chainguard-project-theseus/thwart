@@ -4,7 +4,6 @@ import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.OutputContext;
-import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -94,8 +93,8 @@ public final class Contexts {
     if (attributeName == null || !PLAIN_NAME.matcher(attributeName).matches()) {
       return OutputContext.FORBIDDEN;
     }
-    String el = element.name().toLowerCase(Locale.ROOT);
-    String attr = attributeName.toLowerCase(Locale.ROOT);
+    String el = HtmlParser.asciiLower(element.name());
+    String attr = HtmlParser.asciiLower(attributeName);
     if (attr.startsWith("on")) {
       return OutputContext.EVENT_HANDLER;
     }
@@ -173,7 +172,7 @@ public final class Contexts {
    * same-origin link. Case-insensitive.
    */
   public static boolean isHtmxRequestUrl(String attributeName) {
-    String a = attributeName.toLowerCase(Locale.ROOT);
+    String a = HtmlParser.asciiLower(attributeName);
     return HTMX_REQUEST_ATTRIBUTES.contains(a.startsWith("data-") ? a.substring("data-".length()) : a);
   }
 
@@ -184,7 +183,7 @@ public final class Contexts {
    * Case-insensitive.
    */
   public static boolean isLegacyHtmxConnect(String attributeName) {
-    String a = attributeName.toLowerCase(Locale.ROOT);
+    String a = HtmlParser.asciiLower(attributeName);
     String unprefixed = a.startsWith("data-") ? a.substring("data-".length()) : a;
     return unprefixed.equals("hx-sse") || unprefixed.equals("hx-ws");
   }
@@ -195,7 +194,7 @@ public final class Contexts {
    * into the page, so the compiler must know it to check their actions. Case-insensitive.
    */
   public static boolean isHtmxBoost(String attributeName) {
-    String a = attributeName.toLowerCase(Locale.ROOT);
+    String a = HtmlParser.asciiLower(attributeName);
     return a.equals("hx-boost") || a.equals("data-hx-boost");
   }
 
@@ -225,7 +224,7 @@ public final class Contexts {
         return true;
       }
       if (a.name().equals(Attribute.PREFIX + "attr") && a.value() != null) {
-        String v = a.value().toLowerCase(Locale.ROOT);
+        String v = HtmlParser.asciiLower(a.value());
         for (String name : HTMX_REQUEST_ATTRIBUTES) {
           if (v.contains(name)) {
             return true;
@@ -276,7 +275,7 @@ public final class Contexts {
    * the {@code .x} shorthand, stays a {@link #isFrameworkDirective directive} (EVENT_HANDLER).
    */
   public static boolean isJsonBinding(Element element, String attributeName) {
-    String a = attributeName.toLowerCase(Locale.ROOT);
+    String a = HtmlParser.asciiLower(attributeName);
     String target = null;
     for (String prefix : BIND_PREFIXES) {
       if (a.startsWith(prefix)) {
@@ -288,7 +287,7 @@ public final class Contexts {
         || BIND_DENIED_TARGETS.contains(target.replace("-", ""))) {
       return false;
     }
-    String el = element.name().toLowerCase(Locale.ROOT);
+    String el = HtmlParser.asciiLower(element.name());
     if (el.equals("script") || el.equals("style") || el.equals("meta")) {
       return false;
     }
@@ -336,7 +335,7 @@ public final class Contexts {
    * {@code attributes} setting) are not detected.
    */
   public static boolean isFrameworkDirective(Element element, String attributeName) {
-    String a = attributeName.toLowerCase(Locale.ROOT);
+    String a = HtmlParser.asciiLower(attributeName);
     if (a.equals("params") && element.name().indexOf('-') >= 0) {
       return true;
     }
@@ -393,7 +392,7 @@ public final class Contexts {
       if (!a.isTessera()
           && HtmlParser.asciiLower(a.name()).equals("http-equiv")
           && a.value() != null
-          && HtmlParser.asciiLower(Backports.strip(a.value())).equals(value)) {
+          && HtmlParser.asciiLower(HtmlParser.stripAnySpace(a.value())).equals(value)) {
         return true;
       }
     }
@@ -436,7 +435,7 @@ public final class Contexts {
     }
     for (Attribute a : element.attributes()) {
       if (!a.isTessera() && HtmlParser.asciiLower(a.name()).equals("attributename") && a.value() != null) {
-        String target = HtmlParser.asciiLower(Backports.strip(a.value()));
+        String target = HtmlParser.asciiLower(HtmlParser.stripAnySpace(a.value()));
         if (SVG_CSS_URL_ATTRIBUTES.contains(target.substring(target.lastIndexOf(':') + 1))) {
           return true;
         }
@@ -455,8 +454,8 @@ public final class Contexts {
    * {@code http-equiv} is FORBIDDEN itself). Case-insensitive.
    */
   public static boolean isTreeBuilderInput(Element element, String attributeName) {
-    String el = element.name().toLowerCase(Locale.ROOT);
-    String attr = attributeName.toLowerCase(Locale.ROOT);
+    String el = HtmlParser.asciiLower(element.name());
+    String attr = HtmlParser.asciiLower(attributeName);
     if (attr.equals("is") || attr.equals("xmlns") || attr.equals("xmlns:xlink")) {
       return true;
     }
@@ -497,7 +496,7 @@ public final class Contexts {
    * {@code </name} after the start tag.
    */
   public static boolean browserRawText(String name) {
-    return BROWSER_RAW_TEXT.contains(name.toLowerCase(Locale.ROOT));
+    return BROWSER_RAW_TEXT.contains(HtmlParser.asciiLower(name));
   }
 
   /**
@@ -511,7 +510,7 @@ public final class Contexts {
    * content type must be known at build time.
    */
   public static OutputContext text(Element element) {
-    switch (element.name().toLowerCase(Locale.ROOT)) {
+    switch (HtmlParser.asciiLower(element.name())) {
       case "script":
         return scriptContext(element);
       case "style":
@@ -526,32 +525,32 @@ public final class Contexts {
    * ({@code type="application/json"} or {@code "application/ld+json"}), not JavaScript.
    */
   public static boolean isJsonScript(Element element) {
-    if (!element.name().equalsIgnoreCase("script")) {
+    if (!HtmlParser.asciiEqualsIgnoreCase(element.name(), "script")) {
       return false;
     }
     String type = null;
     for (Attribute a : element.attributes()) {
-      if (!a.isTessera() && a.name().equalsIgnoreCase("type")) {
+      if (!a.isTessera() && HtmlParser.asciiEqualsIgnoreCase(a.name(), "type")) {
         type = a.value() == null ? "" : a.value();
       }
     }
-    return type != null && JSON_SCRIPT_TYPES.contains(Backports.strip(type).toLowerCase(Locale.ROOT));
+    return type != null && JSON_SCRIPT_TYPES.contains(HtmlParser.asciiLower(HtmlParser.stripAnySpace(type)));
   }
 
   private static OutputContext scriptContext(Element script) {
     String type = null;
     for (Attribute a : script.attributes()) {
-      if (a.isTessera() && a.localName().equalsIgnoreCase("type")) {
+      if (a.isTessera() && HtmlParser.asciiEqualsIgnoreCase(a.localName(), "type")) {
         return OutputContext.FORBIDDEN;
       }
-      if (!a.isTessera() && a.name().equalsIgnoreCase("type")) {
+      if (!a.isTessera() && HtmlParser.asciiEqualsIgnoreCase(a.name(), "type")) {
         type = a.value() == null ? "" : a.value();
       }
     }
     if (type == null) {
       return OutputContext.SCRIPT;
     }
-    return SCRIPT_TYPES.contains(Backports.strip(type).toLowerCase(Locale.ROOT))
+    return SCRIPT_TYPES.contains(HtmlParser.asciiLower(HtmlParser.stripAnySpace(type)))
         ? OutputContext.SCRIPT
         : OutputContext.FORBIDDEN;
   }

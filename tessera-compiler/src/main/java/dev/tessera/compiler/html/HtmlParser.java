@@ -2,6 +2,7 @@ package dev.tessera.compiler.html;
 
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.DiagnosticSink;
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.TemplateSource;
 import dev.tessera.compiler.expr.Assignment;
@@ -20,7 +21,6 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -79,7 +79,7 @@ public final class HtmlParser {
    * reads it as text only inside that element, never as markup elsewhere.
    */
   public static boolean isRawText(String name) {
-    return RAW_TEXT_ELEMENTS.contains(name.toLowerCase(Locale.ROOT));
+    return RAW_TEXT_ELEMENTS.contains(HtmlParser.asciiLower(name));
   }
 
   public Document parse(TemplateSource source, DiagnosticSink diagnostics) {
@@ -148,6 +148,90 @@ public final class HtmlParser {
     return sb.toString();
   }
 
+  /** HTML (and CSS, after preprocessing) whitespace: TAB, LF, FF, CR and SPACE. Not U+000B. */
+  public static boolean isHtmlWhitespace(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r';
+  }
+
+  /** {@code s} without leading and trailing {@linkplain #isHtmlWhitespace HTML whitespace}. */
+  public static String stripHtmlWhitespace(String s) {
+    int start = 0;
+    int end = s.length();
+    while (start < end && isHtmlWhitespace(s.charAt(start))) {
+      start++;
+    }
+    while (end > start && isHtmlWhitespace(s.charAt(end - 1))) {
+      end--;
+    }
+    return s.substring(start, end);
+  }
+
+  /**
+   * {@code s} without leading and trailing C0 controls, spaces and Unicode space or line separators:
+   * more than the spec (ASCII whitespace) and more than any browser strips. For keyword matches in
+   * which a false match only adds checks ({@code http-equiv}, an animation's {@code attributeName},
+   * a script {@code type}): an engine that strips Unicode spaces still matches no more than this.
+   */
+  public static String stripAnySpace(String s) {
+    int start = 0;
+    int end = s.length();
+    while (start < end && isAnySpace(s.charAt(start))) {
+      start++;
+    }
+    while (end > start && isAnySpace(s.charAt(end - 1))) {
+      end--;
+    }
+    return s.substring(start, end);
+  }
+
+  private static boolean isAnySpace(char c) {
+    int type = Character.getType(c);
+    return c <= ' ' || c == 0x85 || type == Character.SPACE_SEPARATOR || type == Character.LINE_SEPARATOR
+        || type == Character.PARAGRAPH_SEPARATOR;
+  }
+
+  /** An ASCII letter. */
+  public static boolean isAsciiAlpha(char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+  }
+
+  /** An ASCII digit. */
+  public static boolean isAsciiDigit(char c) {
+    return c >= '0' && c <= '9';
+  }
+
+  /** An ASCII letter or digit. */
+  public static boolean isAsciiAlphanumeric(char c) {
+    return isAsciiAlpha(c) || isAsciiDigit(c);
+  }
+
+  /** {@code c} with only A-Z lowercased. */
+  public static char asciiLower(char c) {
+    return c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c;
+  }
+
+  /**
+   * Whether {@code a} and {@code b} are equal folding A-Z only, as a browser compares names and
+   * keywords; false if {@code b} is null. Use this, never {@code equalsIgnoreCase}, which also folds
+   * U+0130, U+0131, U+017F and U+212A to ASCII letters.
+   */
+  public static boolean asciiEqualsIgnoreCase(String a, String b) {
+    return b != null && a.length() == b.length() && asciiRegionMatches(a, 0, b);
+  }
+
+  /** Whether {@code s} has {@code needle} at {@code at}, folding A-Z only; false if it runs past the end. */
+  public static boolean asciiRegionMatches(String s, int at, String needle) {
+    if (at < 0 || at > s.length() - needle.length()) {
+      return false;
+    }
+    for (int i = 0; i < needle.length(); i++) {
+      if (asciiLower(s.charAt(at + i)) != asciiLower(needle.charAt(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /**
    * Whether MathML element {@code name} is an {@code annotation-xml} that a browser parses as an
    * HTML integration point: its static {@code encoding} is {@code text/html} or {@code
@@ -178,7 +262,7 @@ public final class HtmlParser {
    * literals ({@code t:attr="id=${s}"} cannot set {@code encoding}). A {@code t:attr} that does not
    * parse, and any other {@code t:attr*}, may set anything; AttrProcessor reports the parse error.
    */
-  static boolean attrMaySet(Attribute a, String name) {
+  public static boolean attrMaySet(Attribute a, String name) {
     String local = asciiLower(a.localName());
     if (!a.isTessera() || !local.startsWith("attr")) {
       return false;
@@ -245,7 +329,7 @@ public final class HtmlParser {
       return true;
     }
     for (Attribute a : attributes) {
-      if (a.name().equals("t:remove") && a.value() != null && a.value().trim().equals("tag")) {
+      if (a.name().equals("t:remove") && a.value() != null && JavaStrings.trimJava(a.value()).equals("tag")) {
         return true;
       }
     }
@@ -328,13 +412,36 @@ public final class HtmlParser {
       int next = i + 2 + name.length();
       if (next <= body.length()) {
         String candidate = body.substring(i + 2, next);
-        if (candidate.equalsIgnoreCase(name) && !asciiLower(candidate).equals(asciiLower(name))
+        if (unicodeFolds(candidate, name) && !asciiEqualsIgnoreCase(candidate, name)
             && (next == body.length() || " \t\n\f\r/>".indexOf(body.charAt(next)) >= 0)) {
           return i;
         }
       }
     }
     return -1;
+  }
+
+  /**
+   * Non-ASCII characters that Java's case-insensitive comparisons fold to an ASCII letter, and that
+   * letter: U+0130 and U+0131 to i, U+017F to s, U+212A to k. A browser folds A-Z only.
+   */
+  private static final String FOLDS_TO_ASCII = "\u0130\u0131\u017F\u212A";
+
+  private static final String FOLDED = "iisk";
+
+  /** Whether {@code s} equals {@code name} (ASCII) under Java's Unicode case folding. */
+  private static boolean unicodeFolds(String s, String name) {
+    if (s.length() != name.length()) {
+      return false;
+    }
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      int k = FOLDS_TO_ASCII.indexOf(c);
+      if (asciiLower(k < 0 ? c : FOLDED.charAt(k)) != asciiLower(name.charAt(i))) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
@@ -608,7 +715,7 @@ public final class HtmlParser {
       flushText();
       String name = str(lt + 1, nameEnd);
       tag = new Open(name, position(lt), stack.peek());
-      if (name.equalsIgnoreCase("plaintext")) {
+      if (HtmlParser.asciiEqualsIgnoreCase(name, "plaintext")) {
         diagnostics.error(tag.pos, "<" + name + "> is not supported: a browser treats the rest of the page as plain"
             + " text; use <pre>");
       }
@@ -617,7 +724,7 @@ public final class HtmlParser {
             + "': element names start with a letter and use letters, digits, '-', '_', ':' and '.'");
       }
       // By name only: a classic select parser keeps svg and math there as HTML.
-      String lower = name.toLowerCase(Locale.ROOT);
+      String lower = HtmlParser.asciiLower(name);
       if (!SELECT_CONTENT.contains(lower) && inSelect()) {
         diagnostics.error(tag.pos, notInSelect(lower));
       }
@@ -625,7 +732,7 @@ public final class HtmlParser {
 
     private boolean inSelect() {
       for (Open o : stack) {
-        if (o.name.equalsIgnoreCase("select")) {
+        if (HtmlParser.asciiEqualsIgnoreCase(o.name, "select")) {
           return true;
         }
       }
@@ -688,7 +795,7 @@ public final class HtmlParser {
       checkBreakout(open);
       open.textContext = Contexts.text(open.toElement(false, false));
       stack.push(open);
-      if (RAW_TEXT_ELEMENTS.contains(open.name.toLowerCase(Locale.ROOT))) {
+      if (RAW_TEXT_ELEMENTS.contains(HtmlParser.asciiLower(open.name))) {
         raw = open;
         rawStart = gt + 1;
         rawEnd = browserEndTag(open.name, rawStart);
@@ -780,7 +887,7 @@ public final class HtmlParser {
     private int browserEndTag(String name, int from) {
       String needle = "</" + name;
       for (int i = from; i + needle.length() <= content.length(); i++) {
-        if (asciiMatchesIgnoreCase(content, i, needle)) {
+        if (asciiRegionMatches(content, i, needle)) {
           int next = i + needle.length();
           if (next == content.length() || " \t\n\f\r/>".indexOf(content.charAt(next)) >= 0) {
             return i;
@@ -788,22 +895,6 @@ public final class HtmlParser {
         }
       }
       return -1;
-    }
-
-    /** Whether {@code s} has {@code needle} at {@code at}, folding ASCII letters only, as browsers do. */
-    private static boolean asciiMatchesIgnoreCase(String s, int at, String needle) {
-      for (int i = 0; i < needle.length(); i++) {
-        char a = s.charAt(at + i);
-        char b = needle.charAt(i);
-        if (a != b && asciiLower(a) != asciiLower(b)) {
-          return false;
-        }
-      }
-      return true;
-    }
-
-    private static char asciiLower(char c) {
-      return c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c;
     }
 
     /** Ends the current raw-text element's content at {@code end} (exclusive). */
@@ -821,8 +912,8 @@ public final class HtmlParser {
         }
         boolean foreign = !raw.namespace.equals(HTML);
         int markup = foreign ? foreignMarkup(body) : -1;
-        int reference = foreign && markup < 0 && (raw.name.equalsIgnoreCase("script")
-            || raw.name.equalsIgnoreCase("style")) ? foreignReference(body) : -1;
+        int reference = foreign && markup < 0 && (HtmlParser.asciiEqualsIgnoreCase(raw.name, "script")
+            || HtmlParser.asciiEqualsIgnoreCase(raw.name, "style")) ? foreignReference(body) : -1;
         // A CDATA section in an SVG <title> (an integration point) is the verifier's exclusion (d) (#441).
         if (markup >= 0) {
           // Inside svg and math a browser parses this content as markup (SVG <title> as HTML), so
@@ -835,7 +926,7 @@ public final class HtmlParser {
           // are TEXT, where both readings decode. Fail closed.
           diagnostics.error(position(rawStart + reference), "malformed markup: '&' inside <" + raw.name
               + "> in <svg> or <math> is decoded by a browser: write the character itself, or use a CDATA section");
-        } else if (raw.name.equalsIgnoreCase("script") && comment >= 0) {
+        } else if (HtmlParser.asciiEqualsIgnoreCase(raw.name, "script") && comment >= 0) {
           // Browsers apply script-data escape rules after "<!--" ("<script" inside it hides
           // the next "</script>"); the tokenizer does not. Fail closed.
           diagnostics.error(position(rawStart + comment),

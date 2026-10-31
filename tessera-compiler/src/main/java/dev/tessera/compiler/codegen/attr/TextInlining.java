@@ -3,6 +3,7 @@ package dev.tessera.compiler.codegen.attr;
 import static dev.tessera.compiler.types.ExpressionCompiler.isDeclared;
 
 import dev.tessera.compiler.Backports;
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.Emitted;
@@ -252,7 +253,7 @@ public final class TextInlining {
   }
 
   private static String removeValue(Element e) {
-    return e.attribute(Attribute.PREFIX + "remove").map(a -> a.value().trim()).orElse("");
+    return e.attribute(Attribute.PREFIX + "remove").map(a -> JavaStrings.trimJava(a.value())).orElse("");
   }
 
   private static SourcePos openMustache(Text text, SourcePos open, boolean close) {

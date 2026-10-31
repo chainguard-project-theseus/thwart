@@ -1,5 +1,6 @@
 package dev.tessera.compiler.codegen.attr;
 
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
@@ -56,7 +57,7 @@ public final class SwitchProcessor implements AttributeProcessor {
     }
     String m = matched.get().javaName();
     String cond;
-    if (attr.value() != null && attr.value().trim().equals("*")) {
+    if (attr.value() != null && JavaStrings.trimJava(attr.value()).equals("*")) {
       cond = "!" + m;
     } else {
       Expr e = ctx.parse(attr);

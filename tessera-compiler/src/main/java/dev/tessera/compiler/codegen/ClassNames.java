@@ -1,6 +1,6 @@
 package dev.tessera.compiler.codegen;
 
-import java.util.Locale;
+import dev.tessera.compiler.html.HtmlParser;
 import javax.lang.model.SourceVersion;
 
 /**
@@ -24,11 +24,11 @@ final class ClassNames {
     String[] segments = viewName.split("/", -1);
     String name = basePackage;
     for (int i = 0; i < segments.length - 1; i++) {
-      name = qualify(name, guard(camel(segments[i]).toLowerCase(Locale.ROOT)));
+      name = qualify(name, guard(HtmlParser.asciiLower(camel(segments[i]))));
     }
     String file = camel(segments[segments.length - 1]);
     if (!file.isEmpty()) {
-      file = Character.toUpperCase(file.charAt(0)) + file.substring(1);
+      file = asciiUpper(file.charAt(0)) + file.substring(1);
     }
     return qualify(name, guard(file + "Template"));
   }
@@ -44,8 +44,8 @@ final class ClassNames {
     boolean upper = false;
     for (int i = 0; i < segment.length(); i++) {
       char c = segment.charAt(i);
-      if (c < 128 && (Character.isLetterOrDigit(c) || c == '_')) {
-        sb.append(upper ? Character.toUpperCase(c) : c);
+      if (HtmlParser.isAsciiAlphanumeric(c) || c == '_') {
+        sb.append(upper ? asciiUpper(c) : c);
         upper = false;
       } else {
         upper = sb.length() > 0;
@@ -54,9 +54,14 @@ final class ClassNames {
     return sb.toString();
   }
 
+  /** {@code c} with only a-z upper-cased; class names are ASCII ({@link #camel}). */
+  private static char asciiUpper(char c) {
+    return c >= 'a' && c <= 'z' ? (char) (c - ('a' - 'A')) : c;
+  }
+
   /** Prefixes {@code _} to keywords, empty segments and segments starting with a digit. */
   private static String guard(String s) {
-    if (s.isEmpty() || Character.isDigit(s.charAt(0)) || SourceVersion.isKeyword(s)) {
+    if (s.isEmpty() || HtmlParser.isAsciiDigit(s.charAt(0)) || SourceVersion.isKeyword(s)) {
       return "_" + s;
     }
     return s;

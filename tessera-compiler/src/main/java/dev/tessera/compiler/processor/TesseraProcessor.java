@@ -5,6 +5,7 @@ import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.Diagnostic;
 import dev.tessera.compiler.Diagnostics;
 import dev.tessera.compiler.GeneratedFile;
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.TemplateCompiler;
 import dev.tessera.compiler.TemplateSource;
 import dev.tessera.compiler.messages.MessageBundle;
@@ -294,7 +295,7 @@ public final class TesseraProcessor extends AbstractProcessor {
     }
     try {
       FileObject fo = processingEnv.getFiler().getResource(StandardLocation.CLASS_PATH, "", FUNCTION_INDEX + ns);
-      String name = fo.getCharContent(true).toString().trim();
+      String name = JavaStrings.trimJava(fo.getCharContent(true).toString());
       return name.isEmpty() ? null : name;
     } catch (IOException | IllegalArgumentException e) {
       return null; // not indexed

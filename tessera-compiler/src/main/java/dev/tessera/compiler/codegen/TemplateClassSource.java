@@ -3,6 +3,7 @@ package dev.tessera.compiler.codegen;
 import static dev.tessera.compiler.JavaStrings.literal;
 import static dev.tessera.compiler.codegen.TemplateGenerator.javaName;
 
+import dev.tessera.compiler.html.HtmlParser;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -95,7 +96,7 @@ final class TemplateClassSource {
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < s.length(); i++) {
       char c = s.charAt(i);
-      sb.append(c < 128 && (Character.isLetterOrDigit(c) || "/._-".indexOf(c) >= 0) ? c : '_');
+      sb.append(HtmlParser.isAsciiAlphanumeric(c) || "/._-".indexOf(c) >= 0 ? c : '_');
     }
     return sb.toString();
   }

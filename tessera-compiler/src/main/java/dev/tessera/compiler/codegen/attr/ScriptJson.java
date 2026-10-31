@@ -575,11 +575,7 @@ final class ScriptJson {
     if (n.equals("getClass")) {
       return null;
     }
-    StringBuilder sb = new StringBuilder(rest);
-    for (int i = 0; i < sb.length() && Character.isUpperCase(sb.charAt(i)); i++) {
-      sb.setCharAt(i, Character.toLowerCase(sb.charAt(i)));
-    }
-    return sb.toString();
+    return JavaStrings.lowerLeadingUpper(rest);
   }
 
   private static boolean isBoolean(TypeMirror t) {

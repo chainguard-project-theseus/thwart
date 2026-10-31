@@ -1,10 +1,10 @@
 package dev.tessera.compiler.links;
 
-import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.expr.Assignment;
 import dev.tessera.compiler.expr.Expr;
+import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.types.Scope;
@@ -103,7 +103,8 @@ public final class LinkCompiler {
   private static boolean checkSchemeAndHost(Expr.Link link, DiagnosticSink diagnostics) {
     String path = link.path();
     String scheme = scheme(path);
-    if (scheme != null && !scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https")) {
+    if (scheme != null && !HtmlParser.asciiEqualsIgnoreCase(scheme, "http")
+        && !HtmlParser.asciiEqualsIgnoreCase(scheme, "https")) {
       diagnostics.error(
           link.pos(),
           "link @{" + path + "} has scheme '" + scheme + ":': only http and https absolute links are"
@@ -200,7 +201,7 @@ public final class LinkCompiler {
    */
   private static String authority(String path, boolean hasScheme) {
     String rest = hasScheme ? path.substring(path.indexOf(':') + 1) : path;
-    rest = Backports.stripLeading(rest.replaceAll("[\t\r\n]", "").replace('\\', '/'));
+    rest = HtmlParser.stripAnySpace(rest.replaceAll("[\t\r\n]", "").replace('\\', '/'));
     if (hasScheme) {
       rest = rest.replaceFirst("^/*", "");
     } else if (rest.startsWith("//")) {

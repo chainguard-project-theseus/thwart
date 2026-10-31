@@ -350,7 +350,7 @@ final class HtmlSanitizer {
     if (allowed.contains("id")) {
       String id = attrs.get("id");
       if (id != null) {
-        id = decode(id).trim();
+        id = HtmlPolicy.stripWhitespace(decode(id));
         if (HtmlPolicy.isClassToken(id)) {
           // an id that already has the prefix keeps it, so sanitizing twice changes nothing
           sb.append(" id=\"").append(id.startsWith(policy.idPrefix) ? "" : policy.idPrefix).append(id).append('"');
@@ -393,7 +393,7 @@ final class HtmlSanitizer {
       numberAttribute(sb, "rowspan", attrs, 5, false);
       String align = allowed.contains("align") ? attrs.get("align") : null;
       if (align != null) {
-        align = HtmlPolicy.lower(decode(align).trim());
+        align = HtmlPolicy.lower(HtmlPolicy.stripWhitespace(decode(align)));
         if (align.equals("left") || align.equals("center") || align.equals("right") || align.equals("justify")) {
           sb.append(" align=\"").append(align).append('"');
         }
@@ -409,7 +409,7 @@ final class HtmlSanitizer {
     if (link != null) {
       sb.append(policy.rel);
       String target = policy.linkTarget ? attrs.get("target") : null;
-      if (target != null && HtmlPolicy.lower(decode(target).trim()).equals("_blank")) {
+      if (target != null && HtmlPolicy.lower(HtmlPolicy.stripWhitespace(decode(target))).equals("_blank")) {
         sb.append(" target=\"_blank\"");
       }
     }
@@ -500,7 +500,7 @@ final class HtmlSanitizer {
     if (raw == null) {
       return;
     }
-    String v = decode(raw).trim();
+    String v = HtmlPolicy.stripWhitespace(decode(raw));
     int start = signed && v.startsWith("-") ? 1 : 0;
     if (v.length() == start || v.length() - start > digits) {
       return;
@@ -626,7 +626,7 @@ final class HtmlSanitizer {
       }
       int end = lt + 2 + name.length();
       if (end <= n
-          && s.regionMatches(true, lt + 2, name, 0, name.length())
+          && HtmlPolicy.lower(s.substring(lt + 2, end)).equals(name)
           && (end == n || isSpace(s.charAt(end)) || s.charAt(end) == '/' || s.charAt(end) == '>')) {
         skipPast('>', end);
         return;

@@ -181,15 +181,15 @@ final class MarkupTokenizer {
       return CDATA;
     }
     if (n - i > 9 && startsWith(i, "<!") && keyword(i + 2, "DOCTYPE")
-        && (Character.isWhitespace(buf[i + 9]) || buf[i + 9] == '>')) {
+        && (HtmlParser.isHtmlWhitespace(buf[i + 9]) || buf[i + 9] == '>')) {
       return DOCTYPE;
     }
     if (n - i > 5 && startsWith(i, "<?xml")
-        && (Character.isWhitespace(buf[i + 5]) || (n - i > 6 && buf[i + 5] == '?' && buf[i + 6] == '>'))) {
+        && (HtmlParser.isHtmlWhitespace(buf[i + 5]) || (n - i > 6 && buf[i + 5] == '?' && buf[i + 6] == '>'))) {
       return XML_DECLARATION;
     }
-    if (n - i > 2 && buf[i + 1] == '?' && !Character.isWhitespace(buf[i + 2])
-        && !(n - i > 5 && startsWith(i + 2, "xml") && Character.isWhitespace(buf[i + 5]))) {
+    if (n - i > 2 && buf[i + 1] == '?' && !HtmlParser.isHtmlWhitespace(buf[i + 2])
+        && !(n - i > 5 && startsWith(i + 2, "xml") && HtmlParser.isHtmlWhitespace(buf[i + 5]))) {
       return PROCESSING_INSTRUCTION;
     }
     return NONE;
@@ -207,15 +207,15 @@ final class MarkupTokenizer {
         return false;
       }
       if (len > 8) {
-        return !(keyword(i + 1, "DOCTYPE") && (Character.isWhitespace(buf[i + 8]) || buf[i + 8] == '>'));
+        return !(keyword(i + 1, "DOCTYPE") && (HtmlParser.isHtmlWhitespace(buf[i + 8]) || buf[i + 8] == '>'));
       }
-      return !Character.isWhitespace(c);
+      return !HtmlParser.isHtmlWhitespace(c);
     }
     if (len <= 0) {
       return false;
     }
     char c = buf[i];
-    return c != '-' && c != '!' && c != '/' && c != '?' && c != '[' && !Character.isWhitespace(c);
+    return c != '-' && c != '!' && c != '/' && c != '?' && c != '[' && !HtmlParser.isHtmlWhitespace(c);
   }
 
   /** Reads the structure of {@code kind} at {@code start}; returns the offset of its last char. */
@@ -332,7 +332,7 @@ final class MarkupTokenizer {
                 + (c == '"' ? "&quot;" : "&#39;") + " in it"
             : "quote " + c + " in a tag or attribute name: remove it (names cannot contain quotes)", i);
       }
-      if (!space && Character.isWhitespace(c)) {
+      if (!space && isNonHtmlSpace(c)) {
         throw new MarkupException(String.format(
             "U+%04X in a tag is not HTML whitespace: replace it with a space", (int) c), i);
       }
@@ -459,11 +459,11 @@ final class MarkupTokenizer {
     }
     String name = str(start + 1, nameEnd);
     boolean isVoid = !minimized && isVoid(name);
-    boolean script = name.equalsIgnoreCase("script");
-    boolean[] raw = {!minimized && !isVoid && (script || name.equalsIgnoreCase("style"))};
+    boolean script = HtmlParser.asciiEqualsIgnoreCase(name, "script");
+    boolean[] raw = {!minimized && !isVoid && (script || HtmlParser.asciiEqualsIgnoreCase(name, "style"))};
     handler.startTag(start, nameEnd);
     attributes(nameEnd, end, (ns, ne, vs, ve, quote) -> {
-      if (script && str(ns, ne).equalsIgnoreCase("type")) {
+      if (script && HtmlParser.asciiEqualsIgnoreCase(str(ns, ne), "type")) {
         raw[0] = vs >= 0 && isJavaScriptType(str(vs, ve));
       }
       handler.attribute(ns, ne, vs, ve, quote);
@@ -480,7 +480,7 @@ final class MarkupTokenizer {
 
   private static boolean isVoid(String name) {
     for (String v : VOID_ELEMENTS) {
-      if (v.equalsIgnoreCase(name)) {
+      if (HtmlParser.asciiEqualsIgnoreCase(v, name)) {
         return true;
       }
     }
@@ -489,7 +489,7 @@ final class MarkupTokenizer {
 
   private static boolean isJavaScriptType(String type) {
     for (String t : JAVASCRIPT_TYPES) {
-      if (t.equalsIgnoreCase(type)) {
+      if (HtmlParser.asciiEqualsIgnoreCase(t, type)) {
         return true;
       }
     }
@@ -574,7 +574,7 @@ final class MarkupTokenizer {
     int from = start + 2;
     int to = end;
     int last = to - 1;
-    while (last > from && Character.isWhitespace(buf[last])) {
+    while (last > from && HtmlParser.isHtmlWhitespace(buf[last])) {
       last--;
     }
     if (last > from && buf[last] == ']') {
@@ -697,7 +697,7 @@ final class MarkupTokenizer {
         inQuotes = !inQuotes;
       } else if (avoidQuotes && c == '\'' && !inQuotes) {
         inApos = !inApos;
-      } else if (!inQuotes && !inApos && Character.isWhitespace(c)) {
+      } else if (!inQuotes && !inApos && HtmlParser.isHtmlWhitespace(c)) {
         return i;
       }
     }
@@ -706,7 +706,7 @@ final class MarkupTokenizer {
 
   private int nonWhitespace(int from, int to) {
     for (int i = from; i < to; i++) {
-      if (!Character.isWhitespace(buf[i])) {
+      if (!HtmlParser.isHtmlWhitespace(buf[i])) {
         return i;
       }
     }
@@ -716,7 +716,7 @@ final class MarkupTokenizer {
   /** The first {@code =} or whitespace. */
   private int operator(int from, int to) {
     for (int i = from; i < to; i++) {
-      if (buf[i] == '=' || Character.isWhitespace(buf[i])) {
+      if (buf[i] == '=' || HtmlParser.isHtmlWhitespace(buf[i])) {
         return i;
       }
     }
@@ -726,7 +726,7 @@ final class MarkupTokenizer {
   /** The first char that is neither {@code =} nor whitespace. */
   private int nonOperator(int from, int to) {
     for (int i = from; i < to; i++) {
-      if (buf[i] != '=' && !Character.isWhitespace(buf[i])) {
+      if (buf[i] != '=' && !HtmlParser.isHtmlWhitespace(buf[i])) {
         return i;
       }
     }
@@ -775,11 +775,23 @@ final class MarkupTokenizer {
     for (int j = 0; j < upper.length(); j++) {
       char c = buf[i + j];
       char u = upper.charAt(j);
-      if (c != u && c != Character.toLowerCase(u)) {
+      if (c != u && c != HtmlParser.asciiLower(u)) {
         return false;
       }
     }
     return true;
+  }
+
+  /**
+   * A char that Java or Unicode counts as a space but HTML does not (U+000B, U+001C to U+001F, the
+   * Unicode space and line separators): in a tag it is part of a name or value, not a separator (#338).
+   */
+  private static boolean isNonHtmlSpace(char c) {
+    int type = Character.getType(c);
+    return !HtmlParser.isHtmlWhitespace(c)
+        && (c == 0x0B || (c >= 0x1C && c <= 0x1F)
+            || (type == Character.SPACE_SEPARATOR && c != 0xA0 && c != 0x2007 && c != 0x202F)
+            || type == Character.LINE_SEPARATOR || type == Character.PARAGRAPH_SEPARATOR);
   }
 
   private String str(int start, int end) {

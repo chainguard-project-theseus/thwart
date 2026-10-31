@@ -5,13 +5,13 @@ import dev.tessera.compiler.Diagnostics;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.TemplateIndex;
 import dev.tessera.compiler.expr.FragmentRef;
+import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.model.Text;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -92,7 +92,7 @@ public final class FragmentTop {
       return;
     }
     if (!tagNotRendered(e)) {
-      elements.add(e.name().toLowerCase(Locale.ROOT));
+      elements.add(HtmlParser.asciiLower(e.name()));
       return;
     }
     if (e.attribute("t:text").isPresent() || e.attribute("t:utext").isPresent() || e.attribute("t:errors").isPresent()) {

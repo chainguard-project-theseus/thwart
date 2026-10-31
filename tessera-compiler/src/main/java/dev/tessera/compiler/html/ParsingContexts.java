@@ -1,6 +1,7 @@
 package dev.tessera.compiler.html;
 
 import dev.tessera.compiler.Backports;
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Document;
 import dev.tessera.compiler.model.Element;
@@ -9,7 +10,6 @@ import dev.tessera.compiler.model.Text;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -117,7 +117,7 @@ public final class ParsingContexts {
    * Contexts#browserRawText} elements, by name in any namespace.
    */
   public static boolean rawTextElement(Element e) {
-    String name = e.name().toLowerCase(Locale.ROOT);
+    String name = HtmlParser.asciiLower(e.name());
     return name.equals("title") || name.equals("textarea") || Contexts.browserRawText(name);
   }
   /** The context {@code node}, text of this template, is parsed in; {@link #MIXED} if unknown. */
@@ -180,7 +180,7 @@ public final class ParsingContexts {
   // TODO(#306): one "in <select>" allow-list shared with #305's in-template rule; a fragment root
   // should also be a valid child at the point (<select t:fragment> into <select> nests selects).
   private static boolean selectSafe(Element e) {
-    if (NOT_IN_SELECT.contains(e.name().toLowerCase(Locale.ROOT))) {
+    if (NOT_IN_SELECT.contains(HtmlParser.asciiLower(e.name()))) {
       return false;
     }
     for (Attribute a : e.attributes()) {
@@ -261,7 +261,7 @@ public final class ParsingContexts {
   }
 
   private static boolean isBreakout(Element e) {
-    String name = e.name().toLowerCase(Locale.ROOT);
+    String name = HtmlParser.asciiLower(e.name());
     if (name.equals("font")) {
       return mayHave(e, "color") || mayHave(e, "face") || mayHave(e, "size");
     }
@@ -282,7 +282,7 @@ public final class ParsingContexts {
         return false;
       }
       if (n.equals("remove") && a.value() != null) {
-        String v = a.value().trim();
+        String v = JavaStrings.trimJava(a.value());
         if (v.equals("all") || v.equals("body")) {
           return false;
         }
@@ -301,7 +301,7 @@ public final class ParsingContexts {
     if (e.name().equals(Attribute.PREFIX + "block")) {
       return context;
     }
-    String name = e.name().toLowerCase(Locale.ROOT);
+    String name = HtmlParser.asciiLower(e.name());
     if (name.equals("mglyph") || name.equals("malignmark")) {
       return MIXED;
     }
@@ -383,7 +383,7 @@ public final class ParsingContexts {
 
   private static boolean removesTag(Element e) {
     for (Attribute a : e.attributes()) {
-      if (a.name().equals(Attribute.PREFIX + "remove") && a.value() != null && a.value().trim().equals("tag")) {
+      if (a.name().equals(Attribute.PREFIX + "remove") && a.value() != null && JavaStrings.trimJava(a.value()).equals("tag")) {
         return true;
       }
     }

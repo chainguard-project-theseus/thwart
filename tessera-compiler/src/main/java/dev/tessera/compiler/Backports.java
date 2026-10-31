@@ -60,28 +60,4 @@ public final class Backports {
     }
     return Collections.unmodifiableMap(copy);
   }
-
-  public static String strip(String s) {
-    return stripTrailing(stripLeading(s));
-  }
-
-  public static String stripLeading(String s) {
-    int i = 0;
-    while (i < s.length() && Character.isWhitespace(s.codePointAt(i))) {
-      i += Character.charCount(s.codePointAt(i));
-    }
-    return s.substring(i);
-  }
-
-  public static String stripTrailing(String s) {
-    int i = s.length();
-    while (i > 0 && Character.isWhitespace(s.codePointBefore(i))) {
-      i -= Character.charCount(s.codePointBefore(i));
-    }
-    return s.substring(0, i);
-  }
-
-  public static boolean isBlank(String s) {
-    return stripLeading(s).isEmpty();
-  }
 }

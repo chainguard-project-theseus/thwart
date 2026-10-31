@@ -3,6 +3,7 @@ package dev.tessera.compiler.codegen;
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.GeneratedFile;
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.attr.CsrfInjector;
 import dev.tessera.compiler.codegen.attr.FieldProcessor;
@@ -12,6 +13,7 @@ import dev.tessera.compiler.codegen.attr.TextInlining;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.ExpressionParser;
 import dev.tessera.compiler.html.Contexts;
+import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Comment;
 import dev.tessera.compiler.model.DocType;
@@ -31,7 +33,6 @@ import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -250,11 +251,11 @@ public final class TemplateGenerator implements CodegenContext {
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < hint.length(); i++) {
       char c = hint.charAt(i);
-      if (c < 128 && (Character.isLetterOrDigit(c) || c == '_')) {
+      if (HtmlParser.isAsciiAlphanumeric(c) || c == '_') {
         sb.append(c);
       }
     }
-    if (sb.length() == 0 || Character.isDigit(sb.charAt(0))) {
+    if (sb.length() == 0 || HtmlParser.isAsciiDigit(sb.charAt(0))) {
       sb.insert(0, 'v');
     }
     return sb.append('$').append(fresh++).toString();
@@ -400,7 +401,7 @@ public final class TemplateGenerator implements CodegenContext {
         boost = null;
       }
       boolean b = boost == null ? boosted : boost;
-      boolean form = e.name().equalsIgnoreCase("form");
+      boolean form = HtmlParser.asciiEqualsIgnoreCase(e.name(), "form");
       boolean f = htmxForm || (form && (b || Contexts.hasHtmxRequestAttribute(e)));
       // A form's own action is requested only when it is boosted; with hx-post etc. htmx ignores it.
       if (form ? b : b || f) {
@@ -417,7 +418,7 @@ public final class TemplateGenerator implements CodegenContext {
    */
   private static String trailingWhitespace(String raw) {
     int start = raw.length();
-    while (start > 0 && Character.isWhitespace(raw.charAt(start - 1))) {
+    while (start > 0 && JavaStrings.isJavaWhitespace(raw.charAt(start - 1))) {
       start--;
     }
     if (start == raw.length()) {
@@ -504,14 +505,15 @@ public final class TemplateGenerator implements CodegenContext {
     // In raw text (<xmp>, <iframe>, <noembed>, <noframes>) the tag is text, so nothing is dropped.
     // Inside <noscript> the content is markup with scripting off, and raw text a browser never
     // renders with it on, so the line feed is written there too.
-    boolean leadingLineFeed = (outer == null || outer.equalsIgnoreCase("noscript")) && !e.foreign()
-        && LEADING_LINE_FEED.contains(e.name().toLowerCase(Locale.ROOT));
+    boolean leadingLineFeed = (outer == null || HtmlParser.asciiEqualsIgnoreCase(outer, "noscript")) && !e.foreign()
+        && LEADING_LINE_FEED.contains(HtmlParser.asciiLower(e.name()));
     // Processors (t:remove="all-but-first") and emit generate the content.
     rawTextHost = host;
-    inForeign = outerForeign || e.name().equalsIgnoreCase("svg") || e.name().equalsIgnoreCase("math");
+    inForeign = outerForeign || HtmlParser.asciiEqualsIgnoreCase(e.name(), "svg")
+        || HtmlParser.asciiEqualsIgnoreCase(e.name(), "math");
     jsonScript = Contexts.isJsonScript(e);
     if (!FragmentTop.tagNotRendered(e)) {
-      String lower = e.name().toLowerCase(Locale.ROOT);
+      String lower = HtmlParser.asciiLower(e.name());
       hostElement = lower;
       // A t:replace'd element is not written: what replaces it is checked below.
       if (!e.attribute("t:replace").isPresent()) {
@@ -560,7 +562,7 @@ public final class TemplateGenerator implements CodegenContext {
         }
         AttributeProcessors.forName(a.localName()).ifPresent(p -> p.process(this, a, plan));
       }
-      if (e.name().equalsIgnoreCase("form")) {
+      if (HtmlParser.asciiEqualsIgnoreCase(e.name(), "form")) {
         boolean token = CsrfInjector.apply(this, plan);
         if (!plan.tagOmitted()) {
           // A browser drops a nested form's start tag: the inner one's buttons submit the outer form.
@@ -570,10 +572,10 @@ public final class TemplateGenerator implements CodegenContext {
       if (!plan.removed() && plan.replacement() == null) {
         CsrfInjector.checkSubmitter(this, plan);
       }
-      if (e.name().equalsIgnoreCase("base")) {
+      if (HtmlParser.asciiEqualsIgnoreCase(e.name(), "base")) {
         CsrfInjector.checkBase(this, e);
       }
-      if (e.name().equalsIgnoreCase("option")) {
+      if (HtmlParser.asciiEqualsIgnoreCase(e.name(), "option")) {
         FieldProcessor.option(this, plan);
       }
       emit(c, plan, leadingLineFeed);
@@ -676,7 +678,7 @@ public final class TemplateGenerator implements CodegenContext {
    * after a tag that ends foreign content ({@code <b>}).
    */
   private static boolean rawTextElement(Element e) {
-    String lower = e.name().toLowerCase(Locale.ROOT);
+    String lower = HtmlParser.asciiLower(e.name());
     return Contexts.browserRawText(lower) || lower.equals("textarea") || lower.equals("title");
   }
 
@@ -766,7 +768,7 @@ public final class TemplateGenerator implements CodegenContext {
    * have read inside a comment or attribute value.
    */
   private void selfClosingRawText(Element e) {
-    String lower = e.name().toLowerCase(Locale.ROOT);
+    String lower = HtmlParser.asciiLower(e.name());
     if (inForeign && lower.equals("title")) {
       diagnostics()
           .error(e.pos(), "<title/> is not supported inside <svg> or <math>: Tessera cannot tell an SVG title"
@@ -813,7 +815,7 @@ public final class TemplateGenerator implements CodegenContext {
     }
     if (!e.selfClosing() || opensSelfClosing(plan)) {
       c.text(">", e.pos());
-    } else if (source != null && source.length() > 2 && Character.isWhitespace(source.charAt(source.length() - 3))) {
+    } else if (source != null && source.length() > 2 && HtmlParser.isHtmlWhitespace(source.charAt(source.length() - 3))) {
       c.text(" />", e.pos());
     } else {
       c.text("/>", e.pos());
@@ -832,7 +834,7 @@ public final class TemplateGenerator implements CodegenContext {
    * second, conflicting nonce attribute (the browser keeps the first).
    */
   private boolean takesCspNonce(ElementPlan plan) {
-    String lower = plan.element().name().toLowerCase(Locale.ROOT);
+    String lower = HtmlParser.asciiLower(plan.element().name());
     if (!lower.equals("script") && !lower.equals("style")) {
       return false;
     }
