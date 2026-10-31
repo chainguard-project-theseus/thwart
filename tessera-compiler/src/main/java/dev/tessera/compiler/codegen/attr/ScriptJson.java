@@ -1,5 +1,7 @@
 package dev.tessera.compiler.codegen.attr;
 
+import static dev.tessera.compiler.types.ExpressionCompiler.isDeclared;
+
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
@@ -104,7 +106,12 @@ final class ScriptJson {
   private static final Set<String> JSON_COLLECTIONS =
       Backports.setOf("java.util.Collection", "java.util.List", "java.util.Set");
 
+  private static final String NEW_MAP =
+      "java.util.Map<java.lang.String, java.lang.Object> m$ = new java.util.LinkedHashMap<>();\n";
+
   private final CodegenContext ctx;
+  /** Whether helpers copy the value for {@link #attributeValue} rather than append its JSON. */
+  private final boolean tree;
   /** Generated helper method per type (by {@code TypeMirror.toString()}), for reuse and recursion. */
   private final Map<String, String> helpers = new HashMap<>();
   /** Beans whose helper is being generated, to stop unbounded generic expansion. */
@@ -112,8 +119,9 @@ final class ScriptJson {
   /** Why a nested property cannot be serialized, for the error message; null at top level. */
   private String failure;
 
-  private ScriptJson(CodegenContext ctx) {
+  private ScriptJson(CodegenContext ctx, boolean tree) {
     this.ctx = ctx;
+    this.tree = tree;
   }
 
   /**
@@ -123,8 +131,8 @@ final class ScriptJson {
    * beans goes to a generated helper, which writes it in parentheses too outside a JSON script.
    */
   static Emitted statement(CodegenContext ctx, CompiledExpr c) {
-    ScriptJson json = new ScriptJson(ctx);
-    String code = json.convert(c.type(), "o$", "0", "0");
+    ScriptJson json = new ScriptJson(ctx, false);
+    String code = json.value(c.type(), "o$", "0", "0");
     if (code == null) {
       json.report(c.pos(), c.type(), "inside <script>");
       return null;
@@ -149,8 +157,8 @@ final class ScriptJson {
    * {@link #statement}. Nesting deeper than {@value #MAX_DEPTH} throws.
    */
   static String attributeValue(CodegenContext ctx, CompiledExpr c, SourcePos pos, String label) {
-    ScriptJson json = new ScriptJson(ctx);
-    String code = json.tree(c.type(), c.code(), "0");
+    ScriptJson json = new ScriptJson(ctx, true);
+    String code = json.value(c.type(), c.code(), "0", "0");
     if (code == null) {
       json.report(pos, c.type(), "in " + label);
     }
@@ -168,11 +176,14 @@ final class ScriptJson {
   }
 
   /**
-   * Code converting {@code code} (of type {@code t}) into a value {@code Escapers.json} serializes
-   * as the {@link #convert} helpers would serialize the original: {@code code} itself if {@code t}
-   * holds no beans, else a call of a generated helper. Null if {@code t} cannot be serialized.
+   * Code for {@code code} (of type {@code t}): {@code code} itself if {@code t} holds no beans, else
+   * a call of a generated helper; null if {@code t} cannot be serialized. A {@code tree} helper
+   * returns a copy that {@code Escapers.jsonAttr} serializes as the streaming helper would serialize
+   * the original; a streaming helper appends the JSON to {@code s$}. {@code depth} limits the
+   * conversion and {@code jsonDepth} the JSON nesting: a bean-containing Optional is unwrapped
+   * before JSON serialization.
    */
-  private String tree(TypeMirror t, String code, String depth) {
+  private String value(TypeMirror t, String code, String depth, String jsonDepth) {
     switch (t.getKind()) {
       case BOOLEAN:
       case BYTE:
@@ -186,167 +197,21 @@ final class ScriptJson {
         return code;
       case WILDCARD: {
         TypeMirror bound = ((WildcardType) t).getExtendsBound();
-        return bound == null ? null : tree(bound, code, depth);
+        return bound == null ? null : value(bound, code, depth, jsonDepth);
       }
       case TYPEVAR:
-        return tree(types().erasure(t), code, depth);
+        return value(types().erasure(t), code, depth, jsonDepth);
       case ARRAY: {
         TypeMirror component = ((ArrayType) t).getComponentType();
         if (component.getKind().isPrimitive()) {
           return code;
         }
-        String item = tree(component, "e$", "d$ + 1");
-        if (item == null) {
-          return null;
-        }
-        return item.equals("e$") ? code : treeHelper(t, code, depth, listBody("(java.lang.Object[]) o$", item));
-      }
-      case DECLARED:
-        break;
-      default:
-        return null;
-    }
-    t = ctx.expressions().containerView(t); // an ArrayList or TreeMap as its List or Map (#135)
-    DeclaredType dt = (DeclaredType) t;
-    TypeElement te = (TypeElement) dt.asElement();
-    String name = te.getQualifiedName().toString();
-    if (te.getKind() == ElementKind.ENUM || JSON_VALUES.contains(name) || JSON_TIME.contains(name)) {
-      return code;
-    }
-    List<? extends TypeMirror> args = dt.getTypeArguments();
-    if (name.equals("java.util.Optional") || JSON_COLLECTIONS.contains(name)) {
-      boolean optional = name.equals("java.util.Optional");
-      String item = args.size() == 1 ? tree(args.get(0), "e$", "d$ + 1") : null;
-      if (item == null) {
-        return null;
-      }
-      if (item.equals("e$")) {
-        return code;
-      }
-      return treeHelper(t, code, depth, optional
-          ? "java.lang.Object e$ = ((java.util.Optional<?>) o$).orElse(null);\nreturn " + item + ";\n"
-          : listBody("(java.util.Collection<?>) o$", item));
-    }
-    if (name.equals("java.util.Map")) {
-      String item = args.size() == 2 && isString(args.get(0)) ? tree(args.get(1), "e$", "d$ + 1") : null;
-      if (item == null) {
-        return null;
-      }
-      return item.equals("e$") ? code : treeHelper(t, code, depth,
-          "java.util.Map<java.lang.String, java.lang.Object> m$ = new java.util.LinkedHashMap<>();\n"
-              + "for (java.util.Map.Entry<?, ?> x$ : ((java.util.Map<?, ?>) o$).entrySet()) {\n"
-              + "java.lang.Object k$ = x$.getKey();\n"
-              + "if (!(k$ instanceof java.lang.String)) { throw new java.lang.IllegalArgumentException("
-              + "\"JSON object keys must be Strings\"); }\n"
-              + "java.lang.Object e$ = x$.getValue();\nm$.put((java.lang.String) k$, " + item + ");\n}\n"
-              + "return m$;\n");
-    }
-    if (isBean(te) && !ctx.expressions().neverViewSafeReason(t).isPresent() && accessible(t)) {
-      return treeBean(dt, code, depth);
-    }
-    return null;
-  }
-
-  private static String listBody(String iterable, String item) {
-    return "java.util.List<java.lang.Object> l$ = new java.util.ArrayList<>();\n"
-        + "for (java.lang.Object e$ : " + iterable + ") {\nl$.add(" + item + ");\n}\nreturn l$;\n";
-  }
-
-  /** A call of the helper converting container type {@code t} with {@code body}. */
-  private String treeHelper(TypeMirror t, String code, String depth, String body) {
-    String key = t.toString();
-    String helper = helpers.get(key);
-    if (helper == null) {
-      helper = ctx.freshName("jsonTree");
-      helpers.put(key, helper);
-      addTreeHelper(helper, body);
-    }
-    return helper + "(" + code + ", " + depth + ")";
-  }
-
-  /** A call of the helper copying bean {@code t} into a map of its JSON properties, or null. */
-  private String treeBean(DeclaredType t, String code, String depth) {
-    String key = t.toString();
-    String helper = helpers.get(key);
-    if (helper == null) {
-      TypeElement te = (TypeElement) t.asElement();
-      String element = te.getQualifiedName().toString();
-      if (!generating.add(element)) {
-        failure = t + " contains itself with different type arguments";
-        return null;
-      }
-      helper = ctx.freshName("jsonTree");
-      helpers.put(key, helper);
-      String erased = types().erasure(t).toString();
-      StringBuilder body = new StringBuilder();
-      body.append(erased).append(" v$ = (").append(erased).append(") o$;\n");
-      body.append("java.util.Map<java.lang.String, java.lang.Object> m$ = new java.util.LinkedHashMap<>();\n");
-      for (Map.Entry<String, ExecutableElement> p : properties(te).entrySet()) {
-        ExecutableElement getter = p.getValue();
-        TypeMirror type = ((ExecutableType) types().asMemberOf(t, getter)).getReturnType();
-        if (ctx.expressions().neverViewSafeReason(type).isPresent()) {
-          continue; // never readable from a template, so never serialized either
-        }
-        String value = tree(type, "v$." + getter.getSimpleName() + "()", "d$ + 1");
-        if (value == null) {
-          if (failure == null) {
-            failure = "property '" + p.getKey() + "' of " + t + " has type " + type;
-          }
-          return null;
-        }
-        body.append("m$.put(").append(JavaStrings.literal(p.getKey())).append(", ").append(value).append(");\n");
-      }
-      body.append("return m$;\n");
-      generating.remove(element);
-      addTreeHelper(helper, body.toString());
-    }
-    return helper + "(" + code + ", " + depth + ")";
-  }
-
-  private void addTreeHelper(String name, String body) {
-    ctx.addMember(
-        "private static java.lang.Object " + name + "(java.lang.Object o$, int d$) {\n"
-            + "if (o$ == null) { return null; }\n"
-            + "if (d$ > " + MAX_DEPTH + ") { throw new java.lang.IllegalArgumentException(\"value nested deeper"
-            + " than " + MAX_DEPTH + " (cycle?)\"); }\n"
-            + body
-            + "}\n");
-  }
-
-  /**
-   * A helper call appending a bean-containing value to {@code s$}, or {@code code} itself for
-   * values the runtime already serializes. The two depths preserve the old conversion and JSON
-   * traversal limits: converting a bean-containing Optional unwraps it before JSON serialization.
-   */
-  private String convert(TypeMirror t, String code, String depth, String jsonDepth) {
-    switch (t.getKind()) {
-      case BOOLEAN:
-      case BYTE:
-      case SHORT:
-      case INT:
-      case LONG:
-      case CHAR:
-      case FLOAT:
-      case DOUBLE:
-      case NULL:
-        return code;
-      case WILDCARD: {
-        TypeMirror bound = ((WildcardType) t).getExtendsBound();
-        return bound == null ? null : convert(bound, code, depth, jsonDepth);
-      }
-      case TYPEVAR:
-        return convert(types().erasure(t), code, depth, jsonDepth);
-      case ARRAY: {
-        TypeMirror component = ((ArrayType) t).getComponentType();
-        if (component.getKind().isPrimitive()) {
-          return code;
-        }
-        String item = convert(component, "e$", "d$ + 1", "j$ + 1");
+        String item = value(component, "e$", "d$ + 1", "j$ + 1");
         if (item == null) {
           return null;
         }
         return item.equals("e$") ? code : container(t, code, depth, jsonDepth,
-            arrayBody("(java.lang.Object[]) o$", item));
+            listBody("(java.lang.Object[]) o$", item));
       }
       case DECLARED:
         break;
@@ -364,7 +229,7 @@ final class ScriptJson {
     if (name.equals("java.util.Optional") || JSON_COLLECTIONS.contains(name)) {
       boolean optional = name.equals("java.util.Optional");
       String item = args.size() == 1
-          ? convert(args.get(0), "e$", "d$ + 1", optional ? "j$" : "j$ + 1") : null;
+          ? value(args.get(0), "e$", "d$ + 1", optional ? "j$" : "j$ + 1") : null;
       if (item == null) {
         return null;
       }
@@ -372,21 +237,23 @@ final class ScriptJson {
         return code;
       }
       return container(t, code, depth, jsonDepth, optional
-          ? "java.lang.Object e$ = ((java.util.Optional<?>) o$).orElse(null);\n" + item + ";\n"
-          : arrayBody("(java.util.Collection<?>) o$", item));
+          ? "java.lang.Object e$ = ((java.util.Optional<?>) o$).orElse(null);\n" + (tree ? "return " : "") + item + ";\n"
+          : listBody("(java.util.Collection<?>) o$", item));
     }
     if (name.equals("java.util.Map")) {
       String item = args.size() == 2 && isString(args.get(0))
-          ? convert(args.get(1), "e$", "d$ + 1", "j$ + 1") : null;
+          ? value(args.get(1), "e$", "d$ + 1", "j$ + 1") : null;
       if (item == null) {
         return null;
       }
-      return item.equals("e$") ? code : container(t, code, depth, jsonDepth,
-          "s$.append('{');\nboolean first$ = true;\n"
-              + "for (java.util.Map.Entry<?, ?> x$ : ((java.util.Map<?, ?>) o$).entrySet()) {\n"
-              + "java.lang.Object k$ = x$.getKey();\n"
-              + "if (!(k$ instanceof java.lang.String)) { throw new java.lang.IllegalArgumentException("
-              + "\"JSON object keys must be Strings\"); }\n"
+      String loop = "for (java.util.Map.Entry<?, ?> x$ : ((java.util.Map<?, ?>) o$).entrySet()) {\n"
+          + "java.lang.Object k$ = x$.getKey();\n"
+          + "if (!(k$ instanceof java.lang.String)) { throw new java.lang.IllegalArgumentException("
+          + "\"JSON object keys must be Strings\"); }\n";
+      return item.equals("e$") ? code : container(t, code, depth, jsonDepth, tree
+          ? NEW_MAP + loop + "java.lang.Object e$ = x$.getValue();\nm$.put((java.lang.String) k$, " + item + ");\n}\n"
+              + "return m$;\n"
+          : "s$.append('{');\nboolean first$ = true;\n" + loop
               + "if (!first$) { s$.append(','); }\nfirst$ = false;\n"
               + "dev.tessera.runtime.Escapers.appendJson(s$, k$, 0);\ns$.append(':');\n"
               + "java.lang.Object e$ = x$.getValue();\n" + item + ";\n}\ns$.append('}');\n");
@@ -397,26 +264,28 @@ final class ScriptJson {
     return null;
   }
 
-  private static String arrayBody(String iterable, String item) {
-    return "s$.append('[');\nboolean first$ = true;\n"
-        + "for (java.lang.Object e$ : " + iterable + ") {\n"
-        + "if (!first$) { s$.append(','); }\nfirst$ = false;\n"
-        + item + ";\n}\ns$.append(']');\n";
+  private String listBody(String iterable, String item) {
+    String loop = "for (java.lang.Object e$ : " + iterable + ") {\n";
+    return tree
+        ? "java.util.List<java.lang.Object> l$ = new java.util.ArrayList<>();\n" + loop + "l$.add(" + item + ");\n}\n"
+            + "return l$;\n"
+        : "s$.append('[');\nboolean first$ = true;\n" + loop + "if (!first$) { s$.append(','); }\nfirst$ = false;\n"
+            + item + ";\n}\ns$.append(']');\n";
   }
 
-  /** A call of the helper serializing container type {@code t} with {@code body}. */
+  /** A call of the helper for container type {@code t} with {@code body}. */
   private String container(TypeMirror t, String code, String depth, String jsonDepth, String body) {
     String key = t.toString();
     String helper = helpers.get(key);
     if (helper == null) {
-      helper = ctx.freshName("json");
+      helper = ctx.freshName(tree ? "jsonTree" : "json");
       helpers.put(key, helper);
       addHelper(helper, body);
     }
-    return helper + "(" + code + ", " + depth + ", " + jsonDepth + ", s$)";
+    return call(helper, code, depth, jsonDepth);
   }
 
-  /** A call of the helper serializing bean {@code t}, or null. */
+  /** A call of the helper for bean {@code t}, or null. */
   private String bean(DeclaredType t, String code, String depth, String jsonDepth) {
     String key = t.toString();
     String helper = helpers.get(key);
@@ -427,12 +296,12 @@ final class ScriptJson {
         failure = t + " contains itself with different type arguments";
         return null;
       }
-      helper = ctx.freshName("json");
+      helper = ctx.freshName(tree ? "jsonTree" : "json");
       helpers.put(key, helper);
       String erased = types().erasure(t).toString();
       StringBuilder body = new StringBuilder();
       body.append(erased).append(" v$ = (").append(erased).append(") o$;\n");
-      body.append("s$.append('{');\n");
+      body.append(tree ? NEW_MAP : "s$.append('{');\n");
       boolean first = true;
       for (Map.Entry<String, ExecutableElement> p : properties(te).entrySet()) {
         ExecutableElement getter = p.getValue();
@@ -441,38 +310,44 @@ final class ScriptJson {
           continue; // never readable from a template, so never serialized either
         }
         String access = "v$." + getter.getSimpleName() + "()";
-        String value = convert(type, access, "d$ + 1", "j$ + 1");
+        String value = value(type, access, "d$ + 1", "j$ + 1");
         if (value == null) {
           if (failure == null) {
             failure = "property '" + p.getKey() + "' of " + t + " has type " + type;
           }
           return null;
         }
+        if (tree) {
+          body.append("m$.put(").append(JavaStrings.literal(p.getKey())).append(", ").append(value).append(");\n");
+          continue;
+        }
         StringOutput escapedKey = new StringOutput();
         Escapers.json(escapedKey, p.getKey());
         body.append("s$.append(").append(JavaStrings.literal((first ? "" : ",") + escapedKey + ":")).append(");\n");
         first = false;
-        if (value.equals(access)) {
-          body.append("dev.tessera.runtime.Escapers.appendJson(s$, ").append(access).append(", j$ + 1);\n");
-        } else {
-          body.append(value).append(";\n");
-        }
+        body.append(value.equals(access)
+            ? "dev.tessera.runtime.Escapers.appendJson(s$, " + access + ", j$ + 1)" : value).append(";\n");
       }
-      body.append("s$.append('}');\n");
+      body.append(tree ? "return m$;\n" : "s$.append('}');\n");
       generating.remove(element);
       addHelper(helper, body.toString());
     }
-    return helper + "(" + code + ", " + depth + ", " + jsonDepth + ", s$)";
+    return call(helper, code, depth, jsonDepth);
+  }
+
+  private String call(String helper, String code, String depth, String jsonDepth) {
+    return helper + "(" + code + ", " + depth + (tree ? "" : ", " + jsonDepth + ", s$") + ")";
   }
 
   private void addHelper(String name, String body) {
-    ctx.addMember(
-        "private static void " + name + "(java.lang.Object o$, int d$, int j$, java.lang.StringBuilder s$) {\n"
+    String tooDeep = ") { throw new java.lang.IllegalArgumentException(\"value nested deeper than " + MAX_DEPTH
+        + " (cycle?)\"); }\n";
+    ctx.addMember(tree
+        ? "private static java.lang.Object " + name + "(java.lang.Object o$, int d$) {\n"
+            + "if (o$ == null) { return null; }\nif (d$ > " + MAX_DEPTH + tooDeep + body + "}\n"
+        : "private static void " + name + "(java.lang.Object o$, int d$, int j$, java.lang.StringBuilder s$) {\n"
             + "if (o$ == null) { dev.tessera.runtime.Escapers.appendJson(s$, null, j$); return; }\n"
-            + "if (d$ > " + MAX_DEPTH + " || j$ > " + MAX_DEPTH + ") { throw new java.lang.IllegalArgumentException(\"value nested deeper"
-            + " than " + MAX_DEPTH + " (cycle?)\"); }\n"
-            + body
-            + "}\n");
+            + "if (d$ > " + MAX_DEPTH + " || j$ > " + MAX_DEPTH + tooDeep + body + "}\n");
   }
 
   /**
@@ -565,7 +440,7 @@ final class ScriptJson {
     if (n.startsWith("get") && n.length() > 3 && Character.isUpperCase(n.charAt(3))) {
       rest = n.substring(3);
     } else if (n.startsWith("is") && n.length() > 2 && Character.isUpperCase(n.charAt(2))
-        && isBoolean(m.getReturnType())) {
+        && (m.getReturnType().getKind() == TypeKind.BOOLEAN || isDeclared(m.getReturnType(), "java.lang.Boolean"))) {
       rest = n.substring(2);
     } else {
       return null;
@@ -574,12 +449,6 @@ final class ScriptJson {
       return null;
     }
     return JavaStrings.lowerLeadingUpper(rest);
-  }
-
-  private static boolean isBoolean(TypeMirror t) {
-    return t.getKind() == TypeKind.BOOLEAN
-        || (t.getKind() == TypeKind.DECLARED
-            && ((TypeElement) ((DeclaredType) t).asElement()).getQualifiedName().contentEquals("java.lang.Boolean"));
   }
 
   /** Whether the generated helper can name {@code t}; if not, says why in {@link #failure} (#269). */
@@ -608,8 +477,7 @@ final class ScriptJson {
       TypeMirror bound = ((WildcardType) t).getExtendsBound();
       return bound != null && isString(bound);
     }
-    return t.getKind() == TypeKind.DECLARED
-        && ((TypeElement) ((DeclaredType) t).asElement()).getQualifiedName().contentEquals("java.lang.String");
+    return isDeclared(t, "java.lang.String");
   }
 
   private Types types() {
