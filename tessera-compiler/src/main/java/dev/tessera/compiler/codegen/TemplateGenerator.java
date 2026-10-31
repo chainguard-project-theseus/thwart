@@ -41,8 +41,8 @@ import java.util.Set;
  * Generates the class for one template (shape in docs/mvp-design.md): walks the node tree,
  * emits static markup as string constants, builds an {@link ElementPlan} per element by running
  * {@link AttributeProcessors} in precedence order, and calls the per-template hooks
- * ({@code TextInlining} for text nodes, {@code CsrfInjector} for {@code <form>},
- * {@code FieldProcessor.option} for {@code <option>}, {@code FragmentMethods} once per template). Handles {@code t:params}/{@code t:import} on the
+ * ({@code TextInlining} for text nodes, {@code CsrfInjector} for {@code <form>} and for every
+ * element's static submit and request URLs, {@code FieldProcessor.option} for {@code <option>}, {@code FragmentMethods} once per template). Handles {@code t:params}/{@code t:import} on the
  * root element, {@code <t:block>} (tag omitted), and rejects unknown/misplaced core attributes.
  * Implements {@link CodegenContext}; {@link TemplateClassSource} assembles the class text.
  *

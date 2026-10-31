@@ -13,8 +13,9 @@ public enum OutputContext {
   TEXT("text"),
   /**
    * Text in {@code <title>} or {@code <textarea>} (RCDATA, #248). Escaped like TEXT, but
-   * {@code {{} is not broken: a comment would show as text there. The parser never picks it: the
-   * verifier names this escaper for TEXT where a browser reads RCDATA (#378).
+   * {@code {{} is not broken: a comment would show as text there, so the generator adds
+   * {@code v-pre} to a computed {@code <title>} or {@code <textarea>} (#549). The parser never
+   * picks it: the verifier names this escaper for TEXT where a browser reads RCDATA (#378).
    */
   RCDATA("rcdata"),
   /**
@@ -49,7 +50,10 @@ public enum OutputContext {
    * escaper encodes the characters that end a refresh URL and re-checks the path.
    */
   REFRESH("refresh"),
-  /** Inside a JavaScript {@code <script>} element; values are serialized as JSON. */
+  /**
+   * Inside a JavaScript or JSON {@code <script>} element; values are serialized as JSON
+   * ({@code Escapers.javaScript}, or {@code Escapers.json} in a JSON script).
+   */
   SCRIPT("json"),
   /**
    * Value of a Vue/Alpine bind attribute ({@code v-bind:x}, {@code :x}, {@code x-bind:x}) whose

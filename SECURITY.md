@@ -57,9 +57,9 @@ browser's HTML parser and built-in sinks do with the rendered page:
   Chromium, Firefox, Firefox ESR and WebKit. They are checked against the parser by tests, not
   proven to agree with it.
 
-Values written into `<script>` must be complete JSON values in expression position. `<style>` can't
-contain holes. A `style` attribute takes only literals, numbers and `CssValue`. The request's CSP nonce
-goes on every script and style that the compiler writes.
+A value in a JavaScript `<script>` is only the whole value of a declaration at the top of the
+script. `<style>` can't contain holes. A `style` attribute takes only literals, numbers and
+`CssValue`. The request's CSP nonce goes on every script and style that the compiler writes.
 
 ## Where the guarantees end: escape hatches
 
