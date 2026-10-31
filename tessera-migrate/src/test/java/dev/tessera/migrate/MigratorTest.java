@@ -904,7 +904,8 @@ class MigratorTest {
   void valueInsideABlockOrFunctionIsHoistedAndReported() throws Exception {
     // A row fragment: every copy assigns the same global before the callbacks run.
     for (String body : List.of("$(function () { $('#del').click(function () { remove([[${x}]]); }); });",
-        "if (a) { f([[${x}]]); }", "el.addEventListener('click', () => { f({id: [[${x}]]}); });")) {
+        "if (a) { f([[${x}]]); }", "el.addEventListener('click', () => { f({id: [[${x}]]}); });",
+        "$('#del').click(() => remove([[${x}]]));", "setTimeout(() => f(1, [[${x}]]), 0);", "var g = x => [[${x}]];")) {
       String src = script("", body);
       assertEquals(script("", "var _t1 = [[${x}]]; " + body.replace("[[${x}]]", "_t1")), convert(src), body);
       List<String> messages = messages(src);
@@ -912,7 +913,8 @@ class MigratorTest {
       assertTrue(messages.get(0).endsWith(DEFERRED), messages.toString());
     }
     // Not in an object literal or a call at the top level.
-    for (String body : List.of("var o = {a: [[${x}]]};", "f({a: [[${x}]]});", "init([[${x}]]);")) {
+    for (String body : List.of("var o = {a: [[${x}]]};", "f({a: [[${x}]]});", "init([[${x}]]);",
+        "f(() => 1, [[${x}]]);", "var g = () => 1; h([[${x}]]);", "a.forEach(function (v) { g(v); }); h([[${x}]]);")) {
       List<String> messages = messages(script("", body));
       assertTrue(!messages.get(0).contains("inside a block or function"), messages.toString());
     }
@@ -1006,6 +1008,9 @@ class MigratorTest {
         {"var n = \"a [[${x}]]\".length;", "var _t1 = [[${x}]]; var n = (\"a \" + _t1).length;"},
         {"var n = 1 - 'a [[${x}]]';", "var _t1 = [[${x}]]; var n = 1 - ('a ' + _t1);"},
         {"var n = !'a [[${x}]]';", "var _t1 = [[${x}]]; var n = !('a ' + _t1);"},
+        // After a +, a string that now starts with the value: n + _t1 would add two numbers.
+        {"var a = n + \"[[${x}]]!\";", "var _t1 = [[${x}]]; var a = n + (_t1 + \"!\");"},
+        {"var a = n + \"a [[${x}]]\";", "var _t1 = [[${x}]]; var a = n + \"a \" + _t1;"},
     };
     for (String[] c : cases) {
       String src = script("", c[0]);

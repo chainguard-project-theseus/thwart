@@ -675,6 +675,8 @@ final class Migrator {
       // For each open brace: true for a block or function body, false for an object literal.
       Deque<Boolean> blocks = new ArrayDeque<>();
       Deque<Integer> templates = new ArrayDeque<>(); // block depth at each ${ of a template literal
+      int parens = 0;
+      Deque<Integer> arrows = new ArrayDeque<>(); // paren depth at each => whose body may still run later
       for (int i = insertAt; i < raw.length(); i++) {
         char c = raw.charAt(i);
         int end = holeEnd(raw, i);
@@ -717,7 +719,7 @@ final class Migrator {
               split = true;
               message += ConversionRules.SCRIPT_HOISTED_STRING_MESSAGE;
             }
-            if (blocks.contains(Boolean.TRUE)) {
+            if (blocks.contains(Boolean.TRUE) || !arrows.isEmpty()) {
               message += String.format(ConversionRules.SCRIPT_HOISTED_DEFERRED_MESSAGE, name);
             }
             report(at, message);
@@ -758,6 +760,20 @@ final class Migrator {
             } else if (c == '/' && regexAllowed(out, out.length() - 1)) {
               state = REGEX;
               inClass = false;
+            } else if (raw.startsWith("=>", i)) {
+              arrows.push(parens);
+              out.append(raw.charAt(++i));
+            } else if (c == '(') {
+              parens++;
+            } else if (c == ')') {
+              parens--;
+              while (!arrows.isEmpty() && arrows.peek() > parens) {
+                arrows.pop();
+              }
+            } else if (c == ';' || c == ',') {
+              while (!arrows.isEmpty() && arrows.peek() == parens) {
+                arrows.pop(); // the end of an arrow function's expression body
+              }
             } else if (c == '{') {
               blocks.push(!objectLiteral(out, out.length() - 1));
             } else if (c == '}' && !templates.isEmpty() && templates.peek() == blocks.size()) {
@@ -826,14 +842,17 @@ final class Migrator {
     /**
      * Puts the split string that starts at {@code stringStart} of {@code out} and ends there in
      * parentheses unless the token before it and the one at {@code next} of {@code raw} bind looser
-     * than {@code +}, so that {@code "a [[${x}]]".length} keeps its meaning.
+     * than {@code +}, so that {@code "a [[${x}]]".length} keeps its meaning. A {@code +} before it
+     * binds looser only if the split string still starts with a string: {@code n + "[[${x}]]!"} is
+     * {@code n + (_t1 + "!")}, since {@code n + _t1} would add two numbers.
      */
     private static void parenthesize(StringBuilder out, int stringStart, String raw, int next) {
       int p = stringStart - 1;
       while (p >= 0 && " \t\n\r".indexOf(out.charAt(p)) >= 0) {
         p--;
       }
-      boolean before = p < 0 || "=(,[:?{;+&|<>".indexOf(out.charAt(p)) >= 0
+      String loose = "\"'".indexOf(out.charAt(stringStart)) >= 0 ? "=(,[:?{;+&|<>" : "=(,[:?{;&|<>";
+      boolean before = p < 0 || loose.indexOf(out.charAt(p)) >= 0
           || p >= 5 && out.substring(p - 5, p + 1).equals("return") && (p == 5 || !isNameChar(out.charAt(p - 6)));
       while (next < raw.length() && (raw.charAt(next) == ' ' || raw.charAt(next) == '\t')) {
         next++;
