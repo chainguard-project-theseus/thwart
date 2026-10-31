@@ -105,10 +105,10 @@ class FrameworkDirectivesTest {
   }
 
   /**
-   * AngularJS's {@code directiveNormalize} strips one {@code x} or {@code data} prefix followed
-   * by {@code :}, {@code -} or {@code _}, then a leading run of those separators, so each of these
-   * names is {@code ngClick} (or {@code ngInit}) to it: a build error, as a computed attribute and
-   * as the target of a Vue or Alpine binding, whose JSON value Vue would write into it.
+   * Each of these names, ignoring case and {@code - _ :}, starts with {@code ng}, {@code xng} or
+   * {@code datang} (AngularJS reads each as {@code ngClick} or {@code ngInit}): a build error, as a
+   * computed attribute and as the target of a Vue or Alpine binding, whose JSON value Vue would
+   * write into it.
    */
   @ParameterizedTest
   @ValueSource(
@@ -127,23 +127,48 @@ class FrameworkDirectivesTest {
   }
 
   /**
-   * Names AngularJS does not read as {@code ng} directives keep their treatment: static
-   * {@code data:foo} is copied, {@code data-*} names whose rest is not {@code ng} plus a separator
-   * take expressions, and a binding may target {@code data_foo}.
+   * Names outside the coarse AngularJS deny keep their treatment: static {@code data:foo} is
+   * copied, {@code data-*} names that, ignoring {@code - _ :}, do not start with {@code datang}
+   * take expressions, and a binding may target {@code data_foo}. {@code data-ngx}, which AngularJS
+   * does not read as a directive, is denied all the same: AngularJS is not modelled.
    */
   @Test
   void otherPrefixedNamesStayOrdinary() {
     Compilation c =
         compile("<p data:foo=\"a\" x_foo=\"b\" data:ng-click=\"go()\">x</p>"
-                + "<p t:data-data-ng-click=\"s\" t:data-xng-click=\"s\" t:data-ngx=\"s\">y</p>"
+                + "<p t:data-data-ng-click=\"s\" t:data-xng-click=\"s\">y</p>"
                 + "<p t::data_foo=\"s\">z</p>")
             .assertSuccess();
     assertEquals(
         "<div><p data:foo=\"a\" x_foo=\"b\" data:ng-click=\"go()\">x</p>"
-            + "<p data-data-ng-click=\"go()\" data-xng-click=\"go()\" data-ngx=\"go()\">y</p>"
+            + "<p data-data-ng-click=\"go()\" data-xng-click=\"go()\">y</p>"
             + "<p :data_foo=\"&quot;go()&quot;\">z</p></div>",
         c.render("t", Map.of("s", "go()")));
+    compile("<p t:data-ngx=\"s\">x</p>").assertError("t.html:1:", "t:data-ngx is not allowed");
     compile("<p t:data:foo=\"s\">x</p>").assertError("t.html:1:", "'data:foo' is not a known attribute", "data-data:foo");
+  }
+
+  /**
+   * AngularJS reads directives from class values ({@code class="x ng-init: expr"}), so a computed
+   * class never names one (#542): on every path that writes {@code class}, a token in which a run
+   * of {@code [A-Za-z0-9_-]} matches the coarse {@code ng} rule is dropped at render time. Ordinary
+   * tokens are kept.
+   */
+  @Test
+  void computedClassTokensNeverNameAngularDirectives() {
+    Compilation c =
+        compile("<p t:class=\"s\">1</p><p class=\"a\" t:classappend=\"s\">2</p><p t:attr=\"class=s\">3</p>"
+                + "<p t:CLASS=\"s\">4</p>")
+            .assertSuccess();
+    String hostile = "x ng-init:constructor.constructor('alert(document.domain)')() a.ng-bind DATA_NG-SHOW y";
+    assertEquals(
+        "<div><p class=\"x y\">1</p><p class=\"a x y\">2</p><p class=\"x y\">3</p><p CLASS=\"x y\">4</p></div>",
+        c.render("t", Map.of("s", hostile)));
+    // values without such a token are written as they are
+    assertEquals(
+        "<div><p class=\"btn  angular\">1</p><p class=\"a btn  angular\">2</p><p class=\"btn  angular\">3</p>"
+            + "<p CLASS=\"btn  angular\">4</p></div>",
+        c.render("t", Map.of("s", "btn  angular")));
   }
 
   // ------------------------------------------------------------- htmx request URLs (#249)

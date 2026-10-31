@@ -152,15 +152,12 @@ class HtmlPolicyTest {
     // AngularJS reads directives from class values ("ng-init: expr"); ':' ';' '{' are never kept
     assertEquals("<p class=\"a b-c d_e\">x</p>", any.sanitize("<p class=\"a ng-init:x; b-c NG-bind {{x}} d_e ng-include\">x</p>").html());
     assertEquals("<p>x</p>", any.sanitize("<p class=\"ng-init: constructor.constructor('alert(1)')()\">x</p>").html());
-    // AngularJS normalizes directive names: x-/data- prefixes, '_' delimiters and the camel-case
-    // form a class keeps all name ngBind (framework table, context-model.md 6.3)
-    assertEquals("<p class=\"ngrok angular x-ngx nga\">x</p>",
-        any.sanitize("<p class=\"data-ng-bind x-ng-bind ng_bind data_ng_init X-NG-bind ngBind ng ngrok angular x-ngx nga\">x</p>").html());
-    // after the prefix, AngularJS also drops a leading run of - and _: each of these is ngBind or ngInit;
-    // a second prefix, or ng without a separator or upper-case letter, is not a directive
-    assertEquals("<p class=\"data-data-ng-bind x-xng-bind data-ngx _ngx\">x</p>",
-        any.sanitize("<p class=\"_ng-bind __ng_bind data--ng-bind data-_ng-bind DATA_-ngInit x__ng_bind x-_ngBind -ngBind"
-            + " data-data-ng-bind x-xng-bind data-ngx _ngx\">x</p>").html());
+    // AngularJS is not modelled: a token that, ignoring case, - and _, starts with ng, xng or datang
+    // is dropped, a superset of every spelling AngularJS normalizes to ngBind or ngInit
+    assertEquals("<p class=\"angular x-x-ng data-data-ng-bind x-xng-bind\">x</p>",
+        any.sanitize("<p class=\"data-ng-bind x-ng-bind ng_bind data_ng_init X-NG-bind ngBind ng ngrok angular x-ngx nga"
+            + " _ng-bind __ng_bind data--ng-bind data-_ng-bind DATA_-ngInit x__ng_bind x-_ngBind -ngBind data-ngx _ngx"
+            + " x-x-ng data-data-ng-bind x-xng-bind\">x</p>").html());
     HtmlPolicy some = HtmlPolicy.builder().allowElements("p").allowClasses("note", "lang-*").build();
     assertEquals("<p class=\"note lang-java\">x</p>", some.sanitize("<p class=\"note lang-java hidden fixed inset-0\">x</p>").html());
     assertEquals("<p>x</p>", basic("<p class=\"note\">x</p>"));
