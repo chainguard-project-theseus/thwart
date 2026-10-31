@@ -37,6 +37,11 @@ final class HostileSinks {
   /** Element/attribute pairs that load code or set the document base: also no cross-origin, no data:. */
   static final Set<String> CODE = Set.of("script/src", "script/href", "script/xlink:href", "link/href", "base/href",
       "object/data", "object/codebase", "embed/src", "iframe/src", "frame/src", "object/archive", "object/classid");
+  /** htmx request URLs (also with data-): htmx swaps the response into the page as HTML, so code. */
+  static final Set<String> HTMX_URL = Set.of("hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete", "sse-connect",
+      "ws-connect");
+  /** htmx switches whose value turns on fetching and swapping (boosted links, htmx 1.x sockets). */
+  static final Set<String> HTMX_SWITCH = Set.of("hx-boost", "hx-sse", "hx-ws");
   /** CSS properties whose grammar takes a url (paint, clip-path, mask, filter, marker, cursor). */
   static final Set<String> CSS_URL_PROPS = Set.of("fill", "stroke", "clip-path", "mask", "filter", "marker-start",
       "marker-mid", "marker-end", "marker", "cursor");
@@ -61,9 +66,10 @@ final class HostileSinks {
       }
       animTarget = an == null ? "" : an.strip().toLowerCase(Locale.ROOT);
     }
+    String unprefixed = a.startsWith("data-") ? a.substring(5) : a;
     // 1. URL sinks.
     String urlRole = null;
-    if (URL.contains(a) || (tag.equals("object") && a.equals("data"))
+    if (URL.contains(a) || HTMX_URL.contains(unprefixed) || (tag.equals("object") && a.equals("data"))
         || (PLUGIN_URL.contains(a) && Set.of("object", "applet", "embed").contains(tag))) {
       urlRole = "one";
     }
@@ -95,7 +101,8 @@ final class HostileSinks {
         }
       }
     }
-    boolean code = CODE.contains(tag + "/" + a) || (svg && tag.equals("use") && (a.endsWith("href")));
+    boolean code = CODE.contains(tag + "/" + a) || HTMX_URL.contains(unprefixed)
+        || (svg && tag.equals("use") && (a.endsWith("href")));
     for (String item : items) {
       String u = item.replaceAll("^[\\u0000-\\u0020]+|[\\u0000-\\u0020]+$", "").replaceAll("[\\t\\n\\r]", "");
       Matcher m = SCHEME.matcher(u);
@@ -123,7 +130,7 @@ final class HostileSinks {
     boolean tb = a.equals("is") || a.equals("xmlns") || a.startsWith("xmlns:")
         || (tag.equals("meta") && (a.equals("charset") || a.equals("http-equiv")
             || (a.equals("content") && "content-type".equalsIgnoreCase(el.getAttribute("http-equiv").strip()))))
-        || (tag.equals("template") && a.startsWith("shadowroot"))
+        || (tag.equals("template") && (a.startsWith("shadowroot") || a.equals("for")))
         || (tag.equals("annotation-xml") && a.equals("encoding"))
         || (tag.equals("script") && a.equals("type"))
         || (animation && a.equals("attributename"));
@@ -132,11 +139,16 @@ final class HostileSinks {
     }
     boolean policy = (tag.equals("iframe") && Set.of("sandbox", "allow", "csp", "allowfullscreen").contains(a))
         || (tag.equals("link") && Set.of("rel", "as", "integrity", "crossorigin").contains(a))
-        || (tag.equals("script") && Set.of("integrity", "crossorigin", "nomodule", "nonce").contains(a));
+        || (tag.equals("script") && Set.of("integrity", "crossorigin", "nomodule", "nonce").contains(a))
+        || HTMX_SWITCH.contains(unprefixed);
     if (policy && value.equals(hostile)) {
       out.add(new String[] {"POLICY_INPUT", "policy attribute holds '" + value + "'"});
     }
-    // 4. Frameworks.
+    // 4. Markup: srcdoc is parsed as a whole HTML document.
+    if (a.equals("srcdoc") && !value.isEmpty()) {
+      out.add(new String[] {"MARKUP_ATTRIBUTE", "srcdoc holds '" + value + "'"});
+    }
+    // 5. Frameworks.
     if (a.startsWith("on") && !value.isEmpty()) {
       out.add(new String[] {"EVENT_HANDLER", "on* holds '" + value + "'"});
     }
@@ -154,7 +166,6 @@ final class HostileSinks {
       // them, is not supported (guide section 7). Not reported, in templates or sanitizer output.
       out.add(new String[] {"KNOWN_LIMITATION_CSTI", "value holds {{"});
     }
-    String unprefixed = a.startsWith("data-") ? a.substring(5) : a;
     if ((unprefixed.equals("hx-vals") || unprefixed.equals("hx-headers") || unprefixed.equals("hx-request"))
         && value.strip().startsWith("js:") || unprefixed.equals("hx-vars") && !value.isEmpty()) {
       out.add(new String[] {"HTMX_EVAL", "htmx evaluates '" + value + "'"});
