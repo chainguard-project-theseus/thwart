@@ -220,9 +220,9 @@ class JsonBindingTest {
   @ValueSource(strings = {"Holder", "dev.tessera.runtime.SafeHtml", "java.util.Map<Integer, String>",
       "dev.tessera.runtime.TrustedUrl", "java.util.List<dev.tessera.runtime.SafeHtml>"})
   void nonJsonTypeIsABuildError(String type) {
-    compile(type + " v", "\n  <p t::data=\"${v}\">x</p>")
-        .assertError("t.html:2:6", "cannot output a value of type", "in t::data", "serialized as JSON");
-    compile(type + " v", "\n  <p t:attr=\"v-bind:data=${v}\">x</p>")
+    compile(type + " v", "\n  <p t::title=\"${v}\">x</p>")
+        .assertError("t.html:2:6", "cannot output a value of type", "in t::title", "serialized as JSON");
+    compile(type + " v", "\n  <p t:attr=\"v-bind:title=${v}\">x</p>")
         .assertError("t.html:2:", "cannot output a value of type", "serialized as JSON");
   }
 
@@ -299,15 +299,17 @@ class JsonBindingTest {
         .assertError("t.html:2:", "is not allowed", "Vue or Alpine binding", "run as JavaScript");
   }
 
-  /** The same targets on an element whose tree builder ignores them stay JSON bindings. */
+  /**
+   * The same targets on an element whose tree builder ignores them: for on a label stays a JSON
+   * binding; shadowrootmode is not an inert-text attribute, so it is no ordinary bind target
+   * (#539).
+   */
   @Test
   void bindingOfForOrShadowRootOutsideTemplateIsJson() {
-    Compilation c =
-        compile("String v", "<label t::for=\"${v}\">x</label><div t:x-bind:shadowrootmode=\"${v}\">x</div>")
-            .assertSuccess();
-    assertEquals(
-        "<div><label :for=\"&quot;a&quot;\">x</label><div x-bind:shadowrootmode=\"&quot;a&quot;\">x</div></div>",
-        c.render("t", model("v", "a")));
+    Compilation c = compile("String v", "<label t::for=\"${v}\">x</label>").assertSuccess();
+    assertEquals("<div><label :for=\"&quot;a&quot;\">x</label></div>", c.render("t", model("v", "a")));
+    compile("String v", "<div t:x-bind:shadowrootmode=\"${v}\">x</div>")
+        .assertError("t.html:1:", "is not allowed", "Vue or Alpine binding");
   }
 
   /** Literal (non-t:) bindings are the author's code and are copied verbatim. */

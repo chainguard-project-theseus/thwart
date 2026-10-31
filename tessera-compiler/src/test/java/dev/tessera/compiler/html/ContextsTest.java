@@ -66,8 +66,8 @@ class ContextsTest {
     "animate, by, URL",
     "animate, values, URL_LIST",
     "SET, VALUES, URL_LIST",
-    "div, values, ATTRIBUTE",
-    "rect, values, ATTRIBUTE",
+    "div, values, TYPED_ATTRIBUTE",
+    "rect, values, TYPED_ATTRIBUTE",
     // RESOURCE_URL
     "script, src, RESOURCE_URL",
     "script, href, RESOURCE_URL",
@@ -336,8 +336,8 @@ class ContextsTest {
     "META, CharSet, FORBIDDEN",
     // The same names elsewhere are ordinary attributes.
     "label, for, ATTRIBUTE",
-    "div, shadowrootmode, ATTRIBUTE",
-    "p, charset, ATTRIBUTE",
+    "div, shadowrootmode, TYPED_ATTRIBUTE",
+    "p, charset, TYPED_ATTRIBUTE",
   })
   void attributeTable(String element, String attribute, OutputContext expected) {
     assertEquals(expected, Contexts.attribute(element(element), attribute));
@@ -346,17 +346,17 @@ class ContextsTest {
   /** SVG and MathML names are known (#330); a foreign name with a {@code -} is not a custom element. */
   @ParameterizedTest(name = "<{0} {1}> (foreign) -> {2}")
   @CsvSource({
-    "path, stroke-dasharray, ATTRIBUTE",
-    "path, d, ATTRIBUTE",
-    "svg, viewbox, ATTRIBUTE",
-    "svg, viewBox, ATTRIBUTE",
-    "animate, dur, ATTRIBUTE",
+    "path, stroke-dasharray, TYPED_ATTRIBUTE",
+    "path, d, TYPED_ATTRIBUTE",
+    "svg, viewbox, TYPED_ATTRIBUTE",
+    "svg, viewBox, TYPED_ATTRIBUTE",
+    "animate, dur, TYPED_ATTRIBUTE",
     // Known, but a computed attributeName could retarget the values to CSS.
     "animate, attributename, FORBIDDEN",
     "text, xml:space, ATTRIBUTE",
     "use, xlink:href, URL",
     "mi, mathvariant, ATTRIBUTE",
-    "annotation-xml, encoding, ATTRIBUTE",
+    "annotation-xml, encoding, TYPED_ATTRIBUTE",
     "font-face, prop, FORBIDDEN",
     "rect, foo, FORBIDDEN",
   })
@@ -399,18 +399,18 @@ class ContextsTest {
     "path, marker, true, STYLE",
     "svg, cursor, true, STYLE",
     "RECT, FILL, true, STYLE",
-    "rect, fill-opacity, true, ATTRIBUTE",
-    "rect, stroke-width, true, ATTRIBUTE",
-    "rect, width, true, ATTRIBUTE",
-    "animate, fill, true, ATTRIBUTE",
-    "set, fill, true, ATTRIBUTE",
-    "animateMotion, fill, true, ATTRIBUTE",
-    "animateTransform, fill, true, ATTRIBUTE",
-    "animateColor, fill, true, ATTRIBUTE",
+    "rect, fill-opacity, true, TYPED_ATTRIBUTE",
+    "rect, stroke-width, true, TYPED_ATTRIBUTE",
+    "rect, width, true, TYPED_ATTRIBUTE",
+    "animate, fill, true, TYPED_ATTRIBUTE",
+    "set, fill, true, TYPED_ATTRIBUTE",
+    "animateMotion, fill, true, TYPED_ATTRIBUTE",
+    "animateTransform, fill, true, TYPED_ATTRIBUTE",
+    "animateColor, fill, true, TYPED_ATTRIBUTE",
     "animate, stroke, true, STYLE",
     "set, mask, true, STYLE",
-    "div, fill, false, ATTRIBUTE",
-    "div, cursor, false, ATTRIBUTE",
+    "div, fill, false, TYPED_ATTRIBUTE",
+    "div, cursor, false, TYPED_ATTRIBUTE",
     "rect, :fill, true, EVENT_HANDLER",
   })
   void svgCssUrlAttributes(String element, String attribute, boolean foreign, OutputContext expected) {
@@ -439,20 +439,20 @@ class ContextsTest {
     "animateTransform, attributeName, fill, values, STYLE",
     "ANIMATE, ATTRIBUTENAME, ' Fill ', VALUES, STYLE",
     "animate, attributeName, svg:fill, values, STYLE",
-    "animate, attributeName, fill, fill, ATTRIBUTE",
-    "animate, attributeName, fill, begin, ATTRIBUTE",
+    "animate, attributeName, fill, fill, TYPED_ATTRIBUTE",
+    "animate, attributeName, fill, begin, TYPED_ATTRIBUTE",
     "animate, attributeName, href, values, URL_LIST",
     "set, attributeName, xlink:href, to, URL",
     "animate, attributeName, fill-opacity, values, URL_LIST",
     "animate, attributeName, opacity, to, URL",
     "animate, t:attributeName, fill, values, URL_LIST",
-    "rect, attributeName, fill, values, ATTRIBUTE",
+    "rect, attributeName, fill, values, TYPED_ATTRIBUTE",
     "animate, attributeName, fill, attributeName, FORBIDDEN",
     "set, attributeName, fill, ATTRIBUTENAME, FORBIDDEN",
     "animateMotion, attributeName, fill, attributeName, FORBIDDEN",
     "animateTransform, attributeName, fill, attributeName, FORBIDDEN",
     "animateColor, attributeName, fill, attributeName, FORBIDDEN",
-    "rect, attributeName, fill, attributeName, ATTRIBUTE",
+    "rect, attributeName, fill, attributeName, TYPED_ATTRIBUTE",
   })
   void animatedSvgCssUrlValues(String element, String name, String value, String attribute, OutputContext expected) {
     assertEquals(expected, Contexts.attribute(element(element, name, value), attribute));
@@ -516,25 +516,61 @@ class ContextsTest {
         OutputContext.REFRESH, Contexts.attribute(element("meta", "http-equiv", "refresh"), "content"));
     assertEquals(
         OutputContext.REFRESH, Contexts.attribute(element("META", "HTTP-EQUIV", " Refresh "), "Content"));
-    // Other meta content is an ordinary attribute.
+    // Named metadata is an ordinary attribute; any other content takes only a safe value (#539).
     assertEquals(
         OutputContext.ATTRIBUTE, Contexts.attribute(element("meta", "name", "description"), "content"));
     assertEquals(
-        OutputContext.ATTRIBUTE,
+        OutputContext.TYPED_ATTRIBUTE,
         Contexts.attribute(element("meta", "http-equiv", "content-language"), "content"));
     assertEquals(
-        OutputContext.ATTRIBUTE, Contexts.attribute(element("div", "http-equiv", "refresh"), "content"));
+        OutputContext.TYPED_ATTRIBUTE, Contexts.attribute(element("div", "http-equiv", "refresh"), "content"));
+  }
+
+  /**
+   * #539: the content of a {@code <meta>} is inert text only under a static name other than
+   * referrer or viewport and without http-equiv; a policy, a pragma or an unnamed meta takes only
+   * literals, numbers and safe values.
+   */
+  @ParameterizedTest(name = "<meta {0}> content -> {1}")
+  @CsvSource(delimiter = '|', value = {
+    "name=description | ATTRIBUTE",
+    "NAME=Keywords | ATTRIBUTE",
+    "name=author property=og:title | ATTRIBUTE",
+    "name=referrer | TYPED_ATTRIBUTE",
+    "Name=REFERRER | TYPED_ATTRIBUTE",
+    "name=viewport | TYPED_ATTRIBUTE",
+    "name=HTMX-Config | TYPED_ATTRIBUTE",
+    "name=description http-equiv=default-style | TYPED_ATTRIBUTE",
+    "http-equiv=content-security-policy | TYPED_ATTRIBUTE",
+    "http-equiv=default-style | TYPED_ATTRIBUTE",
+    "property=og:title | TYPED_ATTRIBUTE",
+    "itemprop=name | TYPED_ATTRIBUTE",
+    "t:name=description | TYPED_ATTRIBUTE",
+    "| TYPED_ATTRIBUTE",
+  })
+  void metaContentIsInertOnlyAsNamedMetadata(String attrs, OutputContext expected) {
+    List<String> kv = new ArrayList<>();
+    if (attrs != null) {
+      for (String a : attrs.trim().split(" ")) {
+        kv.add(a.substring(0, a.indexOf('=')));
+        kv.add(a.substring(a.indexOf('=') + 1));
+      }
+    }
+    assertEquals(expected, Contexts.attribute(element("meta", kv.toArray(new String[0])), "content"));
+    // A name with spaces around it, as a browser trims it.
+    assertEquals(
+        OutputContext.TYPED_ATTRIBUTE, Contexts.attribute(element("meta", "name", " Viewport "), "content"));
   }
 
   @Test
   void metaRefreshFoldsOnlyAscii() {
     // A browser lower-cases A-Z only: http-equ\u0131v (dotless i) and http-equ\u0130v (dotted capital I) are
-    // not http-equiv, and refre\u017Fh (long s) is not refresh, so this content is an ordinary attribute.
+    // not http-equiv, and refre\u017Fh (long s) is not refresh, so this content is not REFRESH (#539: TYPED).
     for (String name : List.of("http-equ\u0131v", "http-equ\u0130v")) {
-      assertEquals(OutputContext.ATTRIBUTE, Contexts.attribute(element("meta", name, "refresh"), "content"), name);
+      assertEquals(OutputContext.TYPED_ATTRIBUTE, Contexts.attribute(element("meta", name, "refresh"), "content"), name);
     }
     assertEquals(
-        OutputContext.ATTRIBUTE, Contexts.attribute(element("meta", "http-equiv", "refre\u017Fh"), "content"));
+        OutputContext.TYPED_ATTRIBUTE, Contexts.attribute(element("meta", "http-equiv", "refre\u017Fh"), "content"));
     assertEquals(
         OutputContext.REFRESH, Contexts.attribute(element("meta", "Http-Equiv", "REFRESH"), "content"));
   }
@@ -551,12 +587,12 @@ class ContextsTest {
     assertEquals(
         OutputContext.FORBIDDEN,
         Contexts.attribute(element("meta", "content", "text/html", "http-equiv", "content-type"), "content"));
-    // Other http-equiv values, and the same attributes on another element, are ordinary.
+    // Other http-equiv values, and the same attributes on another element, take a safe value (#539).
     assertEquals(
-        OutputContext.ATTRIBUTE,
+        OutputContext.TYPED_ATTRIBUTE,
         Contexts.attribute(element("meta", "http-equiv", "content-language"), "content"));
     assertEquals(
-        OutputContext.ATTRIBUTE,
+        OutputContext.TYPED_ATTRIBUTE,
         Contexts.attribute(element("div", "http-equiv", "Content-Type"), "content"));
   }
 

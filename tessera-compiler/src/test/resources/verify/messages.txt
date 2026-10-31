@@ -96,10 +96,10 @@
 => t.html:1:89: error: a browser reads this value of 'title' as the code of <script>, not inside the double-quoted value of 'title'; check the markup before the tag: a browser ended the tag, or started raw text, there; a browser opened the <script> it is in at t.html:1:73 [verifier:ATTRIBUTE_NOT_IN_VALUE]
 => t.html:1:112: error: a browser reads this value of 'nonce' as the code of <script>, not inside the double-quoted value of 'nonce'; check the markup before the tag: a browser ended the tag, or started raw text, there; a browser opened the <script> it is in at t.html:1:73 [verifier:ATTRIBUTE_NOT_IN_VALUE]
 => t.html:1:61: error: a browser reads <![CDATA[ outside <svg> and <math> as the start of a comment that ends at the first '>', so the markup up to there is hidden; write the text without <![CDATA[ and ]]>, with '<' as &lt; and '>' as &gt; [verifier:PARSE_ERROR]
-== ATTRIBUTE_VALUE_CHANGES_PARSE: a computed MathML encoding
+== ATTRIBUTE_VALUE_CHANGES_PARSE: a computed MathML encoding (a CssValue: a String is already a profile error, not inert-text)
 -- t.html
-<math><annotation-xml t:encoding="s"></annotation-xml></math>
-=> t.html:1:78: error: a computed 'encoding' on MathML <annotation-xml> decides whether a browser parses its content as HTML or as MathML; write the encoding as a static value [verifier:ATTRIBUTE_VALUE_CHANGES_PARSE]
+<div $NS t:params="dev.tessera.runtime.CssValue s"><math><annotation-xml t:encoding="s"></annotation-xml></math></div>
+=> t.html:1:100: error: a computed 'encoding' on MathML <annotation-xml> decides whether a browser parses its content as HTML or as MathML; write the encoding as a static value [verifier:ATTRIBUTE_VALUE_CHANGES_PARSE]
 == JSON_NOT_IN_SCRIPT: [[...]] in an SVG script
 -- t.html
 <svg><script>var a = [[${s}]];</script></svg>

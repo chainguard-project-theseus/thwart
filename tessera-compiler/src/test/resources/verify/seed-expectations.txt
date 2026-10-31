@@ -239,7 +239,7 @@ pr301-11        AB   VERIFIER TEXT_IN_SCRIPT
 pr301-12        AB   VERIFIER TEXT_IN_SCRIPT
 pr301-13        AB   VERIFIER PARSE_ERROR  # fixed on main: text escaper where <p> leaves MathML (#301); since #406 the breakout itself is a parse error
 pr301-14        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
-pr301-15        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
+pr301-15        -    PROFILE  # #539: a String in a computed size/color on a foreign <font> is not inert-text; was VERIFIER PARSE_ERROR (#406: an HTML start tag that breaks out of foreign content)
 pr301-16        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
 pr303-1         -    ACCEPT
 pr303-2         -    ACCEPT
@@ -250,7 +250,7 @@ pr304-10        AB   VERIFIER TEXT_IN_SCRIPT
 pr304-11        -    ACCEPT
 pr304-12        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
 pr304-13        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
-pr304-14        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
+pr304-14        -    PROFILE  # #539: a String in a computed size/color on a foreign <font> is not inert-text; was VERIFIER PARSE_ERROR (#406: an HTML start tag that breaks out of foreign content)
 pr305-5         AB   VERIFIER SELECT_CONTENT
 pr305-6         AB   VERIFIER SELECT_CONTENT
 pr305-7         AB   VERIFIER SELECT_CONTENT PARSE_ERROR
@@ -299,14 +299,14 @@ ax-attr-5       -    ACCEPT
 ax-attr-6       -    ACCEPT
 ax-attr-7       -    ACCEPT
 ax-attr-8       -    PROFILE  # t:attr "id ${s}" does not parse: expected '=' after 'id'
-ax-enc-1        AB   VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
-ax-enc-2        -    VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
-ax-enc-3        -    VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
-ax-enc-4        -    VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
-ax-enc-5        -    VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
-ax-enc-6        -    VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
-ax-enc-7        AB   VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
-ax-enc-8        AB   VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-1        AB   PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-2        -    PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-3        -    PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-4        -    PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-5        -    PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-6        -    PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-7        AB   PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-8        AB   PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
 ax-enc-9        -    PROFILE  # t:attrappend is not supported: assignment (=) is not supported in its value
 ax-enc-10       -    PROFILE  # t:attrprepend is not supported: assignment (=) is not supported in its value
 xss-rejected-1  -    ACCEPT
