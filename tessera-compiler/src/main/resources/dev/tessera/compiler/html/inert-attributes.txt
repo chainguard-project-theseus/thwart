@@ -12,7 +12,9 @@
 #   foreign  on an SVG or MathML element (Element.foreign() true)
 #   any      on both
 # and, optionally, the only HTML elements it is inert on (comma-separated): for is an ID reference
-# on <label> and <output>, but on <template> the spec's "Text" moves the content (#419).
+# on <label> and <output>, but on <template> the spec's "Text" moves the content (#419); value is
+# inert on form controls and <data>, <li>, <meter>, <progress>, but not on <param>, where a browser
+# may read a src, movie, code or url parameter as the <object>'s resource URL.
 #
 # Rule. A name is inert when the value type of every definition of the name in its scope is one of
 #   Text, an enumerated keyword, a number / integer / date or time, a boolean attribute, an ID or a
@@ -262,7 +264,7 @@ translate html keyword
 truespeed html obsolete
 type html keyword
 valign html obsolete
-value html text
+value html text button,data,input,li,meter,option,progress,select
 vlink html obsolete
 vspace html obsolete
 width html number

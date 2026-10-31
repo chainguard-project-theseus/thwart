@@ -52,6 +52,8 @@ class InertAttributesTest {
     "<iframe t:allow=\"s\"></iframe>",
     "<img t:crossorigin=\"s\">",
     "<p t:itemtype=\"s\">x</p>",
+    // A browser may load a <param name=src> value as the object's resource URL.
+    "<object type=\"application/pdf\"><param name=\"src\" t:value=\"s\"></object>",
     "<a t:attr=\"rel=${s}\">x</a>",
     "<a t:rel=\"k\">x</a>",
     "<svg><rect t:x=\"s\"/></svg>",

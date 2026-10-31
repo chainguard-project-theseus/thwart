@@ -77,7 +77,7 @@ class KnownAttributesTest {
       }
     }
     // Inert text, ARIA and the global token attributes.
-    for (String n : List.of("title", "alt", "id", "class", "aria-label", "role", "lang", "value", "name", "placeholder")) {
+    for (String n : List.of("title", "alt", "id", "class", "aria-label", "role", "lang", "name", "placeholder")) {
       assertFalse(KnownAttributes.needsSafeValue(html("p"), n), n);
     }
     // Never inert: they fetch, navigate, grant, run, or are CSS.
@@ -93,6 +93,8 @@ class KnownAttributesTest {
     assertFalse(KnownAttributes.needsSafeValue(foreign("rect"), "aria-label"));
     assertFalse(KnownAttributes.needsSafeValue(html("label"), "for"));
     assertTrue(KnownAttributes.needsSafeValue(html("template"), "for"));
+    assertFalse(KnownAttributes.needsSafeValue(html("option"), "value"));
+    assertTrue(KnownAttributes.needsSafeValue(html("param"), "value"));
   }
 
   /**
