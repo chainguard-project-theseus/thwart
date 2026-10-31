@@ -194,18 +194,16 @@ class FrameworkDirectivesTest {
     }
   }
 
-  /** htmx 1.x hx-sse / hx-ws hold connect:<url>: no expression at all; static values pass. */
+  /** #562: htmx 1.x hx-sse / hx-ws are build errors, static or computed; the fix-it is htmx 2. */
   @Test
-  void legacyHtmxConnectRejectsExpressions() {
-    for (String name : new String[] {"hx-sse", "hx-ws", "data-hx-sse", "HX-WS"}) {
-      compile("<div t:" + name + "=\"'connect:' + @{/events}\">x</div>")
-          .assertError("t.html:1:", "t:" + name + " is not allowed", "connect:<url>", "sse-connect");
+  void legacyHtmxConnectIsRejected() {
+    for (String name : new String[] {"hx-sse", "hx-ws", "data-hx-sse", "data-hx-ws", "HX-WS"}) {
+      compile("<div " + name + "=\"connect:/events\">x</div>")
+          .assertError("t.html:1:", name + " is not allowed", "ws-connect or sse-connect");
+      compile("<div t:" + name + "=\"@{/events}\">x</div>")
+          .assertError("t.html:1:", "t:" + name + " is not allowed", "ws-connect or sse-connect");
       compile("<div t:attr=\"" + name + "=${s}\">x</div>").assertError("t:attr " + name + " is not allowed");
     }
-    Compilation c = compile("<div hx-sse=\"connect:/events\" hx-ws=\"connect:/chat\">x</div>").assertSuccess();
-    assertEquals(
-        "<div><div hx-sse=\"connect:/events\" hx-ws=\"connect:/chat\">x</div></div>",
-        c.render("t", Map.of("s", "x")));
   }
 
   @Test
