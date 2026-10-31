@@ -310,9 +310,10 @@ public final class Escapers {
    * {@code application/json} or {@code application/ld+json}; a JavaScript {@code <script>} uses
    * {@link #javaScript}). Serializes as JSON: null, Boolean, Number, CharSequence, Character, Enum (name), java.time values (ISO string),
    * Optional, Collection, array and Map with String keys. Escapes {@code <}, {@code >},
-   * {@code &}, {@code '}, U+2028 and U+2029 so the value cannot close the script element, and
-   * {@code /}, {@code `} and {@code $} so a string cannot leave a JS comment, regex literal or
-   * template literal it was inlined into. Other types throw IllegalArgumentException (the
+   * {@code &}, {@code '}, U+2028 and U+2029 so the value cannot close the script element,
+   * {@code {} so petite-vue never reads a {@code {{} in it, and {@code /}, {@code `} and
+   * {@code $} as defence in depth: the compiler never places a value inside a JS string, comment,
+   * regex or template literal. Other types throw IllegalArgumentException (the
    * compiler only allows the types above).
    *
    * <p>Numbers are limited to the JDK types ({@code Byte}, {@code Short}, {@code Integer},
@@ -776,7 +777,8 @@ public final class Escapers {
 
   /**
    * Writes a double-quoted JSON string that is also safe inside an HTML {@code <script>}
-   * element or a JS comment, regex or template literal: {@code < > & ' ` $ {}, U+2028, U+2029,
+   * element, and as defence in depth inside a JS comment, regex or template literal, where the
+   * compiler never places a value: {@code < > & ' ` $ {}, U+2028, U+2029,
    * controls and unpaired surrogates become {@code \\uXXXX}, and {@code /} becomes {@code \\/}.
    */
   private static void writeJsonString(StringBuilder sb, String s) {
@@ -806,8 +808,8 @@ public final class Escapers {
         case '\f':
           sb.append("\\f");
           break;
-        // '/' stops a value closing a /*[[...]]*/ comment or a regex literal; '`' and '$' stop
-        // it closing a template literal or starting ${...} inside one.
+        // Defence in depth (values sit only outside JS comments, regexes and template literals):
+        // '/' could close a comment or regex literal, '`' and '$' a template literal or ${...}.
         case '/':
           sb.append("\\/");
           break;

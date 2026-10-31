@@ -722,7 +722,7 @@ The compiler decides the context from the element and attribute name. You cannot
 | URL | the attributes whose value is exactly one URL: `href`, `src`, `action`, `formaction`, `cite`, `poster`, `manifest`, `hx-push-url`, `hx-replace-url`, ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. |
 | URL list | attributes that hold URLs but not exactly one: `ping` (space-separated URLs), `srcset` and `imagesrcset` (comma-separated image candidates), and `values`, `to`, `from` and `by` of SVG `<animate>` and `<set>`, whose meaning depends on `attributeName` (not when they animate a Style attribute, below) | Tessera does not check these item by item, so only string literals, numbers, a choice between literals and a `TrustedUrl` compile, attribute-escaped: `t:srcset="\|${img.url} 1x, /hi.png 2x\|"` with `img.url` a `TrustedUrl`, or `t:to="${n}"` for a number. A `String` is a build error: build the whole value as a `TrustedUrl` in Java, or choose between literals. |
 | Resource URL | `script[src]`, `iframe[src]`, `embed[src]`, `object[data]`, `base[href]`, `link[href]` | Only a literal-path `@{...}` link or a `TrustedUrl` compiles. A `<base href>` must be same-origin (section 4.7). |
-| htmx request URL | `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect`, `ws-connect` (also with `data-`) | Only a link whose literal path starts with a single `/` compiles, as for a refresh: htmx swaps the response into the page as HTML, and htmx 1.x also requests other origins. A static value must be same-origin like a static `action` (no scheme, not starting with `//` or `/\`), since htmx sends the enclosing form, CSRF token included, to it (section 4.7). htmx 1.x's `hx-sse` and `hx-ws` (`connect:<url>`) take no expression at all, and each static `connect:` URL must be same-origin too. Reach another origin through a same-origin endpoint of your own. |
+| htmx request URL | `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect`, `ws-connect` (also with `data-`) | Only a link whose literal path starts with a single `/` compiles, as for a refresh: htmx swaps the response into the page as HTML, and htmx 1.x also requests other origins. A static value must be same-origin like a static `action` (no scheme, not starting with `//` or `/\`), since htmx sends the enclosing form, CSRF token included, to it (section 4.7). htmx 1.x's `hx-sse` and `hx-ws` are build errors, static or computed (#562). Reach another origin through a same-origin endpoint of your own. |
 | htmx form URL | `action` of a `<form>` inside `hx-boost` | Same rule as an htmx request URL: htmx submits the form with AJAX and swaps the response in. `hx-boost="false"` on the form opts out. A computed `formaction` takes only such a link in any form (section 4.7). `hx-boost` itself cannot be computed. Links (`href`) are not affected. |
 | Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, records and `@TemplateView` beans, collections, String-keyed maps). In a JavaScript script a `[[...]]` is only the whole value of a declaration at the top of the script, before any other code: `const a = [[${x}]];` (the script prelude rule, section 6), and the value is written in parentheses, `const a = ("Ann");`. Use the name in the code below. A JSON script (`application/json`, `application/ld+json`) gets plain JSON, with each `[[...]]` outside a `"..."` string. |
 | Style | `<style>` text, the `style` attribute, and the SVG attributes that take a CSS `url()`: `fill`, `stroke`, `clip-path`, `mask`, `filter`, `marker-start`, `marker-mid`, `marker-end`, `marker` and `cursor` (not `fill` on `<animate>`, `<set>`, `<animateMotion>`, `<animateTransform>` or `<animateColor>`, which is timing); `values`, `to`, `from` and `by` of an animation whose `attributeName` is one of them | In `<style>`, expressions are a build error. A `style` attribute or one of those SVG attributes takes only string literals, numbers and `CssValue`s, combined with `+`, `\|...\|`, `?:` and `? :`; anything else (a `String` value) is a build error. Write `t:fill="${css.color(c)}"` or `t:mask="${css.url(u)}"`. The `attributeName` of an animation element cannot be computed. |
@@ -798,7 +798,7 @@ and takes any URL. `hx-boost` cannot be computed: write `true` or `false`. Links
 htmx boosts an `<a>` only when its hostname is the page's, so `t:href="${user.website}"` in a boosted
 nav stays an ordinary URL.
 
-Vue (2 and 3), petite-vue and AngularJS compile the page's HTML as a template when they mount
+Vue (2 and 3) and petite-vue compile the page's HTML as a template when they mount
 it, so a `{{ ... }}` in printed user data would run as an expression, escaped or not. Element
 text therefore never contains `{{` from a value: Tessera writes every `{` and `}` of a value
 between two empty comments (`{{x}}` renders as
@@ -1778,8 +1778,8 @@ The page puts its selected elements outside `<body>`, or they would also render 
 every value lands in text, an attribute value, a checked URL or a JSON value in a script, so no
 value runs as a script, an event handler or a `javascript:` URL, or loads a script from another
 origin. It does not see what the page's JavaScript does with the DOM afterwards. Client frameworks
-that read the DOM as code (Vue in-DOM templates, petite-vue, Alpine, Knockout, htmx `hx-on`,
-AngularJS) are covered only by the build errors and `{{` breaking in section 4.4, with the gaps in
+that read the DOM as code (Vue in-DOM templates, petite-vue, Alpine, Knockout, htmx `hx-on`)
+are covered only by the build errors and `{{` breaking in section 4.4, with the gaps in
 section 7. A strict Content Security Policy is the control that reaches past that.
 
 **The nonce.** When the `RenderContext` has a CSP nonce, every `<script>` and `<style>` start tag
@@ -2549,10 +2549,9 @@ Gaps in Tessera today, each with what to do until it is fixed.
   elsewhere at runtime, and an `hx-get` on a POST form or a button in it, which sends the form,
   token included, in the query string of a same-origin GET (#557). Give an external target its
   own form with a static action.
-- **Scripts.** In a `<script>` with `[[...]]`, the code before the last `[[...]]` can't use `/`
-  (division, regular expressions), template literals, `-->`, `#!`, `<!`, a backslash line
-  continuation or U+2028/U+2029 (section 6): the compiler proves where each value goes without a
-  JavaScript parser. Declare the data at the top of the script, or use a
+- **Scripts.** In a JavaScript `<script>`, a `[[...]]` is only the whole value of a declaration
+  at the top of the script (the script prelude rule, section 6): the compiler proves where each
+  value goes without a JavaScript parser. Use the names in the code below, or use a
   `<script type="application/json">` and `JSON.parse`.
 - **Output.** `[[...]]` in a script serializes only the properties of the static type: a subclass's
   extra getters are not written, and Jackson annotations are ignored.
@@ -2589,17 +2588,13 @@ Gaps in Tessera today, each with what to do until it is fixed.
   such as `<ng-include src>`, nor classes a Vue or Alpine `:class` binding writes. Element text
   has `{{` broken for Vue. Don't render Tessera output inside an AngularJS app: migrate off it.
   Until then, send the strict policy of section 4.11, which blocks injected scripts and inline
-  handlers though not AngularJS's own expressions, and put `ng-non-bindable` on every element that
-  holds a value.
+  handlers though not AngularJS's own expressions, and put `ng-non-bindable` (it also covers the
+  element's own attributes) on every element that holds a value.
 - **Client-side templates (`{{ }}`).** Tessera breaks `{{` only in element text (section 4.4).
   Values inside `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>` and `<noscript>` are build
   errors. In `<title>` and `<textarea>` with computed content it adds `v-pre`, which Vue 3 and
-  petite-vue honour (section 4.4). AngularJS also interpolates attribute values (`title`, `value`, `alt`,
-  `href`, ...) and `<title>` and `<textarea>` text, where a comment would show or change the
-  value, and ignores `v-pre`. Inside a mounted AngularJS app, put `ng-non-bindable` (it also
-  covers the element's own attributes) on elements whose attributes or `<title>`/`<textarea>`
-  hold user data, or keep server-rendered user data out of the mounted region. Custom delimiters (Vue `delimiters`, AngularJS `$interpolateProvider`) are not
-  broken, so keep the default `{{ }}` or mark the region. The rule for static braces
+  petite-vue honour (section 4.4). Custom delimiters (Vue `delimiters`) are not broken, so keep
+  the default `{{ }}` or mark the region. The rule for static braces
   covers only static text, and `SafeHtml.unchecked` text is changed only at its
   edges.
 - **Security functions.** `auth` has `isAuthenticated`, `hasRole`/`hasAnyRole` and
