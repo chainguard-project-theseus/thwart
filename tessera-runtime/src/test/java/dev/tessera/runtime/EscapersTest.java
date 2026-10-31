@@ -1071,9 +1071,43 @@ class EscapersTest {
         "Tom &amp; Jerry &quot;&amp;&lt;&gt;&#39;",
         Escapers.htmlMessage(messages(plain), "k", new Object[] {"\"&<>'"}, new String[] {"Tom &amp; Jerry {0}"}));
     assertEquals(
-        "Tom &amp;amp; Jerry &amp;quot;&amp;amp;&amp;lt;&amp;gt;&amp;#39;",
+        "Tom &amp;amp; Jerry &quot;&amp;&lt;&gt;&#39;",
         Escapers.htmlMessage(messages(plain), "k", new Object[] {"\"&<>'"}, new String[0]));
     assertEquals("caf&amp;eacute;", Escapers.htmlMessage(messages((k, a) -> "caf&eacute;"), "k", new Object[0], new String[0]));
+  }
+
+  @Test
+  void htmlMessageEscapesTheArgumentsOfAnUncheckedMessageOnce() {
+    // An unchecked message is formatted with its arguments as plain text and escaped once as a
+    // whole (#537), not formatted with escaped arguments and escaped again.
+    Messages hello = (k, a) -> new java.text.MessageFormat("Hello {0}", java.util.Locale.US).format(a);
+    String[] checked = {"Hi <b>{0}</b>"};
+    assertEquals("Hello Tom &amp; Jerry", Escapers.htmlMessage(messages(hello), "k", new Object[] {"Tom & Jerry"}, checked));
+    assertEquals("Hello a&lt;b", Escapers.htmlMessage(messages(hello), "k", new Object[] {"a<b"}, new String[0]));
+    assertEquals("Hello {<!---->{x}}",Escapers.htmlMessage(messages(hello), "k", new Object[] {"{{x}}"}, new String[0]));
+    assertEquals(
+        "Hello &lt;script&gt;alert(1)&lt;/script&gt;",
+        Escapers.htmlMessage(messages(hello), "k", new Object[] {SafeHtml.unchecked("<script>alert(1)</script>")}, new String[0]));
+    assertEquals("Hello null", Escapers.htmlMessage(messages(hello), "k", new Object[] {null}, new String[0]));
+    // Numbers and dates reach MessageFormat as numbers and dates.
+    Messages typed = (k, a) -> new java.text.MessageFormat("{0,number} on {1,date,short}", java.util.Locale.US).format(a);
+    java.util.Date date = new java.util.Date(86400000L * 365);
+    String day = java.text.DateFormat.getDateInstance(java.text.DateFormat.SHORT, java.util.Locale.US).format(date);
+    assertEquals("1,234 on " + day, Escapers.htmlMessage(messages(typed), "k", new Object[] {1234, date}, new String[0]));
+    // The unchecked message's own text is still escaped, its "{{" broken.
+    assertEquals(
+        "&lt;b&gt;Hello&lt;/b&gt; {<!---->{x}} Tom &amp; Jerry",
+        Escapers.htmlMessage(messages((k, a) -> "<b>Hello</b> {{x}} " + a[0]), "k", new Object[] {"Tom & Jerry"}, new String[0]));
+    // The BigDecimal bound applies on the fallback path too: the source never sees the value.
+    Messages unchecked = (k, a) -> "{0}";
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> Escapers.htmlMessage(messages(unchecked), "k", new Object[] {new BigDecimal("1E+999999999")}, new String[0]));
+    assertThrows(IllegalArgumentException.class, () -> Escapers.messageTextArgs(new Object[] {new BigDecimal("1E+999999999")}));
+    assertThrows(IllegalArgumentException.class, () -> Escapers.messageTextArgs(new Object[] {new Labeled("1E+999999999")}));
+    Object[] text = Escapers.messageTextArgs(new Object[] {"<b>", 42, null, SafeHtml.unchecked("<i>"), new Labeled("2.5")});
+    assertEquals(java.util.Arrays.asList("<b>", 42, null, "<i>", new BigDecimal("2.5")), java.util.Arrays.asList(text));
+    assertSame(BigDecimal.class, text[4].getClass());
   }
 
   // Client-side template delimiters (#248)
@@ -1140,9 +1174,10 @@ class EscapersTest {
     assertEquals(
         "<i><!---->{<!---->{a}}</i>b}}{<!---->",
         Escapers.htmlMessage(messages(two), "k", new Object[] {"{{a}}", "b}}{"}, new String[] {"<i>{0}</i>{1}"}));
-    // An unchecked message (no bundle the build saw) is escaped as text, the argument's comments too.
+    // An unchecked message (no bundle the build saw) is formatted with the plain argument and
+    // escaped once as text (#537).
     assertEquals(
-        "Hi &lt;!----&gt;{&lt;!----&gt;{x}}",
+        "Hi {<!---->{x}}",
         Escapers.htmlMessage(messages(plain), "k", new Object[] {"{{x}}"}, new String[0]));
     // An unchecked message is escaped as text, braces broken.
     assertEquals(

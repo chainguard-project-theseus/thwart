@@ -262,8 +262,9 @@ public final class Escapers {
    * patterns produces (as written, or formatted by {@link MessageFormat} in the context's locale
    * with the escaped arguments). The runtime never decides a message is safe by inspecting it:
    * anything else (a bundle the build did not see, a database-backed message source, a file changed
-   * after the build, a missing key) is escaped as text, {@code {{} broken as by {@link #text}.
-   * {@code null} becomes {@code ""}.
+   * after the build, a missing key) is looked up again with the arguments as plain text
+   * ({@link #messageTextArgs}) and the whole result escaped as text, {@code {{} broken as by
+   * {@link #text}, so each argument is escaped once (#537). {@code null} becomes {@code ""}.
    */
   public static String htmlMessage(RenderContext ctx, String key, Object[] args, String[] checked) {
     Object[] escaped = htmlMessageArgs(args);
@@ -283,28 +284,43 @@ public final class Escapers {
         // an argument does not fit the pattern (e.g. text for {0,number}): not this pattern
       }
     }
-    return escapeText(message);
+    String text = ctx.messages().get(key, messageTextArgs(args));
+    return text == null ? "" : escapeText(text);
   }
 
   /**
-   * The arguments of {@link #htmlMessage}. The compiler has checked the message's markup and that
-   * its placeholders only stand in text, so each argument only has to be escaped as HTML text:
-   * every value becomes its escaped {@linkplain #toText text}, with {@code {{} broken as by
-   * {@link #text}, except {@link Number} and
-   * {@link java.util.Date}, which {@link MessageFormat} formats itself (to digits and locale
-   * symbols or names, never markup) and which must stay numbers and dates for {@code {0,number}}
-   * and {@code {0,date}}. {@code null} stays {@code null}, as with the escaped form. The result
-   * then goes through {@link #messageArgs}, which replaces a {@code BigDecimal} or
-   * {@code BigInteger} subclass by the JDK value of its {@code toString()} and bounds a
-   * {@code BigDecimal}, so the formatter never calls a subclass's methods. Returns a new array.
+   * The arguments of {@link #htmlMessage} for a checked pattern: those of {@link #messageTextArgs}
+   * with each text escaped as HTML text, {@code {{} broken as by {@link #text}. The compiler has
+   * checked the message's markup and that its placeholders only stand in text, so that is all an
+   * argument needs. Returns a new array.
    */
   static Object[] htmlMessageArgs(Object[] args) {
-    Object[] escaped = new Object[args.length];
+    Object[] escaped = messageTextArgs(args);
+    for (int i = 0; i < escaped.length; i++) {
+      if (escaped[i] instanceof String) {
+        escaped[i] = escapeText((String) escaped[i]);
+      }
+    }
+    return escaped;
+  }
+
+  /**
+   * The arguments of {@link #htmlMessage} as plain text: every value becomes its
+   * {@linkplain #toText text}, except {@link Number} and {@link java.util.Date}, which
+   * {@link MessageFormat} formats itself (to digits and locale symbols or names, never markup) and
+   * which must stay numbers and dates for {@code {0,number}} and {@code {0,date}}. {@code null}
+   * stays {@code null}, as with the escaped form. The result then goes through
+   * {@link #messageArgs}, which replaces a {@code BigDecimal} or {@code BigInteger} subclass by the
+   * JDK value of its {@code toString()} and bounds a {@code BigDecimal}, so the formatter never
+   * calls a subclass's methods. Returns a new array.
+   */
+  static Object[] messageTextArgs(Object[] args) {
+    Object[] text = new Object[args.length];
     for (int i = 0; i < args.length; i++) {
       Object a = args[i];
-      escaped[i] = a == null || a instanceof Number || a instanceof java.util.Date ? a : escapeText(toText(a));
+      text[i] = a == null || a instanceof Number || a instanceof java.util.Date ? a : toText(a);
     }
-    return messageArgs(escaped);
+    return messageArgs(text);
   }
 
   /**
