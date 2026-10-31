@@ -180,8 +180,8 @@ class ContentKindsTest {
     Parser p = e.document(true);
     p.feed("<template>");
     ParserState entry = p.state();
-    assertNull(ContentKinds.problem(ContentKinds.Kind.FLOW, entry));
-    assertTrue(ContentKinds.switchesMode(ContentKinds.Kind.FLOW, entry));
+    assertNull(ContentKinds.problem(entry));
+    assertTrue(ContentKinds.switchesMode(entry));
     Parser text = p.fork();
     text.feed("plain &amp; text");
     assertEquals(entry, text.state());

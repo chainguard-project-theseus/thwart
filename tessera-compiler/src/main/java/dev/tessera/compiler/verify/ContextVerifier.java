@@ -314,7 +314,7 @@ public final class ContextVerifier {
       Path entry = start(new OpenElement(OpenElement.HTML, "body", false), scriptingOff);
       entry.feed(context, near);
       for (ParserState s : entry.states()) {
-        if (ContentKinds.problem(ContentKinds.Kind.FLOW, s) != null) {
+        if (ContentKinds.problem(s) != null) {
           return "the probe " + where + " is not a FLOW position";
         }
       }
@@ -323,7 +323,7 @@ public final class ContextVerifier {
       Set<String> allowed = new HashSet<>();
       allowed.add(flowKey(entry));
       for (ParserState s : entry.states()) {
-        if (ContentKinds.switchesMode(ContentKinds.Kind.FLOW, s)) {
+        if (ContentKinds.switchesMode(s)) {
           Path written = entry.fork();
           written.feed(ContentKinds.REPRESENTATIVE, near);
           allowed.add(flowKey(written));
@@ -462,10 +462,8 @@ public final class ContextVerifier {
           int end = text.indexOf("-->", k + 4);
           if (end >= 0 && end + 3 < text.length()) {
             // Skip the comment and look at the rest of this static.
-            List<Skeleton.Node> rest = new ArrayList<>();
-            rest.add(new Skeleton.Static(text.substring(end + 3), n.pos()));
-            rest.addAll(nodes.subList(i + 1, nodes.size()));
-            firstElements(rest, 0, out, depth);
+            Skeleton.Node after = new Skeleton.Static(text.substring(end + 3), n.pos());
+            firstElementsThen(Collections.singletonList(after), nodes, i, out, depth);
             return;
           }
           if (end >= 0) {
@@ -487,29 +485,21 @@ public final class ContextVerifier {
         out.add("#text");
         return;
       } else if (n instanceof Skeleton.Seq) {
-        List<Skeleton.Node> rest = new ArrayList<>(((Skeleton.Seq) n).nodes());
-        rest.addAll(nodes.subList(i + 1, nodes.size()));
-        firstElements(rest, 0, out, depth);
+        firstElementsThen(((Skeleton.Seq) n).nodes(), nodes, i, out, depth);
         return;
       } else if (n instanceof Skeleton.Opt || n instanceof Skeleton.Rep) {
         Skeleton.Seq body = n instanceof Skeleton.Opt ? ((Skeleton.Opt) n).body() : ((Skeleton.Rep) n).body();
-        List<Skeleton.Node> rest = new ArrayList<>(body.nodes());
-        rest.addAll(nodes.subList(i + 1, nodes.size()));
-        firstElements(rest, 0, out, depth);
+        firstElementsThen(body.nodes(), nodes, i, out, depth);
         // ... or skipped.
       } else if (n instanceof Skeleton.Alt) {
         for (Skeleton.Seq b : ((Skeleton.Alt) n).branches()) {
-          List<Skeleton.Node> rest = new ArrayList<>(b.nodes());
-          rest.addAll(nodes.subList(i + 1, nodes.size()));
-          firstElements(rest, 0, out, depth);
+          firstElementsThen(b.nodes(), nodes, i, out, depth);
         }
         return;
       } else if (n instanceof Skeleton.Call && depth < MAX_ROUNDS) {
         Skeleton.Seq target = fragments.get(((Skeleton.Call) n).target());
         if (target != null) {
-          List<Skeleton.Node> rest = new ArrayList<>(target.nodes());
-          rest.addAll(nodes.subList(i + 1, nodes.size()));
-          firstElements(rest, 0, out, depth + 1);
+          firstElementsThen(target.nodes(), nodes, i, out, depth + 1);
           return;
         }
         out.add("#text");
@@ -519,6 +509,13 @@ public final class ContextVerifier {
         return;
       }
     }
+  }
+
+  /** {@link #firstElements} of {@code head} followed by the nodes after {@code nodes[i]}. */
+  private void firstElementsThen(List<Skeleton.Node> head, List<Skeleton.Node> nodes, int i, Set<String> out, int depth) {
+    List<Skeleton.Node> rest = new ArrayList<>(head);
+    rest.addAll(nodes.subList(i + 1, nodes.size()));
+    firstElements(rest, 0, out, depth);
   }
 
   /**
@@ -838,10 +835,7 @@ public final class ContextVerifier {
         problem = textEscaper(h, s);
       }
       if (problem != null) {
-        if (!problems.containsKey(problem)) {
-          problems.put(problem, new ArrayList<ParserState>());
-        }
-        problems.get(problem).add(s);
+        problems.computeIfAbsent(problem, k -> new ArrayList<>()).add(s);
       }
     }
     for (Map.Entry<Problem, List<ParserState>> e : problems.entrySet()) {
@@ -883,21 +877,17 @@ public final class ContextVerifier {
    * flow start tag switches it to).
    */
   private List<Path> raw(Skeleton.Source source, List<Path> in, SourcePos pos) throws EngineException {
-    ContentKinds.Kind kind = ContentKinds.Kind.FLOW;
     List<Path> out = new ArrayList<>(in);
     for (Path p : in) {
       boundary(p, pos);
       Map<Problem, List<ParserState>> problems = new LinkedHashMap<>();
       boolean switches = false;
       for (ParserState s : p.states()) {
-        Problem problem = ContentKinds.problem(kind, s);
+        Problem problem = ContentKinds.problem(s);
         if (problem != null) {
-          if (!problems.containsKey(problem)) {
-            problems.put(problem, new ArrayList<ParserState>());
-          }
-          problems.get(problem).add(s);
+          problems.computeIfAbsent(problem, k -> new ArrayList<>()).add(s);
         } else {
-          switches |= ContentKinds.switchesMode(kind, s);
+          switches |= ContentKinds.switchesMode(s);
         }
       }
       for (Map.Entry<Problem, List<ParserState>> e : problems.entrySet()) {
@@ -915,10 +905,10 @@ public final class ContextVerifier {
 
   /**
    * HTML known at build time (an HTML message, #329): its markup is analysed as it is, holes and
-   * all, and must leave the parser where it found it, as {@link ContentKinds.Kind#FLOW} content
-   * does (in template mode, also where a flow start tag switches it to). Markup that closes an
-   * element open around it (a {@code <p>} in a {@code <p>}) or leaves one of its own open is
-   * {@link Problem#MESSAGE_CHANGES_STATE}.
+   * all, and must leave the parser where it found it, as FLOW content ({@link ContentKinds}) does
+   * (in template mode, also where a flow start tag switches it to). Markup that closes an element
+   * open around it (a {@code <p>} in a {@code <p>}) or leaves one of its own open is {@link
+   * Problem#MESSAGE_CHANGES_STATE}.
    */
   private List<Path> known(Skeleton.RawInsert r, List<Path> in, Env env, SourcePos pos) throws EngineException {
     List<Path> out = new ArrayList<>(in);
@@ -928,7 +918,7 @@ public final class ContextVerifier {
       allowed.add(p.key());
       boolean template = false;
       for (ParserState s : p.states()) {
-        template |= ContentKinds.switchesMode(ContentKinds.Kind.FLOW, s);
+        template |= ContentKinds.switchesMode(s);
       }
       if (template) {
         Path written = p.fork();
@@ -1025,15 +1015,7 @@ public final class ContextVerifier {
       }
       return i;
     }
-    switch (s.mode()) {
-      case IN_TABLE:
-      case IN_TABLE_BODY:
-      case IN_ROW:
-      case IN_COLUMN_GROUP:
-        return top;
-      default:
-        return -1;
-    }
+    return Rules.TABLE_MODES.contains(s.mode()) ? top : -1;
   }
 
   /** Whether a fragment is on the call stack twice: this is reached only through recursion. */
@@ -1367,7 +1349,7 @@ public final class ContextVerifier {
     private static int markupStart(String s, int offset, int from) {
       for (int i = Math.min(offset, s.length() - 2); i >= from; i--) {
         char c = s.charAt(i + 1);
-        if (s.charAt(i) == '<' && (c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '!' || c == '/' || c == '?')) {
+        if (s.charAt(i) == '<' && (Rules.isAsciiAlpha(c) || c == '!' || c == '/' || c == '?')) {
           return i;
         }
       }
