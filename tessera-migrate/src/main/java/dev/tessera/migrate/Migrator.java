@@ -639,8 +639,8 @@ final class Migrator {
      * looser than {@code +}. A value in a template literal or a regular expression is reported and
      * stays, and so does one in a comment ({@link #quotedInlines} reported it). The lexer is an
      * approximation, as in {@link #quotedInlines}, plus regular expression literals; the compiler is
-     * the safety net: every hoisted value is in its prelude grammar, and a misread can only break
-     * the code around a value or leave one the compiler rejects.
+     * the safety net: every hoisted value is in its prelude grammar, so a misread cannot put a value
+     * anywhere else, though it can break the code around a value or change what that code means.
      */
     private void hoist(String text, int offset, int line, List<Edit> scriptEdits) {
       String raw = applied(text, offset, scriptEdits);
@@ -675,7 +675,9 @@ final class Migrator {
       // For each open brace: true for a block or function body, false for an object literal.
       Deque<Boolean> blocks = new ArrayDeque<>();
       Deque<Integer> templates = new ArrayDeque<>(); // block depth at each ${ of a template literal
-      int parens = 0;
+      // For each open ( and [: true for the ( of an if, while, for or with, after whose ) a / starts a regular expression.
+      Deque<Boolean> openers = new ArrayDeque<>();
+      boolean closeStartsRegex = true; // after the last ), ] or }: whether a / there starts a regular expression
       Deque<Integer> arrows = new ArrayDeque<>(); // paren and bracket depth at each => whose body may still run later
       for (int i = insertAt; i < raw.length(); i++) {
         char c = raw.charAt(i);
@@ -757,21 +759,21 @@ final class Migrator {
             } else if (raw.startsWith("//", i) || raw.startsWith("/*", i)) {
               state = raw.charAt(i + 1) == '/' ? LINE_COMMENT : BLOCK_COMMENT;
               out.append(raw.charAt(++i));
-            } else if (c == '/' && regexAllowed(out, out.length() - 1)) {
+            } else if (c == '/' && regexAllowed(out, out.length() - 1, closeStartsRegex)) {
               state = REGEX;
               inClass = false;
             } else if (raw.startsWith("=>", i)) {
-              arrows.push(parens);
+              arrows.push(openers.size());
               out.append(raw.charAt(++i));
             } else if (c == '(' || c == '[') {
-              parens++;
+              openers.push(c == '(' && CONTROL.contains(wordBefore(out, out.length() - 1)));
             } else if (c == ')' || c == ']') {
-              parens--;
-              while (!arrows.isEmpty() && arrows.peek() > parens) {
+              closeStartsRegex = !openers.isEmpty() && openers.pop();
+              while (!arrows.isEmpty() && arrows.peek() > openers.size()) {
                 arrows.pop();
               }
             } else if (c == ';' || c == ',') {
-              while (!arrows.isEmpty() && arrows.peek() == parens) {
+              while (!arrows.isEmpty() && arrows.peek() == openers.size()) {
                 arrows.pop(); // the end of an arrow function's expression body
               }
             } else if (c == '{') {
@@ -781,7 +783,7 @@ final class Migrator {
               state = STRING;
               quote = '`';
             } else if (c == '}' && !blocks.isEmpty()) {
-              blocks.pop();
+              closeStartsRegex = blocks.pop(); // after a block, not after an object literal
             }
             break;
           case STRING:
@@ -887,8 +889,15 @@ final class Migrator {
     private static final Set<String> REGEX_AFTER = Compat.setOf("return", "typeof", "instanceof", "in", "of", "new",
         "delete", "void", "throw", "case", "do", "else", "yield", "await");
 
-    /** Whether a {@code /} at {@code slash} of {@code out} starts a regular expression: not after a value. */
-    private static boolean regexAllowed(StringBuilder out, int slash) {
+    /** The words before a {@code (} after whose {@code )} a {@code /} starts a regular expression. */
+    private static final Set<String> CONTROL = Compat.setOf("if", "while", "for", "with");
+
+    /**
+     * Whether a {@code /} at {@code slash} of {@code out} starts a regular expression: not after a
+     * value. After a {@code )}, {@code ]} or {@code }} that is {@code closeStartsRegex}: after the
+     * condition of an {@code if}, {@code while}, {@code for} or {@code with}, or after a block.
+     */
+    private static boolean regexAllowed(StringBuilder out, int slash, boolean closeStartsRegex) {
       int p = slash - 1;
       while (p >= 0 && " \t\n\r".indexOf(out.charAt(p)) >= 0) {
         p--;
@@ -898,13 +907,25 @@ final class Migrator {
       }
       char c = out.charAt(p);
       if (isNameChar(c)) {
-        int w = p;
-        while (w > 0 && isNameChar(out.charAt(w - 1))) {
-          w--;
-        }
-        return REGEX_AFTER.contains(out.substring(w, p + 1));
+        return REGEX_AFTER.contains(wordBefore(out, slash));
       }
-      return ")]\"'`".indexOf(c) < 0;
+      if (c == ')' || c == ']' || c == '}') {
+        return closeStartsRegex;
+      }
+      return "\"'`".indexOf(c) < 0;
+    }
+
+    /** The name before offset {@code at} of {@code out}, after any whitespace, or "". */
+    private static String wordBefore(StringBuilder out, int at) {
+      int p = at - 1;
+      while (p >= 0 && " \t\n\r".indexOf(out.charAt(p)) >= 0) {
+        p--;
+      }
+      int w = p + 1;
+      while (w > 0 && isNameChar(out.charAt(w - 1))) {
+        w--;
+      }
+      return out.substring(w, p + 1);
     }
 
     private static boolean isNameChar(char c) {

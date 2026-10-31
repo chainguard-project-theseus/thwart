@@ -938,6 +938,8 @@ class MigratorTest {
         {"var r = /a[[${x}]]/g;", IN_REGEX},
         {"if (/[/][[${x}]]/.test(s)) {}", IN_REGEX},
         {"return /[[${x}]]/;", IN_REGEX},
+        {"if (ok) /[[${x}]]/.test(s);", IN_REGEX},
+        {"while (f()) {} /[[${x}]]/.test(s);", IN_REGEX},
     };
     for (String[] c : cases) {
       String src = script("", c[0]);
@@ -946,8 +948,8 @@ class MigratorTest {
     }
     // A division is not a regular expression: the value after it is hoisted, and so are the
     // others of a script with a reported one.
-    String division = script("", "var h = w / 2; var a = [[${x}]] / 2; var r = /[[${y}]]/;");
-    assertEquals(script("", "var _t1 = [[${x}]]; var h = w / 2; var a = _t1 / 2; var r = /[[${y}]]/;"),
+    String division = script("", "var h = (w) / 2; var o = {} / 1; var a = [[${x}]] / 2; var r = /[[${y}]]/;");
+    assertEquals(script("", "var _t1 = [[${x}]]; var h = (w) / 2; var o = {} / 1; var a = _t1 / 2; var r = /[[${y}]]/;"),
         convert(division));
     assertMessages(division, "1: `[[${x}]]` " + HOISTED, "1: `[[${y}]]` " + IN_REGEX);
   }
