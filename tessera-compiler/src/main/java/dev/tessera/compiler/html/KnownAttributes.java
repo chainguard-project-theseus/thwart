@@ -32,7 +32,12 @@ final class KnownAttributes {
   /** A component prop on a custom element. */
   private static final Pattern PROP = Pattern.compile("[a-z][a-z0-9]*");
 
-  /** Whether {@code name} (any case) may be computed on {@code element}. */
+  /**
+   * Whether {@code name} (any case) may be computed on {@code element} as far as its name goes
+   * (#330): a standard HTML, SVG, MathML or ARIA attribute, a {@code data-*} name, or a plain
+   * {@code [a-z][a-z0-9]*} prop on a custom element. {@link Contexts#attribute} decides whether it
+   * may hold an expression.
+   */
   static boolean accepts(Element element, String name) {
     String a = HtmlParser.asciiLower(name);
     return STANDARD.containsKey(a)

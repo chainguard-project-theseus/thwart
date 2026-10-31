@@ -2,7 +2,7 @@
 # computed value may be a plain value (String, number, enum, ...), escaped as an ordinary attribute.
 # Every other standard name gets a specific context from Contexts.attribute (URL, RESOURCE_URL,
 # STYLE, TRUSTED_URL, REFRESH, FORBIDDEN, ...) or is TYPED_ATTRIBUTE: its value may only combine string
-# literals, numbers and a safe type (TrustedUrl on an HTML element, CssValue on an SVG/MathML one).
+# literals and numbers (#565).
 # data-* names and plain [a-z][a-z0-9]* props on a custom element are not listed and stay ordinary
 # attributes, as before; the framework names Contexts classifies (hx-*, data-bind, ...) are
 # classified before this file is asked.
@@ -59,8 +59,8 @@
 #     contextmenu, dropzone, allowtransparency
 # Kept on purpose: name (also <meta name>), type (not <script>, which Contexts forbids), nonce
 #   (CSP; it can only allow the template's own static script), pattern (a regular expression the
-#   browser only matches input against), command, method and formmethod (CsrfInjector checks a
-#   computed method at render time and rejects a computed formmethod where the token may go).
+#   browser only matches input against), command, method and formmethod (GenericAttrProcessor
+#   rejects a computed method on a <form> and a computed formmethod at build time).
 # content is listed for <meta> only, and Contexts narrows it further: it is inert only on a <meta>
 #   with a static name other than referrer, viewport or htmx-config and no http-equiv. Elsewhere on
 #   <meta> it is REFRESH (http-equiv=refresh), FORBIDDEN (http-equiv=Content-Type) or TYPED_ATTRIBUTE
