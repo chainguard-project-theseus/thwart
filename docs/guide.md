@@ -1552,12 +1552,10 @@ leaving a particular one. Read the part for your engine before converting.
   difference that compare shows there against a page that printed the value raw or HTML-escaped is
   expected (an `&amp;` inside an old `<script>` was a bug: the string contained `&amp;`). So is a
   negative number or an integer in parentheses, `var n = (-1.5);` against `var n = -1.5;` or
-  `var id = (7);` against `var id = 7;`, in a JavaScript
-  script. Remove
-  the quotes a default-mode page put around an inline: `var a = "[[${x}]]";` becomes
-  `var a = [[${x}]];` (section 6). A natural-template comment with a default,
-  `var a = /*[[${x}]]*/ 'd';`, becomes `var a = [[${x}]];`: inside the comment the value would be
-  ignored and the page would use `'d'` (section 6).
+  `var id = (7);` against `var id = 7;`, in a JavaScript script. Remove the quotes a default-mode
+  page put around an inline: `var a = "[[${x}]]";` becomes `var a = [[${x}]];` (section 6). A
+  natural-template comment with a default, `var a = /*[[${x}]]*/ 'd';`, becomes `var a = [[${x}]];`:
+  inside the comment the value would be ignored and the page would use `'d'` (section 6).
 - **Conditions** are Thymeleaf's: `t:if` is false for `null`, `false`, `0` and the strings
   `"false"`, `"off"` and `"no"`, and true for everything else, including `""` and empty
   collections. Write what the old condition meant: `x != null`, `!list.isEmpty()`.
