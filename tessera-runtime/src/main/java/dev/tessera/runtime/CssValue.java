@@ -4,7 +4,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -99,11 +98,11 @@ public final class CssValue {
     if (s == null) {
       return null;
     }
-    String t = s.trim();
+    String t = HtmlPolicy.stripWhitespace(s);
     if (HEX.matcher(t).matches()) {
       return new CssValue(t);
     }
-    String lower = t.toLowerCase(Locale.ROOT);
+    String lower = HtmlPolicy.lower(t);
     if (NAMED.contains(lower)) {
       return new CssValue(lower);
     }
@@ -134,7 +133,7 @@ public final class CssValue {
     if (s == null) {
       return null;
     }
-    String t = s.trim();
+    String t = HtmlPolicy.stripWhitespace(s);
     return LENGTH.matcher(t).matches() ? new CssValue(t) : null;
   }
 
@@ -148,7 +147,7 @@ public final class CssValue {
     if (name == null) {
       return null;
     }
-    String t = name.trim();
+    String t = HtmlPolicy.stripWhitespace(name);
     return CUSTOM_PROPERTY.matcher(t).matches() ? new CssValue("var(" + t + ")") : null;
   }
 
@@ -174,7 +173,7 @@ public final class CssValue {
     if (s == null) {
       return null;
     }
-    String t = s.trim();
+    String t = HtmlPolicy.stripWhitespace(s);
     if (t.isEmpty() || t.length() > MAX_URL_LENGTH) {
       return null;
     }
@@ -215,7 +214,7 @@ public final class CssValue {
   private static boolean hasScheme(String t, String scheme) {
     return t.length() > scheme.length()
         && t.charAt(scheme.length()) == ':'
-        && t.regionMatches(true, 0, scheme, 0, scheme.length());
+        && HtmlPolicy.lower(t.substring(0, scheme.length())).equals(scheme);
   }
 
   private static boolean isUrlSafe(char c) {

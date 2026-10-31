@@ -79,6 +79,9 @@ class HtmlSanitizerTest {
     assertEquals("a", clean("a<svg><p>x</p>"));
     // a raw text element's content is not markup
     assertEquals("ab", clean("a<script>document.write('</scr'+'ipt><p>')</script>b"));
+    // A browser folds A-Z only: </\u017Fcript> does not end the script, so the <b> is script text too.
+    assertEquals("ab", clean("a<script></\u017Fcript><b>x</b></script>b"));
+    assertEquals("ab", clean("a<STYLE></\u017Ftyle><b>x</b></style>b"));
   }
 
   @Test

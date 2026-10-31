@@ -153,13 +153,24 @@ final class Rules {
    * {@code s} with only A-Z lowercased, as a browser compares names. The verifier keeps its own copy, so it shares
    * no code with the parser it checks.
    */
-  private static String asciiLower(String s) {
+  static String asciiLower(String s) {
     StringBuilder sb = new StringBuilder(s.length());
     for (int i = 0; i < s.length(); i++) {
       char c = s.charAt(i);
       sb.append(c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c);
     }
     return sb.toString();
+  }
+
+  /** An ASCII letter, as a tag name starts. */
+  static boolean isAsciiAlpha(char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+  }
+
+  /** Whether {@code s} has {@code lower} (lower case) at {@code at}, folding A-Z only; false past the end. */
+  static boolean asciiStartsWith(String s, int at, String lower) {
+    return at >= 0 && at <= s.length() - lower.length()
+        && asciiLower(s.substring(at, at + lower.length())).equals(lower);
   }
 
   // ---- error-free parses and the coarse exclusions (#406, security-architecture.md §11.4) ----

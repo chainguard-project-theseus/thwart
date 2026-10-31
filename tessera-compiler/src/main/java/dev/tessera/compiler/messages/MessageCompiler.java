@@ -4,6 +4,7 @@ import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.expr.Expr;
+import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.types.Scope;
@@ -12,7 +13,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -91,7 +91,7 @@ public final class MessageCompiler {
    */
   public static Skeleton.Node htmlSkeleton(Expr.Message message, CompilerEnv env, String element) {
     SourcePos pos = message.pos();
-    element = element == null ? null : element.toLowerCase(Locale.ROOT);
+    element = element == null ? null : HtmlParser.asciiLower(element);
     Map<String, Skeleton.Seq> branches = new LinkedHashMap<>();
     for (String value : env.messages().values(message.key()).values()) {
       List<Skeleton.Node> written = new ArrayList<>();

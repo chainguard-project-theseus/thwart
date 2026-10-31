@@ -8,7 +8,6 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -29,7 +28,7 @@ final class KnownAttributes {
 
   /** Whether {@code name} (any case) may be computed on {@code element}. */
   static boolean accepts(Element element, String name) {
-    String a = name.toLowerCase(Locale.ROOT);
+    String a = HtmlParser.asciiLower(name);
     return STANDARD.contains(a)
         || (a.startsWith("data-") && a.length() > "data-".length())
         || (isCustomElement(element) && PROP.matcher(a).matches());

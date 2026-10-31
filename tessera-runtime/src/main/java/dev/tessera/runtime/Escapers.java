@@ -44,6 +44,8 @@ public final class Escapers {
 
   private static final char[] HEX = "0123456789abcdef".toCharArray();
 
+  private static final char[] HEX_UPPER = "0123456789ABCDEF".toCharArray();
+
   /** Converts a value to its display text ({@code null} becomes {@code ""}). */
   public static String toText(Object value) {
     return value == null ? "" : String.valueOf(value);
@@ -167,7 +169,7 @@ public final class Escapers {
     for (int i = sep + ";url=".length(); i < s.length(); i++) {
       char c = s.charAt(i);
       if (c <= 0x20 || c == 0x7f || ";,'\"\\".indexOf(c) >= 0) {
-        sb.append('%').append(Character.toUpperCase(HEX[c >> 4])).append(Character.toUpperCase(HEX[c & 0xF]));
+        sb.append('%').append(HEX_UPPER[c >> 4]).append(HEX_UPPER[c & 0xF]);
       } else {
         sb.append(c);
       }
@@ -637,6 +639,14 @@ public final class Escapers {
     return url;
   }
 
+  /**
+   * Whether {@code method}, the text of a computed form {@code method}, is {@code post} folding A-Z
+   * only, as a browser reads the enumerated attribute; the CSRF token is written only then (#285).
+   */
+  public static boolean isPostMethod(Object method) {
+    return method != null && HtmlPolicy.lower(String.valueOf(method)).equals("post");
+  }
+
   /** {@code s} if it {@linkplain #isAllowedUrl passes the scheme check}, else {@link #INVALID_URL}. */
   private static String checkedUrl(String s) {
     return isAllowedUrl(s) ? s : INVALID_URL;
@@ -883,7 +893,7 @@ public final class Escapers {
           sb.append("\\t");
           break;
         case '\b':
-          sb.append("\\b");
+          sb.append('\\').append('b'); // JSON's backspace escape
           break;
         case '\f':
           sb.append("\\f");

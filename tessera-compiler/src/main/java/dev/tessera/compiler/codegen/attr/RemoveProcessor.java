@@ -1,5 +1,6 @@
 package dev.tessera.compiler.codegen.attr;
 
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
@@ -11,7 +12,6 @@ import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * {@code t:remove="all|body|tag|all-but-first|none"} (literal values only). {@code all-but-first}
@@ -23,7 +23,7 @@ public final class RemoveProcessor implements AttributeProcessor {
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
-    String v = attr.value() == null ? "" : attr.value().trim();
+    String v = attr.value() == null ? "" : JavaStrings.trimJava(attr.value());
     switch (v) {
       case "all":
         plan.remove();
@@ -79,7 +79,7 @@ public final class RemoveProcessor implements AttributeProcessor {
         continue;
       }
       Element e = (Element) n;
-      String name = e.name().toLowerCase(Locale.ROOT);
+      String name = HtmlParser.asciiLower(e.name());
       boolean foreign = inside || name.equals("svg") || name.equals("math");
       if (e == target) {
         return foreign;

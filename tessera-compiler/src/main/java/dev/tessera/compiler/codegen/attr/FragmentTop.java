@@ -2,16 +2,17 @@ package dev.tessera.compiler.codegen.attr;
 
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.Diagnostics;
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.TemplateIndex;
 import dev.tessera.compiler.expr.FragmentRef;
+import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.model.Text;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -38,7 +39,7 @@ public final class FragmentTop {
   /** Whether {@code e} is written without its tags: {@code <t:block>} or a static {@code t:remove="tag"}. */
   public static boolean tagNotRendered(Element e) {
     return e.name().equals("t:block")
-        || e.attribute("t:remove").map(Attribute::value).map(String::trim).filter("tag"::equals).isPresent();
+        || e.attribute("t:remove").map(Attribute::value).map(JavaStrings::trimJava).filter("tag"::equals).isPresent();
   }
 
   /** The top level written by {@code attr}, a {@code t:insert} or {@code t:replace} in the current template. */
@@ -92,7 +93,7 @@ public final class FragmentTop {
       return;
     }
     if (!tagNotRendered(e)) {
-      elements.add(e.name().toLowerCase(Locale.ROOT));
+      elements.add(HtmlParser.asciiLower(e.name()));
       return;
     }
     if (e.attribute("t:text").isPresent() || e.attribute("t:utext").isPresent() || e.attribute("t:errors").isPresent()) {

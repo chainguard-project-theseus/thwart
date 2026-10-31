@@ -8,6 +8,7 @@ import dev.tessera.compiler.expr.ExpressionParser;
 import dev.tessera.compiler.expr.FragmentSignature;
 import dev.tessera.compiler.expr.ParamDecl;
 import dev.tessera.compiler.forms.FormPaths;
+import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.html.ParsingContexts;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Document;
@@ -19,7 +20,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -255,7 +255,7 @@ public final class TemplateIndex {
     for (Document doc : documents) {
       String className = ClassNames.className(env.basePackage(), doc.source().viewName());
       // Case-insensitive: class files of both would clash on case-insensitive file systems.
-      String previous = classOwners.putIfAbsent(className.toLowerCase(Locale.ROOT), doc.source().path());
+      String previous = classOwners.putIfAbsent(HtmlParser.asciiLower(className), doc.source().path());
       if (previous != null) {
         sink.error(
             new SourcePos(doc.source().path(), 1, 1),
