@@ -27,10 +27,15 @@ final class UrlEncoding {
       if (isUnreserved(c) || (c < 0x80 && alsoAllowed.indexOf(c) >= 0)) {
         sb.append((char) c);
       } else {
-        sb.append('%').append(HEX[c >> 4]).append(HEX[c & 0xF]);
+        percent(sb, c);
       }
     }
     return sb.toString();
+  }
+
+  /** Appends {@code octet} (0-255) as {@code %XX}, upper-case hex. */
+  static void percent(StringBuilder sb, int octet) {
+    sb.append('%').append(HEX[octet >> 4]).append(HEX[octet & 0xF]);
   }
 
   private static boolean isUnreserved(int c) {

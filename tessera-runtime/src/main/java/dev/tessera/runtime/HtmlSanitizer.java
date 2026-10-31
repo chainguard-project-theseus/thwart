@@ -1,9 +1,7 @@
 package dev.tessera.runtime;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,40 +38,40 @@ final class HtmlSanitizer {
   /** Kept elements beyond this nesting depth are dropped (their text is kept). */
   private static final int MAX_DEPTH = 100;
 
-  private static final Set<String> VOID = set("br", "hr", "img");
+  private static final Set<String> VOID = HtmlPolicy.unmodifiable("br", "hr", "img");
 
   /** Phrasing elements: may appear wherever phrasing content may. */
   private static final Set<String> PHRASING =
-      set("a", "b", "i", "em", "strong", "u", "s", "del", "ins", "sub", "sup", "small", "mark",
+      HtmlPolicy.unmodifiable("a", "b", "i", "em", "strong", "u", "s", "del", "ins", "sub", "sup", "small", "mark",
           "code", "kbd", "span", "br", "img");
 
   /** Flow elements that are not phrasing (and are not {@code li} or table parts). */
   private static final Set<String> BLOCK =
-      set("p", "h1", "h2", "h3", "h4", "h5", "h6", "pre", "blockquote", "ul", "ol", "div", "hr", "table");
+      HtmlPolicy.unmodifiable("p", "h1", "h2", "h3", "h4", "h5", "h6", "pre", "blockquote", "ul", "ol", "div", "hr", "table");
 
   /** Elements whose content is phrasing only, so that no block start tag closes them implicitly. */
   private static final Set<String> PHRASING_CONTAINERS =
-      set("a", "b", "i", "em", "strong", "u", "s", "del", "ins", "sub", "sup", "small", "mark",
+      HtmlPolicy.unmodifiable("a", "b", "i", "em", "strong", "u", "s", "del", "ins", "sub", "sup", "small", "mark",
           "code", "kbd", "span", "p", "h1", "h2", "h3", "h4", "h5", "h6", "pre");
 
-  private static final Set<String> TABLE_SECTIONS = set("thead", "tbody", "tfoot");
+  private static final Set<String> TABLE_SECTIONS = HtmlPolicy.unmodifiable("thead", "tbody", "tfoot");
 
   /** Formatting elements that are dropped (text kept) inside an open element of the same name. */
-  private static final Set<String> NO_SELF_NESTING = set("b", "code", "em", "i", "s", "small", "strong", "u");
+  private static final Set<String> NO_SELF_NESTING = HtmlPolicy.unmodifiable("b", "code", "em", "i", "s", "small", "strong", "u");
 
   /** Open elements a start tag never closes implicitly; past them a tag that doesn't fit is dropped. */
   private static final Set<String> BOUNDARY =
-      set("ul", "ol", "table", "caption", "thead", "tbody", "tfoot", "tr", "td", "th");
+      HtmlPolicy.unmodifiable("ul", "ol", "table", "caption", "thead", "tbody", "tfoot", "tr", "td", "th");
 
   /** Where text would be foster-parented or ignored: it is dropped. */
-  private static final Set<String> NO_TEXT = set("table", "thead", "tbody", "tfoot", "tr");
+  private static final Set<String> NO_TEXT = HtmlPolicy.unmodifiable("table", "thead", "tbody", "tfoot", "tr");
 
   /** Raw text and RCDATA elements: skipped, content included, up to their end tag. */
   private static final Set<String> RAW_TEXT =
-      set("script", "style", "textarea", "title", "xmp", "iframe", "noembed", "noframes", "noscript");
+      HtmlPolicy.unmodifiable("script", "style", "textarea", "title", "xmp", "iframe", "noembed", "noframes", "noscript");
 
   /** Dropped with everything inside, found by counting nested tags of the same name. */
-  private static final Set<String> DROP_CONTENT = set("svg", "math", "object", "template", "select");
+  private static final Set<String> DROP_CONTENT = HtmlPolicy.unmodifiable("svg", "math", "object", "template", "select");
 
   private static final Map<String, String> ENTITIES = new HashMap<>();
 
@@ -159,7 +157,7 @@ final class HtmlSanitizer {
     }
     if (next == '/') {
       char c = pos + 2 < n ? s.charAt(pos + 2) : 0;
-      if (isAsciiLetter(c)) {
+      if (HtmlPolicy.isAsciiLetter(c)) {
         pos += 2;
         String name = tagName();
         if (attributes() != null) {
@@ -174,7 +172,7 @@ final class HtmlSanitizer {
       }
       return true;
     }
-    if (!isAsciiLetter(next)) {
+    if (!HtmlPolicy.isAsciiLetter(next)) {
       return false;
     }
     pos++;
@@ -360,9 +358,7 @@ final class HtmlSanitizer {
     if (policy.allowsClasses() && attrs.get("class") != null) {
       StringBuilder classes = new StringBuilder();
       for (String token : decode(attrs.get("class")).split("[ \t\n\f]+")) {
-        if (HtmlPolicy.isClassToken(token)
-            && !HtmlPolicy.isAngularClass(token)
-            && policy.allowsClass(token)) {
+        if (policy.allowsClass(token)) {
           classes.append(classes.length() == 0 ? "" : " ").append(token);
         }
       }
@@ -514,7 +510,7 @@ final class HtmlSanitizer {
   /** Lower-cased (ASCII) tag name at {@code pos}, which is a letter. */
   private String tagName() {
     int start = pos;
-    while (pos < n && !isSpace(s.charAt(pos)) && s.charAt(pos) != '/' && s.charAt(pos) != '>') {
+    while (pos < n && !HtmlPolicy.isWhitespace(s.charAt(pos)) && s.charAt(pos) != '/' && s.charAt(pos) != '>') {
       pos++;
     }
     return HtmlPolicy.lower(s.substring(start, pos));
@@ -529,7 +525,7 @@ final class HtmlSanitizer {
     Map<String, String> attrs = new HashMap<>();
     selfClosing = false;
     while (true) {
-      while (pos < n && (isSpace(s.charAt(pos)) || s.charAt(pos) == '/')) {
+      while (pos < n && (HtmlPolicy.isWhitespace(s.charAt(pos)) || s.charAt(pos) == '/')) {
         selfClosing = s.charAt(pos) == '/' && pos + 1 < n && s.charAt(pos + 1) == '>';
         pos++;
       }
@@ -541,17 +537,17 @@ final class HtmlSanitizer {
         return attrs;
       }
       int start = pos++; // the first character may be '='
-      while (pos < n && !isSpace(s.charAt(pos)) && "/>=".indexOf(s.charAt(pos)) < 0) {
+      while (pos < n && !HtmlPolicy.isWhitespace(s.charAt(pos)) && "/>=".indexOf(s.charAt(pos)) < 0) {
         pos++;
       }
       String name = HtmlPolicy.lower(s.substring(start, pos));
-      while (pos < n && isSpace(s.charAt(pos))) {
+      while (pos < n && HtmlPolicy.isWhitespace(s.charAt(pos))) {
         pos++;
       }
       String value = "";
       if (pos < n && s.charAt(pos) == '=') {
         pos++;
-        while (pos < n && isSpace(s.charAt(pos))) {
+        while (pos < n && HtmlPolicy.isWhitespace(s.charAt(pos))) {
           pos++;
         }
         if (pos >= n) {
@@ -568,7 +564,7 @@ final class HtmlSanitizer {
           pos = end + 1;
         } else {
           int vs = pos;
-          while (pos < n && !isSpace(s.charAt(pos)) && s.charAt(pos) != '>') {
+          while (pos < n && !HtmlPolicy.isWhitespace(s.charAt(pos)) && s.charAt(pos) != '>') {
             pos++;
           }
           value = s.substring(vs, pos);
@@ -622,7 +618,7 @@ final class HtmlSanitizer {
       int end = lt + 2 + name.length();
       if (end <= n
           && HtmlPolicy.lower(s.substring(lt + 2, end)).equals(name)
-          && (end == n || isSpace(s.charAt(end)) || s.charAt(end) == '/' || s.charAt(end) == '>')) {
+          && (end == n || HtmlPolicy.isWhitespace(s.charAt(end)) || s.charAt(end) == '/' || s.charAt(end) == '>')) {
         skipPast('>', end);
         return;
       }
@@ -743,10 +739,10 @@ final class HtmlSanitizer {
   /** The index after a well-formed named reference {@code &[A-Za-z][A-Za-z0-9]*;} at i, or -1. */
   private static int unknownNamed(String s, int i, int to) {
     int j = i + 1;
-    if (j >= to || !isAsciiLetter(s.charAt(j))) {
+    if (j >= to || !HtmlPolicy.isAsciiLetter(s.charAt(j))) {
       return -1;
     }
-    while (j < to && (isAsciiLetter(s.charAt(j)) || (s.charAt(j) >= '0' && s.charAt(j) <= '9'))) {
+    while (j < to && (HtmlPolicy.isAsciiLetter(s.charAt(j)) || (s.charAt(j) >= '0' && s.charAt(j) <= '9'))) {
       j++;
     }
     return j < to && s.charAt(j) == ';' ? j + 1 : -1;
@@ -763,17 +759,5 @@ final class HtmlSanitizer {
       return c - 'a' + 10;
     }
     return c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
-  }
-
-  private static boolean isAsciiLetter(char c) {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
-  }
-
-  private static boolean isSpace(char c) {
-    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f';
-  }
-
-  private static Set<String> set(String... names) {
-    return new HashSet<>(Arrays.asList(names));
   }
 }
