@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * htmx {@code hx-boost} (#258): htmx submits a boosted form with AJAX to its {@code action} (or the
- * submit button's {@code formaction}, also in a form with {@code hx-post} etc.) and swaps the
+ * submit button's {@code formaction}, which every form checks, #314) and swaps the
  * response into the page as HTML, so there a computed URL must be a same-origin link. A computed
  * {@code hx-boost} is a build error. Links are not affected: htmx boosts an {@code <a>} only when
  * its hostname is the page's.
@@ -27,7 +27,7 @@ class HtmxBoostTest {
     return c.render("t", Map.of("s", s, "u", TrustedUrl.unchecked("https://evil.example/"), "b", true));
   }
 
-  private static final String NOT_A_LINK = "inside hx-boost or an htmx form";
+  private static final String NOT_A_LINK = "inside hx-boost, htmx submits";
 
   /** A boosted form's computed action takes only a link: no String, concatenation or TrustedUrl. */
   @Test
@@ -80,7 +80,7 @@ class HtmxBoostTest {
         .assertError("t.html:1:", "t:action is not allowed", NOT_A_LINK);
   }
 
-  /** formaction is requested in a boosted subtree and in any form with an htmx request attribute. */
+  /** formaction in a boosted subtree or an htmx form takes only a link, like every formaction (#314). */
   @Test
   void formactionInHtmxFormsRejectsNonLinks() {
     String[] bodies = {
@@ -97,7 +97,7 @@ class HtmxBoostTest {
       "<form hx-post=\"/save\"><form><button t:formaction=\"s\">x</button></form></form>",
     };
     for (String body : bodies) {
-      compile(body).assertError("t.html:1:", "formaction is not allowed", NOT_A_LINK);
+      compile(body).assertError("t.html:1:", "formaction is not allowed", "to its formaction");
     }
     compile("<form hx-post=\"/save\"><button t:formaction=\"@{https://evil.example/}\">x</button></form>")
         .assertError("t.html:1:", "t:formaction is not allowed", "same-origin path");

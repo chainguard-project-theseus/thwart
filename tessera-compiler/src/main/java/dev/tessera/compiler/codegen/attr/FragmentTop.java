@@ -9,24 +9,22 @@ import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 
 /**
- * The elements a {@code ~{...}} used as a {@code Fragment} value writes at its top level, looking
+ * The first table part a {@code ~{...}} used as a {@code Fragment} value writes at its top level, looking
  * through {@code <t:block>}, {@code t:remove="tag"} and nested {@code t:insert}/{@code t:replace}
  * of fragment references (#348). A table part there could end a cell wherever the value is
  * inserted. The verifier composes a {@code Fragment} argument only where the callee inserts the
  * parameter by itself, so this check stays until it composes every insertion (TODO(#561)).
  */
 final class FragmentTop {
-  /** Elements a browser places by the table rules. */
-  static final Set<String> TABLE_PARTS =
-      Backports.setOf("table", "caption", "colgroup", "col", "tbody", "thead", "tfoot", "tr", "td", "th");
+  /** Elements a browser places by the table rules; {@code <table>} itself is not one of them. */
+  private static final Set<String> TABLE_PARTS =
+      Backports.setOf("caption", "colgroup", "col", "tbody", "thead", "tfoot", "tr", "td", "th");
 
-  /** Lower-case names of the elements written with their tags. */
-  final List<String> elements = new ArrayList<>();
+  /** The lower-case name of the first table part written with its tags, or null. */
+  String firstTablePart;
 
   private FragmentTop() {}
 
@@ -69,7 +67,10 @@ final class FragmentTop {
       return;
     }
     if (!TextInlining.tagNotRendered(e)) {
-      elements.add(HtmlParser.asciiLower(e.name()));
+      String n = HtmlParser.asciiLower(e.name());
+      if (firstTablePart == null && TABLE_PARTS.contains(n)) {
+        firstTablePart = n;
+      }
       return;
     }
     if (e.attribute("t:insert").isPresent()) {

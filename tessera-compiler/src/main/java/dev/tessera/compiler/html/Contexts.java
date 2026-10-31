@@ -217,28 +217,6 @@ public final class Contexts {
     return boost;
   }
 
-  /**
-   * Whether {@code element} has an {@link #isHtmxRequestUrl htmx request attribute}, static,
-   * {@code t:} or (by name anywhere in its value) {@code t:attr} (#258): on a {@code <form>}, htmx
-   * then requests a submit button's {@code formaction} instead of that URL.
-   */
-  public static boolean hasHtmxRequestAttribute(Element element) {
-    for (Attribute a : element.attributes()) {
-      if (isHtmxRequestUrl(a.localName())) {
-        return true;
-      }
-      if (a.name().equals(Attribute.PREFIX + "attr") && a.value() != null) {
-        String v = HtmlParser.asciiLower(a.value());
-        for (String name : HTMX_REQUEST_ATTRIBUTES) {
-          if (v.contains(name)) {
-            return true;
-          }
-        }
-      }
-    }
-    return false;
-  }
-
   /** A bind target: a plain attribute name without modifiers ({@code .}) or namespaces ({@code :}). */
   private static final Pattern BIND_TARGET = Pattern.compile("[a-z_][a-z0-9_-]*");
 
