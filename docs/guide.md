@@ -410,8 +410,8 @@ quotes around a `"..."` or `'...'` string that is only an inline (`"[[${x}]]"` b
 which writes JSON with its own quotes) and reports any other `[[...]]` inside a string, template
 literal or comment. In a `th:inline="javascript"` script it rewrites a natural-template comment
 followed by one literal, `/*[[${x}]]*/ 'd'`, to `[[${x}]]`, as Thymeleaf rendered it, and reports
-one followed by anything else (`/*[[${x}]]*/ a + b`). It reports a script with a `[[...]]` outside
-the script prelude (section 6); hoisting the values into declarations at the top is not implemented yet. An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
+one followed by anything else (`/*[[${x}]]*/ a + b`). Until #541 it checks scripts only against the old
+data-prelude rule (a `/`, backtick or `-->` before the last `[[...]]`), so a converted script whose values are not all in prelude declarations at the top, including one these rewrites produce, fails to build with the script prelude error (section 6) until you hoist them; #541 makes migrate hoist them. An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
 It reports a computed name that is not a known attribute (section 6), and rewrites the htmx
 ones that htmx reads the same with `data-` (`th:hx-target` becomes `t:data-hx-target`; also
 `hx-swap`, `hx-select`, `hx-confirm` and the other htmx selector, swap and text attributes),
