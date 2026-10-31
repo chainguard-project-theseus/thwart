@@ -142,9 +142,6 @@ public final class CsrfInjector {
     Optional<ElementPlan.Attr> method = plan.attribute("formmethod");
     boolean staticAction = action.isPresent() && action.get() instanceof ElementPlan.StaticAttr;
     boolean staticMethod = method.isPresent() && method.get() instanceof ElementPlan.StaticAttr;
-    if (!staticAction && !staticMethod) {
-      return;
-    }
     if (staticAction) {
       Attribute a = ((ElementPlan.StaticAttr) action.get()).source();
       if (!isSameOriginStatic(a.value())) {

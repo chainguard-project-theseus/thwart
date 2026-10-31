@@ -29,8 +29,8 @@ import javax.lang.model.type.TypeMirror;
  * {@code name} from the expression, escaped for {@link Contexts#attribute}, whose contexts
  * ({@link OutputContext}) say what each attribute accepts. This processor adds: boolean attributes
  * ({@code checked}, {@code disabled}, ...) take a condition; a {@code <base href>} (#350), an htmx
- * request URL, the {@code action}/{@code formaction} of a form htmx submits
- * ({@link CodegenContext#htmxSubmits}), the {@code action} of a static POST form and every
+ * request URL, the {@code action} of a boosted form ({@link CodegenContext#htmxSubmits}), the
+ * {@code action} of a static POST form and every
  * {@code formaction} (they may receive the CSRF token, {@link CsrfInjector}) take only a
  * same-origin link; and a computed {@code formmethod}, or {@code method} on a {@code <form>}, is a
  * build error.
@@ -149,11 +149,10 @@ public final class GenericAttrProcessor implements AttributeProcessor {
           "htmx requests this URL and swaps the response into the page as HTML", "", HTMX_URL);
       return;
     }
-    if (context == OutputContext.URL
-        && (lower.equals("formaction") || (lower.equals("action") && HtmlParser.asciiEqualsIgnoreCase(element, "form")))
-        && ctx.htmxSubmits(plan.element())) {
+    // A formaction htmx may submit to is checked below like every formaction (#314).
+    if (context == OutputContext.URL && lower.equals("action") && ctx.htmxSubmits(plan.element())) {
       htmxRequestUrl(ctx, plan, name, value, pos, label,
-          "inside hx-boost or an htmx form, htmx submits to this URL and swaps the response into the page as HTML",
+          "inside hx-boost, htmx submits to this URL and swaps the response into the page as HTML",
           ", or put hx-boost=\"false\" on the form to submit it natively", HTMX_URL);
       return;
     }
@@ -291,7 +290,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
    * into the page as HTML, and htmx 1.x also sends cross-origin requests, so only a link whose
    * literal path is same-origin ({@link LinkCompiler#isSameOriginPath}) compiles. Path variables and
    * parameters are percent-encoded by the link; the value is written with the resource-URL escaper.
-   * Also the {@code action}/{@code formaction} of a boosted or htmx form (#258), written with the URL
+   * Also the {@code action} of a boosted form (#258), written with the URL
    * escaper, and the {@code action} of a POST form or a {@code formaction}, which may receive the
    * CSRF token (#285, #314). {@code why} starts the
    * error for a non-link value and {@code orElse} ends it; {@code what} names the URL in the error
