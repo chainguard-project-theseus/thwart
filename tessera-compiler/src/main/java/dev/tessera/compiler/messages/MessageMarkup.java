@@ -2,10 +2,12 @@ package dev.tessera.compiler.messages;
 
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.JavaStrings;
+import dev.tessera.compiler.codegen.attr.TextInlining;
 import dev.tessera.compiler.html.HtmlParser;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * The build-time check for a bundle message rendered as HTML ({@code t:utext="#{key}"}, #236).
@@ -62,11 +64,14 @@ final class MessageMarkup {
   static String problem(String message) {
     try {
       check(message);
+      braces(message);
     } catch (Bad e) {
       return e.getMessage();
     }
     try {
-      check(formatted(message));
+      String formatted = formatted(message);
+      check(formatted);
+      braces(formatted);
       return null;
     } catch (Bad e) {
       return e.getMessage()
@@ -81,6 +86,61 @@ final class MessageMarkup {
     Bad(String message) {
       super(message, null, false, false);
     }
+  }
+
+  /** A tag the grammar accepts: quoted attribute values may hold {@code >}. */
+  private static final Pattern TAG =
+      Pattern.compile("</?[A-Za-z][^>\"']*(?:(?:\"[^\"]*\"|'[^']*')[^>\"']*)*>");
+
+  /**
+   * The client-side interpolation rule for template text (#248, #336), on the message's text: a
+   * {@code {{} is closed by a {@code }}} before the next tag or argument. The runtime breaks a
+   * {@code {} at either end of the message ({@code Escapers.rawEdges}) and in arguments. It
+   * sees only a literal {@code {}, so a character reference for a brace in message text is
+   * rejected: next to a placeholder or a template's {@code {} it would form a {@code {{}.
+   */
+  private static void braces(String s) throws Bad {
+    for (String run : TAG.split(s, -1)) {
+      // Whether the text before the current placeholder ends with '{': an empty argument writes
+      // nothing, so the texts around it meet.
+      boolean braceBefore = false;
+      boolean first = true;
+      for (String literal : run.split(String.valueOf(ARG), -1)) {
+        String text = TextInlining.decode(literal, true);
+        if (count(text, '{') != count(literal, '{') || count(text, '}') != count(literal, '}')) {
+          throw new Bad("a character reference for '{' or '}' is not supported in message text: next to a"
+              + " placeholder or a '{' in the template it could form a client-side {{ that Vue and petite-vue"
+              + " would run as code; write the brace itself");
+        }
+        if (!first && braceBefore && text.startsWith("{")) {
+          throw new Bad("a '{' on both sides of a placeholder is not supported: with an empty argument the two"
+              + " braces form a client-side {{ that Vue and petite-vue would run as code; put other text between"
+              + " them");
+        }
+        braceBefore = text.isEmpty() ? braceBefore : text.endsWith("{");
+        first = false;
+        int open = text.indexOf("{{");
+        while (open >= 0) {
+          int close = text.indexOf("}}", open + 2);
+          if (close < 0) {
+            throw new Bad("a client-side {{ is not closed by }} before the next tag or placeholder: Vue and"
+                + " petite-vue would run what follows as code; write a literal {{ as {<!---->{ in template text,"
+                + " not in a message");
+          }
+          open = text.indexOf("{{", close + 2);
+        }
+      }
+    }
+  }
+
+  private static int count(String s, char c) {
+    int n = 0;
+    for (int i = 0; i < s.length(); i++) {
+      if (s.charAt(i) == c) {
+        n++;
+      }
+    }
+    return n;
   }
 
   // ---------------------------------------------------------------------------------------------

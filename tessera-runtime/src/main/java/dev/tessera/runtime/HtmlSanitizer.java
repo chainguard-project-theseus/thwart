@@ -437,11 +437,7 @@ final class HtmlSanitizer {
         && HtmlPolicy.isClassToken(url.substring(1)) && !url.startsWith(policy.idPrefix, 1)) {
       url = "#" + policy.idPrefix + url.substring(1); // follow the prefixed id
     }
-    // AngularJS interpolates attribute values too: '{' is percent-encoded, which a browser does in
-    // a path anyway, so the URL never holds "{{" (#248)
-    StringBuilder sb = new StringBuilder(url.length() + 8);
-    Escapers.escapeHtml(sb, url.replace("{", "%7B"), false);
-    return sb.toString();
+    return Escapers.escapeHtml(url);
   }
 
   private static boolean isDataImage(String url) {
@@ -464,12 +460,11 @@ final class HtmlSanitizer {
   /**
    * Writes a text attribute the policy allows. Known references are decoded and re-escaped;
    * well-formed unknown named references are kept (in a quoted value they only produce
-   * characters). A value holding {@code {{} once decoded is dropped: AngularJS interpolates
-   * attribute values, and they have no lossless break.
+   * characters).
    */
   private void textAttribute(StringBuilder sb, String name, Map<String, String> attrs) {
     String raw = policy.attributes.contains(name) ? attrs.get(name) : null;
-    if (raw == null || decode(raw).contains("{{")) {
+    if (raw == null) {
       return;
     }
     sb.append(' ').append(name).append("=\"");
@@ -481,7 +476,7 @@ final class HtmlSanitizer {
       if (end > 0) {
         i = end;
       } else if (c == '&' && (end = unknownNamed(raw, i, raw.length())) > 0) {
-        Escapers.escapeHtml(sb, pending.toString(), false);
+        Escapers.appendHtml(sb, pending.toString());
         pending.setLength(0);
         sb.append(raw, i, end);
         i = end;
@@ -490,7 +485,7 @@ final class HtmlSanitizer {
         i++;
       }
     }
-    Escapers.escapeHtml(sb, pending.toString(), false);
+    Escapers.appendHtml(sb, pending.toString());
     sb.append('"');
   }
 
@@ -669,7 +664,7 @@ final class HtmlSanitizer {
       if (end > 0) {
         i = end;
       } else if ((end = unknownNamed(s, i, to)) > 0) {
-        Escapers.escapeHtml(out, pending.toString(), true);
+        Escapers.appendText(out, pending.toString());
         pending.setLength(0);
         out.append(s, i, end);
         i = end;
@@ -678,7 +673,7 @@ final class HtmlSanitizer {
         i++;
       }
     }
-    Escapers.escapeHtml(out, pending.toString(), true);
+    Escapers.appendText(out, pending.toString());
   }
 
   /** Decodes known character references in an attribute value; unknown ones stay literal. */

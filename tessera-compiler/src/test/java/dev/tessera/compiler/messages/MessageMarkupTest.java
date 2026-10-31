@@ -109,4 +109,44 @@ class MessageMarkupTest {
     assertNotNull(problem, message);
     assertTrue(problem.contains(reason.trim()), message + " -> " + problem);
   }
+
+  /** #336: a static {{ in a message is closed before the next tag or argument. */
+  @ParameterizedTest
+  @ValueSource(strings = {"Hi '{{' {0} '}}'", "'{{' <b>x</b> '}}'", "'{{'"})
+  void unclosedMustacheIsRejected(String message) {
+    String problem = MessageMarkup.problem(message);
+    assertNotNull(problem, message);
+    assertTrue(problem.contains("a client-side {{ is not closed"), message + " -> " + problem);
+  }
+
+  /**
+   * #336: the runtime breaks only a literal '{' at a message's edges, so a brace reference, which
+   * could meet a placeholder's or the template's '{' (k=&#123; in {[(#{k})]}), is rejected.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "&#123;", "&#123;{0}", "{0}&#x7b;", "a &#123;&#123; {0}", "&lbrace;", "x &lcub;", "&#X7B;", "&#0123;",
+        "&#125;", "&rbrace; {0}", "<b>x</b>&#123;"
+      })
+  void braceReferenceIsRejected(String message) {
+    String problem = MessageMarkup.problem(message);
+    assertNotNull(problem, message);
+    assertTrue(problem.contains("a character reference for '{' or '}' is not supported"), message + " -> " + problem);
+  }
+
+  /** #336: with an empty argument, a '{' on each side of a placeholder forms {{. */
+  @ParameterizedTest
+  @ValueSource(strings = {"'{'{0}'{' {1} '}}'", "a '{'{0}{1}'{'", "'{'{0}'{{' x '}}'"})
+  void braceOnBothSidesOfAPlaceholderIsRejected(String message) {
+    String problem = MessageMarkup.problem(message);
+    assertNotNull(problem, message);
+    assertTrue(problem.contains("a '{' on both sides of a placeholder is not supported"), message + " -> " + problem);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"Hi '{{' a '}}' {0}", "{0} '{' {1}", "<b title=\"'{{'\">x</b>", "'{'{0} '{'", "'{'{0}<b>x</b>"})
+  void closedOrSingleBracesPass(String message) {
+    assertNull(MessageMarkup.problem(message), message);
+  }
 }

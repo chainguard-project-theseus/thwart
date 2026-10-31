@@ -133,7 +133,7 @@ public final class TemplateGenerator implements CodegenContext {
     indexHtmxSubmits(document.children(), false, false);
 
     validate(document.rootElement(), document.children());
-    TextInlining.checkMustachesClosed(this, document.children());
+    TextInlining.checkBraces(this, document.children(), null);
     Scope scope = Scope.empty();
     for (TemplateIndex.Param p : info.params()) {
       scope = scope.with(new Variable(p.name(), p.type(), javaName(p.name())));
