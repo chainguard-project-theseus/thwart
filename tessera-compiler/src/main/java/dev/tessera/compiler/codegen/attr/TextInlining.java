@@ -68,30 +68,28 @@ public final class TextInlining {
     }
     int i = 0;
     while (i < raw.length()) {
-      boolean escaped = raw.startsWith("[[", i);
-      if (escaped || raw.startsWith("[(", i)) {
-        int end = findEnd(raw, i + 2, escaped ? "]]" : ")]");
-        if (end >= 0) {
-          found = true;
-          SourcePos pos = text.pos().advance(raw, i + 2);
-          String before = literal.toString();
-          flush(code, literal, text.pos().advance(raw, literalStart));
-          literalStart = end + 2;
-          String markup = markupBefore(text.context(), before);
-          if (markup != null) {
-            String form = escaped ? "[[...]]" : "[(...)]";
-            ctx.diagnostics()
-                .error(
-                    pos,
-                    form + " may not follow '" + markup + "' directly: the browser would read the value as markup;"
-                        + " write &lt; for a literal '<'");
-            // Still emitted: nothing is written on error, and the skeleton keeps the hole for the
-            // verifier's own check (#367).
-          }
-          code.add(inline(ctx, text.context(), parsing, rawText, raw.substring(i + 2, end), pos, escaped, scope));
-          i = end + 2;
-          continue;
+      int end = holeEnd(raw, i);
+      if (end >= 0) {
+        boolean escaped = raw.charAt(i + 1) == '[';
+        found = true;
+        SourcePos pos = text.pos().advance(raw, i + 2);
+        String before = literal.toString();
+        flush(code, literal, text.pos().advance(raw, literalStart));
+        literalStart = end + 2;
+        String markup = markupBefore(text.context(), before);
+        if (markup != null) {
+          String form = escaped ? "[[...]]" : "[(...)]";
+          ctx.diagnostics()
+              .error(
+                  pos,
+                  form + " may not follow '" + markup + "' directly: the browser would read the value as markup;"
+                      + " write &lt; for a literal '<'");
+          // Still emitted: nothing is written on error, and the skeleton keeps the hole for the
+          // verifier's own check (#367).
         }
+        code.add(inline(ctx, text.context(), parsing, rawText, raw.substring(i + 2, end), pos, escaped, scope));
+        i = end + 2;
+        continue;
       }
       literal.append(raw.charAt(i));
       i++;
@@ -107,18 +105,11 @@ public final class TextInlining {
   public static int firstUnescaped(String raw) {
     int i = 0;
     while (i < raw.length()) {
-      boolean escaped = raw.startsWith("[[", i);
-      if (escaped || raw.startsWith("[(", i)) {
-        int end = findEnd(raw, i + 2, escaped ? "]]" : ")]");
-        if (end >= 0) {
-          if (!escaped) {
-            return i;
-          }
-          i = end + 2;
-          continue;
-        }
+      int end = holeEnd(raw, i);
+      if (end >= 0 && raw.charAt(i + 1) == '(') {
+        return i;
       }
-      i++;
+      i = end >= 0 ? end + 2 : i + 1;
     }
     return -1;
   }
@@ -447,7 +438,7 @@ public final class TextInlining {
   }
 
   private static boolean isLineBreak(char c) {
-    return c == '\n' || c == '\r' || c == ' ' || c == ' ';
+    return c == '\n' || c == '\r' || c == '\u2028' || c == '\u2029';
   }
 
   /** The offset of the {@code ]]} or {@code )]} of a {@code [[...]]} or {@code [(...)]} that starts at {@code i}, or -1. */
