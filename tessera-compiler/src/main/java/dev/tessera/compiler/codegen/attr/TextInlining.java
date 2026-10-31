@@ -388,7 +388,8 @@ public final class TextInlining {
                 text.pos().advance(raw, i + 2),
                 "[[...]] in a JavaScript <script> is only allowed as the whole value of a declaration at the"
                     + " top of the script, before any other code: const name = [[...]]; (one value per"
-                    + " declaration, only whitespace and // comments before it). Move the value into such a"
+                    + " declaration, a name that is not a reserved word or location, only whitespace and //"
+                    + " comments before it). Move the value into such a"
                     + " declaration at the top and use the name in the code below, or write it into a"
                     + " <script type=\"application/json\"> and read it with JSON.parse");
         return;
@@ -460,8 +461,14 @@ public final class TextInlining {
     return i;
   }
 
-  /** JavaScript's reserved words, and the strict-mode and module ones, which cannot be a declared name. */
+  /**
+   * Names a declaration may not use: JavaScript's reserved words, the strict-mode and module ones,
+   * and {@code location}. In a classic script, {@code var location = v} declares nothing new (the
+   * global object already has the property) and assigns {@code v} to {@code window.location},
+   * whose setter navigates, to a {@code javascript:} URL too.
+   */
   private static final Set<String> RESERVED = Backports.setOf(
+      "location",
       "await", "break", "case", "catch", "class", "const", "continue", "debugger", "default", "delete", "do",
       "else", "enum", "export", "extends", "false", "finally", "for", "function", "if", "implements", "import",
       "in", "instanceof", "interface", "let", "new", "null", "package", "private", "protected", "public",

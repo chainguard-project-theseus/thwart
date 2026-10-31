@@ -2227,13 +2227,15 @@ These come from the annotation processor itself, without a template position.
   `t:utext` and `[(...)]` inside `<svg>`, `<math>` or `<select>` (contexts as in the fragment
   messages below; inside raw text, the raw-text error above applies). Inside `<svg>`, a `<p>` in the value
   ends the `<svg>`, and a `<title>` holds HTML, where a `<script>` runs.
-- `[[...]] in a JavaScript <script> is only allowed as the whole value of a declaration at the top of the script, before any other code: const name = [[...]]; (one value per declaration, only whitespace and // comments before it). Move the value into such a declaration at the top and use the name in the code below, or write it into a <script type="application/json"> and read it with JSON.parse`:
+- `[[...]] in a JavaScript <script> is only allowed as the whole value of a declaration at the top of the script, before any other code: const name = [[...]]; (one value per declaration, a name that is not a reserved word or location, only whitespace and // comments before it). Move the value into such a declaration at the top and use the name in the code below, or write it into a <script type="application/json"> and read it with JSON.parse`:
   the script prelude rule (security-architecture.md §5.4). In a JavaScript `<script>` a
   `[[...]]` may only be the whole value of `const`, `let` or `var` `name = [[...]];` (an ASCII
-  name that is not a reserved word, one value per declaration), and these declarations come first: before them, between them
+  name that is not a reserved word or `location`, one value per declaration), and these declarations come first: before them, between them
   and up to the first other code, only spaces, tabs, line breaks and `//` comments. The code after
   them is static and may use anything. The value is written in parentheses, `var n = (-1.5);`, so
-  `n.toFixed(2)` below formats the whole number. The compiler doesn't lex JavaScript to place a
+  `n.toFixed(2)` below formats the whole number. `var location = [[...]];` would assign the value
+  to `window.location` and navigate there, so `location` is not a name you can declare. The
+  compiler doesn't lex JavaScript to place a
   value: the grammar fixes the code around it. So a value inside a string (`"[[${x}]]"`), a
   comment (Thymeleaf's natural template `/*[[${x}]]*/ 'd'`), a template literal or a regular
   expression, after code, or inside an expression (`f([[${x}]])`, `[[${d}]].split(".")`,

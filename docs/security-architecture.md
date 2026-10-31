@@ -247,7 +247,7 @@ replacing #332's data-prelude lexer and the #509 expression-position checks):
 
 - In a JavaScript `<script>` (no type, a JavaScript type or `module`), each hole is the whole value
   of a declaration `const|let|var NAME = [[...]];` (at least one space or tab after the keyword; an
-  ASCII identifier that is not a reserved word; one hole per declaration), and these declarations
+  ASCII identifier that is not a reserved word or `location`, since `var location = v` in a classic script calls the navigating `window.location` setter; one hole per declaration), and these declarations
   form a prelude at the top of the script: before, between and after them, up to the first other
   code, only ASCII spaces, tabs, line breaks and `//` comments (a hole in a comment ends the
   prelude). There is no form without a keyword (`x = [[...]];`). Every hole after that is a build

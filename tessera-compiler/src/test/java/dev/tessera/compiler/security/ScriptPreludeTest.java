@@ -240,6 +240,18 @@ class ScriptPreludeTest {
     compile("<script>var " + name + "x = [[${s}]];</script>").assertSuccess();
   }
 
+  @ParameterizedTest
+  @ValueSource(strings = {"var", "let", "const"})
+  void locationIsNotADeclaredName(String keyword) {
+    // In a classic script, var location = (json) calls window.location's setter: with
+    // "javascript:alert(1)" the browser runs the value as code.
+    Compilation c = compile("<script>" + keyword + " location = [[${s}]];</script>");
+    c.assertError("page.html:2:", "only allowed as the whole value", "not a reserved word or location");
+    assertNull(c.generatedSource("tessera.generated.PageTemplate"), "nothing may be generated");
+    compile("<script type=\"module\">" + keyword + " location = [[${s}]];</script>").assertError("page.html:2:");
+    compile("<script>" + keyword + " locationUrl = [[${s}]];</script>").assertSuccess();
+  }
+
   @Test
   void textOnAJavaScriptScriptFailsToBuild() {
     for (String script : new String[] {"<script t:text=\"${s}\"></script>", "<script type=\"module\" t:text=\"${l}\"></script>"}) {
