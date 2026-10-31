@@ -181,6 +181,21 @@ class ScriptPreludeTest {
           "<script>var a = [[${s}]]; f(\"-->\");</script>",
           "<script>var a = [[${l}]];\nclass A { in\n[a] = 1 }</script>");
 
+  /**
+   * What tessera-migrate writes for values outside the prelude (#541): each hoisted into
+   * {@code var _tN = [[...]];} above the first code (the bench shapes), and the name used in its place.
+   */
+  static final List<String> HOISTED_BY_MIGRATE =
+      List.of(
+          "<script>\n    var a = [[${s}]];\n    var _t1 = [[${s}]];\n    var _t2 = [[${n}]];\n    var _t3 = [[${m}]];\n"
+              + "    var _t4 = [[${s}]];\n    var _t5 = [[${s}]];\n    var _t6 = [[${l}]];\n"
+              + "    var parts = _t1.split(\".\");\n    init(_t2, parts);\n    var o = {name: _t3, editable: true};\n"
+              + "    var g = \"Hello \" + _t4 + \"!\";\n    numberValidationMessage = _t5;\n    var visits = _t6;\n"
+              + "    var re = /^a$/;\n</script>",
+          "<script>var _t1 = [[${s}]]; var _t2 = [[${l}]]; var n = (\"a \" + _t1).length; f(_t2);</script>",
+          "<script type=\"module\">var _t1 = [[${s}]]; import { start } from \"/app.js\"; start(_t1);</script>",
+          "<script>\r\n  // data\r\n  var a = [[${s}]];\r\n  var _t1 = [[${n}]];\r\n  f(a, _t1);\r\n</script>");
+
   private static Compilation compile(String markup) {
     return Compilation.builder().template("page.html", PARAMS + markup + "\n</div>").compile();
   }
@@ -195,7 +210,7 @@ class ScriptPreludeTest {
   }
 
   @ParameterizedTest
-  @FieldSource("ALLOWED")
+  @FieldSource({"ALLOWED", "HOISTED_BY_MIGRATE"})
   void preludeDeclarationBuilds(String markup) {
     compile(markup).assertSuccess();
   }
