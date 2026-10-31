@@ -25,7 +25,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
 /**
- * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. A Vue/Alpine binding with an ordinary target ({@code :prop}, SCRIPT_ATTRIBUTE) takes only a JSON-serializable value, written as JSON. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}; {@link #TRUSTED_URL_LISTS ping, srcset and imagesrcset} only a {@code TrustedUrl}; a {@code <base href>} (#350), an htmx request URL ({@code hx-get}, ...), the {@code action}/{@code formaction} of a form htmx submits ({@link CodegenContext#htmxSubmits}), and a {@code formaction} that may receive the CSRF token ({@link CodegenContext#mayPostCsrfToken}), only a same-origin link; there a computed {@code formmethod} is a build error. A name that is not a standard HTML, SVG, MathML or ARIA attribute, {@code data-*}, a plain prop on a custom element or a framework name Contexts classifies is a build error ({@link Contexts#isUnknownName}, #330).
+ * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. A Vue/Alpine binding with an ordinary target ({@code :prop}, SCRIPT_ATTRIBUTE) takes only a JSON-serializable value, written as JSON. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}; {@link #TRUSTED_URL_LISTS ping, srcset and imagesrcset} only a {@code TrustedUrl}; a {@code <base href>} (#350), an htmx request URL ({@code hx-get}, ...), the {@code action}/{@code formaction} of a form htmx submits ({@link CodegenContext#htmxSubmits}), the {@code action} of a static POST form and every {@code formaction} (they may receive the CSRF token, {@link CsrfInjector}), only a same-origin link; a computed {@code formmethod}, or {@code method} on a {@code <form>}, is a build error. A name that is not a standard HTML, SVG, MathML or ARIA attribute, {@code data-*}, a plain prop on a custom element or a framework name Contexts classifies is a build error ({@link Contexts#isUnknownName}, #330).
  */
 public final class GenericAttrProcessor implements AttributeProcessor {
 
@@ -149,13 +149,24 @@ public final class GenericAttrProcessor implements AttributeProcessor {
           ", or put hx-boost=\"false\" on the form to submit it natively", HTMX_URL);
       return;
     }
-    if (lower.equals("formaction") && ctx.mayPostCsrfToken(plan.element())) {
-      // #314: the token goes wherever the button submits the form.
-      htmxRequestUrl(ctx, plan, name, value, pos, label, CsrfInjector.IN_TOKEN_FORM,
-          ", or move the button into its own form", "a formaction that may receive the CSRF token");
+    boolean form = HtmlParser.asciiEqualsIgnoreCase(element, "form");
+    if (form && lower.equals("method")) {
+      ctx.diagnostics().error(pos, label + " is not allowed: " + CsrfInjector.COMPUTED_METHOD);
       return;
     }
-    if (lower.equals("formmethod") && ctx.mayPostCsrfToken(plan.element())) {
+    if (form && lower.equals("action") && CsrfInjector.isStaticPost(plan.element())) {
+      // The CSRF token goes wherever the form posts (#285).
+      htmxRequestUrl(ctx, plan, name, value, pos, label, CsrfInjector.POST_ACTION, CsrfInjector.POST_ACTION_ELSE,
+          "the action of a POST form, which gets the CSRF token,");
+      return;
+    }
+    if (lower.equals("formaction")) {
+      // #314: the token goes wherever the button submits the form, and any form may get it.
+      htmxRequestUrl(ctx, plan, name, value, pos, label, CsrfInjector.IN_TOKEN_FORM, "",
+          "a formaction, which may receive the CSRF token,");
+      return;
+    }
+    if (lower.equals("formmethod")) {
       ctx.diagnostics().error(pos, label + " is not allowed: " + CsrfInjector.GET_TOKEN);
       return;
     }
@@ -279,7 +290,8 @@ public final class GenericAttrProcessor implements AttributeProcessor {
    * literal path is same-origin ({@link LinkCompiler#isSameOriginPath}) compiles. Path variables and
    * parameters are percent-encoded by the link; the value is written with the resource-URL escaper.
    * Also the {@code action}/{@code formaction} of a boosted or htmx form (#258), written with the URL
-   * escaper, and a {@code formaction} that may receive the CSRF token (#314). {@code why} starts the
+   * escaper, and the {@code action} of a POST form or a {@code formaction}, which may receive the
+   * CSRF token (#285, #314). {@code why} starts the
    * error for a non-link value and {@code orElse} ends it; {@code what} names the URL in the error
    * for a link that is not same-origin.
    */

@@ -59,12 +59,10 @@ class CsrfOwnInputTest {
   }
 
   @Test
-  void computedPostOrActionWithOwnInputHasOneToken() {
+  void linkActionWithOwnInputHasOneToken() {
     Map<String, Object> model = new HashMap<>();
     model.put("tok", "tok");
-    model.put("m", "POST");
-    model.put("a", "/save");
-    String out = render("String m, String a", "<form t:method=\"m\" t:action=\"a\">" + OWN + "</form>", model, token("_csrf"));
+    String out = render(null, "<form method=\"POST\" t:action=\"@{/save}\">" + OWN + "</form>", model, token("_csrf"));
     assertEquals("<div><form method=\"POST\" action=\"/save\">" + OWN_OUT + "</form></div>", out);
   }
 
@@ -139,11 +137,5 @@ class CsrfOwnInputTest {
     String other = "<input type=\"hidden\" name=\"q\" value=\"v\" />";
     assertEquals("<div><form method=\"get\">" + other + "</form></div>", render("<form method=\"get\">" + other + "</form>"));
     assertEquals("<div><form>" + other + "</form></div>", render("<form>" + other + "</form>"));
-    Map<String, Object> model = new HashMap<>();
-    model.put("tok", "tok");
-    model.put("m", "get");
-    assertEquals(
-        "<div><form method=\"get\">" + other + "</form></div>",
-        render("String m", "<form t:method=\"m\">" + other + "</form>", model, token("_csrf")));
   }
 }

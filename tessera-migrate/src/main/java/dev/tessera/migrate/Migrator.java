@@ -152,6 +152,13 @@ final class Migrator {
     private final Deque<Open> open = new ArrayDeque<>();
     /** The end of the previous attribute's quoted value in this tag, or -1. */
     private int quotedValueEnd = -1;
+    /**
+     * In a {@code <form>} start tag: whether its first static {@code method} is {@code post}, or
+     * {@code null} before one.
+     */
+    private Boolean formPost;
+    /** In a {@code <form>} start tag, a report item for a computed action that is not a link, or null. */
+    private Report.Item postAction;
 
     Handler(String file, char[] doc) {
       this.file = file;
@@ -170,7 +177,26 @@ final class Migrator {
     }
 
     @Override
+    public void handleStandaloneElementEnd(
+        char[] buffer, int nameOffset, int nameLen, boolean minimized, int line, int col) {
+      checkPostAction();
+    }
+
+    /**
+     * Reports a POST form's computed action that is not a link, once the whole start tag is read
+     * (the {@code method} may follow the action): the compiler rejects it (#550).
+     */
+    private void checkPostAction() {
+      if (postAction != null && Boolean.TRUE.equals(formPost)) {
+        items.add(postAction);
+      }
+      postAction = null;
+      formPost = null;
+    }
+
+    @Override
     public void handleOpenElementEnd(char[] buffer, int nameOffset, int nameLen, int line, int col) {
+      checkPostAction();
       // The nearest th:inline wins; Thymeleaf leaves [[...]] alone in a th:inline="none" body.
       String mode = inlineMode != null ? inlineMode : open.isEmpty() ? null : open.peek().inline;
       boolean none = ConversionRules.INLINE_NONE.equals(mode);
@@ -235,6 +261,8 @@ final class Migrator {
       inlineMode = null;
       inScript = false;
       quotedValueEnd = -1;
+      formPost = null;
+      postAction = null;
       inRoot = !rootSeen;
       if (!rootSeen) {
         rootSeen = true;
@@ -287,6 +315,10 @@ final class Migrator {
         report(nameLine, String.format(ConversionRules.ATTRIBUTE_SPACE_MESSAGE, name));
       }
       quotedValueEnd = quoted ? valueOuterOffset + valueOuterLen : -1;
+      if (ConversionRules.FORM.equals(openName) && lower.equals(ConversionRules.METHOD) && formPost == null) {
+        // A browser reads the first method, untrimmed; toLowerCase(ROOT) maps nothing else to "post".
+        formPost = value != null && value.toLowerCase(Locale.ROOT).equals(ConversionRules.POST);
+      }
 
       if (lower.equals(ConversionRules.THYMELEAF_XMLNS)) {
         edits.add(new Edit(nameOffset, nameLen, ConversionRules.TESSERA_XMLNS));
@@ -349,6 +381,10 @@ final class Migrator {
       String converted = local.equals(ConversionRules.FRAGMENT)
           ? fragmentSignature(value, nameLine)
           : expressionValue(local, value, thymeleaf, name, nameLine);
+      if (ConversionRules.FORM.equals(openName) && local.equals(ConversionRules.ACTION) && !Expressions.isLink(converted)) {
+        postAction = new Report.Item(file, nameLine,
+            String.format(ConversionRules.POST_ACTION_MESSAGE, name, codeSpan(Compat.strip(converted))));
+      }
       if (thymeleaf && local.equals(ConversionRules.UTEXT)
           && Expressions.unsupported(Expressions.rewriteLinks(value)).isEmpty()) {
         rawOutput(nameLine, name, converted);

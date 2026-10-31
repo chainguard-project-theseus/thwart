@@ -63,8 +63,8 @@ class XssContextTest {
           new Line("<i t:class=\"s\">x</i><i class=\"c\" t:classappend=\"'k' + s\">y</i>", Kind.HTML, Kind.HTML),
           new Line("<input t:value=\"s\"><img t:alt=\"s\">", Kind.HTML, Kind.HTML),
           new Line("<a t:href=\"s\">x</a><a t:attr=\"HREF=s\">y</a>", Kind.URL, Kind.URL),
-          // A computed formaction outside a form that gets no CSRF token must be a link (#314).
-          new Line("<form t:action=\"s\"><button t:formaction=\"s\">x</button></form>", Kind.URL, Kind.URL),
+          // A GET form's action is an ordinary URL; every formaction must be a same-origin link (CSRF).
+          new Line("<form t:action=\"s\"></form><ins t:cite=\"s\">x</ins>", Kind.URL, Kind.URL),
           new Line("<img t:src=\"s\"><video t:poster=\"s\"></video><q t:cite=\"s\">q</q>", Kind.URL, Kind.URL, Kind.URL),
           new Line("<svg><a t:xlink:href=\"s\"><text>x</text></a><image t:href=\"s\"/></svg>", Kind.URL, Kind.URL),
           new Line(
@@ -260,26 +260,36 @@ class XssContextTest {
    */
   @Test
   void csrfTokenNeverPostsCrossOrigin() {
+    // Closed shape: a POST form's computed action is a same-origin link, or the build fails.
+    Compilation.builder()
+        .template("page.html", "<div t:params=\"String s\"><form method=\"post\" t:action=\"s\"></form></div>")
+        .compile()
+        .assertError("page.html:1:", "t:action is not allowed", "the CSRF token");
     Compilation c =
         Compilation.builder()
-            .template("page.html", "<div t:params=\"String s\"><form method=\"post\" t:action=\"s\"></form></div>")
+            .template("page.html", "<div t:params=\"String s\"><form method=\"post\" t:action=\"@{/x/{v}(v=${s})}\"></form>"
+                + "<form method=\"post\" t:action=\"@{/y(q=${s})}\"></form></div>")
             .compile()
             .assertSuccess();
     Pattern action = Pattern.compile("action=\"([^\"]*)\"");
     java.util.function.Consumer<String> check =
         s -> {
-          String out = c.render("page", Map.of("s", s), hostileContext("tok"));
-          if (!out.contains("_csrf")) {
-            return;
+          String out;
+          try {
+            out = c.render("page", Map.of("s", s), hostileContext("tok"));
+          } catch (IllegalStateException | IllegalArgumentException e) {
+            return; // The link refused the value (sameOriginLink, path variables): nothing is written.
           }
           Matcher m = action.matcher(out);
-          String url = m.find() ? ContextOracle.decodeHtml(m.group(1)) : "";
-          String scheme = ContextOracle.browserScheme(url);
-          String path = url.replaceFirst("^[\\x00-\\x20]+", "").replaceAll("[\t\n\r]", "");
-          boolean protocolRelative =
-              path.length() >= 2 && "/\\".indexOf(path.charAt(0)) >= 0 && "/\\".indexOf(path.charAt(1)) >= 0;
-          if (scheme != null || protocolRelative) {
-            fail("token posted cross-origin for " + show(s) + ": " + out);
+          while (m.find()) {
+            String url = ContextOracle.decodeHtml(m.group(1));
+            String scheme = ContextOracle.browserScheme(url);
+            String path = url.replaceFirst("^[\\x00-\\x20]+", "").replaceAll("[\t\n\r]", "");
+            boolean protocolRelative =
+                path.length() >= 2 && "/\\".indexOf(path.charAt(0)) >= 0 && "/\\".indexOf(path.charAt(1)) >= 0;
+            if (scheme != null || protocolRelative) {
+              fail("token posted cross-origin for " + show(s) + ": " + out);
+            }
           }
         };
     for (String v : HostileStrings.VECTORS) {
@@ -287,10 +297,9 @@ class XssContextTest {
     }
     for (String v : List.of("https://evil/", "//evil/", "/\\evil/", "\\\\evil", "\t//evil", "\u0000//evil")) {
       check.accept(v);
-      assertTrue(!c.render("page", Map.of("s", v), hostileContext("tok")).contains("_csrf"), show(v));
     }
     HostileStrings.forEachSeeded(2000, (rnd, i) -> check.accept(HostileStrings.random(rnd, 12)));
-    assertTrue(c.render("page", Map.of("s", "/x"), hostileContext("tok")).contains("_csrf"));
+    assertTrue(c.render("page", Map.of("s", "x"), hostileContext("tok")).contains("_csrf"));
   }
 
   @Test
