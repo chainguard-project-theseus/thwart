@@ -64,14 +64,14 @@ final class MessageMarkup {
   static String problem(String message) {
     try {
       check(message);
-      braces(message);
+      braces(message, false);
     } catch (Bad e) {
       return e.getMessage();
     }
     try {
       String formatted = formatted(message);
       check(formatted);
-      braces(formatted);
+      braces(formatted, true);
       return null;
     } catch (Bad e) {
       return e.getMessage()
@@ -93,18 +93,16 @@ final class MessageMarkup {
       Pattern.compile("</?[A-Za-z][^>\"']*(?:(?:\"[^\"]*\"|'[^']*')[^>\"']*)*>");
 
   /**
-   * The client-side interpolation rule for template text (#248, #336), on the message's text: a
-   * {@code {{} is closed by a {@code }}} before the next tag or argument. The runtime breaks a
-   * {@code {} at either end of the message ({@code Escapers.rawEdges}) and in arguments. It
-   * sees only a literal {@code {}, so a character reference for a brace in message text is
-   * rejected: next to a placeholder or a template's {@code {} it would form a {@code {{}.
+   * The client-side interpolation rule for template text (#248, #336, #571), on the message's
+   * text: a {@code {{} closes before the next tag or argument. As MessageFormat formats it (the
+   * only view with arguments, which may be empty), a brace is allowed only inside such a complete
+   * {@code {{ ... }}} ({@code TextInlining.loneBrace}); the unformatted view, written without
+   * arguments, holds its {@code {0}} placeholders as text. The runtime isolates every brace of an
+   * argument and breaks a {@code {} at the message's edges ({@code Escapers.rawEdges}), and sees
+   * only a literal brace, so a character reference for one in message text is rejected.
    */
-  private static void braces(String s) throws Bad {
+  private static void braces(String s, boolean formatted) throws Bad {
     for (String run : TAG.split(s, -1)) {
-      // Whether the text before the current placeholder ends with '{': an empty argument writes
-      // nothing, so the texts around it meet.
-      boolean braceBefore = false;
-      boolean first = true;
       for (String literal : run.split(String.valueOf(ARG), -1)) {
         String text = TextInlining.decode(literal, true);
         if (count(text, '{') != count(literal, '{') || count(text, '}') != count(literal, '}')) {
@@ -112,22 +110,10 @@ final class MessageMarkup {
               + " placeholder or a '{' in the template it could form a client-side {{ that Vue and petite-vue"
               + " would run as code; write the brace itself");
         }
-        if (!first && braceBefore && text.startsWith("{")) {
-          throw new Bad("a '{' on both sides of a placeholder is not supported: with an empty argument the two"
-              + " braces form a client-side {{ that Vue and petite-vue would run as code; put other text between"
-              + " them");
-        }
-        braceBefore = text.isEmpty() ? braceBefore : text.endsWith("{");
-        first = false;
-        int open = text.indexOf("{{");
-        while (open >= 0) {
-          int close = text.indexOf("}}", open + 2);
-          if (close < 0) {
-            throw new Bad("a client-side {{ is not closed by }} before the next tag or placeholder: Vue and"
-                + " petite-vue would run what follows as code; write a literal {{ as {<!---->{ in template text,"
-                + " not in a message");
-          }
-          open = text.indexOf("{{", close + 2);
+        if ((formatted ? TextInlining.loneBrace(text, true) : TextInlining.unclosed(text)) >= 0) {
+          throw new Bad("a client-side {{ is not closed by }} before the next tag or placeholder, or a '{' or '}'"
+              + " is outside one: with an argument or other text it could form a {{ that Vue and petite-vue would"
+              + " run as code; write braces only in a complete {{ ... }} with no tag or placeholder inside");
         }
       }
     }

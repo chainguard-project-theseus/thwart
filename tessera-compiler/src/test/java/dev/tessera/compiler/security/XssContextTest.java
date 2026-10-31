@@ -55,8 +55,6 @@ class XssContextTest {
           new Line("<p>a [[s]] b</p>", Kind.TEXT),
           new Line("<title>[[s]]</title>", Kind.HTML),
           new Line("<textarea t:text=\"s\"></textarea>", Kind.HTML),
-          new Line("<xmp>[[s]]</xmp><noscript>[[s]]</noscript><noembed>[[s]]</noembed>", Kind.TEXT, Kind.TEXT, Kind.TEXT),
-          new Line("<iframe>[[s]]</iframe>", Kind.TEXT),
           new Line("<i t:title=\"s\" t:attr=\"data-x=s\">x</i>", Kind.HTML, Kind.HTML),
           // A computed class drops ng-like tokens (#542), so the value is the whole class: static
           // class text next to it could lose its separator (FrameworkDirectivesTest covers classappend).
@@ -558,13 +556,13 @@ class XssContextTest {
       c.assertError(at[0], at[1] + message.replace("noscript", r[0].startsWith("<NoScript") ? "NoScript" : "noscript"));
       assertNull(c.generatedSource("tessera.generated.PageTemplate"), r[0]);
     }
-    // t:replace on the element itself puts the fragment outside it; [[...]] and t:text are escaped.
+    // t:replace on the element itself puts the fragment outside it. (A value inside is an error, #571.)
     Compilation.builder()
         .template("frag.html", "<p t:fragment=\"f(String x)\">[[x]]</p>")
         .template(
             "page.html",
             "<div t:params=\"String x\"><noscript t:replace=\"~{frag :: f(x)}\"></noscript>"
-                + "<noscript><p>[[x]]</p><p t:text=\"x\">y</p></noscript><div t:insert=\"~{frag :: f(x)}\"></div></div>")
+                + "<noscript><p>y</p></noscript><div t:insert=\"~{frag :: f(x)}\"></div></div>")
         .compile()
         .assertSuccess();
   }

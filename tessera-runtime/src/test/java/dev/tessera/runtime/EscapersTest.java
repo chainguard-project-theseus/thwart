@@ -110,6 +110,9 @@ class EscapersTest {
     StringBuilder expected = new StringBuilder();
     for (int i = 0; i <= Character.MAX_VALUE; i++) {
       char c = (char) i;
+      if (c == '{' || c == '}') {
+        continue; // Element text isolates every brace (textBreaksMustacheDelimiters).
+      }
       input.append(c).append(' '); // Isolate surrogates so each must be replaced.
       switch (c) {
         case '&':
@@ -944,11 +947,11 @@ class EscapersTest {
     // pattern produces is text, even without '<', so its "{{" is broken for Vue and AngularJS.
     String[] checked = {"Hi <b>{0}</b>"};
     assertEquals(
-        "<!---->{<!---->{constructor.constructor(&#39;alert(1)&#39;)()}}",
+        "<!---->{<!---->{<!---->constructor.constructor(&#39;alert(1)&#39;)()<!---->}<!---->}<!---->",
         Escapers.htmlMessage(
             messages((k, a) -> "{{constructor.constructor('alert(1)')()}}"), "k", new Object[0], checked));
     assertEquals(
-        "<!---->{<!---->{x}}",
+        "<!---->{<!---->{<!---->x<!---->}<!---->}<!---->",
         Escapers.htmlMessage(messages((k, a) -> "{{x}}"), "k", new Object[0], new String[0]));
     assertEquals(
         "Tom &amp;amp; Jerry", Escapers.htmlMessage(messages((k, a) -> "Tom &amp; Jerry"), "k", new Object[0], checked));
@@ -984,7 +987,7 @@ class EscapersTest {
     String[] checked = {"Hi <b>{0}</b>"};
     assertEquals("Hello Tom &amp; Jerry", Escapers.htmlMessage(messages(hello), "k", new Object[] {"Tom & Jerry"}, checked));
     assertEquals("Hello a&lt;b", Escapers.htmlMessage(messages(hello), "k", new Object[] {"a<b"}, new String[0]));
-    assertEquals("Hello {<!---->{x}}",Escapers.htmlMessage(messages(hello), "k", new Object[] {"{{x}}"}, new String[0]));
+    assertEquals("Hello <!---->{<!---->{<!---->x<!---->}<!---->}<!---->",Escapers.htmlMessage(messages(hello), "k", new Object[] {"{{x}}"}, new String[0]));
     assertEquals(
         "Hello &lt;script&gt;alert(1)&lt;/script&gt;",
         Escapers.htmlMessage(messages(hello), "k", new Object[] {SafeHtml.unchecked("<script>alert(1)</script>")}, new String[0]));
@@ -996,7 +999,7 @@ class EscapersTest {
     assertEquals("1,234 on " + day, Escapers.htmlMessage(messages(typed), "k", new Object[] {1234, date}, new String[0]));
     // The unchecked message's own text is still escaped, its "{{" broken.
     assertEquals(
-        "&lt;b&gt;Hello&lt;/b&gt; {<!---->{x}} Tom &amp; Jerry",
+        "&lt;b&gt;Hello&lt;/b&gt; <!---->{<!---->{<!---->x<!---->}<!---->}<!----> Tom &amp; Jerry",
         Escapers.htmlMessage(messages((k, a) -> "<b>Hello</b> {{x}} " + a[0]), "k", new Object[] {"Tom & Jerry"}, new String[0]));
     // The BigDecimal bound applies on the fallback path too: the source never sees the value.
     Messages unchecked = (k, a) -> "{0}";
@@ -1020,22 +1023,22 @@ class EscapersTest {
   @Test
   void textBreaksMustacheDelimiters() {
     assertEquals(
-        "<!---->{<!---->{ constructor.constructor(&#39;alert(1)&#39;)() }}",
+        "<!---->{<!---->{<!----> constructor.constructor(&#39;alert(1)&#39;)() <!---->}<!---->}<!---->",
         text("{{ constructor.constructor('alert(1)')() }}"));
-    assertEquals("a{<!---->{b}}", text("a{{b}}"));
-    assertEquals("a{<!---->{<!---->{b}}}", text("a{{{b}}}"));
-    assertEquals("}}{<!---->{x}}", text("}}{{x}}"));
+    assertEquals("a<!---->{<!---->{<!---->b<!---->}<!---->}<!---->", text("a{{b}}"));
+    assertEquals("a<!---->{<!---->{<!---->{<!---->b<!---->}<!---->}<!---->}<!---->", text("a{{{b}}}"));
+    assertEquals("<!---->}<!---->}<!---->{<!---->{<!---->x<!---->}<!---->}<!---->", text("}}{{x}}"));
     // static "{" + "{x": the leading comment keeps them apart.
-    assertEquals("{" + "<!---->{<!---->{x", "{" + text("{{x"));
+    assertEquals("{" + "<!---->{<!---->{<!---->x", "{" + text("{{x"));
     // A brace at either end could meet static text or another value.
     assertEquals("<!---->{<!---->", text("{"));
-    assertEquals("<!---->{x}}", text("{x}}"));
-    assertEquals("x{<!---->", text("x{"));
+    assertEquals("<!---->{<!---->x<!---->}<!---->}<!---->", text("{x}}"));
+    assertEquals("x<!---->{<!---->", text("x{"));
     assertEquals("<!---->{<!---->{<!---->", text("{{"));
-    assertEquals("<!---->{ {x} }", text("{ {x} }"));
-    assertEquals("a { b", text("a { b"));
-    // Closing braces, entities and everything else are as before.
-    assertEquals("}} &amp;#123;&amp;#123; &lt;b&gt;", text("}} &#123;&#123; <b>"));
+    assertEquals("<!---->{<!----> <!---->{<!---->x<!---->}<!----> <!---->}<!---->", text("{ {x} }"));
+    assertEquals("a <!---->{<!----> b", text("a { b"));
+    // A closing brace stands alone too (#571); entities and everything else are as before.
+    assertEquals("<!---->}<!---->}<!----> &amp;#123;&amp;#123; &lt;b&gt;", text("}} &#123;&#123; <b>"));
     assertEquals("plain &amp; simple", text("plain & simple"));
   }
 
@@ -1060,29 +1063,29 @@ class EscapersTest {
 
   @Test
   void htmlMessageArgumentsBreakBraces() {
-    assertEquals("<!---->{<!---->{x}}", Escapers.htmlMessageArgs(new Object[] {"{{x}}"})[0]);
+    assertEquals("<!---->{<!---->{<!---->x<!---->}<!---->}<!---->", Escapers.htmlMessageArgs(new Object[] {"{{x}}"})[0]);
     String[] checked = {"Hi <b>{0}</b>"};
     Messages formatting = (k, a) -> new java.text.MessageFormat("Hi <b>{0}</b>", java.util.Locale.US).format(a);
     assertEquals(
-        "Hi <b><!---->{<!---->{x}}</b>", Escapers.htmlMessage(messages(formatting), "k", new Object[] {"{{x}}"}, checked));
+        "Hi <b><!---->{<!---->{<!---->x<!---->}<!---->}<!----></b>", Escapers.htmlMessage(messages(formatting), "k", new Object[] {"{{x}}"}, checked));
     // A checked message without markup: the argument's comments do not make it unchecked.
     Messages plain = (k, a) -> new java.text.MessageFormat("Hi {0}", java.util.Locale.US).format(a);
     assertEquals(
-        "Hi <!---->{<!---->{x}}",
+        "Hi <!---->{<!---->{<!---->x<!---->}<!---->}<!---->",
         Escapers.htmlMessage(messages(plain), "k", new Object[] {"{{x}}"}, new String[] {"Hi {0}"}));
     // A checked pattern with markup and brace-containing arguments in more than one placeholder.
     Messages two = (k, a) -> new java.text.MessageFormat("<i>{0}</i>{1}", java.util.Locale.US).format(a);
     assertEquals(
-        "<i><!---->{<!---->{a}}</i>b}}{<!---->",
+        "<i><!---->{<!---->{<!---->a<!---->}<!---->}<!----></i>b<!---->}<!---->}<!---->{<!---->",
         Escapers.htmlMessage(messages(two), "k", new Object[] {"{{a}}", "b}}{"}, new String[] {"<i>{0}</i>{1}"}));
     // An unchecked message (no bundle the build saw) is formatted with the plain argument and
     // escaped once as text (#537).
     assertEquals(
-        "Hi {<!---->{x}}",
+        "Hi <!---->{<!---->{<!---->x<!---->}<!---->}<!---->",
         Escapers.htmlMessage(messages(plain), "k", new Object[] {"{{x}}"}, new String[0]));
     // An unchecked message is escaped as text, braces broken.
     assertEquals(
-        "&lt;i&gt;{<!---->{x}}",
+        "&lt;i&gt;<!---->{<!---->{<!---->x<!---->}<!---->}<!---->",
         Escapers.htmlMessage(messages((k, a) -> "<i>{{x}}"), "k", new Object[0], checked));
   }
 }

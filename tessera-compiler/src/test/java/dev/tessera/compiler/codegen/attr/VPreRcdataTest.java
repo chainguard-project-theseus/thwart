@@ -56,9 +56,9 @@ class VPreRcdataTest {
 
   @Test
   void staticContentGetsNoVPre() {
-    assertEquals("<textarea>{{ a }}</textarea><title>{{ b }}</title><textarea rows=\"2\"></textarea>",
-        render("<textarea>{{ a }}</textarea><title>{{ b }}</title><textarea rows=\"2\"></textarea>", ""));
-    assertEquals("<p>" + "<!---->{<!---->{x}}" + "</p>", render("<p>[[s]]</p>", "{{x}}"));
+    assertEquals("<textarea>a</textarea><title>b</title><textarea rows=\"2\"></textarea>",
+        render("<textarea>a</textarea><title>b</title><textarea rows=\"2\"></textarea>", ""));
+    assertEquals("<p>" + "<!---->{<!---->{<!---->x<!---->}<!---->}<!---->" + "</p>", render("<p>[[s]]</p>", "{{x}}"));
   }
 
   @ParameterizedTest
@@ -99,16 +99,17 @@ class VPreRcdataTest {
 
   @Test
   void aStaticInterpolationBesideAValueIsAnError() {
-    compile("\n<title>{{ app }} - [[s]]</title>")
-        .assertError("t.html:2:1:", "{{ in the static text of a <title> with computed content is not supported");
-    compile("<textarea>[[s]] {{ x }}</textarea>")
-        .assertError("t.html:1:", "{{ in the static text of a <textarea> with computed content is not supported");
+    // One coarse rule (#571): no static brace in a <title> or <textarea>, with or without a value.
+    String rule = "in the static text of a <title> or <textarea> is not supported: Tessera adds v-pre there";
+    compile("\n<title>{{ app }} - [[s]]</title>").assertError("t.html:2:8:", "'{' " + rule);
+    compile("<textarea>[[s]] {{ x }}</textarea>").assertError("t.html:1:", rule);
     // In SVG a title has child elements: static text inside a condition or switch counts.
-    compile("<svg><title><t:block t:if=\"true\">{{ app }}</t:block> [[s]]</title></svg>")
-        .assertError("t.html:1:", "{{ in the static text of a <title> with computed content is not supported");
+    compile("<svg><title><t:block t:if=\"true\">{{ app }}</t:block> [[s]]</title></svg>").assertError("t.html:1:", rule);
     compile("<math><textarea><t:block t:switch=\"s\"><t:block t:case=\"'a'\">{{ a }}</t:block></t:block>[[s]]</textarea></math>")
-        .assertError("t.html:1:", "{{ in the static text of a <textarea> with computed content is not supported");
-    // A value between two braces does not make {{.
-    assertTrue(render("<textarea>{[[s]]{</textarea>", "x").startsWith("<textarea v-pre>"));
+        .assertError("t.html:1:", rule);
+    compile("<textarea>{[[s]]{</textarea>").assertError("t.html:1:", rule);
+    compile("<title>{{ b }}</title>").assertError("t.html:1:", rule);
+    // A static v-pre: Vue never reads the content, and Tessera adds none.
+    assertEquals("<textarea v-pre>{{ a }}</textarea>", render("<textarea v-pre>{{ a }}</textarea>", ""));
   }
 }
