@@ -387,6 +387,37 @@ final class ConversionRules {
   /** {@code %1$s} is the attribute, {@code %2$s} its converted value as a code span, {@code %3$s} the HTML name. */
   static final String NULL_ATTRIBUTE_MESSAGE =
       "`%1$s` = %2$s: for a `null` value Thymeleaf wrote `%3$s=\"\"`, but Tessera omits the attribute; if it can be `null` and the empty attribute matters, write `x ?: ''` for a `String` or `x == null ? '' : '' + x` (guide section 4.3)";
+  static final String TARGET = "target";
+  /** {@code %1$s} is the attribute, {@code %2$s} its converted value as a code span. */
+  static final String TARGET_MESSAGE =
+      "`%1$s` = %2$s: `target` is not an inert-text attribute in Tessera, so a computed value other than a literal is a build error; choose between literals with a boolean model value, as in `t:target=\"newWindow ? '_blank' : '_self'\"` (guide section 4.4)";
+
+  /**
+   * Whether {@code expr} (a converted Tessera expression) is a string literal or a choice between
+   * string literals ({@code c ? 'a' : 'b'}), which the compiler accepts in an attribute that is not
+   * inert text.
+   */
+  static boolean literalChoice(String expr) {
+    String e = Compat.strip(expr);
+    if (e.startsWith("(") && Expressions.indexOfTopLevel(e.substring(1), ')') == e.length() - 2) {
+      return literalChoice(e.substring(1, e.length() - 1));
+    }
+    if (STRING_LITERAL.matcher(e).matches()) {
+      return true;
+    }
+    int q = Expressions.indexOfTopLevel(e, '?');
+    if (q < 0) {
+      return false;
+    }
+    String branches = e.substring(q + 1);
+    int colon = Expressions.indexOfTopLevel(branches, ':');
+    return colon > 0
+        && literalChoice(branches.substring(0, colon))
+        && literalChoice(branches.substring(colon + 1));
+  }
+
+  private static final Pattern STRING_LITERAL = Pattern.compile("'[^']*'");
+
   /** {@code %s} is the selection as a code span. */
   static final String COMPOUND_SELECTION_MESSAGE =
       "%s is not converted: in Tessera `*{...}` holds one property path; write each path as its own selection, as in `*{firstName} + ' ' + *{lastName}` (guide section 4.3)";

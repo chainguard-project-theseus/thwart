@@ -450,6 +450,27 @@ class MigratorTest {
         "2: `th:type` = `owner.kind`: for a `null` value Thymeleaf wrote `type=\"\"`");
   }
 
+  /** #539: a computed target is a build error unless it is a literal or a choice between literals. */
+  @Test
+  void nonLiteralTargetIsReportedNotRewritten() throws Exception {
+    String src = "<div t:params=\"Link l\"><a th:target=\"${l.target}\">a</a>\n"
+        + "<a th:target=\"${l.blank} ? '_blank' : ${l.target}\">a</a><a th:target=\"${l.target} ?: '_self'\">a</a></div>";
+    assertMessages(src,
+        "1: `th:target` = `l.target`: `target` is not an inert-text attribute in Tessera, so a computed value other"
+            + " than a literal is a build error; choose between literals with a boolean model value,"
+            + " as in `t:target=\"newWindow ? '_blank' : '_self'\"`",
+        "2: `th:target` = `l.blank ? '_blank' : l.target`: `target` is not an inert-text attribute",
+        "2: `th:target` = `l.target ?: '_self'`: `target` is not an inert-text attribute");
+    assertEquals("<div t:params=\"Link l\"><a t:target=\"l.target\">a</a></div>",
+        convert("<div t:params=\"Link l\"><a th:target=\"${l.target}\">a</a></div>"));
+    // Literals, a choice between literals, a component prop and a static target are not reported.
+    assertMessages("<div t:params=\"Link l\"><a th:target=\"_blank\">a</a><a th:target=\"'_top'\">a</a>"
+        + "<a th:target=\"${l.blank} ? '_blank' : '_self'\">a</a>"
+        + "<a th:target=\"${l.a} ? '_blank' : (${l.b} ? '_top' : '_self')\">a</a>"
+        + "<a th:target=\"${l.a} ? '_blank' : ${l.b} ? '_top' : '_self'\">a</a>"
+        + "<my-link th:target=\"${l.target}\"></my-link><a target=\"_blank\">a</a></div>");
+  }
+
   @Test
   void attributesThatCannotBeNullOrThatThymeleafOmitsAreNotReported() throws Exception {
     assertMessages("<form t:params=\"Owner owner\" th:action=\"@{/owners/new}\">"
