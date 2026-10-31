@@ -142,34 +142,47 @@ class ClientTemplateInjectionTest {
     compile(body).assertSuccess();
   }
 
+  private static final String TEXT_IN_TABLE = "[verifier:TEXT_IN_TABLE]";
+  private static final String PARSE_ERROR = "[verifier:PARSE_ERROR]";
+  private static final String RAW_NOT_FLOW = "[verifier:RAW_NOT_FLOW]";
+
+  /** Compiles {@code "\n" + body} and asserts it fails with an error on line 2 that names {@code check}. */
+  private static void assertRejected(String bodyAndCheck) {
+    int bar = bodyAndCheck.lastIndexOf('|');
+    String body = bodyAndCheck.substring(0, bar);
+    Compilation c = compile("\n" + body);
+    c.assertError("t.html:2:", bodyAndCheck.substring(bar + 1));
+    assertNull(c.generatedSource("tessera.generated.TTemplate"), body);
+  }
+
   /**
-   * #348: a browser moves text out of {@code table}, {@code tbody}, {@code thead}, {@code tfoot},
-   * {@code tr} and {@code colgroup} in front of the table but keeps comments inside it, so the
-   * braces of a broken {@code {{} join up again.
+   * #348, now the build-time verifier's: a browser moves text out of {@code table}, {@code tbody},
+   * {@code thead}, {@code tfoot}, {@code tr} and {@code colgroup} in front of the table but keeps
+   * comments inside it, so the braces of a broken {@code {{} join up again. The verifier reports
+   * any value a browser reads as table text, and raw HTML outside a cell.
    */
   @ParameterizedTest
   @ValueSource(
       strings = {
-        "<table>[[s]]<tr><td>x</td></tr></table>",
-        "<table><tr><td>x</td></tr><tr t:text=\"s\"></tr></table>",
-        "<table><tbody>[[s]]<tr><td>x</td></tr></tbody></table>",
-        "<table><thead>x [[s]]</thead></table>",
-        "<table><tfoot t:text=\"s\"></tfoot></table>",
-        "<table><tr>[[s]]<td>x</td></tr></table>",
-        "<TABLE><TR>[[s]]</TR></TABLE>",
-        "<table><colgroup>[[s]]</colgroup></table>",
-        "<table><t:block>[[s]]</t:block></table>",
-        "<table><t:block t:text=\"s\"></t:block></table>",
-        "<table><tr><span t:remove=\"tag\">[[s]]</span></tr></table>",
-        "<table><t:block t:if=\"${s != null}\"><t:block>[[s]]</t:block></t:block></table>",
-        "<table><tr t:utext=\"h\"></tr></table>",
-        "<table><tr>[(h)]</tr></table>",
-        "<svg><table>[[s]]</table></svg>",
+        "<table>[[s]]<tr><td>x</td></tr></table>|" + TEXT_IN_TABLE,
+        "<table><tr><td>x</td></tr><tr t:text=\"s\"></tr></table>|" + TEXT_IN_TABLE,
+        "<table><tbody>[[s]]<tr><td>x</td></tr></tbody></table>|" + TEXT_IN_TABLE,
+        "<table><thead>x [[s]]</thead></table>|" + TEXT_IN_TABLE,
+        "<table><tfoot t:text=\"s\"></tfoot></table>|" + TEXT_IN_TABLE,
+        "<table><tr>[[s]]<td>x</td></tr></table>|" + TEXT_IN_TABLE,
+        "<TABLE><TR>[[s]]</TR></TABLE>|" + TEXT_IN_TABLE,
+        "<table><colgroup>[[s]]</colgroup></table>|" + TEXT_IN_TABLE,
+        "<table><t:block>[[s]]</t:block></table>|" + TEXT_IN_TABLE,
+        "<table><t:block t:text=\"s\"></t:block></table>|" + TEXT_IN_TABLE,
+        "<table><tr><span t:remove=\"tag\">[[s]]</span></tr></table>|" + TEXT_IN_TABLE,
+        "<table><t:block t:if=\"${s != null}\"><t:block>[[s]]</t:block></t:block></table>|" + TEXT_IN_TABLE,
+        "<table><tr t:utext=\"h\"></tr></table>|" + RAW_NOT_FLOW,
+        "<table><tr>[(h)]</tr></table>|" + RAW_NOT_FLOW,
+        // <table> is HTML in a browser and ends the <svg>: the profile rejects it first.
+        "<svg><table>[[s]]</table></svg>|malformed markup: <table> inside <svg> or <math> is HTML",
       })
-  void computedTextDirectlyInTableIsABuildError(String body) {
-    Compilation c = compile("\n" + body);
-    c.assertError("t.html:2:", "directly inside <", "put the value in a <td>, <th> or <caption>");
-    assertNull(c.generatedSource("tessera.generated.TTemplate"), body);
+  void computedTextDirectlyInTableIsABuildError(String bodyAndCheck) {
+    assertRejected(bodyAndCheck);
   }
 
   @Test
@@ -177,10 +190,10 @@ class ClientTemplateInjectionTest {
     compile("\n<table>\n  <tr>[[s]]</tr></table>")
         .assertError(
             "t.html:3:9:",
-            "[[...]] directly inside <tr> is not supported: a browser moves the text in front of the table but"
-                + " leaves the comments that break {{ in the value inside it");
-    compile("\n<table><tbody>\n <t:block t:text=\"s\"/></tbody></table>")
-        .assertError("t.html:3:11:", "t:text directly inside <tbody> is not supported");
+            "a browser reads this value as table text and moves it in front of the table; put it in a <td> or <th>;"
+                + " a browser opened the <tr> it is in at t.html:3:3",
+            TEXT_IN_TABLE);
+    compile("\n<table><tbody>\n <t:block t:text=\"s\"/></tbody></table>").assertError("t.html:3:19:", TEXT_IN_TABLE);
   }
 
   @Test
@@ -202,30 +215,33 @@ class ClientTemplateInjectionTest {
   }
 
   /**
-   * #348: a table part where a browser does not keep it makes the browser close elements up to
-   * one that takes it (a {@code <tr>} ends a {@code <td>}), so the text after it is read in the
-   * table and moved in front of it. A {@code <form>} in a table is closed at once.
+   * #348, now the build-time verifier's: a table part where a browser does not keep it makes the
+   * browser close elements up to one that takes it (a {@code <tr>} ends a {@code <td>}), so the
+   * text after it is read in the table and moved in front of it. A {@code <form>} in a table is
+   * closed at once. Each is a parse error, and the value after it table text.
    */
   @ParameterizedTest
   @ValueSource(
       strings = {
-        "<table><tr><td><tr></tr>[[s]]</td></tr></table>",
-        "<table><tr><td><p><tr></tr>[[s]]</p></td></tr></table>",
-        "<table><tr><td><select><tr></tr>[[s]]</select></td></tr></table>",
-        "<table><tr><td><tbody></tbody>[[s]]</td></tr></table>",
-        "<table><tr><td><th></th>[[s]]</td></tr></table>",
-        "<table><tr><td><col>[[s]]</td></tr></table>",
-        "<table><caption><tr></tr>[[s]]</caption></table>",
-        "<table><caption><b><td></td>[[s]]</b></caption></table>",
-        "<table><div><tbody></tbody>[[s]]</div></table>",
-        "<table><b><tr></tr>[[s]]</b></table>",
-        "<table><form>[[s]]</form></table>",
-        "<table><tr><form>[[s]]</form></tr></table>",
+        "<table><tr><td><tr></tr>[[s]]</td></tr></table>|" + PARSE_ERROR,
+        "<table><tr><td><p><tr></tr>[[s]]</p></td></tr></table>|" + PARSE_ERROR,
+        // The profile's closed <select> content model rejects it first.
+        "<table><tr><td><select><tr></tr>[[s]]</select></td></tr></table>|<tr> inside <select> is not supported",
+        "<table><tr><td><tbody></tbody>[[s]]</td></tr></table>|" + PARSE_ERROR,
+        "<table><tr><td><th></th>[[s]]</td></tr></table>|" + PARSE_ERROR,
+        "<table><tr><td><col>[[s]]</td></tr></table>|" + PARSE_ERROR,
+        "<table><caption><tr></tr>[[s]]</caption></table>|" + PARSE_ERROR,
+        "<table><caption><b><td></td>[[s]]</b></caption></table>|" + PARSE_ERROR,
+        "<table><div><tbody></tbody>[[s]]</div></table>|" + PARSE_ERROR,
+        "<table><b><tr></tr>[[s]]</b></table>|" + PARSE_ERROR,
+        "<table><form>[[s]]</form></table>|" + PARSE_ERROR,
+        "<table><tr><form>[[s]]</form></tr></table>|" + PARSE_ERROR,
       })
-  void misplacedTablePartIsABuildError(String body) {
-    Compilation c = compile("\n" + body);
-    c.assertError("t.html:2:", "is not supported: a browser would close elements to place it");
-    assertNull(c.generatedSource("tessera.generated.TTemplate"), body);
+  void misplacedTablePartIsABuildError(String bodyAndCheck) {
+    assertRejected(bodyAndCheck);
+    if (bodyAndCheck.endsWith(PARSE_ERROR)) {
+      compile("\n" + bodyAndCheck.substring(0, bodyAndCheck.lastIndexOf('|'))).assertError("t.html:2:", TEXT_IN_TABLE);
+    }
   }
 
   private static final String FRAGMENTS =
@@ -252,20 +268,26 @@ class ClientTemplateInjectionTest {
   @ParameterizedTest
   @ValueSource(
       strings = {
-        "<table><tbody t:insert=\"~{f :: text(s)}\"></tbody></table>",
-        "<table><tr t:replace=\"~{f :: text(s)}\"></tr></table>",
-        "<table><tr t:replace=\"~{f :: tagless(s)}\"></tr></table>",
-        "<table><t:block t:insert=\"~{f :: nested(s)}\"></t:block></table>",
-        "<table><tr><td t:insert=\"~{f :: row(s)}\"></td></tr></table>",
-        "<table><tr><td><b t:replace=\"~{f :: row(s)}\"></b>[[s]]</td></tr></table>",
-        "<table><tbody t:insert=\"~{f :: form(s)}\"></tbody></table>",
-        "<t:block t:replace=\"~{f :: layout(~{::tr})}\"></t:block><table><tr><td t:text=\"s\">x</td></tr></table>",
+        "<table><tbody t:insert=\"~{f :: text(s)}\"></tbody></table>|" + TEXT_IN_TABLE,
+        "<table><tr t:replace=\"~{f :: text(s)}\"></tr></table>|" + TEXT_IN_TABLE,
+        "<table><tr t:replace=\"~{f :: tagless(s)}\"></tr></table>|" + TEXT_IN_TABLE,
+        "<table><t:block t:insert=\"~{f :: nested(s)}\"></t:block></table>|" + TEXT_IN_TABLE,
+        "<table><tr><td t:insert=\"~{f :: row(s)}\"></td></tr></table>|" + PARSE_ERROR,
+        "<table><tr><td><b t:replace=\"~{f :: row(s)}\"></b>[[s]]</td></tr></table>|" + PARSE_ERROR,
+        "<table><tr><td><b t:replace=\"~{f :: row(s)}\"></b>[[s]]</td></tr></table>|" + TEXT_IN_TABLE,
+        "<table><tbody t:insert=\"~{f :: form(s)}\"></tbody></table>|" + PARSE_ERROR,
+        "<table><tbody t:insert=\"~{f :: form(s)}\"></tbody></table>|" + TEXT_IN_TABLE,
+        // A Fragment value that starts with a table part: rejected where it is built (TODO(#561)).
+        "<t:block t:replace=\"~{f :: layout(~{::tr})}\"></t:block><table><tr><td t:text=\"s\">x</td></tr></table>|"
+            + TABLE_PART_VALUE,
         // Rows in a <div>: a browser drops the <tr> and <td> tags, a parse error (#406).
-        "<div t:insert=\"~{f :: rows(s)}\"></div>",
+        "<div t:insert=\"~{f :: rows(s)}\"></div>|" + PARSE_ERROR,
       })
-  void insertedTextOrTablePartInTableIsABuildError(String body) {
+  void insertedTextOrTablePartInTableIsABuildError(String bodyAndCheck) {
+    int bar = bodyAndCheck.lastIndexOf('|');
+    String body = bodyAndCheck.substring(0, bar);
     Compilation c = compileWithFragments("\n" + body);
-    assertEquals(false, c.success(), body);
+    c.assertError("t.html:2:", bodyAndCheck.substring(bar + 1));
     assertNull(c.generatedSource("tessera.generated.TTemplate"), body);
   }
 
@@ -277,7 +299,34 @@ class ClientTemplateInjectionTest {
             "<div xmlns:t=\"https://tessera.dev\" t:fragment=\"slot(Fragment body)\">\n<table><tbody"
                 + " t:insert=\"${body}\"></tbody></table></div>")
         .compile()
-        .assertError("f.html:2:15:", "t:insert writes computed text or a Fragment value directly inside <tbody>");
+        .assertError("f.html:2:27:", "a browser parses this Fragment value in a table outside any cell", RAW_NOT_FLOW);
+  }
+
+  private static final String TABLE_PART_VALUE = "} writes <tr>, which is not supported in a Fragment value";
+
+  /**
+   * #348: a {@code ~{::tr}} passed as a {@code Fragment} and inserted in a {@code <td>} ends the
+   * cell, so the value after it is moved in front of the table. The verifier composes the
+   * argument only where the callee inserts the parameter by itself (TODO(#561)), so a value that
+   * starts with a table part is rejected where it is built, also through a ternary or t:with.
+   */
+  @ParameterizedTest
+  @ValueSource(strings = {"${body}", "${flag ? body : null}", "${body ?: null}", "${b}"})
+  void tablePartFragmentValueIsABuildError(String insert) {
+    String with = insert.equals("${b}") ? " t:with=\"b=${body}\"" : "";
+    Compilation c =
+        Compilation.builder()
+            .template(
+                "f.html",
+                "<div xmlns:t=\"https://tessera.dev\" t:fragment=\"slot(Fragment body, boolean flag, String s)\">"
+                    + "<table><tr><td" + with + "><t:block t:insert=\"" + insert + "\"/>[[${s}]]</td></tr></table></div>")
+            .template(
+                "t.html",
+                HEADER + "\n<t:block t:replace=\"~{f :: slot(~{::tr}, true, ${s})}\"></t:block>"
+                    + "<table><tr><td>x</td></tr></table></div>")
+            .compile();
+    c.assertError("t.html:2:", "~{:: tr" + TABLE_PART_VALUE);
+    assertNull(c.generatedSource("tessera.generated.TTemplate"), insert);
   }
 
   @Test
