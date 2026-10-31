@@ -178,15 +178,19 @@ public final class Contexts {
 
   /**
    * Whether {@code attributeName} is htmx 1.x's {@code hx-sse} or {@code hx-ws} (also with
-   * {@code data-}), whose {@code connect:<url>} htmx connects to and swaps into the page. They
-   * are FORBIDDEN: the URL sits inside a mini-language, so it can only be written statically.
-   * Case-insensitive.
+   * {@code data-}), whose URL sits inside a mini-language. They are build errors, static or
+   * computed (#562): {@link #LEGACY_HTMX_CONNECT}. Case-insensitive.
    */
   public static boolean isLegacyHtmxConnect(String attributeName) {
     String a = HtmlParser.asciiLower(attributeName);
     String unprefixed = a.startsWith("data-") ? a.substring("data-".length()) : a;
     return unprefixed.equals("hx-sse") || unprefixed.equals("hx-ws");
   }
+
+  /** Why {@link #isLegacyHtmxConnect hx-ws and hx-sse} are build errors, with the fix-it. */
+  public static final String LEGACY_HTMX_CONNECT =
+      "htmx 1.x's hx-ws and hx-sse are not supported; use htmx 2's ws-connect or sse-connect with a"
+          + " same-origin URL such as /chat or @{/events}";
 
   /**
    * Whether {@code attributeName} is {@code hx-boost} or {@code data-hx-boost} (#258). It is
