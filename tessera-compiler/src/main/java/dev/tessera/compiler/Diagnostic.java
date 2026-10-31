@@ -55,6 +55,6 @@ public final class Diagnostic {
 
   @Override
   public String toString() {
-    return pos + ": " + severity.name().toLowerCase(java.util.Locale.ROOT) + ": " + message;
+    return pos + ": " + dev.tessera.compiler.html.HtmlParser.asciiLower(severity.name()) + ": " + message;
   }
 }

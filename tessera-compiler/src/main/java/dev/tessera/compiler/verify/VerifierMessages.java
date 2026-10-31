@@ -5,7 +5,6 @@ import dev.tessera.compiler.verify.engine.OpenElement;
 import dev.tessera.compiler.verify.engine.ParserState;
 import dev.tessera.compiler.verify.engine.TokenizerState;
 import java.util.List;
-import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -168,9 +167,9 @@ final class VerifierMessages {
       Pattern.compile("End tag for +\u201Cbody\u201D seen, but there were unclosed elements\\.");
 
   private static final Pattern BETWEEN_HEAD_AND_BODY =
-      Pattern.compile("\u201C(\\w+)\u201D element between \u201Chead\u201D and \u201Cbody\u201D\\.");
+      Pattern.compile("\u201C([A-Za-z0-9_]+)\u201D element between \u201Chead\u201D and \u201Cbody\u201D\\.");
 
-  private static final Pattern IN_TABLE = Pattern.compile("Start tag \u201C(\\w+)\u201D seen in \u201Ctable\u201D\\.");
+  private static final Pattern IN_TABLE = Pattern.compile("Start tag \u201C([A-Za-z0-9_]+)\u201D seen in \u201Ctable\u201D\\.");
 
   private static final String SELF_CLOSING = "Self-closing syntax (\u201C/>\u201D) used on a non-void HTML element."
       + " Ignoring the slash and treating as a start tag.";
@@ -178,7 +177,7 @@ final class VerifierMessages {
   private static final Pattern FOREIGN_HTML =
       Pattern.compile("HTML start tag \u201C([^\u201D]+)\u201D in a foreign namespace context\\.");
 
-  private static final Pattern TAG_NAME = Pattern.compile("<([A-Za-z][^\\s/>]*)");
+  private static final Pattern TAG_NAME = Pattern.compile("<([A-Za-z][^\\t\\n\\f\\r />]*)");
 
   /** What a hidden-markup fix-it says a bogus comment does. */
   private static final String BOGUS = " as the start of a comment that ends at the first '>', so the markup up to"
@@ -199,7 +198,7 @@ final class VerifierMessages {
     String markup = split < 0 ? "" : detail.substring(split + 1);
     if (message.equals(SELF_CLOSING)) {
       Matcher t = TAG_NAME.matcher(markup);
-      String name = t.lookingAt() ? t.group(1).toLowerCase(Locale.ROOT) : null;
+      String name = t.lookingAt() ? Rules.asciiLower(t.group(1)) : null;
       return name == null
           ? "a browser ignores the '/' of '/>' on an element that isn't void and reads a start tag, so what follows"
               + " is inside the element; write the end tag"
@@ -213,7 +212,7 @@ final class VerifierMessages {
           + " parses the rest as HTML; close the <svg> or <math> before the <" + name + ">, or put the HTML in a"
           + " <foreignObject> (in <math>, an <mtext>)";
     }
-    if (markup.regionMatches(true, 0, "<!doctype", 0, "<!doctype".length())) {
+    if (Rules.asciiStartsWith(markup, 0, "<!doctype")) {
       return "a browser reads this <!doctype> only by error recovery (the HTML parser reports \"" + message + "\")"
           + " and ends it at its first '>'; write <!doctype html>";
     }

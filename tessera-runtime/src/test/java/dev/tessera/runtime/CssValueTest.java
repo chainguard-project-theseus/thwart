@@ -27,6 +27,22 @@ class CssValueTest {
     assertEquals("#fff", Css.color("#fff").value());
   }
 
+  @Test
+  void colorNamesFoldOnlyAscii() {
+    // toLowerCase mapped U+212A (Kelvin sign) to k; a browser does not read it as khaki.
+    assertNull(CssValue.color("\u212Ahaki"));
+    assertEquals("khaki", CssValue.color("KHAKI").value());
+  }
+
+  @Test
+  void onlyHtmlWhitespaceIsIgnored() {
+    // trim() also dropped U+000B and other C0 controls, which CSS does not treat as whitespace.
+    assertNull(CssValue.color("\u000bred"));
+    assertNull(CssValue.url("\u000b/a.png"));
+    assertNull(CssValue.url("/a.png\u0001"));
+    assertEquals("red", CssValue.color("\t\n\f\r red ").value());
+  }
+
   @ParameterizedTest
   @ValueSource(strings = {"0", "12px", "-1.5em", ".5", "50%", "2rem", "100vh", "33.3vw", "1.25"})
   void validLengths(String s) {

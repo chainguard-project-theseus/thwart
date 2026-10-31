@@ -2,7 +2,6 @@ package dev.tessera.runtime;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.Locale;
 
 /** Thymeleaf-compatible truthiness for {@code t:if}/{@code t:unless} on non-boolean values. */
 public final class Conditions {
@@ -36,7 +35,7 @@ public final class Conditions {
       return (Character) value != '\0';
     }
     if (value instanceof String) {
-      String v = ((String) value).toLowerCase(Locale.ROOT);
+      String v = HtmlPolicy.lower((String) value);
       return !(v.equals("false") || v.equals("off") || v.equals("no"));
     }
     return true;

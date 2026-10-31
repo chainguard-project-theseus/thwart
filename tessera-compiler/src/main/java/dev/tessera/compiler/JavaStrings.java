@@ -5,6 +5,89 @@ public final class JavaStrings {
 
   private JavaStrings() {}
 
+  // Java text: identifiers, the expression language, MessageFormat patterns, options and Tessera's own
+  // directive values. These are the only Unicode case mappings and character classes in the compiler:
+  // Java names may be non-ASCII, and javac, JavaBeans and Thymeleaf use Character's classes. Markup,
+  // CSS and URLs never come here; they use HtmlParser's ASCII helpers, which AsciiOnlyTest enforces.
+
+  /** {@link Character#isWhitespace(char)}: Java whitespace, which is not HTML whitespace. */
+  public static boolean isJavaWhitespace(char c) {
+    return Character.isWhitespace(c);
+  }
+
+  /** {@link Character#isLetter(char)}, as an expression identifier starts. */
+  public static boolean isJavaLetter(char c) {
+    return Character.isLetter(c);
+  }
+
+  /** {@link Character#isLetterOrDigit(char)}, as an expression identifier continues. */
+  public static boolean isJavaLetterOrDigit(char c) {
+    return Character.isLetterOrDigit(c);
+  }
+
+  /** {@code String.strip()} (Java 11): {@code s} without leading and trailing Java whitespace. */
+  public static String stripJava(String s) {
+    return stripJavaTrailing(stripJavaLeading(s));
+  }
+
+  /** {@code String.stripLeading()} (Java 11). */
+  public static String stripJavaLeading(String s) {
+    int i = 0;
+    while (i < s.length() && Character.isWhitespace(s.codePointAt(i))) {
+      i += Character.charCount(s.codePointAt(i));
+    }
+    return s.substring(i);
+  }
+
+  /** {@code String.stripTrailing()} (Java 11). */
+  public static String stripJavaTrailing(String s) {
+    int i = s.length();
+    while (i > 0 && Character.isWhitespace(s.codePointBefore(i))) {
+      i -= Character.charCount(s.codePointBefore(i));
+    }
+    return s.substring(0, i);
+  }
+
+  /** {@code String.isBlank()} (Java 11): only Java whitespace. */
+  public static boolean isJavaBlank(String s) {
+    return stripJavaLeading(s).isEmpty();
+  }
+
+  /** {@code String.trim()}: {@code s} without leading and trailing chars up to U+0020. */
+  public static String trimJava(String s) {
+    int start = 0;
+    int end = s.length();
+    while (start < end && s.charAt(start) <= ' ') {
+      start++;
+    }
+    while (end > start && s.charAt(end - 1) <= ' ') {
+      end--;
+    }
+    return s.substring(start, end);
+  }
+
+  /** {@code name} with its first char upper-cased, as a getter name is built from a property. */
+  public static String capitalize(String name) {
+    return name.isEmpty() ? name : Character.toUpperCase(name.charAt(0)) + name.substring(1);
+  }
+
+  /** JavaBeans decapitalization: {@code Name} to {@code name}, {@code URL} stays {@code URL}. */
+  public static String decapitalize(String name) {
+    if (name.length() > 1 && Character.isUpperCase(name.charAt(0)) && Character.isUpperCase(name.charAt(1))) {
+      return name;
+    }
+    return name.isEmpty() ? name : Character.toLowerCase(name.charAt(0)) + name.substring(1);
+  }
+
+  /** {@code name} with its leading run of upper-case chars lower-cased: {@code URLName} to {@code urlname}. */
+  public static String lowerLeadingUpper(String name) {
+    StringBuilder sb = new StringBuilder(name);
+    for (int i = 0; i < sb.length() && Character.isUpperCase(sb.charAt(i)); i++) {
+      sb.setCharAt(i, Character.toLowerCase(sb.charAt(i)));
+    }
+    return sb.toString();
+  }
+
   /**
    * A Java string literal for {@code s}. Line terminators, quotes and backslashes use escape
    * sequences (never {@code \\u} escapes, which javac would decode before lexing); other C0

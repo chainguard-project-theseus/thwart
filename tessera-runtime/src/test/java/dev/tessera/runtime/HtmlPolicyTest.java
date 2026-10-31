@@ -129,6 +129,11 @@ class HtmlPolicyTest {
     // "_blan" and U+212A names a browsing context; it is not _blank, so the target is dropped
     assertEquals("<a href=\"/x\" rel=\"nofollow noopener\">x</a>", rich("<a href=\"/x\" target=\"_blan\u212a\">x</a>"));
     assertEquals("<a href=\"/x\" rel=\"nofollow noopener\">x</a>", rich("<a href=\"/x\" target=\"_blan&#x212a;\">x</a>"));
+    // trim() also dropped U+000B: a browser reads "\u000b_blank" as a window name, not _blank
+    assertEquals("<a href=\"/x\" rel=\"nofollow noopener\">x</a>", rich("<a href=\"/x\" target=\"\u000b_blank\">x</a>"));
+    assertEquals(
+        "<a href=\"/x\" rel=\"nofollow noopener\" target=\"_blank\">x</a>",
+        rich("<a href=\"/x\" target=\" _blank\n\">x</a>"));
     // Kelvin is not base64
     HtmlPolicy data = HtmlPolicy.builder().allowElements("img").allowDataImages().build();
     assertEquals("", data.sanitize("<img src=\"data:image/png;base64,iVBOR\u212a\">").html());

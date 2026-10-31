@@ -135,6 +135,14 @@ class LinkCompilerTest {
   }
 
   @Test
+  void schemeFoldsOnlyAscii() {
+    // equalsIgnoreCase folded U+017F to s, so httpſ passed as https; a browser folds A-Z only.
+    ExprRunner r = owners("\"1\"", "null");
+    r.compile("@{http\u017F://evil.com/x}").assertError("has scheme 'http\u017F:'", "only http and https");
+    assertEquals(List.of(), r.compile("@{HTTPS://example.com/x}").errors());
+  }
+
+  @Test
   void pathVariableInSchemeOrHostIsAnError() {
     ExprRunner r = owners("\"1\"", "null");
     r.compile("@{{id}:alert(id=o.id)}").assertError("only http and https");

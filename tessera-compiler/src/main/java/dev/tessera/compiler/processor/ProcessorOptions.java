@@ -1,7 +1,7 @@
 package dev.tessera.compiler.processor;
 
-import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
+import dev.tessera.compiler.JavaStrings;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -80,11 +80,11 @@ public final class ProcessorOptions {
     List<Path> messages = new ArrayList<>();
     if (m != null) {
       for (String base : m.split(",")) {
-        if (!Backports.isBlank(base)) {
-          messages.add(Paths.get(Backports.strip(base)));
+        if (!JavaStrings.isJavaBlank(base)) {
+          messages.add(Paths.get(JavaStrings.stripJava(base)));
         }
       }
     }
-    return new ProcessorOptions(t == null || Backports.isBlank(t) ? null : Paths.get(t), p, messages);
+    return new ProcessorOptions(t == null || JavaStrings.isJavaBlank(t) ? null : Paths.get(t), p, messages);
   }
 }

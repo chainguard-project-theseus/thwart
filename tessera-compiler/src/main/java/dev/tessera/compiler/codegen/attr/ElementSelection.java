@@ -4,6 +4,7 @@ import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.expr.FragmentRef;
+import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.html.ParsingContexts;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
@@ -13,7 +14,6 @@ import dev.tessera.compiler.types.Variable;
 import dev.tessera.compiler.verify.Skeleton;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -103,7 +103,7 @@ final class ElementSelection {
     for (Node n : nodes) {
       if (n instanceof Element) {
         Element e = (Element) n;
-        if (e.name().toLowerCase(Locale.ROOT).equals(tag.toLowerCase(Locale.ROOT))) {
+        if (HtmlParser.asciiLower(e.name()).equals(HtmlParser.asciiLower(tag))) {
           return e;
         }
         Element inner = find(e.children(), tag);

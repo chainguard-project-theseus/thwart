@@ -348,6 +348,28 @@ public final class HtmlPolicy {
     return new String(cs);
   }
 
+  /**
+   * {@code s} without leading and trailing HTML whitespace (TAB, LF, FF, CR, SPACE; also CSS
+   * whitespace after preprocessing). Not {@code trim}: that also strips U+000B and every other C0
+   * control, which a browser keeps.
+   */
+  static String stripWhitespace(String s) {
+    int start = 0;
+    int end = s.length();
+    while (start < end && isWhitespace(s.charAt(start))) {
+      start++;
+    }
+    while (end > start && isWhitespace(s.charAt(end - 1))) {
+      end--;
+    }
+    return s.substring(start, end);
+  }
+
+  /** HTML whitespace: TAB, LF, FF, CR and SPACE. */
+  static boolean isWhitespace(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r';
+  }
+
   private static Set<String> unmodifiable(String... names) {
     return Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(names)));
   }

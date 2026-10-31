@@ -10,6 +10,7 @@ import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.html.Contexts;
+import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.links.LinkCompiler;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.OutputContext;
@@ -17,7 +18,6 @@ import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.runtime.CssValue;
 import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.TrustedUrl;
-import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -58,7 +58,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
    */
   static void set(CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label) {
     String element = plan.element().name();
-    String lower = name.toLowerCase(Locale.ROOT);
+    String lower = HtmlParser.asciiLower(name);
     if (Contexts.isUnknownName(plan.element(), name)) {
       ctx.diagnostics().error(pos, label + " is not allowed: " + unknownName(name));
       return;
@@ -131,7 +131,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       }
       return;
     }
-    if (lower.equals("href") && element.equalsIgnoreCase("base")) {
+    if (lower.equals("href") && HtmlParser.asciiEqualsIgnoreCase(element, "base")) {
       // #350: every relative URL on the page, a token-bearing form's action included, resolves against it.
       htmxRequestUrl(ctx, plan, name, value, pos, label, CsrfInjector.BASE_MOVES_URLS, "", "a <base href>");
       return;
@@ -142,7 +142,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       return;
     }
     if (context == OutputContext.URL
-        && (lower.equals("formaction") || (lower.equals("action") && element.equalsIgnoreCase("form")))
+        && (lower.equals("formaction") || (lower.equals("action") && HtmlParser.asciiEqualsIgnoreCase(element, "form")))
         && ctx.htmxSubmits(plan.element())) {
       htmxRequestUrl(ctx, plan, name, value, pos, label,
           "inside hx-boost or an htmx form, htmx submits to this URL and swaps the response into the page as HTML",
@@ -182,7 +182,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
 
   /** Why {@code name}, which is not {@link Contexts#isKnownName known} (#330), cannot be computed. */
   static String unknownName(String name) {
-    String data = name.toLowerCase(Locale.ROOT);
+    String data = HtmlParser.asciiLower(name);
     return "'" + name + "' is not a known attribute; a computed attribute must be a standard HTML, SVG,"
         + " MathML or ARIA attribute, a data-* attribute, or a plain [a-z][a-z0-9]* prop on a custom"
         + " element. If it is data for your script, use data-" + data + "; if a framework reads it,"
@@ -235,7 +235,8 @@ public final class GenericAttrProcessor implements AttributeProcessor {
   }
 
   private static final Pattern REFRESH_PREFIX =
-      Pattern.compile("\\s*([0-9]+)\\s*[;,]\\s*url\\s*=\\s*", Pattern.CASE_INSENSITIVE);
+      Pattern.compile("[\\t\\n\\f\\r ]*([0-9]+)[\\t\\n\\f\\r ]*[;,][\\t\\n\\f\\r ]*url[\\t\\n\\f\\r ]*=[\\t\\n\\f\\r ]*",
+          Pattern.CASE_INSENSITIVE);
 
   /**
    * The {@code content} of a {@code <meta http-equiv="refresh">} (#237): only
