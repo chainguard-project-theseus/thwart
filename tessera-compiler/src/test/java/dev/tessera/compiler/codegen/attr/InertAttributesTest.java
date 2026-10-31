@@ -3,8 +3,6 @@ package dev.tessera.compiler.codegen.attr;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import dev.tessera.compiler.testing.Compilation;
-import dev.tessera.runtime.CssValue;
-import dev.tessera.runtime.TrustedUrl;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -14,7 +12,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * #539: a plain computed value goes only into an inert-text attribute
  * ({@code inert-attributes.txt}); any other standard attribute without a more specific context
- * (TYPED_ATTRIBUTE) takes only literals, numbers and a safe type.
+ * (TYPED_ATTRIBUTE) takes only literals and numbers (#565).
  */
 class InertAttributesTest {
 
@@ -66,19 +64,28 @@ class InertAttributesTest {
   }
 
   @Test
-  void literalsNumbersAndSafeTypesCompile() {
+  void literalsAndNumbersCompile() {
     assertEquals(
         "<a rel=\"nofollow\" target=\"_blank\">x</a>",
         render("<a t:rel=\"b ? 'noopener' : 'nofollow'\" t:target=\"'_blank'\">x</a>"));
-    assertEquals("<p itemtype=\"https://schema.org/Person\">x</p>",
-        render("<p t:itemtype=\"u\">x</p>", "u", TrustedUrl.unchecked("https://schema.org/Person")));
     assertEquals(
-        "<svg><rect x=\"3\" stroke-width=\"2px\"/><g transform=\"translate(3 0)\"></g></svg>",
-        render("<svg><rect t:x=\"n\" t:stroke-width=\"v\"/><g t:transform=\"|translate(${n} 0)|\"></g></svg>",
-            "n", 3, "v", CssValue.length("2px")));
-    // A safe type of the other namespace does not count.
-    compile("<svg><rect t:x=\"u\"/></svg>").assertError("t:x is not allowed", "CssValues");
-    compile("<a t:rel=\"v\">x</a>").assertError("t:rel is not allowed", "TrustedUrls");
+        "<svg><rect x=\"3\" stroke-width=\"3px\"/><g transform=\"translate(3 0)\"></g></svg>",
+        render("<svg><rect t:x=\"n\" t:stroke-width=\"|${n}px|\"/><g t:transform=\"|translate(${n} 0)|\"></g></svg>",
+            "n", 3));
+  }
+
+  /** #565: a safe type is the wrong kind for a typed attribute, on HTML and on SVG or MathML. */
+  @ParameterizedTest
+  @ValueSource(strings = {
+    "<iframe t:sandbox=\"u\"></iframe>",
+    "<p t:itemtype=\"u\">x</p>",
+    "<a t:rel=\"b ? u : 'nofollow'\">x</a>",
+    "<svg><rect t:stroke-width=\"v\"/></svg>",
+    "<svg><g t:transform=\"|scale(${v})|\"></g></svg>",
+    "<math><mi t:mathcolor=\"v\">x</mi></math>",
+  })
+  void safeTypesAreRejected(String body) {
+    compile("\n" + body).assertError("t.html:2:", "is not allowed", "only combine string literals and numbers");
   }
 
   /**
