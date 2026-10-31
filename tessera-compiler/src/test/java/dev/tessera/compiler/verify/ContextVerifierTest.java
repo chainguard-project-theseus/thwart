@@ -84,7 +84,7 @@ class ContextVerifierTest {
                 + "<head><link rel=\"stylesheet\" t:href=\"@{/b.css}\"></head><main t:text=\"s\">m</main></html>")
             .compile()
             .assertSuccess();
-    assertTrue(c.render("b", model("s", "x")).contains("<head><title>x</title><link rel=\"stylesheet\" href=\"/b.css\"></head>"));
+    assertTrue(c.render("b", model("s", "x")).contains("<head><title v-pre>x</title><link rel=\"stylesheet\" href=\"/b.css\"></head>"));
     // Text where only head content may go is moved into the body by a browser: rejected at the call.
     Compilation bad =
         Compilation.builder()

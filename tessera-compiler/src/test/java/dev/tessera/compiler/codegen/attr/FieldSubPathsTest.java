@@ -67,12 +67,12 @@ class FieldSubPathsTest {
         "<form><div><input type=\"checkbox\" id=\"exclusion.answer1\" name=\"exclusion.answer\" value=\"true\""
             + " checked=\"checked\" /><input type=\"hidden\" name=\"_exclusion.answer\" value=\"on\" />"
             + "<input type=\"text\" id=\"exclusion.description\" name=\"exclusion.description\" value=\"x&lt;y\" />"
-            + "<textarea id=\"exclusion.description\" name=\"exclusion.description\">\nx&lt;y</textarea></div>"
+            + "<textarea id=\"exclusion.description\" name=\"exclusion.description\" v-pre>\nx&lt;y</textarea></div>"
             + "<div class=\"bad\"><input type=\"checkbox\" id=\"criteria1.answer1\" name=\"criteria[1].answer\" value=\"true\" />"
             + "<input type=\"hidden\" name=\"_criteria[1].answer\" value=\"on\" />"
             + "<input type=\"text\" id=\"criteria1.description\" name=\"criteria[1].description\""
             + " value=\"&quot;&gt;&lt;b&gt;\" class=\"err\" /><span>too &lt;short&gt;</span>"
-            + "<textarea id=\"criteria1.description\" name=\"criteria[1].description\">\n&quot;&gt;&lt;b&gt;</textarea></div></form>",
+            + "<textarea id=\"criteria1.description\" name=\"criteria[1].description\" v-pre>\n&quot;&gt;&lt;b&gt;</textarea></div></form>",
         c.render("form", Map.of("owner", espd(c)), ctx(forms)));
   }
 

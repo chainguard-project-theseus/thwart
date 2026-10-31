@@ -76,22 +76,22 @@ class ClientTemplateInjectionTest {
     assertEquals("<template><p><!---->{<!---->{x}}</p></template>",
         render("<template><p t:text=\"s\">x</p></template>", "{{x}}"));
     // Inside svg and math, <title> and <textarea> are not RCDATA: a comment is a real node there (#277).
-    assertEquals("<svg><title><!---->{<!---->{x}}</title><title>a <!---->{<!---->{x}}</title></svg>",
+    assertEquals("<svg><title v-pre><!---->{<!---->{x}}</title><title v-pre>a <!---->{<!---->{x}}</title></svg>",
         render("<svg><title t:text=\"s\">t</title><title>a [[s]]</title></svg>", "{{x}}"));
-    assertEquals("<math><textarea><!---->{<!---->{x}}</textarea></math>",
+    assertEquals("<math><textarea v-pre><!---->{<!---->{x}}</textarea></math>",
         render("<math><textarea>[[s]]</textarea></math>", "{{x}}"));
   }
 
   @Test
-  void titleAndTextareaAreNotChanged() {
-    // RCDATA: a comment would show as text there (guide section 7).
-    assertEquals("<title>{{x}} &amp;</title>", render("<title t:text=\"s\">t</title>", "{{x}} &"));
-    assertEquals("<title>a {{x}} &amp;</title>", render("<title>a [[s]]</title>", "{{x}} &"));
-    assertEquals("<textarea>\n{{x}}</textarea>", render("<textarea t:text=\"s\"></textarea>", "{{x}}"));
-    assertEquals("<textarea>\n{{x}}</textarea>", render("<textarea>[[s]]</textarea>", "{{x}}"));
-    assertEquals("<TITLE>{{x}}</TITLE>", render("<TITLE t:text=\"s\">t</TITLE>", "{{x}}"));
+  void titleAndTextareaKeepBracesUnderVPre() {
+    // RCDATA: a comment would show as text there, so the element gets v-pre instead (#549).
+    assertEquals("<title v-pre>{{x}} &amp;</title>", render("<title t:text=\"s\">t</title>", "{{x}} &"));
+    assertEquals("<title v-pre>a {{x}} &amp;</title>", render("<title>a [[s]]</title>", "{{x}} &"));
+    assertEquals("<textarea v-pre>\n{{x}}</textarea>", render("<textarea t:text=\"s\"></textarea>", "{{x}}"));
+    assertEquals("<textarea v-pre>\n{{x}}</textarea>", render("<textarea>[[s]]</textarea>", "{{x}}"));
+    assertEquals("<TITLE v-pre>{{x}}</TITLE>", render("<TITLE t:text=\"s\">t</TITLE>", "{{x}}"));
     // An <annotation-xml> whose t:attr names only other attributes keeps its HTML encoding: an HTML title.
-    assertEquals("<math><annotation-xml encoding=\"text/html\" id=\"{{x}}\"><title>{{x}}</title></annotation-xml></math>",
+    assertEquals("<math><annotation-xml encoding=\"text/html\" id=\"{{x}}\"><title v-pre>{{x}}</title></annotation-xml></math>",
         render("<math><annotation-xml encoding=\"text/html\" t:attr=\"id=s\"><title>[[s]]</title></annotation-xml></math>",
             "{{x}}"));
   }

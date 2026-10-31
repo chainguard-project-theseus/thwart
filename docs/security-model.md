@@ -105,7 +105,7 @@ The hostile value set used in tests is `HostileStrings.VECTORS` plus the #320 va
 | XSS through composition (fragments, `SafeHtml`, messages in the wrong context) | Yes | Family B; once #367 and #329 land, static composition by the verifier at each call site, dynamic values by content-kind predicates (context-model.md §5) |
 | XSS through a script hole in the wrong lexical position | Yes | Family C; script prelude rule (context-model.md §4) |
 | A URL or resource from another origin | Yes | Family E; URL classes (context-model.md §6.1) |
-| Client-side template injection in a listed framework | Bounded | Family D. Deny-by-default names, the framework table and `{{` breaking. Gaps are listed in guide §7 |
+| Client-side template injection in a listed framework | Bounded | Family D. Deny-by-default names, the framework table and `{{` breaking; where `{{` can't be broken (`<title>`, `<textarea>`), `v-pre` for Vue 3 and petite-vue (#549). Gaps are listed in guide §7 |
 | Client frameworks not in the table, or configured to read other names | No | Outside the guarantee. A strict CSP without `'unsafe-eval'` limits the damage (#335, guide §4.11) |
 | What page JavaScript does with values it reads from the DOM | No | Principle 7 |
 | Content an `unchecked` call vouched for | No | The call site owns it |

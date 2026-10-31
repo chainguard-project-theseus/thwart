@@ -39,6 +39,11 @@ class LeadingLineFeedTest {
     return c.render("t", model("s", s, "c", true, "l", l));
   }
 
+  /** The start tag of {@code element} with computed content: a textarea gets v-pre (#549). */
+  private static String start(String element) {
+    return element.equals("textarea") ? "<textarea v-pre>" : "<" + element + ">";
+  }
+
   /** The text content of the first {@code element} in {@code html}, as the spec parser builds it. */
   private static String dom(String html, String element) {
     Document d = SpecParsers.named(SpecParsers.VNU_26).parse(html, true);
@@ -53,8 +58,8 @@ class LeadingLineFeedTest {
       String html = render(c, s);
       assertEquals(s + "\nx", dom(html, element), html);
     }
-    assertEquals("<div><" + element + ">\n\nx</" + element + "></div>", render(c, ""));
-    assertEquals("<div><" + element + ">\na\nx</" + element + "></div>", render(c, "a"));
+    assertEquals("<div>" + start(element) + "\n\nx</" + element + "></div>", render(c, ""));
+    assertEquals("<div>" + start(element) + "\na\nx</" + element + "></div>", render(c, "a"));
   }
 
   @ParameterizedTest
@@ -65,7 +70,7 @@ class LeadingLineFeedTest {
       String html = render(c, s);
       assertEquals(s, dom(html, element), html);
     }
-    assertEquals("<div><" + element + ">\n\nz</" + element + "></div>", render(c, "\nz"));
+    assertEquals("<div>" + start(element) + "\n\nz</" + element + "></div>", render(c, "\nz"));
   }
 
   @Test
@@ -120,13 +125,13 @@ class LeadingLineFeedTest {
     Compilation c = compile("<pre>\nx [[${s}]]\n</pre><pre>y</pre><pre><b>[[${s}]]</b>\nx</pre><textarea></textarea>"
         + "<textarea>\n[[${s}]]</textarea>");
     assertEquals("<div><pre>\nx a\n</pre><pre>y</pre><pre><b>a</b>\nx</pre><textarea></textarea>"
-        + "<textarea>\na</textarea></div>", render(c, "a"));
+        + "<textarea v-pre>\na</textarea></div>", render(c, "a"));
   }
 
   @Test
   void anSvgTextareaGetsNoLineFeed() {
     // Inside <svg> a <textarea> is an SVG element, which drops nothing.
     Compilation c = compile("<svg><textarea>[[${s}]]\nx</textarea></svg>");
-    assertEquals("<div><svg><textarea>\nz\nx</textarea></svg></div>", render(c, "\nz"));
+    assertEquals("<div><svg><textarea v-pre>\nz\nx</textarea></svg></div>", render(c, "\nz"));
   }
 }
