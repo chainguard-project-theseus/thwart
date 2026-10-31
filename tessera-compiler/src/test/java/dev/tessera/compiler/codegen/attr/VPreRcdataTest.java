@@ -103,5 +103,12 @@ class VPreRcdataTest {
         .assertError("t.html:2:1:", "{{ in the static text of a <title> with computed content is not supported");
     compile("<textarea>[[s]] {{ x }}</textarea>")
         .assertError("t.html:1:", "{{ in the static text of a <textarea> with computed content is not supported");
+    // In SVG a title has child elements: static text inside a condition or switch counts.
+    compile("<svg><title><t:block t:if=\"true\">{{ app }}</t:block> [[s]]</title></svg>")
+        .assertError("t.html:1:", "{{ in the static text of a <title> with computed content is not supported");
+    compile("<math><textarea><t:block t:switch=\"s\"><t:block t:case=\"'a'\">{{ a }}</t:block></t:block>[[s]]</textarea></math>")
+        .assertError("t.html:1:", "{{ in the static text of a <textarea> with computed content is not supported");
+    // A value between two braces does not make {{.
+    assertTrue(render("<textarea>{[[s]]{</textarea>", "x").startsWith("<textarea v-pre>"));
   }
 }

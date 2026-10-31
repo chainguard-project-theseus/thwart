@@ -791,14 +791,14 @@ public final class TemplateGenerator implements CodegenContext {
               + " would turn " + a.name() + " off; drop " + a.name() + ", or move the value into Vue (v-model or"
               + " v-text with the value in the app's data) instead of writing it with Tessera");
     }
-    String braces = staticBraces(content.nodes());
-    if (braces != null) {
+    boolean braces = staticBraces(content.nodes());
+    if (braces) {
       diagnostics()
           .error(e.pos(), "{{ in the static text of a <" + lower + "> with computed content is not supported: Tessera"
               + " adds v-pre there, because a comment cannot break {{ in a value in <" + lower + ">, and v-pre would"
               + " show the static {{ ... }} as text; write the whole content with Tessera, or bind it with Vue");
     }
-    return directives.isEmpty() && braces == null;
+    return directives.isEmpty() && !braces;
   }
 
   /** Whether {@code nodes} write anything but static text. */
@@ -811,18 +811,39 @@ public final class TemplateGenerator implements CodegenContext {
     return false;
   }
 
-  /** The first static text in {@code nodes} that holds {{, or null. */
-  private static String staticBraces(List<Skeleton.Node> nodes) {
+  /**
+   * Whether the static text in {@code nodes} may write {{: adjacent static text joins, also into
+   * and out of conditions and loops; a value, call or other branch separates it.
+   */
+  private static boolean staticBraces(List<Skeleton.Node> nodes) {
+    StringBuilder text = new StringBuilder();
+    staticText(nodes, text);
+    return text.indexOf("{{") >= 0;
+  }
+
+  private static void staticText(List<Skeleton.Node> nodes, StringBuilder out) {
     for (Skeleton.Node n : nodes) {
-      String s =
-          n instanceof Skeleton.Seq ? staticBraces(((Skeleton.Seq) n).nodes())
-              : n instanceof Skeleton.Static && ((Skeleton.Static) n).text().contains("{{") ? ((Skeleton.Static) n).text()
-              : null;
-      if (s != null) {
-        return s;
+      if (n instanceof Skeleton.Static) {
+        out.append(((Skeleton.Static) n).text());
+      } else if (n instanceof Skeleton.Seq) {
+        staticText(((Skeleton.Seq) n).nodes(), out);
+      } else if (n instanceof Skeleton.Opt) {
+        staticText(((Skeleton.Opt) n).body().nodes(), out);
+      } else if (n instanceof Skeleton.Rep) {
+        // Two rounds: the end of one meets the separator and the start of the next.
+        staticText(((Skeleton.Rep) n).body().nodes(), out);
+        staticText(((Skeleton.Rep) n).separator().nodes(), out);
+        staticText(((Skeleton.Rep) n).body().nodes(), out);
+      } else if (n instanceof Skeleton.Alt) {
+        for (Skeleton.Seq branch : ((Skeleton.Alt) n).branches()) {
+          out.append('\0');
+          staticText(branch.nodes(), out);
+        }
+        out.append('\0');
+      } else {
+        out.append('\0');
       }
     }
-    return null;
   }
 
   private void startTag(Emitted.Builder c, ElementPlan plan, boolean vPre) {
