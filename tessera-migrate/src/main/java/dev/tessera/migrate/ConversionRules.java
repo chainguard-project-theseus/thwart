@@ -607,7 +607,32 @@ final class ConversionRules {
   static final String UNKNOWN_NAME_IN_ATTR_REWRITTEN_MESSAGE =
       "`%1$s` in `%2$s` was rewritten to `%3$s`: `%1$s` is not a known attribute, which is a build error for a computed attribute in Tessera, and htmx reads `%3$s` the same way";
 
-  /** {@code %s} is the token the compiler's data-prelude rule rejects (#332). */
-  static final String SCRIPT_DATA_PRELUDE_MESSAGE =
-      "%s before the last `[[...]]` of a `<script>` is a build error in Tessera: the compiler reads the code before the last value only with a lexer that has no ambiguous tokens, so it can prove where each value goes; move the `[[...]]` above the code (declare the data first, `var data = [[...]];`), or write the value into a `<script type=\"application/json\">` and read it with `JSON.parse`";
+  /** {@code %1$s} is the inline, {@code %2$s} the variable it was hoisted into (#541). */
+  static final String SCRIPT_HOISTED_MESSAGE =
+      "`%1$s` in a script was moved into `var %2$s = %1$s;` at the top of the script and replaced by `%2$s`: in a"
+          + " Tessera script `[[...]]` is allowed only as the whole value of a declaration at the top, before any other"
+          + " code; `%2$s` is a global variable in a classic script, so rename it if another script on the page uses"
+          + " that name";
+  /** Appended to {@link #SCRIPT_HOISTED_MESSAGE} when the inline was inside a quoted string. */
+  static final String SCRIPT_HOISTED_STRING_MESSAGE =
+      "; it was inside a quoted string, which is now joined with `+`: a non-string value renders as JSON (`null`,"
+          + " not an empty string)";
+  /** Appended to {@link #SCRIPT_HOISTED_MESSAGE} for an inline inside a block or function; {@code %s} is the variable. */
+  static final String SCRIPT_HOISTED_DEFERRED_MESSAGE =
+      "; it was inside a block or function: code that runs later, such as a callback or event handler, now"
+          + " reads the global `%1$s` when it runs, and if the script is included more than once (a fragment per"
+          + " row) each copy overwrites it, so every callback reads the last copy's value; give each copy its own"
+          + " value, for example from a `data-*` attribute of the element it handles";
+  /** {@code %s} is the inline. */
+  static final String SCRIPT_INLINE_IN_REGEX_MESSAGE =
+      "`%s` inside a JavaScript regular expression is a build error in Tessera and was not rewritten: declare the"
+          + " value at the top of the script (`var v = [[...]];`) and build the pattern with `new RegExp(v)`";
+  /** {@code %s} is the inline. */
+  static final String SCRIPT_INLINE_IN_TEMPLATE_MESSAGE =
+      "`%s` inside a template literal is a build error in Tessera and was not rewritten: declare the value at the"
+          + " top of the script (`var v = [[...]];`) and write `${v}`";
+  /** {@code %s} is the directive. */
+  static final String SCRIPT_DIRECTIVE_MESSAGE =
+      "%s no longer starts the script, because values were moved into declarations above it, so it no longer"
+          + " applies and the script no longer runs in strict mode; put it at the start of the functions that need it";
 }

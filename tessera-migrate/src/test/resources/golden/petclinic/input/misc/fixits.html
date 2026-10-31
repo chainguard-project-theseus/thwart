@@ -9,7 +9,7 @@
   <!-- A missing space between attributes is added. -->
   <a href="/owners"class="btn" th:text="${owner.lastName}">owner</a>
   <a href="/owners" class="btn">spaced</a>
-  <!-- Code before the last inline that the data-prelude rule rejects is reported. -->
+  <!-- Values outside the script prelude are hoisted into var declarations at the top (#541). -->
   <script th:inline="javascript">
     var path = location.pathname.split(/\//);
     var owner = /*[[${owner.id}]]*/ 0;
@@ -17,6 +17,15 @@
   <script>
     var owner = [[${owner.id}]];
     var path = location.pathname.split(/\//);
+  </script>
+  <script>
+    var parts = [[${owner.birthDate}]].split(".");
+    initOwner([[${owner.id}]], parts);
+    var options = {name: [[${owner.lastName}]], editable: true};
+    var greeting = "Hello [[${owner.firstName}]]!";
+    numberValidationMessage = [[${owner.telephone}]];
+    var visits = [[${owner.visits}]];
+    var re = /^[[${owner.city}]]$/;
   </script>
 </body>
 </html>
