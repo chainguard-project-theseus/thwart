@@ -337,7 +337,7 @@ nightly framework harness (#334). Today the entries are hard-coded in `Contexts`
 | `{` as `\u007b` in JSON strings | #303 | `ScriptJsonTest` (#303) |
 | Unclosed static `{{` before a hole is an error | #303 (same text node or script); across nodes #336 | seed `A18`; generator interference `{{..}}` |
 | A static `&` that starts a character reference before a hole is an error, so a value can't spell `{` as `&#123;` (`&[[a]]&[[b]]`, a = b = `#123;`); an HTML message the build did not check is escaped as text | verifier (`TEXT_NOT_IN_TEXT`, §2 "Text: hole after `&`"); runtime (`Escapers.htmlMessage`) | `ValueAfterAmpersandTest`, `EscapersTest` |
-| RCDATA (`<title>`, `<textarea>`): no lossless break, so a computed one gets `v-pre` (Vue 3, petite-vue); a Vue directive on it, or a static `{{` beside the value, is an error; no duplicate `v-pre` | main (#549) | `VPreRcdataTest` (Vue 3 and petite-vue in a browser: the hostile value runs without `v-pre`, not with it) |
+| RCDATA (`<title>`, `<textarea>`): no lossless break, so a computed one gets `v-pre` (Vue 3, petite-vue); a Vue directive on it, or a static `{{` beside the value, is an error; no duplicate `v-pre` | main (#549) | `VPreRcdataTest` (output and errors); that Vue 3.5.44 and petite-vue 0.4.1 skip it was checked by hand in Chromium (the hostile value runs without `v-pre`, not with it), framework harness rows #334 |
 | Attributes, and RCDATA under AngularJS: no lossless break | documented limitation (guide §7), bounded by `ng-non-bindable` and CSP (#335) | seed `A37`; #344 CSTI check |
 
 Frameworks configured to read other names (an Alpine prefix, a Knockout binding provider, a
