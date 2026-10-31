@@ -218,7 +218,7 @@ class SkeletonTest {
     String skeleton = c.skeleton("j").body().toString();
     assertTrue(skeleton.contains("$raw{SAFE_HTML"), skeleton);
     assertTrue(skeleton.contains("$raw{FRAGMENT_VALUE"), skeleton);
-    assertTrue(skeleton.contains("\"var a = \" ${JSON @j.html:1:"), skeleton);
+    assertTrue(skeleton.contains("\"var a = \" ${JAVASCRIPT @j.html:1:"), skeleton);
     String out =
         c.render(
             "j",
@@ -228,8 +228,8 @@ class SkeletonTest {
                 "s", "x'y",
                 "f", (dev.tessera.runtime.Fragment) (cx, o) -> o.write("<hr>")));
     assertEquals(
-        "<div><div><b>B</b></div><b>B</b><div><hr></div><script>var a = {\"name\":\"\\u003c\\/script\\u003e\",\"n\":3};"
-            + " var b = \"x\\u0027y\";</script></div>",
+        "<div><div><b>B</b></div><b>B</b><div><hr></div><script>var a = ({\"name\":\"\\u003c\\/script\\u003e\",\"n\":3});"
+            + " var b = (\"x\\u0027y\");</script></div>",
         out);
   }
 

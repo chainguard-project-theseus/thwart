@@ -80,10 +80,10 @@ class ValueAfterLessThanTest {
 
   @Test
   void negativeNumberAfterBangDashInScriptFailsToBuild() {
-    // n = -1 renders "<!--1", and a browser then hides the "</script>" after "<script". The data-prelude
-    // rule (#332) rejects the "<!" before the value.
+    // n = -1 used to render "<!--1", and a browser then hides the "</script>" after "<script". The
+    // value is not a prelude declaration, so it is rejected.
     compile("<script>\nvar x = 2 <!-[[n]]\nvar y = \"<script>\";\n</script>")
-        .assertError("page.html:3:11:", "'<!' (a value or code after it can make '<!--', an HTML-like comment)");
+        .assertError("page.html:3:16:", "only allowed as the whole value of a declaration");
   }
 
   @Test
@@ -103,7 +103,7 @@ class ValueAfterLessThanTest {
 
   @Test
   void comparisonsInScriptStillCompile() {
-    assertEquals("<script>if (1<(2)) {}</script>", render("<script>if (1<[[n]]) {}</script>", "", 2));
-    assertEquals("<script>var b = 1 < !- (2);</script>", render("<script>var b = 1 < !- [[n]];</script>", "", 2));
+    assertEquals("<script>var n = (2); if (1<n) {}</script>", render("<script>var n = [[n]]; if (1<n) {}</script>", "", 2));
+    assertEquals("<script>var n = (2); var b = 1 < !- n;</script>", render("<script>var n = [[n]]; var b = 1 < !- n;</script>", "", 2));
   }
 }

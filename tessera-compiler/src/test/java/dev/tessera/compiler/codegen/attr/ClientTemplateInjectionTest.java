@@ -101,7 +101,7 @@ class ClientTemplateInjectionTest {
     assertEquals("<i title=\"{{x}}\" data-v=\"{{x}}\">i</i>", render("<i t:title=\"s\" t:data-v=\"s\">i</i>", "{{x}}"));
     assertEquals("<a href=\"{{x}}\">a</a>", render("<a t:href=\"s\">a</a>", "{{x}}"));
     // petite-vue interpolates script text: a JSON string writes '{' as \u007b
-    assertEquals("<script>var v = \"\\u007b\\u007bx}}\";</script>", render("<script>var v = [[s]];</script>", "{{x}}"));
+    assertEquals("<script>var v = (\"\\u007b\\u007bx}}\");</script>", render("<script>var v = [[s]];</script>", "{{x}}"));
   }
 
   @ParameterizedTest
@@ -135,7 +135,7 @@ class ClientTemplateInjectionTest {
         "<p>{ { [[s]] }}</p>",
         "<p>{{ x &#125;} [[s]]</p>",
         "<p>&amp;#123;&amp;#123; [[s]]</p>",
-        "<script>var t = '{{}}'; var v = [[s]];</script>",
+        "<script>var v = [[s]]; var t = '{{}}';</script>",
         "<p>{{ a }}<b t:text=\"s\">x</b></p>",
       })
   void expressionOutsideStaticMustacheCompiles(String body) {

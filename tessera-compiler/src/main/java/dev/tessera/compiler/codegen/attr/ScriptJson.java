@@ -118,12 +118,9 @@ final class ScriptJson {
 
   /**
    * A statement writing the whole JSON value, or null after reporting an error. A value without
-   * beans goes to {@code Escapers.javaScript}, which puts a negative number or an integer in
-   * parentheses, or in a JSON {@code <script>} ({@link CodegenContext#inJsonScript}) to
-   * {@code Escapers.json}. A value
-   * with beans goes to a generated helper. Its top-level value is a bean, a container or an Optional
-   * of one of those, so it is written as a
-   * JSON object, an array or {@code null}, never a number.
+   * beans goes to {@code Escapers.javaScript}, which writes it in parentheses, or in a JSON
+   * {@code <script>} ({@link CodegenContext#inJsonScript}) to {@code Escapers.json}. A value with
+   * beans goes to a generated helper, which writes it in parentheses too outside a JSON script.
    */
   static Emitted statement(CodegenContext ctx, CompiledExpr c) {
     ScriptJson json = new ScriptJson(ctx);
@@ -137,8 +134,9 @@ final class ScriptJson {
       return Emitted.hole(escaper, ctx.hostElement(), null, c.pos(), c.code()).then("\n");
     }
     String helper = ctx.freshName("jsonOutput");
-    ctx.addMember(Emitted.jsonHelperMethod(helper, code));
-    return Emitted.jsonHelperHole(helper, ctx.hostElement(), c.pos(), c.code()).then("\n");
+    boolean js = !ctx.inJsonScript();
+    ctx.addMember(Emitted.jsonHelperMethod(helper, code, js));
+    return Emitted.jsonHelperHole(helper, ctx.hostElement(), c.pos(), c.code(), js).then("\n");
   }
 
   /**

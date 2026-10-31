@@ -32,6 +32,6 @@ class JsonBenchmarkTest {
     page.put("byName", Map.of("first", rows.get(0)));
     StringOutput json = new StringOutput();
     Escapers.json(json, page);
-    assertEquals("<script>const page = " + json + ";</script>\n", benchmark.embeddedBeans());
+    assertEquals("<script>const page = (" + json + ");</script>\n", benchmark.embeddedBeans());
   }
 }

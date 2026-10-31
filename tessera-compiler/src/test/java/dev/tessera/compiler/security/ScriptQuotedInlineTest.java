@@ -11,20 +11,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.FieldSource;
 
 /**
- * The data-prelude rule (security-architecture.md §5.4, #332). In a {@code <script>}, {@code [[...]]}
- * writes a complete JSON value with its own quotes, so it goes only where a JavaScript expression
- * goes: inside a string literal the value would close the string and run as code (#281), and inside
- * a comment the page would never use it, as in Thymeleaf's natural-template
- * {@code /*[[${x}]]*}{@code /} (#315). To find strings and comments exactly, the code before the last
- * value may use only tokens a lexer reads without context. A {@code /} (division or regex), a
- * backtick (template literal), {@code -->}, {@code #!}, {@code <!} (which a value or code can
- * complete to {@code <!--}), a backslash line continuation and U+2028/U+2029 there are build
- * errors. After the last value anything goes.
+ * The script prelude rule (security-architecture.md §5.4, #540, which replaced #332's lexer). In a
+ * {@code <script>}, {@code [[...]]} writes a complete JSON value with its own quotes: inside a
+ * string literal the value would close the string and run as code (#281), and inside a comment the
+ * page would never use it, as in Thymeleaf's natural-template {@code /*[[${x}]]*}{@code /} (#315).
+ * The value is only allowed as the whole value of a declaration at the top of the script, so every
+ * one of these positions is rejected, and after the prelude anything static goes.
  *
- * <p>The lists keep #290's cases. Its regex and "unsure" cases, the template-literal cases (both
- * rejected and allowed) and the allowed cases with a {@code /} before the last value are now
- * rejected at the {@code /} or backtick: the rule no longer decides regex vs division, so it doesn't
- * accept a {@code /} it read right either.
+ * <p>The lists keep #290's and #332's cases: each one with a value outside the prelude is rejected
+ * by the one grammar rule.
  */
 class ScriptQuotedInlineTest {
   private static final String PARAMS = "<div t:params=\"String x, int a, int b\">\n";
@@ -169,76 +164,43 @@ class ScriptQuotedInlineTest {
           "<script>var a = \"x\u2028\"; var b = [[x]];</script>",
           "<script>let p = 1, q\u2028var y = [[x]];</script>");
 
-  static final List<String> ALLOWED =
+  /** Old allowed shapes the prelude rule now rejects: code before a value, or a value inside an expression. */
+  static final List<String> NOT_PRELUDE =
       List.of(
-          "<script>var a = [[x]];</script>",
           "<script>var a = \"a\" + [[x]] + \"b\";</script>",
           "<script>var a = \"done\"; var b = [[x]];</script>",
           "<script>var a = 'it\\'s'; var b = [[x]];</script>",
           "<script>var a = \"q\\\"q\"; var b = [[x]];</script>",
           "<script>var a = \"a\\\\\"; var b = [[x]];</script>",
           "<script>var s = \"/\" + '`' + '-->'; var b = [[x]];</script>",
-          "<script>// \"c\" / ` -->\n var b = [[x]];</script>",
           "<script>/* \"c\" / ` */ var b = [[x]];</script>",
           "<script>/*/ \"c\" */ var b = [[x]];</script>",
           "<script>var o = { a: 1 }; var b = [[x]];</script>",
           "<script>if (a) { b(); } // done\nvar c = [[x]];</script>",
           "<script>var q = [[a]] * [[b]] - 1.5e3 % 2;</script>",
-          "<script type=\"application/json\">{\"a\": [[x]]}</script>",
-          // After the last value anything goes.
-          "<script>var b = [[x]]; var n = a / 2; var r = /\"/.test(s); var t = `${b}` + '\u2028';</script>",
-          "<script>var d = [[x]];\n$(function () { var s = d.split(/[,/]/); });</script>",
           "<script>var a = [[a]], b = [[x]]; f(a / b, `\"`);</script>");
+
+  static final List<String> ALLOWED =
+      List.of(
+          "<script>var a = [[x]];</script>",
+          "<script>// \"c\" / ` -->\n var b = [[x]];</script>",
+          "<script type=\"application/json\">{\"a\": [[x]]}</script>",
+          "<script>var b = [[x]]; var n = a / 2; var r = /\"/.test(s); var t = `${b}` + '\u2028';</script>",
+          "<script>var d = [[x]];\n$(function () { var s = d.split(/[,/]/); });</script>");
 
   private static Compilation compile(String markup) {
     return Compilation.builder().template("page.html", PARAMS + markup + "\n</div>").compile();
   }
 
+  /**
+   * Every shape the data-prelude lexer rejected one by one (strings, comments, '/', backtick, Annex B
+   * comments, line continuations, separators) is outside the prelude grammar, so one rule rejects it.
+   */
   @ParameterizedTest
-  @FieldSource("REJECTED")
-  void quotedInlineFailsToBuild(String markup) {
-    assertOneErrorAtLastInline(markup, "is inside a quoted JavaScript string");
-  }
-
-  @ParameterizedTest
-  @FieldSource("REJECTED_COMMENT")
-  void inlineInCommentFailsToBuild(String markup) {
-    assertOneErrorAtLastInline(markup, "is inside a JavaScript comment");
-  }
-
-  @ParameterizedTest
-  @FieldSource("REJECTED_SLASH")
-  void slashBeforeTheLastInlineFailsToBuild(String markup) {
-    assertOneError(markup, "a '/' (a division or a regular expression) before the last [[...]]");
-  }
-
-  @ParameterizedTest
-  @FieldSource("REJECTED_BACKTICK")
-  void backtickBeforeTheLastInlineFailsToBuild(String markup) {
-    assertOneError(markup, "a backtick (a template literal) before the last [[...]]");
-  }
-
-  @ParameterizedTest
-  @FieldSource("REJECTED_ANNEX_B")
-  void annexBCommentBeforeTheLastInlineFailsToBuild(String markup) {
-    assertOneError(markup, "comment) before the last [[...]]");
-  }
-
-  @ParameterizedTest
-  @FieldSource("REJECTED_CONTINUATION")
-  void lineContinuationBeforeTheLastInlineFailsToBuild(String markup) {
-    assertOneError(markup, "a backslash line continuation before the last [[...]]");
-  }
-
-  @ParameterizedTest
-  @FieldSource("REJECTED_SEPARATOR")
-  void separatorBeforeTheLastInlineFailsToBuild(String markup) {
-    assertOneError(markup, "SEPARATOR) before the last [[...]]");
-  }
-
-  private static void assertOneErrorAtLastInline(String markup, String fragment) {
-    int line = 2 + (int) markup.substring(0, markup.lastIndexOf("[[")).chars().filter(ch -> ch == '\n').count();
-    assertOneError(markup, "page.html:" + line + ":", fragment);
+  @FieldSource({"REJECTED", "REJECTED_COMMENT", "REJECTED_SLASH", "REJECTED_BACKTICK", "REJECTED_ANNEX_B",
+      "REJECTED_CONTINUATION", "REJECTED_SEPARATOR", "NOT_PRELUDE"})
+  void valueOutsideThePreludeFailsToBuild(String markup) {
+    assertOneError(markup, markup.contains("application/") ? "of a JSON <script>" : "only allowed as the whole value of a declaration");
   }
 
   private static void assertOneError(String markup, String... fragments) {
@@ -249,16 +211,11 @@ class ScriptQuotedInlineTest {
   }
 
   @Test
-  void tokenErrorPointsAtTheTokenAndGivesTheFix() {
+  void errorPointsAtTheValueAndGivesTheFix() {
     Compilation c = compile("<script>\nvar o = {}\n/ 2; var a = [[x]];</script>");
-    c.assertError(
-        "page.html:4:1", "move the [[...]] above the code", "<script type=\"application/json\">", "JSON.parse");
+    c.assertError("page.html:4:16", "const name = [[...]];", "<script type=\"application/json\">", "JSON.parse");
     assertEquals(1, c.errors().size(), c.errors().toString());
-    compile("<script>var t = `${[[x]]}`;</script>").assertError("page.html:2:17", "backtick");
-    compile("<script>\n  -->\nvar b = [[x]];</script>").assertError("page.html:3:3", "'-->'");
-    compile("<script>#!\nvar b = [[x]];</script>").assertError("page.html:2:9", "'#!'");
-    compile("<script>var a = 'a\\\nb', b = [[x]];</script>").assertError("page.html:2:19", "continuation");
-    compile("<script>var a = 1,\u2029b = [[x]];</script>").assertError("page.html:2:", "U+2029");
+    compile("<script>var t = `${[[x]]}`;</script>").assertError("page.html:2:22", "only allowed as the whole value of a declaration");
   }
 
   @ParameterizedTest
@@ -268,25 +225,18 @@ class ScriptQuotedInlineTest {
   }
 
   @Test
-  void errorPointsAtTheExpressionAndNamesTheQuote() {
+  void quotedAndCommentedValuesPointAtTheExpression() {
     Compilation c =
         Compilation.builder()
             .template("page.html", "<div t:params=\"String x\">\n<script>\n  var a = \"[[x]]\";\n</script></div>")
             .compile();
-    c.assertError("page.html:3:14", "(\"...\")", "remove the quotes, e.g. var a = [[...]]; or \"Hello \" + [[...]]");
+    c.assertError("page.html:3:14", "only allowed as the whole value of a declaration");
     assertEquals(1, c.errors().size(), c.errors().toString());
-    compile("<script>var a = '[[x]]';</script>").assertError("('...')");
-  }
-
-  @Test
-  void commentErrorPointsAtTheExpressionAndNamesTheOpener() {
-    Compilation c =
-        Compilation.builder()
+    c = Compilation.builder()
             .template("page.html", "<div t:params=\"String x\">\n<script>\n  var a = /*[[x]]*/ 'd';\n</script></div>")
             .compile();
-    c.assertError("page.html:3:15", "(/* */)", "becomes var a = [[${x}]];");
-    assertEquals(1, c.errors().size(), c.errors().toString());
-    compile("<script>// [[x]]\n</script>").assertError("(//)");
+    c.assertError("page.html:3:15", "only allowed as the whole value of a declaration");
+    compile("<script>// [[x]]\n</script>").assertError("only allowed as the whole value of a declaration");
   }
 
   @Test
@@ -303,9 +253,9 @@ class ScriptQuotedInlineTest {
             .compile()
             .assertSuccess();
     assertEquals(
-        "<div><script>var a = \"+alert(1)+\";</script></div>", c.render("page", Map.of("x", "+alert(1)+")));
+        "<div><script>var a = (\"+alert(1)+\");</script></div>", c.render("page", Map.of("x", "+alert(1)+")));
     assertEquals(
-        "<div><script>var a = \"\\u003c\\/script\\u003e\\u003cscript\\u003ealert(1)\\u003c\\/script\\u003e\";</script></div>",
+        "<div><script>var a = (\"\\u003c\\/script\\u003e\\u003cscript\\u003ealert(1)\\u003c\\/script\\u003e\");</script></div>",
         c.render("page", Map.of("x", "</script><script>alert(1)</script>")));
   }
 }

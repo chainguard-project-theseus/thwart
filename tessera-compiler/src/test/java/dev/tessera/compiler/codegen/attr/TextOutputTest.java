@@ -82,17 +82,20 @@ class TextOutputTest {
   }
 
   @Test
-  void textOnScriptIsJson() {
-    Compilation c = compile("String s, List<Integer> xs", "<script t:text=\"s\">x</script><script t:text=\"xs\"></script>")
+  void textOnJsonScriptIsJson() {
+    Compilation c = compile(
+            "String s, List<Integer> xs",
+            "<script type=\"application/json\" t:text=\"s\">x</script><script type=\"application/json\" t:text=\"xs\"></script>")
         .assertSuccess();
     assertEquals(
-        "<div><script>\"\\u003c\\/script\\u003e\\u003cscript\\u003e\"</script><script>[1,2]</script></div>",
+        "<div><script type=\"application/json\">\"\\u003c\\/script\\u003e\\u003cscript\\u003e\"</script>"
+            + "<script type=\"application/json\">[1,2]</script></div>",
         c.render("page", model("s", "</script><script>", "xs", List.of(1, 2))));
   }
 
   @Test
   void textOnScriptRejectsNonJsonTypes() {
-    compile("SafeHtml h", "<script t:text=\"h\"></script>").assertError("page.html:1:", "inside <script>", "JSON");
+    compile("SafeHtml h", "<script type=\"application/json\" t:text=\"h\"></script>").assertError("page.html:1:", "inside <script>", "JSON");
   }
 
   @Test
@@ -166,7 +169,7 @@ class TextOutputTest {
         compile("String s, Map<String, Integer> m", "<script>var a = [[s]]; var m = [[m]];</script>").assertSuccess();
     String out = c.render("page", model("s", "</script><script>alert(1)//", "m", Map.of("k", 1)));
     assertEquals(
-        "<div><script>var a = \"\\u003c\\/script\\u003e\\u003cscript\\u003ealert(1)\\/\\/\"; var m = {\"k\":1};</script></div>",
+        "<div><script>var a = (\"\\u003c\\/script\\u003e\\u003cscript\\u003ealert(1)\\/\\/\"); var m = ({\"k\":1});</script></div>",
         out);
   }
 
@@ -184,7 +187,7 @@ class TextOutputTest {
     };
     for (String type : types) {
       Compilation.builder()
-          .template("page.html", "<div t:import=\"java.time.*\" t:params=\"" + type + " v\"><script>[[v]]</script></div>")
+          .template("page.html", "<div t:import=\"java.time.*\" t:params=\"" + type + " v\"><script>var v = [[v]];</script></div>")
           .compile()
           .assertSuccess();
     }
@@ -196,11 +199,11 @@ class TextOutputTest {
         Compilation.builder()
             .template(
                 "page.html",
-                "<div t:import=\"java.time.*\" t:params=\"ZoneOffset zone, ZoneId id\"><script>var z = [[zone]], i = [[id]];</script></div>")
+                "<div t:import=\"java.time.*\" t:params=\"ZoneOffset zone, ZoneId id\"><script>var z = [[zone]]; var i = [[id]];</script></div>")
             .compile()
             .assertSuccess();
     assertEquals(
-        "<div><script>var z = \"+02:00\", i = \"Europe\\/Paris\";</script></div>",
+        "<div><script>var z = (\"+02:00\"); var i = (\"Europe\\/Paris\");</script></div>",
         c.render("page", model("zone", ZoneOffset.ofHours(2), "id", ZoneId.of("Europe/Paris"))));
   }
 
@@ -209,7 +212,7 @@ class TextOutputTest {
     // Regression: DateTimeException used to compile here and throw at render.
     for (String type : List.of("java.time.DateTimeException", "java.time.chrono.JapaneseDate", "java.time.zone.ZoneRules")) {
       Compilation.builder()
-          .template("page.html", "<div t:params=\"" + type + " v\"><script>[[v]]</script></div>")
+          .template("page.html", "<div t:params=\"" + type + " v\"><script>var v = [[v]];</script></div>")
           .compile()
           .assertError("page.html:1:", type);
     }

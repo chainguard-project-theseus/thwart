@@ -184,12 +184,11 @@ public final class Escapers {
   /**
    * A {@code BigDecimal} or {@code BigInteger} piece of a {@code style} attribute value (#182),
    * which generated code joins with literals and {@link CssValue}s before {@link #attr} escapes it.
-   * Neither class is final, so the value's {@code toString()} must be a JSON number, as in
-   * {@link #json}; other text throws {@link IllegalArgumentException}. {@code null} stays
-   * {@code null}.
+   * Neither class is final, so only the JDK classes themselves are accepted, as in {@link #json};
+   * a subclass throws {@link IllegalArgumentException}. {@code null} stays {@code null}.
    */
   public static String styleNumber(Number value) {
-    return value == null ? null : numberText(value);
+    return value == null ? null : jdkNumberText(value);
   }
 
   /** Raw HTML (t:utext and {@code [(...)]}). Only {@link SafeHtml} is accepted. */
@@ -206,8 +205,7 @@ public final class Escapers {
    * Checks the arguments of a message {@code #{key(args)}} before they are formatted, in every form
    * of the message: generated code calls it before {@link Messages#get} (escaped text, an attribute,
    * a {@code <script>}) and passes its result to {@link Messages#get}, and {@link #htmlMessage}
-   * calls it for the HTML form. Returns {@code args} if it holds no {@code BigDecimal} or
-   * {@code BigInteger} subclass, otherwise a copy with each one replaced (below).
+   * calls it for the HTML form. Returns {@code args}.
    *
    * <p>{@link MessageFormat} writes a number in plain notation, one character per integer digit,
    * so a {@link BigDecimal} with a large exponent expands: {@code 1E+999999999}, 12 characters,
@@ -222,26 +220,14 @@ public final class Escapers {
    * at most 309 integer digits, and a {@code BigInteger} writes the digits it holds.
    *
    * <p>{@link MessageFormat} formats a {@link BigDecimal} or {@link BigInteger} from its
-   * {@code toString()}, copying its characters as digits, and both classes can be subclassed. A
-   * subclass is replaced by the JDK value of its {@code toString()}, which must be a JSON number
-   * (and, for a {@code BigInteger}, an integer); other text throws {@link IllegalArgumentException}.
-   * The bound is checked on that JDK value, not on the subclass's own {@code precision()} and
-   * {@code scale()}, and the formatter never calls the subclass's methods.
+   * {@code toString()}, copying its characters as digits, and both classes can be subclassed. Only
+   * the JDK classes themselves are accepted: a subclass throws {@link IllegalArgumentException}, so
+   * the formatter never calls a subclass's methods.
    */
   public static Object[] messageArgs(Object[] args) {
-    Object[] checked = args;
-    for (int i = 0; i < args.length; i++) {
-      Object a = args[i];
-      if (a instanceof BigDecimal && a.getClass() != BigDecimal.class) {
-        a = new BigDecimal(numberText((Number) a));
-      } else if (a instanceof BigInteger && a.getClass() != BigInteger.class) {
-        a = new BigInteger(numberText((Number) a));
-      }
-      if (a != args[i]) {
-        if (checked == args) {
-          checked = args.clone();
-        }
-        checked[i] = a;
+    for (Object a : args) {
+      if (a instanceof BigDecimal || a instanceof BigInteger) {
+        requireJdkNumber((Number) a);
       }
       if (a instanceof BigDecimal) {
         BigDecimal d = (BigDecimal) a;
@@ -253,7 +239,7 @@ public final class Escapers {
         }
       }
     }
-    return checked;
+    return args;
   }
 
   /**
@@ -312,9 +298,9 @@ public final class Escapers {
    * {@link MessageFormat} formats itself (to digits and locale symbols or names, never markup) and
    * which must stay numbers and dates for {@code {0,number}} and {@code {0,date}}. {@code null}
    * stays {@code null}, as with the escaped form. The result then goes through
-   * {@link #messageArgs}, which replaces a {@code BigDecimal} or {@code BigInteger} subclass by the
-   * JDK value of its {@code toString()} and bounds a {@code BigDecimal}, so the formatter never
-   * calls a subclass's methods. Returns a new array.
+   * {@link #messageArgs}, which rejects a {@code BigDecimal} or {@code BigInteger} subclass and
+   * bounds a {@code BigDecimal}, so the formatter never calls a subclass's methods. Returns a new
+   * array.
    */
   static Object[] messageTextArgs(Object[] args) {
     Object[] text = new Object[args.length];
@@ -337,9 +323,9 @@ public final class Escapers {
    *
    * <p>Numbers are limited to the JDK types ({@code Byte}, {@code Short}, {@code Integer},
    * {@code Long}, {@code Float}, {@code Double}, {@code BigInteger}, {@code BigDecimal}); a
-   * non-finite float or double becomes {@code null}, as with {@code JSON.stringify}. A
-   * {@code BigInteger} or {@code BigDecimal} is written as its {@code toString()},
-   * which must be a JSON number: a subclass can override it, and other text throws
+   * non-finite float or double becomes {@code null}, as with {@code JSON.stringify}. Only the
+   * JDK classes themselves are accepted, never a subclass of {@code BigInteger} or
+   * {@code BigDecimal}, whose {@code toString()} an application can override: a subclass throws
    * IllegalArgumentException. The value is fully serialized before anything is written, so a
    * failure writes nothing.
    */
@@ -351,45 +337,16 @@ public final class Escapers {
 
   /**
    * Value inside a JavaScript {@code <script>} (OutputContext.SCRIPT with no type, a JavaScript
-   * type or {@code module}): serialized exactly as {@link #json}, except that a top-level number
-   * that starts with {@code -} (a negative number, or {@code -0}) or is an integer literal (no
-   * {@code .}, {@code e} or {@code E}) is wrapped in parentheses. JavaScript's unary minus binds
-   * more loosely than a member access, call or index after it, and {@code -2 ** 2} is a syntax
-   * error: {@code -1.5.toFixed(2)} is {@code -(1.5.toFixed(2))}, the number {@code -1.5}, but
-   * {@code (-1.5).toFixed(2)} is the string {@code "-1.50"}. In an integer literal a {@code .}
-   * after it is read as the decimal point: {@code 1.toFixed(2)} is a syntax error, but
-   * {@code (1).toFixed(2)} is the string {@code "1.00"}. Values inside an array or object are
-   * unchanged. The value is fully serialized before anything is written, so a failure writes
-   * nothing.
+   * type or {@code module}): serialized exactly as {@link #json} and always written in parentheses,
+   * {@code (json)}, so whatever its type the value is one primary expression and an operator,
+   * member access or call next to it applies to the whole value. The compiler only allows it as the
+   * value of a declaration at the top of the script ({@code const x = [[...]];}). The value is fully
+   * serialized before anything is written, so a failure writes nothing.
    */
   public static void javaScript(Output out, Object value) {
-    StringBuilder sb = new StringBuilder();
+    StringBuilder sb = new StringBuilder("(");
     writeJson(sb, value, 0);
-    out.write(needsParentheses(sb) ? "(" + sb + ")" : sb.toString());
-  }
-
-  /**
-   * Whether serialized JSON {@code s} is a number that starts with {@code -} or is an integer
-   * literal. Only a number starts with {@code -} or a digit.
-   */
-  private static boolean needsParentheses(CharSequence s) {
-    if (s.length() == 0) {
-      return false;
-    }
-    char c = s.charAt(0);
-    if (c == '-') {
-      return true;
-    }
-    if (c < '0' || c > '9') {
-      return false;
-    }
-    for (int i = 1; i < s.length(); i++) {
-      char d = s.charAt(i);
-      if (d == '.' || d == 'e' || d == 'E') {
-        return false;
-      }
-    }
-    return true;
+    out.write(sb.append(')').toString());
   }
 
   /**
@@ -697,7 +654,7 @@ public final class Escapers {
       Double v = (Double) value;
       writeDouble(sb, v, Double.toString(v));
     } else if (value instanceof BigInteger || value instanceof BigDecimal) {
-      sb.append(numberText((Number) value));
+      sb.append(jdkNumberText((Number) value));
     } else if (value instanceof CharSequence) {
       writeJsonString(sb, value.toString());
     } else if (value instanceof Character) {
@@ -780,65 +737,23 @@ public final class Escapers {
   }
 
   /**
-   * The {@code toString()} of a {@link BigInteger} or {@link BigDecimal}, checked against the JSON
-   * number grammar {@code -?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?}. The JDK classes always
-   * produce such text ({@code BigDecimal} writes {@code 1E+3}, {@code 1E-7}, {@code 0.00}, and JSON
-   * allows the {@code +}), but neither class is final: an application subclass can override
-   * {@code toString()} to return anything, such as a label. Other text throws
-   * {@link IllegalArgumentException}; the exception does not quote it. The text is read once, and
-   * the value is never rebuilt from {@code unscaledValue()} or {@code scale()}, which a subclass
-   * can override too.
+   * The {@code toString()} of a {@link BigInteger} or {@link BigDecimal} whose class is exactly
+   * that JDK class, which always writes a JSON number ({@code 1E+3}, {@code 1E-7}, {@code 0.00};
+   * JSON allows the {@code +}). Neither class is final, and an application subclass can override
+   * {@code toString()} to return anything: it throws {@link IllegalArgumentException}.
    */
-  private static String numberText(Number value) {
-    String s = value.toString();
-    if (!isJsonNumber(s)) {
+  private static String jdkNumberText(Number value) {
+    return requireJdkNumber(value).toString();
+  }
+
+  /** {@code value} if its class is exactly {@link BigInteger} or {@link BigDecimal}, else throws {@link IllegalArgumentException}. */
+  private static Number requireJdkNumber(Number value) {
+    if (value.getClass() != BigInteger.class && value.getClass() != BigDecimal.class) {
       throw new IllegalArgumentException(
-          "toString() of " + value.getClass().getName() + " is not a JSON number");
+          value.getClass().getName() + " is a subclass of "
+              + (value instanceof BigDecimal ? "java.math.BigDecimal" : "java.math.BigInteger") + ": only the JDK class itself can be written, convert it in Java first");
     }
-    return s;
-  }
-
-  /** Whether {@code s} matches {@code -?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?}. */
-  private static boolean isJsonNumber(String s) {
-    int n = s.length();
-    int i = 0;
-    if (i < n && s.charAt(i) == '-') {
-      i++;
-    }
-    if (i < n && s.charAt(i) == '0') {
-      i++;
-    } else if (i < n && s.charAt(i) >= '1' && s.charAt(i) <= '9') {
-      i = skipDigits(s, i + 1);
-    } else {
-      return false;
-    }
-    if (i < n && s.charAt(i) == '.') {
-      int end = skipDigits(s, i + 1);
-      if (end == i + 1) {
-        return false;
-      }
-      i = end;
-    }
-    if (i < n && (s.charAt(i) == 'e' || s.charAt(i) == 'E')) {
-      i++;
-      if (i < n && (s.charAt(i) == '+' || s.charAt(i) == '-')) {
-        i++;
-      }
-      int end = skipDigits(s, i);
-      if (end == i) {
-        return false;
-      }
-      i = end;
-    }
-    return i == n;
-  }
-
-  /** The index of the first character at or after {@code i} that is not an ASCII digit. */
-  private static int skipDigits(String s, int i) {
-    while (i < s.length() && s.charAt(i) >= '0' && s.charAt(i) <= '9') {
-      i++;
-    }
-    return i;
+    return value;
   }
 
   private static void writeDouble(StringBuilder sb, double d, String text) {
