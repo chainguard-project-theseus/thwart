@@ -348,10 +348,8 @@ public final class Contexts {
    *       {@code hx-vals}, {@code hx-headers} and {@code hx-request} (a {@code js:} prefix
    *       evaluates the rest), {@code hx-vars} (always evaluated) and {@code hx-trigger} (its
    *       {@code [filter]} is evaluated).
-   *   <li>AngularJS: every {@code ng-*}, {@code ng:*}, {@code ng_*}, also after one prefix
-   *       {@code x} or {@code data} followed by {@code :}, {@code -} or {@code _}
-   *       and after a run of those separators ({@code data:ng-click}, {@code x_ng-click},
-   *       {@code data--ng-click}, {@code _ng-click}, ...).
+   *   <li>AngularJS (not supported; a coarse deny): every name that {@link #isAngularDirective
+   *       may be an ng directive}.
    *   <li>Knockout: {@code data-bind}, and {@code params} on a custom element (a name with a
    *       {@code -}), which Knockout components evaluate as a binding.
    *   <li>_hyperscript: {@code _}, {@code script} and {@code data-script}, whose value is
@@ -381,28 +379,15 @@ public final class Contexts {
   }
 
   /**
-   * Whether AngularJS reads {@code attributeName} as an {@code ng} directive. Its
-   * {@code directiveNormalize} (angular.js v1.8.3 src/ng/compile.js lines 4247-4260) strips one
-   * {@code x} or {@code data} prefix followed by {@code :}, {@code -} or {@code _}
-   * ({@code PREFIX_REGEXP = /^((?:x|data)[:\-_])/i}), then drops a leading run of those
-   * separators and camel-cases at every later run ({@code SPECIAL_CHARS_REGEXP}), so
-   * {@code data:ng-click}, {@code x_ng-click}, {@code data--ng-click} and {@code _ng-click} are
-   * all {@code ngClick}. A name is a directive when, after that prefix and run, it starts with
-   * {@code ng} and a separator. Only A-Z are folded: AngularJS lower-cases the whole name first,
-   * but no other character lower-cases to a letter of these prefixes.
+   * Whether {@code attributeName} may be an AngularJS {@code ng} directive. AngularJS is not
+   * supported and its name rules are not modelled: a name is denied when, ignoring A-Z case,
+   * {@code -}, {@code _} and {@code :}, it starts with {@code ng}, {@code xng} or {@code datang}.
+   * That is a superset of every spelling AngularJS reads as a directive ({@code ng-click},
+   * {@code data:ng-click}, {@code x_ng-click}, {@code _ng-click}, ...).
    */
   private static boolean isAngularDirective(String attributeName) {
-    String a = HtmlParser.asciiLower(attributeName);
-    int i = a.startsWith("x") ? 1 : a.startsWith("data") ? 4 : 0;
-    i = i > 0 && i < a.length() && isAngularSeparator(a.charAt(i)) ? i + 1 : 0;
-    while (i < a.length() && isAngularSeparator(a.charAt(i))) {
-      i++;
-    }
-    return a.startsWith("ng", i) && i + 2 < a.length() && isAngularSeparator(a.charAt(i + 2));
-  }
-
-  private static boolean isAngularSeparator(char c) {
-    return c == ':' || c == '-' || c == '_';
+    String a = HtmlParser.asciiLower(attributeName).replaceAll("[-_:]", "");
+    return a.startsWith("ng") || a.startsWith("xng") || a.startsWith("datang");
   }
 
   /**

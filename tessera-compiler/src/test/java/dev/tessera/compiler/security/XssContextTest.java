@@ -60,7 +60,9 @@ class XssContextTest {
           new Line("<xmp>[[s]]</xmp><noscript>[[s]]</noscript><noembed>[[s]]</noembed>", Kind.TEXT, Kind.TEXT, Kind.TEXT),
           new Line("<iframe>[[s]]</iframe>", Kind.TEXT),
           new Line("<i t:title=\"s\" t:attr=\"data-x=s\">x</i>", Kind.HTML, Kind.HTML),
-          new Line("<i t:class=\"s\">x</i><i class=\"c\" t:classappend=\"'k' + s\">y</i>", Kind.HTML, Kind.HTML),
+          // A computed class drops ng-like tokens (#542), so the value is the whole class: static
+          // class text next to it could lose its separator (FrameworkDirectivesTest covers classappend).
+          new Line("<i t:class=\"s\">x</i><i t:attr=\"class=s\">y</i>", Kind.HTML, Kind.HTML),
           new Line("<input t:value=\"s\"><img t:alt=\"s\">", Kind.HTML, Kind.HTML),
           new Line("<a t:href=\"s\">x</a><a t:attr=\"HREF=s\">y</a>", Kind.URL, Kind.URL),
           // A GET form's action is an ordinary URL; every formaction must be a same-origin link (CSRF).
@@ -203,6 +205,15 @@ class XssContextTest {
   @FieldSource("dev.tessera.compiler.security.HostileStrings#VECTORS")
   void vectorCannotLeaveAnyContext(String vector) {
     assertCannotLeaveContext(vector);
+  }
+
+  /** Values a computed class drops tokens from (#542) keep the output structure. */
+  @Test
+  void angularClassTokensKeepTheStructure() {
+    assertCannotLeaveContext("]]>?%'&lt;&lt;/%nGr\u2401");
+    assertCannotLeaveContext("x ng-init:constructor.constructor('alert(1)')()");
+    assertCannotLeaveContext("ng-bind");
+    assertCannotLeaveContext("\"nG");
   }
 
   @Test

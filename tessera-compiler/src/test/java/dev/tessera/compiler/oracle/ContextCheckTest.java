@@ -231,7 +231,9 @@ class ContextCheckTest {
     assertMismatch("<p x:ng-click=\"" + attr(FP) + "\">x</p>", "@x:ng-click");
     assertMismatch("<p _ng-click=\"" + attr(FP) + "\">x</p>", "@_ng-click");
     assertMismatch("<p :data_ng-click=\"" + jsonAttr(FP) + "\">x</p>", "@:data_ng-click");
-    assertClean("<p data-data-ng-click=\"" + attr(FP) + "\" data-ngx=\"" + attr(FP) + "\">x</p>");
+    assertClean("<p data-data-ng-click=\"" + attr(FP) + "\" data-xng-click=\"" + attr(FP) + "\">x</p>");
+    // AngularJS is not modelled: the coarse deny also covers names it would not read as directives
+    assertMismatch("<p data-ngx=\"" + attr(FP) + "\">x</p>", "@data-ngx");
     assertClean("<p :data_foo=\"" + jsonAttr(FP) + "\">x</p>");
     assertMismatch("<x-c params=\"" + attr(FP) + "\">x</x-c>", "@params");
     assertMismatch("<script type=\"" + attr(FP) + "\"></script>", "@type");

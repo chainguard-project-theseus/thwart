@@ -318,6 +318,21 @@ class FormsTest {
         render(c, owner(c, "Ann", null), forms));
   }
 
+  /** The class t:errorclass writes drops the tokens AngularJS could read as directives (#542). */
+  @Test
+  void errorClassDropsAngularDirectiveTokens() {
+    Compilation c =
+        compile("<input class=\"a\" t:classappend=\"'b ng-bind'\" t:field=\"*{age}\" t:errorclass=\"'ng-show err'\">");
+    assertEquals(
+        "<form><input class=\"a b\" id=\"age\" name=\"age\" value=\"42\"></form>",
+        render(c, owner(c, "Ann", null), new TestForms()));
+    TestForms forms = new TestForms();
+    forms.errors.put("age", List.of("bad"));
+    assertEquals(
+        "<form><input class=\"a b err\" id=\"age\" name=\"age\" value=\"42\"></form>",
+        render(c, owner(c, "Ann", null), forms));
+  }
+
   @Test
   void optionsOutsideFieldSelectAreUntouched() {
     Compilation c = compile("<select name=\"x\"><option value=\"dog\" selected>Dog</option></select>");

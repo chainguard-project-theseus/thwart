@@ -535,25 +535,16 @@ final class ConversionRules {
       "hx-sse", "hx-ws", "hx-boost", "hx-push-url", "hx-replace-url");
 
   /**
-   * Whether AngularJS reads {@code name} (lower case) as an {@code ng} directive, which the compiler
-   * classifies as a framework directive: after one {@code x} or {@code data} prefix followed by
-   * {@code :}, {@code -} or {@code _}, and a run of those separators, it starts with {@code ng} and
-   * a separator ({@code data:ng-click}, {@code x_ng-click}, {@code data--ng-click},
-   * {@code _ng-click}). Mirrors {@code Contexts.isAngularDirective} in tessera-compiler, which
-   * tessera-migrate does not depend on.
+   * Whether {@code name} (lower case) may be an AngularJS {@code ng} directive, which the compiler
+   * denies coarsely: ignoring {@code -}, {@code _} and {@code :}, it starts with {@code ng},
+   * {@code xng} or {@code datang}. Mirrors {@code Contexts.isAngularDirective} in
+   * tessera-compiler, which tessera-migrate does not depend on.
    */
   static boolean angularDirective(String name) {
-    int i = name.startsWith("x") ? 1 : name.startsWith("data") ? 4 : 0;
-    i = i > 0 && i < name.length() && angularSeparator(name.charAt(i)) ? i + 1 : 0;
-    while (i < name.length() && angularSeparator(name.charAt(i))) {
-      i++;
-    }
-    return name.startsWith("ng", i) && i + 2 < name.length() && angularSeparator(name.charAt(i + 2));
+    String a = name.replaceAll("[-_:]", "");
+    return a.startsWith("ng") || a.startsWith("xng") || a.startsWith("datang");
   }
 
-  private static boolean angularSeparator(char c) {
-    return c == ':' || c == '-' || c == '_';
-  }
   /**
    * htmx attributes that are unknown names to the compiler and that htmx reads the same with a
    * {@code data-} prefix (its {@code getAttributeValue} reads {@code hx-x} or {@code data-hx-x}):

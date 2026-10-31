@@ -154,11 +154,12 @@ class ContextsTest {
     "div, data-:ng-click, EVENT_HANDLER",
     "div, _ng-click, EVENT_HANDLER",
     "div, x__ng_bind, EVENT_HANDLER",
-    // what AngularJS reads as dataNgClick, xngClick or ng is not a directive
+    // AngularJS is not modelled: what it reads as dataNgClick or xngClick stays an attribute, but
+    // every name that, ignoring - _ :, starts with ng, xng or datang is denied, directive or not
     "div, data-data-ng-click, ATTRIBUTE",
     "div, data-xng-click, ATTRIBUTE",
-    "div, data-ng, ATTRIBUTE",
-    "div, data-ngx, ATTRIBUTE",
+    "div, data-ng, EVENT_HANDLER",
+    "div, data-ngx, EVENT_HANDLER",
     "div, data-bind, EVENT_HANDLER",
     "my-component, params, EVENT_HANDLER",
     "my-component, PARAMS, EVENT_HANDLER",
@@ -217,7 +218,7 @@ class ContextsTest {
     "div, params, FORBIDDEN",
     "div, xml:lang, FORBIDDEN",
     "div, xmlns:t, FORBIDDEN",
-    "div, ngx, FORBIDDEN",
+    "div, ngx, EVENT_HANDLER",
     "div, vue, FORBIDDEN",
     "div, up-on-loaded, FORBIDDEN",
     "div, UP-ON-LOADED, FORBIDDEN",
@@ -372,7 +373,7 @@ class ContextsTest {
     assertEquals(true, Contexts.isUnknownName(div, "up-on-loaded"));
     assertEquals(true, Contexts.isUnknownName(div, "hx-action"));
     assertEquals(true, Contexts.isUnknownName(div, "data:foo"));
-    assertEquals(true, Contexts.isUnknownName(div, "data_ngx"));
+    assertEquals(false, Contexts.isUnknownName(div, "data_ngx"));
     assertEquals(false, Contexts.isUnknownName(div, "data:ng-click"));
     assertEquals(false, Contexts.isUnknownName(div, "x_ng-click"));
     assertEquals(false, Contexts.isUnknownName(div, "title"));

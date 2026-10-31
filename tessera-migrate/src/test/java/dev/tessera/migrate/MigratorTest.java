@@ -147,19 +147,19 @@ class MigratorTest {
           convert(src));
       assertMessages(src);
     }
-    // What AngularJS reads as dataFoo, dataNgx or dataDataNgClick is not a directive: data-* names
-    // stay ordinary, and other names are unknown.
-    for (String name : List.of("data:foo", "data_ngx", "data-ngx", "data-data-ng-click", "data-xng-click", "data-ng",
-        "xng-click", "ng")) {
+    // The coarse deny (ignoring - _ :, a name starting with ng, xng or datang) covers more than
+    // AngularJS reads; other data-* names stay ordinary, and other names are unknown.
+    for (String name : List.of("data_ngx", "data-ngx", "data-ng", "xng-click", "ng")) {
+      assertTrue(ConversionRules.angularDirective(name), name);
+    }
+    for (String name : List.of("data:foo", "data-data-ng-click", "data-xng-click", "x-xng", "data-name")) {
       assertFalse(ConversionRules.angularDirective(name), name);
     }
-    String other = "<div t:params=\"String x\"><a th:data:foo=\"${x}\" th:data_ngx=\"${x}\" th:data-ngx=\"${x}\""
-        + " th:data-data-ng-click=\"${x}\">a</a></div>";
+    String other = "<div t:params=\"String x\"><a th:data:foo=\"${x}\" th:data-data-ng-click=\"${x}\">a</a></div>";
     assertMessages(other,
         "1: `th:data:foo`: `data:foo` is not a known attribute, and a computed attribute must be a standard HTML,"
             + " SVG, MathML or ARIA attribute, a `data-*` attribute or a plain prop on a custom element (a build error"
-            + " in Tessera); if it is data for your script, write `th:data-data:foo`",
-        "1: `th:data_ngx`: `data_ngx` is not a known attribute");
+            + " in Tessera); if it is data for your script, write `th:data-data:foo`");
   }
 
 

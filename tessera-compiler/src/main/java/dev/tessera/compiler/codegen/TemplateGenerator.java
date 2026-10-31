@@ -826,11 +826,24 @@ public final class TemplateGenerator implements CodegenContext {
             Emitted.hole(Skeleton.Escaper.forMethod(escaper), e.name(), d.name(), d.pos(), v),
             Emitted.code(" "),
             Emitted.text('"', d.pos()));
-    String before = "{ java.lang.Object " + v + " = " + d.valueCode() + "; if (";
+    String before = "{ java.lang.Object " + v + " = " + classSafe(d, ctx) + "; if (";
     // A JSON value (SCRIPT_ATTRIBUTE, #246) is written even when null, as JSON null.
     return ctx == OutputContext.SCRIPT_ATTRIBUTE
         ? Emitted.wrap(before + "true) { ", attribute, " } }")
         : Emitted.opt(Skeleton.OptKind.ATTRIBUTE, d.pos(), before + v + " != null) { ", attribute, " } }");
+  }
+
+  /**
+   * The value code of {@code d}, without the class tokens AngularJS could read as an {@code ng}
+   * directive when it is a computed {@code class} however it was set ({@code t:class},
+   * {@code t:classappend}, {@code t:attr}, {@code t:errorclass}) (#542). The value is only known
+   * at render time, so {@code Attributes.classes} drops those tokens; AngularJS is not supported,
+   * and no real class name is lost.
+   */
+  private static String classSafe(ElementPlan.DynamicAttr d, OutputContext ctx) {
+    return ctx == OutputContext.ATTRIBUTE && HtmlParser.asciiEqualsIgnoreCase(d.name(), "class")
+        ? "dev.tessera.runtime.Attributes.classes(" + d.valueCode() + ")"
+        : d.valueCode();
   }
 
   /**

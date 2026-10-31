@@ -323,8 +323,9 @@ break. A computed `<title>` or `<textarea>` gets `v-pre` from the framework tabl
 Vue 3 and petite-vue honour; attributes, and RCDATA under AngularJS, stay documented limitations
 (guide §7), bounded by `ng-non-bindable` and
 CSP. I don't recommend a per-template "client framework mode". Mount points are chosen at runtime
-and often in a layout, so a per-template flag is a knob that's easy to get wrong. Revisit if the
-bench meets an AngularJS app.
+and often in a layout, so a per-template flag is a knob that's easy to get wrong. AngularJS is not supported
+(EOL): its directive names are denied by one coarse superset rule (ignoring `- _ :`, a name starting
+with `ng`, `xng` or `datang`), and nothing of its algorithm is modelled.
 
 **Bounding with CSP.** The starter should make strict CSP easy: a per-request nonce in
 `RenderContext`, added by the compiler to every `<script>` it emits (Soy does this), and a guide

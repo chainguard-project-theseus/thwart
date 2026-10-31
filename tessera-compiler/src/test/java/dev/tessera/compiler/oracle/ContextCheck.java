@@ -403,29 +403,14 @@ public final class ContextCheck {
         || angularDirective(a));
   }
 
-  /** AngularJS 1.8.3 {@code PREFIX_REGEXP} (src/ng/compile.js line 4247). */
-  private static final Pattern NG_PREFIX = Pattern.compile("^(?:x|data)[:\\-_]");
-
-  /** AngularJS 1.8.3 {@code SPECIAL_CHARS_REGEXP} (src/ng/compile.js line 4248). */
-  private static final Pattern NG_SPECIAL_CHARS = Pattern.compile("[:\\-_]+(.)");
-
   /**
-   * Whether AngularJS reads attribute {@code lower} (lower-cased, as AngularJS lower-cases it) as
-   * an {@code ng} directive: AngularJS 1.8.3 {@code directiveNormalize} (src/ng/compile.js lines
-   * 4254-4260) removes one {@link #NG_PREFIX}, then replaces each run of {@link #NG_SPECIAL_CHARS}
-   * and the character after it by that character, upper-cased except at the start; a directive
-   * name is {@code ng} and an upper-case letter ({@code ngClick}).
+   * Whether {@code lower} may be an AngularJS {@code ng} directive. AngularJS is not supported, so
+   * this is the fail-closed superset of its {@code directiveNormalize}: ignoring {@code - _ :}, the
+   * name starts with {@code ng}, optionally after an {@code x} or {@code data} prefix.
    */
   private static boolean angularDirective(String lower) {
-    Matcher m = NG_SPECIAL_CHARS.matcher(NG_PREFIX.matcher(lower).replaceFirst(""));
-    StringBuilder normalized = new StringBuilder();
-    while (m.find()) {
-      String letter = m.group(1);
-      m.appendReplacement(normalized, Matcher.quoteReplacement(m.start() == 0 ? letter : letter.toUpperCase(Locale.ROOT)));
-    }
-    m.appendTail(normalized);
-    return normalized.length() > 2 && normalized.charAt(0) == 'n' && normalized.charAt(1) == 'g'
-        && Character.isUpperCase(normalized.charAt(2));
+    String a = lower.replaceAll("[-_:]", "");
+    return a.startsWith("ng") || a.startsWith("xng") || a.startsWith("datang");
   }
 
   /** The {@code content} of an HTML {@code <meta>} whose {@code http-equiv} is {@code refresh}. */

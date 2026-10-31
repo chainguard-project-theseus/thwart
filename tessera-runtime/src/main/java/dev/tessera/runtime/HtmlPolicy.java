@@ -283,36 +283,15 @@ public final class HtmlPolicy {
   }
 
   /**
-   * Whether AngularJS could read class token {@code token} as one of its {@code ng} directives
-   * (it reads directives from classes). AngularJS 1.8.3 runs each class name through
-   * {@code directiveNormalize} (src/ng/compile.js lines 4247-4260): it strips one {@code x} or
-   * {@code data} prefix (any case) followed by {@code :}, {@code -} or {@code _}, then drops a
-   * leading run of those separators and camel-cases at every later run, so {@code _ng-bind},
-   * {@code data--ng-bind} and {@code x__ng_bind} are all {@code ngBind}. After that prefix and
-   * run, a token is a directive here when it is {@code ng} (any case) followed by {@code -},
-   * {@code _}, an upper-case letter ({@code ngBind}) or nothing. These are the {@code ng-*},
-   * {@code ng_*} rows of the framework table (context-model.md 6.3), plus the camel-case form a
-   * class keeps.
+   * Whether AngularJS could read class token {@code token} as one of its {@code ng} directives (it
+   * reads directives from classes). AngularJS is not supported and not modelled: a token is
+   * dropped when, ignoring A-Z case, {@code -} and {@code _}, it starts with {@code ng},
+   * {@code xng} or {@code datang}, a superset of every spelling AngularJS normalizes to one
+   * ({@code ng-bind}, {@code ngBind}, {@code data--ng-bind}, {@code _ng-bind}, ...).
    */
   static boolean isAngularClass(String token) {
-    String l = lower(token);
-    int i = l.startsWith("x") ? 1 : l.startsWith("data") ? 4 : 0;
-    i = i > 0 && i < l.length() && isAngularSeparator(l.charAt(i)) ? i + 1 : 0;
-    while (i < l.length() && isAngularSeparator(l.charAt(i))) {
-      i++;
-    }
-    if (!l.startsWith("ng", i)) {
-      return false;
-    }
-    if (token.length() == i + 2) {
-      return true;
-    }
-    char c = token.charAt(i + 2);
-    return c == '-' || c == '_' || (c >= 'A' && c <= 'Z');
-  }
-
-  private static boolean isAngularSeparator(char c) {
-    return c == ':' || c == '-' || c == '_';
+    String l = lower(token).replace("-", "").replace("_", "");
+    return l.startsWith("ng") || l.startsWith("xng") || l.startsWith("datang");
   }
 
   /** Whether {@code s} is non-empty and only {@code [A-Za-z0-9_-]}. */
