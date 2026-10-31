@@ -1,7 +1,10 @@
 package dev.tessera.compiler.verify;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.tessera.compiler.testing.Compilation;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -114,6 +117,15 @@ class ParseErrorFixItTest {
   void rcdataAndRawTextHaveNoBogusComments() {
     compile("<textarea>Type </ html> literally</textarea><title>a <!x> <? b</title>"
         + "<script>if (a </ b) {}</script><style>p::before { content: \"<!x>\" }</style>").assertSuccess();
+  }
+
+  @Test
+  void malformedDoctypeOrXmlDeclarationInRcdataIsText() {
+    // A browser reads these as text there; a hidden end tag in one is HtmlParserTest's
+    // rawTextEndTagHiddenInAttributeOrCommentIsAnError.
+    String body = "<title><!DOCTYPE html PUBLIC></title><textarea><?xml x?><!DOCTYPE html SYSTEM \"a\" \"b\"></textarea>";
+    Compilation c = compile(body).assertSuccess();
+    assertTrue(c.render("t", Map.of("x", "")).contains(body), body);
   }
 
   @Test

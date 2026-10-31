@@ -678,6 +678,11 @@ class HtmlParserTest {
         List.of("dir/t.html:1:32: error: malformed markup: content of <script> contains"
             + " '</script' before its end tag: escape it (in a script string, write '<\\/script')"),
         errors("<script type=\"text/html\"><a b=\"</script><p>\"></script>"));
+    // A DOCTYPE or <?xml there is text too, so its quotes hide nothing.
+    String title = "dir/t.html:1:21: error: malformed markup: content of <title> contains '</title' before its end"
+        + " tag: escape it (in a script string, write '<\\/title')";
+    assertEquals(List.of(title), errors("<title><!DOCTYPE x \"</title><script>alert(1)</script>\"></title>"));
+    assertEquals(List.of(title.replace("1:21", "1:15")), errors("<title><?xml \"</title><script>alert(1)</script>?></title>"));
     parseOk("<textarea></textareax></textarea>");
   }
 
