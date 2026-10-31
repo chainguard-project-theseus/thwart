@@ -21,8 +21,8 @@ final class Rules {
   private static final Set<InsertionMode> TEXT_MODES = EnumSet.of(
       InsertionMode.IN_BODY, InsertionMode.IN_CELL, InsertionMode.IN_CAPTION, InsertionMode.IN_TEMPLATE);
 
-  /** Modes where text is table text. */
-  private static final Set<InsertionMode> TABLE_MODES = EnumSet.of(
+  /** Modes where text is table text; also the template modes of exclusion (b). */
+  static final Set<InsertionMode> TABLE_MODES = EnumSet.of(
       InsertionMode.IN_TABLE, InsertionMode.IN_TABLE_BODY, InsertionMode.IN_ROW, InsertionMode.IN_COLUMN_GROUP);
 
   /** HTML elements whose raw text a browser never runs or renders as markup. */
@@ -195,10 +195,6 @@ final class Rules {
   private static final Set<String> TABLE_PARTS_IN_TEMPLATE =
       Backports.setOf("caption", "colgroup", "col", "tbody", "thead", "tfoot", "tr", "td", "th");
 
-  /** Template modes a table part directly in {@code <template>} switches to: exclusion (b). */
-  private static final Set<InsertionMode> TABLE_TEMPLATE_MODES = EnumSet.of(
-      InsertionMode.IN_TABLE, InsertionMode.IN_TABLE_BODY, InsertionMode.IN_ROW, InsertionMode.IN_COLUMN_GROUP);
-
   /** What classic {@code <select>} parsing keeps in a select (#305): exclusion (c). */
   private static final Set<String> SELECT_CONTENT = Backports.setOf("option", "optgroup", "hr");
 
@@ -253,7 +249,7 @@ final class Rules {
       return new Excluded(Problem.TABLE_IN_TEMPLATE, "<" + name + "> directly in <template>");
     }
     for (int i = 0; i < s.templateModeCount(); i++) {
-      if (TABLE_TEMPLATE_MODES.contains(s.templateMode(i))) {
+      if (TABLE_MODES.contains(s.templateMode(i))) {
         return new Excluded(Problem.TABLE_IN_TEMPLATE, "a table part directly in <template>");
       }
     }

@@ -148,7 +148,7 @@ class FlowPartialTest {
       String html = instance(c, k[0]).renderToString(RenderContext.defaults());
       boolean changed = false;
       for (Parser entry : entries(k[1])) {
-        assertNull(ContentKinds.problem(ContentKinds.Kind.FLOW, entry.state()), k[1]);
+        assertNull(ContentKinds.problem(entry.state()), k[1]);
         Parser p = entry.fork();
         p.feed(html);
         changed |= !p.state().equals(entry.state());
@@ -184,7 +184,7 @@ class FlowPartialTest {
         Parser p = Engines.CURRENT.document(true);
         p.feed("<!DOCTYPE html><body>" + a[0]);
         ParserState before = p.state();
-        assertNull(ContentKinds.problem(ContentKinds.Kind.FLOW, before), where);
+        assertNull(ContentKinds.problem(before), where);
         p.feed(html, errors(errors));
         ParserState after = p.state();
         assertEquals(before.stack(), after.stack(), where);
@@ -222,7 +222,7 @@ class FlowPartialTest {
       dev.tessera.compiler.verify.engine.Engine e = Engines.CURRENT;
       Parser p = e.fragment(dev.tessera.compiler.verify.engine.OpenElement.HTML, "body", true);
       p.feed(probe);
-      assertNull(ContentKinds.problem(ContentKinds.Kind.FLOW, p.state()), probe);
+      assertNull(ContentKinds.problem(p.state()), probe);
     }
   }
 

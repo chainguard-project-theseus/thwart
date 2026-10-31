@@ -25,24 +25,19 @@ import java.util.Set;
  *
  * <p>Then the parser leaves the value in the state it entered it, whatever the value is, so the
  * rest of the template parses as the verifier saw it.
+ *
+ * <p>Only one kind exists, FLOW: the bench corpus needs no other (see the #329 PR). FLOW is
+ * balanced flow content: every element it opens it closes; it has no {@code form} element; and
+ * its top-level elements are not list items ({@code li}, {@code dd}, {@code dt}), table parts,
+ * {@code head}, {@code body}, {@code html} or {@code frameset}. Producers: every {@code
+ * html.sanitize} policy (the producer test checks them), {@code SafeHtml.escape} and {@code
+ * concat} of FLOW values, and a rendered template ({@code SafeHtml.of}, {@code Fragment.of}) that
+ * the compiler proved a FLOW partial ({@link #PARTIAL_PROBES}, #396): the runtime refuses any
+ * other template. ({@code SafeHtml.unchecked} and a hand-written {@code Fragment} lambda remain
+ * the caller's promise.)
  */
 public final class ContentKinds {
   private ContentKinds() {}
-
-  /** The kinds. Only {@link #FLOW} exists: the bench corpus needs no other (see the #329 PR). */
-  public enum Kind {
-    /**
-     * Balanced flow content: every element it opens it closes; it has no {@code form} element;
-     * and its top-level elements are not list items ({@code li}, {@code dd}, {@code dt}), table
-     * parts, {@code head}, {@code body}, {@code html} or {@code frameset}. Producers: every
-     * {@code html.sanitize} policy (the producer test checks them), {@code SafeHtml.escape} and
-     * {@code concat} of FLOW values, and a rendered template ({@code SafeHtml.of}, {@code
-     * Fragment.of}) that the compiler proved a FLOW partial ({@link #PARTIAL_PROBES}, #396): the
-     * runtime refuses any other template. ({@code SafeHtml.unchecked} and a hand-written {@code
-     * Fragment} lambda remain the caller's promise.)
-     */
-    FLOW
-  }
 
   /** Modes in which a flow element is handled by the "in body" rules and leaves the mode as it was. */
   private static final Set<InsertionMode> FLOW_MODES =
@@ -59,7 +54,7 @@ public final class ContentKinds {
   private static final Set<String> HEADINGS = Backports.setOf("h1", "h2", "h3", "h4", "h5", "h6");
 
   /**
-   * The problem with HTML of {@code kind} inserted in state {@code s}, or null if the value leaves
+   * The problem with FLOW HTML inserted in state {@code s}, or null if the value leaves
    * the parser in {@code s} (for {@code IN_TEMPLATE}: in {@code s}, or in the "in body" state a
    * flow start tag switches to there, see {@link #switchesMode}).
    *
@@ -68,7 +63,7 @@ public final class ContentKinds {
    * element that a flow start tag closes or adopts ({@link #closer}). Formatting elements waiting
    * to be reopened are reached only by error recovery, a {@link Problem#PARSE_ERROR} (#410).
    */
-  public static Problem problem(Kind kind, ParserState s) {
+  public static Problem problem(ParserState s) {
     OpenElement current = s.currentNode();
     if (s.tokenizer() != TokenizerState.DATA || !s.pendingInput().isEmpty() || current == null
         || !OpenElement.HTML.equals(current.namespace()) || !FLOW_MODES.contains(s.mode())) {
@@ -78,12 +73,12 @@ public final class ContentKinds {
   }
 
   /**
-   * Whether HTML of {@code kind} inserted in {@code s} (where {@link #problem} is null) may leave
+   * Whether FLOW HTML inserted in {@code s} (where {@link #problem} is null) may leave
    * the parser in another state: in {@code IN_TEMPLATE} mode, the first start tag of flow content
    * switches the mode (and the current template insertion mode) to "in body". The verifier then
    * also continues from the state after a representative flow element ({@link #REPRESENTATIVE}).
    */
-  public static boolean switchesMode(Kind kind, ParserState s) {
+  public static boolean switchesMode(ParserState s) {
     return s.mode() == InsertionMode.IN_TEMPLATE;
   }
 
@@ -100,7 +95,7 @@ public final class ContentKinds {
    * the {@link #problem predicate} accepts, and the template must leave each as it found it (in
    * {@code <template>}, or in the "in body" state a flow start tag switches to there), with no
    * verifier finding, in every parser. Between them they break every clause of the producer
-   * promise ({@link Kind#FLOW}) a template can break:
+   * promise (FLOW, above) a template can break:
    *
    * <ul>
    *   <li>{@code ""}: content that isn't balanced. Stray end tags, a top-level table part and page
