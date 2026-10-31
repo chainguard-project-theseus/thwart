@@ -166,12 +166,20 @@ final class HostileSinks {
       // them, is not supported (guide section 7). Not reported, in templates or sanitizer output.
       out.add(new String[] {"KNOWN_LIMITATION_CSTI", "value holds {{"});
     }
+    // htmx getValuesForElement evaluates these after a js: or javascript: prefix.
+    String lowerValue = value.strip().toLowerCase(Locale.ROOT);
     if ((unprefixed.equals("hx-vals") || unprefixed.equals("hx-headers") || unprefixed.equals("hx-request"))
-        && value.strip().startsWith("js:") || unprefixed.equals("hx-vars") && !value.isEmpty()) {
+        && (lowerValue.startsWith("js:") || lowerValue.startsWith("javascript:"))
+        || unprefixed.equals("hx-vars") && !value.isEmpty()) {
       out.add(new String[] {"HTMX_EVAL", "htmx evaluates '" + value + "'"});
     }
-    if ((unprefixed.startsWith("hx-on") || a.startsWith("x-") && !a.startsWith("x-ng") && !angularIsDirective(ng)
-        || a.startsWith("v-") || a.startsWith("@") || a.equals("data-bind") || a.equals("_") || a.equals("data-script"))
+    // Names a framework runs as code: htmx hx-on* and hx-trigger (its [filter] is JS), Alpine x-*,
+    // Vue v-*, @x, #x, .x, Knockout data-bind and params on a custom element, _hyperscript.
+    if ((unprefixed.startsWith("hx-on") || unprefixed.equals("hx-trigger")
+        || a.startsWith("x-") && !a.startsWith("x-ng") && !angularIsDirective(ng)
+        || a.startsWith("v-") || a.startsWith("@") || a.startsWith("#") || a.startsWith(".")
+        || a.equals("data-bind") || (a.equals("params") && tag.contains("-"))
+        || a.equals("_") || a.equals("script") || a.equals("data-script"))
         && value.equals(hostile)) {
       out.add(new String[] {"FRAMEWORK_EXPRESSION", attrName + " holds an expression"});
     }

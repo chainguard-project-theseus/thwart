@@ -191,7 +191,8 @@ class HostileSweepTest {
     out.addAll(List.of("v-html", "v-on:click", "@click", "v-bind:title", ":title", "x-bind:title", "x-html", "x-init",
         "x-data", "x-on:click", "hx-on:click", "hx-on::after-request", "hx-on-click", "hx-vals", "hx-headers",
         "data-hx-vals", "hx-trigger", "hx-get", "data-hx-post", "sse-connect", "ws-connect", "hx-boost",
-        "hx-push-url", "data-bind", "_", "data-script", "onclick", "ONCLICK",
+        "hx-push-url", "data-bind", "_", "data-script", "script", "params", "#default", ".prop", "onclick",
+        "ONCLICK",
         "onbegin", "onload", ":inner-h-t-m-l", "v-bind:srcdoc", ":src", ":href", ":code-base", ":data", ":action",
         ":xlink-href", "v-bind:formaction", "x-bind:ping", ":manifest", ":codebase", ":archive", ":classid",
         ":to", ":values", ":style", ":class", ":fill", "FILL", "STYLE", "HREF", "XLINK:HREF", "Src", "MASK",
@@ -219,7 +220,7 @@ class HostileSweepTest {
       "x ng-init:alert(1)", "x _ng-init:alert(1)", "x data--ng-init:alert(1)", "x;ng-bind:alert(1)",
       "x__ng_bind:alert(1)", "x\fng-init:alert(1)", "x NgInit:alert(1)", "_ng-bind data--ng-bind x__ng_bind",
       // markup and switches
-      "<img src=x onerror=alert(1)>", "true");
+      "<img src=x onerror=alert(1)>", "true", "click[alert(1)]");
 
   record AttrCase(String view, Variant variant, String name, String template) {}
 
@@ -737,6 +738,12 @@ class HostileSweepTest {
     assertKinds(vnu, "<p data-tsweep data-hx-get=\"//evil.example/x\">", "//evil.example/x", "URL_CROSS_ORIGIN_CODE");
     assertKinds(vnu, "<p data-tsweep ws-connect=\"javascript:alert(1)\">", "javascript:alert(1)", "URL_SCRIPT_SCHEME");
     assertKinds(vnu, "<p data-tsweep hx-boost=\"true\">", "true", "POLICY_INPUT");
+    assertKinds(vnu, "<p data-tsweep hx-trigger=\"click[alert(1)]\">", "click[alert(1)]", "FRAMEWORK_EXPRESSION");
+    assertKinds(vnu, "<p data-tsweep hx-headers=\"javascript:alert(1)\">", "javascript:alert(1)", "HTMX_EVAL");
+    assertKinds(vnu, "<x-widget data-tsweep params=\"a: alert(1)\"></x-widget>", "a: alert(1)",
+        "FRAMEWORK_EXPRESSION");
+    assertKinds(vnu, "<p data-tsweep script=\"on click call alert(1)\">", "on click call alert(1)",
+        "FRAMEWORK_EXPRESSION");
     assertKinds(vnu, "<iframe data-tsweep srcdoc=\"&lt;img src=x onerror=alert(1)&gt;\"></iframe>",
         "<img src=x onerror=alert(1)>", "MARKUP_ATTRIBUTE");
     assertKinds(vnu, "<template data-tsweep for=\"x\"></template>", "x", "TREE_BUILDER_INPUT");
