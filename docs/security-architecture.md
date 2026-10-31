@@ -11,6 +11,8 @@ checks every template inside the annotation processor. Simplified the same day (
 accept only error-free parses outside three coarse exclusions (#406). §11.7 says which parts of
 §5 are now friendly errors or exclusions.
 
+**Amended Oct 30, 2026:** §12 closes the areas the verifier doesn't cover by class (#544).
+
 ## 0. Summary
 
 The core claim held. No reviewer has found SSTI or code execution: templates are compiled, calls
@@ -38,6 +40,11 @@ The recommendation, in three parts:
 
 Principle 5 changes from "the compiler picks the escaper" to "the compiler accepts only what it
 can classify exactly". Principle 6 is subordinated to it explicitly.
+
+Since then §11 made a spec parser the boundary for families A and B, and §12 (Oct 30) applies the
+same rule to everything else that kept producing bugs: attribute values, scripts, frameworks,
+runtime content checks, name folding and CSRF each become an allow-list or a closed grammar, and a
+hostile-value sweep looks for what is left.
 
 ## 1. What happened
 
@@ -687,10 +694,13 @@ and its 45,056-variant differential become test cases. Known deviations are list
 
 | Family | Status | Owner |
 |---|---|---|
-| C. JS lexical position | Not covered. The verifier makes one input exact: a `json` hole is in an HTML script's data | script prelude rule, #540 |
-| D. Client frameworks | Not covered | deny-by-default names (#330), framework table (#333), harness (#334), CSP nonces (#335, PR #361) |
-| E. URL and CSRF policy | Not covered. The element and attribute a value lands in become exact | URL classes, `LinkCompiler`, `CsrfInjector` |
+| C. JS lexical position | Not covered. The verifier makes one input exact: a `json` hole is in an HTML script's data | closed prelude grammar (§12.3) |
+| D. Client frameworks | Not covered | deny-by-default names (#330), framework table (#333), harness (#334), CSP nonces (#335, PR #361); AngularJS unsupported (§12.4) |
+| E. URL and CSRF policy | Not covered. The element and attribute a value lands in become exact | inert-text list and single-URL grammar (§12.2), closed form shape (§12.7) |
 | CSS inside `style` | Not covered beyond "the value stays in its attribute" | `CssValue` rules |
+
+§12 converts these areas, and the runtime and name-folding code around them, to allow-lists and
+closed grammars.
 
 ### 11.6 Cost
 
@@ -742,3 +752,131 @@ escaper is rejected, also when only some of its paths reach that state. For elem
 verifier chooses `text` or `rcdata` itself, and the processor sets it in the generated code
 between verifying and writing. The raw-text name tables stay: Tessera's tree needs them before a
 skeleton exists, and the profile's messages use them.
+
+## 12. Closing the remaining families by class (decided Oct 30, 2026)
+
+Tracker: #544. This section extends §11 to the areas §11.5 lists as not covered. It doesn't
+change §11.
+
+### 12.1 Why
+
+§11 closed families A and B. The XSS reports that came after it were all in areas §11.5 lists
+as not covered:
+
+| Area (§11.5) | Bugs |
+|---|---|
+| Attribute values (E) | #414 `ping`, #415 `manifest`/`srcset`, #416 and #421 SVG CSS `url()` attributes, #419 attributes the tree builder reads |
+| Scripts (C) | #508 number subclasses, #509 expression position, #511 and #533 negative numbers and integers |
+| Frameworks (D) | #529 and #531 AngularJS directive spellings |
+| Runtime content checks | #530 and #535 unchecked HTML messages |
+| Names and character classes | #506, #507, #519, #534 Unicode case folding |
+
+Each one was a hand-written model that permits by default: a name table with a permissive
+fallback, a JavaScript lexer, a copy of AngularJS's `directiveNormalize`, a runtime test for
+"looks safe", Java's Unicode folding where browsers fold A-Z. Each fix added a case to the model.
+The expression language, which is allow-listed and checked by javac, has had none.
+
+So the decision is the one §0 made for markup, applied to what is left: **convert each area to
+an allow-list or a closed grammar, accept the migration build errors, and find what remains
+mechanically instead of by review.**
+
+### 12.2 Attribute values (#539)
+
+- **Inert-text list** (PR #552). A computed value is written as plain `ATTRIBUTE` only into an
+  attribute on `inert-attributes.txt` (206 names whose spec value type is text, keyword, number,
+  boolean, ID refs or tokens). Any other standard attribute without a context of its own is
+  `TYPED_ATTRIBUTE`: string literals, numbers and a choice between literals only (#565, PR #566
+  removed the safe-type escape hatch). `<meta content>` is inert only with a static, harmless
+  `name`. Review found two gaps already on `main`, a computed `<param value>` and
+  `<meta name=htmx-config content>`; both are now typed.
+- **Single-URL grammar** (PR #567). The URL escapers apply only to attributes whose spec grammar
+  is exactly one URL. Lists and values whose meaning depends on another attribute (`ping`,
+  `srcset`, SVG animation `values`/`to`/`from`/`by`) are `TRUSTED_URL`: literals or a
+  `TrustedUrl`. `URL_LIST` is deleted.
+
+An attribute nobody classified is now a build error, not a plain attribute.
+
+### 12.3 Scripts (#540, #541)
+
+- **Closed prelude** (PR #553). In a JavaScript `<script>`, `[[...]]` is allowed only as the whole
+  value of `(const|let|var) NAME = [[...]];` at the top, with only whitespace and `//` comments
+  around. `NAME` is an ASCII identifier, not a reserved word and not `location` (in a classic
+  script `var location = ...` navigates; the reviewer found this live on `main`, and the old rule
+  allowed it). Every other hole, and `t:text` on a JavaScript script, is a build error with a
+  fix-it. `TextInlining`'s JavaScript lexer and adjacency rules are gone (§5.4's "don't lex
+  JavaScript").
+- **`(json)`.** Every value is written in parentheses, which replaces #511/#533's per-type cases.
+- **Exact-class numbers.** A `BigDecimal` or `BigInteger` is written only when its class is
+  exactly the JDK class; a subclass throws, in scripts, bindings, messages and styles (#508's
+  class).
+- **Migrate hoist** (PR #563). `tessera-migrate` moves each value outside the prelude into
+  `var _tN = [[...]];` above the first code, using the compiler's grammar, so the compiler's
+  checks are unchanged. 33 of 36 bench scripts needed it.
+
+### 12.4 Frameworks (#542)
+
+PR #551 (CI green, awaiting review) does the first two:
+
+- **AngularJS is unsupported.** Tessera stops modelling `directiveNormalize`, the model behind
+  #529, #531 and #532.
+- **Coarse `ng` deny.** A name or class token is denied when, ignoring A-Z case and `- _ :`, it
+  starts with `ng`, `xng` or `datang`: a superset of every spelling AngularJS reads, in the
+  compiler, migrate, the sanitizer and the test oracle. Computed class tokens have no check on
+  `main`: `<span t:class="${s}">` with
+  `s = "x ng-init:constructor.constructor('alert(document.domain)')()"` runs code under AngularJS
+  1.8.3 (AngularJS pages only). `Attributes.classes` drops matching tokens at render time, at the
+  one place a computed attribute is written.
+- **Vue in RCDATA** (#549, PR #560): a framework-table entry adds `v-pre` to a `<title>` or
+  `<textarea>` with computed content, where a comment can't break `{{`.
+- **htmx 1.x sockets** (#562, PR #564): `hx-ws`/`hx-sse` are build errors, instead of parsing
+  their `connect:` grammar.
+
+### 12.5 The runtime never classifies content (#535, #537)
+
+The runtime never decides that a value is safe by inspecting it. A message is HTML only if it is
+exactly what a build-checked pattern produces; anything else is escaped as text, with `{{`
+broken (PR #536). PR #538 fixed the double escaping that followed. A new runtime check of the
+form "if it looks harmless, write it raw" is a design error, not a fix.
+
+### 12.6 ASCII-only names and character classes (#545)
+
+Browsers fold A-Z only and split on HTML whitespace. Every HTML, CSS and URL comparison and
+character class goes through named ASCII helpers; Java text (expressions, bean names, message
+patterns) goes through `JavaStrings`. `AsciiOnlyTest` in the compiler and the runtime fails on
+`equalsIgnoreCase`, `toLowerCase`, `trim`, `Character.isWhitespace`, regex `\s` and the like
+outside a pinned one-file allow-list (PR #546).
+
+### 12.7 CSRF: one closed form shape (#550)
+
+A `<form>` gets the token only if its method is a static `post` and its action is absent, static
+and same-origin by shape, or a computed `@{/literal-path}` link re-checked at render. A computed
+`method`, any other computed action on a POST form, and a cross-origin `formaction`,
+`<base href>` or static htmx request URL on any element are build errors (PR #555). This replaces
+eight case-by-case patches, and closed two live leaks (`hx-post` on the form, and an `hx-ws`
+socket around it).
+
+### 12.8 `{{` through one function (#547)
+
+Spike `spike-brace-chokepoint`, not yet merged. At runtime `Escapers.appendText` is the only
+function that writes value text into element text, and `TextChokePointTest` enforces it. At build
+time a static `{{` must close with `}}` in the same literal (#336), in templates and checked
+messages. With AngularJS gone, the sanitizer's attribute brace handling is deleted.
+
+### 12.9 Mechanical discovery (#543)
+
+Spike `spike-hostile-sweep`, not yet merged. `HostileSweepTest` renders every computed (element,
+attribute) pair the compiler accepts, and the script shapes, with hostile values, and checks the
+output against a sink table written from the specs and against Rhino. On the commits before their
+fixes it found 10 of 11 historic bugs (it missed #531, in the sanitizer). The plan: the script
+sweep in `mvn verify`, the attribute sweep as a ratchet against a checked-in baseline, then a
+sanitizer pass.
+
+### 12.10 Policy going forward
+
+- A new XSS in an area not yet converted converts that area to an allow-list or a closed
+  grammar. It doesn't add a case. The PR names the class it closes.
+- In a converted area, a report means the list or grammar is wrong: fix the entry and add a
+  negative test, and add a sweep row so the class stays found.
+- Removing support (AngularJS, htmx 1.x sockets, safe types in typed attributes) beats modelling
+  it. The cost is a build error with a fix-it, and `tessera-migrate` rewrites what it can.
+- Parser and composition reports still go to the verifier (§11.4).
