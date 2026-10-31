@@ -37,6 +37,8 @@ import org.jsoup.nodes.TextNode;
  *       path parameters;
  *   <li>{@code nonce} attributes are dropped: the Tessera starter puts a fresh CSP nonce on every
  *       script and style (#335), which the old page did not have or had with another value;
+ *   <li>{@code v-pre} on {@code title} and {@code textarea} is dropped: the compiler adds it where
+ *       their content is computed (#549);
  *   <li>in JavaScript and JSON scripts, whitespace next to {@code [ ] { } , :} outside string
  *       literals is dropped: {@code [[...]]} writes compact JSON where the old page often had
  *       {@code [ "a", "b" ]} (#183). Whitespace inside strings still counts.
@@ -249,7 +251,8 @@ final class PageNormalizer {
     Map<String, String> attrs = new TreeMap<>();
     for (Attribute a : e.attributes()) {
       String name = a.getKey().toLowerCase();
-      if (name.equals("nonce")) {
+      if (name.equals("nonce")
+          || name.equals("v-pre") && (tag.equals("title") || tag.equals("textarea"))) {
         continue;
       }
       String value = Compat.strip(WS.matcher(a.getValue()).replaceAll(" "));
