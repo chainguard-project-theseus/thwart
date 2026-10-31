@@ -41,8 +41,6 @@ class XssContextTest {
     TEXT_PART,
     HTML,
     URL,
-    /** The {@code values} list of an SVG animation (#284): every {@code ;}-separated item is a URL. */
-    URL_LIST,
     JSON,
     PATH_SEGMENT,
     QUERY
@@ -67,10 +65,6 @@ class XssContextTest {
           new Line("<form t:action=\"s\"></form><ins t:cite=\"s\">x</ins>", Kind.URL, Kind.URL),
           new Line("<img t:src=\"s\"><video t:poster=\"s\"></video><q t:cite=\"s\">q</q>", Kind.URL, Kind.URL, Kind.URL),
           new Line("<svg><a t:xlink:href=\"s\"><text>x</text></a><image t:href=\"s\"/></svg>", Kind.URL, Kind.URL),
-          new Line(
-              "<svg><a><animate attributeName=\"href\" t:values=\"s\"/><set attributeName=\"href\" t:to=\"s\"/>"
-                  + "<animate attributeName=\"href\" t:from=\"s\" t:by=\"s\"/><SET attributeName=\"href\" t:attr=\"to=s\"/></a></svg>",
-              Kind.URL_LIST, Kind.URL, Kind.URL, Kind.URL, Kind.URL),
           new Line("<a t:href=\"@{/o/{id}(id='x' + s, q=s)}\">x</a>", Kind.PATH_SEGMENT, Kind.QUERY),
           new Line("<script t:src=\"@{/js/{f}(f='x' + s)}\"></script>", Kind.PATH_SEGMENT),
           new Line("<p t:text=\"#{greet(s)}\">x</p><i t:title=\"#{greet(s)}\">y</i>", Kind.TEXT, Kind.HTML),
@@ -89,8 +83,6 @@ class XssContextTest {
               Kind.HTML, Kind.HTML, Kind.TEXT, Kind.HTML));
 
   private static Compilation compilation;
-  /** {@code '/a;' + s} in an animation's values list: a literal first item (#284). */
-  private static Compilation valuesList;
   private static List<Kind> kinds;
   private static Pattern skeleton;
 
@@ -110,14 +102,6 @@ class XssContextTest {
             .assertSuccess();
     kinds = kinds();
     skeleton = skeleton(kinds);
-    valuesList =
-        Compilation.builder()
-            .template(
-                "list.html",
-                "<div t:params=\"String s\"><svg><a><animate attributeName=\"href\" t:values=\"'/a;' + s\"/>"
-                    + "<set attributeName=\"href\" t:attr=\"values=|/a;${s}|\"/></a></svg></div>")
-            .compile()
-            .assertSuccess();
   }
 
   /** A request whose messages, form state and CSRF token all echo the hostile value. */
@@ -184,7 +168,6 @@ class XssContextTest {
             case TEXT_PART -> ContextOracle.text(slot, null, false);
             case HTML -> ContextOracle.html(slot, null);
             case URL -> ContextOracle.url(slot, s);
-            case URL_LIST -> ContextOracle.urlList(slot, s);
             case JSON -> ContextOracle.jsonString("\"" + slot + "\"", s);
             case PATH_SEGMENT ->
                 ContextOracle.decodeHtml(slot).matches("[A-Za-z0-9%._~-]*") ? null : "unencoded path segment";
@@ -210,47 +193,11 @@ class XssContextTest {
     HostileStrings.forEachSeeded(2000, (rnd, i) -> assertCannotLeaveContext(HostileStrings.random(rnd, 12)));
   }
 
-  private static final Pattern VALUES = Pattern.compile("values=\"([^\"]*)\"");
-
-  /** A benign literal first item must not hide a dangerous later one (#284). */
-  static void assertValuesListIsChecked(String s) {
-    String out = valuesList.render("list", Map.of("s", s));
-    Matcher m = VALUES.matcher(out);
-    int slots = 0;
-    while (m.find()) {
-      slots++;
-      String problem = ContextOracle.urlList(m.group(1), "/a;" + s);
-      if (problem != null) {
-        fail("values slot " + slots + " for " + show(s) + ": " + problem + ": " + m.group(1) + "\n" + out);
-      }
-    }
-    assertEquals(2, slots, out);
-  }
-
-  @ParameterizedTest
-  @FieldSource("dev.tessera.compiler.security.HostileStrings#VECTORS")
-  void vectorCannotHideInAValuesList(String vector) {
-    assertValuesListIsChecked(vector);
-  }
-
-  @Test
-  void randomStringsCannotHideInAValuesList() {
-    HostileStrings.forEachSeeded(2000, (rnd, i) -> assertValuesListIsChecked(HostileStrings.random(rnd, 12)));
-  }
-
   @Test
   void dangerousUrlsAreReplacedEverywhere() {
     String out = render("javascript:alert(1)");
     assertTrue(out.contains("href=\"about:invalid#tessera\""), out);
-    assertTrue(out.contains("values=\"about:invalid#tessera\""), out);
-    assertTrue(out.contains(" to=\"about:invalid#tessera\""), out);
-    assertTrue(!Pattern.compile("[ :](href|values|to|from|by|action|formaction|src|poster|cite)=\"javascript", Pattern.CASE_INSENSITIVE).matcher(out).find(), out);
-    // A dangerous later item of an animation's values list (#284), alone and after a literal one.
-    String list = render("https://a;javascript:alert(1)");
-    assertTrue(list.contains("values=\"about:invalid#tessera\""), list);
-    assertTrue(!Pattern.compile("values=\"[^\"]*javascript", Pattern.CASE_INSENSITIVE).matcher(list).find(), list);
-    String later = valuesList.render("list", Map.of("s", "javascript:alert(1)"));
-    assertEquals(2, later.split("values=\"about:invalid#tessera\"", -1).length - 1, later);
+    assertTrue(!Pattern.compile("[ :](href|action|formaction|src|poster|cite)=\"javascript", Pattern.CASE_INSENSITIVE).matcher(out).find(), out);
   }
 
   /**
@@ -372,6 +319,16 @@ class XssContextTest {
           "<object t:data=\"s\"></object>",
           "<base t:href=\"s\">",
           "<link t:href=\"s\">",
+          // Not exactly one URL (#539): a list, or an animation value whose meaning depends on attributeName.
+          "<a t:ping=\"s\">x</a>",
+          "<img t:srcset=\"'/a.png 1x, ' + s\">",
+          "<svg><a><animate attributeName=\"href\" t:values=\"s\"/></a></svg>",
+          "<svg><a><animate attributeName=\"href\" t:values=\"'/a;' + s\"/></a></svg>",
+          "<svg><a><set attributeName=\"href\" t:to=\"s\"/></a></svg>",
+          "<svg><a><SET attributeName=\"href\" t:attr=\"to=s\"/></a></svg>",
+          "<svg><a><animate attributeName=\"href\" t:from=\"s\"/></a></svg>",
+          "<svg><a><animate attributeName=\"href\" t:by=\"s\"/></a></svg>",
+          "<svg><a><set attributeName=\"href\" t:attr=\"values=|/a;${s}|\"/></a></svg>",
           "<p t:utext=\"s\">x</p>",
           "<p>[(s)]</p>",
           "<p t:utext=\"'<b>' + s\">x</p>",
