@@ -144,8 +144,11 @@ public final class HtmlPolicy {
     return SafeHtml.sanitize(html, this);
   }
 
-  /** Whether class token {@code token} (already of the safe form) is allowed. */
+  /** Whether class token {@code token} is of the safe form, not AngularJS, and allowed. */
   boolean allowsClass(String token) {
+    if (!isClassToken(token) || isAngularClass(token)) {
+      return false;
+    }
     if (anyClass || classNames.contains(token)) {
       return true;
     }
@@ -300,15 +303,18 @@ public final class HtmlPolicy {
       return false;
     }
     for (int i = 0; i < s.length(); i++) {
-      char c = s.charAt(i);
-      if (!(isAsciiLetter(c) || (c >= '0' && c <= '9') || c == '_' || c == '-')) {
+      if (!isClassChar(s.charAt(i))) {
         return false;
       }
     }
     return true;
   }
 
-  private static boolean isAsciiLetter(char c) {
+  static boolean isClassChar(char c) {
+    return isAsciiLetter(c) || (c >= '0' && c <= '9') || c == '_' || c == '-';
+  }
+
+  static boolean isAsciiLetter(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
   }
 
@@ -349,7 +355,7 @@ public final class HtmlPolicy {
     return c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r';
   }
 
-  private static Set<String> unmodifiable(String... names) {
+  static Set<String> unmodifiable(String... names) {
     return Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(names)));
   }
 }

@@ -194,7 +194,7 @@ public final class CssValue {
       } else if (c == '%' && i + 2 < t.length() && isHex(t.charAt(i + 1)) && isHex(t.charAt(i + 2))) {
         b.append(c);
       } else if (c < 0x80) {
-        percent(b, c);
+        UrlEncoding.percent(b, c);
       } else {
         int cp = t.codePointAt(i);
         if (Character.isSurrogate((char) cp)) {
@@ -203,7 +203,7 @@ public final class CssValue {
         i += Character.charCount(cp) - 1;
         byte[] utf8 = new String(Character.toChars(cp)).getBytes(StandardCharsets.UTF_8);
         for (byte x : utf8) {
-          percent(b, x & 0xff);
+          UrlEncoding.percent(b, x & 0xff);
         }
       }
     }
@@ -227,12 +227,6 @@ public final class CssValue {
   private static boolean isHex(char c) {
     return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
   }
-
-  private static void percent(StringBuilder b, int octet) {
-    b.append('%').append(HEX_DIGITS[octet >> 4]).append(HEX_DIGITS[octet & 0xf]);
-  }
-
-  private static final char[] HEX_DIGITS = "0123456789ABCDEF".toCharArray();
 
   /** The CSS text. */
   public String value() {
