@@ -234,11 +234,13 @@ allow-listed:
 - **Forms.** No nested `<form>`. The browser drops the inner start tag (CSRF, guide §7).
 - **Tables.** Allowed, with no computed text directly in `table`, `tbody`, `thead`, `tfoot`, `tr`
   or `colgroup` (#348). Foster parenting moves the text in front of the table but leaves comments
-  in it, so the `{{` break comes apart. Values go in `td`, `th` and `caption`. Table parts must sit
-  directly in the part that takes them, and `<form>` not directly in a table, or the browser closes
-  elements (a `<tr>` ends a `<td>`) and reads later text in a table mode. `t:insert`/`t:replace`
-  get the same checks on the fragment's top level; `Fragment` values never start with a table part.
-  The oracle (§5.7) watches the rest of this claim.
+  in it, so the `{{` break comes apart. Values go in `td`, `th` and `caption`. The build-time
+  verifier (§11) enforces this on the composed parse, through `t:insert`/`t:replace` and fragments:
+  a value read as table text is `TEXT_IN_TABLE`, `SafeHtml` or a `Fragment` value outside a cell is
+  `RAW_NOT_FLOW`, and a misplaced table part or `<form>` (a `<tr>` that ends a `<td>`) is a parse
+  error, so foster parenting never happens. The verifier composes a `Fragment` argument only where
+  the callee inserts the parameter by itself, so the compiler rejects a template-built `Fragment`
+  value that starts with a table part (TODO #561). The oracle (§5.7) watches the rest of this claim.
 
 ### 5.4 Scripts: the script prelude rule
 

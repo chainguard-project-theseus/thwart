@@ -8,7 +8,6 @@ import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.attr.CsrfInjector;
 import dev.tessera.compiler.codegen.attr.FieldProcessor;
 import dev.tessera.compiler.codegen.attr.FragmentMethods;
-import dev.tessera.compiler.codegen.attr.FragmentTop;
 import dev.tessera.compiler.codegen.attr.TextInlining;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.ExpressionParser;
@@ -58,14 +57,6 @@ public final class TemplateGenerator implements CodegenContext {
 
   /** {@code t:} attributes that write HTML known only at runtime into the element. */
   private static final Set<String> RUNTIME_HTML = Backports.setOf("utext", "insert", "replace");
-  /** Elements whose content a browser reads in a table insertion mode (#348); see {@link #tableHost}. */
-  private static final Set<String> TABLE_HOSTS = Backports.setOf("table", "tbody", "thead", "tfoot", "tr", "colgroup");
-  /** Attributes that write computed text as the element's content. */
-  private static final Set<String> TEXT_BODY = Backports.setOf("text", "utext", "errors");
-  /** Elements a browser places by the table rules (#348); see {@link #tablePartFits}. */
-  private static final Set<String> TABLE_PARTS = FragmentTop.TABLE_PARTS;
-  /** {@link #tableCtx} of an element rendered standalone (a fragment): where it lands is checked there. */
-  private static final String SOMEWHERE = "?";
   /**
    * Elements whose start tag makes a browser drop a line feed right after it (HTML 13.2.6.4.7,
    * "in body": the next token is ignored if it is U+000A); see {@link #emit}.
@@ -105,21 +96,6 @@ public final class TemplateGenerator implements CodegenContext {
   private boolean inForeign;
   /** Whether the element whose content is being generated is a JSON {@code <script>} ({@link #inJsonScript}). */
   private boolean jsonScript;
-  /**
-   * The table element ({@link #TABLE_HOSTS}) whose direct content is being generated, or null
-   * (#348). A browser moves text out of it in front of the table but keeps comments in place, so
-   * the empty comments that break {@code {{} in a value are left behind and the braces join up
-   * again. {@code <t:block>} and {@code t:remove="tag"} are transparent. Checked in any namespace:
-   * {@code <table>} ends {@code <svg>} and {@code <math>}, and no SVG or MathML element has these names.
-   */
-  private String tableHost;
-  /**
-   * The lower-case name of the nearest enclosing {@link #TABLE_PARTS} element, null if there is
-   * none, or {@link #SOMEWHERE} in an element rendered standalone (#348).
-   */
-  private String tableCtx;
-  /** Whether the content being generated is directly in {@link #tableCtx}: only tagless elements in between. */
-  private boolean tableDirect;
 
   public TemplateGenerator(
       CompilerEnv env, TemplateIndex index, ExpressionParser parser, ExpressionCompiler expressions) {
@@ -295,16 +271,10 @@ public final class TemplateGenerator implements CodegenContext {
     // ... and rendered where it is inserted, which is checked there, not inside its source parent.
     String host = rawTextHost;
     boolean foreign = inForeign;
-    String table = tableHost;
-    String tablePart = tableCtx;
-    boolean direct = tableDirect;
     String outerHost = hostElement;
     rawTextHost = null;
     inForeign = false;
     hostElement = null;
-    tableHost = null;
-    tableCtx = SOMEWHERE;
-    tableDirect = true;
     try {
       Emitted.Builder c = builder();
       element(c, element, scope, ignoredAttributes);
@@ -313,9 +283,6 @@ public final class TemplateGenerator implements CodegenContext {
       hostElement = outerHost;
       rawTextHost = host;
       inForeign = foreign;
-      tableHost = table;
-      tableCtx = tablePart;
-      tableDirect = direct;
       if (ws != null) {
         whitespaceBefore.put(element, ws);
       }
@@ -457,10 +424,6 @@ public final class TemplateGenerator implements CodegenContext {
           runtimeHtmlInRawText(t.pos().advance(t.raw(), unescaped), "[(...)]", rawTextHost);
         }
       }
-      int hole = tableHost == null ? -1 : TextInlining.firstHole(t.raw());
-      if (hole >= 0) {
-        textInTable(t.pos().advance(t.raw(), hole + 2), t.raw().startsWith("[[", hole) ? "[[...]]" : "[(...)]");
-      }
       Emitted code = TextInlining.render(this, t, scope);
       if (code == null) {
         c.text(t.raw(), t.pos());
@@ -481,9 +444,6 @@ public final class TemplateGenerator implements CodegenContext {
     String outerHost = hostElement;
     boolean outerForeign = inForeign;
     boolean outerJson = jsonScript;
-    String outerTable = tableHost;
-    String outerCtx = tableCtx;
-    boolean outerDirect = tableDirect;
     String host = rawTextElement(e) ? e.name() : outer;
     // In raw text (<xmp>, <iframe>, <noembed>, <noframes>) the tag is text, so nothing is dropped.
     // Inside <noscript> the content is markup with scripting off, and raw text a browser never
@@ -495,22 +455,8 @@ public final class TemplateGenerator implements CodegenContext {
     inForeign = outerForeign || HtmlParser.asciiEqualsIgnoreCase(e.name(), "svg")
         || HtmlParser.asciiEqualsIgnoreCase(e.name(), "math");
     jsonScript = Contexts.isJsonScript(e);
-    if (!FragmentTop.tagNotRendered(e)) {
-      String lower = HtmlParser.asciiLower(e.name());
-      hostElement = lower;
-      // A t:replace'd element is not written: what replaces it is checked below.
-      if (!e.attribute("t:replace").isPresent()) {
-        if (TABLE_PARTS.contains(lower) && !tablePartFits(lower, tableCtx, tableDirect)) {
-          misplacedTablePart(e.pos(), "<" + e.name() + ">", tableCtx);
-        } else if (lower.equals("form") && tableHost != null) {
-          misplacedTablePart(e.pos(), "<" + e.name() + ">", tableCtx);
-        }
-      }
-      tableHost = TABLE_HOSTS.contains(lower) ? e.name() : null;
-      tableDirect = TABLE_PARTS.contains(lower);
-      if (tableDirect) {
-        tableCtx = lower;
-      }
+    if (!TextInlining.tagNotRendered(e)) {
+      hostElement = HtmlParser.asciiLower(e.name());
     }
     try {
       ElementPlan plan = new ElementPlan(e, scope);
@@ -535,14 +481,6 @@ public final class TemplateGenerator implements CodegenContext {
         if (within != null && RUNTIME_HTML.contains(a.localName())) {
           runtimeHtmlInRawText(a.pos(), a.name(), within);
         }
-        if (tableHost != null && TEXT_BODY.contains(a.localName())) {
-          textInTable(a.pos(), a.name());
-        }
-        if (a.localName().equals("insert")) {
-          insertedInTable(a, tableCtx, tableDirect);
-        } else if (a.localName().equals("replace")) {
-          insertedInTable(a, outerCtx, outerDirect);
-        }
         AttributeProcessors.forName(a.localName()).ifPresent(p -> p.process(this, a, plan));
       }
       if (HtmlParser.asciiEqualsIgnoreCase(e.name(), "form")) {
@@ -561,89 +499,7 @@ public final class TemplateGenerator implements CodegenContext {
       rawTextHost = outer;
       inForeign = outerForeign;
       jsonScript = outerJson;
-      tableHost = outerTable;
-      tableCtx = outerCtx;
-      tableDirect = outerDirect;
     }
-  }
-
-  /**
-   * Whether a browser keeps the table part {@code lower} where it is written, given the nearest
-   * enclosing table part {@code ctx} and whether it is directly in it (#348). Anywhere else the
-   * browser closes elements up to a table part that takes it (a {@code <tr>} in a {@code <td>}
-   * ends the cell), so the content after it would be read in a table insertion mode, which moves
-   * text in front of the table. Outside tables a browser ignores the tag but keeps the content.
-   */
-  private static boolean tablePartFits(String lower, String ctx, boolean direct) {
-    // A <table> in a cell nests; elsewhere in a table it ends that table, so what follows is not in a table mode.
-    if (ctx == null || lower.equals("table")) {
-      return true;
-    }
-    if (ctx.equals(SOMEWHERE)) {
-      return direct;
-    }
-    if (!direct) {
-      return false;
-    }
-    switch (lower) {
-      case "tr":
-        return ctx.equals("table") || ctx.equals("tbody") || ctx.equals("thead") || ctx.equals("tfoot");
-      case "td":
-      case "th":
-        return ctx.equals("table") || ctx.equals("tbody") || ctx.equals("thead") || ctx.equals("tfoot") || ctx.equals("tr");
-      case "col":
-        return ctx.equals("table") || ctx.equals("colgroup");
-      default:
-        return ctx.equals("table");
-    }
-  }
-
-  /**
-   * Checks what {@code attr} ({@code t:insert} or {@code t:replace}) writes where it lands: in
-   * table part {@code ctx}, directly or not (#348). At the top of a fragment the fragment's own
-   * call sites check it.
-   */
-  private void insertedInTable(Attribute attr, String ctx, boolean direct) {
-    if (ctx == null || (ctx.equals(SOMEWHERE) && direct)) {
-      return;
-    }
-    FragmentTop top = FragmentTop.of(this, attr);
-    if (top.unknown) {
-      diagnostics()
-          .error(attr.pos(), attr.name() + " inside a table must insert a fragment Tessera can follow (~{template :: name})");
-      return;
-    }
-    boolean host = direct && TABLE_HOSTS.contains(ctx);
-    if (host && top.text) {
-      diagnostics()
-          .error(attr.pos(), attr.name() + " writes computed text or a Fragment value directly inside <" + ctx + ">, which"
-              + " is not supported: a browser moves the text in front of the table but leaves the comments that break {{"
-              + " in the value inside it, so Vue or AngularJS could run the value as code; put the value in a <td>, <th>"
-              + " or <caption>, or insert a fragment whose top element is a table row or cell");
-    }
-    for (String n : top.elements) {
-      if (TABLE_PARTS.contains(n) ? !tablePartFits(n, ctx, direct) : host && n.equals("form")) {
-        misplacedTablePart(attr.pos(), attr.name() + " of a fragment that writes <" + n + ">", ctx);
-      }
-    }
-  }
-
-  /** Reports a table part or form written where a browser would not keep it (#348). */
-  private void misplacedTablePart(SourcePos pos, String what, String ctx) {
-    String where = ctx == null || ctx.equals(SOMEWHERE) ? "here" : "inside <" + ctx + ">";
-    diagnostics()
-        .error(pos, what + " " + where + " is not supported: a browser would close elements to place it (a <tr> ends"
-            + " a <td>, a <form> in a table is closed at once), and then move text after it in front of the table,"
-            + " leaving the comments that break {{ in a value behind, so Vue or AngularJS could run the value as code;"
-            + " write table parts only directly in the part that takes them (<tr> in <tbody>, <td> in <tr>)");
-  }
-
-  /** Reports computed text written directly inside {@link #tableHost}. */
-  private void textInTable(SourcePos pos, String what) {
-    diagnostics()
-        .error(pos, what + " directly inside <" + tableHost + "> is not supported: a browser moves the text in front of"
-            + " the table but leaves the comments that break {{ in the value inside it, so Vue or AngularJS could run"
-            + " the value as code; put the value in a <td>, <th> or <caption>");
   }
 
   /**
