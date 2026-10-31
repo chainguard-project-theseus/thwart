@@ -503,8 +503,8 @@ class ControlFlowTest {
                 + "<textarea t:remove=\"all\">x</textarea>|<textarea t:remove=\"none\"><b></textarea>|"
                 + "<t:block t:remove=\"tag\"><title>[[s]]</title></t:block>|<i t:remove=\"tag\"><title>[[s]]</title></i>");
     assertEquals(
-        "<title></title>|<title><b>&lt;x&gt;</b></title>||<textarea><b></textarea>|<title>&lt;x&gt;</title>|"
-            + "<title>&lt;x&gt;</title>",
+        "<title></title>|<title v-pre><b>&lt;x&gt;</b></title>||<textarea><b></textarea>|<title v-pre>&lt;x&gt;</title>|"
+            + "<title v-pre>&lt;x&gt;</title>",
         render(c, model("s", "<x>")));
   }
 }

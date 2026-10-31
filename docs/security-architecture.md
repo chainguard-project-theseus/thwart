@@ -317,7 +317,9 @@ properties, an open set.
 
 **`{{` breaking** stays unconditional wherever it's lossless: element text (as today), SVG/MathML
 text (with §5.3), and JSON strings (`{`). For attributes and RCDATA there is no lossless
-break, so they stay documented limitations (guide §7), bounded by `v-pre`/`ng-non-bindable` and
+break. A computed `<title>` or `<textarea>` gets `v-pre` from the framework table (#549), which
+Vue 3 and petite-vue honour; attributes, and RCDATA under AngularJS, stay documented limitations
+(guide §7), bounded by `ng-non-bindable` and
 CSP. I don't recommend a per-template "client framework mode". Mount points are chosen at runtime
 and often in a layout, so a per-template flag is a knob that's easy to get wrong. Revisit if the
 bench meets an AngularJS app.

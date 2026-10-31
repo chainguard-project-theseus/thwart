@@ -48,6 +48,7 @@ class PageNormalizerTest {
       jsessionid path parameter      | <a href="/owners;jsessionid=A1B2?x=1">o</a> | <a href="/owners?x=1">o</a>
       jsessionid in form action      | <form action="/f;jsessionid=A1B2"></form> | <form action="/f"></form>
       csp nonce (#335)               | <script nonce="abc">x()</script><style nonce="d">p{}</style> | <script>x()</script><style>p{}</style>
+      v-pre on title, textarea (#549) | <title v-pre>t</title><textarea v-pre>x</textarea> | <title>t</title><textarea>x</textarea>
       json array spacing (#183)      | <script>const f = [ "name", "description" ];</script> | <script>const f = ["name","description"];</script>
       empty json array and object    | <script>var t = [ ]; var a = { };</script> | <script>var t = []; var a = {};</script>
       pretty-printed json object     | <script>var o = {\\n  "a": 1,\\n  "b": [ 2 ]\\n};</script> | <script>var o = {"a":1,"b":[2]};</script>
@@ -87,6 +88,7 @@ class PageNormalizerTest {
       style is not json              | <style>p { color: red }</style>          | <style>p{color:red}</style>
       template script is not json    | <script type="text/template"><p>a, b</p></script> | <script type="text/template"><p>a,b</p></script>
       jsessionid is not the path     | <a href="/owners;jsessionid=A1">o</a>    | <a href="/owner">o</a>
+      v-pre elsewhere still counts   | <div v-pre>a</div>                        | <div>a</div>
       """)
   void differentPages(String rule, String a, String b) {
     check(DIFFERS, a, b);
