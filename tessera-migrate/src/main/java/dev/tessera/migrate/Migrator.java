@@ -1068,15 +1068,15 @@ final class Migrator {
     /**
      * Finds {@code [[...]]} inside JavaScript string literals of script text that starts at
      * {@code offset} of the document. In Tessera {@code [[...]]} writes a JSON value with its own
-     * quotes, so a Thymeleaf {@code "[[${x}]]"} would close the string (the compiler rejects it, #281).
+     * quotes, so a Thymeleaf {@code "[[${x}]]"} would close the string.
      * A {@code "..."} or {@code '...'} literal that is exactly one inline loses its quotes; any other
      * inline in one is left to {@link #hoist} in a JavaScript script and reported in a JSON script.
      * An inline in a template literal is reported, including {@code `[[...]]`} (the backticks may follow a tag,
      * {@code String.raw`...`}, which dropping them would break), and so is an inline in a comment,
      * except a natural-template comment ({@link #naturalComment}). The scan tracks strings, template
-     * literal {@code ${...}} and comments, not regular expression literals, with the compiler's rules
-     * (#281): an unterminated {@code '}/{@code "} string ends at {@code \n} or {@code \r}, not at
-     * U+2028/U+2029 (ES2019), and {@code \} followed by CRLF is a line continuation. The compiler is
+     * literal {@code ${...}} and comments, not regular expression literals: an
+     * unterminated {@code '}/{@code "} string ends at {@code \n} or {@code \r}, not at U+2028/U+2029
+     * (ES2019), and {@code \} followed by CRLF is a line continuation. The compiler is
      * the safety net, so a misread only misses or adds a report, and dropping the quotes can't make
      * it unsafe.
      */
@@ -1115,13 +1115,15 @@ final class Migrator {
               i = after; // the closing quote
               continue;
             }
-            if (jsonScript || quote == '`') {
-              // In a JavaScript script, hoist splits a '...' or "..." string around it.
-              report(at, String.format(ConversionRules.SCRIPT_INLINE_IN_STRING_MESSAGE, inline, inline));
+            // In a JavaScript script, hoist splits a '...' or "..." string around it.
+            if (jsonScript) {
+              report(at, String.format(ConversionRules.SCRIPT_INLINE_IN_JSON_STRING_MESSAGE, inline));
+            } else if (quote == '`') {
+              report(at, String.format(ConversionRules.SCRIPT_INLINE_IN_TEMPLATE_MESSAGE, inline));
             }
             quoteAt = -1;
           } else if (state == LINE_COMMENT || state == BLOCK_COMMENT) {
-            // The compiler rejects an inline in a comment (#281); a natural-template comment in a
+            // The compiler rejects an inline in a comment; a natural-template comment in a
             // th:inline="javascript" script was handled by naturalComment.
             String inline = text.substring(i, after);
             report(lineAt(text, line, i), String.format(ConversionRules.SCRIPT_INLINE_IN_COMMENT_MESSAGE, inline));

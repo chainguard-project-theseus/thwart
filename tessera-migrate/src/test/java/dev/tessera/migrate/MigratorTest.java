@@ -777,8 +777,8 @@ class MigratorTest {
   private static final String UNQUOTED = "was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes";
   private static final String IN_COMMENT =
       "inside a JavaScript comment is a build error in Tessera (its value would be written inside the comment";
-  private static final String IN_STRING =
-      "inside a quoted JavaScript string is a build error in Tessera (it writes a JSON value with its own quotes)";
+  private static final String IN_JSON_STRING = "inside a quoted string of a JSON script is a build error in Tessera"
+      + " (it writes a JSON value with its own quotes) and was not rewritten: make it the whole value, `{\"name\": [[...]]}`";
 
   /** A script in a root that already declares its parameters, so no stub items are reported. */
   private static String script(String attributes, String body) {
@@ -1027,11 +1027,13 @@ class MigratorTest {
     // A template literal is reported, not split.
     String template = script("", "var a = `a ${1} [[${x}]]`;");
     assertEquals(template, convert(template));
-    assertMessages(template, "1: `[[${x}]]` " + IN_STRING + "; rewrite as `\"text \" + [[${x}]] + \" text\"`");
+    // Its fix-it is the declaration the compiler accepts, not a `+` concatenation, which is still a build error.
+    assertEquals(List.of("1: `[[${x}]]` " + IN_TEMPLATE
+        + ": declare the value at the top of the script (`var v = [[...]];`) and write `${v}`"), messages(template));
     // In a JSON script a string is reported.
     String json = script(" type=\"application/json\"", "{\"a\": \"Hello [[${x}]]\"}");
     assertEquals(json, convert(json));
-    assertMessages(json, "1: `[[${x}]]` " + IN_STRING);
+    assertMessages(json, "1: `[[${x}]]` " + IN_JSON_STRING + ", and build any text around it in the model");
   }
 
   @Test
@@ -1046,7 +1048,7 @@ class MigratorTest {
 
   @Test
   void inlineInsideAJavaScriptCommentIsReportedNotRewritten() throws Exception {
-    // The compiler rejects [[...]] in a comment (#281); the natural-template rewrite is #315.
+    // The compiler rejects [[...]] in a comment; the natural-template rewrite is #315.
     for (String body : List.of(
         "var a = /*[[${x}]]*/ 'd';",
         "// \"[[${x}]]\"\nvar a = 1;",
