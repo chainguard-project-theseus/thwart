@@ -33,8 +33,8 @@ class EmissionGuardTest {
           // The output variable used in any other way: passed on, aliased (Output o = out), ...
           // but not declared (Output out) and not the English word (out of the table).
           Pattern.compile("(?<![\\w$.])(?<!Output\\s)out(?![\\w$])(?!\\s+of\\b)"),
-          Pattern.compile("\\bEscapers\\.(text|rcdata|attr|url|urlList|resourceUrl|refresh|html|json|jsonAttr)\\s*\\("),
-          Pattern.compile("\\.(text|rcdata|attr|url|urlList|resourceUrl|refresh|html|json|jsonAttr)\\s*\\(\\s*(out\\b|$)"),
+          Pattern.compile("\\bEscapers\\.(text|rcdata|attr|url|resourceUrl|refresh|html|json|jsonAttr)\\s*\\("),
+          Pattern.compile("\\.(text|rcdata|attr|url|resourceUrl|refresh|html|json|jsonAttr)\\s*\\(\\s*(out\\b|$)"),
           Pattern.compile("\\.render\\s*\\("));
 
   /**

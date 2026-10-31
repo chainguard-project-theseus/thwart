@@ -19,10 +19,22 @@ public final class Contexts {
   private static final Set<String> BROWSER_RAW_TEXT =
       Backports.setOf("xmp", "iframe", "noembed", "noframes", "noscript");
 
+  /**
+   * The attributes whose grammar is exactly one URL (#539): WHATWG "valid (non-empty) URL
+   * potentially surrounded by spaces" ({@code href src action formaction cite poster}), the
+   * obsolete {@code background longdesc manifest}, and SVG's {@code xlink:href}. Only these take
+   * the URL escaper, which checks the whole value as one URL.
+   */
   private static final Set<String> URL_ATTRIBUTES =
       Backports.setOf(
-          "href", "src", "action", "formaction", "cite", "poster", "background", "longdesc",
-          "usemap", "ping", "manifest", "srcset", "imagesrcset", "xlink:href");
+          "href", "src", "action", "formaction", "cite", "poster", "background", "longdesc", "manifest",
+          "xlink:href");
+
+  /**
+   * The attributes that hold a list of URLs (#414, #539): {@code ping} is space-separated URLs,
+   * {@code srcset} and {@code imagesrcset} comma-separated image candidates. TRUSTED_URL.
+   */
+  private static final Set<String> URL_LIST_ATTRIBUTES = Backports.setOf("ping", "srcset", "imagesrcset");
 
   /**
    * SVG presentation attributes whose value is CSS that may hold a {@code url()}: a paint server
@@ -57,17 +69,17 @@ public final class Contexts {
    * {@link #isFrameworkDirective framework directives} and {@code on*} are EVENT_HANDLER, {@code style} and
    * the SVG presentation attributes that take a CSS {@code url()} ({@code fill}, {@code mask}, ...)
    * are STYLE, {@code srcdoc} and names that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*} are FORBIDDEN, resource URLs are
-   * RESOURCE_URL, other URL attributes are URL, the other standard names that are not inert-text
-   * attributes ({@code inert-attributes.txt}) TYPED_ATTRIBUTE, other {@link #isKnownName known
-   * names} ATTRIBUTE, and every other name FORBIDDEN (#330). The {@code to from by}
-   * of an SVG {@code <animate>} and the {@code to} of a {@code <set>} are URL too: they can set an
-   * {@code href} to {@code javascript:}. The {@code values} of an {@code <animate>} is URL_LIST: a
-   * {@code ;}-separated list whose items SVG applies in turn, so every item is checked (#284).
-   * {@code <set>} ignores {@code values from by}, but they are checked the same way. When the
-   * static {@code attributeName} of an animation element names one of those SVG attributes
-   * ({@code fill}, {@code mask}, ...), its {@code values to from by} are STYLE instead, and the
-   * {@code attributeName} of an animation element is FORBIDDEN: a computed one could retarget the
-   * values from a URL-checked attribute to CSS. The {@code content} of a
+   * RESOURCE_URL, the {@link #URL_ATTRIBUTES attributes whose grammar is exactly one URL} are URL,
+   * the URL lists {@code ping srcset imagesrcset} are TRUSTED_URL, the other standard names that are
+   * not inert-text attributes ({@code inert-attributes.txt}) TYPED_ATTRIBUTE, other
+   * {@link #isKnownName known names} ATTRIBUTE, and every other name FORBIDDEN (#330). The
+   * {@code values to from by} of an SVG {@code <animate>} or {@code <set>} are TRUSTED_URL too
+   * (#539): what they hold depends on the {@code attributeName} ({@code values} is a
+   * {@code ;}-separated list, and an animated {@code href} can be set to {@code javascript:}), so
+   * they are not exactly one URL. When the static {@code attributeName} of an animation element
+   * names one of those SVG attributes ({@code fill}, {@code mask}, ...), its {@code values to from by}
+   * are STYLE instead, and the {@code attributeName} of an animation element is FORBIDDEN: a
+   * computed one could retarget the values from a TRUSTED_URL attribute to CSS. The {@code content} of a
    * {@code <meta http-equiv="refresh">} is REFRESH: its {@code url=} part navigates the page, so
    * only a same-origin link is allowed there (#237). Any other {@code content} of a {@code <meta>}
    * is TYPED_ATTRIBUTE unless the element {@link #isNamedMetaContent names plain metadata} (#539).
@@ -126,11 +138,10 @@ public final class Contexts {
     if (isResourceUrl(el, attr)) {
       return OutputContext.RESOURCE_URL;
     }
-    if (isAnimation(el) && attr.equals("values")) {
-      return OutputContext.URL_LIST;
+    if (URL_LIST_ATTRIBUTES.contains(attr) || (isAnimation(el) && ANIMATION_VALUES.contains(attr))) {
+      return OutputContext.TRUSTED_URL;
     }
-    if (URL_ATTRIBUTES.contains(attr)
-        || (isAnimation(el) && (attr.equals("to") || attr.equals("from") || attr.equals("by")))) {
+    if (URL_ATTRIBUTES.contains(attr)) {
       return OutputContext.URL;
     }
     if (KnownAttributes.needsSafeValue(element, attr)

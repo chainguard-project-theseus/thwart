@@ -125,33 +125,6 @@ final class ContextOracle {
     return null;
   }
 
-  /**
-   * The {@code values} list of an SVG {@code <animate>} (#284; also checked on {@code <set>},
-   * which ignores it): safe as an attribute, and the scheme a browser would see in every {@code ;}-separated item is allowed
-   * (SVG applies the items in turn), unless the whole list was replaced. Unless replaced, it must
-   * decode to {@code expected}.
-   */
-  static String urlList(String out, String expected) {
-    String r = html(out, null);
-    if (r != null) {
-      return r;
-    }
-    String value = decodeHtml(out);
-    if (value.equals(INVALID_URL)) {
-      return null;
-    }
-    for (String item : value.split(";", -1)) {
-      String scheme = browserScheme(item);
-      if (scheme != null && !ALLOWED_SCHEMES.contains(scheme)) {
-        return "scheme " + scheme + " passed in list item " + item;
-      }
-    }
-    if (expected != null && !value.equals(wellFormed(expected))) {
-      return "decodes to a different value";
-    }
-    return null;
-  }
-
   /** The URL scheme per the WHATWG URL parser, lower-cased, or null for a relative URL. */
   static String browserScheme(String url) {
     int start = 0;

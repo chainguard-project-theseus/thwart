@@ -19,14 +19,19 @@ public enum OutputContext {
   RCDATA("rcdata"),
   /** Quoted value of an ordinary attribute. Generated attributes are always double-quoted. */
   ATTRIBUTE("attr"),
-  /** URL-valued attribute: href, src, action, formaction, cite, poster, ... (scheme-checked). */
+  /**
+   * An attribute whose grammar is exactly one URL: href, src, action, formaction, cite, poster, ...
+   * (scheme-checked).
+   */
   URL("url"),
   /**
-   * The {@code values} of an SVG {@code <animate>}: a {@code ;}-separated list that SVG applies
-   * item by item, so every item is scheme-checked as in URL (#284). {@code <set>} ignores
-   * {@code values}, but it is checked the same way.
+   * An attribute that holds URLs but is not exactly one URL (#539): a list ({@code ping},
+   * {@code srcset}, {@code imagesrcset}) or the {@code values to from by} of an SVG
+   * {@code <animate>} or {@code <set>}, whose meaning depends on its {@code attributeName}. The
+   * URL escaper checks one URL, so the value may only combine string literals, numbers and
+   * {@code TrustedUrl}s; a String or other plain value is a build error. Written attribute-escaped.
    */
-  URL_LIST("urlList"),
+  TRUSTED_URL(null),
   /**
    * URL that loads code or a document: {@code <script src>}, {@code <script href>},
    * {@code <script xlink:href>}, {@code <iframe src>},

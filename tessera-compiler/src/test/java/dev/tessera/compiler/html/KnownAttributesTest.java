@@ -100,7 +100,7 @@ class KnownAttributesTest {
   /**
    * The class claim: the names behind #415, #416, #419 and #421 fall out of the inert-text list, so
    * a String would have been a build error without their specific fixes. #414 (ping) and the
-   * {@code <animate>}/{@code <set>} values of #421 are not covered: they were already URL / URL_LIST.
+   * {@code <animate>}/{@code <set>} values of #421 are not covered here: they are TRUSTED_URL (#539).
    */
   @Test
   void historicBugNamesAreNotInert() {

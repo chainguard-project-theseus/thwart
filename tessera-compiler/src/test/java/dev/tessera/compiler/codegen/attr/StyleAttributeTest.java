@@ -272,15 +272,19 @@ class StyleAttributeTest {
     compile(body).assertError("t.html:1:", "attributeName of an SVG animation cannot be computed");
   }
 
-  /** Other animations keep their contexts: an href animation's values are URL-checked strings. */
+  /**
+   * Other animations keep their contexts: their values take only literals, numbers and TrustedUrls
+   * (TRUSTED_URL, #539), not a CssValue or a String.
+   */
   @Test
-  void otherAnimationsStayUrlChecked() {
-    assertEquals(
-        "<svg><a><set attributeName=\"href\" to=\"about:invalid#tessera\"/></a></svg>",
-        render("<svg><a><set attributeName=\"href\" t:to=\"s\"/></a></svg>", "s", "javascript:alert(1)"));
+  void otherAnimationsTakeOnlyTrustedUrls() {
+    compile("<svg><a><set attributeName=\"href\" t:to=\"s\"/></a></svg>").assertError("t.html:1:", "t:to is not allowed",
+        "holds URLs but is not exactly one URL");
+    compile("<svg><a><set attributeName=\"href\" t:to=\"css.url(s)\"/></a></svg>").assertError("t.html:1:",
+        "t:to is not allowed", "holds URLs but is not exactly one URL", "CssValue");
     assertEquals(
         "<svg><rect><animate attributeName=\"fill-opacity\" values=\"0;1\"/></rect></svg>",
-        render("<svg><rect><animate attributeName=\"fill-opacity\" t:values=\"s\"/></rect></svg>", "s", "0;1"));
+        render("<svg><rect><animate attributeName=\"fill-opacity\" t:values=\"|0;${n}|\"/></rect></svg>", "n", 1));
     assertEquals("<p attributeName=\"fill\">x</p>", render("<p t:attributeName=\"'fill'\">x</p>"));
     compile("<p t:attributeName=\"s\">x</p>").assertError("t:attributeName is not allowed", "inert-text");
   }
@@ -288,21 +292,18 @@ class StyleAttributeTest {
   /**
    * A browser folds A-Z only: attr\u0131buteName (dotless i) and attr\u0130buteName (dotted capital I) are
    * unknown attributes, so the animation animates href, which the real attributeName names, and splits its
-   * values at ';'. They stay URL-checked: a decoy naming fill must not make them CSS.
+   * values at ';'. They stay TRUSTED_URL: a decoy naming fill must not make them CSS, so a CssValue or a
+   * String there is a build error.
    */
   @Test
   void attributeNameFoldsOnlyAscii() {
     String hostile = "/a;javascript:alert(1)//";
     for (String decoy : List.of("attr\u0131buteName=\"fill\"", "attr\u0130buteName=\"fill\"")) {
       for (String names : List.of("attributeName=\"href\" " + decoy, decoy + " attributeName=\"href\"")) {
-        assertEquals(
-            "<svg><a href=\"/x\"><animate " + names + " values=\"about:invalid#tessera\"/>x</a></svg>",
-            render("<svg><a href=\"/x\"><animate " + names + " t:values=\"css.url(s)\"/>x</a></svg>", "s", hostile),
-            names);
-        assertEquals(
-            "<svg><a href=\"/x\"><set " + names + " to=\"about:invalid#tessera\"/>x</a></svg>",
-            render("<svg><a href=\"/x\"><set " + names + " t:to=\"s\"/>x</a></svg>", "s", "javascript:alert(1)"),
-            names);
+        compile("<svg><a href=\"/x\"><animate " + names + " t:values=\"css.url(s)\"/>x</a></svg>")
+            .assertError("t.html:1:", "t:values is not allowed", "holds URLs but is not exactly one URL", "CssValue");
+        compile("<svg><a href=\"/x\"><set " + names + " t:to=\"s\"/>x</a></svg>")
+            .assertError("t.html:1:", "t:to is not allowed", "holds URLs but is not exactly one URL", "String");
       }
     }
     // The real attributeName still makes the values CSS, in any ASCII case; an ASCII-case duplicate is an error.

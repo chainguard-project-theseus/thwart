@@ -102,7 +102,7 @@ class ContextCheckTest {
   void onlyIdenticalEscapersCollide() {
     Set<OutputContext> entity =
         EnumSet.of(OutputContext.RCDATA, OutputContext.ATTRIBUTE, OutputContext.URL,
-            OutputContext.URL_LIST, OutputContext.RESOURCE_URL);
+            OutputContext.RESOURCE_URL);
     Set<Set<OutputContext>> raw = new HashSet<>();
     Set<Set<OutputContext>> decoded = new HashSet<>();
     for (OutputContext c : Fingerprint.contexts()) {
@@ -136,7 +136,7 @@ class ContextCheckTest {
     }
     Set<OutputContext> entity =
         EnumSet.of(OutputContext.TEXT, OutputContext.RCDATA, OutputContext.ATTRIBUTE,
-            OutputContext.URL, OutputContext.URL_LIST, OutputContext.RESOURCE_URL);
+            OutputContext.URL, OutputContext.RESOURCE_URL);
     for (boolean decoded : new boolean[] {false, true}) {
       Set<Set<OutputContext>> path = new HashSet<>();
       Set<Set<OutputContext>> query = new HashSet<>();
@@ -313,7 +313,6 @@ class ContextCheckTest {
     cases.put("RCDATA textarea", "<textarea>" + rcdata(FP) + "</textarea>");
     cases.put("ATTRIBUTE", "<p title=\"" + attr(FP) + "\">x</p>");
     cases.put("URL", "<a href=\"" + esc(Escapers::url, FP) + "\">x</a>");
-    cases.put("URL_LIST", "<svg><animate values=\"" + esc(Escapers::urlList, FP) + "\"/></svg>");
     cases.put("RESOURCE_URL", "<script src=\"" + esc(Escapers::resourceUrl, FP) + "\"></script>");
     cases.put("SCRIPT", "<script>var a = " + json(FP) + ";</script>");
     cases.put("SCRIPT module", "<script type=\"module\">var a = " + json(FP) + ";</script>");
