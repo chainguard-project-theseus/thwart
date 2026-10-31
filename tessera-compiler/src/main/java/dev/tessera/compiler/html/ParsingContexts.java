@@ -60,14 +60,6 @@ public final class ParsingContexts {
   private static final Set<String> RAW_TEXT =
       Backports.setOf(
           "title", "textarea", "script", "style", "xmp", "iframe", "noembed", "noframes", "noscript", "plaintext");
-  private static final Set<String> SVG_HTML_PARENTS = Backports.setOf("foreignobject", "desc", "title");
-  private static final Set<String> MATHML_HTML_PARENTS = Backports.setOf("mi", "mo", "mn", "ms", "mtext");
-  /** HTML elements that end foreign content when a browser meets them inside {@code <svg>} or {@code <math>}. */
-  private static final Set<String> BREAKOUT =
-      Backports.setOf(
-          "b", "big", "blockquote", "body", "br", "center", "code", "dd", "div", "dl", "dt", "em", "embed", "h1", "h2",
-          "h3", "h4", "h5", "h6", "head", "hr", "i", "img", "li", "listing", "menu", "meta", "nobr", "ol", "p", "pre",
-          "ruby", "s", "small", "span", "strong", "strike", "sub", "sup", "table", "tt", "u", "ul", "var");
   /** Tags a browser ignores inside {@code <select>}, parsing their content as markup, or that start foreign content. */
   private static final Set<String> NOT_IN_SELECT = Backports.setOf("title", "style", "svg", "math");
 
@@ -221,7 +213,7 @@ public final class ParsingContexts {
           // A <noscript> in <svg> holds SVG, but the raw-text rule checks it as raw text: no fragment
           // fits in or comes from it, so nothing in it renders where the raw-text rule does not look.
           inner = MIXED;
-        } else if (removesTag(e) && !inner.equals(context) && !isRawText(inner)) {
+        } else if (HtmlParser.omitsTag(e.name(), e.attributes()) && !inner.equals(context) && !isRawText(inner)) {
           // Raw text keeps its context: the raw-text rule checks it with or without the tag.
           inner = UNWRAPPED;
         }
@@ -229,7 +221,7 @@ public final class ParsingContexts {
         content.put(e, inner);
         boolean inside = walk(e.children(), inner, raw || rawTextElement(e)) && rendersChildren(e);
         boolean foreign = isForeign(context);
-        if (foreign && !omitsTag(e) && isBreakout(e)) {
+        if (foreign && !omitsTag(e) && HtmlParser.isBreakoutTag(e.name(), e.attributes())) {
           inside = true;
         }
         if (inside && !foreign && isForeign(inner)) {
@@ -258,14 +250,6 @@ public final class ParsingContexts {
 
   private static boolean isForeign(String context) {
     return context.equals("svg") || context.equals("math") || context.equals("annotation-xml");
-  }
-
-  private static boolean isBreakout(Element e) {
-    String name = HtmlParser.asciiLower(e.name());
-    if (name.equals("font")) {
-      return mayHave(e, "color") || mayHave(e, "face") || mayHave(e, "size");
-    }
-    return BREAKOUT.contains(name);
   }
 
   /**
@@ -312,45 +296,24 @@ public final class ParsingContexts {
         }
         return RAW_TEXT.contains(name) ? name : HTML;
       case "svg":
-        return SVG_HTML_PARENTS.contains(name) ? HTML : "svg";
+        return HtmlParser.SVG_HTML_PARENTS.contains(name) ? HTML : "svg";
       case "annotation-xml":
         return name.equals("svg") ? "svg" : contentOf("math", e);
       case "math":
-        if (MATHML_HTML_PARENTS.contains(name)) {
+        if (HtmlParser.MATHML_TEXT_PARENTS.contains(name)) {
           return HTML;
         }
         if (name.equals("annotation-xml")) {
           if (computed(e, "encoding")) {
             return MIXED;
           }
-          String encoding = staticValue(e, "encoding");
-          encoding = encoding == null ? "" : HtmlParser.asciiLower(encoding);
-          return encoding.equals("text/html") || encoding.equals("application/xhtml+xml") ? HTML : "annotation-xml";
+          return HtmlParser.htmlAnnotation(HtmlParser.MATHML, name, e.attributes()) ? HTML : "annotation-xml";
         }
         return "math";
       default:
         // Inside raw text a browser sees no elements at all; inside <select> it stays in select.
         return context;
     }
-  }
-
-  /** Whether {@code e} has attribute {@code name}, written or possibly set by a {@code t:} attribute. */
-  private static boolean mayHave(Element e, String name) {
-    return staticValue(e, name) != null || computed(e, name);
-  }
-
-  /**
-   * The value of {@code e}'s written attribute {@code name} (lower-case), "" if it has no value, or null if it has
-   * none. Names fold A-Z only, as in a browser and {@link HtmlParser#htmlAnnotation}: {@code encod\u0131ng} is not
-   * {@code encoding}.
-   */
-  private static String staticValue(Element e, String name) {
-    for (Attribute a : e.attributes()) {
-      if (!a.isTessera() && HtmlParser.asciiLower(a.name()).equals(name)) {
-        return a.value() == null ? "" : a.value();
-      }
-    }
-    return null;
   }
 
   /** Whether {@code t:<name>} or a {@code t:attr} {@link HtmlParser#attrMaySet may set} {@code name} (lower-case). */
@@ -369,21 +332,12 @@ public final class ParsingContexts {
    * whose fragment lands where {@code e} is.
    */
   private static boolean omitsTag(Element e) {
-    return e.name().equals(Attribute.PREFIX + "block") || hasReplace(e) || removesTag(e);
+    return hasReplace(e) || HtmlParser.omitsTag(e.name(), e.attributes());
   }
 
   private static boolean hasReplace(Element e) {
     for (Attribute a : e.attributes()) {
       if (a.name().equals(Attribute.PREFIX + "replace")) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private static boolean removesTag(Element e) {
-    for (Attribute a : e.attributes()) {
-      if (a.name().equals(Attribute.PREFIX + "remove") && a.value() != null && JavaStrings.trimJava(a.value()).equals("tag")) {
         return true;
       }
     }

@@ -69,7 +69,7 @@ final class VerifierMessages {
         return textOutsideBody(value, s);
       case RCDATA_NOT_IN_RCDATA:
         return "this value is escaped for the text of <title> or <textarea>, but a browser reads it " + reading(s)
-            + ", where a {{ in it could run in Vue or AngularJS; " + (foreign(s)
+            + ", where a {{ in it could run in Vue; " + (foreign(s)
                 ? "insert the <title> or <textarea> outside <svg> and <math>"
                 : "check the markup before it");
       case TEXT_IN_RCDATA:

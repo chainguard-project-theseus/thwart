@@ -11,29 +11,30 @@ package dev.tessera.compiler.html;
  * <ul>
  *   <li>A {@code <} starts, in this order of preference: a start tag ({@code <} and a name char,
  *       anything but {@code - ! / ? [} or whitespace, except {@code <!DOCTYPE}), an end tag, a
- *       comment, a CDATA section, a DOCTYPE, an XML declaration or a processing instruction. Any
- *       other {@code <} is text.
- *   <li>Tags and declarations end at the first {@code >} outside quotes; both quote kinds toggle
- *       anywhere in the tag. A tag ending in {@code />} is self-closing. Names end at whitespace
- *       ({@link Character#isWhitespace}) outside quotes.
+ *       comment, a CDATA section, a DOCTYPE or a processing instruction. Any other {@code <} is
+ *       text.
+ *   <li>Tags and DOCTYPEs end at the first {@code >} outside quotes; both quote kinds toggle
+ *       anywhere in the tag. A tag ending in {@code />} is self-closing. Names end at HTML
+ *       whitespace outside quotes.
  *   <li>An attribute name ends at {@code =} or whitespace; it has a value if the following run of
  *       {@code =} and whitespace has an {@code =}. A quoted value ends at its closing quote, an
  *       unquoted one at whitespace.
  *   <li>Void elements are always self-closed. The content of {@code <style>}, and of {@code
  *       <script>} without a {@code type} or with a JavaScript one, is not tokenized: it ends at the
  *       first {@code </name>} spelled as in the start tag.
- *   <li>A structure without its end is fatal, as are a few malformed tags and declarations; the
- *       {@link MarkupException} messages are attoparser's.
+ *   <li>A structure without its end is fatal, as are a few malformed tags; the {@link
+ *       MarkupException} messages are attoparser's. Malformed DOCTYPEs and processing instructions
+ *       (an XML declaration is one) are the verifier's parse errors.
  * </ul>
  *
  * <p>Some rules are Tessera's own: in a start or end tag, a quote that a browser does not read as
  * the start or end of a quoted attribute value (one in a name, in an unquoted value or right after
  * a quoted value) is fatal, because with it the tag could end at a different {@code >} than in a
- * browser. So are a char outside quoted values that {@link Character#isWhitespace} accepts but HTML
- * does not, a {@code /} that ends an unquoted value before {@code >}, an {@code =} that starts an
- * unquoted value, and anything but {@code >} after a {@code /} outside a value, because a browser
- * splits or ends the tag differently there. Raw text that a browser does not tokenize ({@link
- * Handler#rawText}) is exempt.
+ * browser. So are a char outside quoted values that Java or Unicode counts as a space but HTML does
+ * not (a browser keeps it in the name or value), a {@code /} that ends an unquoted value before
+ * {@code >}, an {@code =} that starts an unquoted value, and anything but {@code >} after a
+ * {@code /} outside a value, because a browser splits or ends the tag differently there. Raw text
+ * that a browser does not tokenize ({@link Handler#rawText}) is exempt.
  *
  * <p>Thymeleaf's parser-level comment {@code <!--/* ... *&#47;-->} is a template comment, also
  * Tessera's own: from {@code <!--/*} to the first {@code *&#47;-->} it is one {@link
@@ -59,7 +60,7 @@ final class MarkupTokenizer {
 
     void cdata(int start, int end);
 
-    /** A DOCTYPE, an XML declaration or a processing instruction. */
+    /** A DOCTYPE or a processing instruction (an XML declaration is one). */
     void declaration(int start, int end);
 
     /** A start tag at {@code lt} whose name ends at {@code nameEnd}. */
@@ -114,9 +115,8 @@ final class MarkupTokenizer {
   private static final int COMMENT = 3;
   private static final int CDATA = 4;
   private static final int DOCTYPE = 5;
-  private static final int XML_DECLARATION = 6;
-  private static final int PROCESSING_INSTRUCTION = 7;
-  private static final int TEMPLATE_COMMENT = 8;
+  private static final int PROCESSING_INSTRUCTION = 6;
+  private static final int TEMPLATE_COMMENT = 7;
 
   private static final char[] TEMPLATE_COMMENT_END = "*/-->".toCharArray();
 
@@ -184,12 +184,7 @@ final class MarkupTokenizer {
         && (HtmlParser.isHtmlWhitespace(buf[i + 9]) || buf[i + 9] == '>')) {
       return DOCTYPE;
     }
-    if (n - i > 5 && startsWith(i, "<?xml")
-        && (HtmlParser.isHtmlWhitespace(buf[i + 5]) || (n - i > 6 && buf[i + 5] == '?' && buf[i + 6] == '>'))) {
-      return XML_DECLARATION;
-    }
-    if (n - i > 2 && buf[i + 1] == '?' && !HtmlParser.isHtmlWhitespace(buf[i + 2])
-        && !(n - i > 5 && startsWith(i + 2, "xml") && HtmlParser.isHtmlWhitespace(buf[i + 5]))) {
+    if (n - i > 2 && buf[i + 1] == '?' && !HtmlParser.isHtmlWhitespace(buf[i + 2])) {
       return PROCESSING_INSTRUCTION;
     }
     return NONE;
@@ -262,13 +257,6 @@ final class MarkupTokenizer {
       }
       case DOCTYPE: {
         int end = docTypeEnd(start);
-        checkDocType(start, end);
-        handler.declaration(start, end + 1);
-        return end;
-      }
-      case XML_DECLARATION: {
-        int end = tagEnd(start);
-        checkXmlDeclaration(start, end);
         handler.declaration(start, end + 1);
         return end;
       }
@@ -302,8 +290,8 @@ final class MarkupTokenizer {
    * the first {@code >} outside a quoted value.
    *
    * <p>Four more differences between the tokenizer and a browser are errors here for the same
-   * reason: a char that {@link Character#isWhitespace} accepts but HTML does not ({@code \t \n
-   * \f \r} and space), which a browser keeps in the name or value; a {@code /} that ends an
+   * reason: a char that Java or Unicode counts as a space but HTML does not (HTML's are {@code \t
+   * \n \f \r} and space), which a browser keeps in the name or value; a {@code /} that ends an
    * unquoted value right before {@code >}, which a browser keeps in the value (the tag is not
    * {@code />}); an {@code =} that starts an unquoted value, which a browser keeps in the value
    * where the tokenizer skips it; and anything but {@code >} after a {@code /} outside a value: a
@@ -314,7 +302,7 @@ final class MarkupTokenizer {
     int state = TAG_NAME;
     for (int i = from; i < n; i++) {
       char c = buf[i];
-      boolean space = c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r';
+      boolean space = HtmlParser.isHtmlWhitespace(c);
       if (state == DOUBLE_QUOTED_VALUE || state == SINGLE_QUOTED_VALUE) {
         if (c == (state == DOUBLE_QUOTED_VALUE ? '"' : '\'')) {
           state = AFTER_QUOTED_VALUE;
@@ -561,127 +549,6 @@ final class MarkupTokenizer {
         return;
       }
       i = valueEnd;
-    }
-  }
-
-  /** Checks a DOCTYPE from {@code start} to {@code end} ({@code >}) the way attoparser does. */
-  private void checkDocType(int start, int end) throws MarkupException {
-    String outer = str(start, end + 1);
-    String clause = "Could not parse as a well-formed DOCTYPE clause \"" + outer + "\": ";
-    String needId = clause + "If a type is specified (PUBLIC or SYSTEM), at least a public or a system ID has to be specified";
-    String quotes = clause + "Public and System IDs must be surrounded by quotes (\")";
-    String systemOne = clause + "type SYSTEM only allows specifying one element (a system ID)";
-    int from = start + 2;
-    int to = end;
-    int last = to - 1;
-    while (last > from && HtmlParser.isHtmlWhitespace(buf[last])) {
-      last--;
-    }
-    if (last > from && buf[last] == ']') {
-      to = internalSubsetStart(from, to);
-      if (to < 0) {
-        throw new MarkupException("Could not parse as a well-formed DOCTYPE clause: \"" + outer + "\"", start);
-      }
-    }
-    // keyword, element name, type, then one or two quoted IDs
-    int i = whitespace(from, to, false);
-    i = i < 0 ? -1 : nonWhitespace(i, to);
-    i = i < 0 ? -1 : whitespace(i, to, false);
-    i = i < 0 ? -1 : nonWhitespace(i, to);
-    if (i < 0) {
-      return;
-    }
-    int typeEnd = whitespace(i, to, true);
-    if (typeEnd < 0) {
-      throw new MarkupException(needId, start);
-    }
-    if (!(typeEnd - i == 6 && (keyword(i, "PUBLIC") || keyword(i, "SYSTEM")))) {
-      throw new MarkupException(clause + "DOCTYPE type must be either \"PUBLIC\" or \"SYSTEM\"", start);
-    }
-    boolean isPublic = buf[i] == 'P' || buf[i] == 'p';
-    i = nonWhitespace(typeEnd, to);
-    if (i < 0) {
-      throw new MarkupException(needId, start);
-    }
-    for (int id = 1; ; id++) {
-      int idEnd = whitespace(i, to, true);
-      if (!isQuoted(i, idEnd < 0 ? to : idEnd)) {
-        throw new MarkupException(quotes, start);
-      }
-      if (id == 2 && !isPublic) {
-        throw new MarkupException(systemOne, start);
-      }
-      if (idEnd < 0) {
-        return;
-      }
-      i = nonWhitespace(idEnd, to);
-      if (i < 0) {
-        return;
-      }
-      if (id == 2) {
-        throw new MarkupException(clause + "More elements found than allowed", start);
-      }
-    }
-  }
-
-  private int internalSubsetStart(int from, int to) {
-    boolean inQuotes = false;
-    boolean inApos = false;
-    for (int i = from; i < to; i++) {
-      char c = buf[i];
-      if (c == '"' && !inApos) {
-        inQuotes = !inQuotes;
-      } else if (c == '\'' && !inQuotes) {
-        inApos = !inApos;
-      } else if (c == '[' && !inQuotes && !inApos) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
-  private boolean isQuoted(int start, int end) {
-    return end - start >= 2 && (buf[start] == '"' || buf[start] == '\'') && buf[end - 1] == buf[start];
-  }
-
-  /** Checks an XML declaration from {@code start} to {@code end} ({@code >}) the way attoparser does. */
-  private void checkXmlDeclaration(int start, int end) throws MarkupException {
-    String outer = "\"" + str(start, end + 1) + "\"";
-    if (end - start + 1 < 7 || buf[end - 1] != '?') {
-      throw new MarkupException("Could not parse as a well-formed XML Declaration: " + outer, start);
-    }
-    int to = end - 1;
-    int keywordEnd = whitespace(start + 2, to, false);
-    int content = keywordEnd < 0 ? -1 : nonWhitespace(keywordEnd, to);
-    if (content < 0) {
-      throw new MarkupException("XML Declaration must at least contain a \"version\" attribute: " + outer, start);
-    }
-    boolean[] seen = new boolean[3]; // version, encoding, standalone
-    attributes(content, to, (ns, ne, vs, ve, quote) -> {
-      String name = str(ns, ne);
-      String problem;
-      if (name.equals("version")) {
-        problem = seen[0] ? "can declare only one \"version\" attribute"
-            : seen[1] || seen[2] ? "must declare \"version\" as its first attribute" : null;
-        seen[0] = true;
-      } else if (name.equals("encoding")) {
-        problem = seen[1] ? "can declare only one \"encoding\" attribute"
-            : !seen[0] ? "must declare \"encoding\" after \"version\""
-            : seen[2] ? "must declare \"encoding\" before \"standalone\"" : null;
-        seen[1] = true;
-      } else if (name.equals("standalone")) {
-        problem = seen[2] ? "can declare only one \"standalone\" attribute" : null;
-        seen[2] = true;
-      } else {
-        problem = "does not allow attribute with name \"" + name
-            + "\". Only \"version\", \"encoding\" and \"standalone\" are allowed (in that order)";
-      }
-      if (problem != null) {
-        throw new MarkupException("XML Declaration " + problem + ": " + outer, start);
-      }
-    });
-    if (!seen[0]) {
-      throw new MarkupException("Attribute \"version\" is required in XML Declaration: " + outer, start);
     }
   }
 
