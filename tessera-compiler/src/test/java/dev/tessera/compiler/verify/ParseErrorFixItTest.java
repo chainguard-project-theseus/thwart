@@ -1,7 +1,10 @@
 package dev.tessera.compiler.verify;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.tessera.compiler.testing.Compilation;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -71,6 +74,29 @@ class ParseErrorFixItTest {
   }
 
   @Test
+  void malformedDoctypeOrXmlDeclarationIsRejected() {
+    // The tokenizer no longer checks these with attoparser's grammar (#514): each is a parse error,
+    // and the verifier names the fix.
+    for (String doctype : List.of("<!DOCTYPE html PUBLIC>", "<!DOCTYPE html SYSTEM>", "<!DOCTYPE html FOO \"x\">",
+        "<!DOCTYPE html PUBLIC x>", "<!DOCTYPE html PUBLIC \"a\"x>", "<!DOCTYPE html SYSTEM \"a\" \"b\">",
+        "<!DOCTYPE html PUBLIC \"a\" \"b\" c>", "<!DOCTYPE html [<!ENTITY x \"y\">]>")) {
+      document(doctype + "<p>x</p>").assertError("t.html:1:1: error: a browser reads this <!doctype> only by error"
+          + " recovery", "; write <!doctype html> [verifier:PARSE_ERROR]");
+    }
+    String pi = "HTML has no processing instructions: remove the <?...?>, or write &lt; for a literal '<'"
+        + " [verifier:PARSE_ERROR]";
+    for (String xml : List.of("<?xml?>", "<?xml ?>", "<?xml encoding=\"UTF-8\"?>", "<?xml version=\"1.0\" x=\"y\"?>",
+        "<?xml version=\"1.0\" version=\"1.0\"?>", "<?xml version=\"1.0\">", "<?xml version=\"1.0\"?>")) {
+      String closed = xml.endsWith("?>") ? xml : xml + "?>"; // without a '?>', see below
+      document(closed + "<p>x</p>").assertError("t.html:1:1: error: a browser reads '<?'", pi);
+      compile("<p>" + closed + "</p>").assertError("t.html:2:4: error: a browser reads '<?'", pi);
+    }
+    // Without a '?>' anywhere, as for any '<?', the tokenizer reports where the unclosed one starts.
+    document("<?xml version=\"1.0\"><p>x</p>")
+        .assertError("t.html:1:1: error: malformed markup: Incomplete structure: \"<?xml version=\"1.0\"><p>x</p>\"");
+  }
+
+  @Test
   void textABrowserReadsAsABogusCommentIsRejected() {
     // A browser starts a bogus comment at "</ " that ends at the first '>', inside Tessera's
     // comment, so it would run this <script> while Tessera escaped [[${x}]] as text.
@@ -91,6 +117,15 @@ class ParseErrorFixItTest {
   void rcdataAndRawTextHaveNoBogusComments() {
     compile("<textarea>Type </ html> literally</textarea><title>a <!x> <? b</title>"
         + "<script>if (a </ b) {}</script><style>p::before { content: \"<!x>\" }</style>").assertSuccess();
+  }
+
+  @Test
+  void malformedDoctypeOrXmlDeclarationInRcdataIsText() {
+    // A browser reads these as text there; a hidden end tag in one is HtmlParserTest's
+    // rawTextEndTagHiddenInAttributeOrCommentIsAnError.
+    String body = "<title><!DOCTYPE html PUBLIC></title><textarea><?xml x?><!DOCTYPE html SYSTEM \"a\" \"b\"></textarea>";
+    Compilation c = compile(body).assertSuccess();
+    assertTrue(c.render("t", Map.of("x", "")).contains(body), body);
   }
 
   @Test
