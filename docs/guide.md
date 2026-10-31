@@ -702,7 +702,7 @@ The compiler decides the context from the element and attribute name. You cannot
 | Context | Where | What happens |
 |---|---|---|
 | Text | element text, `t:text`, `[[...]]` | `& < > " '` escaped, and `{{` broken with an empty comment (below). |
-| Title and textarea | text in `<title>` and `<textarea>` (also `t:field`), outside `<svg>` and `<math>` (there they are Text) | `& < > " '` escaped; `{{` is left as is. |
+| Title and textarea | text in `<title>` and `<textarea>` (also `t:field`), outside `<svg>` and `<math>` (there they are Text) | `& < > " '` escaped; `{{` is left as is, and the start tag gets `v-pre` (below). |
 | Raw HTML | `t:utext`, `[(...)]` | Only `SafeHtml`, or a bundle message checked at build time (section 4.5), compiles. Not inside `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>`, `<noscript>`, `<textarea>` or `<title>`, which a browser reads as text up to their end tag (nor are `t:insert` and `t:replace`). |
 | Attribute | any other standard HTML, SVG, MathML or ARIA attribute, `data-*`, or a plain prop on a custom element | Escaped, always double-quoted. Any other computed name is a build error (below). |
 | URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, `manifest`, `hx-push-url`, `hx-replace-url`, `values`, `to`, `from` and `by` of SVG `<animate>`, `to` of SVG `<set>` (`<set>` ignores `values`, `from` and `by`, but they are checked the same way; not when they animate a Style attribute, below), ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. `values` of `<animate>` is a `;`-separated list and every item is checked; one bad item replaces the whole list with `about:invalid#tessera`. A `TrustedUrl` there vouches for every item. A computed `srcset` or `imagesrcset` holds a comma-separated list of image candidates, and a computed `ping` a whitespace-separated list of URLs. Tessera does not check these one by one, so they compile only as a `TrustedUrl`. |
@@ -800,6 +800,15 @@ may not render where the `{{` does, such as one inside `t:if`, does not close it
 value: its JSON writes `{` in a string as `\u007b`, so petite-vue, which interpolates script text,
 never sees `{{` there (Vue and AngularJS do not interpolate script text). A value after a `{{` with
 no `}}` between them in the same script is a build error. Attribute values and `<title>`/`<textarea>` text are not changed (section 7).
+
+In `<title>` and `<textarea>` a comment is text, so a value's `{{` can't be broken there. Vue 3
+interpolates their text in a mounted region, and petite-vue mounted without `v-scope` reads the
+whole document, head `<title>` included. So when the content of a `<title>` or `<textarea>` is
+computed (`t:text`, `[[...]]`, `t:field`), Tessera adds `v-pre` to its start tag
+(`<textarea v-pre>`): both frameworks skip that element, and anywhere else the attribute does
+nothing. A static `v-pre` is not repeated. Because `v-pre` would turn them off, a Vue directive or
+binding on the same element (`v-model`, `:rows`, `@input`, `v-cloak`) and a static `{{ }}` next to
+the value are build errors. AngularJS ignores `v-pre` (section 7).
 
 In a script, a record or `@TemplateView` bean becomes a JSON object of the properties a template
 can read, as Thymeleaf's Jackson output does: `var chart = [[${chart}]];` works unchanged. Record
@@ -2272,6 +2281,15 @@ These come from the annotation processor itself, without a template position.
   `t:field`, `t:remove` other than `"tag"` and `"none"`) does not close it, and the body of an element
   that `t:text`, `t:utext`, `t:insert`, `t:replace`, `t:errors` or `t:remove="all"`/`"body"` replaces or
   drops is not read, except for the elements in it, which a template can still insert.
+- `v-model on a <textarea> with computed content is not supported: Tessera adds v-pre there, because a comment cannot break {{ in a value in <textarea>, and v-pre would turn v-model off; drop v-model, or move the value into Vue (v-model or v-text with the value in the app's data) instead of writing it with Tessera`
+  (also `<title>`, and any Vue directive or binding: `v-*`, `:x`, `@x`, `#x`, `.x`): the element's
+  content is computed, so it gets `v-pre` (section 4.4), under which Vue would ignore the
+  directive. Let Vue own the content (`<textarea v-model="text">` with the value in the app's
+  data), or let Tessera own it and drop the directive. Alpine's `x-*` is allowed: Alpine ignores
+  `v-pre`.
+- `{{ in the static text of a <textarea> with computed content is not supported: Tessera adds v-pre there, because a comment cannot break {{ in a value in <textarea>, and v-pre would show the static {{ ... }} as text; write the whole content with Tessera, or bind it with Vue`
+  (also `<title>`): `<title>{{ appName }} - [[${page}]]</title>`. Compute the whole text in
+  Tessera, or bind it in Vue.
 - `[[...]] directly inside <tr> is not supported: a browser moves the text in front of the table but leaves the comments that break {{ in the value inside it, so Vue or AngularJS could run the value as code; put the value in a <td>, <th> or <caption>`
   (also `[(...)]`, `t:text`, `t:utext` and `t:errors`, and `<table>`, `<tbody>`, `<thead>`, `<tfoot>`
   and `<colgroup>`): a value directly in a table, also through `<t:block>` or `t:remove="tag"`.
@@ -2543,12 +2561,12 @@ Gaps in Tessera today, each with what to do until it is fixed.
   `htmx.config.selfRequestsOnly = true` (the default from 2.0) so htmx requests only the page's
   origin; older htmx 1.x has no such setting, so upgrade.
 - **Client-side templates (`{{ }}`).** Tessera breaks `{{` only in element text (section 4.4).
-  AngularJS also interpolates attribute values (`title`, `value`, `alt`, `href`, ...), and Vue,
-  petite-vue and AngularJS interpolate `<title>` and `<textarea>` text, where a comment would
-  show or change the value. Inside a mounted app, put `ng-non-bindable` (AngularJS; it also
-  covers the element's own attributes) or `v-pre` (Vue) on elements whose attributes or
-  `<title>`/`<textarea>` hold user data, or keep server-rendered user data out of the mounted
-  region. Custom delimiters (Vue `delimiters`, AngularJS `$interpolateProvider`) are not
+  In `<title>` and `<textarea>` with computed content it adds `v-pre`, which Vue 3 and
+  petite-vue honour (section 4.4). AngularJS also interpolates attribute values (`title`, `value`, `alt`,
+  `href`, ...) and `<title>` and `<textarea>` text, where a comment would show or change the
+  value, and ignores `v-pre`. Inside a mounted AngularJS app, put `ng-non-bindable` (it also
+  covers the element's own attributes) on elements whose attributes or `<title>`/`<textarea>`
+  hold user data, or keep server-rendered user data out of the mounted region. Custom delimiters (Vue `delimiters`, AngularJS `$interpolateProvider`) are not
   broken, so keep the default `{{ }}` or mark the region. The check for an expression inside a
   static `{{ }}` only sees one text: a `{{` before a tag or comment and an expression after it
   are not reported when a `}}` follows later in the element (#336). `SafeHtml.unchecked` text is
@@ -2567,8 +2585,9 @@ Gaps in Tessera today, each with what to do until it is fixed.
   the tag; `<td >` (after a removed attribute) renders as `<td>`; a `null` attribute value omits
   the attribute (Thymeleaf writes `value=""`); a `null` link path variable fails the render (section 3, step 4);
   element text from a value with `{{`, or starting or ending with `{`, gets empty comments next
-  to those braces (section 4.4); with the Spring starter every `<script>` and `<style>` has a
-  `nonce` attribute (section 4.11), which `tessera-migrate compare` ignores.
+  to those braces (section 4.4); a `<title>` or `<textarea>` with computed content has a `v-pre`
+  attribute (section 4.4); with the Spring starter every `<script>` and `<style>` has a
+  `nonce` attribute (section 4.11). `tessera-migrate compare` ignores both attributes.
 - **Runtime errors** are model type mismatches (`TemplateModelException`), missing primitive
   parameters, reading a property of `null`, `null` link path variables, `first`/`last` of an empty
   list, `ids.prev` before any input (section 4.7) and a variable form-path map key Spring can't

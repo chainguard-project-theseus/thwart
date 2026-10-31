@@ -97,8 +97,8 @@ class ValueAfterLessThanTest {
     assertEquals("<p>&lt;img src=x onerror=alert(1)</p>", render("<p t:text=\"|<${s}|\">x</p>", s, 0));
     assertEquals(
         "<p title=\"&lt;img src=x onerror=alert(1)\">x</p>", render("<p title=\"<\" t:title=\"'<' + s\">x</p>", s, 0));
-    assertEquals("<textarea>&lt;img src=x onerror=alert(1)</textarea>", render("<textarea>&lt;[[s]]</textarea>", s, 0));
-    assertEquals("<textarea></text-area></textarea>", render("<textarea></text-[[s]]></textarea>", "area", 0));
+    assertEquals("<textarea v-pre>&lt;img src=x onerror=alert(1)</textarea>", render("<textarea>&lt;[[s]]</textarea>", s, 0));
+    assertEquals("<textarea v-pre></text-area></textarea>", render("<textarea></text-[[s]]></textarea>", "area", 0));
   }
 
   @Test

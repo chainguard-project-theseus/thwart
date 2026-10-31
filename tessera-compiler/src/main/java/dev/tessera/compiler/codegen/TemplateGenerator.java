@@ -693,11 +693,8 @@ public final class TemplateGenerator implements CodegenContext {
         if (!plan.tagOmitted() && e.selfClosing() && rawTextElement(e) && !opensSelfClosing(plan)) {
           selfClosingRawText(e);
         }
-        if (!plan.tagOmitted()) {
-          startTag(c, plan);
-        }
-        boolean lineFeed = leadingLineFeed && !plan.tagOmitted();
-        Emitted.Builder content = lineFeed ? builder() : c;
+        // The content is generated first: whether the start tag gets v-pre depends on it.
+        Emitted.Builder content = builder();
         for (Emitted s : plan.afterStartTagStatements()) {
           content.add(s);
         }
@@ -708,13 +705,14 @@ public final class TemplateGenerator implements CodegenContext {
             node(content, n, plan.scope());
           }
         }
-        if (lineFeed) {
-          Emitted written = content.build();
-          if (!startsWithStatic(written.nodes())) {
+        Emitted written = content.build();
+        if (!plan.tagOmitted()) {
+          startTag(c, plan, addsVPre(plan, written));
+          if (leadingLineFeed && !startsWithStatic(written.nodes())) {
             c.text("\n", e.pos());
           }
-          c.add(written);
         }
+        c.add(written);
         if (!plan.tagOmitted() && (e.hasEndTag() || opensSelfClosing(plan))) {
           c.text("</" + e.name() + ">", e.pos());
         }
@@ -757,11 +755,102 @@ public final class TemplateGenerator implements CodegenContext {
             + lower + "; write <" + lower + " ...></" + lower + ">");
   }
 
-  private void startTag(Emitted.Builder c, ElementPlan plan) {
+  /**
+   * Whether the start tag of {@code plan}'s {@code <textarea>} or {@code <title>} gets
+   * {@code v-pre} (#549): the framework table's RCDATA entry for Vue 3 and petite-vue
+   * ({@link Contexts#VUE_SKIP}). Their text is RCDATA, where a comment is text, so a value's
+   * {{ cannot be broken, and Vue 3 (in a mounted region) and petite-vue (mounted on the
+   * whole document without {@code v-scope}) interpolate it. Both skip an element with
+   * {@code v-pre}; anywhere else it is an inert unknown attribute. Added when the content is
+   * computed ({@code content} writes anything but static text) and the element has no static
+   * {@code v-pre} yet. A Vue directive or binding on the element, or a static {{ in its
+   * content, would silently stop working under {@code v-pre}, so either is a build error.
+   */
+  private boolean addsVPre(ElementPlan plan, Emitted content) {
+    Element e = plan.element();
+    String lower = HtmlParser.asciiLower(e.name());
+    if (!lower.equals("textarea") && !lower.equals("title") || !computed(content.nodes())) {
+      return false;
+    }
+    List<ElementPlan.Attr> directives = new ArrayList<>();
+    for (ElementPlan.Attr a : plan.attributes()) {
+      String name = HtmlParser.asciiLower(a.name());
+      if (name.equals(Contexts.VUE_SKIP)) {
+        return false;
+      }
+      if (Contexts.isVueDirective(name)) {
+        directives.add(a);
+      }
+    }
+    for (ElementPlan.Attr a : directives) {
+      SourcePos pos =
+          a instanceof ElementPlan.StaticAttr ? ((ElementPlan.StaticAttr) a).source().pos() : ((ElementPlan.DynamicAttr) a).pos();
+      diagnostics()
+          .error(pos == null ? e.pos() : pos, a.name() + " on a <" + lower + "> with computed content is not supported:"
+              + " Tessera adds v-pre there, because a comment cannot break {{ in a value in <" + lower + ">, and v-pre"
+              + " would turn " + a.name() + " off; drop " + a.name() + ", or move the value into Vue (v-model or"
+              + " v-text with the value in the app's data) instead of writing it with Tessera");
+    }
+    boolean braces = staticBraces(content.nodes());
+    if (braces) {
+      diagnostics()
+          .error(e.pos(), "{{ in the static text of a <" + lower + "> with computed content is not supported: Tessera"
+              + " adds v-pre there, because a comment cannot break {{ in a value in <" + lower + ">, and v-pre would"
+              + " show the static {{ ... }} as text; write the whole content with Tessera, or bind it with Vue");
+    }
+    return directives.isEmpty() && !braces;
+  }
+
+  /** Whether {@code nodes} write anything but static text. */
+  private static boolean computed(List<Skeleton.Node> nodes) {
+    for (Skeleton.Node n : nodes) {
+      if (n instanceof Skeleton.Seq ? computed(((Skeleton.Seq) n).nodes()) : !(n instanceof Skeleton.Static)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Whether the static text in {@code nodes} may write {{: adjacent static text joins, also into
+   * and out of conditions and loops; a value, call or other branch separates it.
+   */
+  private static boolean staticBraces(List<Skeleton.Node> nodes) {
+    StringBuilder text = new StringBuilder();
+    staticText(nodes, text);
+    return text.indexOf("{{") >= 0;
+  }
+
+  private static void staticText(List<Skeleton.Node> nodes, StringBuilder out) {
+    for (Skeleton.Node n : nodes) {
+      if (n instanceof Skeleton.Static) {
+        out.append(((Skeleton.Static) n).text());
+      } else if (n instanceof Skeleton.Seq) {
+        staticText(((Skeleton.Seq) n).nodes(), out);
+      } else if (n instanceof Skeleton.Opt) {
+        staticText(((Skeleton.Opt) n).body().nodes(), out);
+      } else if (n instanceof Skeleton.Rep) {
+        // Two rounds: the end of one meets the separator and the start of the next.
+        staticText(((Skeleton.Rep) n).body().nodes(), out);
+        staticText(((Skeleton.Rep) n).separator().nodes(), out);
+        staticText(((Skeleton.Rep) n).body().nodes(), out);
+      } else if (n instanceof Skeleton.Alt) {
+        for (Skeleton.Seq branch : ((Skeleton.Alt) n).branches()) {
+          out.append('\0');
+          staticText(branch.nodes(), out);
+        }
+        out.append('\0');
+      } else {
+        out.append('\0');
+      }
+    }
+  }
+
+  private void startTag(Emitted.Builder c, ElementPlan plan, boolean vPre) {
     Element e = plan.element();
     boolean nonce = takesCspNonce(plan);
     String source = sourceStartTag(e);
-    if (source != null && !nonce && unchanged(e, plan)) {
+    if (source != null && !nonce && !vPre && unchanged(e, plan)) {
       c.text(source, e.pos());
       return;
     }
@@ -773,6 +862,10 @@ public final class TemplateGenerator implements CodegenContext {
       } else {
         c.add(dynamicAttr(e, (ElementPlan.DynamicAttr) a));
       }
+    }
+    if (vPre) {
+      // Static text in the skeleton, exactly as written, so the verifier parses it (§11.3 item 1).
+      c.text(" " + Contexts.VUE_SKIP, e.pos());
     }
     if (nonce) {
       String n = freshName("nonce");

@@ -321,14 +321,14 @@ Static attributes are copied verbatim and are not affected by these rules.
 The target is a data file with one entry per framework and version range (#333), checked by the
 nightly framework harness (#334). Today the entries are hard-coded in `Contexts`:
 
-| Framework | Code attributes (error) | Fetches and swaps (same-origin link only) | JSON bindings | Delimiters | Elements |
-|---|---|---|---|---|---|
-| Vue 2/3, petite-vue | every `v-*`; `:x`, `@x`, `#x`, `.x` | none | `:x`, `v-bind:x` with an ordinary target, except `BIND_DENIED_TARGETS` (target: an allow-list, #333) | `{{ }}` | `component` (target: listed, with a static `is`, #272) |
-| Alpine.js | every `x-*`; `:x`, `@x` | none | `:x`, `x-bind:x`, as Vue | none | none |
-| htmx 1/2 | `hx-on*`, `hx-vals`, `hx-vars`, `hx-headers`, `hx-request`, `hx-trigger` (also `data-hx-`) | `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect`, `ws-connect`; form actions under `hx-boost` | none | none | none |
-| AngularJS | `ng-*`, `ng:*`, `ng_*`, also after one prefix `x` or `data` followed by `:`, `-` or `_`, and after a run of `:`, `-`, `_` (`data:ng-click`, `x_ng-click`, `data--ng-click`, `_ng-click`; angular.js `directiveNormalize`) | none | none | `{{ }}` | none |
-| Knockout | `data-bind`; `params` on a custom element | none | none | none | none |
-| _hyperscript | `_`, `script`, `data-script` | none | none | none | none |
+| Framework | Code attributes (error) | Fetches and swaps (same-origin link only) | JSON bindings | Delimiters | Elements | Skip attribute (RCDATA, #549) |
+|---|---|---|---|---|---|---|
+| Vue 2/3, petite-vue | every `v-*`; `:x`, `@x`, `#x`, `.x` | none | `:x`, `v-bind:x` with an ordinary target, except `BIND_DENIED_TARGETS` (target: an allow-list, #333) | `{{ }}` | `component` (target: listed, with a static `is`, #272) | `v-pre`: added to a `<title>` or `<textarea>` with computed content; a Vue directive there, or a static `{{` beside the value, is an error |
+| Alpine.js | every `x-*`; `:x`, `@x` | none | `:x`, `x-bind:x`, as Vue | none | none | none |
+| htmx 1/2 | `hx-on*`, `hx-vals`, `hx-vars`, `hx-headers`, `hx-request`, `hx-trigger` (also `data-hx-`) | `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect`, `ws-connect`; form actions under `hx-boost` | none | none | none | none |
+| AngularJS | `ng-*`, `ng:*`, `ng_*`, also after one prefix `x` or `data` followed by `:`, `-` or `_`, and after a run of `:`, `-`, `_` (`data:ng-click`, `x_ng-click`, `data--ng-click`, `_ng-click`; angular.js `directiveNormalize`) | none | none | `{{ }}` | none | none (AngularJS ignores `v-pre`: use `ng-non-bindable`, guide §7) |
+| Knockout | `data-bind`; `params` on a custom element | none | none | none | none | none |
+| _hyperscript | `_`, `script`, `data-script` | none | none | none | none | none |
 
 | `{{` rule | Status | Checked by |
 |---|---|---|
@@ -337,7 +337,8 @@ nightly framework harness (#334). Today the entries are hard-coded in `Contexts`
 | `{` as `\u007b` in JSON strings | #303 | `ScriptJsonTest` (#303) |
 | Unclosed static `{{` before a hole is an error | #303 (same text node or script); across nodes #336 | seed `A18`; generator interference `{{..}}` |
 | A static `&` that starts a character reference before a hole is an error, so a value can't spell `{` as `&#123;` (`&[[a]]&[[b]]`, a = b = `#123;`); an HTML message the build did not check is escaped as text | verifier (`TEXT_NOT_IN_TEXT`, §2 "Text: hole after `&`"); runtime (`Escapers.htmlMessage`) | `ValueAfterAmpersandTest`, `EscapersTest` |
-| Attributes and RCDATA: no lossless break | documented limitation (guide §7), bounded by `v-pre`, `ng-non-bindable` and CSP (#335) | seed `A37`; #344 CSTI check |
+| RCDATA (`<title>`, `<textarea>`): no lossless break, so a computed one gets `v-pre` (Vue 3, petite-vue); a Vue directive on it, or a static `{{` beside the value, is an error; no duplicate `v-pre` | main (#549) | `VPreRcdataTest` (output and errors); that Vue 3.5.44 and petite-vue 0.4.1 skip it was checked by hand in Chromium (the hostile value runs without `v-pre`, not with it), framework harness rows #334 |
+| Attributes, and RCDATA under AngularJS: no lossless break | documented limitation (guide §7), bounded by `ng-non-bindable` and CSP (#335) | seed `A37`; #344 CSTI check |
 
 Frameworks configured to read other names (an Alpine prefix, a Knockout binding provider, a
 hyperscript `attributes` setting) are not detected (G5). This is outside the guarantee; see

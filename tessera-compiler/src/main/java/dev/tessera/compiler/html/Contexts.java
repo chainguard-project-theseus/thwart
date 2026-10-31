@@ -238,6 +238,26 @@ public final class Contexts {
   /** A bind target: a plain attribute name without modifiers ({@code .}) or namespaces ({@code :}). */
   private static final Pattern BIND_TARGET = Pattern.compile("[a-z_][a-z0-9_-]*");
 
+  /**
+   * The attribute that makes Vue 3 and petite-vue skip an element and its content (#549). The
+   * compiler adds it to a {@code <textarea>} or {@code <title>} with computed content, whose
+   * RCDATA text can't break a value's {{ with a comment. Vue 3.5.44
+   * {@code packages/compiler-core/src/parser.ts} lines 234-235 enter v-pre mode on it and line 112
+   * keeps {{ }} as text there ({@code tokenizer.ts} line 457 for RCDATA); petite-vue 0.4.1
+   * {@code src/walk.ts} lines 22-24 return before walking the element.
+   */
+  public static final String VUE_SKIP = "v-pre";
+
+  /**
+   * Whether {@code lowerName} (A-Z folded) is a Vue directive or binding, which {@link #VUE_SKIP}
+   * turns off: every {@code v-*} and the shorthands {@code :x}, {@code @x}, {@code #x},
+   * {@code .x}. Alpine's {@code x-*} is not one: Alpine ignores {@code v-pre}.
+   */
+  public static boolean isVueDirective(String lowerName) {
+    return lowerName.startsWith("v-") || lowerName.startsWith(":") || lowerName.startsWith("@")
+        || lowerName.startsWith("#") || lowerName.startsWith(".");
+  }
+
   /** Bind prefixes: Vue {@code v-bind:}, Alpine {@code x-bind:}, and their shared {@code :} shorthand. */
   private static final String[] BIND_PREFIXES = {"v-bind:", "x-bind:", ":"};
 

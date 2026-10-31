@@ -93,7 +93,7 @@ class FieldFragmentsTest {
     assertEquals(
         "<form><select id=\"pet\" name=\"pet\"><option value=\"cat\">cat</option>"
             + "<option value=\"dog\" selected=\"selected\">dog</option></select>"
-            + "<textarea id=\"bio\" name=\"bio\">\na &lt;b&gt;bio&lt;/b&gt;</textarea></form>",
+            + "<textarea id=\"bio\" name=\"bio\" v-pre>\na &lt;b&gt;bio&lt;/b&gt;</textarea></form>",
         out);
   }
 
@@ -111,7 +111,7 @@ class FieldFragmentsTest {
             .compile()
             .assertSuccess();
     assertEquals(
-        "<form><p><textarea id=\"bio\" name=\"bio\">\na &lt;b&gt;bio&lt;/b&gt;</textarea></p></form>",
+        "<form><p><textarea id=\"bio\" name=\"bio\" v-pre>\na &lt;b&gt;bio&lt;/b&gt;</textarea></p></form>",
         render(c, owner(c, "Ann", null), new TestForms()));
   }
 

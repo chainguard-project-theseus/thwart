@@ -352,8 +352,8 @@ class FragmentsTest {
             .assertSuccess();
     Object u = c.newInstance("com.example.User", "<x>");
     assertEquals(
-        "<div><title><script>&lt;x&gt;</script></title></div><textarea><script>&lt;x&gt;</script></textarea>"
-            + "<title><script>&lt;x&gt;</script></title>",
+        "<div><title v-pre><script>&lt;x&gt;</script></title></div><textarea v-pre><script>&lt;x&gt;</script></textarea>"
+            + "<title v-pre><script>&lt;x&gt;</script></title>",
         c.render("page", Map.of("u", u)).split("\n")[1]);
   }
 
