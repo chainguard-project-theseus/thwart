@@ -88,7 +88,7 @@ class FrameworkDirectivesTest {
             + " .textContent=\"t\" x-data=\"{ open: false }\" x-on:click=\"open = !open\""
             + " hx-on::after-request=\"done()\" hx-vals='js:{n: 1}' ng-click=\"go()\""
             + " data-bind=\"text: name\" _=\"on click toggle .open\" data-script=\"on load log me\""
-            + " hx-get=\"https://api.example/x\" hx-post=\"//cdn.example/y\"></api-entry>";
+            + " hx-get=\"/api/x\" hx-post=\"/cdn/y\"></api-entry>";
     Compilation c = compile(markup).assertSuccess();
     assertEquals("<div>" + markup + "</div>", c.render("t", Map.of("s", "x")));
   }

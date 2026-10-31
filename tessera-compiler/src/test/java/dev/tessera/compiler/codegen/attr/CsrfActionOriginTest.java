@@ -3,20 +3,22 @@ package dev.tessera.compiler.codegen.attr;
 import static dev.tessera.compiler.codegen.attr.FormFixture.ctx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.codegen.attr.FormFixture.TestForms;
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.Forms;
-import dev.tessera.runtime.TrustedUrl;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * The CSRF token goes only into a POST form that posts to the page's origin (#285): no action, or
- * a relative one. A static action is checked at build time, a computed one at render time.
+ * The CSRF token goes only into a POST form that posts to the page's origin (#285): no action, a
+ * static one same-origin by shape, or a same-origin link. Anything else computed is a build error.
  */
 class CsrfActionOriginTest {
   private static final String INPUT = "<input type=\"hidden\" name=\"_csrf\" value=\"tok\" />";
@@ -90,123 +92,53 @@ class CsrfActionOriginTest {
         render("method=\"post\" t:action=\"@{/o/{id}(id=1)}\""));
   }
 
-  /** Negative: an absolute link is not the page's origin by shape. */
-  @Test
-  void absoluteLinkActionGetsNoToken() {
-    String out = render("method=\"post\" t:action=\"@{https://evil.example/x}\"");
-    assertEquals("<div><form method=\"post\" action=\"https://evil.example/x\">x</form></div>", out);
-  }
-
-  @Test
-  void relativeComputedActionsGetToken() {
-    Compilation c = compile("String u", "method=\"post\" t:action=\"u\"");
-    for (String u : new String[] {"/x", "x", "", "  /x", "/x;jsessionid=1", "?page=2"}) {
-      String out = renderWith(c, "u", u);
-      assertTrue(out.contains(INPUT), u + ": " + out);
-    }
-    // A null action omits the attribute: the form posts to the page itself.
-    assertEquals("<div><form method=\"post\">" + INPUT + "x</form></div>", renderWith(c, "u", null));
-  }
-
-  /** Negative: the data-controlled action from #285 no longer receives the session's token. */
-  @Test
-  void crossOriginComputedActionsGetNoToken() {
-    Compilation c = compile("String u", "method=\"post\" t:action=\"u\"");
-    for (String u :
-        new String[] {
-          "https://evil/", "HTTPS://evil/", "//evil/", "/\\evil/", "\\\\evil/", "\\/evil/", "\t//evil",
-          "/\t/evil", "\u0000//evil", " https://evil/", "mailto:a@b", "java\tscript:x", "javascript:x"
-        }) {
-      String out = renderWith(c, "u", u);
-      assertFalse(out.contains("_csrf"), u + ": " + out);
-    }
-    assertEquals(
-        "<div><form method=\"post\" action=\"https://evil.example/steal\">x</form></div>",
-        renderWith(c, "u", "https://evil.example/steal"));
-  }
-
   /**
-   * Negative: the action is converted to text once, and that text is both checked and written. A
-   * value whose {@code toString()} alternates between a relative and an absolute URL must never get
-   * the token next to the absolute one, whichever it returns first.
+   * Negative: a computed action of a static POST form that the compiler cannot prove same-origin is
+   * a build error (closed shape): a value instead of a link (#285, #386), an absolute or
+   * protocol-relative link (#387), or a relative link.
    */
-  @Test
-  void computedActionIsCheckedAsWritten() {
-    for (String attr : new String[] {"t:action=\"u\"", "t:attr=\"action=u\""}) {
-      Compilation c = compileFlip("method=\"post\" " + attr);
-      assertEquals(
-          "<div><form method=\"post\" action=\"https://evil/\">x</form></div>",
-          renderWith(c, "u", flip(c, 1, "/x", "https://evil/")),
-          attr);
-      assertEquals(
-          "<div><form method=\"post\" action=\"/x\">" + INPUT + "x</form></div>",
-          renderWith(c, "u", flip(c, 0, "/x", "https://evil/")),
-          attr);
-    }
-  }
-
-  /** Negative: the same for a computed method, so a form written as GET never gets the token. */
-  @Test
-  void computedMethodIsCheckedAsWritten() {
-    Compilation c = compileFlip("t:method=\"u\" action=\"/x\"");
-    assertEquals(
-        "<div><form action=\"/x\" method=\"get\">x</form></div>", renderWith(c, "u", flip(c, 1, "post", "get")));
-    assertEquals(
-        "<div><form action=\"/x\" method=\"post\">" + INPUT + "x</form></div>",
-        renderWith(c, "u", flip(c, 0, "post", "get")));
-  }
-
-  /** A form whose parameter {@code u} is a {@code Flip}: its {@code toString()} alternates two values. */
-  private static Compilation compileFlip(String formAttrs) {
-    return Compilation.builder()
-        .java(
-            "com.example.Flip",
-            "package com.example; @dev.tessera.runtime.TemplateView public class Flip {"
-                + " private final String[] values; private int next;"
-                + " public Flip(int first, String a, String b) { values = new String[] {a, b}; next = first; }"
-                + " @Override public String toString() { return values[next++ % 2]; } }")
-        .template(
-            "form.html",
-            "<div xmlns:t=\"https://tessera.dev\" t:params=\"com.example.Flip u\"><form " + formAttrs
-                + ">x</form></div>")
-        .compile()
-        .assertSuccess();
-  }
-
-  /** A {@code Flip} whose first {@code toString()} returns {@code first == 0 ? a : b}. */
-  private static Object flip(Compilation c, int first, String a, String b) {
-    return c.newInstance("com.example.Flip", first, a, b);
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "t:action=\"u\"",
+        "t:attr=\"action=u\"",
+        "t:attr=\"title=u, ACTION=u\"",
+        "t:action=\"t\"",
+        "t:action=\"u != null ? @{/a} : @{/b}\"",
+        "t:action=\"@{https://evil.example/x}\"",
+        "t:action=\"@{//evil.example/x}\"",
+        "t:action=\"@{/\\evil.example/x}\"",
+        "t:attr=\"action=@{https://evil.example/x}\"",
+        "t:action=\"@{x}\"",
+        "t:action=\"@{?page=2}\"",
+      })
+  void unprovenComputedActionFails(String attr) {
+    Compilation c =
+        Compilation.builder()
+            .template(
+                "form.html",
+                "<div xmlns:t=\"https://tessera.dev\" t:import=\"dev.tessera.runtime.TrustedUrl\""
+                    + " t:params=\"String u, TrustedUrl t\"><form method=\"post\" " + attr + ">x</form></div>")
+            .compile();
+    c.assertError("form.html:1:", "is not allowed", "the CSRF token");
+    assertNull(c.generatedSource("tessera.generated.FormTemplate"), "nothing may be generated");
   }
 
   @Test
-  void attrActionIsCheckedToo() {
-    Compilation c = compile("String u", "method=\"post\" t:attr=\"action=u\"");
-    assertTrue(renderWith(c, "u", "/x").contains(INPUT));
-    assertFalse(renderWith(c, "u", "https://evil/").contains("_csrf"));
-  }
-
-  /** A TrustedUrl vouches for the scheme, not for being the page's origin. */
-  @Test
-  void trustedUrlActionIsCheckedToo() {
-    Compilation c = compile("TrustedUrl u", "method=\"post\" t:action=\"u\"");
-    assertTrue(renderWith(c, "u", TrustedUrl.unchecked("/x")).contains(INPUT));
-    String out = renderWith(c, "u", TrustedUrl.unchecked("https://evil/"));
-    assertEquals("<div><form method=\"post\" action=\"https://evil/\">x</form></div>", out);
-  }
-
-  /** Both method and action computed: the token needs both a POST and a same-origin action. */
-  @Test
-  void computedMethodAndAction() {
-    Compilation c = compile("String m, String u", "t:method=\"m\" t:action=\"u\"");
-    Map<String, Object> model = new HashMap<>();
-    model.put("m", "post");
-    model.put("u", "/x");
-    assertEquals("<div><form method=\"post\" action=\"/x\">" + INPUT + "x</form></div>", render(c, model));
-    model.put("u", "https://evil/");
-    assertEquals("<div><form method=\"post\" action=\"https://evil/\">x</form></div>", render(c, model));
-    model.put("m", "get");
-    model.put("u", "/x");
-    assertEquals("<div><form method=\"get\" action=\"/x\">x</form></div>", render(c, model));
+  void errorNamesTheFix() {
+    Compilation c = Compilation.builder()
+        .template("form.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"String u\">\n"
+            + "<form method=\"post\" t:action=\"u\">x</form></div>")
+        .compile();
+    c.assertError("form.html:2:21:", "t:action is not allowed: a POST form gets the CSRF token, which then goes to its"
+        + " action; use a same-origin link such as @{/items/{id}(id=${item.id})}; omit the action to post to the"
+        + " page's own URL, or write a static action=\"https://...\" if another site is meant (it gets no token)");
+    Compilation abs = Compilation.builder()
+        .template("form.html", "<div xmlns:t=\"https://tessera.dev\">\n"
+            + "<form method=\"post\" t:action=\"@{https://www.example.com/owners}\">x</form></div>")
+        .compile();
+    abs.assertError("form.html:2:", "t:action is not allowed: the action of a POST form, which gets the CSRF token,"
+        + " must be a same-origin path starting with a single '/', not @{https://www.example.com/owners}");
   }
 
   /** A static GET form never gets a token, whatever its action (unchanged). */
@@ -218,19 +150,19 @@ class CsrfActionOriginTest {
   }
 
   @Test
-  void actionInsideLoopEvaluatedPerIteration() {
+  void linkActionInsideLoopEvaluatedPerIteration() {
     Compilation c =
         Compilation.builder()
             .template(
                 "form.html",
                 "<div xmlns:t=\"https://tessera.dev\" t:params=\"java.util.List<String> us\">"
-                    + "<form t:each=\"u : us\" method=\"post\" t:action=\"u\">x</form></div>")
+                    + "<form t:each=\"u : us\" method=\"post\" t:action=\"@{/o/{u}(u=${u})}\">x</form></div>")
             .compile()
             .assertSuccess();
-    assertEquals(
-        "<div><form method=\"post\" action=\"/a\">" + INPUT + "x</form>"
-            + "<form method=\"post\" action=\"https://evil/\">x</form></div>",
-        render(c, Map.of("us", List.of("/a", "https://evil/"))));
+    String out = render(c, Map.of("us", List.of("a", "https://evil/")));
+    assertTrue(out.startsWith("<div><form method=\"post\" action=\"/o/a\">" + INPUT + "x</form>"
+        + "<form method=\"post\" action=\"/o/https"), out);
+    assertEquals(2, out.split("_csrf", -1).length - 1, out);
   }
 
   /**
@@ -256,9 +188,9 @@ class CsrfActionOriginTest {
 
   @Test
   void noTokenProviderNoInput() {
-    Compilation c = compile("String u", "method=\"post\" t:action=\"u\"");
+    Compilation c = compile(null, "method=\"post\" t:action=\"@{/x}\"");
     assertEquals(
         "<div><form method=\"post\" action=\"/x\">x</form></div>",
-        c.render("form", Map.of("u", "/x"), ctx(new TestForms())));
+        c.render("form", Map.of(), ctx(new TestForms())));
   }
 }

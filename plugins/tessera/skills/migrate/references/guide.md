@@ -1197,31 +1197,36 @@ public record Address(String street) {}
 - `t:errorclass="error"` next to `t:field` appends the class when the field has errors.
 - `fields.*` arguments are string literal paths (or a field expression, below). A
   `<form method="post">` gets the CSRF input automatically when Spring Security provides a token,
-  and so does a form whose computed method (`t:method`, `t:attr="method=..."`) is `post` (any
-  case) at render time, as in Thymeleaf. Computing the method does not opt a form out of the token.
-  The method must be exactly `post` as a browser reads it: `method=" post"` submits as GET and gets
-  no token, so the token never ends up in a URL. The token also goes only into a form that posts to
-  the page's origin: no `action`, or a relative one (`@{/owners}`, `/owners`, `?page=2`), decided
-  at render time when the action is computed. A form that posts elsewhere
-  (`action="https://pay.example/..."`, or a computed URL with a scheme or starting with `//`) gets
-  no token, so the session's token is never sent to another site. An absolute URL to the
-  application's own host counts as elsewhere, and Spring Security then rejects the POST: write it
-  as `@{/...}`. A submit button sends the form, token included, to its `formaction`, so a button
-  that may submit a form with the token (inside a POST form that may get it, with a `form`
-  attribute, or in a fragment, which can be inserted into such a form) takes only a same-origin
-  `formaction`: a computed one must be a link with a literal path starting with a single `/`
-  (`t:formaction="@{/items/{id}/delete(id=${item.id})}"`), a static one must be same-origin like a
-  static `action`, and `formmethod` must be a static `post` or `dialog` (anything else submits as
-  GET with the token in the URL). Anything else is a build error: use a link, or move the button
-  into its own form. Inside a GET form, or a form with a static cross-origin `action`, which gets
-  no token, `formaction` and `formmethod` are unchanged, except in a fragment (a browser drops the
-  start tag of a form inserted into another). A form with `t:remove="tag"` gets no token. A static `hx-post` is
-  not checked (section 7); a `<form>` nested in another is a build error (`PARSE_ERROR`). Every relative URL on the page, a form's `action` and a button's
-  `formaction` included, resolves against `<base href>`, so a `<base>` must be same-origin, in any
-  template (a layout's `<base>` applies to the forms its fragments insert): a static `href` like a
-  static `action` (`/app/`, `app/`), a computed one a link with a literal path starting with a
-  single `/` (`t:href="@{/app/}"`). Anything else, a `TrustedUrl` included, is a build error;
-  where another origin is meant, drop `<base>` and write absolute URLs.
+  but only in a closed shape the compiler can see is posting to the page's origin; anything else
+  that could send the token elsewhere is a build error:
+  - The method is a static `method="post"` (any case, as a browser reads it: `method=" post"`
+    submits as GET and gets no token). A computed method (`t:method`, `t:attr="method=..."`) on a
+    `<form>` is a build error: write `method="post"` or `method="get"`, or two forms.
+  - The action is absent (the form posts to the page's own URL), a static same-origin URL
+    (`/owners`, `edit`, `?page=2`), or a link with a literal path starting with a single `/`
+    (`t:action="@{/owners/{id}(id=${owner.id})}"`). Any other computed action of a POST form (a
+    `String`, a `TrustedUrl`, a relative or absolute link) is a build error: use such a link, or
+    omit the action (`tessera-migrate` reports a POST form whose `th:action` is not a link, such
+    as `th:action="${formAction}"`). A static action on another origin (`action="https://pay.example/..."`) is the
+    author's visible choice: the form gets no token, so the session's token is never sent to
+    another site. An absolute URL to the application's own host counts as another origin, and
+    Spring Security then rejects the POST: write it as `@{/...}`.
+  - A submit button sends its form, token included, to its `formaction`, and a `form` attribute or
+    a fragment can make it submit any form, so every `formaction` and `formmethod`, in any form or
+    none, is held to the same rule: a computed `formaction` must be such a link, a static one
+    same-origin like a static `action`, and `formmethod` a static `post` or `dialog` (anything
+    else submits as GET with the token in the URL).
+  - Every relative URL on the page resolves against `<base href>`, so every `<base>` must be
+    same-origin, in any template (a layout's `<base>` applies to the forms its fragments insert):
+    a static `href` like a static `action` (`/app/`, `app/`), a computed one a link with a literal
+    path starting with a single `/` (`t:href="@{/app/}"`). Where another origin is meant, drop
+    `<base>` and write absolute URLs.
+  - htmx sends the enclosing form, token included, to its request URL, so every static htmx
+    request URL (`hx-post`, `hx-get`, ..., also `data-hx-*`) must be same-origin like a static
+    `action`; computed ones are links already (section 4.4).
+  - A `<form>` nested in another, also through a fragment or layout, is a build error
+    (`PARSE_ERROR`): a browser drops the inner start tag. A form with `t:remove="tag"` gets no
+    token.
   A form that writes its own token input keeps it and gets no second one: a direct child
   `<input type="hidden">` whose literal `name` equals the token's parameter name at render time
   (`_csrf` by default), as FreeMarker and JSP pages write it to read the token by id
@@ -2356,11 +2361,14 @@ These come from the annotation processor itself, without a template position.
 - `<label> is not allowed: an htmx request URL must be a same-origin path starting with a single '/', not @{<path>}`. Absolute, protocol-relative and page-relative links are rejected; write a cross-origin endpoint as a static attribute.
 - `<label> is not allowed: htmx 1.x '<name>' holds connect:<url>, a URL htmx connects to and swaps into the page as HTML, so it cannot be computed; write it as a static attribute, or use the sse/ws extension's sse-connect/ws-connect with a same-origin link such as @{/events}`. On `hx-sse` and `hx-ws` (also with `data-`).
 - `<label> is not allowed: inside hx-boost or an htmx form, htmx submits to this URL and swaps the response into the page as HTML; use a same-origin link such as @{/items/{id}(id=${item.id})}, or put hx-boost="false" on the form to submit it natively`. On `action` of a boosted `<form>` and `formaction` in a boosted region or an htmx form (section 4.4). Other links are reported as `an htmx request URL must be a same-origin path ...`.
-- `<label> is not allowed: this button may submit a POST form that gets the CSRF token, which then goes to the button's formaction; use a same-origin link such as @{/items/{id}(id=${item.id})}, or move the button into its own form`. On a computed `formaction` (`t:formaction`, `t:attr="formaction=..."`) of a button that may submit a form with the CSRF token (section 4.7). A fragment that takes its `formaction` as a `String` parameter cannot pass this check: write the link inside the fragment, or drop the parameter if every caller passes `''`. A link that is not same-origin is reported as `a formaction that may receive the CSRF token must be a same-origin path starting with a single '/', not @{<path>}`.
+- `<label> is not allowed: a submit button sends its form, CSRF token included, to its formaction; use a same-origin link such as @{/items/{id}(id=${item.id})}`. On every computed `formaction` (`t:formaction`, `t:attr="formaction=..."`; section 4.7). A fragment that takes its `formaction` as a `String` parameter cannot pass this check: write the link inside the fragment, or drop the parameter if every caller passes `''`. A link that is not same-origin is reported as `a formaction, which may receive the CSRF token, must be a same-origin path starting with a single '/', not @{<path>}`.
+- `<label> is not allowed: a POST form gets the CSRF token, which then goes to its action; use a same-origin link such as @{/items/{id}(id=${item.id})}; omit the action to post to the page's own URL, or write a static action="https://..." if another site is meant (it gets no token)`. On a computed `action` (`t:action`, `t:attr="action=..."`) of a `<form method="post">` that is not a link (section 4.7). A link that is not same-origin (`@{https://...}`, `@{//...}`, `@{edit}`) is reported as `the action of a POST form, which gets the CSRF token, must be a same-origin path starting with a single '/', not @{<path>}`.
+- `<label> is not allowed: the method decides whether the form gets the CSRF token, so it must be static; write method="post" or method="get", or two forms`. On a computed `method` of a `<form>` (`t:method`, `t:attr="method=..."`; section 4.7).
+- `<name>="<url>" is not allowed: htmx sends the enclosing form, CSRF token included, to this URL, and it is not same-origin; use a same-origin path such as /items`. A static htmx request URL (`hx-post`, `hx-get`, ..., `data-hx-*`) with a scheme or starting with `//` or `/\` (section 4.7).
 - `<label> is not allowed: every relative URL on the page resolves against <base href>, so a POST form with a relative action would send the CSRF token there; use a same-origin link such as @{/items/{id}(id=${item.id})}`. On a computed `href` of a `<base>` (`t:href`, `t:attr="href=..."`) that is not a link (section 4.7). A link that is not same-origin is reported as `a <base href> must be a same-origin path starting with a single '/', not @{<path>}`.
 - `href="<url>" on <base> is not allowed: every relative URL on the page resolves against <base href>, so a POST form with a relative action would send the CSRF token there, and this URL is not same-origin; use a same-origin path such as /app/, or remove <base> and write absolute URLs where another origin is meant`. A static `<base href>` with a scheme or starting with `//` or `/\`.
-- `formaction="<url>" is not allowed here: this button may submit a POST form that gets the CSRF token, which then goes to the button's formaction, and this URL is not same-origin; use a same-origin URL such as /items or @{/items/{id}(id=${item.id})}, or move the button into its own form`. A static `formaction` with a scheme or starting with `//` or `/\` in such a form.
-- `formmethod="<value>" is not allowed here: this button may submit a POST form that gets the CSRF token, and a formmethod other than post submits as GET with the token in the URL; remove formmethod, or move the button into its own GET form`. Also `<label> is not allowed: ...` for a computed `formmethod` there; only a static `post` or `dialog` is allowed.
+- `formaction="<url>" is not allowed here: a submit button sends its form, CSRF token included, to its formaction, and this URL is not same-origin; use a same-origin URL such as /items or @{/items/{id}(id=${item.id})}, or a form of its own with a static action to the other site`. A static `formaction` with a scheme or starting with `//` or `/\`.
+- `formmethod="<value>" is not allowed here: a formmethod other than post or dialog submits the form as GET, with its CSRF token in the URL; remove formmethod, or give the button a form of its own with method="get"`. Also `<label> is not allowed: ...` for a computed `formmethod`; only a static `post` or `dialog` is allowed.
 - `<form/> is not self-closing in HTML: the browser treats everything after it as inside the form; write <form ...></form>`. A browser drops the start tag of every later form, so their buttons and CSRF token inputs land in it.
 - `<label> is not allowed: '<name>' is not a known attribute; a computed attribute must be a standard HTML, SVG, MathML or ARIA attribute, a data-* attribute, or a plain [a-z][a-z0-9]* prop on a custom element. If it is data for your script, use data-<name>; if a framework reads it, write it as a static attribute`. On a computed name that is not a standard attribute, `data-*`, a custom element's prop or a framework attribute Tessera classifies (section 4.4), such as `t:up-on-loaded`, `t:hx-action`, `t:hx-target` or `t:attr="foo=..."`. htmx reads every
   `hx-*` attribute the same with a `data-` prefix, so `t:hx-target` becomes `t:data-hx-target`;
@@ -2530,11 +2538,11 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **Forms.** No `t:field` that writes the value of a field
   whose type is not view-safe (a file input is fine, section 4.7). A `Field` fragment reads the
   value only as the display String (`fields.value(name)`).
-- **CSRF and other ways a form posts elsewhere.** The CSRF input is left out of a form whose
-  `action` is on another origin, a submit button's `formaction` must be same-origin where it
-  may submit a form with the token, and so must every `<base href>` (section 4.7). Not seen: a static htmx request attribute such
-  as `hx-post="https://other.example/"` on the form or a button in it. Give an external target its
-  own form.
+- **CSRF and other ways a form posts elsewhere.** The CSRF input goes only into a static POST form
+  whose action the compiler proves same-origin; every `formaction`, `formmethod`, `<base href>`
+  and static htmx request URL is held to the same rule, and a computed form `method` is a build
+  error (section 4.7). Not seen: htmx or other JavaScript that reads the token input and sends it
+  elsewhere at runtime. Give an external target its own form with a static action.
 - **Scripts.** In a `<script>` with `[[...]]`, the code before the last `[[...]]` can't use `/`
   (division, regular expressions), template literals, `-->`, `#!`, `<!`, a backslash line
   continuation or U+2028/U+2029 (section 6): the compiler proves where each value goes without a
@@ -2560,7 +2568,8 @@ Gaps in Tessera today, each with what to do until it is fixed.
   the form where it is written (section 4.4). Boosting from a layout or a fragment caller
   (`<body hx-boost="true">` in a layout that receives the page's content, or a boosted element of
   the same template that inserts the fragment), set from JavaScript, and a submit button outside
-  its form (`form="id"`) are not seen (#498). On htmx 1.9.5 and later set
+  its form (`form="id"`) are not seen (#498). A POST form's CSRF token is not affected: its
+  action, and every `formaction`, is same-origin whether or not htmx submits it (section 4.7). On htmx 1.9.5 and later set
   `htmx.config.selfRequestsOnly = true` (the default from 2.0) so htmx requests only the page's
   origin; older htmx 1.x has no such setting, so upgrade.
 - **Client-side templates (`{{ }}`).** Tessera breaks `{{` only in element text (section 4.4).

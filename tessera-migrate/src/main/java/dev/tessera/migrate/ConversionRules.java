@@ -462,6 +462,19 @@ final class ConversionRules {
   static final String ATTRIBUTE_SPACE_MESSAGE =
       "no space before attribute `%s` (" + PARSE_ERROR_REJECTED + "): a space was added, which a browser reads the same";
 
+  // ---- the CSRF token's closed shape (#550) ----
+
+  static final String FORM = "form";
+  static final String METHOD = "method";
+  static final String ACTION = "action";
+  static final String POST = "post";
+  /** {@code %1$s} is the attribute name, {@code %2$s} its converted value as a code span. */
+  static final String POST_ACTION_MESSAGE =
+      "`%1$s` = %2$s on a `<form method=\"post\">` is not a link: Tessera adds the CSRF token to a POST form only"
+          + " when its action is a same-origin link it can check, so any other computed action is a build error;"
+          + " remove `%1$s` if the form posts to the page's own URL (a form without an action posts to the page"
+          + " URL), or write the action as a link such as `@{/items/{id}(id=${item.id})}` (guide section 4.7)";
+
   // ---- computed attribute names the compiler does not know (#330, #331) ----
 
   /**

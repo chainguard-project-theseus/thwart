@@ -4,49 +4,45 @@ import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.codegen.Emitted;
+import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.Escapers;
-import dev.tessera.runtime.TrustedUrl;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
- * Called for every {@code <form>} element after its {@code t:} processors: adds a hidden input
- * with {@code ctx.forms().csrfToken()} after the start tag when a token is present, the form's
- * method is {@code post} (case-insensitive) and its action posts to the page's origin.
+ * The CSRF token, by a closed shape (#285, #314, #350, #386, #498): the compiler adds a hidden input
+ * with {@code ctx.forms().csrfToken()} after the start tag of a {@code <form>} only when it can see,
+ * at build time, that the form posts to the page's origin. Everything a browser or htmx could use
+ * to send that form elsewhere is held to the same rule, on every element, so no rule depends on
+ * which form owns a button.
  *
- * <p>Both a static and a computed method match {@code post} ASCII case-insensitively and untrimmed,
- * as a browser reads the attribute: any other value submits as GET, and a token there would leak
- * into the URL. A static {@code method} is checked at build time. A computed one ({@code t:method},
- * {@code t:attr="method=..."}) is evaluated once before the start tag and written from that value,
- * as in Thymeleaf, where {@code th:method} runs before the CSRF processor, so a computed POST form
- * cannot lose its token. The value is converted to text there, once, so the check and the start tag
- * see the same text.
- *
- * <p>The action must be same-origin by shape ({@link Escapers#isSameOriginUrl}): absent, empty, or
- * relative without a scheme and not protocol-relative, so the session's token is never posted to
- * another site (#285). A static {@code action} is checked at build time; a computed one
- * ({@code t:action}, {@code t:attr="action=..."}, links included) is evaluated once before the
- * start tag and converted to text, like a computed method, and the token is written only if that
- * text passes. An absolute URL to the application's own host gets no token: write it as
- * {@code @{/...}}.
- *
- * <p>A submit button can send the form elsewhere (#314). Where it may submit a form that gets the
- * token ({@link CodegenContext#mayPostCsrfToken}), a computed {@code formaction} must be a
- * same-origin link ({@code GenericAttrProcessor}), a static one must be same-origin by shape, and
- * {@code formmethod} must be a static {@code post} or {@code dialog}: {@link #checkSubmitter}.
+ * <ul>
+ *   <li>The method is a static {@code method="post"} (ASCII case-insensitive, untrimmed, as a
+ *       browser reads it). Any other static value submits as GET and gets no token. A computed
+ *       method on a {@code <form>} is a build error ({@code GenericAttrProcessor}).
+ *   <li>The action is absent, a static URL same-origin by shape ({@link Escapers#isSameOriginUrl}),
+ *       or, computed ({@code t:action}, {@code t:attr="action=..."}), a link with a same-origin
+ *       literal path, re-checked when rendered ({@code GenericAttrProcessor}); any other computed
+ *       action of a static POST form is a build error. A static action on another origin is the
+ *       author's visible choice: no token.
+ *   <li>Every {@code formaction} and {@code formmethod}, in any form or none, is checked as if its
+ *       form got the token: {@link #checkSubmitter} and {@code GenericAttrProcessor}.
+ *   <li>Every {@code <base href>} and static htmx request URL ({@code hx-post}, ...) is same-origin by
+ *       shape: {@link #checkStaticUrls}; computed ones are same-origin links already.
+ *   <li>A nested {@code <form>}, also through fragments, is a verifier {@code PARSE_ERROR}, and
+ *       {@code <form/>} is an error here.
+ * </ul>
  *
  * <p>A form that writes its own token input (#225) keeps it and gets no second one: a direct child
  * {@code <input type="hidden">} whose literal {@code name} equals the token's parameter name at
- * render time ({@link #ownTokenNames}). Only an input that is always written, in the same place
- * as the automatic one, counts, so a form never loses its token unless the template visibly
- * writes one.
+ * render time ({@link #ownTokenNames}).
  */
 public final class CsrfInjector {
   /** A named character reference the parser did not decode (a browser may; see below). */
@@ -54,11 +50,11 @@ public final class CsrfInjector {
 
   private CsrfInjector() {}
 
-  /** Adds the token input to a {@code <form>}; returns whether it may be written. */
-  public static boolean apply(CodegenContext ctx, ElementPlan plan) {
+  /** Adds the token input to a {@code <form>} in the closed shape. */
+  public static void apply(CodegenContext ctx, ElementPlan plan) {
     if (plan.removed() || plan.replacement() != null || plan.tagOmitted()) {
       // Without its tag (t:remove="tag") the token input would land in an enclosing form, maybe a GET one.
-      return false;
+      return;
     }
     if (plan.element().selfClosing() && plan.body() == null) {
       // A browser treats <form/> as an open form: the page after it is inside the form, and the start
@@ -66,42 +62,30 @@ public final class CsrfInjector {
       ctx.diagnostics()
           .error(plan.element().pos(), "<form/> is not self-closing in HTML: the browser treats everything after it"
               + " as inside the form; write <form ...></form>");
-      return false;
+      return;
     }
-    // The Java condition under which the token is written, or null for always.
-    String condition = null;
     Optional<ElementPlan.Attr> method = plan.attribute("method");
-    if (method.isPresent() && method.get() instanceof ElementPlan.DynamicAttr) {
-      String m = hoist(ctx, plan, (ElementPlan.DynamicAttr) method.get(), "method");
-      condition = "dev.tessera.runtime.Escapers.isPostMethod(" + m + ")";
-    } else {
-      boolean post =
-          method
-              .filter(a -> a instanceof ElementPlan.StaticAttr)
-              .map(a -> ((ElementPlan.StaticAttr) a).source().value())
-              .filter(v -> HtmlParser.asciiLower(v).equals("post"))
-              .isPresent();
-      if (!post) {
-        return false;
+    Optional<ElementPlan.Attr> action = plan.attribute("action");
+    if (!isStaticPost(plan.element()) || !method.isPresent() || method.get() instanceof ElementPlan.DynamicAttr
+        || (action.isPresent() && action.get() instanceof ElementPlan.StaticAttr
+            && !isSameOriginStatic(((ElementPlan.StaticAttr) action.get()).source().value()))) {
+      return;
+    }
+    // A computed action here is a same-origin link (GenericAttrProcessor), or the build has failed.
+    plan.afterStartTag(tokenInput(ctx, ownTokenNames(plan)));
+  }
+
+  /**
+   * Whether {@code form} has a static {@code method} that a browser reads as POST: the first
+   * {@code method} attribute is {@code post}, ASCII case-insensitive and untrimmed.
+   */
+  public static boolean isStaticPost(Element form) {
+    for (Attribute a : form.attributes()) {
+      if (!a.isTessera() && HtmlParser.asciiEqualsIgnoreCase(a.name(), "method")) {
+        return a.value() != null && HtmlParser.asciiLower(a.value()).equals("post");
       }
     }
-    // TODO(#311): a static hx-post (or another htmx request attribute) on the form or a button in
-    // it can send the token to another origin; TODO(#309): so can a <form> nested in another, whose
-    // token input lands in the outer form. Neither is checked here (guide section 7).
-    Optional<ElementPlan.Attr> action = plan.attribute("action");
-    if (action.isPresent() && action.get() instanceof ElementPlan.DynamicAttr) {
-      String a = hoist(ctx, plan, (ElementPlan.DynamicAttr) action.get(), "action");
-      String sameOrigin = Escapers.class.getName() + ".isSameOriginUrl(" + a + ")";
-      condition = condition == null ? sameOrigin : condition + " && " + sameOrigin;
-    } else if (action.isPresent()
-        && !isSameOriginStatic(((ElementPlan.StaticAttr) action.get()).source().value())) {
-      // A static action on another origin is the author's choice; it just gets no token.
-      return false;
-    }
-    Emitted token = tokenInput(ctx, ownTokenNames(plan));
-    plan.afterStartTag(
-        condition == null ? token : Emitted.opt(Skeleton.OptKind.CSRF_TOKEN, null, "if (" + condition + ") ", token, ""));
-    return true;
+    return false;
   }
 
   /**
@@ -147,31 +131,18 @@ public final class CsrfInjector {
   }
 
   /**
-   * Whether {@code element} has a {@code form} attribute, static or computed ({@code t:form},
-   * {@code t:attr="form=..."}): it then submits that form wherever it is.
-   */
-  public static boolean hasFormAttribute(Element element) {
-    for (Attribute a : element.attributes()) {
-      String n = HtmlParser.asciiLower(a.name());
-      if (n.equals("form") || n.equals(Attribute.PREFIX + "form") || HtmlParser.attrMaySet(a, "form")) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Checks the static {@code formaction} and {@code formmethod} of an element that may submit a
-   * form with the token (#314): the action must be same-origin by shape, and the method
-   * {@code post} or {@code dialog} (any other value, invalid ones included, submits as GET and
-   * would put the token in the URL). Computed ones are checked by {@code GenericAttrProcessor}.
+   * Checks the static {@code formaction} and {@code formmethod} of every element, since any form
+   * may get the token and a {@code form} attribute or a fragment can make a button submit any
+   * form (#314): the action must be same-origin by shape, and the method {@code post} or
+   * {@code dialog} (any other value, invalid ones included, submits as GET and would put the token
+   * in the URL). Computed ones are checked by {@code GenericAttrProcessor}.
    */
   public static void checkSubmitter(CodegenContext ctx, ElementPlan plan) {
     Optional<ElementPlan.Attr> action = plan.attribute("formaction");
     Optional<ElementPlan.Attr> method = plan.attribute("formmethod");
     boolean staticAction = action.isPresent() && action.get() instanceof ElementPlan.StaticAttr;
     boolean staticMethod = method.isPresent() && method.get() instanceof ElementPlan.StaticAttr;
-    if ((!staticAction && !staticMethod) || !ctx.mayPostCsrfToken(plan.element())) {
+    if (!staticAction && !staticMethod) {
       return;
     }
     if (staticAction) {
@@ -180,7 +151,7 @@ public final class CsrfInjector {
         ctx.diagnostics()
             .error(a.pos(), a.name() + "=\"" + a.value() + "\" is not allowed here: " + IN_TOKEN_FORM
                 + ", and this URL is not same-origin; use a same-origin URL such as /items or"
-                + " @{/items/{id}(id=${item.id})}, or move the button into its own form");
+                + " @{/items/{id}(id=${item.id})}, or a form of its own with a static action to the other site");
       }
     }
     if (staticMethod) {
@@ -193,21 +164,29 @@ public final class CsrfInjector {
   }
 
   /**
-   * Checks the static {@code href} of a {@code <base>} (#350): every relative URL on the page
-   * resolves against it, so a cross-origin base would send a form with a relative action, CSRF token
-   * included, to another site. It must be same-origin by shape, like a static {@code action}. This
-   * is checked on every {@code <base>}, whether or not the template has a form: a layout's
-   * {@code <base>} applies to forms that fragments from other templates insert. A computed one must
-   * be a same-origin link ({@code GenericAttrProcessor}). Every {@code href} is checked, since a
-   * browser uses the first and the plan keeps the last.
+   * Checks the static URLs that can send a form's inputs, token included, elsewhere, on every
+   * element, whether or not the template has a form (a layout's applies to the forms its fragments
+   * insert): a {@code <base href>} (#350), against which every relative action resolves, and an
+   * htmx request URL ({@code hx-post}, ...; #311), to which htmx sends the enclosing form. Each
+   * must be same-origin by shape, like a static {@code action}. Computed ones are same-origin links
+   * ({@code GenericAttrProcessor}). Every such attribute is checked, since a browser uses the
+   * first and the plan keeps the last.
    */
-  public static void checkBase(CodegenContext ctx, Element element) {
+  public static void checkStaticUrls(CodegenContext ctx, Element element) {
+    boolean base = HtmlParser.asciiEqualsIgnoreCase(element.name(), "base");
     for (Attribute a : element.attributes()) {
-      if (!a.isTessera() && HtmlParser.asciiEqualsIgnoreCase(a.name(), "href") && !isSameOriginStatic(a.value())) {
+      if (a.isTessera() || isSameOriginStatic(a.value())) {
+        continue;
+      }
+      if (base && HtmlParser.asciiEqualsIgnoreCase(a.name(), "href")) {
         ctx.diagnostics()
             .error(a.pos(), a.name() + "=\"" + a.value() + "\" on <base> is not allowed: " + BASE_MOVES_URLS
                 + ", and this URL is not same-origin; use a same-origin path such as /app/, or remove <base>"
                 + " and write absolute URLs where another origin is meant");
+      } else if (Contexts.isHtmxRequestUrl(a.name())) {
+        ctx.diagnostics()
+            .error(a.pos(), a.name() + "=\"" + a.value() + "\" is not allowed: htmx sends the enclosing form, CSRF"
+                + " token included, to this URL, and it is not same-origin; use a same-origin path such as /items");
       }
     }
   }
@@ -219,12 +198,25 @@ public final class CsrfInjector {
 
   /** Starts the reason for the formaction errors. */
   static final String IN_TOKEN_FORM =
-      "this button may submit a POST form that gets the CSRF token, which then goes to the button's formaction";
+      "a submit button sends its form, CSRF token included, to its formaction";
 
   /** The reason for the formmethod errors. */
   static final String GET_TOKEN =
-      "this button may submit a POST form that gets the CSRF token, and a formmethod other than post submits"
-          + " as GET with the token in the URL; remove formmethod, or move the button into its own GET form";
+      "a formmethod other than post or dialog submits the form as GET, with its CSRF token in the URL; remove"
+          + " formmethod, or give the button a form of its own with method=\"get\"";
+
+  /** The reason for the computed {@code method} error on a {@code <form>}. */
+  static final String COMPUTED_METHOD =
+      "the method decides whether the form gets the CSRF token, so it must be static; write method=\"post\" or"
+          + " method=\"get\", or two forms";
+
+  /** Starts the reason for the computed action error on a POST form. */
+  static final String POST_ACTION = "a POST form gets the CSRF token, which then goes to its action";
+
+  /** Ends it. */
+  static final String POST_ACTION_ELSE =
+      "; omit the action to post to the page's own URL, or write a static action=\"https://...\" if another"
+          + " site is meant (it gets no token)";
 
   /**
    * {@link Escapers#isSameOriginUrl} for a static attribute value, which is written as in the source.
@@ -247,23 +239,6 @@ public final class CsrfInjector {
       }
     }
     return true;
-  }
-
-  /**
-   * Evaluates a computed attribute once, before the start tag, into a fresh local, and makes the
-   * start tag write that local; returns its name. A value other than {@code null} (the attribute is
-   * omitted) or a {@link TrustedUrl} is converted to its text there, once, so the token's condition
-   * and the start tag see the same {@code String} even if its {@code toString()} changes between
-   * calls.
-   */
-  private static String hoist(CodegenContext ctx, ElementPlan plan, ElementPlan.DynamicAttr d, String name) {
-    String v = ctx.freshName(name);
-    plan.wrap(
-        "{ java.lang.Object " + v + " = " + d.valueCode() + "; if (" + v + " != null && !(" + v + " instanceof "
-            + TrustedUrl.class.getName() + ")) " + v + " = " + Escapers.class.getName() + ".toText(" + v + ");",
-        "}");
-    plan.setAttribute(d.name(), v, d.pos());
-    return v;
   }
 
   /**
