@@ -5,6 +5,7 @@ import static dev.tessera.compiler.types.ExpressionCompiler.isDeclared;
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
+import dev.tessera.compiler.codegen.AttributeProcessors;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.expr.Expr;
@@ -199,14 +200,21 @@ public final class TextInlining {
     if (dropped) {
       return false;
     }
-    // t:errors renders the element only when there are errors.
-    for (String name : new String[] {"if", "unless", "each", "switch", "case", "replace", "remove", "errors"}) {
-      if (e.attribute(Attribute.PREFIX + name).isPresent()) {
+    // Fail closed: only attributes known to keep the tag. Everything else (t:if, t:each, t:case,
+    // t:errors, t:replace, t:remove, a t:fragment with parameters, ...) may drop the element.
+    for (Attribute a : e.tesseraAttributes()) {
+      String name = a.localName();
+      if (!KEEPS_TAG.contains(name)
+          && !(AttributeProcessors.forName(name).orElse(null) instanceof GenericAttrProcessor)) {
         return false;
       }
     }
     return true;
   }
+
+  /** {@code t:} attributes whose element always writes its tag where it stands. */
+  private static final Set<String> KEEPS_TAG =
+      Backports.setOf("object", "with", "attr", "field", "classappend", "errorclass", "text", "utext", "insert", "switch");
 
   private static void checkBraces(CodegenContext ctx, Text text, boolean refs, boolean startEdge, boolean endEdge) {
     String raw = text.raw();
@@ -253,7 +261,8 @@ public final class TextInlining {
     ctx.diagnostics()
         .error(
             pos,
-            "this text " + where + " with '{' next to a <t:block>, t:if, t:each, t:remove, t:replace, t:errors or the edge of the"
+            "this text " + where + " with '{' next to a <t:block>, t:if, t:each, t:remove, t:replace, t:errors, a t:fragment with"
+                + " parameters or the edge of the"
                 + " template, where it can meet a '{' from other text and form a client-side {{ that Vue and"
                 + " petite-vue would run as code; write it as " + fix + " or move it inside an element");
   }

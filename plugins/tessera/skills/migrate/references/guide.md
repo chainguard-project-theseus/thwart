@@ -2289,12 +2289,14 @@ These come from the annotation processor itself, without a template position.
   `<p>{{ [[s]] }}</p>`, `<p>{{ <b>x</b> }}</p>`). Character references for braces count outside
   scripts, as the framework decodes them. The text of an element that `t:text`, `t:utext`,
   `t:insert`, `t:replace` or `t:errors` replaces is not read.
-- `this text ends with '{' next to a <t:block>, t:if, t:each, t:remove, t:replace, t:errors or the edge of the template, where it can meet a '{' from other text and form a client-side {{ that Vue and petite-vue would run as code; write it as {<!----> or move it inside an element`
+- `this text ends with '{' next to a <t:block>, t:if, t:each, t:remove, t:replace, t:errors, a t:fragment with parameters or the edge of the template, where it can meet a '{' from other text and form a client-side {{ that Vue and petite-vue would run as code; write it as {<!----> or move it inside an element`
   (also `starts with`, fix `<!---->{`): element text starts with a lone `{` or ends with `{` where
   the node next to it is not a tag or comment that always renders, so other static text can be
-  written right next to it (`<p>{<t:block>{ [[s]] }}</t:block></p>`, an element with `t:errors`,
-  any element inside a `t:remove="all-but-first"`, a fragment's first or last
-  text).
+  written right next to it (`<p>{<t:block>{ [[s]] }}</t:block></p>`, a fragment's first or last
+  text). Only an element whose `t:` attributes all keep its tag counts as one that always renders
+  (`t:text`, `t:utext`, `t:insert`, `t:attr`, `t:with`, `t:object`, `t:field`, `t:classappend`,
+  `t:errorclass`, `t:switch` and plain `t:<attr>` outputs); an element inside a
+  `t:remove="all-but-first"` never does.
 - `v-model on a <textarea> with computed content is not supported: Tessera adds v-pre there, because a comment cannot break {{ in a value in <textarea>, and v-pre would turn v-model off; drop v-model, or move the value into Vue (v-model or v-text with the value in the app's data) instead of writing it with Tessera`
   (also `<title>`, and any Vue directive or binding: `v-*`, `:x`, `@x`, `#x`, `.x`): the element's
   content is computed, so it gets `v-pre` (section 4.4), under which Vue would ignore the

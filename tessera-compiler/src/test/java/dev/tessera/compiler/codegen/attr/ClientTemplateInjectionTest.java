@@ -410,6 +410,10 @@ class ClientTemplateInjectionTest {
         "<p t:text=\"s\">{{</p>",
         "<p t:insert=\"~{::f}\">{{</p><t:block t:fragment=\"f\">x</t:block>",
         "<p t:if=\"${s != null}\">{{ a }}</p>",
+        // Elements whose attributes all keep the tag are boundaries.
+        "<p>a {<b t:text=\"s\">x</b>{ b</p>",
+        "<p>a {<b t:title=\"s\" t:classappend=\"'c'\">x</b>{ b</p>",
+        "<div>a {<div t:with=\"v=${s}\" t:utext=\"h\">x</div>{ b</div>",
       })
   void closedOrNonTextMustacheCompiles(String body) {
     compile(body).assertSuccess();
@@ -430,6 +434,11 @@ class ClientTemplateInjectionTest {
         // all-but-first drops the elements after the first and keeps the text around them.
         "<div t:remove=\"all-but-first\"><b>x</b>{<i>y</i>{ [[s]] }}</div>",
         "<div t:remove=\"all-but-first\"><b>x</b>a {<i>y</i></div>",
+        // A fragment with parameters is dropped where it is defined.
+        "<p>{<b t:fragment=\"f(String x)\">[[x]]</b>{ [[s]] }}</p>",
+        // Fail closed: only attributes known to keep the tag make a boundary.
+        "<p>a {<span t:remove=\"none\">x</span></p>",
+        "<p>a {<span t:case=\"'x'\">x</span></p>",
       })
   void braceAtAnOpenTextEdgeIsABuildError(String body) {
     compile(body).assertError("t.html:1:", "with '{' next to a <t:block>", "<!---->");
