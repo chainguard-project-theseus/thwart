@@ -139,15 +139,10 @@ public final class TextInlining {
     return -1;
   }
 
-  /** Offset of the first {@code [[...]]} or {@code [(...)]} in {@code raw} that {@link #render} writes as an expression, or -1. */
-  public static int firstHole(String raw) {
-    for (int i = 0; i < raw.length(); i++) {
-      boolean escaped = raw.startsWith("[[", i);
-      if ((escaped || raw.startsWith("[(", i)) && findEnd(raw, i + 2, escaped ? "]]" : ")]") >= 0) {
-        return i;
-      }
-    }
-    return -1;
+  /** Whether {@code e} is written without its tags: {@code <t:block>} or a static {@code t:remove="tag"}. */
+  public static boolean tagNotRendered(Element e) {
+    return e.name().equals("t:block")
+        || e.attribute("t:remove").map(Attribute::value).map(JavaStrings::trimJava).filter("tag"::equals).isPresent();
   }
 
   /**

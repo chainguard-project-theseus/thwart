@@ -57,7 +57,7 @@ class ContextVerifierTest {
   @Test
   void theVerifierAloneRejectsWhatTheProfileRejectsFirst() {
     String table = "<table><tr><td>a</td></tr>[[${s}]]</table>";
-    compile(table).assertError("directly inside <table> is not supported");
+    compile(table).assertError("as table text and moves it in front of the table", "[verifier:TEXT_IN_TABLE]");
     Compilation v = Compilation.builder()
         .template("t.html", "<div " + NS + " t:params=\"String s\">" + table + "</div>")
         .verifierOnly()
