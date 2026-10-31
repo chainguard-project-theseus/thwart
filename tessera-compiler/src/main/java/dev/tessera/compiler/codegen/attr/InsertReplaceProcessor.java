@@ -218,10 +218,6 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       return new Skeleton.Seq(Collections.singletonList(new Skeleton.Call(target, fragmentArgs, pos)));
     }
 
-    public String method() {
-      return method;
-    }
-
     public List<String> args() {
       return args;
     }
@@ -482,17 +478,16 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       CodegenContext ctx, FragmentRef ref, Scope scope, Element host, StringBuilder pre, List<Skeleton.Node> skeleton) {
     // Wherever it is inserted, a table part at its top could end a cell or a foster-parented
     // element and move the text after it out of the table (#348).
-    for (String n : FragmentTop.of(ctx, ref).elements) {
-      if (FragmentTop.TABLE_PARTS.contains(n) && !n.equals("table")) {
-        ctx.diagnostics()
-            .error(
-                ref.pos(),
-                "~{" + (ref.template() == null ? "" : ref.template() + " ") + ":: " + ref.selector() + "} writes <" + n
-                    + ">, which is not supported in a Fragment value: inserted in a <td> or a <div> a browser would"
-                    + " close elements to place it and move text after it out of the table; insert the fragment"
-                    + " with t:insert/t:replace directly in the table part that takes it");
-        return null;
-      }
+    String n = FragmentTop.of(ctx, ref).firstTablePart;
+    if (n != null) {
+      ctx.diagnostics()
+          .error(
+              ref.pos(),
+              "~{" + (ref.template() == null ? "" : ref.template() + " ") + ":: " + ref.selector() + "} writes <" + n
+                  + ">, which is not supported in a Fragment value: inserted in a <td> or a <div> a browser would"
+                  + " close elements to place it and move text after it out of the table; insert the fragment"
+                  + " with t:insert/t:replace directly in the table part that takes it");
+      return null;
     }
     String c = ctx.freshName("ctx");
     String o = ctx.freshName("out");

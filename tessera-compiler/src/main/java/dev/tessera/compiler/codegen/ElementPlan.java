@@ -14,7 +14,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -80,11 +79,6 @@ public final class ElementPlan {
       return kind;
     }
 
-    /** The open code. */
-    public String open() {
-      return open.java();
-    }
-
     /** The open code and what it writes (a loop's separator). */
     public Emitted openEmitted() {
       return open;
@@ -106,28 +100,6 @@ public final class ElementPlan {
 
     public SourcePos pos() {
       return pos;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (!(o instanceof Wrapper)) {
-        return false;
-      }
-      Wrapper that = (Wrapper) o;
-      return kind == that.kind
-          && Objects.equals(open.java(), that.open.java())
-          && Objects.equals(close, that.close)
-          && optKind == that.optKind
-          && repKind == that.repKind
-          && Objects.equals(pos, that.pos);
-    }
-
-    @Override
-    public int hashCode() {
-      int h = Objects.hashCode(kind);
-      h = 31 * h + Objects.hashCode(open.java());
-      h = 31 * h + Objects.hashCode(close);
-      return h;
     }
 
     @Override
@@ -160,25 +132,6 @@ public final class ElementPlan {
     }
 
     @Override
-    public boolean equals(Object o) {
-      if (!(o instanceof StaticAttr)) {
-        return false;
-      }
-      StaticAttr that = (StaticAttr) o;
-      return Objects.equals(source, that.source);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(source);
-    }
-
-    @Override
-    public String toString() {
-      return "StaticAttr[source=" + source + "]";
-    }
-
-    @Override
     public String name() {
       return source.name();
     }
@@ -187,7 +140,6 @@ public final class ElementPlan {
     public String valueCode() {
       return JavaStrings.literal(source.value() == null ? "" : source.value());
     }
-  
   }
 
   /** A computed attribute. {@code valueCode} is a Java expression (any type; null omits). */
@@ -218,33 +170,6 @@ public final class ElementPlan {
 
     public SourcePos pos() {
       return pos;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (!(o instanceof DynamicAttr)) {
-        return false;
-      }
-      DynamicAttr that = (DynamicAttr) o;
-      return Objects.equals(name, that.name)
-          && Objects.equals(valueCode, that.valueCode)
-          && Objects.equals(context, that.context)
-          && Objects.equals(pos, that.pos);
-    }
-
-    @Override
-    public int hashCode() {
-      int h = Objects.hashCode(name);
-      h = 31 * h + Objects.hashCode(valueCode);
-      h = 31 * h + Objects.hashCode(context);
-      h = 31 * h + Objects.hashCode(pos);
-      return h;
-    }
-
-    @Override
-    public String toString() {
-      return "DynamicAttr[name=" + name + ", valueCode=" + valueCode + ", context=" + context
-          + ", pos=" + pos + "]";
     }
   }
 

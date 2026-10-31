@@ -103,11 +103,9 @@ public interface CodegenContext {
   String whitespaceBefore(Element element);
 
   /**
-   * Whether htmx may request {@code element}'s {@code action} or {@code formaction} and swap the
-   * response into the page (#258): a {@code <form>} in a statically boosted subtree of this
-   * template, or another element in such a subtree or inside a {@code <form>} that is boosted or
-   * has an htmx request attribute. Boosting from a fragment caller, a layout or JavaScript is not
-   * seen.
+   * Whether htmx may request {@code element}'s {@code action} and swap the response into the page
+   * (#258): a {@code <form>} in a statically boosted subtree of this template. Boosting from a
+   * fragment caller, a layout or JavaScript is not seen.
    */
   boolean htmxSubmits(Element element);
 
@@ -124,7 +122,5 @@ public interface CodegenContext {
    * a raw text element, so a fragment's {@code <script>} and {@code <style>} get the nonce only
    * where a browser reads them as HTML (#335).
    */
-  default String insertionContext() {
-    return "ctx";
-  }
+  String insertionContext();
 }

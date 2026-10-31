@@ -8,6 +8,7 @@ import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.types.Scope;
+import dev.tessera.runtime.Escapers;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -147,15 +148,14 @@ public final class LinkCompiler {
   /**
    * A literal link path that stays on the page's origin: it starts with {@code /} and a browser
    * does not read it as protocol-relative ({@code //host}, {@code /\host}, {@code /<tab>/host}).
-   * Used for htmx request URLs, refresh URLs, boosted or htmx form URLs, a {@code formaction} that
-   * may receive the CSRF token and {@code <base href>}, which must be same-origin. This checks only
-   * the literal; the context path or a custom {@code Links} can still make the built URL
-   * protocol-relative, so the generated code re-checks it with {@code Escapers.sameOriginLink}
-   * (#358).
+   * The runtime's {@link Escapers#isSameOriginUrl} rule for a path. Used for htmx request URLs,
+   * refresh URLs, boosted form URLs, a {@code formaction} that may receive the CSRF token and
+   * {@code <base href>}, which must be same-origin. This checks only the literal; the context path
+   * or a custom {@code Links} can still make the built URL protocol-relative, so the generated code
+   * re-checks it with {@code Escapers.sameOriginLink} (#358).
    */
   public static boolean isSameOriginPath(String path) {
-    String browser = browserForm(path);
-    return path.startsWith("/") && browser.startsWith("/") && !browser.startsWith("//");
+    return path.startsWith("/") && Escapers.isSameOriginUrl(path);
   }
 
   /**

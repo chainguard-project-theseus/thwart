@@ -13,6 +13,7 @@ import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.ExpressionParser;
 import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.html.HtmlParser;
+import dev.tessera.compiler.html.ParsingContexts;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Comment;
 import dev.tessera.compiler.model.DocType;
@@ -89,7 +90,7 @@ public final class TemplateGenerator implements CodegenContext {
   private Set<Element> htmxSubmits;
   /**
    * The element a browser reads as raw text or RCDATA whose content is being generated, or null.
-   * See {@link #rawTextElement}.
+   * See {@link ParsingContexts#rawTextElement}.
    */
   private String rawTextHost;
   /** Whether the content being generated is inside an {@code <svg>} or {@code <math>} element. */
@@ -130,7 +131,7 @@ public final class TemplateGenerator implements CodegenContext {
     whitespaceBefore = new IdentityHashMap<>();
     indexWhitespace(document.children());
     htmxSubmits = Collections.newSetFromMap(new IdentityHashMap<>());
-    indexHtmxSubmits(document.children(), false, false);
+    indexHtmxSubmits(document.children(), false);
 
     validate(document.rootElement(), document.children());
     TextInlining.checkBraces(this, document.children(), null, false);
@@ -335,30 +336,24 @@ public final class TemplateGenerator implements CodegenContext {
   /**
    * Records {@link #htmxSubmits}. {@code boosted}: the nearest static {@code hx-boost} above is not
    * {@code false} (htmx inherits it; {@code hx-disinherit} is ignored, which only adds checks).
-   * {@code htmxForm}: inside a {@code <form>} that is boosted or has an htmx request attribute.
    * An {@code hx-boost="false"} whose tag is not rendered ({@code <t:block>}, {@code t:remove="tag"})
-   * opts nothing out, and an inner form keeps {@code htmxForm}: browsers drop a nested {@code <form>}.
+   * opts nothing out. Only a boosted form's action is requested: {@code hx-post} etc. alone ignore it.
    */
-  private void indexHtmxSubmits(List<Node> nodes, boolean boosted, boolean htmxForm) {
+  private void indexHtmxSubmits(List<Node> nodes, boolean boosted) {
     for (Node n : nodes) {
       if (!(n instanceof Element)) {
         continue;
       }
       Element e = (Element) n;
       Boolean boost = Contexts.staticHtmxBoost(e);
-      if (Boolean.FALSE.equals(boost)
-          && (e.name().equals("t:block")
-              || e.attribute("t:remove").map(Attribute::value).map(JavaStrings::trimJava).filter("tag"::equals).isPresent())) {
+      if (Boolean.FALSE.equals(boost) && TextInlining.tagNotRendered(e)) {
         boost = null;
       }
       boolean b = boost == null ? boosted : boost;
-      boolean form = HtmlParser.asciiEqualsIgnoreCase(e.name(), "form");
-      boolean f = htmxForm || (form && (b || Contexts.hasHtmxRequestAttribute(e)));
-      // A form's own action is requested only when it is boosted; with hx-post etc. htmx ignores it.
-      if (form ? b : b || f) {
+      if (b && HtmlParser.asciiEqualsIgnoreCase(e.name(), "form")) {
         htmxSubmits.add(e);
       }
-      indexHtmxSubmits(e.children(), b, f);
+      indexHtmxSubmits(e.children(), b);
     }
   }
 
@@ -444,7 +439,7 @@ public final class TemplateGenerator implements CodegenContext {
     String outerHost = hostElement;
     boolean outerForeign = inForeign;
     boolean outerJson = jsonScript;
-    String host = rawTextElement(e) ? e.name() : outer;
+    String host = ParsingContexts.rawTextElement(e) ? e.name() : outer;
     // In raw text the tag is text, so nothing is dropped (and the content is static, #571).
     boolean leadingLineFeed = outer == null && !e.foreign() && LEADING_LINE_FEED.contains(HtmlParser.asciiLower(e.name()));
     // Processors (t:remove="all-but-first") and emit generate the content.
@@ -500,18 +495,6 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   /**
-   * Whether a browser reads the content of {@code e} as raw text or RCDATA up to the first
-   * {@code </name}: {@link Contexts#browserRawText} elements, {@code <textarea>} and {@code <title>}.
-   * Tessera treats {@code <title>} in {@code <svg>} and {@code <math>} as RCDATA too: a browser
-   * reads it as RCDATA in an HTML integration point ({@code <foreignObject>}, {@code <mtext>}) or
-   * after a tag that ends foreign content ({@code <b>}).
-   */
-  private static boolean rawTextElement(Element e) {
-    String lower = HtmlParser.asciiLower(e.name());
-    return Contexts.browserRawText(lower) || lower.equals("textarea") || lower.equals("title");
-  }
-
-  /**
    * HTML known only at runtime (a {@code SafeHtml}, a rendered fragment) could contain {@code
    * </name}, which ends a raw text element early in a browser and makes the rest of its content
    * live markup, so it cannot be written inside one.
@@ -543,7 +526,7 @@ public final class TemplateGenerator implements CodegenContext {
         for (Emitted s : plan.beforeStartTagStatements()) {
           c.add(s);
         }
-        if (!plan.tagOmitted() && e.selfClosing() && rawTextElement(e) && !opensSelfClosing(plan)) {
+        if (!plan.tagOmitted() && e.selfClosing() && ParsingContexts.rawTextElement(e) && !opensSelfClosing(plan)) {
           selfClosingRawText(e);
         }
         // The content is generated first: whether the start tag gets v-pre depends on it.
@@ -645,10 +628,8 @@ public final class TemplateGenerator implements CodegenContext {
       }
     }
     for (ElementPlan.Attr a : directives) {
-      SourcePos pos =
-          a instanceof ElementPlan.StaticAttr ? ((ElementPlan.StaticAttr) a).source().pos() : ((ElementPlan.DynamicAttr) a).pos();
       diagnostics()
-          .error(pos == null ? e.pos() : pos, a.name() + " on a <" + lower + "> with computed content is not supported:"
+          .error(posOf(a, e), a.name() + " on a <" + lower + "> with computed content is not supported:"
               + " Tessera adds v-pre there, because a comment cannot break {{ in a value in <" + lower + ">, and v-pre"
               + " would turn " + a.name() + " off; drop " + a.name() + ", or move the value into Vue (v-model or"
               + " v-text with the value in the app's data) instead of writing it with Tessera");
@@ -729,17 +710,19 @@ public final class TemplateGenerator implements CodegenContext {
     }
     Optional<ElementPlan.Attr> own = plan.attribute("nonce");
     if (own.isPresent()) {
-      ElementPlan.Attr a = own.get();
-      SourcePos pos =
-          a instanceof ElementPlan.StaticAttr
-              ? ((ElementPlan.StaticAttr) a).source().pos()
-              : ((ElementPlan.DynamicAttr) a).pos();
       diagnostics()
-          .error(pos == null ? plan.element().pos() : pos, "a nonce on <" + lower + "> is not supported: Tessera"
+          .error(posOf(own.get(), plan.element()), "a nonce on <" + lower + "> is not supported: Tessera"
               + " writes the render's CSP nonce (RenderContext.cspNonce, set per request by the Spring starter) on"
               + " every <script> and <style>; remove the nonce attribute (static, t:nonce or t:attr nonce=...)");
     }
     return !inForeign && rawTextHost == null;
+  }
+
+  /** Where {@code a} is written, or {@code e}'s position if it has none. */
+  private static SourcePos posOf(ElementPlan.Attr a, Element e) {
+    SourcePos pos =
+        a instanceof ElementPlan.StaticAttr ? ((ElementPlan.StaticAttr) a).source().pos() : ((ElementPlan.DynamicAttr) a).pos();
+    return pos == null ? e.pos() : pos;
   }
 
   /**
