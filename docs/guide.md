@@ -805,17 +805,17 @@ braces, before a value's first `{` and after its last (`{{x}}` renders as
 `<!---->{<!---->{x}}`). Nothing visible changes: the page, `textContent` and copied text are the
 same, and `tessera-migrate compare` ignores comments. This happens in every template, whether or
 not it shows a mount point, since the app is often mounted from JavaScript or in a layout. The
-same applies to `SafeHtml.escape`, `html.sanitize` (which also percent-encodes `{` in the links it
-keeps) and the arguments of an HTML message. An expression inside a static `{{ ... }}` in the
-template is a build error, since the framework would run the value as code: pass it in a
-`data-*` attribute or a `<script>` with `[[...]]`. A static `{{` with no `}}` after it in the
-same element is a build error too, since a value written after it, here or where a template
-inserts the element as a fragment, would be inside it: write a literal `{{` as `{<!---->{`. The `}}`
-may be in a child element (`<p>{{ <b>x</b> }}</p>`), but `<b>{{</b> }}` is an error; a `}}` that
-may not render where the `{{` does, such as one inside `t:if`, does not close it. A `<script>` with `[[...]]` stays a safe place for a
+same applies to `SafeHtml.escape`, `html.sanitize`, the arguments of an HTML message and the
+edges of any `SafeHtml` or HTML message: one runtime function writes every value into element
+text. Only static text can open a `{{`, so a static `{{` must be closed by `}}` in the same static
+text, before any `[[...]]`, tag or comment, and element text may not start with a lone `{` or
+end with `{` next to a `<t:block>`, a `t:if`, a fragment's edge or anything else that may put
+other text right next to it, and a `{` may not sit right before and right after a value, which an
+empty value would join: all are build errors, since the framework would run a value as
+code. Pass values in a `data-*` attribute or a `<script>` with `[[...]]`, and write a literal `{{`
+as `{<!---->{`. A `<script>` with `[[...]]` stays a safe place for a
 value: its JSON writes `{` in a string as `\u007b`, so petite-vue, which interpolates script text,
-never sees `{{` there (Vue and AngularJS do not interpolate script text). A value after a `{{` with
-no `}}` between them in the same script is a build error. Attribute values and `<title>`/`<textarea>` text are not changed (section 7).
+never sees `{{` there (Vue does not interpolate script text). Attribute values and `<title>`/`<textarea>` text are not changed (section 7).
 
 In `<title>` and `<textarea>` a comment is text, so a value's `{{` can't be broken there. Vue 3
 interpolates their text in a mounted region, and petite-vue mounted without `v-scope` reads the
@@ -853,7 +853,7 @@ tfoot tr th td` with `colspan`, `rowspan`, `align`); `ol start reversed` and `li
 content can't shadow `window` or `document` properties or the page's own ids, with `href="#<id>"`
 links rewritten to match. Links keep `target="_blank"`. An image `src` must start with a single
 `/` (not `//` or `/\`), so that showing stored content never makes the reader's browser contact
-another host; other images are dropped. An attribute value containing `{{` is dropped.
+another host; other images are dropped.
 
 For any other mix, build a policy once in Java with `HtmlPolicy.builder()` and expose it through
 your own function namespace (section 4.6):
@@ -2284,18 +2284,28 @@ These come from the annotation processor itself, without a template position.
   not `{"name": "[[${x}]]"}`: the value brings its own quotes.
 - `'/' outside a string of a JSON <script> with a [[...]]: JSON has no comments or division; write only JSON around the values`:
   JSON has no `/* */` or `//` comments; remove them.
-- `[[...]] is inside a client-side {{ ... }} interpolation: Vue or AngularJS would run the value as code, whatever the escaping. Pass the value in a data-* attribute or a <script> with [[...]] and read it from there`
-  (also `[(...)]`): the text has a `{{` with no `}}` before the expression, in element text,
-  `<title>`, `<textarea>` or a `<script>`. Character references for braces count outside scripts,
-  as the framework decodes them.
-- `a client-side {{ is never closed inside <p>: Vue or AngularJS would run a value written after it as code, also where the element is inserted as a fragment. Close it with }} inside the same element, or write a literal {{ as {<!---->{`:
-  element text, `<title>` or `<textarea>` has a static `{{` with no `}}` after it in the same
-  element (`<p>{{</p>`, `<p><b>{{</b> }}</p>`, `<t:block t:fragment="f">{{</t:block>}}`), since a
-  fragment or a selector inserts the element without what follows it. Character references for
-  braces count. A `}}` inside an element that may not render where the `{{` does (`t:if`, `t:unless`, `t:each`, `t:switch`, `t:case`,
-  `t:field`, `t:remove` other than `"tag"` and `"none"`) does not close it, and the body of an element
-  that `t:text`, `t:utext`, `t:insert`, `t:replace`, `t:errors` or `t:remove="all"`/`"body"` replaces or
-  drops is not read, except for the elements in it, which a template can still insert.
+- `a client-side {{ is not closed by }} in the same text: Vue and petite-vue would run a value, tag or text written after it as code. Close it before any [[...]], tag or comment; pass a value in a data-* attribute or a <script> with [[...]]; write a literal {{ as {<!---->{`:
+  a static `{{` in element text, `<title>`, `<textarea>` or a `<script>` has no `}}` after it in
+  the same static text, before the next `[[...]]`, `[(...)]`, tag or comment (`<p>{{</p>`,
+  `<p>{{ [[s]] }}</p>`, `<p>{{ <b>x</b> }}</p>`). Character references for braces count outside
+  scripts, as the framework decodes them. The text of an element that `t:text`, `t:utext`,
+  `t:insert`, `t:replace` or `t:errors` replaces is not read.
+- `this text ends with '{' next to a <t:block>, t:if, t:each, t:remove, t:replace, t:errors, a t:fragment with parameters or the edge of the template, where it can meet a '{' from other text and form a client-side {{ that Vue and petite-vue would run as code; write it as {<!----> or move it inside an element`
+  (also `starts with`, fix `<!---->{`): element text starts with a lone `{` or ends with `{` where
+  the node next to it is not a tag or comment that always renders, so other static text can be
+  written right next to it (`<p>{<t:block>{ [[s]] }}</t:block></p>`, a fragment's first or last
+  text). Only an element whose `t:` attributes all keep its tag counts as one that always renders
+  (`t:text`, `t:utext`, `t:insert`, `t:attr`, `t:with`, `t:object`, `t:field`, `t:classappend`,
+  `t:errorclass`, `t:switch` and plain `t:<attr>` outputs); an element inside a
+  `t:remove="all-but-first"` never does.
+- `this text starts with '{' right after a value that follows a '{': when the value is empty the two braces form a client-side {{ that Vue and petite-vue would run as code; write it as <!---->{`:
+  element text has a `{` right before a `[[...]]` or `[(...)]` and
+  another right after it (`<p>{[[s]]{ [[t]] }}</p>`). An empty value (`null`, `""`, an empty
+  `SafeHtml`) writes nothing, so the braces meet. Put other text between them, or write the second
+  one as `<!---->{`.
+- `'{' in a CDATA section is not supported: a browser joins it to the text around the section, where it can form a client-side {{ that Vue and petite-vue would run as code; write the brace outside the CDATA section`:
+  a `<![CDATA[...]]>` section inside `<svg>` or `<math>` holds a `{`. Write the text without
+  the CDATA section, so the brace rules above apply to it.
 - `v-model on a <textarea> with computed content is not supported: Tessera adds v-pre there, because a comment cannot break {{ in a value in <textarea>, and v-pre would turn v-model off; drop v-model, or move the value into Vue (v-model or v-text with the value in the app's data) instead of writing it with Tessera`
   (also `<title>`, and any Vue directive or binding: `v-*`, `:x`, `@x`, `#x`, `.x`): the element's
   content is computed, so it gets `v-pre` (section 4.4), under which Vue would ignore the
@@ -2325,8 +2335,11 @@ These come from the annotation processor itself, without a template position.
   placeholder at fault (`<script> is not allowed`, `attribute onclick is not allowed on <b>`,
   `a placeholder may not be inside a tag`, `<div> is never closed`, ...); a reason that ends `(in
   the message as MessageFormat formats it, ...)` is about `'` quoting. `a message may not end with
-  '<'` means the template text after the message would continue the `<` into a tag. Fix the
-  bundle, or move the markup into the template.
+  '<'` means the template text after the message would continue the `<` into a tag. A `{{` in
+  message text must be closed by `}}` before the next tag or placeholder, and a brace may not be
+  written as a character reference (`&#123;`, `&lbrace;`) or put on both sides of a placeholder
+  (`'{'{0}'{'`, which an empty argument joins): the runtime breaks only a literal `{`
+  at a message's edges (section 4.4). Fix the bundle, or move the markup into the template.
 - `<form> needs a value of type dev.tessera.runtime.SafeHtml, but the expression has type <type>: use t:text or [[...]] (escaped), or build a SafeHtml in trusted Java code`.
 
 ### Attributes
@@ -2578,9 +2591,8 @@ Gaps in Tessera today, each with what to do until it is fixed.
   covers the element's own attributes) on elements whose attributes or `<title>`/`<textarea>`
   hold user data, or keep server-rendered user data out of the mounted region. Custom delimiters (Vue `delimiters`, AngularJS `$interpolateProvider`) are not
   broken, so keep the default `{{ }}` or mark the region. The check for an expression inside a
-  static `{{ }}` only sees one text: a `{{` before a tag or comment and an expression after it
-  are not reported when a `}}` follows later in the element (#336). `SafeHtml.unchecked` text is
-  not changed.
+  static `{{ }}` covers only static text, and `SafeHtml.unchecked` text is changed only at its
+  edges.
 - **Security functions.** `auth` has `isAuthenticated`, `hasRole`/`hasAnyRole` and
   `hasAuthority`/`hasAnyAuthority`. They check the granted authorities as given, without a role
   hierarchy. Compute any other Spring Security expression in the controller.

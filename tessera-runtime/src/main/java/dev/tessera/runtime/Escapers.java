@@ -53,9 +53,10 @@ public final class Escapers {
 
   /**
    * Written between two {@code {} characters in element text, so that client-side frameworks
-   * that compile the page's DOM as a template (Vue 2/3, petite-vue, AngularJS) never see a
-   * {@code {{} interpolation in the value (#248). An empty comment is a node boundary: the text
-   * that the page shows, {@code textContent} and copied text are unchanged.
+   * that compile the page's DOM as a template (Vue 2/3, petite-vue) never see a {@code {{}
+   * interpolation in the value (#248). An empty comment is a node boundary: the text that the
+   * page shows, {@code textContent} and copied text are unchanged. Only {@link #appendText} and
+   * {@link #rawEdges} write it.
    */
   static final String BRACE_BREAK = "<!---->";
 
@@ -63,10 +64,7 @@ public final class Escapers {
    * HTML element text (OutputContext.TEXT). Encodes {@code & < > " '}. A {@link SafeHtml}
    * argument is escaped like any other value: {@code t:text} always escapes.
    *
-   * <p>Also breaks client-side template delimiters (#248): an empty comment ({@code <!---->})
-   * is written between two adjacent {@code {}, before a {@code {} that starts the value and
-   * after one that ends it, so neither the value alone nor the value next to static text or
-   * another value can form {@code {{}. Values without {@code {} are written as by {@link #attr}.
+   * <p>Also breaks client-side template delimiters (#248), through {@link #appendText}.
    */
   public static void text(Output out, Object value) {
     escapeText(out, toText(value));
@@ -167,11 +165,26 @@ public final class Escapers {
     return value == null ? null : jdkNumberText(value);
   }
 
-  /** Raw HTML (t:utext and {@code [(...)]}). Only {@link SafeHtml} is accepted. */
+  /**
+   * Raw HTML (t:utext and {@code [(...)]}). Only {@link SafeHtml} is accepted. Like any value in
+   * element text, its edges are written as {@link #rawEdges} writes them.
+   */
   public static void html(Output out, SafeHtml value) {
     if (value != null) {
-      out.write(value.html());
+      out.write(rawEdges(value.html()));
     }
+  }
+
+  /**
+   * Markup written into element text as a value (a {@link SafeHtml}, an HTML message): with
+   * {@link #BRACE_BREAK} before a leading and after a trailing {@code {}, as {@link #appendText}
+   * writes a value's edges, so it never forms {@code {{} with the text around it (#336).
+   */
+  static String rawEdges(String html) {
+    if (html.isEmpty() || html.charAt(0) != '{' && html.charAt(html.length() - 1) != '{') {
+      return html;
+    }
+    return (html.charAt(0) == '{' ? BRACE_BREAK : "") + html + (html.charAt(html.length() - 1) == '{' ? BRACE_BREAK : "");
   }
 
   /** How far from the decimal point a {@link BigDecimal} message argument may reach; see {@link #messageArgs}. */
@@ -222,7 +235,7 @@ public final class Escapers {
    * A bundle message rendered as HTML ({@code t:utext="#{key(args)}"}, {@code [(#{...})]}; #236).
    * {@code checked} holds the key's values in every bundle file the compiler checked as HTML. The
    * arguments are HTML-escaped (numbers and dates are kept for MessageFormat) and the message is
-   * looked up; the result is returned as HTML only if it is exactly what one of the {@code checked}
+   * looked up; the result is returned as HTML, its edges as {@link #rawEdges} writes them, only if it is exactly what one of the {@code checked}
    * patterns produces (as written, or formatted by {@link MessageFormat} in the context's locale
    * with the escaped arguments). The runtime never decides a message is safe by inspecting it:
    * anything else (a bundle the build did not see, a database-backed message source, a file changed
@@ -238,11 +251,11 @@ public final class Escapers {
     }
     for (String pattern : checked) {
       if (message.equals(pattern)) {
-        return message;
+        return rawEdges(message);
       }
       try {
         if (message.equals(new MessageFormat(pattern, ctx.locale()).format(escaped))) {
-          return message;
+          return rawEdges(message);
         }
       } catch (IllegalArgumentException e) {
         // an argument does not fit the pattern (e.g. text for {0,number}): not this pattern
@@ -359,7 +372,7 @@ public final class Escapers {
 
   private static void escapeHtml(Output out, String s) {
     if (out instanceof StringOutput) {
-      ((StringOutput) out).writeHtml(s, false);
+      appendHtml(((StringOutput) out).sb, s);
     } else {
       out.write(escapeHtml(s));
     }
@@ -367,17 +380,29 @@ public final class Escapers {
 
   private static void escapeText(Output out, String s) {
     if (out instanceof StringOutput) {
-      ((StringOutput) out).writeHtml(s, true);
+      appendText(((StringOutput) out).sb, s);
     } else {
       out.write(escapeText(s));
     }
   }
 
+  /** Escapes an attribute value or RCDATA: {@code & < > " '}, nothing else. */
+  static void appendHtml(StringBuilder sb, String s) {
+    append(sb, s, false);
+  }
+
   /**
-   * Append directly to StringOutput; other sinks retain one write per escaped value. With
-   * {@code text}, also breaks {@code {{} as {@link #text} does.
+   * The one way a value reaches element text (#248, #336): escaped as {@link #appendHtml}, with
+   * the empty comments {@link #appendEscapedHtml} writes so that a {@code {} in the value never
+   * meets another one, inside it or next to it. {@link #text}, {@link SafeHtml#escape}, the
+   * sanitizer's text, HTML message arguments and unchecked messages all call it, and
+   * {@code TextChokePointTest} fails if runtime code escapes text another way.
    */
-  static void escapeHtml(StringBuilder sb, String s, boolean text) {
+  static void appendText(StringBuilder sb, String s) {
+    append(sb, s, true);
+  }
+
+  private static void append(StringBuilder sb, String s, boolean text) {
     int i = 0;
     while (i < s.length() && !needsHtmlEscape(s, i, text)) {
       i++;
@@ -393,7 +418,7 @@ public final class Escapers {
     return escape(s, false);
   }
 
-  /** Escapes element text as {@link #text} does, {@code {{} broken. */
+  /** Escapes element text as {@link #appendText} does. */
   static String escapeText(String s) {
     return escape(s, true);
   }
