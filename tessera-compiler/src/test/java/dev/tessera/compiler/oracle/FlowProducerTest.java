@@ -116,7 +116,7 @@ class FlowProducerTest {
     for (String context : CONTEXTS) {
       for (Parser p : entries(context)) {
         ParserState s = p.state();
-        assertNull(ContentKinds.problem(ContentKinds.Kind.FLOW, s), () -> context + ": " + s);
+        assertNull(ContentKinds.problem(s), () -> context + ": " + s);
       }
     }
   }
@@ -206,11 +206,11 @@ class FlowProducerTest {
       assertTrue(changed, () -> c[1] + " in " + c[0] + " left the state as it was");
     }
     for (Parser entry : entries(cases[6][0])) {
-      assertNull(ContentKinds.problem(ContentKinds.Kind.FLOW, entry.state()), cases[6][0]);
+      assertNull(ContentKinds.problem(entry.state()), cases[6][0]);
     }
     for (int i = 0; i < 6; i++) {
       for (Parser entry : entries(cases[i][0])) {
-        assertNotNull(ContentKinds.problem(ContentKinds.Kind.FLOW, entry.state()), cases[i][0]);
+        assertNotNull(ContentKinds.problem(entry.state()), cases[i][0]);
       }
     }
   }
@@ -228,7 +228,7 @@ class FlowProducerTest {
         if (same(after, before)) {
           continue;
         }
-        if (ContentKinds.switchesMode(ContentKinds.Kind.FLOW, before)) {
+        if (ContentKinds.switchesMode(before)) {
           Parser rep = entry.fork();
           rep.feed(ContentKinds.REPRESENTATIVE);
           if (same(after, rep.state())) {
