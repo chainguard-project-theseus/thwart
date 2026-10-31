@@ -62,7 +62,7 @@ public final class HtmlParser {
    * parse their content as markup: a {@code <script>} in a {@code <title>}, {@code <style>} or
    * svg CDATA runs. The {@code <t:block>} tag is never rendered.
    */
-  static final Set<String> SELECT_CONTENT = Backports.setOf("option", "optgroup", "hr", "t:block");
+  private static final Set<String> SELECT_CONTENT = Backports.setOf("option", "optgroup", "hr", "t:block");
   private static final Pattern ELEMENT_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_.:-]*");
   private static final Map<String, String> NAMED_REFERENCES = new HashMap<>();
 
@@ -110,9 +110,9 @@ public final class HtmlParser {
   static final String MATHML = "math";
 
   /** SVG elements whose children a browser parses as HTML (HTML integration points). */
-  private static final Set<String> SVG_HTML_PARENTS = Backports.setOf("foreignobject", "desc", "title");
+  static final Set<String> SVG_HTML_PARENTS = Backports.setOf("foreignobject", "desc", "title");
   /** MathML text integration points: their children are HTML, except {@code mglyph}/{@code malignmark}. */
-  private static final Set<String> MATHML_TEXT_PARENTS = Backports.setOf("mi", "mo", "mn", "ms", "mtext");
+  static final Set<String> MATHML_TEXT_PARENTS = Backports.setOf("mi", "mo", "mn", "ms", "mtext");
 
   /**
    * The namespace a browser gives element {@code name} whose nearest rendered parent (see {@link
@@ -300,9 +300,11 @@ public final class HtmlParser {
    * {@code color}, {@code face} or {@code size}, or a {@code t:attr} that {@link #attrMaySet may set} one.
    */
   static boolean breaksOut(String namespace, String name, List<Attribute> attributes) {
-    if (namespace.equals(HTML) || omitsTag(name, attributes)) {
-      return false;
-    }
+    return !namespace.equals(HTML) && !omitsTag(name, attributes) && isBreakoutTag(name, attributes);
+  }
+
+  /** Whether {@code name} with {@code attributes} is a breakout tag, in any namespace. */
+  static boolean isBreakoutTag(String name, List<Attribute> attributes) {
     String el = asciiLower(name);
     if (BREAKOUT_TAGS.contains(el)) {
       return true;
@@ -354,7 +356,7 @@ public final class HtmlParser {
         continue;
       }
       char c = body.charAt(i + 1);
-      if (c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '!' || c == '/' || c == '?') {
+      if (isAsciiAlpha(c) || c == '!' || c == '/' || c == '?') {
         return i;
       }
     }
@@ -807,7 +809,7 @@ public final class HtmlParser {
       checkBreakout(open);
       open.textContext = Contexts.text(open.toElement(false, false));
       stack.push(open);
-      if (RAW_TEXT_ELEMENTS.contains(HtmlParser.asciiLower(open.name))) {
+      if (isRawText(open.name)) {
         raw = open;
         rawStart = gt + 1;
         rawEnd = browserEndTag(open.name, rawStart);
