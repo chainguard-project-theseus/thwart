@@ -812,9 +812,9 @@ is next to the text: in element text (a CDATA section in `<svg>` or `<math>` inc
 `{` or `}` is allowed only inside a complete `{{ ... }}` that opens and closes in the same static
 text, before any `[[...]]`, tag or comment. Any other static brace is a build error, wherever it
 is (`<p>{</p>`, `<p>{{ [[s]] }}</p>`, `<p>{[[s]]{ [[t]] }}</p>`, `<p>{<t:block>{ x }}</t:block></p>`).
-A character reference (`&#123;`) doesn't help, since the browser decodes it: add `v-pre` to the
-element, which Vue and petite-vue skip with everything inside (Tessera then checks none of its
-braces), or write the text as a value (`[['{']]`). Pass values to Vue in a `data-*` attribute or
+A character reference (`&#123;`) doesn't help, since the browser decodes it, and neither does a
+static `v-pre` (the tag may not be written, or a fragment inside written elsewhere): write the
+text as a value (`[['{']]`). Pass values to Vue in a `data-*` attribute or
 a `<script>` with `[[...]]`. A `<script>` with `[[...]]` stays a safe place for a
 value: its JSON writes `{` in a string as `\u007b`, so petite-vue, which interpolates script text,
 never sees `{{` there (Vue does not interpolate script text); a static `{{` in a script must be
@@ -833,8 +833,8 @@ computed (`t:text`, `[[...]]`, `t:field`), Tessera adds `v-pre` to its start tag
 (`<textarea v-pre>`): both frameworks skip that element, and anywhere else the attribute does
 nothing. A static `v-pre` is not repeated. Because `v-pre` would turn it off, a Vue directive or
 binding on the same element (`v-model`, `:rows`, `@input`, `v-cloak`) is a build error, and so is
-any static brace in a `<title>` or `<textarea>`, even in a complete `{{ }}` (add a static `v-pre`
-to show it as is). AngularJS ignores `v-pre` (section 7).
+any static brace in a `<title>` or `<textarea>`, even in a complete `{{ }}`. AngularJS ignores
+`v-pre` (section 7).
 
 In a script, a record or `@TemplateView` bean becomes a JSON object of the properties a template
 can read, as Thymeleaf's Jackson output does: `var chart = [[${chart}]];` works unchanged. Record
@@ -2294,15 +2294,15 @@ These come from the annotation processor itself, without a template position.
   not `{"name": "[[${x}]]"}`: the value brings its own quotes.
 - `'/' outside a string of a JSON <script> with a [[...]]: JSON has no comments or division; write only JSON around the values`:
   JSON has no `/* */` or `//` comments; remove them.
-- `'{' outside a complete {{ ... }} is not supported in element text: with a brace from other text it could form a client-side {{ that Vue and petite-vue would run as code (a character reference does not help). A static brace is allowed only in a {{ ... }} that opens and closes before any [[...]], tag or comment; add v-pre to the element, or write the text as a value with [[...]] or t:text`
+- `'{' outside a complete {{ ... }} is not supported in element text: with a brace from other text it could form a client-side {{ that Vue and petite-vue would run as code (a character reference does not help). A static brace is allowed only in a {{ ... }} that opens and closes before any [[...]], tag or comment; write the text as a value with [[...]] or t:text ([['{']])`
   (also `'}'`): element text, or a CDATA section in `<svg>` or `<math>`, has a static brace that
   is not inside a complete `{{ ... }}` in the same static text (`<p>{</p>`, `<p>{{ [[s]] }}</p>`,
   `<p>{{ <b>x</b> }}</p>`, `<p>{[[s]]{ [[t]] }}</p>`, `<p>{<t:block>{ x }}</t:block></p>`). The
   rule never looks at what is next to the text: next to a value that may be empty, a tag that may
   not render or a fragment's edge, a lone brace could meet another one. Character references for
   braces count, as the framework decodes them. The text of an element that `t:text`, `t:utext`,
-  `t:insert`, `t:replace` or `t:errors` replaces is not read, nor anything inside an element with
-  a static `v-pre`.
+  `t:insert`, `t:replace` or `t:errors` replaces is not read. A static `v-pre` does not turn the
+  check off: a tag that may not be written or a fragment written elsewhere would lose it.
 - `a client-side {{ is not closed by }} in the same text: petite-vue would run a value written after it in this script as code; close it before any [[...]]`:
   a static `{{` in a `<script>` has no `}}` after it before the next `[[...]]`
   (`<script>var t = '{{'; var v = [[s]];</script>`).
@@ -2316,11 +2316,11 @@ These come from the annotation processor itself, without a template position.
   directive. Let Vue own the content (`<textarea v-model="text">` with the value in the app's
   data), or let Tessera own it and drop the directive. Alpine's `x-*` is allowed: Alpine ignores
   `v-pre`.
-- `'{' in the static text of a <title> or <textarea> is not supported: Tessera adds v-pre there once the content is computed, because a comment cannot break {{ in a value in it, and v-pre would show a static {{ ... }} as text; write the whole content with Tessera, bind it with Vue, or add v-pre to the element`
+- `'{' in the static text of a <title> or <textarea> is not supported: Tessera adds v-pre there once the content is computed, because a comment cannot break {{ in a value in it, and v-pre would show a static {{ ... }} as text; write the whole content with Tessera, or bind it with Vue`
   (also `'}'`): any static brace in a `<title>` or `<textarea>`, also inside a condition in an SVG
   title, even in a complete `{{ }}` and whether or not the content is computed:
-  `<title>{{ appName }} - [[${page}]]</title>`. Compute the whole text in Tessera, bind it in Vue,
-  or add a static `v-pre` to show the braces as text.
+  `<title>{{ appName }} - [[${page}]]</title>`. Compute the whole text in Tessera, or bind it in
+  Vue.
 - `~{:: row} writes <tr>, which is not supported in a Fragment value: inserted in a <td> or a <div> a browser would close elements to place it and move text after it out of the table; insert the fragment with t:insert/t:replace directly in the table part that takes it`:
   a fragment passed as a `Fragment` argument may have no table part other than `<table>` at its top.
 - `[[...]] may not follow '<MARKUP>' directly: the browser would read the value as markup; write &lt; for a literal '<'`
@@ -2615,8 +2615,8 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **Expected output differences from Thymeleaf:** attributes set by `t:` attributes may move within
   the tag; `<td >` (after a removed attribute) renders as `<td>`; a `null` attribute value omits
   the attribute (Thymeleaf writes `value=""`); a `null` link path variable fails the render (section 3, step 4);
-  element text from a value with `{{`, or starting or ending with `{`, gets empty comments next
-  to those braces (section 4.4); a `<title>` or `<textarea>` with computed content has a `v-pre`
+  element text from a value with `{` or `}` gets empty comments around those braces
+  (section 4.4); a `<title>` or `<textarea>` with computed content has a `v-pre`
   attribute (section 4.4); with the Spring starter every `<script>` and `<style>` has a
   `nonce` attribute (section 4.11). `tessera-migrate compare` ignores both attributes.
 - **Runtime errors** are model type mismatches (`TemplateModelException`), missing primitive

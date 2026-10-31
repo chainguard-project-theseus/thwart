@@ -107,7 +107,7 @@ class ClientTemplateInjectionTest {
   }
 
   private static final String LONE = "outside a complete {{ ... }} is not supported in element text";
-  private static final String FIX = "add v-pre to the element, or write the text as a value";
+  private static final String FIX = "write the text as a value with [[...]] or t:text";
   private static final String TITLE = "in the static text of a <title> or <textarea> is not supported";
 
   /**
@@ -177,6 +177,13 @@ class ClientTemplateInjectionTest {
         "<svg><text><![CDATA[{]]><![CDATA[{]]> [[s]] }}</text></svg>",
         "<svg><text><![CDATA[{]]>[[a]]{ [[s]] }}</text></svg>",
         "<math><mi><![CDATA[ x { y ]]></mi></math>",
+        // A static v-pre does not help: the tag may not be written (t:remove="tag", t:block), a
+        // fragment inside it is written elsewhere, and AngularJS ignores it.
+        "<p><span v-pre t:remove=\"tag\">{{ [[s]] }}</span></p>",
+        "<t:block v-pre>{{ [[s]] }}</t:block>",
+        "<div v-pre><p t:fragment=\"f\">{{ [[s]] }}</p></div><div t:insert=\"~{::f}\"></div>",
+        "<p v-pre>{{ [[s]] }}</p>",
+        "<div V-PRE><p>}</p>{</div>",
       })
   void loneStaticBraceIsABuildError(String body) {
     Compilation c = compile(body);
@@ -224,9 +231,6 @@ class ClientTemplateInjectionTest {
         "<p t:text=\"s\">{{</p>",
         "<p t:insert=\"~{::f}\">{{</p><t:block t:fragment=\"f\">x</t:block>",
         "<p t:if=\"${s != null}\">{{ a }}</p>",
-        // Vue skips an element with v-pre, and its content.
-        "<p v-pre>{ [[s]] }</p>",
-        "<div V-PRE><p>}</p>{</div>",
       })
   void closedOrNonTextBracesCompile(String body) {
     compile(body).assertSuccess();

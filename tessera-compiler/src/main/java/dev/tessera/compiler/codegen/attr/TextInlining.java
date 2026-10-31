@@ -8,7 +8,6 @@ import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.expr.Expr;
-import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.html.ParsingContexts;
 import dev.tessera.compiler.messages.MessageCompiler;
@@ -147,16 +146,11 @@ public final class TextInlining {
    *       not even there;
    *   <li>in script text, which petite-vue reads, a {@code {{} is closed in the same literal.
    * </ul>
-   *
-   * A static {@code v-pre} turns the check off for its element's content.
    */
   public static void checkBraces(CodegenContext ctx, List<Node> nodes, Element parent, boolean vPreHost) {
     boolean replaced = false;
     if (parent != null) {
       for (Attribute a : parent.attributes()) {
-        if (HtmlParser.asciiLower(a.name()).equals(Contexts.VUE_SKIP)) {
-          return;
-        }
         replaced |= REPLACES_TEXT.contains(a.name());
       }
       String lower = HtmlParser.asciiLower(parent.name());
@@ -201,14 +195,13 @@ public final class TextInlining {
     } else if (vPreHost) {
       message = "'" + s.charAt(at) + "' in the static text of a <title> or <textarea> is not supported: Tessera"
           + " adds v-pre there once the content is computed, because a comment cannot break {{ in a value in it,"
-          + " and v-pre would show a static {{ ... }} as text; write the whole content with Tessera, bind it with"
-          + " Vue, or add v-pre to the element";
+          + " and v-pre would show a static {{ ... }} as text; write the whole content with Tessera, or bind it"
+          + " with Vue";
     } else {
       message = "'" + s.charAt(at) + "' outside a complete {{ ... }} is not supported in element text: with a"
           + " brace from other text it could form a client-side {{ that Vue and petite-vue would run as code (a"
           + " character reference does not help). A static brace is allowed only in a {{ ... }} that opens and"
-          + " closes before any [[...]], tag or comment; add v-pre to the element, or write the text as a value"
-          + " with [[...]] or t:text";
+          + " closes before any [[...]], tag or comment; write the text as a value with [[...]] or t:text ([['{']])";
     }
     ctx.diagnostics().error(text.pos().advance(text.raw(), start + (s.equals(literal) ? at : 0)), message);
   }

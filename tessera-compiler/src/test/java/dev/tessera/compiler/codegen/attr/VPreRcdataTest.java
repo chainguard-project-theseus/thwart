@@ -109,7 +109,7 @@ class VPreRcdataTest {
         .assertError("t.html:1:", rule);
     compile("<textarea>{[[s]]{</textarea>").assertError("t.html:1:", rule);
     compile("<title>{{ b }}</title>").assertError("t.html:1:", rule);
-    // A static v-pre: Vue never reads the content, and Tessera adds none.
-    assertEquals("<textarea v-pre>{{ a }}</textarea>", render("<textarea v-pre>{{ a }}</textarea>", ""));
+    // Not even under a static v-pre (#571): the rule looks at the text alone.
+    compile("<textarea v-pre>{{ a }}</textarea>").assertError("t.html:1:", rule);
   }
 }
