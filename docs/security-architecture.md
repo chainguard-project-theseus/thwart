@@ -860,12 +860,23 @@ AngularJS gone (#551), the PR also deletes the sanitizer's attribute brace handl
 
 ### 12.9 Mechanical discovery (#543)
 
-Planned; spike `spike-hostile-sweep`, not yet merged. `HostileSweepTest` renders every computed
-(element, attribute) pair the compiler accepts, and the script shapes, with hostile values, and
-checks the output against a sink table written from the specs and against Rhino. On the commits
-before their fixes it found 10 of 11 historic bugs (it missed #531, in the sanitizer). The plan:
-the script sweep in `mvn verify`, the attribute sweep as a ratchet against a checked-in baseline,
-then a sanitizer pass.
+`HostileSweepTest` runs in `mvn verify` (in the compiler module's default surefire execution only,
+not again under `release-8`). On the commits before their fixes, its spike found 10 of 11 historic
+bugs. It missed #531, in the sanitizer, so the sanitizer is now one of its three passes:
+
+- **Attributes.** Renders every computed (element, attribute) pair the compiler accepts with
+  hostile values, parses the output with validator.nu, and classifies each attribute against a
+  sink table written from the specs (`HostileSinks`), not from `Contexts`. This is a ratchet: a hit
+  fails the build unless `oracle/hostile-sweep-baseline.txt` lists it with a justification, and a
+  listed hit that no longer occurs fails too, until its line is deleted.
+- **Sanitizer.** `html.sanitize` under `BASIC`, `RICH` and the widest policy, over every element
+  and attribute a policy can allow (and some it never allows), with the same values, the same
+  table and the same baseline.
+- **Scripts.** The closed prelude grammar (§12.3) and the expression positions it rejects, for
+  each value type. For every shape the compiler accepts, Rhino checks that each value is one literal
+  and that the code around it doesn't change. There's no baseline: any hit fails.
+
+Confirming hits in browsers in the nightly job is later work.
 
 ### 12.10 Policy going forward
 
