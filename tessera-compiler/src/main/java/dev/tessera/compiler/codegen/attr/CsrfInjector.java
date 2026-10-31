@@ -167,15 +167,28 @@ public final class CsrfInjector {
    * Checks the static URLs that can send a form's inputs, token included, elsewhere, on every
    * element, whether or not the template has a form (a layout's applies to the forms its fragments
    * insert): a {@code <base href>} (#350), against which every relative action resolves, and an
-   * htmx request URL ({@code hx-post}, ...; #311), to which htmx sends the enclosing form. Each
-   * must be same-origin by shape, like a static {@code action}. Computed ones are same-origin links
-   * ({@code GenericAttrProcessor}). Every such attribute is checked, since a browser uses the
-   * first and the plan keeps the last.
+   * htmx request URL ({@code hx-post}, ...; #311), to which htmx sends the enclosing form, and each
+   * {@code connect:<url>} of htmx 1.x's {@code hx-ws}/{@code hx-sse}, a socket to which
+   * {@code hx-ws="send"} sends it. Each must be same-origin by shape, like a static {@code action}.
+   * Computed ones are same-origin links or build errors ({@code GenericAttrProcessor}). Every such
+   * attribute is checked, since a browser uses the first and the plan keeps the last.
    */
   public static void checkStaticUrls(CodegenContext ctx, Element element) {
     boolean base = HtmlParser.asciiEqualsIgnoreCase(element.name(), "base");
     for (Attribute a : element.attributes()) {
-      if (a.isTessera() || isSameOriginStatic(a.value())) {
+      if (a.isTessera()) {
+        continue;
+      }
+      if (Contexts.isLegacyHtmxConnect(a.name())) {
+        if (!legacyConnectsSameOrigin(a.value())) {
+          ctx.diagnostics()
+              .error(a.pos(), a.name() + "=\"" + a.value() + "\" is not allowed: htmx connects to this socket and sends"
+                  + " forms over it, CSRF token included, and its connect: URL is not same-origin; use a same-origin"
+                  + " path such as connect:/chat");
+        }
+        continue;
+      }
+      if (isSameOriginStatic(a.value())) {
         continue;
       }
       if (base && HtmlParser.asciiEqualsIgnoreCase(a.name(), "href")) {
@@ -236,6 +249,35 @@ public final class CsrfInjector {
     for (String c : new String[] {"", "/", ":"}) {
       if (!Escapers.isSameOriginUrl(UNDECODED_REFERENCE.matcher(value).replaceAll(c))) {
         return false;
+      }
+    }
+    return true;
+  }
+
+  private static final String CONNECT = "connect:";
+
+  /**
+   * Whether every {@code connect:<url>} in a static htmx 1.x {@code hx-ws}/{@code hx-sse} value is
+   * same-origin by shape. htmx splits the value on JavaScript whitespace, a larger set than HTML's,
+   * and reads a token {@code connect:<url>}. So the URL after every {@code connect:} in the value,
+   * wherever a token may start, is checked up to the next HTML whitespace: the URL htmx reads is
+   * that text or a prefix of it, and a prefix of a URL without a scheme that doesn't start with
+   * {@code //} has none either. Character references are replaced as in {@link #isSameOriginStatic}.
+   */
+  private static boolean legacyConnectsSameOrigin(String value) {
+    if (value == null) {
+      return true;
+    }
+    for (String c : new String[] {"", "/", ":"}) {
+      String v = UNDECODED_REFERENCE.matcher(value).replaceAll(c);
+      for (int at = v.indexOf(CONNECT); at >= 0; at = v.indexOf(CONNECT, at + 1)) {
+        int end = at + CONNECT.length();
+        while (end < v.length() && !HtmlParser.isHtmlWhitespace(v.charAt(end))) {
+          end++;
+        }
+        if (!Escapers.isSameOriginUrl(v.substring(at + CONNECT.length(), end))) {
+          return false;
+        }
       }
     }
     return true;

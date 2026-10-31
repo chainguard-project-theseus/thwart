@@ -3,6 +3,7 @@ package dev.tessera.compiler.codegen.attr;
 import static dev.tessera.compiler.codegen.attr.FormFixture.ctx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.codegen.attr.FormFixture.TestForms;
 import dev.tessera.compiler.testing.Compilation;
@@ -74,6 +75,25 @@ class CsrfClosedShapeTest {
         .assertError("hx-post=");
     page("<form method=\"post\"><button data-hx-put=\"//evil.example/\">Go</button></form>")
         .assertError("data-hx-put=");
+  }
+
+  /** htmx 1.x {@code hx-ws}/{@code hx-sse}: {@code hx-ws="send"} sends the form over the socket. */
+  @Test
+  void legacyHtmxConnect() {
+    String form = "<form method=\"post\" hx-ws=\"send\"><button>Go</button></form>";
+    for (String v : new String[] {
+        "connect:wss://evil.example/", "connect://evil.example/", "send connect:wss://evil.example/",
+        "connect:/chat connect:wss://evil.example/", "connect:/chat\tconnect:https://evil.example/",
+        "connect&colon;wss://evil.example/", "connect:wss&colon;//evil.example/"}) {
+      page("<div hx-ws=\"" + v + "\">" + form + "</div>")
+          .assertError("page.html:1:", "hx-ws=", "is not allowed", "connect:/chat");
+      page("<div data-hx-ws=\"" + v + "\">" + form + "</div>").assertError("data-hx-ws=", "is not allowed");
+      page("<div hx-sse=\"" + v + "\"></div>").assertError("hx-sse=", "is not allowed");
+    }
+    for (String v : new String[] {"connect:/chat", "send", "connect:chat send", "", "connect:/a b"}) {
+      String out = render(page("<div hx-ws=\"" + v + "\">" + form + "</div>").assertSuccess());
+      assertTrue(out.contains("name=\"_csrf\""), out);
+    }
   }
 
   /** #350: a cross-origin {@code <base>} anywhere, a layout's included. */
