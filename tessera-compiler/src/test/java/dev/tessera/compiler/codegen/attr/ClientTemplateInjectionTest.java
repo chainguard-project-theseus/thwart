@@ -439,9 +439,23 @@ class ClientTemplateInjectionTest {
         // Fail closed: only attributes known to keep the tag make a boundary.
         "<p>a {<span t:remove=\"none\">x</span></p>",
         "<p>a {<span t:case=\"'x'\">x</span></p>",
+        // An empty value at the end of the text: the '{' before it is the text's last.
+        "<p><t:block>a {[[s]]</t:block>x</p>",
       })
   void braceAtAnOpenTextEdgeIsABuildError(String body) {
     compile(body).assertError("t.html:1:", "with '{' next to a <t:block>", "<!---->");
+  }
+
+  /** An empty value writes nothing, so a '{' on each side of it forms {{ (s = null, t = the payload). */
+  @ParameterizedTest
+  @ValueSource(strings = {"<p>{[[s]]{ [[t]] }}</p>", "<div>{[(h)]{ [[t]] }}</div>", "<p>{[[s]][[a]]{ [[t]] }}</p>"})
+  void braceOnBothSidesOfAValueIsABuildError(String body) {
+    Compilation c =
+        Compilation.builder()
+            .template("t.html", HEADER.replace("String b,", "String b, String t,") + body + "</div>")
+            .compile();
+    c.assertError("t.html:1:", "this text starts with '{' right after a value that follows a '{'", "<!---->{");
+    assertNull(c.generatedSource("tessera.generated.TTemplate"), body);
   }
 
   /** t:errors renders its element only when there are errors, so the texts around it can meet. */

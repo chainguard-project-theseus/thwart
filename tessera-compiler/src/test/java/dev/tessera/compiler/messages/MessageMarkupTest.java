@@ -135,8 +135,17 @@ class MessageMarkupTest {
     assertTrue(problem.contains("a character reference for '{' or '}' is not supported"), message + " -> " + problem);
   }
 
+  /** #336: with an empty argument, a '{' on each side of a placeholder forms {{. */
   @ParameterizedTest
-  @ValueSource(strings = {"Hi '{{' a '}}' {0}", "{0} '{' {1}", "<b title=\"'{{'\">x</b>"})
+  @ValueSource(strings = {"'{'{0}'{' {1} '}}'", "a '{'{0}{1}'{'", "'{'{0}'{{' x '}}'"})
+  void braceOnBothSidesOfAPlaceholderIsRejected(String message) {
+    String problem = MessageMarkup.problem(message);
+    assertNotNull(problem, message);
+    assertTrue(problem.contains("a '{' on both sides of a placeholder is not supported"), message + " -> " + problem);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"Hi '{{' a '}}' {0}", "{0} '{' {1}", "<b title=\"'{{'\">x</b>", "'{'{0} '{'", "'{'{0}<b>x</b>"})
   void closedOrSingleBracesPass(String message) {
     assertNull(MessageMarkup.problem(message), message);
   }

@@ -101,6 +101,10 @@ final class MessageMarkup {
    */
   private static void braces(String s) throws Bad {
     for (String run : TAG.split(s, -1)) {
+      // Whether the text before the current placeholder ends with '{': an empty argument writes
+      // nothing, so the texts around it meet.
+      boolean braceBefore = false;
+      boolean first = true;
       for (String literal : run.split(String.valueOf(ARG), -1)) {
         String text = TextInlining.decode(literal, true);
         if (count(text, '{') != count(literal, '{') || count(text, '}') != count(literal, '}')) {
@@ -108,6 +112,13 @@ final class MessageMarkup {
               + " placeholder or a '{' in the template it could form a client-side {{ that Vue and petite-vue"
               + " would run as code; write the brace itself");
         }
+        if (!first && braceBefore && text.startsWith("{")) {
+          throw new Bad("a '{' on both sides of a placeholder is not supported: with an empty argument the two"
+              + " braces form a client-side {{ that Vue and petite-vue would run as code; put other text between"
+              + " them");
+        }
+        braceBefore = text.isEmpty() ? braceBefore : text.endsWith("{");
+        first = false;
         int open = text.indexOf("{{");
         while (open >= 0) {
           int close = text.indexOf("}}", open + 2);

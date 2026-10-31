@@ -810,7 +810,8 @@ edges of any `SafeHtml` or HTML message: one runtime function writes every value
 text. Only static text can open a `{{`, so a static `{{` must be closed by `}}` in the same static
 text, before any `[[...]]`, tag or comment, and element text may not start with a lone `{` or
 end with `{` next to a `<t:block>`, a `t:if`, a fragment's edge or anything else that may put
-other text right next to it: both are build errors, since the framework would run a value as
+other text right next to it, and a `{` may not sit right before and right after a value, which an
+empty value would join: all are build errors, since the framework would run a value as
 code. Pass values in a `data-*` attribute or a `<script>` with `[[...]]`, and write a literal `{{`
 as `{<!---->{`. A `<script>` with `[[...]]` stays a safe place for a
 value: its JSON writes `{` in a string as `\u007b`, so petite-vue, which interpolates script text,
@@ -2297,6 +2298,11 @@ These come from the annotation processor itself, without a template position.
   (`t:text`, `t:utext`, `t:insert`, `t:attr`, `t:with`, `t:object`, `t:field`, `t:classappend`,
   `t:errorclass`, `t:switch` and plain `t:<attr>` outputs); an element inside a
   `t:remove="all-but-first"` never does.
+- `this text starts with '{' right after a value that follows a '{': when the value is empty the two braces form a client-side {{ that Vue and petite-vue would run as code; write it as <!---->{`:
+  element text has a `{` right before a `[[...]]` or `[(...)]` and
+  another right after it (`<p>{[[s]]{ [[t]] }}</p>`). An empty value (`null`, `""`, an empty
+  `SafeHtml`) writes nothing, so the braces meet. Put other text between them, or write the second
+  one as `<!---->{`.
 - `v-model on a <textarea> with computed content is not supported: Tessera adds v-pre there, because a comment cannot break {{ in a value in <textarea>, and v-pre would turn v-model off; drop v-model, or move the value into Vue (v-model or v-text with the value in the app's data) instead of writing it with Tessera`
   (also `<title>`, and any Vue directive or binding: `v-*`, `:x`, `@x`, `#x`, `.x`): the element's
   content is computed, so it gets `v-pre` (section 4.4), under which Vue would ignore the
@@ -2328,7 +2334,8 @@ These come from the annotation processor itself, without a template position.
   the message as MessageFormat formats it, ...)` is about `'` quoting. `a message may not end with
   '<'` means the template text after the message would continue the `<` into a tag. A `{{` in
   message text must be closed by `}}` before the next tag or placeholder, and a brace may not be
-  written as a character reference (`&#123;`, `&lbrace;`): the runtime breaks only a literal `{`
+  written as a character reference (`&#123;`, `&lbrace;`) or put on both sides of a placeholder
+  (`'{'{0}'{'`, which an empty argument joins): the runtime breaks only a literal `{`
   at a message's edges (section 4.4). Fix the bundle, or move the markup into the template.
 - `<form> needs a value of type dev.tessera.runtime.SafeHtml, but the expression has type <type>: use t:text or [[...]] (escaped), or build a SafeHtml in trusted Java code`.
 

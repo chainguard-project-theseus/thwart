@@ -172,7 +172,7 @@ public final class TextInlining {
           boolean text = c == OutputContext.TEXT;
           boolean first = k == 0;
           boolean last = k == nodes.size() - 1;
-          checkBraces(ctx, t, c != OutputContext.SCRIPT,
+          checkBraces(ctx, t, c != OutputContext.SCRIPT, text && !ctx.template().parsingContexts().insideRawText(t),
               text && !boundary(first ? parent : nodes.get(k - 1), first, dropsChildren),
               text && !boundary(last ? parent : nodes.get(k + 1), last, dropsChildren));
         }
@@ -216,17 +216,36 @@ public final class TextInlining {
   private static final Set<String> KEEPS_TAG =
       Backports.setOf("object", "with", "attr", "field", "classappend", "errorclass", "text", "utext", "insert", "switch");
 
-  private static void checkBraces(CodegenContext ctx, Text text, boolean refs, boolean startEdge, boolean endEdge) {
+  private static void checkBraces(
+      CodegenContext ctx, Text text, boolean refs, boolean elementText, boolean startEdge, boolean endEdge) {
     String raw = text.raw();
     int start = 0;
     int i = 0;
     boolean first = true;
+    // Whether this text ends with '{' before the current value: an empty value writes nothing, so
+    // the literals around it meet, and at an edge that is not a boundary, other text meets the brace.
+    boolean braceBefore = false;
     while (i <= raw.length()) {
       boolean escaped = raw.startsWith("[[", i);
       int end = i < raw.length() && (escaped || raw.startsWith("[(", i)) ? findEnd(raw, i + 2, escaped ? "]]" : ")]") : -1;
       if (end >= 0 || i == raw.length()) {
         boolean last = i == raw.length();
-        checkLiteral(ctx, text, start, raw.substring(start, i), refs, first && startEdge, last && endEdge);
+        String literal = raw.substring(start, i);
+        String s = decode(literal, refs);
+        // In <title> and <textarea> a value brings v-pre (#549), so Vue never reads the text.
+        if (!first && elementText && braceBefore && s.startsWith("{")) {
+          ctx.diagnostics()
+              .error(
+                  pos(text, start, literal, s, 0),
+                  "this text starts with '{' right after a value that follows a '{': when the value is empty the"
+                      + " two braces form a client-side {{ that Vue and petite-vue would run as code; write it as"
+                      + " <!---->{");
+        }
+        checkLiteral(ctx, text, start, literal, refs, first && startEdge, last && endEdge);
+        if (!first && last && endEdge && s.isEmpty() && braceBefore) {
+          reportEdge(ctx, pos(text, start, literal, s, 0), "ends", "{<!---->");
+        }
+        braceBefore = s.isEmpty() ? braceBefore : s.endsWith("{");
         first = false;
         start = end + 2;
         i = last ? i + 1 : start;
