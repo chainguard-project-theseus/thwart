@@ -139,10 +139,10 @@ class HtmlSanitizerTest {
   }
 
   @Test
-  void hrefNeverHoldsMustacheDelimiters() {
-    // #248: AngularJS interpolates attribute values; the kept href has its braces percent-encoded.
+  void hrefKeepsBraces() {
+    // Vue and petite-vue do not interpolate attribute values (AngularJS is not supported).
     assertEquals(
-        "<a href=\"/x%7B%7Bconstructor}}?q=%7B%7Ba}}\" rel=\"nofollow noopener\">x</a>",
+        "<a href=\"/x{{constructor}}?q={{a}}\" rel=\"nofollow noopener\">x</a>",
         clean("<a href=\"/x{{constructor}}?q=&#123;&lbrace;a}}\">x</a>"));
   }
 

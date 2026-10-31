@@ -111,6 +111,19 @@ class HtmlMessageTest {
     assertNull(c.generatedSource("tessera.generated.PageTemplate"));
   }
 
+  /**
+   * #336: with k=&#123; the page would render {&#123;VALUE }}, which Vue runs: the runtime breaks
+   * only a literal '{' at a message's edges, so a brace reference in a checked message fails.
+   */
+  @ParameterizedTest
+  @ValueSource(strings = {"k=&#123;\n", "k=&#x7b;{0}\n", "k=&lbrace;\n"})
+  void braceReferenceAtAMessageEdgeFails(String bundle) {
+    String arg = bundle.contains("{0}") ? "(s)" : "";
+    Compilation c = compile(bundle, "<div t:params=\"String s\">\n<p>{[(#{k" + arg + "})]}[[s]] }}</p></div>");
+    c.assertError("page.html:2:", "message 'k'", "a character reference for '{' or '}' is not supported");
+    assertNull(c.generatedSource("tessera.generated.PageTemplate"));
+  }
+
   @Test
   void eventHandlerInBundleFails() {
     compile("bad=<b onclick=\"alert(1)\">x</b>\n", "<div>\n<span>[(#{bad})]</span></div>")

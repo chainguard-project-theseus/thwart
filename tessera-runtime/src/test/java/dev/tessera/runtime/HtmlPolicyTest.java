@@ -96,7 +96,7 @@ class HtmlPolicyTest {
     assertEquals("", rich("<img src=\"data:text/html,<script>alert(1)</script>\">"));
     assertEquals("", rich("<img alt=x>"));
     assertEquals("", rich("<img src=vbscript:x>"));
-    assertEquals("<img src=\"/x%7B%7Ba}}\">", rich("<img src=\"/x{{a}}\">"));
+    assertEquals("<img src=\"/x{{a}}\">", rich("<img src=\"/x{{a}}\">"));
     // RICH keeps only same-origin paths: remote images leak the reader's IP address and the page
     for (String remote : new String[] {"https://evil.example/t.gif", "http://evil.example/t.gif", "//evil.example/t.gif",
         "/\\evil.example/t.gif", "\\\\evil.example/t.gif", "/\t/evil.example/t.gif", " //evil.example/t.gif", "t.gif",
@@ -180,9 +180,9 @@ class HtmlPolicyTest {
   }
 
   @Test
-  void textAttributesNeverHoldMustache() {
-    assertEquals("<p>x</p>", rich("<p title=\"{{constructor.constructor('alert(1)')()}}\">x</p>"));
-    assertEquals("<p>x</p>", rich("<p title=\"&lbrace;&#123;x}}\">x</p>"));
+  void textAttributesKeepBraces() {
+    // Vue and petite-vue do not interpolate attribute values (AngularJS is not supported).
+    assertEquals("<p title=\"{{x}}\">x</p>", rich("<p title=\"&lbrace;&#123;x}}\">x</p>"));
     assertEquals("<p title=\"{ x }\">x</p>", rich("<p title=\"{ x }\">x</p>"));
   }
 

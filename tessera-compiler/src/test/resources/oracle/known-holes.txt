@@ -23,7 +23,4 @@
 # ("delete its line"), so this list only shrinks. The Java gate reports stale lines for its engines
 # and *; the Node job for parse5, chromium, firefox and webkit. Lines starting with # are comments.
 
-# Family D, client frameworks (#336, cross-node {{ as a source-order rule): {{ split across statics
-# and a hole (306-A18, the case the #390 review's fuzzing found).
-11db5dfd0be8 CSTI * #336 306-A18
 

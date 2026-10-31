@@ -67,24 +67,6 @@ class ProfileOracleGateTest {
   }
 
   @Test
-  void aListedFamilyDHolePasses() {
-    // 306-A18: {{ split across statics and a hole, a client-framework hole (#336) the verifier
-    // doesn't cover.
-    String template = P + "{{ <t:block t:text=\"s\"></t:block> }}</div>";
-    CaseResult r = run(template);
-    assertEquals(List.of(), r.failures);
-    assertFalse(r.findings.isEmpty());
-    assertTrue(r.findings.stream().allMatch(f -> f.finding().kind() == Finding.Kind.CSTI && f.family() == Family.D));
-    OracleCase c = r.gateCase.oracleCase();
-    Ratchet ratchet = new Ratchet(ProfileOracleTest.holes("t.txt", c.id() + " CSTI * #336 306-A18\n"), "t.txt");
-    assertEquals(List.of(), ratchet.check(c, r.findings));
-    assertEquals(List.of(), ratchet.stale(null));
-    // Unlisted, it is a new hole.
-    Ratchet empty = new Ratchet(ProfileOracleTest.holes("t.txt", ""), "t.txt");
-    assertTrue(any(empty.check(c, r.findings), "new hole: " + c.id()), empty.check(c, r.findings).toString());
-  }
-
-  @Test
   void theCompilerSortsRejectionsByLayer() {
     GateCase ok = gateCase(P + "<p>[[s]]</p></div>");
     GateCase profile = gateCase(P + "<p><[[s]]></p></div>");
