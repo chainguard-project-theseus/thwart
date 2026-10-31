@@ -747,8 +747,9 @@ Client-side frameworks run some attribute values as JavaScript once they mount t
 attribute escaping does not protect them and an expression there is a build error, as for `on*`:
 Vue's `v-*` (every directive, `v-html` included) and its `:x`, `@x`, `#x` and `.x` shorthands;
 Alpine's `x-*`; htmx's `hx-on*`, `hx-vals`, `hx-vars`, `hx-headers`, `hx-request` and `hx-trigger`
-(also with `data-`); _hyperscript's `_`, `script` and `data-script`; AngularJS's `ng-*`, `ng:*`
-and `ng_*` (also after `x` or `data` followed by `-`, `:` or `_`, and after leading `-`, `:` or `_`, as in `data:ng-click`, `x_ng-click`, `data--ng-click` or `_ng-click`); and Knockout's `data-bind` and `params` on a custom element. Static directives are copied verbatim, shorthand names included: write
+(also with `data-`); _hyperscript's `_`, `script` and `data-script`; any name that, ignoring case, `-`, `_`
+and `:`, starts with `ng`, `xng` or `datang` (AngularJS is not supported, section 7, but its
+directive names stay errors: `ng-click`, `data-ng-click`, `_ng-click`, also `data-ngx`); and Knockout's `data-bind` and `params` on a custom element. Static directives are copied verbatim, shorthand names included: write
 `<api-entry :security="security" @click="open">` as in the old page.
 
 The one exception is a binding that hands a value to a component or attribute: Vue's
@@ -889,7 +890,7 @@ Then `t:utext="notices.html(notice.body)"`. The builder accepts only names from 
 (`HtmlPolicy.ELEMENTS`, `HtmlPolicy.ATTRIBUTES`, `REL_TOKENS`) and throws for anything else, so
 `style`, `on*`, framework directives and script-capable elements can't be switched on. Its other
 options are `allowClasses` (exact names, `prefix*` or `*`; only letters, digits, `-` and `_`, and
-never a name AngularJS reads as a directive: `ng-*`, `ng_*` or `ngX`, also after one `x` or `data` prefix followed by `-` or `_` and after a run of `-` and `_`, as in `data-ng-bind`, `data--ng-bind` or `_ng-bind`),
+never one that, ignoring case, `-` and `_`, starts with `ng`, `xng` or `datang`, which covers every name AngularJS reads as a directive),
 `idPrefix` (a letter first, ending in `-`), `allowLinkTarget` (`target="_blank"` with `noopener`),
 `allowRemoteImages` (any `img src` that passes the URL check, not only same-origin paths, so
 every reader's browser fetches from hosts the content's author picks, who can then track them) and
@@ -1805,8 +1806,7 @@ Alpine, Knockout and htmx `hx-on` from code execution into, at worst, access to 
 state: they compile expressions with `new Function`, so under this policy those expressions don't
 run at all, and their CSP builds (Alpine's `@alpinejs/csp`, Vue with precompiled templates) only
 read and call what the component exposes. Set `htmx.config.allowEval = false` too. AngularJS is
-not bounded this way: its CSP mode still evaluates expressions that can reach `window`, so keep
-`ng-non-bindable` (section 7). Before you turn the policy on, move inline handlers into scripts
+not supported (section 7) and not bounded this way either. Before you turn the policy on, move inline handlers into scripts
 (`addEventListener`) and send the same policy as `Content-Security-Policy-Report-Only` for a while
 to find what it would block. The policy above covers scripts only; `style-src 'nonce-...'` would
 also block every `style` attribute.
@@ -2557,6 +2557,19 @@ Gaps in Tessera today, each with what to do until it is fixed.
   action, and every `formaction`, is same-origin whether or not htmx submits it (section 4.7). On htmx 1.9.5 and later set
   `htmx.config.selfRequestsOnly = true` (the default from 2.0) so htmx requests only the page's
   origin; older htmx 1.x has no such setting, so upgrade.
+- **AngularJS is not supported.** AngularJS (end of life since January 2022) is not in the
+  framework table. It interpolates `{{ }}` in attribute values and reads directives from `class`
+  values (`class="ng-init: ..."`), so a computed attribute can run as code in an AngularJS app
+  whatever the escaping. Tessera keeps only two coarse rules: computed `ng`-like attribute names
+  are errors (section 4.4), and `ng`-like class tokens (a token with a run of letters, digits, `-`
+  and `_` that, ignoring case, `-` and `_`, starts with `ng`, `xng` or `datang`) are dropped at
+  render time from every computed `class` (`t:class`, `t:classappend`, `t:attr`, `t:errorclass`)
+  and from `html.sanitize` output. Nothing else of AngularJS is covered: not element directives
+  such as `<ng-include src>`, nor classes a Vue or Alpine `:class` binding writes. Element text
+  has `{{` broken for Vue. Don't render Tessera output inside an AngularJS app: migrate off it.
+  Until then, send the strict policy of section 4.11, which blocks injected scripts and inline
+  handlers though not AngularJS's own expressions, and put `ng-non-bindable` on every element that
+  holds a value.
 - **Client-side templates (`{{ }}`).** Tessera breaks `{{` only in element text (section 4.4).
   In `<title>` and `<textarea>` with computed content it adds `v-pre`, which Vue 3 and
   petite-vue honour (section 4.4). AngularJS also interpolates attribute values (`title`, `value`, `alt`,
