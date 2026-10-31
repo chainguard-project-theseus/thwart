@@ -5,6 +5,7 @@ import static dev.tessera.compiler.types.ExpressionCompiler.isDeclared;
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.DiagnosticSink;
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
@@ -12,6 +13,7 @@ import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.html.Contexts;
+import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.types.CompiledExpr;
@@ -22,7 +24,6 @@ import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.Escapers;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import javax.lang.model.type.TypeKind;
@@ -69,7 +70,7 @@ public final class FieldProcessor implements AttributeProcessor {
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
-    String tag = plan.element().name().toLowerCase(Locale.ROOT);
+    String tag = HtmlParser.asciiLower(plan.element().name());
     boolean nameOnly = tag.equals("input") && NAME_ONLY.contains(inputType(plan));
     FormPaths.FormField field = field(ctx, attr, plan.scope(), nameOnly ? FormPaths.Check.PATH : FormPaths.Check.VALUE);
     if (field == null) {
@@ -318,7 +319,7 @@ public final class FieldProcessor implements AttributeProcessor {
 
   /** The input's static type, lower-cased; {@code text} if it has none or a computed one. */
   private static String inputType(ElementPlan plan) {
-    return staticValue(plan, "type").map(t -> Backports.strip(t).toLowerCase(Locale.ROOT)).orElse("text");
+    return staticValue(plan, "type").map(t -> HtmlParser.asciiLower(HtmlParser.stripHtmlWhitespace(t))).orElse("text");
   }
 
   private static Optional<String> staticValue(ElementPlan plan, String attribute) {
@@ -343,7 +344,7 @@ public final class FieldProcessor implements AttributeProcessor {
   static FormPaths.FormField field(CodegenContext ctx, Attribute attr, Scope scope, FormPaths.Check check) {
     boolean report = check != FormPaths.Check.NONE;
     DiagnosticSink sink = report ? ctx.diagnostics() : d -> {};
-    if (attr.value() == null || Backports.isBlank(attr.value())) {
+    if (attr.value() == null || JavaStrings.isJavaBlank(attr.value())) {
       sink.error(attr.pos(), attr.name() + " needs a field path, e.g. " + attr.name() + "=\"*{lastName}\"");
       return null;
     }

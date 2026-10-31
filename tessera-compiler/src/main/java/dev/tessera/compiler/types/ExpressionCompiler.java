@@ -409,7 +409,7 @@ public final class ExpressionCompiler {
     if (type.getKind().isPrimitive()) {
       return error(pos, "cannot read '" + name + "' of a " + type + " value: primitives have no properties");
     }
-    if (OBJECT_METHODS.contains(name) || ("get" + capitalize(name)).equals("getClass")) {
+    if (OBJECT_METHODS.contains(name) || ("get" + JavaStrings.capitalize(name)).equals("getClass")) {
       return objectMethodError(name, pos);
     }
     Optional<String> never = safety.neverViewSafeReason(type);
@@ -545,16 +545,16 @@ public final class ExpressionCompiler {
     }
     if (isGetterName(name)) {
       if (!call && name.startsWith("is")) {
-        candidates.add("get" + capitalize(name));
+        candidates.add("get" + JavaStrings.capitalize(name));
       }
       candidates.add(name);
-      String prop = decapitalize(name.substring(name.startsWith("get") ? 3 : 2));
+      String prop = JavaStrings.decapitalize(name.substring(name.startsWith("get") ? 3 : 2));
       if (components.contains(prop)) {
         candidates.add(prop);
       }
     } else {
-      candidates.add("get" + capitalize(name));
-      candidates.add("is" + capitalize(name));
+      candidates.add("get" + JavaStrings.capitalize(name));
+      candidates.add("is" + JavaStrings.capitalize(name));
     }
     List<ExecutableElement> methods = ElementFilter.methodsIn(elements().getAllMembers(te));
     for (String c : candidates) {
@@ -765,7 +765,7 @@ public final class ExpressionCompiler {
         && (types().isAssignable(r.type(), l.type()) || types().isAssignable(l.type(), r.type()))) {
       code = "(" + l.code() + ".compareTo(" + r.code() + ")" + op + "0)";
     } else {
-      return error(b.pos(), "cannot compare " + describe(l.type()) + " and " + describe(r.type()) + " with" + Backports.stripTrailing(op));
+      return error(b.pos(), "cannot compare " + describe(l.type()) + " and " + describe(r.type()) + " with" + JavaStrings.stripJavaTrailing(op));
     }
     return new CompiledExpr(code, prim(TypeKind.BOOLEAN), b.pos());
   }
@@ -783,7 +783,7 @@ public final class ExpressionCompiler {
             ? " + "
             : o == Expr.BinaryOp.SUB ? " - " : o == Expr.BinaryOp.MUL ? " * " : o == Expr.BinaryOp.DIV ? " / " : " % ";
     if (!isNumeric(l.type()) || !isNumeric(r.type())) {
-      return error(b.pos(), "operator" + Backports.stripTrailing(op) + " needs numbers (or a String for +), got " + describe(l.type()) + " and " + describe(r.type()));
+      return error(b.pos(), "operator" + JavaStrings.stripJavaTrailing(op) + " needs numbers (or a String for +), got " + describe(l.type()) + " and " + describe(r.type()));
     }
     TypeMirror t = promote(unboxed(l.type()), unboxed(r.type()));
     return new CompiledExpr("(" + l.code() + op + r.code() + ")", t, b.pos());
@@ -1069,17 +1069,5 @@ public final class ExpressionCompiler {
   private static boolean isGetterName(String n) {
     return (n.startsWith("get") && n.length() > 3 && Character.isUpperCase(n.charAt(3)))
         || (n.startsWith("is") && n.length() > 2 && Character.isUpperCase(n.charAt(2)));
-  }
-
-  private static String capitalize(String s) {
-    return s.isEmpty() ? s : Character.toUpperCase(s.charAt(0)) + s.substring(1);
-  }
-
-  /** JavaBeans decapitalization: {@code Name} to {@code name}, {@code URL} stays {@code URL}. */
-  private static String decapitalize(String s) {
-    if (s.length() > 1 && Character.isUpperCase(s.charAt(0)) && Character.isUpperCase(s.charAt(1))) {
-      return s;
-    }
-    return s.isEmpty() ? s : Character.toLowerCase(s.charAt(0)) + s.substring(1);
   }
 }

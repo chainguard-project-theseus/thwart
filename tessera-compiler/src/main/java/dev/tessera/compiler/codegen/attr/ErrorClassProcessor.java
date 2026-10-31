@@ -1,6 +1,5 @@
 package dev.tessera.compiler.codegen.attr;
 
-import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
@@ -8,6 +7,7 @@ import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.runtime.Escapers;
+import dev.tessera.runtime.fn.Strings;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -20,9 +20,9 @@ public final class ErrorClassProcessor implements AttributeProcessor {
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
-    String cls = attr.value() == null ? "" : Backports.strip(attr.value());
+    String cls = attr.value() == null ? "" : JavaStrings.stripJava(attr.value());
     if (cls.length() >= 2 && cls.startsWith("'") && cls.endsWith("'")) {
-      cls = Backports.strip(cls.substring(1, cls.length() - 1));
+      cls = JavaStrings.stripJava(cls.substring(1, cls.length() - 1));
     }
     if (!CLASSES.matcher(cls).matches()) {
       ctx.diagnostics()
@@ -44,7 +44,7 @@ public final class ErrorClassProcessor implements AttributeProcessor {
     String c = ctx.freshName("class");
     plan.wrap(
         "{ java.lang.Object " + o + " = " + original + "; java.lang.String " + c
-            + " = " + Escapers.class.getName() + ".toText(" + o + ").trim();",
+            + " = " + Strings.class.getName() + ".trim(" + Escapers.class.getName() + ".toText(" + o + "));",
         "}");
     plan.setAttribute(
         "class",

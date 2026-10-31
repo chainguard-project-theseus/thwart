@@ -16,7 +16,6 @@ import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -473,16 +472,16 @@ public final class ContextVerifier {
             continue;
           }
         }
-        if (text.regionMatches(true, k, "<!doctype", 0, 9)) {
+        if (Rules.asciiStartsWith(text, k, "<!doctype")) {
           out.add("!doctype");
           return;
         }
-        if (k + 1 < text.length() && text.charAt(k) == '<' && Character.isLetter(text.charAt(k + 1))) {
+        if (k + 1 < text.length() && text.charAt(k) == '<' && Rules.isAsciiAlpha(text.charAt(k + 1))) {
           int e = k + 1;
           while (e < text.length() && !isSpace(text.charAt(e)) && text.charAt(e) != '>' && text.charAt(e) != '/') {
             e++;
           }
-          out.add(text.substring(k + 1, e).toLowerCase(Locale.ROOT));
+          out.add(Rules.asciiLower(text.substring(k + 1, e)));
           return;
         }
         out.add("#text");
@@ -533,7 +532,7 @@ public final class ContextVerifier {
     for (Skeleton.Node n : seq.nodes()) {
       boolean found;
       if (n instanceof Skeleton.Static) {
-        found = ((Skeleton.Static) n).text().toLowerCase(Locale.ROOT).contains("noscript");
+        found = Rules.asciiLower(((Skeleton.Static) n).text()).contains("noscript");
       } else if (n instanceof Skeleton.Seq) {
         found = mentionsNoscript((Skeleton.Seq) n, seen);
       } else if (n instanceof Skeleton.Opt) {
@@ -701,7 +700,7 @@ public final class ContextVerifier {
     String name = null;
     for (Skeleton.Node b : o.body().nodes()) {
       if (b instanceof Skeleton.Hole && ((Skeleton.Hole) b).attribute() != null) {
-        name = ((Skeleton.Hole) b).attribute().toLowerCase(Locale.ROOT);
+        name = Rules.asciiLower(((Skeleton.Hole) b).attribute());
         break;
       }
     }

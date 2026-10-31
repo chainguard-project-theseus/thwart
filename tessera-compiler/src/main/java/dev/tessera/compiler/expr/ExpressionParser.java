@@ -2,6 +2,7 @@ package dev.tessera.compiler.expr;
 
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.DiagnosticSink;
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import java.util.ArrayList;
 import java.util.List;
@@ -186,7 +187,7 @@ public final class ExpressionParser {
     }
 
     void ws() {
-      while (!atEnd() && Character.isWhitespace(s.charAt(i))) {
+      while (!atEnd() && JavaStrings.isJavaWhitespace(s.charAt(i))) {
         i++;
       }
     }
@@ -232,11 +233,11 @@ public final class ExpressionParser {
     }
 
     static boolean identStart(char c) {
-      return Character.isLetter(c) || c == '_';
+      return JavaStrings.isJavaLetter(c) || c == '_';
     }
 
     static boolean identPart(char c) {
-      return Character.isLetterOrDigit(c) || c == '_';
+      return JavaStrings.isJavaLetterOrDigit(c) || c == '_';
     }
 
     static boolean isIdentifier(String s) {
@@ -703,7 +704,7 @@ public final class ExpressionParser {
       while (!atEnd() && peek() != '(' && peek() != '}') {
         i++;
       }
-      String key = Backports.strip(s.substring(keyAt, i));
+      String key = JavaStrings.stripJava(s.substring(keyAt, i));
       if (key.isEmpty()) {
         throw error(keyAt, "expected a message key after '#{' but " + found());
       }
@@ -743,7 +744,7 @@ public final class ExpressionParser {
         }
         i++;
       }
-      String path = Backports.strip(s.substring(pathAt, i));
+      String path = JavaStrings.stripJava(s.substring(pathAt, i));
       if (path.isEmpty()) {
         throw error(pathAt, "expected a link path after '@{' but " + found());
       }
@@ -780,7 +781,7 @@ public final class ExpressionParser {
       int open = -1;
       for (int k = 0; k < path.length(); k++) {
         char c = path.charAt(k);
-        if (Character.isWhitespace(c)) {
+        if (JavaStrings.isJavaWhitespace(c)) {
           throw error(pathAt + k, "link path must not contain whitespace: percent-encode it (%20) or pass the value as a"
               + " parameter, e.g. @{/search(q=term)}");
         } else if (c == '{') {
@@ -871,7 +872,7 @@ public final class ExpressionParser {
       while (!atEnd() && !at("::") && peek() != '}') {
         i++;
       }
-      String tpl = Backports.strip(s.substring(tplAt, i));
+      String tpl = JavaStrings.stripJava(s.substring(tplAt, i));
       if (isDynamic(tpl) || tpl.indexOf('{') >= 0) {
         throw error(tplAt, "dynamic template names are not supported; the template must be a literal such as ~{fragments/layout :: main}");
       }

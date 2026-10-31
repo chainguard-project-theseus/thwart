@@ -76,6 +76,9 @@ class CsrfComputedMethodTest {
     assertEquals("<div><form action=\"/a\" method=\"Post\">" + INPUT + "x</form></div>", render(c, model, withToken()));
     model.put("m", "get");
     assertEquals("<div><form action=\"/a\" method=\"get\">x</form></div>", render(c, model, withToken()));
+    // A browser folds A-Z only: po\u017Ft is an invalid method, so the form submits as GET; no token.
+    model.put("m", "po\u017Ft");
+    assertEquals("<div><form action=\"/a\" method=\"po\u017Ft\">x</form></div>", render(c, model, withToken()));
     model.put("m", null);
     assertEquals("<div><form action=\"/a\">x</form></div>", render(c, model, withToken()));
   }

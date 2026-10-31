@@ -3,12 +3,12 @@ package dev.tessera.compiler.codegen;
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
+import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.verify.Skeleton;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -240,7 +240,7 @@ public final class Emitted {
   }
 
   private static String lower(String element) {
-    return element == null ? null : element.toLowerCase(Locale.ROOT);
+    return element == null ? null : HtmlParser.asciiLower(element);
   }
 
   /**

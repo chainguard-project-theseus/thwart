@@ -1,10 +1,10 @@
 package dev.tessera.compiler.codegen.attr;
 
-import dev.tessera.compiler.Backports;
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
-import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.codegen.ElementPlan;
+import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.model.Attribute;
@@ -27,7 +27,7 @@ public final class ErrorsProcessor implements AttributeProcessor {
       return;
     }
     FormPaths.FormField field;
-    String value = attr.value() == null ? "" : Backports.strip(attr.value());
+    String value = attr.value() == null ? "" : JavaStrings.stripJava(attr.value());
     String keyword =
         value.equals(FormPaths.ALL) || value.equals("*{*}")
             ? FormPaths.ALL

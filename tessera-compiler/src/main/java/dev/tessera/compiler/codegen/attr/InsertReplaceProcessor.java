@@ -1,7 +1,7 @@
 package dev.tessera.compiler.codegen.attr;
 
-import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.Diagnostics;
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
@@ -68,7 +68,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
 
   /** {@code point}: the {@link ParsingContexts} context the fragment's markup lands in. */
   private static Emitted code(CodegenContext ctx, Attribute attr, ElementPlan plan, String point) {
-    if (attr.value() == null || Backports.isBlank(attr.value())) {
+    if (attr.value() == null || JavaStrings.isJavaBlank(attr.value())) {
       ctx.diagnostics().error(attr.pos(), attr.name() + " needs a fragment reference, e.g. ~{fragments/layout :: header}");
       return null;
     }

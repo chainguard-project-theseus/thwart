@@ -2,13 +2,14 @@ package dev.tessera.compiler.types;
 
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.expr.TypeRef;
 import dev.tessera.compiler.forms.FormPaths;
+import dev.tessera.compiler.html.HtmlParser;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -32,7 +33,7 @@ final class TypeResolver {
   static {
     for (TypeKind k : TypeKind.values()) {
       if (k.isPrimitive()) {
-        PRIMITIVES.put(k.name().toLowerCase(Locale.ROOT), k);
+        PRIMITIVES.put(HtmlParser.asciiLower(k.name()), k);
       }
     }
   }
@@ -120,7 +121,7 @@ final class TypeResolver {
 
   private TypeElement resolveSimple(String simple, List<String> imports, SourcePos pos, boolean report) {
     for (String raw : imports) {
-      String imp = Backports.strip(raw);
+      String imp = JavaStrings.stripJava(raw);
       if (!imp.endsWith(".*") && (imp.equals(simple) || imp.endsWith("." + simple))) {
         TypeElement te = env.elements().getTypeElement(imp);
         if (te != null) {
@@ -135,7 +136,7 @@ final class TypeResolver {
     }
     List<TypeElement> found = new ArrayList<>();
     for (String raw : imports) {
-      String imp = Backports.strip(raw);
+      String imp = JavaStrings.stripJava(raw);
       if (imp.endsWith(".*")) {
         TypeElement te = env.elements().getTypeElement(imp.substring(0, imp.length() - 1) + simple);
         if (te != null && !found.contains(te)) {

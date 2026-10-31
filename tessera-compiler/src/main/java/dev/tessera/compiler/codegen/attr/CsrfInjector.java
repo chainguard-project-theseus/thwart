@@ -4,6 +4,7 @@ import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.codegen.Emitted;
+import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.Node;
@@ -12,7 +13,6 @@ import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.TrustedUrl;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -73,15 +73,13 @@ public final class CsrfInjector {
     Optional<ElementPlan.Attr> method = plan.attribute("method");
     if (method.isPresent() && method.get() instanceof ElementPlan.DynamicAttr) {
       String m = hoist(ctx, plan, (ElementPlan.DynamicAttr) method.get(), "method");
-      // toLowerCase(ROOT) maps no non-ASCII character to p, o, s or t, so this is an ASCII match.
-      condition =
-          m + " != null && java.lang.String.valueOf(" + m + ").toLowerCase(java.util.Locale.ROOT).equals(\"post\")";
+      condition = "dev.tessera.runtime.Escapers.isPostMethod(" + m + ")";
     } else {
       boolean post =
           method
               .filter(a -> a instanceof ElementPlan.StaticAttr)
               .map(a -> ((ElementPlan.StaticAttr) a).source().value())
-              .filter(v -> v.toLowerCase(Locale.ROOT).equals("post"))
+              .filter(v -> HtmlParser.asciiLower(v).equals("post"))
               .isPresent();
       if (!post) {
         return false;
@@ -122,14 +120,14 @@ public final class CsrfInjector {
       return names;
     }
     for (Node n : plan.element().children()) {
-      if (!(n instanceof Element) || !((Element) n).name().equalsIgnoreCase("input")) {
+      if (!(n instanceof Element) || !HtmlParser.asciiEqualsIgnoreCase(((Element) n).name(), "input")) {
         continue;
       }
       String type = null;
       String name = null;
       boolean always = true;
       for (Attribute a : ((Element) n).attributes()) {
-        String an = a.name().toLowerCase(Locale.ROOT);
+        String an = HtmlParser.asciiLower(a.name());
         if (a.isTessera()) {
           always &= an.equals(Attribute.PREFIX + "value") || an.equals(Attribute.PREFIX + "id");
         } else if (an.equals("type")) {
@@ -140,7 +138,7 @@ public final class CsrfInjector {
           always = false;
         }
       }
-      if (always && type != null && type.toLowerCase(Locale.ROOT).equals("hidden") && name != null
+      if (always && type != null && HtmlParser.asciiLower(type).equals("hidden") && name != null
           && !name.isEmpty()) {
         names.add(name);
       }
@@ -148,18 +146,14 @@ public final class CsrfInjector {
     return names;
   }
 
-  /** {@code t:attr} setting {@code form}: the first assignment, or one after a comma. */
-  private static final Pattern ATTR_SETS_FORM = Pattern.compile("(?i)(^|,)\\s*form\\s*=");
-
   /**
    * Whether {@code element} has a {@code form} attribute, static or computed ({@code t:form},
    * {@code t:attr="form=..."}): it then submits that form wherever it is.
    */
   public static boolean hasFormAttribute(Element element) {
     for (Attribute a : element.attributes()) {
-      String n = a.name().toLowerCase(Locale.ROOT);
-      if (n.equals("form") || n.equals(Attribute.PREFIX + "form")
-          || (n.equals(Attribute.PREFIX + "attr") && a.value() != null && ATTR_SETS_FORM.matcher(a.value()).find())) {
+      String n = HtmlParser.asciiLower(a.name());
+      if (n.equals("form") || n.equals(Attribute.PREFIX + "form") || HtmlParser.attrMaySet(a, "form")) {
         return true;
       }
     }
@@ -191,7 +185,7 @@ public final class CsrfInjector {
     }
     if (staticMethod) {
       Attribute m = ((ElementPlan.StaticAttr) method.get()).source();
-      String v = m.value() == null ? "" : m.value().toLowerCase(Locale.ROOT);
+      String v = m.value() == null ? "" : HtmlParser.asciiLower(m.value());
       if (!v.equals("post") && !v.equals("dialog")) {
         ctx.diagnostics().error(m.pos(), m.name() + "=\"" + m.value() + "\" is not allowed here: " + GET_TOKEN);
       }
@@ -209,7 +203,7 @@ public final class CsrfInjector {
    */
   public static void checkBase(CodegenContext ctx, Element element) {
     for (Attribute a : element.attributes()) {
-      if (!a.isTessera() && a.name().equalsIgnoreCase("href") && !isSameOriginStatic(a.value())) {
+      if (!a.isTessera() && HtmlParser.asciiEqualsIgnoreCase(a.name(), "href") && !isSameOriginStatic(a.value())) {
         ctx.diagnostics()
             .error(a.pos(), a.name() + "=\"" + a.value() + "\" on <base> is not allowed: " + BASE_MOVES_URLS
                 + ", and this URL is not same-origin; use a same-origin path such as /app/, or remove <base>"

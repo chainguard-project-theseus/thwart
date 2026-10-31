@@ -23,6 +23,27 @@ import org.junit.jupiter.api.Test;
 
 class HtmlParserTest {
 
+  @Test
+  void asciiHelpersFoldOnlyAToZ() {
+    // equalsIgnoreCase would fold each of these decoys to the ASCII name; a browser does not.
+    for (String[] pair :
+        new String[][] {{"\u017Fcript", "script"}, {"\u0131frame", "iframe"}, {"\u0130frame", "iframe"},
+            {"\u212Abd", "kbd"}}) {
+      assertFalse(HtmlParser.asciiEqualsIgnoreCase(pair[0], pair[1]), pair[0]);
+      assertFalse(HtmlParser.asciiRegionMatches("</" + pair[0] + ">", 2, pair[1]), pair[0]);
+      assertEquals(pair[0], HtmlParser.asciiLower(pair[0]));
+    }
+    assertTrue(HtmlParser.asciiEqualsIgnoreCase("ScRiPt", "script"));
+    assertFalse(HtmlParser.asciiEqualsIgnoreCase("script", null));
+    assertTrue(HtmlParser.asciiRegionMatches("</STYLE>", 2, "style"));
+    assertFalse(HtmlParser.asciiRegionMatches("</sty", 2, "style"));
+    assertFalse(HtmlParser.asciiRegionMatches("x", -1, "x"));
+    // The confusable end-tag check still finds each decoy, and only those.
+    assertEquals(1, HtmlParser.confusableEndTag("a</\u017Fcript>", "script"));
+    assertEquals(1, HtmlParser.confusableEndTag("a</\u0130frame>", "iframe"));
+    assertEquals(-1, HtmlParser.confusableEndTag("a</SCRIPT></scripts>", "script"));
+  }
+
   private Diagnostics diagnostics;
 
   private Document parse(String html) {
