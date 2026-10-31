@@ -47,7 +47,7 @@ import org.w3c.dom.Node;
  *       ("unclassified escaper", fail closed);
  *   <li>the location isn't where any of the classified contexts belongs ({@link #belongs}): TEXT in
  *       HTML flow or foreign element text (not SVG {@code script}/{@code style}); RCDATA in HTML
- *       {@code title}/{@code textarea}; ATTRIBUTE, URL, URL_LIST and RESOURCE_URL in a
+ *       {@code title}/{@code textarea}; ATTRIBUTE, URL and RESOURCE_URL in a
  *       {@linkplain #plainAttribute plain attribute}; REFRESH in the {@code content} of a
  *       {@code <meta http-equiv="refresh">}; SCRIPT in a JavaScript {@code script} of the HTML or SVG
  *       namespace, or a JSON data block; SCRIPT_ATTRIBUTE in a {@code :x}/{@code v-bind:x}/
@@ -321,7 +321,7 @@ public final class ContextCheck {
           || (loc.place() == Place.FOREIGN_TEXT
               && !(svg && (loc.element().equals("script") || loc.element().equals("style"))));
       case RCDATA -> loc.place() == Place.RCDATA_TEXT;
-      case ATTRIBUTE, URL, URL_LIST, RESOURCE_URL ->
+      case ATTRIBUTE, URL, RESOURCE_URL ->
           loc.place() == Place.ATTRIBUTE && plainAttribute(loc.node(), loc.attribute());
       case REFRESH -> loc.place() == Place.ATTRIBUTE && isRefreshContent(loc.node(), loc.attribute());
       case SCRIPT -> loc.element().equals("script")

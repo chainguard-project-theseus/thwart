@@ -31,7 +31,7 @@ import java.util.regex.Pattern;
  * references (element text, RCDATA, attribute values, foreign {@code <script>}).
  *
  * <p>Some escapers write the fingerprint identically, and no fingerprint can tell them apart:
- * {@code rcdata}, {@code attr}, {@code url}, {@code urlList} and {@code resourceUrl} entity-encode
+ * {@code rcdata}, {@code attr}, {@code url} and {@code resourceUrl} entity-encode
  * the same characters and differ only in the scheme check, which a schemeless value passes (a value
  * with a disallowed scheme is replaced whole, so its slot couldn't be located); and {@code json} and
  * {@code jsonAttr} decode to the same string. Decoded, the entity family also reads exactly like

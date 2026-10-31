@@ -101,30 +101,6 @@ public final class Escapers {
   }
 
   /**
-   * The {@code values} list of an SVG {@code <animate>} (OutputContext.URL_LIST, #284). SVG
-   * applies the {@code ;}-separated items in turn, so every item is scheme-checked as in
-   * {@link #url}; if any item fails, the whole attribute is replaced by
-   * {@code about:invalid#tessera}. {@code <set>} ignores {@code values}, but it is checked the
-   * same way. A {@link TrustedUrl} is attribute-encoded as is: it vouches
-   * for the whole list, so every {@code ;}-separated item is written unchecked. Lists without a
-   * scheme ({@code 0;1}, {@code red;blue}) pass.
-   */
-  public static void urlList(Output out, Object value) {
-    if (value instanceof TrustedUrl) {
-      attr(out, ((TrustedUrl) value).url());
-      return;
-    }
-    String s = toText(value);
-    for (String item : s.split(";", -1)) {
-      if (!isAllowedUrl(item)) {
-        attr(out, INVALID_URL);
-        return;
-      }
-    }
-    attr(out, s);
-  }
-
-  /**
    * Resource URL attribute such as {@code <script src>} (OutputContext.RESOURCE_URL). Only
    * accepts compiler-vetted values: a {@link TrustedUrl}, or a String produced by a link
    * expression with a literal path. The compiler rejects every other expression.

@@ -25,7 +25,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
 /**
- * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. A Vue/Alpine binding with an ordinary target ({@code :prop}, SCRIPT_ATTRIBUTE) takes only a JSON-serializable value, written as JSON. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}; {@link #TRUSTED_URL_LISTS ping, srcset and imagesrcset} only a {@code TrustedUrl}; a {@code <base href>} (#350), an htmx request URL ({@code hx-get}, ...), the {@code action}/{@code formaction} of a form htmx submits ({@link CodegenContext#htmxSubmits}), the {@code action} of a static POST form and every {@code formaction} (they may receive the CSRF token, {@link CsrfInjector}), only a same-origin link; a computed {@code formmethod}, or {@code method} on a {@code <form>}, is a build error. A name that is not a standard HTML, SVG, MathML or ARIA attribute, {@code data-*}, a plain prop on a custom element or a framework name Contexts classifies is a build error ({@link Contexts#isUnknownName}, #330).
+ * Any other {@code t:<name>} (t:href, t:src, t:value, t:id, t:class, t:title, t:data-x, ...): sets attribute {@code name} from the expression, escaped for {@code Contexts.attribute(element, name)}. Boolean attributes ({@code checked, selected, disabled, readonly, required, multiple, hidden, ...}) take a condition. EVENT_HANDLER (including framework directives such as {@code v-on:click}) and FORBIDDEN contexts are build errors. A Vue/Alpine binding with an ordinary target ({@code :prop}, SCRIPT_ATTRIBUTE) takes only a JSON-serializable value, written as JSON. STYLE takes only {@link #style safe style values}. REFRESH takes only {@link #refresh a delay and a same-origin link}. RESOURCE_URL accepts only a literal-path link expression or a {@code TrustedUrl}; TRUSTED_URL (an attribute that holds URLs but is not exactly one URL: {@code ping}, {@code srcset}, {@code imagesrcset}, an SVG animation's {@code values to from by}) only literals, numbers and {@code TrustedUrl}s (#539); a {@code <base href>} (#350), an htmx request URL ({@code hx-get}, ...), the {@code action}/{@code formaction} of a form htmx submits ({@link CodegenContext#htmxSubmits}), the {@code action} of a static POST form and every {@code formaction} (they may receive the CSRF token, {@link CsrfInjector}), only a same-origin link; a computed {@code formmethod}, or {@code method} on a {@code <form>}, is a build error. A name that is not a standard HTML, SVG, MathML or ARIA attribute, {@code data-*}, a plain prop on a custom element or a framework name Contexts classifies is a build error ({@link Contexts#isUnknownName}, #330).
  */
 public final class GenericAttrProcessor implements AttributeProcessor {
 
@@ -36,13 +36,6 @@ public final class GenericAttrProcessor implements AttributeProcessor {
           "disabled", "formnovalidate", "hidden", "inert", "ismap", "itemscope", "loop", "multiple",
           "muted", "nomodule", "novalidate", "nowrap", "open", "playsinline", "pubdate", "readonly",
           "required", "reversed", "scoped", "seamless", "selected");
-
-  /**
-   * URL attributes that hold a list of URLs, which Tessera does not split and check one by one, so
-   * a computed value must be a {@code TrustedUrl}: {@code ping} is a whitespace-separated list, and
-   * {@code srcset} and {@code imagesrcset} are comma-separated image candidates.
-   */
-  private static final Set<String> TRUSTED_URL_LISTS = Backports.setOf("ping", "srcset", "imagesrcset");
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
@@ -84,15 +77,18 @@ public final class GenericAttrProcessor implements AttributeProcessor {
                     + " read it from a script";
         break;
       case STYLE:
-        style(ctx, plan, name, value, pos, label, false);
+        style(ctx, plan, name, value, pos, label, context);
         return;
       case TYPED_ATTRIBUTE:
         if (!BOOLEAN_ATTRIBUTES.contains(lower)) {
-          style(ctx, plan, name, value, pos, label, true);
+          style(ctx, plan, name, value, pos, label, context);
           return;
         }
         hint = null;
         break;
+      case TRUSTED_URL:
+        style(ctx, plan, name, value, pos, label, context);
+        return;
       case REFRESH:
         refresh(ctx, plan, name, value, pos, label);
         return;
@@ -186,12 +182,6 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       ctx.diagnostics()
           .error(pos, label + " on <" + element + "> loads code or a document: use a literal-path link such as"
               + " @{/js/app.js} or a TrustedUrl value, not a " + c.type());
-      return;
-    }
-    if (TRUSTED_URL_LISTS.contains(lower) && !isDeclared(c.type(), TrustedUrl.class.getName())) {
-      ctx.diagnostics()
-          .error(pos, label + " on <" + element + "> is a list of URLs that Tessera does not check one by one:"
-              + " use a TrustedUrl value or a static attribute, not a " + c.type());
       return;
     }
     plan.setAttribute(name, c.code(), pos);
@@ -352,12 +342,13 @@ public final class GenericAttrProcessor implements AttributeProcessor {
    * piece goes through {@link Escapers#styleNumber}, which fails the render if a subclass's
    * {@code toString()} is not a number.
    *
-   * <p>A TYPED_ATTRIBUTE ({@code typed}, #539, #565) is checked the same way but takes no safe
-   * type: only literals and numbers.
+   * <p>A TYPED_ATTRIBUTE (#539, #565) is checked the same way but takes no safe type: only literals
+   * and numbers. A TRUSTED_URL (#539) takes {@code TrustedUrl} as its safe type instead of
+   * {@code CssValue}. {@code context} is the attribute's context: one of those or STYLE.
    */
   private static void style(
-      CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label, boolean typed) {
-    if (!styleSafe(ctx, value, plan, label, name, typed)) {
+      CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label, OutputContext context) {
+    if (!styleSafe(ctx, value, plan, label, name, context)) {
       return;
     }
     CompiledExpr c = ctx.expressions().compileOutput(value, plan.scope());
@@ -434,41 +425,54 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     return ctx.expressions().compile(e, plan.scope()).type();
   }
 
-  private static boolean styleSafe(CodegenContext ctx, Expr e, ElementPlan plan, String label, String name, boolean typed) {
+  private static boolean styleSafe(CodegenContext ctx, Expr e, ElementPlan plan, String label, String name, OutputContext context) {
     if (e instanceof Expr.Literal) {
       return true;
     }
     if (e instanceof Expr.Interpolation) {
       boolean ok = true;
       for (Expr part : ((Expr.Interpolation) e).parts()) {
-        ok &= styleSafe(ctx, part, plan, label, name, typed);
+        ok &= styleSafe(ctx, part, plan, label, name, context);
       }
       return ok;
     }
     if (e instanceof Expr.Binary && ((Expr.Binary) e).op() == Expr.BinaryOp.ADD) {
       Expr.Binary b = (Expr.Binary) e;
-      return styleSafe(ctx, b.left(), plan, label, name, typed) & styleSafe(ctx, b.right(), plan, label, name, typed);
+      return styleSafe(ctx, b.left(), plan, label, name, context) & styleSafe(ctx, b.right(), plan, label, name, context);
     }
     if (e instanceof Expr.Conditional) {
       Expr.Conditional c = (Expr.Conditional) e;
       // The condition is not output. A missing else branch ("c ? a") renders nothing.
-      return styleSafe(ctx, c.then(), plan, label, name, typed)
-          & (c.otherwise() == null || styleSafe(ctx, c.otherwise(), plan, label, name, typed));
+      return styleSafe(ctx, c.then(), plan, label, name, context)
+          & (c.otherwise() == null || styleSafe(ctx, c.otherwise(), plan, label, name, context));
     }
     if (e instanceof Expr.Elvis) {
       Expr.Elvis el = (Expr.Elvis) e;
-      return styleSafe(ctx, el.value(), plan, label, name, typed) & styleSafe(ctx, el.fallback(), plan, label, name, typed);
+      return styleSafe(ctx, el.value(), plan, label, name, context) & styleSafe(ctx, el.fallback(), plan, label, name, context);
     }
     CompiledExpr c = ctx.expressions().compile(e, plan.scope());
     if (c == null) {
       return false;
     }
     TypeMirror t = c.type();
-    if (isNumber(t) || !typed && isDeclared(t, CssValue.class.getName())) {
+    Class<?> safe =
+        context == OutputContext.STYLE ? CssValue.class : context == OutputContext.TRUSTED_URL ? TrustedUrl.class : null;
+    if (isNumber(t) || safe != null && isDeclared(t, safe.getName())) {
       return true;
     }
     String type = t.getKind() == TypeKind.NULL ? "null" : t.toString();
-    if (typed) {
+    if (context == OutputContext.TRUSTED_URL) {
+      ctx.diagnostics()
+          .error(
+              e.pos(),
+              label + " is not allowed: '" + name + "' on <" + plan.element().name() + "> holds URLs but is not"
+                  + " exactly one URL (a list, or an animation value whose meaning depends on attributeName), so a"
+                  + " computed value can only combine string literals, numbers and TrustedUrls, not a " + type
+                  + "; write a static attribute, choose between literals such as ${c} ? 'a' : 'b', or build the"
+                  + " whole value as a TrustedUrl in Java");
+      return false;
+    }
+    if (context == OutputContext.TYPED_ATTRIBUTE) {
       ctx.diagnostics()
           .error(
               e.pos(),
