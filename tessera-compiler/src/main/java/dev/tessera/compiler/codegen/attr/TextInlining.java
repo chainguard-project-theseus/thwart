@@ -154,6 +154,12 @@ public final class TextInlining {
     for (String name : new String[] {"text", "utext", "insert", "replace", "errors"}) {
       replaced |= parent != null && parent.attribute(Attribute.PREFIX + name).isPresent();
     }
+    // t:remove="all-but-first" (and any other value but "tag" and "none") may drop the elements
+    // between two texts and keep the texts, so no element child is a boundary.
+    String remove = parent == null
+        ? ""
+        : parent.attribute(Attribute.PREFIX + "remove").map(a -> JavaStrings.trimJava(a.value())).orElse("");
+    boolean dropsChildren = !remove.isEmpty() && !remove.equals("tag") && !remove.equals("none");
     for (int k = 0; k < nodes.size(); k++) {
       Node n = nodes.get(k);
       if (n instanceof Element) {
@@ -163,8 +169,11 @@ public final class TextInlining {
         OutputContext c = t.context();
         if (c == OutputContext.TEXT || c == OutputContext.RCDATA || c == OutputContext.SCRIPT) {
           boolean text = c == OutputContext.TEXT;
-          checkBraces(ctx, t, c != OutputContext.SCRIPT, text && !boundary(k == 0 ? parent : nodes.get(k - 1), k == 0),
-              text && !boundary(k == nodes.size() - 1 ? parent : nodes.get(k + 1), k == nodes.size() - 1));
+          boolean first = k == 0;
+          boolean last = k == nodes.size() - 1;
+          checkBraces(ctx, t, c != OutputContext.SCRIPT,
+              text && !boundary(first ? parent : nodes.get(k - 1), first, dropsChildren),
+              text && !boundary(last ? parent : nodes.get(k + 1), last, dropsChildren));
         }
       }
     }
@@ -172,10 +181,11 @@ public final class TextInlining {
 
   /**
    * Whether {@code n} always writes a tag or comment where it meets a text node: a comment, or an
-   * element whose tag renders whenever the text does. {@code parent} is the text's parent element
-   * (null at the top of the template), whose own conditions decide whether the text renders at all.
+   * element whose tag renders whenever the text does. {@code parent} is whether {@code n} is the
+   * text's parent element (null at the top of the template), whose own conditions decide whether
+   * the text renders at all; {@code dropped} is whether the parent may drop its element children.
    */
-  private static boolean boundary(Node n, boolean parent) {
+  private static boolean boundary(Node n, boolean parent, boolean dropped) {
     if (n instanceof Comment) {
       return true;
     }
@@ -186,7 +196,11 @@ public final class TextInlining {
     if (parent) {
       return true;
     }
-    for (String name : new String[] {"if", "unless", "each", "switch", "case", "replace", "remove"}) {
+    if (dropped) {
+      return false;
+    }
+    // t:errors renders the element only when there are errors.
+    for (String name : new String[] {"if", "unless", "each", "switch", "case", "replace", "remove", "errors"}) {
       if (e.attribute(Attribute.PREFIX + name).isPresent()) {
         return false;
       }
@@ -239,7 +253,7 @@ public final class TextInlining {
     ctx.diagnostics()
         .error(
             pos,
-            "this text " + where + " with '{' next to a <t:block>, t:if, t:each, t:remove, t:replace or the edge of the"
+            "this text " + where + " with '{' next to a <t:block>, t:if, t:each, t:remove, t:replace, t:errors or the edge of the"
                 + " template, where it can meet a '{' from other text and form a client-side {{ that Vue and"
                 + " petite-vue would run as code; write it as " + fix + " or move it inside an element");
   }

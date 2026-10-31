@@ -84,12 +84,17 @@ class TextChokePointTest {
     check(raw, markup);
   }
 
+  /** Every spelling of a character reference a browser decodes to '{'. */
+  private static final Pattern BRACE_REF = Pattern.compile("&(?:#0*123(?![0-9]);?|#[xX]0*7[bB](?![0-9a-fA-F]);?|lbrace;|lcub;)");
+
   private static void check(List<Function<String, String>> paths, String[] values) {
     for (Function<String, String> path : paths) {
       for (String v : values) {
         String out = path.apply(v);
         for (String around : new String[] {"{" + out + "{", out + out}) {
-          assertFalse(around.contains("{{") || around.contains("{&#123;") || around.contains("&#123;{"), v + " -> " + around);
+          // As the framework reads the text: brace references decoded.
+          String decoded = BRACE_REF.matcher(around).replaceAll("{");
+          assertFalse(decoded.contains("{{"), v + " -> " + around);
         }
       }
     }

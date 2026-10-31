@@ -2289,10 +2289,11 @@ These come from the annotation processor itself, without a template position.
   `<p>{{ [[s]] }}</p>`, `<p>{{ <b>x</b> }}</p>`). Character references for braces count outside
   scripts, as the framework decodes them. The text of an element that `t:text`, `t:utext`,
   `t:insert`, `t:replace` or `t:errors` replaces is not read.
-- `this text ends with '{' next to a <t:block>, t:if, t:each, t:remove, t:replace or the edge of the template, where it can meet a '{' from other text and form a client-side {{ that Vue and petite-vue would run as code; write it as {<!----> or move it inside an element`
+- `this text ends with '{' next to a <t:block>, t:if, t:each, t:remove, t:replace, t:errors or the edge of the template, where it can meet a '{' from other text and form a client-side {{ that Vue and petite-vue would run as code; write it as {<!----> or move it inside an element`
   (also `starts with`, fix `<!---->{`): element text starts with a lone `{` or ends with `{` where
   the node next to it is not a tag or comment that always renders, so other static text can be
-  written right next to it (`<p>{<t:block>{ [[s]] }}</t:block></p>`, a fragment's first or last
+  written right next to it (`<p>{<t:block>{ [[s]] }}</t:block></p>`, an element with `t:errors`,
+  any element inside a `t:remove="all-but-first"`, a fragment's first or last
   text).
 - `v-model on a <textarea> with computed content is not supported: Tessera adds v-pre there, because a comment cannot break {{ in a value in <textarea>, and v-pre would turn v-model off; drop v-model, or move the value into Vue (v-model or v-text with the value in the app's data) instead of writing it with Tessera`
   (also `<title>`, and any Vue directive or binding: `v-*`, `:x`, `@x`, `#x`, `.x`): the element's
@@ -2323,8 +2324,10 @@ These come from the annotation processor itself, without a template position.
   placeholder at fault (`<script> is not allowed`, `attribute onclick is not allowed on <b>`,
   `a placeholder may not be inside a tag`, `<div> is never closed`, ...); a reason that ends `(in
   the message as MessageFormat formats it, ...)` is about `'` quoting. `a message may not end with
-  '<'` means the template text after the message would continue the `<` into a tag. Fix the
-  bundle, or move the markup into the template.
+  '<'` means the template text after the message would continue the `<` into a tag. A `{{` in
+  message text must be closed by `}}` before the next tag or placeholder, and a brace may not be
+  written as a character reference (`&#123;`, `&lbrace;`): the runtime breaks only a literal `{`
+  at a message's edges (section 4.4). Fix the bundle, or move the markup into the template.
 - `<form> needs a value of type dev.tessera.runtime.SafeHtml, but the expression has type <type>: use t:text or [[...]] (escaped), or build a SafeHtml in trusted Java code`.
 
 ### Attributes

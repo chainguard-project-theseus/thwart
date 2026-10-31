@@ -427,9 +427,28 @@ class ClientTemplateInjectionTest {
         "<p><t:block t:if=\"${s != null}\">{</t:block>x</p>",
         "<t:block t:fragment=\"f\">{</t:block>",
         "<p><b t:remove=\"tag\">x {</b></p>",
+        // all-but-first drops the elements after the first and keeps the text around them.
+        "<div t:remove=\"all-but-first\"><b>x</b>{<i>y</i>{ [[s]] }}</div>",
+        "<div t:remove=\"all-but-first\"><b>x</b>a {<i>y</i></div>",
       })
   void braceAtAnOpenTextEdgeIsABuildError(String body) {
     compile(body).assertError("t.html:1:", "with '{' next to a <t:block>", "<!---->");
+  }
+
+  /** t:errors renders its element only when there are errors, so the texts around it can meet. */
+  @Test
+  void braceNextToErrorsIsABuildError() {
+    Compilation c =
+        Compilation.builder()
+            .java("com.example.Owner", "package com.example; public record Owner(String firstName) {}")
+            .template(
+                "t.html",
+                "<form xmlns:t=\"https://tessera.dev\" t:import=\"com.example.Owner\" t:params=\"Owner owner\""
+                    + " t:object=\"owner\">\n<p>{<span t:errors=\"firstName\">E</span>{ [[${owner.firstName}]] }}</p></form>")
+            .compile();
+    c.assertError("t.html:2:4:", "this text ends with '{' next to a <t:block>, t:if, t:each, t:remove, t:replace, t:errors");
+    c.assertError("t.html:2:", "this text starts with '{'");
+    assertNull(c.generatedSource("tessera.generated.TTemplate"));
   }
 
   @Test

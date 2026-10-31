@@ -95,12 +95,19 @@ final class MessageMarkup {
   /**
    * The client-side interpolation rule for template text (#248, #336), on the message's text: a
    * {@code {{} is closed by a {@code }}} before the next tag or argument. The runtime breaks a
-   * {@code {} at either end of the message ({@code Escapers.rawEdges}) and in arguments.
+   * {@code {} at either end of the message ({@code Escapers.rawEdges}) and in arguments. It
+   * sees only a literal {@code {}, so a character reference for a brace in message text is
+   * rejected: next to a placeholder or a template's {@code {} it would form a {@code {{}.
    */
   private static void braces(String s) throws Bad {
     for (String run : TAG.split(s, -1)) {
       for (String literal : run.split(String.valueOf(ARG), -1)) {
         String text = TextInlining.decode(literal, true);
+        if (count(text, '{') != count(literal, '{') || count(text, '}') != count(literal, '}')) {
+          throw new Bad("a character reference for '{' or '}' is not supported in message text: next to a"
+              + " placeholder or a '{' in the template it could form a client-side {{ that Vue and petite-vue"
+              + " would run as code; write the brace itself");
+        }
         int open = text.indexOf("{{");
         while (open >= 0) {
           int close = text.indexOf("}}", open + 2);
@@ -113,6 +120,16 @@ final class MessageMarkup {
         }
       }
     }
+  }
+
+  private static int count(String s, char c) {
+    int n = 0;
+    for (int i = 0; i < s.length(); i++) {
+      if (s.charAt(i) == c) {
+        n++;
+      }
+    }
+    return n;
   }
 
   // ---------------------------------------------------------------------------------------------
