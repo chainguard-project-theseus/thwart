@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.SafeHtml;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Elements whose content a browser reads as raw text or RCDATA while Tessera parses it as markup:
@@ -111,7 +113,7 @@ class BrowserRawTextTest {
     // The fragment itself is written only by its own method, and the verifier's one error is that: no
     // template inserts it, and declared in raw text, where no fragment fits, it can't be checked on
     // its own (#461).
-    Compilation g = compile("<noscript t:text=\"s\">[(h)]</noscript><noscript><p t:fragment=\"g(SafeHtml x)\" t:utext=\"x\"></p></noscript>");
+    Compilation g = compile("<noscript><p t:fragment=\"g(SafeHtml x)\" t:utext=\"x\"></p></noscript>");
     g.assertError("page.html:2:", "error: no template inserts fragment page :: g", "[verifier:UNCALLED_FRAGMENT_FITS_NOWHERE]");
     assertEquals(1, g.errors().size(), g.errors().toString());
     // A quoted ')]' does not end [( , as for t:text: this is literal text.
@@ -124,19 +126,37 @@ class BrowserRawTextTest {
   }
 
   @Test
-  void ordinaryContentStillBuildsAndStaysInert() {
-    // Holes are escaped, so no value can write the '</noscript' that would end the element.
-    assertEquals(
-        "<div>\n<noscript><p title=\"&lt;/noscript&gt;&lt;/iframe&gt;&lt;/xmp&gt;&lt;/textarea&gt;&lt;script&gt;"
-            + "alert(1)&lt;/script&gt;\">&lt;/noscript&gt;&lt;/iframe&gt;&lt;/xmp&gt;&lt;/textarea&gt;&lt;script&gt;"
-            + "alert(1)&lt;/script&gt;</p><script>var a = (\"\\u003c\\/noscript\\u003e\\u003c\\/iframe\\u003e\\u003c\\/xmp"
-            + "\\u003e\\u003c\\/textarea\\u003e\\u003cscript\\u003ealert(1)\\u003c\\/script\\u003e\");</script></noscript>\n</div>",
-        render("<noscript><p t:title=\"s\">[[s]]</p><script>var a = [[s]];</script></noscript>"));
-    // The Google Tag Manager snippet, t:text of a SafeHtml (escaped), and t:replace of the element itself.
+  void ordinaryContentStillBuilds() {
+    // The Google Tag Manager snippet, static content, and t:replace of the element itself.
     compile("<noscript><iframe src=\"https://www.googletagmanager.com/ns.html?id=GTM-X\" height=\"0\" width=\"0\""
             + " style=\"display:none;visibility:hidden\"></iframe></noscript>\n"
-            + "<noscript><p t:text=\"h\">x</p></noscript><noembed><!-- c --></noembed><xmp>a [( b [[s]]</xmp>\n"
-            + "<b t:fragment=\"f\">x</b><noscript t:replace=\"~{::f}\"></noscript><div t:utext=\"h\"></div>")
+            + "<noscript><p>x</p></noscript><noembed><!-- c --></noembed><xmp>a [( b</xmp>\n"
+            + "<b t:fragment=\"f\">x</b><noscript t:replace=\"~{::f}\"></noscript><div t:utext=\"h\"></div>"
+            + "<xmp t:if=\"${s != null}\">x</xmp>")
         .assertSuccess();
+  }
+
+  /**
+   * A browser reads the content of these elements as raw text (#571), where an empty comment is
+   * text and can't break a value's {{, so no value, condition or loop may write there: not in
+   * text, not in an attribute of an element inside, not from t:text on the element.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<xmp>[[s]]</xmp>|xmp",
+        "<noembed>a [[s]] b</noembed>|noembed",
+        "<noframes><p t:text=\"s\">x</p></noframes>|noframes",
+        "<iframe t:text=\"s\"></iframe>|iframe",
+        "<noscript><p t:title=\"s\">x</p></noscript>|noscript",
+        "<noscript><script>var a = [[s]];</script></noscript>|noscript",
+        "<noscript><t:block t:if=\"${s != null}\">{{ x }}</t:block></noscript>|noscript",
+        "<NOSCRIPT><p t:unless=\"${s == null}\">x</p></NOSCRIPT>|noscript",
+      })
+  void computedContentInsideRawTextIsAnError(String bodyAndElement) {
+    int bar = bodyAndElement.lastIndexOf('|');
+    compile(bodyAndElement.substring(0, bar))
+        .assertError("page.html:2:1:", "a value, condition or loop inside <" + bodyAndElement.substring(bar + 1)
+            + "> is not supported", "write the content as static text");
   }
 }

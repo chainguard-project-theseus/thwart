@@ -133,7 +133,7 @@ public final class TemplateGenerator implements CodegenContext {
     indexHtmxSubmits(document.children(), false, false);
 
     validate(document.rootElement(), document.children());
-    TextInlining.checkBraces(this, document.children(), null);
+    TextInlining.checkBraces(this, document.children(), null, false);
     Scope scope = Scope.empty();
     for (TemplateIndex.Param p : info.params()) {
       scope = scope.with(new Variable(p.name(), p.type(), javaName(p.name())));
@@ -445,11 +445,8 @@ public final class TemplateGenerator implements CodegenContext {
     boolean outerForeign = inForeign;
     boolean outerJson = jsonScript;
     String host = rawTextElement(e) ? e.name() : outer;
-    // In raw text (<xmp>, <iframe>, <noembed>, <noframes>) the tag is text, so nothing is dropped.
-    // Inside <noscript> the content is markup with scripting off, and raw text a browser never
-    // renders with it on, so the line feed is written there too.
-    boolean leadingLineFeed = (outer == null || HtmlParser.asciiEqualsIgnoreCase(outer, "noscript")) && !e.foreign()
-        && LEADING_LINE_FEED.contains(HtmlParser.asciiLower(e.name()));
+    // In raw text the tag is text, so nothing is dropped (and the content is static, #571).
+    boolean leadingLineFeed = outer == null && !e.foreign() && LEADING_LINE_FEED.contains(HtmlParser.asciiLower(e.name()));
     // Processors (t:remove="all-but-first") and emit generate the content.
     rawTextHost = host;
     inForeign = outerForeign || HtmlParser.asciiEqualsIgnoreCase(e.name(), "svg")
@@ -563,6 +560,14 @@ public final class TemplateGenerator implements CodegenContext {
         }
         Emitted written = content.build();
         if (!plan.tagOmitted()) {
+          if (Contexts.browserRawText(e.name()) && computed(written.nodes())) {
+            // A comment cannot break a value's {{ in raw text (#571): only static content there.
+            diagnostics()
+                .error(e.pos(), "a value, condition or loop inside <" + HtmlParser.asciiLower(e.name()) + "> is not"
+                    + " supported: a browser reads its content as raw text, where nothing can break a {{ in a value"
+                    + " that Vue and petite-vue would run as code; write the content as static text, or move the"
+                    + " value outside the element");
+          }
           startTag(c, plan, addsVPre(plan, written));
           if (leadingLineFeed && !startsWithStatic(written.nodes())) {
             c.text("\n", e.pos());
@@ -619,8 +624,9 @@ public final class TemplateGenerator implements CodegenContext {
    * whole document without {@code v-scope}) interpolate it. Both skip an element with
    * {@code v-pre}; anywhere else it is an inert unknown attribute. Added when the content is
    * computed ({@code content} writes anything but static text) and the element has no static
-   * {@code v-pre} yet. A Vue directive or binding on the element, or a static {{ in its
-   * content, would silently stop working under {@code v-pre}, so either is a build error.
+   * {@code v-pre} yet. A Vue directive or binding on the element would silently stop working
+   * under {@code v-pre}, so it is a build error; a static brace in the content is one too
+   * ({@code TextInlining.checkBraces}).
    */
   private boolean addsVPre(ElementPlan plan, Emitted content) {
     Element e = plan.element();
@@ -647,14 +653,7 @@ public final class TemplateGenerator implements CodegenContext {
               + " would turn " + a.name() + " off; drop " + a.name() + ", or move the value into Vue (v-model or"
               + " v-text with the value in the app's data) instead of writing it with Tessera");
     }
-    boolean braces = staticBraces(content.nodes());
-    if (braces) {
-      diagnostics()
-          .error(e.pos(), "{{ in the static text of a <" + lower + "> with computed content is not supported: Tessera"
-              + " adds v-pre there, because a comment cannot break {{ in a value in <" + lower + ">, and v-pre would"
-              + " show the static {{ ... }} as text; write the whole content with Tessera, or bind it with Vue");
-    }
-    return directives.isEmpty() && !braces;
+    return directives.isEmpty();
   }
 
   /** Whether {@code nodes} write anything but static text. */
@@ -665,41 +664,6 @@ public final class TemplateGenerator implements CodegenContext {
       }
     }
     return false;
-  }
-
-  /**
-   * Whether the static text in {@code nodes} may write {{: adjacent static text joins, also into
-   * and out of conditions and loops; a value, call or other branch separates it.
-   */
-  private static boolean staticBraces(List<Skeleton.Node> nodes) {
-    StringBuilder text = new StringBuilder();
-    staticText(nodes, text);
-    return text.indexOf("{{") >= 0;
-  }
-
-  private static void staticText(List<Skeleton.Node> nodes, StringBuilder out) {
-    for (Skeleton.Node n : nodes) {
-      if (n instanceof Skeleton.Static) {
-        out.append(((Skeleton.Static) n).text());
-      } else if (n instanceof Skeleton.Seq) {
-        staticText(((Skeleton.Seq) n).nodes(), out);
-      } else if (n instanceof Skeleton.Opt) {
-        staticText(((Skeleton.Opt) n).body().nodes(), out);
-      } else if (n instanceof Skeleton.Rep) {
-        // Two rounds: the end of one meets the separator and the start of the next.
-        staticText(((Skeleton.Rep) n).body().nodes(), out);
-        staticText(((Skeleton.Rep) n).separator().nodes(), out);
-        staticText(((Skeleton.Rep) n).body().nodes(), out);
-      } else if (n instanceof Skeleton.Alt) {
-        for (Skeleton.Seq branch : ((Skeleton.Alt) n).branches()) {
-          out.append('\0');
-          staticText(branch.nodes(), out);
-        }
-        out.append('\0');
-      } else {
-        out.append('\0');
-      }
-    }
   }
 
   private void startTag(Emitted.Builder c, ElementPlan plan, boolean vPre) {

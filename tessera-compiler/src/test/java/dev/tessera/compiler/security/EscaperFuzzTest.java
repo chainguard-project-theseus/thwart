@@ -120,9 +120,10 @@ class EscaperFuzzTest {
   void oracleRejectsBrokenOutput() {
     // The oracle itself must catch what it is there to catch.
     assertEquals("raw '<' at 0", ContextOracle.html("<b>", null));
-    assertEquals("unbroken {{ in {{x}}", ContextOracle.text("{{x}}", null));
-    assertEquals("unbroken {{ in a{{x", ContextOracle.text("a{{x", null));
-    assertEquals("bare { at the edge", ContextOracle.text("{<!---->{", null));
+    assertEquals("brace not alone between comments in {{x}}", ContextOracle.text("{{x}}", null));
+    assertEquals("brace not alone between comments in a{{x", ContextOracle.text("a{{x", null));
+    assertEquals("brace not alone between comments in x}", ContextOracle.text("<!---->{<!---->x}", null));
+    assertEquals("brace not alone between comments in {", ContextOracle.text("{<!---->{", null));
     assertEquals("comment not next to a brace", ContextOracle.text("a<!---->b", null));
     assertEquals("raw '<' at 0", ContextOracle.text("<!--->", null));
     assertEquals("raw '\"' at 1", ContextOracle.html("a\"b", null));

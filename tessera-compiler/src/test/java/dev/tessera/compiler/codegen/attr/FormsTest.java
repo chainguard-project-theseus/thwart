@@ -97,7 +97,7 @@ class FormsTest {
     // Inside svg and math a textarea is not RCDATA: its value is escaped as text, {{ broken (#277).
     Compilation c = compile("<svg><textarea t:field=\"*{firstName}\"></textarea></svg>");
     assertEquals(
-        "<form><svg><textarea id=\"firstName\" name=\"firstName\" v-pre>&lt;b&gt;{<!---->{x}}</textarea></svg></form>",
+        "<form><svg><textarea id=\"firstName\" name=\"firstName\" v-pre>&lt;b&gt;<!---->{<!---->{<!---->x<!---->}<!---->}<!----></textarea></svg></form>",
         render(c, owner(c, "<b>{{x}}", null), new TestForms()));
   }
 

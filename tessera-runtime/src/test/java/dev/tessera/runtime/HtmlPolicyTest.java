@@ -233,7 +233,7 @@ class HtmlPolicyTest {
   @Test
   void anEmptyPolicyKeepsOnlyText() {
     HtmlPolicy none = HtmlPolicy.builder().build();
-    assertEquals("a &amp; b<!---->{<!---->{x}}", none.sanitize("<p>a &amp; <b>b</b>{{x}}</p><script>c</script>").html());
+    assertEquals("a &amp; b<!---->{<!---->{<!---->x<!---->}<!---->}<!---->", none.sanitize("<p>a &amp; <b>b</b>{{x}}</p><script>c</script>").html());
   }
 
   // ---------------------------------------------------------------------------------------------

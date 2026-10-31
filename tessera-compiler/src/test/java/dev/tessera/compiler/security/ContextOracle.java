@@ -61,15 +61,14 @@ final class ContextOracle {
     return null;
   }
 
-  /** What the element-text escaper writes between braces (#248). */
+  /** What the element-text escaper writes on both sides of every brace (#248, #571). */
   static final String BRACE_BREAK = "<!---->";
 
   /**
-   * Element text: like {@link #html}, except that empty comments may separate braces, and no
-   * client-side {@code {{} interpolation can form, whatever text is written next to the value: no
-   * text between the comments contains {@code {{}, the value neither starts nor ends with a bare
-   * {@code {}, and every comment touches a brace. Without the comments, it decodes to
-   * {@code expected} (if not null).
+   * Element text: like {@link #html}, except that every {@code {} and {@code }} stands alone
+   * between two empty comments, so no client-side {@code {{} interpolation can form, whatever
+   * text is written next to the value, and every comment touches a brace. Without the comments,
+   * it decodes to {@code expected} (if not null).
    */
   static String text(String out, String expected) {
     return text(out, expected, true);
@@ -86,20 +85,24 @@ final class ContextOracle {
       if (r != null) {
         return r;
       }
-      if (decodeHtml(parts[i]).contains("{{")) {
-        return "unbroken {{ in " + parts[i];
+      boolean edge = i == 0 || i == parts.length - 1;
+      if (brace(parts[i]) && (parts[i].length() != 1 || edges && edge)) {
+        return "brace not alone between comments in " + parts[i];
       }
-      if (i > 0 && !parts[i - 1].endsWith("{") && !parts[i].startsWith("{")) {
+      if (i > 0 && !brace(parts[i - 1]) && !brace(parts[i])) {
         return "comment not next to a brace";
       }
-    }
-    if (edges && (out.startsWith("{") || out.endsWith("{"))) {
-      return "bare { at the edge";
     }
     if (expected != null && !decodeHtml(String.join("", parts)).equals(wellFormed(expected))) {
       return "decodes to a different value";
     }
     return null;
+  }
+
+  /** Whether {@code part}, decoded as a browser does, holds a brace. */
+  private static boolean brace(String part) {
+    String d = decodeHtml(part);
+    return d.indexOf('{') >= 0 || d.indexOf('}') >= 0;
   }
 
   /**
