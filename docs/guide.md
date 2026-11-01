@@ -2026,6 +2026,81 @@ The page puts its selected elements outside `<body>`, or they would also render 
   its value or nothing, but `get()` can't be called. Printing a `@TemplateView` object prints its
   `toString()`.
 
+**FreeMarker.**
+
+- **Macros** are typed fragments, `<#include>` a fragment call, and `<#nested>` a `Fragment`
+  parameter (section 4.8). A fragment parameter has no default value, and every call passes every
+  argument. Where a macro declared one (`id="modalConfirmDelete"`), a call that left the argument
+  out got the default: pass that value at the call site, not `''`. Before:
+
+```ftl
+<#macro deleteModal title id="modalConfirmDelete">
+  <div id="${id}" class="modal"><h4>${title}</h4></div>
+</#macro>
+<@deleteModal title="Delete template"/>
+```
+
+After:
+
+<!-- compile: template guide/fragments/modals.html -->
+```html
+<div xmlns:t="https://tessera.dev" t:fragment="deleteModal(String title, String id)" t:id="id"
+     class="modal"><h4 t:text="title">Delete?</h4></div>
+```
+
+<!-- compile: template guide/ftl-modals-page.html -->
+```html
+<main xmlns:t="https://tessera.dev">
+  <div t:replace="~{guide/fragments/modals :: deleteModal('Delete template', 'modalConfirmDelete')}"></div>
+</main>
+```
+
+- **Raw output.** FreeMarker prints `${...}` raw unless an HTML output format is set (the
+  `output_format` setting, `<#ftl output_format="HTML">`, or an `.ftlh` file where the
+  configuration recognises the extension). `?no_esc` always prints raw, and so does
+  `<@spring.message>` from Spring 5. See raw output above. A bundle message that holds markup
+  (`<a>`, `<br>`), printed raw as `${locale.getString("key")}` or `<@spring.message "key"/>`, is
+  `t:utext="#{key}"` (section 4.5); `t:text` prints its tags escaped.
+- **`spring.ftl` form macros.** Their paths start with the form object's name (`"signup.email"`):
+  put `t:object="signup"` on the form and bind `*{email}` (section 4.7).
+  - `formInput` is `<input type="text" t:field="*{email}">` with the attributes argument written
+    as static attributes; likewise `formHiddenInput`, `formPasswordInput` and `formTextarea`.
+    `formInput` wrote `value=""` for a `null` field, where `t:field` omits it.
+  - `formSingleSelect` is `<select t:field="*{plan}">` with a `t:each` over `<option>`:
+    `t:value="p" t:text="p"` for a list, `t:value="e.key" t:text="e.value"` for a map.
+  - After `<@spring.bind "signup.email"/>`, `spring.status.value`, `spring.status.errorMessages`
+    and `spring.status.error` are `fields.value('email')`, `fields.errors('email')` and
+    `fields.hasErrors('email')`.
+  - `showErrors` writes each message in a `<span>` with the class (a `<b>` without one), with
+    the separator between them. `t:errors` writes them in its own element, joined by `<br />`;
+    where the markup matters, loop over `fields.errors`. Before:
+
+```ftl
+<form method="post">
+  <@spring.formInput "signup.email" 'class="x"'/>
+  <@spring.showErrors "<br>" "error"/>
+  <@spring.formSingleSelect "signup.plan" plans/>
+</form>
+```
+
+After:
+
+<!-- compile: template guide/ftl-signup.html -->
+```html
+<form xmlns:t="https://tessera.dev" t:import="com.example.guide.*" t:params="Signup signup, List<Plan> plans"
+      t:object="signup" method="post">
+  <input type="text" class="x" t:field="*{email}" />
+  <t:block t:each="e, st : fields.errors('email')"><span class="error" t:text="e">error</span><br
+      t:unless="st.last" /></t:block>
+  <select t:field="*{plan}"><option t:each="p : plans" t:value="p" t:text="p">BASIC</option></select>
+</form>
+```
+
+- **Expressions.** `x!d` is `x ?: d`, and `(a.b)!d`, which also covers a missing `a`, is
+  `a?.b ?: d`; both sides need the same type. `${x!}` is `t:text="x"`, which prints nothing for
+  `null`; in an attribute, see section 4.3. `x??` is `x != null`, and `c?then(a, b)` is
+  `c ? a : b`.
+
 ### 4.11 Content Security Policy
 
 **Where the guarantee ends.** Tessera guarantees what the browser's HTML parser does with the page:
