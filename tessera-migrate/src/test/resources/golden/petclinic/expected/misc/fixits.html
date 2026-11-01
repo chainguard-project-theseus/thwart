@@ -9,29 +9,22 @@
   <!-- A missing space between attributes is added. -->
   <a href="/owners" class="btn" t:text="owner.lastName">owner</a>
   <a href="/owners" class="btn">spaced</a>
-  <!-- Values outside the script prelude are hoisted into var declarations at the top (#541). -->
+  <!-- Values outside the script prelude are left as they are: the compiler reports them (#540). -->
   <script th:inline="javascript">
-    var _t1 = [[${owner.id}]];
     var path = location.pathname.split(/\//);
-    var owner = _t1;
+    var owner = [[${owner.id}]];
   </script>
   <script>
     var owner = [[${owner.id}]];
     var path = location.pathname.split(/\//);
   </script>
   <script>
-    var _t2 = [[${owner.birthDate}]];
-    var _t3 = [[${owner.id}]];
-    var _t4 = [[${owner.lastName}]];
-    var _t5 = [[${owner.firstName}]];
-    var _t6 = [[${owner.telephone}]];
-    var _t7 = [[${owner.visits}]];
-    var parts = _t2.split(".");
-    initOwner(_t3, parts);
-    var options = {name: _t4, editable: true};
-    var greeting = "Hello " + _t5 + "!";
-    numberValidationMessage = _t6;
-    var visits = _t7;
+    var parts = [[${owner.birthDate}]].split(".");
+    initOwner([[${owner.id}]], parts);
+    var options = {name: [[${owner.lastName}]], editable: true};
+    var greeting = "Hello [[${owner.firstName}]]!";
+    numberValidationMessage = [[${owner.telephone}]];
+    var visits = [[${owner.visits}]];
     var re = /^[[${owner.city}]]$/;
   </script>
 </body>

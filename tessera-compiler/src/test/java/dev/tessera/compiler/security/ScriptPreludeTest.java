@@ -343,10 +343,10 @@ class ScriptPreludeTest {
           "<script>var d = [[x]];\n$(function () { var s = d.split(/[,/]/); });</script>");
 
   /**
-   * What tessera-migrate writes for values outside the prelude (#541): each hoisted into
-   * {@code var _tN = [[...]];} above the first code (the bench shapes), and the name used in its place.
+   * The fix-it for values outside the prelude: each moved into a declaration above the first code
+   * (the bench shapes), and the name used in its place.
    */
-  static final List<String> HOISTED_BY_MIGRATE =
+  static final List<String> MOVED_INTO_PRELUDE =
       List.of(
           "<script>\n    var a = [[${s}]];\n    var _t1 = [[${s}]];\n    var _t2 = [[${n}]];\n    var _t3 = [[${m}]];\n"
               + "    var _t4 = [[${s}]];\n    var _t5 = [[${s}]];\n    var _t6 = [[${l}]];\n"
@@ -372,7 +372,7 @@ class ScriptPreludeTest {
   }
 
   @ParameterizedTest
-  @FieldSource({"ALLOWED", "HOISTED_BY_MIGRATE"})
+  @FieldSource({"ALLOWED", "MOVED_INTO_PRELUDE"})
   void preludeDeclarationBuilds(String markup) {
     compile(markup).assertSuccess();
   }
