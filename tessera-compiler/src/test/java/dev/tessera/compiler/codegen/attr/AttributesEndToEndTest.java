@@ -41,8 +41,8 @@ class AttributesEndToEndTest {
     assertEquals("<a href=\"about:invalid#tessera\">x</a>", render("<a t:href=\"s\">x</a>", model("s", "javascript:alert(1)")));
     assertEquals("<img src=\"about:invalid#tessera\">", render("<img t:src=\"s\">", model("s", " JaVaScRiPt:alert(1)")));
     assertEquals(
-        "<form action=\"about:invalid#tessera\"></form>",
-        render("<form t:action=\"s\"></form>", model("s", "data:text/html,<script>")));
+        "<q cite=\"about:invalid#tessera\"></q>",
+        render("<q t:cite=\"s\"></q>", model("s", "data:text/html,<script>")));
     assertEquals(
         "<a href=\"about:invalid#tessera\">x</a>",
         render("<a t:attr=\"href=s\">x</a>", model("s", "vbscript:x")));

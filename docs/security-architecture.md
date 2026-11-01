@@ -827,8 +827,8 @@ An attribute nobody classified is now a build error, not a plain attribute.
   one place a computed class value is written.
 - **Vue in RCDATA** (#549, PR #560): a framework-table entry adds `v-pre` to a `<title>` or
   `<textarea>` with computed content, where a comment can't break `{{`.
-- **htmx 1.x sockets** (#562, PR #564): `hx-ws`/`hx-sse` are build errors, instead of parsing
-  their `connect:` grammar.
+- **htmx 1.x sockets** (#562, PR #564): a computed `hx-ws`/`hx-sse` is a build error, instead of
+  parsing their `connect:` grammar; a static one is copied since #585.
 
 ### 12.5 The runtime never classifies content (#535, #537)
 
@@ -849,10 +849,13 @@ outside a pinned one-file allow-list (PR #546).
 
 A `<form>` gets the token only if its method is a static `post` and its action is absent, static
 and same-origin by shape, or a computed `@{/literal-path}` link re-checked at render. A computed
-`method`, any other computed action on a POST form, and a cross-origin `formaction`,
-`<base href>` or static htmx request URL on any element are build errors (PR #555). This replaces
-eight case-by-case patches, and closed two live leaks (`hx-post` on the form, and an `hx-ws`
-socket around it).
+`method`, any other computed action on a POST form, and a cross-origin `formaction` or
+`<base href>` on any element are build errors (PR #555). This replaces
+eight case-by-case patches. The shape is about HTML only: #585 (under #583) deleted the htmx
+parts (static htmx request URLs and `hx-ws`/`hx-sse` as CSRF sinks, and the `hx-boost` tracking),
+since what htmx sends where is outside the guarantee (use htmx 2 or `selfRequestsOnly`). The
+boosted-form check became a framework-neutral rule: every form's computed `action` is a same-origin
+link or a `TrustedUrl`, since client code may submit any form and swap the response in.
 
 ### 12.8 `{{` through one function (#547, #571)
 
