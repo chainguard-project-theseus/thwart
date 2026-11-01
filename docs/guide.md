@@ -348,8 +348,16 @@ Security 4.2):
   for tests (surefire `argLine`). Spring 5.3 (Boot 2.7) does not.
 
 **Error pages.** Under Boot, `templates/error.html` renders errors with Boot's error attributes as
-the model (`Integer status`, `String error`, `String message`, `String path`). Boot's `timestamp`
-is a `java.util.Date`, which is not view-safe; declare it `Instant timestamp` or
+the model (`Integer status`, `String error`, `String message`, `String path`). Since Boot 2.3,
+`message` is there only with `server.error.include-message=always` (or `on-param` and
+`?message=true`). The default, `never`, leaves it out (Boot 2.5 and later) or empty (2.3 and 2.4),
+so it is `null` or `''` in the template. Tie markup that depends on it to the value
+(`t:unless="strings.isEmpty(message)"`, which skips both), not to the setting. An old engine may
+have failed on the missing value: JMustache throws at `{{message}}`, so the page stops
+mid-render, without its footer and scripts. Don't reproduce that cut-off page: always render the
+whole page, and compare error pages against the original started with
+`--server.error.include-message=always`.
+Boot's `timestamp` is a `java.util.Date`, which is not view-safe; declare it `Instant timestamp` or
 `ZonedDateTime timestamp` and the starter passes it converted (a `Date` model attribute fills any
 `Instant` or `ZonedDateTime` param; the zone is the JVM default, as for `Date.toString()`).
 Thymeleaf's `${timestamp}` is `t:text="temporals.format(timestamp, 'EEE MMM dd HH:mm:ss zzz yyyy')"`
