@@ -33,8 +33,6 @@ class ContextVerifierRulesTest {
     accept(st("<table><caption>"), text());
     accept(st("<template>"), text());
     accept(st("<svg><text>"), text()); // foreign content appends every character as is
-    accept(st("<iframe>"), text()); // raw text a browser never runs
-    accept(st("<p><noscript>"), text()); // raw text with scripting on, text in the body without
     reject(Problem.TEXT_OUTSIDE_BODY, st("<noscript>"), text()); // in the head without scripting
     accept(st("<select><option>"), text());
     accept(st("<pre>"), text(), st("\nx</pre>"));
@@ -98,12 +96,6 @@ class ContextVerifierRulesTest {
     assertEquals(Escaper.TEXT, textEscaper(st("<svg><textarea>"), text()));
     accept(st("<svg><foreignObject><title>"), hole(Escaper.RCDATA, null));
     accept(st("<svg><title>"), text());
-    // Never-run raw text takes any escaper: none writes '<'. Element text there is text.
-    accept(st("<xmp>"), text());
-    assertEquals(Escaper.TEXT, textEscaper(st("<xmp>"), text()));
-    accept(st("<xmp>"), hole(Escaper.RCDATA, null));
-    accept(st("<p><noscript><title>"), hole(Escaper.RCDATA, null)); // raw text with scripting on, RCDATA without
-    assertEquals(Escaper.RCDATA, textEscaper(st("<p><noscript><title>"), text()));
   }
 
   @Test
@@ -172,11 +164,30 @@ class ContextVerifierRulesTest {
     reject(Problem.JSON_NOT_IN_SCRIPT, st("<style>"), json());
   }
 
+  /**
+   * No value in the raw text of {@code <noscript>} (scripting on), {@code <xmp>}, {@code <iframe>},
+   * {@code <noembed>} or {@code <noframes>}, whatever its escaper (#583, #586): an empty comment is
+   * text there and can't break a value's {{. The generator reports it first; the verifier is the
+   * boundary.
+   */
   @Test
-  void anyEscaperIsInertInRawTextABrowserNeverRuns() {
-    accept(st("<noscript><p title=\""), attr("title"));
-    accept(st("<noscript><script>var a = "), json(), st(";</script></noscript>"));
-    accept(st("<xmp>"), json());
+  void anyValueInRawTextIsRejected() {
+    for (String el : List.of("noscript", "xmp", "iframe", "noembed", "noframes")) {
+      reject(Problem.VALUE_IN_RAW_TEXT, st("<p><" + el + ">"), text());
+      reject(Problem.VALUE_IN_RAW_TEXT, st("<p><" + el + ">"), hole(Escaper.RCDATA, null));
+      reject(Problem.VALUE_IN_RAW_TEXT, st("<p><" + el + ">"), json());
+      reject(Problem.VALUE_IN_RAW_TEXT, st("<p><" + el + "><i title=\""), attr("title"));
+    }
+    // Markup with scripting off, raw text with it on: rejected on the scripting-on parse.
+    reject(Problem.VALUE_IN_RAW_TEXT, st("<p><noscript><title>"), hole(Escaper.RCDATA, null));
+    reject(Problem.VALUE_IN_RAW_TEXT, st("<noscript><script>var a = "), json(), st(";</script></noscript>"));
+    // The CSRF input a <form> inside <noscript> gets: an attribute hole in raw text (#577).
+    reject(Problem.VALUE_IN_RAW_TEXT,
+        st("<p><noscript><form method=\"post\"><input type=\"hidden\" name=\"_csrf\" value=\""), attr("value"),
+        st("\"></form></noscript></p>"));
+    // Positive controls: a hole after the element ends, and static raw text.
+    accept(st("<p><noscript>x</noscript>"), text(), st("</p>"));
+    accept(st("<div><xmp>a {{ b</xmp><i title=\""), attr("title"), st("\">x</i></div>"));
   }
 
   @Test

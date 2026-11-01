@@ -336,9 +336,9 @@ htmx 1.x `hx-ws` or `hx-sse` is a build error (#562), and `v-pre` on a computed 
 | `{` as `\u007b` in JSON strings | main (#303) | `ScriptJsonTest` (#303) |
 | A static `{` or `}` in element text (CDATA in foreign content included) outside a complete `{{ ... }}` in one literal is an error, whatever is next to it; in a script, an unclosed static `{{` before a hole | main (#571, replacing the #336 edge rule; nothing about neighbours is looked at); script main (#303) | seed `A18`; `ClientTemplateInjectionTest` |
 | A static `&` that starts a character reference before a hole is an error, so a value can't spell `{` as `&#123;` (`&[[a]]&[[b]]`, a = b = `#123;`); an HTML message the build did not check is escaped as text | verifier (`TEXT_NOT_IN_TEXT`, §2 "Text: hole after `&`"); runtime (`Escapers.htmlMessage`) | `ValueAfterAmpersandTest`, `EscapersTest` |
-| RCDATA (`<title>`, `<textarea>`): no lossless break, so a computed one gets `v-pre` (Vue 3, petite-vue); a Vue directive on it, or any static brace in it, is an error (#571); no duplicate `v-pre` | main (#549) | `VPreRcdataTest` (output and errors); that Vue 3.5.44 and petite-vue 0.4.1 skip it was checked by hand in Chromium (the hostile value runs without `v-pre`, not with it), framework harness rows #334 |
-| RAWTEXT (`xmp`, `iframe`, `noembed`, `noframes`, `noscript`): no break at all, so a value, condition or loop inside is an error | main (#571) | `BrowserRawTextTest` |
-| Attributes and RCDATA under AngularJS: not supported (guide §7) | documented limitation, bounded by `ng-non-bindable` and CSP (#335) | seed `A37`; #344 CSTI check |
+| RCDATA (`<title>`, `<textarea>`): no lossless break, so a computed one gets the constant attribute `v-pre` (Vue, petite-vue), whatever else is on it; no duplicate `v-pre`. Its static text follows the element-text brace rule above | main (#549, simplified in #586) | `VPreRcdataTest`, `ClientTemplateInjectionTest`; that Vue 3.5.44 and petite-vue 0.4.1 skip it was checked by hand in Chromium (the hostile value runs without `v-pre`, not with it), framework harness rows #334 |
+| RAWTEXT (`xmp`, `iframe`, `noembed`, `noframes`, `noscript`): no break at all, so a value, condition or loop inside is an error | verifier for values (`VALUE_IN_RAW_TEXT`, #586); generator early error for values, conditions and loops (#571) | `ContextVerifierRulesTest`, `BrowserRawTextTest` |
+| Attributes, class tokens and RCDATA under AngularJS: not supported (guide §7) | documented limitation, bounded by `ng-non-bindable` and CSP (#335) | seed `A37`; #344 CSTI check |
 
 ### 6.4 The CSP nonce (#335)
 
@@ -402,8 +402,8 @@ The id in brackets ends every error message (`[verifier:ID]`), for #368's fix-it
 
 The parser state names the one escaper a hole may have (#378): data `text`, RCDATA `rcdata`, the
 script data of an HTML `<script>` `json`, a double-quoted attribute value an attribute escaper
-for that attribute (which one is policy, `Contexts.attribute`). In never-run raw text any escaper
-is inert. A hole with another escaper is rejected, so a hole whose paths reach states that name
+for that attribute (which one is policy, `Contexts.attribute`). Raw text names none: no hole is
+accepted there (#586). A hole with another escaper is rejected, so a hole whose paths reach states that name
 different escapers is rejected (Go's branch rule). For element text the verifier makes the choice:
 the compiler writes a `text` hole with its escaper left open, the first state that names one
 (`text` or `rcdata`) decides it, and the processor sets it in the generated code before writing
@@ -412,12 +412,12 @@ RCDATA and another in data is rejected (`TEXT_IN_RCDATA`, `RCDATA_NOT_IN_RCDATA`
 
 | Id | Rejects | Accepted instead |
 |---|---|---|
-| `TEXT_NOT_IN_TEXT` | a `text` or `rcdata` hole inside a tag, comment, character reference, CDATA, doctype or `plaintext` | data state; RCDATA; RAWTEXT of `noscript` (scripting on), `iframe`, `xmp`, `noembed`, `noframes` |
+| `TEXT_NOT_IN_TEXT` | a `text` or `rcdata` hole inside a tag, comment, character reference, CDATA, doctype or `plaintext` | data state; RCDATA |
 | `TEXT_IN_SCRIPT` | a `text` or `rcdata` hole in script data, `style`, or SVG/MathML `script`/`style` | as above |
 | `TEXT_IN_TABLE` | a `text` hole in a table, table body, row or column group (foster-parented table text; an element foster-parented out of the table is a parse error) | in a cell or caption |
 | `TEXT_OUTSIDE_BODY` | a `text` hole before `<html>`, in or after the head, after the body, in a frameset | in body, cell, caption, `select`, `template`; in foreign content |
 | `TEXT_RECONSTRUCTS` | retired (#410): a `text` hole where formatting elements closed out of order would be reopened first. The misnesting is a parse error | |
-| `RCDATA_NOT_IN_RCDATA` | an `rcdata` hole (no `{{` breaking) a browser reads as ordinary text; element text written in RCDATA first and then in data | RCDATA, never-run raw text |
+| `RCDATA_NOT_IN_RCDATA` | an `rcdata` hole (no `{{` breaking) a browser reads as ordinary text; element text written in RCDATA first and then in data | RCDATA |
 | `TEXT_IN_RCDATA` (#378) | element text written in data first (with the comments that break `{{`) and then in the RCDATA of `<title>` or `<textarea>`, where the comments would show | one escaper for every path and call |
 | `ATTRIBUTE_NOT_IN_VALUE`, `ATTRIBUTE_WRONG_NAME` | an attribute hole outside a double-quoted value, or in another attribute's value (or a dropped duplicate) | the double-quoted value of the attribute the compiler wrote, compared case-insensitively |
 | `ATTRIBUTE_VALUE_CHANGES_PARSE` | a computed `encoding` in MathML (an `<input>` in a table mode is a parse error with any `type`) | static values |
@@ -435,6 +435,7 @@ RCDATA and another in data is rejected (`TEXT_IN_RCDATA`, `RCDATA_NOT_IN_RCDATA`
 | `UNCALLED_FRAGMENT_FITS_NOWHERE` (#461) | a fragment no template calls, declared where no fragment fits (raw text, mixed `svg`/`math`, `t:remove="tag"` content). Every other fragment no template calls is checked on its own: declared in HTML content, in the fragment contexts its root elements imply (as a document only if it is a page); in `svg`, `math` or `select` content, in that element | a fragment some template calls, or one declared in HTML, `svg`, `math` or `select` content |
 | `LOOP_NO_FIXED_POINT`, `STRUCTURE_DEPENDS_ON_DATA` | a loop, or a fragment calling itself, that reaches new parser states after 4 rounds (or more than 24 states for one recursive fragment); anything reached only through recursion | loops and recursion that settle |
 | `TOO_MANY_STATES` | more than 24 distinct parser states at a join | |
+| `VALUE_IN_RAW_TEXT` (#586) | any hole, whatever its escaper, in the raw text of `noscript` (scripting on), `iframe`, `xmp`, `noembed` or `noframes`, where an empty comment is text and nothing breaks a value's `{{` (the CSRF input of a `<form>` inside `<noscript>` included) | static content; the value outside the element |
 | `ENGINE_FAILURE`, `UNKNOWN_NODE` | a parser that throws or reports an unnamed state; a fragment the skeleton doesn't define | |
 
 A computed attribute (`[ name="..."]`) inside a start tag is one path: writing it or not leaves the

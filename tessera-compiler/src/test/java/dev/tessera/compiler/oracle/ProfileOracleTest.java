@@ -115,12 +115,10 @@ class ProfileOracleTest {
     /** URL and CSRF policy (#313). */
     E,
     /**
-     * Not a finding: a {@code CONTEXT_MISMATCH} where the value is inert by the verifier's rule
-     * table. A value, whatever its escaper, in the raw text of an element that never runs ({@code
-     * noscript} with scripting on, {@code iframe}, {@code xmp}, {@code noembed}, {@code noframes};
-     * Rules.hole's first rule; seed family {@code OVER}), or an attribute value the parser dropped
-     * with its start tag (an element the insertion mode ignores, such as {@code <span>} under classic
-     * {@code <select>} parsing). Counted, and listed in the report.
+     * Not a finding: a {@code CONTEXT_MISMATCH} where the value is inert: an attribute value the
+     * parser dropped with its start tag (an element the insertion mode ignores, such as {@code <span>}
+     * under classic {@code <select>} parsing). Counted, and listed in the report. A value in raw text
+     * is not one: the verifier rejects it (VALUE_IN_RAW_TEXT, #586).
      */
     INERT
   }
@@ -563,15 +561,13 @@ class ProfileOracleTest {
     };
   }
 
-  private static final Pattern NEVER_RUN_RAW_TEXT =
-      Pattern.compile("escaping in raw-text element text \\(<(noscript|iframe|xmp|noembed|noframes)>\\)$");
   private static final Pattern NOWHERE =
       Pattern.compile("^\\(nowhere\\): marker (" + Fingerprint.PREFIX + "[0-9]{4}) is in the render but not in the parsed tree$");
 
   /**
    * The family of a {@link ContextCheck} finding on {@code render} (the fingerprint render), whose
-   * holes are at {@code spans}: {@link Family#INERT} for any escaping in never-run raw text, and
-   * for a marker the parser dropped when every occurrence of it is in an attribute hole (an
+   * holes are at {@code spans}: {@link Family#INERT} for a marker the parser dropped when every
+   * occurrence of it is in an attribute hole (an
    * attribute value goes nowhere but its element, so the element was ignored); A/B otherwise.
    */
   static Family contextFamily(Finding f, String render, List<SkeletonMatcher.Span> spans) {
@@ -579,13 +575,6 @@ class ProfileOracleTest {
       return family(f, List.of());
     }
     String where = f.where().replaceFirst("^scripting-o(n|ff) ", "");
-    Matcher raw = NEVER_RUN_RAW_TEXT.matcher(where);
-    // Rules.hole's first rule: any escaper is inert in the raw text of an element a browser never
-    // runs or renders (no escaper writes '<', and the lemma checks the value stays inside). A
-    // <noscript> is raw text only with scripting on.
-    if (raw.find() && (!raw.group(1).equals("noscript") || f.where().startsWith("scripting-on "))) {
-      return Family.INERT;
-    }
     Matcher m = NOWHERE.matcher(where);
     if (m.find() && spans != null) {
       boolean attributes = true;

@@ -159,4 +159,24 @@ class BrowserRawTextTest {
         .assertError("page.html:2:1:", "a value, condition or loop inside <" + bodyAndElement.substring(bar + 1)
             + "> is not supported", "write the content as static text");
   }
+
+  /**
+   * The verifier, not only the generator, rejects a value in raw text (#586): a POST form inside
+   * {@code <noscript>} gets the CSRF hidden input, a value in raw text with scripting on.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<noscript><form method=\"post\" action=\"/x\"><button>Go</button></form></noscript>",
+        "<noscript><p t:title=\"s\">x</p></noscript>",
+        "<xmp>[[s]]</xmp>",
+        "<iframe t:text=\"s\"></iframe>",
+      })
+  void verifierRejectsAValueInRawText(String body) {
+    Compilation.builder()
+        .template("page.html", "<div t:params=\"String s, SafeHtml h\">\n" + body + "\n</div>")
+        .verifierOnly()
+        .compile()
+        .assertError("page.html:2:", "[verifier:VALUE_IN_RAW_TEXT]");
+  }
 }

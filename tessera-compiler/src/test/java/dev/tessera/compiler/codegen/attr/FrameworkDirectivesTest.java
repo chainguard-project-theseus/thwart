@@ -35,26 +35,24 @@ class FrameworkDirectivesTest {
   }
 
   /**
-   * AngularJS reads directives from class values ({@code class="x ng-init: expr"}), so a computed
-   * class never names one (#542): on every path that writes {@code class}, a token in which a run
-   * of {@code [A-Za-z0-9_-]} matches the coarse {@code ng} rule is dropped at render time. Ordinary
-   * tokens are kept.
+   * #586: a computed {@code class} is an escaped attribute value like any other, on every path that
+   * writes it. The {@code ng}-like class-token stripping of #542 is gone (AngularJS is not supported,
+   * guide §7), so the value is written as it is, attribute-escaped; nothing else changes.
    */
   @Test
-  void computedClassTokensNeverNameAngularDirectives() {
+  void computedClassIsWrittenAsItIs() {
     Compilation c =
         compile("<p t:class=\"s\">1</p><p class=\"a\" t:classappend=\"s\">2</p><p t:attr=\"class=s\">3</p>"
                 + "<p t:CLASS=\"s\">4</p>")
             .assertSuccess();
-    String hostile = "x ng-init:constructor.constructor('alert(document.domain)')() a.ng-bind DATA_NG-SHOW y";
+    String value = "x ng-init:alert(document.domain) a.ng-bind DATA_NG-SHOW y";
     assertEquals(
-        "<div><p class=\"x y\">1</p><p class=\"a x y\">2</p><p class=\"x y\">3</p><p CLASS=\"x y\">4</p></div>",
-        c.render("t", Map.of("s", hostile)));
-    // values without such a token are written as they are
-    assertEquals(
-        "<div><p class=\"btn  angular\">1</p><p class=\"a btn  angular\">2</p><p class=\"btn  angular\">3</p>"
-            + "<p CLASS=\"btn  angular\">4</p></div>",
-        c.render("t", Map.of("s", "btn  angular")));
+        "<div><p class=\"" + value + "\">1</p><p class=\"a " + value + "\">2</p><p class=\"" + value + "\">3</p>"
+            + "<p CLASS=\"" + value + "\">4</p></div>",
+        c.render("t", Map.of("s", value)));
+    // still attribute-escaped
+    assertEquals("<div><p class=\"&quot;&gt;\">1</p><p class=\"a &quot;&gt;\">2</p><p class=\"&quot;&gt;\">3</p>"
+        + "<p CLASS=\"&quot;&gt;\">4</p></div>", c.render("t", Map.of("s", "\">")));
   }
 
   // ------------------------------- htmx request URLs: a computed one is a neutral link (#249, #584)

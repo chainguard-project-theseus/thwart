@@ -6,7 +6,7 @@
 # name  family  expect  [rules]  [# note]
 #   family   AB: a parser-differential or composition seed live on 0dda2f1 (plus pr305-4 and
 #            306-A29, which the value oracle missed). C, D, E: script position, client frameworks,
-#            URL policy (not markup contexts). OVER: over-escaping in raw text. -: clean or rejected
+#            URL policy (not markup contexts). OVER: a value in raw text (VALUE_IN_RAW_TEXT since #586). -: clean or rejected
 #            on 0dda2f1.
 #   expect   VERIFIER: the verifier alone rejects it, with each rule listed.
 #            ACCEPT: the verifier accepts what main writes for it.
@@ -71,8 +71,8 @@
 306-A56         -    VERIFIER JSON_NOT_IN_SCRIPT
 306-A57         -    VERIFIER JSON_NOT_IN_SCRIPT
 306-A58         AB   VERIFIER JSON_NOT_IN_SCRIPT
-306-A59         OVER ACCEPT
-306-A60         OVER ACCEPT
+306-A59         OVER VERIFIER VALUE_IN_RAW_TEXT
+306-A60         OVER VERIFIER VALUE_IN_RAW_TEXT
 306-A61         -    ACCEPT
 306-A62         -    VERIFIER TEXT_NOT_IN_TEXT
 306-B0          AB   VERIFIER JSON_NOT_IN_SCRIPT
@@ -348,8 +348,8 @@ xss-rejected-36 -    ACCEPT
 xss-lines-1     -    ACCEPT
 xss-lines-2     -    ACCEPT
 xss-lines-3     -    ACCEPT
-xss-lines-4     OVER ACCEPT
-xss-lines-5     OVER ACCEPT
+xss-lines-4     OVER VERIFIER VALUE_IN_RAW_TEXT
+xss-lines-5     OVER VERIFIER VALUE_IN_RAW_TEXT
 xss-lines-6     -    ACCEPT
 xss-lines-7     -    ACCEPT
 xss-lines-8     -    ACCEPT

@@ -79,10 +79,11 @@ class SkeletonTest {
   void csrfHiddenInputIsAnOptionalStaticWithTwoAttributeHoles() {
     Compilation c = forms("x");
     String skeleton = c.skeleton("form").body().toString();
+    // Both holes carry the <form> start tag's position, so a verifier error about them names the form.
     assertTrue(
         skeleton.contains(
-            "opt:CSRF_TOKEN(\"<input type=\\\"hidden\\\" name=\\\"\" ${ATTR name} \"\\\" value=\\\"\" ${ATTR value}"
-                + " \"\\\" />\")"),
+            "opt:CSRF_TOKEN(\"<input type=\\\"hidden\\\" name=\\\"\" ${ATTR name @form.html:1:1} \"\\\" value=\\\"\""
+                + " ${ATTR value @form.html:1:1} \"\\\" />\")"),
         skeleton);
     StubForms f = new StubForms();
     assertEquals("<form method=\"post\">x</form>", renderForm(c, null, f));

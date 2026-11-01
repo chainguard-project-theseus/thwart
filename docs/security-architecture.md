@@ -326,8 +326,8 @@ properties, an open set.
 
 **`{{` breaking** stays unconditional wherever it's lossless: element text (as today), SVG/MathML
 text (with §5.3), and JSON strings (`{`). For attributes and RCDATA there is no lossless
-break. A computed `<title>` or `<textarea>` gets `v-pre` from the framework table (#549), which
-Vue 3 and petite-vue honour; attributes, and RCDATA under AngularJS, stay documented limitations
+break. A computed `<title>` or `<textarea>` gets a constant `v-pre` (#549, #586), which
+Vue and petite-vue honour; attributes, and RCDATA and class tokens under AngularJS, stay documented limitations
 (guide §7), bounded by `ng-non-bindable` and
 CSP. I don't recommend a per-template "client framework mode". Mount points are chosen at runtime
 and often in a layout, so a per-template flag is a knob that's easy to get wrong. AngularJS is not supported
@@ -553,7 +553,7 @@ The verifier doesn't sample values. The argument has three parts.
 
 | Escaper | Output alphabet | Accepted states | Why it's inert |
 |---|---|---|---|
-| `text` | no `< > " ' &`, NUL or lone surrogates, except the complete references `&amp; &lt; &gt; &quot; &#39;` and the complete comment `<!---->` | data state (in the modes below); RCDATA; RAWTEXT only in never-executed elements (`noscript` with scripting on, `iframe`, `xmp`, `noembed`, `noframes`) | Data state reacts only to `<`, `&` and NUL. A complete reference or comment returns to data state with nothing pending. RCDATA and RAWTEXT react only to `</` + name |
+| `text` | no `< > " ' &`, NUL or lone surrogates, except the complete references `&amp; &lt; &gt; &quot; &#39;` and the complete comment `<!---->` | data state (in the modes below); RCDATA | Data state reacts only to `<`, `&` and NUL. A complete reference or comment returns to data state with nothing pending. RCDATA reacts only to `</` + name |
 | `rcdata` | as `text`, without the comment | RCDATA | as above |
 | `attr`, `url`, `resourceUrl`, `refresh`, `jsonAttr` | no `"`; `&` only in complete references | attribute value (double-quoted), with the parser's current attribute name equal to the hole's | That state reacts only to `"`, `&` and NUL |
 | `json` | no `< > & '`, backtick, `$`, U+2028/U+2029 or controls | script data, with an HTML `script` as the current node | Script data reacts only to `<` |
@@ -561,7 +561,10 @@ The verifier doesn't sample values. The argument has three parts.
 Every other state is rejected: tag open, character reference, comment, CDATA, escaped script
 data, `text` in script data or `style`, `json` anywhere but HTML script data (including SVG
 `<script>`). These rules cover #295-#299, #303's `&name`, #338 and #353 without naming any of
-them.
+them. Raw text takes no hole with any escaper (`VALUE_IN_RAW_TEXT`, #586): in `noscript` (scripting
+on), `iframe`, `xmp`, `noembed` and `noframes` no escaper can end the element, but an empty comment
+is text there, so nothing breaks a value's `{{` for a client template that reads the text. The
+generator reports the same templates earlier (#571); the verifier is the boundary.
 
 **The tree builder treats the value uniformly.**
 
@@ -837,13 +840,14 @@ the framework directive lists below are deleted. A computed `hx-ws`/`hx-sse` sta
 
 - **AngularJS unsupported** (PR #551). Tessera no longer models `directiveNormalize`, the model
   behind #529, #531 and #532.
-- **Coarse `ng` deny** (PR #551). A name or class token is denied when, ignoring A-Z case and
-  `- _ :`, it starts with `ng`, `xng` or `datang`: a superset of every spelling AngularJS reads, in
-  the compiler, migrate, the sanitizer and the test oracle. It also covers computed class tokens,
-  which had no check before: `Attributes.classes` drops matching tokens at render time, at the
-  one place a computed class value is written.
-- **Vue in RCDATA** (#549, PR #560): a framework-table entry adds `v-pre` to a `<title>` or
-  `<textarea>` with computed content, where a comment can't break `{{`.
+- **Coarse `ng` deny** (PR #551). A name is denied when, ignoring A-Z case and `- _ :`, it starts
+  with `ng`, `xng` or `datang`: a superset of every spelling AngularJS reads, in the compiler,
+  migrate and the test oracle. The same rule for class tokens (`Attributes.classes` on computed
+  classes, and the sanitizer) is deleted (#586): it covered one AngularJS vector among several
+  open ones.
+- **Vue in RCDATA** (#549, PR #560): `v-pre` on a `<title>` or `<textarea>` with computed content,
+  where a comment can't break `{{`. Since #586 it is one constant attribute, without the
+  Vue-directive and static-brace checks around it: the one framework-named output.
 - **htmx 1.x sockets** (#562, PR #564): a computed `hx-ws`/`hx-sse` is a build error, instead of
   parsing their `connect:` grammar; a static one is copied since #585.
 
@@ -886,8 +890,9 @@ is coarse and looks at no neighbours: in element text, CDATA in foreign content 
 any other static brace is an error. Checked messages get the same rule as formatted, and a script
 `{{` must close before the next hole. #569's per-literal edge rule is deleted. In `<xmp>`,
 `<iframe>`, `<noembed>`, `<noframes>` and `<noscript>`, where a comment can't break a brace, a
-value is an error. A computed `<title>` or `<textarea>` gets `v-pre` (#549), and any static brace
-in one is an error. With AngularJS gone (#551), the sanitizer no longer handles braces in
+value is an error, in the verifier too (`VALUE_IN_RAW_TEXT`, #586). A computed `<title>` or
+`<textarea>` gets a constant `v-pre` (#549, #586), and its static text follows the element-text
+rule. With AngularJS gone (#551), the sanitizer no longer handles braces in
 attributes.
 
 ### 12.9 Mechanical discovery (#543)
