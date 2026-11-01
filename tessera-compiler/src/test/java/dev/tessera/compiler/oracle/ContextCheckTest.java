@@ -213,6 +213,8 @@ class ContextCheckTest {
     assertMismatch("<p>" + attr(FP) + "</p>", "/html/body/p text");
     // Entity escaping in an event handler, srcdoc or a name outside HTML.
     assertMismatch("<p onclick=\"" + attr(FP) + "\">x</p>", "/html/body/p/@onclick");
+    // An event handler is not plain at all, so no neutral value would help: no outside-HTML note.
+    assertFalse(check("<p onclick=\"" + attr(FP) + "\">x</p>").toString().contains("outside HTML"));
     assertMismatch("<iframe srcdoc=\"" + attr(FP) + "\"></iframe>", "@srcdoc");
     assertMismatch("<p x-text=\"" + attr(FP) + "\">x</p>", "@x-text");
     // JSON in a non-JS script, and in a plain attribute.

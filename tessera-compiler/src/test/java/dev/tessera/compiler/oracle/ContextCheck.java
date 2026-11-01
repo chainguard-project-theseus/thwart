@@ -345,10 +345,12 @@ public final class ContextCheck {
    * Whether {@code attribute} is outside the standard HTML, SVG, MathML and ARIA names
    * ({@link HostileSinks#STANDARD}, from the spec indices), so that its whole value must be
    * framework-neutral (#583 rule 3). Browsers fold A-Z only, so a non-ASCII look-alike is outside.
-   * Event handlers ({@code on*}) are not plain at all.
+   * Event handlers ({@code on*}) are not plain at all, so no value is clean there and they are not
+   * counted as outside HTML (as in {@link HostileSinks#classify}).
    */
   static boolean outsideHtml(String attribute) {
-    return !HostileSinks.STANDARD.containsKey(HostileSinks.asciiLower(attribute));
+    String folded = HostileSinks.asciiLower(attribute);
+    return !folded.startsWith("on") && !HostileSinks.STANDARD.containsKey(folded);
   }
 
   /**
