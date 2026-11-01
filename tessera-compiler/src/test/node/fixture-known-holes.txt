@@ -1,5 +1,5 @@
 # Known holes for fixture.jsonl only (#322), in known-holes.txt's format. fixture.jsonl holds renders
-# from 0dda2f1 (A0, A1, A5, A25, A31) and hand-written synthetic renders (S1-S8), so these never go
+# from 0dda2f1 (A0, A1, A5, A25, A31) and hand-written synthetic renders (S1-S12), so these never go
 # stale; run.sh also checks that an empty list reports every one. The synthetic cases give every
 # detector of every engine a line, so a detector that goes blind fails the self-check.
 # Until #324 exports the real cases, the job ratchets the fixture against this file.
@@ -56,6 +56,10 @@ ee142ded0f61 STRUCTURE_CHANGED webkit #322 S5-srcdoc-script
 ee142ded0f61 STRUCTURE_CHANGED firefox #322 S5-srcdoc-script
 d24369fe5291 CSTI parse5 #322 S6-csti
 d15f2c2f8b69 CROSS_ORIGIN_RESOURCE parse5 #322 S7-cross-origin-script
+# S11: slots in names outside HTML that no list names, holding a protocol-relative URL and a '--'
+# path (#611): not framework-neutral. S12, its positive control, has no line: neutral paths and a
+# number there, and static values that aren't neutral, are clean.
+7a3c611e0b11 CROSS_ORIGIN_RESOURCE parse5 #611 S11-non-neutral-outside-html
 ed647dc9e62b MARKER_IN_NAME parse5 #322 S8-marker-in-name
 ed647dc9e62b MARKER_IN_NAME chromium #322 S8-marker-in-name
 ed647dc9e62b MARKER_IN_NAME webkit #322 S8-marker-in-name

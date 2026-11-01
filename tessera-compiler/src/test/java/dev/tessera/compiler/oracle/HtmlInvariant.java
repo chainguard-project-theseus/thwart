@@ -25,7 +25,8 @@ import org.w3c.dom.Node;
  * tree may differ; nothing else may. On the hostile tree, a marker must not be in an element or
  * attribute name, an {@code on*} attribute, a {@code javascript:}/{@code vbscript:}/{@code data:}
  * URL, a script the benign tree doesn't have, or {@code {{ ... }}} in text a client framework
- * interpolates; and a resource URL must not leave the origin by shape. Scripts that hold a marker
+ * interpolates; a resource URL must not leave the origin by shape; and a slot in a name outside
+ * HTML must hold a framework-neutral value (#583 rule 3, #611). Scripts that hold a marker
  * in the benign tree are returned as {@link ScriptSlot}s, so the gate can tell a marker in a script
  * the page already runs (family C) from one that reached a script through markup (A/B).
  *
@@ -366,8 +367,6 @@ public final class HtmlInvariant {
   private static final Set<String> NOT_FLOW_TEXT =
       Set.of("title", "textarea", "script", "style", "xmp", "iframe", "noembed", "noframes", "noscript", "plaintext");
 
-  private static final Set<String> HTMX_REQUESTS = Set.of("hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete");
-
   private static final Set<String> RESOURCE_RELS = Set.of("stylesheet", "preload", "modulepreload", "import");
 
   /** Whether {@code e} is a {@code <script>} a browser runs (HTML or SVG, JavaScript type). */
@@ -473,6 +472,13 @@ public final class HtmlInvariant {
               && (hasMarker(a.getValue()) || (hasMarker(slot) && !scriptUrl(be, name, slot)))) {
             add(Finding.Kind.JS_URL, at);
           }
+          // A name outside HTML (#583 rule 3, #611): client code may send a request to what it reads
+          // there, whichever library reads it, so a slot's value must be framework-neutral, the one
+          // shape the oracle takes as same-origin. The raw name: browsers fold A-Z only. Any other
+          // change to a static value is STRUCTURE_CHANGED.
+          if (hasMarker(slot) && ContextCheck.outsideHtml(attrName(a)) && !HostileSinks.neutral(a.getValue())) {
+            add(Finding.Kind.CROSS_ORIGIN_RESOURCE, at);
+          }
         }
         Map<String, String> benignResources = be == null ? Map.of() : resourceUrls(be);
         for (Map.Entry<String, String> r : resourceUrls(e).entrySet()) {
@@ -566,10 +572,6 @@ public final class HtmlInvariant {
         }
       }
       default -> { }
-    }
-    for (String hx : HTMX_REQUESTS) {
-      put(out, e, hx);
-      put(out, e, "data-" + hx);
     }
     return out;
   }

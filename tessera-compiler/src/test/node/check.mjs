@@ -116,7 +116,36 @@ const NOT_FLOW = new Set([
   'script', 'style', 'textarea', 'title', 'xmp', 'iframe', 'noembed', 'noframes', 'noscript', 'plaintext',
 ]);
 const RESOURCE_LINK_RELS = new Set(['stylesheet', 'preload', 'modulepreload', 'import']);
-const HTMX = /^(data-)?hx-(get|post|put|patch|delete)$/;
+
+// Names outside HTML (#583 rule 3, #611): every name not in the oracle's own copy of the standard
+// HTML, SVG, MathML and ARIA names (the file HostileSinks.STANDARD reads, not the compiler's), other
+// than on*. Client code may send a request to what it reads there, whichever library reads it, so a
+// slot's value must be framework-neutral (HostileSinks.NEUTRAL): a plain decimal, true/false, or a
+// path that starts with exactly one '/' in A-Z a-z 0-9 . _ ~ / - and %XX, with no '--'. Browsers fold
+// A-Z only, so a non-ASCII look-alike is outside HTML.
+const STANDARD = new Set(
+  fs.readFileSync(path.join(HERE, '../resources/oracle/standard-attributes.txt'), 'utf8').split('\n')
+    .filter((l) => l.trim() && !l.startsWith('#')).map((l) => l.trim().split(/\s+/)[0]),
+);
+const NEUTRAL = /^(true|false|-?(0|[1-9][0-9]*)(\.[0-9]+)?|\/(?!\/)([A-Za-z0-9._~/-]|%[0-9A-Fa-f]{2})*)$/;
+const asciiLower = (s) => s.replace(/[A-Z]/g, (c) => c.toLowerCase());
+const outsideHtml = (name) => !asciiLower(name).startsWith('on') && !STANDARD.has(asciiLower(name));
+const neutral = (value) => NEUTRAL.test(value) && !value.includes('--');
+
+/** CROSS_ORIGIN_RESOURCE for each slot (a benign value with a marker) outside HTML whose hostile value isn't neutral. */
+function neutralFindings(benign, tree) {
+  const slots = new Set();
+  eachElement(benign, (el, p) => {
+    for (const [name, value] of el.attrs) if (MARKER.test(value)) slots.add(`${p}@${name}`);
+  });
+  const f = [];
+  eachElement(tree, (el, p) => {
+    for (const [name, value] of el.attrs) {
+      if (slots.has(`${p}@${name}`) && outsideHtml(name) && !neutral(value)) f.push(['CROSS_ORIGIN_RESOURCE', `${p}@${name}`]);
+    }
+  });
+  return f;
+}
 
 const attr = (el, name) => (el.attrs.find((a) => a[0] === name) || [null, null])[1];
 
@@ -154,7 +183,6 @@ function renderFindings(tree, contextRelative) {
       }
     }
     if (el.name === 'script' && el.ns !== HTML_NS) resource.push('href', 'xlink:href');
-    for (const [name] of el.attrs) if (HTMX.test(name)) resource.push(name);
     for (const name of resource) {
       const v = attr(el, name);
       if (v != null && crossOrigin(v, contextRelative)) f.push(['CROSS_ORIGIN_RESOURCE', `${p}@${name}`]);
@@ -247,6 +275,7 @@ export function checkParse5(c, mutate = false) {
     const diff = structureDiff(benign, tree);
     if (diff) add('STRUCTURE_CHANGED', diff, value);
     for (const [kind, where] of renderFindings(tree, contextRelative)) add(kind, where, value);
+    for (const [kind, where] of neutralFindings(benign, tree)) add(kind, where, value);
     for (const [key, s] of scripts(tree)) {
       if (!MARKER.test(s.text)) continue;
       const b = benignScripts.get(key);

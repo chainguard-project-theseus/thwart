@@ -179,16 +179,10 @@ class HtmlInvariantTest {
       "<iframe src=\"/\\evil.example/\"></iframe>",
       "<embed src=\"/\\evil.example/\">",
       "<object data=\"/\\evil.example/\"></object>",
-      "<div hx-get=\"/\\evil.example/x\">x</div>",
-      "<div data-hx-post=\"/\\evil.example/x\">x</div>",
       "<meta http-equiv=\"refresh\" content=\"0;url=/\\evil.example/\">",
       "<meta http-equiv=\" Refresh \" content=\"0; URL='/\\evil.example/'\">",
       "<meta http-equiv=\"refresh\" content=\"0 url=/\\evil.example/\">",
       "<meta http-equiv=\"refresh\" content=\"0 /\\evil.example/\">",
-      // Every request attribute counts, not only the first one found.
-      "<div hx-get=\"/ok\" hx-post=\"/\\evil.example/x\">x</div>",
-      "<div hx-get=\"/ok\" data-hx-get=\"/\\evil.example/x\">x</div>",
-      "<script src=\"/ok.js\" hx-get=\"/\\evil.example/x\"></script>",
       "<script src=\"http:\\\\evil.example/a.js\"></script>",
       "<svg><script href=\"/\\evil.example/a.js\"></script></svg>",
       "<svg><script xlink:href=\"/\\evil.example/a.js\"></script></svg>"})
@@ -247,6 +241,76 @@ class HtmlInvariantTest {
   void absoluteSlotThatStaysOnItsOriginIsClean() {
     assertClean("<script src=\"https://cdn.example/tqm0001/a.js\"></script>",
         "<script src=\"https://cdn.example/%22%3E/a.js\"></script>");
+  }
+
+  // ---- names outside HTML: the framework-neutral shape (#583 rule 3, #611) ----
+
+  /*
+   * Client code may send a request to any value it reads from a name outside HTML, whichever
+   * library reads it, so a computed value there must be framework-neutral (a plain decimal,
+   * true/false, or a path that starts with exactly one '/'), the only shape the oracle takes as
+   * same-origin. No name is listed: a request attribute spelled any way is held to it.
+   */
+
+  @ParameterizedTest
+  @CsvSource(delimiter = '|', quoteCharacter = '~', value = {
+      // Names no list knows: the cross-origin check used to see hx-get/data-hx-get only.
+      "<div data-href=\"/x/tqm0001\">x</div>|<div data-href=\"//evil.example/x\">x</div>",
+      "<div up-href=\"/x/tqm0001\">x</div>|<div up-href=\"https://evil.example/x\">x</div>",
+      "<div data-src=\"/x/tqm0001\">x</div>|<div data-src=\"/\\evil.example/x\">x</div>",
+      "<my-el src-url=\"/x/tqm0001\"></my-el>|<my-el src-url=\"\\\\evil.example/x\"></my-el>",
+      // A look-alike of a standard name (KELVIN SIGN in \"kind\"): browsers fold A-Z only.
+      "<track Kind=\"/x/tqm0001\">|<track Kind=\"//evil.example/x\">",
+      // Neutral paths only: no query, no fragment, no '--' (#583's write primitive).
+      "<div hx-get=\"/x/tqm0001\">x</div>|<div hx-get=\"/x/?q=1\">x</div>",
+      "<div hx-get=\"/x/tqm0001\">x</div>|<div hx-get=\"/a/-location.port--\">x</div>",
+      "<div hx-get=\"/x/tqm0001\">x</div>|<div hx-get=\"/x/#y\">x</div>",
+      // Character references are decoded before the check.
+      "<div data-x=\"/x/tqm0001\">x</div>|<div data-x=\"&#47;/evil.example/x\">x</div>",
+      // Every attribute counts, not only the first one found.
+      "<div hx-get=\"/ok\" hx-post=\"/x/tqm0001\">x</div>|<div hx-get=\"/ok\" hx-post=\"/\\evil.example/x\">x</div>",
+      "<script src=\"/ok.js\" data-x=\"/x/tqm0001\"></script>|<script src=\"/ok.js\" data-x=\"/\\evil.example/x\"></script>"})
+  void computedValueOutsideHtmlMustBeNeutral(String benign, String hostile) {
+    assertEquals(Set.of(CROSS_ORIGIN_RESOURCE), kinds(HtmlInvariant.check(benign, hostile, VALUE, false)));
+    assertEquals(Set.of(CROSS_ORIGIN_RESOURCE), kinds(HtmlInvariant.check(benign, hostile, VALUE, true)));
+  }
+
+  @ParameterizedTest
+  @CsvSource(delimiter = '|', quoteCharacter = '~', value = {
+      // The compiler percent-encodes a value into a path, so it stays one same-origin path.
+      "<div hx-post=\"/x/tqm0001\">x</div>|<div hx-post=\"/x/tqm0001%28%29\">x</div>",
+      "<div data-href=\"/x/tqm0001\">x</div>|<div data-href=\"/x/%2F%2Fevil.example%2Fx\">x</div>",
+      "<div up-href=\"/tqm0001\">x</div>|<div up-href=\"/a/-%2Dx\">x</div>",
+      "<my-el src-url=\"/x/tqm0001\"></my-el>|<my-el src-url=\"/x/%5Cevil.example\"></my-el>",
+      // Numbers and booleans.
+      "<div data-n=\"tqm0001\">x</div>|<div data-n=\"-12.5\">x</div>",
+      "<div data-b=\"tqm0001\">x</div>|<div data-b=\"false\">x</div>",
+      // A standard name is not held to the shape: its own sinks are checked above.
+      "<div title=\"tqm0001\">x</div>|<div title=\"//evil.example/x\">x</div>",
+      "<track kind=\"tqm0001\">|<track kind=\"//evil.example/x\">"})
+  void neutralValueOutsideHtmlIsClean(String benign, String hostile) {
+    assertClean(benign, hostile);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {
+      // Static values are the template's own (#583: static values stay unrestricted), as for a
+      // static absolute URL: a value can't reach them. These were findings while the check named
+      // htmx's request attributes.
+      "<div hx-get=\"/\\evil.example/x\">x</div>",
+      "<div data-hx-post=\"//cdn.example/x\">x</div>",
+      "<div data-x=\"a b\" up-href=\"https://cdn.example/x?y=1\">x</div>"})
+  void staticValueOutsideHtmlIsTheTemplatesOwn(String html) {
+    assertEquals(Set.of(), kinds(HtmlInvariant.check("<p>tqm0001</p>" + html, "<p>x</p>" + html, VALUE, true)));
+  }
+
+  @Test
+  void staticValueOutsideHtmlThatAValueChangedIsAStructureChange() {
+    // Was CROSS_ORIGIN_RESOURCE for hx-get with context-relative links; still a finding either way.
+    String benign = "<p>tqm0001</p><div hx-get=\"/x\">x</div>";
+    String hostile = "<p>x</p><div hx-get=\"//evil.example/x\">x</div>";
+    assertEquals(Set.of(STRUCTURE_CHANGED), kinds(HtmlInvariant.check(benign, hostile, VALUE, false)));
+    assertEquals(Set.of(STRUCTURE_CHANGED), kinds(HtmlInvariant.check(benign, hostile, VALUE, true)));
   }
 
   // ---- srcdoc ----
