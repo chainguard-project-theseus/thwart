@@ -29,12 +29,7 @@ class HtmlPolicyTest {
   // RICH: what editor and Markdown output needs
 
   @Test
-  void richKeepsTablesImagesClassesAndIds() {
-    assertEquals(
-        "<table><thead><tr><th align=\"left\">Name</th><th colspan=\"2\">Score</th></tr></thead>"
-            + "<tbody><tr><td rowspan=\"2\">Ann</td><td>1</td><td>2</td></tr></tbody></table>",
-        rich("<table class=data><thead><tr><th align=LEFT>Name</th><th colspan=2>Score</th></tr></thead>"
-            + "<tbody><tr><td rowspan=2>Ann</td><td>1</td><td>2</td></tr></tbody></table>"));
+  void richKeepsImagesClassesAndIds() {
     assertEquals(
         "<p><img src=\"/img/a.png\" alt=\"A cat\" title=\"Cat\" width=\"64\" height=\"48\"></p>",
         rich("<p><img src=\"/img/a.png\" alt=\"A cat\" title=Cat width=64 height=48 onerror=alert(1)></p>"));
@@ -187,8 +182,6 @@ class HtmlPolicyTest {
 
   @Test
   void numericAndEnumeratedAttributesAreValidated() {
-    assertEquals("<table><tbody><tr><td>x</td></tr></tbody></table>",
-        rich("<table><tr><td colspan=\"2;x\" rowspan=-1 align=\"left;color:red\">x</td></tr></table>"));
     assertEquals("<img src=\"/a\">", rich("<img src=/a width=\"100%\" height=\"1e9\">"));
     assertEquals("<ol><li>x</li></ol>", rich("<ol start=\"1x\"><li value=\"9999999999\">x</li></ol>"));
   }
@@ -210,11 +203,14 @@ class HtmlPolicyTest {
   @Test
   void builderRejectsAnythingOutsideTheClosedSets() {
     for (String e : new String[] {"script", "style", "svg", "math", "iframe", "object", "embed", "form", "input",
-        "button", "select", "textarea", "template", "noscript", "title", "base", "link", "meta", "IMG", "", "frameset"}) {
+        "button", "select", "textarea", "template", "noscript", "title", "base", "link", "meta", "IMG", "", "frameset",
+        // no tables (#592)
+        "table", "caption", "thead", "tbody", "tfoot", "tr", "th", "td", "col", "colgroup"}) {
       assertThrows(IllegalArgumentException.class, () -> HtmlPolicy.builder().allowElements(e), e);
     }
     for (String a : new String[] {"style", "onclick", "onerror", "href", "src", "srcdoc", "formaction", "name",
-        "class", "data-bind", "v-html", "x-data", "hx-get", "ng-click", "is", "target", "rel", "ID"}) {
+        "class", "data-bind", "v-html", "x-data", "hx-get", "ng-click", "is", "target", "rel", "ID",
+        "colspan", "rowspan", "align"}) {
       assertThrows(IllegalArgumentException.class, () -> HtmlPolicy.builder().allowAttributes(a), a);
     }
     for (String c : new String[] {"a:b", "a b", "{{x}}", "", "a;b", "**", "ng-init:x"}) {
@@ -236,54 +232,48 @@ class HtmlPolicyTest {
   }
 
   // ---------------------------------------------------------------------------------------------
-  // Placement: elements go only where a browser keeps them as written
+  // Placement: the closed content model (#592). What doesn't fit is unwrapped, nothing is moved
 
   @Test
-  void blocksCloseParagraphsAndPhrasing() {
-    assertEquals("<p>a</p><p>b</p><div>c</div>d", basic("<p>a<p>b<div>c</div>d</p>"));
-    assertEquals("<p>x</p><ul><li>y</li></ul>", basic("<p>x<ul><li>y</li></ul></p>"));
-    assertEquals("<b>x</b><div>y</div>", basic("<b>x<div>y</div></b>"));
-    assertEquals("<h1>a</h1><h2>b</h2>c", basic("<h1>a<h2>b</h2>c</h1>"));
-    assertEquals("<p>x</p><hr>y", basic("<p>x<hr>y</p>"));
-    assertEquals("<p>x</p><table><tbody><tr><td>y</td></tr></tbody></table>", rich("<p>x<table><tr><td>y</td></tr></table></p>"));
+  void blocksAreUnwrappedInParagraphsAndPhrasing() {
+    assertEquals("<p>abcd</p>", basic("<p>a<p>b<div>c</div>d</p>"));
+    assertEquals("<p>xy</p>", basic("<p>x<ul><li>y</li></ul></p>"));
+    assertEquals("<b>xy</b>", basic("<b>x<div>y</div></b>"));
+    assertEquals("<h1>abc</h1>", basic("<h1>a<h2>b</h2>c</h1>"));
+    assertEquals("<p>xy</p>", basic("<p>x<hr>y</p>"));
+    assertEquals("<p>xy</p>", rich("<p>x<table><tr><td>y</td></tr></table></p>"));
+    // what fits is kept as written
+    assertEquals("<div><p>a<b>b</b></p><blockquote><h2>c</h2><hr><pre>d</pre></blockquote></div>",
+        basic("<div><p>a<b>b</b></p><blockquote><h2>c</h2><hr><pre>d</pre></blockquote></div>"));
   }
 
   @Test
-  void linksDoNotNest() {
-    assertEquals(
-        "<a href=\"/1\" rel=\"nofollow noopener\">a</a><a href=\"/2\" rel=\"nofollow noopener\">b</a>c",
-        basic("<a href=/1>a<a href=/2>b</a>c</a>"));
-    assertEquals(
-        "<a href=\"/1\" rel=\"nofollow noopener\"><b>a</b></a><a href=\"/2\" rel=\"nofollow noopener\">b</a>",
-        basic("<a href=/1><b>a<a href=/2>b</a></b></a>"));
-    assertEquals("<a href=\"/x\" rel=\"nofollow noopener\"></a><div>block</div>", basic("<a href=/x><div>block</div></a>"));
+  void linksAndFormattingDoNotNestInThemselves() {
+    assertEquals("<a href=\"/1\" rel=\"nofollow noopener\">ab</a>c", basic("<a href=/1>a<a href=/2>b</a>c</a>"));
+    assertEquals("<a href=\"/1\" rel=\"nofollow noopener\"><b>ab</b></a>", basic("<a href=/1><b>a<a href=/2>b</a></b></a>"));
+    assertEquals("<a href=\"/x\" rel=\"nofollow noopener\">block</a>", basic("<a href=/x><div>block</div></a>"));
+    assertEquals("<b><i>x</i></b>y", basic("<b><i><b>x</b>y</i></b>"));
+    assertEquals("<b><i>x</i></b><i><b>y</b></i>", basic("<b><i>x</i></b><i><b>y</b></i>"));
   }
 
   @Test
   void listItemsOnlyInLists() {
-    assertEquals("<ul><li>a</li><li>b<ul><li>c</li></ul></li></ul>", basic("<ul><li>a<li>b<ul><li>c</ul></ul>"));
+    assertEquals("<ul><li>ab<ul><li>c</li></ul></li></ul>", basic("<ul><li>a<li>b<ul><li>c</ul></ul>"));
     assertEquals("orphan", basic("<li>orphan</li>"));
     assertEquals("<div>x</div>", basic("<div><li>x</li></div>"));
-    assertEquals("<ul><li><p>a</p></li><li>b</li></ul>", basic("<ul><li><p>a<li>b</ul>"));
+    assertEquals("<ul><li><p>ab</p></li></ul>", basic("<ul><li><p>a<li>b</ul>"));
     assertEquals("<ol>xy</ol>", basic("<ol><p>x</p>y</ol>"));
+    assertEquals("<ul><li>a</li><li>b</li></ul>", basic("<ul><li>a</li><li>b</li></ul>"));
   }
 
   @Test
-  void tablesGetImpliedSectionsAndRowsAndNoStrayContent() {
-    assertEquals("<table><tbody><tr><td>a</td><td>b</td></tr><tr><td>c</td></tr></tbody></table>",
-        rich("<table><tr><td>a<td>b<tr><td>c</table>"));
-    assertEquals("<table><tbody><tr><td>x</td></tr></tbody></table>", rich("<table>text<b>bold</b><tr>more<td>x</td>tail</tr></table>"));
-    assertEquals("<table><caption>c</caption><tbody><tr><td>x</td></tr></tbody></table>", rich("<table><caption>c<tr><td>x</table>"));
-    assertEquals("<table><thead><tr><td>h</td></tr></thead><tbody><tr><td>b</td></tr></tbody></table>",
-        rich("<table><thead><td>h</td><tbody><tr><td>b</td></tbody></table>"));
-    assertEquals("<table><tbody><tr><td>x</td></tr></tbody></table>", rich("<table><table><tr><td>x</td></tr></table></table>"));
-    assertEquals("<table><tbody><tr><td><ul><li></li></ul></td><td>x</td></tr></tbody></table>",
-        rich("<table><tr><td><ul><li><td>x</ul></table>"));
-    assertEquals("no tablex", rich("<td>no table</td><tr><td>x</td></tr>"));
-    assertEquals("<table><tbody><tr><td>y</td></tr></tbody></table>", rich("<table><tr><br><img src=/i><hr><td>y</td></tr></table>"));
-    // </p> in a table, text in a table
-    assertEquals("<table><tbody><tr><td>a</td></tr></tbody></table>", rich("<table></p><tr><td>a</td></p></tr></table>"));
-    // BASIC has no tables: the tags go, the text stays
+  void tablesAreUnwrapped() {
+    assertEquals("abc", rich("<table><tr><td>a<td>b<tr><td>c</table>"));
+    assertEquals("text<b>bold</b>morextail", rich("<table>text<b>bold</b><tr>more<td>x</td>tail</tr></table>"));
+    assertEquals("NameScoreAnn12",
+        rich("<table class=data><thead><tr><th align=LEFT>Name</th><th colspan=2>Score</th></tr></thead>"
+            + "<tbody><tr><td rowspan=2>Ann</td><td>1</td><td>2</td></tr></tbody></table>"));
+    assertEquals("<ul><li>x</li></ul>", rich("<table><tr><td><ul><li><td>x</ul></table>"));
     assertEquals("ab", basic("<table><tr><td>a</td><td>b</td></tr></table>"));
   }
 

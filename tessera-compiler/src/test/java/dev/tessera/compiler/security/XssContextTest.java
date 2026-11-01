@@ -515,7 +515,10 @@ class XssContextTest {
     assertEquals("<div><section></section></div>", c.render("page", Compilation.model("s", null)));
   }
 
-  /** {@code html.sanitizeRich} keeps tables, same-origin images, language-* classes and prefixed ids, and nothing executable (#262). */
+  /**
+   * {@code html.sanitizeRich} keeps same-origin images, language-* classes and prefixed ids, unwraps
+   * tables (#592), and keeps nothing executable (#262).
+   */
   @Test
   void htmlSanitizeRichFeedsRawOutput() {
     Compilation c =
@@ -526,8 +529,8 @@ class XssContextTest {
     String stored = "<h2 id=a class=\"language-t t ng-init:x\" onclick=alert(1)>T</h2><img src=/i.png onerror=alert(1)>"
         + "<img src=javascript:alert(1)><img src=https://evil.example/t.gif><table><tr><td colspan=2 style=x>c</td></tr></table><svg onload=alert(1)>";
     assertEquals(
-        "<div><section><h2 id=\"user-content-a\" class=\"language-t\">T</h2><img src=\"/i.png\">"
-            + "<table><tbody><tr><td colspan=\"2\">c</td></tr></tbody></table></section></div>",
+        // no tables (#592): the table is unwrapped, its text kept
+        "<div><section><h2 id=\"user-content-a\" class=\"language-t\">T</h2><img src=\"/i.png\">c</section></div>",
         c.render("page", Map.of("s", stored)));
   }
 

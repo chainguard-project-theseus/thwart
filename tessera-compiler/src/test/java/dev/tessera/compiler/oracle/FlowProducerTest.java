@@ -11,6 +11,7 @@ import dev.tessera.compiler.verify.engine.Engine;
 import dev.tessera.compiler.verify.engine.EngineException;
 import dev.tessera.compiler.verify.engine.Engines;
 import dev.tessera.compiler.verify.engine.InsertionMode;
+import dev.tessera.compiler.verify.engine.OpenElement;
 import dev.tessera.compiler.verify.engine.Parser;
 import dev.tessera.compiler.verify.engine.ParserState;
 import dev.tessera.runtime.HtmlPolicy;
@@ -30,7 +31,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The producer side of the {@code FLOW} content kind (#329): every producer of HTML known only at
- * render time leaves the parser in the state it found it, at every insertion point where
+ * render time parses without a parse error and leaves the parser in the state it found it, at every insertion point where
  * {@link ContentKinds#problem} accepts {@code FLOW}, in the verifier's engine with scripting on and
  * off. That is the premise the verifier relies on when it takes the state after a
  * {@code SafeHtml} or {@code Fragment} value to be the state before it. (In template mode the first
@@ -82,8 +83,8 @@ class FlowProducerTest {
     POLICIES.put(
         "partial",
         HtmlPolicy.builder()
-            .allowElements("td", "tr", "li", "a", "p", "pre", "img", "b", "caption", "thead")
-            .allowAttributes("id", "colspan")
+            .allowElements("li", "a", "p", "pre", "img", "b")
+            .allowAttributes("id")
             .linkRel()
             .build());
     POLICIES.put(
@@ -124,6 +125,7 @@ class FlowProducerTest {
   @Test
   void sanitizerOutputLeavesTheStateAsItWas() throws EngineException {
     List<String> inputs = new ArrayList<>(List.of(SanitizerBalanceTest.HOSTILE));
+    inputs.addAll(List.of(SanitizerBalanceTest.FORBIDDEN_CODE_POINTS));
     inputs.addAll(fuzz(200));
     for (String input : inputs) {
       for (Map.Entry<String, HtmlPolicy> policy : POLICIES.entrySet()) {
@@ -215,7 +217,11 @@ class FlowProducerTest {
     }
   }
 
-  private static void assertFlow(String what, String html) throws EngineException {
+  /**
+   * Fails unless {@code html} parses without a parse error and leaves the state as it was, at every
+   * context, with scripting on and off (#592: the sanitizer's closed content model parses as written).
+   */
+  static void assertFlow(String what, String html) throws EngineException {
     for (String context : CONTEXTS) {
       if (DUMP_FILE != null) {
         DUMP.add("{\"context\":" + json(context) + ",\"html\":" + json(html) + "}");
@@ -223,7 +229,12 @@ class FlowProducerTest {
       for (Parser entry : entries(context)) {
         ParserState before = entry.state();
         Parser p = entry.fork();
-        p.feed(html);
+        List<String> errors = new ArrayList<>();
+        p.feed(html, errorListener(errors));
+        if (!errors.isEmpty()) {
+          fail(what + "\n output: " + html + "\n context: " + context + " (" + before.engine()
+              + (before.scripting() ? ", scripting" : ", no scripting") + ")\n parse errors: " + errors);
+        }
         ParserState after = p.state();
         if (same(after, before)) {
           continue;
@@ -239,6 +250,34 @@ class FlowProducerTest {
             + (before.scripting() ? ", scripting" : ", no scripting") + ")\n before: " + before + "\n after:  " + after);
       }
     }
+  }
+
+  /** The parse errors the verifier's parser reports for {@code html} after document prefix {@code context}, scripting on and off. */
+  static List<String> parseErrors(String context, String html) throws EngineException {
+    List<String> errors = new ArrayList<>();
+    for (Parser entry : entries(context)) {
+      entry.fork().feed(html, errorListener(errors));
+    }
+    return errors;
+  }
+
+  private static Parser.Listener errorListener(List<String> errors) {
+    return new Parser.Listener() {
+      @Override
+      public void error(String message, int offset) {
+        // As the verifier's allow-list (Rules.allowedError): "Duplicate ID" is validator.nu's
+        // conformance check, not a parse error (stored content may repeat an id).
+        if (!message.startsWith("Duplicate ID \u201C")) {
+          errors.add(message + " at " + offset);
+        }
+      }
+
+      @Override
+      public void pushed(Parser.Stack stack, int offset) {}
+
+      @Override
+      public void cdata(OpenElement current, int offset) {}
+    };
   }
 
   /**
