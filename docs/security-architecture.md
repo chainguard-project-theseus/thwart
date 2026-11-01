@@ -565,7 +565,7 @@ The verifier doesn't sample values. The argument has three parts.
 | `text` | no `< > " ' &`, NUL or lone surrogates, except the complete references `&amp; &lt; &gt; &quot; &#39;` and the complete comment `<!---->` | data state (in the modes below); RCDATA | Data state reacts only to `<`, `&` and NUL. A complete reference or comment returns to data state with nothing pending. RCDATA reacts only to `</` + name |
 | `rcdata` | as `text`, without the comment | RCDATA | as above |
 | `attr`, `url`, `resourceUrl`, `refresh` | no `"`; `&` only in complete references | attribute value (double-quoted), with the parser's current attribute name equal to the hole's | That state reacts only to `"`, `&` and NUL |
-| `json` | no `< > & '`, backtick, `$`, U+2028/U+2029 or controls | script data, with an HTML `script` as the current node | Script data reacts only to `<` |
+| `json` | no `< > & '`, backtick, `$`, U+2028/U+2029, controls, noncharacters or lone surrogates (#619) | script data, with an HTML `script` as the current node | Script data reacts only to `<` |
 
 Every other state is rejected: tag open, character reference, comment, CDATA, escaped script
 data, `text` in script data or `style`, `json` anywhere but HTML script data (including SVG

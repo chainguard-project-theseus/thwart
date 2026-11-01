@@ -173,10 +173,11 @@ class FlowProducerTest {
       assertFlow("card with " + v, c.render("card", Map.of("title", v, "items", List.of(v, "b"), "body", v)));
       assertFlow("rows with " + v, c.render("rows", Map.of("a", v)));
     }
-    // #614: forbidden code points in text, attribute values and sanitized markup. TODO(#619): rows
-    // too, once the script escapers write them as JSON escapes.
+    // Forbidden code points in text, attribute values and sanitized markup (#614) and in a script
+    // value, which writes them as \\uXXXX escapes (#619).
     for (String v : SanitizerBalanceTest.FORBIDDEN_CODE_POINTS) {
       assertFlow("card with " + v, c.render("card", Map.of("title", v, "items", List.of(v, "b"), "body", v)));
+      assertFlow("rows with " + v, c.render("rows", Map.of("a", v)));
     }
   }
 
