@@ -80,12 +80,13 @@ final class PageNormalizer {
       "(?:var|let|const)[ \\t\\n\\f\\r]+([A-Za-z_$][A-Za-z0-9_$]*)[ \\t\\n\\f\\r]*=[ \\t\\n\\f\\r]*");
   /**
    * A declared name ({@code @}) assigned or bound again: {@code x =}, {@code x +=} and the other
-   * compound assignments, {@code x++}, {@code --x}, {@code var|let|const|function|class x},
-   * {@code for (x in|of}, {@code [.., x]} or {@code {x}} before {@code =}, {@code catch (x)}, and
-   * {@code x} as a function or arrow parameter. A coarse scan of the script text, not a
-   * tokenizer: the name inside a string or comment ({@code alert("x = 1")}) or a computed member
-   * ({@code o[x] = 1}) also matches, and the page then compares {@code differs}. That only fails
-   * safe; {@code compare} is a developer tool, and an agent reads the diff either way.
+   * compound assignments, {@code x++}, {@code --x}, {@code var|let|const|function|class x} (the
+   * first name only), {@code for (x in|of}, a flat {@code [.., x]} or {@code {x}} before
+   * {@code =}, {@code catch (x)}, and {@code x} as a function or arrow parameter. A coarse scan
+   * of the script text, not a tokenizer: the name inside a string or comment
+   * ({@code alert("x = 1")}) or a computed member ({@code o[x] = 1}) also matches, and the page
+   * then compares {@code differs}. That only fails safe; {@code compare} is a developer tool,
+   * and an agent reads the diff either way.
    */
   private static final String REBOUND =
       "@\\s*(?:[-+*/%&|^]|\\*\\*|<<|>>>?|&&|\\|\\||\\?\\?)?=(?![=>])"
@@ -279,9 +280,10 @@ final class PageNormalizer {
    * code below uses its name (an identifier not after a {@code .}, outside strings and
    * comments), and removes the declarations so used; one the script doesn't use is kept. Other
    * scripts and event handlers on the page are not consulted, nor are a name read in a template
-   * literal's {@code ${...}}, a rest binding ({@code ...x}) or an object key or method name
-   * ({@code {x: 1}}): such a page compares {@code reordered}, and the printed diff shows the
-   * declaration that went for the agent to judge. A script that
+   * literal's {@code ${...}}, a rest binding ({@code ...x}), a later name in a declaration list
+   * ({@code let a, x}), a nested or defaulted pattern ({@code [[x]] =}, {@code [a = 1, x] =}) or
+   * an object key or method name ({@code {x: 1}}): such a page compares {@code reordered}, and
+   * the printed diff shows the declaration that went for the agent to judge. A script that
    * declares a name twice, or whose code below matches {@link #REBOUND} for a declared name, is
    * left as it is: there the value may not be a constant. Runs on {@link #tightenJson} output.
    */
