@@ -4,17 +4,25 @@
 # migration agent sees only what bench.py mounts.
 
 FROM cgr.dev/chainguard/wolfi-base AS tessera
-RUN apk add --no-cache openjdk-21-default-jdk maven-3.9 bash
+# extra-ca.crt: bench.py writes BENCH_EXTRA_CA_CERTS here (empty unless set), for a TLS-intercepting proxy.
+COPY extra-ca.crt /tmp/extra-ca.crt
+RUN cat /tmp/extra-ca.crt >> /etc/ssl/certs/ca-certificates.crt
+RUN apk add --no-cache openjdk-21-default-jdk maven-3.9 bash \
+ && if [ -s /tmp/extra-ca.crt ]; then keytool -importcert -noprompt -cacerts -storepass changeit -alias extra -file /tmp/extra-ca.crt; fi
 ENV JAVA_HOME=/usr/lib/jvm/default-jvm
 COPY . /src
 WORKDIR /src
+# Every artifact the guide tells an app to use, including tessera-maven-plugin (#425).
 RUN mvn -B -ntp -q install -DskipTests -Dmaven.repo.local=/m2 \
-      -pl tessera-runtime,tessera-compiler,tessera-spring-boot-starter,tessera-spring-boot-starter-javax,tessera-migrate -am
+      -pl tessera-runtime,tessera-compiler,tessera-spring-boot-starter,tessera-spring-boot-starter-javax,tessera-maven-plugin,tessera-migrate -am
 
 FROM cgr.dev/chainguard/wolfi-base
 ARG CLAUDE_CODE_VERSION=2.1.308
+COPY extra-ca.crt /tmp/extra-ca.crt
+RUN cat /tmp/extra-ca.crt >> /etc/ssl/certs/ca-certificates.crt
 RUN apk add --no-cache openjdk-21-default-jdk openjdk-8 maven-3.9 bash git curl python-3.13 nodejs-22 npm \
       coreutils findutils grep sed diffutils procps postgresql-18 postgresql-18-client libfaketime \
+ && if [ -s /tmp/extra-ca.crt ]; then keytool -importcert -noprompt -cacerts -storepass changeit -alias extra -file /tmp/extra-ca.crt; fi \
  && npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} \
  && node /usr/local/lib/node_modules/@anthropic-ai/claude-code/install.cjs \
  && adduser -D -h /home/bench bench \
@@ -32,6 +40,7 @@ COPY --from=tessera /m2/dev/tessera/tessera-migrate/0.1.0-SNAPSHOT/tessera-migra
 # throwaway cluster under /tmp. libfaketime pins the clock of an app whose pages show "today".
 # JDK 21 is the default; JDK 8 is for apps whose app.json says "java": 8.
 ENV JAVA_HOME=/usr/lib/jvm/default-jvm \
+    NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt \
     LANG=C.UTF-8 \
     MAVEN_ARGS="-Daether.syncContext.named.factory=file-lock -Daether.syncContext.named.nameMapper=file-gav"
 COPY bench/migration/lib/run-agent.sh /usr/local/bin/run-agent

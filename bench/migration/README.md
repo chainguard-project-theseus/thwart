@@ -19,6 +19,10 @@ Options: `--runs N` (default 1), `--first-run K` (number new runs from K to add 
 `--jobs N` parallel containers (default 2), `--minutes N` wall-clock budget per run (default 90),
 `--budget-usd N` spend cap per run (default 40), `--model M` (default `opus`).
 
+Behind a TLS-intercepting proxy (a `chainctl develop` session), set `BENCH_EXTRA_CA_CERTS` to the
+proxy's CA file before `image`, e.g. `/usr/local/share/ca-certificates/microvm-guest-ca-*.crt`, so
+the image trusts it. `ANTHROPIC_BASE_URL` is passed to the agent's container when set.
+
 Two kinds of round:
 
 - **Quick round**: after a change to Tessera, `tessera-migrate` or the plugin, run only the apps
