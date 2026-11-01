@@ -160,6 +160,36 @@ class FragmentFromJavaTest {
     assertEquals("<section><h2>T</h2><div><i>p</i></div></section><aside><div><i>p</i></div></aside>", out.toString());
   }
 
+  /**
+   * The review points docs/context-model.md §5 and docs/security-model.md list: of the public
+   * methods a generated class gives Java that take a {@code Fragment}, only {@code fragment$<name>}
+   * skips the mark check, and it renders whatever {@code Fragment.generated} wraps. Negative
+   * control: {@code fragment_<name>} refuses the same value. A new unchecked entry point fails
+   * here until the docs list it.
+   */
+  @Test
+  void uncheckedFragmentEntryPointsAreTheDocumentedReviewPoints() throws Exception {
+    Class<?> f = fragmentMethods().classLoader().loadClass("tessera.generated.FTemplate");
+    java.util.Set<String> unchecked = new java.util.TreeSet<>();
+    for (Method m : f.getMethods()) {
+      if (java.lang.reflect.Modifier.isStatic(m.getModifiers())
+          && java.util.Arrays.asList(m.getParameterTypes()).contains(Fragment.class)
+          && !m.getName().startsWith("fragment_")) {
+        unchecked.add(m.getName());
+      }
+    }
+    assertEquals("[fragment$card, fragment$uncalled]", unchecked.toString());
+    Fragment evil = Fragment.generated((ctx, out) -> out.write("</section><form action=\"https://evil\">"));
+    StringOutput out = new StringOutput();
+    f.getMethod("fragment$card", String.class, Fragment.class, RenderContext.class, Output.class)
+        .invoke(null, "T", evil, RenderContext.defaults(), out);
+    assertTrue(out.toString().contains("evil"), out.toString());
+    InvocationTargetException e = assertThrows(InvocationTargetException.class,
+        () -> f.getMethod("fragment_card", String.class, Fragment.class, RenderContext.class, Output.class)
+            .invoke(null, "T", evil, RenderContext.defaults(), new StringOutput()));
+    assertTrue(e.getCause() instanceof IllegalArgumentException, String.valueOf(e.getCause()));
+  }
+
   /** The parameterless generated template {@code className}, from its {@code of()}. */
   private static Template partial(Compilation c, String className) {
     try {

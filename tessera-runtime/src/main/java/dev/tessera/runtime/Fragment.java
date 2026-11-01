@@ -7,11 +7,13 @@ import java.util.Objects;
  * {@code t:replace="~{layout :: layout(~{::body}, 'home')}"}; the receiving fragment inserts it
  * with {@code t:insert="template"} or {@code t:replace="template"}.
  *
- * <p>Every value is generated template code or a {@link #of(Template)} (#581): this class is final
- * and has no constructor outside it, so no lambda or subclass is a {@code Fragment}. In Java, use
- * {@link #of(Template)}. Only its values carry the mark {@link #requireVerified} checks where Java
- * hands a template a {@code Fragment}: a page's {@code t:params}, or a fragment method called from
- * Java.
+ * <p>This class is final and has no constructor outside it, so no lambda or subclass is a
+ * {@code Fragment} (#581). In Java, use {@link #of(Template)}. Only its values carry the mark
+ * {@link #requireVerified} checks where Java hands a template a {@code Fragment}: a page's
+ * {@code t:params}, or a generated {@code fragment_<name>} method. {@link #generated} and the
+ * generated {@code fragment$<name>} methods are public for generated code in other packages and
+ * check nothing: a call from application code is a review point, like
+ * {@link SafeHtml#unchecked}.
  */
 public final class Fragment {
   /** What a {@link #generated} value writes. */
@@ -48,7 +50,9 @@ public final class Fragment {
    * For generated code: a fragment argument a template builds, such as {@code ~{::body}}. The
    * verifier parses its markup where the templates insert it, so it doesn't carry the mark, and
    * {@link #requireVerified} refuses it where Java hands it back to a template. Java code uses
-   * {@link #of(Template)}.
+   * {@link #of(Template)}: this is public only for generated classes in other packages, and
+   * nothing checks {@code body}, so passed to a generated {@code fragment$<name>} method it writes
+   * whatever it writes. A call outside generated code is a review point.
    */
   public static Fragment generated(Body body) {
     return new Fragment(body, false);

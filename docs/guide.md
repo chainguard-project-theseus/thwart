@@ -227,7 +227,9 @@ Spring falls back to (the system locale unless the app sets one). Facts about th
   `TrustedUrl.unchecked` call at its source line, however the source writes it (qualified, static
   import or method reference). With `<configuration><failOnUnchecked>true</failOnUnchecked></configuration>`
   (or `-Dtessera.failOnUnchecked=true`) an `unchecked` call fails the build, naming its file and
-  line. A hand-written `Template` is not listed (a `Fragment` can't be hand-written, section 4.4). Gradle has no equivalent yet.
+  line. Not listed: a hand-written `Template`, and calls of `Fragment.generated` or of a generated
+  `fragment$<name>` method, which are for generated code only (section 4.4); grep for those (#602).
+  Gradle has no equivalent yet.
 - Templates under `src/main/resources` are copied into the jar as resources, so resource
   filtering rewrites `${...}` in them unless `templates/**` is excluded.
 
@@ -932,11 +934,15 @@ the template. The fix
 is to wrap the root in a `<div>` (list items in their own `<ul>`, rows in their own `<table>`),
 move the `form` out, or render the page through a view. For markup used as data rather than
 inserted into a page (mailed, or written into an attribute), `template.renderToString(ctx)` gives
-a `String`, which a template escapes. `Fragment.of` is the only way to build a `Fragment` in Java:
-it is a final class, so a lambda or subclass doesn't compile (#581). A page's `Fragment` parameter,
-and a fragment method called from Java, refuse any other `Fragment` when they render, with an
+a `String`, which a template escapes. In Java, build a `Fragment` with `Fragment.of`: it is a
+final class, so a lambda or subclass doesn't compile (#581). A page's `Fragment` parameter, and a
+generated `fragment_<name>` method, refuse any other `Fragment` when they render, with an
 `IllegalArgumentException` naming the template and parameter, also one a template built for its
-own fragment call that Java code kept and passed back.
+own fragment call that Java code kept and passed back. `Fragment.generated(body)` and the
+`fragment$<name>` methods of a generated class (a fragment with a `Fragment` parameter) are public
+only because generated code in other packages calls them. They check nothing, so
+`fragment$card(..., Fragment.generated(...), ...)` writes whatever markup the lambda writes: like
+`SafeHtml.unchecked`, a call from application code is a review point.
 
 CSS has no escaping that makes an arbitrary string safe, so a `style` attribute is built only from
 pieces that cannot end a declaration or call an unchecked `url(...)`: literals, numbers and `CssValue`s.
@@ -1265,8 +1271,8 @@ public record Address(String street) {}
     use htmx 2's `ws-connect` and `sse-connect`, which are request URLs like `hx-post`.
   - A `<form>` nested in another, also through a fragment, a layout or any `Fragment` value a
     template builds (section 4.8), is a build error (`PARSE_ERROR`): a browser drops the inner
-    start tag. A `Fragment` built in Java is a `Fragment.of` of a flow partial, which has no form
-    (section 4.4). A form with `t:remove="tag"` gets
+    start tag. A page or `fragment_<name>` method takes from Java only a `Fragment.of` of a flow
+    partial, which has no form (section 4.4). A form with `t:remove="tag"` gets
     no token.
   A form that writes its own token input keeps it and gets no second one: a direct child
   `<input type="hidden">` whose literal `name` equals the token's parameter name at render time
@@ -1548,9 +1554,9 @@ old app rendered with its engine's API. `TemplateRegistry.load(classLoader)` fin
 view name.
 
 A `Fragment` parameter, from the model or `of(...)`, takes `Fragment.of(PartialTemplate.of(...))`
-of a compiled flow partial, or `null` (section 4.4); there is no other way to build one in Java.
-The page refuses any other `Fragment` when it renders, with an `IllegalArgumentException`. A layout
-that takes the page's content as a `Fragment` is called from the page's template, never from Java.
+of a compiled flow partial, or `null` (section 4.4). The page refuses any other `Fragment`, such as
+a `Fragment.generated` value (that factory is for generated code only), when it renders, with an
+`IllegalArgumentException`. A layout that takes the page's content as a `Fragment` is called from the page's template, never from Java.
 
 **Fragment view names.** `return "owners/list :: rows";`, as for an htmx or Turbo partial
 response, renders only the fragment `rows` of `templates/owners/list.html`. Its declared parameters
@@ -2555,9 +2561,10 @@ Gaps in Tessera today, each with what to do until it is fixed.
   `~{...}` fall through to other resolvers, and so does a fragment with a `Fragment` or `Field`
   parameter or a `<head>`, `<body>` or table-section root: put arguments in the model, and give the
   response its own fragment or template.
-- **Fragments built in Java.** A `Fragment` in Java is only `Fragment.of` of a compiled flow
-  partial (section 4.4); a lambda or subclass doesn't compile, and markup an old app built in Java
-  as a fragment moves into a partial template. A page refuses any other `Fragment` parameter at
+- **Fragments built in Java.** Build a `Fragment` in Java with `Fragment.of` of a compiled flow
+  partial (section 4.4); a lambda or subclass doesn't compile, `Fragment.generated` and the
+  generated `fragment$<name>` methods are unchecked review points for generated code only, and
+  markup an old app built in Java as a fragment moves into a partial template. A page refuses any other `Fragment` parameter at
   render time. Calling a generated `fragment_<name>` method from Java checks the same, but for a
   fragment that templates also call, the compiler checked where it inserts the parameter only with
   the arguments those templates pass (#600): pass Java-built content through a page parameter.
