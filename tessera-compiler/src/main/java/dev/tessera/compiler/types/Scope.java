@@ -1,5 +1,6 @@
 package dev.tessera.compiler.types;
 
+import dev.tessera.compiler.verify.Skeleton;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -14,14 +15,17 @@ import javax.lang.model.type.TypeMirror;
  * plus the current {@code t:object} selection. Inner declarations shadow outer ones.
  */
 public final class Scope {
-  private static final Scope EMPTY = new Scope(Collections.emptyMap(), null);
+  private static final Scope EMPTY = new Scope(Collections.emptyMap(), null, Collections.emptyMap());
 
   private final Map<String, Variable> vars;
   private final Selection selection;
+  /** By Java name (fresh for each local, so never shadowed): {@link #withFragment}. */
+  private final Map<String, Skeleton.Node> fragments;
 
-  private Scope(Map<String, Variable> vars, Selection selection) {
+  private Scope(Map<String, Variable> vars, Selection selection, Map<String, Skeleton.Node> fragments) {
     this.vars = vars;
     this.selection = selection;
+    this.fragments = fragments;
   }
 
   public static Scope empty() {
@@ -81,11 +85,27 @@ public final class Scope {
     Map<String, Variable> copy = new LinkedHashMap<>(vars);
     copy.remove(v.name());
     copy.put(v.name(), v);
-    return new Scope(copy, selection);
+    return new Scope(copy, selection, fragments);
   }
 
   public Scope withSelection(Selection s) {
-    return new Scope(vars, s);
+    return new Scope(vars, s, fragments);
+  }
+
+  /**
+   * This scope, recording that the {@code Fragment} local with Java name {@code javaName} (a
+   * {@code t:with} alias) writes one of {@code candidates}, the skeleton the verifier checks where
+   * it is inserted (#561).
+   */
+  public Scope withFragment(String javaName, Skeleton.Node candidates) {
+    Map<String, Skeleton.Node> copy = new LinkedHashMap<>(fragments);
+    copy.put(javaName, candidates);
+    return new Scope(vars, selection, copy);
+  }
+
+  /** What the {@code Fragment} local with Java name {@code javaName} writes, if recorded ({@link #withFragment}). */
+  public Optional<Skeleton.Node> fragment(String javaName) {
+    return Optional.ofNullable(fragments.get(javaName));
   }
 
   public Optional<Variable> lookup(String name) {

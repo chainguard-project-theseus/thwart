@@ -373,9 +373,9 @@ class ClientTemplateInjectionTest {
         "<table><tr><td><b t:replace=\"~{f :: row(s)}\"></b>[[s]]</td></tr></table>|" + TEXT_IN_TABLE,
         "<table><tbody t:insert=\"~{f :: form(s)}\"></tbody></table>|" + PARSE_ERROR,
         "<table><tbody t:insert=\"~{f :: form(s)}\"></tbody></table>|" + TEXT_IN_TABLE,
-        // A Fragment value that starts with a table part: rejected where it is built (TODO(#561)).
+        // A Fragment value that starts with a table part, judged where it lands (#561).
         "<t:block t:replace=\"~{f :: layout(~{::tr})}\"></t:block><table><tr><td t:text=\"s\">x</td></tr></table>|"
-            + TABLE_PART_VALUE,
+            + PARSE_ERROR,
         // Rows in a <div>: a browser drops the <tr> and <td> tags, a parse error (#406).
         "<div t:insert=\"~{f :: rows(s)}\"></div>|" + PARSE_ERROR,
       })
@@ -398,13 +398,10 @@ class ClientTemplateInjectionTest {
         .assertError("f.html:2:27:", "a browser parses this Fragment value in a table outside any cell", RAW_NOT_FLOW);
   }
 
-  private static final String TABLE_PART_VALUE = "} writes <tr>, which is not supported in a Fragment value";
-
   /**
    * #348: a {@code ~{::tr}} passed as a {@code Fragment} and inserted in a {@code <td>} ends the
-   * cell, so the value after it is moved in front of the table. The verifier composes the
-   * argument only where the callee inserts the parameter by itself (TODO(#561)), so a value that
-   * starts with a table part is rejected where it is built, also through a ternary or t:with.
+   * cell, so the value after it is moved in front of the table. The verifier parses it where it
+   * lands, also through a ternary, an Elvis or a t:with alias (#561).
    */
   @ParameterizedTest
   @ValueSource(strings = {"${body}", "${flag ? body : null}", "${body ?: null}", "${b}"})
@@ -421,7 +418,7 @@ class ClientTemplateInjectionTest {
                 HEADER + "\n<t:block t:replace=\"~{f :: slot(~{::tr}, true, ${s})}\"></t:block>"
                     + "<table><tr><td>x</td></tr></table></div>")
             .compile();
-    c.assertError("t.html:2:", "~{:: tr" + TABLE_PART_VALUE);
+    c.assertError(PARSE_ERROR);
     assertNull(c.generatedSource("tessera.generated.TTemplate"), insert);
   }
 
