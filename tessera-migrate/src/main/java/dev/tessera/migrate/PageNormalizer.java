@@ -160,13 +160,24 @@ final class PageNormalizer {
     return children(doc, expandPrelude ? pageNames(doc) : null);
   }
 
-  /** How often each identifier occurs in the page's JavaScript scripts, all of them together. */
+  /**
+   * How often each identifier occurs in the page's inline JavaScript: the JavaScript scripts, the
+   * event-handler ({@code on*}) attributes and {@code javascript:} URLs, all together. Scripts
+   * loaded with {@code src} can't be seen from the page, so a global only they read is not counted.
+   */
   private static Map<String, Integer> pageNames(Document doc) {
     Map<String, Integer> counts = new HashMap<>();
-    for (Element script : doc.select("script")) {
-      if (isScript(script) && !JSON_SCRIPT_TYPES.contains(scriptType(script))) {
-        for (DataNode data : script.dataNodes()) {
+    for (Element el : doc.getAllElements()) {
+      if (isScript(el) && !JSON_SCRIPT_TYPES.contains(scriptType(el))) {
+        for (DataNode data : el.dataNodes()) {
           countNames(tightenJson(unwrapValues(data.getWholeData())), counts);
+        }
+      }
+      for (Attribute a : el.attributes()) {
+        String value = a.getValue();
+        if (a.getKey().toLowerCase(Locale.ROOT).startsWith("on")
+            || Compat.strip(value).toLowerCase(Locale.ROOT).startsWith("javascript:")) {
+          countNames(value, counts);
         }
       }
     }
@@ -299,7 +310,10 @@ final class PageNormalizer {
    * code below uses its name (an identifier not after a {@code .}, outside strings and
    * comments), and removes the declarations so used. A declaration is kept, and its name not
    * replaced, when the script doesn't use it or {@code readElsewhere} holds its name (another
-   * script on the page names it): that script may read the global, and the value still counts. A
+   * inline script, an event handler or a {@code javascript:} URL on the page names it): that code
+   * may read the global, and the value still counts. A script loaded with {@code src} isn't seen,
+   * so a page that inlines a value an external script reads as a global still compares
+   * {@code reordered}; its diff shows the declaration that went. A
    * script that declares a name twice, or assigns or binds a declared name again below
    * ({@link #rebinds}), is left as it is: there the value is not a constant. Runs on
    * {@link #tightenJson} output.

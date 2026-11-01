@@ -118,6 +118,8 @@ class PageNormalizerTest {
       declared name in for-in        | <script>var k = "a"; for (k in o) g(k);</script> | <script>var k = ("a"); for (k in o) g("a");</script>
       declared name in a let list    | <script>var id = 7; function f(){ let a, id; return id; }</script> | <script>var id = (7); function f(){ let a, id; return 7; }</script>
       declared name read by another script | <script>var ctx = "/a"; f(ctx);</script><script>g(ctx);</script> | <script>f("/a");</script><script>g(ctx);</script>
+      declared name read by an event handler | <script>var ctx = "/a"; f(ctx);</script><button onclick="g(ctx)">b</button> | <script>f("/a");</script><button onclick="g(ctx)">b</button>
+      declared name read by a javascript: URL | <script>var ctx = "/a"; f(ctx);</script><a href="javascript:g(ctx)">b</a> | <script>f("/a");</script><a href="javascript:g(ctx)">b</a>
       """)
   void differentPages(String rule, String a, String b) {
     check(DIFFERS, a.replace("\\n", "\n"), b.replace("\\n", "\n"));
