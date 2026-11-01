@@ -76,13 +76,13 @@
    "<%=": 9,
    "<c:when": 8,
    "<form:errors": 6,
-   "<form:select": 6,
    "<form:checkbox": 6,
    "<c:import": 6,
+   "<form:select": 6,
+   "<fmt:formatDate": 4,
    "<s:url": 4,
    "<c:choose": 4,
    "<c:otherwise": 4,
-   "<fmt:formatDate": 4,
    "<fmt:formatNumber": 2,
    "<form:hidden": 2
   }

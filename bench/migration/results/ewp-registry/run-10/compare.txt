@@ -1,0 +1,309 @@
+01 same      GET /
+02 differs   GET /status
+--- recorded 02.html
++++ now
+@@ -43,7 +43,8 @@
+                 <a href="?url=https://localhost:8443/example.xml">
+                   details
+               <td class="ewpsrv__details">
+-                <a class="ewp-manifest-reloader" data-manifest-url="https://localhost:8443/example.xml">
++                <input class="ewp-manifest-url" type="hidden" value="https://localhost:8443/example.xml">
++                <a class="ewp-manifest-reloader">
+                   reload now
+               <td class="ewpsrv__details">
+                 <a href="/manifestValidation?url=https://localhost:8443/example.xml">
+@@ -60,7 +61,8 @@
+                 <a href="?url=https://localhost:8443/vienna.xml">
+                   details
+               <td class="ewpsrv__details">
+-                <a class="ewp-manifest-reloader" data-manifest-url="https://localhost:8443/vienna.xml">
++                <input class="ewp-manifest-url" type="hidden" value="https://localhost:8443/vienna.xml">
++                <a class="ewp-manifest-reloader">
+                   reload now
+               <td class="ewpsrv__details">
+                 <a href="/manifestValidation?url=https://localhost:8443/vienna.xml">
+@@ -77,7 +79,8 @@
+                 <a href="?url=https://localhost:8443/krakow.xml">
+                   details
+               <td class="ewpsrv__details">
+-                <a class="ewp-manifest-reloader" data-manifest-url="https://localhost:8443/krakow.xml">
++                <input class="ewp-manifest-url" type="hidden" value="https://localhost:8443/krakow.xml">
++                <a class="ewp-manifest-reloader">
+                   reload now
+               <td class="ewpsrv__details">
+                 <a href="/manifestValidation?url=https://localhost:8443/krakow.xml">
+@@ -94,7 +97,8 @@
+                 <a href="?url=https://localhost:8443/overview-1.xml">
+                   details
+               <td class="ewpsrv__details">
+-                <a class="ewp-manifest-reloader" data-manifest-url="https://localhost:8443/overview-1.xml">
++                <input class="ewp-manifest-url" type="hidden" value="https://localhost:8443/overview-1.xml">
++                <a class="ewp-manifest-reloader">
+                   reload now
+               <td class="ewpsrv__details">
+                 <a href="/manifestValidation?url=https://localhost:8443/overview-1.xml">
+@@ -111,7 +115,8 @@
+                 <a href="?url=https://localhost:8443/overview-2.xml">
+                   details
+               <td class="ewpsrv__details">
+-                <a class="ewp-manifest-reloader" data-manifest-url="https://localhost:8443/overview-2.xml">
++                <input class="ewp-manifest-url" type="hidden" value="https://localhost:8443/overview-2.xml">
++                <a class="ewp-manifest-reloader">
+                   reload now
+               <td class="ewpsrv__details">
+                 <a href="/manifestValidation?url=https://localhost:8443/overview-2.xml">
+@@ -128,7 +133,8 @@
+                 <a href="?url=https://localhost:8443/registry.xml">
+                   details
+               <td class="ewpsrv__details">
+-                <a class="ewp-manifest-reloader" data-manifest-url="https://localhost:8443/registry.xml">
++                <input class="ewp-manifest-url" type="hidden" value="https://localhost:8443/registry.xml">
++                <a class="ewp-manifest-reloader">
+                   reload now
+               <td class="ewpsrv__details">
+                 <a href="/manifestValidation?url=https://localhost:8443/registry.xml">
+@@ -145,7 +151,8 @@
+                 <a href="?url=https://localhost:8443/invalid.xml">
+                   details
+               <td class="ewpsrv__details">
+-                <a class="ewp-manifest-reloader" data-manifest-url="https://localhost:8443/invalid.xml">
++                <input class="ewp-manifest-url" type="hidden" value="https://localhost:8443/invalid.xml">
++                <a class="ewp-manifest-reloader">
+                   reload now
+               <td class="ewpsrv__details">
+                 <a href="/manifestValidation?url=https://localhost:8443/invalid.xml">
+@@ -162,7 +169,8 @@
+                 <a href="?url=https://localhost:8443/missing.xml">
+                   details
+               <td class="ewpsrv__details">
+-                <a class="ewp-manifest-reloader" data-manifest-url="https://localhost:8443/missing.xml">
++                <input class="ewp-manifest-url" type="hidden" value="https://localhost:8443/missing.xml">
++                <a class="ewp-manifest-reloader">
+                   reload now
+               <td class="ewpsrv__details">
+                 <a href="/manifestValidation?url=https://localhost:8443/missing.xml">
+@@ -179,8 +187,11 @@
+                 <a href="?url=https://localhost:8443/vienna.xml?restricted">
+                   details
+               <td class="ewpsrv__details">
+-                <a class="ewp-manifest-reloader" data-manifest-url="https://localhost:8443/vienna.xml?restricted">
++                <input class="ewp-manifest-url" type="hidden" value="https://localhost:8443/vienna.xml?restricted">
++                <a class="ewp-manifest-reloader">
+                   reload now
+               <td class="ewpsrv__details">
+                 <a href="/manifestValidation?url=https://localhost:8443/vienna.xml?restricted">
+                   validate
++        <script>
++          // The manifest URL is passed in a hidden input next to each reload link. $(".ewp-manifest-url").each(function(){$(this).next(".ewp-manifest-reloader").attr("data-manifest-url",this.value);});
+03 differs   GET /status?url=https://localhost:8443/example.xml
+--- recorded 03.html
++++ now
+@@ -40,8 +40,11 @@
+           <code class="ewpst__bordered-code">
+             Warning
+           <br>
+-          <a class="ewp-manifest-reloader" data-manifest-url="https://localhost:8443/example.xml">
++          <input class="ewp-manifest-url" type="hidden" value="https://localhost:8443/example.xml">
++          <a class="ewp-manifest-reloader">
+             reload now
++        <script>
++          // The manifest URL is passed in a hidden input next to each reload link. $(".ewp-manifest-url").each(function(){$(this).next(".ewp-manifest-reloader").attr("data-manifest-url",this.value);});
+         <h2 class="ewp-section-title">
+           Last access notices
+         <table class="ewpsrc">
+04 differs   GET /status?url=https://localhost:8443/vienna.xml
+--- recorded 04.html
++++ now
+@@ -40,8 +40,11 @@
+           <code class="ewpst__bordered-code">
+             Warning
+           <br>
+-          <a class="ewp-manifest-reloader" data-manifest-url="https://localhost:8443/vienna.xml">
++          <input class="ewp-manifest-url" type="hidden" value="https://localhost:8443/vienna.xml">
++          <a class="ewp-manifest-reloader">
+             reload now
++        <script>
++          // The manifest URL is passed in a hidden input next to each reload link. $(".ewp-manifest-url").each(function(){$(this).next(".ewp-manifest-reloader").attr("data-manifest-url",this.value);});
+         <h2 class="ewp-section-title">
+           Last access notices
+         <table class="ewpsrc">
+05 differs   GET /status?url=https://localhost:8443/krakow.xml
+--- recorded 05.html
++++ now
+@@ -40,8 +40,11 @@
+           <code class="ewpst__bordered-code">
+             Warning
+           <br>
+-          <a class="ewp-manifest-reloader" data-manifest-url="https://localhost:8443/krakow.xml">
++          <input class="ewp-manifest-url" type="hidden" value="https://localhost:8443/krakow.xml">
++          <a class="ewp-manifest-reloader">
+             reload now
++        <script>
++          // The manifest URL is passed in a hidden input next to each reload link. $(".ewp-manifest-url").each(function(){$(this).next(".ewp-manifest-reloader").attr("data-manifest-url",this.value);});
+         <h2 class="ewp-section-title">
+           Last access notices
+         <table class="ewpsrc">
+06 differs   GET /status?url=https://localhost:8443/registry.xml
+--- recorded 06.html
++++ now
+@@ -40,8 +40,11 @@
+           <code class="ewpst__bordered-code">
+             Warning
+           <br>
+-          <a class="ewp-manifest-reloader" data-manifest-url="https://localhost:8443/registry.xml">
++          <input class="ewp-manifest-url" type="hidden" value="https://localhost:8443/registry.xml">
++          <a class="ewp-manifest-reloader">
+             reload now
++        <script>
++          // The manifest URL is passed in a hidden input next to each reload link. $(".ewp-manifest-url").each(function(){$(this).next(".ewp-manifest-reloader").attr("data-manifest-url",this.value);});
+         <h2 class="ewp-section-title">
+           Last access notices
+         <table class="ewpsrc">
+07 differs   GET /status?url=https://localhost:8443/invalid.xml
+--- recorded 07.html
++++ now
+@@ -40,8 +40,11 @@
+           <code class="ewpst__bordered-code">
+             Warning
+           <br>
+-          <a class="ewp-manifest-reloader" data-manifest-url="https://localhost:8443/invalid.xml">
++          <input class="ewp-manifest-url" type="hidden" value="https://localhost:8443/invalid.xml">
++          <a class="ewp-manifest-reloader">
+             reload now
++        <script>
++          // The manifest URL is passed in a hidden input next to each reload link. $(".ewp-manifest-url").each(function(){$(this).next(".ewp-manifest-reloader").attr("data-manifest-url",this.value);});
+         <h2 class="ewp-section-title">
+           Last access notices
+         <table class="ewpsrc">
+08 differs   GET /status?url=https://localhost:8443/missing.xml
+--- recorded 08.html
++++ now
+@@ -40,8 +40,11 @@
+           <code class="ewpst__bordered-code">
+             Error
+           <br>
+-          <a class="ewp-manifest-reloader" data-manifest-url="https://localhost:8443/missing.xml">
++          <input class="ewp-manifest-url" type="hidden" value="https://localhost:8443/missing.xml">
++          <a class="ewp-manifest-reloader">
+             reload now
++        <script>
++          // The manifest URL is passed in a hidden input next to each reload link. $(".ewp-manifest-url").each(function(){$(this).next(".ewp-manifest-reloader").attr("data-manifest-url",this.value);});
+         <h2 class="ewp-section-title">
+           Last access notices
+         <table class="ewpsrc">
+09 differs   GET /status?url=https://localhost:8443/vienna.xml%3Frestricted
+--- recorded 09.html
++++ now
+@@ -40,8 +40,11 @@
+           <code class="ewpst__bordered-code">
+             Error
+           <br>
+-          <a class="ewp-manifest-reloader" data-manifest-url="https://localhost:8443/vienna.xml?restricted">
++          <input class="ewp-manifest-url" type="hidden" value="https://localhost:8443/vienna.xml?restricted">
++          <a class="ewp-manifest-reloader">
+             reload now
++        <script>
++          // The manifest URL is passed in a hidden input next to each reload link. $(".ewp-manifest-url").each(function(){$(this).next(".ewp-manifest-reloader").attr("data-manifest-url",this.value);});
+         <h2 class="ewp-section-title">
+           Last access notices
+         <table class="ewpsrc">
+10 same      GET /status?url=https://localhost:8443/nosuch.xml
+11 same      GET /status?email=admin@example.org
+12 same      GET /status?email=heis-admin@example.org
+13 same      GET /status?email=admin-or-developer@example.com
+14 same      GET /status?email=nobody@example.org
+15 same      GET /manifestsOverview
+16 same      GET /heiSearch?pattern=
+17 same      GET /heiSearch?pattern=PL%20
+18 same      GET /heiSearch?pattern=vienna
+19 same      GET /heiSearch?pattern=Krak%C3%B3w
+20 same      GET /heiSearch?pattern=%3Cb%3Enone%3C%2Fb%3E
+21 same      GET /coverage
+22 same      GET /coverage?pattern=PL
+23 same      GET /coverage?pattern=nomatch
+24 differs   GET /manifestValidation?url=https://localhost:8443/example.xml
+--- recorded 24.html
++++ now
+@@ -9,7 +9,7 @@
+     <link href="/favicon.ico" rel="icon" type="image/x-icon">
+     <script crossorigin="anonymous" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" src="https://code.jquery.com/jquery-3.7.1.min.js">
+     <script src="/scripts-560639793114caeccc1d3a09195e8adf03bfa0e4.js">
+-    <script defer src="ui-af7dcfaf54f857d92875fc38643c8f84b7e0d69f.js">
++    <script defer src="ui-8c5a833b640a581f22b3883debb00d1aeb7aba48.js">
+   <body>
+     <header class="ewp-header ewp-header--dev ewp-header--small">
+       <div class="ewp-header__margin ewp-header__margin--top">
+@@ -78,8 +78,10 @@
+             <a href="https://localhost:8443/example.xml">
+               https://localhost:8443/example.xml
+           :
++        <script id="api-entries" type="application/json">
++          [{"name":"echo","version":"2.0.0","endpoint":"","url":"https:\/\/example.com\/ewp\/echo","securities":["HTTT","HHTT"],"parameters":[],"securityNotices":["Unrecognized client authentication method: \u007bhttps:\/\/github.com\/erasmus-without-paper\/ewp-specs-sec-cliauth-tlscert\/tree\/stable-v1}tlscert"]}]
+         <div id="api-entry-set">
+-          <api-entry :parameters="[]" :security="[&quot;HTTT&quot;,&quot;HHTT&quot;]" :security-notices="[&quot;Unrecognized client authentication method: {https://github.com/erasmus-without-paper/ewp-specs-sec-cliauth-tlscert/tree/stable-v1}tlscert&quot;]" endpoint="" name="echo" url="https://example.com/ewp/echo" version="2.0.0">
++          <api-entry :endpoint="api.endpoint" :name="api.name" :parameters="api.parameters" :security="api.securities" :security-notices="api.securityNotices" :url="api.url" :version="api.version" v-for="api in apis">
+           <help-popup popup-name="Security method" ref="security-method-popup">
+             Here you have to select security method that will be used to perform calls to validated API. Security method consists of four letters, their meaning is described on the top of this page.
+           <help-popup popup-name="Parameters" ref="parameters-popup">
+25 differs   GET /manifestValidation?url=https://localhost:8443/overview-1.xml
+--- recorded 25.html
++++ now
+@@ -9,7 +9,7 @@
+     <link href="/favicon.ico" rel="icon" type="image/x-icon">
+     <script crossorigin="anonymous" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" src="https://code.jquery.com/jquery-3.7.1.min.js">
+     <script src="/scripts-560639793114caeccc1d3a09195e8adf03bfa0e4.js">
+-    <script defer src="ui-af7dcfaf54f857d92875fc38643c8f84b7e0d69f.js">
++    <script defer src="ui-8c5a833b640a581f22b3883debb00d1aeb7aba48.js">
+   <body>
+     <header class="ewp-header ewp-header--dev ewp-header--small">
+       <div class="ewp-header__margin ewp-header__margin--top">
+@@ -78,9 +78,10 @@
+             <a href="https://localhost:8443/overview-1.xml">
+               https://localhost:8443/overview-1.xml
+           :
++        <script id="api-entries" type="application/json">
++          [{"name":"echo","version":"2.0.0","endpoint":"","url":"https:\/\/example.com\/echo","securities":[],"parameters":[],"securityNotices":[]},{"name":"institutions","version":"2.0.0","endpoint":"","url":"https:\/\/example.com\/institutions","securities":[],"parameters":[{"name":"hei_id","dependencies":[],"blockers":[],"description":null}],"securityNotices":[]}]
+         <div id="api-entry-set">
+-          <api-entry :parameters="[]" :security="[]" :security-notices="[]" endpoint="" name="echo" url="https://example.com/echo" version="2.0.0">
+-          <api-entry :parameters="[{&quot;name&quot;:&quot;hei_id&quot;,&quot;dependencies&quot;:[],&quot;blockers&quot;:[],&quot;description&quot;:null}]" :security="[]" :security-notices="[]" endpoint="" name="institutions" url="https://example.com/institutions" version="2.0.0">
++          <api-entry :endpoint="api.endpoint" :name="api.name" :parameters="api.parameters" :security="api.securities" :security-notices="api.securityNotices" :url="api.url" :version="api.version" v-for="api in apis">
+           <help-popup popup-name="Security method" ref="security-method-popup">
+             Here you have to select security method that will be used to perform calls to validated API. Security method consists of four letters, their meaning is described on the top of this page.
+           <help-popup popup-name="Parameters" ref="parameters-popup">
+26 differs   GET /manifestValidation?url=https://localhost:8443/vienna.xml
+--- recorded 26.html
++++ now
+@@ -9,7 +9,7 @@
+     <link href="/favicon.ico" rel="icon" type="image/x-icon">
+     <script crossorigin="anonymous" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" src="https://code.jquery.com/jquery-3.7.1.min.js">
+     <script src="/scripts-560639793114caeccc1d3a09195e8adf03bfa0e4.js">
+-    <script defer src="ui-af7dcfaf54f857d92875fc38643c8f84b7e0d69f.js">
++    <script defer src="ui-8c5a833b640a581f22b3883debb00d1aeb7aba48.js">
+   <body>
+     <header class="ewp-header ewp-header--dev ewp-header--small">
+       <div class="ewp-header__margin ewp-header__margin--top">
+@@ -78,8 +78,10 @@
+             <a href="https://localhost:8443/vienna.xml">
+               https://localhost:8443/vienna.xml
+           :
++        <script id="api-entries" type="application/json">
++          [{"name":"institutions","version":"2.0.0","endpoint":"","url":"https:\/\/heis.example.org\/vienna\/institutions","securities":[],"parameters":[{"name":"hei_id","dependencies":[],"blockers":[],"description":null}],"securityNotices":[]}]
+         <div id="api-entry-set">
+-          <api-entry :parameters="[{&quot;name&quot;:&quot;hei_id&quot;,&quot;dependencies&quot;:[],&quot;blockers&quot;:[],&quot;description&quot;:null}]" :security="[]" :security-notices="[]" endpoint="" name="institutions" url="https://heis.example.org/vienna/institutions" version="2.0.0">
++          <api-entry :endpoint="api.endpoint" :name="api.name" :parameters="api.parameters" :security="api.securities" :security-notices="api.securityNotices" :url="api.url" :version="api.version" v-for="api in apis">
+           <help-popup popup-name="Security method" ref="security-method-popup">
+             Here you have to select security method that will be used to perform calls to validated API. Security method consists of four letters, their meaning is described on the top of this page.
+           <help-popup popup-name="Parameters" ref="parameters-popup">
+27 same      GET /manifestValidation?url=https://localhost:8443/nosuch.xml
+28 same      GET /schemaValidator
+29 same      POST /validate xml=%3Cmanifest%0A%20%20%20%20xmlns%3D%22https%3A%2F%2Fgithub.com%2Ferasmus-without-paper%2Fewp-specs-api-discovery%2Ftree%2Fstable-v6%22%0A%20%20%20%20xmlns%3Ar%3D%22https%3A%2F%2Fgithub.com%2Ferasmus-without-paper%2Fewp-specs-api-registry%2Ftree%2Fstable-v1%22%0A%20%20%20%20xmlns%3Aewp%3D%22https%3A%2F%2Fgithub.com%2Ferasmus-without-paper%2Fewp-specs-architecture%2Fblob%2Fstable-v1%2Fcommon-types.xsd%22%0A%3E%0A%20%20%20%20%3Chost%3E%0A%20%20%20%20%20%20%20%20%3Cewp%3Aadmin-email%3Eheis-admin%40example.org%3C%2Fewp%3Aadmin-email%3E%0A%20%20%20%20%20%20%20%20%3Cewp%3Aadmin-provider%3EBench%20%26amp%3B%20Co%3C%2Fewp%3Aadmin-provider%3E%0A%20%20%20%20%20%20%20%20%3Cr%3Aapis-implemented%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cdiscovery%20version%3D%226.0.0%22%20xmlns%3D%22https%3A%2F%2Fgithub.com%2Ferasmus-without-paper%2Fewp-specs-api-discovery%2Fblob%2Fstable-v6%2Fmanifest-entry.xsd%22%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Curl%3Ehttps%3A%2F%2Fheis.example.org%2Fvienna%2Fmanifest.xml%3C%2Furl%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fdiscovery%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cinstitutions%20version%3D%222.0.0%22%20xmlns%3D%22https%3A%2F%2Fgithub.com%2Ferasmus-without-paper%2Fewp-specs-api-institutions%2Fblob%2Fstable-v2%2Fmanifest-entry.xsd%22%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Curl%3Ehttps%3A%2F%2Fheis.example.org%2Fvienna%2Finstitutions%3C%2Furl%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cmax-hei-ids%3E1%3C%2Fmax-hei-ids%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Finstitutions%3E%0A%20%20%20%20%20%20%20%20%3C%2Fr%3Aapis-implemented%3E%0A%20%20%20%20%20%20%20%20%3Cinstitutions-covered%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cr%3Ahei%20id%3D%22univie.ac.at%22%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cr%3Aother-id%20type%3D%22erasmus%22%3EA%20%20WIEN01%3C%2Fr%3Aother-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cr%3Aother-id%20type%3D%22pic%22%3E999865905%3C%2Fr%3Aother-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cr%3Aname%20xml%3Alang%3D%22en%22%3EUniversity%20of%20Vienna%3C%2Fr%3Aname%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cr%3Aname%20xml%3Alang%3D%22de%22%3EUniversit%C3%A4t%20Wien%3C%2Fr%3Aname%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fr%3Ahei%3E%0A%20%20%20%20%20%20%20%20%3C%2Finstitutions-covered%3E%0A%20%20%20%20%3C%2Fhost%3E%0A%3C%2Fmanifest%3E%0A
+30 same      POST /validate xml=%3Cmanifest%3E%3Chost%2F%3E%3C%2Fmanifest%3E
+31 same      GET /iiaHashValidator
+32 same      POST /iiaHashValidator xml=%3Ciias-get-response%0A%20%20%20%20xmlns%3D%22https%3A%2F%2Fgithub.com%2Ferasmus-without-paper%2Fewp-specs-api-iias%2Fblob%2Fstable-v7%2Fendpoints%2Fget-response.xsd%22%0A%20%20%20%20xmlns%3Ac%3D%22https%3A%2F%2Fgithub.com%2Ferasmus-without-paper%2Fewp-specs-types-contact%2Ftree%2Fstable-v1%22%0A%20%20%20%20xmlns%3Ap%3D%22https%3A%2F%2Fgithub.com%2Ferasmus-without-paper%2Fewp-specs-types-phonenumber%2Ftree%2Fstable-v1%22%0A%20%20%20%20xmlns%3Axsi%3D%22http%3A%2F%2Fwww.w3.org%2F2001%2FXMLSchema-instance%22%0A%20%20%20%20xsi%3AschemaLocation%3D%22%0A%20%20%20%20%20%20%20%20https%3A%2F%2Fgithub.com%2Ferasmus-without-paper%2Fewp-specs-api-iias%2Fblob%2Fstable-v7%2Fendpoints%2Fget-response.xsd%0A%20%20%20%20%20%20%20%20https%3A%2F%2Fraw.githubusercontent.com%2Ferasmus-without-paper%2Fewp-specs-api-iias%2Fstable-v7%2Fendpoints%2Fget-response.xsd%0A%20%20%20%20%22%0A%3E%0A%20%20%20%20%3Ciia%3E%0A%20%20%20%20%20%20%20%20%3Cpartner%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Chei-id%3Euw.edu.pl%3C%2Fhei-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Ciia-id%3E0f7a5682-faf7-49a7-9cc7-ec486c49a281%3C%2Fiia-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Ciia-code%3E983%2FE%2B%2FIII14%26amp%3B15%3C%2Fiia-code%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Csigning-contact%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Acontact-name%3ESylwia%20Nowak%3C%2Fc%3Acontact-name%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Aperson-given-names%3ESylwia%3C%2Fc%3Aperson-given-names%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Aperson-family-name%3ENowak%3C%2Fc%3Aperson-family-name%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Aemail%3Eemail%40example.com%3C%2Fc%3Aemail%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fsigning-contact%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Acontact%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Acontact-name%3EJadwiga%20Kowalska%3C%2Fc%3Acontact-name%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Aperson-given-names%3EJadwiga%3C%2Fc%3Aperson-given-names%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Aperson-family-name%3EKowalska%3C%2Fc%3Aperson-family-name%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Aemail%3Eemail%40example.com%3C%2Fc%3Aemail%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fc%3Acontact%3E%0A%20%20%20%20%20%20%20%20%3C%2Fpartner%3E%0A%20%20%20%20%20%20%20%20%3Cpartner%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Chei-id%3Ehibo.no%3C%2Fhei-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Ciia-id%3E1954991%3C%2Fiia-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Ciia-code%3E2014%2FE%2B%2FPL%2F4104B%3C%2Fiia-code%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Csigning-contact%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Acontact-name%3EMonica%20Turner%3C%2Fc%3Acontact-name%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Aemail%3Eemail%40example.com%3C%2Fc%3Aemail%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fsigning-contact%3E%0A%20%20%20%20%20%20%20%20%3C%2Fpartner%3E%0A%20%20%20%20%20%20%20%20%3Cin-effect%3Etrue%3C%2Fin-effect%3E%0A%20%20%20%20%20%20%20%20%3Ccooperation-conditions%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cstudent-studies-mobility-spec%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Csending-hei-id%3Euw.edu.pl%3C%2Fsending-hei-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Csending-ounit-id%3E140%3C%2Fsending-ounit-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Csending-contact%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Acontact-name%3EXYZ%3C%2Fc%3Acontact-name%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cp%3Aphone-number%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cp%3Aother-format%3E123456789%3C%2Fp%3Aother-format%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fp%3Aphone-number%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fsending-contact%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Creceiving-hei-id%3Ehibo.no%3C%2Freceiving-hei-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Creceiving-first-academic-year-id%3E2014%2F2015%3C%2Freceiving-first-academic-year-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Creceiving-last-academic-year-id%3E2020%2F2021%3C%2Freceiving-last-academic-year-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cmobilities-per-year%20not-yet-defined%3D%22true%22%3E2%3C%2Fmobilities-per-year%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Crecommended-language-skill%20not-yet-defined%3D%22true%22%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Clanguage%3Een%3C%2Flanguage%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Ccefr-level%3EB1%3C%2Fcefr-level%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Frecommended-language-skill%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Csubject-area%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cisced-f-code%20v6-value%3D%22031%22%3E0314%3C%2Fisced-f-code%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cisced-clarification%3ESocial%20and%20behavioural%20sciences%3C%2Fisced-clarification%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fsubject-area%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Ctotal-months-per-year%3E5%3C%2Ftotal-months-per-year%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cblended%3Efalse%3C%2Fblended%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Ceqf-level%3E7%3C%2Feqf-level%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Ceqf-level%3E8%3C%2Feqf-level%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fstudent-studies-mobility-spec%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cstaff-teacher-mobility-spec%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Csending-hei-id%3Euw.edu.pl%3C%2Fsending-hei-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Csending-ounit-id%3E140%3C%2Fsending-ounit-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Creceiving-hei-id%3Ehibo.no%3C%2Freceiving-hei-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Creceiving-first-academic-year-id%3E2016%2F2017%3C%2Freceiving-first-academic-year-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Creceiving-last-academic-year-id%3E2017%2F2018%3C%2Freceiving-last-academic-year-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cmobilities-per-year%3E2%3C%2Fmobilities-per-year%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Crecommended-language-skill%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Clanguage%3Een%3C%2Flanguage%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Ccefr-level%3EC1%3C%2Fcefr-level%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Frecommended-language-skill%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Csubject-area%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cisced-f-code%3E0314%3C%2Fisced-f-code%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fsubject-area%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Ctotal-days-per-year%3E8%3C%2Ftotal-days-per-year%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fstaff-teacher-mobility-spec%3E%0A%20%20%20%20%20%20%20%20%3C%2Fcooperation-conditions%3E%0A%20%20%20%20%20%20%20%20%3Ciia-hash%3E87b33170d7a6c6d894215641f39e7b7de36501265479e5ab3922f32d5b225033%3C%2Fiia-hash%3E%0A%20%20%20%20%3C%2Fiia%3E%0A%3C%2Fiias-get-response%3E%0A
+33 same      POST /iiaHashValidator xml=%3Ciias-get-response%0A%20%20%20%20xmlns%3D%22https%3A%2F%2Fgithub.com%2Ferasmus-without-paper%2Fewp-specs-api-iias%2Fblob%2Fstable-v7%2Fendpoints%2Fget-response.xsd%22%0A%20%20%20%20xmlns%3Ac%3D%22https%3A%2F%2Fgithub.com%2Ferasmus-without-paper%2Fewp-specs-types-contact%2Ftree%2Fstable-v1%22%0A%20%20%20%20xmlns%3Ap%3D%22https%3A%2F%2Fgithub.com%2Ferasmus-without-paper%2Fewp-specs-types-phonenumber%2Ftree%2Fstable-v1%22%0A%20%20%20%20xmlns%3Axsi%3D%22http%3A%2F%2Fwww.w3.org%2F2001%2FXMLSchema-instance%22%0A%20%20%20%20xsi%3AschemaLocation%3D%22%0A%20%20%20%20%20%20%20%20https%3A%2F%2Fgithub.com%2Ferasmus-without-paper%2Fewp-specs-api-iias%2Fblob%2Fstable-v7%2Fendpoints%2Fget-response.xsd%0A%20%20%20%20%20%20%20%20https%3A%2F%2Fraw.githubusercontent.com%2Ferasmus-without-paper%2Fewp-specs-api-iias%2Fstable-v7%2Fendpoints%2Fget-response.xsd%0A%20%20%20%20%22%0A%3E%0A%20%20%20%20%3Ciia%3E%0A%20%20%20%20%20%20%20%20%3Cpartner%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Chei-id%3Euw.edu.pl%3C%2Fhei-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Ciia-id%3E0f7a5682-faf7-49a7-9cc7-ec486c49a281%3C%2Fiia-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Ciia-code%3E983%2FE%2B%2FIII14%26amp%3B15%3C%2Fiia-code%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Csigning-contact%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Acontact-name%3ESylwia%20Nowak%3C%2Fc%3Acontact-name%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Aperson-given-names%3ESylwia%3C%2Fc%3Aperson-given-names%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Aperson-family-name%3ENowak%3C%2Fc%3Aperson-family-name%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Aemail%3Eemail%40example.com%3C%2Fc%3Aemail%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fsigning-contact%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Acontact%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Acontact-name%3EJadwiga%20Kowalska%3C%2Fc%3Acontact-name%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Aperson-given-names%3EJadwiga%3C%2Fc%3Aperson-given-names%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Aperson-family-name%3EKowalska%3C%2Fc%3Aperson-family-name%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Aemail%3Eemail%40example.com%3C%2Fc%3Aemail%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fc%3Acontact%3E%0A%20%20%20%20%20%20%20%20%3C%2Fpartner%3E%0A%20%20%20%20%20%20%20%20%3Cpartner%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Chei-id%3Ehibo.no%3C%2Fhei-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Ciia-id%3E1954991%3C%2Fiia-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Ciia-code%3E2014%2FE%2B%2FPL%2F4104B%3C%2Fiia-code%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Csigning-contact%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Acontact-name%3EMonica%20Turner%3C%2Fc%3Acontact-name%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Aemail%3Eemail%40example.com%3C%2Fc%3Aemail%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fsigning-contact%3E%0A%20%20%20%20%20%20%20%20%3C%2Fpartner%3E%0A%20%20%20%20%20%20%20%20%3Cin-effect%3Etrue%3C%2Fin-effect%3E%0A%20%20%20%20%20%20%20%20%3Ccooperation-conditions%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cstudent-studies-mobility-spec%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Csending-hei-id%3Euw.edu.pl%3C%2Fsending-hei-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Csending-ounit-id%3E140%3C%2Fsending-ounit-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Csending-contact%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cc%3Acontact-name%3EXYZ%3C%2Fc%3Acontact-name%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cp%3Aphone-number%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cp%3Aother-format%3E123456789%3C%2Fp%3Aother-format%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fp%3Aphone-number%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fsending-contact%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Creceiving-hei-id%3Ehibo.no%3C%2Freceiving-hei-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Creceiving-first-academic-year-id%3E2014%2F2015%3C%2Freceiving-first-academic-year-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Creceiving-last-academic-year-id%3E2020%2F2021%3C%2Freceiving-last-academic-year-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cmobilities-per-year%20not-yet-defined%3D%22true%22%3E2%3C%2Fmobilities-per-year%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Crecommended-language-skill%20not-yet-defined%3D%22true%22%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Clanguage%3Een%3C%2Flanguage%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Ccefr-level%3EB1%3C%2Fcefr-level%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Frecommended-language-skill%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Csubject-area%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cisced-f-code%20v6-value%3D%22031%22%3E0314%3C%2Fisced-f-code%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cisced-clarification%3ESocial%20and%20behavioural%20sciences%3C%2Fisced-clarification%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fsubject-area%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Ctotal-months-per-year%3E5%3C%2Ftotal-months-per-year%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cblended%3Efalse%3C%2Fblended%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Ceqf-level%3E7%3C%2Feqf-level%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Ceqf-level%3E8%3C%2Feqf-level%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fstudent-studies-mobility-spec%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cstaff-teacher-mobility-spec%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Csending-hei-id%3Euw.edu.pl%3C%2Fsending-hei-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Csending-ounit-id%3E140%3C%2Fsending-ounit-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Creceiving-hei-id%3Ehibo.no%3C%2Freceiving-hei-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Creceiving-first-academic-year-id%3E2016%2F2017%3C%2Freceiving-first-academic-year-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Creceiving-last-academic-year-id%3E2017%2F2018%3C%2Freceiving-last-academic-year-id%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cmobilities-per-year%3E2%3C%2Fmobilities-per-year%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Crecommended-language-skill%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Clanguage%3Een%3C%2Flanguage%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Ccefr-level%3EC1%3C%2Fcefr-level%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Frecommended-language-skill%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Csubject-area%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cisced-f-code%3E0314%3C%2Fisced-f-code%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fsubject-area%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Ctotal-days-per-year%3E8%3C%2Ftotal-days-per-year%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fstaff-teacher-mobility-spec%3E%0A%20%20%20%20%20%20%20%20%3C%2Fcooperation-conditions%3E%0A%20%20%20%20%20%20%20%20%3Ciia-hash%3E87b33170d7a6c6d894215641f39e7b7de36501265479e5ab3922f32d5b225032%3C%2Fiia-hash%3E%0A%20%20%20%20%3C%2Fiia%3E%0A%3C%2Fiias-get-response%3E%0A
+34 same      POST /iiaHashValidator xml=%3Ciias-get-response%20xmlns%3D%22https%3A%2F%2Fgithub.com%2Ferasmus-without-paper%2Fewp-specs-api-iias%2Fblob%2Fstable-v7%2Fendpoints%2Fget-response.xsd%22%2F%3E
+35 same      POST /iiaHashValidator xml=%3Ciia%3Enot%20%26%20well-formed
+36 same      GET /nosuch
+37 same      GET /heiSearch
+38 same      GET /error
+tessera-migrate compare: 38 page(s): 27 same, 0 reordered, 11 differ

@@ -1,0 +1,43 @@
+01 same      GET /
+02 same      GET /owners/find
+03 same      GET /owners?lastName=
+04 same      GET /owners?lastName=Davis
+05 same      GET /owners?lastName=Franklin
+06 same      GET /owners?lastName=Nobody
+07 same      GET /owners/1
+08 same      GET /owners/3
+09 same      GET /owners/new
+10 same      POST /owners/new firstName=&lastName=&address=&city=&telephone=abc
+11 same      POST /owners/new firstName=Ann&lastName=O'Neil <b>&address=1 Main St&city=Madison&telephone=6085550000
+12 same      GET /owners/1/edit
+13 reordered POST /owners/1/edit firstName=George&lastName=Franklin&address=110 W. Liberty St.&city=Madison&telephone=
+--- recorded 13.html
++++ now
+@@ -84,9 +84,9 @@
+                 <input class="form-control" id="telephone" name="telephone" type="text">
+                 <span aria-hidden="true" class="form-control-feedback glyphicon glyphicon-remove">
+                 <span class="help-inline">
+-                  may not be empty
+-                  <br>
+                   numeric value out of bounds (&lt;10 digits&gt;.&lt;0 digits&gt; expected)
++                  <br>
++                  may not be empty
+           <div class="form-group">
+             <div class="col-sm-10 col-sm-offset-2">
+               <button class="btn btn-default" type="submit">
+14 same      POST /owners/1/edit firstName=George&lastName=Franklin&address=111 W. Liberty St.&city=Madison&telephone=6085551023
+15 same      GET /owners/1/pets/new
+16 same      POST /owners/1/pets/new name=&birthDate=&type=cat
+17 same      POST /owners/1/pets/new name=Leo&birthDate=2020-01-01&type=cat
+18 same      POST /owners/1/pets/new name=Fluffy&birthDate=2020-01-01&type=hamster
+19 same      GET /owners/1/pets/1/edit
+20 same      POST /owners/1/pets/1/edit id=1&name=&birthDate=&type=cat
+21 same      POST /owners/1/pets/1/edit id=1&name=Leo II&birthDate=2010-09-07&type=dog
+22 same      GET /owners/6/pets/7/visits/new
+23 same      POST /owners/6/pets/7/visits/new date=2024-01-01&description=
+24 same      POST /owners/6/pets/7/visits/new date=2024-01-01&description=Check <up>
+25 same      GET /owners/6
+26 same      GET /vets.html
+27 same      GET /oups
+28 same      GET /no-such-page
+tessera-migrate compare: 28 page(s): 27 same, 1 reordered, 0 differ
