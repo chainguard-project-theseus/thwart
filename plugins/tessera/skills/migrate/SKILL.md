@@ -61,7 +61,9 @@ before you start; look up the rest when you need it.
 
 The old application is the specification. Record it before you change anything, with a
 `pages.txt` that reaches every page in every state that renders differently. Set up the build, then
-convert shared layouts and fragments first, then pages, compiling and comparing as you go. Run
+convert shared layouts and fragments first, then pages, compiling and comparing as you go. Keep
+templates that share a layout or form fragments in one context: split across subagents, they
+drift apart. Run
 `compare` early and often: an empty value or a 500 almost always means a value the old template
 took from outside the model. Remove the old engine last: its templates, dependency and
 configuration. Until it is gone, it still renders every view Tessera doesn't know, with its own

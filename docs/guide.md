@@ -135,7 +135,8 @@ Pick the starter by servlet API and use exactly one; it brings only `tessera-run
   runtime JDK. JDK 8's javac has no `--release`: use `<source>`/`<target>` 1.8.
 - Maven runs javac only when Java sources change, so without `tessera-maven-plugin`'s `check`
   goal an edited template or message keeps its old generated class and the build stays green. It
-  reads `tessera.messages` from the property of that name, so set the property.
+  reads `tessera.messages` from the property of that name, so set the property. The plugin needs
+  Maven 3.6.3+; upgrade an older `mvnw` wrapper.
 - The `review` goal (run by `mvn package`) writes `target/tessera-review.txt`: every
   `@TemplateFunction` and every `SafeHtml.unchecked`/`TrustedUrl.unchecked` call, with its source
   line, for a security review. `-Dtessera.failOnUnchecked=true` fails the build on an `unchecked`
@@ -535,7 +536,8 @@ public final class NoticeFunctions {
 ```
 
 Its options are discoverable on the builder (`allowClasses`, `allowLinkTarget`, `allowDataImages`,
-...); it accepts only names from a closed set. Don't parse stored HTML in Java into records and
+...); it accepts only names from a closed set, `HtmlPolicy.ELEMENTS` and `HtmlPolicy.ATTRIBUTES`.
+Don't parse stored HTML in Java into records and
 rebuild it with a fragment that inserts itself: the compiler rejects it, because the page's
 structure would depend on data.
 
@@ -691,7 +693,8 @@ public record Address(String street) {}
   none; `*` is all errors and `global` the form object's own. `t:errorclass` appends a class when
   the field has errors. For other markup, loop over `fields.errors('email')`.
 - `fields.hasErrors(path)`, `fields.errors(path)` and `fields.value(path)` (the display value,
-  JSP `spring:bind`'s `status.value`, Thymeleaf's `*{{x}}`) take literal paths.
+  JSP `spring:bind`'s `status.value`, Thymeleaf's `*{{x}}`) take a literal path, a `Field`
+  parameter, or `*{...}` for an indexed path (`fields.hasErrors(*{items[itemStat.index].name})`).
 - Paths index lists and maps: `*{items[itemStat.index].name}`, `*{prices[e.key]}`. This replaces
   `__${...}__` preprocessing.
 - A field whose type isn't view-safe (a `MultipartFile`) can be bound where its value is never
