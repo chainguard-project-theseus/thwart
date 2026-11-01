@@ -202,13 +202,19 @@ class GuideExamplesTest {
         + "\\u007b\\u007balert(1)}}\",\"b\"]</script>"), plugin);
     assertTrue(plugin.contains("<span class=\"hint\" data-tip=\"0\">?</span>\n  <span class=\"hint\" data-tip=\"1\">?</span>"),
         plugin);
-    // Negative: the "before" templates of the recipes are build errors.
-    for (String before : List.of("<span t:data-bs-title=\"tip\">?</span>", "<button t:hx-vals=\"tip\">Add</button>",
-        "<div t:x-data=\"|{ name: '${tip}' }|\"></div>", "<a t:hx-get=\"@{/search(q=${tip})}\">s</a>")) {
+    // Negative: the "before" templates of the recipes are build errors, for the reason the recipes give.
+    String[][] befores = {
+        {"<span t:data-bs-title=\"tip\">?</span>", "framework-neutral"},
+        {"<button t:hx-vals=\"tip\">Add</button>", "framework-neutral"},
+        {"<div t:x-data=\"|{ name: '${tip}' }|\"></div>", "framework-neutral"},
+        {"<a t:hx-get=\"@{/search(q=${tip})}\">s</a>", "cannot have a query"}};
+    for (String[] before : befores) {
       Compilation c = Compilation.builder()
-          .template("before.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"String tip\">" + before + "</div>")
+          .template("before.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"String tip\">" + before[0] + "</div>")
           .compile();
-      assertTrue(!c.success() && String.join("\n", c.errors()).contains("before.html:1:"), before + "\n" + c.errors());
+      String errors = String.join("\n", c.errors());
+      assertTrue(!c.success() && errors.contains("before.html:1:") && errors.contains(before[1]),
+          before[0] + "\n" + errors);
     }
   }
 }

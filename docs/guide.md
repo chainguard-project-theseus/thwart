@@ -1963,7 +1963,8 @@ htmx `hx-on`, Knockout and Datastar. Their CSP builds (Alpine's `@alpinejs/csp`,
 precompiled templates) only read and call what the component exposes. Set
 `htmx.config.allowEval = false` too. The policy does not stop AngularJS in its CSP mode or
 _hyperscript, which interpret expressions without `eval`. `connect-src 'self'` keeps `fetch`, XHR,
-htmx requests and WebSockets on the page's own origin, so injected code can't send data elsewhere;
+htmx requests and WebSockets on the page's own origin, so injected code can't use them to send data
+elsewhere (navigation, images and form posts still can);
 list the other origins your scripts call. Before you turn the policy on, move inline handlers into scripts
 (`addEventListener`) and send the same policy as `Content-Security-Policy-Report-Only` for a while
 to find what it would block. The policy above covers scripts and connections; `style-src 'nonce-...'` would
