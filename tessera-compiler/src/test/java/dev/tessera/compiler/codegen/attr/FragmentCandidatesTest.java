@@ -260,6 +260,11 @@ class FragmentCandidatesTest {
 
   /** {@code slot} takes a {@code Wrap}, a record implementing Fragment; {@code outer} passes {@code arg} to it. */
   private static Compilation wrapped(String arg) {
+    return wrapped("", arg);
+  }
+
+  /** As {@link #wrapped(String)}, with {@code with} (a t:with, or empty) on a block around the call. */
+  private static Compilation wrapped(String with, String arg) {
     return Compilation.builder()
         .java("com.example.Wrap", WRAP)
         .java("com.example.Fx", WRAP_FUNCTION)
@@ -267,7 +272,8 @@ class FragmentCandidatesTest {
             "f.html",
             "<div " + NS + " t:import=\"com.example.*\">\n<div t:fragment=\"slot(Wrap body)\"><form"
                 + " action=\"https://other.example/search\"><input name=\"q\"/><t:block t:insert=\"${body}\"/></form></div>"
-                + "<div t:fragment=\"outer(Fragment b, Wrap w)\"><t:block t:replace=\"~{f :: slot(" + arg + ")}\"></t:block></div></div>")
+                + "<div t:fragment=\"outer(Fragment b, Wrap w)\"><t:block" + with + "><t:block t:replace=\"~{f :: slot(" + arg
+                + ")}\"></t:block></t:block></div></div>")
         .template(
             "page.html",
             "<div " + NS + " t:import=\"com.example.*\" t:params=\"Wrap w\">\n<t:block t:replace=\"~{f :: outer(~{::form}, ${w})}\">"
@@ -287,6 +293,25 @@ class FragmentCandidatesTest {
       c.assertError("f.html:2:", "argument 1 ('body') of fragment f :: slot", UNTRACED);
       assertNull(c.generatedSource("tessera.generated.FTemplate"), arg);
     }
+  }
+
+  /** Fail closed at the alias: a t:with of a Wrap laundered through {@code wrap(Object)}. */
+  @Test
+  void fragmentSubtypeAliasThroughAFunctionIsABuildError() {
+    Compilation c = wrapped(" t:with=\"x=${#fx.wrap(b)}\"", "${x}");
+    c.assertError("f.html:2:", "t:with value 'x'", UNTRACED);
+    assertNull(c.generatedSource("tessera.generated.FTemplate"));
+  }
+
+  /** Positive control: a t:with alias of a Wrap parameter is traced to it, passed on and rendered. */
+  @Test
+  void fragmentSubtypeAliasPassedOnRenders() {
+    Compilation c = wrapped(" t:with=\"x=${w}\"", "${x}").assertSuccess();
+    dev.tessera.runtime.Fragment p = (ctx, out) -> out.write("<i>p</i>");
+    assertEquals(
+        "<div>\n<div><div><form action=\"https://other.example/search\"><input name=\"q\"/><i>p</i>"
+            + "</form></div></div><form method=\"post\"><button>Go</button></form></div>",
+        c.render("page", Map.of("w", c.newInstance("com.example.Wrap", p))));
   }
 
   /** Positive control: a Wrap parameter passed on (built in Java, #581), or null, compiles and renders. */
