@@ -515,7 +515,10 @@ class XssContextTest {
     assertEquals("<div><section></section></div>", c.render("page", Compilation.model("s", null)));
   }
 
-  /** {@code html.sanitizeRich} keeps tables, same-origin images, language-* classes and prefixed ids, and nothing executable (#262). */
+  /**
+   * {@code html.sanitizeRich} keeps same-origin images, language-* classes and prefixed ids, unwraps
+   * tables (#592), and keeps nothing executable (#262).
+   */
   @Test
   void htmlSanitizeRichFeedsRawOutput() {
     Compilation c =
