@@ -30,8 +30,7 @@ import org.w3c.dom.Node;
  *
  * <ol>
  *   <li>from the render's bytes after each marker ({@link Fingerprint#classify} as written). This
- *       tells an escaped value from an unescaped one and {@code json} from {@code jsonAttr}, which
- *       look the same once parsed;
+ *       tells an escaped value from an unescaped one;
  *   <li>from the parsed tree, for every parser and scripting flag: each marker occurrence is
  *       located (element text of an HTML, raw-text, RCDATA or foreign element; an attribute value; a
  *       comment; a name) and the text from the marker on is classified as the parser left it
@@ -50,8 +49,7 @@ import org.w3c.dom.Node;
  *       {@code title}/{@code textarea}; ATTRIBUTE, URL and RESOURCE_URL in a
  *       {@linkplain #plainAttribute plain attribute}; REFRESH in the {@code content} of a
  *       {@code <meta http-equiv="refresh">}; SCRIPT in a JavaScript {@code script} of the HTML or SVG
- *       namespace, or a JSON data block; SCRIPT_ATTRIBUTE in a {@code :x}/{@code v-bind:x}/
- *       {@code x-bind:x} binding whose target is a plain, non-URL attribute;
+ *       namespace, or a JSON data block;
  *   <li>the marker is in a comment or a name, or is in the render but nowhere in the tree.
  * </ul>
  *
@@ -327,7 +325,6 @@ public final class ContextCheck {
       case SCRIPT -> loc.element().equals("script")
           && (loc.place() == Place.RAW_TEXT || (loc.place() == Place.FOREIGN_TEXT && svg))
           && isJavaScriptOrJson(loc.node());
-      case SCRIPT_ATTRIBUTE -> loc.place() == Place.ATTRIBUTE && binding(loc.node(), loc.attribute());
       default -> false;
     };
   }
@@ -419,37 +416,6 @@ public final class ContextCheck {
         && "meta".equals(element.getLocalName() == null ? element.getTagName() : element.getLocalName())
         && attribute.equalsIgnoreCase("content")
         && element.getAttribute("http-equiv").strip().equalsIgnoreCase("refresh");
-  }
-
-  /**
-   * Attributes a JSON binding must not target although they are plain: the WHATWG attributes whose
-   * value is a URL (current and obsolete), and DOM properties that a framework would set instead
-   * of the attribute and that take markup or URL parts ({@code HTMLHyperlinkElementUtils}).
-   */
-  private static final Set<String> NOT_BIND_TARGETS =
-      Set.of("action", "archive", "background", "cite", "classid", "codebase", "data", "formaction",
-          "href", "icon", "imagesrcset", "itemtype", "longdesc", "lowsrc", "manifest", "ping", "poster", "profile",
-          "src", "srcset", "usemap", "xlink:href", "is", "innerhtml", "outerhtml", "protocol",
-          "host", "hostname", "port", "pathname", "search", "hash", "username", "password");
-
-  private static final Pattern BIND_TARGET = Pattern.compile("[a-z_][a-z0-9_-]*");
-
-  /**
-   * A Vue/Alpine bind attribute ({@code :x}, {@code v-bind:x}, {@code x-bind:x}), whose value is
-   * evaluated as a JavaScript expression and set as attribute {@code x}: correct for JSON only if
-   * {@code x} is a plain name (no modifier or dynamic argument) of a plain, non-URL attribute.
-   */
-  private static boolean binding(Element element, String attribute) {
-    String a = attribute.toLowerCase(Locale.ROOT);
-    for (String prefix : List.of(":", "v-bind:", "x-bind:")) {
-      if (a.startsWith(prefix)) {
-        String target = a.substring(prefix.length());
-        return BIND_TARGET.matcher(target).matches()
-            && plainAttribute(element, target)
-            && !NOT_BIND_TARGETS.contains(target);
-      }
-    }
-    return false;
   }
 
   /**

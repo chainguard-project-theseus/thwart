@@ -63,8 +63,7 @@ public final class Skeleton {
     RESOURCE_URL("resourceUrl"),
     REFRESH("refresh"),
     JSON("json"),
-    JAVASCRIPT("javaScript"),
-    JSON_ATTR("jsonAttr");
+    JAVASCRIPT("javaScript");
 
     private final String method;
 

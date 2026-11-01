@@ -345,19 +345,6 @@ public final class Escapers {
   }
 
   /**
-   * Value of a Vue/Alpine bind attribute such as {@code :prop} or {@code x-bind:prop}
-   * (OutputContext.SCRIPT_ATTRIBUTE, #246), which the framework evaluates as a JavaScript
-   * expression: serialized exactly as {@link #json} (so a string is always a JSON string literal,
-   * and {@code null} is {@code null}), then attribute-encoded as {@link #attr}. The value is fully
-   * serialized before anything is written, so a failure writes nothing.
-   */
-  public static void jsonAttr(Output out, Object value) {
-    StringBuilder sb = new StringBuilder();
-    writeJson(sb, value, 0);
-    escapeHtml(out, sb.toString());
-  }
-
-  /**
    * Appends script-safe JSON to a private serialization buffer at the supplied nesting depth.
    * Used by generated bean serializers to share this escaper without intermediate object graphs.
    * A failure may leave partial JSON in {@code buffer}; callers must discard it on failure and
