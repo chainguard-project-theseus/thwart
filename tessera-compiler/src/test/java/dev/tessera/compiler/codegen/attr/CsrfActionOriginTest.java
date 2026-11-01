@@ -104,7 +104,6 @@ class CsrfActionOriginTest {
         "t:attr=\"action=u\"",
         "t:attr=\"title=u, ACTION=u\"",
         "t:action=\"t\"",
-        "t:action=\"u != null ? @{/a} : @{/b}\"",
         "t:action=\"@{https://evil.example/x}\"",
         "t:action=\"@{//evil.example/x}\"",
         "t:action=\"@{/\\evil.example/x}\"",
@@ -139,6 +138,116 @@ class CsrfActionOriginTest {
         .compile();
     abs.assertError("form.html:2:", "t:action is not allowed: the action of a POST form, which gets the CSRF token,"
         + " must be a same-origin path starting with a single '/', not @{https://www.example.com/owners}");
+  }
+
+  private static final String CHOICE_PARAMS = "boolean admin, boolean b, int id";
+
+  /**
+   * A choice whose every branch is a same-origin link (#635) gets the token; each branch renders
+   * through the same render-time re-check as a lone link.
+   */
+  @Test
+  void choiceOfSameOriginLinksGetsToken() {
+    Compilation c = compile(CHOICE_PARAMS,
+        "method=\"post\" t:action=\"admin ? @{/admin/submission/edit(id=${id})} : @{/cfp(sourcePage='')}\"");
+    Map<String, Object> model = new HashMap<>(Map.of("admin", true, "b", false, "id", 7));
+    assertEquals("<div><form method=\"post\" action=\"/admin/submission/edit?id=7\">" + INPUT + "x</form></div>",
+        render(c, model));
+    model.put("admin", false);
+    assertEquals("<div><form method=\"post\" action=\"/cfp?sourcePage=\">" + INPUT + "x</form></div>",
+        render(c, model));
+    Compilation attr = compile(CHOICE_PARAMS, "method=\"post\" t:attr=\"action=${admin} ? @{/a} : @{/b/{id}(id=${id})}\"");
+    assertEquals("<div><form method=\"post\" action=\"/b/7\">" + INPUT + "x</form></div>", render(attr, model));
+  }
+
+  /** A nested choice, and a choice without an else branch (no action: the page's own URL). */
+  @Test
+  void nestedChoiceAndMissingElseGetToken() {
+    Compilation c = compile(CHOICE_PARAMS, "method=\"post\" t:action=\"admin ? @{/a} : (b ? @{/b} : @{/c})\"");
+    for (Object[] row : new Object[][] {{true, false, "/a"}, {false, true, "/b"}, {false, false, "/c"}}) {
+      Map<String, Object> model = Map.of("admin", row[0], "b", row[1], "id", 1);
+      assertEquals("<div><form method=\"post\" action=\"" + row[2] + "\">" + INPUT + "x</form></div>",
+          render(c, model));
+    }
+    Compilation noElse = compile(CHOICE_PARAMS, "method=\"post\" t:action=\"admin ? @{/a}\"");
+    assertEquals("<div><form method=\"post\" action=\"/a\">" + INPUT + "x</form></div>",
+        render(noElse, Map.of("admin", true, "b", true, "id", 1)));
+    assertEquals("<div><form method=\"post\">" + INPUT + "x</form></div>",
+        render(noElse, Map.of("admin", false, "b", true, "id", 1)));
+  }
+
+  /**
+   * Negative: a choice with any branch that is not a same-origin link stays a build error with the
+   * existing message (#635): a String in either branch, a literal, a concatenation, a TrustedUrl, a
+   * cross-origin or relative link, also nested, and an elvis.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "t:action=\"b ? ${s} : @{/a}\"",
+        "t:action=\"b ? @{/a} : ${s}\"",
+        "t:action=\"b ? s : @{/a}\"",
+        "t:action=\"b ? @{/a} : s\"",
+        "t:action=\"b ? ${s}\"",
+        "t:attr=\"action=${b} ? @{/a} : ${s}\"",
+        "t:action=\"b ? @{/a} : '/b'\"",
+        "t:action=\"b ? '/a' : @{/b}\"",
+        "t:action=\"b ? @{/a} : '/b/' + ${s}\"",
+        "t:action=\"b ? @{/a} : @{/b} + ${s}\"",
+        "t:action=\"b ? @{/a} : |/b/${s}|\"",
+        "t:action=\"b ? @{/a} : ${t}\"",
+        "t:action=\"b ? @{/a} : @{//evil.example/x}\"",
+        "t:action=\"b ? @{https://evil.example/x} : @{/a}\"",
+        "t:action=\"b ? @{/a} : @{/\\\\evil.example/x}\"",
+        "t:action=\"b ? @{/a} : @{x}\"",
+        "t:action=\"b ? @{/a} : (b ? @{/b} : ${s})\"",
+        "t:action=\"b ? (b ? ${s} : @{/b}) : @{/a}\"",
+        "t:action=\"b ? @{/a} : (b ? @{/b} : @{//evil.example/x})\"",
+        "t:action=\"${s} ?: @{/a}\"",
+        "t:action=\"@{/a} ?: ${s}\"",
+        "t:action=\"(b ? @{/a} : @{/b}) + ${s}\"",
+      })
+  void choiceWithAnyUnprovenBranchFails(String attr) {
+    Compilation c =
+        Compilation.builder()
+            .template(
+                "form.html",
+                "<div xmlns:t=\"https://tessera.dev\" t:import=\"dev.tessera.runtime.TrustedUrl\""
+                    + " t:params=\"boolean b, String s, TrustedUrl t\"><form method=\"post\" " + attr + ">x</form></div>")
+            .compile();
+    c.assertError("form.html:1:", "is not allowed", "the CSRF token");
+    assertNull(c.generatedSource("tessera.generated.FormTemplate"), "nothing may be generated");
+  }
+
+  /** Negative: a branch with a computed link path is a parse error, as a lone one is. */
+  @Test
+  void choiceWithComputedLinkPathFails() {
+    Compilation c =
+        Compilation.builder()
+            .template(
+                "form.html",
+                "<div xmlns:t=\"https://tessera.dev\" t:params=\"boolean b, String s\">"
+                    + "<form method=\"post\" t:action=\"b ? @{/a} : @{${s}}\">x</form></div>")
+            .compile();
+    c.assertError("form.html:1:", "dynamic link paths");
+    assertNull(c.generatedSource("tessera.generated.FormTemplate"), "nothing may be generated");
+  }
+
+  /** The error for a String branch names that branch, then or else, with the existing message. */
+  @Test
+  void choiceErrorNamesTheBranch() {
+    String message = "t:action is not allowed: a POST form gets the CSRF token, which then goes to its action; use a"
+        + " same-origin link such as @{/items/{id}(id=${item.id})}; omit the action to post to the page's own URL,"
+        + " or write a static action=\"https://...\" if another site is meant (it gets no token)";
+    String head = "<div xmlns:t=\"https://tessera.dev\" t:params=\"boolean b, String s\">\n";
+    Compilation then = Compilation.builder()
+        .template("form.html", head + "<form method=\"post\" t:action=\"b ? ${s} : @{/a}\">x</form></div>")
+        .compile();
+    then.assertError("form.html:2:", message);
+    Compilation otherwise = Compilation.builder()
+        .template("form.html", head + "<form method=\"post\" t:action=\"b ? @{/a} : ${s}\">x</form></div>")
+        .compile();
+    otherwise.assertError("form.html:2:", message);
   }
 
   /** A static GET form never gets a token, whatever its action (unchanged). */

@@ -29,7 +29,10 @@ class FormActionTest {
 
   private static final String NOT_A_LINK = "a form's computed action must stay on the page's origin";
 
-  /** Negative: a String, a concatenation or a choice is a build error, boosted or not, by any route. */
+  /**
+   * Negative: a String, a concatenation, an elvis or a choice with a String branch is a build error,
+   * boosted or not, by any route.
+   */
   @Test
   void stringActionIsABuildError() {
     String[] bodies = {
@@ -40,6 +43,8 @@ class FormActionTest {
       "<form t:action=\"'/x'\"></form>",
       "<form t:action=\"@{/x} + s\"></form>",
       "<form t:action=\"${s} ?: @{/x}\"></form>",
+      "<form t:action=\"b ? @{/x} : s\"></form>",
+      "<form t:action=\"b ? s : @{/x}\"></form>",
       "<form t:fragment=\"f(String url)\" t:action=\"url\"></form>",
       "<main hx-boost=\"true\"><form t:action=\"s\"></form></main>",
       "<main data-hx-boost=\"true\"><div hx-boost=\"false\"><form t:action=\"s\"></form></div></main>",
@@ -77,6 +82,9 @@ class FormActionTest {
             .assertSuccess();
     assertEquals("<div><form action=\"/owners/%2F%2Fevil.example%3F\"></form>"
         + "<form action=\"/find?q=//evil.example%3F\"></form></div>", render(c, "//evil.example?"));
+    // A choice between same-origin links (#635).
+    Compilation choice = compile("<form t:action=\"b ? @{/y/{id}(id=${s})} : @{/x}\"></form>").assertSuccess();
+    assertEquals("<div><form action=\"/y/a\"></form></div>", render(choice, "a"));
   }
 
   /** Positive: a TrustedUrl built in Java goes as is, also to another site and under a boost. */
