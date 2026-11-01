@@ -110,25 +110,57 @@ class InertAttributesTest {
   }
 
   /**
-   * A meta's content is inert text only as named metadata: a static name other than referrer or
-   * viewport, and no http-equiv.
+   * A meta's content is inert text only as named metadata (#590): a static name on the allow-list
+   * (description, keywords, author, application-name, generator, color-scheme, theme-color), and no
+   * http-equiv, property or itemprop. Any other meta content takes literals only.
    */
   @Test
   void metaContentIsInertOnlyAsNamedMetadata() {
     assertEquals(
-        "<meta name=\"description\" content=\"&quot;\"><meta name=\"author\" property=\"x\" content=\"&quot;\">",
-        render("<meta name=\"description\" t:content=\"s\"><meta name=\"author\" property=\"x\" t:content=\"s\">",
-            "s", "\""));
+        "<meta name=\"description\" content=\"&quot;\"><meta NAME=\" Author \" content=\"&quot;\">",
+        render("<meta name=\"description\" t:content=\"s\"><meta NAME=\" Author \" t:content=\"s\">", "s", "\""));
+    assertEquals(
+        "<meta name=\"application-name\" content=\"a\"><meta name=\"generator\" content=\"a\">"
+            + "<meta name=\"color-scheme\" content=\"a\"><meta name=\"theme-color\" content=\"a\">",
+        render("<meta name=\"application-name\" t:content=\"s\"><meta name=\"generator\" t:content=\"s\">"
+            + "<meta name=\"color-scheme\" t:content=\"s\"><meta name=\"theme-color\" t:content=\"s\">", "s", "a"));
     assertEquals(
         "<meta name=\"referrer\" content=\"origin\"><meta name=\"viewport\" content=\"width=device-width\">",
         render("<meta name=\"referrer\" t:content=\"b ? 'no-referrer' : 'origin'\">"
             + "<meta name=\"viewport\" t:content=\"'width=device-width'\">"));
     assertEquals("<meta name=\"keywords\" content=\"a\">",
         render("<meta name=\"keywords\" t:attr=\"content=${s}\">", "s", "a"));
+    // Names off the allow-list, and Open Graph, still take literals.
+    assertEquals(
+        "<meta name=\"apple-itunes-app\" content=\"app-id=1\"><meta property=\"og:title\" content=\"T\">",
+        render("<meta name=\"apple-itunes-app\" t:content=\"'app-id=1'\"><meta property=\"og:title\" t:content=\"'T'\">"));
   }
 
   @ParameterizedTest
   @ValueSource(strings = {
+    // #590: names a browser, OS or crawler acts on, and unknown names, are not on the allow-list.
+    "<meta name=\"apple-itunes-app\" t:content=\"s\">",
+    "<meta name=\"google-site-verification\" t:content=\"s\">",
+    "<meta name=\"msapplication-config\" t:content=\"s\">",
+    "<meta name=\"msapplication-TileImage\" t:content=\"s\">",
+    "<meta name=\"og:image\" t:content=\"s\">",
+    "<meta name=\"twitter:title\" t:content=\"s\">",
+    "<meta name=\"refresh\" t:content=\"s\">",
+    "<meta name=\"robots\" t:content=\"s\">",
+    "<meta name=\"q\" t:content=\"s\">",
+    "<meta name=\"\" t:content=\"s\">",
+    "<meta name=\"apple-itunes-app\" t:attr=\"content=${s}\">",
+    "<meta name=\"description\" name=\"apple-itunes-app\" t:content=\"s\">",
+    // A computed name, with or without a static one.
+    "<meta t:name=\"'description'\" t:content=\"s\">",
+    "<meta t:attr=\"name='description', content=${s}\">",
+    // property and itemprop are read by crawlers (og:url, al:ios:url) whatever the name says.
+    "<meta property=\"og:title\" name=\"description\" t:content=\"s\">",
+    "<meta name=\"description\" property=\"al:ios:url\" t:content=\"s\">",
+    "<meta name=\"description\" itemprop=\"url\" t:content=\"s\">",
+    "<meta name=\"description\" t:property=\"s\" t:content=\"s\">",
+    "<meta name=\"description\" t:attr=\"itemprop=${s}\" t:content=\"s\">",
+    "<meta name=\"twitter:image\" property=\"og:image\" t:content=\"s\">",
     "<meta name=\"referrer\" t:content=\"s\">",
     "<meta NAME=\" Viewport \" t:content=\"s\">",
     // htmx merges it into htmx.config: {"selfRequestsOnly":false,"allowEval":true}
