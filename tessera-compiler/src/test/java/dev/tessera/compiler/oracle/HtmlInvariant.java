@@ -334,6 +334,18 @@ public final class HtmlInvariant {
     return null;
   }
 
+  /** As {@link #benignAttribute}, with names folded A-Z only, as browsers fold them. */
+  private static String benignAttributeAscii(Element e, String name) {
+    NamedNodeMap attrs = e.getAttributes();
+    for (int i = 0; i < attrs.getLength(); i++) {
+      Attr a = (Attr) attrs.item(i);
+      if (HostileSinks.asciiLower(attrName(a)).equals(name)) {
+        return a.getValue();
+      }
+    }
+    return null;
+  }
+
   private static List<Element> elements(Node root) {
     List<Element> out = new ArrayList<>();
     collect(root, out);
@@ -474,9 +486,12 @@ public final class HtmlInvariant {
           }
           // A name outside HTML (#583 rule 3, #611): client code may send a request to what it reads
           // there, whichever library reads it, so a slot's value must be framework-neutral, the one
-          // shape the oracle takes as same-origin. The raw name: browsers fold A-Z only. Any other
-          // change to a static value is STRUCTURE_CHANGED.
-          if (hasMarker(slot) && ContextCheck.outsideHtml(attrName(a)) && !HostileSinks.neutral(a.getValue())) {
+          // shape the oracle takes as same-origin. The raw name, for the slot too: browsers fold A-Z
+          // only, so KELVIN SIGN Kind is not kind (Locale.ROOT would fold it and find kind's value).
+          // Any other change to a static value is STRUCTURE_CHANGED.
+          String raw = HostileSinks.asciiLower(attrName(a));
+          String rawSlot = be == null ? null : benignAttributeAscii(be, raw);
+          if (hasMarker(rawSlot) && ContextCheck.outsideHtml(attrName(a)) && !HostileSinks.neutral(a.getValue())) {
             add(Finding.Kind.CROSS_ORIGIN_RESOURCE, at);
           }
         }

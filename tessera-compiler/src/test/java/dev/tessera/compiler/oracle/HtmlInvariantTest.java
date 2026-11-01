@@ -261,6 +261,9 @@ class HtmlInvariantTest {
       "<my-el src-url=\"/x/tqm0001\"></my-el>|<my-el src-url=\"\\\\evil.example/x\"></my-el>",
       // A look-alike of a standard name (KELVIN SIGN in \"kind\"): browsers fold A-Z only.
       "<track Kind=\"/x/tqm0001\">|<track Kind=\"//evil.example/x\">",
+      // Beside the standard kind, in either order: its slot is its own, not kind's.
+      "<track kind=\"subtitles\" Kind=\"/x/tqm0001\">|<track kind=\"subtitles\" Kind=\"//evil.example/x\">",
+      "<track Kind=\"/x/tqm0001\" kind=\"subtitles\">|<track Kind=\"//evil.example/x\" kind=\"subtitles\">",
       // Neutral paths only: no query, no fragment, no '--' (#583's write primitive).
       "<div hx-get=\"/x/tqm0001\">x</div>|<div hx-get=\"/x/?q=1\">x</div>",
       "<div hx-get=\"/x/tqm0001\">x</div>|<div hx-get=\"/a/-location.port--\">x</div>",
@@ -287,7 +290,9 @@ class HtmlInvariantTest {
       "<div data-b=\"tqm0001\">x</div>|<div data-b=\"false\">x</div>",
       // A standard name is not held to the shape: its own sinks are checked above.
       "<div title=\"tqm0001\">x</div>|<div title=\"//evil.example/x\">x</div>",
-      "<track kind=\"tqm0001\">|<track kind=\"//evil.example/x\">"})
+      "<track kind=\"tqm0001\">|<track kind=\"//evil.example/x\">",
+      // The slot is the standard kind; the look-alike beside it is static and unchanged.
+      "<track kind=\"tqm0001\" Kind=\"/a\">|<track kind=\"//evil.example/x\" Kind=\"/a\">"})
   void neutralValueOutsideHtmlIsClean(String benign, String hostile) {
     assertClean(benign, hostile);
   }
