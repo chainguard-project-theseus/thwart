@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.testing.Compilation;
+import dev.tessera.compiler.testing.TestFragments;
 import dev.tessera.runtime.Fragment;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +39,7 @@ class FragmentsTest {
   }
 
   private static Fragment text(String s) {
-    return (ctx, out) -> out.write(s);
+    return TestFragments.markup(s);
   }
 
   @Test

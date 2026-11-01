@@ -3,6 +3,7 @@ package dev.tessera.compiler.codegen;
 import static dev.tessera.compiler.JavaStrings.literal;
 import static dev.tessera.compiler.codegen.TemplateGenerator.javaName;
 
+import dev.tessera.compiler.codegen.attr.FragmentMethods;
 import dev.tessera.compiler.html.HtmlParser;
 import java.util.ArrayList;
 import java.util.List;
@@ -68,6 +69,8 @@ final class TemplateClassSource {
     } else {
       sb.append("    render(").append(nameList).append(", ctx, out);\n  }\n\n");
       sb.append("  public static void render(").append(declList).append(", ").append(io).append(") {\n");
+      // A Fragment page parameter comes from Java: only a Fragment.of (#581).
+      sb.append(FragmentMethods.requireVerified(info.viewName(), info.params()));
       sb.append(body).append("  }\n");
     }
     for (String m : members) {

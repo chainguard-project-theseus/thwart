@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.testing.Compilation;
+import dev.tessera.compiler.testing.TestFragments;
 import dev.tessera.runtime.DefaultLinks;
 import dev.tessera.runtime.Forms;
 import dev.tessera.runtime.Messages;
@@ -226,7 +227,7 @@ class SkeletonTest {
                 "h", SafeHtml.unchecked("<b>B</b>"),
                 "item", c.newInstance("com.example.Item", "</script>", 3),
                 "s", "x'y",
-                "f", (dev.tessera.runtime.Fragment) (cx, o) -> o.write("<hr>")));
+                "f", TestFragments.markup("<hr>")));
     assertEquals(
         "<div><div><b>B</b></div><b>B</b><div><hr></div><script>var a = ({\"name\":\"\\u003c\\/script\\u003e\",\"n\":3});"
             + " var b = (\"x\\u0027y\");</script></div>",

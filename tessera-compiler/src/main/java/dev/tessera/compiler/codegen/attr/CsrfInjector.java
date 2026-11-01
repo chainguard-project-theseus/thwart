@@ -38,8 +38,9 @@ import java.util.regex.Pattern;
  *       one is a same-origin link already ({@code GenericAttrProcessor}).
  *   <li>A nested {@code <form>} is a verifier {@code PARSE_ERROR}, also through fragments and every
  *       {@code Fragment} value a template builds: each is checked where it lands ({@code
- *       FragmentCandidates}, #561). A {@code Fragment} built in Java is trusted to be flow content
- *       (TODO(#581)). {@code <form/>} is an error here.
+ *       FragmentCandidates}, #561). A {@code Fragment} built in Java is a {@code Fragment.of} of a
+ *       verified flow partial, which has no form; generated code refuses any other (#581).
+ *       {@code <form/>} is an error here.
  * </ul>
  *
  * <p>A form that writes its own token input (#225) keeps it and gets no second one: a direct child

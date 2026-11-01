@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import dev.tessera.compiler.testing.Compilation;
+import dev.tessera.compiler.testing.TestFragments;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -238,96 +239,6 @@ class FragmentCandidatesTest {
         c.render("page", Map.of("v", c.newInstance("com.example.Fv"))));
   }
 
-  private static final String WRAP =
-      """
-      package com.example;
-      import dev.tessera.runtime.*;
-      public record Wrap(Object o) implements Fragment {
-        public void render(RenderContext ctx, Output out) { ((Fragment) o).render(ctx, out); }
-      }
-      """;
-
-  private static final String WRAP_FUNCTION =
-      """
-      package com.example;
-      import dev.tessera.runtime.*;
-      @TemplateFunctions("fx")
-      public final class Fx {
-        private Fx() {}
-        @TemplateFunction public static Wrap wrap(Object o) { return new Wrap(o); }
-      }
-      """;
-
-  /** {@code slot} takes a {@code Wrap}, a record implementing Fragment; {@code outer} passes {@code arg} to it. */
-  private static Compilation wrapped(String arg) {
-    return wrapped("", arg);
-  }
-
-  /** As {@link #wrapped(String)}, with {@code with} (a t:with, or empty) on a block around the call. */
-  private static Compilation wrapped(String with, String arg) {
-    return Compilation.builder()
-        .java("com.example.Wrap", WRAP)
-        .java("com.example.Fx", WRAP_FUNCTION)
-        .template(
-            "f.html",
-            "<div " + NS + " t:import=\"com.example.*\">\n<div t:fragment=\"slot(Wrap body)\"><form"
-                + " action=\"https://other.example/search\"><input name=\"q\"/><t:block t:insert=\"${body}\"/></form></div>"
-                + "<div t:fragment=\"outer(Fragment b, Wrap w)\"><t:block" + with + "><t:block t:replace=\"~{f :: slot(" + arg
-                + ")}\"></t:block></t:block></div></div>")
-        .template(
-            "page.html",
-            "<div " + NS + " t:import=\"com.example.*\" t:params=\"Wrap w\">\n<t:block t:replace=\"~{f :: outer(~{::form}, ${w})}\">"
-                + "</t:block><form method=\"post\"><button>Go</button></form></div>")
-        .compile();
-  }
-
-  /**
-   * A parameter whose type is a subtype of Fragment (a record implementing it) is bound to its
-   * candidates like a Fragment one: a template-built Fragment can't be laundered into it through
-   * {@code wrap(Object)} and then inserted unchecked.
-   */
-  @Test
-  void fragmentSubtypeParameterThroughAFunctionIsABuildError() {
-    for (String arg : List.of("${#fx.wrap(b)}", "${w ?: #fx.wrap(b)}")) {
-      Compilation c = wrapped(arg);
-      c.assertError("f.html:2:", "argument 1 ('body') of fragment f :: slot", UNTRACED);
-      assertNull(c.generatedSource("tessera.generated.FTemplate"), arg);
-    }
-  }
-
-  /** Fail closed at the alias: a t:with of a Wrap laundered through {@code wrap(Object)}. */
-  @Test
-  void fragmentSubtypeAliasThroughAFunctionIsABuildError() {
-    Compilation c = wrapped(" t:with=\"x=${#fx.wrap(b)}\"", "${x}");
-    c.assertError("f.html:2:", "t:with value 'x'", UNTRACED);
-    assertNull(c.generatedSource("tessera.generated.FTemplate"));
-  }
-
-  /** Positive control: a t:with alias of a Wrap parameter is traced to it, passed on and rendered. */
-  @Test
-  void fragmentSubtypeAliasPassedOnRenders() {
-    Compilation c = wrapped(" t:with=\"x=${w}\"", "${x}").assertSuccess();
-    dev.tessera.runtime.Fragment p = (ctx, out) -> out.write("<i>p</i>");
-    assertEquals(
-        "<div>\n<div><div><form action=\"https://other.example/search\"><input name=\"q\"/><i>p</i>"
-            + "</form></div></div><form method=\"post\"><button>Go</button></form></div>",
-        c.render("page", Map.of("w", c.newInstance("com.example.Wrap", p))));
-  }
-
-  /** Positive control: a Wrap parameter passed on (built in Java, #581), or null, compiles and renders. */
-  @Test
-  void fragmentSubtypeParameterPassedOnRenders() {
-    for (String arg : List.of("${w}", "${w ?: null}", "null")) {
-      Compilation c = wrapped(arg).assertSuccess();
-      dev.tessera.runtime.Fragment p = (ctx, out) -> out.write("<i>p</i>");
-      String inserted = arg.equals("null") ? "" : "<i>p</i>";
-      assertEquals(
-          "<div>\n<div><div><form action=\"https://other.example/search\"><input name=\"q\"/>" + inserted
-              + "</form></div></div><form method=\"post\"><button>Go</button></form></div>",
-          c.render("page", Map.of("w", c.newInstance("com.example.Wrap", p))), arg);
-    }
-  }
-
   private static final String HOLDER = "package com.example; public record Holder(dev.tessera.runtime.Fragment body) {}";
 
   /** Fail closed: a Fragment the compiler can't trace to its candidates, inserted or passed on. */
@@ -367,7 +278,7 @@ class FragmentCandidatesTest {
             + "<t:block t:replace=\"~{f :: slot(${p}, true)}\"></t:block></div>")
         .compile()
         .assertSuccess();
-    dev.tessera.runtime.Fragment p = (ctx, out) -> out.write("<i>p</i>");
+    dev.tessera.runtime.Fragment p = TestFragments.markup("<i>p</i>");
     assertEquals(
         "<div>\n<i>p</i><div><form action=\"https://other.example/search\"><input name=\"q\"/><i>p</i></form></div></div>",
         c.render("page", Map.of("p", p, "flag", true)));
