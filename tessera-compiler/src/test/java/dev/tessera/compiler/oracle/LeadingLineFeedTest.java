@@ -4,7 +4,7 @@ import static dev.tessera.compiler.testing.Compilation.model;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import dev.tessera.compiler.testing.Compilation;
-import dev.tessera.runtime.Fragment;
+import dev.tessera.compiler.testing.TestFragments;
 import dev.tessera.runtime.SafeHtml;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -94,7 +94,7 @@ class LeadingLineFeedTest {
             + " t:params=\"Fragment f, SafeHtml h\"><pre t:insert=\"${f}\">p</pre><listing t:utext=\"${h}\">p</listing></div>")
         .compile()
         .assertSuccess();
-    String html = c.render("t", model("f", (Fragment) (ctx, out) -> out.write("\nz"), "h", SafeHtml.unchecked("\n<b>y</b>")));
+    String html = c.render("t", model("f", TestFragments.markup("\nz"), "h", SafeHtml.unchecked("\n<b>y</b>")));
     assertEquals("<div><pre>\n\nz</pre><listing>\n\n<b>y</b></listing></div>", html);
     assertEquals("\nz", dom(html, "pre"), html);
     assertEquals("\ny", dom(html, "listing"), html);

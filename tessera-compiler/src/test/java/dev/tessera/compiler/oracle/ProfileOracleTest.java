@@ -9,6 +9,7 @@ import dev.tessera.compiler.oracle.gen.Generator;
 import dev.tessera.compiler.oracle.gen.Shape;
 import dev.tessera.compiler.security.HostileStrings;
 import dev.tessera.compiler.testing.Compilation;
+import dev.tessera.compiler.testing.TestFragments;
 import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.compiler.verify.SkeletonMatcher;
 import dev.tessera.compiler.verify.engine.Engine;
@@ -373,7 +374,7 @@ class ProfileOracleTest {
   }
 
   /** A fixed {@code Fragment} argument: rendered the same in every render of a case. */
-  private static final Fragment FRAGMENT = (ctx, out) -> out.write("<b>fragment</b>");
+  private static final Fragment FRAGMENT = TestFragments.markup("<b>fragment</b>");
 
   /**
    * A model for {@code params}: String slot {@code i} (1-based, in declaration order) gets {@code

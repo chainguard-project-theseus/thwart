@@ -101,7 +101,8 @@ public final class Skeleton {
     HTML_MESSAGE,
     /**
      * A {@code Fragment} value built in Java: a page parameter or an unbound fragment parameter
-     * (TODO(#581)). A template-built one is its candidates (#561).
+     * (#581: generated code refuses one that isn't a {@code Fragment.of}). A template-built one
+     * is its candidates (#561).
      */
     FRAGMENT_VALUE
   }
