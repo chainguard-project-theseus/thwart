@@ -424,10 +424,11 @@ a callback or event handler now reads the global when it runs, so if the script 
 than once (a fragment per row) every callback reads the last copy's value; give each copy its own
 value, for example from a `data-*` attribute of the element it handles. It reports a value in a
 template literal or a regular expression, which it leaves in place, and a `"use strict"` that no longer starts the script. An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
-It reports a computed name that is not a known attribute (section 6), and rewrites the htmx
+It still reports a computed name the compiler used to reject as unknown, and rewrites the htmx
 ones that htmx reads the same with `data-` (`th:hx-target` becomes `t:data-hx-target`; also
 `hx-swap`, `hx-select`, `hx-confirm` and the other htmx selector, swap and text attributes),
-in `th:attr` too. It adds a missing space between attributes (`href="/a"class="b"`).
+in `th:attr` too (TODO(#604): since #584 both are NEUTRAL, section 6; migrate is to report a
+computed value there that is not framework-neutral instead). It adds a missing space between attributes (`href="/a"class="b"`).
 It also reports each `th:value`, `th:href`, `th:src`, `th:action`, `th:name` and `th:type` whose
 value may be `null`: Thymeleaf wrote the attribute empty, and Tessera omits it (section 4.3).
 It reports each `th:target` whose value is not a literal or a choice between literals, and leaves
@@ -2349,7 +2350,7 @@ These come from the annotation processor itself, without a template position.
 - `<label> is not allowed: a link in '<name>' must be a same-origin path that starts with a single '/' and holds only letters, digits, . _ ~ / - and %XX, not @{<path>}`.
 - `<label> is not allowed: a link in '<name>' cannot have a query; parameter '<param>' of @{<path>} fills no path variable. Send request values as hidden inputs (with hx-include), or put them in a <script type="application/json"> block`.
 - `is="<value>" on <element> is not allowed: is may only name a custom element (a lower-case name with a '-', such as my-button); write the element you mean, such as <my-button>`.
-- `cannot output a value of type <type> in <label>: only strings, numbers, booleans, enums, java.time values, records and @TemplateView classes of those, and Optionals, collections, arrays and String-keyed maps of those can be serialized as JSON`. A Vue or Alpine binding takes the same types as a script `[[...]]`.
+- `cannot output a value of type <type> in <label>: only strings, numbers, booleans, enums, java.time values, records and @TemplateView classes of those, and Optionals, collections, arrays and String-keyed maps of those can be serialized as JSON`.
 - `<label> is not allowed: a style value can only combine string literals, numbers and CssValues such as css.color(c), css.length(l) or css.url(u), not a <type>; use t:class or t:classappend instead`.
 - `<label> is not allowed: srcdoc is a whole HTML document and cannot contain expressions; use src with a URL`.
 - `<label> is not allowed: the content of <meta http-equiv="refresh"> navigates the page; write a delay and a same-origin link such as '3;url=' + @{/items/{id}(id=${item.id})}, or redirect from the controller`. Port `content="1;url=/admin/update${vid}"` to `t:content="'1;url=' + @{/admin/update{vid}(vid=${vid})}"`.
@@ -2364,8 +2365,6 @@ These come from the annotation processor itself, without a template position.
 - `formaction="<url>" is not allowed here: a submit button sends its form, CSRF token included, to its formaction, and this URL is not same-origin; use a same-origin URL such as /items or @{/items/{id}(id=${item.id})}, or a form of its own with a static action to the other site`. A static `formaction` with a scheme or starting with `//` or `/\`.
 - `formmethod="<value>" is not allowed here: a formmethod other than post or dialog submits the form as GET, with its CSRF token in the URL; remove formmethod, or give the button a form of its own with method="get"`. Also `<label> is not allowed: ...` for a computed `formmethod`; only a static `post` or `dialog` is allowed.
 - `<form/> is not self-closing in HTML: the browser treats everything after it as inside the form; write <form ...></form>`. A browser drops the start tag of every later form, so their buttons and CSRF token inputs land in it.
-  `hx-*` attribute the same with a `data-` prefix, so `t:hx-target` becomes `t:data-hx-target`;
-  `tessera-migrate` does this for htmx's selector, swap and text attributes and reports the rest.
 - `<label> is not allowed: attribute name '<name>' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*`.
 - `<label>: the type of a <script> cannot be computed; its content type must be known at build time, so write a static type attribute`.
 - `<label>: the http-equiv of a <meta> cannot be computed; it decides whether content is a refresh URL, so write a static http-equiv attribute`.

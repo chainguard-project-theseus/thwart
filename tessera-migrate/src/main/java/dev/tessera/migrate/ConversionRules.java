@@ -525,8 +525,8 @@ final class ConversionRules {
   /** A component prop on a custom element. */
   static final Pattern CUSTOM_ELEMENT_PROP = Pattern.compile("[a-z][a-z0-9]*");
   /**
-   * The framework names the compiler classifies by prefix ({@code Contexts.isFrameworkDirective}),
-   * besides AngularJS's ({@link #angularDirective}).
+   * The framework names the compiler classified by prefix before #584, besides AngularJS's
+   * ({@link #angularDirective}). TODO(#604): every such name is NEUTRAL now; delete this mirror.
    */
   static final List<String> FRAMEWORK_PREFIXES = Compat.listOf("v-", "x-", "hx-on");
   /** The framework names the compiler handles by name: hyperscript and htmx script, URL and boost names, and htmx 1.x's hx-sse and hx-ws, which are build errors when computed. */
@@ -538,8 +538,8 @@ final class ConversionRules {
   /**
    * Whether {@code name} (lower case) may be an AngularJS {@code ng} directive, which the compiler
    * denies coarsely: ignoring {@code -}, {@code _} and {@code :}, it starts with {@code ng},
-   * {@code xng} or {@code datang}. Mirrors {@code Contexts.isAngularDirective} in
-   * tessera-compiler, which tessera-migrate does not depend on.
+   * {@code xng} or {@code datang}. Mirrored {@code Contexts.isAngularDirective} in
+   * tessera-compiler, which tessera-migrate does not depend on. TODO(#604): #584 deleted it.
    */
   static boolean angularDirective(String name) {
     String a = name.replaceAll("[-_:]", "");
@@ -552,7 +552,7 @@ final class ConversionRules {
    * {@code th:hx-target} becomes {@code t:data-hx-target}. Only the htmx 2 reference names whose
    * value is a selector, swap style, text or option list, never script; the script ones
    * ({@code hx-vals}, {@code hx-trigger}, ...) are classified by the compiler with or without
-   * {@code data-}.
+   * {@code data-}. TODO(#604): both spellings are NEUTRAL since #584, so the rename no longer helps.
    */
   static final Set<String> HTMX_DATA_EQUIVALENT = Compat.setOf(
       "hx-target", "hx-swap", "hx-swap-oob", "hx-select", "hx-select-oob", "hx-confirm", "hx-prompt",

@@ -19,11 +19,12 @@ page. For every template the compiler accepts and every model:
   page load a cross-origin script, frame or base URL;
 - a template cannot reach code or state beyond its declared, typed `t:params` (principles 1-4).
 
-It does not guarantee what page JavaScript does with the DOM afterwards, except for the
-frameworks in the framework table (context-model.md §6.3), and there only by the table's
-deny-by-default rules. Past that boundary, the defence in depth is a strict CSP: Tessera puts the
-request's nonce on every script and style the compiler writes (context-model.md §6.4), and the
-application sends the policy (guide §4.11).
+It does not guarantee what page JavaScript or a client framework does with the DOM afterwards
+(principle 7). There is no framework table (#584): the compiler only constrains the shape of its
+own output where client code commonly reads it, a framework-neutral value in every non-HTML
+attribute (context-model.md §6.1, `NEUTRAL`) and `{{` broken in text (§6.3). Past that boundary,
+the defence in depth is a strict CSP: Tessera puts the request's nonce on every script and style
+the compiler writes (context-model.md §6.4), and the application sends the policy (guide §4.11).
 
 The guarantee holds for the profile as context-model.md specifies it. Rows marked `phase 2` or
 with an open PR there are gaps on `main` today. The build-time verifier (#367) makes the first
@@ -61,7 +62,7 @@ agree.
 | **Other `SafeHtml` sources** (`escape`, `sanitize`, a rendered `Template`, `concat`) | Trusted by construction | `HtmlSanitizer` copies no input through, so its output is safe however a browser parsed the original. A rendered template is accepted only if the compiler proved it a `FLOW` partial | The verifier (#367, #329): `SafeHtml` is inserted only where the parser state meets its kind's predicate, and producers are checked to emit balanced content (`FlowProducerTest`). `SafeHtml.of` and `Fragment.of` refuse a template whose generated class doesn't carry the verifier's `FLOW` mark: a page, a list-item or table-part partial, one with a `form` or nested formatting elements of one name (#396, context-model.md §5) |
 | **The build** (javac, the annotation processor, the compiler's dependencies) | Trusted | Template sources and bundles come from the application's repository. The shaded validator.nu htmlparser is pinned by release and SHA-256 (#365) | Out of scope |
 | **Browsers** | The supported set | Chromium (current), Firefox (current), Firefox ESR and Safari/WebKit (current) (context-model.md §7, decision 7). Safari is checked through Playwright's WebKit build (the WPE port: WebKit's HTML parser and script engine, not Safari's shell) (#354). A rule must hold in all of them; where they differ, the verifier excludes the construct (security-architecture.md §11.4: classic and customizable `<select>`, SVG/MathML in tables, table parts in `<template>`) | At build time, the verifier runs the pinned current htmlparser (#367); from #406 it accepts only error-free parses outside the exclusions. In tests, validator 26.10.12 (#344); parse5, headless Chromium, Firefox 140 ESR and WebKit in the Node job (#345, #354; on Chainguard Checks after every merge and on request, over a fixture until #324) |
-| **Page JavaScript and client frameworks** | Outside, except the framework table | Code that re-reads the DOM as code (Vue in-DOM templates, Alpine, htmx) can turn safe output into code execution. AngularJS is not supported (guide §7); only a coarse deny of `ng`-like names remains | Deny-by-default names (#330), the framework table (#333), `{{` breaking, strict CSP with nonces (#335: the nonce on compiler-written scripts; the policy header is the application's) |
+| **Page JavaScript and client frameworks** | Outside (principle 7) | Code that re-reads the DOM as code (Vue in-DOM templates, Alpine, htmx) can turn safe output into code execution. AngularJS is not supported (guide §7); only the coarse strip of `ng`-like class tokens remains (#586) | Framework-neutral values in every non-HTML attribute (#584), `{{` breaking, strict CSP with nonces (#335: the nonce on compiler-written scripts; the policy header is the application's) |
 | **The request** (headers, URL, session) | Untrusted | It reaches a template only through model values or `RenderContext` | As model values; CSRF tokens only on same-origin POST forms |
 | **The CSP nonce** (`RenderContext.cspNonce`) | Trusted, but escaped | The application (or the starter, from `SecureRandom`) supplies a fresh, unguessable value per response and the same value in its policy | Written only on compiler-written `<script>` and `<style>` start tags a browser reads as HTML (not in SVG, MathML or raw text), with `Escapers.attr`; a nonce in the template is a build error |
 
@@ -105,8 +106,8 @@ The hostile value set used in tests is `HostileStrings.VECTORS` plus the #320 va
 | XSS through composition (fragments, `SafeHtml`, messages in the wrong context) | Yes | Family B; once #367 and #329 land, static composition by the verifier at each call site, dynamic values by content-kind predicates (context-model.md §5) |
 | XSS through a script hole in the wrong lexical position | Yes | Family C; script prelude rule (context-model.md §4) |
 | A URL or resource from another origin | Yes | Family E; URL classes (context-model.md §6.1) |
-| Client-side template injection in a listed framework | Bounded | Family D. Deny-by-default names, the framework table and `{{` breaking; where `{{` can't be broken (`<title>`, `<textarea>`), `v-pre` for Vue 3 and petite-vue (#549). Gaps are listed in guide §7 |
-| Client frameworks not in the table, or configured to read other names | No | Outside the guarantee. A strict CSP without `'unsafe-eval'` limits the damage (#335, guide §4.11) |
+| Client-side template injection through a computed value | Bounded | Family D. Framework-neutral values in every non-HTML attribute (#584) and `{{` breaking; where `{{` can't be broken (`<title>`, `<textarea>`), `v-pre` for Vue 3 and petite-vue (#549). Gaps are listed in guide §7 |
+| What a client framework does with the author's static markup (a static directive, Vue's `:is`, custom delimiters) | No | Outside the guarantee (principle 7). A strict CSP without `'unsafe-eval'` limits the damage (#335, guide §4.11) |
 | What page JavaScript does with values it reads from the DOM | No | Principle 7 |
 | Content an `unchecked` call vouched for | No | The call site owns it |
 | CSS injection | Yes, by restriction | No holes in `<style>`; a `style` attribute, and an SVG attribute that takes a CSS `url()` (`fill`, `stroke`, `mask`, ...) or an animation of one, takes only literals, numbers and `CssValue` |

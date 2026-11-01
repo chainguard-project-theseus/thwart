@@ -412,8 +412,9 @@ final class Migrator {
      * Whether the compiler rejects {@code name} (lower case) as a computed attribute of the element
      * being read because the name is unknown (#330): a well-formed name that is not a standard HTML,
      * SVG, MathML or ARIA attribute, {@code data-*}, a plain prop on a custom element, or a framework
-     * name the compiler classifies. Mirrors {@code Contexts.isUnknownName}; a miss only costs the
-     * report, since the compiler rejects the name with the same fix-it.
+     * name the compiler classified. Mirrors {@code Contexts.isUnknownName} as it was before #584.
+     * TODO(#604): the compiler has no unknown names since #584 (every such name is NEUTRAL); report
+     * the values a NEUTRAL name rejects instead, and drop the {@code data-} rename.
      */
     private boolean unknownName(String name) {
       if (!ConversionRules.ATTRIBUTE_NAME.matcher(name).matches() || ConversionRules.KNOWN_ATTRIBUTES.contains(name)
