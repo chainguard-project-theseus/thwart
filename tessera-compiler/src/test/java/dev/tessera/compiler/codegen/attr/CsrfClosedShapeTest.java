@@ -94,8 +94,8 @@ class CsrfClosedShapeTest {
   }
 
   /**
-   * #498: a boost from a layout changes nothing. A POST form's computed action is a same-origin link
-   * or an error, boosted or not; a GET form's is an ordinary URL.
+   * #498: a boost from a layout needs no tracking. A POST form's computed action is a same-origin
+   * link or an error, and a GET form's a same-origin link or a TrustedUrl (#585), boosted or not.
    */
   @Test
   void boostFromLayout() {
@@ -107,13 +107,19 @@ class CsrfClosedShapeTest {
             + "<section><form method=\"post\" t:action=\"u\"><button>Go</button></form></section></div>")
         .compile()
         .assertError("page.html:1:", "t:action is not allowed", "the CSRF token");
-    Compilation c = Compilation.builder()
+    Compilation.builder()
         .template("layout.html", layout)
         .template("page.html", "<div " + NS + " t:params=\"String u\" t:replace=\"~{layout :: l(~{::section})}\">"
             + "<section><form t:action=\"u\"><button>Go</button></form></section></div>")
         .compile()
+        .assertError("page.html:1:", "t:action is not allowed", "must stay on the page's origin");
+    Compilation c = Compilation.builder()
+        .template("layout.html", layout)
+        .template("page.html", "<div " + NS + " t:replace=\"~{layout :: l(~{::section})}\">"
+            + "<section><form t:action=\"@{/s}\"><button>Go</button></form></section></div>")
+        .compile()
         .assertSuccess();
-    assertEquals("<main hx-boost=\"true\"><section><form action=\"https://evil.example/\"><button>Go</button></form>"
+    assertEquals("<main hx-boost=\"true\"><section><form action=\"/s\"><button>Go</button></form>"
         + "</section></main>", render(c));
   }
 
@@ -143,6 +149,6 @@ class CsrfClosedShapeTest {
     assertEquals("<div><form method=\"post\" action=\"/x\"><input type=\"hidden\" name=\"_csrf\" value=\"tok\" />"
         + "<button formaction=\"/y\">Go</button></form><form method=\"post\" action=\"https://pay.example/\"></form></div>",
         render(c));
-    assertFalse(render(page("<form method=\"get\" t:action=\"u\"></form>").assertSuccess()).contains("_csrf"));
+    assertFalse(render(page("<form method=\"get\" t:action=\"@{/s}\"></form>").assertSuccess()).contains("_csrf"));
   }
 }

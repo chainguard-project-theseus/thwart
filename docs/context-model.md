@@ -301,7 +301,7 @@ escapers below ship today.
 | `SCRIPT_ATTRIBUTE` | Vue/Alpine JSON bindings (`:x`, `v-bind:x`, `x-bind:x`) | `Escapers.jsonAttr` | main | `JsonBindingTest` | `Esc` `htmlSafe` (attribute half) |
 | `STYLE` | `style` attribute; SVG `fill stroke clip-path mask filter marker-start marker-mid marker-end marker cursor` (not `fill` on an animation element); `values to from by` of an animation whose static `attributeName` is one of them (the attribute name folds A-Z only, as in a browser: `attrıbuteName` with a dotless i is another attribute) | `Escapers.attr`, literals, numbers and `CssValue` only | main | `StyleAttributeTest`, `ContextsTest` | not yet |
 | `EVENT_HANDLER` | `on*`, framework directives | none: build error | main | `FrameworkDirectivesTest` | n/a |
-| `FORBIDDEN` | `srcdoc`, `<script type>`, `<meta http-equiv>`, `attributeName` of an SVG animation element, `hx-boost`, `hx-sse`, `hx-ws`, attributes the tree builder reads (`is`, `xmlns`, `xmlns:xlink`; `<template>` `shadowroot*` and `for`; `<meta>` `charset`, and `content` under a static `http-equiv="Content-Type"`), names outside `[A-Za-z_][A-Za-z0-9_.:-]*` | none: build error | main | `ContextsTest`, `HtmxBoostTest` | n/a |
+| `FORBIDDEN` | `srcdoc`, `<script type>`, `<meta http-equiv>`, `attributeName` of an SVG animation element, `hx-boost`, `hx-sse`, `hx-ws`, attributes the tree builder reads (`is`, `xmlns`, `xmlns:xlink`; `<template>` `shadowroot*` and `for`; `<meta>` `charset`, and `content` under a static `http-equiv="Content-Type"`), names outside `[A-Za-z_][A-Za-z0-9_.:-]*` | none: build error | main | `ContextsTest`, `FormActionTest` | n/a |
 
 ### 6.2 Which computed names are accepted
 
@@ -314,6 +314,7 @@ Static attributes are copied verbatim and are not affected by these rules.
 | Plain name `[a-z][a-z0-9]*` on a custom element | accepted (component props) | accepted on an HTML element whose name has a `-` (not SVG `font-face`) | main | `ContextsTest`, `UnknownAttributeNamesTest` |
 | Name listed in the framework table | as the table says | as the hard-coded lists in `Contexts` say | phase 4 (#333) | `FrameworkDirectivesTest` |
 | Any other name | error ("use `data-*`") | error with a `data-<name>` fix-it, including htmx names the table does not list (`hx-target`, `hx-swap`: use `data-hx-target`). A JSON binding's target (`:x`) is not checked yet (#333) | main (#330) | `UnknownAttributeNamesTest`, `ContextsTest`; covers #273's Unpoly half and #276's `hx-action`/`hx-method` |
+| Computed `action` on a `<form>` | same-origin link or `TrustedUrl`, with or without client code that submits the form; a static POST form: same-origin link only | as the target; replaces the `hx-boost` tracking of #258 (#585) | main (#585, #285) | `FormActionTest`, `CsrfActionOriginTest` |
 | Computed `formaction` | same-origin link only | same-origin link required on every element, since any form may get the CSRF token | main (#346, #314) | seeds `A45`, `B6`; `CsrfFormactionTest` |
 | Computed `href` on `<base>` | same-origin link only, in every template (a static one must be same-origin by shape) | same-origin link required; static `href` checked like a static `action` | main (#357) | `CsrfBaseTest` |
 

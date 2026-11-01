@@ -144,8 +144,8 @@ class CsrfActionOriginTest {
   /** A static GET form never gets a token, whatever its action (unchanged). */
   @Test
   void methodStillRules() {
-    Compilation c = compile("String u", "method=\"get\" t:action=\"u\"");
-    assertFalse(renderWith(c, "u", "/x").contains("_csrf"));
+    Compilation c = compile("String u", "method=\"get\" t:action=\"@{/x/{u}(u=${u})}\"");
+    assertFalse(renderWith(c, "u", "y").contains("_csrf"));
     assertFalse(render("action=\"/x\"").contains("_csrf"));
   }
 

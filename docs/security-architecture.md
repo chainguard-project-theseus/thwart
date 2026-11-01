@@ -852,8 +852,10 @@ and same-origin by shape, or a computed `@{/literal-path}` link re-checked at re
 `method`, any other computed action on a POST form, and a cross-origin `formaction` or
 `<base href>` on any element are build errors (PR #555). This replaces
 eight case-by-case patches. The shape is about HTML only: #585 (under #583) deleted the htmx
-parts (static htmx request URLs and `hx-ws`/`hx-sse` as CSRF sinks, and the boosted-form action
-check), since what htmx sends where is outside the guarantee (use htmx 2 or `selfRequestsOnly`).
+parts (static htmx request URLs and `hx-ws`/`hx-sse` as CSRF sinks, and the `hx-boost` tracking),
+since what htmx sends where is outside the guarantee (use htmx 2 or `selfRequestsOnly`). The
+boosted-form check became a framework-neutral rule: every form's computed `action` is a same-origin
+link or a `TrustedUrl`, since client code may submit any form and swap the response in.
 
 ### 12.8 `{{` through one function (#547, #571)
 
