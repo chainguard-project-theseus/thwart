@@ -35,6 +35,10 @@ class SameOriginLinkRenderTest {
     "<form action=\"/f\"><button t:formaction=\"@{/a}\">Go</button></form>",
     "<form method=\"post\" action=\"/transfer\"><button t:formaction=\"@{/a}\">Go</button></form>",
     "<form method=\"post\" action=\"/transfer\"><button t:formaction=\"@{/{x}/a(x=${u})}\">Go</button></form>",
+    // A choice of links (#635): the branch taken, else (9) or then (10), is re-checked like a lone link.
+    "<form method=\"post\" t:action=\"${u} == 'zz' ? @{/b} : @{/{x}/a(x=${u})}\"></form>",
+    "<form method=\"post\" action=\"/transfer\"><button t:formaction=\"${u} != 'zz' ? @{/{x}/a(x=${u})} : @{/b}\">Go"
+        + "</button></form>",
   };
 
   private static Compilation compile(String body) {
@@ -63,7 +67,7 @@ class SameOriginLinkRenderTest {
 
   /** Positive: a context path of "/" or "/app/" is normalised, so every slot renders a single '/'. */
   @ParameterizedTest
-  @ValueSource(ints = {0, 1, 2, 3, 4, 5, 6, 7, 8})
+  @ValueSource(ints = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
   void contextPathWithTrailingSlashStaysSameOrigin(int i) {
     Compilation c = compile(SLOTS[i]);
     for (String root : new String[] {"", "/", "//", "/app", "/app/", "/app//"}) {
@@ -76,7 +80,7 @@ class SameOriginLinkRenderTest {
 
   /** Negative: a custom Links that makes any slot's link protocol-relative fails the render. */
   @ParameterizedTest
-  @ValueSource(ints = {0, 1, 2, 3, 4, 5, 6, 7, 8})
+  @ValueSource(ints = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
   void customLinksLeavingTheOriginFailsTheRender(int i) {
     Compilation c = compile(SLOTS[i]);
     for (String prefix :
@@ -90,7 +94,7 @@ class SameOriginLinkRenderTest {
 
   /** Negative: an empty path variable through a Links that does not reject it would give //a. */
   @ParameterizedTest
-  @ValueSource(ints = {1, 4, 8})
+  @ValueSource(ints = {1, 4, 8, 9, 10})
   void emptyPathVariableFailsTheRender(int i) {
     Compilation c = compile(SLOTS[i]);
     assertThrows(IllegalStateException.class, () -> render(c, naive(""), ""));
@@ -107,7 +111,7 @@ class SameOriginLinkRenderTest {
    * path. DefaultLinks encodes a path variable's {@code /} and {@code \}.
    */
   @ParameterizedTest
-  @ValueSource(ints = {1, 4, 8})
+  @ValueSource(ints = {1, 4, 8, 9, 10})
   void encodedSlashesAndDotSegmentsStayPaths(int i) {
     Compilation c = compile(SLOTS[i]);
     assertTrue(render(c, new DefaultLinks("/"), "/evil.example").contains("\"/%2Fevil.example/a\""));
