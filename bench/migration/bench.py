@@ -62,6 +62,12 @@ def image():
     shutil.rmtree(ctx, ignore_errors=True)
     os.makedirs(ctx)
     sh(f"git -C {REPO} archive HEAD | tar -x -C {ctx}", shell=True)
+    # A TLS-intercepting proxy's CA (e.g. a chainctl develop session's) for the image to trust;
+    # the file stays empty when BENCH_EXTRA_CA_CERTS is unset.
+    with open(os.path.join(ctx, "extra-ca.crt"), "w") as f:
+        if os.environ.get("BENCH_EXTRA_CA_CERTS"):
+            with open(os.environ["BENCH_EXTRA_CA_CERTS"]) as ca:
+                f.write(ca.read())
     sh(["docker", "build", "-t", IMAGE, "-f", os.path.join(HERE, "Dockerfile"), ctx])
     sh(["docker", "run", "--rm", "-v", f"{VOLUME}:{M2}", IMAGE, "bash", "-c",
         f"mkdir -p {M2}/repository && cp -R /opt/m2-seed/. {M2}/repository/"])
@@ -311,10 +317,11 @@ def migrate(app, k, args):
     # and it sees only the checkout and the image's Tessera plugin, which lib/run-agent.sh loads.
     start = time.time()
     with open(os.path.join(run_dir, "transcript.jsonl"), "w") as out:
-        p = docker([(app_dir, "/work/app")],
-                   {"PROMPT": prompt, "ANTHROPIC_API_KEY": os.environ["ANTHROPIC_API_KEY"],
-                    "AGENT_MINUTES": args.minutes, "AGENT_MODEL": args.model, "AGENT_BUDGET_USD": args.budget_usd},
-                   ["run-agent"], out=out)
+        env = {"PROMPT": prompt, "ANTHROPIC_API_KEY": os.environ["ANTHROPIC_API_KEY"],
+               "AGENT_MINUTES": args.minutes, "AGENT_MODEL": args.model, "AGENT_BUDGET_USD": args.budget_usd}
+        if os.environ.get("ANTHROPIC_BASE_URL"):
+            env["ANTHROPIC_BASE_URL"] = os.environ["ANTHROPIC_BASE_URL"]
+        p = docker([(app_dir, "/work/app")], env, ["run-agent"], out=out)
     meta = {"wall_minutes": round((time.time() - start) / 60, 1), "exit": p.returncode,
             "model": args.model, "budget_usd": args.budget_usd, "budget_minutes": args.minutes}
     meta.update(agent_usage(os.path.join(run_dir, "transcript.jsonl")))
