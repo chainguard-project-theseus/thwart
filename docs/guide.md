@@ -468,8 +468,11 @@ java -jar $MIGRATE compare http://localhost:8080 pages.txt baseline/
 It compares the status, the final URL after redirects, and the page as a browser would build it,
 not the bytes: whitespace runs, attribute and class order, optional end tags, comments, CSRF
 tokens and whitespace between JSON tokens in scripts (`[ "a" ]` against `["a"]`, but not
-inside strings) don't count. Each page prints one line, `NN same|reordered|differs REQUEST`. `reordered`
-means the same elements with siblings in another order; it passes, but its diff is printed so you
+inside strings) don't count, and neither do the parentheses around a script value
+(`var x = ("a");` against `var x = "a";`). Each page prints one line, `NN same|reordered|differs REQUEST`. `reordered`
+means the same elements with siblings in another order, or a script that is the same once each
+JSON value declared at its top is written back where the code uses the name (`var _t1 = ("a");`
+`x = _t1;` against `x = "a";`, the hoisting above); it passes, but its diff is printed so you
 can check that what moved is harmless (validation messages from a `HashSet`, yes; table rows that
 lost their sort order, no). A `differs` page lists a changed status or final URL and a unified
 diff of the normalized page. It exits 0 only if every page is `same` or `reordered` with its
@@ -1757,9 +1760,9 @@ leaving a particular one. Read the part for your engine before converting.
 - **Scripts.** `[[...]]` in a `<script>` writes JSON with, among others, `/`, `&`, `<`, `'` and `{`
   escaped as `\/`, `\u0026`, `\u003c`, `\u0027` and `\u007b`. The JavaScript value is the same, so a
   difference that compare shows there against a page that printed the value raw or HTML-escaped is
-  expected (an `&amp;` inside an old `<script>` was a bug: the string contained `&amp;`). So is a
-  negative number or an integer in parentheses, `var n = (-1.5);` against `var n = -1.5;` or
-  `var id = (7);` against `var id = 7;`, in a JavaScript script. Remove the quotes a default-mode
+  expected (an `&amp;` inside an old `<script>` was a bug: the string contained `&amp;`). The
+  parentheses around a value, `var n = (-1.5);` against `var n = -1.5;`, don't count, and a value
+  hoisted into a declaration at the top is `reordered` (section 3). Remove the quotes a default-mode
   page put around an inline: `var a = "[[${x}]]";` becomes `var a = [[${x}]];` (section 6). A
   natural-template comment with a default, `var a = /*[[${x}]]*/ 'd';`, becomes `var a = [[${x}]];`:
   inside the comment the value would be ignored and the page would use `'d'` (section 6).

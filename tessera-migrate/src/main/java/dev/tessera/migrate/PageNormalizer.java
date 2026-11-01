@@ -3,12 +3,15 @@ package dev.tessera.migrate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Attribute;
@@ -41,8 +44,18 @@ import org.jsoup.nodes.TextNode;
  *       their content is computed (#549);
  *   <li>in JavaScript and JSON scripts, whitespace next to {@code [ ] { } , :} outside string
  *       literals is dropped: {@code [[...]]} writes compact JSON where the old page often had
- *       {@code [ "a", "b" ]} (#183). Whitespace inside strings still counts.
+ *       {@code [ "a", "b" ]} (#183). Whitespace inside strings still counts;
+ *   <li>in JavaScript scripts, a JSON value in parentheses after {@code =} and before {@code ;}
+ *       loses them: the compiler writes {@code var x = ("a");} where the old page had
+ *       {@code var x = "a";} (#540, #625).
  * </ul>
+ *
+ * <p>Pages that still differ are compared once more with each script's prelude expanded: every
+ * declaration at the top of a JavaScript script whose value is JSON ({@code var _t1 = "a";}) is
+ * removed and its value written where the code below uses the name. {@code tessera-migrate}
+ * hoists values into such declarations (#541), so a page equal only in that form is
+ * {@link Verdict#REORDERED}, not {@link Verdict#SAME}: a declared {@code var} is not the
+ * same JavaScript as the value written in place (#625).
  */
 final class PageNormalizer {
   private PageNormalizer() {}
@@ -62,6 +75,12 @@ final class PageNormalizer {
   private static final Pattern CSRF_PARAM = Pattern.compile("([?&]_csrf=)[^&#\"'\\s]*");
   static final String MASK = "MASKED";
   private static final String JSON_PUNCTUATION = "[]{},:";
+  private static final Set<String> JSON_SCRIPT_TYPES =
+      Compat.setOf("application/json", "application/ld+json");
+  private static final Pattern DECLARATION = Pattern.compile(
+      "(?:var|let|const)[ \\t\\n\\f\\r]+([A-Za-z_$][A-Za-z0-9_$]*)[ \\t\\n\\f\\r]*=[ \\t\\n\\f\\r]*");
+  private static final Pattern JSON_ATOM =
+      Pattern.compile("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|true|false|null");
 
   /** A printed node and its children. */
   private static final class Line {
@@ -112,14 +131,18 @@ final class PageNormalizer {
   }
 
   /** Compares two pages. {@code REORDERED}: the same lines, but some element's children are in
-   * a different order. */
+   * a different order, or some script's prelude declarations were substituted back. */
   static Verdict compare(String expected, String actual) {
-    List<Line> a = tree(expected);
-    List<Line> b = tree(actual);
+    List<Line> a = tree(expected, false);
+    List<Line> b = tree(actual, false);
     if (a.equals(b)) {
       return Verdict.SAME;
     }
-    return sortedForm(a).equals(sortedForm(b)) ? Verdict.REORDERED : Verdict.DIFFERS;
+    if (sortedForm(a).equals(sortedForm(b))) {
+      return Verdict.REORDERED;
+    }
+    return sortedForm(tree(expected, true)).equals(sortedForm(tree(actual, true)))
+        ? Verdict.REORDERED : Verdict.DIFFERS;
   }
 
   /** Strips session ids from a URL (redirect targets carry them before the cookie is set). */
@@ -128,11 +151,16 @@ final class PageNormalizer {
   }
 
   private static List<Line> tree(String html) {
-    Document doc = Jsoup.parse(html);
-    return children(doc);
+    return tree(html, false);
   }
 
-  private static List<Line> children(Node parent) {
+  /** The page's tree; with {@code expandPrelude}, scripts as {@link #expandPrelude} prints them. */
+  private static List<Line> tree(String html, boolean expandPrelude) {
+    Document doc = Jsoup.parse(html);
+    return children(doc, expandPrelude);
+  }
+
+  private static List<Line> children(Node parent, boolean expandPrelude) {
     List<Line> out = new ArrayList<>();
     StringBuilder text = new StringBuilder();
     for (Node node : parent.childNodes()) {
@@ -142,14 +170,21 @@ final class PageNormalizer {
       }
       if (node instanceof DataNode) { // script and style content
         String data = ((DataNode) node).getWholeData();
-        text.append(isScript(parent) ? tightenJson(data) : data);
+        if (isScript(parent)) {
+          boolean javaScript = !JSON_SCRIPT_TYPES.contains(scriptType(parent));
+          data = tightenJson(javaScript ? unwrapValues(data) : data);
+          if (javaScript && expandPrelude) {
+            data = expandPrelude(data);
+          }
+        }
+        text.append(data);
         continue;
       }
       if (node instanceof Element || node instanceof DocumentType) {
         flushText(text, out);
       }
       if (node instanceof Element) {
-        out.add(new Line(startTag((Element) node), children(node)));
+        out.add(new Line(startTag((Element) node), children(node, expandPrelude)));
       } else if (node instanceof DocumentType) {
         DocumentType dt = (DocumentType) node;
         out.add(new Line("<!doctype " + dt.name().toLowerCase() + publicId(dt) + ">",
@@ -167,8 +202,264 @@ final class PageNormalizer {
     if (!(parent instanceof Element) || !((Element) parent).normalName().equals("script")) {
       return false;
     }
-    String type = Compat.strip(parent.attr("type")).toLowerCase(Locale.ROOT);
-    return ConversionRules.SCRIPT_TYPES.contains(type);
+    return ConversionRules.SCRIPT_TYPES.contains(scriptType(parent));
+  }
+
+  private static String scriptType(Node script) {
+    return Compat.strip(script.attr("type")).toLowerCase(Locale.ROOT);
+  }
+
+  /**
+   * Drops the parentheses around a JSON value that is the whole right-hand side of an
+   * {@code =}, up to a {@code ;}: {@code var x = ("a");} prints as {@code var x = "a";}. Strings
+   * and comments are left alone.
+   */
+  static String unwrapValues(String script) {
+    StringBuilder out = new StringBuilder(script.length());
+    int n = script.length();
+    int i = 0;
+    while (i < n) {
+      int skip = skipStringOrComment(script, i);
+      if (skip > i) {
+        out.append(script, i, skip);
+        i = skip;
+        continue;
+      }
+      char c = script.charAt(i);
+      out.append(c);
+      i++;
+      if (c != '=' || !isAssignment(script, i - 1)) {
+        continue;
+      }
+      int open = skipWhitespace(script, i);
+      if (open >= n || script.charAt(open) != '(') {
+        continue;
+      }
+      int value = skipWhitespace(script, open + 1);
+      int valueEnd = jsonEnd(script, value);
+      if (valueEnd < 0) {
+        continue;
+      }
+      int close = skipWhitespace(script, valueEnd);
+      if (close >= n || script.charAt(close) != ')') {
+        continue;
+      }
+      int semi = skipWhitespace(script, close + 1);
+      if (semi < n && script.charAt(semi) == ';') {
+        out.append(script, i, open).append(script, value, valueEnd);
+        i = close + 1;
+      }
+    }
+    return out.toString();
+  }
+
+  /**
+   * Writes the value of each declaration at the top of a script whose value is one JSON value
+   * ({@code var|let|const name = json;}, only whitespace and comments around them) where the
+   * code below uses its name (an identifier not after a {@code .}, outside strings and
+   * comments), and removes the declarations so used. A declaration the script doesn't use is
+   * kept: another script may read it, and its value still counts. Runs on {@link #tightenJson}
+   * output.
+   */
+  static String expandPrelude(String script) {
+    Map<String, String> values = new HashMap<>();
+    List<int[]> spans = new ArrayList<>();
+    List<String> names = new ArrayList<>();
+    int n = script.length();
+    int i = 0;
+    while (true) {
+      int start = skipWhitespaceAndComments(script, i);
+      Matcher m = DECLARATION.matcher(script).region(start, n);
+      if (!m.lookingAt()) {
+        i = start;
+        break;
+      }
+      int valueEnd = jsonEnd(script, m.end());
+      int semi = valueEnd < 0 ? n : skipWhitespace(script, valueEnd);
+      if (semi >= n || script.charAt(semi) != ';') {
+        i = start;
+        break;
+      }
+      if (values.put(m.group(1), script.substring(m.end(), valueEnd)) != null) {
+        return script; // declared twice: not a simple substitution
+      }
+      spans.add(new int[] {start, semi + 1});
+      names.add(m.group(1));
+      i = semi + 1;
+    }
+    if (values.isEmpty()) {
+      return script;
+    }
+    Set<String> used = new HashSet<>();
+    String body = substitute(script, i, values, used);
+    StringBuilder out = new StringBuilder(script.length());
+    int from = 0;
+    for (int d = 0; d < spans.size(); d++) {
+      int[] span = spans.get(d);
+      out.append(script, from, span[0]);
+      if (!used.contains(names.get(d))) {
+        out.append(script, span[0], span[1]);
+      }
+      from = span[1];
+    }
+    return out.append(script, from, i).append(body).toString();
+  }
+
+  /** The script from {@code i} with each identifier in {@code values} replaced by its value;
+   * adds the names replaced to {@code used}. */
+  private static String substitute(String script, int i, Map<String, String> values,
+      Set<String> used) {
+    StringBuilder out = new StringBuilder(script.length() - i);
+    int n = script.length();
+    while (i < n) {
+      int skip = skipStringOrComment(script, i);
+      if (skip > i) {
+        out.append(script, i, skip);
+        i = skip;
+        continue;
+      }
+      char c = script.charAt(i);
+      if (!isIdentifierPart(c)) {
+        out.append(c);
+        i++;
+        continue;
+      }
+      int j = i;
+      while (j < n && isIdentifierPart(script.charAt(j))) {
+        j++;
+      }
+      String word = script.substring(i, j);
+      String value = values.get(word);
+      int before = out.length() - 1;
+      while (before >= 0 && isWhitespace(out.charAt(before))) {
+        before--;
+      }
+      if (value != null && !(before >= 0 && out.charAt(before) == '.')) {
+        out.append(value);
+        used.add(word);
+      } else {
+        out.append(word);
+      }
+      i = j;
+    }
+    return out.toString();
+  }
+
+  /** True if the {@code =} at {@code at} is an assignment, not part of {@code == != <= >= =>}. */
+  private static boolean isAssignment(String s, int at) {
+    boolean before = at > 0 && "=!<>".indexOf(s.charAt(at - 1)) >= 0;
+    boolean after = at + 1 < s.length() && (s.charAt(at + 1) == '=' || s.charAt(at + 1) == '>');
+    return !before && !after;
+  }
+
+  /** The index past the string literal or comment at {@code i}, or {@code i} if none starts there. */
+  private static int skipStringOrComment(String s, int i) {
+    char c = s.charAt(i);
+    if (c == '"' || c == '\'' || c == '`') {
+      return stringEnd(s, i);
+    }
+    if (c == '/' && i + 1 < s.length()) {
+      if (s.charAt(i + 1) == '/') {
+        int end = i + 2;
+        while (end < s.length() && s.charAt(end) != '\n' && s.charAt(end) != '\r') {
+          end++;
+        }
+        return end;
+      }
+      if (s.charAt(i + 1) == '*') {
+        int end = s.indexOf("*/", i + 2);
+        return end < 0 ? s.length() : end + 2;
+      }
+    }
+    return i;
+  }
+
+  private static int skipWhitespace(String s, int i) {
+    while (i < s.length() && isWhitespace(s.charAt(i))) {
+      i++;
+    }
+    return i;
+  }
+
+  private static int skipWhitespaceAndComments(String s, int i) {
+    while (true) {
+      int j = skipWhitespace(s, i);
+      int k = j < s.length() && s.charAt(j) == '/' ? skipStringOrComment(s, j) : j;
+      if (k == i) {
+        return i;
+      }
+      i = k;
+    }
+  }
+
+  private static boolean isIdentifierPart(char c) {
+    return c == '_' || c == '$' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
+        || c >= '0' && c <= '9';
+  }
+
+  /**
+   * The index just past the JSON value (string, number, {@code true}, {@code false},
+   * {@code null}, array or object, whitespace allowed between tokens) that starts at {@code i},
+   * or -1 if none does.
+   */
+  static int jsonEnd(String s, int i) {
+    int n = s.length();
+    if (i >= n) {
+      return -1;
+    }
+    char c = s.charAt(i);
+    if (c == '"') {
+      for (int j = i + 1; j < n; j++) {
+        char d = s.charAt(j);
+        if (d == '\\') {
+          j++;
+        } else if (d == '"') {
+          return j + 1;
+        } else if (d == '\n' || d == '\r') {
+          return -1;
+        }
+      }
+      return -1;
+    }
+    if (c == '[' || c == '{') {
+      char close = c == '[' ? ']' : '}';
+      int j = skipWhitespace(s, i + 1);
+      if (j < n && s.charAt(j) == close) {
+        return j + 1;
+      }
+      while (true) {
+        if (c == '{') {
+          j = s.startsWith("\"", j) ? jsonEnd(s, j) : -1;
+          j = j < 0 ? -1 : skipWhitespace(s, j);
+          if (j < 0 || j >= n || s.charAt(j) != ':') {
+            return -1;
+          }
+          j = skipWhitespace(s, j + 1);
+        }
+        j = jsonEnd(s, j);
+        if (j < 0) {
+          return -1;
+        }
+        j = skipWhitespace(s, j);
+        if (j >= n) {
+          return -1;
+        }
+        if (s.charAt(j) == close) {
+          return j + 1;
+        }
+        if (s.charAt(j) != ',') {
+          return -1;
+        }
+        j = skipWhitespace(s, j + 1);
+      }
+    }
+    Matcher m = JSON_ATOM.matcher(s).region(i, n);
+    if (!m.lookingAt()) {
+      return -1;
+    }
+    int end = m.end();
+    boolean joined = end < n && (isIdentifierPart(s.charAt(end)) || s.charAt(end) == '.');
+    return joined ? -1 : end;
   }
 
   /**

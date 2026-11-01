@@ -54,6 +54,11 @@ class PageNormalizerTest {
       pretty-printed json object     | <script>var o = {\\n  "a": 1,\\n  "b": [ 2 ]\\n};</script> | <script>var o = {"a":1,"b":[2]};</script>
       json script type               | <script type="application/json">{ "a" : 1 }</script> | <script type="application/json">{"a":1}</script>
       apostrophe in a comment        | <script>// don't\\nvar a = [ 1 ];</script> | <script>// don't\\nvar a = [1];</script>
+      json string in parentheses (#625) | <script>var pageLanguage = "en";</script> | <script>var pageLanguage = ("en");</script>
+      json array in parentheses      | <script>const fields = [ "a", "b" ];</script> | <script>const fields = (["a","b"]);</script>
+      json object in parentheses     | <script>var o = { "a": [ 1 ], "b": null };</script> | <script>var o = ( {"a":[1],"b":null} ) ;</script>
+      negative number in parentheses | <script>var n = -1.5; f(n);</script>    | <script>var n = (-1.5); f(n);</script>
+      module script in parentheses   | <script type="module">const a = true;</script> | <script type="module">const a = (true);</script>
       """)
   void sameAsABrowserSeesIt(String rule, String a, String b) {
     check(SAME, a.replace("\\n", "\n"), b.replace("\\n", "\n"));
@@ -89,9 +94,34 @@ class PageNormalizerTest {
       template script is not json    | <script type="text/template"><p>a, b</p></script> | <script type="text/template"><p>a,b</p></script>
       jsessionid is not the path     | <a href="/owners;jsessionid=A1">o</a>    | <a href="/owner">o</a>
       v-pre elsewhere still counts   | <div v-pre>a</div>                        | <div>a</div>
+      parenthesized expression       | <script>var n = a + b;</script>           | <script>var n = (a + b);</script>
+      parentheses before an operator | <script>var n = 1 + 2;</script>           | <script>var n = (1) + 2;</script>
+      parentheses in a comparison    | <script>if (a == 1) f();</script>         | <script>if (a == (1)) f();</script>
+      parentheses in a string        | <script>var s = "= 1;";</script>          | <script>var s = "= (1);";</script>
+      other value in parentheses     | <script>var a = "x";</script>             | <script>var a = ("y");</script>
+      parentheses in a template      | <script type="text/template">x = "a";</script> | <script type="text/template">x = ("a");</script>
+      hoisted value changed          | <script>x = "a"; f(x);</script>           | <script>var _t1 = ("b");\\nx = _t1; f(x);</script>
+      declaration after code         | <script>f(); x = "a";</script>            | <script>f(); var _t1 = ("a"); x = _t1;</script>
+      declared expression            | <script>x = g();</script>                 | <script>var _t1 = (g()); x = _t1;</script>
+      name inside a string           | <script>alert("a");</script>              | <script>var _t1 = ("a"); alert("_t1");</script>
+      name after a dot               | <script>o.1 = 2;</script>                 | <script>var x = (1); o.x = 2;</script>
+      unused declaration still counts | <script>var a = 1; x = "q";</script> | <script>var a = (2); var _t1 = ("q"); x = _t1;</script>
       """)
   void differentPages(String rule, String a, String b) {
-    check(DIFFERS, a, b);
+    check(DIFFERS, a.replace("\\n", "\n"), b.replace("\\n", "\n"));
+  }
+
+  @Test
+  void hoistedPreludeValuesAreReordered() {
+    // tessera-migrate hoists each inline into var _tN = [[...]]; at the top of the script (#541).
+    check(REORDERED, "<script>x = \"a\"; if (y) { f(x, [1, 2]); }</script>",
+        "<script>var _t1 = (\"a\"); var _t2 = ([1,2]);\nx = _t1; if (y) { f(x, _t2); }</script>");
+    // A declaration moved to the top: the old page used the value where the new one uses the name.
+    check(REORDERED, "<script>// user\ninit(); show(\"u@example.com\");</script>",
+        "<script>// user\nconst currentUserEmail = (\"u@example.com\");\ninit(); show(currentUserEmail);</script>");
+    // Declarations on both pages, one of them hoisted.
+    check(REORDERED, "<script>var lang = \"en\";\nvar n = 2; if (lang) go(3);</script>",
+        "<script>var lang = (\"en\"); var n = (2); var _t1 = (3);\nif (lang) go(_t1);</script>");
   }
 
   @Test
