@@ -356,8 +356,8 @@ Thymeleaf's `${timestamp}` is `t:text="temporals.format(timestamp, 'EEE MMM dd H
 on a `ZonedDateTime`.
 Per-status pages work as with Thymeleaf: Boot renders `templates/error/404.html` for a 404, else
 `templates/error/4xx.html` (`5xx` for server errors), else `error.html`. The starter's
-`TemplateAvailabilityProvider` tells Boot which of them are compiled templates, on Boot 1.5 through
-4; don't write your own.
+`TemplateAvailabilityProvider` tells Boot which of them the Tessera view resolver can render (from
+your own `TemplateRegistry` bean if you declare one), on Boot 1.5 through 4; don't write your own.
 
 ## 3. The migration loop
 

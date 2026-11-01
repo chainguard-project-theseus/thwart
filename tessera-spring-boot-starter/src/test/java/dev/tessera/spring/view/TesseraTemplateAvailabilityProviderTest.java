@@ -2,21 +2,31 @@ package dev.tessera.spring.view;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.tessera.runtime.TemplateEntry;
+import dev.tessera.runtime.TemplateRegistry;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.autoconfigure.template.TemplateAvailabilityProvider;
+import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.SpringFactoriesLoader;
 import org.springframework.mock.env.MockEnvironment;
 
 /**
  * Boot asks the provider whether {@code error/<status>} and {@code error/4xx}, {@code 5xx} views
- * exist (#628). It answers from the compiled templates on the test classpath ({@code
- * src/test/templates}: {@code error.html}, {@code error/404.html}, {@code error/5xx.html}), with
- * the lookup {@link TesseraViewResolver} uses.
+ * exist (#628). It answers with the lookup {@link TesseraViewResolver} uses: from the context's
+ * Tessera resolvers when Boot passes the application context, else from the compiled templates on
+ * the test classpath ({@code src/test/templates}: {@code error.html}, {@code error/404.html},
+ * {@code error/5xx.html}).
  */
 class TesseraTemplateAvailabilityProviderTest {
+
+  private static final RenderContextFactory CONTEXTS = (request, response, model) -> null;
 
   private final TemplateAvailabilityProvider provider = new TesseraTemplateAvailabilityProvider();
   private final ClassLoader loader = getClass().getClassLoader();
@@ -33,7 +43,10 @@ class TesseraTemplateAvailabilityProviderTest {
   @ParameterizedTest
   @ValueSource(strings = {"error/404", "error/5xx", "error", "/error/404", "smoke/page"})
   void compiledTemplatesAreAvailable(String view) {
-    assertThat(available(view)).as(view).isTrue();
+    assertThat(available(view, new DefaultResourceLoader(loader))).as(view).isTrue();
+    try (GenericApplicationContext ctx = withResolver(TemplateRegistry.load(loader))) {
+      assertThat(available(view, ctx)).as(view).isTrue();
+    }
   }
 
   @ParameterizedTest
@@ -50,16 +63,72 @@ class TesseraTemplateAvailabilityProviderTest {
         ""
       })
   void anythingElseIsNot(String view) {
-    assertThat(available(view)).as(view).isFalse();
+    assertThat(available(view, new DefaultResourceLoader(loader))).as(view).isFalse();
+    try (GenericApplicationContext ctx = withResolver(TemplateRegistry.load(loader))) {
+      assertThat(available(view, ctx)).as(view).isFalse();
+    }
   }
 
   @Test
   void nullIsNotAvailable() {
-    assertThat(available(null)).isFalse();
+    assertThat(available(null, new DefaultResourceLoader(loader))).isFalse();
   }
 
-  private boolean available(String view) {
-    return provider.isTemplateAvailable(
-        view, new MockEnvironment(), loader, new DefaultResourceLoader(loader));
+  @Test
+  void userRegistryWithoutTheTemplateWins() {
+    // The class path has error/404, the application's own registry does not: the resolver would
+    // not render it, so Boot must fall back to its "error" view.
+    List<TemplateEntry> entries = new ArrayList<>();
+    for (TemplateEntry e : TemplateRegistry.load(loader).all()) {
+      if (!e.name().equals("error/404")) {
+        entries.add(e);
+      }
+    }
+    try (GenericApplicationContext ctx = withResolver(TemplateRegistry.of(entries))) {
+      assertThat(available("error/404", ctx)).isFalse();
+      assertThat(available("error/5xx", ctx)).isTrue();
+    }
+  }
+
+  @Test
+  void userRegistryWithTheTemplateWins() {
+    // Only the application's registry has error/418.
+    TemplateEntry teapot =
+        new TemplateEntry(
+            "error/418", Collections.<TemplateEntry.Param>emptyList(), (model, ctx, out) -> {});
+    try (GenericApplicationContext ctx =
+        withResolver(TemplateRegistry.of(Collections.singletonList(teapot)))) {
+      assertThat(available("error/418", ctx)).isTrue();
+      assertThat(available("error/404", ctx)).isFalse();
+    }
+  }
+
+  @Test
+  void contextWithoutTesseraResolverHasNoTemplates() {
+    try (GenericApplicationContext ctx = new GenericApplicationContext()) {
+      ctx.refresh();
+      assertThat(available("error/404", ctx)).isFalse();
+    }
+  }
+
+  @Test
+  void resolverInParentContextCounts() {
+    try (GenericApplicationContext parent = withResolver(TemplateRegistry.load(loader));
+        GenericApplicationContext child = new GenericApplicationContext(parent)) {
+      child.refresh();
+      assertThat(available("error/404", child)).isTrue();
+    }
+  }
+
+  private static GenericApplicationContext withResolver(TemplateRegistry registry) {
+    GenericApplicationContext ctx = new GenericApplicationContext();
+    ctx.getBeanFactory()
+        .registerSingleton("tesseraViewResolver", new TesseraViewResolver(registry, CONTEXTS));
+    ctx.refresh();
+    return ctx;
+  }
+
+  private boolean available(String view, ResourceLoader resourceLoader) {
+    return provider.isTemplateAvailable(view, new MockEnvironment(), loader, resourceLoader);
   }
 }

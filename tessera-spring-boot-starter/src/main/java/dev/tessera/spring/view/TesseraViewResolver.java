@@ -63,6 +63,14 @@ public final class TesseraViewResolver implements ViewResolver, Ordered {
   }
 
   /**
+   * Whether {@link #resolveViewName} finds a template for {@code viewName}, without building a
+   * view ({@link TesseraTemplateAvailabilityProvider}).
+   */
+  boolean resolves(String viewName) {
+    return viewName != null && registry.find(lookupName(viewName)).isPresent();
+  }
+
+  /**
    * The registry name {@code viewName} is looked up by: {@code viewName} less one leading {@code /}.
    * A name with {@code ::} (#131) is cut at the first one into two literal halves, each trimmed as
    * Thymeleaf trims them ({@link String#trim}), the page half less one leading {@code /}, and joined
