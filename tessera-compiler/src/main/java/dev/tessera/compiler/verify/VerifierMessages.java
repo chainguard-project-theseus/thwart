@@ -242,10 +242,13 @@ final class VerifierMessages {
     Matcher m = SECOND_PAGE_ELEMENT.matcher(message);
     if (m.matches()) {
       String name = m.group(1) != null ? m.group(1) : m.group(3);
-      // An element a page writes before a layout call opens the page's <html> before the layout's.
+      // An element a page writes before a layout call opens the page's <html> before the layout's. Both
+      // fixes migrate's report gave are here: the layout may or may not already take a head fragment.
       String before = name.equals("html")
           ? "; an element written before a layout call comes before the layout's doctype and <html>: move it into"
-              + " the <head> the page passes to the layout"
+              + " a <head t:remove=\"tag\"> in the page and pass ~{::head} as the layout's head fragment; if the"
+              + " layout takes none, give it a Fragment head parameter written as"
+              + " <t:block t:replace=\"head\"></t:block> in its <head>, and pass null for it from its other calls"
           : "";
       return m.group(1) != null || "start".equals(m.group(2))
           ? "a browser finds a second <" + name + "> here and merges it into the first" + layout + before

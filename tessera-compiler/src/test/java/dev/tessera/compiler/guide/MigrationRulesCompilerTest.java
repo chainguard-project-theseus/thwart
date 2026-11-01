@@ -93,7 +93,33 @@ class MigrationRulesCompilerTest {
             + "<t:block t:replace=\"~{fragments/layout :: layout(null, ~{::body})}\">\n"
             + "<body t:remove=\"tag\"><p t:text=\"s\">x</p></body>\n</t:block>\n</t:block>\n")
         .assertError("page.html:3:", "a second <html>", "before a layout call",
-            "move it into the <head> the page passes to the layout");
+            "move it into a <head t:remove=\"tag\"> in the page and pass ~{::head}");
+  }
+
+  @Test
+  void elementBeforeALayoutWithNoHeadParameterNamesTheParameterToAdd() {
+    String noHead = "<!DOCTYPE html>\n"
+        + "<html xmlns:t=\"https://tessera.dev\" lang=\"en\" t:fragment=\"layout(Fragment content)\">\n"
+        + "<head>\n<title>T</title>\n</head>\n"
+        + "<body>\n<t:block t:replace=\"content\"></t:block>\n</body>\n</html>\n";
+    Compilation.builder()
+        .template("fragments/layout.html", noHead)
+        .template("page.html", "<t:block xmlns:t=\"https://tessera.dev\" t:params=\"String s\">\n"
+            + "<link rel=\"stylesheet\" href=\"/r.css\">\n"
+            + "<t:block t:replace=\"~{fragments/layout :: layout(~{::body})}\">\n"
+            + "<body t:remove=\"tag\"><p t:text=\"s\">x</p></body>\n</t:block>\n</t:block>\n")
+        .compile()
+        .assertError("page.html:3:", "a second <html>", "if the layout takes none, give it a Fragment head parameter",
+            "<t:block t:replace=\"head\"></t:block> in its <head>");
+  }
+
+  @Test
+  void elementMovedIntoThePassedHeadCompiles() {
+    compileWithLayout("<t:block xmlns:t=\"https://tessera.dev\" t:params=\"String s\">\n"
+            + "<t:block t:replace=\"~{fragments/layout :: layout(~{::head}, ~{::body})}\">\n"
+            + "<head t:remove=\"tag\"><link rel=\"stylesheet\" href=\"/r.css\"></head>\n"
+            + "<body t:remove=\"tag\"><p t:text=\"s\">x</p></body>\n</t:block>\n</t:block>\n")
+        .assertSuccess();
   }
 
   @Test
