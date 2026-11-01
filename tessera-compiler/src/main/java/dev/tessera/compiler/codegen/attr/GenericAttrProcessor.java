@@ -557,7 +557,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
               label + " is not allowed: '" + name + "' is not an inert-text attribute on <" + plan.element().name()
                   + ">, so a computed value can only combine string literals and numbers, not a "
                   + type + "; write a static attribute, choose between literals such as ${c} ? 'a' : 'b', or"
-                  + " use a data-* attribute if a script reads it");
+                  + " if a script reads it, put the data in a <script type=\"application/json\"> block");
       return false;
     }
     ctx.diagnostics()

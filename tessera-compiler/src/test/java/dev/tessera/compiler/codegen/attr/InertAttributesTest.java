@@ -62,7 +62,14 @@ class InertAttributesTest {
     "<math><mi t:mathcolor=\"s\">x</mi></math>",
   })
   void otherStandardAttributesRejectPlainValues(String body) {
-    compile("\n" + body).assertError("t.html:2:", "is not allowed", "is not an inert-text attribute", "write a static attribute");
+    // The fix-it points at a JSON block, not a data-* attribute, which takes no String since #584.
+    compile("\n" + body)
+        .assertError(
+            "t.html:2:",
+            "is not allowed",
+            "is not an inert-text attribute",
+            "write a static attribute",
+            "<script type=\"application/json\"> block");
   }
 
   @Test
