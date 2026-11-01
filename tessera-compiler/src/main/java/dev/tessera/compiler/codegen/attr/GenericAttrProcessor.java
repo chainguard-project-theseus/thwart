@@ -539,7 +539,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     if (isNumber(t) || safe != null && isDeclared(t, safe.getName())) {
       return true;
     }
-    String type = t.getKind() == TypeKind.NULL ? "null" : t.toString();
+    String type = t.getKind() == TypeKind.NULL ? "null" : JavaStrings.typeName(t);
     if (context == OutputContext.TRUSTED_URL) {
       ctx.diagnostics()
           .error(

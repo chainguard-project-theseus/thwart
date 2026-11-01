@@ -179,8 +179,8 @@ class Jdk8ProcessorTest {
   /**
    * #627: JDK 8's javac renders a type-use-annotated type as {@code (@NotNull :: java.lang.Integer)},
    * so generated code that spelled types with {@code TypeMirror.toString()} did not compile. A
-   * {@code t:field}, a null-safe read, locals and loops over annotated element, nested and array
-   * types, rendered on Java 8.
+   * {@code t:field}, a null-safe read, locals, loops and {@code ?:} over annotated element, nested
+   * and array types, rendered on Java 8.
    */
   @Test
   void typeUseAnnotatedPropertiesCompileInAJdk8Javac() throws Exception {
@@ -259,7 +259,9 @@ class Jdk8ProcessorTest {
         <p t:text="${cart?.first}">q</p><p t:text="${cart?.names[0]}">n</p>\
         <t:block t:with="qs=${cart.quantities}, ns=${cart.names}, m=${cart.byKey}">\
         <i t:each="q : ${qs}" t:text="${q}">q</i><b t:each="n : ${ns}" t:text="${n}">n</b>\
-        <u t:each="e : ${m}" t:text="${e.value[0]}">e</u></t:block></div>""");
+        <u t:each="e : ${m}" t:text="${e.value[0]}">e</u>\
+        <s t:text="${ns[0] ?: 'none'}">s</s><s t:text="${qs[0] ?: cart.first}">s</s>\
+        <s t:text="${cart.first ?: null}">s</s></t:block></div>""");
 
     List<String> javac = new ArrayList<>();
     javac.add(jdk.resolve("bin/javac").toString());
@@ -273,7 +275,7 @@ class Jdk8ProcessorTest {
     assertTrue(Files.exists(out.resolve("tessera/generated/CartTemplate.class")), compiled);
 
     String rendered = run(List.of(jdk.resolve("bin/java").toString(), "-cp", join(out, runtime), "app.Main"));
-    assertEquals("<div><p>3</p><p>x</p><i>3</i><i>4</i><b>x</b><b>y</b><u>7</u></div>", rendered);
+    assertEquals("<div><p>3</p><p>x</p><i>3</i><i>4</i><b>x</b><b>y</b><u>7</u><s>x</s><s>3</s><s>3</s></div>", rendered);
   }
 
   /**

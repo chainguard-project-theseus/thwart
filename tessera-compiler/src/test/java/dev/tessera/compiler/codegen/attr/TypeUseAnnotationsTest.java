@@ -89,4 +89,13 @@ class TypeUseAnnotationsTest {
     assertEquals(
         "<form><p>3</p><p>x</p><i>3</i><i>4</i><b>x</b><b>y</b><u>7</u><s>3</s></form>", render(c));
   }
+
+  @Test
+  void elvisOverTypeUseAnnotatedOperands() {
+    Compilation c =
+        compile(
+            "<p t:text=\"${owner.names[0] ?: 'none'}\">n</p><p t:text=\"${owner.quantities[0] ?: owner.first}\">q</p>"
+                + "<p t:text=\"${owner.first ?: null}\">f</p>");
+    assertEquals("<form><p>x</p><p>3</p><p>3</p></form>", render(c));
+  }
 }

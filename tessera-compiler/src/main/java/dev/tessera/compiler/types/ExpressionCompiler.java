@@ -826,7 +826,7 @@ public final class ExpressionCompiler {
       return error(e.pos(), "the operands of ?: have incompatible types " + describe(v.type()) + " and "
           + describe(f.type()) + ": make the default the same type as the value");
     }
-    return new CompiledExpr(VALUES + ".<" + t + ">elvis(" + v.code() + ", " + f.code() + ")", t, e.pos());
+    return new CompiledExpr(VALUES + ".<" + JavaStrings.typeName(t) + ">elvis(" + v.code() + ", " + f.code() + ")", t, e.pos());
   }
 
   private CompiledExpr interpolation(Expr.Interpolation i, Scope scope) {
@@ -1063,7 +1063,7 @@ public final class ExpressionCompiler {
   }
 
   private static String describe(TypeMirror t) {
-    return t.getKind() == TypeKind.NULL ? "null" : t.toString();
+    return t.getKind() == TypeKind.NULL ? "null" : JavaStrings.typeName(t);
   }
 
   private static boolean isGetterName(String n) {
