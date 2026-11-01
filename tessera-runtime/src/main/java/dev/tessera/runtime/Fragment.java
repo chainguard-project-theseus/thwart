@@ -73,7 +73,7 @@ public final class Fragment {
           "Tessera: template '" + template + "' parameter '" + param + "' needs a Fragment from"
               + " Fragment.of(template), and this one is not, so its markup was never checked where"
               + " it lands here. Fix: pass Fragment.of(...) of a compiled flow partial (docs/guide.md"
-              + " section 4.4), or pass the fragment from the template that inserts it (#581)");
+              + " section 4.9), or pass the fragment from the template that inserts it (#581)");
     }
   }
 }

@@ -93,7 +93,7 @@ From [security-architecture.md](security-architecture.md) §7 (accepted Oct 24, 
 - Floors: the target app builds with JDK 8+ and runs on Java 8+, on Spring 4.3+ / Boot 1.5+.
   This repo builds with JDK 21+.
 - There is no runtime template loading and no `__${}__` preprocessing, by design.
-- [guide.md section 7](guide.md#7-known-limitations) lists the current gaps.
+- [guide.md section 5](guide.md#5-known-limitations) lists the current gaps.
   [examples/petclinic/MIGRATION-NOTES.md](../examples/petclinic/MIGRATION-NOTES.md) is the
   friction log of the first port, and [bench/migration/RESULTS.md](../bench/migration/RESULTS.md)
   has the failure analysis of the benchmark runs.

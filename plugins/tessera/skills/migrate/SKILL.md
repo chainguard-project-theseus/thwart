@@ -1,145 +1,80 @@
 ---
 name: migrate
-description: Migrate a Java web application's server-rendered views (Thymeleaf, JSP, FreeMarker, Velocity, Mustache, or similar) to Tessera, the compiled, safe-by-design template engine, and check every page against the old app with tessera-migrate record/compare. Use when asked to port, convert or move an app's templates or views to Tessera, or to replace its template engine with Tessera.
+description: Migrate a Java web application's server-rendered views (Thymeleaf, JSP, FreeMarker, Velocity, Mustache, Pebble or similar) to Tessera, the compiled, safe-by-design template engine, and check every page against the old app with tessera-migrate record/compare. Use when asked to port, convert or move an app's templates or views to Tessera, or to replace its template engine with Tessera.
 ---
 
 # Migrate server-rendered Java views to Tessera
 
-The full porting guide is [references/guide.md](references/guide.md). Read its sections 1 (the
-target), 2 (build setup) and 3 (the loop) before you change anything. Use sections 4 to 7
-(syntax, a worked example, every compiler diagnostic with its fix, known limitations) when you
-need them. It doesn't map your engine's syntax construct by construct. You know the old engine,
-and once you know how Tessera works the syntax converts on its own. Section 4.10 lists the traps of
-JSP (with Tiles or SiteMesh), Velocity and Pebble, including how to replace their raw output: read
-the part for your engine before converting.
+## What Tessera is
 
-## The target, in brief
+Tessera templates are HTML with `t:` attributes, close to Thymeleaf's `th:` syntax. An annotation
+processor compiles them into Java classes during the application's own `javac`, so a template
+mistake is a build error with `file:line:col`, and nothing parses templates at runtime. The model
+is stricter than the engine you are leaving, and that is where the work is:
 
-Templates are HTML with `t:` attributes, close to Thymeleaf. The application's `javac` compiles
-them into Java classes, so a template mistake is a build error with `file:line:col`. A template
-sees only its typed `t:params`, which are read from the model. It can't see the request, the
-session, beans or statics, and a missing model attribute is `null`. Templates read getters and
-record components of view-safe types and call only registered `@TemplateFunction`s. The escaper
-comes from the output context, and raw output needs a `SafeHtml` built in Java. Most of the work
-is in the places where this model differs from the old engine: where the data comes from, layouts,
-and forms.
+- A template sees only its typed `t:params`, filled from the model (or a `@PathVariable` of the same
+  name). There is no request, session, bean or static scope to fall back to, so a value the old
+  page found elsewhere is `null` now: the controller has to provide it.
+- Templates read getters and record components of view-safe types and call registered
+  `@TemplateFunction`s. Logic, filtering and formatting move into Java.
+- Escaping comes from the output context and can't be turned off. Raw markup is a `SafeHtml`
+  built in Java, and stored HTML goes through `html.sanitize(...)`.
+- Includes, macros, tag files and layouts become fragments: typed functions that see only their
+  parameters, with markup passed as `Fragment` values. View names, fragment references, message
+  keys and link paths are literals.
 
-## The tool
+[references/guide.md](references/guide.md) is the reference: the model in full (section 1), build
+setup (section 2), the tools (section 3), syntax and output contexts (section 4), notes for each
+engine (4.10) and known limitations (section 5). Read sections 1 and 2 and your engine's notes
+before you start; look up the rest when you need it.
 
-`tessera-migrate` records the old app's pages and compares the new app's pages against them. For
-Thymeleaf it also does the mechanical rewrite of a whole template directory. It runs on JDK 8+,
-and the build needs a JDK and Maven, so you already have both. Get the jar into `.tessera/` in the application's
-directory (outside `target/`, so `mvn clean` leaves it; don't commit it):
+## Your tools
 
-```sh
-mvn -q dependency:copy -Dartifact=dev.tessera:tessera-migrate:0.1.0-SNAPSHOT -Dmdep.stripVersion=true -DoutputDirectory=.tessera
-java -jar .tessera/tessera-migrate.jar --help
-```
+- **The compiler.** Each error names the file, line and column, says what is wrong and how to fix
+  it. Those messages are the documentation for each rule; `mvn compile` is the fastest check you
+  have. The generated Java is in `target/generated-sources/annotations` if you want to see what a
+  template became.
+- **`tessera-migrate`**, a jar that runs on JDK 8+. Fetch it into `.tessera/` (outside `target/`;
+  don't commit it):
 
-Run the command as written (don't add `-o`: Maven may need to fetch the dependency plugin
-itself). The Tessera artifacts aren't published to a remote repository yet, so it resolves only
-where Tessera has been built with `mvn install` (from `github.com/wolfi-dev/tessera`). If it
-fails, read the error. If the missing artifact is `dev.tessera:tessera-migrate`, stop and say that
-Tessera needs to be installed into the local Maven repository first. Any other failure (plugin
-resolution, network) is a Maven problem, not a missing Tessera. Either way, if the jar is in the
-local repository (`~/.m2/repository/dev/tessera/tessera-migrate/<version>/tessera-migrate-<version>.jar`,
-with the version above), copying it to `.tessera/tessera-migrate.jar` works too. The application's
-build resolves `tessera-compiler` and the starter from the same local repository.
+  ```sh
+  mvn -q dependency:copy -Dartifact=dev.tessera:tessera-migrate:0.1.0-SNAPSHOT -Dmdep.stripVersion=true -DoutputDirectory=.tessera
+  java -jar .tessera/tessera-migrate.jar --help
+  ```
 
-## The process
+  Tessera isn't published to a remote repository: it resolves from the local Maven repository,
+  where it was installed with `mvn install`. If the copy fails, the jar may still be there to copy
+  by hand (`~/.m2/repository/dev/tessera/tessera-migrate/<version>/`). If `dev.tessera` is
+  missing from the local repository, say that Tessera has to be installed first.
+  - `record` and `compare` replay a `pages.txt` against the old app and then the new one and
+    compare the pages as a browser builds them. This is how you know a page is right.
+  - For Thymeleaf, `tessera-migrate <old-templates-dir> <new-templates-dir> --report report.md`
+    does the mechanical rewrite and reports, by `file:line`, what it couldn't convert and every
+    value the templates read from outside the model.
+- **`tessera-maven-plugin`** (`check` goal) makes Maven recompile after a template-only or
+  message-only edit (guide section 2).
+- **The application's own tooling.** Its build, tests, scripts, README and seed data are yours to
+  find and use.
 
-The old application is the specification. Work the way an expert would, keeping the loop short:
+## How to work
 
-1. **List every page** in a `pages.txt`, in every state that renders differently: forms empty,
-   with errors and after success; each role, logged out and logged in; empty and full lists; error
-   pages. Start the app from the same data on every run.
-2. **Record** the old app before changing anything:
-   `java -jar .tessera/tessera-migrate.jar record <base-url> pages.txt baseline/`
-3. **Set up the build** (guide section 2): the app builds with JDK 8+ and runs on Java 8+ with
-   Spring 4.3+ or Boot 1.5+ (Servlet 3.0+; keep the app's Spring version), and the starter is
-   `tessera-spring-boot-starter` for `jakarta.servlet` or `tessera-spring-boot-starter-javax` for
-   `javax.servlet`. Tessera can sit next to the old engine while you migrate; until it is
-   removed it still renders every view Tessera doesn't know, with its own injection risks.
-4. **Convert one template at a time**, shared fragments and layouts first (guide section 4.10 for
-   your engine). Convert templates that share a layout or form fragments in one context rather
-   than splitting them across subagents. For each one, find every value it reads and make the
-   controller provide it. Declare the real parameter types, rewrite the markup, then run
-   `mvn clean compile` and fix each error using the diagnostic catalogue (guide section 6). For
-   Thymeleaf, run
-   `java -jar .tessera/tessera-migrate.jar <old-templates-dir> <new-templates-dir> --report migrate-report.md`
-   first, then finish what it reports. Its report lists each read of the session, request
-   parameters, request, servlet context, CSRF token, Thymeleaf's context, a bean or a static, with
-   where the controller should get the value instead: that is the controller-side checklist
-   (guide section 3, step 4).
-
-   A page passes its `<body>` to the layout marked `t:remove="tag"`, so the layout doesn't write a
-   second `<body>` inside its own; a second `<html>`, `<head>` or `<body>` anywhere (a nested
-   pair, a copied include that writes a whole document, an element before the layout's doctype) is
-   a build error (guide section 4.8, Layouts). `tessera-migrate` fixes the cases where a browser
-   would merge nothing from the removed tag and reports the rest; when a removed `<body>` carries
-   attributes, such as a class, move them to the layout's `<body>`.
-
-   A `null` link path variable fails the render where Thymeleaf wrote an empty segment, and an
-   empty one is rejected too: guard a link whose path variable can be `null` with `t:if`.
-   `tessera-migrate` reports each link with a path variable that is not a literal (guide section 3,
-   step 4).
-
-   A computed attribute outside the standard HTML, SVG, MathML and ARIA names (`data-*`, `hx-*`,
-   `x-*`, `v-*`, a custom element's own attributes, ...) takes only a framework-neutral value: a
-   number, a boolean, a same-origin link `@{/items/{id}(id=${item.id})}` without a query, or a
-   choice between those and literals. A `String` there is a build error, which `tessera-migrate`
-   leaves to the compiler: apply the matching recipe in guide section 4.4, Migration recipes. A
-   choice of literals listing the values of a data range, messages hard-coded as literals, and a
-   script that copies a value back into `data-*` are not recipes (guide section 4.4). In a
-   JavaScript `<script>`, each `[[...]]` must be the whole value of a declaration at
-   the top, `const x = [[${x}]];`, before any other code (the script prelude rule, guide section 6);
-   `tessera-migrate` hoists the other values into `var _t1 = [[...]];` declarations there and reports
-   the ones it hoists out of a block or function: a callback then reads a global that every copy of
-   an included fragment overwrites. It leaves the ones in template literals, regular expressions
-   and comments, which the compiler reports and you move by hand.
-
-   Stored HTML that the old page printed raw (`th:utext`, `[(...)]`, JSP `${...}`, Velocity)
-   stays a `String` and goes through `t:utext="html.sanitize(x)"`, `html.sanitizeRich(x)` for
-   editor or Markdown output, or the app's own `HtmlPolicy` behind a `@TemplateFunctions`
-   function when it needs other classes or images (guide section 4.10, Rich text). Don't parse
-   it in Java into records and rebuild it with a fragment that inserts itself under a `t:switch`
-   on the tag name: that is a build error. The compiler reports a raw `String` and each such
-   fragment, at its call site, with this recipe. The fix is in Java: delete the parser, the
-   records and the fragment, pass the HTML string, and sanitize it at each call site.
-5. **Compare** the new app, started from the same data, after each template or small group:
-   `java -jar .tessera/tessera-migrate.jar compare <base-url> pages.txt baseline/`
-   Judge each difference: fix it, or decide that it is right and write down why. A `reordered`
-   page passes but prints its diff, so check that what moved is harmless. Text that changes on
-   every run (times, random ids) can be masked with `--ignore REGEX`; keep it narrow, since what it
-   matches is never compared. Few differences are right. An empty value or a 500 nearly always
-   means a value the old template took from outside the model. A difference that a section 4.4
-   recipe causes is right, including a changed content-hashed asset URL. Write it down, or mask the
-   hash narrowly. Don't avoid the recipe.
-6. **Remove the old engine**: this completes the security guarantee. Remove its templates, its
-   dependency and its configuration. Diff `mvn dependency:list` from before and after, and declare
-   the libraries the app still uses that came with the old engine. Then build, test and compare
-   once more.
-
-## Time
-
-Note the time with `date` when you start. Before you decide that time is short, run `date` again
-and compare: don't guess. Use the whole budget you were given if the work needs it. Don't stop
-while your own `compare` still fails, and don't give subagents time limits or stop them early
-because you think time is up.
+The old application is the specification. Record it before you change anything, with a
+`pages.txt` that reaches every page in every state that renders differently. Set up the build, then
+convert shared layouts and fragments first, then pages, compiling and comparing as you go. Run
+`compare` early and often: an empty value or a 500 almost always means a value the old template
+took from outside the model. Remove the old engine last: its templates, dependency and
+configuration. Until it is gone, it still renders every view Tessera doesn't know, with its own
+injection risks, so removing it is what completes the security guarantee.
 
 ## What "done" is checked against
 
-The migration is checked against these facts. Work towards them, and report against each one:
-
-- `mvn clean verify` passes, including all the existing tests.
-- `compare` exits 0 on your `pages.txt`, so every page is `same` or `reordered` with its recorded
-  status and final URL. Otherwise, explain why each remaining difference is right.
-- Security isn't weakened. Don't use `SafeHtml.unchecked` or `TrustedUrl.unchecked` to get around
-  escaping, and don't turn off CSRF or escaping. Output that the old engine printed raw and that
-  Tessera now escapes is intended.
-- The old engine is gone: no templates, dependency or configuration remain (`mvn dependency:list`
-  shows none of its artifacts, no view resolver of the old engine is configured, and there is no
-  `Tessera: another template engine is still configured` warning at startup).
-
-A `pages.txt` that skips pages or states makes `compare` pass without proving anything, so list
-every page.
+- The application's normal Maven build passes on the JDK it targets, with all existing tests. Don't
+  delete, disable or weaken tests; update a test only where it asserts on the old engine's details.
+- Page parity: `compare` exits 0 on your `pages.txt`, so every page is `same` or `reordered` with
+  its recorded status and final URL, or you can say why a remaining difference is right. A
+  `pages.txt` that skips pages or states proves nothing.
+- Security isn't weakened: no `SafeHtml.unchecked` or `TrustedUrl.unchecked`, no new `permitAll`,
+  no CSRF or escaping turned off. Output the old engine printed raw and Tessera now escapes is the
+  intended difference.
+- The old engine is gone, and the startup warning `Tessera: another template engine is still
+  configured` no longer appears.
