@@ -372,7 +372,7 @@ final class HtmlSanitizer {
         && HtmlPolicy.isClassToken(url.substring(1)) && !url.startsWith(policy.idPrefix, 1)) {
       url = "#" + policy.idPrefix + url.substring(1); // follow the prefixed id
     }
-    return Escapers.escapeHtml(replaceForbidden(url)); // after the checks: U+FFFD is inert in a URL
+    return Escapers.escapeHtml(crAsLf(url)); // after the checks: U+FFFD is inert in a URL
   }
 
   private static boolean isDataImage(String url) {
@@ -411,7 +411,7 @@ final class HtmlSanitizer {
       if (end > 0) {
         i = end;
       } else if (c == '&' && (end = html4Named(raw, i, raw.length())) > 0) {
-        Escapers.appendHtml(sb, replaceForbidden(pending.toString()));
+        Escapers.appendHtml(sb, crAsLf(pending.toString()));
         pending.setLength(0);
         sb.append(raw, i, end);
         i = end;
@@ -420,7 +420,7 @@ final class HtmlSanitizer {
         i++;
       }
     }
-    Escapers.appendHtml(sb, replaceForbidden(pending.toString()));
+    Escapers.appendHtml(sb, crAsLf(pending.toString()));
     sb.append('"');
   }
 
@@ -602,7 +602,7 @@ final class HtmlSanitizer {
       if (end > 0) {
         i = end;
       } else if ((end = html4Named(s, i, to)) > 0) {
-        Escapers.appendText(out, replaceForbidden(pending.toString()));
+        Escapers.appendText(out, crAsLf(pending.toString()));
         pending.setLength(0);
         out.append(s, i, end);
         i = end;
@@ -611,34 +611,17 @@ final class HtmlSanitizer {
         i++;
       }
     }
-    Escapers.appendText(out, replaceForbidden(pending.toString()));
+    Escapers.appendText(out, crAsLf(pending.toString()));
   }
 
   /**
-   * {@code s} with every code point the parser reports as a parse error in its input (a control
-   * other than ASCII whitespace, a noncharacter, a lone surrogate) replaced by U+FFFD, and CR
-   * (here only a reference such as {@code &#13;} makes one) written as the LF the parser reads it
-   * as (#592). The text and attribute writers call it, so the output parses without an error.
+   * {@code s} with every CR (here only a reference such as {@code &#13;} makes one) written as the
+   * LF the parser reads it as (#592). Code points the parser reports as errors in its input are
+   * left to the writers, {@link Escapers#appendText} and {@link Escapers#appendHtml}, which write
+   * them as U+FFFD ({@link Escapers#forbiddenCodePoint}, #614), so the output parses without an error.
    */
-  private static String replaceForbidden(String s) {
-    StringBuilder sb = null;
-    for (int i = 0; i < s.length(); ) {
-      int cp = s.codePointAt(i);
-      int next = i + Character.charCount(cp);
-      boolean forbidden = (cp < 0x20 && cp != '\t' && cp != '\n' && cp != '\f' && cp != '\r')
-          || (cp >= 0x7F && cp <= 0x9F) || (cp >= 0xFDD0 && cp <= 0xFDEF) || (cp & 0xFFFE) == 0xFFFE
-          || (cp >= 0xD800 && cp <= 0xDFFF);
-      if (forbidden || cp == '\r') {
-        if (sb == null) {
-          sb = new StringBuilder(s.length()).append(s, 0, i);
-        }
-        sb.append(forbidden ? '\uFFFD' : '\n');
-      } else if (sb != null) {
-        sb.append(s, i, next);
-      }
-      i = next;
-    }
-    return sb == null ? s : sb.toString();
+  private static String crAsLf(String s) {
+    return s.replace('\r', '\n');
   }
 
   /** Decodes known character references in an attribute value; unknown ones stay literal. */
