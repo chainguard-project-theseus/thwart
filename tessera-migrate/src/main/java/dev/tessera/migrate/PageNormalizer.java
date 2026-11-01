@@ -278,8 +278,10 @@ final class PageNormalizer {
    * ({@code var|let|const name = json;}, only whitespace and comments around them) where the
    * code below uses its name (an identifier not after a {@code .}, outside strings and
    * comments), and removes the declarations so used; one the script doesn't use is kept. Other
-   * scripts and event handlers on the page are not consulted, so a global they read compares
-   * {@code reordered}, and the printed diff shows the declaration that went. A script that
+   * scripts and event handlers on the page are not consulted, nor are a name read in a template
+   * literal's {@code ${...}}, a rest binding ({@code ...x}) or an object key or method name
+   * ({@code {x: 1}}): such a page compares {@code reordered}, and the printed diff shows the
+   * declaration that went for the agent to judge. A script that
    * declares a name twice, or whose code below matches {@link #REBOUND} for a declared name, is
    * left as it is: there the value may not be a constant. Runs on {@link #tightenJson} output.
    */
