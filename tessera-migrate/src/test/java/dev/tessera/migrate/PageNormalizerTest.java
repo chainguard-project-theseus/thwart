@@ -148,6 +148,17 @@ class PageNormalizerTest {
     // shows the declaration that went.
     check(REORDERED, "<script>f(\"/a\");</script><script>g(ctx);</script>",
         "<script>var ctx = (\"/a\"); f(ctx);</script><script>g(ctx);</script>");
+    // A template literal that doesn't name the declaration doesn't stop the expansion.
+    check(REORDERED, "<script>f(\"a\", `t${y}`);</script>",
+        "<script>var _t1 = (\"a\");\nf(_t1, `t${y}`);</script>");
+    // Documented gaps the coarse scan leaves to the diff: a read in ${...}, a rest binding, and
+    // an object key.
+    check(REORDERED, "<script>f(\"/a\"); g(`${ctx}`);</script>",
+        "<script>var ctx = (\"/a\"); f(ctx); g(`${ctx}`);</script>");
+    check(REORDERED, "<script>function f(...id){ return 7; } f(7);</script>",
+        "<script>var id = (7); function f(...id){ return id; } f(id);</script>");
+    check(REORDERED, "<script>o = {\"a\": 1}; f(\"a\");</script>",
+        "<script>var x = (\"a\"); o = {x: 1}; f(x);</script>");
   }
 
   @Test
