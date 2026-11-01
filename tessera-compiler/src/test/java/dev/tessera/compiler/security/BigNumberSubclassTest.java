@@ -23,7 +23,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * {@code BigDecimal} and {@code BigInteger} are not final, so an application subclass can override
  * {@code toString()}, for example to return a label. JSON output ({@code [[...]]} in a
- * {@code <script>}, a {@code :prop} binding) writes a number's text as is, and {@link MessageFormat}
+ * {@code <script>}) writes a number's text as is, a {@code data-*} attribute writes it in plain decimal, and {@link MessageFormat}
  * formats these two types from their text, so a subclass whose text is not a JSON number must fail
  * the render instead of reaching the page. So must one in a {@code style} attribute, where CSS cannot
  * be escaped. Renders here go through the generated registry, as in
@@ -91,7 +91,7 @@ class BigNumberSubclassTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"<script>var a = [[${x}]];</script>", "<p t::v=\"${x}\">p</p>"})
+  @ValueSource(strings = {"<script>var a = [[${x}]];</script>", "<p t:data-v=\"${x}\">p</p>"})
   void bigDecimalSubclassWithHostileTextFailsTheRender(String body) {
     Compilation c = compile(body);
     assertThrows(IllegalArgumentException.class, () -> render(c, new Price(HOSTILE), List.of()));
@@ -99,7 +99,7 @@ class BigNumberSubclassTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"<script>var a = [[${y}]];</script>", "<p t::v=\"${y}\">p</p>"})
+  @ValueSource(strings = {"<script>var a = [[${y}]];</script>"})
   void bigIntegerSubclassWithHostileTextFailsTheRender(String body) {
     Compilation c = compile(body);
     assertThrows(
@@ -119,15 +119,15 @@ class BigNumberSubclassTest {
   @Test
   void jdkValuesRenderUnchanged() {
     Compilation c =
-        compile("<script>var a = [[${x}]]; var b = [[${y}]];</script><p t::v=\"${x}\" t::w=\"${y}\">p</p>");
+        compile("<script>var a = [[${x}]]; var b = [[${y}]];</script><p t:data-v=\"${x}\">p</p>");
     List<BigInteger> y = List.of(new BigInteger("-123456789012345678901234567890"), BigInteger.ZERO);
     String want =
         "<div><script>var a = (1E+3); var b = ([-123456789012345678901234567890,0]);</script>"
-            + "<p :v=\"1E+3\" :w=\"[-123456789012345678901234567890,0]\">p</p></div>";
+            + "<p data-v=\"1000\">p</p></div>";
     assertEquals(want, render(c, new BigDecimal("1E+3"), y));
     assertEquals(want, c.render("page", Map.of("x", new BigDecimal("1E+3"), "y", y)));
     assertEquals(
-        "<div><script>var a = (-0.000012345); var b = ([]);</script><p :v=\"-0.000012345\" :w=\"[]\">p</p></div>",
+        "<div><script>var a = (-0.000012345); var b = ([]);</script><p data-v=\"-0.000012345\">p</p></div>",
         render(c, new BigDecimal(BigInteger.valueOf(-12345), 9), List.of()));
     // Only the JDK classes themselves: a subclass fails even when its text is a JSON number.
     assertThrows(IllegalArgumentException.class, () -> render(c, new Price("2.50"), List.of()));

@@ -5,14 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import dev.tessera.compiler.testing.Compilation;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * Vue, Alpine, htmx, _hyperscript, AngularJS and Knockout attributes whose values the framework
- * runs as JavaScript (#235, #249): an expression there is a build error, like {@code t:onclick}; a
- * static value, shorthand names included, is written verbatim. htmx request URLs take only a
- * same-origin link (#249).
+ * Framework attributes after #584: no name is classified by framework (a computed value in one is
+ * framework-neutral, NeutralValuesTest), static ones are the author's code and are written
+ * verbatim, and what stays framework-named until #585 and #586 still holds: htmx 1.x sockets are
+ * errors, and a computed class drops ng-like tokens.
  */
 class FrameworkDirectivesTest {
 
@@ -20,63 +18,6 @@ class FrameworkDirectivesTest {
 
   private static Compilation compile(String body) {
     return Compilation.builder().template("t.html", HEADER + body + "</div>").compile();
-  }
-
-  /** One attribute per expression-evaluating class; each is a build error with any value. */
-  @ParameterizedTest
-  @ValueSource(
-      strings = {
-        // Vue
-        "v-on:click", "@click", "@click.prevent", "v-bind", "x-bind", ":href", "v-bind:title.prop",
-        "v-model", "v-if", "v-else-if", "v-show", "v-for", "v-html", "V-HTML", "v-text", "v-slot:item",
-        "#default", ".textContent", "v-focus",
-        // Alpine
-        "x-data", "x-init", "x-on:click", "x-bind:style", "x-html", "x-text", "x-show", "x-effect",
-        // htmx
-        "hx-on", "hx-on:click", "hx-on::after-request", "hx-on-click", "hx-on--after-request",
-        "data-hx-on:click", "hx-vals", "data-hx-vals", "hx-vars", "hx-headers", "hx-request",
-        "hx-trigger",
-        // _hyperscript
-        "_", "script", "data-script",
-        // AngularJS
-        "ng-click", "ng-init", "ng-bind-html", "data-ng-click", "x-ng-click", "ng:click", "ng_click",
-        // Knockout
-        "data-bind",
-      })
-  void dynamicValueIsABuildError(String name) {
-    compile("<p t:" + name + "=\"s\">x</p>")
-        .assertError("t.html:1:", "t:" + name + " is not allowed", "run as JavaScript", "static attribute");
-    compile("<p t:attr=\"" + name + "=s\">x</p>").assertError("t.html:1:");
-  }
-
-  /** Knockout evaluates {@code params} on a component (custom element) as a binding. */
-  @Test
-  void knockoutComponentParamsIsABuildError() {
-    // t:params declares template parameters, so t:attr is the only way to compute it.
-    compile("<my-widget t:attr=\"params=s\"></my-widget>")
-        .assertError("t.html:1:", "t:attr params is not allowed", "run as JavaScript");
-    compile("<my-widget params=\"name: n\"></my-widget>").assertSuccess();
-  }
-
-  /** Even a string literal is rejected, as for t:onclick: the author writes the static attribute. */
-  @Test
-  void literalExpressionIsABuildError() {
-    compile("<p t:v-on:click=\"'go()'\">x</p>").assertError("t:v-on:click is not allowed");
-    compile("<p t:v-html=\"'<b>x</b>'\">x</p>").assertError("t:v-html is not allowed");
-    compile("<p t:x-data=\"'{}'\">x</p>").assertError("t:x-data is not allowed");
-  }
-
-  /**
-   * The issue's reproduction: a hostile string never ends up in a directive as code. v-on is
-   * rejected; v-bind:x takes the string as a JSON string literal (#246, see JsonBindingTest).
-   */
-  @Test
-  void issueReproductionIsRejected() {
-    compile("<api-entry t:v-on:click=\"s\" t:v-bind:x=\"s\"></api-entry>").assertError("t:v-on:click is not allowed");
-    Compilation c = compile("<api-entry t:v-bind:x=\"s\"></api-entry>").assertSuccess();
-    assertEquals(
-        "<div><api-entry v-bind:x=\"&quot;\\&quot;);alert(1)\\/\\/&quot;\"></api-entry></div>",
-        c.render("t", Map.of("s", "\");alert(1)//")));
   }
 
   /** Static directives, shorthand names included, are the author's code and are written verbatim. */
@@ -91,61 +32,6 @@ class FrameworkDirectivesTest {
             + " hx-get=\"/api/x\" hx-post=\"/cdn/y\"></api-entry>";
     Compilation c = compile(markup).assertSuccess();
     assertEquals("<div>" + markup + "</div>", c.render("t", Map.of("s", "x")));
-  }
-
-  /** Ordinary data attributes and htmx string attributes still take expressions, escaped. */
-  @Test
-  void dataAttributesStayOrdinary() {
-    Compilation c =
-        compile("<p t:data-security=\"s\" t:data-hx-target=\"s\" t:data-action=\"s\">x</p>").assertSuccess();
-    assertEquals(
-        "<div><p data-security=\"&quot;);alert(1)//\" data-hx-target=\"&quot;);alert(1)//\""
-            + " data-action=\"&quot;);alert(1)//\">x</p></div>",
-        c.render("t", Map.of("s", "\");alert(1)//")));
-  }
-
-  /**
-   * Each of these names, ignoring case and {@code - _ :}, starts with {@code ng}, {@code xng} or
-   * {@code datang} (AngularJS reads each as {@code ngClick} or {@code ngInit}): a build error, as a
-   * computed attribute and as the target of a Vue or Alpine binding, whose JSON value Vue would
-   * write into it.
-   */
-  @ParameterizedTest
-  @ValueSource(
-      strings = {
-        "data:ng-click", "data_ng-click", "x:ng-click", "x_ng-click", "DATA:ng-click", "X_NG-CLICK",
-        "Data_Ng:click", "data--ng-click", "data-_ng-click", "data-:ng-click", "_ng-click", "x_-ng_init",
-      })
-  void angularPrefixSpellingsAreBuildErrors(String name) {
-    compile("<p t:" + name + "=\"s\">x</p>")
-        .assertError("t.html:1:", "t:" + name + " is not allowed", "AngularJS", "run as JavaScript");
-    compile("<p t:attr=\"" + name + "=s\">x</p>").assertError("t.html:1:", "t:attr " + name, "run as JavaScript");
-    if (name.indexOf(':') < 0) {
-      compile("<p t::" + name + "=\"s\">x</p>").assertError("t.html:1:", "t::" + name + " is not allowed");
-      compile("<p t:v-bind:" + name + "=\"s\">x</p>").assertError("t.html:1:", "t:v-bind:" + name + " is not allowed");
-    }
-  }
-
-  /**
-   * Names outside the coarse AngularJS deny keep their treatment: static {@code data:foo} is
-   * copied, {@code data-*} names that, ignoring {@code - _ :}, do not start with {@code datang}
-   * take expressions, and a binding may target {@code data_foo}. {@code data-ngx}, which AngularJS
-   * does not read as a directive, is denied all the same: AngularJS is not modelled.
-   */
-  @Test
-  void otherPrefixedNamesStayOrdinary() {
-    Compilation c =
-        compile("<p data:foo=\"a\" x_foo=\"b\" data:ng-click=\"go()\">x</p>"
-                + "<p t:data-data-ng-click=\"s\" t:data-xng-click=\"s\">y</p>"
-                + "<p t::data_foo=\"s\">z</p>")
-            .assertSuccess();
-    assertEquals(
-        "<div><p data:foo=\"a\" x_foo=\"b\" data:ng-click=\"go()\">x</p>"
-            + "<p data-data-ng-click=\"go()\" data-xng-click=\"go()\">y</p>"
-            + "<p :data_foo=\"&quot;go()&quot;\">z</p></div>",
-        c.render("t", Map.of("s", "go()")));
-    compile("<p t:data-ngx=\"s\">x</p>").assertError("t.html:1:", "t:data-ngx is not allowed");
-    compile("<p t:data:foo=\"s\">x</p>").assertError("t.html:1:", "'data:foo' is not a known attribute", "data-data:foo");
   }
 
   /**
@@ -171,27 +57,12 @@ class FrameworkDirectivesTest {
         c.render("t", Map.of("s", "btn  angular")));
   }
 
-  // ------------------------------------------------------------- htmx request URLs (#249)
+  // ------------------------------- htmx request URLs: a computed one is a neutral link (#249, #584)
 
   private static final String[] HTMX_REQUESTS = {
     "hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete", "data-hx-get", "data-hx-delete", "HX-POST",
     "sse-connect", "ws-connect", "data-ws-connect",
   };
-
-  /** htmx swaps the response in as HTML, so a computed URL that is not a link is a build error. */
-  @Test
-  void htmxRequestUrlRejectsNonLinks() {
-    for (String name : HTMX_REQUESTS) {
-      compile("<button t:" + name + "=\"s\">x</button>")
-          .assertError("t.html:1:", "t:" + name + " is not allowed", "swaps the response", "@{/items/");
-      compile("<button t:attr=\"" + name + "=s\">x</button>").assertError("t.html:1:", "t:attr " + name);
-      compile("<button t:" + name + "=\"'/x/' + s\">x</button>").assertError("t:" + name + " is not allowed");
-      compile("<button t:" + name + "=\"|/x/${s}|\">x</button>").assertError("t:" + name + " is not allowed");
-      compile("<button t:" + name + "=\"'/x'\">x</button>").assertError("t:" + name + " is not allowed");
-      compile("<button t:" + name + "=\"@{/x} + s\">x</button>").assertError("t:" + name + " is not allowed");
-      compile("<button t:" + name + "=\"${s} ?: @{/x}\">x</button>").assertError("t:" + name + " is not allowed");
-    }
-  }
 
   /** Only a same-origin literal path: no absolute, protocol-relative or page-relative link. */
   @Test
@@ -233,43 +104,4 @@ class FrameworkDirectivesTest {
     }
   }
 
-  @Test
-  void htmxRequestUrlAcceptsASameOriginLink() {
-    Compilation c =
-        compile("<button t:hx-get=\"@{/items/{id}(id=${s})}\" t:attr=\"data-hx-post=@{/save(q=${s})}\""
-                + " hx-target=\"#out\">x</button>")
-            .assertSuccess();
-    assertEquals(
-        "<div><button hx-target=\"#out\" data-hx-post=\"/save?q=//evil.example%3F\""
-            + " hx-get=\"/items/%2F%2Fevil.example%3F\">x</button></div>",
-        c.render("t", Map.of("s", "//evil.example?")));
-  }
-
-  /** hx-push-url and hx-replace-url only change the address bar: an ordinary URL attribute. */
-  @Test
-  void htmxHistoryUrlsAreUrls() {
-    Compilation c = compile("<a t:hx-push-url=\"s\" t:hx-replace-url=\"s\">x</a>").assertSuccess();
-    assertEquals(
-        "<div><a hx-push-url=\"/x?a=1&amp;b=2\" hx-replace-url=\"/x?a=1&amp;b=2\">x</a></div>",
-        c.render("t", Map.of("s", "/x?a=1&b=2")));
-    assertEquals(
-        "<div><a hx-push-url=\"about:invalid#tessera\" hx-replace-url=\"about:invalid#tessera\">x</a></div>",
-        c.render("t", Map.of("s", "javascript:alert(1)")));
-  }
-
-  /**
-   * The selector and swap attributes next to a request URL stay ordinary, escaped attributes as
-   * {@code data-hx-*}. Without {@code data-} they are not in the framework table, so they are
-   * unknown names (#330), with a fix-it.
-   */
-  @Test
-  void htmxTargetAndSwapStayOrdinary() {
-    Compilation c =
-        compile("<p t:data-hx-target=\"s\" t:data-hx-swap=\"s\" t:data-hx-select=\"s\">x</p>").assertSuccess();
-    assertEquals(
-        "<div><p data-hx-target=\"&quot;&gt;\" data-hx-swap=\"&quot;&gt;\" data-hx-select=\"&quot;&gt;\">x</p></div>",
-        c.render("t", Map.of("s", "\">")));
-    compile("<p t:hx-target=\"s\">x</p>")
-        .assertError("t.html:1:", "t:hx-target is not allowed", "not a known attribute", "use data-hx-target");
-  }
 }

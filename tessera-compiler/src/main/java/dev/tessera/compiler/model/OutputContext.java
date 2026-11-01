@@ -20,7 +20,7 @@ public enum OutputContext {
   RCDATA("rcdata"),
   /**
    * Quoted value of a plain-text attribute: an inert-text attribute ({@code inert-attributes.txt}),
-   * a named {@code <meta>}'s {@code content}, {@code data-*} or a custom element's prop. Generated
+   * or a named {@code <meta>}'s {@code content}. Generated
    * attributes are always double-quoted.
    */
   ATTRIBUTE("attr"),
@@ -56,8 +56,9 @@ public enum OutputContext {
    */
   SCRIPT("json"),
   /**
-   * Value of a Vue/Alpine bind attribute ({@code v-bind:x}, {@code :x}, {@code x-bind:x}) whose
-   * target {@code x} is an ordinary attribute (#246; see {@code Contexts.isJsonBinding}). The
+   * No attribute gets this since #584 (a Vue/Alpine binding is NEUTRAL); TODO(#599): delete it. It was
+   * the value of a Vue/Alpine bind attribute ({@code v-bind:x}, {@code :x}, {@code x-bind:x}) whose
+   * target {@code x} is an ordinary attribute (#246). The
    * framework evaluates the value as a JavaScript expression, so it is serialized as JSON exactly
    * as in {@code <script>} (a string is always a string literal) and then attribute-escaped.
    */
@@ -76,17 +77,24 @@ public enum OutputContext {
    */
   TYPED_ATTRIBUTE(null),
   /**
-   * {@code on*} event-handler attribute, or a client-side framework directive whose value runs as
-   * JavaScript ({@code v-*}, {@code x-*}, {@code hx-on*}, ...; see
-   * {@code Contexts.isFrameworkDirective}): expressions are a build error.
+   * An attribute whose name is not a standard HTML, SVG, MathML or ARIA name ({@code data-*},
+   * {@code hx-*}, {@code x-*}, {@code v-*}, a custom element's own attributes, any other name;
+   * #583 rule 3, #584). Whatever client code reads it gets only a framework-neutral value: an
+   * exact-class number written in plain decimal, a boolean, a same-origin {@code @{/path}} with no
+   * query, or a choice between those and literals. A String or any other type is a build error.
+   * Written attribute-escaped.
+   */
+  NEUTRAL(null),
+  /**
+   * {@code on*} event-handler attribute: expressions are a build error.
    */
   EVENT_HANDLER(null),
   /**
    * Anything else we cannot escape safely ({@code srcdoc}, non-JS {@code <script type>}), an
    * attribute that decides how others are read (a {@code <script>}'s {@code type}, a
-   * {@code <meta>}'s {@code http-equiv}, an animation's {@code attributeName}, {@code hx-boost},
-   * {@code hx-ws}, {@code hx-sse}, tree-builder inputs), and names that are not plain identifiers
-   * or not known (#330): expressions are a build error.
+   * {@code <meta>}'s {@code http-equiv}, an animation's {@code attributeName},
+   * {@code hx-ws}, {@code hx-sse}, tree-builder inputs), and names that are not plain identifiers:
+   * expressions are a build error.
    */
   FORBIDDEN(null);
 

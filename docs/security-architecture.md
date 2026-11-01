@@ -797,7 +797,20 @@ mechanically instead of by review.**
   `srcset`, SVG animation `values`/`to`/`from`/`by`) are `TRUSTED_URL`: literals or a
   `TrustedUrl`. `URL_LIST` is deleted.
 
-An attribute nobody classified is now a build error, not a plain attribute.
+An attribute nobody classified is not a plain attribute: it was a build error (#330), and is now `NEUTRAL`.
+
+- **Framework-neutral values** (#583 rule 3, #584). Every plain name that is not a standard HTML,
+  SVG, MathML or ARIA name (`data-*`, `hx-*`, `x-*`, `v-*`, a custom element's own attributes, any
+  other name) is `NEUTRAL`: a computed value there is an exact-class number in plain decimal, a
+  boolean, a same-origin `@{/path}` in the alphabet `A-Z a-z 0-9 . _ ~ / - %XX` with no query (the
+  built URL is percent-encoded into it, `--` included, and re-checked), or a choice between those
+  and literals. Free strings are build errors (the strict option): in Datastar, Knockout, htmx,
+  _hyperscript, Stimulus, rails-ujs, Turbo and Bootstrap 3 `data-*` is the code channel. The check
+  is by static type and expression shape; the render-time checks are a backstop. This replaces the
+  framework directive lists, the Vue/Alpine JSON bindings, the htmx request-URL and history-URL
+  classes, the computed `hx-boost` deny (boosting is not modelled since #585), the `ng` name deny
+  and the custom-element prop exemption, so no attribute name is classified by framework. A static
+  `is` must be a valid custom element name, so `<component is="script">` is an error (#272).
 
 ### 12.3 Scripts (#540, #541)
 
@@ -817,6 +830,10 @@ An attribute nobody classified is now a build error, not a plain attribute.
   checks are unchanged. 33 of 36 bench scripts needed it.
 
 ### 12.4 Frameworks (#542)
+
+Superseded for attributes by §12.2's framework-neutral values (#583, #584): the `ng` name deny and
+the framework directive lists below are deleted. A computed `hx-ws`/`hx-sse` stays a build error
+(#562); the `ng` class-token stripping and `v-pre` go with the text rules (#586).
 
 - **AngularJS unsupported** (PR #551). Tessera no longer models `directiveNormalize`, the model
   behind #529, #531 and #532.

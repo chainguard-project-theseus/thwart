@@ -36,16 +36,18 @@ class InertAttributesTest {
   @Test
   void inertTextTakesAString() {
     assertEquals(
-        "<p title=\"&quot;\" id=\"&quot;\" class=\"&quot;\" aria-label=\"&quot;\" data-x=\"&quot;\">x</p>"
-            + "<input name=\"&quot;\" value=\"&quot;\" placeholder=\"&quot;\"><my-el target=\"&quot;\"></my-el>",
-        render("<p t:title=\"s\" t:id=\"s\" t:class=\"s\" t:aria-label=\"s\" t:data-x=\"s\">x</p>"
-            + "<input t:name=\"s\" t:value=\"s\" t:placeholder=\"s\"><my-el t:target=\"s\"></my-el>", "s", "\""));
+        "<p title=\"&quot;\" id=\"&quot;\" class=\"&quot;\" aria-label=\"&quot;\">x</p>"
+            + "<input name=\"&quot;\" value=\"&quot;\" placeholder=\"&quot;\">",
+        render("<p t:title=\"s\" t:id=\"s\" t:class=\"s\" t:aria-label=\"s\">x</p>"
+            + "<input t:name=\"s\" t:value=\"s\" t:placeholder=\"s\">", "s", "\""));
   }
 
   @ParameterizedTest
   @ValueSource(strings = {
     "<a t:rel=\"s\">x</a>",
     "<a t:target=\"s\">x</a>",
+    // A custom element has no exemption (#584).
+    "<my-el t:target=\"s\"></my-el>",
     "<iframe t:sandbox=\"s\"></iframe>",
     "<iframe t:allow=\"s\"></iframe>",
     "<img t:crossorigin=\"s\">",
@@ -102,11 +104,11 @@ class InertAttributesTest {
         .assertError("t.html:2:", "t:sandbox is not allowed", "is not an inert-text attribute");
   }
 
-  /** A JSON binding's target must be an inert-text attribute too. */
+  /** Vue shorthand bindings are not plain names, so they take no computed value at all (#584). */
   @Test
-  void bindTargetsMustBeInert() {
-    compile("<a t::rel=\"s\">x</a>").assertError("t::rel is not allowed", "Vue or Alpine binding");
-    render("<a t::title=\"s\">x</a>", "s", "x");
+  void shorthandBindingsTakeNoValue() {
+    compile("<a t::rel=\"s\">x</a>").assertError("t::rel is not allowed", "names must match");
+    compile("<a t::title=\"s\">x</a>").assertError("t::title is not allowed", "names must match");
   }
 
   /**

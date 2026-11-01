@@ -719,17 +719,16 @@ The compiler decides the context from the element and attribute name. You cannot
 | Text | element text, `t:text`, `[[...]]` | `& < > " '` escaped, and every `{` and `}` written between empty comments (below). |
 | Title and textarea | text in `<title>` and `<textarea>` (also `t:field`), outside `<svg>` and `<math>` (there they are Text) | `& < > " '` escaped; `{{` is left as is, and the start tag gets `v-pre` (below). |
 | Raw HTML | `t:utext`, `[(...)]` | Only `SafeHtml`, or a bundle message checked at build time (section 4.5), compiles. Not inside `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>`, `<noscript>`, `<textarea>` or `<title>`, which a browser reads as text up to their end tag (nor are `t:insert` and `t:replace`). |
-| Attribute | an inert-text attribute: a standard attribute whose value is text, a keyword, a number, a boolean, an ID or a token list (`title`, `alt`, `class`, `id`, `value` (not on `<param>`), `name`, `type`, `placeholder`, `aria-*`, `role`, ...; on SVG and MathML only the text and language attributes), the `content` of a `<meta>` whose static `name` is `description`, `keywords`, `author`, `application-name`, `generator`, `color-scheme` or `theme-color`, with no computed `name` and no `http-equiv`, `property` or `itemprop`, `data-*`, or a plain prop on a custom element | Escaped, always double-quoted. Any other computed name is a build error (below). |
-| Typed attribute | any other standard HTML, SVG, MathML or ARIA attribute without a context of its own: `rel`, `target`, `sandbox`, `allow`, `crossorigin`, `itemtype`, `usemap` (a `#name`, not a URL), the `content` of any other `<meta>` (`viewport`, `referrer`, `apple-itunes-app`, an unknown name, Open Graph `og:*`, ...), and on SVG and MathML the geometry and presentation attributes (`x`, `width`, `transform`, `stroke-width`, `viewBox`, ...) | Only string literals, numbers and a choice between literals (`${newWindow} ? '_blank' : '_self'`) compile, attribute-escaped; a boolean attribute takes a condition. A `String`, enum, other plain value or safe type (`TrustedUrl`, `CssValue`) is a build error: write a static attribute, choose between literals with a boolean, or use a `data-*` attribute if a script reads it. |
-| URL | the attributes whose value is exactly one URL: `href`, `src`, `action`, `formaction`, `cite`, `poster`, `manifest`, `hx-push-url`, `hx-replace-url`, ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. A computed `action` of a `<form>` takes only a same-origin link or a `TrustedUrl`, and a computed `formaction` only a same-origin link (below and section 4.7). |
+| Attribute | an inert-text attribute: a standard attribute whose value is text, a keyword, a number, a boolean, an ID or a token list (`title`, `alt`, `class`, `id`, `value` (not on `<param>`), `name`, `type`, `placeholder`, `aria-*`, `role`, ...; on SVG and MathML only the text and language attributes), the `content` of a `<meta>` whose static `name` is `description`, `keywords`, `author`, `application-name`, `generator`, `color-scheme` or `theme-color`, with no computed `name` and no `http-equiv`, `property` or `itemprop` | Escaped, always double-quoted. On a custom element too. |
+| Typed attribute | any other standard HTML, SVG, MathML or ARIA attribute without a context of its own: `rel`, `target`, `sandbox`, `allow`, `crossorigin`, `itemtype`, `usemap` (a `#name`, not a URL), the `content` of any other `<meta>` (`viewport`, `referrer`, `apple-itunes-app`, an unknown name, Open Graph `og:*`, ...), and on SVG and MathML the geometry and presentation attributes (`x`, `width`, `transform`, `stroke-width`, `viewBox`, ...) | Only string literals, numbers and a choice between literals (`${newWindow} ? '_blank' : '_self'`) compile, attribute-escaped; a boolean attribute takes a condition. A `String`, enum, other plain value or safe type (`TrustedUrl`, `CssValue`) is a build error: write a static attribute, choose between literals with a boolean, or use a `<script type="application/json">` block if a script reads it. |
+| URL | the attributes whose value is exactly one URL: `href`, `src`, `action`, `formaction`, `cite`, `poster`, `manifest`, ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. A computed `action` of a `<form>` takes only a same-origin link or a `TrustedUrl`, and a computed `formaction` only a same-origin link (below and section 4.7). |
 | URL list | attributes that hold URLs but not exactly one: `ping` (space-separated URLs), `srcset` and `imagesrcset` (comma-separated image candidates), and `values`, `to`, `from` and `by` of SVG `<animate>` and `<set>`, whose meaning depends on `attributeName` (not when they animate a Style attribute, below) | Tessera does not check these item by item, so only string literals, numbers, a choice between literals and a `TrustedUrl` compile, attribute-escaped: `t:srcset="\|${img.url} 1x, /hi.png 2x\|"` with `img.url` a `TrustedUrl`, or `t:to="${n}"` for a number. A `String` is a build error: build the whole value as a `TrustedUrl` in Java, or choose between literals. |
 | Resource URL | `script[src]`, `iframe[src]`, `embed[src]`, `object[data]`, `base[href]`, `link[href]` | Only a literal-path `@{...}` link or a `TrustedUrl` compiles. A `<base href>` must be same-origin (section 4.7). |
-| htmx request URL | `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect`, `ws-connect` (also with `data-`) | Only a link whose literal path starts with a single `/` compiles, as for a refresh: htmx swaps the response into the page as HTML, and htmx 1.x also requests other origins. A computed `hx-boost`, `hx-sse` or `hx-ws` is a build error; static htmx attributes are copied as written. Reach another origin through a same-origin endpoint of your own. |
+| Neutral | every other name: `data-*`, htmx's `hx-*` (`hx-get`, `hx-boost`, `hx-vals`, `hx-on:click`, ...), Vue's `v-*` and `v-bind:x`, Alpine's `x-*`, `ng-*`, `up-*`, a custom element's own attributes, any name outside HTML | Client code may run what it reads there, so a computed value must be framework-neutral: a number (written in plain decimal; a `BigDecimal` or `BigInteger` subclass, NaN or Infinity fails the render), a boolean, a link `@{/path/{id}(id=...)}` whose literal path starts with a single `/` and holds only letters, digits, `. _ ~ / -` and `%XX`, with every parameter filling a path variable (no query), or a choice between those and literals (`${open} ? 'yes' : 'no'`). A `String`, a concatenation or any other type is a build error (below). A computed htmx 1.x `hx-sse` or `hx-ws` is a build error (#562). Static values are copied verbatim. |
 | Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, records and `@TemplateView` beans, collections, String-keyed maps). In a JavaScript script a `[[...]]` is only the whole value of a declaration at the top of the script, before any other code: `const a = [[${x}]];` (the script prelude rule, section 6), and the value is written in parentheses, `const a = ("Ann");`. Use the name in the code below. A JSON script (`application/json`, `application/ld+json`) gets plain JSON, with each `[[...]]` outside a `"..."` string. |
 | Style | `<style>` text, the `style` attribute, and the SVG attributes that take a CSS `url()`: `fill`, `stroke`, `clip-path`, `mask`, `filter`, `marker-start`, `marker-mid`, `marker-end`, `marker` and `cursor` (not `fill` on `<animate>`, `<set>`, `<animateMotion>`, `<animateTransform>` or `<animateColor>`, which is timing); `values`, `to`, `from` and `by` of an animation whose `attributeName` is one of them | In `<style>`, expressions are a build error. A `style` attribute or one of those SVG attributes takes only string literals, numbers and `CssValue`s, combined with `+`, `\|...\|`, `?:` and `? :`; anything else (a `String` value) is a build error. Write `t:fill="${css.color(c)}"` or `t:mask="${css.url(u)}"`. The `attributeName` of an animation element cannot be computed. |
 | Refresh | `content` of `<meta http-equiv="refresh">` | Only `'<seconds>;url=' + @{/path...}` compiles: a literal delay and a link whose literal path starts with a single `/`, so the refresh stays on the same origin. Path variables and parameters are encoded as usual, and `; , ' "`, `\` and whitespace in the URL are percent-encoded. Rendered as `<seconds>;url=<url>`. |
-| Vue/Alpine binding | `:x`, `v-bind:x`, `x-bind:x` whose target `x` is an ordinary attribute (below) | Only a value `[[...]]` accepts in a script compiles; it is written as the same JSON, then attribute-escaped. `null` is written as `null`. |
-| Event handler | `on*` attributes, and framework directives (below) | Build error; put data in `data-*` attributes and read them from a script. |
+| Event handler | `on*` attributes | Build error; put data in a `<script type="application/json">` block, or a number, boolean or same-origin path in a `data-*` attribute, and read it from a script. |
 | Forbidden | `srcdoc`, non-JS `<script type>` | Build error. `<script type>`, `<meta http-equiv>` and the `attributeName` of an SVG animation element cannot be computed, and neither can the attributes a browser reads while it builds the page: `is`, `xmlns` and `xmlns:xlink` on any element, a `<template>`'s `shadowroot*` and `for`, a `<meta>`'s `charset`, and the `content` of `<meta http-equiv="Content-Type">`. Write them as static values; `<meta name="description" t:content="...">` is fine. |
 
 A browser drops a line feed right after a `<pre>`, `<listing>` or `<textarea>` start tag. When an
@@ -744,48 +743,27 @@ value starts with one, and `th:text` and `[[...]]` add none, so there the browse
 leading line feed, or the template's line feed after an empty value or a loop with no items.
 Content that starts with static text is written as is.
 
-Client-side frameworks run some attribute values as JavaScript once they mount the element, so
-attribute escaping does not protect them and an expression there is a build error, as for `on*`:
-Vue's `v-*` (every directive, `v-html` included) and its `:x`, `@x`, `#x` and `.x` shorthands;
-Alpine's `x-*`; htmx's `hx-on*`, `hx-vals`, `hx-vars`, `hx-headers`, `hx-request` and `hx-trigger`
-(also with `data-`); _hyperscript's `_`, `script` and `data-script`; any name that, ignoring case, `-`, `_`
-and `:`, starts with `ng`, `xng` or `datang` (AngularJS is not supported, section 7, but its
-directive names stay errors: `ng-click`, `data-ng-click`, `_ng-click`, also `data-ngx`); and Knockout's `data-bind` and `params` on a custom element. Static directives are copied verbatim, shorthand names included: write
-`<api-entry :security="security" @click="open">` as in the old page.
+Tessera does not model client-side frameworks (#583). Many of them run some attribute values as
+code once they mount the element (Vue's `v-html`, Alpine's `x-data`, htmx's `hx-on:click` and
+`hx-vals="js:..."`, Datastar's `data-on-click`, Knockout's `data-bind`, ...), and in several of them
+`data-*` is the code channel, not the data channel. So every computed attribute whose name is not a
+standard HTML, SVG, MathML or ARIA attribute takes only a framework-neutral value (the Neutral row
+above): a number, a boolean, a same-origin path or a choice between those and literals, which no
+framework can run. `t:hx-get="@{/items/{id}(id=${item.id})}"`, `t:data-id="${item.id}"` and
+`t:data-open="${open}"` compile; `t:data-name="${item.name}"` does not. Port a string as follows:
 
-The one exception is a binding that hands a value to a component or attribute: Vue's
-`v-bind:x` and `:x`, and Alpine's `x-bind:x`. `t::security="${api.securities}"` compiles when the
-value is one a script `[[...]]` accepts (strings, numbers, booleans, enums, `java.time`, records
-and `@TemplateView` beans, collections, arrays, Optionals, String-keyed maps). It is written as the
-same JSON as in a script, then attribute-escaped, so a string is always a string literal and the
-framework gets the value, never code: `:security="[{&quot;name&quot;:&quot;a&quot;}]"`. A Pebble or
-JSP `:prop='{{ obj | json | raw }}'` (or a Java-built JSON string) becomes `t::prop="${obj}"`; pass
-the object, not a JSON string, which would arrive as a string. Any other type is a build error.
-Only these bindings take JSON; anything else stays a build error:
+1. Template only: show text in the element text or a standard inert attribute (a tooltip in
+   `title`); send request values as hidden inputs and `hx-include` instead of `hx-vals`.
+2. Template and your script: put the data in a `<script type="application/json">` block (or a hidden
+   input) and read it from there instead of `dataset`; give Alpine's `x-data` an `Alpine.data`
+   component that reads the JSON block; for Vue, pass props from the JSON block.
+3. A third-party plugin that reads `data-*` strings: a small init script copies the values from a
+   JSON block onto the plugin.
 
-- a target `x` that is not an ordinary attribute: `on*`, `style`, URLs (`:href`, `:src`,
-  `:action`, ...), resource URLs, `srcdoc`, another directive (`:v-html`, `:x-data`, `:hx-get`),
-  `innerHTML`, `outerHTML` and `is`, and the parts of a link's URL (`protocol`, `host`,
-  `hostname`, `port`, `pathname`, `search`, `hash`, `username`, `password`), which Vue sets as
-  properties;
-- modifiers and dynamic names: `v-bind:x.prop`, `:x.camel`, `.x`, `:[key]`;
-- `v-bind="obj"` and `x-bind="obj"` with no target;
-- any binding on `<script>`, `<style>` or `<meta>`.
-
-Otherwise, to hand server data to a component, put it in a `data-*` attribute or a `<script>`
-with `[[${...}]]` and read it from there. Other
-`data-*` attributes are ordinary attributes, and so are htmx attributes that hold selectors or text
-when written with `data-` (`t:data-hx-target`, `t:data-hx-swap`, `t:data-hx-select`,
-`t:data-hx-confirm`), which htmx reads like `hx-target`. Port `th:hx-get="@{/items/{id}(id=${id})}"`
-to the same `t:hx-get`; a URL computed in Java (`t:hx-get="${url}"`) has to become a link.
-
-A computed attribute (`t:<name>` or a `t:attr` entry) must have a name the compiler knows: a
-standard HTML, SVG, MathML or ARIA attribute, a `data-*` attribute, a plain `[a-z][a-z0-9]*` prop on
-a custom element (an element whose name has a `-`), or one of the framework attributes above. Any
-other name is a build error, because a client library may run its value as code (Unpoly's
-`up-on-loaded`) or fetch it (htmx 4's `hx-action`), and the compiler cannot know which. Static
-attributes are not checked and are copied verbatim. If the value is data for your script, use
-`t:data-<name>`; a computed `t:hx-target` becomes `t:data-hx-target`.
+Names outside `[A-Za-z_][A-Za-z0-9_.:-]*`, such as Vue's `:x`, `@x`, `#x` and `.x` shorthands, take no
+computed value at all. Static attributes are not checked and are copied verbatim: write
+`<api-entry :security="security" @click="open">` as in the old page. A static `is` must name a
+custom element (a lower-case name with a `-`), so `<component is="script">` is a build error.
 
 Client code can submit any form with AJAX and swap the response into the page as HTML (htmx 1.x's
 `hx-boost` does), so a form's computed `t:action` takes only a link whose literal path starts with
@@ -979,7 +957,7 @@ CSS or a URL.
      t:params="Account account, SafeHtml bio, String homepage">
   <a t:href="homepage" t:text="account.email">me@example.com</a>
   <section t:utext="bio">Bio</section>
-  <button t:data-email="account.email" class="js-copy">Copy</button>
+  <button t:title="account.email" class="js-copy">Copy</button>
   <script>
     const roles = [[${account.roles}]];
   </script>
@@ -1064,7 +1042,7 @@ render, where Thymeleaf wrote an empty segment (`/owners//edit`); so does an emp
 `..`. Guard a link whose path variable can be `null` with `t:if`. A URL computed in
 Java goes in `t:href` as a `String` (scheme-checked) or `TrustedUrl`, without the context path. A context path of `/` or one ending in `/` loses the
 trailing `/`, so `@{/a}` never renders as the protocol-relative `//a`. Where a link must be
-same-origin (a `<base href>`, an htmx request URL, a refresh URL, a link `action` of a form, a
+same-origin (a `<base href>`, a refresh URL, a link `action` of a form, a
 `formaction` that may receive the CSRF token; sections 4.4 and 4.7), the built URL
 is checked again when rendering: if a custom `Links` makes it anything but a path starting with a
 single `/`, the render fails.
@@ -1597,12 +1575,9 @@ leaving a particular one. Read the part for your engine before converting.
     let the template render them; for a few pieces, `SafeHtml.concat`/`SafeHtml.escape`.
   - constant HTML: write it in the template; a bundle message with markup: `t:utext="#{key}"`
     (section 4.5).
-  - JSON for a script: pass the object to `[[...]]` inside the `<script>`. JSON in a `data-*`
-    attribute: build the JSON string in Java and write it as a normal attribute value, which is
-    escaped. JSON for a Vue `:prop` or Alpine `x-bind:prop`: pass the object, `t::prop="${obj}"`,
-    which writes it as JSON (section 4.4). Other framework directives (`v-on`, `@x`, `x-data`, ...)
-    can't contain an expression: put the value in a `data-*` attribute or a `<script>` with
-    `[[...]]` and read it from there.
+  - JSON for a script: pass the object to `[[...]]` inside the `<script>`, or to a
+    `<script type="application/json">` block that your script, an `Alpine.data` component or a Vue
+    app reads. A `data-*` or framework attribute takes no string (section 4.4).
 
   Never `SafeHtml.unchecked`.
 - **Scripts.** `[[...]]` in a `<script>` writes JSON with, among others, `/`, `&`, `<`, `'` and `{`
@@ -2369,16 +2344,16 @@ These come from the annotation processor itself, without a template position.
 
 ### Attributes
 
-- `<label> is not allowed: event-handler attributes cannot contain expressions; put the value in a data-* attribute and read it from a script`.
-- `<label> is not allowed: '<name>' is a Vue, Alpine, htmx, _hyperscript, AngularJS or Knockout directive whose value is run as JavaScript, so it cannot contain expressions; write it as a static attribute, or put the value in a data-* attribute or a <script> with [[...]] and read it from there`. See [4.4](#44-escaping-and-output-contexts) for the list of directives. A Vue or Alpine binding of an ordinary attribute (`t::prop`, `t:v-bind:prop`, `t:x-bind:prop`) takes a JSON value instead.
-- `<label> is not allowed: '<name>' is a Vue or Alpine binding whose value is run as JavaScript; an expression (written as JSON) is only allowed in :x, v-bind:x or x-bind:x whose target x is an ordinary attribute, with no modifiers, not on* / style / a URL or URL part / innerHTML / is, and not on <script>, <style> or <meta>; otherwise write it as a static attribute`. For `:href`, `:style`, `v-bind:x.prop`, `v-bind="obj"`, ... (section 4.4).
+- `<label> is not allowed: event-handler attributes cannot contain expressions; put the value in a data-* attribute (a number, a boolean or a same-origin path) or a <script type="application/json"> block and read it from a script`.
+- `<label> is not allowed: '<name>' is not a standard HTML attribute, and client code may run what it reads there, so a computed value must be framework-neutral: a number, a boolean, a same-origin link such as @{/items/{id}(id=${item.id})}, or a choice between those and literals, not a <type>; put text in the element text or a standard inert attribute such as title, send request values as hidden inputs (with hx-include), or put data in a <script type="application/json"> block and read it from your script`. A `data-*`, `hx-*`, `x-*`, `v-*` or other non-standard attribute (section 4.4, Neutral). Port the string with one of the three recipes in section 4.4.
+- `<label> is not allowed: a link in '<name>' must be a same-origin path that starts with a single '/' and holds only letters, digits, . _ ~ / - and %XX, not @{<path>}`.
+- `<label> is not allowed: a link in '<name>' cannot have a query; parameter '<param>' of @{<path>} fills no path variable. Send request values as hidden inputs (with hx-include), or put them in a <script type="application/json"> block`.
+- `is="<value>" on <element> is not allowed: is may only name a custom element (a lower-case name with a '-', such as my-button); write the element you mean, such as <my-button>`.
 - `cannot output a value of type <type> in <label>: only strings, numbers, booleans, enums, java.time values, records and @TemplateView classes of those, and Optionals, collections, arrays and String-keyed maps of those can be serialized as JSON`. A Vue or Alpine binding takes the same types as a script `[[...]]`.
 - `<label> is not allowed: a style value can only combine string literals, numbers and CssValues such as css.color(c), css.length(l) or css.url(u), not a <type>; use t:class or t:classappend instead`.
 - `<label> is not allowed: srcdoc is a whole HTML document and cannot contain expressions; use src with a URL`.
 - `<label> is not allowed: the content of <meta http-equiv="refresh"> navigates the page; write a delay and a same-origin link such as '3;url=' + @{/items/{id}(id=${item.id})}, or redirect from the controller`. Port `content="1;url=/admin/update${vid}"` to `t:content="'1;url=' + @{/admin/update{vid}(vid=${vid})}"`.
 - `<label> is not allowed: a refresh URL must be a same-origin path starting with a single '/', not @{<path>}`. Absolute, protocol-relative and page-relative links cannot be refresh targets; redirect from the controller instead.
-- `<label> is not allowed: htmx requests this URL and swaps the response into the page as HTML; use a same-origin link such as @{/items/{id}(id=${item.id})}`. On `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect` and `ws-connect`; build the URL with a link, not a `String`.
-- `<label> is not allowed: an htmx request URL must be a same-origin path starting with a single '/', not @{<path>}`. Absolute, protocol-relative and page-relative links are rejected: reach another origin through a same-origin endpoint of your own.
 - `<label> is not allowed: htmx 1.x's hx-ws and hx-sse are not supported; use htmx 2's ws-connect or sse-connect with a same-origin URL such as /chat or @{/events}`. On a computed `hx-sse` or `hx-ws` (also with `data-`): `hx-ws="connect:/chat"` becomes `ws-connect="/chat"` with the htmx 2 `ws` extension, `hx-sse="connect:/events"` becomes `sse-connect="/events"` with the `sse` extension.
 - `<label> is not allowed: a form's computed action must stay on the page's origin, since client code may submit the form and swap the response into the page as HTML; use a same-origin link such as @{/items/{id}(id=${item.id})}, or a TrustedUrl built in Java if another site is meant`. On a computed `action` (`t:action`, `t:attr="action=..."`) of a `<form>` that is not a static POST form, when it is neither a link nor a `TrustedUrl` (section 4.4). A link that is not same-origin is reported as `the action of a form must be a same-origin path starting with a single '/', not @{<path>}`.
 - `<label> is not allowed: a submit button sends its form, CSRF token included, to its formaction; use a same-origin link such as @{/items/{id}(id=${item.id})}`. On every computed `formaction` (`t:formaction`, `t:attr="formaction=..."`; section 4.7). A fragment that takes its `formaction` as a `String` parameter cannot pass this check: write the link inside the fragment, or drop the parameter if every caller passes `''`. A link that is not same-origin is reported as `a formaction, which may receive the CSRF token, must be a same-origin path starting with a single '/', not @{<path>}`.
@@ -2389,10 +2364,8 @@ These come from the annotation processor itself, without a template position.
 - `formaction="<url>" is not allowed here: a submit button sends its form, CSRF token included, to its formaction, and this URL is not same-origin; use a same-origin URL such as /items or @{/items/{id}(id=${item.id})}, or a form of its own with a static action to the other site`. A static `formaction` with a scheme or starting with `//` or `/\`.
 - `formmethod="<value>" is not allowed here: a formmethod other than post or dialog submits the form as GET, with its CSRF token in the URL; remove formmethod, or give the button a form of its own with method="get"`. Also `<label> is not allowed: ...` for a computed `formmethod`; only a static `post` or `dialog` is allowed.
 - `<form/> is not self-closing in HTML: the browser treats everything after it as inside the form; write <form ...></form>`. A browser drops the start tag of every later form, so their buttons and CSRF token inputs land in it.
-- `<label> is not allowed: '<name>' is not a known attribute; a computed attribute must be a standard HTML, SVG, MathML or ARIA attribute, a data-* attribute, or a plain [a-z][a-z0-9]* prop on a custom element. If it is data for your script, use data-<name>; if a framework reads it, write it as a static attribute`. On a computed name that is not a standard attribute, `data-*`, a custom element's prop or a framework attribute Tessera classifies (section 4.4), such as `t:up-on-loaded`, `t:hx-action`, `t:hx-target` or `t:attr="foo=..."`. htmx reads every
   `hx-*` attribute the same with a `data-` prefix, so `t:hx-target` becomes `t:data-hx-target`;
   `tessera-migrate` does this for htmx's selector, swap and text attributes and reports the rest.
-- `<label> is not allowed: '<name>' cannot be computed; it decides whether htmx submits the forms inside with AJAX and swaps the response into the page, so write <name>="true" or <name>="false" statically`. On `hx-boost` and `data-hx-boost`.
 - `<label> is not allowed: attribute name '<name>' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*`.
 - `<label>: the type of a <script> cannot be computed; its content type must be known at build time, so write a static type attribute`.
 - `<label>: the http-equiv of a <meta> cannot be computed; it decides whether content is a refresh URL, so write a static http-equiv attribute`.
@@ -2443,7 +2416,7 @@ These come from the annotation processor itself, without a template position.
 - `link @{<path>} has a path variable in its host: write the host literally`.
 - `link @{<path>} starts like a protocol-relative URL (a browser reads '\' as '/'), so it would load from another origin: write @{/...} for a path on this site, or @{//host/...} if another origin is meant`:
   a browser reads `/\host`, `\/host` and `\\host` as `//host`. Write `@{//host/...}` when another
-  origin is meant; it stays allowed where protocol-relative links are (not in htmx request,
+  origin is meant; it stays allowed where protocol-relative links are (not in
   refresh, `<base href>`, form `action` or `formaction` URLs).
 - `link @{<path>} starts with '\', which a browser reads as '/': write '/' instead`.
 

@@ -10,15 +10,14 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 /**
- * The names a computed attribute may have (#330, security-architecture.md section 5.6): a standard
- * HTML, SVG, MathML or ARIA attribute ({@code attributes.txt}, which names its spec sources), a
- * {@code data-*} name, or a plain {@code [a-z][a-z0-9]*} name on a custom element (a component
- * prop). The framework names (directives, htmx URLs, ...) are classified by {@link Contexts} before
- * this is asked. Static attributes are not checked. Of the standard names, only the inert-text
- * attributes ({@code inert-attributes.txt}) take a plain value ({@link #needsSafeValue}).
+ * The standard attribute names (#330, #584, security-architecture.md section 12.2): HTML, SVG,
+ * MathML and ARIA ({@code attributes.txt}, which names its spec sources). Of these, only the
+ * inert-text attributes ({@code inert-attributes.txt}) take a plain value ({@link #needsSafeValue}).
+ * Every other name ({@code data-*}, a custom element's own attributes, any name outside HTML) takes
+ * only a framework-neutral value ({@link Contexts#attribute}, #583 rule 3). Static attributes are
+ * not checked.
  */
 final class KnownAttributes {
   private KnownAttributes() {}
@@ -29,31 +28,20 @@ final class KnownAttributes {
   /** The inert-text names; the value is the scope ({@code html}, {@code foreign} or {@code any}) and group. */
   private static final Map<String, String> INERT = load("inert-attributes.txt");
 
-  /** A component prop on a custom element. */
-  private static final Pattern PROP = Pattern.compile("[a-z][a-z0-9]*");
-
-  /**
-   * Whether {@code name} (any case) may be computed on {@code element} as far as its name goes
-   * (#330): a standard HTML, SVG, MathML or ARIA attribute, a {@code data-*} name, or a plain
-   * {@code [a-z][a-z0-9]*} prop on a custom element. {@link Contexts#attribute} decides whether it
-   * may hold an expression.
-   */
-  static boolean accepts(Element element, String name) {
-    String a = HtmlParser.asciiLower(name);
-    return STANDARD.containsKey(a)
-        || (a.startsWith("data-") && a.length() > "data-".length())
-        || (isCustomElement(element) && PROP.matcher(a).matches());
+  /** Whether {@code name} (A-Z folded) is a standard HTML, SVG, MathML or ARIA attribute. */
+  static boolean isStandard(String name) {
+    return STANDARD.containsKey(HtmlParser.asciiLower(name));
   }
 
   /**
    * Whether {@code name} (any case) is a standard name that is not an inert-text attribute in
    * {@code element}'s namespace (HTML, or SVG/MathML when {@link Element#foreign}), so a plain
-   * computed value may not go there. A component prop on a custom element is never restricted, and
-   * {@code data-*} names are not standard.
+   * computed value may not go there. The element may be a custom element: its standard attributes
+   * are classified like any other element's.
    */
   static boolean needsSafeValue(Element element, String name) {
     String a = HtmlParser.asciiLower(name);
-    if (!STANDARD.containsKey(a) || (isCustomElement(element) && PROP.matcher(a).matches())) {
+    if (!STANDARD.containsKey(a)) {
       return false;
     }
     String inert = INERT.get(a);
@@ -66,11 +54,6 @@ final class KnownAttributes {
       return true; // inert only on the HTML elements listed
     }
     return !fields[0].equals("any") && !fields[0].equals(element.foreign() ? "foreign" : "html");
-  }
-
-  /** An HTML element whose name has a {@code -}; SVG and MathML names such as {@code font-face} are not. */
-  static boolean isCustomElement(Element element) {
-    return !element.foreign() && element.name().indexOf('-') >= 0;
   }
 
   /** A data file: the name, one per line before the first space, and the rest; {@code #} lines are comments. */

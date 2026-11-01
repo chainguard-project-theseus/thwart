@@ -135,7 +135,7 @@ class GuideExamplesTest {
             Map.of("account", account, "bio", SafeHtml.unchecked("<em>hi</em>"), "homepage", "javascript:alert(1)"));
     assertTrue(html.contains("<a href=\"about:invalid#tessera\">a@example.com</a>"), html);
     assertTrue(html.contains("<section><em>hi</em></section>"), html);
-    assertTrue(html.contains("data-email=\"a@example.com\""), html);
+    assertTrue(html.contains("title=\"a@example.com\""), html);
     assertTrue(html.contains("const roles = ([\"\\u003c\\/script\\u003e\"]);"), html);
     assertTrue(html.contains("<script src=\"/app/js/app.js\"></script>"), html);
   }
