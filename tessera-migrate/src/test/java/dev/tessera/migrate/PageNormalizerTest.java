@@ -112,6 +112,12 @@ class PageNormalizerTest {
       declared name as a parameter   | <script>var id = 7; function h(id){return id;}</script> | <script>var id = (7); function h(id){return 7;}</script>
       declared name as an arrow parameter | <script>var id = 7; g((a, id) => id);</script> | <script>var id = (7); g((a, id) => 7);</script>
       declared name declared again   | <script>var id = 7; function f(){ var id = g(); return id; }</script> | <script>var id = (7); function f(){ var id = g(); return 7; }</script>
+      declared name destructured     | <script>var id = 7; function f(o){ const {id} = o; return id; }</script> | <script>var id = (7); function f(o){ const {id} = o; return 7; }</script>
+      declared name in an array pattern | <script>var id = 7; [id] = xs; g(id);</script> | <script>var id = (7); [id] = xs; g(7);</script>
+      declared name in for-of        | <script>var id = 7; for (id of xs) g(id);</script> | <script>var id = (7); for (id of xs) g(7);</script>
+      declared name in for-in        | <script>var k = "a"; for (k in o) g(k);</script> | <script>var k = ("a"); for (k in o) g("a");</script>
+      declared name in a let list    | <script>var id = 7; function f(){ let a, id; return id; }</script> | <script>var id = (7); function f(){ let a, id; return 7; }</script>
+      declared name read by another script | <script>var ctx = "/a"; f(ctx);</script><script>g(ctx);</script> | <script>f("/a");</script><script>g(ctx);</script>
       """)
   void differentPages(String rule, String a, String b) {
     check(DIFFERS, a.replace("\\n", "\n"), b.replace("\\n", "\n"));
@@ -131,6 +137,10 @@ class PageNormalizerTest {
     // Reads in conditions, calls, comparisons and member bases are not rebindings.
     check(REORDERED, "<script>if (\"a\" == y) { while (\"a\") f(\"a\".length, o.x); }</script>",
         "<script>var x = (\"a\");\nif (x == y) { while (x) f(x.length, o.x); }</script>");
+    // Another script that doesn't name the declaration doesn't stop the expansion; reads in an
+    // object literal, an array and a call list aren't bindings.
+    check(REORDERED, "<script>x = {k: \"a\"}; f([1, \"a\"], 2);</script><script>h(y);</script>",
+        "<script>var _t1 = (\"a\");\nx = {k: _t1}; f([1, _t1], 2);</script><script>h(y);</script>");
   }
 
   @Test

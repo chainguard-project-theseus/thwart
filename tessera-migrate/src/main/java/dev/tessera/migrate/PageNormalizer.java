@@ -157,10 +157,48 @@ final class PageNormalizer {
   /** The page's tree; with {@code expandPrelude}, scripts as {@link #expandPrelude} prints them. */
   private static List<Line> tree(String html, boolean expandPrelude) {
     Document doc = Jsoup.parse(html);
-    return children(doc, expandPrelude);
+    return children(doc, expandPrelude ? pageNames(doc) : null);
   }
 
-  private static List<Line> children(Node parent, boolean expandPrelude) {
+  /** How often each identifier occurs in the page's JavaScript scripts, all of them together. */
+  private static Map<String, Integer> pageNames(Document doc) {
+    Map<String, Integer> counts = new HashMap<>();
+    for (Element script : doc.select("script")) {
+      if (isScript(script) && !JSON_SCRIPT_TYPES.contains(scriptType(script))) {
+        for (DataNode data : script.dataNodes()) {
+          countNames(tightenJson(unwrapValues(data.getWholeData())), counts);
+        }
+      }
+    }
+    return counts;
+  }
+
+  private static void countNames(String script, Map<String, Integer> counts) {
+    for (String t : tokens(script, 0)) {
+      if (isIdentifierPart(t.charAt(0))) {
+        counts.merge(t, 1, Integer::sum);
+      }
+    }
+  }
+
+  /** The identifiers that occur in the page's other scripts, given this script's text. */
+  private static Set<String> readElsewhere(String script, Map<String, Integer> pageNames) {
+    Map<String, Integer> here = new HashMap<>();
+    countNames(script, here);
+    Set<String> out = new HashSet<>();
+    for (Map.Entry<String, Integer> e : here.entrySet()) {
+      if (pageNames.getOrDefault(e.getKey(), 0) > e.getValue()) {
+        out.add(e.getKey());
+      }
+    }
+    return out;
+  }
+
+  /**
+   * The nodes under {@code parent}. With {@code pageNames} ({@link #pageNames}; null when not
+   * expanding), JavaScript scripts are printed with their preludes expanded.
+   */
+  private static List<Line> children(Node parent, Map<String, Integer> pageNames) {
     List<Line> out = new ArrayList<>();
     StringBuilder text = new StringBuilder();
     for (Node node : parent.childNodes()) {
@@ -173,8 +211,8 @@ final class PageNormalizer {
         if (isScript(parent)) {
           boolean javaScript = !JSON_SCRIPT_TYPES.contains(scriptType(parent));
           data = tightenJson(javaScript ? unwrapValues(data) : data);
-          if (javaScript && expandPrelude) {
-            data = expandPrelude(data);
+          if (javaScript && pageNames != null) {
+            data = expandPrelude(data, readElsewhere(data, pageNames));
           }
         }
         text.append(data);
@@ -184,7 +222,7 @@ final class PageNormalizer {
         flushText(text, out);
       }
       if (node instanceof Element) {
-        out.add(new Line(startTag((Element) node), children(node, expandPrelude)));
+        out.add(new Line(startTag((Element) node), children(node, pageNames)));
       } else if (node instanceof DocumentType) {
         DocumentType dt = (DocumentType) node;
         out.add(new Line("<!doctype " + dt.name().toLowerCase() + publicId(dt) + ">",
@@ -259,12 +297,14 @@ final class PageNormalizer {
    * Writes the value of each declaration at the top of a script whose value is one JSON value
    * ({@code var|let|const name = json;}, only whitespace and comments around them) where the
    * code below uses its name (an identifier not after a {@code .}, outside strings and
-   * comments), and removes the declarations so used. A declaration the script doesn't use is
-   * kept: another script may read it, and its value still counts. A script that declares a name
-   * twice, or assigns or binds a declared name again below ({@link #rebinds}), is left as it is:
-   * there the value is not a constant. Runs on {@link #tightenJson} output.
+   * comments), and removes the declarations so used. A declaration is kept, and its name not
+   * replaced, when the script doesn't use it or {@code readElsewhere} holds its name (another
+   * script on the page names it): that script may read the global, and the value still counts. A
+   * script that declares a name twice, or assigns or binds a declared name again below
+   * ({@link #rebinds}), is left as it is: there the value is not a constant. Runs on
+   * {@link #tightenJson} output.
    */
-  static String expandPrelude(String script) {
+  static String expandPrelude(String script, Set<String> readElsewhere) {
     Map<String, String> values = new HashMap<>();
     List<int[]> spans = new ArrayList<>();
     List<String> names = new ArrayList<>();
@@ -290,6 +330,7 @@ final class PageNormalizer {
       names.add(m.group(1));
       i = semi + 1;
     }
+    values.keySet().removeAll(readElsewhere);
     if (values.isEmpty() || rebinds(tokens(script, i), values.keySet())) {
       return script;
     }
@@ -375,11 +416,99 @@ final class PageNormalizer {
         continue;
       }
       if (ASSIGNMENTS.contains(next) || BINDERS.contains(prev) || next.equals("=>")
-          || isParameter(tokens, k)) {
+          || next.equals("of") || isForInTarget(tokens, k, next) || isParameter(tokens, k)
+          || isInPattern(tokens, k) || isInDeclarationList(tokens, k, prev)) {
         return true;
       }
     }
     return false;
+  }
+
+  /** The index of the nearest {@code ( [ {} that is still open at token {@code k}, or -1. */
+  private static int enclosingOpener(List<String> tokens, int k) {
+    for (int j = k - 1, depth = 0; j >= 0; j--) {
+      String t = tokens.get(j);
+      if (t.equals(")") || t.equals("]") || t.equals("}")) {
+        depth++;
+      } else if (t.equals("(") || t.equals("[") || t.equals("{")) {
+        if (depth == 0) {
+          return j;
+        }
+        depth--;
+      }
+    }
+    return -1;
+  }
+
+  /** The index of the bracket that closes the one at {@code open}, or -1. */
+  private static int matchingCloser(List<String> tokens, int open) {
+    for (int j = open + 1, depth = 0; j < tokens.size(); j++) {
+      String t = tokens.get(j);
+      if (t.equals("(") || t.equals("[") || t.equals("{")) {
+        depth++;
+      } else if (t.equals(")") || t.equals("]") || t.equals("}")) {
+        if (depth == 0) {
+          return j;
+        }
+        depth--;
+      }
+    }
+    return -1;
+  }
+
+  /** {@code for (x in o)}: the name before {@code in}, directly inside a {@code for (}. */
+  private static boolean isForInTarget(List<String> tokens, int k, String next) {
+    if (!next.equals("in")) {
+      return false;
+    }
+    int open = enclosingOpener(tokens, k);
+    return open > 0 && tokens.get(open).equals("(") && tokens.get(open - 1).equals("for");
+  }
+
+  /**
+   * A name inside a destructuring pattern: a {@code { }} or {@code [ ]} (or several nested) that
+   * follows {@code var}, {@code let} or {@code const}, or is followed by {@code =} or {@code of}.
+   */
+  private static boolean isInPattern(List<String> tokens, int k) {
+    for (int open = enclosingOpener(tokens, k);
+        open >= 0 && !tokens.get(open).equals("(");
+        open = enclosingOpener(tokens, open)) {
+      int close = matchingCloser(tokens, open);
+      String before = open > 0 ? tokens.get(open - 1) : "";
+      String after = close >= 0 && close + 1 < tokens.size() ? tokens.get(close + 1) : "";
+      if (before.equals("var") || before.equals("let") || before.equals("const")
+          || after.equals("=") || after.equals("of")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** {@code let a, x;}: a name after a comma in a {@code var}, {@code let} or {@code const}
+   * statement, at the statement's own bracket depth. */
+  private static boolean isInDeclarationList(List<String> tokens, int k, String prev) {
+    if (!prev.equals(",")) {
+      return false;
+    }
+    int j = k - 1;
+    for (int depth = 0; j >= 0; j--) {
+      String t = tokens.get(j);
+      if (t.equals(")") || t.equals("]") || t.equals("}")) {
+        if (depth == 0 && t.equals("}")) {
+          break;
+        }
+        depth++;
+      } else if (t.equals("(") || t.equals("[") || t.equals("{")) {
+        if (depth == 0) {
+          break;
+        }
+        depth--;
+      } else if (depth == 0 && t.equals(";")) {
+        break;
+      }
+    }
+    String first = j + 1 < tokens.size() ? tokens.get(j + 1) : "";
+    return first.equals("var") || first.equals("let") || first.equals("const");
   }
 
   /** True if the token at {@code k} is in the parameter list of a function, method, arrow
