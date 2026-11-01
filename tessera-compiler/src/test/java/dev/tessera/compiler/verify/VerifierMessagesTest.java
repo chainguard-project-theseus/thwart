@@ -168,6 +168,24 @@ class VerifierMessagesTest {
     checkPlain(engine);
   }
 
+  /**
+   * #607: an HTML message whose markup changes the path but leaves every parser state as it was (in
+   * an {@code <option>}, which no template reaches today: an HTML message outside HTML content is a
+   * build error first) has no described difference, and the message says so in general words instead
+   * of "so that it null".
+   */
+  @Test
+  void messageChangesStateWithoutADescribedDifference() {
+    SourcePos at = new SourcePos("t.html", 1, 17);
+    Skeleton.RawInsert message = new Skeleton.RawInsert(Skeleton.Source.HTML_MESSAGE, at,
+        new Skeleton.Seq(List.of(st("<em>x</em>"))));
+    assertEquals("a browser parses the markup of this HTML message so that it changes how what follows is parsed,"
+        + " and the rest of the page would be parsed differently; close every element the message opens, and"
+        + " insert it where its markup fits (a message with a <p> in a <div>, not in a <p>)"
+        + " [verifier:MESSAGE_CHANGES_STATE]",
+        only(Problem.MESSAGE_CHANGES_STATE, st("<select><option>"), message, st("</option></select>")));
+  }
+
   private static Skeleton.Static st(String s) {
     return new Skeleton.Static(s, new SourcePos("t.html", 1, 1));
   }

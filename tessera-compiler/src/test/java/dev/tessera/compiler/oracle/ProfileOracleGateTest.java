@@ -207,15 +207,6 @@ class ProfileOracleGateTest {
     assertEquals(Family.AB, ProfileOracleTest.family(inSvg, List.of(html, svg)));
     assertEquals(Family.AB, ProfileOracleTest.family(
         new Finding(Finding.Kind.LIVE_SCRIPT, "parse5", html.where(), "v"), List.of(html))); // other engine
-    Finding rhino = new Finding(Finding.Kind.LIVE_SCRIPT, "rhino", "x", "v");
-    assertEquals(Family.C, ProfileOracleTest.scriptFamily(rhino, html));
-    assertEquals(Family.AB, ProfileOracleTest.scriptFamily(rhino, svg));
-    // A JSON hole in an SVG <script> (the verifier's JSON_NOT_IN_SCRIPT): not a listable C hole.
-    Finding notLiteral = new Finding(Finding.Kind.JS_NOT_LITERAL, "rhino", "x", "v");
-    assertEquals(Family.C, ProfileOracleTest.scriptFamily(notLiteral, html));
-    assertEquals(Family.AB, ProfileOracleTest.scriptFamily(notLiteral, svg));
-    assertEquals(Family.AB,
-        ProfileOracleTest.scriptFamily(new Finding(Finding.Kind.JS_UNPARSABLE, "rhino", "x", "v"), svg));
     assertEquals(Family.D, ProfileOracleTest.family(new Finding(Finding.Kind.CSTI, "vnu-26", "/", "v"), List.of()));
     assertEquals(Family.E, ProfileOracleTest.family(new Finding(Finding.Kind.JS_URL, "vnu-26", "/", "v"), List.of()));
     assertEquals(Family.E,

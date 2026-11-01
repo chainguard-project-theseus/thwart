@@ -654,6 +654,21 @@ class ContextsTest {
     assertEquals(OutputContext.SCRIPT, Contexts.text(element("script", "type", null)));
   }
 
+  /**
+   * A browser reads the first of two {@code type} attributes, as {@code CsrfInjector.isStaticPost}
+   * reads the first {@code method} (#591). The parser rejects a duplicate attribute, so no template
+   * gets here; the context table still agrees with a browser.
+   */
+  @Test
+  void firstStaticScriptTypeDecides() {
+    Element js = element("script", "type", "text/javascript", "type", "application/json");
+    assertEquals(OutputContext.SCRIPT, Contexts.text(js));
+    assertEquals(false, Contexts.isJsonScript(js));
+    assertEquals(true, Contexts.isJsonScript(element("script", "type", "application/json", "TYPE", "module")));
+    assertEquals(OutputContext.FORBIDDEN, Contexts.text(element("script", "type", "text/plain", "type", "module")));
+    assertEquals(OutputContext.SCRIPT, Contexts.text(element("script", "type", "module", "type", "text/plain")));
+  }
+
   @Test
   void dynamicScriptTypeIsForbidden() {
     assertEquals(OutputContext.FORBIDDEN, Contexts.text(element("script", "t:type", "${t}")));

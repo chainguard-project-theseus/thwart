@@ -161,7 +161,7 @@ final class HostileSinks {
       }
     }
     if (items.size() > 1 && !"semicolon".equals(urlRole)) {
-      out.add(new String[] {"URL_LIST_CONTROLLED", items.size() + " items from one value"});
+      out.add(new String[] {"URLS_FROM_ONE_VALUE", items.size() + " items from one value"});
     }
     // 2. CSS sinks.
     boolean css = a.equals("style")

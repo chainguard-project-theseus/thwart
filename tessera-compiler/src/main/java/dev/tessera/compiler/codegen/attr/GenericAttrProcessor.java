@@ -404,7 +404,8 @@ public final class GenericAttrProcessor implements AttributeProcessor {
 
   /**
    * Boxed and big number types whose text is only digits, sign, '.', 'E', NaN or Infinity.
-   * BigDecimal and BigInteger are not final, so {@link #styleCode} checks their text at render time.
+   * BigDecimal and BigInteger are not final, so {@link #styleCode} wraps them in
+   * {@link Escapers#styleNumber}, which accepts only the exact JDK class at render time (#540).
    */
   private static final Set<String> NUMBER_TYPES =
       Backports.setOf(

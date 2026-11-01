@@ -72,9 +72,10 @@ import org.junit.jupiter.api.Test;
  *       the hole's escaper wrote any of the {@linkplain #LEMMA_VALUES lemma values} as before it
  *       ({@link #lemmaKey}). This is the prototype's stand-in check, run at the states the real
  *       renders reach.
- *   <li><b>The value oracle.</b> {@link HtmlInvariant} (#318), {@link ScriptInvariant} (#319) and
- *       {@link ContextCheck} (#323). A family A/B finding ({@link Family#AB}) on an accepted
- *       template is a verifier soundness bug.
+ *   <li><b>The value oracle.</b> {@link HtmlInvariant} (#318) and {@link ContextCheck} (#323). A
+ *       family A/B finding ({@link Family#AB}) on an accepted template is a verifier soundness bug.
+ *       Script values are checked by {@code HostileSweepTest}'s script pass over every prelude
+ *       shape the compiler accepts (#543, #591), and by the Node job's acorn check.
  * </ol>
  *
  * Fidelity and lemma failures and A/B findings fail the gate and can't be listed. Family C, D and
@@ -134,7 +135,7 @@ class ProfileOracleTest {
           Finding.Kind.ENGINE_DRIFT));
 
   /** The engines this gate runs; a known-holes line for another engine is the Node job's. */
-  static final Set<String> ENGINES = Set.of(SpecParsers.VNU_26, ScriptInvariant.ENGINE, "*");
+  static final Set<String> ENGINES = Set.of(SpecParsers.VNU_26, "*");
 
   /** The Node job's engines (#322), the only ones an {@code ENGINE_DRIFT} line may name. */
   static final Set<String> NODE_ENGINES = Set.of("parse5", "chromium", "firefox", "webkit");
@@ -600,18 +601,6 @@ class ProfileOracleTest {
   }
 
   /**
-   * The family of a {@link ScriptInvariant} finding on {@code slot}: family C only in an HTML
-   * {@code <script>}. A script hole anywhere else (SVG {@code <script>}, say) is one the verifier
-   * must reject ({@code JSON_NOT_IN_SCRIPT}), so any finding there is A/B, not a listable C hole.
-   */
-  static Family scriptFamily(Finding f, HtmlInvariant.ScriptSlot slot) {
-    if (!htmlScript(slot)) {
-      return Family.AB;
-    }
-    return f.kind() == Finding.Kind.LIVE_SCRIPT ? Family.C : family(f, List.of());
-  }
-
-  /**
    * Loads a known-holes file for this gate: {@link KnownHoles#parse}'s format, and only {@link
    * #LISTABLE} kinds.
    *
@@ -775,14 +764,6 @@ class ProfileOracleTest {
       HtmlInvariant.Result res = HtmlInvariant.check(benign, out, shown, contextRelative);
       for (Finding f : res.findings()) {
         r.findings.add(new Classified(f, family(f, res.scriptSlots())));
-      }
-      for (HtmlInvariant.ScriptSlot slot : res.scriptSlots()) {
-        if (slot.hostile() == null) {
-          continue; // the script is gone: the HTML check reports the structure change
-        }
-        for (Finding f : ScriptInvariant.check(slot.benign(), slot.hostile(), slot.markers(), slot.where(), shown)) {
-          r.findings.add(new Classified(f, scriptFamily(f, slot)));
-        }
       }
     }
     r.lemmaPaths = paths.size();

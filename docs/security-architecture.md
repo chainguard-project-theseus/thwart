@@ -709,10 +709,11 @@ and its 45,056-variant differential become test cases. Known deviations are list
 | C. JS lexical position | Not covered. The verifier makes one input exact: a `json` hole is in an HTML script's data | closed prelude grammar (§12.3) |
 | D. Client frameworks | Not covered | framework-neutral values in every name outside HTML, SVG, MathML and ARIA (§12.2, #584), `{{` breaking (§12.8), CSP nonces (#335, PR #361; guide §4.11). No framework is modelled and AngularJS is unsupported, with no `ng` deny (§12.4) |
 | E. URL and CSRF policy | Not covered. The element and attribute a value lands in become exact | inert-text list and single-URL grammar (§12.2), closed form shape (§12.7) |
-| CSS inside `style` | Not covered beyond "the value stays in its attribute" | `CssValue` rules |
+| CSS inside `style` | Not covered beyond "the value stays in its attribute" | `CssValue` rules (#182; context-model.md §6.1 `STYLE`) |
 
-§12 converts these areas, and the runtime and name-folding code around them, to allow-lists and
-closed grammars.
+§12 converts families C, D and E, and the runtime and name-folding code around them, to allow-lists
+and closed grammars. CSS was one already: a computed `style` value is built only from literals,
+exact-class numbers and `CssValue`s.
 
 ### 11.6 Cost
 

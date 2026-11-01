@@ -189,7 +189,7 @@ class AttributesEndToEndTest {
 
   /** A literal list is the template author's own, so it compiles, as a static attribute does (#539). */
   @Test
-  void urlListsAcceptLiteralsAndNumbers() {
+  void trustedUrlAttributesAcceptLiteralsAndNumbers() {
     assertEquals("<img srcset=\"/a.png 1x, /b.png 2x\">", render("<img t:srcset=\"'/a.png 1x, /b.png 2x'\">", model()));
     assertEquals("<img srcset=\"/a.png 640w\">", render("<img t:srcset=\"|/a.png ${n}w|\">", model("n", 640)));
     assertEquals(
