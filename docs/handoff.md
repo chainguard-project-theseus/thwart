@@ -46,7 +46,9 @@ From [security-architecture.md](security-architecture.md) §7 (accepted Oct 24, 
   `TextInlining`, `Escapers` or the verifier's rule table (`verify/`) updates context-model.md in
   the same PR.
 - **The oracle gate** (#324) tests the verifier (skeleton fidelity, the inertness lemma) and
-  keeps value checks for scripts and URLs (its client-framework lists go with #608). A new context
+  keeps value checks for scripts and URLs; its context check holds a name outside HTML to the
+  framework-neutral shape and names no framework (#608; the htmx request list left in
+  `HtmlInvariant` and the Node check is #611). A new context
   or parse mode lands with oracle rows. A PR that widens the accepted language says so in its
   description.
 - **Framework-neutral, not framework-modelled (#583).** Never add a rule that names a client
