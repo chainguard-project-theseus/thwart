@@ -354,6 +354,10 @@ is a `java.util.Date`, which is not view-safe; declare it `Instant timestamp` or
 `Instant` or `ZonedDateTime` param; the zone is the JVM default, as for `Date.toString()`).
 Thymeleaf's `${timestamp}` is `t:text="temporals.format(timestamp, 'EEE MMM dd HH:mm:ss zzz yyyy')"`
 on a `ZonedDateTime`.
+Per-status pages work as with Thymeleaf: Boot renders `templates/error/404.html` for a 404, else
+`templates/error/4xx.html` (`5xx` for server errors), else `error.html`. The starter's
+`TemplateAvailabilityProvider` tells Boot which of them are compiled templates, on Boot 1.5 through
+4; don't write your own.
 
 ## 3. The migration loop
 
