@@ -245,9 +245,9 @@ allow-listed:
   verifier (§11) enforces this on the composed parse, through `t:insert`/`t:replace` and fragments:
   a value read as table text is `TEXT_IN_TABLE`, `SafeHtml` or a `Fragment` value outside a cell is
   `RAW_NOT_FLOW`, and a misplaced table part or `<form>` (a `<tr>` that ends a `<td>`) is a parse
-  error, so foster parenting never happens. The verifier composes a `Fragment` argument only where
-  the callee inserts the parameter by itself, so the compiler rejects a template-built `Fragment`
-  value that starts with a table part (TODO #561). The oracle (§5.7) watches the rest of this claim.
+  error, so foster parenting never happens. Every template-built `Fragment` value resolves to a
+  closed set of candidate arguments, each parsed where it lands (#561), so a `~{::tr}` is judged in
+  the cell or `<tbody>` it reaches. The oracle (§5.7) watches the rest of this claim.
 
 ### 5.4 Scripts: the script prelude rule
 

@@ -1260,9 +1260,10 @@ public record Address(String street) {}
     `action`; computed ones are links already (section 4.4). Reach another origin through a
     same-origin endpoint of your own. htmx 1.x's `hx-ws` and `hx-sse` are build errors (#562);
     use htmx 2's `ws-connect` and `sse-connect`, which are request URLs like `hx-post`.
-  - A `<form>` nested in another, also through a fragment or layout, is a build error
-    (`PARSE_ERROR`): a browser drops the inner start tag. A form with `t:remove="tag"` gets no
-    token.
+  - A `<form>` nested in another, also through a fragment, a layout or any `Fragment` value a
+    template builds (section 4.8), is a build error (`PARSE_ERROR`): a browser drops the inner
+    start tag. A `Fragment` built in Java is trusted until #581. A form with `t:remove="tag"` gets
+    no token.
   A form that writes its own token input keeps it and gets no second one: a direct child
   `<input type="hidden">` whose literal `name` equals the token's parameter name at render time
   (`_csrf` by default), as FreeMarker and JSP pages write it to read the token by id
@@ -1361,6 +1362,14 @@ parameters**, never the caller's variables.
   selects the first `<t:block>`, which leaves no tag. Thymeleaf selects every match; Tessera only
   the first. Other selectors (`#id`, `.class`) are not supported.
 - A `null` `Fragment` renders nothing, so a `Fragment` parameter can be optional.
+- A `Fragment` value inserted with `t:insert`/`t:replace`, or passed on as a fragment argument, is
+  a `~{...}` reference, a `Fragment` parameter, `null`, a `t:with` alias of one, or a ternary or
+  Elvis of those (`${flag ? body : null}`, `${body ?: other}`). The compiler checks every argument
+  it can be where it lands, so a `~{::tr}` goes into a `<tbody>` but not into a `<div>`, and a
+  `~{::form}` never ends up inside another form. A page parameter of type `Fragment` is built in
+  Java and inserted as flow content (#581). Any other `Fragment` expression is a build error,
+  including any function or method call (one taking `Object` could hand back a template-built
+  value unchecked), and a `@TemplateFunction` may not take a `Fragment`.
 - A fragment goes only where a browser parses markup the way it does where the fragment is
   declared: in HTML content, or inside `<svg>`, `<math>` or `<select>`. Inside `<svg>`, `<title>`
   and `<textarea>` hold markup and `<![CDATA[` is text, so an HTML fragment could run a value as
@@ -2245,6 +2254,8 @@ These come from the annotation processor itself, without a template position.
 - `@TemplateFunction <method> must be public static`, `@TemplateFunction <method> must return a value`.
 - `@TemplateFunction <method> returns <type>: <reason>`, `@TemplateFunction <method> parameter <name> has type <type>: <reason>`:
   never-view-safe types cannot cross into templates; `Object` is allowed only as a parameter type.
+  A `Fragment` parameter (also `Fragment...`) has the reason `a function may not take a Fragment, since the compiler can't check the markup it returns where it lands; insert the Fragment itself with t:insert or t:replace`
+  (#561).
 
 ### Text output and escaping
 
@@ -2321,8 +2332,6 @@ These come from the annotation processor itself, without a template position.
   title, even in a complete `{{ }}` and whether or not the content is computed:
   `<title>{{ appName }} - [[${page}]]</title>`. Compute the whole text in Tessera, or bind it in
   Vue.
-- `~{:: row} writes <tr>, which is not supported in a Fragment value: inserted in a <td> or a <div> a browser would close elements to place it and move text after it out of the table; insert the fragment with t:insert/t:replace directly in the table part that takes it`:
-  a fragment passed as a `Fragment` argument may have no table part other than `<table>` at its top.
 - `[[...]] may not follow '<MARKUP>' directly: the browser would read the value as markup; write &lt; for a literal '<'`
   (also `[(...)]`), where `<MARKUP>` is `<`, `<!`, `<!-`, `<?`, or `</` and any letters, at the end
   of the static text before the expression, in element text, `<title>` or `<textarea>`. In element
@@ -2469,6 +2478,9 @@ These come from the annotation processor itself, without a template position.
 
 - `<t:insert> needs a fragment reference, e.g. ~{fragments/layout :: header}`.
 - `<t:insert> needs a fragment reference (~{template :: name}) or a value of type Fragment, but the expression has type <type>`.
+- `<t:insert> is a Fragment the compiler can't trace to the fragment arguments it may be, so it can't check their markup where it lands: write a Fragment parameter, null, a t:with alias of one, a ~{...} reference, or a ternary or Elvis of those; no function or method call`
+  (also `argument <n> ('<param>') of fragment <signature> is ...` and `t:with value '<name>' is ...`):
+  section 4.8 (#561). `${card.body}`, a `Fragment` read from a property, is one such expression.
 - `template name '<name>' must be a path relative to the templates root, without a leading '/' or empty, '.' or '..' segments`.
 - `unknown template '<name>' in ~{<name> :: <fragment>}: template names are paths relative to the templates root, without .html`.
 - `template '<name>' has no fragment '<fragment>'; its fragments are: <signatures>`.

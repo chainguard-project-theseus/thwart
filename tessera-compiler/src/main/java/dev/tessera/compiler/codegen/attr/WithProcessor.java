@@ -9,6 +9,8 @@ import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
+import dev.tessera.compiler.verify.Skeleton;
+import dev.tessera.runtime.Fragment;
 import java.util.List;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -43,9 +45,20 @@ public final class WithProcessor implements AttributeProcessor {
       if (value == null) {
         return;
       }
+      Skeleton.Node candidates = null;
+      if (ctx.env().types().isSameType(value.type(), ctx.env().elements().getTypeElement(Fragment.class.getName()).asType())) {
+        // An alias of a Fragment is checked, where it is inserted, as what its value may write (#561).
+        candidates = FragmentCandidates.of(ctx, a.value(), scope, "t:with value '" + a.name() + "'");
+        if (candidates == null) {
+          return;
+        }
+      }
       String javaName = ctx.freshName(a.name());
       open.append(declaration(value, javaName));
       scope = scope.with(new Variable(a.name(), value.type(), javaName));
+      if (candidates != null) {
+        scope = scope.withFragment(javaName, candidates);
+      }
     }
     plan.wrap(open.toString(), "}");
     plan.scope(scope);

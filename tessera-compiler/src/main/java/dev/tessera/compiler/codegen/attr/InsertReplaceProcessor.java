@@ -7,7 +7,6 @@ import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.codegen.Emitted;
-import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.codegen.TemplateIndex;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.expr.FragmentRef;
@@ -28,7 +27,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.lang.model.type.TypeMirror;
 
@@ -136,8 +134,14 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
                       : "insert a ~{template :: name} declared inside " + ParsingContexts.describe(point)));
       return null;
     }
+    // Parsed again only for its shape: ctx.compile parsed it without errors.
+    Expr value = ctx.parser().parseExpression(attr.value(), attr.valuePos(), new Diagnostics());
+    Skeleton.Node candidates = FragmentCandidates.of(ctx, value, plan.scope(), attr.name());
+    if (candidates == null) {
+      return null;
+    }
     String f = ctx.freshName("f");
-    return Emitted.fragmentValue(FRAGMENT, f, e.code(), fragmentParam(ctx, attr, plan.scope()), e.pos(), ctx.insertionContext());
+    return Emitted.fragmentValue(FRAGMENT, f, e.code(), candidates, ctx.insertionContext());
   }
 
   /** What to do where no fragment fits ({@code point} is unwrapped or mixed content), or null. */
@@ -148,33 +152,6 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     if (ParsingContexts.isMixed(point)) {
       return "no fragment fits in mixed content: move the HTML element out of the <svg> or <math> or into a"
           + " <foreignObject>, or write the <annotation-xml> encoding as a static attribute";
-    }
-    return null;
-  }
-
-  /**
-   * The {@code Fragment} parameter of the fragment being generated that {@code attr}'s value is,
-   * by itself, or null: then the skeleton of what is inserted is bound at each call site.
-   */
-  private static String fragmentParam(CodegenContext ctx, Attribute attr, Scope scope) {
-    Expr e = ctx.parser().parseExpression(attr.value(), attr.valuePos(), new Diagnostics());
-    return e instanceof Expr.Var ? fragmentParam(ctx, ((Expr.Var) e).name(), scope) : null;
-  }
-
-  /**
-   * {@code name} if it is a {@code Fragment} parameter of the fragment being generated and not
-   * shadowed in {@code scope} (a shadowing local has a fresh Java name), else null.
-   */
-  private static String fragmentParam(CodegenContext ctx, String name, Scope scope) {
-    TemplateIndex.FragmentInfo f = ctx.fragment();
-    if (f == null) {
-      return null;
-    }
-    for (TemplateIndex.Param p : f.params()) {
-      if (p.name().equals(name) && isFragment(ctx, p.type())) {
-        Optional<Variable> v = scope.lookup(name);
-        return v.isPresent() && v.get().javaName().equals(TemplateGenerator.javaName(name)) ? name : null;
-      }
     }
     return null;
   }
@@ -387,18 +364,6 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       }
       return local;
     }
-    if (wantsFragment && arg.value() instanceof Expr.Literal && ((Expr.Literal) arg.value()).value() == null) {
-      // null: the callee writes nothing for it (#367 checks the callee with that).
-      fragmentArgs.put(param.name(), Skeleton.Seq.empty());
-    }
-    if (wantsFragment && arg.value() instanceof Expr.Var) {
-      // A Fragment parameter of the caller passed on: bound to whatever the caller's caller bound.
-      String forwarded = fragmentParam(ctx, ((Expr.Var) arg.value()).name(), scope);
-      if (forwarded != null) {
-        fragmentArgs.put(
-            param.name(), new Skeleton.Seq(Collections.singletonList(new Skeleton.ParamInsert(forwarded, arg.pos()))));
-      }
-    }
     if (FormPaths.isField(param.type())) {
       return fieldArgument(ctx, arg, param, what, scope);
     }
@@ -409,6 +374,15 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     if (!ctx.env().types().isAssignable(e.type(), param.type())) {
       ctx.diagnostics().error(arg.pos(), what + " has type " + param.javaType() + ", but the argument has type " + e.type());
       return null;
+    }
+    if (wantsFragment) {
+      // Bound to its candidates (a Fragment parameter passed on: whatever the caller's caller bound;
+      // null: nothing), which the verifier checks where the callee inserts the parameter.
+      Skeleton.Node candidates = FragmentCandidates.of(ctx, arg.value(), scope, what);
+      if (candidates == null) {
+        return null;
+      }
+      fragmentArgs.put(param.name(), FragmentCandidates.seq(candidates));
     }
     return e.code();
   }
@@ -476,19 +450,6 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
    */
   private static String fragmentValue(
       CodegenContext ctx, FragmentRef ref, Scope scope, Element host, StringBuilder pre, List<Skeleton.Node> skeleton) {
-    // Wherever it is inserted, a table part at its top could end a cell or a foster-parented
-    // element and move the text after it out of the table (#348).
-    String n = FragmentTop.of(ctx, ref).firstTablePart;
-    if (n != null) {
-      ctx.diagnostics()
-          .error(
-              ref.pos(),
-              "~{" + (ref.template() == null ? "" : ref.template() + " ") + ":: " + ref.selector() + "} writes <" + n
-                  + ">, which is not supported in a Fragment value: inserted in a <td> or a <div> a browser would"
-                  + " close elements to place it and move text after it out of the table; insert the fragment"
-                  + " with t:insert/t:replace directly in the table part that takes it");
-      return null;
-    }
     String c = ctx.freshName("ctx");
     String o = ctx.freshName("out");
     String local = ctx.freshName("frag");

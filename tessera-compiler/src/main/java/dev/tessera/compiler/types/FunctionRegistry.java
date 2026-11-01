@@ -3,6 +3,7 @@ package dev.tessera.compiler.types;
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.SourcePos;
+import dev.tessera.runtime.Fragment;
 import dev.tessera.runtime.TemplateFunctions;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,8 +35,8 @@ import javax.lang.model.util.Types;
  * the classpath. Any other namespace is looked up on first use in the function index
  * ({@link CompilerEnv#functionIndex()}: classes compiled earlier, #118); the indexed class must
  * still be annotated {@code @TemplateFunctions} with that namespace and goes through the same
- * checks. Duplicate namespaces, non-static or non-public methods, and signatures using
- * never-view-safe types are build errors (reported once, when the class is registered, at
+ * checks. Duplicate namespaces, non-static or non-public methods, signatures using
+ * never-view-safe types, and {@code Fragment} parameters (#561) are build errors (reported once, when the class is registered, at
  * {@code path/To/Class.java:1:1}). A leading {@code java.util.Locale} parameter is not a template
  * argument: the compiler passes the render locale ({@code ctx.locale()}) to it ({@link
  * #takesLocale}).
@@ -191,6 +192,11 @@ final class FunctionRegistry {
     }
     for (VariableElement p : templateParameters(m)) {
       Optional<String> pr = safety.reason(p.asType(), true);
+      if (!pr.isPresent() && takesFragment(p.asType())) {
+        // It could return a template-built Fragment the verifier can't trace to where it lands (#561).
+        pr = Optional.of("a function may not take a Fragment, since the compiler can't check the markup it returns where"
+            + " it lands; insert the Fragment itself with t:insert or t:replace");
+      }
       if (pr.isPresent()) {
         env.diagnostics()
             .error(pos, "@TemplateFunction " + fn + " parameter " + p.getSimpleName() + " has type " + p.asType() + ": " + pr.get());
@@ -198,6 +204,16 @@ final class FunctionRegistry {
       }
     }
     return ok;
+  }
+
+  /** Whether {@code t}, erased, is {@code Fragment} or an array of it (varargs). */
+  private boolean takesFragment(TypeMirror t) {
+    TypeMirror e = env.types().erasure(t);
+    if (e.getKind() == TypeKind.ARRAY) {
+      return takesFragment(((ArrayType) e).getComponentType());
+    }
+    TypeElement f = env.elements().getTypeElement(Fragment.class.getName());
+    return f != null && env.types().isSameType(e, f.asType());
   }
 
   private boolean applicable(ExecutableElement m, List<TypeMirror> args, int phase) {
