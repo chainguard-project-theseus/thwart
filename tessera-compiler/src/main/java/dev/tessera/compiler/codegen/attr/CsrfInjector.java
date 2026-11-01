@@ -36,8 +36,10 @@ import java.util.regex.Pattern;
  *       form got the token: {@link #checkSubmitter} and {@code GenericAttrProcessor}.
  *   <li>Every {@code <base href>} and static htmx request URL ({@code hx-post}, ...) is same-origin by
  *       shape: {@link #checkStaticUrls}; computed ones are same-origin links already.
- *   <li>A nested {@code <form>}, also through fragments, is a verifier {@code PARSE_ERROR}, and
- *       {@code <form/>} is an error here.
+ *   <li>A nested {@code <form>} is a verifier {@code PARSE_ERROR}, also through fragments and every
+ *       {@code Fragment} value a template builds: each is checked where it lands ({@code
+ *       FragmentCandidates}, #561). A {@code Fragment} built in Java is trusted to be flow content
+ *       (TODO(#581)). {@code <form/>} is an error here.
  * </ul>
  *
  * <p>A form that writes its own token input (#225) keeps it and gets no second one: a direct child
