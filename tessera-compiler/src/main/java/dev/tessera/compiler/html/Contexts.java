@@ -392,7 +392,10 @@ public final class Contexts {
 
   /**
    * The first static {@code type} of {@code script}, the one a browser reads, trimmed and A-Z
-   * folded, or null if it has none.
+   * folded, or null if it has none. {@code MarkupTokenizer.startTag} goes by the last {@code type}
+   * when it decides whether the content is raw text. The two never disagree because HtmlParser
+   * rejects a duplicate attribute, A-Z folded, so a template has at most one {@code type}
+   * ({@code HtmlParserTest.duplicateScriptTypeIsAnError}).
    */
   private static String staticType(Element script) {
     for (Attribute a : script.attributes()) {

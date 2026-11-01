@@ -386,6 +386,21 @@ class HtmlParserTest {
         errors("<input disabled disabled>"));
   }
 
+  /**
+   * Contexts reads the first script {@code type} and MarkupTokenizer the last; this check, folding
+   * A-Z, is what keeps them from disagreeing (#591).
+   */
+  @Test
+  void duplicateScriptTypeIsAnError() {
+    assertEquals(
+        List.of("dir/t.html:1:23: error: duplicate attribute 'TYPE' on <script>: remove one of them"),
+        errors("<script type=\"module\" TYPE=\"text/plain\"></script>"));
+    assertEquals(
+        List.of("dir/t.html:1:32: error: duplicate attribute 'type' on <script>: remove one of them"),
+        errors("<script type=\"text/javascript\" type=\"application/json\"></script>"));
+    assertEquals(List.of(), errors("<script type=\"module\"></script>"));
+  }
+
   @Test
   void duplicateAttributesFoldOnlyAscii() {
     // A browser lower-cases A-Z only, so each pair is two attributes: Kelvin sign and k, \u00C9 and \u00E9,

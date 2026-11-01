@@ -437,6 +437,23 @@ class HostileSweepTest {
       "\n`x`", ".\nfoo", ": 1", " in o", " instanceof Object", "/2", "/2/g", " = 1", "=>1", ")", "]", "}", " ? 1 : 2",
       "\n-->x", " --> x");
   static final List<String> VARS = List.of("s", "n", "d", "bd", "l");
+  /**
+   * Value types written by the generated serializers and the boxed paths (#591): a Boolean, a Long,
+   * a map, an enum, a record and a bean, in two prelude declarations per script type. The grammar is
+   * covered by {@link #VARS}; these reach the escaper paths the oracle gate's script check used to.
+   * TODO(#618): the generator's containers around an accepted prelude script.
+   */
+  static final List<String> SERIALIZED_VARS = List.of("b", "lg", "m", "e", "r", "p");
+  static final String SCRIPT_PARAMS = "String s, int n, double d, java.math.BigDecimal bd, java.util.List<String> l,"
+      + " Boolean b, Long lg, java.util.Map<String, String> m, com.example.SweepKind e,"
+      + " com.example.SweepRecord r, com.example.SweepBean p";
+  static final Map<String, String> SWEEP_SOURCES = Map.of(
+      "com.example.SweepKind", "package com.example; public enum SweepKind { A, B }",
+      "com.example.SweepRecord",
+      "package com.example; public record SweepRecord(String s, int n, java.util.List<String> l) {}",
+      "com.example.SweepBean", "package com.example; @dev.tessera.runtime.TemplateView public final class SweepBean {"
+          + " private final String s;"
+          + " public SweepBean(String s) { this.s = s; } public String getS() { return s; } }");
 
   record ScriptCase(String view, String var, String type, String pre, String post, String template) {}
 
@@ -466,7 +483,23 @@ class HostileSweepTest {
     v.put("bd", List.of(new BigDecimal("5"), new BigDecimal("-1"), new BigDecimal("1E+3"), new BigDecimal("-0.00"),
         new BigDecimal("1E-10"), evil));
     v.put("l", List.of(List.of(), List.of("a"), List.of("</script>", "x")));
+    v.put("b", List.of(true, false));
+    v.put("lg", List.of(0L, Long.MIN_VALUE, Long.MAX_VALUE, 9007199254740993L));
+    v.put("m", List.of(Map.of(), Map.of("</script><script>alert(1)</script>", "\"-alert(1)-\"", "k", "\u2028`${x}`")));
     return v;
+  }
+
+  /** The values of {@link #SWEEP_SOURCES} types, loaded from the case's compilation. */
+  static List<Object> compiledValues(String var, Compilation c) {
+    return switch (var) {
+      case "e" -> List.of(c.enumConstant("com.example.SweepKind", "A"), c.enumConstant("com.example.SweepKind", "B"));
+      case "r" -> List.of(c.newInstance("com.example.SweepRecord", "x", 0, List.of()),
+          c.newInstance("com.example.SweepRecord", "</script><script>alert(1)</script>", Integer.MIN_VALUE,
+              List.of("\"-alert(1)-\"", "<!--<script>")));
+      case "p" -> List.of(c.newInstance("com.example.SweepBean", "x"),
+          c.newInstance("com.example.SweepBean", "'-alert(1)-'</script>"));
+      default -> throw new IllegalArgumentException(var);
+    };
   }
 
   @Test
@@ -507,6 +540,12 @@ class HostileSweepTest {
         }
       }
     }
+    for (String var : SERIALIZED_VARS) {
+      for (String type : SCRIPT_TYPES) {
+        add(cases, shapes, var, type, "const a = ", ";");
+        add(cases, shapes, var, type, "\nvar a=", ";\nf(a);");
+      }
+    }
     Map<String, Compilation> accepted = compileAll(cases.stream().collect(
         Collectors.toMap(ScriptCase::view, ScriptCase::template, (x, y) -> x, LinkedHashMap::new)));
     long t1 = System.nanoTime();
@@ -530,9 +569,14 @@ class HostileSweepTest {
         return;
       }
       String rTree = tree(r.root, rSlot);
-      TemplateEntry entry = accepted.get(c.view()).registry().find(c.view()).orElseThrow();
-      for (Object v : values.get(c.var())) {
-        Map<String, Object> model = new HashMap<>(DEFAULTS);
+      Compilation comp = accepted.get(c.view());
+      TemplateEntry entry = comp.registry().find(c.view()).orElseThrow();
+      Map<String, Object> defaults = new HashMap<>(DEFAULTS);
+      for (String x : List.of("e", "r", "p")) {
+        defaults.put(x, compiledValues(x, comp).get(0));
+      }
+      for (Object v : values.containsKey(c.var()) ? values.get(c.var()) : compiledValues(c.var(), comp)) {
+        Map<String, Object> model = new HashMap<>(defaults);
         model.put(c.var(), v);
         String out;
         try {
@@ -595,15 +639,14 @@ class HostileSweepTest {
   }
 
   static final Map<String, Object> DEFAULTS =
-      Map.of("s", "x", "n", 0, "d", 0.0, "bd", BigDecimal.ONE, "l", List.of());
+      Map.of("s", "x", "n", 0, "d", 0.0, "bd", BigDecimal.ONE, "l", List.of(), "b", false, "lg", 0L, "m", Map.of());
 
   static void add(List<ScriptCase> cases, Set<String> seen, String var, String type, String pre, String post) {
     if (!seen.add(var + "\u0000" + type + "\u0000" + pre + "\u0000" + post)) {
       return;
     }
     String view = String.format("j%06d", cases.size());
-    String params = "String s, int n, double d, java.math.BigDecimal bd, java.util.List<String> l";
-    cases.add(new ScriptCase(view, var, type, pre, post, "<div t:params=\"" + params + "\"><script" + type + ">"
+    cases.add(new ScriptCase(view, var, type, pre, post, "<div t:params=\"" + SCRIPT_PARAMS + "\"><script" + type + ">"
         + pre + "[[${" + var + "}]]" + post + "</script></div>"));
   }
 
@@ -1083,6 +1126,7 @@ class HostileSweepTest {
       List<String> todo = new ArrayList<>(batch);
       while (!todo.isEmpty()) {
         Compilation.Builder b = Compilation.builder();
+        SWEEP_SOURCES.forEach(b::java);
         todo.forEach(v -> b.template(v + ".html", templates.get(v)));
         Compilation c = b.compile();
         if (c.success()) {
@@ -1099,7 +1143,9 @@ class HostileSweepTest {
         List<String> rest = todo.stream().filter(v -> !bad.contains(v)).toList();
         if (rest.size() == todo.size()) {
           for (String v : todo) {
-            Compilation alone = Compilation.builder().template(v + ".html", templates.get(v)).compile();
+            Compilation.Builder one = Compilation.builder().template(v + ".html", templates.get(v));
+            SWEEP_SOURCES.forEach(one::java);
+            Compilation alone = one.compile();
             if (alone.success()) {
               accepted.put(v, alone);
             }

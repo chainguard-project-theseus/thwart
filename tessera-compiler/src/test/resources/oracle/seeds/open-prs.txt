@@ -1314,9 +1314,9 @@ var t = "${" + "[[x]]";</script></div>
 # can change; a browser reads the encoding it receives. The verifier (#390) rejects a
 # computed encoding (ATTRIBUTE_VALUE_CHANGES_PARSE). Each note ends with the seed's verdict on
 # main from the gate's checks (ProfileOracleTest.check: renders with tqm0001, Fingerprint.value(1)
-# and the gate's hostile values; HtmlInvariant, ScriptInvariant on script slots, and ContextCheck
-# on vnu-26); seed-expectations.txt holds the verifier's. 'expect-0dda2f1' was recorded on 0dda2f1
-# with HostileStrings.VECTORS on vnu-1.4 and vnu-26.
+# and the gate's hostile values; HtmlInvariant and ContextCheck, plus ScriptInvariant on script
+# slots until #591 removed it, on vnu-26); seed-expectations.txt holds the verifier's.
+# 'expect-0dda2f1' was recorded on 0dda2f1 with HostileStrings.VECTORS on vnu-1.4 and vnu-26.
 ====
 # name: ax-pos-1
 # expect-0dda2f1: CLEAN
