@@ -140,10 +140,6 @@ final class Migrator {
     private String scriptType;
     /** True between the start and end tag of a JavaScript or JSON {@code <script>}. */
     private boolean inScript;
-    /** True if that script is JSON ({@code application/json}, {@code application/ld+json}). */
-    private boolean jsonScript;
-    /** The number of the last {@code _tN} variable a value of this file was hoisted into (#541). */
-    private int hoisted;
     /** True if that script is inlined as JavaScript ({@code th:inline="javascript"} on it or an ancestor). */
     private boolean javaScriptInline;
     /** The {@code th:inline} value (stripped, lower case) of that element, or {@code null}. */
@@ -181,7 +177,6 @@ final class Migrator {
       open.push(new Open(openName, mode));
       inScript = !none && ConversionRules.SCRIPT.equals(openName) && scriptType != null
           && ConversionRules.SCRIPT_TYPES.contains(Compat.strip(scriptType).toLowerCase(Locale.ROOT));
-      jsonScript = inScript && Compat.strip(scriptType).toLowerCase(Locale.ROOT).endsWith("json");
       javaScriptInline = ConversionRules.INLINE_JAVASCRIPT.equals(mode);
     }
 
@@ -490,458 +485,27 @@ final class Migrator {
       }
       String text = new String(buffer, offset, len);
       if (inScript) {
-        int first = edits.size();
         quotedInlines(text, offset, line);
-        if (!jsonScript) {
-          hoist(text, offset, line, edits.subList(first, edits.size()));
-        }
       }
       inline(text, line, "[[", "]]");
       inline(text, line, "[(", ")]");
-    }
-
-    /**
-     * Hoists each {@code [[...]]} of a JavaScript script that is outside the script prelude
-     * ({@code TextInlining.checkPrelude}, #540) into a declaration {@code var _tN = [[...]];} at the
-     * end of the prelude, and writes {@code _tN} in its place (#541); {@code var}, so that a fragment
-     * included twice doesn't redeclare a {@code const}. {@code text} is the script text at
-     * {@code offset} of the document, and {@code scriptEdits} the edits {@link #quotedInlines} made
-     * to it, which are applied first; if a value is hoisted they are replaced by one edit of the
-     * whole text. A {@code '...'} or {@code "..."} string around a value is split, {@code "Hello
-     * [[${x}]]"} becoming {@code "Hello " + _tN}, in parentheses unless the tokens on both sides bind
-     * looser than {@code +}. A value in a template literal, a regular expression or a comment stays,
-     * and the compiler reports it (#595). The lexer is an
-     * approximation, as in {@link #quotedInlines}, plus regular expression literals; the compiler is
-     * the safety net: every hoisted value is in its prelude grammar, so a misread cannot put a value
-     * anywhere else, though it can break the code around a value or change what that code means.
-     */
-    private void hoist(String text, int offset, int line, List<Edit> scriptEdits) {
-      String raw = applied(text, offset, scriptEdits);
-      int start = 0;
-      for (int end = preludeDeclaration(raw, preludeBlank(raw, 0)); end >= 0;
-          end = preludeDeclaration(raw, preludeBlank(raw, start))) {
-        start = end;
-      }
-      int code = preludeBlank(raw, start);
-      // On a line of its own the hoisted declarations go on lines of their own above the code.
-      int insertAt = code;
-      String indent = null;
-      String lineBreak = null;
-      for (int k = code - 1; k >= start; k--) {
-        char ch = raw.charAt(k);
-        if (ch == '\n' || ch == '\r') {
-          insertAt = k + 1;
-          indent = raw.substring(insertAt, code);
-          lineBreak = ch == '\n' && k > 0 && raw.charAt(k - 1) == '\r' ? "\r\n" : String.valueOf(ch);
-          break;
-        }
-      }
-      StringBuilder out = new StringBuilder(raw.length() + 64).append(raw, 0, insertAt);
-      StringBuilder declarations = new StringBuilder();
-      int state = CODE;
-      char quote = 0;
-      int stringStart = -1; // where the current string starts in out
-      int pieceStart = -1; // where the opening quote of the current piece of that string is in out
-      boolean split = false; // a value was hoisted out of the current string
-      boolean afterValue = false; // the current string continues right after a hoisted value
-      boolean inClass = false; // in a [...] class of a regular expression
-      // For each open brace: true for a block or function body, false for an object literal.
-      Deque<Boolean> blocks = new ArrayDeque<>();
-      Deque<Integer> templates = new ArrayDeque<>(); // block depth at each ${ of a template literal
-      // For each open ( and [: true for the ( of an if, while, for or with, after whose ) a / starts a regular expression.
-      Deque<Boolean> openers = new ArrayDeque<>();
-      boolean closeStartsRegex = true; // after the last ), ] or }: whether a / there starts a regular expression
-      Deque<Integer> arrows = new ArrayDeque<>(); // paren and bracket depth at each => whose body may still run later
-      for (int i = insertAt; i < raw.length(); i++) {
-        char c = raw.charAt(i);
-        int end = holeEnd(raw, i);
-        if (end >= 0) {
-          String hole = raw.substring(i, end + 2);
-          int after = end + 2;
-          int source = sourceIndex(i, offset, scriptEdits);
-          int at = lineAt(text, line, source);
-          boolean value = raw.charAt(i + 1) == '[';
-          boolean dropped = false; // in text Thymeleaf drops after a natural-template comment
-          for (int[] m : manual) {
-            dropped |= source >= m[0] && source < m[1];
-          }
-          boolean inCode = state == CODE || state == STRING && quote != '`'; // a '...' or "..." string is split
-          if (value && !dropped && inCode && templates.isEmpty()) {
-            String name = nextName();
-            if (indent != null) {
-              declarations.append(indent);
-            }
-            declarations.append("var ").append(name).append(" = ").append(hole).append(';')
-                .append(indent != null ? lineBreak : " ");
-            String message = String.format(ConversionRules.SCRIPT_HOISTED_MESSAGE, hole, name);
-            if (state == CODE) {
-              boolean nameBefore = out.length() > 0 && isNameChar(out.charAt(out.length() - 1));
-              boolean nameAfter = after < raw.length() && isNameChar(raw.charAt(after));
-              out.append(nameBefore ? " " : "").append(name).append(nameAfter ? " " : "");
-            } else {
-              if (afterValue) {
-                out.append(" + ");
-              } else if (out.length() == pieceStart + 1) {
-                out.setLength(pieceStart); // nothing before the value in this string
-                if (raw.startsWith("[[", after)) {
-                  out.append(quote).append(quote).append(" + "); // so that two values are joined as strings
-                }
-              } else {
-                out.append(quote).append(" + ");
-              }
-              out.append(name);
-              afterValue = true;
-              split = true;
-              message += ConversionRules.SCRIPT_HOISTED_STRING_MESSAGE;
-            }
-            if (blocks.contains(Boolean.TRUE) || !arrows.isEmpty()) {
-              message += String.format(ConversionRules.SCRIPT_HOISTED_DEFERRED_MESSAGE, name);
-            }
-            report(at, message);
-          } else {
-            out.append(hole); // not hoisted; the compiler reports it where it rejects it
-          }
-          i = after - 1;
-          continue;
-        }
-        if (afterValue) {
-          afterValue = false;
-          if (c == quote) {
-            state = CODE; // the string ends with the value: no empty piece
-            parenthesize(out, stringStart, raw, i + 1);
-            continue;
-          }
-          out.append(" + ").append(quote);
-          pieceStart = out.length() - 1;
-        }
-        out.append(c);
-        boolean lineEnd = c == '\n' || c == '\r';
-        switch (state) {
-          case CODE:
-            if (c == '"' || c == '\'' || c == '`') {
-              state = STRING;
-              quote = c;
-              stringStart = out.length() - 1;
-              pieceStart = stringStart;
-              split = false;
-            } else if (raw.startsWith("//", i) || raw.startsWith("/*", i)) {
-              state = raw.charAt(i + 1) == '/' ? LINE_COMMENT : BLOCK_COMMENT;
-              out.append(raw.charAt(++i));
-            } else if (c == '/' && regexAllowed(out, out.length() - 1, closeStartsRegex)) {
-              state = REGEX;
-              inClass = false;
-            } else if (raw.startsWith("=>", i)) {
-              arrows.push(openers.size());
-              out.append(raw.charAt(++i));
-            } else if (c == '(' || c == '[') {
-              openers.push(c == '(' && CONTROL.contains(wordBefore(out, out.length() - 1)));
-            } else if (c == ')' || c == ']') {
-              closeStartsRegex = !openers.isEmpty() && openers.pop();
-              while (!arrows.isEmpty() && arrows.peek() > openers.size()) {
-                arrows.pop();
-              }
-            } else if (c == ';' || c == ',') {
-              while (!arrows.isEmpty() && arrows.peek() == openers.size()) {
-                arrows.pop(); // the end of an arrow function's expression body
-              }
-            } else if (c == '{') {
-              blocks.push(!objectLiteral(out, out.length() - 1));
-            } else if (c == '}' && !templates.isEmpty() && templates.peek() == blocks.size()) {
-              templates.pop();
-              state = STRING;
-              quote = '`';
-            } else if (c == '}' && !blocks.isEmpty()) {
-              closeStartsRegex = blocks.pop(); // after a block, not after an object literal
-            }
-            break;
-          case STRING:
-            if (c == '\\' && i + 1 < raw.length()) {
-              out.append(raw.charAt(++i));
-              if (raw.startsWith("\r\n", i)) {
-                out.append(raw.charAt(++i)); // "\" + CRLF is one line continuation
-              }
-            } else if (c == quote) {
-              state = CODE;
-              if (split) {
-                parenthesize(out, stringStart, raw, i + 1);
-              }
-            } else if (lineEnd && quote != '`') {
-              state = CODE;
-            } else if (quote == '`' && raw.startsWith("${", i)) {
-              templates.push(blocks.size());
-              state = CODE;
-              out.append(raw.charAt(++i));
-            }
-            break;
-          case REGEX:
-            if (c == '\\' && i + 1 < raw.length()) {
-              out.append(raw.charAt(++i));
-            } else if (c == '[') {
-              inClass = true;
-            } else if (c == ']') {
-              inClass = false;
-            } else if (c == '/' && !inClass || lineEnd) {
-              state = CODE;
-            }
-            break;
-          case LINE_COMMENT:
-            state = lineEnd ? CODE : state;
-            break;
-          default:
-            if (raw.startsWith("*/", i)) {
-              state = CODE;
-              out.append(raw.charAt(++i));
-            }
-            break;
-        }
-      }
-      if (declarations.length() == 0) {
-        return;
-      }
-      for (String directive : new String[] {"\"use strict\"", "'use strict'"}) {
-        if (raw.startsWith(directive, code)) {
-          report(lineAt(text, line, sourceIndex(code, offset, scriptEdits)),
-              String.format(ConversionRules.SCRIPT_DIRECTIVE_MESSAGE, codeSpan(directive)));
-        }
-      }
-      out.insert(insertAt, declarations);
-      scriptEdits.clear();
-      edits.add(new Edit(offset, text.length(), out.toString()));
-    }
-
-    /**
-     * Puts the split string that starts at {@code stringStart} of {@code out} and ends there in
-     * parentheses unless the token before it and the one at {@code next} of {@code raw} bind looser
-     * than {@code +}, so that {@code "a [[${x}]]".length} keeps its meaning. A {@code +} before it
-     * binds looser only if it is binary and the split string still starts with a string:
-     * {@code n + "[[${x}]]!"} is {@code n + (_t1 + "!")}, since {@code n + _t1} would add two numbers,
-     * and {@code +"0.[[${x}]]"} is {@code +("0." + _t1)}.
-     */
-    private static void parenthesize(StringBuilder out, int stringStart, String raw, int next) {
-      int p = stringStart - 1;
-      while (p >= 0 && " \t\n\r".indexOf(out.charAt(p)) >= 0) {
-        p--;
-      }
-      int q = p - 1;
-      while (q >= 0 && " \t\n\r".indexOf(out.charAt(q)) >= 0) {
-        q--;
-      }
-      boolean binary = q >= 0 && (isNameChar(out.charAt(q)) || ")]\"'`".indexOf(out.charAt(q)) >= 0);
-      String loose = binary && "\"'".indexOf(out.charAt(stringStart)) >= 0 ? "=(,[:?{;+&|<>" : "=(,[:?{;&|<>";
-      boolean before = p < 0 || loose.indexOf(out.charAt(p)) >= 0
-          || p >= 5 && out.substring(p - 5, p + 1).equals("return") && (p == 5 || !isNameChar(out.charAt(p - 6)));
-      while (next < raw.length() && (raw.charAt(next) == ' ' || raw.charAt(next) == '\t')) {
-        next++;
-      }
-      boolean after = next >= raw.length() || ";,)]}:?+=!&|<>\r\n".indexOf(raw.charAt(next)) >= 0;
-      if (!before || !after) {
-        out.insert(stringStart, '(').append(')');
-      }
-    }
-
-    /**
-     * Whether the opening brace at {@code brace} of {@code out} starts an object literal: after
-     * {@code =}, {@code (}, {@code ,}, {@code :}, {@code [}, {@code ?} or {@code return}. Anything
-     * else, such as {@code )}, {@code =>} or {@code else}, opens a block or function body.
-     */
-    private static boolean objectLiteral(StringBuilder out, int brace) {
-      int p = brace - 1;
-      while (p >= 0 && " \t\n\r".indexOf(out.charAt(p)) >= 0) {
-        p--;
-      }
-      return p >= 0 && ("=(,:[?".indexOf(out.charAt(p)) >= 0
-          || p >= 5 && out.substring(p - 5, p + 1).equals("return") && (p == 5 || !isNameChar(out.charAt(p - 6))));
-    }
-
-    /** Words after which a {@code /} starts a regular expression. */
-    private static final Set<String> REGEX_AFTER = Compat.setOf("return", "typeof", "instanceof", "in", "of", "new",
-        "delete", "void", "throw", "case", "do", "else", "yield", "await");
-
-    /** The words before a {@code (} after whose {@code )} a {@code /} starts a regular expression. */
-    private static final Set<String> CONTROL = Compat.setOf("if", "while", "for", "with");
-
-    /**
-     * Whether a {@code /} at {@code slash} of {@code out} starts a regular expression: not after a
-     * value. After a {@code )}, {@code ]} or {@code }} that is {@code closeStartsRegex}: after the
-     * condition of an {@code if}, {@code while}, {@code for} or {@code with}, or after a block.
-     */
-    private static boolean regexAllowed(StringBuilder out, int slash, boolean closeStartsRegex) {
-      int p = slash - 1;
-      while (p >= 0 && " \t\n\r".indexOf(out.charAt(p)) >= 0) {
-        p--;
-      }
-      if (p < 0) {
-        return true;
-      }
-      char c = out.charAt(p);
-      if (isNameChar(c)) {
-        return REGEX_AFTER.contains(wordBefore(out, slash));
-      }
-      if (c == ')' || c == ']' || c == '}') {
-        return closeStartsRegex;
-      }
-      return "\"'`".indexOf(c) < 0;
-    }
-
-    /** The name before offset {@code at} of {@code out}, after any whitespace, or "". */
-    private static String wordBefore(StringBuilder out, int at) {
-      int p = at - 1;
-      while (p >= 0 && " \t\n\r".indexOf(out.charAt(p)) >= 0) {
-        p--;
-      }
-      int w = p + 1;
-      while (w > 0 && isNameChar(out.charAt(w - 1))) {
-        w--;
-      }
-      return out.substring(w, p + 1);
-    }
-
-    private static boolean isNameChar(char c) {
-      return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '$';
-    }
-
-    /** {@code text}, which starts at {@code offset} of the document, with {@code scriptEdits} applied. */
-    private static String applied(String text, int offset, List<Edit> scriptEdits) {
-      StringBuilder converted = new StringBuilder(text.length());
-      int pos = 0;
-      for (Edit e : scriptEdits) {
-        converted.append(text, pos, e.offset() - offset).append(e.replacement());
-        pos = e.offset() - offset + e.length();
-      }
-      return converted.append(text, pos, text.length()).toString();
-    }
-
-    /** The offset in {@code text} of offset {@code at} of {@link #applied}. */
-    private static int sourceIndex(int at, int offset, List<Edit> scriptEdits) {
-      int source = at;
-      int shift = 0;
-      for (Edit e : scriptEdits) {
-        if (e.offset() - offset + shift >= at) {
-          break;
-        }
-        shift += e.replacement().length() - e.length();
-        source = at - shift;
-      }
-      return source;
-    }
-
-    /** The whole document, for {@link #nextName}. */
-    private String document;
-
-    /** The next {@code _tN} that the document doesn't use as a name. */
-    private String nextName() {
-      if (document == null) {
-        document = new String(doc);
-      }
-      String name;
-      do {
-        name = "_t" + ++hoisted;
-      } while (Pattern.compile("(?<![\\w$])" + name + "(?![\\w$])").matcher(document).find());
-      return name;
-    }
-
-    /**
-     * The offset after the ASCII spaces, tabs, line breaks and {@code //} comments at {@code i}. A
-     * value in a comment stays there and was reported, so unlike the compiler this skips it.
-     */
-    private static int preludeBlank(String raw, int i) {
-      while (i < raw.length()) {
-        char c = raw.charAt(i);
-        if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
-          i++;
-        } else if (raw.startsWith("//", i)) {
-          while (i < raw.length() && raw.charAt(i) != '\n' && raw.charAt(i) != '\r') {
-            i++;
-          }
-        } else {
-          break;
-        }
-      }
-      return i;
-    }
-
-    /** Names a prelude declaration may not use; {@code TextInlining.RESERVED} in the compiler. */
-    private static final Set<String> PRELUDE_RESERVED = Compat.setOf(
-        "location",
-        "await", "break", "case", "catch", "class", "const", "continue", "debugger", "default", "delete", "do",
-        "else", "enum", "export", "extends", "false", "finally", "for", "function", "if", "implements", "import",
-        "in", "instanceof", "interface", "let", "new", "null", "package", "private", "protected", "public",
-        "return", "static", "super", "switch", "this", "throw", "true", "try", "typeof", "var", "void", "while",
-        "with", "yield");
-
-    /**
-     * The offset after the prelude declaration {@code const|let|var NAME = [[...]];} at {@code i},
-     * or -1: the compiler's {@code TextInlining.declaration}.
-     */
-    private static int preludeDeclaration(String raw, int i) {
-      int j = -1;
-      for (String keyword : new String[] {"const", "let", "var"}) {
-        if (raw.startsWith(keyword, i)) {
-          j = i + keyword.length();
-        }
-      }
-      if (j < 0) {
-        return -1;
-      }
-      int name = spaces(raw, j);
-      if (name == j) {
-        return -1;
-      }
-      j = name;
-      while (j < raw.length() && isNameChar(raw.charAt(j)) && (j > name || raw.charAt(j) < '0' || raw.charAt(j) > '9')) {
-        j++;
-      }
-      if (j == name || PRELUDE_RESERVED.contains(raw.substring(name, j))) {
-        return -1;
-      }
-      j = spaces(raw, j);
-      if (!raw.startsWith("=", j)) {
-        return -1;
-      }
-      j = spaces(raw, j + 1);
-      int end = raw.startsWith("[[", j) ? holeEnd(raw, j) : -1;
-      if (end < 0) {
-        return -1;
-      }
-      j = spaces(raw, end + 2);
-      return raw.startsWith(";", j) ? j + 1 : -1;
-    }
-
-    /** The offset after the ASCII spaces and tabs at {@code i}. */
-    private static int spaces(String raw, int i) {
-      while (i < raw.length() && (raw.charAt(i) == ' ' || raw.charAt(i) == '\t')) {
-        i++;
-      }
-      return i;
-    }
-
-    /** The offset of the {@code ]]} or {@code )]} of a {@code [[...]]} or {@code [(...)]} at {@code i}, or -1. */
-    private static int holeEnd(String raw, int i) {
-      boolean escaped = raw.startsWith("[[", i);
-      return escaped || raw.startsWith("[(", i) ? Expressions.inlineEnd(raw, i + 2, escaped ? "]]" : ")]") : -1;
     }
 
     private static final int CODE = 0;
     private static final int STRING = 1;
     private static final int LINE_COMMENT = 2;
     private static final int BLOCK_COMMENT = 3;
-    private static final int REGEX = 4;
-
-    /**
-     * The natural-template comments of the script that {@link #naturalComment} reported but did not
-     * rewrite, each with the text Thymeleaf drops after it: {@code {start, end}} in the script text.
-     */
-    private final List<int[]> manual = new ArrayList<>();
 
     /**
      * Finds {@code [[...]]} inside JavaScript string literals of script text that starts at
      * {@code offset} of the document. In Tessera {@code [[...]]} writes a JSON value with its own
      * quotes, so a Thymeleaf {@code "[[${x}]]"} would close the string.
-     * A {@code "..."} or {@code '...'} literal that is exactly one inline loses its quotes; any other
-     * inline in one is left to {@link #hoist} in a JavaScript script. An inline in a JSON string, a
-     * template literal (even {@code `[[...]]`: the backticks may follow a tag, {@code String.raw`...`},
-     * which dropping them would break) or a comment stays, except a natural-template comment
-     * ({@link #naturalComment}), and the compiler reports it (#595). The scan tracks strings, template
+     * A {@code "..."} or {@code '...'} literal that is exactly one inline loses its quotes. Any other
+     * inline stays, except in a natural-template comment ({@link #naturalComment}), and the compiler
+     * reports it where it rejects it: in a string, a template literal (even {@code `[[...]]`: the
+     * backticks may follow a tag, {@code String.raw`...`}, which dropping them would break) or a
+     * comment (#595), or anywhere but the whole value of a declaration at the top of a JavaScript
+     * script (#540). The scan tracks strings, template
      * literal {@code ${...}} and comments, not regular expression literals: an
      * unterminated {@code '}/{@code "} string ends at {@code \n} or {@code \r}, not at U+2028/U+2029
      * (ES2019), and {@code \} followed by CRLF is a line continuation. The compiler is
@@ -949,7 +513,6 @@ final class Migrator {
      * it unsafe.
      */
     private void quotedInlines(String text, int offset, int line) {
-      manual.clear();
       int state = CODE;
       char quote = 0;
       int quoteAt = -1; // the opening quote when the current literal so far is only that quote
@@ -974,8 +537,7 @@ final class Migrator {
               i = after; // the closing quote
               continue;
             }
-            // In a JavaScript script, hoist splits a '...' or "..." string around it; the compiler
-            // reports one in a template literal or a JSON string.
+            // The compiler reports any other inline in a string.
             quoteAt = -1;
           }
           // The compiler reports one in a comment too; a natural-template comment in a
@@ -1071,7 +633,6 @@ final class Migrator {
       if (!one || !naturalDefault(Compat.strip(dropped))) {
         report(at, String.format(ConversionRules.SCRIPT_NATURAL_COMMENT_MANUAL_MESSAGE,
             codeSpan(comment), codeSpan(Compat.strip(dropped))));
-        manual.add(new int[] {i, dropEnd});
         return dropEnd; // Thymeleaf drops that text, so nothing in it is rewritten
       }
       edits.add(new Edit(offset + i, dropEnd - i, content));
