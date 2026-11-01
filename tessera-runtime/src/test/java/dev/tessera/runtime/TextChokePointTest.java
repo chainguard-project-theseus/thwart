@@ -31,7 +31,7 @@ class TextChokePointTest {
   /** Methods (as {@code Class.method}) that may call the attribute escaper: they write attribute values or RCDATA. */
   private static final Set<String> ATTRIBUTE_ESCAPER_CALLERS =
       Set.of(
-          "Escapers.rcdata", "Escapers.attr", "Escapers.refresh", "Escapers.jsonAttr", "Escapers.escapeHtml",
+          "Escapers.rcdata", "Escapers.attr", "Escapers.refresh", "Escapers.escapeHtml",
           "HtmlSanitizer.url", "HtmlSanitizer.textAttribute");
 
   /** The arguments {@code new SafeHtml(...)} may be built from. */

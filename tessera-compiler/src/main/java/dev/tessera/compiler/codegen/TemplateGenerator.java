@@ -727,7 +727,7 @@ public final class TemplateGenerator implements CodegenContext {
     OutputContext ctx = d.context();
     String escaper =
         ctx == OutputContext.ATTRIBUTE || ctx == OutputContext.URL
-            || ctx == OutputContext.RESOURCE_URL || ctx == OutputContext.REFRESH || ctx == OutputContext.SCRIPT_ATTRIBUTE
+            || ctx == OutputContext.RESOURCE_URL || ctx == OutputContext.REFRESH
             ? ctx.escaper()
             : ctx == OutputContext.STYLE || ctx == OutputContext.TYPED_ATTRIBUTE || ctx == OutputContext.TRUSTED_URL
                     || ctx == OutputContext.NEUTRAL
@@ -747,10 +747,7 @@ public final class TemplateGenerator implements CodegenContext {
             Emitted.code(" "),
             Emitted.text('"', d.pos()));
     String before = "{ java.lang.Object " + v + " = " + d.valueCode() + "; if (";
-    // A JSON value (SCRIPT_ATTRIBUTE, #246) is written even when null, as JSON null.
-    return ctx == OutputContext.SCRIPT_ATTRIBUTE
-        ? Emitted.wrap(before + "true) { ", attribute, " } }")
-        : Emitted.opt(Skeleton.OptKind.ATTRIBUTE, d.pos(), before + v + " != null) { ", attribute, " } }");
+    return Emitted.opt(Skeleton.OptKind.ATTRIBUTE, d.pos(), before + v + " != null) { ", attribute, " } }");
   }
 
   /**

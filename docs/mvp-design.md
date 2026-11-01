@@ -216,7 +216,7 @@ table is what ships today. The target profile, with the status of each rule, is 
 | `STYLE` | `<style>` | — | build error |
 
 Attribute contexts (`ATTRIBUTE`, `TYPED_ATTRIBUTE`, `URL`, `TRUSTED_URL`, `RESOURCE_URL`, `REFRESH`,
-`SCRIPT_ATTRIBUTE`, `STYLE`, `EVENT_HANDLER`, `FORBIDDEN`) are in [context-model.md](context-model.md)
+`NEUTRAL`, `STYLE`, `EVENT_HANDLER`, `FORBIDDEN`) are in [context-model.md](context-model.md)
 section 6.1.
 
 ## Discovery and processor configuration

@@ -1,6 +1,7 @@
 package dev.tessera.compiler.verify;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.SourcePos;
@@ -9,6 +10,8 @@ import dev.tessera.compiler.verify.Skeleton.FragmentId;
 import dev.tessera.compiler.verify.Skeleton.Node;
 import dev.tessera.compiler.verify.Skeleton.Seq;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -118,7 +121,7 @@ class ContextVerifierRulesTest {
     accept(st("<p title=\""), attr("title"), st("\">x</p>"));
     accept(st("<p TITLE=\""), attr("title"), st("\">x</p>"));
     accept(st("<svg viewBox=\""), attr("viewBox"), st("\"></svg>"));
-    for (Escaper e : List.of(Escaper.URL, Escaper.RESOURCE_URL, Escaper.REFRESH, Escaper.JSON_ATTR)) {
+    for (Escaper e : List.of(Escaper.URL, Escaper.RESOURCE_URL, Escaper.REFRESH)) {
       accept(st("<a href=\""), hole(e, "href"), st("\">x</a>"));
     }
     reject(Problem.ATTRIBUTE_NOT_IN_VALUE, st("<p title='"), attr("title"));
@@ -130,6 +133,21 @@ class ContextVerifierRulesTest {
     // A browser folds A-Z only: \u017Frc (long s) is not src, \u212Aind (Kelvin sign) is not kind.
     reject(Problem.ATTRIBUTE_WRONG_NAME, st("<img \u017Frc=\""), attr("src"));
     reject(Problem.ATTRIBUTE_WRONG_NAME, st("<track \u212Aind=\""), attr("kind"));
+  }
+
+  @Test
+  void noJsonEscaperWritesAnAttributeValue() {
+    // #599: the attribute escapers are exactly these; none writes JSON (jsonAttr is deleted).
+    assertEquals(EnumSet.of(Escaper.ATTR, Escaper.URL, Escaper.RESOURCE_URL, Escaper.REFRESH),
+        Arrays.stream(Escaper.values()).filter(Escaper::inAttribute)
+            .collect(Collectors.toCollection(() -> EnumSet.noneOf(Escaper.class))));
+    assertThrows(IllegalArgumentException.class, () -> Escaper.forMethod("jsonAttr"));
+    // A JSON hole in a binding attribute's value is rejected; the attribute escaper there is accepted.
+    for (String name : List.of("v-bind:title", "x-bind:title", "data-x")) {
+      reject(Problem.JSON_NOT_IN_SCRIPT, st("<p " + name + "=\""), json());
+      reject(Problem.JSON_NOT_IN_SCRIPT, st("<p " + name + "=\""), javaScript());
+      accept(st("<p " + name + "=\""), attr(name), st("\">x</p>"));
+    }
   }
 
   @Test
