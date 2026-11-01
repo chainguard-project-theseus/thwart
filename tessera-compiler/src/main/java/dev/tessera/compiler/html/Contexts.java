@@ -8,7 +8,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The escaping-context table (see docs/mvp-design.md). Pure functions over element and
+ * The escaping-context table (docs/context-model.md §6.1). Pure functions over element and
  * attribute names; case-insensitive.
  */
 public final class Contexts {
@@ -31,10 +31,11 @@ public final class Contexts {
           "xlink:href");
 
   /**
-   * The attributes that hold a list of URLs (#414, #539): {@code ping} is space-separated URLs,
-   * {@code srcset} and {@code imagesrcset} comma-separated image candidates. TRUSTED_URL.
+   * The attributes that hold URLs but are not exactly one URL (#414, #539, #567): {@code ping} is
+   * space-separated URLs, {@code srcset} and {@code imagesrcset} comma-separated image candidates.
+   * TRUSTED_URL.
    */
-  private static final Set<String> URL_LIST_ATTRIBUTES = Backports.setOf("ping", "srcset", "imagesrcset");
+  private static final Set<String> TRUSTED_URL_ATTRIBUTES = Backports.setOf("ping", "srcset", "imagesrcset");
 
   /**
    * SVG presentation attributes whose value is CSS that may hold a {@code url()}: a paint server
@@ -71,7 +72,7 @@ public final class Contexts {
    * {@link #isLegacyHtmxConnect hx-ws or hx-sse} FORBIDDEN (#562); a
    * refresh {@code content} REFRESH ({@link OutputContext#REFRESH}); {@code srcdoc}, the attributes
    * that decide how another value is read and {@link #isTreeBuilderInput tree-builder inputs}
-   * FORBIDDEN; {@link #isResourceUrl resource URLs} RESOURCE_URL; {@link #URL_LIST_ATTRIBUTES URL
+   * FORBIDDEN; {@link #isResourceUrl resource URLs} RESOURCE_URL; {@link #TRUSTED_URL_ATTRIBUTES URL
    * lists} and {@link #ANIMATION_VALUES animation values} TRUSTED_URL; {@link #URL_ATTRIBUTES} URL;
    * other standard names that are not inert ({@code inert-attributes.txt}) and a {@code content}
    * of a {@code <meta>} that does not {@link #isNamedMetaContent name plain metadata}
@@ -109,7 +110,7 @@ public final class Contexts {
     if (isResourceUrl(el, attr)) {
       return OutputContext.RESOURCE_URL;
     }
-    if (URL_LIST_ATTRIBUTES.contains(attr) || (isAnimation(el) && ANIMATION_VALUES.contains(attr))) {
+    if (TRUSTED_URL_ATTRIBUTES.contains(attr) || (isAnimation(el) && ANIMATION_VALUES.contains(attr))) {
       return OutputContext.TRUSTED_URL;
     }
     if (URL_ATTRIBUTES.contains(attr)) {
@@ -341,9 +342,9 @@ public final class Contexts {
   /**
    * Whether a browser reads the content of element {@code name} as raw text while Tessera parses
    * it as markup: {@code xmp iframe noembed noframes}, and {@code noscript} when scripting is
-   * on. Holes inside are escaped for TEXT, which is inert in raw text too, so the two readings
-   * agree as long as the browser ends the element where Tessera does: at the first
-   * {@code </name} after the start tag.
+   * on. No value is written there: computed content is a build error (#577), and the verifier
+   * rejects any hole in that raw text ({@code VALUE_IN_RAW_TEXT}, #586). The static content must
+   * end where a browser ends the element: at the first {@code </name} after the start tag.
    */
   public static boolean browserRawText(String name) {
     return BROWSER_RAW_TEXT.contains(HtmlParser.asciiLower(name));
@@ -389,14 +390,16 @@ public final class Contexts {
     return type == null || SCRIPT_TYPES.contains(type) ? OutputContext.SCRIPT : OutputContext.FORBIDDEN;
   }
 
-  /** The last static {@code type} of {@code script}, trimmed and A-Z folded, or null if it has none. */
+  /**
+   * The first static {@code type} of {@code script}, the one a browser reads, trimmed and A-Z
+   * folded, or null if it has none.
+   */
   private static String staticType(Element script) {
-    String type = null;
     for (Attribute a : script.attributes()) {
       if (!a.isTessera() && HtmlParser.asciiEqualsIgnoreCase(a.name(), "type")) {
-        type = a.value() == null ? "" : a.value();
+        return HtmlParser.asciiLower(HtmlParser.stripHtmlWhitespace(a.value() == null ? "" : a.value()));
       }
     }
-    return type == null ? null : HtmlParser.asciiLower(HtmlParser.stripHtmlWhitespace(type));
+    return null;
   }
 }

@@ -15,7 +15,7 @@
 #            (STRUCTURE_CHANGED, MARKER_IN_NAME, LIVE_HANDLER, CONTEXT_MISMATCH) is a format error:
 #            an A/B finding on a template the verifier accepted is a verifier soundness bug, fixed
 #            in the verifier, never listed. So is a LIVE_SCRIPT a value reached through markup.
-#   engine   vnu-26, rhino, parse5, chromium, firefox, webkit, or * for any engine
+#   engine   vnu-26, parse5, chromium, firefox, webkit, or * for any engine
 #   #issue   the issue that fixes it (required: a line without one is a format error)
 #   note     free text: the seed name, or the generator's description of the case
 #

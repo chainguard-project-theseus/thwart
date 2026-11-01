@@ -171,8 +171,8 @@ public final class ParsingContexts {
     return context.equals(SELECT);
   }
 
-  // TODO(#306): one "in <select>" allow-list shared with #305's in-template rule; a fragment root
-  // should also be a valid child at the point (<select t:fragment> into <select> nests selects).
+  // What a fragment root, t:remove or <template> actually puts into a <select> is checked on the
+  // composed output by the verifier's exclusion (c), SELECT_CONTENT (#305).
   private static boolean selectSafe(Element e) {
     if (NOT_IN_SELECT.contains(HtmlParser.asciiLower(e.name()))) {
       return false;

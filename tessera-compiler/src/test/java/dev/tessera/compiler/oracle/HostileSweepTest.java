@@ -84,7 +84,8 @@ import org.w3c.dom.NodeList;
  *       (#540) and the expression positions it rejects, for each Java value type. For every accepted
  *       shape, the reference {@code PRE("m")POST} and each hostile render are parsed with Rhino: the
  *       value must be one literal spanning exactly the hole, and the AST outside it must equal the
- *       reference. No baseline: any hit fails.
+ *       reference. No baseline: any hit fails. This is the one Rhino check of script values; the
+ *       oracle gate has none of its own (#591).
  * </ul>
  *
  * <p>The surefire {@code release-8} execution excludes {@code oracle/**}, so the sweep runs once.
@@ -733,7 +734,7 @@ class HostileSweepTest {
     SpecParser vnu = SpecParsers.named(SpecParsers.VNU_26);
     assertKinds(vnu, "<a data-tsweep href=\" JaVaScRiPt:alert(1)\">", " JaVaScRiPt:alert(1)", "URL_SCRIPT_SCHEME");
     assertKinds(vnu, "<img data-tsweep srcset=\"/ok.png 1x, javascript:alert(1) 2x\">",
-        "/ok.png 1x, javascript:alert(1) 2x", "URL_SCRIPT_SCHEME", "URL_LIST_CONTROLLED");
+        "/ok.png 1x, javascript:alert(1) 2x", "URL_SCRIPT_SCHEME", "URLS_FROM_ONE_VALUE");
     assertKinds(vnu, "<script data-tsweep src=\"//evil.example/x.js\"></script>", "//evil.example/x.js",
         "URL_CROSS_ORIGIN_CODE");
     assertKinds(vnu, "<svg><rect><animate data-tsweep attributeName=\"href\" values=\"/a;javascript:alert(1)\"/>",
@@ -849,6 +850,21 @@ class HostileSweepTest {
         .startsWith("JS_VALUE_NOT_ONE_EXPRESSION"));
     assertTrue(checkScript(vnu, "<script>var a = </script><script>;</script>", c, 1.0, rTree)
         .startsWith("SCRIPT_ELEMENT_CHANGED"));
+    // From the deleted ScriptInvariantTest (#591): JSON arrays, objects and hostile strings are one
+    // literal; a quoted-hole breakout, a getter, a regex, a name, two tokens or broken syntax is not.
+    assertEquals(null, checkScript(vnu, "<script>var a = ({\"x\":[1,-2.5,true,false,null,\"tqm0001()\"],\"y\":{}});"
+        + "</script>", c, "x", rTree));
+    assertEquals(null, checkScript(vnu, "<script>var a = (\"*/tqm0001()/*\\u2028`${x}\");</script>", c, "x", rTree));
+    for (String bad : List.of("(\"\"+tqm0001()+\"\")", "({get x() { return 1; }})", "(/tqm0001/)", "([tqm0001])",
+        "(\"x\") + (\"y\")")) {
+      String p = checkScript(vnu, "<script>var a = " + bad + ";</script>", c, "x", rTree);
+      assertTrue(p != null && p.startsWith("JS_VALUE_NOT_LITERAL"), bad + " :: " + p);
+    }
+    assertTrue(checkScript(vnu, "<script>var a = (\"\"x\"\");</script>", c, "x", rTree)
+        .startsWith("JS_VALUE_BREAKS_SYNTAX"));
+    ScriptCase commented = new ScriptCase("j", "s", "", "var a = ", "; // x", "");
+    assertTrue(checkScript(vnu, "<script>var a = (\"x\"); // y</script>", commented, "x", rTree)
+        .startsWith("SCRIPT_STATIC_CHANGED"));
   }
 
   /** The ratchet fails on an unlisted hit and on a listed hit that no longer occurs. */

@@ -123,7 +123,7 @@ class CsrfClosedShapeTest {
         + "</section></main>", render(c));
   }
 
-  /** TODO(#309): a form nested in another, directly or through a fragment or layout. */
+  /** A form nested in another, directly or through a fragment or layout, is a verifier parse error. */
   @Test
   void nestedForms() {
     page("<form method=\"get\"><div><form method=\"post\"></form></div></form>").assertError("[verifier:PARSE_ERROR]");
