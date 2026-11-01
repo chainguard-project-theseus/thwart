@@ -778,10 +778,12 @@ template below is compiled by the guide's tests.
 | The string is | Recipe |
 |---|---|
 | a request value: `hx-vals`, `hx-headers`, a query in `hx-get` (`@{/search(q=${q})}`) | 1. Hidden inputs and `hx-include` |
-| text for people: a tooltip, a label, a status | 2. `title` or element text |
+| text for people: a tooltip, a label, a status | 2. `title` or element text (not for Materialize tooltips, which read only `data-tooltip`: use recipe 5) |
 | data your own script reads (`el.dataset.x`, `$(el).data('x')`) | 3. A JSON block or a hidden input |
 | an Alpine `x-data` object, Vue props (`:items`), other component state | 4. A component that reads a JSON block |
-| read by a third-party plugin from `data-*` (Bootstrap, Materialize, DataTables, i18next, Lightbox) | 5. An init script that configures the plugin from a JSON block |
+| read by a third-party plugin from `data-*` (Bootstrap, Materialize, DataTables, i18next) | 5. An init script that configures the plugin from a JSON block |
+| a key a plugin only compares with other elements' keys (lightbox2's `data-lightbox` group name) | Write a neutral value that is equal exactly where the strings were: a number, or a link such as the album's `@{/albums/{id}(id=${album.id})}` |
+| read by nothing on the page (blueimp's `data-gallery` when only the core library is loaded) | Drop the attribute |
 | an id with a prefix (`"hint-" + id`) | Write the number (`t:data-id="${id}"`); your script adds the prefix |
 | a URL held in a variable | Write the link with a literal path, `@{/items/{id}(id=${id})}` |
 
@@ -842,7 +844,7 @@ browsers show it as a tooltip; Bootstrap's tooltip reads `title` as its text too
 goes in the element text. Before:
 
 ```html
-<span class="tooltipped" t:data-tooltip="account.name">i</span>
+<span data-bs-toggle="tooltip" t:data-bs-title="account.name">i</span>
 <div class="status" t:data-status="account.status"></div>
 ```
 
@@ -851,12 +853,13 @@ After:
 <!-- compile: template guide/recipes/title.html -->
 ```html
 <div xmlns:t="https://tessera.dev" t:params="String name, String status">
-  <span class="tooltipped" t:title="name">i</span>
+  <span data-bs-toggle="tooltip" t:title="name">i</span>
   <div class="status" t:text="status"></div>
 </div>
 ```
 
-If the plugin reads only its own `data-*` name, use recipe 5.
+A plugin that reads only its own `data-*` name ignores `title`. Materialize's tooltip (`class="tooltipped"`,
+`data-tooltip`) is one: use recipe 5, Materialize tooltips.
 
 **3. A JSON block or a hidden input.** Your script reads the value from a
 `<script type="application/json">` block, which takes any string as JSON, instead of from
@@ -948,6 +951,49 @@ document.querySelectorAll('.hint').forEach((el) => {
   new bootstrap.Tooltip(el, { title: tips[el.dataset.tip] }); // html: false, Bootstrap's default
 });
 ```
+
+*Materialize tooltips.* Materialize 1.0 reads the text only from `data-tooltip`, and its one text
+option, `html`, goes into `innerHTML`. So escape the text and pass it as `html`, and keep one
+function that sets every tooltip up. Before:
+
+```html
+<span t:each="tip : tips" class="tooltipped" t:data-tooltip="tip">?</span>
+<script>$('.tooltipped').tooltip();</script>
+```
+
+After:
+
+<!-- compile: template guide/recipes/materialize.html -->
+```html
+<div xmlns:t="https://tessera.dev" t:params="List<String> tips">
+  <script type="application/json" id="tooltips-data">[[${tips}]]</script>
+  <span t:each="tip, stat : tips" class="hint" t:data-tip="stat.index">?</span>
+  <script t:src="@{/js/tooltips.js}"></script>
+</div>
+```
+
+```js
+// /js/tooltips.js
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+// Sets up the tooltips under root from the JSON block under root (the page, or a swapped part).
+function initTooltips(root) {
+  const block = root.querySelector('#tooltips-data');
+  const tips = block ? JSON.parse(block.textContent) : [];
+  root.querySelectorAll('.hint').forEach((el) => {
+    M.Tooltip.init(el, { html: escapeHtml(tips[el.dataset.tip]) });
+  });
+}
+document.addEventListener('DOMContentLoaded', () => initTooltips(document));
+```
+
+Then find every place the app sets tooltips up again, usually after an AJAX call swaps in new HTML
+(`$('.tooltipped').tooltip()`, `M.Tooltip.init(...)` in a callback), and call
+`initTooltips(swappedElement)` there instead. A bare re-init reads `data-tooltip`, finds nothing,
+and replaces each tooltip with an empty one. If the swapped HTML brings tooltips of its own, it
+brings its own JSON block too.
 
 Pass the values as text: check the plugin's documentation for an option that turns on HTML (such as
 Bootstrap's `html: true`) and leave it off. Don't copy the string back into a `data-*` attribute
