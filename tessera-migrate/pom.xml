@@ -41,16 +41,6 @@
   </dependencies>
 
   <build>
-    <resources>
-      <!-- The compiler's standard attribute names (#330), so that migrate reports the computed names it rejects (#331). -->
-      <resource>
-        <directory>../tessera-compiler/src/main/resources/dev/tessera/compiler/html</directory>
-        <includes>
-          <include>attributes.txt</include>
-        </includes>
-        <targetPath>dev/tessera/migrate</targetPath>
-      </resource>
-    </resources>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

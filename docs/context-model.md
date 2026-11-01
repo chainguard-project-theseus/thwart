@@ -20,12 +20,12 @@ error recovery (foster parenting, misnested formatting, a second `<body>`) is th
 modelled; until then `main` still models it.
 The profile of principle 3 is what the verifier accepts, narrowed by the rows below. The rows in
 sections 2, 3 and 5 run first, as friendly early errors (security-architecture.md §11.7). Sections 4 and 6 are unchanged: the verifier doesn't cover script
-lexical position, URL policy or client frameworks.
+lexical position, URL policy or the value shapes of names outside HTML (`NEUTRAL`).
 
 ## How to keep this document current
 
 - A PR that changes `HtmlParser`, `MarkupTokenizer`, `Contexts`, `TextInlining`, `Escapers` or
-  the framework table updates this document in the same PR.
+  the verifier's rule table (`verify/`) updates this document in the same PR.
 - A PR that widens the accepted language says so in its description, and adds the oracle seed
   or generator value that checks the new row.
 - Every row names its check, or says `none yet`. A `none yet` row is a gap to close with a seed,
@@ -297,7 +297,7 @@ HTML takes only a framework-neutral value (`NEUTRAL`).
 |---|---|---|---|---|---|
 | `ATTRIBUTE` | inert-text attributes (`inert-attributes.txt`: text, keyword, number, boolean, ID and token values, ARIA; on SVG and MathML only text and language attributes), on any element, a custom element included (#584), and `content` of a `<meta>` whose static `name` is on the allow-list (`description`, `keywords`, `author`, `application-name`, `generator`, `color-scheme`, `theme-color`; #590), with no computed `name` and no `http-equiv`, `property` or `itemprop` | `Escapers.attr` | main | seeds `A38`, `A39`, `A49`; hole values `t:title`, `t:value`, `t:class` | `Esc` `htmlSafe`; Lean slice 2 |
 | `TYPED_ATTRIBUTE` | every other standard name without a class of its own, on any element: `rel`, `target`, `sandbox`, `allow`, `crossorigin`, `itemtype`, `usemap` (a hash-name reference, not a URL), other `<meta>` `content` (`referrer`, `viewport`, `htmx-config`, a name a browser, OS or crawler acts on such as `apple-itunes-app` or `google-site-verification`, an unknown name, Open Graph `property`, `itemprop`, a computed `name`; #590), SVG and MathML geometry and presentation attributes, ... | `Escapers.attr`, string literals, numbers and a choice between literals only (a condition for a boolean attribute); a plain value or a safe type is a build error (#565) | main (#539) | `InertAttributesTest`, `KnownAttributesTest`, `ContextsTest` | `Esc` `htmlSafe` |
-| `NEUTRAL` | every plain name that is not a standard HTML, SVG, MathML or ARIA name (`attributes.txt`): `data-*`, `hx-*`, `x-*`, `v-*`, `v-bind:x`, `ng-*`, `up-*`, a custom element's own attributes, any other name (#583 rule 3) | `Escapers.attr` over a framework-neutral value, by static type and expression shape: a number (`Escapers.neutralNumber`: exact JDK class, plain decimal `-?(0\|[1-9][0-9]*)(\.[0-9]+)?`, no exponent, NaN or Infinity), a boolean (`true`, `false`), a link `@{/path}` whose literal path starts with a single `/`, holds only `A-Z a-z 0-9 . _ ~ / -` and `%XX` and has no query (`Escapers.neutralPath`: percent-encodes every other byte of the built URL and the second `-` of `--`, and checks it starts with a single `/`), or a choice (`c ? a : b`, `a ?: b`) between those and literals; a String, concatenation or any other type is a build error | main (#584) | `NeutralValuesTest`, `ContextsTest`, `EscapersTest`; hostile sweep | the alphabet is the safety research on #583 (headless Chromium, 20 libraries): a value starting with `/` is read as a regular expression literal by every JavaScript evaluator, `--` was the one write primitive inside it |
+| `NEUTRAL` | every plain name that is not a standard HTML, SVG, MathML or ARIA name (`attributes.txt`): `data-*`, `hx-*`, `x-*`, `v-*`, `v-bind:x`, `ng-*`, `up-*`, a custom element's own attributes, any other name (#583 rule 3) | `Escapers.attr` over a framework-neutral value, by static type and expression shape: a number (`Escapers.neutralNumber`: exact JDK class, plain decimal `-?(0\|[1-9][0-9]*)(\.[0-9]+)?`, no exponent, NaN or Infinity), a boolean (`true`, `false`), a link `@{/path}` whose literal path starts with a single `/`, holds only `A-Z a-z 0-9 . _ ~ / -` and `%XX` and has no query (`Escapers.neutralPath`: percent-encodes every other byte of the built URL and the second `-` of `--`, and checks it starts with a single `/`), or a choice (`c ? a : b`, `a ?: b`) between those and literals; a String, concatenation or any other type is a build error | main (#584) | `NeutralValuesTest`, `ContextsTest`, `EscapersTest`; hostile sweep: every name outside HTML it accepts, with a String, a link, a number and a boolean, renders only values in the neutral grammar (`HostileSweepTest`, `NON_NEUTRAL_VALUE`, #587) | the alphabet is the safety research on #583 (headless Chromium, 20 libraries): a value starting with `/` is read as a regular expression literal by every JavaScript evaluator, `--` was the one write primitive inside it |
 | `URL` | the attributes whose grammar is exactly one URL (WHATWG "valid URL potentially surrounded by spaces"): `href src action formaction cite poster xlink:href` and the obsolete `background longdesc manifest` | `Escapers.url` | main; only exactly-one-URL attributes (#539) | seeds `A40`, `A41`; `AttributesEndToEndTest` (`manifest`) | `Esc` `htmlSafe`; scheme check not yet |
 | `TRUSTED_URL` | attributes that hold URLs but are not exactly one URL: the lists `ping` (space-separated) and `srcset imagesrcset` (comma-separated candidates), and `values to from by` on SVG `animate` and `set`, whose meaning depends on `attributeName` (not when they animate a `STYLE` attribute) | `Escapers.attr`, literals, numbers, a choice between literals and `TrustedUrl` only; a plain value is a build error | main (#414, #539) | `AttributesEndToEndTest` (`ping`, `srcset`, animation values), `XssContextTest`, `ContextsTest` | `Esc` `htmlSafe` |
 | `RESOURCE_URL` | `script[src|href|xlink:href]`, `iframe/frame/embed[src]`, `object[data]`, `base/link[href]` | `Escapers.resourceUrl` | main; protocol-relative `/\` paths rejected for every link (#340); every `<base href>`, static or computed, must be same-origin, main (#357); a link in a same-origin slot is re-checked when rendered, so a context path or custom `Links` cannot make it protocol-relative, main (#358) | seeds `A42`, `A43`, `B1`, `B2`, `B4`; `LinkCompilerTest`, `CsrfBaseTest`, `SameOriginLinkRenderTest` | `Esc` `htmlSafe`; origin fixed by the literal; not proved |
@@ -321,13 +321,13 @@ Static attributes are copied verbatim and are not affected by these rules, excep
 | Computed `formaction` | same-origin link only | same-origin link required on every element, since any form may get the CSRF token | main (#346, #314) | seeds `A45`, `B6`; `CsrfFormactionTest` |
 | Computed `href` on `<base>` | same-origin link only, in every template (a static one must be same-origin by shape) | same-origin link required; static `href` checked like a static `action` | main (#357) | `CsrfBaseTest` |
 
-### 6.3 Client frameworks
+### 6.3 Client code
 
-There is no framework table (#583, #584, #585): client code that evaluates attribute values or DOM
-text is outside the guarantee (principle 7), and the compiler constrains the shape of its own
-output instead (`NEUTRAL` above, `{{` below). The framework-named code that remains: a computed
-htmx 1.x `hx-ws` or `hx-sse` is a build error (#562), and `v-pre` on a computed `<title>` or
-`<textarea>` (#586).
+There is no framework table (#583-#587): client code that evaluates attribute values or DOM text
+is outside the guarantee (principle 7), and the compiler constrains the shape of its own output
+instead (`NEUTRAL` above, `{{` below). The hostile sweep checks that shape without naming a
+framework either (#587). The framework-named code that remains: a computed htmx 1.x `hx-ws` or
+`hx-sse` is a build error (#562), and `v-pre` on a computed `<title>` or `<textarea>` (#586).
 
 | `{{` rule | Status | Checked by |
 |---|---|---|
@@ -338,7 +338,7 @@ htmx 1.x `hx-ws` or `hx-sse` is a build error (#562), and `v-pre` on a computed 
 | A static `&` that starts a character reference before a hole is an error, so a value can't spell `{` as `&#123;` (`&[[a]]&[[b]]`, a = b = `#123;`); an HTML message the build did not check is escaped as text | verifier (`TEXT_NOT_IN_TEXT`, §2 "Text: hole after `&`"); runtime (`Escapers.htmlMessage`) | `ValueAfterAmpersandTest`, `EscapersTest` |
 | RCDATA (`<title>`, `<textarea>`): no lossless break, so a computed one gets the constant attribute `v-pre` (Vue, petite-vue), whatever else is on it; no duplicate `v-pre`. Its static text follows the element-text brace rule above | main (#549, simplified in #586) | `VPreRcdataTest`, `ClientTemplateInjectionTest`; that Vue 3.5.44 and petite-vue 0.4.1 skip it was checked by hand in Chromium (the hostile value runs without `v-pre`, not with it), framework harness rows #334 |
 | RAWTEXT (`xmp`, `iframe`, `noembed`, `noframes`, `noscript`): no break at all, so a value, condition or loop inside is an error | verifier for values (`VALUE_IN_RAW_TEXT`, #586); generator early error for values, conditions and loops (#571) | `ContextVerifierRulesTest`, `BrowserRawTextTest` |
-| Attributes, class tokens and RCDATA under AngularJS: not supported (guide §7) | documented limitation, bounded by `ng-non-bindable` and CSP (#335) | seed `A37`; #344 CSTI check |
+| What client code makes of static markup, standard attribute values (class tokens included) and custom delimiters, AngularJS included: outside the guarantee (guide §7) | not modelled; a strict CSP is the backstop (#335, guide §4.11) | seed `A37` |
 
 ### 6.4 The CSP nonce (#335)
 

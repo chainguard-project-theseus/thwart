@@ -188,4 +188,33 @@ class GuideExamplesTest {
     assertTrue(form.contains("checked=\"checked\""), form);
     assertTrue(form.contains(">\nMain St</textarea>"), form);
   }
+
+  /** The migration recipes (#587): the strings land in an inert attribute or a JSON block, never in a data-* value. */
+  @Test
+  void migrationRecipesKeepStringsOutOfNamesOutsideHtml() {
+    String hostile = "/a/-location.port--\" x-data=\"{{alert(1)}}";
+    String inputs = render("guide/recipes/hidden-inputs", Map.of("skus", List.of(hostile)));
+    assertTrue(inputs.contains("<input type=\"hidden\" name=\"sku\" value=\"/a/-location.port--&quot; x-data=&quot;{{alert(1)}}\">"),
+        inputs);
+    assertTrue(inputs.contains("<button hx-post=\"/cart\" hx-include=\"previous input\">Add</button>"), inputs);
+    String plugin = render("guide/recipes/plugin", Map.of("tips", List.of(hostile, "b")));
+    assertTrue(plugin.contains("<script type=\"application/json\" id=\"tips-data\">[\"\\/a\\/-location.port--\\\" x-data=\\\""
+        + "\\u007b\\u007balert(1)}}\",\"b\"]</script>"), plugin);
+    assertTrue(plugin.contains("<span class=\"hint\" data-tip=\"0\">?</span>\n  <span class=\"hint\" data-tip=\"1\">?</span>"),
+        plugin);
+    // Negative: the "before" templates of the recipes are build errors, for the reason the recipes give.
+    String[][] befores = {
+        {"<span t:data-bs-title=\"tip\">?</span>", "framework-neutral"},
+        {"<button t:hx-vals=\"tip\">Add</button>", "framework-neutral"},
+        {"<div t:x-data=\"|{ name: '${tip}' }|\"></div>", "framework-neutral"},
+        {"<a t:hx-get=\"@{/search(q=${tip})}\">s</a>", "cannot have a query"}};
+    for (String[] before : befores) {
+      Compilation c = Compilation.builder()
+          .template("before.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"String tip\">" + before[0] + "</div>")
+          .compile();
+      String errors = String.join("\n", c.errors());
+      assertTrue(!c.success() && errors.contains("before.html:1:") && errors.contains(before[1]),
+          before[0] + "\n" + errors);
+    }
+  }
 }

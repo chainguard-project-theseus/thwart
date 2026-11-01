@@ -84,10 +84,12 @@ The old application is the specification. Work the way an expert would, keeping 
    `tessera-migrate` reports each link with a path variable that is not a literal (guide section 3,
    step 4).
 
-   A computed attribute must have a standard name, a `data-*` name or a custom element's prop
-   name: `t:up-on-loaded` is a build error, and `t:data-up-on-loaded` is not. `tessera-migrate`
-   rewrites htmx's `th:hx-target` and its kind to `t:data-hx-target` (htmx reads both) and reports
-   the rest. In a JavaScript `<script>`, each `[[...]]` must be the whole value of a declaration at
+   A computed attribute outside the standard HTML, SVG, MathML and ARIA names (`data-*`, `hx-*`,
+   `x-*`, `v-*`, a custom element's own attributes, ...) takes only a framework-neutral value: a
+   number, a boolean, a same-origin link `@{/items/{id}(id=${item.id})}` without a query, or a
+   choice between those and literals. A `String` there is a build error, which `tessera-migrate`
+   leaves to the compiler: apply the matching recipe in guide section 4.4, Migration recipes. In a
+   JavaScript `<script>`, each `[[...]]` must be the whole value of a declaration at
    the top, `const x = [[${x}]];`, before any other code (the script prelude rule, guide section 6);
    `tessera-migrate` hoists the other values into `var _t1 = [[...]];` declarations there and reports
    the ones in template literals and regular expressions, which you move by hand, and the ones it
