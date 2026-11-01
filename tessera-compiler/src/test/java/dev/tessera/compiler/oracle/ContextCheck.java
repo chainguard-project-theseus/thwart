@@ -337,8 +337,10 @@ public final class ContextCheck {
    * The lists below are written from the specs, deliberately not taken from the compiler's
    * Contexts: an oracle that asked the compiler which attributes are code would agree with it by
    * construction, and a name dropped from the compiler would vanish from the check in the same
-   * commit. No list names a client framework (#583): a name outside HTML is held to the
-   * framework-neutral value shape ({@link #outsideHtml}), whichever code reads it.
+   * commit. The standard names are the oracle's own copy of the spec indices
+   * ({@link HostileSinks#STANDARD}), kept equal to the compiler's by a test, so a change to either
+   * list has to be made in both. No list names a client framework (#583): a name outside HTML is
+   * held to the framework-neutral value shape ({@link #outsideHtml}), whichever code reads it.
    */
 
   /**

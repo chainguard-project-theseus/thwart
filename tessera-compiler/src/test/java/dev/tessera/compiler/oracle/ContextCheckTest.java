@@ -262,6 +262,20 @@ class ContextCheckTest {
   }
 
   /**
+   * #608: the oracle reads its own copy of the standard names, not the compiler's file, and the two
+   * agree name for name and source for source; a name added to only one of them fails here.
+   */
+  @Test
+  void standardNamesAreTheOraclesOwnCopy() {
+    assertFalse(HostileSinks.STANDARD.isEmpty());
+    assertEquals(HostileSinks.standardNames(HostileSinks.COMPILER_STANDARD), HostileSinks.STANDARD);
+    Map<String, Set<String>> bad = new LinkedHashMap<>(HostileSinks.STANDARD);
+    bad.put("x-html", Set.of("html"));
+    assertFalse(bad.equals(HostileSinks.standardNames(HostileSinks.COMPILER_STANDARD)));
+    assertTrue(ContextCheck.outsideHtml("x-html"));
+  }
+
+  /**
    * #608: a name outside the standard HTML, SVG, MathML and ARIA list takes only a framework-neutral
    * value (#583 rule 3), whichever code reads it. The check names no framework, so names no list
    * knows ({@code data-on-click}, {@code x_ng-bind}) are held to it too.
