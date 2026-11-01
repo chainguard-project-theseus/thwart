@@ -58,7 +58,6 @@ class CsrfFormactionTest {
         "<button t:formaction=\"@{//evil.example/x}\">Go</button>",
         "<button t:formaction=\"@{/\\evil.example/x}\">Go</button>",
         "<button t:formaction=\"@{https://evil.example/x}\">Go</button>",
-        "<button t:formaction=\"u != null ? @{/a} : @{/b}\">Go</button>",
         "<input type=\"submit\" t:formaction=\"${u}\">",
         "<input type=\"image\" src=\"/i.png\" t:formaction=\"${u}\">",
         "<button formaction=\"https://evil.example/x\">Go</button>",
@@ -216,6 +215,62 @@ class CsrfFormactionTest {
             + "<input type=\"submit\" formaction=\"/items/new\" formmethod=\"dialog\">"
             + "<button formaction=\"edit?x=1\" FORMMETHOD=\"Post\">B</button></form>\n</div>",
         render(c));
+  }
+
+  private static Compilation compileChoice(String button) {
+    return Compilation.builder()
+        .template("page.html", "<div xmlns:t=\"https://tessera.dev\" t:import=\"dev.tessera.runtime.TrustedUrl\""
+            + " t:params=\"boolean b, boolean c, String u, TrustedUrl t, int id\">\n" + POST + button + "</form>\n</div>")
+        .compile();
+  }
+
+  /** Positive (#635): a choice whose every branch is a same-origin link, also nested, keeps the token. */
+  @Test
+  void choiceOfSameOriginLinksKeepsToken() {
+    Compilation c = compileChoice(
+        "<button t:formaction=\"b ? @{/items/{id}/delete(id=${id})} : @{/items(page='')}\">A</button>"
+            + "<button t:attr=\"formaction=${b} ? @{/x} : (c ? @{/y} : @{/z})\">B</button>")
+        .assertSuccess();
+    TestForms forms = new TestForms();
+    forms.token = new Forms.CsrfToken("_csrf", "tok");
+    for (Object[] row : new Object[][] {
+        {true, false, "/items/7/delete", "/x"}, {false, true, "/items?page=", "/y"}, {false, false, "/items?page=", "/z"}}) {
+      String out = c.render("page", Map.of("b", row[0], "c", row[1], "u", EVIL, "id", 7), ctx(forms));
+      assertEquals("<div>\n" + POST + INPUT + "<button formaction=\"" + row[2] + "\">A</button>"
+          + "<button formaction=\"" + row[3] + "\">B</button></form>\n</div>", out);
+    }
+  }
+
+  /** Negative (#635): a choice with any branch that is not a same-origin link stays a build error. */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<button t:formaction=\"b ? ${u} : @{/a}\">Go</button>",
+        "<button t:formaction=\"b ? @{/a} : ${u}\">Go</button>",
+        "<button t:formaction=\"b ? ${u}\">Go</button>",
+        "<button t:attr=\"formaction=${b} ? @{/a} : ${u}\">Go</button>",
+        "<button t:formaction=\"b ? @{/a} : '/b'\">Go</button>",
+        "<button t:formaction=\"b ? @{/a} : '/b/' + ${u}\">Go</button>",
+        "<button t:formaction=\"b ? @{/a} : ${t}\">Go</button>",
+        "<button t:formaction=\"b ? @{/a} : @{//evil.example/x}\">Go</button>",
+        "<button t:formaction=\"b ? @{https://evil.example/x} : @{/a}\">Go</button>",
+        "<button t:formaction=\"b ? @{/a} : @{x}\">Go</button>",
+        "<button t:formaction=\"b ? @{/a} : (c ? @{/b} : ${u})\">Go</button>",
+        "<button t:formaction=\"${u} ?: @{/a}\">Go</button>",
+        "<input type=\"submit\" t:formaction=\"b ? @{/a} : ${u}\">",
+      })
+  void choiceWithAnyUnprovenBranchFails(String button) {
+    Compilation c = compileChoice(button);
+    c.assertError("page.html:2:", "formaction", "is not allowed");
+    assertNull(c.generatedSource("tessera.generated.PageTemplate"), "nothing may be generated");
+  }
+
+  /** Negative (#635): a branch with a computed link path is a parse error, as a lone one is. */
+  @Test
+  void choiceWithComputedLinkPathFails() {
+    Compilation c = compileChoice("<button t:formaction=\"b ? @{/a} : @{${u}}\">Go</button>");
+    c.assertError("page.html:2:", "dynamic link paths");
+    assertNull(c.generatedSource("tessera.generated.PageTemplate"), "nothing may be generated");
   }
 
   /**
