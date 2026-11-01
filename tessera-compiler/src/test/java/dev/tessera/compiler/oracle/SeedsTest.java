@@ -26,7 +26,7 @@ class SeedsTest {
    * script). A58 and B10 are context mismatches whose JSON-escaped value also shows {@code {{}
    * in HTML text. A33 is {@code JS_NOT_LITERAL}, not a live script: the JSON's closing quote opens
    * an unterminated string, so no value makes the script parse (acorn's tokenizer saw the marker
-   * before the error), and the Rhino check (#319) reports it so.
+   * before the error), and the Node job's acorn check reports it so.
    */
   private static final Map<String, String> REFERENCE = new LinkedHashMap<>();
 
@@ -181,7 +181,7 @@ class SeedsTest {
   void expectationsMatchVerdicts() {
     Finding liveFirefox = new Finding(Kind.LIVE_SCRIPT, "firefox", "/html", "v");
     Finding live26 = new Finding(Kind.LIVE_SCRIPT, "vnu-26", "/html", "v");
-    Finding unparsable = new Finding(Kind.JS_UNPARSABLE, "rhino", "/html", "v");
+    Finding unparsable = new Finding(Kind.JS_UNPARSABLE, "acorn", "/html", "v");
     Verdict both = new Verdict.Findings(List.of(liveFirefox, live26, new Finding(Kind.STRUCTURE_CHANGED, "vnu-26", "/", "v")));
     Verdict firefoxOnly = new Verdict.Findings(List.of(liveFirefox));
     Verdict rejected = new Verdict.Rejected(List.of("page.html:1:1: error"));

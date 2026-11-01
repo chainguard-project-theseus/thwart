@@ -26,7 +26,8 @@ import org.w3c.dom.Node;
  * attribute name, an {@code on*} attribute, a {@code javascript:}/{@code vbscript:}/{@code data:}
  * URL, a script the benign tree doesn't have, or {@code {{ ... }}} in text a client framework
  * interpolates; and a resource URL must not leave the origin by shape. Scripts that hold a marker
- * in the benign tree are passed on as {@link ScriptSlot}s for the script check (#319).
+ * in the benign tree are returned as {@link ScriptSlot}s, so the gate can tell a marker in a script
+ * the page already runs (family C) from one that reached a script through markup (A/B).
  *
  * <p>Tessera breaks a <code>{{</code> in element text with an empty comment next to each brace
  * (#248), so such comments join the text around them when comparing structure.

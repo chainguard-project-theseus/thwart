@@ -48,7 +48,7 @@ import javax.lang.model.type.WildcardType;
  * supertypes (other than {@code Object}) or type arguments is. {@code Object} is allowed only as a
  * {@code @TemplateFunction} parameter type (input only: nothing can be called on it).
  */
-final class ViewSafety {
+public final class ViewSafety {
   static final String OBJECT = "java.lang.Object";
 
   private static final Set<String> NEVER_TYPES =
@@ -83,7 +83,8 @@ final class ViewSafety {
           "org.springframework.web.context",
           "org.springframework.expression");
 
-  private static final Set<String> VALUE_TYPES =
+  /** Boxes, strings and big numbers ({@link #isJdkValueType}). */
+  private static final Set<String> JDK_VALUE_TYPES =
       Backports.setOf(
           "java.lang.Boolean",
           "java.lang.Byte",
@@ -96,11 +97,24 @@ final class ViewSafety {
           "java.lang.String",
           "java.lang.CharSequence",
           "java.math.BigDecimal",
-          "java.math.BigInteger",
+          "java.math.BigInteger");
+
+  /** Tessera's own view-safe value types. */
+  private static final Set<String> TESSERA_VALUE_TYPES =
+      Backports.setOf(
           LoopStatus.class.getName(),
           SafeHtml.class.getName(),
           TrustedUrl.class.getName(),
           CssValue.class.getName());
+
+  /**
+   * Whether {@code qualifiedName} is a box, {@code String}, {@code CharSequence},
+   * {@code BigDecimal} or {@code BigInteger}: a view-safe value that {@code Escapers.json} writes
+   * as a JSON scalar. The script serializer ({@code ScriptJson}) shares this list (#591).
+   */
+  public static boolean isJdkValueType(String qualifiedName) {
+    return JDK_VALUE_TYPES.contains(qualifiedName);
+  }
 
   /** Container types; view-safe when every type argument is. */
   private static final Set<String> CONTAINERS =
@@ -441,7 +455,7 @@ final class ViewSafety {
     if (te.getKind() == ElementKind.ENUM || isRecord(te)) {
       return true;
     }
-    if (VALUE_TYPES.contains(name) || hasTemplateView(te)) {
+    if (JDK_VALUE_TYPES.contains(name) || TESSERA_VALUE_TYPES.contains(name) || hasTemplateView(te)) {
       return true;
     }
     if (env.elements().getPackageOf(te).getQualifiedName().contentEquals("java.time")) {

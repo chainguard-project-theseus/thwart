@@ -36,7 +36,7 @@ lexical position, URL policy or the value shapes of names outside HTML (`NEUTRAL
 | Column | Meaning |
 |---|---|
 | **Status** | `verifier (#367)`: enforced for every template by the build-time verifier (`verify/ContextVerifier`, rule table `verify/Rules`, section 9), whatever the row's own rule says. `main`: enforced on `main` (f135112). In sections 2 and 3 the status also names the layer that rejects: `parser` is an early error from `html/HtmlParser` or `MarkupTokenizer` (`generator` from `codegen/TemplateGenerator`), reported before the verifier runs; `verifier` is the verifier, by a rule id of section 9. `#N`: enforced in open PR #N, not yet on `main`. `phase N (#M)`: not implemented; issue #M owns it, in that phase of security-architecture.md §8. `not enforced`: no check and no issue. `partial`: the row says which part is on `main` |
-| **Checked by** | Unit tests on `main`, plus the oracle: seed IDs `A0`-`A62` and `B0`-`B11` from the #320 seed corpus (#347), and axis values of the template generator (#343). The oracle checks are #344 (tree invariant, merged), #341 (script slots, merged) and #342 (context check, merged). Their unit tests run in `mvn verify`; the oracle runs over the seeds and generated cases only once the gate (#324) lands |
+| **Checked by** | Unit tests on `main`, plus the oracle: seed IDs `A0`-`A62` and `B0`-`B11` from the #320 seed corpus (#347), and axis values of the template generator (#343). The oracle checks are #344 (tree invariant, merged) and #342 (context check, merged); script slots are checked by the hostile-value sweep (#543, which replaced #341's gate check in #591) and the Node job's acorn check. Their unit tests run in `mvn verify`; the oracle runs over the seeds and generated cases only once the gate (#324) lands |
 | **Proof** | `Lean`: a predicate in the Lean model of T1 (unpublished, not in this repository). `JML`: an OpenJML contract in an unpublished `docs/rule-contracts.md` (the rule functions on `main` 99e35c5), or on an unpublished branch where the row names one. `Esc`: an escaper postcondition proved on an unpublished branch. `not yet` means no proof states the row |
 
 The unpublished JML contracts are stated over the rule functions on `main`. Some proofs
@@ -78,7 +78,7 @@ nodes, the same way for every value, without moving a hole out of its context.
 |---|---|---|---|
 | Static structure is the same for every value | verifier (#367); the rules below are early errors | `ContextVerifierRulesTest`, `SeedVerifierTest`; #344 `STRUCTURE_CHANGED`, `MARKER_IN_NAME` over every seed and generated case | not proved; the oracle checks it |
 | Each value lands in the node, context and namespace the compiler chose | verifier (#367): the parser state at each hole | `ContextVerifierRulesTest`, `SeedVerifierTest`; #342 `CONTEXT_MISMATCH` | Lean token-level T1 (`t1_profile_tree`; not CDATA in foreign content, the tree-level effects of tables and `template`, or fragment insertion) |
-| No value runs as script, handler or `javascript:` URL, or loads a cross-origin resource | partial | #344 `LIVE_SCRIPT`, `LIVE_HANDLER`, `JS_URL`, `CROSS_ORIGIN_RESOURCE`; #341 `JS_NOT_LITERAL` | `Esc` for `text`, `attr`, `url`, `json` strings |
+| No value runs as script, handler or `javascript:` URL, or loads a cross-origin resource | partial | #344 `LIVE_SCRIPT`, `LIVE_HANDLER`, `JS_URL`, `CROSS_ORIGIN_RESOURCE`; the sweep's script pass (#543) and the Node job's `JS_NOT_LITERAL` | `Esc` for `text`, `attr`, `url`, `json` strings |
 | Static structure does not depend on the browser | verifier (#367): error-free parses outside the exclusions (#406), in one engine (#408); real engines checked by the nightly detector (#399) | the htmlparser inside validator 26.10.12 in #344; parse5, headless Chromium, Firefox 140 ESR and WebKit (Playwright's build) in the Node job (#345, #354; on Chainguard Checks after every merge and on request, over a fixture until #324) | not yet |
 
 ## 2. Token-level rules (§5.2)
@@ -171,24 +171,27 @@ messages use them. The verifier names the escaper of element text from the parse
 
 Applies to a `<script>` with no `type` or a JavaScript, module or JSON type
 (`Contexts.SCRIPT_TYPES`). Holes in other script types are errors (`FORBIDDEN`), and a computed
-`type` (`t:type`) is an error.
+`type` (`t:type`) is an error. The type is the first static `type`, the one a browser reads (the
+parser rejects a duplicate attribute anyway; `ContextsTest.firstStaticScriptTypeDecides`).
 
 | Rule | Status | Checked by | Proof |
 |---|---|---|---|
-| Holes take a JSON value written by `Escapers.javaScript` (`Escapers.json` in a JSON script), which also escapes `<`, `>`, `&`, `'`, `/`, backtick, `$`, U+2028 and U+2029 | main | `ScriptJsonTest`; #341 slot check | `Esc` `jsonScriptSafe` (strings); `JsonFirst` for other values unproved |
+| Holes take a JSON value written by `Escapers.javaScript` (`Escapers.json` in a JSON script), which also escapes `<`, `>`, `&`, `'`, `/`, backtick, `$`, U+2028 and U+2029 | main | `ScriptJsonTest`; the hostile-value sweep's script pass (#543) | `Esc` `jsonScriptSafe` (strings); `JsonFirst` for other values unproved |
 | In a JavaScript script every value is written in parentheses, `(json)` (`Escapers.javaScript` and the generated bean serializers), so it is one primary expression whatever its type; JSON scripts (`application/json`, `application/ld+json`) keep plain JSON (`Escapers.json`) | main (#540, replacing #511 and #533) | `ScriptNumberTest`, `ScriptJsonTest`, `EscapersTest` | not yet |
 | A `BigDecimal` or `BigInteger` is written only if its class is exactly the JDK class; a subclass fails the render (scripts, bindings, messages, styles) | main (#540, replacing #508's text check) | `BigNumberSubclassTest`, `EscapersTest` | n/a |
 | `{` in JSON strings is written as `\u007b` | main (#303) | `ScriptJsonTest` (#303) | not yet (G3) |
 | In a JavaScript script each hole is the whole value of a declaration `const\|let\|var NAME = [[...]];` (a space or tab after the keyword; `NAME` an ASCII identifier, not a reserved word or `location`, whose setter `var location = v` would call; one hole per declaration), and the declarations form a prelude at the top: before, between and after them only ASCII spaces, tabs, line breaks and `//` comments. No form without a keyword. Any other hole is an error with a fix-it (a prelude declaration, or a JSON script and `JSON.parse`); `tessera-migrate` hoists values (#541) | main (#540, `TextInlining.checkPrelude`, replacing #332's `checkDataPrelude` lexer and #509's expression-position checks) | `ScriptPreludeTest`, `ValueAfterLessThanTest`; seeds `A2`, `A32`-`A36`, `A51`, `A52`; generator script positions (rejected outside the prelude) | not yet (Lean does not model JavaScript) |
 | `t:text` and `t:utext` on a JavaScript `<script>` are errors, with the same fix-it; on a JSON script `t:text` writes one JSON value | main (#540) | `ScriptPreludeTest`, `TextOutputTest` | n/a |
 | In a JSON script each hole is outside a `"..."` string, and there is no `/` outside strings | main (#540) | `ScriptPreludeTest` | n/a |
-| After the prelude, any static script text (no holes) | main (#540) | #341 aligns the AST after the slot | n/a |
+| After the prelude, any static script text (no holes) | main (#540) | the hostile-value sweep's script pass (#543) aligns the AST after the slot | n/a |
 | No holes in SVG `<script>` | main: the verifier's `JSON_NOT_IN_SCRIPT` (#367) | seeds `A55`, `A56`, `A58`, `B0`, `B11` | Lean `StaticNoAmp` |
 | An unclosed static `{{` before a hole in the same script is an error | main (#303) | `ClientTemplateInjectionTest` (#303) | not yet |
 
-Rhino, the #341 engine, cannot parse ES modules, classes, `for await` or object spread, and reports
-`JS_UNPARSABLE` for an accepted script it can't parse; the Node job (#345) checks those with acorn.
-The gate lists none: seeds `A51` and `A52` are rejected, their holes outside the prelude.
+The one Rhino check of script values is the script pass of the hostile-value sweep
+(`HostileSweepTest`, #543): for every prelude shape the compiler accepts, each hostile value must be
+one literal spanning the hole, with the AST outside it unchanged. Since every accepted script hole
+is a prelude declaration, the profile oracle gate has no Rhino script check of its own (#591); the
+Node job (#345) still runs an acorn version of the slot check over the gate's exported renders.
 
 ## 5. Composition: content kinds (§5.5)
 
