@@ -54,7 +54,9 @@ final class FragmentCandidates {
     }
     if (e instanceof Expr.Conditional) {
       Expr.Conditional c = (Expr.Conditional) e;
-      return union(resolve(ctx, c.then(), scope), resolve(ctx, c.otherwise(), scope), e);
+      // A missing else (${flag ? body}) is null.
+      Skeleton.Node otherwise = c.otherwise() == null ? Skeleton.Seq.empty() : resolve(ctx, c.otherwise(), scope);
+      return union(resolve(ctx, c.then(), scope), otherwise, e);
     }
     if (e instanceof Expr.Elvis) {
       Expr.Elvis c = (Expr.Elvis) e;

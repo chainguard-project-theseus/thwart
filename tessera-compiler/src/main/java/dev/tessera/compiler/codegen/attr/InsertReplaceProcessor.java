@@ -375,9 +375,11 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       ctx.diagnostics().error(arg.pos(), what + " has type " + param.javaType() + ", but the argument has type " + e.type());
       return null;
     }
-    if (wantsFragment) {
-      // Bound to its candidates (a Fragment parameter passed on: whatever the caller's caller bound;
-      // null: nothing), which the verifier checks where the callee inserts the parameter.
+    if (ctx.env().types().isAssignable(param.type(), fragmentType(ctx))) {
+      // Any Fragment-typed parameter, also a subtype such as a record implementing Fragment, which
+      // the callee may insert just the same (#589). Bound to its candidates (a Fragment parameter
+      // passed on: whatever the caller's caller bound; null: nothing), which the verifier checks
+      // where the callee inserts the parameter.
       Skeleton.Node candidates = FragmentCandidates.of(ctx, arg.value(), scope, what);
       if (candidates == null) {
         return null;

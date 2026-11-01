@@ -1364,7 +1364,8 @@ parameters**, never the caller's variables.
 - A `null` `Fragment` renders nothing, so a `Fragment` parameter can be optional.
 - A `Fragment` value inserted with `t:insert`/`t:replace`, or passed on as a fragment argument, is
   a `~{...}` reference, a `Fragment` parameter, `null`, a `t:with` alias of one, or a ternary or
-  Elvis of those (`${flag ? body : null}`, `${body ?: other}`). The compiler checks every argument
+  Elvis of those (`${flag ? body : null}`, `${flag ? body}`, `${body ?: other}`), also for a
+  parameter whose type implements `Fragment`, such as a record. The compiler checks every argument
   it can be where it lands, so a `~{::tr}` goes into a `<tbody>` but not into a `<div>`, and a
   `~{::form}` never ends up inside another form. A page parameter of type `Fragment` is built in
   Java and inserted as flow content (#581). Any other `Fragment` expression is a build error,
