@@ -149,15 +149,14 @@ class HtmlPolicyTest {
     assertEquals("<code class=\"language-java\">x</code>", rich("<code class=\"hidden language-java fixed inset-0 lang-x\">x</code>"));
     assertEquals("<p>x</p>", rich("<p class=\"note\">x</p>"));
     HtmlPolicy any = HtmlPolicy.builder().allowElements("p").allowClasses("*").build();
-    // AngularJS reads directives from class values ("ng-init: expr"); ':' ';' '{' are never kept
-    assertEquals("<p class=\"a b-c d_e\">x</p>", any.sanitize("<p class=\"a ng-init:x; b-c NG-bind {{x}} d_e ng-include\">x</p>").html());
+    // Only tokens of [A-Za-z0-9_-] are kept: ':' ';' '{' never are
+    assertEquals("<p class=\"a b-c d_e\">x</p>", any.sanitize("<p class=\"a ng-init:x; b-c {{x}} d_e\">x</p>").html());
     assertEquals("<p>x</p>", any.sanitize("<p class=\"ng-init: constructor.constructor('alert(1)')()\">x</p>").html());
-    // AngularJS is not modelled: a token that, ignoring case, - and _, starts with ng, xng or datang
-    // is dropped, a superset of every spelling AngularJS normalizes to ngBind or ngInit
-    assertEquals("<p class=\"angular x-x-ng data-data-ng-bind x-xng-bind\">x</p>",
-        any.sanitize("<p class=\"data-ng-bind x-ng-bind ng_bind data_ng_init X-NG-bind ngBind ng ngrok angular x-ngx nga"
-            + " _ng-bind __ng_bind data--ng-bind data-_ng-bind DATA_-ngInit x__ng_bind x-_ngBind -ngBind data-ngx _ngx"
-            + " x-x-ng data-data-ng-bind x-xng-bind\">x</p>").html());
+    // #586: ng-like tokens of that form are kept like any other (AngularJS is not supported, guide §7)
+    assertEquals("<p class=\"ng-bind NG-bind ngBind data-ng-init x_ng-if angular\">x</p>",
+        any.sanitize("<p class=\"ng-bind NG-bind ngBind data-ng-init x_ng-if angular\">x</p>").html());
+    assertEquals("<p class=\"ng-x\">x</p>", HtmlPolicy.builder().allowElements("p").allowClasses("ng-*").build()
+        .sanitize("<p class=\"ng-x other\">x</p>").html());
     HtmlPolicy some = HtmlPolicy.builder().allowElements("p").allowClasses("note", "lang-*").build();
     assertEquals("<p class=\"note lang-java\">x</p>", some.sanitize("<p class=\"note lang-java hidden fixed inset-0\">x</p>").html());
     assertEquals("<p>x</p>", basic("<p class=\"note\">x</p>"));
@@ -218,7 +217,7 @@ class HtmlPolicyTest {
         "class", "data-bind", "v-html", "x-data", "hx-get", "ng-click", "is", "target", "rel", "ID"}) {
       assertThrows(IllegalArgumentException.class, () -> HtmlPolicy.builder().allowAttributes(a), a);
     }
-    for (String c : new String[] {"ng-*", "ng-init", "NG-x", "ng_*", "data-ng-*", "x-ng-bind", "ngBind", "_ng-*", "data--ng-*", "x__ng_bind", "-ngBind", "a:b", "a b", "{{x}}", "", "a;b", "**"}) {
+    for (String c : new String[] {"a:b", "a b", "{{x}}", "", "a;b", "**", "ng-init:x"}) {
       assertThrows(IllegalArgumentException.class, () -> HtmlPolicy.builder().allowClasses(c), c);
     }
     for (String p : new String[] {"", "-", "x", "1a-", "a b-", "a:b-", "ab", "my_", "a_b", null}) {

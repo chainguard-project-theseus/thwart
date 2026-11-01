@@ -157,8 +157,9 @@ final class HostileSinks {
       out.add(new String[] {"ANGULAR_DIRECTIVE", attrName + " normalizes to " + ng});
     }
     if (a.equals("class") || (animation && ANIM_VALUES.contains(a) && animTarget.equals("class"))) {
+      // AngularJS is not supported (guide section 7, #586): class tokens are no longer stripped.
       for (String d : angularClassDirectives(value)) {
-        out.add(new String[] {"ANGULAR_CLASS_DIRECTIVE", "class token normalizes to " + d});
+        out.add(new String[] {"KNOWN_LIMITATION_ANGULAR_CLASS", "class token normalizes to " + d});
       }
     }
     if (value.contains("{{")) {
@@ -192,7 +193,7 @@ final class HostileSinks {
           for (String[] f : classify(el, targetName, result, hostile)) {
             // Guide section 7: AngularJS is not supported, and neither {{ in attributes nor the
             // classes a Vue or Alpine :class binding writes are covered for it.
-            boolean known = f[0].startsWith("KNOWN_") || f[0].equals("ANGULAR_CLASS_DIRECTIVE");
+            boolean known = f[0].startsWith("KNOWN_");
             out.add(new String[] {(known ? "KNOWN_BINDING_" : "BINDING_") + f[0].replaceFirst("^KNOWN_", ""),
                 bp + targetName + " evaluates to '" + result + "': " + f[1]});
           }

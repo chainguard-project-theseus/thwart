@@ -144,9 +144,9 @@ public final class HtmlPolicy {
     return SafeHtml.sanitize(html, this);
   }
 
-  /** Whether class token {@code token} is of the safe form, not AngularJS, and allowed. */
+  /** Whether class token {@code token} is of the safe form and allowed. */
   boolean allowsClass(String token) {
-    if (!isClassToken(token) || isAngularClass(token)) {
+    if (!isClassToken(token)) {
       return false;
     }
     if (anyClass || classNames.contains(token)) {
@@ -204,13 +204,12 @@ public final class HtmlPolicy {
     /**
      * Allows {@code class} tokens: an exact name, a prefix ending in {@code *}
      * ({@code "language-*"}), or {@code "*"} for any token. Only tokens of the form
-     * {@code [A-Za-z0-9_-]+} are ever kept, and never one AngularJS reads as a built-in directive
-     * name ({@link #isAngularClass}); other tokens are dropped.
+     * {@code [A-Za-z0-9_-]+} are ever kept; other tokens are dropped.
      */
     public Builder allowClasses(String... patterns) {
       for (String p : patterns) {
         String name = p.endsWith("*") ? p.substring(0, p.length() - 1) : p;
-        if (!(p.equals("*") || isClassToken(name)) || isAngularClass(name)) {
+        if (!(p.equals("*") || isClassToken(name))) {
           throw new IllegalArgumentException("not an allowed class pattern: " + p);
         }
         classes.add(p);
@@ -283,18 +282,6 @@ public final class HtmlPolicy {
       }
       return name;
     }
-  }
-
-  /**
-   * Whether AngularJS could read class token {@code token} as one of its {@code ng} directives (it
-   * reads directives from classes). AngularJS is not supported and not modelled: a token is
-   * dropped when, ignoring A-Z case, {@code -} and {@code _}, it starts with {@code ng},
-   * {@code xng} or {@code datang}, a superset of every spelling AngularJS normalizes to one
-   * ({@code ng-bind}, {@code ngBind}, {@code data--ng-bind}, {@code _ng-bind}, ...).
-   */
-  static boolean isAngularClass(String token) {
-    String l = lower(token).replace("-", "").replace("_", "");
-    return l.startsWith("ng") || l.startsWith("xng") || l.startsWith("datang");
   }
 
   /** Whether {@code s} is non-empty and only {@code [A-Za-z0-9_-]}. */
