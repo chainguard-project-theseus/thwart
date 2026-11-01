@@ -737,6 +737,8 @@ than tab, line feed, form feed and carriage return (U+0000-U+0008, U+000B, U+000
 U+007F-U+009F), noncharacters (U+FDD0-U+FDEF, U+FFFE, U+FFFF and the last two code points of
 every plane) and unpaired surrogates (#614). `html.sanitize` does the same, so escaped text and
 attribute values and sanitized HTML parse without a parse error. Other characters are written as they are.
+In a `<script>`, `[[...]]` writes the same code points as `\uXXXX` escapes in its JSON strings
+(a supplementary one as two), the same JavaScript value without a parse error (#619).
 
 A browser drops a line feed right after a `<pre>`, `<listing>` or `<textarea>` start tag. When an
 attribute such as `t:text`, `t:utext`, `t:field` or `t:insert` sets the element's content, or the

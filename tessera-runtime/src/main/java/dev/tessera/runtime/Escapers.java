@@ -32,6 +32,7 @@ import java.util.function.IntConsumer;
  *
  * <p>HTML escapers also replace controls other than ASCII whitespace, noncharacters and unpaired
  * surrogates with U+FFFD ({@link #forbiddenCodePoint}), so the output parses without a parse error (#614).
+ * The JSON escapers write the same code points as {@code \\uXXXX} escapes, the same JS value (#619).
  */
 public final class Escapers {
   private Escapers() {}
@@ -478,8 +479,8 @@ public final class Escapers {
    * ASCII whitespace (U+0000-U+001F but TAB, LF, FF and CR, and U+007F-U+009F), a noncharacter
    * (U+FDD0-U+FDEF and the last two code points of every plane) or a surrogate (a lone one, as
    * {@link Character#codePointAt(CharSequence, int)} returns it). The HTML escapers, and so the
-   * sanitizer, which writes text and attribute values through them, write it as U+FFFD: the one
-   * rule for every producer.
+   * sanitizer, which writes text and attribute values through them, write it as U+FFFD, and the
+   * JSON escapers as {@code \\uXXXX} (#619): the one rule for every producer.
    */
   static boolean forbiddenCodePoint(int cp) {
     if (cp < 0x20) {
@@ -872,8 +873,10 @@ public final class Escapers {
   /**
    * Writes a double-quoted JSON string that is also safe inside an HTML {@code <script>}
    * element, and as defence in depth inside a JS comment, regex or template literal, where the
-   * compiler never places a value: {@code < > & ' ` $ {}, U+2028, U+2029,
-   * controls and unpaired surrogates become {@code \\uXXXX}, and {@code /} becomes {@code \\/}.
+   * compiler never places a value: {@code < > & ' ` $ {}, U+2028, U+2029 and every
+   * {@link #forbiddenCodePoint} (controls, noncharacters as their two halves when supplementary, and
+   * lone surrogates) become {@code \\uXXXX}, and {@code /} becomes {@code \\/}. An escape is the same
+   * JS value, and the page parses without a parse error (#619).
    */
   private static void writeJsonString(StringBuilder sb, String s) {
     sb.append('"');
@@ -920,17 +923,16 @@ public final class Escapers {
           unicodeEscape(sb, c);
           break;
         default:
-          if (c < 0x20 || c == 0x7f) {
-            unicodeEscape(sb, c);
-          } else if (Character.isHighSurrogate(c)
-              && i + 1 < n
-              && Character.isLowSurrogate(s.charAt(i + 1))) {
-            sb.append(c).append(s.charAt(++i));
-          } else if (Character.isSurrogate(c)) {
-            unicodeEscape(sb, c);
+          int cp = Character.codePointAt(s, i); // a pair or a lone surrogate
+          int end = i + Character.charCount(cp);
+          if (forbiddenCodePoint(cp)) {
+            for (; i < end; i++) {
+              unicodeEscape(sb, s.charAt(i)); // a pair as its two halves: the same JS value
+            }
           } else {
-            sb.append(c);
+            sb.append(s, i, end);
           }
+          i = end - 1;
           break;
       }
     }

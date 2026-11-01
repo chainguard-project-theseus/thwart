@@ -27,6 +27,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -643,6 +644,49 @@ class EscapersTest {
     assertEquals("\"\\ud800\"", json("\ud800"));
     assertEquals("\"a\\udc00b\"", json("a\udc00b"));
     assertEquals("\"\\udc00\\ud800\"", json("\udc00\ud800"));
+  }
+
+  /**
+   * #619: controls and noncharacters, which the parser reports as errors in a script's text, are
+   * written as {@code \\uXXXX} escapes (a supplementary one as its two halves), so the JS value is
+   * the same and the page parses without an error.
+   */
+  @Test
+  void jsonEscapesForbiddenCodePoints() {
+    assertEquals("\"a\\u0085b\"", json("a\u0085b"));
+    assertEquals("\"\\u0080\\u009f\\ufdd0\\ufdef\\ufffe\\uffff\"", json("\u0080\u009f\ufdd0\ufdef\ufffe\uffff"));
+    assertEquals("\"a\\ud83f\\udffeb\\udbff\\udfff\"", json("a\ud83f\udffeb\udbff\udfff"));
+    assertEquals("(\"\\u0085\\ud83f\\udfff\")", javaScript("\u0085\ud83f\udfff"));
+    assertEquals("{\"\\u0085\":[\"\\ufffe\"]}", json(Map.of("\u0085", List.of("\ufffe"))));
+    assertEquals("\"\\u0085\"", json('\u0085'));
+  }
+
+  /**
+   * Over every code point: a forbidden one is escaped half by half (U+0008 keeps JSON's own
+   * {@code \b}), and no output has one.
+   */
+  @Test
+  void jsonWritesNoForbiddenCodePointOverEveryCodePoint() {
+    for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+      String in = new String(Character.toChars(cp));
+      String out = json(in);
+      if (parseError(cp) && cp != '\b') {
+        StringBuilder expected = new StringBuilder("\"");
+        for (char c : in.toCharArray()) {
+          expected.append(String.format(Locale.ROOT, "\\u%04x", (int) c));
+        }
+        assertEquals(expected.append('"').toString(), out, "U+" + Integer.toHexString(cp));
+      }
+      out.codePoints().forEach(o -> assertFalse(parseError(o), () -> "U+" + Integer.toHexString(o) + " in " + out));
+    }
+  }
+
+  /** The positive control for #619: code points next to the forbidden ranges are written as is. */
+  @Test
+  void jsonKeepsAllowedCodePointsNextToTheForbiddenOnes() {
+    String allowed = " \u007e\u00a0\u00ff\ufdcf\ufdf0\ufffd\ud83f\udffd\ud840\udc00\udbff\udffd";
+    assertEquals("\"" + allowed + "\"", json(allowed));
+    assertEquals("(\"" + allowed + "\")", javaScript(allowed));
   }
 
   @ParameterizedTest
