@@ -50,10 +50,10 @@ import org.jsoup.nodes.TextNode;
  * </ul>
  *
  * <p>Pages that still differ are compared once more with each script's prelude expanded: every
- * declaration at the top of a JavaScript script whose value is JSON ({@code var _t1 = "a";}) is
- * removed and its value written where the code below uses the name. Ports hoist values into
- * such declarations (#541, #653), so a page equal only in that form is
- * {@link Verdict#REORDERED}, not {@link Verdict#SAME}: a declared {@code var} is not the
+ * declaration at the top of a JavaScript script whose value is JSON ({@code var lang = "a";}) is
+ * removed and its value written where the code below uses the name. Agents hoist values into
+ * such declarations by hand under the guide's script prelude rule, so a page equal only in that
+ * form is {@link Verdict#REORDERED}, not {@link Verdict#SAME}: a declared {@code var} is not the
  * same JavaScript as the value written in place (#625).
  */
 final class PageNormalizer {
