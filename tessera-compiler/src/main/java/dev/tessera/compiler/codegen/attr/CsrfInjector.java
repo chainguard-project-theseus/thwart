@@ -1,6 +1,7 @@
 package dev.tessera.compiler.codegen.attr;
 
 import dev.tessera.compiler.JavaStrings;
+import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.codegen.Emitted;
@@ -75,7 +76,7 @@ public final class CsrfInjector {
       return;
     }
     // A computed action here is a same-origin link (GenericAttrProcessor), or the build has failed.
-    plan.afterStartTag(tokenInput(ctx, ownTokenNames(plan)));
+    plan.afterStartTag(tokenInput(ctx, plan.element().pos(), ownTokenNames(plan)));
   }
 
   /**
@@ -236,19 +237,20 @@ public final class CsrfInjector {
 
   /**
    * The hidden input, written when the request has a token whose parameter name is none of
-   * {@code ownNames} (made up: no source position).
+   * {@code ownNames}. Its holes and the optional block carry {@code form}, the {@code <form>} start
+   * tag's position, so a verifier error about the token input names the form.
    */
-  private static Emitted tokenInput(CodegenContext ctx, List<String> ownNames) {
+  private static Emitted tokenInput(CodegenContext ctx, SourcePos form, List<String> ownNames) {
     String t = ctx.freshName("csrf");
     Emitted input =
         Emitted.concat(
             Emitted.text("<input type=\"hidden\" name=\"", null),
             Emitted.code(" "),
-            Emitted.hole(Skeleton.Escaper.ATTR, "input", "name", null, t + ".get().parameterName()"),
+            Emitted.hole(Skeleton.Escaper.ATTR, "input", "name", form, t + ".get().parameterName()"),
             Emitted.code(" "),
             Emitted.text("\" value=\"", null),
             Emitted.code(" "),
-            Emitted.hole(Skeleton.Escaper.ATTR, "input", "value", null, t + ".get().token()"),
+            Emitted.hole(Skeleton.Escaper.ATTR, "input", "value", form, t + ".get().token()"),
             Emitted.code(" "),
             Emitted.text("\" />", null));
     StringBuilder notOwn = new StringBuilder();
@@ -258,7 +260,7 @@ public final class CsrfInjector {
     }
     return Emitted.opt(
         Skeleton.OptKind.CSRF_TOKEN,
-        null,
+        form,
         "{ java.util.Optional<dev.tessera.runtime.Forms.CsrfToken> " + t + " = ctx.forms().csrfToken(); if (" + t
             + ".isPresent()" + notOwn + ") { ",
         input,

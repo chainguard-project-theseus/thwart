@@ -219,4 +219,4 @@ m=First.<p>Second.
 == VALUE_IN_RAW_TEXT: the CSRF input of a form inside <noscript>
 -- t.html
 <noscript><form method="post" action="/x"><button>Go</button></form></noscript>
-=> t.html:1:1: error: a browser reads this value of 'name' as the raw text of <noscript>, where nothing can break a {{ in a value that a client template would run; write the content as static text, or move the value outside the element; a browser opened the <noscript> it is in at t.html:1:56 (only with scripting on) [verifier:VALUE_IN_RAW_TEXT]
+=> t.html:1:66: error: a browser reads this value of 'name' as the raw text of <noscript>, where nothing can break a {{ in a value that a client template would run; write the content as static text, or move the value outside the element; a browser opened the <noscript> it is in at t.html:1:56 (only with scripting on) [verifier:VALUE_IN_RAW_TEXT]
