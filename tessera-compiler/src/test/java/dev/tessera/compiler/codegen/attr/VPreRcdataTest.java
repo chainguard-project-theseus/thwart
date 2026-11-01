@@ -81,6 +81,34 @@ class VPreRcdataTest {
     assertEquals("<title " + directive + " v-pre>" + WRITTEN + "</title>", render("<title " + directive + ">[[s]]</title>", PAYLOAD));
   }
 
+  /**
+   * #586: a computed binding beside computed content builds too. Under v-pre, Vue 3 keeps the
+   * element's directives as plain attributes and petite-vue skips the element, so the
+   * attribute-escaped value is inert.
+   */
+  @Test
+  void aComputedBindingBesideComputedContentGetsTheVPre() {
+    String hostile = "\"}}{{constructor.constructor('alert(1)')()}}";
+    // jsonAttr: a JSON string literal, braces and quotes escaped, then attribute-escaped.
+    String binding = "\"&quot;\\&quot;}}\\u007b\\u007bconstructor.constructor(\\u0027alert(1)\\u0027)()}}&quot;\"";
+    String text = "&quot;}}{{constructor.constructor(&#39;alert(1)&#39;)()}}";
+    assertEquals("<textarea v-bind:rows=" + binding + " v-pre>\n" + text + "</textarea>",
+        render("<textarea t:attr=\"v-bind:rows=${s}\" t:text=\"s\">x</textarea>", hostile));
+    assertEquals("<title v-bind:lang=" + binding + " v-pre>" + text + "</title>",
+        render("<title t:attr=\"v-bind:lang=${s}\">[[s]]</title>", hostile));
+  }
+
+  /**
+   * Only a static v-pre suppresses the generated one ({@code TemplateGenerator.addsVPre}); a
+   * computed v-pre is a code attribute and fails to build, so no element ends up with two or none.
+   */
+  @Test
+  void aComputedVPreIsAnError() {
+    compile("<textarea t:attr=\"v-pre=${s}\" t:text=\"s\">x</textarea>")
+        .assertError("t.html:1:", "t:attr v-pre is not allowed");
+    compile("<title t:attr=\"v-pre=${s}\">[[s]]</title>").assertError("t.html:1:", "t:attr v-pre is not allowed");
+  }
+
   @Test
   void vueDirectivesWithStaticContentAreUnchanged() {
     assertEquals("<textarea v-model=\"text\"></textarea>", render("<textarea v-model=\"text\"></textarea>", ""));
