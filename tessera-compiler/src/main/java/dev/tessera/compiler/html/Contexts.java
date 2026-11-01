@@ -154,16 +154,6 @@ public final class Contexts {
   public static final String VUE_SKIP = "v-pre";
 
   /**
-   * Whether {@code lowerName} (A-Z folded) is a Vue directive or binding, which {@link #VUE_SKIP}
-   * turns off: every {@code v-*} and the shorthands {@code :x}, {@code @x}, {@code #x},
-   * {@code .x}. Alpine's {@code x-*} is not one: Alpine ignores {@code v-pre}.
-   */
-  public static boolean isVueDirective(String lowerName) {
-    return lowerName.startsWith("v-") || lowerName.startsWith(":") || lowerName.startsWith("@")
-        || lowerName.startsWith("#") || lowerName.startsWith(".");
-  }
-
-  /**
    * {@code content} on a {@code <meta>} whose static {@code http-equiv} is {@code refresh}. The name and value fold
    * A-Z only, as in a browser: {@code http-equ\u0131v} is not {@code http-equiv}.
    */

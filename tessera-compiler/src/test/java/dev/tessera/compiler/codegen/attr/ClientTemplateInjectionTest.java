@@ -108,7 +108,6 @@ class ClientTemplateInjectionTest {
 
   private static final String LONE = "outside a complete {{ ... }} is not supported in element text";
   private static final String FIX = "write the text as a value with [[...]] or t:text";
-  private static final String TITLE = "in the static text of a <title> or <textarea> is not supported";
 
   /**
    * #571: in element text a static brace is allowed only inside a complete {{ ... }} that opens and
@@ -199,9 +198,11 @@ class ClientTemplateInjectionTest {
         "<svg><title>{{ [[s]] }}</title></svg>",
         "<title>{{</title>",
         "<textarea>{{</textarea>",
+        "<textarea v-pre>{ [[s]]</textarea>",
       })
-  void braceInTitleOrTextareaIsABuildError(String body) {
-    compile(body).assertError("t.html:1:", TITLE);
+  void loneBraceInTitleOrTextareaIsABuildError(String body) {
+    // #586: the element-text rule, which the v-pre no longer replaces with a stricter one.
+    compile(body).assertError("t.html:1:", LONE, FIX);
   }
 
   @Test

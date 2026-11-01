@@ -131,25 +131,23 @@ public final class TextInlining {
    * neighbours:
    *
    * <ul>
-   *   <li>in element text (CDATA in foreign content included), a {@code {} or {@code }} is allowed
-   *       only inside a complete {@code {{ ... }}} in one literal, the author's own Vue template;
-   *   <li>in a {@code <title>} or {@code <textarea>}, which get {@code v-pre} once computed (#549),
-   *       not even there;
+   *   <li>in element text (CDATA in foreign content included, and the RCDATA of {@code <title>} and
+   *       {@code <textarea>}, which get {@code v-pre} once computed, #586), a {@code {} or {@code }}
+   *       is allowed only inside a complete {@code {{ ... }}} in one literal, the author's own client
+   *       template;
    *   <li>in script text, which petite-vue reads, a {@code {{} is closed in the same literal.
    * </ul>
    */
-  public static void checkBraces(CodegenContext ctx, List<Node> nodes, Element parent, boolean vPreHost) {
+  public static void checkBraces(CodegenContext ctx, List<Node> nodes, Element parent) {
     boolean replaced = false;
     if (parent != null) {
       for (Attribute a : parent.attributes()) {
         replaced |= REPLACES_TEXT.contains(a.name());
       }
-      String lower = HtmlParser.asciiLower(parent.name());
-      vPreHost |= lower.equals("title") || lower.equals("textarea");
     }
     for (Node n : nodes) {
       if (n instanceof Element) {
-        checkBraces(ctx, ((Element) n).children(), (Element) n, vPreHost);
+        checkBraces(ctx, ((Element) n).children(), (Element) n);
       } else if (n instanceof Text && !replaced) {
         Text t = (Text) n;
         OutputContext c = t.context();
@@ -163,7 +161,7 @@ public final class TextInlining {
         for (int i = 0; i <= raw.length(); i++) {
           int end = i == raw.length() ? i : holeEnd(raw, i);
           if (end >= 0) {
-            checkLiteral(ctx, t, start, raw.substring(start, i), refs, c != OutputContext.SCRIPT, vPreHost);
+            checkLiteral(ctx, t, start, raw.substring(start, i), refs, c != OutputContext.SCRIPT);
             start = end + 2;
             i = end + 1;
           }
@@ -173,9 +171,9 @@ public final class TextInlining {
   }
 
   private static void checkLiteral(
-      CodegenContext ctx, Text text, int start, String literal, boolean refs, boolean lone, boolean vPreHost) {
+      CodegenContext ctx, Text text, int start, String literal, boolean refs, boolean lone) {
     String s = decode(literal, refs);
-    int at = lone ? loneBrace(s, !vPreHost) : unclosed(s);
+    int at = lone ? loneBrace(s, true) : unclosed(s);
     if (at < 0) {
       return;
     }
@@ -183,11 +181,6 @@ public final class TextInlining {
     if (!lone) {
       message = "a client-side {{ is not closed by }} in the same text: petite-vue would run a value written"
           + " after it in this script as code; close it before any [[...]]";
-    } else if (vPreHost) {
-      message = "'" + s.charAt(at) + "' in the static text of a <title> or <textarea> is not supported: Tessera"
-          + " adds v-pre there once the content is computed, because a comment cannot break {{ in a value in it,"
-          + " and v-pre would show a static {{ ... }} as text; write the whole content with Tessera, or bind it"
-          + " with Vue";
     } else {
       message = "'" + s.charAt(at) + "' outside a complete {{ ... }} is not supported in element text: with a"
           + " brace from other text it could form a client-side {{ that Vue and petite-vue would run as code (a"
