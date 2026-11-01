@@ -131,7 +131,7 @@ class EscapersTest {
           expected.append("&#39;");
           break;
         default:
-          expected.append(c == 0 || Character.isSurrogate(c) ? '\uFFFD' : c);
+          expected.append(parseError(c) ? '\uFFFD' : c);
       }
       expected.append(' ');
     }
@@ -255,6 +255,52 @@ class EscapersTest {
     assertEquals("\uFFFD", text("\ud800"));
     assertEquals("x\uFFFD\uFFFD", text("x\udc00\ud800"));
     assertEquals("\ud83d\ude00", text("\ud83d\ude00"));
+  }
+
+  /**
+   * Controls other than ASCII whitespace, noncharacters and lone surrogates, which the parser
+   * reports as parse errors, become U+FFFD in text, attribute values and {@link SafeHtml#escape},
+   * as in the sanitizer's output (#614).
+   */
+  @Test
+  void htmlEscapersReplaceForbiddenCodePoints() {
+    String[] forbidden = {"\u0001", "\u0008", "\u000b", "\u000e", "\u001f", "\u007f", "\u0080", "\u0085", "\u009f",
+      "\ufdd0", "\ufdef", "\ufffe", "\uffff", "\ud83f\udffe", "\ud83f\udfff", "\udbff\udfff", "\ud800", "\udc00"};
+    for (String f : forbidden) {
+      String in = "a" + f + "b";
+      assertHtmlSinks(in, "a\uFFFDb");
+      assertEquals("a\uFFFDb", Escapers.escapeText(in));
+      assertEquals("a\uFFFDb", Escapers.escapeHtml(in));
+    }
+    assertHtmlSinks("\u0001<\u007f&\ufffe", "\uFFFD&lt;\uFFFD&amp;\uFFFD");
+  }
+
+  /** The positive control for #614: ASCII whitespace and the code points next to the forbidden ranges are kept. */
+  @Test
+  void htmlEscapersKeepAllowedCodePointsNextToTheForbiddenOnes() {
+    String allowed = "\t\n\f\r \u007e\u00a0\u00ff\ufdcf\ufdf0\ufffd\ud83f\udffd\ud840\udc00\udbff\udffd\u2028";
+    assertHtmlSinks(allowed, allowed);
+    assertEquals(allowed, Escapers.escapeText(allowed));
+    assertEquals(allowed, Escapers.escapeHtml(allowed));
+  }
+
+  /** The predicate the escapers and the sanitizer share, against the spec's definitions, over every code point. */
+  @Test
+  void forbiddenCodePointMatchesTheSpecOverEveryCodePoint() {
+    for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+      assertEquals(parseError(cp), Escapers.forbiddenCodePoint(cp), "U+" + Integer.toHexString(cp));
+    }
+  }
+
+  /**
+   * The spec's input stream parse errors, written from its definitions: a control other than
+   * ASCII whitespace (C0 except TAB, LF, FF, CR, and U+007F-U+009F), a noncharacter (U+FDD0-U+FDEF
+   * and the last two code points of every plane), a surrogate.
+   */
+  private static boolean parseError(int cp) {
+    boolean control = cp <= 0x1F && cp != 0x09 && cp != 0x0A && cp != 0x0C && cp != 0x0D || cp >= 0x7F && cp <= 0x9F;
+    boolean noncharacter = cp >= 0xFDD0 && cp <= 0xFDEF || (cp & 0xFFFF) == 0xFFFE || (cp & 0xFFFF) == 0xFFFF;
+    return control || noncharacter || cp >= 0xD800 && cp <= 0xDFFF;
   }
 
   @Test

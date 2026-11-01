@@ -136,7 +136,9 @@ class FlowProducerTest {
 
   @Test
   void escapedTextAndConcatenationLeaveTheStateAsItWas() throws EngineException {
-    for (String input : SanitizerBalanceTest.HOSTILE) {
+    List<String> inputs = new ArrayList<>(List.of(SanitizerBalanceTest.HOSTILE));
+    inputs.addAll(List.of(SanitizerBalanceTest.FORBIDDEN_CODE_POINTS)); // #614: U+FFFD, no parse error
+    for (String input : inputs) {
       assertFlow("escape of " + input, SafeHtml.escape(input).html());
     }
     assertFlow("concat", SafeHtml.concat(
@@ -170,6 +172,11 @@ class FlowProducerTest {
     for (String v : values) {
       assertFlow("card with " + v, c.render("card", Map.of("title", v, "items", List.of(v, "b"), "body", v)));
       assertFlow("rows with " + v, c.render("rows", Map.of("a", v)));
+    }
+    // #614: forbidden code points in text, attribute values and sanitized markup. TODO(#619): rows
+    // too, once the script escapers write them as JSON escapes.
+    for (String v : SanitizerBalanceTest.FORBIDDEN_CODE_POINTS) {
+      assertFlow("card with " + v, c.render("card", Map.of("title", v, "items", List.of(v, "b"), "body", v)));
     }
   }
 
