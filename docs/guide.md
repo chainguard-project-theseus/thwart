@@ -785,8 +785,9 @@ template below is compiled by the guide's tests.
 | an id with a prefix (`"hint-" + id`) | Write the number (`t:data-id="${id}"`); your script adds the prefix |
 | a URL held in a variable | Write the link with a literal path, `@{/items/{id}(id=${id})}` |
 
-**What is not a recipe.** These compile, but each one either breaks the page's behaviour or brings
-back what the build error prevents. Don't use them, even to get `compare` to exit 0:
+**What is not a recipe.** These workarounds compile, but each one either breaks the page's
+behaviour or brings back what the build error prevents. Don't use them, even to get `compare` to
+exit 0:
 
 - *A choice of literals over data.* A choice between literals is neutral because the template
   spells out every value it can write. Listing the values of an open-ended range is not that:
@@ -794,11 +795,11 @@ back what the build error prevents. Don't use them, even to get `compare` to exi
   `notification-9` with a `null` fallback, or an enum chain whose last branch catches every other
   constant writes a wrong value or none once the data passes the bound. Write the number and let
   the script add the prefix (the row above), or use the recipe for what the string is for.
-- *Messages as literals.* A message is not a literal in a neutral attribute, even a `#{key}` with
-  no arguments. Bundles are edited by translators and tools, not reviewed as template code, and a
-  framework may run what it reads there. Hard-coding each locale's text as a choice of literals
-  is the same thing. Text for people goes in `title` or element text (recipe 2). Text a script
-  needs goes in a JSON block or a hidden input (recipe 3).
+- *Messages as literals.* A message is not a literal in a neutral attribute: `#{key}` there is a
+  build error, even with no arguments. Bundles are edited by translators and tools, not reviewed
+  as template code, and a framework may run what it reads there. Hard-coding each locale's text
+  as a choice of literals compiles, but does the same thing. Text for people goes in `title` or
+  element text (recipe 2). Text a script needs goes in a JSON block or a hidden input (recipe 3).
 - *Copying the value back.* Applies to every recipe, not only recipe 5. Don't have a script copy
   the value from a hidden input, a JSON block or `title` into a `data-*` attribute so that an
   unchanged script or plugin finds it there. That brings back what the build error prevents.
