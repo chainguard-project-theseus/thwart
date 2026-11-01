@@ -115,7 +115,7 @@ element, or `t:insert` + `t:replace`, is a build error. Unknown `t:` names are g
 `fragment_card(OwnerView, Fragment, RenderContext, Output)`. `t:insert`/`t:replace` take
 `~{tpl :: name(args)}`, `tpl :: name(args)`, `~{:: name}` (same file), or an expression of type
 `Fragment`. Arguments are positional or all named, type-checked against the signature.
-`~{::name}` as an *argument* is a `Fragment` lambda over the same-file fragment `name`, or else the
+`~{::name}` as an *argument* is a generated `Fragment` (`Fragment.generated`) over the same-file fragment `name`, or else the
 first element whose tag is `name` (petclinic's `~{::body}` layout pattern). A selected element renders in the
 scope of the `t:insert`/`t:replace` that passes it. Template names in `~{...}` are paths under the
 templates root; `.`, `..`, empty segments and a leading `/` are build errors. When a template renders
