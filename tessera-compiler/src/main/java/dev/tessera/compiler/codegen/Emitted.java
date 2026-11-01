@@ -180,18 +180,16 @@ public final class Emitted {
 
   /**
    * A {@code Fragment} value: {@code { <type> <local> = <valueCode>; if (<local> != null) {
-   * <local>.render(<ctxCode>, out); } }}. {@code param} is the {@code Fragment} parameter of the
-   * enclosing fragment that {@code valueCode} reads, or null for any other value. {@code ctxCode}
-   * is the render context passed on ({@code CodegenContext#insertionContext}).
+   * <local>.render(<ctxCode>, out); } }}. {@code candidates} is the skeleton of what the value may
+   * write (#561). {@code ctxCode} is the render context passed on ({@code
+   * CodegenContext#insertionContext}).
    */
   public static Emitted fragmentValue(
-      String type, String local, String valueCode, String param, SourcePos pos, String ctxCode) {
+      String type, String local, String valueCode, Skeleton.Node candidates, String ctxCode) {
     return of(
         "{ " + type + " " + local + " = " + valueCode + "; if (" + local + " != null) { " + local
             + ".render(" + ctxCode + ", out); } }",
-        param != null
-            ? new Skeleton.ParamInsert(param, pos)
-            : new Skeleton.RawInsert(Skeleton.Source.FRAGMENT_VALUE, pos));
+        candidates);
   }
 
   // ---- combinators ----

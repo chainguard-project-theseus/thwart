@@ -99,7 +99,10 @@ public final class Skeleton {
     SAFE_HTML,
     /** A bundle message checked as HTML at build time: {@code t:utext="#{key}"}. */
     HTML_MESSAGE,
-    /** A {@code Fragment} value from the model (not a fragment parameter of the enclosing fragment). */
+    /**
+     * A {@code Fragment} value built in Java: a page parameter or an unbound fragment parameter
+     * (TODO(#581)). A template-built one is its candidates (#561).
+     */
     FRAGMENT_VALUE
   }
 
