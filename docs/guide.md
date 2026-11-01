@@ -500,7 +500,9 @@ the swapped element.
 `t:utext="html.sanitize(article.text)"`: it keeps basic formatting and checked links and drops
 everything else. `html.sanitizeRich` also keeps same-origin images, `language-*` classes, ids and
 `target="_blank"` links, for editor or Markdown output. Neither keeps tables, `style`, `iframe` or
-`svg`. For another mix, build a policy with `HtmlPolicy.builder()` and expose it as a function:
+`svg`. For another mix, build a policy with `HtmlPolicy.builder()` (`allowElements`,
+`allowAttributes`, `allowClasses`, `idPrefix`, `linkRel`, `allowLinkTarget`, `allowRemoteImages`,
+`allowDataImages`) and expose it as a function:
 
 <!-- compile: java -->
 ```java
@@ -962,10 +964,8 @@ getters and record components only (`map['key']` works), so add getters or build
 Custom filters become `@TemplateFunctions` or values computed in Java. `strictVariables` is what
 typed `t:params` already give you.
 
-**Mustache.** Sections over lists are `t:each`, over a value `t:if`; inverted sections are
-`t:unless` or `t:if` with the negated condition. Partials are fragment calls, and a parent template
-with blocks is a layout. JMustache fails at a missing value; Tessera prints nothing for `null`, so
-decide what the page should show and test that value.
+**Mustache.** JMustache fails at a missing value, cutting the page off mid-render; Tessera prints
+nothing for `null`. Render the whole page, and compare against an original that has the value.
 
 ## 5. Known limitations
 

@@ -66,6 +66,9 @@ took from outside the model. Remove the old engine last: its templates, dependen
 configuration. Until it is gone, it still renders every view Tessera doesn't know, with its own
 injection risks, so removing it is what completes the security guarantee.
 
+You can't feel how much time has passed. If you were given a time budget, note `date` when you
+start and run it again before deciding time is short.
+
 ## What "done" is checked against
 
 - The application's normal Maven build passes on the JDK it targets, with all existing tests. Don't
