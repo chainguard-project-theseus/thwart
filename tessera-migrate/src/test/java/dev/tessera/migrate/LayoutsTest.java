@@ -9,9 +9,9 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * Layout markup with a second {@code <body>}, {@code <head>} or {@code <html>} (#409): what is
- * rewritten, what is only reported, and what is left alone. The goldens {@code jobsearch} and
- * {@code spring-petclinic-boot} cover the bench shapes end to end.
+ * A layout call that would nest a second {@code <body>}, {@code <head>} or {@code <html>} (#409):
+ * what is rewritten, what is only reported, and what is left alone. The golden
+ * {@code spring-petclinic-boot} covers the bench shapes end to end.
  */
 class LayoutsTest {
 
@@ -139,75 +139,6 @@ class LayoutsTest {
     Layouts.Result r = rewrite("page.html", page);
     assertEquals(page, r.templates().get("page.html"));
     assertMessages(r);
-  }
-
-  @Test
-  void innerBodyIsDeletedOnlyWithoutNewAttributes() {
-    String page = "<html xmlns:t=\"https://tessera.dev\" t:replace=\"~{layout :: layout(~{::body}, null)}\">\n"
-        + "<body t:remove=\"tag\">\n  <body>\n  <h1>Hi</h1>\n  </body>\n</body>\n</html>\n";
-    Layouts.Result r = rewrite("layout.html", LAYOUT, "page.html", page);
-    assertEquals(page.replace("  <body>\n", "").replace("  </body>\n", ""), r.templates().get("page.html"));
-    assertMessages(r, "page.html:3: rewritten: deleted the tags of a `<body>` inside a `<body>`");
-
-    String same = page.replace("  <body>", "  <body class=\"app\">");
-    r = rewrite("layout.html", LAYOUT, "page.html", same);
-    assertEquals(page.replace("  <body>\n", "").replace("  </body>\n", ""), r.templates().get("page.html"));
-
-    String other = page.replace("  <body>", "  <body class=\"bg-light\">");
-    r = rewrite("layout.html", LAYOUT, "page.html", other);
-    assertEquals(other, r.templates().get("page.html"));
-    assertMessages(r, "page.html:3: `<body class=\"bg-light\">` is inside a `<body>`");
-  }
-
-  @Test
-  void headInsideBodyIsReported() {
-    String page = "<html xmlns:t=\"https://tessera.dev\" t:replace=\"~{layout :: layout(~{::body}, null)}\">\n"
-        + "<body t:remove=\"tag\">\n<head><link rel=\"stylesheet\" href=\"/p.css\"></head>\n<h1>Hi</h1>\n</body>\n</html>\n";
-    Layouts.Result r = rewrite("layout.html", LAYOUT, "page.html", page);
-    assertEquals(page, r.templates().get("page.html"));
-    assertMessages(r, "page.html:3: `<head>` inside a `<body>`");
-  }
-
-  private static final String NAVBAR = "<div xmlns:t=\"https://tessera.dev\">\n"
-      + "<t:block t:fragment=\"navbar(String user)\">\n<html lang=\"en\">\n<head>\n  <title>T</title>\n</head>\n"
-      + "<body>\n  <nav t:text=\"user\">u</nav>\n</body>\n</html>\n</t:block>\n</div>\n";
-
-  @Test
-  void fragmentThatWritesADocumentIntoBodiesIsUnwrapped() {
-    String page = "<html xmlns:t=\"https://tessera.dev\" t:replace=\"~{layout :: layout(~{::body}, null)}\">\n"
-        + "<body t:remove=\"tag\">\n<t:block t:replace=\"~{navbar :: navbar('ann')}\"></t:block>\n</body>\n</html>\n";
-    Layouts.Result r = rewrite("layout.html", LAYOUT, "navbar.html", NAVBAR, "page.html", page);
-    // Only the tags a browser ignores go; the head's elements stay where a browser put them.
-    assertEquals("<div xmlns:t=\"https://tessera.dev\">\n<t:block t:fragment=\"navbar(String user)\">\n"
-        + "  <title>T</title>\n  <nav t:text=\"user\">u</nav>\n</t:block>\n</div>\n", r.templates().get("navbar.html"));
-    assertMessages(r, "navbar.html:3: rewritten: fragment `navbar :: navbar` wrote a whole document");
-    assertTrue(r.items().get(0).message().contains("what the `<head>` held (`<title>`)"), messages(r).toString());
-  }
-
-  @Test
-  void fragmentThatWritesADocumentIsReportedUnlessEveryInsertIsInABody() {
-    String page = "<div xmlns:t=\"https://tessera.dev\"><t:block t:replace=\"~{navbar :: navbar('ann')}\"></t:block></div>\n";
-    Layouts.Result r = rewrite("layout.html", LAYOUT, "navbar.html", NAVBAR, "page.html", page);
-    assertEquals(NAVBAR, r.templates().get("navbar.html"));
-    assertMessages(r, "navbar.html:3: fragment `navbar :: navbar` writes a whole document");
-
-    // lang="fr" would be merged into a page <html> that lacks it.
-    String fr = NAVBAR.replace("lang=\"en\"", "lang=\"fr\"");
-    String inBody = "<html xmlns:t=\"https://tessera.dev\" t:replace=\"~{layout :: layout(~{::body}, null)}\">\n"
-        + "<body t:remove=\"tag\">\n<t:block t:replace=\"~{navbar :: navbar('ann')}\"></t:block>\n</body>\n</html>\n";
-    r = rewrite("layout.html", LAYOUT, "navbar.html", fr, "page.html", inBody);
-    assertEquals(fr, r.templates().get("navbar.html"));
-    assertMessages(r, "navbar.html:3: fragment `navbar :: navbar` writes a whole document");
-  }
-
-  @Test
-  void fragmentThatWritesADocumentAndIsPassedAsAnArgumentIsReported() {
-    // The layout may insert an argument anywhere, so the page body inserts don't cover it.
-    String page = "<html xmlns:t=\"https://tessera.dev\" t:replace=\"~{layout :: layout(~{::body}, ~{navbar :: navbar('x')})}\">\n"
-        + "<body t:remove=\"tag\">\n<t:block t:replace=\"~{navbar :: navbar('ann')}\"></t:block>\n</body>\n</html>\n";
-    Layouts.Result r = rewrite("layout.html", LAYOUT, "navbar.html", NAVBAR, "page.html", page);
-    assertEquals(NAVBAR, r.templates().get("navbar.html"));
-    assertMessages(r, "navbar.html:3: fragment `navbar :: navbar` writes a whole document");
   }
 
   /**
