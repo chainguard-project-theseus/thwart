@@ -30,8 +30,8 @@ import java.util.function.IntConsumer;
  * <p>Conversion to text: {@code null} becomes {@code ""}; everything else uses
  * {@link String#valueOf(Object)}. Safe types are only honoured where noted.
  *
- * <p>HTML escapers also replace U+0000 and unpaired surrogates with U+FFFD so the output is
- * always well-formed text.
+ * <p>HTML escapers also replace controls other than ASCII whitespace, noncharacters and unpaired
+ * surrogates with U+FFFD ({@link #forbiddenCodePoint}), so the output parses without a parse error (#614).
  */
 public final class Escapers {
   private Escapers() {}
@@ -460,20 +460,33 @@ public final class Escapers {
         case '\'':
           sb.append("&#39;");
           break;
-        case '\0':
-          sb.append('\uFFFD');
-          break;
         default:
-          if (Character.isHighSurrogate(c) && i + 1 < n && Character.isLowSurrogate(s.charAt(i + 1))) {
-            sb.append(c).append(s.charAt(++i));
-          } else if (Character.isSurrogate(c)) {
+          int cp = Character.codePointAt(s, i); // a pair or a lone surrogate
+          if (forbiddenCodePoint(cp)) {
             sb.append('\uFFFD');
           } else {
-            sb.append(c);
+            sb.appendCodePoint(cp);
           }
+          i += Character.charCount(cp) - 1;
           break;
       }
     }
+  }
+
+  /**
+   * Whether {@code cp} is a parse error in the parser's input (#592, #614): a control other than
+   * ASCII whitespace (U+0000-U+001F but TAB, LF, FF and CR, and U+007F-U+009F), a noncharacter
+   * (U+FDD0-U+FDEF and the last two code points of every plane) or a surrogate (a lone one, as
+   * {@link Character#codePointAt(CharSequence, int)} returns it). The HTML escapers, and so the
+   * sanitizer, which writes text and attribute values through them, write it as U+FFFD: the one
+   * rule for every producer.
+   */
+  static boolean forbiddenCodePoint(int cp) {
+    if (cp < 0x20) {
+      return cp != '\t' && cp != '\n' && cp != '\f' && cp != '\r';
+    }
+    return (cp >= 0x7F && cp <= 0x9F) || (cp >= 0xD800 && cp <= 0xDFFF) || (cp >= 0xFDD0 && cp <= 0xFDEF)
+        || (cp & 0xFFFE) == 0xFFFE;
   }
 
   private static boolean needsHtmlEscape(String s, int i, boolean text) {
@@ -487,10 +500,9 @@ public final class Escapers {
       case '>':
       case '"':
       case '\'':
-      case '\0':
         return true;
       default:
-        return Character.isSurrogate(c);
+        return forbiddenCodePoint(c); // also either half of a pair, which the slow path keeps
     }
   }
 

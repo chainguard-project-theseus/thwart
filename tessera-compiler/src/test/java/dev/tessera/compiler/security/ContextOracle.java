@@ -19,18 +19,18 @@ final class ContextOracle {
   private static final Pattern ENTITY = Pattern.compile("&(amp|lt|gt|quot|#39);");
   private static final Pattern BROWSER_SCHEME = Pattern.compile("^([A-Za-z][A-Za-z0-9+.-]*):");
 
-  /** What the HTML escapers promise to preserve: NUL and unpaired surrogates become U+FFFD. */
+  /**
+   * What the HTML escapers promise to preserve: controls other than ASCII whitespace,
+   * noncharacters and unpaired surrogates (the parser's input errors) become U+FFFD (#614).
+   */
   static String wellFormed(String s) {
     StringBuilder sb = new StringBuilder(s.length());
-    for (int i = 0; i < s.length(); i++) {
-      char c = s.charAt(i);
-      if (Character.isHighSurrogate(c) && i + 1 < s.length() && Character.isLowSurrogate(s.charAt(i + 1))) {
-        sb.append(c).append(s.charAt(++i));
-      } else if (c == '\0' || Character.isSurrogate(c)) {
-        sb.append('�');
-      } else {
-        sb.append(c);
-      }
+    for (int i = 0; i < s.length(); ) {
+      int cp = s.codePointAt(i);
+      i += Character.charCount(cp);
+      boolean control = cp < 0x20 && "\t\n\f\r".indexOf(cp) < 0 || cp >= 0x7F && cp <= 0x9F;
+      boolean noncharacter = cp >= 0xFDD0 && cp <= 0xFDEF || (cp & 0xFFFF) >= 0xFFFE;
+      sb.appendCodePoint(control || noncharacter || cp >= 0xD800 && cp <= 0xDFFF ? 0xFFFD : cp);
     }
     return sb.toString();
   }

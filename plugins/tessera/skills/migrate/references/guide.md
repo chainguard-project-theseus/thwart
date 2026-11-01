@@ -731,6 +731,13 @@ The compiler decides the context from the element and attribute name. You cannot
 | Event handler | `on*` attributes | Build error; put data in a `<script type="application/json">` block, or a number, boolean or same-origin path in a `data-*` attribute, and read it from a script. |
 | Forbidden | `srcdoc`, non-JS `<script type>` | Build error. `<script type>`, `<meta http-equiv>` and the `attributeName` of an SVG animation element cannot be computed, and neither can the attributes a browser reads while it builds the page: `is`, `xmlns` and `xmlns:xlink` on any element, a `<template>`'s `shadowroot*` and `for`, a `<meta>`'s `charset`, and the `content` of `<meta http-equiv="Content-Type">`. Write them as static values; `<meta name="description" t:content="...">` is fine. |
 
+Text, title and textarea, attribute and URL values (and `SafeHtml.escape`) also write every code
+point the HTML parser reports as an error in its input as U+FFFD: control characters other
+than tab, line feed, form feed and carriage return (U+0000-U+0008, U+000B, U+000E-U+001F,
+U+007F-U+009F), noncharacters (U+FDD0-U+FDEF, U+FFFE, U+FFFF and the last two code points of
+every plane) and unpaired surrogates (#614). `html.sanitize` does the same, so escaped text and
+attribute values and sanitized HTML parse without a parse error. Other characters are written as they are.
+
 A browser drops a line feed right after a `<pre>`, `<listing>` or `<textarea>` start tag. When an
 attribute such as `t:text`, `t:utext`, `t:field` or `t:insert` sets the element's content, or the
 content starts with `[[...]]`, a `t:if` or a `t:each`, Tessera writes one line feed after the start
