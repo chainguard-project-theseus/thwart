@@ -788,7 +788,10 @@ mechanically instead of by review.**
   `TYPED_ATTRIBUTE`: string literals, numbers and a choice between literals only (#565, PR #566
   removed the safe-type escape hatch). `<meta content>` is inert only with a static, harmless
   `name`. Review found two gaps already on `main`, a computed `<param value>` and
-  `<meta name=htmx-config content>`; both are now typed.
+  `<meta name=htmx-config content>`; both are now typed. The harmless names were a three-name
+  deny-list until #590 made them an allow-list (`description`, `keywords`, `author`,
+  `application-name`, `generator`, `color-scheme`, `theme-color`), with no `property` or
+  `itemprop`: `apple-itunes-app`, Open Graph and any name a browser or crawler adds later are typed.
 - **Single-URL grammar** (PR #567). The URL escapers apply only to attributes whose spec grammar
   is exactly one URL. Lists and values whose meaning depends on another attribute (`ping`,
   `srcset`, SVG animation `values`/`to`/`from`/`by`) are `TRUSTED_URL`: literals or a

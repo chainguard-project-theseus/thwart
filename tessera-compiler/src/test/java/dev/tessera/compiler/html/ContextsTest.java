@@ -528,15 +528,43 @@ class ContextsTest {
   }
 
   /**
-   * #539: the content of a {@code <meta>} is inert text only under a static name other than
-   * referrer or viewport and without http-equiv; a policy, a pragma or an unnamed meta takes only
-   * literals, numbers and safe values.
+   * #539, #590: the content of a {@code <meta>} is inert text only under a static name on the
+   * allow-list and without http-equiv, property or itemprop; a policy, a pragma, a name a browser,
+   * OS or crawler acts on, an unknown name or an unnamed meta takes only literals and numbers.
    */
   @ParameterizedTest(name = "<meta {0}> content -> {1}")
   @CsvSource(delimiter = '|', value = {
     "name=description | ATTRIBUTE",
     "NAME=Keywords | ATTRIBUTE",
-    "name=author property=og:title | ATTRIBUTE",
+    "name=author | ATTRIBUTE",
+    "name=Application-Name | ATTRIBUTE",
+    "name=generator | ATTRIBUTE",
+    "name=color-scheme | ATTRIBUTE",
+    "name=theme-color | ATTRIBUTE",
+    "name=description name=keywords | ATTRIBUTE",
+    "name=author property=og:title | TYPED_ATTRIBUTE",
+    "name=description property=al:ios:url | TYPED_ATTRIBUTE",
+    "name=description itemprop=url | TYPED_ATTRIBUTE",
+    "name=description t:property=x | TYPED_ATTRIBUTE",
+    "name=description t:itemprop=x | TYPED_ATTRIBUTE",
+    "name=description name=apple-itunes-app | TYPED_ATTRIBUTE",
+    "name=apple-itunes-app | TYPED_ATTRIBUTE",
+    "name=google-site-verification | TYPED_ATTRIBUTE",
+    "name=msapplication-config | TYPED_ATTRIBUTE",
+    "name=msapplication-TileImage | TYPED_ATTRIBUTE",
+    "name=og:title | TYPED_ATTRIBUTE",
+    "name=twitter:image | TYPED_ATTRIBUTE",
+    "name=twitter:title | TYPED_ATTRIBUTE",
+    "name=refresh | TYPED_ATTRIBUTE",
+    "name=robots | TYPED_ATTRIBUTE",
+    "name=q | TYPED_ATTRIBUTE",
+    "name= | TYPED_ATTRIBUTE",
+    "name=description-x | TYPED_ATTRIBUTE",
+    // Names and values fold A-Z only: a look-alike is not on the allow-list.
+    "name=descr\u0131ption | TYPED_ATTRIBUTE",
+    "name=KEYWORD\u017F | TYPED_ATTRIBUTE",
+    "NAME=description PROPERTY=og:url | TYPED_ATTRIBUTE",
+    "name=description ItemProp=url | TYPED_ATTRIBUTE",
     "name=referrer | TYPED_ATTRIBUTE",
     "Name=REFERRER | TYPED_ATTRIBUTE",
     "name=viewport | TYPED_ATTRIBUTE",
