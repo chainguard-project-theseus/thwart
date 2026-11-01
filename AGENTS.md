@@ -40,10 +40,11 @@ verifier of #364, simplified under #405 ([docs/security-architecture.md](docs/se
    Tessera rejects it with a fix-it and `tessera-migrate` rewrites it where it can. Parity never
    overrides 5.
 7. **The guarantee ends at the HTML parser.** Tessera guarantees what the browser's HTML parser
-   and built-in sinks do with the output. Client-side code that re-reads the DOM as code is
-   supported only for frameworks in the framework table, deny-by-default, with the remaining
-   gaps documented. New framework support is a table entry plus harness rows, never a special
-   case.
+   and built-in sinks do with the output. It models no client-side framework. Outside standard
+   HTML attributes, a computed value is framework-neutral (a number, a boolean or a same-origin
+   path), and computed text never contains `{{`, so code that re-reads the DOM gets nothing it
+   can run. Client code that otherwise evaluates attribute values or DOM text is outside the
+   guarantee. Never add a rule that names a framework.
 
 ## Keep it simple
 
