@@ -780,7 +780,14 @@ class EscapersTest {
     assertEquals("-123456789012345678901234567890", json(new BigInteger("-123456789012345678901234567890")));
     assertEquals("0", json(BigInteger.ZERO));
     assertEquals("[1E+3,-7]", json(List.of(new BigDecimal("1E+3"), BigInteger.valueOf(-7))));
-    assertEquals("1E+3", run(Escapers::jsonAttr, new BigDecimal("1E+3")));
+  }
+
+  @Test
+  void noEscaperWritesJsonIntoAnAttributeValue() {
+    // #599: jsonAttr (JSON, attribute-encoded) is deleted; nothing classifies an attribute for it since #584.
+    for (java.lang.reflect.Method m : Escapers.class.getMethods()) {
+      assertNotEquals("jsonAttr", m.getName());
+    }
   }
 
   @ParameterizedTest
@@ -790,7 +797,6 @@ class EscapersTest {
     // Only the JDK classes themselves: toString() of a subclass is never called.
     assertThrows(IllegalArgumentException.class, () -> json(new Labeled(text)));
     assertThrows(IllegalArgumentException.class, () -> json(new LabeledInt(text)));
-    assertThrows(IllegalArgumentException.class, () -> run(Escapers::jsonAttr, new Labeled(text)));
     assertThrows(IllegalArgumentException.class, () -> Escapers.messageArgs(new Object[] {new Labeled(text)}));
   }
 
@@ -802,7 +808,6 @@ class EscapersTest {
     for (Object hostile : new Object[] {new Labeled(text), new LabeledInt(text)}) {
       StringOutput out = new StringOutput();
       assertThrows(IllegalArgumentException.class, () -> Escapers.json(out, hostile));
-      assertThrows(IllegalArgumentException.class, () -> Escapers.jsonAttr(out, hostile));
       assertThrows(IllegalArgumentException.class, () -> Escapers.json(out, List.of(1, hostile)));
       assertThrows(IllegalArgumentException.class, () -> Escapers.appendJson(new StringBuilder(), hostile, 0));
       assertEquals("", out.toString());

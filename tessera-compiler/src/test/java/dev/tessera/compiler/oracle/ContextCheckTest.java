@@ -41,8 +41,9 @@ class ContextCheckTest {
     return esc(Escapers::json, v);
   }
 
-  private static String jsonAttr(String v) {
-    return esc(Escapers::jsonAttr, v);
+  /** JSON written into an attribute value (attribute-encoded), as the deleted jsonAttr did (#599). */
+  private static String jsonInAttribute(String v) {
+    return attr(json(v));
   }
 
   private static String esc(BiConsumer<StringOutput, Object> escaper, String v) {
@@ -95,7 +96,7 @@ class ContextCheckTest {
 
   /**
    * The only contexts that share a fingerprint are those whose escapers write it byte for byte
-   * the same (see {@link Fingerprint}): the entity-encoding family, and json/jsonAttr once decoded.
+   * the same (see {@link Fingerprint}): the entity-encoding family.
    * A new collision fails here, so the fingerprint gets fixed.
    */
   @Test
@@ -110,13 +111,9 @@ class ContextCheckTest {
       decoded.add(Fingerprint.classify(Fingerprint.core(c, true), 0, true));
     }
     assertEquals(
-        Set.of(EnumSet.of(OutputContext.TEXT), entity, EnumSet.of(OutputContext.SCRIPT),
-            EnumSet.of(OutputContext.SCRIPT_ATTRIBUTE)),
-        raw);
+        Set.of(EnumSet.of(OutputContext.TEXT), entity, EnumSet.of(OutputContext.SCRIPT)), raw);
     assertEquals(
-        Set.of(EnumSet.of(OutputContext.TEXT), entity,
-            EnumSet.of(OutputContext.SCRIPT, OutputContext.SCRIPT_ATTRIBUTE)),
-        decoded);
+        Set.of(EnumSet.of(OutputContext.TEXT), entity, EnumSet.of(OutputContext.SCRIPT)), decoded);
     // The distinct families really differ in what the parser sees, not only in the bytes.
     assertFalse(Fingerprint.core(OutputContext.TEXT, true).equals(Fingerprint.core(OutputContext.RCDATA, true)));
   }
@@ -148,10 +145,23 @@ class ContextCheckTest {
       }
       assertEquals(Set.of(all), path, "decoded=" + decoded);
       assertEquals(
-          Set.of(entity, EnumSet.of(OutputContext.SCRIPT, OutputContext.SCRIPT_ATTRIBUTE),
-              EnumSet.of(OutputContext.REFRESH)),
+          Set.of(entity, EnumSet.of(OutputContext.SCRIPT), EnumSet.of(OutputContext.REFRESH)),
           query, "decoded=" + decoded);
     }
+  }
+
+  /**
+   * No context writes JSON into an attribute value since #599 (jsonAttr is deleted), so the render of
+   * a JSON value in a Vue/Alpine binding is unclassified, a mismatch wherever it is (fail closed).
+   */
+  @Test
+  void jsonInABindingIsAMismatch() {
+    assertMismatch("<p :title=\"" + jsonInAttribute(FP) + "\">x</p>", "unclassified escaper");
+    assertMismatch("<p v-bind:title=\"" + jsonInAttribute(FP) + "\">x</p>", "unclassified escaper");
+    assertMismatch("<p x-bind:title=\"" + jsonInAttribute(FP) + "\">x</p>", "unclassified escaper");
+    assertMismatch("<p :data_foo=\"" + jsonInAttribute(FP) + "\">x</p>", "unclassified escaper");
+    assertMismatch("<a :href=\"" + jsonInAttribute(FP) + "\">x</a>", "unclassified escaper");
+    assertMismatch("<p v-bind:title.prop=\"" + jsonInAttribute(FP) + "\">x</p>", "unclassified escaper");
   }
 
   @Test
@@ -207,14 +217,14 @@ class ContextCheckTest {
     assertMismatch("<p x-text=\"" + attr(FP) + "\">x</p>", "@x-text");
     // JSON in a non-JS script, and in a plain attribute.
     assertMismatch("<script type=\"text/template\">" + json(FP) + "</script>", "script text");
-    assertMismatch("<p title=\"" + jsonAttr(FP) + "\">x</p>", "/html/body/p/@title");
+    assertMismatch("<p title=\"" + jsonInAttribute(FP) + "\">x</p>", "unclassified escaper");
     // noscript is raw text with scripting on and markup with scripting off.
     assertMismatch("<noscript>" + text(FP) + "</noscript>", "scripting-on /html/body/noscript text");
   }
 
   /**
    * Places an escaper's output is wrong in that the first version accepted or never tried: code
-   * attributes beyond on*, refresh content, JSON bindings of URL targets, text the parser
+   * attributes beyond on*, refresh content, text the parser
    * foster-parents out of a table (its {@code {<!---->{} break is split: the comment stays in the
    * table, the braces join in the text before it), SVG {@code <textarea>} and a MathML
    * {@code <title>}.
@@ -230,16 +240,12 @@ class ContextCheckTest {
     assertMismatch("<p data_ng-click=\"" + attr(FP) + "\">x</p>", "@data_ng-click");
     assertMismatch("<p x:ng-click=\"" + attr(FP) + "\">x</p>", "@x:ng-click");
     assertMismatch("<p _ng-click=\"" + attr(FP) + "\">x</p>", "@_ng-click");
-    assertMismatch("<p :data_ng-click=\"" + jsonAttr(FP) + "\">x</p>", "@:data_ng-click");
     assertClean("<p data-data-ng-click=\"" + attr(FP) + "\" data-xng-click=\"" + attr(FP) + "\">x</p>");
     // AngularJS is not modelled: the coarse deny also covers names it would not read as directives
     assertMismatch("<p data-ngx=\"" + attr(FP) + "\">x</p>", "@data-ngx");
-    assertClean("<p :data_foo=\"" + jsonAttr(FP) + "\">x</p>");
     assertMismatch("<x-c params=\"" + attr(FP) + "\">x</x-c>", "@params");
     assertMismatch("<script type=\"" + attr(FP) + "\"></script>", "@type");
     assertMismatch("<meta http-equiv=\"refresh\" content=\"0;url=/?q=" + attr(FP) + "\">", "@content");
-    assertMismatch("<a :href=\"" + jsonAttr(FP) + "\">x</a>", "@:href");
-    assertMismatch("<p v-bind:title.prop=\"" + jsonAttr(FP) + "\">x</p>", "@v-bind:title.prop");
     assertMismatch("<table>" + text(FP) + "<tr><td>x</td></tr></table>", "/html/body text");
     assertMismatch("<svg><textarea>" + rcdata(FP) + "</textarea></svg>", "textarea[svg] text");
     assertMismatch("<math><annotation-xml><title>" + rcdata(FP) + "</title></annotation-xml></math>",
@@ -319,8 +325,6 @@ class ContextCheckTest {
     cases.put("SCRIPT", "<script>var a = " + json(FP) + ";</script>");
     cases.put("SCRIPT module", "<script type=\"module\">var a = " + json(FP) + ";</script>");
     cases.put("SCRIPT svg", "<svg><script>var a = " + json(FP) + ";</script></svg>");
-    cases.put("SCRIPT_ATTRIBUTE", "<p :title=\"" + jsonAttr(FP) + "\">x</p>");
-    cases.put("SCRIPT_ATTRIBUTE x-bind", "<p x-bind:title=\"" + jsonAttr(FP) + "\">x</p>");
     cases.put("SCRIPT json", "<script type=\"application/json\">" + json(FP) + "</script>");
     cases.put("SCRIPT ld+json", "<script type=\"application/ld+json\">{\"a\": " + json(FP) + "}</script>");
     cases.put("concatenated", "<p>a" + text(FP + "b") + "</p><script>var a = " + json("x" + FP + "y") + ";</script>");

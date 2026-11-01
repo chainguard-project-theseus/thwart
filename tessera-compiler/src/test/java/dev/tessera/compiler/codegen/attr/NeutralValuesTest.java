@@ -202,6 +202,22 @@ class NeutralValuesTest {
   }
 
   /**
+   * A Vue/Alpine binding writes no JSON (#599 deleted jsonAttr): a String or a collection is a build
+   * error, a neutral value is attribute-escaped, and a null leaves the attribute out instead of
+   * writing JSON {@code null}.
+   */
+  @Test
+  void bindingsTakeNeutralValuesNotJson() {
+    for (String name : List.of("v-bind:title", "x-bind:title")) {
+      compile("<p t:attr=\"" + name + "=${s}\">x</p>").assertError("t.html:1:", "framework-neutral");
+      compile("<p t:attr=\"" + name + "=${tags}\">x</p>").assertError("t.html:1:", "framework-neutral");
+      Compilation c = compile("<p t:attr=\"" + name + "=${big}\">x</p>").assertSuccess();
+      assertEquals("<div><p " + name + "=\"1.5\">x</p></div>", render(c, "big", new BigDecimal("1.5")));
+      assertEquals("<div><p>x</p></div>", render(c, "big", null));
+    }
+  }
+
+  /**
    * The looser case is safe: a framework name that took no expression (#235) now takes a neutral
    * value, and whatever JavaScript evaluator reads it can neither call, assign nor increment or
    * decrement anything (#583's research: a value starting with {@code /} is a regular expression
