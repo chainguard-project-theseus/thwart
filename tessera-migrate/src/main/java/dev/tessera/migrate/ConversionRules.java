@@ -387,25 +387,4 @@ final class ConversionRules {
           + PARSE_ERROR_REJECTED + ": keep only the body's content in the fragment, and move what its head needs to the layout's `<head>`";
   static final String ATTRIBUTE_SPACE_MESSAGE =
       "no space before attribute `%s` (" + PARSE_ERROR_REJECTED + "): a space was added, which a browser reads the same";
-
-  /** {@code %1$s} is the inline, {@code %2$s} the variable it was hoisted into (#541). */
-  static final String SCRIPT_HOISTED_MESSAGE =
-      "`%1$s` in a script was moved into `var %2$s = %1$s;` at the top of the script and replaced by `%2$s`: in a"
-          + " Tessera script `[[...]]` is allowed only as the whole value of a declaration at the top, before any other"
-          + " code; `%2$s` is a global variable in a classic script, so rename it if another script on the page uses"
-          + " that name";
-  /** Appended to {@link #SCRIPT_HOISTED_MESSAGE} when the inline was inside a quoted string. */
-  static final String SCRIPT_HOISTED_STRING_MESSAGE =
-      "; it was inside a quoted string, which is now joined with `+`: a non-string value renders as JSON (`null`,"
-          + " not an empty string)";
-  /** Appended to {@link #SCRIPT_HOISTED_MESSAGE} for an inline inside a block or function; {@code %s} is the variable. */
-  static final String SCRIPT_HOISTED_DEFERRED_MESSAGE =
-      "; it was inside a block or function: code that runs later, such as a callback or event handler, now"
-          + " reads the global `%1$s` when it runs, and if the script is included more than once (a fragment per"
-          + " row) each copy overwrites it, so every callback reads the last copy's value; give each copy its own"
-          + " value, for example a number in a `data-*` attribute of the element it handles";
-  /** {@code %s} is the directive. */
-  static final String SCRIPT_DIRECTIVE_MESSAGE =
-      "%s no longer starts the script, because values were moved into declarations above it, so it no longer"
-          + " applies and the script no longer runs in strict mode; put it at the start of the functions that need it";
 }

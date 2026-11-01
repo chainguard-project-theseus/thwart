@@ -147,7 +147,7 @@ class PageNormalizerTest {
 
   @Test
   void hoistedPreludeValuesAreReordered() {
-    // tessera-migrate hoists each inline into var _tN = [[...]]; at the top of the script (#541).
+    // The compiler's fix-it moves each inline into a declaration at the top of the script (#540).
     check(REORDERED, "<script>x = \"a\"; if (y) { f(x, [1, 2]); }</script>",
         "<script>var _t1 = (\"a\"); var _t2 = ([1,2]);\nx = _t1; if (y) { f(x, _t2); }</script>");
     // A declaration moved to the top: the old page used the value where the new one uses the name.

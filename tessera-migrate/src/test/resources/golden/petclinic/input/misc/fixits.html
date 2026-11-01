@@ -9,7 +9,7 @@
   <!-- A missing space between attributes is added. -->
   <a href="/owners"class="btn" th:text="${owner.lastName}">owner</a>
   <a href="/owners" class="btn">spaced</a>
-  <!-- Values outside the script prelude are hoisted into var declarations at the top (#541). -->
+  <!-- Values outside the script prelude are left as they are: the compiler reports them (#540). -->
   <script th:inline="javascript">
     var path = location.pathname.split(/\//);
     var owner = /*[[${owner.id}]]*/ 0;

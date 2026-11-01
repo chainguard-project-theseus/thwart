@@ -264,8 +264,7 @@ replacing #332's data-prelude lexer and the #509 expression-position checks):
   prelude). There is no form without a keyword (`x = [[...]];`). Every hole after that is a build
   error with a fix-it: move the value into a declaration at the top, or use
   `<script type="application/json">` and `JSON.parse`. The code after the prelude is static and may
-  use anything (`/`, template literals, `-->`): no value follows it. `tessera-migrate` hoists
-  values into the prelude (#541).
+  use anything (`/`, template literals, `-->`): no value follows it.
 - `t:text` and `t:utext` on a JavaScript `<script>` are build errors with the same fix-it: the whole
   body would be one value with no code around it.
 - Every value in a JavaScript script is written in parentheses, `(json)` (`Escapers.javaScript`, and
@@ -282,7 +281,7 @@ replacing #332's data-prelude lexer and the #509 expression-position checks):
   a value in script text.
 
 In the latest migration-bench runs, 33 of the 36 JavaScript scripts with holes need their values
-hoisted into declarations at the top; the hoist is mechanical (#541).
+moved into declarations at the top.
 
 ### 5.5 Composition: content kinds
 
@@ -840,7 +839,8 @@ An attribute nobody classified is not a plain attribute: it was a build error (#
   class).
 - **Migrate hoist** (PR #563). `tessera-migrate` moves each value outside the prelude into
   `var _tN = [[...]];` above the first code, using the compiler's grammar, so the compiler's
-  checks are unchanged. 33 of 36 bench scripts needed it.
+  checks are unchanged. 33 of 36 bench scripts needed it. Deleted in #651: no bench run's output
+  used it, and the compiler's fix-it already names the move.
 
 ### 12.4 Frameworks (#542)
 
