@@ -61,6 +61,52 @@ class CheckMojoTest {
   }
 
   @Test
+  void firstBuildKeepsFilesOtherPluginsWrote() throws Exception {
+    // #626: after mvn clean, git-commit-id (phase initialize) writes git.properties before any
+    // compile has written a record.
+    write(classes.resolve("git.properties"), "git.commit.id=abc");
+    write(classes.resolve("templates/welcome.html"), "<p>v1</p>");
+    mojo.execute();
+    assertTrue(Files.exists(classes.resolve("git.properties")));
+    assertTrue(Files.exists(classes.resolve("templates/welcome.html")));
+  }
+
+  @Test
+  void staleOutputKeepsFilesOtherPluginsWrote() throws Exception {
+    compiled();
+    write(classes.resolve("git.properties"), "git.commit.id=abc");
+    write(classes.resolve("templates/welcome.html"), "<p>v1</p>");
+    write(classes.resolve("META-INF/services/com.example.Other"), "com.example.OtherImpl");
+    write(classes.resolve(CheckMojo.SERVICES_FILE), "com.example.TemplateRegistryImpl");
+    write(classes.resolve("META-INF/tessera/functions/app"), "com.example.Functions");
+    write(classes.resolve("com/example/Outer$Inner.class"), "x");
+    write(testClasses.resolve("com/example/WelcomeTest.class"), "x");
+    write(testClasses.resolve("test.properties"), "a=b");
+    write(templates.resolve("welcome.html"), "<p>v2</p>");
+    mojo.execute();
+    assertTrue(Files.exists(classes.resolve("git.properties")));
+    assertTrue(Files.exists(classes.resolve("templates/welcome.html")));
+    assertTrue(Files.exists(classes.resolve("META-INF/services/com.example.Other")));
+    assertTrue(Files.exists(testClasses.resolve("test.properties")));
+    // Everything javac and the processor wrote is gone, and the directories it leaves empty.
+    assertFalse(Files.exists(classes.resolve("com")));
+    assertFalse(Files.exists(classes.resolve("META-INF/tessera")));
+    assertFalse(Files.exists(classes.resolve(CheckMojo.SERVICES_FILE)));
+    assertFalse(Files.exists(testClasses.resolve("com")));
+    assertFalse(Files.exists(target.resolve("generated-sources/annotations")));
+    assertFalse(Files.exists(target.resolve("maven-status/maven-compiler-plugin")));
+  }
+
+  @Test
+  void outputWithoutARecordOrClassesIsKept() throws Exception {
+    write(classes.resolve("application.properties"), "a=b");
+    write(target.resolve("maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst"), "x");
+    mojo.execute();
+    assertTrue(Files.exists(classes.resolve("application.properties")));
+    assertTrue(Files.exists(target.resolve("maven-status/maven-compiler-plugin")));
+  }
+
+  @Test
   void unchangedTemplatesKeepTheOutput() throws Exception {
     compiled();
     mojo.execute();
@@ -107,6 +153,16 @@ class CheckMojoTest {
     Files.delete(classes.resolve(TemplateFingerprint.RESOURCE));
     mojo.execute();
     assertDeleted(true);
+  }
+
+  @Test
+  void classesWithoutARecordAreDeletedBesideOtherFiles() throws Exception {
+    // A failed or pre-#425 compile: class files but no record, next to a file another plugin wrote.
+    write(classes.resolve("git.properties"), "git.commit.id=abc");
+    write(classes.resolve("com/example/WelcomeTemplate.class"), "x");
+    mojo.execute();
+    assertFalse(Files.exists(classes.resolve("com")));
+    assertTrue(Files.exists(classes.resolve("git.properties")));
   }
 
   @Test

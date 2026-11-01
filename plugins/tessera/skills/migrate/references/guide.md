@@ -212,8 +212,10 @@ Spring falls back to (the system locale unless the app sets one). Facts about th
   stays green. The processor records the templates and message files it read
   (`META-INF/tessera/templates.fingerprint` in the class output). The `check` goal runs before
   `compile` (phase `process-sources`), and when one of them was added, edited or deleted it deletes
-  the module's compile output (`target/classes`, `target/test-classes`, the generated sources and
-  the compiler plugin's incremental state), so `compile` builds the module again. Its `templates`
+  the module's compile output (the class files and Tessera's `META-INF` files in `target/classes`
+  and `target/test-classes`, the generated sources and the compiler plugin's incremental state), so
+  `compile` builds the module again. Other files there are kept, such as the `git.properties` that
+  git-commit-id writes before `compile`. Its `templates`
   parameter is the `tessera.templates` directory, by default
   `${project.basedir}/src/main/resources/templates`. Its `messages` parameter is the
   `tessera.messages` value, read from the property of that name, so set the property and pass it
