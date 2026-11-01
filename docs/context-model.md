@@ -249,7 +249,8 @@ node. P (phrasing) is `a b i em strong u s del ins sub sup small mark code kbd s
 written). Input that doesn't fit is unwrapped (the tag is dropped, its content lands in the current
 node): misplaced and unknown tags, table parts (no policy allows them; the builder throws) and
 anything past depth 100. Raw-text, foreign, `template`, `select` and `object` elements are dropped
-with their content. Nothing is implied, closed early or moved. Controls other than ASCII
+with their content. Nothing is implied, closed early or moved. A numeric reference to
+U+0080..U+009F is read through the spec's windows-1252 table first (`&#146;` is `’`). Controls other than ASCII
 whitespace, noncharacters and lone surrogates, literal or from references, become U+FFFD in text
 and attribute values (they are parse errors in the parser's input), and a CR from a reference
 becomes LF. A named reference is decoded if the sanitizer knows it, kept if it is an HTML 4 name

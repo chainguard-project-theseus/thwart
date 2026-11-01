@@ -138,14 +138,26 @@ class HtmlSanitizerTest {
     String r = "\uFFFD";
     assertEquals("a" + r + "b" + r + "c" + r + "d" + r + "e" + r + "f" + r + "g" + r + "h",
         clean("a\u0001b\u007fc\u0085d\uFFFEe\uFDD0f\uD83F\uDFFFg\uD800h"));
-    assertEquals("a" + r + "b" + r + "c" + r + "d" + r + "e\nf", clean("a&#1;b&#128;c&#xFFFF;d&#x1FFFE;e&#13;f"));
+    assertEquals("a" + r + "b" + r + "c" + r + "d" + r + "e\nf", clean("a&#1;b&#129;c&#xFFFF;d&#x1FFFE;e&#13;f"));
     HtmlPolicy rich = HtmlPolicy.RICH;
-    assertEquals("<p title=\"" + r + r + "\n\">x</p>", rich.sanitize("<p title=\"\u0001&#x9f;&#13;\">x</p>").html());
+    assertEquals("<p title=\"" + r + r + "\n\">x</p>", rich.sanitize("<p title=\"\u0001&#x9d;&#13;\">x</p>").html());
     assertEquals("<img src=\"/a" + r + "b\" alt=\"" + r + "\">", rich.sanitize("<img src=\"/a\u0001b\" alt=\"&#127;\">").html());
     // the URL is checked before the replacement: a control the browser strips still hides no scheme
     assertEquals("<a>x</a>", clean("<a href=\"\u0001javascript:alert(1)\">x</a>"));
     // negative: whitespace, ordinary and supplementary characters are not replaced
     assertEquals("a\tb\nc\fd \u00E9\u20AC\uD83D\uDE00\uFFFD", clean("a\tb\nc\fd \u00E9\u20AC\uD83D\uDE00\uFFFD"));
+  }
+
+  /**
+   * #592: a numeric reference to U+0080..U+009F is read through the spec's windows-1252 table, as a
+   * browser does, so Word pastes keep their punctuation; the five unmapped ones become U+FFFD.
+   */
+  @Test
+  void c1ReferencesUseTheWindows1252Table() {
+    assertEquals("don’t — €5 Ÿ", clean("don&#146;t &#151; &#x80;5 &#159;"));
+    assertEquals("<p title=\"“q”\">x</p>", HtmlPolicy.RICH.sanitize("<p title=\"&#147;q&#148;\">x</p>").html());
+    // negative: unmapped references and literal C1 controls are not mapped, they become U+FFFD
+    assertEquals("�����|��", clean("&#129;&#141;&#143;&#144;&#157;|\u0080\u0092"));
   }
 
   @Test

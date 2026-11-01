@@ -61,6 +61,14 @@ final class HtmlSanitizer {
   /** Dropped with everything inside, found by counting nested tags of the same name. */
   private static final Set<String> DROP_CONTENT = HtmlPolicy.unmodifiable("svg", "math", "object", "template", "select");
 
+  /**
+   * The spec's numeric character reference table for U+0080..U+009F (windows-1252), indexed by
+   * {@code cp - 0x80}; 0 where the spec keeps the C1 control, which the writers make U+FFFD. Word
+   * pastes such as {@code don&#146;t} then read as the browser shows them (#592).
+   */
+  private static final String WINDOWS_1252 = "€\0‚ƒ„…†‡ˆ‰Š‹Œ\0Ž\0"
+      + "\0‘’“”•–—˜™š›œ\0žŸ";
+
   private static final Map<String, String> ENTITIES = new HashMap<>();
 
   static {
@@ -681,6 +689,8 @@ final class HtmlSanitizer {
       }
       if (cp == 0 || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) {
         cp = 0xFFFD;
+      } else if (cp >= 0x80 && cp <= 0x9F && WINDOWS_1252.charAt(cp - 0x80) != 0) {
+        cp = WINDOWS_1252.charAt(cp - 0x80); // as a browser reads it; unmapped C1 become U+FFFD later
       }
       sb.appendCodePoint(cp);
       return j;

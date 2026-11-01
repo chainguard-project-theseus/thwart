@@ -1045,7 +1045,10 @@ own name. A tag that doesn't fit is unwrapped: the tag is dropped and its conten
 So `<p>a<p>b</p>` becomes `<p>ab</p>`, nested links merge, and there are no tables (the builder
 rejects their parts; a table's cells run together as text). The output works as flow content
 wherever a `div` could hold it. Text is re-escaped (`{{` broken), character references are decoded
-(`&oacute;` stays `ó`), and control characters and noncharacters become U+FFFD.
+(`&oacute;` stays `ó`; `&#146;` is `’`, as in a browser), and control characters and noncharacters
+become U+FFFD. Named references outside the HTML 4 set are not decoded: their `&` is escaped, so
+HTML5-only names such as `&check;` or `&star;` show as written; use the character or a numeric
+reference (`&#x2713;`) instead.
 
 In Java, `SafeHtml.escape(text)` escapes text, `SafeHtml.of(template, ctx)` wraps another template's
 output, and `SafeHtml.concat(a, b, ...)` joins parts (`concat(escape(a), sanitize("<br>"),
