@@ -29,17 +29,17 @@
    "{% extends": 12,
    "{% set": 10,
    "| raw": 7,
+   "| default": 6,
    "{% macro": 6,
    "{% endmacro": 6,
-   "| default": 6,
    "{% elseif": 4,
    "| asJson": 3,
    "{% include": 2,
+   "|Lato": 1,
+   "|Roboto": 1,
    "|length": 1,
    "| first": 1,
-   "| join": 1,
-   "|Lato": 1,
-   "|Roboto": 1
+   "| join": 1
   }
  }
 }

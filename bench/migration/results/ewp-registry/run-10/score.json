@@ -1,0 +1,41 @@
+{
+ "app": "ewp-registry",
+ "run": "run-10",
+ "build_ok": true,
+ "tests_ok": true,
+ "tests": {
+  "tests": 374,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0
+ },
+ "tests_failed": [],
+ "baseline_tests": 372,
+ "pages_total": 38,
+ "pages_identical": 27,
+ "pages_reordered": 0,
+ "status_mismatch": [],
+ "insecure": [],
+ "legacy_templates": [],
+ "legacy_constructs": {},
+ "legacy_deps": [],
+ "tessera_templates": 14,
+ "baseline_templates": 14,
+ "pass": false,
+ "wall_minutes": 36.0,
+ "exit": 0,
+ "model": "opus",
+ "budget_usd": 40,
+ "budget_minutes": 90,
+ "outcome": "success",
+ "cost_usd": 10.051203599999997,
+ "turns": 160,
+ "tokens": {
+  "input_tokens": 308,
+  "output_tokens": 116004,
+  "cache_read_input_tokens": 30869633,
+  "cache_creation_input_tokens": 311193
+ },
+ "skill_listed": true,
+ "skill_invoked": true
+}
