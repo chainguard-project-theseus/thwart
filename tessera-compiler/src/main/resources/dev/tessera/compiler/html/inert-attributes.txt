@@ -61,11 +61,12 @@
 #   (CSP; it can only allow the template's own static script), pattern (a regular expression the
 #   browser only matches input against), command, method and formmethod (GenericAttrProcessor
 #   rejects a computed method on a <form> and a computed formmethod at build time).
-# content is listed for <meta> only, and Contexts narrows it further: it is inert only on a <meta>
-#   with a static name other than referrer, viewport or htmx-config and no http-equiv. Elsewhere on
-#   <meta> it is REFRESH (http-equiv=refresh), FORBIDDEN (http-equiv=Content-Type) or TYPED_ATTRIBUTE
-#   (another http-equiv such as content-security-policy or default-style, name=referrer,
-#   name=viewport, name=htmx-config, which htmx merges into its config, or no static name).
+# content is listed for <meta> only, and Contexts narrows it further (#590): it is inert only on a
+#   <meta> whose static name is on an allow-list (description, keywords, author, application-name,
+#   generator, color-scheme, theme-color), with no http-equiv, property or itemprop and no computed
+#   name. Elsewhere on <meta> it is REFRESH (http-equiv=refresh), FORBIDDEN (http-equiv=Content-Type)
+#   or TYPED_ATTRIBUTE (another http-equiv, a policy such as referrer or viewport, a name a browser,
+#   OS or crawler acts on such as apple-itunes-app, an unknown name, Open Graph, or no static name).
 abbr html text
 accent foreign mathml
 accentunder foreign mathml

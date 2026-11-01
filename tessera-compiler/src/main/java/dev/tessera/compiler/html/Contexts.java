@@ -370,34 +370,47 @@ public final class Contexts {
   }
 
   /**
-   * Whether the {@code content} of {@code element} (a {@code <meta>}) is plain metadata text (#539):
-   * the element has a static {@code name} that is not {@code referrer} (a referrer policy),
-   * {@code viewport} (it can disable zoom) or {@code htmx-config} (htmx merges it into its config,
-   * which can turn its mitigations off; framework table), no computed {@code name} ({@code t:name}, or a
-   * {@code t:attr*} that {@link HtmlParser#attrMaySet may set} it) that could replace it, and no
-   * static {@code http-equiv} (a pragma such as
-   * {@code content-security-policy} or {@code default-style}; a computed one is FORBIDDEN). Names
-   * and values fold A-Z only, as in a browser.
+   * The {@code <meta name>} values whose {@code content} is display text no browser, OS or crawler
+   * acts on (#590): a computed content is plain ATTRIBUTE only under one of these.
+   */
+  private static final Set<String> INERT_META_NAMES = Backports.setOf(
+      "description", "keywords", "author", "application-name", "generator", "color-scheme", "theme-color");
+
+  /**
+   * The {@code <meta>} attributes that say what its {@code content} means: {@code name}, a pragma
+   * ({@code http-equiv}), and {@code property} (Open Graph, App Links) and {@code itemprop}
+   * (microdata), which crawlers read whatever the {@code name} says.
+   */
+  private static final Set<String> META_KEYS = Backports.setOf("name", "http-equiv", "property", "itemprop");
+
+  /**
+   * Whether the {@code content} of {@code element} (a {@code <meta>}) is plain metadata text (#539,
+   * #590): every static {@code name} is on {@link #INERT_META_NAMES the allow-list} and there is at
+   * least one, and no other {@link #META_KEYS key} is static, computed or {@link HtmlParser#attrMaySet
+   * may be set} by a {@code t:attr*}. Any other content (a policy such as {@code referrer} or
+   * {@code viewport}, an unknown name, Open Graph) takes literals only. Names and values fold A-Z only,
+   * as in a browser.
    */
   private static boolean isNamedMetaContent(Element element) {
     boolean named = false;
     for (Attribute a : element.attributes()) {
       if (a.isTessera()) {
-        if (HtmlParser.asciiLower(a.localName()).equals("name") || HtmlParser.attrMaySet(a, "name")) {
-          return false; // a computed name may replace the static one
+        for (String key : META_KEYS) {
+          if (HtmlParser.asciiLower(a.localName()).equals(key) || HtmlParser.attrMaySet(a, key)) {
+            return false; // a computed key may replace or override the static name
+          }
         }
         continue;
       }
       String n = HtmlParser.asciiLower(a.name());
-      if (n.equals("http-equiv")) {
-        return false;
-      }
       if (n.equals("name")) {
         String v = a.value() == null ? "" : HtmlParser.asciiLower(HtmlParser.stripAnySpace(a.value()));
-        if (v.equals("referrer") || v.equals("viewport") || v.equals("htmx-config")) {
+        if (!INERT_META_NAMES.contains(v)) {
           return false;
         }
         named = true;
+      } else if (META_KEYS.contains(n)) {
+        return false;
       }
     }
     return named;
