@@ -64,35 +64,63 @@ class CsrfClosedShapeTest {
   void formAttributeButton() {
     page("<form id=\"f\" method=\"post\"></form><button form=\"f\" formaction=\"//evil.example/\">Go</button>")
         .assertError("formaction=");
-    page("<form id=\"f\" method=\"post\"></form><button form=\"f\" hx-post=\"https://evil.example/\">Go</button>")
-        .assertError("hx-post=", "htmx sends the enclosing form");
   }
 
-  /** #311: a static htmx request URL on a token form. */
+  /**
+   * #583, #585: htmx is not modelled. What htmx sends where ({@code hx-post}, {@code hx-ws}, a
+   * boost) is outside the guarantee (use htmx 2 or {@code selfRequestsOnly}); the closed shape is
+   * about what the browser submits natively, so the form gets its token because its own action is
+   * same-origin, and the htmx attributes render as written.
+   */
   @Test
-  void staticHtmxUrl() {
-    page("<form method=\"post\" hx-post=\"https://evil.example/\"><button>Go</button></form>")
-        .assertError("hx-post=");
-    page("<form method=\"post\"><button data-hx-put=\"//evil.example/\">Go</button></form>")
-        .assertError("data-hx-put=");
+  void htmxIsNotModelled() {
+    Compilation c = page("<form method=\"post\" hx-post=\"https://evil.example/\"><button>Go</button></form>"
+        + "<form method=\"post\" action=\"/x\" hx-ws=\"connect:wss://evil.example/\">"
+        + "<button data-hx-put=\"//evil.example/\" hx-sse=\"connect:/e\">Go</button></form>").assertSuccess();
+    assertEquals("<div><form method=\"post\" hx-post=\"https://evil.example/\">"
+        + "<input type=\"hidden\" name=\"_csrf\" value=\"tok\" /><button>Go</button></form>"
+        + "<form method=\"post\" action=\"/x\" hx-ws=\"connect:wss://evil.example/\">"
+        + "<input type=\"hidden\" name=\"_csrf\" value=\"tok\" />"
+        + "<button data-hx-put=\"//evil.example/\" hx-sse=\"connect:/e\">Go</button></form></div>", render(c));
   }
 
   /** #350: a cross-origin {@code <base>} anywhere, a layout's included. */
   @Test
   void base() {
     page("<base href=\"https://evil.example/\"><form method=\"post\"></form>").assertError("on <base> is not allowed");
+    page("<base href=\"//evil.example/\">").assertError("on <base> is not allowed");
+    page("<base href=\"&sol;&sol;evil.example/\">").assertError("on <base> is not allowed");
+    page("<base t:href=\"u\">").assertError("t:href is not allowed");
   }
 
-  /** #498: boosted from a layout; the form's action is a same-origin link anyway, or an error. */
+  /**
+   * #498: a boost from a layout needs no tracking. A POST form's computed action is a same-origin
+   * link or an error, and a GET form's a same-origin link or a TrustedUrl (#585), boosted or not.
+   */
   @Test
   void boostFromLayout() {
-    Compilation.Builder b = Compilation.builder()
-        .template("layout.html", "<div " + NS + " " + FRAG + "><main t:fragment=\"l(Fragment c)\" hx-boost=\"true\">"
-            + "<div t:replace=\"${c}\"></div></main></div>");
-    b.template("page.html", "<div " + NS + " t:params=\"String u\" t:replace=\"~{layout :: l(~{::section})}\">"
+    String layout = "<div " + NS + " " + FRAG + "><main t:fragment=\"l(Fragment c)\" hx-boost=\"true\">"
+        + "<div t:replace=\"${c}\"></div></main></div>";
+    Compilation.builder()
+        .template("layout.html", layout)
+        .template("page.html", "<div " + NS + " t:params=\"String u\" t:replace=\"~{layout :: l(~{::section})}\">"
             + "<section><form method=\"post\" t:action=\"u\"><button>Go</button></form></section></div>")
         .compile()
-        .assertError("t:action is not allowed");
+        .assertError("page.html:1:", "t:action is not allowed", "the CSRF token");
+    Compilation.builder()
+        .template("layout.html", layout)
+        .template("page.html", "<div " + NS + " t:params=\"String u\" t:replace=\"~{layout :: l(~{::section})}\">"
+            + "<section><form t:action=\"u\"><button>Go</button></form></section></div>")
+        .compile()
+        .assertError("page.html:1:", "t:action is not allowed", "must stay on the page's origin");
+    Compilation c = Compilation.builder()
+        .template("layout.html", layout)
+        .template("page.html", "<div " + NS + " t:replace=\"~{layout :: l(~{::section})}\">"
+            + "<section><form t:action=\"@{/s}\"><button>Go</button></form></section></div>")
+        .compile()
+        .assertSuccess();
+    assertEquals("<main hx-boost=\"true\"><section><form action=\"/s\"><button>Go</button></form>"
+        + "</section></main>", render(c));
   }
 
   /** TODO(#309): a form nested in another, directly or through a fragment or layout. */
@@ -121,6 +149,6 @@ class CsrfClosedShapeTest {
     assertEquals("<div><form method=\"post\" action=\"/x\"><input type=\"hidden\" name=\"_csrf\" value=\"tok\" />"
         + "<button formaction=\"/y\">Go</button></form><form method=\"post\" action=\"https://pay.example/\"></form></div>",
         render(c));
-    assertFalse(render(page("<form method=\"get\" t:action=\"u\"></form>").assertSuccess()).contains("_csrf"));
+    assertFalse(render(page("<form method=\"get\" t:action=\"@{/s}\"></form>").assertSuccess()).contains("_csrf"));
   }
 }
