@@ -13,7 +13,9 @@ ENV JAVA_HOME=/usr/lib/jvm/default-jvm
 COPY . /src
 WORKDIR /src
 # Every artifact the guide tells an app to use, including tessera-maven-plugin (#425).
-RUN mvn -B -ntp -q install -DskipTests -Dmaven.repo.local=/m2 \
+# -Dinvoker.skip: the image needs only the installed artifacts, not the plugin's
+# invoker IT (which -DskipTests does not skip and which fetches over the network).
+RUN mvn -B -ntp -q install -DskipTests -Dinvoker.skip -Dmaven.repo.local=/m2 \
       -pl tessera-runtime,tessera-compiler,tessera-spring-boot-starter,tessera-spring-boot-starter-javax,tessera-maven-plugin,tessera-migrate -am
 
 FROM cgr.dev/chainguard/wolfi-base
