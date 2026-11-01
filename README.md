@@ -214,8 +214,8 @@ exercises it), so Maven doesn't recompile when only a template or message file c
 `mvn clean verify` when in doubt. CI is Chainguard
 Checks running the same command ([.chainguard/ci/maven.yaml](.chainguard/ci/maven.yaml)).
 
-The guide's examples are compiled by `GuideExamplesTest` and its diagnostic catalogue is checked
-by `DiagnosticCatalogueTest`. `plugins/tessera/skills/migrate/references/guide.md` is a copy of
+The guide's examples are compiled by `GuideExamplesTest`.
+`plugins/tessera/skills/migrate/references/guide.md` is a copy of
 [docs/guide.md](docs/guide.md): edit the guide, then copy it (`MigrationSkillTest` fails when the
 copy is stale).
 

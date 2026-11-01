@@ -30,7 +30,7 @@ about the other engines come from their official docs and repositories as of Oct
 - **Features.** No hot reload: a template change needs a recompile, and under Maven
   `tessera-maven-plugin` to notice it. No Gradle plugin, no Kotlin, no WebFlux, no streaming
   or async rendering API. The closed HTML profile rejects markup that browsers accept, and the
-  `<script>` rules restrict which JavaScript can come before an inlined value (guide section 7).
+  `<script>` rules restrict which JavaScript can come before an inlined value (guide section 4.4).
 - **Expressiveness.** Templates read getters and call only registered `@TemplateFunction`s. JTE
   and Rocker let a template call any Java. That is a deliberate trade, but it means more code in
   controllers.
@@ -73,4 +73,4 @@ Checked October 2026.
 - JStachio: [documentation](https://jstach.io/doc/jstachio/current/apidocs/), [GitHub](https://github.com/jstachio/jstachio),
   [Mustache manual](https://mustache.github.io/mustache.5.html) (unescaped variables).
 - Qute: [reference guide](https://quarkus.io/guides/qute-reference), [Quarkus getting started (JDK 17+)](https://quarkus.io/guides/getting-started).
-- Tessera: [README](../README.md), [guide](guide.md) (section 7, known limitations), [security model](security-model.md).
+- Tessera: [README](../README.md), [guide](guide.md) (section 5, known limitations), [security model](security-model.md).

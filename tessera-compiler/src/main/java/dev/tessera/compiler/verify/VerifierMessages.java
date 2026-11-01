@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
  * It never shows a parser state, an insertion mode or an engine class. When the hole is inside a
  * fragment, the error is at the call site and the message names the fragment and the hole; when
  * only one scripting mode rejects it, the message says so. Every message ends with
- * {@code [verifier:RULE_ID]} ({@link Problem}, stable ids). Guide section 7 has the catalogue, and
+ * {@code [verifier:RULE_ID]} ({@link Problem}, stable ids). Guide section 5 summarizes them, and
  * {@code VerifierMessagesTest} the golden text.
  */
 final class VerifierMessages {
