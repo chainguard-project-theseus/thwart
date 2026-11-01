@@ -8,6 +8,7 @@ import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.types.CompiledExpr;
+import dev.tessera.compiler.types.ViewSafety;
 import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.StringOutput;
@@ -63,22 +64,6 @@ final class ScriptJson {
 
   private static final String TEMPLATE_VIEW = "dev.tessera.runtime.TemplateView";
   private static final String OBJECT = "java.lang.Object";
-
-  /** Boxes and JDK value types {@code Escapers.json} serializes as a JSON scalar. */
-  private static final Set<String> JSON_VALUES =
-      Backports.setOf(
-          "java.lang.Boolean",
-          "java.lang.Byte",
-          "java.lang.Short",
-          "java.lang.Integer",
-          "java.lang.Long",
-          "java.lang.Float",
-          "java.lang.Double",
-          "java.lang.Character",
-          "java.lang.String",
-          "java.lang.CharSequence",
-          "java.math.BigDecimal",
-          "java.math.BigInteger");
 
   /**
    * {@code java.time} types {@code Escapers.json} serializes as an ISO string. Must mirror the
@@ -196,7 +181,7 @@ final class ScriptJson {
     DeclaredType dt = (DeclaredType) t;
     TypeElement te = (TypeElement) dt.asElement();
     String name = te.getQualifiedName().toString();
-    if (te.getKind() == ElementKind.ENUM || JSON_VALUES.contains(name) || JSON_TIME.contains(name)) {
+    if (te.getKind() == ElementKind.ENUM || ViewSafety.isJdkValueType(name) || JSON_TIME.contains(name)) {
       return code;
     }
     List<? extends TypeMirror> args = dt.getTypeArguments();

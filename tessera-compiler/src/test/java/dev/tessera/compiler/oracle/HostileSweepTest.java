@@ -84,7 +84,8 @@ import org.w3c.dom.NodeList;
  *       (#540) and the expression positions it rejects, for each Java value type. For every accepted
  *       shape, the reference {@code PRE("m")POST} and each hostile render are parsed with Rhino: the
  *       value must be one literal spanning exactly the hole, and the AST outside it must equal the
- *       reference. No baseline: any hit fails.
+ *       reference. No baseline: any hit fails. This is the one Rhino check of script values; the
+ *       oracle gate has none of its own (#591).
  * </ul>
  *
  * <p>The surefire {@code release-8} execution excludes {@code oracle/**}, so the sweep runs once.
@@ -436,6 +437,23 @@ class HostileSweepTest {
       "\n`x`", ".\nfoo", ": 1", " in o", " instanceof Object", "/2", "/2/g", " = 1", "=>1", ")", "]", "}", " ? 1 : 2",
       "\n-->x", " --> x");
   static final List<String> VARS = List.of("s", "n", "d", "bd", "l");
+  /**
+   * Value types written by the generated serializers and the boxed paths (#591): a Boolean, a Long,
+   * a map, an enum, a record and a bean, in two prelude declarations per script type. The grammar is
+   * covered by {@link #VARS}; these reach the escaper paths the oracle gate's script check used to.
+   * TODO(#618): the generator's containers around an accepted prelude script.
+   */
+  static final List<String> SERIALIZED_VARS = List.of("b", "lg", "m", "e", "r", "p");
+  static final String SCRIPT_PARAMS = "String s, int n, double d, java.math.BigDecimal bd, java.util.List<String> l,"
+      + " Boolean b, Long lg, java.util.Map<String, String> m, com.example.SweepKind e,"
+      + " com.example.SweepRecord r, com.example.SweepBean p";
+  static final Map<String, String> SWEEP_SOURCES = Map.of(
+      "com.example.SweepKind", "package com.example; public enum SweepKind { A, B }",
+      "com.example.SweepRecord",
+      "package com.example; public record SweepRecord(String s, int n, java.util.List<String> l) {}",
+      "com.example.SweepBean", "package com.example; @dev.tessera.runtime.TemplateView public final class SweepBean {"
+          + " private final String s;"
+          + " public SweepBean(String s) { this.s = s; } public String getS() { return s; } }");
 
   record ScriptCase(String view, String var, String type, String pre, String post, String template) {}
 
@@ -465,7 +483,23 @@ class HostileSweepTest {
     v.put("bd", List.of(new BigDecimal("5"), new BigDecimal("-1"), new BigDecimal("1E+3"), new BigDecimal("-0.00"),
         new BigDecimal("1E-10"), evil));
     v.put("l", List.of(List.of(), List.of("a"), List.of("</script>", "x")));
+    v.put("b", List.of(true, false));
+    v.put("lg", List.of(0L, Long.MIN_VALUE, Long.MAX_VALUE, 9007199254740993L));
+    v.put("m", List.of(Map.of(), Map.of("</script><script>alert(1)</script>", "\"-alert(1)-\"", "k", "\u2028`${x}`")));
     return v;
+  }
+
+  /** The values of {@link #SWEEP_SOURCES} types, loaded from the case's compilation. */
+  static List<Object> compiledValues(String var, Compilation c) {
+    return switch (var) {
+      case "e" -> List.of(c.enumConstant("com.example.SweepKind", "A"), c.enumConstant("com.example.SweepKind", "B"));
+      case "r" -> List.of(c.newInstance("com.example.SweepRecord", "x", 0, List.of()),
+          c.newInstance("com.example.SweepRecord", "</script><script>alert(1)</script>", Integer.MIN_VALUE,
+              List.of("\"-alert(1)-\"", "<!--<script>")));
+      case "p" -> List.of(c.newInstance("com.example.SweepBean", "x"),
+          c.newInstance("com.example.SweepBean", "'-alert(1)-'</script>"));
+      default -> throw new IllegalArgumentException(var);
+    };
   }
 
   @Test
@@ -506,6 +540,12 @@ class HostileSweepTest {
         }
       }
     }
+    for (String var : SERIALIZED_VARS) {
+      for (String type : SCRIPT_TYPES) {
+        add(cases, shapes, var, type, "const a = ", ";");
+        add(cases, shapes, var, type, "\nvar a=", ";\nf(a);");
+      }
+    }
     Map<String, Compilation> accepted = compileAll(cases.stream().collect(
         Collectors.toMap(ScriptCase::view, ScriptCase::template, (x, y) -> x, LinkedHashMap::new)));
     long t1 = System.nanoTime();
@@ -529,9 +569,14 @@ class HostileSweepTest {
         return;
       }
       String rTree = tree(r.root, rSlot);
-      TemplateEntry entry = accepted.get(c.view()).registry().find(c.view()).orElseThrow();
-      for (Object v : values.get(c.var())) {
-        Map<String, Object> model = new HashMap<>(DEFAULTS);
+      Compilation comp = accepted.get(c.view());
+      TemplateEntry entry = comp.registry().find(c.view()).orElseThrow();
+      Map<String, Object> defaults = new HashMap<>(DEFAULTS);
+      for (String x : List.of("e", "r", "p")) {
+        defaults.put(x, compiledValues(x, comp).get(0));
+      }
+      for (Object v : values.containsKey(c.var()) ? values.get(c.var()) : compiledValues(c.var(), comp)) {
+        Map<String, Object> model = new HashMap<>(defaults);
         model.put(c.var(), v);
         String out;
         try {
@@ -594,15 +639,14 @@ class HostileSweepTest {
   }
 
   static final Map<String, Object> DEFAULTS =
-      Map.of("s", "x", "n", 0, "d", 0.0, "bd", BigDecimal.ONE, "l", List.of());
+      Map.of("s", "x", "n", 0, "d", 0.0, "bd", BigDecimal.ONE, "l", List.of(), "b", false, "lg", 0L, "m", Map.of());
 
   static void add(List<ScriptCase> cases, Set<String> seen, String var, String type, String pre, String post) {
     if (!seen.add(var + "\u0000" + type + "\u0000" + pre + "\u0000" + post)) {
       return;
     }
     String view = String.format("j%06d", cases.size());
-    String params = "String s, int n, double d, java.math.BigDecimal bd, java.util.List<String> l";
-    cases.add(new ScriptCase(view, var, type, pre, post, "<div t:params=\"" + params + "\"><script" + type + ">"
+    cases.add(new ScriptCase(view, var, type, pre, post, "<div t:params=\"" + SCRIPT_PARAMS + "\"><script" + type + ">"
         + pre + "[[${" + var + "}]]" + post + "</script></div>"));
   }
 
@@ -733,7 +777,7 @@ class HostileSweepTest {
     SpecParser vnu = SpecParsers.named(SpecParsers.VNU_26);
     assertKinds(vnu, "<a data-tsweep href=\" JaVaScRiPt:alert(1)\">", " JaVaScRiPt:alert(1)", "URL_SCRIPT_SCHEME");
     assertKinds(vnu, "<img data-tsweep srcset=\"/ok.png 1x, javascript:alert(1) 2x\">",
-        "/ok.png 1x, javascript:alert(1) 2x", "URL_SCRIPT_SCHEME", "URL_LIST_CONTROLLED");
+        "/ok.png 1x, javascript:alert(1) 2x", "URL_SCRIPT_SCHEME", "URLS_FROM_ONE_VALUE");
     assertKinds(vnu, "<script data-tsweep src=\"//evil.example/x.js\"></script>", "//evil.example/x.js",
         "URL_CROSS_ORIGIN_CODE");
     assertKinds(vnu, "<svg><rect><animate data-tsweep attributeName=\"href\" values=\"/a;javascript:alert(1)\"/>",
@@ -849,6 +893,21 @@ class HostileSweepTest {
         .startsWith("JS_VALUE_NOT_ONE_EXPRESSION"));
     assertTrue(checkScript(vnu, "<script>var a = </script><script>;</script>", c, 1.0, rTree)
         .startsWith("SCRIPT_ELEMENT_CHANGED"));
+    // From the deleted ScriptInvariantTest (#591): JSON arrays, objects and hostile strings are one
+    // literal; a quoted-hole breakout, a getter, a regex, a name, two tokens or broken syntax is not.
+    assertEquals(null, checkScript(vnu, "<script>var a = ({\"x\":[1,-2.5,true,false,null,\"tqm0001()\"],\"y\":{}});"
+        + "</script>", c, "x", rTree));
+    assertEquals(null, checkScript(vnu, "<script>var a = (\"*/tqm0001()/*\\u2028`${x}\");</script>", c, "x", rTree));
+    for (String bad : List.of("(\"\"+tqm0001()+\"\")", "({get x() { return 1; }})", "(/tqm0001/)", "([tqm0001])",
+        "(\"x\") + (\"y\")")) {
+      String p = checkScript(vnu, "<script>var a = " + bad + ";</script>", c, "x", rTree);
+      assertTrue(p != null && p.startsWith("JS_VALUE_NOT_LITERAL"), bad + " :: " + p);
+    }
+    assertTrue(checkScript(vnu, "<script>var a = (\"\"x\"\");</script>", c, "x", rTree)
+        .startsWith("JS_VALUE_BREAKS_SYNTAX"));
+    ScriptCase commented = new ScriptCase("j", "s", "", "var a = ", "; // x", "");
+    assertTrue(checkScript(vnu, "<script>var a = (\"x\"); // y</script>", commented, "x", rTree)
+        .startsWith("SCRIPT_STATIC_CHANGED"));
   }
 
   /** The ratchet fails on an unlisted hit and on a listed hit that no longer occurs. */
@@ -1067,6 +1126,7 @@ class HostileSweepTest {
       List<String> todo = new ArrayList<>(batch);
       while (!todo.isEmpty()) {
         Compilation.Builder b = Compilation.builder();
+        SWEEP_SOURCES.forEach(b::java);
         todo.forEach(v -> b.template(v + ".html", templates.get(v)));
         Compilation c = b.compile();
         if (c.success()) {
@@ -1083,7 +1143,9 @@ class HostileSweepTest {
         List<String> rest = todo.stream().filter(v -> !bad.contains(v)).toList();
         if (rest.size() == todo.size()) {
           for (String v : todo) {
-            Compilation alone = Compilation.builder().template(v + ".html", templates.get(v)).compile();
+            Compilation.Builder one = Compilation.builder().template(v + ".html", templates.get(v));
+            SWEEP_SOURCES.forEach(one::java);
+            Compilation alone = one.compile();
             if (alone.success()) {
               accepted.put(v, alone);
             }
