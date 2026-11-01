@@ -2071,9 +2071,10 @@ After:
   - After `<@spring.bind "signup.email"/>`, `spring.status.value`, `spring.status.errorMessages`
     and `spring.status.error` are `fields.value('email')`, `fields.errors('email')` and
     `fields.hasErrors('email')`.
-  - `showErrors` writes each message in a `<span>` with the class (a `<b>` without one), with
-    the separator between them. `t:errors` writes them in its own element, joined by `<br />`;
-    where the markup matters, loop over `fields.errors`. Before:
+  - `showErrors` writes each message in a `<span>` with the class (the `style` if the argument
+    has a `:`; a `<b>` without an argument), with the separator between them. `t:errors` writes
+    them in its own element, joined by `<br />`; where the markup matters, loop over
+    `fields.errors`. Before:
 
 ```ftl
 <form method="post">
