@@ -36,7 +36,9 @@ The recommendation, in three parts:
    it at build time.
 2. Prove the compiler's model against a **spec-conformant parser in test scope**, as a CI gate.
 3. Admit that client-side frameworks are **outside what a server compiler can prove**. Bound them
-   with deny-by-default names, a versioned framework table, and CSP, rather than chase them.
+   with framework-neutral values in every name outside HTML (§12.2, which replaced the
+   deny-by-default names and framework table first proposed here), `{{` breaking and CSP, rather
+   than chase them.
 
 Principle 5 changes from "the compiler picks the escaper" to "the compiler accepts only what it
 can classify exactly". Principle 6 is subordinated to it explicitly.
@@ -299,6 +301,13 @@ This is Soy's model applied to our types, and it's additive: existing code is `H
 
 ### 5.6 Attributes and client frameworks
 
+Superseded by §12.2's framework-neutral values (#583, #584), as §12.4 is. There are no
+deny-by-default names, no framework table and no framework harness: every computed value in a name
+that is not a standard HTML, SVG, MathML or ARIA name is a number, a boolean or a same-origin path,
+`{{` is broken where it is lossless (§12.8), and CSP bounds the rest (guide §4.11). The `ng` deny
+described below was deleted in #584. The CSP paragraph at the end of this section still holds. The
+rest is kept as the record of the earlier design.
+
 **Deny-by-default names for computed attributes.** A `t:` attribute (or a `t:attr` entry) is
 accepted only if its name is:
 
@@ -422,10 +431,10 @@ ways.
 
 | Change | Why |
 |---|---|
-| **docs/security-model.md**: threat model and trust boundaries. Attacker: controls every model value. Template authors: trusted but fallible, so a template whose meaning the compiler can't pin down is rejected, whoever wrote it. Messages: checked at build time. `SafeHtml`/`TrustedUrl`: review points. Browsers: the supported set, including ESR. Page JavaScript: outside, except the framework table | Today every reviewer reconstructs the threat model, and severity arguments ("contrived template") recur |
-| **docs/context-model.md**: the profile (§5.2-5.6) as tables. **Every change to `HtmlParser`, `MarkupTokenizer`, `Contexts`, `TextInlining`, `Escapers` or the framework table updates it in the same PR** | One written model instead of one per PR |
+| **docs/security-model.md**: threat model and trust boundaries. Attacker: controls every model value. Template authors: trusted but fallible, so a template whose meaning the compiler can't pin down is rejected, whoever wrote it. Messages: checked at build time. `SafeHtml`/`TrustedUrl`: review points. Browsers: the supported set, including ESR. Page JavaScript: outside (principle 7; there is no framework table since #584) | Today every reviewer reconstructs the threat model, and severity arguments ("contrived template") recur |
+| **docs/context-model.md**: the profile (§5.2-5.6) as tables. **Every change to `HtmlParser`, `MarkupTokenizer`, `Contexts`, `TextInlining` or `Escapers` updates it in the same PR** | One written model instead of one per PR |
 | **The oracle gate in CI** (§5.7). A new context, mode, or framework entry lands with oracle or harness rows. A PR that widens the accepted language must say so in its description | Turns review findings into CI failures; would have caught #291's regression |
-| **Deny-by-default for client frameworks.** No computed value in an unknown attribute namespace. Framework support is a table entry with a version range and harness rows | Ends the chase in family D |
+| **Framework-neutral values for client code** (§12.2, #583, #584; this row first said deny-by-default names and a framework table). A computed value in any name that is not a standard HTML, SVG, MathML or ARIA name is a number, a boolean or a same-origin path. No framework is modelled; `{{` breaking and CSP bound the rest | Ends the chase in family D |
 | **One owner per security area, and design before code.** Claim an issue before starting; for parser, context or escaper changes, post a design comment (as #248 and #258 did) and get agreement before opening a PR. No second PR for a claimed issue; offer tests to the first one instead | Avoids #290/#294, #289/#298, #291/#301 |
 | **Reject over rewrite, and fail closed when unsure.** If a check has to guess (regex vs division, namespace), the guess must lead to a build error, not to accepting | Most bypasses in #290 and #291 came from guesses that failed open |
 | **Severity is about the compiler, not the author.** A template the compiler misclassifies is a bug even if the markup is contrived; fix it by shrinking the profile | Stops the "contrived, low severity" debate, while keeping the fix small |
@@ -698,7 +707,7 @@ and its 45,056-variant differential become test cases. Known deviations are list
 | Family | Status | Owner |
 |---|---|---|
 | C. JS lexical position | Not covered. The verifier makes one input exact: a `json` hole is in an HTML script's data | closed prelude grammar (§12.3) |
-| D. Client frameworks | Not covered | deny-by-default names (#330), framework table (#333), harness (#334), CSP nonces (#335, PR #361); AngularJS unsupported, with a coarse `ng` deny (§12.4) |
+| D. Client frameworks | Not covered | framework-neutral values in every name outside HTML, SVG, MathML and ARIA (§12.2, #584), `{{` breaking (§12.8), CSP nonces (#335, PR #361; guide §4.11). No framework is modelled and AngularJS is unsupported, with no `ng` deny (§12.4) |
 | E. URL and CSRF policy | Not covered. The element and attribute a value lands in become exact | inert-text list and single-URL grammar (§12.2), closed form shape (§12.7) |
 | CSS inside `style` | Not covered beyond "the value stays in its attribute" | `CssValue` rules |
 
@@ -743,7 +752,7 @@ The error-free rule, measured on `main` 49060ba (`~/tessera-handoff/errorfree-me
 | §5.3 parse modes and allow-lists (#328) | The verifier's exclusions (§11.4) own the browser splits. `HtmlParser`'s mode rules stay only where their message is better (#411). `plaintext` stays an error. The element allow-list moves to phase 4 as a framework/typo rule |
 | §5.4 script prelude rule (#540) | Unchanged |
 | §5.5 content kinds (#329) | **Redefined** as one parser-state predicate, `FLOW`, checked by the verifier. `PHRASING` is backlog (#397) |
-| §5.6 attribute names, framework table, CSP | Unchanged (family D) |
+| §5.6 attribute names, framework table, CSP | **Superseded** by §12.2's framework-neutral values (#584): no deny-by-default names, framework table or harness. Family D is bounded by neutral values, `{{` breaking and CSP |
 | §5.7 oracle gate (#324) | **Repurposed.** It tests skeleton fidelity and the inertness lemma, and keeps value checks for C, D and E. Its Node job is the nightly divergence detector (#399) |
 | §5.8 what doesn't change | All of it, except the compiler's dependencies: `tessera-compiler` shades the pinned parser (§11.4). The runtime, the starters and generated code stay dependency-free |
 

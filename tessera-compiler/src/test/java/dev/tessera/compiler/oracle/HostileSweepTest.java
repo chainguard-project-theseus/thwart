@@ -68,11 +68,13 @@ import org.w3c.dom.NodeList;
  * gate in {@code mvn verify}; each writes its report to {@code target/hostile-sweep/<pass>.txt}.
  *
  * <ul>
- *   <li><b>Attributes.</b> Every name in {@code attributes.txt}, plus framework spellings from a
- *       small grammar, on representative HTML, SVG and MathML elements, as {@code t:<name>="${s}"}.
- *       What the compiler accepts is rendered with a hostile corpus, parsed with validator.nu, and
- *       each attribute of the target element is classified by {@link HostileSinks}, a sink table
- *       written from the specs. A ratchet: each (element, attribute, sink) hit must have a justified
+ *   <li><b>Attributes.</b> Every name in {@code attributes.txt}, plus names outside HTML and odd
+ *       spellings, on representative HTML, SVG and MathML elements, as {@code t:<name>="${s}"}; the
+ *       names outside HTML also with each framework-neutral shape (a link with a path variable, a
+ *       number, a boolean). What the compiler accepts is rendered with a hostile corpus, parsed with
+ *       validator.nu, and each attribute of the target element is classified by {@link HostileSinks},
+ *       a sink table written from the specs: for a name outside HTML, the value must be in the
+ *       neutral grammar (#583). A ratchet: each (element, attribute, sink) hit must have a justified
  *       line in {@code oracle/hostile-sweep-baseline.txt}, and a line whose hit no longer occurs must
  *       be deleted.
  *   <li><b>Sanitizer.</b> {@code html.sanitize} ({@link HtmlPolicy}) over every policy element and
@@ -141,22 +143,6 @@ class HostileSweepTest {
     html("math:annotation-xml", "<math><semantics><mi>x</mi>", "annotation-xml", "", false, "</semantics></math>");
   }
 
-  /** The compiler's attribute names (attributes.txt), each with the specs it comes from. */
-  static Map<String, Set<String>> attributeNames() throws IOException {
-    String text;
-    try (InputStream in = HostileSweepTest.class.getResourceAsStream("/dev/tessera/compiler/html/attributes.txt")) {
-      text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-    }
-    Map<String, Set<String>> out = new LinkedHashMap<>();
-    for (String line : text.split("\n")) {
-      if (!line.isBlank() && !line.startsWith("#")) {
-        List<String> p = List.of(line.trim().split("\\s+"));
-        out.put(p.get(0), Set.copyOf(p.subList(1, p.size())));
-      }
-    }
-    return out;
-  }
-
   /**
    * Whether the sweep tries a name from these specs on the variant: HTML and ARIA names everywhere,
    * SVG-only names on SVG elements and MathML-only names on MathML elements (the cross-namespace
@@ -168,37 +154,20 @@ class HostileSweepTest {
   }
 
   /**
-   * AngularJS directiveNormalize spellings (prefixes x separators). The compiler's deny is by name
-   * alone (#542), so they are tried on {@link #NG_VARIANTS} only.
+   * Names outside HTML that client code commonly reads (#583 rule 3), tried with every value shape
+   * on {@link #NEUTRAL_VARIANTS}. The sweep doesn't know what any of them does: it holds each value
+   * to the neutral grammar ({@link HostileSinks#neutral}).
    */
-  static final Set<String> NG_NAMES = ngNames();
-  static final Set<String> NG_VARIANTS = Set.of("div", "a", "x-widget", "svg:a", "math:mi");
+  static final List<String> OUTSIDE_HTML = List.of("data-x", "data-hx-get", "hx-get", "hx-vals", "hx-on:click",
+      "hx-boost", "x-data", "x-bind:href", "v-html", "v-bind:href", "ng-init", "data-ng-init", "x_ng-bind",
+      "data-bind", "data-on-click", "up-href", "_", "script", "params", "foo");
+  static final Set<String> NEUTRAL_VARIANTS = Set.of("div", "a", "form", "iframe", "script", "template",
+      "textarea", "x-widget", "svg:a", "svg:use", "math:mi");
 
-  static Set<String> ngNames() {
-    Set<String> out = new LinkedHashSet<>();
-    for (String pre : List.of("", "x-", "x:", "x_", "data-", "data:", "data_", "DATA-", "X_", "_", "data--", "x__",
-        "data-_", "x-:")) {
-      for (String core : List.of("ng-init", "ng:bind-html", "ng_include", "ng-attr-href", "ng-href")) {
-        out.add(pre + core);
-      }
-    }
-    return out;
-  }
-
-  /** Framework spellings: AngularJS names, Vue/Alpine/htmx names, on*, upper-case spellings. */
-  static List<String> frameworkNames() {
-    List<String> out = new ArrayList<>(NG_NAMES);
-    out.addAll(List.of("v-html", "v-on:click", "@click", "v-bind:title", ":title", "x-bind:title", "x-html", "x-init",
-        "x-data", "x-on:click", "hx-on:click", "hx-on::after-request", "hx-on-click", "hx-vals", "hx-headers",
-        "data-hx-vals", "hx-trigger", "hx-get", "data-hx-post", "sse-connect", "ws-connect", "hx-boost",
-        "hx-push-url", "data-bind", "_", "data-script", "script", "params", "#default", ".prop", "onclick",
-        "ONCLICK",
-        "onbegin", "onload", ":inner-h-t-m-l", "v-bind:srcdoc", ":src", ":href", ":code-base", ":data", ":action",
-        ":xlink-href", "v-bind:formaction", "x-bind:ping", ":manifest", ":codebase", ":archive", ":classid",
-        ":to", ":values", ":style", ":class", ":fill", "FILL", "STYLE", "HREF", "XLINK:HREF", "Src", "MASK",
-        "CLASS", "Is", "XMLNS", "Charset"));
-    return out;
-  }
+  /** Names that are not plain or not lower case, tried with a String on every variant. */
+  static final List<String> OTHER_NAMES = List.of(":title", "@click", "#default", ".prop", ":href", ":src",
+      ":inner-h-t-m-l", "onclick", "ONCLICK", "onbegin", "onload", "FILL", "STYLE", "HREF", "XLINK:HREF", "Src",
+      "MASK", "CLASS", "Is", "XMLNS", "Charset");
 
   static final String BENIGN = "tsweepbenign";
 
@@ -215,14 +184,47 @@ class HostileSweepTest {
       // tree builder / policy
       "text/html", "x-evil", "open", "utf-7", "hidden", "href", "http://www.w3.org/1999/xhtml",
       "allow-scripts allow-same-origin", "stylesheet", "unsafe-url",
-      // frameworks
+      // code that client code may evaluate, and values just outside the neutral grammar (#583)
       "constructor.constructor('alert(1)')()", "{{constructor.constructor('alert(1)')()}}", "js:alert(1)",
-      "x ng-init:alert(1)", "x _ng-init:alert(1)", "x data--ng-init:alert(1)", "x;ng-bind:alert(1)",
-      "x__ng_bind:alert(1)", "x\fng-init:alert(1)", "x NgInit:alert(1)", "_ng-bind data--ng-bind x__ng_bind",
+      "click[alert(1)]", "/a/-location.port--", "-location.port--", "/a?x=1", "/a#b", "x=alert(1)", "1e3", "a/b",
+      "%2D%2D", "-%2D", "..", ".", "",
       // markup and switches
-      "<img src=x onerror=alert(1)>", "true", "click[alert(1)]");
+      "<img src=x onerror=alert(1)>", "true");
 
-  record AttrCase(String view, Variant variant, String name, String template) {}
+  /** {@code BigDecimal} values: the exact-class rule and plain decimal (#553, #584). */
+  static final List<Object> HOSTILE_DECIMAL = List.of(new BigDecimal("1E+400"), new BigDecimal("-1E-30"),
+      new BigDecimal("0.000"), new BigDecimal("-0"), new BigDecimal("123456789012345678901234567890.5"),
+      new BigDecimal("1") {
+        @Override
+        public String toPlainString() {
+          return "alert(1)";
+        }
+
+        @Override
+        public String toString() {
+          return "alert(1)";
+        }
+      });
+  /** {@code double} values. */
+  static final List<Object> HOSTILE_DOUBLE = List.of(Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY,
+      1e300, -0.0, Double.MIN_VALUE, 1e-8, -1.5);
+
+  /**
+   * The value shapes of a computed attribute: the template's parameter, its expression, the benign
+   * value and the hostile ones. {@code s} is a String on every name; the others are the neutral
+   * shapes (#584), tried on {@link #OUTSIDE_HTML}: a link with a String path variable, a
+   * {@code BigDecimal}, a {@code double} and a {@code boolean}.
+   */
+  record Shape(String id, String param, String expr, Object benign, List<?> hostile) {}
+
+  static final Shape STRING = new Shape("s", "String s", "${s}", BENIGN, HOSTILE_ATTR);
+  static final List<Shape> NEUTRAL_SHAPES = List.of(
+      new Shape("p", "String s", "@{/p/{v}(v=${s})}", BENIGN, HOSTILE_ATTR),
+      new Shape("n", "java.math.BigDecimal s", "${s}", new BigDecimal("4242"), HOSTILE_DECIMAL),
+      new Shape("f", "double s", "${s}", 4242.5, HOSTILE_DOUBLE),
+      new Shape("b", "boolean s", "${s}", false, List.of(true)));
+
+  record AttrCase(String view, Variant variant, String name, Shape shape, String template) {}
 
   /**
    * One finding: {@code element} is the sweep's element variant, {@code attr} the parsed attribute
@@ -238,18 +240,26 @@ class HostileSweepTest {
   void attributeSweep() throws Exception {
     long t0 = System.nanoTime();
     long cpu0 = cpuNanos();
-    Map<String, Set<String>> specs = attributeNames();
-    List<String> names = new ArrayList<>(new LinkedHashSet<>(concat(new ArrayList<>(specs.keySet()), frameworkNames())));
+    Map<String, Set<String>> specs = HostileSinks.STANDARD;
+    List<String> names = new ArrayList<>(new LinkedHashSet<>(
+        concat(new ArrayList<>(specs.keySet()), OUTSIDE_HTML, OTHER_NAMES)));
     List<AttrCase> cases = new ArrayList<>();
     for (Variant v : VARIANTS) {
       for (String n : names) {
-        if (specs.containsKey(n) ? !tries(v, specs.get(n)) : NG_NAMES.contains(n) && !NG_VARIANTS.contains(v.id())) {
+        if (specs.containsKey(n) && !tries(v, specs.get(n))) {
           continue;
         }
-        String view = String.format("w%06d", cases.size());
-        String el = "<" + v.tag() + " data-tsweep=\"\" " + (v.extra().isEmpty() ? "" : v.extra() + " ") + "t:" + n
-            + "=\"${s}\">" + (v.isVoid() ? "" : "</" + v.tag() + ">");
-        cases.add(new AttrCase(view, v, n, "<div t:params=\"String s\">" + v.open() + el + v.close() + "</div>"));
+        List<Shape> shapes = new ArrayList<>(List.of(STRING));
+        if (OUTSIDE_HTML.contains(n) && NEUTRAL_VARIANTS.contains(v.id())) {
+          shapes.addAll(NEUTRAL_SHAPES);
+        }
+        for (Shape sh : shapes) {
+          String view = String.format("w%06d", cases.size());
+          String el = "<" + v.tag() + " data-tsweep=\"\" " + (v.extra().isEmpty() ? "" : v.extra() + " ") + "t:" + n
+              + "=\"" + sh.expr() + "\">" + (v.isVoid() ? "" : "</" + v.tag() + ">");
+          cases.add(new AttrCase(view, v, n, sh,
+              "<div t:params=\"" + sh.param() + "\">" + v.open() + el + v.close() + "</div>"));
+        }
       }
     }
     Map<String, Compilation> accepted = compileAll(cases.stream().collect(
@@ -264,15 +274,16 @@ class HostileSweepTest {
     List<AttrCase> ok = cases.stream().filter(c -> accepted.containsKey(c.view())).toList();
     POOL.submit(() -> ok.parallelStream().forEach(c -> {
       TemplateEntry entry = accepted.get(c.view()).registry().find(c.view()).orElseThrow();
-      Document bd = vnu.parse(wrap(render(entry, Map.of("s", BENIGN))), true);
+      Document bd = vnu.parse(wrap(render(entry, Map.of("s", c.shape().benign()))), true);
       String bShape = shape(bd);
       Element bt = target(bd);
       Set<String> bAttrs = attrNames(bt);
       String tName = c.name().toLowerCase(Locale.ROOT);
-      for (String h : HOSTILE_ATTR) {
+      for (Object hv : c.shape().hostile()) {
+        String h = String.valueOf(hv);
         String out;
         try {
-          out = render(entry, Map.of("s", h));
+          out = render(entry, Map.of("s", hv));
         } catch (RuntimeException e) {
           threw.incrementAndGet(); // the render fails, so nothing reaches the page
           continue;
@@ -295,7 +306,7 @@ class HostileSweepTest {
                   && bt.getAttribute(a.getName()).equals(a.getValue()))) {
             continue; // a static attribute the value did not reach
           }
-          String name = unescapeName(a.getName());
+          String name = attrName(a);
           for (String[] f : HostileSinks.classify(t, name, a.getValue(), h)) {
             put(hits, new Hit(f[0], c.variant().id(), name.toLowerCase(Locale.ROOT), h,
                 name + "=" + a.getValue() + " :: " + f[1], c.template()));
@@ -306,8 +317,9 @@ class HostileSweepTest {
     String stats = String.format("cases=%d accepted=%d renders=%d threw=%d compile=%.1fs render+check=%.1fs cpu=%.1fs+%.1fs",
         cases.size(), accepted.size(), renders.get(), threw.get(), (t1 - t0) / 1e9, (System.nanoTime() - t1) / 1e9,
         (cpu1 - cpu0) / 1e9, (cpuNanos() - cpu1) / 1e9);
-    StringBuilder accepts = new StringBuilder("# accepted (element t:name)\n");
-    ok.forEach(c -> accepts.append(c.variant().id()).append(' ').append(c.name()).append('\n'));
+    StringBuilder accepts = new StringBuilder("# accepted (element t:name shape)\n");
+    ok.forEach(c -> accepts.append(c.variant().id()).append(' ').append(c.name()).append(' ').append(c.shape().id())
+        .append('\n'));
     gate("attr", stats, hits, accepts.toString());
   }
 
@@ -386,8 +398,8 @@ class HostileSweepTest {
       NamedNodeMap as = el.getAttributes();
       for (int j = 0; j < as.getLength(); j++) {
         Attr a = (Attr) as.item(j);
-        String name = unescapeName(a.getName()).toLowerCase(Locale.ROOT);
-        for (String[] f : HostileSinks.classify(el, unescapeName(a.getName()), a.getValue(), h)) {
+        String name = attrName(a).toLowerCase(Locale.ROOT);
+        for (String[] f : HostileSinks.classify(el, attrName(a), a.getValue(), h)) {
           found.add(new Hit(f[0], element, name, h, el.getLocalName() + " " + name + "=" + a.getValue() + " :: "
               + f[1], input));
         }
@@ -729,21 +741,17 @@ class HostileSweepTest {
     assertKinds(vnu, "<p data-tsweep style=\"u\\72l(//evil.example/x)\">", "u\\72l(//evil.example/x)", "CSS_FETCH");
     assertKinds(vnu, "<meta data-tsweep http-equiv=\"refresh\" content=\"0;url=javascript:alert(1)\">",
         "0;url=javascript:alert(1)", "URL_REFRESH_OFFSITE", "URL_SCRIPT_SCHEME");
-    assertKinds(vnu, "<p data-tsweep data--ng-init=\"alert(1)\">", "alert(1)", "ANGULAR_DIRECTIVE");
-    assertKinds(vnu, "<p data-tsweep class=\"x _ng-init:alert(1)\">", "x _ng-init:alert(1)",
-        "KNOWN_LIMITATION_ANGULAR_CLASS");
-    assertKinds(vnu, "<p data-tsweep :href=\"'javascript:alert(1)'\">", "'javascript:alert(1)'",
-        "BINDING_URL_SCRIPT_SCHEME");
-    assertKinds(vnu, "<p data-tsweep hx-vals=\"js:alert(1)\">", "js:alert(1)", "HTMX_EVAL");
-    assertKinds(vnu, "<p data-tsweep data-hx-get=\"//evil.example/x\">", "//evil.example/x", "URL_CROSS_ORIGIN_CODE");
-    assertKinds(vnu, "<p data-tsweep ws-connect=\"javascript:alert(1)\">", "javascript:alert(1)", "URL_SCRIPT_SCHEME");
-    assertKinds(vnu, "<p data-tsweep hx-boost=\"true\">", "true", "POLICY_INPUT");
-    assertKinds(vnu, "<p data-tsweep hx-trigger=\"click[alert(1)]\">", "click[alert(1)]", "FRAMEWORK_EXPRESSION");
-    assertKinds(vnu, "<p data-tsweep hx-headers=\"javascript:alert(1)\">", "javascript:alert(1)", "HTMX_EVAL");
-    assertKinds(vnu, "<x-widget data-tsweep params=\"a: alert(1)\"></x-widget>", "a: alert(1)",
-        "FRAMEWORK_EXPRESSION");
-    assertKinds(vnu, "<p data-tsweep script=\"on click call alert(1)\">", "on click call alert(1)",
-        "FRAMEWORK_EXPRESSION");
+    // Client-framework bugs of the past (#529, #531, #557, #562, ...), now one rule that names no
+    // framework: the value is not neutral.
+    for (String[] old : List.of(new String[] {"data--ng-init", "alert(1)"},
+        new String[] {":href", "'javascript:alert(1)'"}, new String[] {"hx-vals", "js:alert(1)"},
+        new String[] {"data-hx-get", "//evil.example/x"}, new String[] {"ws-connect", "javascript:alert(1)"},
+        new String[] {"hx-trigger", "click[alert(1)]"}, new String[] {"hx-headers", "javascript:alert(1)"},
+        new String[] {"params", "a: alert(1)"}, new String[] {"script", "on click call alert(1)"},
+        new String[] {"v-html", "{{constructor.constructor('alert(1)')()}}"})) {
+      assertKinds(vnu, "<x-widget data-tsweep " + old[0] + "=\"" + old[1].replace("'", "&#39;") + "\"></x-widget>",
+          old[1], "NON_NEUTRAL_VALUE");
+    }
     assertKinds(vnu, "<iframe data-tsweep srcdoc=\"&lt;img src=x onerror=alert(1)&gt;\"></iframe>",
         "<img src=x onerror=alert(1)>", "MARKUP_ATTRIBUTE");
     assertKinds(vnu, "<template data-tsweep for=\"x\"></template>", "x", "TREE_BUILDER_INPUT");
@@ -751,12 +759,55 @@ class HostileSweepTest {
     assertKinds(vnu, "<a data-tsweep href=\"/ok\" class=\"x y\" title=\"t\">", "/ok");
   }
 
+  /**
+   * #583 rule 3, the sweep's invariant for names outside HTML: the rendered value is in the neutral
+   * grammar (#584's safety research), whatever client code reads the name. Each probe breaks one
+   * condition of the grammar.
+   */
+  @Test
+  void namesOutsideHtmlHoldOnlyNeutralValues() {
+    SpecParser vnu = SpecParsers.named(SpecParsers.VNU_26);
+    for (String[] bad : List.of(
+        new String[] {"data-name", "alert(1)"}, // a free string
+        new String[] {"x-data", "/a/-location.port--"}, // -- is a write primitive
+        new String[] {"hx-get", "//evil.example/x"}, // another origin
+        new String[] {"hx-get", "/a?x=1"}, // a query
+        new String[] {"data-url", "/a#b"}, // a fragment
+        new String[] {"v-bind:href", "/a=b"},
+        new String[] {"data-p", "/a%zz"}, // % not as %XX
+        new String[] {"data-p", "a/b"}, // page-relative
+        new String[] {"data-n", "1e3"}, // an exponent
+        new String[] {"data-n", "+1"},
+        new String[] {"data-n", "0x1"},
+        new String[] {"data-n", "NaN"},
+        new String[] {"data-n", "Infinity"},
+        new String[] {"data-n", "01"},
+        new String[] {"data-b", "TRUE"},
+        new String[] {"ng-init", "x"},
+        new String[] {"\u212Aind", "alert(1)"})) { // KELVIN SIGN: not the standard "kind" to a browser
+      assertKinds(vnu, "<x-widget data-tsweep " + bad[0] + "=\"" + bad[1] + "\"></x-widget>", bad[1],
+          "NON_NEUTRAL_VALUE");
+    }
+    // Positive controls: numbers, booleans and same-origin paths in the alphabet, on any name.
+    for (String[] good : List.of(new String[] {"data-id", "42"}, new String[] {"data-n", "-1.5"},
+        new String[] {"data-n", "0"}, new String[] {"data-open", "true"}, new String[] {"x-show", "false"},
+        new String[] {"hx-get", "/items/7"}, new String[] {"data-url", "/a-%2D-b/c.d_e~f"},
+        new String[] {"v-html", "/"}, new String[] {"my-prop", "/%E2%80%A8"})) {
+      assertKinds(vnu, "<x-widget data-tsweep " + good[0] + "=\"" + good[1] + "\"></x-widget>", good[1]);
+    }
+    // Standard names are held to their own sinks, not to the neutral grammar.
+    assertKinds(vnu, "<p data-tsweep title=\"alert(1)\" class=\"x--y\" aria-label=\"a?b\">", "alert(1)");
+  }
+
   static void assertKinds(SpecParser vnu, String html, String hostile, String... kinds) {
     Element t = target(vnu.parse(wrap(html), true));
     Set<String> found = new TreeSet<>();
     NamedNodeMap as = t.getAttributes();
     for (int i = 0; i < as.getLength(); i++) {
-      String name = unescapeName(as.item(i).getNodeName());
+      String name = attrName(as.item(i));
+      if (name.equals("data-tsweep")) {
+        continue; // the sweep's marker, static
+      }
       for (String[] f : HostileSinks.classify(t, name, as.item(i).getNodeValue(), hostile)) {
         found.add(f[0]);
       }
@@ -765,17 +816,18 @@ class HostileSweepTest {
   }
 
   /**
-   * A class token AngularJS normalizes to ngBind, which an allowClasses("*") policy keeps since
-   * #586, is a documented limitation (AngularJS is not supported), not a hit.
+   * The sanitizer pass holds a kept name outside HTML to the neutral grammar, and an element no
+   * policy allows is a hit. A class token is a standard attribute value: what client code makes of
+   * it is outside the guarantee (#583), so it is no hit.
    */
   @Test
-  void sanitizerPassReportsAngularClassesAsALimitation() {
+  void sanitizerPassFlagsNamesOutsideHtmlAndUnknownElements() {
     SpecParser vnu = SpecParsers.named(SpecParsers.VNU_26);
     String h = "x _ng-init:alert(1)";
-    List<Hit> hits = sanitizerHits("sanitize:wide:p", POLICIES.get("wide"), vnu,
-        "<p class=\"" + h + "\">x</p>", h, "<p class=\"" + h + "\">x</p>");
-    assertEquals(List.of("KNOWN_LIMITATION_ANGULAR_CLASS"), hits.stream().map(Hit::kind).toList());
-    // An element no policy allows is a hit too.
+    assertEquals(List.of("NON_NEUTRAL_VALUE"), sanitizerHits("sanitize:wide:p", POLICIES.get("wide"), vnu,
+        "<p data-x=\"" + h + "\">x</p>", h, "").stream().map(Hit::kind).toList());
+    assertEquals(List.of(), sanitizerHits("sanitize:wide:p", POLICIES.get("wide"), vnu,
+        "<p class=\"" + h + "\">x</p>", h, ""));
     assertEquals(List.of("SANITIZER_ELEMENT"), sanitizerHits("sanitize:wide:p", POLICIES.get("wide"), vnu,
         "<svg></svg>", h, "").stream().map(Hit::kind).toList());
   }
@@ -804,11 +856,10 @@ class HostileSweepTest {
   void ratchetFailsOnNewHitsAndStaleLines() throws IOException {
     Hit listed = new Hit("URL_CROSS_ORIGIN_CODE", "svg:use", "href", "//evil.example/x", "", "");
     Hit fresh = new Hit("URL_SCRIPT_SCHEME", "a", "href", "javascript:alert(1)", "", "<a t:href=\"${s}\">");
-    Hit known = new Hit("KNOWN_LIMITATION_CSTI", "a", "title", "{{x}}", "", "");
     Map<String, String> baseline = Map.of(listed.key(), "why", "svg:image href CSS_FETCH", "why");
     assertEquals(List.of("NEW a href URL_SCRIPT_SCHEME", "STALE svg:image href CSS_FETCH"),
-        problems(baseline, List.of(listed, fresh, known)));
-    assertEquals(List.of(), problems(Map.of(listed.key(), "why"), List.of(listed, known)));
+        problems(baseline, List.of(listed, fresh)));
+    assertEquals(List.of(), problems(Map.of(listed.key(), "why"), List.of(listed)));
     // The gate itself, against the checked-in baseline: the unlisted hit fails the build.
     Map<String, Hit> hits = new HashMap<>();
     put(hits, listed);
@@ -821,7 +872,6 @@ class HostileSweepTest {
   @Test
   void baselineLinesNeedAJustification() {
     assertThrows(IllegalStateException.class, () -> parseBaseline("svg:use href URL_CROSS_ORIGIN_CODE\n"));
-    assertThrows(IllegalStateException.class, () -> parseBaseline("svg:use href KNOWN_LIMITATION_CSTI why\n"));
     assertEquals(Map.of("svg:use href URL_CROSS_ORIGIN_CODE", "why not"),
         parseBaseline("# c\n\nsvg:use href URL_CROSS_ORIGIN_CODE why not\n"));
   }
@@ -834,9 +884,9 @@ class HostileSweepTest {
     hits.putIfAbsent(h.key(), h);
   }
 
-  /** The hits the gate reports, sorted: every kind but the documented limitations ({@code KNOWN_*}). */
+  /** The hits the gate reports, sorted. */
   static List<Hit> reported(Collection<Hit> hits) {
-    return hits.stream().filter(h -> !h.kind().startsWith("KNOWN_"))
+    return hits.stream()
         .sorted((x, y) -> x.key().compareTo(y.key())).toList();
   }
 
@@ -925,7 +975,7 @@ class HostileSweepTest {
         continue;
       }
       String[] p = line.split("\\s+", 4);
-      if (p.length < 4 || p[3].isBlank() || p[2].startsWith("KNOWN_") || !p[2].matches("[A-Z_]+")) {
+      if (p.length < 4 || p[3].isBlank() || !p[2].matches("[A-Z_]+")) {
         throw new IllegalStateException(BASELINE + ":" + (i + 1)
             + ": want '<element> <attribute> <KIND> <justification>', got: " + line);
       }
@@ -953,6 +1003,15 @@ class HostileSweepTest {
       m.appendReplacement(sb, Matcher.quoteReplacement(new String(Character.toChars(Integer.parseInt(m.group(1), 16)))));
     }
     return m.appendTail(sb).toString();
+  }
+
+  /**
+   * {@link #unescapeName} of the attribute's name, with its {@code xml:} prefix: the spec parser's
+   * DOM names SVG's {@code xml:space} {@code space}, in the XML namespace.
+   */
+  static String attrName(org.w3c.dom.Node a) {
+    String n = unescapeName(a.getNodeName());
+    return "http://www.w3.org/XML/1998/namespace".equals(a.getNamespaceURI()) && n.indexOf(':') < 0 ? "xml:" + n : n;
   }
 
   static String wrap(String body) {

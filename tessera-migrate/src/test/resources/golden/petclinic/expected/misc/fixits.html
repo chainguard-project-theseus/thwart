@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html xmlns:t="https://tessera.dev" t:params="Object owner, Object swap, Object selector, Object callback">
 <body>
-  <!-- Computed names the compiler does not know (#330): htmx's data- form is rewritten, others reported. -->
-  <button t:hx-get="@{/owners}" t:data-hx-target="'#owner-' + owner.id" t:data-hx-swap="swap">load</button>
-  <div t:attr="data-hx-select=selector,title=owner.lastName">attr</div>
+  <!-- Computed names outside HTML are converted as they are: the compiler checks their values (#587). -->
+  <button t:hx-get="@{/owners}" t:hx-target="'#owner-' + owner.id" t:hx-swap="swap">load</button>
+  <div t:attr="hx-select=selector,title=owner.lastName">attr</div>
   <div t:up-on-loaded="callback">unpoly</div>
   <div t:data-hx-target="selector" t:aria-label="owner.lastName">known names</div>
   <!-- A missing space between attributes is added. -->

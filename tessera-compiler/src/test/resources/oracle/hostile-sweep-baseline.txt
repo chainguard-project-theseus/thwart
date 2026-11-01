@@ -8,7 +8,7 @@
 #   element        the sweep's element variant (svg:use, svg:animate@href, meta-refresh), or
 #                  sanitize:<policy>:<element> for the sanitizer pass
 #   attribute      the attribute as parsed (lower case), where the hostile value landed
-#   KIND           a HostileSinks kind (URL_SCRIPT_SCHEME, CSS_FETCH, ...); never KNOWN_*
+#   KIND           a HostileSinks kind (URL_SCRIPT_SCHEME, CSS_FETCH, NON_NEUTRAL_VALUE, ...)
 #   justification  required: why this is a false positive of the spec table, not a hole
 #
 # A hit with no line fails the sweep, and so does a line whose hit no longer occurs ("delete its
