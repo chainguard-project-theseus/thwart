@@ -81,6 +81,33 @@ final class HtmlSanitizer {
     }
   }
 
+  /**
+   * The HTML 4 named references, which Spring's {@code HtmlUtils.htmlEscape} writes (#262). With
+   * its ';', each is a complete name in the spec's table, so the parser reads it without an error
+   * and the sanitizer keeps it as written; any other name not in {@link #ENTITIES} is escaped (#592).
+   */
+  private static final Set<String> HTML4_NAMES = HtmlPolicy.unmodifiable(
+      "Aacute", "aacute", "Acirc", "acirc", "acute", "AElig", "aelig", "Agrave", "agrave", "alefsym", "Alpha", "alpha",
+      "amp", "and", "ang", "Aring", "aring", "asymp", "Atilde", "atilde", "Auml", "auml", "bdquo", "Beta", "beta",
+      "brvbar", "bull", "cap", "Ccedil", "ccedil", "cedil", "cent", "Chi", "chi", "circ", "clubs", "cong", "copy",
+      "crarr", "cup", "curren", "Dagger", "dagger", "dArr", "darr", "deg", "Delta", "delta", "diams", "divide",
+      "Eacute", "eacute", "Ecirc", "ecirc", "Egrave", "egrave", "empty", "emsp", "ensp", "Epsilon", "epsilon",
+      "equiv", "Eta", "eta", "ETH", "eth", "Euml", "euml", "euro", "exist", "fnof", "forall", "frac12", "frac14",
+      "frac34", "frasl", "Gamma", "gamma", "ge", "gt", "hArr", "harr", "hearts", "hellip", "Iacute", "iacute",
+      "Icirc", "icirc", "iexcl", "Igrave", "igrave", "image", "infin", "int", "Iota", "iota", "iquest", "isin",
+      "Iuml", "iuml", "Kappa", "kappa", "Lambda", "lambda", "lang", "laquo", "lArr", "larr", "lceil", "ldquo", "le",
+      "lfloor", "lowast", "loz", "lrm", "lsaquo", "lsquo", "lt", "macr", "mdash", "micro", "middot", "minus", "Mu",
+      "mu", "nabla", "nbsp", "ndash", "ne", "ni", "not", "notin", "nsub", "Ntilde", "ntilde", "Nu", "nu", "Oacute",
+      "oacute", "Ocirc", "ocirc", "OElig", "oelig", "Ograve", "ograve", "oline", "Omega", "omega", "Omicron",
+      "omicron", "oplus", "or", "ordf", "ordm", "Oslash", "oslash", "Otilde", "otilde", "otimes", "Ouml", "ouml",
+      "para", "part", "permil", "perp", "Phi", "phi", "Pi", "pi", "piv", "plusmn", "pound", "Prime", "prime", "prod",
+      "prop", "Psi", "psi", "quot", "radic", "rang", "raquo", "rArr", "rarr", "rceil", "rdquo", "real", "reg",
+      "rfloor", "Rho", "rho", "rlm", "rsaquo", "rsquo", "sbquo", "Scaron", "scaron", "sdot", "sect", "shy", "Sigma",
+      "sigma", "sigmaf", "sim", "spades", "sub", "sube", "sum", "sup", "sup1", "sup2", "sup3", "supe", "szlig", "Tau",
+      "tau", "there4", "Theta", "theta", "thetasym", "thinsp", "THORN", "thorn", "tilde", "times", "trade", "Uacute",
+      "uacute", "uArr", "uarr", "Ucirc", "ucirc", "Ugrave", "ugrave", "uml", "upsih", "Upsilon", "upsilon", "Uuml",
+      "uuml", "weierp", "Xi", "xi", "Yacute", "yacute", "yen", "Yuml", "yuml", "Zeta", "zeta", "zwj", "zwnj");
+
   private final HtmlPolicy policy;
   private final String s;
   private final int n;
@@ -358,9 +385,9 @@ final class HtmlSanitizer {
   }
 
   /**
-   * Writes a text attribute the policy allows. Known references are decoded and re-escaped;
-   * well-formed unknown named references are kept (in a quoted value they only produce
-   * characters).
+   * Writes a text attribute the policy allows. Known references are decoded and re-escaped, and
+   * {@link #HTML4_NAMES} references are kept; any other {@code &} is escaped, since an unknown
+   * name such as {@code &X;} is a parse error in a value too (#592).
    */
   private void textAttribute(StringBuilder sb, String name, Map<String, String> attrs) {
     String raw = policy.attributes.contains(name) ? attrs.get(name) : null;
@@ -375,7 +402,7 @@ final class HtmlSanitizer {
       int end = c == '&' ? reference(raw, i, raw.length(), pending) : -1;
       if (end > 0) {
         i = end;
-      } else if (c == '&' && (end = unknownNamed(raw, i, raw.length())) > 0) {
+      } else if (c == '&' && (end = html4Named(raw, i, raw.length())) > 0) {
         Escapers.appendHtml(sb, replaceForbidden(pending.toString()));
         pending.setLength(0);
         sb.append(raw, i, end);
@@ -535,9 +562,12 @@ final class HtmlSanitizer {
 
   /**
    * Writes {@code s[from, to)} as escaped text. Known character references are decoded and
-   * re-escaped; an unknown named reference such as {@code &eacute;} is kept as is, since in text it
-   * can only ever produce a character. The references for braces are known, so every brace goes
-   * through the text escaper, which breaks {@code {{} as {@link Escapers#text} does (#248).
+   * re-escaped, and {@link #HTML4_NAMES} references such as {@code &eacute;} are kept as they are.
+   * Any other {@code &} is escaped, so a named reference such as {@code &notit;} or {@code &X;}
+   * comes out as {@code &amp;notit;}: copied as written, the parser would report a parse error for
+   * it (a legacy name such as {@code &not} without its ';', or an unknown name; #592). The
+   * references for braces are known, so every brace goes through the text escaper, which breaks
+   * {@code {{} as {@link Escapers#text} does (#248).
    */
   private void text(int from, int to) {
     if (dropping != null || from >= to) {
@@ -563,7 +593,7 @@ final class HtmlSanitizer {
       int end = reference(s, i, to, pending);
       if (end > 0) {
         i = end;
-      } else if ((end = unknownNamed(s, i, to)) > 0) {
+      } else if ((end = html4Named(s, i, to)) > 0) {
         Escapers.appendText(out, replaceForbidden(pending.toString()));
         pending.setLength(0);
         out.append(s, i, end);
@@ -665,6 +695,12 @@ final class HtmlSanitizer {
     }
     sb.append(value);
     return end;
+  }
+
+  /** The index after an {@link #HTML4_NAMES} reference with its ';' at i, or -1. */
+  private static int html4Named(String s, int i, int to) {
+    int end = unknownNamed(s, i, to);
+    return end > 0 && HTML4_NAMES.contains(s.substring(i + 1, end - 1)) ? end : -1;
   }
 
   /** The index after a well-formed named reference {@code &[A-Za-z][A-Za-z0-9]*;} at i, or -1. */

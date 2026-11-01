@@ -119,6 +119,11 @@ class HtmlSanitizerTest {
     assertEquals("&lt;script&gt;", clean("&lt;script&gt;"));
     assertEquals("A A A   — &#39;", clean("&#65; &#x41 &#X041; &nbsp; &mdash; &apos;"));
     assertEquals("caf&eacute; &amp;zz &amp;# &amp;", clean("caf&eacute; &zz &# &"));
+    // #592: an HTML 4 name is kept; any other name outside the tables is escaped, since as written
+    // the parser reports it (a legacy name without its ';', or an unknown name).
+    assertEquals("&notin; &Oacute; a&amp;notit;b a&amp;lt3;b x&amp;ampy; &amp;copyright; &amp;X; &amp;p;",
+        clean("&notin; &Oacute; a&notit;b a&lt3;b x&ampy; &copyright; &X; &p;"));
+    assertEquals("<p title=\"&eacute;&amp;notit;&amp;X;\">x</p>", HtmlPolicy.RICH.sanitize("<p title=\"&eacute;&notit;&X;\">x</p>").html());
     assertEquals("� � � 😀", clean("&#0; &#xD800; &#99999999999; &#x1F600;"));
     assertEquals("a�b", clean("a\0b"));
   }

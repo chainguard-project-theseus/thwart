@@ -200,9 +200,19 @@ class SanitizerBalanceTest {
     "<img src=\"/i.png\" alt=\"&#1;\u007f\">", "<a href=\"\u0001javascript:alert(1)\">x</a>",
   };
 
+  /**
+   * Well-formed named references outside the sanitizer's tables: copied as written, each is a parse
+   * error (a legacy name without its ';', or an unknown name), so the sanitizer escapes the
+   * {@code &}, in text and in attribute values (#592). HTML 4 names (#262) are kept.
+   */
+  static final String[] UNKNOWN_REFERENCES = {
+    "a&notit;b", "a&lt3;b", "x&ampy;", "<p>&copyright;</p>", "&X;", "&i;", "&a;", "&p;", "<b>&Notit;&lt3;</b>",
+    "<p title=\"&notit;&X;&lt3;\">x</p>", "<a href=\"/a?b=1&copyright;\">x</a>", "<p title=\"Krak&oacute;w\">Krak&oacute;w &notin;</p>",
+  };
+
   @Test
   void hostileInputsGiveBalancedOutput() {
-    for (String input : concat(HOSTILE, FORBIDDEN_CODE_POINTS)) {
+    for (String input : concat(concat(HOSTILE, FORBIDDEN_CODE_POINTS).toArray(new String[0]), UNKNOWN_REFERENCES)) {
       for (Map.Entry<String, HtmlPolicy> p : POLICIES.entrySet()) {
         assertBalanced(p.getKey(), input, SafeHtml.sanitize(input, p.getValue()).html());
       }
@@ -246,11 +256,12 @@ class SanitizerBalanceTest {
   private static final String[] GENERATED_TEXT = {
     "x", " ", "\n", "\t", "&lt;", "&amp;", "& ", "<3", "{", "}", "{{", "\u0001", "\u007f", "\u0085", "\uFFFE", "\uFFFF",
     "\uFDD0", "\uD83F\uDFFF", "\ud800", "\u0000", "&#128;", "&#1;", "&#xFFFF;", "&#0;", "\r", "\r\n", "&#13;", "\u00E9",
+    "&notit;", "&lt3;", "&ampy;", "&copyright;", "&X;", "&i;", "&a;", "&p;", "&notin;", "&oacute;", "&lang;",
   };
 
   /** Attribute values: the sweep's hostile ones plus values the checked attributes accept. */
   private static final List<String> GENERATED_VALUES = concat(HostileSweepTest.HOSTILE_ATTR.toArray(new String[0]),
-      new String[] {"a", "2", "-1", "_blank", "language-x", "/ok", "\u0001x", "&#128;", "x&#13;y"});
+      new String[] {"a", "2", "-1", "_blank", "language-x", "/ok", "\u0001x", "&#128;", "x&#13;y", "&notit;", "&X;", "a&lt3;", "Krak&oacute;w"});
 
   /**
    * The property test of #592: random trees, well-formed and then broken (end tags dropped or
@@ -406,7 +417,8 @@ class SanitizerBalanceTest {
       assertRejected(out, "");
     }
     // The right tree, but with a parse error: only the error check catches these (#592).
-    for (String out : new String[] {"<p title=\"a\" title=\"a\">x</p>", "a\u0001b", "<p>a&#128;b</p>"}) {
+    for (String out : new String[] {"<p title=\"a\" title=\"a\">x</p>", "a\u0001b", "<p>a&#128;b</p>",
+        "a&notit;b", "<p>&copyright;</p>", "a&X;b"}) {
       assertRejected(out, "parse errors");
     }
     // Parsed as written without an error, but outside the closed content model (#592).

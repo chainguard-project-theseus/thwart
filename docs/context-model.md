@@ -252,7 +252,9 @@ anything past depth 100. Raw-text, foreign, `template`, `select` and `object` el
 with their content. Nothing is implied, closed early or moved. Controls other than ASCII
 whitespace, noncharacters and lone surrogates, literal or from references, become U+FFFD in text
 and attribute values (they are parse errors in the parser's input), and a CR from a reference
-becomes LF.
+becomes LF. A named reference is decoded if the sanitizer knows it, kept if it is an HTML 4 name
+(complete with its `;`, so not an error), and otherwise has its `&` escaped: `&notit;` (a legacy
+name without its `;`) and `&X;` (an unknown name) are parse errors as written.
 
 Why this parses as written, by the HTML standard's "in body" rules, given `FLOW` (no open `p` or
 `a` at the insertion point): formatting reconstruction is a no-op because every entry of the list
