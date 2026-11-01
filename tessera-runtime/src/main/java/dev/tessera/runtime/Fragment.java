@@ -70,10 +70,9 @@ public final class Fragment {
     if (f != null && !f.verifiedFlow) {
       throw new IllegalArgumentException(
           "Tessera: template '" + template + "' parameter '" + param + "' needs a Fragment from"
-              + " Fragment.of(template), and this one was built by a template for its own fragment"
-              + " call and handed back by Java code, so its markup was never checked where it lands"
-              + " here. Fix: pass Fragment.of(...) of a compiled flow partial (docs/guide.md section"
-              + " 4.4), or pass the fragment from the template that inserts it (#581)");
+              + " Fragment.of(template), and this one is not, so its markup was never checked where"
+              + " it lands here. Fix: pass Fragment.of(...) of a compiled flow partial (docs/guide.md"
+              + " section 4.4), or pass the fragment from the template that inserts it (#581)");
     }
   }
 }
