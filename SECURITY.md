@@ -78,9 +78,12 @@ call site should be reviewed. `mvn tessera:review` lists every `unchecked` call 
 ## Out of scope
 
 - **Client-side code** that re-reads the DOM as code: Vue in-DOM templates, Alpine, AngularJS, htmx
-  and similar. Tessera supports a fixed table of frameworks, deny-by-default, with the known gaps
-  listed in [the guide](docs/guide.md). Anything outside that table isn't covered. Send a strict CSP
-  without `'unsafe-eval'` as defence in depth.
+  and similar. Tessera models no client-side framework. It only shapes its own output: outside
+  standard HTML attributes a computed value is framework-neutral (a number, a boolean or a
+  same-origin path), and computed text never contains `{{` (a computed `<title>` or `<textarea>`
+  gets `v-pre` instead). A computed value that breaks either rule is in scope; anything else
+  client code evaluates isn't ([the guide](docs/guide.md), section 7). Send a strict CSP without
+  `'unsafe-eval'` and with `connect-src 'self'` as defence in depth.
 - **What page JavaScript does** with values it reads from the DOM.
 - **Views Tessera doesn't render.** While another engine such as Thymeleaf or JSP is still
   configured during a migration, its views get none of these guarantees. The Spring starter logs a

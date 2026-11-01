@@ -1,10 +1,5 @@
 package dev.tessera.migrate;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -37,7 +32,7 @@ final class ConversionRules {
    * attribute names; {@code th:on*} is handled by {@link #unsupportedAttribute}.
    */
   private static final Map<String, String> UNSUPPORTED_ATTRIBUTES = Compat.mapOf(
-      ConversionRules.THYMELEAF_INLINE, "`th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or move data to `data-*` attributes",
+      ConversionRules.THYMELEAF_INLINE, "`th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or put data in a `<script type=\"application/json\">` block",
       "th:style", "`th:style` is not converted; rewrite it as `t:style` from literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (guide section 4.4), otherwise use `t:classappend` or a `t:data-*` attribute",
       "th:styleappend", "`th:styleappend` is not supported; merge it into one `t:style` from literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (guide section 4.4), otherwise use `t:classappend`",
       "th:include", "`th:include` is not supported; use `t:insert` or `t:replace` (check the host-element semantics)",
@@ -507,98 +502,6 @@ final class ConversionRules {
           + " remove `%1$s` if the form posts to the page's own URL (a form without an action posts to the page"
           + " URL), or write the action as a link such as `@{/items/{id}(id=${item.id})}` (guide section 4.7)";
 
-  // ---- computed attribute names the compiler does not know (#330, #331) ----
-
-  /**
-   * {@code t:}/{@code th:} local names that are processors, not the name of an attribute to set:
-   * Tessera's ({@code AttributeProcessors}) and Thymeleaf's that Tessera lacks (reported elsewhere
-   * or by the compiler).
-   */
-  static final Set<String> PROCESSORS = Compat.setOf(
-      "params", "import", "fragment", "insert", "replace", "each", "if", "unless", "switch", "case", "object",
-      "with", "attr", "field", "classappend", "errorclass", "text", "utext", "errors", "remove",
-      "block", "inline", "include", "substituteby", "ref", "assert", "attrappend", "attrprepend", "alt-title",
-      "lang-xmllang", "styleappend");
-
-  /** A name the compiler classifies at all ({@code Contexts}' {@code PLAIN_NAME}); others have their own error. */
-  static final Pattern ATTRIBUTE_NAME = Pattern.compile("[A-Za-z_][A-Za-z0-9_.:-]*");
-  /** A component prop on a custom element. */
-  static final Pattern CUSTOM_ELEMENT_PROP = Pattern.compile("[a-z][a-z0-9]*");
-  /**
-   * The framework names the compiler classified by prefix before #584, besides AngularJS's
-   * ({@link #angularDirective}). TODO(#604): every such name is NEUTRAL now; delete this mirror.
-   */
-  static final List<String> FRAMEWORK_PREFIXES = Compat.listOf("v-", "x-", "hx-on");
-  /** The framework names the compiler handles by name: hyperscript and htmx script, URL and boost names, and htmx 1.x's hx-sse and hx-ws, which are build errors when computed. */
-  static final Set<String> FRAMEWORK_NAMES = Compat.setOf(
-      "_", "script", "hx-vals", "hx-vars", "hx-headers", "hx-request", "hx-trigger",
-      "hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete", "sse-connect", "ws-connect",
-      "hx-sse", "hx-ws", "hx-boost", "hx-push-url", "hx-replace-url");
-
-  /**
-   * Whether {@code name} (lower case) may be an AngularJS {@code ng} directive, which the compiler
-   * denies coarsely: ignoring {@code -}, {@code _} and {@code :}, it starts with {@code ng},
-   * {@code xng} or {@code datang}. Mirrored {@code Contexts.isAngularDirective} in
-   * tessera-compiler, which tessera-migrate does not depend on. TODO(#604): #584 deleted it.
-   */
-  static boolean angularDirective(String name) {
-    String a = name.replaceAll("[-_:]", "");
-    return a.startsWith("ng") || a.startsWith("xng") || a.startsWith("datang");
-  }
-
-  /**
-   * htmx attributes that are unknown names to the compiler and that htmx reads the same with a
-   * {@code data-} prefix (its {@code getAttributeValue} reads {@code hx-x} or {@code data-hx-x}):
-   * {@code th:hx-target} becomes {@code t:data-hx-target}. Only the htmx 2 reference names whose
-   * value is a selector, swap style, text or option list, never script; the script ones
-   * ({@code hx-vals}, {@code hx-trigger}, ...) are classified by the compiler with or without
-   * {@code data-}. TODO(#604): both spellings are NEUTRAL since #584, so the rename no longer helps.
-   */
-  static final Set<String> HTMX_DATA_EQUIVALENT = Compat.setOf(
-      "hx-target", "hx-swap", "hx-swap-oob", "hx-select", "hx-select-oob", "hx-confirm", "hx-prompt",
-      "hx-indicator", "hx-include", "hx-disabled-elt", "hx-sync", "hx-params", "hx-encoding");
-
-  /**
-   * The standard HTML, SVG, MathML and ARIA attribute names: the compiler's
-   * {@code dev/tessera/compiler/html/attributes.txt}, which the build copies next to this class.
-   */
-  static final Set<String> KNOWN_ATTRIBUTES = loadKnownAttributes();
-
-  private static Set<String> loadKnownAttributes() {
-    try (InputStream in = ConversionRules.class.getResourceAsStream("attributes.txt")) {
-      if (in == null) {
-        throw new IllegalStateException("dev/tessera/migrate/attributes.txt is missing");
-      }
-      Set<String> names = new HashSet<>();
-      for (String line : new String(Compat.readAllBytes(in), StandardCharsets.UTF_8).split("\\r?\\n")) {
-        if (!line.isEmpty() && !line.startsWith("#")) {
-          int space = line.indexOf(' ');
-          names.add(space < 0 ? line : line.substring(0, space));
-        }
-      }
-      return Collections.unmodifiableSet(names);
-    } catch (IOException e) {
-      throw new IllegalStateException("cannot read dev/tessera/migrate/attributes.txt", e);
-    }
-  }
-
-  private static final String UNKNOWN_NAME =
-      "`%2$s` is not a known attribute, and a computed attribute must be a standard HTML, SVG, MathML or ARIA"
-          + " attribute, a `data-*` attribute or a plain prop on a custom element (a build error in Tessera)";
-  /** {@code %1$s} the attribute, {@code %2$s} its name, {@code %3$s} the attribute with {@code data-}. */
-  static final String UNKNOWN_NAME_MESSAGE =
-      "`%1$s`: " + UNKNOWN_NAME + "; if it is data for your script, write `%3$s`; if a framework reads it, write it as a static attribute";
-  /** {@code %1$s} the attribute, {@code %2$s} the new attribute, {@code %3$s} its old name. */
-  static final String UNKNOWN_NAME_REWRITTEN_MESSAGE =
-      "`%1$s` was rewritten to `%2$s`: `%3$s` is not a known attribute, which is a build error for a computed attribute in Tessera, and htmx reads `data-%3$s` the same way";
-  /** {@code %1$s} the entry's name, {@code %2$s} the attribute, {@code %3$s} the name with {@code data-}. */
-  static final String UNKNOWN_NAME_IN_ATTR_MESSAGE =
-      "`%1$s` in `%2$s` is not a known attribute, and a computed attribute must be a standard HTML, SVG, MathML or ARIA"
-          + " attribute, a `data-*` attribute or a plain prop on a custom element (a build error in Tessera); if it is"
-          + " data for your script, write `%3$s`; if a framework reads it, write it as a static attribute";
-  static final String UNKNOWN_NAME_IN_ATTR_REWRITTEN_MESSAGE =
-      "`%1$s` in `%2$s` was rewritten to `%3$s`: `%1$s` is not a known attribute, which is a build error for a computed attribute in Tessera, and htmx reads `%3$s` the same way";
-
   /** {@code %1$s} is the inline, {@code %2$s} the variable it was hoisted into (#541). */
   static final String SCRIPT_HOISTED_MESSAGE =
       "`%1$s` in a script was moved into `var %2$s = %1$s;` at the top of the script and replaced by `%2$s`: in a"
@@ -614,7 +517,7 @@ final class ConversionRules {
       "; it was inside a block or function: code that runs later, such as a callback or event handler, now"
           + " reads the global `%1$s` when it runs, and if the script is included more than once (a fragment per"
           + " row) each copy overwrites it, so every callback reads the last copy's value; give each copy its own"
-          + " value, for example from a `data-*` attribute of the element it handles";
+          + " value, for example a number in a `data-*` attribute of the element it handles";
   /** {@code %s} is the inline. */
   static final String SCRIPT_INLINE_IN_REGEX_MESSAGE =
       "`%s` inside a JavaScript regular expression is a build error in Tessera and was not rewritten: declare the"

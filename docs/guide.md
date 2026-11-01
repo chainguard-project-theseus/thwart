@@ -423,13 +423,11 @@ the file already uses; in a classic script they are globals, so rename one if tw
 use the same name and read it later. A value hoisted out of a block or function is reported too:
 a callback or event handler now reads the global when it runs, so if the script is included more
 than once (a fragment per row) every callback reads the last copy's value; give each copy its own
-value, for example from a `data-*` attribute of the element it handles. It reports a value in a
+value, for example a number in a `data-*` attribute of the element it handles. It reports a value in a
 template literal or a regular expression, which it leaves in place, and a `"use strict"` that no longer starts the script. An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
-It still reports a computed name the compiler used to reject as unknown, and rewrites the htmx
-ones that htmx reads the same with `data-` (`th:hx-target` becomes `t:data-hx-target`; also
-`hx-swap`, `hx-select`, `hx-confirm` and the other htmx selector, swap and text attributes),
-in `th:attr` too (TODO(#604): since #584 both are NEUTRAL, section 6; migrate is to report a
-computed value there that is not framework-neutral instead). It adds a missing space between attributes (`href="/a"class="b"`).
+A computed attribute outside HTML (`th:data-*`, `th:hx-*`, `th:x-*`, ...) is converted like any
+other, with no report: when its value is not framework-neutral, the compiler's error says so and
+names the fix (section 4.4, Migration recipes). It adds a missing space between attributes (`href="/a"class="b"`).
 It also reports each `th:value`, `th:href`, `th:src`, `th:action`, `th:name` and `th:type` whose
 value may be `null`: Thymeleaf wrote the attribute empty, and Tessera omits it (section 4.3).
 It reports each `th:target` whose value is not a literal or a choice between literals, and leaves
@@ -752,20 +750,169 @@ code once they mount the element (Vue's `v-html`, Alpine's `x-data`, htmx's `hx-
 standard HTML, SVG, MathML or ARIA attribute takes only a framework-neutral value (the Neutral row
 above): a number, a boolean, a same-origin path or a choice between those and literals, which no
 framework can run. `t:hx-get="@{/items/{id}(id=${item.id})}"`, `t:data-id="${item.id}"` and
-`t:data-open="${open}"` compile; `t:data-name="${item.name}"` does not. Port a string as follows:
-
-1. Template only: show text in the element text or a standard inert attribute (a tooltip in
-   `title`); send request values as hidden inputs and `hx-include` instead of `hx-vals`.
-2. Template and your script: put the data in a `<script type="application/json">` block (or a hidden
-   input) and read it from there instead of `dataset`; give Alpine's `x-data` an `Alpine.data`
-   component that reads the JSON block; for Vue, pass props from the JSON block.
-3. A third-party plugin that reads `data-*` strings: a small init script copies the values from a
-   JSON block onto the plugin.
+`t:data-open="${open}"` compile; `t:data-name="${item.name}"` does not. Port a string with the
+matching recipe below.
 
 Names outside `[A-Za-z_][A-Za-z0-9_.:-]*`, such as Vue's `:x`, `@x`, `#x` and `.x` shorthands, take no
 computed value at all. Static attributes are not checked and are copied verbatim: write
 `<api-entry :security="security" @click="open">` as in the old page. A static `is` must name a
 custom element (a lower-case name with a `-`), so `<component is="script">` is a build error.
+
+#### Migration recipes
+
+Each recipe turns a computed string outside HTML, which is a build error, into markup that keeps the
+page's behaviour. Find the row for what the string is for, then apply the recipe. Each "after"
+template below is compiled by the guide's tests.
+
+| The string is | Recipe |
+|---|---|
+| a request value: `hx-vals`, `hx-headers`, a query in `hx-get` (`@{/search(q=${q})}`) | 1. Hidden inputs and `hx-include` |
+| text for people: a tooltip, a label, a status | 2. `title` or element text |
+| data your own script reads (`el.dataset.x`, `$(el).data('x')`) | 3. A JSON block or a hidden input |
+| an Alpine `x-data` object, Vue props (`:items`), other component state | 4. A component that reads a JSON block |
+| read by a third-party plugin from `data-*` (Bootstrap, Materialize, DataTables, i18next, Lightbox) | 5. An init script that configures the plugin from a JSON block |
+| an id with a prefix (`"hint-" + id`) | Write the number (`t:data-id="${id}"`); your script adds the prefix |
+| a URL held in a variable | Write the link with a literal path, `@{/items/{id}(id=${id})}` |
+
+**1. Hidden inputs and `hx-include`.** htmx sends the values of the inputs that `hx-include` selects
+with the request, so a request value needs no `hx-vals`. Before:
+
+```html
+<li t:each="item : items">
+  <button hx-post="/cart" t:hx-vals="|{&quot;sku&quot;: &quot;${item.sku}&quot;}|">Add</button>
+</li>
+```
+
+After:
+
+<!-- compile: template guide/recipes/hidden-inputs.html -->
+```html
+<ul xmlns:t="https://tessera.dev" t:params="List<String> skus">
+  <li t:each="sku : skus">
+    <input type="hidden" name="sku" t:value="sku">
+    <button hx-post="/cart" hx-include="previous input">Add</button>
+  </li>
+</ul>
+```
+
+A query moves the same way: `t:hx-get="@{/search(q=${q})}"` becomes `hx-get="/search"` with
+`hx-include` of an input named `q`. Inside a `<form>`, htmx sends the form's inputs anyway.
+
+**2. `title` or element text.** `title` is a standard inert attribute, so it takes any string, and
+browsers show it as a tooltip; Bootstrap's tooltip reads `title` as its text too. Text on the page
+goes in the element text. Before:
+
+```html
+<span class="tooltipped" t:data-tooltip="account.name">i</span>
+<div class="status" t:data-status="account.status"></div>
+```
+
+After:
+
+<!-- compile: template guide/recipes/title.html -->
+```html
+<div xmlns:t="https://tessera.dev" t:params="String name, String status">
+  <span class="tooltipped" t:title="name">i</span>
+  <div class="status" t:text="status"></div>
+</div>
+```
+
+If the plugin reads only its own `data-*` name, use recipe 5.
+
+**3. A JSON block or a hidden input.** Your script reads the value from a
+`<script type="application/json">` block, which takes any string as JSON, instead of from
+`dataset`. For one value per element, give each element a number (`t:data-index`) and key the
+JSON by it. Before:
+
+```html
+<div id="chart" t:data-label="chart.label" t:data-unit="chart.unit"></div>
+<script>
+  const label = document.getElementById('chart').dataset.label;
+</script>
+```
+
+After:
+
+<!-- compile: template guide/recipes/json-block.html -->
+```html
+<div xmlns:t="https://tessera.dev" t:params="String label, String unit">
+  <div id="chart"></div>
+  <script type="application/json" id="chart-data">{"label": [[${label}]], "unit": [[${unit}]]}</script>
+  <script>
+    const chart = JSON.parse(document.getElementById('chart-data').textContent);
+    const label = chart.label;
+  </script>
+</div>
+```
+
+A hidden input works too: `<input type="hidden" id="chart-label" t:value="label">`, read with
+`document.getElementById('chart-label').value`.
+
+**4. A component that reads a JSON block.** Give Alpine a named component that takes its state from
+a JSON block, instead of an `x-data` object built from strings. Static `x-*` attributes are copied as
+written. Before:
+
+```html
+<div t:x-data="|{ name: '${user.name}', open: false }|">
+  <span x-text="name"></span>
+</div>
+```
+
+After:
+
+<!-- compile: template guide/recipes/alpine.html -->
+```html
+<div xmlns:t="https://tessera.dev" t:params="String name">
+  <script type="application/json" id="profile-data">{"name": [[${name}]]}</script>
+  <div x-data="profile">
+    <span x-text="name"></span>
+  </div>
+</div>
+```
+
+```js
+// In your script, loaded before Alpine starts.
+document.addEventListener('alpine:init', () => {
+  Alpine.data('profile', () => ({
+    ...JSON.parse(document.getElementById('profile-data').textContent),
+    open: false,
+  }));
+});
+```
+
+For Vue, mount the app with props from the JSON block
+(`createApp(App, JSON.parse(el.textContent))`) instead of `:items="..."` attributes.
+
+**5. An init script that configures the plugin.** Many plugins read their options from `data-*`
+strings, and several run them as code or HTML. Keep a number on each element, put the strings in a
+JSON block, and pass them to the plugin from a small script through its JavaScript API. Before:
+
+```html
+<span t:each="tip : tips" class="hint" data-bs-toggle="tooltip" t:data-bs-title="tip">?</span>
+```
+
+After:
+
+<!-- compile: template guide/recipes/plugin.html -->
+```html
+<div xmlns:t="https://tessera.dev" t:params="List<String> tips">
+  <script type="application/json" id="tips-data">[[${tips}]]</script>
+  <span t:each="tip, stat : tips" class="hint" t:data-tip="stat.index">?</span>
+  <script t:src="@{/js/tips.js}"></script>
+</div>
+```
+
+```js
+// /js/tips.js
+const tips = JSON.parse(document.getElementById('tips-data').textContent);
+document.querySelectorAll('.hint').forEach((el) => {
+  new bootstrap.Tooltip(el, { title: tips[el.dataset.tip] }); // html: false, Bootstrap's default
+});
+```
+
+Pass the values as text: check the plugin's documentation for an option that turns on HTML (such as
+Bootstrap's `html: true`) and leave it off. Copying a string back into a `data-*` attribute from the
+script brings back what the build error prevents.
 
 Client code can submit any form with AJAX and swap the response into the page as HTML (htmx 1.x's
 `hx-boost` does), so a form's computed `t:action` takes only a link whose literal path starts with
@@ -1774,10 +1921,11 @@ The page puts its selected elements outside `<body>`, or they would also render 
 **Where the guarantee ends.** Tessera guarantees what the browser's HTML parser does with the page:
 every value lands in text, an attribute value, a checked URL or a JSON value in a script, so no
 value runs as a script, an event handler or a `javascript:` URL, or loads a script from another
-origin. It does not see what the page's JavaScript does with the DOM afterwards. Client frameworks
-that read the DOM as code (Vue in-DOM templates, petite-vue, Alpine, Knockout, htmx `hx-on`)
-are covered only by the build errors and `{{` breaking in section 4.4, with the gaps in
-section 7. A strict Content Security Policy is the control that reaches past that.
+origin. It does not see what the page's JavaScript does with the DOM afterwards, and it models no
+client-side framework: it only keeps its own output framework-neutral (section 4.4), so code that
+re-reads the DOM gets no computed value it can run. Everything else client code evaluates is
+outside the guarantee (section 7). A strict Content Security Policy is the control that reaches
+past that.
 
 **The nonce.** When the `RenderContext` has a CSP nonce, every `<script>` and `<style>` start tag
 the template writes gets `nonce="..."`: inline or `src`, and in fragments wherever they are
@@ -1803,19 +1951,22 @@ body (Spring's `ShallowEtagHeaderFilter`) never matches for a page with a script
 **The policy.** Send this header, with the request's nonce, on every page:
 
 ```text
-Content-Security-Policy: script-src 'nonce-<nonce>' 'strict-dynamic'; object-src 'none'; base-uri 'self'
+Content-Security-Policy: script-src 'nonce-<nonce>' 'strict-dynamic'; object-src 'none'; base-uri 'self'; connect-src 'self'
 ```
 
 Don't add `'unsafe-eval'` or `'unsafe-inline'`. Then a script runs only if the page's own markup
 or one of its scripts loaded it: an injected `<script>`, an `on*` handler and a `javascript:` URL
-don't run, and `eval` and `new Function` throw. That turns Vue in-DOM templates, petite-vue,
-Alpine, Knockout and htmx `hx-on` from code execution into, at worst, access to the component's
-state: they compile expressions with `new Function`, so under this policy those expressions don't
-run at all, and their CSP builds (Alpine's `@alpinejs/csp`, Vue with precompiled templates) only
-read and call what the component exposes. Set `htmx.config.allowEval = false` too. AngularJS is
-not supported (section 7) and not bounded this way either. Before you turn the policy on, move inline handlers into scripts
+don't run, and `eval` and `new Function` throw. Most client code that evaluates attribute values or
+DOM text compiles it with `new Function`, so under this policy those expressions don't run at all:
+checked in a browser for Vue 2 and 3 in-DOM templates, petite-vue, Alpine (the standard build),
+htmx `hx-on`, Knockout and Datastar. Their CSP builds (Alpine's `@alpinejs/csp`, Vue with
+precompiled templates) only read and call what the component exposes. Set
+`htmx.config.allowEval = false` too. The policy does not stop AngularJS in its CSP mode or
+_hyperscript, which interpret expressions without `eval`. `connect-src 'self'` keeps `fetch`, XHR,
+htmx requests and WebSockets on the page's own origin, so injected code can't send data elsewhere;
+list the other origins your scripts call. Before you turn the policy on, move inline handlers into scripts
 (`addEventListener`) and send the same policy as `Content-Security-Policy-Report-Only` for a while
-to find what it would block. The policy above covers scripts only; `style-src 'nonce-...'` would
+to find what it would block. The policy above covers scripts and connections; `style-src 'nonce-...'` would
 also block every `style` attribute.
 
 With Spring Security, add a header writer that reads the nonce. It works on Spring Security 4.2
@@ -1826,7 +1977,8 @@ import dev.tessera.spring.CspNonce;
 import org.springframework.security.web.header.HeaderWriter;
 
 HeaderWriter csp = (request, response) -> response.setHeader("Content-Security-Policy",
-    "script-src 'nonce-" + CspNonce.get(request) + "' 'strict-dynamic'; object-src 'none'; base-uri 'self'");
+    "script-src 'nonce-" + CspNonce.get(request) + "' 'strict-dynamic'; object-src 'none'; base-uri 'self';"
+        + " connect-src 'self'");
 
 http.headers(headers -> headers.addHeaderWriter(csp)); // Spring Security 5.2 and later
 http.headers().addHeaderWriter(csp);                   // Spring Security 4.2 to 6.x
@@ -2340,7 +2492,7 @@ These come from the annotation processor itself, without a template position.
 ### Attributes
 
 - `<label> is not allowed: event-handler attributes cannot contain expressions; put the value in a data-* attribute (a number, a boolean or a same-origin path) or a <script type="application/json"> block and read it from a script`.
-- `<label> is not allowed: '<name>' is not a standard HTML attribute, and client code may run what it reads there, so a computed value must be framework-neutral: a number, a boolean, a same-origin link such as @{/items/{id}(id=${item.id})}, or a choice between those and literals, not a <type>; put text in the element text or a standard inert attribute such as title, send request values as hidden inputs (with hx-include), or put data in a <script type="application/json"> block and read it from your script`. A `data-*`, `hx-*`, `x-*`, `v-*` or other non-standard attribute (section 4.4, Neutral). Port the string with one of the three recipes in section 4.4.
+- `<label> is not allowed: '<name>' is not a standard HTML attribute, and client code may run what it reads there, so a computed value must be framework-neutral: a number, a boolean, a same-origin link such as @{/items/{id}(id=${item.id})}, or a choice between those and literals, not a <type>; put text in the element text or a standard inert attribute such as title, send request values as hidden inputs (with hx-include), or put data in a <script type="application/json"> block and read it from your script`. A `data-*`, `hx-*`, `x-*`, `v-*` or other non-standard attribute (section 4.4, Neutral). Port the string with the matching recipe in section 4.4 (Migration recipes).
 - `<label> is not allowed: a link in '<name>' must be a same-origin path that starts with a single '/' and holds only letters, digits, . _ ~ / - and %XX, not @{<path>}`.
 - `<label> is not allowed: a link in '<name>' cannot have a query; parameter '<param>' of @{<path>} fills no path variable. Send request values as hidden inputs (with hx-include), or put them in a <script type="application/json"> block`.
 - `is="<value>" on <element> is not allowed: is may only name a custom element (a lower-case name with a '-', such as my-button); write the element you mean, such as <my-button>`.
@@ -2553,23 +2705,15 @@ Gaps in Tessera today, each with what to do until it is fixed.
   Rebuilding the HTML in a template from a tree parsed in Java is a build error
   (`STRUCTURE_DEPENDS_ON_DATA` below), and `SafeHtml.unchecked` is not a way around it
   (section 4.10, Rich text).
-- **Framework attribute names.** Only the default names of client-side framework attributes are
-  known (section 4.4). An Alpine prefix (`Alpine.prefix('data-x-')`), a Knockout binding provider
-  or a _hyperscript `attributes` setting that reads other names is not detected, so expressions
-  there are escaped as ordinary attributes and run as code. Keep the default names, or never
-  compute those attributes.
-- **htmx.** htmx behaviour is outside the guarantee: the compiler does not model boosting, where
-  `hx-post` or `hx-get` sends a form, or htmx 1.x's sockets. Use htmx 2 or set
-  `htmx.config.selfRequestsOnly = true` (htmx 1.9.5 and later).
-- **Client-side code.** Client code that evaluates attribute values or DOM text as code (Vue,
-  petite-vue, AngularJS, Alpine, htmx `hx-on`, ...) is outside the guarantee. Pass it data through
-  `<script type="application/json">` blocks, don't mount a client template compiler over
-  server-rendered user data, use htmx 2 (same-origin requests by default), and send a strict CSP
-  (section 4.11). Tessera shapes only its own output: it breaks `{{` in element text, rejects
-  values inside `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>` and `<noscript>`, and adds `v-pre`
-  to a `<title>` or `<textarea>` with computed content (section 4.4). Attribute values, class
-  tokens (AngularJS reads directives from `class`), custom delimiters and `SafeHtml.unchecked`
-  text beyond its edges are written as they are. AngularJS (end of life) is not supported.
+- **Client-side code.** Tessera models no client-side framework. Outside standard HTML attributes a
+  computed value is framework-neutral (a number, a boolean or a same-origin path, section 4.4), and
+  computed text never contains `{{`; the one framework-named output is the constant `v-pre` on a
+  `<title>` or `<textarea>` with computed content. Client code that otherwise evaluates attribute
+  values or DOM text is outside the guarantee: what it does with static markup, standard attribute
+  values (class tokens included), custom delimiters (`[[ ]]`, `${ }`) and `SafeHtml.unchecked` text.
+  Pass it data through `<script type="application/json">` blocks, don't mount a client template
+  compiler over server-rendered user data, use htmx 2 (same-origin requests by default), and send a
+  strict CSP without `'unsafe-eval'` (section 4.11).
 - **Security functions.** `auth` has `isAuthenticated`, `hasRole`/`hasAnyRole` and
   `hasAuthority`/`hasAnyAuthority`. They check the granted authorities as given, without a role
   hierarchy. Compute any other Spring Security expression in the controller.

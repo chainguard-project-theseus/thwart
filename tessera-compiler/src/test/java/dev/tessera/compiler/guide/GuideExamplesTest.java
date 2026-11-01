@@ -188,4 +188,27 @@ class GuideExamplesTest {
     assertTrue(form.contains("checked=\"checked\""), form);
     assertTrue(form.contains(">\nMain St</textarea>"), form);
   }
+
+  /** The migration recipes (#587): the strings land in an inert attribute or a JSON block, never in a data-* value. */
+  @Test
+  void migrationRecipesKeepStringsOutOfNamesOutsideHtml() {
+    String hostile = "/a/-location.port--\" x-data=\"{{alert(1)}}";
+    String inputs = render("guide/recipes/hidden-inputs", Map.of("skus", List.of(hostile)));
+    assertTrue(inputs.contains("<input type=\"hidden\" name=\"sku\" value=\"/a/-location.port--&quot; x-data=&quot;{{alert(1)}}\">"),
+        inputs);
+    assertTrue(inputs.contains("<button hx-post=\"/cart\" hx-include=\"previous input\">Add</button>"), inputs);
+    String plugin = render("guide/recipes/plugin", Map.of("tips", List.of(hostile, "b")));
+    assertTrue(plugin.contains("<script type=\"application/json\" id=\"tips-data\">[\"\\/a\\/-location.port--\\\" x-data=\\\""
+        + "\\u007b\\u007balert(1)}}\",\"b\"]</script>"), plugin);
+    assertTrue(plugin.contains("<span class=\"hint\" data-tip=\"0\">?</span>\n  <span class=\"hint\" data-tip=\"1\">?</span>"),
+        plugin);
+    // Negative: the "before" templates of the recipes are build errors.
+    for (String before : List.of("<span t:data-bs-title=\"tip\">?</span>", "<button t:hx-vals=\"tip\">Add</button>",
+        "<div t:x-data=\"|{ name: '${tip}' }|\"></div>", "<a t:hx-get=\"@{/search(q=${tip})}\">s</a>")) {
+      Compilation c = Compilation.builder()
+          .template("before.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"String tip\">" + before + "</div>")
+          .compile();
+      assertTrue(!c.success() && String.join("\n", c.errors()).contains("before.html:1:"), before + "\n" + c.errors());
+    }
+  }
 }

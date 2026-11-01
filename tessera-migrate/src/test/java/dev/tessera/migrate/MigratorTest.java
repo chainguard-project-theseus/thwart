@@ -1,11 +1,9 @@
 package dev.tessera.migrate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 /** Single-file conversion rules, byte preservation and the unsupported-construct audit. */
@@ -85,83 +83,28 @@ class MigratorTest {
     }
   }
 
+  /**
+   * #587: migrate has no copy of the compiler's attribute-name rules. A computed name outside HTML
+   * (data-*, htmx, Vue, Alpine, AngularJS spellings, a custom element's prop, any other name) is
+   * converted like any other attribute, with no rename and no report: the compiler's neutral-value
+   * error and fix-it (guide section 4.4, Migration recipes) are the single source.
+   */
   @Test
-  void unknownComputedNameIsReportedWithTheDataFixIt() throws Exception {
-    String src = "<div t:params=\"String x\"><a th:up-on-loaded=\"${x}\" th:items=\"${x}\" t:foo=\"x\">a</a></div>";
-    assertEquals("<div t:params=\"String x\"><a t:up-on-loaded=\"x\" t:items=\"x\" t:foo=\"x\">a</a></div>", convert(src));
-    assertMessages(src,
-        "1: `th:up-on-loaded`: `up-on-loaded` is not a known attribute, and a computed attribute must be a standard"
-            + " HTML, SVG, MathML or ARIA attribute, a `data-*` attribute or a plain prop on a custom element (a build"
-            + " error in Tessera); if it is data for your script, write `th:data-up-on-loaded`; if a framework reads it,"
-            + " write it as a static attribute",
-        "1: `th:items`: `items` is not a known attribute",
-        "1: `t:foo`: `foo` is not a known attribute");
-    String attr = "<div t:params=\"String x\"><a th:attr=\"up-on-loaded=${x},title=${x}\">a</a></div>";
-    assertEquals("<div t:params=\"String x\"><a t:attr=\"up-on-loaded=x,title=x\">a</a></div>", convert(attr));
-    assertMessages(attr, "1: `up-on-loaded` in `th:attr` is not a known attribute, and a computed attribute must be a"
-        + " standard HTML, SVG, MathML or ARIA attribute, a `data-*` attribute or a plain prop on a custom element (a"
-        + " build error in Tessera); if it is data for your script, write `data-up-on-loaded`");
-  }
-
-  @Test
-  void htmxNameThatHtmxAlsoReadsWithDataIsRewritten() throws Exception {
-    String src = "<div t:params=\"String x\"><a th:hx-target=\"${x}\" th:HX-Swap=\"'innerHTML'\" t:hx-confirm=\"x\">a</a></div>";
-    assertEquals("<div t:params=\"String x\"><a t:data-hx-target=\"x\" t:data-HX-Swap=\"'innerHTML'\""
-        + " t:data-hx-confirm=\"x\">a</a></div>", convert(src));
-    assertMessages(src,
-        "1: `th:hx-target` was rewritten to `t:data-hx-target`: `hx-target` is not a known attribute, which is a build"
-            + " error for a computed attribute in Tessera, and htmx reads `data-hx-target` the same way",
-        "1: `th:HX-Swap` was rewritten to `t:data-HX-Swap`",
-        "1: `t:hx-confirm` was rewritten to `t:data-hx-confirm`");
-    String attr = "<div t:params=\"String x\"><a th:attr=\"hx-target=${x}, hx-select = ${x}\">a</a></div>";
-    assertEquals("<div t:params=\"String x\"><a t:attr=\"data-hx-target=x, data-hx-select = x\">a</a></div>", convert(attr));
-    assertMessages(attr, "1: `hx-target` in `th:attr` was rewritten to `data-hx-target`: `hx-target` is not a known"
-        + " attribute, which is a build error for a computed attribute in Tessera, and htmx reads `data-hx-target` the"
-        + " same way", "1: `hx-select` in `th:attr` was rewritten to `data-hx-select`");
-  }
-
-  @Test
-  void knownAndFrameworkComputedNamesAreNotReported() throws Exception {
-    // Standard names, data-*, processors, a custom element's props, and the framework names the
-    // compiler classifies itself (an htmx script attribute is its own build error).
-    String src = "<div t:params=\"String x\"><a th:href=\"@{/a}\" th:aria-label=\"${x}\" th:data-hx-target=\"${x}\""
-        + " th:text=\"${x}\" th:classappend=\"${x}\" th:v-bind:title=\"${x}\" th:hx-get=\"@{/a}\" th:hx-vals=\"${x}\""
-        + " th:x-text=\"${x}\">a</a><my-list th:items=\"${x}\" th:params=\"${x}\"></my-list>"
-        + "<svg><path th:d=\"${x}\"/></svg></div>";
-    convert(src);
+  void namesOutsideHtmlAreConvertedWithoutRenameOrReport() throws Exception {
+    String src = "<div t:params=\"String x\"><a th:hx-target=\"${x}\" th:HX-Swap=\"'innerHTML'\" t:hx-confirm=\"x\""
+        + " th:up-on-loaded=\"${x}\" th:data:foo=\"${x}\" th:data-ng-init=\"${x}\" th:x_ng-click=\"${x}\""
+        + " th:v-bind:title=\"${x}\" th:hx-get=\"@{/a}\" th:hx-vals=\"${x}\" th:x-text=\"${x}\">a</a>"
+        + "<my-list th:items=\"${x}\"></my-list></div>";
+    assertEquals("<div t:params=\"String x\"><a t:hx-target=\"x\" t:HX-Swap=\"'innerHTML'\" t:hx-confirm=\"x\""
+        + " t:up-on-loaded=\"x\" t:data:foo=\"x\" t:data-ng-init=\"x\" t:x_ng-click=\"x\""
+        + " t:v-bind:title=\"x\" t:hx-get=\"@{/a}\" t:hx-vals=\"x\" t:x-text=\"x\">a</a>"
+        + "<my-list t:items=\"x\"></my-list></div>", convert(src));
     assertMessages(src);
-    // An unknown name the compiler rejects for another reason first is left to it.
-    String odd = "<div t:params=\"String x\"><a th:attr=\"1a=${x}\" th:hx-ext=\"${x}\">a</a></div>";
-    assertMessages(odd, "1: `th:hx-ext`: `hx-ext` is not a known attribute");
+    String attr = "<div t:params=\"String x\"><a th:attr=\"hx-target=${x}, up-on-loaded=${x},title=${x}\">a</a></div>";
+    assertEquals("<div t:params=\"String x\"><a t:attr=\"hx-target=x, up-on-loaded=x,title=x\">a</a></div>",
+        convert(attr));
+    assertMessages(attr);
   }
-
-  @Test
-  void angularDirectiveSpellingsAreLeftToTheCompiler() throws Exception {
-    // AngularJS's directiveNormalize reads each of these as ngClick (or ngInit, ngBind); the
-    // compiler rejects them as framework directives, not as unknown names.
-    for (String name : List.of("data:ng-click", "data_ng-click", "x:ng-click", "x_ng-click", "data--ng-click",
-        "_ng-click", "DATA:Ng-Click", "X_NG_init", "x_-ng:bind", "data-_ng-click")) {
-      assertTrue(ConversionRules.angularDirective(name.toLowerCase(Locale.ROOT)), name);
-      String src = "<div t:params=\"String x\"><a th:" + name + "=\"${x}\" th:attr=\"" + name + "=${x}\">a</a></div>";
-      assertEquals("<div t:params=\"String x\"><a t:" + name + "=\"x\" t:attr=\"" + name + "=x\">a</a></div>",
-          convert(src));
-      assertMessages(src);
-    }
-    // The coarse deny (ignoring - _ :, a name starting with ng, xng or datang) covers more than
-    // AngularJS reads; other data-* names stay ordinary, and other names are unknown.
-    for (String name : List.of("data_ngx", "data-ngx", "data-ng", "xng-click", "ng")) {
-      assertTrue(ConversionRules.angularDirective(name), name);
-    }
-    for (String name : List.of("data:foo", "data-data-ng-click", "data-xng-click", "x-xng", "data-name")) {
-      assertFalse(ConversionRules.angularDirective(name), name);
-    }
-    String other = "<div t:params=\"String x\"><a th:data:foo=\"${x}\" th:data-data-ng-click=\"${x}\">a</a></div>";
-    assertMessages(other,
-        "1: `th:data:foo`: `data:foo` is not a known attribute, and a computed attribute must be a standard HTML,"
-            + " SVG, MathML or ARIA attribute, a `data-*` attribute or a plain prop on a custom element (a build error"
-            + " in Tessera); if it is data for your script, write `th:data-data:foo`");
-  }
-
 
   @Test
   void renamesNamespaceAttributesAndBlocks() throws Exception {
@@ -898,7 +841,7 @@ class MigratorTest {
   private static final String DEFERRED = "; it was inside a block or function: code that runs later, such as a"
       + " callback or event handler, now reads the global `_t1` when it runs, and if the script is included more than"
       + " once (a fragment per row) each copy overwrites it, so every callback reads the last copy's value; give each"
-      + " copy its own value, for example from a `data-*` attribute of the element it handles";
+      + " copy its own value, for example a number in a `data-*` attribute of the element it handles";
 
   @Test
   void valueInsideABlockOrFunctionIsHoistedAndReported() throws Exception {
@@ -980,7 +923,7 @@ class MigratorTest {
         "<script th:inline=\"none\">var r = /a/; [[${x}]]</script>")) {
       assertEquals(src, convert(src), src);
       assertEquals(src.contains("none") ? List.of("1: `th:inline` is not supported; use `[[...]]` in `<script>`"
-          + " (JSON-escaped) or move data to `data-*` attributes") : List.of(), messages(src), src);
+          + " (JSON-escaped) or put data in a `<script type=\"application/json\">` block") : List.of(), messages(src), src);
     }
   }
 

@@ -43,14 +43,18 @@ From [security-architecture.md](security-architecture.md) §7 (accepted Oct 24, 
 - **Two specs.** [security-model.md](security-model.md) is the threat model and trust
   boundaries. [context-model.md](context-model.md) is the HTML profile as tables, with each
   row's status, check and proof. Every change to `HtmlParser`, `MarkupTokenizer`, `Contexts`,
-  `TextInlining`, `Escapers`, the verifier's rule table (`verify/`) or the framework table
-  updates context-model.md in the same PR.
+  `TextInlining`, `Escapers` or the verifier's rule table (`verify/`) updates context-model.md in
+  the same PR.
 - **The oracle gate** (#324) tests the verifier (skeleton fidelity, the inertness lemma) and
-  keeps value checks for scripts, frameworks and URLs. A new context, parse mode or framework
-  entry lands with oracle or harness rows. A PR that widens the accepted language says so in
-  its description.
-- **Deny-by-default for client frameworks.** No computed value in an unknown attribute namespace.
-  Framework support is a table entry with a version range and harness rows.
+  keeps value checks for scripts and URLs (its client-framework lists go with #608). A new context
+  or parse mode lands with oracle rows. A PR that widens the accepted language says so in its
+  description.
+- **Framework-neutral, not framework-modelled (#583).** Never add a rule that names a client
+  framework. Outside standard HTML attributes a computed value is framework-neutral (a number, a
+  boolean or a same-origin path), and computed text never contains `{{`; the hostile sweep checks
+  that shape (`HostileSinks`). What still names one: the constant `v-pre` on a computed `<title>`
+  or `<textarea>`, and the build error for a computed htmx 1.x `hx-ws` or `hx-sse` (#562). A
+  report about what a framework does with other output is outside the guarantee.
 - **One owner per security area.** Claim an issue before starting. For parser, context or escaper
   changes, post a design comment and get agreement before opening a PR. Don't open a second PR
   for a claimed issue; offer tests to the first one.

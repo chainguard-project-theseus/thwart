@@ -352,22 +352,7 @@ final class Migrator {
       } else {
         return; // plain HTML attribute
       }
-      int prefixLength = thymeleaf ? ConversionRules.THYMELEAF_PREFIX.length() : ConversionRules.TESSERA_PREFIX.length();
-      boolean renamed = false;
-      if (!ConversionRules.PROCESSORS.contains(local) && unknownName(local)) {
-        String original = name.substring(prefixLength);
-        if (ConversionRules.HTMX_DATA_EQUIVALENT.contains(local)) {
-          edits.add(new Edit(nameOffset, nameLen, ConversionRules.TESSERA_PREFIX + "data-" + original));
-          report(nameLine, String.format(ConversionRules.UNKNOWN_NAME_REWRITTEN_MESSAGE, name,
-              ConversionRules.TESSERA_PREFIX + "data-" + original, original));
-          local = "data-" + local;
-          renamed = true;
-        } else {
-          report(nameLine, String.format(ConversionRules.UNKNOWN_NAME_MESSAGE, name, original,
-              name.substring(0, prefixLength) + "data-" + original));
-        }
-      }
-      if (thymeleaf && !renamed) {
+      if (thymeleaf) {
         edits.add(new Edit(nameOffset, ConversionRules.THYMELEAF_PREFIX.length(),
             ConversionRules.TESSERA_PREFIX));
       }
@@ -406,31 +391,6 @@ final class Migrator {
           edits.add(new Edit(valueContentOffset, valueContentLen, converted));
         }
       }
-    }
-
-    /**
-     * Whether the compiler rejects {@code name} (lower case) as a computed attribute of the element
-     * being read because the name is unknown (#330): a well-formed name that is not a standard HTML,
-     * SVG, MathML or ARIA attribute, {@code data-*}, a plain prop on a custom element, or a framework
-     * name the compiler classified. Mirrors {@code Contexts.isUnknownName} as it was before #584.
-     * TODO(#604): the compiler has no unknown names since #584 (every such name is NEUTRAL); report
-     * the values a NEUTRAL name rejects instead, and drop the {@code data-} rename.
-     */
-    private boolean unknownName(String name) {
-      if (!ConversionRules.ATTRIBUTE_NAME.matcher(name).matches() || ConversionRules.KNOWN_ATTRIBUTES.contains(name)
-          || (name.startsWith("data-") && name.length() > "data-".length()) || name.startsWith("on")) {
-        return false;
-      }
-      boolean custom = openName.indexOf('-') >= 0 && !inSvg();
-      if (custom && (name.equals("params") || ConversionRules.CUSTOM_ELEMENT_PROP.matcher(name).matches())) {
-        return false;
-      }
-      for (String prefix : ConversionRules.FRAMEWORK_PREFIXES) {
-        if (name.startsWith(prefix)) {
-          return false;
-        }
-      }
-      return !ConversionRules.FRAMEWORK_NAMES.contains(name) && !ConversionRules.angularDirective(name);
     }
 
     /** {@code f(a, b)} becomes {@code f(Object a, Object b)} plus a report item to type it. */
@@ -547,17 +507,8 @@ final class Migrator {
         }
         String target = Compat.strip(part.substring(0, eq));
         String head = part.substring(0, eq + 1);
-        String lowerTarget = target.toLowerCase(Locale.ROOT);
         if (local.equals(ConversionRules.WITH)) {
           locals.add(target);
-        } else if (unknownName(lowerTarget)) {
-          if (ConversionRules.HTMX_DATA_EQUIVALENT.contains(lowerTarget)) {
-            head = head.substring(0, head.indexOf(target)) + "data-" + head.substring(head.indexOf(target));
-            report(line, String.format(ConversionRules.UNKNOWN_NAME_IN_ATTR_REWRITTEN_MESSAGE, target, name,
-                "data-" + target));
-          } else {
-            report(line, String.format(ConversionRules.UNKNOWN_NAME_IN_ATTR_MESSAGE, target, name, "data-" + target));
-          }
         } else if (thymeleaf && inSvg()
             && ConversionRules.svgStyleAttribute(target.toLowerCase(Locale.ROOT), openName)) {
           report(line, String.format(ConversionRules.SVG_STYLE_IN_ATTR_MESSAGE,

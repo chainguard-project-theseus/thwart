@@ -1,6 +1,6 @@
 # tessera-migrate report
 
-Converted 9 template(s); 71 item(s) need manual attention.
+Converted 9 template(s); 67 item(s) need manual attention.
 
 ## fragments/inputField.html
 
@@ -21,12 +21,8 @@ Converted 9 template(s); 71 item(s) need manual attention.
 - `misc/fixits.html:2`: `swap` is declared as `Object` in the generated `t:params` stub; replace it with its view type
 - `misc/fixits.html:2`: `selector` is declared as `Object` in the generated `t:params` stub; replace it with its view type
 - `misc/fixits.html:2`: `callback` is declared as `Object` in the generated `t:params` stub; replace it with its view type
-- `misc/fixits.html:5`: `th:hx-target` was rewritten to `t:data-hx-target`: `hx-target` is not a known attribute, which is a build error for a computed attribute in Tessera, and htmx reads `data-hx-target` the same way
-- `misc/fixits.html:5`: `th:hx-swap` was rewritten to `t:data-hx-swap`: `hx-swap` is not a known attribute, which is a build error for a computed attribute in Tessera, and htmx reads `data-hx-swap` the same way
-- `misc/fixits.html:6`: `hx-select` in `th:attr` was rewritten to `data-hx-select`: `hx-select` is not a known attribute, which is a build error for a computed attribute in Tessera, and htmx reads `data-hx-select` the same way
-- `misc/fixits.html:7`: `th:up-on-loaded`: `up-on-loaded` is not a known attribute, and a computed attribute must be a standard HTML, SVG, MathML or ARIA attribute, a `data-*` attribute or a plain prop on a custom element (a build error in Tessera); if it is data for your script, write `th:data-up-on-loaded`; if a framework reads it, write it as a static attribute
 - `misc/fixits.html:10`: no space before attribute `class` (a parse error, which the build rejects): a space was added, which a browser reads the same
-- `misc/fixits.html:13`: `th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or move data to `data-*` attributes
+- `misc/fixits.html:13`: `th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or put data in a `<script type="application/json">` block
 - `misc/fixits.html:15`: `/*[[${owner.id}]]*/ 0` in a script was rewritten to `[[${owner.id}]]`: Thymeleaf's natural template wrote the value in place of the comment and dropped the default `0`, and `[[...]]` inside a comment is a build error in Tessera
 - `misc/fixits.html:15`: `[[${owner.id}]]` in a script was moved into `var _t1 = [[${owner.id}]];` at the top of the script and replaced by `_t1`: in a Tessera script `[[...]]` is allowed only as the whole value of a declaration at the top, before any other code; `_t1` is a global variable in a classic script, so rename it if another script on the page uses that name
 - `misc/fixits.html:22`: `[[${owner.birthDate}]]` in a script was moved into `var _t2 = [[${owner.birthDate}]];` at the top of the script and replaced by `_t2`: in a Tessera script `[[...]]` is allowed only as the whole value of a declaration at the top, before any other code; `_t2` is a global variable in a classic script, so rename it if another script on the page uses that name
@@ -46,12 +42,12 @@ Converted 9 template(s); 71 item(s) need manual attention.
 - `misc/scripts.html:7`: `[[${user.name}]]` in a script was moved into `var _t1 = [[${user.name}]];` at the top of the script and replaced by `_t1`: in a Tessera script `[[...]]` is allowed only as the whole value of a declaration at the top, before any other code; `_t1` is a global variable in a classic script, so rename it if another script on the page uses that name; it was inside a quoted string, which is now joined with `+`: a non-string value renders as JSON (`null`, not an empty string)
 - `misc/scripts.html:8`: `[[${user.name}]]` inside a JavaScript comment is a build error in Tessera (its value would be written inside the comment and the page would never use it); move it out of the comment: Thymeleaf's natural template `var a = /*[[${x}]]*/ 'd';` becomes `var a = [[${x}]];`
 - `misc/scripts.html:9`: `[[${user.roles}]]` in a script was moved into `var _t2 = [[${user.roles}]];` at the top of the script and replaced by `_t2`: in a Tessera script `[[...]]` is allowed only as the whole value of a declaration at the top, before any other code; `_t2` is a global variable in a classic script, so rename it if another script on the page uses that name
-- `misc/scripts.html:11`: `th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or move data to `data-*` attributes
+- `misc/scripts.html:11`: `th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or put data in a `<script type="application/json">` block
 - `misc/scripts.html:12`: `` `[[${page.title}]]` `` in a script is a template literal, and `[[...]]` inside it is a build error in Tessera (it writes a JSON value with its own quotes); drop the backticks, or for a tagged template declare the value above the code (`var v = [[...]];`) and write ``tag`${v}` `` after it
 - `misc/scripts.html:13`: `` `[[${page.path}]]` `` in a script is a template literal, and `[[...]]` inside it is a build error in Tessera (it writes a JSON value with its own quotes); drop the backticks, or for a tagged template declare the value above the code (`var v = [[...]];`) and write ``tag`${v}` `` after it
 - `misc/scripts.html:14`: `"[[${page.number}]]"` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes; a string renders the same, but a non-string value now renders as JSON (`42`, `true`, `null`, an array or object), not a quoted string: check `== "true"`, `.length` and string concatenation on it (`[[|${x}|]]` keeps a string for a non-null value)
 - `misc/scripts.html:14`: `[[${page.number}]]` in a script was moved into `var _t3 = [[${page.number}]];` at the top of the script and replaced by `_t3`: in a Tessera script `[[...]]` is allowed only as the whole value of a declaration at the top, before any other code; `_t3` is a global variable in a classic script, so rename it if another script on the page uses that name
-- `misc/scripts.html:16`: `th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or move data to `data-*` attributes
+- `misc/scripts.html:16`: `th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or put data in a `<script type="application/json">` block
 - `misc/scripts.html:19`: `"[[${page.title}]]"` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes; a string renders the same, but a non-string value now renders as JSON (`42`, `true`, `null`, an array or object), not a quoted string: check `== "true"`, `.length` and string concatenation on it (`[[|${x}|]]` keeps a string for a non-null value)
 - `misc/scripts.html:19`: `[[${page.title}]]` in a script was moved into `var _t4 = [[${page.title}]];` at the top of the script and replaced by `_t4`: in a Tessera script `[[...]]` is allowed only as the whole value of a declaration at the top, before any other code; `_t4` is a global variable in a classic script, so rename it if another script on the page uses that name
 - `misc/scripts.html:20`: `"[[${user.name}]]"` in a script was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes; a string renders the same, but a non-string value now renders as JSON (`42`, `true`, `null`, an array or object), not a quoted string: check `== "true"`, `.length` and string concatenation on it (`[[|${x}|]]` keeps a string for a non-null value)
@@ -69,7 +65,7 @@ Converted 9 template(s); 71 item(s) need manual attention.
 - `misc/unsupported.html:12`: `sec:authorize` belongs to the `sec:` dialect, which Tessera does not support; port it by hand
 - `misc/unsupported.html:14`: `data-th-text` (HTML5 data-th-* syntax) is not converted; rewrite it as `t:text`
 - `misc/unsupported.html:15`: object creation with `new` is not supported (never); compute the value in Java
-- `misc/unsupported.html:16`: `th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or move data to `data-*` attributes
+- `misc/unsupported.html:16`: `th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or put data in a `<script type="application/json">` block
 - `misc/unsupported.html:17`: `/*[[${user.name}]]*/ 'x'` in a script was rewritten to `[[${user.name}]]`: Thymeleaf's natural template wrote the value in place of the comment and dropped the default `'x'`, and `[[...]]` inside a comment is a build error in Tessera
 - `misc/unsupported.html:19`: `[(...)]` prints `user.bio` without escaping; `t:utext` takes a `SafeHtml`. For stored HTML write `t:utext="html.sanitize(user.bio)"` (`html.sanitizeRich` for editor or Markdown output, or an application `HtmlPolicy` in a `@TemplateFunctions` namespace; guide section 4.10, Rich text), never a recursive fragment over a tree parsed in Java; for markup built in Java return a `SafeHtml`; for plain text use `t:text`
 
