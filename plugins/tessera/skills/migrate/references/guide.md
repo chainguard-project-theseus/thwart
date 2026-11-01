@@ -84,7 +84,7 @@ but inside `|...|` and `+` a `null` prints `null`.
 | puts expressions in `style`, SVG `fill`/`stroke`/`mask`/... or `on*` | `t:style` (or `t:fill`, ...) with literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)`/`css.var(...)` (section 4.4); otherwise `t:classappend`; a JSON block read by a script (section 4.4, Migration recipes). |
 | includes a file, calls a macro or tag with a body, or extends a layout | A fragment call with `Fragment` arguments (section 4.8). |
 | binds a form through form tags or macros | `t:object`, `t:field`, `t:errors`, `fields.*` (section 4.7). |
-| posts a form back to the current URL by default | Write the `action` with `@{...}`, or put the URL in the model. |
+| writes the current URL into a form's `action` by default | Omit the `action`: the browser posts to the page's own URL, query string included. A `t:action="@{...}"` must carry the query parameters itself (section 4.10, JSP). |
 | reads an `Exception`, a `Date` or another non-view-safe value | Put what the page shows (a message `String`, a `LocalDate`) in the model. |
 
 ## 2. Build setup
@@ -1930,6 +1930,31 @@ over a stored string.
   `t:field="*{p}"` (write `<form:options>` as a `t:each` over `<option>`); `<form:errors path="p">` is
   `t:errors="*{p}"`, `path="*"` is `t:errors="*"`, and `<form:errors/>` with no path (the form
   object's own errors only) is `t:errors="*{global}"`. `t:field` writes Spring's ids, names, checkbox `_name` markers and `selected`/`checked`.
+- **What the form tags write by default.** `<form:errors>` writes an `id` and `t:errors` doesn't:
+  `p.errors` for `path="p"` (without `[` and `]`), and `x.errors` for `path="*"` or no path, where
+  `x` is the form object's name (`espd.errors`). Write the id statically. `<form:form>` with no
+  `action` writes the request URI with its query string (`action="/response/eo/finish?lang=en"`).
+  Omit the action: the browser posts to the page's own URL, query string included (section 4.7).
+  A `t:action="@{...}"` loses the query unless you pass its parameters (`lang=${lang}`). Before:
+
+```html
+<form:form modelAttribute="signup" method="post">
+  <form:errors path="*" cssClass="alert" />
+  <form:input path="email" /> <form:errors path="email" />
+</form:form>
+```
+
+After:
+
+<!-- compile: template guide/jsp-form-defaults.html -->
+```html
+<form xmlns:t="https://tessera.dev" t:import="com.example.guide.*" t:params="Signup signup"
+      t:object="signup" method="post">
+  <span id="signup.errors" class="alert" t:errors="*">errors</span>
+  <input type="text" t:field="*{email}" /> <span id="email.errors" t:errors="*{email}">error</span>
+</form>
+```
+
 - **Computed paths.** A tag file or Tiles fragment that binds `path="${field}.answer"` becomes a
   fragment with a `Field<T>` parameter that binds `t:field="c.answer"` (section 4.8, Binding
   properties of a `Field`). The caller can't yet pass a `Field` indexed by its own loop variable
