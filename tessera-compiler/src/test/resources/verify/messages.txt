@@ -4,7 +4,7 @@
 #   -- file.html      (a template; without $NS it is wrapped in <div xmlns:t=... t:params="String s">)
 #   => file.html:line:col: error: message   (each error the verifier alone reports, in order)
 #
-# The guide's verifier catalogue (section 7) quotes these. Regenerate the => lines with
+# The guide summarizes these (section 5). Regenerate the => lines with
 # -Dtessera.golden.update=true and review the diff.
 == TEXT_NOT_IN_TEXT: after a literal '<'
 -- t.html

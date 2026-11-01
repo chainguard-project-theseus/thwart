@@ -100,7 +100,7 @@ public final class SafeHtml {
               + " (list items in their own <ul>, <ol> or <dl>, table rows in their own <table>),"
               + " with no <form> and no formatting element such as <b> inside another of the same"
               + " name; or render it as a page through a view instead of wrapping it (#396,"
-              + " docs/guide.md section 4.4)");
+              + " docs/guide.md section 4.9)");
     }
     return template;
   }

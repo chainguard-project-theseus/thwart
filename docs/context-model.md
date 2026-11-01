@@ -375,12 +375,12 @@ framework either (#587). The framework-named code that remains: a computed htmx 
 | A static `&` that starts a character reference before a hole is an error, so a value can't spell `{` as `&#123;` (`&[[a]]&[[b]]`, a = b = `#123;`); an HTML message the build did not check is escaped as text | verifier (`TEXT_NOT_IN_TEXT`, §2 "Text: hole after `&`"); runtime (`Escapers.htmlMessage`) | `ValueAfterAmpersandTest`, `EscapersTest` |
 | RCDATA (`<title>`, `<textarea>`): no lossless break, so a computed one gets the constant attribute `v-pre` (Vue, petite-vue), whatever else is on it; no duplicate `v-pre`. Its static text follows the element-text brace rule above | main (#549, simplified in #586) | `VPreRcdataTest`, `ClientTemplateInjectionTest`; that Vue 3.5.44 and petite-vue 0.4.1 skip it was checked by hand in Chromium (the hostile value runs without `v-pre`, not with it), framework harness rows #334 |
 | RAWTEXT (`xmp`, `iframe`, `noembed`, `noframes`, `noscript`): no break at all, so a value, condition or loop inside is an error | verifier for values (`VALUE_IN_RAW_TEXT`, #586); generator early error for values, conditions and loops (#571) | `ContextVerifierRulesTest`, `BrowserRawTextTest` |
-| What client code makes of static markup, standard attribute values (class tokens included) and custom delimiters, AngularJS included: outside the guarantee (guide §7) | not modelled; a strict CSP is the backstop (#335, guide §4.11) | seed `A37` |
+| What client code makes of static markup, standard attribute values (class tokens included) and custom delimiters, AngularJS included: outside the guarantee (guide §5) | not modelled; a strict CSP is the backstop (#335, guide §4.9) | seed `A37` |
 
 ### 6.4 The CSP nonce (#335)
 
 Defence in depth beyond the guarantee (security-model.md §1): with a nonce-based `script-src`,
-which the application sends (guide §4.11), only the scripts the compiler wrote run. The nonce
+which the application sends (guide §4.9), only the scripts the compiler wrote run. The nonce
 comes from `RenderContext.cspNonce()`; the Spring starter sets a fresh one per request.
 
 | Rule | Status | Checked by |

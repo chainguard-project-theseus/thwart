@@ -240,7 +240,7 @@ allow-listed:
   subtree, under the same rules recursively. CDATA is accepted only in foreign mode.
 - **`select`.** Only `option`, `optgroup`, `hr` and text, the subset where classic and new select
   parsing agree (#305).
-- **Forms.** No nested `<form>`. The browser drops the inner start tag (CSRF, guide §7).
+- **Forms.** No nested `<form>`. The browser drops the inner start tag (CSRF, guide §4.7).
 - **Tables.** Allowed, with no computed text directly in `table`, `tbody`, `thead`, `tfoot`, `tr`
   or `colgroup` (#348). Foster parenting moves the text in front of the table but leaves comments
   in it, so the `{{` break comes apart. Values go in `td`, `th` and `caption`. The build-time
@@ -304,7 +304,7 @@ This is Soy's model applied to our types, and it's additive: existing code is `H
 Superseded by §12.2's framework-neutral values (#583, #584), as §12.4 is. There are no
 deny-by-default names, no framework table and no framework harness: every computed value in a name
 that is not a standard HTML, SVG, MathML or ARIA name is a number, a boolean or a same-origin path,
-`{{` is broken where it is lossless (§12.8), and CSP bounds the rest (guide §4.11). The `ng` deny
+`{{` is broken where it is lossless (§12.8), and CSP bounds the rest (guide §4.9). The `ng` deny
 described below was deleted in #584. The CSP paragraph at the end of this section still holds. The
 rest is kept as the record of the earlier design.
 
@@ -337,7 +337,7 @@ properties, an open set.
 text (with §5.3), and JSON strings (`{`). For attributes and RCDATA there is no lossless
 break. A computed `<title>` or `<textarea>` gets a constant `v-pre` (#549, #586), which
 Vue and petite-vue honour; attributes, and RCDATA and class tokens under AngularJS, stay documented limitations
-(guide §7), bounded by `ng-non-bindable` and
+(guide §5), bounded by `ng-non-bindable` and
 CSP. I don't recommend a per-template "client framework mode". Mount points are chosen at runtime
 and often in a layout, so a per-template flag is a knob that's easy to get wrong. AngularJS is not supported
 (EOL): its directive names are denied by one coarse superset rule (ignoring `- _ :`, a name starting
@@ -487,7 +487,7 @@ author's call; the actions below are what we recommend to them.
 | **#276** htmx 4 | Closed by framework-neutral values (#584): every `hx-*` name is `NEUTRAL` | |
 | `&quot;` in `<svg><script>` | Closed by "no holes in SVG `<script>`" (§5.4); in phase 0, add it to #301's rule | |
 | `@{/\evil}` resource URLs | Phase 0: one shared same-origin path check for resource, htmx, refresh and CSRF | Family E: one function, used everywhere |
-| CSRF via `formaction` (guide §7) | Phase 2: inside a POST form, a computed `formaction` takes only a same-origin link (the #274 rule), or the token is withheld | |
+| CSRF via `formaction` (guide §4.7) | Phase 2: inside a POST form, a computed `formaction` takes only a same-origin link (the #274 rule), or the token is withheld | |
 
 ## 10. Risks and open questions
 
@@ -707,7 +707,7 @@ and its 45,056-variant differential become test cases. Known deviations are list
 | Family | Status | Owner |
 |---|---|---|
 | C. JS lexical position | Not covered. The verifier makes one input exact: a `json` hole is in an HTML script's data | closed prelude grammar (§12.3) |
-| D. Client frameworks | Not covered | framework-neutral values in every name outside HTML, SVG, MathML and ARIA (§12.2, #584), `{{` breaking (§12.8), CSP nonces (#335, PR #361; guide §4.11). No framework is modelled and AngularJS is unsupported, with no `ng` deny (§12.4) |
+| D. Client frameworks | Not covered | framework-neutral values in every name outside HTML, SVG, MathML and ARIA (§12.2, #584), `{{` breaking (§12.8), CSP nonces (#335, PR #361; guide §4.9). No framework is modelled and AngularJS is unsupported, with no `ng` deny (§12.4) |
 | E. URL and CSRF policy | Not covered. The element and attribute a value lands in become exact | inert-text list and single-URL grammar (§12.2), closed form shape (§12.7) |
 | CSS inside `style` | Not covered beyond "the value stays in its attribute" | `CssValue` rules (#182; context-model.md §6.1 `STYLE`) |
 
