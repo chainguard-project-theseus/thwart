@@ -37,7 +37,7 @@ class FrameworkDirectivesTest {
   /**
    * #586: a computed {@code class} is an escaped attribute value like any other, on every path that
    * writes it. The {@code ng}-like class-token stripping of #542 is gone (AngularJS is not supported,
-   * guide §7), so the value is written as it is, attribute-escaped; nothing else changes.
+   * guide §5), so the value is written as it is, attribute-escaped; nothing else changes.
    */
   @Test
   void computedClassIsWrittenAsItIs() {

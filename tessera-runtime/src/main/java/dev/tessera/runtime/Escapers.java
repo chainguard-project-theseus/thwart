@@ -73,7 +73,7 @@ public final class Escapers {
    * Text in {@code <title>} or {@code <textarea>} (OutputContext.RCDATA). Encodes
    * {@code & < > " '} like {@link #attr}. A comment cannot be written there (the browser shows it
    * as text), so {@code {{} is not broken: the compiler adds {@code v-pre} to a computed
-   * {@code <title>} or {@code <textarea>} for Vue and petite-vue instead (#549); see guide section 7.
+   * {@code <title>} or {@code <textarea>} for Vue and petite-vue instead (#549); see guide section 5.
    */
   public static void rcdata(Output out, Object value) {
     escapeHtml(out, toText(value));

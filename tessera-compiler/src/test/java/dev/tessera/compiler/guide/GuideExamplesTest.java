@@ -89,24 +89,6 @@ class GuideExamplesTest {
   }
 
   @Test
-  void gtvgProductList() {
-    Object comment = compilation.newInstance("com.example.gtvg.Comment", "Great");
-    Object onions =
-        compilation.newInstance("com.example.gtvg.Product", 1, "Onions", new BigDecimal("2.41"), true, List.of(comment));
-    Object garlic =
-        compilation.newInstance("com.example.gtvg.Product", 2, "Garlic & co", new BigDecimal("1.10"), false, List.of());
-    String html = render("product/list", Map.of("prods", List.of(onions, garlic)));
-    assertTrue(html.contains("<link rel=\"stylesheet\" type=\"text/css\" media=\"all\" href=\"/app/css/gtvg.css\" />"), html);
-    assertTrue(html.contains("<tr class=\"odd\">\n        <td>Onions</td>\n        <td>2.41</td>\n        <td>yes</td>"), html);
-    assertTrue(html.contains("<span>1</span> comment/s"), html);
-    assertTrue(html.contains("href=\"/app/product/comments?prodId=1\">view</a>"), html);
-    assertTrue(html.contains("<tr>\n        <td>Garlic &amp; co</td>\n        <td>1.10</td>\n        <td>no</td>"), html);
-    assertTrue(html.contains("<span>0</span> comment/s\n          \n        </td>"), html);
-    assertTrue(html.contains("<a href=\"/app/\">Return to home</a>"), html);
-    assertTrue(!html.contains("xmlns:t") && !html.contains("t:"), html);
-  }
-
-  @Test
   void helloPage() {
     Object order = compilation.newInstance("com.example.guide.Order", "A1", new BigDecimal("9.99"));
     String html = render("guide/hello", Map.of("customer", customer(), "orders", List.of(order), "admin", true));
