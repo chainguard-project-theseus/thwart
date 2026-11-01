@@ -20,8 +20,8 @@ import java.util.TreeSet;
  * safely. Whatever the policy, the output never has {@code style}, {@code on*} handlers,
  * framework directive attributes, comments (but the empty ones that break {@code {{}), or
  * script-capable, raw-text or foreign elements, and
- * it is balanced {@code FLOW} content: it closes everything it opens and nests elements only
- * where a browser's parser keeps them as written, so it implies no end tags (#329).
+ * it is balanced {@code FLOW} content in a closed content model: it closes everything it opens
+ * and nests elements only as that model allows, so a browser parses it as written (#329, #592).
  *
  * <p>To give templates an application policy, return it from a function of your own, in a class
  * annotated {@code @TemplateFunctions("notices")}: a {@code @TemplateFunction} method
@@ -30,28 +30,26 @@ import java.util.TreeSet;
  */
 public final class HtmlPolicy {
 
-  /** Elements a policy may allow. {@code a} keeps a checked {@code href}, {@code img} a checked {@code src}. */
+  /**
+   * Elements a policy may allow. {@code a} keeps a checked {@code href}, {@code img} a checked
+   * {@code src}. There are no tables (#592): the builder rejects their parts.
+   */
   public static final Set<String> ELEMENTS =
       unmodifiable(
           "a", "b", "i", "em", "strong", "u", "s", "del", "ins", "sub", "sup", "small", "mark",
           "code", "kbd", "span", "br", "img", "p", "h1", "h2", "h3", "h4", "h5", "h6", "pre",
-          "blockquote", "ul", "ol", "li", "div", "hr", "table", "caption", "thead", "tbody", "tfoot",
-          "tr", "th", "td");
+          "blockquote", "ul", "ol", "li", "div", "hr");
 
   /**
    * Attributes a policy may allow, besides {@code a[href]}, {@code img[src]} and {@code class}
    * ({@link Builder#allowClasses}). Each is kept only on the elements listed here, and only with
    * a value of the stated form: {@code title} on any element and {@code alt} on {@code img} (any
-   * text), {@code width}/{@code height} on {@code img} and
-   * {@code colspan}/{@code rowspan} on {@code td}/{@code th} (digits), {@code align} on
-   * {@code td}/{@code th} ({@code left}, {@code center}, {@code right}, {@code justify}),
-   * {@code start} and {@code reversed} on {@code ol}, {@code value} on {@code li} (an integer), and
-   * {@code id} on any element ({@code [A-Za-z0-9_-]}, written with the policy's id prefix).
+   * text), {@code width}/{@code height} on {@code img} (digits), {@code start} and
+   * {@code reversed} on {@code ol}, {@code value} on {@code li} (an integer), and {@code id} on any
+   * element ({@code [A-Za-z0-9_-]}, written with the policy's id prefix).
    */
   public static final Set<String> ATTRIBUTES =
-      unmodifiable(
-          "id", "title", "alt", "width", "height", "colspan", "rowspan", "align", "start",
-          "reversed", "value");
+      unmodifiable("id", "title", "alt", "width", "height", "start", "reversed", "value");
 
   /** Link {@code rel} tokens a policy may add. */
   public static final Set<String> REL_TOKENS = unmodifiable("nofollow", "noopener", "noreferrer", "ugc");
@@ -76,8 +74,7 @@ public final class HtmlPolicy {
   /**
    * The policy of {@code html.sanitizeRich}, for stored editor or Markdown output: {@link #BASIC}
    * plus {@code del ins kbd}, images ({@code img} with a checked {@code src}, {@code alt},
-   * {@code width}, {@code height}), tables ({@code table caption thead tbody tfoot tr th td} with
-   * {@code colspan}, {@code rowspan}, {@code align}), {@code ol start reversed}, {@code li value},
+   * {@code width}, {@code height}), {@code ol start reversed}, {@code li value},
    * {@code title}, {@code id} (prefixed {@value #DEFAULT_ID_PREFIX}, with {@code href="#x"} links
    * rewritten to match) and {@code language-*} class tokens (code highlighting). An image is kept
    * only if its {@code src} is a same-origin path (one {@code /}, not {@code //} or {@code /\}), so
@@ -183,8 +180,8 @@ public final class HtmlPolicy {
     private Builder() {}
 
     /**
-     * Allows elements from {@link #ELEMENTS} (lower case). Table parts need {@code table}, and
-     * {@code li} needs {@code ul} or {@code ol}, to be kept.
+     * Allows elements from {@link #ELEMENTS} (lower case); table parts throw. {@code li} needs
+     * {@code ul} or {@code ol} to be kept.
      */
     public Builder allowElements(String... names) {
       for (String name : names) {

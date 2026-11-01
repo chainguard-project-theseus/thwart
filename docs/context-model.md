@@ -226,12 +226,47 @@ fine.
 
 | Producer | Meets the promise | Checked by |
 |---|---|---|
-| `html.sanitize`, `html.sanitizeRich`, every `HtmlPolicy` | yes: `HtmlSanitizer` places each element where a browser's tree builder keeps it as written (no block in `p`, heading or phrasing; no `a` in `a`, no formatting element in itself; `li` only in `ul`/`ol`; table parts only in `table`, with `tbody`/`tr` written out and no text directly in table, section or row) and closes everything it opens | `FlowProducerTest` (exit state equals entry state at 14 `FLOW` insertion points, scripting on and off; hostile and fuzzed input, five policies); `SanitizerBalanceTest` (the parsed tree equals the one the tags spell); the #329 PR's parse5 run |
+| `html.sanitize`, `html.sanitizeRich`, every `HtmlPolicy` | yes: `HtmlSanitizer` writes a closed content model (#592, below), closes everything it opens, unwraps every tag that doesn't fit and writes forbidden code points as U+FFFD, so the output parses without a parse error, as written; it doesn't model the tree builder | `FlowProducerTest` (no parse error, and exit state equals entry state, at 14 `FLOW` insertion points, scripting on and off; hostile and fuzzed input, five policies); `SanitizerBalanceTest` (the parsed tree equals the one the tags spell and follows the model, without a parse error; a seeded property test over well-formed and broken trees; negative controls for each check); the #329 PR's parse5 run |
 | `SafeHtml.escape`, `SafeHtml.concat` of `FLOW` values | yes (text; concatenation of balanced content) | `FlowProducerTest` |
 | A rendered partial template (`SafeHtml.of`, `Fragment.of`) | only if the compiler proved it a `FLOW` partial (#396, below); the runtime refuses any other template with an `IllegalArgumentException` naming it | `FlowPartialTest` (the #329 review's partials are refused, each shown to change the state at a position the predicate accepts; ordinary partials are marked); `FlowProducerTest` (sample partials with hostile values); `Jdk8ProcessorTest` |
 | A `Fragment` built in Java with `Fragment.of` | yes (above). `Fragment` is a final class, so no lambda or subclass is one (#581). A page's `Fragment` parameter refuses, at render time, a value without the mark `Fragment.of` sets, also a template-built one handed back by Java. A fragment with a `Fragment` parameter has no Java-facing `fragment_<name>` method (#600), so Java reaches a template only through page `t:params` and registry entries | `FragmentFromJavaTest`, `FragmentTest` |
 | `Fragment.unverifiedForGeneratedCode`, and a generated `internalUnverified$<name>` method (a fragment with a `Fragment` parameter) called from Java | for generated code only: they are public because generated classes in other packages call them, and they check nothing, so `Fragment.unverifiedForGeneratedCode(lambda)` passed to `internalUnverified$<name>` renders the lambda's markup unchecked. A call outside generated code is a review point, the caller's responsibility like `SafeHtml.unchecked`; the names say so and are greppable (#581, #600) | `FragmentFromJavaTest.uncheckedFragmentEntryPointsAreTheDocumentedReviewPoints` (pins the unchecked methods to this row) |
 | `SafeHtml.unchecked`, a hand-written `Template` | the caller's responsibility | none |
+
+**The sanitizer's closed content model** (#592). The output is built from a stack, every non-void
+element gets an explicit end tag, and an end tag is written only while its element is the current
+node. P (phrasing) is `a b i em strong u s del ins sub sup small mark code kbd span br img`.
+
+| Element | Children | Never inside | Attributes |
+|---|---|---|---|
+| insertion point, `div`, `blockquote`, `li` | text, P, `p h1-h6 pre blockquote ul ol div hr` | | `li`: `value` |
+| `p h1-h6 pre` | text, P | | |
+| `ul ol` | `li` | | `ol`: `start`, `reversed` |
+| `a` | text, P | `a` | checked `href`, `rel`, `target=_blank` |
+| `b i em strong u s small code` | text, P | itself | |
+| `del ins sub sup mark kbd span` | text, P | | |
+| `br hr img` | void | | `img`: `src` (required), `alt`, `width`, `height` |
+
+`id`, `class` and `title` go on any element the policy allows them on. `li` goes only directly in
+`ul` or `ol`; text goes in the current node (also in `ul`/`ol`, where the parser keeps it as
+written). Input that doesn't fit is unwrapped (the tag is dropped, its content lands in the current
+node): misplaced and unknown tags, table parts (no policy allows them; the builder throws) and
+anything past depth 100. Raw-text, foreign, `template`, `select` and `object` elements are dropped
+with their content. Nothing is implied, closed early or moved. A numeric reference to
+U+0080..U+009F is read through the spec's windows-1252 table first (`&#146;` is `’`). Controls other than ASCII
+whitespace, noncharacters and lone surrogates, literal or from references, become U+FFFD in text
+and attribute values (they are parse errors in the parser's input), and a CR from a reference
+becomes LF. A named reference is decoded if the sanitizer knows it, kept if it is an HTML 4 name
+(complete with its `;`, so not an error), and otherwise has its `&` escaped: `&notit;` (a legacy
+name without its `;`) and `&X;` (an unknown name) are parse errors as written.
+
+Why this parses as written, by the HTML standard's "in body" rules, given `FLOW` (no open `p` or
+`a` at the insertion point): formatting reconstruction is a no-op because every entry of the list
+of active formatting elements is still open; a block start tag closes a `p` in button scope, but a
+`p` holds only P, so none is open (likewise a heading in a heading); `li` stops at its `ul`/`ol`
+parent, a special element; the "never inside" column rules out the `a` error (adoption agency) and
+the Noah's Ark clause, so the list comes back unchanged; and every end tag takes its no-error path
+because its element is the current node.
 
 **Verified `FLOW` partials** (#396, `ContextVerifier.whyNotFlowPartial`). After a build the verifier
 accepts, it marks each template whose output it proves `FLOW` content: the generated class

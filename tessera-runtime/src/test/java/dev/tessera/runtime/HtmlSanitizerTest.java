@@ -119,8 +119,48 @@ class HtmlSanitizerTest {
     assertEquals("&lt;script&gt;", clean("&lt;script&gt;"));
     assertEquals("A A A   — &#39;", clean("&#65; &#x41 &#X041; &nbsp; &mdash; &apos;"));
     assertEquals("caf&eacute; &amp;zz &amp;# &amp;", clean("caf&eacute; &zz &# &"));
+    // #592: an HTML 4 name is kept; any other name outside the tables is escaped, since as written
+    // the parser reports it (a legacy name without its ';', or an unknown name).
+    assertEquals("&notin; &Oacute; a&amp;notit;b a&amp;lt3;b x&amp;ampy; &amp;copyright; &amp;X; &amp;p;",
+        clean("&notin; &Oacute; a&notit;b a&lt3;b x&ampy; &copyright; &X; &p;"));
+    assertEquals("<p title=\"&eacute;&amp;notit;&amp;X;\">x</p>", HtmlPolicy.RICH.sanitize("<p title=\"&eacute;&notit;&X;\">x</p>").html());
+    // Deliberate (guide.md §4.4): valid HTML5-only names are escaped too, so they show as written
+    // rather than as the character a browser would decode; an HTML 4 name next to them is kept.
+    assertEquals("&amp;check; &amp;star; &amp;Rarr; &rarr;", clean("&check; &star; &Rarr; &rarr;"));
     assertEquals("� � � 😀", clean("&#0; &#xD800; &#99999999999; &#x1F600;"));
     assertEquals("a�b", clean("a\0b"));
+  }
+
+  /**
+   * #592: code points the parser reports as errors in its input (controls, noncharacters, lone
+   * surrogates), literal or from a reference, become U+FFFD in text and attribute values; a CR
+   * from a reference becomes the LF the parser reads. Ordinary characters are kept.
+   */
+  @Test
+  void forbiddenCodePointsBecomeReplacementCharacters() {
+    String r = "\uFFFD";
+    assertEquals("a" + r + "b" + r + "c" + r + "d" + r + "e" + r + "f" + r + "g" + r + "h",
+        clean("a\u0001b\u007fc\u0085d\uFFFEe\uFDD0f\uD83F\uDFFFg\uD800h"));
+    assertEquals("a" + r + "b" + r + "c" + r + "d" + r + "e\nf", clean("a&#1;b&#129;c&#xFFFF;d&#x1FFFE;e&#13;f"));
+    HtmlPolicy rich = HtmlPolicy.RICH;
+    assertEquals("<p title=\"" + r + r + "\n\">x</p>", rich.sanitize("<p title=\"\u0001&#x9d;&#13;\">x</p>").html());
+    assertEquals("<img src=\"/a" + r + "b\" alt=\"" + r + "\">", rich.sanitize("<img src=\"/a\u0001b\" alt=\"&#127;\">").html());
+    // the URL is checked before the replacement: a control the browser strips still hides no scheme
+    assertEquals("<a>x</a>", clean("<a href=\"\u0001javascript:alert(1)\">x</a>"));
+    // negative: whitespace, ordinary and supplementary characters are not replaced
+    assertEquals("a\tb\nc\fd \u00E9\u20AC\uD83D\uDE00\uFFFD", clean("a\tb\nc\fd \u00E9\u20AC\uD83D\uDE00\uFFFD"));
+  }
+
+  /**
+   * #592: a numeric reference to U+0080..U+009F is read through the spec's windows-1252 table, as a
+   * browser does, so Word pastes keep their punctuation; the five unmapped ones become U+FFFD.
+   */
+  @Test
+  void c1ReferencesUseTheWindows1252Table() {
+    assertEquals("don’t — €5 Ÿ", clean("don&#146;t &#151; &#x80;5 &#159;"));
+    assertEquals("<p title=\"“q”\">x</p>", HtmlPolicy.RICH.sanitize("<p title=\"&#147;q&#148;\">x</p>").html());
+    // negative: unmapped references and literal C1 controls are not mapped, they become U+FFFD
+    assertEquals("�����|��", clean("&#129;&#141;&#143;&#144;&#157;|\u0080\u0092"));
   }
 
   @Test

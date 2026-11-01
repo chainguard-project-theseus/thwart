@@ -980,8 +980,7 @@ and all other attributes (`on*`, `style`, `class`, `id`, `target`, ...).
 
 For editor or Markdown output that needs more, write `html.sanitizeRich(article.text)`
 (`HtmlPolicy.RICH.sanitize(text)` in Java). It also keeps `del ins kbd`; images (`img` with a `src`
-that is a same-origin path, `alt`, `title`, `width`, `height`); tables (`table caption thead tbody
-tfoot tr th td` with `colspan`, `rowspan`, `align`); `ol start reversed` and `li value`; `title`;
+that is a same-origin path, `alt`, `title`, `width`, `height`); `ol start reversed` and `li value`; `title`;
 `language-*` class tokens (code highlighting); and `id`, written as `user-content-<id>` so stored
 content can't shadow `window` or `document` properties or the page's own ids, with `href="#<id>"`
 links rewritten to match. Links keep `target="_blank"`. An image `src` must start with a single
@@ -1004,8 +1003,7 @@ import dev.tessera.runtime.TemplateFunctions;
 public final class NoticeFunctions {
   private static final HtmlPolicy POLICY =
       HtmlPolicy.builder()
-          .allowElements("p", "br", "b", "a", "table", "tr", "th", "td")
-          .allowAttributes("colspan", "rowspan")
+          .allowElements("p", "br", "b", "a", "ul", "li")
           .allowClasses("status-*")
           .linkRel() // the application writes these notices itself: add no rel
           .build();
@@ -1031,12 +1029,26 @@ the content needs by name: with `*`, content can use any of the page's own CSS c
 the page or dress up as its controls.
 
 Under every policy the output is rebuilt, never copied through, and balanced: every element is
-closed, and placed only where a browser's parser keeps it as written. A block element closes an
-open `p`, heading or inline element first; `a` never nests in `a`; `li` is kept only in `ul`/`ol`;
-table parts only inside a `table`, with the `tbody` and `tr` a browser would add written out, and
-no text directly in a table, section or row. A tag that fits nowhere is dropped and its text kept.
-So the output works as flow content wherever a `div` could hold it. Text is re-escaped
-(`{{` broken), and character references are decoded (`&oacute;` stays `ó`).
+closed, and kept only where this closed content model allows it, so a browser parses the output
+exactly as written, without error recovery:
+
+| Element | Holds |
+|---|---|
+| the insertion point, `div`, `blockquote`, `li` | text, inline elements, and `p h1`-`h6 pre blockquote ul ol div hr` |
+| `p`, `h1`-`h6`, `pre`, inline elements | text and inline elements |
+| `ul`, `ol` | `li` (`li` goes nowhere else) |
+| `br`, `hr`, `img` | nothing (void) |
+
+The inline elements are `a b i em strong u s del ins sub sup small mark code kbd span br img`;
+`a` never goes inside an `a`, and `b i em strong u s small code` never inside an element of their
+own name. A tag that doesn't fit is unwrapped: the tag is dropped and its content kept in place.
+So `<p>a<p>b</p>` becomes `<p>ab</p>`, nested links merge, and there are no tables (the builder
+rejects their parts; a table's cells run together as text). The output works as flow content
+wherever a `div` could hold it. Text is re-escaped (`{{` broken), character references are decoded
+(`&oacute;` stays `ó`; `&#146;` is `’`, as in a browser), and control characters and noncharacters
+become U+FFFD. Named references outside the HTML 4 set are not decoded: their `&` is escaped, so
+HTML5-only names such as `&check;` or `&star;` show as written; use the character or a numeric
+reference (`&#x2713;`) instead.
 
 In Java, `SafeHtml.escape(text)` escapes text, `SafeHtml.of(template, ctx)` wraps another template's
 output, and `SafeHtml.concat(a, b, ...)` joins parts (`concat(escape(a), sanitize("<br>"),
@@ -1209,7 +1221,7 @@ Templates call functions as `namespace.fn(args)` or `#namespace.fn(args)`.
 | `temporals` | `format(temporal, pattern)` (month and day names in the render locale), `formatIso(temporal)` |
 | `lists` | `size`, `isEmpty`, `contains(list, x)` |
 | `css` | `color(s)` (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, a CSS named colour), `length(s)` (a number with optional `px`, `em`, `rem`, `%`, `vh`, `vw`), `url(s)` (`url("...")` for a relative or `http`/`https` URL, percent-encoded): a `CssValue`, or `null` for anything else |
-| `html` | `sanitize(s)`: stored rich text as `SafeHtml` for `t:utext`; `sanitizeRich(s)`: the same with same-origin images, tables, `language-*` classes and `id` (section 4.4) |
+| `html` | `sanitize(s)`: stored rich text as `SafeHtml` for `t:utext`; `sanitizeRich(s)`: the same with same-origin images, `language-*` classes and `id` (section 4.4) |
 | `auth` (Spring starter) | `isAuthenticated()`, `hasRole('ADMIN')`, `hasAnyRole('A', 'B')` (`ROLE_` is added unless present), `hasAuthority('PERM_X')`, `hasAnyAuthority('A', 'B')` (compared exactly), `name()` |
 | `fields` (inside `t:object`) | `hasErrors('path')`, `hasErrors('*')`, `hasErrors('global')`, `errors('path')`, section 4.7 |
 
@@ -1717,7 +1729,7 @@ leaving a particular one. Read the part for your engine before converting.
   - plain data: an escaped `t:text` or attribute. If the page now shows `&lt;b&gt;` where the old
     one rendered `<b>`, the old page was injectable. That difference is the fix: keep it and say so.
   - stored rich text: keep it a `String` and write `t:utext="html.sanitize(article.text)"`;
-    `html.sanitizeRich` for editor or Markdown output (images, tables, code-block classes); or a
+    `html.sanitizeRich` for editor or Markdown output (images, code-block classes; no tables); or a
     policy of your own for any other mix (section 4.4). Don't parse it in Java into a tree of
     records and rebuild it with a recursive fragment: see Rich text below.
   - markup the application builds in Java (a `StringBuilder` of HTML): build records instead and
@@ -1770,7 +1782,9 @@ each page:
 
 Delete the fragment, the node records and the parser, and pass the HTML string. The editor
 stores images inline as `data:` URLs, and the controller adds `class="img-responsive"` to them.
-`html.sanitizeRich` would drop both, so the application exposes its own policy:
+`html.sanitizeRich` would drop both, so the application exposes its own policy. A table in the
+editor's output loses its structure under every policy (its cells' text is kept, run together):
+lay such content out without tables, or render it from data in a template.
 
 <!-- compile: java -->
 ```java
@@ -2698,7 +2712,7 @@ Gaps in Tessera today, each with what to do until it is fixed.
   extra getters are not written, and Jackson annotations are ignored.
 - **Rich text.** Stored HTML is printed through a sanitizer policy: `html.sanitize`,
   `html.sanitizeRich`, or one built with `HtmlPolicy.builder()` (section 4.4). The builder takes
-  names only from a closed set, so `style`, `iframe`, `video`, `svg` and forms are never kept,
+  names only from a closed set, so `style`, `iframe`, `video`, `svg`, forms and tables are never kept,
   and images from other hosts only with `allowRemoteImages()`, which lets whoever wrote the
   content see each reader's visit. Editor output that depends on them
   loses them: map what you need to classes in Java before sanitizing, or accept the loss.
