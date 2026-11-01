@@ -206,31 +206,49 @@ class MigratorTest {
             + " t:params=\"Object form, Object owner, Object query, Object user, Object t, Object count, Object html\">",
         convert(src).lines().findFirst().orElseThrow());
     assertMessages(src, "2: link `@{/o/{id}(id=owner.id, q=query)}` fails the render if a path variable is `null`",
-        "2: `[(...)]` prints `html` without escaping",
         "1: `form` is declared as `Object`", "1: `owner` is declared as `Object`",
         "1: `query` is declared as `Object`", "1: `user` is declared as `Object`",
         "1: `t` is declared as `Object`", "1: `count` is declared as `Object`",
         "1: `html` is declared as `Object`");
   }
 
-  // ---- raw output ----
+  // ---- compiler rules are not mirrored (#593, #595) ----
 
+  /**
+   * Forms the compiler rejects with file:line:col and the fix are converted like any other value
+   * (or left as they are) and not reported: the compiler's error is the single source (#595).
+   * Each case is {source, converted}; the compiler's errors for them are pinned in
+   * {@code MigrationRulesCompilerTest}.
+   */
   @Test
-  void rawOutputIsReportedWithTheSanitizeRecipe() throws Exception {
-    String src = "<div t:params=\"Article a\"><p th:utext=\"${a.body}\"></p>\n<p>[(${a.bio})]</p></div>";
-    assertEquals("<div t:params=\"Article a\"><p t:utext=\"a.body\"></p>\n<p>[(${a.bio})]</p></div>", convert(src));
-    assertEquals(List.of(
-            "1: " + String.format(ConversionRules.UTEXT_MESSAGE, "th:utext", "a.body", "a.body"),
-            "2: " + String.format(ConversionRules.UTEXT_MESSAGE, "[(...)]", "a.bio", "a.bio")),
-        messages(src));
-  }
-
-  @Test
-  void messagesAndSanitizedOutputAreNotReported() throws Exception {
-    String src = "<div t:params=\"Article a\"><p th:utext=\"#{intro(${a.title})}\"></p>"
-        + "<p th:utext=\"${html.sanitize(a.body)}\"></p><p t:utext=\"a.body\"></p>"
-        + "<p>[(${html.sanitizeRich(a.bio)})]</p></div>";
-    assertEquals(List.of(), messages(src));
+  void formsTheCompilerRejectsAreConvertedWithoutAReport() throws Exception {
+    String[][] cases = {
+      // event handler and style: renamed, so the compiler's t:onclick and t:style errors name the fix
+      {"<div t:params=\"String s\"><b th:onclick=\"${s}\" th:onMouseOver=\"${s}\" th:style=\"${s}\">x</b></div>",
+       "<div t:params=\"String s\"><b t:onclick=\"s\" t:onMouseOver=\"s\" t:style=\"s\">x</b></div>"},
+      // CSS attributes of an SVG element, directly and in th:attr
+      {"<div t:params=\"String s\"><svg th:cursor=\"${s}\"><rect th:fill=\"${s}\" th:attr=\"stroke=${s}\"/>"
+           + "<RECT TH:FILL=\"${s}\"/></svg></div>",
+       "<div t:params=\"String s\"><svg t:cursor=\"s\"><rect t:fill=\"s\" t:attr=\"stroke=s\"/>"
+           + "<RECT t:FILL=\"s\"/></svg></div>"},
+      // a computed target that is not a choice between literals
+      {"<div t:params=\"String s\"><a th:target=\"${s}\">a</a></div>",
+       "<div t:params=\"String s\"><a t:target=\"s\">a</a></div>"},
+      // raw output of a String
+      {"<div t:params=\"String s\"><p th:utext=\"${s}\"></p><p>[(${s})]</p></div>",
+       "<div t:params=\"String s\"><p t:utext=\"s\"></p><p>[(${s})]</p></div>"},
+      // a POST form's computed action that is not a link
+      {"<div t:params=\"String s\"><form method=\"post\" t:action=\"s\"></form>"
+           + "<form t:action=\"s\" METHOD=\"Post\"></form></div>", null},
+      // [[...]] in a template literal, a regular expression, a comment, a JSON string
+      {"<div t:params=\"String s\"><script>var a = `[[${s}]]`; var b = `a ${a} [[${s}]]`;\n"
+           + "var r = /a[[${s}]]/; // [[${s}]]\n</script>"
+           + "<script type=\"application/json\">{\"a\": \"x [[${s}]]\"}</script></div>", null},
+    };
+    for (String[] c : cases) {
+      assertEquals(c[1] == null ? c[0] : c[1], convert(c[0]), c[0]);
+      assertEquals(List.of(), messages(c[0]), c[0]);
+    }
   }
 
   @Test
@@ -393,68 +411,12 @@ class MigratorTest {
         "2: `th:type` = `owner.kind`: for a `null` value Thymeleaf wrote `type=\"\"`");
   }
 
-  /** #539: a computed target is a build error unless it is a literal or a choice between literals. */
-  @Test
-  void nonLiteralTargetIsReportedNotRewritten() throws Exception {
-    String src = "<div t:params=\"Link l\"><a th:target=\"${l.target}\">a</a>\n"
-        + "<a th:target=\"${l.blank} ? '_blank' : ${l.target}\">a</a><a th:target=\"${l.target} ?: '_self'\">a</a></div>";
-    assertMessages(src,
-        "1: `th:target` = `l.target`: `target` is not an inert-text attribute in Tessera, so a computed value other"
-            + " than a literal is a build error; choose between literals with a boolean model value,"
-            + " as in `t:target=\"newWindow ? '_blank' : '_self'\"`",
-        "2: `th:target` = `l.blank ? '_blank' : l.target`: `target` is not an inert-text attribute",
-        "2: `th:target` = `l.target ?: '_self'`: `target` is not an inert-text attribute");
-    assertEquals("<div t:params=\"Link l\"><a t:target=\"l.target\">a</a></div>",
-        convert("<div t:params=\"Link l\"><a th:target=\"${l.target}\">a</a></div>"));
-    // Literals, a choice between literals, a component prop and a static target are not reported.
-    assertMessages("<div t:params=\"Link l\"><a th:target=\"_blank\">a</a><a th:target=\"'_top'\">a</a>"
-        + "<a th:target=\"${l.blank} ? '_blank' : '_self'\">a</a>"
-        + "<a th:target=\"${l.a} ? '_blank' : (${l.b} ? '_top' : '_self')\">a</a>"
-        + "<a th:target=\"${l.a} ? '_blank' : ${l.b} ? '_top' : '_self'\">a</a>"
-        + "<my-link th:target=\"${l.target}\"></my-link><a target=\"_blank\">a</a></div>");
-  }
-
   @Test
   void attributesThatCannotBeNullOrThatThymeleafOmitsAreNotReported() throws Exception {
     assertMessages("<form t:params=\"Owner owner\" th:action=\"@{/owners/new}\">"
         + "<input th:value=\"'x'\" th:name=\"|f${owner.id}|\"><input th:value=\"42\" th:type=\"#{input.type}\">"
         + "<input th:title=\"${owner.name}\" th:attr=\"value=${owner.name}\"><input t:value=\"owner.name\">"
         + "<input th:value=\"checkbox\"></form>");
-  }
-
-  @Test
-  void postFormActionThatIsNotALinkIsReported() throws Exception {
-    // #550: the compiler rejects it; the fix is to drop the action or write a link.
-    String src = "<div t:params=\"String formAction, Owner owner\">"
-        + "<form method=\"post\" th:action=\"${formAction}\"></form>\n"
-        + "<form th:action=\"${formAction}\" class=\"f\" METHOD=\"Post\"></form>\n"
-        + "<form method=\"post\" t:action=\"formAction\"></form>\n"
-        + "<form method=\"post\" th:action=\"|/owners/${owner.id}|\"></form></div>";
-    String nullAction = "`th:action` = `formAction`: for a `null` value Thymeleaf wrote `action=\"\"`";
-    assertMessages(src,
-        "1: " + nullAction,
-        "1: `th:action` = `formAction` on a `<form method=\"post\">` is not a link: Tessera adds the CSRF token to a"
-            + " POST form only when its action is a same-origin link it can check, so any other computed action is"
-            + " a build error; remove `th:action` if the form posts to the page's own URL (a form without an action"
-            + " posts to the page URL), or write the action as a link such as `@{/items/{id}(id=${item.id})}`",
-        "2: " + nullAction,
-        "2: `th:action` = `formAction` on a `<form method=\"post\">` is not a link",
-        "3: `t:action` = `formAction` on a `<form method=\"post\">` is not a link",
-        "4: `th:action` = `|/owners/${owner.id}|` on a `<form method=\"post\">` is not a link");
-    assertTrue(convert(src).contains("<form method=\"post\" t:action=\"formAction\"></form>"));
-  }
-
-  @Test
-  void postFormActionThatIsALinkOrNotPostIsNotReported() throws Exception {
-    assertMessages("<div t:params=\"String formAction, Owner owner\">"
-        + "<form method=\"post\" th:action=\"@{/owners/{id}(id=${owner.id})}\"></form>\n"
-        + "<form method=\"post\" th:action=\" @{/owners/new} \"></form>"
-        + "<form method=\"get\" t:action=\"formAction\"></form>"
-        + "<form method=\" post\" t:action=\"formAction\"></form>"
-        + "<form method=\"get\" method=\"post\" t:action=\"formAction\"></form>"
-        + "<form t:action=\"formAction\"></form>"
-        + "<div method=\"post\" t:data-action=\"formAction\"></div></div>",
-        "1: link `@{/owners/{id}(id=owner.id)}` fails the render if a path variable is `null`");
   }
 
   @Test
@@ -637,14 +599,11 @@ class MigratorTest {
   }
 
   @Test
-  void eventHandlersStylesInlineAndDialectsAreNotRenamed() throws Exception {
-    String src = "<div xmlns:sec=\"x\">\n<b th:onclick=\"${a}\" th:style=\"${s}\" th:styleappend=\"${s2}\" th:inline=\"javascript\""
+  void unsupportedAttributesInlineAndDialectsAreNotRenamed() throws Exception {
+    String src = "<div xmlns:sec=\"x\">\n<b th:styleappend=\"${s2}\" th:inline=\"javascript\""
         + " sec:authorize=\"hasRole('A')\" layout:fragment=\"c\" data-th-text=\"${t}\" th:include=\"f\">x</b></div>";
     assertEquals(src, convert(src));
     assertMessages(src,
-        "2: `th:onclick` is a build error by design (no dynamic event handlers)",
-        "2: `th:style` is not converted; rewrite it as `t:style` from literals, numbers and"
-            + " `css.color(...)`/`css.length(...)`/`css.url(...)`",
         "2: `th:styleappend` is not supported; merge it into one `t:style` from literals, numbers and"
             + " `css.color(...)`/`css.length(...)`/`css.url(...)`",
         "2: `th:inline` is not supported",
@@ -652,75 +611,6 @@ class MigratorTest {
         "2: `layout:fragment` belongs to the `layout:` dialect",
         "2: `data-th-text` (HTML5 data-th-* syntax) is not converted; rewrite it as `t:text`",
         "2: `th:include` is not supported; use `t:insert` or `t:replace`");
-  }
-
-  /**
-   * A string in {@code data-*} is a build error (#584), so the style and event-handler fix-its point
-   * at a JSON block, and name {@code data-*} only for neutral values (guide section 4.4, recipes).
-   */
-  @Test
-  void styleAndEventHandlerFixItsDoNotSendStringsToData() {
-    for (String name : new String[] {"th:style", "th:onclick", "th:onMouseOver"}) {
-      String message = ConversionRules.unsupportedAttribute(name);
-      assertTrue(message.contains("`<script type=\"application/json\">` block"), message);
-      assertTrue(message.contains("Migration recipes"), message);
-      assertTrue(!message.contains("data-*") || message.contains("a number, a boolean or a same-origin path"),
-          message);
-    }
-  }
-
-  private static final String SVG_STYLE = "on an SVG element is not converted: Tessera reads";
-
-  /** SVG attributes that take a CSS url() are CSS in Tessera: left in place and reported, like th:style. */
-  @Test
-  void svgCssAttributesAreNotConverted() throws Exception {
-    String src = "<svg th:cursor=\"${c}\">\n<rect th:fill=\"${color}\" th:stroke=\"${s}\" th:width=\"${w}\"/>\n"
-        + "<g th:clip-path=\"${a}\" th:mask=\"${b}\" th:filter=\"${f}\"><path th:marker-start=\"${m}\""
-        + " th:marker-mid=\"${m}\" th:marker-end=\"${m}\" th:marker=\"${m}\"/></g>\n<RECT TH:FILL=\"${color}\"/></svg>";
-    String out = convert(src);
-    assertTrue(out.contains("<rect th:fill=\"${color}\" th:stroke=\"${s}\" t:width=\"w\"/>"), out);
-    assertTrue(out.contains("<RECT TH:FILL=\"${color}\"/>"), out);
-    assertMessages(src,
-        "1: `th:cursor` " + SVG_STYLE + " `cursor` as CSS, like `style`, so a `String` value is a build error;"
-            + " rewrite it as `t:cursor` from literals, numbers and `css.color(...)`/`css.url(...)`",
-        "2: `th:fill` " + SVG_STYLE + " `fill` as CSS",
-        "2: `th:stroke` " + SVG_STYLE,
-        "3: `th:clip-path` " + SVG_STYLE,
-        "3: `th:mask` " + SVG_STYLE,
-        "3: `th:filter` " + SVG_STYLE,
-        "3: `th:marker-start` " + SVG_STYLE,
-        "3: `th:marker-mid` " + SVG_STYLE,
-        "3: `th:marker-end` " + SVG_STYLE,
-        "3: `th:marker` " + SVG_STYLE,
-        "4: `TH:FILL` " + SVG_STYLE + " `FILL` as CSS, like `style`, so a `String` value is a build error;"
-            + " rewrite it as `t:FILL`",
-        "1: `w` is declared as `Object`");
-  }
-
-  /** Outside SVG, inside foreignObject, desc and title, and on an animation's timing fill, the names are plain attributes. */
-  @Test
-  void otherFillAttributesAreConverted() throws Exception {
-    String src = "<div t:params=\"Object c\"><p th:fill=\"${c}\">x</p><svg><rect><animate th:fill=\"${c}\"/>"
-        + "<animateMotion th:fill=\"${c}\"/><set th:fill=\"${c}\"/></rect><rect th:fill-opacity=\"${c}\"/>"
-        + "<foreignObject><div th:fill=\"${c}\" th:stroke=\"${c}\">x</div></foreignObject>"
-        + "<desc><b th:fill=\"${c}\">x</b></desc><title><i th:mask=\"${c}\">x</i></title></svg></div>";
-    assertEquals(src.replace("th:", "t:").replace("${c}", "c"), convert(src));
-    assertEquals(List.of(), messages(src));
-  }
-
-  /** A th:attr entry naming one is converted (its other entries still need it) and reported. */
-  @Test
-  void svgCssAttributesInThAttrAreReported() throws Exception {
-    String src = "<div t:params=\"Object c\"><svg><rect th:attr=\"fill=${c},data-x=${c}, Stroke = ${c}\"/>"
-        + "<animate th:attr=\"fill=${c}\"/></svg><p th:attr=\"fill=${c}\">x</p></div>";
-    assertEquals(
-        "<div t:params=\"Object c\"><svg><rect t:attr=\"fill=c,data-x=c, Stroke = c\"/>"
-            + "<animate t:attr=\"fill=c\"/></svg><p t:attr=\"fill=c\">x</p></div>",
-        convert(src));
-    assertMessages(src,
-        "1: `fill` in `th:attr` on an SVG element is CSS in Tessera, like `style`, so a `String` value is a"
-            + " build error; write it from literals, numbers and `css.color(...)`/`css.url(...)`",
-        "1: `Stroke` in `th:attr` on an SVG element is CSS in Tessera");
   }
 
   @Test
@@ -733,10 +623,6 @@ class MigratorTest {
   // ---- quoted inlines in <script> (#282) ----
 
   private static final String UNQUOTED = "was unquoted: in Tessera `[[...]]` writes a JSON value with its own quotes";
-  private static final String IN_COMMENT =
-      "inside a JavaScript comment is a build error in Tessera (its value would be written inside the comment";
-  private static final String IN_JSON_STRING = "inside a quoted string of a JSON script is a build error in Tessera"
-      + " (it writes a JSON value with its own quotes) and was not rewritten: make it the whole value, `{\"name\": [[...]]}`";
 
   /** A script in a root that already declares its parameters, so no stub items are reported. */
   private static String script(String attributes, String body) {
@@ -778,29 +664,24 @@ class MigratorTest {
   }
 
   @Test
-  void templateLiteralHoldingOnlyAnInlineIsReportedNotUnquoted() throws Exception {
+  void templateLiteralHoldingOnlyAnInlineIsNotUnquoted() throws Exception {
     // Dropping the backticks would turn a tag call String.raw`...` into String.raw"value", so a
-    // template literal is never unquoted, tagged or not; the report says what to write.
+    // template literal is never unquoted, tagged or not; the compiler's error says what to write.
     for (String body : List.of("var a = `[[${x}]]`;", "`[[${x}]]`", "function f() { return `[[${x}]]`; }",
         "var a = String.raw`[[${x}]]`;", "var a = tag /* c */ `[[${x}]]`;", "var a = f()`[[${x}]]`;")) {
       String src = script("", body);
       assertEquals(src, convert(src), body);
-      assertMessages(src, "1: `` `[[${x}]]` `` in a script is a template literal, and `[[...]]` inside it is a"
-          + " build error in Tessera (it writes a JSON value with its own quotes); drop the backticks, or for a"
-          + " tagged template declare the value above the code (`var v = [[...]];`) and write ``tag`${v}` `` after it");
+      assertMessages(src);
     }
-    // A quoted inline inside template code is still unquoted, and then reported.
+    // A quoted inline inside template code is still unquoted.
     String nested = script("", "var a = `${\"[[${x}]]\"}`;");
     assertEquals(script("", "var a = `${[[${x}]]}`;"), convert(nested));
-    assertMessages(nested, "1: `\"[[${x}]]\"` in a script " + UNQUOTED, "1: `[[${x}]]` " + IN_TEMPLATE);
+    assertMessages(nested, "1: `\"[[${x}]]\"` in a script " + UNQUOTED);
   }
 
   // ---- the script prelude (#540): values outside it are hoisted (#541) ----
 
   private static final String HOISTED = "in a script was moved into";
-  private static final String IN_TEMPLATE = "inside a template literal is a build error in Tessera and was not rewritten";
-  private static final String IN_REGEX =
-      "inside a JavaScript regular expression is a build error in Tessera and was not rewritten";
 
   @Test
   void valueOutsideThePreludeIsHoistedIntoAVarDeclaration() throws Exception {
@@ -889,27 +770,21 @@ class MigratorTest {
   }
 
   @Test
-  void valuesInTemplateLiteralsAndRegularExpressionsAreReportedNotHoisted() throws Exception {
-    String[][] cases = {
-        {"var a = `${[[${x}]]}`;", IN_TEMPLATE},
-        {"var a = `${f(\"a [[${x}]]\")}`;", IN_TEMPLATE},
-        {"var r = /a[[${x}]]/g;", IN_REGEX},
-        {"if (/[/][[${x}]]/.test(s)) {}", IN_REGEX},
-        {"return /[[${x}]]/;", IN_REGEX},
-        {"if (ok) /[[${x}]]/.test(s);", IN_REGEX},
-        {"while (f()) {} /[[${x}]]/.test(s);", IN_REGEX},
-    };
-    for (String[] c : cases) {
-      String src = script("", c[0]);
-      assertEquals(src, convert(src), c[0]);
-      assertMessages(src, "1: `[[${x}]]` " + c[1]);
+  void valuesInTemplateLiteralsAndRegularExpressionsAreNotHoisted() throws Exception {
+    // The compiler rejects them, with the fix (#595).
+    for (String body : new String[] {"var a = `${[[${x}]]}`;", "var a = `${f(\"a [[${x}]]\")}`;",
+        "var r = /a[[${x}]]/g;", "if (/[/][[${x}]]/.test(s)) {}", "return /[[${x}]]/;", "if (ok) /[[${x}]]/.test(s);",
+        "while (f()) {} /[[${x}]]/.test(s);"}) {
+      String src = script("", body);
+      assertEquals(src, convert(src), body);
+      assertMessages(src);
     }
     // A division is not a regular expression: the value after it is hoisted, and so are the
-    // others of a script with a reported one.
+    // others of a script with one in a regular expression.
     String division = script("", "var h = (w) / 2; var o = {} / 1; var a = [[${x}]] / 2; var r = /[[${y}]]/;");
     assertEquals(script("", "var _t1 = [[${x}]]; var h = (w) / 2; var o = {} / 1; var a = _t1 / 2; var r = /[[${y}]]/;"),
         convert(division));
-    assertMessages(division, "1: `[[${x}]]` " + HOISTED, "1: `[[${y}]]` " + IN_REGEX);
+    assertMessages(division, "1: `[[${x}]]` " + HOISTED);
   }
 
   @Test
@@ -982,16 +857,13 @@ class MigratorTest {
     assertMessages(src, "1: `[[${x}]]` " + HOISTED + " `var _t1 = [[${x}]];`");
     assertTrue(messages(src).get(0).endsWith("; it was inside a quoted string, which is now joined with `+`: a"
         + " non-string value renders as JSON (`null`, not an empty string)"), messages(src).toString());
-    // A template literal is reported, not split.
+    // A template literal is not split, and neither is a string in a JSON script: the compiler rejects both.
     String template = script("", "var a = `a ${1} [[${x}]]`;");
     assertEquals(template, convert(template));
-    // Its fix-it is the declaration the compiler accepts, not a `+` concatenation, which is still a build error.
-    assertEquals(List.of("1: `[[${x}]]` " + IN_TEMPLATE
-        + ": declare the value at the top of the script (`var v = [[...]];`) and write `${v}`"), messages(template));
-    // In a JSON script a string is reported.
+    assertMessages(template);
     String json = script(" type=\"application/json\"", "{\"a\": \"Hello [[${x}]]\"}");
     assertEquals(json, convert(json));
-    assertMessages(json, "1: `[[${x}]]` " + IN_JSON_STRING + ", and build any text around it in the model");
+    assertMessages(json);
   }
 
   @Test
@@ -1005,20 +877,19 @@ class MigratorTest {
   }
 
   @Test
-  void inlineInsideAJavaScriptCommentIsReportedNotRewritten() throws Exception {
-    // The compiler rejects [[...]] in a comment; the natural-template rewrite is #315.
+  void inlineInsideAJavaScriptCommentIsNotRewritten() throws Exception {
+    // The compiler rejects [[...]] in a comment (#595); the natural-template rewrite is #315.
     for (String body : List.of(
         "var a = /*[[${x}]]*/ 'd';",
         "// \"[[${x}]]\"\nvar a = 1;",
         "/* \"[[${x}]]\" */ var a = 1;",
         "/*/ \"[[${x}]]\" */",
-        "var a = 1; // [[${x}]]")) {
+        "var a = 1; // [[${x}]]",
+        "var a = 1; /* [[${x}]]\n [[${y}]] */")) {
       String src = script("", body);
       assertEquals(src, convert(src), body);
-      assertMessages(src, "1: `[[${x}]]` " + IN_COMMENT);
+      assertMessages(src);
     }
-    String two = script("", "var a = 1; /* [[${x}]]\n [[${y}]] */");
-    assertMessages(two, "1: `[[${x}]]` " + IN_COMMENT, "2: `[[${y}]]` " + IN_COMMENT);
   }
 
   // ---- natural-template comments in th:inline="javascript" scripts (#315) ----
@@ -1074,7 +945,7 @@ class MigratorTest {
     // [(...)] the same way; Tessera rejects it in a script, which the report says.
     String raw = script(JS, "var a = /*[(${y})]*/ 0;");
     assertEquals(script(JS, "var a = [(${y})];"), convert(raw));
-    assertMessages(raw, TH_INLINE, "1: `/*[(${y})]*/ 0` in a script was rewritten to `[(${y})]`", "1: `[(...)]` prints");
+    assertMessages(raw, TH_INLINE, "1: `/*[(${y})]*/ 0` in a script was rewritten to `[(${y})]`");
     assertTrue(messages(raw).get(1).endsWith("; `[(...)]` is a build error in a Tessera script: write `[[...]]`,"
         + " which outputs a JSON value, or pass code another way"), messages(raw).toString());
   }
@@ -1108,16 +979,14 @@ class MigratorTest {
     for (String attributes : List.of("", " th:inline=\"text\"")) {
       String src = script(attributes, "var a = /*[[${x}]]*/ 'd';");
       assertEquals(src, convert(src), attributes);
-      assertTrue(messages(src).contains("1: `[[${x}]]` " + IN_COMMENT
-          + " and the page would never use it); move it out of the comment: Thymeleaf's natural template"
-          + " `var a = /*[[${x}]]*/ 'd';` becomes `var a = [[${x}]];`"), messages(src).toString());
+      assertMessages(src, attributes.isEmpty() ? new String[0] : new String[] {TH_INLINE});
     }
     // Not the whole comment, in a line comment, or in a string: Thymeleaf leaves them alone too.
     for (String body : List.of("var a = /* [[${x}]] */ 'd';", "var a = /*[[${x}]] */ 'd';",
         "// /*[[${x}]]*/ 'd'\nvar a = 1;")) {
       String src = script(JS, body);
       assertEquals(src, convert(src), body);
-      assertMessages(src, TH_INLINE, "1: `[[${x}]]` " + IN_COMMENT);
+      assertMessages(src, TH_INLINE);
     }
     String string = script(JS, "var a = '/*[[${x}]]*/ d';");
     assertEquals(script(JS, "var _t1 = [[${x}]]; var a = '/*' + _t1 + '*/ d';"), convert(string));

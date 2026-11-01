@@ -131,13 +131,14 @@ class LayoutsTest {
     assertEquals(page.replace("<body>", "<body t:remove=\"tag\">"), r.templates().get("page.html"));
   }
 
+  /** The compiler's verifier checks the composed page; migrate doesn't report what it can't resolve (#595). */
   @Test
-  void unknownLayoutIsReportedNotRewritten() {
+  void unknownLayoutIsLeftToTheCompiler() {
     String page = "<html xmlns:t=\"https://tessera.dev\" t:replace=\"~{missing :: layout(~{::body})}\">\n"
         + "<body>\n<h1>Hi</h1>\n</body>\n</html>\n";
     Layouts.Result r = rewrite("page.html", page);
     assertEquals(page, r.templates().get("page.html"));
-    assertMessages(r, "page.html:2: the `<body>` passed to `missing :: layout` was not checked");
+    assertMessages(r);
   }
 
   @Test
@@ -209,19 +210,24 @@ class LayoutsTest {
     assertMessages(r, "navbar.html:3: fragment `navbar :: navbar` writes a whole document");
   }
 
+  /**
+   * Parse errors migrate doesn't rewrite are the compiler's to report, with file:line:col and the
+   * fix (#595): an element before the layout's doctype, ...
+   */
   @Test
-  void elementsBeforeTheLayoutAreReported() {
+  void elementsBeforeTheLayoutAreLeftToTheCompiler() {
     String page = "<t:block xmlns:t=\"https://tessera.dev\">\n<link rel=\"stylesheet\" href=\"/p.css\">\n"
         + "<t:block t:fragment=\"skipped(String s)\"><p t:text=\"s\">s</p></t:block>\n"
         + "<t:block t:replace=\"~{layout :: layout(~{::body}, null)}\">\n<body t:remove=\"tag\"><h1>Hi</h1></body>\n"
         + "</t:block>\n</t:block>\n";
     Layouts.Result r = rewrite("layout.html", LAYOUT, "page.html", page);
     assertEquals(page, r.templates().get("page.html"));
-    assertMessages(r, "page.html:2: `<link>` is written before the layout `layout :: layout` writes its doctype");
+    assertMessages(r);
   }
 
+  /** ... an element between head and body, a block in a {@code <p>} and content directly in a table. */
   @Test
-  void otherParseErrorsAreReported() {
+  void otherParseErrorsAreLeftToTheCompiler() {
     String page = "<!DOCTYPE html>\n<html>\n<head><title>T</title></head>\n<script src=\"/a.js\"></script>\n"
         + "<body>\n<p>Intro\n<div>block</div>\n</p>\n<p>fine <span>x</span></p>\n"
         + "<p>open\n<div>no end tag, so no error</div>\n"
@@ -229,8 +235,6 @@ class LayoutsTest {
         + "<tr t:replace=\"~{rows :: row}\"></tr>\n</table>\n</body>\n</html>\n";
     Layouts.Result r = rewrite("page.html", page);
     assertEquals(page, r.templates().get("page.html"));
-    assertMessages(r, "page.html:4: `<script>` between `</head>` and `<body>`",
-        "page.html:7: `<div>` inside the `<p>` of line 6 closes that paragraph, so the `</p>` on line 8",
-        "page.html:13: `<h3>` directly in a `<table>`");
+    assertMessages(r);
   }
 }

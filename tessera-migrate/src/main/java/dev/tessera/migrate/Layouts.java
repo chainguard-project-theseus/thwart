@@ -7,7 +7,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.attoparser.AbstractMarkupHandler;
@@ -19,8 +18,8 @@ import org.attoparser.ParseException;
  * the same name. Runs over all converted templates, because whether a page's {@code <body>} nests
  * depends on where the layout inserts it. Rewrites only what keeps the page the same in a browser:
  * a tag is removed only if it has no attributes, or a browser would merge them into a page element
- * that already has them; everything else is reported with the fix. Also reports, without
- * rewriting, other parse errors that are cheap to find in the source.
+ * that already has them; everything else is reported with the fix. Other parse errors are the
+ * compiler's to report (#595).
  *
  * <ul>
  *   <li>A page passes {@code ~{::body}} (or {@code ::head}, {@code ::html}) to a fragment that
@@ -34,30 +33,6 @@ import org.attoparser.ParseException;
  */
 final class Layouts {
   private Layouts() {}
-
-  /** Start tags that close an open {@code <p>} (the HTML parser's "close a p element"). */
-  private static final Set<String> CLOSES_P = Compat.setOf("address", "article", "aside",
-      "blockquote", "center", "details", "dialog", "dir", "div", "dl", "dd", "dt", "fieldset",
-      "figcaption", "figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "header",
-      "hgroup", "hr", "li", "listing", "main", "menu", "nav", "ol", "p", "plaintext", "pre",
-      "search", "section", "summary", "table", "ul", "xmp");
-  /** Elements whose content a {@code <p>} outside them can't be closed from (button scope). */
-  private static final Set<String> P_SCOPE = Compat.setOf("button", "applet", "object", "marquee",
-      "template", "td", "th", "caption", "table", "html", "svg", "math");
-  /** What each table part may hold directly; anything else a browser moves out of the table. */
-  private static final Map<String, Set<String>> TABLE_CONTENT = tableContent();
-
-  private static Map<String, Set<String>> tableContent() {
-    Map<String, Set<String>> m = new LinkedHashMap<>();
-    m.put("table", Compat.setOf("caption", "colgroup", "col", "thead", "tbody", "tfoot", "tr",
-        "script", "template", "style"));
-    Set<String> section = Compat.setOf("tr", "script", "template", "style");
-    m.put("thead", section);
-    m.put("tbody", section);
-    m.put("tfoot", section);
-    m.put("tr", Compat.setOf("td", "th", "script", "template", "style"));
-    return m;
-  }
 
   /** {@code ~{path :: name(args)}} or {@code path :: name(args)}; groups: path, name, args. */
   private static final Pattern CALL = Pattern.compile(
@@ -97,7 +72,6 @@ final class Layouts {
     int openEnd;
     int closeStart = -1;
     int closeEnd = -1;
-    int closeLine;
     /** Attributes in source order, lower-case names; a valueless attribute maps to "". */
     final Map<String, String> attrs = new LinkedHashMap<>();
     final List<El> children = new ArrayList<>();
@@ -113,10 +87,6 @@ final class Layouts {
     String t(String local) {
       String v = attrs.get(ConversionRules.TESSERA_PREFIX + local);
       return v != null ? v : attrs.get(ConversionRules.THYMELEAF_PREFIX + local);
-    }
-
-    boolean isBlock() {
-      return name.equals("t:block") || name.equals("th:block");
     }
 
     /** Plain HTML attributes, without namespace declarations. */
@@ -287,7 +257,7 @@ final class Layouts {
     Map<El, El> passedInto = new LinkedHashMap<>();
     Map<El, Call> passedBy = new LinkedHashMap<>();
     for (Call c : calls) {
-      resolvePassed(c, defs, passedInto, passedBy, items);
+      resolvePassed(c, defs, passedInto, passedBy);
     }
 
     for (Map.Entry<El, El> p : passedInto.entrySet()) {
@@ -319,13 +289,6 @@ final class Layouts {
         if (e.name.equals("html") && e.parent != t.root && !e.hasAncestor("html", null)) {
           documentInFragment(t, e, trees, calls, passedInto, items);
         }
-      }
-      reportOtherErrors(t, items);
-    }
-    for (Call c : calls) {
-      Def d = defs.get(c.target);
-      if (d != null && d.el.name.equals("html")) {
-        beforeLayout(c, defs, items);
       }
     }
 
@@ -478,10 +441,10 @@ final class Layouts {
 
   /**
    * Records {@code layout(~{::body})} calls whose fragment inserts the page's element inside its
-   * own element of that name; reports those whose fragment or parameter isn't found.
+   * own element of that name. One whose fragment or parameter isn't found is left to the compiler.
    */
   private static void resolvePassed(Call c, Map<String, Def> defs, Map<El, El> passedInto,
-      Map<El, Call> passedBy, List<Report.Item> items) {
+      Map<El, Call> passedBy) {
     if (c.args == null) {
       return;
     }
@@ -499,14 +462,7 @@ final class Layouts {
       Def d = defs.get(c.target);
       int index = m.group(1) == null ? i : d == null ? -1 : d.params.indexOf(m.group(1));
       String param = d == null || index < 0 || index >= d.params.size() ? null : d.params.get(index);
-      if (param == null) {
-        if (selected.t("remove") == null) {
-          items.add(new Report.Item(c.tree.file, selected.line, String.format(
-              ConversionRules.LAYOUT_UNRESOLVED_MESSAGE, tag, display(c.target), tag, tag)));
-        }
-        continue;
-      }
-      El into = insertedInside(d, param, tag);
+      El into = param == null ? null : insertedInside(d, param, tag);
       if (into != null) {
         passedInto.put(selected, into);
         passedBy.put(selected, c);
@@ -665,90 +621,6 @@ final class Layouts {
     return n;
   }
 
-  /** Elements a page writes before the layout it calls, so before the layout's doctype. */
-  private static void beforeLayout(Call c, Map<String, Def> defs, List<Report.Item> items) {
-    for (El h = c.host; h != null && h != c.tree.root; h = h.parent) {
-      El parent = h.parent;
-      for (El sibling : parent.children) {
-        if (sibling == h) {
-          break;
-        }
-        String remove = sibling.t("remove");
-        if (sibling.t("fragment") != null || "all".equals(remove)) {
-          continue;
-        }
-        items.add(new Report.Item(c.tree.file, sibling.line, String.format(
-            ConversionRules.BEFORE_LAYOUT_MESSAGE, sibling.name, display(c.target), headFix(c, defs))));
-      }
-    }
-  }
-
-  /** Report-only: a block in a {@code <p>}, elements between head and body, content in a table. */
-  private static void reportOtherErrors(Tree t, List<Report.Item> items) {
-    for (El e : t.all) {
-      if (e.name.equals("p") && e.closeStart >= 0) {
-        El block = closesP(e);
-        if (block != null) {
-          items.add(new Report.Item(t.file, block.line,
-              String.format(ConversionRules.BLOCK_IN_P_MESSAGE, block.name, e.line, e.closeLine)));
-        }
-      }
-      if (e.name.equals("html") && e.t("replace") == null && e.t("insert") == null) {
-        boolean afterHead = false;
-        for (El c : e.children) {
-          if (c.name.equals("head")) {
-            afterHead = c.closeStart >= 0;
-          } else if (c.name.equals("body")) {
-            break;
-          } else if (afterHead) {
-            items.add(new Report.Item(t.file, c.line,
-                String.format(ConversionRules.BETWEEN_HEAD_AND_BODY_MESSAGE, c.name)));
-          }
-        }
-      }
-      Set<String> allowed = TABLE_CONTENT.get(e.name);
-      if (allowed != null && (e.parent == null || !e.parent.isBlock() || e.name.equals("table"))) {
-        tableContent(t, e, e.name, allowed, items);
-      }
-    }
-  }
-
-  private static El closesP(El p) {
-    for (El c : p.children) {
-      String remove = c.t("remove");
-      if ("all".equals(remove) || c.t("replace") != null) {
-        continue;
-      }
-      if (CLOSES_P.contains(c.name) && remove == null) {
-        return c;
-      }
-      if (!P_SCOPE.contains(c.name)) {
-        El inner = closesP(c);
-        if (inner != null) {
-          return inner;
-        }
-      }
-    }
-    return null;
-  }
-
-  private static void tableContent(Tree t, El part, String partName, Set<String> allowed,
-      List<Report.Item> items) {
-    for (El c : part.children) {
-      String remove = c.t("remove");
-      if ("all".equals(remove) || c.t("replace") != null || c.t("fragment") != null) {
-        continue;
-      }
-      if (c.isBlock() || "tag".equals(remove)) {
-        tableContent(t, c, partName, allowed, items);
-      } else if (!allowed.contains(c.name) && !(c.name.equals("input")
-          && "hidden".equalsIgnoreCase(c.attrs.get("type")))) {
-        items.add(new Report.Item(t.file, c.line,
-            String.format(ConversionRules.IN_TABLE_MESSAGE, c.name, partName)));
-      }
-    }
-  }
-
   private static String display(String key) {
     return key.replace("::", " :: ");
   }
@@ -829,22 +701,21 @@ final class Layouts {
 
     @Override
     public void handleCloseElementStart(char[] buffer, int nameOffset, int nameLen, int line, int col) {
-      close(new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT), nameOffset, line);
+      close(new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT), nameOffset);
     }
 
     @Override
     public void handleUnmatchedCloseElementStart(
         char[] buffer, int nameOffset, int nameLen, int line, int col) {
-      close(new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT), nameOffset, line);
+      close(new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT), nameOffset);
     }
 
     /** Closes the innermost open element of that name and everything inside it; else ignored. */
-    private void close(String name, int nameOffset, int line) {
+    private void close(String name, int nameOffset) {
       for (El n = current; n != root; n = n.parent) {
         if (n.name.equals(name)) {
           n.closeStart = nameOffset - 2;
           n.closeEnd = tagEnd(nameOffset);
-          n.closeLine = line;
           current = n.parent;
           return;
         }

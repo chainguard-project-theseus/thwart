@@ -1,6 +1,6 @@
 # tessera-migrate report
 
-Converted 6 template(s); 7 item(s) need manual attention.
+Converted 6 template(s); 6 item(s) need manual attention.
 
 ## fragments/navbar.html
 
@@ -9,10 +9,6 @@ Converted 6 template(s); 7 item(s) need manual attention.
 ## groups/groups.html
 
 - `groups/groups.html:8`: rewritten: deleted the tags of a `<body>` inside a `<body>`; a browser ignored them, and a second `<body>` is a parse error, which the build rejects (the page's `<body>` is the layout's or its own)
-
-## resumes/resumes.html
-
-- `resumes/resumes.html:3`: `<link>` is written before the layout `fragments/layout :: layout` writes its doctype, so a browser ignores the doctype and renders the page in quirks mode (a parse error, which the build rejects). Fix: move it into a `<head t:remove="tag">` in this page (beside its `<body>`) and pass `~{::head}` as the `head` argument of `fragments/layout :: layout`
 
 ## users/companies.html
 

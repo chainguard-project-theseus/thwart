@@ -333,8 +333,11 @@ browser) and saves the pages; `compare` fetches them from the new app and report
 `xmlns:th` → `xmlns:t`, drop redundant `${}`, `#lists.isEmpty(x)` → `x.isEmpty()`,
 `#strings.`/`#numbers.`/`#temporals.` → namespace calls, `th:fragment="f(a,b)"` → `f(Object a, Object b)`
 plus a report item to type it, `"[[${x}]]"`/`'[[${x}]]'` in a JavaScript or JSON `<script>` (not under `th:inline="none"`) →
-`[[${x}]]` plus a report item naming the non-string value change, any other `[[...]]` of a JavaScript script → hoisted into a `var` declaration at the top of the script (#541); `__${x}__`, `T(...)`, `th:inline`, `th:style`, `th:fill`/`th:stroke`/`th:mask`/... on an SVG element (CSS in Tessera; a `th:attr` entry naming one is converted and reported), `th:on*`, `layout:*`,
+`[[${x}]]` plus a report item naming the non-string value change, any other `[[...]]` of a JavaScript script → hoisted into a `var` declaration at the top of the script (#541); `__${x}__`, `T(...)`, `th:inline`, `layout:*`,
 `sec:*`, unknown dialects and selection/projection → left in place and reported with file:line.
+A form the compiler rejects with file:line:col and the fix (`th:on*`, `th:style`, CSS on SVG, a computed
+`target`, raw `String` output, a POST form's non-link action, parse errors) is converted like any other
+and not reported: the compiler's error is the single source (#595).
 It inserts a `t:params` stub listing every root variable it saw, with `Object` types and a report
 item each. Exit code 0 even with report items (the report is the audit).
 
