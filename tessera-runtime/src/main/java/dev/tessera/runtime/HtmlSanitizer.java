@@ -582,7 +582,7 @@ final class HtmlSanitizer {
    * (here only a reference such as {@code &#13;} makes one) written as the LF the parser reads it
    * as (#592). The text and attribute writers call it, so the output parses without an error.
    */
-  static String replaceForbidden(String s) {
+  private static String replaceForbidden(String s) {
     StringBuilder sb = null;
     for (int i = 0; i < s.length(); ) {
       int cp = s.codePointAt(i);
