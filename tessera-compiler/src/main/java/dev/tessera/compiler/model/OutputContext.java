@@ -56,14 +56,6 @@ public enum OutputContext {
    */
   SCRIPT("json"),
   /**
-   * No attribute gets this since #584 (a Vue/Alpine binding is NEUTRAL); TODO(#599): delete it. It was
-   * the value of a Vue/Alpine bind attribute ({@code v-bind:x}, {@code :x}, {@code x-bind:x}) whose
-   * target {@code x} is an ordinary attribute (#246). The
-   * framework evaluates the value as a JavaScript expression, so it is serialized as JSON exactly
-   * as in {@code <script>} (a string is always a string literal) and then attribute-escaped.
-   */
-  SCRIPT_ATTRIBUTE("jsonAttr"),
-  /**
    * {@code <style>} element or {@code style} attribute. Expressions in a {@code <style>} are a
    * build error; a {@code style} attribute takes only literals, numbers and {@code CssValue}s
    * (#182) and is attribute-escaped.

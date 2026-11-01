@@ -37,8 +37,7 @@ import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Types;
 
 /**
- * Serializes {@code [[...]]} and {@code t:text} values inside {@code <script>}, and the values of
- * Vue/Alpine binding attributes ({@link #attributeValue}, #246).
+ * Serializes {@code [[...]]} and {@code t:text} values inside {@code <script>}.
  *
  * <p>Values without beans go directly to {@code Escapers.javaScript} ({@code Escapers.json} in a
  * JSON {@code <script>}). Records and
@@ -106,12 +105,7 @@ final class ScriptJson {
   private static final Set<String> JSON_COLLECTIONS =
       Backports.setOf("java.util.Collection", "java.util.List", "java.util.Set");
 
-  private static final String NEW_MAP =
-      "java.util.Map<java.lang.String, java.lang.Object> m$ = new java.util.LinkedHashMap<>();\n";
-
   private final CodegenContext ctx;
-  /** Whether helpers copy the value for {@link #attributeValue} rather than append its JSON. */
-  private final boolean tree;
   /** Generated helper method per type (by {@code TypeMirror.toString()}), for reuse and recursion. */
   private final Map<String, String> helpers = new HashMap<>();
   /** Beans whose helper is being generated, to stop unbounded generic expansion. */
@@ -119,9 +113,8 @@ final class ScriptJson {
   /** Why a nested property cannot be serialized, for the error message; null at top level. */
   private String failure;
 
-  private ScriptJson(CodegenContext ctx, boolean tree) {
+  private ScriptJson(CodegenContext ctx) {
     this.ctx = ctx;
-    this.tree = tree;
   }
 
   /**
@@ -131,7 +124,7 @@ final class ScriptJson {
    * beans goes to a generated helper, which writes it in parentheses too outside a JSON script.
    */
   static Emitted statement(CodegenContext ctx, CompiledExpr c) {
-    ScriptJson json = new ScriptJson(ctx, false);
+    ScriptJson json = new ScriptJson(ctx);
     String code = json.value(c.type(), "o$", "0", "0");
     if (code == null) {
       json.report(c.pos(), c.type(), "inside <script>");
@@ -147,24 +140,6 @@ final class ScriptJson {
     return Emitted.jsonHelperHole(helper, ctx.hostElement(), c.pos(), c.code(), js).then("\n");
   }
 
-  /**
-   * The value of a Vue/Alpine binding attribute ({@code :prop}, #246) for {@code Escapers.jsonAttr}:
-   * code whose value that escaper serializes exactly as {@link #statement} would, or null after
-   * reporting an error at {@code pos}. The same types are accepted. Values without beans are passed
-   * as they are; a bean-containing value is copied by a generated helper into
-   * {@code LinkedHashMap}s (properties in the same order) and {@code ArrayList}s, which
-   * {@code Escapers.jsonAttr} serializes; Optionals holding beans are unwrapped as in
-   * {@link #statement}. Nesting deeper than {@value #MAX_DEPTH} throws.
-   */
-  static String attributeValue(CodegenContext ctx, CompiledExpr c, SourcePos pos, String label) {
-    ScriptJson json = new ScriptJson(ctx, true);
-    String code = json.value(c.type(), c.code(), "0", "0");
-    if (code == null) {
-      json.report(pos, c.type(), "in " + label);
-    }
-    return code;
-  }
-
   private void report(SourcePos pos, TypeMirror type, String where) {
     ctx.diagnostics()
         .error(
@@ -177,9 +152,8 @@ final class ScriptJson {
 
   /**
    * Code for {@code code} (of type {@code t}): {@code code} itself if {@code t} holds no beans, else
-   * a call of a generated helper; null if {@code t} cannot be serialized. A {@code tree} helper
-   * returns a copy that {@code Escapers.jsonAttr} serializes as the streaming helper would serialize
-   * the original; a streaming helper appends the JSON to {@code s$}. {@code depth} limits the
+   * a call of a generated helper that appends the JSON to {@code s$}; null if {@code t} cannot be
+   * serialized. {@code depth} limits the
    * conversion and {@code jsonDepth} the JSON nesting: a bean-containing Optional is unwrapped
    * before JSON serialization.
    */
@@ -237,7 +211,7 @@ final class ScriptJson {
         return code;
       }
       return container(t, code, depth, jsonDepth, optional
-          ? "java.lang.Object e$ = ((java.util.Optional<?>) o$).orElse(null);\n" + (tree ? "return " : "") + item + ";\n"
+          ? "java.lang.Object e$ = ((java.util.Optional<?>) o$).orElse(null);\n" + item + ";\n"
           : listBody("(java.util.Collection<?>) o$", item));
     }
     if (name.equals("java.util.Map")) {
@@ -250,10 +224,8 @@ final class ScriptJson {
           + "java.lang.Object k$ = x$.getKey();\n"
           + "if (!(k$ instanceof java.lang.String)) { throw new java.lang.IllegalArgumentException("
           + "\"JSON object keys must be Strings\"); }\n";
-      return item.equals("e$") ? code : container(t, code, depth, jsonDepth, tree
-          ? NEW_MAP + loop + "java.lang.Object e$ = x$.getValue();\nm$.put((java.lang.String) k$, " + item + ");\n}\n"
-              + "return m$;\n"
-          : "s$.append('{');\nboolean first$ = true;\n" + loop
+      return item.equals("e$") ? code : container(t, code, depth, jsonDepth,
+          "s$.append('{');\nboolean first$ = true;\n" + loop
               + "if (!first$) { s$.append(','); }\nfirst$ = false;\n"
               + "dev.tessera.runtime.Escapers.appendJson(s$, k$, 0);\ns$.append(':');\n"
               + "java.lang.Object e$ = x$.getValue();\n" + item + ";\n}\ns$.append('}');\n");
@@ -266,10 +238,7 @@ final class ScriptJson {
 
   private String listBody(String iterable, String item) {
     String loop = "for (java.lang.Object e$ : " + iterable + ") {\n";
-    return tree
-        ? "java.util.List<java.lang.Object> l$ = new java.util.ArrayList<>();\n" + loop + "l$.add(" + item + ");\n}\n"
-            + "return l$;\n"
-        : "s$.append('[');\nboolean first$ = true;\n" + loop + "if (!first$) { s$.append(','); }\nfirst$ = false;\n"
+    return "s$.append('[');\nboolean first$ = true;\n" + loop + "if (!first$) { s$.append(','); }\nfirst$ = false;\n"
             + item + ";\n}\ns$.append(']');\n";
   }
 
@@ -278,7 +247,7 @@ final class ScriptJson {
     String key = t.toString();
     String helper = helpers.get(key);
     if (helper == null) {
-      helper = ctx.freshName(tree ? "jsonTree" : "json");
+      helper = ctx.freshName("json");
       helpers.put(key, helper);
       addHelper(helper, body);
     }
@@ -296,12 +265,12 @@ final class ScriptJson {
         failure = t + " contains itself with different type arguments";
         return null;
       }
-      helper = ctx.freshName(tree ? "jsonTree" : "json");
+      helper = ctx.freshName("json");
       helpers.put(key, helper);
       String erased = types().erasure(t).toString();
       StringBuilder body = new StringBuilder();
       body.append(erased).append(" v$ = (").append(erased).append(") o$;\n");
-      body.append(tree ? NEW_MAP : "s$.append('{');\n");
+      body.append("s$.append('{');\n");
       boolean first = true;
       for (Map.Entry<String, ExecutableElement> p : properties(te).entrySet()) {
         ExecutableElement getter = p.getValue();
@@ -317,10 +286,6 @@ final class ScriptJson {
           }
           return null;
         }
-        if (tree) {
-          body.append("m$.put(").append(JavaStrings.literal(p.getKey())).append(", ").append(value).append(");\n");
-          continue;
-        }
         StringOutput escapedKey = new StringOutput();
         Escapers.json(escapedKey, p.getKey());
         body.append("s$.append(").append(JavaStrings.literal((first ? "" : ",") + escapedKey + ":")).append(");\n");
@@ -328,7 +293,7 @@ final class ScriptJson {
         body.append(value.equals(access)
             ? "dev.tessera.runtime.Escapers.appendJson(s$, " + access + ", j$ + 1)" : value).append(";\n");
       }
-      body.append(tree ? "return m$;\n" : "s$.append('}');\n");
+      body.append("s$.append('}');\n");
       generating.remove(element);
       addHelper(helper, body.toString());
     }
@@ -336,16 +301,13 @@ final class ScriptJson {
   }
 
   private String call(String helper, String code, String depth, String jsonDepth) {
-    return helper + "(" + code + ", " + depth + (tree ? "" : ", " + jsonDepth + ", s$") + ")";
+    return helper + "(" + code + ", " + depth + ", " + jsonDepth + ", s$)";
   }
 
   private void addHelper(String name, String body) {
     String tooDeep = ") { throw new java.lang.IllegalArgumentException(\"value nested deeper than " + MAX_DEPTH
         + " (cycle?)\"); }\n";
-    ctx.addMember(tree
-        ? "private static java.lang.Object " + name + "(java.lang.Object o$, int d$) {\n"
-            + "if (o$ == null) { return null; }\nif (d$ > " + MAX_DEPTH + tooDeep + body + "}\n"
-        : "private static void " + name + "(java.lang.Object o$, int d$, int j$, java.lang.StringBuilder s$) {\n"
+    ctx.addMember("private static void " + name + "(java.lang.Object o$, int d$, int j$, java.lang.StringBuilder s$) {\n"
             + "if (o$ == null) { dev.tessera.runtime.Escapers.appendJson(s$, null, j$); return; }\n"
             + "if (d$ > " + MAX_DEPTH + " || j$ > " + MAX_DEPTH + tooDeep + body + "}\n");
   }
