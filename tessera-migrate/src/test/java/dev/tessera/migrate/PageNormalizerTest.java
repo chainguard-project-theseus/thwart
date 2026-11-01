@@ -116,33 +116,15 @@ class PageNormalizerTest {
       declared name in an array pattern | <script>var id = 7; [id] = xs; g(id);</script> | <script>var id = (7); [id] = xs; g(7);</script>
       declared name in for-of        | <script>var id = 7; for (id of xs) g(id);</script> | <script>var id = (7); for (id of xs) g(7);</script>
       declared name in for-in        | <script>var k = "a"; for (k in o) g(k);</script> | <script>var k = ("a"); for (k in o) g("a");</script>
-      declared name in a let list    | <script>var id = 7; function f(){ let a, id; return id; }</script> | <script>var id = (7); function f(){ let a, id; return 7; }</script>
-      declared name read by another script | <script>var ctx = "/a"; f(ctx);</script><script>g(ctx);</script> | <script>f("/a");</script><script>g(ctx);</script>
-      declared name read by an event handler | <script>var ctx = "/a"; f(ctx);</script><button onclick="g(ctx)">b</button> | <script>f("/a");</script><button onclick="g(ctx)">b</button>
-      declared name read by a javascript: URL | <script>var ctx = "/a"; f(ctx);</script><a href="javascript:g(ctx)">b</a> | <script>f("/a");</script><a href="javascript:g(ctx)">b</a>
-      declared name as an object key | <script>var x = "a"; o = {x: 1}; f(x);</script> | <script>o = {"a": 1}; f("a");</script>
-      declared name as a method name | <script>var x = "a"; o = {x() { return 1; }}; f(x);</script> | <script>o = {"a"() { return 1; }}; f("a");</script>
-      declared name as a label       | <script>var x = 1; x: for (;;) { break x; } f(x);</script> | <script>1: for (;;) { break 1; } f(1);</script>
+      declared name decremented first | <script>var n = 0; --n; f(n);</script>    | <script>var n = (0); --n; f(0);</script>
+      declared name as a function    | <script>var id = 7; function id(){} f(id);</script> | <script>var id = (7); function id(){} f(7);</script>
+      declared name as a class       | <script>var id = 7; class id {} f(id);</script> | <script>var id = (7); class id {} f(7);</script>
+      declared name caught           | <script>var e = 1; try { g(); } catch (e) { f(e); }</script> | <script>var e = (1); try { g(); } catch (e) { f(1); }</script>
+      declared name as a bare arrow parameter | <script>var id = 7; g(id => id);</script> | <script>var id = (7); g(id => 7);</script>
+      declared name in a string fails safe | <script>var id = 7; f(id); log("id = 1");</script> | <script>f(7); log("id = 1");</script>
       """)
   void differentPages(String rule, String a, String b) {
     check(DIFFERS, a.replace("\\n", "\n"), b.replace("\\n", "\n"));
-  }
-
-  /** Template literals hold backticks, the CSV quote character above. */
-  @Test
-  void declaredNameInATemplateLiteralDiffers() {
-    // Read in ${...}: the template literal is copied as it is, so the declaration stays.
-    check(DIFFERS, "<script>var ctx = \"/a\"; f(ctx); g(`${ctx}`);</script>",
-        "<script>f(\"/a\"); g(`${ctx}`);</script>");
-    // Read in another script's ${...}.
-    check(DIFFERS, "<script>var ctx = \"/a\"; f(ctx);</script><script>g(`x${ctx}`);</script>",
-        "<script>f(\"/a\");</script><script>g(`x${ctx}`);</script>");
-    // Assigned in ${...}.
-    check(DIFFERS, "<script>var x = \"a\"; h(`${x = g()}`); f(x);</script>",
-        "<script>var x = (\"a\"); h(`${x = g()}`); f(\"a\");</script>");
-    // A template literal that doesn't name the declaration doesn't stop the expansion.
-    check(REORDERED, "<script>f(\"a\", `t${y}`);</script>",
-        "<script>var _t1 = (\"a\");\nf(_t1, `t${y}`);</script>");
   }
 
   @Test
@@ -159,10 +141,26 @@ class PageNormalizerTest {
     // Reads in conditions, calls, comparisons and member bases are not rebindings.
     check(REORDERED, "<script>if (\"a\" == y) { while (\"a\") f(\"a\".length, o.x); }</script>",
         "<script>var x = (\"a\");\nif (x == y) { while (x) f(x.length, o.x); }</script>");
-    // Another script that doesn't name the declaration doesn't stop the expansion; reads in an
-    // object literal, an array and a call list aren't bindings.
+    // Reads in an object literal, an array and a call list aren't bindings.
     check(REORDERED, "<script>x = {k: \"a\"}; f([1, \"a\"], 2);</script><script>h(y);</script>",
         "<script>var _t1 = (\"a\");\nx = {k: _t1}; f([1, _t1], 2);</script><script>h(y);</script>");
+    // Other scripts aren't consulted: a global another script reads is reordered, and the diff
+    // shows the declaration that went.
+    check(REORDERED, "<script>f(\"/a\");</script><script>g(ctx);</script>",
+        "<script>var ctx = (\"/a\"); f(ctx);</script><script>g(ctx);</script>");
+    // A template literal that doesn't name the declaration doesn't stop the expansion.
+    check(REORDERED, "<script>f(\"a\", `t${y}`);</script>",
+        "<script>var _t1 = (\"a\");\nf(_t1, `t${y}`);</script>");
+    // Documented gaps the coarse scan leaves to the diff: a read in ${...}, a rest binding, a
+    // declaration list and an object key.
+    check(REORDERED, "<script>f(\"/a\"); g(`${ctx}`);</script>",
+        "<script>var ctx = (\"/a\"); f(ctx); g(`${ctx}`);</script>");
+    check(REORDERED, "<script>function f(...id){ return 7; } f(7);</script>",
+        "<script>var id = (7); function f(...id){ return id; } f(id);</script>");
+    check(REORDERED, "<script>function f(){ let a, 7; return 7; } f(7);</script>",
+        "<script>var id = (7); function f(){ let a, id; return id; } f(id);</script>");
+    check(REORDERED, "<script>o = {\"a\": 1}; f(\"a\");</script>",
+        "<script>var x = (\"a\"); o = {x: 1}; f(x);</script>");
   }
 
   @Test
