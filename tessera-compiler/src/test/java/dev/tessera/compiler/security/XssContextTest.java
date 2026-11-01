@@ -55,7 +55,7 @@ class XssContextTest {
           new Line("<p>a [[s]] b</p>", Kind.TEXT),
           new Line("<title>[[s]]</title>", Kind.HTML),
           new Line("<textarea t:text=\"s\"></textarea>", Kind.HTML),
-          new Line("<i t:title=\"s\" t:attr=\"data-x=s\">x</i>", Kind.HTML, Kind.HTML),
+          new Line("<i t:title=\"s\" t:attr=\"id=s\">x</i>", Kind.HTML, Kind.HTML),
           // A computed class drops ng-like tokens (#542), so the value is the whole class: static
           // class text next to it could lose its separator (FrameworkDirectivesTest covers classappend).
           new Line("<i t:class=\"s\">x</i><i t:attr=\"class=s\">y</i>", Kind.HTML, Kind.HTML),

@@ -473,9 +473,9 @@ author's call; the actions below are what we recommend to them.
 | **#303** cross-node `{{` (855 lines) | **Split.** Land the `{` JSON escape and "unclosed `{{` is an error" now. Rework the rendered-output tracking into a source-order rule in phase 4: between a static `{{` and its `}}`, no hole, no `t:` attribute, and no end tag of a `t:` element | Family D can't be proven; keep its machinery small |
 | **#302** OpenJML proofs | **Defer** (keep as a draft) | No bug in this history is in an escaper. Proving the part that works is low value now, and the loop restructuring adds churn to the file every phase touches. Revisit in phase 5 |
 | **#293** old-engine warning (#286) | **Land** after Tiles/Pebble | Orthogonal; already reviewed |
-| **#272** `<component is>` | Phase 2/4: `component` only through the framework table, static `is` naming a plain HTML element, classified as that element | Deny-by-default element names |
-| **#273** Unpoly/Datastar | Unpoly closed by deny-by-default names (phase 2); Datastar's `data-*` names go in the framework table (phase 4) | |
-| **#276** htmx 4 | Closed by deny-by-default names; add htmx 4 to the table when it ships | |
+| **#272** `<component is>` | Element half closed by #584: a static `is` must be a valid custom element name, so `<component is="script">` is an error. A framework's own element switch in static markup (Vue's `:is`, `v-bind:is`) is client code, outside the guarantee (principle 7) | There is no framework table (#584) |
+| **#273** Unpoly/Datastar | Closed by framework-neutral values (#584): their names, `data-*` included, are `NEUTRAL` | |
+| **#276** htmx 4 | Closed by framework-neutral values (#584): every `hx-*` name is `NEUTRAL` | |
 | `&quot;` in `<svg><script>` | Closed by "no holes in SVG `<script>`" (§5.4); in phase 0, add it to #301's rule | |
 | `@{/\evil}` resource URLs | Phase 0: one shared same-origin path check for resource, htmx, refresh and CSRF | Family E: one function, used everywhere |
 | CSRF via `formaction` (guide §7) | Phase 2: inside a POST form, a computed `formaction` takes only a same-origin link (the #274 rule), or the token is withheld | |
@@ -797,7 +797,20 @@ mechanically instead of by review.**
   `srcset`, SVG animation `values`/`to`/`from`/`by`) are `TRUSTED_URL`: literals or a
   `TrustedUrl`. `URL_LIST` is deleted.
 
-An attribute nobody classified is now a build error, not a plain attribute.
+An attribute nobody classified is not a plain attribute: it was a build error (#330), and is now `NEUTRAL`.
+
+- **Framework-neutral values** (#583 rule 3, #584). Every plain name that is not a standard HTML,
+  SVG, MathML or ARIA name (`data-*`, `hx-*`, `x-*`, `v-*`, a custom element's own attributes, any
+  other name) is `NEUTRAL`: a computed value there is an exact-class number in plain decimal, a
+  boolean, a same-origin `@{/path}` in the alphabet `A-Z a-z 0-9 . _ ~ / - %XX` with no query (the
+  built URL is percent-encoded into it, `--` included, and re-checked), or a choice between those
+  and literals. Free strings are build errors (the strict option): in Datastar, Knockout, htmx,
+  _hyperscript, Stimulus, rails-ujs, Turbo and Bootstrap 3 `data-*` is the code channel. The check
+  is by static type and expression shape; the render-time checks are a backstop. This replaces the
+  framework directive lists, the Vue/Alpine JSON bindings, the htmx request-URL and history-URL
+  classes, the computed `hx-boost` deny (boosting is not modelled since #585), the `ng` name deny
+  and the custom-element prop exemption, so no attribute name is classified by framework. A static
+  `is` must be a valid custom element name, so `<component is="script">` is an error (#272).
 
 ### 12.3 Scripts (#540, #541)
 
@@ -817,6 +830,10 @@ An attribute nobody classified is now a build error, not a plain attribute.
   checks are unchanged. 33 of 36 bench scripts needed it.
 
 ### 12.4 Frameworks (#542)
+
+Superseded for attributes by §12.2's framework-neutral values (#583, #584): the `ng` name deny and
+the framework directive lists below are deleted. A computed `hx-ws`/`hx-sse` stays a build error
+(#562); the `ng` class-token stripping and `v-pre` go with the text rules (#586).
 
 - **AngularJS unsupported** (PR #551). Tessera no longer models `directiveNormalize`, the model
   behind #529, #531 and #532.

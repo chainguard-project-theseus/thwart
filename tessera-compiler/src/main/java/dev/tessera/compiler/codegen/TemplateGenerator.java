@@ -450,6 +450,7 @@ public final class TemplateGenerator implements CodegenContext {
         CsrfInjector.checkSubmitter(this, plan);
       }
       CsrfInjector.checkBase(this, e);
+      checkStaticIs(e);
       if (HtmlParser.asciiEqualsIgnoreCase(e.name(), "option")) {
         FieldProcessor.option(this, plan);
       }
@@ -719,16 +720,33 @@ public final class TemplateGenerator implements CodegenContext {
     return true;
   }
 
+  /**
+   * A static {@code is} must be a valid custom element name ({@link Contexts#isCustomElementName},
+   * #272, #584): any other value, such as {@code <component is="script">}, would let what reads
+   * {@code is} render another element than the one classified. A computed one is FORBIDDEN.
+   */
+  private void checkStaticIs(Element e) {
+    for (Attribute a : e.attributes()) {
+      if (!a.isTessera() && HtmlParser.asciiEqualsIgnoreCase(a.name(), "is") && !Contexts.isCustomElementName(a.value())) {
+        diagnostics().error(a.pos(), "is=\"" + a.value() + "\" on <" + e.name() + "> is not allowed: is may only name a"
+            + " custom element (a lower-case name with a '-', such as my-button); write the element you mean, such as"
+            + " <my-button>");
+      }
+    }
+  }
+
   private Emitted dynamicAttr(Element e, ElementPlan.DynamicAttr d) {
     // Only attribute contexts: e.g. the SCRIPT (json) escaper does not escape '"'. A STYLE
     // attribute is attribute-escaped; GenericAttrProcessor admits only safe style values (#182),
-    // only literals and numbers in TYPED_ATTRIBUTE (#565), and those or TrustedUrls in TRUSTED_URL (#539).
+    // only literals and numbers in TYPED_ATTRIBUTE (#565), those or TrustedUrls in TRUSTED_URL (#539), and
+    // neutral values (numbers, booleans, same-origin paths, literals) in NEUTRAL (#584).
     OutputContext ctx = d.context();
     String escaper =
         ctx == OutputContext.ATTRIBUTE || ctx == OutputContext.URL
             || ctx == OutputContext.RESOURCE_URL || ctx == OutputContext.REFRESH || ctx == OutputContext.SCRIPT_ATTRIBUTE
             ? ctx.escaper()
             : ctx == OutputContext.STYLE || ctx == OutputContext.TYPED_ATTRIBUTE || ctx == OutputContext.TRUSTED_URL
+                    || ctx == OutputContext.NEUTRAL
                 ? OutputContext.ATTRIBUTE.escaper()
                 : null;
     if (escaper == null) {

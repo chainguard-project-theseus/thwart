@@ -586,7 +586,7 @@ public final class Escapers {
 
   /**
    * {@code url}, a link built by {@link Links} for a slot that must stay on the page's origin (a
-   * {@code <base href>}, an htmx request URL, a refresh URL,
+   * {@code <base href>}, a refresh URL,
    * the link {@code action} of any form and every {@code formaction}, which may receive the
    * CSRF token), if it starts
    * with {@code /} and {@linkplain #isSameOriginUrl is same-origin}. The compiler checks only the
@@ -601,6 +601,101 @@ public final class Escapers {
               + " context path produced " + (url == null ? "null" : "'" + url + "'") + ")");
     }
     return url;
+  }
+
+  /**
+   * A number in an attribute outside HTML ({@code data-*}, {@code hx-*}, ...; #583 rule 3, #584), in
+   * plain decimal {@code -?(0|[1-9][0-9]*)(\.[0-9]+)?}: no exponent, {@code +}, NaN or Infinity, which
+   * client code could read as an identifier. Only the JDK's own {@code Byte Short Integer Long
+   * BigInteger BigDecimal Float Double} are accepted, a subclass throws (#553's exact-class rule), as
+   * does a NaN or infinite value. {@code null} stays {@code null}.
+   */
+  public static String neutralNumber(Object value) {
+    if (value == null) {
+      return null;
+    }
+    Class<?> c = value.getClass();
+    String s;
+    if (c == Integer.class || c == Long.class || c == Short.class || c == Byte.class || c == BigInteger.class) {
+      s = value.toString();
+    } else if (c == BigDecimal.class) {
+      s = ((BigDecimal) value).toPlainString();
+    } else if ((c == Double.class || c == Float.class) && !Double.isNaN(((Number) value).doubleValue())
+        && !Double.isInfinite(((Number) value).doubleValue())) {
+      s = new BigDecimal(value.toString()).toPlainString();
+    } else {
+      throw new IllegalArgumentException(
+          "a " + c.getName() + " value '" + value + "' cannot be written as a plain decimal number in an attribute"
+              + " outside HTML: only finite JDK Byte, Short, Integer, Long, Float, Double, BigInteger and BigDecimal"
+              + " values can; convert it in Java first");
+    }
+    if (!isPlainDecimal(s)) {
+      throw new IllegalStateException("not a plain decimal number: '" + s + "'");
+    }
+    return s;
+  }
+
+  /** {@code -?(0|[1-9][0-9]*)(\.[0-9]+)?}. */
+  private static boolean isPlainDecimal(String s) {
+    int i = s.startsWith("-") ? 1 : 0;
+    int digits = i;
+    while (i < s.length() && s.charAt(i) >= '0' && s.charAt(i) <= '9') {
+      i++;
+    }
+    if (i == digits || (s.charAt(digits) == '0' && i - digits > 1)) {
+      return false;
+    }
+    if (i == s.length()) {
+      return true;
+    }
+    if (s.charAt(i) != '.' || i + 1 == s.length()) {
+      return false;
+    }
+    for (i++; i < s.length(); i++) {
+      if (s.charAt(i) < '0' || s.charAt(i) > '9') {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * {@code url}, a link built by {@link Links} for an attribute outside HTML ({@code data-*},
+   * {@code hx-*}, ...; #583 rule 3, #584), in the alphabet client code reads as a regular expression
+   * literal and nothing else: every byte outside {@code A-Z a-z 0-9 . _ ~ / -} is percent-encoded
+   * (UTF-8), except a {@code %} that already starts a {@code %XX}, and the second {@code -} of
+   * {@code --} (a decrement, which writes) becomes {@code %2D}. Path variables come from data, and a
+   * collection fills one with {@code ,}. The URL must first pass {@link #sameOriginLink}, and the
+   * result must start with a single {@code /}; otherwise (the Links implementation or the context
+   * path produced something else) this throws.
+   */
+  public static String neutralPath(String url) {
+    if (url == null) {
+      return null;
+    }
+    byte[] bytes = sameOriginLink(url).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    StringBuilder sb = new StringBuilder(bytes.length + 8);
+    for (int i = 0; i < bytes.length; i++) {
+      int b = bytes[i] & 0xFF;
+      boolean escape = b == '%' && i + 2 < bytes.length && isHexDigit(bytes[i + 1]) && isHexDigit(bytes[i + 2]);
+      if (escape || (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z') || (b >= '0' && b <= '9')
+          || b == '.' || b == '_' || b == '~' || b == '/'
+          || (b == '-' && (sb.length() == 0 || sb.charAt(sb.length() - 1) != '-'))) {
+        sb.append((char) b);
+      } else {
+        UrlEncoding.percent(sb, b);
+      }
+    }
+    if (sb.length() == 0 || sb.charAt(0) != '/' || (sb.length() > 1 && sb.charAt(1) == '/')) {
+      throw new IllegalStateException(
+          "link must be a same-origin path starting with a single '/' (the Links implementation or the"
+              + " context path produced '" + url + "')");
+    }
+    return sb.toString();
+  }
+
+  private static boolean isHexDigit(byte b) {
+    return (b >= '0' && b <= '9') || (b >= 'A' && b <= 'F') || (b >= 'a' && b <= 'f');
   }
 
   /** {@code s} if it {@linkplain #isAllowedUrl passes the scheme check}, else {@link #INVALID_URL}. */

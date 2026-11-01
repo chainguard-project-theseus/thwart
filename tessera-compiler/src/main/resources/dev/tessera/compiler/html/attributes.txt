@@ -1,6 +1,6 @@
-# Attribute names a computed attribute (t:<name> or a t:attr entry) may have (#330,
-# docs/security-architecture.md section 5.6, docs/context-model.md section 6.2), besides data-*,
-# plain [a-z][a-z0-9]* names on a custom element, and the framework names Contexts classifies.
+# The standard attribute names (#330, #584,
+# docs/security-architecture.md section 12.2, docs/context-model.md section 6.2). Every other plain
+# name (data-*, a custom element's own attributes, framework names) takes only a neutral value.
 # Contexts.attribute still classifies each name (URL, STYLE, FORBIDDEN, ...); this file only
 # says which names exist. Static attributes are not checked against it.
 #

@@ -8,6 +8,7 @@ import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
+import dev.tessera.compiler.expr.Assignment;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.html.HtmlParser;
@@ -18,6 +19,7 @@ import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.runtime.CssValue;
 import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.TrustedUrl;
+import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -28,8 +30,9 @@ import javax.lang.model.type.TypeMirror;
  * Any other {@code t:<name>} ({@code t:href}, {@code t:id}, {@code t:data-x}, ...): sets attribute
  * {@code name} from the expression, escaped for {@link Contexts#attribute}, whose contexts
  * ({@link OutputContext}) say what each attribute accepts. This processor adds: boolean attributes
- * ({@code checked}, {@code disabled}, ...) take a condition; a {@code <base href>} (#350), an htmx
- * request URL, the {@code action} of a static POST form and every
+ * ({@code checked}, {@code disabled}, ...) take a condition; a NEUTRAL name (#584) takes only a
+ * framework-neutral value ({@link #neutralSafe}); a {@code <base href>} (#350), the
+ * {@code action} of a static POST form and every
  * {@code formaction} (they may receive the CSRF token, {@link CsrfInjector}) take only a
  * same-origin link; the {@code action} of any other form a same-origin link or a {@code TrustedUrl}
  * (client code may submit it and swap the response in, #585); and a computed {@code formmethod},
@@ -60,29 +63,17 @@ public final class GenericAttrProcessor implements AttributeProcessor {
   static void set(CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label) {
     String element = plan.element().name();
     String lower = HtmlParser.asciiLower(name);
-    if (Contexts.isUnknownName(plan.element(), name)) {
-      ctx.diagnostics().error(pos, label + " is not allowed: " + unknownName(name));
-      return;
-    }
     OutputContext context = Contexts.attribute(plan.element(), name);
     String hint;
     switch (context) {
-      case SCRIPT_ATTRIBUTE:
-        jsonBinding(ctx, plan, name, value, pos, label);
+      case NEUTRAL:
+        if (neutralSafe(ctx, value, plan, label, name)) {
+          plan.setAttribute(name, neutralCode(ctx, value, plan), pos);
+        }
         return;
       case EVENT_HANDLER:
-        hint =
-            isBind(lower)
-                ? "'" + name + "' is a Vue or Alpine binding whose value is run as JavaScript; an expression"
-                    + " (written as JSON) is only allowed in :x, v-bind:x or x-bind:x whose target x is an"
-                    + " ordinary attribute, with no modifiers, not on* / style / a URL or URL part / innerHTML / is, and not"
-                    + " on <script>, <style> or <meta>; otherwise write it as a static attribute"
-                : Contexts.isFrameworkDirective(plan.element(), name)
-                ? "'" + name + "' is a Vue, Alpine, htmx, _hyperscript, AngularJS or Knockout directive whose value is"
-                    + " run as JavaScript, so it cannot contain expressions; write it as a static attribute,"
-                    + " or put the value in a data-* attribute or a <script> with [[...]] and read it from there"
-                : "event-handler attributes cannot contain expressions; put the value in a data-* attribute and"
-                    + " read it from a script";
+        hint = "event-handler attributes cannot contain expressions; put the value in a data-* attribute (a number,"
+            + " a boolean or a same-origin path) or a <script type=\"application/json\"> block and read it from a script";
         break;
       case TYPED_ATTRIBUTE:
         if (!BOOLEAN_ATTRIBUTES.contains(lower)) {
@@ -109,10 +100,6 @@ public final class GenericAttrProcessor implements AttributeProcessor {
                 : lower.equals("attributename")
                 ? "the attributeName of an SVG animation cannot be computed; it decides whether values, to,"
                     + " from and by are CSS or a URL, so write a static attributeName attribute"
-                : Contexts.isHtmxBoost(name)
-                ? "'" + name + "' cannot be computed; it decides whether htmx submits the forms inside with AJAX"
-                    + " and swaps the response into the page, so write " + name + "=\"true\" or " + name
-                    + "=\"false\" statically"
                 : Contexts.isLegacyHtmxConnect(name)
                 ? Contexts.LEGACY_HTMX_CONNECT
                 : Contexts.isTreeBuilderInput(plan.element(), name)
@@ -141,12 +128,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     }
     if (lower.equals("href") && HtmlParser.asciiEqualsIgnoreCase(element, "base")) {
       // #350: every relative URL on the page, a token-bearing form's action included, resolves against it.
-      htmxRequestUrl(ctx, plan, name, value, pos, label, CsrfInjector.BASE_MOVES_URLS, "", "a <base href>");
-      return;
-    }
-    if (context == OutputContext.RESOURCE_URL && Contexts.isHtmxRequestUrl(name)) {
-      htmxRequestUrl(ctx, plan, name, value, pos, label,
-          "htmx requests this URL and swaps the response into the page as HTML", "", HTMX_URL);
+      sameOriginUrl(ctx, plan, name, value, pos, label, CsrfInjector.BASE_MOVES_URLS, "", "a <base href>");
       return;
     }
     boolean form = HtmlParser.asciiEqualsIgnoreCase(element, "form");
@@ -156,7 +138,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     }
     if (form && lower.equals("action") && CsrfInjector.isStaticPost(plan.element())) {
       // The CSRF token goes wherever the form posts (#285).
-      htmxRequestUrl(ctx, plan, name, value, pos, label, CsrfInjector.POST_ACTION, CsrfInjector.POST_ACTION_ELSE,
+      sameOriginUrl(ctx, plan, name, value, pos, label, CsrfInjector.POST_ACTION, CsrfInjector.POST_ACTION_ELSE,
           "the action of a POST form, which gets the CSRF token,");
       return;
     }
@@ -172,12 +154,12 @@ public final class GenericAttrProcessor implements AttributeProcessor {
           return;
         }
       }
-      htmxRequestUrl(ctx, plan, name, value, pos, label, FORM_ACTION, FORM_ACTION_ELSE, "the action of a form");
+      sameOriginUrl(ctx, plan, name, value, pos, label, FORM_ACTION, FORM_ACTION_ELSE, "the action of a form");
       return;
     }
     if (lower.equals("formaction")) {
       // #314: the token goes wherever the button submits the form, and any form may get it.
-      htmxRequestUrl(ctx, plan, name, value, pos, label, CsrfInjector.IN_TOKEN_FORM, "",
+      sameOriginUrl(ctx, plan, name, value, pos, label, CsrfInjector.IN_TOKEN_FORM, "",
           "a formaction, which may receive the CSRF token,");
       return;
     }
@@ -200,36 +182,116 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     plan.setAttribute(name, c.code(), pos);
   }
 
-  /** Why {@code name}, which is not a known name ({@link Contexts#isUnknownName}, #330), cannot be computed. */
-  static String unknownName(String name) {
-    String data = HtmlParser.asciiLower(name);
-    return "'" + name + "' is not a known attribute; a computed attribute must be a standard HTML, SVG,"
-        + " MathML or ARIA attribute, a data-* attribute, or a plain [a-z][a-z0-9]* prop on a custom"
-        + " element. If it is data for your script, use data-" + data + "; if a framework reads it,"
-        + " write it as a static attribute";
+  /** The recipes for a value that is not framework-neutral (#584). */
+  private static final String DATA_FIX_IT =
+      "put text in the element text or a standard inert attribute such as title, send request values as"
+          + " hidden inputs (with hx-include), or put data in a <script type=\"application/json\"> block and read it"
+          + " from your script";
+
+  /**
+   * Whether {@code e} is framework-neutral for NEUTRAL attribute {@code name} (#583 rule 3, #584), by
+   * static type and expression shape only: a literal, an expression of a number type (an exact-class
+   * check and plain decimal at render time, {@link Escapers#neutralNumber}) or a boolean type, a
+   * {@link #neutralLink neutral link}, or a choice ({@code c ? a : b}, {@code a ?: b}) between those.
+   * Reports why not at the offending piece. Static values are not checked: the author wrote them.
+   */
+  private static boolean neutralSafe(CodegenContext ctx, Expr e, ElementPlan plan, String label, String name) {
+    if (e instanceof Expr.Literal) {
+      return true;
+    }
+    if (e instanceof Expr.Conditional) {
+      Expr.Conditional c = (Expr.Conditional) e;
+      boolean ok = ctx.expressions().compileCondition(c.condition(), plan.scope()) != null;
+      ok &= neutralSafe(ctx, c.then(), plan, label, name);
+      return ok & (c.otherwise() == null || neutralSafe(ctx, c.otherwise(), plan, label, name));
+    }
+    if (e instanceof Expr.Elvis) {
+      Expr.Elvis el = (Expr.Elvis) e;
+      return neutralSafe(ctx, el.value(), plan, label, name) & neutralSafe(ctx, el.fallback(), plan, label, name);
+    }
+    if (e instanceof Expr.Link) {
+      return neutralLink(ctx, (Expr.Link) e, plan, label, name);
+    }
+    CompiledExpr c = ctx.expressions().compile(e, plan.scope());
+    if (c == null) {
+      return false;
+    }
+    if (isNumber(c.type()) || isBoolean(c.type())) {
+      return true;
+    }
+    String type = c.type().getKind() == TypeKind.NULL ? "null" : c.type().toString();
+    ctx.diagnostics()
+        .error(e.pos(), label + " is not allowed: '" + name + "' is not a standard HTML attribute, and client code"
+            + " may run what it reads there, so a computed value must be framework-neutral: a number, a"
+            + " boolean, a same-origin link such as @{/items/{id}(id=${item.id})}, or a choice between those and"
+            + " literals, not a " + type + "; " + DATA_FIX_IT);
+    return false;
   }
 
-  private static final Pattern BIND = Pattern.compile("[vx]-bind([:.].*)?");
+  /** What a neutral link's literal path may hold, with each {@code {var}} as one letter (#583's research). */
+  private static final Pattern NEUTRAL_PATH = Pattern.compile("/(?!/)([A-Za-z0-9._~/-]|%[0-9A-Fa-f]{2})*");
 
-  /** Whether {@code lower} is a Vue/Alpine binding ({@code :x}, {@code v-bind...}, {@code x-bind...}). */
-  private static boolean isBind(String lower) {
-    return lower.startsWith(":") || BIND.matcher(lower).matches();
+  /**
+   * Whether {@code link} is a neutral path (#584): its literal path starts with a single {@code /},
+   * holds only {@code A-Z a-z 0-9 . _ ~ / -} and {@code %XX}, and every parameter fills a path
+   * variable, so there is no query or fragment. {@link Escapers#neutralPath} encodes the built URL
+   * the same way (path variables come from data) and re-checks it at render time.
+   */
+  private static boolean neutralLink(CodegenContext ctx, Expr.Link link, ElementPlan plan, String label, String name) {
+    String path = link.path();
+    List<String> vars = LinkCompiler.placeholders(path);
+    String shape = path;
+    for (String v : vars) {
+      shape = shape.replace("{" + v + "}", "x");
+    }
+    if (!LinkCompiler.isSameOriginPath(path) || !NEUTRAL_PATH.matcher(shape).matches()) {
+      ctx.diagnostics()
+          .error(link.pos(), label + " is not allowed: a link in '" + name + "' must be a same-origin path that starts"
+              + " with a single '/' and holds only letters, digits, . _ ~ / - and %XX, not @{" + path + "}");
+      return false;
+    }
+    for (Assignment p : link.params()) {
+      if (!vars.contains(p.name())) {
+        ctx.diagnostics()
+            .error(p.pos(), label + " is not allowed: a link in '" + name + "' cannot have a query; parameter '"
+                + p.name() + "' of @{" + path + "} fills no path variable. Send request values as hidden inputs"
+                + " (with hx-include), or put them in a <script type=\"application/json\"> block");
+        return false;
+      }
+    }
+    return ctx.expressions().compile(link, plan.scope()) != null;
   }
 
   /**
-   * A Vue/Alpine binding such as {@code :prop} (#246; {@link Contexts#isJsonBinding}): the value
-   * must be JSON-serializable ({@link ScriptJson}) and is written as JSON, then attribute-escaped
-   * ({@code Escapers.jsonAttr}), so the framework evaluates it to the same value and never runs it.
+   * The code of a value {@link #neutralSafe} accepted: each number piece goes through
+   * {@link Escapers#neutralNumber} and each link through {@link Escapers#neutralPath}; literals and
+   * booleans are written as compiled. Both operands of an elvis are evaluated, as in the compiler's
+   * {@code ?:}.
    */
-  private static void jsonBinding(CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label) {
-    CompiledExpr c = ctx.expressions().compileOutput(value, plan.scope());
-    if (c == null) {
-      return;
+  private static String neutralCode(CodegenContext ctx, Expr e, ElementPlan plan) {
+    if (e instanceof Expr.Literal) {
+      return code(ctx, e, plan);
     }
-    String code = ScriptJson.attributeValue(ctx, c, pos, label);
-    if (code != null) {
-      plan.setAttribute(name, code, pos);
+    if (e instanceof Expr.Conditional) {
+      Expr.Conditional c = (Expr.Conditional) e;
+      return "(" + ctx.expressions().compileCondition(c.condition(), plan.scope()).code()
+          + " ? (java.lang.Object) " + neutralCode(ctx, c.then(), plan) + " : (java.lang.Object) "
+          + (c.otherwise() == null ? "null" : neutralCode(ctx, c.otherwise(), plan)) + ")";
     }
+    if (e instanceof Expr.Elvis) {
+      Expr.Elvis el = (Expr.Elvis) e;
+      return "dev.tessera.runtime.Values.<java.lang.Object>elvis((java.lang.Object) " + neutralCode(ctx, el.value(), plan)
+          + ", (java.lang.Object) " + neutralCode(ctx, el.fallback(), plan) + ")";
+    }
+    String whole = code(ctx, e, plan);
+    if (e instanceof Expr.Link) {
+      return Escapers.class.getName() + ".neutralPath(" + whole + ")";
+    }
+    return isNumber(type(ctx, e, plan)) ? Escapers.class.getName() + ".neutralNumber(" + whole + ")" : whole;
+  }
+
+  private static boolean isBoolean(TypeMirror t) {
+    return t.getKind() == TypeKind.BOOLEAN || isDeclared(t, "java.lang.Boolean");
   }
 
   /** Why attribute {@code name}, which the HTML tree builder reads ({@link Contexts#isTreeBuilderInput}), cannot be computed. */
@@ -294,17 +356,14 @@ public final class GenericAttrProcessor implements AttributeProcessor {
   }
 
   /**
-   * An htmx request URL such as {@code hx-get} (#249): htmx fetches it and swaps the response
-   * into the page as HTML, and htmx 1.x also sends cross-origin requests, so only a link whose
-   * literal path is same-origin ({@link LinkCompiler#isSameOriginPath}) compiles. Path variables and
-   * parameters are percent-encoded by the link; the value is written with the resource-URL escaper.
-   * Also a {@code <base href>}, the {@code action} of a POST form or a {@code formaction}, which may
-   * receive the CSRF token (#285, #314), and a link {@code action} of any other form (#585), written
-   * with the URL escaper. {@code why} starts the
-   * error for a non-link value and {@code orElse} ends it; {@code what} names the URL in the error
-   * for a link that is not same-origin.
+   * A URL that must stay on the page's origin: a {@code <base href>} (#350), the {@code action} of a
+   * POST form or a {@code formaction}, which may receive the CSRF token (#285, #314), and a link
+   * {@code action} of any other form (#585). Only a link whose literal path is same-origin
+   * ({@link LinkCompiler#isSameOriginPath}) compiles, re-checked at render time ({@link #sameOrigin}).
+   * {@code why} starts the error for a non-link value and {@code orElse} ends it; {@code what} names
+   * the URL in the error for a link that is not same-origin.
    */
-  private static void htmxRequestUrl(
+  private static void sameOriginUrl(
       CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label, String why,
       String orElse, String what) {
     if (!(value instanceof Expr.Link)) {
@@ -334,8 +393,6 @@ public final class GenericAttrProcessor implements AttributeProcessor {
   private static String sameOrigin(CompiledExpr link) {
     return Escapers.class.getName() + ".sameOriginLink(" + link.code() + ")";
   }
-
-  private static final String HTMX_URL = "an htmx request URL";
 
   /** Starts the reason for the computed action error on a form that is not a static POST one (#585). */
   private static final String FORM_ACTION =
@@ -500,7 +557,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
               label + " is not allowed: '" + name + "' is not an inert-text attribute on <" + plan.element().name()
                   + ">, so a computed value can only combine string literals and numbers, not a "
                   + type + "; write a static attribute, choose between literals such as ${c} ? 'a' : 'b', or"
-                  + " use a data-* attribute if a script reads it");
+                  + " if a script reads it, put the data in a <script type=\"application/json\"> block");
       return false;
     }
     ctx.diagnostics()
