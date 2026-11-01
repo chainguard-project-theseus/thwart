@@ -897,8 +897,9 @@ string. Content whose structure a policy drops (tables, inline styles) loses it:
 to classes in Java before sanitizing, or accept the loss.
 
 **Thymeleaf.** Run `tessera-migrate` first (section 3). Natural-template script comments
-(`/*[[${x}]]*/ 'd'`) and quoted inlines (`"[[${x}]]"`) become `[[${x}]]` in a declaration at the
-top of the script (section 4.4). Layout dialect pages become fragment calls (section 4.8).
+(`/*[[${x}]]*/ 'd'`) and quoted inlines (`"[[${x}]]"`) become `[[${x}]]`; move each value that
+isn't then a declaration at the top of the script into one (section 4.4). Layout dialect pages
+become fragment calls (section 4.8).
 
 **JSP, JSTL and Spring form tags, with Tiles or SiteMesh.**
 
