@@ -177,6 +177,108 @@ class Jdk8ProcessorTest {
   }
 
   /**
+   * #627: JDK 8's javac renders a type-use-annotated type as {@code (@NotNull :: java.lang.Integer)},
+   * so generated code that spelled types with {@code TypeMirror.toString()} did not compile. A
+   * {@code t:field}, a null-safe read, locals, loops and {@code ?:} over annotated element, nested
+   * and array types, rendered on Java 8.
+   */
+  @Test
+  void typeUseAnnotatedPropertiesCompileInAJdk8Javac() throws Exception {
+    Path jdk = jdk8();
+    Path runtime = codeSource(Escapers.class);
+    Path src = dir.resolve("src");
+    Path templates = dir.resolve("templates");
+    Path out = Files.createDirectories(dir.resolve("typeuse-classes"));
+    write(
+        src.resolve("app/NotNull.java"),
+        """
+        package app;
+        import java.lang.annotation.*;
+        @Target(ElementType.TYPE_USE) @Retention(RetentionPolicy.RUNTIME)
+        public @interface NotNull {}
+        """);
+    write(
+        src.resolve("app/Min.java"),
+        """
+        package app;
+        import java.lang.annotation.*;
+        @Target(ElementType.TYPE_USE) @Retention(RetentionPolicy.RUNTIME)
+        public @interface Min { long value(); }
+        """);
+    write(
+        src.resolve("app/CartForm.java"),
+        """
+        package app;
+        import dev.tessera.runtime.TemplateView;
+        import java.util.List;
+        import java.util.Map;
+        @TemplateView
+        public class CartForm {
+          private final List<@NotNull @Min(0) Integer> quantities;
+          private final Map<String, List<@NotNull Integer>> byKey;
+          private final @NotNull String @NotNull [] names;
+          public CartForm(List<@NotNull @Min(0) Integer> quantities, Map<String, List<@NotNull Integer>> byKey, String[] names) {
+            this.quantities = quantities; this.byKey = byKey; this.names = names;
+          }
+          public List<@NotNull @Min(0) Integer> getQuantities() { return quantities; }
+          public Map<String, List<@NotNull Integer>> getByKey() { return byKey; }
+          public @NotNull String @NotNull [] getNames() { return names; }
+          public @NotNull Integer getFirst() { return quantities.get(0); }
+        }
+        """);
+    write(
+        src.resolve("app/Main.java"),
+        """
+        package app;
+        import dev.tessera.runtime.RenderContext;
+        import dev.tessera.runtime.StringOutput;
+        import dev.tessera.runtime.TemplateRegistry;
+        import java.util.Arrays;
+        import java.util.Collections;
+        public final class Main {
+          public static void main(String[] args) {
+            CartForm form = new CartForm(Arrays.asList(3, 4),
+                Collections.singletonMap("k", Collections.singletonList(7)), new String[] {"x", "y"});
+            StringOutput out = new StringOutput();
+            TemplateRegistry.load(Main.class.getClassLoader()).find("text").get()
+                .renderer().render(Collections.<String, Object>singletonMap("cart", form), RenderContext.defaults(), out);
+            System.out.print(out);
+          }
+        }
+        """);
+    write(
+        templates.resolve("cart.html"),
+        """
+        <form xmlns:t="https://tessera.dev" t:import="app.*" t:params="CartForm cart" t:object="cart">\
+        <div t:each="q : ${cart.quantities}"><input t:field="*{quantities[qStat.index]}"></div>\
+        <input t:field="*{byKey['k'][0]}"><input t:field="*{names[1]}"></form>""");
+    write(
+        templates.resolve("text.html"),
+        """
+        <div xmlns:t="https://tessera.dev" t:import="app.*" t:params="CartForm cart">\
+        <p t:text="${cart?.first}">q</p><p t:text="${cart?.names[0]}">n</p>\
+        <t:block t:with="qs=${cart.quantities}, ns=${cart.names}, m=${cart.byKey}">\
+        <i t:each="q : ${qs}" t:text="${q}">q</i><b t:each="n : ${ns}" t:text="${n}">n</b>\
+        <u t:each="e : ${m}" t:text="${e.value[0]}">e</u>\
+        <s t:text="${ns[0] ?: 'none'}">s</s><s t:text="${qs[0] ?: cart.first}">s</s>\
+        <s t:text="${cart.first ?: null}">s</s></t:block></div>""");
+
+    List<String> javac = new ArrayList<>();
+    javac.add(jdk.resolve("bin/javac").toString());
+    javac.addAll(List.of("-encoding", "UTF-8", "-d", out.toString()));
+    javac.addAll(List.of("-classpath", runtime.toString(), "-processorpath", processor() + File.pathSeparator + runtime));
+    javac.add("-Atessera.templates=" + templates);
+    try (Stream<Path> files = Files.walk(src)) {
+      files.filter(p -> p.toString().endsWith(".java")).forEach(p -> javac.add(p.toString()));
+    }
+    String compiled = run(javac);
+    assertTrue(Files.exists(out.resolve("tessera/generated/CartTemplate.class")), compiled);
+
+    String rendered = run(List.of(jdk.resolve("bin/java").toString(), "-cp", join(out, runtime), "app.Main"));
+    assertEquals("<div><p>3</p><p>x</p><i>3</i><i>4</i><b>x</b><b>y</b><u>7</u><s>x</s><s>3</s><s>3</s></div>", rendered);
+  }
+
+  /**
    * #233: Lombok getters on a {@code @TemplateView} class, with Lombok before and after Tessera on
    * the processor path, for Lombok 1.16 (espd's 1.16.6, which failed even when listed first) and
    * the current 1.18. A missing property is still one error naming the template position.

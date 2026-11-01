@@ -252,7 +252,7 @@ final class ScriptJson {
       }
       helper = ctx.freshName("json");
       helpers.put(key, helper);
-      String erased = types().erasure(t).toString();
+      String erased = JavaStrings.typeName(types().erasure(t));
       StringBuilder body = new StringBuilder();
       body.append(erased).append(" v$ = (").append(erased).append(") o$;\n");
       body.append("s$.append('{');\n");

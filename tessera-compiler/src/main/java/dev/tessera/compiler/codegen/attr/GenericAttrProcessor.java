@@ -219,7 +219,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     if (isNumber(c.type()) || isBoolean(c.type())) {
       return true;
     }
-    String type = c.type().getKind() == TypeKind.NULL ? "null" : c.type().toString();
+    String type = c.type().getKind() == TypeKind.NULL ? "null" : JavaStrings.typeName(c.type());
     ctx.diagnostics()
         .error(e.pos(), label + " is not allowed: '" + name + "' is not a standard HTML attribute, and client code"
             + " may run what it reads there, so a computed value must be framework-neutral: a number, a"
@@ -539,7 +539,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
     if (isNumber(t) || safe != null && isDeclared(t, safe.getName())) {
       return true;
     }
-    String type = t.getKind() == TypeKind.NULL ? "null" : t.toString();
+    String type = t.getKind() == TypeKind.NULL ? "null" : JavaStrings.typeName(t);
     if (context == OutputContext.TRUSTED_URL) {
       ctx.diagnostics()
           .error(

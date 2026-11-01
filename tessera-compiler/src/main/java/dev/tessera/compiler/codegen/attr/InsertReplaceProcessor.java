@@ -439,7 +439,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       ctx.diagnostics().error(arg.pos(), what + " has type " + param.javaType() + ", but the field has type " + type);
       return null;
     }
-    String typeArg = wanted == null ? "java.lang.Object" : wanted.toString();
+    String typeArg = wanted == null ? "java.lang.Object" : JavaStrings.typeName(wanted);
     return "new " + FormPaths.FIELD + "<" + typeArg + ">(" + f.objectName() + ", " + f.path() + ", " + f.value().code() + ")";
   }
 
