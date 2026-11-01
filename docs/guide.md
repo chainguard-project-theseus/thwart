@@ -995,9 +995,10 @@ Then find every place the app sets tooltips up again, usually after an AJAX call
 and replaces each tooltip with an empty one. If the swapped HTML brings tooltips of its own, it
 brings its own JSON block too.
 
-Pass the values as text: check the plugin's documentation for an option that turns on HTML (such as
-Bootstrap's `html: true`) and leave it off. Don't copy the string back into a `data-*` attribute
-from the script (What is not a recipe, above).
+Pass the values as text: use an option that takes text, and leave any option that turns on HTML
+off (such as Bootstrap's `html: true`). If the plugin has only an HTML option, as Materialize does,
+HTML-escape each value first, as above. Don't copy the string back into a `data-*` attribute from
+the script (What is not a recipe, above).
 
 Client code can submit any form with AJAX and swap the response into the page as HTML (htmx 1.x's
 `hx-boost` does), so a form's computed `t:action` takes only a link whose literal path starts with
