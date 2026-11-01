@@ -212,7 +212,9 @@ final class PageNormalizer {
   /**
    * Drops the parentheses around a JSON value that is the whole right-hand side of an
    * {@code =}, up to a {@code ;}: {@code var x = ("a");} prints as {@code var x = "a";}. Strings
-   * and comments are left alone.
+   * and comments are left alone. Regular expression literals are not recognised, so
+   * {@code /=(1);/} and {@code /=1;/} print the same; a page that differs only there is not worth
+   * a JavaScript lexer.
    */
   static String unwrapValues(String script) {
     StringBuilder out = new StringBuilder(script.length());
@@ -258,8 +260,9 @@ final class PageNormalizer {
    * ({@code var|let|const name = json;}, only whitespace and comments around them) where the
    * code below uses its name (an identifier not after a {@code .}, outside strings and
    * comments), and removes the declarations so used. A declaration the script doesn't use is
-   * kept: another script may read it, and its value still counts. Runs on {@link #tightenJson}
-   * output.
+   * kept: another script may read it, and its value still counts. A script that declares a name
+   * twice, or assigns or binds a declared name again below ({@link #rebinds}), is left as it is:
+   * there the value is not a constant. Runs on {@link #tightenJson} output.
    */
   static String expandPrelude(String script) {
     Map<String, String> values = new HashMap<>();
@@ -287,7 +290,7 @@ final class PageNormalizer {
       names.add(m.group(1));
       i = semi + 1;
     }
-    if (values.isEmpty()) {
+    if (values.isEmpty() || rebinds(tokens(script, i), values.keySet())) {
       return script;
     }
     Set<String> used = new HashSet<>();
@@ -303,6 +306,127 @@ final class PageNormalizer {
       from = span[1];
     }
     return out.append(script, from, i).append(body).toString();
+  }
+
+  private static final List<String> OPERATORS = Compat.listOf(">>>=", "===", "!==", "**=", "<<=",
+      ">>=", "&&=", "||=", "??=", "...", "==", "!=", "<=", ">=", "=>", "++", "--", "+=", "-=", "*=",
+      "/=", "%=", "&=", "|=", "^=");
+  private static final Set<String> ASSIGNMENTS = Compat.setOf("=", ">>>=", "**=", "<<=", ">>=",
+      "&&=", "||=", "??=", "++", "--", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=");
+  private static final Set<String> BINDERS = Compat.setOf("var", "let", "const", "function",
+      "class", "++", "--");
+  private static final Set<String> STATEMENTS = Compat.setOf("if", "while", "for", "switch",
+      "with", "return", "typeof", "void", "delete", "in", "of", "new", "await", "yield");
+
+  /**
+   * The script from {@code i} as tokens: identifiers and numbers, operators, and one
+   * {@code "} for each string literal. Comments and whitespace are dropped. Regular expression
+   * literals are not recognised; a {@code /} is an operator.
+   */
+  private static List<String> tokens(String script, int i) {
+    List<String> out = new ArrayList<>();
+    int n = script.length();
+    while (i < n) {
+      char c = script.charAt(i);
+      int skip = skipStringOrComment(script, i);
+      if (skip > i) {
+        if (c != '/') {
+          out.add("\"");
+        }
+        i = skip;
+      } else if (isWhitespace(c)) {
+        i++;
+      } else if (isIdentifierPart(c)) {
+        int j = i;
+        while (j < n && isIdentifierPart(script.charAt(j))) {
+          j++;
+        }
+        out.add(script.substring(i, j));
+        i = j;
+      } else {
+        String op = String.valueOf(c);
+        for (String o : OPERATORS) {
+          if (script.startsWith(o, i)) {
+            op = o;
+            break;
+          }
+        }
+        out.add(op);
+        i += op.length();
+      }
+    }
+    return out;
+  }
+
+  /**
+   * True if a name in {@code names} is assigned ({@code x = }, {@code x += }, {@code x++},
+   * {@code --x}) or bound again ({@code var x}, {@code function x}, a parameter of a
+   * {@code function}, method, arrow function or {@code catch}) in {@code tokens}: there the
+   * declared value is not a constant, and writing it at every use would hide a difference.
+   */
+  static boolean rebinds(List<String> tokens, Set<String> names) {
+    for (int k = 0; k < tokens.size(); k++) {
+      if (!names.contains(tokens.get(k))) {
+        continue;
+      }
+      String prev = k > 0 ? tokens.get(k - 1) : "";
+      String next = k + 1 < tokens.size() ? tokens.get(k + 1) : "";
+      if (prev.equals(".")) {
+        continue;
+      }
+      if (ASSIGNMENTS.contains(next) || BINDERS.contains(prev) || next.equals("=>")
+          || isParameter(tokens, k)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** True if the token at {@code k} is in the parameter list of a function, method, arrow
+   * function or {@code catch}. */
+  private static boolean isParameter(List<String> tokens, int k) {
+    int open = -1;
+    for (int j = k - 1, depth = 0; j >= 0 && open < 0; j--) {
+      String t = tokens.get(j);
+      if (t.equals(")")) {
+        depth++;
+      } else if (t.equals("(")) {
+        if (depth == 0) {
+          open = j;
+        }
+        depth--;
+      } else if (depth == 0 && (t.equals("{") || t.equals("}") || t.equals(";"))) {
+        return false;
+      }
+    }
+    if (open < 0) {
+      return false;
+    }
+    String before = open > 0 ? tokens.get(open - 1) : "";
+    if (before.equals("function") || before.equals("catch")
+        || open > 1 && tokens.get(open - 2).equals("function")) {
+      return true;
+    }
+    int close = -1;
+    for (int j = open + 1, depth = 0; j < tokens.size() && close < 0; j++) {
+      String t = tokens.get(j);
+      if (t.equals("(")) {
+        depth++;
+      } else if (t.equals(")")) {
+        if (depth == 0) {
+          close = j;
+        }
+        depth--;
+      }
+    }
+    String after = close >= 0 && close + 1 < tokens.size() ? tokens.get(close + 1) : "";
+    if (after.equals("=>")) {
+      return true;
+    }
+    // A method shorthand, m(x) { ... }: a name, not a statement keyword, before the list.
+    boolean name = !before.isEmpty() && isIdentifierPart(before.charAt(0))
+        && !Character.isDigit(before.charAt(0)) && !STATEMENTS.contains(before);
+    return after.equals("{") && name;
   }
 
   /** The script from {@code i} with each identifier in {@code values} replaced by its value;

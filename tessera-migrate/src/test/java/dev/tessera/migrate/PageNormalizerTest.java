@@ -106,6 +106,12 @@ class PageNormalizerTest {
       name inside a string           | <script>alert("a");</script>              | <script>var _t1 = ("a"); alert("_t1");</script>
       name after a dot               | <script>o.1 = 2;</script>                 | <script>var x = (1); o.x = 2;</script>
       unused declaration still counts | <script>var a = 1; x = "q";</script> | <script>var a = (2); var _t1 = ("q"); x = _t1;</script>
+      declared name assigned again   | <script>var x = "a"; x = g(); f(x);</script> | <script>var x = ("a"); x = g(); f("a");</script>
+      declared name incremented      | <script>var n = 0; n++; f(n);</script>    | <script>var n = (0); n++; f(0);</script>
+      declared name compound-assigned | <script>var n = 0; n += 2; f(n);</script> | <script>var n = (0); n += 2; f(0);</script>
+      declared name as a parameter   | <script>var id = 7; function h(id){return id;}</script> | <script>var id = (7); function h(id){return 7;}</script>
+      declared name as an arrow parameter | <script>var id = 7; g((a, id) => id);</script> | <script>var id = (7); g((a, id) => 7);</script>
+      declared name declared again   | <script>var id = 7; function f(){ var id = g(); return id; }</script> | <script>var id = (7); function f(){ var id = g(); return 7; }</script>
       """)
   void differentPages(String rule, String a, String b) {
     check(DIFFERS, a.replace("\\n", "\n"), b.replace("\\n", "\n"));
@@ -122,6 +128,9 @@ class PageNormalizerTest {
     // Declarations on both pages, one of them hoisted.
     check(REORDERED, "<script>var lang = \"en\";\nvar n = 2; if (lang) go(3);</script>",
         "<script>var lang = (\"en\"); var n = (2); var _t1 = (3);\nif (lang) go(_t1);</script>");
+    // Reads in conditions, calls, comparisons and member bases are not rebindings.
+    check(REORDERED, "<script>if (\"a\" == y) { while (\"a\") f(\"a\".length, o.x); }</script>",
+        "<script>var x = (\"a\");\nif (x == y) { while (x) f(x.length, o.x); }</script>");
   }
 
   @Test
