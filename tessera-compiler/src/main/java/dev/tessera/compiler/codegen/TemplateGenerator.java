@@ -42,7 +42,7 @@ import java.util.Set;
  * emits static markup as string constants, builds an {@link ElementPlan} per element by running
  * {@link AttributeProcessors} in precedence order, and calls the per-template hooks
  * ({@code TextInlining} for text nodes, {@code CsrfInjector} for {@code <form>} and for every
- * element's static submit and request URLs, {@code FieldProcessor.option} for {@code <option>}, {@code FragmentMethods} once per template). Handles {@code t:params}/{@code t:import} on the
+ * element's static submit URLs and {@code <base href>}, {@code FieldProcessor.option} for {@code <option>}, {@code FragmentMethods} once per template). Handles {@code t:params}/{@code t:import} on the
  * root element, {@code <t:block>} (tag omitted), and rejects unknown/misplaced core attributes.
  * Implements {@link CodegenContext}; {@link TemplateClassSource} assembles the class text.
  *
@@ -87,7 +87,6 @@ public final class TemplateGenerator implements CodegenContext {
   private String hostElement;
   private int fresh;
   private Map<Element, String> whitespaceBefore;
-  private Set<Element> htmxSubmits;
   /**
    * The element a browser reads as raw text or RCDATA whose content is being generated, or null.
    * See {@link ParsingContexts#rawTextElement}.
@@ -130,8 +129,6 @@ public final class TemplateGenerator implements CodegenContext {
     fresh = 0;
     whitespaceBefore = new IdentityHashMap<>();
     indexWhitespace(document.children());
-    htmxSubmits = Collections.newSetFromMap(new IdentityHashMap<>());
-    indexHtmxSubmits(document.children(), false);
 
     validate(document.rootElement(), document.children());
     TextInlining.checkBraces(this, document.children(), null, false);
@@ -301,11 +298,6 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   @Override
-  public boolean htmxSubmits(Element element) {
-    return htmxSubmits.contains(element);
-  }
-
-  @Override
   public Set<Element> selecting() {
     return selecting;
   }
@@ -330,30 +322,6 @@ public final class TemplateGenerator implements CodegenContext {
         indexWhitespace(e.children());
       }
       previous = n;
-    }
-  }
-
-  /**
-   * Records {@link #htmxSubmits}. {@code boosted}: the nearest static {@code hx-boost} above is not
-   * {@code false} (htmx inherits it; {@code hx-disinherit} is ignored, which only adds checks).
-   * An {@code hx-boost="false"} whose tag is not rendered ({@code <t:block>}, {@code t:remove="tag"})
-   * opts nothing out. Only a boosted form's action is requested: {@code hx-post} etc. alone ignore it.
-   */
-  private void indexHtmxSubmits(List<Node> nodes, boolean boosted) {
-    for (Node n : nodes) {
-      if (!(n instanceof Element)) {
-        continue;
-      }
-      Element e = (Element) n;
-      Boolean boost = Contexts.staticHtmxBoost(e);
-      if (Boolean.FALSE.equals(boost) && TextInlining.tagNotRendered(e)) {
-        boost = null;
-      }
-      boolean b = boost == null ? boosted : boost;
-      if (b && HtmlParser.asciiEqualsIgnoreCase(e.name(), "form")) {
-        htmxSubmits.add(e);
-      }
-      indexHtmxSubmits(e.children(), b);
     }
   }
 
@@ -481,7 +449,7 @@ public final class TemplateGenerator implements CodegenContext {
       if (!plan.removed() && plan.replacement() == null) {
         CsrfInjector.checkSubmitter(this, plan);
       }
-      CsrfInjector.checkStaticUrls(this, e);
+      CsrfInjector.checkBase(this, e);
       if (HtmlParser.asciiEqualsIgnoreCase(e.name(), "option")) {
         FieldProcessor.option(this, plan);
       }

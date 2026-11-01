@@ -29,11 +29,11 @@ import javax.lang.model.type.TypeMirror;
  * {@code name} from the expression, escaped for {@link Contexts#attribute}, whose contexts
  * ({@link OutputContext}) say what each attribute accepts. This processor adds: boolean attributes
  * ({@code checked}, {@code disabled}, ...) take a condition; a {@code <base href>} (#350), an htmx
- * request URL, the {@code action} of a boosted form ({@link CodegenContext#htmxSubmits}), the
- * {@code action} of a static POST form and every
+ * request URL, the {@code action} of a static POST form and every
  * {@code formaction} (they may receive the CSRF token, {@link CsrfInjector}) take only a
- * same-origin link; and a computed {@code formmethod}, or {@code method} on a {@code <form>}, is a
- * build error.
+ * same-origin link; the {@code action} of any other form a same-origin link or a {@code TrustedUrl}
+ * (client code may submit it and swap the response in, #585); and a computed {@code formmethod},
+ * or {@code method} on a {@code <form>}, is a build error.
  */
 public final class GenericAttrProcessor implements AttributeProcessor {
 
@@ -149,13 +149,6 @@ public final class GenericAttrProcessor implements AttributeProcessor {
           "htmx requests this URL and swaps the response into the page as HTML", "", HTMX_URL);
       return;
     }
-    // A formaction htmx may submit to is checked below like every formaction (#314).
-    if (context == OutputContext.URL && lower.equals("action") && ctx.htmxSubmits(plan.element())) {
-      htmxRequestUrl(ctx, plan, name, value, pos, label,
-          "inside hx-boost, htmx submits to this URL and swaps the response into the page as HTML",
-          ", or put hx-boost=\"false\" on the form to submit it natively", HTMX_URL);
-      return;
-    }
     boolean form = HtmlParser.asciiEqualsIgnoreCase(element, "form");
     if (form && lower.equals("method")) {
       ctx.diagnostics().error(pos, label + " is not allowed: " + CsrfInjector.COMPUTED_METHOD);
@@ -165,6 +158,21 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       // The CSRF token goes wherever the form posts (#285).
       htmxRequestUrl(ctx, plan, name, value, pos, label, CsrfInjector.POST_ACTION, CsrfInjector.POST_ACTION_ELSE,
           "the action of a POST form, which gets the CSRF token,");
+      return;
+    }
+    if (form && lower.equals("action")) {
+      // #585: client code may submit any form and swap the response into the page as HTML.
+      if (!(value instanceof Expr.Link)) {
+        CompiledExpr c = ctx.expressions().compileOutput(value, plan.scope());
+        if (c == null) {
+          return;
+        }
+        if (isDeclared(c.type(), TrustedUrl.class.getName())) {
+          plan.setAttribute(name, c.code(), pos);
+          return;
+        }
+      }
+      htmxRequestUrl(ctx, plan, name, value, pos, label, FORM_ACTION, FORM_ACTION_ELSE, "the action of a form");
       return;
     }
     if (lower.equals("formaction")) {
@@ -290,9 +298,9 @@ public final class GenericAttrProcessor implements AttributeProcessor {
    * into the page as HTML, and htmx 1.x also sends cross-origin requests, so only a link whose
    * literal path is same-origin ({@link LinkCompiler#isSameOriginPath}) compiles. Path variables and
    * parameters are percent-encoded by the link; the value is written with the resource-URL escaper.
-   * Also the {@code action} of a boosted form (#258), written with the URL
-   * escaper, and the {@code action} of a POST form or a {@code formaction}, which may receive the
-   * CSRF token (#285, #314). {@code why} starts the
+   * Also a {@code <base href>}, the {@code action} of a POST form or a {@code formaction}, which may
+   * receive the CSRF token (#285, #314), and a link {@code action} of any other form (#585), written
+   * with the URL escaper. {@code why} starts the
    * error for a non-link value and {@code orElse} ends it; {@code what} names the URL in the error
    * for a link that is not same-origin.
    */
@@ -328,6 +336,14 @@ public final class GenericAttrProcessor implements AttributeProcessor {
   }
 
   private static final String HTMX_URL = "an htmx request URL";
+
+  /** Starts the reason for the computed action error on a form that is not a static POST one (#585). */
+  private static final String FORM_ACTION =
+      "a form's computed action must stay on the page's origin, since client code may submit the form and swap"
+          + " the response into the page as HTML";
+
+  /** Ends it. */
+  private static final String FORM_ACTION_ELSE = ", or a TrustedUrl built in Java if another site is meant";
 
   /**
    * Boxed and big number types whose text is only digits, sign, '.', 'E', NaN or Infinity.

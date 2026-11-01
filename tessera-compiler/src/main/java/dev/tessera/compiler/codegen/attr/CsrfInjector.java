@@ -4,7 +4,6 @@ import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.codegen.Emitted;
-import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
@@ -17,11 +16,12 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
- * The CSRF token, by a closed shape (#285, #314, #350, #386, #498): the compiler adds a hidden input
+ * The CSRF token, by a closed shape (#285, #314, #350, #386): the compiler adds a hidden input
  * with {@code ctx.forms().csrfToken()} after the start tag of a {@code <form>} only when it can see,
- * at build time, that the form posts to the page's origin. Everything a browser or htmx could use
- * to send that form elsewhere is held to the same rule, on every element, so no rule depends on
- * which form owns a button.
+ * at build time, that the form posts to the page's origin. Everything HTML gives a browser to send
+ * that form elsewhere is held to the same rule, on every element, so no rule depends on which form
+ * owns a button. What client code such as htmx does with a form ({@code hx-post}, {@code hx-get},
+ * a boost) is outside the guarantee (#583): use htmx 2 or set {@code selfRequestsOnly}.
  *
  * <ul>
  *   <li>The method is a static {@code method="post"} (ASCII case-insensitive, untrimmed, as a
@@ -34,8 +34,8 @@ import java.util.regex.Pattern;
  *       author's visible choice: no token.
  *   <li>Every {@code formaction} and {@code formmethod}, in any form or none, is checked as if its
  *       form got the token: {@link #checkSubmitter} and {@code GenericAttrProcessor}.
- *   <li>Every {@code <base href>} and static htmx request URL ({@code hx-post}, ...) is same-origin by
- *       shape: {@link #checkStaticUrls}; computed ones are same-origin links already.
+ *   <li>Every static {@code <base href>} is same-origin by shape: {@link #checkBase}; a computed
+ *       one is a same-origin link already ({@code GenericAttrProcessor}).
  *   <li>A nested {@code <form>} is a verifier {@code PARSE_ERROR}, also through fragments and every
  *       {@code Fragment} value a template builds: each is checked where it lands ({@code
  *       FragmentCandidates}, #561). A {@code Fragment} built in Java is trusted to be flow content
@@ -163,37 +163,22 @@ public final class CsrfInjector {
   }
 
   /**
-   * Checks the static URLs that can send a form's inputs, token included, elsewhere, on every
-   * element, whether or not the template has a form (a layout's applies to the forms its fragments
-   * insert): a {@code <base href>} (#350), against which every relative action resolves, and an
-   * htmx request URL ({@code hx-post}, ...; #311), to which htmx sends the enclosing form. Each
-   * must be same-origin by shape, like a static {@code action}. htmx 1.x's {@code hx-ws} and
-   * {@code hx-sse} are build errors (#562). Computed ones are same-origin links or build errors
-   * ({@code GenericAttrProcessor}). Every such attribute is checked, since a browser uses the first
-   * and the plan keeps the last.
+   * Checks every static {@code href} of a {@code <base>} (#350), whether or not the template has a
+   * form (a layout's applies to the forms its fragments insert): every relative action resolves
+   * against it, so it must be same-origin by shape, like a static {@code action}. A computed one is
+   * a same-origin link or a build error ({@code GenericAttrProcessor}). Every {@code href} is
+   * checked, since a browser uses the first and the plan keeps the last.
    */
-  public static void checkStaticUrls(CodegenContext ctx, Element element) {
-    boolean base = HtmlParser.asciiEqualsIgnoreCase(element.name(), "base");
+  public static void checkBase(CodegenContext ctx, Element element) {
+    if (!HtmlParser.asciiEqualsIgnoreCase(element.name(), "base")) {
+      return;
+    }
     for (Attribute a : element.attributes()) {
-      if (a.isTessera()) {
-        continue;
-      }
-      if (Contexts.isLegacyHtmxConnect(a.name())) {
-        ctx.diagnostics().error(a.pos(), a.name() + " is not allowed: " + Contexts.LEGACY_HTMX_CONNECT);
-        continue;
-      }
-      if (isSameOriginStatic(a.value())) {
-        continue;
-      }
-      if (base && HtmlParser.asciiEqualsIgnoreCase(a.name(), "href")) {
+      if (!a.isTessera() && HtmlParser.asciiEqualsIgnoreCase(a.name(), "href") && !isSameOriginStatic(a.value())) {
         ctx.diagnostics()
             .error(a.pos(), a.name() + "=\"" + a.value() + "\" on <base> is not allowed: " + BASE_MOVES_URLS
                 + ", and this URL is not same-origin; use a same-origin path such as /app/, or remove <base>"
                 + " and write absolute URLs where another origin is meant");
-      } else if (Contexts.isHtmxRequestUrl(a.name())) {
-        ctx.diagnostics()
-            .error(a.pos(), a.name() + "=\"" + a.value() + "\" is not allowed: htmx sends the enclosing form, CSRF"
-                + " token included, to this URL, and it is not same-origin; use a same-origin path such as /items");
       }
     }
   }

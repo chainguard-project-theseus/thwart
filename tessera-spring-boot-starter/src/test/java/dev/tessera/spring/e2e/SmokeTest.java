@@ -193,8 +193,8 @@ class SmokeTest {
 
   /**
    * The CSRF token from Spring Security goes only into forms that post to the page's origin
-   * (#285): a relative computed action and a link get it; a computed or static action on another
-   * origin does not.
+   * (#285): a link gets it; a static action on another origin does not. A GET form's computed
+   * action is a same-origin link too (#585), whatever the request passes.
    */
   @Test
   void csrfTokenOnlyInSameOriginPostForms() throws Exception {
@@ -207,7 +207,7 @@ class SmokeTest {
         .andExpect(status().isOk())
         .andExpect(
             content()
-                .string(containsString("<form id=\"computed\" method=\"get\" action=\"/app/signup\"></form>")))
+                .string(containsString("<form id=\"computed\" method=\"get\" action=\"/app/search?q=")))
         .andExpect(
             content().string(containsString("<form id=\"link\" method=\"post\" action=\"/app/signup\">" + token)))
         .andExpect(
@@ -222,8 +222,7 @@ class SmokeTest {
         .andExpect(
             content()
                 .string(
-                    containsString(
-                        "<form id=\"computed\" method=\"get\" action=\"https://evil.example/steal\"></form>")))
+                    containsString("<form id=\"computed\" method=\"get\" action=\"/search?q=")))
         .andExpect(content().string(containsString("action=\"/signup\">" + token)));
   }
 

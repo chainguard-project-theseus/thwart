@@ -529,7 +529,7 @@ final class ConversionRules {
    * besides AngularJS's ({@link #angularDirective}).
    */
   static final List<String> FRAMEWORK_PREFIXES = Compat.listOf("v-", "x-", "hx-on");
-  /** The framework names the compiler handles by name: hyperscript and htmx script, URL and boost names, and htmx 1.x's hx-sse and hx-ws, which are build errors. */
+  /** The framework names the compiler handles by name: hyperscript and htmx script, URL and boost names, and htmx 1.x's hx-sse and hx-ws, which are build errors when computed. */
   static final Set<String> FRAMEWORK_NAMES = Compat.setOf(
       "_", "script", "hx-vals", "hx-vars", "hx-headers", "hx-request", "hx-trigger",
       "hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete", "sse-connect", "ws-connect",

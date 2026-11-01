@@ -144,8 +144,8 @@ class CsrfActionOriginTest {
   /** A static GET form never gets a token, whatever its action (unchanged). */
   @Test
   void methodStillRules() {
-    Compilation c = compile("String u", "method=\"get\" t:action=\"u\"");
-    assertFalse(renderWith(c, "u", "/x").contains("_csrf"));
+    Compilation c = compile("String u", "method=\"get\" t:action=\"@{/x/{u}(u=${u})}\"");
+    assertFalse(renderWith(c, "u", "y").contains("_csrf"));
     assertFalse(render("action=\"/x\"").contains("_csrf"));
   }
 
@@ -166,8 +166,8 @@ class CsrfActionOriginTest {
   }
 
   /**
-   * A boosted form's action goes through the htmx same-origin link path (#258), a different
-   * processor branch: the hoisted link still passes the check, so the form keeps its token.
+   * {@code hx-boost} changes nothing (#585): a boosted POST form's link action passes the same
+   * closed-shape check as any other, so the form keeps its token.
    */
   @Test
   void boostedFormLinkActionGetsToken() {
