@@ -1,7 +1,6 @@
 package dev.tessera.compiler.codegen.attr;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -19,8 +18,9 @@ import org.junit.jupiter.api.Test;
 /**
  * #581: a {@code Fragment} built in Java is a {@code Fragment.of} of a verified FLOW partial. It
  * can't be a lambda or a subclass, and where Java hands a template a {@code Fragment} (a page's
- * {@code t:params}, a fragment method called from Java) a value without the mark of
- * {@code Fragment.of} is refused at render time, also a template-built one smuggled out.
+ * {@code t:params}) a value without the mark of {@code Fragment.of} is refused at render time,
+ * also a template-built one smuggled out. #600: a fragment with a {@code Fragment} parameter has
+ * no Java-facing method at all.
  */
 class FragmentFromJavaTest {
   private static final String NS = "xmlns:t=\"https://tessera.dev\"";
@@ -111,83 +111,90 @@ class FragmentFromJavaTest {
         c.render("sink", new java.util.HashMap<>()));
   }
 
-  private static Compilation fragmentMethods() {
-    return Compilation.builder()
-        .template(
-            "f.html",
-            "<div " + NS + ">\n<section t:fragment=\"card(String title, Fragment body)\"><h2 t:text=\"${title}\">t</h2>"
-                + "<t:block t:insert=\"${body}\"/></section>"
-                + "<aside t:fragment=\"uncalled(Fragment body)\"><t:block t:insert=\"${body}\"/></aside></div>")
-        .template("page.html", "<div " + NS + ">\n<t:block t:replace=\"~{f :: card('T', ~{::p})}\"></t:block><p>x</p></div>")
-        .template("p.html", "<div " + NS + "><i>p</i></div>")
-        .compile()
-        .assertSuccess();
+  /**
+   * The issue's probe: {@code x} inserts its {@code Fragment} parameter inside a {@code <p>}, and a
+   * template calls it with an {@code <em>}, so the verifier checked that position only for an
+   * {@code <em>}. {@code uncalled} has a {@code Fragment} parameter and no caller, {@code plain} has
+   * none.
+   */
+  private static final String FRAGMENTS =
+      "<div " + NS + ">\n<p t:fragment=\"x(Fragment c)\"><span t:insert=\"${c}\"></span></p>"
+          + "<aside t:fragment=\"uncalled(Fragment body)\"><t:block t:insert=\"${body}\"/></aside>"
+          + "<section t:fragment=\"plain(String title)\"><h2 t:text=\"${title}\">t</h2></section></div>";
+
+  private static final String CALLER_PAGE =
+      "<div " + NS + ">\n<t:block t:replace=\"~{f :: x(~{::em})}\"></t:block><em>e</em></div>";
+
+  private static Compilation fragmentMethods(String caller) {
+    Compilation.Builder b = Compilation.builder()
+        .template("f.html", FRAGMENTS)
+        .template("page.html", CALLER_PAGE)
+        .template("d.html", "<div " + NS + "><div>d</div></div>");
+    if (caller != null) {
+      b.java("com.example.Caller", "package com.example;\n"
+          + "import dev.tessera.runtime.*;\n"
+          + "public final class Caller {\n"
+          + "  public static String call() {\n"
+          + "    StringOutput out = new StringOutput();\n"
+          + "    " + caller + "\n"
+          + "    return out.toString();\n"
+          + "  }\n"
+          + "}\n");
+    }
+    return b.compile();
   }
 
   /**
-   * Negative: a fragment method called from Java (here, by reflection) refuses a Fragment without
-   * the mark, whether or not a template also calls it; the template's own call is unaffected.
+   * Negative (#600): Java code can't call a Java-facing method of a fragment with a {@code Fragment}
+   * parameter, called by a template or not, so the issue's {@code <div>} can't reach the {@code <p>}
+   * of {@code x} through any method a Java caller is meant to use.
    */
   @Test
-  void fragmentMethodCalledFromJavaRefusesAnUnverifiedFragment() throws Exception {
-    Compilation c = fragmentMethods();
-    assertEquals("<div>\n<section><h2>T</h2><p>x</p></section><p>x</p></div>", c.render("page", Map.of()));
-    Class<?> f = c.classLoader().loadClass("tessera.generated.FTemplate");
-    Fragment evil = Fragment.generated((ctx, out) -> out.write("</section><form action=\"https://evil\">"));
-    Method card = f.getMethod("fragment_card", String.class, Fragment.class, RenderContext.class, Output.class);
-    Method uncalled = f.getMethod("fragment_uncalled", Fragment.class, RenderContext.class, Output.class);
-    StringOutput out = new StringOutput();
-    InvocationTargetException e =
-        assertThrows(InvocationTargetException.class, () -> card.invoke(null, "T", evil, RenderContext.defaults(), out));
-    assertTrue(e.getCause() instanceof IllegalArgumentException && e.getCause().getMessage().contains("'f :: card'")
-        && e.getCause().getMessage().contains("'body'"), String.valueOf(e.getCause()));
-    e = assertThrows(InvocationTargetException.class, () -> uncalled.invoke(null, evil, RenderContext.defaults(), out));
-    assertTrue(e.getCause() instanceof IllegalArgumentException, String.valueOf(e.getCause()));
-    assertFalse(out.toString().contains("evil"), out.toString());
-  }
-
-  /** Positive control: the same methods render a {@code Fragment.of} value called from Java. */
-  @Test
-  void fragmentMethodCalledFromJavaRendersFragmentOf() throws Exception {
-    Compilation c = fragmentMethods();
-    Class<?> f = c.classLoader().loadClass("tessera.generated.FTemplate");
-    Fragment p = Fragment.of(partial(c, "tessera.generated.PTemplate"));
-    StringOutput out = new StringOutput();
-    f.getMethod("fragment_card", String.class, Fragment.class, RenderContext.class, Output.class)
-        .invoke(null, "T", p, RenderContext.defaults(), out);
-    f.getMethod("fragment_uncalled", Fragment.class, RenderContext.class, Output.class)
-        .invoke(null, p, RenderContext.defaults(), out);
-    assertEquals("<section><h2>T</h2><div><i>p</i></div></section><aside><div><i>p</i></div></aside>", out.toString());
+  void noJavaFacingMethodForAFragmentWithAFragmentParameter() {
+    fragmentMethods("tessera.generated.FTemplate.fragment_x("
+            + "Fragment.of(tessera.generated.DTemplate.of()), RenderContext.defaults(), out);")
+        .assertError("cannot find symbol", "fragment_x");
+    fragmentMethods("tessera.generated.FTemplate.fragment_uncalled("
+            + "Fragment.of(tessera.generated.DTemplate.of()), RenderContext.defaults(), out);")
+        .assertError("cannot find symbol", "fragment_uncalled");
   }
 
   /**
-   * The review points docs/context-model.md §5 and docs/security-model.md list: of the public
-   * methods a generated class gives Java that take a {@code Fragment}, only {@code fragment$<name>}
-   * skips the mark check, and it renders whatever {@code Fragment.generated} wraps. Negative
-   * control: {@code fragment_<name>} refuses the same value. A new unchecked entry point fails
-   * here until the docs list it.
+   * Positive control: a fragment without a {@code Fragment} parameter keeps its Java-facing method,
+   * and the template's own call of {@code x} renders.
+   */
+  @Test
+  void fragmentWithoutAFragmentParameterKeepsItsJavaMethod() throws Exception {
+    Compilation c = fragmentMethods("tessera.generated.FTemplate.fragment_plain(\"T\", RenderContext.defaults(), out);")
+        .assertSuccess();
+    assertEquals("<section><h2>T</h2></section>",
+        c.classLoader().loadClass("com.example.Caller").getMethod("call").invoke(null));
+    assertEquals("<div>\n<p><span><em>e</em></span></p><em>e</em></div>", c.render("page", Map.of()));
+  }
+
+  /**
+   * The review points docs/context-model.md §5 and docs/security-model.md list: the only public
+   * methods of a generated class that take a {@code Fragment} and are not a page's own
+   * {@code of}/{@code render} are the template-internal {@code internalUnverified$<name>} methods,
+   * and they render whatever {@code Fragment.unverifiedForGeneratedCode} wraps. A new entry point
+   * fails here until the docs list it.
    */
   @Test
   void uncheckedFragmentEntryPointsAreTheDocumentedReviewPoints() throws Exception {
-    Class<?> f = fragmentMethods().classLoader().loadClass("tessera.generated.FTemplate");
-    java.util.Set<String> unchecked = new java.util.TreeSet<>();
+    Class<?> f = fragmentMethods(null).assertSuccess().classLoader().loadClass("tessera.generated.FTemplate");
+    java.util.Set<String> takesFragment = new java.util.TreeSet<>();
     for (Method m : f.getMethods()) {
       if (java.lang.reflect.Modifier.isStatic(m.getModifiers())
-          && java.util.Arrays.asList(m.getParameterTypes()).contains(Fragment.class)
-          && !m.getName().startsWith("fragment_")) {
-        unchecked.add(m.getName());
+          && java.util.Arrays.asList(m.getParameterTypes()).contains(Fragment.class)) {
+        takesFragment.add(m.getName());
       }
     }
-    assertEquals("[fragment$card, fragment$uncalled]", unchecked.toString());
-    Fragment evil = Fragment.generated((ctx, out) -> out.write("</section><form action=\"https://evil\">"));
+    assertEquals("[internalUnverified$uncalled, internalUnverified$x]", takesFragment.toString());
+    Fragment div = Fragment.unverifiedForGeneratedCode((ctx, out) -> out.write("<div>d</div>"));
     StringOutput out = new StringOutput();
-    f.getMethod("fragment$card", String.class, Fragment.class, RenderContext.class, Output.class)
-        .invoke(null, "T", evil, RenderContext.defaults(), out);
-    assertTrue(out.toString().contains("evil"), out.toString());
-    InvocationTargetException e = assertThrows(InvocationTargetException.class,
-        () -> f.getMethod("fragment_card", String.class, Fragment.class, RenderContext.class, Output.class)
-            .invoke(null, "T", evil, RenderContext.defaults(), new StringOutput()));
-    assertTrue(e.getCause() instanceof IllegalArgumentException, String.valueOf(e.getCause()));
+    f.getMethod("internalUnverified$x", Fragment.class, RenderContext.class, Output.class)
+        .invoke(null, div, RenderContext.defaults(), out);
+    assertEquals("<p><span><div>d</div></span></p>", out.toString());
   }
 
   /** The parameterless generated template {@code className}, from its {@code of()}. */

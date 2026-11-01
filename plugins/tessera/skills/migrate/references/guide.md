@@ -227,8 +227,9 @@ Spring falls back to (the system locale unless the app sets one). Facts about th
   `TrustedUrl.unchecked` call at its source line, however the source writes it (qualified, static
   import or method reference). With `<configuration><failOnUnchecked>true</failOnUnchecked></configuration>`
   (or `-Dtessera.failOnUnchecked=true`) an `unchecked` call fails the build, naming its file and
-  line. Not listed: a hand-written `Template`, and calls of `Fragment.generated` or of a generated
-  `fragment$<name>` method, which are for generated code only (section 4.4); grep for those (#602).
+  line. Not listed: a hand-written `Template`, and calls of `Fragment.unverifiedForGeneratedCode`
+  or of a generated `internalUnverified$<name>` method, which are for generated code only
+  (section 4.4); grep for those (#602).
   Gradle has no equivalent yet.
 - Templates under `src/main/resources` are copied into the jar as resources, so resource
   filtering rewrites `${...}` in them unless `templates/**` is excluded.
@@ -928,14 +929,16 @@ is to wrap the root in a `<div>` (list items in their own `<ul>`, rows in their 
 move the `form` out, or render the page through a view. For markup used as data rather than
 inserted into a page (mailed, or written into an attribute), `template.renderToString(ctx)` gives
 a `String`, which a template escapes. In Java, build a `Fragment` with `Fragment.of`: it is a
-final class, so a lambda or subclass doesn't compile (#581). A page's `Fragment` parameter, and a
-generated `fragment_<name>` method, refuse any other `Fragment` when they render, with an
-`IllegalArgumentException` naming the template and parameter, also one a template built for its
-own fragment call that Java code kept and passed back. `Fragment.generated(body)` and the
-`fragment$<name>` methods of a generated class (a fragment with a `Fragment` parameter) are public
-only because generated code in other packages calls them. They check nothing, so
-`fragment$card(..., Fragment.generated(...), ...)` writes whatever markup the lambda writes: like
-`SafeHtml.unchecked`, a call from application code is a review point.
+final class, so a lambda or subclass doesn't compile (#581). A page's `Fragment` parameter refuses
+any other `Fragment` when it renders, with an `IllegalArgumentException` naming the template and
+parameter, also one a template built for its own fragment call that Java code kept and passed
+back. A fragment with a `Fragment` parameter has no Java-facing `fragment_<name>` method (#600):
+pass Java-built content through a page parameter. `Fragment.unverifiedForGeneratedCode(body)` and
+the `internalUnverified$<name>` methods of a generated class (a fragment with a `Fragment`
+parameter) are public only because generated code in other packages calls them. They check
+nothing, so `internalUnverified$card(..., Fragment.unverifiedForGeneratedCode(...), ...)` writes
+whatever markup the lambda writes: like `SafeHtml.unchecked`, a call from application code is a
+review point, and the names say so.
 
 CSS has no escaping that makes an arbitrary string safe, so a `style` attribute is built only from
 pieces that cannot end a declaration or call an unchecked `url(...)`: literals, numbers and `CssValue`s.
@@ -1263,9 +1266,8 @@ public record Address(String street) {}
     is outside the guarantee. Use htmx 2 or set `htmx.config.selfRequestsOnly = true`.
   - A `<form>` nested in another, also through a fragment, a layout or any `Fragment` value a
     template builds (section 4.8), is a build error (`PARSE_ERROR`): a browser drops the inner
-    start tag. A page or `fragment_<name>` method takes from Java only a `Fragment.of` of a flow
-    partial, which has no form (section 4.4). A form with `t:remove="tag"` gets
-    no token.
+    start tag. A page takes from Java only a `Fragment.of` of a flow partial, which has no form
+    (section 4.4). A form with `t:remove="tag"` gets no token.
   A form that writes its own token input keeps it and gets no second one: a direct child
   `<input type="hidden">` whose literal `name` equals the token's parameter name at render time
   (`_csrf` by default), as FreeMarker and JSP pages write it to read the token by id
@@ -1547,7 +1549,7 @@ view name.
 
 A `Fragment` parameter, from the model or `of(...)`, takes `Fragment.of(PartialTemplate.of(...))`
 of a compiled flow partial, or `null` (section 4.4). The page refuses any other `Fragment`, such as
-a `Fragment.generated` value (that factory is for generated code only), when it renders, with an
+a `Fragment.unverifiedForGeneratedCode` value (that factory is for generated code only), when it renders, with an
 `IllegalArgumentException`. A layout that takes the page's content as a `Fragment` is called from the page's template, never from Java.
 
 **Fragment view names.** `return "owners/list :: rows";`, as for an htmx or Turbo partial
@@ -1604,7 +1606,9 @@ leaving a particular one. Read the part for your engine before converting.
     can't contain an expression: put the value in a `data-*` attribute or a `<script>` with
     `[[...]]` and read it from there.
 
-  Never `SafeHtml.unchecked`.
+  Never `SafeHtml.unchecked`, and never `Fragment.unverifiedForGeneratedCode` or a generated
+  `internalUnverified$<name>` method: those two are for generated code and check nothing, the
+  same deliberate, greppable way around verification, and review checks every call (section 4.4).
 - **Scripts.** `[[...]]` in a `<script>` writes JSON with, among others, `/`, `&`, `<`, `'` and `{`
   escaped as `\/`, `\u0026`, `\u003c`, `\u0027` and `\u007b`. The JavaScript value is the same, so a
   difference that compare shows there against a page that printed the value raw or HTML-escaped is
@@ -2553,12 +2557,10 @@ Gaps in Tessera today, each with what to do until it is fixed.
   parameter or a `<head>`, `<body>` or table-section root: put arguments in the model, and give the
   response its own fragment or template.
 - **Fragments built in Java.** Build a `Fragment` in Java with `Fragment.of` of a compiled flow
-  partial (section 4.4); a lambda or subclass doesn't compile, `Fragment.generated` and the
-  generated `fragment$<name>` methods are unchecked review points for generated code only, and
-  markup an old app built in Java as a fragment moves into a partial template. A page refuses any other `Fragment` parameter at
-  render time. Calling a generated `fragment_<name>` method from Java checks the same, but for a
-  fragment that templates also call, the compiler checked where it inserts the parameter only with
-  the arguments those templates pass (#600): pass Java-built content through a page parameter.
+  partial (section 4.4); a lambda or subclass doesn't compile, `Fragment.unverifiedForGeneratedCode`
+  and the generated `internalUnverified$<name>` methods are unchecked review points for generated
+  code only, and markup an old app built in Java as a fragment moves into a partial template. A
+  page refuses any other `Fragment` parameter at render time.
 - **Mixed engines.** During a migration the old engine renders every view Tessera doesn't know
   (section 2), so an app part-way through is protected only on the ported views; finish by
   removing the engine (section 3, step 6).
