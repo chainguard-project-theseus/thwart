@@ -135,7 +135,7 @@ messages use them. The verifier names the escaper of element text from the parse
 
 | Mode | Entered by | Children accepted | Holes | Status | Checked by | Proof |
 |---|---|---|---|---|---|---|
-| `HTML` | document root; `foreignObject` | allow-listed HTML elements, including `template` (3.2) and the obsolete `center`, `font`, `tt`, `big`, `strike`, `marquee` (decision 6); custom elements (name with `-`); names the framework table lists | TEXT | partial: no allow-list on main, any valid name is accepted (#272); phase 2 (#328) | generator container axis (HTML values) | Lean `NodeOK .html`, `HtmlName` |
+| `HTML` | document root; `foreignObject` | allow-listed HTML elements, including `template` (3.2) and the obsolete `center`, `font`, `tt`, `big`, `strike`, `marquee` (decision 6); custom elements (name with `-`) | TEXT | partial: no allow-list on main, any valid name is accepted; a static `is` must name a custom element, so `<component is="script">` is an error (#272, #584); phase 2 (#328) | generator container axis (HTML values) | Lean `NodeOK .html`, `HtmlName` |
 | `RAWTEXT(script)` | `<script>` in HTML mode | static script text | SCRIPT (§4) | verifier: JSON only in an HTML script's data; parser (main) | seeds `A1`-`A2`, `A32`-`A36` | Lean slice 3 `ScriptOK`; JML §4 `browserEndTag` |
 | `RAWTEXT(style)` | `<style>` in HTML mode | static CSS | none | verifier; parser (main) | seed `A53` | Lean slice 4 `RawKindOK`; JML §4 |
 | `RCDATA` | `<title>`, `<textarea>` in HTML mode | text | RCDATA | verifier; parser (main) | seed `A50`; `BrowserRawTextTest` | Lean slice 4 `RawOK`; JML §4 |
@@ -290,49 +290,44 @@ follow-up (#329 PR).
 ### 6.1 Attribute classes
 
 `Contexts.attribute(element, name)` picks the class of a computed attribute. The classes and
-escapers below ship today.
+escapers below ship today. No name is classified by client framework (#583, #584): a name outside
+HTML takes only a framework-neutral value (`NEUTRAL`).
 
 | Class (`OutputContext`) | Where | Escaper | Status | Checked by | Proof |
 |---|---|---|---|---|---|
-| `ATTRIBUTE` | inert-text attributes (`inert-attributes.txt`: text, keyword, number, boolean, ID and token values, ARIA; on SVG and MathML only text and language attributes), `content` of a `<meta>` whose static `name` is on the allow-list (`description`, `keywords`, `author`, `application-name`, `generator`, `color-scheme`, `theme-color`; #590), with no computed `name` and no `http-equiv`, `property` or `itemprop`, `data-*` and custom-element props (6.2); an unknown name is `FORBIDDEN` (#330) | `Escapers.attr` | main | seeds `A38`, `A39`, `A49`; hole values `t:title`, `t:data-x`, `t:value`, `t:class` | `Esc` `htmlSafe`; Lean slice 2 |
-| `TYPED_ATTRIBUTE` | every other standard name without a class of its own: `rel`, `target`, `sandbox`, `allow`, `crossorigin`, `itemtype`, `usemap` (a hash-name reference, not a URL), other `<meta>` `content` (`referrer`, `viewport`, `htmx-config`, a name a browser, OS or crawler acts on such as `apple-itunes-app` or `google-site-verification`, an unknown name, Open Graph `property`, `itemprop`, a computed `name`; #590), SVG and MathML geometry and presentation attributes, ... | `Escapers.attr`, string literals, numbers and a choice between literals only (a condition for a boolean attribute); a plain value or a safe type is a build error (#565) | main (#539) | `InertAttributesTest`, `KnownAttributesTest`, `ContextsTest` | `Esc` `htmlSafe` |
-| `URL` | the attributes whose grammar is exactly one URL (WHATWG "valid URL potentially surrounded by spaces"): `href src action formaction cite poster xlink:href`, the obsolete `background longdesc manifest`, and `hx-push-url hx-replace-url` | `Escapers.url` | main; only exactly-one-URL attributes (#539) | seeds `A40`, `A41`; `AttributesEndToEndTest` (`manifest`) | `Esc` `htmlSafe`; scheme check not yet |
+| `ATTRIBUTE` | inert-text attributes (`inert-attributes.txt`: text, keyword, number, boolean, ID and token values, ARIA; on SVG and MathML only text and language attributes), on any element, a custom element included (#584), and `content` of a `<meta>` whose static `name` is on the allow-list (`description`, `keywords`, `author`, `application-name`, `generator`, `color-scheme`, `theme-color`; #590), with no computed `name` and no `http-equiv`, `property` or `itemprop` | `Escapers.attr` | main | seeds `A38`, `A39`, `A49`; hole values `t:title`, `t:value`, `t:class` | `Esc` `htmlSafe`; Lean slice 2 |
+| `TYPED_ATTRIBUTE` | every other standard name without a class of its own, on any element: `rel`, `target`, `sandbox`, `allow`, `crossorigin`, `itemtype`, `usemap` (a hash-name reference, not a URL), other `<meta>` `content` (`referrer`, `viewport`, `htmx-config`, a name a browser, OS or crawler acts on such as `apple-itunes-app` or `google-site-verification`, an unknown name, Open Graph `property`, `itemprop`, a computed `name`; #590), SVG and MathML geometry and presentation attributes, ... | `Escapers.attr`, string literals, numbers and a choice between literals only (a condition for a boolean attribute); a plain value or a safe type is a build error (#565) | main (#539) | `InertAttributesTest`, `KnownAttributesTest`, `ContextsTest` | `Esc` `htmlSafe` |
+| `NEUTRAL` | every plain name that is not a standard HTML, SVG, MathML or ARIA name (`attributes.txt`): `data-*`, `hx-*`, `x-*`, `v-*`, `v-bind:x`, `ng-*`, `up-*`, a custom element's own attributes, any other name (#583 rule 3) | `Escapers.attr` over a framework-neutral value, by static type and expression shape: a number (`Escapers.neutralNumber`: exact JDK class, plain decimal `-?(0\|[1-9][0-9]*)(\.[0-9]+)?`, no exponent, NaN or Infinity), a boolean (`true`, `false`), a link `@{/path}` whose literal path starts with a single `/`, holds only `A-Z a-z 0-9 . _ ~ / -` and `%XX` and has no query (`Escapers.neutralPath`: percent-encodes every other byte of the built URL and the second `-` of `--`, and checks it starts with a single `/`), or a choice (`c ? a : b`, `a ?: b`) between those and literals; a String, concatenation or any other type is a build error | main (#584) | `NeutralValuesTest`, `ContextsTest`, `EscapersTest`; hostile sweep | the alphabet is the safety research on #583 (headless Chromium, 20 libraries): a value starting with `/` is read as a regular expression literal by every JavaScript evaluator, `--` was the one write primitive inside it |
+| `URL` | the attributes whose grammar is exactly one URL (WHATWG "valid URL potentially surrounded by spaces"): `href src action formaction cite poster xlink:href` and the obsolete `background longdesc manifest` | `Escapers.url` | main; only exactly-one-URL attributes (#539) | seeds `A40`, `A41`; `AttributesEndToEndTest` (`manifest`) | `Esc` `htmlSafe`; scheme check not yet |
 | `TRUSTED_URL` | attributes that hold URLs but are not exactly one URL: the lists `ping` (space-separated) and `srcset imagesrcset` (comma-separated candidates), and `values to from by` on SVG `animate` and `set`, whose meaning depends on `attributeName` (not when they animate a `STYLE` attribute) | `Escapers.attr`, literals, numbers, a choice between literals and `TrustedUrl` only; a plain value is a build error | main (#414, #539) | `AttributesEndToEndTest` (`ping`, `srcset`, animation values), `XssContextTest`, `ContextsTest` | `Esc` `htmlSafe` |
-| `RESOURCE_URL` | `script[src|href|xlink:href]`, `iframe/frame/embed[src]`, `object[data]`, `base/link[href]`, htmx request URLs | `Escapers.resourceUrl` | main; protocol-relative `/\` paths rejected for every link (#340); every `<base href>`, static or computed, must be same-origin, main (#357); a link in a same-origin slot is re-checked when rendered, so a context path or custom `Links` cannot make it protocol-relative, main (#358) | seeds `A42`, `A43`, `B1`, `B2`, `B4`; `LinkCompilerTest`, `CsrfBaseTest`, `SameOriginLinkRenderTest` | `Esc` `htmlSafe`; origin fixed by the literal; not proved |
+| `RESOURCE_URL` | `script[src|href|xlink:href]`, `iframe/frame/embed[src]`, `object[data]`, `base/link[href]` | `Escapers.resourceUrl` | main; protocol-relative `/\` paths rejected for every link (#340); every `<base href>`, static or computed, must be same-origin, main (#357); a link in a same-origin slot is re-checked when rendered, so a context path or custom `Links` cannot make it protocol-relative, main (#358) | seeds `A42`, `A43`, `B1`, `B2`, `B4`; `LinkCompilerTest`, `CsrfBaseTest`, `SameOriginLinkRenderTest` | `Esc` `htmlSafe`; origin fixed by the literal; not proved |
 | `REFRESH` | `content` of `<meta http-equiv="refresh">` | `Escapers.refresh` | main | seed `B3` | `Esc` `htmlSafe` |
-| `SCRIPT_ATTRIBUTE` | Vue/Alpine JSON bindings (`:x`, `v-bind:x`, `x-bind:x`) | `Escapers.jsonAttr` | main | `JsonBindingTest` | `Esc` `htmlSafe` (attribute half) |
+| `SCRIPT_ATTRIBUTE` | none since #584: Vue/Alpine bindings are `NEUTRAL` (`v-bind:x`, `x-bind:x`) or `FORBIDDEN` (`:x`) | `Escapers.jsonAttr` (unused; TODO(#599): delete) | removed (#584) | n/a | n/a |
 | `STYLE` | `style` attribute; SVG `fill stroke clip-path mask filter marker-start marker-mid marker-end marker cursor` (not `fill` on an animation element); `values to from by` of an animation whose static `attributeName` is one of them (the attribute name folds A-Z only, as in a browser: `attrıbuteName` with a dotless i is another attribute) | `Escapers.attr`, literals, numbers and `CssValue` only | main | `StyleAttributeTest`, `ContextsTest` | not yet |
-| `EVENT_HANDLER` | `on*`, framework directives | none: build error | main | `FrameworkDirectivesTest` | n/a |
-| `FORBIDDEN` | `srcdoc`, `<script type>`, `<meta http-equiv>`, `attributeName` of an SVG animation element, `hx-boost`, `hx-sse`, `hx-ws`, attributes the tree builder reads (`is`, `xmlns`, `xmlns:xlink`; `<template>` `shadowroot*` and `for`; `<meta>` `charset`, and `content` under a static `http-equiv="Content-Type"`), names outside `[A-Za-z_][A-Za-z0-9_.:-]*` | none: build error | main | `ContextsTest`, `FormActionTest` | n/a |
+| `EVENT_HANDLER` | `on*` | none: build error | main | `ContextsTest` | n/a |
+| `FORBIDDEN` | `srcdoc`, `<script type>`, `<meta http-equiv>`, `attributeName` of an SVG animation element, a computed htmx 1.x `hx-sse` or `hx-ws` (#562), attributes the tree builder reads (`is`, `xmlns`, `xmlns:xlink`; `<template>` `shadowroot*` and `for`; `<meta>` `charset`, and `content` under a static `http-equiv="Content-Type"`), names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x`, `#x`, `.x` included: stricter than rule 3) | none: build error | main | `ContextsTest`, `NeutralValuesTest` | n/a |
 
 ### 6.2 Which computed names are accepted
 
-Static attributes are copied verbatim and are not affected by these rules.
+Static attributes are copied verbatim and are not affected by these rules, except a static `is`.
 
 | Name | Target | Today on main | Status | Checked by |
 |---|---|---|---|---|
-| Standard HTML, SVG, MathML or ARIA attribute | accepted, classified as in 6.1 | accepted; the names are `tessera-compiler/src/main/resources/dev/tessera/compiler/html/attributes.txt` (WHATWG HTML index and obsolete attributes, SVG 2 attribute and property indexes, MathML Core, WAI-ARIA 1.2; the file names the versions) | main | `ContextsTest`, `KnownAttributesTest` |
-| `data-*` | accepted, except names the framework table marks as code | accepted, except `data-bind`, `data-hx-on*`, `data-ng-*` and the other framework names in 6.3 | main | `FrameworkDirectivesTest` |
-| Plain name `[a-z][a-z0-9]*` on a custom element | accepted (component props) | accepted on an HTML element whose name has a `-` (not SVG `font-face`) | main | `ContextsTest`, `UnknownAttributeNamesTest` |
-| Name listed in the framework table | as the table says | as the hard-coded lists in `Contexts` say | phase 4 (#333) | `FrameworkDirectivesTest` |
-| Any other name | error ("use `data-*`") | error with a `data-<name>` fix-it, including htmx names the table does not list (`hx-target`, `hx-swap`: use `data-hx-target`). A JSON binding's target (`:x`) is not checked yet (#333) | main (#330) | `UnknownAttributeNamesTest`, `ContextsTest`; covers #273's Unpoly half and #276's `hx-action`/`hx-method` |
+| Standard HTML, SVG, MathML or ARIA attribute | accepted, classified as in 6.1 | accepted, on any element; the names are `tessera-compiler/src/main/resources/dev/tessera/compiler/html/attributes.txt` (WHATWG HTML index and obsolete attributes, SVG 2 attribute and property indexes, MathML Core, WAI-ARIA 1.2; the file names the versions) | main | `ContextsTest`, `KnownAttributesTest` |
+| Any other name matching `[A-Za-z_][A-Za-z0-9_.:-]*` (`data-*`, framework names such as `hx-get` or `hx-boost`, a custom element's own attributes) | `NEUTRAL` (#583 rule 3) | `NEUTRAL`; the build error's fix-it: the element text or a standard inert attribute such as `title`, hidden inputs (with `hx-include`), or a `<script type="application/json">` block | main (#584; covers #273's Unpoly and Datastar names and #276's `hx-action`) | `NeutralValuesTest`, `ContextsTest` |
+| Any other name | error | error ("names must match") | main | `ContextsTest`, `NeutralValuesTest` |
+| Static `is` | a valid custom element name only (HTML 4.13.3), so nothing that reads `is` renders another element than the one classified, such as `<component is="script">` | ASCII `[a-z][a-z0-9._]*-[a-z0-9._-]*`, not a reserved SVG/MathML name; `<component>` is an ordinary element | main (#584, closes #272's element half). A framework's own element switch in static markup (Vue's `:is="'script'"`, `v-bind:is`) is copied verbatim: what client code builds from static markup is outside the guarantee (principle 7, security-model.md) | `NeutralValuesTest`, `ContextsTest` |
 | Computed `action` on a `<form>` | same-origin link or `TrustedUrl`, with or without client code that submits the form; a static POST form: same-origin link only | as the target; replaces the `hx-boost` tracking of #258 (#585) | main (#585, #285) | `FormActionTest`, `CsrfActionOriginTest` |
 | Computed `formaction` | same-origin link only | same-origin link required on every element, since any form may get the CSRF token | main (#346, #314) | seeds `A45`, `B6`; `CsrfFormactionTest` |
 | Computed `href` on `<base>` | same-origin link only, in every template (a static one must be same-origin by shape) | same-origin link required; static `href` checked like a static `action` | main (#357) | `CsrfBaseTest` |
 
-### 6.3 The framework table
+### 6.3 Client frameworks
 
-The target is a data file with one entry per framework and version range (#333), checked by the
-nightly framework harness (#334). Today the entries are hard-coded in `Contexts`:
-
-| Framework | Code attributes (error) | Fetches and swaps (same-origin link only) | JSON bindings | Delimiters | Elements | Skip attribute (RCDATA, #549) |
-|---|---|---|---|---|---|---|
-| Vue 2/3, petite-vue | every `v-*`; `:x`, `@x`, `#x`, `.x` | none | `:x`, `v-bind:x` with an ordinary target, except `BIND_DENIED_TARGETS` (target: an allow-list, #333) | `{{ }}` | `component` (target: listed, with a static `is`, #272) | `v-pre`: added to a `<title>` or `<textarea>` with computed content; a Vue directive there, or any static brace in it, is an error |
-| Alpine.js | every `x-*`; `:x`, `@x` | none | `:x`, `x-bind:x`, as Vue | none | none | none |
-| htmx 2 | `hx-on*`, `hx-vals`, `hx-vars`, `hx-headers`, `hx-request`, `hx-trigger` (also `data-hx-`); a computed htmx 1.x `hx-ws` or `hx-sse`, or `hx-boost`, is a build error (#562); static ones are copied, since boosting and what htmx sends where are not modelled (#585) | `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect`, `ws-connect` | none | none | none | none |
-| AngularJS: **not supported** (EOL); a coarse deny only | any name that, ignoring A-Z case, `-`, `_` and `:`, starts with `ng`, `xng` or `datang` (a superset of `directiveNormalize`, not a model of it); class tokens matching the same rule in a run of `[A-Za-z0-9_-]` are dropped at render time from every computed `class` and `html.sanitize` output (#542); element directives (`<ng-include src>`) are not covered | none | none | not covered (attributes) | none | none (AngularJS ignores `v-pre`: use `ng-non-bindable`, guide §7) |
-| Knockout | `data-bind`; `params` on a custom element | none | none | none | none | none |
-| _hyperscript | `_`, `script`, `data-script` | none | none | none | none | none |
+There is no framework table (#583, #584, #585): client code that evaluates attribute values or DOM
+text is outside the guarantee (principle 7), and the compiler constrains the shape of its own
+output instead (`NEUTRAL` above, `{{` below). The framework-named code that remains: a computed
+htmx 1.x `hx-ws` or `hx-sse` is a build error (#562), and `v-pre` on a computed `<title>` or
+`<textarea>` (#586).
 
 | `{{` rule | Status | Checked by |
 |---|---|---|
@@ -344,10 +339,6 @@ nightly framework harness (#334). Today the entries are hard-coded in `Contexts`
 | RCDATA (`<title>`, `<textarea>`): no lossless break, so a computed one gets `v-pre` (Vue 3, petite-vue); a Vue directive on it, or any static brace in it, is an error (#571); no duplicate `v-pre` | main (#549) | `VPreRcdataTest` (output and errors); that Vue 3.5.44 and petite-vue 0.4.1 skip it was checked by hand in Chromium (the hostile value runs without `v-pre`, not with it), framework harness rows #334 |
 | RAWTEXT (`xmp`, `iframe`, `noembed`, `noframes`, `noscript`): no break at all, so a value, condition or loop inside is an error | main (#571) | `BrowserRawTextTest` |
 | Attributes and RCDATA under AngularJS: not supported (guide §7) | documented limitation, bounded by `ng-non-bindable` and CSP (#335) | seed `A37`; #344 CSTI check |
-
-Frameworks configured to read other names (an Alpine prefix, a Knockout binding provider, a
-hyperscript `attributes` setting) are not detected (G5). This is outside the guarantee; see
-[security-model.md](security-model.md).
 
 ### 6.4 The CSP nonce (#335)
 

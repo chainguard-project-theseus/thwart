@@ -204,9 +204,9 @@ class LinkCompilerTest {
   }
 
   @Test
-  void htmxRequestUrlKeepsItsError() {
+  void neutralLinkKeepsItsError() {
     Compilation c = page("<div t:hx-get=\"@{\\/evil.example/x}\"></div>");
-    c.assertError("page.html:2:", "an htmx request URL must be a same-origin path starting with a single '/'");
+    c.assertError("page.html:2:", "a link in 'hx-get' must be a same-origin path that starts with a single '/'");
     assertNull(c.generatedSource("tessera.generated.PageTemplate"));
   }
 

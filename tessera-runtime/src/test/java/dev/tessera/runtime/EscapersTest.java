@@ -402,6 +402,43 @@ class EscapersTest {
     assertThrows(IllegalStateException.class, () -> Escapers.sameOriginLink(null));
   }
 
+  /** #584: a neutral path is in the alphabet A-Z a-z 0-9 . _ ~ / - %XX, with no --. */
+  @Test
+  void neutralPathEncodesIntoTheAlphabet() {
+    assertEquals("/items/7", Escapers.neutralPath("/items/7"));
+    assertEquals("/a/b-c_d.e~f%2F", Escapers.neutralPath("/a/b-c_d.e~f%2F"));
+    assertEquals("/a-%2Db", Escapers.neutralPath("/a--b"));
+    assertEquals("/-%2D-%2D-", Escapers.neutralPath("/-----"));
+    assertEquals("/a/-%2D-location.port-%2D", Escapers.neutralPath("/a/---location.port--"));
+    assertEquals("/a%2Cb%3Fq%3D1%23f%3A%40%2B%27%28%29%3B%26", Escapers.neutralPath("/a,b?q=1#f:@+'();&"));
+    assertEquals("/%25zz/%25", Escapers.neutralPath("/%zz/%"));
+    assertEquals("/%C3%A9%20x", Escapers.neutralPath("/é x"));
+    assertEquals(null, Escapers.neutralPath(null));
+    for (String u : new String[] {"//a", "/\\a", "/\t/a", " /a", "a", "", "https://evil/a", "javascript:alert(1)//"}) {
+      assertThrows(IllegalStateException.class, () -> Escapers.neutralPath(u), u);
+    }
+  }
+
+  /** #584: a neutral number is plain decimal, from the JDK's own number classes only. */
+  @Test
+  void neutralNumberIsPlainDecimal() {
+    assertEquals("7", Escapers.neutralNumber(7));
+    assertEquals("-7", Escapers.neutralNumber(-7L));
+    assertEquals("1", Escapers.neutralNumber((byte) 1));
+    assertEquals("1", Escapers.neutralNumber((short) 1));
+    assertEquals("123456789012345678901234567890", Escapers.neutralNumber(new BigInteger("123456789012345678901234567890")));
+    assertEquals("1000", Escapers.neutralNumber(new BigDecimal("1E+3")));
+    assertEquals("0.000012", Escapers.neutralNumber(new BigDecimal("1.2E-5")));
+    assertEquals("100000000000000000000", Escapers.neutralNumber(1e20));
+    assertEquals("0.5", Escapers.neutralNumber(0.5f));
+    assertEquals("0.0", Escapers.neutralNumber(-0.0));
+    assertEquals(null, Escapers.neutralNumber(null));
+    for (Object bad : new Object[] {Double.NaN, Double.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY, "1", 'c', true,
+        new java.util.concurrent.atomic.AtomicInteger(1), new BigDecimal("1") { }, new BigInteger("1") { }}) {
+      assertThrows(IllegalArgumentException.class, () -> Escapers.neutralNumber(bad), String.valueOf(bad));
+    }
+  }
+
   @Test
   void urlEntityEncodedSchemeStaysInert() {
     // The '#' makes these relative URLs; '&' is encoded so the browser never decodes the entity.

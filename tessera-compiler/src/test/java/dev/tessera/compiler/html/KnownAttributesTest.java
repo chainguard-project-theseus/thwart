@@ -69,7 +69,7 @@ class KnownAttributesTest {
         assertTrue(Set.of("html", "foreign", "any").contains(f[1]), "unknown scope: " + line);
         assertTrue(GROUPS.contains(f[2]), "unknown group: " + line);
         assertTrue(f.length == 3 || f[1].equals("html"), "elements only in scope html: " + line);
-        assertTrue(KnownAttributes.accepts(html("div"), f[0]), "not in attributes.txt: " + line);
+        assertTrue(KnownAttributes.isStandard(f[0]), "not in attributes.txt: " + line);
         if (!names.isEmpty()) {
           assertTrue(names.get(names.size() - 1).compareTo(f[0]) < 0, "not sorted or repeated: " + f[0]);
         }
@@ -84,9 +84,9 @@ class KnownAttributesTest {
     for (String n : List.of("rel", "target", "sandbox", "allow", "crossorigin", "itemtype", "srcset", "srcdoc", "style")) {
       assertTrue(KnownAttributes.needsSafeValue(html("a"), n), n);
     }
-    // data-* and component props are not standard, so never restricted.
+    // data-* names are not standard, so not TYPED (they are NEUTRAL); a custom element has no exemption (#584).
     assertFalse(KnownAttributes.needsSafeValue(html("p"), "data-rel"));
-    assertFalse(KnownAttributes.needsSafeValue(html("my-el"), "target"));
+    assertTrue(KnownAttributes.needsSafeValue(html("my-el"), "target"));
     // Scoped by namespace and, for for, by element.
     assertTrue(KnownAttributes.needsSafeValue(foreign("rect"), "width"));
     assertFalse(KnownAttributes.needsSafeValue(html("img"), "width"));

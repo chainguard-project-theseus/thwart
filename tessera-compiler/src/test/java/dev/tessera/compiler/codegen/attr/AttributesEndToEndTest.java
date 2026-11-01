@@ -400,8 +400,8 @@ class AttributesEndToEndTest {
   @Test
   void dataAttributesAndIds() {
     assertEquals(
-        "<p id=\"a\" data-owner-id=\"7\" data-x=\"a\">x</p>",
-        render("<p t:id=\"s\" t:data-owner-id=\"n\" t:data-x=\"s\">x</p>", model("s", "a", "n", 7)));
+        "<p id=\"a\" data-owner-id=\"7\">x</p>",
+        render("<p t:id=\"s\" t:data-owner-id=\"n\">x</p>", model("s", "a", "n", 7)));
   }
 
   @Test

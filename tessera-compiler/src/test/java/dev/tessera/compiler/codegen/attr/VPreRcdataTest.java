@@ -81,7 +81,7 @@ class VPreRcdataTest {
 
   @Test
   void aComputedJsonBindingIsAnErrorToo() {
-    compile("<textarea t:attr=\"v-bind:rows=${s}\" t:text=\"s\">x</textarea>")
+    compile("<textarea t:attr=\"v-bind:rows=${s.length()}\" t:text=\"s\">x</textarea>")
         .assertError("t.html:1:", "v-bind:rows on a <textarea> with computed content is not supported");
   }
 
