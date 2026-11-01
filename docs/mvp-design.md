@@ -90,7 +90,7 @@ Stages are concrete classes; the only interface with several implementations is 
   `EmissionGuardTest` fails on output written any other way, and the `Compilation` test harness
   checks every render against its skeleton.
 - Hooks called by the generator: `TextInlining.render` (text nodes), `CsrfInjector.apply`
-  (`<form>`), `CsrfInjector.checkSubmitter` and `checkStaticUrls` (every element), `FieldProcessor.option` (`<option>`), `FragmentMethods.generate` (once per template).
+  (`<form>`), `CsrfInjector.checkSubmitter` (every element), `CsrfInjector.checkBase` (`<base href>`), `FieldProcessor.option` (`<option>`), `FragmentMethods.generate` (once per template).
 
 ## Template syntax
 
