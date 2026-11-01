@@ -58,8 +58,8 @@
    "th:href": 133,
    "th:if": 100,
    "th:field": 95,
-   "~{": 53,
    "layout:fragment": 53,
+   "~{": 53,
    "th:errors": 46,
    "#fields.hasErrors": 46,
    "th:classappend": 41,
@@ -76,21 +76,21 @@
    "th:fragment": 6,
    "#temporals.format": 5,
    "th:disabled": 5,
-   "#lists.isEmpty": 4,
    "th:id": 4,
+   "#lists.isEmpty": 4,
    "th:attr": 4,
-   "T(": 3,
    "th:for": 3,
    "#ids.prev": 3,
    "th:utext": 3,
+   "T(": 3,
    "th:alt": 2,
    "th:placeholder": 2,
    "#lists.size": 2,
    "layout:title-pattern": 1,
-   "#strings.isEmpty": 1,
+   "th:with": 1,
    "th:inline": 1,
    "[[": 1,
-   "th:with": 1
+   "#strings.isEmpty": 1
   }
  }
 }
