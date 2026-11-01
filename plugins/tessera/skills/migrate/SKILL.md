@@ -92,19 +92,18 @@ The old application is the specification. Work the way an expert would, keeping 
    JavaScript `<script>`, each `[[...]]` must be the whole value of a declaration at
    the top, `const x = [[${x}]];`, before any other code (the script prelude rule, guide section 6);
    `tessera-migrate` hoists the other values into `var _t1 = [[...]];` declarations there and reports
-   the ones in template literals and regular expressions, which you move by hand, and the ones it
-   hoists out of a block or function: a callback then reads a global that every copy of an included
-   fragment overwrites.
+   the ones it hoists out of a block or function: a callback then reads a global that every copy of
+   an included fragment overwrites. It leaves the ones in template literals, regular expressions
+   and comments, which the compiler reports and you move by hand.
 
    Stored HTML that the old page printed raw (`th:utext`, `[(...)]`, JSP `${...}`, Velocity)
    stays a `String` and goes through `t:utext="html.sanitize(x)"`, `html.sanitizeRich(x)` for
    editor or Markdown output, or the app's own `HtmlPolicy` behind a `@TemplateFunctions`
    function when it needs other classes or images (guide section 4.10, Rich text). Don't parse
    it in Java into records and rebuild it with a fragment that inserts itself under a `t:switch`
-   on the tag name: that is a build error once the compiler's build-time context verifier is
-   enforced. `tessera-migrate` reports each raw output with this recipe, and each such fragment
-   with its call sites. The fix is in Java: delete the parser, the records and the fragment, pass
-   the HTML string, and sanitize it at each call site.
+   on the tag name: that is a build error. The compiler reports a raw `String` and each such
+   fragment, at its call site, with this recipe. The fix is in Java: delete the parser, the
+   records and the fragment, pass the HTML string, and sanitize it at each call site.
 5. **Compare** the new app, started from the same data, after each template or small group:
    `java -jar .tessera/tessera-migrate.jar compare <base-url> pages.txt baseline/`
    Judge each difference: fix it, or decide that it is right and write down why. A `reordered`
