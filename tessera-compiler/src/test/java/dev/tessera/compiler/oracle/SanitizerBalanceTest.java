@@ -3,14 +3,18 @@ package dev.tessera.compiler.oracle;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import dev.tessera.compiler.verify.engine.EngineException;
 import dev.tessera.runtime.HtmlPolicy;
 import dev.tessera.runtime.SafeHtml;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +37,10 @@ import org.w3c.dom.Node;
  * reconstruction, adoption agency), switched no namespace, and leaves the insertion point in the
  * state it found it: the element written after the output is still the insertion point's next
  * sibling.
+ *
+ * <p>Since #592 the output also follows the closed content model of docs/context-model.md (checked
+ * on the tree its tags spell, {@link #modelProblem}), and the verifier's parser reports no parse
+ * error for it at those insertion points ({@link FlowProducerTest#parseErrors}).
  */
 class SanitizerBalanceTest {
 
@@ -51,12 +59,12 @@ class SanitizerBalanceTest {
             .allowRemoteImages()
             .allowLinkTarget()
             .build());
-    // Table parts and li without their containers, and a without phrasing parents, must still balance.
+    // li without its containers, and a without phrasing parents, must still balance.
     POLICIES.put(
         "partial",
         HtmlPolicy.builder()
-            .allowElements("td", "tr", "li", "a", "p", "pre", "img", "b", "caption", "thead")
-            .allowAttributes("id", "colspan")
+            .allowElements("li", "a", "p", "pre", "img", "b")
+            .allowAttributes("id")
             .allowClasses("x-*")
             .linkRel()
             .allowDataImages()
@@ -181,9 +189,30 @@ class SanitizerBalanceTest {
     "<p><a href=/x><b>".repeat(40) + "<div>y",
   };
 
+  /**
+   * Code points the parser reports as errors in its input (#592): controls, noncharacters, lone
+   * surrogates, literal or from references, in text and attribute values. They become U+FFFD.
+   */
+  static final String[] FORBIDDEN_CODE_POINTS = {
+    "a\u0001b", "a\u007fb", "a\u0085b", "a\uFFFEb", "a\uFFFFb", "a\uFDD0b", "a\uD83F\uDFFEb", "a\ud800b", "a\u0000b",
+    "a&#128;b", "a&#1;b", "a&#x7f;b", "a&#xFFFF;b", "a&#x1FFFE;b", "a&#xfdef;b", "<pre>&#13;x</pre>", "a&#13;b",
+    "<p title=\"\u0001&#128;&#xfffe;&#13;\">x</p>", "<a href=\"/a\u0001b&#x9f;\">x</a>",
+    "<img src=\"/i.png\" alt=\"&#1;\u007f\">", "<a href=\"\u0001javascript:alert(1)\">x</a>",
+  };
+
+  /**
+   * Well-formed named references outside the sanitizer's tables: copied as written, each is a parse
+   * error (a legacy name without its ';', or an unknown name), so the sanitizer escapes the
+   * {@code &}, in text and in attribute values (#592). HTML 4 names (#262) are kept.
+   */
+  static final String[] UNKNOWN_REFERENCES = {
+    "a&notit;b", "a&lt3;b", "x&ampy;", "<p>&copyright;</p>", "&X;", "&i;", "&a;", "&p;", "<b>&Notit;&lt3;</b>",
+    "<p title=\"&notit;&X;&lt3;\">x</p>", "<a href=\"/a?b=1&copyright;\">x</a>", "<p title=\"Krak&oacute;w\">Krak&oacute;w &notin;</p>",
+  };
+
   @Test
   void hostileInputsGiveBalancedOutput() {
-    for (String input : HOSTILE) {
+    for (String input : concat(concat(HOSTILE, FORBIDDEN_CODE_POINTS).toArray(new String[0]), UNKNOWN_REFERENCES)) {
       for (Map.Entry<String, HtmlPolicy> p : POLICIES.entrySet()) {
         assertBalanced(p.getKey(), input, SafeHtml.sanitize(input, p.getValue()).html());
       }
@@ -218,6 +247,163 @@ class SanitizerBalanceTest {
     }
   }
 
+  /** Elements the property test nests: every policy element, table parts, elements no policy allows, unknown names. */
+  private static final List<String> GENERATED_ELEMENTS = concat(HtmlPolicy.ELEMENTS.toArray(new String[0]), new String[] {
+    "table", "caption", "thead", "tbody", "tfoot", "tr", "th", "td", "script", "style", "textarea", "title", "svg",
+    "math", "template", "select", "object", "form", "button", "nobr", "iframe", "noscript", "dd", "x-widget"});
+
+  /** Text pieces: markup characters, braces, controls, noncharacters, CR, literal and as references. */
+  private static final String[] GENERATED_TEXT = {
+    "x", " ", "\n", "\t", "&lt;", "&amp;", "& ", "<3", "{", "}", "{{", "\u0001", "\u007f", "\u0085", "\uFFFE", "\uFFFF",
+    "\uFDD0", "\uD83F\uDFFF", "\ud800", "\u0000", "&#128;", "&#1;", "&#xFFFF;", "&#0;", "\r", "\r\n", "&#13;", "\u00E9",
+    "&notit;", "&lt3;", "&ampy;", "&copyright;", "&X;", "&i;", "&a;", "&p;", "&notin;", "&oacute;", "&lang;",
+  };
+
+  /** Attribute values: the sweep's hostile ones plus values the checked attributes accept. */
+  private static final List<String> GENERATED_VALUES = concat(HostileSweepTest.HOSTILE_ATTR.toArray(new String[0]),
+      new String[] {"a", "2", "-1", "_blank", "language-x", "/ok", "\u0001x", "&#128;", "x&#13;y", "&notit;", "&X;", "a&lt3;", "Krak&oacute;w"});
+
+  /**
+   * The property test of #592: random trees, well-formed and then broken (end tags dropped or
+   * shuffled, tags cut short, stray end tags), under every policy. Each output parses without an
+   * error, to the tree its tags spell, in the closed content model, leaving the state unchanged;
+   * and a well-formed input that fits the model keeps its structure.
+   */
+  @Test
+  void generatedTreesParseAsWritten() throws EngineException {
+    Random random = new Random(592);
+    int kept = 0;
+    for (Map.Entry<String, HtmlPolicy> p : POLICIES.entrySet()) {
+      for (int i = 0; i < 1000; i++) {
+        boolean fitting = i % 2 == 0;
+        List<String[]> tokens = new ArrayList<>();
+        generate(random, p.getValue(), fitting, null, new ArrayList<>(), tokens);
+        String input = join(tokens);
+        String out = SafeHtml.sanitize(input, p.getValue()).html();
+        assertBalanced(p.getKey(), input, out);
+        FlowProducerTest.assertFlow("sanitize " + p.getKey() + " of " + input, out);
+        if (fitting) {
+          assertEquals(skeleton(tokens), out.replaceAll("<(/?[a-z0-9]+)[^>]*>|<!---->|[^<]+", "<$1>").replace("<>", ""),
+              () -> "the structure of fitting input changed: " + input + "\n output: " + out);
+          kept++;
+        }
+        String broken = join(breakTokens(random, tokens));
+        String brokenOut = SafeHtml.sanitize(broken, p.getValue()).html();
+        assertBalanced(p.getKey(), broken, brokenOut);
+        FlowProducerTest.assertFlow("sanitize " + p.getKey() + " of " + broken, brokenOut);
+      }
+    }
+    assertTrue(kept >= 2000, "too few fitting cases: " + kept);
+  }
+
+  /**
+   * Appends one random node to {@code tokens}: text, or an element with children. A token is
+   * {name, markup}, with name null for text and "/name" for an end tag. With {@code fitting}, the
+   * element is one the policy allows where the model allows it.
+   */
+  private static void generate(Random r, HtmlPolicy policy, boolean fitting, String parent, List<String> open,
+      List<String[]> tokens) {
+    List<String> names = new ArrayList<>();
+    for (String e : GENERATED_ELEMENTS) {
+      if (!fitting || (allowed(policy).contains(e) && modelAllows(parent, e, open))) {
+        names.add(e);
+      }
+    }
+    boolean ul = "ul".equals(parent) || "ol".equals(parent);
+    if (names.isEmpty() || (!ul || !fitting) && r.nextInt(3) == 0 || open.size() >= 6) {
+      if (!(fitting && ul)) {
+        tokens.add(new String[] {null, GENERATED_TEXT[r.nextInt(GENERATED_TEXT.length)]});
+      }
+      return;
+    }
+    String name = names.get(r.nextInt(names.size()));
+    StringBuilder tag = new StringBuilder("<").append(name);
+    if (name.equals("img")) {
+      tag.append(" src=\"/i.png\"");
+    }
+    for (int a = r.nextInt(3); a > 0; a--) {
+      String value = GENERATED_VALUES.get(r.nextInt(GENERATED_VALUES.size()));
+      tag.append(' ').append(HostileSweepTest.SANITIZER_ATTRIBUTES.get(r.nextInt(HostileSweepTest.SANITIZER_ATTRIBUTES.size())))
+          .append("=\"").append(value.replace("\"", "&quot;")).append('"');
+    }
+    tokens.add(new String[] {name, tag.append('>').toString()});
+    if (VOID.contains(name)) {
+      return;
+    }
+    open.add(name);
+    for (int c = r.nextInt(4); c > 0; c--) {
+      generate(r, policy, fitting, name, open, tokens);
+    }
+    open.remove(open.size() - 1);
+    tokens.add(new String[] {"/" + name, "</" + name + ">"});
+  }
+
+  private static final Map<HtmlPolicy, Set<String>> ALLOWED = new HashMap<>();
+
+  /** The elements {@code policy} keeps (in a list for {@code li}). */
+  private static Set<String> allowed(HtmlPolicy policy) {
+    return ALLOWED.computeIfAbsent(policy, pol -> {
+      Set<String> keeps = new HashSet<>();
+      for (String e : HtmlPolicy.ELEMENTS) {
+        String out = pol.sanitize((e.equals("li") ? "<ul><li>" : "<" + e + " src=\"/i.png\">") + "x").html();
+        if (out.contains("<" + e + ">") || out.contains("<" + e + " ")) {
+          keeps.add(e);
+        }
+      }
+      return keeps;
+    });
+  }
+
+  /** {@code tokens} with one to three faults: an end tag dropped, two tokens swapped, a tag cut short, a stray end tag. */
+  private static List<String[]> breakTokens(Random r, List<String[]> tokens) {
+    List<String[]> t = new ArrayList<>(tokens);
+    for (int k = 1 + r.nextInt(3); k > 0; k--) {
+      int i = r.nextInt(t.size());
+      switch (r.nextInt(4)) {
+        case 0 -> {
+          if (t.get(i)[0] != null && t.get(i)[0].startsWith("/")) {
+            t.remove(i);
+          }
+        }
+        case 1 -> t.set(i, t.set(r.nextInt(t.size()), t.get(i)));
+        case 2 -> {
+          String m = t.get(i)[1];
+          if (t.get(i)[0] != null && m.length() > 2) {
+            t.set(i, new String[] {null, m.substring(0, 1 + r.nextInt(m.length() - 1))});
+          }
+        }
+        default -> t.add(i, new String[] {null, new String[] {"</x>", "</p>", "</li>", "</a>", "</b>", "</td>", "<"}[r.nextInt(7)]});
+      }
+      if (t.isEmpty()) {
+        t.add(new String[] {null, "x"});
+      }
+    }
+    return t;
+  }
+
+  private static String join(List<String[]> tokens) {
+    StringBuilder sb = new StringBuilder();
+    tokens.forEach(t -> sb.append(t[1]));
+    return sb.toString();
+  }
+
+  /** The tags of {@code tokens} without attributes or text, as {@code <p><b></b></p>}. */
+  private static String skeleton(List<String[]> tokens) {
+    StringBuilder sb = new StringBuilder();
+    for (String[] t : tokens) {
+      if (t[0] != null) {
+        sb.append('<').append(t[0]).append('>');
+      }
+    }
+    return sb.toString();
+  }
+
+  private static <T> List<T> concat(T[] a, T[] b) {
+    List<T> all = new ArrayList<>(List.of(a));
+    all.addAll(List.of(b));
+    return all;
+  }
+
   /** A sanity check of the check itself: hand-written unbalanced or misnested output is caught. */
   @Test
   void checkRejectsUnbalancedOutput() {
@@ -228,15 +414,28 @@ class SanitizerBalanceTest {
       "<div><li>a</li><div><li>b</li></div></div>",
     };
     for (String out : bad) {
-      boolean failed;
-      try {
-        assertBalanced("hand", out, out);
-        failed = false;
-      } catch (AssertionError expected) {
-        failed = true;
-      }
-      assertTrue(failed, () -> "the balance check accepted " + out);
+      assertRejected(out, "");
     }
+    // The right tree, but with a parse error: only the error check catches these (#592).
+    for (String out : new String[] {"<p title=\"a\" title=\"a\">x</p>", "a\u0001b", "<p>a&#128;b</p>",
+        "a&notit;b", "<p>&copyright;</p>", "a&X;b"}) {
+      assertRejected(out, "parse errors");
+    }
+    // Parsed as written without an error, but outside the closed content model (#592).
+    for (String out : new String[] {"<b><i><b>x</b></i></b>", "<ul><div>x</div></ul>", "<span><p>x</p></span>",
+        "<em><div>x</div></em>", "<table><tbody><tr><td>x</td></tr></tbody></table>"}) {
+      assertRejected(out, "content model");
+    }
+  }
+
+  private static void assertRejected(String out, String reason) {
+    try {
+      assertBalanced("hand", out, out);
+    } catch (AssertionError expected) {
+      assertTrue(expected.getMessage().contains(reason), () -> out + " was rejected for another reason: " + expected.getMessage());
+      return;
+    }
+    fail("the balance check accepted " + out);
   }
 
   private static void assertBalanced(String policy, String input, String out) {
@@ -277,6 +476,68 @@ class SanitizerBalanceTest {
         }
       }
     }
+    String problem = modelProblem(null, naiveTree(out), new ArrayList<>());
+    assertNull(problem, () -> "outside the closed content model: " + problem + "\n policy: " + policy + "\n input: " + input
+        + "\n output: " + out);
+    for (String[] ctx : CONTEXTS) {
+      List<String> errors;
+      try {
+        errors = FlowProducerTest.parseErrors("<!DOCTYPE html><html><head></head><body>" + ctx[0], out);
+      } catch (EngineException e) {
+        throw new IllegalStateException(e);
+      }
+      assertTrue(errors.isEmpty(), () -> "parse errors " + errors + "\n policy: " + policy + " / " + ctx[0] + "\n input: "
+          + input + "\n output: " + out);
+    }
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // The closed content model (#592, docs/context-model.md), spelled out here independently of HtmlSanitizer
+
+  private static final Set<String> MODEL_PHRASING = Set.of("a", "b", "i", "em", "strong", "u", "s", "del", "ins", "sub",
+      "sup", "small", "mark", "code", "kbd", "span", "br", "img");
+
+  private static final Set<String> MODEL_BLOCK = Set.of("p", "h1", "h2", "h3", "h4", "h5", "h6", "pre", "blockquote",
+      "ul", "ol", "div", "hr");
+
+  /** Elements that hold flow content (text, phrasing and blocks), like the insertion point. */
+  private static final Set<String> MODEL_FLOW_PARENTS = Set.of("div", "blockquote", "li");
+
+  /** Elements never inside an element of their own name. */
+  private static final Set<String> MODEL_NOT_IN_ITSELF = Set.of("a", "b", "i", "em", "strong", "u", "s", "small", "code");
+
+  /** Whether element {@code child} may be written in {@code parent} ({@code null}: the insertion point) under {@code open}. */
+  static boolean modelAllows(String parent, String child, List<String> open) {
+    if (MODEL_NOT_IN_ITSELF.contains(child) && open.contains(child)) {
+      return false;
+    }
+    if (parent == null || MODEL_FLOW_PARENTS.contains(parent)) {
+      return MODEL_PHRASING.contains(child) || MODEL_BLOCK.contains(child);
+    }
+    if (parent.equals("ul") || parent.equals("ol")) {
+      return child.equals("li");
+    }
+    // p, h1-h6, pre and the phrasing elements hold text and phrasing
+    return (MODEL_PHRASING.contains(parent) || MODEL_BLOCK.contains(parent)) && MODEL_PHRASING.contains(child);
+  }
+
+  /** The first element of {@code nodes} (children of {@code parent} under {@code open}) outside the model, or null. */
+  private static String modelProblem(String parent, List<Naive> nodes, List<String> open) {
+    for (Naive n : nodes) {
+      if (n.text() != null) {
+        continue; // text goes in the current node, whatever it is
+      }
+      if (!modelAllows(parent, n.name(), open)) {
+        return n.name() + " in " + (parent == null ? "the insertion point" : parent) + " under " + open;
+      }
+      open.add(n.name());
+      String p = modelProblem(n.name(), n.children(), open);
+      open.remove(open.size() - 1);
+      if (p != null) {
+        return p;
+      }
+    }
+    return null;
   }
 
   private static Element byId(Document d, String id) {

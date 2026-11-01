@@ -14,28 +14,27 @@ import java.util.Set;
  * original: there are no comments, no raw-text or foreign-content elements, and no other
  * attributes.
  *
- * <p>The output is balanced {@code FLOW} content (#329). Elements are kept on an open-element
- * stack, and each is placed only where a browser's tree builder keeps it as written:
+ * <p>The output is balanced {@code FLOW} content in a closed content model (#329, #592; the table
+ * is in docs/context-model.md). Elements are kept on an open-element stack, and each start tag is
+ * written only if it fits the current node:
  *
  * <ul>
- *   <li>{@code p}, headings, {@code pre} and phrasing elements hold only phrasing elements; a
- *       block element first closes them, as a browser's implied end tags would.
- *   <li>{@code a} never nests in {@code a}; {@code li} only in {@code ul}/{@code ol}. No other
- *       formatting element nests in one of its own name either (the inner tag is dropped, its text
- *       kept): two identical ones, with one more around the insertion point, would make a browser
- *       drop that one from its list of active formatting elements (the Noah's Ark clause).
- *   <li>Table parts only inside a {@code table}, with the {@code tbody} and {@code tr} a browser
- *       would imply written out; no text, and nothing else, directly in a table, section or row.
- *   <li>An end tag closes up to its matching open element, unmatched end tags are ignored, and
- *       everything still open is closed at the end.
+ *   <li>the insertion point, {@code div}, {@code blockquote} and {@code li} hold phrasing elements
+ *       and {@code p h1-h6 pre blockquote ul ol div hr};
+ *   <li>{@code p}, headings, {@code pre} and phrasing elements hold only phrasing elements;
+ *   <li>{@code ul} and {@code ol} hold only {@code li}, and {@code li} goes only there;
+ *   <li>the {@link #FORMATTING} elements never go inside an open element of their own name.
  * </ul>
  *
- * <p>A start tag that fits nowhere before a table cell, caption, table part or list is dropped
- * (its text is kept). So the output never implies an end tag, never moves content (foster
- * parenting, formatting reconstruction), and cannot close the page's own elements.
+ * <p>A start tag that doesn't fit, or that would nest deeper than {@link #MAX_DEPTH}, is
+ * unwrapped: the tag is dropped and its content lands in the current node. Text is written in the
+ * current node. An end tag closes up to its matching open element, unmatched end tags are ignored,
+ * and everything still open is closed at the end. Nothing is implied, closed early or moved, so a
+ * spec parser reads the output, without a parse error, as exactly the tree written; the sanitizer
+ * doesn't model the tree builder. Code points the parser reports as errors become U+FFFD.
  */
 final class HtmlSanitizer {
-  /** Kept elements beyond this nesting depth are dropped (their text is kept). */
+  /** Kept elements beyond this nesting depth are unwrapped. */
   private static final int MAX_DEPTH = 100;
 
   private static final Set<String> VOID = HtmlPolicy.unmodifiable("br", "hr", "img");
@@ -45,26 +44,15 @@ final class HtmlSanitizer {
       HtmlPolicy.unmodifiable("a", "b", "i", "em", "strong", "u", "s", "del", "ins", "sub", "sup", "small", "mark",
           "code", "kbd", "span", "br", "img");
 
-  /** Flow elements that are not phrasing (and are not {@code li} or table parts). */
+  /** Flow elements that are not phrasing (and are not {@code li}). */
   private static final Set<String> BLOCK =
-      HtmlPolicy.unmodifiable("p", "h1", "h2", "h3", "h4", "h5", "h6", "pre", "blockquote", "ul", "ol", "div", "hr", "table");
+      HtmlPolicy.unmodifiable("p", "h1", "h2", "h3", "h4", "h5", "h6", "pre", "blockquote", "ul", "ol", "div", "hr");
 
-  /** Elements whose content is phrasing only, so that no block start tag closes them implicitly. */
-  private static final Set<String> PHRASING_CONTAINERS =
-      HtmlPolicy.unmodifiable("a", "b", "i", "em", "strong", "u", "s", "del", "ins", "sub", "sup", "small", "mark",
-          "code", "kbd", "span", "p", "h1", "h2", "h3", "h4", "h5", "h6", "pre");
-
-  private static final Set<String> TABLE_SECTIONS = HtmlPolicy.unmodifiable("thead", "tbody", "tfoot");
-
-  /** Formatting elements that are dropped (text kept) inside an open element of the same name. */
-  private static final Set<String> NO_SELF_NESTING = HtmlPolicy.unmodifiable("b", "code", "em", "i", "s", "small", "strong", "u");
-
-  /** Open elements a start tag never closes implicitly; past them a tag that doesn't fit is dropped. */
-  private static final Set<String> BOUNDARY =
-      HtmlPolicy.unmodifiable("ul", "ol", "table", "caption", "thead", "tbody", "tfoot", "tr", "td", "th");
-
-  /** Where text would be foster-parented or ignored: it is dropped. */
-  private static final Set<String> NO_TEXT = HtmlPolicy.unmodifiable("table", "thead", "tbody", "tfoot", "tr");
+  /**
+   * Formatting elements, never inside an open element of their own name: that rules out the
+   * parser's {@code a}-in-{@code a} error and its Noah's Ark clause (#329).
+   */
+  private static final Set<String> FORMATTING = HtmlPolicy.unmodifiable("a", "b", "code", "em", "i", "s", "small", "strong", "u");
 
   /** Raw text and RCDATA elements: skipped, content included, up to their end tag. */
   private static final Set<String> RAW_TEXT =
@@ -72,6 +60,14 @@ final class HtmlSanitizer {
 
   /** Dropped with everything inside, found by counting nested tags of the same name. */
   private static final Set<String> DROP_CONTENT = HtmlPolicy.unmodifiable("svg", "math", "object", "template", "select");
+
+  /**
+   * The spec's numeric character reference table for U+0080..U+009F (windows-1252), indexed by
+   * {@code cp - 0x80}; 0 where the spec keeps the C1 control, which the writers make U+FFFD. Word
+   * pastes such as {@code don&#146;t} then read as the browser shows them (#592).
+   */
+  private static final String WINDOWS_1252 = "€\0‚ƒ„…†‡ˆ‰Š‹Œ\0Ž\0"
+      + "\0‘’“”•–—˜™š›œ\0žŸ";
 
   private static final Map<String, String> ENTITIES = new HashMap<>();
 
@@ -92,6 +88,33 @@ final class HtmlSanitizer {
       ENTITIES.put(pairs[i], pairs[i + 1]);
     }
   }
+
+  /**
+   * The HTML 4 named references, which Spring's {@code HtmlUtils.htmlEscape} writes (#262). With
+   * its ';', each is a complete name in the spec's table, so the parser reads it without an error
+   * and the sanitizer keeps it as written; any other name not in {@link #ENTITIES} is escaped (#592).
+   */
+  private static final Set<String> HTML4_NAMES = HtmlPolicy.unmodifiable(
+      "Aacute", "aacute", "Acirc", "acirc", "acute", "AElig", "aelig", "Agrave", "agrave", "alefsym", "Alpha", "alpha",
+      "amp", "and", "ang", "Aring", "aring", "asymp", "Atilde", "atilde", "Auml", "auml", "bdquo", "Beta", "beta",
+      "brvbar", "bull", "cap", "Ccedil", "ccedil", "cedil", "cent", "Chi", "chi", "circ", "clubs", "cong", "copy",
+      "crarr", "cup", "curren", "Dagger", "dagger", "dArr", "darr", "deg", "Delta", "delta", "diams", "divide",
+      "Eacute", "eacute", "Ecirc", "ecirc", "Egrave", "egrave", "empty", "emsp", "ensp", "Epsilon", "epsilon",
+      "equiv", "Eta", "eta", "ETH", "eth", "Euml", "euml", "euro", "exist", "fnof", "forall", "frac12", "frac14",
+      "frac34", "frasl", "Gamma", "gamma", "ge", "gt", "hArr", "harr", "hearts", "hellip", "Iacute", "iacute",
+      "Icirc", "icirc", "iexcl", "Igrave", "igrave", "image", "infin", "int", "Iota", "iota", "iquest", "isin",
+      "Iuml", "iuml", "Kappa", "kappa", "Lambda", "lambda", "lang", "laquo", "lArr", "larr", "lceil", "ldquo", "le",
+      "lfloor", "lowast", "loz", "lrm", "lsaquo", "lsquo", "lt", "macr", "mdash", "micro", "middot", "minus", "Mu",
+      "mu", "nabla", "nbsp", "ndash", "ne", "ni", "not", "notin", "nsub", "Ntilde", "ntilde", "Nu", "nu", "Oacute",
+      "oacute", "Ocirc", "ocirc", "OElig", "oelig", "Ograve", "ograve", "oline", "Omega", "omega", "Omicron",
+      "omicron", "oplus", "or", "ordf", "ordm", "Oslash", "oslash", "Otilde", "otilde", "otimes", "Ouml", "ouml",
+      "para", "part", "permil", "perp", "Phi", "phi", "Pi", "pi", "piv", "plusmn", "pound", "Prime", "prime", "prod",
+      "prop", "Psi", "psi", "quot", "radic", "rang", "raquo", "rArr", "rarr", "rceil", "rdquo", "real", "reg",
+      "rfloor", "Rho", "rho", "rlm", "rsaquo", "rsquo", "sbquo", "Scaron", "scaron", "sdot", "sect", "shy", "Sigma",
+      "sigma", "sigmaf", "sim", "spades", "sub", "sube", "sum", "sup", "sup1", "sup2", "sup3", "supe", "szlig", "Tau",
+      "tau", "there4", "Theta", "theta", "thetasym", "thinsp", "THORN", "thorn", "tilde", "times", "trade", "Uacute",
+      "uacute", "uArr", "uarr", "Ucirc", "ucirc", "Ugrave", "ugrave", "uml", "upsih", "Upsilon", "upsilon", "Uuml",
+      "uuml", "weierp", "Xi", "xi", "Yacute", "yacute", "yen", "Yuml", "yuml", "Zeta", "zeta", "zwj", "zwnj");
 
   private final HtmlPolicy policy;
   private final String s;
@@ -206,7 +229,7 @@ final class HtmlSanitizer {
       }
     } else if (policy.elements.contains(name)) {
       String attributes = attributes(name, attrs);
-      if (attributes != null && place(name)) {
+      if (attributes != null && fits(name)) {
         out.append('<').append(name).append(attributes).append('>');
         if (!VOID.contains(name)) {
           open.add(name);
@@ -219,99 +242,25 @@ final class HtmlSanitizer {
   }
 
   /**
-   * Closes open elements until {@code name} fits as a child of the current node, and writes the
-   * {@code tbody}/{@code tr} a browser would imply before a table part. Returns false (nothing
-   * changed) if it fits nowhere, or would be nested deeper than {@link #MAX_DEPTH}.
+   * Whether start tag {@code name} is written in the current node: it fits the content model there
+   * (see the class comment), it isn't a {@link #FORMATTING} element inside one of its own name, and
+   * it stays within {@link #MAX_DEPTH}. Otherwise it is unwrapped.
    */
-  private boolean place(String name) {
-    if (name.equals("caption") || TABLE_SECTIONS.contains(name) || name.equals("tr")
-        || name.equals("td") || name.equals("th")) {
-      int table = open.lastIndexOf("table");
-      if (table < 0) {
-        return false;
-      }
-      // As in a browser, a table part closes the cell, row or section it is in.
-      int keep = open.size();
-      while (!fitsTable(open.get(keep - 1), name)) {
-        keep--;
-      }
-      String cur = open.get(keep - 1);
-      List<String> implied = new ArrayList<>(2);
-      if (cur.equals("table") && (name.equals("tr") || name.equals("td") || name.equals("th"))) {
-        implied.add("tbody");
-      }
-      if (!cur.equals("tr") && (name.equals("td") || name.equals("th"))) {
-        implied.add("tr");
-      }
-      if (keep + implied.size() + (VOID.contains(name) ? 0 : 1) > MAX_DEPTH) {
-        return false;
-      }
-      while (open.size() > keep) {
-        pop();
-      }
-      for (String e : implied) {
-        out.append('<').append(e).append('>');
-        open.add(e);
-      }
-      return true;
-    }
-    if (NO_SELF_NESTING.contains(name) && open.contains(name)) {
-      // Nested in itself it would be a second identical entry in a browser's list of active
-      // formatting elements; with one more around the insertion point, a third would drop the
-      // outermost one (the Noah's Ark clause), which changes the parser state (#329).
+  private boolean fits(String name) {
+    if (FORMATTING.contains(name) && open.contains(name)) {
       return false;
     }
-    int keep = open.size();
-    if (name.equals("a")) {
-      // A browser closes an open <a> before another (the adoption agency); so do we.
-      for (int i = open.size() - 1; i >= 0 && !BOUNDARY.contains(open.get(i)); i--) {
-        if (open.get(i).equals("a")) {
-          keep = i;
-        }
-      }
-    }
-    while (!fits(keep == 0 ? null : open.get(keep - 1), name)) {
-      if (keep == 0 || BOUNDARY.contains(open.get(keep - 1))) {
-        return false;
-      }
-      keep--;
-    }
-    if (!VOID.contains(name) && keep >= MAX_DEPTH) {
+    if (!VOID.contains(name) && open.size() >= MAX_DEPTH) {
       return false;
     }
-    while (open.size() > keep) {
-      pop();
-    }
-    return true;
-  }
-
-  /** Whether {@code child} (not a table part) is kept as written inside {@code parent} ({@code null}: the insertion point). */
-  private static boolean fits(String parent, String child) {
-    if (parent == null) {
-      return PHRASING.contains(child) || BLOCK.contains(child);
+    String parent = open.isEmpty() ? null : open.get(open.size() - 1);
+    if (parent == null || parent.equals("div") || parent.equals("blockquote") || parent.equals("li")) {
+      return PHRASING.contains(name) || BLOCK.contains(name);
     }
     if (parent.equals("ul") || parent.equals("ol")) {
-      return child.equals("li");
+      return name.equals("li");
     }
-    if (PHRASING_CONTAINERS.contains(parent)) {
-      return PHRASING.contains(child);
-    }
-    if (NO_TEXT.contains(parent)) {
-      return false;
-    }
-    // div, blockquote, li, td, th, caption: flow content
-    return PHRASING.contains(child) || BLOCK.contains(child);
-  }
-
-  /** Whether table part {@code child} goes directly into {@code parent}, with implied {@code tbody}/{@code tr}. */
-  private static boolean fitsTable(String parent, String child) {
-    if (child.equals("td") || child.equals("th")) {
-      return parent.equals("tr") || TABLE_SECTIONS.contains(parent) || parent.equals("table");
-    }
-    if (child.equals("tr")) {
-      return TABLE_SECTIONS.contains(parent) || parent.equals("table");
-    }
-    return parent.equals("table");
+    return PHRASING.contains(name); // p, h1-h6, pre and the phrasing elements
   }
 
   private void pop() {
@@ -384,16 +333,6 @@ final class HtmlSanitizer {
     if (name.equals("img")) {
       numberAttribute(sb, "width", attrs, 5, false);
       numberAttribute(sb, "height", attrs, 5, false);
-    } else if (name.equals("td") || name.equals("th")) {
-      numberAttribute(sb, "colspan", attrs, 4, false);
-      numberAttribute(sb, "rowspan", attrs, 5, false);
-      String align = allowed.contains("align") ? attrs.get("align") : null;
-      if (align != null) {
-        align = HtmlPolicy.lower(HtmlPolicy.stripWhitespace(decode(align)));
-        if (align.equals("left") || align.equals("center") || align.equals("right") || align.equals("justify")) {
-          sb.append(" align=\"").append(align).append('"');
-        }
-      }
     } else if (name.equals("ol")) {
       numberAttribute(sb, "start", attrs, 9, true);
       if (allowed.contains("reversed") && attrs.containsKey("reversed")) {
@@ -433,7 +372,7 @@ final class HtmlSanitizer {
         && HtmlPolicy.isClassToken(url.substring(1)) && !url.startsWith(policy.idPrefix, 1)) {
       url = "#" + policy.idPrefix + url.substring(1); // follow the prefixed id
     }
-    return Escapers.escapeHtml(url);
+    return Escapers.escapeHtml(replaceForbidden(url)); // after the checks: U+FFFD is inert in a URL
   }
 
   private static boolean isDataImage(String url) {
@@ -454,9 +393,9 @@ final class HtmlSanitizer {
   }
 
   /**
-   * Writes a text attribute the policy allows. Known references are decoded and re-escaped;
-   * well-formed unknown named references are kept (in a quoted value they only produce
-   * characters).
+   * Writes a text attribute the policy allows. Known references are decoded and re-escaped, and
+   * {@link #HTML4_NAMES} references are kept; any other {@code &} is escaped, since an unknown
+   * name such as {@code &X;} is a parse error in a value too (#592).
    */
   private void textAttribute(StringBuilder sb, String name, Map<String, String> attrs) {
     String raw = policy.attributes.contains(name) ? attrs.get(name) : null;
@@ -471,8 +410,8 @@ final class HtmlSanitizer {
       int end = c == '&' ? reference(raw, i, raw.length(), pending) : -1;
       if (end > 0) {
         i = end;
-      } else if (c == '&' && (end = unknownNamed(raw, i, raw.length())) > 0) {
-        Escapers.appendHtml(sb, pending.toString());
+      } else if (c == '&' && (end = html4Named(raw, i, raw.length())) > 0) {
+        Escapers.appendHtml(sb, replaceForbidden(pending.toString()));
         pending.setLength(0);
         sb.append(raw, i, end);
         i = end;
@@ -481,7 +420,7 @@ final class HtmlSanitizer {
         i++;
       }
     }
-    Escapers.appendHtml(sb, pending.toString());
+    Escapers.appendHtml(sb, replaceForbidden(pending.toString()));
     sb.append('"');
   }
 
@@ -631,12 +570,15 @@ final class HtmlSanitizer {
 
   /**
    * Writes {@code s[from, to)} as escaped text. Known character references are decoded and
-   * re-escaped; an unknown named reference such as {@code &eacute;} is kept as is, since in text it
-   * can only ever produce a character. The references for braces are known, so every brace goes
-   * through the text escaper, which breaks {@code {{} as {@link Escapers#text} does (#248).
+   * re-escaped, and {@link #HTML4_NAMES} references such as {@code &eacute;} are kept as they are.
+   * Any other {@code &} is escaped, so a named reference such as {@code &notit;} or {@code &X;}
+   * comes out as {@code &amp;notit;}: copied as written, the parser would report a parse error for
+   * it (a legacy name such as {@code &not} without its ';', or an unknown name; #592). The
+   * references for braces are known, so every brace goes through the text escaper, which breaks
+   * {@code {{} as {@link Escapers#text} does (#248).
    */
   private void text(int from, int to) {
-    if (dropping != null || from >= to || (!open.isEmpty() && NO_TEXT.contains(open.get(open.size() - 1)))) {
+    if (dropping != null || from >= to) {
       return;
     }
     int start = out.length();
@@ -659,8 +601,8 @@ final class HtmlSanitizer {
       int end = reference(s, i, to, pending);
       if (end > 0) {
         i = end;
-      } else if ((end = unknownNamed(s, i, to)) > 0) {
-        Escapers.appendText(out, pending.toString());
+      } else if ((end = html4Named(s, i, to)) > 0) {
+        Escapers.appendText(out, replaceForbidden(pending.toString()));
         pending.setLength(0);
         out.append(s, i, end);
         i = end;
@@ -669,7 +611,34 @@ final class HtmlSanitizer {
         i++;
       }
     }
-    Escapers.appendText(out, pending.toString());
+    Escapers.appendText(out, replaceForbidden(pending.toString()));
+  }
+
+  /**
+   * {@code s} with every code point the parser reports as a parse error in its input (a control
+   * other than ASCII whitespace, a noncharacter, a lone surrogate) replaced by U+FFFD, and CR
+   * (here only a reference such as {@code &#13;} makes one) written as the LF the parser reads it
+   * as (#592). The text and attribute writers call it, so the output parses without an error.
+   */
+  private static String replaceForbidden(String s) {
+    StringBuilder sb = null;
+    for (int i = 0; i < s.length(); ) {
+      int cp = s.codePointAt(i);
+      int next = i + Character.charCount(cp);
+      boolean forbidden = (cp < 0x20 && cp != '\t' && cp != '\n' && cp != '\f' && cp != '\r')
+          || (cp >= 0x7F && cp <= 0x9F) || (cp >= 0xFDD0 && cp <= 0xFDEF) || (cp & 0xFFFE) == 0xFFFE
+          || (cp >= 0xD800 && cp <= 0xDFFF);
+      if (forbidden || cp == '\r') {
+        if (sb == null) {
+          sb = new StringBuilder(s.length()).append(s, 0, i);
+        }
+        sb.append(forbidden ? '\uFFFD' : '\n');
+      } else if (sb != null) {
+        sb.append(s, i, next);
+      }
+      i = next;
+    }
+    return sb == null ? s : sb.toString();
   }
 
   /** Decodes known character references in an attribute value; unknown ones stay literal. */
@@ -720,6 +689,8 @@ final class HtmlSanitizer {
       }
       if (cp == 0 || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) {
         cp = 0xFFFD;
+      } else if (cp >= 0x80 && cp <= 0x9F && WINDOWS_1252.charAt(cp - 0x80) != 0) {
+        cp = WINDOWS_1252.charAt(cp - 0x80); // as a browser reads it; unmapped C1 become U+FFFD later
       }
       sb.appendCodePoint(cp);
       return j;
@@ -734,6 +705,12 @@ final class HtmlSanitizer {
     }
     sb.append(value);
     return end;
+  }
+
+  /** The index after an {@link #HTML4_NAMES} reference with its ';' at i, or -1. */
+  private static int html4Named(String s, int i, int to) {
+    int end = unknownNamed(s, i, to);
+    return end > 0 && HTML4_NAMES.contains(s.substring(i + 1, end - 1)) ? end : -1;
   }
 
   /** The index after a well-formed named reference {@code &[A-Za-z][A-Za-z0-9]*;} at i, or -1. */
