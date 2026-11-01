@@ -9,6 +9,7 @@
 | espd | run-2 | no | ok | 932/932 (base 931) | 46+0/60 | 0 | - | 51 | invoked | 34.4 | 14.47 | 169319 |
 | espd | run-3 | no | ok | 931/931 (base 931) | 50+0/60 | 0 | - | 0 | invoked | 58.0 | 19.57 | 193222 |
 | espd | run-10 | no | ok | 933/933 (base 931) | 0+0/60 | 0 | - | 0 | invoked | 44.3 | 33.37 | 392889 |
+| espd | run-11 | no | ok | 933/933 (base 931) | 0+0/60 | 0 | - | 0 | invoked | 33.6 | 17.08 | 195947 |
 | ewp-registry | run-1 | no | ok | 375/375 (base 372) | 34+0/38 | 0 | - | 0 | invoked | 43.6 | 8.08 | 92313 |
 | ewp-registry | run-2 | no | ok | 376/376 (base 372) | 35+0/38 | 0 | - | 0 | invoked | 42.2 | 7.80 | 93056 |
 | ewp-registry | run-3 | no | ok | 373/373 (base 372) | 35+0/38 | 0 | - | 0 | invoked | 38.7 | 9.89 | 94078 |
@@ -21,6 +22,7 @@
 | fredbet | run-8 | no | ok | 117/117 (base 117) | 165+0/169 | 0 | - | 0 | invoked | 22.2 | 11.30 | 113577 |
 | fredbet | run-9 | no | ok | 120/120 (base 117) | 168+0/169 | 0 | - | 0 | invoked | 19.1 | 11.06 | 153442 |
 | fredbet | run-10 | no | ok | 119/119 (base 117) | 147+0/169 | 0 | - | 0 | invoked | 30.5 | 22.14 | 240647 |
+| fredbet | run-11 | no | ok | 117/117 (base 117) | 146+0/169 | 0 | - | 0 | invoked | 34.7 | 12.25 | 127769 |
 | jobsearch | run-1 (crawl.py) | no | ok | 2/2 (base 1) | 84+5/92 | 0 | - | 0 | - | 28.8 | 18.28 | 319521 |
 | jobsearch | run-2 (crawl.py) | yes | ok | 2/2 (base 1) | 86+6/92 | 0 | - | 0 | - | 30.6 | 24.09 | 369955 |
 | jobsearch | run-3 (crawl.py) | no | ok | 1/1 (base 1) | 81+5/92 | 0 | - | 0 | - | 21.4 | 16.54 | 289235 |
@@ -61,6 +63,7 @@
 | spring-petclinic | run-4 | yes | ok | 81/81 (base 79) | 29+1/30 | 0 | - | 0 | - | 8.0 | 2.17 | 35200 |
 | spring-petclinic | run-8 | yes | ok | 81/81 (base 79) | 30+0/30 | 0 | - | 0 | invoked | 8.5 | 2.42 | 37539 |
 | spring-petclinic | run-10 | yes | ok | 80/80 (base 79) | 29+1/30 | 0 | - | 0 | invoked | 7.7 | 2.51 | 35566 |
+| spring-petclinic | run-11 | yes | ok | 79/79 (base 79) | 30+0/30 | 0 | - | 0 | invoked | 8.0 | 2.25 | 30411 |
 | spring-petclinic-boot15 | run-7 | yes | ok | 43/43 (base 41) | 28+0/28 | 0 | - | 0 | invoked | 12.5 | 2.68 | - |
 | spring-petclinic-boot15 | run-8 | yes | ok | 42/42 (base 41) | 28+0/28 | 0 | - | 0 | invoked | 9.4 | 2.31 | 36957 |
 | spring-petclinic-boot15 | run-10 | yes | ok | 43/43 (base 41) | 27+1/28 | 0 | - | 0 | invoked | 11.1 | 2.97 | 40664 |
@@ -81,27 +84,27 @@
 
 | App | Runs | Passed | Build ok | Tests ok | Skill invoked | Mean pages identical+reordered |
 |---|---|---|---|---|---|---|
-| fredbet | 8 | 0/8 | 8/8 | 8/8 | 3/3 | 97% |
+| fredbet | 9 | 0/9 | 9/9 | 9/9 | 4/4 | 96% |
 | jobsearch | 7 | 1/7 | 7/7 | 7/7 | 2/2 | 85% |
 | jpetstore | 4 | 0/4 | 4/4 | 4/4 | 3/3 | 98% |
 | spring-framework-petclinic | 6 | 5/6 | 6/6 | 6/6 | 2/2 | 96% |
 | spring-framework-petclinic-spring43 | 3 | 3/3 | 3/3 | 3/3 | 3/3 | 100% |
 | spring-framework-petclinic-spring5 | 3 | 3/3 | 3/3 | 3/3 | 3/3 | 100% |
-| spring-petclinic | 6 | 6/6 | 6/6 | 6/6 | 2/2 | 100% |
+| spring-petclinic | 7 | 7/7 | 7/7 | 7/7 | 3/3 | 100% |
 | spring-petclinic-boot15 | 3 | 3/3 | 3/3 | 3/3 | 3/3 | 100% |
 | spring-petclinic-boot20 | 3 | 3/3 | 3/3 | 3/3 | 3/3 | 100% |
 | spring-petclinic-boot27 | 3 | 3/3 | 3/3 | 3/3 | 3/3 | 100% |
 | spring-petclinic-mustache | 6 | 3/6 | 6/6 | 6/6 | 2/2 | 94% |
-| all | 52 | 30/52 | | | | |
+| all | 54 | 31/54 | | | | |
 
 **Held-out apps**
 
 | App | Runs | Passed | Build ok | Tests ok | Skill invoked | Mean pages identical+reordered |
 |---|---|---|---|---|---|---|
 | budgetmaster | 5 | 0/5 | 5/5 | 5/5 | 3/3 | 38% |
-| espd | 4 | 0/4 | 4/4 | 4/4 | 4/4 | 49% |
+| espd | 5 | 0/5 | 5/5 | 5/5 | 5/5 | 39% |
 | ewp-registry | 4 | 0/4 | 4/4 | 4/4 | 4/4 | 86% |
 | jprime | 4 | 0/4 | 4/4 | 4/4 | 3/3 | 95% |
 | luckyblog | 3 | 1/3 | 3/3 | 3/3 | 3/3 | 96% |
 | purl-server | 4 | 3/4 | 4/4 | 4/4 | 3/3 | 99% |
-| all | 24 | 4/24 | | | | |
+| all | 25 | 4/25 | | | | |
