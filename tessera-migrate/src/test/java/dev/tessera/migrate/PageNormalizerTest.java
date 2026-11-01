@@ -120,9 +120,29 @@ class PageNormalizerTest {
       declared name read by another script | <script>var ctx = "/a"; f(ctx);</script><script>g(ctx);</script> | <script>f("/a");</script><script>g(ctx);</script>
       declared name read by an event handler | <script>var ctx = "/a"; f(ctx);</script><button onclick="g(ctx)">b</button> | <script>f("/a");</script><button onclick="g(ctx)">b</button>
       declared name read by a javascript: URL | <script>var ctx = "/a"; f(ctx);</script><a href="javascript:g(ctx)">b</a> | <script>f("/a");</script><a href="javascript:g(ctx)">b</a>
+      declared name as an object key | <script>var x = "a"; o = {x: 1}; f(x);</script> | <script>o = {"a": 1}; f("a");</script>
+      declared name as a method name | <script>var x = "a"; o = {x() { return 1; }}; f(x);</script> | <script>o = {"a"() { return 1; }}; f("a");</script>
+      declared name as a label       | <script>var x = 1; x: for (;;) { break x; } f(x);</script> | <script>1: for (;;) { break 1; } f(1);</script>
       """)
   void differentPages(String rule, String a, String b) {
     check(DIFFERS, a.replace("\\n", "\n"), b.replace("\\n", "\n"));
+  }
+
+  /** Template literals hold backticks, the CSV quote character above. */
+  @Test
+  void declaredNameInATemplateLiteralDiffers() {
+    // Read in ${...}: the template literal is copied as it is, so the declaration stays.
+    check(DIFFERS, "<script>var ctx = \"/a\"; f(ctx); g(`${ctx}`);</script>",
+        "<script>f(\"/a\"); g(`${ctx}`);</script>");
+    // Read in another script's ${...}.
+    check(DIFFERS, "<script>var ctx = \"/a\"; f(ctx);</script><script>g(`x${ctx}`);</script>",
+        "<script>f(\"/a\");</script><script>g(`x${ctx}`);</script>");
+    // Assigned in ${...}.
+    check(DIFFERS, "<script>var x = \"a\"; h(`${x = g()}`); f(x);</script>",
+        "<script>var x = (\"a\"); h(`${x = g()}`); f(\"a\");</script>");
+    // A template literal that doesn't name the declaration doesn't stop the expansion.
+    check(REORDERED, "<script>f(\"a\", `t${y}`);</script>",
+        "<script>var _t1 = (\"a\");\nf(_t1, `t${y}`);</script>");
   }
 
   @Test

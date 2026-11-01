@@ -345,6 +345,8 @@ final class PageNormalizer {
       i = semi + 1;
     }
     values.keySet().removeAll(readElsewhere);
+    // A template literal is copied as it is, so a name read in its ${...} keeps its declaration.
+    values.keySet().removeAll(templateNames(script, i));
     if (values.isEmpty() || rebinds(tokens(script, i), values.keySet())) {
       return script;
     }
@@ -374,15 +376,92 @@ final class PageNormalizer {
       "with", "return", "typeof", "void", "delete", "in", "of", "new", "await", "yield");
 
   /**
+   * The index just past the template literal that starts with the backtick at {@code start}; the
+   * code of each {@code ${...}} in it is added to {@code code}.
+   */
+  private static int templateEnd(String s, int start, List<String> code) {
+    int n = s.length();
+    int i = start + 1;
+    while (i < n) {
+      char c = s.charAt(i);
+      if (c == '\\') {
+        i += 2;
+      } else if (c == '`') {
+        return i + 1;
+      } else if (c == '$' && i + 1 < n && s.charAt(i + 1) == '{') {
+        int j = i + 2;
+        for (int depth = 0; j < n; ) {
+          char d = s.charAt(j);
+          int skip = d == '`' ? templateEnd(s, j, code) : skipStringOrComment(s, j);
+          if (skip > j) {
+            j = skip;
+            continue;
+          }
+          if (d == '{') {
+            depth++;
+          } else if (d == '}') {
+            if (depth == 0) {
+              break;
+            }
+            depth--;
+          }
+          j++;
+        }
+        code.add(s.substring(i + 2, Math.min(j, n)));
+        i = j + 1;
+      } else {
+        i++;
+      }
+    }
+    return n;
+  }
+
+  /** The identifiers in the {@code ${...}} parts of the template literals of the script from
+   * {@code i}. */
+  private static Set<String> templateNames(String script, int i) {
+    Set<String> out = new HashSet<>();
+    int n = script.length();
+    while (i < n) {
+      if (script.charAt(i) == '`') {
+        List<String> code = new ArrayList<>();
+        i = templateEnd(script, i, code);
+        for (String c : code) {
+          for (String t : tokens(c, 0)) {
+            if (isIdentifierPart(t.charAt(0))) {
+              out.add(t);
+            }
+          }
+        }
+        continue;
+      }
+      int skip = skipStringOrComment(script, i);
+      i = skip > i ? skip : i + 1;
+    }
+    return out;
+  }
+
+  /**
    * The script from {@code i} as tokens: identifiers and numbers, operators, and one
-   * {@code "} for each string literal. Comments and whitespace are dropped. Regular expression
-   * literals are not recognised; a {@code /} is an operator.
+   * {@code "} for each string literal, followed by the tokens of each {@code ${...}} of a
+   * template literal. Comments and whitespace are dropped. Regular expression literals are not
+   * recognised; a {@code /} is an operator.
    */
   private static List<String> tokens(String script, int i) {
     List<String> out = new ArrayList<>();
     int n = script.length();
     while (i < n) {
       char c = script.charAt(i);
+      if (c == '`') {
+        List<String> code = new ArrayList<>();
+        i = templateEnd(script, i, code);
+        out.add("\"");
+        for (String part : code) {
+          out.add("(");
+          out.addAll(tokens(part, 0));
+          out.add(")");
+        }
+        continue;
+      }
       int skip = skipStringOrComment(script, i);
       if (skip > i) {
         if (c != '/') {
@@ -415,9 +494,11 @@ final class PageNormalizer {
 
   /**
    * True if a name in {@code names} is assigned ({@code x = }, {@code x += }, {@code x++},
-   * {@code --x}) or bound again ({@code var x}, {@code function x}, a parameter of a
-   * {@code function}, method, arrow function or {@code catch}) in {@code tokens}: there the
-   * declared value is not a constant, and writing it at every use would hide a difference.
+   * {@code --x}), bound again ({@code var x}, {@code function x}, a parameter of a
+   * {@code function}, method, arrow function or {@code catch}, a destructuring pattern, a
+   * {@code for...in/of} target, {@code let a, x;}) or used as something other than a reference
+   * (an object key, method name or label) in {@code tokens}, the {@code ${...}} of template
+   * literals included: there writing the declared value at every use would hide a difference.
    */
   static boolean rebinds(List<String> tokens, Set<String> names) {
     for (int k = 0; k < tokens.size(); k++) {
@@ -431,9 +512,31 @@ final class PageNormalizer {
       }
       if (ASSIGNMENTS.contains(next) || BINDERS.contains(prev) || next.equals("=>")
           || next.equals("of") || isForInTarget(tokens, k, next) || isParameter(tokens, k)
-          || isInPattern(tokens, k) || isInDeclarationList(tokens, k, prev)) {
+          || isInPattern(tokens, k) || isInDeclarationList(tokens, k, prev)
+          || isKeyOrLabel(tokens, k, prev, next)) {
         return true;
       }
+    }
+    return false;
+  }
+
+  /**
+   * A name that is not a reference: an object key or label ({@code x:}, but not the middle of
+   * {@code c ? x : y}), a method or accessor name ({@code {x() {}}}, {@code get x}), or a label
+   * after {@code break} or {@code continue}. Writing a value there changes the code's meaning.
+   */
+  private static boolean isKeyOrLabel(List<String> tokens, int k, String prev, String next) {
+    if (next.equals(":") && !prev.equals("?")) {
+      return true;
+    }
+    if (prev.equals("break") || prev.equals("continue") || prev.equals("get")
+        || prev.equals("set") || prev.equals("static") || prev.equals("async")) {
+      return true;
+    }
+    if (next.equals("(") && (prev.equals("{") || prev.equals(",") || prev.equals("}")
+        || prev.equals(";"))) {
+      int close = matchingCloser(tokens, k + 1);
+      return close >= 0 && close + 1 < tokens.size() && tokens.get(close + 1).equals("{");
     }
     return false;
   }

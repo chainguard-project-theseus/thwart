@@ -474,8 +474,9 @@ means the same elements with siblings in another order, or a script that is the 
 JSON value declared at its top is written back where the code uses the name (`var _t1 = ("a");`
 `x = _t1;` against `x = "a";`, the hoisting above); it passes, but its diff is printed so you
 can check that what moved is harmless (validation messages from a `HashSet`, yes; table rows that
-lost their sort order, no). A declaration that is assigned or bound again, or that another inline
-script or an event handler on the page names, is never written back. `compare` can't see scripts
+lost their sort order, no). A declaration is never written back if it is assigned or bound again,
+used as an object key or label or inside a template literal, or named by another inline script or
+an event handler on the page. `compare` can't see scripts
 loaded with `src`, so if the diff shows that a global such as `var contextPath = ...;` is gone,
 check that no external script reads it. A `differs` page lists a changed status or final URL and a unified
 diff of the normalized page. It exits 0 only if every page is `same` or `reordered` with its
