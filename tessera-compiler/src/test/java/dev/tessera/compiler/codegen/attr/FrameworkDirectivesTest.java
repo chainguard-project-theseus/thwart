@@ -219,12 +219,14 @@ class FrameworkDirectivesTest {
     }
   }
 
-  /** #562: htmx 1.x hx-sse / hx-ws are build errors, static or computed; the fix-it is htmx 2. */
+  /**
+   * htmx 1.x hx-sse / hx-ws: a static one is the author's markup, outside the guarantee like the
+   * rest of htmx (#585); a computed one stays a build error (attribute modelling, until #584).
+   */
   @Test
-  void legacyHtmxConnectIsRejected() {
+  void legacyHtmxConnect() {
     for (String name : new String[] {"hx-sse", "hx-ws", "data-hx-sse", "data-hx-ws", "HX-WS"}) {
-      compile("<div " + name + "=\"connect:/events\">x</div>")
-          .assertError("t.html:1:", name + " is not allowed", "ws-connect or sse-connect");
+      compile("<div " + name + "=\"connect:/events\">x</div>").assertSuccess();
       compile("<div t:" + name + "=\"@{/events}\">x</div>")
           .assertError("t.html:1:", "t:" + name + " is not allowed", "ws-connect or sse-connect");
       compile("<div t:attr=\"" + name + "=${s}\">x</div>").assertError("t:attr " + name + " is not allowed");

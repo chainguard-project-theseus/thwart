@@ -166,8 +166,8 @@ class CsrfActionOriginTest {
   }
 
   /**
-   * A boosted form's action goes through the htmx same-origin link path (#258), a different
-   * processor branch: the hoisted link still passes the check, so the form keeps its token.
+   * {@code hx-boost} changes nothing (#585): a boosted POST form's link action passes the same
+   * closed-shape check as any other, so the form keeps its token.
    */
   @Test
   void boostedFormLinkActionGetsToken() {

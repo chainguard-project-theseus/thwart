@@ -722,8 +722,7 @@ The compiler decides the context from the element and attribute name. You cannot
 | URL | the attributes whose value is exactly one URL: `href`, `src`, `action`, `formaction`, `cite`, `poster`, `manifest`, `hx-push-url`, `hx-replace-url`, ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. |
 | URL list | attributes that hold URLs but not exactly one: `ping` (space-separated URLs), `srcset` and `imagesrcset` (comma-separated image candidates), and `values`, `to`, `from` and `by` of SVG `<animate>` and `<set>`, whose meaning depends on `attributeName` (not when they animate a Style attribute, below) | Tessera does not check these item by item, so only string literals, numbers, a choice between literals and a `TrustedUrl` compile, attribute-escaped: `t:srcset="\|${img.url} 1x, /hi.png 2x\|"` with `img.url` a `TrustedUrl`, or `t:to="${n}"` for a number. A `String` is a build error: build the whole value as a `TrustedUrl` in Java, or choose between literals. |
 | Resource URL | `script[src]`, `iframe[src]`, `embed[src]`, `object[data]`, `base[href]`, `link[href]` | Only a literal-path `@{...}` link or a `TrustedUrl` compiles. A `<base href>` must be same-origin (section 4.7). |
-| htmx request URL | `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect`, `ws-connect` (also with `data-`) | Only a link whose literal path starts with a single `/` compiles, as for a refresh: htmx swaps the response into the page as HTML, and htmx 1.x also requests other origins. A static value must be same-origin like a static `action` (no scheme, not starting with `//` or `/\`), since htmx sends the enclosing form, CSRF token included, to it (section 4.7). htmx 1.x's `hx-sse` and `hx-ws` are build errors, static or computed (#562). Reach another origin through a same-origin endpoint of your own. |
-| htmx form URL | `action` of a `<form>` inside `hx-boost` | Same rule as an htmx request URL: htmx submits the form with AJAX and swaps the response in. `hx-boost="false"` on the form opts out. A computed `formaction` takes only such a link in any form (section 4.7). `hx-boost` itself cannot be computed. Links (`href`) are not affected. |
+| htmx request URL | `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect`, `ws-connect` (also with `data-`) | Only a link whose literal path starts with a single `/` compiles, as for a refresh: htmx swaps the response into the page as HTML, and htmx 1.x also requests other origins. A computed `hx-boost`, `hx-sse` or `hx-ws` is a build error; static htmx attributes are copied as written. Reach another origin through a same-origin endpoint of your own. |
 | Script | text in `<script>` (no type, JavaScript, module or JSON) | `[[...]]` writes JSON (strings, numbers, booleans, enums, `java.time`, records and `@TemplateView` beans, collections, String-keyed maps). In a JavaScript script a `[[...]]` is only the whole value of a declaration at the top of the script, before any other code: `const a = [[${x}]];` (the script prelude rule, section 6), and the value is written in parentheses, `const a = ("Ann");`. Use the name in the code below. A JSON script (`application/json`, `application/ld+json`) gets plain JSON, with each `[[...]]` outside a `"..."` string. |
 | Style | `<style>` text, the `style` attribute, and the SVG attributes that take a CSS `url()`: `fill`, `stroke`, `clip-path`, `mask`, `filter`, `marker-start`, `marker-mid`, `marker-end`, `marker` and `cursor` (not `fill` on `<animate>`, `<set>`, `<animateMotion>`, `<animateTransform>` or `<animateColor>`, which is timing); `values`, `to`, `from` and `by` of an animation whose `attributeName` is one of them | In `<style>`, expressions are a build error. A `style` attribute or one of those SVG attributes takes only string literals, numbers and `CssValue`s, combined with `+`, `\|...\|`, `?:` and `? :`; anything else (a `String` value) is a build error. Write `t:fill="${css.color(c)}"` or `t:mask="${css.url(u)}"`. The `attributeName` of an animation element cannot be computed. |
 | Refresh | `content` of `<meta http-equiv="refresh">` | Only `'<seconds>;url=' + @{/path...}` compiles: a literal delay and a link whose literal path starts with a single `/`, so the refresh stays on the same origin. Path variables and parameters are encoded as usual, and `; , ' "`, `\` and whitespace in the URL are percent-encoded. Rendered as `<seconds>;url=<url>`. |
@@ -786,17 +785,9 @@ other name is a build error, because a client library may run its value as code 
 attributes are not checked and are copied verbatim. If the value is data for your script, use
 `t:data-<name>`; a computed `t:hx-target` becomes `t:data-hx-target`.
 
-Inside `hx-boost` htmx submits every form with AJAX to its `action` and swaps the response into
-the page as HTML, without checking the origin (htmx 1.x, or 2.x with `selfRequestsOnly` off), and a
-submit button's `formaction` replaces that URL in any form htmx submits, `hx-post` and the like
-included. So where the template itself shows the boost (a static `hx-boost` or `data-hx-boost` on
-the form or an ancestor in the same template, nearest wins), a computed `t:action` (and, in any
-form, a computed `t:formaction`, section 4.7) takes only a link whose
-literal path starts with a single `/`: `t:action="@{/owners/{id}/edit(id=${owner.id})}"`. To post a
-boosted page's form somewhere else, put `hx-boost="false"` on the form; it then submits natively
-and takes any URL. `hx-boost` cannot be computed: write `true` or `false`. Links need nothing:
-htmx boosts an `<a>` only when its hostname is the page's, so `t:href="${user.website}"` in a boosted
-nav stays an ordinary URL.
+htmx behaviour (boosting, where `hx-post` sends a form) is outside the guarantee: use htmx 2 or set
+`htmx.config.selfRequestsOnly = true`. A form's computed `action` follows the URL rules above
+whether or not anything boosts it.
 
 Vue (2 and 3) and petite-vue compile the page's HTML as a template when they mount
 it, so a `{{ ... }}` in printed user data would run as an expression, escaped or not. Element
@@ -1062,8 +1053,8 @@ render, where Thymeleaf wrote an empty segment (`/owners//edit`); so does an emp
 `..`. Guard a link whose path variable can be `null` with `t:if`. A URL computed in
 Java goes in `t:href` as a `String` (scheme-checked) or `TrustedUrl`, without the context path. A context path of `/` or one ending in `/` loses the
 trailing `/`, so `@{/a}` never renders as the protocol-relative `//a`. Where a link must be
-same-origin (a `<base href>`, an htmx request URL, a refresh URL, a boosted form's
-`action`, a `formaction` that may receive the CSRF token; sections 4.4 and 4.7), the built URL
+same-origin (a `<base href>`, an htmx request URL, a refresh URL, a POST form's `action`, a
+`formaction` that may receive the CSRF token; sections 4.4 and 4.7), the built URL
 is checked again when rendering: if a custom `Links` makes it anything but a path starting with a
 single `/`, the render fails.
 
@@ -1255,11 +1246,8 @@ public record Address(String street) {}
     a static `href` like a static `action` (`/app/`, `app/`), a computed one a link with a literal
     path starting with a single `/` (`t:href="@{/app/}"`). Where another origin is meant, drop
     `<base>` and write absolute URLs.
-  - htmx sends the enclosing form, token included, to its request URL, so every static htmx
-    request URL (`hx-post`, `hx-get`, ..., also `data-hx-*`) must be same-origin like a static
-    `action`; computed ones are links already (section 4.4). Reach another origin through a
-    same-origin endpoint of your own. htmx 1.x's `hx-ws` and `hx-sse` are build errors (#562);
-    use htmx 2's `ws-connect` and `sse-connect`, which are request URLs like `hx-post`.
+  - htmx is not modelled: what it sends where (`hx-post`, `hx-get`, a boost, htmx 1.x's `hx-ws`)
+    is outside the guarantee. Use htmx 2 or set `htmx.config.selfRequestsOnly = true`.
   - A `<form>` nested in another, also through a fragment, a layout or any `Fragment` value a
     template builds (section 4.8), is a build error (`PARSE_ERROR`): a browser drops the inner
     start tag. A `Fragment` built in Java is trusted until #581. A form with `t:remove="tag"` gets
@@ -2371,13 +2359,11 @@ These come from the annotation processor itself, without a template position.
 - `<label> is not allowed: the content of <meta http-equiv="refresh"> navigates the page; write a delay and a same-origin link such as '3;url=' + @{/items/{id}(id=${item.id})}, or redirect from the controller`. Port `content="1;url=/admin/update${vid}"` to `t:content="'1;url=' + @{/admin/update{vid}(vid=${vid})}"`.
 - `<label> is not allowed: a refresh URL must be a same-origin path starting with a single '/', not @{<path>}`. Absolute, protocol-relative and page-relative links cannot be refresh targets; redirect from the controller instead.
 - `<label> is not allowed: htmx requests this URL and swaps the response into the page as HTML; use a same-origin link such as @{/items/{id}(id=${item.id})}`. On `hx-get`, `hx-post`, `hx-put`, `hx-patch`, `hx-delete`, `sse-connect` and `ws-connect`; build the URL with a link, not a `String`.
-- `<label> is not allowed: an htmx request URL must be a same-origin path starting with a single '/', not @{<path>}`. Absolute, protocol-relative and page-relative links are rejected. A static cross-origin URL is rejected too (below), since htmx would send the enclosing form, CSRF token included, there: reach another origin through a same-origin endpoint of your own.
-- `<label> is not allowed: htmx 1.x's hx-ws and hx-sse are not supported; use htmx 2's ws-connect or sse-connect with a same-origin URL such as /chat or @{/events}`. On `hx-sse` and `hx-ws` (also with `data-`), static or computed (section 4.7): `hx-ws="connect:/chat"` becomes `ws-connect="/chat"` with the htmx 2 `ws` extension, `hx-sse="connect:/events"` becomes `sse-connect="/events"` with the `sse` extension.
-- `<label> is not allowed: inside hx-boost, htmx submits to this URL and swaps the response into the page as HTML; use a same-origin link such as @{/items/{id}(id=${item.id})}, or put hx-boost="false" on the form to submit it natively`. On `action` of a boosted `<form>` (section 4.4). Other links are reported as `an htmx request URL must be a same-origin path ...`.
+- `<label> is not allowed: an htmx request URL must be a same-origin path starting with a single '/', not @{<path>}`. Absolute, protocol-relative and page-relative links are rejected: reach another origin through a same-origin endpoint of your own.
+- `<label> is not allowed: htmx 1.x's hx-ws and hx-sse are not supported; use htmx 2's ws-connect or sse-connect with a same-origin URL such as /chat or @{/events}`. On a computed `hx-sse` or `hx-ws` (also with `data-`): `hx-ws="connect:/chat"` becomes `ws-connect="/chat"` with the htmx 2 `ws` extension, `hx-sse="connect:/events"` becomes `sse-connect="/events"` with the `sse` extension.
 - `<label> is not allowed: a submit button sends its form, CSRF token included, to its formaction; use a same-origin link such as @{/items/{id}(id=${item.id})}`. On every computed `formaction` (`t:formaction`, `t:attr="formaction=..."`; section 4.7). A fragment that takes its `formaction` as a `String` parameter cannot pass this check: write the link inside the fragment, or drop the parameter if every caller passes `''`. A link that is not same-origin is reported as `a formaction, which may receive the CSRF token, must be a same-origin path starting with a single '/', not @{<path>}`.
 - `<label> is not allowed: a POST form gets the CSRF token, which then goes to its action; use a same-origin link such as @{/items/{id}(id=${item.id})}; omit the action to post to the page's own URL, or write a static action="https://..." if another site is meant (it gets no token)`. On a computed `action` (`t:action`, `t:attr="action=..."`) of a `<form method="post">` that is not a link (section 4.7). A link that is not same-origin (`@{https://...}`, `@{//...}`, `@{edit}`) is reported as `the action of a POST form, which gets the CSRF token, must be a same-origin path starting with a single '/', not @{<path>}`.
 - `<label> is not allowed: the method decides whether the form gets the CSRF token, so it must be static; write method="post" or method="get", or two forms`. On a computed `method` of a `<form>` (`t:method`, `t:attr="method=..."`; section 4.7).
-- `<name>="<url>" is not allowed: htmx sends the enclosing form, CSRF token included, to this URL, and it is not same-origin; use a same-origin path such as /items`. A static htmx request URL (`hx-post`, `hx-get`, ..., `data-hx-*`) with a scheme or starting with `//` or `/\` (section 4.7).
 - `<label> is not allowed: every relative URL on the page resolves against <base href>, so a POST form with a relative action would send the CSRF token there; use a same-origin link such as @{/items/{id}(id=${item.id})}`. On a computed `href` of a `<base>` (`t:href`, `t:attr="href=..."`) that is not a link (section 4.7). A link that is not same-origin is reported as `a <base href> must be a same-origin path starting with a single '/', not @{<path>}`.
 - `href="<url>" on <base> is not allowed: every relative URL on the page resolves against <base href>, so a POST form with a relative action would send the CSRF token there, and this URL is not same-origin; use a same-origin path such as /app/, or remove <base> and write absolute URLs where another origin is meant`. A static `<base href>` with a scheme or starting with `//` or `/\`.
 - `formaction="<url>" is not allowed here: a submit button sends its form, CSRF token included, to its formaction, and this URL is not same-origin; use a same-origin URL such as /items or @{/items/{id}(id=${item.id})}, or a form of its own with a static action to the other site`. A static `formaction` with a scheme or starting with `//` or `/\`.
@@ -2437,8 +2423,8 @@ These come from the annotation processor itself, without a template position.
 - `link @{<path>} has a path variable in its host: write the host literally`.
 - `link @{<path>} starts like a protocol-relative URL (a browser reads '\' as '/'), so it would load from another origin: write @{/...} for a path on this site, or @{//host/...} if another origin is meant`:
   a browser reads `/\host`, `\/host` and `\\host` as `//host`. Write `@{//host/...}` when another
-  origin is meant; it stays allowed where protocol-relative links are (not in htmx, refresh or
-  boosted form URLs).
+  origin is meant; it stays allowed where protocol-relative links are (not in htmx request,
+  refresh, `<base href>`, POST form `action` or `formaction` URLs).
 - `link @{<path>} starts with '\', which a browser reads as '/': write '/' instead`.
 
 ### Forms
@@ -2556,12 +2542,11 @@ Gaps in Tessera today, each with what to do until it is fixed.
   whose type is not view-safe (a file input is fine, section 4.7). A `Field` fragment reads the
   value only as the display String (`fields.value(name)`).
 - **CSRF and other ways a form posts elsewhere.** The CSRF input goes only into a static POST form
-  whose action the compiler proves same-origin; every `formaction`, `formmethod`, `<base href>`
-  and static htmx request URL is held to the same rule, and a computed form `method` is a build
-  error (section 4.7). Not seen: htmx or other JavaScript that reads the token input and sends it
-  elsewhere at runtime, and an `hx-get` on a POST form or a button in it, which sends the form,
-  token included, in the query string of a same-origin GET (#557). Give an external target its
-  own form with a static action.
+  whose action the compiler proves same-origin; every `formaction`, `formmethod` and `<base href>`
+  is held to the same rule, and a computed form `method` is a build error (section 4.7). What htmx
+  or other JavaScript does with a form (an `hx-post` to another origin, or an `hx-get` that sends
+  the token in a query string, #557) is outside the guarantee: use htmx 2 or set
+  `selfRequestsOnly`. Give an external target its own form with a static action.
 - **Scripts.** In a JavaScript `<script>`, a `[[...]]` is only the whole value of a declaration
   at the top of the script (the script prelude rule, section 6): the compiler proves where each
   value goes without a JavaScript parser. Use the names in the code below, or use a
@@ -2582,14 +2567,9 @@ Gaps in Tessera today, each with what to do until it is fixed.
   or a _hyperscript `attributes` setting that reads other names is not detected, so expressions
   there are escaped as ordinary attributes and run as code. Keep the default names, or never
   compute those attributes.
-- **htmx boosting from elsewhere.** Form URLs are checked only where `hx-boost` is visible around
-  the form where it is written (section 4.4). Boosting from a layout or a fragment caller
-  (`<body hx-boost="true">` in a layout that receives the page's content, or a boosted element of
-  the same template that inserts the fragment), set from JavaScript, and a submit button outside
-  its form (`form="id"`) are not seen (#498). A POST form's CSRF token is not affected: its
-  action, and every `formaction`, is same-origin whether or not htmx submits it (section 4.7). On htmx 1.9.5 and later set
-  `htmx.config.selfRequestsOnly = true` (the default from 2.0) so htmx requests only the page's
-  origin; older htmx 1.x has no such setting, so upgrade.
+- **htmx.** htmx behaviour is outside the guarantee: the compiler does not model boosting, where
+  `hx-post` or `hx-get` sends a form, or htmx 1.x's sockets. Use htmx 2 or set
+  `htmx.config.selfRequestsOnly = true` (htmx 1.9.5 and later).
 - **AngularJS is not supported.** AngularJS (end of life since January 2022) is not in the
   framework table. It interpolates `{{ }}` in attribute values and reads directives from `class`
   values (`class="ng-init: ..."`), so a computed attribute can run as code in an AngularJS app

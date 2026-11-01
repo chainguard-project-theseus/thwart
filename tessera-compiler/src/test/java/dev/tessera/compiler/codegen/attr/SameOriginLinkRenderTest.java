@@ -31,8 +31,8 @@ class SameOriginLinkRenderTest {
     "<meta http-equiv=\"refresh\" t:content=\"'3;url=' + @{/a}\">",
     "<base t:href=\"@{/a}\">",
     "<base t:attr=\"href=@{/{x}/a(x=${u})}\">",
-    "<section hx-boost=\"true\"><form t:action=\"@{/a}\"></form></section>",
-    "<section hx-boost=\"true\"><form action=\"/f\"><button t:formaction=\"@{/a}\">Go</button></form></section>",
+    "<form method=\"post\" t:action=\"@{/a}\"></form>",
+    "<form action=\"/f\"><button t:formaction=\"@{/a}\">Go</button></form>",
     "<form method=\"post\" action=\"/transfer\"><button t:formaction=\"@{/a}\">Go</button></form>",
     "<form method=\"post\" action=\"/transfer\"><button t:formaction=\"@{/{x}/a(x=${u})}\">Go</button></form>",
   };

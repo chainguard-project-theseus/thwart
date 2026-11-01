@@ -109,6 +109,7 @@ public final class Contexts {
     if (isHtmxRequestUrl(attr)) {
       return OutputContext.RESOURCE_URL;
     }
+    // TODO(#584): the neutral-value rule replaces the htmx name classification here.
     if (isLegacyHtmxConnect(attr) || isHtmxBoost(attr)) {
       return OutputContext.FORBIDDEN;
     }
@@ -180,41 +181,28 @@ public final class Contexts {
 
   /**
    * Whether {@code attributeName} is htmx 1.x's {@code hx-sse} or {@code hx-ws} (also with
-   * {@code data-}), whose URL sits inside a mini-language. They are build errors, static or
-   * computed (#562): {@link #LEGACY_HTMX_CONNECT}. Case-insensitive.
+   * {@code data-}), whose URL sits inside a mini-language. A computed one is a build error (#562):
+   * {@link #LEGACY_HTMX_CONNECT}. A static one is the author's markup: htmx behaviour is outside the
+   * guarantee (#585). Case-insensitive.
    */
   public static boolean isLegacyHtmxConnect(String attributeName) {
     String unprefixed = unprefixed(HtmlParser.asciiLower(attributeName));
     return unprefixed.equals("hx-sse") || unprefixed.equals("hx-ws");
   }
 
-  /** Why {@link #isLegacyHtmxConnect hx-ws and hx-sse} are build errors, with the fix-it. */
+  /** Why a computed {@link #isLegacyHtmxConnect hx-ws or hx-sse} is a build error, with the fix-it. */
   public static final String LEGACY_HTMX_CONNECT =
       "htmx 1.x's hx-ws and hx-sse are not supported; use htmx 2's ws-connect or sse-connect with a"
           + " same-origin URL such as /chat or @{/events}";
 
   /**
-   * Whether {@code attributeName} is {@code hx-boost} or {@code data-hx-boost} (#258). It is
-   * FORBIDDEN: it decides whether htmx submits the forms below with AJAX and swaps the response
-   * into the page, so the compiler must know it to check their actions. Case-insensitive.
+   * Whether {@code attributeName} is {@code hx-boost} or {@code data-hx-boost} (#258). A computed
+   * one is FORBIDDEN: it decides whether htmx submits the forms below with AJAX. The compiler no
+   * longer models boosting (#585); this classification goes with the neutral-value rule (#584).
+   * Case-insensitive.
    */
   public static boolean isHtmxBoost(String attributeName) {
     return unprefixed(HtmlParser.asciiLower(attributeName)).equals("hx-boost");
-  }
-
-  /**
-   * The static {@code hx-boost} / {@code data-hx-boost} of {@code element} (#258): null if it has
-   * neither, false if every one present is exactly {@code false} (htmx's opt-out), true otherwise.
-   * htmx boosts only on exactly {@code true}; any other value counting as boosted only adds checks.
-   */
-  public static Boolean staticHtmxBoost(Element element) {
-    Boolean boost = null;
-    for (Attribute a : element.attributes()) {
-      if (!a.isTessera() && isHtmxBoost(a.name())) {
-        boost = (boost != null && boost) || !"false".equals(a.value());
-      }
-    }
-    return boost;
   }
 
   /** A bind target: a plain attribute name without modifiers ({@code .}) or namespaces ({@code :}). */
