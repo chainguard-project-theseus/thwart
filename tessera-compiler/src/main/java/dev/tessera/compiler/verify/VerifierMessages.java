@@ -143,6 +143,11 @@ final class VerifierMessages {
         return "no template inserts fragment " + f.detail + ", and it is declared where no fragment fits (in raw text, in"
             + " an <svg> or <math> that holds an HTML element, or under t:remove=\"tag\"), so Tessera can't check what it"
             + " writes on its own; declare it in HTML, <svg> or <math> content, or delete it";
+      case VALUE_IN_RAW_TEXT:
+        return "a browser reads " + value + " as the raw text of "
+            + (s == null || s.currentNode() == null ? "the element" : element(s.currentNode()))
+            + ", where nothing can break a {{ in a value that a client template would run; write the content as"
+            + " static text, or move the value outside the element";
       default:
         throw new AssertionError(f.problem);
     }

@@ -113,8 +113,7 @@ public final class ContextVerifier {
    * Verifies every template in {@code templates} (by view name, as the compiler recorded them)
    * and reports what it rejects to {@code diagnostics} as errors. Returns the escaper of each
    * element-text hole ({@link Skeleton.Escaper#TEXT}) it reached, which the parser state names
-   * (#378): {@code rcdata} in RCDATA, {@code text} elsewhere, and {@code text} where a browser
-   * neither runs nor renders it, where any escaper is inert.
+   * (#378): {@code rcdata} in RCDATA, {@code text} elsewhere.
    */
   public static Map<Skeleton.Hole, Skeleton.Escaper> verify(
       Map<String, Skeleton.TemplateSkeleton> templates, DiagnosticSink diagnostics) {
@@ -129,11 +128,7 @@ public final class ContextVerifier {
         diagnostics.error(f.at, VerifierMessages.message(f));
       }
     }
-    Map<Skeleton.Hole, Skeleton.Escaper> escapers = new IdentityHashMap<>();
-    for (Map.Entry<Skeleton.Hole, Skeleton.Escaper> e : v.textEscapers.entrySet()) {
-      escapers.put(e.getKey(), e.getValue() == null ? Skeleton.Escaper.TEXT : e.getValue());
-    }
-    return escapers;
+    return v.textEscapers;
   }
 
   /**
@@ -861,8 +856,8 @@ public final class ContextVerifier {
   private Problem textEscaper(Skeleton.Hole h, ParserState s) {
     Skeleton.Escaper named = Rules.textEscaper(s);
     Skeleton.Escaper chosen = textEscapers.get(h);
-    if (named == null || chosen == null) {
-      textEscapers.put(h, chosen == null ? named : chosen);
+    if (chosen == null) {
+      textEscapers.put(h, named);
       return null;
     }
     if (named == chosen) {

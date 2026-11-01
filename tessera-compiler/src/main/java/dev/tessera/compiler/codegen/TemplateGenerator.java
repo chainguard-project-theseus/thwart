@@ -131,7 +131,7 @@ public final class TemplateGenerator implements CodegenContext {
     indexWhitespace(document.children());
 
     validate(document.rootElement(), document.children());
-    TextInlining.checkBraces(this, document.children(), null, false);
+    TextInlining.checkBraces(this, document.children(), null);
     Scope scope = Scope.empty();
     for (TemplateIndex.Param p : info.params()) {
       scope = scope.with(new Variable(p.name(), p.type(), javaName(p.name())));
@@ -513,11 +513,12 @@ public final class TemplateGenerator implements CodegenContext {
         Emitted written = content.build();
         if (!plan.tagOmitted()) {
           if (Contexts.browserRawText(e.name()) && computed(written.nodes())) {
-            // A comment cannot break a value's {{ in raw text (#571): only static content there.
+            // A comment cannot break a value's {{ in raw text (#571): only static content there. The
+            // verifier rejects every value there too (VALUE_IN_RAW_TEXT, #586); this also covers conditions and loops.
             diagnostics()
                 .error(e.pos(), "a value, condition or loop inside <" + HtmlParser.asciiLower(e.name()) + "> is not"
                     + " supported: a browser reads its content as raw text, where nothing can break a {{ in a value"
-                    + " that Vue and petite-vue would run as code; write the content as static text, or move the"
+                    + " that a client template would run as code; write the content as static text, or move the"
                     + " value outside the element");
           }
           startTag(c, plan, addsVPre(plan, written));
@@ -569,41 +570,24 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   /**
-   * Whether the start tag of {@code plan}'s {@code <textarea>} or {@code <title>} gets
-   * {@code v-pre} (#549): the framework table's RCDATA entry for Vue 3 and petite-vue
-   * ({@link Contexts#VUE_SKIP}). Their text is RCDATA, where a comment is text, so a value's
-   * {{ cannot be broken, and Vue 3 (in a mounted region) and petite-vue (mounted on the
-   * whole document without {@code v-scope}) interpolate it. Both skip an element with
-   * {@code v-pre}; anywhere else it is an inert unknown attribute. Added when the content is
-   * computed ({@code content} writes anything but static text) and the element has no static
-   * {@code v-pre} yet. A Vue directive or binding on the element would silently stop working
-   * under {@code v-pre}, so it is a build error; a static brace in the content is one too
-   * ({@code TextInlining.checkBraces}).
+   * Whether the start tag of {@code plan}'s {@code <textarea>} or {@code <title>} gets the constant
+   * attribute {@code v-pre} (#549, #586): the one framework-named output. Their text is RCDATA,
+   * where a comment is text, so no output shape breaks a value's {{, and Vue and petite-vue
+   * interpolate it in a mounted region; both skip an element with {@code v-pre}, and anywhere else
+   * it is an inert unknown attribute. Added whenever the content is computed ({@code content}
+   * writes anything but static text), unless a static {@code v-pre} is already written.
    */
-  private boolean addsVPre(ElementPlan plan, Emitted content) {
-    Element e = plan.element();
-    String lower = HtmlParser.asciiLower(e.name());
+  private static boolean addsVPre(ElementPlan plan, Emitted content) {
+    String lower = HtmlParser.asciiLower(plan.element().name());
     if (!lower.equals("textarea") && !lower.equals("title") || !computed(content.nodes())) {
       return false;
     }
-    List<ElementPlan.Attr> directives = new ArrayList<>();
     for (ElementPlan.Attr a : plan.attributes()) {
-      String name = HtmlParser.asciiLower(a.name());
-      if (name.equals(Contexts.VUE_SKIP)) {
+      if (a instanceof ElementPlan.StaticAttr && HtmlParser.asciiLower(a.name()).equals(Contexts.VUE_SKIP)) {
         return false;
       }
-      if (Contexts.isVueDirective(name)) {
-        directives.add(a);
-      }
     }
-    for (ElementPlan.Attr a : directives) {
-      diagnostics()
-          .error(posOf(a, e), a.name() + " on a <" + lower + "> with computed content is not supported:"
-              + " Tessera adds v-pre there, because a comment cannot break {{ in a value in <" + lower + ">, and v-pre"
-              + " would turn " + a.name() + " off; drop " + a.name() + ", or move the value into Vue (v-model or"
-              + " v-text with the value in the app's data) instead of writing it with Tessera");
-    }
-    return directives.isEmpty();
+    return true;
   }
 
   /** Whether {@code nodes} write anything but static text. */
@@ -762,24 +746,11 @@ public final class TemplateGenerator implements CodegenContext {
             Emitted.hole(Skeleton.Escaper.forMethod(escaper), e.name(), d.name(), d.pos(), v),
             Emitted.code(" "),
             Emitted.text('"', d.pos()));
-    String before = "{ java.lang.Object " + v + " = " + classSafe(d, ctx) + "; if (";
+    String before = "{ java.lang.Object " + v + " = " + d.valueCode() + "; if (";
     // A JSON value (SCRIPT_ATTRIBUTE, #246) is written even when null, as JSON null.
     return ctx == OutputContext.SCRIPT_ATTRIBUTE
         ? Emitted.wrap(before + "true) { ", attribute, " } }")
         : Emitted.opt(Skeleton.OptKind.ATTRIBUTE, d.pos(), before + v + " != null) { ", attribute, " } }");
-  }
-
-  /**
-   * The value code of {@code d}, without the class tokens AngularJS could read as an {@code ng}
-   * directive when it is a computed {@code class} however it was set ({@code t:class},
-   * {@code t:classappend}, {@code t:attr}, {@code t:errorclass}) (#542). The value is only known
-   * at render time, so {@code Attributes.classes} drops those tokens; AngularJS is not supported,
-   * and no real class name is lost.
-   */
-  private static String classSafe(ElementPlan.DynamicAttr d, OutputContext ctx) {
-    return ctx == OutputContext.ATTRIBUTE && HtmlParser.asciiEqualsIgnoreCase(d.name(), "class")
-        ? "dev.tessera.runtime.Attributes.classes(" + d.valueCode() + ")"
-        : d.valueCode();
   }
 
   /**

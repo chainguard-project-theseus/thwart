@@ -96,5 +96,11 @@ public enum Problem {
    * <svg>}/{@code <math>}, {@code t:remove="tag"} content), so the verifier can't check it on its
    * own (#461, {@link ContextVerifier#checkUncalled}).
    */
-  UNCALLED_FRAGMENT_FITS_NOWHERE
+  UNCALLED_FRAGMENT_FITS_NOWHERE,
+  /**
+   * A value (any escaper) in the raw text of {@code <noscript>} (scripting on), {@code <xmp>},
+   * {@code <iframe>}, {@code <noembed>} or {@code <noframes>} (#586): an empty comment is text there,
+   * so nothing can break a {@code {{} in the value that a client template would run.
+   */
+  VALUE_IN_RAW_TEXT
 }

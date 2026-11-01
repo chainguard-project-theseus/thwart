@@ -188,7 +188,7 @@ class XssContextTest {
     assertCannotLeaveContext(vector);
   }
 
-  /** Values a computed class drops tokens from (#542) keep the output structure. */
+  /** Values a computed class once dropped tokens from (#542, deleted in #586) keep the output structure. */
   @Test
   void angularClassTokensKeepTheStructure() {
     assertCannotLeaveContext("]]>?%'&lt;&lt;/%nGr\u2401");

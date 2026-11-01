@@ -77,8 +77,7 @@ import org.w3c.dom.NodeList;
  *       be deleted.
  *   <li><b>Sanitizer.</b> {@code html.sanitize} ({@link HtmlPolicy}) over every policy element and
  *       attribute, and some it never allows, with the same values, checked against the same sink
- *       table (#531 was a class token the sanitizer kept that AngularJS reads as a directive). Same
- *       baseline, elements spelled {@code sanitize:<policy>:<element>}.
+ *       table. Same baseline, elements spelled {@code sanitize:<policy>:<element>}.
  *   <li><b>Scripts.</b> {@code <script>PRE[[${x}]]POST</script>} over the script prelude grammar
  *       (#540) and the expression positions it rejects, for each Java value type. For every accepted
  *       shape, the reference {@code PRE("m")POST} and each hostile render are parsed with Rhino: the
@@ -732,7 +731,7 @@ class HostileSweepTest {
         "0;url=javascript:alert(1)", "URL_REFRESH_OFFSITE", "URL_SCRIPT_SCHEME");
     assertKinds(vnu, "<p data-tsweep data--ng-init=\"alert(1)\">", "alert(1)", "ANGULAR_DIRECTIVE");
     assertKinds(vnu, "<p data-tsweep class=\"x _ng-init:alert(1)\">", "x _ng-init:alert(1)",
-        "ANGULAR_CLASS_DIRECTIVE");
+        "KNOWN_LIMITATION_ANGULAR_CLASS");
     assertKinds(vnu, "<p data-tsweep :href=\"'javascript:alert(1)'\">", "'javascript:alert(1)'",
         "BINDING_URL_SCRIPT_SCHEME");
     assertKinds(vnu, "<p data-tsweep hx-vals=\"js:alert(1)\">", "js:alert(1)", "HTMX_EVAL");
@@ -765,14 +764,17 @@ class HostileSweepTest {
     assertEquals(new TreeSet<>(List.of(kinds)), found, html);
   }
 
-  /** The #531 bug: a class token AngularJS normalizes to ngBind, kept by an allowClasses("*") policy. */
+  /**
+   * A class token AngularJS normalizes to ngBind, which an allowClasses("*") policy keeps since
+   * #586, is a documented limitation (AngularJS is not supported), not a hit.
+   */
   @Test
-  void sanitizerPassFindsAClassDirectiveTheSanitizerKeeps() {
+  void sanitizerPassReportsAngularClassesAsALimitation() {
     SpecParser vnu = SpecParsers.named(SpecParsers.VNU_26);
     String h = "x _ng-init:alert(1)";
     List<Hit> hits = sanitizerHits("sanitize:wide:p", POLICIES.get("wide"), vnu,
         "<p class=\"" + h + "\">x</p>", h, "<p class=\"" + h + "\">x</p>");
-    assertEquals(List.of("ANGULAR_CLASS_DIRECTIVE"), hits.stream().map(Hit::kind).toList());
+    assertEquals(List.of("KNOWN_LIMITATION_ANGULAR_CLASS"), hits.stream().map(Hit::kind).toList());
     // An element no policy allows is a hit too.
     assertEquals(List.of("SANITIZER_ELEMENT"), sanitizerHits("sanitize:wide:p", POLICIES.get("wide"), vnu,
         "<svg></svg>", h, "").stream().map(Hit::kind).toList());

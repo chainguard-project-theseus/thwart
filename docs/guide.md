@@ -804,12 +804,13 @@ element itself is fine.
 In `<title>` and `<textarea>` a comment is text, so a value's `{{` can't be broken there. Vue 3
 interpolates their text in a mounted region, and petite-vue mounted without `v-scope` reads the
 whole document, head `<title>` included. So when the content of a `<title>` or `<textarea>` is
-computed (`t:text`, `[[...]]`, `t:field`), Tessera adds `v-pre` to its start tag
-(`<textarea v-pre>`): both frameworks skip that element, and anywhere else the attribute does
-nothing. A static `v-pre` is not repeated. Because `v-pre` would turn it off, a Vue directive or
-binding on the same element (`v-model`, `:rows`, `@input`, `v-cloak`) is a build error, and so is
-any static brace in a `<title>` or `<textarea>`, even in a complete `{{ }}`. AngularJS ignores
-`v-pre` (section 7).
+computed (`t:text`, `[[...]]`, `t:field`), Tessera adds the constant attribute `v-pre` to its
+start tag (`<textarea v-pre>`): both frameworks skip that element, and anywhere else the attribute
+does nothing. It is the one place Tessera's output names a framework. A static `v-pre` is not
+repeated. Under it Vue also skips a directive on the same element (`v-model`, `:rows`) and shows a
+static `{{ }}` as text: let Vue own such a field's content, or let Tessera own it. Static text in a
+`<title>` or `<textarea>` follows the brace rule for element text above. AngularJS ignores `v-pre`
+(section 7).
 
 In a script, a record or `@TemplateView` bean becomes a JSON object of the properties a template
 can read, as Thymeleaf's Jackson output does: `var chart = [[${chart}]];` works unchanged. Record
@@ -874,8 +875,7 @@ public final class NoticeFunctions {
 Then `t:utext="notices.html(notice.body)"`. The builder accepts only names from a closed set
 (`HtmlPolicy.ELEMENTS`, `HtmlPolicy.ATTRIBUTES`, `REL_TOKENS`) and throws for anything else, so
 `style`, `on*`, framework directives and script-capable elements can't be switched on. Its other
-options are `allowClasses` (exact names, `prefix*` or `*`; only letters, digits, `-` and `_`, and
-never one that, ignoring case, `-` and `_`, starts with `ng`, `xng` or `datang`, which covers every name AngularJS reads as a directive),
+options are `allowClasses` (exact names, `prefix*` or `*`; only letters, digits, `-` and `_`),
 `idPrefix` (a letter first, ending in `-`), `allowLinkTarget` (`target="_blank"` with `noopener`),
 `allowRemoteImages` (any `img src` that passes the URL check, not only same-origin paths, so
 every reader's browser fetches from hosts the content's author picks, who can then track them) and
@@ -2305,21 +2305,11 @@ These come from the annotation processor itself, without a template position.
 - `a client-side {{ is not closed by }} in the same text: petite-vue would run a value written after it in this script as code; close it before any [[...]]`:
   a static `{{` in a `<script>` has no `}}` after it before the next `[[...]]`
   (`<script>var t = '{{'; var v = [[s]];</script>`).
-- `a value, condition or loop inside <<tag>> is not supported: a browser reads its content as raw text, where nothing can break a {{ in a value that Vue and petite-vue would run as code; write the content as static text, or move the value outside the element`:
+- `a value, condition or loop inside <<tag>> is not supported: a browser reads its content as raw text, where nothing can break a {{ in a value that a client template would run as code; write the content as static text, or move the value outside the element`:
   reported for `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>` and `<noscript>` (section 4.4) with
-  a `[[...]]`, a `t:text`, a computed attribute of an element inside, or a `t:if` or `t:each`
-  inside. A condition or `t:replace` on the element itself is allowed.
-- `v-model on a <textarea> with computed content is not supported: Tessera adds v-pre there, because a comment cannot break {{ in a value in <textarea>, and v-pre would turn v-model off; drop v-model, or move the value into Vue (v-model or v-text with the value in the app's data) instead of writing it with Tessera`
-  (also `<title>`, and any Vue directive or binding: `v-*`, `:x`, `@x`, `#x`, `.x`): the element's
-  content is computed, so it gets `v-pre` (section 4.4), under which Vue would ignore the
-  directive. Let Vue own the content (`<textarea v-model="text">` with the value in the app's
-  data), or let Tessera own it and drop the directive. Alpine's `x-*` is allowed: Alpine ignores
-  `v-pre`.
-- `'{' in the static text of a <title> or <textarea> is not supported: Tessera adds v-pre there once the content is computed, because a comment cannot break {{ in a value in it, and v-pre would show a static {{ ... }} as text; write the whole content with Tessera, or bind it with Vue`
-  (also `'}'`): any static brace in a `<title>` or `<textarea>`, also inside a condition in an SVG
-  title, even in a complete `{{ }}` and whether or not the content is computed:
-  `<title>{{ appName }} - [[${page}]]</title>`. Compute the whole text in Tessera, or bind it in
-  Vue.
+  a `[[...]]`, a `t:text`, a computed attribute of an element inside (the CSRF input of a POST
+  `<form>` too), or a `t:if` or `t:each` inside. A condition or `t:replace` on the element itself
+  is allowed. The verifier reports values there too (`VALUE_IN_RAW_TEXT`, below).
 - `[[...]] may not follow '<MARKUP>' directly: the browser would read the value as markup; write &lt; for a literal '<'`
   (also `[(...)]`), where `<MARKUP>` is `<`, `<!`, `<!-`, `<?`, or `</` and any letters, at the end
   of the static text before the expression, in element text, `<title>` or `<textarea>`. In element
@@ -2571,26 +2561,15 @@ Gaps in Tessera today, each with what to do until it is fixed.
 - **htmx.** htmx behaviour is outside the guarantee: the compiler does not model boosting, where
   `hx-post` or `hx-get` sends a form, or htmx 1.x's sockets. Use htmx 2 or set
   `htmx.config.selfRequestsOnly = true` (htmx 1.9.5 and later).
-- **AngularJS is not supported.** AngularJS (end of life since January 2022) is not in the
-  framework table. It interpolates `{{ }}` in attribute values and reads directives from `class`
-  values (`class="ng-init: ..."`), so a computed attribute can run as code in an AngularJS app
-  whatever the escaping. Tessera keeps only two coarse rules: computed `ng`-like attribute names
-  are errors (section 4.4), and `ng`-like class tokens (a token with a run of letters, digits, `-`
-  and `_` that, ignoring case, `-` and `_`, starts with `ng`, `xng` or `datang`) are dropped at
-  render time from every computed `class` (`t:class`, `t:classappend`, `t:attr`, `t:errorclass`)
-  and from `html.sanitize` output. Nothing else of AngularJS is covered: not element directives
-  such as `<ng-include src>`, nor classes a Vue or Alpine `:class` binding writes. Element text
-  has `{{` broken for Vue. Don't render Tessera output inside an AngularJS app: migrate off it.
-  Until then, send the strict policy of section 4.11, which blocks injected scripts and inline
-  handlers though not AngularJS's own expressions, and put `ng-non-bindable` (it also covers the
-  element's own attributes) on every element that holds a value.
-- **Client-side templates (`{{ }}`).** Tessera breaks `{{` only in element text (section 4.4).
-  Values inside `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>` and `<noscript>` are build
-  errors. In `<title>` and `<textarea>` with computed content it adds `v-pre`, which Vue 3 and
-  petite-vue honour (section 4.4). Custom delimiters (Vue `delimiters`) are not broken, so keep
-  the default `{{ }}` or mark the region. The rule for static braces
-  covers only static text, and `SafeHtml.unchecked` text is changed only at its
-  edges.
+- **Client-side code.** Client code that evaluates attribute values or DOM text as code (Vue,
+  petite-vue, AngularJS, Alpine, htmx `hx-on`, ...) is outside the guarantee. Pass it data through
+  `<script type="application/json">` blocks, don't mount a client template compiler over
+  server-rendered user data, use htmx 2 (same-origin requests by default), and send a strict CSP
+  (section 4.11). Tessera shapes only its own output: it breaks `{{` in element text, rejects
+  values inside `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>` and `<noscript>`, and adds `v-pre`
+  to a `<title>` or `<textarea>` with computed content (section 4.4). Attribute values, class
+  tokens (AngularJS reads directives from `class`), custom delimiters and `SafeHtml.unchecked`
+  text beyond its edges are written as they are. AngularJS (end of life) is not supported.
 - **Security functions.** `auth` has `isAuthenticated`, `hasRole`/`hasAnyRole` and
   `hasAuthority`/`hasAnyAuthority`. They check the granted authorities as given, without a role
   hierarchy. Compute any other Spring Security expression in the controller.
@@ -2666,4 +2645,5 @@ same.
 | `SELECT_CONTENT` | Drops everything in a `<select>` but `<option>`, `<optgroup>` and `<hr>` in classic `<select>` parsing (Firefox ESR), and keeps it in newer browsers | Insert only those into a `<select>`, also from fragments, `t:remove="tag"` and `<template>` |
 | `CDATA_IN_INTEGRATION_POINT` | Reads a `<![CDATA[` section in SVG `<title>`, `<desc>` or `<foreignObject>`, or in MathML `<mi>`, `<mo>`, `<mn>`, `<ms>`, `<mtext>` or an HTML `<annotation-xml>`, as a comment that ends at the first `>` (Chrome), where Firefox reads a CDATA section, so the markup after it differs | Write the text without `<![CDATA[` and `]]>`, with `<` as `&lt;` and `>` as `&gt;` |
 | `UNCALLED_FRAGMENT_FITS_NOWHERE` | (Tessera can't check it) A fragment that no template inserts is checked on its own, in the context it is declared in; declared in raw text (`<noscript>`, `<title>`, ...), in an `<svg>` or `<math>` holding an HTML element, or under `t:remove="tag"`, there is no such context | Declare the fragment in HTML, `<svg>` or `<math>` content, or delete it |
+| `VALUE_IN_RAW_TEXT` | Reads the value as the raw text of `<noscript>`, `<xmp>`, `<iframe>`, `<noembed>` or `<noframes>`, where nothing can break a `{{` in it | Write the content as static text, or move the value outside the element |
 | `ENGINE_FAILURE`, `UNKNOWN_NODE` | (Tessera couldn't check the template) | A compiler bug: report it with the template |

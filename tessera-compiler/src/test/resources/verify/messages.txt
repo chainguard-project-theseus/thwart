@@ -212,3 +212,11 @@ m=First.<p>Second.
 -- t.html
 <noscript><p t:fragment="g(String v)" t:text="v">x</p></noscript>
 => t.html:1:66: error: no template inserts fragment t :: g, and it is declared where no fragment fits (in raw text, in an <svg> or <math> that holds an HTML element, or under t:remove="tag"), so Tessera can't check what it writes on its own; declare it in HTML, <svg> or <math> content, or delete it [verifier:UNCALLED_FRAGMENT_FITS_NOWHERE]
+== VALUE_IN_RAW_TEXT: a value in <xmp>
+-- t.html
+<xmp>[[${s}]]</xmp>
+=> t.html:1:65: error: a browser reads this value as the raw text of <xmp>, where nothing can break a {{ in a value that a client template would run; write the content as static text, or move the value outside the element; a browser opened the <xmp> it is in at t.html:1:56 [verifier:VALUE_IN_RAW_TEXT]
+== VALUE_IN_RAW_TEXT: the CSRF input of a form inside <noscript>
+-- t.html
+<noscript><form method="post" action="/x"><button>Go</button></form></noscript>
+=> t.html:1:1: error: a browser reads this value of 'name' as the raw text of <noscript>, where nothing can break a {{ in a value that a client template would run; write the content as static text, or move the value outside the element; a browser opened the <noscript> it is in at t.html:1:56 (only with scripting on) [verifier:VALUE_IN_RAW_TEXT]

@@ -37,23 +37,24 @@ final class Rules {
    * <p>The state names the one escaper a hole there may have (#378): the script data of an HTML
    * {@code <script>}, {@code json}; a double-quoted attribute value, an attribute escaper for that
    * attribute (which one is policy, {@code Contexts.attribute}); element text, {@link #textEscaper}.
-   * In never-run raw text any escaper is inert. A hole with another escaper is rejected, so a hole
-   * whose paths reach states that name different escapers is rejected on one of them (the branch
-   * rule). A {@code text} hole is element text whose escaper the verifier takes from the state
-   * ({@code ContextVerifier#textEscaper}), so only where it is text at all is checked here.
+   * A hole with another escaper is rejected, so a hole whose paths reach states that name different
+   * escapers is rejected on one of them (the branch rule). A {@code text} hole is element text whose
+   * escaper the verifier takes from the state ({@code ContextVerifier#textEscaper}), so only where it
+   * is text at all is checked here. No hole is accepted in raw text (#586): in {@code <noscript>}
+   * (scripting on), {@code <iframe>}, {@code <xmp>}, {@code <noembed>} and {@code <noframes>} an empty
+   * comment is text, so nothing breaks a value's {{, whatever its escaper; {@code <style>} raw text is
+   * rejected below.
    */
   static Problem hole(Skeleton.Hole hole, ParserState s) {
     if (s.tokenizer() == TokenizerState.RAWTEXT && neverRun(s)) {
-      // No escaper writes '<', so none can end this raw text, which a browser neither renders as
-      // markup nor runs (noscript with scripting on, iframe, xmp, noembed, noframes).
-      return null;
+      return Problem.VALUE_IN_RAW_TEXT;
     }
     switch (hole.escaper()) {
       case TEXT:
         return text(s);
       case RCDATA:
         // Without the comments that break {{ in text: inert only where the text isn't DOM text a
-        // client framework reads (memo §3.1), RCDATA and never-run raw text.
+        // client framework reads (memo §3.1), RCDATA.
         Problem p = text(s);
         return p == null && s.tokenizer() == TokenizerState.DATA ? Problem.RCDATA_NOT_IN_RCDATA : p;
       case JSON:
@@ -73,13 +74,10 @@ final class Rules {
   /**
    * The escaper element text takes in {@code s}, where {@link #text} accepts text: {@code rcdata} in
    * RCDATA, without the comments that break {{ (they would show as text there); {@code text}, with
-   * them, elsewhere; null in never-run raw text, where any escaper is inert.
+   * them, elsewhere.
    */
   static Skeleton.Escaper textEscaper(ParserState s) {
-    if (s.tokenizer() == TokenizerState.RCDATA) {
-      return Skeleton.Escaper.RCDATA;
-    }
-    return s.tokenizer() == TokenizerState.RAWTEXT && neverRun(s) ? null : Skeleton.Escaper.TEXT;
+    return s.tokenizer() == TokenizerState.RCDATA ? Skeleton.Escaper.RCDATA : Skeleton.Escaper.TEXT;
   }
 
   private static Problem text(ParserState s) {
@@ -104,7 +102,6 @@ final class Rules {
       case RCDATA:
         return null;
       case RAWTEXT:
-        return neverRun(s) ? null : Problem.TEXT_IN_SCRIPT;
       case SCRIPT_DATA:
       case SCRIPT_DATA_ESCAPED:
       case SCRIPT_DATA_DOUBLE_ESCAPED:
@@ -114,7 +111,10 @@ final class Rules {
     }
   }
 
-  /** In raw text, whether it is the content of an element a browser never renders as markup or runs. */
+  /**
+   * In raw text, whether it is the content of an element a browser never renders as markup or runs:
+   * not {@code <style>}.
+   */
   private static boolean neverRun(ParserState s) {
     OpenElement current = s.currentNode();
     return current != null && OpenElement.HTML.equals(current.namespace())

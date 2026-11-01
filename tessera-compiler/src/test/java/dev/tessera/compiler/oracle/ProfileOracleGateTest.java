@@ -251,9 +251,13 @@ class ProfileOracleGateTest {
     Finding script = new Finding(Finding.Kind.CONTEXT_MISMATCH, "vnu-26",
         "/html/body/div/p text: [SCRIPT] json escaping in HTML element text (<p>)", "v");
     assertEquals(Family.AB, ProfileOracleTest.contextFamily(script, render, spans));
-    // Near misses of the raw-text rule: a <noscript> without scripting, raw text that runs or
-    // applies (script, style, plaintext), and HTML element text.
+    // A value in raw text is a finding, never inert: the verifier rejects it (#586), whether the
+    // element never runs (noscript with scripting on, xmp, iframe) or runs or applies (script,
+    // style, plaintext); and HTML element text.
     for (String where : List.of(
+        "scripting-on /html/body/div/noscript text: [TEXT] text escaping in raw-text element text (<noscript>)",
+        "/html/body/div/xmp text: [TEXT] text escaping in raw-text element text (<xmp>)",
+        "/html/body/div/iframe text: [ATTRIBUTE] attr escaping in raw-text element text (<iframe>)",
         "scripting-off /html/body/div/noscript text: [TEXT] text escaping in raw-text element text (<noscript>)",
         "/html/body/div/noscript text: [TEXT] text escaping in raw-text element text (<noscript>)",
         "/html/body/div/script text: [TEXT] text escaping in raw-text element text (<script>)",
@@ -263,9 +267,6 @@ class ProfileOracleGateTest {
       assertEquals(Family.AB, ProfileOracleTest.contextFamily(
           new Finding(Finding.Kind.CONTEXT_MISMATCH, "vnu-26", where, "v"), render, spans), where);
     }
-    assertEquals(Family.INERT, ProfileOracleTest.contextFamily(new Finding(Finding.Kind.CONTEXT_MISMATCH, "vnu-26",
-        "scripting-on /html/body/div/noscript text: [TEXT] text escaping in raw-text element text (<noscript>)", "v"),
-        render, spans));
     // A dropped marker with one occurrence in an attribute hole and one in a text hole (a live
     // sibling) is not inert.
     GateCase both = gateCase(P + "<span t:title=\"s\">x</span><p>[[s]]</p></div>");

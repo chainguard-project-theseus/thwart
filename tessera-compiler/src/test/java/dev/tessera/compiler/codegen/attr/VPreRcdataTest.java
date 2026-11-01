@@ -68,21 +68,17 @@ class VPreRcdataTest {
     assertEquals("<textarea " + attribute + ">\n" + WRITTEN + "</textarea>", out);
   }
 
+  /**
+   * #586: the v-pre is one constant attribute, added whatever else the element has. A Vue
+   * directive beside it is no longer checked: v-pre turns it off, which is the author's concern,
+   * not a security one.
+   */
   @ParameterizedTest
   @ValueSource(strings = {"v-model=\"text\"", ":rows=\"n\"", "@input=\"f\"", "v-cloak", "v-bind:rows=\"n\"", "V-MODEL=\"text\""})
-  void aVueDirectiveBesideComputedContentIsAnError(String directive) {
-    String name = directive.contains("=") ? directive.substring(0, directive.indexOf('=')) : directive;
-    compile("\n<textarea " + directive + " t:text=\"s\">x</textarea>")
-        .assertError("t.html:2:", name + " on a <textarea> with computed content is not supported",
-            "Tessera adds v-pre there", "drop " + name);
-    compile("\n<title " + directive + ">[[s]]</title>")
-        .assertError("t.html:2:", name + " on a <title> with computed content is not supported");
-  }
-
-  @Test
-  void aComputedJsonBindingIsAnErrorToo() {
-    compile("<textarea t:attr=\"v-bind:rows=${s.length()}\" t:text=\"s\">x</textarea>")
-        .assertError("t.html:1:", "v-bind:rows on a <textarea> with computed content is not supported");
+  void aVueDirectiveBesideComputedContentGetsTheVPreToo(String directive) {
+    assertEquals("<textarea " + directive + " v-pre>\n" + WRITTEN + "</textarea>",
+        render("<textarea " + directive + " t:text=\"s\">x</textarea>", PAYLOAD));
+    assertEquals("<title " + directive + " v-pre>" + WRITTEN + "</title>", render("<title " + directive + ">[[s]]</title>", PAYLOAD));
   }
 
   @Test
@@ -97,19 +93,23 @@ class VPreRcdataTest {
         render("<textarea x-model=\"text\" t:text=\"s\">x</textarea>", PAYLOAD));
   }
 
+  /**
+   * #586: static text in a {@code <title>} or {@code <textarea>} follows the element-text brace rule
+   * (#571): a complete {@code {{ ... }}} in one literal is the author's own; any other static brace is
+   * an error, so no static brace can meet a value's.
+   */
   @Test
-  void aStaticInterpolationBesideAValueIsAnError() {
-    // One coarse rule (#571): no static brace in a <title> or <textarea>, with or without a value.
-    String rule = "in the static text of a <title> or <textarea> is not supported: Tessera adds v-pre there";
-    compile("\n<title>{{ app }} - [[s]]</title>").assertError("t.html:2:8:", "'{' " + rule);
-    compile("<textarea>[[s]] {{ x }}</textarea>").assertError("t.html:1:", rule);
-    // In SVG a title has child elements: static text inside a condition or switch counts.
-    compile("<svg><title><t:block t:if=\"true\">{{ app }}</t:block> [[s]]</title></svg>").assertError("t.html:1:", rule);
-    compile("<math><textarea><t:block t:switch=\"s\"><t:block t:case=\"'a'\">{{ a }}</t:block></t:block>[[s]]</textarea></math>")
-        .assertError("t.html:1:", rule);
+  void staticTextFollowsTheElementTextBraceRule() {
+    String rule = "outside a complete {{ ... }} is not supported in element text";
+    compile("\n<title>{[[s]]}</title>").assertError("t.html:2:8:", "'{' " + rule);
     compile("<textarea>{[[s]]{</textarea>").assertError("t.html:1:", rule);
-    compile("<title>{{ b }}</title>").assertError("t.html:1:", rule);
-    // Not even under a static v-pre (#571): the rule looks at the text alone.
-    compile("<textarea v-pre>{{ a }}</textarea>").assertError("t.html:1:", rule);
+    compile("<textarea>[[s]] }</textarea>").assertError("t.html:1:", rule);
+    compile("<title>{{ a [[s]] }}</title>").assertError("t.html:1:", rule);
+    compile("<svg><title><t:block t:if=\"true\">{</t:block>[[s]]</title></svg>").assertError("t.html:1:", rule);
+    // Positive controls: a complete static {{ ... }} beside a value is shown as text under the v-pre.
+    assertEquals("<title v-pre>{{ app }} - " + WRITTEN + "</title>", render("<title>{{ app }} - [[s]]</title>", PAYLOAD));
+    assertEquals("<textarea v-pre>\n" + WRITTEN + " {{ x }}</textarea>", render("<textarea>[[s]] {{ x }}</textarea>", PAYLOAD));
+    assertEquals("<title>{{ b }}</title>", render("<title>{{ b }}</title>", ""));
+    assertEquals("<textarea v-pre>{{ a }}</textarea>", render("<textarea v-pre>{{ a }}</textarea>", ""));
   }
 }
