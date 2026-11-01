@@ -27,10 +27,12 @@ import org.apache.maven.plugins.annotations.Parameter;
  * green build. The processor records the templates and message files it read ({@link
  * TemplateFingerprint#RESOURCE} in the class output). Before {@code compile}, this goal compares
  * that record with the templates directory and the {@code messages} basenames. If a file was added,
- * edited or deleted, or the class output has no record, it deletes the compile output (the main and
- * test class directories, the processors' generated sources and the compiler plugin's incremental
- * state), as {@code mvn clean} would, so the compiler plugin compiles the module from scratch
- * whatever its version or incremental mode. A first build (no output yet) is left alone.
+ * edited or deleted, or the class output has classes but no record, it deletes the compile output
+ * (the class files and Tessera's resources in the main and test class directories, the processors'
+ * generated sources and the compiler plugin's incremental state), so the compiler plugin compiles
+ * the module from scratch whatever its version or incremental mode. A first build (no classes
+ * yet) is left alone. Other files in the class directories are kept: copied resources, and files
+ * a plugin wrote earlier in the build, such as git-commit-id's {@code git.properties} (#626).
  */
 @Mojo(name = "check", defaultPhase = LifecyclePhase.PROCESS_SOURCES, threadSafe = true)
 public final class CheckMojo extends AbstractMojo {
@@ -76,8 +78,8 @@ public final class CheckMojo extends AbstractMojo {
         getLog().info("Tessera: " + reason + "; deleting the compile output so the templates are compiled again");
       }
       Path build = buildDirectory.toPath();
-      delete(outputDirectory.toPath());
-      delete(testOutputDirectory.toPath());
+      deleteCompilerOutput(outputDirectory.toPath());
+      deleteCompilerOutput(testOutputDirectory.toPath());
       delete(build.resolve("generated-sources/annotations"));
       delete(build.resolve("generated-test-sources/test-annotations"));
       delete(build.resolve("maven-status/maven-compiler-plugin"));
@@ -103,10 +105,15 @@ public final class CheckMojo extends AbstractMojo {
 
   static final String OTHER_MESSAGES = "the last compile read other message bundles";
 
+  /** The processor's resources in a class output directory, besides the class files. */
+  static final String PROCESSOR_RESOURCES = "META-INF/tessera/";
+  static final String SERVICES_FILE = "META-INF/services/dev.tessera.runtime.TemplateRegistry";
+
   /**
-   * Why the output in {@code classes} is stale, or null. Main output without a record is stale (a
-   * failed or pre-#425 compile); test output without one is not (its compile may not run the
-   * processor).
+   * Why the output in {@code classes} is stale, or null. Main output with class files but without
+   * a record is stale (a failed or pre-#425 compile); without class files it is a first build that
+   * other plugins may have written to (#626); test output without one is not (its compile may not
+   * run the processor).
    */
   static String staleReason(Path classes, byte[] current, boolean main) throws IOException {
     Path recorded = classes.resolve(TemplateFingerprint.RESOURCE);
@@ -130,7 +137,7 @@ public final class CheckMojo extends AbstractMojo {
       }
       return "templates or messages changed since the last compile";
     }
-    return main && hasFiles(classes) ? "no template fingerprint in " + classes : null;
+    return main && hasClassFiles(classes) ? "no template fingerprint in " + classes : null;
   }
 
   /** The {@code messages <name>} lines of a fingerprint. */
@@ -144,13 +151,51 @@ public final class CheckMojo extends AbstractMojo {
     return out;
   }
 
-  private static boolean hasFiles(Path dir) throws IOException {
+  private static boolean hasClassFiles(Path dir) throws IOException {
     if (!Files.isDirectory(dir)) {
       return false;
     }
-    try (Stream<Path> s = Files.list(dir)) {
-      return s.findAny().isPresent();
+    try (Stream<Path> s = Files.walk(dir)) {
+      return s.anyMatch(p -> p.getFileName().toString().endsWith(".class") && Files.isRegularFile(p));
     }
+  }
+
+  /** True for what javac and the Tessera processor write into {@code classes}. */
+  static boolean isCompilerOutput(Path classes, Path file) {
+    String rel = classes.relativize(file).toString().replace(File.separatorChar, '/');
+    return rel.endsWith(".class") || rel.startsWith(PROCESSOR_RESOURCES) || rel.equals(SERVICES_FILE);
+  }
+
+  /**
+   * Deletes the compiler's and processor's files in a class output directory, and the directories
+   * that leaves empty; keeps every other file.
+   */
+  static void deleteCompilerOutput(Path classes) throws IOException {
+    if (!Files.isDirectory(classes)) {
+      return;
+    }
+    Files.walkFileTree(classes, new SimpleFileVisitor<Path>() {
+      @Override
+      public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+        if (isCompilerOutput(classes, file)) {
+          Files.delete(file);
+        }
+        return FileVisitResult.CONTINUE;
+      }
+
+      @Override
+      public FileVisitResult postVisitDirectory(Path d, IOException e) throws IOException {
+        if (e != null) {
+          throw e;
+        }
+        try (Stream<Path> s = Files.list(d)) {
+          if (!s.findAny().isPresent()) {
+            Files.delete(d);
+          }
+        }
+        return FileVisitResult.CONTINUE;
+      }
+    });
   }
 
   static void delete(Path dir) throws IOException {

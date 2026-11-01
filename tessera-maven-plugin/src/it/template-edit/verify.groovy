@@ -16,17 +16,23 @@ assert fingerprint.contains('messages messages\n') : fingerprint
 assert fingerprint.contains(sha('src/main/resources/messages.properties') + ' messages.properties\n') : fingerprint
 assert fingerprint.contains(sha('src/main/resources/messages_fr.properties') + ' messages_fr.properties\n') : fingerprint
 
+// #626: the file another plugin wrote before the first compile (invocation 1) was kept.
+assert new File(basedir, 'target/classes/git.properties').text.contains('git.commit.id=') : 'git.properties deleted'
+
 // build.log has every invocation: the plugin saw the template edits (2, 4) and the message edits
-// (6, 7), the missing record after each failed build (3, 8), and kept the output when nothing
-// changed (5, 9). Invocation 7 failed on the locale file's markup.
+// (6, 7), and kept the output when nothing changed (5, 9). A failed build (2, 7) leaves no class
+// files and no record, so the next one (3, 8) compiles without the plugin deleting anything, as
+// does the first (1), whose class output holds only git.properties (#626). Invocation 7 failed on
+// the locale file's markup.
 def log = new File(basedir, 'build.log').text
 assert log.count('Tessera: templates or messages changed since the last compile') == 4
-assert log.count('Tessera: no template fingerprint') == 2
+assert log.count('Tessera: no template fingerprint') == 0
 assert log.count('Nothing to compile') == 2 : 'invocation 5 or 9 recompiled'
 assert log.contains("message 'greeting' in ") && log.contains('messages_fr.properties') && log.contains('<img> is not allowed')
 assert !log.contains('read other message bundles')
-def last = log.substring(log.lastIndexOf('Tessera: no template fingerprint'))
-assert last.contains('Nothing to compile') : 'invocation 9 recompiled'
+def last = log.substring(log.lastIndexOf('edits/msg-fixed'))
+assert last.contains('Recompiling the module') : 'invocation 8 did not compile'
+assert last.substring(last.indexOf('Recompiling the module')).contains('Nothing to compile') : 'invocation 9 recompiled'
 // #428: the review goal ran after compile (invocation 9) and wrote its report.
 def review = new File(basedir, 'target/tessera-review.txt').text
 assert review.contains('## @TemplateFunctions (0)\n') && review.contains('calls (0)\n') : review
