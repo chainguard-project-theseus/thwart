@@ -81,7 +81,7 @@ but inside `|...|` and `+` a `null` prints `null`.
 | builds a view name, fragment name, message key or link path from strings | Conditionals between literals; link `{placeholders}`; a `Fragment` argument. |
 | evaluates a string as a template (`?eval`, `#evaluate`, `__${...}__`) | Not possible. Compute the value in Java. |
 | prints a string unescaped | Stored rich text: `t:utext="html.sanitize(article.text)"` (section 4.4). Markup built in Java: a `SafeHtml`. |
-| puts expressions in `style`, SVG `fill`/`stroke`/`mask`/... or `on*` | `t:style` (or `t:fill`, ...) with literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)`/`css.var(...)` (section 4.4); otherwise `t:classappend`; `t:data-*` attributes read by a script. |
+| puts expressions in `style`, SVG `fill`/`stroke`/`mask`/... or `on*` | `t:style` (or `t:fill`, ...) with literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)`/`css.var(...)` (section 4.4); otherwise `t:classappend`; a JSON block read by a script (section 4.4, Migration recipes). |
 | includes a file, calls a macro or tag with a body, or extends a layout | A fragment call with `Fragment` arguments (section 4.8). |
 | binds a form through form tags or macros | `t:object`, `t:field`, `t:errors`, `fields.*` (section 4.7). |
 | posts a form back to the current URL by default | Write the `action` with `@{...}`, or put the URL in the model. |

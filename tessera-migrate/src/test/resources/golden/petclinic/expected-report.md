@@ -60,8 +60,8 @@ Converted 9 template(s); 67 item(s) need manual attention.
 - `misc/unsupported.html:6`: Spring bean references (`@bean`) are not supported (never); call the bean in the controller (or in a `@ModelAttribute` method of a `@ControllerAdvice` for a value every page needs), add the result to the model and declare it in `t:params`
 - `misc/unsupported.html:7`: `#ctx.request` reads Thymeleaf's evaluation context, which Tessera does not have; a template sees only its `t:params`: read the parameter by name, and add any value the controller does not provide to the model and to `t:params` (guide section 1)
 - `misc/unsupported.html:10`: collection selection/projection is not supported; compute the collection in Java
-- `misc/unsupported.html:11`: `th:onclick` is a build error by design (no dynamic event handlers); use a `data-*` attribute read by a script
-- `misc/unsupported.html:11`: `th:style` is not converted; rewrite it as `t:style` from literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (guide section 4.4), otherwise use `t:classappend` or a `t:data-*` attribute
+- `misc/unsupported.html:11`: `th:onclick` is a build error by design (no dynamic event handlers); put the value in a `<script type="application/json">` block, or a number, a boolean or a same-origin path in a `data-*` attribute, and read it from a script (guide section 4.4, Migration recipes)
+- `misc/unsupported.html:11`: `th:style` is not converted; rewrite it as `t:style` from literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (guide section 4.4), otherwise use `t:classappend`, or a `<script type="application/json">` block read by a script (guide section 4.4, Migration recipes)
 - `misc/unsupported.html:12`: `sec:authorize` belongs to the `sec:` dialect, which Tessera does not support; port it by hand
 - `misc/unsupported.html:14`: `data-th-text` (HTML5 data-th-* syntax) is not converted; rewrite it as `t:text`
 - `misc/unsupported.html:15`: object creation with `new` is not supported (never); compute the value in Java

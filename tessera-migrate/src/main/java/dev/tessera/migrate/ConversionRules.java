@@ -33,13 +33,15 @@ final class ConversionRules {
    */
   private static final Map<String, String> UNSUPPORTED_ATTRIBUTES = Compat.mapOf(
       ConversionRules.THYMELEAF_INLINE, "`th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or put data in a `<script type=\"application/json\">` block",
-      "th:style", "`th:style` is not converted; rewrite it as `t:style` from literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (guide section 4.4), otherwise use `t:classappend` or a `t:data-*` attribute",
+      "th:style", "`th:style` is not converted; rewrite it as `t:style` from literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (guide section 4.4), otherwise use `t:classappend`, or a `<script type=\"application/json\">` block read by a script (guide section 4.4, Migration recipes)",
       "th:styleappend", "`th:styleappend` is not supported; merge it into one `t:style` from literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (guide section 4.4), otherwise use `t:classappend`",
       "th:include", "`th:include` is not supported; use `t:insert` or `t:replace` (check the host-element semantics)",
       "th:substituteby", "`th:substituteby` is not supported; use `t:replace`");
 
   private static final String EVENT_HANDLER_MESSAGE =
-      "`%s` is a build error by design (no dynamic event handlers); use a `data-*` attribute read by a script";
+      "`%s` is a build error by design (no dynamic event handlers); put the value in a"
+          + " `<script type=\"application/json\">` block, or a number, a boolean or a same-origin path in a"
+          + " `data-*` attribute, and read it from a script (guide section 4.4, Migration recipes)";
   private static final String DATA_TH_MESSAGE =
       "`%s` (HTML5 data-th-* syntax) is not converted; rewrite it as `t:%s`";
   private static final String DIALECT_MESSAGE =

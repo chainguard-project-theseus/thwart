@@ -654,6 +654,21 @@ class MigratorTest {
         "2: `th:include` is not supported; use `t:insert` or `t:replace`");
   }
 
+  /**
+   * A string in {@code data-*} is a build error (#584), so the style and event-handler fix-its point
+   * at a JSON block, and name {@code data-*} only for neutral values (guide section 4.4, recipes).
+   */
+  @Test
+  void styleAndEventHandlerFixItsDoNotSendStringsToData() {
+    for (String name : new String[] {"th:style", "th:onclick", "th:onMouseOver"}) {
+      String message = ConversionRules.unsupportedAttribute(name);
+      assertTrue(message.contains("`<script type=\"application/json\">` block"), message);
+      assertTrue(message.contains("Migration recipes"), message);
+      assertTrue(!message.contains("data-*") || message.contains("a number, a boolean or a same-origin path"),
+          message);
+    }
+  }
+
   private static final String SVG_STYLE = "on an SVG element is not converted: Tessera reads";
 
   /** SVG attributes that take a CSS url() are CSS in Tessera: left in place and reported, like th:style. */
