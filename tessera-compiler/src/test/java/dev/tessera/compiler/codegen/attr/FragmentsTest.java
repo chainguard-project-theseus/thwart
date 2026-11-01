@@ -70,7 +70,7 @@ class FragmentsTest {
   void parameterizedFragmentInPlaceDoesNotCompileItsAttributesInTheTemplateScope() {
     // `content` is only a fragment parameter; compiled in the page scope it would be unknown.
     Compilation c = base().compile().assertSuccess();
-    assertTrue(c.generatedSource("tessera.generated.fragments.CardsTemplate").contains("fragment_card("));
+    assertTrue(c.generatedSource("tessera.generated.fragments.CardsTemplate").contains("internalUnverified$card("));
   }
 
   @Test

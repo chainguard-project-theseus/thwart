@@ -33,8 +33,8 @@ import javax.lang.model.type.TypeMirror;
 /**
  * {@code t:insert} (keep host tag, fragment becomes the body) and {@code t:replace} (fragment replaces the host). Target is a fragment reference ({@code ~{tpl :: name(args)}}, same-file {@code ~{:: name}}) checked against the callee signature, or an expression of type {@code Fragment}. Fragment-typed arguments ({@code ~{::body}}, {@code ~{::name}}) become lambdas over the selected element.
  *
- * <p>Generated code calls the callee's static {@code fragment_<name>} method; a fragment never
- * sees the caller's variables, only its arguments. A {@code ~{::tag}} argument renders the
+ * <p>Generated code calls the callee's static method ({@link FragmentMethods#templateMethod}); a
+ * fragment never sees the caller's variables, only its arguments. A {@code ~{::tag}} argument renders the
  * selected element in the caller's scope at the call site, through a private static helper
  * method that receives the visible variables as parameters.
  */
@@ -477,7 +477,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     if (call == null) {
       return null;
     }
-    pre.append(FRAGMENT).append(' ').append(local).append(" = ").append(FRAGMENT).append(".generated((").append(c)
+    pre.append(FRAGMENT).append(' ').append(local).append(" = ").append(FRAGMENT).append(".unverifiedForGeneratedCode((").append(c)
         .append(", ").append(o).append(") -> ").append(call).append(");\n");
     return local;
   }
