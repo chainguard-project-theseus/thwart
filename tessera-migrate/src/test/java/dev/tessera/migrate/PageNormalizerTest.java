@@ -54,6 +54,11 @@ class PageNormalizerTest {
       pretty-printed json object     | <script>var o = {\\n  "a": 1,\\n  "b": [ 2 ]\\n};</script> | <script>var o = {"a":1,"b":[2]};</script>
       json script type               | <script type="application/json">{ "a" : 1 }</script> | <script type="application/json">{"a":1}</script>
       apostrophe in a comment        | <script>// don't\\nvar a = [ 1 ];</script> | <script>// don't\\nvar a = [1];</script>
+      json string in parentheses (#625) | <script>var pageLanguage = "en";</script> | <script>var pageLanguage = ("en");</script>
+      json array in parentheses      | <script>const fields = [ "a", "b" ];</script> | <script>const fields = (["a","b"]);</script>
+      json object in parentheses     | <script>var o = { "a": [ 1 ], "b": null };</script> | <script>var o = ( {"a":[1],"b":null} ) ;</script>
+      negative number in parentheses | <script>var n = -1.5; f(n);</script>    | <script>var n = (-1.5); f(n);</script>
+      module script in parentheses   | <script type="module">const a = true;</script> | <script type="module">const a = (true);</script>
       """)
   void sameAsABrowserSeesIt(String rule, String a, String b) {
     check(SAME, a.replace("\\n", "\n"), b.replace("\\n", "\n"));
@@ -89,9 +94,75 @@ class PageNormalizerTest {
       template script is not json    | <script type="text/template"><p>a, b</p></script> | <script type="text/template"><p>a,b</p></script>
       jsessionid is not the path     | <a href="/owners;jsessionid=A1">o</a>    | <a href="/owner">o</a>
       v-pre elsewhere still counts   | <div v-pre>a</div>                        | <div>a</div>
+      parenthesized expression       | <script>var n = a + b;</script>           | <script>var n = (a + b);</script>
+      parentheses before an operator | <script>var n = 1 + 2;</script>           | <script>var n = (1) + 2;</script>
+      parentheses in a comparison    | <script>if (a == 1) f();</script>         | <script>if (a == (1)) f();</script>
+      parentheses in a string        | <script>var s = "= 1;";</script>          | <script>var s = "= (1);";</script>
+      other value in parentheses     | <script>var a = "x";</script>             | <script>var a = ("y");</script>
+      parentheses in a template      | <script type="text/template">x = "a";</script> | <script type="text/template">x = ("a");</script>
+      hoisted value changed          | <script>x = "a"; f(x);</script>           | <script>var _t1 = ("b");\\nx = _t1; f(x);</script>
+      declaration after code         | <script>f(); x = "a";</script>            | <script>f(); var _t1 = ("a"); x = _t1;</script>
+      declared expression            | <script>x = g();</script>                 | <script>var _t1 = (g()); x = _t1;</script>
+      name inside a string           | <script>alert("a");</script>              | <script>var _t1 = ("a"); alert("_t1");</script>
+      name after a dot               | <script>o.1 = 2;</script>                 | <script>var x = (1); o.x = 2;</script>
+      unused declaration still counts | <script>var a = 1; x = "q";</script> | <script>var a = (2); var _t1 = ("q"); x = _t1;</script>
+      declared name assigned again   | <script>var x = "a"; x = g(); f(x);</script> | <script>var x = ("a"); x = g(); f("a");</script>
+      declared name incremented      | <script>var n = 0; n++; f(n);</script>    | <script>var n = (0); n++; f(0);</script>
+      declared name compound-assigned | <script>var n = 0; n += 2; f(n);</script> | <script>var n = (0); n += 2; f(0);</script>
+      declared name as a parameter   | <script>var id = 7; function h(id){return id;}</script> | <script>var id = (7); function h(id){return 7;}</script>
+      declared name as an arrow parameter | <script>var id = 7; g((a, id) => id);</script> | <script>var id = (7); g((a, id) => 7);</script>
+      declared name declared again   | <script>var id = 7; function f(){ var id = g(); return id; }</script> | <script>var id = (7); function f(){ var id = g(); return 7; }</script>
+      declared name destructured     | <script>var id = 7; function f(o){ const {id} = o; return id; }</script> | <script>var id = (7); function f(o){ const {id} = o; return 7; }</script>
+      declared name in an array pattern | <script>var id = 7; [id] = xs; g(id);</script> | <script>var id = (7); [id] = xs; g(7);</script>
+      declared name in for-of        | <script>var id = 7; for (id of xs) g(id);</script> | <script>var id = (7); for (id of xs) g(7);</script>
+      declared name in for-in        | <script>var k = "a"; for (k in o) g(k);</script> | <script>var k = ("a"); for (k in o) g("a");</script>
+      declared name in a let list    | <script>var id = 7; function f(){ let a, id; return id; }</script> | <script>var id = (7); function f(){ let a, id; return 7; }</script>
+      declared name read by another script | <script>var ctx = "/a"; f(ctx);</script><script>g(ctx);</script> | <script>f("/a");</script><script>g(ctx);</script>
+      declared name read by an event handler | <script>var ctx = "/a"; f(ctx);</script><button onclick="g(ctx)">b</button> | <script>f("/a");</script><button onclick="g(ctx)">b</button>
+      declared name read by a javascript: URL | <script>var ctx = "/a"; f(ctx);</script><a href="javascript:g(ctx)">b</a> | <script>f("/a");</script><a href="javascript:g(ctx)">b</a>
+      declared name as an object key | <script>var x = "a"; o = {x: 1}; f(x);</script> | <script>o = {"a": 1}; f("a");</script>
+      declared name as a method name | <script>var x = "a"; o = {x() { return 1; }}; f(x);</script> | <script>o = {"a"() { return 1; }}; f("a");</script>
+      declared name as a label       | <script>var x = 1; x: for (;;) { break x; } f(x);</script> | <script>1: for (;;) { break 1; } f(1);</script>
       """)
   void differentPages(String rule, String a, String b) {
-    check(DIFFERS, a, b);
+    check(DIFFERS, a.replace("\\n", "\n"), b.replace("\\n", "\n"));
+  }
+
+  /** Template literals hold backticks, the CSV quote character above. */
+  @Test
+  void declaredNameInATemplateLiteralDiffers() {
+    // Read in ${...}: the template literal is copied as it is, so the declaration stays.
+    check(DIFFERS, "<script>var ctx = \"/a\"; f(ctx); g(`${ctx}`);</script>",
+        "<script>f(\"/a\"); g(`${ctx}`);</script>");
+    // Read in another script's ${...}.
+    check(DIFFERS, "<script>var ctx = \"/a\"; f(ctx);</script><script>g(`x${ctx}`);</script>",
+        "<script>f(\"/a\");</script><script>g(`x${ctx}`);</script>");
+    // Assigned in ${...}.
+    check(DIFFERS, "<script>var x = \"a\"; h(`${x = g()}`); f(x);</script>",
+        "<script>var x = (\"a\"); h(`${x = g()}`); f(\"a\");</script>");
+    // A template literal that doesn't name the declaration doesn't stop the expansion.
+    check(REORDERED, "<script>f(\"a\", `t${y}`);</script>",
+        "<script>var _t1 = (\"a\");\nf(_t1, `t${y}`);</script>");
+  }
+
+  @Test
+  void hoistedPreludeValuesAreReordered() {
+    // tessera-migrate hoists each inline into var _tN = [[...]]; at the top of the script (#541).
+    check(REORDERED, "<script>x = \"a\"; if (y) { f(x, [1, 2]); }</script>",
+        "<script>var _t1 = (\"a\"); var _t2 = ([1,2]);\nx = _t1; if (y) { f(x, _t2); }</script>");
+    // A declaration moved to the top: the old page used the value where the new one uses the name.
+    check(REORDERED, "<script>// user\ninit(); show(\"u@example.com\");</script>",
+        "<script>// user\nconst currentUserEmail = (\"u@example.com\");\ninit(); show(currentUserEmail);</script>");
+    // Declarations on both pages, one of them hoisted.
+    check(REORDERED, "<script>var lang = \"en\";\nvar n = 2; if (lang) go(3);</script>",
+        "<script>var lang = (\"en\"); var n = (2); var _t1 = (3);\nif (lang) go(_t1);</script>");
+    // Reads in conditions, calls, comparisons and member bases are not rebindings.
+    check(REORDERED, "<script>if (\"a\" == y) { while (\"a\") f(\"a\".length, o.x); }</script>",
+        "<script>var x = (\"a\");\nif (x == y) { while (x) f(x.length, o.x); }</script>");
+    // Another script that doesn't name the declaration doesn't stop the expansion; reads in an
+    // object literal, an array and a call list aren't bindings.
+    check(REORDERED, "<script>x = {k: \"a\"}; f([1, \"a\"], 2);</script><script>h(y);</script>",
+        "<script>var _t1 = (\"a\");\nx = {k: _t1}; f([1, _t1], 2);</script><script>h(y);</script>");
   }
 
   @Test
