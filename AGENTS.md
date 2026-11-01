@@ -44,7 +44,9 @@ verifier of #364, simplified under #405 ([docs/security-architecture.md](docs/se
    HTML attributes, a computed value is framework-neutral (a number, a boolean or a same-origin
    path), and computed text never contains `{{`, so code that re-reads the DOM gets nothing it
    can run. Client code that otherwise evaluates attribute values or DOM text is outside the
-   guarantee. Never add a rule that names a framework.
+   guarantee. Never add a rule that names a framework. The one exception is the constant
+   `v-pre` on a computed `<textarea>` or `<title>`, where RCDATA leaves no neutral way to break
+   `{{`.
 
 ## Keep it simple
 
