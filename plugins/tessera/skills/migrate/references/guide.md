@@ -785,6 +785,34 @@ template below is compiled by the guide's tests.
 | an id with a prefix (`"hint-" + id`) | Write the number (`t:data-id="${id}"`); your script adds the prefix |
 | a URL held in a variable | Write the link with a literal path, `@{/items/{id}(id=${id})}` |
 
+**What is not a recipe.** These workarounds compile, but each one either breaks the page's
+behaviour or brings back what the build error prevents. Don't use them, even to get `compare` to
+exit 0:
+
+- *A choice of literals over data.* A choice between literals is neutral because the template
+  spells out every value it can write. Listing the values of an open-ended range is not that:
+  `${i == 0} ? 'row-0' : (${i == 1} ? 'row-1' : ...)` over a loop index, `notification-0` to
+  `notification-9` with a `null` fallback, or an enum chain whose last branch catches every other
+  constant writes a wrong value or none once the data passes the bound. Write the number and let
+  the script add the prefix (the row above), or use the recipe for what the string is for.
+- *Messages as literals.* A message is not a literal in a neutral attribute: `#{key}` there is a
+  build error, even with no arguments. Bundles are edited by translators and tools, not reviewed
+  as template code, and a framework may run what it reads there. Hard-coding each locale's text
+  as a choice of literals compiles, but does the same thing. Text for people goes in `title` or
+  element text (recipe 2). Text a script needs goes in a JSON block or a hidden input (recipe 3).
+- *Copying the value back.* Applies to every recipe, not only recipe 5. Don't have a script copy
+  the value from a hidden input, a JSON block or `title` into a `data-*` attribute so that an
+  unchanged script or plugin finds it there. That brings back what the build error prevents.
+  Change the code that reads the attribute, or configure the plugin through its API (recipe 5).
+
+**A recipe changes the page, and that difference is expected.** `compare` reports the hidden
+input, the JSON block, the new or changed script and the text that moved. Write down which recipe
+caused each difference and move on. A recipe that edits a content-hashed asset
+(`scripts-<sha1>.js`, `app.<hash>.css`) changes that asset's URL on every page that links it. Mask
+the hash rather than revert the recipe: `--ignore 'scripts-[0-9a-f]{40}\.js'` deletes that file
+name from both pages, and the rest of each tag is still compared. Keep the pattern this narrow
+(section 3).
+
 **1. Hidden inputs and `hx-include`.** htmx sends the values of the inputs that `hx-include` selects
 with the request, so a request value needs no `hx-vals`. Before:
 
@@ -922,8 +950,8 @@ document.querySelectorAll('.hint').forEach((el) => {
 ```
 
 Pass the values as text: check the plugin's documentation for an option that turns on HTML (such as
-Bootstrap's `html: true`) and leave it off. Copying a string back into a `data-*` attribute from the
-script brings back what the build error prevents.
+Bootstrap's `html: true`) and leave it off. Don't copy the string back into a `data-*` attribute
+from the script (What is not a recipe, above).
 
 Client code can submit any form with AJAX and swap the response into the page as HTML (htmx 1.x's
 `hx-boost` does), so a form's computed `t:action` takes only a link whose literal path starts with
