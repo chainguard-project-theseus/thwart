@@ -82,20 +82,23 @@ class VPreRcdataTest {
   }
 
   /**
-   * #586: a computed binding beside computed content builds too. Under v-pre, Vue 3 keeps the
-   * element's directives as plain attributes and petite-vue skips the element, so the
-   * attribute-escaped value is inert.
+   * #586: a computed binding beside computed content builds too, and takes what any other
+   * non-HTML name takes (#584, NEUTRAL): a number, a boolean or a same-origin path, never a
+   * String. Under v-pre, Vue 3 keeps the element's directives as plain attributes and petite-vue
+   * skips the element, so the value is inert either way.
    */
   @Test
   void aComputedBindingBesideComputedContentGetsTheVPre() {
     String hostile = "\"}}{{constructor.constructor('alert(1)')()}}";
-    // jsonAttr: a JSON string literal, braces and quotes escaped, then attribute-escaped.
-    String binding = "\"&quot;\\&quot;}}\\u007b\\u007bconstructor.constructor(\\u0027alert(1)\\u0027)()}}&quot;\"";
     String text = "&quot;}}{{constructor.constructor(&#39;alert(1)&#39;)()}}";
-    assertEquals("<textarea v-bind:rows=" + binding + " v-pre>\n" + text + "</textarea>",
-        render("<textarea t:attr=\"v-bind:rows=${s}\" t:text=\"s\">x</textarea>", hostile));
-    assertEquals("<title v-bind:lang=" + binding + " v-pre>" + text + "</title>",
-        render("<title t:attr=\"v-bind:lang=${s}\">[[s]]</title>", hostile));
+    int n = hostile.length();
+    assertEquals("<textarea v-bind:rows=\"" + n + "\" v-pre>\n" + text + "</textarea>",
+        render("<textarea t:attr=\"v-bind:rows=${s.length()}\" t:text=\"s\">x</textarea>", hostile));
+    assertEquals("<title v-bind:lang=\"" + n + "\" v-pre>" + text + "</title>",
+        render("<title t:attr=\"v-bind:lang=${s.length()}\">[[s]]</title>", hostile));
+    // Negative: the hostile String itself can't reach the binding.
+    compile("<textarea t:attr=\"v-bind:rows=${s}\" t:text=\"s\">x</textarea>").assertError("t.html:1:", "framework-neutral");
+    compile("<title t:attr=\"v-bind:lang=${s}\">[[s]]</title>").assertError("t.html:1:", "framework-neutral");
   }
 
   /**
