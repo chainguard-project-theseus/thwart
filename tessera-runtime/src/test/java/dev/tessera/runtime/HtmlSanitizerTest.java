@@ -123,6 +123,26 @@ class HtmlSanitizerTest {
     assertEquals("a�b", clean("a\0b"));
   }
 
+  /**
+   * #592: code points the parser reports as errors in its input (controls, noncharacters, lone
+   * surrogates), literal or from a reference, become U+FFFD in text and attribute values; a CR
+   * from a reference becomes the LF the parser reads. Ordinary characters are kept.
+   */
+  @Test
+  void forbiddenCodePointsBecomeReplacementCharacters() {
+    String r = "\uFFFD";
+    assertEquals("a" + r + "b" + r + "c" + r + "d" + r + "e" + r + "f" + r + "g" + r + "h",
+        clean("a\u0001b\u007fc\u0085d\uFFFEe\uFDD0f\uD83F\uDFFFg\uD800h"));
+    assertEquals("a" + r + "b" + r + "c" + r + "d" + r + "e\nf", clean("a&#1;b&#128;c&#xFFFF;d&#x1FFFE;e&#13;f"));
+    HtmlPolicy rich = HtmlPolicy.RICH;
+    assertEquals("<p title=\"" + r + r + "\n\">x</p>", rich.sanitize("<p title=\"\u0001&#x9f;&#13;\">x</p>").html());
+    assertEquals("<img src=\"/a" + r + "b\" alt=\"" + r + "\">", rich.sanitize("<img src=\"/a\u0001b\" alt=\"&#127;\">").html());
+    // the URL is checked before the replacement: a control the browser strips still hides no scheme
+    assertEquals("<a>x</a>", clean("<a href=\"\u0001javascript:alert(1)\">x</a>"));
+    // negative: whitespace, ordinary and supplementary characters are not replaced
+    assertEquals("a\tb\nc\fd \u00E9\u20AC\uD83D\uDE00\uFFFD", clean("a\tb\nc\fd \u00E9\u20AC\uD83D\uDE00\uFFFD"));
+  }
+
   @Test
   void textBreaksMustacheDelimiters() {
     // #248: sanitized text lands in element text, so {{ is broken as by t:text, including braces
