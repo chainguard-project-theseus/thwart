@@ -1,0 +1,787 @@
+001 same      GET /login
+002 same      GET /registration
+003 same      POST /login username=admin&password=wrong
+004 same      POST /login username=admin&password=admin
+005 same      POST /runtimesettings/saveRuntimeSettings runtimeSettings.teamBundle=WORLD_CUP&runtimeSettings.favouriteCountry=GERMANY&runtimeSettings.passwordForReset=&runtimeSettings.timeZone=UTC&runtimeSettings.bootswatchTheme=DEFAULT&runtimeSettings.navbarLayout=DARK&runtimeSettings.jokerMaxCount=-1&runtimeSettings.registrationCode=ab&runtimeSettings.imageUploadLimit=
+006 differs   POST /runtimesettings/saveRuntimeSettings runtimeSettings.teamBundle=WORLD_CUP&runtimeSettings.favouriteCountry=GERMANY&runtimeSettings.enabledParentChildRanking=true&_runtimeSettings.enabledParentChildRanking=on&runtimeSettings.enableChangingUsername=true&_runtimeSettings.enableChangingUsername=on&runtimeSettings.showDemoDataNavigationEntry=true&_runtimeSettings.showDemoDataNavigationEntry=on&runtimeSettings.changePasswordOnFirstLogin=true&_runtimeSettings.changePasswordOnFirstLogin=on&runtimeSettings.passwordForReset=reset123&runtimeSettings.timeZone=UTC&runtimeSettings.bootswatchTheme=DEFAULT&runtimeSettings.navbarLayout=DARK&runtimeSettings.jokerMaxCount=2&runtimeSettings.selfRegistrationEnabled=true&_runtimeSettings.selfRegistrationEnabled=on&runtimeSettings.registrationCode=BENCH1&runtimeSettings.imageUploadLimit=
+--- recorded 006.html
++++ now
+@@ -395,7 +395,7 @@
+                   Gambia
+                 <option value="GEORGIA">
+                   Georgia
+-                <option selected value="GERMANY">
++                <option value="GERMANY">
+                   Germany
+                 <option value="GHANA">
+                   Ghana
+007 same      GET /backup/show
+008 same      GET /backup/execute
+009 same      GET /config/points
+010 same      POST /config/points pointsCorrectResult=4&pointsSameGoalDifference=2&pointsCorrectWinner=1&pointsCorrectNumberOfGoalsOneTeam=1&extraPointsConfig.pointsFinalWinner=10&extraPointsConfig.pointsSemiFinalWinner=5&extraPointsConfig.pointsThirdFinalWinner=2
+011 same      GET /config/points/reset
+012 differs   GET /user
+--- recorded 012.html
++++ now
+@@ -234,7 +234,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="1" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+013 same      GET /user/create
+014 same      POST /user userId=&username=a&password=abc&_child=on
+015 differs   POST /user userId=&username=anna&password=anna1&roles=ROLE_USER&_child=on
+--- recorded 015.html
++++ now
+@@ -236,7 +236,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="1" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -249,7 +249,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="2" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+016 differs   POST /user userId=&username=ben&password=ben12&roles=ROLE_USER&child=true&_child=on
+--- recorded 016.html
++++ now
+@@ -236,7 +236,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="1" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -249,7 +249,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="2" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -262,7 +262,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="3" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+017 differs   POST /user userId=&username=O'Hara<b>&password=ohara1&roles=ROLE_USER_ENTER_RESULTS&_child=on
+--- recorded 017.html
++++ now
+@@ -236,7 +236,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="1" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -249,7 +249,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="2" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -262,7 +262,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="3" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -275,7 +275,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="4" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+018 same      POST /user userId=&username=anna&password=other1&roles=ROLE_USER&_child=on
+019 differs   POST /user userId=&username=temp&password=temp1&roles=ROLE_USER&_child=on
+--- recorded 019.html
++++ now
+@@ -236,7 +236,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="1" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -249,7 +249,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="2" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -262,7 +262,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="3" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -275,7 +275,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="4" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -288,7 +288,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="5" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+020 same      GET /user/2
+021 same      POST /user/edit userId=2&username=a&_child=on
+022 differs   POST /user/edit userId=2&username=anna&roles=ROLE_SUB_ADMIN&_child=on
+--- recorded 022.html
++++ now
+@@ -236,7 +236,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="1" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -249,7 +249,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="2" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -262,7 +262,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="3" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -275,7 +275,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="4" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -288,7 +288,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="5" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+023 differs   POST /user/edit userId=2&username=anna&roles=ROLE_USER&_child=on
+--- recorded 023.html
++++ now
+@@ -236,7 +236,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="1" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -249,7 +249,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="2" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -262,7 +262,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="3" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -275,7 +275,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="4" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -288,7 +288,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="5" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+024 same      GET /user/1
+025 differs   GET /user/3/resetPwd
+--- recorded 025.html
++++ now
+@@ -236,7 +236,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="1" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -249,7 +249,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="2" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -262,7 +262,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="3" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -275,7 +275,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="4" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -288,7 +288,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="5" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+026 differs   GET /user/5/delete
+--- recorded 026.html
++++ now
+@@ -236,7 +236,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="1" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -249,7 +249,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="2" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -262,7 +262,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="3" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -275,7 +275,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="4" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+027 differs   GET /user/1/delete
+--- recorded 027.html
++++ now
+@@ -236,7 +236,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="1" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -249,7 +249,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="2" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -262,7 +262,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="3" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -275,7 +275,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="4" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+028 same      GET /matches
+029 same      POST /match matchId=&countryTeamOne=&countryTeamTwo=&teamNameOne=&teamNameTwo=&kickOffDate=&stadium=&group=GROUP_A
+030 same      POST /match matchId=&countryTeamOne=GERMANY&countryTeamTwo=GERMANY&teamNameOne=&teamNameTwo=&kickOffDate=2099-06-11 18:00&stadium=&group=GROUP_A
+031 same      POST /match matchId=&countryTeamOne=GERMANY&countryTeamTwo=FRANCE&teamNameOne=&teamNameTwo=&kickOffDate=2099-06-11 18:00&stadium=Munich&group=GROUP_A
+032 same      POST /match matchId=&countryTeamOne=SPAIN&countryTeamTwo=ITALY&teamNameOne=&teamNameTwo=&kickOffDate=2099-06-11 21:00&stadium=Berlin&group=GROUP_A
+033 same      POST /match matchId=&countryTeamOne=ENGLAND&countryTeamTwo=PORTUGAL&teamNameOne=&teamNameTwo=&kickOffDate=2099-06-12 18:00&stadium=&group=GROUP_B
+034 same      POST /match matchId=&countryTeamOne=&countryTeamTwo=&teamNameOne=Team <A>&teamNameTwo=B %26 "Co"&kickOffDate=2099-06-12 21:00&stadium=O'Neil <Park>&group=GROUP_B
+035 same      POST /match matchId=&countryTeamOne=GERMANY&countryTeamTwo=SPAIN&teamNameOne=&teamNameTwo=&kickOffDate=2099-07-19 20:00&stadium=Berlin&group=FINAL
+036 same      POST /match matchId=&countryTeamOne=FRANCE&countryTeamTwo=ITALY&teamNameOne=&teamNameTwo=&kickOffDate=2099-07-18 20:00&stadium=Leipzig&group=GAME_FOR_THIRD
+037 same      POST /match matchId=&countryTeamOne=CROATIA&countryTeamTwo=POLAND&teamNameOne=&teamNameTwo=&kickOffDate=2099-06-13 18:00&stadium=&group=GROUP_C
+038 same      GET /match/7
+039 same      GET /match/delete/7
+040 same      GET /matches
+041 same      GET /matches/upcoming
+042 same      GET /matches/group/GROUP_A
+043 same      GET /matches/group/FINAL
+044 same      GET /bet/open
+045 same      GET /bet/createOrUpdate/1?redirectViewName=OPEN_BETS
+046 same      POST /bet betId=&matchId=1&redirectViewName=OPEN_BETS&teamNameOne=Germany&teamNameTwo=France&groupMatch=true&numberOfJokersUsed=0&maxJokers=2&jokerEditable=true&countryTeamOne=GERMANY&countryTeamTwo=FRANCE&goalsTeamOne=-1&goalsTeamTwo=&_useJoker=on
+047 same      POST /bet betId=&matchId=1&redirectViewName=OPEN_BETS&teamNameOne=Germany&teamNameTwo=France&groupMatch=true&numberOfJokersUsed=0&maxJokers=2&jokerEditable=true&countryTeamOne=GERMANY&countryTeamTwo=FRANCE&goalsTeamOne=2&goalsTeamTwo=1&useJoker=true&_useJoker=on
+048 same      GET /bet/createOrUpdate/1?redirectViewName=MATCHES
+049 same      GET /bet/createOrUpdate/5?redirectViewName=GROUP@FINAL
+050 same      POST /bet betId=&matchId=5&redirectViewName=GROUP@FINAL&teamNameOne=Germany&teamNameTwo=Spain&groupMatch=false&numberOfJokersUsed=1&maxJokers=2&jokerEditable=true&countryTeamOne=GERMANY&countryTeamTwo=SPAIN&goalsTeamOne=1&goalsTeamTwo=1&penaltyWinnerOne=true&_useJoker=on
+051 same      POST /bet betId=&matchId=4&redirectViewName=MATCHES&teamNameOne=Team <A>&teamNameTwo=B %26 "Co"&groupMatch=true&numberOfJokersUsed=1&maxJokers=2&jokerEditable=true&goalsTeamOne=0&goalsTeamTwo=3&_useJoker=on
+052 same      GET /bet/open
+053 same      GET /matches/joker
+054 same      GET /extrabets
+055 same      POST /extrabets extraBetId=&finalWinner=GERMANY&semiFinalWinner=SPAIN&thirdFinalWinner=FRANCE
+056 same      GET /extrabets/others
+057 same      GET /info/rules
+058 same      GET /info/prices
+059 same      GET /info/misc
+060 same      GET /info/editinfo/misc
+061 same      POST /info/editinfo name=misc&textContent=<p>Bring <b>snacks</b> %26 drinks.</p>
+062 same      GET /info/editinfo/prices
+063 same      POST /info/editinfo name=prices&textContent=<h3>Prizes</h3><ol><li>50 EUR</li><li>20 EUR</li></ol>
+064 same      GET /info/editinfo/rules
+065 same      POST /info/editinfo name=rules&textContent=<p>Rule 1: <i>be nice</i></p>
+066 same      GET /image/show
+067 same      GET /imagegroup/show
+068 same      POST /imagegroup/save id=&name=
+069 same      POST /imagegroup/save id=&name=Holidays
+070 same      POST /imagegroup/save id=&name=Holidays
+071 same      POST /imagegroup/save id=&name=Temp
+072 same      POST /imagegroup/delete id=3
+073 same      POST /imagegroup/delete id=1
+074 same      POST /image/upload galleryGroup=Holidays&description=&myFileBase64=
+075 differs   POST /image/upload galleryGroup=Holidays&description=Beach <day>&myFileBase64=data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAACKADAAQAAAABAAAACAAAAAD/7QA4UGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAAA4QklNBCUAAAAAABDUHYzZjwCyBOmACZjs%2BEJ%2B/8AAEQgACAAIAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5%2Bv/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5%2Bjp6vLz9PX29/j5%2Bv/bAEMAAgICAgICAwICAwUDAwMFBgUFBQUGCAYGBgYGCAoICAgICAgKCgoKCgoKCgwMDAwMDA4ODg4ODw8PDw8PDw8PD//bAEMBAgICBAQEBwQEBxALCQsQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEP/dAAQAAf/aAAwDAQACEQMRAD8A%2BQ6KKK/Cz/VQ/9k=
+--- recorded 075.html
++++ now
+@@ -325,7 +325,7 @@
+                   <td class="d-none d-sm-block vert-align">
+                     Beach &lt;day&gt;
+                   <td class="text-center">
+-                    <a class="img-link" data-lightbox="" href="/gallery/show/">
++                    <a class="img-link" data-lightbox="/gallery/show/" href="/gallery/show/">
+                       <img alt="image" class="rounded" height="35" src="/gallery/showthumb/">
+                   <td class="text-center">
+                     <a class="btn btn-danger btn-sm" href="/image/delete/" role="button">
+076 differs   GET /gallery/show
+--- recorded 076.html
++++ now
+@@ -253,19 +253,19 @@
+               <span class="fw-bold">
+                 Holidays
+               <br>
+-              <a data-gallery="#blueimp-gallery-Holidays" href="/gallery/show/" title="Beach <day>">
++              <a data-gallery="0" href="/gallery/show/" title="Beach <day>">
+                 <img alt="" class="img-responsive mb-2 me-2 mt-2 rounded" src="/gallery/showthumb/">
+             <div id="Users">
+               <span class="fw-bold">
+                 Users
+               <br>
+-              <a data-gallery="#blueimp-gallery-Users" href="/gallery/show/" title="admin">
++              <a data-gallery="1" href="/gallery/show/" title="admin">
+                 <img alt="" class="img-responsive mb-2 me-2 mt-2 rounded" src="/gallery/showthumb/">
+-              <a data-gallery="#blueimp-gallery-Users" href="/gallery/show/" title="anna">
++              <a data-gallery="1" href="/gallery/show/" title="anna">
+                 <img alt="" class="img-responsive mb-2 me-2 mt-2 rounded" src="/gallery/showthumb/">
+-              <a data-gallery="#blueimp-gallery-Users" href="/gallery/show/" title="ben">
++              <a data-gallery="1" href="/gallery/show/" title="ben">
+                 <img alt="" class="img-responsive mb-2 me-2 mt-2 rounded" src="/gallery/showthumb/">
+-              <a data-gallery="#blueimp-gallery-Users" href="/gallery/show/" title="O'Hara<b>">
++              <a data-gallery="1" href="/gallery/show/" title="O'Hara<b>">
+                 <img alt="" class="img-responsive mb-2 me-2 mt-2 rounded" src="/gallery/showthumb/">
+           <div class="blueimp-gallery blueimp-gallery-controls" id="blueimp-gallery">
+             <div class="slides">
+077 same      GET /cropping/show
+078 same      POST /cropping/upload croppedFileBase64=
+079 same      POST /cropping/upload croppedFileBase64=data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAACKADAAQAAAABAAAACAAAAAD/7QA4UGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAAA4QklNBCUAAAAAABDUHYzZjwCyBOmACZjs%2BEJ%2B/8AAEQgACAAIAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5%2Bv/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5%2Bjp6vLz9PX29/j5%2Bv/bAEMAAgICAgICAwICAwUDAwMFBgUFBQUGCAYGBgYGCAoICAgICAgKCgoKCgoKCgwMDAwMDA4ODg4ODw8PDw8PDw8PD//bAEMBAgICBAQEBwQEBxALCQsQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEP/dAAQAAf/aAAwDAQACEQMRAD8A%2BQ6KKK/Cz/VQ/9k=
+080 same      GET /administration
+081 same      POST /administration/testdata numberOfGroups=13&_includeBets=on&_includeResults=on
+082 same      POST /administration/save numberOfTestUsers=0
+083 same      GET /config/show
+084 same      GET /config/clearCache
+085 same      POST /config/changeLogLevel level=WARN
+086 same      GET /excelexport/show
+087 same      GET /excelimport/show
+088 same      GET /importexport
+089 same      GET /administration/active/users
+090 same      GET /administration/lastlogins
+091 same      GET /profile/changePassword
+092 same      GET /profile/changeUsername
+093 same      POST /logout
+094 same      GET /registration
+095 same      POST /registration token=&username=d&password=dor&passwordRepeat=dor&_child=on
+096 same      POST /registration token=WRONG1&username=dora&password=dora1&passwordRepeat=dora2&_child=on
+097 same      POST /registration token=WRONG1&username=dora&password=dora1&passwordRepeat=dora1&_child=on
+098 same      POST /registration token=BENCH1&username=anna&password=dora1&passwordRepeat=dora1&_child=on
+099 same      POST /registration token=BENCH1&username=dora&password=dora1&passwordRepeat=dora1&_child=on
+100 same      GET /login
+101 same      POST /login username=anna&password=anna1
+102 same      POST /profile/changePassword oldPassword=wrong&newPassword=anna22&newPasswordRepeat=anna22
+103 same      POST /profile/changePassword oldPassword=anna1&newPassword=anna22&newPasswordRepeat=anna23
+104 same      POST /profile/changePassword oldPassword=anna1&newPassword=anna22&newPasswordRepeat=anna22
+105 same      GET /matches
+106 same      GET /bet/open
+107 same      POST /bet betId=&matchId=1&redirectViewName=MATCHES&teamNameOne=Germany&teamNameTwo=France&groupMatch=true&numberOfJokersUsed=0&maxJokers=2&jokerEditable=true&countryTeamOne=GERMANY&countryTeamTwo=FRANCE&goalsTeamOne=2&goalsTeamTwo=0&_useJoker=on
+108 same      POST /bet betId=&matchId=2&redirectViewName=MATCHES&teamNameOne=Spain&teamNameTwo=Italy&groupMatch=true&numberOfJokersUsed=0&maxJokers=2&jokerEditable=true&countryTeamOne=SPAIN&countryTeamTwo=ITALY&goalsTeamOne=1&goalsTeamTwo=1&useJoker=true&_useJoker=on
+109 same      POST /bet betId=&matchId=5&redirectViewName=MATCHES&teamNameOne=Germany&teamNameTwo=Spain&groupMatch=false&numberOfJokersUsed=1&maxJokers=2&jokerEditable=true&countryTeamOne=GERMANY&countryTeamTwo=SPAIN&goalsTeamOne=2&goalsTeamTwo=1&penaltyWinnerOne=false&_useJoker=on
+110 same      GET /extrabets
+111 same      POST /extrabets extraBetId=&finalWinner=SPAIN&semiFinalWinner=GERMANY&thirdFinalWinner=ITALY
+112 same      GET /info/editinfo/misc
+113 same      GET /user
+114 same      GET /profile/changeUsername
+115 same      POST /profile/changeUsername newUsername=a
+116 same      POST /profile/changeUsername newUsername=admin
+117 same      POST /logout
+118 same      POST /login username=ben&password=reset123
+119 same      POST /profile/changePassword oldPassword=reset123&newPassword=ben123&newPasswordRepeat=ben123
+120 same      POST /bet betId=&matchId=1&redirectViewName=MATCHES&teamNameOne=Germany&teamNameTwo=France&groupMatch=true&numberOfJokersUsed=0&maxJokers=2&jokerEditable=true&countryTeamOne=GERMANY&countryTeamTwo=FRANCE&goalsTeamOne=1&goalsTeamTwo=2&_useJoker=on
+121 same      POST /bet betId=&matchId=2&redirectViewName=MATCHES&teamNameOne=Spain&teamNameTwo=Italy&groupMatch=true&numberOfJokersUsed=0&maxJokers=2&jokerEditable=true&countryTeamOne=SPAIN&countryTeamTwo=ITALY&goalsTeamOne=3&goalsTeamTwo=1&_useJoker=on
+122 same      POST /bet betId=&matchId=5&redirectViewName=MATCHES&teamNameOne=Germany&teamNameTwo=Spain&groupMatch=false&numberOfJokersUsed=0&maxJokers=2&jokerEditable=true&countryTeamOne=GERMANY&countryTeamTwo=SPAIN&goalsTeamOne=1&goalsTeamTwo=1&penaltyWinnerOne=true&useJoker=true&_useJoker=on
+123 same      POST /logout
+124 same      POST /login username=dora&password=dora1
+125 same      GET /profile/changeUsername
+126 same      POST /profile/changeUsername newUsername=dorothy
+127 same      POST /logout
+128 same      POST /login username=admin&password=admin
+129 same      GET /match/1
+130 same      POST /match matchId=1&countryTeamOne=GERMANY&countryTeamTwo=FRANCE&teamNameOne=&teamNameTwo=&kickOffDate=2020-06-11 18:00&stadium=Munich&group=GROUP_A
+131 same      POST /match matchId=2&countryTeamOne=SPAIN&countryTeamTwo=ITALY&teamNameOne=&teamNameTwo=&kickOffDate=2020-06-11 21:00&stadium=Berlin&group=GROUP_A
+132 same      POST /match matchId=5&countryTeamOne=GERMANY&countryTeamTwo=SPAIN&teamNameOne=&teamNameTwo=&kickOffDate=2020-07-19 20:00&stadium=Berlin&group=FINAL
+133 same      GET /matches/finishednoresult
+134 same      GET /matchresult/1?redirectViewName=MATCHES
+135 same      POST /matchresult matchId=1&redirectViewName=MATCHES&groupMatch=true&teamNameOne=Germany&teamNameTwo=France&countryTeamOne=GERMANY&countryTeamTwo=FRANCE&teamResultOne=-1&teamResultTwo=1
+136 same      POST /matchresult matchId=1&redirectViewName=MATCHES&groupMatch=true&teamNameOne=Germany&teamNameTwo=France&countryTeamOne=GERMANY&countryTeamTwo=FRANCE&teamResultOne=2&teamResultTwo=1
+137 same      GET /matchresult/5?redirectViewName=GROUP@FINAL
+138 same      POST /matchresult matchId=5&redirectViewName=GROUP@FINAL&groupMatch=false&teamNameOne=Germany&teamNameTwo=Spain&countryTeamOne=GERMANY&countryTeamTwo=SPAIN&teamResultOne=1&teamResultTwo=1&penaltyWinnerOne=true
+139 same      GET /matches
+140 same      GET /matches/past
+141 same      GET /matches/upcoming
+142 same      GET /matches/today
+143 same      GET /matches/yesterday
+144 same      GET /matches/finishednoresult
+145 same      GET /matches/joker
+146 same      GET /bet/open
+147 same      GET /bet/createOrUpdate/1?redirectViewName=MATCHES
+148 same      POST /bet betId=&matchId=2&redirectViewName=MATCHES&teamNameOne=Spain&teamNameTwo=Italy&groupMatch=true&numberOfJokersUsed=1&maxJokers=2&jokerEditable=true&countryTeamOne=SPAIN&countryTeamTwo=ITALY&goalsTeamOne=0&goalsTeamTwo=0&_useJoker=on
+149 differs   GET /bet/others/match/1?redirectViewName=MATCHES
+--- recorded 149.html
++++ now
+@@ -296,7 +296,7 @@
+             <div class="card-body">
+               <div class="align-items-center row">
+                 <div class="col-6 pe-0">
+-                  <a class="img-link" data-lightbox="" href="/gallery/show/">
++                  <a class="img-link" data-lightbox="/gallery/show/" href="/gallery/show/">
+                     <img alt="user profile thumb" class="float-start rounded" src="/gallery/showthumb/" width="30">
+                   <div class="mt-1">
+                     <span class="ms-3">
+@@ -315,7 +315,7 @@
+             <div class="card-body">
+               <div class="align-items-center row">
+                 <div class="col-6 pe-0">
+-                  <a class="img-link" data-lightbox="" href="/gallery/show/">
++                  <a class="img-link" data-lightbox="/gallery/show/" href="/gallery/show/">
+                     <img alt="user profile thumb" class="float-start rounded" src="/gallery/showthumb/" width="30">
+                   <div class="mt-1">
+                     <span class="ms-3">
+150 differs   GET /bet/others/match/5?redirectViewName=GROUP@FINAL
+--- recorded 150.html
++++ now
+@@ -296,7 +296,7 @@
+             <div class="card-body">
+               <div class="align-items-center row">
+                 <div class="col-6 pe-0">
+-                  <a class="img-link" data-lightbox="" href="/gallery/show/">
++                  <a class="img-link" data-lightbox="/gallery/show/" href="/gallery/show/">
+                     <img alt="user profile thumb" class="float-start rounded" src="/gallery/showthumb/" width="30">
+                   <div class="mt-1">
+                     <span class="ms-3">
+@@ -315,7 +315,7 @@
+             <div class="card-body">
+               <div class="align-items-center row">
+                 <div class="col-6 pe-0">
+-                  <a class="img-link" data-lightbox="" href="/gallery/show/">
++                  <a class="img-link" data-lightbox="/gallery/show/" href="/gallery/show/">
+                     <img alt="user profile thumb" class="float-start rounded" src="/gallery/showthumb/" width="30">
+                   <div class="mt-1">
+                     <span class="ms-3">
+151 same      GET /bet/others/match/3?redirectViewName=MATCHES
+152 same      GET /extrabets
+153 differs   GET /extrabets/others
+--- recorded 153.html
++++ now
+@@ -252,7 +252,7 @@
+             <div class="card-header">
+               <div class="align-items-center row">
+                 <div class="col-9">
+-                  <a class="img-link" data-lightbox="" href="/gallery/show/">
++                  <a class="img-link" data-lightbox="/gallery/show/" href="/gallery/show/">
+                     <img alt="user profile thumb" class="float-start rounded" src="/gallery/showthumb/" width="30">
+                   <div class="mt-1">
+                     <span class="ms-3">
+154 differs   GET /ranking
+--- recorded 154.html
++++ now
+@@ -270,7 +270,7 @@
+                   <span class="badge bg-secondary rank-badge">
+                     # 1
+                 <div class="col-2 pe-0 ps-0">
+-                  <a class="img-link" data-lightbox="" href="/gallery/show/">
++                  <a class="img-link" data-lightbox="/gallery/show/" href="/gallery/show/">
+                     <img alt="user profile thumb" class="float-start rounded" src="/gallery/showthumb/" width="30">
+                 <div class="col-5 mt-1">
+                   <span>
+@@ -289,7 +289,7 @@
+                   <span class="badge bg-secondary rank-badge">
+                     # 2
+                 <div class="col-2 pe-0 ps-0">
+-                  <a class="img-link" data-lightbox="" href="/gallery/show/">
++                  <a class="img-link" data-lightbox="/gallery/show/" href="/gallery/show/">
+                     <img alt="user profile thumb" class="float-start rounded" src="/gallery/showthumb/" width="30">
+                 <div class="col-5 mt-1">
+                   <span>
+@@ -303,7 +303,7 @@
+             <span>
+               Toggle Details
+         <div class="col-auto mb-3">
+-          <a class="btn btn-primary" href="/ranking/pdf?mode=" role="button">
++          <a class="btn btn-primary" href="/ranking/pdf?mode" role="button">
+             <i class="fa-file-pdf fas">
+             <span>
+               PDF export
+155 differs   GET /ranking?mode=adult
+--- recorded 155.html
++++ now
+@@ -270,7 +270,7 @@
+                   <span class="badge bg-secondary rank-badge">
+                     # 1
+                 <div class="col-2 pe-0 ps-0">
+-                  <a class="img-link" data-lightbox="" href="/gallery/show/">
++                  <a class="img-link" data-lightbox="/gallery/show/" href="/gallery/show/">
+                     <img alt="user profile thumb" class="float-start rounded" src="/gallery/showthumb/" width="30">
+                 <div class="col-5 mt-1">
+                   <span>
+156 differs   GET /ranking?mode=child
+--- recorded 156.html
++++ now
+@@ -270,7 +270,7 @@
+                   <span class="badge bg-secondary rank-badge">
+                     # 1
+                 <div class="col-2 pe-0 ps-0">
+-                  <a class="img-link" data-lightbox="" href="/gallery/show/">
++                  <a class="img-link" data-lightbox="/gallery/show/" href="/gallery/show/">
+                     <img alt="user profile thumb" class="float-start rounded" src="/gallery/showthumb/" width="30">
+                 <div class="col-5 mt-1">
+                   <span>
+157 same      GET /standings
+158 differs   GET /info/statistic
+--- recorded 158.html
++++ now
+@@ -270,7 +270,7 @@
+             <div class="bg-info-subtle card-header">
+               <div class="row">
+                 <div class="col-2">
+-                  <a class="img-link" data-lightbox="" href="/gallery/show/">
++                  <a class="img-link" data-lightbox="/gallery/show/" href="/gallery/show/">
+                     <img alt="user profile thumb" class="float-start rounded" src="/gallery/showthumb/" width="30">
+                 <div class="col-10">
+                   <span>
+@@ -324,7 +324,7 @@
+             <div class="bg-info-subtle card-header">
+               <div class="row">
+                 <div class="col-2">
+-                  <a class="img-link" data-lightbox="" href="/gallery/show/">
++                  <a class="img-link" data-lightbox="/gallery/show/" href="/gallery/show/">
+                     <img alt="user profile thumb" class="float-start rounded" src="/gallery/showthumb/" width="30">
+                 <div class="col-10">
+                   <span>
+159 same      GET /info/pointsfrequency
+160 differs   GET /pointcourse/show
+--- recorded 160.html
++++ now
+@@ -259,4 +259,4 @@
+     <script src="/js/Chart.bundle.min.js" type="text/javascript">
+     <script src="/js/chartjs-plugin-colorschemes.min.js" type="text/javascript">
+     <script>
+-      var ctx = $('#myChart'); var chartData ={"labels":["Germany - France","Germany - Spain"],"datasets":[{"label":"admin","data":[8,13]},{"label":"ben","data":[0,10]},{"label":"anna","data":[1,2]}],"empty":false}; var myChart = new Chart(ctx,{type:'line',data:chartData,options:{responsive:true,legend:{position:'bottom'},plugins:{colorschemes:{scheme:'brewer.Paired7'}},maintainAspectRatio:false}});
++      var chartData ={"labels":["Germany - France","Germany - Spain"],"datasets":[{"label":"admin","data":[8,13]},{"label":"ben","data":[0,10]},{"label":"anna","data":[1,2]}],"empty":false}; var ctx = $('#myChart'); var myChart = new Chart(ctx,{type:'line',data:chartData,options:{responsive:true,legend:{position:'bottom'},plugins:{colorschemes:{scheme:'brewer.Paired7'}},maintainAspectRatio:false}});
+161 differs   GET /user
+--- recorded 161.html
++++ now
+@@ -252,7 +252,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="1" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -265,7 +265,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="2" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -278,7 +278,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="3" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -291,7 +291,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="6" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+@@ -304,7 +304,7 @@
+             <div class="card-body">
+               <div class="row">
+                 <div class="col-2">
+-                  <a data-lightbox="" href="/gallery/show/">
++                  <a data-lightbox="4" href="/gallery/show/">
+                     <img alt="userImage" class="rounded" src="/gallery/showthumb/" width="34">
+                 <div class="col-7 mt-2">
+                   <span class="fw-bold">
+162 same      GET /matches?lang=de
+163 differs   GET /ranking?lang=en
+--- recorded 163.html
++++ now
+@@ -270,7 +270,7 @@
+                   <span class="badge bg-secondary rank-badge">
+                     # 1
+                 <div class="col-2 pe-0 ps-0">
+-                  <a class="img-link" data-lightbox="" href="/gallery/show/">
++                  <a class="img-link" data-lightbox="/gallery/show/" href="/gallery/show/">
+                     <img alt="user profile thumb" class="float-start rounded" src="/gallery/showthumb/" width="30">
+                 <div class="col-5 mt-1">
+                   <span>
+@@ -289,7 +289,7 @@
+                   <span class="badge bg-secondary rank-badge">
+                     # 2
+                 <div class="col-2 pe-0 ps-0">
+-                  <a class="img-link" data-lightbox="" href="/gallery/show/">
++                  <a class="img-link" data-lightbox="/gallery/show/" href="/gallery/show/">
+                     <img alt="user profile thumb" class="float-start rounded" src="/gallery/showthumb/" width="30">
+                 <div class="col-5 mt-1">
+                   <span>
+@@ -303,7 +303,7 @@
+             <span>
+               Toggle Details
+         <div class="col-auto mb-3">
+-          <a class="btn btn-primary" href="/ranking/pdf?mode=" role="button">
++          <a class="btn btn-primary" href="/ranking/pdf?mode" role="button">
+             <i class="fa-file-pdf fas">
+             <span>
+               PDF export
+164 same      GET /no-such-page
+165 same      POST /logout
+166 same      POST /login username=O'Hara<b>&password=ohara1
+167 same      POST /profile/changePassword oldPassword=ohara1&newPassword=ohara2&newPasswordRepeat=ohara2
+168 same      GET /matches/finishednoresult
+169 same      POST /logout
+tessera-migrate compare: 169 page(s): 146 same, 0 reordered, 23 differ

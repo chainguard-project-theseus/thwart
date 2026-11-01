@@ -21,8 +21,9 @@ container, no web access, 90-minute and $40 budget per run.
 | [New engines run 2](#new-engines-run-2) (run 2) | 3 | the same 3 held-out apps | `tessera-migrate compare` | **1/3** |
 | [New engines run 3](#new-engines-run-3) (run 3) | 2 | espd, ewp-registry | `tessera-migrate compare` | **0/2** |
 | [Post-#583 round](#post-583-round-run-10) (run 10) | 17 | every app, one run each | `tessera-migrate compare` | **8/17** (13/17 counting acceptable differences) |
+| [Quick round after the guide slimming](#quick-round-after-the-guide-slimming-run-11) (run 11) | 3 | spring-petclinic, fredbet, espd | `tessera-migrate compare` | **1/3** (1/3 counting acceptable differences) |
 
-Across all 76 runs, every migrated app builds and passes all of its tests, and no run used
+Across all 79 runs, every migrated app builds and passes all of its tests, and no run used
 `SafeHtml.unchecked`/`TrustedUrl.unchecked`, `permitAll`, CSRF disabling or `@Disabled`. Two
 runs left legacy templates behind: budgetmaster run 4, which stopped early, and espd run 2, whose
 session ended before its last step.
@@ -975,9 +976,87 @@ Existing issue with evidence added: #397 (jprime 10, 1 page and 21 build errors;
 
 Noted, not filed: the sanitizer drops jpetstore's stored `<image>` tag (all four runs worked around it in Java); the guide's `sec:authentication` mapping doesn't say the old output was raw; luckyblog's inbound `#h2-1` deep links no longer resolve after the id prefix.
 
+## Quick round after the guide slimming (run 11)
+
+Run on Nov 1 from `d2cbcd4` to check that parity, cost and time held after these changes:
+- #650 slimmed the guide from 3,019 to 1,016 lines and SKILL.md from 145 to 86 lines, and deleted the diagnostic catalogue (old §6).
+- #655: `tessera-migrate` no longer hoists script values.
+- #656 deleted unused layout rewrites.
+- #654 simplified compare's `PageNormalizer`.
+
+The image was rebuilt from that commit and the three baselines were re-recorded the same day. Every `determinism.txt` is `same`, apart from spring-petclinic's usual HashSet reorder. The round used one `chainctl develop` session with `--jobs 2`. 3 runs cost **$31.58** and took 76 minutes of agent time; the same apps in run 10 cost $58.02 and took 83 minutes. Every agent listed and invoked the skill, and each added `tessera-maven-plugin` with `check` and `review`.
+
+| App | Pass | Tests | Pages same + reordered | Run 10 | Earlier | Acceptable only | Minutes (run 10) | Cost $ (run 10) | Tool calls |
+|---|---|---|---|---|---|---|---|---|---|
+| spring-petclinic | yes | 79/79 | 30+0/30 | 29+1, pass | 30+0 (run 8) | 30/30 | 8.0 (7.7) | 2.25 (2.51) | 46 |
+| fredbet | no | 117/117 | 146+0/169 | 147+0 | 168+0 (run 9) | 168/169 | 34.7 (30.5) | 12.25 (22.14) | 199 |
+| espd (held out) | no | 933/933 | 0+0/60 (0+37 with #659's ignore) | 0+0 | 50+0 (run 3) | 56/60 | 33.6 (44.3) | 17.08 (33.37) | 199 |
+
+**1 of 3 pass, as in run 10, and parity held.**
+- spring-petclinic passes again.
+- fredbet reproduces run 10's differences and loses one page to a Tessera gap the run exposed (#657).
+- espd scores 0 for a harness reason (#659). With an ignore that also covers the hoisted eCertis URL, it compares 37 pages `reordered` and 23 `differs`. Counting acceptable differences it reaches 56/60, against 57 in run 10: page 43's `form:errors` id is now right, and one more page misses `?lang`.
+
+Cost fell by 46%: fredbet and espd each cost about half as much as in run 10. fredbet again split the page work across four parallel forks, while espd worked alone. `num_turns` isn't comparable across these runs (fredbet reports 1, because its main agent waited on its forks), so the table gives tool calls instead. With one run per app, per-app changes are anecdotes.
+
+### Triage
+
+| Run | Pages | Cause | Class | Issue |
+|---|---|---|---|---|
+| fredbet 11 | 20 | `data-lightbox` group keys are a per-user counter (`1`, `2`, `3`) on the user lists and the image's `@{}` link elsewhere. They have the same equality as the original's image keys, which is all lightbox2 uses | Acceptable (forced by #583), as run 10 | |
+| fredbet 11 | 1 (076) | blueimp's `data-gallery` is a group index (`0`, `1`) instead of `#blueimp-gallery-<group>`. The loaded library doesn't read it; run 10 dropped it | Acceptable | |
+| fredbet 11 | 1 (160) | `var chartData = [[...]]` moved above `var ctx = $('#myChart')` under the prelude rule. The original isn't in prelude form, so compare can't expand it | Acceptable (forced by #540), as run 10 | |
+| fredbet 11 | 1 (006) | The favourite-country `<option>`s come from a fragment inserted with `t:replace` inside `<select t:field>`, and none is marked `selected`, with no diagnostic. The agent's own compare showed `/runtimesettings/show` differing, and it called every remaining difference clock, random or a known rule change | Tessera gap + agent slip | #657 (new) |
+| fredbet 11 | 2 (154, 163; none only this) | A fork checked that `DefaultLinks` prints `/ranking/pdf?mode=` for a null mode, as the original does, and then hand-wrote `@{/ranking/pdf} + '?mode'` anyway | Agent slip | |
+| espd 11 | 60 (37 only this) | The layout script's eCertis URL is now a prelude declaration (`var ecertisCriterionURL = ("...")`). The bench's ignore matches only the in-place literal, so compare can't expand the prelude | Acceptable (harness) | #659 (new) |
+| espd 11 | 11 (7 only this) | `data-target-show/hide="#x-self-cleaning-<i>"` is split into a literal `-prefix` and a numeric `-index`, which a new handler in `init.js` joins | Acceptable (forced by #583, §4.4 recipe) | |
+| espd 11 | 10 (5 only this) | Collapse headings: the computed `data-target="#createeo_info_respresent_div<i>"` moved to `href`, which Bootstrap 3's collapse reads when `data-target` is absent | Acceptable (forced by #583) | |
+| espd 11 | 3 (14, 16, 18) | A mis-encoded U+0081 in a tooltip message is written as U+FFFD | Acceptable (#614), as run 10 | |
+| espd 11 | 2 (20, 21) | The hidden PDF-copy input | Acceptable (as runs 2, 3, 10) | |
+| espd 11 | 4 (27, 29, 52, 53) | `?lang=xx` is missing from `t:action="@{...}"` form actions. Guide §4.10 now says a `t:action` must pass the query parameters itself (#631), and the agent had read it | Agent slip | |
+
+espd's page counts come from re-running compare on the run-11 checkout with the ignore widened to the declaration form. The committed `compare.txt` and `score.json` are the harness's own: 0+0/60.
+
+### The slimmed guide in practice
+
+- **Reading.** All three agents read the whole guide once at the start: the 86-line SKILL.md, then the 1,016-line guide in two `sed` ranges or one `Read`. None searched it again later, and none went looking for a removed section. fredbet's forks inherited it from the main context.
+- **Compiler errors without the catalogue.** No agent flailed. espd's error set was the hardest:
+  - Bundle messages holding `<p/>` produced 67 lines of `PARSE_ERROR`: "a browser ignores the '/' of `<p/>`, because `<p>` isn't a void element, and reads what follows as inside the `<p>`; write the end tag".
+  - It also hit `MESSAGE_CHANGES_STATE`: "a browser parses the markup of this HTML message so that it closes an open `<p>` around it ...; close every element the message opens, and insert it where its markup fits (a message with a `<p>` in a `<div>`, not in a `<p>`)".
+  - And `RAW_CLOSES_ELEMENT`: "... insert it in a `<div>` instead, outside the open element".
+
+  The old §6 rows for these codes gave the same fix in nearly the same words. espd cleared them in three compile cycles, with a helper that closes the messages' `<p/>`s and then sanitizes. fredbet's errors were the converter stubs' `parameter type java.lang.Object is not allowed: java.lang.Object is never view-safe: declare a specific type` (fixed file by file) and one `duplicate attribute 't:if'`. spring-petclinic hit one `end tag </a> does not match any open element`. In every case the compiler's message alone was enough. **No guide gap came from the slimming.**
+- **Tools.**
+  - All three ran `tessera-migrate --help`, recorded their own baseline and compared against it repeatedly.
+  - spring-petclinic and fredbet ran the Thymeleaf rewrite. espd, a JSP app, wrote its own converter script.
+  - All three added `tessera-maven-plugin` `check` + `review` and read `target/tessera-review.txt`. In run 10, espd skipped the plugin.
+  - fredbet and espd read the generated sources, and espd read them to diagnose #658.
+- **Scripts without hoisting (#655).** fredbet has one data script (`/pointcourse/show`). The agent moved its `[[...]]` declaration to the top straight from the guide, with no build error, and its report explains the order change. espd wrote its layout prelude the same way.
+
+One more Tessera gap showed up as build friction rather than a page difference. espd's generated 12,400-line criteria template compiled to methods over the JVM's 64 KB limit, and only javac's `code too large`, against the generated source, said so (#658).
+
+### Security review
+
+No run used `SafeHtml.unchecked`, `TrustedUrl.unchecked`, `Fragment.unverifiedForGeneratedCode`, `internalUnverified$` or `permitAll`, disabled CSRF, or added `@Disabled`. The `diff.patch` hits are all report prose, and `tessera:review` lists 0 unchecked calls in each app.
+- spring-petclinic has no raw output.
+- fredbet prints stored rich text through `html.sanitizeRich` at 3 sites.
+- espd prints bundle messages with markup through `SafeHtml.sanitize` with an app `HtmlPolicy`, after closing their `<p/>`s.
+
+### Issues
+
+Filed from this round (label `migration-bench`):
+
+- #657 `t:field` on `<select>`: options a fragment inserts are never marked `selected` (fredbet 11, 1 page)
+- #658 Large templates: a generated method exceeds the JVM 64 KB limit with no template-level diagnostic (espd 11)
+- #659 Bench: espd's eCertis ignore misses the script-prelude form (espd 10 and 11, 60 pages)
+
+Guide sentences to restore: none, since no slimming gap was found. #657 proposes one new sentence: write a `<select t:field>`'s options inline.
+
+Noted, not filed: fredbet's report says `HtmlPolicy.builder()` can't allow `<a>`, so only the built-in `sanitize`/`sanitizeRich` keep links. No page depended on it.
+
 ## Limitations
 
-- **Small samples.** One or two runs per app in #151, one in runs 7, 8, 9 and 10, and two or three on the new engines before run 10; the hard apps vary between runs.
+- **Small samples.** One or two runs per app in #151, one in runs 7, 8, 9, 10 and 11, and two or three on the new engines before run 10; the hard apps vary between runs.
 - **FreeMarker coverage leans on two apps.** JobSearch has no license (its patches aren't
   committed) and a single context-loads test; BudgetMaster is held out.
 - **One app per new engine.** Spring 5+ dropped Velocity, so luckyblog (Boot 1.4) is the only Velocity app;
