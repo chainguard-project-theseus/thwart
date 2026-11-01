@@ -88,7 +88,9 @@ The old application is the specification. Work the way an expert would, keeping 
    `x-*`, `v-*`, a custom element's own attributes, ...) takes only a framework-neutral value: a
    number, a boolean, a same-origin link `@{/items/{id}(id=${item.id})}` without a query, or a
    choice between those and literals. A `String` there is a build error, which `tessera-migrate`
-   leaves to the compiler: apply the matching recipe in guide section 4.4, Migration recipes. In a
+   leaves to the compiler: apply the matching recipe in guide section 4.4, Migration recipes. A
+   choice of literals listing the values of a data range, messages hard-coded as literals, and a
+   script that copies a value back into `data-*` are not recipes (guide section 4.4). In a
    JavaScript `<script>`, each `[[...]]` must be the whole value of a declaration at
    the top, `const x = [[${x}]];`, before any other code (the script prelude rule, guide section 6);
    `tessera-migrate` hoists the other values into `var _t1 = [[...]];` declarations there and reports
@@ -110,7 +112,9 @@ The old application is the specification. Work the way an expert would, keeping 
    page passes but prints its diff, so check that what moved is harmless. Text that changes on
    every run (times, random ids) can be masked with `--ignore REGEX`; keep it narrow, since what it
    matches is never compared. Few differences are right. An empty value or a 500 nearly always
-   means a value the old template took from outside the model.
+   means a value the old template took from outside the model. A difference that a section 4.4
+   recipe causes is right, including a changed content-hashed asset URL. Write it down, or mask the
+   hash narrowly. Don't avoid the recipe.
 6. **Remove the old engine**: this completes the security guarantee. Remove its templates, its
    dependency and its configuration. Diff `mvn dependency:list` from before and after, and declare
    the libraries the app still uses that came with the old engine. Then build, test and compare
