@@ -47,8 +47,8 @@ class FragmentTest {
 
   /** Negative: a generated value renders, but is refused where Java hands it to a template. */
   @Test
-  void generatedFragmentIsRefusedWhereJavaHandsItIn() {
-    Fragment f = Fragment.generated((ctx, out) -> out.write("</form><form action=\"https://evil\">"));
+  void unverifiedFragmentIsRefusedWhereJavaHandsItIn() {
+    Fragment f = Fragment.unverifiedForGeneratedCode((ctx, out) -> out.write("</form><form action=\"https://evil\">"));
     StringOutput out = new StringOutput();
     f.render(null, out);
     assertEquals("</form><form action=\"https://evil\">", out.toString());
@@ -61,8 +61,8 @@ class FragmentTest {
   }
 
   @Test
-  void generatedNeedsABody() {
-    assertThrows(NullPointerException.class, () -> Fragment.generated(null));
+  void unverifiedForGeneratedCodeNeedsABody() {
+    assertThrows(NullPointerException.class, () -> Fragment.unverifiedForGeneratedCode(null));
   }
 
   private static Template template(boolean flow) {
