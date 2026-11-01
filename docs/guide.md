@@ -742,7 +742,7 @@ The compiler decides the context from the element and attribute name. You cannot
 | Raw HTML | `t:utext`, `[(...)]` | Only `SafeHtml`, or a bundle message checked at build time (section 4.5), compiles. Not inside `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>`, `<noscript>`, `<textarea>` or `<title>`, which a browser reads as text up to their end tag (nor are `t:insert` and `t:replace`). |
 | Attribute | an inert-text attribute: a standard attribute whose value is text, a keyword, a number, a boolean, an ID or a token list (`title`, `alt`, `class`, `id`, `value` (not on `<param>`), `name`, `type`, `placeholder`, `aria-*`, `role`, ...; on SVG and MathML only the text and language attributes), the `content` of a `<meta>` whose static `name` is `description`, `keywords`, `author`, `application-name`, `generator`, `color-scheme` or `theme-color`, with no computed `name` and no `http-equiv`, `property` or `itemprop` | Escaped, always double-quoted. On a custom element too. |
 | Typed attribute | any other standard HTML, SVG, MathML or ARIA attribute without a context of its own: `rel`, `target`, `sandbox`, `allow`, `crossorigin`, `itemtype`, `usemap` (a `#name`, not a URL), the `content` of any other `<meta>` (`viewport`, `referrer`, `apple-itunes-app`, an unknown name, Open Graph `og:*`, ...), and on SVG and MathML the geometry and presentation attributes (`x`, `width`, `transform`, `stroke-width`, `viewBox`, ...) | Only string literals, numbers and a choice between literals (`${newWindow} ? '_blank' : '_self'`) compile, attribute-escaped; a boolean attribute takes a condition. A `String`, enum, other plain value or safe type (`TrustedUrl`, `CssValue`) is a build error: write a static attribute, choose between literals with a boolean, or use a `<script type="application/json">` block if a script reads it. |
-| URL | the attributes whose value is exactly one URL: `href`, `src`, `action`, `formaction`, `cite`, `poster`, `manifest`, ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. A computed `action` of a `<form>` takes only a same-origin link or a `TrustedUrl`, and a computed `formaction` only a same-origin link (below and section 4.7). |
+| URL | the attributes whose value is exactly one URL: `href`, `src`, `action`, `formaction`, `cite`, `poster`, `manifest`, ... | Only `http`, `https`, `mailto`, `tel` and relative URLs pass; anything else becomes `about:invalid#tessera`. `TrustedUrl` passes as is. A computed `action` of a `<form>` takes only a same-origin link or a `TrustedUrl`, and a computed `formaction` only a same-origin link; a choice whose every branch is a same-origin link is accepted too (below and section 4.7). |
 | URL list | attributes that hold URLs but not exactly one: `ping` (space-separated URLs), `srcset` and `imagesrcset` (comma-separated image candidates), and `values`, `to`, `from` and `by` of SVG `<animate>` and `<set>`, whose meaning depends on `attributeName` (not when they animate a Style attribute, below) | Tessera does not check these item by item, so only string literals, numbers, a choice between literals and a `TrustedUrl` compile, attribute-escaped: `t:srcset="\|${img.url} 1x, /hi.png 2x\|"` with `img.url` a `TrustedUrl`, or `t:to="${n}"` for a number. A `String` is a build error: build the whole value as a `TrustedUrl` in Java, or choose between literals. |
 | Resource URL | `script[src]`, `iframe[src]`, `embed[src]`, `object[data]`, `base[href]`, `link[href]` | Only a literal-path `@{...}` link or a `TrustedUrl` compiles. A `<base href>` must be same-origin (section 4.7). |
 | Neutral | every other name: `data-*`, htmx's `hx-*` (`hx-get`, `hx-boost`, `hx-vals`, `hx-on:click`, ...), Vue's `v-*` and `v-bind:x`, Alpine's `x-*`, `ng-*`, `up-*`, a custom element's own attributes, any name outside HTML | Client code may run what it reads there, so a computed value must be framework-neutral: a number (written in plain decimal; a `BigDecimal` or `BigInteger` subclass, NaN or Infinity fails the render), a boolean, a link `@{/path/{id}(id=...)}` whose literal path starts with a single `/` and holds only letters, digits, `. _ ~ / -` and `%XX`, with every parameter filling a path variable (no query), or a choice between those and literals (`${open} ? 'yes' : 'no'`). A `String`, a concatenation or any other type is a build error (below). A computed htmx 1.x `hx-sse` or `hx-ws` is a build error (#562). Static values are copied verbatim. |
@@ -1022,8 +1022,11 @@ the script (What is not a recipe, above).
 Client code can submit any form with AJAX and swap the response into the page as HTML (htmx 1.x's
 `hx-boost` does), so a form's computed `t:action` takes only a link whose literal path starts with
 a single `/` (`t:action="@{/owners/{id}/edit(id=${owner.id})}"`) or a `TrustedUrl` built in Java,
-with or without htmx; a `String` is a build error. Static actions are copied as written. The rest of
-htmx behaviour is outside the guarantee: use htmx 2 or set `htmx.config.selfRequestsOnly = true`.
+with or without htmx; a `String` is a build error. A choice whose every branch is such a link
+compiles too (`t:action="${admin} ? @{/admin/edit} : @{/edit}"`, also nested or without an else
+branch); a choice with any other branch (a `String`, a literal, a concatenation, another link) is a
+build error. Static actions are copied as written. The rest of htmx behaviour is outside the
+guarantee: use htmx 2 or set `htmx.config.selfRequestsOnly = true`.
 
 Vue (2 and 3) and petite-vue compile the page's HTML as a template when they mount
 it, so a `{{ ... }}` in printed user data would run as an expression, escaped or not. Element
@@ -1486,24 +1489,27 @@ public record Address(String street) {}
     `<form>` is a build error: write `method="post"` or `method="get"`, or two forms.
   - The action is absent (the form posts to the page's own URL), a static same-origin URL
     (`/owners`, `edit`, `?page=2`), or a link with a literal path starting with a single `/`
-    (`t:action="@{/owners/{id}(id=${owner.id})}"`). Any other computed action of a POST form (a
-    `String`, a `TrustedUrl`, a relative or absolute link) is a build error: use such a link, or
-    omit the action. A static action on another origin (`action="https://pay.example/..."`) is the
-    author's visible choice: the form gets no token, so the session's token is never sent to
-    another site. An absolute URL to the application's own host counts as another origin, and
-    Spring Security then rejects the POST: write it as `@{/...}`.
+    (`t:action="@{/owners/{id}(id=${owner.id})}"`), or a choice whose every branch is such a link
+    (`t:action="${admin} ? @{/admin/edit(id=${id})} : @{/cfp}"`, also nested; a missing else
+    branch omits the action). Each branch gets the same render-time check as a lone link. Any other
+    computed action of a POST form (a `String`, a `TrustedUrl`, a relative or absolute link, or a
+    choice with any such branch) is a build error: use such a link, or omit the action. A static
+    action on another origin (`action="https://pay.example/..."`) is the author's visible choice:
+    the form gets no token, so the session's token is never sent to another site. An absolute URL
+    to the application's own host counts as another origin, and Spring Security then rejects the
+    POST: write it as `@{/...}`.
   - A submit button sends its form, token included, to its `formaction`, and a `form` attribute or
     a fragment can make it submit any form, so every `formaction` and `formmethod`, in any form or
-    none, is held to the same rule: a computed `formaction` must be such a link, a static one
-    same-origin like a static `action`, and `formmethod` a static `post` or `dialog` (anything
-    else submits as GET with the token in the URL).
+    none, is held to the same rule: a computed `formaction` must be such a link (or a choice of
+    them), a static one same-origin like a static `action`, and `formmethod` a static `post` or
+    `dialog` (anything else submits as GET with the token in the URL).
   - Every relative URL on the page resolves against `<base href>`, so every `<base>` must be
     same-origin, in any template (a layout's `<base>` applies to the forms its fragments insert):
     a static `href` like a static `action` (`/app/`, `app/`), a computed one a link with a literal
-    path starting with a single `/` (`t:href="@{/app/}"`). Where another origin is meant, drop
-    `<base>` and write absolute URLs.
-  - The computed action of any other form (a GET form) must be such a link or a `TrustedUrl`:
-    client code may submit it and swap the response in (section 4.4).
+    path starting with a single `/` (`t:href="@{/app/}"`) or a choice of them. Where another
+    origin is meant, drop `<base>` and write absolute URLs.
+  - The computed action of any other form (a GET form) must be such a link (or a choice of them)
+    or a `TrustedUrl`: client code may submit it and swap the response in (section 4.4).
   - htmx is not modelled: what it sends where (`hx-post`, `hx-get`, a boost, htmx 1.x's `hx-ws`)
     is outside the guarantee. Use htmx 2 or set `htmx.config.selfRequestsOnly = true`.
   - A `<form>` nested in another, also through a fragment, a layout or any `Fragment` value a
@@ -2723,8 +2729,8 @@ These come from the annotation processor itself, without a template position.
 - `<label> is not allowed: a refresh URL must be a same-origin path starting with a single '/', not @{<path>}`. Absolute, protocol-relative and page-relative links cannot be refresh targets; redirect from the controller instead.
 - `<label> is not allowed: htmx 1.x's hx-ws and hx-sse are not supported; use htmx 2's ws-connect or sse-connect with a same-origin URL such as /chat or @{/events}`. On a computed `hx-sse` or `hx-ws` (also with `data-`): `hx-ws="connect:/chat"` becomes `ws-connect="/chat"` with the htmx 2 `ws` extension, `hx-sse="connect:/events"` becomes `sse-connect="/events"` with the `sse` extension.
 - `<label> is not allowed: a form's computed action must stay on the page's origin, since client code may submit the form and swap the response into the page as HTML; use a same-origin link such as @{/items/{id}(id=${item.id})}, or a TrustedUrl built in Java if another site is meant`. On a computed `action` (`t:action`, `t:attr="action=..."`) of a `<form>` that is not a static POST form, when it is neither a link nor a `TrustedUrl` (section 4.4). A link that is not same-origin is reported as `the action of a form must be a same-origin path starting with a single '/', not @{<path>}`.
-- `<label> is not allowed: a submit button sends its form, CSRF token included, to its formaction; use a same-origin link such as @{/items/{id}(id=${item.id})}`. On every computed `formaction` (`t:formaction`, `t:attr="formaction=..."`; section 4.7). A fragment that takes its `formaction` as a `String` parameter cannot pass this check: write the link inside the fragment, or drop the parameter if every caller passes `''`. A link that is not same-origin is reported as `a formaction, which may receive the CSRF token, must be a same-origin path starting with a single '/', not @{<path>}`.
-- `<label> is not allowed: a POST form gets the CSRF token, which then goes to its action; use a same-origin link such as @{/items/{id}(id=${item.id})}; omit the action to post to the page's own URL, or write a static action="https://..." if another site is meant (it gets no token)`. On a computed `action` (`t:action`, `t:attr="action=..."`) of a `<form method="post">` that is not a link (section 4.7). A link that is not same-origin (`@{https://...}`, `@{//...}`, `@{edit}`) is reported as `the action of a POST form, which gets the CSRF token, must be a same-origin path starting with a single '/', not @{<path>}`.
+- `<label> is not allowed: a submit button sends its form, CSRF token included, to its formaction; use a same-origin link such as @{/items/{id}(id=${item.id})}`. On every computed `formaction` (`t:formaction`, `t:attr="formaction=..."`; section 4.7) that is not a link, or at a branch of a choice that is not one. A fragment that takes its `formaction` as a `String` parameter cannot pass this check: write the link inside the fragment, or drop the parameter if every caller passes `''`. A link that is not same-origin is reported as `a formaction, which may receive the CSRF token, must be a same-origin path starting with a single '/', not @{<path>}`.
+- `<label> is not allowed: a POST form gets the CSRF token, which then goes to its action; use a same-origin link such as @{/items/{id}(id=${item.id})}; omit the action to post to the page's own URL, or write a static action="https://..." if another site is meant (it gets no token)`. On a computed `action` (`t:action`, `t:attr="action=..."`) of a `<form method="post">` that is not a link, or at a branch of a choice (`c ? a : b`) that is not one (section 4.7). A link that is not same-origin (`@{https://...}`, `@{//...}`, `@{edit}`) is reported as `the action of a POST form, which gets the CSRF token, must be a same-origin path starting with a single '/', not @{<path>}`.
 - `<label> is not allowed: the method decides whether the form gets the CSRF token, so it must be static; write method="post" or method="get", or two forms`. On a computed `method` of a `<form>` (`t:method`, `t:attr="method=..."`; section 4.7).
 - `<label> is not allowed: every relative URL on the page resolves against <base href>, so a POST form with a relative action would send the CSRF token there; use a same-origin link such as @{/items/{id}(id=${item.id})}`. On a computed `href` of a `<base>` (`t:href`, `t:attr="href=..."`) that is not a link (section 4.7). A link that is not same-origin is reported as `a <base href> must be a same-origin path starting with a single '/', not @{<path>}`.
 - `href="<url>" on <base> is not allowed: every relative URL on the page resolves against <base href>, so a POST form with a relative action would send the CSRF token there, and this URL is not same-origin; use a same-origin path such as /app/, or remove <base> and write absolute URLs where another origin is meant`. A static `<base href>` with a scheme or starting with `//` or `/\`.

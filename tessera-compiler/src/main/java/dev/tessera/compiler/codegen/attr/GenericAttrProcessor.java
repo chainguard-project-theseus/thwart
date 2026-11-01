@@ -32,10 +32,11 @@ import javax.lang.model.type.TypeMirror;
  * ({@link OutputContext}) say what each attribute accepts. This processor adds: boolean attributes
  * ({@code checked}, {@code disabled}, ...) take a condition; a NEUTRAL name (#584) takes only a
  * framework-neutral value ({@link #neutralSafe}); a {@code <base href>} (#350), the
- * {@code action} of a static POST form and every
- * {@code formaction} (they may receive the CSRF token, {@link CsrfInjector}) take only a
- * same-origin link; the {@code action} of any other form a same-origin link or a {@code TrustedUrl}
- * (client code may submit it and swap the response in, #585); and a computed {@code formmethod},
+ * {@code action} of a static POST form and every {@code formaction} (they may receive the CSRF
+ * token, {@link CsrfInjector}) take only a same-origin link or a choice between such links (#635);
+ * the {@code action} of any other form a same-origin link (or a choice of them) or a
+ * {@code TrustedUrl} (client code may submit it and swap the response in, #585); and a computed
+ * {@code formmethod},
  * or {@code method} on a {@code <form>}, is a build error.
  */
 public final class GenericAttrProcessor implements AttributeProcessor {
@@ -359,30 +360,54 @@ public final class GenericAttrProcessor implements AttributeProcessor {
    * A URL that must stay on the page's origin: a {@code <base href>} (#350), the {@code action} of a
    * POST form or a {@code formaction}, which may receive the CSRF token (#285, #314), and a link
    * {@code action} of any other form (#585). Only a link whose literal path is same-origin
-   * ({@link LinkCompiler#isSameOriginPath}) compiles, re-checked at render time ({@link #sameOrigin}).
+   * ({@link LinkCompiler#isSameOriginPath}) compiles, re-checked at render time ({@link #sameOrigin}),
+   * or a choice ({@code c ? a : b}, {@code c ? a}) whose every branch is one (#635), as
+   * {@link #neutralSafe} takes a choice; a missing else branch omits the attribute.
    * {@code why} starts the error for a non-link value and {@code orElse} ends it; {@code what} names
    * the URL in the error for a link that is not same-origin.
    */
   private static void sameOriginUrl(
       CodegenContext ctx, ElementPlan plan, String name, Expr value, SourcePos pos, String label, String why,
       String orElse, String what) {
+    String code = sameOriginCode(ctx, plan, value, pos, label, why, orElse, what);
+    if (code != null) {
+      plan.setAttribute(name, code, pos);
+    }
+  }
+
+  /**
+   * The code of a value {@link #sameOriginUrl} accepts: each link through {@link #sameOrigin}. Null
+   * after reporting why not, for a value that is not a link at {@code pos} (a branch at its own).
+   */
+  private static String sameOriginCode(
+      CodegenContext ctx, ElementPlan plan, Expr value, SourcePos pos, String label, String why, String orElse,
+      String what) {
+    if (value instanceof Expr.Conditional) {
+      Expr.Conditional c = (Expr.Conditional) value;
+      CompiledExpr cond = ctx.expressions().compileCondition(c.condition(), plan.scope());
+      String then = sameOriginCode(ctx, plan, c.then(), c.then().pos(), label, why, orElse, what);
+      String otherwise = c.otherwise() == null
+          ? "null"
+          : sameOriginCode(ctx, plan, c.otherwise(), c.otherwise().pos(), label, why, orElse, what);
+      return cond == null || then == null || otherwise == null
+          ? null
+          : "(" + cond.code() + " ? " + then + " : " + otherwise + ")";
+    }
     if (!(value instanceof Expr.Link)) {
       ctx.diagnostics()
           .error(pos, label + " is not allowed: " + why + "; use a same-origin link such as"
               + " @{/items/{id}(id=${item.id})}" + orElse);
-      return;
+      return null;
     }
     Expr.Link link = (Expr.Link) value;
     if (!LinkCompiler.isSameOriginPath(link.path())) {
       ctx.diagnostics()
           .error(link.pos(), label + " is not allowed: " + what + " must be a same-origin path starting"
               + " with a single '/', not @{" + link.path() + "}");
-      return;
+      return null;
     }
     CompiledExpr c = ctx.expressions().compileOutput(link, plan.scope());
-    if (c != null) {
-      plan.setAttribute(name, sameOrigin(c), pos);
-    }
+    return c == null ? null : sameOrigin(c);
   }
 
   /**

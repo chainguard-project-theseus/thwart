@@ -107,14 +107,15 @@ class CsrfBaseTest {
   void sameOriginBaseKeepsToken() {
     Compilation c =
         compile("<base href=\"/app/\"><base href=\"\"><base href=\"app/\"><base target=\"_blank\">"
-            + "<base t:href=\"@{/app/}\"><base t:attr=\"href=@{/app/{x}/(x=${u})}\">" + FORM)
+            + "<base t:href=\"@{/app/}\"><base t:attr=\"href=@{/app/{x}/(x=${u})}\">"
+            + "<base t:href=\"${u} != null ? @{/app/} : @{/other/}\">" + FORM)
             .assertSuccess();
     TestForms forms = new TestForms();
     forms.token = new Forms.CsrfToken("_csrf", "tok");
     String out = c.render("page", Map.of("u", "x y", "t", TrustedUrl.unchecked("https://evil.example/")), ctx(forms));
     assertEquals(
         "<div>\n<base href=\"/app/\"><base href=\"\"><base href=\"app/\"><base target=\"_blank\">"
-            + "<base href=\"/app/\"><base href=\"/app/x%20y/\">"
+            + "<base href=\"/app/\"><base href=\"/app/x%20y/\"><base href=\"/app/\">"
             + "<form method=\"post\" action=\"/transfer\">" + INPUT + "<button formaction=\"ok\">Go</button></form>\n</div>",
         out);
   }

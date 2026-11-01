@@ -30,9 +30,9 @@ import java.util.regex.Pattern;
  *       method on a {@code <form>} is a build error ({@code GenericAttrProcessor}).
  *   <li>The action is absent, a static URL same-origin by shape ({@link Escapers#isSameOriginUrl}),
  *       or, computed ({@code t:action}, {@code t:attr="action=..."}), a link with a same-origin
- *       literal path, re-checked when rendered ({@code GenericAttrProcessor}); any other computed
- *       action of a static POST form is a build error. A static action on another origin is the
- *       author's visible choice: no token.
+ *       literal path, re-checked when rendered, or a choice whose every branch is one (#635;
+ *       {@code GenericAttrProcessor}); any other computed action of a static POST form is a build
+ *       error. A static action on another origin is the author's visible choice: no token.
  *   <li>Every {@code formaction} and {@code formmethod}, in any form or none, is checked as if its
  *       form got the token: {@link #checkSubmitter} and {@code GenericAttrProcessor}.
  *   <li>Every static {@code <base href>} is same-origin by shape: {@link #checkBase}; a computed
@@ -75,7 +75,8 @@ public final class CsrfInjector {
             && !isSameOriginStatic(((ElementPlan.StaticAttr) action.get()).source().value()))) {
       return;
     }
-    // A computed action here is a same-origin link (GenericAttrProcessor), or the build has failed.
+    // A computed action here is a same-origin link or a choice of them (GenericAttrProcessor), or the
+    // build has failed.
     plan.afterStartTag(tokenInput(ctx, plan.element().pos(), ownTokenNames(plan)));
   }
 
