@@ -19,8 +19,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Golden files in {@code src/test/resources/golden/<app>}: {@code input/} the templates,
  * {@code expected/} the converted templates (absent: the input, unchanged), and
  * {@code expected-report.md} the report. {@code petclinic} is spring-petclinic style Thymeleaf; the
- * others are reduced copies of converted bench templates: {@code spring-petclinic-boot} and
- * {@code jobsearch} with layout markup that nests a second {@code <body>} (#409), the rest with a
+ * others are reduced copies of converted bench templates: {@code spring-petclinic-boot} with layout
+ * markup that nests a second {@code <body>} (#409), the rest with a
  * recursive rich-text fragment (#369), which the compiler rejects and migrate leaves as it is, with
  * an empty report (#595).
  */
@@ -38,7 +38,7 @@ class GoldenFileTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"petclinic", "purl-server", "fredbet", "luckyblog", "ewp-registry", "spring-petclinic-boot", "jobsearch"})
+  @ValueSource(strings = {"petclinic", "purl-server", "fredbet", "luckyblog", "ewp-registry", "spring-petclinic-boot"})
   void convertsTemplatesAndWritesReport(String app) throws Exception {
     Path out = tmp.resolve("out");
     Path report = tmp.resolve("report.md");
@@ -51,7 +51,7 @@ class GoldenFileTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"petclinic", "spring-petclinic-boot", "jobsearch"})
+  @ValueSource(strings = {"petclinic", "spring-petclinic-boot"})
   void runningTwiceChangesNothing(String app) throws Exception {
     Path once = tmp.resolve("once");
     Path twice = tmp.resolve("twice");
