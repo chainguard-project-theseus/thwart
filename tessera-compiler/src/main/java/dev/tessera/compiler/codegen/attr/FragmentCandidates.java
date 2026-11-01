@@ -18,8 +18,9 @@ import java.util.Optional;
  * is a {@link Skeleton.ParamInsert}, bound at each call site; {@code null} writes nothing; a
  * {@code t:with} alias is what its value was ({@link Scope#fragment}); a ternary or Elvis is the
  * union of its branches. A page parameter is built in Java and stays a {@code FLOW} value
- * (TODO(#581)). Anything else is a build error, also any function or method call whatever its
- * parameter types: one that takes {@code Object} could hand back a template-built value unchecked.
+ * (#581: the generated page refuses one that isn't a {@code Fragment.of}). Anything else is a
+ * build error, also any function or method call whatever its parameter types: one that takes
+ * {@code Object} could hand back a template-built value unchecked.
  * A {@code ~{...}} reference is handled where it is written ({@code InsertReplaceProcessor}).
  */
 final class FragmentCandidates {

@@ -283,8 +283,9 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       return null;
     }
     return new Call(
-        new Skeleton.FragmentId(target.viewName(), f.name()), target.className() + "." + f.methodName(), codes, types,
-        fragmentArgs, target.viewName() + " :: " + f.name(), f.element(), target.parsingContexts());
+        new Skeleton.FragmentId(target.viewName(), f.name()),
+        target.className() + "." + FragmentMethods.templateMethod(f), codes, types, fragmentArgs,
+        target.viewName() + " :: " + f.name(), f.element(), target.parsingContexts());
   }
 
   /**
@@ -376,10 +377,9 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       return null;
     }
     if (ctx.env().types().isAssignable(param.type(), fragmentType(ctx))) {
-      // Any Fragment-typed parameter, also a subtype such as a record implementing Fragment, which
-      // the callee may insert just the same (#589). Bound to its candidates (a Fragment parameter
-      // passed on: whatever the caller's caller bound; null: nothing), which the verifier checks
-      // where the callee inserts the parameter.
+      // A Fragment parameter, which the callee may insert. Bound to its candidates (a Fragment
+      // parameter passed on: whatever the caller's caller bound; null: nothing), which the
+      // verifier checks where the callee inserts the parameter.
       Skeleton.Node candidates = FragmentCandidates.of(ctx, arg.value(), scope, what);
       if (candidates == null) {
         return null;
@@ -477,8 +477,8 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     if (call == null) {
       return null;
     }
-    pre.append(FRAGMENT).append(' ').append(local).append(" = (").append(c).append(", ").append(o).append(") -> ")
-        .append(call).append(";\n");
+    pre.append(FRAGMENT).append(' ').append(local).append(" = ").append(FRAGMENT).append(".generated((").append(c)
+        .append(", ").append(o).append(") -> ").append(call).append(");\n");
     return local;
   }
 
