@@ -459,7 +459,7 @@ public final class ExpressionCompiler {
     }
     TypeMirror boxed = box(result);
     String p = "v$$" + (++lambdas);
-    String code = "((" + boxed + ") " + VALUES + ".nav(" + target.code() + ", " + p + " -> " + prefix + p + suffix + "))";
+    String code = "((" + JavaStrings.typeName(boxed) + ") " + VALUES + ".nav(" + target.code() + ", " + p + " -> " + prefix + p + suffix + "))";
     return new CompiledExpr(code, boxed, pos);
   }
 
@@ -999,7 +999,7 @@ public final class ExpressionCompiler {
     if (t.getKind() == TypeKind.NULL || types().isSameType(e.type(), t)) {
       return e.code();
     }
-    return "((" + t + ") " + e.code() + ")";
+    return "((" + JavaStrings.typeName(t) + ") " + e.code() + ")";
   }
 
   /** Strips wildcards, captured and declared type variables down to their upper bounds. */

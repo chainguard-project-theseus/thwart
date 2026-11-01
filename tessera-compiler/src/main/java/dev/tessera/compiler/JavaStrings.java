@@ -1,6 +1,19 @@
 package dev.tessera.compiler;
 
-/** Encodes values as Java source literals for generated code. */
+import java.util.List;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.ArrayType;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.IntersectionType;
+import javax.lang.model.type.PrimitiveType;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.TypeVariable;
+import javax.lang.model.type.TypeVisitor;
+import javax.lang.model.type.WildcardType;
+import javax.lang.model.util.SimpleTypeVisitor8;
+
+/** Encodes values and types as Java source for generated code. */
 public final class JavaStrings {
 
   private JavaStrings() {}
@@ -87,6 +100,97 @@ public final class JavaStrings {
     }
     return sb.toString();
   }
+
+  /**
+   * {@code t} as Java source, without type-use annotations (#627). {@code TypeMirror.toString()}
+   * keeps them, and JDK 8's javac writes {@code List<@NotNull Integer>}'s element as
+   * {@code (@NotNull :: java.lang.Integer)}, which does not compile. Generics, arrays, wildcards and
+   * inner classes of generic classes are kept.
+   */
+  public static String typeName(TypeMirror t) {
+    return t.accept(TYPE_NAME, null);
+  }
+
+  private static final TypeVisitor<String, Void> TYPE_NAME =
+      new SimpleTypeVisitor8<String, Void>() {
+        @Override
+        protected String defaultAction(TypeMirror t, Void unused) {
+          return t.toString();
+        }
+
+        @Override
+        public String visitPrimitive(PrimitiveType t, Void unused) {
+          switch (t.getKind()) {
+            case BOOLEAN:
+              return "boolean";
+            case BYTE:
+              return "byte";
+            case SHORT:
+              return "short";
+            case INT:
+              return "int";
+            case LONG:
+              return "long";
+            case CHAR:
+              return "char";
+            case FLOAT:
+              return "float";
+            case DOUBLE:
+              return "double";
+            default:
+              return t.toString();
+          }
+        }
+
+        @Override
+        public String visitArray(ArrayType t, Void unused) {
+          return visit(t.getComponentType()) + "[]";
+        }
+
+        @Override
+        public String visitDeclared(DeclaredType t, Void unused) {
+          TypeElement te = (TypeElement) t.asElement();
+          TypeMirror outer = t.getEnclosingType();
+          StringBuilder sb = new StringBuilder();
+          if (outer.getKind() == TypeKind.DECLARED) {
+            // An inner (non-static) class: Outer<A>.Inner, as javac writes it.
+            sb.append(visit(outer)).append('.').append(te.getSimpleName());
+          } else {
+            sb.append(te.getQualifiedName());
+          }
+          List<? extends TypeMirror> args = t.getTypeArguments();
+          if (!args.isEmpty()) {
+            sb.append('<');
+            for (int i = 0; i < args.size(); i++) {
+              sb.append(i == 0 ? "" : ",").append(visit(args.get(i)));
+            }
+            sb.append('>');
+          }
+          return sb.toString();
+        }
+
+        @Override
+        public String visitTypeVariable(TypeVariable t, Void unused) {
+          return t.asElement().getSimpleName().toString();
+        }
+
+        @Override
+        public String visitWildcard(WildcardType t, Void unused) {
+          if (t.getExtendsBound() != null) {
+            return "? extends " + visit(t.getExtendsBound());
+          }
+          return t.getSuperBound() != null ? "? super " + visit(t.getSuperBound()) : "?";
+        }
+
+        @Override
+        public String visitIntersection(IntersectionType t, Void unused) {
+          StringBuilder sb = new StringBuilder();
+          for (TypeMirror b : t.getBounds()) {
+            sb.append(sb.length() == 0 ? "" : " & ").append(visit(b));
+          }
+          return sb.toString();
+        }
+      };
 
   /**
    * A Java string literal for {@code s}. Line terminators, quotes and backslashes use escape

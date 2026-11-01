@@ -1,5 +1,6 @@
 package dev.tessera.compiler.codegen.attr;
 
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.codegen.AttributeProcessor;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
@@ -71,6 +72,6 @@ public final class WithProcessor implements AttributeProcessor {
 
   /** The Java source type of a local of type {@code t}: javac's null type is written {@code java.lang.Object}. */
   static String sourceType(TypeMirror t) {
-    return t.getKind() == TypeKind.NULL ? "java.lang.Object" : t.toString();
+    return t.getKind() == TypeKind.NULL ? "java.lang.Object" : JavaStrings.typeName(t);
   }
 }
