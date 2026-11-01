@@ -89,6 +89,33 @@ class NeutralValuesTest {
         .assertError("t.html:1:", "element text", "title", "hidden inputs", "<script type=\"application/json\">");
   }
 
+  private static Compilation compileWithMessages(String body) {
+    return Compilation.builder()
+        .messages("tip=Hello\nother=World")
+        .localeMessages("de", "tip=Hallo\nother=Welt")
+        .template("t.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"boolean flag\">" + body + "</div>")
+        .compile();
+  }
+
+  /**
+   * A message is not a literal in a neutral attribute, even a {@code #{key}} with no arguments, alone
+   * or in a choice (#629, guide section 4.4): bundles are edited outside template review, and a
+   * framework may run what it reads there. In a standard inert attribute it is text as usual.
+   */
+  @ParameterizedTest
+  @ValueSource(strings = {"data-tip", "hx-vals", "x-data", "v-html", "data-bind"})
+  void messageIsNotANeutralValue(String name) {
+    compileWithMessages("<p t:" + name + "=\"#{tip}\">x</p>").assertError("t.html:1:", "framework-neutral");
+    compileWithMessages("<p t:attr=\"" + name + "=#{tip}\">x</p>").assertError("t.html:1:", "framework-neutral");
+    compileWithMessages("<p t:" + name + "=\"${flag} ? #{tip} : 'x'\">x</p>").assertError("t.html:1:", "neutral");
+    compileWithMessages("<p t:" + name + "=\"${flag} ? #{tip} : #{other}\">x</p>").assertError("t.html:1:", "neutral");
+  }
+
+  @Test
+  void messageInAnInertAttributeIsText() {
+    compileWithMessages("<p t:title=\"#{tip}\">x</p>").assertSuccess();
+  }
+
   /** A custom element's own attributes follow rule 3; there is no prop exemption. */
   @Test
   void customElementAttributeTakesNoString() {
