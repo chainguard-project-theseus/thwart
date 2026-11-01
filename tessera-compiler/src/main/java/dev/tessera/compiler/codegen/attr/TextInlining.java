@@ -566,7 +566,7 @@ public final class TextInlining {
       return Emitted.EMPTY;
     }
     if (!isDeclared(c.type(), SAFE_HTML)) {
-      String type = c.type().getKind() == TypeKind.NULL ? "null" : c.type().toString();
+      String type = c.type().getKind() == TypeKind.NULL ? "null" : JavaStrings.typeName(c.type());
       ctx.diagnostics()
           .error(
               c.pos(),

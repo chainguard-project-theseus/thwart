@@ -459,7 +459,7 @@ public final class ExpressionCompiler {
     }
     TypeMirror boxed = box(result);
     String p = "v$$" + (++lambdas);
-    String code = "((" + boxed + ") " + VALUES + ".nav(" + target.code() + ", " + p + " -> " + prefix + p + suffix + "))";
+    String code = "((" + JavaStrings.typeName(boxed) + ") " + VALUES + ".nav(" + target.code() + ", " + p + " -> " + prefix + p + suffix + "))";
     return new CompiledExpr(code, boxed, pos);
   }
 
@@ -826,7 +826,7 @@ public final class ExpressionCompiler {
       return error(e.pos(), "the operands of ?: have incompatible types " + describe(v.type()) + " and "
           + describe(f.type()) + ": make the default the same type as the value");
     }
-    return new CompiledExpr(VALUES + ".<" + t + ">elvis(" + v.code() + ", " + f.code() + ")", t, e.pos());
+    return new CompiledExpr(VALUES + ".<" + JavaStrings.typeName(t) + ">elvis(" + v.code() + ", " + f.code() + ")", t, e.pos());
   }
 
   private CompiledExpr interpolation(Expr.Interpolation i, Scope scope) {
@@ -999,7 +999,7 @@ public final class ExpressionCompiler {
     if (t.getKind() == TypeKind.NULL || types().isSameType(e.type(), t)) {
       return e.code();
     }
-    return "((" + t + ") " + e.code() + ")";
+    return "((" + JavaStrings.typeName(t) + ") " + e.code() + ")";
   }
 
   /** Strips wildcards, captured and declared type variables down to their upper bounds. */
@@ -1063,7 +1063,7 @@ public final class ExpressionCompiler {
   }
 
   private static String describe(TypeMirror t) {
-    return t.getKind() == TypeKind.NULL ? "null" : t.toString();
+    return t.getKind() == TypeKind.NULL ? "null" : JavaStrings.typeName(t);
   }
 
   private static boolean isGetterName(String n) {
