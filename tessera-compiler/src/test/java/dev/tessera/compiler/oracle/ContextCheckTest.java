@@ -211,8 +211,10 @@ class ContextCheckTest {
     assertMismatch("<title>" + text(FP) + "</title>", "RCDATA element text");
     // Entity escaping in flow text doesn't break {{.
     assertMismatch("<p>" + attr(FP) + "</p>", "/html/body/p text");
-    // Entity escaping in an event handler, srcdoc or a framework directive.
+    // Entity escaping in an event handler, srcdoc or a name outside HTML.
     assertMismatch("<p onclick=\"" + attr(FP) + "\">x</p>", "/html/body/p/@onclick");
+    // An event handler is not plain at all, so no neutral value would help: no outside-HTML note.
+    assertFalse(check("<p onclick=\"" + attr(FP) + "\">x</p>").toString().contains("outside HTML"));
     assertMismatch("<iframe srcdoc=\"" + attr(FP) + "\"></iframe>", "@srcdoc");
     assertMismatch("<p x-text=\"" + attr(FP) + "\">x</p>", "@x-text");
     // JSON in a non-JS script, and in a plain attribute.
@@ -223,27 +225,14 @@ class ContextCheckTest {
   }
 
   /**
-   * Places an escaper's output is wrong in that the first version accepted or never tried: code
-   * attributes beyond on*, refresh content, text the parser
+   * Places an escaper's output is wrong in that the first version accepted or never tried: attributes
+   * that decide how other content is read, refresh content, text the parser
    * foster-parents out of a table (its {@code {<!---->{} break is split: the comment stays in the
    * table, the braces join in the text before it), SVG {@code <textarea>} and a MathML
    * {@code <title>}.
    */
   @Test
   void moreWrongPlaces() {
-    assertMismatch("<p hx-vals=\"" + attr(FP) + "\">x</p>", "@hx-vals");
-    assertMismatch("<p data-hx-trigger=\"" + attr(FP) + "\">x</p>", "@data-hx-trigger");
-    assertMismatch("<p _=\"" + attr(FP) + "\">x</p>", "@_");
-    assertMismatch("<p ng:click=\"" + attr(FP) + "\">x</p>", "@ng:click");
-    // AngularJS strips one x or data prefix and a run of : - _, so each of these is ngClick
-    assertMismatch("<p data--ng-click=\"" + attr(FP) + "\">x</p>", "@data--ng-click");
-    assertMismatch("<p data_ng-click=\"" + attr(FP) + "\">x</p>", "@data_ng-click");
-    assertMismatch("<p x:ng-click=\"" + attr(FP) + "\">x</p>", "@x:ng-click");
-    assertMismatch("<p _ng-click=\"" + attr(FP) + "\">x</p>", "@_ng-click");
-    assertClean("<p data-data-ng-click=\"" + attr(FP) + "\" data-xng-click=\"" + attr(FP) + "\">x</p>");
-    // AngularJS is not modelled: the coarse deny also covers names it would not read as directives
-    assertMismatch("<p data-ngx=\"" + attr(FP) + "\">x</p>", "@data-ngx");
-    assertMismatch("<x-c params=\"" + attr(FP) + "\">x</x-c>", "@params");
     assertMismatch("<script type=\"" + attr(FP) + "\"></script>", "@type");
     assertMismatch("<meta http-equiv=\"refresh\" content=\"0;url=/?q=" + attr(FP) + "\">", "@content");
     assertMismatch("<table>" + text(FP) + "<tr><td>x</td></tr></table>", "/html/body text");
@@ -270,6 +259,71 @@ class ContextCheckTest {
     String query = new DefaultLinks("").build("/", new String[] {"q"}, new Object[] {FP});
     assertTrue(query.contains("%3C'"), query);
     assertMismatch("<p onclick=\"go('" + attr(query) + "')\">x</p>", "@onclick");
+  }
+
+  /**
+   * #608: the oracle reads its own copy of the standard names, not the compiler's file, and the two
+   * agree name for name and source for source; a name added to only one of them fails here.
+   */
+  @Test
+  void standardNamesAreTheOraclesOwnCopy() {
+    assertFalse(HostileSinks.STANDARD.isEmpty());
+    assertEquals(HostileSinks.standardNames(HostileSinks.COMPILER_STANDARD), HostileSinks.STANDARD);
+    Map<String, Set<String>> bad = new LinkedHashMap<>(HostileSinks.STANDARD);
+    bad.put("x-html", Set.of("html"));
+    assertFalse(bad.equals(HostileSinks.standardNames(HostileSinks.COMPILER_STANDARD)));
+    assertTrue(ContextCheck.outsideHtml("x-html"));
+  }
+
+  /**
+   * #608: a name outside the standard HTML, SVG, MathML and ARIA list takes only a framework-neutral
+   * value (#583 rule 3), whichever code reads it. The check names no framework, so names no list
+   * knows ({@code data-on-click}, {@code x_ng-bind}) are held to it too.
+   */
+  @Test
+  void stringOutsideHtmlIsAMismatch() {
+    for (String name : List.of("data-on-click", "x_ng-bind", "data-x", "my-attr", "hx-vals", "data-hx-trigger",
+        "x-text", "v-html", "_", "ng:click", "data--ng-click", "data-data-ng-click", ":title", "@click", "data-bind")) {
+      assertMismatch("<p " + name + "=\"" + attr(FP) + "\">x</p>", "@" + name, "outside HTML");
+    }
+    assertMismatch("<x-c params=\"" + attr(FP) + "\">x</x-c>", "@params", "outside HTML");
+    // Browsers fold A-Z only: KELVIN SIGN K is not k, so this is not the standard kind.
+    assertMismatch("<p Kind=\"" + attr(FP) + "\">x</p>", "@Kind", "outside HTML");
+  }
+
+  /**
+   * #608: a link outside HTML is clean only if the whole rendered value has the neutral path shape:
+   * one leading {@code /}, no query, fragment or {@code --}.
+   */
+  @Test
+  void linkOutsideHtmlMustBeANeutralPath() {
+    DefaultLinks links = new DefaultLinks("");
+    String path = links.build("/x/{id}", new String[] {"id"}, new Object[] {FP});
+    assertMismatch("<p data-u=\"" + attr(links.build("/x", new String[] {"q"}, new Object[] {FP})) + "\">x</p>",
+        "@data-u", "outside HTML");
+    assertMismatch("<p data-u=\"" + attr(links.build("/a--b/{id}", new String[] {"id"}, new Object[] {FP}))
+        + "\">x</p>", "@data-u");
+    assertMismatch("<p data-u=\"/" + attr(path) + "\">x</p>", "@data-u");
+    assertMismatch("<p data-u=\"" + attr(path) + "#top\">x</p>", "@data-u");
+    assertMismatch("<p data-u=\"x" + attr(path) + "\">x</p>", "@data-u");
+    // The shape is checked on the parsed value: character references don't hide -- or a leading //.
+    assertMismatch("<p data-u=\"/a&#45;&#x2D;b" + attr(path) + "\">x</p>", "@data-u");
+    assertMismatch("<p data-u=\"&#47;" + attr(path) + "\">x</p>", "@data-u");
+  }
+
+  /**
+   * #608, the positive controls: a neutral path outside HTML, under any name (this is the case the
+   * check accepts that the framework lists refused; #583's research found a value of this shape
+   * runs nothing in the frameworks it tested), and any escaped string in a standard name.
+   */
+  @Test
+  void neutralOutsideHtmlAndStringsInStandardNamesAreClean() {
+    String path = new DefaultLinks("").build("/x/{id}", new String[] {"id"}, new Object[] {FP});
+    assertClean("<p data-u=\"" + attr(path) + "\" hx-get=\"" + attr(path) + "\" :x=\"" + attr(path) + "\">x</p>");
+    assertClean("<p hx-vals=\"" + attr(path) + "\" x-text=\"" + attr(path) + "\" ng-init=\"" + attr(path) + "\">x</p>");
+    assertClean("<x-c params=\"" + attr(path) + "\">x</x-c>");
+    assertClean("<p title=\"" + attr(FP) + "\" ARIA-LABEL=\"" + attr(FP) + "\">x</p>");
+    assertClean("<svg><rect><animate fill=\"" + attr(FP) + "\"/></rect></svg>");
   }
 
   @Test
@@ -363,6 +417,7 @@ class ContextCheckTest {
           "<script type=\"application/json\">[[${s}]]</script>",
           "<a t:href=\"@{/x/{id}(id=${s})}\">x</a>",
           "<a t:href=\"@{/x(q=${s})}\">x</a>",
+          "<p t:data-id=\"@{/x/{id}(id=${s})}\" t:hx-get=\"@{/x/{id}(id=${s})}\">x</p>",
           "<script t:src=\"@{/x/{id}.js(id=${s})}\"></script>",
           "<script>var u = [[@{/x(q=${s})}]];</script>",
           "<p t:text=\"@{/x(q=${s})}\">x</p>",

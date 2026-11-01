@@ -47,9 +47,11 @@ import org.w3c.dom.Node;
  *   <li>the location isn't where any of the classified contexts belongs ({@link #belongs}): TEXT in
  *       HTML flow or foreign element text (not SVG {@code script}/{@code style}); RCDATA in HTML
  *       {@code title}/{@code textarea}; ATTRIBUTE, URL and RESOURCE_URL in a
- *       {@linkplain #plainAttribute plain attribute}; REFRESH in the {@code content} of a
+ *       {@linkplain #plainAttribute plain attribute}, and in a name {@linkplain #outsideHtml outside
+ *       HTML} only if the attribute's whole parsed value is framework-neutral (#583 rule 3,
+ *       {@link HostileSinks#neutral}); REFRESH in the {@code content} of a
  *       {@code <meta http-equiv="refresh">}; SCRIPT in a JavaScript {@code script} of the HTML or SVG
- *       namespace, or a JSON data block;
+ *       namespace, or a JSON data block. No rule names a client framework;
  *   <li>the marker is in a comment or a name, or is in the render but nowhere in the tree.
  * </ul>
  *
@@ -99,10 +101,11 @@ public final class ContextCheck {
 
   /**
    * One marker occurrence in element text or an attribute value: the place, the element (local
-   * name, namespace URI, node) and attribute it is in, and its node path.
+   * name, namespace URI, node) and attribute it is in, its node path, and the attribute's whole
+   * parsed value (null in element text).
    */
   record Location(Place place, Element node, String element, String namespace, String attribute,
-      String path) {
+      String path, String value) {
 
     /** Whether the parser decoded character references here. */
     boolean decoded() {
@@ -210,12 +213,12 @@ public final class ContextCheck {
           }
         }
         text(a.getValue(), List.of(),
-            new Location(Place.ATTRIBUTE, el, name, ns, attrName, attrPath));
+            new Location(Place.ATTRIBUTE, el, name, ns, attrName, attrPath, a.getValue()));
       }
 
       // Element text: adjacent text nodes and comments, a comment written as <!--data--> (TEXT
       // breaks {{ with one), each child element a boundary.
-      Location here = new Location(textPlace(name, ns), el, name, ns, null, path + " text");
+      Location here = new Location(textPlace(name, ns), el, name, ns, null, path + " text", null);
       StringBuilder text = new StringBuilder();
       List<int[]> comments = new ArrayList<>();
       for (Node c = el.getFirstChild(); c != null; c = c.getNextSibling()) {
@@ -320,7 +323,8 @@ public final class ContextCheck {
               && !(svg && (loc.element().equals("script") || loc.element().equals("style"))));
       case RCDATA -> loc.place() == Place.RCDATA_TEXT;
       case ATTRIBUTE, URL, RESOURCE_URL ->
-          loc.place() == Place.ATTRIBUTE && plainAttribute(loc.node(), loc.attribute());
+          loc.place() == Place.ATTRIBUTE && plainAttribute(loc.node(), loc.attribute())
+              && (!outsideHtml(loc.attribute()) || HostileSinks.neutral(loc.value()));
       case REFRESH -> loc.place() == Place.ATTRIBUTE && isRefreshContent(loc.node(), loc.attribute());
       case SCRIPT -> loc.element().equals("script")
           && (loc.place() == Place.RAW_TEXT || (loc.place() == Place.FOREIGN_TEXT && svg))
@@ -330,20 +334,26 @@ public final class ContextCheck {
   }
 
   /*
-   * The lists below are written from the specs and the frameworks' documentation, deliberately not
-   * taken from the compiler's Contexts: an oracle that asked the compiler which attributes are code
-   * would agree with it by construction, and a name dropped from the compiler would vanish from
-   * the check in the same commit. TODO(#311): read the framework table once it exists as data.
+   * The lists below are written from the specs, deliberately not taken from the compiler's
+   * Contexts: an oracle that asked the compiler which attributes are code would agree with it by
+   * construction, and a name dropped from the compiler would vanish from the check in the same
+   * commit. The standard names are the oracle's own copy of the spec indices
+   * ({@link HostileSinks#STANDARD}), kept equal to the compiler's by a test, so a change to either
+   * list has to be made in both. No list names a client framework (#583): a name outside HTML is
+   * held to the framework-neutral value shape ({@link #outsideHtml}), whichever code reads it.
    */
 
   /**
-   * Framework attributes whose value is evaluated as code (with or without a {@code data-} prefix):
-   * htmx {@code hx-on*} and {@code hx-vals}/{@code hx-vars}/{@code hx-headers}/{@code hx-request}
-   * ({@code js:} values), {@code hx-trigger} ({@code [filter]}); _hyperscript {@code script}.
-   * AngularJS directives are {@link #angularDirective}.
+   * Whether {@code attribute} is outside the standard HTML, SVG, MathML and ARIA names
+   * ({@link HostileSinks#STANDARD}, from the spec indices), so that its whole value must be
+   * framework-neutral (#583 rule 3). Browsers fold A-Z only, so a non-ASCII look-alike is outside.
+   * Event handlers ({@code on*}) are not plain at all, so no value is clean there and they are not
+   * counted as outside HTML (as in {@link HostileSinks#classify}).
    */
-  private static final Set<String> CODE_UNPREFIXED =
-      Set.of("hx-vals", "hx-vars", "hx-headers", "hx-request", "hx-trigger", "script");
+  static boolean outsideHtml(String attribute) {
+    String folded = HostileSinks.asciiLower(attribute);
+    return !folded.startsWith("on") && !HostileSinks.STANDARD.containsKey(folded);
+  }
 
   /**
    * SVG presentation attributes whose value (SVG 2, CSS Fill and Stroke, CSS Masking, Filter
@@ -370,21 +380,19 @@ public final class ContextCheck {
   }
 
   /**
-   * An attribute an entity-escaped string is correct in. Not: an event handler (every WHATWG event
-   * handler content attribute starts with {@code on}; the prefix is the fail-closed superset),
-   * {@code style} and the {@link #SVG_URL_PROPERTIES} of an SVG element (CSS), the values of an SVG animation
-   * of one of them (CSS) and an animation's {@code attributeName} (it decides what they are), {@code srcdoc}, a
-   * {@code <script type>} or {@code <meta http-equiv>} (they decide how other content is read),
-   * the {@code content} of a refresh {@code <meta>} (a
-   * navigation: only REFRESH is correct there), or a client-framework attribute evaluated as code:
-   * Vue/petite-vue {@code v-*} and {@code : @ # .} shorthands, Alpine {@code x-*}, Knockout
-   * {@code data-bind} and custom-element {@code params}, _hyperscript {@code _}, AngularJS
-   * {@link #angularDirective directives}, and {@link #CODE_UNPREFIXED}.
+   * An attribute an entity-escaped string is correct in, as far as the browser's own sinks go. Not:
+   * an event handler (every WHATWG event handler content attribute starts with {@code on}; the
+   * prefix is the fail-closed superset), {@code style} and the {@link #SVG_URL_PROPERTIES} of an
+   * SVG element (CSS), the values of an SVG animation of one of them (CSS) and an animation's
+   * {@code attributeName} (it decides what they are), {@code srcdoc}, a {@code <script type>} or
+   * {@code <meta http-equiv>} (they decide how other content is read), or the {@code content} of a
+   * refresh {@code <meta>} (a navigation: only REFRESH is correct there). A name
+   * {@linkplain #outsideHtml outside HTML} is plain too, but {@link #belongs} also holds its whole
+   * value to the framework-neutral shape.
    */
   static boolean plainAttribute(Element element, String attribute) {
     String a = attribute.toLowerCase(Locale.ROOT);
     String el = element.getLocalName() == null ? element.getTagName() : element.getLocalName();
-    String unprefixed = a.startsWith("data-") ? a.substring("data-".length()) : a;
     return !(a.startsWith("on") || a.equals("style") || a.equals("srcdoc")
         || (el.equals("script") && a.equals("type"))
         || (el.equals("meta") && a.equals("http-equiv"))
@@ -392,22 +400,7 @@ public final class ContextCheck {
         || (SVG.equals(element.getNamespaceURI()) && SVG_URL_PROPERTIES.contains(a)
             && !(a.equals("fill") && SVG_ANIMATIONS.contains(el)))
         || (SVG.equals(element.getNamespaceURI()) && SVG_ANIMATIONS.contains(el)
-            && (a.equals("attributename") || (ANIMATION_VALUES.contains(a) && animatesCss(element))))
-        || a.startsWith(":") || a.startsWith("@") || a.startsWith("#") || a.startsWith(".")
-        || a.startsWith("v-") || a.startsWith("x-") || a.equals("data-bind") || a.equals("_")
-        || (a.equals("params") && el.indexOf('-') >= 0)
-        || unprefixed.startsWith("hx-on") || CODE_UNPREFIXED.contains(unprefixed)
-        || angularDirective(a));
-  }
-
-  /**
-   * Whether {@code lower} may be an AngularJS {@code ng} directive. AngularJS is not supported, so
-   * this is the fail-closed superset of its {@code directiveNormalize}: ignoring {@code - _ :}, the
-   * name starts with {@code ng}, optionally after an {@code x} or {@code data} prefix.
-   */
-  private static boolean angularDirective(String lower) {
-    String a = lower.replaceAll("[-_:]", "");
-    return a.startsWith("ng") || a.startsWith("xng") || a.startsWith("datang");
+            && (a.equals("attributename") || (ANIMATION_VALUES.contains(a) && animatesCss(element)))));
   }
 
   /** The {@code content} of an HTML {@code <meta>} whose {@code http-equiv} is {@code refresh}. */
@@ -436,7 +429,8 @@ public final class ContextCheck {
     String ns = HTML.equals(loc.namespace()) ? "" : SVG.equals(loc.namespace()) ? " svg" : " math";
     return loc.attribute() == null
         ? " (<" + loc.element() + ">" + ns + ")"
-        : " (" + loc.attribute() + " on <" + loc.element() + ">" + ns + ")";
+        : " (" + loc.attribute() + " on <" + loc.element() + ">" + ns
+            + (outsideHtml(loc.attribute()) ? ", a name outside HTML: framework-neutral values only" : "") + ")";
   }
 
   private static String names(Set<OutputContext> contexts) {
