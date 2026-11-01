@@ -64,38 +64,23 @@ public final class Contexts {
 
   /**
    * Context for the value of attribute {@code attributeName} (without {@code t:}) on
-   * {@code element} (#330; the table is docs/context-model.md section 6.1). In order:
-   * {@link #isJsonBinding JSON bindings} are SCRIPT_ATTRIBUTE, other {@link #isFrameworkDirective
-   * framework directives} EVENT_HANDLER; names that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*}
-   * FORBIDDEN; {@code on*} EVENT_HANDLER; {@code style} and the {@link #isSvgCssUrl SVG
-   * attributes that take a CSS url()} (also {@link #animatesSvgCssUrl animated}) STYLE;
-   * {@link #isHtmxRequestUrl htmx request URLs} RESOURCE_URL, {@link #isLegacyHtmxConnect hx-ws,
-   * hx-sse} and {@link #isHtmxBoost hx-boost} FORBIDDEN, {@code hx-push-url hx-replace-url} URL; a
+   * {@code element} (#330, #584; the table is docs/context-model.md section 6.1). In order: names
+   * that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*} FORBIDDEN; {@code on*} EVENT_HANDLER;
+   * {@code style} and the {@link #isSvgCssUrl SVG attributes that take a CSS url()} (also
+   * {@link #animatesSvgCssUrl animated}) STYLE; a computed
+   * {@link #isLegacyHtmxConnect hx-ws or hx-sse} FORBIDDEN (#562); a
    * refresh {@code content} REFRESH ({@link OutputContext#REFRESH}); {@code srcdoc}, the attributes
    * that decide how another value is read and {@link #isTreeBuilderInput tree-builder inputs}
    * FORBIDDEN; {@link #isResourceUrl resource URLs} RESOURCE_URL; {@link #URL_LIST_ATTRIBUTES URL
    * lists} and {@link #ANIMATION_VALUES animation values} TRUSTED_URL; {@link #URL_ATTRIBUTES} URL;
    * other standard names that are not inert ({@code inert-attributes.txt}) and a {@code content}
    * of a {@code <meta>} that does not {@link #isNamedMetaContent name plain metadata}
-   * TYPED_ATTRIBUTE; other {@link KnownAttributes#accepts known names} ATTRIBUTE; and every other
-   * name FORBIDDEN.
+   * TYPED_ATTRIBUTE; the other {@link KnownAttributes#isStandard standard names} ATTRIBUTE; and
+   * every other name NEUTRAL (#583 rule 3): {@code data-*}, {@code hx-*}, {@code x-*},
+   * {@code v-*}, {@code :x}, {@code @x}, a custom element's own attributes, any name outside HTML.
    */
   public static OutputContext attribute(Element element, String attributeName) {
-    return attribute(element, attributeName, true);
-  }
-
-  /** {@link #attribute(Element, String)}, where {@code knownNames} false accepts any name as ATTRIBUTE. */
-  private static OutputContext attribute(Element element, String attributeName, boolean knownNames) {
-    if (attributeName == null) {
-      return OutputContext.FORBIDDEN;
-    }
-    if (isJsonBinding(element, attributeName)) {
-      return OutputContext.SCRIPT_ATTRIBUTE;
-    }
-    if (isFrameworkDirective(element, attributeName)) {
-      return OutputContext.EVENT_HANDLER;
-    }
-    if (!PLAIN_NAME.matcher(attributeName).matches()) {
+    if (attributeName == null || !PLAIN_NAME.matcher(attributeName).matches()) {
       return OutputContext.FORBIDDEN;
     }
     String el = HtmlParser.asciiLower(element.name());
@@ -106,16 +91,8 @@ public final class Contexts {
     if (attr.equals("style") || isSvgCssUrl(element, el, attr) || animatesSvgCssUrl(element, el, attr)) {
       return OutputContext.STYLE;
     }
-    if (isHtmxRequestUrl(attr)) {
-      return OutputContext.RESOURCE_URL;
-    }
-    // TODO(#584): the neutral-value rule replaces the htmx name classification here.
-    if (isLegacyHtmxConnect(attr) || isHtmxBoost(attr)) {
+    if (isLegacyHtmxConnect(attr)) {
       return OutputContext.FORBIDDEN;
-    }
-    String htmx = unprefixed(attr);
-    if (htmx.equals("hx-push-url") || htmx.equals("hx-replace-url")) {
-      return OutputContext.URL;
     }
     if (isRefreshContent(element, el, attr)) {
       return OutputContext.REFRESH;
@@ -142,36 +119,7 @@ public final class Contexts {
         || (el.equals("meta") && attr.equals("content") && !isNamedMetaContent(element))) {
       return OutputContext.TYPED_ATTRIBUTE;
     }
-    return !knownNames || KnownAttributes.accepts(element, attr) ? OutputContext.ATTRIBUTE : OutputContext.FORBIDDEN;
-  }
-
-  /**
-   * Whether {@code attributeName} is FORBIDDEN on {@code element} only because its name is not
-   * known (#330): it is a well-formed name that no framework rule classifies and that is not
-   * {@link KnownAttributes#accepts known}, such as {@code up-on-loaded}, {@code hx-action} or {@code foo}.
-   */
-  public static boolean isUnknownName(Element element, String attributeName) {
-    return attributeName != null
-        && attribute(element, attributeName, false) == OutputContext.ATTRIBUTE
-        && !KnownAttributes.accepts(element, attributeName);
-  }
-
-  /**
-   * htmx attributes (also with a {@code data-} prefix) whose URL htmx requests and swaps into the
-   * page as HTML: the request verbs, and the {@code sse} and {@code ws} extensions' connect URLs.
-   */
-  private static final Set<String> HTMX_REQUEST_ATTRIBUTES =
-      Backports.setOf("hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete", "sse-connect", "ws-connect");
-
-  /**
-   * Whether {@code attributeName} is an htmx request URL (#249): {@code hx-get}, {@code hx-post},
-   * {@code hx-put}, {@code hx-patch}, {@code hx-delete}, {@code sse-connect} or
-   * {@code ws-connect}, also with a {@code data-} prefix. htmx fetches the URL and swaps the
-   * response into the page as HTML (htmx 1.x also cross-origin), so a computed value must be a
-   * same-origin link. Case-insensitive.
-   */
-  public static boolean isHtmxRequestUrl(String attributeName) {
-    return HTMX_REQUEST_ATTRIBUTES.contains(unprefixed(HtmlParser.asciiLower(attributeName)));
+    return KnownAttributes.isStandard(attr) ? OutputContext.ATTRIBUTE : OutputContext.NEUTRAL;
   }
 
   /** {@code lowerName} without a leading {@code data-}, which htmx ignores. */
@@ -196,19 +144,6 @@ public final class Contexts {
           + " same-origin URL such as /chat or @{/events}";
 
   /**
-   * Whether {@code attributeName} is {@code hx-boost} or {@code data-hx-boost} (#258). A computed
-   * one is FORBIDDEN: it decides whether htmx submits the forms below with AJAX. The compiler no
-   * longer models boosting (#585); this classification goes with the neutral-value rule (#584).
-   * Case-insensitive.
-   */
-  public static boolean isHtmxBoost(String attributeName) {
-    return unprefixed(HtmlParser.asciiLower(attributeName)).equals("hx-boost");
-  }
-
-  /** A bind target: a plain attribute name without modifiers ({@code .}) or namespaces ({@code :}). */
-  private static final Pattern BIND_TARGET = Pattern.compile("[a-z_][a-z0-9_-]*");
-
-  /**
    * The attribute that makes Vue 3 and petite-vue skip an element and its content (#549). The
    * compiler adds it to a {@code <textarea>} or {@code <title>} with computed content, whose
    * RCDATA text can't break a value's {{ with a comment. Vue 3.5.44
@@ -226,127 +161,6 @@ public final class Contexts {
   public static boolean isVueDirective(String lowerName) {
     return lowerName.startsWith("v-") || lowerName.startsWith(":") || lowerName.startsWith("@")
         || lowerName.startsWith("#") || lowerName.startsWith(".");
-  }
-
-  /** Bind prefixes: Vue {@code v-bind:}, Alpine {@code x-bind:}, and their shared {@code :} shorthand. */
-  private static final String[] BIND_PREFIXES = {"v-bind:", "x-bind:", ":"};
-
-  /**
-   * Targets that are ordinary attributes but, set as DOM properties (Vue 3 sets {@code key in el}
-   * as a property), write markup ({@code innerHTML}, {@code outerHTML}) or rewrite a link's URL
-   * ({@code <a>}/{@code <area>} {@code protocol}, {@code host}, ...: {@code :protocol} turns
-   * {@code mailto:alert(1)} into {@code javascript:alert(1)}), or (Vue {@code is}) pick the
-   * component or element to render. Compared without {@code -}: a Vue custom element camelizes
-   * {@code inner-h-t-m-l} to {@code innerHTML}. Denied on every element, since a component's
-   * root element is not known.
-   */
-  private static final Set<String> BIND_DENIED_TARGETS =
-      Backports.setOf(
-          "innerhtml", "outerhtml", "is", "protocol", "host", "hostname", "port", "pathname", "search",
-          "hash", "username", "password");
-
-  /**
-   * Whether {@code attributeName} is a Vue or Alpine binding whose value may be a JSON value (#246):
-   * {@code v-bind:x}, {@code x-bind:x} or {@code :x} where the target {@code x}
-   *
-   * <ul>
-   *   <li>matches {@code [a-z_][a-z0-9_-]*} (case-insensitive): no modifier such as {@code .prop}
-   *       or {@code .camel}, no dynamic argument {@code [key]}, no namespace;
-   *   <li>is itself an ordinary attribute ({@link #attribute} is ATTRIBUTE on this element): not
-   *       {@code on*}, {@code style}, a URL, a resource URL, {@code srcdoc}, a framework directive
-   *       or otherwise forbidden, since the framework sets the target to the value;
-   *   <li>is not {@code innerHTML}, {@code outerHTML}, {@code is} or a URL part such as
-   *       {@code protocol} or {@code host};
-   * </ul>
-   *
-   * and the element is not {@code <script>}, {@code <style>} or {@code <meta>}. The framework
-   * evaluates the value as JavaScript, so it is written as JSON (OutputContext.SCRIPT_ATTRIBUTE).
-   * Everything else, including {@code v-bind="obj"} and {@code x-bind="obj"} with no target and
-   * the {@code .x} shorthand, stays a {@link #isFrameworkDirective directive} (EVENT_HANDLER).
-   */
-  public static boolean isJsonBinding(Element element, String attributeName) {
-    String a = HtmlParser.asciiLower(attributeName);
-    String target = null;
-    for (String prefix : BIND_PREFIXES) {
-      if (a.startsWith(prefix)) {
-        target = a.substring(prefix.length());
-        break;
-      }
-    }
-    if (target == null || !BIND_TARGET.matcher(target).matches()
-        || BIND_DENIED_TARGETS.contains(target.replace("-", ""))) {
-      return false;
-    }
-    String el = HtmlParser.asciiLower(element.name());
-    if (el.equals("script") || el.equals("style") || el.equals("meta")) {
-      return false;
-    }
-    // TODO(#333): bind targets become an allow-list; until then any ordinary name, known or not.
-    return attribute(element, target, false) == OutputContext.ATTRIBUTE;
-  }
-
-  /** htmx attributes ({@code hx-} or {@code data-hx-}) whose value is evaluated as JavaScript. */
-  private static final Set<String> HTMX_SCRIPT_ATTRIBUTES =
-      Backports.setOf("hx-vals", "hx-vars", "hx-headers", "hx-request", "hx-trigger");
-
-  /**
-   * Whether {@code attributeName} is a client-side framework attribute whose value the framework
-   * evaluates as a JavaScript expression (#235). Attribute escaping does not help there: once the
-   * framework mounts the element, the decoded value runs as code. Case-insensitive. The list:
-   *
-   * <ul>
-   *   <li>Vue 2/3 and petite-vue: every {@code v-*} (the {@link #isJsonBinding JSON bindings} are
-   *       SCRIPT_ATTRIBUTE instead) (built-in and custom directives such as
-   *       {@code v-bind:x}, {@code v-on:x}, {@code v-model}, {@code v-if}, {@code v-for},
-   *       {@code v-html}, {@code v-slot}), and the shorthands {@code :x} ({@code v-bind}),
-   *       {@code @x} ({@code v-on}), {@code #x} ({@code v-slot}, whose value is a destructuring
-   *       pattern with default expressions) and {@code .x} ({@code v-bind.prop}).
-   *   <li>Alpine.js: every {@code x-*} ({@code x-data}, {@code x-init}, {@code x-on:x},
-   *       {@code x-bind:x}, {@code x-html}, ...), plus the {@code :x} and {@code @x} shorthands.
-   *   <li>htmx ({@code hx-} or {@code data-hx-}): {@code hx-on*} ({@code hx-on:click},
-   *       {@code hx-on::after-request}, {@code hx-on-click}, the old {@code hx-on}),
-   *       {@code hx-vals}, {@code hx-headers} and {@code hx-request} (a {@code js:} prefix
-   *       evaluates the rest), {@code hx-vars} (always evaluated) and {@code hx-trigger} (its
-   *       {@code [filter]} is evaluated).
-   *   <li>AngularJS (not supported; a coarse deny): every name that {@link #isAngularDirective
-   *       may be an ng directive}.
-   *   <li>Knockout: {@code data-bind}, and {@code params} on a custom element (a name with a
-   *       {@code -}), which Knockout components evaluate as a binding.
-   *   <li>_hyperscript: {@code _}, {@code script} and {@code data-script}, whose value is
-   *       hyperscript code (#249).
-   * </ul>
-   *
-   * Other {@code data-*} attributes, and the htmx attributes that hold selectors or plain
-   * strings ({@code hx-target}, {@code hx-swap}, ...), stay ordinary attributes; htmx request
-   * URLs are {@link #isHtmxRequestUrl RESOURCE_URL}. Frameworks configured to read other
-   * attribute names (an Alpine prefix, a Knockout binding provider, a hyperscript
-   * {@code attributes} setting) are not detected.
-   */
-  public static boolean isFrameworkDirective(Element element, String attributeName) {
-    String a = HtmlParser.asciiLower(attributeName);
-    if (a.equals("params") && element.name().indexOf('-') >= 0) {
-      return true;
-    }
-    if (isVueDirective(a) || a.startsWith("x-") || a.equals("data-bind")
-        || a.equals("_") || a.equals("script") || a.equals("data-script")) {
-      return true;
-    }
-    String unprefixed = unprefixed(a);
-    return unprefixed.startsWith("hx-on")
-        || HTMX_SCRIPT_ATTRIBUTES.contains(unprefixed)
-        || isAngularDirective(attributeName);
-  }
-
-  /**
-   * Whether {@code attributeName} may be an AngularJS {@code ng} directive. AngularJS is not
-   * supported and its name rules are not modelled: a name is denied when, ignoring A-Z case,
-   * {@code -}, {@code _} and {@code :}, it starts with {@code ng}, {@code xng} or {@code datang}.
-   * That is a superset of every spelling AngularJS reads as a directive ({@code ng-click},
-   * {@code data:ng-click}, {@code x_ng-click}, {@code _ng-click}, ...).
-   */
-  private static boolean isAngularDirective(String attributeName) {
-    String a = HtmlParser.asciiLower(attributeName).replaceAll("[-_:]", "");
-    return a.startsWith("ng") || a.startsWith("xng") || a.startsWith("datang");
   }
 
   /**
@@ -469,6 +283,25 @@ public final class Contexts {
       }
     }
     return false;
+  }
+
+  /** ASCII valid custom element names (HTML 4.13.3); a non-ASCII character fails closed. */
+  private static final Pattern CUSTOM_ELEMENT_NAME = Pattern.compile("[a-z][a-z0-9._]*-[a-z0-9._-]*");
+
+  /** The names HTML reserves from custom elements (HTML 4.13.3): SVG and MathML element names. */
+  private static final Set<String> RESERVED_CUSTOM_ELEMENT_NAMES =
+      Backports.setOf("annotation-xml", "color-profile", "font-face", "font-face-src", "font-face-uri",
+          "font-face-format", "font-face-name", "missing-glyph");
+
+  /**
+   * Whether {@code value}, a static {@code is}, is a valid custom element name (HTML 4.13.3), which
+   * is all the attribute may hold: the tree builder reads it to pick the element's custom element
+   * definition (#272). Any other value, such as {@code is="script"}, is a build error, so no element
+   * is classified as one element and rendered as another by whatever reads {@code is} later.
+   */
+  public static boolean isCustomElementName(String value) {
+    return value != null && CUSTOM_ELEMENT_NAME.matcher(value).matches()
+        && !RESERVED_CUSTOM_ELEMENT_NAMES.contains(value);
   }
 
   /**

@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
  * code such as htmx 1.x may submit any form with AJAX and swap the response into the page as HTML,
  * so a computed action is a same-origin {@code @{}} link or a {@code TrustedUrl}, with or without
  * htmx, and a static POST form keeps the stricter CSRF closed shape ({@link CsrfInjector}). Static
- * actions are unchanged. A computed {@code hx-boost} stays a build error until #584.
+ * actions are unchanged. A computed {@code hx-boost} is NEUTRAL (#584).
  */
 class FormActionTest {
 
@@ -109,22 +109,36 @@ class FormActionTest {
     }
   }
 
-  /** A computed hx-boost, by any route, is a build error (attribute modelling, until #584). */
+  /**
+   * A computed hx-boost is NEUTRAL like any other non-HTML name (#584): boosting is not modelled
+   * (#585), and every form's computed action is checked as above. A boolean or a choice between
+   * literals compiles.
+   */
   @Test
-  void computedBoostIsABuildError() {
+  void computedBoostIsNeutral() {
     for (String name : new String[] {"hx-boost", "data-hx-boost", "HX-Boost"}) {
-      compile("<main t:" + name + "=\"b ? 'true' : 'false'\">x</main>")
-          .assertError("t.html:1:", "t:" + name + " is not allowed", "cannot be computed", "statically");
-      compile("<main t:attr=\"" + name + "=s\">x</main>")
-          .assertError("t.html:1:", "t:attr " + name + " is not allowed", "cannot be computed");
+      Compilation c = compile("<main t:" + name + "=\"b ? 'true' : 'false'\">x</main>").assertSuccess();
+      assertEquals("<div><main " + name + "=\"true\">x</main></div>", render(c, ""));
+      compile("<main t:" + name + "=\"b\">x</main>").assertSuccess();
     }
   }
 
-  /** Vue/Alpine bindings of action/formaction are directives (#246 path). */
+  /** Negative: a String hx-boost is not framework-neutral, by any route (#584). */
   @Test
-  void bindingsOfActionAreDirectives() {
+  void stringBoostIsABuildError() {
+    for (String name : new String[] {"hx-boost", "data-hx-boost", "HX-Boost"}) {
+      compile("<main t:" + name + "=\"s\">x</main>")
+          .assertError("t.html:1:", "t:" + name + " is not allowed", "framework-neutral");
+      compile("<main t:attr=\"" + name + "=s\">x</main>")
+          .assertError("t.html:1:", "t:attr " + name + " is not allowed", "framework-neutral");
+    }
+  }
+
+  /** Vue/Alpine bindings of action/formaction take no String: FORBIDDEN names or NEUTRAL (#584). */
+  @Test
+  void bindingsOfActionAreNotStrings() {
     for (String name : new String[] {":action", "v-bind:action", "x-bind:action", ":formaction"}) {
-      compile("<form t:" + name + "=\"s\"></form>").assertError("t.html:1:", "is not allowed", "run as JavaScript");
+      compile("<form t:" + name + "=\"s\"></form>").assertError("t.html:1:", "t:" + name + " is not allowed");
     }
   }
 }
