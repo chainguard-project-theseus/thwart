@@ -21,7 +21,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  * {@code expected-report.md} the report. {@code petclinic} is spring-petclinic style Thymeleaf; the
  * others are reduced copies of converted bench templates: {@code spring-petclinic-boot} and
  * {@code jobsearch} with layout markup that nests a second {@code <body>} (#409), the rest with a
- * recursive rich-text fragment (#369), which only the report changes.
+ * recursive rich-text fragment (#369), which the compiler rejects and migrate leaves as it is, with
+ * an empty report (#595).
  */
 class GoldenFileTest {
 

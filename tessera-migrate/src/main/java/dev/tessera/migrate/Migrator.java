@@ -156,13 +156,6 @@ final class Migrator {
     private final Deque<Open> open = new ArrayDeque<>();
     /** The end of the previous attribute's quoted value in this tag, or -1. */
     private int quotedValueEnd = -1;
-    /**
-     * In a {@code <form>} start tag: whether its first static {@code method} is {@code post}, or
-     * {@code null} before one.
-     */
-    private Boolean formPost;
-    /** In a {@code <form>} start tag, a report item for a computed action that is not a link, or null. */
-    private Report.Item postAction;
 
     Handler(String file, char[] doc) {
       this.file = file;
@@ -181,26 +174,7 @@ final class Migrator {
     }
 
     @Override
-    public void handleStandaloneElementEnd(
-        char[] buffer, int nameOffset, int nameLen, boolean minimized, int line, int col) {
-      checkPostAction();
-    }
-
-    /**
-     * Reports a POST form's computed action that is not a link, once the whole start tag is read
-     * (the {@code method} may follow the action): the compiler rejects it (#550).
-     */
-    private void checkPostAction() {
-      if (postAction != null && Boolean.TRUE.equals(formPost)) {
-        items.add(postAction);
-      }
-      postAction = null;
-      formPost = null;
-    }
-
-    @Override
     public void handleOpenElementEnd(char[] buffer, int nameOffset, int nameLen, int line, int col) {
-      checkPostAction();
       // The nearest th:inline wins; Thymeleaf leaves [[...]] alone in a th:inline="none" body.
       String mode = inlineMode != null ? inlineMode : open.isEmpty() ? null : open.peek().inline;
       boolean none = ConversionRules.INLINE_NONE.equals(mode);
@@ -233,26 +207,6 @@ final class Migrator {
       return !open.isEmpty() && ConversionRules.INLINE_NONE.equals(open.peek().inline);
     }
 
-    /**
-     * Whether the element whose start tag is being read is an SVG element: {@code <svg>} or one of
-     * the {@link ConversionRules#SVG_HTML_PARENTS}, or inside an {@code <svg>} and not inside one of
-     * those (their content is HTML). MathML is not tracked: it has none of these attributes.
-     */
-    private boolean inSvg() {
-      if (openName.equals(ConversionRules.SVG) || ConversionRules.SVG_HTML_PARENTS.contains(openName)) {
-        return true;
-      }
-      for (Open o : open) {
-        if (o.name.equals(ConversionRules.SVG)) {
-          return true;
-        }
-        if (ConversionRules.SVG_HTML_PARENTS.contains(o.name)) {
-          return false;
-        }
-      }
-      return false;
-    }
-
     @Override
     public void handleUnmatchedCloseElementStart(
         char[] buffer, int nameOffset, int nameLen, int line, int col) {
@@ -266,8 +220,6 @@ final class Migrator {
       inlineMode = null;
       inScript = false;
       quotedValueEnd = -1;
-      formPost = null;
-      postAction = null;
       inRoot = !rootSeen;
       if (!rootSeen) {
         rootSeen = true;
@@ -320,10 +272,6 @@ final class Migrator {
         report(nameLine, String.format(ConversionRules.ATTRIBUTE_SPACE_MESSAGE, name));
       }
       quotedValueEnd = quoted ? valueOuterOffset + valueOuterLen : -1;
-      if (ConversionRules.FORM.equals(openName) && lower.equals(ConversionRules.METHOD) && formPost == null) {
-        // A browser reads the first method, untrimmed; toLowerCase(ROOT) maps nothing else to "post".
-        formPost = value != null && value.toLowerCase(Locale.ROOT).equals(ConversionRules.POST);
-      }
 
       if (lower.equals(ConversionRules.THYMELEAF_XMLNS)) {
         edits.add(new Edit(nameOffset, nameLen, ConversionRules.TESSERA_XMLNS));
@@ -338,12 +286,6 @@ final class Migrator {
         return;
       }
       boolean thymeleaf = lower.startsWith(ConversionRules.THYMELEAF_PREFIX);
-      if (thymeleaf && inSvg()
-          && ConversionRules.svgStyleAttribute(lower.substring(ConversionRules.THYMELEAF_PREFIX.length()), openName)) {
-        report(nameLine, String.format(ConversionRules.SVG_STYLE_MESSAGE, name,
-            name.substring(ConversionRules.THYMELEAF_PREFIX.length())));
-        return;
-      }
       String local;
       if (thymeleaf) {
         local = lower.substring(ConversionRules.THYMELEAF_PREFIX.length());
@@ -371,14 +313,6 @@ final class Migrator {
       String converted = local.equals(ConversionRules.FRAGMENT)
           ? fragmentSignature(value, nameLine)
           : expressionValue(local, value, thymeleaf, name, nameLine);
-      if (ConversionRules.FORM.equals(openName) && local.equals(ConversionRules.ACTION) && !Expressions.isLink(converted)) {
-        postAction = new Report.Item(file, nameLine,
-            String.format(ConversionRules.POST_ACTION_MESSAGE, name, codeSpan(Compat.strip(converted))));
-      }
-      if (thymeleaf && local.equals(ConversionRules.UTEXT)
-          && Expressions.unsupported(Expressions.rewriteLinks(value)).isEmpty()) {
-        rawOutput(nameLine, name, converted);
-      }
       if (!converted.equals(value)) {
         boolean singleQuoted = quoted && buffer[valueOuterOffset] == '\'';
         boolean needsQuoting = converted.chars().anyMatch(
@@ -446,7 +380,7 @@ final class Migrator {
         return original; // left in place for the compiler to reject; roots would be guesses
       }
       if (ConversionRules.ASSIGNMENT_VALUES.contains(local)) {
-        return assignmentsValue(local, value, thymeleaf, name, line);
+        return assignmentsValue(local, value, thymeleaf, line);
       }
       boolean selection = ConversionRules.SELECTION_VALUES.contains(local);
       boolean fragmentReference = ConversionRules.FRAGMENT_REFERENCES.contains(local);
@@ -462,11 +396,6 @@ final class Migrator {
       if (thymeleaf && ConversionRules.EMPTY_FOR_NULL.contains(local) && Expressions.mayBeNull(rewritten)) {
         report(line, String.format(ConversionRules.NULL_ATTRIBUTE_MESSAGE, name, codeSpan(Compat.strip(rewritten)),
             name.substring(name.indexOf(':') + 1)));
-      }
-      // #539: target takes only literals in Tessera; a component prop on a custom element takes anything.
-      if (thymeleaf && local.equals(ConversionRules.TARGET) && !(openName.indexOf('-') >= 0 && !inSvg())
-          && !ConversionRules.literalChoice(rewritten)) {
-        report(line, String.format(ConversionRules.TARGET_MESSAGE, name, codeSpan(Compat.strip(rewritten))));
       }
       return rewritten;
     }
@@ -493,11 +422,8 @@ final class Migrator {
       return value.substring(0, colon + 1) + rewritten;
     }
 
-    /**
-     * {@code name=expr, ...}: each expression is rewritten; {@code with} names become locals, and
-     * a {@code th:attr} entry that sets a CSS attribute of an SVG element is reported.
-     */
-    private String assignmentsValue(String local, String value, boolean thymeleaf, String name, int line) {
+    /** {@code name=expr, ...}: each expression is rewritten, and {@code with} names become locals. */
+    private String assignmentsValue(String local, String value, boolean thymeleaf, int line) {
       List<String> parts = new ArrayList<>();
       for (String part : Expressions.splitTopLevel(value, false)) {
         int eq = Expressions.indexOfTopLevel(part, '=');
@@ -505,14 +431,9 @@ final class Migrator {
           parts.add(part);
           continue;
         }
-        String target = Compat.strip(part.substring(0, eq));
         String head = part.substring(0, eq + 1);
         if (local.equals(ConversionRules.WITH)) {
-          locals.add(target);
-        } else if (thymeleaf && inSvg()
-            && ConversionRules.svgStyleAttribute(target.toLowerCase(Locale.ROOT), openName)) {
-          report(line, String.format(ConversionRules.SVG_STYLE_IN_ATTR_MESSAGE,
-              name, target));
+          locals.add(Compat.strip(part.substring(0, eq)));
         }
         String expr = part.substring(eq + 1);
         String rewritten = selections(line,
@@ -588,8 +509,8 @@ final class Migrator {
      * to it, which are applied first; if a value is hoisted they are replaced by one edit of the
      * whole text. A {@code '...'} or {@code "..."} string around a value is split, {@code "Hello
      * [[${x}]]"} becoming {@code "Hello " + _tN}, in parentheses unless the tokens on both sides bind
-     * looser than {@code +}. A value in a template literal or a regular expression is reported and
-     * stays, and so does one in a comment ({@link #quotedInlines} reported it). The lexer is an
+     * looser than {@code +}. A value in a template literal, a regular expression or a comment stays,
+     * and the compiler reports it (#595). The lexer is an
      * approximation, as in {@link #quotedInlines}, plus regular expression literals; the compiler is
      * the safety net: every hoisted value is in its prelude grammar, so a misread cannot put a value
      * anywhere else, though it can break the code around a value or change what that code means.
@@ -678,12 +599,7 @@ final class Migrator {
             }
             report(at, message);
           } else {
-            if (value && !dropped && state == REGEX) {
-              report(at, String.format(ConversionRules.SCRIPT_INLINE_IN_REGEX_MESSAGE, hole));
-            } else if (value && !dropped && inCode) {
-              report(at, String.format(ConversionRules.SCRIPT_INLINE_IN_TEMPLATE_MESSAGE, hole));
-            }
-            out.append(hole);
+            out.append(hole); // not hoisted; the compiler reports it where it rejects it
           }
           i = after - 1;
           continue;
@@ -1022,14 +938,14 @@ final class Migrator {
      * {@code offset} of the document. In Tessera {@code [[...]]} writes a JSON value with its own
      * quotes, so a Thymeleaf {@code "[[${x}]]"} would close the string.
      * A {@code "..."} or {@code '...'} literal that is exactly one inline loses its quotes; any other
-     * inline in one is left to {@link #hoist} in a JavaScript script and reported in a JSON script.
-     * An inline in a template literal is reported, including {@code `[[...]]`} (the backticks may follow a tag,
-     * {@code String.raw`...`}, which dropping them would break), and so is an inline in a comment,
-     * except a natural-template comment ({@link #naturalComment}). The scan tracks strings, template
+     * inline in one is left to {@link #hoist} in a JavaScript script. An inline in a JSON string, a
+     * template literal (even {@code `[[...]]`: the backticks may follow a tag, {@code String.raw`...`},
+     * which dropping them would break) or a comment stays, except a natural-template comment
+     * ({@link #naturalComment}), and the compiler reports it (#595). The scan tracks strings, template
      * literal {@code ${...}} and comments, not regular expression literals: an
      * unterminated {@code '}/{@code "} string ends at {@code \n} or {@code \r}, not at U+2028/U+2029
      * (ES2019), and {@code \} followed by CRLF is a line continuation. The compiler is
-     * the safety net, so a misread only misses or adds a report, and dropping the quotes can't make
+     * the safety net, so a misread only misses or adds a rewrite, and dropping the quotes can't make
      * it unsafe.
      */
     private void quotedInlines(String text, int offset, int line) {
@@ -1048,38 +964,22 @@ final class Migrator {
           }
           int after = end + 2;
           if (state == STRING) {
-            String inline = text.substring(i, after);
-            int at = lineAt(text, line, i);
             boolean whole = quoteAt == i - 1 && after < text.length() && text.charAt(after) == quote;
-            if (whole && quote == '`') {
-              report(at, String.format(ConversionRules.SCRIPT_INLINE_TEMPLATE_LITERAL_MESSAGE,
-                  codeSpan(quote + inline + quote)));
-              state = CODE;
-              i = after; // the closing backtick
-              continue;
-            }
-            if (whole) {
+            if (whole && quote != '`') {
               edits.add(new Edit(offset + quoteAt, 1, ""));
               edits.add(new Edit(offset + after, 1, ""));
-              report(at, String.format(ConversionRules.SCRIPT_INLINE_UNQUOTED_MESSAGE,
-                  codeSpan(quote + inline + quote)));
+              report(lineAt(text, line, i), String.format(ConversionRules.SCRIPT_INLINE_UNQUOTED_MESSAGE,
+                  codeSpan(quote + text.substring(i, after) + quote)));
               state = CODE;
               i = after; // the closing quote
               continue;
             }
-            // In a JavaScript script, hoist splits a '...' or "..." string around it.
-            if (jsonScript) {
-              report(at, String.format(ConversionRules.SCRIPT_INLINE_IN_JSON_STRING_MESSAGE, inline));
-            } else if (quote == '`') {
-              report(at, String.format(ConversionRules.SCRIPT_INLINE_IN_TEMPLATE_MESSAGE, inline));
-            }
+            // In a JavaScript script, hoist splits a '...' or "..." string around it; the compiler
+            // reports one in a template literal or a JSON string.
             quoteAt = -1;
-          } else if (state == LINE_COMMENT || state == BLOCK_COMMENT) {
-            // The compiler rejects an inline in a comment; a natural-template comment in a
-            // th:inline="javascript" script was handled by naturalComment.
-            String inline = text.substring(i, after);
-            report(lineAt(text, line, i), String.format(ConversionRules.SCRIPT_INLINE_IN_COMMENT_MESSAGE, inline));
           }
+          // The compiler reports one in a comment too; a natural-template comment in a
+          // th:inline="javascript" script was handled by naturalComment.
           i = after - 1;
           continue;
         }
@@ -1271,19 +1171,8 @@ final class Migrator {
         problems.forEach(p -> report(exprLine, p));
         if (problems.isEmpty()) {
           addRoots(exprLine, expr, false);
-          if (open.equals("[(")) {
-            rawOutput(exprLine, "[(...)]", Expressions.rewrite(expr));
-          }
         }
         at = text.indexOf(open, end + close.length());
-      }
-    }
-
-    /** Reports raw output of {@code expr} (Tessera syntax), unless a message or already sanitized. */
-    private void rawOutput(int line, String construct, String expr) {
-      String e = Compat.strip(expr);
-      if (!ConversionRules.SAFE_UTEXT.matcher(e).matches()) {
-        report(line, String.format(ConversionRules.UTEXT_MESSAGE, construct, e, e));
       }
     }
 

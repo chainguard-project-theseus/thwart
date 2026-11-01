@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:t="https://tessera.dev" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}" t:params="Object user">
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}" t:params="Object user, Object color">
 <body>
   <p t:text="${T(java.lang.Runtime).getRuntime().exec(cmd)}">rce</p>
   <p t:text="${@environment.getProperty('secret')}">bean</p>
@@ -8,7 +8,7 @@
   <p t:text='user.name' t:title=user.title>single and unquoted</p>
   <p t:if="not user.roles.isEmpty()" t:text="|Hello ${user.name}, you have ${user.roles.size()} roles|">interp</p>
   <ul><li t:each="r : ${user.roles.?[active]}" t:text="r">selection</li></ul>
-  <button th:onclick="'go(' + ${user.id} + ')'" th:style="'color:' + ${color}">events and style</button>
+  <button t:onclick="'go(' + user.id + ')'" t:style="'color:' + color">events and style</button>
   <div sec:authorize="isAuthenticated()">secured</div>
   <a t:attr="data-id=user.id,title=user.title" t:text="strings.toUpperCase(user.name)">attr</a>
   <span data-th-text="${user.name}">data-th</span>

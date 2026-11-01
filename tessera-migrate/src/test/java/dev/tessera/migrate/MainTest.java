@@ -93,12 +93,12 @@ class MainTest {
   @Test
   void reportItemsDoNotChangeTheExitCode() throws Exception {
     Path in = Files.createDirectories(tmp.resolve("in"));
-    Files.writeString(in.resolve("a.html"), "<p th:onclick=\"${x}\">x</p>");
+    Files.writeString(in.resolve("a.html"), "<p th:include=\"f\">x</p>");
     Path report = tmp.resolve("reports/r.md");
 
     assertEquals(0, run(in.toString(), tmp.resolve("out").toString(), "--report", report.toString()));
 
-    assertTrue(Files.readString(report).contains("`a.html:1`: `th:onclick`"));
+    assertTrue(Files.readString(report).contains("`a.html:1`: `th:include`"));
     assertTrue(out().contains("converted 1 template(s), 1 report item(s)"), out());
   }
 

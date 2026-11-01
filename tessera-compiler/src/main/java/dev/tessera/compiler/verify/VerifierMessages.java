@@ -242,8 +242,13 @@ final class VerifierMessages {
     Matcher m = SECOND_PAGE_ELEMENT.matcher(message);
     if (m.matches()) {
       String name = m.group(1) != null ? m.group(1) : m.group(3);
+      // An element a page writes before a layout call opens the page's <html> before the layout's.
+      String before = name.equals("html")
+          ? "; an element written before a layout call comes before the layout's doctype and <html>: move it into"
+              + " the <head> the page passes to the layout"
+          : "";
       return m.group(1) != null || "start".equals(m.group(2))
-          ? "a browser finds a second <" + name + "> here and merges it into the first" + layout
+          ? "a browser finds a second <" + name + "> here and merges it into the first" + layout + before
           : "a browser finds an extra </" + name + "> here and ignores it" + layout;
     }
     if (message.equals(AFTER_BODY)) {
