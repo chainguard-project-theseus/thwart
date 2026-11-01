@@ -29,19 +29,15 @@ final class ConversionRules {
 
   /**
    * {@code th:} attributes that are left in place, unrenamed, and reported. Keys are lower-case
-   * attribute names; {@code th:on*} is handled by {@link #unsupportedAttribute}.
+   * attribute names. {@code th:on*} and {@code th:style} are converted like any other attribute:
+   * the compiler's error for a computed one names the fix (#595).
    */
   private static final Map<String, String> UNSUPPORTED_ATTRIBUTES = Compat.mapOf(
       ConversionRules.THYMELEAF_INLINE, "`th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or put data in a `<script type=\"application/json\">` block",
-      "th:style", "`th:style` is not converted; rewrite it as `t:style` from literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (guide section 4.4), otherwise use `t:classappend`, or a `<script type=\"application/json\">` block read by a script (guide section 4.4, Migration recipes)",
       "th:styleappend", "`th:styleappend` is not supported; merge it into one `t:style` from literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (guide section 4.4), otherwise use `t:classappend`",
       "th:include", "`th:include` is not supported; use `t:insert` or `t:replace` (check the host-element semantics)",
       "th:substituteby", "`th:substituteby` is not supported; use `t:replace`");
 
-  private static final String EVENT_HANDLER_MESSAGE =
-      "`%s` is a build error by design (no dynamic event handlers); put the value in a"
-          + " `<script type=\"application/json\">` block, or a number, a boolean or a same-origin path in a"
-          + " `data-*` attribute, and read it from a script (guide section 4.4, Migration recipes)";
   private static final String DATA_TH_MESSAGE =
       "`%s` (HTML5 data-th-* syntax) is not converted; rewrite it as `t:%s`";
   private static final String DIALECT_MESSAGE =
@@ -60,9 +56,6 @@ final class ConversionRules {
     if (message != null) {
       return message;
     }
-    if (lower.startsWith("th:on")) {
-      return String.format(EVENT_HANDLER_MESSAGE, name);
-    }
     if (lower.startsWith("data-th-")) {
       return String.format(DATA_TH_MESSAGE, name, name.substring("data-th-".length()));
     }
@@ -72,38 +65,6 @@ final class ConversionRules {
     }
     return null;
   }
-
-  /**
-   * SVG presentation attributes, lower case, whose value is CSS that may hold a {@code url()}. On
-   * an SVG element the Tessera compiler gives them the {@code style} rules: a {@code String} value
-   * is a build error. The compiler's {@code Contexts} has the same list.
-   */
-  private static final Set<String> SVG_STYLE_ATTRIBUTES = Compat.setOf(
-      "fill", "stroke", "clip-path", "mask", "filter", "marker-start", "marker-mid", "marker-end", "marker", "cursor");
-
-  /** SVG animation elements, lower case, whose {@code fill} is timing ({@code freeze}), not CSS. */
-  private static final Set<String> SVG_TIMED_ANIMATIONS =
-      Compat.setOf("animate", "set", "animatemotion", "animatetransform", "animatecolor");
-
-  static final String SVG = "svg";
-  /** SVG elements whose content is HTML again (the compiler's HTML integration points). */
-  static final Set<String> SVG_HTML_PARENTS = Compat.setOf("foreignobject", "desc", "title");
-
-  /**
-   * Whether {@code local} (an attribute name without prefix, lower case) on the SVG element
-   * {@code element} (lower case) takes the {@code style} rules in Tessera.
-   */
-  static boolean svgStyleAttribute(String local, String element) {
-    return SVG_STYLE_ATTRIBUTES.contains(local)
-        && !(local.equals("fill") && SVG_TIMED_ANIMATIONS.contains(element));
-  }
-
-  /** {@code %1$s} is the attribute, {@code %2$s} its name without {@code th:}. */
-  static final String SVG_STYLE_MESSAGE =
-      "`%1$s` on an SVG element is not converted: Tessera reads `%2$s` as CSS, like `style`, so a `String` value is a build error; rewrite it as `t:%2$s` from literals, numbers and `css.color(...)`/`css.url(...)` (guide section 4.4)";
-  /** {@code %1$s} is the {@code th:attr} attribute, {@code %2$s} the attribute it sets. */
-  static final String SVG_STYLE_IN_ATTR_MESSAGE =
-      "`%2$s` in `%1$s` on an SVG element is CSS in Tessera, like `style`, so a `String` value is a build error; write it from literals, numbers and `css.color(...)`/`css.url(...)` (guide section 4.4)";
 
   /**
    * Attributes whose value is a keyword, literal or declaration, not an expression (renamed only).
@@ -354,12 +315,6 @@ final class ConversionRules {
           + " the same, but a non-string value now renders as JSON (`42`, `true`, `null`, an array or object), not a"
           + " quoted string: check `== \"true\"`, `.length` and string concatenation on it (`[[|${x}|]]` keeps a"
           + " string for a non-null value)";
-  /** {@code %s} is the template literal as a Markdown code span. */
-  static final String SCRIPT_INLINE_TEMPLATE_LITERAL_MESSAGE =
-      "%s in a script is a template literal, and `[[...]]` inside it is a build error in Tessera (it writes a JSON value with its own quotes); drop the backticks, or for a tagged template declare the value above the code (`var v = [[...]];`) and write ``tag`${v}` `` after it";
-  /** {@code %s} is the inline (its own Markdown code span). */
-  static final String SCRIPT_INLINE_IN_COMMENT_MESSAGE =
-      "`%s` inside a JavaScript comment is a build error in Tessera (its value would be written inside the comment and the page would never use it); move it out of the comment: Thymeleaf's natural template `var a = /*[[${x}]]*/ 'd';` becomes `var a = [[${x}]];`";
   /** {@code %1$s} is the comment and default, {@code %2$s} the inline, {@code %3$s} the dropped default. */
   static final String SCRIPT_NATURAL_COMMENT_MESSAGE =
       "%1$s in a script was rewritten to %2$s: Thymeleaf's natural template wrote the value in place of the comment and dropped %3$s, and `[[...]]` inside a comment is a build error in Tessera";
@@ -369,9 +324,6 @@ final class ConversionRules {
   /** {@code %1$s} is the comment, {@code %2$s} the text after it that Thymeleaf drops. */
   static final String SCRIPT_NATURAL_COMMENT_MANUAL_MESSAGE =
       "%1$s in a script is a Thymeleaf natural-template comment, but it is not one inline followed by one literal (Thymeleaf drops %2$s after it, up to the next `;`, `,`, `)`, `}`, `]`, `//` or line end), so it was not rewritten; `[[...]]` inside a comment is a build error in Tessera: replace the comment and the text Thymeleaf drops with the inline, as in `var a = /*[[${x}]]*/ 'd';` to `var a = [[${x}]];`";
-  /** {@code %s} is the inline. */
-  static final String SCRIPT_INLINE_IN_JSON_STRING_MESSAGE =
-      "`%s` inside a quoted string of a JSON script is a build error in Tessera (it writes a JSON value with its own quotes) and was not rewritten: make it the whole value, `{\"name\": [[...]]}`, and build any text around it in the model";
 
   /** {@code %1$s} is the link as a Markdown code span, {@code %2$s} its path variables and values. */
   static final String NULL_PATH_VARIABLE_MESSAGE =
@@ -385,36 +337,6 @@ final class ConversionRules {
   /** {@code %1$s} is the attribute, {@code %2$s} its converted value as a code span, {@code %3$s} the HTML name. */
   static final String NULL_ATTRIBUTE_MESSAGE =
       "`%1$s` = %2$s: for a `null` value Thymeleaf wrote `%3$s=\"\"`, but Tessera omits the attribute; if it can be `null` and the empty attribute matters, write `x ?: ''` for a `String` or `x == null ? '' : '' + x` (guide section 4.3)";
-  static final String TARGET = "target";
-  /** {@code %1$s} is the attribute, {@code %2$s} its converted value as a code span. */
-  static final String TARGET_MESSAGE =
-      "`%1$s` = %2$s: `target` is not an inert-text attribute in Tessera, so a computed value other than a literal is a build error; choose between literals with a boolean model value, as in `t:target=\"newWindow ? '_blank' : '_self'\"` (guide section 4.4)";
-
-  /**
-   * Whether {@code expr} (a converted Tessera expression) is a string literal or a choice between
-   * string literals ({@code c ? 'a' : 'b'}), which the compiler accepts in an attribute that is not
-   * inert text.
-   */
-  static boolean literalChoice(String expr) {
-    String e = Compat.strip(expr);
-    if (e.startsWith("(") && Expressions.indexOfTopLevel(e.substring(1), ')') == e.length() - 2) {
-      return literalChoice(e.substring(1, e.length() - 1));
-    }
-    if (STRING_LITERAL.matcher(e).matches()) {
-      return true;
-    }
-    int q = Expressions.indexOfTopLevel(e, '?');
-    if (q < 0) {
-      return false;
-    }
-    String branches = e.substring(q + 1);
-    int colon = Expressions.indexOfTopLevel(branches, ':');
-    return colon > 0
-        && literalChoice(branches.substring(0, colon))
-        && literalChoice(branches.substring(colon + 1));
-  }
-
-  private static final Pattern STRING_LITERAL = Pattern.compile("'[^']*'");
 
   /** {@code %s} is the selection as a code span. */
   static final String COMPOUND_SELECTION_MESSAGE =
@@ -424,22 +346,10 @@ final class ConversionRules {
       "`%s` is declared as `Object` in the generated `t:params` stub; replace it with its view type";
   static final String FRAGMENT_PARAMS_MESSAGE =
       "fragment `%s` parameters declared as `Object` (%s); replace each with its type (`Fragment` for markup arguments such as `~{::body}`)";
-  /** Raw output that the converter keeps; reported unless it is a message or already sanitized. */
-  static final String UTEXT = "utext";
-  static final Pattern SAFE_UTEXT = Pattern.compile("\\s*#\\{.*|.*\\bsanitize\\w*\\s*\\(.*", Pattern.DOTALL);
-  static final String UTEXT_MESSAGE =
-      "`%s` prints `%s` without escaping; `t:utext` takes a `SafeHtml`. For stored HTML write `t:utext=\"html.sanitize(%s)\"` (`html.sanitizeRich` for editor or Markdown output, or an application `HtmlPolicy` in a `@TemplateFunctions` namespace; guide section 4.10, Rich text), never a recursive fragment over a tree parsed in Java; for markup built in Java return a `SafeHtml`; for plain text use `t:text`";
-
-  /** {@link RichTextCheck}: at the fragment, and at each insert of it from outside its recursion. */
-  static final String RICH_TEXT_FRAGMENT_MESSAGE =
-      "fragment `%s` rebuilds rich text from a tree parsed in Java: it inserts itself under a `t:switch` on the tag name, so the data decides which element nests in which; that is a build error once the build-time context verifier is enforced. Keep the stored HTML as a `String` and print it with `t:utext=\"html.sanitize(text)\"` where the fragment is inserted (`html.sanitizeRich` for editor or Markdown output, or an application `HtmlPolicy` in a `@TemplateFunctions` namespace for other classes or images), then delete this fragment and the Java code that builds its nodes (guide section 4.10, Rich text)";
-  static final String RICH_TEXT_CALL_SITE_MESSAGE =
-      "inserts the recursive rich-text fragment `%s` (see `%s:%d`); replace the insert with `t:utext=\"html.sanitize(text)\"` over the HTML string its nodes were parsed from (or `html.sanitizeRich`, or an application `HtmlPolicy`)";
-
   static final String FRAGMENT_SIGNATURE_MESSAGE =
       "fragment signature `%s` was not understood; write it as `name(Type a, Type b)`";
 
-  /** {@link Layouts}: page skeleton elements nested by a layout call, and other parse errors. */
+  /** {@link Layouts}: page skeleton elements nested by a layout call. */
   private static final String PARSE_ERROR_REJECTED = "a parse error, which the build rejects";
   static final String LAYOUT_REMOVE_TAG_MESSAGE =
       "rewritten: added `t:remove=\"tag\"` to the `<%s>` this page passes to `%s`, which inserts it inside its own `<%s>`, so only its content is passed (a second one is "
@@ -458,8 +368,6 @@ final class ConversionRules {
   static final String NO_HEAD_PARAMETER_FIX =
       "`%s` takes no `<head>` content: give it a `Fragment head` parameter written as `<t:block t:replace=\"head\"></t:block>` in its `<head>`, move this into a `<head t:remove=\"tag\">` in this page and pass `~{::head}` for it (and `null` from the layout's other calls)";
   static final String PAGE_HEAD_FIX = "move it into this page's `<head>`";
-  static final String LAYOUT_UNRESOLVED_MESSAGE =
-      "the `<%s>` passed to `%s` was not checked (the fragment or its parameter is not among the converted templates); if the fragment inserts it inside its own `<%s>`, mark this `<%s>` `t:remove=\"tag\"` (guide section 4.8, Layouts)";
   static final String INNER_PAGE_ELEMENT_MESSAGE =
       "rewritten: deleted the tags of a `<%s>` inside a `<body>`; a browser ignored them, and a second `<%s>` is "
           + PARSE_ERROR_REJECTED + " (the page's `<%s>` is the layout's or its own)";
@@ -477,32 +385,8 @@ final class ConversionRules {
   static final String FRAGMENT_DOCUMENT_MESSAGE =
       "fragment `%s` writes a whole document (`<html>`, `<head>`, `<body>`) inside another element; where it is inserted these tags are "
           + PARSE_ERROR_REJECTED + ": keep only the body's content in the fragment, and move what its head needs to the layout's `<head>`";
-  static final String BEFORE_LAYOUT_MESSAGE =
-      "`<%s>` is written before the layout `%s` writes its doctype, so a browser ignores the doctype and renders the page in quirks mode ("
-          + PARSE_ERROR_REJECTED + "). Fix: %s";
-  static final String BLOCK_IN_P_MESSAGE =
-      "`<%s>` inside the `<p>` of line %d closes that paragraph, so the `</p>` on line %d has no `<p>` to close ("
-          + PARSE_ERROR_REJECTED + "): use a `<div>` instead of the `<p>`";
-  static final String BETWEEN_HEAD_AND_BODY_MESSAGE =
-      "`<%s>` between `</head>` and `<body>` is " + PARSE_ERROR_REJECTED + ": move it into the `<head>` or the `<body>`";
-  static final String IN_TABLE_MESSAGE =
-      "`<%s>` directly in a `<%s>`: a browser moves it in front of the table (" + PARSE_ERROR_REJECTED
-          + "): put it in a `<td>` or `<th>`, or outside the table";
   static final String ATTRIBUTE_SPACE_MESSAGE =
       "no space before attribute `%s` (" + PARSE_ERROR_REJECTED + "): a space was added, which a browser reads the same";
-
-  // ---- the CSRF token's closed shape (#550) ----
-
-  static final String FORM = "form";
-  static final String METHOD = "method";
-  static final String ACTION = "action";
-  static final String POST = "post";
-  /** {@code %1$s} is the attribute name, {@code %2$s} its converted value as a code span. */
-  static final String POST_ACTION_MESSAGE =
-      "`%1$s` = %2$s on a `<form method=\"post\">` is not a link: Tessera adds the CSRF token to a POST form only"
-          + " when its action is a same-origin link it can check, so any other computed action is a build error;"
-          + " remove `%1$s` if the form posts to the page's own URL (a form without an action posts to the page"
-          + " URL), or write the action as a link such as `@{/items/{id}(id=${item.id})}` (guide section 4.7)";
 
   /** {@code %1$s} is the inline, {@code %2$s} the variable it was hoisted into (#541). */
   static final String SCRIPT_HOISTED_MESSAGE =
@@ -520,14 +404,6 @@ final class ConversionRules {
           + " reads the global `%1$s` when it runs, and if the script is included more than once (a fragment per"
           + " row) each copy overwrites it, so every callback reads the last copy's value; give each copy its own"
           + " value, for example a number in a `data-*` attribute of the element it handles";
-  /** {@code %s} is the inline. */
-  static final String SCRIPT_INLINE_IN_REGEX_MESSAGE =
-      "`%s` inside a JavaScript regular expression is a build error in Tessera and was not rewritten: declare the"
-          + " value at the top of the script (`var v = [[...]];`) and build the pattern with `new RegExp(v)`";
-  /** {@code %s} is the inline. */
-  static final String SCRIPT_INLINE_IN_TEMPLATE_MESSAGE =
-      "`%s` inside a template literal is a build error in Tessera and was not rewritten: declare the value at the"
-          + " top of the script (`var v = [[...]];`) and write `${v}`";
   /** {@code %s} is the directive. */
   static final String SCRIPT_DIRECTIVE_MESSAGE =
       "%s no longer starts the script, because values were moved into declarations above it, so it no longer"

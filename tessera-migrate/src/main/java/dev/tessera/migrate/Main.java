@@ -163,7 +163,6 @@ public final class Main {
         failed = true;
       }
     }
-    report.addItems(RichTextCheck.check(layouts.templates()));
 
     String markdown = report.toMarkdown();
     if (reportFile == null) {

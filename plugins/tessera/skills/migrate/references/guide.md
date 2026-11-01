@@ -410,8 +410,8 @@ over several properties (`*{firstName + ' ' + lastName}` becomes
 fixes layout markup that nests a second `<body>` (section 4.8, Layouts), and lists what it could
 not convert by `file:line`. In a JavaScript or JSON `<script>` it drops the
 quotes around a `"..."` or `'...'` string that is only an inline (`"[[${x}]]"` becomes `[[${x}]]`,
-which writes JSON with its own quotes) and reports any other `[[...]]` inside a JSON string, a
-template literal or a comment. In a `th:inline="javascript"` script it rewrites a natural-template
+which writes JSON with its own quotes) and leaves any other `[[...]]` inside a JSON string, a
+template literal or a comment for the compiler to report. In a `th:inline="javascript"` script it rewrites a natural-template
 comment followed by one literal, `/*[[${x}]]*/ 'd'`, to `[[${x}]]`, as Thymeleaf rendered it, and
 reports one followed by anything else (`/*[[${x}]]*/ a + b`). After those rewrites it hoists each
 `[[...]]` of a JavaScript script that is not already the value of a prelude declaration (the script
@@ -423,16 +423,16 @@ the file already uses; in a classic script they are globals, so rename one if tw
 use the same name and read it later. A value hoisted out of a block or function is reported too:
 a callback or event handler now reads the global when it runs, so if the script is included more
 than once (a fragment per row) every callback reads the last copy's value; give each copy its own
-value, for example a number in a `data-*` attribute of the element it handles. It reports a value in a
-template literal or a regular expression, which it leaves in place, and a `"use strict"` that no longer starts the script. An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
+value, for example a number in a `data-*` attribute of the element it handles. It leaves a value in a
+template literal or a regular expression in place for the compiler to report, and reports a `"use strict"` that no longer starts the script. An element with `th:inline="none"` (Thymeleaf's way to leave `[[` alone) is not touched.
 A computed attribute outside HTML (`th:data-*`, `th:hx-*`, `th:x-*`, ...) is converted like any
 other, with no report: when its value is not framework-neutral, the compiler's error says so and
-names the fix (section 4.4, Migration recipes). It adds a missing space between attributes (`href="/a"class="b"`).
+names the fix (section 4.4, Migration recipes). So are `th:on*`, `th:style`, the CSS attributes of
+an SVG element (`th:fill`, ...), `th:target`, `th:utext`, `[(...)]` and a POST form's `th:action`:
+what the compiler rejects there, its error names with the fix, and the report doesn't repeat it.
+It adds a missing space between attributes (`href="/a"class="b"`).
 It also reports each `th:value`, `th:href`, `th:src`, `th:action`, `th:name` and `th:type` whose
 value may be `null`: Thymeleaf wrote the attribute empty, and Tessera omits it (section 4.3).
-It reports each `th:target` whose value is not a literal or a choice between literals, and leaves
-it in place: `target` is a typed attribute (section 4.4), so choose between literals with a
-boolean model value (`t:target="${newWindow} ? '_blank' : '_self'"`).
 It reports each read of a scope the template cannot see, at its line, with the fix-it for the
 controller, and leaves the read in place: `session.x` (`@SessionAttribute`), `param.x`
 (`@RequestParam`), `application.x`, `_csrf` (the starter already adds the `_csrf` input to
@@ -1371,8 +1371,7 @@ public record Address(String street) {}
     (`/owners`, `edit`, `?page=2`), or a link with a literal path starting with a single `/`
     (`t:action="@{/owners/{id}(id=${owner.id})}"`). Any other computed action of a POST form (a
     `String`, a `TrustedUrl`, a relative or absolute link) is a build error: use such a link, or
-    omit the action (`tessera-migrate` reports a POST form whose `th:action` is not a link, such
-    as `th:action="${formAction}"`). A static action on another origin (`action="https://pay.example/..."`) is the
+    omit the action. A static action on another origin (`action="https://pay.example/..."`) is the
     author's visible choice: the form gets no token, so the session's token is never sent to
     another site. An absolute URL to the application's own host counts as another origin, and
     Spring Security then rejects the POST: write it as `@{/...}`.
@@ -1573,8 +1572,8 @@ the layout inserts the passed `<body>` (or `<head>`, `<html>`) inside its own el
 deletes the tags of a nested `<body>` or `<html>`, and unwraps a fragment that writes a whole
 document into page bodies. It changes a tag only if a browser would merge nothing new from it:
 the tag has no attributes, or the element it merges into already has them. Otherwise it reports
-the element with the fix, as it does for an element before the layout call and a `<head>` inside a
-`<body>`.
+the element with the fix, as it does for a `<head>` inside a `<body>`. An element before the layout
+call, and any other parse error, is the compiler's to report.
 
 **Reusable form fields.** A `Field` parameter takes a field path that the compiler checks against
 the caller's `t:object`:
@@ -1753,8 +1752,8 @@ in the template instead, with a fragment that inserts itself, one `t:case` per t
 tree parsed in Java. There the data decides which element nests in which (a `p` inside a `p`,
 text directly inside a `table`), so the compiler can't check what the browser will build from
 the page. Don't write such a fragment: the compiler's build-time context verifier rejects it
-(`STRUCTURE_DEPENDS_ON_DATA`, section 7). `tessera-migrate` reports every `th:utext` and
-`[(...)]` it converts, and every fragment of this shape with its call sites.
+(`STRUCTURE_DEPENDS_ON_DATA`, section 7) at each call site. The compiler rejects a `String` in
+`t:utext` or `[(...)]` too, and both errors name the `html.sanitize(...)` fix.
 
 An example from a real port: fredbet's info pages print HTML written in a Summernote editor.
 The Thymeleaf template had `<div th:remove="tag" th:utext="${textContent}"></div>`. A port that
@@ -2488,7 +2487,7 @@ These come from the annotation processor itself, without a template position.
   (section 4.4), and a brace may not be written as a character reference (`&#123;`, `&lbrace;`):
   the runtime breaks only a literal `{` at a message's edges. Fix the bundle, or move the markup
   into the template.
-- `<form> needs a value of type dev.tessera.runtime.SafeHtml, but the expression has type <type>: use t:text or [[...]] (escaped), or build a SafeHtml in trusted Java code`.
+- `<form> needs a value of type dev.tessera.runtime.SafeHtml, but the expression has type <type>: use t:text or [[...]] (escaped); for stored HTML, html.sanitize(...) (guide section 4.10, Rich text); or build a SafeHtml in trusted Java code`.
 
 ### Attributes
 

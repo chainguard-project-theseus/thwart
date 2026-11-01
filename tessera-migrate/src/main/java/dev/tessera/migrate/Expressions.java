@@ -447,12 +447,6 @@ final class Expressions {
     return links;
   }
 
-  /** Whether {@code expr} (Tessera syntax) is one link expression, {@code @{...}}, and nothing else. */
-  static boolean isLink(String expr) {
-    String e = Compat.strip(expr);
-    return e.startsWith("@{") && matchBrace(e, 1) == e.length() - 1;
-  }
-
   private static final Pattern PATH_VARIABLE = Pattern.compile("\\{\\s*([^{}\\s]+)\\s*\\}");
   private static final Pattern NON_EMPTY_LITERAL =
       Pattern.compile("'(?:[^'\\\\]|\\\\.)+'|" + ConversionRules.NUMBER.pattern());
