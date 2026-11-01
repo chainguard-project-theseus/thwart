@@ -994,7 +994,10 @@ Gaps in Tessera today, with what to do instead.
 - **Client-side code.** Tessera guarantees what the browser's HTML parser does with the page. What
   page JavaScript or a client framework later does with the DOM, static markup and standard
   attribute values is outside that guarantee. Pass data to scripts through `[[...]]` declarations
-  or JSON blocks, use htmx 2, and send a strict CSP without `'unsafe-eval'`.
+  or JSON blocks, use htmx 2, and send a strict CSP without `'unsafe-eval'`. AngularJS is not
+  supported (it ignores `v-pre`, reads `{{` in class tokens and attributes, and runs under its own
+  CSP mode), nor are custom delimiters or `SafeHtml.unchecked` text, so don't mount a client
+  template compiler over server-rendered user data.
 - **Not supported, by design:** runtime template loading, `__${...}__` preprocessing, dynamic
   names, the layout dialect, `th:inline`, collection selection and projection, expressions in
   `<style>` and `on*`, and Kotlin.

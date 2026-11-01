@@ -30,7 +30,7 @@ about the other engines come from their official docs and repositories as of Oct
 - **Features.** No hot reload: a template change needs a recompile, and under Maven
   `tessera-maven-plugin` to notice it. No Gradle plugin, no Kotlin, no WebFlux, no streaming
   or async rendering API. The closed HTML profile rejects markup that browsers accept, and the
-  `<script>` rules restrict which JavaScript can come before an inlined value (guide section 5).
+  `<script>` rules restrict which JavaScript can come before an inlined value (guide section 4.4).
 - **Expressiveness.** Templates read getters and call only registered `@TemplateFunction`s. JTE
   and Rocker let a template call any Java. That is a deliberate trade, but it means more code in
   controllers.

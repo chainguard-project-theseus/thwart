@@ -240,7 +240,7 @@ allow-listed:
   subtree, under the same rules recursively. CDATA is accepted only in foreign mode.
 - **`select`.** Only `option`, `optgroup`, `hr` and text, the subset where classic and new select
   parsing agree (#305).
-- **Forms.** No nested `<form>`. The browser drops the inner start tag (CSRF, guide §5).
+- **Forms.** No nested `<form>`. The browser drops the inner start tag (CSRF, guide §4.7).
 - **Tables.** Allowed, with no computed text directly in `table`, `tbody`, `thead`, `tfoot`, `tr`
   or `colgroup` (#348). Foster parenting moves the text in front of the table but leaves comments
   in it, so the `{{` break comes apart. Values go in `td`, `th` and `caption`. The build-time
@@ -487,7 +487,7 @@ author's call; the actions below are what we recommend to them.
 | **#276** htmx 4 | Closed by framework-neutral values (#584): every `hx-*` name is `NEUTRAL` | |
 | `&quot;` in `<svg><script>` | Closed by "no holes in SVG `<script>`" (§5.4); in phase 0, add it to #301's rule | |
 | `@{/\evil}` resource URLs | Phase 0: one shared same-origin path check for resource, htmx, refresh and CSRF | Family E: one function, used everywhere |
-| CSRF via `formaction` (guide §5) | Phase 2: inside a POST form, a computed `formaction` takes only a same-origin link (the #274 rule), or the token is withheld | |
+| CSRF via `formaction` (guide §4.7) | Phase 2: inside a POST form, a computed `formaction` takes only a same-origin link (the #274 rule), or the token is withheld | |
 
 ## 10. Risks and open questions
 
