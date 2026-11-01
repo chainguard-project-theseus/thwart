@@ -14,22 +14,13 @@ import org.attoparser.ParseException;
 
 /**
  * Layout markup that a browser reads only by error recovery, which the build rejects (#406, #409):
- * a page skeleton element ({@code <body>}, {@code <head>}, {@code <html>}) nested inside another of
- * the same name. Runs over all converted templates, because whether a page's {@code <body>} nests
- * depends on where the layout inserts it. Rewrites only what keeps the page the same in a browser:
- * a tag is removed only if it has no attributes, or a browser would merge them into a page element
- * that already has them; everything else is reported with the fix. Other parse errors are the
- * compiler's to report (#595).
- *
- * <ul>
- *   <li>A page passes {@code ~{::body}} (or {@code ::head}, {@code ::html}) to a fragment that
- *       inserts it inside its own element of that name: the page's element gets
- *       {@code t:remove="tag"}.
- *   <li>A {@code <body>} or {@code <html>} inside a {@code <body>} of the same template: its tags
- *       are deleted.
- *   <li>A fragment, inserted only into page bodies, that writes a whole {@code <html>} document:
- *       its {@code <html>} and {@code <body>} tags and its {@code <head>} are deleted.
- * </ul>
+ * a page passes {@code ~{::body}} (or {@code ::head}, {@code ::html}) to a fragment that inserts
+ * it inside its own element of that name. Runs over all converted templates, because whether a
+ * page's {@code <body>} nests depends on where the layout inserts it. The page's element gets
+ * {@code t:remove="tag"} only if that keeps the page the same in a browser: it has no attributes,
+ * or a browser would merge them into a layout element that already has them; otherwise it is
+ * reported with the fix. Other parse errors, such as a second {@code <body>} written in one
+ * template, are the compiler's to report (#595).
  */
 final class Layouts {
   private Layouts() {}
@@ -62,7 +53,7 @@ final class Layouts {
     }
   }
 
-  /** An element with the source offsets of its start tag and end tag ({@code -1}: none). */
+  /** An element with the source offsets of its start tag. */
   private static final class El {
     final String name;
     final int line;
@@ -70,8 +61,6 @@ final class Layouts {
     final int start;
     int nameEnd;
     int openEnd;
-    int closeStart = -1;
-    int closeEnd = -1;
     /** Attributes in source order, lower-case names; a valueless attribute maps to "". */
     final Map<String, String> attrs = new LinkedHashMap<>();
     final List<El> children = new ArrayList<>();
@@ -104,25 +93,12 @@ final class Layouts {
       return attrs.keySet().stream().anyMatch(k -> k.startsWith(ConversionRules.TESSERA_PREFIX)
           || k.startsWith(ConversionRules.THYMELEAF_PREFIX));
     }
-
-    boolean hasAncestor(String tag, El upTo) {
-      for (El e = parent; e != null; e = e.parent) {
-        if (e.name.equals(tag)) {
-          return true;
-        }
-        if (e == upTo) {
-          return false;
-        }
-      }
-      return false;
-    }
   }
 
   private static final class Tree {
     final String file;
     final String template;
     final String source;
-    final El root;
     final List<El> all = new ArrayList<>();
     final List<int[]> edits = new ArrayList<>();
     final List<String> replacements = new ArrayList<>();
@@ -131,7 +107,6 @@ final class Layouts {
       this.file = file;
       this.template = file.endsWith(".html") ? file.substring(0, file.length() - 5) : file;
       this.source = source;
-      this.root = root;
       collect(root);
     }
 
@@ -159,34 +134,6 @@ final class Layouts {
       }
       edits.add(new int[] {from, to});
       replacements.add(replacement);
-    }
-
-    /** Deletes {@code [from, to)}, and its line too if nothing else is on it. */
-    void delete(int from, int to) {
-      int ls = from;
-      while (ls > 0 && (source.charAt(ls - 1) == ' ' || source.charAt(ls - 1) == '\t')) {
-        ls--;
-      }
-      int le = to;
-      while (le < source.length() && (source.charAt(le) == ' ' || source.charAt(le) == '\t')) {
-        le++;
-      }
-      boolean lineStart = ls == 0 || source.charAt(ls - 1) == '\n';
-      if (lineStart && le < source.length() && source.charAt(le) == '\r') {
-        le++;
-      }
-      if (lineStart && le < source.length() && source.charAt(le) == '\n') {
-        edit(ls, le + 1, "");
-      } else {
-        edit(from, to, "");
-      }
-    }
-
-    void deleteTags(El e) {
-      delete(e.start, e.openEnd);
-      if (e.closeStart >= 0) {
-        delete(e.closeStart, e.closeEnd);
-      }
     }
 
     String apply() {
@@ -273,22 +220,8 @@ final class Layouts {
       } else {
         items.add(new Report.Item(c.tree.file, selected.line, String.format(
             ConversionRules.LAYOUT_ATTRIBUTES_MESSAGE, startTag(c.tree, selected), display(c.target),
-            selected.name, selected.name, selected.name, moveFix(selected, selected.name, c, null),
+            selected.name, selected.name, selected.name, moveFix(selected, selected.name, c),
             selected.name)));
-      }
-    }
-    for (Tree t : trees) {
-      for (El e : t.all) {
-        if ((e.name.equals("body") || e.name.equals("html")) && e.hasAncestor("body", null)) {
-          innerPageElement(t, e, passedInto, passedBy, items);
-        } else if (e.name.equals("head") && e.hasAncestor("body", null)) {
-          Call layout = passedBy.get(outerBody(e));
-          items.add(new Report.Item(t.file, e.line, String.format(ConversionRules.HEAD_IN_BODY_MESSAGE,
-              layout == null ? ConversionRules.PAGE_HEAD_FIX : headFix(layout, defs))));
-        }
-        if (e.name.equals("html") && e.parent != t.root && !e.hasAncestor("html", null)) {
-          documentInFragment(t, e, trees, calls, passedInto, items);
-        }
       }
     }
 
@@ -356,83 +289,29 @@ final class Layouts {
   }
 
   /**
-   * The {@code <tag>} (html or body) a browser merges a stray {@code <tag>} inside {@code inside}
-   * into: the layout's, if the page's (outermost) body is passed to one, else the page's own;
-   * {@code null} if not known.
+   * The fix for attributes of {@code e} that {@code t:remove="tag"} would drop: move them to the
+   * {@code <tag>} of {@code layout}'s fragment. Only called when {@code e} has attributes.
    */
-  private static El documentElement(Tree t, El inside, String tag, Map<El, El> passedInto) {
-    El body = outerBody(inside); // a browser merges inner ones into it
-    if (body == null) {
-      return null;
-    }
-    El layoutBody = passedInto.get(body);
-    El pageBody = layoutBody != null ? layoutBody : body.t("remove") == null ? body : null;
-    if (pageBody == null || tag.equals("body")) {
-      return pageBody;
-    }
-    for (El p = pageBody.parent; p != null; p = p.parent) {
-      if (p.name.equals("html")) {
-        return p.t("replace") == null && p.t("insert") == null ? p : null;
-      }
-    }
-    return null;
-  }
-
-  /** The outermost {@code <body>} that is {@code e} or holds it, or {@code null}. */
-  private static El outerBody(El e) {
-    El body = null;
-    for (El p = e; p != null; p = p.parent) {
-      if (p.name.equals("body")) {
-        body = p;
-      }
-    }
-    return body;
-  }
-
-  /**
-   * The fix for attributes of {@code e} that deleting its tag would drop: move them to the
-   * {@code <tag>} of {@code layout}'s fragment, or to {@code pageTarget}, the page's own element.
-   */
-  private static String moveFix(El e, String tag, Call layout, El pageTarget) {
+  private static String moveFix(El e, String tag, Call layout) {
     List<String> list = new ArrayList<>();
     e.htmlAttrs().forEach((k, v) -> list.add("`" + k + (v.isEmpty() ? "" : "=\"" + v + "\"") + "`"));
     String attrs = String.join(", ", list);
-    if (layout != null && !list.isEmpty()) {
-      Map.Entry<String, String> first = e.htmlAttrs().entrySet().iterator().next();
-      String key = first.getKey();
-      boolean expression = key.startsWith(ConversionRules.TESSERA_PREFIX) || key.startsWith(ConversionRules.THYMELEAF_PREFIX);
-      String name = expression ? key.substring(key.indexOf(':') + 1) : key;
-      StringBuilder param = new StringBuilder(tag);
-      boolean upper = true;
-      for (char ch : name.toCharArray()) {
-        if (!Character.isLetterOrDigit(ch)) {
-          upper = true;
-        } else {
-          param.append(upper ? Character.toUpperCase(ch) : ch);
-          upper = false;
-        }
-      }
-      return String.format(ConversionRules.LAYOUT_PARAMETER_FIX, display(layout.target), attrs, tag, param, tag,
-          name, param, expression ? "`" + first.getValue() + "`" : "`'" + first.getValue() + "'`");
-    }
-    if (pageTarget != null) {
-      return String.format(ConversionRules.PAGE_ELEMENT_FIX, attrs, tag, pageTarget.line);
-    }
-    return String.format(ConversionRules.ELEMENT_FIX, attrs, tag);
-  }
-
-  /** How the page that makes {@code layout} call passes {@code <head>} content to it. */
-  private static String headFix(Call layout, Map<String, Def> defs) {
-    Def d = defs.get(layout.target);
-    if (d == null) {
-      return String.format(ConversionRules.HEAD_PARAMETER_FIX, "head", display(layout.target));
-    }
-    for (String p : d.params) {
-      if (insertedInside(d, p, "head") != null) {
-        return String.format(ConversionRules.HEAD_PARAMETER_FIX, p, display(layout.target));
+    Map.Entry<String, String> first = e.htmlAttrs().entrySet().iterator().next();
+    String key = first.getKey();
+    boolean expression = key.startsWith(ConversionRules.TESSERA_PREFIX) || key.startsWith(ConversionRules.THYMELEAF_PREFIX);
+    String name = expression ? key.substring(key.indexOf(':') + 1) : key;
+    StringBuilder param = new StringBuilder(tag);
+    boolean upper = true;
+    for (char ch : name.toCharArray()) {
+      if (!Character.isLetterOrDigit(ch)) {
+        upper = true;
+      } else {
+        param.append(upper ? Character.toUpperCase(ch) : ch);
+        upper = false;
       }
     }
-    return String.format(ConversionRules.NO_HEAD_PARAMETER_FIX, display(layout.target));
+    return String.format(ConversionRules.LAYOUT_PARAMETER_FIX, display(layout.target), attrs, tag, param, tag,
+        name, param, expression ? "`" + first.getValue() + "`" : "`'" + first.getValue() + "'`");
   }
 
   private static String startTag(Tree t, El e) {
@@ -505,120 +384,6 @@ final class Layouts {
       }
     }
     return false;
-  }
-
-  /** A literal {@code <body>} or {@code <html>} inside a {@code <body>}: a browser ignores its tags. */
-  private static void innerPageElement(Tree t, El e, Map<El, El> passedInto, Map<El, Call> passedBy,
-      List<Report.Item> items) {
-    El into = documentElement(t, e.parent, e.name, passedInto);
-    if (attributesMerge(e, into)) {
-      t.deleteTags(e);
-      items.add(new Report.Item(t.file, e.line,
-          String.format(ConversionRules.INNER_PAGE_ELEMENT_MESSAGE, e.name, e.name, e.name)));
-    } else {
-      Call layout = passedBy.get(outerBody(e.parent));
-      String fix = moveFix(e, e.name, layout, layout == null ? into : null);
-      items.add(new Report.Item(t.file, e.line, String.format(
-          ConversionRules.INNER_PAGE_ELEMENT_ATTRIBUTES_MESSAGE, startTag(t, e), e.name, e.name, fix, e.name, e.name)));
-    }
-  }
-
-  /**
-   * A fragment that writes a whole {@code <html>} document (a copied include), inserted only into
-   * page bodies: a browser ignores its {@code <html>}, {@code <head>} and {@code <body>} tags and
-   * keeps the head's elements in the body. Only those tags are deleted.
-   */
-  private static void documentInFragment(Tree t, El html, List<Tree> trees, List<Call> calls,
-      Map<El, El> passedInto, List<Report.Item> items) {
-    El fragment = null;
-    for (El p = html.parent; p != null && fragment == null; p = p.parent) {
-      if (p.t("fragment") != null) {
-        fragment = p;
-      }
-    }
-    if (fragment == null) {
-      return;
-    }
-    Matcher sm = SIGNATURE.matcher(fragment.t("fragment"));
-    String key = t.template + "::" + (sm.matches() ? sm.group(1) : "");
-    List<El> heads = new ArrayList<>();
-    List<El> bodies = new ArrayList<>();
-    for (El c : html.children) {
-      if (c.name.equals("head")) {
-        heads.add(c);
-      } else if (c.name.equals("body")) {
-        bodies.add(c);
-      }
-    }
-    boolean rewritable = false;
-    int inserts = 0;
-    for (Call c : calls) {
-      if (!c.target.equals(key)) {
-        continue;
-      }
-      inserts++;
-      // Every insert is in a page body, and a browser merges nothing new into that page.
-      rewritable = attributesMerge(html, documentElement(c.tree, c.host, "html", passedInto));
-      for (El b : bodies) {
-        rewritable &= attributesMerge(b, documentElement(c.tree, c.host, "body", passedInto));
-      }
-      if (!rewritable || documentElement(c.tree, c.host, "body", passedInto) == null) {
-        rewritable = false;
-        break;
-      }
-    }
-    for (El h : heads) {
-      rewritable &= h.attrs.isEmpty();
-    }
-    // A reference that isn't a plain insert (an argument, a conditional) may insert it elsewhere.
-    rewritable &= references(trees, t, key) <= inserts;
-    if (!rewritable) {
-      items.add(new Report.Item(t.file, html.line,
-          String.format(ConversionRules.FRAGMENT_DOCUMENT_MESSAGE, display(key))));
-      return;
-    }
-    t.deleteTags(html);
-    List<String> kept = new ArrayList<>();
-    for (El h : heads) {
-      for (El c : h.children) {
-        kept.add("`" + startTag(t, c) + "`");
-      }
-      t.deleteTags(h);
-    }
-    for (El b : bodies) {
-      t.deleteTags(b);
-    }
-    items.add(new Report.Item(t.file, html.line, String.format(
-        ConversionRules.FRAGMENT_DOCUMENT_REWRITE_MESSAGE, display(key), kept.isEmpty() ? ""
-            : String.format(ConversionRules.FRAGMENT_HEAD_KEPT, String.join(", ", kept)))));
-  }
-
-  /** How many template attributes in {@code trees} name fragment {@code key} of {@code t}. */
-  private static int references(List<Tree> trees, Tree t, String key) {
-    int sep = key.indexOf("::");
-    String name = Pattern.quote(key.substring(sep + 2)) + "(?![\\w-])";
-    Pattern other = Pattern.compile("(?<![\\w/.-])/?" + Pattern.quote(key.substring(0, sep)) + "\\s*::\\s*" + name);
-    Pattern same = Pattern.compile("(?:^|[^\\w/.-])(?:this\\s*)?::\\s*" + name);
-    int n = 0;
-    for (Tree tree : trees) {
-      for (El e : tree.all) {
-        for (Map.Entry<String, String> a : e.attrs.entrySet()) {
-          if (a.getKey().startsWith(ConversionRules.TESSERA_PREFIX) || a.getKey().startsWith(ConversionRules.THYMELEAF_PREFIX)) {
-            Matcher m = other.matcher(a.getValue());
-            while (m.find()) {
-              n++;
-            }
-            if (tree == t) {
-              m = same.matcher(a.getValue());
-              while (m.find()) {
-                n++;
-              }
-            }
-          }
-        }
-      }
-    }
-    return n;
   }
 
   private static String display(String key) {
@@ -701,21 +466,19 @@ final class Layouts {
 
     @Override
     public void handleCloseElementStart(char[] buffer, int nameOffset, int nameLen, int line, int col) {
-      close(new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT), nameOffset);
+      close(new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT));
     }
 
     @Override
     public void handleUnmatchedCloseElementStart(
         char[] buffer, int nameOffset, int nameLen, int line, int col) {
-      close(new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT), nameOffset);
+      close(new String(buffer, nameOffset, nameLen).toLowerCase(Locale.ROOT));
     }
 
     /** Closes the innermost open element of that name and everything inside it; else ignored. */
-    private void close(String name, int nameOffset) {
+    private void close(String name) {
       for (El n = current; n != root; n = n.parent) {
         if (n.name.equals(name)) {
-          n.closeStart = nameOffset - 2;
-          n.closeEnd = tagEnd(nameOffset);
           current = n.parent;
           return;
         }
