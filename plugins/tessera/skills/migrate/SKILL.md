@@ -51,8 +51,9 @@ before you start; look up the rest when you need it.
   - For Thymeleaf, `tessera-migrate <old-templates-dir> <new-templates-dir> --report report.md`
     does the mechanical rewrite and reports, by `file:line`, what it couldn't convert and every
     value the templates read from outside the model.
-- **`tessera-maven-plugin`** (`check` goal) makes Maven recompile after a template-only or
-  message-only edit (guide section 2).
+- **`tessera-maven-plugin`**: `check` makes Maven recompile after a template-only or message-only
+  edit, and `review` lists every `@TemplateFunction` and `unchecked` call for a security review
+  (guide section 2).
 - **The application's own tooling.** Its build, tests, scripts, README and seed data are yours to
   find and use.
 

@@ -111,7 +111,7 @@ Pick the starter by servlet API and use exactly one; it brings only `tessera-run
   <groupId>dev.tessera</groupId>
   <artifactId>tessera-maven-plugin</artifactId>
   <version>${tessera.version}</version>
-  <executions><execution><goals><goal>check</goal></goals></execution></executions>
+  <executions><execution><goals><goal>check</goal><goal>review</goal></goals></execution></executions>
   <!-- if tessera.templates is not the default:
   <configuration><templates>${project.basedir}/src/main/webapp/templates</templates></configuration> -->
 </plugin>
@@ -120,8 +120,8 @@ Pick the starter by servlet API and use exactly one; it brings only `tessera-run
 - `tessera.templates` (required) is the absolute templates root; every `**/*.html` below it is a
   template. `tessera.package` is the generated package. `tessera.messages` is the Spring message
   basename as a path without `.properties` (several, comma-separated); with it every `#{key}` is
-  checked at build time. If the base file is partial and the full text is in a locale file, name
-  that file (`.../i18n/messages_en`).
+  checked at build time. If the base file is partial or missing and the full text is in a locale
+  file, name that file (`.../i18n/messages_en`).
 - `annotationProcessorPaths` turns off processor discovery, so list every processor the build
   relied on (Lombok, MapStruct, ...), Lombok before Tessera. Templates see Lombok's getters.
 - After `mvn clean compile`, `target/generated-sources/annotations` holds a `*Template.java` per
@@ -136,6 +136,10 @@ Pick the starter by servlet API and use exactly one; it brings only `tessera-run
 - Maven runs javac only when Java sources change, so without `tessera-maven-plugin`'s `check`
   goal an edited template or message keeps its old generated class and the build stays green. It
   reads `tessera.messages` from the property of that name, so set the property.
+- The `review` goal (run by `mvn package`) writes `target/tessera-review.txt`: every
+  `@TemplateFunction` and every `SafeHtml.unchecked`/`TrustedUrl.unchecked` call, with its source
+  line, for a security review. `-Dtessera.failOnUnchecked=true` fails the build on an `unchecked`
+  call.
 - The generated `META-INF/services/dev.tessera.runtime.TemplateRegistry` and
   `META-INF/tessera/**` must be packaged; otherwise the starter warns "No compiled Tessera
   templates on the classpath" at startup.
