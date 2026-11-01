@@ -56,8 +56,11 @@ Each principle removes a class of bugs. The full rules are in [AGENTS.md](AGENTS
 6. **Familiar before novel, inside the profile.** The syntax tracks Thymeleaf wherever that is
    safe, so migration is mostly mechanical. Parity never overrides 5.
 7. **The guarantee ends at the HTML parser.** Tessera guarantees what the browser's HTML parser
-   does with the output. Client frameworks that re-read the DOM as code are supported only
-   through a deny-by-default framework table.
+   and built-in sinks do with the output. It models no client-side framework. Outside standard
+   HTML attributes, a computed value is framework-neutral (a number, a boolean or a same-origin
+   path), and computed text never contains `{{` (a computed `<title>` or `<textarea>` gets `v-pre`
+   instead), so code that re-reads the DOM gets nothing it can run. Client code that otherwise
+   evaluates attribute values or DOM text is outside the guarantee.
 
 ## Requirements
 
