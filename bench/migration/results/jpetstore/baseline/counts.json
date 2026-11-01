@@ -44,16 +44,16 @@
    "th:value": 5,
    "th:utext": 3,
    "#authentication.principal": 2,
-   "#temporals.format": 2,
+   "th:include": 2,
    "sec:authentication": 2,
    "__${": 2,
-   "th:include": 2,
+   "#temporals.format": 2,
    "th:with": 1,
    "th:class": 1,
    "#request.getAttribute": 1,
+   "th:fragment": 1,
    "th:for": 1,
-   "#ids.prev": 1,
-   "th:fragment": 1
+   "#ids.prev": 1
   }
  }
 }

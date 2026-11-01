@@ -1,0 +1,27 @@
+01 same      GET /
+02 same      GET /owners/find
+03 same      GET /owners?lastName=
+04 same      GET /owners?lastName=Davis
+05 same      GET /owners?lastName=Franklin
+06 same      GET /owners?lastName=Nobody
+07 same      GET /owners/1
+08 same      GET /owners/3
+09 same      GET /owners/new
+10 same      POST /owners/new firstName=&lastName=&address=&city=&telephone=abc
+11 same      POST /owners/new firstName=Ann&lastName=O'Neil <b>&address=1 Main St&city=Madison&telephone=6085550000
+12 same      GET /owners/1/edit
+13 same      POST /owners/1/edit firstName=George&lastName=Franklin&address=110 W. Liberty St.&city=Madison&telephone=12345678901
+14 same      POST /owners/1/edit firstName=George&lastName=Franklin&address=111 W. Liberty St.&city=Madison&telephone=6085551023
+15 same      GET /owners/1/pets/new
+16 same      POST /owners/1/pets/new name=&birthDate=&type=cat
+17 same      POST /owners/1/pets/new name=Leo&birthDate=2020-01-01&type=cat
+18 same      POST /owners/1/pets/new name=Fluffy&birthDate=2020-01-01&type=hamster
+19 same      GET /owners/1/pets/1/edit
+20 same      POST /owners/1/pets/1/edit id=1&name=Leo II&birthDate=2010-09-07&type=dog
+21 same      GET /owners/6/pets/7/visits/new
+22 same      POST /owners/6/pets/7/visits/new date=2024-01-01&description=
+23 same      POST /owners/6/pets/7/visits/new date=2024-01-01&description=Check <up>
+24 same      GET /owners/6
+25 same      GET /vets
+26 same      GET /oups
+tessera-migrate compare: 26 page(s): 26 same, 0 reordered, 0 differ

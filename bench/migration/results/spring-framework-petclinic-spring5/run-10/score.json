@@ -1,0 +1,41 @@
+{
+ "app": "spring-framework-petclinic-spring5",
+ "run": "run-10",
+ "build_ok": true,
+ "tests_ok": true,
+ "tests": {
+  "tests": 67,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0
+ },
+ "tests_failed": [],
+ "baseline_tests": 62,
+ "pages_total": 27,
+ "pages_identical": 27,
+ "pages_reordered": 0,
+ "status_mismatch": [],
+ "insecure": [],
+ "legacy_templates": [],
+ "legacy_constructs": {},
+ "legacy_deps": [],
+ "tessera_templates": 11,
+ "baseline_templates": 19,
+ "pass": true,
+ "wall_minutes": 10.0,
+ "exit": 0,
+ "model": "opus",
+ "budget_usd": 40,
+ "budget_minutes": 90,
+ "outcome": "success",
+ "cost_usd": 3.773572599999999,
+ "turns": 67,
+ "tokens": {
+  "input_tokens": 130,
+  "output_tokens": 49283,
+  "cache_read_input_tokens": 9181163,
+  "cache_creation_input_tokens": 190232
+ },
+ "skill_listed": true,
+ "skill_invoked": true
+}
