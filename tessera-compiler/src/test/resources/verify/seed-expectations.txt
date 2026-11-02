@@ -12,6 +12,9 @@
 #            ACCEPT: the verifier accepts what main writes for it.
 #            PROFILE: main's profile rejects it before there is anything to verify (the note says
 #            why); the build fails.
+#   note     "hole not emitted" (#752): the profile rejects it and the compiler wrote nothing the verifier
+#            checks (no value, insertion or control flow), so ACCEPT or PROFILE here is no verifier coverage.
+#            SeedVerifierTest keeps the mark exact.
 306-A0          -    ACCEPT
 306-A1          -    ACCEPT
 306-A2          C    ACCEPT
@@ -52,16 +55,16 @@
 306-A37         -    ACCEPT
 306-A38         -    ACCEPT
 306-A39         -    ACCEPT
-306-A40         -    ACCEPT
-306-A41         -    ACCEPT
+306-A40         -    ACCEPT  # hole not emitted
+306-A41         -    ACCEPT  # hole not emitted
 306-A42         -    ACCEPT
 306-A43         -    ACCEPT
 306-A44         -    ACCEPT
 306-A45         -    ACCEPT
 306-A46         -    ACCEPT
-306-A47         -    ACCEPT
+306-A47         -    ACCEPT  # hole not emitted
 306-A48         AB   VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
-306-A49         -    ACCEPT
+306-A49         -    ACCEPT  # hole not emitted
 306-A50         -    ACCEPT
 306-A51         C    ACCEPT
 306-A52         C    ACCEPT
@@ -76,10 +79,10 @@
 306-A61         -    ACCEPT
 306-A62         -    VERIFIER TEXT_NOT_IN_TEXT
 306-B0          AB   VERIFIER JSON_NOT_IN_SCRIPT
-306-B1          E    ACCEPT
-306-B2          E    ACCEPT
-306-B3          -    ACCEPT
-306-B4          -    ACCEPT
+306-B1          E    ACCEPT  # hole not emitted
+306-B2          E    ACCEPT  # hole not emitted
+306-B3          -    ACCEPT  # hole not emitted
+306-B4          -    ACCEPT  # hole not emitted
 306-B5          -    ACCEPT
 306-B6          -    ACCEPT
 306-B7          -    VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
@@ -87,7 +90,7 @@
 306-B9          AB   VERIFIER TEXT_IN_SCRIPT
 306-B10         AB   VERIFIER JSON_NOT_IN_SCRIPT
 306-B11         -    VERIFIER PARSE_ERROR VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
-pr295-1         -    ACCEPT
+pr295-1         -    ACCEPT  # hole not emitted
 pr295-2         AB   VERIFIER TEXT_IN_SCRIPT
 pr295-3         AB   VERIFIER TEXT_IN_SCRIPT
 pr296-1         AB   VERIFIER TEXT_IN_SCRIPT
@@ -203,10 +206,10 @@ pr298-7         AB   VERIFIER TEXT_IN_SCRIPT
 pr298-8         AB   VERIFIER TEXT_NOT_IN_TEXT
 pr298-9         AB   VERIFIER TEXT_IN_SCRIPT
 pr298-10        AB   VERIFIER TEXT_IN_SCRIPT
-pr298-11        -    ACCEPT
-pr298-12        -    ACCEPT
-pr298-13        -    ACCEPT
-pr298-14        -    ACCEPT
+pr298-11        -    ACCEPT  # hole not emitted
+pr298-12        -    ACCEPT  # hole not emitted
+pr298-13        -    ACCEPT  # hole not emitted
+pr298-14        -    ACCEPT  # hole not emitted
 pr299-7         AB   VERIFIER TEXT_NOT_IN_TEXT
 pr299-8         AB   VERIFIER TEXT_NOT_IN_TEXT
 pr299-9         AB   VERIFIER TEXT_NOT_IN_TEXT
@@ -223,7 +226,7 @@ pr299-19        AB   VERIFIER TEXT_NOT_IN_TEXT
 pr299-20        AB   VERIFIER TEXT_NOT_IN_TEXT
 pr299-21        -    VERIFIER JSON_NOT_IN_SCRIPT
 pr300-3         -    ACCEPT
-pr300-4         -    ACCEPT
+pr300-4         -    ACCEPT  # hole not emitted
 pr300-5         -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
 pr300-6         AB   VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
 pr300-7         AB   VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
@@ -239,7 +242,7 @@ pr301-11        AB   VERIFIER TEXT_IN_SCRIPT
 pr301-12        AB   VERIFIER TEXT_IN_SCRIPT
 pr301-13        AB   VERIFIER PARSE_ERROR  # fixed on main: text escaper where <p> leaves MathML (#301); since #406 the breakout itself is a parse error
 pr301-14        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
-pr301-15        -    PROFILE  # #539: a String in a computed size/color on a foreign <font> is not inert-text; was VERIFIER PARSE_ERROR (#406: an HTML start tag that breaks out of foreign content)
+pr301-15        -    PROFILE  # #539: a String in a computed size/color on a foreign <font> is not inert-text; was VERIFIER PARSE_ERROR (#406: an HTML start tag that breaks out of foreign content); hole not emitted
 pr301-16        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
 pr303-1         -    ACCEPT
 pr303-2         -    ACCEPT
@@ -247,7 +250,7 @@ pr303-3         -    ACCEPT
 pr303-4         -    ACCEPT
 pr303-5         -    ACCEPT
 pr304-10        AB   VERIFIER TEXT_IN_SCRIPT
-pr304-11        -    ACCEPT
+pr304-11        -    ACCEPT  # hole not emitted
 pr304-12        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
 pr304-13        -    VERIFIER PARSE_ERROR  # #406: an HTML start tag that breaks out of foreign content
 pr304-14        -    PROFILE  # #539: a String in a computed size/color on a foreign <font> is not inert-text; was VERIFIER PARSE_ERROR (#406: an HTML start tag that breaks out of foreign content)
@@ -256,16 +259,16 @@ pr305-6         AB   VERIFIER SELECT_CONTENT
 pr305-7         AB   VERIFIER SELECT_CONTENT PARSE_ERROR
 pr305-8         -    VERIFIER SELECT_CONTENT  # #406: exclusion (c), <template> unwrapped into a <select>
 pr305-9         -    VERIFIER SELECT_CONTENT  # #406: exclusion (c), t:remove unwrapped into a <select>
-pr305-10        -    ACCEPT
-pr340-1         E    ACCEPT
-pr340-2         -    ACCEPT
-pr340-3         -    ACCEPT
-pr340-4         -    ACCEPT
-pr340-5         -    ACCEPT
-pr340-6         E    ACCEPT
-pr340-7         E    ACCEPT
-pr340-8         -    ACCEPT
-pr340-9         -    ACCEPT
+pr305-10        -    ACCEPT  # hole not emitted
+pr340-1         E    ACCEPT  # hole not emitted
+pr340-2         -    ACCEPT  # hole not emitted
+pr340-3         -    ACCEPT  # hole not emitted
+pr340-4         -    ACCEPT  # hole not emitted
+pr340-5         -    ACCEPT  # hole not emitted
+pr340-6         E    ACCEPT  # hole not emitted
+pr340-7         E    ACCEPT  # hole not emitted
+pr340-8         -    ACCEPT  # hole not emitted
+pr340-9         -    ACCEPT  # hole not emitted
 review-pr298-1  AB   VERIFIER TEXT_IN_SCRIPT
 review-pr290-1  C    ACCEPT
 review-pr290-2  C    ACCEPT
@@ -300,51 +303,51 @@ ax-attr-6       -    ACCEPT
 ax-attr-7       -    ACCEPT
 ax-attr-8       -    PROFILE  # t:attr "id ${s}" does not parse: expected '=' after 'id'
 ax-enc-1        AB   PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
-ax-enc-2        -    PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-2        -    PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE; hole not emitted
 ax-enc-3        -    PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
 ax-enc-4        -    PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
-ax-enc-5        -    PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
-ax-enc-6        -    PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
+ax-enc-5        -    PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE; hole not emitted
+ax-enc-6        -    PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE; hole not emitted
 ax-enc-7        AB   PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
 ax-enc-8        AB   PROFILE  # #539: a String in a computed encoding is not inert-text; was VERIFIER ATTRIBUTE_VALUE_CHANGES_PARSE
 ax-enc-9        -    PROFILE  # t:attrappend is not supported: assignment (=) is not supported in its value
 ax-enc-10       -    PROFILE  # t:attrprepend is not supported: assignment (=) is not supported in its value
-xss-rejected-1  -    ACCEPT
-xss-rejected-2  -    ACCEPT
-xss-rejected-3  -    ACCEPT
-xss-rejected-4  -    ACCEPT
-xss-rejected-5  -    ACCEPT
-xss-rejected-6  -    ACCEPT
-xss-rejected-7  -    ACCEPT
-xss-rejected-8  -    ACCEPT
-xss-rejected-9  -    ACCEPT
-xss-rejected-10 -    ACCEPT
-xss-rejected-11 -    ACCEPT
+xss-rejected-1  -    ACCEPT  # hole not emitted
+xss-rejected-2  -    ACCEPT  # hole not emitted
+xss-rejected-3  -    ACCEPT  # hole not emitted
+xss-rejected-4  -    ACCEPT  # hole not emitted
+xss-rejected-5  -    ACCEPT  # hole not emitted
+xss-rejected-6  -    ACCEPT  # hole not emitted
+xss-rejected-7  -    ACCEPT  # hole not emitted
+xss-rejected-8  -    ACCEPT  # hole not emitted
+xss-rejected-9  -    ACCEPT  # hole not emitted
+xss-rejected-10 -    ACCEPT  # hole not emitted
+xss-rejected-11 -    ACCEPT  # hole not emitted
 xss-rejected-12 -    VERIFIER PARSE_ERROR  # #406: a second <body>
-xss-rejected-13 -    ACCEPT
-xss-rejected-14 -    ACCEPT
-xss-rejected-15 -    ACCEPT
+xss-rejected-13 -    ACCEPT  # hole not emitted
+xss-rejected-14 -    ACCEPT  # hole not emitted
+xss-rejected-15 -    ACCEPT  # hole not emitted
 xss-rejected-16 -    ACCEPT
-xss-rejected-17 -    ACCEPT
-xss-rejected-18 -    ACCEPT
-xss-rejected-19 -    ACCEPT
-xss-rejected-20 -    ACCEPT
-xss-rejected-21 -    ACCEPT
-xss-rejected-22 -    ACCEPT
-xss-rejected-23 -    ACCEPT
-xss-rejected-24 -    ACCEPT
-xss-rejected-25 -    ACCEPT
+xss-rejected-17 -    ACCEPT  # hole not emitted
+xss-rejected-18 -    ACCEPT  # hole not emitted
+xss-rejected-19 -    ACCEPT  # hole not emitted
+xss-rejected-20 -    ACCEPT  # hole not emitted
+xss-rejected-21 -    ACCEPT  # hole not emitted
+xss-rejected-22 -    ACCEPT  # hole not emitted
+xss-rejected-23 -    ACCEPT  # hole not emitted
+xss-rejected-24 -    ACCEPT  # hole not emitted
+xss-rejected-25 -    ACCEPT  # hole not emitted
 xss-rejected-26 -    VERIFIER PARSE_ERROR  # #406: <frame> outside a frameset is a stray start tag
-xss-rejected-27 -    ACCEPT
-xss-rejected-28 -    ACCEPT
-xss-rejected-29 -    ACCEPT
-xss-rejected-30 -    ACCEPT
-xss-rejected-31 -    ACCEPT
-xss-rejected-32 -    ACCEPT
-xss-rejected-33 -    ACCEPT
+xss-rejected-27 -    ACCEPT  # hole not emitted
+xss-rejected-28 -    ACCEPT  # hole not emitted
+xss-rejected-29 -    ACCEPT  # hole not emitted
+xss-rejected-30 -    ACCEPT  # hole not emitted
+xss-rejected-31 -    ACCEPT  # hole not emitted
+xss-rejected-32 -    ACCEPT  # hole not emitted
+xss-rejected-33 -    ACCEPT  # hole not emitted
 xss-rejected-34 -    ACCEPT
-xss-rejected-35 -    ACCEPT
-xss-rejected-36 -    ACCEPT
+xss-rejected-35 -    ACCEPT  # hole not emitted
+xss-rejected-36 -    ACCEPT  # hole not emitted
 xss-lines-1     -    ACCEPT
 xss-lines-2     -    ACCEPT
 xss-lines-3     -    ACCEPT
@@ -354,39 +357,39 @@ xss-lines-6     -    ACCEPT
 xss-lines-7     -    ACCEPT
 xss-lines-8     -    ACCEPT
 xss-lines-9     -    ACCEPT
-xss-lines-10    -    ACCEPT
+xss-lines-10    -    ACCEPT  # hole not emitted
 xss-lines-11    -    ACCEPT
-xss-lines-12    -    ACCEPT
-xss-lines-13    -    ACCEPT
+xss-lines-12    -    ACCEPT  # hole not emitted
+xss-lines-13    -    ACCEPT  # hole not emitted
 xss-lines-14    -    ACCEPT
 xss-lines-15    -    ACCEPT
 xss-lines-16    -    ACCEPT
-xss-lines-17    -    ACCEPT
+xss-lines-17    -    ACCEPT  # hole not emitted
 xss-lines-18    C    ACCEPT
 xss-lines-19    -    ACCEPT
 # #678: constructs rejected instead of modelled (oracle/seeds/reject-678.txt).
 r678-svg-text   -    VERIFIER VALUE_IN_FOREIGN  # #678: the profile rejects it too
-r678-svg-attr   -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
-r678-svg-own-attr -  PROFILE  # #678: a computed attribute on <svg> itself; the profile rejects it, the verifier does not see it
+r678-svg-attr   -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it; hole not emitted
+r678-svg-own-attr -  PROFILE  # #678: a computed attribute on <svg> itself; the profile rejects it, the verifier does not see it; hole not emitted
 r678-math       -    VERIFIER VALUE_IN_FOREIGN  # #678: the profile rejects it too
 r678-cdata-html -    VERIFIER PARSE_ERROR  # #678: the profile rejects it too
 r678-cdata-svg  -    VERIFIER CDATA_SECTION  # #678: the profile rejects it too
-r678-xmp        -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-xmp        -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it; hole not emitted
 r678-plaintext  -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
-r678-noembed    -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
-r678-noframes   -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-noembed    -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it; hole not emitted
+r678-noframes   -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it; hole not emitted
 r678-frameset   -    VERIFIER FRAMESET PARSE_ERROR  # #678: the profile rejects it too
 r678-noscript   -    VERIFIER VALUE_IN_RAW_TEXT  # #678: the profile rejects it too
 r678-iframe     -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
-r678-srcset     -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
-r678-imagesrcset -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
-r678-ping       -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
-r678-input-type -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
-r678-encoding   -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
-r678-is         -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
-r678-xmlns      -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
-r678-font       -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
-r678-meta       -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+r678-srcset     -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it; hole not emitted
+r678-imagesrcset -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it; hole not emitted
+r678-ping       -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it; hole not emitted
+r678-input-type -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it; hole not emitted
+r678-encoding   -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it; hole not emitted
+r678-is         -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it; hole not emitted
+r678-xmlns      -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it; hole not emitted
+r678-font       -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it; hole not emitted
+r678-meta       -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it; hole not emitted
 T1-text-in-tbody             -    VERIFIER TEXT_IN_TABLE
 T2-text-before-row           -    VERIFIER TEXT_IN_TABLE
 T3-ttext-in-tr               -    VERIFIER TEXT_IN_TABLE
