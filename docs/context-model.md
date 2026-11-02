@@ -199,7 +199,7 @@ A content kind is a predicate on the spec parser's state at the insertion point,
 about what the producer emits (#329, redefined Oct 25, 2026; `verify/ContentKinds`). Together
 they let the verifier take the state after a value known only at render time to be the state
 before it. Statically known fragments need no kind: the verifier analyses them at each call site.
-HTML messages need none either: their markup is known at build time (below).
+HTML messages are `PHRASING`, a narrower kind (below).
 
 **`FLOW`, the predicate** (`ContentKinds.problem`), with scripting on and off. `closer` stays: a
 runtime value is invisible to the error check. Formatting elements waiting to be reopened are
@@ -293,27 +293,27 @@ The rest of the promise needs no check of its own (#410): in the `<body>` probe 
 a top-level table part and a `head`, `body`, `html` or `frameset` start tag are parse errors, an
 `li` or `dd` outside its own list (inside a `div` too) closes the open `li` or `dd` of the list
 probes, and a table part closes a cell or switches a template's mode. So the bench corpus's two call sites pass: budgetmaster's `NotificationLinkTemplate` (an `a`)
-is marked, and so is espd run-3's `PrintContentTemplate` once its HTML messages pass the verifier
-(they fail `MESSAGE_CHANGES_STATE` since #329, independently of this).
+is marked, and so is espd run-3's `PrintContentTemplate`.
 
-`PHRASING`, `HEAD` and `TABLE_ROWS` are not added. On the bench corpus the `p` clause rejects 6
-call sites, `<p t:utext="${...}">` and the like, and nothing needs `HEAD` or `TABLE_ROWS` (the #329
-PR has the counts). The fix is a `<div>`. A `PHRASING` kind would need its own safe type, since
-the compiler sees only `SafeHtml`.
+`HEAD` and `TABLE_ROWS` are not added, and `PHRASING` only for HTML messages. On the bench corpus
+the `p` clause rejects 6 call sites, `<p t:utext="${...}">` and the like, and nothing needs `HEAD`
+or `TABLE_ROWS` (the #329 PR has the counts). The fix is a `<div>`. A `PHRASING` `SafeHtml` would
+need its own safe type, since the compiler sees only `SafeHtml`.
 
-**HTML messages** (`#{...}` in `t:utext` or `[(...)]`) are recorded with their markup: one
-branch per value of the key in the bundle files the build sees, as written and as `MessageFormat`
-formats it (each placeholder a `text` hole), plus a `text` hole for a message the build didn't see
-(written escaped). The verifier analyses each branch at the insertion point and requires it to
-leave the parser where it found it (`MESSAGE_CHANGES_STATE`): a message with a `<p>` inside a
-`<p>`, or one that leaves its own `<p>` open, is an error.
+**HTML messages** (`#{...}` in `t:utext` or `[(...)]`, #677) are `PHRASING`: at render time the
+message, formatted with escaped arguments, is sanitized by a fixed policy that writes only inline
+elements (`b i em strong u s sub sup small mark code kbd span br`) and, for a key with an `<a` in a
+bundle value the build sees (or an unchecked bundle), links. None of those closes an open `p`,
+heading, `button`, `nobr` or `ruby`, so the predicate is FLOW's without those clauses: only an open
+`select`/`option`/`optgroup` and, for a message with links, an active `a` are `RAW_CLOSES_ELEMENT`
+(`ContentKinds.closer(ParserState, Source)`; producer side: `FlowProducerTest`).
 
 | Value or position | Kind | Status | Checked by | Proof |
 |---|---|---|---|---|
 | Fragment (`t:fragment`) | none: analysed at each call site | verifier (#367); #304 (`TemplateInfo.parsingContexts`) | `FragmentParsingContextTest` (#304); generator composition axis `t:insert`, `t:replace` | not yet |
 | `Fragment` parameter or value | `FLOW` | verifier (#367, #329, #561): a template-built value is a closed set of candidates (a `Fragment` parameter, `null`, a `t:with` alias of one, a ternary or Elvis of those; inserted or passed on), each bound argument parsed where it lands; any other `Fragment` expression (also any function or method call, whatever its parameter types), and a `@TemplateFunction` that takes a `Fragment`, is a build error. Built in Java (page parameter, unbound parameter): `FLOW`, and only a `Fragment.of` of a verified `FLOW` partial, which the generated page and fragment methods check at render time (#581); #304 | `FragmentCandidatesTest`, `FragmentFromJavaTest`, `ContentKindsTest`, `FlowProducerTest`, `FragmentParsingContextTest`; composition value `Fragment f` | not yet |
 | `SafeHtml` (`t:utext`, `[(...)]`) | `FLOW` | verifier (#367, #329); #304 | `ContentKindsTest`, `FlowProducerTest`, `FragmentParsingContextTest`; hole values `[(h)]`, `t:utext` | not yet |
-| HTML message (`#{...}` as HTML) | none: its markup, analysed where used | verifier (#329); #304; messages are checked at build time on main (`MessageCompilerTest`) | `ContentKindsTest`, `HtmlMessageTest`, `MessageMarkupTest` | not yet (G4: the runtime re-check in `Escapers.htmlMessage` is tested, not proved) |
+| HTML message (`#{...}` as HTML) | `PHRASING` (with or without links) | verifier (#677); runtime sanitizer (`Escapers.htmlMessage`) | `ContentKindsTest`, `FlowProducerTest`, `HtmlMessageTest`, `EscapersTest` | not yet |
 | `t:insert`, `t:utext`, `[(...)]` into RCDATA or raw text | error | verifier (#367); main (#298) | `BrowserRawTextTest`; hole values `[(h)]`, `t:utext` in the `title` and `noscript` wrappers | Lean: raw holes not modeled |
 | `t:replace` with a whole `<title>` fragment | allowed (the fix-it) | main | `FragmentsTest` | n/a |
 | `t:remove="tag"` on raw-text, RCDATA or foreign elements | error | verifier (#367) for holes; main (#300) | seeds `A16`, `A17`; `ControlFlowTest`, `FragmentsTest`; composition value `t:remove="tag"` | not yet |
@@ -371,7 +371,7 @@ framework either (#587). The framework-named code that remains: a computed htmx 
 | `{{` broken in SVG/MathML text | #301 (TEXT context) | seed `A7` |
 | `{` as `\u007b` in JSON strings | main (#303) | `ScriptJsonTest` (#303) |
 | A static `{` or `}` in element text (CDATA in foreign content included) outside a complete `{{ ... }}` in one literal is an error, whatever is next to it; in a script, an unclosed static `{{` before a hole | main (#571, replacing the #336 edge rule; nothing about neighbours is looked at); script main (#303) | seed `A18`; `ClientTemplateInjectionTest` |
-| A static `&` that starts a character reference before a hole is an error, so a value can't spell `{` as `&#123;` (`&[[a]]&[[b]]`, a = b = `#123;`); an HTML message the build did not check is escaped as text | verifier (`TEXT_NOT_IN_TEXT`, §2 "Text: hole after `&`"); runtime (`Escapers.htmlMessage`) | `ValueAfterAmpersandTest`, `EscapersTest` |
+| A static `&` that starts a character reference before a hole is an error, so a value can't spell `{` as `&#123;` (`&[[a]]&[[b]]`, a = b = `#123;`) | verifier (`TEXT_NOT_IN_TEXT`, §2 "Text: hole after `&`") | `ValueAfterAmpersandTest`, `EscapersTest` |
 | RCDATA (`<title>`, `<textarea>`): no lossless break, so a computed one gets the constant attribute `v-pre` (Vue, petite-vue), whatever else is on it; no duplicate `v-pre`. Its static text follows the element-text brace rule above | main (#549, simplified in #586) | `VPreRcdataTest`, `ClientTemplateInjectionTest`; that Vue 3.5.44 and petite-vue 0.4.1 skip it was checked by hand in Chromium (the hostile value runs without `v-pre`, not with it), framework harness rows #334 |
 | RAWTEXT (`xmp`, `iframe`, `noembed`, `noframes`, `noscript`): no break at all, so a value, condition or loop inside is an error | verifier for values (`VALUE_IN_RAW_TEXT`, #586); generator early error for values, conditions and loops (#571) | `ContextVerifierRulesTest`, `BrowserRawTextTest` |
 | What client code makes of static markup, standard attribute values (class tokens included) and custom delimiters, AngularJS included: outside the guarantee (guide §5) | not modelled; a strict CSP is the backstop (#335, guide §4.9) | seed `A37` |
@@ -460,7 +460,6 @@ RCDATA and another in data is rejected (`TEXT_IN_RCDATA`, `RCDATA_NOT_IN_RCDATA`
 | `JSON_NOT_IN_SCRIPT` | a `json` hole outside the script data of an HTML `<script>` (SVG `script`, escaped script data, CDATA) | script data, also right after `<` (no JSON starts with `/` or `!`) |
 | `RAW_NOT_FLOW` | `SafeHtml`, an unbound or Java-built `Fragment` outside data state, HTML namespace, or body/cell/caption/template mode | flow content (section 5) |
 | `RAW_CLOSES_ELEMENT` | the same where flow content would close, reopen or adopt an open element: `p` in button scope, a current heading, an active `a`, `button`/`nobr`/`ruby` in scope, `select`/`option`/`optgroup` | flow content (section 5) |
-| `MESSAGE_CHANGES_STATE` | an HTML message whose markup (any locale, either form) leaves the parser in another state than it found it | a message that closes what it opens, where its markup fits |
 | `FRAMESET` | any `frameset` element the parser inserts, a coarse exclusion (#410); where a `<frameset>` start tag doesn't apply, it is a parse error | |
 | `NOAHS_ARK` | retired (#444): three or more identical formatting elements, one of them with a computed attribute. The value decides which entry the Noah's Ark clause drops from the list of active formatting elements, but the element stays open, and in an error-free parse the list changes the tree only through entries that are no longer open. Misnested, they are a parse error | |
 | `PARSE_ERROR` (#406) | any tokenizer or tree-builder error on any path, scripting on or off, except the missing-doctype messages; a partial only in its implied fragment context. The current engine reports them; each parser reports each rule once per path, at its first occurrence. validator.nu's "Duplicate ID" isn't a parse error and is allowed (it is checked only within one chunk of input) | markup that parses without errors |

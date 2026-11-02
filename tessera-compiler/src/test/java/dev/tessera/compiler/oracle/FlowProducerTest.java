@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.compiler.verify.ContentKinds;
+import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.compiler.verify.engine.Engine;
 import dev.tessera.compiler.verify.engine.EngineException;
 import dev.tessera.compiler.verify.engine.Engines;
@@ -14,7 +15,11 @@ import dev.tessera.compiler.verify.engine.InsertionMode;
 import dev.tessera.compiler.verify.engine.OpenElement;
 import dev.tessera.compiler.verify.engine.Parser;
 import dev.tessera.compiler.verify.engine.ParserState;
+import dev.tessera.runtime.DefaultLinks;
+import dev.tessera.runtime.Escapers;
+import dev.tessera.runtime.Forms;
 import dev.tessera.runtime.HtmlPolicy;
+import dev.tessera.runtime.RenderContext;
 import dev.tessera.runtime.SafeHtml;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -24,6 +29,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import org.junit.jupiter.api.AfterAll;
@@ -40,8 +46,8 @@ import org.junit.jupiter.api.Test;
  * <p>Producers: {@code html.sanitize} under {@link HtmlPolicy#BASIC}, {@link HtmlPolicy#RICH} and
  * builder policies, for hostile and fuzzed input ({@link SanitizerBalanceTest} checks their tree);
  * {@link SafeHtml#escape} and {@link SafeHtml#concat}; and rendered partial templates, which is
- * what {@code SafeHtml.of} and a {@code Fragment} value write. HTML messages are known at build time
- * and the verifier checks their markup at each insertion point (ContentKindsTest).
+ * what {@code SafeHtml.of} and a {@code Fragment} value write. HTML messages are PHRASING, a
+ * narrower kind ({@link #htmlMessageOutputLeavesTheStateAsItWas}).
  *
  * <p>With {@code -Dtessera.producer.dump=<file>} it also writes every (context, output) pair as
  * JSON lines, for the parse5 check in the #329 PR.
@@ -130,6 +136,48 @@ class FlowProducerTest {
       for (Map.Entry<String, HtmlPolicy> policy : POLICIES.entrySet()) {
         assertFlow("sanitize " + policy.getKey() + " of " + input, SafeHtml.sanitize(input, policy.getValue()).html());
       }
+    }
+  }
+
+  /** Insertion points that meet an HTML message (PHRASING, #677) but not FLOW. */
+  static final String[] PHRASING_CONTEXTS = {
+    "<!DOCTYPE html><p>", "<!DOCTYPE html><p><span>", "<!DOCTYPE html><h2>", "<!DOCTYPE html><button>",
+    "<!DOCTYPE html><nobr>", "<!DOCTYPE html><ruby>",
+  };
+
+  /**
+   * The producer side of the HTML message kind (#677): the message policy's output, with or without
+   * links, leaves the parser as it was at every FLOW insertion point and in an open paragraph,
+   * heading, button, nobr or ruby; without links, also in an open link. The verifier accepts each
+   * of these ({@link ContentKinds#problem(ParserState, Skeleton.Source)}).
+   */
+  @Test
+  void htmlMessageOutputLeavesTheStateAsItWas() throws EngineException {
+    List<String> inputs = new ArrayList<>(List.of(SanitizerBalanceTest.HOSTILE));
+    inputs.addAll(List.of(SanitizerBalanceTest.FORBIDDEN_CODE_POINTS));
+    inputs.addAll(fuzz(200));
+    inputs.add("<a href=\"/a\">a<a href=\"/b\">b</a><b><b>c</b></b></a><p>d<h1>e</h1>");
+    List<String> linked = new ArrayList<>(List.of(CONTEXTS));
+    linked.addAll(List.of(PHRASING_CONTEXTS));
+    List<String> unlinked = new ArrayList<>(linked);
+    unlinked.add("<!DOCTYPE html><a href=\"/x\">");
+    unlinked.add("<!DOCTYPE html><p><a href=\"/x\"><b>");
+    for (Skeleton.Source source : new Skeleton.Source[] {Skeleton.Source.HTML_MESSAGE, Skeleton.Source.LINKED_HTML_MESSAGE}) {
+      List<String> contexts = source == Skeleton.Source.HTML_MESSAGE ? unlinked : linked;
+      for (String context : contexts) {
+        for (Parser p : entries(context)) {
+          assertNull(ContentKinds.problem(p.state(), source), () -> source + " in " + context);
+        }
+      }
+      for (String input : inputs) {
+        RenderContext ctx = new RenderContext(Locale.ROOT, (k, a) -> input, new DefaultLinks(""), Forms.NONE);
+        String html = Escapers.htmlMessage(ctx, "k", new Object[0], source == Skeleton.Source.LINKED_HTML_MESSAGE).html();
+        assertSameState(source + " of " + input, html, contexts.toArray(new String[0]));
+      }
+    }
+    // An open link is the one place the linked message is rejected.
+    for (Parser p : entries("<!DOCTYPE html><a href=\"/x\">")) {
+      assertNotNull(ContentKinds.problem(p.state(), Skeleton.Source.LINKED_HTML_MESSAGE));
     }
   }
 
@@ -229,7 +277,11 @@ class FlowProducerTest {
    * context, with scripting on and off (#592: the sanitizer's closed content model parses as written).
    */
   static void assertFlow(String what, String html) throws EngineException {
-    for (String context : CONTEXTS) {
+    assertSameState(what, html, CONTEXTS);
+  }
+
+  private static void assertSameState(String what, String html, String[] contexts) throws EngineException {
+    for (String context : contexts) {
       if (DUMP_FILE != null) {
         DUMP.add("{\"context\":" + json(context) + ",\"html\":" + json(html) + "}");
       }

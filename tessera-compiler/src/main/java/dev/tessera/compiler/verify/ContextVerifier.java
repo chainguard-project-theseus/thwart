@@ -175,8 +175,6 @@ public final class ContextVerifier {
       for (Skeleton.Seq b : ((Skeleton.Alt) n).branches()) {
         calls(b, all, reached, work);
       }
-    } else if (n instanceof Skeleton.RawInsert && ((Skeleton.RawInsert) n).content() != null) {
-      calls(((Skeleton.RawInsert) n).content(), all, reached, work);
     } else if (n instanceof Skeleton.Call) {
       Skeleton.Call c = (Skeleton.Call) n;
       for (Skeleton.Seq a : c.fragmentArgs().values()) {
@@ -626,9 +624,6 @@ public final class ContextVerifier {
       }
       return in;
     }
-    if (n instanceof Skeleton.RawInsert && ((Skeleton.RawInsert) n).content() != null) {
-      return known((Skeleton.RawInsert) n, in, env, pos);
-    }
     if (n instanceof Skeleton.RawInsert) {
       return raw(((Skeleton.RawInsert) n).source(), in, pos);
     }
@@ -878,7 +873,7 @@ public final class ContextVerifier {
       Map<Problem, List<ParserState>> problems = new LinkedHashMap<>();
       boolean switches = false;
       for (ParserState s : p.states()) {
-        Problem problem = ContentKinds.problem(s);
+        Problem problem = ContentKinds.problem(s, source);
         if (problem != null) {
           problems.computeIfAbsent(problem, k -> new ArrayList<>()).add(s);
         } else {
@@ -886,60 +881,14 @@ public final class ContextVerifier {
         }
       }
       for (Map.Entry<Problem, List<ParserState>> e : problems.entrySet()) {
-        String detail = e.getKey() == Problem.RAW_CLOSES_ELEMENT ? ContentKinds.closer(e.getValue().get(0)) : null;
+        String detail =
+            e.getKey() == Problem.RAW_CLOSES_ELEMENT ? ContentKinds.closer(e.getValue().get(0), source) : null;
         add(p, e.getKey(), pos, null, source, null, e.getValue(), detail);
       }
       if (switches) {
         Path written = p.fork();
         written.feed(ContentKinds.REPRESENTATIVE, pos);
         out.add(written);
-      }
-    }
-    return out.size() == in.size() ? out : dedupe(out, pos);
-  }
-
-  /**
-   * HTML known at build time (an HTML message, #329): its markup is analysed as it is, holes and
-   * all, and must leave the parser where it found it, as FLOW content ({@link ContentKinds}) does
-   * (in template mode, also where a flow start tag switches it to). Markup that closes an element
-   * open around it (a {@code <p>} in a {@code <p>}) or leaves one of its own open is {@link
-   * Problem#MESSAGE_CHANGES_STATE}.
-   */
-  private List<Path> known(Skeleton.RawInsert r, List<Path> in, Env env, SourcePos pos) throws EngineException {
-    List<Path> out = new ArrayList<>(in);
-    for (Path p : in) {
-      boundary(p, pos);
-      Set<String> allowed = new HashSet<>();
-      allowed.add(p.key());
-      boolean template = false;
-      for (ParserState s : p.states()) {
-        template |= ContentKinds.switchesMode(s);
-      }
-      if (template) {
-        Path written = p.fork();
-        written.feed(ContentKinds.REPRESENTATIVE, pos);
-        allowed.add(written.key());
-      }
-      ParserState[] entry = p.states();
-      for (Path exit : seq(r.content(), Collections.singletonList(p.fork()), env)) {
-        if (allowed.contains(exit.key())) {
-          if (!exit.key().equals(p.key())) {
-            out.add(exit);
-          }
-          continue;
-        }
-        ParserState[] states = exit.states();
-        List<ParserState> bad = new ArrayList<>();
-        String detail = null;
-        for (int i = 0; i < states.length; i++) {
-          if (!states[i].equals(entry[i])) {
-            bad.add(states[i]);
-            if (detail == null) {
-              detail = ContentKinds.difference(entry[i], states[i]);
-            }
-          }
-        }
-        add(Problem.MESSAGE_CHANGES_STATE, pos, null, r.source(), null, bad, detail);
       }
     }
     return out.size() == in.size() ? out : dedupe(out, pos);

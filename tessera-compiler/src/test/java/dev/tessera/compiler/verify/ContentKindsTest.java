@@ -197,65 +197,53 @@ class ContentKindsTest {
     accept(st("<template>"), raw(), st("<span>"), text());
   }
 
-  // ---- HTML messages: known markup, analysed as it is ----
+  // ---- HTML messages: PHRASING, sanitized at runtime (#677) ----
 
   @Test
-  void htmlMessageInAParagraphIsAnalysedAsMarkup() {
-    // Inline markup fits in a <p>; a <p> in the message closes the <p> it is in.
-    message("<p><span t:utext=\"#{m}\">x</span> [[${v}]]</p>", "m=Read <b>this</b> {0}, <a href=\"/x\">here</a>.\n")
-        .assertSuccess();
-    message("<p><span t:utext=\"#{m}\">x</span></p>", "m=<p>Read this</p>\n")
-        .assertError("page.html:2:", "closes an open <p> around it", "[verifier:MESSAGE_CHANGES_STATE]");
-    message("<div t:utext=\"#{m}\">x</div>", "m=<p>Read this</p>\n").assertSuccess();
+  void htmlMessageIsPhrasingSoItFitsInAParagraphOrHeading() {
+    String links = "m=Read <b>this</b> {0}, <a href=\"/x\">here</a>.<p>stripped</p>\n";
+    message("<p><span t:utext=\"#{m}\">x</span> [[${v}]]</p>", links).assertSuccess();
+    message("<h1 t:utext=\"#{m}\">x</h1>", links).assertSuccess();
+    message("<button t:utext=\"#{m}\">x</button>", links).assertSuccess();
+    message("<div><p>[(#{m})]</p></div>", links).assertSuccess();
+    // Still not where the parser reads no body content.
+    message("<table t:utext=\"#{m}\"></table>", links).assertError("page.html:2:", "[verifier:RAW_NOT_FLOW]");
   }
 
   @Test
-  void htmlMessageThatLeavesAnElementOpenIsRejected() {
-    message("<div><span t:utext=\"#{m}\">x</span>[[${v}]]</div>", "m=a<p>b\n")
-        .assertError("page.html:2:", "leaves <p> open", "[verifier:MESSAGE_CHANGES_STATE]");
+  void htmlMessageWithALinkIsRejectedInALink() {
     message("<a href=\"/\"><span t:utext=\"#{m}\">x</span></a>", "m=<a href=\"/y\">y</a>\n")
-        .assertError("page.html:2:", "[verifier:MESSAGE_CHANGES_STATE]");
+        .assertError("page.html:2:", "close an open <a> around it", "[verifier:RAW_CLOSES_ELEMENT]");
+    // A key with no link in any bundle file is sanitized without links, so it fits in one.
+    message("<a href=\"/\"><span t:utext=\"#{m}\">x</span></a>", "m=One<br>two <b>{0}</b>\n").assertSuccess();
   }
 
   @Test
-  void everyLocaleOfAMessageIsChecked() {
+  void aLinkInAnyLocaleKeepsLinks() {
     Compilation c = Compilation.builder()
-        .template("page.html", "<div " + NS + " t:params=\"String v\">\n<p><span t:utext=\"#{m}\">x</span></p></div>")
+        .template("page.html", "<div " + NS + ">\n<a href=\"/\"><span t:utext=\"#{m}\">x</span></a></div>")
         .messages("m=<b>fine</b>\n")
-        .localeMessages("de", "m=<p>nicht</p>\n")
+        .localeMessages("de", "m=<A HREF=\"/de\">gut</A>\n")
         .verifierOnly()
         .compile();
-    c.assertError("page.html:2:", "[verifier:MESSAGE_CHANGES_STATE]");
+    c.assertError("page.html:2:", "[verifier:RAW_CLOSES_ELEMENT]");
   }
 
   @Test
-  void htmlMessageTextIsAHole() {
-    // The argument, and a message that isn't one of those the build saw (written escaped), are
-    // text holes: in a table they are table text.
-    message("<table><tr><td><span t:utext=\"#{m}\">x</span></td></tr></table>", "m=a {0} <b>b</b>\n").assertSuccess();
-    message("<table><tr t:utext=\"#{m}\"></tr></table>", "m=plain\n")
-        .assertError("page.html:2:", "[verifier:TEXT_IN_TABLE]");
-    message("<div><span t:utext=\"#{m}\">x</span></div>", "m=a &{0}\n")
-        .assertError("page.html:2:", "[verifier:TEXT_NOT_IN_TEXT]");
-  }
-
-  @Test
-  void htmlMessageSkeletonIsItsMarkup() {
+  void htmlMessageIsSanitizedAtRender() {
     Compilation c = Compilation.builder()
-        .template("page.html", "<div " + NS + " t:params=\"String v\">\n<div t:utext=\"#{m(v)}\">x</div></div>")
+        .template("page.html", "<div " + NS + " t:params=\"String v\">\n<p t:utext=\"#{m(v)}\">x</p></div>")
         .messages("m=It''s <b>{0}</b>\n")
         .compile()
         .assertSuccess();
-    String skeleton = c.skeleton("page").body().toString();
-    assertTrue(skeleton.contains("$raw{HTML_MESSAGE alt(\"It''s <b>{0}</b>\" | \"It's <b>\" ${TEXT"), skeleton);
-    // The harness checks that every render is in the skeleton's language.
+    assertTrue(c.skeleton("page").body().toString().contains("$raw{HTML_MESSAGE"), c.skeleton("page").body().toString());
     RenderContext ctx = new RenderContext(Locale.ROOT,
-        (k, a) -> a.length == 0 ? "It''s <b>{0}</b>" : new MessageFormat("It''s <b>{0}</b>", Locale.ROOT).format(a),
-        new DefaultLinks(""), Forms.NONE);
-    assertEquals("<div>\n<div>It's <b>&lt;i&gt;</b></div></div>", c.render("page", Map.of("v", "<i>"), ctx));
-    // A message the build didn't see is written escaped: the text hole.
-    RenderContext other = new RenderContext(Locale.ROOT, (k, a) -> "<p>other</p>", new DefaultLinks(""), Forms.NONE);
-    assertEquals("<div>\n<div>&lt;p&gt;other&lt;/p&gt;</div></div>", c.render("page", Map.of("v", "x"), other));
+        (k, a) -> new MessageFormat("It''s <b>{0}</b>", Locale.ROOT).format(a), new DefaultLinks(""), Forms.NONE);
+    assertEquals("<div>\n<p>It&#39;s <b>&lt;i&gt;</b></p></div>", c.render("page", Map.of("v", "<i>"), ctx));
+    // Whatever the message source returns at runtime, only the policy's markup is written.
+    RenderContext other = new RenderContext(Locale.ROOT,
+        (k, a) -> "<p>other</p><a href=\"/x\">link</a><script>alert(1)</script>", new DefaultLinks(""), Forms.NONE);
+    assertEquals("<div>\n<p>otherlink</p></div>", c.render("page", Map.of("v", "x"), other));
   }
 
   // ---- helpers ----

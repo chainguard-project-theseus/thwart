@@ -93,6 +93,27 @@ public final class HtmlPolicy {
           .allowLinkTarget()
           .build();
 
+  /**
+   * The fixed policy of HTML messages ({@code t:utext="#{key}"}, #677): phrasing markup only,
+   * {@code b i em strong u s sub sup small mark code kbd span br} with a {@code title}, and
+   * {@code a} with a checked {@code href}, {@code rel="noopener noreferrer"} and
+   * {@code target="_blank"} kept. Phrasing content never closes a {@code <p>} or heading around it,
+   * so a message can stand in one. Not configurable.
+   */
+  static final HtmlPolicy MESSAGE = message().allowElements("a").linkRel("noopener", "noreferrer").allowLinkTarget().build();
+
+  /**
+   * {@link #MESSAGE} without links: the compiler picks it for a key with no {@code <a} in any of
+   * its bundle values, so the message can also stand inside a link.
+   */
+  static final HtmlPolicy MESSAGE_NO_LINKS = message().build();
+
+  private static Builder message() {
+    return builder()
+        .allowElements("b", "i", "em", "strong", "u", "s", "sub", "sup", "small", "mark", "code", "kbd", "span", "br")
+        .allowAttributes("title");
+  }
+
   final Set<String> elements;
   final Set<String> attributes;
   private final Set<String> classNames;
