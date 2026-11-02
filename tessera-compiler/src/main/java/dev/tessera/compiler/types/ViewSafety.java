@@ -25,7 +25,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.WildcardType;
 
 /**
- * The view-safe allow-list and the never-view-safe deny-list (docs/mvp-design.md).
+ * The view-safe allow-list and the never-view-safe deny-list (docs/architecture.md).
  *
  * <p>View-safe: primitives and boxes, String/CharSequence, enums, records, {@code java.time}
  * value types, BigDecimal/BigInteger, Optional/List/Set/Collection/Iterable/Map/Map.Entry of

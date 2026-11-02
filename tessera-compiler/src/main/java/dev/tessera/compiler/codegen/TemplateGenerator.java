@@ -38,7 +38,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Generates the class for one template (shape in docs/mvp-design.md): walks the node tree,
+ * Generates the class for one template (shape in docs/architecture.md): walks the node tree,
  * emits static markup as string constants, builds an {@link ElementPlan} per element by running
  * {@link AttributeProcessors} in precedence order, and calls the per-template hooks
  * ({@code TextInlining} for text nodes, {@code CsrfInjector} for {@code <form>} and for every
