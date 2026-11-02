@@ -120,6 +120,16 @@ class SkeletonTest {
   }
 
   @Test
+  void errorsOnATemplateAreRejectedBecauseTheirSeparatorSwitchesItsMode() {
+    // In a <template>, the first <br /> leaves template mode: only a second message would (#707).
+    Compilation.builder()
+        .java("com.example.Owner", "package com.example; public record Owner(String firstName, boolean active) {}")
+        .template("form.html", FORM_HEAD + " method=\"post\"><template t:errors=\"*{firstName}\">e</template></form>")
+        .compile()
+        .assertError("the separator of the messages of this t:errors", "UNBALANCED");
+  }
+
+  @Test
   void classappendMergesIntoOneOptionalAttribute() {
     Compilation c =
         Compilation.builder()
