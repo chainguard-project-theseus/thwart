@@ -1,8 +1,16 @@
 package dev.tessera.benchmarks;
 
+import dev.tessera.benchmarks.templates.links.IntPathVariableTemplate;
+import dev.tessera.benchmarks.templates.links.LiteralTemplate;
+import dev.tessera.benchmarks.templates.links.PathVariableTemplate;
+import dev.tessera.benchmarks.templates.links.QueryParameterTemplate;
 import dev.tessera.runtime.DefaultLinks;
 import dev.tessera.runtime.Escapers;
+import dev.tessera.runtime.Forms;
+import dev.tessera.runtime.Messages;
+import dev.tessera.runtime.RenderContext;
 import dev.tessera.runtime.StringOutput;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -12,30 +20,28 @@ import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
-/** URL hot paths; use {@code -prof gc} to measure allocation as well as throughput. */
+/**
+ * URL hot paths: each link benchmark renders a one-link template ({@code src/main/tessera/links})
+ * under context path {@code /app}; use {@code -prof gc} to measure allocation as well as throughput.
+ */
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Warmup(iterations = 5, time = 1)
 @Measurement(iterations = 5, time = 1)
 @Fork(2)
 public class UrlBenchmark {
+  private static final LiteralTemplate LITERAL = LiteralTemplate.of();
+
+  static final RenderContext CTX =
+      new RenderContext(Locale.ROOT, Messages.NONE, new DefaultLinks("/app"), Forms.NONE);
+
   @State(Scope.Thread)
   public static class LinkData {
     @Param({"42", "a/b &c", "café😀"})
     public String value;
-
-    final DefaultLinks links = new DefaultLinks("/app");
-    final String[] names = {"id"};
-    Object[] values;
-
-    @Setup
-    public void setUp() {
-      values = new Object[] {value};
-    }
   }
 
   @State(Scope.Thread)
@@ -44,26 +50,32 @@ public class UrlBenchmark {
     public String value;
   }
 
-  @State(Scope.Thread)
-  public static class LiteralData {
-    final DefaultLinks links = new DefaultLinks("/app");
-    final String[] names = {};
-    final Object[] values = {};
+  @Benchmark
+  public String pathVariable(LinkData data) {
+    StringOutput out = new StringOutput(64);
+    PathVariableTemplate.render(data.value, CTX, out);
+    return out.toString();
   }
 
   @Benchmark
-  public String pathVariable(LinkData data) {
-    return data.links.build("/owners/{id}", data.names, data.values);
+  public String intPathVariable() {
+    StringOutput out = new StringOutput(64);
+    IntPathVariableTemplate.render(42, CTX, out);
+    return out.toString();
   }
 
   @Benchmark
   public String queryParameter(LinkData data) {
-    return data.links.build("/owners", data.names, data.values);
+    StringOutput out = new StringOutput(64);
+    QueryParameterTemplate.render(data.value, CTX, out);
+    return out.toString();
   }
 
   @Benchmark
-  public String literalLink(LiteralData data) {
-    return data.links.build("/owners?sort=name#top", data.names, data.values);
+  public String literalLink() {
+    StringOutput out = new StringOutput(64);
+    LITERAL.render(CTX, out);
+    return out.toString();
   }
 
   @Benchmark

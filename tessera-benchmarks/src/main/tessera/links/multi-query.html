@@ -1,0 +1,1 @@
+<a xmlns:t="https://tessera.dev" t:import="java.util.List" t:params="List<String> list, String[] objects, int[] ints" t:href="${list} != null ? @{/items?sort=name#top(selected=${list})} : (${objects} != null ? @{/items?sort=name#top(selected=${objects})} : @{/items?sort=name#top(selected=${ints})})">x</a>
