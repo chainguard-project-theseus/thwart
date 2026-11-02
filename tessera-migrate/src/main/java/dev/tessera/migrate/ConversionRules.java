@@ -36,7 +36,12 @@ final class ConversionRules {
       ConversionRules.THYMELEAF_INLINE, "`th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or put data in a `<script type=\"application/json\">` block",
       "th:styleappend", "`th:styleappend` is not supported; merge it into one `t:style` from literals, numbers and `css.color(...)`/`css.length(...)`/`css.url(...)` (guide section 4.4), otherwise use `t:classappend`",
       "th:include", "`th:include` is not supported; use `t:insert` or `t:replace` (check the host-element semantics)",
-      "th:substituteby", "`th:substituteby` is not supported; use `t:replace`");
+      "th:substituteby", "`th:substituteby` is not supported; use `t:replace`",
+      "th:assert", "`th:assert` is not supported; check it in the controller (or guard the element with `t:if`)",
+      "th:attrappend", "`th:attrappend` is not supported; use `t:classappend`, or one `t:<attr>` with a `|...|` literal",
+      "th:attrprepend", "`th:attrprepend` is not supported; use `t:classappend`, or one `t:<attr>` with a `|...|` literal",
+      "th:alt-title", "`th:alt-title` is not supported; write `t:alt` and `t:title`",
+      "th:lang-xmllang", "`th:lang-xmllang` is not supported; write `t:lang`");
 
   private static final String DATA_TH_MESSAGE =
       "`%s` (HTML5 data-th-* syntax) is not converted; rewrite it as `t:%s`";
