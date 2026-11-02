@@ -222,7 +222,7 @@ index db5b9f7..2131f1e 100644
      <dependency>
        <groupId>org.springframework.boot</groupId>
        <artifactId>spring-boot-starter-validation-test</artifactId>
-@@ -202,6 +200,38 @@
+@@ -202,6 +200,37 @@
            </execution>
          </executions>
        </plugin>
@@ -253,7 +253,6 @@ index db5b9f7..2131f1e 100644
 +          <execution>
 +            <goals>
 +              <goal>check</goal>
-+              <goal>review</goal>
 +            </goals>
 +          </execution>
 +        </executions>

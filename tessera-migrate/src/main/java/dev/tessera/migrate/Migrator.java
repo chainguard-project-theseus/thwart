@@ -136,7 +136,10 @@ final class Migrator {
     private int rootInsertAt;
     /** Lower-case name of the element whose start tag is being read. */
     private String openName;
-    /** The {@code type} of that {@code <script>}; {@code null} after a {@code t:type}. */
+    /**
+     * The {@code type} of that {@code <script>}. A computed {@code t:type} on a script is a build
+     * error (#678), so it is not tracked.
+     */
     private String scriptType;
     /** True between the start and end tag of a JavaScript or JSON {@code <script>}. */
     private boolean inScript;
@@ -175,7 +178,7 @@ final class Migrator {
       String mode = inlineMode != null ? inlineMode : open.isEmpty() ? null : open.peek().inline;
       boolean none = ConversionRules.INLINE_NONE.equals(mode);
       open.push(new Open(openName, mode));
-      inScript = !none && ConversionRules.SCRIPT.equals(openName) && scriptType != null
+      inScript = !none && ConversionRules.SCRIPT.equals(openName)
           && ConversionRules.SCRIPT_TYPES.contains(Compat.strip(scriptType).toLowerCase(Locale.ROOT));
       javaScriptInline = ConversionRules.INLINE_JAVASCRIPT.equals(mode);
     }
@@ -250,13 +253,8 @@ final class Migrator {
       String lower = name.toLowerCase(Locale.ROOT);
       String value = hasValue ? new String(buffer, valueContentOffset, valueContentLen) : null;
       boolean quoted = valueOuterLen > valueContentLen;
-      if (ConversionRules.SCRIPT.equals(openName)) {
-        if (lower.equals(ConversionRules.TYPE) && scriptType != null) {
-          scriptType = value == null ? "" : value;
-        } else if (lower.equals(ConversionRules.THYMELEAF_PREFIX + ConversionRules.TYPE)
-            || lower.equals(ConversionRules.TESSERA_PREFIX + ConversionRules.TYPE)) {
-          scriptType = null;
-        }
+      if (ConversionRules.SCRIPT.equals(openName) && lower.equals(ConversionRules.TYPE)) {
+        scriptType = value == null ? "" : value;
       }
       if (lower.equals(ConversionRules.THYMELEAF_INLINE) && value != null) {
         inlineMode = Compat.strip(value).toLowerCase(Locale.ROOT);

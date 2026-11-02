@@ -164,7 +164,7 @@ index 5a8ba22..53adda5 100644
      </dependency>
      <dependency>
        <groupId>org.springframework.boot</groupId>
-@@ -126,6 +126,43 @@
+@@ -126,6 +126,42 @@
  
    <build>
      <plugins>
@@ -200,7 +200,6 @@ index 5a8ba22..53adda5 100644
 +          <execution>
 +            <goals>
 +              <goal>check</goal>
-+              <goal>review</goal>
 +            </goals>
 +          </execution>
 +        </executions>

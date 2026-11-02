@@ -253,7 +253,7 @@ index e079280..f88c6c2 100644
  					<showDeprecation>false</showDeprecation>
  					<showWarnings>true</showWarnings>
  					<encoding>${file_encoding}</encoding>
-@@ -176,6 +188,19 @@
+@@ -176,6 +188,18 @@
  					</compilerArguments>
  				</configuration>
  			</plugin>
@@ -265,7 +265,6 @@ index e079280..f88c6c2 100644
 +					<execution>
 +						<goals>
 +							<goal>check</goal>
-+							<goal>review</goal>
 +						</goals>
 +					</execution>
 +				</executions>
@@ -273,7 +272,7 @@ index e079280..f88c6c2 100644
  			<plugin>
  				<groupId>org.apache.maven.plugins</groupId>
  				<artifactId>maven-surefire-plugin</artifactId>
-@@ -210,6 +235,9 @@
+@@ -210,6 +234,9 @@
  					</archive>
  					<includes>
  						<include>**/*.class</include>

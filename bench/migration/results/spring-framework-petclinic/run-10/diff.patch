@@ -309,7 +309,7 @@ index 6cca152..94a82cf 100644
              </resource>
          </resources>
          <testResources>
-@@ -364,8 +374,33 @@
+@@ -364,8 +374,32 @@
                  <configuration>
                      <!-- Required since Spring Framework 6.1 -->
                      <parameters>true</parameters>
@@ -335,7 +335,6 @@ index 6cca152..94a82cf 100644
 +                    <execution>
 +                        <goals>
 +                            <goal>check</goal>
-+                            <goal>review</goal>
 +                        </goals>
 +                    </execution>
 +                </executions>

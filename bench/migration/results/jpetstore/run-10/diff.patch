@@ -335,7 +335,7 @@ index 134c0b7..8c02490 100644
  		<dependency>
  			<groupId>org.codehaus.groovy</groupId>
  			<artifactId>groovy</artifactId>
-@@ -165,6 +160,46 @@
+@@ -165,6 +160,42 @@
  					<executable>true</executable>
  				</configuration>
  			</plugin>
@@ -367,14 +367,10 @@ index 134c0b7..8c02490 100644
 +				<groupId>dev.tessera</groupId>
 +				<artifactId>tessera-maven-plugin</artifactId>
 +				<version>${tessera.version}</version>
-+				<configuration>
-+					<failOnUnchecked>true</failOnUnchecked>
-+				</configuration>
 +				<executions>
 +					<execution>
 +						<goals>
 +							<goal>check</goal>
-+							<goal>review</goal>
 +						</goals>
 +					</execution>
 +				</executions>
@@ -382,7 +378,7 @@ index 134c0b7..8c02490 100644
  			<plugin>
  				<groupId>pl.project13.maven</groupId>
  				<artifactId>git-commit-id-plugin</artifactId>
-@@ -197,6 +232,10 @@
+@@ -197,6 +228,10 @@
  					<excludes>
  						<exclude>**/.mvn/**</exclude>
  						<exclude>**/mvnw*</exclude>
@@ -393,7 +389,7 @@ index 134c0b7..8c02490 100644
  					</excludes>
  					<mapping>
  						<java>SLASHSTAR_STYLE</java>
-@@ -257,6 +296,8 @@
+@@ -257,6 +292,8 @@
  				<version>${owasp-dependency-check-plugin.version}</version>
  				<configuration>
  					<failBuildOnCVSS>7</failBuildOnCVSS>

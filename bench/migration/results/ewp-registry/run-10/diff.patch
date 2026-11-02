@@ -314,7 +314,7 @@ index 7285a5c..9b49f0a 100644
          <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
          <vueBuildProfile>prod</vueBuildProfile>
          <start-class>eu.erasmuswithoutpaper.registry.Application</start-class>
-@@ -303,6 +300,44 @@
+@@ -303,6 +300,40 @@
                      </images>
                  </configuration>
              </plugin>
@@ -348,18 +348,14 @@ index 7285a5c..9b49f0a 100644
 +                    <execution>
 +                        <goals>
 +                            <goal>check</goal>
-+                            <goal>review</goal>
 +                        </goals>
 +                    </execution>
 +                </executions>
-+                <configuration>
-+                    <failOnUnchecked>true</failOnUnchecked>
-+                </configuration>
 +            </plugin>
              <plugin>
                  <groupId>org.codehaus.mojo</groupId>
                  <artifactId>versions-maven-plugin</artifactId>
-@@ -325,6 +360,7 @@
+@@ -325,6 +356,7 @@
                      <failsOnError>true</failsOnError>
                      <violationSeverity>warning</violationSeverity>
                      <linkXRef>false</linkXRef>
@@ -367,7 +363,7 @@ index 7285a5c..9b49f0a 100644
                  </configuration>
              </plugin>
              <plugin>
-@@ -339,7 +375,10 @@
+@@ -339,7 +371,10 @@
                  </executions>
                  <configuration>
                      <quiet>true</quiet>
@@ -379,7 +375,7 @@ index 7285a5c..9b49f0a 100644
                  </configuration>
              </plugin>
              <plugin>
-@@ -373,6 +412,7 @@
+@@ -373,6 +408,7 @@
                      </rulesets>
                      <excludeRoots>
                          <excludeRoot>target/generated-sources/jaxb</excludeRoot>
@@ -387,7 +383,7 @@ index 7285a5c..9b49f0a 100644
                      </excludeRoots>
                      <linkXRef>false</linkXRef>
                  </configuration>
-@@ -487,7 +527,8 @@
+@@ -487,7 +523,8 @@
                  </executions>
                  <configuration>
                      <workingDirectory>src/main/webapp</workingDirectory>
