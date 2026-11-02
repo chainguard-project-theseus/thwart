@@ -194,7 +194,7 @@ class HtmlPolicyTest {
 
   @Test
   void textAttributesKeepBraces() {
-    // Vue and petite-vue do not interpolate attribute values (AngularJS is not supported).
+    // Braces in an attribute value are plain text.
     assertEquals("<p title=\"{{x}}\">x</p>", rich("<p title=\"&lbrace;&#123;x}}\">x</p>"));
     assertEquals("<p title=\"{ x }\">x</p>", rich("<p title=\"{ x }\">x</p>"));
   }
@@ -254,7 +254,7 @@ class HtmlPolicyTest {
   @Test
   void anEmptyPolicyKeepsOnlyText() {
     HtmlPolicy none = HtmlPolicy.builder().build();
-    assertEquals("a &amp; b<!---->{<!---->{<!---->x<!---->}<!---->}<!---->", none.sanitize("<p>a &amp; <b>b</b>{{x}}</p><script>c</script>").html());
+    assertEquals("a &amp; b{{x}}", none.sanitize("<p>a &amp; <b>b</b>{{x}}</p><script>c</script>").html());
   }
 
   // ---------------------------------------------------------------------------------------------

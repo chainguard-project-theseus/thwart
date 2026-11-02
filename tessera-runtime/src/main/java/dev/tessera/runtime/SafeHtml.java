@@ -18,11 +18,10 @@ public final class SafeHtml {
   }
 
   /**
-   * HTML-escapes plain text, as {@code t:text} does: {@code {{} is broken with an empty comment
-   * so client-side frameworks do not interpolate it (#248).
+   * HTML-escapes plain text, as {@code t:text} does.
    */
   public static SafeHtml escape(String text) {
-    return new SafeHtml(Escapers.escapeText(text == null ? "" : text));
+    return new SafeHtml(Escapers.escapeHtml(text == null ? "" : text));
   }
 
   /**
@@ -41,7 +40,7 @@ public final class SafeHtml {
    *       attribute ({@code on*}, {@code style}, {@code class}, {@code id}, ...) are removed.
    * </ul>
    *
-   * <p>Text is re-escaped as by {@link #escape} ({@code {{} broken), and the output is balanced:
+   * <p>Text is re-escaped as by {@link #escape}, and the output is balanced:
    * every element is closed, and placed only where a browser keeps it as written (see
    * {@link HtmlPolicy}). Malformed markup never fails. {@code null} gives {@link #EMPTY}.
    */

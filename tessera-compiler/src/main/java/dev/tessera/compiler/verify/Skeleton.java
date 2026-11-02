@@ -8,7 +8,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * What a generated template class writes, recorded while the generator writes it (#366): the
@@ -57,7 +56,6 @@ public final class Skeleton {
   /** The runtime escaper a hole is written with: exactly one {@code dev.tessera.runtime.Escapers} method. */
   public enum Escaper {
     TEXT("text"),
-    RCDATA("rcdata"),
     ATTR("attr"),
     URL("url"),
     RESOURCE_URL("resourceUrl"),
@@ -78,7 +76,7 @@ public final class Skeleton {
 
     /** Whether the hole is inside a double-quoted attribute value. */
     public boolean inAttribute() {
-      return this != TEXT && this != RCDATA && this != JSON && this != JAVASCRIPT;
+      return this != TEXT && this != JSON && this != JAVASCRIPT;
     }
 
     /** The escaper whose {@code Escapers} method is {@code method}. */
@@ -174,14 +172,9 @@ public final class Skeleton {
    * A value written with {@code escaper}. {@code element} is the lower-case name of the element
    * whose content or start tag the value is in, as the generator sees it (the nearest element whose
    * tag is written; null at the top level of a template or fragment). {@code attribute} is the
-   * attribute name for an attribute escaper, else null. {@code pos} is the expression. A
-   * {@link Escaper#TEXT} hole is element text: the verifier names its escaper ({@code text} or
-   * {@code rcdata}) from the parser state, and the hole's {@link #id} finds it in the generated code
-   * (#378).
+   * attribute name for an attribute escaper, else null. {@code pos} is the expression.
    */
   public static final class Hole implements Node {
-    private static final AtomicInteger IDS = new AtomicInteger();
-    private final int id = IDS.incrementAndGet();
     private final Escaper escaper;
     private final String element;
     private final String attribute;
@@ -196,11 +189,6 @@ public final class Skeleton {
 
     public Escaper escaper() {
       return escaper;
-    }
-
-    /** Unique among the holes made in this JVM. */
-    public int id() {
-      return id;
     }
 
     public String element() {

@@ -98,8 +98,6 @@ public final class GenericAttrProcessor implements AttributeProcessor {
                 : lower.equals("attributename")
                 ? "the attributeName of an SVG animation cannot be computed; it decides whether values, to,"
                     + " from and by are CSS or a URL, so write a static attributeName attribute"
-                : Contexts.isLegacyHtmxConnect(name)
-                ? Contexts.LEGACY_HTMX_CONNECT
                 : Contexts.isTreeBuilderInput(plan.element(), name)
                 ? treeBuilderInput(name, lower)
                 : lower.equals("srcdoc")

@@ -68,8 +68,7 @@ public final class Contexts {
    * {@code element} (#330, #584; the table is docs/context-model.md section 6.1). In order: names
    * that are not {@code [A-Za-z_][A-Za-z0-9_.:-]*} FORBIDDEN; {@code on*} EVENT_HANDLER;
    * {@code style} and the {@link #isSvgCssUrl SVG attributes that take a CSS url()} (also
-   * {@link #animatesSvgCssUrl animated}) STYLE; a computed
-   * {@link #isLegacyHtmxConnect hx-ws or hx-sse} FORBIDDEN (#562); a
+   * {@link #animatesSvgCssUrl animated}) STYLE; a
    * refresh {@code content} REFRESH ({@link OutputContext#REFRESH}); {@code srcdoc}, the attributes
    * that decide how another value is read and {@link #isTreeBuilderInput tree-builder inputs}
    * FORBIDDEN; {@link #isResourceUrl resource URLs} RESOURCE_URL; {@link #URL_ATTRIBUTES} URL;
@@ -91,9 +90,6 @@ public final class Contexts {
     }
     if (attr.equals("style") || isSvgCssUrl(element, el, attr) || animatesSvgCssUrl(element, el, attr)) {
       return OutputContext.STYLE;
-    }
-    if (isLegacyHtmxConnect(attr)) {
-      return OutputContext.FORBIDDEN;
     }
     if (isRefreshContent(element, el, attr)) {
       return OutputContext.REFRESH;
@@ -132,37 +128,6 @@ public final class Contexts {
     return URL_LIST_ATTRIBUTES.contains(attr)
         || (isAnimation(HtmlParser.asciiLower(element.name())) && ANIMATION_VALUES.contains(attr));
   }
-
-  /** {@code lowerName} without a leading {@code data-}, which htmx ignores. */
-  private static String unprefixed(String lowerName) {
-    return lowerName.startsWith("data-") ? lowerName.substring("data-".length()) : lowerName;
-  }
-
-  /**
-   * Whether {@code attributeName} is htmx 1.x's {@code hx-sse} or {@code hx-ws} (also with
-   * {@code data-}), whose URL sits inside a mini-language. A computed one is a build error (#562):
-   * {@link #LEGACY_HTMX_CONNECT}. A static one is the author's markup: htmx behaviour is outside the
-   * guarantee (#585). Case-insensitive.
-   */
-  public static boolean isLegacyHtmxConnect(String attributeName) {
-    String unprefixed = unprefixed(HtmlParser.asciiLower(attributeName));
-    return unprefixed.equals("hx-sse") || unprefixed.equals("hx-ws");
-  }
-
-  /** Why a computed {@link #isLegacyHtmxConnect hx-ws or hx-sse} is a build error, with the fix-it. */
-  public static final String LEGACY_HTMX_CONNECT =
-      "htmx 1.x's hx-ws and hx-sse are not supported; use htmx 2's ws-connect or sse-connect with a"
-          + " same-origin URL such as /chat or @{/events}";
-
-  /**
-   * The attribute that makes Vue 3 and petite-vue skip an element and its content (#549). The
-   * compiler adds it to a {@code <textarea>} or {@code <title>} with computed content, whose
-   * RCDATA text can't break a value's {{ with a comment. Vue 3.5.44
-   * {@code packages/compiler-core/src/parser.ts} lines 234-235 enter v-pre mode on it and line 112
-   * keeps {{ }} as text there ({@code tokenizer.ts} line 457 for RCDATA); petite-vue 0.4.1
-   * {@code src/walk.ts} lines 22-24 return before walking the element.
-   */
-  public static final String VUE_SKIP = "v-pre";
 
   /**
    * {@code content} on a {@code <meta>} whose static {@code http-equiv} is {@code refresh}. The name and value fold
@@ -363,9 +328,8 @@ public final class Contexts {
   /**
    * Context for text directly inside {@code element}: SCRIPT
    * inside {@code <script>} with no type or a JavaScript/module/JSON type, FORBIDDEN inside
-   * other script types, STYLE inside {@code <style>}, otherwise TEXT. A TEXT hole is escaped for
-   * the parser state the verifier finds there: {@code rcdata} in the text of a {@code <title>} or
-   * {@code <textarea>}, {@code text} elsewhere (#378, {@code ContextVerifier}).
+   * other script types, STYLE inside {@code <style>}, otherwise TEXT (the
+   * RCDATA of a {@code <title>} or {@code <textarea>} included).
    *
    * <p>A {@code <script>} whose type is set by a {@code t:type} attribute is FORBIDDEN: the
    * content type must be known at build time.

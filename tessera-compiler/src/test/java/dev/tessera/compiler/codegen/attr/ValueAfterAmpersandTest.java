@@ -77,7 +77,7 @@ class ValueAfterAmpersandTest {
         .assertSuccess();
     RenderContext ctx = new RenderContext(
         Locale.US, (k, a) -> new java.text.MessageFormat("x&{0}", Locale.US).format(a), new DefaultLinks(""), Forms.NONE);
-    assertEquals("<div>\n<p>x<!---->{<!---->x</p>\n</div>", c.render("page", Map.of("s", "#123;x"), ctx));
+    assertEquals("<div>\n<p>x{x</p>\n</div>", c.render("page", Map.of("s", "#123;x"), ctx));
   }
 
   @Test

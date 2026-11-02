@@ -998,17 +998,16 @@ Gaps in Tessera today, with what to do instead.
   annotations.
 - **Client-side code.** Tessera guarantees what the browser's HTML parser does with the page. What
   page JavaScript or a client framework later does with the DOM, static markup and standard
-  attribute values is outside that guarantee. Pass data to scripts through `[[...]]` declarations
-  or JSON blocks, use htmx 2, and send a strict CSP without `'unsafe-eval'`. AngularJS is not
-  supported (it ignores `v-pre`, reads `{{` in class tokens and attributes, and runs under its own
-  CSP mode), nor are custom delimiters, so don't mount a client template compiler over
-  server-rendered user data.
+  attribute values is outside that guarantee. Computed text is plain-escaped, so a `{{` in a value
+  renders as `{{`: client frameworks that compile the server's DOM as a template (Vue in-DOM
+  templates, petite-vue, AngularJS) are unsupported, and a strict CSP without `'unsafe-eval'` is
+  the backstop. Pass data to scripts through `[[...]]` declarations or JSON blocks, use htmx 2,
+  and don't mount a client template compiler over server-rendered user data.
 - **Not supported, by design:** runtime template loading, `__${...}__` preprocessing, dynamic
   names, the layout dialect, `th:inline`, collection selection and projection, expressions in
   `<style>` and `on*`, and Kotlin.
 - **Expected output differences:** attributes set by `t:` may move within the tag; a `null`
-  attribute value omits the attribute; a computed `<title>` or `<textarea>` gets `v-pre`; a value's
-  `{` and `}` in element text get empty comments around them; `<script>` and `<style>` get a CSP
+  attribute value omits the attribute; `<script>` and `<style>` get a CSP
   nonce. `compare` ignores these.
 - **Runtime errors** are model type mismatches, missing primitive parameters, reading a property
   of `null`, `null` link path variables, `first`/`last` of an empty list and `ids.prev` before any

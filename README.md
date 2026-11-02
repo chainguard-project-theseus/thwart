@@ -57,9 +57,10 @@ Each principle removes a class of bugs. The full rules are in [AGENTS.md](AGENTS
 7. **The guarantee ends at the HTML parser.** Tessera guarantees what the browser's HTML parser
    and built-in sinks do with the output. It models no client-side framework. Outside standard
    HTML attributes, a computed value is framework-neutral (a number, a boolean or a same-origin
-   path), and computed text never contains `{{` (a computed `<title>` or `<textarea>` gets `v-pre`
-   instead), so code that re-reads the DOM gets nothing it can run. Client code that otherwise
-   evaluates attribute values or DOM text is outside the guarantee.
+   path). Computed text is plain-escaped: `{{` in a value renders as `{{`. Client frameworks that
+   compile the server's DOM as a template are unsupported, and client code that otherwise
+   evaluates attribute values or DOM text is outside the guarantee; a strict CSP is the
+   backstop.
 
 ## Requirements
 

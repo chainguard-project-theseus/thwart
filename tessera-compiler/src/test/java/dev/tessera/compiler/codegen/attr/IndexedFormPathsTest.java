@@ -57,7 +57,7 @@ class IndexedFormPathsTest {
             + "<input id=\"items0.qty\" name=\"items[0].qty\" value=\"1\"></div>"
             + "<div><input id=\"items1.name\" name=\"items[1].name\" value=\"b&lt;\">"
             + "<input id=\"items1.qty\" name=\"items[1].qty\" value=\"2\"></div>"
-            + "<textarea id=\"items1.name\" name=\"items[1].name\" v-pre>\nb&lt;</textarea>"
+            + "<textarea id=\"items1.name\" name=\"items[1].name\">\nb&lt;</textarea>"
             + "<input id=\"items0.name\" name=\"items[0].name\" value=\"a\">"
             + "<input id=\"array0.name\" name=\"array[0].name\" value=\"a\">"
             + "<input id=\"tags0\" name=\"tags[0]\" value=\"t\"></form>",
@@ -98,7 +98,7 @@ class IndexedFormPathsTest {
     TestForms forms = new TestForms();
     forms.errors.put("items[1].name", List.of("bad"));
     assertEquals(
-        "<form><textarea id=\"items1.name\" name=\"items[1].name\" v-pre>\nb&lt;</textarea><span>bad</span></form>",
+        "<form><textarea id=\"items1.name\" name=\"items[1].name\">\nb&lt;</textarea><span>bad</span></form>",
         render(c, forms));
   }
 

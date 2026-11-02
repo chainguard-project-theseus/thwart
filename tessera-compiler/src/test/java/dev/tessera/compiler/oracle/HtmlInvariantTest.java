@@ -1,7 +1,6 @@
 package dev.tessera.compiler.oracle;
 
 import static dev.tessera.compiler.oracle.Finding.Kind.CROSS_ORIGIN_RESOURCE;
-import static dev.tessera.compiler.oracle.Finding.Kind.CSTI;
 import static dev.tessera.compiler.oracle.Finding.Kind.JS_URL;
 import static dev.tessera.compiler.oracle.Finding.Kind.LIVE_HANDLER;
 import static dev.tessera.compiler.oracle.Finding.Kind.LIVE_SCRIPT;
@@ -405,39 +404,6 @@ class HtmlInvariantTest {
     HtmlInvariant.Result r = check("<script type=\"application/json\">\"tqm0001\"</script>", "<script type=\"application/json\">\"x\"</script>");
     assertEquals(List.of(), r.findings());
     assertEquals(List.of(), r.scriptSlots());
-  }
-
-  // ---- CSTI ----
-
-  @ParameterizedTest
-  @CsvSource(delimiter = '|', quoteCharacter = '~', value = {
-      "<svg><title>tqm0001</title></svg>|<svg><title>{{tqm0001()}}</title></svg>",
-      "<p>tqm0001</p>|<p>{{tqm0001()}}</p>",
-      "<p>a tqm0001 b</p>|<p>a {{ x }} {{ tqm0001() }} b</p>",
-      "<math><mi>tqm0001</mi></math>|<math><mi>{{tqm0001()}}</mi></math>"})
-  void interpolatedMarker(String benign, String hostile) {
-    assertKinds(Set.of(CSTI), benign, hostile);
-  }
-
-  @Test
-  void cstiFindingNamesTheForeignPath() {
-    HtmlInvariant.Result r = check("<svg><title>tqm0001</title></svg>", "<svg><title>{{tqm0001()}}</title></svg>");
-    assertTrue(r.findings().stream().allMatch(f -> f.where().endsWith(" /html/body/svg[svg]/title[svg]")), r.findings()::toString);
-  }
-
-  @ParameterizedTest
-  @CsvSource(delimiter = '|', quoteCharacter = '~', value = {
-      // RCDATA, raw text and attribute values are documented limitations.
-      "<textarea>tqm0001</textarea>|<textarea>{{tqm0001()}}</textarea>",
-      "<title>tqm0001</title>|<title>{{tqm0001()}}</title>",
-      "<p title=\"tqm0001\">x</p>|<p title=\"{{tqm0001()}}\">x</p>",
-      "<style>p{}/*tqm0001*/</style>|<style>p{}/*{{tqm0001()}}*/</style>",
-      // Tessera's break (#248): an empty comment between the braces.
-      "<p>tqm0001</p>|<p>{<!---->{tqm0001()}}</p>",
-      // The marker is after the first }}.
-      "<p>tqm0001</p>|<p>{{ x }} tqm0001() }}</p>"})
-  void notInterpolated(String benign, String hostile) {
-    assertClean(benign, hostile);
   }
 
   // ---- scripting splits ----

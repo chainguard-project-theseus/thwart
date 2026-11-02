@@ -122,11 +122,9 @@ public final class TesseraProcessor extends AbstractProcessor {
         return false;
       }
       done = true;
-      Map<Skeleton.Hole, Skeleton.Escaper> escapers = Collections.emptyMap();
       if (!diagnostics.hasErrors()) {
         // The security boundary for markup contexts (#367): runs on every build, after the profile.
-        // It also names each element-text hole's escaper from the parser state (#378).
-        escapers = ContextVerifier.verify(result.skeletons(), diagnostics);
+        ContextVerifier.verify(result.skeletons(), diagnostics);
       }
       if (!diagnostics.hasErrors()) {
         // #131: which fragments get a "page :: fragment" registry entry.
@@ -138,7 +136,7 @@ public final class TesseraProcessor extends AbstractProcessor {
       }
       // The only place that enforces "nothing is written on error".
       if (!diagnostics.hasErrors()) {
-        List<GeneratedFile> files = new ArrayList<>(result.files(escapers, servableFragments));
+        List<GeneratedFile> files = new ArrayList<>(result.files(servableFragments));
         files.addAll(functionIndex(functionClasses));
         write(files);
         writeFingerprint(TemplateFingerprint.of(sources, options.messages()));
@@ -196,10 +194,9 @@ public final class TesseraProcessor extends AbstractProcessor {
     List<GeneratedFile> again;
     try {
       List<TypeElement> functionClasses = functionClasses();
-      // The same escapers: if the skeletons changed, so did the classes.
+      // The same registry: if the skeletons changed, so did the classes.
       TemplateCompiler.Result result = compile(new Diagnostics(), functionClasses);
-      again = new ArrayList<>(result.files(
-          ContextVerifier.verify(result.skeletons(), new Diagnostics()), servableFragments));
+      again = new ArrayList<>(result.files(servableFragments));
       again.addAll(functionIndex(functionClasses));
     } catch (IOException | RuntimeException e) {
       return; // the build already has its output; this is only a check

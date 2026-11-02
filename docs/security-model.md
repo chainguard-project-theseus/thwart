@@ -22,7 +22,7 @@ page. For every template the compiler accepts and every model:
 It does not guarantee what page JavaScript or a client framework does with the DOM afterwards
 (principle 7). There is no framework table (#584): the compiler only constrains the shape of its
 own output where client code commonly reads it, a framework-neutral value in every non-HTML
-attribute (context-model.md §6.1, `NEUTRAL`) and `{{` broken in text (§6.3). Past that boundary,
+attribute (context-model.md §6.1, `NEUTRAL`). Computed text is plain-escaped: frameworks that compile the server's DOM as a template are unsupported (#679). Past that boundary,
 the defence in depth is a strict CSP: Tessera puts the request's nonce on every script and style
 the compiler writes (context-model.md §6.4), and the application sends the policy (guide §4.9).
 
@@ -79,7 +79,7 @@ point.
 | Model value to script | An untrusted value is written into a `<script>` | A complete JSON value in parentheses, only as the value of a declaration at the top of a JavaScript script, or a JSON value in a JSON script (context-model.md §4) | `Escapers.javaScript`, `Escapers.json`, `TextInlining` |
 | Fragment, `SafeHtml` or message to an insertion point | Markup compiled for one context is placed in another | Static fragments: checked at each call site. Dynamic values: the insertion state meets the kind's predicate (context-model.md §5) | The verifier (#367); #329 |
 | Rendered page to browser parser | The browser parses the page | The invariant: each hole is in the node, context and namespace the compiler chose, and the benign and hostile trees are equal | The verifier at build time (#367); the oracle gate (#324) tests the verifier |
-| Browser DOM to client framework | Page JavaScript reads attributes and text as code | Framework-neutral values outside HTML attributes; `{{` breaking; CSP | Beyond the guarantee except as bounded here |
+| Browser DOM to client framework | Page JavaScript reads attributes and text as code | Framework-neutral values outside HTML attributes; CSP | Beyond the guarantee except as bounded here |
 | Rendered page to the application's CSP | The browser decides which scripts and styles run | The nonce is on exactly the start tags the compiler writes, never on `SafeHtml` content (context-model.md §6.4) | `TemplateGenerator.startTag`; `CspNonceTest` |
 
 ## 4. What the attacker can and cannot do
@@ -105,7 +105,7 @@ The hostile value set used in tests is `HostileStrings.VECTORS` plus the #320 va
 | XSS through composition (fragments, `SafeHtml`, messages in the wrong context) | Yes | Family B; once #367 and #329 land, static composition by the verifier at each call site, dynamic values by content-kind predicates (context-model.md §5) |
 | XSS through a script hole in the wrong lexical position | Yes | Family C; script prelude rule (context-model.md §4) |
 | A URL or resource from another origin | Yes | Family E; URL classes (context-model.md §6.1) |
-| Client-side template injection through a computed value | Bounded | Family D. Framework-neutral values in every non-HTML attribute (#584) and `{{` breaking; where `{{` can't be broken (`<title>`, `<textarea>`), `v-pre` for Vue 3 and petite-vue (#549). Gaps are listed in guide §5 |
+| Client-side template injection through a computed value | Outside | Family D. Framework-neutral values in every non-HTML attribute (#584); text is plain-escaped and frameworks that compile the server's DOM are unsupported (#679); a strict CSP is the backstop. See guide §5 |
 | What a client framework does with the author's static markup (a static directive, Vue's `:is`, custom delimiters) | No | Outside the guarantee (principle 7). A strict CSP without `'unsafe-eval'` limits the damage (#335, guide §4.9) |
 | What page JavaScript does with values it reads from the DOM | No | Principle 7 |
 | Content a door vouched for (a hand-written `Template`) | No | The call site owns it |

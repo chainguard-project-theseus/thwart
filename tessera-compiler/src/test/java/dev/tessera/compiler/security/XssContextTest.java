@@ -164,9 +164,7 @@ class XssContextTest {
       String slot = m.group(i + 1);
       String problem =
           switch (kinds.get(i)) {
-            case TEXT -> ContextOracle.text(slot, null);
-            case TEXT_PART -> ContextOracle.text(slot, null, false);
-            case HTML -> ContextOracle.html(slot, null);
+            case TEXT, TEXT_PART, HTML -> ContextOracle.html(slot, null);
             case URL -> ContextOracle.url(slot, s);
             case JSON -> ContextOracle.jsonString("\"" + slot + "\"", s);
             case PATH_SEGMENT ->
