@@ -1,0 +1,164 @@
+# posters-demo-store: the storefront (anonymous, guest checkout, a logged-in customer with an
+# order) in two locales, and the backoffice (admin/admin-2026!, seeded by the app at startup):
+# customers with their name, address and credit-card fragments, users, roles, the audit log and
+# the module placeholders. Requests run in order against a fresh in-memory H2 database holding
+# the app's catalog import and the ten demo customers from seed.sql (fixed ids
+# 00000000-0000-4000-8000-0000000000NN, password topsecret).
+#
+# Not reachable from pages.txt: the DELETE endpoints (htmx hx-delete; the confirmation modals
+# are fetched), the JSON APIs, and backoffice/admin/users/results.html (only for an HX-Request).
+# A customer created in the backoffice gets a random UUID, so only the invalid create is posted.
+# Adding a credit card in the backoffice fails in the app itself (Hibernate TransientPropertyValueException),
+# so only its form is fetched. Sorting customers by name hits a Lucene error the app logs, so
+# the list is sorted by number.
+
+# --- Storefront, anonymous
+GET /
+GET /en-US/
+GET /de-DE/
+GET /en-GB/
+GET /sv-SE/
+GET /ja-JP/
+GET /en-US/topCategory/World%20of%20Nature?categoryId=1
+GET /en-US/topCategory/World%20of%20Nature?categoryId=1&page=2
+GET /en-US/category/Animals?categoryId=2
+GET /en-US/category/Animals?categoryId=2&finish=matte&size=16x12&minPrice=10&maxPrice=100
+GET /de-DE/category/Flowers?categoryId=3
+GET /en-US/product/Grizzly%20Bear/1
+GET /de-DE/product/Great%20Grey%20Owl/2
+GET /en-US/product/Missing/99999
+GET /en-US/search?q=bear
+GET /en-US/search?q=zzzzqqq
+GET /en-US/search?q=
+GET /en-US/searchSuggest?q=bea
+GET /en-US/searchSuggest?q=zzzzqqq
+GET /en-US/updatePrice
+GET /en-US/login
+POST /en-US/updatePrice productId=1&size=24x18&finish=matte
+
+# --- Cart and guest checkout
+GET /en-US/cart
+GET /en-US/miniCart
+GET /en-US/addToCartSlider?productId=1&finish=matte&size=16x12
+GET /en-US/addToCartSlider?productId=2&finish=matte&size=32x24
+GET /en-US/miniCart
+GET /en-US/cart
+GET /en-US/login
+POST /en-US/updateProductCount?cartProductId=1 productCount=3
+GET /en-US/cart
+GET /en-US/login
+POST /en-US/deleteFromCart?cartProductId=2
+GET /en-US/checkout/shippingAddress
+POST /en-US/checkout/shippingAddress firstName=Ada&name=Lovelace&company=&addressLine=12%20Main%20St&city=Springfield&state=IL&zip=62701&country=United%20States
+GET /en-US/checkout/billingAddress
+POST /en-US/checkout/billingAddress firstName=Ada&name=Lovelace&company=Engines%20Ltd&addressLine=1%20Mill%20Rd&city=Springfield&state=IL&zip=62702&country=United%20States
+GET /en-US/checkout/payment
+POST /en-US/checkout/payment cardNumber=1234&name=&expiry=13/99&cvv=
+POST /en-US/checkout/payment cardNumber=4111111111111111&name=Ada%20Lovelace&expiry=12/30&cvv=123
+GET /en-US/checkout/placeOrder
+POST /en-US/checkout/placeOrder
+GET /en-US/checkout/orderConfirmation
+GET /en-US/cart
+
+# --- Customer account
+GET /en-US/accountOverview
+GET /en-US/login
+POST /en-US/login email=johndoe@example.com&password=wrong
+POST /en-US/login email=johndoe@example.com&password=topsecret
+GET /en-US/accountOverview
+GET /en-US/orderOverview
+GET /de-DE/addToCartSlider?productId=3&finish=matte&size=16x12
+GET /de-DE/cart
+GET /de-DE/checkout/shippingAddress
+POST /de-DE/checkout/shippingAddress firstName=John&name=Doe&company=&addressLine=Hauptstr.%201&city=Jena&state=TH&zip=07743&country=Germany
+POST /de-DE/checkout/billingAddress firstName=John&name=Doe&company=&addressLine=Hauptstr.%201&city=Jena&state=TH&zip=07743&country=Germany
+POST /de-DE/checkout/payment cardNumber=4111111111111111&name=John%20Doe&expiry=11/29&cvv=321
+POST /de-DE/checkout/placeOrder
+GET /de-DE/orderOverview
+GET /en-US/orderOverview
+GET /en-US/accountOverview
+POST /en-US/updateAccount firstName=Johnny&name=Doe&email=johndoe@example.com
+GET /en-US/logout
+GET /en-US/register
+POST /en-US/register firstName=Jane&name=Doe&email=janedoe@example.com&password=secret1
+POST /en-US/register firstName=Zoe&name=New&email=zoe.new@example.com&password=secret1
+GET /en-US/accountOverview
+GET /en-US/logout
+
+# --- Error pages and the break switches
+GET /break
+GET /error?reason=session-expired
+GET /no/such/page
+
+# --- Backoffice
+GET /backoffice/
+GET /backoffice/starting
+GET /backoffice/login
+POST /backoffice/login username=admin&password=wrong
+GET /backoffice/login?error
+POST /backoffice/login username=admin&password=admin-2026!
+GET /backoffice/
+GET /backoffice/customers
+GET /backoffice/customers?q=doe
+GET /backoffice/customers?sort=number&dir=asc&size=5&page=1
+GET /backoffice/customers/dashboard
+GET /backoffice/customers/import-export
+GET /backoffice/customers/settings
+GET /backoffice/customers/new
+POST /backoffice/customers/new firstName=Jane&middleName=&lastName=Doe&email=janedoe@example.com&password=secret12
+GET /backoffice/customers/00000000-0000-4000-8000-000000000002
+GET /backoffice/customers/00000000-0000-4000-8000-000000000002/edit-name
+GET /backoffice/customers/00000000-0000-4000-8000-000000000002
+POST /backoffice/customers/00000000-0000-4000-8000-000000000002/edit-name firstName=Janet&middleName=Q&lastName=Doe&version=0
+GET /backoffice/customers/00000000-0000-4000-8000-000000000002
+POST /backoffice/customers/00000000-0000-4000-8000-000000000002/edit-name firstName=Jan&middleName=&lastName=Doe&version=0
+GET /backoffice/customers/00000000-0000-4000-8000-000000000002/addresses/new
+GET /backoffice/customers/00000000-0000-4000-8000-000000000002
+POST /backoffice/customers/00000000-0000-4000-8000-000000000002/addresses/new name=Home&recipientFirstName=Janet&recipientLastName=Doe&company=&addressLine1=5%20Oak%20Ave&addressLine2=Apt%202&city=Portland&state=OR&postalCode=97201&country=United%20States
+GET /backoffice/customers/00000000-0000-4000-8000-000000000002
+GET /backoffice/customers/00000000-0000-4000-8000-000000000002/addresses/1/edit
+GET /backoffice/customers/00000000-0000-4000-8000-000000000002
+POST /backoffice/customers/00000000-0000-4000-8000-000000000002/addresses/1/edit name=Work&recipientFirstName=Janet&recipientLastName=Doe&company=Acme&addressLine1=9%20Pine%20St&addressLine2=&city=Portland&state=OR&postalCode=97204&country=United%20States
+GET /backoffice/customers/00000000-0000-4000-8000-000000000002/addresses/1/delete
+GET /backoffice/customers/00000000-0000-4000-8000-000000000002/credit-cards/new
+GET /backoffice/customers/00000000-0000-4000-8000-000000000002/delete
+GET /backoffice/customers/00000000-0000-4000-8000-000000000001
+GET /backoffice/orders
+GET /backoffice/orders/dashboard
+GET /backoffice/orders/list
+GET /backoffice/orders/export
+GET /backoffice/catalog
+GET /backoffice/catalog/dashboard
+GET /backoffice/catalog/categories
+GET /backoffice/catalog/products
+GET /backoffice/catalog/variations
+GET /backoffice/catalog/pricing
+GET /backoffice/catalog/import-export
+GET /backoffice/catalog/settings
+GET /backoffice/security
+GET /backoffice/security/import-export
+GET /backoffice/security/settings
+GET /backoffice/admin/security
+GET /backoffice/security/users
+GET /backoffice/security/users?search=adm
+GET /backoffice/security/users/new
+POST /backoffice/security/users/new username=clerk&displayName=Clerk&email=clerk@example.com&password=Clerk-2026!&confirmPassword=nope&roleId=4
+POST /backoffice/security/users/new username=clerk&displayName=Clerk&email=clerk@example.com&password=Clerk-2026!&confirmPassword=Clerk-2026!&roleId=4
+GET /backoffice/security/users/1/edit
+GET /backoffice/security/users/2/edit
+POST /backoffice/security/users/2/edit username=clerk&displayName=Head%20Clerk&email=clerk@example.com&roleId=5
+POST /backoffice/security/users/2/reset-password newPassword=a&confirmPassword=b
+GET /backoffice/security/users
+GET /backoffice/security/roles
+GET /backoffice/security/roles/new
+POST /backoffice/security/roles name=&description=
+POST /backoffice/security/roles name=Auditor&description=Reads%20the%20audit%20log&moduleIds=security
+GET /backoffice/security/roles/6/edit
+POST /backoffice/security/roles/6 name=Auditor&description=Reads%20everything&moduleIds=security&moduleIds=orders
+GET /backoffice/security/roles
+GET /backoffice/security/audit-log
+GET /backoffice/security/audit-log?action=LOGIN
+GET /backoffice/access-denied
+GET /backoffice/no-such-module
+POST /backoffice/logout
+GET /backoffice/customers
