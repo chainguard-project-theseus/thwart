@@ -128,10 +128,13 @@ final class ClassScan {
             String cname = utf(in.readUnsignedShort());
             int clength = in.readInt();
             if (cname.equals("LineNumberTable") && m.line == 0) {
-              int count = in.readUnsignedShort();
-              in.skipBytes(2); // start_pc
-              m.line = count > 0 ? in.readUnsignedShort() : 0;
-              in.skipBytes(clength - 2 - (count > 0 ? 4 : 0));
+              int rest = clength - 2;
+              if (in.readUnsignedShort() > 0) { // line_number_table_length may be 0
+                in.skipBytes(2); // start_pc
+                m.line = in.readUnsignedShort();
+                rest -= 4;
+              }
+              in.skipBytes(rest);
             } else {
               in.skipBytes(clength);
             }

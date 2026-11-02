@@ -217,6 +217,21 @@ class ErrorFreeTest {
     build("<div><svg class=\"" + crlf + "y\" t:attr=\"width=${s.length()}\"><rect></rect></svg></div>").assertSuccess();
   }
 
+  /** Partials that parse only by error recovery are build errors (#406). */
+  @Test
+  void partialsThatParseOnlyByErrorRecoveryAreBuildErrors() {
+    String[][] partials = {
+      {"caption", "<caption " + NS + " t:params=\"String a\" t:text=\"a\">x</caption>"},
+      {"ddInDt", "<dl " + NS + " t:params=\"String a\"><dt>k<dd t:text=\"a\">v</dd></dt></dl>"},
+      {"buttonInButton", "<div " + NS + " t:params=\"String a\"><button><div><button t:text=\"a\">x</button></div></button></div>"},
+      {"address", "<div " + NS + " t:params=\"String a\"><address><p><address t:text=\"a\">y</address></p></address></div>"},
+    };
+    for (String[] t : partials) {
+      Compilation.builder().template("p/" + t[0] + ".html", t[1]).compile()
+          .assertError("p/" + t[0] + ".html:1:", "[verifier:PARSE_ERROR]");
+    }
+  }
+
   /**
    * The parse5 deviation PR #402 found: parse5 handles the end tag of an SVG integration point
    * with an HTML formatting element open differently from validator.nu and the browsers. The
