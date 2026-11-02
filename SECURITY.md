@@ -68,12 +68,14 @@ Raw output always needs a typed value built in Java, never a flag on a string:
 - **`SafeHtml`** for `t:utext` and `[(...)]`. Values from `SafeHtml.escape`, `sanitize`, or a
   compiled `Template` that the compiler proved safe to insert are trusted by construction.
 - **`TrustedUrl`** skips the URL scheme and origin checks.
-- **`Fragment`**, or a hand-written `Fragment` lambda or `Template`.
+- **`Fragment`**, from `Fragment.of` of a compiled partial.
 
-**`SafeHtml.unchecked`** and **`TrustedUrl.unchecked`** vouch for a string with no check at all.
-Whatever an `unchecked` call lets through is the caller's responsibility, not a Tessera bug. Every
-call site should be reviewed. `mvn tessera:review` lists every `unchecked` call and every registered
-`@TemplateFunction`, and `failOnUnchecked` turns an `unchecked` call into a build error.
+**`SafeHtml.unchecked`** and **`TrustedUrl.unchecked`** vouch for a string with no check at all,
+and a hand-written `Template` whose `verifiedFlowPartial()` returns true vouches for its own output.
+Whatever such a door lets through is the caller's responsibility, not a Tessera bug.
+`mvn tessera:review` fails the build on every door outside generated code (those calls, a
+`verifiedFlowPartial()` override, and a call of `Fragment.unverifiedForGeneratedCode` or a
+generated `internalUnverified$` method), and lists every registered `@TemplateFunction`.
 
 ## Out of scope
 
