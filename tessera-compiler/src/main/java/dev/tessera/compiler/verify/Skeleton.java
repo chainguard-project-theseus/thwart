@@ -140,30 +140,22 @@ public final class Skeleton {
   }
 
   /**
-   * A value written with {@code escaper}. {@code element} is the lower-case name of the element
-   * whose content or start tag the value is in, as the generator sees it (the nearest element whose
-   * tag is written; null at the top level of a template or fragment). {@code attribute} is the
-   * attribute name for an attribute escaper, else null. {@code pos} is the expression.
+   * A value written with {@code escaper}. {@code attribute} is the attribute name for an
+   * attribute escaper, else null. {@code pos} is the expression.
    */
   public static final class Hole implements Node {
     private final Escaper escaper;
-    private final String element;
     private final String attribute;
     private final SourcePos pos;
 
-    public Hole(Escaper escaper, String element, String attribute, SourcePos pos) {
+    public Hole(Escaper escaper, String attribute, SourcePos pos) {
       this.escaper = Objects.requireNonNull(escaper);
-      this.element = element;
       this.attribute = attribute;
       this.pos = pos;
     }
 
     public Escaper escaper() {
       return escaper;
-    }
-
-    public String element() {
-      return element;
     }
 
     public String attribute() {

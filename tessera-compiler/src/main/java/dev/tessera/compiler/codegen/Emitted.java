@@ -3,7 +3,6 @@ package dev.tessera.compiler.codegen;
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
-import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.verify.Skeleton;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -101,10 +100,6 @@ public final class Emitted {
     return new Skeleton.Seq(nodes);
   }
 
-  public boolean isEmpty() {
-    return parts.size() == 1 && parts.get(0).isEmpty() && nodes.isEmpty();
-  }
-
   // ---- what is written ----
 
   /** Java that writes nothing, e.g. {@code "\n"} or a declaration. */
@@ -123,11 +118,27 @@ public final class Emitted {
     return text(String.valueOf(c), pos);
   }
 
-  /** {@code Escapers.<escaper>(out, <valueCode>);} */
-  public static Emitted hole(
-      Skeleton.Escaper escaper, String element, String attribute, SourcePos pos, String valueCode) {
-    return of(ESCAPERS + escaper.method() + "(out, " + valueCode + ");",
-        new Skeleton.Hole(escaper, lower(element), attribute, pos));
+  /**
+   * {@code Escapers.<escaper>(out, <valueCode>);}, in the value of {@code attribute}, or in content if
+   * it is null.
+   */
+  public static Emitted hole(Skeleton.Escaper escaper, String attribute, SourcePos pos, String valueCode) {
+    return of(ESCAPERS + escaper.method() + "(out, " + valueCode + ");", new Skeleton.Hole(escaper, attribute, pos));
+  }
+
+  /**
+   * One double-quoted attribute, {@code  <attribute>="<value>"}, the value written by
+   * {@code escaper}: {@code Escapers.<escaper>(out, <valueCode>);}. The blank code around the
+   * escaper call writes nothing; it keeps the generated Java as it was before {@code Emitted}
+   * (#366).
+   */
+  public static Emitted attributeValue(Skeleton.Escaper escaper, String attribute, SourcePos pos, String valueCode) {
+    return concat(
+        text(" " + attribute + "=\"", pos),
+        code(" "),
+        hole(escaper, attribute, pos, valueCode),
+        code(" "),
+        text('"', pos));
   }
 
   /**
@@ -135,10 +146,10 @@ public final class Emitted {
    * which writes with {@code Escapers.appendJson}: {@code helper(<valueCode>, out);}. With
    * {@code javaScript} the helper writes the value in parentheses, as {@code Escapers.javaScript} does.
    */
-  public static Emitted jsonHelperHole(String helper, String element, SourcePos pos, String valueCode, boolean javaScript) {
+  public static Emitted jsonHelperHole(String helper, SourcePos pos, String valueCode, boolean javaScript) {
     return of(
         helper + "(" + valueCode + ", out);",
-        new Skeleton.Hole(javaScript ? Skeleton.Escaper.JAVASCRIPT : Skeleton.Escaper.JSON, lower(element), null, pos));
+        new Skeleton.Hole(javaScript ? Skeleton.Escaper.JAVASCRIPT : Skeleton.Escaper.JSON, null, pos));
   }
 
   /**
@@ -241,10 +252,6 @@ public final class Emitted {
     return of(
         head + separator.java() + middle + body.java() + tail,
         new Skeleton.Rep(kind, body.seq(), separator.seq(), pos));
-  }
-
-  private static String lower(String element) {
-    return element == null ? null : HtmlParser.asciiLower(element);
   }
 
   /**

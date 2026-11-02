@@ -10,7 +10,6 @@ import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.html.ParsingContexts;
 import dev.tessera.compiler.messages.MessageCompiler;
-import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.model.Text;
@@ -108,12 +107,6 @@ public final class TextInlining {
       i = end >= 0 ? end + 2 : i + 1;
     }
     return -1;
-  }
-
-  /** Whether {@code e} is written without its tags: {@code <t:block>} or a static {@code t:remove="tag"}. */
-  public static boolean tagNotRendered(Element e) {
-    return e.name().equals("t:block")
-        || e.attribute("t:remove").map(Attribute::value).map(JavaStrings::trimJava).filter("tag"::equals).isPresent();
   }
 
   /**
@@ -426,10 +419,10 @@ public final class TextInlining {
       String o = ctx.freshName("opt");
       return Emitted.wrap(
           "{ java.util.Optional<?> " + o + " = " + c.code() + "; ",
-          Emitted.hole(escaper, ctx.hostElement(), null, c.pos(), o + " == null ? null : " + o + ".orElse(null)"),
+          Emitted.hole(escaper, null, c.pos(), o + " == null ? null : " + o + ".orElse(null)"),
           " }\n");
     }
-    return Emitted.hole(escaper, ctx.hostElement(), null, c.pos(), c.code()).then("\n");
+    return Emitted.hole(escaper, null, c.pos(), c.code()).then("\n");
   }
 
   /**

@@ -81,8 +81,8 @@ class SkeletonTest {
     // Both holes carry the <form> start tag's position, so a verifier error about them names the form.
     assertTrue(
         skeleton.contains(
-            "opt:CSRF_TOKEN(\"<input type=\\\"hidden\\\" name=\\\"\" ${ATTR name @form.html:1:1} \"\\\" value=\\\"\""
-                + " ${ATTR value @form.html:1:1} \"\\\" />\")"),
+            "opt:CSRF_TOKEN(\"<input type=\\\"hidden\\\"\" \" name=\\\"\" ${ATTR name @form.html:1:1} \"\\\"\""
+                + " \" value=\\\"\" ${ATTR value @form.html:1:1} \"\\\"\" \" />\")"),
         skeleton);
     StubForms f = new StubForms();
     assertEquals("<form method=\"post\">x</form>", renderForm(c, null, f));
@@ -283,7 +283,7 @@ class SkeletonTest {
     String out = c.render("page", model("s", "a&b", "b", false));
     Skeleton.Seq body =
         map(c.skeleton("page").body(), n -> n instanceof Skeleton.Hole
-            ? new Skeleton.Hole(Skeleton.Escaper.JSON, "p", null, n.pos())
+            ? new Skeleton.Hole(Skeleton.Escaper.JSON, null, n.pos())
             : n);
     SkeletonMatcher.Result r = match(body, out);
     assertFalse(r.matches());

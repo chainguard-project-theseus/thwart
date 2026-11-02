@@ -4,11 +4,9 @@ import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.codegen.TemplateIndex;
-import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.types.Scope;
 import dev.tessera.compiler.types.Variable;
 import dev.tessera.compiler.verify.Skeleton;
-import dev.tessera.runtime.Fragment;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,7 +27,7 @@ public final class FragmentMethods {
   private FragmentMethods() {}
 
   /** The trailing {@code RenderContext ctx, Output out} parameters of every render method. */
-  static final String IO = "dev.tessera.runtime.RenderContext ctx, dev.tessera.runtime.Output out";
+  public static final String IO = "dev.tessera.runtime.RenderContext ctx, dev.tessera.runtime.Output out";
 
   /** Returns the skeleton of each fragment method, by fragment name. */
   public static Map<String, Skeleton.Seq> generate(CodegenContext ctx) {
@@ -64,7 +62,7 @@ public final class FragmentMethods {
   /** Whether {@code f} has a {@code Fragment} parameter, so each class calling it gets a private copy. */
   static boolean takesFragment(TemplateIndex.FragmentInfo f) {
     for (TemplateIndex.Param p : f.params()) {
-      if (ExpressionCompiler.isDeclared(p.type(), Fragment.class.getName())) {
+      if (TemplateIndex.isFragment(p.type())) {
         return true;
       }
     }

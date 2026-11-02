@@ -2,8 +2,9 @@ package dev.tessera.compiler.model;
 
 /**
  * Where an expression's value lands in the HTML output. Decided by the parser
- * ({@code dev.tessera.compiler.html.Contexts}), never by the template author. Each context maps
- * to exactly one runtime escaper; contexts without an escaper are build errors.
+ * ({@code dev.tessera.compiler.html.Contexts}), never by the template author. A context maps to
+ * at most one runtime escaper for a value in content ({@link #escaper}) and at most one for an
+ * attribute value ({@link #attributeEscaper}); an expression where there is none is a build error.
  */
 public enum OutputContext {
   /** Element text, the RCDATA of {@code <title>} and {@code <textarea>} included. */
@@ -46,12 +47,9 @@ public enum OutputContext {
   /**
    * A standard attribute that is not an inert-text attribute ({@code inert-attributes.txt}) and
    * has no more specific context, such as {@code sandbox}, {@code rel}, {@code target}, an SVG
-   * {@code transform} or {@code x}. Also an attribute that holds URLs but is not exactly one URL
-   * (#539, #668), which the URL escaper can't check: a list ({@code ping}, {@code srcset},
-   * {@code imagesrcset}) or the {@code values to from by} of an SVG {@code <animate>} or
-   * {@code <set>}, whose meaning depends on its {@code attributeName}. The value may only combine
-   * string literals and numbers (#565); a String, other plain value or safe type is a build error.
-   * Written attribute-escaped.
+   * {@code transform} or {@code x}, or the {@code content} of a {@code <meta>} that is not named.
+   * The value may only combine string literals and numbers (#565); a String, other plain value or
+   * safe type is a build error. Written attribute-escaped.
    */
   TYPED_ATTRIBUTE(null),
   /**
@@ -88,5 +86,26 @@ public enum OutputContext {
    */
   public String escaper() {
     return escaper;
+  }
+
+  /**
+   * Name of the {@code dev.tessera.runtime.Escapers} method for an attribute value in this context,
+   * or {@code null} if an expression in the attribute must be rejected at build time. STYLE,
+   * TYPED_ATTRIBUTE and NEUTRAL values are restricted at build time and written attribute-escaped.
+   */
+  public String attributeEscaper() {
+    switch (this) {
+      case ATTRIBUTE:
+      case STYLE:
+      case TYPED_ATTRIBUTE:
+      case NEUTRAL:
+        return ATTRIBUTE.escaper;
+      case URL:
+      case RESOURCE_URL:
+      case REFRESH:
+        return escaper;
+      default:
+        return null;
+    }
   }
 }
