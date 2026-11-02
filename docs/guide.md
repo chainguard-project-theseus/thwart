@@ -138,9 +138,10 @@ Pick the starter by servlet API and use exactly one; it brings only `tessera-run
   reads `tessera.messages` from the property of that name, so set the property. The plugin needs
   Maven 3.6.3+; upgrade an older `mvnw` wrapper.
 - The `review` goal (run by `mvn package`) writes `target/tessera-review.txt`: every
-  `@TemplateFunction` and every `SafeHtml.unchecked`/`TrustedUrl.unchecked` call, with its source
-  line, for a security review. `-Dtessera.failOnUnchecked=true` fails the build on an `unchecked`
-  call.
+  `@TemplateFunction`, for a security review, and every unverified door with its source line. It
+  fails the build on a door: a `SafeHtml.unchecked`/`TrustedUrl.unchecked` call, a hand-written
+  `verifiedFlowPartial()`, or a call of `Fragment.unverifiedForGeneratedCode` or
+  `internalUnverified$...` outside generated code.
 - The generated `META-INF/services/dev.tessera.runtime.TemplateRegistry` and
   `META-INF/tessera/**` must be packaged; otherwise the starter warns "No compiled Tessera
   templates on the classpath" at startup.
@@ -858,7 +859,8 @@ Outside a request (a mail job, a command-line tool), call
 `SpringRenderContexts.create(request, response, model)`. A `Fragment` page parameter takes
 `Fragment.of(PartialTemplate.of(...))` of a compiled partial. Generated classes also have methods
 named `internalUnverified$...`, and there is a `Fragment.unverifiedForGeneratedCode`: they exist
-for generated code only, check nothing, and application code never calls them.
+for generated code only and check nothing, so the `review` goal fails the build on a call from
+application code.
 
 **Content Security Policy.** With the Spring starter every `<script>` and `<style>` the template
 writes gets the request's nonce (`CspNonce.get(request)` returns it for your policy header). Delete

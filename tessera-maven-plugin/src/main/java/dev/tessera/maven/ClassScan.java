@@ -4,11 +4,15 @@ import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Reads what {@link ReviewMojo} reports from one class file (#428): its {@code @TemplateFunction}
- * methods and every reference to {@code SafeHtml.unchecked} or {@code TrustedUrl.unchecked}. Works
+ * methods and its unverified doors (#602): every reference to {@code SafeHtml.unchecked},
+ * {@code TrustedUrl.unchecked}, {@code Fragment.unverifiedForGeneratedCode} or a generated
+ * {@code internalUnverified$<name>} method, and a {@code verifiedFlowPartial()} it declares. Works
  * on bytecode, so a call is found however the source spells it (qualified, static import, method
  * reference). Only the parts of the class file format this needs are decoded.
  */
@@ -17,6 +21,8 @@ final class ClassScan {
   private static final String FUNCTIONS = "L" + RUNTIME + "TemplateFunctions;";
   private static final String FUNCTION = "L" + RUNTIME + "TemplateFunction;";
   private static final String[] UNCHECKED_OWNERS = {RUNTIME + "SafeHtml", RUNTIME + "TrustedUrl"};
+  /** A method a template class declares; declared anywhere else it vouches for output nothing checked. */
+  static final String VERIFIED_FLOW_PARTIAL = "verifiedFlowPartial";
 
   /** A {@code @TemplateFunction} method. */
   static final class Function {
@@ -33,19 +39,23 @@ final class ClassScan {
     }
   }
 
-  /** A reference to an {@code unchecked} factory, e.g. {@code SafeHtml.unchecked}, at {@code position}. */
-  static final class Unchecked {
+  /**
+   * An unverified door at {@code position}: a reference to {@code target}, e.g.
+   * {@code SafeHtml.unchecked}, or a {@code verifiedFlowPartial()} declaration.
+   */
+  static final class Door {
     final String target;
     final String position;
 
-    Unchecked(String target, String position) {
+    Door(String target, String position) {
       this.target = target;
       this.position = position;
     }
   }
 
   final List<Function> functions = new ArrayList<>();
-  final List<Unchecked> unchecked = new ArrayList<>();
+  /** The doors of this class; {@link ReviewMojo} drops them if the class is Tessera-generated. */
+  final List<Door> doors = new ArrayList<>();
 
   private final Object[] pool;
   private final int[] tags;
@@ -197,12 +207,31 @@ final class ClassScan {
         functions.add(new Function(namespace, m.name, m.descriptor, position(m, m.lines.length > 1 ? m.lines[1] : 0)));
       }
       if (m.code != null) {
+        if (m.name.equals(VERIFIED_FLOW_PARTIAL) && m.descriptor.equals("()Z")) {
+          doors.add(new Door(VERIFIED_FLOW_PARTIAL + "() override", position(m, m.lines.length > 1 ? m.lines[1] : 0)));
+        }
         scanCode(m, bootstrap);
       }
     }
   }
 
-  /** Walks the instructions of {@code m}, recording each reference to an {@code unchecked} factory. */
+  /** The internal name of the class, e.g. {@code com/example/Pages}. */
+  String className() {
+    return className;
+  }
+
+  /** The internal names of the classes whose methods this class references. */
+  Set<String> methodOwners() {
+    Set<String> owners = new HashSet<>();
+    for (int i = 1; i < pool.length; i++) {
+      if (tags[i] == 10 || tags[i] == 11) {
+        owners.add(className(((int[]) pool[i])[0]));
+      }
+    }
+    return owners;
+  }
+
+  /** Walks the instructions of {@code m}, recording each reference to a door. */
   private void scanCode(Method m, List<int[]> bootstrap) throws IOException {
     byte[] code = m.code;
     int pc = 0;
@@ -222,7 +251,7 @@ final class ClassScan {
         }
       }
       if (target != 0) {
-        unchecked.add(new Unchecked(memberName(target), position(m, lineAt(m, pc))));
+        doors.add(new Door(memberName(target), position(m, lineAt(m, pc))));
       }
       pc += length(code, pc);
     }
@@ -241,7 +270,7 @@ final class ClassScan {
     return line;
   }
 
-  /** The Methodref at {@code index} if it names an {@code unchecked} factory, else 0. */
+  /** The Methodref at {@code index} if it names a door, else 0. */
   private int methodRef(int index) {
     if (tags[index] != 10 && tags[index] != 11) {
       return 0;
@@ -249,6 +278,10 @@ final class ClassScan {
     int[] ref = (int[]) pool[index];
     String owner = className(ref[0]);
     String name = utf(((int[]) pool[ref[1]])[0]);
+    if (name.startsWith("internalUnverified$")
+        || (name.equals("unverifiedForGeneratedCode") && owner.equals(RUNTIME + "Fragment"))) {
+      return index;
+    }
     if (name.equals("unchecked")) {
       for (String o : UNCHECKED_OWNERS) {
         if (o.equals(owner)) {
@@ -259,7 +292,7 @@ final class ClassScan {
     return 0;
   }
 
-  /** The Methodref behind the MethodHandle at {@code index} if it names an {@code unchecked} factory, else 0. */
+  /** The Methodref behind the MethodHandle at {@code index} if it names a door, else 0. */
   private int handle(int index) {
     return index < tags.length && tags[index] == 15 ? methodRef(((int[]) pool[index])[1]) : 0;
   }

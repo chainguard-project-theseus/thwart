@@ -25,7 +25,8 @@ import java.util.Map;
  * <p>A fragment with a {@code Fragment} parameter gets no Java-facing method (#600), only
  * {@code internalUnverified$<name>} ({@link #templateMethod}), which templates call: the verifier
  * parses the fragments they pass where they land, and checks nothing else. It is public only
- * because templates in other packages call it; a call from application code is a review point.
+ * because templates in other packages call it; a call from application code fails
+ * {@code tessera:review}.
  */
 public final class FragmentMethods {
   private FragmentMethods() {}

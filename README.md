@@ -195,7 +195,7 @@ Thymeleaf directory and reports, by `file:line`, what it couldn't convert.
 | `tessera-spring-boot-starter-javax` | The same starter relocated to `javax.servlet` |
 | `tessera-spring-tests` | Runs the starter's tests on Boot 3.5, 2.7, 2.0 and 1.5 and plain Spring MVC 5.0 and 4.3 |
 | `tessera-migrate` | Page record/compare and the Thymeleaf converter (bundles attoparser and jsoup) |
-| `tessera-maven-plugin` | `tessera:check`: recompiles a module when only its templates or message files changed. `tessera:review`: lists the `@TemplateFunction`s and `unchecked` calls, and can ban the latter |
+| `tessera-maven-plugin` | `tessera:check`: recompiles a module when only its templates or message files changed. `tessera:review`: lists the `@TemplateFunction`s, and fails the build on an unverified door (an `unchecked` call or a hand-written `verifiedFlowPartial()`) |
 | `tessera-benchmarks` | JMH benchmarks against Thymeleaf ([results](tessera-benchmarks/RESULTS.md)) |
 | `examples/petclinic` | Spring PetClinic ported to Tessera ([porting notes](examples/petclinic/PORTING.md)) |
 | `plugins/tessera` | The Claude Code migration skill ([marketplace](.claude-plugin/marketplace.json)) |

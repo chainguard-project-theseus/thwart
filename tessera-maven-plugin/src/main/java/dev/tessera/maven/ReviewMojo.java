@@ -6,7 +6,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.maven.plugin.AbstractMojo;
@@ -25,21 +27,25 @@ import org.apache.maven.plugins.annotations.Parameter;
  *   <li>every {@code @TemplateFunction} the module registers, marking those that return a safe type
  *       ({@code SafeHtml}, {@code TrustedUrl}, {@code Fragment}, {@code CssValue}): templates output
  *       their result without escaping, so each vouches for what it returns;
- *   <li>every call of {@code SafeHtml.unchecked} or {@code TrustedUrl.unchecked}, at its source line.
+ *   <li>every unverified door outside Tessera-generated classes, at its source line (#602): a call
+ *       of {@code SafeHtml.unchecked}, {@code TrustedUrl.unchecked},
+ *       {@code Fragment.unverifiedForGeneratedCode} or a generated {@code internalUnverified$<name>}
+ *       method, and a {@code verifiedFlowPartial()} declaration (a hand-written {@code Template}
+ *       vouching for its own output).
  * </ul>
  *
- * <p>With {@code failOnUnchecked} (property {@code tessera.failOnUnchecked}) an {@code unchecked}
- * call fails the build instead of only being listed. It reads bytecode, so it finds every call
- * however the source writes it (qualified, static import, method reference).
+ * <p>Any door fails the build. It reads bytecode, so it finds every call however the source writes
+ * it (qualified, static import, method reference). A class is Tessera-generated if the module's
+ * generated {@code TesseraRegistry} (named in {@code META-INF/services}) calls its methods, as it
+ * calls every template class, or if it is nested in such a class. That keeps out the model classes
+ * the registry only casts to. It is a review aid for code written in good faith: a module that
+ * forges its own registry can hide a door from it, as Java code can write a response itself.
  */
 @Mojo(name = "review", defaultPhase = LifecyclePhase.PROCESS_CLASSES, threadSafe = true)
 public final class ReviewMojo extends AbstractMojo {
   static final String REPORT = "tessera-review.txt";
+  private static final String SERVICES = "META-INF/services/dev.tessera.runtime.TemplateRegistry";
   private static final String[] SAFE_TYPES = {"SafeHtml", "TrustedUrl", "Fragment", "CssValue"};
-
-  /** Fail the build if the classes call {@code SafeHtml.unchecked} or {@code TrustedUrl.unchecked}. */
-  @Parameter(property = "tessera.failOnUnchecked", defaultValue = "false")
-  boolean failOnUnchecked;
 
   @Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true, required = true)
   File outputDirectory;
@@ -50,40 +56,80 @@ public final class ReviewMojo extends AbstractMojo {
   @Override
   public void execute() throws MojoExecutionException, MojoFailureException {
     List<ClassScan.Function> functions = new ArrayList<>();
-    List<ClassScan.Unchecked> unchecked = new ArrayList<>();
+    List<ClassScan.Door> doors = new ArrayList<>();
     Path report = buildDirectory.toPath().resolve(REPORT);
+    Path classes = outputDirectory.toPath();
     try {
-      for (Path f : classFiles(outputDirectory.toPath())) {
-        ClassScan s;
-        try {
-          s = ClassScan.scan(Files.readAllBytes(f));
-        } catch (IOException | RuntimeException e) {
-          throw new MojoExecutionException("Tessera: cannot read class file " + f + ": " + e, e);
-        }
+      Set<String> generated = generatedClasses(classes);
+      for (Path f : classFiles(classes)) {
+        ClassScan s = scan(f);
         functions.addAll(s.functions);
-        unchecked.addAll(s.unchecked);
+        if (!isGenerated(s.className(), generated)) {
+          doors.addAll(s.doors);
+        }
       }
       Files.createDirectories(report.getParent());
-      Files.write(report, report(functions, unchecked).getBytes(StandardCharsets.UTF_8));
+      Files.write(report, report(functions, doors).getBytes(StandardCharsets.UTF_8));
     } catch (IOException e) {
       throw new MojoExecutionException("Tessera: cannot write " + report + ": " + e, e);
     }
     long safe = functions.stream().filter(f -> safeType(f) != null).count();
     String summary = "Tessera: " + functions.size() + " @TemplateFunction(s), " + safe + " returning a safe type, and "
-        + unchecked.size() + " unchecked call(s); see " + report;
-    if (unchecked.isEmpty() || !failOnUnchecked) {
+        + doors.size() + " unverified door(s); see " + report;
+    if (doors.isEmpty()) {
       getLog().info(summary);
       return;
     }
-    for (ClassScan.Unchecked u : unchecked) {
-      getLog().error(u.position + ": " + u.target + " is not allowed (tessera.failOnUnchecked)");
+    for (ClassScan.Door d : doors) {
+      getLog().error(d.position + ": " + d.target + " lets output past Tessera's checks");
     }
-    throw new MojoFailureException(summary + ". tessera.failOnUnchecked is set: use SafeHtml.sanitize or escape,"
-        + " a Tessera template (SafeHtml.of, Fragment.of) or a css.* value instead");
+    throw new MojoFailureException(summary + ". Use SafeHtml.sanitize or escape, or a compiled Tessera template"
+        + " (SafeHtml.of, Fragment.of) instead");
   }
 
-  /** The report text: one section for functions, one for {@code unchecked} calls. */
-  static String report(List<ClassScan.Function> functions, List<ClassScan.Unchecked> unchecked) {
+  private static ClassScan scan(Path f) throws MojoExecutionException {
+    try {
+      return ClassScan.scan(Files.readAllBytes(f));
+    } catch (IOException | RuntimeException e) {
+      throw new MojoExecutionException("Tessera: cannot read class file " + f + ": " + e, e);
+    }
+  }
+
+  /**
+   * The internal names of the classes Tessera generated in {@code classes}: the registry the
+   * services file names and every class whose methods it calls (the template classes). Empty if the
+   * module has no templates.
+   */
+  private static Set<String> generatedClasses(Path classes) throws IOException, MojoExecutionException {
+    Set<String> generated = new HashSet<>();
+    Path services = classes.resolve(SERVICES);
+    if (!Files.isRegularFile(services)) {
+      return generated;
+    }
+    for (String line : Files.readAllLines(services, StandardCharsets.UTF_8)) {
+      String name = line.trim();
+      Path registry = classes.resolve(name.replace('.', '/') + ".class");
+      if (name.endsWith(".TesseraRegistry") && Files.isRegularFile(registry)) {
+        ClassScan s = scan(registry);
+        generated.add(s.className());
+        generated.addAll(s.methodOwners());
+      }
+    }
+    return generated;
+  }
+
+  /** Whether {@code className} is in {@code generated} or nested in (or synthetic to) a class that is. */
+  static boolean isGenerated(String className, Set<String> generated) {
+    for (int i = className.indexOf('$'); i >= 0; i = className.indexOf('$', i + 1)) {
+      if (generated.contains(className.substring(0, i))) {
+        return true;
+      }
+    }
+    return generated.contains(className);
+  }
+
+  /** The report text: one section for functions, one for unverified doors. */
+  static String report(List<ClassScan.Function> functions, List<ClassScan.Door> doors) {
     StringBuilder sb = new StringBuilder();
     sb.append("# Tessera review surface (#428): code the template compiler trusts but cannot check.\n");
     sb.append("\n## @TemplateFunctions (").append(functions.size()).append(")\n");
@@ -96,9 +142,9 @@ public final class ReviewMojo extends AbstractMojo {
       }
       sb.append('\n');
     }
-    sb.append("\n## SafeHtml.unchecked / TrustedUrl.unchecked calls (").append(unchecked.size()).append(")\n");
-    for (ClassScan.Unchecked u : unchecked) {
-      sb.append(u.target).append("  ").append(u.position).append('\n');
+    sb.append("\n## Unverified doors (").append(doors.size()).append(")\n");
+    for (ClassScan.Door d : doors) {
+      sb.append(d.target).append("  ").append(d.position).append('\n');
     }
     return sb.toString();
   }
