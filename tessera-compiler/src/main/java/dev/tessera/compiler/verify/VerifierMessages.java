@@ -87,9 +87,6 @@ final class VerifierMessages {
                 ? "if the value is inline markup only (text, <b>, <br>, ...), make it a SafeInlineHtml (guide section"
                     + " 4.4, Inline HTML); otherwise insert it outside the open element"
                 : "insert it outside the open element");
-      case FRAMESET:
-        return "<frameset> isn't supported: a browser uses it only if no body content came before it, so the page"
-            + " would depend on what precedes it; use an <iframe> or an ordinary layout";
       case STRUCTURE_DEPENDS_ON_DATA:
         return structure(f);
       case ENGINE_FAILURE:
@@ -142,7 +139,7 @@ final class VerifierMessages {
   /** Problems a parser reports while it parses, not found in a state at a hole. */
   private static boolean reportedByParser(Problem p) {
     return p == Problem.PARSE_ERROR || p == Problem.FOREIGN_IN_TABLE || p == Problem.TABLE_IN_TEMPLATE
-        || p == Problem.SELECT_CONTENT || p == Problem.FRAMESET || p == Problem.CDATA_SECTION;
+        || p == Problem.SELECT_CONTENT || p == Problem.CDATA_SECTION;
   }
 
   /** A second {@code <html>}, {@code <head>} or {@code <body>}, as the parser words it. */
@@ -184,6 +181,10 @@ final class VerifierMessages {
 
   /** How a browser recovers from the parse error in {@code detail} ({@link #parseErrorDetail}), and the fix. */
   private static String parseError(String detail) {
+    if (detail.equals(Rules.FRAMESET)) {
+      return "<frameset> isn't supported: a browser uses it only if no body content came before it, so the page"
+          + " would depend on what precedes it; use an <iframe> or an ordinary layout";
+    }
     int split = detail.indexOf('\u0000');
     String message = split < 0 ? detail : detail.substring(0, split);
     String markup = split < 0 ? "" : detail.substring(split + 1);

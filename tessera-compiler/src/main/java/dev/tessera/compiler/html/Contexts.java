@@ -17,7 +17,7 @@ public final class Contexts {
   private static final Pattern PLAIN_NAME = Pattern.compile("[A-Za-z_][A-Za-z0-9_.:-]*");
 
   private static final Set<String> BROWSER_RAW_TEXT =
-      Backports.setOf("xmp", "iframe", "noembed", "noframes", "noscript");
+      Backports.setOf("iframe", "noscript");
 
   /**
    * The attributes whose grammar is exactly one URL: WHATWG "valid (non-empty) URL
@@ -343,7 +343,7 @@ public final class Contexts {
 
   /**
    * Whether a browser reads the content of element {@code name} as raw text while Tessera parses
-   * it as markup: {@code xmp iframe noembed noframes}, and {@code noscript} when scripting is
+   * it as markup: {@code iframe}, and {@code noscript} when scripting is
    * on. No value is written there: computed content is a build error, and the verifier
    * rejects any hole in that raw text ({@code VALUE_IN_RAW_TEXT}). The static content must
    * end where a browser ends the element: at the first {@code </name} after the start tag.
@@ -393,10 +393,8 @@ public final class Contexts {
 
   /**
    * The first static {@code type} of {@code script}, the one a browser reads, trimmed and A-Z
-   * folded, or null if it has none. {@code MarkupTokenizer.startTag} goes by the last {@code type}
-   * when it decides whether the content is raw text. The two never disagree because HtmlParser
-   * rejects a duplicate attribute, A-Z folded, so a template has at most one {@code type}
-   * ({@code HtmlParserTest.duplicateScriptTypeIsAnError}).
+   * folded, or null if it has none. This is the only script-type table: the tokenizer reads every
+   * script's content as raw text, whatever its type, as a browser does.
    */
   private static String staticType(Element script) {
     for (Attribute a : script.attributes()) {

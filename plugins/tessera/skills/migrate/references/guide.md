@@ -1121,7 +1121,6 @@ Gaps in Tessera today, with what to do instead.
 | `VALUE_IN_FOREIGN` | A value, condition, loop or fragment inside `<svg>` or `<math>` | Static SVG; set what changes outside it with a `t:class` or a CSS variable, one `<svg>` per case, or an `<img>` (4.4) |
 | `CDATA_SECTION` | A `<![CDATA[` section | Write the text without it, with `&lt;` and `&amp;` |
 | `VALUE_IN_RAW_TEXT` | A value inside `<noscript>`, `<iframe>`, `<xmp>`, `<noembed>` or `<noframes>` | Static content; move the value outside the element |
-| `FRAMESET` | A `<frameset>` | An ordinary layout, or an `<iframe>` |
 | `FOREIGN_IN_TABLE` | An `<svg>` or `<math>` inside a table or `<template>` | An `<img>` with the SVG file, or the SVG outside the table |
 | `TABLE_IN_TEMPLATE` | A table part directly in `<template>` | Put the whole `<table>` in the `<template>` |
 | `SELECT_CONTENT` | Anything but `<option>`, `<optgroup>` and `<hr>` in a `<select>` | Move it outside the `<select>` |

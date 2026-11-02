@@ -168,6 +168,9 @@ final class Rules {
     }
   }
 
+  /** The {@link Excluded#detail} of a {@code <frameset>}, a {@link Problem#PARSE_ERROR}: see {@link #exclusion}. */
+  static final String FRAMESET = "<frameset>";
+
   /**
    * Whether the stack, right after an element was inserted, has a shape where supported browsers
    * are known to build different trees (security-architecture.md §11.4), or null. Every element
@@ -182,9 +185,9 @@ final class Rules {
    *       <template>}, or a table mode in the template-mode stack;
    *   <li>(c) {@link Problem#SELECT_CONTENT}: any element but {@code option}, {@code optgroup} and
    *       {@code hr} inserted into an open {@code select} (the fragment context counts);
-   *   <li>{@link Problem#FRAMESET}: any {@code frameset} element. Whether a {@code <frameset>}
-   *       start tag applies depends on the content before it; where it doesn't, it is a parse
-   *       error.
+   *   <li>{@link Problem#PARSE_ERROR} for any {@code frameset} element, with detail {@link
+   *       #FRAMESET}: whether a {@code <frameset>} start tag applies depends on the content before
+   *       it, and where it doesn't it is a parse error anyway. The compiler rejects it too.
    * </ul>
    */
   static Excluded exclusion(Parser.Stack s) {
@@ -194,7 +197,7 @@ final class Rules {
     // The elements below the inserted one, the top first; then the fragment context.
     int below = s.insertedOnStack() ? s.size() - 2 : s.size() - 1;
     if (html && "frameset".equals(name)) {
-      return new Excluded(Problem.FRAMESET, "<frameset>");
+      return new Excluded(Problem.PARSE_ERROR, FRAMESET);
     }
     if (!html && ("svg".equals(name) || "math".equals(name))) {
       for (int i = below; i >= -1; i--) {

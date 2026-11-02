@@ -44,7 +44,7 @@
 306-A26         -    VERIFIER PARSE_ERROR
 306-A27         AB   VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
 306-A28         AB   VERIFIER TEXT_IN_SCRIPT
-306-A29         AB   VERIFIER FRAMESET TEXT_IN_SCRIPT TEXT_OUTSIDE_BODY
+306-A29         AB   VERIFIER PARSE_ERROR TEXT_IN_SCRIPT TEXT_OUTSIDE_BODY
 306-A30         AB   VERIFIER TEXT_IN_SCRIPT
 306-A31         AB   VERIFIER SELECT_CONTENT
 306-A32         C    ACCEPT
@@ -208,7 +208,7 @@ pr298-9         AB   VERIFIER TEXT_IN_SCRIPT
 pr298-10        AB   VERIFIER TEXT_IN_SCRIPT
 pr298-11        -    ACCEPT  # hole not emitted
 pr298-12        -    ACCEPT  # hole not emitted
-pr298-13        -    ACCEPT  # hole not emitted
+pr298-13        -    ACCEPT  # #759: <xmp> is rejected outright, so the call is written and the verifier reads it as raw text
 pr298-14        -    ACCEPT  # hole not emitted
 pr299-7         AB   VERIFIER TEXT_NOT_IN_TEXT
 pr299-8         AB   VERIFIER TEXT_NOT_IN_TEXT
@@ -292,7 +292,7 @@ ax-pos-1        -    ACCEPT
 ax-pos-2        -    ACCEPT
 ax-pos-3        -    ACCEPT
 ax-pos-4        -    VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
-ax-pos-5        -    VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
+ax-pos-5        -    PROFILE  # #759: no attribute under <math> may be computed (foreign by tag); was VERIFIER VALUE_IN_FOREIGN, now pinned by ContextVerifierRulesTest; hole not emitted
 ax-pos-6        -    VERIFIER VALUE_IN_FOREIGN  # #678: no value is accepted in SVG or MathML
 ax-attr-1       -    ACCEPT
 ax-attr-2       -    ACCEPT
@@ -378,7 +378,7 @@ r678-xmp        -    PROFILE  # #678: rejected by the profile, the verifier has 
 r678-plaintext  -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
 r678-noembed    -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it; hole not emitted
 r678-noframes   -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it; hole not emitted
-r678-frameset   -    VERIFIER FRAMESET PARSE_ERROR  # #678: the profile rejects it too
+r678-frameset   -    VERIFIER PARSE_ERROR  # #678: the profile rejects it too
 r678-noscript   -    VERIFIER VALUE_IN_RAW_TEXT  # #678: the profile rejects it too
 r678-iframe     -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
 r678-srcset     -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it; hole not emitted

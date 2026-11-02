@@ -80,12 +80,12 @@ This is a per-value claim. Implied end tags may move static nodes, the same way 
 
 | Rule | Enforced by | Checked by |
 |---|---|---|
-| `xmp`, `noembed`, `noframes`, `frameset`, `plaintext` are errors | generator (`plaintext`: parser); verifier: `FRAMESET` | `BrowserRawTextTest`, seeds |
+| `xmp`, `noembed`, `noframes`, `frameset`, `plaintext` are errors | generator (`plaintext`: parser); verifier: `PARSE_ERROR` for any `frameset` | `UnmodelledMarkupTest`, seeds |
 | A browser ends raw text and RCDATA at the first ASCII-case `</name` + whitespace, `/` or `>`; it must be the element's own end tag | parser | `BrowserRawTextTest` |
 | `<!--` inside `<script>` is an error | parser | `HtmlParserTest` |
 | `noscript`: no `</noscript` before its own end tag, in comments and attribute values too | parser | `BrowserRawTextTest` |
 | No `t:insert`, `t:utext`, `[(...)]`, value, condition or loop inside `noscript`, `iframe` | generator; verifier: `VALUE_IN_RAW_TEXT` | `BrowserRawTextTest` |
-| Inside `svg`/`math`, HTML breakout tags (`p`, `b`, `font` with `color`/`face`/`size`, ...) are errors | parser; verifier: `PARSE_ERROR` | seeds |
+| Inside `svg`/`math`, HTML breakout tags (`p`, `b`, `font` with `color`/`face`/`size`, ...) are errors | verifier: `PARSE_ERROR` (the parser marks everything under `svg`/`math` foreign, by tag) | seeds, `UnmodelledMarkupTest` |
 | `svg`/`math` inside a table part or `template` | verifier: `FOREIGN_IN_TABLE` (exclusion (a)) | seeds, `ErrorFreeTest` |
 | `template` holds flow content; table parts as direct children are errors | verifier: `TABLE_IN_TEMPLATE` (exclusion (b)) | seeds |
 | No nested `<form>` | verifier: `PARSE_ERROR` | `CsrfFormactionTest` |
@@ -274,12 +274,11 @@ escapers is rejected.
 | `JSON_NOT_IN_SCRIPT` | a script value outside the script data of an HTML `<script>` | script data |
 | `RAW_NOT_FLOW` | `SafeHtml`, an HTML message or an unbound `Fragment` outside data state, HTML namespace, or body/cell/caption/template mode | flow content (section 5) |
 | `RAW_CLOSES_ELEMENT` | the same where its markup would close, reopen or adopt an open element | flow content (section 5) |
-| `PARSE_ERROR` | any tokenizer or tree-builder error on any path, except missing doctype and validator.nu's "Duplicate ID" (security-architecture.md §11.3); a partial only in its implied fragment context | markup that parses without errors |
+| `PARSE_ERROR` | any tokenizer or tree-builder error on any path, except missing doctype and validator.nu's "Duplicate ID" (security-architecture.md §11.3); a partial only in its implied fragment context; and any `frameset` element, which applies only if no body content came before it | markup that parses without errors; an ordinary layout |
 | `FOREIGN_IN_TABLE` | exclusion (a): an `svg` or `math` element open with a table part or `template` below it (the fragment context counts) | SVG and MathML outside tables |
 | `TABLE_IN_TEMPLATE` | exclusion (b): an HTML table part directly in `template`, or a table mode in the template-mode stack | flow content in `template` |
 | `SELECT_CONTENT` | exclusion (c): any element other than `option`, `optgroup` or `hr` open above `select`, in composed output | option, optgroup, hr and text |
 | `CDATA_SECTION` | exclusion (d): any CDATA section | text with `&lt;` and `&amp;` |
-| `FRAMESET` | any `frameset` element | an ordinary layout |
 | `VALUE_IN_RAW_TEXT` | any value in the raw text of `noscript` (scripting on), `iframe`, `xmp`, `noembed` or `noframes` | static content; the value outside the element |
 | `VALUE_IN_FOREIGN` | any value while the current node is SVG or MathML | static SVG/MathML; the change outside it |
 | `UNBALANCED` | a `t:if`, `t:unless`, `t:case`, `t:each` (one pass, or its separator), computed attribute or fragment insertion whose body leaves the parser in another state than it found it in, or a partial that does as a whole. Allowed: in template mode, the switch a flow start tag makes; a fragment inserted at the start of a document that ends it (a layout on `<html>`) | bodies that close what they open and leave open what they find open |

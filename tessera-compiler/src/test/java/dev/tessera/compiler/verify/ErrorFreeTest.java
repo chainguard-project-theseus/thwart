@@ -278,8 +278,8 @@ class ErrorFreeTest {
   }
 
   /**
-   * Misnesting and other error recovery are parse errors (#410, #444), and a {@code <frameset>}
-   * is an exclusion: each fails to compile.
+   * Misnesting and other error recovery are parse errors (#410, #444), and so is any {@code <frameset>}:
+   * each fails to compile.
    */
   @Test
   void misnestingIsAParseError() {
@@ -292,13 +292,18 @@ class ErrorFreeTest {
     // A computed input type on an <input> directly in a table.
     verify("<table><input t:type=\"s\"></table>").assertError("t.html:1:", "moves this <input> out of the table",
         "[verifier:PARSE_ERROR]");
-    // FRAMESET: any frameset element.
+    // Any frameset element is a parse error, also where its start tag applies, and in a partial.
     Compilation.builder()
         .template("t.html", "<!DOCTYPE html>\n<html " + NS + " t:params=\"String s\"><frameset><frame t:src=\"s\">"
             + "</frameset></html>")
         .verifierOnly()
         .compile()
-        .assertError("t.html:2:", "<frameset> isn't supported", "[verifier:FRAMESET]");
+        .assertError("t.html:2:", "<frameset> isn't supported", "[verifier:PARSE_ERROR]");
+    Compilation.builder()
+        .template("p.html", "<frameset " + NS + " t:params=\"String s\"><frame t:src=\"s\"></frameset>")
+        .verifierOnly()
+        .compile()
+        .assertError("p.html:1:", "[verifier:PARSE_ERROR]");
   }
 
   /**
