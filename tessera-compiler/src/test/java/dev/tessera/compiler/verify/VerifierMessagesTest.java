@@ -103,17 +103,12 @@ class VerifierMessagesTest {
   }
 
   @Test
-  void everySeedAndProbeTheVerifierRejectsHasAGoldenMessage() throws IOException {
+  void everySeedTheVerifierRejectsHasAGoldenMessage() throws IOException {
     Map<String, String> templates = new LinkedHashMap<>();
     Map<String, SeedVerifierTest.Expectation> expectations = SeedVerifierTest.expectations();
     for (Seeds.Seed s : Seeds.load()) {
       if (expectations.get(s.name()).expect().equals("VERIFIER")) {
         templates.put(s.name(), s.template());
-      }
-    }
-    for (ProbeVerifierTest.Probe p : ProbeVerifierTest.probes().toList()) {
-      if (p.expect().equals("VERIFIER")) {
-        templates.put("probe " + p.name(), p.template());
       }
     }
     StringBuilder out = new StringBuilder();

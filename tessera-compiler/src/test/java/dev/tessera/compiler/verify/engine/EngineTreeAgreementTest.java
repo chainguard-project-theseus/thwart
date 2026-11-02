@@ -3,7 +3,7 @@ package dev.tessera.compiler.verify.engine;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.tessera.compiler.oracle.SpecParsers;
+import dev.tessera.compiler.oracle.SpecParser;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -61,7 +61,7 @@ class EngineTreeAgreementTest {
   @ParameterizedTest(name = "{0}")
   @MethodSource("sample")
   void currentAgreesWithValidator26(Case c) throws Exception {
-    String oracle = TestTree.fromDom(SpecParsers.named(SpecParsers.VNU_26).parse(c.data(), c.scripting())).serialize();
+    String oracle = TestTree.fromDom(SpecParser.parse(c.data(), c.scripting())).serialize();
     assertEquals(oracle, CurrentTreeBuilder.parse(c.data(), c.scripting()), c.data());
   }
 }

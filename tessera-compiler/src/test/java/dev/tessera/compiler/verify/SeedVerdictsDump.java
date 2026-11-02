@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 /**
- * Not a gate: writes the verifier's verdict on every seed as a TSV (name, 0dda2f1 verdict, verifier
+ * Not a gate: writes the verifier's verdict on every seed as a TSV (name, verifier
  * verdict with its rules, whether the full compile succeeds, the first errors), to re-derive
  * {@code seed-expectations.txt} after a change to the verifier or an engine bump (#364: such a PR
  * lists every change in verdict). Run with {@code -Dtessera.verify.seedDump=<file>}.
@@ -38,7 +38,7 @@ class SeedVerdictsDump {
           }
         }
         String verdict = v.success() ? "ACCEPT" : "REJECT " + String.join(",", rules);
-        w.println(String.join("\t", s.name(), s.expected().toString(), verdict, full.success() ? "OK" : "PROFILE",
+        w.println(String.join("\t", s.name(), verdict, full.success() ? "OK" : "PROFILE",
             oneLine(v.errors().isEmpty() ? "" : v.errors().get(0)), oneLine(full.errors().isEmpty() ? "" : full.errors().get(0)),
             oneLine(String.valueOf(v.skeleton("t"))), oneLine(s.template())));
       }

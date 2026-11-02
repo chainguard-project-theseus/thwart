@@ -4,8 +4,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,46 +12,24 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * The seed corpus of the oracle gate (#320): hand-picked templates with the verdict each must get
- * on 0dda2f1, the commit the #306 probe experiment ran on. The gate (#324) runs them and must
- * reproduce those verdicts there; the generator's explore mode (#321) mutates them.
+ * The seed corpus of the oracle gate (#320): hand-picked templates that {@code ProfileOracleTest}
+ * runs and {@code SeedVerifierTest} holds to the verdicts in {@code verify/seed-expectations.txt}.
  *
  * <p>Files are {@code src/test/resources/oracle/seeds/*.txt} ({@link #FILES}). Cases are separated
- * by a line that is exactly {@code ====}. Each case starts with header lines, {@code # key: value}
- * (other lines starting with {@code #} are comments), followed by the template body:
+ * by a line that is exactly {@code ====}. Each case starts with header lines: {@code # name: ...}
+ * and an optional {@code # note: ...}. Every other line starting with {@code #} is a comment (the
+ * older seeds keep the verdicts they had on 0dda2f1 there, as history). The template body follows:
  *
  * <pre>
  * # name: 306-A5
- * # expect-0dda2f1: LIVE_SCRIPT
- * # fixed-by: #277 #301
  * &lt;svg&gt;&lt;title&gt;&lt;script&gt;var a = [[s]];&lt;/script&gt;&lt;/title&gt;&lt;/svg&gt;
  * </pre>
  *
- * <ul>
- *   <li>{@code name} (required): unique across all seed files.
- *   <li>{@code expect-0dda2f1} (required): {@code CLEAN}, {@code REJECTED}, or one or more {@link
- *       Finding.Kind}s. A kind list is a lower bound: on 0dda2f1 the gate must report at least
- *       these kinds (on {@code engines}), and it may report more, e.g. {@code STRUCTURE_CHANGED}
- *       or {@code JS_NOT_LITERAL}, which the parse5 oracle these were recorded with doesn't model.
- *   <li>{@code fixed-by}: the issues or PRs that fix it, as {@code #n} tokens. Required when
- *       {@code expect-0dda2f1} lists kinds.
- *   <li>{@code main}: the verdict on main at {@link #MAIN_SNAPSHOT} (after #295-#300 and #340
- *       merged), same grammar as {@code expect-0dda2f1}, recorded the same way. A snapshot, not
- *       kept current: main moves as fixes land, so the gate must not assert it or build
- *       known-holes lines from it. Known holes come from running the gate on the checked-out
- *       commit; this is only a cross-check. Missing means not recorded.
- *   <li>{@code engines}: the engines a listed kind must be seen by, each of them; the default
- *       {@code *} means any one engine (see {@link Expectation#metBy}). The {@code <select>}
- *       cases say {@code vnu-1.4}: on 0dda2f1 only the htmlparser 1.4.16 oracle saw them (history;
- *       that oracle was removed in #408).
- *   <li>{@code note}: free text.
- * </ul>
- *
- * <p>A body is the lines up to the next {@code ====} or the end of the file, joined with {@code
- * \n}. Characters a text file would hide or mangle (controls other than {@code \n}, and anything
- * outside printable ASCII) are written {@code {U+XXXX}}. The loader wraps a body in {@code <div
- * t:params="String s">...</div>} unless its first tag declares {@code t:params}. A chunk with no
- * body and no keys is a comment block (the file's preamble).
+ * <p>A name is unique across all seed files. A body is the lines up to the next {@code ====} or the
+ * end of the file, joined with {@code \n}. Characters a text file would hide or mangle (controls
+ * other than {@code \n}, and anything outside printable ASCII) are written {@code {U+XXXX}}. The
+ * loader wraps a body in {@code <div t:params="String s">...</div>} unless its first tag declares
+ * {@code t:params}. A chunk with no body and no keys is a comment block (the file's preamble).
  */
 public final class Seeds {
 
@@ -61,56 +37,7 @@ public final class Seeds {
   public static final List<String> FILES =
       List.of(
           "oracle/seeds/306-probes.txt", "oracle/seeds/open-prs.txt", "oracle/seeds/xss-context.txt",
-          "oracle/seeds/reject-678.txt");
-
-  /** The main commit the {@code main} verdicts were recorded on. */
-  public static final String MAIN_SNAPSHOT = "1c4b2b3";
-
-  /** What a seed's verdict was on 0dda2f1: the oracle gate's three labels before #681. */
-  public enum Outcome {
-    CLEAN,
-    REJECTED,
-    FINDINGS
-  }
-
-  /**
-   * An expected verdict.
-   *
-   * @param outcome clean, rejected, or findings
-   * @param kinds the kinds that must be reported, non-empty exactly for {@link Outcome#FINDINGS}
-   */
-  public record Expectation(Outcome outcome, Set<Finding.Kind> kinds) {
-    public Expectation {
-      kinds = Collections.unmodifiableSet(kinds.isEmpty() ? EnumSet.noneOf(Finding.Kind.class) : EnumSet.copyOf(kinds));
-      if ((outcome == Outcome.FINDINGS) == kinds.isEmpty()) {
-        throw new IllegalArgumentException(outcome + " with kinds " + kinds);
-      }
-    }
-
-    /** Parses {@code CLEAN}, {@code REJECTED} or a space-separated list of kinds. */
-    static Expectation parse(String value) {
-      String v = value.strip();
-      if (v.equals("CLEAN") || v.equals("REJECTED")) {
-        return new Expectation(Outcome.valueOf(v), Set.of());
-      }
-      Set<Finding.Kind> kinds = EnumSet.noneOf(Finding.Kind.class);
-      for (String k : v.split("\\s+")) {
-        try {
-          kinds.add(Finding.Kind.valueOf(k));
-        } catch (IllegalArgumentException e) {
-          throw new IllegalArgumentException("unknown verdict or finding kind '" + k + "'");
-        }
-      }
-      return new Expectation(Outcome.FINDINGS, kinds);
-    }
-
-    @Override
-    public String toString() {
-      return outcome == Outcome.FINDINGS
-          ? String.join(" ", kinds.stream().map(Enum::name).toList())
-          : outcome.name();
-    }
-  }
+          "oracle/seeds/reject-678.txt", "oracle/seeds/review-probes.txt");
 
   /**
    * One seed.
@@ -120,37 +47,20 @@ public final class Seeds {
    * @param name unique name
    * @param body the template body as written (escapes decoded)
    * @param template the template the gate compiles: {@code body}, wrapped unless it has its own root
-   * @param expected the verdict on 0dda2f1
-   * @param fixedBy issue or PR numbers, in file order
-   * @param onMain the verdict on main at {@link #MAIN_SNAPSHOT}, or null if not recorded
-   * @param engines the engines a listed kind must be seen by; {@code ["*"]} by default
    * @param note free text, or empty
    */
-  public record Seed(
-      String file,
-      int line,
-      String name,
-      String body,
-      String template,
-      Expectation expected,
-      List<Integer> fixedBy,
-      Expectation onMain,
-      List<String> engines,
-      String note) {
+  public record Seed(String file, int line, String name, String body, String template, String note) {
 
     /** This seed as a gate case. Its id is the id of {@link #template()}. */
     public OracleCase toCase() {
-      return OracleCase.of(name, template, OracleCase.Origin.SEED);
+      return OracleCase.of(name, template);
     }
   }
 
   private static final Pattern KEY = Pattern.compile("#\\s*([a-z0-9-]+):\\s*(.*)");
-  private static final Pattern ISSUE = Pattern.compile("#([1-9][0-9]{0,8})");
-  private static final Pattern ENGINE = Pattern.compile("\\*|[a-z0-9][a-z0-9.-]*");
   private static final Pattern ESCAPE = Pattern.compile("\\{U\\+([0-9A-F]{4,6})\\}");
   private static final Pattern FIRST_TAG = Pattern.compile("\\A\\s*<[A-Za-z][^>]*>");
-  private static final Set<String> KEYS =
-      Set.of("name", "expect-0dda2f1", "fixed-by", "main", "engines", "note");
+  private static final Set<String> KEYS = Set.of("name", "note");
 
   private Seeds() {}
 
@@ -217,13 +127,8 @@ public final class Seeds {
     int i = from;
     for (; i < to && lines[i].startsWith("#"); i++) {
       Matcher m = KEY.matcher(lines[i]);
-      if (m.matches()) {
-        if (!KEYS.contains(m.group(1))) {
-          throw error(file, i, "unknown key '" + m.group(1) + "'");
-        }
-        if (keys.put(m.group(1), m.group(2).strip()) != null) {
-          throw error(file, i, "duplicate key '" + m.group(1) + "'");
-        }
+      if (m.matches() && KEYS.contains(m.group(1)) && keys.put(m.group(1), m.group(2).strip()) != null) {
+        throw error(file, i, "duplicate key '" + m.group(1) + "'");
       }
     }
     int end = to;
@@ -234,7 +139,6 @@ public final class Seeds {
     if (keys.isEmpty() && body.isBlank()) {
       return null;
     }
-    int line = from + 1;
     String name = keys.get("name");
     if (name == null || name.isEmpty()) {
       throw error(file, from, "case without '# name:'");
@@ -245,48 +149,8 @@ public final class Seeds {
     if (body.isBlank()) {
       throw error(file, from, "seed " + name + " has no template");
     }
-    String exp = keys.get("expect-0dda2f1");
-    if (exp == null) {
-      throw error(file, from, "seed " + name + " has no '# expect-0dda2f1:'");
-    }
-    Expectation expected = expectation(file, from, name, exp);
-    List<Integer> fixedBy = new ArrayList<>();
-    String fixed = keys.get("fixed-by");
-    if (fixed != null) {
-      for (String tok : fixed.split("\\s+")) {
-        Matcher m = ISSUE.matcher(tok);
-        if (!m.matches()) {
-          throw error(file, from, "seed " + name + ": fixed-by takes '#<issue>' tokens, got '" + tok + "'");
-        }
-        fixedBy.add(Integer.parseInt(m.group(1)));
-      }
-    }
-    if (expected.outcome() == Outcome.FINDINGS && fixedBy.isEmpty()) {
-      throw error(file, from, "seed " + name + " has findings on 0dda2f1 but no '# fixed-by: #<issue>'");
-    }
-    String main = keys.get("main");
-    Expectation onMain = main == null ? null : expectation(file, from, name, main);
-    List<String> engines = List.of("*");
-    if (keys.containsKey("engines")) {
-      engines = List.of(keys.get("engines").split("\\s+"));
-      for (String e : engines) {
-        if (!ENGINE.matcher(e).matches()) {
-          throw error(file, from, "seed " + name + ": bad engine name '" + e + "'");
-        }
-      }
-    }
     String decoded = unescape(file, from, body);
-    return new Seed(
-        file, line, name, decoded, wrap(decoded), expected, List.copyOf(fixedBy), onMain, engines,
-        keys.getOrDefault("note", ""));
-  }
-
-  private static Expectation expectation(String file, int index, String name, String value) {
-    try {
-      return Expectation.parse(value);
-    } catch (IllegalArgumentException e) {
-      throw error(file, index, "seed " + name + ": " + e.getMessage());
-    }
+    return new Seed(file, from + 1, name, decoded, wrap(decoded), keys.getOrDefault("note", ""));
   }
 
   /** Decodes {@code {U+XXXX}} escapes. */

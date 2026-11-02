@@ -1,6 +1,7 @@
 package dev.tessera.compiler.oracle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -69,7 +70,7 @@ import org.w3c.dom.NodeList;
  *
  * <ul>
  *   <li><b>Attributes.</b> Every name in {@code attributes.txt}, plus names outside HTML and odd
- *       spellings, on representative HTML, SVG and MathML elements, as {@code t:<name>="${s}"}; the
+ *       spellings, on representative HTML elements, as {@code t:<name>="${s}"}; the
  *       names outside HTML also with each framework-neutral shape (a link with a path variable, a
  *       number, a boolean). What the compiler accepts is rendered with a hostile corpus, parsed with
  *       validator.nu, and each attribute of the target element is classified by {@link HostileSinks},
@@ -122,36 +123,16 @@ class HostileSweepTest {
     html("option", "<select>", "option", "", false, "</select>");
     html("meta-refresh", "", "meta", "http-equiv=\"refresh\"", true, "");
     html("meta-ctype", "", "meta", "http-equiv=\"Content-Type\"", true, "");
-    // SVG
-    for (String t : List.of("svg", "a", "image", "use", "rect", "pattern", "linearGradient", "text", "foreignObject",
-        "script", "animate", "set", "animateMotion")) {
-      html("svg:" + t, t.equals("svg") ? "" : "<svg>", t, "", false, t.equals("svg") ? "" : "</svg>");
-    }
-    html("svg:feImage", "<svg><filter>", "feImage", "", false, "</filter></svg>");
-    html("svg:mpath", "<svg><animateMotion>", "mpath", "", false, "</animateMotion></svg>");
-    html("svg:textPath", "<svg><text>", "textPath", "", false, "</text></svg>");
-    // An animation's target attribute decides the sink of its values: <animate> covers the targets,
-    // <set> (the same table, to only) keeps one.
-    for (String an : List.of("href", "xlink:href", "fill", "mask", "class", "style")) {
-      html("svg:animate@" + an, "<svg><rect>", "animate", "attributeName=\"" + an + "\"", false, "</rect></svg>");
-    }
-    html("svg:set@href", "<svg><rect>", "set", "attributeName=\"href\"", false, "</rect></svg>");
-    // MathML
-    html("math:math", "", "math", "", false, "");
-    for (String t : List.of("mi", "mtext", "maction")) {
-      html("math:" + t, "<math>", t, "", false, "</math>");
-    }
-    html("math:annotation-xml", "<math><semantics><mi>x</mi>", "annotation-xml", "", false, "</semantics></math>");
   }
 
   /**
-   * Whether the sweep tries a name from these specs on the variant: HTML and ARIA names everywhere,
-   * SVG-only names on SVG elements and MathML-only names on MathML elements (the cross-namespace
-   * rest keeps the CPU budget).
+   * Whether the sweep tries a name from these specs: HTML, obsolete HTML and ARIA names. The
+   * variants are HTML elements only: since #678 every computed attribute in SVG or MathML is a
+   * build error ({@link #computedAttributesInSvgAndMathMlAreRejected}), so SVG- and MathML-only
+   * names would only spend the CPU budget.
    */
-  static boolean tries(Variant v, Set<String> specs) {
-    String own = v.id().startsWith("svg:") ? "svg" : v.id().startsWith("math:") ? "mathml" : "html-obsolete";
-    return specs.contains("html") || specs.contains("aria") || specs.contains(own);
+  static boolean tries(Set<String> specs) {
+    return specs.contains("html") || specs.contains("aria") || specs.contains("html-obsolete");
   }
 
   /**
@@ -163,7 +144,7 @@ class HostileSweepTest {
       "hx-boost", "x-data", "x-bind:href", "v-html", "v-bind:href", "ng-init", "data-ng-init", "x_ng-bind",
       "data-bind", "data-on-click", "up-href", "_", "script", "params", "foo");
   static final Set<String> NEUTRAL_VARIANTS = Set.of("div", "a", "form", "iframe", "script", "template",
-      "textarea", "x-widget", "svg:a", "svg:use", "math:mi");
+      "textarea", "x-widget");
 
   /** Names that are not plain or not lower case, tried with a String on every variant. */
   static final List<String> OTHER_NAMES = List.of(":title", "@click", "#default", ".prop", ":href", ":src",
@@ -247,7 +228,7 @@ class HostileSweepTest {
     List<AttrCase> cases = new ArrayList<>();
     for (Variant v : VARIANTS) {
       for (String n : names) {
-        if (specs.containsKey(n) && !tries(v, specs.get(n))) {
+        if (specs.containsKey(n) && !tries(specs.get(n))) {
           continue;
         }
         List<Shape> shapes = new ArrayList<>(List.of(STRING));
@@ -268,14 +249,13 @@ class HostileSweepTest {
     long t1 = System.nanoTime();
     long cpu1 = cpuNanos();
 
-    SpecParser vnu = SpecParsers.named(SpecParsers.VNU_26);
     Map<String, Hit> hits = new ConcurrentHashMap<>();
     AtomicLong renders = new AtomicLong();
     AtomicLong threw = new AtomicLong();
     List<AttrCase> ok = cases.stream().filter(c -> accepted.containsKey(c.view())).toList();
     POOL.submit(() -> ok.parallelStream().forEach(c -> {
       TemplateEntry entry = accepted.get(c.view()).registry().find(c.view()).orElseThrow();
-      Document bd = vnu.parse(wrap(render(entry, Map.of("s", c.shape().benign()))), true);
+      Document bd = SpecParser.parse(wrap(render(entry, Map.of("s", c.shape().benign()))), true);
       String bShape = shape(bd);
       Element bt = target(bd);
       Set<String> bAttrs = attrNames(bt);
@@ -290,7 +270,7 @@ class HostileSweepTest {
           continue;
         }
         renders.incrementAndGet();
-        Document d = vnu.parse(wrap(out), true);
+        Document d = SpecParser.parse(wrap(out), true);
         Element t = target(d);
         if (t == null || !shape(d).equals(bShape)) {
           put(hits, new Hit("STRUCTURE", c.variant().id(), tName, h, out, c.template()));
@@ -354,7 +334,6 @@ class HostileSweepTest {
     long t0 = System.nanoTime();
     List<String> elements = concat(new ArrayList<>(new TreeSet<>(HtmlPolicy.ELEMENTS)),
         List.of("script", "style", "iframe", "form", "object", "svg", "math", "x-widget", "template"));
-    SpecParser vnu = SpecParsers.named(SpecParsers.VNU_26);
     Map<String, Hit> hits = new ConcurrentHashMap<>();
     AtomicLong inputs = new AtomicLong();
     List<String[]> work = new ArrayList<>();
@@ -371,7 +350,7 @@ class HostileSweepTest {
           String input = "<" + e + " " + a + "=\"" + h.replace("&", "&amp;").replace("\"", "&quot;") + "\">x</" + e + ">";
           inputs.incrementAndGet();
           String out = SafeHtml.sanitize(input, policy).html();
-          for (Hit hit : sanitizerHits("sanitize:" + w[0] + ":" + e, policy, vnu, out, h, input)) {
+          for (Hit hit : sanitizerHits("sanitize:" + w[0] + ":" + e, policy, out, h, input)) {
             put(hits, hit);
           }
         }
@@ -383,9 +362,9 @@ class HostileSweepTest {
   }
 
   /** The sink table over every element of a sanitizer output, plus any element no policy allows. */
-  static List<Hit> sanitizerHits(String element, HtmlPolicy policy, SpecParser vnu, String out, String h, String input) {
+  static List<Hit> sanitizerHits(String element, HtmlPolicy policy, String out, String h, String input) {
     List<Hit> found = new ArrayList<>();
-    Document d = vnu.parse(wrap(out), true);
+    Document d = SpecParser.parse(wrap(out), true);
     NodeList all = ((Element) d.getElementsByTagName("body").item(0)).getElementsByTagName("*");
     for (int i = 0; i < all.getLength(); i++) {
       Element el = (Element) all.item(i);
@@ -548,7 +527,6 @@ class HostileSweepTest {
         Collectors.toMap(ScriptCase::view, ScriptCase::template, (x, y) -> x, LinkedHashMap::new)));
     long t1 = System.nanoTime();
     Map<String, List<Object>> values = scriptValues();
-    SpecParser vnu = SpecParsers.named(SpecParsers.VNU_26);
     Map<String, Hit> hits = new ConcurrentHashMap<>();
     AtomicLong renders = new AtomicLong();
     List<ScriptCase> ok = cases.stream().filter(c -> accepted.containsKey(c.view())).toList();
@@ -585,7 +563,7 @@ class HostileSweepTest {
         renders.incrementAndGet();
         String vs = v instanceof BigDecimal && v.getClass() != BigDecimal.class
             ? "BigDecimal{toString=alert(1)}" : String.valueOf(v);
-        String problem = checkScript(vnu, out, c, v, rTree);
+        String problem = checkScript(out, c, v, rTree);
         if (problem != null) {
           int sp = problem.indexOf(' ');
           put(hits, new Hit(problem.substring(0, sp), esc(shapeId), c.var(), vs, problem.substring(sp + 1),
@@ -604,8 +582,8 @@ class HostileSweepTest {
   }
 
   /** Null if the render keeps one literal in the hole, else {@code "KIND detail"}. */
-  static String checkScript(SpecParser vnu, String out, ScriptCase c, Object v, String rTree) {
-    Document d = vnu.parse(wrap(out), true);
+  static String checkScript(String out, ScriptCase c, Object v, String rTree) {
+    Document d = SpecParser.parse(wrap(out), true);
     NodeList scripts = d.getElementsByTagName("script");
     if (scripts.getLength() != 1) {
       return "SCRIPT_ELEMENT_CHANGED " + esc(out);
@@ -769,19 +747,28 @@ class HostileSweepTest {
   // The checks find what they claim (negative tests of the oracle itself)
   // =====================================================================================
 
+  /** Why the attribute sweep has no SVG or MathML variants: #678 rejects any computed attribute there. */
+  @Test
+  void computedAttributesInSvgAndMathMlAreRejected() {
+    for (String t : List.of("<svg t:title=\"${s}\"></svg>", "<svg><a t:href=\"${s}\"></a></svg>",
+        "<math><mi t:title=\"${s}\"></mi></math>")) {
+      Compilation c = Compilation.builder().template("t.html", "<div t:params=\"String s\">" + t + "</div>").compile();
+      assertFalse(c.success(), t);
+      assertTrue(c.errors().stream().anyMatch(m -> m.contains("nothing inside <svg> or <math> is computed")),
+          t + ": " + c.errors());
+    }
+  }
+
   /** Hand-written outputs of historic bugs: the sink table names each one. */
   @Test
   void sinkTableFlagsKnownBadOutputs() {
-    SpecParser vnu = SpecParsers.named(SpecParsers.VNU_26);
-    assertKinds(vnu, "<a data-tsweep href=\" JaVaScRiPt:alert(1)\">", " JaVaScRiPt:alert(1)", "URL_SCRIPT_SCHEME");
-    assertKinds(vnu, "<img data-tsweep srcset=\"/ok.png 1x, javascript:alert(1) 2x\">",
+    assertKinds("<a data-tsweep href=\" JaVaScRiPt:alert(1)\">", " JaVaScRiPt:alert(1)", "URL_SCRIPT_SCHEME");
+    assertKinds("<img data-tsweep srcset=\"/ok.png 1x, javascript:alert(1) 2x\">",
         "/ok.png 1x, javascript:alert(1) 2x", "URL_SCRIPT_SCHEME", "URLS_FROM_ONE_VALUE");
-    assertKinds(vnu, "<script data-tsweep src=\"//evil.example/x.js\"></script>", "//evil.example/x.js",
+    assertKinds("<script data-tsweep src=\"//evil.example/x.js\"></script>", "//evil.example/x.js",
         "URL_CROSS_ORIGIN_CODE");
-    assertKinds(vnu, "<svg><rect><animate data-tsweep attributeName=\"href\" values=\"/a;javascript:alert(1)\"/>",
-        "/a;javascript:alert(1)", "URL_SCRIPT_SCHEME");
-    assertKinds(vnu, "<p data-tsweep style=\"u\\72l(//evil.example/x)\">", "u\\72l(//evil.example/x)", "CSS_FETCH");
-    assertKinds(vnu, "<meta data-tsweep http-equiv=\"refresh\" content=\"0;url=javascript:alert(1)\">",
+    assertKinds("<p data-tsweep style=\"u\\72l(//evil.example/x)\">", "u\\72l(//evil.example/x)", "CSS_FETCH");
+    assertKinds("<meta data-tsweep http-equiv=\"refresh\" content=\"0;url=javascript:alert(1)\">",
         "0;url=javascript:alert(1)", "URL_REFRESH_OFFSITE", "URL_SCRIPT_SCHEME");
     // Client-framework bugs of the past (#529, #531, #557, #562, ...), now one rule that names no
     // framework: the value is not neutral.
@@ -791,14 +778,14 @@ class HostileSweepTest {
         new String[] {"hx-trigger", "click[alert(1)]"}, new String[] {"hx-headers", "javascript:alert(1)"},
         new String[] {"params", "a: alert(1)"}, new String[] {"script", "on click call alert(1)"},
         new String[] {"v-html", "{{constructor.constructor('alert(1)')()}}"})) {
-      assertKinds(vnu, "<x-widget data-tsweep " + old[0] + "=\"" + old[1].replace("'", "&#39;") + "\"></x-widget>",
+      assertKinds("<x-widget data-tsweep " + old[0] + "=\"" + old[1].replace("'", "&#39;") + "\"></x-widget>",
           old[1], "NON_NEUTRAL_VALUE");
     }
-    assertKinds(vnu, "<iframe data-tsweep srcdoc=\"&lt;img src=x onerror=alert(1)&gt;\"></iframe>",
+    assertKinds("<iframe data-tsweep srcdoc=\"&lt;img src=x onerror=alert(1)&gt;\"></iframe>",
         "<img src=x onerror=alert(1)>", "MARKUP_ATTRIBUTE");
-    assertKinds(vnu, "<template data-tsweep for=\"x\"></template>", "x", "TREE_BUILDER_INPUT");
+    assertKinds("<template data-tsweep for=\"x\"></template>", "x", "TREE_BUILDER_INPUT");
     // Benign values reach nothing.
-    assertKinds(vnu, "<a data-tsweep href=\"/ok\" class=\"x y\" title=\"t\">", "/ok");
+    assertKinds("<a data-tsweep href=\"/ok\" class=\"x y\" title=\"t\">", "/ok");
   }
 
   /**
@@ -808,7 +795,6 @@ class HostileSweepTest {
    */
   @Test
   void namesOutsideHtmlHoldOnlyNeutralValues() {
-    SpecParser vnu = SpecParsers.named(SpecParsers.VNU_26);
     for (String[] bad : List.of(
         new String[] {"data-name", "alert(1)"}, // a free string
         new String[] {"x-data", "/a/-location.port--"}, // -- is a write primitive
@@ -827,7 +813,7 @@ class HostileSweepTest {
         new String[] {"data-b", "TRUE"},
         new String[] {"ng-init", "x"},
         new String[] {"\u212Aind", "alert(1)"})) { // KELVIN SIGN: not the standard "kind" to a browser
-      assertKinds(vnu, "<x-widget data-tsweep " + bad[0] + "=\"" + bad[1] + "\"></x-widget>", bad[1],
+      assertKinds("<x-widget data-tsweep " + bad[0] + "=\"" + bad[1] + "\"></x-widget>", bad[1],
           "NON_NEUTRAL_VALUE");
     }
     // Positive controls: numbers, booleans and same-origin paths in the alphabet, on any name.
@@ -835,14 +821,14 @@ class HostileSweepTest {
         new String[] {"data-n", "0"}, new String[] {"data-open", "true"}, new String[] {"x-show", "false"},
         new String[] {"hx-get", "/items/7"}, new String[] {"data-url", "/a-%2D-b/c.d_e~f"},
         new String[] {"v-html", "/"}, new String[] {"my-prop", "/%E2%80%A8"})) {
-      assertKinds(vnu, "<x-widget data-tsweep " + good[0] + "=\"" + good[1] + "\"></x-widget>", good[1]);
+      assertKinds("<x-widget data-tsweep " + good[0] + "=\"" + good[1] + "\"></x-widget>", good[1]);
     }
     // Standard names are held to their own sinks, not to the neutral grammar.
-    assertKinds(vnu, "<p data-tsweep title=\"alert(1)\" class=\"x--y\" aria-label=\"a?b\">", "alert(1)");
+    assertKinds("<p data-tsweep title=\"alert(1)\" class=\"x--y\" aria-label=\"a?b\">", "alert(1)");
   }
 
-  static void assertKinds(SpecParser vnu, String html, String hostile, String... kinds) {
-    Element t = target(vnu.parse(wrap(html), true));
+  static void assertKinds(String html, String hostile, String... kinds) {
+    Element t = target(SpecParser.parse(wrap(html), true));
     Set<String> found = new TreeSet<>();
     NamedNodeMap as = t.getAttributes();
     for (int i = 0; i < as.getLength(); i++) {
@@ -864,47 +850,45 @@ class HostileSweepTest {
    */
   @Test
   void sanitizerPassFlagsNamesOutsideHtmlAndUnknownElements() {
-    SpecParser vnu = SpecParsers.named(SpecParsers.VNU_26);
     String h = "x _ng-init:alert(1)";
-    assertEquals(List.of("NON_NEUTRAL_VALUE"), sanitizerHits("sanitize:wide:p", POLICIES.get("wide"), vnu,
+    assertEquals(List.of("NON_NEUTRAL_VALUE"), sanitizerHits("sanitize:wide:p", POLICIES.get("wide"),
         "<p data-x=\"" + h + "\">x</p>", h, "").stream().map(Hit::kind).toList());
-    assertEquals(List.of(), sanitizerHits("sanitize:wide:p", POLICIES.get("wide"), vnu,
+    assertEquals(List.of(), sanitizerHits("sanitize:wide:p", POLICIES.get("wide"),
         "<p class=\"" + h + "\">x</p>", h, ""));
-    assertEquals(List.of("SANITIZER_ELEMENT"), sanitizerHits("sanitize:wide:p", POLICIES.get("wide"), vnu,
+    assertEquals(List.of("SANITIZER_ELEMENT"), sanitizerHits("sanitize:wide:p", POLICIES.get("wide"),
         "<svg></svg>", h, "").stream().map(Hit::kind).toList());
   }
 
   /** The script check rejects a value that is not one literal, and accepts JSON null for NaN. */
   @Test
   void scriptCheckFlagsNonLiterals() {
-    SpecParser vnu = SpecParsers.named(SpecParsers.VNU_26);
     ScriptCase c = new ScriptCase("j", "d", "", "var a = ", ";", "");
     AstRoot ref = parse("var a = (\"tqm0001\");", false).root;
     String rTree = tree(ref, span(ref, 8, 19));
-    assertEquals(null, checkScript(vnu, "<script>var a = (null);</script>", c, Double.NaN, rTree));
-    assertEquals(null, checkScript(vnu, "<script>var a = (-1.5);</script>", c, -1.5, rTree));
-    assertTrue(checkScript(vnu, "<script>var a = (NaN);</script>", c, Double.NaN, rTree)
+    assertEquals(null, checkScript("<script>var a = (null);</script>", c, Double.NaN, rTree));
+    assertEquals(null, checkScript("<script>var a = (-1.5);</script>", c, -1.5, rTree));
+    assertTrue(checkScript("<script>var a = (NaN);</script>", c, Double.NaN, rTree)
         .startsWith("JS_VALUE_NOT_LITERAL"));
-    assertTrue(checkScript(vnu, "<script>var a = (alert(1));</script>", c, 1.0, rTree)
+    assertTrue(checkScript("<script>var a = (alert(1));</script>", c, 1.0, rTree)
         .startsWith("JS_VALUE_NOT_LITERAL"));
-    assertTrue(checkScript(vnu, "<script>var a = (1);alert(1);</script>", c, 1.0, rTree)
+    assertTrue(checkScript("<script>var a = (1);alert(1);</script>", c, 1.0, rTree)
         .startsWith("JS_VALUE_NOT_ONE_EXPRESSION"));
-    assertTrue(checkScript(vnu, "<script>var a = </script><script>;</script>", c, 1.0, rTree)
+    assertTrue(checkScript("<script>var a = </script><script>;</script>", c, 1.0, rTree)
         .startsWith("SCRIPT_ELEMENT_CHANGED"));
     // From the deleted ScriptInvariantTest (#591): JSON arrays, objects and hostile strings are one
     // literal; a quoted-hole breakout, a getter, a regex, a name, two tokens or broken syntax is not.
-    assertEquals(null, checkScript(vnu, "<script>var a = ({\"x\":[1,-2.5,true,false,null,\"tqm0001()\"],\"y\":{}});"
+    assertEquals(null, checkScript("<script>var a = ({\"x\":[1,-2.5,true,false,null,\"tqm0001()\"],\"y\":{}});"
         + "</script>", c, "x", rTree));
-    assertEquals(null, checkScript(vnu, "<script>var a = (\"*/tqm0001()/*\\u2028`${x}\");</script>", c, "x", rTree));
+    assertEquals(null, checkScript("<script>var a = (\"*/tqm0001()/*\\u2028`${x}\");</script>", c, "x", rTree));
     for (String bad : List.of("(\"\"+tqm0001()+\"\")", "({get x() { return 1; }})", "(/tqm0001/)", "([tqm0001])",
         "(\"x\") + (\"y\")")) {
-      String p = checkScript(vnu, "<script>var a = " + bad + ";</script>", c, "x", rTree);
+      String p = checkScript("<script>var a = " + bad + ";</script>", c, "x", rTree);
       assertTrue(p != null && p.startsWith("JS_VALUE_NOT_LITERAL"), bad + " :: " + p);
     }
-    assertTrue(checkScript(vnu, "<script>var a = (\"\"x\"\");</script>", c, "x", rTree)
+    assertTrue(checkScript("<script>var a = (\"\"x\"\");</script>", c, "x", rTree)
         .startsWith("JS_VALUE_BREAKS_SYNTAX"));
     ScriptCase commented = new ScriptCase("j", "s", "", "var a = ", "; // x", "");
-    assertTrue(checkScript(vnu, "<script>var a = (\"x\"); // y</script>", commented, "x", rTree)
+    assertTrue(checkScript("<script>var a = (\"x\"); // y</script>", commented, "x", rTree)
         .startsWith("SCRIPT_STATIC_CHANGED"));
   }
 

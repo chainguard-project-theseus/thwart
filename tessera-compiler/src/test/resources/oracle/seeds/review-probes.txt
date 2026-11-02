@@ -1,116 +1,84 @@
-# The review probes of Oct 24 (memo §5.1, research-systemic tv/probes.txt) and the two templates of
-# the #351 table finding, with what #367 expects. A body is wrapped in <div t:params="String s">
-# unless its first tag declares t:params.
-#   VERIFIER     the verifier alone rejects it (the profile's diagnostics suppressed)
-#   PROFILE      the profile's tokenizer rejects it; the compiler builds no tree to verify
-#   ACCEPT       the verifier accepts it, and it compiles (unless a "# profile:" line says the
-#                profile rejects it first)
-#   NOT_COVERED  outside markup contexts (families D, E); not asserted
+# The review probes of Oct 24 (T1-T23) and the two templates of the #351 table finding (pr351-*),
+# moved here from verify/probes.txt (#367's ProbeVerifierTest). Mostly table and misnesting
+# shapes; T18 and T20 are families D and E, outside markup contexts. T19 (<base t:href="s">) is
+# xss-rejected-29 in xss-context.txt. Their verdicts are in verify/seed-expectations.txt like every
+# other seed's.
 ====
 # name: T1-text-in-tbody
-# expect: VERIFIER
 <table><tr><td>a</td></tr>[[s]]</table>
 ====
 # name: T2-text-before-row
-# expect: VERIFIER
 <table>[[s]]<tr><td>a</td></tr></table>
 ====
 # name: T3-ttext-in-tr
-# expect: VERIFIER
 <table><tr><td>a</td><t:block t:text="s"></t:block></tr></table>
 ====
 # name: T4-tr-inside-td
-# expect: VERIFIER
 <table><tr><td><table><tr><td>x</td></tr></table><tr><td>y</td></tr>[[s]]</td></tr></table>
 ====
 # name: T5-form-in-cell
-# expect: ACCEPT
 <table><tr><td><form><input t:value="s"></form></td></tr></table>
 ====
 # name: T6-caption-nested-table
-# expect: ACCEPT
 <table><caption><table><tr><td>a</td></tr></table>[[s]]</caption></table>
 ====
 # name: T7-colgroup
-# expect: VERIFIER
 <table><colgroup>[[s]]</colgroup></table>
 ====
 # name: T8-option
-# expect: ACCEPT
 <select><option>[[s]]</option></select>
 ====
 # name: T9-form-directly-in-table
-# expect: VERIFIER
 # A browser parses it the same way whatever the value, but a <form> directly in a <table> is a parse
 # error (#406); main's profile rejects it too (#351's table rule).
 <table><form><tr><td>[[s]]</td></tr></form></table>
 ====
 # name: T10-template-in-table
-# expect: ACCEPT
 <table><tr><td>a</td><template>[[s]]</template></tr></table>
 ====
 # name: T11-conditional-rows
-# expect: ACCEPT
 <table><tr><td>a</td></tr><t:block t:if="s != null"><tr><td>[[s]]</td></tr></t:block></table>
 ====
 # name: T12-each-rows-implied-tbody
-# expect: VERIFIER
 # #682: the first row implies a <tbody>, the next ones don't, so the t:each isn't state-neutral (write the <tbody>)
 <div t:params="java.util.List<String> xs"><table><tr t:each="x : xs"><td t:text="x"></td></tr></table></div>
 ====
 # name: T13-p-in-p
-# expect: VERIFIER
 # The second </p> closes no <p>: a parse error (#406).
 <p>a<p>[[s]]</p></p>
 ====
 # name: T14-cell-closed-by-td
-# expect: VERIFIER
 <table><tr><td>a<td>b</td>[[s]]</td></tr></table>
 ====
 # name: T15-svg-title-cdata
-# expect: PROFILE
 <svg><title><![CDATA[</title><script>/*]]>*/[[s]]//</script></title></svg>
 ====
 # name: T16-eq-unquoted
-# expect: PROFILE
 <div x==a"><script>/*"></div>*/[[s]]//</script>
 ====
 # name: T17-slash-in-tag
-# expect: PROFILE
 <div x="a"/y="><script>/*"></div>*/[[s]]//</script>
 ====
 # name: T18-fragment-local-mustache
-# expect: NOT_COVERED
 # note: family D (client frameworks), not markup contexts
 <div>{{ <span t:text="s"></span> }}</div>
 ====
-# name: T19-base-href
-# expect: NOT_COVERED
-# note: family E (URL policy): main rejects it by #350
-<base t:href="s">
-====
 # name: T20-nested-form-csrf
-# expect: NOT_COVERED
 # note: family E (CSRF policy)
 <form method="post" action="/a"><form action="https://evil.example/"><button t:formaction="s">x</button></form></form>
 ====
 # name: T21-ordinary-page
-# expect: ACCEPT
 <div t:params="java.util.List<String> xs, String s"><h1 t:text="s">t</h1><ul><li t:each="x : xs"><a t:href="x" t:text="x"></a></li></ul><script>var data = [[${s}]];</script><textarea t:text="s"></textarea></div>
 ====
 # name: T22-b-misnest
-# expect: PROFILE
 <p><b>x</p>[[s]]</div>
 ====
 # name: T23-table-in-p-quirks
-# expect: VERIFIER
 # Outside quirks mode the <table> closes the <p>, so the </p> after it closes nothing: a parse error (#406).
 <p><table><tr><td>[[s]]</td></tr></table></p>
 ====
 # name: pr351-text-before-row
-# expect: VERIFIER
 <table>[[${s}]]<tr><td>a</td></tr></table>
 ====
 # name: pr351-ttext-on-tr
-# expect: VERIFIER
 <table><tr t:text="${s}"><td>a</td></tr></table>

@@ -12,7 +12,7 @@ import java.util.function.Function;
 
 /**
  * Decides whether a rendered output is in the language of a {@link Skeleton} (#366): statics
- * byte-equal; each hole in its escaper's output language (memo §3.1); {@code Opt}, {@code Alt} and
+ * byte-equal; each hole in its escaper's output language (security-architecture.md §11.2); {@code Opt}, {@code Alt} and
  * {@code Rep} as the regex operators; a {@code Call} as the target's skeleton with its fragment
  * arguments bound; a bound {@code ParamInsert} as its argument or nothing; a {@code RawInsert} as its
  * content if it has one (an HTML message), else as anything, like an unbound {@code ParamInsert}.

@@ -1,8 +1,8 @@
 # Repros from the security PRs (#320), with fixed-by set to the PR: the templates each PR adds to
 # XssContextTest.REJECTED (all of them), the templates of its own rejected-case tests that the PR
 # head rejects and 0dda2f1 accepts, and findings from the reviews of those PRs ('review-' names; #338
-# is an issue). #295-#300 and #340 are merged; 'main' is the verdict on main at 1c4b2b3 (see Seeds.MAIN_SNAPSHOT).
-# Verdicts: as in 306-probes.txt.
+# is an issue). #295-#300 and #340 are merged; 'main' is the verdict on main at 1c4b2b3.
+# Verdicts: as in 306-probes.txt, history only (comments to the loader).
 # Cases that need a hostile SafeHtml or a second template file are left out (#324 renders String
 # hostile values only). #287 (tessera-migrate), #293 (starter) and #302 (OpenJML) have no template
 # repros.
