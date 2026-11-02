@@ -62,7 +62,7 @@ class CspNonceTest {
           + "<SCRIPT>var upper = 1;</SCRIPT>\n"
           + "<script type=\"application/ld+json\">{\"@type\": \"Thing\"}</script>\n"
           + "<link rel=\"stylesheet\" href=\"/a.css\"></head>\n"
-          + "<body><div onclick=\"\">x</div></body>\n"
+          + "<body><div data-action=\"\">x</div></body>\n"
           + "</html>";
 
   private static Compilation page() {
@@ -81,7 +81,7 @@ class CspNonceTest {
     assertTrue(html.contains("<script src=\"/app.js\" defer nonce=\"" + NONCE + "\"></script>"), html);
     assertTrue(html.contains("<script src=\"/js/main.js\" nonce=\"" + NONCE + "\"></script>"), html);
     assertTrue(html.contains("<link rel=\"stylesheet\" href=\"/a.css\">"), html);
-    assertTrue(html.contains("<div onclick=\"\">"), html);
+    assertTrue(html.contains("<div data-action=\"\">"), html);
   }
 
   @Test

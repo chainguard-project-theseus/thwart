@@ -424,3 +424,7 @@ i397-button                  -    ACCEPT
 i397-safehtml-button         -    VERIFIER RAW_CLOSES_ELEMENT
 i397-option                  -    PROFILE # #754: t:utext is rejected in <select> content, inline or not; ContextVerifierRulesTest pins the verifier's RAW_CLOSES_ELEMENT; hole not emitted
 i397-safehtml-option         -    PROFILE # #754: as i397-option, for a SafeHtml; hole not emitted
+x755-onclick                 -    PROFILE  # #755: a static on* handler; the verifier has no rule for it; hole not emitted
+x755-javascript-url          -    PROFILE  # #755: a static javascript: URL; the verifier has no rule for it; hole not emitted
+x755-hash-href               -    ACCEPT
+x755-data-action             -    ACCEPT

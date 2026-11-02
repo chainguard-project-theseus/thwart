@@ -411,6 +411,15 @@ class MigratorTest {
         "2: `th:type` = `owner.kind`: for a `null` value Thymeleaf wrote `type=\"\"`");
   }
 
+  /** #755: static handlers and javascript: URLs are flagged; href="#" and data-* are not. */
+  @Test
+  void staticInlineScriptIsReported() throws Exception {
+    assertMessages("<div t:params=\"String s\"><a onclick=\"x()\" href=\"#\" data-action=\"save\">a</a>\n"
+            + "<a href=\" JavaScript:void(0)\">b</a></div>",
+        "1: `onclick` is inline script, which Tessera rejects",
+        "2: `href=\"JavaScript:void(0)\"` is inline script, which Tessera rejects");
+  }
+
   @Test
   void attributesThatCannotBeNullOrThatThymeleafOmitsAreNotReported() throws Exception {
     assertMessages("<form t:params=\"Owner owner\" th:action=\"@{/owners/new}\">"
@@ -892,7 +901,7 @@ class MigratorTest {
       assertEquals(List.of(), messages(src), body);
     }
     for (String src : List.of(
-        "<div t:params=\"String x\"><p>\"[[${x}]]\"</p><b title=\"'[[${x}]]'\" onclick=\"f('[[${x}]]')\">b</b></div>",
+        "<div t:params=\"String x\"><p>\"[[${x}]]\"</p><b title=\"'[[${x}]]'\" data-f=\"f('[[${x}]]')\">b</b></div>",
         script(" type=\"text/x-template\"", "\"[[${x}]]\""),
         script(" type=\"text/x-template\"", "a") + "<p>'[[${x}]]'</p>")) {
       assertEquals(src, convert(src), src);

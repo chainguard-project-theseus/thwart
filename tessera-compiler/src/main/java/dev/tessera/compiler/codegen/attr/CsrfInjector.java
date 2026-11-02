@@ -5,6 +5,7 @@ import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.ElementPlan;
 import dev.tessera.compiler.codegen.Emitted;
+import dev.tessera.compiler.html.Contexts;
 import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
@@ -14,7 +15,6 @@ import dev.tessera.runtime.internal.Checks;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
 /**
  * The CSRF token, by a closed shape: the compiler adds a hidden input
@@ -48,9 +48,6 @@ import java.util.regex.Pattern;
  * render time ({@link #ownTokenNames}).
  */
 public final class CsrfInjector {
-  /** A named character reference the parser did not decode (a browser may; see below). */
-  private static final Pattern UNDECODED_REFERENCE = Pattern.compile("&[A-Za-z][A-Za-z0-9]*;?");
-
   private CsrfInjector() {}
 
   /** Adds the token input to a {@code <form>} in the closed shape. */
@@ -228,7 +225,7 @@ public final class CsrfInjector {
       return true;
     }
     for (String c : new String[] {"", "/", ":"}) {
-      if (!Checks.isSameOriginUrl(UNDECODED_REFERENCE.matcher(value).replaceAll(c))) {
+      if (!Checks.isSameOriginUrl(Contexts.UNDECODED_REFERENCE.matcher(value).replaceAll(c))) {
         return false;
       }
     }
