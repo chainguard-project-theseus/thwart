@@ -76,8 +76,6 @@ public final class ContextVerifier {
   /** Per fragment that is on the call stack: how many states it was entered in by recursion. */
   private final Map<Skeleton.FragmentId, Integer> recursiveEntries = new HashMap<>();
   private final Map<Skeleton.Seq, Integer> seqIds = new IdentityHashMap<>();
-  /** Each element-text hole reached: the escaper the first state that names one named, else null. */
-  private final Map<Skeleton.Hole, Skeleton.Escaper> textEscapers = new IdentityHashMap<>();
   /** The lowest call-stack depth whose approximation the current analysis read. */
   private int approxDepth = Integer.MAX_VALUE;
   /** Where findings go: the analysis of the innermost call in progress, or the entry. */
@@ -101,11 +99,9 @@ public final class ContextVerifier {
 
   /**
    * Verifies every template in {@code templates} (by view name, as the compiler recorded them)
-   * and reports what it rejects to {@code diagnostics} as errors. Returns the escaper of each
-   * element-text hole ({@link Skeleton.Escaper#TEXT}) it reached, which the parser state names
-   * (#378): {@code rcdata} in RCDATA, {@code text} elsewhere.
+   * and reports what it rejects to {@code diagnostics} as errors.
    */
-  public static Map<Skeleton.Hole, Skeleton.Escaper> verify(
+  public static void verify(
       Map<String, Skeleton.TemplateSkeleton> templates, DiagnosticSink diagnostics) {
     ContextVerifier v = new ContextVerifier(templates);
     for (Skeleton.TemplateSkeleton t : templates.values()) {
@@ -118,7 +114,6 @@ public final class ContextVerifier {
         diagnostics.error(f.at, VerifierMessages.message(f));
       }
     }
-    return v.textEscapers;
   }
 
   /**
@@ -707,9 +702,6 @@ public final class ContextVerifier {
     Map<Problem, List<ParserState>> problems = new LinkedHashMap<>();
     for (ParserState s : p.states()) {
       Problem problem = Rules.hole(h, s);
-      if (problem == null && h.escaper() == Skeleton.Escaper.TEXT) {
-        problem = textEscaper(h, s);
-      }
       if (problem != null) {
         problems.computeIfAbsent(problem, k -> new ArrayList<>()).add(s);
       }
@@ -727,24 +719,6 @@ public final class ContextVerifier {
         }
       }
     }
-  }
-
-  /**
-   * Element text takes the escaper the state names ({@link Rules#textEscaper}, #378). The first
-   * state that names one decides it; a state on another path, or in another call, that names the
-   * other one is rejected (the branch rule).
-   */
-  private Problem textEscaper(Skeleton.Hole h, ParserState s) {
-    Skeleton.Escaper named = Rules.textEscaper(s);
-    Skeleton.Escaper chosen = textEscapers.get(h);
-    if (chosen == null) {
-      textEscapers.put(h, named);
-      return null;
-    }
-    if (named == chosen) {
-      return null;
-    }
-    return named == Skeleton.Escaper.RCDATA ? Problem.TEXT_IN_RCDATA : Problem.RCDATA_NOT_IN_RCDATA;
   }
 
   /**

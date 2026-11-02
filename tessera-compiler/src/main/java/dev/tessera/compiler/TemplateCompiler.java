@@ -1,6 +1,5 @@
 package dev.tessera.compiler;
 
-import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.codegen.RegistryGenerator;
 import dev.tessera.compiler.codegen.TemplateGenerator;
 import dev.tessera.compiler.codegen.TemplateIndex;
@@ -41,7 +40,7 @@ public final class TemplateCompiler {
   public static final class Result {
     private final List<GeneratedFile> files;
     private final Map<String, Skeleton.TemplateSkeleton> skeletons;
-    /** What the registry is generated from, to add fragment entries to it ({@link #files(Map, Set)}). */
+    /** What the registry is generated from, to add fragment entries to it ({@link #files(Set)}). */
     private final CompilerEnv env;
     private final TemplateIndex index;
     /** Every private fragment copy, with the fragment it copies ({@code TemplateGenerator#copies}). */
@@ -57,68 +56,27 @@ public final class TemplateCompiler {
     }
 
     /**
-     * {@code escapers} with each text hole of a private fragment copy mapped to the escaper of its
-     * hole in the fragment: the verifier checks the fragment, and the copy writes exactly that.
+     * Throws if a private fragment copy writes another skeleton than its fragment: the verifier
+     * checks the fragment, so the copy must write exactly that.
      */
-    private Map<Skeleton.Hole, Skeleton.Escaper> withCopies(Map<Skeleton.Hole, Skeleton.Escaper> escapers) {
-      Map<Skeleton.Hole, Skeleton.Escaper> all = new java.util.IdentityHashMap<>(escapers);
+    private void checkCopies() {
       for (Map.Entry<Skeleton.FragmentId, Skeleton.Seq> copy : copies) {
         Skeleton.Seq original = skeletons.get(copy.getKey().view()).fragments().get(copy.getKey().name());
-        List<Skeleton.Hole> from = holes(original, new ArrayList<>());
-        List<Skeleton.Hole> to = holes(copy.getValue(), new ArrayList<>());
-        if (!original.toString().equals(copy.getValue().toString()) || from.size() != to.size()) {
+        if (!original.toString().equals(copy.getValue().toString())) {
           throw new IllegalStateException("the copy of " + copy.getKey() + " writes another skeleton than the fragment");
         }
-        for (int i = 0; i < from.size(); i++) {
-          if (escapers.containsKey(from.get(i))) {
-            all.put(to.get(i), escapers.get(from.get(i)));
-          }
-        }
       }
-      return all;
-    }
-
-    private static List<Skeleton.Hole> holes(Skeleton.Node n, List<Skeleton.Hole> out) {
-      if (n instanceof Skeleton.Hole) {
-        out.add((Skeleton.Hole) n);
-      } else if (n instanceof Skeleton.Seq) {
-        ((Skeleton.Seq) n).nodes().forEach(c -> holes(c, out));
-      } else if (n instanceof Skeleton.Opt) {
-        holes(((Skeleton.Opt) n).body(), out);
-      } else if (n instanceof Skeleton.Rep) {
-        holes(((Skeleton.Rep) n).body(), out);
-        holes(((Skeleton.Rep) n).separator(), out);
-      } else if (n instanceof Skeleton.Alt) {
-        ((Skeleton.Alt) n).branches().forEach(c -> holes(c, out));
-      } else if (n instanceof Skeleton.Call) {
-        ((Skeleton.Call) n).fragmentArgs().values().forEach(c -> holes(c, out));
-      }
-      return out;
     }
 
     /**
-     * {@link #files()}, with the escaper of each element-text hole set to the one in {@code
-     * escapers} (as {@code ContextVerifier.verify} returns them, #378).
+     * {@link #files()}, checked that each private fragment copy writes its fragment's skeleton, with
+     * a registry that also has an entry for each fragment in {@code servable} ({@code page ::
+     * fragment}, as {@code ContextVerifier.servableFragments} returns them) whose parameters a model
+     * can supply (#131).
      */
-    public List<GeneratedFile> files(Map<Skeleton.Hole, Skeleton.Escaper> escapers) {
-      escapers = withCopies(escapers);
-      List<GeneratedFile> out = new ArrayList<>(files.size());
-      for (GeneratedFile f : files) {
-        if (f.kind() == GeneratedFile.Kind.JAVA) {
-          f = new GeneratedFile(f.kind(), f.name(), Emitted.resolve(f.content(), escapers));
-        }
-        out.add(f);
-      }
-      return out;
-    }
-
-    /**
-     * {@link #files(Map)}, with a registry that also has an entry for each fragment in {@code
-     * servable} ({@code page :: fragment}, as {@code ContextVerifier.servableFragments} returns
-     * them) whose parameters a model can supply (#131).
-     */
-    public List<GeneratedFile> files(Map<Skeleton.Hole, Skeleton.Escaper> escapers, Set<String> servable) {
-      List<GeneratedFile> out = files(escapers);
+    public List<GeneratedFile> files(Set<String> servable) {
+      checkCopies();
+      List<GeneratedFile> out = new ArrayList<>(files);
       if (servable.isEmpty()) {
         return out;
       }
@@ -132,7 +90,7 @@ public final class TemplateCompiler {
       return out;
     }
 
-    /** The generated files, with the escaper of each element-text hole still to be set ({@link #files(Map)}). */
+    /** The generated files, unchecked and without the registry entries of {@link #files(Set)}. */
     public List<GeneratedFile> files() {
       return files;
     }

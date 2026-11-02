@@ -24,7 +24,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -800,7 +799,7 @@ public final class Compilation {
         return false;
       }
       try {
-        for (dev.tessera.compiler.GeneratedFile f : result.files(unverifiedEscapers(result.skeletons()))) {
+        for (dev.tessera.compiler.GeneratedFile f : result.files(Set.of())) {
           FileObject fo = f.kind() == dev.tessera.compiler.GeneratedFile.Kind.JAVA
               ? processingEnv.getFiler().createSourceFile(f.name())
               : processingEnv.getFiler().createResource(StandardLocation.CLASS_OUTPUT, "", f.name());
@@ -813,37 +812,6 @@ public final class Compilation {
       }
       skeletons = result.skeletons();
       return false;
-    }
-  }
-
-  /**
-   * Test-only (#378): the escaper of each element-text hole in {@code skeletons}, for code written
-   * without the verifier's findings. The verifier names it where it reaches the hole; in a template
-   * it rejects it may not reach every hole, and those take the escaper the host element's name
-   * implies ({@code rcdata} in a title or textarea), as the compiler chose before #378.
-   */
-  public static Map<Skeleton.Hole, Skeleton.Escaper> unverifiedEscapers(Map<String, Skeleton.TemplateSkeleton> skeletons) {
-    Map<Skeleton.Hole, Skeleton.Escaper> escapers = new IdentityHashMap<>(ContextVerifier.verify(skeletons, d -> {}));
-    for (Skeleton.TemplateSkeleton t : skeletons.values()) {
-      textHoles(t.body(), escapers);
-      t.fragments().values().forEach(f -> textHoles(f, escapers));
-    }
-    return escapers;
-  }
-
-  private static void textHoles(Skeleton.Node n, Map<Skeleton.Hole, Skeleton.Escaper> escapers) {
-    switch (n) {
-      case Skeleton.Hole h when h.escaper() == Skeleton.Escaper.TEXT -> escapers.putIfAbsent(
-          h, Set.of("title", "textarea").contains(h.element()) ? Skeleton.Escaper.RCDATA : Skeleton.Escaper.TEXT);
-      case Skeleton.Seq s -> s.nodes().forEach(c -> textHoles(c, escapers));
-      case Skeleton.Opt o -> textHoles(o.body(), escapers);
-      case Skeleton.Alt a -> a.branches().forEach(b -> textHoles(b, escapers));
-      case Skeleton.Rep r -> {
-        textHoles(r.body(), escapers);
-        textHoles(r.separator(), escapers);
-      }
-      case Skeleton.Call c -> c.fragmentArgs().values().forEach(b -> textHoles(b, escapers));
-      default -> { }
     }
   }
 

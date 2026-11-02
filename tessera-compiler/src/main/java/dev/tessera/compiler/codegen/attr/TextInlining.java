@@ -8,12 +8,10 @@ import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.codegen.CodegenContext;
 import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.expr.Expr;
-import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.html.ParsingContexts;
 import dev.tessera.compiler.messages.MessageCompiler;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Element;
-import dev.tessera.compiler.model.Node;
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.model.Text;
 import dev.tessera.compiler.types.CompiledExpr;
@@ -26,14 +24,12 @@ import java.util.Set;
 import javax.lang.model.type.TypeKind;
 
 /**
- * Text inlining: {@code [[expr]]} (escaped for the text node's context: TEXT via {@code Escapers.text},
- * or {@code Escapers.rcdata} where the verifier finds RCDATA (#378), SCRIPT via {@code Escapers.javaScript},
- * or {@code Escapers.json} in a JSON {@code <script>})
- * and {@code [(expr)]} (SafeHtml or a checked bundle message, TEXT only).
+ * Text inlining: {@code [[expr]]} (escaped for the text node's context: TEXT, RCDATA included, via
+ * {@code Escapers.text}, SCRIPT via {@code Escapers.javaScript}, or {@code Escapers.json} in a JSON
+ * {@code <script>}) and {@code [(expr)]} (SafeHtml or a checked bundle message, TEXT only).
  * STYLE/FORBIDDEN contexts with inlined expressions are build errors, and so is a
  * {@code [[expr]]} in JavaScript {@code <script>} text that is not the value of a declaration in
- * the script's prelude ({@link #checkPrelude}). {@link #checkBraces} holds static text to the
- * client-side interpolation rule (#248, #336).
+ * the script's prelude ({@link #checkPrelude}).
  *
  * <p>Also holds the output helpers shared with {@code t:text} and {@code t:utext}.
  */
@@ -118,116 +114,6 @@ public final class TextInlining {
   public static boolean tagNotRendered(Element e) {
     return e.name().equals("t:block")
         || e.attribute("t:remove").map(Attribute::value).map(JavaStrings::trimJava).filter("tag"::equals).isPresent();
-  }
-
-  /** Attributes whose element's own text never renders: a value or fragment replaces it. */
-  private static final Set<String> REPLACES_TEXT = Backports.setOf("t:text", "t:utext", "t:insert", "t:replace", "t:errors");
-
-  /**
-   * Checks the client-side interpolation rule (#248, #336, #571) on the static text of {@code nodes}.
-   * The runtime writes every brace of a value between two empty comments ({@code
-   * Escapers.appendText}), so only static text can form a {@code {{}, and the rule looks at each
-   * static literal (the text between two values, tags or comments) on its own, never at its
-   * neighbours:
-   *
-   * <ul>
-   *   <li>in element text (CDATA in foreign content included, and the RCDATA of {@code <title>} and
-   *       {@code <textarea>}, which get {@code v-pre} once computed, #586), a {@code {} or {@code }}
-   *       is allowed only inside a complete {@code {{ ... }}} in one literal, the author's own client
-   *       template;
-   *   <li>in script text, which petite-vue reads, a {@code {{} is closed in the same literal.
-   * </ul>
-   */
-  public static void checkBraces(CodegenContext ctx, List<Node> nodes, Element parent) {
-    boolean replaced = false;
-    if (parent != null) {
-      for (Attribute a : parent.attributes()) {
-        replaced |= REPLACES_TEXT.contains(a.name());
-      }
-    }
-    for (Node n : nodes) {
-      if (n instanceof Element) {
-        checkBraces(ctx, ((Element) n).children(), (Element) n);
-      } else if (n instanceof Text && !replaced) {
-        Text t = (Text) n;
-        OutputContext c = t.context();
-        if (c != OutputContext.TEXT && c != OutputContext.RCDATA && c != OutputContext.SCRIPT) {
-          continue;
-        }
-        // A CDATA section's characters join the text around it, and its wrapper holds no brace.
-        boolean refs = c != OutputContext.SCRIPT && !t.raw().startsWith("<![CDATA[");
-        String raw = t.raw();
-        int start = 0;
-        for (int i = 0; i <= raw.length(); i++) {
-          int end = i == raw.length() ? i : holeEnd(raw, i);
-          if (end >= 0) {
-            checkLiteral(ctx, t, start, raw.substring(start, i), refs, c != OutputContext.SCRIPT);
-            start = end + 2;
-            i = end + 1;
-          }
-        }
-      }
-    }
-  }
-
-  private static void checkLiteral(
-      CodegenContext ctx, Text text, int start, String literal, boolean refs, boolean lone) {
-    String s = decode(literal, refs);
-    int at = lone ? loneBrace(s, true) : unclosed(s);
-    if (at < 0) {
-      return;
-    }
-    String message;
-    if (!lone) {
-      message = "a client-side {{ is not closed by }} in the same text: petite-vue would run a value written"
-          + " after it in this script as code; close it before any [[...]]";
-    } else {
-      message = "'" + s.charAt(at) + "' outside a complete {{ ... }} is not supported in element text: with a"
-          + " brace from other text it could form a client-side {{ that Vue and petite-vue would run as code (a"
-          + " character reference does not help). A static brace is allowed only in a {{ ... }} that opens and"
-          + " closes before any [[...]], tag or comment; write the text as a value with [[...]] or t:text ([['{']])";
-    }
-    ctx.diagnostics().error(text.pos().advance(text.raw(), start + (s.equals(literal) ? at : 0)), message);
-  }
-
-  /**
-   * The offset of the first '{' or '}' in {@code s} outside a complete {@code {{ ... }}} (with
-   * {@code pairs}; without, of the first brace), or -1: the rule for static element text and
-   * checked message text (#571).
-   */
-  public static int loneBrace(String s, boolean pairs) {
-    for (int i = 0; i < s.length(); i++) {
-      int close = pairs && s.startsWith("{{", i) ? s.indexOf("}}", i + 2) : -1;
-      if (close >= 0) {
-        i = close + 1;
-      } else if (s.charAt(i) == '{' || s.charAt(i) == '}') {
-        return i;
-      }
-    }
-    return -1;
-  }
-
-  /** The offset of the first {@code {{} in {@code s} not closed by a {@code }}} after it, or -1. */
-  public static int unclosed(String s) {
-    for (int open = s.indexOf("{{"); open >= 0; open = s.indexOf("{{", s.indexOf("}}", open + 2) + 2)) {
-      if (s.indexOf("}}", open + 2) < 0) {
-        return open;
-      }
-    }
-    return -1;
-  }
-
-  /** Text as the frameworks read it: with {@code refs}, decoded, brace character references included. */
-  public static String decode(String literal, boolean refs) {
-    if (!refs) {
-      return literal;
-    }
-    return HtmlParser.decode(
-        literal
-            .replace("&lbrace;", "{")
-            .replace("&lcub;", "{")
-            .replace("&rbrace;", "}")
-            .replace("&rcub;", "}"));
   }
 
   /**

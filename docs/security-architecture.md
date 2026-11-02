@@ -404,9 +404,12 @@ Text now in AGENTS.md:
 > and `tessera-migrate` rewrites it where it can. Parity never overrides 5.
 >
 > **7. The guarantee ends at the HTML parser.** Tessera guarantees what the browser's HTML parser
-> and built-in sinks do with the output. Client-side code that re-reads the DOM as code is
-> supported only for frameworks in the framework table, deny-by-default, with the remaining gaps
-> documented. New framework support is a table entry plus harness rows, never a special case.
+> and built-in sinks do with the output. It models no client-side framework. Outside standard
+> HTML attributes, a computed value is framework-neutral (a number, a boolean or a same-origin
+> path). Computed text is plain-escaped: `{{` in a value renders as `{{`. Client frameworks that
+> compile the server's DOM as a template are unsupported, and client code that otherwise
+> evaluates attribute values or DOM text is outside the guarantee; a strict CSP is the
+> backstop. Never add a rule that names a framework.
 
 And under "Keep it simple": *a security fix that adds a special case to the parser or context
 table is a smell. Prefer shrinking the profile.*
@@ -890,6 +893,11 @@ boosted-form check became a framework-neutral rule: every form's computed `actio
 link (#668), since client code may submit any form and swap the response in.
 
 ### 12.8 `{{` through one function (#547, #571)
+
+**Reversed by #679** (#673's decisions): text, RCDATA and attribute values share one escaper,
+`{{` renders as `{{`, no `v-pre` is added and static braces are ordinary text. Client
+frameworks that compile the server's DOM are unsupported; a strict CSP is the backstop. The
+raw-text rule below stays. The rest of this section is history.
 
 At runtime `Escapers.appendText` is the only function that writes value text into element text
 (`t:text`, `SafeHtml.escape`, sanitizer text, HTML message arguments), and it writes every `{` and

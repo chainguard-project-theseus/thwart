@@ -272,7 +272,6 @@ class EscapersTest {
     for (String f : forbidden) {
       String in = "a" + f + "b";
       assertHtmlSinks(in, "a\uFFFDb");
-      assertEquals("a\uFFFDb", Escapers.escapeText(in));
       assertEquals("a\uFFFDb", Escapers.escapeHtml(in));
     }
     assertHtmlSinks("\u0001<\u007f&\ufffe", "\uFFFD&lt;\uFFFD&amp;\uFFFD");
@@ -283,7 +282,6 @@ class EscapersTest {
   void htmlEscapersKeepAllowedCodePointsNextToTheForbiddenOnes() {
     String allowed = "\t\n\f\r \u007e\u00a0\u00ff\ufdcf\ufdf0\ufffd\ud83f\udffd\ud840\udc00\udbff\udffd\u2028";
     assertHtmlSinks(allowed, allowed);
-    assertEquals(allowed, Escapers.escapeText(allowed));
     assertEquals(allowed, Escapers.escapeHtml(allowed));
   }
 
@@ -634,7 +632,7 @@ class EscapersTest {
     assertEquals("\"\\u003c\\u003e\\u0026\\u0027\"", json("<>&'"));
     assertEquals("\"\\u2028\\u2029\"", json("\u2028\u2029"));
     assertEquals("\"\\u0060\\u0024\\u007bx}\\/\"", json("`${x}/"));
-    // petite-vue interpolates script text: a JSON string never writes '{' (#248)
+    // '{' as defence in depth, with '`' and '$'
     assertEquals("\"\\u007b\\u007b x }}\"", json("{{ x }}"));
     assertEquals("\"\u00e9\ud83d\ude00\"", json("\u00e9\ud83d\ude00"));
   }
@@ -1042,14 +1040,12 @@ class EscapersTest {
       "<!--", "<b onclick=alert(1)>", "&lt;script&gt;", "\"'&<>", "{{constructor.constructor('alert(1)')()}}",
       "<p>", "</span></p></div>"})
   void htmlMessageArgumentsAreOnlyText(String hostile) {
-    // The empty comments that break braces may come twice (the argument's, the sanitizer's).
-    String text = Escapers.escapeText(hostile).replace(Escapers.BRACE_BREAK, "");
+    String text = Escapers.escapeHtml(hostile);
     for (boolean links : new boolean[] {false, true}) {
       String html = htmlMessage(format("Hi <b>{0}</b>"), new Object[] {hostile}, links);
-      assertEquals("Hi <b>" + text + "</b>", html.replace(Escapers.BRACE_BREAK, ""), hostile);
-      assertFalse(html.contains("{{") || html.contains("}}"), html);
+      assertEquals("Hi <b>" + text + "</b>", html, hostile);
       html = htmlMessage(format("Hi {0}"), new Object[] {TestSafeHtml.of(hostile)}, links);
-      assertEquals("Hi " + text, html.replace(Escapers.BRACE_BREAK, ""), hostile);
+      assertEquals("Hi " + text, html, hostile);
     }
   }
 
@@ -1066,7 +1062,7 @@ class EscapersTest {
       {"<b><b>nested</b></b>", "<b>nested</b>"},
       {"<svg><script>alert(1)</script></svg>x<style>p{}</style>", "x"},
       {"<!-- c -->x<![CDATA[y]]>", "x"},
-      {"<i>{{x}}</i>", "<i><!---->{<!---->{<!---->x<!---->}<!---->}<!----></i>"},
+      {"<i>{{x}}</i>", "<i>{{x}}</i>"},
       {"<form action=/x><input name=a></form>x", "x"},
     };
     for (String[] c : cases) {
@@ -1124,51 +1120,20 @@ class EscapersTest {
   }
 
 
-  // Client-side template delimiters (#248)
-
-  private static String rcdata(Object v) {
-    return run(Escapers::rcdata, v);
-  }
+  // One text escaper: element text, RCDATA and attribute values are escaped alike (#679).
 
   @Test
-  void textBreaksMustacheDelimiters() {
-    assertEquals(
-        "<!---->{<!---->{<!----> constructor.constructor(&#39;alert(1)&#39;)() <!---->}<!---->}<!---->",
-        text("{{ constructor.constructor('alert(1)')() }}"));
-    assertEquals("a<!---->{<!---->{<!---->b<!---->}<!---->}<!---->", text("a{{b}}"));
-    assertEquals("a<!---->{<!---->{<!---->{<!---->b<!---->}<!---->}<!---->}<!---->", text("a{{{b}}}"));
-    assertEquals("<!---->}<!---->}<!---->{<!---->{<!---->x<!---->}<!---->}<!---->", text("}}{{x}}"));
-    // static "{" + "{x": the leading comment keeps them apart.
-    assertEquals("{" + "<!---->{<!---->{<!---->x", "{" + text("{{x"));
-    // A brace at either end could meet static text or another value.
-    assertEquals("<!---->{<!---->", text("{"));
-    assertEquals("<!---->{<!---->x<!---->}<!---->}<!---->", text("{x}}"));
-    assertEquals("x<!---->{<!---->", text("x{"));
-    assertEquals("<!---->{<!---->{<!---->", text("{{"));
-    assertEquals("<!---->{<!----> <!---->{<!---->x<!---->}<!----> <!---->}<!---->", text("{ {x} }"));
-    assertEquals("a <!---->{<!----> b", text("a { b"));
-    // A closing brace stands alone too (#571); entities and everything else are as before.
-    assertEquals("<!---->}<!---->}<!----> &amp;#123;&amp;#123; &lt;b&gt;", text("}} &#123;&#123; <b>"));
-    assertEquals("plain &amp; simple", text("plain & simple"));
-  }
-
-  @Test
-  void textBraceRuleIsTheSameForEverySink() {
-    for (String s : new String[] {"{", "{{", "a{{b", "{x{", "<{{&}}>", "\u0000{\ud800{"}) {
+  void textIsTheOneHtmlEscaper() {
+    // Braces are plain text: client frameworks that compile server DOM are outside the guarantee.
+    assertEquals("{{x}} &amp; &lt;", text("{{x}} & <"));
+    for (String s : new String[] {"{", "{{", "a{{b}}", "}}{{x}}", "<{{&}}>", "\u0000{\ud800{", "\"'"}) {
       StringWriter writer = new StringWriter();
       Escapers.text(new WriterOutput(writer), s);
       assertEquals(text(s), writer.toString(), s);
+      assertEquals(text(s), attr(s), s);
       assertEquals(text(s), SafeHtml.escape(s).html(), s);
     }
-  }
-
-  @Test
-  void rcdataAndAttributesDoNotBreakBraces() {
-    // A comment would show as text in <title>/<textarea> and change an attribute's value.
-    assertEquals("{{x}} &amp; &lt;", rcdata("{{x}} & <"));
-    assertEquals("{{x}}", attr("{{x}}"));
-    assertEquals("{{x}}", url("{{x}}"));
-    assertEquals("", rcdata(null));
+    assertEquals("", text(null));
   }
 
 }

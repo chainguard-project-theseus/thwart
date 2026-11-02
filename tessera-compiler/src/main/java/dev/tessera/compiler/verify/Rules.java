@@ -36,14 +36,12 @@ final class Rules {
    *
    * <p>The state names the one escaper a hole there may have (#378): the script data of an HTML
    * {@code <script>}, {@code json}; a double-quoted attribute value, an attribute escaper for that
-   * attribute (which one is policy, {@code Contexts.attribute}); element text, {@link #textEscaper}.
-   * A hole with another escaper is rejected, so a hole whose paths reach states that name different
-   * escapers is rejected on one of them (the branch rule). A {@code text} hole is element text whose
-   * escaper the verifier takes from the state ({@code ContextVerifier#textEscaper}), so only where it
-   * is text at all is checked here. No hole is accepted in raw text (#586): in {@code <noscript>}
-   * (scripting on), {@code <iframe>}, {@code <xmp>}, {@code <noembed>} and {@code <noframes>} an empty
-   * comment is text, so nothing breaks a value's {{, whatever its escaper; {@code <style>} raw text is
-   * rejected below.
+   * attribute (which one is policy, {@code Contexts.attribute}); element text, data or RCDATA alike,
+   * {@code text}. A hole with another escaper is rejected, so a hole whose paths reach states that
+   * name different escapers is rejected on one of them (the branch rule). No hole is accepted in raw
+   * text (#586): {@code <noscript>} (scripting on), {@code <iframe>}, {@code <xmp>}, {@code <noembed>}
+   * and {@code <noframes>} decode no character reference, so no escaper fits; {@code <style>} raw
+   * text is rejected below.
    */
   static Problem hole(Skeleton.Hole hole, ParserState s) {
     if (s.tokenizer() == TokenizerState.RAWTEXT && neverRun(s)) {
@@ -52,11 +50,6 @@ final class Rules {
     switch (hole.escaper()) {
       case TEXT:
         return text(s);
-      case RCDATA:
-        // Without the comments that break {{ in text: inert only where the text isn't DOM text a
-        // client framework reads (memo §3.1), RCDATA.
-        Problem p = text(s);
-        return p == null && s.tokenizer() == TokenizerState.DATA ? Problem.RCDATA_NOT_IN_RCDATA : p;
       case JSON:
       case JAVASCRIPT:
         // Right after '<' too: JSON, parenthesized or not, never starts with '/' or '!', so its first character returns
@@ -69,15 +62,6 @@ final class Rules {
       default:
         return attribute(hole, s);
     }
-  }
-
-  /**
-   * The escaper element text takes in {@code s}, where {@link #text} accepts text: {@code rcdata} in
-   * RCDATA, without the comments that break {{ (they would show as text there); {@code text}, with
-   * them, elsewhere.
-   */
-  static Skeleton.Escaper textEscaper(ParserState s) {
-    return s.tokenizer() == TokenizerState.RCDATA ? Skeleton.Escaper.RCDATA : Skeleton.Escaper.TEXT;
   }
 
   private static Problem text(ParserState s) {

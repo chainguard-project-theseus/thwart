@@ -39,7 +39,7 @@ class PageNormalizerTest {
       boolean selected               | <option selected="selected">a</option>   | <option selected>a</option>
       empty input value              | <input name="q" value="">                | <input name="q">
       comments dropped               | <p>a<!-- note -->b</p>                   | <p>ab</p>
-      braces broken in text (#248)   | <p><!---->{<!---->{x}}</p>               | <p>{{x}}</p>
+      comment between braces         | <p><!---->{<!---->{x}}</p>               | <p>{{x}}</p>
       character references           | <p>O&#39;Neil &amp; co</p>               | <p>O'Neil &amp; co</p>
       doctype case                   | <!DOCTYPE HTML><p>x                      | <!doctype html><p>x</p>
       csrf hidden input              | <input type="hidden" name="_csrf" value="abc"> | <input type="hidden" name="_csrf" value="xyz">
@@ -48,7 +48,6 @@ class PageNormalizerTest {
       jsessionid path parameter      | <a href="/owners;jsessionid=A1B2?x=1">o</a> | <a href="/owners?x=1">o</a>
       jsessionid in form action      | <form action="/f;jsessionid=A1B2"></form> | <form action="/f"></form>
       csp nonce (#335)               | <script nonce="abc">x()</script><style nonce="d">p{}</style> | <script>x()</script><style>p{}</style>
-      v-pre on title, textarea (#549) | <title v-pre>t</title><textarea v-pre>x</textarea> | <title>t</title><textarea>x</textarea>
       json array spacing (#183)      | <script>const f = [ "name", "description" ];</script> | <script>const f = ["name","description"];</script>
       empty json array and object    | <script>var t = [ ]; var a = { };</script> | <script>var t = []; var a = {};</script>
       pretty-printed json object     | <script>var o = {\\n  "a": 1,\\n  "b": [ 2 ]\\n};</script> | <script>var o = {"a":1,"b":[2]};</script>
@@ -93,7 +92,7 @@ class PageNormalizerTest {
       style is not json              | <style>p { color: red }</style>          | <style>p{color:red}</style>
       template script is not json    | <script type="text/template"><p>a, b</p></script> | <script type="text/template"><p>a,b</p></script>
       jsessionid is not the path     | <a href="/owners;jsessionid=A1">o</a>    | <a href="/owner">o</a>
-      v-pre elsewhere still counts   | <div v-pre>a</div>                        | <div>a</div>
+      v-pre still counts             | <div v-pre>a</div>                        | <div>a</div>
       parenthesized expression       | <script>var n = a + b;</script>           | <script>var n = (a + b);</script>
       parentheses before an operator | <script>var n = 1 + 2;</script>           | <script>var n = (1) + 2;</script>
       parentheses in a comparison    | <script>if (a == 1) f();</script>         | <script>if (a == (1)) f();</script>

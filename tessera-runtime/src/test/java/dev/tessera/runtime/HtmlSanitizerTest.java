@@ -164,23 +164,18 @@ class HtmlSanitizerTest {
   }
 
   @Test
-  void textBreaksMustacheDelimiters() {
-    // #248: sanitized text lands in element text, so {{ is broken as by t:text, including braces
-    // written as character references and braces on either side of a tag or kept reference.
-    assertEquals("<p><!---->{<!---->{<!----> x <!---->}<!---->}<!----></p>", clean("<p>{{ x }}</p>"));
-    assertEquals("<!---->{<!---->{<!---->x<!---->}<!---->}<!---->", clean("&#123;&#x7b;x}}"));
-    assertEquals("<!---->{<!---->{<!---->x<!---->}<!---->}<!---->", clean("&lbrace;&lcub;x}}"));
-    assertEquals("<!---->{<!----><b><!---->{<!---->x<!---->}<!---->}<!----></b>", clean("{<b>{x}}</b>"));
-    assertEquals("<!---->{<!---->&eacute;<!---->{<!---->", clean("{&eacute;{"));
-    assertEquals("<!---->}<!---->}<!---->", clean("&rbrace;&rcub;"));
-    // Numeric references a browser decodes without ';' or with leading zeros.
-    assertEquals("<!---->{<!---->{<!---->{<!---->x<!---->}<!---->}<!---->", clean("&#123&#x7B&#0000123;x}}"));
+  void textKeepsBracesAsText() {
+    // #679: braces, also written as character references, are plain text.
+    assertEquals("<p>{{ x }}</p>", clean("<p>{{ x }}</p>"));
+    assertEquals("{{x}}", clean("&#123;&#x7b;x}}"));
+    assertEquals("{{x}}", clean("&lbrace;&lcub;x}}"));
+    assertEquals("{{{x}}", clean("&#123&#x7B&#0000123;x}}"));
     assertEquals("&amp;lbrace&amp;lbrace", clean("&lbrace&lbrace"));
   }
 
   @Test
   void hrefKeepsBraces() {
-    // Vue and petite-vue do not interpolate attribute values (AngularJS is not supported).
+    // Braces in an attribute value are plain text.
     assertEquals(
         "<a href=\"/x{{constructor}}?q={{a}}\" rel=\"nofollow noopener\">x</a>",
         clean("<a href=\"/x{{constructor}}?q=&#123;&lbrace;a}}\">x</a>"));
