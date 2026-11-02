@@ -1215,7 +1215,7 @@ in one `chainctl develop` session with 3 parallel jobs. Every agent listed and i
 |---|---|---|---|---|---|---|---|---|---|
 | budgetmaster | no | 269/269 | 13+0/121 | 13+0 | ~118/121 | 1 (19) | yes, `loc.html(...)` for `<br>`/`<b>` bundle texts | 37.3 (34.8) | 26.50 (33.88) |
 | jprime | no | 208/208 | 140+6/150 | 140+6 | 150/150 | 0 (0, avoided by escaping) | yes, talk descriptions, bios, inline article text | 30.5 (33.8) | 23.15 (26.67) |
-| jpetstore | no | 9/6 | 58+0/59 | 58+0 | 59/59 | 0 (1) | yes, stored product and banner HTML | 10.4 (11.7) | 3.78 (3.79) |
+| jpetstore | no | 9/9 (base 6) | 58+0/59 | 58+0 | 59/59 | 0 (1) | yes, stored product and banner HTML | 10.4 (11.7) | 3.78 (3.79) |
 
 The counts are compiler errors in the agents' tool results. Mentions in the guide the agents read
 and in their own prose are left out. The round cost **$53.44**, against $64.34 for the same apps
@@ -1244,7 +1244,8 @@ links, used only outside paragraphs). jprime's bios are sanitized instead of esc
 
 No diff adds `permitAll`, disables CSRF or adds `@Disabled`/`@Ignore`. `SafeHtml.unchecked`,
 `TrustedUrl`, `internalUnverified$` and `failOnError=false` appear nowhere. Every `t:utext` takes
-a value from a sanitizing function:
+a value from a sanitizing function. jprime's `diff.patch` is not committed (no license), so its
+line was checked against the migrated checkout in the bench session:
 - budgetmaster: inline `b i br span`, and a block policy that adds `a` with `linkRel`. Message
   arguments are escaped before formatting. The tooltip rework stops Materialize from reading
   tooltip text as HTML, which closes an injection path the original had.
