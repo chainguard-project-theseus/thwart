@@ -350,11 +350,6 @@ public final class TemplateGenerator implements CodegenContext {
     return selecting;
   }
 
-  @Override
-  public String insertionContext() {
-    return inForeign || rawTextHost != null ? "ctx.withCspNonce(null)" : "ctx";
-  }
-
   /** Records {@link #whitespaceBefore} for every element preceded by a text sibling. */
   private void indexWhitespace(List<Node> nodes) {
     Node previous = null;
@@ -717,8 +712,9 @@ public final class TemplateGenerator implements CodegenContext {
    * <style>} the template writes where a browser reads it as an HTML element. One inside {@code
    * <svg>} or {@code <math>} (whose content a browser parses differently, decoding character
    * references) or inside a raw text element such as {@code <noscript>} or {@code <xmp>} (where it
-   * is text) gets none, and fragments inserted there are rendered without the nonce ({@link
-   * #insertionContext}). If the tracking is wrong, a script loses its nonce and does not run under
+   * is text) gets none. A fragment is rendered with the caller's {@code ctx}: its own start tags
+   * decide, as a fragment cannot be put where a browser parses it differently from where it is
+   * declared (a build error). If the tracking is wrong, a script loses its nonce and does not run under
    * the policy; it never gains one. Markup written at runtime ({@code SafeHtml}) never gets one.
    * A nonce in the template itself is an error: it would be the same on every response, or a
    * second, conflicting nonce attribute (the browser keeps the first).

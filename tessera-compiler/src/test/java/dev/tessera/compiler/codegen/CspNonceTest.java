@@ -143,6 +143,24 @@ class CspNonceTest {
     assertTrue(html.contains("<script>") || html.contains("<style>"), html);
   }
 
+  /**
+   * t:replace swaps out the whole host, so a fragment that replaces an svg, math or raw text
+   * element lands in HTML content and its script gets the nonce (#709).
+   */
+  @ParameterizedTest
+  @ValueSource(strings = {"noscript", "svg", "math", "title", "textarea", "iframe", "div"})
+  void replacingAnSvgOrRawTextHostStampsTheFragment(String host) {
+    String html = Compilation.builder()
+        .template(
+            "page.html",
+            "<div " + NS + "><i t:fragment=\"f\"><script>x();</script></i><" + host + " t:replace=\"~{::f}\">x</"
+                + host + "></div>")
+        .compile()
+        .assertSuccess()
+        .render("page", Map.of(), WITH_NONCE);
+    allStamped(html, 2);
+  }
+
   /** Negative: a hostile nonce is attribute-escaped and cannot add attributes or elements. */
   @ParameterizedTest
   @ValueSource(
