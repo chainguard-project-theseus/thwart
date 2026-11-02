@@ -3,22 +3,37 @@ package dev.tessera.spring.view;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.tessera.runtime.RenderContext;
+import dev.tessera.runtime.TemplateEntry;
 import dev.tessera.runtime.TemplateRegistry;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import org.apache.commons.logging.impl.NoOpLog;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.FieldSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.core.Ordered;
 
 class TesseraViewResolverTest {
 
   private final TesseraViewResolver resolver =
-      new TesseraViewResolver(
-          TesseraMvcTest.registry(), (request, response, model) -> RenderContext.defaults());
+      new TesseraViewResolver(registry(), (request, response, model) -> RenderContext.defaults());
+
+  /** The registry names of {@code ViewNameInjectionTest}, whose payloads run here too. */
+  static TemplateRegistry registry() {
+    TemplateEntry.ModelRenderer page = (model, ctx, out) -> out.write("<p>page</p>");
+    List<TemplateEntry.Param> none = Collections.emptyList();
+    return TemplateRegistry.of(
+        Arrays.asList(
+            new TemplateEntry("greeting", none, page),
+            new TemplateEntry("owners/details", none, page),
+            new TemplateEntry("user/en/welcome", none, page)),
+        // A fragment entry, as the compiler generates for a "page :: name" view (#131).
+        Collections.singletonList(new TemplateEntry("greeting :: row", none, page)));
+  }
 
   @Test
   void exactNamesResolve() {
@@ -42,107 +57,38 @@ class TesseraViewResolverTest {
     // Every name that finds the same entry gets the same view; each entry its own.
     assertThat(resolver.resolveViewName("/greeting", Locale.ROOT))
         .isSameAs(resolver.resolveViewName("greeting", Locale.ROOT));
-    assertThat(resolver.resolveViewName("owners/details::row", Locale.ROOT))
-        .isSameAs(resolver.resolveViewName("owners/details :: row", Locale.ROOT))
-        .isNotSameAs(resolver.resolveViewName("owners/details", Locale.ROOT));
+    assertThat(resolver.resolveViewName("greeting::row", Locale.ROOT))
+        .isSameAs(resolver.resolveViewName("greeting :: row", Locale.ROOT))
+        .isNotSameAs(resolver.resolveViewName("greeting", Locale.ROOT));
   }
 
   @ParameterizedTest
   @ValueSource(
       strings = {
-        "owners/details :: row",
-        "owners/details::row",
-        "owners/details   ::  row",
-        "owners/details\t::\nrow",
-        " owners/details :: row ",
-        "/owners/details :: row",
-        " /owners/details::row"
+        "greeting :: row",
+        "greeting::row",
+        "greeting   ::  row",
+        "greeting\t::\nrow",
+        " greeting :: row ",
+        "/greeting :: row",
+        " /greeting::row"
       })
   void fragmentNamesResolve(String name) {
     // Thymeleaf's "page :: fragment" view names (#131): whitespace around "::" as it trims it.
-    assertThat(TesseraViewResolver.lookupName(name)).isEqualTo("owners/details :: row");
+    assertThat(TesseraViewResolver.lookupName(name)).isEqualTo("greeting :: row");
     assertThat(resolver.resolveViewName(name, Locale.ROOT)).isInstanceOf(TesseraView.class);
   }
 
   @ParameterizedTest
-  @ValueSource(
-      strings = {
-        // Thymeleaf fragment syntax Tessera doesn't support (#131): it is never parsed.
-        "owners/details :: row(x=1)",
-        "owners/details :: row()",
-        "owners/details :: row (x)",
-        "owners/details :: #row",
-        "owners/details :: .row",
-        "owners/details :: tr",
-        "owners/details :: [id='row']",
-        "owners/details :: ${frag}",
-        "owners/details :: __${frag}__",
-        "~{owners/details :: row}",
-        "~{owners/details :: row",
-        "owners/details :: ~{row}",
-        "owners/details :: row :: row",
-        "owners/details :: details :: row",
-        "owners/details :: ROW",
-        "owners/details :: ",
-        "owners/details ::",
-        ":: row",
-        "this :: row",
-        "owners/details : : row",
-        "owners/details :: row/",
-        "owners/details :: r ow",
-        "owners/details :: row\u0000x",
-        // Traversal and other names a page name doesn't resolve either.
-        "owners/../owners/details :: row",
-        "owners/./details :: row",
-        "../owners/details :: row",
-        "//owners/details :: row",
-        "owners/details.html :: row",
-        "owners/details/ :: row",
-        "owners :: details :: row",
-        "Owners/details :: row",
-        "owners/details :: ../row",
-        "owners/details :: row.html",
-        "greeting :: row",
-        "redirect:owners/details :: row",
-        // A fragment entry's name is not a template name.
-        "owners/details :: greeting"
-      })
-  void unsupportedFragmentNamesFallThrough(String name) {
+  @FieldSource("dev.tessera.spring.security.ViewNameInjectionTest#PAYLOADS")
+  void payloadsFallThrough(String name) {
     assertThat(resolver.resolveViewName(name, Locale.ROOT)).isNull();
   }
 
   @ParameterizedTest
-  @ValueSource(
-      strings = {
-        "",
-        "nope",
-        "../greeting",
-        "../x",
-        "x :: frag",
-        "greeting :: frag",
-        "__${T(java.lang.Runtime)}__",
-        "__${T(java.lang.Runtime)}__::.x",
-        "x?y",
-        "greeting?y",
-        "greeting#x",
-        "greeting;x",
-        "greeting.html",
-        "owners/../greeting",
-        "owners/./details",
-        "/",
-        "//greeting",
-        "//owners/details",
-        "/./greeting",
-        "/../greeting",
-        "/ greeting",
-        "/greeting/",
-        "/greeting :: frag",
-        "\\greeting",
-        "redirect:greeting",
-        "forward:greeting",
-        "greeting\u0000"
-      })
-  void anythingElseFallsThrough(String name) {
+  @ValueSource(strings = {"", "/"})
+  void emptyNamesFallThrough(String name) {
+    // Resolver-only: names that are empty, or empty after the dropped leading "/".
     assertThat(resolver.resolveViewName(name, Locale.ROOT)).isNull();
   }
 
@@ -168,7 +114,7 @@ class TesseraViewResolverTest {
 
   @Test
   void logsTheTemplateCount() {
-    TemplateRegistry registry = TesseraMvcTest.registry();
+    TemplateRegistry registry = registry();
     RecordingLog log = new RecordingLog();
     TesseraViewResolver.logTemplateCount(registry, log);
     assertThat(log.info)

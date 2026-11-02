@@ -3,12 +3,7 @@ package dev.tessera.spring.e2e;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.tessera.spring.testing.SpringTestContext;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,14 +50,14 @@ class ResourceChainTest {
 
   @Test
   void pageLinksAreVersioned() throws IOException {
-    Response page = get("/assets");
+    Response page = Response.get(environment, "/assets");
     assertThat(page.status).isEqualTo(200);
     assertThat(page.body).contains("<h1>Assets</h1>").containsPattern(VERSIONED);
   }
 
   @Test
   void errorPageLinksAreVersionedFromBoot206() throws IOException {
-    Response page = get("/no-such-page");
+    Response page = Response.get(environment, "/no-such-page");
     assertThat(page.status).isEqualTo(404);
     assertThat(page.body).contains("<h1>404</h1>");
     if (REQUEST_ONLY) {
@@ -75,40 +70,11 @@ class ResourceChainTest {
 
   @Test
   void errorPageRendersTimestampAsDateToStringDoes() throws IOException {
-    Response page = get("/no-such-page");
+    Response page = Response.get(environment, "/no-such-page");
     assertThat(page.status).isEqualTo(404);
     assertThat(page.body)
         .containsPattern(
             "<p id=\"timestamp\">[A-Z][a-z]{2} [A-Z][a-z]{2} \\d{2} \\d{2}:\\d{2}:\\d{2} \\S+ \\d{4}</p>");
-  }
-
-  private Response get(String path) throws IOException {
-    URL url = new URL("http://localhost:" + environment.getProperty("local.server.port") + path);
-    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-    connection.setRequestProperty("Accept", "text/html");
-    try {
-      int status = connection.getResponseCode();
-      InputStream in = status < 400 ? connection.getInputStream() : connection.getErrorStream();
-      ByteArrayOutputStream body = new ByteArrayOutputStream();
-      byte[] buffer = new byte[4096];
-      for (int n; (n = in.read(buffer)) != -1; ) {
-        body.write(buffer, 0, n);
-      }
-      in.close();
-      return new Response(status, new String(body.toByteArray(), StandardCharsets.UTF_8));
-    } finally {
-      connection.disconnect();
-    }
-  }
-
-  static final class Response {
-    final int status;
-    final String body;
-
-    Response(int status, String body) {
-      this.status = status;
-      this.body = body;
-    }
   }
 
   @Controller
