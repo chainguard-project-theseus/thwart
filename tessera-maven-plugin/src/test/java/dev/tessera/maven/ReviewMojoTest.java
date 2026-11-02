@@ -2,26 +2,21 @@ package dev.tessera.maven;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
-import org.apache.maven.plugin.MojoFailureException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * #428, #602: the review goal lists every {@code @TemplateFunction} and every unverified door outside
- * Tessera-generated classes, and fails the build on a door.
+ * #428: the review goal lists every {@code @TemplateFunction}; informational only (#676).
  */
 class ReviewMojoTest {
   @TempDir Path base;
@@ -50,100 +45,6 @@ class ReviewMojoTest {
       }
       """;
 
-  private static final String UNCHECKED = """
-      package com.example;
-      import static dev.tessera.runtime.Fragment.unverifiedForGeneratedCode;
-      import dev.tessera.runtime.Fragment;
-      import java.util.function.Function;
-      public final class Pages {
-        static Object pick(int k, Fragment.Body b) {
-          switch (k) {
-            case 1: return "a" + b;
-            case 2: return "b";
-            case 9: return "c";
-            default: break;
-          }
-          switch (k) {
-            case 100: return "x";
-            case 2000000: return "y";
-            default: break;
-          }
-          return Fragment.unverifiedForGeneratedCode(b);
-        }
-        static Object more(Fragment.Body b, String s) {
-          long big = 123456789012L;
-          double d = big * 2.5;
-          Fragment a = unverifiedForGeneratedCode(d > 0 ? b : null);
-          Function<Fragment.Body, Fragment> f = Fragment::unverifiedForGeneratedCode;
-          return s + a + f;
-        }
-      }
-      """;
-
-  private static final String CLEAN = """
-      package com.example;
-      import dev.tessera.runtime.SafeHtml;
-      public final class Clean {
-        static Object ok(String s) {
-          return SafeHtml.concat(SafeHtml.escape(s), SafeHtml.sanitize(s)) + other.Fragment.unverifiedForGeneratedCode(s);
-        }
-      }
-      """;
-
-  /** Not Tessera's: same simple name, never reported. */
-  private static final String LOOKALIKE = """
-      package other;
-      public final class Fragment {
-        public static String unverifiedForGeneratedCode(String s) {
-          return s;
-        }
-      }
-      """;
-
-  /** A hand-written Template vouching for its own output: SafeHtml.of and Fragment.of accept it. */
-  private static final String VOUCHING = """
-      package com.example;
-      import dev.tessera.runtime.*;
-      @TemplateView public final class Widget implements Template {
-        public String templateName() {
-          return "widget";
-        }
-        public void render(RenderContext ctx, Output out) {
-          out.write("<script>alert(1)</script>");
-        }
-        @Override
-        public boolean verifiedFlowPartial() {
-          return true;
-        }
-      }
-      """;
-
-  /** Not a door: declares nothing, returns the default. */
-  private static final String HONEST = """
-      package com.example;
-      import dev.tessera.runtime.*;
-      public final class Honest implements Template {
-        public String templateName() {
-          return "honest";
-        }
-        public void render(RenderContext ctx, Output out) {
-          out.write("<b>hi</b>");
-        }
-      }
-      """;
-
-  private static final String FACTORY = """
-      package com.example;
-      import dev.tessera.runtime.Fragment;
-      public final class Factory {
-        static Object make() {
-          Fragment a = Fragment.unverifiedForGeneratedCode((ctx, out) -> out.write("<script>"));
-          java.util.function.Function<Fragment.Body, Fragment> f = Fragment::unverifiedForGeneratedCode;
-          return a + "" + f;
-        }
-      }
-      """;
-
   private static final String NS = "xmlns:t=\"https://tessera.dev\"";
 
   /** A real module: a layout taking {@code Fragment} params, a page passing them, a flow partial, a model param. */
@@ -168,15 +69,6 @@ class ReviewMojoTest {
       """;
 
   /** An app class in the same module as the generated code, building an unverified Fragment as it does. */
-  private static final String LAYOUT_CALLER = """
-      package com.example;
-      import dev.tessera.runtime.*;
-      public final class LayoutCaller {
-        static Fragment call() {
-          return Fragment.unverifiedForGeneratedCode((ctx, out) -> out.write("<script>"));
-        }
-      }
-      """;
 
   private Path compile(Map<String, String> sources, String... options) throws Exception {
     List<String> args = new ArrayList<>(List.of("-proc:none"));
@@ -226,15 +118,6 @@ class ReviewMojoTest {
     return Files.readString(base.resolve("target").resolve(ReviewMojo.REPORT), StandardCharsets.UTF_8);
   }
 
-  /** Runs the goal, which must fail naming {@code n} doors, and returns the report. */
-  private String failsWithDoors(int n) throws Exception {
-    MojoFailureException e = assertThrows(MojoFailureException.class, () -> mojo().execute());
-    assertTrue(e.getMessage().contains(n + " unverified door(s)"), e.getMessage());
-    String report = report(); // still written
-    assertTrue(report.contains("## Unverified doors (" + n + ")\n"), report);
-    return report;
-  }
-
   @Test
   void listsFunctionsAndMarksSafeReturnTypes() throws Exception {
     compile(Map.of("com.example.Fmt", FUNCTIONS));
@@ -244,99 +127,22 @@ class ReviewMojoTest {
     assertTrue(report.contains("fmt.upper(String, int[], List) -> String  com/example/Fmt.java:11\n"), report);
     assertTrue(report.contains("fmt.bold(String) -> SafeHtml  com/example/Fmt.java:16  RETURNS SafeHtml: output without escaping\n"), report);
     assertFalse(report.contains("notAFunction"), report);
-    assertTrue(report.contains("## Unverified doors (0)\n"), report);
   }
 
+  /** A module compiled with the real processor: its generated classes register no function. */
   @Test
-  void everyDoorCallIsReportedAtItsLine() throws Exception {
-    compile(Map.of("com.example.Pages", UNCHECKED, "com.example.Clean", CLEAN, "other.Fragment", LOOKALIKE));
-    String report = failsWithDoors(3);
-    assertTrue(report.contains("doors (3)\n"
-        + "Fragment.unverifiedForGeneratedCode  com/example/Pages.java:18\n" // qualified, after a tableswitch and a lookupswitch
-        + "Fragment.unverifiedForGeneratedCode  com/example/Pages.java:23\n" // static import
-        + "Fragment.unverifiedForGeneratedCode  com/example/Pages.java:24\n"), report); // method reference
-    assertFalse(report.contains("Clean"), report);
-  }
-
-  /** Negative (#602): a hand-written Template whose verifiedFlowPartial() vouches for its output. */
-  @Test
-  void vouchingTemplateFailsTheBuild() throws Exception {
-    compile(Map.of("com.example.Widget", VOUCHING, "com.example.Honest", HONEST));
-    String report = failsWithDoors(1);
-    assertTrue(report.contains("doors (1)\nverifiedFlowPartial() override  com/example/Widget.java:12\n"), report);
-  }
-
-  /** Negative (#602): app code building an unverified Fragment, by call or method reference. */
-  @Test
-  void unverifiedFragmentFactoryFailsTheBuild() throws Exception {
-    compile(Map.of("com.example.Factory", FACTORY));
-    String report = failsWithDoors(2);
-    assertTrue(report.contains("doors (2)\n"
-        + "Fragment.unverifiedForGeneratedCode  com/example/Factory.java:5\n"
-        + "Fragment.unverifiedForGeneratedCode  com/example/Factory.java:6\n"), report);
-  }
-
-  @Test
-  void cleanCodePasses() throws Exception {
-    compile(Map.of("com.example.Clean", CLEAN, "other.Fragment", LOOKALIKE, "com.example.Fmt", FUNCTIONS,
-        "com.example.Honest", HONEST));
+  void generatedCodeListsNoFunctions() throws Exception {
+    compileWithProcessor(Map.of("com.example.Model", MODEL, "com.example.Fmt", FUNCTIONS), TEMPLATES);
     mojo().execute();
-    assertTrue(report().contains("## Unverified doors (0)\n"));
-  }
-
-  /**
-   * Positive control (#602): a module compiled with the real processor reports no doors, though its
-   * generated classes call unverifiedForGeneratedCode and declare verifiedFlowPartial(). The
-   * layout's fragment, which takes a Fragment, has no public method (#666).
-   */
-  @Test
-  void generatedCodeIsNotADoor() throws Exception {
-    Path classes = compileWithProcessor(Map.of("com.example.Model", MODEL), TEMPLATES);
-    Map<String, ClassScan> scans = new LinkedHashMap<>();
-    for (String c : List.of("PageTemplate", "fragments/LayoutTemplate", "fragments/CardTemplate")) {
-      scans.put(c, ClassScan.scan(Files.readAllBytes(classes.resolve("com/example/templates/" + c + ".class"))));
-    }
-    // The generated code has each kind of door, so the control would catch a false positive.
-    List<String> found = new ArrayList<>();
-    scans.values().forEach(s -> s.doors.forEach(d -> found.add(d.target)));
-    assertTrue(found.contains("Fragment.unverifiedForGeneratedCode"), found.toString());
-    assertTrue(found.contains("verifiedFlowPartial() override"), found.toString());
-    mojo().execute();
-    assertTrue(report().contains("## Unverified doors (0)\n"), report());
-  }
-
-  /**
-   * Negative (#602): in a module with a registry, an app class calling
-   * Fragment.unverifiedForGeneratedCode as generated code does, and a vouching Template that is
-   * also a page's parameter type (so the registry names it, in a cast), are still doors.
-   */
-  @Test
-  void appCodeBesideGeneratedCodeIsStillADoor() throws Exception {
-    Map<String, String> templates = new LinkedHashMap<>(TEMPLATES);
-    templates.put("widget.html", "<div " + NS + " t:params=\"com.example.Widget w\"><p>w</p></div>");
-    compileWithProcessor(Map.of("com.example.Model", MODEL, "com.example.LayoutCaller", LAYOUT_CALLER,
-        "com.example.Widget", VOUCHING), templates);
-    String report = failsWithDoors(2);
-    assertTrue(report.contains("Fragment.unverifiedForGeneratedCode  com/example/LayoutCaller.java:5\n"), report);
-    assertTrue(report.contains("verifiedFlowPartial() override  com/example/Widget.java:12\n"), report);
-  }
-
-  @Test
-  void nestedAndSyntheticClassesOfGeneratedOnesAreGenerated() {
-    Set<String> generated = Set.of("a/b/XTemplate");
-    assertTrue(ReviewMojo.isGenerated("a/b/XTemplate", generated));
-    assertTrue(ReviewMojo.isGenerated("a/b/XTemplate$1", generated));
-    assertTrue(ReviewMojo.isGenerated("a/b/XTemplate$In$1", generated));
-    assertFalse(ReviewMojo.isGenerated("a/b/XTemplateEvil", generated));
-    assertFalse(ReviewMojo.isGenerated("a/b/YTemplate$1", generated));
+    assertTrue(report().contains("## @TemplateFunctions (2)\n"), report());
   }
 
   @Test
   void java8BytecodeAndNoDebugInfo() throws Exception {
-    compile(Map.of("com.example.Pages", UNCHECKED), "--release", "8", "-Xlint:-options", "-g:none");
-    String report = failsWithDoors(3);
-    assertTrue(report.contains("Fragment.unverifiedForGeneratedCode  com.example.Pages.pick\n"), report);
-    assertTrue(report.contains("Fragment.unverifiedForGeneratedCode  com.example.Pages.more\n"), report);
+    compile(Map.of("com.example.Fmt", FUNCTIONS.replace("@Deprecated(since = \"1\", forRemoval = false)", "")),
+        "--release", "8", "-Xlint:-options", "-g:none");
+    mojo().execute();
+    assertTrue(report().contains("fmt.upper(String, int[], List) -> String  com.example.Fmt.upper\n"), report());
   }
 
   @Test

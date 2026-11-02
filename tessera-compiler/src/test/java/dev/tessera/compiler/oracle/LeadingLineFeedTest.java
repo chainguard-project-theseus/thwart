@@ -89,11 +89,11 @@ class LeadingLineFeedTest {
   @Test
   void insertedHtmlFirstKeepsItsLineFeed() {
     Compilation c = Compilation.builder()
-        .template("t.html", "<div " + NS + " t:import=\"dev.tessera.runtime.Fragment, dev.tessera.runtime.SafeHtml\""
-            + " t:params=\"Fragment f, SafeHtml h\"><pre t:insert=\"${f}\">p</pre><listing t:utext=\"${h}\">p</listing></div>")
+        .template("t.html", "<div " + NS + " t:import=\"dev.tessera.runtime.SafeHtml\""
+            + " t:params=\"SafeHtml f, SafeHtml h\"><pre t:utext=\"${f}\">p</pre><listing t:utext=\"${h}\">p</listing></div>")
         .compile()
         .assertSuccess();
-    String html = c.render("t", model("f", TestFragments.markup("\nz"), "h", TestFragments.safeHtml("\n<b>y</b>")));
+    String html = c.render("t", model("f", TestFragments.safeHtml("\nz"), "h", TestFragments.safeHtml("\n<b>y</b>")));
     assertEquals("<div><pre>\n\nz</pre><listing>\n\n<b>y</b></listing></div>", html);
     assertEquals("\nz", dom(html, "pre"), html);
     assertEquals("\ny", dom(html, "listing"), html);

@@ -1,114 +1,88 @@
 package dev.tessera.compiler.codegen.attr;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.Fragment;
-import dev.tessera.runtime.Output;
-import dev.tessera.runtime.RenderContext;
-import dev.tessera.runtime.StringOutput;
-import dev.tessera.runtime.Template;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * #581: a {@code Fragment} built in Java is a {@code Fragment.of} of a verified FLOW partial. It
- * can't be a lambda or a subclass, and where Java hands a template a {@code Fragment} (a page's
- * {@code t:params}) a value without the mark of {@code Fragment.of} is refused at render time,
- * also a template-built one smuggled out. #600: a fragment with a {@code Fragment} parameter has
- * no Java-facing method at all.
+ * #676: {@code Fragment} is compile-time only. No Java code can build or vouch for one (#581), no
+ * page or function takes one, and a fragment with a {@code Fragment} parameter has no Java-facing
+ * method at all (#600): fragment arguments exist only between compiled templates, which the
+ * verifier checks at the call site.
  */
 class FragmentFromJavaTest {
   private static final String NS = "xmlns:t=\"https://tessera.dev\"";
 
-  /** Negative: the probes of the issue, a hand-written lambda, subclass or implementation, no longer compile. */
-  @Test
-  void handWrittenFragmentDoesNotCompile() {
-    Compilation.builder()
-        .java("com.example.L", "package com.example; public final class L {"
-            + " public static final dev.tessera.runtime.Fragment F = (ctx, out) -> out.write(\"</form><form action=x>\"); }")
-        .compile()
-        .assertError("not a functional interface");
-    Compilation.builder()
-        .java("com.example.S", "package com.example; public final class S extends dev.tessera.runtime.Fragment {}")
-        .compile()
-        .assertError("cannot inherit from final");
-    Compilation.builder()
-        .java("com.example.I", "package com.example; public final class I implements dev.tessera.runtime.Fragment {}")
-        .compile()
-        .assertError("interface expected here");
+  private static Compilation java(String body) {
+    return Compilation.builder()
+        .java("com.example.J", "package com.example; import dev.tessera.runtime.*; public final class J { " + body + " }")
+        .compile();
   }
 
-  private static final String STASH =
-      """
-      package com.example;
-      import dev.tessera.runtime.*;
-      @TemplateFunctions("stash")
-      public final class Stash {
-        private Stash() {}
-        public static Object last;
-        @TemplateFunction public static String put(Object o) { last = o; return ""; }
-      }
-      """;
+  /** Negative: every way Java once built or vouched for a Fragment or template markup no longer compiles. */
+  @Test
+  void javaCannotBuildOrVouchForMarkup() {
+    java("static final Fragment F = (ctx, out) -> out.write(\"</form><form action=x>\");").assertError("not a functional interface");
+    java("static final class S extends Fragment {}").assertError("cannot inherit from final");
+    java("static final Fragment F = new Fragment();").assertError("Fragment()", "private access");
+    java("static Object f(Template t) { return Fragment.of(t); }").assertError("cannot find symbol");
+    java("static Object f(Fragment.Body b) { return Fragment.unverifiedForGeneratedCode(b); }").assertError("cannot find symbol");
+    java("static void f(Fragment g) { Fragment.requireVerified(g, \"t\", \"p\"); }").assertError("cannot find symbol");
+    java("static Object f(Template t) { return SafeHtml.of(t, RenderContext.defaults()); }").assertError("cannot find symbol");
+    java("static final Template T = new Template() {"
+            + " public String templateName() { return \"t\"; }"
+            + " public void render(RenderContext c, Output o) { o.write(\"<li>\"); }"
+            + " @Override public boolean verifiedFlowPartial() { return true; } };")
+        .assertError("does not override");
+  }
 
-  /** A page that inserts its {@code Fragment} parameter in a cross-origin GET form. */
-  private static final String SINK =
-      "<div " + NS + " t:params=\"Fragment p\">\n<form action=\"https://other.example/search\"><input name=\"q\"/>"
-          + "<t:block t:insert=\"${p}\"/></form></div>";
-
-  private static Compilation smuggling() {
-    return Compilation.builder()
-        .java("com.example.Stash", STASH)
-        .template("f.html", "<div " + NS + ">\n<div t:fragment=\"leak(Fragment b)\"><span t:text=\"${#stash.put(b)}\"></span></div></div>")
-        .template(
-            "page.html",
-            "<div " + NS + ">\n<t:block t:replace=\"~{f :: leak(~{::form})}\"></t:block>"
-                + "<form method=\"post\"><button>Go</button></form></div>")
-        .template("sink.html", SINK)
-        .template("p.html", "<div " + NS + "><i>p</i></div>")
+  /** Negative: a page can't take a Fragment, since nothing could pass one (file:line:col error). */
+  @Test
+  void pageFragmentParameterIsRejected() {
+    Compilation.builder()
+        .template("sink.html", "<div " + NS + " t:params=\"String s, Fragment p\">\n<form action=\"https://other.example/search\">"
+            + "<t:block t:insert=\"${p}\"/></form></div>")
         .compile()
-        .assertSuccess();
+        .assertError("sink.html:1:", "parameter 'p' has type Fragment", "t:fragment signature");
   }
 
   /**
-   * Negative, the amendment's probe: a template-built fragment smuggled out through an
-   * {@code Object} function argument and passed back in as a page parameter is refused at render
-   * time, through the registry and through the generated class.
+   * A template-built fragment argument smuggled out through an {@code Object} function argument is
+   * a {@code Fragment.Body}, not a {@code Fragment}, and no generated public method takes either, so
+   * Java has nowhere to hand it back to a template.
    */
   @Test
-  void smuggledTemplateFragmentIsRefusedAsAPageParameter() throws Exception {
-    Compilation c = smuggling();
-    c.render("page", Map.of());
+  void smuggledFragmentArgumentHasNoWayBack() throws Exception {
+    Compilation c = Compilation.builder()
+        .java("com.example.Stash", "package com.example;\nimport dev.tessera.runtime.*;\n@TemplateFunctions(\"stash\")\n"
+            + "public final class Stash {\n  private Stash() {}\n  public static Object last;\n"
+            + "  @TemplateFunction public static String put(Object o) { last = o; return \"\"; }\n}\n")
+        .template("f.html", "<div " + NS + ">\n<div t:fragment=\"leak(Fragment b)\"><span t:text=\"${#stash.put(b)}\"></span>"
+            + "<t:block t:insert=\"${b}\"/></div></div>")
+        .template("page.html", "<div " + NS + ">\n<t:block t:replace=\"~{f :: leak(~{::i})}\"></t:block><i>x</i></div>")
+        .compile()
+        .assertSuccess();
+    assertEquals("<div>\n<div><span></span><i>x</i></div><i>x</i></div>", c.render("page", Map.of()));
     Object smuggled = c.classLoader().loadClass("com.example.Stash").getField("last").get(null);
-    assertTrue(smuggled instanceof Fragment, String.valueOf(smuggled));
-    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> c.render("sink", Map.of("p", smuggled)));
-    assertTrue(e.getMessage().contains("'sink'") && e.getMessage().contains("'p'") && e.getMessage().contains("Fragment.of"),
-        e.getMessage());
-    Method of = c.classLoader().loadClass("tessera.generated.SinkTemplate").getMethod("of", Fragment.class);
-    Template t = (Template) of.invoke(null, smuggled);
-    assertThrows(IllegalArgumentException.class, () -> t.renderToString(RenderContext.defaults()));
-    Method render = c.classLoader().loadClass("tessera.generated.SinkTemplate")
-        .getMethod("render", Fragment.class, RenderContext.class, Output.class);
-    InvocationTargetException direct = assertThrows(InvocationTargetException.class,
-        () -> render.invoke(null, smuggled, RenderContext.defaults(), new StringOutput()));
-    assertTrue(direct.getCause() instanceof IllegalArgumentException, String.valueOf(direct.getCause()));
+    assertTrue(smuggled instanceof Fragment.Body, String.valueOf(smuggled));
+    assertFalse(Fragment.class.isInstance(smuggled));
+    for (String name : new String[] {"FTemplate", "PageTemplate"}) {
+      assertNoPublicFragmentParameter(c, name);
+    }
   }
 
-  /** Positive control: the same page renders a {@code Fragment.of} value, and null. */
-  @Test
-  void fragmentOfAsAPageParameterRenders() {
-    Compilation c = smuggling();
-    Fragment p = Fragment.of(partial(c, "tessera.generated.PTemplate"));
-    assertEquals(
-        "<div>\n<form action=\"https://other.example/search\"><input name=\"q\"/><div><i>p</i></div></form></div>",
-        c.render("sink", Map.of("p", p)));
-    assertEquals(
-        "<div>\n<form action=\"https://other.example/search\"><input name=\"q\"/></form></div>",
-        c.render("sink", new java.util.HashMap<>()));
+  private static void assertNoPublicFragmentParameter(Compilation c, String name) throws Exception {
+    for (Method m : c.classLoader().loadClass("tessera.generated." + name).getMethods()) {
+      for (Class<?> p : m.getParameterTypes()) {
+        assertTrue(p != Fragment.class && p != Fragment.Body.class, name + "." + m.getName());
+      }
+    }
   }
 
   /**
@@ -152,10 +126,10 @@ class FragmentFromJavaTest {
   @Test
   void noJavaFacingMethodForAFragmentWithAFragmentParameter() {
     fragmentMethods("tessera.generated.FTemplate.fragment_x("
-            + "Fragment.of(tessera.generated.DTemplate.of()), RenderContext.defaults(), out);")
+            + "null, RenderContext.defaults(), out);")
         .assertError("cannot find symbol", "fragment_x");
     fragmentMethods("tessera.generated.FTemplate.fragment_uncalled("
-            + "Fragment.of(tessera.generated.DTemplate.of()), RenderContext.defaults(), out);")
+            + "null, RenderContext.defaults(), out);")
         .assertError("cannot find symbol", "fragment_uncalled");
   }
 
@@ -173,8 +147,8 @@ class FragmentFromJavaTest {
   }
 
   /**
-   * Negative: no generated class has a public method that takes a {@code Fragment} (here no page
-   * has a {@code Fragment} parameter, whose {@code of}/{@code render} refuse an unverified one). A
+   * Negative: no generated class has a public method that takes a {@code Fragment} or its Java
+   * type {@code Fragment.Body}. A
    * fragment with a {@code Fragment} parameter is a private method of its own class and of each
    * class that calls it, so only generated code passes it what the verifier checked where it lands.
    */
@@ -182,23 +156,12 @@ class FragmentFromJavaTest {
   void noPublicMethodTakesAFragment() throws Exception {
     Compilation c = fragmentMethods(null).assertSuccess();
     for (String name : new String[] {"FTemplate", "PageTemplate", "DTemplate"}) {
-      for (Method m : c.classLoader().loadClass("tessera.generated." + name).getMethods()) {
-        assertTrue(!java.util.Arrays.asList(m.getParameterTypes()).contains(Fragment.class), name + "." + m.getName());
-      }
+      assertNoPublicFragmentParameter(c, name);
     }
     assertTrue(c.generatedSource("tessera.generated.PageTemplate").contains("private static void fragment_x$0("));
     assertEquals("<div>\n<p><span><em>e</em></span></p><em>e</em></div>", c.render("page", Map.of()));
     fragmentMethods("tessera.generated.PageTemplate.fragment_x$0("
-            + "Fragment.of(tessera.generated.DTemplate.of()), RenderContext.defaults(), out);")
+            + "null, RenderContext.defaults(), out);")
         .assertError("fragment_x$0", "private access");
-  }
-
-  /** The parameterless generated template {@code className}, from its {@code of()}. */
-  private static Template partial(Compilation c, String className) {
-    try {
-      return (Template) c.classLoader().loadClass(className).getMethod("of").invoke(null);
-    } catch (ReflectiveOperationException e) {
-      throw new AssertionError(e);
-    }
   }
 }

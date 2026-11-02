@@ -37,7 +37,6 @@ public record Shape(
 
   public static final Param STRING = new Param("String", "s");
   public static final Param SAFE_HTML = new Param("SafeHtml", "h");
-  public static final Param FRAGMENT = new Param("Fragment", "f");
 
   public Shape {
     Objects.requireNonNull(outer, "outer");
@@ -75,9 +74,6 @@ public record Shape(
   public List<Param> params() {
     List<Param> params = new ArrayList<>();
     params.add(hole.safeHtml() ? SAFE_HTML : STRING);
-    if (composition == Composition.FRAGMENT_PARAM) {
-      params.add(FRAGMENT);
-    }
     return List.copyOf(params);
   }
 
@@ -141,7 +137,6 @@ public record Shape(
     if (hole.kind() == Hole.Kind.ON_CONTAINER) {
       hostAttributes.append(hole.markup());
     }
-    String fragmentSlot = composition == Composition.FRAGMENT_PARAM ? "<t:block t:replace=\"f\"></t:block>" : "";
 
     int last = chain.size() - 1;
     for (int i = 0; i < last; i++) {
@@ -151,12 +146,12 @@ public record Shape(
       out.append(interference.prefix());
       open(out, chain.get(last), hostAttributes.toString());
       close(out, chain.get(last));
-      out.append(interference.suffix()).append(fragmentSlot);
+      out.append(interference.suffix());
     } else {
       if (last >= 0) {
         open(out, chain.get(last), hostAttributes.toString());
       }
-      out.append(holeBody(last >= 0 ? chain.get(last).name() : "div")).append(fragmentSlot);
+      out.append(holeBody(last >= 0 ? chain.get(last).name() : "div"));
       if (last >= 0) {
         close(out, chain.get(last));
       }

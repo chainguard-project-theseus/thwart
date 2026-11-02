@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import dev.tessera.compiler.testing.Compilation;
-import dev.tessera.compiler.testing.TestFragments;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -267,21 +266,6 @@ class FragmentCandidatesTest {
             + "<t:block t:with=\"f=${h.body}\"></t:block></div>")
         .compile()
         .assertError("page.html:2:", "t:with value 'f'", UNTRACED);
-  }
-
-  /** Positive control: a page parameter of type Fragment (built in Java, #581) is inserted and passed on. */
-  @Test
-  void pageFragmentParameterCompiles() {
-    Compilation c = Compilation.builder()
-        .template("f.html", crossOriginSlot("", "${body}"))
-        .template("page.html", "<div " + NS + " t:params=\"Fragment p, boolean flag\">\n<t:block t:insert=\"${flag ? p : null}\"/>"
-            + "<t:block t:replace=\"~{f :: slot(${p}, true)}\"></t:block></div>")
-        .compile()
-        .assertSuccess();
-    dev.tessera.runtime.Fragment p = TestFragments.markup("<i>p</i>");
-    assertEquals(
-        "<div>\n<i>p</i><div><form action=\"https://other.example/search\"><input name=\"q\"/><i>p</i></form></div></div>",
-        c.render("page", Map.of("p", p, "flag", true)));
   }
 
   private static Compilation tableSlot(String insertPoint, String arg, String tail) {

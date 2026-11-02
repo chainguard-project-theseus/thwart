@@ -8,7 +8,6 @@ import dev.tessera.compiler.verify.Skeleton;
 import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -27,7 +26,7 @@ class TemplateCompilerCopiesTest {
   private static TemplateCompiler.Result result(String java, Skeleton.Seq fragment, Skeleton.Seq copy) {
     Skeleton.TemplateSkeleton lay = new Skeleton.TemplateSkeleton("lay", seq(), Map.of("lay", fragment));
     return new TemplateCompiler.Result(
-        List.of(new GeneratedFile(GeneratedFile.Kind.JAVA, "p.PageTemplate", java)), Map.of("lay", lay), Map.of(), null,
+        List.of(new GeneratedFile(GeneratedFile.Kind.JAVA, "p.PageTemplate", java)), Map.of("lay", lay), null,
         null, List.of(new AbstractMap.SimpleImmutableEntry<>(LAY, copy)));
   }
 
@@ -41,7 +40,7 @@ class TemplateCompilerCopiesTest {
     Skeleton.Hole original = new Skeleton.Hole(Skeleton.Escaper.TEXT, "title", null, POS);
     Skeleton.Hole copied = new Skeleton.Hole(Skeleton.Escaper.TEXT, "title", null, POS);
     String java = result("A" + marker(copied) + "B", seq(original), seq(copied))
-        .files(Set.of(), Map.of(original, Skeleton.Escaper.RCDATA)).get(0).content();
+        .files(Map.of(original, Skeleton.Escaper.RCDATA)).get(0).content();
     assertEquals("A" + Skeleton.Escaper.RCDATA.method() + "B", java);
   }
 
@@ -53,7 +52,7 @@ class TemplateCompilerCopiesTest {
     TemplateCompiler.Result r =
         result("A" + marker(copied) + "B", seq(original), seq(new Skeleton.Static("<script>", POS), copied));
     IllegalStateException e =
-        assertThrows(IllegalStateException.class, () -> r.files(Set.of(), Map.of(original, Skeleton.Escaper.RCDATA)));
+        assertThrows(IllegalStateException.class, () -> r.files(Map.of(original, Skeleton.Escaper.RCDATA)));
     assertTrue(e.getMessage().contains("writes another skeleton than the fragment"), e.getMessage());
   }
 }

@@ -1,76 +1,23 @@
 package dev.tessera.runtime;
 
-import java.util.Objects;
-
 /**
- * A piece of markup passed as a fragment argument, e.g. {@code ~{::body}} in
- * {@code t:replace="~{layout :: layout(~{::body}, 'home')}"}; the receiving fragment inserts it
- * with {@code t:insert="template"} or {@code t:replace="template"}.
+ * The type of a markup argument between compiled templates, e.g. {@code ~{::body}} in
+ * {@code t:replace="~{layout :: layout(~{::body}, 'home')}"}; the receiving fragment declares a
+ * {@code Fragment} parameter and inserts it with {@code t:insert} or {@code t:replace} (#676).
  *
- * <p>This class is final and has no constructor outside it, so no lambda or subclass is a
- * {@code Fragment} (#581). In Java, use {@link #of(Template)}. Only its values carry the mark
- * {@link #requireVerified} checks where Java hands a template a {@code Fragment}: a page's
- * {@code t:params}. A fragment with a {@code Fragment} parameter has no public method (#600): its
- * class and each class that calls it get a private copy.
+ * <p>Compile-time only: this class has no instances, so no Java code can build or vouch for a
+ * {@code Fragment}. The compiler checks each argument's markup at the call site, where the callee
+ * inserts it. In generated code a {@code Fragment} parameter is a {@link Body} of a {@code private}
+ * method (#600): its class and each class that calls it get a private copy, so only the generated
+ * class itself can pass one. A page ({@code t:params}) and a {@code @TemplateFunction} may not take
+ * a {@code Fragment}.
  */
 public final class Fragment {
-  /** What a {@link #unverifiedForGeneratedCode} value writes. */
+  /** What a fragment argument writes; generated code only, as the Java type of a {@code Fragment}. */
   @FunctionalInterface
   public interface Body {
     void render(RenderContext ctx, Output out);
   }
 
-  private final Body body;
-  /** Set only by {@link #of}: the value renders a template the compiler verified as a FLOW partial. */
-  private final boolean verifiedFlow;
-
-  private Fragment(Body body, boolean verifiedFlow) {
-    this.body = Objects.requireNonNull(body, "body");
-    this.verifiedFlow = verifiedFlow;
-  }
-
-  public void render(RenderContext ctx, Output out) {
-    body.render(ctx, out);
-  }
-
-  /**
-   * A {@code Fragment} value that renders {@code template}, for a {@code Fragment} parameter or
-   * model attribute. Like {@link SafeHtml#of(Template, RenderContext)}, it accepts only a template
-   * the compiler verified as a {@code FLOW} partial ({@link Template#verifiedFlowPartial()}).
-   *
-   * @throws IllegalArgumentException if it isn't one, naming the template and the fix
-   */
-  public static Fragment of(Template template) {
-    return new Fragment(SafeHtml.requireFlowPartial(template, "Fragment.of")::render, true);
-  }
-
-  /**
-   * For generated code: a fragment argument a template builds, such as {@code ~{::body}}. The
-   * verifier parses its markup where the templates insert it, so it doesn't carry the mark, and
-   * {@link #requireVerified} refuses it where Java hands it back to a template. Java code uses
-   * {@link #of(Template)}: this is public only for generated classes in other packages. Nothing
-   * checks {@code body}, but only generated code inserts the value: no public method takes it. A
-   * call outside generated code fails the build under {@code tessera:review}.
-   */
-  public static Fragment unverifiedForGeneratedCode(Body body) {
-    return new Fragment(body, false);
-  }
-
-  /**
-   * For generated code, where Java hands template {@code template} a {@code Fragment} as
-   * {@code param}: returns if {@code f} is null or from {@link #of(Template)}, else throws. The
-   * verifier checks only that such a value lands where flow content may, so its markup must be a
-   * verified FLOW partial (#581).
-   *
-   * @throws IllegalArgumentException naming the template, the parameter and the fix
-   */
-  public static void requireVerified(Fragment f, String template, String param) {
-    if (f != null && !f.verifiedFlow) {
-      throw new IllegalArgumentException(
-          "Tessera: template '" + template + "' parameter '" + param + "' needs a Fragment from"
-              + " Fragment.of(template), and this one is not, so its markup was never checked where"
-              + " it lands here. Fix: pass Fragment.of(...) of a compiled flow partial (docs/guide.md"
-              + " section 4.9), or pass the fragment from the template that inserts it (#581)");
-    }
-  }
+  private Fragment() {}
 }
