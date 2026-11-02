@@ -603,14 +603,19 @@ document parses identically, and the value is in the node the parser reported.
 - **The state signature.** Tokenizer state, current attribute name, insertion and original mode,
   the open-element stack as (namespace, name), template modes, form and head pointers, quirks and
   the `annotation-xml` integration-point flag.
-- **Branches** take the union of their exit states. Unions add infeasible combinations, so they
-  can only add false positives. The error check runs on every branch.
-- **Loops** iterate to a fixed point (Go `html/template`'s idea, with the real parser as the
-  transfer function). A loop that doesn't converge in 4 rounds is rejected. An error in any round
-  is an error.
+- **Control flow is state-neutral (#682).** The body of every `t:if`, `t:unless`, `t:case` and
+  `t:each` (one pass, and the separator), every computed attribute that doesn't merge, and every
+  fragment insertion must leave each parser in the state it found it in (compared without a stale
+  original insertion mode), and a partial must end in the state it starts in. Then every path
+  through the template is in the same state at each point, so one path is exact: no unions, no
+  fixed points, no state cap. Two allowances parse what follows at least as strictly: in template
+  mode, the "in body" state the first flow start tag switches to, and a fragment inserted at the
+  start of a document that ends it (a layout on `<html>`). The error check runs inside every body.
 - **Static fragment insertions** are analysed at each call site, memoised per (fragment, entry
-  state, bound fragment arguments). Recursion is a fixed point too. Recursion that doesn't
-  converge, or that reaches a bad state only through data, is "markup structure depends on data".
+  state, bound fragment arguments). A recursive call in the state its call in progress started in
+  is taken to be neutral, which that call checks: by induction on the depth, every depth is.
+  Recursion into ever new states (deeper nesting each time), or that reaches a bad state only
+  through data, is "markup structure depends on data".
 
 ### 11.3 Limits of the argument
 

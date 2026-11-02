@@ -145,7 +145,7 @@ index 0000000..e4146bb
 +GET /owners/1/pets/1/visits/new
 +GET /owners/6/pets/8/visits/new
 diff --git a/pom.xml b/pom.xml
-index d242e6f..32e3db3 100644
+index d242e6f..11e94cb 100644
 --- a/pom.xml
 +++ b/pom.xml
 @@ -12,7 +12,7 @@
@@ -950,7 +950,7 @@ index 0000000..14adaef
 +</html>
 diff --git a/src/main/resources/templates/owners/ownerDetails.html b/src/main/resources/templates/owners/ownerDetails.html
 new file mode 100644
-index 0000000..840b39a
+index 0000000..4ec02a2
 --- /dev/null
 +++ b/src/main/resources/templates/owners/ownerDetails.html
 @@ -0,0 +1,76 @@
@@ -991,7 +991,7 @@ index 0000000..840b39a
 +    <br/>
 +    <h2>Pets and Visits</h2>
 +
-+    <table class="table table-striped">
++    <table class="table table-striped"><tbody>
 +        <tr t:each="pet : owner.pets">
 +            <td valign="top">
 +                <dl class="dl-horizontal">
@@ -1010,7 +1010,7 @@ index 0000000..840b39a
 +                        <th>Visit Date</th>
 +                        <th>Description</th>
 +                    </tr>
-+                    </thead>
++                    </thead><tbody>
 +                    <tr t:each="visit : pet.visits">
 +                        <td t:text="petclinic.visitDate(visit, 'yyyy-MM-dd')">2013-01-01</td>
 +                        <td t:text="visit.description">rabies shot</td>
@@ -1023,10 +1023,10 @@ index 0000000..840b39a
 +                            <a t:href="@{/owners/{ownerId}/pets/{petId}/visits/new(ownerId=owner.id,petId=pet.id)}">Add Visit</a>
 +                        </td>
 +                    </tr>
-+                </table>
++                </tbody></table>
 +            </td>
 +        </tr>
-+    </table>
++    </tbody></table>
 +
 +</body>
 +</html>

@@ -23,6 +23,7 @@
 -- t.html
 <plaintext>[[${s}]]
 => t.html:1:71: error: a browser reads this value as plain text after <plaintext>, not as text; remove the <plaintext>, which makes the rest of the page plain text; use <pre> instead; a browser opened the <plaintext> it is in at t.html:1:56 [verifier:TEXT_NOT_IN_TEXT]
+=> t.html:1:1: error: this partial leaves <div> open, so what follows would parse differently depending on whether, or how often, it is written; close inside it every element it opens, and leave open every element it found open [verifier:UNBALANCED]
 == TEXT_NOT_IN_TEXT: <![CDATA[ outside SVG and MathML is a comment up to the next '>'
 -- t.html
 <p><![CDATA[ [[${s}]] ]]></p>
@@ -71,6 +72,7 @@
 => t.html:1:89: error: a browser reads this value of 'title' as the code of <script>, not inside the double-quoted value of 'title'; check the markup before the tag: a browser ended the tag, or started raw text, there; a browser opened the <script> it is in at t.html:1:73 [verifier:ATTRIBUTE_NOT_IN_VALUE]
 => t.html:1:112: error: a browser reads this value of 'nonce' as the code of <script>, not inside the double-quoted value of 'nonce'; check the markup before the tag: a browser ended the tag, or started raw text, there; a browser opened the <script> it is in at t.html:1:73 [verifier:ATTRIBUTE_NOT_IN_VALUE]
 => t.html:1:61: error: a browser reads <![CDATA[ outside <svg> and <math> as the start of a comment that ends at the first '>', so the markup up to there is hidden; write the text without <![CDATA[ and ]]>, with '<' as &lt; and '>' as &gt; [verifier:PARSE_ERROR]
+=> t.html:1:1: error: this partial leaves <div> open, so what follows would parse differently depending on whether, or how often, it is written; close inside it every element it opens, and leave open every element it found open [verifier:UNBALANCED]
 == VALUE_IN_FOREIGN: a value in SVG text (#678: no value in SVG or MathML)
 -- t.html
 <svg><text>[[${s}]]</text></svg>
@@ -124,21 +126,26 @@ m=See <a href="/docs">the docs</a>.
 -- rich.html
 <div $NS t:import="java.util.List" t:params="List<String> nodes"><t:block t:fragment="nodes(List<String> ns)"><t:block t:each="n : ns"><ul t:if="n == 'ul'"><li t:insert="~{rich :: item(ns)}"></li></ul></t:block></t:block><t:block t:fragment="item(List<String> ns)"><div t:insert="~{rich :: nodes(ns)}"></div></t:block><section t:insert="~{rich :: nodes(nodes)}"></section></div>
 => rich.html:1:364: error: fragments call each other in a cycle: rich :: nodes calls rich :: item (at rich.html:1:197), which calls rich :: nodes (at rich.html:1:307), and each call nests deeper in a browser (it doesn't settle in 4 calls), so the markup structure depends on data; for stored rich text, print it with t:utext="html.sanitize(...)" (or html.sanitizeRich, or an application HtmlPolicy; guide section 4.10, Rich text) and delete the fragment; for other trees, render a fixed depth or flatten the tree in Java [verifier:STRUCTURE_DEPENDS_ON_DATA]
-== TOO_MANY_STATES: five t:if blocks, each leaving a different formatting element to reopen
+== UNBALANCED: a t:if that leaves an element open
 -- t.html
-<t:block t:if="s == '0'"><p><b>x</p></t:block><t:block t:if="s == '1'"><p><i>x</p></t:block><t:block t:if="s == '2'"><p><u>x</p></t:block><t:block t:if="s == '3'"><p><s>x</p></t:block><t:block t:if="s == '4'"><p><em>x</p></t:block>[[${s}]]
-=> t.html:1:249: error: the branches and loops before this point can leave a browser in more than 24 different states (different elements open), more than Tessera checks; close inside each t:if, t:switch and t:each the elements it opens, or split the template into fragments [verifier:TOO_MANY_STATES]
-=> t.html:1:81: error: the HTML parser reports "End tag “p” seen, but there were open elements." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
-=> t.html:1:127: error: the HTML parser reports "End tag “p” seen, but there were open elements." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
-=> t.html:1:173: error: the HTML parser reports "End tag “p” seen, but there were open elements." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
-=> t.html:1:219: error: the HTML parser reports "End tag “p” seen, but there were open elements." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
-=> t.html:1:265: error: the HTML parser reports "End tag “p” seen, but there were open elements." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
+<p>a</p><t:block t:if="s != null"><section>[[${s}]]</t:block><p>b</p>
+=> t.html:1:73: error: this t:if or t:unless leaves <section> open, so what follows would parse differently depending on whether, or how often, it is written; close inside it every element it opens, and leave open every element it found open [verifier:UNBALANCED]
+== UNBALANCED: a t:each on rows directly in a table (implied <tbody>)
+-- t.html
+<div $NS t:params="java.util.List<String> xs"><table><tr t:each="x : xs"><td t:text="x"></td></tr></table></div>
+=> t.html:1:84: error: this t:each leaves <tbody> open, so what follows would parse differently depending on whether, or how often, it is written; a browser opens a <tbody> before the first row only: write the <tbody> around the rows, or put the t:each on a <tbody> [verifier:UNBALANCED]
+== UNBALANCED: a fragment library wrapped in <html>, with a call before <body>
+-- lib.html
+<html $NS><head><title>lib</title></head><t:block t:replace="~{lib :: icon}"></t:block><body><span t:fragment="icon">i</span></body></html>
+=> lib.html:1:88: error: fragment lib :: icon, inserted here, leaves <body> open, so what follows would parse differently depending on whether, or how often, it is written; content there makes a browser open the <head> or <body>: in a fragment library, make the root a <t:block> instead of <html>, or move the fragments into the <body> [verifier:UNBALANCED]
+=> lib.html:1:114: error: a browser finds a second <body> here and merges it into the first; a page has one <html>, <head> and <body>: a layout call such as t:replace="~{layout :: layout(~{::body})}" passes the whole element into the layout's own, so mark the element the page passes t:remove="tag" (<body t:remove="tag">) to pass only its content (guide section 4.8, Layouts) [verifier:PARSE_ERROR]
 == PARSE_ERROR: a layout call that passes the page's <body>, so the layout writes a second <body>
 -- layout.html
 <html $NS t:import="dev.tessera.runtime.Fragment" t:fragment="layout(Fragment content)"><head><title>t</title></head><body><main t:replace="${content}">c</main></body></html>
 -- t.html
 <html $NS t:params="String s" t:replace="~{layout :: layout(~{::body})}"><body><p t:text="s">x</p></body></html>
 => t.html:1:68: error: in fragment layout :: layout, inserted here, at t.html:1:100: a browser finds a second <body> here and merges it into the first; a page has one <html>, <head> and <body>: a layout call such as t:replace="~{layout :: layout(~{::body})}" passes the whole element into the layout's own, so mark the element the page passes t:remove="tag" (<body t:remove="tag">) to pass only its content (guide section 4.8, Layouts) [verifier:PARSE_ERROR]
+=> t.html:1:68: error: in fragment layout :: layout, inserted here, at layout.html:1:169: the Fragment argument inserted here changes how what follows is parsed, so what follows would parse differently depending on whether, or how often, it is written; close inside it every element it opens, and leave open every element it found open [verifier:UNBALANCED]
 == PARSE_ERROR: a block element in a <p>
 -- t.html
 <p>Intro <div>[[${s}]]</div></p>

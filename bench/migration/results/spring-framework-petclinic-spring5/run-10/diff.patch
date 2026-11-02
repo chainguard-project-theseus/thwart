@@ -179,7 +179,7 @@ index 0000000..4fc3d23
 +GET /no/such/page
 +GET /owners/1/pets/9999/edit
 diff --git a/pom.xml b/pom.xml
-index cb1c98c..5eee897 100644
+index cb1c98c..df5131f 100644
 --- a/pom.xml
 +++ b/pom.xml
 @@ -8,7 +8,7 @@
@@ -861,7 +861,7 @@ index 0000000..774183b
 +</html>
 diff --git a/src/main/resources/templates/owners/ownerDetails.html b/src/main/resources/templates/owners/ownerDetails.html
 new file mode 100644
-index 0000000..85bd9f3
+index 0000000..a323323
 --- /dev/null
 +++ b/src/main/resources/templates/owners/ownerDetails.html
 @@ -0,0 +1,74 @@
@@ -900,7 +900,7 @@ index 0000000..85bd9f3
 +    <br/>
 +    <h2 id="petsAndVisits">Pets and Visits</h2>
 +
-+    <table class="table table-striped" aria-describedby="petsAndVisits">
++    <table class="table table-striped" aria-describedby="petsAndVisits"><tbody>
 +        <tr t:each="pet : owner.pets">
 +            <th scope="col">
 +                <dl class="dl-horizontal">
@@ -919,7 +919,7 @@ index 0000000..85bd9f3
 +                        <th id="visitDate">Visit Date</th>
 +                        <th id="visitDescription">Description</th>
 +                    </tr>
-+                    </thead>
++                    </thead><tbody>
 +                    <tr t:each="visit : pet.visits">
 +                        <td headers="visitDate" t:text="temporals.format(visit.date, 'yyyy-MM-dd')">2013-01-01</td>
 +                        <td headers="visitDescription" t:text="visit.description">rabies shot</td>
@@ -932,10 +932,10 @@ index 0000000..85bd9f3
 +                            <a t:href="@{/owners/{ownerId}/pets/{petId}/visits/new(ownerId=owner.id, petId=pet.id)}">Add Visit</a>
 +                        </td>
 +                    </tr>
-+                </table>
++                </tbody></table>
 +            </td>
 +        </tr>
-+    </table>
++    </tbody></table>
 +
 +</body>
 +</html>

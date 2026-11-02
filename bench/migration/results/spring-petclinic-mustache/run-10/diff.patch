@@ -133,7 +133,7 @@ index 0000000..339b0f9
 +GET /owners?page=abc
 +GET /owners/abc
 diff --git a/pom.xml b/pom.xml
-index 5a8ba22..53adda5 100644
+index 5a8ba22..c55e254 100644
 --- a/pom.xml
 +++ b/pom.xml
 @@ -30,6 +30,10 @@
@@ -1197,7 +1197,7 @@ index 09c95eb..9de05be 100644
 +</html>
 diff --git a/src/main/resources/templates/owners/ownerDetails.html b/src/main/resources/templates/owners/ownerDetails.html
 new file mode 100644
-index 0000000..e39422d
+index 0000000..f7e69a3
 --- /dev/null
 +++ b/src/main/resources/templates/owners/ownerDetails.html
 @@ -0,0 +1,77 @@
@@ -1238,7 +1238,7 @@ index 0000000..e39422d
 +    <br />
 +    <h2>Pets and Visits</h2>
 +
-+    <table class="table table-striped">
++    <table class="table table-striped"><tbody>
 +
 +      <tr t:each="pet : owner.pets">
 +        <td valign="top">
@@ -1259,7 +1259,7 @@ index 0000000..e39422d
 +                <th>Visit Date</th>
 +                <th>Description</th>
 +              </tr>
-+            </thead>
++            </thead><tbody>
 +            <tr t:each="visit : pet.visits">
 +              <td t:text="visit.date">date</td>
 +              <td t:text="visit.description">description</td>
@@ -1270,11 +1270,11 @@ index 0000000..e39422d
 +              <td><a t:href="|${owner.id}/pets/${pet.id}/visits/new|">Add
 +                  Visit</a></td>
 +            </tr>
-+          </table>
++          </tbody></table>
 +        </td>
 +      </tr>
 +
-+    </table>
++    </tbody></table>
 +
 +</body>
 +</html>

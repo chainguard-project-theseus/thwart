@@ -84,15 +84,15 @@ class ContextVerifierRulesTest {
     accept(st("<textarea>"), text(), st("</textarea>"));
     accept(st("<svg><foreignObject><title>"), text());
     reject(Problem.VALUE_IN_FOREIGN, st("<svg><title>"), text()); // #678
-    accept(alt(seq(st("<p>")), seq(st("<title>"))), text());
+    accept(alt(seq(st("<p>"), text(), st("</p>")), seq(st("<title>"), text(), st("</title>"))));
     Map<String, Seq> f = Map.of("f", seq(text()));
     accept(f, st("<p>"), call("f"), st("</p><title>"), call("f"), st("</title>"));
   }
 
   @Test
-  void aHoleWhosePathsNameDifferentEscapersIsRejected() { // #378, the branch rule
-    reject(Problem.JSON_NOT_IN_SCRIPT, alt(seq(st("<script>")), seq(st("<p>"))), json());
-    reject(Problem.TEXT_IN_SCRIPT, alt(seq(st("<script>")), seq(st("<p>"))), text());
+  void aHoleWhosePathsNameDifferentEscapersIsRejected() { // #378, the branch rule: by construction since #682
+    reject(Problem.UNBALANCED, alt(seq(st("<script>")), seq(st("<p>"))), json());
+    reject(Problem.UNBALANCED, alt(seq(st("<script>")), seq(st("<p>"))), text());
   }
 
   @Test
@@ -357,13 +357,46 @@ class ContextVerifierRulesTest {
   // ---- control flow ----
 
   @Test
-  void optionalPartsAreAUnion() {
-    reject(Problem.TEXT_IN_TABLE, opt(st("<table>")), text());
-    accept(st("<div>"), opt(st("<table><tr><td>")), text());
-    // Text first in a document: whitespace is dropped there and anything else starts the body.
-    reject(Problem.TEXT_OUTSIDE_BODY, opt(st("<div>")), text());
-    reject(Problem.TEXT_IN_TABLE, st("<table>"), alt(seq(st("<tr><td>")), seq(st("<caption>"))), st("x"),
+  void controlFlowIsStateNeutral() {
+    // A body that leaves an element open, or closes one, would make what follows parse differently
+    // with and without it (#682).
+    reject(Problem.UNBALANCED, opt(st("<table>")), text());
+    reject(Problem.UNBALANCED, st("<div>"), opt(st("<table><tr><td>")), text());
+    reject(Problem.UNBALANCED, st("<div>"), opt(st("</div>")), text());
+    reject(Problem.UNBALANCED, st("<table>"), alt(seq(st("<tr><td>")), seq(st("<caption>"))), st("x"),
         alt(seq(st("</td></tr>")), seq(st("</caption>"))), text());
+    accept(st("<div>"), opt(st("<p>"), text(), st("</p>")), alt(seq(st("<b>x</b>")), seq(text())), st("</div>"));
+    // Ending inside markup: a tag, a comment, raw text.
+    reject(Problem.UNBALANCED, st("<div>"), opt(st("<!-- ")), st("x --></div>"));
+    reject(Problem.UNBALANCED, st("<div>"), opt(st("<span title=\"")), st("\"></span></div>"));
+    // A t:if on <html> at the start of a page changes the document; a layout call there may end it.
+    reject(Problem.UNBALANCED, st("<!DOCTYPE html>"), opt(st("<html><body>x</body></html>")));
+    // The message names the body and what it leaves open.
+    List<Finding> f = check(seq(st("<div>"), opt(st("<section>")), st("</div>")));
+    String m = f.stream().filter(x -> x.problem == Problem.UNBALANCED).map(VerifierMessages::message)
+        .findFirst().orElse(f.toString());
+    assertTrue(m.contains("this t:if or t:unless leaves <section> open"), m);
+  }
+
+  @Test
+  void aPartialEndsInTheStateItStarts() {
+    accept(st("<div>"), text(), st("</div><p>x</p>"));
+    // The issue's example (#682): as a fragment with scripting on, it ends in script data.
+    List<Finding> f = check(seq(st("<noscript><!-- </noscript><script> --></noscript>")));
+    assertEquals(List.of(Problem.UNBALANCED), problems(f));
+    assertTrue(VerifierMessages.message(f.get(0)).contains("this partial"), f.toString());
+    // ... and as the body of a t:if.
+    reject(Problem.UNBALANCED, st("<div>"), opt(st("<noscript><!-- </noscript><script> --></noscript>")),
+        st("</div>"));
+    // Only in the contexts whose parse errors count: as a document, any partial opens <html> and <body>.
+    accept(opt(st("<div>"), text(), st("</div>")));
+  }
+
+  @Test
+  void aTemplateElementMaySwitchToBody() {
+    // In template mode, the first flow start tag switches the mode: allowed, and checked from there on.
+    accept(st("<template>"), rep(seq(st("<div>"), text(), st("</div>"))), st("</template>"));
+    accept(st("<template>"), opt(st("<p>"), text(), st("</p>")), st("<div>x</div></template>"));
   }
 
   @Test
@@ -380,33 +413,38 @@ class ContextVerifierRulesTest {
     reject(Problem.UNKNOWN_NODE, st("<input"),
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" a=\""), attr("a"), st("\"")), pos()),
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" b=\""), attr("b"), st("\"")), pos()), st("x>"));
+    // After a static boolean attribute: written, a '=' or a name right after it would be a parse
+    // error, so the written path is the stricter one (#682).
+    accept(st("<input disabled"),
+        new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" value=\""), attr("value"), st("\"")), pos()), st(" />"));
+    accept(st("<input disabled "),
+        new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" value=\""), attr("value"), st("\"")), pos()), st(">"));
+    reject(Problem.UNKNOWN_NODE, st("<input disabled"),
+        new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" value=\""), attr("value"), st("\"")), pos()), st("=x>"));
     // An <input> in a table is a parse error with or without its computed type (#410).
     onlyParseErrors(st("<table><input"),
         new Skeleton.Opt(Skeleton.OptKind.ATTRIBUTE, seq(st(" type=\""), attr("type"), st("\"")), pos()), st(">"));
   }
 
   @Test
-  void tooManyStatesIsAnError() {
-    List<Seq> branches = new ArrayList<>();
-    for (int i = 0; i < ContextVerifier.MAX_STATES + 1; i++) {
-      StringBuilder sb = new StringBuilder();
-      for (int k = 0; k <= i; k++) {
-        sb.append("<div>");
-      }
-      branches.add(seq(st(sb.toString())));
-    }
-    reject(Problem.TOO_MANY_STATES, st("<p>"), alt(branches.toArray(new Seq[0])), text());
-  }
-
-  @Test
-  void loopsRunToAFixedPoint() {
-    accept(st("<table>"), rep(seq(st("<tr><td>"), text(), st("</td></tr>"))), st("</table>")); // implied tbody
-    accept(st("<ul>"), rep(seq(st("<li>"), text())), st("</ul>")); // an open li closes the last
-    reject(Problem.LOOP_NO_FIXED_POINT, rep(seq(st("<div>"), text())));
+  void loopBodiesAreStateNeutral() {
+    // A row directly in a table: the first pass implies a <tbody>, the next ones don't.
+    reject(Problem.UNBALANCED, st("<table>"), rep(seq(st("<tr><td>"), text(), st("</td></tr>"))), st("</table>"));
+    List<Finding> f = check(seq(st("<table>"), rep(seq(st("<tr><td>"), text(), st("</td></tr>"))), st("</table>")));
+    String m = f.stream().filter(x -> x.problem == Problem.UNBALANCED).map(VerifierMessages::message)
+        .findFirst().orElse(f.toString());
+    assertTrue(m.contains("this t:each leaves <tbody> open") && m.contains("write the <tbody> around the rows"), m);
+    accept(st("<table><tbody>"), rep(seq(st("<tr><td>"), text(), st("</td></tr>"))), st("</tbody></table>"));
+    // An open li closes the last one: the first pass differs from the next.
+    reject(Problem.UNBALANCED, st("<ul>"), rep(seq(st("<li>"), text())), st("</ul>"));
+    accept(st("<ul>"), rep(seq(st("<li>"), text(), st("</li>"))), st("</ul>"));
+    reject(Problem.UNBALANCED, rep(seq(st("<div>"), text())));
     reject(Problem.TEXT_IN_TABLE, st("<table><tr>"), rep(seq(st("<td>a</td>"), text())));
-    // The separator runs before every iteration but the first, also when an iteration ends where it began.
-    reject(Problem.TEXT_IN_TABLE, st("<div>"),
+    // The separator runs between passes: it is state-neutral too.
+    reject(Problem.UNBALANCED, st("<div>"),
         new Skeleton.Rep(Skeleton.RepKind.EACH, seq(text()), seq(st("<table>")), pos()));
+    accept(st("<ul>"), new Skeleton.Rep(Skeleton.RepKind.EACH, seq(st("<li>"), text(), st("</li>")), seq(st("\n  ")),
+        pos()), st("</ul>"));
   }
 
   // ---- fragments ----
@@ -417,14 +455,14 @@ class ContextVerifierRulesTest {
     accept(frags, st("<table><tr>"), call("cell"), st("</tr></table>"));
     List<Finding> f = check(frags, seq(st("<table>"), call("cell"), call("cell")));
     // A td directly in a table implies tbody and tr: the text stays in the cell, but a cell without
-    // a row is a parse error (#406).
-    assertEquals(List.of(Problem.PARSE_ERROR), problems(f));
-    f = check(frags, seq(st("<div>"), call("cell")));
+    // a row is a parse error (#406), and the implied elements stay open (#682).
+    assertEquals(List.of(Problem.PARSE_ERROR, Problem.UNBALANCED), problems(f));
+    f = snippet(frags, seq(st("<div>"), call("cell")));
     // A td in a div is ignored, so the text stays text, but it is a parse error (#406), at the call.
     assertEquals(List.of(Problem.PARSE_ERROR), problems(f));
     assertTrue(VerifierMessages.message(f.get(0)).contains("in fragment t :: cell, inserted here, at t.html:1:"),
         VerifierMessages.message(f.get(0)));
-    f = check(Map.of("x", seq(text())), seq(st("<table>"), call("x")));
+    f = snippet(Map.of("x", seq(text())), seq(st("<table>"), call("x")));
     assertEquals(List.of(Problem.TEXT_IN_TABLE), problems(f));
     assertEquals("t.html", f.get(0).at.file());
     assertTrue(VerifierMessages.message(f.get(0)).contains("in fragment t :: x, inserted here, at t.html:1:"), VerifierMessages.message(f.get(0)));
@@ -437,7 +475,7 @@ class ContextVerifierRulesTest {
         st("</head><body>"), new Skeleton.ParamInsert("content", pos()), st("</body></html>")));
     frags.put("links", seq(st("<link rel=\"stylesheet\" href=\""), attr("href"), st("\">")));
     // Bound: the head content is checked in the head, the body content in the body.
-    accept(frags, new Skeleton.Call(id("layout"), Map.of("head", seq(call("links")), "content", seq(st("<p>"), text())), pos()));
+    accept(frags, new Skeleton.Call(id("layout"), Map.of("head", seq(call("links")), "content", seq(st("<p>"), text(), st("</p>"))), pos()));
     // null: nothing in the head.
     accept(frags, new Skeleton.Call(id("layout"), Map.of("head", Seq.empty(), "content", seq(text())), pos()));
     // Unbound: any HTML, which isn't allowed in the head.
@@ -447,8 +485,8 @@ class ContextVerifierRulesTest {
   }
 
   @Test
-  void recursionIsAFixedPoint() {
-    // Into the same state each time: converges.
+  void recursionIsNeutralByInduction() {
+    // Into the state its call started in: taken to be neutral, which that call checks.
     Map<String, Seq> same = Map.of("item", seq(st("<span>"), text(), st("</span>"), opt(call("item"))));
     accept(same, st("<p>"), call("item"));
     // Deeper each time: the structure depends on data.
@@ -567,6 +605,16 @@ class ContextVerifierRulesTest {
     return new ContextVerifier(all).check(t);
   }
 
+  /**
+   * {@link #check}, without the partial's own balance: most cases here are snippets of a page, such
+   * as a {@code <table>} left open around a hole ({@link #aPartialEndsInTheStateItStarts} checks it).
+   */
+  private static List<Finding> snippet(Map<String, Seq> fragments, Seq body) {
+    return check(fragments, body).stream()
+        .filter(x -> x.problem != Problem.UNBALANCED || !x.detail.startsWith("this partial"))
+        .collect(Collectors.toList());
+  }
+
   private static List<Problem> problems(List<Finding> f) {
     return f.stream().map(x -> x.problem).distinct().collect(Collectors.toList());
   }
@@ -576,13 +624,13 @@ class ContextVerifierRulesTest {
   }
 
   private static void accept(Map<String, Seq> fragments, Node... nodes) {
-    List<Finding> f = check(fragments, seq(nodes));
+    List<Finding> f = snippet(fragments, seq(nodes));
     assertTrue(f.isEmpty(), seq(nodes) + " -> " + f.stream().map(VerifierMessages::message).collect(Collectors.toList()));
   }
 
   /** Rejected only by the parse-error rule and the exclusions (#406): every hole is accepted. */
   private static void onlyParseErrors(Node... nodes) {
-    List<Finding> f = check(Map.of(), seq(nodes));
+    List<Finding> f = snippet(Map.of(), seq(nodes));
     assertTrue(!f.isEmpty() && f.stream().allMatch(x -> PARSER_REPORTED.contains(x.problem)),
         seq(nodes) + " -> " + f.stream().map(VerifierMessages::message).collect(Collectors.toList()));
   }

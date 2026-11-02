@@ -186,7 +186,7 @@ index 11676a2..0eb671c 100644
 +  inputs.file("${tesseraMessages}.properties").withPropertyName('tesseraMessages').withPathSensitivity(PathSensitivity.RELATIVE)
 +}
 diff --git a/pom.xml b/pom.xml
-index db5b9f7..2131f1e 100644
+index db5b9f7..dc789e4 100644
 --- a/pom.xml
 +++ b/pom.xml
 @@ -35,6 +35,8 @@
@@ -720,10 +720,10 @@ index 703351c..001ecb6 100644
    </form>
  
 diff --git a/src/main/resources/templates/owners/ownerDetails.html b/src/main/resources/templates/owners/ownerDetails.html
-index cc175cd..9a4137e 100644
+index cc175cd..38c62a3 100644
 --- a/src/main/resources/templates/owners/ownerDetails.html
 +++ b/src/main/resources/templates/owners/ownerDetails.html
-@@ -1,76 +1,76 @@
+@@ -1,82 +1,82 @@
  <!DOCTYPE html>
  
 -<html xmlns:th="https://www.thymeleaf.org" th:replace="~{fragments/layout :: layout (~{::body},'owners')}">
@@ -788,7 +788,8 @@ index cc175cd..9a4137e 100644
 -  <h2 th:text="#{petsAndVisits}">Pets and Visits</h2>
 +  <h2 t:text="#{petsAndVisits}">Pets and Visits</h2>
  
-   <table class="table table-striped">
+-  <table class="table table-striped">
++  <table class="table table-striped"><tbody>
  
 -    <tr th:each="pet : ${owner.pets}">
 +    <tr t:each="pet : owner.pets">
@@ -817,10 +818,11 @@ index cc175cd..9a4137e 100644
 +              <th t:text="#{visitDate}">Visit Date</th>
 +              <th t:text="#{description}">Description</th>
              </tr>
-           </thead>
+-          </thead>
 -          <tr th:each="visit : ${pet.visits}">
 -            <td th:text="${#temporals.format(visit.date, 'yyyy-MM-dd')}"></td>
 -            <td th:text="${visit?.description}"></td>
++          </thead><tbody>
 +          <tr t:each="visit : pet.visits">
 +            <td t:text="temporals.format(visit.date, 'yyyy-MM-dd')"></td>
 +            <td t:text="visit.description"></td>
@@ -831,8 +833,16 @@ index cc175cd..9a4137e 100644
 +            <td><a t:href="@{{id}/pets/{petId}/edit(id=owner.id, petId=pet.id)}" t:text="#{editPet}">Edit Pet</a></td>
 +            <td><a t:href="@{{id}/pets/{petId}/visits/new(id=owner.id, petId=pet.id)}" t:text="#{addVisit}">Add Visit</a></td>
            </tr>
-         </table>
+-        </table>
++        </tbody></table>
        </td>
+     </tr>
+ 
+-  </table>
++  </tbody></table>
+   <script>
+     // Function to hide the success and error messages after 3 seconds
+     function hideMessages() {
 diff --git a/src/main/resources/templates/owners/ownersList.html b/src/main/resources/templates/owners/ownersList.html
 index 01223c1..fa063a0 100644
 --- a/src/main/resources/templates/owners/ownersList.html

@@ -248,7 +248,7 @@ index 0000000..ec83e37
 +GET /nonexisting/page
 +GET /?lang=de
 diff --git a/pom.xml b/pom.xml
-index ed1c616..bf96f3a 100644
+index ed1c616..e23c433 100644
 --- a/pom.xml
 +++ b/pom.xml
 @@ -16,6 +16,8 @@
@@ -1457,10 +1457,10 @@ index efef149..241fbc7 100644
  </body>
  </html>
 diff --git a/src/main/resources/templates/fragments/info.html b/src/main/resources/templates/fragments/info.html
-index 74f86b8..16c08be 100644
+index 74f86b8..a6d57bb 100644
 --- a/src/main/resources/templates/fragments/info.html
 +++ b/src/main/resources/templates/fragments/info.html
-@@ -1,151 +1,151 @@
+@@ -1,157 +1,157 @@
  <!DOCTYPE html>
 -<html lang="de" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 +<html lang="de" xmlns:t="https://tessera.dev" t:import="de.uni.rostock.ub.purl_server.model.*">
@@ -1632,10 +1632,11 @@ index 74f86b8..16c08be 100644
 +            <table class="table table-sm mb-0" aria-label="PURL history information" t:each="entry, iterStat : ${purl.purlHistory}">
                <colgroup>
                  <col style="width: 3em" />
-               </colgroup>
+-              </colgroup>
 -              <tr th:if="${!iterStat.first}">
 -                <th th:classappend="${iterStat.index == 1} ? 'border-top-0'">
 -                  <div class="fw-bold pt-1" th:text="${iterStat.index}"></div>
++              </colgroup><tbody>
 +              <tr t:if="!iterStat.first">
 +                <th t:classappend="iterStat.index == 1 ? 'border-top-0'">
 +                  <div class="fw-bold pt-1" t:text="${iterStat.index}"></div>
@@ -1679,6 +1680,13 @@ index 74f86b8..16c08be 100644
                        </td>
                      </tr>
                    </table>
+                 </td>
+               </tr>
+-            </table>
++            </tbody></table>
+           </div></td>
+       </tr>
+     </table>
 diff --git a/src/main/resources/templates/fragments/page.html b/src/main/resources/templates/fragments/page.html
 index 3a01cc5..c004826 100644
 --- a/src/main/resources/templates/fragments/page.html

@@ -54,7 +54,8 @@
 <table><tr><td>a</td></tr><t:block t:if="s != null"><tr><td>[[s]]</td></tr></t:block></table>
 ====
 # name: T12-each-rows-implied-tbody
-# expect: ACCEPT
+# expect: VERIFIER
+# #682: the first row implies a <tbody>, the next ones don't, so the t:each isn't state-neutral (write the <tbody>)
 <div t:params="java.util.List<String> xs"><table><tr t:each="x : xs"><td t:text="x"></td></tr></table></div>
 ====
 # name: T13-p-in-p

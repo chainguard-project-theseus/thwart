@@ -87,15 +87,8 @@ final class VerifierMessages {
       case FRAMESET:
         return "<frameset> isn't supported: a browser uses it only if no body content came before it, so the page"
             + " would depend on what precedes it; use an <iframe> or an ordinary layout";
-      case LOOP_NO_FIXED_POINT:
-        return "each pass of this loop leaves a browser with more elements open (it doesn't settle in "
-            + ContextVerifier.MAX_ROUNDS + " passes); close inside the loop every element the loop opens";
       case STRUCTURE_DEPENDS_ON_DATA:
         return structure(f);
-      case TOO_MANY_STATES:
-        return "the branches and loops before this point can leave a browser in more than " + ContextVerifier.MAX_STATES
-            + " different states (different elements open), more than Tessera checks; close inside each t:if,"
-            + " t:switch and t:each the elements it opens, or split the template into fragments";
       case ENGINE_FAILURE:
         return "Tessera can't check what a browser does here: the HTML parser it checks with failed (" + f.detail
             + "); this is a compiler bug, report it with the template";
@@ -118,6 +111,8 @@ final class VerifierMessages {
             + " <option>, <optgroup> and <hr>, and newer ones keep it, so the rest of the page can parse differently;"
             + " insert only <option>, <optgroup> and <hr> into a <select> (also from fragments, t:remove=\"tag\" and"
             + " <template>)";
+      case UNBALANCED:
+        return f.detail;
       case CDATA_SECTION:
         return "a CDATA section in " + f.detail + ": a browser reads <![CDATA[ by different rules inside and outside"
             + " <svg> and <math>, which Tessera doesn't check; write the text without <![CDATA[ and ]]>, with '<' as"
@@ -420,6 +415,40 @@ final class VerifierMessages {
     return sb.toString();
   }
 
+  /**
+   * The text of {@link Problem#UNBALANCED} (#682): {@code what} (the body or fragment, in words),
+   * how it leaves the parser ({@code after}) unlike it found it ({@code before}), and the fix, with
+   * the migration recipes for the two shapes the bench corpus has (guide section 4.8).
+   */
+  static String unbalanced(String what, ParserState before, ParserState after) {
+    String head = what + " " + ContentKinds.difference(before, after)
+        + ", so what follows would parse differently depending on whether, or how often, it is written; ";
+    if (!before.stack().isEmpty() && before.currentNode().localName().equals("table") && opens(before, after, "tbody")) {
+      return head + "a browser opens a <tbody> before the first row only: write the <tbody> around the rows, or put"
+          + " the t:each on a <tbody>";
+    }
+    InsertionMode m = before.mode();
+    if ((m == InsertionMode.BEFORE_HEAD || m == InsertionMode.IN_HEAD || m == InsertionMode.AFTER_HEAD
+        || m == InsertionMode.BEFORE_HTML) && (opens(before, after, "body") || opens(before, after, "head"))) {
+      return head + "content there makes a browser open the <head> or <body>: in a fragment library, make the root a"
+          + " <t:block> instead of <html>, or move the fragments into the <body>";
+    }
+    return head + "close inside it every element it opens, and leave open every element it found open";
+  }
+
+  /** Whether {@code after} has an element {@code name} open that {@code before} hasn't. */
+  private static boolean opens(ParserState before, ParserState after, String name) {
+    return count(after.stack(), name) > count(before.stack(), name);
+  }
+
+  private static int count(List<OpenElement> stack, String name) {
+    int n = 0;
+    for (OpenElement e : stack) {
+      n += OpenElement.HTML.equals(e.namespace()) && e.localName().equals(name) ? 1 : 0;
+    }
+    return n;
+  }
+
   private static String structure(Finding f) {
     String who;
     if (f.cycle.size() > 1) {
@@ -437,7 +466,7 @@ final class VerifierMessages {
       who = f.fragment == null ? "this fragment calls itself" : "fragment " + f.fragment + " calls itself"
           + (f.inner == null ? "" : " (at " + f.inner + ")");
     }
-    return who + ", and each call nests deeper in a browser (it doesn't settle in " + ContextVerifier.MAX_ROUNDS
+    return who + ", and each call nests deeper in a browser (it doesn't settle in " + ContextVerifier.MAX_DEPTH
         + " calls), so the markup structure depends on data; " + RICH_TEXT + " and delete the fragment; for"
         + " other trees, render a fixed depth or flatten the tree in Java";
   }
