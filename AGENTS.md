@@ -34,7 +34,8 @@ verifier of #364, simplified under #405 ([docs/security-architecture.md](docs/se
    parses it. It checks this at build time, for every template, against the spec HTML parser,
    and accepts only parses without errors, outside the constructs where browsers are known to
    split. Within that, it picks the escaper from the context. Raw output needs a safe type of
-   the right content kind (`SafeHtml`, `TrustedUrl`, `Fragment`), never a flag on a string.
+   the right content kind (`SafeHtml`, `Fragment`, `CssValue`), built only by a factory that
+   checks it; never a flag on a string, and never a constructor that skips the check.
 6. **Familiar before novel, inside the profile.** Track Thymeleaf syntax and behaviour where it
    is safe, so migration is mechanical. Where Thymeleaf accepts something outside the profile,
    Tessera rejects it with a fix-it and `tessera-migrate` rewrites it where it can. Parity never
