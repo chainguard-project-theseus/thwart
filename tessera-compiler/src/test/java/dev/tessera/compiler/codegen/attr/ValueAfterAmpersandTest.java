@@ -54,10 +54,16 @@ class ValueAfterAmpersandTest {
         "<textarea>&[[s]]</textarea>|14",
         "<p>&<t:block>[[s]]</t:block></p>|16",
         "<p>&<span t:remove=\"tag\" t:text=\"s\">x</span></p>|34",
-        "<p><t:block t:if=\"${s != null}\">&</t:block>[[s]]</p>|46",
       })
   void valueAfterAmpersandFailsToBuild(String body, int column) {
     compile(body).assertError("page.html:2:" + column + ":", CHARREF);
+  }
+
+  @Test
+  void ampersandAtTheEndOfAConditionFailsToBuild() {
+    // The t:if body ends inside a character reference: it isn't state-neutral (#682).
+    compile("<p><t:block t:if=\"${s != null}\">&</t:block>[[s]]</p>")
+        .assertError("page.html:2:13:", "this t:if or t:unless ends inside markup", "[verifier:UNBALANCED]");
   }
 
   @Test

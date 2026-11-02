@@ -137,7 +137,7 @@ m=See <a href="/docs">the docs</a>.
 == UNBALANCED: a fragment library wrapped in <html>, with a call before <body>
 -- lib.html
 <html $NS><head><title>lib</title></head><t:block t:replace="~{lib :: icon}"></t:block><body><span t:fragment="icon">i</span></body></html>
-=> lib.html:1:88: error: fragment lib :: icon, inserted here, leaves <body> open, so what follows would parse differently depending on whether, or how often, it is written; content there makes a browser open the <head> or <body>: in a fragment library, make the root a <t:block> instead of <html>, or move the fragments into the <body> [verifier:UNBALANCED]
+=> lib.html:1:88: error: fragment lib :: icon, inserted here, leaves <body> open, so what follows would parse differently depending on whether, or how often, it is written; a browser opens or closes the <head> or <body> there: in a fragment library, make the root a <t:block> instead of <html>, or move the fragments into the <body>; a page passes its parts to a layout on <html> (guide section 4.8, Layouts) [verifier:UNBALANCED]
 => lib.html:1:114: error: a browser finds a second <body> here and merges it into the first; a page has one <html>, <head> and <body>: a layout call such as t:replace="~{layout :: layout(~{::body})}" passes the whole element into the layout's own, so mark the element the page passes t:remove="tag" (<body t:remove="tag">) to pass only its content (guide section 4.8, Layouts) [verifier:PARSE_ERROR]
 == PARSE_ERROR: a layout call that passes the page's <body>, so the layout writes a second <body>
 -- layout.html

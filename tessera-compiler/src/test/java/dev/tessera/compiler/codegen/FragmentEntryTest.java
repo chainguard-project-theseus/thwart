@@ -89,17 +89,16 @@ class FragmentEntryTest {
   @Test
   void aCalledFragmentTheVerifierRejectsAsAResponseGetsNoEntry() {
     // A call checks a fragment only where the call writes it. On its own, a <tbody> root parses in
-    // <body> (#406: it implies no other context), where a browser drops the tag, and a <head> or
-    // <body> fragment is not a page: the verifier rejects them there, so they get no entry and the
-    // build still succeeds. The <tr> and <dd> fragments fit their contexts and get one.
+    // <body> (#406: it implies no other context), where a browser drops the tag: the verifier
+    // rejects it there, so it gets no entry and the build still succeeds. The <tr> and <dd>
+    // fragments fit their contexts and get one. (A <head> or <body> fragment can't be inserted
+    // since #682: it changes the document state; pages pass their parts to a layout on <html>.)
     String x = "xmlns:t=\"https://tessera.dev\"";
     Compilation c = Compilation.builder()
-        .template("p.html", "<!DOCTYPE html><html " + x + "><head t:replace=\"~{l :: head('T')}\"></head>"
-            + "<body t:replace=\"~{l :: body('T')}\"></body></html>")
         .template("q.html", "<div " + x + "><table t:insert=\"~{l :: tb('T')}\"></table>"
             + "<table><tbody t:insert=\"~{l :: tr('T')}\"></tbody></table><dl t:insert=\"~{l :: dd('T')}\"></dl></div>")
-        .template("l.html", "<!DOCTYPE html><html " + x + "><head t:fragment=\"head(String t)\"><title t:text=\"t\">x</title></head>"
-            + "<body t:fragment=\"body(String t)\"><table><tbody t:fragment=\"tb(String t)\"><tr t:fragment=\"tr(String t)\">"
+        .template("l.html", "<!DOCTYPE html><html " + x + "><head><title>x</title></head>"
+            + "<body><table><tbody t:fragment=\"tb(String t)\"><tr t:fragment=\"tr(String t)\">"
             + "<td t:text=\"t\">x</td></tr></tbody></table><dl><dd t:fragment=\"dd(String t)\" t:text=\"t\">x</dd></dl>"
             + "</body></html>")
         .compile();

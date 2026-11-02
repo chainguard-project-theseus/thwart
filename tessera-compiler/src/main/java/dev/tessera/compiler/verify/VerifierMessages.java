@@ -428,15 +428,16 @@ final class VerifierMessages {
           + " the t:each on a <tbody>";
     }
     InsertionMode m = before.mode();
-    if ((m == InsertionMode.BEFORE_HEAD || m == InsertionMode.IN_HEAD || m == InsertionMode.AFTER_HEAD
-        || m == InsertionMode.BEFORE_HTML) && (opens(before, after, "body") || opens(before, after, "head"))) {
-      return head + "content there makes a browser open the <head> or <body>: in a fragment library, make the root a"
-          + " <t:block> instead of <html>, or move the fragments into the <body>";
+    if (m == InsertionMode.BEFORE_HTML || m == InsertionMode.BEFORE_HEAD || m == InsertionMode.IN_HEAD
+        || m == InsertionMode.AFTER_HEAD) {
+      return head + "a browser opens or closes the <head> or <body> there: in a fragment library, make the root a"
+          + " <t:block> instead of <html>, or move the fragments into the <body>; a page passes its parts to a layout"
+          + " on <html> (guide section 4.8, Layouts)";
     }
     return head + "close inside it every element it opens, and leave open every element it found open";
   }
 
-  /** Whether {@code after} has an element {@code name} open that {@code before} hasn't. */
+  /** Whether {@code after} has more {@code name} elements open than {@code before}. */
   private static boolean opens(ParserState before, ParserState after, String name) {
     return count(after.stack(), name) > count(before.stack(), name);
   }
