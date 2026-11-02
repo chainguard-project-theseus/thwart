@@ -48,14 +48,59 @@ public final class TemplateCompiler {
     /** What the registry is generated from, to add fragment entries to it ({@link #files(Set, Set)}). */
     private final CompilerEnv env;
     private final TemplateIndex index;
+    /** Every private fragment copy, with the fragment it copies ({@code TemplateGenerator#copies}). */
+    private final List<Map.Entry<Skeleton.FragmentId, Skeleton.Seq>> copies;
 
     Result(List<GeneratedFile> files, Map<String, Skeleton.TemplateSkeleton> skeletons, Map<String, String> classes,
-        CompilerEnv env, TemplateIndex index) {
+        CompilerEnv env, TemplateIndex index, List<Map.Entry<Skeleton.FragmentId, Skeleton.Seq>> copies) {
       this.files = Collections.unmodifiableList(files);
       this.skeletons = Collections.unmodifiableMap(skeletons);
       this.classes = classes;
       this.env = env;
       this.index = index;
+      this.copies = copies;
+    }
+
+    /**
+     * {@code escapers} with each text hole of a private fragment copy mapped to the escaper of its
+     * hole in the fragment: the verifier checks the fragment, and the copy writes exactly that.
+     */
+    private Map<Skeleton.Hole, Skeleton.Escaper> withCopies(Map<Skeleton.Hole, Skeleton.Escaper> escapers) {
+      Map<Skeleton.Hole, Skeleton.Escaper> all = new java.util.IdentityHashMap<>(escapers);
+      for (Map.Entry<Skeleton.FragmentId, Skeleton.Seq> copy : copies) {
+        Skeleton.Seq original = skeletons.get(copy.getKey().view()).fragments().get(copy.getKey().name());
+        List<Skeleton.Hole> from = holes(original, new ArrayList<>());
+        List<Skeleton.Hole> to = holes(copy.getValue(), new ArrayList<>());
+        if (!original.toString().equals(copy.getValue().toString()) || from.size() != to.size()) {
+          throw new IllegalStateException("the copy of " + copy.getKey() + " writes another skeleton than the fragment");
+        }
+        for (int i = 0; i < from.size(); i++) {
+          if (escapers.containsKey(from.get(i))) {
+            all.put(to.get(i), escapers.get(from.get(i)));
+          }
+        }
+      }
+      return all;
+    }
+
+    private static List<Skeleton.Hole> holes(Skeleton.Node n, List<Skeleton.Hole> out) {
+      if (n instanceof Skeleton.Hole) {
+        out.add((Skeleton.Hole) n);
+      } else if (n instanceof Skeleton.Seq) {
+        ((Skeleton.Seq) n).nodes().forEach(c -> holes(c, out));
+      } else if (n instanceof Skeleton.Opt) {
+        holes(((Skeleton.Opt) n).body(), out);
+      } else if (n instanceof Skeleton.Rep) {
+        holes(((Skeleton.Rep) n).body(), out);
+        holes(((Skeleton.Rep) n).separator(), out);
+      } else if (n instanceof Skeleton.Alt) {
+        ((Skeleton.Alt) n).branches().forEach(c -> holes(c, out));
+      } else if (n instanceof Skeleton.Call) {
+        ((Skeleton.Call) n).fragmentArgs().values().forEach(c -> holes(c, out));
+      } else if (n instanceof Skeleton.RawInsert && ((Skeleton.RawInsert) n).content() != null) {
+        holes(((Skeleton.RawInsert) n).content(), out);
+      }
+      return out;
     }
 
     /**
@@ -71,6 +116,7 @@ public final class TemplateCompiler {
           marked.add(classes.get(view));
         }
       }
+      escapers = withCopies(escapers);
       List<GeneratedFile> out = new ArrayList<>(files.size());
       for (GeneratedFile f : files) {
         if (f.kind() == GeneratedFile.Kind.JAVA) {
@@ -130,6 +176,7 @@ public final class TemplateCompiler {
     List<GeneratedFile> out = new ArrayList<>();
     Map<String, Skeleton.TemplateSkeleton> skeletons = new LinkedHashMap<>();
     Map<String, String> classes = new HashMap<>();
+    List<Map.Entry<Skeleton.FragmentId, Skeleton.Seq>> copies = new ArrayList<>();
     for (Document doc : docs) {
       for (GeneratedFile f : generator.generate(doc)) {
         out.add(f);
@@ -138,8 +185,9 @@ public final class TemplateCompiler {
         }
       }
       skeletons.put(doc.source().viewName(), generator.skeleton());
+      copies.addAll(generator.copies());
     }
     out.addAll(new RegistryGenerator(env, index).generate());
-    return new Result(out, skeletons, classes, env, index);
+    return new Result(out, skeletons, classes, env, index, copies);
   }
 }

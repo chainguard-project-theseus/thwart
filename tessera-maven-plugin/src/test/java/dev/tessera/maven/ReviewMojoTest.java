@@ -145,28 +145,6 @@ class ReviewMojoTest {
       }
       """;
 
-  /** Stands in for a generated class in another module: nothing in this module's registry names it. */
-  private static final String STUB_TEMPLATE = """
-      package com.example.templates;
-      import dev.tessera.runtime.*;
-      public final class XTemplate {
-        public static void internalUnverified$y(Fragment content, RenderContext ctx, Output out) {
-          content.render(ctx, out);
-        }
-      }
-      """;
-
-  private static final String CALLER = """
-      package com.example;
-      import com.example.templates.XTemplate;
-      import dev.tessera.runtime.*;
-      public final class Caller {
-        static void call(Fragment f, RenderContext ctx, Output out) {
-          XTemplate.internalUnverified$y(f, ctx, out);
-        }
-      }
-      """;
-
   private static final String NS = "xmlns:t=\"https://tessera.dev\"";
 
   /** A real module: a layout taking {@code Fragment} params, a page passing them, a flow partial, a model param. */
@@ -190,14 +168,13 @@ class ReviewMojoTest {
       }
       """;
 
-  /** An app class in the same module as the generated code, calling the layout's internal method. */
+  /** An app class in the same module as the generated code, building an unverified Fragment as it does. */
   private static final String LAYOUT_CALLER = """
       package com.example;
-      import com.example.templates.fragments.LayoutTemplate;
       import dev.tessera.runtime.*;
       public final class LayoutCaller {
-        static void call(Fragment f, RenderContext ctx, Output out) {
-          LayoutTemplate.internalUnverified$layout(f, f, ctx, out);
+        static Fragment call() {
+          return Fragment.unverifiedForGeneratedCode((ctx, out) -> out.write("<script>"));
         }
       }
       """;
@@ -301,14 +278,6 @@ class ReviewMojoTest {
         + "Fragment.unverifiedForGeneratedCode  com/example/Factory.java:6\n"), report);
   }
 
-  /** Negative (#602): app code calling a generated internalUnverified$ method. */
-  @Test
-  void internalUnverifiedCallFailsTheBuild() throws Exception {
-    compile(Map.of("com.example.templates.XTemplate", STUB_TEMPLATE, "com.example.Caller", CALLER));
-    String report = failsWithDoors(1);
-    assertTrue(report.contains("doors (1)\nXTemplate.internalUnverified$y  com/example/Caller.java:6\n"), report);
-  }
-
   @Test
   void cleanCodePasses() throws Exception {
     compile(Map.of("com.example.Clean", CLEAN, "other.Fragment", LOOKALIKE, "com.example.Fmt", FUNCTIONS,
@@ -319,8 +288,8 @@ class ReviewMojoTest {
 
   /**
    * Positive control (#602): a module compiled with the real processor reports no doors, though its
-   * generated classes call internalUnverified$ and unverifiedForGeneratedCode and declare
-   * verifiedFlowPartial().
+   * generated classes call unverifiedForGeneratedCode and declare verifiedFlowPartial(). The
+   * layout's fragment, which takes a Fragment, has no public method (#666).
    */
   @Test
   void generatedCodeIsNotADoor() throws Exception {
@@ -333,16 +302,15 @@ class ReviewMojoTest {
     List<String> found = new ArrayList<>();
     scans.values().forEach(s -> s.doors.forEach(d -> found.add(d.target)));
     assertTrue(found.contains("Fragment.unverifiedForGeneratedCode"), found.toString());
-    assertTrue(found.contains("LayoutTemplate.internalUnverified$layout"), found.toString());
     assertTrue(found.contains("verifiedFlowPartial() override"), found.toString());
     mojo().execute();
     assertTrue(report().contains("## Unverified doors (0)\n"), report());
   }
 
   /**
-   * Negative (#602): in a module with a registry, an app class calling a generated
-   * internalUnverified$ method, and a vouching Template that is also a page's parameter type
-   * (so the registry names it, in a cast), are still doors.
+   * Negative (#602): in a module with a registry, an app class calling
+   * Fragment.unverifiedForGeneratedCode as generated code does, and a vouching Template that is
+   * also a page's parameter type (so the registry names it, in a cast), are still doors.
    */
   @Test
   void appCodeBesideGeneratedCodeIsStillADoor() throws Exception {
@@ -351,7 +319,7 @@ class ReviewMojoTest {
     compileWithProcessor(Map.of("com.example.Model", MODEL, "com.example.LayoutCaller", LAYOUT_CALLER,
         "com.example.Widget", VOUCHING), templates);
     String report = failsWithDoors(2);
-    assertTrue(report.contains("LayoutTemplate.internalUnverified$layout  com/example/LayoutCaller.java:6\n"), report);
+    assertTrue(report.contains("Fragment.unverifiedForGeneratedCode  com/example/LayoutCaller.java:5\n"), report);
     assertTrue(report.contains("verifiedFlowPartial() override  com/example/Widget.java:12\n"), report);
   }
 

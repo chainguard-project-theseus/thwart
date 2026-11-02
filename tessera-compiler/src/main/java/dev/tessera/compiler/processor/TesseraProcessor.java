@@ -136,7 +136,8 @@ public final class TesseraProcessor extends AbstractProcessor {
         // #131: which fragments get a "page :: fragment" registry entry.
         servableFragments = ContextVerifier.servableFragments(result.skeletons());
       }
-      for (Diagnostic d : diagnostics.all()) {
+      // Once each: a fragment's private copies report its errors again (CodegenContext.privateFragment).
+      for (Diagnostic d : new LinkedHashSet<>(diagnostics.all())) {
         messager.printMessage(kind(d.severity()), d.toString());
       }
       // The only place that enforces "nothing is written on error".
