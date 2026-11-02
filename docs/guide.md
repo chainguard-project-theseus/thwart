@@ -60,7 +60,8 @@ inside `|...|` and `+` a `null` prints `null`.
 | builds a view name, fragment name, message key or link path from strings | Conditionals between literals; link `{placeholders}`; a `Fragment` argument. A message key computed from data is resolved in Java and passed as a string. |
 | evaluates a string as a template (`?eval`, `#evaluate`, `__${...}__`) | Compute the value in Java. |
 | prints a string unescaped | Stored rich text: `t:utext="html.sanitize(article.text)"`. Markup built in Java: a `SafeHtml`. A bundle message with markup: `t:utext="#{key}"` (section 4.5). |
-| puts expressions in `style`, `on*`, or a `data-*`/framework attribute | Section 4.4: `t:style` takes literals, numbers and `css.*` values; `on*` takes none; other non-standard attributes take only framework-neutral values. |
+| puts expressions in `style` or a `data-*`/framework attribute | Section 4.4: `t:style` takes literals, numbers and `css.*` values; other non-standard attributes take only framework-neutral values. |
+| has an event handler (`onclick="..."`, any `on*`, static or computed) or a `javascript:` URL | Build errors: a strict CSP blocks inline script. Mark the element (`data-action="save"`) and attach one listener from a `<script>`: `document.addEventListener('click', e => { const el = e.target.closest('[data-action=save]'); if (el) save(el); });`. A `href="javascript:void(0)"` link becomes a `<button type="button">`, or `href="#"` with `e.preventDefault()` in the listener. `tessera-migrate` flags both. |
 | includes a file, calls a macro or tag with a body, or extends a layout | A fragment call with `Fragment` arguments (section 4.8). |
 | binds a form through form tags or macros | `t:object`, `t:field`, `t:errors`, `fields.*` (section 4.7). |
 | reads an `Exception`, a `Date` or another non-view-safe value | Put what the page shows (a message `String`, a `LocalDate`, an `Instant`) in the model. |

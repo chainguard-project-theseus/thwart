@@ -69,3 +69,18 @@
 ====
 # name: r678-meta
 <meta t:charset="'utf-8'"><meta t:http-equiv="'refresh'" content="0">
+====
+# Static inline script (#755): a strict nonce CSP blocks it, so the profile rejects it. href="#" and
+# data-* stay accepted.
+====
+# name: x755-onclick
+<a onclick="x()">x</a>
+====
+# name: x755-javascript-url
+<a href="javascript:void(0)">x</a>
+====
+# name: x755-hash-href
+<a href="#">x</a>
+====
+# name: x755-data-action
+<a href="#" data-action="save">x</a>

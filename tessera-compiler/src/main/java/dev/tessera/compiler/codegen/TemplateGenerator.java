@@ -483,7 +483,7 @@ public final class TemplateGenerator implements CodegenContext {
         CsrfInjector.checkSubmitter(this, plan);
       }
       CsrfInjector.checkBase(this, e);
-      checkStaticIs(e);
+      checkStaticAttributes(e);
       if (HtmlParser.asciiEqualsIgnoreCase(e.name(), "option")) {
         FieldProcessor.option(this, plan);
       }
@@ -741,14 +741,22 @@ public final class TemplateGenerator implements CodegenContext {
   /**
    * A static {@code is} must be a valid custom element name ({@link Contexts#isCustomElementName}):
    * any other value, such as {@code <component is="script">}, would let what reads
-   * {@code is} render another element than the one classified. A computed one is FORBIDDEN.
+   * {@code is} render another element than the one classified. A computed one is FORBIDDEN. Static
+   * inline script ({@code on*}, {@code javascript:} URLs) is rejected: {@link Contexts#staticScript}.
    */
-  private void checkStaticIs(Element e) {
+  private void checkStaticAttributes(Element e) {
     for (Attribute a : e.attributes()) {
-      if (!a.isTessera() && HtmlParser.asciiEqualsIgnoreCase(a.name(), "is") && !Contexts.isCustomElementName(a.value())) {
+      if (a.isTessera()) {
+        continue;
+      }
+      if (HtmlParser.asciiEqualsIgnoreCase(a.name(), "is") && !Contexts.isCustomElementName(a.value())) {
         diagnostics().error(a.pos(), "is=\"" + a.value() + "\" on <" + e.name() + "> is not allowed: is may only name a"
             + " custom element (a lower-case name with a '-', such as my-button); write the element you mean, such as"
             + " <my-button>");
+      }
+      String script = Contexts.staticScript(e, a.name(), a.value());
+      if (script != null) {
+        diagnostics().error(a.pos(), a.name() + " on <" + e.name() + "> is not allowed: " + script);
       }
     }
   }
