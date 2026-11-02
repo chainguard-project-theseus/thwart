@@ -6,8 +6,6 @@ import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.GeneratedFile;
 import dev.tessera.compiler.forms.FormPaths;
-import dev.tessera.compiler.types.ExpressionCompiler;
-import dev.tessera.runtime.Fragment;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -157,7 +155,7 @@ public final class RegistryGenerator {
   /** No {@code Fragment} or {@code Field} parameter: those only a fragment call can supply. */
   private static boolean modelCanSupply(List<TemplateIndex.Param> params) {
     for (TemplateIndex.Param p : params) {
-      if (FormPaths.isField(p.type()) || ExpressionCompiler.isDeclared(p.type(), Fragment.class.getName())) {
+      if (FormPaths.isField(p.type()) || TemplateIndex.isFragment(p.type())) {
         return false;
       }
     }

@@ -78,13 +78,6 @@ public interface CodegenContext {
   TemplateIndex.FragmentInfo fragment();
 
   /**
-   * The lower-case name of the nearest element being generated whose tag is written, or null at
-   * the top of a template or of an element rendered standalone: the element a text hole is in,
-   * recorded in its {@code Skeleton.Hole}.
-   */
-  String hostElement();
-
-  /**
    * Whether the element whose content is being generated is a {@code <script>} with a JSON type
    * ({@code Contexts.isJsonScript}): its SCRIPT values are JSON data, written by {@code Escapers.json}.
    * Other SCRIPT values are JavaScript, written by {@code Escapers.javaScript}.

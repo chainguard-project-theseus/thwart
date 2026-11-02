@@ -68,7 +68,7 @@ public final class ErrorsProcessor implements AttributeProcessor {
             Emitted.text("<br />", null),
             " } ",
             Emitted.hole(
-                Skeleton.Escaper.forMethod(context.escaper()), ctx.hostElement(), null, attr.pos(),
+                Skeleton.Escaper.forMethod(context.escaper()), null, attr.pos(),
                 errors + ".get(" + i + ")"),
             " }"),
         context);

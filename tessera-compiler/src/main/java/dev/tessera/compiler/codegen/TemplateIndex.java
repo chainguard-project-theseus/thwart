@@ -304,11 +304,18 @@ public final class TemplateIndex {
       }
       TypeMirror type = expressions.resolveType(d.type(), imports);
       if (type != null) {
-        boolean fragment = ExpressionCompiler.isDeclared(type, dev.tessera.runtime.Fragment.class.getName());
-        out.add(new Param(d.name(), type, fragment ? JavaStrings.FRAGMENT_BODY : type.toString()));
+        out.add(new Param(d.name(), type, isFragment(type) ? JavaStrings.FRAGMENT_BODY : type.toString()));
       }
     }
     return out;
+  }
+
+  /**
+   * Whether parameter type {@code t} is {@code Fragment}. {@code Fragment} is final, so a parameter
+   * that can take one is exactly that type.
+   */
+  public static boolean isFragment(TypeMirror t) {
+    return ExpressionCompiler.isDeclared(t, dev.tessera.runtime.Fragment.class.getName());
   }
 
   /**

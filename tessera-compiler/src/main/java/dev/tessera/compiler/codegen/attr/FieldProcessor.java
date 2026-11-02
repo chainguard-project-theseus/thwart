@@ -90,7 +90,7 @@ public final class FieldProcessor implements AttributeProcessor {
         nameAndId(plan, attr, name, id);
         OutputContext content = Contexts.text(plan.element());
         plan.replaceBody(
-            Emitted.hole(Skeleton.Escaper.forMethod(content.escaper()), plan.element().name(), null, attr.pos(), display),
+            Emitted.hole(Skeleton.Escaper.forMethod(content.escaper()), null, attr.pos(), display),
             content);
         break;
       case "select":
@@ -225,7 +225,7 @@ public final class FieldProcessor implements AttributeProcessor {
         Emitted.concat(
             Emitted.text("<input type=\"hidden\" name=\"_", null),
             Emitted.code(" "),
-            Emitted.hole(Skeleton.Escaper.ATTR, "input", "name", attr.pos(), name),
+            Emitted.hole(Skeleton.Escaper.ATTR, "name", attr.pos(), name),
             Emitted.code(" "),
             Emitted.text(select ? "\" value=\"1\" />" : "\" value=\"on\" />", null));
     if (!conditions.isEmpty()) {
