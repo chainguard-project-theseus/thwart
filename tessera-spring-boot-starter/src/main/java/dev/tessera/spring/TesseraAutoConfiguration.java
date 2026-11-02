@@ -86,7 +86,8 @@ public class TesseraAutoConfiguration {
     FilterRegistrationBean<ResourceUrlEncodingFilter> registration =
         new FilterRegistrationBean<>(new ResourceUrlEncodingFilter());
     if (registersForErrorDispatch(SpringBootVersion.getVersion())) {
-      registration.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ERROR);
+      registration.setDispatcherTypes(
+        DispatcherType.REQUEST, DispatcherType.ASYNC, DispatcherType.ERROR);
     } else {
       registration.setDispatcherTypes(DispatcherType.REQUEST);
     }
@@ -95,14 +96,16 @@ public class TesseraAutoConfiguration {
 
   /**
    * The default policy's {@link CspFilter}, first in the chain (ahead of Spring Security's at -100)
-   * for REQUEST and ERROR dispatches, so error pages get the policy too. Raw type as above.
+   * for REQUEST, ASYNC and ERROR dispatches, so async and error pages get the policy too. Raw
+   * type as above.
    */
   @Bean
   @SuppressWarnings("rawtypes")
   public FilterRegistrationBean tesseraCspFilter() {
     FilterRegistrationBean<CspFilter> registration = new FilterRegistrationBean<>(new CspFilter());
     registration.setName("tesseraCspFilter"); // CspFilter's own registration in a war backs off
-    registration.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ERROR);
+    registration.setDispatcherTypes(
+        DispatcherType.REQUEST, DispatcherType.ASYNC, DispatcherType.ERROR);
     registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
     return registration;
   }

@@ -181,7 +181,8 @@ through `ViewResolverRegistry` or inside a `ContentNegotiatingViewResolver`, are
 
 **Spring MVC without Boot.** Import `dev.tessera.spring.TesseraConfiguration` (or declare it as a
 bean in XML). It also registers a resolver for `redirect:` and `forward:` names, which the old
-engine's resolver often provided: without one, removing the old engine breaks redirects.
+engine's resolver often provided: without one, removing the old engine breaks redirects. If your
+container doesn't scan for `WebApplicationInitializer`s, register the CSP filter (section 4.9).
 
 **Security.** Spring Security's CSRF token goes into POST forms automatically (section 4.7). Keep
 the application's own security setup; Boot 1.5's default security has CSRF off, and that stays so.
@@ -961,9 +962,14 @@ took one becomes a fragment its callers pass `~{...}`.
 writes gets the request's nonce, and the page is sent with `Content-Security-Policy: script-src
 'nonce-N' 'strict-dynamic'; object-src 'none'; base-uri 'none'`, with or without Spring Security.
 A policy the application sets wins: Spring Security's `contentSecurityPolicy(...)` or your own
-filter's header (use `CspNonce.get(request)` for the nonce). The starter's filter runs first and
-adds the default only when the response commits without one. `tessera.csp.enabled=false` turns
-the default off. Delete Thymeleaf's `th:nonce`; a nonce attribute in a template is an error.
+filter's header (use `CspNonce.get(request)` for the nonce). The starter's filter,
+`dev.tessera.spring.view.CspFilter`, runs first and adds the default only when the response commits
+without one. Boot registers it; a servlet container finds it as a `WebApplicationInitializer`.
+Where neither happens (an embedded server you start yourself, a `metadata-complete` `web.xml`, or
+a Boot app importing `TesseraConfiguration`), register it yourself, first, for REQUEST, ASYNC and
+ERROR dispatches; until then the starter logs `CspFilter is not in the filter chain`.
+`tessera.csp.enabled=false` turns the default off. Delete Thymeleaf's `th:nonce`; a nonce
+attribute in a template is an error.
 
 ### 4.10 Notes for specific engines
 

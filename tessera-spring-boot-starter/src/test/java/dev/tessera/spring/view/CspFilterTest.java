@@ -85,15 +85,14 @@ class CspFilterTest {
     points.put("sendError", (rq, rs) -> ((HttpServletResponse) rs).sendError(404));
     points.put("sendRedirect", (rq, rs) -> ((HttpServletResponse) rs).sendRedirect("/x"));
     for (Map.Entry<String, FilterChain> point : points.entrySet()) {
-      MockHttpServletRequest request = new MockHttpServletRequest();
-      CspFilter.stamp(request, "Ab+/9_-x==");
       MockHttpServletResponse response = new MockHttpServletResponse();
       boolean[] seen = new boolean[1];
       new CspFilter()
           .doFilter(
-              request,
+              new MockHttpServletRequest(),
               response,
               (rq, rs) -> {
+                CspFilter.stamp(rq, "Ab+/9_-x==");
                 point.getValue().doFilter(rq, rs);
                 seen[0] = ((HttpServletResponse) rs).containsHeader(CspFilter.HEADER);
               });
@@ -102,7 +101,7 @@ class CspFilterTest {
     }
   }
 
-  /** Outside Boot the filter registers itself, first, for REQUEST and ERROR dispatches. */
+  /** Outside Boot the filter registers itself, first, for REQUEST, ASYNC and ERROR dispatches. */
   @Test
   void registersItselfInAServletContainer() throws Exception {
     // A recording proxy, not Mockito: the older Mockito of the Boot 1.5/2.0 runs can't mock here.
@@ -113,7 +112,7 @@ class CspFilterTest {
         .containsExactly(
             "addFilter[tesseraCspFilter, CspFilter]",
             "setAsyncSupported[true]",
-            "addMappingForUrlPatterns[[REQUEST, ERROR], false, [/*]]");
+            "addMappingForUrlPatterns[[REQUEST, ASYNC, ERROR], false, [/*]]");
     // Already registered (a Boot war registers it too): addFilter returns null.
     new CspFilter().onStartup(proxy(ServletContext.class, calls, null));
   }

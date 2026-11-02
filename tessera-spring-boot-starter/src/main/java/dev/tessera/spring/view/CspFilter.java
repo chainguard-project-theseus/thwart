@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.EnumSet;
 import java.util.regex.Pattern;
+import org.apache.commons.logging.LogFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.web.WebApplicationInitializer;
@@ -28,7 +29,7 @@ import org.springframework.web.WebApplicationInitializer;
  * ahead of every other filter, so Spring Security's {@code HeaderWriterFilter} and the
  * application's filters have had their turn, and their policy wins. Boot registers it through the
  * auto-configuration; in a servlet container it registers itself, as a {@link
- * WebApplicationInitializer}, for REQUEST and ERROR dispatches.
+ * WebApplicationInitializer}, for REQUEST, ASYNC and ERROR dispatches.
  */
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public final class CspFilter implements Filter, WebApplicationInitializer {
@@ -39,11 +40,23 @@ public final class CspFilter implements Filter, WebApplicationInitializer {
   /** A CSP {@code base64-value}: anything else could change the policy it is spliced into. */
   private static final Pattern NONCE = Pattern.compile("[A-Za-z0-9+/_-]+={0,2}");
 
-  /** Marks the request as a Tessera page with {@code nonce}, which must be base64. */
+  private static volatile boolean warned;
+
+  /**
+   * Marks the request as a Tessera page with {@code nonce}, which must be base64. Warns once if
+   * this filter is not in the request's chain, so the page goes out without the default policy.
+   */
   static void stamp(ServletRequest request, String nonce) {
     if (!NONCE.matcher(nonce).matches()) {
       throw new IllegalStateException(
           "The CSP nonce is not base64, so it cannot go in a Content-Security-Policy header");
+    }
+    if (request.getAttribute(STAMP) == null && !warned) {
+      warned = true;
+      LogFactory.getLog(CspFilter.class)
+          .warn("Tessera: " + CspFilter.class.getName() + " is not in the filter chain, so pages"
+              + " get no default Content-Security-Policy. Register it first for REQUEST, ASYNC and"
+              + " ERROR dispatches (guide 4.9), or set tessera.csp.enabled=false.");
     }
     request.setAttribute(STAMP, nonce);
   }
@@ -55,7 +68,9 @@ public final class CspFilter implements Filter, WebApplicationInitializer {
     if (registration != null) { // null: already registered (a Boot war registers it itself)
       registration.setAsyncSupported(true);
       registration.addMappingForUrlPatterns(
-          EnumSet.of(DispatcherType.REQUEST, DispatcherType.ERROR), false, "/*");
+          EnumSet.of(DispatcherType.REQUEST, DispatcherType.ASYNC, DispatcherType.ERROR),
+          false,
+          "/*");
     }
   }
 
@@ -69,6 +84,7 @@ public final class CspFilter implements Filter, WebApplicationInitializer {
   public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
       throws IOException, ServletException {
     OnCommit wrapped = new OnCommit(request, (HttpServletResponse) response);
+    request.setAttribute(STAMP, ""); // in the chain, not stamped yet
     chain.doFilter(request, wrapped);
     if (!request.isAsyncStarted()) {
       wrapped.commit(); // the end of the request
@@ -95,7 +111,7 @@ public final class CspFilter implements Filter, WebApplicationInitializer {
 
     void commit() {
       Object nonce = request.getAttribute(STAMP);
-      if (!done && nonce instanceof String && !containsHeader(HEADER)) {
+      if (!done && !"".equals(nonce) && nonce instanceof String && !containsHeader(HEADER)) {
         setHeader(HEADER, "script-src 'nonce-" + nonce + "' 'strict-dynamic'; object-src 'none';"
             + " base-uri 'none'");
       }

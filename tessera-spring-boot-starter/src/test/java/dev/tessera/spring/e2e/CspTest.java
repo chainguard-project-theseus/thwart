@@ -3,8 +3,10 @@ package dev.tessera.spring.e2e;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import dev.tessera.spring.CspNonce;
@@ -19,6 +21,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Callable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -87,6 +90,17 @@ class CspTest {
   @Test
   void withoutSpringSecurityTheDefault() throws Exception {
     assertDefault(mvc().perform(get("/csp")).andExpect(status().isOk()).andReturn());
+  }
+
+  /** A page rendered in an ASYNC dispatch ({@code Callable}) gets the default, once. */
+  @Test
+  void asyncPageGetsTheDefault() throws Exception {
+    for (MockMvc mvc : Arrays.asList(mvc(), mvc(nosniff()))) {
+      MvcResult started =
+          mvc.perform(get("/csp/async")).andExpect(request().asyncStarted()).andReturn();
+      started.getAsyncResult();
+      assertDefault(mvc.perform(asyncDispatch(started)).andExpect(status().isOk()).andReturn());
+    }
   }
 
   /** No Tessera view, no policy: even a response whose request has a nonce gets none. */
@@ -179,6 +193,11 @@ class CspTest {
     @GetMapping("/csp/error")
     public void error(HttpServletResponse response) throws IOException {
       response.sendError(409);
+    }
+
+    @GetMapping("/csp/async")
+    public Callable<String> async() {
+      return () -> "smoke/csp";
     }
   }
 
