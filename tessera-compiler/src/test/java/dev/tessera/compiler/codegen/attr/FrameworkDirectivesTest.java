@@ -55,7 +55,7 @@ class FrameworkDirectivesTest {
         + "<p CLASS=\"&quot;&gt;\">4</p></div>", c.render("t", Map.of("s", "\">")));
   }
 
-  // ------------------------------- htmx request URLs: a computed one is a neutral link (#249, #584)
+  // ------------------------------- htmx request URLs: a computed one is a neutral link
 
   private static final String[] HTMX_REQUESTS = {
     "hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete", "data-hx-get", "data-hx-delete", "HX-POST",

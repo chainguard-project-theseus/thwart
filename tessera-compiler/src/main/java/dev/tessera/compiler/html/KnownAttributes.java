@@ -12,11 +12,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * The standard attribute names (#330, #584, security-architecture.md §5.3): HTML, SVG,
+ * The standard attribute names (security-architecture.md §5.3): HTML, SVG,
  * MathML and ARIA ({@code attributes.txt}, which names its spec sources). Of these, only the
  * inert-text attributes ({@code inert-attributes.txt}) take a plain value ({@link #needsSafeValue}).
  * Every other plain name ({@code data-*}, a custom element's own attributes, any name outside HTML) takes
- * only a framework-neutral value ({@link Contexts#attribute}, #583 rule 3); a name that is not
+ * only a framework-neutral value ({@link Contexts#attribute}: client frameworks may run any non-standard attribute as code); a name that is not
  * {@code [A-Za-z_][A-Za-z0-9_.:-]*}, such as {@code :x} or {@code @x}, takes none. Static attributes are
  * not checked.
  */

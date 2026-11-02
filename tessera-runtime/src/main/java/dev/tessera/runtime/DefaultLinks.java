@@ -5,7 +5,7 @@ import java.util.function.UnaryOperator;
 /**
  * {@link Links} for a fixed context path and an optional {@code encodeURL} hook.
  *
- * <p>The context path loses any trailing {@code /} ({@code "/"} is the root, {@code ""}; #358), so
+ * <p>The context path loses any trailing {@code /} ({@code "/"} is the root, {@code ""}), so
  * {@code /a} never becomes the protocol-relative {@code //a}. One that is neither empty nor a path
  * starting with a single {@code /}, or that has {@code \}, {@code ?}, {@code #}, a space or a
  * control character, is rejected with an {@link IllegalArgumentException}.

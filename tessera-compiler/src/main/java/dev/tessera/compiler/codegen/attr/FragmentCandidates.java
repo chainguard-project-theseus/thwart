@@ -13,7 +13,7 @@ import java.util.Optional;
 
 /**
  * What a {@code Fragment}-typed expression may write, as a closed set of candidates the verifier
- * parses where the value lands (#561). A {@code Fragment} parameter of the fragment being generated
+ * parses where the value lands. A {@code Fragment} parameter of the fragment being generated
  * is a {@link Skeleton.ParamInsert}, bound at each call site; {@code null} writes nothing; a
  * {@code t:with} alias is what its value was ({@link Scope#fragment}); a ternary or Elvis is the
  * union of its branches. Anything else is a
@@ -84,7 +84,7 @@ final class FragmentCandidates {
       // Any other local: a loop variable, or a t:with alias of something else.
       return null;
     }
-    // Only a fragment has Fragment parameters: a page may not (#676).
+    // Only a fragment has Fragment parameters: a page may not.
     TemplateIndex.FragmentInfo f = ctx.fragment();
     for (TemplateIndex.Param p : f == null ? Collections.<TemplateIndex.Param>emptyList() : f.params()) {
       if (p.name().equals(name)) {

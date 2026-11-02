@@ -41,7 +41,7 @@ import javax.tools.StandardLocation;
  * reports diagnostics as {@code file:line:col: message} javac errors. If any template has an
  * error, nothing is written. Never claims annotations, so other processors are unaffected.
  *
- * <p>Rounds (#233): it compiles the templates in the first round and, if that succeeds, is done.
+ * <p>Rounds: it compiles the templates in the first round and, if that succeeds, is done.
  * If there are errors it says nothing and tries again in each later round, reporting the errors of
  * the last round ({@code processingOver}). Processors that add members to existing classes, such
  * as Lombok, may run after Tessera in a round or (Lombok 1.16) not finish in the first round; javac
@@ -49,13 +49,13 @@ import javax.tools.StandardLocation;
  * generated getters whatever the processor order. A compile that succeeded before Lombok finished
  * is checked again in the last round; if the output would differ the build fails.
  *
- * <p>Function index (#118): for each {@code @TemplateFunctions("ns")} class in this compilation it
+ * <p>Function index: for each {@code @TemplateFunctions("ns")} class in this compilation it
  * writes {@code META-INF/tessera/functions/ns} (the class name), and a namespace the templates use
  * that is not in this compilation is looked up there on the classpath. So test compilation and
  * incremental builds, which compile templates without recompiling the function classes, still
  * find them (Maven puts the main output directory on both classpaths).
  *
- * <p>Template fingerprint (#425, #447): after a successful compile it writes {@link
+ * <p>Template fingerprint: after a successful compile it writes {@link
  * TemplateFingerprint#RESOURCE}, the paths and hashes of the templates and message files it read,
  * which {@code tessera-maven-plugin} checks before the next build.
  */
@@ -66,13 +66,13 @@ public final class TesseraProcessor extends AbstractProcessor {
   private boolean done;
   private ProcessorOptions options;
   private boolean warnedSkippedMessages;
-  /** What the processor wrote, compared with a last-round compile (#233), or null. */
+  /** What the processor wrote, compared with a last-round compile, or null. */
   private List<GeneratedFile> written;
-  /** The skeletons of the templates whose classes were written (#366); empty until then. */
+  /** The skeletons of the templates whose classes were written; empty until then. */
   private Map<String, Skeleton.TemplateSkeleton> skeletons = Collections.emptyMap();
-  /** #131: the fragments the verifier checked as response bodies, as {@code page :: fragment}. */
+  /** The fragments the verifier checked as response bodies, as {@code page :: fragment}. */
   private Set<String> servableFragments = Collections.emptySet();
-  /** The templates the last {@link #compile} read (#425). */
+  /** The templates the last {@link #compile} read. */
   private List<TemplateSource> sources = Collections.emptyList();
   private final Set<String> functionClassNames = new LinkedHashSet<>();
 
@@ -114,18 +114,18 @@ public final class TesseraProcessor extends AbstractProcessor {
       List<TypeElement> functionClasses = functionClasses();
       TemplateCompiler.Result result = compile(diagnostics, functionClasses);
       if (diagnostics.hasErrors() && !round.processingOver()) {
-        // #233: another processor (Lombok) may still be adding members to the classes the templates
+        // Another processor (Lombok) may still be adding members to the classes the templates
         // read; javac re-enters every class before the next round, so try again then and only
         // report errors in the last round.
         return false;
       }
       done = true;
       if (!diagnostics.hasErrors()) {
-        // The security boundary for markup contexts (#367): runs on every build, after the profile.
+        // The security boundary for markup contexts: runs on every build, after the profile.
         ContextVerifier.verify(result.skeletons(), diagnostics);
       }
       if (!diagnostics.hasErrors()) {
-        // #131: which fragments get a "page :: fragment" registry entry.
+        // Which fragments get a "page :: fragment" registry entry.
         servableFragments = ContextVerifier.servableFragments(result.skeletons());
       }
       // Once each: a fragment's private copies report its errors again (CodegenContext.privateFragment).
@@ -184,7 +184,7 @@ public final class TesseraProcessor extends AbstractProcessor {
   }
 
   /**
-   * #233: a compile that succeeded before another processor finished adding members can still
+   * A compile that succeeded before another processor finished adding members can still
    * be wrong without an error (script JSON lists the getters it sees, even none). The Filer cannot
    * rewrite files, so compile once more in the last round and fail the build if the output changed.
    */

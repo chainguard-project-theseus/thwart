@@ -14,7 +14,7 @@ import java.util.Set;
  * original: there are no comments, no raw-text or foreign-content elements, and no other
  * attributes.
  *
- * <p>The output is balanced {@code FLOW} content in a closed content model (#329, #592; the table
+ * <p>The output is balanced {@code FLOW} content in a closed content model (the table
  * is in docs/context-model.md). Elements are kept on an open-element stack, and each start tag is
  * written only if it fits the current node:
  *
@@ -37,7 +37,7 @@ import java.util.Set;
  * known character references are decoded and re-escaped, and {@link #HTML4_NAMES} references such
  * as {@code &eacute;} are kept as they are. Any other {@code &} is escaped, so {@code &notit;} or
  * {@code &X;} comes out as {@code &amp;notit;}: copied as written, the parser would report a parse
- * error for it (a legacy name without its ';', or an unknown name; #592).
+ * error for it (a legacy name without its ';', or an unknown name).
  */
 final class HtmlSanitizer {
   /** Kept elements beyond this nesting depth are unwrapped. */
@@ -56,7 +56,7 @@ final class HtmlSanitizer {
 
   /**
    * Formatting elements, never inside an open element of their own name: that rules out the
-   * parser's {@code a}-in-{@code a} error and its Noah's Ark clause (#329).
+   * parser's {@code a}-in-{@code a} error and its Noah's Ark clause.
    */
   private static final Set<String> FORMATTING = Ascii.set("a", "b", "code", "em", "i", "s", "small", "strong", "u");
 
@@ -70,7 +70,7 @@ final class HtmlSanitizer {
   /**
    * The spec's numeric character reference table for U+0080..U+009F (windows-1252), indexed by
    * {@code cp - 0x80}; 0 where the spec keeps the C1 control, which the writers make U+FFFD. Word
-   * pastes such as {@code don&#146;t} then read as the browser shows them (#592).
+   * pastes such as {@code don&#146;t} then read as the browser shows them.
    */
   private static final String WINDOWS_1252 = "€\0‚ƒ„…†‡ˆ‰Š‹Œ\0Ž\0"
       + "\0‘’“”•–—˜™š›œ\0žŸ";
@@ -96,9 +96,9 @@ final class HtmlSanitizer {
   }
 
   /**
-   * The HTML 4 named references, which Spring's {@code HtmlUtils.htmlEscape} writes (#262). With
+   * The HTML 4 named references, which Spring's {@code HtmlUtils.htmlEscape} writes. With
    * its ';', each is a complete name in the spec's table, so the parser reads it without an error
-   * and the sanitizer keeps it as written; any other name not in {@link #ENTITIES} is escaped (#592).
+   * and the sanitizer keeps it as written; any other name not in {@link #ENTITIES} is escaped.
    */
   private static final Set<String> HTML4_NAMES = Ascii.set(
       "Aacute", "aacute", "Acirc", "acirc", "acute", "AElig", "aelig", "Agrave", "agrave", "alefsym", "Alpha", "alpha",
@@ -360,7 +360,7 @@ final class HtmlSanitizer {
   /**
    * The escaped value of a URL attribute that passes the scheme check, or {@code null}. An image
    * {@code src} must also be a same-origin path, whatever the policy, so viewing stored content
-   * never fetches from another host or shows an inline {@code data:} image (#661).
+   * never fetches from another host or shows an inline {@code data:} image.
    */
   private String url(String raw, boolean image) {
     if (raw == null) {
@@ -571,9 +571,9 @@ final class HtmlSanitizer {
 
   /**
    * {@code s} with every CR (here only a reference such as {@code &#13;} makes one) written as the
-   * LF the parser reads it as (#592). Code points the parser reports as errors in its input are
+   * LF the parser reads it as. Code points the parser reports as errors in its input are
    * left to the writer, {@link Escapers#appendHtml}, which writes
-   * them as U+FFFD ({@link Escapers#forbiddenCodePoint}, #614), so the output parses without an error.
+   * them as U+FFFD ({@link Escapers#forbiddenCodePoint}), so the output parses without an error.
    */
   private static String crAsLf(String s) {
     return s.replace('\r', '\n');

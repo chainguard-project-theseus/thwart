@@ -64,7 +64,7 @@ public final class FieldProcessor implements AttributeProcessor {
   /**
    * Input types whose {@code t:field} writes only {@code name} and {@code id}, never the bound value
    * (Thymeleaf's file field processor writes none either). The value is not read, so its type need
-   * not be view-safe, e.g. a {@code MultipartFile} (#129).
+   * not be view-safe, e.g. a {@code MultipartFile}.
    */
   private static final Set<String> NAME_ONLY = Backports.setOf("file", "password");
 

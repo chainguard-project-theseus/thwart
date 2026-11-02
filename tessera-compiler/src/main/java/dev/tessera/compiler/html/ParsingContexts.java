@@ -24,7 +24,7 @@ import java.util.Set;
  * <p>A context is {@link #HTML}, {@code svg}, {@code math}, {@code select}, or the name of the
  * raw-text element. SVG {@code foreignObject}, {@code desc} and {@code title} and MathML {@code mi
  * mo mn ms mtext} hold HTML. Nothing inside {@code <svg>} or {@code <math>} is an insertion point
- * and a fragment declared there holds only static markup (#678), and a breakout tag such as {@code
+ * and a fragment declared there holds only static markup, and a breakout tag such as {@code
  * <p>} there is a parse error, so the contexts inside them only tell a fragment declared there
  * from one declared in HTML. The svg and math contexts exist only for the {@code <svg t:replace>}
  * case, where the fragment root is itself an {@code <svg>}; every other placement in them is
@@ -160,7 +160,7 @@ public final class ParsingContexts {
   }
 
   // What a fragment root, t:remove or <template> actually puts into a <select> is checked on the
-  // composed output by the verifier's exclusion (c), SELECT_CONTENT (#305).
+  // composed output by the verifier's exclusion (c), SELECT_CONTENT.
   private static boolean selectSafe(Element e) {
     if (NOT_IN_SELECT.contains(HtmlParser.asciiLower(e.name()))) {
       return false;

@@ -311,7 +311,7 @@ final class Expressions {
 
   private static final Pattern BLOCK_SELECTOR = Pattern.compile("::(\\s*)th:block(?![\\w:-])");
 
-  /** {@code ~{::th:block}} selects Tessera's {@code <t:block>}, so it becomes {@code ~{::t:block}} (#137). */
+  /** {@code ~{::th:block}} selects Tessera's {@code <t:block>}, so it becomes {@code ~{::t:block}}. */
   static String rewriteBlockSelectors(String expr) {
     return replaceOutsideLiterals(expr, BLOCK_SELECTOR, m -> "::" + m.group(1) + "t:block");
   }

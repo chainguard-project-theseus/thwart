@@ -312,10 +312,10 @@ public final class LinkCompiler {
    * A literal link path that stays on the page's origin: it starts with {@code /} and a browser
    * does not read it as protocol-relative ({@code //host}, {@code /\host}, {@code /<tab>/host}).
    * The runtime's {@link Escapers#isSameOriginUrl} rule for a path. Used for
-   * refresh URLs, the link {@code action} of any form (#585), a {@code formaction} that may receive the CSRF token and
+   * refresh URLs, the link {@code action} of any form, a {@code formaction} that may receive the CSRF token and
    * {@code <base href>}, which must be same-origin. This checks only the literal; the context path
    * or a custom {@code Links} can still make the built URL protocol-relative, so the generated code
-   * re-checks it with {@code Escapers.sameOriginLink} (#358).
+   * re-checks it with {@code Escapers.sameOriginLink}.
    */
   public static boolean isSameOriginPath(String path) {
     return path.startsWith("/") && Escapers.isSameOriginUrl(path);

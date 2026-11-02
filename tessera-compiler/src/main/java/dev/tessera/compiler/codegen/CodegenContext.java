@@ -53,7 +53,7 @@ public interface CodegenContext {
 
   /**
    * Java statements that render {@code node} and its subtree in {@code scope}, with their skeleton
-   * (#366: everything generated code writes goes through {@link Emitted}).
+   * (everything generated code writes goes through {@link Emitted}).
    */
   Emitted renderNode(Node node, Scope scope);
 

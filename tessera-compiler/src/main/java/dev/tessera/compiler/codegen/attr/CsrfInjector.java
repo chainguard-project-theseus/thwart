@@ -17,12 +17,12 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
- * The CSRF token, by a closed shape (#285, #314, #350, #386): the compiler adds a hidden input
+ * The CSRF token, by a closed shape: the compiler adds a hidden input
  * with {@code ctx.forms().csrfToken()} after the start tag of a {@code <form>} only when it can see,
  * at build time, that the form posts to the page's origin. Everything HTML gives a browser to send
  * that form elsewhere is held to the same rule, on every element, so no rule depends on which form
  * owns a button. What client code such as htmx does with a form ({@code hx-post}, {@code hx-get},
- * a boost) is outside the guarantee (#583): use htmx 2 or set {@code selfRequestsOnly}.
+ * a boost) is outside the guarantee: use htmx 2 or set {@code selfRequestsOnly}.
  *
  * <ul>
  *   <li>The method is a static {@code method="post"} (ASCII case-insensitive, untrimmed, as a
@@ -30,8 +30,8 @@ import java.util.regex.Pattern;
  *       method on a {@code <form>} is a build error ({@code GenericAttrProcessor}).
  *   <li>The action is absent, a static URL same-origin by shape ({@link Escapers#isSameOriginUrl}),
  *       or, computed ({@code t:action}, {@code t:attr="action=..."}), a link with a same-origin
- *       literal path, re-checked when rendered, or a choice whose every branch is one (#635;
- *       {@code GenericAttrProcessor}); any other computed action of a static POST form is a build
+ *       literal path, re-checked when rendered, or a choice whose every branch is one
+ *       ({@code GenericAttrProcessor}); any other computed action of a static POST form is a build
  *       error. A static action on another origin is the author's visible choice: no token.
  *   <li>Every {@code formaction} and {@code formmethod}, in any form or none, is checked as if its
  *       form got the token: {@link #checkSubmitter} and {@code GenericAttrProcessor}.
@@ -39,11 +39,11 @@ import java.util.regex.Pattern;
  *       one is a same-origin link already ({@code GenericAttrProcessor}).
  *   <li>A nested {@code <form>} is a verifier {@code PARSE_ERROR}, also through fragments and every
  *       {@code Fragment} value a template builds: each is checked where it lands ({@code
- *       FragmentCandidates}, #561). Java can't build a {@code Fragment} (#676).
+ *       FragmentCandidates}). Java can't build a {@code Fragment}.
  *       {@code <form/>} is an error here.
  * </ul>
  *
- * <p>A form that writes its own token input (#225) keeps it and gets no second one: a direct child
+ * <p>A form that writes its own token input keeps it and gets no second one: a direct child
  * {@code <input type="hidden">} whose literal {@code name} equals the token's parameter name at
  * render time ({@link #ownTokenNames}).
  */
@@ -137,7 +137,7 @@ public final class CsrfInjector {
   /**
    * Checks the static {@code formaction} and {@code formmethod} of every element, since any form
    * may get the token and a {@code form} attribute or a fragment can make a button submit any
-   * form (#314): the action must be same-origin by shape, and the method {@code post} or
+   * form: the action must be same-origin by shape, and the method {@code post} or
    * {@code dialog} (any other value, invalid ones included, submits as GET and would put the token
    * in the URL). Computed ones are checked by {@code GenericAttrProcessor}.
    */
@@ -165,7 +165,7 @@ public final class CsrfInjector {
   }
 
   /**
-   * Checks every static {@code href} of a {@code <base>} (#350), whether or not the template has a
+   * Checks every static {@code href} of a {@code <base>}, whether or not the template has a
    * form (a layout's applies to the forms its fragments insert): every relative action resolves
    * against it, so it must be same-origin by shape, like a static {@code action}. A computed one is
    * a same-origin link or a build error ({@code GenericAttrProcessor}). Every {@code href} is

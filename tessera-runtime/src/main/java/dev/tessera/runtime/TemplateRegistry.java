@@ -16,7 +16,7 @@ import java.util.ServiceLoader;
  * here; an unknown name is simply absent, never parsed.
  *
  * <p>Besides its templates ({@link #all}), a registry holds an entry per fragment that can be
- * rendered on its own as a response ({@link #fragments}, #131), named {@code page :: fragment}
+ * rendered on its own as a response ({@link #fragments}), named {@code page :: fragment}
  * with single spaces. {@link #find} finds both.
  */
 public interface TemplateRegistry {
@@ -28,7 +28,7 @@ public interface TemplateRegistry {
 
   /**
    * The fragment entries, named {@code page :: fragment}: one per fragment the verifier checked as a
-   * response body whose parameters a model can supply (#131). Empty by default.
+   * response body whose parameters a model can supply. Empty by default.
    */
   default Collection<TemplateEntry> fragments() {
     return Collections.emptyList();

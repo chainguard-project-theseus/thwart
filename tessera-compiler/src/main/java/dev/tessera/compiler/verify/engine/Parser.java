@@ -26,7 +26,7 @@ public interface Parser {
   /** An independent copy in the same state: feeding one doesn't change the other. */
   Parser fork() throws EngineException;
 
-  /** What a parser reports while it parses (#406). Offsets are into the chunk being fed, from 0. */
+  /** What a parser reports while it parses. Offsets are into the chunk being fed, from 0. */
   interface Listener {
     /** A tokenizer or tree-builder parse error, in the engine's words, at the character it was reading. */
     void error(String message, int offset);
@@ -34,7 +34,7 @@ public interface Parser {
     /** An element was inserted at {@code offset}; {@code stack} may be read only during this call. */
     void pushed(Stack stack, int offset);
 
-    /** A CDATA section starts at {@code offset}, with {@code current} (not HTML) the current node (#441). */
+    /** A CDATA section starts at {@code offset}, with {@code current} (not HTML) the current node. */
     void cdata(OpenElement current, int offset);
   }
 

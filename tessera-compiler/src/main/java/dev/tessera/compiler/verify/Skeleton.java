@@ -10,10 +10,10 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * What a generated template class writes, recorded while the generator writes it (#366): the
+ * What a generated template class writes, recorded while the generator writes it: the
  * exact static text, the escaped holes, the control flow around them and the fragment insertions.
  * A render of the class is always in the language of its skeleton, which the test suite checks
- * on every render (docs/security-architecture.md §11). The build-time context verifier (#367)
+ * on every render (docs/security-architecture.md §11). The build-time context verifier
  * feeds the statics to spec HTML parsers and checks each hole in the parser state it lands in.
  *
  * <p>Every node is immutable. Positions are the source construct the bytes come from (the text,
@@ -63,14 +63,14 @@ public final class Skeleton {
     SAFE_HTML,
     /**
      * A bundle message as HTML, {@code t:utext="#{key}"}, sanitized by the message policy without
-     * links: PHRASING content with no {@code a} ({@link ContentKinds}, #677).
+     * links: PHRASING content with no {@code a} ({@link ContentKinds}).
      */
     HTML_MESSAGE,
     /** As {@link #HTML_MESSAGE}, with links: PHRASING content that may have an {@code a}. */
     LINKED_HTML_MESSAGE,
     /**
      * An unbound {@code Fragment} parameter: a fragment checked apart from any call site. A bound
-     * one is its candidates (#561); Java can't build one (#676).
+     * one is its candidates; Java can't build one.
      */
     FRAGMENT_VALUE
   }
@@ -91,7 +91,7 @@ public final class Skeleton {
     ERRORS,
     /**
      * The CSP nonce of a {@code <script>} or {@code <style>} start tag: {@code [ nonce="<hole>"]},
-     * written when the render context has a nonce (#335).
+     * written when the render context has a nonce.
      */
     CSP_NONCE
   }
@@ -441,7 +441,7 @@ public final class Skeleton {
     /**
      * {@code fragmentContexts}: the parsing context each fragment is declared in, as {@code
      * html.ParsingContexts} names it ({@code HTML}, {@code svg}, {@code math}, {@code select}, or
-     * one where no fragment fits); HTML if absent (#461).
+     * one where no fragment fits); HTML if absent.
      */
     public TemplateSkeleton(String viewName, Seq body, Map<String, Seq> fragments, Map<String, String> fragmentContexts) {
       this.viewName = Objects.requireNonNull(viewName);
