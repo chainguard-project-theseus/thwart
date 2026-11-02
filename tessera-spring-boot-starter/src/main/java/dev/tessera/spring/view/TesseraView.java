@@ -2,7 +2,6 @@ package dev.tessera.spring.view;
 
 import dev.tessera.runtime.RenderContext;
 import dev.tessera.runtime.StringOutput;
-import dev.tessera.runtime.Template;
 import dev.tessera.runtime.TemplateEntry;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -72,12 +71,6 @@ public final class TesseraView implements View {
       }
     }
     return converted == null ? model : converted;
-  }
-
-  /** A view over a template already bound to its arguments; the model is not consulted. */
-  public static TesseraView of(Template template, RenderContextFactory contexts) {
-    Objects.requireNonNull(template, "template");
-    return new TesseraView((model, ctx, out) -> template.render(ctx, out), contexts);
   }
 
   @Override

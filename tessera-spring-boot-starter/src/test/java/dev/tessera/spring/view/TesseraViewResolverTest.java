@@ -37,6 +37,16 @@ class TesseraViewResolverTest {
         .isInstanceOf(TesseraView.class);
   }
 
+  @Test
+  void oneViewPerRegistryEntry() {
+    // Every name that finds the same entry gets the same view; each entry its own.
+    assertThat(resolver.resolveViewName("/greeting", Locale.ROOT))
+        .isSameAs(resolver.resolveViewName("greeting", Locale.ROOT));
+    assertThat(resolver.resolveViewName("owners/details::row", Locale.ROOT))
+        .isSameAs(resolver.resolveViewName("owners/details :: row", Locale.ROOT))
+        .isNotSameAs(resolver.resolveViewName("owners/details", Locale.ROOT));
+  }
+
   @ParameterizedTest
   @ValueSource(
       strings = {

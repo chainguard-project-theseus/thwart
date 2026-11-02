@@ -112,13 +112,6 @@ class SmokeTest {
   }
 
   @Test
-  void templateReturnValueRenders() throws Exception {
-    mvc.perform(get("/typed"))
-        .andExpect(status().isOk())
-        .andExpect(content().string(containsString("Hello, Grace")));
-  }
-
-  @Test
   void formErrorsRenderFromBindingResult() throws Exception {
     mvc.perform(post("/signup").param("name", ""))
         .andExpect(status().isOk())

@@ -179,7 +179,7 @@ message file `tessera.messages` names.
 registry and a `TemplateAvailabilityProvider`, on Boot 1.5 through 4, including `@WebMvcTest`
 slices. Tessera's resolver runs first and falls through for view names it doesn't know, so the old
 engine can stay while you migrate. While another engine's view resolver is configured, the starter
-logs `Tessera: another template engine is still configured` naming it.
+logs `Tessera: another template engine is still configured` naming it (JSP is not reported).
 
 **Spring MVC without Boot.** Import `dev.tessera.spring.TesseraConfiguration` (or declare it as a
 bean in XML). It also registers a resolver for `redirect:` and `forward:` names, which the old
