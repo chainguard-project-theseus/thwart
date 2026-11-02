@@ -1,0 +1,41 @@
+{
+ "app": "luckyblog",
+ "run": "run-12",
+ "build_ok": true,
+ "tests_ok": true,
+ "tests": {
+  "tests": 0,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0
+ },
+ "tests_failed": [],
+ "baseline_tests": 0,
+ "pages_total": 64,
+ "pages_identical": 21,
+ "pages_reordered": 0,
+ "status_mismatch": [],
+ "insecure": [],
+ "legacy_templates": [],
+ "legacy_constructs": {},
+ "legacy_deps": [],
+ "tessera_templates": 20,
+ "baseline_templates": 21,
+ "pass": false,
+ "wall_minutes": 11.5,
+ "exit": 0,
+ "model": "opus",
+ "budget_usd": 40,
+ "budget_minutes": 90,
+ "outcome": "success",
+ "cost_usd": 4.081677400000001,
+ "turns": 82,
+ "tokens": {
+  "input_tokens": 158,
+  "output_tokens": 56227,
+  "cache_read_input_tokens": 10070977,
+  "cache_creation_input_tokens": 188462
+ },
+ "skill_listed": true,
+ "skill_invoked": true
+}

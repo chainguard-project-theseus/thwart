@@ -1262,6 +1262,153 @@ line was checked against the migrated checkout in the bench session:
 - `HtmlPolicy.inlineBuilder()` keeps `img src` implicitly (same-origin only), and
   `HtmlPolicy.ATTRIBUTES` doesn't list it (jpetstore).
 
+## Simpler-and-safer round (#751)
+
+Run on Nov 2 from `ecf8bfc`, after the #751 rejections landed (B1, #763). Since run K and run 12:
+- Static `on*` handlers and `javascript:` URLs are build errors (#768).
+- Resource URLs are same-origin links with no query (#773).
+- The starter sends `script-src 'nonce-N' 'strict-dynamic'; object-src 'none'; base-uri 'none'` by
+  default (#772), also under Spring Security (#777).
+- Computed attributes must be on one closed allow-list; other names are rejected with a `data-*`
+  recipe (#779).
+- `t:attr`, `t:errorclass` and unused `t:remove` values are removed with explicit errors (#780).
+- Fragments declared in `<svg>`, `<math>`, `<select>` or raw text are rejected (#778).
+- Types used only by generated code moved to `dev.tessera.runtime.internal` (#781).
+
+**The round.** `hack/corpus.sh` on `ecf8bfc` failed to compile four apps, all on #768 errors:
+budgetmaster, fredbet, luckyblog and purl-server. The other ten committed runs still built and
+passed their tests (ewp-registry once `npm` was installed in the session). espd, jobsearch and
+jprime have no committed `diff.patch`, so the corpus can't check them. posters-demo-store, which A0
+added for the allow-list (#771), had no run. The image was rebuilt from `ecf8bfc` and the five
+baselines were re-recorded. Every `determinism.txt` is all `same`. One run each, numbered one past
+each app's highest, in two `chainctl develop` sessions with 3 and 2 parallel jobs. Every agent
+listed and invoked the skill, and every run exited normally. With the new runs, `hack/corpus.sh`
+builds and tests all 15 committed apps.
+
+| App | Engine | Pass | Tests | Pages same + reordered | Previous run | Acceptable only | Minutes (prev) | Cost $ (prev) |
+|---|---|---|---|---|---|---|---|---|
+| budgetmaster (13) | FreeMarker | no | 269/269 | 23+0/121 | 13+0 (run 12) | ~121/121 (39 diffs cut short) | 36.3 (37.3) | 29.76 (26.50) |
+| fredbet (14) | Thymeleaf | no | 118/118 (base 117) | 123+0/169 | 147+0 (run 13) | 168/169 | 30.4 (30.0) | 15.96 (12.85) |
+| luckyblog (12) | Velocity | no | 0/0 | 21+0/64 | 57+0 (run 11) | 64/64 | 11.5 (13.8) | 4.08 (4.22) |
+| purl-server (12) | Thymeleaf | no | 52/52 (base 46) | 51+0/92 | 90+2, pass (run 11) | 89/92 | 16.2 (15.6) | 5.88 (5.48) |
+| posters-demo-store (1) | Thymeleaf + htmx | no | 284/284 (base 274) | 11+0/141 | new | 139/141 | 42.2 (-) | 25.97 (-) |
+
+The round cost **$81.65** and took 2.3 hours of agent time. The four re-run apps cost $55.68,
+against $49.05 for their previous runs.
+
+**0 of 5 pass, against 1 of the 4 (purl-server) before. Counting acceptable differences, luckyblog
+passes, and so does budgetmaster as far as `compare` shows.** Every app builds and keeps all its
+tests, and no legacy template or dependency is left. Strict passes fell because the rejections
+force visible markup changes. An element that had `onclick="f()"` now carries a `data-action` hook
+(or an `id`) and a listener, so every page with a former handler differs: luckyblog 39 pages,
+purl-server 34, fredbet 28, budgetmaster 22 and posters-demo-store 71. That cost is by design: the
+north star accepts migration cost for a rejection that's simple to prove safe. `compare` can't tell
+a recipe-forced change from a regression.
+
+### Triage
+
+| Run | Pages | Cause | Class |
+|---|---|---|---|
+| luckyblog 12 | 39 | `href="javascript:void(0)" onclick="day_night()"` and the login avatar's `onclick`/`onmouseover` became `href="#"` with `data-action`, and a listener in the existing JS | Acceptable (forced by #768) |
+| luckyblog 12 | 4 more | Sanitizer `user-content-` id prefix and `rel`; Morris chart values as declarations; `css.url()` quotes the avatar URL | Acceptable, as run 11 |
+| purl-server 12 | 34 | `onload`, `onclick` and `onsubmit` became `data-action` hooks and listeners (`loadFormData`, `clearFormData`, `encryptPassword`, `storeFormData`) | Acceptable (forced by #768) |
+| purl-server 12 | 2 (85, 86) | Error pages print the stack trace (`include-stacktrace=always`), which now has `CspFilter` frames | Acceptable (forced by #777) |
+| purl-server 12 | 3 (06-08) | An explicit `<tbody>` written around a `t:each` with no rows adds an empty `tbody` | Agent slip |
+| fredbet 14 | 28 | Vote, dice, image-group, spinner and penalty-check handlers became `data-action`/`data-change` hooks | Acceptable (forced by #768) |
+| fredbet 14 | 20 + 1 + 1 | `data-lightbox` is the image's link, blueimp `data-gallery` an index, `var chartData` moved above `var ctx` | Acceptable, as runs 10-13 |
+| fredbet 14 | 1 (005) | On the settings error POST the team-bundle `<select>` now lists `TeamBundle.values()`; the original controller left the list empty on that path. Follows the #778 restructuring of the htmx partial | Agent slip (harmless) |
+| budgetmaster 13 | 22 | Icon search, form `onsubmit` and settings button handlers became listeners | Acceptable (forced by #768) |
+| budgetmaster 13 | rest | Bare globals as `var` declarations (38 pages), `data-id` prefixes (61), `data-tooltip` to `title` (44), hostile seed names escaped and the tree realigned (32), Tessera's `_csrf` input (19), as run 12 | Acceptable, as run 12 |
+| budgetmaster 13 | 39 | Diffs that `compare` cuts short; the visible part is in the classes above | Unknown (harness) |
+| posters-demo-store 1 | 113 | `<meta name="_csrf" th:content>` is rejected (#779), so each layout declares the token as a script constant that the htmx `configRequest` listener reads. htmx still sends `X-CSRF-TOKEN`, and a test checks it | Acceptable (forced by #779) |
+| posters-demo-store 1 | 71 | Scroll-to-top, password toggles, "same as shipping" and `/break` handlers became hooks and listeners | Acceptable (forced by #768) |
+| posters-demo-store 1 | 64 + 6 | Computed `hx-get`/`hx-post` became `data-hx-*`; query values became hidden inputs with `hx-include` or `hx-boost` links; a localized `hx-confirm` became a hidden text; `data-bs-target="#id-N"` became `href` | Acceptable (forced by #779 and the neutral `data-*` rule) |
+| posters-demo-store 1 | several | Script data written as JSON declarations; hidden `_csrf` inputs in htmx modal forms; error pages the original truncated on a null `currentUri` now render whole, with the same status; random UUIDs | Acceptable |
+| posters-demo-store 1 | 2 (078, 080) | The backoffice customer list counts the customer registered on page 065 (11 rows, one more page); the original's list didn't. Cause not found | Unknown (not a rendering difference) |
+
+### The rejections in practice
+
+The counts are distinct compiler-error sites in the agents' tool results. Guide text the agents
+read and their own prose are left out.
+
+| Change | Errors (sites) | Outcome |
+|---|---|---|
+| #768 static `on*` | luckyblog 3, purl-server 1 | budgetmaster, fredbet and posters-demo-store hit none: `tessera-migrate`'s report flags every handler, and the agents moved them to listeners before the first build. Every site was fixed with the message's `data-*` plus listener recipe. It is the largest page cost of the round (194 pages over 5 apps) |
+| #768 `javascript:` URLs | luckyblog 2 | Fixed as the message says: `href="#"` and a listener |
+| #773 resource URLs | none | No app computes a script, style or frame URL with a query |
+| #772/#777 default CSP | none | See below |
+| #779 allow-list | posters-demo-store 4 (`t:content` on two `<meta>` per layout) | The message offers `t:data-content`, but a computed `data-*` takes only numbers, booleans and links, so a CSRF token can't go there. The agent declared it in a script instead. posters-demo-store wrote `hx-*` as `data-hx-*` from the guide and hit no error for them. Its 2 `data-bs-target` errors are the older neutral-`data-*` rule (#583) |
+| #780 `t:attr`, `t:errorclass` | none | `tessera-migrate` leaves `th:attr` for hand conversion, and the agents used the guide's one-row recipe |
+| #778 fragments in `<select>` | fredbet 1 | An htmx partial declared as `<option th:fragment>` inside `<select>`. The agent moved it out, as the message says, and added explicit `t:selected`; it notes the guide has no recipe for htmx partials in a `<select>` |
+| #781 `.internal` types | none | Agents saw `dev.tessera.runtime.internal.Output` only in generated code |
+
+Other build errors were the usual ones: unknown identifiers and properties (budgetmaster, fredbet),
+`t:field` outside `t:object` (fredbet 22), the script-position `[[...]]` rule (budgetmaster),
+`BigDecimal` arithmetic (posters-demo-store) and parse errors on broken markup (luckyblog, fredbet).
+
+**Every agent fixed every error from the compiler message alone, with one exception.**
+posters-demo-store's `t:content` message points at a `data-*` attribute, which rejects a String.
+The agent found the script-declaration route without help from the message.
+
+**The default CSP.** No agent turned it off, and `tessera.csp.enabled=false` appears in no diff.
+- purl-server considered it, to keep `CspFilter` frames out of its stack-trace error pages, and
+  declined because it "weakens security".
+- posters-demo-store (Spring Security) sends the header: its MockMvc logs show
+  `Content-Security-Policy: script-src 'nonce-…' 'strict-dynamic'; object-src 'none'; base-uri
+  'none'` next to Spring Security's own headers.
+- luckyblog (Boot 1.4) notes that the CSP filter registered, and fredbet that the header is active.
+- budgetmaster notes that Plotly, CodeMirror and Materialize weren't exercised in a browser under
+  the policy. The bench doesn't run JavaScript, so no run shows whether a client library breaks.
+
+### Security review
+
+No diff adds `permitAll`, disables CSRF or adds `@Disabled`/`@Ignore`. `tessera.csp.enabled=false`,
+`SafeHtml.unchecked`, `TrustedUrl`, `internalUnverified$` and `failOnError=false` appear in no
+diff; the hits are report prose. purl-server's `@Disabled` `PurlClientTest` was already disabled in
+the original. Every `t:utext` takes a value built by a sanitizing function or Tessera's typed
+escape and concat:
+- **budgetmaster:** 11 sites. `b i br span` inline policies through `SafeInlineHtml.sanitize`,
+  message arguments escaped first with `SafeInlineHtml.escape`; a block policy that adds `a` with
+  `linkRel`; one `t:utext="text"` whose parameter is `SafeInlineHtml`.
+- **fredbet:** 3 sites, all `html.sanitizeRich`.
+- **luckyblog:** 2 sites through `blog.html`, an app `HtmlPolicy` over `SafeHtml.sanitize`.
+- **purl-server:** `SafeHtml` fields built by `SafeHtml.sanitize` with a heading, text and
+  spacing-class policy, and two sanitized messages.
+- **posters-demo-store:** none. CSRF stays on: forms get Tessera's `_csrf` input and htmx sends
+  the header from the script constant.
+
+### Gaps
+
+No issues were filed from this round.
+
+Tessera:
+- The #779 message suggests `t:data-<name>` for any off-list attribute, but a computed `data-*`
+  rejects a String, so the recipe dead-ends for text such as a CSRF token. There is no recipe for
+  `<meta name="_csrf" content>`, the standard Spring Security pattern for htmx and `fetch`
+  (posters-demo-store).
+- No recipe for a string `data-bs-target="#id-N"` or a localized `hx-confirm` (posters-demo-store).
+- Fragment names can't contain `-`, and neither the guide nor `tessera-migrate` says so
+  (posters-demo-store).
+- posters-demo-store reports that comparing a String with an enum *variable* is silently `false`
+  (only string literals compare by name), which dropped a `selected` option. Unverified.
+- No `BigDecimal` arithmetic, `strings.substringAfter`/`substringBefore`, `set.contains` or
+  `enum.name()` (posters-demo-store).
+- The HTML policy can't allow tables, `style` or arbitrary classes for WYSIWYG output (fredbet).
+
+Guide:
+- No recipe for an htmx partial inside a `<select>` after #778 (fredbet).
+- `CspFilter` appears in stack traces on error pages that print them (purl-server).
+- The Layout Dialect's merge rules aren't described (posters-demo-store).
+
+Tooling and harness:
+- `compare` reports every recipe-forced change (`data-action`, `data-hx-get`, the CSRF constant)
+  as a difference, and masks the CSRF token in `<meta>` but not in a script (luckyblog, purl-server,
+  fredbet, posters-demo-store).
+- `tessera-migrate` suggests "a `<meta>` for JavaScript", which #779 rejects, and rewrites
+  `/*[[...]]*/` inside object literals into a form the compiler rejects (posters-demo-store).
+- `hack/corpus.sh` needs `npm` for ewp-registry, which the bench session env lacks.
+- compare cuts long diffs short (budgetmaster, 39 pages).
+
 ## Limitations
 
 - **Small samples.** One or two runs per app in #151, one in runs 7, 8, 9, 10, 11 and the post-rewrite round, and two or three on the new engines before run 10; the hard apps vary between runs.

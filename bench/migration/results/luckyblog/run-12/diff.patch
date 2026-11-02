@@ -1,0 +1,1696 @@
+diff --git a/.gitignore b/.gitignore
+index d0689d4..599a86d 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -18,4 +18,5 @@ logs/
+ 
+ #idea
+ *.idea
+-*.iml
+\ No newline at end of file
++*.iml
++.tessera/
+diff --git a/MIGRATION-REPORT.md b/MIGRATION-REPORT.md
+new file mode 100644
+index 0000000..d98ec81
+--- /dev/null
++++ b/MIGRATION-REPORT.md
+@@ -0,0 +1,157 @@
++# Migration report: Velocity → Tessera
++
++## Summary
++
++All 18 server-rendered views of luckyBlog are now Tessera templates. They are compiled into
++`com.msun.luckyBlog.templates.*` by the annotation processor during `javac`. Velocity's
++templates, starter dependency and `spring.velocity.*` configuration are gone. When the app
++starts, Tessera logs `Found 20 compiled Tessera templates`, and the
++`another template engine is still configured` warning does not appear.
++
++The build target stays JDK 8. `pom.xml` hard-codes `${java.home}/lib/rt.jar` as the
++bootclasspath, as it did before. `JAVA_HOME=/usr/lib/jvm/java-1.8-openjdk mvn clean package`
++succeeds. The project sets `maven.test.skip=true`, as before, and its only test class
++(`Test.java`) has just an empty `main`. No test was touched.
++
++## What changed
++
++### Build (`pom.xml`)
++- Removed `spring-boot-starter-velocity`. Added `dev.tessera:tessera-spring-boot-starter-javax`
++  (the app uses Boot 1.4.1 with `javax.servlet`).
++- Added `spring-context-support` 4.3.3 explicitly, without `commons-logging`. The Velocity
++  starter used to bring it in, and Boot's `EhCacheCacheConfiguration` needs it for the
++  app's `@Cacheable` caches. The other jars Velocity brought (commons-lang, -beanutils,
++  -collections, -digester) are not used by the app. They are no longer on the classpath.
++- `maven-compiler-plugin` 2.3.2 → 3.8.1 (needed for `annotationProcessorPaths` and `parameters`).
++  Source/target 1.7 → 1.8. Added `tessera-compiler` as the processor, with
++  `-Atessera.templates` and `-Atessera.package=com.msun.luckyBlog.templates`.
++- Added `tessera-maven-plugin` `check`, so editing only a template still triggers a recompile.
++- `maven-jar-plugin` only packaged `**/*.class`. It now also packages `META-INF/services/**` and
++  `META-INF/tessera/**`; without them the packaged app (`target/lucky-blog-*/lib`) finds no
++  templates.
++- The `copy-resources` step to `conf/` runs with filtering on. It now excludes `templates/**`:
++  the templates are compiled into the jar, and filtering would rewrite `${...}`.
++
++### Configuration
++- `application.properties`: removed every `spring.velocity.*` key.
++- `README.md`: the tech stack line says Tessera instead of velocity.
++
++### Templates (`src/main/resources/templates`)
++| Velocity | Tessera |
++|---|---|
++| `module/header.vm` + `module/footer.vm` (`#parse`/`#include`) | layout fragment `fragments/front.html :: front(Info info, Fragment content)` |
++| `module/admin-header.vm` (+ closing markup repeated in each admin page) | layout fragment `fragments/admin.html :: admin(Fragment content, Fragment scripts)` |
++| `VM_global_library.vm` macros `#flip`, `#frontFlip`, `#liClass` | fragments `fragments/paging.html :: flip(...)`, `frontFlip(...)`; `#liClass` became a `t:class` on the `<tr>` that picks by `st.count % 4` |
++| every page `.vm` | a page `.html` of the same view name with typed `t:params` |
++
++Velocity behaviour that the pages depended on, reproduced on purpose:
++- On `/projects` (no page number) Velocity could not evaluate `$current - 1` and printed the
++  references literally (`href="/projects/$prev"`). `frontFlip` writes exactly that when
++  `current` is null.
++- In `login.vm` and `result.vm`, `#set($x = $null)` kept the previous value. `login.html` shows
++  the error growl only when `success < 1`. `result.html` treats a null `result` as success and a
++  null `targetUrl` as `/`.
++- `$!{x}` in a `value=` wrote `value=""`. The `info` form uses `?: ''` to keep that.
++
++### Java
++- `@TemplateView` on `Info`, `BlogView`, `Archive` and `Project`, so templates can read them.
++- `Project.getDateText()` (`@JsonIgnore`, so `/admin/pro.json` is unchanged) returns the date
++  as `Timestamp.toString()`, which is what Velocity printed. `Timestamp` is not view-safe.
++- New `support/view/BlogFunctions` (`blog.html(...)`). It sanitizes the stored article and
++  resume HTML (editor.md/prettify output) with an `HtmlPolicy` whitelist. Velocity printed
++  that HTML raw.
++- `CtrlExceptionHandler` now returns `forward:/error` instead of `/error`. Under Velocity,
++  `/error` was not a Velocity view name, so `InternalResourceViewResolver` forwarded it to
++  Boot's `/error`, which answers 200 with the error page. Tessera strips the leading `/` and
++  would render `error.html` directly with the handler's 500 status. The explicit forward keeps
++  the recorded behaviour: status 200 and the same page.
++
++### Static JS
++`front-end.min.js` (front pages) and `jcala-form.min.js` (login and admin pages) each end with
++one delegated click/mouseover listener. It replaces inline handlers that Tessera rejects (see
++below). The elements are marked with `data-action="day-night"`, `"home"` or `"none"`.
++
++## Security
++- Nothing is printed unescaped any more. Stored HTML goes through the `blog.html` sanitizer;
++  everything else is escaped for its context.
++- No `permitAll`, CSRF or escaping switch was added or changed. The app has no Spring Security.
++  Tessera's starter adds a nonce-based `Content-Security-Policy` header; nothing turns it off.
++  The interceptor-based admin login check is unchanged.
++
++## Page parity
++
++`pages.txt` (in the repo root) has 59 requests. They cover every view: front pages with
++empty, out-of-range and missing page numbers; unknown tags; missing and malformed post ids,
++which go through the error handler; the 404 page; admin while logged out; a failed and a
++successful login; every admin page; every admin form, both its success and its failure
++result page; and the pages again after the data changed.
++
++I recorded the original app (Velocity build) and compared the migrated one with
++`tessera-migrate`. Both ran from the same data with the same startup arguments. The
++datasource was H2 in MySQL mode instead of MySQL, since no MySQL server is available here.
++Result: 25 pages `same`, 34 `differs`, with every status and final URL matching. I checked
++each `differs` page line by line. They contain only the differences below, and all of them
++are forced by Tessera's rules:
++
++1. **Inline handlers and `javascript:` URLs (every front page, login, admin project list).**
++   `<a href="javascript:void(0)" onclick="day_night()">`, the login avatar's
++   `onclick`/`onmouseover` and the project list's `href='javascript:void(0)'` are build errors
++   in Tessera (a strict CSP blocks them). They became `href="#"` plus `data-action`, handled
++   by the listener added to the existing JS files. The page DOM differs by those attributes.
++2. **`style="background: url(...)"` with a value from data (login, about, admin info).**
++   `t:style` accepts only `CssValue`s. `css.url(avatar)` writes `url("/img/avatar.jpg")`
++   (quoted) where Velocity wrote `url(/img/avatar.jpg)`. The CSS means the same.
++3. **Stored article/resume HTML (post, about).** It now goes through `SafeHtml.sanitize`. ids
++   get the fixed `user-content-` prefix. `name` on `<a>` is not in `HtmlPolicy.ATTRIBUTES`,
++   so it is dropped. `<ol>/<li>` inside `<pre>` (prettify's line numbering) is flattened. The
++   text content is identical (checked by stripping tags from both pages).
++4. **Admin monitor `<script>`.** `[[...]]` must be a declaration at the top of the script, so
++   the script now starts with `const freeMemory = ..; const used = ..;` and the
++   `Morris.Donut` call uses those names. The free-memory value comes from the OS and changes
++   between any two runs anyway, even of the original app.
++
++## What could not be converted 1:1, and why
++- The four difference classes above cannot be made `same` without bringing back what
++  Tessera forbids (inline handlers, raw HTML, unquoted computed CSS). I kept Tessera's
++  behaviour and wrote down each difference.
++- `pages.txt` does not include an avatar upload (`multipart/form-data`): `tessera-migrate`
++  only sends URL-encoded forms. A non-multipart POST to `/admin/file/uplAva.action` is
++  included, and it renders the same info page.
++
++## Where Tessera or its documentation fell short
++- **Boot 1.4.** The guide supports only Boot 1.5+ and warns that older versions are untested.
++  The app is on Boot 1.4.1 / Spring 4.3.3. It worked: the auto-configuration, CSP filter and
++  view resolver all registered.
++- **Compare cannot tell forced changes from regressions.** The guide prescribes the
++  `onclick`/`javascript:` recipe, but `compare` still reports the resulting attribute changes
++  as `differs`. Nothing marks them as expected, so a migration that follows the recipe can
++  never reach exit 0 on pages that had inline handlers. Only `--ignore` is offered, and it
++  would have to mask real markup.
++- **`css.url` quotes its output**, so every computed `url(...)` differs from the original
++  textually. The guide does not mention this.
++- **The sanitizer's structural rules are undocumented.** The guide does not say that
++  `<ol>/<li>` inside `<pre>` are flattened, or that `rel="nofollow noopener"` is added to
++  links. I found both by experiment with `jshell`. The guide's allowed-attribute list is
++  incomplete too: it does not say that `name` (e.g. `<a name>` anchors from Markdown
++  editors) can never be allowed. `allowAttributes("name")` throws
++  `IllegalArgumentException` when the class initializes, which surfaced only at runtime as
++  an `ExceptionInInitializerError` (a 500 on the first post page), not at build time.
++- **Class prefix syntax.** The guide says `allowClasses` takes "class names or prefixes" but
++  not the syntax. It is `"lang-*"`; a bare `"lang-"` silently matches nothing.
++- **Leading-slash view names.** The guide says one leading `/` is dropped. It does not warn
++  that this changes behaviour for apps whose old resolver ignored `/error` and let Spring
++  forward to Boot's error controller: the status code changes (200 → 500).
++- **The `jar` plugin include pattern.** The guide says `META-INF/services/...` and
++  `META-INF/tessera/**` must be packaged. A jar plugin restricted to `**/*.class`, as here,
++  silently drops them. Only the startup warning would show it.
++- `tessera-migrate`'s automatic rewrite only handles Thymeleaf. The Velocity conversion was
++  done by hand.
++- `mvn dependency:copy -DoutputDirectory=...`, the command the skill gives for fetching the
++  tool, is overridden by this project's own `maven-dependency-plugin` `<outputDirectory>`, so
++  the jar ended up elsewhere. I copied it from `~/.m2` instead.
++
++## How to reproduce the check locally
++The local helpers live in `.tessera/`, which is git-ignored: an H2 schema and the converted
++seed data, `run.sh <appdir> <port>`, and `cycle.sh`, which rebuilds, restarts and compares.
++The baseline was recorded from the original build with
++`java -jar .tessera/tessera-migrate.jar record http://localhost:8080 pages.txt .tessera/baseline`.
+diff --git a/README.md b/README.md
+index a3e5104..da509c9 100644
+--- a/README.md
++++ b/README.md
+@@ -2,7 +2,7 @@
+ 响应式个人博客网站
+ 
+ ### 技术栈
+-* 后端：`SpringBoot`, `Mybatis`, `Mysql`, `velocity`, `ehcache`, `druid`
++* 后端：`SpringBoot`, `Mybatis`, `Mysql`, `Tessera`, `ehcache`, `druid`
+ * 前端：`html`, `css`, `javascript`, `jQuery`
+ * 构建：`Maven`
+ 
+diff --git a/pages.txt b/pages.txt
+new file mode 100644
+index 0000000..654a48c
+--- /dev/null
++++ b/pages.txt
+@@ -0,0 +1,64 @@
++# Front end, initial data
++GET /
++GET /archives/1
++GET /archives/0
++GET /archives/5
++GET /tags
++GET /tags/java
++GET /tags/zzz
++GET /projects
++GET /projects/1
++GET /projects/0
++GET /projects/2
++GET /about
++GET /post/23
++GET /post/99
++GET /post/abc
++GET /no-such-page
++# Logged out admin
++GET /admin/
++GET /admin/blogList/1
++GET /login
++POST /login.action username=jcala&password=wrong
++GET /login?result=ok
++POST /login.action username=jcala&password=21232f297a57a5a743894a0e4a801fc3
++# Admin pages
++GET /admin/
++GET /admin/blogAdd
++GET /admin/blogList/1
++GET /admin/blogList/2
++GET /admin/project/1
++GET /admin/project/2
++GET /admin/update23
++GET /admin/update99
++GET /admin/info
++GET /admin/resume
++GET /admin/pro.json?id=1
++# Admin forms
++POST /admin/info.action username=jcala&email=me@example.com&github=https://github.com/jcala&twitter=https://twitter.com/jcala
++POST /admin/post.action tags=java&md=x&article=x
++POST /admin/post.action title=Tom+%26+Jerry&tags=java,cartoon&md=%23+Hello&article=%3Ch2+id%3D%22h2-hello%22%3EHello%3C%2Fh2%3E%3Cp%3EA+%3Ccode%3Eline%3C%2Fcode%3E%3C%2Fp%3E
++POST /admin/update.action vid=25&tags=java&md=x&article=x
++POST /admin/update.action vid=25&title=Tom+%26+Jerry+2&tags=java,cartoon&md=%23+Hello+2&article=%3Cp%3EUpdated%3C%2Fp%3E
++GET /admin/update25
++POST /admin/addPro.action name=Second&url=https://example.com/p2&tech=java+%26+spring&desp=A+second+project&date=2017-01-02+03:04:05
++GET /admin/project/1
++POST /admin/resume.action md=%23+Me&resume=%3Ch2+id%3D%22h2-me%22%3EMe%3C%2Fh2%3E%3Cp%3EResume+%3Cstrong%3Etext%3C%2Fstrong%3E%3C%2Fp%3E
++POST /admin/pass.action old_pass=bad&new_pass=x
++POST /admin/file/uplAva.action avatar=none
++GET /admin/delete/999
++GET /admin/deletePro/999
++# Front end after changes
++GET /
++GET /archives/1
++GET /tags
++GET /tags/cartoon
++GET /projects/1
++GET /about
++GET /post/23
++GET /post/25
++GET /admin/blogList/1
++GET /admin/delete/25
++GET /admin/blogList/1
++GET /logout
++GET /admin/info
+diff --git a/pom.xml b/pom.xml
+index e079280..1434c9d 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -12,10 +12,11 @@
+ 		<maven.build.timestamp.format>yyyyMMddHH</maven.build.timestamp.format>
+ 		<maven.test.skip>true</maven.test.skip>
+ 		<downloadSources>false</downloadSources>
+-		<java_source_version>1.7</java_source_version>
+-		<java_target_version>1.7</java_target_version>
++		<java_source_version>1.8</java_source_version>
++		<java_target_version>1.8</java_target_version>
+ 		<file_encoding>UTF-8</file_encoding>
+-		<jdk.version>1.7</jdk.version>
++		<jdk.version>1.8</jdk.version>
++		<tessera.version>0.1.0-SNAPSHOT</tessera.version>
+ 
+ 		<junit.version>4.8.2</junit.version>
+ 		<spring.boot.version>1.4.1.RELEASE</spring.boot.version>
+@@ -92,14 +93,19 @@
+ 		
+ 		<!-- template -->
+ 		<dependency>
+-			<groupId>org.springframework.boot</groupId>
+-			<artifactId>spring-boot-starter-velocity</artifactId>
+-			<version>${spring.boot.version}</version>
+-			<type>jar</type>
++			<groupId>dev.tessera</groupId>
++			<artifactId>tessera-spring-boot-starter-javax</artifactId>
++			<version>${tessera.version}</version>
++		</dependency>
++		<!-- EhCacheCacheManager; formerly brought in by spring-boot-starter-velocity -->
++		<dependency>
++			<groupId>org.springframework</groupId>
++			<artifactId>spring-context-support</artifactId>
++			<version>4.3.3.RELEASE</version>
+ 			<exclusions>
+ 				<exclusion>
+-					<groupId>org.apache.velocity</groupId>
+-					<artifactId>velocity-tools</artifactId>
++					<groupId>commons-logging</groupId>
++					<artifactId>commons-logging</artifactId>
+ 				</exclusion>
+ 			</exclusions>
+ 		</dependency>
+@@ -163,19 +169,43 @@
+ 			<plugin>
+ 				<groupId>org.apache.maven.plugins</groupId>
+ 				<artifactId>maven-compiler-plugin</artifactId>
+-				<version>2.3.2</version>
++				<version>3.8.1</version>
+ 				<configuration>
+ 					<source>${java_source_version}</source>
+ 					<target>${java_target_version}</target>
+ 					<showDeprecation>false</showDeprecation>
+ 					<showWarnings>true</showWarnings>
+ 					<encoding>${file_encoding}</encoding>
++					<parameters>true</parameters>
+ 					<compilerArguments>
+ 						<verbose />
+ 						<bootclasspath>${java.home}/lib/rt.jar</bootclasspath>
+ 					</compilerArguments>
++					<annotationProcessorPaths>
++						<path>
++							<groupId>dev.tessera</groupId>
++							<artifactId>tessera-compiler</artifactId>
++							<version>${tessera.version}</version>
++						</path>
++					</annotationProcessorPaths>
++					<compilerArgs>
++						<arg>-Atessera.templates=${project.basedir}/src/main/resources/templates</arg>
++						<arg>-Atessera.package=com.msun.luckyBlog.templates</arg>
++					</compilerArgs>
+ 				</configuration>
+ 			</plugin>
++			<plugin>
++				<groupId>dev.tessera</groupId>
++				<artifactId>tessera-maven-plugin</artifactId>
++				<version>${tessera.version}</version>
++				<executions>
++					<execution>
++						<goals>
++							<goal>check</goal>
++						</goals>
++					</execution>
++				</executions>
++			</plugin>
+ 			<plugin>
+ 				<groupId>org.apache.maven.plugins</groupId>
+ 				<artifactId>maven-surefire-plugin</artifactId>
+@@ -210,6 +240,9 @@
+ 					</archive>
+ 					<includes>
+ 						<include>**/*.class</include>
++						<!-- compiled Tessera templates register themselves here -->
++						<include>META-INF/services/**</include>
++						<include>META-INF/tessera/**</include>
+ 					</includes>
+ 					<excludes>
+ 						<exclude>**/*Test.class</exclude>
+@@ -240,6 +273,10 @@
+ 										<include>*</include>
+ 										<include>**/*</include>
+ 									</includes>
++									<!-- templates are compiled into classes by Tessera -->
++									<excludes>
++										<exclude>templates/**</exclude>
++									</excludes>
+ 								</resource>
+ 							</resources>
+ 						</configuration>
+diff --git a/src/main/java/com/msun/luckyBlog/persistence/domain/Archive.java b/src/main/java/com/msun/luckyBlog/persistence/domain/Archive.java
+index 1a6d8ce..bb8537e 100644
+--- a/src/main/java/com/msun/luckyBlog/persistence/domain/Archive.java
++++ b/src/main/java/com/msun/luckyBlog/persistence/domain/Archive.java
+@@ -3,6 +3,8 @@
+  */
+ package com.msun.luckyBlog.persistence.domain;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import java.util.List;
+ 
+ /**
+@@ -10,6 +12,7 @@ import java.util.List;
+  * 
+  * @author zxc Dec 1, 2016 6:35:53 PM
+  */
++@TemplateView
+ public class Archive {
+ 
+     private int            year; // 年份
+diff --git a/src/main/java/com/msun/luckyBlog/persistence/domain/BlogView.java b/src/main/java/com/msun/luckyBlog/persistence/domain/BlogView.java
+index 8feb3ed..f8c489a 100644
+--- a/src/main/java/com/msun/luckyBlog/persistence/domain/BlogView.java
++++ b/src/main/java/com/msun/luckyBlog/persistence/domain/BlogView.java
+@@ -3,6 +3,8 @@
+  */
+ package com.msun.luckyBlog.persistence.domain;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import java.sql.Date;
+ 
+ /**
+@@ -10,6 +12,7 @@ import java.sql.Date;
+  * 
+  * @author zxc Dec 1, 2016 6:36:01 PM
+  */
++@TemplateView
+ public class BlogView {
+ 
+     private Integer vid;     // id
+diff --git a/src/main/java/com/msun/luckyBlog/persistence/domain/Info.java b/src/main/java/com/msun/luckyBlog/persistence/domain/Info.java
+index e33125d..0073952 100644
+--- a/src/main/java/com/msun/luckyBlog/persistence/domain/Info.java
++++ b/src/main/java/com/msun/luckyBlog/persistence/domain/Info.java
+@@ -3,11 +3,14 @@
+  */
+ package com.msun.luckyBlog.persistence.domain;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ /**
+  * 个人信息
+  * 
+  * @author zxc Dec 1, 2016 6:36:10 PM
+  */
++@TemplateView
+ public class Info {
+ 
+     private String username; // 用户名
+diff --git a/src/main/java/com/msun/luckyBlog/persistence/domain/Project.java b/src/main/java/com/msun/luckyBlog/persistence/domain/Project.java
+index da26432..386bca5 100644
+--- a/src/main/java/com/msun/luckyBlog/persistence/domain/Project.java
++++ b/src/main/java/com/msun/luckyBlog/persistence/domain/Project.java
+@@ -3,11 +3,16 @@
+  */
+ package com.msun.luckyBlog.persistence.domain;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import java.sql.Timestamp;
+ 
++import com.fasterxml.jackson.annotation.JsonIgnore;
++
+ /**
+  * @author zxc Dec 1, 2016 6:36:23 PM
+  */
++@TemplateView
+ public class Project {
+ 
+     private int       id;  // id
+@@ -64,4 +69,10 @@ public class Project {
+     public void setDate(Timestamp date) {
+         this.date = date;
+     }
++
++    // 页面显示用的日期文本，与 Timestamp.toString() 一致
++    @JsonIgnore
++    public String getDateText() {
++        return date == null ? null : date.toString();
++    }
+ }
+diff --git a/src/main/java/com/msun/luckyBlog/support/exception/CtrlExceptionHandler.java b/src/main/java/com/msun/luckyBlog/support/exception/CtrlExceptionHandler.java
+index 38ed408..d6e8a9f 100644
+--- a/src/main/java/com/msun/luckyBlog/support/exception/CtrlExceptionHandler.java
++++ b/src/main/java/com/msun/luckyBlog/support/exception/CtrlExceptionHandler.java
+@@ -25,6 +25,7 @@ public class CtrlExceptionHandler {
+     @ExceptionHandler(Exception.class)
+     public ModelAndView handleIOException(Exception e) {
+         log.info(e.getLocalizedMessage());
+-        return new ModelAndView("/error");
++        // 与原 Velocity 配置下的行为一致: "/error" 不是模板视图名, 由 InternalResourceViewResolver 转发到 /error
++        return new ModelAndView("forward:/error");
+     }
+ }
+diff --git a/src/main/java/com/msun/luckyBlog/support/view/BlogFunctions.java b/src/main/java/com/msun/luckyBlog/support/view/BlogFunctions.java
+new file mode 100644
+index 0000000..c828fca
+--- /dev/null
++++ b/src/main/java/com/msun/luckyBlog/support/view/BlogFunctions.java
+@@ -0,0 +1,34 @@
++/*
++ * Copyright 2015-2020 msun.com All right reserved.
++ */
++package com.msun.luckyBlog.support.view;
++
++import dev.tessera.runtime.HtmlPolicy;
++import dev.tessera.runtime.SafeHtml;
++import dev.tessera.runtime.TemplateFunction;
++import dev.tessera.runtime.TemplateFunctions;
++
++/**
++ * 模板函数：博客文章、简历等由 editor.md 生成并存储的 html 文本，经过白名单过滤后输出
++ */
++@TemplateFunctions("blog")
++public final class BlogFunctions {
++
++    // editor.md / prettify 生成的标签和样式类
++    private static final HtmlPolicy POLICY = HtmlPolicy.builder()//
++    .allowElements("h1", "h2", "h3", "h4", "h5", "h6", "p", "br", "hr", "a", "span", "strong", "b", "em", "i",
++                   "del", "code", "pre", "blockquote", "ul", "ol", "li", "img")//
++    .allowAttributes("id", "title", "alt")//
++    .allowClasses("reference-link", "header-link", "octicon", "octicon-link", "at-link", "prettyprint", "linenums",
++                  "prettyprinted", "lang-*", "L*", "pln", "pun", "kwd", "com", "str", "lit", "typ", "tag", "atn",
++                  "atv", "dec", "fun")//
++    .build();
++
++    private BlogFunctions() {
++    }
++
++    @TemplateFunction
++    public static SafeHtml html(String text) {
++        return SafeHtml.sanitize(text, POLICY);
++    }
++}
+diff --git a/src/main/resources/application.properties b/src/main/resources/application.properties
+index e68dc30..1a82418 100644
+--- a/src/main/resources/application.properties
++++ b/src/main/resources/application.properties
+@@ -17,13 +17,6 @@ server.undertow.accesslog.pattern: combined
+ spring.mvc.locale=zh_CN
+ spring.mvc.date-format=EEE, MMM d, yyyy hh:mm:ss a z
+ 
+-spring.velocity.cache: true
+-spring.velocity.charset: UTF-8
+-spring.velocity.view-names: error,error500,index,projects,tags,tagView,archives,post,about,login,admin/blog_add,admin/project,admin/monitor,admin/blog_modify,admin/blog_list,admin/info,admin/result,admin/resume
+-spring.velocity.properties.input.encoding: UTF-8
+-spring.velocity.properties.output.encoding: UTF-8
+-spring.velocity.properties.velocimacro.library: VM_global_library.vm
+-spring.velocity.properties.directive.parse.max.depth: 2
+ 
+ spring.http.encoding.charset: UTF-8
+ spring.http.encoding.force: false
+diff --git a/src/main/resources/static/js/front-end.min.js b/src/main/resources/static/js/front-end.min.js
+index b24d949..2ffd40b 100644
+--- a/src/main/resources/static/js/front-end.min.js
++++ b/src/main/resources/static/js/front-end.min.js
+@@ -1 +1,23 @@
+-function switch_theme_others(){var a,b,c;"dark"==localStorage.blog_theme&&(a=document.getElementById("md-container"),null!=a&&(a.className="editormd-preview editormd-preview-theme-dark"),b=document.getElementById("day-night"),c=document.getElementById("day-night-name"),b.className="fa fa-sun-o",c.textContent="DAY")}function day_night(){var a=document.getElementById("day-night"),b=document.getElementById("md-container"),c=document.getElementById("day-night-name"),d=document.getElementById("theme-css");"fa fa-sun-o"==a.className?(a.className="fa fa-moon-o",c.textContent="NIGHT",d.href="/css/landing-page.min.css",null!=b&&(b.className="editormd-preview"),localStorage.blog_theme="light"):(a.className="fa fa-sun-o",c.textContent="DAY",d.href="/css/landing-page-dark.min.css",null!=b&&(b.className="editormd-preview editormd-preview-theme-dark"),localStorage.blog_theme="dark")}$(document).ready(function(){switch_theme_others();var a=$("#blog_content").offset().top;$("html,body").animate({scrollTop:a},1e3)});
+\ No newline at end of file
++function switch_theme_others(){var a,b,c;"dark"==localStorage.blog_theme&&(a=document.getElementById("md-container"),null!=a&&(a.className="editormd-preview editormd-preview-theme-dark"),b=document.getElementById("day-night"),c=document.getElementById("day-night-name"),b.className="fa fa-sun-o",c.textContent="DAY")}function day_night(){var a=document.getElementById("day-night"),b=document.getElementById("md-container"),c=document.getElementById("day-night-name"),d=document.getElementById("theme-css");"fa fa-sun-o"==a.className?(a.className="fa fa-moon-o",c.textContent="NIGHT",d.href="/css/landing-page.min.css",null!=b&&(b.className="editormd-preview"),localStorage.blog_theme="light"):(a.className="fa fa-sun-o",c.textContent="DAY",d.href="/css/landing-page-dark.min.css",null!=b&&(b.className="editormd-preview editormd-preview-theme-dark"),localStorage.blog_theme="dark")}$(document).ready(function(){switch_theme_others();var a=$("#blog_content").offset().top;$("html,body").animate({scrollTop:a},1e3)});
++// Click handlers formerly written inline (onclick / javascript: URLs), which a strict CSP blocks.
++document.addEventListener('click', function (e) {
++    var el = e.target.closest('[data-action]');
++    if (!el) {
++        return;
++    }
++    var action = el.getAttribute('data-action');
++    if (action === 'day-night') {
++        e.preventDefault();
++        day_night();
++    } else if (action === 'home') {
++        document.location = '/';
++    } else if (action === 'none') {
++        e.preventDefault();
++    }
++});
++document.addEventListener('mouseover', function (e) {
++    var el = e.target.closest('[data-action=home]');
++    if (el) {
++        el.style.cursor = 'pointer';
++    }
++});
+diff --git a/src/main/resources/static/js/jcala-form.min.js b/src/main/resources/static/js/jcala-form.min.js
+index 35638da..0dee342 100644
+--- a/src/main/resources/static/js/jcala-form.min.js
++++ b/src/main/resources/static/js/jcala-form.min.js
+@@ -1 +1,23 @@
+-$(function(){function a(a){$.getJSON("/admin/pro.json?id="+a,function(a){bootbox.dialog({title:"Update Project",message:'<div class="row">  <div class="col-md-12"> <form class="form-horizontal" id="add_pro_form"> <input name="id" type="hidden" value="'+a.id+'">'+'<div class="form-group"> '+'<label class="col-md-2 control-label">Name</label> '+'<div class="col-md-9"> '+'<input name="name" type="text" placeholder="project name" value="'+a.name+'" class="form-control input-md"> '+"</div></div>"+'<div class="form-group"> '+'<label class="col-md-2 control-label">Addr</label> '+'<div class="col-md-9"> '+'<input name="url" type="text" placeholder="project url" value="'+a.url+'" class="form-control input-md"> '+"</div></div>"+'<div class="form-group"> '+'<label class="col-md-2 control-label">Tech</label> '+'<div class="col-md-9"> '+'<textarea class="form-control" rows="3" name="tech" maxlength="220">'+a.tech+"</textarea></div></div>"+'<div class="form-group"> '+'<label class="col-md-2 control-label">Desc</label> '+'<div class="col-md-9"> '+'<textarea class="form-control" rows="5" name="desp">'+a.desp+"</textarea></div></div>"+"</form> </div>  </div>",buttons:{success:{label:"Update",className:"btn-success",callback:function(){var a=document.getElementById("add_pro_form");a.action="/admin/updPro.action",a.method="post",a.submit()}}}})})}$("#info_update").bind("click",function(){var a=document.forms[0];a.action="/admin/info.action",a.method="post",a.submit()}),$("#update_pass").bind("click",function(){var d,a=document.newPassForm.old_pass_bef.value,b=document.newPassForm.new_pass_one.value,c=document.newPassForm.new_pass_two.value;b!=c?alert("Two passwords are not consistent!"):(d=document.forms[1],d.action="/admin/pass.action",d.method="post",document.newPassForm.old_pass.value=md5(a),document.newPassForm.new_pass.value=md5(b),d.submit())}),$("#login-admin").bind("click",function(){var b,a=document.forms[0];a.action="/login.action",b=document.loginForm.passBefore.value,document.loginForm.password.value=md5(b),a.method="post",a.submit()}),$(document).on("click","#add_project",function(){bootbox.dialog({title:"New Project",message:'<div class="row">  <div class="col-md-12"> <form class="form-horizontal" id="add_pro_form"> <div class="form-group"> <label class="col-md-2 control-label">Name</label> <div class="col-md-9"> <input name="name" type="text" placeholder="project name" class="form-control input-md"> </div></div><div class="form-group"> <label class="col-md-2 control-label">Addr</label> <div class="col-md-9"> <input name="url" type="text" placeholder="project url" class="form-control input-md"> </div></div><div class="form-group"> <label class="col-md-2 control-label">Tech</label> <div class="col-md-9"> <textarea class="form-control" rows="3" name="tech" maxlength="220"></textarea> </div></div><div class="form-group"> <label class="col-md-2 control-label">Desc</label> <div class="col-md-9"> <textarea class="form-control" rows="5" name="desp"></textarea> </div></div></form> </div>  </div>',buttons:{success:{label:"Save",className:"btn-success",callback:function(){var a=document.getElementById("add_pro_form");a.action="/admin/addPro.action",a.method="post",a.submit()}}}})}),$(".upd_project").click(function(){var b=$(this).attr("name");a(b)})});
+\ No newline at end of file
++$(function(){function a(a){$.getJSON("/admin/pro.json?id="+a,function(a){bootbox.dialog({title:"Update Project",message:'<div class="row">  <div class="col-md-12"> <form class="form-horizontal" id="add_pro_form"> <input name="id" type="hidden" value="'+a.id+'">'+'<div class="form-group"> '+'<label class="col-md-2 control-label">Name</label> '+'<div class="col-md-9"> '+'<input name="name" type="text" placeholder="project name" value="'+a.name+'" class="form-control input-md"> '+"</div></div>"+'<div class="form-group"> '+'<label class="col-md-2 control-label">Addr</label> '+'<div class="col-md-9"> '+'<input name="url" type="text" placeholder="project url" value="'+a.url+'" class="form-control input-md"> '+"</div></div>"+'<div class="form-group"> '+'<label class="col-md-2 control-label">Tech</label> '+'<div class="col-md-9"> '+'<textarea class="form-control" rows="3" name="tech" maxlength="220">'+a.tech+"</textarea></div></div>"+'<div class="form-group"> '+'<label class="col-md-2 control-label">Desc</label> '+'<div class="col-md-9"> '+'<textarea class="form-control" rows="5" name="desp">'+a.desp+"</textarea></div></div>"+"</form> </div>  </div>",buttons:{success:{label:"Update",className:"btn-success",callback:function(){var a=document.getElementById("add_pro_form");a.action="/admin/updPro.action",a.method="post",a.submit()}}}})})}$("#info_update").bind("click",function(){var a=document.forms[0];a.action="/admin/info.action",a.method="post",a.submit()}),$("#update_pass").bind("click",function(){var d,a=document.newPassForm.old_pass_bef.value,b=document.newPassForm.new_pass_one.value,c=document.newPassForm.new_pass_two.value;b!=c?alert("Two passwords are not consistent!"):(d=document.forms[1],d.action="/admin/pass.action",d.method="post",document.newPassForm.old_pass.value=md5(a),document.newPassForm.new_pass.value=md5(b),d.submit())}),$("#login-admin").bind("click",function(){var b,a=document.forms[0];a.action="/login.action",b=document.loginForm.passBefore.value,document.loginForm.password.value=md5(b),a.method="post",a.submit()}),$(document).on("click","#add_project",function(){bootbox.dialog({title:"New Project",message:'<div class="row">  <div class="col-md-12"> <form class="form-horizontal" id="add_pro_form"> <div class="form-group"> <label class="col-md-2 control-label">Name</label> <div class="col-md-9"> <input name="name" type="text" placeholder="project name" class="form-control input-md"> </div></div><div class="form-group"> <label class="col-md-2 control-label">Addr</label> <div class="col-md-9"> <input name="url" type="text" placeholder="project url" class="form-control input-md"> </div></div><div class="form-group"> <label class="col-md-2 control-label">Tech</label> <div class="col-md-9"> <textarea class="form-control" rows="3" name="tech" maxlength="220"></textarea> </div></div><div class="form-group"> <label class="col-md-2 control-label">Desc</label> <div class="col-md-9"> <textarea class="form-control" rows="5" name="desp"></textarea> </div></div></form> </div>  </div>',buttons:{success:{label:"Save",className:"btn-success",callback:function(){var a=document.getElementById("add_pro_form");a.action="/admin/addPro.action",a.method="post",a.submit()}}}})}),$(".upd_project").click(function(){var b=$(this).attr("name");a(b)})});
++// Click handlers formerly written inline (onclick / javascript: URLs), which a strict CSP blocks.
++document.addEventListener('click', function (e) {
++    var el = e.target.closest('[data-action]');
++    if (!el) {
++        return;
++    }
++    var action = el.getAttribute('data-action');
++    if (action === 'day-night') {
++        e.preventDefault();
++        day_night();
++    } else if (action === 'home') {
++        document.location = '/';
++    } else if (action === 'none') {
++        e.preventDefault();
++    }
++});
++document.addEventListener('mouseover', function (e) {
++    var el = e.target.closest('[data-action=home]');
++    if (el) {
++        el.style.cursor = 'pointer';
++    }
++});
+diff --git a/src/main/resources/templates/VM_global_library.vm b/src/main/resources/templates/VM_global_library.vm
+deleted file mode 100644
+index 22f4bb2..0000000
+--- a/src/main/resources/templates/VM_global_library.vm
++++ /dev/null
+@@ -1,52 +0,0 @@
+-#macro(flip $pageNum  $current $href)
+-    #set( $arr = [0..$pageNum] )
+-<ul class="pagination">
+-    #if($current<2)
+-        <li class="disabled"><a href="#">&laquo;</a></li>
+-    #else
+-        #set($prevPage = $current - 1)
+-        <li><a href="$href/$prevPage">&laquo;</a></li>
+-    #end
+-    #foreach($page in $arr)
+-        #if($page > 0)
+-            #if($current==$page)
+-                <li class="active"><a href="$href/$page">$page</a></li>
+-            #else
+-                <li><a href="$href/$page">$page</a></li>
+-            #end
+-        #end
+-    #end
+-    #if($current>=$pageNum)
+-        <li class="disabled"><a href="#">&raquo;</a></li>
+-    #else
+-        #set($nextPage = $current + 1)
+-        <li><a href="$href/$nextPage">&raquo;</a></li>
+-    #end
+-</ul>
+-#end
+-
+-#macro(liClass $count)
+-    #if($count%4 == 1)
+-    <tr class="active">
+-    #elseif($count%4 == 2)
+-    <tr class="success">
+-    #elseif($count%4 == 3)
+-    <tr class="warning">
+-    #else
+-    <tr class="danger">
+-    #end
+-#end
+-
+-#macro(frontFlip $pageNum $current $href)
+-    #set($prev = $current - 1)
+-    #set($next = $current + 1)
+-    #if($pageNum<=1)
+-        #elseif($current<=1)
+-            <a href="$href/$next" class="default-tag" style="float: right"><i class="fa fa-chevron-right fa-fw"></i> <span class="network-name">Next</span></a>
+-        #elseif($current>=$pageNum)
+-            <a href="$href/$prev" class="default-tag"><i class="fa fa-chevron-left fa-fw"></i> <span class="network-name">Prev</span></a>
+-        #else
+-            <a href="$href/$prev" class="default-tag"><i class="fa fa-chevron-left fa-fw"></i> <span class="network-name">Prev</span></a>
+-            <a href="$href/$next" class="default-tag" style="float: right"><i class="fa fa-chevron-right fa-fw"></i> <span class="network-name">Next</span></a>
+-    #end
+-#end
+\ No newline at end of file
+diff --git a/src/main/resources/templates/about.html b/src/main/resources/templates/about.html
+new file mode 100644
+index 0000000..19152f9
+--- /dev/null
++++ b/src/main/resources/templates/about.html
+@@ -0,0 +1,18 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="com.msun.luckyBlog.persistence.domain.*" t:params="Info info, String resume"
++      t:replace="~{fragments/front :: front(info, ~{::body})}">
++<body t:remove="tag">
++<div class="container theme-light">
++    <div class="row">
++        <div class="col-lg-12 post">
++            <div class="login-avatar" t:style="|background: ${css.url(info?.avatar)} no-repeat center center;|">
++            </div>
++            <div class="editormd-preview" id="md-container">
++                <div class="markdown-body editormd-preview-container" previewcontainer="true" style="padding: 20px;" t:utext="blog.html(resume)">
++                </div>
++            </div>
++        </div>
++    </div>
++</div>
++</body>
++</html>
+diff --git a/src/main/resources/templates/about.vm b/src/main/resources/templates/about.vm
+deleted file mode 100644
+index bb41e80..0000000
+--- a/src/main/resources/templates/about.vm
++++ /dev/null
+@@ -1,15 +0,0 @@
+-#parse("/templates/module/header.vm")
+-<div class="container theme-light">
+-    <div class="row">
+-        <div class="col-lg-12 post">
+-            <div class="login-avatar" style="background: url($!{info.Avatar}) no-repeat center center;">
+-            </div>
+-            <div class="editormd-preview" id="md-container">
+-                <div class="markdown-body editormd-preview-container" previewcontainer="true" style="padding: 20px;">
+-                    $!{resume}
+-                </div>
+-            </div>
+-        </div>
+-    </div>
+-</div>
+-#include("/templates/module/footer.vm")
+\ No newline at end of file
+diff --git a/src/main/resources/templates/admin/blog_add.vm b/src/main/resources/templates/admin/blog_add.html
+similarity index 90%
+rename from src/main/resources/templates/admin/blog_add.vm
+rename to src/main/resources/templates/admin/blog_add.html
+index 344e6e0..242d44d 100644
+--- a/src/main/resources/templates/admin/blog_add.vm
++++ b/src/main/resources/templates/admin/blog_add.html
+@@ -1,4 +1,7 @@
+-#include("/templates/module/admin-header.vm")
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="com.msun.luckyBlog.persistence.domain.*"
++      t:replace="~{fragments/admin :: admin(~{::page-content}, ~{::page-scripts})}">
++<page-content t:remove="tag">
+     <div id="page-wrapper">
+         <div class="row">
+             <div class="col-md-6 column">
+@@ -47,7 +50,8 @@
+         </div><!-- /.row -->
+     </div><!-- /#page-wrapper -->
+ 
+-</div><!-- /#wrapper -->
++</page-content>
++<page-scripts t:remove="tag">
+ 
+ <!-- JavaScript -->
+ <script src="//cdn.bootcss.com/jquery/3.1.1/jquery.min.js"></script>
+@@ -55,5 +59,5 @@
+ <script src="/js/editormd.min.js"></script>
+ <script src="/js/bootstrap-tagsinput.min.js"></script>
+ <script src="/js/jcala-md-form.min.js"></script>
+-</body>
+-</html>
+\ No newline at end of file
++</page-scripts>
++</html>
+diff --git a/src/main/resources/templates/admin/blog_list.vm b/src/main/resources/templates/admin/blog_list.html
+similarity index 61%
+rename from src/main/resources/templates/admin/blog_list.vm
+rename to src/main/resources/templates/admin/blog_list.html
+index 73737b5..a5ba7e6 100644
+--- a/src/main/resources/templates/admin/blog_list.vm
++++ b/src/main/resources/templates/admin/blog_list.html
+@@ -1,4 +1,7 @@
+-#include("/templates/module/admin-header.vm")
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="com.msun.luckyBlog.persistence.domain.*" t:params="List<BlogView> blogList, int pageNum, int current"
++      t:replace="~{fragments/admin :: admin(~{::page-content}, ~{::page-scripts})}">
++<page-content t:remove="tag">
+ <div id="page-wrapper">
+         <div class="row">
+               <div class="col-lg-12">
+@@ -23,22 +26,19 @@
+                   </tr>
+                 </thead>
+                 <tbody>
+-                #foreach($item in ${blogList})
+-                    #liClass($velocityCount)
+-                    <td>$!{item.Title}</td>
+-                    <td>$!{item.Tags}</td>
++                <tr t:each="item, st : blogList" t:class="st.count % 4 == 1 ? 'active' : (st.count % 4 == 2 ? 'success' : (st.count % 4 == 3 ? 'warning' : 'danger'))">
++                    <td t:text="item.title">title</td>
++                    <td t:text="item.tags">tags</td>
+                     <td>
+-                        <a href="/admin/update$!{item.Vid}"><i class="fa fa-pencil"></i></a>
+-                        <a class="delete" role="button" href="/admin/delete/${item.Vid}"  data-title="Delete this blog!" data-confirm-button="Yes">
++                        <a t:href="|/admin/update${item.vid}|"><i class="fa fa-pencil"></i></a>
++                        <a class="delete" role="button" t:href="|/admin/delete/${item.vid}|"  data-title="Delete this blog!" data-confirm-button="Yes">
+                             <i class="fa fa-trash-o"></i></a>
+                     </td>
+                 </tr>
+-                #end
+                 </tbody>
+               </table>
+ 			  <center>
+-                  #set($href = "/admin/blogList")
+-                  #flip($pageNum  $current $href)
++                  <ul t:replace="~{fragments/paging :: flip(pageNum, current, '/admin/blogList')}"></ul>
+ 			  </center>
+ 			 
+             </div>
+@@ -46,7 +46,8 @@
+         </div><!-- /.row -->
+       </div><!-- /#page-wrapper -->
+ 
+-</div><!-- /#wrapper -->
++</page-content>
++<page-scripts t:remove="tag">
+     <!-- JavaScript -->
+ <script src="//cdn.bootcss.com/jquery/3.1.1/jquery.min.js"></script>
+ <script src="//cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+@@ -54,5 +55,5 @@
+     <script type="text/javascript">
+         $(".delete").confirm();
+     </script>
+-  </body>
+-</html>
+\ No newline at end of file
++</page-scripts>
++</html>
+diff --git a/src/main/resources/templates/admin/blog_modify.vm b/src/main/resources/templates/admin/blog_modify.html
+similarity index 80%
+rename from src/main/resources/templates/admin/blog_modify.vm
+rename to src/main/resources/templates/admin/blog_modify.html
+index c85bc71..213a3f6 100644
+--- a/src/main/resources/templates/admin/blog_modify.vm
++++ b/src/main/resources/templates/admin/blog_modify.html
+@@ -1,17 +1,20 @@
+-#include("/templates/module/admin-header.vm")
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="com.msun.luckyBlog.persistence.domain.*" t:params="BlogView blog"
++      t:replace="~{fragments/admin :: admin(~{::page-content}, ~{::page-scripts})}">
++<page-content t:remove="tag">
+     <div id="page-wrapper">
+         <div class="row">
+             <div class="col-md-6 column">
+                 <center>
+                     <form role="form" class="form-inline" name="blogForm">
+-                        <input type="hidden" name="vid" value="${blog.Vid}"/>
++                        <input type="hidden" name="vid" t:value="blog.vid"/>
+                         <div class="form-group">
+                             <label for="blogTitle">Title</label>
+-                            <input type="text" class="form-control" name="title" placeholder="请输入博客标题" value="${blog.Title}"/>
++                            <input type="text" class="form-control" name="title" placeholder="请输入博客标题" t:value="blog.title"/>
+                         </div>
+                         <div class="form-group">
+                             <label for="blogTags">Tags</label>
+-                            <input type="text" class="form-control" name="tags" placeholder="输入标签后请点击回车键" data-role="tagsinput" value="${blog.Tags}"/>
++                            <input type="text" class="form-control" name="tags" placeholder="输入标签后请点击回车键" data-role="tagsinput" t:value="blog.tags"/>
+                         </div>
+                         <input type="hidden" name="md" id="form-md"/>
+                         <input type="hidden" name="article" id="form-article"/>
+@@ -42,13 +45,14 @@
+         <div class="row">
+             <div class="col-md-12 column">
+                 <div id="markdown-editor">
+-                    <textarea style="display:none;">${blog.Md}</textarea>
++                    <textarea style="display:none;" t:text="blog.md"></textarea>
+                 </div>
+             </div>
+         </div><!-- /.row -->
+     </div><!-- /#page-wrapper -->
+ 
+-</div><!-- /#wrapper -->
++</page-content>
++<page-scripts t:remove="tag">
+ 
+ <!-- JavaScript -->
+ <script src="//cdn.bootcss.com/jquery/3.1.1/jquery.min.js"></script>
+@@ -56,5 +60,5 @@
+ <script src="/js/editormd.min.js"></script>
+ <script src="/js/bootstrap-tagsinput.min.js"></script>
+ <script src="/js/jcala-md-form.min.js"></script>
+-</body>
+-</html>
+\ No newline at end of file
++</page-scripts>
++</html>
+diff --git a/src/main/resources/templates/admin/info.vm b/src/main/resources/templates/admin/info.html
+similarity index 86%
+rename from src/main/resources/templates/admin/info.vm
+rename to src/main/resources/templates/admin/info.html
+index f9f1172..062c318 100644
+--- a/src/main/resources/templates/admin/info.vm
++++ b/src/main/resources/templates/admin/info.html
+@@ -1,4 +1,7 @@
+-#include("/templates/module/admin-header.vm")
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="com.msun.luckyBlog.persistence.domain.*" t:params="Info info"
++      t:replace="~{fragments/admin :: admin(~{::page-content}, ~{::page-scripts})}">
++<page-content t:remove="tag">
+ <div id="page-wrapper">
+     <div class="row">
+         <div class="col-lg-12">
+@@ -24,19 +27,19 @@
+                         <form name="infoForm">
+                             <div class="form-group">
+                                 <label class="text-warning">username</label>
+-                                <input type="text" class="form-control" value="$!{info.Username}" name="username">
++                                <input type="text" class="form-control" t:value="info.username ?: ''" name="username">
+                             </div>
+                             <div class="form-group">
+                                 <label class="text-warning">email</label>
+-                                <input type="email" class="form-control"  value="$!{info.Email}" name="email">
++                                <input type="email" class="form-control"  t:value="info.email ?: ''" name="email">
+                             </div>
+                             <div class="form-group">
+                                 <label class="text-warning">github</label>
+-                                <input type="text" class="form-control"  value="$!{info.Github}" name="github">
++                                <input type="text" class="form-control"  t:value="info.github ?: ''" name="github">
+                             </div>
+                             <div class="form-group">
+                                 <label class="text-warning">twitter</label>
+-                                <input type="text" class="form-control" value="$!{info.Twitter}" name="twitter">
++                                <input type="text" class="form-control" t:value="info.twitter ?: ''" name="twitter">
+                             </div>
+                             <button type="submit" class="btn btn-primary" id="info_update">Update</button>
+                         </form>
+@@ -59,7 +62,7 @@
+                     </div>
+                     <div class="tab-pane fade" id="avatar">
+                         <br>
+-                        <div class="login-avatar" style="background: url($!{info.Avatar}) no-repeat center center;"></div>
++                        <div class="login-avatar" t:style="|background: ${css.url(info.avatar)} no-repeat center center;|"></div>
+                         <br>
+                         <form action="/admin/file/uplAva.action" method="post" enctype="multipart/form-data">
+                             <input type="file" class="form-control" name="avatar" multiple>
+@@ -71,13 +74,13 @@
+             </div>
+         </div>
+     </div><!-- /.row -->
+-</div><!-- /#page-wrapper -->
+-</div><!-- /#wrapper -->
++</page-content>
++<page-scripts t:remove="tag">
+ <!-- JavaScript -->
+ <script src="//cdn.bootcss.com/jquery/3.1.1/jquery.min.js"></script>
+ <script src="//cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+ <script src="//cdn.bootcss.com/blueimp-md5/2.3.1/js/md5.min.js"></script>
+ <script src="/js/jquery.bootstrap-growl.min.js"></script>
+ <script src="/js/jcala-form.min.js"></script>
+-</body>
+-</html>
+\ No newline at end of file
++</page-scripts>
++</html>
+diff --git a/src/main/resources/templates/admin/monitor.vm b/src/main/resources/templates/admin/monitor.html
+similarity index 69%
+rename from src/main/resources/templates/admin/monitor.vm
+rename to src/main/resources/templates/admin/monitor.html
+index 0ebb345..bda98b7 100644
+--- a/src/main/resources/templates/admin/monitor.vm
++++ b/src/main/resources/templates/admin/monitor.html
+@@ -1,4 +1,7 @@
+-#include("/templates/module/admin-header.vm")
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="com.msun.luckyBlog.persistence.domain.*" t:params="int freeMemory"
++      t:replace="~{fragments/admin :: admin(~{::page-content}, ~{::page-scripts})}">
++<page-content t:remove="tag">
+       <div id="page-wrapper">
+         <div class="row">
+           <div class="col-lg-12">
+@@ -15,19 +18,21 @@
+ 
+       </div><!-- /#page-wrapper -->
+ 
+-    </div><!-- /#wrapper -->
++</page-content>
++<page-scripts t:remove="tag">
+ 
+    <script src="//cdn.bootcss.com/jquery/3.1.1/jquery.min.js"></script>
+    <script src="//cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script src="//cdn.bootcss.com/raphael/2.2.1/raphael.min.js"></script>
+    <script src="//cdn.bootcss.com/morris.js/0.5.1/morris.min.js"></script>
+    <script type="text/javascript">
++       const freeMemory = [[${freeMemory}]];
++       const used = [[${100 - freeMemory}]];
+        Morris.Donut({
+            element: 'memory-donut',
+            data: [
+-               {value: $freeMemory, label: 'Residual memory'},
+-                   #set($used = 100 - $freeMemory)
+-               {value: $!used, label: 'Used memory'}
++               {value: freeMemory, label: 'Residual memory'},
++               {value: used, label: 'Used memory'}
+            ],
+            backgroundColor: '#ccc',
+            labelColor: '#060',
+@@ -39,5 +44,5 @@
+        });
+    </script>
+ 
+-  </body>
++</page-scripts>
+ </html>
+diff --git a/src/main/resources/templates/admin/project.vm b/src/main/resources/templates/admin/project.html
+similarity index 61%
+rename from src/main/resources/templates/admin/project.vm
+rename to src/main/resources/templates/admin/project.html
+index 1932894..a0343f4 100644
+--- a/src/main/resources/templates/admin/project.vm
++++ b/src/main/resources/templates/admin/project.html
+@@ -1,4 +1,7 @@
+-#include("/templates/module/admin-header.vm")
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="com.msun.luckyBlog.persistence.domain.*" t:params="List<Project> proList, int pageNum, int current"
++      t:replace="~{fragments/admin :: admin(~{::page-content}, ~{::page-scripts})}">
++<page-content t:remove="tag">
+ <div id="page-wrapper">
+     <div class="row">
+     <div class="col-lg-12">
+@@ -22,29 +25,27 @@
+                     <th>operation</th></tr>
+                 </thead>
+                 <tbody>
+-                #foreach($item in ${proList})
+-                    #liClass($velocityCount)
+-                    <td>$!{item.Name}</td>
+-                    <td>$!{item.Url}</td>
++                <tr t:each="item, st : proList" t:class="st.count % 4 == 1 ? 'active' : (st.count % 4 == 2 ? 'success' : (st.count % 4 == 3 ? 'warning' : 'danger'))">
++                    <td t:text="item.name">name</td>
++                    <td t:text="item.url">url</td>
+                     <td>
+-                       <a href='javascript:void(0)'><i class="fa fa-pencil upd_project" name="${item.Id}"></i></a>
+-                    <a class="delete" role="button" href="/admin/deletePro/${item.Id}"  data-title="Delete this project!" data-confirm-button="Yes">
++                       <a href="#" data-action="none"><i class="fa fa-pencil upd_project" t:name="item.id"></i></a>
++                    <a class="delete" role="button" t:href="|/admin/deletePro/${item.id}|"  data-title="Delete this project!" data-confirm-button="Yes">
+                         <i class="fa fa-trash-o" name="del_project"></i></a>
+                     </td>
+                 </tr>
+-                #end
+                 </tbody>
+             </table>
+             <center>
+-                #set($href = "/admin/project")
+-                #flip($pageNum  $current $href)
++                <ul t:replace="~{fragments/paging :: flip(pageNum, current, '/admin/project')}"></ul>
+             </center>
+         </div>
+ 
+     </div>
+ </div><!-- /.row -->
+ </div><!-- /#page-wrapper -->
+-</div><!-- /#wrapper -->
++</page-content>
++<page-scripts t:remove="tag">
+ 
+ <!-- JavaScript -->
+ <script src="//cdn.bootcss.com/jquery/3.1.1/jquery.min.js"></script>
+@@ -55,5 +56,5 @@
+ <script type="text/javascript">
+     $(".delete").confirm();
+ </script>
+-</body>
+-</html>
+\ No newline at end of file
++</page-scripts>
++</html>
+diff --git a/src/main/resources/templates/admin/result.html b/src/main/resources/templates/admin/result.html
+new file mode 100644
+index 0000000..54f915d
+--- /dev/null
++++ b/src/main/resources/templates/admin/result.html
+@@ -0,0 +1,28 @@
++<!DOCTYPE html>
++<html lang="en" xmlns:t="https://tessera.dev" t:import="com.msun.luckyBlog.persistence.domain.BlogView"
++      t:params="String targetUrl, Integer result, BlogView blogView">
++<head>
++    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
++    <title>success</title>
++    <meta name="viewport" content="width=device-width, initial-scale=1">
++    <!--/* targetUrl is one of the literal targets AdminController sets (default "/") */-->
++    <meta t:if="targetUrl == '/admin/blog_add'" http-equiv="refresh" t:content="'1;url=' + @{/admin/blog_add}">
++    <meta t:if="targetUrl == '/admin/blogList/1'" http-equiv="refresh" t:content="'1;url=' + @{/admin/blogList/1}">
++    <meta t:if="targetUrl == '/admin/info'" http-equiv="refresh" t:content="'1;url=' + @{/admin/info}">
++    <meta t:if="blogView != null && targetUrl == '/admin/update' + blogView.vid" http-equiv="refresh" t:content="'1;url=' + @{/admin/update{vid}(vid=${blogView.vid})}">
++    <meta t:if="targetUrl == null" http-equiv="refresh" t:content="'1;url=' + @{/}">
++    <link rel="stylesheet" href="/css/result-page.min.css" type="text/css">
++</head>
++<body>
++<t:block t:if="result == null || result > 0">
++<h1 class="success">Operation succeeded!</h1>
++<p class="success">Congratulations,your operation has been successful.</p>
++</t:block>
++<t:block t:unless="result == null || result > 0">
++ <h1 class="fail">Operation failed!</h1>
++ <p class="fail">Unfortunately,your operation has failed.</p>
++ <br>
++ <p class="errorInfo">For more details, please check the log</p>
++</t:block>
++</body>
++</html>
+diff --git a/src/main/resources/templates/admin/result.vm b/src/main/resources/templates/admin/result.vm
+deleted file mode 100644
+index 4930a4e..0000000
+--- a/src/main/resources/templates/admin/result.vm
++++ /dev/null
+@@ -1,25 +0,0 @@
+-<!DOCTYPE html>
+-<html lang="en">
+-<head>
+-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+-    <title>success</title>
+-    <meta name="viewport" content="width=device-width, initial-scale=1">
+-    #set($ta = "/")
+-    #set($ta = ${targetUrl})
+-    <meta http-equiv="refresh" content="1;url=$!{ta}">
+-    <link rel="stylesheet" href="/css/result-page.min.css" type="text/css">
+-</head>
+-<body>
+-#set($re = 1)
+-#set($re = ${result})
+-#if(${re} > 0)
+-<h1 class="success">Operation succeeded!</h1>
+-<p class="success">Congratulations,your operation has been successful.</p>
+- #else
+- <h1 class="fail">Operation failed!</h1>
+- <p class="fail">Unfortunately,your operation has failed.</p>
+- <br>
+- <p class="errorInfo">For more details, please check the log</p>
+-#end
+-</body>
+-</html>
+\ No newline at end of file
+diff --git a/src/main/resources/templates/admin/resume.vm b/src/main/resources/templates/admin/resume.html
+similarity index 80%
+rename from src/main/resources/templates/admin/resume.vm
+rename to src/main/resources/templates/admin/resume.html
+index d5e5d64..eca5810 100644
+--- a/src/main/resources/templates/admin/resume.vm
++++ b/src/main/resources/templates/admin/resume.html
+@@ -1,4 +1,7 @@
+-#include("/templates/module/admin-header.vm")
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="com.msun.luckyBlog.persistence.domain.*" t:params="String md"
++      t:replace="~{fragments/admin :: admin(~{::page-content}, ~{::page-scripts})}">
++<page-content t:remove="tag">
+ <div id="page-wrapper">
+     <div class="row">
+         <div class="col-md-6 column">
+@@ -29,17 +32,18 @@
+     <div class="row">
+         <div class="col-md-12 column">
+             <div id="markdown-editor">
+-                <textarea style="display:none;">$!{md}</textarea>
++                <textarea style="display:none;" t:text="md"></textarea>
+             </div>
+         </div>
+     </div><!-- /.row -->
+ </div><!-- /#page-wrapper -->
+-</div><!-- /#wrapper -->
++</page-content>
++<page-scripts t:remove="tag">
+ 
+ <!-- JavaScript -->
+ <script src="//cdn.bootcss.com/jquery/3.1.1/jquery.min.js"></script>
+ <script src="//cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+ <script src="/js/editormd.min.js"></script>
+ <script src="/js/jcala-md-form.min.js"></script>
+-</body>
+-</html>
+\ No newline at end of file
++</page-scripts>
++</html>
+diff --git a/src/main/resources/templates/archives.html b/src/main/resources/templates/archives.html
+new file mode 100644
+index 0000000..a0a920c
+--- /dev/null
++++ b/src/main/resources/templates/archives.html
+@@ -0,0 +1,23 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="com.msun.luckyBlog.persistence.domain.*" t:params="Info info, List<Archive> archives, Integer pageNum, Integer current"
++      t:replace="~{fragments/front :: front(info, ~{::body})}">
++<body t:remove="tag">
++<div class="container">
++    <div class="row">
++        <div class="col-lg-12 post">
++            <div class="archive">
++                <t:block t:each="archive : archives">
++                    <h2 class="year" t:text="archive.year">2016</h2>
++                    <div class="post-item" t:each="bv : archive.list">
++                        <div class="post-time" t:text="bv.monthDay">Oct 04</div>
++                        <a t:href="|/post/${bv.vid}|" class="post-link" t:text="bv.title">title</a>
++                    </div>
++                    <br><br>
++                </t:block>
++            </div>
++            <t:block t:replace="~{fragments/paging :: frontFlip(pageNum, current, '/archives')}"></t:block>
++        </div>
++    </div>
++</div>
++</body>
++</html>
+diff --git a/src/main/resources/templates/archives.vm b/src/main/resources/templates/archives.vm
+deleted file mode 100644
+index 38ae50b..0000000
+--- a/src/main/resources/templates/archives.vm
++++ /dev/null
+@@ -1,24 +0,0 @@
+-#parse("/templates/module/header.vm")
+-<div class="container">
+-    <div class="row">
+-        <div class="col-lg-12 post">
+-            <div class="archive">
+-                #foreach($archive in ${archives})
+-                    <h2 class="year">${archive.Year}</h2>
+-                    #foreach($bv in ${archive.List})
+-                        <div class="post-item">
+-                            <div class="post-time">
+-                               $!{bv.MonthDay}
+-                            </div>
+-                            <a href="/post/$!{bv.Vid}" class="post-link">$!{bv.Title}</a>
+-                        </div>
+-                    #end
+-                    <br><br>
+-                #end
+-            </div>
+-            #set($href = "/archives")
+-            #frontFlip($pageNum $current $href)
+-        </div>
+-    </div>
+-</div>
+-#include("/templates/module/footer.vm")
+diff --git a/src/main/resources/templates/error.vm b/src/main/resources/templates/error.html
+similarity index 87%
+rename from src/main/resources/templates/error.vm
+rename to src/main/resources/templates/error.html
+index c624e5e..1153428 100644
+--- a/src/main/resources/templates/error.vm
++++ b/src/main/resources/templates/error.html
+@@ -1,5 +1,5 @@
+ <!DOCTYPE html>
+-<html lang="en">
++<html lang="en" xmlns:t="https://tessera.dev">
+ <head>
+     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+     <title>Page Not Found</title>
+@@ -8,4 +8,4 @@
+ </head>
+ <body><h1>Page Not Found</h1>
+ <p>Sorry, but the page you were trying to view does not exist.</p></body>
+-</html>
+\ No newline at end of file
++</html>
+diff --git a/src/main/resources/templates/module/admin-header.vm b/src/main/resources/templates/fragments/admin.html
+similarity index 91%
+rename from src/main/resources/templates/module/admin-header.vm
+rename to src/main/resources/templates/fragments/admin.html
+index 4af902b..634df1e 100644
+--- a/src/main/resources/templates/module/admin-header.vm
++++ b/src/main/resources/templates/fragments/admin.html
+@@ -1,5 +1,5 @@
+ <!DOCTYPE html>
+-<html lang="en">
++<html lang="en" xmlns:t="https://tessera.dev" t:fragment="admin(Fragment content, Fragment scripts)">
+ <head>
+     <meta charset="utf-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+@@ -56,4 +56,9 @@
+                 </li>
+             </ul>
+         </div><!-- /.navbar-collapse -->
+-    </nav>
+\ No newline at end of file
++    </nav>
++<t:block t:replace="content"></t:block>
++</div><!-- /#wrapper -->
++<t:block t:replace="scripts"></t:block>
++</body>
++</html>
+diff --git a/src/main/resources/templates/module/header.vm b/src/main/resources/templates/fragments/front.html
+similarity index 60%
+rename from src/main/resources/templates/module/header.vm
+rename to src/main/resources/templates/fragments/front.html
+index a39cba2..b48c721 100644
+--- a/src/main/resources/templates/module/header.vm
++++ b/src/main/resources/templates/fragments/front.html
+@@ -1,5 +1,6 @@
+ <!DOCTYPE html>
+-<html lang="en">
++<html lang="en" xmlns:t="https://tessera.dev" t:import="com.msun.luckyBlog.persistence.domain.Info"
++      t:fragment="front(Info info, Fragment content)">
+ <head>
+     <meta charset="utf-8"/>
+     <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+@@ -9,7 +10,6 @@
+     <link href="/css/landing-page.min.css" rel="stylesheet" id="theme-css"/>
+     <link href="/css/jcala-md.min.css" rel="stylesheet"/>
+     <link href="//cdn.bootcss.com/font-awesome/4.6.3/css/font-awesome.css" rel="stylesheet">
+-</head>
+ <script type="text/javascript">
+     function switch_theme_css() {
+         var css=document.getElementById("theme-css");
+@@ -22,6 +22,7 @@
+     }
+     switch_theme_css();
+ </script>
++</head>
+ <body>
+ <nav class="navbar navbar-default navbar-fixed-top topnav" role="navigation">
+     <div class="container topnav">
+@@ -52,7 +53,7 @@
+                     <a href="/admin/">Admin</a>
+                 </li>
+                 <li>
+-                    <a href='javascript:void(0)' onclick="day_night()"><i class="fa fa-moon-o" id="day-night"></i>
++                    <a href="#" data-action="day-night"><i class="fa fa-moon-o" id="day-night"></i>
+                         <span class="network-name" id="day-night-name">night</span>
+                     </a>
+                 </li>
+@@ -65,18 +66,18 @@
+         <div class="row">
+             <div class="col-lg-12">
+                 <div class="intro-message">
+-                    <h1>$!{info.Username}</h1>
++                    <h1 t:text="info?.username">jcala</h1>
+                     <h3>my blog about programming</h3>
+                     <hr class="intro-divider"/>
+                     <ul class="list-inline intro-social-buttons">
+                         <li>
+-                            <a href="mailto:$!{info.Email}" class="btn btn-default btn-lg"><i class="fa fa-envelope fa-fw"></i> <span class="network-name">Email</span></a>
++                            <a t:href="|mailto:${info?.email ?: ''}|" class="btn btn-default btn-lg"><i class="fa fa-envelope fa-fw"></i> <span class="network-name">Email</span></a>
+                         </li>
+                         <li>
+-                            <a href="$!{info.Github}" class="btn btn-default btn-lg"><i class="fa fa-github fa-fw"></i> <span class="network-name">Github</span></a>
++                            <a t:href="info?.github ?: ''" class="btn btn-default btn-lg"><i class="fa fa-github fa-fw"></i> <span class="network-name">Github</span></a>
+                         </li>
+                         <li>
+-                            <a href="$!{info.Twitter}" class="btn btn-default btn-lg"><i class="fa fa-twitter fa-fw"></i> <span class="network-name">Twitter</span></a>
++                            <a t:href="info?.twitter ?: ''" class="btn btn-default btn-lg"><i class="fa fa-twitter fa-fw"></i> <span class="network-name">Twitter</span></a>
+                         </li>
+                     </ul>
+                 </div>
+@@ -84,4 +85,36 @@
+         </div>
+     </div>
+ </div>
+-<a href="#content" id="blog_content"></a>
+\ No newline at end of file
++<a href="#content" id="blog_content"></a>
++<t:block t:replace="content"></t:block>
++<footer>
++    <div class="container">
++        <div class="row">
++            <div class="col-lg-12">
++                <ul class="list-inline">
++                    <li>
++                        <a href="/archives/1">Archives</a>
++                    </li>
++                    <li>
++                        <a href="/tags">Tags</a>
++                    </li>
++                    <li>
++                        <a href="/projects/1">Projects</a>
++                    </li>
++                    <li>
++                        <a href="/about">About</a>
++                    </li>
++                    <li>
++                        <a href="/admin/">Admin</a>
++                    </li>
++                </ul>
++                <p class="copyright text-muted small"></p>
++            </div>
++        </div>
++    </div>
++</footer>
++<script src="//cdn.bootcss.com/jquery/3.1.1/jquery.min.js"></script>
++<script src="//cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
++<script src="/js/front-end.min.js"></script>
++</body>
++</html>
+diff --git a/src/main/resources/templates/fragments/paging.html b/src/main/resources/templates/fragments/paging.html
+new file mode 100644
+index 0000000..d11ffc7
+--- /dev/null
++++ b/src/main/resources/templates/fragments/paging.html
+@@ -0,0 +1,30 @@
++<t:block xmlns:t="https://tessera.dev">
++<!--/* Was the Velocity macro #flip in VM_global_library.vm */-->
++<ul t:fragment="flip(Integer pageNum, Integer current, String href)" class="pagination">
++    <li t:if="current < 2" class="disabled"><a href="#">&laquo;</a></li>
++    <li t:unless="current < 2"><a t:href="|${href}/${current - 1}|">&laquo;</a></li>
++    <t:block t:if="pageNum >= 1" t:each="page : numbers.sequence(1, pageNum)">
++        <li t:if="current == page" class="active"><a t:href="|${href}/${page}|" t:text="page">1</a></li>
++        <li t:unless="current == page"><a t:href="|${href}/${page}|" t:text="page">1</a></li>
++    </t:block>
++    <li t:if="current >= pageNum" class="disabled"><a href="#">&raquo;</a></li>
++    <li t:unless="current >= pageNum"><a t:href="|${href}/${current + 1}|">&raquo;</a></li>
++</ul>
++<!--/* Was the Velocity macro #frontFlip. Without a current page Velocity could not compute
++       $prev/$next and printed the references literally; that output is kept. */-->
++<t:block t:fragment="frontFlip(Integer pageNum, Integer current, String href)">
++    <t:block t:if="current == null">
++        <a t:href="|${href}/$prev|" class="default-tag"><i class="fa fa-chevron-left fa-fw"></i> <span class="network-name">Prev</span></a>
++        <a t:href="|${href}/$next|" class="default-tag" style="float: right"><i class="fa fa-chevron-right fa-fw"></i> <span class="network-name">Next</span></a>
++    </t:block>
++    <t:block t:unless="current == null">
++        <t:block t:if="pageNum > 1">
++            <a t:if="current <= 1" t:href="|${href}/${current + 1}|" class="default-tag" style="float: right"><i class="fa fa-chevron-right fa-fw"></i> <span class="network-name">Next</span></a>
++            <t:block t:if="current > 1">
++                <a t:href="|${href}/${current - 1}|" class="default-tag"><i class="fa fa-chevron-left fa-fw"></i> <span class="network-name">Prev</span></a>
++                <a t:if="current < pageNum" t:href="|${href}/${current + 1}|" class="default-tag" style="float: right"><i class="fa fa-chevron-right fa-fw"></i> <span class="network-name">Next</span></a>
++            </t:block>
++        </t:block>
++    </t:block>
++</t:block>
++</t:block>
+diff --git a/src/main/resources/templates/index.vm b/src/main/resources/templates/index.html
+similarity index 90%
+rename from src/main/resources/templates/index.vm
+rename to src/main/resources/templates/index.html
+index 2d81a64..0f7960a 100644
+--- a/src/main/resources/templates/index.vm
++++ b/src/main/resources/templates/index.html
+@@ -1,4 +1,7 @@
+-#parse("/templates/module/header.vm")
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="com.msun.luckyBlog.persistence.domain.*" t:params="Info info"
++      t:replace="~{fragments/front :: front(info, ~{::body})}">
++<body t:remove="tag">
+ <div class="content-section-a">
+         <div class="container">
+             <div class="row">
+@@ -48,4 +51,5 @@
+             </div>
+         </div>
+     </div>
+-#include("/templates/module/footer.vm")
+\ No newline at end of file
++</body>
++</html>
+diff --git a/src/main/resources/templates/login.vm b/src/main/resources/templates/login.html
+similarity index 85%
+rename from src/main/resources/templates/login.vm
+rename to src/main/resources/templates/login.html
+index 0176328..40c0d0b 100644
+--- a/src/main/resources/templates/login.vm
++++ b/src/main/resources/templates/login.html
+@@ -1,5 +1,5 @@
+ <!DOCTYPE html>
+-<html>
++<html xmlns:t="https://tessera.dev" t:params="String avatar, Integer success">
+ <head>
+     <meta charset="UTF-8">
+     <title>login</title>
+@@ -8,7 +8,7 @@
+     <link href="//cdn.bootcss.com/font-awesome/4.6.3/css/font-awesome.css" rel="stylesheet">
+ </head>
+ <body class="login-page">
+-<div class="login-avatar" style="background: url($!{avatar}) no-repeat center center;" onmouseover="this.style.cursor='pointer'" onclick="document.location='/'">
++<div class="login-avatar" t:style="|background: ${css.url(avatar)} no-repeat center center;|" data-action="home">
+ </div>
+ <div class="login-form">
+     <div class="login-content">
+@@ -44,10 +44,8 @@
+ <script src="/js/jquery.bootstrap-growl.min.js"></script>
+ <script src="//cdn.bootcss.com/blueimp-md5/2.3.1/js/md5.min.js"></script>
+ <script src="/js/jcala-form.min.js"></script>
++<t:block t:if="success != null && success < 1">
+ <script type="text/javascript">
+-        #set($ii = 1)
+-        #set($ii = $!{success})
+-        #if($ii < 1)
+         setTimeout(function() {
+             $.bootstrapGrowl("Please check your username or password!", {
+                 type: 'danger',
+@@ -55,7 +53,11 @@
+                 width: 'auto',
+             });
+         }, 0);
+-        #end
+ </script>
++</t:block>
++<t:block t:unless="success != null && success < 1">
++<script type="text/javascript">
++</script>
++</t:block>
+ </body>
+-</html>
+\ No newline at end of file
++</html>
+diff --git a/src/main/resources/templates/module/footer.vm b/src/main/resources/templates/module/footer.vm
+deleted file mode 100644
+index 100ad16..0000000
+--- a/src/main/resources/templates/module/footer.vm
++++ /dev/null
+@@ -1,31 +0,0 @@
+-<footer>
+-    <div class="container">
+-        <div class="row">
+-            <div class="col-lg-12">
+-                <ul class="list-inline">
+-                    <li>
+-                        <a href="/archives/1">Archives</a>
+-                    </li>
+-                    <li>
+-                        <a href="/tags">Tags</a>
+-                    </li>
+-                    <li>
+-                        <a href="/projects/1">Projects</a>
+-                    </li>
+-                    <li>
+-                        <a href="/about">About</a>
+-                    </li>
+-                    <li>
+-                        <a href="/admin/">Admin</a>
+-                    </li>
+-                </ul>
+-                <p class="copyright text-muted small"></p>
+-            </div>
+-        </div>
+-    </div>
+-</footer>
+-<script src="//cdn.bootcss.com/jquery/3.1.1/jquery.min.js"></script>
+-<script src="//cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+-<script src="/js/front-end.min.js"></script>
+-</body>
+-</html>
+\ No newline at end of file
+diff --git a/src/main/resources/templates/post.html b/src/main/resources/templates/post.html
+new file mode 100644
+index 0000000..e38ef03
+--- /dev/null
++++ b/src/main/resources/templates/post.html
+@@ -0,0 +1,19 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="com.msun.luckyBlog.persistence.domain.*" t:params="Info info, String article, BlogView prev, BlogView next"
++      t:replace="~{fragments/front :: front(info, ~{::body})}">
++<body t:remove="tag">
++<div class="container">
++    <div class="row">
++        <div class="col-lg-12 post">
++            <div class="editormd-preview" id="md-container">
++                <div class="markdown-body editormd-preview-container" previewcontainer="true" style="padding: 20px;" t:utext="blog.html(article)">
++                </div>
++            </div>
++            <br><br>
++            <a t:if="prev != null" t:href="|/post/${prev.vid}|" class="post-flip"><i class="fa fa-arrow-left"></i>&nbsp;<t:block t:text="prev.title">prev</t:block></a>
++            <a t:if="next != null" t:href="|/post/${next.vid}|" class="post-flip" style="float: right;"><t:block t:text="next.title">next</t:block>&nbsp;<i class="fa fa-arrow-right"></i></a>
++        </div>
++    </div>
++</div>
++</body>
++</html>
+diff --git a/src/main/resources/templates/post.vm b/src/main/resources/templates/post.vm
+deleted file mode 100644
+index eb50404..0000000
+--- a/src/main/resources/templates/post.vm
++++ /dev/null
+@@ -1,20 +0,0 @@
+-#parse("/templates/module/header.vm")
+-<div class="container">
+-    <div class="row">
+-        <div class="col-lg-12 post">
+-            <div class="editormd-preview" id="md-container">
+-                <div class="markdown-body editormd-preview-container" previewcontainer="true" style="padding: 20px;">
+-                $!{article}
+-                </div>
+-            </div>
+-            <br><br>
+-            #if($prev)
+-                <a href="/post/$!{prev.Vid}" class="post-flip"><i class="fa fa-arrow-left"></i>&nbsp;$!{prev.Title}</a>
+-            #end
+-            #if($next)
+-                <a href="/post/$!{next.Vid}" class="post-flip" style="float: right;">$!{next.Title}&nbsp;<i class="fa fa-arrow-right"></i></a>
+-            #end
+-        </div>
+-    </div>
+-</div>
+-#include("/templates/module/footer.vm")
+diff --git a/src/main/resources/templates/projects.vm b/src/main/resources/templates/projects.html
+similarity index 51%
+rename from src/main/resources/templates/projects.vm
+rename to src/main/resources/templates/projects.html
+index 82d5f34..dba2e1c 100644
+--- a/src/main/resources/templates/projects.vm
++++ b/src/main/resources/templates/projects.html
+@@ -1,33 +1,36 @@
+-#parse("/templates/module/header.vm")
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="com.msun.luckyBlog.persistence.domain.*" t:params="Info info, List<Project> projects, Integer pageNum, Integer current"
++      t:replace="~{fragments/front :: front(info, ~{::body})}">
++<body t:remove="tag">
+ <div class="container">
+     <div class="row">
+         <div class="col-lg-12 post">
+             <div class="editormd-preview" id="md-container">
+                 <div class="markdown-body editormd-preview-container" previewcontainer="true" style="padding: 20px;">
+-                #foreach($item in ${projects})
++                <t:block t:if="projects != null" t:each="item : projects">
+                 <h2>
+                     <a class="reference-link"></a>
+                     <span class="header-link octicon octicon-link"></span>
+-                    <a href="$!{item.Url}" title="jcala">$!{item.Name}</a></h2>
++                    <a t:href="item.url ?: ''" title="jcala" t:text="item.name">name</a></h2>
+                 <ul>
+                     <li>
+-                        <strong>Date&nbsp;:&nbsp;</strong>$!{item.Date}</li>
++                        <strong>Date&nbsp;:&nbsp;</strong><t:block t:text="item.dateText">date</t:block></li>
+                     <li>
+-                        <strong>Technology&nbsp;:&nbsp;</strong>$!{item.Tech}</li>
++                        <strong>Technology&nbsp;:&nbsp;</strong><t:block t:text="item.tech">tech</t:block></li>
+                     <li>
+                         <strong>Discription&nbsp;:</strong>
+                         <blockquote>
+-                            <p>$!{item.Desp}</p>
++                            <p t:text="item.desp">desp</p>
+                         </blockquote>
+                     </li>
+                 </ul>
+                 <br><br>
+-            #end
++                </t:block>
+                 </div>
+             </div>
+-            #set($href = "/projects")
+-            #frontFlip($pageNum $current $href)
++            <t:block t:replace="~{fragments/paging :: frontFlip(pageNum, current, '/projects')}"></t:block>
+         </div>
+     </div>
+ </div>
+-#include("/templates/module/footer.vm")
+\ No newline at end of file
++</body>
++</html>
+diff --git a/src/main/resources/templates/tagView.html b/src/main/resources/templates/tagView.html
+new file mode 100644
+index 0000000..74206d3
+--- /dev/null
++++ b/src/main/resources/templates/tagView.html
+@@ -0,0 +1,20 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="com.msun.luckyBlog.persistence.domain.*" t:params="Info info, List<BlogView> views, String tagName"
++      t:replace="~{fragments/front :: front(info, ~{::body})}">
++<body t:remove="tag">
++<div class="container">
++    <div class="row">
++        <div class="col-lg-12 post">
++            <div class="archive">
++                    <h2 class="year" t:text="tagName">tag</h2>
++                    <div class="post-item" t:each="bv : views">
++                        <div class="post-time" t:text="bv.monthDay">Oct 04</div>
++                        <a t:href="|/post/${bv.vid}|" class="post-link" t:text="bv.title">title</a>
++                    </div>
++                    <br><br>
++            </div>
++        </div>
++    </div>
++</div>
++</body>
++</html>
+diff --git a/src/main/resources/templates/tagView.vm b/src/main/resources/templates/tagView.vm
+deleted file mode 100644
+index 10bb979..0000000
+--- a/src/main/resources/templates/tagView.vm
++++ /dev/null
+@@ -1,20 +0,0 @@
+-#parse("/templates/module/header.vm")
+-<div class="container">
+-    <div class="row">
+-        <div class="col-lg-12 post">
+-            <div class="archive">
+-                    <h2 class="year">${tagName}</h2>
+-                    #foreach($bv in ${views})
+-                        <div class="post-item">
+-                            <div class="post-time">
+-                                $!{bv.MonthDay}
+-                            </div>
+-                            <a href="/post/$!{bv.Vid}" class="post-link">$!{bv.Title}</a>
+-                        </div>
+-                    #end
+-                    <br><br>
+-            </div>
+-        </div>
+-    </div>
+-</div>
+-#include("/templates/module/footer.vm")
+diff --git a/src/main/resources/templates/tags.html b/src/main/resources/templates/tags.html
+new file mode 100644
+index 0000000..057785b
+--- /dev/null
++++ b/src/main/resources/templates/tags.html
+@@ -0,0 +1,15 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="com.msun.luckyBlog.persistence.domain.*" t:params="Info info, List<String> tags"
++      t:replace="~{fragments/front :: front(info, ~{::body})}">
++<body t:remove="tag">
++<div class="container">
++    <div class="row">
++        <div class="col-lg-12 post">
++            <ul class="tags">
++                <li t:each="tag : tags"><a class="default-tag" t:href="|/tags/${tag}|" t:text="tag">tag</a></li>
++            </ul>
++        </div>
++    </div>
++</div>
++</body>
++</html>
+diff --git a/src/main/resources/templates/tags.vm b/src/main/resources/templates/tags.vm
+deleted file mode 100644
+index 7794c2c..0000000
+--- a/src/main/resources/templates/tags.vm
++++ /dev/null
+@@ -1,13 +0,0 @@
+-#parse("/templates/module/header.vm")
+-<div class="container">
+-    <div class="row">
+-        <div class="col-lg-12 post">
+-            <ul class="tags">
+-                #foreach($tag in ${tags})
+-                    <li><a class="default-tag" href="/tags/$!tag">$!tag</a></li>
+-                #end
+-            </ul>
+-        </div>
+-    </div>
+-</div>
+-#include("/templates/module/footer.vm")
+\ No newline at end of file

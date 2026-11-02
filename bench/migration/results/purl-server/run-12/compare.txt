@@ -1,0 +1,1014 @@
+01 same      GET /
+02 differs   GET /admin/manager
+--- recorded 02.html
++++ now
+@@ -48,7 +48,7 @@
+                 <input class="form-control" id="password_plain" placeholder="Passwort" type="password">
+             <div class="mb-3 row">
+               <div class="col-6">
+-                <button class="btn btn-primary" name="do_login" onclick="encryptPassword();" type="submit">
++                <button class="btn btn-primary" data-action="encrypt-password" name="do_login" type="submit">
+                   Login
+                 <a class="btn btn-link float-end" href="/admin/login/password">
+                   Passwort vergessen
+@@ -60,4 +60,4 @@
+               © 2022
+     <script src="/webjars/bootstrap/js/bootstrap.bundle.min.js">
+     <script type="text/javascript">
+-      function encryptPassword(){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password_plain").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}
++      function encryptPassword(){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password_plain").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}document.querySelector('[data-action=encrypt-password]').addEventListener('click',encryptPassword);
+03 differs   GET /info/domain/test
+--- recorded 03.html
++++ now
+@@ -105,11 +105,11 @@
+               <div class="p-1" style="margin-left:12em;">
+                 <a class="btn btn-outline-secondary btn-sm float-end" href="?format=json">
+                   🗎 JSON
+-                <form action="/admin/manager/purl/search" method="post" onsubmit="storeFormData()">
++                <form action="/admin/manager/purl/search" data-action="store-form-data" method="post">
+                   <input name="_csrf" type="hidden" value="MASKED">
+                   <input class="form-control" name="path" type="hidden" value="/test/%">
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('purl_search_path',document.getElementsByName('path')[0].value); sessionStorage.setItem('purl_search_target',''); sessionStorage.setItem('purl_search_tombstoned',false); return true;}
++                function storeFormData(){sessionStorage.setItem('purl_search_path',document.getElementsByName('path')[0].value); sessionStorage.setItem('purl_search_target',''); sessionStorage.setItem('purl_search_tombstoned',false); return true;}document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+       <div>
+         <div class="my-3 row">
+           <div class="col">
+04 differs   GET /info/domain/old
+--- recorded 04.html
++++ now
+@@ -98,11 +98,11 @@
+               <div class="p-1" style="margin-left:12em;">
+                 <a class="btn btn-outline-secondary btn-sm float-end" href="?format=json">
+                   🗎 JSON
+-                <form action="/admin/manager/purl/search" method="post" onsubmit="storeFormData()">
++                <form action="/admin/manager/purl/search" data-action="store-form-data" method="post">
+                   <input name="_csrf" type="hidden" value="MASKED">
+                   <input class="form-control" name="path" type="hidden" value="/old/%">
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('purl_search_path',document.getElementsByName('path')[0].value); sessionStorage.setItem('purl_search_target',''); sessionStorage.setItem('purl_search_tombstoned',false); return true;}
++                function storeFormData(){sessionStorage.setItem('purl_search_path',document.getElementsByName('path')[0].value); sessionStorage.setItem('purl_search_target',''); sessionStorage.setItem('purl_search_tombstoned',false); return true;}document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+       <div>
+         <div class="my-3 row">
+           <div class="col">
+05 same      GET /info/domain/nosuch
+06 differs   GET /info/purl/test/partial
+--- recorded 06.html
++++ now
+@@ -177,6 +177,7 @@
+                           <table aria-label="PURL history information" class="mb-0 table table-sm">
+                             <colgroup>
+                               <col style="width: 3em">
++                            <tbody>
+                           <table aria-label="PURL history information" class="mb-0 table table-sm">
+                             <colgroup>
+                               <col style="width: 3em">
+07 differs   GET /info/purl/test/partial/extra/path
+--- recorded 07.html
++++ now
+@@ -178,6 +178,7 @@
+                           <table aria-label="PURL history information" class="mb-0 table table-sm">
+                             <colgroup>
+                               <col style="width: 3em">
++                            <tbody>
+                           <table aria-label="PURL history information" class="mb-0 table table-sm">
+                             <colgroup>
+                               <col style="width: 3em">
+08 differs   GET /info/purl/test/gone
+--- recorded 08.html
++++ now
+@@ -175,6 +175,7 @@
+                           <table aria-label="PURL history information" class="mb-0 table table-sm">
+                             <colgroup>
+                               <col style="width: 3em">
++                            <tbody>
+                           <table aria-label="PURL history information" class="mb-0 table table-sm">
+                             <colgroup>
+                               <col style="width: 3em">
+09 same      GET /info/purl/library/book1
+10 same      GET /info/purl/nosuch/thing
+11 same      GET /nosuch/thing
+12 same      GET /?lang=en
+13 differs   GET /info/domain/test
+--- recorded 13.html
++++ now
+@@ -105,11 +105,11 @@
+               <div class="p-1" style="margin-left:12em;">
+                 <a class="btn btn-outline-secondary btn-sm float-end" href="?format=json">
+                   🗎 JSON
+-                <form action="/admin/manager/purl/search" method="post" onsubmit="storeFormData()">
++                <form action="/admin/manager/purl/search" data-action="store-form-data" method="post">
+                   <input name="_csrf" type="hidden" value="MASKED">
+                   <input class="form-control" name="path" type="hidden" value="/test/%">
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('purl_search_path',document.getElementsByName('path')[0].value); sessionStorage.setItem('purl_search_target',''); sessionStorage.setItem('purl_search_tombstoned',false); return true;}
++                function storeFormData(){sessionStorage.setItem('purl_search_path',document.getElementsByName('path')[0].value); sessionStorage.setItem('purl_search_target',''); sessionStorage.setItem('purl_search_tombstoned',false); return true;}document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+       <div>
+         <div class="my-3 row">
+           <div class="col">
+14 same      GET /info/domain/nosuch
+15 same      GET /?lang=de
+16 same      GET /admin/login/password
+17 same      POST /admin/login/password login=nosuch&do_password_reset=x
+18 same      POST /admin/login/password login=user1&do_password_reset=x
+19 differs   GET /admin/login/password?login=user2&token=bad-token
+--- recorded 19.html
++++ now
+@@ -49,7 +49,7 @@
+                   <input class="form-control" id="password" placeholder="Passwort" type="password">
+                 <div class="mb-3">
+                   <input class="form-control" id="password_wdhl" placeholder="Passwort wiederholen" type="password">
+-                <button class="btn btn-primary" name="do_set_password" onclick="return encryptPassword();" type="submit" value="x">
++                <button class="btn btn-primary" data-action="encrypt-password" name="do_set_password" type="submit" value="x">
+                   Passwort speichern
+       <div>
+         <div class="my-3 row">
+@@ -60,4 +60,4 @@
+     ~{
+     <script src="/webjars/bootstrap/js/bootstrap.bundle.min.js">
+     <script type="text/javascript">
+-      function encryptPassword(){try{if (document.getElementById("password").value == document.getElementById("password_wdhl").value){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}else{const msg = "??purl_server.error.validate.passwords_different_de??"; alert(msg);}}catch (err){}return false;}
++      const msgPasswordsDifferent = "Die eingegebenen Passwörter stimmen nicht überein."; function encryptPassword(){try{if (document.getElementById("password").value == document.getElementById("password_wdhl").value){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}else{const msg = msgPasswordsDifferent; alert(msg);}}catch (err){}return false;}document.querySelector('[data-action=encrypt-password]').addEventListener('click',function(e){if (!encryptPassword()){e.preventDefault();}});
+20 differs   POST /admin/login/password password_reset_token=bad-token&password_sha1=a1881c06eec96db9901c7bbfe41c42a3f08e9cb4&do_set_password=x
+--- recorded 20.html
++++ now
+@@ -48,7 +48,7 @@
+                 <input class="form-control" id="password_plain" placeholder="Passwort" type="password">
+             <div class="mb-3 row">
+               <div class="col-6">
+-                <button class="btn btn-primary" name="do_login" onclick="encryptPassword();" type="submit">
++                <button class="btn btn-primary" data-action="encrypt-password" name="do_login" type="submit">
+                   Login
+                 <a class="btn btn-link float-end" href="/admin/login/password">
+                   Passwort vergessen
+@@ -60,4 +60,4 @@
+               © 2022
+     <script src="/webjars/bootstrap/js/bootstrap.bundle.min.js">
+     <script type="text/javascript">
+-      function encryptPassword(){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password_plain").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}
++      function encryptPassword(){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password_plain").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}document.querySelector('[data-action=encrypt-password]').addEventListener('click',encryptPassword);
+21 differs   GET /admin/login/password?login=user2&token=9999999999999_bench-token
+--- recorded 21.html
++++ now
+@@ -49,7 +49,7 @@
+                   <input class="form-control" id="password" placeholder="Passwort" type="password">
+                 <div class="mb-3">
+                   <input class="form-control" id="password_wdhl" placeholder="Passwort wiederholen" type="password">
+-                <button class="btn btn-primary" name="do_set_password" onclick="return encryptPassword();" type="submit" value="x">
++                <button class="btn btn-primary" data-action="encrypt-password" name="do_set_password" type="submit" value="x">
+                   Passwort speichern
+       <div>
+         <div class="my-3 row">
+@@ -60,4 +60,4 @@
+     ~{
+     <script src="/webjars/bootstrap/js/bootstrap.bundle.min.js">
+     <script type="text/javascript">
+-      function encryptPassword(){try{if (document.getElementById("password").value == document.getElementById("password_wdhl").value){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}else{const msg = "??purl_server.error.validate.passwords_different_de??"; alert(msg);}}catch (err){}return false;}
++      const msgPasswordsDifferent = "Die eingegebenen Passwörter stimmen nicht überein."; function encryptPassword(){try{if (document.getElementById("password").value == document.getElementById("password_wdhl").value){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}else{const msg = msgPasswordsDifferent; alert(msg);}}catch (err){}return false;}document.querySelector('[data-action=encrypt-password]').addEventListener('click',function(e){if (!encryptPassword()){e.preventDefault();}});
+22 same      POST /admin/login/password password_reset_token=9999999999999_bench-token&password_sha1=a1881c06eec96db9901c7bbfe41c42a3f08e9cb4&do_set_password=x
+23 differs   GET /admin/login
+--- recorded 23.html
++++ now
+@@ -48,7 +48,7 @@
+                 <input class="form-control" id="password_plain" placeholder="Passwort" type="password">
+             <div class="mb-3 row">
+               <div class="col-6">
+-                <button class="btn btn-primary" name="do_login" onclick="encryptPassword();" type="submit">
++                <button class="btn btn-primary" data-action="encrypt-password" name="do_login" type="submit">
+                   Login
+                 <a class="btn btn-link float-end" href="/admin/login/password">
+                   Passwort vergessen
+@@ -60,4 +60,4 @@
+               © 2022
+     <script src="/webjars/bootstrap/js/bootstrap.bundle.min.js">
+     <script type="text/javascript">
+-      function encryptPassword(){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password_plain").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}
++      function encryptPassword(){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password_plain").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}document.querySelector('[data-action=encrypt-password]').addEventListener('click',encryptPassword);
+24 same      POST /admin/login username=admin&password=d033e22ae348aeb5660fc2140aec35850c4da997
+25 same      GET /
+26 differs   GET /admin/manager/purl/search
+--- recorded 26.html
++++ now
+@@ -7,7 +7,7 @@
+     <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+     <style>
+       .purl_server-checkbox { min-width: 2rem; min-height: 2rem; } input[type='checkbox']:disabled { background-color: var(--bs-secondary-bg); }
+-  <body onload="loadFormData()">
++  <body>
+     <div class="container">
+       <title>
+         Page fragments
+@@ -83,11 +83,11 @@
+         <div class="card-body">
+           <div class="row">
+             <div class="col">
+-              <button class="btn float-end" onclick="clearFormData()" title="Formular zurücksetzen" type="button">
++              <button class="btn float-end" data-action="clear-form-data" title="Formular zurücksetzen" type="button">
+                 ␥
+               <h3 class="card-title">
+                 PURL suchen
+-              <form action="/admin/manager/purl/search" method="post" onsubmit="storeFormData()">
++              <form action="/admin/manager/purl/search" data-action="store-form-data" method="post">
+                 <input name="_csrf" type="hidden" value="MASKED">
+                 <div class="mb-3 row">
+                   <label class="col-form-label col-sm-3">
+@@ -111,7 +111,7 @@
+                     <button class="btn btn-primary" type="submit">
+                       Suche
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('purl_search_path',document.getElementsByName('path')[0].value); sessionStorage.setItem('purl_search_target',document.getElementsByName('targetURL')[0].value); sessionStorage.setItem('purl_search_tombstoned',document.getElementsByName('tombstoned')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('purl_search_path') != null){document.getElementsByName('path')[0].value = sessionStorage.getItem('purl_search_path');}if(sessionStorage.getItem('purl_search_target') != null){document.getElementsByName('targetURL')[0].value = sessionStorage.getItem('purl_search_target');}if(sessionStorage.getItem('purl_search_tombstoned') != null){document.getElementsByName('tombstoned')[0].checked = ('true' == sessionStorage.getItem('purl_search_tombstoned'));}}function clearFormData(){document.getElementsByName('path')[0].value = ''; document.getElementsByName('targetURL')[0].value = ''; document.getElementsByName('tombstoned')[0].checked = false;}
++                function storeFormData(){sessionStorage.setItem('purl_search_path',document.getElementsByName('path')[0].value); sessionStorage.setItem('purl_search_target',document.getElementsByName('targetURL')[0].value); sessionStorage.setItem('purl_search_tombstoned',document.getElementsByName('tombstoned')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('purl_search_path') != null){document.getElementsByName('path')[0].value = sessionStorage.getItem('purl_search_path');}if(sessionStorage.getItem('purl_search_target') != null){document.getElementsByName('targetURL')[0].value = sessionStorage.getItem('purl_search_target');}if(sessionStorage.getItem('purl_search_tombstoned') != null){document.getElementsByName('tombstoned')[0].checked = ('true' == sessionStorage.getItem('purl_search_tombstoned'));}}function clearFormData(){document.getElementsByName('path')[0].value = ''; document.getElementsByName('targetURL')[0].value = ''; document.getElementsByName('tombstoned')[0].checked = false;}window.addEventListener('load',loadFormData); document.querySelector('[data-action=clear-form-data]').addEventListener('click',clearFormData); document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+27 differs   POST /admin/manager/purl/search path=/test&targetURL=
+--- recorded 27.html
++++ now
+@@ -7,7 +7,7 @@
+     <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+     <style>
+       .purl_server-checkbox { min-width: 2rem; min-height: 2rem; } input[type='checkbox']:disabled { background-color: var(--bs-secondary-bg); }
+-  <body onload="loadFormData()">
++  <body>
+     <div class="container">
+       <title>
+         Page fragments
+@@ -83,11 +83,11 @@
+         <div class="card-body">
+           <div class="row">
+             <div class="col">
+-              <button class="btn float-end" onclick="clearFormData()" title="Formular zurücksetzen" type="button">
++              <button class="btn float-end" data-action="clear-form-data" title="Formular zurücksetzen" type="button">
+                 ␥
+               <h3 class="card-title">
+                 PURL suchen
+-              <form action="/admin/manager/purl/search" method="post" onsubmit="storeFormData()">
++              <form action="/admin/manager/purl/search" data-action="store-form-data" method="post">
+                 <input name="_csrf" type="hidden" value="MASKED">
+                 <div class="mb-3 row">
+                   <label class="col-form-label col-sm-3">
+@@ -111,7 +111,7 @@
+                     <button class="btn btn-primary" type="submit">
+                       Suche
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('purl_search_path',document.getElementsByName('path')[0].value); sessionStorage.setItem('purl_search_target',document.getElementsByName('targetURL')[0].value); sessionStorage.setItem('purl_search_tombstoned',document.getElementsByName('tombstoned')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('purl_search_path') != null){document.getElementsByName('path')[0].value = sessionStorage.getItem('purl_search_path');}if(sessionStorage.getItem('purl_search_target') != null){document.getElementsByName('targetURL')[0].value = sessionStorage.getItem('purl_search_target');}if(sessionStorage.getItem('purl_search_tombstoned') != null){document.getElementsByName('tombstoned')[0].checked = ('true' == sessionStorage.getItem('purl_search_tombstoned'));}}function clearFormData(){document.getElementsByName('path')[0].value = ''; document.getElementsByName('targetURL')[0].value = ''; document.getElementsByName('tombstoned')[0].checked = false;}
++                function storeFormData(){sessionStorage.setItem('purl_search_path',document.getElementsByName('path')[0].value); sessionStorage.setItem('purl_search_target',document.getElementsByName('targetURL')[0].value); sessionStorage.setItem('purl_search_tombstoned',document.getElementsByName('tombstoned')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('purl_search_path') != null){document.getElementsByName('path')[0].value = sessionStorage.getItem('purl_search_path');}if(sessionStorage.getItem('purl_search_target') != null){document.getElementsByName('targetURL')[0].value = sessionStorage.getItem('purl_search_target');}if(sessionStorage.getItem('purl_search_tombstoned') != null){document.getElementsByName('tombstoned')[0].checked = ('true' == sessionStorage.getItem('purl_search_tombstoned'));}}function clearFormData(){document.getElementsByName('path')[0].value = ''; document.getElementsByName('targetURL')[0].value = ''; document.getElementsByName('tombstoned')[0].checked = false;}window.addEventListener('load',loadFormData); document.querySelector('[data-action=clear-form-data]').addEventListener('click',clearFormData); document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+28 differs   POST /admin/manager/purl/search path=/test&targetURL=&tombstoned=on
+--- recorded 28.html
++++ now
+@@ -7,7 +7,7 @@
+     <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+     <style>
+       .purl_server-checkbox { min-width: 2rem; min-height: 2rem; } input[type='checkbox']:disabled { background-color: var(--bs-secondary-bg); }
+-  <body onload="loadFormData()">
++  <body>
+     <div class="container">
+       <title>
+         Page fragments
+@@ -83,11 +83,11 @@
+         <div class="card-body">
+           <div class="row">
+             <div class="col">
+-              <button class="btn float-end" onclick="clearFormData()" title="Formular zurücksetzen" type="button">
++              <button class="btn float-end" data-action="clear-form-data" title="Formular zurücksetzen" type="button">
+                 ␥
+               <h3 class="card-title">
+                 PURL suchen
+-              <form action="/admin/manager/purl/search" method="post" onsubmit="storeFormData()">
++              <form action="/admin/manager/purl/search" data-action="store-form-data" method="post">
+                 <input name="_csrf" type="hidden" value="MASKED">
+                 <div class="mb-3 row">
+                   <label class="col-form-label col-sm-3">
+@@ -111,7 +111,7 @@
+                     <button class="btn btn-primary" type="submit">
+                       Suche
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('purl_search_path',document.getElementsByName('path')[0].value); sessionStorage.setItem('purl_search_target',document.getElementsByName('targetURL')[0].value); sessionStorage.setItem('purl_search_tombstoned',document.getElementsByName('tombstoned')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('purl_search_path') != null){document.getElementsByName('path')[0].value = sessionStorage.getItem('purl_search_path');}if(sessionStorage.getItem('purl_search_target') != null){document.getElementsByName('targetURL')[0].value = sessionStorage.getItem('purl_search_target');}if(sessionStorage.getItem('purl_search_tombstoned') != null){document.getElementsByName('tombstoned')[0].checked = ('true' == sessionStorage.getItem('purl_search_tombstoned'));}}function clearFormData(){document.getElementsByName('path')[0].value = ''; document.getElementsByName('targetURL')[0].value = ''; document.getElementsByName('tombstoned')[0].checked = false;}
++                function storeFormData(){sessionStorage.setItem('purl_search_path',document.getElementsByName('path')[0].value); sessionStorage.setItem('purl_search_target',document.getElementsByName('targetURL')[0].value); sessionStorage.setItem('purl_search_tombstoned',document.getElementsByName('tombstoned')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('purl_search_path') != null){document.getElementsByName('path')[0].value = sessionStorage.getItem('purl_search_path');}if(sessionStorage.getItem('purl_search_target') != null){document.getElementsByName('targetURL')[0].value = sessionStorage.getItem('purl_search_target');}if(sessionStorage.getItem('purl_search_tombstoned') != null){document.getElementsByName('tombstoned')[0].checked = ('true' == sessionStorage.getItem('purl_search_tombstoned'));}}function clearFormData(){document.getElementsByName('path')[0].value = ''; document.getElementsByName('targetURL')[0].value = ''; document.getElementsByName('tombstoned')[0].checked = false;}window.addEventListener('load',loadFormData); document.querySelector('[data-action=clear-form-data]').addEventListener('click',clearFormData); document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+29 differs   POST /admin/manager/purl/search path=&targetURL=books
+--- recorded 29.html
++++ now
+@@ -7,7 +7,7 @@
+     <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+     <style>
+       .purl_server-checkbox { min-width: 2rem; min-height: 2rem; } input[type='checkbox']:disabled { background-color: var(--bs-secondary-bg); }
+-  <body onload="loadFormData()">
++  <body>
+     <div class="container">
+       <title>
+         Page fragments
+@@ -83,11 +83,11 @@
+         <div class="card-body">
+           <div class="row">
+             <div class="col">
+-              <button class="btn float-end" onclick="clearFormData()" title="Formular zurücksetzen" type="button">
++              <button class="btn float-end" data-action="clear-form-data" title="Formular zurücksetzen" type="button">
+                 ␥
+               <h3 class="card-title">
+                 PURL suchen
+-              <form action="/admin/manager/purl/search" method="post" onsubmit="storeFormData()">
++              <form action="/admin/manager/purl/search" data-action="store-form-data" method="post">
+                 <input name="_csrf" type="hidden" value="MASKED">
+                 <div class="mb-3 row">
+                   <label class="col-form-label col-sm-3">
+@@ -111,7 +111,7 @@
+                     <button class="btn btn-primary" type="submit">
+                       Suche
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('purl_search_path',document.getElementsByName('path')[0].value); sessionStorage.setItem('purl_search_target',document.getElementsByName('targetURL')[0].value); sessionStorage.setItem('purl_search_tombstoned',document.getElementsByName('tombstoned')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('purl_search_path') != null){document.getElementsByName('path')[0].value = sessionStorage.getItem('purl_search_path');}if(sessionStorage.getItem('purl_search_target') != null){document.getElementsByName('targetURL')[0].value = sessionStorage.getItem('purl_search_target');}if(sessionStorage.getItem('purl_search_tombstoned') != null){document.getElementsByName('tombstoned')[0].checked = ('true' == sessionStorage.getItem('purl_search_tombstoned'));}}function clearFormData(){document.getElementsByName('path')[0].value = ''; document.getElementsByName('targetURL')[0].value = ''; document.getElementsByName('tombstoned')[0].checked = false;}
++                function storeFormData(){sessionStorage.setItem('purl_search_path',document.getElementsByName('path')[0].value); sessionStorage.setItem('purl_search_target',document.getElementsByName('targetURL')[0].value); sessionStorage.setItem('purl_search_tombstoned',document.getElementsByName('tombstoned')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('purl_search_path') != null){document.getElementsByName('path')[0].value = sessionStorage.getItem('purl_search_path');}if(sessionStorage.getItem('purl_search_target') != null){document.getElementsByName('targetURL')[0].value = sessionStorage.getItem('purl_search_target');}if(sessionStorage.getItem('purl_search_tombstoned') != null){document.getElementsByName('tombstoned')[0].checked = ('true' == sessionStorage.getItem('purl_search_tombstoned'));}}function clearFormData(){document.getElementsByName('path')[0].value = ''; document.getElementsByName('targetURL')[0].value = ''; document.getElementsByName('tombstoned')[0].checked = false;}window.addEventListener('load',loadFormData); document.querySelector('[data-action=clear-form-data]').addEventListener('click',clearFormData); document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+30 differs   POST /admin/manager/purl/search path=/nothing&targetURL=
+--- recorded 30.html
++++ now
+@@ -7,7 +7,7 @@
+     <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+     <style>
+       .purl_server-checkbox { min-width: 2rem; min-height: 2rem; } input[type='checkbox']:disabled { background-color: var(--bs-secondary-bg); }
+-  <body onload="loadFormData()">
++  <body>
+     <div class="container">
+       <title>
+         Page fragments
+@@ -83,11 +83,11 @@
+         <div class="card-body">
+           <div class="row">
+             <div class="col">
+-              <button class="btn float-end" onclick="clearFormData()" title="Formular zurücksetzen" type="button">
++              <button class="btn float-end" data-action="clear-form-data" title="Formular zurücksetzen" type="button">
+                 ␥
+               <h3 class="card-title">
+                 PURL suchen
+-              <form action="/admin/manager/purl/search" method="post" onsubmit="storeFormData()">
++              <form action="/admin/manager/purl/search" data-action="store-form-data" method="post">
+                 <input name="_csrf" type="hidden" value="MASKED">
+                 <div class="mb-3 row">
+                   <label class="col-form-label col-sm-3">
+@@ -111,7 +111,7 @@
+                     <button class="btn btn-primary" type="submit">
+                       Suche
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('purl_search_path',document.getElementsByName('path')[0].value); sessionStorage.setItem('purl_search_target',document.getElementsByName('targetURL')[0].value); sessionStorage.setItem('purl_search_tombstoned',document.getElementsByName('tombstoned')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('purl_search_path') != null){document.getElementsByName('path')[0].value = sessionStorage.getItem('purl_search_path');}if(sessionStorage.getItem('purl_search_target') != null){document.getElementsByName('targetURL')[0].value = sessionStorage.getItem('purl_search_target');}if(sessionStorage.getItem('purl_search_tombstoned') != null){document.getElementsByName('tombstoned')[0].checked = ('true' == sessionStorage.getItem('purl_search_tombstoned'));}}function clearFormData(){document.getElementsByName('path')[0].value = ''; document.getElementsByName('targetURL')[0].value = ''; document.getElementsByName('tombstoned')[0].checked = false;}
++                function storeFormData(){sessionStorage.setItem('purl_search_path',document.getElementsByName('path')[0].value); sessionStorage.setItem('purl_search_target',document.getElementsByName('targetURL')[0].value); sessionStorage.setItem('purl_search_tombstoned',document.getElementsByName('tombstoned')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('purl_search_path') != null){document.getElementsByName('path')[0].value = sessionStorage.getItem('purl_search_path');}if(sessionStorage.getItem('purl_search_target') != null){document.getElementsByName('targetURL')[0].value = sessionStorage.getItem('purl_search_target');}if(sessionStorage.getItem('purl_search_tombstoned') != null){document.getElementsByName('tombstoned')[0].checked = ('true' == sessionStorage.getItem('purl_search_tombstoned'));}}function clearFormData(){document.getElementsByName('path')[0].value = ''; document.getElementsByName('targetURL')[0].value = ''; document.getElementsByName('tombstoned')[0].checked = false;}window.addEventListener('load',loadFormData); document.querySelector('[data-action=clear-form-data]').addEventListener('click',clearFormData); document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+31 differs   GET /admin/manager/domain/search
+--- recorded 31.html
++++ now
+@@ -7,7 +7,7 @@
+     <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+     <style>
+       .purl_server-checkbox { min-width: 2rem; min-height: 2rem; } input[type='checkbox']:disabled { background-color: var(--bs-secondary-bg); }
+-  <body onload="loadFormData()">
++  <body>
+     <div class="container">
+       <title>
+         Page fragments
+@@ -83,11 +83,11 @@
+         <div class="card-body">
+           <div class="row">
+             <div class="col">
+-              <button class="btn float-end" onclick="clearFormData()" title="Formular zurücksetzen" type="button">
++              <button class="btn float-end" data-action="clear-form-data" title="Formular zurücksetzen" type="button">
+                 ␥
+               <h3 class="card-title">
+                 Domain suchen
+-              <form action="/admin/manager/domain/search" method="post" onsubmit="storeFormData()">
++              <form action="/admin/manager/domain/search" data-action="store-form-data" method="post">
+                 <input name="_csrf" type="hidden" value="MASKED">
+                 <div class="mb-3 row">
+                   <label class="col-form-label col-sm-3">
+@@ -116,7 +116,7 @@
+                     <button class="btn btn-primary" type="submit">
+                       Suche
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('domain_search_path',document.getElementsByName('searchPath')[0].value); sessionStorage.setItem('domain_search_name',document.getElementsByName('searchName')[0].value); sessionStorage.setItem('domain_search_user',document.getElementsByName('searchUser')[0].value); sessionStorage.setItem('domain_search_tombstoned',document.getElementsByName('searchTombstonedDomain')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('domain_search_path') != null){document.getElementsByName('searchPath')[0].value = sessionStorage.getItem('domain_search_path');}if(sessionStorage.getItem('domain_search_name') != null){document.getElementsByName('searchName')[0].value = sessionStorage.getItem('domain_search_name');}if(sessionStorage.getItem('domain_search_user') != null){document.getElementsByName('searchUser')[0].value = sessionStorage.getItem('domain_search_user');}if(sessionStorage.getItem('domain_search_tombstoned') != null){document.getElementsByName('searchTombstonedDomain')[0].checked = ('true' == sessionStorage.getItem('domain_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchPath')[0].value = ''; document.getElementsByName('searchName')[0].value = ''; document.getElementsByName('searchUser')[0].value = ''; document.getElementsByName('searchTombstonedDomain')[0].checked = false;}
++                function storeFormData(){sessionStorage.setItem('domain_search_path',document.getElementsByName('searchPath')[0].value); sessionStorage.setItem('domain_search_name',document.getElementsByName('searchName')[0].value); sessionStorage.setItem('domain_search_user',document.getElementsByName('searchUser')[0].value); sessionStorage.setItem('domain_search_tombstoned',document.getElementsByName('searchTombstonedDomain')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('domain_search_path') != null){document.getElementsByName('searchPath')[0].value = sessionStorage.getItem('domain_search_path');}if(sessionStorage.getItem('domain_search_name') != null){document.getElementsByName('searchName')[0].value = sessionStorage.getItem('domain_search_name');}if(sessionStorage.getItem('domain_search_user') != null){document.getElementsByName('searchUser')[0].value = sessionStorage.getItem('domain_search_user');}if(sessionStorage.getItem('domain_search_tombstoned') != null){document.getElementsByName('searchTombstonedDomain')[0].checked = ('true' == sessionStorage.getItem('domain_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchPath')[0].value = ''; document.getElementsByName('searchName')[0].value = ''; document.getElementsByName('searchUser')[0].value = ''; document.getElementsByName('searchTombstonedDomain')[0].checked = false;}window.addEventListener('load',loadFormData); document.querySelector('[data-action=clear-form-data]').addEventListener('click',clearFormData); document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+32 differs   POST /admin/manager/domain/search searchPath=&searchName=&searchUser=
+--- recorded 32.html
++++ now
+@@ -7,7 +7,7 @@
+     <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+     <style>
+       .purl_server-checkbox { min-width: 2rem; min-height: 2rem; } input[type='checkbox']:disabled { background-color: var(--bs-secondary-bg); }
+-  <body onload="loadFormData()">
++  <body>
+     <div class="container">
+       <title>
+         Page fragments
+@@ -83,11 +83,11 @@
+         <div class="card-body">
+           <div class="row">
+             <div class="col">
+-              <button class="btn float-end" onclick="clearFormData()" title="Formular zurücksetzen" type="button">
++              <button class="btn float-end" data-action="clear-form-data" title="Formular zurücksetzen" type="button">
+                 ␥
+               <h3 class="card-title">
+                 Domain suchen
+-              <form action="/admin/manager/domain/search" method="post" onsubmit="storeFormData()">
++              <form action="/admin/manager/domain/search" data-action="store-form-data" method="post">
+                 <input name="_csrf" type="hidden" value="MASKED">
+                 <div class="mb-3 row">
+                   <label class="col-form-label col-sm-3">
+@@ -116,7 +116,7 @@
+                     <button class="btn btn-primary" type="submit">
+                       Suche
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('domain_search_path',document.getElementsByName('searchPath')[0].value); sessionStorage.setItem('domain_search_name',document.getElementsByName('searchName')[0].value); sessionStorage.setItem('domain_search_user',document.getElementsByName('searchUser')[0].value); sessionStorage.setItem('domain_search_tombstoned',document.getElementsByName('searchTombstonedDomain')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('domain_search_path') != null){document.getElementsByName('searchPath')[0].value = sessionStorage.getItem('domain_search_path');}if(sessionStorage.getItem('domain_search_name') != null){document.getElementsByName('searchName')[0].value = sessionStorage.getItem('domain_search_name');}if(sessionStorage.getItem('domain_search_user') != null){document.getElementsByName('searchUser')[0].value = sessionStorage.getItem('domain_search_user');}if(sessionStorage.getItem('domain_search_tombstoned') != null){document.getElementsByName('searchTombstonedDomain')[0].checked = ('true' == sessionStorage.getItem('domain_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchPath')[0].value = ''; document.getElementsByName('searchName')[0].value = ''; document.getElementsByName('searchUser')[0].value = ''; document.getElementsByName('searchTombstonedDomain')[0].checked = false;}
++                function storeFormData(){sessionStorage.setItem('domain_search_path',document.getElementsByName('searchPath')[0].value); sessionStorage.setItem('domain_search_name',document.getElementsByName('searchName')[0].value); sessionStorage.setItem('domain_search_user',document.getElementsByName('searchUser')[0].value); sessionStorage.setItem('domain_search_tombstoned',document.getElementsByName('searchTombstonedDomain')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('domain_search_path') != null){document.getElementsByName('searchPath')[0].value = sessionStorage.getItem('domain_search_path');}if(sessionStorage.getItem('domain_search_name') != null){document.getElementsByName('searchName')[0].value = sessionStorage.getItem('domain_search_name');}if(sessionStorage.getItem('domain_search_user') != null){document.getElementsByName('searchUser')[0].value = sessionStorage.getItem('domain_search_user');}if(sessionStorage.getItem('domain_search_tombstoned') != null){document.getElementsByName('searchTombstonedDomain')[0].checked = ('true' == sessionStorage.getItem('domain_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchPath')[0].value = ''; document.getElementsByName('searchName')[0].value = ''; document.getElementsByName('searchUser')[0].value = ''; document.getElementsByName('searchTombstonedDomain')[0].checked = false;}window.addEventListener('load',loadFormData); document.querySelector('[data-action=clear-form-data]').addEventListener('click',clearFormData); document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+33 differs   POST /admin/manager/domain/search searchPath=&searchName=&searchUser=&searchTombstonedDomain=on
+--- recorded 33.html
++++ now
+@@ -7,7 +7,7 @@
+     <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+     <style>
+       .purl_server-checkbox { min-width: 2rem; min-height: 2rem; } input[type='checkbox']:disabled { background-color: var(--bs-secondary-bg); }
+-  <body onload="loadFormData()">
++  <body>
+     <div class="container">
+       <title>
+         Page fragments
+@@ -83,11 +83,11 @@
+         <div class="card-body">
+           <div class="row">
+             <div class="col">
+-              <button class="btn float-end" onclick="clearFormData()" title="Formular zurücksetzen" type="button">
++              <button class="btn float-end" data-action="clear-form-data" title="Formular zurücksetzen" type="button">
+                 ␥
+               <h3 class="card-title">
+                 Domain suchen
+-              <form action="/admin/manager/domain/search" method="post" onsubmit="storeFormData()">
++              <form action="/admin/manager/domain/search" data-action="store-form-data" method="post">
+                 <input name="_csrf" type="hidden" value="MASKED">
+                 <div class="mb-3 row">
+                   <label class="col-form-label col-sm-3">
+@@ -116,7 +116,7 @@
+                     <button class="btn btn-primary" type="submit">
+                       Suche
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('domain_search_path',document.getElementsByName('searchPath')[0].value); sessionStorage.setItem('domain_search_name',document.getElementsByName('searchName')[0].value); sessionStorage.setItem('domain_search_user',document.getElementsByName('searchUser')[0].value); sessionStorage.setItem('domain_search_tombstoned',document.getElementsByName('searchTombstonedDomain')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('domain_search_path') != null){document.getElementsByName('searchPath')[0].value = sessionStorage.getItem('domain_search_path');}if(sessionStorage.getItem('domain_search_name') != null){document.getElementsByName('searchName')[0].value = sessionStorage.getItem('domain_search_name');}if(sessionStorage.getItem('domain_search_user') != null){document.getElementsByName('searchUser')[0].value = sessionStorage.getItem('domain_search_user');}if(sessionStorage.getItem('domain_search_tombstoned') != null){document.getElementsByName('searchTombstonedDomain')[0].checked = ('true' == sessionStorage.getItem('domain_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchPath')[0].value = ''; document.getElementsByName('searchName')[0].value = ''; document.getElementsByName('searchUser')[0].value = ''; document.getElementsByName('searchTombstonedDomain')[0].checked = false;}
++                function storeFormData(){sessionStorage.setItem('domain_search_path',document.getElementsByName('searchPath')[0].value); sessionStorage.setItem('domain_search_name',document.getElementsByName('searchName')[0].value); sessionStorage.setItem('domain_search_user',document.getElementsByName('searchUser')[0].value); sessionStorage.setItem('domain_search_tombstoned',document.getElementsByName('searchTombstonedDomain')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('domain_search_path') != null){document.getElementsByName('searchPath')[0].value = sessionStorage.getItem('domain_search_path');}if(sessionStorage.getItem('domain_search_name') != null){document.getElementsByName('searchName')[0].value = sessionStorage.getItem('domain_search_name');}if(sessionStorage.getItem('domain_search_user') != null){document.getElementsByName('searchUser')[0].value = sessionStorage.getItem('domain_search_user');}if(sessionStorage.getItem('domain_search_tombstoned') != null){document.getElementsByName('searchTombstonedDomain')[0].checked = ('true' == sessionStorage.getItem('domain_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchPath')[0].value = ''; document.getElementsByName('searchName')[0].value = ''; document.getElementsByName('searchUser')[0].value = ''; document.getElementsByName('searchTombstonedDomain')[0].checked = false;}window.addEventListener('load',loadFormData); document.querySelector('[data-action=clear-form-data]').addEventListener('click',clearFormData); document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+34 differs   POST /admin/manager/domain/search searchPath=/nothing&searchName=&searchUser=
+--- recorded 34.html
++++ now
+@@ -7,7 +7,7 @@
+     <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+     <style>
+       .purl_server-checkbox { min-width: 2rem; min-height: 2rem; } input[type='checkbox']:disabled { background-color: var(--bs-secondary-bg); }
+-  <body onload="loadFormData()">
++  <body>
+     <div class="container">
+       <title>
+         Page fragments
+@@ -83,11 +83,11 @@
+         <div class="card-body">
+           <div class="row">
+             <div class="col">
+-              <button class="btn float-end" onclick="clearFormData()" title="Formular zurücksetzen" type="button">
++              <button class="btn float-end" data-action="clear-form-data" title="Formular zurücksetzen" type="button">
+                 ␥
+               <h3 class="card-title">
+                 Domain suchen
+-              <form action="/admin/manager/domain/search" method="post" onsubmit="storeFormData()">
++              <form action="/admin/manager/domain/search" data-action="store-form-data" method="post">
+                 <input name="_csrf" type="hidden" value="MASKED">
+                 <div class="mb-3 row">
+                   <label class="col-form-label col-sm-3">
+@@ -116,7 +116,7 @@
+                     <button class="btn btn-primary" type="submit">
+                       Suche
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('domain_search_path',document.getElementsByName('searchPath')[0].value); sessionStorage.setItem('domain_search_name',document.getElementsByName('searchName')[0].value); sessionStorage.setItem('domain_search_user',document.getElementsByName('searchUser')[0].value); sessionStorage.setItem('domain_search_tombstoned',document.getElementsByName('searchTombstonedDomain')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('domain_search_path') != null){document.getElementsByName('searchPath')[0].value = sessionStorage.getItem('domain_search_path');}if(sessionStorage.getItem('domain_search_name') != null){document.getElementsByName('searchName')[0].value = sessionStorage.getItem('domain_search_name');}if(sessionStorage.getItem('domain_search_user') != null){document.getElementsByName('searchUser')[0].value = sessionStorage.getItem('domain_search_user');}if(sessionStorage.getItem('domain_search_tombstoned') != null){document.getElementsByName('searchTombstonedDomain')[0].checked = ('true' == sessionStorage.getItem('domain_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchPath')[0].value = ''; document.getElementsByName('searchName')[0].value = ''; document.getElementsByName('searchUser')[0].value = ''; document.getElementsByName('searchTombstonedDomain')[0].checked = false;}
++                function storeFormData(){sessionStorage.setItem('domain_search_path',document.getElementsByName('searchPath')[0].value); sessionStorage.setItem('domain_search_name',document.getElementsByName('searchName')[0].value); sessionStorage.setItem('domain_search_user',document.getElementsByName('searchUser')[0].value); sessionStorage.setItem('domain_search_tombstoned',document.getElementsByName('searchTombstonedDomain')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('domain_search_path') != null){document.getElementsByName('searchPath')[0].value = sessionStorage.getItem('domain_search_path');}if(sessionStorage.getItem('domain_search_name') != null){document.getElementsByName('searchName')[0].value = sessionStorage.getItem('domain_search_name');}if(sessionStorage.getItem('domain_search_user') != null){document.getElementsByName('searchUser')[0].value = sessionStorage.getItem('domain_search_user');}if(sessionStorage.getItem('domain_search_tombstoned') != null){document.getElementsByName('searchTombstonedDomain')[0].checked = ('true' == sessionStorage.getItem('domain_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchPath')[0].value = ''; document.getElementsByName('searchName')[0].value = ''; document.getElementsByName('searchUser')[0].value = ''; document.getElementsByName('searchTombstonedDomain')[0].checked = false;}window.addEventListener('load',loadFormData); document.querySelector('[data-action=clear-form-data]').addEventListener('click',clearFormData); document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+35 differs   GET /admin/manager/user/search
+--- recorded 35.html
++++ now
+@@ -7,7 +7,7 @@
+     <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+     <style>
+       .purl_server-checkbox { min-width: 2rem; min-height: 2rem; } input[type='checkbox']:disabled { background-color: var(--bs-secondary-bg); }
+-  <body onload="loadFormData()">
++  <body>
+     <div class="container">
+       <title>
+         Page fragments
+@@ -83,11 +83,11 @@
+         <div class="card-body">
+           <div class="row">
+             <div class="col">
+-              <button class="btn float-end" onclick="clearFormData()" title="Formular zurücksetzen" type="button">
++              <button class="btn float-end" data-action="clear-form-data" title="Formular zurücksetzen" type="button">
+                 ␥
+               <h3 class="card-title">
+                 Benutzer suchen
+-              <form action="/admin/manager/user/search" method="post" onsubmit="storeFormData()">
++              <form action="/admin/manager/user/search" data-action="store-form-data" method="post">
+                 <input name="_csrf" type="hidden" value="MASKED">
+                 <div class="mb-3 row">
+                   <label class="col-form-label col-sm-4">
+@@ -121,7 +121,7 @@
+                     <button class="btn btn-primary" type="submit">
+                       Suche
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('user_search_login',document.getElementsByName('searchLogin')[0].value); sessionStorage.setItem('user_search_fullname',document.getElementsByName('searchFullName')[0].value); sessionStorage.setItem('user_search_affiliation',document.getElementsByName('searchAffiliation')[0].value); sessionStorage.setItem('user_search_email',document.getElementsByName('searchEMailAddress')[0].value); sessionStorage.setItem('user_search_tombstoned',document.getElementsByName('searchTombstonedUser')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('user_search_login') != null){document.getElementsByName('searchLogin')[0].value = sessionStorage.getItem('user_search_login');}if(sessionStorage.getItem('user_search_fullname') != null){document.getElementsByName('searchFullName')[0].value = sessionStorage.getItem('user_search_fullname');}if(sessionStorage.getItem('user_search_affiliation') != null){document.getElementsByName('searchAffiliation')[0].value = sessionStorage.getItem('user_search_affiliation');}if(sessionStorage.getItem('user_search_email') != null){document.getElementsByName('searchEMailAddress')[0].value = sessionStorage.getItem('user_search_email');}if(sessionStorage.getItem('user_search_tombstoned') != null){document.getElementsByName('searchTombstonedUser')[0].checked = ('true' == sessionStorage.getItem('user_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchLogin')[0].value = ''; document.getElementsByName('searchFullName')[0].value = ''; document.getElementsByName('searchAffiliation')[0].value = ''; document.getElementsByName('searchEMailAddress')[0].value = ''; document.getElementsByName('searchTombstonedUser')[0].checked = false;}
++                function storeFormData(){sessionStorage.setItem('user_search_login',document.getElementsByName('searchLogin')[0].value); sessionStorage.setItem('user_search_fullname',document.getElementsByName('searchFullName')[0].value); sessionStorage.setItem('user_search_affiliation',document.getElementsByName('searchAffiliation')[0].value); sessionStorage.setItem('user_search_email',document.getElementsByName('searchEMailAddress')[0].value); sessionStorage.setItem('user_search_tombstoned',document.getElementsByName('searchTombstonedUser')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('user_search_login') != null){document.getElementsByName('searchLogin')[0].value = sessionStorage.getItem('user_search_login');}if(sessionStorage.getItem('user_search_fullname') != null){document.getElementsByName('searchFullName')[0].value = sessionStorage.getItem('user_search_fullname');}if(sessionStorage.getItem('user_search_affiliation') != null){document.getElementsByName('searchAffiliation')[0].value = sessionStorage.getItem('user_search_affiliation');}if(sessionStorage.getItem('user_search_email') != null){document.getElementsByName('searchEMailAddress')[0].value = sessionStorage.getItem('user_search_email');}if(sessionStorage.getItem('user_search_tombstoned') != null){document.getElementsByName('searchTombstonedUser')[0].checked = ('true' == sessionStorage.getItem('user_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchLogin')[0].value = ''; document.getElementsByName('searchFullName')[0].value = ''; document.getElementsByName('searchAffiliation')[0].value = ''; document.getElementsByName('searchEMailAddress')[0].value = ''; document.getElementsByName('searchTombstonedUser')[0].checked = false;}window.addEventListener('load',loadFormData); document.querySelector('[data-action=clear-form-data]').addEventListener('click',clearFormData); document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+36 differs   POST /admin/manager/user/search searchLogin=&searchFullName=&searchAffiliation=&searchEMailAddress=
+--- recorded 36.html
++++ now
+@@ -7,7 +7,7 @@
+     <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+     <style>
+       .purl_server-checkbox { min-width: 2rem; min-height: 2rem; } input[type='checkbox']:disabled { background-color: var(--bs-secondary-bg); }
+-  <body onload="loadFormData()">
++  <body>
+     <div class="container">
+       <title>
+         Page fragments
+@@ -83,11 +83,11 @@
+         <div class="card-body">
+           <div class="row">
+             <div class="col">
+-              <button class="btn float-end" onclick="clearFormData()" title="Formular zurücksetzen" type="button">
++              <button class="btn float-end" data-action="clear-form-data" title="Formular zurücksetzen" type="button">
+                 ␥
+               <h3 class="card-title">
+                 Benutzer suchen
+-              <form action="/admin/manager/user/search" method="post" onsubmit="storeFormData()">
++              <form action="/admin/manager/user/search" data-action="store-form-data" method="post">
+                 <input name="_csrf" type="hidden" value="MASKED">
+                 <div class="mb-3 row">
+                   <label class="col-form-label col-sm-4">
+@@ -121,7 +121,7 @@
+                     <button class="btn btn-primary" type="submit">
+                       Suche
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('user_search_login',document.getElementsByName('searchLogin')[0].value); sessionStorage.setItem('user_search_fullname',document.getElementsByName('searchFullName')[0].value); sessionStorage.setItem('user_search_affiliation',document.getElementsByName('searchAffiliation')[0].value); sessionStorage.setItem('user_search_email',document.getElementsByName('searchEMailAddress')[0].value); sessionStorage.setItem('user_search_tombstoned',document.getElementsByName('searchTombstonedUser')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('user_search_login') != null){document.getElementsByName('searchLogin')[0].value = sessionStorage.getItem('user_search_login');}if(sessionStorage.getItem('user_search_fullname') != null){document.getElementsByName('searchFullName')[0].value = sessionStorage.getItem('user_search_fullname');}if(sessionStorage.getItem('user_search_affiliation') != null){document.getElementsByName('searchAffiliation')[0].value = sessionStorage.getItem('user_search_affiliation');}if(sessionStorage.getItem('user_search_email') != null){document.getElementsByName('searchEMailAddress')[0].value = sessionStorage.getItem('user_search_email');}if(sessionStorage.getItem('user_search_tombstoned') != null){document.getElementsByName('searchTombstonedUser')[0].checked = ('true' == sessionStorage.getItem('user_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchLogin')[0].value = ''; document.getElementsByName('searchFullName')[0].value = ''; document.getElementsByName('searchAffiliation')[0].value = ''; document.getElementsByName('searchEMailAddress')[0].value = ''; document.getElementsByName('searchTombstonedUser')[0].checked = false;}
++                function storeFormData(){sessionStorage.setItem('user_search_login',document.getElementsByName('searchLogin')[0].value); sessionStorage.setItem('user_search_fullname',document.getElementsByName('searchFullName')[0].value); sessionStorage.setItem('user_search_affiliation',document.getElementsByName('searchAffiliation')[0].value); sessionStorage.setItem('user_search_email',document.getElementsByName('searchEMailAddress')[0].value); sessionStorage.setItem('user_search_tombstoned',document.getElementsByName('searchTombstonedUser')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('user_search_login') != null){document.getElementsByName('searchLogin')[0].value = sessionStorage.getItem('user_search_login');}if(sessionStorage.getItem('user_search_fullname') != null){document.getElementsByName('searchFullName')[0].value = sessionStorage.getItem('user_search_fullname');}if(sessionStorage.getItem('user_search_affiliation') != null){document.getElementsByName('searchAffiliation')[0].value = sessionStorage.getItem('user_search_affiliation');}if(sessionStorage.getItem('user_search_email') != null){document.getElementsByName('searchEMailAddress')[0].value = sessionStorage.getItem('user_search_email');}if(sessionStorage.getItem('user_search_tombstoned') != null){document.getElementsByName('searchTombstonedUser')[0].checked = ('true' == sessionStorage.getItem('user_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchLogin')[0].value = ''; document.getElementsByName('searchFullName')[0].value = ''; document.getElementsByName('searchAffiliation')[0].value = ''; document.getElementsByName('searchEMailAddress')[0].value = ''; document.getElementsByName('searchTombstonedUser')[0].checked = false;}window.addEventListener('load',loadFormData); document.querySelector('[data-action=clear-form-data]').addEventListener('click',clearFormData); document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+37 differs   POST /admin/manager/user/search searchLogin=&searchFullName=&searchAffiliation=&searchEMailAddress=&searchTombstonedUser=on
+--- recorded 37.html
++++ now
+@@ -7,7 +7,7 @@
+     <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+     <style>
+       .purl_server-checkbox { min-width: 2rem; min-height: 2rem; } input[type='checkbox']:disabled { background-color: var(--bs-secondary-bg); }
+-  <body onload="loadFormData()">
++  <body>
+     <div class="container">
+       <title>
+         Page fragments
+@@ -83,11 +83,11 @@
+         <div class="card-body">
+           <div class="row">
+             <div class="col">
+-              <button class="btn float-end" onclick="clearFormData()" title="Formular zurücksetzen" type="button">
++              <button class="btn float-end" data-action="clear-form-data" title="Formular zurücksetzen" type="button">
+                 ␥
+               <h3 class="card-title">
+                 Benutzer suchen
+-              <form action="/admin/manager/user/search" method="post" onsubmit="storeFormData()">
++              <form action="/admin/manager/user/search" data-action="store-form-data" method="post">
+                 <input name="_csrf" type="hidden" value="MASKED">
+                 <div class="mb-3 row">
+                   <label class="col-form-label col-sm-4">
+@@ -121,7 +121,7 @@
+                     <button class="btn btn-primary" type="submit">
+                       Suche
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('user_search_login',document.getElementsByName('searchLogin')[0].value); sessionStorage.setItem('user_search_fullname',document.getElementsByName('searchFullName')[0].value); sessionStorage.setItem('user_search_affiliation',document.getElementsByName('searchAffiliation')[0].value); sessionStorage.setItem('user_search_email',document.getElementsByName('searchEMailAddress')[0].value); sessionStorage.setItem('user_search_tombstoned',document.getElementsByName('searchTombstonedUser')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('user_search_login') != null){document.getElementsByName('searchLogin')[0].value = sessionStorage.getItem('user_search_login');}if(sessionStorage.getItem('user_search_fullname') != null){document.getElementsByName('searchFullName')[0].value = sessionStorage.getItem('user_search_fullname');}if(sessionStorage.getItem('user_search_affiliation') != null){document.getElementsByName('searchAffiliation')[0].value = sessionStorage.getItem('user_search_affiliation');}if(sessionStorage.getItem('user_search_email') != null){document.getElementsByName('searchEMailAddress')[0].value = sessionStorage.getItem('user_search_email');}if(sessionStorage.getItem('user_search_tombstoned') != null){document.getElementsByName('searchTombstonedUser')[0].checked = ('true' == sessionStorage.getItem('user_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchLogin')[0].value = ''; document.getElementsByName('searchFullName')[0].value = ''; document.getElementsByName('searchAffiliation')[0].value = ''; document.getElementsByName('searchEMailAddress')[0].value = ''; document.getElementsByName('searchTombstonedUser')[0].checked = false;}
++                function storeFormData(){sessionStorage.setItem('user_search_login',document.getElementsByName('searchLogin')[0].value); sessionStorage.setItem('user_search_fullname',document.getElementsByName('searchFullName')[0].value); sessionStorage.setItem('user_search_affiliation',document.getElementsByName('searchAffiliation')[0].value); sessionStorage.setItem('user_search_email',document.getElementsByName('searchEMailAddress')[0].value); sessionStorage.setItem('user_search_tombstoned',document.getElementsByName('searchTombstonedUser')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('user_search_login') != null){document.getElementsByName('searchLogin')[0].value = sessionStorage.getItem('user_search_login');}if(sessionStorage.getItem('user_search_fullname') != null){document.getElementsByName('searchFullName')[0].value = sessionStorage.getItem('user_search_fullname');}if(sessionStorage.getItem('user_search_affiliation') != null){document.getElementsByName('searchAffiliation')[0].value = sessionStorage.getItem('user_search_affiliation');}if(sessionStorage.getItem('user_search_email') != null){document.getElementsByName('searchEMailAddress')[0].value = sessionStorage.getItem('user_search_email');}if(sessionStorage.getItem('user_search_tombstoned') != null){document.getElementsByName('searchTombstonedUser')[0].checked = ('true' == sessionStorage.getItem('user_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchLogin')[0].value = ''; document.getElementsByName('searchFullName')[0].value = ''; document.getElementsByName('searchAffiliation')[0].value = ''; document.getElementsByName('searchEMailAddress')[0].value = ''; document.getElementsByName('searchTombstonedUser')[0].checked = false;}window.addEventListener('load',loadFormData); document.querySelector('[data-action=clear-form-data]').addEventListener('click',clearFormData); document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+38 differs   POST /admin/manager/user/search searchLogin=nobody&searchFullName=&searchAffiliation=&searchEMailAddress=
+--- recorded 38.html
++++ now
+@@ -7,7 +7,7 @@
+     <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+     <style>
+       .purl_server-checkbox { min-width: 2rem; min-height: 2rem; } input[type='checkbox']:disabled { background-color: var(--bs-secondary-bg); }
+-  <body onload="loadFormData()">
++  <body>
+     <div class="container">
+       <title>
+         Page fragments
+@@ -83,11 +83,11 @@
+         <div class="card-body">
+           <div class="row">
+             <div class="col">
+-              <button class="btn float-end" onclick="clearFormData()" title="Formular zurücksetzen" type="button">
++              <button class="btn float-end" data-action="clear-form-data" title="Formular zurücksetzen" type="button">
+                 ␥
+               <h3 class="card-title">
+                 Benutzer suchen
+-              <form action="/admin/manager/user/search" method="post" onsubmit="storeFormData()">
++              <form action="/admin/manager/user/search" data-action="store-form-data" method="post">
+                 <input name="_csrf" type="hidden" value="MASKED">
+                 <div class="mb-3 row">
+                   <label class="col-form-label col-sm-4">
+@@ -121,7 +121,7 @@
+                     <button class="btn btn-primary" type="submit">
+                       Suche
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('user_search_login',document.getElementsByName('searchLogin')[0].value); sessionStorage.setItem('user_search_fullname',document.getElementsByName('searchFullName')[0].value); sessionStorage.setItem('user_search_affiliation',document.getElementsByName('searchAffiliation')[0].value); sessionStorage.setItem('user_search_email',document.getElementsByName('searchEMailAddress')[0].value); sessionStorage.setItem('user_search_tombstoned',document.getElementsByName('searchTombstonedUser')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('user_search_login') != null){document.getElementsByName('searchLogin')[0].value = sessionStorage.getItem('user_search_login');}if(sessionStorage.getItem('user_search_fullname') != null){document.getElementsByName('searchFullName')[0].value = sessionStorage.getItem('user_search_fullname');}if(sessionStorage.getItem('user_search_affiliation') != null){document.getElementsByName('searchAffiliation')[0].value = sessionStorage.getItem('user_search_affiliation');}if(sessionStorage.getItem('user_search_email') != null){document.getElementsByName('searchEMailAddress')[0].value = sessionStorage.getItem('user_search_email');}if(sessionStorage.getItem('user_search_tombstoned') != null){document.getElementsByName('searchTombstonedUser')[0].checked = ('true' == sessionStorage.getItem('user_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchLogin')[0].value = ''; document.getElementsByName('searchFullName')[0].value = ''; document.getElementsByName('searchAffiliation')[0].value = ''; document.getElementsByName('searchEMailAddress')[0].value = ''; document.getElementsByName('searchTombstonedUser')[0].checked = false;}
++                function storeFormData(){sessionStorage.setItem('user_search_login',document.getElementsByName('searchLogin')[0].value); sessionStorage.setItem('user_search_fullname',document.getElementsByName('searchFullName')[0].value); sessionStorage.setItem('user_search_affiliation',document.getElementsByName('searchAffiliation')[0].value); sessionStorage.setItem('user_search_email',document.getElementsByName('searchEMailAddress')[0].value); sessionStorage.setItem('user_search_tombstoned',document.getElementsByName('searchTombstonedUser')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('user_search_login') != null){document.getElementsByName('searchLogin')[0].value = sessionStorage.getItem('user_search_login');}if(sessionStorage.getItem('user_search_fullname') != null){document.getElementsByName('searchFullName')[0].value = sessionStorage.getItem('user_search_fullname');}if(sessionStorage.getItem('user_search_affiliation') != null){document.getElementsByName('searchAffiliation')[0].value = sessionStorage.getItem('user_search_affiliation');}if(sessionStorage.getItem('user_search_email') != null){document.getElementsByName('searchEMailAddress')[0].value = sessionStorage.getItem('user_search_email');}if(sessionStorage.getItem('user_search_tombstoned') != null){document.getElementsByName('searchTombstonedUser')[0].checked = ('true' == sessionStorage.getItem('user_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchLogin')[0].value = ''; document.getElementsByName('searchFullName')[0].value = ''; document.getElementsByName('searchAffiliation')[0].value = ''; document.getElementsByName('searchEMailAddress')[0].value = ''; document.getElementsByName('searchTombstonedUser')[0].checked = false;}window.addEventListener('load',loadFormData); document.querySelector('[data-action=clear-form-data]').addEventListener('click',clearFormData); document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+39 same      GET /admin/manager/purl/create
+40 same      POST /admin/manager/purl/create id=-1&path=&type=REDIRECT_302&target=
+41 same      POST /admin/manager/purl/create id=-1&path=no slash!&type=REDIRECT_302&target=ftp://x
+42 same      POST /admin/manager/purl/create id=-1&path=/nodomain/x&type=REDIRECT_302&target=https://example.org/x
+43 same      POST /admin/manager/purl/create id=-1&path=/old/x&type=REDIRECT_302&target=https://example.org/x
+44 same      POST /admin/manager/purl/create id=-1&path=/test/redirect&type=REDIRECT_302&target=https://example.org/x
+45 same      POST /admin/manager/purl/create id=-1&path=/library/book2&type=PARTIAL_302&target=https://example.org/books/2/
+46 same      GET /admin/manager/purl/modify?id=4
+47 same      GET /admin/manager/purl/modify?id=99
+48 same      POST /admin/manager/purl/modify id=4&path=/library/book1&type=REDIRECT_302&target=
+49 same      POST /admin/manager/purl/modify id=4&path=/library/book1&type=PARTIAL_302&target=https://example.org/books/one/
+50 same      GET /admin/manager/purl/delete?id=4
+51 same      GET /admin/manager/purl/delete?id=99
+52 same      POST /admin/manager/purl/delete id=4
+53 same      GET /admin/manager/domain/create
+54 same      POST /admin/manager/domain/create id=-1&path=&name=&domainUserList[0].user.login=&_domainUserList[0].canCreate=on&_domainUserList[0].canModify=on&comment=&addUser=
+55 same      POST /admin/manager/domain/create id=-1&path=&name=&domainUserList[0].user.login=&_domainUserList[0].canCreate=on&_domainUserList[0].canModify=on&comment=&submit=
+56 same      POST /admin/manager/domain/create id=-1&path=/admin&name=Reserved&domainUserList[0].user.login=&_domainUserList[0].canCreate=on&_domainUserList[0].canModify=on&comment=&submit=
+57 same      POST /admin/manager/domain/create id=-1&path=/test&name=Again&domainUserList[0].user.login=&_domainUserList[0].canCreate=on&_domainUserList[0].canModify=on&comment=&submit=
+58 same      GET /admin/manager/domain/modify?id=1
+59 same      GET /admin/manager/domain/modify?id=99
+60 same      POST /admin/manager/domain/modify id=1&name=Test Domain&domainUserList[0].user.login=user1&domainUserList[0].canCreate=true&_domainUserList[0].canCreate=on&domainUserList[0].canModify=true&_domainUserList[0].canModify=on&domainUserList[1].user.login=user2&_domainUserList[1].canCreate=on&domainUserList[1].canModify=true&_domainUserList[1].canModify=on&domainUserList[2].user.login=&_domainUserList[2].canCreate=on&_domainUserList[2].canModify=on&comment=x&addUser=
+61 same      POST /admin/manager/domain/modify id=1&name=&domainUserList[0].user.login=user1&domainUserList[0].canCreate=true&_domainUserList[0].canCreate=on&domainUserList[0].canModify=true&_domainUserList[0].canModify=on&comment=&submit=
+62 same      POST /admin/manager/domain/modify id=1&path=/test&name=Test Domain (renamed)&domainUserList[0].user.login=user1&domainUserList[0].canCreate=true&_domainUserList[0].canCreate=on&domainUserList[0].canModify=true&_domainUserList[0].canModify=on&domainUserList[1].user.login=admin&domainUserList[1].canCreate=true&_domainUserList[1].canCreate=on&_domainUserList[1].canModify=on&comment=Renamed&submit=
+63 same      GET /admin/manager/domain/delete?id=2
+64 same      GET /admin/manager/domain/delete?id=99
+65 same      POST /admin/manager/domain/delete id=2
+66 differs   GET /admin/manager/user/create
+--- recorded 66.html
++++ now
+@@ -137,12 +137,12 @@
+                       <textarea class="form-control" id="comment" name="comment">
+                   <div class="mb-3 row">
+                     <div class="col-sm-6 offset-sm-4">
+-                      <button class="btn btn-primary" onclick="return encryptPassword();" type="submit">
++                      <button class="btn btn-primary" data-action="encrypt-password" type="submit">
+                         Erstellen
+                       <a class="btn btn-secondary" href="/admin/manager/user/search">
+                         Abbrechen
+                   <script type="text/javascript">
+-                    function encryptPassword(){var password = document.getElementById("password").value; var repassword = document.getElementById("repassword").value; if (password != null){if (password.localeCompare(repassword) == 0){document.getElementById("errorPassword").classList.add("d-none"); if (password != ""){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha").value = hash;}}else{document.getElementById("errorPassword").classList.remove("d-none"); return false;}}return true;}
++                    function encryptPassword(){var password = document.getElementById("password").value; var repassword = document.getElementById("repassword").value; if (password != null){if (password.localeCompare(repassword) == 0){document.getElementById("errorPassword").classList.add("d-none"); if (password != ""){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha").value = hash;}}else{document.getElementById("errorPassword").classList.remove("d-none"); return false;}}return true;}document.querySelectorAll('[data-action=encrypt-password]').forEach(function(el){el.addEventListener('click',function(e){if (!encryptPassword()){e.preventDefault();}});});
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+67 differs   POST /admin/manager/user/create id=-1&passwordSHA=da39a3ee5e6b4b0d3255bfef95601890afd80709&login=&fullname=&affiliation=&email=&comment=
+--- recorded 67.html
++++ now
+@@ -145,12 +145,12 @@
+                       <textarea class="form-control" id="comment" name="comment">
+                   <div class="mb-3 row">
+                     <div class="col-sm-6 offset-sm-4">
+-                      <button class="btn btn-primary" onclick="return encryptPassword();" type="submit">
++                      <button class="btn btn-primary" data-action="encrypt-password" type="submit">
+                         Erstellen
+                       <a class="btn btn-secondary" href="/admin/manager/user/search">
+                         Abbrechen
+                   <script type="text/javascript">
+-                    function encryptPassword(){var password = document.getElementById("password").value; var repassword = document.getElementById("repassword").value; if (password != null){if (password.localeCompare(repassword) == 0){document.getElementById("errorPassword").classList.add("d-none"); if (password != ""){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha").value = hash;}}else{document.getElementById("errorPassword").classList.remove("d-none"); return false;}}return true;}
++                    function encryptPassword(){var password = document.getElementById("password").value; var repassword = document.getElementById("repassword").value; if (password != null){if (password.localeCompare(repassword) == 0){document.getElementById("errorPassword").classList.add("d-none"); if (password != ""){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha").value = hash;}}else{document.getElementById("errorPassword").classList.remove("d-none"); return false;}}return true;}document.querySelectorAll('[data-action=encrypt-password]').forEach(function(el){el.addEventListener('click',function(e){if (!encryptPassword()){e.preventDefault();}});});
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+68 differs   POST /admin/manager/user/create id=-1&passwordSHA=b3daa77b4c04a9551b8781d03191fe098f325e67&login=user1&fullname=Dup&affiliation=&email=&comment=
+--- recorded 68.html
++++ now
+@@ -143,12 +143,12 @@
+                       <textarea class="form-control" id="comment" name="comment">
+                   <div class="mb-3 row">
+                     <div class="col-sm-6 offset-sm-4">
+-                      <button class="btn btn-primary" onclick="return encryptPassword();" type="submit">
++                      <button class="btn btn-primary" data-action="encrypt-password" type="submit">
+                         Erstellen
+                       <a class="btn btn-secondary" href="/admin/manager/user/search">
+                         Abbrechen
+                   <script type="text/javascript">
+-                    function encryptPassword(){var password = document.getElementById("password").value; var repassword = document.getElementById("repassword").value; if (password != null){if (password.localeCompare(repassword) == 0){document.getElementById("errorPassword").classList.add("d-none"); if (password != ""){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha").value = hash;}}else{document.getElementById("errorPassword").classList.remove("d-none"); return false;}}return true;}
++                    function encryptPassword(){var password = document.getElementById("password").value; var repassword = document.getElementById("repassword").value; if (password != null){if (password.localeCompare(repassword) == 0){document.getElementById("errorPassword").classList.add("d-none"); if (password != ""){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha").value = hash;}}else{document.getElementById("errorPassword").classList.remove("d-none"); return false;}}return true;}document.querySelectorAll('[data-action=encrypt-password]').forEach(function(el){el.addEventListener('click',function(e){if (!encryptPassword()){e.preventDefault();}});});
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+69 differs   POST /admin/manager/user/create id=-1&passwordSHA=4dd5ab4d8dfe2cbb1baed3a2e0e1d0f6a89d79f7&login=newbie&admin=true&_admin=on&fullname=New <Person>&affiliation=Bench %26 Co&email=newbie@example.org&comment=created by the bench
+--- recorded 69.html
++++ now
+@@ -138,7 +138,7 @@
+                       <textarea class="form-control" disabled id="comment" name="comment">
+                         created by the bench
+                   <script type="text/javascript">
+-                    function encryptPassword(){var password = document.getElementById("password").value; var repassword = document.getElementById("repassword").value; if (password != null){if (password.localeCompare(repassword) == 0){document.getElementById("errorPassword").classList.add("d-none"); if (password != ""){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha").value = hash;}}else{document.getElementById("errorPassword").classList.remove("d-none"); return false;}}return true;}
++                    function encryptPassword(){var password = document.getElementById("password").value; var repassword = document.getElementById("repassword").value; if (password != null){if (password.localeCompare(repassword) == 0){document.getElementById("errorPassword").classList.add("d-none"); if (password != ""){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha").value = hash;}}else{document.getElementById("errorPassword").classList.remove("d-none"); return false;}}return true;}document.querySelectorAll('[data-action=encrypt-password]').forEach(function(el){el.addEventListener('click',function(e){if (!encryptPassword()){e.preventDefault();}});});
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+70 differs   GET /admin/manager/user/modify?id=2
+--- recorded 70.html
++++ now
+@@ -127,12 +127,12 @@
+                         can create and modify in /test
+                   <div class="mb-3 row">
+                     <div class="col-sm-6 offset-sm-4">
+-                      <button class="btn btn-primary" onclick="return encryptPassword();" type="submit">
++                      <button class="btn btn-primary" data-action="encrypt-password" type="submit">
+                         Speichern
+                       <a class="btn btn-secondary" href="/admin/manager/user/search">
+                         Abbrechen
+                   <script type="text/javascript">
+-                    function encryptPassword(){var password = document.getElementById("password").value; var repassword = document.getElementById("repassword").value; if (password != null){if (password.localeCompare(repassword) == 0){document.getElementById("errorPassword").classList.add("d-none"); if (password != ""){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha").value = hash;}}else{document.getElementById("errorPassword").classList.remove("d-none"); return false;}}return true;}
++                    function encryptPassword(){var password = document.getElementById("password").value; var repassword = document.getElementById("repassword").value; if (password != null){if (password.localeCompare(repassword) == 0){document.getElementById("errorPassword").classList.add("d-none"); if (password != ""){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha").value = hash;}}else{document.getElementById("errorPassword").classList.remove("d-none"); return false;}}return true;}document.querySelectorAll('[data-action=encrypt-password]').forEach(function(el){el.addEventListener('click',function(e){if (!encryptPassword()){e.preventDefault();}});});
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+71 same      GET /admin/manager/user/modify?id=99
+72 differs   POST /admin/manager/user/modify id=2&_admin=on&fullname=x&comment=
+--- recorded 72.html
++++ now
+@@ -127,12 +127,12 @@
+                         can create and modify in /test
+                   <div class="mb-3 row">
+                     <div class="col-sm-6 offset-sm-4">
+-                      <button class="btn btn-primary" onclick="return encryptPassword();" type="submit">
++                      <button class="btn btn-primary" data-action="encrypt-password" type="submit">
+                         Speichern
+                       <a class="btn btn-secondary" href="/admin/manager/user/search">
+                         Abbrechen
+                   <script type="text/javascript">
+-                    function encryptPassword(){var password = document.getElementById("password").value; var repassword = document.getElementById("repassword").value; if (password != null){if (password.localeCompare(repassword) == 0){document.getElementById("errorPassword").classList.add("d-none"); if (password != ""){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha").value = hash;}}else{document.getElementById("errorPassword").classList.remove("d-none"); return false;}}return true;}
++                    function encryptPassword(){var password = document.getElementById("password").value; var repassword = document.getElementById("repassword").value; if (password != null){if (password.localeCompare(repassword) == 0){document.getElementById("errorPassword").classList.add("d-none"); if (password != ""){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha").value = hash;}}else{document.getElementById("errorPassword").classList.remove("d-none"); return false;}}return true;}document.querySelectorAll('[data-action=encrypt-password]').forEach(function(el){el.addEventListener('click',function(e){if (!encryptPassword()){e.preventDefault();}});});
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+73 differs   POST /admin/manager/user/modify id=2&login=user1&_admin=on&fullname=Ursula One-Changed&affiliation=Library&email=u1@example.org&comment=changed
+--- recorded 73.html
++++ now
+@@ -127,7 +127,7 @@
+                       <textarea class="form-control" disabled id="comment" name="comment">
+                         changed
+                   <script type="text/javascript">
+-                    function encryptPassword(){var password = document.getElementById("password").value; var repassword = document.getElementById("repassword").value; if (password != null){if (password.localeCompare(repassword) == 0){document.getElementById("errorPassword").classList.add("d-none"); if (password != ""){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha").value = hash;}}else{document.getElementById("errorPassword").classList.remove("d-none"); return false;}}return true;}
++                    function encryptPassword(){var password = document.getElementById("password").value; var repassword = document.getElementById("repassword").value; if (password != null){if (password.localeCompare(repassword) == 0){document.getElementById("errorPassword").classList.add("d-none"); if (password != ""){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha").value = hash;}}else{document.getElementById("errorPassword").classList.remove("d-none"); return false;}}return true;}document.querySelectorAll('[data-action=encrypt-password]').forEach(function(el){el.addEventListener('click',function(e){if (!encryptPassword()){e.preventDefault();}});});
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+74 same      GET /admin/manager/user/delete?id=3
+75 same      GET /admin/manager/user/delete?id=99
+76 same      POST /admin/manager/user/delete id=3
+77 differs   POST /admin/manager/user/search searchLogin=&searchFullName=&searchAffiliation=&searchEMailAddress=&searchTombstonedUser=on
+--- recorded 77.html
++++ now
+@@ -7,7 +7,7 @@
+     <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+     <style>
+       .purl_server-checkbox { min-width: 2rem; min-height: 2rem; } input[type='checkbox']:disabled { background-color: var(--bs-secondary-bg); }
+-  <body onload="loadFormData()">
++  <body>
+     <div class="container">
+       <title>
+         Page fragments
+@@ -83,11 +83,11 @@
+         <div class="card-body">
+           <div class="row">
+             <div class="col">
+-              <button class="btn float-end" onclick="clearFormData()" title="Formular zurücksetzen" type="button">
++              <button class="btn float-end" data-action="clear-form-data" title="Formular zurücksetzen" type="button">
+                 ␥
+               <h3 class="card-title">
+                 Benutzer suchen
+-              <form action="/admin/manager/user/search" method="post" onsubmit="storeFormData()">
++              <form action="/admin/manager/user/search" data-action="store-form-data" method="post">
+                 <input name="_csrf" type="hidden" value="MASKED">
+                 <div class="mb-3 row">
+                   <label class="col-form-label col-sm-4">
+@@ -121,7 +121,7 @@
+                     <button class="btn btn-primary" type="submit">
+                       Suche
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('user_search_login',document.getElementsByName('searchLogin')[0].value); sessionStorage.setItem('user_search_fullname',document.getElementsByName('searchFullName')[0].value); sessionStorage.setItem('user_search_affiliation',document.getElementsByName('searchAffiliation')[0].value); sessionStorage.setItem('user_search_email',document.getElementsByName('searchEMailAddress')[0].value); sessionStorage.setItem('user_search_tombstoned',document.getElementsByName('searchTombstonedUser')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('user_search_login') != null){document.getElementsByName('searchLogin')[0].value = sessionStorage.getItem('user_search_login');}if(sessionStorage.getItem('user_search_fullname') != null){document.getElementsByName('searchFullName')[0].value = sessionStorage.getItem('user_search_fullname');}if(sessionStorage.getItem('user_search_affiliation') != null){document.getElementsByName('searchAffiliation')[0].value = sessionStorage.getItem('user_search_affiliation');}if(sessionStorage.getItem('user_search_email') != null){document.getElementsByName('searchEMailAddress')[0].value = sessionStorage.getItem('user_search_email');}if(sessionStorage.getItem('user_search_tombstoned') != null){document.getElementsByName('searchTombstonedUser')[0].checked = ('true' == sessionStorage.getItem('user_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchLogin')[0].value = ''; document.getElementsByName('searchFullName')[0].value = ''; document.getElementsByName('searchAffiliation')[0].value = ''; document.getElementsByName('searchEMailAddress')[0].value = ''; document.getElementsByName('searchTombstonedUser')[0].checked = false;}
++                function storeFormData(){sessionStorage.setItem('user_search_login',document.getElementsByName('searchLogin')[0].value); sessionStorage.setItem('user_search_fullname',document.getElementsByName('searchFullName')[0].value); sessionStorage.setItem('user_search_affiliation',document.getElementsByName('searchAffiliation')[0].value); sessionStorage.setItem('user_search_email',document.getElementsByName('searchEMailAddress')[0].value); sessionStorage.setItem('user_search_tombstoned',document.getElementsByName('searchTombstonedUser')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('user_search_login') != null){document.getElementsByName('searchLogin')[0].value = sessionStorage.getItem('user_search_login');}if(sessionStorage.getItem('user_search_fullname') != null){document.getElementsByName('searchFullName')[0].value = sessionStorage.getItem('user_search_fullname');}if(sessionStorage.getItem('user_search_affiliation') != null){document.getElementsByName('searchAffiliation')[0].value = sessionStorage.getItem('user_search_affiliation');}if(sessionStorage.getItem('user_search_email') != null){document.getElementsByName('searchEMailAddress')[0].value = sessionStorage.getItem('user_search_email');}if(sessionStorage.getItem('user_search_tombstoned') != null){document.getElementsByName('searchTombstonedUser')[0].checked = ('true' == sessionStorage.getItem('user_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchLogin')[0].value = ''; document.getElementsByName('searchFullName')[0].value = ''; document.getElementsByName('searchAffiliation')[0].value = ''; document.getElementsByName('searchEMailAddress')[0].value = ''; document.getElementsByName('searchTombstonedUser')[0].checked = false;}window.addEventListener('load',loadFormData); document.querySelector('[data-action=clear-form-data]').addEventListener('click',clearFormData); document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+78 differs   POST /admin/logout
+--- recorded 78.html
++++ now
+@@ -51,7 +51,7 @@
+                 <input class="form-control" id="password_plain" placeholder="Passwort" type="password">
+             <div class="mb-3 row">
+               <div class="col-6">
+-                <button class="btn btn-primary" name="do_login" onclick="encryptPassword();" type="submit">
++                <button class="btn btn-primary" data-action="encrypt-password" name="do_login" type="submit">
+                   Login
+                 <a class="btn btn-link float-end" href="/admin/login/password">
+                   Passwort vergessen
+@@ -63,4 +63,4 @@
+               © 2022
+     <script src="/webjars/bootstrap/js/bootstrap.bundle.min.js">
+     <script type="text/javascript">
+-      function encryptPassword(){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password_plain").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}
++      function encryptPassword(){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password_plain").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}document.querySelector('[data-action=encrypt-password]').addEventListener('click',encryptPassword);
+79 differs   GET /admin/login
+--- recorded 79.html
++++ now
+@@ -48,7 +48,7 @@
+                 <input class="form-control" id="password_plain" placeholder="Passwort" type="password">
+             <div class="mb-3 row">
+               <div class="col-6">
+-                <button class="btn btn-primary" name="do_login" onclick="encryptPassword();" type="submit">
++                <button class="btn btn-primary" data-action="encrypt-password" name="do_login" type="submit">
+                   Login
+                 <a class="btn btn-link float-end" href="/admin/login/password">
+                   Passwort vergessen
+@@ -60,4 +60,4 @@
+               © 2022
+     <script src="/webjars/bootstrap/js/bootstrap.bundle.min.js">
+     <script type="text/javascript">
+-      function encryptPassword(){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password_plain").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}
++      function encryptPassword(){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password_plain").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}document.querySelector('[data-action=encrypt-password]').addEventListener('click',encryptPassword);
+80 differs   POST /admin/login username=user1&password=wrong
+--- recorded 80.html
++++ now
+@@ -51,7 +51,7 @@
+                 <input class="form-control" id="password_plain" placeholder="Passwort" type="password">
+             <div class="mb-3 row">
+               <div class="col-6">
+-                <button class="btn btn-primary" name="do_login" onclick="encryptPassword();" type="submit">
++                <button class="btn btn-primary" data-action="encrypt-password" name="do_login" type="submit">
+                   Login
+                 <a class="btn btn-link float-end" href="/admin/login/password">
+                   Passwort vergessen
+@@ -63,4 +63,4 @@
+               © 2022
+     <script src="/webjars/bootstrap/js/bootstrap.bundle.min.js">
+     <script type="text/javascript">
+-      function encryptPassword(){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password_plain").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}
++      function encryptPassword(){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password_plain").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}document.querySelector('[data-action=encrypt-password]').addEventListener('click',encryptPassword);
+81 same      POST /admin/login username=user1&password=b3daa77b4c04a9551b8781d03191fe098f325e67
+82 same      GET /admin/manager/help
+83 differs   GET /admin/manager/domain/search
+--- recorded 83.html
++++ now
+@@ -7,7 +7,7 @@
+     <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+     <style>
+       .purl_server-checkbox { min-width: 2rem; min-height: 2rem; } input[type='checkbox']:disabled { background-color: var(--bs-secondary-bg); }
+-  <body onload="loadFormData()">
++  <body>
+     <div class="container">
+       <title>
+         Page fragments
+@@ -71,11 +71,11 @@
+         <div class="card-body">
+           <div class="row">
+             <div class="col">
+-              <button class="btn float-end" onclick="clearFormData()" title="Formular zurücksetzen" type="button">
++              <button class="btn float-end" data-action="clear-form-data" title="Formular zurücksetzen" type="button">
+                 ␥
+               <h3 class="card-title">
+                 Domain suchen
+-              <form action="/admin/manager/domain/search" method="post" onsubmit="storeFormData()">
++              <form action="/admin/manager/domain/search" data-action="store-form-data" method="post">
+                 <input name="_csrf" type="hidden" value="MASKED">
+                 <div class="mb-3 row">
+                   <label class="col-form-label col-sm-3">
+@@ -104,7 +104,7 @@
+                     <button class="btn btn-primary" type="submit">
+                       Suche
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('domain_search_path',document.getElementsByName('searchPath')[0].value); sessionStorage.setItem('domain_search_name',document.getElementsByName('searchName')[0].value); sessionStorage.setItem('domain_search_user',document.getElementsByName('searchUser')[0].value); sessionStorage.setItem('domain_search_tombstoned',document.getElementsByName('searchTombstonedDomain')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('domain_search_path') != null){document.getElementsByName('searchPath')[0].value = sessionStorage.getItem('domain_search_path');}if(sessionStorage.getItem('domain_search_name') != null){document.getElementsByName('searchName')[0].value = sessionStorage.getItem('domain_search_name');}if(sessionStorage.getItem('domain_search_user') != null){document.getElementsByName('searchUser')[0].value = sessionStorage.getItem('domain_search_user');}if(sessionStorage.getItem('domain_search_tombstoned') != null){document.getElementsByName('searchTombstonedDomain')[0].checked = ('true' == sessionStorage.getItem('domain_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchPath')[0].value = ''; document.getElementsByName('searchName')[0].value = ''; document.getElementsByName('searchUser')[0].value = ''; document.getElementsByName('searchTombstonedDomain')[0].checked = false;}
++                function storeFormData(){sessionStorage.setItem('domain_search_path',document.getElementsByName('searchPath')[0].value); sessionStorage.setItem('domain_search_name',document.getElementsByName('searchName')[0].value); sessionStorage.setItem('domain_search_user',document.getElementsByName('searchUser')[0].value); sessionStorage.setItem('domain_search_tombstoned',document.getElementsByName('searchTombstonedDomain')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('domain_search_path') != null){document.getElementsByName('searchPath')[0].value = sessionStorage.getItem('domain_search_path');}if(sessionStorage.getItem('domain_search_name') != null){document.getElementsByName('searchName')[0].value = sessionStorage.getItem('domain_search_name');}if(sessionStorage.getItem('domain_search_user') != null){document.getElementsByName('searchUser')[0].value = sessionStorage.getItem('domain_search_user');}if(sessionStorage.getItem('domain_search_tombstoned') != null){document.getElementsByName('searchTombstonedDomain')[0].checked = ('true' == sessionStorage.getItem('domain_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchPath')[0].value = ''; document.getElementsByName('searchName')[0].value = ''; document.getElementsByName('searchUser')[0].value = ''; document.getElementsByName('searchTombstonedDomain')[0].checked = false;}window.addEventListener('load',loadFormData); document.querySelector('[data-action=clear-form-data]').addEventListener('click',clearFormData); document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+84 differs   POST /admin/manager/domain/search searchPath=&searchName=&searchUser=user1
+--- recorded 84.html
++++ now
+@@ -7,7 +7,7 @@
+     <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+     <style>
+       .purl_server-checkbox { min-width: 2rem; min-height: 2rem; } input[type='checkbox']:disabled { background-color: var(--bs-secondary-bg); }
+-  <body onload="loadFormData()">
++  <body>
+     <div class="container">
+       <title>
+         Page fragments
+@@ -71,11 +71,11 @@
+         <div class="card-body">
+           <div class="row">
+             <div class="col">
+-              <button class="btn float-end" onclick="clearFormData()" title="Formular zurücksetzen" type="button">
++              <button class="btn float-end" data-action="clear-form-data" title="Formular zurücksetzen" type="button">
+                 ␥
+               <h3 class="card-title">
+                 Domain suchen
+-              <form action="/admin/manager/domain/search" method="post" onsubmit="storeFormData()">
++              <form action="/admin/manager/domain/search" data-action="store-form-data" method="post">
+                 <input name="_csrf" type="hidden" value="MASKED">
+                 <div class="mb-3 row">
+                   <label class="col-form-label col-sm-3">
+@@ -104,7 +104,7 @@
+                     <button class="btn btn-primary" type="submit">
+                       Suche
+               <script type="text/javascript">
+-                function storeFormData(){sessionStorage.setItem('domain_search_path',document.getElementsByName('searchPath')[0].value); sessionStorage.setItem('domain_search_name',document.getElementsByName('searchName')[0].value); sessionStorage.setItem('domain_search_user',document.getElementsByName('searchUser')[0].value); sessionStorage.setItem('domain_search_tombstoned',document.getElementsByName('searchTombstonedDomain')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('domain_search_path') != null){document.getElementsByName('searchPath')[0].value = sessionStorage.getItem('domain_search_path');}if(sessionStorage.getItem('domain_search_name') != null){document.getElementsByName('searchName')[0].value = sessionStorage.getItem('domain_search_name');}if(sessionStorage.getItem('domain_search_user') != null){document.getElementsByName('searchUser')[0].value = sessionStorage.getItem('domain_search_user');}if(sessionStorage.getItem('domain_search_tombstoned') != null){document.getElementsByName('searchTombstonedDomain')[0].checked = ('true' == sessionStorage.getItem('domain_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchPath')[0].value = ''; document.getElementsByName('searchName')[0].value = ''; document.getElementsByName('searchUser')[0].value = ''; document.getElementsByName('searchTombstonedDomain')[0].checked = false;}
++                function storeFormData(){sessionStorage.setItem('domain_search_path',document.getElementsByName('searchPath')[0].value); sessionStorage.setItem('domain_search_name',document.getElementsByName('searchName')[0].value); sessionStorage.setItem('domain_search_user',document.getElementsByName('searchUser')[0].value); sessionStorage.setItem('domain_search_tombstoned',document.getElementsByName('searchTombstonedDomain')[0].checked); return true;}function loadFormData(){if(sessionStorage.getItem('domain_search_path') != null){document.getElementsByName('searchPath')[0].value = sessionStorage.getItem('domain_search_path');}if(sessionStorage.getItem('domain_search_name') != null){document.getElementsByName('searchName')[0].value = sessionStorage.getItem('domain_search_name');}if(sessionStorage.getItem('domain_search_user') != null){document.getElementsByName('searchUser')[0].value = sessionStorage.getItem('domain_search_user');}if(sessionStorage.getItem('domain_search_tombstoned') != null){document.getElementsByName('searchTombstonedDomain')[0].checked = ('true' == sessionStorage.getItem('domain_search_tombstoned'));}}function clearFormData(){document.getElementsByName('searchPath')[0].value = ''; document.getElementsByName('searchName')[0].value = ''; document.getElementsByName('searchUser')[0].value = ''; document.getElementsByName('searchTombstonedDomain')[0].checked = false;}window.addEventListener('load',loadFormData); document.querySelector('[data-action=clear-form-data]').addEventListener('click',clearFormData); document.querySelector('form[data-action=store-form-data]').addEventListener('submit',storeFormData);
+           <div class="mt-3 row">
+             <div class="col offset-3">
+               <button aria-controls="collapseHelp" aria-expanded="false" class="btn btn-outline-secondary float-end" data-bs-target="#collapseHelp" data-bs-toggle="collapse">
+85 differs   GET /admin/manager/domain/create
+--- recorded 85.html
++++ now
+@@ -102,7 +102,7 @@
+                     ...
+                   <div class="collapse" id="collapseTrace">
+                     <textarea class="w-100" disabled rows="20" style="white-space: pre; font-family: monospace">
+-                      org.springframework.security.access.AccessDeniedException: Access Denied at org.springframework.security.authorization.method.AuthorizationManagerBeforeMethodInterceptor.attemptAuthorization(AuthorizationManagerBeforeMethodInterceptor.java:257) at org.springframework.security.authorization.method.AuthorizationManagerBeforeMethodInterceptor.invoke(AuthorizationManagerBeforeMethodInterceptor.java:198) at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184) at org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.proceed(CglibAopProxy.java:756) at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:708) at de.uni.rostock.ub.purl_server.controller.admin.AdminDomainController$$SpringCGLIB$$0.showDomainCreate(&lt;generated&gt;) at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) at java.base/java.lang.reflect.Method.invoke(Method.java:580) at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:205) at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:150) at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:118) at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:884) at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:797) at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87) at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1081) at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:974) at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1011) at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:903) at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:564) at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:885) at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:658) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:205) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:51) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.servlet.resource.ResourceUrlEncodingFilter.doFilter(ResourceUrlEncodingFilter.java:66) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.security.web.FilterChainProxy.lambda$doFilterInternal$3(FilterChainProxy.java:231) at org.springframework.security.web.ObservationFilterChainDecorator$FilterObservation$SimpleFilterObservation.lambda$wrap$1(ObservationFilterChainDecorator.java:479) at org.springframework.security.web.ObservationFilterChainDecorator$AroundFilterObservation$SimpleAroundFilterObservation.lambda$wrap$1(ObservationFilterChainDecorator.java:340) at org.springframework.security.web.ObservationFilterChainDecorator.lambda$wrapSecured$0(ObservationFilterChainDecorator.java:82) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:128) at org.springframework.security.web.access.intercept.AuthorizationFilter.doFilter(AuthorizationFilter.java:100) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.access.ExceptionTranslationFilter.doFilter(ExceptionTranslationFilter.java:126) at org.springframework.security.web.access.ExceptionTranslationFilter.doFilter(ExceptionTranslationFilter.java:120) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.authentication.AnonymousAuthenticationFilter.doFilter(AnonymousAuthenticationFilter.java:100) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter.doFilter(SecurityContextHolderAwareRequestFilter.java:179) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.savedrequest.RequestCacheAwareFilter.doFilter(RequestCacheAwareFilter.java:63) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.authentication.www.BasicAuthenticationFilter.doFilterInternal(BasicAuthenticationFilter.java:168) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.authentication.AbstractAuthenticationProcessingFilter.doFilter(AbstractAuthenticationProcessingFilter.java:227) at org.springframework.security.web.authentication.AbstractAuthenticationProcessingFilter.doFilter(AbstractAuthenticationProcessingFilter.java:221) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.authentication.logout.LogoutFilter.doFilter(LogoutFilter.java:107) at org.springframework.security.web.authentication.logout.LogoutFilter.doFilter(LogoutFilter.java:93) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.csrf.CsrfFilter.doFilterInternal(CsrfFilter.java:117) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.header.HeaderWriterFilter.doHeadersAfter(HeaderWriterFilter.java:90) at org.springframework.security.web.header.HeaderWriterFilter.doFilterInternal(HeaderWriterFilter.java:75) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.context.SecurityContextHolderFilter.doFilter(SecurityContextHolderFilter.java:82) at org.springframework.security.web.context.SecurityContextHolderFilter.doFilter(SecurityContextHolderFilter.java:69) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter.doFilterInternal(WebAsyncManagerIntegrationFilter.java:62) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.session.DisableEncodeUrlFilter.doFilterInternal(DisableEncodeUrlFilter.java:42) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$AroundFilterObservation$SimpleAroundFilterObservation.lambda$wrap$0(ObservationFilterChainDecorator.java:323) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:224) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.FilterChainProxy.doFilterInternal(FilterChainProxy.java:233) at org.springframework.security.web.FilterChainProxy.doFilter(FilterChainProxy.java:191) at org.springframework.web.filter.DelegatingFilterProxy.invokeDelegate(DelegatingFilterProxy.java:352) at org.springframework.web.filter.DelegatingFilterProxy.doFilter(DelegatingFilterProxy.java:268) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.filter.RequestContextFilter.doFilterInternal(RequestContextFilter.java:100) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.filter.FormContentFilter.doFilterInternal(FormContentFilter.java:93) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.filter.ServerHttpObservationFilter.doFilterInternal(ServerHttpObservationFilter.java:109) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:166) at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:90) at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:482) at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:115) at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:93) at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:74) at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:341) at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:391) at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:63) at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:894) at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1740) at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:52) at org.apache.tomcat.util.threads.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1191) at org.apache.tomcat.util.threads.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:659) at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61) at java.base/java.lang.Thread.run(Thread.java:1583)
++                      org.springframework.security.access.AccessDeniedException: Access Denied at org.springframework.security.authorization.method.AuthorizationManagerBeforeMethodInterceptor.attemptAuthorization(AuthorizationManagerBeforeMethodInterceptor.java:257) at org.springframework.security.authorization.method.AuthorizationManagerBeforeMethodInterceptor.invoke(AuthorizationManagerBeforeMethodInterceptor.java:198) at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184) at org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.proceed(CglibAopProxy.java:756) at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:708) at de.uni.rostock.ub.purl_server.controller.admin.AdminDomainController$$SpringCGLIB$$0.showDomainCreate(&lt;generated&gt;) at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) at java.base/java.lang.reflect.Method.invoke(Method.java:580) at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:205) at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:150) at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:118) at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:884) at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:797) at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87) at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1081) at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:974) at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1011) at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:903) at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:564) at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:885) at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:658) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:205) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:51) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.servlet.resource.ResourceUrlEncodingFilter.doFilter(ResourceUrlEncodingFilter.java:66) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.security.web.FilterChainProxy.lambda$doFilterInternal$3(FilterChainProxy.java:231) at org.springframework.security.web.ObservationFilterChainDecorator$FilterObservation$SimpleFilterObservation.lambda$wrap$1(ObservationFilterChainDecorator.java:479) at org.springframework.security.web.ObservationFilterChainDecorator$AroundFilterObservation$SimpleAroundFilterObservation.lambda$wrap$1(ObservationFilterChainDecorator.java:340) at org.springframework.security.web.ObservationFilterChainDecorator.lambda$wrapSecured$0(ObservationFilterChainDecorator.java:82) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:128) at org.springframework.security.web.access.intercept.AuthorizationFilter.doFilter(AuthorizationFilter.java:100) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.access.ExceptionTranslationFilter.doFilter(ExceptionTranslationFilter.java:126) at org.springframework.security.web.access.ExceptionTranslationFilter.doFilter(ExceptionTranslationFilter.java:120) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.authentication.AnonymousAuthenticationFilter.doFilter(AnonymousAuthenticationFilter.java:100) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter.doFilter(SecurityContextHolderAwareRequestFilter.java:179) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.savedrequest.RequestCacheAwareFilter.doFilter(RequestCacheAwareFilter.java:63) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.authentication.www.BasicAuthenticationFilter.doFilterInternal(BasicAuthenticationFilter.java:168) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.authentication.AbstractAuthenticationProcessingFilter.doFilter(AbstractAuthenticationProcessingFilter.java:227) at org.springframework.security.web.authentication.AbstractAuthenticationProcessingFilter.doFilter(AbstractAuthenticationProcessingFilter.java:221) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.authentication.logout.LogoutFilter.doFilter(LogoutFilter.java:107) at org.springframework.security.web.authentication.logout.LogoutFilter.doFilter(LogoutFilter.java:93) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.csrf.CsrfFilter.doFilterInternal(CsrfFilter.java:117) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.header.HeaderWriterFilter.doHeadersAfter(HeaderWriterFilter.java:90) at org.springframework.security.web.header.HeaderWriterFilter.doFilterInternal(HeaderWriterFilter.java:75) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.context.SecurityContextHolderFilter.doFilter(SecurityContextHolderFilter.java:82) at org.springframework.security.web.context.SecurityContextHolderFilter.doFilter(SecurityContextHolderFilter.java:69) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter.doFilterInternal(WebAsyncManagerIntegrationFilter.java:62) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.session.DisableEncodeUrlFilter.doFilterInternal(DisableEncodeUrlFilter.java:42) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$AroundFilterObservation$SimpleAroundFilterObservation.lambda$wrap$0(ObservationFilterChainDecorator.java:323) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:224) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.FilterChainProxy.doFilterInternal(FilterChainProxy.java:233) at org.springframework.security.web.FilterChainProxy.doFilter(FilterChainProxy.java:191) at org.springframework.web.filter.DelegatingFilterProxy.invokeDelegate(DelegatingFilterProxy.java:352) at org.springframework.web.filter.DelegatingFilterProxy.doFilter(DelegatingFilterProxy.java:268) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.filter.RequestContextFilter.doFilterInternal(RequestContextFilter.java:100) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.filter.FormContentFilter.doFilterInternal(FormContentFilter.java:93) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.filter.ServerHttpObservationFilter.doFilterInternal(ServerHttpObservationFilter.java:109) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at dev.tessera.spring.view.CspFilter.doFilter(CspFilter.java:88) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:166) at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:90) at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:482) at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:115) at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:93) at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:74) at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:341) at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:391) at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:63) at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:894) at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1740) at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:52) at org.apache.tomcat.util.threads.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1191) at org.apache.tomcat.util.threads.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:659) at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61) at java.base/java.lang.Thread.run(Thread.java:1583)
+       <div>
+         <div class="my-3 row">
+           <div class="col">
+86 differs   GET /admin/manager/user/search
+--- recorded 86.html
++++ now
+@@ -102,7 +102,7 @@
+                     ...
+                   <div class="collapse" id="collapseTrace">
+                     <textarea class="w-100" disabled rows="20" style="white-space: pre; font-family: monospace">
+-                      org.springframework.security.access.AccessDeniedException: Access Denied at org.springframework.security.authorization.method.AuthorizationManagerBeforeMethodInterceptor.attemptAuthorization(AuthorizationManagerBeforeMethodInterceptor.java:257) at org.springframework.security.authorization.method.AuthorizationManagerBeforeMethodInterceptor.invoke(AuthorizationManagerBeforeMethodInterceptor.java:198) at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184) at org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.proceed(CglibAopProxy.java:756) at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:708) at de.uni.rostock.ub.purl_server.controller.admin.AdminUserController$$SpringCGLIB$$0.showUserSearch(&lt;generated&gt;) at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) at java.base/java.lang.reflect.Method.invoke(Method.java:580) at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:205) at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:150) at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:118) at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:884) at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:797) at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87) at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1081) at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:974) at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1011) at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:903) at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:564) at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:885) at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:658) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:205) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:51) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.servlet.resource.ResourceUrlEncodingFilter.doFilter(ResourceUrlEncodingFilter.java:66) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.security.web.FilterChainProxy.lambda$doFilterInternal$3(FilterChainProxy.java:231) at org.springframework.security.web.ObservationFilterChainDecorator$FilterObservation$SimpleFilterObservation.lambda$wrap$1(ObservationFilterChainDecorator.java:479) at org.springframework.security.web.ObservationFilterChainDecorator$AroundFilterObservation$SimpleAroundFilterObservation.lambda$wrap$1(ObservationFilterChainDecorator.java:340) at org.springframework.security.web.ObservationFilterChainDecorator.lambda$wrapSecured$0(ObservationFilterChainDecorator.java:82) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:128) at org.springframework.security.web.access.intercept.AuthorizationFilter.doFilter(AuthorizationFilter.java:100) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.access.ExceptionTranslationFilter.doFilter(ExceptionTranslationFilter.java:126) at org.springframework.security.web.access.ExceptionTranslationFilter.doFilter(ExceptionTranslationFilter.java:120) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.authentication.AnonymousAuthenticationFilter.doFilter(AnonymousAuthenticationFilter.java:100) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter.doFilter(SecurityContextHolderAwareRequestFilter.java:179) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.savedrequest.RequestCacheAwareFilter.doFilter(RequestCacheAwareFilter.java:63) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.authentication.www.BasicAuthenticationFilter.doFilterInternal(BasicAuthenticationFilter.java:168) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.authentication.AbstractAuthenticationProcessingFilter.doFilter(AbstractAuthenticationProcessingFilter.java:227) at org.springframework.security.web.authentication.AbstractAuthenticationProcessingFilter.doFilter(AbstractAuthenticationProcessingFilter.java:221) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.authentication.logout.LogoutFilter.doFilter(LogoutFilter.java:107) at org.springframework.security.web.authentication.logout.LogoutFilter.doFilter(LogoutFilter.java:93) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.csrf.CsrfFilter.doFilterInternal(CsrfFilter.java:117) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.header.HeaderWriterFilter.doHeadersAfter(HeaderWriterFilter.java:90) at org.springframework.security.web.header.HeaderWriterFilter.doFilterInternal(HeaderWriterFilter.java:75) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.context.SecurityContextHolderFilter.doFilter(SecurityContextHolderFilter.java:82) at org.springframework.security.web.context.SecurityContextHolderFilter.doFilter(SecurityContextHolderFilter.java:69) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter.doFilterInternal(WebAsyncManagerIntegrationFilter.java:62) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.session.DisableEncodeUrlFilter.doFilterInternal(DisableEncodeUrlFilter.java:42) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$AroundFilterObservation$SimpleAroundFilterObservation.lambda$wrap$0(ObservationFilterChainDecorator.java:323) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:224) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.FilterChainProxy.doFilterInternal(FilterChainProxy.java:233) at org.springframework.security.web.FilterChainProxy.doFilter(FilterChainProxy.java:191) at org.springframework.web.filter.DelegatingFilterProxy.invokeDelegate(DelegatingFilterProxy.java:352) at org.springframework.web.filter.DelegatingFilterProxy.doFilter(DelegatingFilterProxy.java:268) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.filter.RequestContextFilter.doFilterInternal(RequestContextFilter.java:100) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.filter.FormContentFilter.doFilterInternal(FormContentFilter.java:93) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.filter.ServerHttpObservationFilter.doFilterInternal(ServerHttpObservationFilter.java:109) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:166) at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:90) at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:482) at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:115) at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:93) at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:74) at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:341) at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:391) at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:63) at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:894) at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1740) at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:52) at org.apache.tomcat.util.threads.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1191) at org.apache.tomcat.util.threads.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:659) at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61) at java.base/java.lang.Thread.run(Thread.java:1583)
++                      org.springframework.security.access.AccessDeniedException: Access Denied at org.springframework.security.authorization.method.AuthorizationManagerBeforeMethodInterceptor.attemptAuthorization(AuthorizationManagerBeforeMethodInterceptor.java:257) at org.springframework.security.authorization.method.AuthorizationManagerBeforeMethodInterceptor.invoke(AuthorizationManagerBeforeMethodInterceptor.java:198) at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184) at org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.proceed(CglibAopProxy.java:756) at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:708) at de.uni.rostock.ub.purl_server.controller.admin.AdminUserController$$SpringCGLIB$$0.showUserSearch(&lt;generated&gt;) at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) at java.base/java.lang.reflect.Method.invoke(Method.java:580) at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:205) at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:150) at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:118) at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:884) at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:797) at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87) at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1081) at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:974) at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1011) at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:903) at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:564) at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:885) at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:658) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:205) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:51) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.servlet.resource.ResourceUrlEncodingFilter.doFilter(ResourceUrlEncodingFilter.java:66) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.security.web.FilterChainProxy.lambda$doFilterInternal$3(FilterChainProxy.java:231) at org.springframework.security.web.ObservationFilterChainDecorator$FilterObservation$SimpleFilterObservation.lambda$wrap$1(ObservationFilterChainDecorator.java:479) at org.springframework.security.web.ObservationFilterChainDecorator$AroundFilterObservation$SimpleAroundFilterObservation.lambda$wrap$1(ObservationFilterChainDecorator.java:340) at org.springframework.security.web.ObservationFilterChainDecorator.lambda$wrapSecured$0(ObservationFilterChainDecorator.java:82) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:128) at org.springframework.security.web.access.intercept.AuthorizationFilter.doFilter(AuthorizationFilter.java:100) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.access.ExceptionTranslationFilter.doFilter(ExceptionTranslationFilter.java:126) at org.springframework.security.web.access.ExceptionTranslationFilter.doFilter(ExceptionTranslationFilter.java:120) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.authentication.AnonymousAuthenticationFilter.doFilter(AnonymousAuthenticationFilter.java:100) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter.doFilter(SecurityContextHolderAwareRequestFilter.java:179) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.savedrequest.RequestCacheAwareFilter.doFilter(RequestCacheAwareFilter.java:63) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.authentication.www.BasicAuthenticationFilter.doFilterInternal(BasicAuthenticationFilter.java:168) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.authentication.AbstractAuthenticationProcessingFilter.doFilter(AbstractAuthenticationProcessingFilter.java:227) at org.springframework.security.web.authentication.AbstractAuthenticationProcessingFilter.doFilter(AbstractAuthenticationProcessingFilter.java:221) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.authentication.logout.LogoutFilter.doFilter(LogoutFilter.java:107) at org.springframework.security.web.authentication.logout.LogoutFilter.doFilter(LogoutFilter.java:93) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.csrf.CsrfFilter.doFilterInternal(CsrfFilter.java:117) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.header.HeaderWriterFilter.doHeadersAfter(HeaderWriterFilter.java:90) at org.springframework.security.web.header.HeaderWriterFilter.doFilterInternal(HeaderWriterFilter.java:75) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.context.SecurityContextHolderFilter.doFilter(SecurityContextHolderFilter.java:82) at org.springframework.security.web.context.SecurityContextHolderFilter.doFilter(SecurityContextHolderFilter.java:69) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter.doFilterInternal(WebAsyncManagerIntegrationFilter.java:62) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.session.DisableEncodeUrlFilter.doFilterInternal(DisableEncodeUrlFilter.java:42) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240) at org.springframework.security.web.ObservationFilterChainDecorator$AroundFilterObservation$SimpleAroundFilterObservation.lambda$wrap$0(ObservationFilterChainDecorator.java:323) at org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:224) at org.springframework.security.web.ObservationFilterChainDecorator$VirtualFilterChain.doFilter(ObservationFilterChainDecorator.java:137) at org.springframework.security.web.FilterChainProxy.doFilterInternal(FilterChainProxy.java:233) at org.springframework.security.web.FilterChainProxy.doFilter(FilterChainProxy.java:191) at org.springframework.web.filter.DelegatingFilterProxy.invokeDelegate(DelegatingFilterProxy.java:352) at org.springframework.web.filter.DelegatingFilterProxy.doFilter(DelegatingFilterProxy.java:268) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.filter.RequestContextFilter.doFilterInternal(RequestContextFilter.java:100) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.filter.FormContentFilter.doFilterInternal(FormContentFilter.java:93) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.filter.ServerHttpObservationFilter.doFilterInternal(ServerHttpObservationFilter.java:109) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201) at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at dev.tessera.spring.view.CspFilter.doFilter(CspFilter.java:88) at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:174) at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149) at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:166) at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:90) at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:482) at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:115) at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:93) at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:74) at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:341) at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:391) at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:63) at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:894) at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1740) at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:52) at org.apache.tomcat.util.threads.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1191) at org.apache.tomcat.util.threads.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:659) at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61) at java.base/java.lang.Thread.run(Thread.java:1583)
+       <div>
+         <div class="my-3 row">
+           <div class="col">
+87 same      GET /admin/manager/purl/create
+88 same      POST /admin/manager/purl/create id=-1&path=/library/nope&type=REDIRECT_302&target=https://example.org/x
+89 same      GET /admin/manager/purl/create
+90 same      POST /admin/manager/purl/create id=-1&path=/test/user1&type=REDIRECT_302&target=https://example.org/user1
+91 differs   POST /admin/logout
+--- recorded 91.html
++++ now
+@@ -51,7 +51,7 @@
+                 <input class="form-control" id="password_plain" placeholder="Passwort" type="password">
+             <div class="mb-3 row">
+               <div class="col-6">
+-                <button class="btn btn-primary" name="do_login" onclick="encryptPassword();" type="submit">
++                <button class="btn btn-primary" data-action="encrypt-password" name="do_login" type="submit">
+                   Login
+                 <a class="btn btn-link float-end" href="/admin/login/password">
+                   Passwort vergessen
+@@ -63,4 +63,4 @@
+               © 2022
+     <script src="/webjars/bootstrap/js/bootstrap.bundle.min.js">
+     <script type="text/javascript">
+-      function encryptPassword(){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password_plain").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}
++      function encryptPassword(){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password_plain").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}document.querySelector('[data-action=encrypt-password]').addEventListener('click',encryptPassword);
+92 differs   GET /admin/login?logout
+--- recorded 92.html
++++ now
+@@ -51,7 +51,7 @@
+                 <input class="form-control" id="password_plain" placeholder="Passwort" type="password">
+             <div class="mb-3 row">
+               <div class="col-6">
+-                <button class="btn btn-primary" name="do_login" onclick="encryptPassword();" type="submit">
++                <button class="btn btn-primary" data-action="encrypt-password" name="do_login" type="submit">
+                   Login
+                 <a class="btn btn-link float-end" href="/admin/login/password">
+                   Passwort vergessen
+@@ -63,4 +63,4 @@
+               © 2022
+     <script src="/webjars/bootstrap/js/bootstrap.bundle.min.js">
+     <script type="text/javascript">
+-      function encryptPassword(){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password_plain").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}
++      function encryptPassword(){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password_plain").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}document.querySelector('[data-action=encrypt-password]').addEventListener('click',encryptPassword);
+tessera-migrate compare: 92 page(s): 51 same, 0 reordered, 41 differ
