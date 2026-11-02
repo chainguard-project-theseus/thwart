@@ -754,6 +754,8 @@ class HostileSweepTest {
         "<math><mi t:title=\"${s}\"></mi></math>")) {
       Compilation c = Compilation.builder().template("t.html", "<div t:params=\"String s\">" + t + "</div>").compile();
       assertFalse(c.success(), t);
+      assertTrue(c.errors().stream().anyMatch(m -> m.contains("nothing inside <svg> or <math> is computed")),
+          t + ": " + c.errors());
     }
   }
 
