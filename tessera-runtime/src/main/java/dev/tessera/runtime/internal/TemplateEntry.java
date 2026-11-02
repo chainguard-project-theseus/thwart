@@ -1,5 +1,8 @@
-package dev.tessera.runtime;
+package dev.tessera.runtime.internal;
 
+import dev.tessera.runtime.RenderContext;
+import dev.tessera.runtime.TemplateModelException;
+import dev.tessera.runtime.TemplateRegistry;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;

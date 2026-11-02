@@ -412,7 +412,7 @@ class ExpressionCompilerTest {
     r = condition(h, prop(v("b"), "verified"));
     assertEquals(true, h.evalCode(r));
     r = condition(h, prop(v("u"), "items"));
-    assertTrue(r.code().startsWith("dev.tessera.runtime.Conditions.isTrue("));
+    assertTrue(r.code().startsWith("dev.tessera.runtime.internal.Conditions.isTrue("));
     assertEquals(true, h.evalCode(r));
     r = condition(h, prop(v("u"), "manager"));
     assertEquals(false, h.evalCode(r));

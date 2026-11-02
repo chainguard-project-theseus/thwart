@@ -122,7 +122,7 @@ class EmissionGuardTest {
             return "out.write(\\"<b>\\");";
           }
           static String b(String v) {
-            return "dev.tessera.runtime.Escapers.text(out, " + v + ");";
+            return "dev.tessera.runtime.internal.Escapers.text(out, " + v + ");";
           }
           String c(String v) {
             return ESCAPERS + ".attr(" + "out" + ", " + v + ")";
@@ -140,11 +140,11 @@ class EmissionGuardTest {
             return Emitted.code(e.java()); // unrecorded
           }
           static String i(String v) {
-            return "dev.tessera.runtime.Output o$ = out; o$.write(" + v + ");";
+            return "dev.tessera.runtime.internal.Output o$ = out; o$.write(" + v + ");";
           }
           static String fine(String v) {
             // out.write in a comment, "out" of the table in a message
-            return "dev.tessera.runtime.Escapers.toText(" + v + ") + \\" it goes out of the table\\"";
+            return "dev.tessera.runtime.internal.Escapers.toText(" + v + ") + \\" it goes out of the table\\"";
           }
         }
         """;

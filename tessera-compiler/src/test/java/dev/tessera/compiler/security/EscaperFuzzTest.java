@@ -4,8 +4,8 @@ import static dev.tessera.compiler.security.HostileStrings.show;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import dev.tessera.runtime.Escapers;
-import dev.tessera.runtime.StringOutput;
+import dev.tessera.runtime.internal.Escapers;
+import dev.tessera.runtime.internal.StringOutput;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;

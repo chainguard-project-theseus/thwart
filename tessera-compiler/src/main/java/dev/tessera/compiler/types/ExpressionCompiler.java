@@ -56,10 +56,10 @@ import javax.lang.model.util.Types;
  * methods report errors with the expression's position and return {@code null} on failure.
  *
  * <p>Emitted code is always a Java primary (parenthesized where needed), so callers may append
- * {@code .x()} or use it as an argument directly. Helpers live in {@code dev.tessera.runtime.Values}.
+ * {@code .x()} or use it as an argument directly. Helpers live in {@code dev.tessera.runtime.internal.Values}.
  */
 public final class ExpressionCompiler {
-  private static final String VALUES = "dev.tessera.runtime.Values";
+  private static final String VALUES = "dev.tessera.runtime.internal.Values";
   private static final String FRAGMENT = Fragment.class.getName();
   private static final Set<String> OBJECT_METHODS =
       Backports.setOf("getClass", "hashCode", "equals", "toString", "wait", "notify", "notifyAll", "clone", "finalize");
@@ -160,7 +160,7 @@ public final class ExpressionCompiler {
 
   /**
    * Compiles a condition to Java code of type {@code boolean}: {@code boolean} as is, Boolean
-   * null-safe, anything else via {@code dev.tessera.runtime.Conditions.isTrue}.
+   * null-safe, anything else via {@code dev.tessera.runtime.internal.Conditions.isTrue}.
    */
   public CompiledExpr compileCondition(Expr expr, Scope scope) {
     CompiledExpr c = compile(expr, scope);
@@ -176,7 +176,7 @@ public final class ExpressionCompiler {
     } else if (isDeclared(t, "java.lang.Boolean")) {
       code = "java.lang.Boolean.TRUE.equals(" + c.code() + ")";
     } else {
-      code = "dev.tessera.runtime.Conditions.isTrue(" + c.code() + ")";
+      code = "dev.tessera.runtime.internal.Conditions.isTrue(" + c.code() + ")";
     }
     return new CompiledExpr(code, prim(TypeKind.BOOLEAN), expr.pos());
   }

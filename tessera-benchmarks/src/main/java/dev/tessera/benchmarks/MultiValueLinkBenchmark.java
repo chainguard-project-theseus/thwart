@@ -2,7 +2,7 @@ package dev.tessera.benchmarks;
 
 import dev.tessera.benchmarks.templates.links.MultiPathTemplate;
 import dev.tessera.benchmarks.templates.links.MultiQueryTemplate;
-import dev.tessera.runtime.StringOutput;
+import dev.tessera.runtime.internal.StringOutput;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;

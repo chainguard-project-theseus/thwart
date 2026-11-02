@@ -1,4 +1,4 @@
-package dev.tessera.runtime;
+package dev.tessera.runtime.internal;
 
 /**
  * Character sink for rendered markup. Everything written here is emitted verbatim, so only

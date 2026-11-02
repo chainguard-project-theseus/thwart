@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.testing.Compilation;
-import dev.tessera.runtime.TemplateEntry;
+import dev.tessera.runtime.internal.TemplateEntry;
 import dev.tessera.runtime.TemplateModelException;
 import dev.tessera.runtime.TemplateRegistry;
 import java.util.List;

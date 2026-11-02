@@ -1,8 +1,8 @@
 package dev.tessera.spring.view;
 
 import dev.tessera.runtime.RenderContext;
-import dev.tessera.runtime.StringOutput;
-import dev.tessera.runtime.TemplateEntry;
+import dev.tessera.runtime.internal.StringOutput;
+import dev.tessera.runtime.internal.TemplateEntry;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;

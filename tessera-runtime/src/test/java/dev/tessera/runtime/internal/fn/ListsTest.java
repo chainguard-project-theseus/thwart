@@ -1,4 +1,4 @@
-package dev.tessera.runtime.fn;
+package dev.tessera.runtime.internal.fn;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

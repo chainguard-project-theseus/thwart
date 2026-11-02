@@ -1,5 +1,6 @@
-package dev.tessera.runtime;
+package dev.tessera.runtime.internal;
 
+import dev.tessera.runtime.Links;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -175,7 +176,7 @@ public final class UrlEncoding {
   }
 
   /** Appends {@code octet} (0-255) as {@code %XX}, upper-case hex. */
-  static void percent(StringBuilder sb, int octet) {
+  public static void percent(StringBuilder sb, int octet) {
     sb.append('%').append(HEX[octet >> 4]).append(HEX[octet & 0xF]);
   }
 

@@ -1,6 +1,6 @@
 package dev.tessera.spring.context;
 
-import dev.tessera.runtime.Escapers;
+import dev.tessera.runtime.internal.Escapers;
 import dev.tessera.runtime.Forms;
 import jakarta.servlet.http.HttpServletRequest;
 import java.beans.PropertyEditor;

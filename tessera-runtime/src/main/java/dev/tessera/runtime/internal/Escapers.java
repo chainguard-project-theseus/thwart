@@ -1,6 +1,12 @@
-package dev.tessera.runtime;
+package dev.tessera.runtime.internal;
 
-import dev.tessera.runtime.internal.Checks;
+import dev.tessera.runtime.CssValue;
+import dev.tessera.runtime.HtmlPolicy;
+import dev.tessera.runtime.Links;
+import dev.tessera.runtime.Messages;
+import dev.tessera.runtime.RenderContext;
+import dev.tessera.runtime.SafeHtml;
+import dev.tessera.runtime.SafeInlineHtml;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.text.MessageFormat;
@@ -220,6 +226,29 @@ public final class Escapers {
   /** How many distinct messages without arguments {@link #htmlMessage} keeps sanitized, per policy. */
   static final int MESSAGE_CACHE_SIZE = 4096;
 
+  /**
+   * The fixed policy of HTML messages ({@code t:utext="#{key}"}): phrasing markup only,
+   * {@code b i em strong u s sub sup small mark code kbd span br} with a {@code title}, and
+   * {@code a} with a checked {@code href}, {@code rel="noopener noreferrer"} and
+   * {@code target="_blank"} kept. Phrasing content never closes a {@code <p>} or heading around it,
+   * so a message can stand in one. Not configurable.
+   */
+  public static final HtmlPolicy MESSAGE_POLICY =
+      messagePolicy(HtmlPolicy.builder()).allowElements("a").linkRel("noopener", "noreferrer").allowLinkTarget().build();
+
+  /**
+   * {@link #MESSAGE_POLICY} without links, an inline policy: the compiler picks it for a key with no
+   * {@code <a} in any of its bundle values, and the message is a {@link SafeInlineHtml}, so it can
+   * also stand inside a link.
+   */
+  public static final HtmlPolicy MESSAGE_POLICY_NO_LINKS = messagePolicy(HtmlPolicy.inlineBuilder()).build();
+
+  private static HtmlPolicy.Builder messagePolicy(HtmlPolicy.Builder b) {
+    return b
+        .allowElements("b", "i", "em", "strong", "u", "s", "sub", "sup", "small", "mark", "code", "kbd", "span", "br")
+        .allowAttributes("title");
+  }
+
   private static final Map<String, SafeHtml> MESSAGES = new ConcurrentHashMap<>();
   private static final Map<String, SafeInlineHtml> MESSAGES_NO_LINKS = new ConcurrentHashMap<>();
   private static final SafeInlineHtml NO_MESSAGE = SafeInlineHtml.escape("");
@@ -228,22 +257,22 @@ public final class Escapers {
    * A bundle message rendered as HTML ({@code t:utext="#{key(args)}"}, {@code [(#{...})]}) for a
    * key with no {@code <a} in any bundle value. The arguments are escaped as HTML text (numbers and
    * dates are kept for MessageFormat), the message is looked up with them, and the result is cleaned
-   * with the fixed inline policy {@link HtmlPolicy#MESSAGE_NO_LINKS}: markup outside it is dropped
+   * with the fixed inline policy {@link #MESSAGE_POLICY_NO_LINKS}: markup outside it is dropped
    * and its text kept, whatever the bundle or the message source holds, and an argument is only ever
    * text. A message without arguments is sanitized once per distinct text (up to
    * {@link #MESSAGE_CACHE_SIZE}). A missing message ({@code null}) gives empty HTML.
    */
   public static SafeInlineHtml htmlMessage(RenderContext ctx, String key, Object[] args) {
-    return message(ctx, key, args, MESSAGES_NO_LINKS, NO_MESSAGE, m -> SafeInlineHtml.sanitize(m, HtmlPolicy.MESSAGE_NO_LINKS));
+    return message(ctx, key, args, MESSAGES_NO_LINKS, NO_MESSAGE, m -> SafeInlineHtml.sanitize(m, MESSAGE_POLICY_NO_LINKS));
   }
 
   /**
    * As {@link #htmlMessage}, for a key that may have a link (a value with {@code <a}, or an
-   * unchecked bundle): cleaned with {@link HtmlPolicy#MESSAGE}, which also keeps a checked link, so
+   * unchecked bundle): cleaned with {@link #MESSAGE_POLICY}, which also keeps a checked link, so
    * the result is a {@link SafeHtml}. A missing message gives {@link SafeHtml#EMPTY}.
    */
   public static SafeHtml linkedHtmlMessage(RenderContext ctx, String key, Object[] args) {
-    return message(ctx, key, args, MESSAGES, SafeHtml.EMPTY, m -> SafeHtml.sanitize(m, HtmlPolicy.MESSAGE));
+    return message(ctx, key, args, MESSAGES, SafeHtml.EMPTY, m -> SafeHtml.sanitize(m, MESSAGE_POLICY));
   }
 
   private static <T> T message(
@@ -413,7 +442,7 @@ public final class Escapers {
    * The one HTML escaper (element text, RCDATA and attribute values alike): {@code & < > " '},
    * and {@link #forbiddenCodePoint forbidden code points} as U+FFFD, nothing else.
    */
-  static void appendHtml(StringBuilder sb, String s) {
+  public static void appendHtml(StringBuilder sb, String s) {
     int i = firstHtmlEscape(s);
     if (i == s.length()) {
       sb.append(s);
@@ -423,7 +452,7 @@ public final class Escapers {
   }
 
   /** Escapes {@code s} as {@link #appendHtml} does. */
-  static String escapeHtml(String s) {
+  public static String escapeHtml(String s) {
     int i = firstHtmlEscape(s);
     if (i == s.length()) {
       return s;

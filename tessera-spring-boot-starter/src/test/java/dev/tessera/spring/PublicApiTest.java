@@ -29,7 +29,8 @@ import org.junit.jupiter.api.Test;
  * {@code public-api.txt} at the repository root: every public or protected type, with its
  * supertypes, and every public or protected constructor, method and field. A change to that
  * surface fails here until the file is updated, so it is reviewed. The actual list is written to
- * {@code target/public-api.txt}.
+ * {@code target/public-api.txt}. Types in a {@code .internal} package are listed in their own
+ * section: public only so that generated code and Tessera's modules can call them, not API.
  */
 class PublicApiTest {
   private static final Path CHECKED_IN = Paths.get("../public-api.txt");
@@ -37,16 +38,24 @@ class PublicApiTest {
   @Test
   void publicApiIsTheCheckedInList() throws Exception {
     List<String> api = new ArrayList<>();
+    List<String> internal = new ArrayList<>();
     for (Class<?> anchor : new Class<?>[] {Template.class, TesseraAutoConfiguration.class}) {
       for (String name : classNames(anchor)) {
         Class<?> c = Class.forName(name, false, anchor.getClassLoader());
         if (isApi(c)) {
-          describe(c, api);
+          describe(c, name.contains(".internal.") ? internal : api);
         }
       }
     }
     Collections.sort(api);
-    String actual = api.stream().collect(Collectors.joining("\n", "", "\n"));
+    Collections.sort(internal);
+    String actual =
+        "# Public API: the types apps and templates use. Signatures that name an internal type\n"
+            + "# (Output, StringOutput, TemplateEntry) are for generated code and the starter.\n"
+            + String.join("\n", api)
+            + "\n\n# Internal (dev.tessera.runtime.internal): called by generated code only; not API.\n"
+            + String.join("\n", internal)
+            + "\n";
     Files.write(Paths.get("target/public-api.txt"), actual.getBytes(StandardCharsets.UTF_8));
     String expected = new String(Files.readAllBytes(CHECKED_IN), StandardCharsets.UTF_8);
     assertEquals(

@@ -1,6 +1,5 @@
 package dev.tessera.runtime.internal;
 
-import dev.tessera.runtime.Escapers;
 import java.math.BigDecimal;
 
 /**

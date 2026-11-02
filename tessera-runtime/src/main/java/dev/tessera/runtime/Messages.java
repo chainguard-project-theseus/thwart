@@ -1,5 +1,7 @@
 package dev.tessera.runtime;
 
+import dev.tessera.runtime.internal.Escapers;
+
 /**
  * Resolves message keys for {@code #{key(args)}}. Implementations are bound to one locale. The
  * returned text is escaped for its output context, or, in {@code t:utext} and {@code [(...)]},

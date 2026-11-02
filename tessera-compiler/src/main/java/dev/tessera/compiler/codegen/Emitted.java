@@ -31,7 +31,7 @@ import java.util.function.Function;
  * <p>Immutable.
  */
 public final class Emitted {
-  private static final String ESCAPERS = "dev.tessera.runtime.Escapers.";
+  private static final String ESCAPERS = "dev.tessera.runtime.internal.Escapers.";
   /** Longest static text written by one call (and so one class constant). */
   private static final int CHUNK = 8192;
 
@@ -158,7 +158,7 @@ public final class Emitted {
    * written, in parentheses with {@code javaScript}. Returns the whole method.
    */
   public static String jsonHelperMethod(String helper, String body, boolean javaScript) {
-    return "private static void " + helper + "(java.lang.Object o$, dev.tessera.runtime.Output out) {\n"
+    return "private static void " + helper + "(java.lang.Object o$, dev.tessera.runtime.internal.Output out) {\n"
         + "java.lang.StringBuilder s$ = new java.lang.StringBuilder();\n"
         + body + ";\nout.write(" + (javaScript ? "\"(\" + s$ + \")\"" : "s$.toString()") + ");\n}\n";
   }

@@ -25,7 +25,7 @@ public final class ClassAppendProcessor implements AttributeProcessor {
     String name = current.map(ElementPlan.Attr::name).orElse("class");
     plan.setAttribute(
         name,
-        "dev.tessera.runtime.Attributes.appendClass(" + base + ", " + c.code() + ")",
+        "dev.tessera.runtime.internal.Attributes.appendClass(" + base + ", " + c.code() + ")",
         attr.pos());
   }
 }
