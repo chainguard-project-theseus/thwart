@@ -158,7 +158,7 @@ is `a b i em strong u s del ins sub sup small mark code kbd span br img`.
 | Fragment (`t:fragment`) inserted by name | none: analysed at each call site | verifier | `FragmentParsingContextTest` |
 | `Fragment` parameter or value | `FLOW` when unbound; each bound argument parsed where it lands; any other `Fragment` expression is an error | verifier; generator | `FragmentCandidatesTest`, `ContentKindsTest` |
 | `SafeHtml` (`t:utext`, `[(...)]`) | `FLOW` | verifier | `ContentKindsTest`, `FlowProducerTest` |
-| HTML message | `PHRASING` | verifier; runtime (`Escapers.htmlMessage`) | `ContentKindsTest`, `HtmlMessageTest` |
+| HTML message | `PHRASING` | verifier; runtime (`Escapers.htmlMessage`, a `SafeInlineHtml`; `Escapers.linkedHtmlMessage` with links) | `ContentKindsTest`, `HtmlMessageTest` |
 | `t:insert`, `t:utext`, `[(...)]` into RCDATA or raw text | error | generator; verifier | `BrowserRawTextTest` |
 | `t:replace` with a whole `<title>` fragment | allowed | | `FragmentsTest` |
 | `t:remove="tag"` on raw-text, RCDATA or foreign elements | error | generator; verifier | `ControlFlowTest`, `FragmentsTest` |

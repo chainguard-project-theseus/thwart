@@ -225,7 +225,7 @@ class ContentKindsTest {
         .messages("m=It''s <b>{0}</b>\n")
         .compile()
         .assertSuccess();
-    assertTrue(c.skeleton("page").body().toString().contains("$raw{HTML_MESSAGE"), c.skeleton("page").body().toString());
+    assertTrue(c.skeleton("page").body().toString().contains("$raw{SAFE_INLINE_HTML"), c.skeleton("page").body().toString());
     RenderContext ctx = new RenderContext(Locale.ROOT,
         (k, a) -> new MessageFormat("It''s <b>{0}</b>", Locale.ROOT).format(a), new DefaultLinks(""), Forms.NONE);
     assertEquals("<div>\n<p>It&#39;s <b>&lt;i&gt;</b></p></div>", c.render("page", Map.of("v", "<i>"), ctx));
