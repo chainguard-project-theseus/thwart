@@ -10,10 +10,8 @@ import java.util.Objects;
  * <p>This class is final and has no constructor outside it, so no lambda or subclass is a
  * {@code Fragment} (#581). In Java, use {@link #of(Template)}. Only its values carry the mark
  * {@link #requireVerified} checks where Java hands a template a {@code Fragment}: a page's
- * {@code t:params}. A fragment with a {@code Fragment} parameter has no Java-facing method (#600).
- * {@link #unverifiedForGeneratedCode} and the generated {@code internalUnverified$<name>} methods
- * are public for generated code in other packages and check nothing: a call from application code
- * is a door, and fails the build under {@code tessera:review}.
+ * {@code t:params}. A fragment with a {@code Fragment} parameter has no public method (#600): its
+ * class and each class that calls it get a private copy.
  */
 public final class Fragment {
   /** What a {@link #unverifiedForGeneratedCode} value writes. */
@@ -50,10 +48,9 @@ public final class Fragment {
    * For generated code: a fragment argument a template builds, such as {@code ~{::body}}. The
    * verifier parses its markup where the templates insert it, so it doesn't carry the mark, and
    * {@link #requireVerified} refuses it where Java hands it back to a template. Java code uses
-   * {@link #of(Template)}: this is public only for generated classes in other packages, and
-   * nothing checks {@code body}, so passed to a generated {@code internalUnverified$<name>} method
-   * it writes whatever it writes. A call outside generated code is a door,
-   * vouching for markup nothing checks, and fails the build under {@code tessera:review}.
+   * {@link #of(Template)}: this is public only for generated classes in other packages. Nothing
+   * checks {@code body}, but only generated code inserts the value: no public method takes it. A
+   * call outside generated code fails the build under {@code tessera:review}.
    */
   public static Fragment unverifiedForGeneratedCode(Body body) {
     return new Fragment(body, false);

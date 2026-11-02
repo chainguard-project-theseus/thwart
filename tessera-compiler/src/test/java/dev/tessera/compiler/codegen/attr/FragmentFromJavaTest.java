@@ -173,28 +173,24 @@ class FragmentFromJavaTest {
   }
 
   /**
-   * The review points docs/context-model.md §5 and docs/security-model.md list: the only public
-   * methods of a generated class that take a {@code Fragment} and are not a page's own
-   * {@code of}/{@code render} are the template-internal {@code internalUnverified$<name>} methods,
-   * and they render whatever {@code Fragment.unverifiedForGeneratedCode} wraps. A new entry point
-   * fails here until the docs list it.
+   * Negative: no generated class has a public method that takes a {@code Fragment} (here no page
+   * has a {@code Fragment} parameter, whose {@code of}/{@code render} refuse an unverified one). A
+   * fragment with a {@code Fragment} parameter is a private method of its own class and of each
+   * class that calls it, so only generated code passes it what the verifier checked where it lands.
    */
   @Test
-  void uncheckedFragmentEntryPointsAreTheDocumentedReviewPoints() throws Exception {
-    Class<?> f = fragmentMethods(null).assertSuccess().classLoader().loadClass("tessera.generated.FTemplate");
-    java.util.Set<String> takesFragment = new java.util.TreeSet<>();
-    for (Method m : f.getMethods()) {
-      if (java.lang.reflect.Modifier.isStatic(m.getModifiers())
-          && java.util.Arrays.asList(m.getParameterTypes()).contains(Fragment.class)) {
-        takesFragment.add(m.getName());
+  void noPublicMethodTakesAFragment() throws Exception {
+    Compilation c = fragmentMethods(null).assertSuccess();
+    for (String name : new String[] {"FTemplate", "PageTemplate", "DTemplate"}) {
+      for (Method m : c.classLoader().loadClass("tessera.generated." + name).getMethods()) {
+        assertTrue(!java.util.Arrays.asList(m.getParameterTypes()).contains(Fragment.class), name + "." + m.getName());
       }
     }
-    assertEquals("[internalUnverified$uncalled, internalUnverified$x]", takesFragment.toString());
-    Fragment div = Fragment.unverifiedForGeneratedCode((ctx, out) -> out.write("<div>d</div>"));
-    StringOutput out = new StringOutput();
-    f.getMethod("internalUnverified$x", Fragment.class, RenderContext.class, Output.class)
-        .invoke(null, div, RenderContext.defaults(), out);
-    assertEquals("<p><span><div>d</div></span></p>", out.toString());
+    assertTrue(c.generatedSource("tessera.generated.PageTemplate").contains("private static void fragment_x$0("));
+    assertEquals("<div>\n<p><span><em>e</em></span></p><em>e</em></div>", c.render("page", Map.of()));
+    fragmentMethods("tessera.generated.PageTemplate.fragment_x$0("
+            + "Fragment.of(tessera.generated.DTemplate.of()), RenderContext.defaults(), out);")
+        .assertError("fragment_x$0", "private access");
   }
 
   /** The parameterless generated template {@code className}, from its {@code of()}. */

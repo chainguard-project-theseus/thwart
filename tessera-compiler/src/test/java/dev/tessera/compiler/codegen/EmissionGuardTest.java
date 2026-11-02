@@ -58,10 +58,11 @@ class EmissionGuardTest {
           // the skeleton of what it writes is recorded as the fragment argument (Skeleton.Call).
           "codegen/attr/InsertReplaceProcessor.java#fragmentValue",
           // Take an Emitted's Java whose skeleton is recorded separately: the template's render
-          // body (TemplateSkeleton.body), each fragment method (TemplateSkeleton.fragments) and a
+          // body (TemplateSkeleton.body), each fragment method (TemplateSkeleton.fragments; a private
+          // copy writes the copied fragment's, which TemplateCompiler checks) and a
           // ~{::tag} selection helper (the fragment argument's skeleton).
           "codegen/TemplateGenerator.java#generate",
-          "codegen/attr/FragmentMethods.java#generate",
+          "codegen/attr/FragmentMethods.java#method",
           "codegen/attr/ElementSelection.java#helperCall",
           // Wrapper.toString, for error messages.
           "codegen/ElementPlan.java#toString");

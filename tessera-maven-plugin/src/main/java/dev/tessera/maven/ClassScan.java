@@ -10,11 +10,10 @@ import java.util.Set;
 
 /**
  * Reads what {@link ReviewMojo} reports from one class file (#428): its {@code @TemplateFunction}
- * methods and its unverified doors (#602): every reference to {@code TrustedUrl.unchecked},
- * {@code Fragment.unverifiedForGeneratedCode} or a generated
- * {@code internalUnverified$<name>} method, and a {@code verifiedFlowPartial()} it declares. Works
- * on bytecode, so a call is found however the source spells it (qualified, static import, method
- * reference). Only the parts of the class file format this needs are decoded.
+ * methods and its unverified doors (#602): every reference to {@code TrustedUrl.unchecked} or
+ * {@code Fragment.unverifiedForGeneratedCode}, and a {@code verifiedFlowPartial()} it declares.
+ * Works on bytecode, so a call is found however the source spells it (qualified, static import,
+ * method reference). Only the parts of the class file format this needs are decoded.
  */
 final class ClassScan {
   static final String RUNTIME = "dev/tessera/runtime/";
@@ -278,8 +277,7 @@ final class ClassScan {
     int[] ref = (int[]) pool[index];
     String owner = className(ref[0]);
     String name = utf(((int[]) pool[ref[1]])[0]);
-    if (name.startsWith("internalUnverified$")
-        || (name.equals("unverifiedForGeneratedCode") && owner.equals(RUNTIME + "Fragment"))) {
+    if (name.equals("unverifiedForGeneratedCode") && owner.equals(RUNTIME + "Fragment")) {
       return index;
     }
     if (name.equals("unchecked")) {

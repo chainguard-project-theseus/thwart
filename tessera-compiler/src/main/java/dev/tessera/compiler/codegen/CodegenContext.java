@@ -95,6 +95,15 @@ public interface CodegenContext {
   void addMember(String javaCode);
 
   /**
+   * The name of a {@code private static} method of the generated class that renders fragment
+   * {@code f} of template {@code t}, which has a {@code Fragment} parameter. Unless {@code t} is
+   * the template being generated, the method is a copy, generated at the end of the class with
+   * {@link #template} set to {@code t} meanwhile; it writes the skeleton of {@code f}, which the
+   * verifier checks. So no public method takes an unverified {@code Fragment}.
+   */
+  String privateFragment(TemplateIndex.TemplateInfo t, TemplateIndex.FragmentInfo f);
+
+  /**
    * The whitespace-only text immediately before {@code element} among its siblings (or the
    * whitespace after the last inlined expression of that text), which Thymeleaf repeats between
    * {@code t:each} iterations; null if there is none or the element is rendered standalone (a

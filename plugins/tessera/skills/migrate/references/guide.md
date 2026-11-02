@@ -139,8 +139,8 @@ Pick the starter by servlet API and use exactly one; it brings only `tessera-run
   Maven 3.6.3+; upgrade an older `mvnw` wrapper.
 - The `review` goal (run by `mvn package`) writes `target/tessera-review.txt`: every
   `@TemplateFunction`, for a security review, and every unverified door with its source line. It
-  fails the build on a door: a `TrustedUrl.unchecked` call, a hand-written `verifiedFlowPartial()`,
-  or a call of `Fragment.unverifiedForGeneratedCode` or `internalUnverified$...` outside generated
+  fails the build on a door: a `TrustedUrl.unchecked` call, a hand-written
+  `verifiedFlowPartial()`, or a call of `Fragment.unverifiedForGeneratedCode` outside generated
   code.
 - The generated `META-INF/services/dev.tessera.runtime.TemplateRegistry` and
   `META-INF/tessera/**` must be packaged; otherwise the starter warns "No compiled Tessera
@@ -857,10 +857,9 @@ Outside a request (a mail job, a command-line tool), call
 `XTemplate.of(...).renderToString(ctx)` with a `RenderContext` (`RenderContext.defaults()`,
 `ResourceBundleMessages`, `DefaultLinks(contextPath)`), or in a controller with
 `SpringRenderContexts.create(request, response, model)`. A `Fragment` page parameter takes
-`Fragment.of(PartialTemplate.of(...))` of a compiled partial. Generated classes also have methods
-named `internalUnverified$...`, and there is a `Fragment.unverifiedForGeneratedCode`: they exist
-for generated code only and check nothing, so the `review` goal fails the build on a call from
-application code.
+`Fragment.of(PartialTemplate.of(...))` of a compiled partial. `Fragment.unverifiedForGeneratedCode` is
+for generated code only: no public method accepts its values, and the `review` goal fails the build
+on a call from application code.
 
 **Content Security Policy.** With the Spring starter every `<script>` and `<style>` the template
 writes gets the request's nonce (`CspNonce.get(request)` returns it for your policy header). Delete

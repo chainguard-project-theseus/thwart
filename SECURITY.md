@@ -74,8 +74,8 @@ Raw output always needs a typed value built in Java, never a flag on a string:
 **`TrustedUrl.unchecked`** vouches for a string with no check at all, and a hand-written `Template` whose `verifiedFlowPartial()` returns true vouches for its own output.
 Whatever such a door lets through is the caller's responsibility, not a Tessera bug.
 `mvn tessera:review` fails the build on every door outside generated code (those calls, a
-`verifiedFlowPartial()` override, and a call of `Fragment.unverifiedForGeneratedCode` or a
-generated `internalUnverified$` method), and lists every registered `@TemplateFunction`.
+`verifiedFlowPartial()` override, and a call of `Fragment.unverifiedForGeneratedCode`), and lists
+every registered `@TemplateFunction`.
 
 ## Out of scope
 

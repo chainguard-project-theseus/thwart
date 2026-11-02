@@ -96,6 +96,14 @@ public final class TemplateGenerator implements CodegenContext {
   private boolean inForeign;
   /** Whether the element whose content is being generated is a JSON {@code <script>} ({@link #inJsonScript}). */
   private boolean jsonScript;
+  /** The template whose class is being generated; {@link #template} differs while a copy is. */
+  private TemplateIndex.TemplateInfo emitting;
+  /** {@link #privateFragment} names, by fragment. */
+  private Map<Skeleton.FragmentId, String> privateNames;
+  /** The copies to generate, in order; grows while they are generated. */
+  private List<Skeleton.FragmentId> pending;
+  /** The copies generated last, each with the fragment it copies ({@link #copies}). */
+  private List<Map.Entry<Skeleton.FragmentId, Skeleton.Seq>> copies;
 
   public TemplateGenerator(
       CompilerEnv env, TemplateIndex index, ExpressionParser parser, ExpressionCompiler expressions) {
@@ -121,14 +129,14 @@ public final class TemplateGenerator implements CodegenContext {
         index
             .template(document.source().viewName())
             .orElseThrow(() -> new IllegalArgumentException("not indexed: " + document.source().viewName()));
-    template = info;
-    content = document.source().content();
-    lineStarts = document.source().lineStarts();
+    emitting = info;
+    use(info);
     constants = new LinkedHashMap<>();
     members = new ArrayList<>();
     fresh = 0;
-    whitespaceBefore = new IdentityHashMap<>();
-    indexWhitespace(document.children());
+    privateNames = new LinkedHashMap<>();
+    pending = new ArrayList<>();
+    copies = new ArrayList<>();
 
     validate(document.rootElement(), document.children());
     TextInlining.checkBraces(this, document.children(), null);
@@ -144,6 +152,17 @@ public final class TemplateGenerator implements CodegenContext {
     }
     Emitted bodyCode = body.build();
     Map<String, Skeleton.Seq> fragments = FragmentMethods.generate(this);
+    for (int i = 0; i < pending.size(); i++) {
+      Skeleton.FragmentId id = pending.get(i);
+      TemplateIndex.TemplateInfo t = index.template(id.view()).get();
+      use(t);
+      try {
+        Emitted copy = FragmentMethods.method(this, t.fragments().get(id.name()), privateNames.get(id));
+        copies.add(new java.util.AbstractMap.SimpleImmutableEntry<>(id, copy.seq()));
+      } finally {
+        use(info);
+      }
+    }
     Map<String, String> declared = new LinkedHashMap<>();
     for (TemplateIndex.FragmentInfo f : info.fragments().values()) {
       declared.put(f.name(), info.parsingContexts().place(f.element()));
@@ -166,6 +185,23 @@ public final class TemplateGenerator implements CodegenContext {
    */
   public Skeleton.TemplateSkeleton skeleton() {
     return skeleton;
+  }
+
+  /**
+   * The private fragment copies {@link #generate} generated last, each with the fragment it
+   * copies: the copy must write that fragment's skeleton, which the verifier checks.
+   */
+  public List<Map.Entry<Skeleton.FragmentId, Skeleton.Seq>> copies() {
+    return copies;
+  }
+
+  /** Resolves names, source positions and whitespace against {@code t} ({@link #privateFragment}). */
+  private void use(TemplateIndex.TemplateInfo t) {
+    template = t;
+    content = t.document().source().content();
+    lineStarts = t.document().source().lineStarts();
+    whitespaceBefore = new IdentityHashMap<>();
+    indexWhitespace(t.document().children());
   }
 
   private Emitted.Builder builder() {
@@ -290,6 +326,20 @@ public final class TemplateGenerator implements CodegenContext {
   @Override
   public void addMember(String javaCode) {
     members.add(javaCode);
+  }
+
+  @Override
+  public String privateFragment(TemplateIndex.TemplateInfo t, TemplateIndex.FragmentInfo f) {
+    Skeleton.FragmentId id = new Skeleton.FragmentId(t.viewName(), f.name());
+    String name = privateNames.get(id);
+    if (name == null) {
+      name = f.methodName() + "$" + privateNames.size();
+      privateNames.put(id, name);
+      if (!t.viewName().equals(emitting.viewName())) {
+        pending.add(id);
+      }
+    }
+    return name;
   }
 
   @Override
