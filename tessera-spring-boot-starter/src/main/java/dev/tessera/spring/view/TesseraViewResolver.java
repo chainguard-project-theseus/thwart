@@ -8,7 +8,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.springframework.context.EnvironmentAware;
 import org.springframework.core.Ordered;
+import org.springframework.core.env.Environment;
 import org.springframework.web.servlet.View;
 import org.springframework.web.servlet.ViewResolver;
 
@@ -24,8 +26,14 @@ import org.springframework.web.servlet.ViewResolver;
  * rows(x)}) yields {@code null} so the next resolver runs. Construction logs how many compiled
  * templates the registry holds, and warns when there are none, since then every view silently
  * falls through.
+ *
+ * <p>Its views send a strict {@code Content-Security-Policy} ({@link TesseraView}) unless the
+ * property {@code tessera.csp.enabled} is {@code false}.
  */
-public final class TesseraViewResolver implements ViewResolver, Ordered {
+public final class TesseraViewResolver implements ViewResolver, Ordered, EnvironmentAware {
+
+  /** The one switch for the default policy header. */
+  static final String CSP_ENABLED = "tessera.csp.enabled";
 
   /**
    * Before Thymeleaf's resolver ({@code LOWEST_PRECEDENCE - 5}) and Boot's {@code
@@ -43,6 +51,8 @@ public final class TesseraViewResolver implements ViewResolver, Ordered {
   private final RenderContextFactory contexts;
   /** One view per registry entry, built on first resolve (a view is stateless). */
   private final ConcurrentMap<TemplateEntry, TesseraView> views = new ConcurrentHashMap<>();
+  /** From {@link #CSP_ENABLED}, set before the first resolve; on for a resolver outside Spring. */
+  private boolean csp = true;
 
   public TesseraViewResolver(TemplateRegistry registry, RenderContextFactory contexts) {
     this.registry = Objects.requireNonNull(registry, "registry");
@@ -60,12 +70,19 @@ public final class TesseraViewResolver implements ViewResolver, Ordered {
   }
 
   @Override
+  public void setEnvironment(Environment environment) {
+    csp = environment.getProperty(CSP_ENABLED, Boolean.class, true);
+  }
+
+  @Override
   public View resolveViewName(String viewName, Locale locale) {
     if (viewName == null) {
       return null;
     }
     TemplateEntry entry = registry.find(lookupName(viewName)).orElse(null);
-    return entry == null ? null : views.computeIfAbsent(entry, e -> TesseraView.of(e, contexts));
+    return entry == null
+        ? null
+        : views.computeIfAbsent(entry, e -> TesseraView.of(e, contexts, csp));
   }
 
   /**
