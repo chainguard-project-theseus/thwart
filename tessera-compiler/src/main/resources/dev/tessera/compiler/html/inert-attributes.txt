@@ -3,9 +3,10 @@
 # Every other standard name gets a specific context from Contexts.attribute (URL, RESOURCE_URL,
 # STYLE, REFRESH, FORBIDDEN, ...) or is TYPED_ATTRIBUTE: its value may only combine string
 # literals and numbers (#565).
-# data-* names and plain [a-z][a-z0-9]* props on a custom element are not listed and stay ordinary
-# attributes, as before; the framework names Contexts classifies (hx-*, data-bind, ...) are
-# classified before this file is asked.
+# Names that are not standard (data-*, a custom element's own attributes, framework names such as
+# hx-*) are not listed: Contexts.attribute makes every one NEUTRAL. A listed name that is also a
+# tree-builder input on some element (type on <input> and <script>, Contexts.isTreeBuilderInput)
+# is FORBIDDEN there before this file is asked.
 #
 # Format: one lower-case name per line, sorted, then its group, and, optionally, the only HTML
 # elements it is inert on (comma-separated). Only HTML elements are listed: every attribute of an
@@ -47,7 +48,7 @@
 #     is, srcdoc, style, shadowroot*, language (script), code, codetype, declare, event, datafld,
 #     dataformatas, datapagesize, methods, scheme, standby, typemustmatch, version, rev, nohref,
 #     contextmenu, dropzone, allowtransparency
-# Kept on purpose: name (also <meta name>), type (not <script>, which Contexts forbids), nonce
+# Kept on purpose: name (also <meta name>), type (not <input> or <script>, see above), nonce
 #   (CSP; it can only allow the template's own static script), pattern (a regular expression the
 #   browser only matches input against), command, method and formmethod (GenericAttrProcessor
 #   rejects a computed method on a <form> and a computed formmethod at build time).

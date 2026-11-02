@@ -11,7 +11,7 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 
 /**
- * The engine-drift detector's Java half (#399): the trees the vnu engine ({@code Engines.CURRENT})
+ * The engine-drift detector's Java half (#399): the trees the vnu engine ({@code Vnu})
  * builds for a render, written in the normalized form the Node job (#322) compares with parse5's
  * tree and each browser's DOM ({@code tree.mjs}, {@code compact}). The verifier (#367) reasons
  * about this one engine; where it builds a tree a spec engine or browser doesn't, its proof is

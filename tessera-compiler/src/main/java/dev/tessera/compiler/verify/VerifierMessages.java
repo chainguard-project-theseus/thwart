@@ -304,10 +304,6 @@ final class VerifierMessages {
       return "a browser reads " + value + " as CSS in " + element(current) + ", where escaping for text doesn't keep it"
           + " inert; Tessera doesn't write values into style sheets: set a class instead";
     }
-    if (foreign(s)) {
-      return "a browser runs " + value + " as the code of " + element(current) + ", where escaping for text doesn't"
-          + " keep it inert; write the script as an HTML <script> outside <svg> and <math>, with data as [[${...}]]";
-    }
     return "a browser runs " + value + " " + reading(s) + ", where escaping for text doesn't keep it inert; "
         + scriptFix(s);
   }
@@ -343,9 +339,6 @@ final class VerifierMessages {
     String head = "a browser reads " + value + " " + reading(s) + "; JSON is safe only as the code of an HTML <script>";
     if (s != null && script(s) && s.tokenizer() != TokenizerState.SCRIPT_DATA) {
       return head + "; " + scriptFix(s);
-    }
-    if (foreign(s) && s.tokenizer() == TokenizerState.DATA) {
-      return head + "; write the script as an HTML <script> outside <svg> and <math>";
     }
     return head + "; check the markup before it: a browser ended the <script>, or never started it, there";
   }
@@ -562,14 +555,10 @@ final class VerifierMessages {
     if (s == null) {
       return "here";
     }
-    OpenElement current = s.currentNode();
     String name = s.tokenizer().name();
     switch (s.tokenizer()) {
       case DATA:
-        if (foreign(s) && (current.localName().equals("script") || current.localName().equals("style"))) {
-          return "inside " + element(current) + ", where a browser decodes character references and reads tags";
-        }
-        return foreign(s) ? "as text inside " + element(current) : "as text " + mode(s);
+        return "as text " + mode(s);
       case RCDATA:
         return "as the text of <" + s.endTagExpectation() + ">";
       case RAWTEXT:

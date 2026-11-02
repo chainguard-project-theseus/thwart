@@ -301,114 +301,97 @@ public final class SkeletonMatcher {
       return false;
     }
     try {
-      return n.accept(new Skeleton.Visitor<Boolean>() {
-        @Override
-        public Boolean visitStatic(Skeleton.Static s) {
+      if (n instanceof Skeleton.Static || n instanceof Skeleton.RawInsert) {
+        return true;
+      }
+      if (n instanceof Skeleton.Hole h) {
+        out.add(new Span(h, offset, end));
+        return true;
+      }
+      if (n instanceof Skeleton.Call c) {
+        return derive(fragments.apply(c.target()), 0, offset, end, callee(c, env), out);
+      }
+      if (n instanceof Skeleton.ParamInsert p) {
+        Skeleton.Seq bound = env.args.get(p.param());
+        if (bound == null || end == offset) {
           return true;
         }
-
-        @Override
-        public Boolean visitHole(Skeleton.Hole h) {
-          out.add(new Span(h, offset, end));
-          return true;
-        }
-
-        @Override
-        public Boolean visitRawInsert(Skeleton.RawInsert r) {
-          return true;
-        }
-
-        @Override
-        public Boolean visitCall(Skeleton.Call c) {
-          return derive(fragments.apply(c.target()), 0, offset, end, callee(c, env), out);
-        }
-
-        @Override
-        public Boolean visitParamInsert(Skeleton.ParamInsert p) {
-          Skeleton.Seq bound = env.args.get(p.param());
-          if (bound == null || end == offset) {
-            return true;
-          }
-          return derive(bound, 0, offset, end, env.caller == null ? Env.EMPTY : env.caller, out);
-        }
-
-        @Override
-        public Boolean visitSeq(Skeleton.Seq q) {
-          return derive(q, 0, offset, end, env, out);
-        }
-
-        @Override
-        public Boolean visitOpt(Skeleton.Opt o) {
-          return end == offset || derive(o.body(), 0, offset, end, env, out);
-        }
-
-        @Override
-        public Boolean visitAlt(Skeleton.Alt a) {
-          for (Skeleton.Seq b : a.branches()) {
-            if (seq(b, offset, env).get(end)) {
-              int mark = out.size();
-              if (derive(b, 0, offset, end, env, out)) {
-                return true;
-              }
-              out.subList(mark, out.size()).clear();
+        return derive(bound, 0, offset, end, env.caller == null ? Env.EMPTY : env.caller, out);
+      }
+      if (n instanceof Skeleton.Seq q) {
+        return derive(q, 0, offset, end, env, out);
+      }
+      if (n instanceof Skeleton.Opt o) {
+        return end == offset || derive(o.body(), 0, offset, end, env, out);
+      }
+      if (n instanceof Skeleton.Alt a) {
+        for (Skeleton.Seq b : a.branches()) {
+          if (seq(b, offset, env).get(end)) {
+            int mark = out.size();
+            if (derive(b, 0, offset, end, env, out)) {
+              return true;
             }
+            out.subList(mark, out.size()).clear();
           }
-          return false;
         }
-
-        @Override
-        public Boolean visitRep(Skeleton.Rep r) {
-          if (end == offset) {
-            return true;
-          }
-          // Breadth-first over iteration ends: how each was reached (previous end, separator end).
-          Map<Integer, int[]> how = new HashMap<>();
-          java.util.ArrayDeque<Integer> todo = new java.util.ArrayDeque<>();
-          BitSet first = seq(r.body(), offset, env);
-          for (int e = first.nextSetBit(0); e >= 0; e = first.nextSetBit(e + 1)) {
-            if (how.putIfAbsent(e, new int[] {-1, offset}) == null) {
-              todo.add(e);
-            }
-          }
-          while (!todo.isEmpty() && !how.containsKey(end)) {
-            int e = todo.poll();
-            BitSet afterSep = seq(r.separator(), e, env);
-            for (int s = afterSep.nextSetBit(0); s >= 0; s = afterSep.nextSetBit(s + 1)) {
-              BitSet next = seq(r.body(), s, env);
-              for (int e2 = next.nextSetBit(0); e2 >= 0; e2 = next.nextSetBit(e2 + 1)) {
-                if (how.putIfAbsent(e2, new int[] {e, s}) == null) {
-                  todo.add(e2);
-                }
-              }
-            }
-          }
-          if (!how.containsKey(end)) {
-            return false;
-          }
-          List<int[]> steps = new ArrayList<>(); // {previous end, separator end, body end}
-          for (int e = end; e >= 0 && how.containsKey(e); ) {
-            int[] h = how.get(e);
-            steps.add(new int[] {h[0], h[1], e});
-            if (h[0] < 0) {
-              break;
-            }
-            e = h[0];
-          }
-          java.util.Collections.reverse(steps);
-          for (int[] st : steps) {
-            if (st[0] >= 0 && !derive(r.separator(), 0, st[0], st[1], env, out)) {
-              return false;
-            }
-            if (!derive(r.body(), 0, st[1], st[2], env, out)) {
-              return false;
-            }
-          }
-          return true;
-        }
-      });
+        return false;
+      }
+      if (n instanceof Skeleton.Rep r) {
+        return deriveRep(r, offset, end, env, out);
+      }
+      throw new IllegalArgumentException("unknown node " + n.getClass().getSimpleName());
     } finally {
       deriving.remove(key);
     }
+  }
+
+  private boolean deriveRep(Skeleton.Rep r, int offset, int end, Env env, List<Span> out) {
+    if (end == offset) {
+      return true;
+    }
+    // Breadth-first over iteration ends: how each was reached (previous end, separator end).
+    Map<Integer, int[]> how = new HashMap<>();
+    java.util.ArrayDeque<Integer> todo = new java.util.ArrayDeque<>();
+    BitSet first = seq(r.body(), offset, env);
+    for (int e = first.nextSetBit(0); e >= 0; e = first.nextSetBit(e + 1)) {
+      if (how.putIfAbsent(e, new int[] {-1, offset}) == null) {
+        todo.add(e);
+      }
+    }
+    while (!todo.isEmpty() && !how.containsKey(end)) {
+      int e = todo.poll();
+      BitSet afterSep = seq(r.separator(), e, env);
+      for (int s = afterSep.nextSetBit(0); s >= 0; s = afterSep.nextSetBit(s + 1)) {
+        BitSet next = seq(r.body(), s, env);
+        for (int e2 = next.nextSetBit(0); e2 >= 0; e2 = next.nextSetBit(e2 + 1)) {
+          if (how.putIfAbsent(e2, new int[] {e, s}) == null) {
+            todo.add(e2);
+          }
+        }
+      }
+    }
+    if (!how.containsKey(end)) {
+      return false;
+    }
+    List<int[]> steps = new ArrayList<>(); // {previous end, separator end, body end}
+    for (int e = end; e >= 0 && how.containsKey(e); ) {
+      int[] h = how.get(e);
+      steps.add(new int[] {h[0], h[1], e});
+      if (h[0] < 0) {
+        break;
+      }
+      e = h[0];
+    }
+    java.util.Collections.reverse(steps);
+    for (int[] st : steps) {
+      if (st[0] >= 0 && !derive(r.separator(), 0, st[0], st[1], env, out)) {
+        return false;
+      }
+      if (!derive(r.body(), 0, st[1], st[2], env, out)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /** The bindings a call's target is matched in: one Env per (call node, caller Env). */
@@ -489,131 +472,121 @@ public final class SkeletonMatcher {
   }
 
   private BitSet node(Skeleton.Node n, int offset, Env env) {
-    return n.accept(new Skeleton.Visitor<BitSet>() {
-      @Override
-      public BitSet visitStatic(Skeleton.Static st) {
-        BitSet b = new BitSet();
-        String t = st.text();
-        if (s.startsWith(t, offset)) {
-          b.set(offset + t.length());
-          reached(offset + t.length(), "after", st, 0);
-        } else {
-          int k = 0;
-          while (offset + k < s.length() && k < t.length() && s.charAt(offset + k) == t.charAt(k)) {
-            k++;
-          }
-          reached(offset + k, "static", st, k);
+    if (n instanceof Skeleton.Static st) {
+      BitSet b = new BitSet();
+      String t = st.text();
+      if (s.startsWith(t, offset)) {
+        b.set(offset + t.length());
+        reached(offset + t.length(), "after", st, 0);
+      } else {
+        int k = 0;
+        while (offset + k < s.length() && k < t.length() && s.charAt(offset + k) == t.charAt(k)) {
+          k++;
         }
-        return b;
+        reached(offset + k, "static", st, k);
       }
+      return b;
+    }
 
-      @Override
-      public BitSet visitHole(Skeleton.Hole h) {
-        BitSet b = holeEnds(h.escaper(), s, offset);
-        reached(b.length() - 1, "hole", h, 0);
-        return b;
+    if (n instanceof Skeleton.Hole h) {
+      BitSet b = holeEnds(h.escaper(), s, offset);
+      reached(b.length() - 1, "hole", h, 0);
+      return b;
+    }
+
+    if (n instanceof Skeleton.RawInsert r) {
+      return anything(offset);
+    }
+
+    if (n instanceof Skeleton.Call c) {
+      Skeleton.Seq target = fragments.apply(c.target());
+      if (target == null) {
+        throw new AssertionError("no skeleton for fragment " + c.target());
       }
+      Env callee = callee(c, env);
+      path = new Path(c, path);
+      try {
+        return seq(target, offset, callee);
+      } finally {
+        path = path.parent;
+      }
+    }
 
-      @Override
-      public BitSet visitRawInsert(Skeleton.RawInsert r) {
+    if (n instanceof Skeleton.ParamInsert p) {
+      Skeleton.Seq bound = env.args.get(p.param());
+      if (bound == null) {
         return anything(offset);
       }
+      BitSet b = new BitSet();
+      b.set(offset); // a null Fragment writes nothing
+      path = new Path(p, path);
+      try {
+        b.or(seq(bound, offset, env.caller == null ? Env.EMPTY : env.caller));
+      } finally {
+        path = path.parent;
+      }
+      return b;
+    }
 
-      @Override
-      public BitSet visitCall(Skeleton.Call c) {
-        Skeleton.Seq target = fragments.apply(c.target());
-        if (target == null) {
-          throw new AssertionError("no skeleton for fragment " + c.target());
-        }
-        Env callee = callee(c, env);
-        path = new Path(c, path);
+    if (n instanceof Skeleton.Seq q) {
+      return seq(q, offset, env);
+    }
+
+    if (n instanceof Skeleton.Opt o) {
+      BitSet b = new BitSet();
+      b.set(offset);
+      path = new Path(o, path);
+      try {
+        b.or(seq(o.body(), offset, env));
+      } finally {
+        path = path.parent;
+      }
+      return b;
+    }
+
+    if (n instanceof Skeleton.Alt a) {
+      BitSet b = new BitSet();
+      for (int i = 0; i < a.branches().size(); i++) {
+        path = new Path("alt[" + i + "]", path);
         try {
-          return seq(target, offset, callee);
+          b.or(seq(a.branches().get(i), offset, env));
         } finally {
           path = path.parent;
         }
       }
+      return b;
+    }
 
-      @Override
-      public BitSet visitParamInsert(Skeleton.ParamInsert p) {
-        Skeleton.Seq bound = env.args.get(p.param());
-        if (bound == null) {
-          return anything(offset);
-        }
-        BitSet b = new BitSet();
-        b.set(offset); // a null Fragment writes nothing
-        path = new Path(p, path);
-        try {
-          b.or(seq(bound, offset, env.caller == null ? Env.EMPTY : env.caller));
-        } finally {
-          path = path.parent;
-        }
-        return b;
-      }
-
-      @Override
-      public BitSet visitSeq(Skeleton.Seq q) {
-        return seq(q, offset, env);
-      }
-
-      @Override
-      public BitSet visitOpt(Skeleton.Opt o) {
-        BitSet b = new BitSet();
-        b.set(offset);
-        path = new Path(o, path);
-        try {
-          b.or(seq(o.body(), offset, env));
-        } finally {
-          path = path.parent;
-        }
-        return b;
-      }
-
-      @Override
-      public BitSet visitAlt(Skeleton.Alt a) {
-        BitSet b = new BitSet();
-        for (int i = 0; i < a.branches().size(); i++) {
-          path = new Path("alt[" + i + "]", path);
-          try {
-            b.or(seq(a.branches().get(i), offset, env));
-          } finally {
-            path = path.parent;
+    if (n instanceof Skeleton.Rep r) {
+      path = new Path(r, path);
+      try {
+        BitSet out = new BitSet();
+        out.set(offset);
+        // After a body: the offsets reached; each may be followed by separator + body.
+        BitSet afterBody = seq(r.body(), offset, env);
+        BitSet todo = (BitSet) afterBody.clone();
+        BitSet seen = new BitSet();
+        while (!todo.isEmpty()) {
+          int e = todo.nextSetBit(0);
+          todo.clear(e);
+          if (seen.get(e)) {
+            continue;
+          }
+          seen.set(e);
+          out.set(e);
+          BitSet afterSep = seq(r.separator(), e, env);
+          for (int j = afterSep.nextSetBit(0); j >= 0; j = afterSep.nextSetBit(j + 1)) {
+            BitSet next = (BitSet) seq(r.body(), j, env).clone();
+            next.andNot(seen);
+            todo.or(next);
           }
         }
-        return b;
+        return out;
+      } finally {
+        path = path.parent;
       }
-
-      @Override
-      public BitSet visitRep(Skeleton.Rep r) {
-        path = new Path(r, path);
-        try {
-          BitSet out = new BitSet();
-          out.set(offset);
-          // After a body: the offsets reached; each may be followed by separator + body.
-          BitSet afterBody = seq(r.body(), offset, env);
-          BitSet todo = (BitSet) afterBody.clone();
-          BitSet seen = new BitSet();
-          while (!todo.isEmpty()) {
-            int e = todo.nextSetBit(0);
-            todo.clear(e);
-            if (seen.get(e)) {
-              continue;
-            }
-            seen.set(e);
-            out.set(e);
-            BitSet afterSep = seq(r.separator(), e, env);
-            for (int j = afterSep.nextSetBit(0); j >= 0; j = afterSep.nextSetBit(j + 1)) {
-              BitSet next = (BitSet) seq(r.body(), j, env).clone();
-              next.andNot(seen);
-              todo.or(next);
-            }
-          }
-          return out;
-        } finally {
-          path = path.parent;
-        }
-      }
-    });
+    }
+    throw new IllegalArgumentException("unknown node " + n.getClass().getSimpleName());
   }
 
   private BitSet anything(int offset) {

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.model.Element;
+import dev.tessera.compiler.model.OutputContext;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -85,10 +86,11 @@ class KnownAttributesTest {
     // data-* names are not standard, so not TYPED (they are NEUTRAL); a custom element has no exemption (#584).
     assertFalse(KnownAttributes.needsSafeValue(html("p"), "data-rel"));
     assertTrue(KnownAttributes.needsSafeValue(html("my-el"), "target"));
-    // No attribute of an SVG or MathML element is inert (#678); for and value only on some elements.
-    assertTrue(KnownAttributes.needsSafeValue(foreign("rect"), "width"));
+    // No attribute of an SVG or MathML element is inert: Contexts forbids them all first (#678); for
+    // and value only on some elements.
+    assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(foreign("rect"), "width"));
     assertFalse(KnownAttributes.needsSafeValue(html("img"), "width"));
-    assertTrue(KnownAttributes.needsSafeValue(foreign("rect"), "aria-label"));
+    assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(foreign("rect"), "aria-label"));
     assertFalse(KnownAttributes.needsSafeValue(html("label"), "for"));
     assertTrue(KnownAttributes.needsSafeValue(html("template"), "for"));
     assertFalse(KnownAttributes.needsSafeValue(html("option"), "value"));

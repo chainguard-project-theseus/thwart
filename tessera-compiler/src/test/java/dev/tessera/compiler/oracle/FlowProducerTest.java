@@ -8,13 +8,12 @@ import static org.junit.jupiter.api.Assertions.fail;
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.compiler.verify.ContentKinds;
 import dev.tessera.compiler.verify.Skeleton;
-import dev.tessera.compiler.verify.engine.Engine;
 import dev.tessera.compiler.verify.engine.EngineException;
-import dev.tessera.compiler.verify.engine.Engines;
 import dev.tessera.compiler.verify.engine.InsertionMode;
 import dev.tessera.compiler.verify.engine.OpenElement;
 import dev.tessera.compiler.verify.engine.Parser;
 import dev.tessera.compiler.verify.engine.ParserState;
+import dev.tessera.compiler.verify.engine.Vnu;
 import dev.tessera.runtime.DefaultLinks;
 import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.Forms;
@@ -106,9 +105,8 @@ class FlowProducerTest {
     List<Parser> ps = ENTRIES.get(context);
     if (ps == null) {
       ps = new ArrayList<>();
-      Engine e = Engines.CURRENT;
       for (boolean scripting : new boolean[] {true, false}) {
-        Parser p = e.document(scripting);
+        Parser p = Vnu.document(scripting);
         p.feed(context);
         ps.add(p);
       }
@@ -291,8 +289,8 @@ class FlowProducerTest {
         List<String> errors = new ArrayList<>();
         p.feed(html, errorListener(errors));
         if (!errors.isEmpty()) {
-          fail(what + "\n output: " + html + "\n context: " + context + " (" + before.engine()
-              + (before.scripting() ? ", scripting" : ", no scripting") + ")\n parse errors: " + errors);
+          fail(what + "\n output: " + html + "\n context: " + context + " ("
+              + (before.scripting() ? "scripting" : "no scripting") + ")\n parse errors: " + errors);
         }
         ParserState after = p.state();
         if (same(after, before)) {
@@ -305,8 +303,8 @@ class FlowProducerTest {
             continue;
           }
         }
-        fail(what + "\n output: " + html + "\n context: " + context + " (" + before.engine()
-            + (before.scripting() ? ", scripting" : ", no scripting") + ")\n before: " + before + "\n after:  " + after);
+        fail(what + "\n output: " + html + "\n context: " + context + " ("
+            + (before.scripting() ? "scripting" : "no scripting") + ")\n before: " + before + "\n after:  " + after);
       }
     }
   }
