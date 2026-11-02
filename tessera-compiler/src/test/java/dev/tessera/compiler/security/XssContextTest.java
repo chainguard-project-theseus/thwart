@@ -35,10 +35,6 @@ class XssContextTest {
 
   /** How an output slot is checked. */
   enum Kind {
-    /** Element text: {@code {{} is broken with empty comments (#248). */
-    TEXT,
-    /** Element text in the middle of one value (a literal substitution): its ends are not edges. */
-    TEXT_PART,
     HTML,
     URL,
     JSON,
@@ -51,8 +47,8 @@ class XssContextTest {
 
   static final List<Line> LINES =
       List.of(
-          new Line("<p t:text=\"s\">x</p>", Kind.TEXT),
-          new Line("<p>a [[s]] b</p>", Kind.TEXT),
+          new Line("<p t:text=\"s\">x</p>", Kind.HTML),
+          new Line("<p>a [[s]] b</p>", Kind.HTML),
           new Line("<title>[[s]]</title>", Kind.HTML),
           new Line("<textarea t:text=\"s\"></textarea>", Kind.HTML),
           new Line("<i t:title=\"s\" t:attr=\"id=s\">x</i>", Kind.HTML, Kind.HTML),
@@ -66,8 +62,8 @@ class XssContextTest {
           new Line("<img t:src=\"s\"><video t:poster=\"s\"></video><q t:cite=\"s\">q</q>", Kind.URL, Kind.URL, Kind.URL),
           new Line("<a t:href=\"@{/o/{id}(id='x' + s, q=s)}\">x</a>", Kind.PATH_SEGMENT, Kind.QUERY),
           new Line("<script t:src=\"@{/js/{f}(f='x' + s)}\"></script>", Kind.PATH_SEGMENT),
-          new Line("<p t:text=\"#{greet(s)}\">x</p><i t:title=\"#{greet(s)}\">y</i>", Kind.TEXT, Kind.HTML),
-          new Line("<p t:text=\"|a ${s} b|\">x</p>", Kind.TEXT_PART),
+          new Line("<p t:text=\"#{greet(s)}\">x</p><i t:title=\"#{greet(s)}\">y</i>", Kind.HTML, Kind.HTML),
+          new Line("<p t:text=\"|a ${s} b|\">x</p>", Kind.HTML),
           new Line("<script type=\"application/json\" t:text=\"s\"></script>", Kind.JSON),
           new Line(
               "<script>var a = [[s]]; var t = [[s]]; var b = [[s]];\n// c\nvar d = [[s]]; var e = [[s]]; var n = e + a / 2;"
@@ -77,9 +73,8 @@ class XssContextTest {
           new Line(
               "<form method=\"post\" t:object=\"owner\"><input t:field=\"*{name}\"><span t:errors=\"*{name}\">e</span>"
                   + "<textarea t:field=\"*{name}\"></textarea></form>",
-              // The first slot is the injected CSRF hidden-input value, before the fields. A
-              // <textarea> is RCDATA: no comments there (#248).
-              Kind.HTML, Kind.HTML, Kind.TEXT, Kind.HTML));
+              // The first slot is the injected CSRF hidden-input value, before the fields.
+              Kind.HTML, Kind.HTML, Kind.HTML, Kind.HTML));
 
   private static Compilation compilation;
   private static List<Kind> kinds;
@@ -163,7 +158,7 @@ class XssContextTest {
       String slot = m.group(i + 1);
       String problem =
           switch (kinds.get(i)) {
-            case TEXT, TEXT_PART, HTML -> ContextOracle.html(slot, null);
+            case HTML -> ContextOracle.html(slot, null);
             case URL -> ContextOracle.url(slot, s);
             case JSON -> ContextOracle.jsonString("\"" + slot + "\"", s);
             case PATH_SEGMENT ->
@@ -418,7 +413,7 @@ class XssContextTest {
           "<form method=\"post\"><button t:formaction=\"s\">x</button></form>",
           "<form method=\"post\"><button t:attr=\"formaction=@{//evil.example/}\">x</button></form>",
           "<form method=\"post\"><input type=\"submit\" formaction=\"https://evil.example/\"></form>",
-          // #348: a browser moves the text in front of the table and keeps the comments that break {{
+          // #348: a browser moves table text in front of the table, out of the context it was escaped for
           "<table>[[s]]<tr><td>x</td></tr></table>",
           "<table><tr><td>x</td></tr><tr t:text=\"s\"></tr></table>",
           "<table><tbody>[[s]]</tbody><thead>[[s]]</thead><tfoot>[[s]]</tfoot></table>",
