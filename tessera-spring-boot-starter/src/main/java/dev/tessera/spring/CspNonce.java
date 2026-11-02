@@ -7,12 +7,10 @@ import java.util.Base64;
 /**
  * The request's Content Security Policy nonce. The starter's {@code RenderContext} carries
  * it, so every {@code <script>} and {@code <style>} a template writes gets {@code nonce="..."}.
- * A Tessera view whose response has no {@code Content-Security-Policy} header sends {@code
- * script-src 'nonce-N' 'strict-dynamic'; object-src 'none'; base-uri 'none'} with this nonce, so
- * the application need not send one ({@code tessera.csp.enabled=false} turns it off). A policy the
- * application sets before the view is kept. Spring Security writes its headers after the view, so
- * under its {@code HeaderWriterFilter} the view sends none; a {@code HeaderWriter} that uses {@code
- * CspNonce.get(request)} sends the policy there.
+ * A Tessera page whose response has no {@code Content-Security-Policy} header when it commits gets
+ * {@code script-src 'nonce-N' 'strict-dynamic'; object-src 'none'; base-uri 'none'} with this
+ * nonce ({@link dev.tessera.spring.view.CspFilter}; {@code tessera.csp.enabled=false} turns it
+ * off). A policy the application or Spring Security sets is kept.
  *
  * <p>The nonce is created on first use, from 128 bits of {@link SecureRandom}, and kept in the
  * request attribute {@link #ATTRIBUTE}, so a header writer that runs before or after the view

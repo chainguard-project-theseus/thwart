@@ -6,16 +6,23 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.List;
 import org.springframework.core.env.Environment;
 
-/** The status and body of a {@code text/html} GET from a {@code RANDOM_PORT} test's server. */
+/**
+ * The status, body and {@code Content-Security-Policy} headers of a {@code text/html} GET from a
+ * {@code RANDOM_PORT} test's server.
+ */
 final class Response {
   final int status;
   final String body;
+  final List<String> csp;
 
-  private Response(int status, String body) {
+  private Response(int status, String body, List<String> csp) {
     this.status = status;
     this.body = body;
+    this.csp = csp == null ? Collections.<String>emptyList() : csp;
   }
 
   static Response get(Environment environment, String path) throws IOException {
@@ -32,7 +39,10 @@ final class Response {
           body.write(buffer, 0, n);
         }
       }
-      return new Response(status, new String(body.toByteArray(), StandardCharsets.UTF_8));
+      return new Response(
+          status,
+          new String(body.toByteArray(), StandardCharsets.UTF_8),
+          connection.getHeaderFields().get("Content-Security-Policy"));
     } finally {
       connection.disconnect();
     }

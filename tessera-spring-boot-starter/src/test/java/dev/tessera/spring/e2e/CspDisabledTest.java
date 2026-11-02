@@ -11,7 +11,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 /** {@code tessera.csp.enabled=false}: the page keeps its nonce and no policy is sent (#757). */
@@ -24,8 +23,7 @@ class CspDisabledTest {
   @Test
   void disabledSendsNoPolicy() throws Exception {
     MvcResult result =
-        MockMvcBuilders.webAppContextSetup(context)
-            .build()
+        CspTest.mvc(context)
             .perform(get("/csp"))
             .andExpect(status().isOk())
             .andReturn();

@@ -2,6 +2,7 @@ package dev.tessera.spring;
 
 import dev.tessera.runtime.TemplateRegistry;
 import dev.tessera.spring.context.SpringRenderContexts;
+import dev.tessera.spring.view.CspFilter;
 import dev.tessera.spring.view.RenderContextFactory;
 import dev.tessera.spring.view.TesseraViewResolver;
 import org.springframework.beans.factory.SmartInitializingSingleton;
@@ -36,6 +37,17 @@ public class TesseraConfiguration {
   public TesseraViewResolver tesseraViewResolver(
       TemplateRegistry registry, RenderContextFactory contexts) {
     return new TesseraViewResolver(registry, contexts);
+  }
+
+  /**
+   * The default policy's filter. A servlet container registers {@link CspFilter} itself, as a
+   * {@code WebApplicationInitializer}; this bean is for a Boot app that imports this class, where
+   * Boot registers it for REQUEST dispatches only (guide 4.9 has the registration for error and
+   * async pages too).
+   */
+  @Bean
+  public CspFilter tesseraCspFilter() {
+    return new CspFilter();
   }
 
   /**
