@@ -17,7 +17,8 @@ dev.tessera.runtime.DefaultLinks: public final class dev.tessera.runtime.Default
 dev.tessera.runtime.DefaultLinks: public java.lang.String contextPath()
 dev.tessera.runtime.DefaultLinks: public java.lang.String encode(java.lang.String)
 dev.tessera.runtime.Escapers: public final class dev.tessera.runtime.Escapers
-dev.tessera.runtime.Escapers: public static dev.tessera.runtime.SafeHtml htmlMessage(dev.tessera.runtime.RenderContext,java.lang.String,java.lang.Object[],boolean)
+dev.tessera.runtime.Escapers: public static dev.tessera.runtime.SafeHtml linkedHtmlMessage(dev.tessera.runtime.RenderContext,java.lang.String,java.lang.Object[])
+dev.tessera.runtime.Escapers: public static dev.tessera.runtime.SafeInlineHtml htmlMessage(dev.tessera.runtime.RenderContext,java.lang.String,java.lang.Object[])
 dev.tessera.runtime.Escapers: public static java.lang.Object[] messageArgs(java.lang.Object[])
 dev.tessera.runtime.Escapers: public static java.lang.String neutralNumber(java.lang.Object)
 dev.tessera.runtime.Escapers: public static java.lang.String neutralPath(java.lang.String)

@@ -108,16 +108,18 @@ public final class HtmlPolicy {
    * {@code target="_blank"} kept. Phrasing content never closes a {@code <p>} or heading around it,
    * so a message can stand in one. Not configurable.
    */
-  static final HtmlPolicy MESSAGE = message().allowElements("a").linkRel("noopener", "noreferrer").allowLinkTarget().build();
+  static final HtmlPolicy MESSAGE =
+      message(builder()).allowElements("a").linkRel("noopener", "noreferrer").allowLinkTarget().build();
 
   /**
-   * {@link #MESSAGE} without links: the compiler picks it for a key with no {@code <a} in any of
-   * its bundle values, so the message can also stand inside a link.
+   * {@link #MESSAGE} without links, an inline policy: the compiler picks it for a key with no
+   * {@code <a} in any of its bundle values, and the message is a {@link SafeInlineHtml}, so it can
+   * also stand inside a link.
    */
-  static final HtmlPolicy MESSAGE_NO_LINKS = message().build();
+  static final HtmlPolicy MESSAGE_NO_LINKS = message(inlineBuilder()).build();
 
-  private static Builder message() {
-    return builder()
+  private static Builder message(Builder b) {
+    return b
         .allowElements("b", "i", "em", "strong", "u", "s", "sub", "sup", "small", "mark", "code", "kbd", "span", "br")
         .allowAttributes("title");
   }

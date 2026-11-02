@@ -8,7 +8,8 @@ import java.util.Objects;
  * {@link SafeHtml}, it can stand in a {@code <p>}, a heading, a link or a {@code <button>}, because
  * nothing in it closes an element around it. The only ways to get one are {@link #escape(String)},
  * {@link #sanitize(String, HtmlPolicy)} with a policy from {@link HtmlPolicy#inlineBuilder()}, and
- * {@link #concat(SafeInlineHtml...)}.
+ * {@link #concat(SafeInlineHtml...)}. An HTML message without links
+ * ({@link Escapers#htmlMessage}) is one too, sanitized by an inline policy.
  */
 public final class SafeInlineHtml {
   private final String html;

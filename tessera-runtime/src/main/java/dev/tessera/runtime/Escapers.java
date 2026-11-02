@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.function.IntConsumer;
 
 /**
@@ -220,30 +221,44 @@ public final class Escapers {
   static final int MESSAGE_CACHE_SIZE = 4096;
 
   private static final Map<String, SafeHtml> MESSAGES = new ConcurrentHashMap<>();
-  private static final Map<String, SafeHtml> MESSAGES_NO_LINKS = new ConcurrentHashMap<>();
+  private static final Map<String, SafeInlineHtml> MESSAGES_NO_LINKS = new ConcurrentHashMap<>();
+  private static final SafeInlineHtml NO_MESSAGE = SafeInlineHtml.escape("");
 
   /**
-   * A bundle message rendered as HTML ({@code t:utext="#{key(args)}"}, {@code [(#{...})]}).
-   * The arguments are escaped as HTML text (numbers and dates are kept for MessageFormat), the
-   * message is looked up with them, and the result is cleaned with the fixed message policy,
-   * {@link HtmlPolicy#MESSAGE} ({@link HtmlPolicy#MESSAGE_NO_LINKS} without {@code links}): markup
-   * outside it is dropped and its text kept, whatever the bundle or the message source holds, and an
-   * argument is only ever text. A message without arguments is sanitized once per distinct text
-   * (up to {@link #MESSAGE_CACHE_SIZE}). A missing message ({@code null}) gives {@link SafeHtml#EMPTY}.
+   * A bundle message rendered as HTML ({@code t:utext="#{key(args)}"}, {@code [(#{...})]}) for a
+   * key with no {@code <a} in any bundle value. The arguments are escaped as HTML text (numbers and
+   * dates are kept for MessageFormat), the message is looked up with them, and the result is cleaned
+   * with the fixed inline policy {@link HtmlPolicy#MESSAGE_NO_LINKS}: markup outside it is dropped
+   * and its text kept, whatever the bundle or the message source holds, and an argument is only ever
+   * text. A message without arguments is sanitized once per distinct text (up to
+   * {@link #MESSAGE_CACHE_SIZE}). A missing message ({@code null}) gives empty HTML.
    */
-  public static SafeHtml htmlMessage(RenderContext ctx, String key, Object[] args, boolean links) {
-    HtmlPolicy policy = links ? HtmlPolicy.MESSAGE : HtmlPolicy.MESSAGE_NO_LINKS;
+  public static SafeInlineHtml htmlMessage(RenderContext ctx, String key, Object[] args) {
+    return message(ctx, key, args, MESSAGES_NO_LINKS, NO_MESSAGE, m -> SafeInlineHtml.sanitize(m, HtmlPolicy.MESSAGE_NO_LINKS));
+  }
+
+  /**
+   * As {@link #htmlMessage}, for a key that may have a link (a value with {@code <a}, or an
+   * unchecked bundle): cleaned with {@link HtmlPolicy#MESSAGE}, which also keeps a checked link, so
+   * the result is a {@link SafeHtml}. A missing message gives {@link SafeHtml#EMPTY}.
+   */
+  public static SafeHtml linkedHtmlMessage(RenderContext ctx, String key, Object[] args) {
+    return message(ctx, key, args, MESSAGES, SafeHtml.EMPTY, m -> SafeHtml.sanitize(m, HtmlPolicy.MESSAGE));
+  }
+
+  private static <T> T message(
+      RenderContext ctx, String key, Object[] args, Map<String, T> cache, T missing, Function<String, T> sanitize) {
     if (args.length > 0) {
-      return SafeHtml.sanitize(ctx.messages().get(key, escapeArgs(messageTextArgs(args))), policy);
+      String message = ctx.messages().get(key, escapeArgs(messageTextArgs(args)));
+      return message == null ? missing : sanitize.apply(message);
     }
     String message = ctx.messages().get(key, args);
     if (message == null) {
-      return SafeHtml.EMPTY;
+      return missing;
     }
-    Map<String, SafeHtml> cache = links ? MESSAGES : MESSAGES_NO_LINKS;
-    SafeHtml html = cache.get(message);
+    T html = cache.get(message);
     if (html == null) {
-      html = SafeHtml.sanitize(message, policy);
+      html = sanitize.apply(message);
       if (cache.size() < MESSAGE_CACHE_SIZE) {
         cache.put(message, html);
       }

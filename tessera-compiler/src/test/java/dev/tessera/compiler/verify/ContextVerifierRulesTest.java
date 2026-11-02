@@ -194,6 +194,9 @@ class ContextVerifierRulesTest {
     // Customizable <select> parsing reads it in body mode, where a <p> or <div> in the value closes
     // the select (#329).
     reject(Problem.RAW_CLOSES_ELEMENT, st("<select>"), raw());
+    // Raw HTML in an <option> is rejected for both types (#754): inline markup does not make it fit.
+    reject(Problem.RAW_CLOSES_ELEMENT, st("<select><option>"), raw());
+    reject(Problem.RAW_CLOSES_ELEMENT, st("<select><option>"), rawInline());
   }
 
   @Test
@@ -597,6 +600,10 @@ class ContextVerifierRulesTest {
 
   private Skeleton.RawInsert raw() {
     return new Skeleton.RawInsert(Skeleton.Source.SAFE_HTML, pos());
+  }
+
+  private Skeleton.RawInsert rawInline() {
+    return new Skeleton.RawInsert(Skeleton.Source.SAFE_INLINE_HTML, pos());
   }
 
   private Skeleton.Opt opt(Node... nodes) {

@@ -13,8 +13,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Markup reaches element text only as escaped text ({@link Escapers#appendHtml}, the one HTML
- * escaper, #679) or as a {@link SafeHtml} built from a checked source. A new way to build a
- * {@code SafeHtml} fails here and has to be reviewed.
+ * escaper, #679) or as one of the two raw-HTML types, {@link SafeHtml} and {@link SafeInlineHtml},
+ * built from a checked source. A new way to build either fails here and has to be reviewed.
  */
 class TextChokePointTest {
 
@@ -24,14 +24,33 @@ class TextChokePointTest {
           "\"\"", "Escapers.escapeHtml(text == null ? \"\" : text)", "HtmlSanitizer.sanitize(html, policy)",
           "sb.toString()");
 
+  /**
+   * Exactly the arguments {@code new SafeInlineHtml(...)} is built from. The sanitizer's argument is
+   * inline only because {@code SafeInlineHtml.sanitize} checks {@code policy.inline} first.
+   */
+  private static final Set<String> SAFE_INLINE_HTML_SOURCES =
+      Set.of(
+          "Escapers.escapeHtml(text == null ? \"\" : text)",
+          "html == null ? \"\" : HtmlSanitizer.sanitize(html, policy)",
+          "sb.toString()");
+
   @Test
   void safeHtmlIsBuiltOnlyFromCheckedSources() throws IOException {
+    assertEquals(SAFE_HTML_SOURCES, constructorArgs("SafeHtml"));
+  }
+
+  @Test
+  void safeInlineHtmlIsBuiltOnlyFromCheckedSources() throws IOException {
+    assertEquals(SAFE_INLINE_HTML_SOURCES, constructorArgs("SafeInlineHtml"));
+  }
+
+  private static Set<String> constructorArgs(String type) throws IOException {
     Set<String> args = new TreeSet<>();
-    Matcher m = Pattern.compile("new SafeHtml\\((.*)\\);")
-        .matcher(Files.readString(Path.of("src/main/java/dev/tessera/runtime/SafeHtml.java")));
+    Matcher m = Pattern.compile("new " + type + "\\((.*)\\);")
+        .matcher(Files.readString(Path.of("src/main/java/dev/tessera/runtime/" + type + ".java")));
     while (m.find()) {
       args.add(m.group(1));
     }
-    assertEquals(SAFE_HTML_SOURCES, args);
+    return args;
   }
 }

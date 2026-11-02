@@ -476,8 +476,7 @@ final class VerifierMessages {
       case SAFE_HTML:
         return "this SafeHtml value";
       case SAFE_INLINE_HTML:
-        return "this SafeInlineHtml value";
-      case HTML_MESSAGE:
+        return "this inline HTML (a SafeInlineHtml value or an HTML message without links)";
       case LINKED_HTML_MESSAGE:
         return "this HTML message";
       default:
