@@ -29,7 +29,7 @@ stay offline:
 
 - `hack/quick.sh tier0`: after a change, install the modules changed against `origin/main` (and
   their dependencies), no tests. Seconds.
-- `hack/quick.sh tier1`: the security core (`SeedVerifierTest`, `HostileSweepTest`, the escaper,
+- `hack/quick.sh tier1`: the security core (`SeedVerifierTest`, `ExitStateTest`, `HostileSweepTest`, the escaper,
   SSTI, ASCII and text choke point tests). About a minute; run it before every PR.
 - `hack/quick.sh tier2`: tier0, then the tests of the changed modules.
 - `hack/corpus.sh [app ...]`: for every bench app with a committed `diff.patch`, clone it at
