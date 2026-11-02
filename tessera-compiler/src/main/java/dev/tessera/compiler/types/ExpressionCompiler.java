@@ -12,9 +12,7 @@ import dev.tessera.compiler.forms.IdsCompiler;
 import dev.tessera.compiler.links.LinkCompiler;
 import dev.tessera.compiler.messages.MessageCompiler;
 import dev.tessera.runtime.Fragment;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +52,7 @@ import javax.lang.model.util.Types;
  * </ul>
  *
  * Messages and links are delegated to {@code MessageCompiler} / {@code LinkCompiler}, and the
- * reserved {@code fields} namespace to {@code FieldsCompiler}. All
+ * reserved {@code fields} and {@code ids} namespaces to {@code FieldsCompiler} / {@code IdsCompiler}. All
  * methods report errors with the expression's position and return {@code null} on failure.
  *
  * <p>Emitted code is always a Java primary (parenthesized where needed), so callers may append
@@ -138,13 +136,7 @@ public final class ExpressionCompiler {
       return index((Expr.Index) expr, scope);
     } else if (expr instanceof Expr.FunctionCall) {
       Expr.FunctionCall f = (Expr.FunctionCall) expr;
-      if (f.namespace().equals(FunctionRegistry.RESERVED)) {
-        return FieldsCompiler.compile(f.name(), f.args(), f.pos(), scope, this);
-      }
-      if (f.namespace().equals(FunctionRegistry.IDS)) {
-        return IdsCompiler.compile(f.name(), f.args(), f.pos(), scope, this);
-      }
-      return function(f.namespace(), f.name(), f.args(), f.pos(), scope);
+      return callNamespace(f.namespace(), f.name(), f.args(), f.pos(), scope);
     } else if (expr instanceof Expr.Unary) {
       return unary((Expr.Unary) expr, scope);
     } else if (expr instanceof Expr.Binary) {
@@ -261,7 +253,7 @@ public final class ExpressionCompiler {
     if (never.isPresent()) {
       return error(ref.pos(), "parameter type " + t + " is not allowed: " + never.get());
     }
-    if (!safety.isViewSafe(t) && !isDeclared(t, FRAGMENT) && !FormPaths.isField(t)) {
+    if (!safety.isViewSafe(t) && !isDeclared(t, FRAGMENT)) {
       return error(
           ref.pos(),
           "parameter type " + t + " is not view-safe" + badTypeArgument(t, ": use a record, an enum, a JDK value"
@@ -334,7 +326,7 @@ public final class ExpressionCompiler {
     } else if (v instanceof Boolean) {
       return new CompiledExpr(v.toString(), prim(TypeKind.BOOLEAN), l.pos());
     }
-    return error(l.pos(), "unsupported literal " + v);
+    throw new IllegalArgumentException("unknown literal " + v);
   }
 
   private CompiledExpr variable(Expr.Var v, Scope scope) {
@@ -369,14 +361,8 @@ public final class ExpressionCompiler {
   private CompiledExpr methodCall(Expr.MethodCall m, Scope scope) {
     if (m.target() instanceof Expr.Var && !scope.lookup(((Expr.Var) m.target()).name()).isPresent()) {
       Expr.Var v = (Expr.Var) m.target();
-      if (v.name().equals(FunctionRegistry.RESERVED)) {
-        return FieldsCompiler.compile(m.name(), m.args(), m.pos(), scope, this);
-      }
-      if (v.name().equals(FunctionRegistry.IDS)) {
-        return IdsCompiler.compile(m.name(), m.args(), m.pos(), scope, this);
-      }
-      if (functions().isNamespace(v.name())) {
-        return function(v.name(), m.name(), m.args(), m.pos(), scope);
+      if (isNamespace(v.name())) {
+        return callNamespace(v.name(), m.name(), m.args(), m.pos(), scope);
       }
       return error(v.pos(), "unknown identifier or function namespace '" + v.name() + "': declare it in"
           + " t:params, or register a class annotated @TemplateFunctions(\"" + v.name() + "\")");
@@ -628,7 +614,7 @@ public final class ExpressionCompiler {
     Optional<TypeElement> owner = functions().namespaceClass(ns);
     if (!owner.isPresent()) {
       return error(pos, "unknown function namespace '" + ns + "': register a class annotated @TemplateFunctions(\"" + ns
-          + "\") (built-ins: strings, numbers, temporals, lists; auth with the Spring starter)");
+          + "\") (built-ins: " + String.join(", ", BuiltinNamespaces.NAMES) + "; auth with the Spring starter)");
     }
     if (functions().overloads(ns, name).isEmpty()) {
       return error(
@@ -868,7 +854,18 @@ public final class ExpressionCompiler {
   }
 
   private boolean isNamespace(String name) {
-    return name.equals(FunctionRegistry.RESERVED) || name.equals(FunctionRegistry.IDS) || functions().isNamespace(name);
+    return name.equals(FunctionRegistry.FIELDS) || name.equals(FunctionRegistry.IDS) || functions().isNamespace(name);
+  }
+
+  /** {@code ns.name(args)}: the reserved {@code fields} and {@code ids} namespaces, else a registered function. */
+  private CompiledExpr callNamespace(String ns, String name, List<Expr> args, SourcePos pos, Scope scope) {
+    if (ns.equals(FunctionRegistry.FIELDS)) {
+      return FieldsCompiler.compile(name, args, pos, scope, this);
+    }
+    if (ns.equals(FunctionRegistry.IDS)) {
+      return IdsCompiler.compile(name, args, pos, scope, this);
+    }
+    return function(ns, name, args, pos, scope);
   }
 
   private boolean isNamespaceRef(Expr.Var v, Scope scope) {
@@ -892,7 +889,8 @@ public final class ExpressionCompiler {
         && ((TypeElement) ((DeclaredType) t).asElement()).getQualifiedName().contentEquals(qualifiedName);
   }
 
-  private boolean isSubtypeOf(TypeMirror t, String name) {
+  /** Whether {@code t}, erased, is a subtype of the erasure of the type named {@code name}. */
+  public boolean isSubtypeOf(TypeMirror t, String name) {
     TypeElement te = elements().getTypeElement(name);
     return te != null && types().isSubtype(types().erasure(t), types().erasure(te.asType()));
   }
@@ -1019,22 +1017,12 @@ public final class ExpressionCompiler {
 
   /** Type argument {@code index} of {@code t}'s supertype {@code name} (normalized), or null if raw. */
   private TypeMirror typeArg(TypeMirror t, String name, int index) {
-    Deque<TypeMirror> work = new ArrayDeque<>();
-    Set<String> seen = new HashSet<>();
-    work.add(t);
-    while (!work.isEmpty()) {
-      TypeMirror s = work.poll();
-      if (s.getKind() != TypeKind.DECLARED || !seen.add(s.toString())) {
-        continue;
-      }
-      DeclaredType dt = (DeclaredType) s;
-      if (((TypeElement) dt.asElement()).getQualifiedName().contentEquals(name)) {
-        List<? extends TypeMirror> args = dt.getTypeArguments();
-        return args.size() > index ? normalize(args.get(index)) : null;
-      }
-      work.addAll(types().directSupertypes(s));
+    TypeMirror s = safety.supertype(t, name);
+    if (s == null) {
+      return null;
     }
-    return null;
+    List<? extends TypeMirror> args = ((DeclaredType) s).getTypeArguments();
+    return args.size() > index ? normalize(args.get(index)) : null;
   }
 
   /**

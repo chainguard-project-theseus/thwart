@@ -297,12 +297,13 @@ public final class ViewSafety {
   }
 
   /** {@code type}'s supertype named {@code name}, with its type arguments, or null. */
-  private TypeMirror supertype(TypeMirror type, String name) {
+  TypeMirror supertype(TypeMirror type, String name) {
     Deque<TypeMirror> work = new ArrayDeque<>();
+    Set<String> seen = new HashSet<>();
     work.add(type);
     while (!work.isEmpty()) {
       TypeMirror t = work.poll();
-      if (t.getKind() != TypeKind.DECLARED) {
+      if (t.getKind() != TypeKind.DECLARED || !seen.add(t.toString())) {
         continue;
       }
       if (((TypeElement) ((DeclaredType) t).asElement()).getQualifiedName().contentEquals(name)) {
