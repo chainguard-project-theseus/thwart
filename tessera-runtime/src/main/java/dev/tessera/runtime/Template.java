@@ -24,7 +24,8 @@ public interface Template {
    * <p>{@link SafeHtml#of(Template, RenderContext)} and {@link Fragment#of(Template)} accept only
    * templates that return {@code true}. Generated classes override this when the verifier proves
    * it; nothing else should. A hand-written {@code Template} that returns {@code true} vouches for
-   * its output as {@link SafeHtml#unchecked(String)} does, and is a security review point.
+   * its output as {@link SafeHtml#unchecked(String)} does: {@code tessera:review} fails the build on
+   * such an override outside generated code.
    */
   default boolean verifiedFlowPartial() {
     return false;

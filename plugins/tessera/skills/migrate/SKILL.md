@@ -52,8 +52,8 @@ before you start; look up the rest when you need it.
     does the mechanical rewrite and reports, by `file:line`, what it couldn't convert and every
     value the templates read from outside the model.
 - **`tessera-maven-plugin`**: `check` makes Maven recompile after a template-only or message-only
-  edit, and `review` lists every `@TemplateFunction` and `unchecked` call for a security review
-  (guide section 2).
+  edit, and `review` lists every `@TemplateFunction` for a security review and fails the build on
+  an `unchecked` call or another unverified door (guide section 2).
 - **The application's own tooling.** Its build, tests, scripts, README and seed data are yours to
   find and use.
 
