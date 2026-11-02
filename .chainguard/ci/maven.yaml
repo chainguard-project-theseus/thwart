@@ -1,6 +1,9 @@
 version: 1
 environment:
   packages: [openjdk-21-default-jdk, openjdk-8, maven-3.9, git, bash]
+  # Mounts ~/.m2/repository and Gradle's artifact store from the pools identities.yaml defines (#698).
+  caches:
+    java: {}
   vars:
     JAVA_HOME: /usr/lib/jvm/default-jvm
     # Jdk8ProcessorTest runs the annotation processor on this javac (#166).
