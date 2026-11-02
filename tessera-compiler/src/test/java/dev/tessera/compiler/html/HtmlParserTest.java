@@ -966,19 +966,17 @@ class HtmlParserTest {
   }
 
   @Test
-  void parsingContextsFoldOnlyAsciiInAttributeNames() {
+  void annotationXmlEncodingFoldsOnlyAscii() {
     // A browser lower-cases A-Z only: encod\u0131ng (dotless i) and encod\u0130ng (dotted capital I) are not
-    // encoding, so this annotation-xml holds MathML, in the parser and in ParsingContexts alike.
+    // encoding, so this annotation-xml holds MathML.
     for (String name : List.of("encod\u0131ng", "encod\u0130ng")) {
       Document doc = parseOk("<math><annotation-xml " + name + "=\"text/html\"><mrow></mrow></annotation-xml></math>");
       Element annotation = el(el(doc.rootElement()).children().get(0));
       assertTrue(el(annotation.children().get(0)).foreign(), name);
-      assertEquals("annotation-xml", ParsingContexts.of(doc).content(annotation), name);
     }
     Document doc = parseOk("<math><annotation-xml ENCODING=\"TEXT/HTML\"><mrow></mrow></annotation-xml></math>");
     Element annotation = el(el(doc.rootElement()).children().get(0));
     assertFalse(el(annotation.children().get(0)).foreign());
-    assertEquals(ParsingContexts.HTML, ParsingContexts.of(doc).content(annotation));
   }
 
   @Test

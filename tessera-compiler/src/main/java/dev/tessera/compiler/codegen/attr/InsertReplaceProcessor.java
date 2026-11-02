@@ -79,7 +79,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
       }
       Call call = resolve(ctx, ref, plan.scope(), plan.element(), pre);
       if (call != null && !call.contexts.fits(call.root, point)) {
-        if (mixedFragment(ctx, ref, call.root, call.contexts)) {
+        if (unwrappedFragment(ctx, ref, call.root, call.contexts)) {
           return null;
         }
         String origin = call.contexts.place(call.root);
@@ -145,16 +145,9 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     return Emitted.fragmentValue(JavaStrings.FRAGMENT_BODY, f, e.code(), candidates, ctx.insertionContext());
   }
 
-  /** What to do where no fragment fits ({@code point} is unwrapped or mixed content), or null. */
+  /** What to do where no fragment fits ({@code point} is unwrapped content), or null. */
   private static String fitsNothing(String point) {
-    if (ParsingContexts.isUnwrapped(point)) {
-      return "no fragment fits there: drop the t:remove=\"tag\"";
-    }
-    if (ParsingContexts.isMixed(point)) {
-      return "no fragment fits in mixed content: move the HTML element out of the <svg> or <math> or into a"
-          + " <foreignObject>, or write the <annotation-xml> encoding as a static attribute";
-    }
-    return null;
+    return ParsingContexts.isUnwrapped(point) ? "no fragment fits there: drop the t:remove=\"tag\"" : null;
   }
 
   /**
@@ -486,28 +479,18 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
 
   /**
    * Reports and returns true if the content of {@code root}, the element of {@code ref}, is {@link
-   * ParsingContexts#isMixed mixed}: then it fits nowhere.
+   * ParsingContexts#isUnwrapped unwrapped}: then it fits nowhere.
    */
-  private static boolean mixedFragment(CodegenContext ctx, FragmentRef ref, Element root, ParsingContexts contexts) {
-    String content = contexts.content(root);
-    if (!ParsingContexts.isMixed(content)) {
+  private static boolean unwrappedFragment(CodegenContext ctx, FragmentRef ref, Element root, ParsingContexts contexts) {
+    if (!ParsingContexts.isUnwrapped(contexts.content(root))) {
       return false;
-    }
-    if (ParsingContexts.isUnwrapped(content)) {
-      ctx.diagnostics()
-          .error(
-              ref.pos(),
-              "fragment " + written(ref) + " is in or is an element with t:remove=\"tag\" whose tag changes how its"
-                  + " content is parsed, so it is compiled for one context and rendered in another and fits nowhere:"
-                  + " drop the t:remove=\"tag\", or move the fragment out of that element");
-      return true;
     }
     ctx.diagnostics()
         .error(
             ref.pos(),
-            "fragment " + written(ref) + " is in or holds an <svg> or <math> with an HTML element such as <p> in it, where"
-                + " a browser leaves foreign content early, so it fits nowhere: move the HTML element out of the <svg>"
-                + " or <math>, or into a <foreignObject>");
+            "fragment " + written(ref) + " is in or is an element with t:remove=\"tag\" whose tag changes how its"
+                + " content is parsed, so it is compiled for one context and rendered in another and fits nowhere:"
+                + " drop the t:remove=\"tag\", or move the fragment out of that element");
     return true;
   }
 
@@ -524,7 +507,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     if (contexts.fits(root, ParsingContexts.HTML)) {
       return true;
     }
-    if (mixedFragment(ctx, ref, root, contexts)) {
+    if (unwrappedFragment(ctx, ref, root, contexts)) {
       return false;
     }
     String origin = contexts.place(root);

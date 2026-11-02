@@ -908,6 +908,16 @@ class HostileSweepTest {
         .startsWith("SCRIPT_STATIC_CHANGED"));
   }
 
+  /**
+   * #608: the oracle's copy of the standard attribute names and the compiler's agree name for name
+   * and source for source; a name added to only one of them fails here.
+   */
+  @Test
+  void standardNamesAreTheOraclesOwnCopy() {
+    assertTrue(!HostileSinks.STANDARD.isEmpty());
+    assertEquals(HostileSinks.standardNames(HostileSinks.COMPILER_STANDARD), HostileSinks.STANDARD);
+  }
+
   /** The ratchet fails on an unlisted hit and on a listed hit that no longer occurs. */
   @Test
   void ratchetFailsOnNewHitsAndStaleLines() throws IOException {

@@ -3,10 +3,6 @@ package dev.tessera.compiler.oracle;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import dev.tessera.compiler.oracle.gen.Deciding;
-import dev.tessera.compiler.oracle.gen.GeneratedCase;
-import dev.tessera.compiler.oracle.gen.Generator;
-import dev.tessera.compiler.oracle.gen.Shape;
 import dev.tessera.compiler.security.HostileStrings;
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.compiler.verify.Skeleton;
@@ -23,17 +19,13 @@ import dev.tessera.runtime.SafeHtml;
 import dev.tessera.runtime.StringOutput;
 import dev.tessera.runtime.TemplateEntry;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.EnumMap;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -43,8 +35,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.regex.Matcher;
@@ -54,12 +44,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The oracle gate (#324; security-architecture.md §11.3, §11.7): tests the two assumptions the
- * build-time context verifier (#367) rests on, and keeps the value checks for what the verifier
- * doesn't cover.
+ * build-time context verifier (#367) rests on, over every seed (#320).
  *
- * <p>Cases are every seed (#320) and the generator's default enumeration (#321), compiled in
- * batches with the real processor, verifier included. For every case the compiler <b>accepts</b>,
- * the gate renders it with the benign markers ({@code tqm0001}), the fingerprint values (#323) and
+ * <p>The seeds are compiled in batches with the real processor, verifier included. For every seed
+ * the compiler <b>accepts</b>, the gate renders it with the benign markers ({@code tqm0001}) and
  * every {@linkplain #HOSTILE hostile value}, and checks:
  *
  * <ol>
@@ -70,30 +58,18 @@ import org.junit.jupiter.api.Test;
  *       the hole's escaper wrote any of the {@linkplain #LEMMA_VALUES lemma values} as before it
  *       ({@link #lemmaKey}). This is the prototype's stand-in check, run at the states the real
  *       renders reach.
- *   <li><b>The value oracle.</b> {@link HtmlInvariant} (#318) and {@link ContextCheck} (#323). A
- *       family A/B finding ({@link Family#AB}) on an accepted template is a verifier soundness bug.
- *       Script values are checked by {@code HostileSweepTest}'s script pass over every prelude
- *       shape the compiler accepts (#543, #591), and by the Node job's acorn check.
  * </ol>
  *
- * Fidelity and lemma failures and A/B findings fail the gate and can't be listed. Family C, D and
- * E findings are ratcheted against {@code known-holes.txt} ({@link #LISTABLE} kinds only; a line
- * with another kind is a format error, a line that matches nothing fails with "delete its line").
- *
- * <p>For every case the compiler <b>rejects</b>, the gate records the layer (the profile, or the
- * verifier: its messages end with {@code [verifier:RULE]}) and requires every error to name file,
- * line and column. A case the verifier alone rejects is compiled again without it ({@link
- * Compilation.Builder#withoutVerifier()}) and value-checked: no A/B finding makes it a
- * false-positive candidate in the report (informational). Every seed {@code
- * seed-expectations.txt} says the verifier or the profile rejects must be rejected.
+ * Values are checked elsewhere: attribute, URL and sanitizer sinks and script values by {@code
+ * HostileSweepTest}, escapers by {@code EscapersTest}/{@code EscaperFuzzTest}, and the renders this
+ * gate exports by the Node job in real browsers. For every seed the compiler <b>rejects</b>, every
+ * error must name file, line and column.
  *
  * <p>Writes {@code target/oracle/report.txt}. With {@code -Dtessera.oracle.export=<file>} it also
  * writes the JSONL the Node job (#322) reads ({@link ExportRecord}, with each render's vnu trees
  * for the engine-drift check, #399); {@code -Dtessera.oracle.export.values=<n>} keeps the first
  * {@code n} hostile values per case there (default {@link #EXPORT_DEFAULT}: the #320 values, then
- * the {@link #STRUCTURE_VALUES}), to fit the browsers' time budget. {@code -Dtessera.oracle.gen.max} and
- * {@code -Dtessera.oracle.explore} work as in {@link Generator}; with either set, lines for cases
- * that didn't run are not reported stale.
+ * the {@link #STRUCTURE_VALUES}), to fit the browsers' time budget.
  */
 class ProfileOracleTest {
 
@@ -102,41 +78,6 @@ class ProfileOracleTest {
 
   /** Templates per javac run. */
   static final int BATCH = 150;
-
-  /** Where a finding belongs (security-architecture.md §11.5). */
-  enum Family {
-    /** Markup context or composition: the verifier's. A finding here is a verifier soundness bug. */
-    AB,
-    /** Script lexical position (#332). */
-    C,
-    /** Client frameworks (#333-#336). */
-    D,
-    /** URL and CSRF policy (#313). */
-    E,
-    /**
-     * Not a finding: a {@code CONTEXT_MISMATCH} where the value is inert: an attribute value the
-     * parser dropped with its start tag (an element the insertion mode ignores, such as {@code <span>}
-     * under classic {@code <select>} parsing). Counted, and listed in the report. A value in raw text
-     * is not one: the verifier rejects it (VALUE_IN_RAW_TEXT, #586).
-     */
-    INERT
-  }
-
-  /**
-   * The kinds a known-holes line may name: families C, D and E, and the Node job's {@link
-   * Finding.Kind#ENGINE_DRIFT} (#399; for a Node engine only, see {@link #holes}).
-   */
-  static final Set<Finding.Kind> LISTABLE =
-      Collections.unmodifiableSet(EnumSet.of(
-          Finding.Kind.JS_NOT_LITERAL, Finding.Kind.JS_UNPARSABLE, Finding.Kind.CSTI,
-          Finding.Kind.CROSS_ORIGIN_RESOURCE, Finding.Kind.JS_URL, Finding.Kind.LIVE_SCRIPT,
-          Finding.Kind.ENGINE_DRIFT));
-
-  /** The engines this gate runs; a known-holes line for another engine is the Node job's. */
-  static final Set<String> ENGINES = Set.of(SpecParsers.VNU_26, "*");
-
-  /** The Node job's engines (#322), the only ones an {@code ENGINE_DRIFT} line may name. */
-  static final Set<String> NODE_ENGINES = Set.of("parse5", "chromium", "firefox", "webkit");
 
   /** The #320 values (security-model.md §4), {@code PWN} standing for the slot's marker. */
   static final List<String> SEED_VALUES =
@@ -149,7 +90,7 @@ class ProfileOracleTest {
    * application/xhtml+xml} makes it an HTML integration point; {@code font} with {@code
    * color}/{@code face}/{@code size} breaks out of foreign content (the attribute's presence decides,
    * these are ordinary values for it). Then two that break out with {@code </}: the #320 values
-   * have none, so without these only the fingerprint brought {@code </} to the browsers.
+   * have none.
    */
   static final List<String> STRUCTURE_VALUES =
       List.of("hidden", "text/html", "application/xhtml+xml", "red", "Arial", "7",
@@ -171,7 +112,7 @@ class ProfileOracleTest {
   static final List<String> STANDINS =
       List.of("", "x", " ", "{", "{{a}}", "<script>alert(1)</script>&amp", "\"'`/-->]]>", "\u0000\n\r");
 
-  /** What the lemma feeds at each hole: hostile values, stand-ins, a fingerprint, seeded random strings. */
+  /** What the lemma feeds at each hole: hostile values, stand-ins, seeded random strings. */
   static final List<String> LEMMA_VALUES;
 
   static {
@@ -183,10 +124,10 @@ class ProfileOracleTest {
     HOSTILE = List.copyOf(hostile);
     Set<String> lemma = new LinkedHashSet<>();
     for (String v : HOSTILE) {
-      lemma.add(v.replace("PWN", HtmlInvariant.marker(1)));
+      lemma.add(v.replace("PWN", marker(1)));
     }
     lemma.addAll(STANDINS);
-    lemma.add(Fingerprint.value(1));
+    lemma.add(marker(1) + "<'\"&{{/}`\n");
     Random random = new Random(324);
     for (int i = 0; i < 64; i++) {
       lemma.add(HostileStrings.random(random, 12));
@@ -194,16 +135,18 @@ class ProfileOracleTest {
     LEMMA_VALUES = List.copyOf(lemma);
   }
 
+  /** Slot {@code i}'s marker, {@code tqm0001} for slot 1: the benign value, and the Node job's payload call name. */
+  static String marker(int i) {
+    return String.format(Locale.ROOT, "tqm%04d", i);
+  }
+
   // ---- cases ----
 
-  /**
-   * One case and what the gate needs to fill it.
-   *
-   * @param params the template's parameters, in declaration order
-   * @param expectation the seed's line in {@code seed-expectations.txt} ({@code VERIFIER},
-   *     {@code PROFILE} or {@code ACCEPT}), or null for a generated case
-   */
-  record GateCase(OracleCase oracleCase, List<Shape.Param> params, String expectation) {
+  /** A template parameter: its type and name. */
+  record Param(String type, String name) {}
+
+  /** One case and the template's parameters, in declaration order. */
+  record GateCase(OracleCase oracleCase, List<Param> params) {
     String view() {
       return "c" + oracleCase.id();
     }
@@ -212,53 +155,28 @@ class ProfileOracleTest {
   private static final Pattern PARAMS = Pattern.compile("t:params=\"([^\"]*)\"");
 
   /** The parameters a template's root declares. */
-  static List<Shape.Param> params(String template) {
+  static List<Param> params(String template) {
     Matcher m = PARAMS.matcher(template);
     if (!m.find()) {
       return List.of();
     }
-    List<Shape.Param> out = new ArrayList<>();
+    List<Param> out = new ArrayList<>();
     for (String p : m.group(1).split(",")) {
       String[] tn = p.strip().split("\\s+");
       if (tn.length != 2) {
         throw new IllegalArgumentException("can't read parameter '" + p + "' of " + template);
       }
-      out.add(new Shape.Param(tn[0], tn[1]));
+      out.add(new Param(tn[0], tn[1]));
     }
     return out;
   }
 
-  /** Each seed's expectation in {@code verify/seed-expectations.txt} (#367): name to VERIFIER, PROFILE or ACCEPT. */
-  static Map<String, String> seedExpectations() {
-    Map<String, String> out = new HashMap<>();
-    for (String line : resource("verify/seed-expectations.txt").split("\n")) {
-      if (line.isBlank() || line.startsWith("#")) {
-        continue;
-      }
-      String[] f = line.strip().split("\\s+");
-      out.put(f[0], f[2]);
-    }
-    return out;
-  }
-
-  /**
-   * The seeds, then the generator's cases (default enumeration, the {@link Deciding} positions, or
-   * explore mode), each id once.
-   */
+  /** The seeds, each id once. */
   static List<GateCase> cases() {
-    Map<String, String> expect = seedExpectations();
     Map<String, GateCase> out = new LinkedHashMap<>();
-    List<String> seedTemplates = new ArrayList<>();
     for (Seeds.Seed s : Seeds.load()) {
       OracleCase c = s.toCase();
-      out.putIfAbsent(c.id(), new GateCase(c, params(c.template()), expect.get(s.name())));
-      seedTemplates.add(s.template());
-    }
-    List<GeneratedCase> generated = new ArrayList<>(Generator.defaultCases());
-    generated.addAll(Deciding.cases());
-    generated.addAll(Generator.exploreFromSystemProperties(seedTemplates));
-    for (GeneratedCase g : generated) {
-      out.putIfAbsent(g.oracleCase().id(), new GateCase(g.oracleCase(), g.params(), null));
+      out.putIfAbsent(c.id(), new GateCase(c, params(c.template())));
     }
     return List.copyOf(out.values());
   }
@@ -372,13 +290,12 @@ class ProfileOracleTest {
 
   /**
    * A model for {@code params}: String slot {@code i} (1-based, in declaration order) gets {@code
-   * value(i)}, an {@code int} -1, and a {@code SafeHtml} fixed benign markup (its
-   * producers are #329's).
+   * value(i)}, an {@code int} -1, and a {@code SafeHtml} fixed benign markup.
    */
-  static Map<String, Object> model(List<Shape.Param> params, java.util.function.IntFunction<String> value) {
+  static Map<String, Object> model(List<Param> params, java.util.function.IntFunction<String> value) {
     Map<String, Object> m = new HashMap<>();
     int slot = 0;
-    for (Shape.Param p : params) {
+    for (Param p : params) {
       switch (p.type()) {
         case "String" -> m.put(p.name(), value.apply(++slot));
         case "int", "Integer", "long" -> m.put(p.name(), -1);
@@ -429,7 +346,7 @@ class ProfileOracleTest {
   record LemmaParser(Engine engine, boolean scripting, boolean fragment) {
     Parser start() throws EngineException {
       return fragment
-          ? engine.fragment(HtmlInvariant.HTML, "body", scripting)
+          ? engine.fragment(VnuTrees.HTML, "body", scripting)
           : engine.document(scripting);
     }
 
@@ -535,168 +452,12 @@ class ProfileOracleTest {
     return "";
   }
 
-  // ---- classifying and ratcheting findings ----
-
-  /** A finding with its family. */
-  record Classified(Finding finding, Family family) {}
-
-  /** The family of an {@link HtmlInvariant} or {@link ContextCheck} finding. */
-  static Family family(Finding f, List<HtmlInvariant.ScriptSlot> slots) {
-    return switch (f.kind()) {
-      case JS_NOT_LITERAL, JS_UNPARSABLE -> Family.C;
-      case CSTI -> Family.D;
-      // Never reported here: the Node job compares the vnu trees with parse5 and the browsers.
-      case ENGINE_DRIFT -> Family.AB;
-      case JS_URL, CROSS_ORIGIN_RESOURCE -> Family.E;
-      // Family C only inside the data of an HTML script that holds a slot in the benign tree too;
-      // anywhere else the value made or reached a script through markup.
-      case LIVE_SCRIPT -> slots.stream().anyMatch(s -> s.engine().equals(f.engine()) && s.where().equals(f.where())
-          && htmlScript(s)) ? Family.C : Family.AB;
-      case STRUCTURE_CHANGED, MARKER_IN_NAME, LIVE_HANDLER, CONTEXT_MISMATCH -> Family.AB;
-    };
-  }
-
-  private static final Pattern NOWHERE =
-      Pattern.compile("^\\(nowhere\\): marker (" + Fingerprint.PREFIX + "[0-9]{4}) is in the render but not in the parsed tree$");
-
-  /**
-   * The family of a {@link ContextCheck} finding on {@code render} (the fingerprint render), whose
-   * holes are at {@code spans}: {@link Family#INERT} for a marker the parser dropped when every
-   * occurrence of it is in an attribute hole (an
-   * attribute value goes nowhere but its element, so the element was ignored); A/B otherwise.
-   */
-  static Family contextFamily(Finding f, String render, List<SkeletonMatcher.Span> spans) {
-    if (f.kind() != Finding.Kind.CONTEXT_MISMATCH) {
-      return family(f, List.of());
-    }
-    String where = f.where().replaceFirst("^scripting-o(n|ff) ", "");
-    Matcher m = NOWHERE.matcher(where);
-    if (m.find() && spans != null) {
-      boolean attributes = true;
-      for (int at = render.indexOf(m.group(1)); at >= 0 && attributes; at = render.indexOf(m.group(1), at + 1)) {
-        boolean inAttribute = false;
-        for (SkeletonMatcher.Span s : spans) {
-          inAttribute |= s.start() <= at && at < s.end() && s.hole().escaper().inAttribute();
-        }
-        attributes = inAttribute;
-      }
-      if (attributes) {
-        return Family.INERT;
-      }
-    }
-    return Family.AB;
-  }
-
-  /** Whether a script slot is an HTML {@code <script>} (its path's last step has no namespace). */
-  static boolean htmlScript(HtmlInvariant.ScriptSlot s) {
-    String path = s.where();
-    String last = path.substring(path.lastIndexOf('/') + 1);
-    return last.startsWith("script") && !last.contains("[");
-  }
-
-  /**
-   * Loads a known-holes file for this gate: {@link KnownHoles#parse}'s format, and only {@link
-   * #LISTABLE} kinds.
-   *
-   * @throws IllegalArgumentException naming the file and line on a format error
-   */
-  static KnownHoles holes(String file, String text) {
-    KnownHoles holes = KnownHoles.parse(file, text);
-    String[] lines = text.split("\r?\n", -1);
-    for (int i = 0; i < lines.length; i++) {
-      String line = lines[i].strip();
-      if (line.isEmpty() || line.startsWith("#")) {
-        continue;
-      }
-      String[] f = line.split("\\s+");
-      String kind = f[1];
-      if (!LISTABLE.contains(Finding.Kind.valueOf(kind))) {
-        throw new IllegalArgumentException(file + ":" + (i + 1) + ": " + kind + " is a family A/B kind: the verifier"
-            + " (#367) must reject the template, so it can't be a known hole; only " + LISTABLE + " may be listed");
-      }
-      if (kind.equals(Finding.Kind.ENGINE_DRIFT.name()) && !NODE_ENGINES.contains(f[2])) {
-        throw new IllegalArgumentException(file + ":" + (i + 1) + ": an ENGINE_DRIFT line names the engine that"
-            + " drifts from vnu, one of " + new TreeSet<>(NODE_ENGINES) + ", not " + f[2]);
-      }
-    }
-    return holes;
-  }
-
-  /** What the ratchet found: failures, and the lines it used. */
-  static final class Ratchet {
-    final KnownHoles holes;
-    final String file;
-    final Set<KnownHoles.Entry> used = ConcurrentHashMap.newKeySet();
-
-    Ratchet(KnownHoles holes, String file) {
-      this.holes = holes;
-      this.file = file;
-    }
-
-    /** The failures for one case's findings: A/B findings, and C/D/E findings with no line. */
-    List<String> check(OracleCase c, List<Classified> findings) {
-      List<String> failures = new ArrayList<>();
-      Set<String> reported = new HashSet<>();
-      for (Classified cf : findings) {
-        Finding f = cf.finding();
-        String key = c.id() + " " + f.kind() + " " + f.engine() + " " + cf.family();
-        if (cf.family() == Family.AB) {
-          if (reported.add(key)) {
-            failures.add("verifier soundness bug (family A/B, can't be listed in " + file + "): " + c.id() + " ("
-                + c.name() + ") " + f.kind() + " " + f.engine() + " at " + f.where() + "; value: " + show(f.value())
-                + "; template: " + show(c.template()));
-          }
-          continue;
-        }
-        KnownHoles.Entry e = holes.find(c.id(), f);
-        if (e != null) {
-          used.add(e);
-        } else if (reported.add(key)) {
-          failures.add("new hole: " + c.id() + " (" + c.name() + ") " + f.kind() + " " + f.engine() + " at " + f.where()
-              + "; value: " + show(f.value()) + "; template: " + show(c.template()) + "; fix it, or if it is an"
-              + " already-tracked family " + cf.family() + " hole add `" + c.id() + " " + f.kind() + " " + f.engine()
-              + " #<issue>` to " + file);
-        }
-      }
-      return failures;
-    }
-
-    /** Lines for this gate's engines that matched nothing, for cases in {@code ran} (all if null). */
-    List<String> stale(Set<String> ran) {
-      return stale(ran, null);
-    }
-
-    /**
-     * {@link #stale(Set)}, and {@code ENGINE_DRIFT} lines (the Node job's) whose case isn't in
-     * {@code accepted} (unless null): once the verifier rejects the case (the fix for the drift,
-     * #398), nothing is exported to drift, so the line must go in the same change, not after the
-     * next Node run.
-     */
-    List<String> stale(Set<String> ran, Set<String> accepted) {
-      List<String> failures = new ArrayList<>();
-      for (KnownHoles.Entry e : holes.entries()) {
-        boolean inRun = ran == null || ran.contains(e.caseId());
-        if (!used.contains(e) && ENGINES.contains(e.engine()) && inRun) {
-          failures.add("known hole " + e.caseId() + " " + e.kind() + " " + e.engine() + " #" + e.issue()
-              + " no longer occurs (fixed, rejected, or the case is gone): delete its line from " + file);
-        } else if (e.kind() == Finding.Kind.ENGINE_DRIFT && inRun && accepted != null && !accepted.contains(e.caseId())) {
-          failures.add("known hole " + e.caseId() + " ENGINE_DRIFT " + e.engine() + " #" + e.issue()
-              + ": the case is rejected now (or gone), so no engine can drift on it: delete its line from " + file);
-        }
-      }
-      return failures;
-    }
-  }
-
   // ---- one case ----
 
   /** What the gate found for one case. */
   static final class CaseResult {
     final GateCase gateCase;
-    final List<Classified> findings = new ArrayList<>();
-    /** {@link Family#INERT} context mismatches: counted, not findings. */
-    final List<Classified> inert = new ArrayList<>();
-    /** Fidelity and lemma failures, render errors: never listable. */
+    /** Fidelity and lemma failures, render errors. */
     final List<String> failures = new ArrayList<>();
     final List<ExportRecord> export = new ArrayList<>();
     int renders;
@@ -705,11 +466,6 @@ class ProfileOracleTest {
 
     CaseResult(GateCase gateCase) {
       this.gateCase = gateCase;
-    }
-
-    Verdict verdict() {
-      List<Finding> fs = findings.stream().map(Classified::finding).toList();
-      return fs.isEmpty() ? new Verdict.Clean() : new Verdict.Findings(fs);
     }
   }
 
@@ -723,52 +479,33 @@ class ProfileOracleTest {
   }
 
   /**
-   * Renders and checks one case: fidelity of every render, the lemma along every distinct render
-   * path, and the value checks. {@code exportValues} hostile values per case go to the export
-   * (negative: none).
+   * Renders and checks one case: fidelity of every render and the lemma along every distinct render
+   * path. {@code exportValues} hostile values per case go to the export (negative: none).
    */
   static CaseResult check(Subject subject, Escape escape, LemmaMemo memo, int exportValues) {
     GateCase g = subject.gateCase();
     OracleCase oc = g.oracleCase();
     CaseResult r = new CaseResult(g);
-    boolean contextRelative = oc.template().contains("@{/");
     Set<String> paths = new HashSet<>();
 
-    String benign = render(subject, model(g.params(), HtmlInvariant::marker), escape, memo, paths, r, "benign");
+    String benign = render(subject, model(g.params(), ProfileOracleTest::marker), escape, memo, paths, r, "benign");
     if (benign == null) {
       return r;
     }
-    String fingerprint = render(subject, model(g.params(), Fingerprint::value), escape, memo, paths, r, "fingerprint");
-    if (fingerprint != null) {
-      List<SkeletonMatcher.Span> spans = SkeletonMatcher.holes(subject.skeleton().body(), fingerprint, subject.fragments());
-      for (Finding f : ContextCheck.check(fingerprint, SpecParsers.all())) {
-        Family family = contextFamily(f, fingerprint, spans);
-        (family == Family.INERT ? r.inert : r.findings).add(new Classified(f, family));
-      }
-    }
     List<String[]> hostile = new ArrayList<>();
     for (String v : HOSTILE) {
-      String shown = v.replace("PWN", HtmlInvariant.marker(1));
-      String out = render(subject, model(g.params(), i -> v.replace("PWN", HtmlInvariant.marker(i))), escape, memo,
+      String shown = v.replace("PWN", marker(1));
+      String out = render(subject, model(g.params(), i -> v.replace("PWN", marker(i))), escape, memo,
           paths, r, "value " + show(shown));
-      if (out == null) {
-        continue;
-      }
-      hostile.add(new String[] {shown, out});
-      HtmlInvariant.Result res = HtmlInvariant.check(benign, out, shown, contextRelative);
-      for (Finding f : res.findings()) {
-        r.findings.add(new Classified(f, family(f, res.scriptSlots())));
+      if (out != null) {
+        hostile.add(new String[] {shown, out});
       }
     }
     r.lemmaPaths = paths.size();
-    Verdict verdict = r.verdict();
     if (exportValues >= 0) {
-      r.export.add(ExportRecord.of(oc, HtmlInvariant.marker(1), benign, verdict));
-      if (fingerprint != null) {
-        r.export.add(ExportRecord.of(oc, Fingerprint.value(1), fingerprint, verdict));
-      }
+      r.export.add(ExportRecord.of(oc, marker(1), benign));
       for (String[] h : hostile.subList(0, Math.min(exportValues, hostile.size()))) {
-        r.export.add(ExportRecord.of(oc, h[0], h[1], verdict));
+        r.export.add(ExportRecord.of(oc, h[0], h[1]));
       }
     }
     return r;
@@ -798,7 +535,7 @@ class ProfileOracleTest {
       r.failures.add("fidelity: the render (" + what + ") is not in the skeleton at offset " + m.offset() + ": "
           + show(out.substring(Math.max(0, m.offset() - 20), Math.min(out.length(), m.offset() + 20)))
           + "; expected: " + m.expected() + "; output: " + show(out));
-      return out; // still value-checked; there are no holes to check the lemma at
+      return out; // still exported; there are no holes to check the lemma at
     }
     // The path: the render with each hole's text taken out, and which holes. By the lemma the parser
     // states at the holes depend only on that.
@@ -823,12 +560,9 @@ class ProfileOracleTest {
     assumeTrue(System.getProperty("tessera.test.release") == null, "the gate runs in the default execution only");
     long start = System.nanoTime();
     List<GateCase> cases = cases();
-    long t0 = System.nanoTime();
     List<Compiled> compiled = compile(cases);
     long t1 = System.nanoTime();
 
-    String holesFile = "src/test/resources/" + KnownHoles.RESOURCE;
-    Ratchet ratchet = new Ratchet(holes(holesFile, resource(KnownHoles.RESOURCE)), holesFile);
     LemmaMemo memo = new LemmaMemo();
     String exportFile = System.getProperty(EXPORT);
     int exportValues = exportFile == null ? -1 : Integer.getInteger(EXPORT_VALUES, EXPORT_DEFAULT);
@@ -855,84 +589,54 @@ class ProfileOracleTest {
     // Failures, per case in case order.
     Map<String, List<String>> failures = new LinkedHashMap<>();
     for (Compiled c : compiled) {
-      GateCase g = c.gateCase();
-      List<String> fs = new ArrayList<>();
-      if (!c.accepted()) {
-        for (String e : c.errors()) {
-          if (!POSITIONED.matcher(e).find()) {
-            fs.add("compiler error without file, line and column: " + e);
-          }
+      for (String e : c.errors()) {
+        if (!POSITIONED.matcher(e).find()) {
+          failures.computeIfAbsent(label(c.gateCase()), k -> new ArrayList<>())
+              .add("compiler error without file, line and column: " + e);
         }
-      } else if (g.expectation() != null && !g.expectation().equals("ACCEPT")) {
-        fs.add("seed-expectations.txt says " + g.expectation() + " rejects this seed, but it compiled");
-      }
-      if (!fs.isEmpty()) {
-        failures.computeIfAbsent(label(g), k -> new ArrayList<>()).addAll(fs);
       }
     }
-    Map<Family, Map<String, Integer>> byFamily = new EnumMap<>(Family.class);
     int renders = 0;
     int refused = 0;
     int lemmaPaths = 0;
-    int clean = 0;
-    List<String> inert = new ArrayList<>();
     for (CaseResult r : results) {
-      for (Classified cf : r.inert) {
-        inert.add(label(r.gateCase) + " " + cf.finding().engine() + " " + cf.finding().where() + "; template: "
-            + show(r.gateCase.oracleCase().template()));
-      }
       renders += r.renders;
       refused += r.refused;
       lemmaPaths += r.lemmaPaths;
-      List<String> fs = new ArrayList<>(r.failures);
-      fs.addAll(ratchet.check(r.gateCase.oracleCase(), r.findings));
-      if (!fs.isEmpty()) {
-        failures.computeIfAbsent(label(r.gateCase), k -> new ArrayList<>()).addAll(fs);
+      if (!r.failures.isEmpty()) {
+        failures.computeIfAbsent(label(r.gateCase), k -> new ArrayList<>()).addAll(r.failures);
       }
-      if (r.findings.isEmpty()) {
-        clean++;
-      }
-      Set<String> seen = new HashSet<>();
-      List<Classified> all = new ArrayList<>(r.findings);
-      all.addAll(r.inert);
-      for (Classified cf : all) {
-        String k = cf.finding().kind() + " " + cf.finding().engine();
-        if (seen.add(cf.family() + k)) {
-          byFamily.computeIfAbsent(cf.family(), x -> new TreeMap<>()).merge(k, 1, Integer::sum);
-        }
-      }
-    }
-    boolean partialRun = System.getProperty(Generator.MAX_CASES) != null || System.getProperty(Generator.EXPLORE) != null;
-    Set<String> ran = new HashSet<>();
-    for (Compiled c : compiled) {
-      ran.add(c.gateCase().oracleCase().id());
-    }
-    Set<String> acceptedIds = new HashSet<>();
-    for (Compiled c : accepted) {
-      acceptedIds.add(c.gateCase().oracleCase().id());
-    }
-    List<String> stale = ratchet.stale(partialRun ? ran : null, acceptedIds);
-    if (!stale.isEmpty()) {
-      failures.put("known-holes.txt", stale);
     }
 
-    // The rejected side: verifier rejections the value oracle finds safe.
-    List<String> falsePositives = falsePositiveCandidates(compiled);
-    long t3 = System.nanoTime();
-
-    List<String> report = report(cases, compiled, clean, renders, refused, lemmaPaths, memo, byFamily, falsePositives,
-        inert, failures, new long[] {t0 - start, t1 - t0, t2 - t1, t3 - t2});
+    List<String> report = new ArrayList<>();
+    long profile = compiled.stream().filter(c -> !c.accepted() && c.layer() == Layer.PROFILE).count();
+    long verifier = compiled.stream().filter(c -> !c.accepted() && c.layer() == Layer.VERIFIER).count();
+    report.add("oracle gate (#324): " + cases.size() + " seeds");
+    report.add("  REJECTED " + (profile + verifier) + ": profile " + profile + ", verifier " + verifier);
+    report.add("  accepted " + accepted.size());
+    report.add("  renders " + renders + " (" + refused + " refused by an escaper), every one in its skeleton unless listed below");
+    report.add("  lemma: " + lemmaPaths + " render paths, " + memo.verdicts.size() + " distinct (state, escaper) pairs, "
+        + memo.feeds.get() + " escaped values fed, " + LEMMA_VALUES.size() + " values x " + LEMMA_PARSERS.size() + " parsers");
+    report.add(String.format(Locale.ROOT, "  time: compile %.1f s, checks %.1f s", (t1 - start) / 1e9, (t2 - t1) / 1e9));
+    report.add("  failures: " + failures.values().stream().mapToInt(List::size).sum());
+    report.add("");
+    report.add("failures:");
+    failures.forEach((k, v) -> v.forEach(f -> report.add("  " + k + ": " + f)));
+    report.add("");
+    report.add("rejected:");
+    compiled.stream().filter(c -> !c.accepted())
+        .forEach(c -> report.add("  " + c.layer() + " " + label(c.gateCase()) + ": " + c.errors().get(0)));
     Path dir = Files.createDirectories(Path.of("target", "oracle"));
     Files.write(dir.resolve("report.txt"), report, StandardCharsets.UTF_8);
-    System.out.println(String.join("\n", report.subList(0, Math.max(0, report.indexOf("")))));
+    System.out.println(String.join("\n", report.subList(0, report.indexOf(""))));
 
     if (exportFile != null) {
       List<String> lines = new ArrayList<>();
       int k = 0;
       for (Compiled c : compiled) {
+        OracleCase oc = c.gateCase().oracleCase();
         if (!c.accepted()) {
-          lines.add(new ExportRecord(c.gateCase().oracleCase().id(), c.gateCase().oracleCase().name(),
-              c.gateCase().oracleCase().template(), null, null, "REJECTED").toJsonLine());
+          lines.add(new ExportRecord(oc.id(), oc.name(), oc.template(), null, null, "REJECTED").toJsonLine());
         } else {
           for (ExportRecord e : results[k++].export) {
             lines.add(e.toJsonLine());
@@ -962,109 +666,8 @@ class ProfileOracleTest {
     }
   }
 
-  /**
-   * Compiles each case the verifier alone rejected without the verifier, renders it with the hostile
-   * values, and lists those with no family A/B finding: the value oracle says they would have been
-   * safe. Informational.
-   */
-  static List<String> falsePositiveCandidates(List<Compiled> compiled) {
-    List<Compiled> verifier = compiled.stream().filter(c -> !c.accepted() && c.layer() == Layer.VERIFIER).toList();
-    List<String> out = Collections.synchronizedList(new ArrayList<>());
-    LemmaMemo memo = new LemmaMemo();
-    verifier.parallelStream().forEach(c -> {
-      GateCase g = c.gateCase();
-      Compilation unverified =
-          Compilation.builder().template(g.view() + ".html", g.oracleCase().template()).withoutVerifier().compile();
-      if (!unverified.success()) {
-        return;
-      }
-      CaseResult r;
-      try {
-        r = check(Subject.of(g, unverified), RUNTIME, memo, -1);
-      } catch (RuntimeException | AssertionError e) {
-        return;
-      }
-      boolean ab = r.findings.stream().anyMatch(f -> f.family() == Family.AB);
-      boolean lemma = r.failures.stream().anyMatch(f -> f.startsWith("lemma:"));
-      if (!ab && !lemma) {
-        Set<String> rules = new TreeSet<>();
-        Matcher m = Pattern.compile("\\[verifier:([A-Z_]+)\\]").matcher(String.join("\n", c.errors()));
-        while (m.find()) {
-          rules.add(m.group(1));
-        }
-        out.add(g.oracleCase().id() + " " + rules + " " + g.oracleCase().name() + " :: " + show(g.oracleCase().template()));
-      }
-    });
-    List<String> sorted = new ArrayList<>(out);
-    Collections.sort(sorted);
-    return sorted;
-  }
-
-  private static List<String> report(List<GateCase> cases, List<Compiled> compiled, int clean, int renders, int refused,
-      int lemmaPaths, LemmaMemo memo, Map<Family, Map<String, Integer>> byFamily, List<String> falsePositives,
-      List<String> inert, Map<String, List<String>> failures, long[] nanos) {
-    List<String> r = new ArrayList<>();
-    long seeds = cases.stream().filter(c -> c.oracleCase().origin() == OracleCase.Origin.SEED).count();
-    long accepted = compiled.stream().filter(Compiled::accepted).count();
-    long profile = compiled.stream().filter(c -> !c.accepted() && c.layer() == Layer.PROFILE).count();
-    long verifier = compiled.stream().filter(c -> !c.accepted() && c.layer() == Layer.VERIFIER).count();
-    r.add("oracle gate (#324): " + cases.size() + " cases (" + seeds + " seeds, " + (cases.size() - seeds) + " generated)");
-    r.add("  REJECTED " + (profile + verifier) + ": profile " + profile + ", verifier " + verifier);
-    r.add("  accepted " + accepted + ": CLEAN " + clean + ", FINDINGS " + (accepted - clean));
-    Set<String> deciding = new HashSet<>();
-    for (GeneratedCase g : Deciding.cases()) {
-      deciding.add(g.oracleCase().id());
-    }
-    List<Compiled> dc = compiled.stream().filter(c -> deciding.contains(c.gateCase().oracleCase().id())).toList();
-    r.add("  of them the verifier-deciding positions (Deciding, #399): " + dc.size() + " cases, accepted "
-        + dc.stream().filter(Compiled::accepted).count() + ", rejected by the verifier "
-        + dc.stream().filter(c -> !c.accepted() && c.layer() == Layer.VERIFIER).count() + ", by the profile "
-        + dc.stream().filter(c -> !c.accepted() && c.layer() == Layer.PROFILE).count());
-    r.add("  renders " + renders + " (" + refused + " refused by an escaper), every one in its skeleton unless listed below");
-    r.add("  lemma: " + lemmaPaths + " render paths, " + memo.verdicts.size() + " distinct (state, escaper) pairs, "
-        + memo.feeds.get() + " escaped values fed, " + LEMMA_VALUES.size() + " values x " + LEMMA_PARSERS.size() + " parsers");
-    for (Family f : Family.values()) {
-      Map<String, Integer> kinds = byFamily.getOrDefault(f, Map.of());
-      r.add("  family " + f + " findings (cases per kind and engine): " + (kinds.isEmpty() ? "none" : kinds));
-    }
-    r.add("  false-positive candidates (verifier rejections the value oracle finds safe, informational): "
-        + falsePositives.size());
-    r.add(String.format(Locale.ROOT, "  time: cases %.1f s, compile %.1f s, checks %.1f s, false positives %.1f s",
-        nanos[0] / 1e9, nanos[1] / 1e9, nanos[2] / 1e9, nanos[3] / 1e9));
-    r.add("  failures: " + failures.values().stream().mapToInt(List::size).sum());
-    r.add("");
-    r.add("failures:");
-    failures.forEach((k, v) -> v.forEach(f -> r.add("  " + k + ": " + f)));
-    r.add("");
-    r.add("inert context mismatches (family INERT, counted, not findings):");
-    inert.forEach(f -> r.add("  " + f));
-    r.add("");
-    r.add("false-positive candidates:");
-    falsePositives.forEach(f -> r.add("  " + f));
-    r.add("");
-    r.add("rejected by the verifier:");
-    compiled.stream().filter(c -> !c.accepted() && c.layer() == Layer.VERIFIER)
-        .forEach(c -> r.add("  " + label(c.gateCase()) + ": " + c.errors().get(0)));
-    r.add("");
-    r.add("rejected by the profile:");
-    compiled.stream().filter(c -> !c.accepted() && c.layer() == Layer.PROFILE)
-        .forEach(c -> r.add("  " + label(c.gateCase()) + ": " + (c.errors().isEmpty() ? "(no error)" : c.errors().get(0))));
-    return r;
-  }
-
   private static String label(GateCase g) {
     return g.oracleCase().id() + " (" + g.oracleCase().name() + ")";
-  }
-
-  static String resource(String name) {
-    try (InputStream in = ProfileOracleTest.class.getClassLoader().getResourceAsStream(name)) {
-      if (in == null) {
-        throw new IllegalStateException("missing test resource " + name);
-      }
-      return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
   }
 
   /** {@code s} quoted, with controls and non-ASCII as {@code \}{@code uXXXX}, cut at 300 chars. */

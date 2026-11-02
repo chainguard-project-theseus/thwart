@@ -7,16 +7,14 @@
 # attributes, as before; the framework names Contexts classifies (hx-*, data-bind, ...) are
 # classified before this file is asked.
 #
-# Format: one lower-case name per line, sorted, then the scope it is inert in, then its group:
-#   html     on an HTML element (Element.foreign() false)
-#   foreign  on an SVG or MathML element (Element.foreign() true)
-#   any      on both
-# and, optionally, the only HTML elements it is inert on (comma-separated): for is an ID reference
+# Format: one lower-case name per line, sorted, then its group, and, optionally, the only HTML
+# elements it is inert on (comma-separated). Only HTML elements are listed: every attribute of an
+# SVG or MathML element is FORBIDDEN (#678). for is an ID reference
 # on <label> and <output>, but on <template> the spec's "Text" moves the content (#419); value is
 # inert on form controls and <data>, <li>, <meter>, <progress>, but not on <param>, where a browser
 # may read a src, movie, code or url parameter as the <object>'s resource URL.
 #
-# Rule. A name is inert when the value type of every definition of the name in its scope is one of
+# Rule. A name is inert when the value type of every definition of the name in HTML is one of
 #   Text, an enumerated keyword, a number / integer / date or time, a boolean attribute, an ID or a
 #   set of ID references, a BCP 47 language tag, or a set of space-separated tokens,
 # and none of those definitions lets the value change what the browser fetches, submits, navigates
@@ -25,11 +23,6 @@
 #         event handler content attributes)", column "Value"; obsolete.html for html-obsolete names.
 #   ARIA  WAI-ARIA 1.2 (W3C Recommendation 06 June 2023), section 6.6 value types: true/false,
 #         tristate, true/false/undefined, ID reference (list), integer, number, string, token (list).
-#   MathML Core (CR Snapshot 24 June 2025), attribute definitions.
-#   SVG   SVG 2 (CR 04 October 2018). Conservative: SVG regular attributes are mostly numbers,
-#         lengths, references, timing and transform micro-syntaxes, and the presentation attributes
-#         are parsed as CSS property values, so none of them is inert; only text and language
-#         attributes are listed. Their numbers still compile (TYPED_ATTRIBUTE takes numbers).
 #
 # Groups:
 #   text      HTML value type "Text" (alt, title, placeholder, value, ...)
@@ -41,10 +34,7 @@
 #             media queries and source size lists (they select among already-checked URLs)
 #   obsolete  html-obsolete presentational attributes (colours in the legacy colour syntax, lengths,
 #             keywords and text: bgcolor, border, align, ...)
-#   aria      every WAI-ARIA 1.2 state and property, and role (any scope)
-#   mathml    MathML Core booleans, keywords, integers and text; the length attributes are CSS
-#             lengths and mathcolor / mathbackground CSS colours, so they are left out
-#   svg       SVG text and language attributes
+#   aria      every WAI-ARIA 1.2 state and property, and role
 #
 # Left out on purpose (HTML; each has a specific context already or becomes TYPED_ATTRIBUTE):
 #   URL types: action, cite, data, formaction, href, itemid, itemprop, itemtype, manifest, ping,
@@ -67,209 +57,189 @@
 #   name. Elsewhere on <meta> it is REFRESH (http-equiv=refresh), FORBIDDEN (http-equiv=Content-Type)
 #   or TYPED_ATTRIBUTE (another http-equiv, a policy such as referrer or viewport, a name a browser,
 #   OS or crawler acts on such as apple-itunes-app, an unknown name, Open Graph, or no static name).
-abbr html text
-accent foreign mathml
-accentunder foreign mathml
-accept html tokens
-accesskey html tokens
-actiontype foreign mathml
-align html obsolete
-alink html obsolete
-alpha html boolean
-alt html text
-alttext foreign mathml
-arg foreign mathml
-aria-activedescendant any aria
-aria-atomic any aria
-aria-autocomplete any aria
-aria-busy any aria
-aria-checked any aria
-aria-colcount any aria
-aria-colindex any aria
-aria-colspan any aria
-aria-controls any aria
-aria-current any aria
-aria-describedby any aria
-aria-details any aria
-aria-disabled any aria
-aria-dropeffect any aria
-aria-errormessage any aria
-aria-expanded any aria
-aria-flowto any aria
-aria-grabbed any aria
-aria-haspopup any aria
-aria-hidden any aria
-aria-invalid any aria
-aria-keyshortcuts any aria
-aria-label any aria
-aria-labelledby any aria
-aria-level any aria
-aria-live any aria
-aria-modal any aria
-aria-multiline any aria
-aria-multiselectable any aria
-aria-orientation any aria
-aria-owns any aria
-aria-placeholder any aria
-aria-posinset any aria
-aria-pressed any aria
-aria-readonly any aria
-aria-relevant any aria
-aria-required any aria
-aria-roledescription any aria
-aria-rowcount any aria
-aria-rowindex any aria
-aria-rowspan any aria
-aria-selected any aria
-aria-setsize any aria
-aria-sort any aria
-aria-valuemax any aria
-aria-valuemin any aria
-aria-valuenow any aria
-aria-valuetext any aria
-async html boolean
-autocapitalize html keyword
-autocomplete html keyword
-autocorrect html keyword
-autofocus any boolean
-autoplay html boolean
-axis html obsolete
-behavior html obsolete
-bgcolor html obsolete
-border html obsolete
-bordercolor html obsolete
-bottommargin html obsolete
-cellpadding html obsolete
-cellspacing html obsolete
-char html obsolete
-charoff html obsolete
-checked html boolean
-class any tokens
-clear html obsolete
-closedby html keyword
-color html obsolete font,hr
-colorspace html keyword
-cols html number
-colspan html number
-command html keyword
-commandfor html idref
-compact html obsolete
-content html text meta
-contenteditable html keyword
-controls html boolean
-coords html number
-datetime html number
-default html boolean
-defer html boolean
-dir any keyword
-direction html obsolete
-dirname html text
-disabled html boolean
-display foreign mathml
-displaystyle foreign mathml
-download html text
-draggable html keyword
-enterkeyhint html keyword
-face html obsolete
-fence foreign mathml
-for html idref label,output
-form any idref
-formmethod html keyword
-formnovalidate html boolean
-frame html obsolete
-frameborder html obsolete
-framespacing html obsolete
-headers html idref
-headingoffset html number
-headingreset html boolean
-height html number
-hidden html keyword
-high html number
-hreflang html tokens
-hspace html obsolete
-id any text
-imagesizes html tokens
-inert html boolean
-inputmode html keyword
-intent foreign mathml
-ismap html boolean
-itemref html idref
-itemscope html boolean
-kind html keyword
-label html text
-lang any tokens
-largeop foreign mathml
-leftmargin html obsolete
-link html obsolete
-list html idref
-loop html boolean
-low html number
-marginheight html obsolete
-marginwidth html obsolete
-mathvariant foreign mathml
-max html number
-maxlength html number
-media html tokens
-method html keyword
-min html number
-minlength html number
-movablelimits foreign mathml
-multiple html boolean
-muted html boolean
-name html text
-nomodule html boolean
-nonce any text
-noshade html obsolete
-novalidate html boolean
-nowrap html obsolete
-open html boolean
-optimum html number
-pattern html text
-placeholder html text
-playsinline html boolean
-popover html keyword
-popovertarget html idref
-popovertargetaction html keyword
-readonly html boolean
-required html boolean
-reversed html boolean
-rightmargin html obsolete
-role any aria
-rows html number
-rowspan html number
-rules html obsolete
-scope html keyword
-scriptlevel foreign mathml
-scrolling html obsolete
-selected html boolean
-selection foreign mathml
-separator foreign mathml
-shape html keyword
-size html number
-sizes html tokens
-slot html text
-span html number
-spellcheck html keyword
-srclang html tokens
-start html number
-step html number
-stretchy foreign mathml
-summary html obsolete
-symmetric foreign mathml
-systemlanguage foreign svg
-tabindex any number
-text html obsolete
-title any text
-topmargin html obsolete
-translate html keyword
-truespeed html obsolete
-type html keyword
-valign html obsolete
-value html text button,data,input,li,meter,option,progress,select
-vlink html obsolete
-vspace html obsolete
-width html number
-wrap html keyword
-writingsuggestions html keyword
-xlink:title foreign svg
-xml:space foreign svg
+abbr text
+accept tokens
+accesskey tokens
+align obsolete
+alink obsolete
+alpha boolean
+alt text
+aria-activedescendant aria
+aria-atomic aria
+aria-autocomplete aria
+aria-busy aria
+aria-checked aria
+aria-colcount aria
+aria-colindex aria
+aria-colspan aria
+aria-controls aria
+aria-current aria
+aria-describedby aria
+aria-details aria
+aria-disabled aria
+aria-dropeffect aria
+aria-errormessage aria
+aria-expanded aria
+aria-flowto aria
+aria-grabbed aria
+aria-haspopup aria
+aria-hidden aria
+aria-invalid aria
+aria-keyshortcuts aria
+aria-label aria
+aria-labelledby aria
+aria-level aria
+aria-live aria
+aria-modal aria
+aria-multiline aria
+aria-multiselectable aria
+aria-orientation aria
+aria-owns aria
+aria-placeholder aria
+aria-posinset aria
+aria-pressed aria
+aria-readonly aria
+aria-relevant aria
+aria-required aria
+aria-roledescription aria
+aria-rowcount aria
+aria-rowindex aria
+aria-rowspan aria
+aria-selected aria
+aria-setsize aria
+aria-sort aria
+aria-valuemax aria
+aria-valuemin aria
+aria-valuenow aria
+aria-valuetext aria
+async boolean
+autocapitalize keyword
+autocomplete keyword
+autocorrect keyword
+autofocus boolean
+autoplay boolean
+axis obsolete
+behavior obsolete
+bgcolor obsolete
+border obsolete
+bordercolor obsolete
+bottommargin obsolete
+cellpadding obsolete
+cellspacing obsolete
+char obsolete
+charoff obsolete
+checked boolean
+class tokens
+clear obsolete
+closedby keyword
+color obsolete font,hr
+colorspace keyword
+cols number
+colspan number
+command keyword
+commandfor idref
+compact obsolete
+content text meta
+contenteditable keyword
+controls boolean
+coords number
+datetime number
+default boolean
+defer boolean
+dir keyword
+direction obsolete
+dirname text
+disabled boolean
+download text
+draggable keyword
+enterkeyhint keyword
+face obsolete
+for idref label,output
+form idref
+formmethod keyword
+formnovalidate boolean
+frame obsolete
+frameborder obsolete
+framespacing obsolete
+headers idref
+headingoffset number
+headingreset boolean
+height number
+hidden keyword
+high number
+hreflang tokens
+hspace obsolete
+id text
+imagesizes tokens
+inert boolean
+inputmode keyword
+ismap boolean
+itemref idref
+itemscope boolean
+kind keyword
+label text
+lang tokens
+leftmargin obsolete
+link obsolete
+list idref
+loop boolean
+low number
+marginheight obsolete
+marginwidth obsolete
+max number
+maxlength number
+media tokens
+method keyword
+min number
+minlength number
+multiple boolean
+muted boolean
+name text
+nomodule boolean
+nonce text
+noshade obsolete
+novalidate boolean
+nowrap obsolete
+open boolean
+optimum number
+pattern text
+placeholder text
+playsinline boolean
+popover keyword
+popovertarget idref
+popovertargetaction keyword
+readonly boolean
+required boolean
+reversed boolean
+rightmargin obsolete
+role aria
+rows number
+rowspan number
+rules obsolete
+scope keyword
+scrolling obsolete
+selected boolean
+shape keyword
+size number
+sizes tokens
+slot text
+span number
+spellcheck keyword
+srclang tokens
+start number
+step number
+summary obsolete
+tabindex number
+text obsolete
+title text
+topmargin obsolete
+translate keyword
+truespeed obsolete
+type keyword
+valign obsolete
+value text button,data,input,li,meter,option,progress,select
+vlink obsolete
+vspace obsolete
+width number
+wrap keyword
+writingsuggestions keyword

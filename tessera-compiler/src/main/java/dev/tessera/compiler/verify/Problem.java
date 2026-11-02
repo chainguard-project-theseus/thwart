@@ -77,8 +77,8 @@ public enum Problem {
    */
   CDATA_IN_INTEGRATION_POINT,
   /**
-   * A fragment that no template calls, declared where no fragment fits (raw text, mixed {@code
-   * <svg>}/{@code <math>}, {@code t:remove="tag"} content), so the verifier can't check it on its
+   * A fragment that no template calls, declared where no fragment fits (raw text or {@code
+   * t:remove="tag"} content), so the verifier can't check it on its
    * own (#461, {@link ContextVerifier#checkUncalled}).
    */
   UNCALLED_FRAGMENT_FITS_NOWHERE,

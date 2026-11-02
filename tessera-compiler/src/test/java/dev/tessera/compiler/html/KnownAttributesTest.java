@@ -52,11 +52,11 @@ class KnownAttributesTest {
   }
 
   private static final Set<String> GROUPS =
-      Set.of("text", "keyword", "number", "boolean", "idref", "tokens", "obsolete", "aria", "mathml", "svg");
+      Set.of("text", "keyword", "number", "boolean", "idref", "tokens", "obsolete", "aria");
 
-  /** The inert-text list (#539) is sorted, scoped, grouped and a subset of attributes.txt. */
+  /** The inert-text list (#539) is sorted, grouped and a subset of attributes.txt. */
   @Test
-  void inertFileIsSortedScopedAndStandard() throws Exception {
+  void inertFileIsSortedGroupedAndStandard() throws Exception {
     List<String> names = new ArrayList<>();
     try (InputStream in = KnownAttributes.class.getResourceAsStream("inert-attributes.txt");
         BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
@@ -65,10 +65,8 @@ class KnownAttributesTest {
           continue;
         }
         String[] f = line.split(" ");
-        assertTrue(f.length == 3 || f.length == 4, line);
-        assertTrue(Set.of("html", "foreign", "any").contains(f[1]), "unknown scope: " + line);
-        assertTrue(GROUPS.contains(f[2]), "unknown group: " + line);
-        assertTrue(f.length == 3 || f[1].equals("html"), "elements only in scope html: " + line);
+        assertTrue(f.length == 2 || f.length == 3, line);
+        assertTrue(GROUPS.contains(f[1]), "unknown group: " + line);
         assertTrue(KnownAttributes.isStandard(f[0]), "not in attributes.txt: " + line);
         if (!names.isEmpty()) {
           assertTrue(names.get(names.size() - 1).compareTo(f[0]) < 0, "not sorted or repeated: " + f[0]);
@@ -87,10 +85,10 @@ class KnownAttributesTest {
     // data-* names are not standard, so not TYPED (they are NEUTRAL); a custom element has no exemption (#584).
     assertFalse(KnownAttributes.needsSafeValue(html("p"), "data-rel"));
     assertTrue(KnownAttributes.needsSafeValue(html("my-el"), "target"));
-    // Scoped by namespace and, for for, by element.
+    // No attribute of an SVG or MathML element is inert (#678); for and value only on some elements.
     assertTrue(KnownAttributes.needsSafeValue(foreign("rect"), "width"));
     assertFalse(KnownAttributes.needsSafeValue(html("img"), "width"));
-    assertFalse(KnownAttributes.needsSafeValue(foreign("rect"), "aria-label"));
+    assertTrue(KnownAttributes.needsSafeValue(foreign("rect"), "aria-label"));
     assertFalse(KnownAttributes.needsSafeValue(html("label"), "for"));
     assertTrue(KnownAttributes.needsSafeValue(html("template"), "for"));
     assertFalse(KnownAttributes.needsSafeValue(html("option"), "value"));

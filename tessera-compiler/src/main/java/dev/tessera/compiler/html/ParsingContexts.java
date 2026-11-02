@@ -1,7 +1,6 @@
 package dev.tessera.compiler.html;
 
 import dev.tessera.compiler.Backports;
-import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Document;
 import dev.tessera.compiler.model.Element;
@@ -22,10 +21,11 @@ import java.util.Set;
  * markup reads the same only where it is parsed in the context it was compiled in, so
  * {@code t:insert} and {@code t:replace} compare these contexts.
  *
- * <p>A context is {@link #HTML}, {@code svg}, {@code math}, {@code annotation-xml}, {@code
- * select}, or the name of the raw-text element. SVG {@code foreignObject}, {@code desc} and
- * {@code title}, MathML {@code mi mo mn ms mtext} and {@code <annotation-xml
- * encoding="text/html">} hold HTML.
+ * <p>A context is {@link #HTML}, {@code svg}, {@code math}, {@code select}, or the name of the
+ * raw-text element. SVG {@code foreignObject}, {@code desc} and {@code title} and MathML {@code mi
+ * mo mn ms mtext} hold HTML. Nothing inside {@code <svg>} or {@code <math>} is a fragment or an
+ * insertion point (#678), and a breakout tag such as {@code <p>} there is a parse error, so the
+ * contexts inside them only tell a fragment declared there from one declared in HTML.
  *
  * <p>Contexts follow the tags as written, which is how the template is compiled: the children of
  * {@code <svg t:replace>} are SVG content, since they only render as fragments declared there. A
@@ -34,23 +34,13 @@ import java.util.Set;
  * (an {@code <svg>}, {@code <foreignObject>}, {@code <title>}, ...) its content is {@link
  * #UNWRAPPED}: a browser parses it differently from how it is compiled.
  *
- * <p>No fragment fits in or comes from {@link #UNWRAPPED} or {@link #MIXED} content, or fits in raw
- * text. {@link #MIXED} is an {@code <svg>} or {@code <math>} with a breakout tag such as {@code
- * <p>} in its output (a browser leaves foreign content there), an {@code <annotation-xml>} whose
- * {@code encoding} is computed, and the content of MathML {@code mglyph} and {@code malignmark}
- * (their namespace depends on the parent), and the content of a {@code <noscript>}, {@code
- * <iframe>}, ... in {@code <svg>} or {@code <math>}. Attribute names compare
- * ASCII-case-insensitively, and an attribute that {@code t:<name>} or {@code t:attr*} may set
- * counts as present.
+ * <p>No fragment fits in or comes from {@link #UNWRAPPED} content, or fits in raw text.
  *
  * <p>Runtime HTML inside a {@link #rawTextElement} is the raw-text rule's error (TemplateGenerator):
  * callers report nothing of their own there ({@link #insideRawText}).
  */
 public final class ParsingContexts {
   public static final String HTML = "HTML";
-
-  /** A context no fragment fits in or comes from: see the class comment. */
-  static final String MIXED = "mixed";
 
   /** The content of {@code t:remove="tag"} where the tag changes the context: see the class comment. */
   static final String UNWRAPPED = "unwrapped";
@@ -114,10 +104,13 @@ public final class ParsingContexts {
     String name = HtmlParser.asciiLower(e.name());
     return name.equals("title") || name.equals("textarea") || Contexts.browserRawText(name);
   }
-  /** The context {@code node}, text of this template, is parsed in; {@link #MIXED} if unknown. */
+  /** The context {@code node}, text of this template, is parsed in. */
   public String text(Text node) {
     String context = text.get(node);
-    return context == null ? MIXED : context;
+    if (context == null) {
+      throw new IllegalStateException("text outside this template");
+    }
+    return context;
   }
 
   /**
@@ -131,7 +124,7 @@ public final class ParsingContexts {
    */
   public boolean fits(Element element, String context) {
     String declared = hasReplace(element) ? place(element) : content(element);
-    if (isMixed(context) || isMixed(declared) || isRawText(context)) {
+    if (isUnwrapped(context) || isUnwrapped(declared) || isRawText(context)) {
       return false;
     }
     if (outputContentOf(context, element).equals(declared)) {
@@ -142,21 +135,13 @@ public final class ParsingContexts {
 
   /** {@code HTML}, or the element that sets {@code context}, e.g. {@code <svg>}. */
   public static String describe(String context) {
-    if (context.equals(MIXED)) {
-      return "mixed <svg>/<math> (one holding an HTML element such as <p>)";
-    }
     if (context.equals(UNWRAPPED)) {
       return "t:remove=\"tag\" (on an element whose tag changes how its content is parsed)";
     }
     return context.equals(HTML) ? HTML : "<" + context + ">";
   }
 
-  /** Whether {@code context} is {@link #MIXED} or {@link #UNWRAPPED}: no fragment fits there. */
-  public static boolean isMixed(String context) {
-    return context.equals(MIXED) || context.equals(UNWRAPPED);
-  }
-
-  /** Whether {@code context} is {@link #UNWRAPPED}. */
+  /** Whether {@code context} is {@link #UNWRAPPED}: no fragment fits there. */
   public static boolean isUnwrapped(String context) {
     return context.equals(UNWRAPPED);
   }
@@ -195,12 +180,10 @@ public final class ParsingContexts {
   }
 
   /**
-   * Records {@code nodes} parsed in {@code context}; returns whether the output of one of them has a
-   * breakout tag in foreign content. {@code raw}: whether {@code nodes} are inside a {@link
-   * #rawTextElement}.
+   * Records {@code nodes} parsed in {@code context}. {@code raw}: whether {@code nodes} are inside a
+   * {@link #rawTextElement}.
    */
-  private boolean walk(List<Node> nodes, String context, boolean raw) {
-    boolean breakout = false;
+  private void walk(List<Node> nodes, String context, boolean raw) {
     for (Node n : nodes) {
       if (raw) {
         insideRawText.add(n);
@@ -211,70 +194,15 @@ public final class ParsingContexts {
       if (n instanceof Element) {
         Element e = (Element) n;
         String inner = contentOf(context, e);
-        if (isForeign(context) && Contexts.browserRawText(e.name())) {
-          // A <noscript> in <svg> holds SVG, but the raw-text rule checks it as raw text: no fragment
-          // fits in or comes from it, so nothing in it renders where the raw-text rule does not look.
-          inner = MIXED;
-        } else if (HtmlParser.omitsTag(e.name(), e.attributes()) && !inner.equals(context) && !isRawText(inner)) {
+        if (HtmlParser.omitsTag(e.name(), e.attributes()) && !inner.equals(context) && !isRawText(inner)) {
           // Raw text keeps its context: the raw-text rule checks it with or without the tag.
           inner = UNWRAPPED;
         }
         place.put(e, context);
         content.put(e, inner);
-        boolean inside = walk(e.children(), inner, raw || rawTextElement(e)) && rendersChildren(e);
-        boolean foreign = isForeign(context);
-        if (foreign && !omitsTag(e) && HtmlParser.isBreakoutTag(e.name(), e.attributes())) {
-          inside = true;
-        }
-        if (inside && !foreign && isForeign(inner)) {
-          // e is the <svg> or <math> a browser leaves early: nothing in it is where the model says.
-          mix(e);
-          inside = false;
-        }
-        breakout |= inside;
+        walk(e.children(), inner, raw || rawTextElement(e));
       }
     }
-    return breakout;
-  }
-
-  private void mix(Element e) {
-    content.put(e, MIXED);
-    for (Node n : e.children()) {
-      if (n instanceof Text) {
-        text.put((Text) n, MIXED);
-      }
-      if (n instanceof Element) {
-        place.put((Element) n, MIXED);
-        mix((Element) n);
-      }
-    }
-  }
-
-  private static boolean isForeign(String context) {
-    return context.equals("svg") || context.equals("math") || context.equals("annotation-xml");
-  }
-
-  /**
-   * Whether the output may keep {@code e}'s children: not when {@code t:insert}, {@code
-   * t:replace}, {@code t:text}, {@code t:utext} or {@code t:remove="all"}/{@code "body"} drops them.
-   */
-  private static boolean rendersChildren(Element e) {
-    for (Attribute a : e.attributes()) {
-      if (!a.isTessera()) {
-        continue;
-      }
-      String n = a.localName();
-      if (n.equals("insert") || n.equals("replace") || n.equals("text") || n.equals("utext")) {
-        return false;
-      }
-      if (n.equals("remove") && a.value() != null) {
-        String v = JavaStrings.trimJava(a.value());
-        if (v.equals("all") || v.equals("body")) {
-          return false;
-        }
-      }
-    }
-    return true;
   }
 
   /** The context of {@code e}'s content where its output lands in {@code context}. */
@@ -288,9 +216,6 @@ public final class ParsingContexts {
       return context;
     }
     String name = HtmlParser.asciiLower(e.name());
-    if (name.equals("mglyph") || name.equals("malignmark")) {
-      return MIXED;
-    }
     switch (context) {
       case HTML:
         if (name.equals("svg") || name.equals("math") || name.equals(SELECT)) {
@@ -299,33 +224,12 @@ public final class ParsingContexts {
         return RAW_TEXT.contains(name) ? name : HTML;
       case "svg":
         return HtmlParser.SVG_HTML_PARENTS.contains(name) ? HTML : "svg";
-      case "annotation-xml":
-        return name.equals("svg") ? "svg" : contentOf("math", e);
       case "math":
-        if (HtmlParser.MATHML_TEXT_PARENTS.contains(name)) {
-          return HTML;
-        }
-        if (name.equals("annotation-xml")) {
-          if (computed(e, "encoding")) {
-            return MIXED;
-          }
-          return HtmlParser.htmlAnnotation(HtmlParser.MATHML, name, e.attributes()) ? HTML : "annotation-xml";
-        }
-        return "math";
+        return HtmlParser.MATHML_TEXT_PARENTS.contains(name) ? HTML : "math";
       default:
         // Inside raw text a browser sees no elements at all; inside <select> it stays in select.
         return context;
     }
-  }
-
-  /** Whether {@code t:<name>} or a {@code t:attr} {@link HtmlParser#attrMaySet may set} {@code name} (lower-case). */
-  private static boolean computed(Element e, String name) {
-    for (Attribute a : e.attributes()) {
-      if (a.isTessera() && (HtmlParser.asciiLower(a.localName()).equals(name) || HtmlParser.attrMaySet(a, name))) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /**
