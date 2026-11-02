@@ -4,7 +4,6 @@ import java.util.AbstractMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -80,30 +79,6 @@ final class Migrator {
     return from == 0 ? source : sb.append(source, from, source.length()).toString();
   }
 
-  private static final class Edit {
-    private final int offset;
-    private final int length;
-    private final String replacement;
-
-    Edit(int offset, int length, String replacement) {
-      this.offset = offset;
-      this.length = length;
-      this.replacement = replacement;
-    }
-
-    int offset() {
-      return offset;
-    }
-
-    int length() {
-      return length;
-    }
-
-    String replacement() {
-      return replacement;
-    }
-  }
-
   /**
    * An open element: its lower-case name and the {@code th:inline} mode (stripped, lower case) that
    * governs its body, its own or the nearest ancestor's, or {@code null}.
@@ -121,7 +96,7 @@ final class Migrator {
   private static final class Handler extends AbstractMarkupHandler {
     private final String file;
     private final char[] doc;
-    private final List<Edit> edits = new ArrayList<>();
+    private final SourceEdits edits = new SourceEdits();
     private final List<Report.Item> items = new ArrayList<>();
     private final Set<String> roots = new LinkedHashSet<>();
     private final Set<String> locals = new LinkedHashSet<>();
@@ -232,8 +207,8 @@ final class Migrator {
       checkBuffer(buffer);
       String name = new String(buffer, nameOffset, nameLen);
       if (name.toLowerCase(Locale.ROOT).startsWith(ConversionRules.THYMELEAF_PREFIX)) {
-        edits.add(new Edit(nameOffset, ConversionRules.THYMELEAF_PREFIX.length(),
-            ConversionRules.TESSERA_PREFIX));
+        edits.add(nameOffset, nameOffset + ConversionRules.THYMELEAF_PREFIX.length(),
+            ConversionRules.TESSERA_PREFIX);
       }
     }
 
@@ -261,15 +236,16 @@ final class Migrator {
       }
       if (quotedValueEnd == nameOffset) {
         // A browser reads the two attributes the same with or without the space (#331).
-        edits.add(new Edit(nameOffset, 0, " "));
+        edits.add(nameOffset, nameOffset, " ");
         report(nameLine, String.format(ConversionRules.ATTRIBUTE_SPACE_MESSAGE, name));
       }
       quotedValueEnd = quoted ? valueOuterOffset + valueOuterLen : -1;
 
       if (lower.equals(ConversionRules.THYMELEAF_XMLNS)) {
-        edits.add(new Edit(nameOffset, nameLen, ConversionRules.TESSERA_XMLNS));
+        edits.add(nameOffset, nameOffset + nameLen, ConversionRules.TESSERA_XMLNS);
         if (value != null && ConversionRules.THYMELEAF_NAMESPACES.contains(Compat.strip(value))) {
-          edits.add(new Edit(valueContentOffset, valueContentLen, ConversionRules.TESSERA_NAMESPACE));
+          edits.add(valueContentOffset, valueContentOffset + valueContentLen,
+              ConversionRules.TESSERA_NAMESPACE);
         }
         return;
       }
@@ -288,13 +264,14 @@ final class Migrator {
         return; // plain HTML attribute
       }
       if (thymeleaf) {
-        edits.add(new Edit(nameOffset, ConversionRules.THYMELEAF_PREFIX.length(),
-            ConversionRules.TESSERA_PREFIX));
+        edits.add(nameOffset, nameOffset + ConversionRules.THYMELEAF_PREFIX.length(),
+            ConversionRules.TESSERA_PREFIX);
       }
-      if (inRoot && (ConversionRules.TESSERA_PREFIX + local).equals(ConversionRules.PARAMS)) {
+      boolean isParams = (ConversionRules.TESSERA_PREFIX + local).equals(ConversionRules.PARAMS);
+      if (inRoot && isParams) {
         rootHasParams = true;
       }
-      if (value != null && (ConversionRules.TESSERA_PREFIX + local).equals(ConversionRules.PARAMS)) {
+      if (value != null && isParams) {
         for (String param : Expressions.splitTopLevel(value, true)) {
           String[] tokens = Compat.strip(param).split("\\s+");
           declared.add(tokens[tokens.length - 1]);
@@ -313,9 +290,9 @@ final class Migrator {
         // A single-quoted original that already holds '"' keeps the content-only edit: no silent escaping.
         if ((!quoted && needsQuoting)
             || (singleQuoted && converted.indexOf('\'') >= 0 && converted.indexOf('"') < 0)) {
-          edits.add(new Edit(valueOuterOffset, valueOuterLen, '"' + converted + '"'));
+          edits.add(valueOuterOffset, valueOuterOffset + valueOuterLen, '"' + converted + '"');
         } else {
-          edits.add(new Edit(valueContentOffset, valueContentLen, converted));
+          edits.add(valueContentOffset, valueContentOffset + valueContentLen, converted);
         }
       }
     }
@@ -527,8 +504,8 @@ final class Migrator {
           if (state == STRING) {
             boolean whole = quoteAt == i - 1 && after < text.length() && text.charAt(after) == quote;
             if (whole && quote != '`') {
-              edits.add(new Edit(offset + quoteAt, 1, ""));
-              edits.add(new Edit(offset + after, 1, ""));
+              edits.add(offset + quoteAt, offset + quoteAt + 1, "");
+              edits.add(offset + after, offset + after + 1, "");
               report(lineAt(text, line, i), String.format(ConversionRules.SCRIPT_INLINE_UNQUOTED_MESSAGE,
                   codeSpan(quote + text.substring(i, after) + quote)));
               state = CODE;
@@ -633,7 +610,7 @@ final class Migrator {
             codeSpan(comment), codeSpan(Compat.strip(dropped))));
         return dropEnd; // Thymeleaf drops that text, so nothing in it is rewritten
       }
-      edits.add(new Edit(offset + i, dropEnd - i, content));
+      edits.add(offset + i, offset + dropEnd, content);
       String def = Compat.strip(dropped).isEmpty() ? "no default" : "the default " + codeSpan(Compat.strip(dropped));
       report(at, String.format(ConversionRules.SCRIPT_NATURAL_COMMENT_MESSAGE, codeSpan(comment + dropped.replaceAll("\\s+$", "")),
           codeSpan(content), def) + (escaped ? "" : ConversionRules.SCRIPT_NATURAL_UNESCAPED_MESSAGE));
@@ -761,21 +738,13 @@ final class Migrator {
         }
       }
       if (rootSeen && !rootHasParams && !params.isEmpty()) {
-        edits.add(new Edit(rootInsertAt, 0, " " + ConversionRules.PARAMS + "=\""
+        edits.add(rootInsertAt, rootInsertAt, " " + ConversionRules.PARAMS + "=\""
             + params.stream().map(p -> ConversionRules.UNKNOWN_TYPE + " " + p)
                 .collect(Collectors.joining(", "))
-            + "\""));
+            + "\"");
         params.forEach(p -> report(rootLine, String.format(ConversionRules.PARAM_STUB_MESSAGE, p)));
       }
-      edits.sort(Comparator.comparingInt(Edit::offset));
-      StringBuilder out = new StringBuilder(source.length() + 64);
-      int pos = 0;
-      for (Edit e : edits) {
-        out.append(source, pos, e.offset()).append(e.replacement());
-        pos = e.offset() + e.length();
-      }
-      out.append(source, pos, source.length());
-      return new Result(out.toString(), Collections.unmodifiableList(new ArrayList<>(items)));
+      return new Result(edits.apply(source), Collections.unmodifiableList(new ArrayList<>(items)));
     }
   }
 }

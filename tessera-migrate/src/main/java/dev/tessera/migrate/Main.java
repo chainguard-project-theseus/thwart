@@ -20,17 +20,11 @@ import org.attoparser.ParseException;
  * {@code tessera-migrate <thymeleaf-templates-dir> <output-dir> [--report report.md]}: converts
  * every {@code .html} template from Thymeleaf to Tessera syntax and writes a report listing,
  * per file and line, every construct it could not convert. Without {@code --report} the report
- * goes to standard output.
+ * goes to standard output. Exit codes: 0 on success (report items do not fail the run; the report
+ * is the audit), 1 if a template could not be read, parsed or written, 2 on a usage error.
  *
- * <p>Exit codes: 0 on success (report items do not fail the run; the report is the audit),
- * 1 if a template could not be read, parsed or written, 2 on a usage error.
- *
- * <p>{@code tessera-migrate record|compare <base-url> <pages.txt> <dir>}: the page-parity check
- * (see {@link Parity}). {@code record} saves every page of the running old app to {@code dir};
- * {@code compare} requests the same pages from the running new app and prints {@code same},
- * {@code reordered} or {@code differs} (the last two with a diff) per page. {@code compare} exits 0 only if
- * every page has its recorded status and final URL and is the same or reordered. {@code --ignore
- * REGEX} (repeatable) deletes the matches from both the recorded and the new page first.
+ * <p>{@code record} and {@code compare} are the page-parity check ({@link Parity}); {@link #USAGE}
+ * documents every command.
  */
 public final class Main {
   private Main() {}

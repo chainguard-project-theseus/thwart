@@ -18,7 +18,7 @@ checks:
     timeout: 15m
     network:
       egress: [repo.maven.apache.org, repo1.maven.org]
-    # maven/verify* run the other tests; smoke runs only the benchmark module's (#697).
+    # maven/verify* run the other tests; smoke and measure run only the benchmark module's (#697).
     vars: {MAVEN_ARGS: "-Dtest=dev/tessera/benchmarks/** -Dsurefire.failIfNoSpecifiedTests=false -DskipITs"}
     cmd: [bash, tessera-benchmarks/ci.sh, smoke]
   measure:
@@ -28,4 +28,5 @@ checks:
     timeout: 30m
     network:
       egress: [repo.maven.apache.org, repo1.maven.org]
+    vars: {MAVEN_ARGS: "-Dtest=dev/tessera/benchmarks/** -Dsurefire.failIfNoSpecifiedTests=false -DskipITs"}
     cmd: [bash, tessera-benchmarks/ci.sh, measure]
