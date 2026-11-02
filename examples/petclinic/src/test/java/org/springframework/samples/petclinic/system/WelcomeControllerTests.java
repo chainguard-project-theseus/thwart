@@ -45,7 +45,7 @@ class WelcomeControllerTests {
 			.andExpect(view().name("welcome"))
 			.andExpect(content().contentType("text/html;charset=UTF-8"))
 			.andExpect(content().string(stringContainsInOrder("<!DOCTYPE html>", "<html>",
-					"<title v-pre>PetClinic :: a Spring Framework demonstration</title>",
+					"<title>PetClinic :: a Spring Framework demonstration</title>",
 					"<a class=\"nav-link active\" href=\"/\" title=\"home page\">", "<span>Home</span>",
 					"<a class=\"nav-link\" href=\"/owners/find\" title=\"find owners\">", "<span>Find Owners</span>",
 					"<a class=\"nav-link\" href=\"/vets.html\" title=\"veterinarians\">",

@@ -2,8 +2,8 @@ package dev.tessera.compiler.verify;
 
 /**
  * What the context verifier rejects (#367). The names are stable rule ids: each error message
- * carries one ({@link VerifierMessages}), and #368 maps them to fix-its. Add new kinds at the end;
- * never rename or delete one: a retired id is no longer reported, and its constant stays.
+ * carries one ({@link VerifierMessages}), and #368 maps them to fix-its. Add new kinds at the end and
+ * never rename one.
  */
 public enum Problem {
   /** A text or RCDATA hole where the tokenizer isn't in data, RCDATA or never-executed raw text. */
@@ -19,12 +19,6 @@ public enum Problem {
    * reconstruct misnested formatting elements. The misnesting is a {@link #PARSE_ERROR}.
    */
   TEXT_RECONSTRUCTS,
-  /**
-   * An RCDATA hole (escaped for {@code <title>}/{@code <textarea>}, without the comments that break
-   * double braces) that a browser reads as ordinary text, where client frameworks look for them:
-   * also element text that one path or call writes in RCDATA and another as text (#378).
-   */
-  RCDATA_NOT_IN_RCDATA,
   /** An attribute hole that isn't in a double-quoted attribute value. */
   ATTRIBUTE_NOT_IN_VALUE,
   /** An attribute hole in a value of a different attribute than the compiler wrote (or a dropped duplicate). */
@@ -75,12 +69,6 @@ public enum Problem {
   /** An element other than {@code option}, {@code optgroup} or {@code hr} in a {@code <select>} (#305, exclusion (c)). */
   SELECT_CONTENT,
   /**
-   * Element text that one path or call writes as text (escaped with the comments that break
-   * double braces) and another as the text of a {@code <title>} or {@code <textarea>}, where the
-   * comments show as text (#378: the state names the escaper, so the two need different ones).
-   */
-  TEXT_IN_RCDATA,
-  /**
    * A CDATA section in an HTML or MathML text integration point (#441, exclusion (d), {@link
    * Rules#cdata}): some browsers read a comment there that ends at the first {@code >}.
    */
@@ -93,8 +81,8 @@ public enum Problem {
   UNCALLED_FRAGMENT_FITS_NOWHERE,
   /**
    * A value (any escaper) in the raw text of {@code <noscript>} (scripting on), {@code <xmp>},
-   * {@code <iframe>}, {@code <noembed>} or {@code <noframes>} (#586): an empty comment is text there,
-   * so nothing can break a {@code {{} in the value that a client template would run.
+   * {@code <iframe>}, {@code <noembed>} or {@code <noframes>} (#586): raw text decodes no character
+   * reference, so no escaper fits.
    */
   VALUE_IN_RAW_TEXT
 }

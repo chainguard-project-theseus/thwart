@@ -122,7 +122,7 @@ class OwnerControllerTests {
 			.andExpect(status().isOk())
 			.andExpect(model().attributeExists("owner"))
 			.andExpect(view().name("owners/createOrUpdateOwnerForm"))
-			.andExpect(content().string(stringContainsInOrder("<title v-pre>PetClinic :: a Spring Framework demonstration</title>", "<h2>Owner</h2>", "<form class=\"form-horizontal\" id=\"add-owner-form\" method=\"post\">", "<label class=\"col-sm-2 control-label\" for=\"firstName\">First Name</label>", "<input class=\"form-control\" type=\"text\" id=\"firstName\" name=\"firstName\" value=\"\" />", "id=\"telephone\" name=\"telephone\"", "<button class=\"btn btn-primary\" type=\"submit\">Add Owner</button>")))
+			.andExpect(content().string(stringContainsInOrder("<title>PetClinic :: a Spring Framework demonstration</title>", "<h2>Owner</h2>", "<form class=\"form-horizontal\" id=\"add-owner-form\" method=\"post\">", "<label class=\"col-sm-2 control-label\" for=\"firstName\">First Name</label>", "<input class=\"form-control\" type=\"text\" id=\"firstName\" name=\"firstName\" value=\"\" />", "id=\"telephone\" name=\"telephone\"", "<button class=\"btn btn-primary\" type=\"submit\">Add Owner</button>")))
 			.andExpect(content().string(not(containsString("has-error"))))
 			.andExpect(content().string(not(containsString("t:"))));
 	}

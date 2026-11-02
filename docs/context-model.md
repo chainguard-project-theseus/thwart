@@ -157,7 +157,7 @@ messages use them. The verifier names the escaper of element text from the parse
 | `noscript`: no `</noscript` before its own end tag, including in comments and static attribute values (decision 2) | parser (#298), kept: the verifier accepts `<noscript><!-- </noscript><script> --></noscript>` in a partial, where the `<script>` it leaves open is no parse error (#411) | seed `A9` | Lean `NoscriptBodyOK` (stricter: no `<` in comments or static attribute values) |
 | `noscript`: no `t:insert`, `t:utext`, `[(...)]`; no value, condition or loop at all inside it or `xmp`, `iframe`, `noembed`, `noframes` (#571) | generator (#298, #571) | `BrowserRawTextTest` | Lean: raw holes not modeled |
 | `svg`, `math` enter SVG/MathML mode; HTML breakout tags (`p`, `b`, `font` with `color`/`face`/`size`, ...) are errors there | verifier: PARSE_ERROR (#406), whose message names the fix since #442; parser (#301), kept: the verifier accepts a breakout tag that is never written (`<p t:remove="all">`) (#411) | seeds `A25`, `A26`, `B10`; generator interference "breakout tags" | JML (fork branch `proof-b-301`); Lean `svg_no_breakout`, `math_no_breakout` |
-| Integration points `title`, `desc` (SVG) and `mi`, `mo`, `mn`, `ms`, `mtext` (MathML) take text and TEXT holes only, with `{{` broken | parser (#301): the TEXT context, and `<` in an SVG or MathML `title` or `textarea`, kept with the same rule for `script` and `style` (next row); verifier: any CDATA section there, where browsers split (#296), exclusion (d) `CDATA_IN_INTEGRATION_POINT` (#441; the parser's rule for a `>` in a CDATA section in an SVG `title` went); text-only content phase 2 (#328) | seeds `A7`, `A21`, `A22`, `A48` | Lean `TextOnly` |
+| Integration points `title`, `desc` (SVG) and `mi`, `mo`, `mn`, `ms`, `mtext` (MathML) take text and TEXT holes only | parser (#301): the TEXT context, and `<` in an SVG or MathML `title` or `textarea`, kept with the same rule for `script` and `style` (next row); verifier: any CDATA section there, where browsers split (#296), exclusion (d) `CDATA_IN_INTEGRATION_POINT` (#441; the parser's rule for a `>` in a CDATA section in an SVG `title` went); text-only content phase 2 (#328) | seeds `A7`, `A21`, `A22`, `A48` | Lean `TextOnly` |
 | SVG `script` and `style` take no holes, no `<` and no `&` | verifier: no holes; parser: `<` and `&` (#301), kept: the verifier accepts static text that parses without errors, such as `<svg><style><!-- a{} --></style>` or `<svg><script>if (a && b) {}</script>` (#411) | seeds `A3`, `A4`, `A55`, `A56`, `A58`, `B0`, `B11` | Lean `StaticNoAmp` |
 | `foreignObject` holds an HTML subtree under these rules | parser (#301) | seeds `A23`, `B9`; `foreignObject` wrapper axis | Lean `NodeOK .svg` (`foreignobject`) |
 | `annotation-xml` with `encoding="text/html"` or `"application/xhtml+xml"` is an HTML integration point | verifier: a computed `encoding` in MathML is an error; parser (#301, static `encoding`); a computed `encoding`: in fragments #304, everywhere phase 2 (#328) (decision 4) | `annotation-xml` wrapper axis | Lean: MathML content only (stricter) |
@@ -185,7 +185,6 @@ parser rejects a duplicate attribute anyway; `ContextsTest.firstStaticScriptType
 | In a JSON script each hole is outside a `"..."` string, and there is no `/` outside strings | main (#540) | `ScriptPreludeTest` | n/a |
 | After the prelude, any static script text (no holes) | main (#540) | the hostile-value sweep's script pass (#543) aligns the AST after the slot | n/a |
 | No holes in SVG `<script>` | main: the verifier's `JSON_NOT_IN_SCRIPT` (#367) | seeds `A55`, `A56`, `A58`, `B0`, `B11` | Lean `StaticNoAmp` |
-| An unclosed static `{{` before a hole in the same script is an error | main (#303) | `ClientTemplateInjectionTest` (#303) | not yet |
 
 The one Rhino check of script values is the script pass of the hostile-value sweep
 (`HostileSweepTest`, #543): for every prelude shape the compiler accepts, each hostile value must be
@@ -316,7 +315,7 @@ HTML takes only a framework-neutral value (`NEUTRAL`).
 | `REFRESH` | `content` of `<meta http-equiv="refresh">` | `Escapers.refresh` | main | seed `B3` | `Esc` `htmlSafe` |
 | `STYLE` | `style` attribute; SVG `fill stroke clip-path mask filter marker-start marker-mid marker-end marker cursor` (not `fill` on an animation element); `values to from by` of an animation whose static `attributeName` is one of them (the attribute name folds A-Z only, as in a browser: `attrıbuteName` with a dotless i is another attribute) | `Escapers.attr`, literals, numbers and `CssValue` only | main | `StyleAttributeTest`, `ContextsTest` | not yet |
 | `EVENT_HANDLER` | `on*` | none: build error | main | `ContextsTest` | n/a |
-| `FORBIDDEN` | `srcdoc`, `<script type>`, `<meta http-equiv>`, `attributeName` of an SVG animation element, a computed htmx 1.x `hx-sse` or `hx-ws` (#562), attributes the tree builder reads (`is`, `xmlns`, `xmlns:xlink`; `<template>` `shadowroot*` and `for`; `<meta>` `charset`, and `content` under a static `http-equiv="Content-Type"`), names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x`, `#x`, `.x` included: stricter than rule 3) | none: build error | main | `ContextsTest`, `NeutralValuesTest` | n/a |
+| `FORBIDDEN` | `srcdoc`, `<script type>`, `<meta http-equiv>`, `attributeName` of an SVG animation element, attributes the tree builder reads (`is`, `xmlns`, `xmlns:xlink`; `<template>` `shadowroot*` and `for`; `<meta>` `charset`, and `content` under a static `http-equiv="Content-Type"`), names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x`, `#x`, `.x` included: stricter than rule 3) | none: build error | main | `ContextsTest`, `NeutralValuesTest` | n/a |
 
 ### 6.2 Which computed names are accepted
 
@@ -336,20 +335,18 @@ Static attributes are copied verbatim and are not affected by these rules, excep
 
 There is no framework table (#583-#587): client code that evaluates attribute values or DOM text
 is outside the guarantee (principle 7), and the compiler constrains the shape of its own output
-instead (`NEUTRAL` above, `{{` below). The hostile sweep checks that shape without naming a
-framework either (#587). The framework-named code that remains: a computed htmx 1.x `hx-ws` or
-`hx-sse` is a build error (#562), and `v-pre` on a computed `<title>` or `<textarea>` (#586).
+only in attributes (`NEUTRAL` above). Computed text is plain-escaped with the one HTML escaper
+(#679, reversing #248): `{{` in a value renders as `{{`, and no `v-pre` is added. Client
+frameworks that compile the server's DOM as a template are unsupported; a strict CSP is the
+backstop (#335, guide §4.9). The hostile sweep checks the attribute shape without naming a
+framework (#587).
 
-| `{{` rule | Status | Checked by |
+| Rule | Status | Checked by |
 |---|---|---|
-| Every `{` and `}` of an element text value between two `<!---->` (#571) | main | hostile value `{{PWN()}}`; `EscapersTest`, `TextChokePointTest`, `ClientTemplateInjectionTest` |
-| `{{` broken in SVG/MathML text | #301 (TEXT context) | seed `A7` |
-| `{` as `\u007b` in JSON strings | main (#303) | `ScriptJsonTest` (#303) |
-| A static `{` or `}` in element text (CDATA in foreign content included) outside a complete `{{ ... }}` in one literal is an error, whatever is next to it; in a script, an unclosed static `{{` before a hole | main (#571, replacing the #336 edge rule; nothing about neighbours is looked at); script main (#303) | seed `A18`; `ClientTemplateInjectionTest` |
-| A static `&` that starts a character reference before a hole is an error, so a value can't spell `{` as `&#123;` (`&[[a]]&[[b]]`, a = b = `#123;`) | verifier (`TEXT_NOT_IN_TEXT`, §2 "Text: hole after `&`") | `ValueAfterAmpersandTest`, `EscapersTest` |
-| RCDATA (`<title>`, `<textarea>`): no lossless break, so a computed one gets the constant attribute `v-pre` (Vue, petite-vue), whatever else is on it; no duplicate `v-pre`. Its static text follows the element-text brace rule above | main (#549, simplified in #586) | `VPreRcdataTest`, `ClientTemplateInjectionTest`; that Vue 3.5.44 and petite-vue 0.4.1 skip it was checked by hand in Chromium (the hostile value runs without `v-pre`, not with it), framework harness rows #334 |
-| RAWTEXT (`xmp`, `iframe`, `noembed`, `noframes`, `noscript`): no break at all, so a value, condition or loop inside is an error | verifier for values (`VALUE_IN_RAW_TEXT`, #586); generator early error for values, conditions and loops (#571) | `ContextVerifierRulesTest`, `BrowserRawTextTest` |
-| What client code makes of static markup, standard attribute values (class tokens included) and custom delimiters, AngularJS included: outside the guarantee (guide §5) | not modelled; a strict CSP is the backstop (#335, guide §4.9) | seed `A37` |
+| Element text, RCDATA and attribute values use one escaper (`& < > " '`) | main (#679) | `EscapersTest`, `EscaperFuzzTest`, `ClientTemplateInjectionTest` |
+| `{` as `{` in JSON strings, as defence in depth | main (#303) | `ScriptJsonTest` (#303) |
+| RAWTEXT (`xmp`, `iframe`, `noembed`, `noframes`, `noscript`): no character reference is decoded, so a value, condition or loop inside is an error | verifier for values (`VALUE_IN_RAW_TEXT`, #586); generator early error for values, conditions and loops (#571) | `ContextVerifierRulesTest`, `BrowserRawTextTest` |
+| What client code makes of the page, static markup, text and standard attribute values: outside the guarantee (guide §5) | not modelled; a strict CSP is the backstop | seed `A37` |
 
 ### 6.4 The CSP nonce (#335)
 
@@ -411,25 +408,20 @@ scripting on and off; a template is accepted only if both accept it. Retired ids
 reported; their names stay reserved.
 The id in brackets ends every error message (`[verifier:ID]`), for #368's fix-its.
 
-The parser state names the one escaper a hole may have (#378): data `text`, RCDATA `rcdata`, the
-script data of an HTML `<script>` `json`, a double-quoted attribute value an attribute escaper
-for that attribute (which one is policy, `Contexts.attribute`). Raw text names none: no hole is
-accepted there (#586). A hole with another escaper is rejected, so a hole whose paths reach states that name
-different escapers is rejected (Go's branch rule). For element text the verifier makes the choice:
-the compiler writes a `text` hole with its escaper left open, the first state that names one
-(`text` or `rcdata`) decides it, and the processor sets it in the generated code before writing
-it. Since #461 every fragment's holes are reached. Element text that one path or call writes in
-RCDATA and another in data is rejected (`TEXT_IN_RCDATA`, `RCDATA_NOT_IN_RCDATA`).
+The parser state names the one escaper a hole may have (#378): data and RCDATA `text` (one
+escaper since #679), the script data of an HTML `<script>` `json`, a double-quoted attribute value
+an attribute escaper for that attribute (which one is policy, `Contexts.attribute`). Raw text
+names none: no hole is accepted there (#586). A hole with another escaper is rejected, so a hole
+whose paths reach states that name different escapers is rejected (Go's branch rule). Since #461
+every fragment's holes are reached.
 
 | Id | Rejects | Accepted instead |
 |---|---|---|
-| `TEXT_NOT_IN_TEXT` | a `text` or `rcdata` hole inside a tag, comment, character reference, CDATA, doctype or `plaintext` | data state; RCDATA |
-| `TEXT_IN_SCRIPT` | a `text` or `rcdata` hole in script data, `style`, or SVG/MathML `script`/`style` | as above |
+| `TEXT_NOT_IN_TEXT` | a `text` hole inside a tag, comment, character reference, CDATA, doctype or `plaintext` | data state; RCDATA |
+| `TEXT_IN_SCRIPT` | a `text` hole in script data, `style`, or SVG/MathML `script`/`style` | as above |
 | `TEXT_IN_TABLE` | a `text` hole in a table, table body, row or column group (foster-parented table text; an element foster-parented out of the table is a parse error) | in a cell or caption |
 | `TEXT_OUTSIDE_BODY` | a `text` hole before `<html>`, in or after the head, after the body, in a frameset | in body, cell, caption, `select`, `template`; in foreign content |
 | `TEXT_RECONSTRUCTS` | retired (#410): a `text` hole where formatting elements closed out of order would be reopened first. The misnesting is a parse error | |
-| `RCDATA_NOT_IN_RCDATA` | an `rcdata` hole (no `{{` breaking) a browser reads as ordinary text; element text written in RCDATA first and then in data | RCDATA |
-| `TEXT_IN_RCDATA` (#378) | element text written in data first (with the comments that break `{{`) and then in the RCDATA of `<title>` or `<textarea>`, where the comments would show | one escaper for every path and call |
 | `ATTRIBUTE_NOT_IN_VALUE`, `ATTRIBUTE_WRONG_NAME` | an attribute hole outside a double-quoted value, or in another attribute's value (or a dropped duplicate) | the double-quoted value of the attribute the compiler wrote, compared case-insensitively |
 | `ATTRIBUTE_VALUE_CHANGES_PARSE` | a computed `encoding` in MathML (an `<input>` in a table mode is a parse error with any `type`) | static values |
 | `JSON_NOT_IN_SCRIPT` | a `json` hole outside the script data of an HTML `<script>` (SVG `script`, escaped script data, CDATA) | script data, also right after `<` (no JSON starts with `/` or `!`) |
@@ -445,7 +437,7 @@ RCDATA and another in data is rejected (`TEXT_IN_RCDATA`, `RCDATA_NOT_IN_RCDATA`
 | `UNCALLED_FRAGMENT_FITS_NOWHERE` (#461) | a fragment no template calls, declared where no fragment fits (raw text, mixed `svg`/`math`, `t:remove="tag"` content). Every other fragment no template calls is checked on its own: declared in HTML content, in the fragment contexts its root elements imply (as a document only if it is a page); in `svg`, `math` or `select` content, in that element | a fragment some template calls, or one declared in HTML, `svg`, `math` or `select` content |
 | `LOOP_NO_FIXED_POINT`, `STRUCTURE_DEPENDS_ON_DATA` | a loop, or a fragment calling itself, that reaches new parser states after 4 rounds (or more than 24 states for one recursive fragment); anything reached only through recursion | loops and recursion that settle |
 | `TOO_MANY_STATES` | more than 24 distinct parser states at a join | |
-| `VALUE_IN_RAW_TEXT` (#586) | any hole, whatever its escaper, in the raw text of `noscript` (scripting on), `iframe`, `xmp`, `noembed` or `noframes`, where an empty comment is text and nothing breaks a value's `{{` (the CSRF input of a `<form>` inside `<noscript>` included) | static content; the value outside the element |
+| `VALUE_IN_RAW_TEXT` (#586) | any hole, whatever its escaper, in the raw text of `noscript` (scripting on), `iframe`, `xmp`, `noembed` or `noframes`, which decodes no character reference (the CSRF input of a `<form>` inside `<noscript>` included) | static content; the value outside the element |
 | `ENGINE_FAILURE`, `UNKNOWN_NODE` | a parser that throws or reports an unnamed state; a fragment the skeleton doesn't define | |
 
 A computed attribute (`[ name="..."]`) inside a start tag is one path: writing it or not leaves the

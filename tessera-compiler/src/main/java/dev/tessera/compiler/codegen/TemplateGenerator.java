@@ -139,7 +139,6 @@ public final class TemplateGenerator implements CodegenContext {
     copies = new ArrayList<>();
 
     validate(document.rootElement(), document.children());
-    TextInlining.checkBraces(this, document.children(), null);
     Scope scope = Scope.empty();
     for (TemplateIndex.Param p : info.params()) {
       scope = scope.with(new Variable(p.name(), p.type(), javaName(p.name())));
@@ -540,7 +539,7 @@ public final class TemplateGenerator implements CodegenContext {
         if (!plan.tagOmitted() && e.selfClosing() && ParsingContexts.rawTextElement(e) && !opensSelfClosing(plan)) {
           selfClosingRawText(e);
         }
-        // The content is generated first: whether the start tag gets v-pre depends on it.
+        // The content is generated first: the raw-text check below needs it.
         Emitted.Builder content = builder();
         for (Emitted s : plan.afterStartTagStatements()) {
           content.add(s);
@@ -555,15 +554,14 @@ public final class TemplateGenerator implements CodegenContext {
         Emitted written = content.build();
         if (!plan.tagOmitted()) {
           if (Contexts.browserRawText(e.name()) && computed(written.nodes())) {
-            // A comment cannot break a value's {{ in raw text (#571): only static content there. The
+            // Raw text decodes no character reference, so no escaper fits: only static content there. The
             // verifier rejects every value there too (VALUE_IN_RAW_TEXT, #586); this also covers conditions and loops.
             diagnostics()
                 .error(e.pos(), "a value, condition or loop inside <" + HtmlParser.asciiLower(e.name()) + "> is not"
-                    + " supported: a browser reads its content as raw text, where nothing can break a {{ in a value"
-                    + " that a client template would run as code; write the content as static text, or move the"
-                    + " value outside the element");
+                    + " supported: a browser reads its content as raw text, which decodes no escaping; write the"
+                    + " content as static text, or move the value outside the element");
           }
-          startTag(c, plan, addsVPre(plan, written));
+          startTag(c, plan);
           if (leadingLineFeed && !startsWithStatic(written.nodes())) {
             c.text("\n", e.pos());
           }
@@ -611,27 +609,6 @@ public final class TemplateGenerator implements CodegenContext {
             + lower + "; write <" + lower + " ...></" + lower + ">");
   }
 
-  /**
-   * Whether the start tag of {@code plan}'s {@code <textarea>} or {@code <title>} gets the constant
-   * attribute {@code v-pre} (#549, #586): the one framework-named output. Their text is RCDATA,
-   * where a comment is text, so no output shape breaks a value's {{, and Vue and petite-vue
-   * interpolate it in a mounted region; both skip an element with {@code v-pre}, and anywhere else
-   * it is an inert unknown attribute. Added whenever the content is computed ({@code content}
-   * writes anything but static text), unless a static {@code v-pre} is already written.
-   */
-  private static boolean addsVPre(ElementPlan plan, Emitted content) {
-    String lower = HtmlParser.asciiLower(plan.element().name());
-    if (!lower.equals("textarea") && !lower.equals("title") || !computed(content.nodes())) {
-      return false;
-    }
-    for (ElementPlan.Attr a : plan.attributes()) {
-      if (a instanceof ElementPlan.StaticAttr && HtmlParser.asciiLower(a.name()).equals(Contexts.VUE_SKIP)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   /** Whether {@code nodes} write anything but static text. */
   private static boolean computed(List<Skeleton.Node> nodes) {
     for (Skeleton.Node n : nodes) {
@@ -642,11 +619,11 @@ public final class TemplateGenerator implements CodegenContext {
     return false;
   }
 
-  private void startTag(Emitted.Builder c, ElementPlan plan, boolean vPre) {
+  private void startTag(Emitted.Builder c, ElementPlan plan) {
     Element e = plan.element();
     boolean nonce = takesCspNonce(plan);
     String source = sourceStartTag(e);
-    if (source != null && !nonce && !vPre && unchanged(e, plan)) {
+    if (source != null && !nonce && unchanged(e, plan)) {
       c.text(source, e.pos());
       return;
     }
@@ -658,10 +635,6 @@ public final class TemplateGenerator implements CodegenContext {
       } else {
         c.add(dynamicAttr(e, (ElementPlan.DynamicAttr) a));
       }
-    }
-    if (vPre) {
-      // Static text in the skeleton, exactly as written, so the verifier parses it (§11.3 item 1).
-      c.text(" " + Contexts.VUE_SKIP, e.pos());
     }
     if (nonce) {
       String n = freshName("nonce");

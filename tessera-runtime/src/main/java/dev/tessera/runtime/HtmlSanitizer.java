@@ -555,9 +555,7 @@ final class HtmlSanitizer {
    * re-escaped, and {@link #HTML4_NAMES} references such as {@code &eacute;} are kept as they are.
    * Any other {@code &} is escaped, so a named reference such as {@code &notit;} or {@code &X;}
    * comes out as {@code &amp;notit;}: copied as written, the parser would report a parse error for
-   * it (a legacy name such as {@code &not} without its ';', or an unknown name; #592). The
-   * references for braces are known, so every brace goes through the text escaper, which breaks
-   * {@code {{} as {@link Escapers#text} does (#248).
+   * it (a legacy name such as {@code &not} without its ';', or an unknown name; #592).
    */
   private void text(int from, int to) {
     if (dropping != null || from >= to) {
@@ -584,7 +582,7 @@ final class HtmlSanitizer {
       if (end > 0) {
         i = end;
       } else if ((end = html4Named(s, i, to)) > 0) {
-        Escapers.appendText(out, crAsLf(pending.toString()));
+        Escapers.appendHtml(out, crAsLf(pending.toString()));
         pending.setLength(0);
         out.append(s, i, end);
         i = end;
@@ -593,13 +591,13 @@ final class HtmlSanitizer {
         i++;
       }
     }
-    Escapers.appendText(out, crAsLf(pending.toString()));
+    Escapers.appendHtml(out, crAsLf(pending.toString()));
   }
 
   /**
    * {@code s} with every CR (here only a reference such as {@code &#13;} makes one) written as the
    * LF the parser reads it as (#592). Code points the parser reports as errors in its input are
-   * left to the writers, {@link Escapers#appendText} and {@link Escapers#appendHtml}, which write
+   * left to the writer, {@link Escapers#appendHtml}, which writes
    * them as U+FFFD ({@link Escapers#forbiddenCodePoint}, #614), so the output parses without an error.
    */
   private static String crAsLf(String s) {

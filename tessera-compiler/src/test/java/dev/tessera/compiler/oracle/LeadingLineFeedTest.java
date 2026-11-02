@@ -38,9 +38,9 @@ class LeadingLineFeedTest {
     return c.render("t", model("s", s, "c", true, "l", l));
   }
 
-  /** The start tag of {@code element} with computed content: a textarea gets v-pre (#549). */
+  /** The start tag of {@code element} with computed content. */
   private static String start(String element) {
-    return element.equals("textarea") ? "<textarea v-pre>" : "<" + element + ">";
+    return "<" + element + ">";
   }
 
   /** The text content of the first {@code element} in {@code html}, as the spec parser builds it. */
@@ -123,13 +123,13 @@ class LeadingLineFeedTest {
     Compilation c = compile("<pre>\nx [[${s}]]\n</pre><pre>y</pre><pre><b>[[${s}]]</b>\nx</pre><textarea></textarea>"
         + "<textarea>\n[[${s}]]</textarea>");
     assertEquals("<div><pre>\nx a\n</pre><pre>y</pre><pre><b>a</b>\nx</pre><textarea></textarea>"
-        + "<textarea v-pre>\na</textarea></div>", render(c, "a"));
+        + "<textarea>\na</textarea></div>", render(c, "a"));
   }
 
   @Test
   void anSvgTextareaGetsNoLineFeed() {
     // Inside <svg> a <textarea> is an SVG element, which drops nothing.
     Compilation c = compile("<svg><textarea>[[${s}]]\nx</textarea></svg>");
-    assertEquals("<div><svg><textarea v-pre>\nz\nx</textarea></svg></div>", render(c, "\nz"));
+    assertEquals("<div><svg><textarea>\nz\nx</textarea></svg></div>", render(c, "\nz"));
   }
 }

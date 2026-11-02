@@ -29,10 +29,6 @@ class ContextCheckTest {
     return esc(Escapers::text, v);
   }
 
-  private static String rcdata(String v) {
-    return esc(Escapers::rcdata, v);
-  }
-
   private static String attr(String v) {
     return esc(Escapers::attr, v);
   }
@@ -102,7 +98,7 @@ class ContextCheckTest {
   @Test
   void onlyIdenticalEscapersCollide() {
     Set<OutputContext> entity =
-        EnumSet.of(OutputContext.RCDATA, OutputContext.ATTRIBUTE, OutputContext.URL,
+        EnumSet.of(OutputContext.TEXT, OutputContext.ATTRIBUTE, OutputContext.URL,
             OutputContext.RESOURCE_URL);
     Set<Set<OutputContext>> raw = new HashSet<>();
     Set<Set<OutputContext>> decoded = new HashSet<>();
@@ -111,17 +107,15 @@ class ContextCheckTest {
       decoded.add(Fingerprint.classify(Fingerprint.core(c, true), 0, true));
     }
     assertEquals(
-        Set.of(EnumSet.of(OutputContext.TEXT), entity, EnumSet.of(OutputContext.SCRIPT)), raw);
+        Set.of(entity, EnumSet.of(OutputContext.SCRIPT)), raw);
     assertEquals(
-        Set.of(EnumSet.of(OutputContext.TEXT), entity, EnumSet.of(OutputContext.SCRIPT)), decoded);
-    // The distinct families really differ in what the parser sees, not only in the bytes.
-    assertFalse(Fingerprint.core(OutputContext.TEXT, true).equals(Fingerprint.core(OutputContext.RCDATA, true)));
+        Set.of(entity, EnumSet.of(OutputContext.SCRIPT)), decoded);
   }
 
   /**
    * Link cores: a path segment encodes everything the escapers touch, so it reads the same in every
-   * context; a query value keeps {@code '} and {@code /}, which still split the entity family (with
-   * TEXT: no braces left to break), JSON, and REFRESH (which percent-encodes {@code '}).
+   * context; a query value keeps {@code '} and {@code /}, which still split the entity family,
+   * JSON, and REFRESH (which percent-encodes {@code '}).
    */
   @Test
   void linkCoresCollideOnlyWhereIdentical() {
@@ -132,7 +126,7 @@ class ContextCheckTest {
       }
     }
     Set<OutputContext> entity =
-        EnumSet.of(OutputContext.TEXT, OutputContext.RCDATA, OutputContext.ATTRIBUTE,
+        EnumSet.of(OutputContext.TEXT, OutputContext.ATTRIBUTE,
             OutputContext.URL, OutputContext.RESOURCE_URL);
     for (boolean decoded : new boolean[] {false, true}) {
       Set<Set<OutputContext>> path = new HashSet<>();
@@ -190,13 +184,6 @@ class ContextCheckTest {
         "/html/body/p text", "SCRIPT", "HTML element text");
   }
 
-  /** #277: an RCDATA-escaped value in SVG {@code <title>}, which is foreign markup, not RCDATA. */
-  @Test
-  void rcdataInSvgTitle() {
-    assertMismatch("<svg><title>" + rcdata(FP) + "</title></svg>",
-        "/html/body/svg[svg]/title[svg] text", "RCDATA", "foreign element text");
-  }
-
   @Test
   void textInScript() {
     assertMismatch("<script>var a = " + text(FP) + ";</script>", "/html/body/script text", "TEXT",
@@ -207,10 +194,6 @@ class ContextCheckTest {
 
   @Test
   void otherWrongPlaces() {
-    // TEXT escaping in RCDATA shows the comment as text.
-    assertMismatch("<title>" + text(FP) + "</title>", "RCDATA element text");
-    // Entity escaping in flow text doesn't break {{.
-    assertMismatch("<p>" + attr(FP) + "</p>", "/html/body/p text");
     // Entity escaping in an event handler, srcdoc or a name outside HTML.
     assertMismatch("<p onclick=\"" + attr(FP) + "\">x</p>", "/html/body/p/@onclick");
     // An event handler is not plain at all, so no neutral value would help: no outside-HTML note.
@@ -226,19 +209,12 @@ class ContextCheckTest {
 
   /**
    * Places an escaper's output is wrong in that the first version accepted or never tried: attributes
-   * that decide how other content is read, refresh content, text the parser
-   * foster-parents out of a table (its {@code {<!---->{} break is split: the comment stays in the
-   * table, the braces join in the text before it), SVG {@code <textarea>} and a MathML
-   * {@code <title>}.
+   * that decide how other content is read, and refresh content.
    */
   @Test
   void moreWrongPlaces() {
     assertMismatch("<script type=\"" + attr(FP) + "\"></script>", "@type");
     assertMismatch("<meta http-equiv=\"refresh\" content=\"0;url=/?q=" + attr(FP) + "\">", "@content");
-    assertMismatch("<table>" + text(FP) + "<tr><td>x</td></tr></table>", "/html/body text");
-    assertMismatch("<svg><textarea>" + rcdata(FP) + "</textarea></svg>", "textarea[svg] text");
-    assertMismatch("<math><annotation-xml><title>" + rcdata(FP) + "</title></annotation-xml></math>",
-        "title[math] text");
     // An SVG presentation attribute that takes a CSS url() is CSS, like style; an animation's fill
     // is its timing attribute, and an HTML element's fill is plain.
     assertMismatch("<svg><rect fill=\"" + attr(FP) + "\"/></svg>", "@fill");
@@ -370,8 +346,8 @@ class ContextCheckTest {
     cases.put("TEXT svg", "<svg><text>" + text(FP) + "</text></svg>");
     cases.put("TEXT math", "<math><mi>" + text(FP) + "</mi></math>");
     cases.put("TEXT foreignObject", "<svg><foreignObject><p>" + text(FP) + "</p></foreignObject></svg>");
-    cases.put("RCDATA title", "<title>" + rcdata(FP) + "</title>");
-    cases.put("RCDATA textarea", "<textarea>" + rcdata(FP) + "</textarea>");
+    cases.put("TEXT title", "<title>" + text(FP) + "</title>");
+    cases.put("TEXT textarea", "<textarea>" + text(FP) + "</textarea>");
     cases.put("ATTRIBUTE", "<p title=\"" + attr(FP) + "\">x</p>");
     cases.put("URL", "<a href=\"" + esc(Escapers::url, FP) + "\">x</a>");
     cases.put("RESOURCE_URL", "<script src=\"" + esc(Escapers::resourceUrl, FP) + "\"></script>");

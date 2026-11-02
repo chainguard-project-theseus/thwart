@@ -6,18 +6,8 @@ package dev.tessera.compiler.model;
  * to exactly one runtime escaper; contexts without an escaper are build errors.
  */
 public enum OutputContext {
-  /**
-   * Element text. The escaper also breaks {@code {{} with an empty comment, so client-side
-   * frameworks that compile the DOM as a template do not interpolate values (#248).
-   */
+  /** Element text, the RCDATA of {@code <title>} and {@code <textarea>} included. */
   TEXT("text"),
-  /**
-   * Text in {@code <title>} or {@code <textarea>} (RCDATA, #248). Escaped like TEXT, but
-   * {@code {{} is not broken: a comment would show as text there, so the generator adds
-   * {@code v-pre} to a computed {@code <title>} or {@code <textarea>} (#549). The parser never
-   * picks it: the verifier names this escaper for TEXT where a browser reads RCDATA (#378).
-   */
-  RCDATA("rcdata"),
   /**
    * Quoted value of a plain-text attribute: an inert-text attribute ({@code inert-attributes.txt}),
    * or a named {@code <meta>}'s {@code content}. Generated
@@ -81,7 +71,7 @@ public enum OutputContext {
    * Anything else we cannot escape safely ({@code srcdoc}, non-JS {@code <script type>}), an
    * attribute that decides how others are read (a {@code <script>}'s {@code type}, a
    * {@code <meta>}'s {@code http-equiv}, an animation's {@code attributeName},
-   * {@code hx-ws}, {@code hx-sse}, tree-builder inputs), and names that are not plain identifiers:
+   * tree-builder inputs), and names that are not plain identifiers:
    * expressions are a build error.
    */
   FORBIDDEN(null);

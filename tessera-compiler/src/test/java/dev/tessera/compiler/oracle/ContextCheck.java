@@ -318,10 +318,9 @@ public final class ContextCheck {
   static boolean belongs(OutputContext context, Location loc) {
     boolean svg = SVG.equals(loc.namespace());
     return switch (context) {
-      case TEXT -> loc.place() == Place.HTML_TEXT
+      case TEXT -> loc.place() == Place.HTML_TEXT || loc.place() == Place.RCDATA_TEXT
           || (loc.place() == Place.FOREIGN_TEXT
               && !(svg && (loc.element().equals("script") || loc.element().equals("style"))));
-      case RCDATA -> loc.place() == Place.RCDATA_TEXT;
       case ATTRIBUTE, URL, RESOURCE_URL ->
           loc.place() == Place.ATTRIBUTE && plainAttribute(loc.node(), loc.attribute())
               && (!outsideHtml(loc.attribute()) || HostileSinks.neutral(loc.value()));

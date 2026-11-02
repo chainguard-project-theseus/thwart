@@ -161,9 +161,6 @@ final class HandBuilt {
                   }
                   files.addAll(new RegistryGenerator(env, index).generate());
                   if (!diagnostics.hasErrors()) {
-                    Map<Skeleton.Hole, Skeleton.Escaper> escapers = Compilation.unverifiedEscapers(skeletons);
-                    files.replaceAll(f -> f.kind() == GeneratedFile.Kind.JAVA
-                        ? new GeneratedFile(f.kind(), f.name(), Emitted.resolve(f.content(), escapers)) : f);
                     write(pe, files);
                   }
                 })
