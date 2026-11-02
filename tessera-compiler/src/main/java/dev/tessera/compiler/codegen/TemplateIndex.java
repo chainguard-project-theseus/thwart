@@ -3,6 +3,7 @@ package dev.tessera.compiler.codegen;
 import dev.tessera.compiler.Backports;
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.DiagnosticSink;
+import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.expr.ExpressionParser;
 import dev.tessera.compiler.expr.FragmentSignature;
@@ -303,7 +304,8 @@ public final class TemplateIndex {
       }
       TypeMirror type = expressions.resolveType(d.type(), imports);
       if (type != null) {
-        out.add(new Param(d.name(), type, type.toString()));
+        boolean fragment = ExpressionCompiler.isDeclared(type, dev.tessera.runtime.Fragment.class.getName());
+        out.add(new Param(d.name(), type, fragment ? JavaStrings.FRAGMENT_BODY : type.toString()));
       }
     }
     return out;
@@ -311,17 +313,20 @@ public final class TemplateIndex {
 
   /**
    * {@code Field} is a fragment parameter type only: its argument is a field path checked at the
-   * call site, which a template rendered from a model has no way to supply.
+   * call site, which a template rendered from a model has no way to supply. So is {@code Fragment}
+   * (#676): no Java code can build one, so only a template calling the fragment can pass it.
    */
   private static List<Param> withoutFields(List<Param> params, List<ParamDecl> decls, DiagnosticSink sink) {
     List<Param> out = new ArrayList<>();
     for (Param p : params) {
-      if (FormPaths.isField(p.type())) {
+      boolean fragment = p.javaType().equals(JavaStrings.FRAGMENT_BODY);
+      if (FormPaths.isField(p.type()) || fragment) {
         SourcePos pos = decls.stream().filter(d -> d.name().equals(p.name())).findFirst().map(ParamDecl::pos).get();
         sink.error(
             pos,
-            "parameter '" + p.name() + "' has type Field, which only fragment parameters may have: declare it in a"
-                + " t:fragment signature");
+            "parameter '" + p.name() + "' has type " + (fragment ? "Fragment" : "Field") + ", which only fragment"
+                + " parameters may have: declare it in a t:fragment signature"
+                + (fragment ? " and pass it ~{...} from the template that calls it (Java can't build a Fragment, #676)" : ""));
       } else {
         out.add(p);
       }

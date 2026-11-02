@@ -6,8 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.testing.Compilation;
-import dev.tessera.compiler.testing.TestFragments;
-import dev.tessera.runtime.Fragment;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -36,10 +34,6 @@ class FragmentsTest {
     return Compilation.builder()
         .java("com.example.User", "package com.example; public record User(String name) {}")
         .template("fragments/cards.html", CARDS);
-  }
-
-  private static Fragment text(String s) {
-    return TestFragments.markup(s);
   }
 
   @Test
@@ -128,7 +122,7 @@ class FragmentsTest {
     }
     for (String name : List.of("ATemplate", "LayTemplate", "BaseTemplate")) {
       for (java.lang.reflect.Method m : c.classLoader().loadClass("tessera.generated." + name).getMethods()) {
-        assertFalse(List.of(m.getParameterTypes()).contains(Fragment.class), name + "." + m.getName());
+        assertFalse(List.of(m.getParameterTypes()).contains(dev.tessera.runtime.Fragment.Body.class), name + "." + m.getName());
       }
     }
   }
@@ -139,18 +133,18 @@ class FragmentsTest {
         base()
             .template(
                 "page.html",
-                "<main " + NS + " t:params=\"Fragment body\">"
+                "<main " + NS + ">"
                     + "<div t:replace=\"~{fragments/cards :: card('A', ~{::p})}\">x</div>"
-                    + "<div t:replace=\"fragments/cards :: card(content=body, title='B')\">x</div>"
+                    + "<div t:replace=\"fragments/cards :: card(content=~{::span}, title='B')\">x</div>"
                     + "<div t:insert=\"~{fragments/cards :: plain}\">x</div>"
                     + "<div t:insert=\"~{fragments/cards :: plain()}\">x</div>"
-                    + "<p>para</p></main>")
+                    + "<p>para</p><span>BODY</span></main>")
             .compile()
             .assertSuccess();
     assertEquals(
-        "<main><section><h3>T</h3><p>para</p></section><section><h3>T</h3>BODY</section>"
-            + "<div><i>plain</i></div><div><i>plain</i></div><p>para</p></main>",
-        c.render("page", Map.of("body", text("BODY"))));
+        "<main><section><h3>T</h3><p>para</p></section><section><h3>T</h3><span>BODY</span></section>"
+            + "<div><i>plain</i></div><div><i>plain</i></div><p>para</p><span>BODY</span></main>",
+        c.render("page", Map.of()));
   }
 
   @Test
@@ -191,17 +185,17 @@ class FragmentsTest {
     // <body> is a parse error (#406). t:remove="tag" on the page's <body> passes only its content.
     Compilation.builder()
         .template("fragments/layout.html", LAYOUT)
-        .template("owners/list.html", "<!DOCTYPE html>\n<html " + NS + " t:params=\"Fragment extra\""
+        .template("owners/list.html", "<!DOCTYPE html>\n<html " + NS
             + " t:replace=\"~{fragments/layout :: layout(~{::body}, 'owners')}\">\n"
-            + "<body><h2>Owners</h2><div t:insert=\"extra\">x</div></body>\n</html>\n")
+            + "<body><h2>Owners</h2><div>EXTRA</div></body>\n</html>\n")
         .compile()
         .assertError("owners/list.html:2:", "a browser finds a second <body>", "<body t:remove=\"tag\">",
             "[verifier:PARSE_ERROR]");
     String page =
         "<!DOCTYPE html>\n"
-            + "<html " + NS + " t:params=\"Fragment extra\""
+            + "<html " + NS
             + " t:replace=\"~{fragments/layout :: layout(~{::body}, 'owners')}\">\n"
-            + "<body t:remove=\"tag\"><h2>Owners</h2><div t:insert=\"extra\">x</div></body>\n"
+            + "<body t:remove=\"tag\"><h2>Owners</h2><div>EXTRA</div></body>\n"
             + "</html>\n";
     Compilation c =
         Compilation.builder()
@@ -215,7 +209,7 @@ class FragmentsTest {
             + "<head><title>PetClinic</title></head>\n"
             + "<body><nav>nav</nav><div class=\"container\"><h2>Owners</h2><div>EXTRA</div></div></body>\n"
             + "</html>\n",
-        c.render("owners/list", Map.of("extra", text("EXTRA"))));
+        c.render("owners/list", Map.of()));
     // The layout itself is a parameterized fragment on the root element: renders as the doctype only.
     assertEquals("<!DOCTYPE html>\n\n", c.render("fragments/layout", Map.of()));
   }
@@ -224,10 +218,11 @@ class FragmentsTest {
   void nullFragmentValueInsertsNothing() {
     Compilation c =
         Compilation.builder()
-            .template("page.html", "<main " + NS + " t:params=\"Fragment f\"><div t:insert=\"f\">x</div></main>")
+            .template("page.html", "<main " + NS + "><b t:fragment=\"w(Fragment f)\"><i t:insert=\"f\">x</i></b>"
+                + "<div t:replace=\"~{:: w(null)}\"></div></main>")
             .compile()
             .assertSuccess();
-    assertEquals("<main><div></div></main>", c.render("page", Map.of()));
+    assertEquals("<main><b><i></i></b></main>", c.render("page", Map.of()));
   }
 
   @Test
@@ -236,13 +231,13 @@ class FragmentsTest {
         Compilation.builder()
             .template(
                 "page.html",
-                "<main " + NS + " t:params=\"Fragment f\">"
+                "<main " + NS + ">"
                     + "<b t:fragment=\"x(Fragment java, Fragment ctx, Fragment out, Fragment dev)\">"
                     + "<i t:replace=\"java\"></i><i t:replace=\"ctx\"></i><i t:replace=\"out\"></i><i t:replace=\"dev\"></i></b>"
-                    + "<div t:replace=\"~{:: x(f, f, f, f)}\"></div></main>")
+                    + "<div t:replace=\"~{:: x(~{::s}, ~{::s}, ~{::s}, ~{::s})}\"></div><s>F</s></main>")
             .compile()
             .assertSuccess();
-    assertEquals("<main><b>FFFF</b></main>", c.render("page", Map.of("f", text("F"))));
+    assertEquals("<main><b><s>F</s><s>F</s><s>F</s><s>F</s></b><s>F</s></main>", c.render("page", Map.of()));
   }
 
   @Test

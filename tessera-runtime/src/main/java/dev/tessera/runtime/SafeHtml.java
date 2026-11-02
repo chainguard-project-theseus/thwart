@@ -4,8 +4,7 @@ import java.util.Objects;
 
 /**
  * HTML that is known to be safe to emit without escaping. The only ways to get one are
- * {@link #escape(String)}, {@link #sanitize(String)} (or with an {@link HtmlPolicy}), rendering a
- * {@link Template} the compiler verified as a {@code FLOW} partial ({@link #of}), or
+ * {@link #escape(String)}, {@link #sanitize(String)} (or with an {@link HtmlPolicy}), or
  * {@link #concat(SafeHtml...)} of other {@code SafeHtml}s. There is no constructor that skips the
  * check (#664). {@code t:utext} accepts nothing else.
  */
@@ -69,35 +68,6 @@ public final class SafeHtml {
       }
     }
     return new SafeHtml(sb.toString());
-  }
-
-  /**
-   * Renders a template; its output is escaped by construction. The template must be one the
-   * compiler proved a {@code FLOW} partial ({@link Template#verifiedFlowPartial()}), so that its
-   * markup can't close, reopen or adopt elements around the place the value is inserted.
-   *
-   * @throws IllegalArgumentException if it isn't (a page, a partial whose root is an {@code <li>}
-   *     or a table row, one with a {@code <form>}, ...), naming the template and the fix
-   */
-  public static SafeHtml of(Template template, RenderContext ctx) {
-    return new SafeHtml(requireFlowPartial(template, "SafeHtml.of").renderToString(ctx));
-  }
-
-  /** {@code template}, if it is a verified {@code FLOW} partial; else the error for {@code api}. */
-  static Template requireFlowPartial(Template template, String api) {
-    Objects.requireNonNull(template, "template");
-    if (!template.verifiedFlowPartial()) {
-      throw new IllegalArgumentException(
-          "Tessera: " + api + " needs a template the compiler verified as a FLOW partial, and template '"
-              + template.templateName() + "' (" + template.getClass().getName() + ") is not one: it"
-              + " is a page, or its markup could close or reopen elements around the place it is"
-              + " inserted. Fix: make it a partial of flow content, by wrapping its root in a <div>"
-              + " (list items in their own <ul>, <ol> or <dl>, table rows in their own <table>),"
-              + " with no <form> and no formatting element such as <b> inside another of the same"
-              + " name; or render it as a page through a view instead of wrapping it (#396,"
-              + " docs/guide.md section 4.9)");
-    }
-    return template;
   }
 
   public String html() {

@@ -3,7 +3,6 @@ package dev.tessera.compiler.codegen;
 import static dev.tessera.compiler.JavaStrings.literal;
 import static dev.tessera.compiler.codegen.TemplateGenerator.javaName;
 
-import dev.tessera.compiler.codegen.attr.FragmentMethods;
 import dev.tessera.compiler.html.HtmlParser;
 import java.util.ArrayList;
 import java.util.List;
@@ -69,8 +68,6 @@ final class TemplateClassSource {
     } else {
       sb.append("    render(").append(nameList).append(", ctx, out);\n  }\n\n");
       sb.append("  public static void render(").append(declList).append(", ").append(io).append(") {\n");
-      // A Fragment page parameter comes from Java: only a Fragment.of (#581).
-      sb.append(FragmentMethods.requireVerified(info.viewName(), info.params()));
       sb.append(body).append("  }\n");
     }
     for (String m : members) {
@@ -78,20 +75,6 @@ final class TemplateClassSource {
     }
     sb.append("}\n");
     return sb.toString();
-  }
-
-  /**
-   * {@code source} (a class {@link #render} wrote) marked as a verified {@code FLOW} partial (#396):
-   * it overrides {@code Template.verifiedFlowPartial()} to return true. The verifier decides this
-   * after the class is generated, from its skeleton, so the mark is added to the finished source.
-   */
-  static String markFlowPartial(String source) {
-    if (!source.endsWith("}\n")) {
-      throw new IllegalArgumentException("not a generated template class");
-    }
-    return source.substring(0, source.length() - 2)
-        + "\n  /** The verifier proved this template a FLOW partial (#396). */\n"
-        + "  @Override\n  public boolean verifiedFlowPartial() {\n    return true;\n  }\n}\n";
   }
 
   /** Keeps a file name harmless inside a comment (no comment end, no unicode escapes). */

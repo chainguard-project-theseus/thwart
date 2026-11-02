@@ -11,8 +11,6 @@ import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.verify.Skeleton;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,19 +41,16 @@ public final class TemplateCompiler {
   public static final class Result {
     private final List<GeneratedFile> files;
     private final Map<String, Skeleton.TemplateSkeleton> skeletons;
-    /** The class each template's generated file is named by, by view name. */
-    private final Map<String, String> classes;
-    /** What the registry is generated from, to add fragment entries to it ({@link #files(Set, Set)}). */
+    /** What the registry is generated from, to add fragment entries to it ({@link #files(Map, Set)}). */
     private final CompilerEnv env;
     private final TemplateIndex index;
     /** Every private fragment copy, with the fragment it copies ({@code TemplateGenerator#copies}). */
     private final List<Map.Entry<Skeleton.FragmentId, Skeleton.Seq>> copies;
 
-    Result(List<GeneratedFile> files, Map<String, Skeleton.TemplateSkeleton> skeletons, Map<String, String> classes,
+    Result(List<GeneratedFile> files, Map<String, Skeleton.TemplateSkeleton> skeletons,
         CompilerEnv env, TemplateIndex index, List<Map.Entry<Skeleton.FragmentId, Skeleton.Seq>> copies) {
       this.files = Collections.unmodifiableList(files);
       this.skeletons = Collections.unmodifiableMap(skeletons);
-      this.classes = classes;
       this.env = env;
       this.index = index;
       this.copies = copies;
@@ -103,36 +98,27 @@ public final class TemplateCompiler {
 
     /**
      * {@link #files()}, with the escaper of each element-text hole set to the one in {@code
-     * escapers} (as {@code ContextVerifier.verify} returns them, #378), and the classes of the
-     * templates in {@code flowPartials} (view names, as {@code ContextVerifier.flowPartials}
-     * returns them) marked as verified {@code FLOW} partials (#396).
+     * escapers} (as {@code ContextVerifier.verify} returns them, #378).
      */
-    public List<GeneratedFile> files(Set<String> flowPartials, Map<Skeleton.Hole, Skeleton.Escaper> escapers) {
-      Set<String> marked = new HashSet<>();
-      for (String view : flowPartials) {
-        if (classes.containsKey(view)) {
-          marked.add(classes.get(view));
-        }
-      }
+    public List<GeneratedFile> files(Map<Skeleton.Hole, Skeleton.Escaper> escapers) {
       escapers = withCopies(escapers);
       List<GeneratedFile> out = new ArrayList<>(files.size());
       for (GeneratedFile f : files) {
         if (f.kind() == GeneratedFile.Kind.JAVA) {
           f = new GeneratedFile(f.kind(), f.name(), Emitted.resolve(f.content(), escapers));
         }
-        out.add(f.kind() == GeneratedFile.Kind.JAVA && marked.contains(f.name()) ? TemplateGenerator.markFlowPartial(f) : f);
+        out.add(f);
       }
       return out;
     }
 
     /**
-     * {@link #files(Set, Map)}, with a registry that also has an entry for each fragment in {@code
+     * {@link #files(Map)}, with a registry that also has an entry for each fragment in {@code
      * servable} ({@code page :: fragment}, as {@code ContextVerifier.servableFragments} returns
      * them) whose parameters a model can supply (#131).
      */
-    public List<GeneratedFile> files(
-        Set<String> flowPartials, Map<Skeleton.Hole, Skeleton.Escaper> escapers, Set<String> servable) {
-      List<GeneratedFile> out = files(flowPartials, escapers);
+    public List<GeneratedFile> files(Map<Skeleton.Hole, Skeleton.Escaper> escapers, Set<String> servable) {
+      List<GeneratedFile> out = files(escapers);
       if (servable.isEmpty()) {
         return out;
       }
@@ -146,7 +132,7 @@ public final class TemplateCompiler {
       return out;
     }
 
-    /** The generated files, with the escaper of each element-text hole still to be set ({@link #files(Set, Map)}). */
+    /** The generated files, with the escaper of each element-text hole still to be set ({@link #files(Map)}). */
     public List<GeneratedFile> files() {
       return files;
     }
@@ -173,19 +159,13 @@ public final class TemplateCompiler {
     TemplateGenerator generator = new TemplateGenerator(env, index, exprParser, exprCompiler);
     List<GeneratedFile> out = new ArrayList<>();
     Map<String, Skeleton.TemplateSkeleton> skeletons = new LinkedHashMap<>();
-    Map<String, String> classes = new HashMap<>();
     List<Map.Entry<Skeleton.FragmentId, Skeleton.Seq>> copies = new ArrayList<>();
     for (Document doc : docs) {
-      for (GeneratedFile f : generator.generate(doc)) {
-        out.add(f);
-        if (f.kind() == GeneratedFile.Kind.JAVA) {
-          classes.put(doc.source().viewName(), f.name());
-        }
-      }
+      out.addAll(generator.generate(doc));
       skeletons.put(doc.source().viewName(), generator.skeleton());
       copies.addAll(generator.copies());
     }
     out.addAll(new RegistryGenerator(env, index).generate());
-    return new Result(out, skeletons, classes, env, index, copies);
+    return new Result(out, skeletons, env, index, copies);
   }
 }

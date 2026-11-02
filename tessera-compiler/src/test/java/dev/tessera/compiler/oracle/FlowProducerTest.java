@@ -194,8 +194,8 @@ class FlowProducerTest {
   }
 
   /**
-   * Rendered partials of flow content, with hostile values: what {@code SafeHtml.of(template)} and
-   * a {@code Fragment} value that renders a template write.
+   * Rendered partials of flow content, with hostile values: what a template and
+   * a {@code Fragment} argument that inserts one write.
    */
   @Test
   void renderedPartialsLeaveTheStateAsItWas() throws EngineException {

@@ -8,8 +8,6 @@ package dev.tessera.compiler.oracle.gen;
  *   <li>{@link #INSERT}/{@link #REPLACE}: the innermost container is a fragment {@code
  *       frag(String s)} (or {@code frag(SafeHtml h)}), inserted with {@code t:insert} on, or
  *       {@code t:replace} inside, a second container (the insertion point axis).
- *   <li>{@link #FRAGMENT_PARAM}: the template also takes {@code Fragment f}, written right after
- *       the hole with {@code <t:block t:replace="f">}.
  *   <li>{@link #REMOVE_TAG}: {@code t:remove="tag"} on the innermost container.
  * </ul>
  *
@@ -19,7 +17,6 @@ public enum Composition {
   NONE("none"),
   INSERT("t:insert"),
   REPLACE("t:replace"),
-  FRAGMENT_PARAM("Fragment f"),
   REMOVE_TAG("t:remove=tag");
 
   private final String label;

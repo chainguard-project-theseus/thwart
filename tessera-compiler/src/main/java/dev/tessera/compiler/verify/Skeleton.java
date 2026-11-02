@@ -104,9 +104,8 @@ public final class Skeleton {
     /** As {@link #HTML_MESSAGE}, with links: PHRASING content that may have an {@code a}. */
     LINKED_HTML_MESSAGE,
     /**
-     * A {@code Fragment} value built in Java: a page parameter or an unbound fragment parameter
-     * (#581: generated code refuses one that isn't a {@code Fragment.of}). A template-built one
-     * is its candidates (#561).
+     * An unbound {@code Fragment} parameter: a fragment checked apart from any call site. A bound
+     * one is its candidates (#561); Java can't build one (#676).
      */
     FRAGMENT_VALUE
   }
