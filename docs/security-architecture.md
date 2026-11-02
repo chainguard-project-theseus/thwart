@@ -395,8 +395,9 @@ Text now in AGENTS.md:
 > **5. Contexts are proven, not guessed; escaping cannot be forgotten.** The compiler accepts only
 > templates in which it can classify every output position exactly as every supported browser
 > parses it, and checks this against a spec parser in CI. Within that, it picks the escaper from
-> the context. Raw output needs a safe type of the right content kind (`SafeHtml`, `TrustedUrl`,
-> `Fragment`), never a flag on a string.
+> the context. Raw output needs a safe type of the right content kind (`SafeHtml`, `Fragment`,
+> `CssValue`), built only by a factory that checks it; never a flag on a string, and never a
+> constructor that skips the check.
 >
 > **6. Familiar before novel, inside the profile.** Track Thymeleaf syntax and behaviour where it
 > is safe. Where Thymeleaf accepts something outside the profile, Tessera rejects it with a fix-it
