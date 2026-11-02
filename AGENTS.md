@@ -4,8 +4,7 @@ This repo is **Tessera**, a compiled, safe-by-design successor to Thymeleaf, the
 pilot of Chainguard's secure-by-design library portfolio.
 
 - Strategy: [docs/strategy.md](docs/strategy.md)
-- Vision (long-term design): [docs/tessera-vision.md](docs/tessera-vision.md)
-- **MVP design (what we are building now): [docs/mvp-design.md](docs/mvp-design.md)**
+- **Architecture (how the compiler, runtime and starter work): [docs/architecture.md](docs/architecture.md)**
 
 ## North star
 
@@ -92,7 +91,7 @@ Tessera is young and pre-release. Prefer the smallest thing that is correct and 
 
 ## Repo layout and ownership
 
-See the module table in [docs/mvp-design.md](docs/mvp-design.md).
+See the module table in [docs/architecture.md](docs/architecture.md).
 
 Shared contracts are the template model (`tessera-compiler/.../model/*`), the `Expr` classes in
 `.../expr`, `Scope`/`Variable`/`CompiledExpr` in `.../types`,

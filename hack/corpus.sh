@@ -9,7 +9,8 @@
 # then run the app's build and test commands on its JDK ("java": 8 or the default 21). Prints a
 # table of app, run, compile and tests; exits non-zero if any app fails.
 #
-# Install Tessera first (hack/quick.sh tier0, or mvn -o -q install -DskipTests). Needs git, jq, procps,
+# Install Tessera first: in a fresh session `mvn -B -q install -DskipTests -Dinvoker.skip` (tier0 installs
+# nothing on a clean checkout), after a change `hack/quick.sh tier0`. Needs git, jq, procps,
 # JDK 21 and 8 under /usr/lib/jvm, network for the apps' own dependencies, and nodejs/npm for
 # ewp-registry. Env: CORPUS_DIR (work dir, default /tmp/tessera-corpus), JOBS (parallel apps,
 # default 2).
@@ -52,8 +53,8 @@ one() {
   [ "$(cat "$out/build.exit")" = 0 ] || return
   (cd "$src" && JAVA_HOME=$jdk PATH=$jdk/bin:$PATH bash -c "$test") > "$out/test.log" 2>&1
   echo $? > "$out/test.exit"
-  # tests run / failed+errors, summed over the surefire reports.
-  find "$src" -path '*/target/surefire-reports/TEST-*.xml' -exec sed -n 's/.*<testsuite \(.*\)/\1/p' {} + |
+  # tests run / failed+errors, summed over the surefire and failsafe reports (as lib/check.sh counts).
+  find "$src" -path '*/target/*-reports/TEST-*.xml' -exec sed -n 's/.*<testsuite \(.*\)/\1/p' {} + |
     awk '{ for (i = 1; i <= NF; i++) { split($i, kv, "="); gsub(/[">]/, "", kv[2]);
              if (kv[1] == "tests") t += kv[2]; if (kv[1] == "failures" || kv[1] == "errors") f += kv[2] } }
          END { printf "%d %d\n", t, f }' > "$out/tests"

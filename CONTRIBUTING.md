@@ -9,18 +9,15 @@ dlorenc@chainguard.dev.
 [AGENTS.md](AGENTS.md) holds the rules for how work on Tessera is done, by people and coding agents
 alike. In short:
 
-- **The seven design principles are non-negotiable.** Templates are code, there is no ambient
-  authority, everything callable and parseable is allow-listed, there is no reflection at runtime,
-  contexts are proven rather than guessed, the syntax follows Thymeleaf only inside the profile,
-  and the guarantee ends at the HTML parser. If a change seems to need breaking one, stop and say so
-  in the issue or PR.
+- **Uphold the seven principles in AGENTS.md;** if a change seems to need breaking one, stop and
+  say so.
 - **Keep it small.** Do exactly the issue's scope. Fix parser-differential and composition bugs
   in the build-time verifier or its test cases, not with special cases in the parser. Add no new
   modules or dependencies unless the issue asks for them.
 - **Java 8 where it ships.** The runtime, compiler, migrate tool, starters and generated code
   compile at `--release 8`. `tessera-runtime` has no third-party dependencies.
 - **Security-relevant behaviour gets a test**, including a negative one. Changes to the parser,
-  contexts, escapers, verifier or framework table update
+  contexts, escapers or verifier update
   [docs/context-model.md](docs/context-model.md) in the same PR. [SECURITY.md](SECURITY.md) and
   [docs/security-model.md](docs/security-model.md) describe the threat model.
 - **Build and test** with `mvn -B -ntp verify` (JDK 21+, Maven 3.9+; set `JDK8_HOME` to run

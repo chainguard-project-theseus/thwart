@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/** Assembles the generated template class (shape in docs/mvp-design.md) around a render body. */
+/** Assembles the generated template class (shape in docs/architecture.md) around a render body. */
 final class TemplateClassSource {
   private static final String RT = "dev.tessera.runtime.";
 
