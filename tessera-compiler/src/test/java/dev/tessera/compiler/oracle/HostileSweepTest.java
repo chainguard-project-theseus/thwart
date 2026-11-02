@@ -333,13 +333,11 @@ class HostileSweepTest {
   static {
     POLICIES.put("BASIC", HtmlPolicy.BASIC);
     POLICIES.put("RICH", HtmlPolicy.RICH);
-    // Everything a policy can allow: every element and attribute, any class, remote and data images.
+    // Everything a policy can allow: every element, attribute and class token, link target and rel.
     POLICIES.put("wide", HtmlPolicy.builder()
         .allowElements(HtmlPolicy.ELEMENTS.toArray(new String[0]))
         .allowAttributes(HtmlPolicy.ATTRIBUTES.toArray(new String[0]))
-        .allowClasses("*")
-        .allowRemoteImages()
-        .allowDataImages()
+        .allowClasses(SanitizerBalanceTest.EVERY_CLASS)
         .allowLinkTarget()
         .linkRel(HtmlPolicy.REL_TOKENS.toArray(new String[0]))
         .build());

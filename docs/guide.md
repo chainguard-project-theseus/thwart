@@ -506,8 +506,7 @@ the swapped element.
 everything else. `html.sanitizeRich` also keeps same-origin images, `language-*` classes, ids and
 `target="_blank"` links, for editor or Markdown output. Neither keeps tables, `style`, `iframe` or
 `svg`. For another mix, build a policy with `HtmlPolicy.builder()` (`allowElements`,
-`allowAttributes`, `allowClasses`, `idPrefix`, `linkRel`, `allowLinkTarget`, `allowRemoteImages`,
-`allowDataImages`) and expose it as a function:
+`allowAttributes`, `allowClasses`, `linkRel`, `allowLinkTarget`) and expose it as a function:
 
 <!-- compile: java -->
 ```java
@@ -535,8 +534,9 @@ public final class NoticeFunctions {
 }
 ```
 
-Its options are discoverable on the builder (`allowClasses`, `allowLinkTarget`, `allowDataImages`,
-...); it accepts only names from a closed set, `HtmlPolicy.ELEMENTS` and `HtmlPolicy.ATTRIBUTES`.
+The builder accepts only names from a closed set, `HtmlPolicy.ELEMENTS` and
+`HtmlPolicy.ATTRIBUTES`, and class names or prefixes, never `"*"`. Whatever the policy, images stay
+same-origin paths and ids get the prefix `user-content-`.
 Don't parse stored HTML in Java into records and
 rebuild it with a fragment that inserts itself: the compiler rejects it, because the page's
 structure would depend on data.
