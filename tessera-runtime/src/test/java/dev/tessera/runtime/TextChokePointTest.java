@@ -37,7 +37,7 @@ class TextChokePointTest {
   /** The arguments {@code new SafeHtml(...)} may be built from. */
   private static final Set<String> SAFE_HTML_SOURCES =
       Set.of(
-          "\"\"", "html", "Escapers.escapeText(text == null ? \"\" : text)", "HtmlSanitizer.sanitize(html, policy)",
+          "\"\"", "Escapers.escapeText(text == null ? \"\" : text)", "HtmlSanitizer.sanitize(html, policy)",
           "sb.toString()", "requireFlowPartial(template, \"SafeHtml.of\").renderToString(ctx)");
 
   @Test
@@ -76,7 +76,7 @@ class TextChokePointTest {
     paths.add(s -> Escapers.htmlMessage(ctx, "{", new Object[] {s}, new String[0]));
     // Markup the build checked or the caller vouches for: only its edges are the runtime's job.
     List<Function<String, String>> raw = new ArrayList<>();
-    raw.add(s -> render(out -> Escapers.html(out, SafeHtml.unchecked(s)), true));
+    raw.add(s -> render(out -> Escapers.html(out, TestSafeHtml.of(s)), true));
     raw.add(s -> Escapers.htmlMessage(ctx, s, new Object[0], new String[] {s}));
     String[] values = {"{", "{{", "a{", "{a", "{{x}}", "&#123;&#123;", "&lbrace;{", "<b>{</b>{", "{<b>x</b>{", "}}", "}", "a}", "{}"};
     String[] markup = {"{", "a{", "{a", "<b>{</b>{", "{<b>x</b>{", "}}"};

@@ -10,8 +10,8 @@ import java.util.Set;
 
 /**
  * Reads what {@link ReviewMojo} reports from one class file (#428): its {@code @TemplateFunction}
- * methods and its unverified doors (#602): every reference to {@code SafeHtml.unchecked},
- * {@code TrustedUrl.unchecked}, {@code Fragment.unverifiedForGeneratedCode} or a generated
+ * methods and its unverified doors (#602): every reference to {@code TrustedUrl.unchecked},
+ * {@code Fragment.unverifiedForGeneratedCode} or a generated
  * {@code internalUnverified$<name>} method, and a {@code verifiedFlowPartial()} it declares. Works
  * on bytecode, so a call is found however the source spells it (qualified, static import, method
  * reference). Only the parts of the class file format this needs are decoded.
@@ -20,7 +20,7 @@ final class ClassScan {
   static final String RUNTIME = "dev/tessera/runtime/";
   private static final String FUNCTIONS = "L" + RUNTIME + "TemplateFunctions;";
   private static final String FUNCTION = "L" + RUNTIME + "TemplateFunction;";
-  private static final String[] UNCHECKED_OWNERS = {RUNTIME + "SafeHtml", RUNTIME + "TrustedUrl"};
+  private static final String[] UNCHECKED_OWNERS = {RUNTIME + "TrustedUrl"};
   /** A method a template class declares; declared anywhere else it vouches for output nothing checked. */
   static final String VERIFIED_FLOW_PARTIAL = "verifiedFlowPartial";
 
@@ -41,7 +41,7 @@ final class ClassScan {
 
   /**
    * An unverified door at {@code position}: a reference to {@code target}, e.g.
-   * {@code SafeHtml.unchecked}, or a {@code verifiedFlowPartial()} declaration.
+   * {@code Fragment.unverifiedForGeneratedCode}, or a {@code verifiedFlowPartial()} declaration.
    */
   static final class Door {
     final String target;
@@ -242,7 +242,7 @@ final class ClassScan {
         target = methodRef(u2(code, pc + 1));
       } else if (op == 0x12 || op == 0x13) { // ldc, ldc_w of a MethodHandle
         target = handle(op == 0x12 ? code[pc + 1] & 0xff : u2(code, pc + 1));
-      } else if (op == 0xba) { // invokedynamic: a method reference such as SafeHtml::unchecked
+      } else if (op == 0xba) { // invokedynamic: a method reference such as Fragment::unverifiedForGeneratedCode
         int bsm = ((int[]) pool[u2(code, pc + 1)])[0];
         for (int arg : bootstrap.get(bsm)) {
           if (target == 0) {
@@ -297,7 +297,7 @@ final class ClassScan {
     return index < tags.length && tags[index] == 15 ? methodRef(((int[]) pool[index])[1]) : 0;
   }
 
-  /** {@code SafeHtml.unchecked} for a Methodref. */
+  /** {@code Fragment.unverifiedForGeneratedCode} for a Methodref. */
   private String memberName(int methodRef) {
     int[] ref = (int[]) pool[methodRef];
     String owner = className(ref[0]);

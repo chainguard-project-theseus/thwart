@@ -91,7 +91,7 @@ class EscapersTest {
     assertEquals("", Escapers.toText(null));
     assertEquals("42", Escapers.toText(42));
     assertEquals("a<b", Escapers.toText("a<b"));
-    assertEquals("<b>", Escapers.toText(SafeHtml.unchecked("<b>")));
+    assertEquals("<b>", Escapers.toText(TestSafeHtml.of("<b>")));
   }
 
   // --- text / attr -----------------------------------------------------------------------------
@@ -217,7 +217,7 @@ class EscapersTest {
 
   @Test
   void textEscapesSafeHtml() {
-    assertEquals("&lt;b&gt;bold&lt;/b&gt;", text(SafeHtml.unchecked("<b>bold</b>")));
+    assertEquals("&lt;b&gt;bold&lt;/b&gt;", text(TestSafeHtml.of("<b>bold</b>")));
   }
 
   @ParameterizedTest
@@ -531,7 +531,7 @@ class EscapersTest {
           }
         };
     assertEquals(Escapers.INVALID_URL, url(o));
-    assertEquals(Escapers.INVALID_URL, url(SafeHtml.unchecked("javascript:alert(1)")));
+    assertEquals(Escapers.INVALID_URL, url(TestSafeHtml.of("javascript:alert(1)")));
   }
 
   @Test
@@ -552,7 +552,7 @@ class EscapersTest {
   @Test
   void resourceUrlRejectsOtherTypes() {
     assertThrows(IllegalArgumentException.class, () -> resourceUrl(42));
-    assertThrows(IllegalArgumentException.class, () -> resourceUrl(SafeHtml.unchecked("/a.js")));
+    assertThrows(IllegalArgumentException.class, () -> resourceUrl(TestSafeHtml.of("/a.js")));
     assertThrows(IllegalArgumentException.class, () -> resourceUrl(new StringBuilder("/a.js")));
   }
 
@@ -560,7 +560,7 @@ class EscapersTest {
 
   @Test
   void htmlWritesSafeHtmlVerbatim() {
-    assertEquals("<b>bold</b>", html(SafeHtml.unchecked("<b>bold</b>")));
+    assertEquals("<b>bold</b>", html(TestSafeHtml.of("<b>bold</b>")));
     assertEquals("", html(SafeHtml.EMPTY));
     assertEquals("&lt;script&gt;", html(SafeHtml.escape("<script>")));
   }
@@ -784,7 +784,7 @@ class EscapersTest {
   void jsonRejectsUnsupportedTypes() {
     assertThrows(IllegalArgumentException.class, () -> json(new Object()));
     assertThrows(IllegalArgumentException.class, () -> json(new Point(1, 2)));
-    assertThrows(IllegalArgumentException.class, () -> json(SafeHtml.unchecked("<b>")));
+    assertThrows(IllegalArgumentException.class, () -> json(TestSafeHtml.of("<b>")));
     assertThrows(IllegalArgumentException.class, () -> json(TrustedUrl.unchecked("/x")));
     assertThrows(IllegalArgumentException.class, () -> json(Object.class));
     assertThrows(IllegalArgumentException.class, () -> json(List.of(new Object())));
@@ -1016,7 +1016,7 @@ class EscapersTest {
   @Test
   void htmlMessageArgsEscapeTextButKeepNumbersAndDates() {
     java.util.Date date = new java.util.Date(0);
-    Object[] in = {"<script>&\"'", 42, new BigDecimal("1.5"), date, null, SafeHtml.unchecked("<b>"), 'c'};
+    Object[] in = {"<script>&\"'", 42, new BigDecimal("1.5"), date, null, TestSafeHtml.of("<b>"), 'c'};
     Object[] out = Escapers.htmlMessageArgs(in);
     assertEquals("&lt;script&gt;&amp;&quot;&#39;", out[0]);
     assertEquals(42, out[1]);
@@ -1122,7 +1122,7 @@ class EscapersTest {
     assertEquals("Hello <!---->{<!---->{<!---->x<!---->}<!---->}<!---->",Escapers.htmlMessage(messages(hello), "k", new Object[] {"{{x}}"}, new String[0]));
     assertEquals(
         "Hello &lt;script&gt;alert(1)&lt;/script&gt;",
-        Escapers.htmlMessage(messages(hello), "k", new Object[] {SafeHtml.unchecked("<script>alert(1)</script>")}, new String[0]));
+        Escapers.htmlMessage(messages(hello), "k", new Object[] {TestSafeHtml.of("<script>alert(1)</script>")}, new String[0]));
     assertEquals("Hello null", Escapers.htmlMessage(messages(hello), "k", new Object[] {null}, new String[0]));
     // Numbers and dates reach MessageFormat as numbers and dates.
     Messages typed = (k, a) -> new java.text.MessageFormat("{0,number} on {1,date,short}", java.util.Locale.US).format(a);
@@ -1142,7 +1142,7 @@ class EscapersTest {
     assertThrows(IllegalArgumentException.class, () -> Escapers.messageTextArgs(new Object[] {new Labeled("1E+999999999")}));
     // A subclass is rejected, never formatted from its toString().
     assertThrows(IllegalArgumentException.class, () -> Escapers.messageTextArgs(new Object[] {new Labeled("2.5")}));
-    Object[] text = Escapers.messageTextArgs(new Object[] {"<b>", 42, null, SafeHtml.unchecked("<i>"), new BigDecimal("2.5")});
+    Object[] text = Escapers.messageTextArgs(new Object[] {"<b>", 42, null, TestSafeHtml.of("<i>"), new BigDecimal("2.5")});
     assertEquals(java.util.Arrays.asList("<b>", 42, null, "<i>", new BigDecimal("2.5")), java.util.Arrays.asList(text));
   }
 

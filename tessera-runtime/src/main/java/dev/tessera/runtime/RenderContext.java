@@ -35,8 +35,8 @@ public final class RenderContext {
    * A context with a Content Security Policy nonce. Generated code adds {@code nonce="<cspNonce>"}
    * (attribute-escaped) to every {@code <script>} and {@code <style>} start tag it writes, so a
    * policy such as {@code script-src 'nonce-<cspNonce>'} allows the template's own scripts and
-   * nothing else. Markup the compiler did not write (a sanitized or unchecked {@code SafeHtml})
-   * gets no nonce.
+   * nothing else. Markup the compiler did not write (a sanitized {@code SafeHtml} or a hand-written
+   * {@code Template}'s output) gets no nonce.
    *
    * <p>Use a fresh, unguessable value for every response (at least 128 random bits, base64), and
    * the same value in the response's {@code Content-Security-Policy} header.
