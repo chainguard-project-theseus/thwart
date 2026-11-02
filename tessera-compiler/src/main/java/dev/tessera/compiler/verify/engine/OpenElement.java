@@ -27,7 +27,7 @@ public final class OpenElement {
 
   /**
    * An HTML integration point (SVG {@code foreignObject}, {@code desc}, {@code title}, or MathML
-   * {@code annotation-xml} with an HTML {@code encoding}, memo §3.4.4). The flag is fixed when the
+   * {@code annotation-xml} with an HTML {@code encoding}). The flag is fixed when the
    * element is created from its attributes, so it is part of the state.
    */
   public boolean htmlIntegrationPoint() {

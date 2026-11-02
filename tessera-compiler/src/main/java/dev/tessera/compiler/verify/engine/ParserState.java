@@ -5,17 +5,17 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * An engine's parser state after some input, engine-independent and immutable.
+ * The parser state after some input, in names only, immutable.
  *
  * <p>Two states are {@link #equals equal} (same {@link #signature()}) only if the rest of any
- * input parses the same way from both: the verifier merges paths on it. Where Tessera can't read
- * a part of the state exactly, the signature keeps more than needed, so equal signatures still
- * mean equal parses. Equal parses may have different signatures; that costs the verifier a merge,
- * never soundness. States from different engines or fragment contexts are never equal. Inside a
- * token (a tag, comment, doctype or character reference) the state is described by
- * {@link #pendingInput()}.
+ * input parses the same way from both: the verifier's balance check and call memo rely on it.
+ * Where Tessera can't read a part of the state exactly, the signature keeps more than needed, so
+ * equal signatures still mean equal parses. Equal parses may have different signatures; that
+ * costs the verifier a spurious rejection or a memo miss, never soundness. States from different
+ * fragment contexts are never equal. Inside a token (a tag, comment, doctype or character
+ * reference) the state is described by {@link #pendingInput()}.
  *
- * <p>No part of it is an engine's numeric constant.
+ * <p>No part of it is the parser's numeric constant.
  */
 public final class ParserState {
 
@@ -25,7 +25,6 @@ public final class ParserState {
   /** {@link #activeFormatting()} entry for an element that isn't on the stack (reconstruction would recreate it). */
   public static final int NOT_ON_STACK = -2;
 
-  private final String engine;
   private final OpenElement fragmentContext;
   private final boolean scripting;
   private final TokenizerState tokenizer;
@@ -48,7 +47,6 @@ public final class ParserState {
   private String signature;
 
   ParserState(
-      String engine,
       OpenElement fragmentContext,
       boolean scripting,
       TokenizerState tokenizer,
@@ -67,7 +65,6 @@ public final class ParserState {
       boolean quirks,
       boolean dropsNextLineFeed,
       boolean pendingTableText) {
-    this.engine = engine;
     this.fragmentContext = fragmentContext;
     this.scripting = scripting;
     this.tokenizer = tokenizer;
@@ -90,11 +87,9 @@ public final class ParserState {
 
   private String buildSignature() {
     StringBuilder sb = new StringBuilder(128);
-    // The engines parse some input differently (<select>), so their states never merge either.
-    sb.append(engine).append(' ');
     // The fragment context decides what the parser does when the stack is back to its root (the
-    // reset of the insertion mode) and, in current upstream, what a <select> or <input> does in a
-    // <select> context, so states from different contexts never merge.
+    // reset of the insertion mode) and what a <select> or <input> does in a <select> context, so
+    // states from different contexts are never equal.
     sb.append(fragmentContext == null ? "document" : "fragment(" + fragmentContext + ")");
     sb.append(scripting ? " scripting" : " no-scripting");
     sb.append(" tok=").append(tokenizer);
@@ -155,11 +150,6 @@ public final class ParserState {
       }
     }
     return sb.append('"').toString();
-  }
-
-  /** The {@link Engine#name()} of the engine this state is from. */
-  public String engine() {
-    return engine;
   }
 
   /** The context element of fragment parsing, or null for document parsing. */

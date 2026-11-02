@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * The standard attribute names (#330, #584, security-architecture.md section 12.2): HTML, SVG,
+ * The standard attribute names (#330, #584, security-architecture.md §5.3): HTML, SVG,
  * MathML and ARIA ({@code attributes.txt}, which names its spec sources). Of these, only the
  * inert-text attributes ({@code inert-attributes.txt}) take a plain value ({@link #needsSafeValue}).
  * Every other name ({@code data-*}, a custom element's own attributes, any name outside HTML) takes
@@ -35,9 +35,8 @@ final class KnownAttributes {
 
   /**
    * Whether {@code name} (any case) is a standard name that is not an inert-text attribute on
-   * {@code element}, so a plain computed value may not go there. No attribute of an SVG or MathML
-   * element is inert ({@link Contexts#attribute} forbids them all, #678). The element may be a
-   * custom element: its standard attributes are classified like any other element's.
+   * HTML {@code element}, so a plain computed value may not go there. The element may be a custom
+   * element: its standard attributes are classified like any other element's.
    */
   static boolean needsSafeValue(Element element, String name) {
     String a = HtmlParser.asciiLower(name);
@@ -45,7 +44,7 @@ final class KnownAttributes {
       return false;
     }
     String inert = INERT.get(a);
-    if (inert == null || element.foreign()) {
+    if (inert == null) {
       return true;
     }
     String[] fields = inert.split(" ");

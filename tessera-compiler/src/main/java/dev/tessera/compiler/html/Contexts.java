@@ -22,8 +22,9 @@ public final class Contexts {
   /**
    * The attributes whose grammar is exactly one URL (#539): WHATWG "valid (non-empty) URL
    * potentially surrounded by spaces" ({@code href src action formaction cite poster}), the
-   * obsolete {@code background longdesc manifest}, and SVG's {@code xlink:href}. Only these take
-   * the URL escaper, which checks the whole value as one URL.
+   * obsolete {@code background longdesc manifest}, and {@code xlink:href} (no HTML element defines
+   * it; it keeps the stricter URL check rather than a plain value). Only these take the URL
+   * escaper, which checks the whole value as one URL.
    */
   private static final Set<String> URL_ATTRIBUTES =
       Backports.setOf(
@@ -240,7 +241,7 @@ public final class Contexts {
 
   private static boolean isResourceUrl(String element, String attr) {
     switch (element) {
-      case "script": // SVG <script> loads code from href / xlink:href.
+      case "script": // src loads code; href and xlink:href get the same stricter check.
         return attr.equals("src") || attr.equals("href") || attr.equals("xlink:href");
       case "iframe":
       case "frame":
