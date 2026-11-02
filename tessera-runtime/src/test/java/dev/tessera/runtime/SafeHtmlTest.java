@@ -11,14 +11,14 @@ import org.junit.jupiter.api.Test;
 class SafeHtmlTest {
 
   @Test
-  void safeHtmlEscapeAndUnchecked() {
+  void safeHtmlEscapeAndEquality() {
     assertEquals("&lt;i&gt;&amp;&lt;/i&gt;", SafeHtml.escape("<i>&</i>").html());
     assertEquals("", SafeHtml.escape(null).html());
-    assertEquals("<i>x</i>", SafeHtml.unchecked("<i>x</i>").html());
-    assertEquals(SafeHtml.unchecked("a"), SafeHtml.unchecked("a"));
-    assertEquals(SafeHtml.unchecked("a").hashCode(), SafeHtml.unchecked("a").hashCode());
-    assertNotEquals(SafeHtml.unchecked("a"), SafeHtml.unchecked("b"));
-    assertThrows(NullPointerException.class, () -> SafeHtml.unchecked(null));
+    assertEquals(SafeHtml.escape("a"), SafeHtml.escape("a"));
+    assertEquals(SafeHtml.escape("a").hashCode(), SafeHtml.escape("a").hashCode());
+    assertNotEquals(SafeHtml.escape("a"), SafeHtml.escape("b"));
+    assertEquals(SafeHtml.escape("a"), SafeHtml.concat(SafeHtml.escape("a"), null));
+    assertThrows(NullPointerException.class, () -> SafeHtml.sanitize("a", null));
   }
 
   @Test

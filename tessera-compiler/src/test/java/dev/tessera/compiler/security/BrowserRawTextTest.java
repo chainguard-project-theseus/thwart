@@ -4,7 +4,7 @@ import static dev.tessera.compiler.testing.Compilation.model;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import dev.tessera.compiler.testing.Compilation;
-import dev.tessera.runtime.SafeHtml;
+import dev.tessera.compiler.testing.TestFragments;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -26,7 +26,7 @@ class BrowserRawTextTest {
   }
 
   private static String render(String body) {
-    return compile(body).assertSuccess().render("page", model("s", XSS, "h", SafeHtml.unchecked("<b>h</b>")));
+    return compile(body).assertSuccess().render("page", model("s", XSS, "h", TestFragments.safeHtml("<b>h</b>")));
   }
 
   @Test

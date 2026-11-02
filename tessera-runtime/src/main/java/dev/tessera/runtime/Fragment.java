@@ -13,7 +13,7 @@ import java.util.Objects;
  * {@code t:params}. A fragment with a {@code Fragment} parameter has no Java-facing method (#600).
  * {@link #unverifiedForGeneratedCode} and the generated {@code internalUnverified$<name>} methods
  * are public for generated code in other packages and check nothing: a call from application code
- * is a door, like {@link SafeHtml#unchecked}, and fails the build under {@code tessera:review}.
+ * is a door, and fails the build under {@code tessera:review}.
  */
 public final class Fragment {
   /** What a {@link #unverifiedForGeneratedCode} value writes. */
@@ -52,8 +52,8 @@ public final class Fragment {
    * {@link #requireVerified} refuses it where Java hands it back to a template. Java code uses
    * {@link #of(Template)}: this is public only for generated classes in other packages, and
    * nothing checks {@code body}, so passed to a generated {@code internalUnverified$<name>} method
-   * it writes whatever it writes. A call outside generated code is a door, like
-   * {@link SafeHtml#unchecked}, and fails the build under {@code tessera:review}.
+   * it writes whatever it writes. A call outside generated code is a door,
+   * vouching for markup nothing checks, and fails the build under {@code tessera:review}.
    */
   public static Fragment unverifiedForGeneratedCode(Body body) {
     return new Fragment(body, false);

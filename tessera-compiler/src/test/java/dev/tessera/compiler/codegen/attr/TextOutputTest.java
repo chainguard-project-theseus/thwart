@@ -4,7 +4,7 @@ import static dev.tessera.compiler.testing.Compilation.model;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import dev.tessera.compiler.testing.Compilation;
-import dev.tessera.runtime.SafeHtml;
+import dev.tessera.compiler.testing.TestFragments;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -64,7 +64,7 @@ class TextOutputTest {
   @Test
   void textOfSafeHtmlStillEscapes() {
     Compilation c = compile("SafeHtml h", "<p t:text=\"h\">x</p>").assertSuccess();
-    assertEquals("<div><p>&lt;b&gt;</p></div>", c.render("page", model("h", SafeHtml.unchecked("<b>"))));
+    assertEquals("<div><p>&lt;b&gt;</p></div>", c.render("page", model("h", TestFragments.safeHtml("<b>"))));
   }
 
   @Test
@@ -115,7 +115,7 @@ class TextOutputTest {
   @Test
   void utextWithSafeHtmlRendersRaw() {
     Compilation c = compile("SafeHtml h", "<div t:utext=\"h\">x</div>").assertSuccess();
-    assertEquals("<div><div><b>bold</b></div></div>", c.render("page", model("h", SafeHtml.unchecked("<b>bold</b>"))));
+    assertEquals("<div><div><b>bold</b></div></div>", c.render("page", model("h", TestFragments.safeHtml("<b>bold</b>"))));
     assertEquals("<div><div></div></div>", c.render("page", model()));
   }
 
@@ -124,6 +124,16 @@ class TextOutputTest {
     compile("String s", "<p t:utext=\"s\">x</p>").assertError("page.html:1:", "t:utext", "SafeHtml", "java.lang.String");
     compile("String s", "<p t:utext=\"'<b>' + s\">x</p>").assertError("SafeHtml");
     compile("String s", "<p t:utext=\"null\">x</p>").assertError("SafeHtml", "null");
+  }
+
+  /** Negative (#664): Java can't wrap a string as {@code SafeHtml} without a check; there is no {@code unchecked}. */
+  @Test
+  void safeHtmlUncheckedDoesNotExist() {
+    Compilation.builder()
+        .java("com.example.Raw", "package com.example; public final class Raw {"
+            + " static Object raw(String s) { return dev.tessera.runtime.SafeHtml.unchecked(s); } }")
+        .compile()
+        .assertError("cannot find symbol", "unchecked");
   }
 
   @Test
@@ -231,7 +241,7 @@ class TextOutputTest {
   @Test
   void unescapedInlineAcceptsSafeHtmlOnly() {
     Compilation c = compile("SafeHtml h", "<div>a [(h)] b</div>").assertSuccess();
-    assertEquals("<div><div>a <i>x</i> b</div></div>", c.render("page", model("h", SafeHtml.unchecked("<i>x</i>"))));
+    assertEquals("<div><div>a <i>x</i> b</div></div>", c.render("page", model("h", TestFragments.safeHtml("<i>x</i>"))));
     compile("String s", "<p>[(s)]</p>").assertError("page.html:1:", "[(...)]", "SafeHtml", "java.lang.String");
     compile("String s", "<p>[(#{x})]</p>").assertError("[(...)] with a message #{...} needs -Atessera.messages");
   }

@@ -114,7 +114,7 @@ class GuideExamplesTest {
     String html =
         render(
             "guide/contexts",
-            Map.of("account", account, "bio", SafeHtml.unchecked("<em>hi</em>"), "homepage", "javascript:alert(1)"));
+            Map.of("account", account, "bio", SafeHtml.sanitize("<em>hi</em>"), "homepage", "javascript:alert(1)"));
     assertTrue(html.contains("<a href=\"about:invalid#tessera\">a@example.com</a>"), html);
     assertTrue(html.contains("<section><em>hi</em></section>"), html);
     assertTrue(html.contains("title=\"a@example.com\""), html);

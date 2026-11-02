@@ -12,7 +12,6 @@ import dev.tessera.runtime.DefaultLinks;
 import dev.tessera.runtime.Forms;
 import dev.tessera.runtime.Messages;
 import dev.tessera.runtime.RenderContext;
-import dev.tessera.runtime.SafeHtml;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.LinkedHashMap;
@@ -225,7 +224,7 @@ class SkeletonTest {
         c.render(
             "j",
             model(
-                "h", SafeHtml.unchecked("<b>B</b>"),
+                "h", TestFragments.safeHtml("<b>B</b>"),
                 "item", c.newInstance("com.example.Item", "</script>", 3),
                 "s", "x'y",
                 "f", TestFragments.markup("<hr>")));
