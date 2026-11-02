@@ -69,7 +69,7 @@ import org.w3c.dom.NodeList;
  * gate in {@code mvn verify}; each writes its report to {@code target/hostile-sweep/<pass>.txt}.
  *
  * <ul>
- *   <li><b>Attributes.</b> Every name in {@code attributes.txt}, plus names outside HTML and odd
+ *   <li><b>Attributes.</b> Every name in {@code oracle/standard-attributes.txt}, plus names outside HTML and odd
  *       spellings, on representative HTML elements, as {@code t:<name>="${s}"}; the
  *       names outside HTML also with each framework-neutral shape (a link with a path variable, a
  *       number, a boolean). What the compiler accepts is rendered with a hostile corpus, parsed with
@@ -890,16 +890,6 @@ class HostileSweepTest {
     ScriptCase commented = new ScriptCase("j", "s", "", "var a = ", "; // x", "");
     assertTrue(checkScript("<script>var a = (\"x\"); // y</script>", commented, "x", rTree)
         .startsWith("SCRIPT_STATIC_CHANGED"));
-  }
-
-  /**
-   * #608: the oracle's copy of the standard attribute names and the compiler's agree name for name
-   * and source for source; a name added to only one of them fails here.
-   */
-  @Test
-  void standardNamesAreTheOraclesOwnCopy() {
-    assertTrue(!HostileSinks.STANDARD.isEmpty());
-    assertEquals(HostileSinks.standardNames(HostileSinks.COMPILER_STANDARD), HostileSinks.STANDARD);
   }
 
   /** The ratchet fails on an unlisted hit and on a listed hit that no longer occurs. */

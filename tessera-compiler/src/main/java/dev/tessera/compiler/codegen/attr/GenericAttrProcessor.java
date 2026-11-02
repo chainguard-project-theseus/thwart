@@ -40,13 +40,14 @@ import javax.lang.model.type.TypeMirror;
  */
 public final class GenericAttrProcessor implements AttributeProcessor {
 
-  /** HTML boolean attributes (Thymeleaf's list): rendered as {@code name="name"} or omitted. */
+  /**
+   * The boolean attributes on the computed allow-list ({@code Contexts}): rendered as
+   * {@code name="name"} or omitted.
+   */
   private static final Set<String> BOOLEAN_ATTRIBUTES =
       Backports.setOf(
-          "async", "autofocus", "autoplay", "checked", "controls", "declare", "default", "defer",
-          "disabled", "formnovalidate", "hidden", "inert", "ismap", "itemscope", "loop", "multiple",
-          "muted", "nomodule", "novalidate", "nowrap", "open", "playsinline", "pubdate", "readonly",
-          "required", "reversed", "scoped", "seamless", "selected");
+          "async", "autofocus", "checked", "defer", "disabled", "formnovalidate", "hidden", "multiple",
+          "novalidate", "open", "readonly", "required", "reversed", "selected");
 
   @Override
   public void process(CodegenContext ctx, Attribute attr, ElementPlan plan) {
@@ -77,12 +78,6 @@ public final class GenericAttrProcessor implements AttributeProcessor {
             + " a boolean or a same-origin path) or a <script type=\"application/json\"> block and read it from a script";
         break;
       case TYPED_ATTRIBUTE:
-        if (!BOOLEAN_ATTRIBUTES.contains(lower)) {
-          style(ctx, plan, name, value, pos, label, context);
-          return;
-        }
-        hint = null;
-        break;
       case STYLE:
         style(ctx, plan, name, value, pos, label, context);
         return;
@@ -99,8 +94,7 @@ public final class GenericAttrProcessor implements AttributeProcessor {
       ctx.diagnostics().error(pos, label + " is not allowed: " + hint);
       return;
     }
-    if ((context == OutputContext.ATTRIBUTE || context == OutputContext.TYPED_ATTRIBUTE)
-        && BOOLEAN_ATTRIBUTES.contains(lower)) {
+    if (context == OutputContext.ATTRIBUTE && BOOLEAN_ATTRIBUTES.contains(lower)) {
       CompiledExpr cond = ctx.expressions().compileCondition(value, plan.scope());
       if (cond != null) {
         String code = "((" + cond.code() + ") ? " + JavaStrings.literal(name) + " : null)";

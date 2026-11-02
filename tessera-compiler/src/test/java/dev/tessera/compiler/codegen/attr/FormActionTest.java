@@ -129,23 +129,23 @@ class FormActionTest {
   }
 
   /**
-   * A computed hx-boost is NEUTRAL like any other non-HTML name (#584): boosting is not modelled
+   * A computed data-hx-boost is NEUTRAL like any other data-* name (#584, #761): boosting is not modelled
    * (#585), and every form's computed action is checked as above. A boolean or a choice between
    * literals compiles.
    */
   @Test
   void computedBoostIsNeutral() {
-    for (String name : new String[] {"hx-boost", "data-hx-boost", "HX-Boost"}) {
+    for (String name : new String[] {"data-hx-boost", "DATA-HX-Boost"}) {
       Compilation c = compile("<main t:" + name + "=\"b ? 'true' : 'false'\">x</main>").assertSuccess();
       assertEquals("<div><main " + name + "=\"true\">x</main></div>", render(c, ""));
       compile("<main t:" + name + "=\"b\">x</main>").assertSuccess();
     }
   }
 
-  /** Negative: a String hx-boost is not framework-neutral, by any route (#584). */
+  /** Negative: a String data-hx-boost is not framework-neutral, by any route (#584). */
   @Test
   void stringBoostIsABuildError() {
-    for (String name : new String[] {"hx-boost", "data-hx-boost", "HX-Boost"}) {
+    for (String name : new String[] {"data-hx-boost", "DATA-HX-Boost"}) {
       compile("<main t:" + name + "=\"s\">x</main>")
           .assertError("t.html:1:", "t:" + name + " is not allowed", "framework-neutral");
       compile("<main t:attr=\"" + name + "=s\">x</main>")

@@ -94,23 +94,29 @@ its own message, what it doesn't model:
 
 ### 5.3 Attributes
 
-`Contexts.attribute` classifies each computed attribute (context-model.md §6.1):
+`Contexts.attribute` classifies each computed attribute (context-model.md §6.1). Computed names
+are one closed allow-list (#761): `data-*`, `aria-*` and a fixed set of standard names, each with
+one class. Every other computed name is a build error with a fix-it.
 
-- **Inert text** (`inert-attributes.txt`): any value, escaped.
-- **Typed**: every other standard attribute without a class of its own takes string literals,
-  numbers and a choice between literals only.
-- **Single URL**: only attributes whose grammar is exactly one URL take a URL; the scheme is
-  checked at render time.
-- **Resource URL**: `script[src|href|xlink:href]`, `iframe/frame/embed[src]`, `object[data]` and
+- **Inert text** (the listed text, keyword, number, boolean, ID, token and ARIA names): any value,
+  escaped.
+- **Typed**: `target`, a `value` outside form controls and `<data> <li> <meter> <progress>`, and
+  a `for` outside `<label>` and `<output>` take string literals, numbers and a choice between
+  literals only.
+- **Single URL**: `href src action formaction cite poster` take a URL; the scheme is checked at
+  render time.
+- **Resource URL**: `script[src|href]`, `iframe/frame/embed[src]`, `object[data]` and
   `base/link[href]` take only a same-origin literal-path `@{...}` link with no query parameters: no
   scheme or `//` origin, data only in percent-encoded path variables, and a `/` path re-checked
   as same-origin when rendered. A `<base href>` must also be same-origin (§9).
-- **Neutral**: every name that isn't a standard HTML, SVG, MathML or ARIA name (`data-*`, `hx-*`,
-  `x-*`, `v-*`, custom element attributes) takes only a framework-neutral value: an exact-class
-  number, a boolean, a same-origin `@{/path}` without a query, or a choice of those and literals.
+- **Neutral**: `data-*`, and an `aria-*` name outside WAI-ARIA 1.2, take only a framework-neutral
+  value: an exact-class number, a boolean, a same-origin `@{/path}` without a query, or a choice of
+  those and literals.
 - **Forbidden** (`Contexts.forbidden`, which also gives the fix-it): names that aren't plain
   (`:x`, `@x`), `srcdoc`, URL lists (`srcset`, `imagesrcset`, `ping`), the tree-builder inputs of
-  §5.2, and every attribute of an SVG or MathML element. `on*` is a build error too.
+  §5.2, every attribute of an SVG or MathML element, and every name off the list (`hx-*`, `x-*`,
+  `v-*`, custom element attributes, `rel`, `type`, `nonce`, named `<meta>` content, ...). `on*` is
+  a build error too.
 
 `OutputContext.attributeEscaper()` gives each class its escaper, a `Skeleton.Escaper` naming one
 `Escapers` method (§6).
@@ -149,8 +155,8 @@ predicate on the parser state where it is inserted plus a promise about what its
 Tessera models no client framework, and no rule names one. Computed text and attribute values
 share one HTML escaper (`& < > " '`), so `{{` in a value renders as `{{`. Client frameworks that
 compile the server's DOM as a template are unsupported, and what client code does with static
-markup, text and standard attribute values is outside the guarantee. In non-standard attribute
-names the compiler constrains its own output to framework-neutral values (§5.3).
+markup, text and standard attribute values is outside the guarantee. In `data-*` attribute
+names the compiler constrains its own output to framework-neutral values, and computes no other name outside HTML (§5.3).
 
 The backstop is a strict CSP: the Spring starter puts the request's nonce on every `<script>`
 and `<style>` the compiler writes (context-model.md §6.4), and sends a strict nonce-based

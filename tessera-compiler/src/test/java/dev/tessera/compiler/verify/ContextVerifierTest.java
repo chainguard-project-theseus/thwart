@@ -31,7 +31,7 @@ class ContextVerifierTest {
             .template(
                 "page.html",
                 "<!DOCTYPE html>\n<html " + NS + " t:import=\"java.util.List, com.example.Item\" t:params=\"List<Item> items, String q\">\n"
-                    + "<head><title t:text=\"q\">t</title><meta name=\"description\" t:content=\"q\"></head>\n<body>\n"
+                    + "<head><title t:text=\"q\">t</title><meta name=\"description\" content=\"d\"></head>\n<body>\n"
                     + "<h1 class=\"x\" t:classappend=\"q\" t:title=\"q\" t:id=\"q\" t:lang=\"q\" t:dir=\"q\">[[${q}]]</h1>\n"
                     + "<table><thead><tr><th>n</th></tr></thead><tbody><tr t:each=\"i : items\"><td t:text=\"i.name\">x</td>"
                     + "<td><a t:href=\"@{/items/{n}(n=${i.n})}\" t:text=\"i.n\">1</a></td></tr></tbody></table>\n"
