@@ -1,0 +1,41 @@
+{
+ "app": "budgetmaster",
+ "run": "run-12",
+ "build_ok": true,
+ "tests_ok": true,
+ "tests": {
+  "tests": 269,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0
+ },
+ "tests_failed": [],
+ "baseline_tests": 269,
+ "pages_total": 121,
+ "pages_identical": 13,
+ "pages_reordered": 0,
+ "status_mismatch": [],
+ "insecure": [],
+ "legacy_templates": [],
+ "legacy_constructs": {},
+ "legacy_deps": [],
+ "tessera_templates": 76,
+ "baseline_templates": 75,
+ "pass": false,
+ "wall_minutes": 37.3,
+ "exit": 0,
+ "model": "opus",
+ "budget_usd": 40,
+ "budget_minutes": 90,
+ "outcome": "success",
+ "cost_usd": 26.50338380000001,
+ "turns": 55,
+ "tokens": {
+  "input_tokens": 908,
+  "output_tokens": 380015,
+  "cache_read_input_tokens": 62324584,
+  "cache_creation_input_tokens": 1286907
+ },
+ "skill_listed": true,
+ "skill_invoked": true
+}

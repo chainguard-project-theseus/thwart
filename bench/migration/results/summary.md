@@ -6,6 +6,7 @@
 | budgetmaster | run-9 | no | ok | 269/269 (base 269) | 62+0/121 | 0 | - | 0 | invoked | 49.6 | 29.71 | 377904 |
 | budgetmaster | run-10 | no | ok | 269/269 (base 269) | 44+0/121 | 0 | - | 0 | invoked | 41.4 | 30.22 | 413054 |
 | budgetmaster | run-11 | no | ok | 269/269 (base 269) | 13+0/121 | 0 | - | 0 | invoked | 34.8 | 33.88 | 444774 |
+| budgetmaster | run-12 | no | ok | 269/269 (base 269) | 13+0/121 | 0 | - | 0 | invoked | 37.3 | 26.50 | 380015 |
 | espd | run-1 | no | ok | 931/931 (base 931) | 21+0/60 | 0 | - | 0 | invoked | 16.3 | 10.74 | 171660 |
 | espd | run-2 | no | ok | 932/932 (base 931) | 46+0/60 | 0 | - | 51 | invoked | 34.4 | 14.47 | 169319 |
 | espd | run-3 | no | ok | 931/931 (base 931) | 50+0/60 | 0 | - | 0 | invoked | 58.0 | 19.57 | 193222 |
@@ -41,11 +42,13 @@
 | jpetstore | run-8 | no | ok | 9/9 (base 6) | 58+0/59 | 0 | - | 0 | invoked | 14.0 | 4.55 | 62821 |
 | jpetstore | run-10 | no | ok | 8/8 (base 6) | 58+0/59 | 0 | - | 0 | invoked | 11.8 | 4.43 | 60593 |
 | jpetstore | run-11 | no | ok | 6/6 (base 6) | 58+0/59 | 0 | - | 0 | invoked | 11.7 | 3.79 | 55421 |
+| jpetstore | run-12 | no | ok | 9/9 (base 6) | 58+0/59 | 0 | - | 0 | invoked | 10.4 | 3.78 | 47543 |
 | jprime | run-4 | no | ok | 211/211 (base 208) | 134+6/150 | 0 | - | 0 | - | 34.0 | 21.76 | 290847 |
 | jprime | run-8 | no | ok | 209/209 (base 208) | 137+3/150 | 0 | - | 0 | invoked | 33.2 | 21.10 | 237891 |
 | jprime | run-9 | no | ok | 209/209 (base 208) | 143+3/150 | 0 | - | 0 | invoked | 29.3 | 14.77 | 158789 |
 | jprime | run-10 | no | ok | 208/208 (base 208) | 142+3/150 | 0 | - | 0 | invoked | 32.3 | 30.43 | 352831 |
 | jprime | run-11 | no | ok | 208/208 (base 208) | 140+6/150 | 0 | - | 0 | invoked | 33.8 | 26.67 | 327405 |
+| jprime | run-12 | no | ok | 208/208 (base 208) | 140+6/150 | 0 | - | 0 | invoked | 30.5 | 23.15 | 317504 |
 | luckyblog | run-1 | no | ok | 0/0 (base 0) | 63+0/64 | 0 | - | 0 | invoked | 12.8 | 3.78 | 60422 |
 | luckyblog | run-2 | yes | ok | 0/0 (base 0) | 64+0/64 | 0 | - | 0 | invoked | 17.1 | 4.17 | 66528 |
 | luckyblog | run-10 | no | ok | 0/0 (base 0) | 57+0/64 | 0 | - | 0 | invoked | 12.0 | 3.90 | 60975 |
@@ -104,7 +107,7 @@
 |---|---|---|---|---|---|---|
 | fredbet | 11 | 0/11 | 11/11 | 11/11 | 6/6 | 86% |
 | jobsearch | 8 | 1/8 | 8/8 | 8/8 | 3/3 | 87% |
-| jpetstore | 5 | 0/5 | 5/5 | 5/5 | 4/4 | 98% |
+| jpetstore | 6 | 0/6 | 6/6 | 6/6 | 5/5 | 98% |
 | spring-framework-petclinic | 7 | 6/7 | 7/7 | 7/7 | 3/3 | 97% |
 | spring-framework-petclinic-spring43 | 4 | 4/4 | 4/4 | 4/4 | 4/4 | 100% |
 | spring-framework-petclinic-spring5 | 4 | 4/4 | 4/4 | 4/4 | 4/4 | 100% |
@@ -113,16 +116,16 @@
 | spring-petclinic-boot20 | 4 | 4/4 | 4/4 | 4/4 | 4/4 | 100% |
 | spring-petclinic-boot27 | 4 | 4/4 | 4/4 | 4/4 | 4/4 | 100% |
 | spring-petclinic-mustache | 7 | 4/7 | 7/7 | 7/7 | 3/3 | 95% |
-| all | 66 | 39/66 | | | | |
+| all | 67 | 39/67 | | | | |
 
 **Held-out apps**
 
 | App | Runs | Passed | Build ok | Tests ok | Skill invoked | Mean pages identical+reordered |
 |---|---|---|---|---|---|---|
-| budgetmaster | 6 | 0/6 | 6/6 | 6/6 | 4/4 | 34% |
+| budgetmaster | 7 | 0/7 | 7/7 | 7/7 | 5/5 | 30% |
 | espd | 6 | 0/6 | 6/6 | 6/6 | 6/6 | 32% |
 | ewp-registry | 5 | 0/5 | 5/5 | 5/5 | 5/5 | 83% |
-| jprime | 5 | 0/5 | 5/5 | 5/5 | 4/4 | 96% |
+| jprime | 6 | 0/6 | 6/6 | 6/6 | 5/5 | 96% |
 | luckyblog | 4 | 1/4 | 4/4 | 4/4 | 4/4 | 94% |
 | purl-server | 5 | 4/5 | 5/5 | 5/5 | 4/4 | 99% |
-| all | 31 | 5/31 | | | | |
+| all | 33 | 5/33 | | | | |
