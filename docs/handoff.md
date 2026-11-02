@@ -80,6 +80,29 @@ From [security-architecture.md](security-architecture.md) §7 (accepted Oct 24, 
   `migration-bench`, `documentation`, `security`, `security-phase-0` through `security-phase-5`,
   `security-verifier`.
 
+## Fast loop
+
+Work in a `chainctl develop` session (the default size: 8 CPUs, 32 GB). It has JDK 21 and JDK 8
+under `/usr/lib/jvm` and Maven; `apk add jq procps nodejs-22 npm` once for `hack/corpus.sh`
+(busybox `ps` kills old surefire forks on JDK 8; ewp-registry builds with npm). No Docker is
+needed. Install everything once (`mvn -B -T1C -q install -DskipTests`), then stay offline:
+
+- `hack/quick.sh tier0`: install the modules changed against `origin/main` (and their
+  dependencies), no tests. Seconds.
+- `hack/quick.sh tier1`: the security core (`SeedVerifierTest`, `HostileSweepTest`, the escaper,
+  SSTI, ASCII and text choke point tests). About a minute; run it before every PR.
+- `hack/quick.sh tier2`: tier0, then the tests of the changed modules.
+- `hack/corpus.sh [app ...]`: for every bench app with a committed `diff.patch`, clone it at
+  `app.json`'s commit, apply the latest run's patch and build and test it on the app's JDK
+  against the installed 0.1.0-SNAPSHOT. Prints app, run, compile, tests. Run tier0 first.
+  `JOBS=3` runs three apps at once (all 14 in about 5 minutes); logs are under
+  `/tmp/tessera-corpus/out/<app>/`. Known red on `main`: spring-petclinic-boot20's run-10
+  `ViewRenderingTests` (4 errors, "Cache 'vets' already exists": the app's JCache context clash,
+  passes alone).
+
+`quick.sh` runs Maven with `-o`; set `ONLINE=1` when an artifact is missing (the first test run
+of a module in a fresh session). CI still runs the full `mvn verify`.
+
 ## Known limits relevant to migration work
 
 - Maven or Gradle ([examples/gradle](../examples/gradle/build.gradle), built in CI). The processor
