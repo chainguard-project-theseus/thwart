@@ -1,0 +1,306 @@
+001 same      GET /
+002 same      GET /speakers
+003 same      GET /speaker/2
+004 same      GET /speaker/4
+005 same      GET /speaker/999
+006 same      GET /agenda
+007 differs   GET /agenda/1
+--- recorded 007.html
++++ now
+@@ -133,10 +133,7 @@
+                   <b>
+                     Bio:
+                   <br>
+-                  Ada writes
+-                  <b>
+-                    analytical
+-                  engines &amp; more.
++                  Ada writes &lt;b&gt;analytical&lt;/b&gt; engines &amp; more.
+     <br>
+     <section class="section-padding" id="contact">
+       <div class="container">
+008 same      GET /agenda/999
+009 same      GET /nav
+010 same      GET /nav/news
+011 same      GET /nav/agenda
+012 same      GET /nav/nosuch
+013 same      GET /nav/article/1
+014 same      GET /nav/article/4
+015 same      GET /nav/article/999
+016 same      GET /nav/article?title=Tickets%20on%20sale
+017 same      GET /team
+018 same      GET /venue
+019 same      GET /privacy-policy
+020 same      GET /privacy-policy?bg
+021 same      GET /cfp
+022 same      GET /cfp-thank-you
+023 same      GET /cfp-problem
+024 reordered GET /tickets
+--- recorded 024.html
++++ now
+@@ -138,14 +138,14 @@
+               <br>
+               <br>
+               <input id="isStudent" name="student" onchange="document.getElementById('isCompany').disabled = this.checked; this.checked?document.getElementById('isCompany').checked= false:'';" type="checkbox" value="true">
++              <input name="_student" type="hidden" value="on">
+               <label for="isStudent">
+                 I am student
+-              <input name="_student" type="hidden" value="on">
+               <br>
+               <input checked id="isCompany" name="company" onchange="document.getElementById('isStudent').disabled = this.checked; this.checked?document.getElementById('isStudent').checked= false:'';" type="checkbox" value="true">
++              <input name="_company" type="hidden" value="on">
+               <label for="isCompany">
+                 Issue company VAT invoice
+-              <input name="_company" type="hidden" value="on">
+               <br>
+               <br>
+               <fieldset id="studentFieldset" style="display:none">
+025 same      GET /qr
+026 same      GET /pwa/
+027 same      GET /nosuch
+028 same      GET /admin
+029 reordered GET /tickets
+--- recorded 029.html
++++ now
+@@ -138,14 +138,14 @@
+               <br>
+               <br>
+               <input id="isStudent" name="student" onchange="document.getElementById('isCompany').disabled = this.checked; this.checked?document.getElementById('isCompany').checked= false:'';" type="checkbox" value="true">
++              <input name="_student" type="hidden" value="on">
+               <label for="isStudent">
+                 I am student
+-              <input name="_student" type="hidden" value="on">
+               <br>
+               <input checked id="isCompany" name="company" onchange="document.getElementById('isStudent').disabled = this.checked; this.checked?document.getElementById('isStudent').checked= false:'';" type="checkbox" value="true">
++              <input name="_company" type="hidden" value="on">
+               <label for="isCompany">
+                 Issue company VAT invoice
+-              <input name="_company" type="hidden" value="on">
+               <br>
+               <br>
+               <fieldset id="studentFieldset" style="display:none">
+030 reordered POST /tickets visitors[0].name=&visitors[0].email=&visitors[0].company=&_student=on&company=true&_company=on&name=&address=&vatNumber=&eik=&mol=&email=&id=&captcha=wrong
+--- recorded 030.html
++++ now
+@@ -135,14 +135,14 @@
+               <br>
+               <br>
+               <input id="isStudent" name="student" onchange="document.getElementById('isCompany').disabled = this.checked; this.checked?document.getElementById('isCompany').checked= false:'';" type="checkbox" value="true">
++              <input name="_student" type="hidden" value="on">
+               <label for="isStudent">
+                 I am student
+-              <input name="_student" type="hidden" value="on">
+               <br>
+               <input checked id="isCompany" name="company" onchange="document.getElementById('isStudent').disabled = this.checked; this.checked?document.getElementById('isStudent').checked= false:'';" type="checkbox" value="true">
++              <input name="_company" type="hidden" value="on">
+               <label for="isCompany">
+                 Issue company VAT invoice
+-              <input name="_company" type="hidden" value="on">
+               <br>
+               <br>
+               <fieldset id="studentFieldset" style="display:none">
+031 same      GET /signup
+032 same      POST /signup firstName=&lastName=&email=&password=&cpassword=
+033 same      POST /signup firstName=New&lastName=Person&email=not-an-email&password=a&cpassword=a
+034 same      POST /signup firstName=New&lastName=Person&email=new@example.org&password=a&cpassword=b
+035 same      POST /signup firstName=Plain&lastName=Again&email=plain@example.org&password=a&cpassword=a
+036 same      POST /signup firstName=New&lastName=Person&email=new@example.org&password=newpass&cpassword=newpass
+037 same      GET /resetPassword
+038 same      POST /resetPassword email=nonsense
+039 same      POST /resetPassword email=nobody@example.org
+040 same      POST /resetPassword email=new@example.org
+041 same      GET /createNewPassword?tokenId=bad
+042 same      GET /createNewPassword?tokenId=benchresettoken
+043 same      POST /createNewPassword password=x&cpassword=x&tokenId=bad
+044 same      POST /createNewPassword password=x&cpassword=y&tokenId=benchresettoken
+045 same      POST /createNewPassword password=fresh&cpassword=fresh&tokenId=benchresettoken
+046 same      GET /createNewPassword?tokenId=benchresettoken
+047 same      GET /qr/tuk
+048 same      POST /qr/tuk id=&name=Nobody&company=
+049 same      POST /qr/tuk id=2&name=&company=
+050 same      GET /qr/tukjpro
+051 same      POST /qr/tukjpro name=Nobody&email=
+052 same      POST /qr/tukjpro name=Kay Pro&email=kay@jpro.example
+053 same      GET /login
+054 same      POST /login username=admin&password=wrong
+055 same      POST /login username=admin&password=password
+056 same      GET /admin
+057 same      GET /admin/article/view
+058 same      GET /admin/article/view/1
+059 reordered GET /admin/article/add
+--- recorded 059.html
++++ now
+@@ -112,12 +112,12 @@
+               <label for="tags">
+                 Tag
+             <dd>
++              <input name="_tags" type="hidden" value="1">
+               <select id="tags" multiple name="tags">
+                 <option value="1">
+                   news
+                 <option value="2">
+                   agenda
+-              <input name="_tags" type="hidden" value="1">
+           <dl>
+             <dt>
+               <label for="published">
+060 reordered GET /admin/article/edit/1
+--- recorded 060.html
++++ now
+@@ -114,12 +114,12 @@
+               <label for="tags">
+                 Tag
+             <dd>
++              <input name="_tags" type="hidden" value="1">
+               <select id="tags" multiple name="tags">
+                 <option selected value="1">
+                   news
+                 <option value="2">
+                   agenda
+-              <input name="_tags" type="hidden" value="1">
+           <dl>
+             <dt>
+               <label for="published">
+061 same      GET /admin/tag/view
+062 same      GET /admin/tag/add
+063 same      GET /admin/tag/edit/1
+064 same      GET /admin/user/view
+065 same      GET /admin/user/view?page=1&size=3
+066 same      GET /admin/user/add
+067 same      GET /admin/hall/view
+068 same      GET /admin/hall/add
+069 same      GET /admin/hall/edit/1
+070 same      GET /admin/session/view
+071 same      GET /admin/session/add
+072 same      GET /admin/session/edit/1
+073 same      GET /admin/session/edit/3
+074 same      GET /admin/session/edit/4
+075 same      GET /admin/branch/view
+076 same      GET /admin/branch/add
+077 same      GET /admin/branch/edit/2099
+078 same      GET /admin/branch/edit/2020
+079 differs   GET /admin/speaker/view
+--- recorded 079.html
++++ now
+@@ -171,10 +171,7 @@
+                         <em>
+                           <strong>
+                             Bio :
+-                        Ada writes
+-                        <b>
+-                          analytical
+-                        engines &amp; more.
++                        Ada writes &lt;b&gt;analytical&lt;/b&gt; engines &amp; more.
+                     <tr>
+                       <td>
+                         Talks :
+080 same      GET /admin/speaker/view?branch=YEAR_2020
+081 same      GET /admin/speaker/add
+082 same      GET /admin/speaker/edit/2
+083 same      GET /admin/sponsor/view
+084 same      GET /admin/sponsor/add
+085 same      GET /admin/sponsor/edit/6
+086 same      GET /admin/partner/view
+087 same      GET /admin/partner/add
+088 same      GET /admin/partner/edit/1
+089 same      GET /admin/submission/view
+090 same      GET /admin/submission/view/all
+091 same      GET /admin/submission/view/status/CONFIRMED
+092 same      GET /admin/submission/view/2020
+093 same      GET /admin/submission/view/id/1
+094 same      GET /admin/submission/add
+095 same      GET /admin/submission/edit/2
+096 same      GET /admin/registrant/view
+097 same      GET /admin/registrant/view?year=2020
+098 same      GET /admin/registrant/add
+099 same      GET /admin/registrant/edit/1
+100 same      GET /admin/registrant/edit/2
+101 same      GET /admin/registrant/1/addVisitor
+102 same      GET /admin/invoice/1
+103 same      GET /admin/visitor/view
+104 same      GET /admin/visitor/view?year=2020
+105 same      GET /admin/visitor/add
+106 same      GET /admin/visitor/edit/1
+107 same      GET /admin/visitor/upload
+108 same      GET /admin/visitor/send
+109 same      GET /admin/jobs/view
+110 same      GET /raffle/view
+111 same      GET /raffle/view/jpro
+112 same      POST /admin/tag/add name=java&id=
+113 same      POST /admin/tag/add name=news %26 events&id=1
+114 same      GET /admin/tag/remove/100
+115 reordered POST /admin/article/add description=&_tags=1&_published=on&id=&createdDate=&createdBy=
+--- recorded 115.html
++++ now
+@@ -112,8 +112,8 @@
+               <label for="tags">
+                 Tag
+             <dd>
+-              <select id="tags" multiple name="tags">
+               <input name="_tags" type="hidden" value="1">
++              <select id="tags" multiple name="tags">
+           <dl>
+             <dt>
+               <label for="published">
+116 differs   POST /admin/article/add title=Speakers announced&description=The <first> speakers&text=<p>Meet them.</p>&tags=1&tags=100&_tags=1&published=true&_published=on&id=&createdDate=&createdBy=
+--- recorded 116.html
++++ now
+@@ -149,9 +149,7 @@
+               <td>
+                 Speakers announced
+               <td>
+-                The
+-                <first>
+-                  speakers
++                The &lt;first&gt; speakers
+               <td>
+                 <a href="/admin/article/view/100">
+                   Preview
+117 differs   GET /admin/article/remove/4
+--- recorded 117.html
++++ now
+@@ -135,9 +135,7 @@
+               <td>
+                 Speakers announced
+               <td>
+-                The
+-                <first>
+-                  speakers
++                The &lt;first&gt; speakers
+               <td>
+                 <a href="/admin/article/view/100">
+                   Preview
+118 same      POST /admin/hall/add name=Hall C&description=Overflow room&id=&createdDate=&createdBy=
+119 same      GET /admin/hall/remove/100
+120 same      POST /admin/user/add firstName=&lastName=&email=bad&id=
+121 same      POST /admin/user/add firstName=Added&lastName=ByAdmin&email=added@example.org&id=
+122 same      GET /admin/user/remove/102
+123 same      POST /admin/session/add submission=3&title=&startTime=28.05.2099 11:00&endTime=28.05.2099 11:50&hall=1&id=
+124 same      POST /admin/session/add submission=-1&title=Lunch&startTime=28.05.2099 12:00&endTime=28.05.2099 13:00&hall=&id=
+125 same      GET /admin/session/remove/4
+126 same      GET /admin/submission/accept/4
+127 same      GET /admin/submission/confirm/3
+128 same      GET /admin/submission/reject/1
+129 same      GET /admin/submission/cancel/2
+130 same      GET /admin/submission/notify/3
+131 same      GET /admin/submission/delete/5
+132 same      GET /admin/submission/view/all
+133 same      POST /admin/registrant/add name=Globex&email=billing@globex.example&company=true&_company=on&address=2 Side St&vatNumber=BG987654321&eik=987654321&mol=Hank Scorpio&paymentType=BANK_TRANSFER&branch=YEAR_2099&id=&epayInvoiceNumber=0&realInvoiceNumber=0&proformaInvoiceNumber=0
+134 same      POST /admin/visitor/add name=Homer&email=homer@globex.example&company=Globex&status=PAYED&present=true&_present=on&id=&registrant.id=1
+135 same      POST /admin/visitor/add name=Walk In&email=walkin@example.org&company=&status=SPONSORED&_present=on&id=&registrant.id=
+136 same      GET /admin/visitor/remove/3
+137 same      GET /admin/registrant/remove/2
+138 same      GET /admin/visitor/view
+139 same      POST /admin/branch/add year=2030&startDate=20.05.2030&duration=2 days&cfpOpenDate=01.10.2029&cfpCloseDate=15.02.2030&_coOrgSoldOut=on&_platinumSoldOut=on&goldSoldOut=true&_goldSoldOut=on&_goldLiteSoldOut=on&_goldOpenSoldOut=on&_silverSoldOut=on&_agendaPublished=on&_soldOut=on&ticketPrices.regularPrice=180.00&ticketPrices.earlyBirdPrice=120.00&ticketPrices.studentPrice=60.00
+140 same      GET /admin/branch/edit/2030
+141 same      GET /admin/branch/remove/2030
+142 same      GET /admin/branch/view
+143 same      GET /admin/branch/current/2020
+144 same      GET /
+145 same      GET /cfp
+146 same      GET /tickets
+147 same      GET /admin/branch/current/2099
+148 same      GET /
+149 same      GET /logout
+150 same      GET /admin
+tessera-migrate compare: 150 page(s): 140 same, 6 reordered, 4 differ

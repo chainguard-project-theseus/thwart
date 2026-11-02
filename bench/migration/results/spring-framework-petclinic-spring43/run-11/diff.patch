@@ -1,0 +1,2153 @@
+diff --git a/.gitignore b/.gitignore
+index 7cf39ca..f3d4909 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -9,3 +9,6 @@
+ 
+ # Maven
+ target/
++
++# Tessera migration tooling (tessera-migrate jar, recordings)
++.tessera/
+diff --git a/.mvn/wrapper/maven-wrapper.properties b/.mvn/wrapper/maven-wrapper.properties
+index 25cc8af..11213b0 100644
+--- a/.mvn/wrapper/maven-wrapper.properties
++++ b/.mvn/wrapper/maven-wrapper.properties
+@@ -1 +1 @@
+-distributionUrl=https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.3.3/apache-maven-3.3.3-bin.zip
++distributionUrl=https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.9.9/apache-maven-3.9.9-bin.zip
+diff --git a/MIGRATION-REPORT.md b/MIGRATION-REPORT.md
+new file mode 100644
+index 0000000..572b71d
+--- /dev/null
++++ b/MIGRATION-REPORT.md
+@@ -0,0 +1,161 @@
++# Migration report: JSP/JSTL → Tessera
++
++## Result
++
++- Every page is now rendered by a Tessera template compiled at build time into
++  `org.springframework.samples.petclinic.templates`. The JSPs, tag files, JSP/JSTL dependencies and
++  the JSP view resolver configuration have been removed.
++- The build is `mvn clean install` on JDK 8 (`java.version` 1.8, Travis `oraclejdk8`). It passes
++  with all 62 existing tests, unchanged, plus 6 new tests in `ViewRenderingTests`.
++- Page parity: I recorded the original app (started with `mvn tomcat7:run-war`, in-memory HSQLDB)
++  with `tessera-migrate record` against a 54-request `pages.txt`, then ran `compare` against the
++  migrated app started the same way. The list covers:
++  - every view and form state: empty forms, validation errors, type-mismatch errors, duplicate
++    pet name, successful posts with redirects;
++  - the `.html` URL variants the pages link to;
++  - list, single-result and no-result owner searches;
++  - the error page, both `/oups` and a missing owner;
++  - 400 and 404 responses;
++  - HTML special characters in user data.
++
++  52 of the 54 pages always come out `same`. One of four full runs exited 0. The other runs differ
++  only on the two "empty owner form" posts, and the original app does the same thing (see below).
++
++## What changed
++
++Build (`pom.xml`, `.mvn/wrapper/maven-wrapper.properties`):
++- `java.version` 1.7 → 1.8, because Tessera needs Java 8+. `maven-compiler-plugin` 3.0 → 3.8.1,
++  because `annotationProcessorPaths` and `parameters` need it.
++- Added `tessera-spring-boot-starter-javax` (Spring 4.3 uses `javax.servlet`), the
++  `tessera-compiler` annotation processor with `tessera.templates`, `tessera.package` and
++  `tessera.messages`, and `tessera-maven-plugin:check`.
++- Annotation processing is switched off for `testCompile` (`<proc>none</proc>`). Otherwise the
++  processor generates a second `TesseraRegistry` and service file into `test-classes`.
++- `templates/**` is excluded from resource filtering and packaging, because the templates are
++  compiled into classes.
++- Removed `javax.servlet.jsp-api`, `javax.servlet.jsp.jstl-api` and `taglibs-standard-jstlel`.
++- Kept `tomcat-jasper-el` (provided). It is the Unified EL implementation Hibernate Validator uses
++  for message interpolation, not part of JSP rendering, and the comment above it now says so.
++- Maven wrapper 3.3.3 → 3.9.9, because `tessera-maven-plugin` needs Maven 3.6.3+.
++
++Spring configuration:
++- `mvc-view-config.xml`: removed the `ContentNegotiatingViewResolver`, whose default view was a
++  `JstlView`, and `<mvc:jsp>`. Added `dev.tessera.spring.TesseraConfiguration`, which brings the
++  Tessera view resolver and the `redirect:`/`forward:` resolver. Kept `<mvc:bean-name/>` and the
++  JAXB `MarshallingView` bean.
++- `mvc-core-config.xml`:
++  - `SimpleMappingExceptionResolver` → `PetclinicExceptionResolver`, a subclass that also puts
++    `exceptionMessage` (a `String`) in the model, because an `Exception` is not view-safe.
++  - Registered `HtmlSuffixInterceptor` (see form actions below).
++
++Templates (`src/main/resources/templates`):
++- `fragments/layout.html` replaces `layout.tag`, `htmlHeader.tag`, `bodyHeader.tag`, `menu.tag`,
++  `menuItem.tag`, `pivotal.tag` and `footer.tag`. The active menu entry and the page's
++  `customScript` are layout parameters.
++- `fragments/fields.html` replaces `inputField.tag` and `selectField.tag`, with typed `Field`
++  parameters.
++- One page template per JSP: `welcome`, `exception`, `owners/*`, `pets/*`, `vets/vetList`.
++
++Java:
++- `@TemplateView` on the entities the views read: `Owner`, `Pet`, `PetType`, `Visit`, `Vet`,
++  `Vets` and `Specialty`.
++- `Pet.getBirthLocalDate()` and `Visit.getLocalDate()` return `LocalDate` for display, because
++  `java.util.Date` is not view-safe. JPA uses field access, so these getters are not mapped.
++- `PetController.processUpdateForm` now declares the (unused) `@PathVariable petId`, so the view
++  can see it.
++- `MissingTemplateView`, registered as the bean `visitList`. `VisitController.showVisits` returns
++  the view name `visitList`, which never had a JSP. The old setup forwarded to a missing
++  `/WEB-INF/jsp/visitList.jsp` and Tomcat answered 404. With no resolver for the name, the request
++  would now fail with a 500, so this view sends the same 404, with the same message, to keep
++  parity. `VisitControllerTests` still expects that view name, so the controller is unchanged.
++- `ViewRenderingTests` (new) renders pages through the real view resolvers. The existing
++  controller tests use `standaloneSetup` and never render a template. The new tests cover the
++  welcome page, the error page, escaping on owner details, a form with errors, the vet list and the
++  `visitList` 404.
++- `readme.md` and a `pom.xml` comment now point at the templates instead of the JSP files.
++
++## Intended differences
++
++- Output the JSPs printed raw is now escaped: `${exception.message}`, the field labels and
++  `status.errorMessage`. For example, the `@Digits` message `(<10 digits>.<0 digits> expected)` is
++  now `&lt;10 digits&gt;…`. The browser shows the same text, and compare agrees.
++
++## What I could not make deterministic
++
++- An empty telephone fails both `@NotEmpty` and `@Digits`. Both the JSP and the template show only
++  the first error for the field (JSP `status.errorMessage`, now `fields.errors(name).first`).
++- Hibernate Validator returns the violations in a `HashSet` keyed partly by identity hash codes, so
++  which message comes first changes from run to run in the original app too. In the baseline,
++  request 17 shows "numeric value out of bounds" and request 41, which posts the same data, shows
++  "may not be empty".
++- So `compare` reports `differs` on those two pages in some runs and `same` in others. Making the
++  order deterministic would not match a random baseline either, so I left the behaviour as it was.
++
++## Removed from `pages.txt`
++
++- `GET /owners/1/pets/999/edit`. In the original this is a 500 whose body is a Jasper stack trace
++  ("Neither BindingResult nor plain target object for bean name 'pet'"). That page only exists
++  because JSP rendering crashed, so there is nothing to keep parity with. The new app also answers
++  500, but its body is a different stack trace (a `NullPointerException` in the controller).
++
++## Where Tessera or its documentation fell short
++
++1. **Form actions.**
++   - Spring's `<form:form>` without an `action` writes `action="<request URI>"`. Guide 4.10 says
++     omitting the action "does too", meaning the browser posts to the same place, but `compare`
++     reports the missing attribute as `differs`.
++   - A computed POST `action` must be a literal-path link, so there is no way to echo the request
++     URI.
++   - I had to rebuild each action as a choice of literal links filled from path variables. For the
++     `.html` URLs the pages link to (`1/edit.html`, `1/pets/new.html`), a `htmlSuffix` flag comes
++     from an interceptor. It is not a `@ControllerAdvice`, because then `RedirectView` would append
++     it to every redirect as a query parameter.
++   - A built-in "post back to the request URI" form, or a compare rule for it, would remove this
++     work.
++2. **Path variables.**
++   - Section 1 says parameters are filled from "the handler's `@PathVariable` of that name". In
++     practice only variables bound by a declared `@PathVariable` argument count, of the handler or
++     of a `@ModelAttribute` method, through `View.PATH_VARIABLES`.
++   - A variable in the mapping but not declared (`processUpdateForm`'s `{petId}`), or a wildcard
++     segment (`/owners/*/pets/{petId}/visits/new`), is `null` in the view. The guide does not say
++     this.
++3. **The processor also runs on test sources.**
++   - With `compilerArgs` at plugin level, as section 2 shows, `testCompile` generates a second
++     `TesseraRegistry` with the same class name, and a service file, into `test-classes`. That copy
++     shadows the main one on the test classpath.
++   - The guide doesn't mention this. I turned processing off for `default-testCompile`.
++4. **View names with no template.**
++   - Once the old resolver is gone, a view name that no template provides fails with a 500 ("Could
++     not resolve view"). The old resolver gave a container 404 for a missing JSP.
++   - The guide covers this only for the period while the old engine is still configured. It
++     doesn't cover what happens after it is removed, or mention dead view names at all.
++5. **Error pages without Boot.**
++   - Section 2 covers Boot's error attributes only. For `SimpleMappingExceptionResolver`, whose
++     model has only the non-view-safe `exception`, there is no recipe. I subclassed the resolver to
++     add the message.
++6. **The old-engine warning can't confirm JSP removal.**
++   - The startup warning `another template engine is still configured` doesn't detect JSP, or
++     resolvers inside a `ContentNegotiatingViewResolver`. The guide says so in section 2.
++   - So for this app the warning's absence (confirmed in the startup log) proves nothing. I checked
++     the removal by hand: no JSP resolver, no `.jsp`/`.tag` files, and no JSP/JSTL jars in the WAR.
++7. **`Date` on form fields.**
++   - The guide says `java.util.Date` is not view-safe, but not whether `t:field` may bind a `Date`
++     property. It can (through `@DateTimeFormat`).
++   - Only displaying a `Date` needed a `LocalDate` getter. I learned this by trial; the guide
++     should say it.
++8. **`compare` and random validation order.**
++   - `reordered` handles moved elements, but not a page that shows one item of an unordered set,
++     as described above. A way to accept a known set of alternatives would help.
++9. **Single-message errors.**
++   - The JSP tags showed only the first error message (`status.errorMessage`). The guide maps
++     `<form:errors>` to `t:errors`, which writes every message.
++   - The first-message case needs `fields.errors(name).first`. That works, but the guide doesn't
++     mention it next to `spring:bind`.
++
++## Security
++
++- There is no Spring Security in this app, so there is no CSRF or `permitAll` configuration to
++  keep.
++- No `TrustedUrl.unchecked`, no `SafeHtml` built from strings, and no `t:utext`. All output goes
++  through Tessera's context escaping.
++- No tests were disabled or weakened.
+diff --git a/pom.xml b/pom.xml
+index d242e6f..8fc8425 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -12,7 +12,11 @@
+     <properties>
+ 
+         <!-- Generic properties -->
+-        <java.version>1.7</java.version>
++        <java.version>1.8</java.version>
++
++        <!-- Views: Tessera compiled templates -->
++        <tessera.version>0.1.0-SNAPSHOT</tessera.version>
++        <tessera.messages>${project.basedir}/src/main/resources/messages/messages</tessera.messages>
+         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+ 
+@@ -21,7 +25,7 @@
+         <spring-data-jdbc.version>1.1.0.RELEASE</spring-data-jdbc.version>
+ 
+         <!-- Web dependencies -->
+-        <!-- Version update should also be done in wro.xml, petclinic.less and static resources: htmlHeader.tag and footer.tag-->
++        <!-- Version update should also be done in wro.xml, petclinic.less and static resources: templates/fragments/layout.html-->
+         <webjars-bootstrap.version>3.3.6</webjars-bootstrap.version>
+         <webjars-jquery-ui.version>1.11.4</webjars-jquery-ui.version>
+         <webjars-jquery.version>2.2.4</webjars-jquery.version>
+@@ -62,11 +66,7 @@
+             <version>${tomcat.version}</version>
+             <scope>provided</scope>
+         </dependency>
+-        <dependency>
+-            <groupId>javax.servlet.jsp</groupId>
+-            <artifactId>javax.servlet.jsp-api</artifactId>
+-            <scope>provided</scope>
+-        </dependency>
++        <!-- Unified EL implementation, used by Hibernate Validator for message interpolation -->
+         <dependency>
+             <groupId>org.apache.tomcat</groupId>
+             <artifactId>tomcat-jasper-el</artifactId>
+@@ -75,12 +75,9 @@
+         </dependency>
+ 
+         <dependency>
+-            <groupId>javax.servlet.jsp.jstl</groupId>
+-            <artifactId>javax.servlet.jsp.jstl-api</artifactId>
+-        </dependency>
+-        <dependency>
+-            <groupId>org.apache.taglibs</groupId>
+-            <artifactId>taglibs-standard-jstlel</artifactId>
++            <groupId>dev.tessera</groupId>
++            <artifactId>tessera-spring-boot-starter-javax</artifactId>
++            <version>${tessera.version}</version>
+         </dependency>
+         <!--  JSon -->
+         <dependency>
+@@ -251,6 +248,10 @@
+             <resource>
+                 <directory>${basedir}/src/main/resources</directory>
+                 <filtering>true</filtering>
++                <!-- Tessera templates are compiled into classes by the annotation processor -->
++                <excludes>
++                    <exclude>templates/**</exclude>
++                </excludes>
+             </resource>
+         </resources>
+         <testResources>
+@@ -266,16 +267,50 @@
+             <plugin>
+                 <groupId>org.apache.maven.plugins</groupId>
+                 <artifactId>maven-compiler-plugin</artifactId>
+-                <version>3.0</version>
++                <version>3.8.1</version>
+                 <configuration>
+                     <compilerArguments>
+                         <Xlint/>
+                     </compilerArguments>
++                    <parameters>true</parameters>
++                    <annotationProcessorPaths>
++                        <path>
++                            <groupId>dev.tessera</groupId>
++                            <artifactId>tessera-compiler</artifactId>
++                            <version>${tessera.version}</version>
++                        </path>
++                    </annotationProcessorPaths>
++                    <compilerArgs combine.children="append">
++                        <arg>-Atessera.templates=${project.basedir}/src/main/resources/templates</arg>
++                        <arg>-Atessera.package=org.springframework.samples.petclinic.templates</arg>
++                        <arg>-Atessera.messages=${tessera.messages}</arg>
++                    </compilerArgs>
+                     <verbose>true</verbose>
+                     <source>${java.version}</source>
+                     <target>${java.version}</target>
+                     <showWarnings>true</showWarnings>
+                 </configuration>
++                <executions>
++                    <execution>
++                        <!-- templates are compiled with the main classes only -->
++                        <id>default-testCompile</id>
++                        <configuration>
++                            <proc>none</proc>
++                        </configuration>
++                    </execution>
++                </executions>
++            </plugin>
++            <plugin>
++                <groupId>dev.tessera</groupId>
++                <artifactId>tessera-maven-plugin</artifactId>
++                <version>${tessera.version}</version>
++                <executions>
++                    <execution>
++                        <goals>
++                            <goal>check</goal>
++                        </goals>
++                    </execution>
++                </executions>
+             </plugin>
+             <plugin>
+                 <groupId>org.apache.maven.plugins</groupId>
+diff --git a/readme.md b/readme.md
+index 5c8c886..a2c8036 100644
+--- a/readme.md
++++ b/readme.md
+@@ -111,11 +111,10 @@ File -> Import -> Maven -> Existing Maven project
+ | Inside the 'Web' layer | Files |
+ |------------------------|-------|
+ | Spring MVC - XML integration | [mvc-view-config.xml](src/main/resources/spring/mvc-view-config.xml)  |
+-| Spring MVC - ContentNegotiatingViewResolver| [mvc-view-config.xml](src/main/resources/spring/mvc-view-config.xml) |
+-| JSP custom tags | [WEB-INF/tags](src/main/webapp/WEB-INF/tags), [createOrUpdateOwnerForm.jsp](src/main/webapp/WEB-INF/jsp/owners/createOrUpdateOwnerForm.jsp)|
++| Tessera templates (compiled at build time) | [templates](src/main/resources/templates), [layout](src/main/resources/templates/fragments/layout.html), [form fields](src/main/resources/templates/fragments/fields.html), [createOrUpdateOwnerForm.html](src/main/resources/templates/owners/createOrUpdateOwnerForm.html)|
+ | JavaScript dependencies | [JavaScript libraries are declared as webjars in the pom.xml](pom.xml) |
+ | Static resources config | [Resource mapping in Spring configuration](/src/main/resources/spring/mvc-core-config.xml#L30) |
+-| Static resources usage | [staticFiles.jsp](src/main/webapp/WEB-INF/jsp/fragments/staticFiles.jsp#L12) |
++| Static resources usage | [layout.html](src/main/resources/templates/fragments/layout.html) |
+ | Thymeleaf | In the late 2016, the original [Spring Petclinic](https://github.com/spring-projects/spring-petclinic) has moved from JSP to Thymeleaf. |
+ 
+ | 'Service' and 'Repository' layers | Files |
+diff --git a/src/main/java/org/springframework/samples/petclinic/model/Owner.java b/src/main/java/org/springframework/samples/petclinic/model/Owner.java
+index d0158d9..174c105 100644
+--- a/src/main/java/org/springframework/samples/petclinic/model/Owner.java
++++ b/src/main/java/org/springframework/samples/petclinic/model/Owner.java
+@@ -15,6 +15,8 @@
+  */
+ package org.springframework.samples.petclinic.model;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import java.util.ArrayList;
+ import java.util.Collections;
+ import java.util.HashSet;
+@@ -41,6 +43,7 @@ import org.springframework.core.style.ToStringCreator;
+  * @author Sam Brannen
+  * @author Michael Isvy
+  */
++@TemplateView
+ @Entity
+ @Table(name = "owners")
+ public class Owner extends Person {
+diff --git a/src/main/java/org/springframework/samples/petclinic/model/Pet.java b/src/main/java/org/springframework/samples/petclinic/model/Pet.java
+index 0cbf975..d4ed7ed 100644
+--- a/src/main/java/org/springframework/samples/petclinic/model/Pet.java
++++ b/src/main/java/org/springframework/samples/petclinic/model/Pet.java
+@@ -15,6 +15,8 @@
+  */
+ package org.springframework.samples.petclinic.model;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import org.springframework.beans.support.MutableSortDefinition;
+ import org.springframework.beans.support.PropertyComparator;
+ import org.springframework.format.annotation.DateTimeFormat;
+@@ -30,6 +32,9 @@ import javax.persistence.Table;
+ 
+ import javax.persistence.Temporal;
+ import javax.persistence.TemporalType;
++import java.time.Instant;
++import java.time.LocalDate;
++import java.time.ZoneId;
+ import java.util.ArrayList;
+ import java.util.Collections;
+ import java.util.Date;
+@@ -44,6 +49,7 @@ import java.util.Set;
+  * @author Juergen Hoeller
+  * @author Sam Brannen
+  */
++@TemplateView
+ @Entity
+ @Table(name = "pets")
+ public class Pet extends NamedEntity {
+@@ -73,6 +79,16 @@ public class Pet extends NamedEntity {
+         return this.birthDate;
+     }
+ 
++    /**
++     * Birth date as a {@link LocalDate}, for display in the views.
++     */
++    public LocalDate getBirthLocalDate() {
++        if (this.birthDate == null) {
++            return null;
++        }
++        return Instant.ofEpochMilli(this.birthDate.getTime()).atZone(ZoneId.systemDefault()).toLocalDate();
++    }
++
+     public PetType getType() {
+         return this.type;
+     }
+diff --git a/src/main/java/org/springframework/samples/petclinic/model/PetType.java b/src/main/java/org/springframework/samples/petclinic/model/PetType.java
+index f60a5cd..6a5680a 100644
+--- a/src/main/java/org/springframework/samples/petclinic/model/PetType.java
++++ b/src/main/java/org/springframework/samples/petclinic/model/PetType.java
+@@ -15,6 +15,8 @@
+  */
+ package org.springframework.samples.petclinic.model;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import javax.persistence.Entity;
+ import javax.persistence.Table;
+ 
+@@ -22,6 +24,7 @@ import javax.persistence.Table;
+  * @author Juergen Hoeller
+  *         Can be Cat, Dog, Hamster...
+  */
++@TemplateView
+ @Entity
+ @Table(name = "types")
+ public class PetType extends NamedEntity {
+diff --git a/src/main/java/org/springframework/samples/petclinic/model/Specialty.java b/src/main/java/org/springframework/samples/petclinic/model/Specialty.java
+index 6ea209c..b9405ec 100644
+--- a/src/main/java/org/springframework/samples/petclinic/model/Specialty.java
++++ b/src/main/java/org/springframework/samples/petclinic/model/Specialty.java
+@@ -15,6 +15,8 @@
+  */
+ package org.springframework.samples.petclinic.model;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import javax.persistence.Entity;
+ import javax.persistence.Table;
+ 
+@@ -23,6 +25,7 @@ import javax.persistence.Table;
+  *
+  * @author Juergen Hoeller
+  */
++@TemplateView
+ @Entity
+ @Table(name = "specialties")
+ public class Specialty extends NamedEntity {
+diff --git a/src/main/java/org/springframework/samples/petclinic/model/Vet.java b/src/main/java/org/springframework/samples/petclinic/model/Vet.java
+index d93e14c..f681e93 100644
+--- a/src/main/java/org/springframework/samples/petclinic/model/Vet.java
++++ b/src/main/java/org/springframework/samples/petclinic/model/Vet.java
+@@ -15,6 +15,8 @@
+  */
+ package org.springframework.samples.petclinic.model;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import java.util.ArrayList;
+ import java.util.Collections;
+ import java.util.HashSet;
+@@ -40,6 +42,7 @@ import org.springframework.beans.support.PropertyComparator;
+  * @author Sam Brannen
+  * @author Arjen Poutsma
+  */
++@TemplateView
+ @Entity
+ @Table(name = "vets")
+ public class Vet extends Person {
+diff --git a/src/main/java/org/springframework/samples/petclinic/model/Vets.java b/src/main/java/org/springframework/samples/petclinic/model/Vets.java
+index a6f05c6..f42d364 100644
+--- a/src/main/java/org/springframework/samples/petclinic/model/Vets.java
++++ b/src/main/java/org/springframework/samples/petclinic/model/Vets.java
+@@ -15,6 +15,8 @@
+  */
+ package org.springframework.samples.petclinic.model;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import java.util.ArrayList;
+ import java.util.List;
+ 
+@@ -27,6 +29,7 @@ import javax.xml.bind.annotation.XmlRootElement;
+  *
+  * @author Arjen Poutsma
+  */
++@TemplateView
+ @XmlRootElement
+ public class Vets {
+ 
+diff --git a/src/main/java/org/springframework/samples/petclinic/model/Visit.java b/src/main/java/org/springframework/samples/petclinic/model/Visit.java
+index 8fe9deb..bf3709b 100644
+--- a/src/main/java/org/springframework/samples/petclinic/model/Visit.java
++++ b/src/main/java/org/springframework/samples/petclinic/model/Visit.java
+@@ -15,6 +15,8 @@
+  */
+ package org.springframework.samples.petclinic.model;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ import org.hibernate.validator.constraints.NotEmpty;
+ import org.springframework.format.annotation.DateTimeFormat;
+ 
+@@ -25,6 +27,9 @@ import javax.persistence.ManyToOne;
+ import javax.persistence.Table;
+ import javax.persistence.Temporal;
+ import javax.persistence.TemporalType;
++import java.time.Instant;
++import java.time.LocalDate;
++import java.time.ZoneId;
+ import java.util.Date;
+ 
+ /**
+@@ -32,6 +37,7 @@ import java.util.Date;
+  *
+  * @author Ken Krebs
+  */
++@TemplateView
+ @Entity
+ @Table(name = "visits")
+ public class Visit extends BaseEntity {
+@@ -85,6 +91,18 @@ public class Visit extends BaseEntity {
+         this.date = date;
+     }
+ 
++    /**
++     * Date as a {@link LocalDate}, for display in the views.
++     *
++     * @return Value of property date, without time of day.
++     */
++    public LocalDate getLocalDate() {
++        if (this.date == null) {
++            return null;
++        }
++        return Instant.ofEpochMilli(this.date.getTime()).atZone(ZoneId.systemDefault()).toLocalDate();
++    }
++
+     /**
+      * Getter for property description.
+      *
+diff --git a/src/main/java/org/springframework/samples/petclinic/web/HtmlSuffixInterceptor.java b/src/main/java/org/springframework/samples/petclinic/web/HtmlSuffixInterceptor.java
+new file mode 100644
+index 0000000..9004aa6
+--- /dev/null
++++ b/src/main/java/org/springframework/samples/petclinic/web/HtmlSuffixInterceptor.java
+@@ -0,0 +1,40 @@
++/*
++ * Copyright 2002-2017 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.springframework.samples.petclinic.web;
++
++import javax.servlet.http.HttpServletRequest;
++import javax.servlet.http.HttpServletResponse;
++
++import org.springframework.web.servlet.ModelAndView;
++import org.springframework.web.servlet.handler.HandlerInterceptorAdapter;
++
++/**
++ * Exposes the model attribute {@code htmlSuffix}: whether the request URI ends with {@code .html}
++ * (for instance {@code /owners/1/edit.html}). The form views use it to post back to the URI they were requested with.
++ * Not added to redirects, where model attributes would become query parameters.
++ */
++public class HtmlSuffixInterceptor extends HandlerInterceptorAdapter {
++
++    @Override
++    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,
++                           ModelAndView modelAndView) {
++        if (modelAndView != null && modelAndView.isReference()
++            && !modelAndView.getViewName().startsWith("redirect:")) {
++            modelAndView.addObject("htmlSuffix", request.getRequestURI().endsWith(".html"));
++        }
++    }
++
++}
+diff --git a/src/main/java/org/springframework/samples/petclinic/web/MissingTemplateView.java b/src/main/java/org/springframework/samples/petclinic/web/MissingTemplateView.java
+new file mode 100644
+index 0000000..7024722
+--- /dev/null
++++ b/src/main/java/org/springframework/samples/petclinic/web/MissingTemplateView.java
+@@ -0,0 +1,48 @@
++/*
++ * Copyright 2002-2017 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.springframework.samples.petclinic.web;
++
++import java.util.Map;
++
++import javax.servlet.http.HttpServletRequest;
++import javax.servlet.http.HttpServletResponse;
++
++import org.springframework.web.servlet.View;
++
++/**
++ * View for the view names that have no template (such as {@code visitList}): answers 404 Not Found, as the
++ * servlet container did when the former JSP view resolver forwarded to a missing {@code /WEB-INF/jsp/<name>.jsp}.
++ */
++public class MissingTemplateView implements View {
++
++    private final String viewName;
++
++    public MissingTemplateView(String viewName) {
++        this.viewName = viewName;
++    }
++
++    @Override
++    public String getContentType() {
++        return null;
++    }
++
++    @Override
++    public void render(Map<String, ?> model, HttpServletRequest request, HttpServletResponse response) throws Exception {
++        response.sendError(HttpServletResponse.SC_NOT_FOUND,
++            request.getContextPath() + "/WEB-INF/jsp/" + this.viewName + ".jsp");
++    }
++
++}
+diff --git a/src/main/java/org/springframework/samples/petclinic/web/PetController.java b/src/main/java/org/springframework/samples/petclinic/web/PetController.java
+index 6e2a59b..8af2394 100644
+--- a/src/main/java/org/springframework/samples/petclinic/web/PetController.java
++++ b/src/main/java/org/springframework/samples/petclinic/web/PetController.java
+@@ -98,8 +98,10 @@ public class PetController {
+         return VIEWS_PETS_CREATE_OR_UPDATE_FORM;
+     }
+ 
++    // petId is not used here but, as a path variable, it is exposed to the view (the form posts back to it)
+     @RequestMapping(value = "/pets/{petId}/edit", method = RequestMethod.POST)
+-    public String processUpdateForm(@Valid Pet pet, BindingResult result, Owner owner, ModelMap model) {
++    public String processUpdateForm(@Valid Pet pet, BindingResult result, Owner owner, ModelMap model,
++                                    @PathVariable("petId") int petId) {
+         if (result.hasErrors()) {
+             model.put("pet", pet);
+             return VIEWS_PETS_CREATE_OR_UPDATE_FORM;
+diff --git a/src/main/java/org/springframework/samples/petclinic/web/PetclinicExceptionResolver.java b/src/main/java/org/springframework/samples/petclinic/web/PetclinicExceptionResolver.java
+new file mode 100644
+index 0000000..11adaf8
+--- /dev/null
++++ b/src/main/java/org/springframework/samples/petclinic/web/PetclinicExceptionResolver.java
+@@ -0,0 +1,36 @@
++/*
++ * Copyright 2002-2017 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.springframework.samples.petclinic.web;
++
++import javax.servlet.http.HttpServletRequest;
++
++import org.springframework.web.servlet.ModelAndView;
++import org.springframework.web.servlet.handler.SimpleMappingExceptionResolver;
++
++/**
++ * {@link SimpleMappingExceptionResolver} that also exposes the exception's message as the model attribute
++ * {@code exceptionMessage}, which the error view displays (an {@link Exception} itself is not a view-safe type).
++ */
++public class PetclinicExceptionResolver extends SimpleMappingExceptionResolver {
++
++    @Override
++    protected ModelAndView getModelAndView(String viewName, Exception ex, HttpServletRequest request) {
++        ModelAndView mav = super.getModelAndView(viewName, ex, request);
++        mav.addObject("exceptionMessage", ex.getMessage());
++        return mav;
++    }
++
++}
+diff --git a/src/main/resources/spring/mvc-core-config.xml b/src/main/resources/spring/mvc-core-config.xml
+index f2ed903..04c1861 100644
+--- a/src/main/resources/spring/mvc-core-config.xml
++++ b/src/main/resources/spring/mvc-core-config.xml
+@@ -24,8 +24,12 @@
+ 
+     <mvc:annotation-driven conversion-service="conversionService"/>
+ 
+-    <!--  all resources inside folder src/main/webapp/resources are mapped so they can be refered to inside JSP files
+-        (see htmlHeader.jsp for more details) -->
++    <mvc:interceptors>
++        <bean class="org.springframework.samples.petclinic.web.HtmlSuffixInterceptor"/>
++    </mvc:interceptors>
++
++    <!--  all resources inside folder src/main/webapp/resources are mapped so they can be refered to inside templates
++        (see templates/fragments/layout.html for more details) -->
+     <mvc:resources mapping="/resources/**" location="/resources/"/>
+ 
+     <!-- uses WebJars so Javascript and CSS libs can be declared as Maven dependencies (Bootstrap, jQuery...) -->
+@@ -57,10 +61,10 @@
+         - This bean resolves specific types of exceptions to corresponding logical
+         - view names for error views.
+     -->
+-    <bean class="org.springframework.web.servlet.handler.SimpleMappingExceptionResolver">
+-        <!-- view name resolved using bean of type InternalResourceViewResolver (declared in mvc-view-config.xml) -->
++    <bean class="org.springframework.samples.petclinic.web.PetclinicExceptionResolver">
++        <!-- view name resolved by the Tessera view resolver (declared in mvc-view-config.xml) -->
+         <property name="defaultErrorView" value="exception"/>
+-        <!-- results into 'WEB-INF/jsp/exception.jsp' -->
++        <!-- results into 'templates/exception.html' -->
+         <property name="warnLogCategory" value="warn"/>
+         <!-- needed otherwise exceptions won't be logged anywhere -->
+     </bean>
+diff --git a/src/main/resources/spring/mvc-view-config.xml b/src/main/resources/spring/mvc-view-config.xml
+index 9ba6723..0c7096c 100644
+--- a/src/main/resources/spring/mvc-view-config.xml
++++ b/src/main/resources/spring/mvc-view-config.xml
+@@ -8,25 +8,21 @@
+ 		http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc.xsd
+ 		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+     <!--
+-    - The ContentNegotiatingViewResolver delegates to the InternalResourceViewResolver and BeanNameViewResolver,
+-    - and uses the requested media type (determined by the path extension) to pick a matching view. 
+-    - When the media type is 'text/html', it will delegate to the InternalResourceViewResolver's JstlView, 
+-    - otherwise to the BeanNameViewResolver.
++    - Views are Tessera templates (src/main/resources/templates), compiled into Java classes at build time.
++    - TesseraConfiguration registers the Tessera view resolver, and a resolver for 'redirect:' and 'forward:' view names.
+     -->
+-    <mvc:view-resolvers>
+-        <mvc:content-negotiation use-not-acceptable="true">
+-            <mvc:default-views>
+-                <bean class="org.springframework.web.servlet.view.JstlView">
+-                    <property name="url" value=""/>
+-                </bean>
+-            </mvc:default-views>
+-        </mvc:content-negotiation>
++    <bean class="dev.tessera.spring.TesseraConfiguration"/>
+ 
+-        <!-- Registering BeanNameViewResolver and InternalViewResolver -->
++    <!-- Registering BeanNameViewResolver, for the view beans declared below -->
++    <mvc:view-resolvers>
+         <mvc:bean-name/>
+-        <mvc:jsp prefix="/WEB-INF/jsp/" suffix=".jsp"/>
+     </mvc:view-resolvers>
+ 
++    <!-- 'visitList' has no template: answers 404 Not Found -->
++    <bean id="visitList" class="org.springframework.samples.petclinic.web.MissingTemplateView">
++        <constructor-arg value="visitList"/>
++    </bean>
++
+     <!-- Renders an XML view. Used by the BeanNameViewResolver  -->
+     <bean id="vets/vetList.xml" class="org.springframework.web.servlet.view.xml.MarshallingView">
+         <property name="marshaller" ref="marshaller"/>
+diff --git a/src/main/resources/templates/exception.html b/src/main/resources/templates/exception.html
+new file mode 100644
+index 0000000..c35d50f
+--- /dev/null
++++ b/src/main/resources/templates/exception.html
+@@ -0,0 +1,11 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:params="String exceptionMessage"
++      t:replace="~{fragments/layout :: layout('error', ~{::body}, null)}">
++<body t:remove="tag">
++    <img t:src="@{/resources/images/pets.png}"/>
++
++    <h2>Something happened...</h2>
++
++    <p t:text="exceptionMessage">message</p>
++</body>
++</html>
+diff --git a/src/main/resources/templates/fragments/fields.html b/src/main/resources/templates/fragments/fields.html
+new file mode 100644
+index 0000000..2b59e2d
+--- /dev/null
++++ b/src/main/resources/templates/fragments/fields.html
+@@ -0,0 +1,36 @@
++<t:block xmlns:t="https://tessera.dev" t:import="org.springframework.samples.petclinic.model.PetType">
++
++    <!--/* Label appears in red color if input is considered as invalid after submission */-->
++    <div t:fragment="inputField(String label, Field name)"
++         t:class="fields.hasErrors(name) ? 'form-group has-error' : 'form-group '">
++        <label class="col-sm-2 control-label" t:text="label">Label</label>
++
++        <div class="col-sm-10">
++            <input class="form-control" type="text" t:field="name"/>
++            <span t:if="!fields.hasErrors(name) &amp;&amp; !strings.isEmpty(fields.value(name))"
++                  class="glyphicon glyphicon-ok form-control-feedback" aria-hidden="true"></span>
++            <t:block t:if="fields.hasErrors(name)">
++                <span class="glyphicon glyphicon-remove form-control-feedback" aria-hidden="true"></span>
++                <span class="help-inline" t:text="fields.errors(name).first">error</span>
++            </t:block>
++        </div>
++    </div>
++
++    <div t:fragment="selectField(String label, Field name, Collection<PetType> names)"
++         t:class="fields.hasErrors(name) ? 'form-group error' : 'form-group '">
++        <label class="col-sm-2 control-label" t:text="label">Label</label>
++
++        <div class="col-sm-10">
++            <select class="form-control" t:field="name" size="5">
++                <option t:each="item : names" t:value="item.name" t:text="item.name">cat</option>
++            </select>
++            <span t:if="!fields.hasErrors(name) &amp;&amp; !strings.isEmpty(fields.value(name))"
++                  class="glyphicon glyphicon-ok form-control-feedback" aria-hidden="true"></span>
++            <t:block t:if="fields.hasErrors(name)">
++                <span class="glyphicon glyphicon-remove form-control-feedback" aria-hidden="true"></span>
++                <span class="help-inline" t:text="fields.errors(name).first">error</span>
++            </t:block>
++        </div>
++    </div>
++
++</t:block>
+diff --git a/src/main/resources/templates/fragments/layout.html b/src/main/resources/templates/fragments/layout.html
+new file mode 100644
+index 0000000..533ea26
+--- /dev/null
++++ b/src/main/resources/templates/fragments/layout.html
+@@ -0,0 +1,108 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:fragment="layout(String pageName, Fragment content, Fragment customScript)">
++<!--/*
++PetClinic :: a Spring Framework demonstration
++*/-->
++<head>
++    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
++    <meta charset="utf-8">
++    <meta http-equiv="X-UA-Compatible" content="IE=edge">
++    <meta name="viewport" content="width=device-width, initial-scale=1">
++    <!--/* The above 4 meta tags *must* come first in the head; any other head content must come *after* these tags */-->
++
++    <link rel="shortcut icon" type="image/x-icon" t:href="@{/resources/images/favicon.png}">
++
++    <title>PetClinic :: a Spring Framework demonstration</title>
++
++    <!--/* CSS generated from LESS */-->
++    <link t:href="@{/resources/css/petclinic.css}" rel="stylesheet"/>
++
++    <!--/* HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries */-->
++    <!--[if lt IE 9]>
++    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
++    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
++    <![endif]-->
++
++    <!-- Only datepicker is used -->
++    <link t:href="@{/webjars/jquery-ui/1.11.4/jquery-ui.min.css}" rel="stylesheet"/>
++    <link t:href="@{/webjars/jquery-ui/1.11.4/jquery-ui.theme.min.css}" rel="stylesheet"/>
++</head>
++<body>
++
++<nav class="navbar navbar-default" role="navigation">
++    <div class="container">
++        <div class="navbar-header">
++            <a class="navbar-brand" t:href="@{/}"><span></span></a>
++            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#main-navbar">
++                <span class="sr-only"><os-p>Toggle navigation</os-p></span>
++                <span class="icon-bar"></span>
++                <span class="icon-bar"></span>
++                <span class="icon-bar"></span>
++            </button>
++        </div>
++        <div class="navbar-collapse collapse" id="main-navbar">
++            <ul class="nav navbar-nav navbar-right">
++
++                <li t:class="pageName == 'home' ? 'active' : ''">
++                    <a t:href="@{/}" title="home page">
++                        <span class="glyphicon glyphicon-home" aria-hidden="true"></span>
++                        <span>Home</span>
++                    </a>
++                </li>
++
++                <li t:class="pageName == 'owners' ? 'active' : ''">
++                    <a t:href="@{/owners/find.html}" title="find owners">
++                        <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
++                        <span>Find owners</span>
++                    </a>
++                </li>
++
++                <li t:class="pageName == 'vets' ? 'active' : ''">
++                    <a t:href="@{/vets.html}" title="veterinarians">
++                        <span class="glyphicon glyphicon-th-list" aria-hidden="true"></span>
++                        <span>Veterinarians</span>
++                    </a>
++                </li>
++
++                <li t:class="pageName == 'error' ? 'active' : ''">
++                    <a t:href="@{/oups.html}" title="trigger a RuntimeException to see how it is handled">
++                        <span class="glyphicon glyphicon-warning-sign" aria-hidden="true"></span>
++                        <span>Error</span>
++                    </a>
++                </li>
++
++            </ul>
++        </div>
++    </div>
++</nav>
++
++<div class="container-fluid">
++    <div class="container xd-container">
++
++        <t:block t:replace="content"></t:block>
++
++        <br/>
++        <br/>
++        <div class="container">
++            <div class="row">
++                <div class="col-12 text-center"><img t:src="@{/resources/images/spring-pivotal-logo.png}"
++                                                     alt="Sponsored by Pivotal"/></div>
++            </div>
++        </div>
++    </div>
++</div>
++
++<!--/* Placed at the end of the document so the pages load faster */-->
++<script t:src="@{/webjars/jquery/2.2.4/jquery.min.js}"></script>
++
++<!--/* jquery-ui.js file is really big so we only load what we need instead of loading everything */-->
++<script t:src="@{/webjars/jquery-ui/1.11.4/jquery-ui.min.js}"></script>
++
++<!--/* Bootstrap */-->
++<script t:src="@{/webjars/bootstrap/3.3.6/js/bootstrap.min.js}"></script>
++
++<t:block t:replace="customScript"></t:block>
++
++</body>
++
++</html>
+diff --git a/src/main/resources/templates/owners/createOrUpdateOwnerForm.html b/src/main/resources/templates/owners/createOrUpdateOwnerForm.html
+new file mode 100644
+index 0000000..a5eb150
+--- /dev/null
++++ b/src/main/resources/templates/owners/createOrUpdateOwnerForm.html
+@@ -0,0 +1,28 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="org.springframework.samples.petclinic.model.*" t:params="Owner owner, Integer ownerId, Boolean htmlSuffix"
++      t:replace="~{fragments/layout :: layout('owners', ~{::body}, null)}">
++<body t:remove="tag">
++    <h2>
++        <t:block t:if="owner.isNew()">New </t:block> Owner
++    </h2>
++    <!--/* posts back to the URI the form was requested with */-->
++    <form t:object="owner" class="form-horizontal" id="add-owner-form" method="post"
++          t:action="ownerId == null
++              ? (htmlSuffix ? @{/owners/new.html} : @{/owners/new})
++              : (htmlSuffix ? @{/owners/{ownerId}/edit.html(ownerId=ownerId)} : @{/owners/{ownerId}/edit(ownerId=ownerId)})">
++        <div class="form-group has-feedback">
++            <div t:replace="~{fragments/fields :: inputField('First Name', 'firstName')}"></div>
++            <div t:replace="~{fragments/fields :: inputField('Last Name', 'lastName')}"></div>
++            <div t:replace="~{fragments/fields :: inputField('Address', 'address')}"></div>
++            <div t:replace="~{fragments/fields :: inputField('City', 'city')}"></div>
++            <div t:replace="~{fragments/fields :: inputField('Telephone', 'telephone')}"></div>
++        </div>
++        <div class="form-group">
++            <div class="col-sm-offset-2 col-sm-10">
++                <button t:if="owner.isNew()" class="btn btn-default" type="submit">Add Owner</button>
++                <button t:unless="owner.isNew()" class="btn btn-default" type="submit">Update Owner</button>
++            </div>
++        </div>
++    </form>
++</body>
++</html>
+diff --git a/src/main/resources/templates/owners/findOwners.html b/src/main/resources/templates/owners/findOwners.html
+new file mode 100644
+index 0000000..c5bf1b9
+--- /dev/null
++++ b/src/main/resources/templates/owners/findOwners.html
+@@ -0,0 +1,30 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="org.springframework.samples.petclinic.model.*" t:params="Owner owner"
++      t:replace="~{fragments/layout :: layout('owners', ~{::body}, null)}">
++<body t:remove="tag">
++
++    <h2>Find Owners</h2>
++
++    <form t:object="owner" t:action="@{/owners.html}" method="get" class="form-horizontal"
++          id="search-owner-form">
++        <div class="form-group">
++            <div class="control-group" id="lastName">
++                <label class="col-sm-2 control-label">Last name </label>
++                <div class="col-sm-10">
++                    <input class="form-control" type="text" t:field="*{lastName}" size="30" maxlength="80"/>
++                    <span class="help-inline"><span id="owner.errors" t:errors="*">error</span></span>
++                </div>
++            </div>
++        </div>
++        <div class="form-group">
++            <div class="col-sm-offset-2 col-sm-10">
++                <button type="submit" class="btn btn-default">Find Owner</button>
++            </div>
++        </div>
++
++    </form>
++
++    <br/>
++    <a class="btn btn-default" t:href="@{/owners/new}">Add Owner</a>
++</body>
++</html>
+diff --git a/src/main/resources/templates/owners/ownerDetails.html b/src/main/resources/templates/owners/ownerDetails.html
+new file mode 100644
+index 0000000..f8dc4e5
+--- /dev/null
++++ b/src/main/resources/templates/owners/ownerDetails.html
+@@ -0,0 +1,80 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="org.springframework.samples.petclinic.model.*" t:params="Owner owner"
++      t:replace="~{fragments/layout :: layout('owners', ~{::body}, null)}">
++<body t:remove="tag">
++
++    <h2>Owner Information</h2>
++
++    <table class="table table-striped">
++        <tbody>
++        <tr>
++            <th>Name</th>
++            <td><b t:text="|${owner.firstName} ${owner.lastName}|">George Franklin</b></td>
++        </tr>
++        <tr>
++            <th>Address</th>
++            <td t:text="owner.address">110 W. Liberty St.</td>
++        </tr>
++        <tr>
++            <th>City</th>
++            <td t:text="owner.city">Madison</td>
++        </tr>
++        <tr>
++            <th>Telephone</th>
++            <td t:text="owner.telephone">6085551023</td>
++        </tr>
++        </tbody>
++    </table>
++
++    <a t:href="@{{ownerId}/edit.html(ownerId=owner.id)}" class="btn btn-default">Edit Owner</a>
++
++    <a t:href="@{{ownerId}/pets/new.html(ownerId=owner.id)}" class="btn btn-default">Add New Pet</a>
++
++    <br/>
++    <br/>
++    <br/>
++    <h2>Pets and Visits</h2>
++
++    <table class="table table-striped">
++        <tbody t:unless="owner.pets.isEmpty()">
++        <tr t:each="pet : owner.pets">
++            <td valign="top">
++                <dl class="dl-horizontal">
++                    <dt>Name</dt>
++                    <dd t:text="pet.name">Leo</dd>
++                    <dt>Birth Date</dt>
++                    <dd t:text="temporals.format(pet.birthLocalDate, 'yyyy-MM-dd')">2010-09-07</dd>
++                    <dt>Type</dt>
++                    <dd t:text="pet.type?.name">cat</dd>
++                </dl>
++            </td>
++            <td valign="top">
++                <table class="table-condensed">
++                    <thead>
++                    <tr>
++                        <th>Visit Date</th>
++                        <th>Description</th>
++                    </tr>
++                    </thead>
++                    <tbody>
++                    <tr t:each="visit : pet.visits">
++                        <td t:text="temporals.format(visit.localDate, 'yyyy-MM-dd')">2013-01-01</td>
++                        <td t:text="visit.description">rabies shot</td>
++                    </tr>
++                    <tr>
++                        <td>
++                            <a t:href="@{/owners/{ownerId}/pets/{petId}/edit(ownerId=owner.id,petId=pet.id)}">Edit Pet</a>
++                        </td>
++                        <td>
++                            <a t:href="@{/owners/{ownerId}/pets/{petId}/visits/new(ownerId=owner.id,petId=pet.id)}">Add Visit</a>
++                        </td>
++                    </tr>
++                    </tbody>
++                </table>
++            </td>
++        </tr>
++        </tbody>
++    </table>
++
++</body>
++</html>
+diff --git a/src/main/resources/templates/owners/ownersList.html b/src/main/resources/templates/owners/ownersList.html
+new file mode 100644
+index 0000000..f824a5c
+--- /dev/null
++++ b/src/main/resources/templates/owners/ownersList.html
+@@ -0,0 +1,32 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="org.springframework.samples.petclinic.model.*" t:params="Collection<Owner> selections"
++      t:replace="~{fragments/layout :: layout('owners', ~{::body}, null)}">
++<body t:remove="tag">
++    <h2>Owners</h2>
++
++    <table id="ownersTable" class="table table-striped">
++        <thead>
++        <tr>
++            <th style="width: 150px;">Name</th>
++            <th style="width: 200px;">Address</th>
++            <th>City</th>
++            <th style="width: 120px">Telephone</th>
++            <th>Pets</th>
++        </tr>
++        </thead>
++        <tbody>
++        <tr t:each="owner : selections">
++            <td>
++                <a t:href="@{/owners/{ownerId}.html(ownerId=owner.id)}" t:text="|${owner.firstName} ${owner.lastName}|">George Franklin</a>
++            </td>
++            <td t:text="owner.address">110 W. Liberty St.</td>
++            <td t:text="owner.city">Madison</td>
++            <td t:text="owner.telephone">6085551023</td>
++            <td>
++                <t:block t:each="pet : owner.pets">[[${pet.name}]] </t:block>
++            </td>
++        </tr>
++        </tbody>
++    </table>
++</body>
++</html>
+diff --git a/src/main/resources/templates/pets/createOrUpdatePetForm.html b/src/main/resources/templates/pets/createOrUpdatePetForm.html
+new file mode 100644
+index 0000000..fb7b5c2
+--- /dev/null
++++ b/src/main/resources/templates/pets/createOrUpdatePetForm.html
+@@ -0,0 +1,42 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="org.springframework.samples.petclinic.model.*" t:params="Pet pet, Collection<PetType> types, Integer ownerId, Integer petId, Boolean htmlSuffix"
++      t:replace="~{fragments/layout :: layout('owners', ~{::body}, ~{::custom-script})}">
++<custom-script t:remove="tag">
++    <script>
++        $(function () {
++            $("#birthDate").datepicker({dateFormat: 'yy/mm/dd'});
++        });
++    </script>
++</custom-script>
++<body t:remove="tag">
++    <h2>
++        <t:block t:if="pet.isNew()">New </t:block> Pet
++    </h2>
++    <!--/* posts back to the URI the form was requested with */-->
++    <form t:object="pet" id="pet" class="form-horizontal" method="post"
++          t:action="petId == null
++              ? (htmlSuffix ? @{/owners/{ownerId}/pets/new.html(ownerId=ownerId)} : @{/owners/{ownerId}/pets/new(ownerId=ownerId)})
++              : (htmlSuffix ? @{/owners/{ownerId}/pets/{petId}/edit.html(ownerId=ownerId,petId=petId)} : @{/owners/{ownerId}/pets/{petId}/edit(ownerId=ownerId,petId=petId)})">
++        <input type="hidden" name="id" t:value="pet.id == null ? '' : '' + pet.id"/>
++        <div class="form-group has-feedback">
++            <div class="form-group">
++                <label class="col-sm-2 control-label">Owner</label>
++                <div class="col-sm-10">
++                    [[${pet.owner?.firstName}]] [[${pet.owner?.lastName}]]
++                </div>
++            </div>
++            <div t:replace="~{fragments/fields :: inputField('Name', 'name')}"></div>
++            <div t:replace="~{fragments/fields :: inputField('Birth Date', 'birthDate')}"></div>
++            <div class="control-group">
++                <div t:replace="~{fragments/fields :: selectField('Type ', 'type', types)}"></div>
++            </div>
++        </div>
++        <div class="form-group">
++            <div class="col-sm-offset-2 col-sm-10">
++                <button t:if="pet.isNew()" class="btn btn-default" type="submit">Add Pet</button>
++                <button t:unless="pet.isNew()" class="btn btn-default" type="submit">Update Pet</button>
++            </div>
++        </div>
++    </form>
++</body>
++</html>
+diff --git a/src/main/resources/templates/pets/createOrUpdateVisitForm.html b/src/main/resources/templates/pets/createOrUpdateVisitForm.html
+new file mode 100644
+index 0000000..70a5caa
+--- /dev/null
++++ b/src/main/resources/templates/pets/createOrUpdateVisitForm.html
+@@ -0,0 +1,66 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="org.springframework.samples.petclinic.model.*" t:params="Visit visit, Boolean htmlSuffix"
++      t:replace="~{fragments/layout :: layout('owners', ~{::body}, ~{::custom-script})}">
++<custom-script t:remove="tag">
++    <script>
++        $(function () {
++            $("#date").datepicker({dateFormat: 'yy/mm/dd'});
++        });
++    </script>
++</custom-script>
++<body t:remove="tag">
++    <h2><t:block t:if="visit.isNew()">New </t:block>Visit</h2>
++
++    <b>Pet</b>
++    <table class="table table-striped">
++        <thead>
++        <tr>
++            <th>Name</th>
++            <th>Birth Date</th>
++            <th>Type</th>
++            <th>Owner</th>
++        </tr>
++        </thead>
++        <tbody>
++        <tr>
++            <td t:text="visit.pet.name">Samantha</td>
++            <td t:text="temporals.format(visit.pet.birthLocalDate, 'yyyy/MM/dd')">2012/09/04</td>
++            <td t:text="visit.pet.type?.name">cat</td>
++            <td>[[${visit.pet.owner?.firstName}]] [[${visit.pet.owner?.lastName}]]</td>
++        </tr>
++        </tbody>
++    </table>
++
++    <!--/* posts back to the URI the form was requested with */-->
++    <form t:object="visit" id="visit" class="form-horizontal" method="post"
++          t:with="ownerId=visit.pet.owner.id, petId=visit.pet.id"
++          t:action="htmlSuffix ? @{/owners/{ownerId}/pets/{petId}/visits/new.html(ownerId=ownerId,petId=petId)} : @{/owners/{ownerId}/pets/{petId}/visits/new(ownerId=ownerId,petId=petId)}">
++        <div class="form-group has-feedback">
++            <div t:replace="~{fragments/fields :: inputField('Date', 'date')}"></div>
++            <div t:replace="~{fragments/fields :: inputField('Description', 'description')}"></div>
++        </div>
++
++        <div class="form-group">
++            <div class="col-sm-offset-2 col-sm-10">
++                <input type="hidden" name="petId" t:value="visit.pet.id"/>
++                <button class="btn btn-default" type="submit">Add Visit</button>
++            </div>
++        </div>
++    </form>
++
++    <br/>
++    <b>Previous Visits</b>
++    <table class="table table-striped">
++        <tbody>
++        <tr>
++            <th>Date</th>
++            <th>Description</th>
++        </tr>
++        <tr t:each="v : visit.pet.visits" t:unless="v.isNew()">
++            <td t:text="temporals.format(v.localDate, 'yyyy/MM/dd')">2013/01/01</td>
++            <td t:text="v.description">rabies shot</td>
++        </tr>
++        </tbody>
++    </table>
++</body>
++</html>
+diff --git a/src/main/resources/templates/vets/vetList.html b/src/main/resources/templates/vets/vetList.html
+new file mode 100644
+index 0000000..eb12f78
+--- /dev/null
++++ b/src/main/resources/templates/vets/vetList.html
+@@ -0,0 +1,38 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev" t:import="org.springframework.samples.petclinic.model.*" t:params="Vets vets"
++      t:replace="~{fragments/layout :: layout('vets', ~{::body}, null)}">
++<body t:remove="tag">
++    <h2>Veterinarians</h2>
++
++    <table id="vetsTable" class="table table-striped">
++        <thead>
++        <tr>
++            <th>Name</th>
++            <th>Specialties</th>
++        </tr>
++        </thead>
++        <tbody>
++        <tr t:each="vet : vets.vetList">
++            <td t:text="|${vet.firstName} ${vet.lastName}|">James Carter</td>
++            <td>
++                <t:block t:each="specialty : vet.specialties">[[${specialty.name}]] </t:block>
++                <t:block t:if="vet.nrOfSpecialties == 0">none</t:block>
++            </td>
++        </tr>
++        </tbody>
++    </table>
++
++    <table class="table-buttons">
++        <tbody>
++        <tr>
++            <td>
++                <a t:href="@{/vets.xml}">View as XML</a>
++            </td>
++            <td>
++                <a t:href="@{/vets.json}">View as JSON</a>
++            </td>
++        </tr>
++        </tbody>
++    </table>
++</body>
++</html>
+diff --git a/src/main/resources/templates/welcome.html b/src/main/resources/templates/welcome.html
+new file mode 100644
+index 0000000..2b13ca4
+--- /dev/null
++++ b/src/main/resources/templates/welcome.html
+@@ -0,0 +1,12 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:replace="~{fragments/layout :: layout('home', ~{::body}, null)}">
++<body t:remove="tag">
++    <h2 t:text="#{welcome}">Welcome</h2>
++    <div class="row">
++        <div class="col-md-12">
++            <img class="img-responsive" t:src="@{/resources/images/pets.png}"/>
++        </div>
++    </div>
++</body>
++</html>
+diff --git a/src/main/webapp/WEB-INF/jsp/exception.jsp b/src/main/webapp/WEB-INF/jsp/exception.jsp
+deleted file mode 100644
+index d030d59..0000000
+--- a/src/main/webapp/WEB-INF/jsp/exception.jsp
++++ /dev/null
+@@ -1,14 +0,0 @@
+-<%@ page session="false" trimDirectiveWhitespaces="true" %>
+-<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+-<%@ taglib prefix="petclinic" tagdir="/WEB-INF/tags" %>
+-
+-<petclinic:layout pageName="error">
+-
+-    <spring:url value="/resources/images/pets.png" var="petsImage"/>
+-    <img src="${petsImage}"/>
+-
+-    <h2>Something happened...</h2>
+-
+-    <p>${exception.message}</p>
+-
+-</petclinic:layout>
+diff --git a/src/main/webapp/WEB-INF/jsp/owners/createOrUpdateOwnerForm.jsp b/src/main/webapp/WEB-INF/jsp/owners/createOrUpdateOwnerForm.jsp
+deleted file mode 100644
+index d7e9e1a..0000000
+--- a/src/main/webapp/WEB-INF/jsp/owners/createOrUpdateOwnerForm.jsp
++++ /dev/null
+@@ -1,34 +0,0 @@
+-<%@ page session="false" trimDirectiveWhitespaces="true" %>
+-<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+-<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+-<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+-<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+-<%@ taglib prefix="petclinic" tagdir="/WEB-INF/tags" %>
+-
+-<petclinic:layout pageName="owners">
+-    <h2>
+-        <c:if test="${owner['new']}">New </c:if> Owner
+-    </h2>
+-    <form:form modelAttribute="owner" class="form-horizontal" id="add-owner-form">
+-        <div class="form-group has-feedback">
+-            <petclinic:inputField label="First Name" name="firstName"/>
+-            <petclinic:inputField label="Last Name" name="lastName"/>
+-            <petclinic:inputField label="Address" name="address"/>
+-            <petclinic:inputField label="City" name="city"/>
+-            <petclinic:inputField label="Telephone" name="telephone"/>
+-        </div>
+-        <div class="form-group">
+-            <div class="col-sm-offset-2 col-sm-10">
+-                <c:choose>
+-                    <c:when test="${owner['new']}">
+-                        <button class="btn btn-default" type="submit">Add Owner</button>
+-                    </c:when>
+-                    <c:otherwise>
+-                        <button class="btn btn-default" type="submit">Update Owner</button>
+-                    </c:otherwise>
+-                </c:choose>
+-            </div>
+-        </div>
+-    </form:form>
+-</petclinic:layout>
+diff --git a/src/main/webapp/WEB-INF/jsp/owners/findOwners.jsp b/src/main/webapp/WEB-INF/jsp/owners/findOwners.jsp
+deleted file mode 100644
+index f9a3e54..0000000
+--- a/src/main/webapp/WEB-INF/jsp/owners/findOwners.jsp
++++ /dev/null
+@@ -1,34 +0,0 @@
+-<%@ page session="false" trimDirectiveWhitespaces="true" %>
+-<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+-<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+-<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+-<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+-<%@ taglib prefix="petclinic" tagdir="/WEB-INF/tags" %>
+-
+-<petclinic:layout pageName="owners">
+-
+-    <h2>Find Owners</h2>
+-
+-    <spring:url value="/owners.html" var="formUrl"/>
+-    <form:form modelAttribute="owner" action="${fn:escapeXml(formUrl)}" method="get" class="form-horizontal"
+-               id="search-owner-form">
+-        <div class="form-group">
+-            <div class="control-group" id="lastName">
+-                <label class="col-sm-2 control-label">Last name </label>
+-                <div class="col-sm-10">
+-                    <form:input class="form-control" path="lastName" size="30" maxlength="80"/>
+-                    <span class="help-inline"><form:errors path="*"/></span>
+-                </div>
+-            </div>
+-        </div>
+-        <div class="form-group">
+-            <div class="col-sm-offset-2 col-sm-10">
+-                <button type="submit" class="btn btn-default">Find Owner</button>
+-            </div>
+-        </div>
+-
+-    </form:form>
+-
+-    <br/>
+-    <a class="btn btn-default" href='<spring:url value="/owners/new" htmlEscape="true"/>'>Add Owner</a>
+-</petclinic:layout>
+diff --git a/src/main/webapp/WEB-INF/jsp/owners/ownerDetails.jsp b/src/main/webapp/WEB-INF/jsp/owners/ownerDetails.jsp
+deleted file mode 100644
+index 877e53e..0000000
+--- a/src/main/webapp/WEB-INF/jsp/owners/ownerDetails.jsp
++++ /dev/null
+@@ -1,98 +0,0 @@
+-<%@ page session="false" trimDirectiveWhitespaces="true" %>
+-<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+-<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+-<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+-<%@ taglib prefix="petclinic" tagdir="/WEB-INF/tags" %>
+-
+-<petclinic:layout pageName="owners">
+-
+-    <h2>Owner Information</h2>
+-
+-
+-    <table class="table table-striped">
+-        <tr>
+-            <th>Name</th>
+-            <td><b><c:out value="${owner.firstName} ${owner.lastName}"/></b></td>
+-        </tr>
+-        <tr>
+-            <th>Address</th>
+-            <td><c:out value="${owner.address}"/></td>
+-        </tr>
+-        <tr>
+-            <th>City</th>
+-            <td><c:out value="${owner.city}"/></td>
+-        </tr>
+-        <tr>
+-            <th>Telephone</th>
+-            <td><c:out value="${owner.telephone}"/></td>
+-        </tr>
+-    </table>
+-
+-    <spring:url value="{ownerId}/edit.html" var="editUrl">
+-        <spring:param name="ownerId" value="${owner.id}"/>
+-    </spring:url>
+-    <a href="${fn:escapeXml(editUrl)}" class="btn btn-default">Edit Owner</a>
+-
+-    <spring:url value="{ownerId}/pets/new.html" var="addUrl">
+-        <spring:param name="ownerId" value="${owner.id}"/>
+-    </spring:url>
+-    <a href="${fn:escapeXml(addUrl)}" class="btn btn-default">Add New Pet</a>
+-
+-    <br/>
+-    <br/>
+-    <br/>
+-    <h2>Pets and Visits</h2>
+-
+-    <table class="table table-striped">
+-        <c:forEach var="pet" items="${owner.pets}">
+-
+-            <tr>
+-                <td valign="top">
+-                    <dl class="dl-horizontal">
+-                        <dt>Name</dt>
+-                        <dd><c:out value="${pet.name}"/></dd>
+-                        <dt>Birth Date</dt>
+-                        <dd><fmt:formatDate value="${pet.birthDate}" pattern="yyyy-MM-dd"/></dd>
+-                        <dt>Type</dt>
+-                        <dd><c:out value="${pet.type.name}"/></dd>
+-                    </dl>
+-                </td>
+-                <td valign="top">
+-                    <table class="table-condensed">
+-                        <thead>
+-                        <tr>
+-                            <th>Visit Date</th>
+-                            <th>Description</th>
+-                        </tr>
+-                        </thead>
+-                        <c:forEach var="visit" items="${pet.visits}">
+-                            <tr>
+-                                <td><fmt:formatDate value="${visit.date}" pattern="yyyy-MM-dd"/></td>
+-                                <td><c:out value="${visit.description}"/></td>
+-                            </tr>
+-                        </c:forEach>
+-                        <tr>
+-                            <td>
+-                                <spring:url value="/owners/{ownerId}/pets/{petId}/edit" var="petUrl">
+-                                    <spring:param name="ownerId" value="${owner.id}"/>
+-                                    <spring:param name="petId" value="${pet.id}"/>
+-                                </spring:url>
+-                                <a href="${fn:escapeXml(petUrl)}">Edit Pet</a>
+-                            </td>
+-                            <td>
+-                                <spring:url value="/owners/{ownerId}/pets/{petId}/visits/new" var="visitUrl">
+-                                    <spring:param name="ownerId" value="${owner.id}"/>
+-                                    <spring:param name="petId" value="${pet.id}"/>
+-                                </spring:url>
+-                                <a href="${fn:escapeXml(visitUrl)}">Add Visit</a>
+-                            </td>
+-                        </tr>
+-                    </table>
+-                </td>
+-            </tr>
+-
+-        </c:forEach>
+-    </table>
+-
+-</petclinic:layout>
+diff --git a/src/main/webapp/WEB-INF/jsp/owners/ownersList.jsp b/src/main/webapp/WEB-INF/jsp/owners/ownersList.jsp
+deleted file mode 100644
+index 7bcb98e..0000000
+--- a/src/main/webapp/WEB-INF/jsp/owners/ownersList.jsp
++++ /dev/null
+@@ -1,48 +0,0 @@
+-<%@ page session="false" trimDirectiveWhitespaces="true" %>
+-<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+-<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+-<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+-<%@ taglib prefix="petclinic" tagdir="/WEB-INF/tags" %>
+-
+-<petclinic:layout pageName="owners">
+-    <h2>Owners</h2>
+-
+-    <table id="ownersTable" class="table table-striped">
+-        <thead>
+-        <tr>
+-            <th style="width: 150px;">Name</th>
+-            <th style="width: 200px;">Address</th>
+-            <th>City</th>
+-            <th style="width: 120px">Telephone</th>
+-            <th>Pets</th>
+-        </tr>
+-        </thead>
+-        <tbody>
+-        <c:forEach items="${selections}" var="owner">
+-            <tr>
+-                <td>
+-                    <spring:url value="/owners/{ownerId}.html" var="ownerUrl">
+-                        <spring:param name="ownerId" value="${owner.id}"/>
+-                    </spring:url>
+-                    <a href="${fn:escapeXml(ownerUrl)}"><c:out value="${owner.firstName} ${owner.lastName}"/></a>
+-                </td>
+-                <td>
+-                    <c:out value="${owner.address}"/>
+-                </td>
+-                <td>
+-                    <c:out value="${owner.city}"/>
+-                </td>
+-                <td>
+-                    <c:out value="${owner.telephone}"/>
+-                </td>
+-                <td>
+-                    <c:forEach var="pet" items="${owner.pets}">
+-                        <c:out value="${pet.name} "/>
+-                    </c:forEach>
+-                </td>
+-            </tr>
+-        </c:forEach>
+-        </tbody>
+-    </table>
+-</petclinic:layout>
+diff --git a/src/main/webapp/WEB-INF/jsp/pets/createOrUpdatePetForm.jsp b/src/main/webapp/WEB-INF/jsp/pets/createOrUpdatePetForm.jsp
+deleted file mode 100644
+index 8a0b34a..0000000
+--- a/src/main/webapp/WEB-INF/jsp/pets/createOrUpdatePetForm.jsp
++++ /dev/null
+@@ -1,51 +0,0 @@
+-<%@ page session="false" trimDirectiveWhitespaces="true" %>
+-<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+-<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+-<%@ taglib prefix="petclinic" tagdir="/WEB-INF/tags" %>
+-
+-<petclinic:layout pageName="owners">
+-    <jsp:attribute name="customScript">
+-        <script>
+-            $(function () {
+-                $("#birthDate").datepicker({dateFormat: 'yy/mm/dd'});
+-            });
+-        </script>
+-    </jsp:attribute>
+-    <jsp:body>
+-        <h2>
+-            <c:if test="${pet['new']}">New </c:if> Pet
+-        </h2>
+-        <form:form modelAttribute="pet"
+-                   class="form-horizontal">
+-            <input type="hidden" name="id" value="${pet.id}"/>
+-            <div class="form-group has-feedback">
+-                <div class="form-group">
+-                    <label class="col-sm-2 control-label">Owner</label>
+-                    <div class="col-sm-10">
+-                        <c:out value="${pet.owner.firstName} ${pet.owner.lastName}"/>
+-                    </div>
+-                </div>
+-                <petclinic:inputField label="Name" name="name"/>
+-                <petclinic:inputField label="Birth Date" name="birthDate"/>
+-                <div class="control-group">
+-                    <petclinic:selectField name="type" label="Type " names="${types}" size="5"/>
+-                </div>
+-            </div>
+-            <div class="form-group">
+-                <div class="col-sm-offset-2 col-sm-10">
+-                    <c:choose>
+-                        <c:when test="${pet['new']}">
+-                            <button class="btn btn-default" type="submit">Add Pet</button>
+-                        </c:when>
+-                        <c:otherwise>
+-                            <button class="btn btn-default" type="submit">Update Pet</button>
+-                        </c:otherwise>
+-                    </c:choose>
+-                </div>
+-            </div>
+-        </form:form>
+-        <c:if test="${!pet['new']}">
+-        </c:if>
+-    </jsp:body>
+-</petclinic:layout>
+diff --git a/src/main/webapp/WEB-INF/jsp/pets/createOrUpdateVisitForm.jsp b/src/main/webapp/WEB-INF/jsp/pets/createOrUpdateVisitForm.jsp
+deleted file mode 100644
+index b964e83..0000000
+--- a/src/main/webapp/WEB-INF/jsp/pets/createOrUpdateVisitForm.jsp
++++ /dev/null
+@@ -1,70 +0,0 @@
+-<%@ page session="false" trimDirectiveWhitespaces="true" %>
+-<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+-<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+-<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+-<%@ taglib prefix="petclinic" tagdir="/WEB-INF/tags" %>
+-
+-
+-<petclinic:layout pageName="owners">
+-    <jsp:attribute name="customScript">
+-        <script>
+-            $(function () {
+-                $("#date").datepicker({dateFormat: 'yy/mm/dd'});
+-            });
+-        </script>
+-    </jsp:attribute>
+-    <jsp:body>
+-        <h2><c:if test="${visit['new']}">New </c:if>Visit</h2>
+-
+-        <b>Pet</b>
+-        <table class="table table-striped">
+-            <thead>
+-            <tr>
+-                <th>Name</th>
+-                <th>Birth Date</th>
+-                <th>Type</th>
+-                <th>Owner</th>
+-            </tr>
+-            </thead>
+-            <tr>
+-                <td><c:out value="${visit.pet.name}"/></td>
+-                <td><fmt:formatDate value="${visit.pet.birthDate}" pattern="yyyy/MM/dd"/></td>
+-                <td><c:out value="${visit.pet.type.name}"/></td>
+-                <td><c:out value="${visit.pet.owner.firstName} ${visit.pet.owner.lastName}"/></td>
+-            </tr>
+-        </table>
+-
+-        <form:form modelAttribute="visit" class="form-horizontal">
+-            <div class="form-group has-feedback">
+-                <petclinic:inputField label="Date" name="date"/>
+-                <petclinic:inputField label="Description" name="description"/>
+-            </div>
+-
+-            <div class="form-group">
+-                <div class="col-sm-offset-2 col-sm-10">
+-                    <input type="hidden" name="petId" value="${visit.pet.id}"/>
+-                    <button class="btn btn-default" type="submit">Add Visit</button>
+-                </div>
+-            </div>
+-        </form:form>
+-
+-        <br/>
+-        <b>Previous Visits</b>
+-        <table class="table table-striped">
+-            <tr>
+-                <th>Date</th>
+-                <th>Description</th>
+-            </tr>
+-            <c:forEach var="visit" items="${visit.pet.visits}">
+-                <c:if test="${!visit['new']}">
+-                    <tr>
+-                        <td><fmt:formatDate value="${visit.date}" pattern="yyyy/MM/dd"/></td>
+-                        <td><c:out value="${visit.description}"/></td>
+-                    </tr>
+-                </c:if>
+-            </c:forEach>
+-        </table>
+-    </jsp:body>
+-
+-</petclinic:layout>
+diff --git a/src/main/webapp/WEB-INF/jsp/vets/vetList.jsp b/src/main/webapp/WEB-INF/jsp/vets/vetList.jsp
+deleted file mode 100644
+index 17c07a9..0000000
+--- a/src/main/webapp/WEB-INF/jsp/vets/vetList.jsp
++++ /dev/null
+@@ -1,44 +0,0 @@
+-<%@ page session="false" trimDirectiveWhitespaces="true" %>
+-<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+-<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+-<%@ taglib prefix="petclinic" tagdir="/WEB-INF/tags" %>
+-
+-<petclinic:layout pageName="vets">
+-    <h2>Veterinarians</h2>
+-
+-    <table id="vetsTable" class="table table-striped">
+-        <thead>
+-        <tr>
+-            <th>Name</th>
+-            <th>Specialties</th>
+-        </tr>
+-        </thead>
+-        <tbody>
+-        <c:forEach items="${vets.vetList}" var="vet">
+-            <tr>
+-                <td>
+-                    <c:out value="${vet.firstName} ${vet.lastName}"/>
+-                </td>
+-                <td>
+-                    <c:forEach var="specialty" items="${vet.specialties}">
+-                        <c:out value="${specialty.name} "/>
+-                    </c:forEach>
+-                    <c:if test="${vet.nrOfSpecialties == 0}">none</c:if>
+-                </td>
+-            </tr>
+-        </c:forEach>
+-        </tbody>
+-    </table>
+-
+-    <table class="table-buttons">
+-        <tr>
+-            <td>
+-                <a href="<spring:url value="/vets.xml" htmlEscape="true" />">View as XML</a>
+-            </td>
+-            <td>
+-                <a href="<spring:url value="/vets.json" htmlEscape="true" />">View as JSON</a>
+-            </td>
+-        </tr>
+-    </table>
+-</petclinic:layout>
+diff --git a/src/main/webapp/WEB-INF/jsp/welcome.jsp b/src/main/webapp/WEB-INF/jsp/welcome.jsp
+deleted file mode 100644
+index b801ec6..0000000
+--- a/src/main/webapp/WEB-INF/jsp/welcome.jsp
++++ /dev/null
+@@ -1,14 +0,0 @@
+-<%@ page session="false" trimDirectiveWhitespaces="true" %>
+-<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+-<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+-<%@ taglib prefix="petclinic" tagdir="/WEB-INF/tags" %>
+-
+-<petclinic:layout pageName="home">
+-    <h2><fmt:message key="welcome"/></h2>
+-    <div class="row">
+-        <div class="col-md-12">
+-            <spring:url value="/resources/images/pets.png" htmlEscape="true" var="petsImage"/>
+-            <img class="img-responsive" src="${petsImage}"/>
+-        </div>
+-    </div>
+-</petclinic:layout>
+diff --git a/src/main/webapp/WEB-INF/tags/bodyHeader.tag b/src/main/webapp/WEB-INF/tags/bodyHeader.tag
+deleted file mode 100644
+index cd14d87..0000000
+--- a/src/main/webapp/WEB-INF/tags/bodyHeader.tag
++++ /dev/null
+@@ -1,7 +0,0 @@
+-<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+-<%@ taglib prefix="petclinic" tagdir="/WEB-INF/tags" %>
+-
+-<%@ attribute name="menuName" required="true" rtexprvalue="true"
+-              description="Name of the active menu: home, owners, vets or error" %>
+-
+-<petclinic:menu name="${menuName}"/>
+diff --git a/src/main/webapp/WEB-INF/tags/footer.tag b/src/main/webapp/WEB-INF/tags/footer.tag
+deleted file mode 100644
+index fc38b25..0000000
+--- a/src/main/webapp/WEB-INF/tags/footer.tag
++++ /dev/null
+@@ -1,14 +0,0 @@
+-<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+-
+-<%-- Placed at the end of the document so the pages load faster --%>
+-<spring:url value="/webjars/jquery/2.2.4/jquery.min.js" var="jQuery"/>
+-<script src="${jQuery}"></script>
+-
+-<%-- jquery-ui.js file is really big so we only load what we need instead of loading everything --%>
+-<spring:url value="/webjars/jquery-ui/1.11.4/jquery-ui.min.js" var="jQueryUiCore"/>
+-<script src="${jQueryUiCore}"></script>
+-
+-<%-- Bootstrap --%>
+-<spring:url value="/webjars/bootstrap/3.3.6/js/bootstrap.min.js" var="bootstrapJs"/>
+-<script src="${bootstrapJs}"></script>
+-
+diff --git a/src/main/webapp/WEB-INF/tags/htmlHeader.tag b/src/main/webapp/WEB-INF/tags/htmlHeader.tag
+deleted file mode 100644
+index 79f7fee..0000000
+--- a/src/main/webapp/WEB-INF/tags/htmlHeader.tag
++++ /dev/null
+@@ -1,35 +0,0 @@
+-<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+-
+-<%--
+-PetClinic :: a Spring Framework demonstration
+---%>
+-
+-<head>
+-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+-    <meta charset="utf-8">
+-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+-    <meta name="viewport" content="width=device-width, initial-scale=1">
+-    <%-- The above 4 meta tags *must* come first in the head; any other head content must come *after* these tags --%>
+-
+-    <spring:url value="/resources/images/favicon.png" var="favicon"/>
+-    <link rel="shortcut icon" type="image/x-icon" href="${favicon}">
+-
+-    <title>PetClinic :: a Spring Framework demonstration</title>
+-
+-    <%-- CSS generated from LESS --%>
+-    <spring:url value="/resources/css/petclinic.css" var="petclinicCss"/>
+-    <link href="${petclinicCss}" rel="stylesheet"/>
+-
+-
+-    <%-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries --%>
+-    <!--[if lt IE 9]>
+-    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+-    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+-    <![endif]-->
+-
+-    <!-- Only datepicker is used -->
+-    <spring:url value="/webjars/jquery-ui/1.11.4/jquery-ui.min.css" var="jQueryUiCss"/>
+-    <link href="${jQueryUiCss}" rel="stylesheet"/>
+-    <spring:url value="/webjars/jquery-ui/1.11.4/jquery-ui.theme.min.css" var="jQueryUiThemeCss"/>
+-    <link href="${jQueryUiThemeCss}" rel="stylesheet"/>
+-</head>
+diff --git a/src/main/webapp/WEB-INF/tags/inputField.tag b/src/main/webapp/WEB-INF/tags/inputField.tag
+deleted file mode 100644
+index 0db10f3..0000000
+--- a/src/main/webapp/WEB-INF/tags/inputField.tag
++++ /dev/null
+@@ -1,26 +0,0 @@
+-<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+-<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+-<%@ attribute name="name" required="true" rtexprvalue="true"
+-              description="Name of corresponding property in bean object" %>
+-<%@ attribute name="label" required="true" rtexprvalue="true"
+-              description="Label appears in red color if input is considered as invalid after submission" %>
+-
+-<spring:bind path="${name}">
+-    <c:set var="cssGroup" value="form-group ${status.error ? 'has-error' : '' }"/>
+-    <c:set var="valid" value="${not status.error and not empty status.actualValue}"/>
+-    <div class="${cssGroup}">
+-        <label class="col-sm-2 control-label">${label}</label>
+-
+-        <div class="col-sm-10">
+-            <form:input class="form-control" path="${name}"/>
+-            <c:if test="${valid}">
+-                <span class="glyphicon glyphicon-ok form-control-feedback" aria-hidden="true"></span>
+-            </c:if>
+-            <c:if test="${status.error}">
+-                <span class="glyphicon glyphicon-remove form-control-feedback" aria-hidden="true"></span>
+-                <span class="help-inline">${status.errorMessage}</span>
+-            </c:if>
+-        </div>
+-    </div>
+-</spring:bind>
+diff --git a/src/main/webapp/WEB-INF/tags/layout.tag b/src/main/webapp/WEB-INF/tags/layout.tag
+deleted file mode 100644
+index 870c735..0000000
+--- a/src/main/webapp/WEB-INF/tags/layout.tag
++++ /dev/null
+@@ -1,27 +0,0 @@
+-<%@ tag trimDirectiveWhitespaces="true" %>
+-<%@ taglib prefix="petclinic" tagdir="/WEB-INF/tags" %>
+-
+-<%@ attribute name="pageName" required="true" %>
+-<%@ attribute name="customScript" required="false" fragment="true"%>
+-
+-<!doctype html>
+-<html>
+-<petclinic:htmlHeader/>
+-
+-<body>
+-<petclinic:bodyHeader menuName="${pageName}"/>
+-
+-<div class="container-fluid">
+-    <div class="container xd-container">
+-
+-        <jsp:doBody/>
+-
+-        <petclinic:pivotal/>
+-    </div>
+-</div>
+-<petclinic:footer/>
+-<jsp:invoke fragment="customScript" />
+-
+-</body>
+-
+-</html>
+diff --git a/src/main/webapp/WEB-INF/tags/menu.tag b/src/main/webapp/WEB-INF/tags/menu.tag
+deleted file mode 100644
+index 6afb0f3..0000000
+--- a/src/main/webapp/WEB-INF/tags/menu.tag
++++ /dev/null
+@@ -1,45 +0,0 @@
+-<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+-<%@ taglib prefix="petclinic" tagdir="/WEB-INF/tags" %>
+-<%@ attribute name="name" required="true" rtexprvalue="true"
+-              description="Name of the active menu: home, owners, vets or error" %>
+-
+-<nav class="navbar navbar-default" role="navigation">
+-    <div class="container">
+-        <div class="navbar-header">
+-            <a class="navbar-brand" href="<spring:url value="/" htmlEscape="true" />"><span></span></a>
+-            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#main-navbar">
+-                <span class="sr-only"><os-p>Toggle navigation</os-p></span>
+-                <span class="icon-bar"></span>
+-                <span class="icon-bar"></span>
+-                <span class="icon-bar"></span>
+-            </button>
+-        </div>
+-        <div class="navbar-collapse collapse" id="main-navbar">
+-            <ul class="nav navbar-nav navbar-right">
+-
+-                <petclinic:menuItem active="${name eq 'home'}" url="/" title="home page">
+-                    <span class="glyphicon glyphicon-home" aria-hidden="true"></span>
+-                    <span>Home</span>
+-                </petclinic:menuItem>
+-
+-                <petclinic:menuItem active="${name eq 'owners'}" url="/owners/find.html" title="find owners">
+-                    <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
+-                    <span>Find owners</span>
+-                </petclinic:menuItem>
+-
+-                <petclinic:menuItem active="${name eq 'vets'}" url="/vets.html" title="veterinarians">
+-                    <span class="glyphicon glyphicon-th-list" aria-hidden="true"></span>
+-                    <span>Veterinarians</span>
+-                </petclinic:menuItem>
+-
+-                <petclinic:menuItem active="${name eq 'error'}" url="/oups.html"
+-                            title="trigger a RuntimeException to see how it is handled">
+-                    <span class="glyphicon glyphicon-warning-sign" aria-hidden="true"></span>
+-                    <span>Error</span>
+-                </petclinic:menuItem>
+-
+-            </ul>
+-        </div>
+-    </div>
+-</nav>
+diff --git a/src/main/webapp/WEB-INF/tags/menuItem.tag b/src/main/webapp/WEB-INF/tags/menuItem.tag
+deleted file mode 100644
+index 8c14dbb..0000000
+--- a/src/main/webapp/WEB-INF/tags/menuItem.tag
++++ /dev/null
+@@ -1,13 +0,0 @@
+-<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+-<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+-
+-<%@ attribute name="active" required="true" rtexprvalue="true" %>
+-<%@ attribute name="url" required="true" rtexprvalue="true" %>
+-<%@ attribute name="title" required="false" rtexprvalue="true" %>
+-
+-<li class="${active ? 'active' : ''}">
+-    <a href="<spring:url value="${url}" htmlEscape="true" />"
+-       title="${fn:escapeXml(title)}">
+-        <jsp:doBody/>
+-    </a>
+-</li>
+diff --git a/src/main/webapp/WEB-INF/tags/pivotal.tag b/src/main/webapp/WEB-INF/tags/pivotal.tag
+deleted file mode 100644
+index 8ee35fb..0000000
+--- a/src/main/webapp/WEB-INF/tags/pivotal.tag
++++ /dev/null
+@@ -1,10 +0,0 @@
+-<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+-
+-<br/>
+-<br/>
+-<div class="container">
+-    <div class="row">
+-        <div class="col-12 text-center"><img src="<spring:url value="/resources/images/spring-pivotal-logo.png" htmlEscape="true" />"
+-                                             alt="Sponsored by Pivotal"/></div>
+-    </div>
+-</div>
+diff --git a/src/main/webapp/WEB-INF/tags/selectField.tag b/src/main/webapp/WEB-INF/tags/selectField.tag
+deleted file mode 100644
+index 21fad89..0000000
+--- a/src/main/webapp/WEB-INF/tags/selectField.tag
++++ /dev/null
+@@ -1,30 +0,0 @@
+-<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+-<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+-<%@ attribute name="name" required="true" rtexprvalue="true"
+-              description="Name of corresponding property in bean object" %>
+-<%@ attribute name="label" required="true" rtexprvalue="true"
+-              description="Label appears in red color if input is considered as invalid after submission" %>
+-<%@ attribute name="names" required="true" rtexprvalue="true" type="java.util.List"
+-              description="Names in the list" %>
+-<%@ attribute name="size" required="true" rtexprvalue="true"
+-              description="Size of Select" %>
+-
+-<spring:bind path="${name}">
+-    <c:set var="cssGroup" value="form-group ${status.error ? 'error' : '' }"/>
+-    <c:set var="valid" value="${not status.error and not empty status.actualValue}"/>
+-    <div class="${cssGroup}">
+-        <label class="col-sm-2 control-label">${label}</label>
+-
+-        <div class="col-sm-10">
+-            <form:select class="form-control" path="${name}" items="${names}" size="${size}"/>
+-            <c:if test="${valid}">
+-                <span class="glyphicon glyphicon-ok form-control-feedback" aria-hidden="true"></span>
+-            </c:if>
+-            <c:if test="${status.error}">
+-                <span class="glyphicon glyphicon-remove form-control-feedback" aria-hidden="true"></span>
+-                <span class="help-inline">${status.errorMessage}</span>
+-            </c:if>
+-        </div>
+-    </div>
+-</spring:bind>
+diff --git a/src/test/java/org/springframework/samples/petclinic/web/ViewRenderingTests.java b/src/test/java/org/springframework/samples/petclinic/web/ViewRenderingTests.java
+new file mode 100644
+index 0000000..a9d5ccf
+--- /dev/null
++++ b/src/test/java/org/springframework/samples/petclinic/web/ViewRenderingTests.java
+@@ -0,0 +1,121 @@
++package org.springframework.samples.petclinic.web;
++
++import org.assertj.core.util.Lists;
++import org.junit.Before;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.samples.petclinic.model.Owner;
++import org.springframework.samples.petclinic.model.Pet;
++import org.springframework.samples.petclinic.model.Vet;
++import org.springframework.samples.petclinic.service.ClinicService;
++import org.springframework.test.context.ContextConfiguration;
++import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
++import org.springframework.test.context.web.WebAppConfiguration;
++import org.springframework.test.web.servlet.MockMvc;
++import org.springframework.test.web.servlet.setup.MockMvcBuilders;
++import org.springframework.web.context.WebApplicationContext;
++
++import static org.hamcrest.Matchers.allOf;
++import static org.hamcrest.Matchers.containsString;
++import static org.hamcrest.Matchers.not;
++import static org.mockito.BDDMockito.given;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
++
++/**
++ * Renders the views through the application's real view resolvers (the controller tests use a standalone setup,
++ * which never renders a template).
++ */
++@RunWith(SpringJUnit4ClassRunner.class)
++@ContextConfiguration({"classpath:spring/mvc-core-config.xml", "classpath:spring/mvc-test-config.xml"})
++@WebAppConfiguration
++public class ViewRenderingTests {
++
++    private static final int TEST_OWNER_ID = 1;
++
++    @Autowired
++    private WebApplicationContext webApplicationContext;
++
++    @Autowired
++    private ClinicService clinicService;
++
++    private MockMvc mockMvc;
++
++    @Before
++    public void setup() {
++        this.mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
++
++        Owner george = new Owner();
++        george.setId(TEST_OWNER_ID);
++        george.setFirstName("<b>George</b>");
++        george.setLastName("Franklin");
++        george.setAddress("110 W. Liberty St.");
++        george.setCity("Madison");
++        george.setTelephone("6085551023");
++        given(this.clinicService.findOwnerById(TEST_OWNER_ID)).willReturn(george);
++
++        Vet james = new Vet();
++        james.setFirstName("James");
++        james.setLastName("Carter");
++        james.setId(1);
++        Pet leo = new Pet();
++        leo.setId(1);
++        leo.setName("Leo");
++        given(this.clinicService.findPetById(1)).willReturn(leo);
++
++        given(this.clinicService.findVets()).willReturn(Lists.newArrayList(james));
++    }
++
++    @Test
++    public void testWelcome() throws Exception {
++        mockMvc.perform(get("/"))
++            .andExpect(status().isOk())
++            .andExpect(content().string(containsString("<h2>Welcome</h2>")));
++    }
++
++    @Test
++    public void testExceptionPage() throws Exception {
++        mockMvc.perform(get("/oups"))
++            .andExpect(status().isOk())
++            .andExpect(content().string(allOf(
++                containsString("Something happened..."),
++                containsString("Expected: controller used to showcase what happens when an exception is thrown"))));
++    }
++
++    @Test
++    public void testOwnerDetailsAreEscaped() throws Exception {
++        mockMvc.perform(get("/owners/{ownerId}", TEST_OWNER_ID))
++            .andExpect(status().isOk())
++            .andExpect(content().string(allOf(
++                containsString("&lt;b&gt;George&lt;/b&gt; Franklin"),
++                not(containsString("<b>George</b>")),
++                containsString("href=\"1/edit.html\""))));
++    }
++
++    @Test
++    public void testOwnerFormWithErrors() throws Exception {
++        mockMvc.perform(post("/owners/new").param("firstName", "Joe"))
++            .andExpect(status().isOk())
++            .andExpect(content().string(allOf(
++                containsString("action=\"/owners/new\""),
++                containsString("value=\"Joe\""),
++                containsString("form-group has-error"))));
++    }
++
++    @Test
++    public void testVetList() throws Exception {
++        mockMvc.perform(get("/vets.html"))
++            .andExpect(status().isOk())
++            .andExpect(content().string(allOf(containsString("James Carter"), containsString("none"))));
++    }
++
++    @Test
++    public void testViewWithoutTemplate() throws Exception {
++        mockMvc.perform(get("/owners/*/pets/{petId}/visits", 1))
++            .andExpect(status().isNotFound());
++    }
++
++}

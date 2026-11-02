@@ -22,8 +22,9 @@ container, no web access, 90-minute and $40 budget per run.
 | [New engines run 3](#new-engines-run-3) (run 3) | 2 | espd, ewp-registry | `tessera-migrate compare` | **0/2** |
 | [Post-#583 round](#post-583-round-run-10) (run 10) | 17 | every app, one run each | `tessera-migrate compare` | **8/17** (13/17 counting acceptable differences) |
 | [Quick round after the guide slimming](#quick-round-after-the-guide-slimming-run-11) (run 11) | 3 | spring-petclinic, fredbet, espd | `tessera-migrate compare` | **1/3** (1/3 counting acceptable differences) |
+| [Post-rewrite round](#post-rewrite-round-run-k) (run K: 11, or 12-13) | 18 | every app, one run each (fredbet re-run after an incident) | `tessera-migrate compare` | **9/17** (15/17 counting acceptable differences) |
 
-Across all 79 runs, every migrated app builds and passes all of its tests, and no run used
+Across all 97 runs, every migrated app builds and passes all of its tests, and no run used
 `SafeHtml.unchecked`/`TrustedUrl.unchecked`, `permitAll`, CSRF disabling or `@Disabled`. Two
 runs left legacy templates behind: budgetmaster run 4, which stopped early, and espd run 2, whose
 session ended before its last step.
@@ -1054,9 +1055,155 @@ Guide sentences to restore: none, since no slimming gap was found. #657 proposes
 
 Noted, not filed: fredbet's report says `HtmlPolicy.builder()` can't allow `<a>`, so only the built-in `sanitize`/`sanitizeRich` keep links. No page depended on it.
 
+## Post-rewrite round (run K)
+
+Run on Nov 2 from `c0f02b3`, the first round after the minimal-core rewrite (#673). "Run K" is one past each app's highest run: run 11 for 14 apps, run 12 for spring-petclinic, espd and fredbet. fredbet also has a run 13 (see below). Since run 11, these changes landed:
+- Fragment is compile-time only (#676).
+- HTML messages become sanitized messages (#677).
+- Foreign content, CDATA, raw-text elements, URL lists and tree-builder attributes are rejected rather than modelled (#678).
+- `{{` breaking and `v-pre` are gone, with one text escaper (#679).
+- The starter is slimmer (#680).
+- The verifier requires state-neutral control flow and balanced fragments (`UNBALANCED`, #682), and rejects mode-switching loop separators (#707/#708, which also added the `<head t:replace>` recipe).
+- Links compile to string concatenation (#684), with typed escaping and byte output (#685).
+- `tessera-migrate` follows the new core, and the `tessera:review` goal is deleted (#686).
+- `SafeHtml.unchecked` (#664) and `TrustedUrl` (#668) are removed.
+- The docs were rewritten (#687).
+
+The image was rebuilt from that commit and every baseline was re-recorded the same day. Every `determinism.txt` is `same`, apart from the usual HashMap and HashSet reorderings. The round ran in two `chainctl develop` sessions with up to 4 parallel jobs each.
+
+The scored runs cost **$172.03** and took 5.5 hours of agent time. fredbet run 12's cost wasn't recorded. Run 10 cost $190.82 and 5.6 hours. Every agent listed and invoked the skill.
+
+**fredbet run 12 is an incident, not a result.** After 11.3 minutes a fork ran `kill $(lsof -t -i:8085)` to stop its app. In the bench image `lsof` is busybox, which ignores `-t` and `-i` and prints every open file, so `kill` sent SIGTERM to every process, `claude` included. The run exited 143, which `bench.py` records as "killed (time budget)", and scored 5+0/169. It is committed as it is. fredbet run 13 is the same migration re-run, and the tables use it.
+
+| App | Engine | Pass | Tests | Pages same + reordered | Run 10 | Acceptable only | Minutes (run 10) | Cost $ (run 10) |
+|---|---|---|---|---|---|---|---|---|
+| spring-petclinic (12) | Thymeleaf | yes | 79/79 | 30+0/30 | 29+1, pass | 30/30 | 7.5 (7.7) | 2.38 (2.51) |
+| spring-petclinic-boot15 | Thymeleaf 2.1 | yes | 41/41 | 28+0/28 | 27+1, pass | 28/28 | 7.5 (11.1) | 2.04 (2.97) |
+| spring-petclinic-boot20 | Thymeleaf | yes | 41/41 | 28+0/28 | 27+1, pass | 28/28 | 8.3 (7.6) | 2.31 (2.12) |
+| spring-petclinic-boot27 | Thymeleaf | yes | 41/41 | 29+1/30 | 29+1, pass | 30/30 | 5.9 (6.4) | 1.86 (2.44) |
+| spring-framework-petclinic | JSP | yes | 83/83 | 26+0/26 | 26+0, pass | 26/26 | 10.3 (13.8) | 3.10 (3.73) |
+| spring-framework-petclinic-spring43 | JSP | yes | 68/68 | 27+0/27 | 27+0, pass | 27/27 | 12.0 (11.4) | 3.75 (3.54) |
+| spring-framework-petclinic-spring5 | JSP | yes | 69/69 | 27+0/27 | 27+0, pass | 27/27 | 9.3 (10.0) | 2.81 (3.77) |
+| purl-server | Thymeleaf | yes | 46/46 | 90+2/92 | 92+0, pass | 92/92 | 15.6 (14.0) | 5.48 (5.30) |
+| spring-petclinic-mustache | Mustache | yes | 42/42 | 29+1/30 | 27+1 | 30/30 | 7.8 (8.6) | 2.47 (2.74) |
+| jpetstore | Thymeleaf | no | 6/6 | 58+0/59 | 58+0 | 59/59 | 11.7 (11.8) | 3.79 (4.43) |
+| luckyblog | Velocity | no | 0/0 | 57+0/64 | 57+0 | 64/64 | 13.8 (12.0) | 4.22 (3.90) |
+| fredbet (13) | Thymeleaf | no | 117/117 | 147+0/169 | 147+0 | 169/169 | 30.0 (30.5) | 12.85 (22.14) |
+| jobsearch | FreeMarker | no | 1/1 | 81+7/92 | 78+8 | 92/92 | 28.5 (39.6) | 27.01 (27.16) |
+| jprime | JSP | no | 208/208 | 140+6/150 | 142+3 | 150/150 | 33.8 (32.3) | 26.67 (30.43) |
+| ewp-registry | Pebble | no | 374/374 | 27+0/38 | 27+0 | 38/38 | 46.9 (36.0) | 12.03 (10.05) |
+| budgetmaster | FreeMarker | no | 269/269 | 13+0/121 | 44+0 | ~118/121 | 34.8 (41.4) | 33.88 (30.22) |
+| espd (12) | JSP + Tiles | no | 931/931 | 0+0/60 | 0+0 | 54/60 | 43.6 (44.3) | 25.38 (33.37) |
+
+**9 of 17 pass, against 8 of 17 in run 10. Counting acceptable differences, 15 of 17 pass, against 13 of 17.**
+- Every app builds and keeps all its tests.
+- No legacy templates or dependencies are left.
+- No run used `permitAll`, disabled CSRF or added `@Disabled`. The removed `SafeHtml.unchecked` and `TrustedUrl` don't appear in any diff.
+- mustache passes for the first time since run 4: its error-page slip (#632) is gone.
+- jprime, jpetstore, luckyblog, ewp-registry, jobsearch and fredbet differ only in acceptable ways.
+- The two apps that still fall short:
+  - espd has 6 agent-slip pages.
+  - budgetmaster's strict count fell from 44 to 13 because the agent followed the §4.4 recipes, where run 10 had unrolled values into literal-choice chains (#629). Three of its pages are too long for `compare` to show, so their class is unknown.
+
+### Triage
+
+| Run | Pages | Cause | Class | Issue |
+|---|---|---|---|---|
+| budgetmaster 11 | ~108 | Bare global assignments in the shared scripts fragment (`accountPlaceholderName = ...`, `monthNames`, the date cookie, validation messages) become prelude declarations, `var x = [[...]]`. compare's prelude expansion (#625) keeps the declaration, so `var x = "..."` never equals the original's bare `x = "..."` | Acceptable (forced by #540; harness) | #625 (closed; this shape remains) |
+| budgetmaster 11 | ~60 | Hint and notification ids are a number in `data-id`; `main.js` adds the `hint-`/`notification-` prefix (§4.4 recipe). Run 10 hard-coded `notification-0`..`9` | Acceptable (§4.4) | #629 |
+| budgetmaster 11 | ~50 | `data-tooltip` became `title`; `initTooltips` copies it back escaped, also after the settings AJAX save. Run 10's page-105 slip is fixed | Acceptable (§4.4) | #630 |
+| budgetmaster 11 | 12 (104-115) | Tessera's own `_csrf` input has no `id="token"`; the backup script reads `input[name=_csrf]` | Acceptable | |
+| budgetmaster 11 | many | Hostile seed names are escaped and realign compare's tree; the sanitizer adds `rel` to notification links; the junk attribute `text-white"=""` is dropped; the chart script reads a JSON block | Acceptable (as runs 5-10) | |
+| budgetmaster 11 | 8 (053-059, 087) | The hidden amount is `-90000`, not `-90,000`; `transactions.js` overwrites it on submit | Acceptable | |
+| budgetmaster 11 | 3 (075, 076, 086) | 8,500-line pages that compare shows as wholly replaced and cuts off | Unknown (harness) | |
+| espd 12 | 60 (33 only this) | Layout script: prelude values, the eCertis URL (#659's ignore misses it), and the §4.4 suffix join now written inline in the layout instead of in `init.js`. Widening the ignore as in run 11 no longer helps | Acceptable (harness, forced by #583) | #659 |
+| espd 12 | 60 | Breadcrumb `data-i18n="ec"` (a code from configuration, so a computed `data-*` string) became `data-i18n-crumb="0"` plus a JSON block that `init.js` reads; the language switch still works | Acceptable (forced by #583, §4.4 JSON block) | |
+| espd 12 | 20 | Collapse `data-target` moved to `href`; `data-target-show` split into a literal and a `data-target-index` | Acceptable (forced by #583), as run 11 | |
+| espd 12 | 4 + 3 + 2 + 1 | Sanitizer `rel` on a message's `alert-link`; U+0081 written as U+FFFD; the PDF-copy input; an empty trailing `<p>` dropped from one Italian message | Acceptable | |
+| espd 12 | 2 (20, 21) | The CA overview shows the `remove_/add_financialRatio` buttons. The print fragment hard-codes the `'eo'` agent, so the JSP's `agent == 'eo'` test no longer hides them | Agent slip | |
+| espd 12 | 4 (27, 29, 52, 53) | `?lang=xx` is missing from `t:action` form actions, as in run 11. The guide states the rule (#631), and the agent's report wrongly says the forms have no action | Agent slip | #631 |
+| ewp-registry 11 | 8 (02-09) | The manifest URL moved to a hidden input read by a static inline handler. Run 10's copy-back slip is gone | Acceptable (§4.4) | #629 |
+| ewp-registry 11 | 3 (24-26) | Vue props come from a JSON block | Acceptable (#603), as run 10 | |
+| fredbet 13 | 20 + 1 + 1 | `data-lightbox` is the image's `@{}` link; blueimp `data-gallery` is an index; `var chartData` moved above `var ctx` | Acceptable, as runs 10 and 11 | |
+| jobsearch 11 | 4 (01, 02, 04, 06) | Skill-match circles: computed `stroke-dasharray` and `<text>` inside `<svg>` became a static `<svg>` with `style="--progress: n"`, CSS `var(--progress)` and an HTML label (the guide's SVG recipe). Run 10's `text-bg-*` (#634) and prelude pages are gone | Acceptable (forced by #678) | |
+| jprime 11 | 2 (007, 079) | The speaker bio is escaped; the JSP printed it raw. Run 10 sanitized it and lost a page to `RAW_CLOSES_ELEMENT` (#397) | Acceptable (guide §4.10 raw output) | |
+| jprime 11 | 2 (116, 117) | `The <first> speakers` in a plain-text field is escaped | Acceptable, as runs 9 and 10 | |
+| jpetstore 11 | 1 (`/catalog`) | A hostile first name is escaped; `sec:authentication` printed it raw | Acceptable, as runs 4-10 | |
+| luckyblog 11 | 7 | The sanitizer's `user-content-` id prefix and `rel`; Morris chart values as prelude declarations (the original printed `value:,`) | Acceptable, as run 10 | |
+
+### The rewrite in practice
+
+| Change | Hit by | Outcome |
+|---|---|---|
+| #682 `UNBALANCED`, state-neutral control flow; #707 separators | none | No agent hit the error. The code appears in transcripts only where agents read the guide |
+| #678 foreign content, CDATA, raw text, URL lists | jobsearch | jobsearch read the SVG recipe and wrote the CSS-variable form first, with no build error. 4 pages differ by design. No CDATA, raw-text or `srcset` errors anywhere |
+| #677 sanitized messages | espd, budgetmaster, jpetstore | espd's session-expiry popup, a 60-page difference in run 10, now compares equal: the message is split into an escaped lead and a sanitized rest after 2 `RAW_CLOSES_ELEMENT` errors. budgetmaster split `<br>` bundle texts in Java |
+| #679 no `{{` breaking; #676 compile-time Fragment | none | No errors. ewp-registry already fed Vue from a JSON block |
+| #684 compile-time links | fredbet | `dynamic link paths are not supported` at about 6 sites, resolved with scheme-checked String hrefs. boot27 notes fragments can't take link parameters, and a null link variable fails the render |
+| #686 `tessera:review` deleted | 17 of 17 | Every agent added `tessera-maven-plugin` with `check` only, and none tried `review`. In run 10, 16 of 17 added `check` and `review` |
+| #664/#668 `unchecked` and `TrustedUrl` removed | none | No agent reached for them. espd's fork prompts still say "no `TrustedUrl.unchecked`", wording that is now stale but harmless |
+
+Build friction came mostly from errors that predate the rewrite:
+- `RAW_CLOSES_ELEMENT` for a `SafeHtml` or `Fragment` inside `<p>` or `<a>` (#397): budgetmaster 19 times, espd 2 and jpetstore 1. budgetmaster notes the verifier rejects it even when the policy allows only inline elements, and jpetstore notes the same for a policy that can't emit links.
+- `RAW_NOT_FLOW` for a head fragment passed through two layout levels: ewp-registry twice, budgetmaster once. Both agents found the message misleading.
+- `java.lang.Object is never view-safe` and `t:field ... inside t:object`: fredbet, espd and jprime.
+- Parse errors on the legacy apps' broken markup (jobsearch, budgetmaster, jprime, jpetstore).
+- The script-position `[[...]]` rule: jprime, jobsearch and budgetmaster, each fixed in one edit.
+
+Every agent fixed every error from the compiler message alone.
+
+**Cost.** The round cost $172.03, against $190.82 for run 10. fredbet cost $12.85 against $22.14, and espd $25.38 against $33.37. ewp-registry took 11 minutes longer. The large apps split their work across 3-7 subagents, as before.
+
+### Security review
+
+No run used `permitAll`, disabled CSRF or added `@Disabled`. `SafeHtml.unchecked`, `TrustedUrl`, `internalUnverified$` and `failOnError=false` appear nowhere. The `diff.patch` hits for these names are all report prose. jprime's CSRF stays disabled, as in the original.
+
+Raw output:
+- **budgetmaster:** `br`/`a`/`title` policies with `linkRel`, and services through a static holder, a deviation also seen in run 10. `chartScript.js` passes the page nonce to the stored user chart script, which the original ran raw.
+- **espd:** 1,107 `t:utext="#{literal}"`. Message blocks go through an app `HtmlPolicy` (p, br, b, i, strong, em, u, span, a, lists, class `alert-link`). The popup lead is stripped to text and escaped.
+- **ewp-registry:** a `p br b code ul li a` policy.
+- **fredbet:** admin rich text through an app policy built from `HtmlPolicy.ELEMENTS`.
+- **jprime:** articles through `html.sanitizeRich`; bios now escaped.
+- **jpetstore:** product images are extracted into `<img t:src>` with escaped text. Run 10's OWASP `failOnError=false` is gone.
+- **luckyblog:** an editor.md policy without run 10's `.linkRel()`.
+- **purl-server:** a narrow heading/text/link policy.
+- **jobsearch:** a stored `javascript:` link now renders `about:invalid#tessera`.
+
+### Gaps
+
+No issues were filed from this round. Ranked by the number of apps that hit each gap:
+
+Tessera:
+- `RAW_CLOSES_ELEMENT` for inline-only content in `<p>`/`<a>` (#397, open): budgetmaster, espd, jpetstore; jprime avoided it by escaping. 3 apps, no page lost.
+- Indexed `t:field` past the end of a list fails instead of growing it: jprime, purl-server. 2 apps.
+- `HtmlPolicy.allowAttributes("href")` throws only at startup, and the allowed element and attribute names aren't listed: budgetmaster, purl-server, fredbet. 3 apps; it is also a guide gap.
+- `RAW_NOT_FLOW` message for a head fragment through nested layouts is misleading: ewp-registry, budgetmaster. 2 apps.
+- Fragments don't see the caller's `t:object`, or the form binding inside `<select t:field>` (#657, open): purl-server, fredbet. 2 apps.
+- Dynamic link paths and link-typed fragment parameters: fredbet, boot27. 2 apps.
+- Enums print `toString()` where EL printed `name()`, with no way to read `name()`: jprime. `t:field` can't bind `Map` values: espd.
+- The sanitizer drops `<image>` (jpetstore) and mishandles `<ol>`/`<li>` inside `<pre>` (luckyblog, unverified).
+
+Guide:
+- §4.9 `renderToString` and non-HTTP rendering get one sentence: jprime, espd. 2 apps.
+- §4.10 FreeMarker: names read from the session and request, locale-formatted numbers, and `spring.showErrors` (jobsearch).
+- §4.4 lists bios as rich text while §4.10 says plain data is escaped (jprime).
+- "Layout dialect pages become fragment calls" reads as automatic (jpetstore).
+- Old templates left under the templates root break the build during an incremental migration (fredbet).
+- `<tbody>` advice for an empty `t:each` table (boot27).
+- Non-Boot XML configuration and error pages (spring5).
+- `tessera-migrate` left `th:include="${template}"` unconverted and stubbed a wrong `t:params` (boot20).
+
+Tooling and harness:
+- The bench image's `lsof` is busybox, which killed fredbet run 12.
+- compare's prelude expansion doesn't match bare global assignments (budgetmaster, about 108 pages).
+- espd's ignore (#659, open) and the inline recipe code in its layout script make every page differ.
+- compare cuts long diffs short (budgetmaster 075, 076, 086).
+- `compare --ignore` is under-documented, and `record` rejects it (jobsearch).
+- `num_turns` is 1 for agents that wait on subagents, so it says nothing.
+
 ## Limitations
 
-- **Small samples.** One or two runs per app in #151, one in runs 7, 8, 9, 10 and 11, and two or three on the new engines before run 10; the hard apps vary between runs.
+- **Small samples.** One or two runs per app in #151, one in runs 7, 8, 9, 10, 11 and the post-rewrite round, and two or three on the new engines before run 10; the hard apps vary between runs.
 - **FreeMarker coverage leans on two apps.** JobSearch has no license (its patches aren't
   committed) and a single context-loads test; BudgetMaster is held out.
 - **One app per new engine.** Spring 5+ dropped Velocity, so luckyblog (Boot 1.4) is the only Velocity app;
