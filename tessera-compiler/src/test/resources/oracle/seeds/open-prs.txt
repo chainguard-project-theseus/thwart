@@ -1385,7 +1385,7 @@ var t = "${" + "[[x]]";</script></div>
 ====
 # name: ax-attr-8
 # expect-0dda2f1: REJECTED
-# note: a t:attr that does not parse may set anything (HtmlParser.attrMaySet), so Tessera reads the children as MathML; the profile rejects it ("expected '=' after 'id'"). Rejected by the profile
+# note: a t:attr that does not parse may set anything, so Tessera reads the children as MathML; the profile rejects it ("expected '=' after 'id'"). Rejected by the profile
 <math><annotation-xml encoding="text/html" t:attr="id ${s}"><title>[[s]]</title></annotation-xml></math>
 ====
 # name: ax-enc-1
@@ -1433,7 +1433,7 @@ var t = "${" + "[[x]]";</script></div>
 ====
 # name: ax-enc-9
 # expect-0dda2f1: REJECTED
-# note: t:attrappend, which Tessera does not support (guide section 4.3), may set anything (HtmlParser.attrMaySet); the profile rejects the value ("assignment (=) is not supported"), and a bare t:attrappend="s" as not a known attribute. Rejected by the profile
+# note: t:attrappend, which Tessera does not support (guide section 4.3), may set anything; the profile rejects the value ("assignment (=) is not supported"), and a bare t:attrappend="s" as not a known attribute. Rejected by the profile
 <math><annotation-xml encoding="text/html" t:attrappend="encoding=${s}"><title>[[s]]</title></annotation-xml></math>
 ====
 # name: ax-enc-10

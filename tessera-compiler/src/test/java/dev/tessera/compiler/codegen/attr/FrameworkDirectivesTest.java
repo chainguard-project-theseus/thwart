@@ -58,8 +58,8 @@ class FrameworkDirectivesTest {
   // ------------------------------- htmx request URLs: a computed one is a neutral link
 
   private static final String[] HTMX_REQUESTS = {
-    "hx-get", "hx-post", "hx-put", "hx-patch", "hx-delete", "data-hx-get", "data-hx-delete", "HX-POST",
-    "sse-connect", "ws-connect", "data-ws-connect",
+    "data-hx-get", "data-hx-post", "data-hx-put", "data-hx-patch", "data-hx-delete", "DATA-HX-POST",
+    "data-sse-connect", "data-ws-connect",
   };
 
   /** Only a same-origin literal path: no absolute, protocol-relative or page-relative link. */
@@ -72,16 +72,16 @@ class FrameworkDirectivesTest {
             .assertError("t.html:1:", "t:" + name + " is not allowed", "same-origin path");
       }
     }
-    compile("<button t:attr=\"hx-get=@{//evil.example}\">x</button>")
-        .assertError("t:attr hx-get is not allowed", "same-origin path");
-    compile("<button t:hx-get=\"@{${s}}\">x</button>").assertError("t.html:1:", "dynamic link paths");
+    compile("<button t:attr=\"data-hx-get=@{//evil.example}\">x</button>")
+        .assertError("t:attr data-hx-get is not allowed", "same-origin path");
+    compile("<button t:data-hx-get=\"@{${s}}\">x</button>").assertError("t.html:1:", "dynamic link paths");
   }
 
   /** URL parsers drop tab, CR and LF, so {@code /<tab>/host} would be protocol-relative: rejected. */
   @Test
   void sameOriginCheckIgnoresTabAndNewlines() {
     for (String path : new String[] {"/\t/evil.example/x", "/\r\n/evil.example", "/\n\\evil.example"}) {
-      compile("<button t:hx-get=\"@{" + path + "}\">x</button>")
+      compile("<button t:data-hx-get=\"@{" + path + "}\">x</button>")
           .assertError("t.html:1:", "link path must not contain whitespace");
       compile("<meta http-equiv=\"refresh\" t:content=\"'0;url=' + @{" + path + "}\">")
           .assertError("t.html:1:", "link path must not contain whitespace");

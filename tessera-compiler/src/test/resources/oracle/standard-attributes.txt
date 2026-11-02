@@ -1,9 +1,8 @@
 # The oracle's own copy of the standard attribute names (#608): HostileSinks and the Node check
 # (node/check.mjs, #611) hold every other name to the framework-neutral value shape. It is
-# deliberately not read from the compiler's html/attributes.txt, so that one edit there cannot move
-# the compiler and the oracle together; HostileSweepTest.standardNamesAreTheOraclesOwnCopy fails
-# until both agree.
-# The header below is the compiler file's, copied with its names.
+# written from the spec indices, independent of the compiler's closed allow-list of computed names
+# (#761), which replaced the compiler's copy of this file.
+# The header below is the one the compiler's copy had.
 #
 # The standard attribute names (#330, #584,
 # docs/security-architecture.md section 5.3, docs/context-model.md section 6.2). Every other plain

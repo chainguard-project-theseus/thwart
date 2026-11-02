@@ -708,7 +708,7 @@ public final class TemplateGenerator implements CodegenContext {
       diagnostics()
           .error(posOf(own.get(), plan.element()), "a nonce on <" + lower + "> is not supported: Tessera"
               + " writes the render's CSP nonce (RenderContext.cspNonce, set per request by the Spring starter) on"
-              + " every <script> and <style>; remove the nonce attribute (static, t:nonce or t:attr nonce=...)");
+              + " every <script> and <style>; remove the nonce attribute");
     }
     return !inForeign && rawTextHost == null;
   }

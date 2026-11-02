@@ -171,8 +171,8 @@ class StyleAttributeTest {
    */
   @Test
   void svgAttributesAreNotStyle() {
-    assertEquals("<p fill=\"url(x)\">x</p>", render("<p t:fill=\"'url(x)'\">x</p>"));
-    compile("<p t:fill=\"s\">x</p>").assertError("t.html:1:", "t:fill is not allowed", "inert-text", "String");
+    compile("<p t:fill=\"'url(x)'\">x</p>").assertError("t.html:1:", "t:fill is not allowed", "not on Tessera's list");
+    compile("<p t:fill=\"s\">x</p>").assertError("t.html:1:", "t:fill is not allowed", "not on Tessera's list");
     for (String body : List.of("<svg><rect t:fill=\"css.color(s)\"/></svg>", "<svg t:cursor=\"'move'\"></svg>",
         "<svg><rect><animate attributeName=\"fill\" t:values=\"'red'\"/></rect></svg>",
         "<svg><a><set t:attributeName=\"'href'\"/></a></svg>")) {

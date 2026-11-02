@@ -256,8 +256,8 @@ class LinkCompilerTest {
 
   @Test
   void neutralLinkKeepsItsError() {
-    Compilation c = page("<div t:hx-get=\"@{\\/evil.example/x}\"></div>");
-    c.assertError("page.html:2:", "a link in 'hx-get' must be a same-origin path that starts with a single '/'");
+    Compilation c = page("<div t:data-hx-get=\"@{\\/evil.example/x}\"></div>");
+    c.assertError("page.html:2:", "a link in 'data-hx-get' must be a same-origin path that starts with a single '/'");
     assertNull(c.generatedSource("tessera.generated.PageTemplate"));
   }
 

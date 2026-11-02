@@ -1,6 +1,7 @@
 package dev.tessera.compiler.html;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.model.Attribute;
@@ -37,9 +38,9 @@ class ContextsTest {
     "div, data-id, NEUTRAL",
     "div, title, ATTRIBUTE",
     "img, alt, ATTRIBUTE",
-    "img, sizes, ATTRIBUTE",
+    "img, sizes, FORBIDDEN",
     "div, aria-label, ATTRIBUTE",
-    "div, type, ATTRIBUTE",
+    "div, type, FORBIDDEN",
     // URL
     // only object[data] is RESOURCE_URL; object[src] is an ordinary URL attribute
     "object, src, URL",
@@ -49,29 +50,29 @@ class ContextsTest {
     "button, formaction, URL",
     "blockquote, cite, URL",
     "video, poster, URL",
-    "body, background, URL",
-    "img, longdesc, URL",
-    "img, usemap, TYPED_ATTRIBUTE",
+    "body, background, FORBIDDEN",
+    "img, longdesc, FORBIDDEN",
+    "img, usemap, FORBIDDEN",
     "a, ping, FORBIDDEN",
     "img, srcset, FORBIDDEN",
     "source, SrcSet, FORBIDDEN",
     "link, imagesrcset, FORBIDDEN",
-    "html, manifest, URL",
-    "use, xlink:href, URL",
+    "html, manifest, FORBIDDEN",
+    "use, xlink:href, FORBIDDEN",
     "area, href, URL",
     "audio, src, URL",
-    // SVG animation values: standard and not inert (no computed value reaches SVG since #678)
-    "animate, to, TYPED_ATTRIBUTE",
-    "set, from, TYPED_ATTRIBUTE",
-    "animate, by, TYPED_ATTRIBUTE",
-    "animate, values, TYPED_ATTRIBUTE",
-    "SET, VALUES, TYPED_ATTRIBUTE",
-    "div, values, TYPED_ATTRIBUTE",
-    "rect, values, TYPED_ATTRIBUTE",
+    // SVG animation values: off the list (no computed value reaches SVG since #678)
+    "animate, to, FORBIDDEN",
+    "set, from, FORBIDDEN",
+    "animate, by, FORBIDDEN",
+    "animate, values, FORBIDDEN",
+    "SET, VALUES, FORBIDDEN",
+    "div, values, FORBIDDEN",
+    "rect, values, FORBIDDEN",
     // RESOURCE_URL
     "script, src, RESOURCE_URL",
     "script, href, RESOURCE_URL",
-    "script, xlink:href, RESOURCE_URL",
+    "script, xlink:href, FORBIDDEN",
     "iframe, src, RESOURCE_URL",
     "frame, src, RESOURCE_URL",
     "embed, src, RESOURCE_URL",
@@ -97,197 +98,197 @@ class ContextsTest {
     "a, onmouseover, EVENT_HANDLER",
     "svg, onbegin, EVENT_HANDLER",
     "x, on, EVENT_HANDLER",
-    // NEUTRAL (#583 rule 3, #584): framework names are ordinary non-standard names; names outside
+    // Framework names are ordinary names off the allow-list (#761): FORBIDDEN like any other; names outside
     // [A-Za-z_][A-Za-z0-9_.:-]* (Vue shorthands) are FORBIDDEN
     "div, @click, FORBIDDEN",
     "div, @click.prevent, FORBIDDEN",
     "div, :href, FORBIDDEN",
     "template, #default, FORBIDDEN",
     "div, .textcontent, FORBIDDEN",
-    "div, v-on:click, NEUTRAL",
-    "div, v-bind, NEUTRAL",
-    "input, v-model, NEUTRAL",
-    "div, v-if, NEUTRAL",
-    "div, v-else-if, NEUTRAL",
-    "div, v-show, NEUTRAL",
-    "li, v-for, NEUTRAL",
-    "div, v-html, NEUTRAL",
-    "div, V-HTML, NEUTRAL",
-    "div, v-text, NEUTRAL",
-    "template, v-slot:item, NEUTRAL",
-    "div, v-my-directive, NEUTRAL",
-    "div, x-data, NEUTRAL",
-    "div, x-init, NEUTRAL",
-    "div, x-on:click, NEUTRAL",
-    "div, x-html, NEUTRAL",
-    "div, x-show, NEUTRAL",
-    "div, x-effect, NEUTRAL",
-    "div, hx-on, NEUTRAL",
-    "div, hx-on:click, NEUTRAL",
-    "div, hx-on::after-request, NEUTRAL",
-    "div, hx-on-click, NEUTRAL",
-    "div, hx-on--after-request, NEUTRAL",
+    "div, v-on:click, FORBIDDEN",
+    "div, v-bind, FORBIDDEN",
+    "input, v-model, FORBIDDEN",
+    "div, v-if, FORBIDDEN",
+    "div, v-else-if, FORBIDDEN",
+    "div, v-show, FORBIDDEN",
+    "li, v-for, FORBIDDEN",
+    "div, v-html, FORBIDDEN",
+    "div, V-HTML, FORBIDDEN",
+    "div, v-text, FORBIDDEN",
+    "template, v-slot:item, FORBIDDEN",
+    "div, v-my-directive, FORBIDDEN",
+    "div, x-data, FORBIDDEN",
+    "div, x-init, FORBIDDEN",
+    "div, x-on:click, FORBIDDEN",
+    "div, x-html, FORBIDDEN",
+    "div, x-show, FORBIDDEN",
+    "div, x-effect, FORBIDDEN",
+    "div, hx-on, FORBIDDEN",
+    "div, hx-on:click, FORBIDDEN",
+    "div, hx-on::after-request, FORBIDDEN",
+    "div, hx-on-click, FORBIDDEN",
+    "div, hx-on--after-request, FORBIDDEN",
     "div, data-hx-on:click, NEUTRAL",
-    "div, hx-vals, NEUTRAL",
+    "div, hx-vals, FORBIDDEN",
     "div, data-hx-vals, NEUTRAL",
-    "div, hx-vars, NEUTRAL",
-    "div, hx-headers, NEUTRAL",
-    "div, hx-request, NEUTRAL",
-    "div, hx-trigger, NEUTRAL",
-    "div, ng-click, NEUTRAL",
-    "div, ng-init, NEUTRAL",
-    "div, ng:bind, NEUTRAL",
-    "div, ng_if, NEUTRAL",
+    "div, hx-vars, FORBIDDEN",
+    "div, hx-headers, FORBIDDEN",
+    "div, hx-request, FORBIDDEN",
+    "div, hx-trigger, FORBIDDEN",
+    "div, ng-click, FORBIDDEN",
+    "div, ng-init, FORBIDDEN",
+    "div, ng:bind, FORBIDDEN",
+    "div, ng_if, FORBIDDEN",
     "div, data-ng-click, NEUTRAL",
-    "div, x-ng-click, NEUTRAL",
+    "div, x-ng-click, FORBIDDEN",
     // AngularJS spellings are not modelled either
-    "div, data:ng-click, NEUTRAL",
-    "div, data_ng-click, NEUTRAL",
-    "div, x:ng-click, NEUTRAL",
-    "div, x_ng-click, NEUTRAL",
-    "div, DATA:ng-click, NEUTRAL",
-    "div, X_NG_bind, NEUTRAL",
+    "div, data:ng-click, FORBIDDEN",
+    "div, data_ng-click, FORBIDDEN",
+    "div, x:ng-click, FORBIDDEN",
+    "div, x_ng-click, FORBIDDEN",
+    "div, DATA:ng-click, FORBIDDEN",
+    "div, X_NG_bind, FORBIDDEN",
     "div, data-ng:bind, NEUTRAL",
     "div, :data_ng-click, FORBIDDEN",
-    "div, v-bind:x_ng-click, NEUTRAL",
+    "div, v-bind:x_ng-click, FORBIDDEN",
     "div, data--ng-click, NEUTRAL",
     "div, data-_ng-click, NEUTRAL",
     "div, data-:ng-click, NEUTRAL",
-    "div, _ng-click, NEUTRAL",
-    "div, x__ng_bind, NEUTRAL",
-    // a name AngularJS may read is no longer denied by its spelling (#584)
+    "div, _ng-click, FORBIDDEN",
+    "div, x__ng_bind, FORBIDDEN",
+    // AngularJS spellings: off the list too
     "div, data-data-ng-click, NEUTRAL",
     "div, data-xng-click, NEUTRAL",
     "div, data-ng, NEUTRAL",
     "div, data-ngx, NEUTRAL",
     "div, data-bind, NEUTRAL",
-    "my-component, params, NEUTRAL",
-    "my-component, PARAMS, NEUTRAL",
-    // data-* names
+    "my-component, params, FORBIDDEN",
+    "my-component, PARAMS, FORBIDDEN",
+    // data-* names: NEUTRAL
     "div, data-v-1a2b3c, NEUTRAL",
     "div, data-id, NEUTRAL",
     "div, data-action, NEUTRAL",
     "div, data-binding, NEUTRAL",
     "div, data-hx-target, NEUTRAL",
-    // any htmx name
-    "div, hx-target, NEUTRAL",
-    "div, hx-swap, NEUTRAL",
-    "div, hx-confirm, NEUTRAL",
-    // htmx request URLs: a computed one is a neutral same-origin path
-    "div, hx-get, NEUTRAL",
-    "form, hx-post, NEUTRAL",
-    "button, hx-put, NEUTRAL",
-    "button, hx-patch, NEUTRAL",
-    "button, hx-delete, NEUTRAL",
+    // any htmx name: off the list (recipe: data-hx-*)
+    "div, hx-target, FORBIDDEN",
+    "div, hx-swap, FORBIDDEN",
+    "div, hx-confirm, FORBIDDEN",
+    // htmx request URLs
+    "div, hx-get, FORBIDDEN",
+    "form, hx-post, FORBIDDEN",
+    "button, hx-put, FORBIDDEN",
+    "button, hx-patch, FORBIDDEN",
+    "button, hx-delete, FORBIDDEN",
     "div, data-hx-get, NEUTRAL",
     "div, DATA-HX-POST, NEUTRAL",
-    "div, HX-Get, NEUTRAL",
-    "div, sse-connect, NEUTRAL",
-    "div, ws-connect, NEUTRAL",
+    "div, HX-Get, FORBIDDEN",
+    "div, sse-connect, FORBIDDEN",
+    "div, ws-connect, FORBIDDEN",
     "div, data-ws-connect, NEUTRAL",
     // htmx history URLs
-    "div, hx-sse, NEUTRAL",
+    "div, hx-sse, FORBIDDEN",
     "div, data-hx-ws, NEUTRAL",
-    "a, hx-push-url, NEUTRAL",
-    "a, hx-replace-url, NEUTRAL",
+    "a, hx-push-url, FORBIDDEN",
+    "a, hx-replace-url, FORBIDDEN",
     "a, data-hx-push-url, NEUTRAL",
-    // hx-boost is not modelled (#585): NEUTRAL like any other non-HTML name (#584)
-    "body, hx-boost, NEUTRAL",
+    // hx-boost is not modelled (#585)
+    "body, hx-boost, FORBIDDEN",
     "div, data-hx-boost, NEUTRAL",
-    "div, HX-Boost, NEUTRAL",
+    "div, HX-Boost, FORBIDDEN",
     "div, :hx-boost, FORBIDDEN",
-    "div, v-bind:data-hx-boost, NEUTRAL",
-    "div, x-bind:hx-boost, NEUTRAL",
+    "div, v-bind:data-hx-boost, FORBIDDEN",
+    "div, x-bind:hx-boost, FORBIDDEN",
     // a form's action stays URL; codegen checks a computed one (#585)
     "form, action, URL",
     "button, formaction, URL",
     "form, :action, FORBIDDEN",
-    "button, v-bind:formaction, NEUTRAL",
-    "form, x-bind:action, NEUTRAL",
-    "div, hx-select, NEUTRAL",
-    "div, hx-getter, NEUTRAL",
+    "button, v-bind:formaction, FORBIDDEN",
+    "form, x-bind:action, FORBIDDEN",
+    "div, hx-select, FORBIDDEN",
+    "div, hx-getter, FORBIDDEN",
     // _hyperscript names
-    "button, _, NEUTRAL",
-    "div, script, NEUTRAL",
+    "button, _, FORBIDDEN",
+    "div, script, FORBIDDEN",
     "div, data-script, NEUTRAL",
     "div, DATA-SCRIPT, NEUTRAL",
     "div, data-scripts, NEUTRAL",
-    // only standard names are ATTRIBUTE; every other plain name is NEUTRAL, also on a custom element
-    "div, __, NEUTRAL",
-    "a, _x, NEUTRAL",
-    "div, params, NEUTRAL",
-    "div, xml:lang, NEUTRAL",
+    // only listed names are accepted; every other plain name is FORBIDDEN, also on a custom element
+    "div, __, FORBIDDEN",
+    "a, _x, FORBIDDEN",
+    "div, params, FORBIDDEN",
+    "div, xml:lang, FORBIDDEN",
     "div, xmlns:t, FORBIDDEN",
-    "div, ngx, NEUTRAL",
-    "div, vue, NEUTRAL",
-    "div, up-on-loaded, NEUTRAL",
-    "div, UP-ON-LOADED, NEUTRAL",
-    "a, up-href, NEUTRAL",
-    "form, hx-action, NEUTRAL",
-    "form, hx-method, NEUTRAL",
-    "div, foo, NEUTRAL",
+    "div, ngx, FORBIDDEN",
+    "div, vue, FORBIDDEN",
+    "div, up-on-loaded, FORBIDDEN",
+    "div, UP-ON-LOADED, FORBIDDEN",
+    "a, up-href, FORBIDDEN",
+    "form, hx-action, FORBIDDEN",
+    "form, hx-method, FORBIDDEN",
+    "div, foo, FORBIDDEN",
     "div, aria-foo, NEUTRAL",
     "div, data-, NEUTRAL",
-    "div, prop, NEUTRAL",
-    "my-el, my-prop, NEUTRAL",
-    "my-el, prop_x, NEUTRAL",
+    "div, prop, FORBIDDEN",
+    "my-el, my-prop, FORBIDDEN",
+    "my-el, prop_x, FORBIDDEN",
     "div, onfoo, EVENT_HANDLER",
     "div, data-x, NEUTRAL",
     "div, data-up-on-loaded, NEUTRAL",
     "div, role, ATTRIBUTE",
     "div, aria-describedby, ATTRIBUTE",
-    "td, bgcolor, ATTRIBUTE",
+    "td, bgcolor, FORBIDDEN",
     "font, color, FORBIDDEN",
     "font, face, FORBIDDEN",
     "font, size, FORBIDDEN",
-    "p, color, TYPED_ATTRIBUTE",
-    "my-el, prop, NEUTRAL",
-    "my-el, Prop2, NEUTRAL",
+    "p, color, FORBIDDEN",
+    "my-el, prop, FORBIDDEN",
+    "my-el, Prop2, FORBIDDEN",
     "my-el, title, ATTRIBUTE",
-    // Vue/Alpine bindings: :x is FORBIDDEN (not a plain name), v-bind:x and x-bind:x NEUTRAL
+    // Vue/Alpine bindings: :x is not a plain name, v-bind:x and x-bind:x are off the list
     "div, :foo, FORBIDDEN",
     "api-entry, :security, FORBIDDEN",
-    "div, v-bind:title, NEUTRAL",
-    "div, V-Bind:Title, NEUTRAL",
-    "div, x-bind:class, NEUTRAL",
+    "div, v-bind:title, FORBIDDEN",
+    "div, V-Bind:Title, FORBIDDEN",
+    "div, x-bind:class, FORBIDDEN",
     "div, :class, FORBIDDEN",
     "div, :data-id, FORBIDDEN",
     "div, :aria-label, FORBIDDEN",
     "input, :disabled, FORBIDDEN",
     "input, :value, FORBIDDEN",
     "div, :hx-target, FORBIDDEN",
-    "div, v-bind, NEUTRAL",
-    "div, x-bind, NEUTRAL",
-    "div, v-bind:, NEUTRAL",
+    "div, v-bind, FORBIDDEN",
+    "div, x-bind, FORBIDDEN",
+    "div, v-bind:, FORBIDDEN",
     "div, :, FORBIDDEN",
-    "div, v-bindx:title, NEUTRAL",
-    "div, v-bind.prop, NEUTRAL",
-    "div, v-bind:title.prop, NEUTRAL",
+    "div, v-bindx:title, FORBIDDEN",
+    "div, v-bind.prop, FORBIDDEN",
+    "div, v-bind:title.prop, FORBIDDEN",
     "div, :title.camel, FORBIDDEN",
     "div, :title.attr, FORBIDDEN",
-    "div, x-bind:title.camel, NEUTRAL",
+    "div, x-bind:title.camel, FORBIDDEN",
     "div, v-bind:[key], FORBIDDEN",
     "div, :[key], FORBIDDEN",
     "div, ::title, FORBIDDEN",
     "div, :xlink:href, FORBIDDEN",
     "div, .title, FORBIDDEN",
     "a, :href, FORBIDDEN",
-    "a, v-bind:href, NEUTRAL",
-    "a, x-bind:href, NEUTRAL",
+    "a, v-bind:href, FORBIDDEN",
+    "a, x-bind:href, FORBIDDEN",
     "img, :src, FORBIDDEN",
     "form, :action, FORBIDDEN",
     "iframe, :src, FORBIDDEN",
     "iframe, :srcdoc, FORBIDDEN",
     "object, :data, FORBIDDEN",
     "div, :style, FORBIDDEN",
-    "div, x-bind:style, NEUTRAL",
+    "div, x-bind:style, FORBIDDEN",
     "div, :onclick, FORBIDDEN",
     "div, :innerHTML, FORBIDDEN",
     "div, :outerhtml, FORBIDDEN",
     "component, :is, FORBIDDEN",
     "my-element, :inner-h-t-m-l, FORBIDDEN",
     "a, :protocol, FORBIDDEN",
-    "area, v-bind:host, NEUTRAL",
+    "area, v-bind:host, FORBIDDEN",
     "my-link, :hostname, FORBIDDEN",
     "a, :pathname, FORBIDDEN",
     "a, :search, FORBIDDEN",
@@ -340,10 +341,10 @@ class ContextsTest {
     "template, for, FORBIDDEN",
     "meta, charset, FORBIDDEN",
     "META, CharSet, FORBIDDEN",
-    // The same names elsewhere are ordinary attributes.
+    // The same names elsewhere: for is listed, the others are not.
     "label, for, ATTRIBUTE",
-    "div, shadowrootmode, TYPED_ATTRIBUTE",
-    "p, charset, TYPED_ATTRIBUTE",
+    "div, shadowrootmode, FORBIDDEN",
+    "p, charset, FORBIDDEN",
   })
   void attributeTable(String element, String attribute, OutputContext expected) {
     assertEquals(expected, Contexts.attribute(element(element), attribute));
@@ -370,21 +371,45 @@ class ContextsTest {
   }
 
   /**
-   * Every plain name that is not standard is NEUTRAL (#583 rule 3, #584), on any element; nothing
-   * is classified by framework. Malformed names stay FORBIDDEN.
+   * #761: computed names are one closed allow-list. Every name the migration corpus computes (#760)
+   * keeps the context it had; {@code data-*} and an {@code aria-*} name outside WAI-ARIA 1.2 are
+   * NEUTRAL; every other plain name is FORBIDDEN on any element, custom elements included, with a
+   * fix-it that names a {@code data-*} attribute. Nothing is classified by framework.
    */
   @Test
-  void nonStandardNamesAreNeutral() {
-    for (String name : List.of("up-on-loaded", "hx-action", "data:foo", "data_ngx", "x_ng-click", "data-x", "hx-get",
-        "v-html", "x-data", "data-bind", "_", "foo", "v-bind:title")) {
-      assertEquals(OutputContext.NEUTRAL, Contexts.attribute(element("div"), name), name);
-      assertEquals(OutputContext.NEUTRAL, Contexts.attribute(element("my-el"), name), name);
+  void computedNamesAreOneClosedList() {
+    for (String n : List.of("class", "value", "title", "disabled", "name", "checked", "id", "lang", "placeholder",
+        "selected", "alt", "aria-label", "form", "accept", "colspan", "rowspan", "max", "min", "readonly")) {
+      assertEquals(OutputContext.ATTRIBUTE, Contexts.attribute(element("input"), n), n);
+    }
+    for (String n : List.of("href", "src", "action")) {
+      assertEquals(OutputContext.URL, Contexts.attribute(element("a"), n), n);
+    }
+    assertEquals(OutputContext.STYLE, Contexts.attribute(element("p"), "style"));
+    assertEquals(OutputContext.ATTRIBUTE, Contexts.attribute(element("label"), "for"));
+    assertEquals(OutputContext.TYPED_ATTRIBUTE, Contexts.attribute(element("p"), "for"));
+    assertEquals(OutputContext.TYPED_ATTRIBUTE, Contexts.attribute(element("param"), "value"));
+    assertEquals(OutputContext.TYPED_ATTRIBUTE, Contexts.attribute(element("a"), "target"));
+    assertEquals(OutputContext.REFRESH, Contexts.attribute(element("meta", "http-equiv", "refresh"), "content"));
+    for (String n : List.of("data-delay", "data-validation-field", "DATA-X", "data-", "aria-foo")) {
+      assertEquals(OutputContext.NEUTRAL, Contexts.attribute(element("div"), n), n);
+      assertEquals(OutputContext.NEUTRAL, Contexts.attribute(element("my-el"), n), n);
     }
     assertEquals(OutputContext.ATTRIBUTE, Contexts.attribute(element("my-el"), "title"));
-    assertEquals(OutputContext.TYPED_ATTRIBUTE, Contexts.attribute(element("my-el"), "target"));
+    for (String n : List.of("hx-get", "hx-post", "hx-vals", "x-data", "v-html", "up-on-loaded", "data:foo", "_", "foo",
+        "blockid", "icon", "badge", "type", "rel", "loading", "property", "crossorigin", "sandbox", "usemap", "nonce",
+        "content", "background", "xml:lang")) {
+      assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("div"), n), n);
+      assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("my-el"), n), n);
+    }
+    assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("button"), "type"));
     assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("div"), "a=b"));
-    assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("div"), ":title"));
-    assertEquals(OutputContext.NEUTRAL, Contexts.attribute(element("div"), "hx-ws"));
+    String hx = Contexts.forbidden(element("div"), "hx-get");
+    assertTrue(hx.contains("not on Tessera's list of computed attributes") && hx.contains("t:data-hx-get"), hx);
+    assertEquals("Tessera stamps the CSP nonce itself; delete this attribute",
+        Contexts.forbidden(element("script"), "nonce"));
+    // The specific tree-builder reasons win over the list's.
+    assertTrue(Contexts.forbidden(element("input"), "type").startsWith("the type of an <input>"));
   }
 
   /** A static is names a custom element or nothing (HTML 4.13.3; #272). */
@@ -442,67 +467,67 @@ class ContextsTest {
         OutputContext.REFRESH, Contexts.attribute(element("meta", "http-equiv", "refresh"), "content"));
     assertEquals(
         OutputContext.REFRESH, Contexts.attribute(element("META", "HTTP-EQUIV", " Refresh "), "Content"));
-    // Named metadata is an ordinary attribute; any other content takes only a safe value (#539).
+    // Any other computed content is off the allow-list, named metadata included (#761).
     assertEquals(
-        OutputContext.ATTRIBUTE, Contexts.attribute(element("meta", "name", "description"), "content"));
+        OutputContext.FORBIDDEN, Contexts.attribute(element("meta", "name", "description"), "content"));
     assertEquals(
-        OutputContext.TYPED_ATTRIBUTE,
+        OutputContext.FORBIDDEN,
         Contexts.attribute(element("meta", "http-equiv", "content-language"), "content"));
     assertEquals(
-        OutputContext.TYPED_ATTRIBUTE, Contexts.attribute(element("div", "http-equiv", "refresh"), "content"));
+        OutputContext.FORBIDDEN, Contexts.attribute(element("div", "http-equiv", "refresh"), "content"));
   }
 
   /**
-   * #539, #590: the content of a {@code <meta>} is inert text only under a static name on the
-   * allow-list and without http-equiv, property or itemprop; a policy, a pragma, a name a browser,
-   * OS or crawler acts on, an unknown name or an unnamed meta takes only literals and numbers.
+   * #761: a computed {@code <meta>} content is REFRESH under a static {@code http-equiv="refresh"} and
+   * off the allow-list otherwise: named metadata (once inert, #590), a policy, a pragma, Open Graph, an
+   * unknown name and an unnamed meta alike.
    */
   @ParameterizedTest(name = "<meta {0}> content -> {1}")
   @CsvSource(delimiter = '|', value = {
-    "name=description | ATTRIBUTE",
-    "NAME=Keywords | ATTRIBUTE",
-    "name=author | ATTRIBUTE",
-    "name=Application-Name | ATTRIBUTE",
-    "name=generator | ATTRIBUTE",
-    "name=color-scheme | ATTRIBUTE",
-    "name=theme-color | ATTRIBUTE",
-    "name=description name=keywords | ATTRIBUTE",
-    "name=author property=og:title | TYPED_ATTRIBUTE",
-    "name=description property=al:ios:url | TYPED_ATTRIBUTE",
-    "name=description itemprop=url | TYPED_ATTRIBUTE",
-    "name=description t:property=x | TYPED_ATTRIBUTE",
-    "name=description t:itemprop=x | TYPED_ATTRIBUTE",
-    "name=description name=apple-itunes-app | TYPED_ATTRIBUTE",
-    "name=apple-itunes-app | TYPED_ATTRIBUTE",
-    "name=google-site-verification | TYPED_ATTRIBUTE",
-    "name=msapplication-config | TYPED_ATTRIBUTE",
-    "name=msapplication-TileImage | TYPED_ATTRIBUTE",
-    "name=og:title | TYPED_ATTRIBUTE",
-    "name=twitter:image | TYPED_ATTRIBUTE",
-    "name=twitter:title | TYPED_ATTRIBUTE",
-    "name=refresh | TYPED_ATTRIBUTE",
-    "name=robots | TYPED_ATTRIBUTE",
-    "name=q | TYPED_ATTRIBUTE",
-    "name= | TYPED_ATTRIBUTE",
-    "name=description-x | TYPED_ATTRIBUTE",
+    "name=description | FORBIDDEN",
+    "NAME=Keywords | FORBIDDEN",
+    "name=author | FORBIDDEN",
+    "name=Application-Name | FORBIDDEN",
+    "name=generator | FORBIDDEN",
+    "name=color-scheme | FORBIDDEN",
+    "name=theme-color | FORBIDDEN",
+    "name=description name=keywords | FORBIDDEN",
+    "name=author property=og:title | FORBIDDEN",
+    "name=description property=al:ios:url | FORBIDDEN",
+    "name=description itemprop=url | FORBIDDEN",
+    "name=description t:property=x | FORBIDDEN",
+    "name=description t:itemprop=x | FORBIDDEN",
+    "name=description name=apple-itunes-app | FORBIDDEN",
+    "name=apple-itunes-app | FORBIDDEN",
+    "name=google-site-verification | FORBIDDEN",
+    "name=msapplication-config | FORBIDDEN",
+    "name=msapplication-TileImage | FORBIDDEN",
+    "name=og:title | FORBIDDEN",
+    "name=twitter:image | FORBIDDEN",
+    "name=twitter:title | FORBIDDEN",
+    "name=refresh | FORBIDDEN",
+    "name=robots | FORBIDDEN",
+    "name=q | FORBIDDEN",
+    "name= | FORBIDDEN",
+    "name=description-x | FORBIDDEN",
     // Names and values fold A-Z only: a look-alike is not on the allow-list.
-    "name=descr\u0131ption | TYPED_ATTRIBUTE",
-    "name=KEYWORD\u017F | TYPED_ATTRIBUTE",
-    "NAME=description PROPERTY=og:url | TYPED_ATTRIBUTE",
-    "name=description ItemProp=url | TYPED_ATTRIBUTE",
-    "name=referrer | TYPED_ATTRIBUTE",
-    "Name=REFERRER | TYPED_ATTRIBUTE",
-    "name=viewport | TYPED_ATTRIBUTE",
-    "name=HTMX-Config | TYPED_ATTRIBUTE",
-    "name=description http-equiv=default-style | TYPED_ATTRIBUTE",
-    "http-equiv=content-security-policy | TYPED_ATTRIBUTE",
-    "http-equiv=default-style | TYPED_ATTRIBUTE",
-    "property=og:title | TYPED_ATTRIBUTE",
-    "itemprop=name | TYPED_ATTRIBUTE",
-    "t:name=description | TYPED_ATTRIBUTE",
-    "| TYPED_ATTRIBUTE",
+    "name=descr\u0131ption | FORBIDDEN",
+    "name=KEYWORD\u017F | FORBIDDEN",
+    "NAME=description PROPERTY=og:url | FORBIDDEN",
+    "name=description ItemProp=url | FORBIDDEN",
+    "name=referrer | FORBIDDEN",
+    "Name=REFERRER | FORBIDDEN",
+    "name=viewport | FORBIDDEN",
+    "name=HTMX-Config | FORBIDDEN",
+    "name=description http-equiv=default-style | FORBIDDEN",
+    "http-equiv=content-security-policy | FORBIDDEN",
+    "http-equiv=default-style | FORBIDDEN",
+    "property=og:title | FORBIDDEN",
+    "itemprop=name | FORBIDDEN",
+    "t:name=description | FORBIDDEN",
+    "| FORBIDDEN",
   })
-  void metaContentIsInertOnlyAsNamedMetadata(String attrs, OutputContext expected) {
+  void otherMetaContentIsOffTheList(String attrs, OutputContext expected) {
     List<String> kv = new ArrayList<>();
     if (attrs != null) {
       for (String a : attrs.trim().split(" ")) {
@@ -513,18 +538,18 @@ class ContextsTest {
     assertEquals(expected, Contexts.attribute(element("meta", kv.toArray(new String[0])), "content"));
     // A name with spaces around it, as a browser trims it.
     assertEquals(
-        OutputContext.TYPED_ATTRIBUTE, Contexts.attribute(element("meta", "name", " Viewport "), "content"));
+        OutputContext.FORBIDDEN, Contexts.attribute(element("meta", "name", " Viewport "), "content"));
   }
 
   @Test
   void metaRefreshFoldsOnlyAscii() {
     // A browser lower-cases A-Z only: http-equ\u0131v (dotless i) and http-equ\u0130v (dotted capital I) are
-    // not http-equiv, and refre\u017Fh (long s) is not refresh, so this content is not REFRESH (#539: TYPED).
+    // not http-equiv, and refre\u017Fh (long s) is not refresh, so this content is not REFRESH (#761: off the list).
     for (String name : List.of("http-equ\u0131v", "http-equ\u0130v")) {
-      assertEquals(OutputContext.TYPED_ATTRIBUTE, Contexts.attribute(element("meta", name, "refresh"), "content"), name);
+      assertEquals(OutputContext.FORBIDDEN, Contexts.attribute(element("meta", name, "refresh"), "content"), name);
     }
     assertEquals(
-        OutputContext.TYPED_ATTRIBUTE, Contexts.attribute(element("meta", "http-equiv", "refre\u017Fh"), "content"));
+        OutputContext.FORBIDDEN, Contexts.attribute(element("meta", "http-equiv", "refre\u017Fh"), "content"));
     assertEquals(
         OutputContext.REFRESH, Contexts.attribute(element("meta", "Http-Equiv", "REFRESH"), "content"));
   }
@@ -541,12 +566,12 @@ class ContextsTest {
     assertEquals(
         OutputContext.FORBIDDEN,
         Contexts.attribute(element("meta", "content", "text/html", "http-equiv", "content-type"), "content"));
-    // Other http-equiv values, and the same attributes on another element, take a safe value (#539).
+    // Other http-equiv values, and content on another element, are off the allow-list (#761).
     assertEquals(
-        OutputContext.TYPED_ATTRIBUTE,
+        OutputContext.FORBIDDEN,
         Contexts.attribute(element("meta", "http-equiv", "content-language"), "content"));
     assertEquals(
-        OutputContext.TYPED_ATTRIBUTE,
+        OutputContext.FORBIDDEN,
         Contexts.attribute(element("div", "http-equiv", "Content-Type"), "content"));
   }
 

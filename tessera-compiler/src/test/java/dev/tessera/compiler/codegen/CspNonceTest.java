@@ -223,15 +223,13 @@ class CspNonceTest {
     assertEquals("<div><div><script>u()</script></div><script>u()</script></div>", vouched);
   }
 
-  /** Negative: a nonce in the template is a build error, static or computed, naming file, line and column. */
+  /** Negative: a static nonce in the template is a build error, naming file, line and column. */
   @ParameterizedTest
   @ValueSource(
       strings = {
         "<script nonce=\"abc\">x();</script>",
         "<script NONCE=\"abc\" src=\"/a.js\"></script>",
         "<style nonce>p{}</style>",
-        "<script t:nonce=\"${n}\">x();</script>",
-        "<script t:attr=\"nonce=${n}\">x();</script>",
         "<svg><script nonce=\"abc\">x();</script></svg>",
       })
   void nonceInTheTemplateIsRejected(String element) {
@@ -240,6 +238,19 @@ class CspNonceTest {
             .template("page.html", "<div " + NS + " t:params=\"String n\">\n" + element + "\n</div>")
             .compile();
     c.assertError("page.html:2:", "a nonce on <", "is not supported", "remove the nonce attribute");
+    assertNull(c.generatedSource("tessera.generated.PageTemplate"), "nothing may be generated");
+  }
+
+  /** Negative: a computed nonce is off the computed-attribute list (#761), on any element. */
+  @ParameterizedTest
+  @ValueSource(strings = {"<script t:nonce=\"${n}\">x();</script>", "<script t:attr=\"nonce=${n}\">x();</script>",
+      "<link rel=\"preload\" t:nonce=\"${n}\">"})
+  void computedNonceIsRejected(String element) {
+    Compilation c =
+        Compilation.builder()
+            .template("page.html", "<div " + NS + " t:params=\"String n\">\n" + element + "\n</div>")
+            .compile();
+    c.assertError("page.html:2:", "Tessera stamps the CSP nonce itself; delete this attribute");
     assertNull(c.generatedSource("tessera.generated.PageTemplate"), "nothing may be generated");
   }
 
