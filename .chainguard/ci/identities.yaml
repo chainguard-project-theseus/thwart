@@ -1,0 +1,22 @@
+# Trust and cache policy for Checks. The platform reads this file from main
+# only; a pull request cannot widen it. See mono's
+# ai-cicd/sandbox/docs/identities.md. This repository defines no workload
+# identities.
+version: 1
+
+trust:
+  groups:
+    members: {github: {org: chainguard-dev}}
+  subrings:
+    member: {authors: [members]}
+  github_token: 1.member
+  # Landed commits on main (ring 2) write the trunk pool. Pull requests opened
+  # by chainguard-dev members write their own pool, seeded read-only from
+  # trunk, so no pull request can change what main's builds read. Pull
+  # requests from anyone else (ring 0, e.g. forks from outside the org) get
+  # no cache.
+  cache:
+    trunk: {rings: [2]}
+    trusted: {rings: [1.member], seed: trunk}
+
+identities: {}
