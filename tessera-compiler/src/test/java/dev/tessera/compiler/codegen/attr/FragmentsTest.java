@@ -105,6 +105,34 @@ class FragmentsTest {
     }
   }
 
+  /**
+   * A copy is made transitively and resolves names against the copied fragment's template:
+   * {@code lay} calls {@code base} in another template, and its own {@code other} with a same-file
+   * {@code ~{::u}}. The caller's class gets a private copy of all three, and no public method of any
+   * generated class takes a {@code Fragment}.
+   */
+  @Test
+  void copiesAreTransitiveAndResolveInTheirOwnTemplate() throws Exception {
+    Compilation c = Compilation.builder()
+        .template("lay.html", "<div " + NS + "><p t:fragment=\"lay(Fragment b)\"><t:block t:replace=\"~{base :: base(${b})}\"/>"
+            + "<t:block t:replace=\"~{:: other(~{::u})}\"/></p><s t:fragment=\"other(Fragment c)\"><t:block t:insert=\"${c}\"/></s>"
+            + "<u>u</u></div>")
+        .template("base.html", "<div " + NS + "><em t:fragment=\"base(Fragment c)\"><t:block t:insert=\"${c}\"/></em></div>")
+        .template("a.html", "<div " + NS + "><t:block t:replace=\"~{lay :: lay(~{::i})}\"/><i>i</i></div>")
+        .compile()
+        .assertSuccess();
+    assertEquals("<div><p><em><i>i</i></em><s><u>u</u></s></p><i>i</i></div>", c.render("a", Map.of()));
+    String a = c.generatedSource("tessera.generated.ATemplate");
+    for (String copy : List.of("fragment_lay$", "fragment_base$", "fragment_other$")) {
+      assertTrue(a.contains("private static void " + copy), copy + " in\n" + a);
+    }
+    for (String name : List.of("ATemplate", "LayTemplate", "BaseTemplate")) {
+      for (java.lang.reflect.Method m : c.classLoader().loadClass("tessera.generated." + name).getMethods()) {
+        assertFalse(List.of(m.getParameterTypes()).contains(Fragment.class), name + "." + m.getName());
+      }
+    }
+  }
+
   @Test
   void crossFilePositionalAndNamedArguments() {
     Compilation c =
