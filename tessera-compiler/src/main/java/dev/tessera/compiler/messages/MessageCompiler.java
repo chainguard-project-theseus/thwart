@@ -55,7 +55,7 @@ public final class MessageCompiler {
   }
 
   /**
-   * The {@code new Object[] {...}} of compiled arguments, or {@code null} after reporting an
+   * The {@code new Object[] {...}} of compiled arguments ({@code Messages.NO_ARGS} for none), or {@code null} after reporting an
    * unknown key or a bad argument.
    */
   private static String args(Expr.Message message, Scope scope, ExpressionCompiler expressions) {
@@ -107,6 +107,6 @@ public final class MessageCompiler {
     if (!ok) {
       return null;
     }
-    return "new java.lang.Object[] {" + String.join(", ", args) + "}";
+    return args.isEmpty() ? "dev.tessera.runtime.Messages.NO_ARGS" : "new java.lang.Object[] {" + String.join(", ", args) + "}";
   }
 }

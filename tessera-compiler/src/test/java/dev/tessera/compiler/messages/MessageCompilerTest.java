@@ -28,7 +28,7 @@ class MessageCompilerTest {
   @Test
   void keyWithoutArgsRendersThroughCtxMessages() {
     ExprRunner r = owners();
-    assertEquals("ctx.messages().get(\"welcome\", new java.lang.Object[] {})", r.compile("#{welcome}").code());
+    assertEquals("ctx.messages().get(\"welcome\", dev.tessera.runtime.Messages.NO_ARGS)", r.compile("#{welcome}").code());
     assertEquals("welcome[]", r.eval("#{welcome}", CTX));
   }
 
