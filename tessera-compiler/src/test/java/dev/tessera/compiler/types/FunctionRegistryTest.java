@@ -74,7 +74,10 @@ class FunctionRegistryTest {
     TypesHarness h = fmt();
     h.compile(fn("fmt", "notAnnotated", lit("x"))).assertError("unknown function fmt.notAnnotated", "@TemplateFunction");
     h.compile(call(v("fmt"), "nope")).assertError("unknown function fmt.nope");
-    h.compile(fn("nope", "f")).assertError("unknown function namespace 'nope'");
+    h.compile(fn("nope", "f"))
+        .assertError(
+            "unknown function namespace 'nope': register a class annotated @TemplateFunctions(\"nope\")"
+                + " (built-ins: strings, numbers, temporals, lists, css, html; auth with the Spring starter)");
     h.compile(prop(v("fmt"), "upper")).assertError("'fmt.upper' is a function");
     h.compile(v("fmt")).assertError("'fmt' is a function namespace");
   }
@@ -90,7 +93,10 @@ class FunctionRegistryTest {
     fmt()
         .run(
             f -> {
-              assertTrue(f.compiler().functions().namespaces().containsAll(List.of("fmt", "strings", "numbers", "temporals", "lists")));
+              // NAMES is derived from CLASSES; this pins each derived name to the class's annotation.
+              assertTrue(f.compiler().functions().namespaces().contains("fmt"));
+              assertEquals(List.of("strings", "numbers", "temporals", "lists", "css", "html"), BuiltinNamespaces.NAMES);
+              assertTrue(f.compiler().functions().namespaces().containsAll(BuiltinNamespaces.NAMES), f.compiler().functions().namespaces().toString());
               assertTrue(f.errors().isEmpty(), f.errors().toString());
             });
   }
@@ -185,7 +191,7 @@ class FunctionRegistryTest {
               assertTrue(
                   all.contains("duplicate function namespace 'strings': declared by com.example.MyStrings and dev.tessera.runtime.fn.Strings"),
                   all);
-              assertTrue(all.contains("function namespace 'fields' on com.example.Fields is reserved"), all);
+              assertTrue(all.contains("function namespace 'fields' on com.example.Fields is reserved for form fields"), all);
               assertTrue(all.contains("@TemplateFunctions class com.example.Hidden must be public"), all);
               assertTrue(all.contains("function namespace 'ids' on com.example.Ids is reserved for element ids"), all);
               assertEquals(5, f.errors().size(), all);

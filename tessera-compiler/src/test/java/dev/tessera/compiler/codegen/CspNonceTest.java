@@ -161,6 +161,25 @@ class CspNonceTest {
     allStamped(html, 2);
   }
 
+  /** The same hosts replaced by a {@code Fragment} value: its script is stamped too. */
+  @ParameterizedTest
+  @ValueSource(strings = {"noscript", "svg", "math", "title", "textarea", "iframe", "div"})
+  void replacingAHostWithAFragmentValueStampsIt(String host) {
+    String html = Compilation.builder()
+        .template(
+            "frags.html",
+            "<div " + NS + "><section t:fragment=\"card(Fragment content)\"><" + host + " t:replace=\"${content}\">x</"
+                + host + "></section></div>")
+        .template(
+            "page.html",
+            "<div " + NS + "><i t:fragment=\"f\"><script>x();</script></i><div t:replace=\"~{frags :: card(~{::f})}\"></div></div>")
+        .compile()
+        .assertSuccess()
+        .render("page", Map.of(), WITH_NONCE);
+    // f in place, and f again as the card's content.
+    allStamped(html, 2);
+  }
+
   /** Negative: a hostile nonce is attribute-escaped and cannot add attributes or elements. */
   @ParameterizedTest
   @ValueSource(
