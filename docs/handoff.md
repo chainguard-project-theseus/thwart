@@ -118,6 +118,6 @@ of a module in a fresh session). CI still runs the full `mvn verify`.
   This repo builds with JDK 21+.
 - There is no runtime template loading and no `__${}__` preprocessing, by design.
 - [guide.md section 5](guide.md#5-known-limitations) lists the current gaps.
-  [examples/petclinic/MIGRATION-NOTES.md](../examples/petclinic/MIGRATION-NOTES.md) is the
-  friction log of the first port, and [bench/migration/RESULTS.md](../bench/migration/RESULTS.md)
+  [examples/petclinic/PORTING.md](../examples/petclinic/PORTING.md) records the
+  steps and deviations of the first port, and [bench/migration/RESULTS.md](../bench/migration/RESULTS.md)
   has the failure analysis of the benchmark runs.
