@@ -1,7 +1,6 @@
 package dev.tessera.compiler.verify;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.SourcePos;
@@ -120,7 +119,6 @@ class ContextVerifierRulesTest {
     assertEquals(EnumSet.of(Escaper.ATTR, Escaper.URL, Escaper.RESOURCE_URL, Escaper.REFRESH),
         Arrays.stream(Escaper.values()).filter(Escaper::inAttribute)
             .collect(Collectors.toCollection(() -> EnumSet.noneOf(Escaper.class))));
-    assertThrows(IllegalArgumentException.class, () -> Escaper.forMethod("jsonAttr"));
     // A JSON hole in a binding attribute's value is rejected; the attribute escaper there is accepted.
     for (String name : List.of("v-bind:title", "x-bind:title", "data-x")) {
       reject(Problem.JSON_NOT_IN_SCRIPT, st("<p " + name + "=\""), json());

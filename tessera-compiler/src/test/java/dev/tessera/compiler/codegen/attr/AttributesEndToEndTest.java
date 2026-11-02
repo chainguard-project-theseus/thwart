@@ -187,7 +187,7 @@ class AttributesEndToEndTest {
     }
     compile("<meta http-equiv=\"refresh\" t:attr=\"content='1;url=' + @{//evil.example}\">")
         .assertError("t:attr content is not allowed", "same-origin path");
-    compile("<meta t:http-equiv=\"s\" t:content=\"c\">").assertError("t:http-equiv", "<meta>", "static http-equiv");
+    compile("<meta t:http-equiv=\"s\" t:content=\"c\">").assertError("t:http-equiv is not allowed: the http-equiv of a <meta>", "static http-equiv");
     compile("<meta t:attr=\"http-equiv=s\" content=\"0;url=/x\">").assertError("t:attr http-equiv", "<meta>");
     // A literal refresh written by the author is fine, and so is other meta content.
     assertEquals(
@@ -252,11 +252,11 @@ class AttributesEndToEndTest {
 
   @Test
   void scriptTypeCannotBeComputed() {
-    compile("<script t:type=\"s\"></script>").assertError("t:type", "<script>", "static type attribute");
+    compile("<script t:type=\"s\"></script>").assertError("t:type is not allowed: the type of a <script>", "static type attribute");
     compile("<script t:attr=\"type=s\"></script>").assertError("t:attr type", "<script>");
     compile("<script type=\"application/json\" t:attr=\"type=s\"></script>").assertError("t:attr type");
     // #678: on an <input> too; on other elements type is an ordinary attribute.
-    compile("<input t:type=\"s\">").assertError("t:type", "<input>", "static type attribute");
+    compile("<input t:type=\"s\">").assertError("t:type is not allowed: the type of an <input>", "static type attribute");
     assertEquals("<ol type=\"i\"></ol>", render("<ol t:type=\"${b} ? 'a' : 'i'\"></ol>", model()));
   }
 

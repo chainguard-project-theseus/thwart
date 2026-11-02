@@ -47,6 +47,13 @@ class UnmodelledMarkupTest {
   }
 
   @Test
+  void theFixItNamesTheForeignRoot() {
+    compile("<math><mi t:text=\"s\">x</mi></math>")
+        .assertError("inside <math> is not supported", "nothing inside <math> is computed", "one static <math> per case");
+    compile("<svg><text t:text=\"s\">x</text></svg>").assertError("one static <svg> per case");
+  }
+
+  @Test
   void staticSvgAndControlFlowAroundItStillCompile() {
     String body = "<svg viewBox=\"0 0 10 10\"><title>t</title><path d=\"M0 0\" fill=\"currentColor\"/></svg>"
         + "<svg t:if=\"b\"><rect/></svg><math><mi>x</mi></math>";

@@ -638,10 +638,7 @@ public final class TemplateGenerator implements CodegenContext {
     }
     if (at != null) {
       diagnostics().error(at, "a value, condition, loop or fragment inside <" + HtmlParser.asciiLower(e.name())
-          + "> is not supported: a browser parses SVG and MathML by rules Tessera doesn't check; write the <"
-          + HtmlParser.asciiLower(e.name()) + "> as static markup and set what changes outside it: a t:class or"
-          + " t:style on an HTML parent with CSS (fill: currentColor, a CSS variable), or one static <svg> per"
-          + " case under t:if or t:switch");
+          + "> is not supported: " + Contexts.foreign(e.name()));
     }
   }
 
@@ -760,14 +757,14 @@ public final class TemplateGenerator implements CodegenContext {
     // Only attribute escapers: e.g. the SCRIPT (json) escaper does not escape '"'.
     // GenericAttrProcessor admits only safe style values in STYLE (#182), literals and numbers in
     // TYPED_ATTRIBUTE (#565) and neutral values in NEUTRAL (#584).
-    String escaper = d.context().attributeEscaper();
+    Skeleton.Escaper escaper = d.context().attributeEscaper();
     if (escaper == null) {
       diagnostics().error(d.pos(), "an expression cannot be used in attribute " + d.name() + " (" + d.context()
               + " context): write a literal value");
       return Emitted.EMPTY;
     }
     String v = freshName("v");
-    Emitted attribute = Emitted.attributeValue(Skeleton.Escaper.forMethod(escaper), d.name(), d.pos(), v);
+    Emitted attribute = Emitted.attributeValue(escaper, d.name(), d.pos(), v);
     String before = "{ java.lang.Object " + v + " = " + d.valueCode() + "; if (";
     return Emitted.opt(Skeleton.OptKind.ATTRIBUTE, d.pos(), before + v + " != null) { ", attribute, " } }");
   }

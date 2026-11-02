@@ -120,7 +120,7 @@ final class VerifierMessages {
       case UNCALLED_FRAGMENT_FITS_NOWHERE:
         return "no template inserts fragment " + f.detail + ", and it is declared where no fragment fits (in raw text or"
             + " under t:remove=\"tag\"), so Tessera can't check what it"
-            + " writes on its own; declare it in HTML, <svg> or <math> content, or delete it";
+            + " writes on its own; declare it in HTML content, or delete it";
       case VALUE_IN_RAW_TEXT:
         return "a browser reads " + value + " as the raw text of "
             + (s == null || s.currentNode() == null ? "the element" : element(s.currentNode()))

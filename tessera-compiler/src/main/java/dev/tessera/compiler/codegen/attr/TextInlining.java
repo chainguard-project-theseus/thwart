@@ -414,7 +414,7 @@ public final class TextInlining {
       Emitted json = ScriptJson.statement(ctx, c);
       return json == null ? Emitted.EMPTY : json;
     }
-    Skeleton.Escaper escaper = Skeleton.Escaper.forMethod(context.escaper());
+    Skeleton.Escaper escaper = context.escaper();
     if (isDeclared(c.type(), "java.util.Optional")) {
       String o = ctx.freshName("opt");
       return Emitted.wrap(
