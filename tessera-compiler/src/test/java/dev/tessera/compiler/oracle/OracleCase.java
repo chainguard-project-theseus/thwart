@@ -11,7 +11,7 @@ import java.util.Objects;
  * from #321; the gate that runs them is #324.
  *
  * @param id first 12 hex characters of the SHA-256 of {@code template}, stable across runs so
- *     {@link KnownHoles} lines stay valid
+ *     {@code known-holes.txt} lines stay valid
  * @param name human-readable name (seed name or generator description)
  * @param template the template source
  * @param origin where the case came from

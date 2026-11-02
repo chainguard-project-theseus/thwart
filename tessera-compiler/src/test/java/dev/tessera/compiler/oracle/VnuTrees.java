@@ -51,9 +51,9 @@ import org.w3c.dom.Node;
 public final class VnuTrees {
   private VnuTrees() {}
 
-  static final String HTML = HtmlInvariant.HTML;
-  static final String SVG = HtmlInvariant.SVG;
-  static final String MATHML = HtmlInvariant.MATHML;
+  static final String HTML = "http://www.w3.org/1999/xhtml";
+  static final String SVG = "http://www.w3.org/2000/svg";
+  static final String MATHML = "http://www.w3.org/1998/Math/MathML";
   private static final String XLINK = "http://www.w3.org/1999/xlink";
   private static final String XML = "http://www.w3.org/XML/1998/namespace";
   private static final String XMLNS = "http://www.w3.org/2000/xmlns/";

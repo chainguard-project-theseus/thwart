@@ -123,8 +123,8 @@ final class VerifierMessages {
             + " <svg> and <math>, which Tessera doesn't check; write the text without <![CDATA[ and ]]>, with '<' as"
             + " &lt; and '&' as &amp;";
       case UNCALLED_FRAGMENT_FITS_NOWHERE:
-        return "no template inserts fragment " + f.detail + ", and it is declared where no fragment fits (in raw text, in"
-            + " an <svg> or <math> that holds an HTML element, or under t:remove=\"tag\"), so Tessera can't check what it"
+        return "no template inserts fragment " + f.detail + ", and it is declared where no fragment fits (in raw text or"
+            + " under t:remove=\"tag\"), so Tessera can't check what it"
             + " writes on its own; declare it in HTML, <svg> or <math> content, or delete it";
       case VALUE_IN_RAW_TEXT:
         return "a browser reads " + value + " as the raw text of "

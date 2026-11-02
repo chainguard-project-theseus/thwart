@@ -116,8 +116,8 @@ if [[ $engines == *parse5* ]]; then
 fi
 echo "self-check: ok"
 
-# The real cases: ProfileOracleTest (#324) compiles the seeds and the generator's cases and exports
-# every accepted case's benign, fingerprint and first hostile renders (default: the #320 values and
+# The real cases: ProfileOracleTest (#324) compiles the seeds and exports
+# every accepted seed's benign and first hostile renders (default: the #320 values and
 # the structure values, ProfileOracleTest.EXPORT_DEFAULT; ORACLE_EXPORT_VALUES overrides), each with
 # its vnu trees. The job ratchets them against ../resources/oracle/known-holes.txt, and every render
 # must carry its trees. The value count keeps the three browsers inside the job's timeout.

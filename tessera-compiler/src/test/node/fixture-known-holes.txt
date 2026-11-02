@@ -54,7 +54,10 @@ ee142ded0f61 STRUCTURE_CHANGED parse5 #322 S5-srcdoc-script
 ee142ded0f61 STRUCTURE_CHANGED chromium #322 S5-srcdoc-script
 ee142ded0f61 STRUCTURE_CHANGED webkit #322 S5-srcdoc-script
 ee142ded0f61 STRUCTURE_CHANGED firefox #322 S5-srcdoc-script
-d24369fe5291 CSTI parse5 #322 S6-csti
+d24369fe5291 STRUCTURE_CHANGED parse5 #681 S6-comment
+d24369fe5291 STRUCTURE_CHANGED chromium #681 S6-comment
+d24369fe5291 STRUCTURE_CHANGED webkit #681 S6-comment
+d24369fe5291 STRUCTURE_CHANGED firefox #681 S6-comment
 d15f2c2f8b69 CROSS_ORIGIN_RESOURCE parse5 #322 S7-cross-origin-script
 # S11: slots in names outside HTML that no list names, holding a protocol-relative URL and a '--'
 # path (#611): not framework-neutral. S12, its positive control, has no line: neutral paths and a

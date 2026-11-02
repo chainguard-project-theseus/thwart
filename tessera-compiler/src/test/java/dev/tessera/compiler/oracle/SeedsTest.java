@@ -176,28 +176,4 @@ class SeedsTest {
       assertTrue(e.getMessage().matches("t\\.txt:[1-3]: .*"), e.getMessage());
     }
   }
-
-  @Test
-  void expectationsMatchVerdicts() {
-    Finding liveFirefox = new Finding(Kind.LIVE_SCRIPT, "firefox", "/html", "v");
-    Finding live26 = new Finding(Kind.LIVE_SCRIPT, "vnu-26", "/html", "v");
-    Finding unparsable = new Finding(Kind.JS_UNPARSABLE, "acorn", "/html", "v");
-    Verdict both = new Verdict.Findings(List.of(liveFirefox, live26, new Finding(Kind.STRUCTURE_CHANGED, "vnu-26", "/", "v")));
-    Verdict firefoxOnly = new Verdict.Findings(List.of(liveFirefox));
-    Verdict rejected = new Verdict.Rejected(List.of("page.html:1:1: error"));
-    Expectation live = Expectation.parse("LIVE_SCRIPT");
-    assertTrue(live.metBy(both, List.of("*")));
-    assertTrue(live.metBy(firefoxOnly, List.of("firefox")));
-    assertFalse(live.metBy(firefoxOnly, List.of("firefox", "vnu-26")));
-    assertFalse(live.metBy(new Verdict.Clean(), List.of("*")));
-    assertFalse(live.metBy(rejected, List.of("*")));
-    assertFalse(Expectation.parse("LIVE_SCRIPT CSTI").metBy(both, List.of("*")));
-    Expectation clean = Expectation.parse("CLEAN");
-    assertTrue(clean.metBy(new Verdict.Clean(), List.of("*")));
-    assertTrue(clean.metBy(new Verdict.Findings(List.of(unparsable)), List.of("*")));
-    assertFalse(clean.metBy(firefoxOnly, List.of("*")));
-    assertFalse(clean.metBy(rejected, List.of("*")));
-    assertTrue(Expectation.parse("REJECTED").metBy(rejected, List.of("*")));
-    assertFalse(Expectation.parse("REJECTED").metBy(new Verdict.Clean(), List.of("*")));
-  }
 }

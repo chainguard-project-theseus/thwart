@@ -295,7 +295,8 @@ class SkeletonTest {
 
   @Test
   void escaperAlphabets() {
-    assertTrue(ends(Skeleton.Escaper.TEXT, "a&amp;<!---->{<!---->").get(21));
+    assertTrue(ends(Skeleton.Escaper.TEXT, "a&amp;{").get(7));
+    assertFalse(ends(Skeleton.Escaper.TEXT, "<!---->").get(7)); // #679: no escaper writes a comment
     assertFalse(ends(Skeleton.Escaper.ATTR, "<!---->").get(7));
     assertEquals(1, ends(Skeleton.Escaper.TEXT, "a&b").length() - 1);
     assertEquals(0, ends(Skeleton.Escaper.ATTR, "\"").length() - 1);

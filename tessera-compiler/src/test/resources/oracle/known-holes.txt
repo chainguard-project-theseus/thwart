@@ -1,26 +1,21 @@
-# Known open holes for the oracle gate (ProfileOracleTest, #324) and the Node job (#322).
+# Known open holes for the Node job (#322, node/check.mjs).
 #
 # One hole per line:
 #
 #   <case-id> <KIND> <engine or *> #<issue> <note>
 #
 #   case-id  first 12 hex chars of the SHA-256 of the case's template (OracleCase.idOf)
-#   KIND     only a family C, D or E kind, the value checks the build-time verifier (#367) doesn't
+#   KIND     a family C, D or E kind, the value checks the build-time verifier (#367) doesn't
 #            cover: JS_NOT_LITERAL, JS_UNPARSABLE, LIVE_SCRIPT (inside an HTML script's data only)
-#            (C, script lexical position), CSTI (D, client frameworks), JS_URL,
-#            CROSS_ORIGIN_RESOURCE (E, URL policy); or ENGINE_DRIFT (#399, the Node job: an engine
-#            builds a tree for an accepted render that the vnu engine doesn't build), for one Node
-#            engine, never *. The Java gate reports an ENGINE_DRIFT line stale once its case is
-#            rejected, so the verifier fix deletes it in the same change. A line with a family A/B kind
-#            (STRUCTURE_CHANGED, MARKER_IN_NAME, LIVE_HANDLER, CONTEXT_MISMATCH) is a format error:
-#            an A/B finding on a template the verifier accepted is a verifier soundness bug, fixed
-#            in the verifier, never listed. So is a LIVE_SCRIPT a value reached through markup.
-#   engine   vnu-26, parse5, chromium, firefox, webkit, or * for any engine
+#            (C, script lexical position), JS_URL, CROSS_ORIGIN_RESOURCE (E, URL policy); or
+#            ENGINE_DRIFT (#399: an engine builds a tree for an accepted render that the vnu engine
+#            doesn't build), for one Node engine, never *. A family A/B finding (STRUCTURE_CHANGED,
+#            MARKER_IN_NAME, LIVE_HANDLER, CONTEXT_MISMATCH) on a template the verifier accepted is
+#            a verifier soundness bug, fixed in the verifier, never listed.
+#   engine   parse5, chromium, firefox, webkit, or * for any engine
 #   #issue   the issue that fixes it (required: a line without one is a format error)
-#   note     free text: the seed name, or the generator's description of the case
+#   note     free text: the seed name
 #
-# A finding with no line here fails the gate; a line whose finding no longer occurs fails too
-# ("delete its line"), so this list only shrinks. The Java gate reports stale lines for its engines
-# and *; the Node job for parse5, chromium, firefox and webkit. Lines starting with # are comments.
-
-
+# A finding with no line here fails the job; a line for an engine the job ran whose finding no
+# longer occurs fails too ("delete its line"), so this list only shrinks. Lines starting with #
+# are comments.

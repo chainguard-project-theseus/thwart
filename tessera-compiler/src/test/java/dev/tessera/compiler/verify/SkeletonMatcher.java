@@ -56,7 +56,7 @@ public final class SkeletonMatcher {
     int i = from;
     ends.set(i);
     while (i < s.length()) {
-      int next = escaper == Skeleton.Escaper.JSON || escaper == Skeleton.Escaper.JAVASCRIPT ? jsonToken(s, i) : htmlToken(s, i, escaper == Skeleton.Escaper.TEXT);
+      int next = escaper == Skeleton.Escaper.JSON || escaper == Skeleton.Escaper.JAVASCRIPT ? jsonToken(s, i) : htmlToken(s, i);
       if (next < 0) {
         break;
       }
@@ -69,15 +69,11 @@ public final class SkeletonMatcher {
   private static final String[] ENTITIES = {"&amp;", "&lt;", "&gt;", "&quot;", "&#39;"};
 
   /**
-   * One token of HTML-escaped output ({@code escapeHtml}; with {@code text} also the empty comment
-   * that breaks braces): a char that is not {@code & < > " '}, NUL or a lone surrogate, one of the
-   * five references, or {@code <!---->}. Returns the end, or -1.
+   * One token of HTML-escaped output ({@code escapeHtml}): a char that is not {@code & < > " '}, NUL
+   * or a lone surrogate, or one of the five references. Returns the end, or -1.
    */
-  private static int htmlToken(String s, int i, boolean text) {
+  private static int htmlToken(String s, int i) {
     char c = s.charAt(i);
-    if (text && s.startsWith("<!---->", i)) {
-      return i + 7;
-    }
     if (c == '&') {
       for (String e : ENTITIES) {
         if (s.startsWith(e, i)) {
