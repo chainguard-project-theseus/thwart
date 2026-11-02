@@ -33,8 +33,8 @@ import java.util.Set;
  * html.sanitize} policy (the producer test checks them), {@code SafeHtml.escape} and {@code
  * concat} of FLOW values, and a rendered template ({@code SafeHtml.of}, {@code Fragment.of}) that
  * the compiler proved a FLOW partial ({@link #PARTIAL_PROBES}, #396): the runtime refuses any
- * other template. ({@code SafeHtml.unchecked} and a hand-written {@code Fragment} lambda remain
- * the caller's promise.)
+ * other template. (A hand-written {@code Template} whose {@code verifiedFlowPartial()} returns true
+ * remains the caller's promise; {@code tessera:review} fails the build on one, #602.)
  */
 public final class ContentKinds {
   private ContentKinds() {}

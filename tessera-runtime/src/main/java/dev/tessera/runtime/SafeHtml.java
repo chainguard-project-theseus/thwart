@@ -5,9 +5,9 @@ import java.util.Objects;
 /**
  * HTML that is known to be safe to emit without escaping. The only ways to get one are
  * {@link #escape(String)}, {@link #sanitize(String)} (or with an {@link HtmlPolicy}), rendering a
- * {@link Template} the compiler verified as a {@code FLOW} partial ({@link #of}),
- * {@link #concat(SafeHtml...)} of other {@code SafeHtml}s, or {@link #unchecked(String)}
- * (greppable, lint-bannable). {@code t:utext} accepts nothing else.
+ * {@link Template} the compiler verified as a {@code FLOW} partial ({@link #of}), or
+ * {@link #concat(SafeHtml...)} of other {@code SafeHtml}s. There is no constructor that skips the
+ * check (#664). {@code t:utext} accepts nothing else.
  */
 public final class SafeHtml {
   public static final SafeHtml EMPTY = new SafeHtml("");
@@ -16,11 +16,6 @@ public final class SafeHtml {
 
   private SafeHtml(String html) {
     this.html = Objects.requireNonNull(html, "html");
-  }
-
-  /** Wraps markup the caller vouches for. Every call site is a security review point. */
-  public static SafeHtml unchecked(String html) {
-    return new SafeHtml(html);
   }
 
   /**

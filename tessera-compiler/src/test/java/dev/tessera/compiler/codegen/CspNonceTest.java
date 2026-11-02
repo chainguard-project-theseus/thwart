@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.testing.Compilation;
+import dev.tessera.compiler.testing.TestFragments;
 import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.RenderContext;
 import dev.tessera.runtime.SafeHtml;
@@ -193,9 +194,9 @@ class CspNonceTest {
     assertEquals("<b>ok</b>", sanitized.toString());
     String html = c.render("page", Map.of("h", sanitized), WITH_NONCE);
     assertEquals("<div><div><b>ok</b></div><b>ok</b></div>", html);
-    // An unchecked SafeHtml is the caller's markup: a strict policy blocks its scripts.
-    String unchecked = c.render("page", Map.of("h", SafeHtml.unchecked("<script>u()</script>")), WITH_NONCE);
-    assertEquals("<div><div><script>u()</script></div><script>u()</script></div>", unchecked);
+    // A SafeHtml a hand-written Template vouches for is the caller's markup: a strict policy blocks its scripts.
+    String vouched = c.render("page", Map.of("h", TestFragments.safeHtml("<script>u()</script>")), WITH_NONCE);
+    assertEquals("<div><div><script>u()</script></div><script>u()</script></div>", vouched);
   }
 
   /** Negative: a nonce in the template is a build error, static or computed, naming file, line and column. */

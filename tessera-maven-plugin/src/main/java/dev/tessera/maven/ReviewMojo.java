@@ -28,10 +28,9 @@ import org.apache.maven.plugins.annotations.Parameter;
  *       ({@code SafeHtml}, {@code TrustedUrl}, {@code Fragment}, {@code CssValue}): templates output
  *       their result without escaping, so each vouches for what it returns;
  *   <li>every unverified door outside Tessera-generated classes, at its source line (#602): a call
- *       of {@code SafeHtml.unchecked}, {@code TrustedUrl.unchecked},
- *       {@code Fragment.unverifiedForGeneratedCode} or a generated {@code internalUnverified$<name>}
- *       method, and a {@code verifiedFlowPartial()} declaration (a hand-written {@code Template}
- *       vouching for its own output).
+ *       of {@code TrustedUrl.unchecked}, {@code Fragment.unverifiedForGeneratedCode} or a generated
+ *       {@code internalUnverified$<name>} method, and a {@code verifiedFlowPartial()} declaration
+ *       (a hand-written {@code Template} vouching for its own output).
  * </ul>
  *
  * <p>Any door fails the build. It reads bytecode, so it finds every call however the source writes
