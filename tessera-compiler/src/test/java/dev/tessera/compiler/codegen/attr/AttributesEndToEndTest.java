@@ -174,7 +174,10 @@ class AttributesEndToEndTest {
     for (String t : new String[] {"<a href=\"JavaScript:x()\">x</a>", "<a href=\" java&#x09;script:x()\">x</a>",
         "<a href=\"jav&#x61;script:x()\">x</a>", "<form action=\"javascript:x()\"></form>",
         "<iframe src=\"javascript:x()\"></iframe>", "<object data=\"javascript:x()\"></object>",
-        "<svg><a href=\"javascript:x()\"><text>x</text></a></svg>"}) {
+        "<svg><a href=\"javascript:x()\"><text>x</text></a></svg>",
+        // Named references the parser keeps but a browser decodes (: tab LF).
+        "<a href=\"javascript&colon;x()\">x</a>", "<a href=\"java&Tab;script:x()\">x</a>",
+        "<a href=\"&NewLine;javascript:x()\">x</a>", "<a href=\"java&Tab;script&colon;x()\">x</a>"}) {
       compile(t).assertError("t.html:1:", "is not allowed: javascript: URLs are not supported");
     }
   }
@@ -183,7 +186,7 @@ class AttributesEndToEndTest {
   @Test
   void staticNonScriptStaysAccepted() {
     compile("<a href=\"#\" data-action=\"save\" title=\"javascript:x\">x</a><a href=\"/javascript:x\">y</a>"
-        + "<a href=\"java script:x\">z</a><input value=\"javascript:x\"><button type=\"button\">b</button>")
+        + "<a href=\"java script:x\">z</a><a href=\"javascripts.html\">j</a><input value=\"javascript:x\"><button type=\"button\">b</button>")
         .assertSuccess();
   }
 
