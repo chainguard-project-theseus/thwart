@@ -171,7 +171,7 @@ Shares syntax and escapers, none of the trust. Data is an immutable tree of valu
 | Sandbox escape via reflection chains | Eliminated | Unsafe types rejected by the compiler |
 | XSS from a forgotten escape | Eliminated by default | Contextual escaping is automatic; raw output needs a safe type |
 | XSS from an unchecked door (a hand-written `Template`) | Residual | Its own Java code; no API wraps its output as `SafeHtml` or `Fragment` (#676); `SafeHtml.unchecked` and `TrustedUrl` are gone (#664, #668) |
-| Unsafe registered functions | Residual, reviewable | The function list is the whole extension surface; `tessera:review` reports it (#428) |
+| Unsafe registered functions | Residual, reviewable | The function list (`@TemplateFunction`) is the whole extension surface |
 | Information disclosure | Reduced | Only declared parameters and allow-listed accessors visible |
 | DoS from template logic | Reduced (main), bounded (sandbox) | |
 | Dev reloader in production | Residual, packaging | Separate artifact; refuses production profile |
