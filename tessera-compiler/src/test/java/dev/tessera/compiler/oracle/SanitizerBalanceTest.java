@@ -352,7 +352,7 @@ class SanitizerBalanceTest {
     return ALLOWED.computeIfAbsent(policy, pol -> {
       Set<String> keeps = new HashSet<>();
       for (String e : HtmlPolicy.ELEMENTS) {
-        String out = pol.sanitize((e.equals("li") ? "<ul><li>" : "<" + e + " src=\"/i.png\">") + "x").html();
+        String out = SafeHtml.sanitize((e.equals("li") ? "<ul><li>" : "<" + e + " src=\"/i.png\">") + "x", pol).html();
         if (out.contains("<" + e + ">") || out.contains("<" + e + " ")) {
           keeps.add(e);
         }

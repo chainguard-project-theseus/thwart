@@ -32,10 +32,10 @@ public final class HtmlPolicy {
 
   /**
    * Elements a policy may allow. {@code a} keeps a checked {@code href}, {@code img} a checked
-   * {@code src}. There are no tables (#592): the builder rejects their parts.
+   * {@code src}. The builder throws for any other name.
    */
   public static final Set<String> ELEMENTS =
-      unmodifiable(
+      Ascii.set(
           "a", "b", "i", "em", "strong", "u", "s", "del", "ins", "sub", "sup", "small", "mark",
           "code", "kbd", "span", "br", "img", "p", "h1", "h2", "h3", "h4", "h5", "h6", "pre",
           "blockquote", "ul", "ol", "li", "div", "hr");
@@ -46,19 +46,16 @@ public final class HtmlPolicy {
    * a value of the stated form: {@code title} on any element and {@code alt} on {@code img} (any
    * text), {@code width}/{@code height} on {@code img} (digits), {@code start} and
    * {@code reversed} on {@code ol}, {@code value} on {@code li} (an integer), and {@code id} on any
-   * element ({@code [A-Za-z0-9_-]}, written with the prefix {@value #DEFAULT_ID_PREFIX}).
+   * element ({@code [A-Za-z0-9_-]}, written with the prefix {@value #ID_PREFIX}).
    */
   public static final Set<String> ATTRIBUTES =
-      unmodifiable("id", "title", "alt", "width", "height", "start", "reversed", "value");
+      Ascii.set("id", "title", "alt", "width", "height", "start", "reversed", "value");
 
   /** Link {@code rel} tokens a policy may add. */
-  public static final Set<String> REL_TOKENS = unmodifiable("nofollow", "noopener", "noreferrer", "ugc");
+  public static final Set<String> REL_TOKENS = Ascii.set("nofollow", "noopener", "noreferrer", "ugc");
 
-  /**
-   * The prefix written before every kept {@code id}, so user content cannot clobber
-   * {@code window} or {@code document} properties or the page's own ids. It is fixed (#661).
-   */
-  public static final String DEFAULT_ID_PREFIX = "user-content-";
+  /** Written before every kept {@code id}, so user content cannot clobber page ids or globals (#661). */
+  public static final String ID_PREFIX = "user-content-";
 
   /**
    * The policy of {@link SafeHtml#sanitize(String)} and {@code html.sanitize}: {@code p br hr
@@ -78,7 +75,7 @@ public final class HtmlPolicy {
    * The policy of {@code html.sanitizeRich}, for stored editor or Markdown output: {@link #BASIC}
    * plus {@code del ins kbd}, images ({@code img} with a checked {@code src}, {@code alt},
    * {@code width}, {@code height}), {@code ol start reversed}, {@code li value},
-   * {@code title}, {@code id} (prefixed {@value #DEFAULT_ID_PREFIX}, with {@code href="#x"} links
+   * {@code title}, {@code id} (prefixed {@value #ID_PREFIX}, with {@code href="#x"} links
    * rewritten to match) and {@code language-*} class tokens (code highlighting). An image is kept
    * only if its {@code src} is a same-origin path (one {@code /}, not {@code //} or {@code /\}), so
    * viewing stored content never sends the reader to another host. Links keep
@@ -149,11 +146,6 @@ public final class HtmlPolicy {
     this.rel = sb.length() == 0 ? "" : sb.append('"').toString();
   }
 
-  /** {@code html} cleaned by this policy; {@code null} gives {@link SafeHtml#EMPTY}. */
-  public SafeHtml sanitize(String html) {
-    return SafeHtml.sanitize(html, this);
-  }
-
   /** Whether class token {@code token} is of the safe form and allowed. */
   boolean allowsClass(String token) {
     if (!isClassToken(token)) {
@@ -190,7 +182,7 @@ public final class HtmlPolicy {
     private Builder() {}
 
     /**
-     * Allows elements from {@link #ELEMENTS} (lower case); table parts throw. {@code li} needs
+     * Allows elements from {@link #ELEMENTS} (lower case); any other name throws. {@code li} needs
      * {@code ul} or {@code ol} to be kept.
      */
     public Builder allowElements(String... names) {
@@ -261,59 +253,10 @@ public final class HtmlPolicy {
       return false;
     }
     for (int i = 0; i < s.length(); i++) {
-      if (!isClassChar(s.charAt(i))) {
+      if (!Ascii.isClassChar(s.charAt(i))) {
         return false;
       }
     }
     return true;
-  }
-
-  static boolean isClassChar(char c) {
-    return isAsciiLetter(c) || (c >= '0' && c <= '9') || c == '_' || c == '-';
-  }
-
-  static boolean isAsciiLetter(char c) {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
-  }
-
-  /**
-   * {@code s} with only A-Z lower-cased, as a browser folds names and keywords. Not
-   * {@code toLowerCase}: that maps U+212A (Kelvin) to {@code k} and U+0130 to {@code i} plus a
-   * combining dot, so a value a browser reads as another would match here.
-   */
-  static String lower(String s) {
-    char[] cs = s.toCharArray();
-    for (int i = 0; i < cs.length; i++) {
-      if (cs[i] >= 'A' && cs[i] <= 'Z') {
-        cs[i] = (char) (cs[i] + ('a' - 'A'));
-      }
-    }
-    return new String(cs);
-  }
-
-  /**
-   * {@code s} without leading and trailing HTML whitespace (TAB, LF, FF, CR, SPACE; also CSS
-   * whitespace after preprocessing). Not {@code trim}: that also strips U+000B and every other C0
-   * control, which a browser keeps.
-   */
-  static String stripWhitespace(String s) {
-    int start = 0;
-    int end = s.length();
-    while (start < end && isWhitespace(s.charAt(start))) {
-      start++;
-    }
-    while (end > start && isWhitespace(s.charAt(end - 1))) {
-      end--;
-    }
-    return s.substring(start, end);
-  }
-
-  /** HTML whitespace: TAB, LF, FF, CR and SPACE. */
-  static boolean isWhitespace(char c) {
-    return c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r';
-  }
-
-  static Set<String> unmodifiable(String... names) {
-    return Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(names)));
   }
 }

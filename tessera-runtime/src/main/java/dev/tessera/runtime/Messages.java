@@ -2,7 +2,8 @@ package dev.tessera.runtime;
 
 /**
  * Resolves message keys for {@code #{key(args)}}. Implementations are bound to one locale. The
- * returned text is treated as plain text and escaped for its output context.
+ * returned text is escaped for its output context, or, in {@code t:utext} and {@code [(...)]},
+ * sanitized by the fixed message policy ({@link Escapers#htmlMessage}).
  */
 @FunctionalInterface
 public interface Messages {

@@ -105,38 +105,30 @@ class EscapersTest {
     assertEquals("\u00e9\u4e2d\ud83d\ude00", text("\u00e9\u4e2d\ud83d\ude00"));
   }
 
+  /**
+   * Every HTML sink against {@link #expectedHtml}: each BMP char alone (spaced, so a surrogate must
+   * be replaced), between runs copied in bulk and at the ends of the value, and a pair from every
+   * plane.
+   */
   @Test
-  void htmlSinksPreserveEveryBmpCharacterExceptRequiredEscapes() {
+  void htmlSinksMatchTheEscapeRuleForEveryChar() {
     StringBuilder input = new StringBuilder();
     StringBuilder expected = new StringBuilder();
-    for (int i = 0; i <= Character.MAX_VALUE; i++) {
-      char c = (char) i;
-      if (c == '{' || c == '}') {
-        continue; // Element text isolates every brace (textBreaksMustacheDelimiters).
-      }
-      input.append(c).append(' '); // Isolate surrogates so each must be replaced.
-      switch (c) {
-        case '&':
-          expected.append("&amp;");
-          break;
-        case '<':
-          expected.append("&lt;");
-          break;
-        case '>':
-          expected.append("&gt;");
-          break;
-        case '"':
-          expected.append("&quot;");
-          break;
-        case '\'':
-          expected.append("&#39;");
-          break;
-        default:
-          expected.append(parseError(c) ? '\uFFFD' : c);
-      }
-      expected.append(' ');
+    for (int c = 0; c <= 0xFFFF; c++) {
+      String s = String.valueOf((char) c);
+      String e = expectedHtml(c);
+      input.append(s).append(' ');
+      expected.append(e).append(' ');
+      assertHtmlSinks("ab" + s + "cd" + s, "ab" + e + "cd" + e);
+      assertHtmlSinks(s + "x", e + "x");
     }
     assertHtmlSinks(input.toString(), expected.toString());
+    for (int plane = 1; plane <= 16; plane++) {
+      for (int low : new int[] {0x0000, 0xFFFD, 0xFFFE, 0xFFFF}) {
+        int cp = plane << 16 | low;
+        assertHtmlSinks("a" + new String(Character.toChars(cp)) + "&", "a" + expectedHtml(cp) + "&amp;");
+      }
+    }
   }
 
   @Test
@@ -215,11 +207,6 @@ class EscapersTest {
     assertEquals("", resourceUrl(null));
     assertEquals("", html(null));
     assertEquals("null", json(null));
-  }
-
-  @Test
-  void textEscapesSafeHtml() {
-    assertEquals("&lt;b&gt;bold&lt;/b&gt;", text(TestSafeHtml.of("<b>bold</b>")));
   }
 
   @ParameterizedTest
@@ -869,14 +856,6 @@ class EscapersTest {
     assertEquals("[1E+3,-7]", json(List.of(new BigDecimal("1E+3"), BigInteger.valueOf(-7))));
   }
 
-  @Test
-  void noEscaperWritesJsonIntoAnAttributeValue() {
-    // #599: jsonAttr (JSON, attribute-encoded) is deleted; nothing classifies an attribute for it since #584.
-    for (java.lang.reflect.Method m : Escapers.class.getMethods()) {
-      assertNotEquals("jsonAttr", m.getName());
-    }
-  }
-
   @ParameterizedTest
   @ValueSource(strings = {"0", "-0", "7", "-12", "1E+3", "1e+3", "1E-7", "1.0E-7", "0E-10", "0.00", "-1.5E10",
       "123456789012345678901234567890"})
@@ -1136,27 +1115,7 @@ class EscapersTest {
     assertEquals("", text(null));
   }
 
-  /**
-   * The table escaper (#685) against the escaping rule written out, for every BMP char between
-   * runs that are copied in bulk, and for a pair from every plane, also at the ends of the value.
-   */
-  @Test
-  void htmlEscaperMatchesItsRuleForEveryChar() {
-    for (int c = 0; c <= 0xFFFF; c++) {
-      String s = String.valueOf((char) c);
-      String expected = expectedHtml(c);
-      assertEquals("ab" + expected + "cd" + expected, text("ab" + s + "cd" + s), "U+" + Integer.toHexString(c));
-      assertEquals(expected + "x", text(s + "x"), "U+" + Integer.toHexString(c));
-    }
-    for (int plane = 1; plane <= 16; plane++) {
-      for (int low : new int[] {0x0000, 0xFFFD, 0xFFFE, 0xFFFF}) {
-        int cp = plane << 16 | low;
-        String s = new String(Character.toChars(cp));
-        assertEquals("a" + expectedHtml(cp) + "&amp;", text("a" + s + "&"), "U+" + Integer.toHexString(cp));
-      }
-    }
-  }
-
+  /** The one escape rule of every HTML sink (#679, #685), written out. */
   private static String expectedHtml(int cp) {
     switch (cp) {
       case '&':

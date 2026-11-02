@@ -24,26 +24,7 @@ public final class SafeHtml {
     return new SafeHtml(Escapers.escapeHtml(text == null ? "" : text));
   }
 
-  /**
-   * Cleans untrusted HTML, such as stored rich text, with {@link HtmlPolicy#BASIC}. The input is
-   * parsed and the output rebuilt, never copied through:
-   *
-   * <ul>
-   *   <li>Kept, without attributes: {@code p br hr h1}-{@code h6 b i em strong u s sub sup small
-   *       mark code pre blockquote ul ol li span div}.
-   *   <li>{@code a} keeps only an {@code href} that passes the URL attribute scheme check
-   *       ({@code http}, {@code https}, {@code mailto}, {@code tel} or relative) and then gets
-   *       {@code rel="nofollow noopener"}.
-   *   <li>Removed with their content: {@code script style iframe object embed template svg math
-   *       noscript textarea title xmp plaintext noembed noframes select}.
-   *   <li>Any other tag is removed and its text kept. Comments, doctypes, CDATA and every other
-   *       attribute ({@code on*}, {@code style}, {@code class}, {@code id}, ...) are removed.
-   * </ul>
-   *
-   * <p>Text is re-escaped as by {@link #escape}, and the output is balanced:
-   * every element is closed, and placed only where a browser keeps it as written (see
-   * {@link HtmlPolicy}). Malformed markup never fails. {@code null} gives {@link #EMPTY}.
-   */
+  /** Cleans untrusted HTML, such as stored rich text, with {@link HtmlPolicy#BASIC}; {@code null} gives {@link #EMPTY}. */
   public static SafeHtml sanitize(String html) {
     return sanitize(html, HtmlPolicy.BASIC);
   }

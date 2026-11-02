@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
  * <p>A {@code null} temporal formats as {@code null} (renders as nothing). The leading {@link
  * Locale} parameter of {@link #format} is the render locale ({@code RenderContext.locale()}),
  * supplied by the compiler, so month and day names follow it, as in Thymeleaf. {@link Locale#ROOT}
- * (no locale, as in {@code RenderContext.empty()}) formats them in English.
+ * (no locale, as in {@code RenderContext.defaults()}) formats them in English.
  */
 @TemplateFunctions("temporals")
 public final class Temporals {
