@@ -49,6 +49,9 @@
          explicit managed entries below win over imported BOMs in every child module. -->
     <tomcat.version>11.0.27</tomcat.version>
     <jackson.version>3.1.8</jackson.version>
+    <!-- CI shards (.chainguard/ci/maven.yaml) skip one surefire execution each; local runs skip none. -->
+    <tessera.skipDefaultTests>false</tessera.skipDefaultTests>
+    <tessera.skipRelease8>false</tessera.skipRelease8>
   </properties>
 
   <dependencyManagement>
@@ -163,6 +166,14 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
           <version>3.6.0</version>
+          <executions>
+            <execution>
+              <id>default-test</id>
+              <configuration>
+                <skip>${tessera.skipDefaultTests}</skip>
+              </configuration>
+            </execution>
+          </executions>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>

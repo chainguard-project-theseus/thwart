@@ -8,12 +8,34 @@ environment:
     LANG: C.UTF-8
     CI: "true"
     MAVEN_OPTS: -Djava.io.tmpdir=/var/tmp
+# mvn -B verify in three shards that together run each test once (#697). Maven 3.9 prepends
+# MAVEN_ARGS to the command line. Separate checks, not one foreach: Checks refuses a change that
+# turns an existing check into foreach instances as narrowing its own selection.
 checks:
   verify:
-    description: Builds and runs all tests with mvn -B verify.
+    description: Runtime and compiler tests at Java 21, and the compiler's ShadedJarIT.
     trigger: [presubmit, postsubmit]
     resources: medium
     timeout: 20m
     network:
       egress: [repo.maven.apache.org, repo1.maven.org]
+    vars: {MAVEN_ARGS: "-pl tessera-compiler -am -Dtessera.skipRelease8=true"}
+    cmd: [mvn, -B, -ntp, verify]
+  verify-release8:
+    description: The compiler's template tests again with generated code compiled at javac release 8.
+    trigger: [presubmit, postsubmit]
+    resources: medium
+    timeout: 20m
+    network:
+      egress: [repo.maven.apache.org, repo1.maven.org]
+    vars: {MAVEN_ARGS: "-pl tessera-compiler -am -Dtessera.skipDefaultTests=true -DskipITs"}
+    cmd: [mvn, -B, -ntp, verify]
+  verify-rest:
+    description: Unit and integration tests of every module but the runtime, compiler and benchmarks (smoke).
+    trigger: [presubmit, postsubmit]
+    resources: medium
+    timeout: 20m
+    network:
+      egress: [repo.maven.apache.org, repo1.maven.org]
+    vars: {MAVEN_ARGS: "-Dtessera.skipRelease8=true -Dtest=!dev/tessera/compiler/**,!dev/tessera/runtime/**,!dev/tessera/benchmarks/** -Dsurefire.failIfNoSpecifiedTests=false -Dit.test=!dev/tessera/compiler/** -Dit.failIfNoSpecifiedTests=false"}
     cmd: [mvn, -B, -ntp, verify]
