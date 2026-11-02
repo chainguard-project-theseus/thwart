@@ -1,7 +1,6 @@
 package dev.tessera.spring.context;
 
 import dev.tessera.runtime.DefaultLinks;
-import dev.tessera.runtime.Links;
 import dev.tessera.runtime.Messages;
 import dev.tessera.runtime.RenderContext;
 import dev.tessera.spring.CspNonce;
@@ -36,7 +35,7 @@ public final class SpringRenderContexts {
     return new RenderContext(
         locale,
         messages(requestContext.getMessageSource(), locale),
-        links(new DefaultLinks(request.getContextPath()), response),
+        new DefaultLinks(request.getContextPath(), response::encodeURL),
         new SpringForms(requestContext, model, request),
         CspNonce.get(request));
   }
@@ -50,10 +49,5 @@ public final class SpringRenderContexts {
         return "??" + key + "_" + locale + "??";
       }
     };
-  }
-
-  /** Passes every link built by {@code delegate} through {@code response.encodeURL}. */
-  static Links links(Links delegate, HttpServletResponse response) {
-    return (path, names, values) -> response.encodeURL(delegate.build(path, names, values));
   }
 }
