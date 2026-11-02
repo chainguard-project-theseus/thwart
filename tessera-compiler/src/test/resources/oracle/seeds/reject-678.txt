@@ -84,3 +84,18 @@
 ====
 # name: x755-data-action
 <a href="#" data-action="save">x</a>
+====
+# Resource URLs (#756): same-origin paths with no query parameters, so the profile rejects another
+# origin and a computed query. A path variable stays accepted.
+====
+# name: u756-script-query
+<script t:src="@{/x(cb=${s})}"></script>
+====
+# name: u756-script-protocol-relative
+<script t:src="@{//h/x.js}"></script>
+====
+# name: u756-script-absolute
+<script t:src="@{https://h/x.js}"></script>
+====
+# name: u756-script-path-variable
+<script t:src="@{/js/{v}/app.js(v=${s})}"></script>

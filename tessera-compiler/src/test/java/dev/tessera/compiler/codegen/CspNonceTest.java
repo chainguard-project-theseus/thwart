@@ -99,7 +99,7 @@ class CspNonceTest {
             .template(
                 "fragments/scripts.html",
                 "<div " + NS + "><script t:fragment=\"boot\">boot();</script>"
-                    + "<t:block t:fragment=\"assets(String v)\"><style>p{}</style><script t:src=\"@{/s.js(v=${v})}\"></script></t:block>"
+                    + "<t:block t:fragment=\"assets(String v)\"><style>p{}</style><script t:src=\"@{/s/{v}.js(v=${v})}\"></script></t:block>"
                     + "<section t:fragment=\"card(Fragment content)\"><div t:replace=\"${content}\">c</div></section></div>")
             .template(
                 "page.html",

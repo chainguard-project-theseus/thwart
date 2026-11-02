@@ -428,3 +428,7 @@ x755-onclick                 -    PROFILE  # #755: a static on* handler; the ver
 x755-javascript-url          -    PROFILE  # #755: a static javascript: URL; the verifier has no rule for it; hole not emitted
 x755-hash-href               -    ACCEPT
 x755-data-action             -    ACCEPT
+u756-script-query            -    PROFILE  # #756: a resource URL with a query parameter; the verifier has no rule for it; hole not emitted
+u756-script-protocol-relative  -  PROFILE  # #756: a resource URL from another origin; the verifier has no rule for it; hole not emitted
+u756-script-absolute         -    PROFILE  # #756: a resource URL from another origin; the verifier has no rule for it; hole not emitted
+u756-script-path-variable    -    ACCEPT
