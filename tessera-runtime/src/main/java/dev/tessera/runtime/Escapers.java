@@ -149,8 +149,7 @@ public final class Escapers {
         sb.append(c);
       }
     }
-    if (sb.length() == urlStart || sb.charAt(urlStart) != '/'
-        || (sb.length() > urlStart + 1 && sb.charAt(urlStart + 1) == '/')) {
+    if (!isSameOriginPath(sb.substring(urlStart))) {
       throw new IllegalArgumentException("refresh URL must be a same-origin path starting with a single '/'");
     }
     escapeHtml(out, sb.toString());
@@ -173,8 +172,22 @@ public final class Escapers {
     }
   }
 
-  /** How far from the decimal point a {@link BigDecimal} message argument may reach; see {@link #messageArgs}. */
-  static final int MAX_MESSAGE_NUMBER_DIGITS = 10000;
+  /** How far from the decimal point a formatted {@link BigDecimal} may reach; see {@link #messageArgs}. */
+  static final int MAX_NUMBER_DIGITS = 10000;
+
+  /**
+   * {@code d}, unless it is nonzero and reaches more than 10,000 places from the decimal point
+   * either way ({@code precision() - scale()} above it, or at or below its negation),
+   * which throws {@link IllegalArgumentException} with {@code message}. The rationale is on
+   * {@link #messageArgs}; {@code numbers.format*} uses the same bound.
+   */
+  public static BigDecimal requireBoundedMagnitude(BigDecimal d, String message) {
+    long magnitude = (long) d.precision() - d.scale();
+    if (d.signum() != 0 && (magnitude > MAX_NUMBER_DIGITS || magnitude <= -MAX_NUMBER_DIGITS)) {
+      throw new IllegalArgumentException(message);
+    }
+    return d;
+  }
 
   /**
    * Checks the arguments of a message {@code #{key(args)}} before they are formatted, in every form
@@ -205,13 +218,8 @@ public final class Escapers {
         requireJdkNumber((Number) a);
       }
       if (a instanceof BigDecimal) {
-        BigDecimal d = (BigDecimal) a;
-        long magnitude = (long) d.precision() - d.scale();
-        if (d.signum() != 0
-            && (magnitude > MAX_MESSAGE_NUMBER_DIGITS || magnitude <= -MAX_MESSAGE_NUMBER_DIGITS)) {
-          throw new IllegalArgumentException(
-              "a message argument has a decimal exponent beyond " + MAX_MESSAGE_NUMBER_DIGITS + " either way");
-        }
+        requireBoundedMagnitude(
+            (BigDecimal) a, "a message argument has a decimal exponent beyond " + MAX_NUMBER_DIGITS + " either way");
       }
     }
     return args;
@@ -505,9 +513,7 @@ public final class Escapers {
    * leading C0 controls and spaces are stripped and tab/CR/LF are ignored; any {@code :} before a
    * {@code / ? #} is a scheme, so an absolute URL to the page's own host is not same-origin. The
    * value is checked as {@link #url} writes it, so one that fails the scheme check (written as
-   * {@code about:invalid#tessera}) is not same-origin. Used by the compiler for a static form action
-   * that may get the CSRF token (#285), by the sanitizer for a same-origin image, and by
-   * {@link #sameOriginLink}.
+   * {@code about:invalid#tessera}) is not same-origin.
    */
   public static boolean isSameOriginUrl(Object value) {
     if (value == null) {
@@ -541,6 +547,11 @@ public final class Escapers {
     return true;
   }
 
+  /** Whether {@code url} is a same-origin path: it starts with one {@code /} and {@link #isSameOriginUrl}. */
+  static boolean isSameOriginPath(String url) {
+    return url != null && url.startsWith("/") && isSameOriginUrl(url);
+  }
+
   /**
    * {@code url}, a link built by {@link Links} for a slot that must stay on the page's origin (a
    * {@code <base href>}, a refresh URL,
@@ -552,7 +563,7 @@ public final class Escapers {
    * render with an {@link IllegalStateException} rather than leave the origin.
    */
   public static String sameOriginLink(String url) {
-    if (url == null || !url.startsWith("/") || !isSameOriginUrl(url)) {
+    if (!isSameOriginPath(url)) {
       throw new IllegalStateException(
           "link must be a same-origin path starting with a single '/' (the Links implementation or the"
               + " context path produced " + (url == null ? "null" : "'" + url + "'") + ")");
@@ -622,9 +633,8 @@ public final class Escapers {
    * literal and nothing else: every byte outside {@code A-Z a-z 0-9 . _ ~ / -} is percent-encoded
    * (UTF-8), except a {@code %} that already starts a {@code %XX}, and the second {@code -} of
    * {@code --} (a decrement, which writes) becomes {@code %2D}. Path variables come from data, and a
-   * collection fills one with {@code ,}. The URL must first pass {@link #sameOriginLink}, and the
-   * result must start with a single {@code /}; otherwise (the Links implementation or the context
-   * path produced something else) this throws.
+   * collection fills one with {@code ,}. The URL must first pass {@link #sameOriginLink}, which
+   * throws otherwise; the encoding keeps its single leading {@code /}.
    */
   public static String neutralPath(String url) {
     if (url == null) {
@@ -634,7 +644,7 @@ public final class Escapers {
     StringBuilder sb = new StringBuilder(bytes.length + 8);
     for (int i = 0; i < bytes.length; i++) {
       int b = bytes[i] & 0xFF;
-      boolean escape = b == '%' && i + 2 < bytes.length && isHexDigit(bytes[i + 1]) && isHexDigit(bytes[i + 2]);
+      boolean escape = b == '%' && i + 2 < bytes.length && Ascii.isHexDigit(bytes[i + 1]) && Ascii.isHexDigit(bytes[i + 2]);
       if (escape || (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z') || (b >= '0' && b <= '9')
           || b == '.' || b == '_' || b == '~' || b == '/'
           || (b == '-' && (sb.length() == 0 || sb.charAt(sb.length() - 1) != '-'))) {
@@ -643,16 +653,7 @@ public final class Escapers {
         UrlEncoding.percent(sb, b);
       }
     }
-    if (sb.length() == 0 || sb.charAt(0) != '/' || (sb.length() > 1 && sb.charAt(1) == '/')) {
-      throw new IllegalStateException(
-          "link must be a same-origin path starting with a single '/' (the Links implementation or the"
-              + " context path produced '" + url + "')");
-    }
     return sb.toString();
-  }
-
-  private static boolean isHexDigit(byte b) {
-    return (b >= '0' && b <= '9') || (b >= 'A' && b <= 'F') || (b >= 'a' && b <= 'f');
   }
 
   /** {@code s} if it {@linkplain #isAllowedUrl passes the scheme check}, else {@link #INVALID_URL}. */

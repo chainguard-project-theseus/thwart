@@ -32,34 +32,40 @@ import java.util.Set;
  * and everything still open is closed at the end. Nothing is implied, closed early or moved, so a
  * spec parser reads the output, without a parse error, as exactly the tree written; the sanitizer
  * doesn't model the tree builder. Code points the parser reports as errors become U+FFFD.
+ *
+ * <p>Text, in elements and in kept text attributes, is rebuilt and escaped ({@link Escapers#appendHtml}):
+ * known character references are decoded and re-escaped, and {@link #HTML4_NAMES} references such
+ * as {@code &eacute;} are kept as they are. Any other {@code &} is escaped, so {@code &notit;} or
+ * {@code &X;} comes out as {@code &amp;notit;}: copied as written, the parser would report a parse
+ * error for it (a legacy name without its ';', or an unknown name; #592).
  */
 final class HtmlSanitizer {
   /** Kept elements beyond this nesting depth are unwrapped. */
   private static final int MAX_DEPTH = 100;
 
-  private static final Set<String> VOID = HtmlPolicy.unmodifiable("br", "hr", "img");
+  private static final Set<String> VOID = Ascii.set("br", "hr", "img");
 
   /** Phrasing elements: may appear wherever phrasing content may. */
   private static final Set<String> PHRASING =
-      HtmlPolicy.unmodifiable("a", "b", "i", "em", "strong", "u", "s", "del", "ins", "sub", "sup", "small", "mark",
+      Ascii.set("a", "b", "i", "em", "strong", "u", "s", "del", "ins", "sub", "sup", "small", "mark",
           "code", "kbd", "span", "br", "img");
 
   /** Flow elements that are not phrasing (and are not {@code li}). */
   private static final Set<String> BLOCK =
-      HtmlPolicy.unmodifiable("p", "h1", "h2", "h3", "h4", "h5", "h6", "pre", "blockquote", "ul", "ol", "div", "hr");
+      Ascii.set("p", "h1", "h2", "h3", "h4", "h5", "h6", "pre", "blockquote", "ul", "ol", "div", "hr");
 
   /**
    * Formatting elements, never inside an open element of their own name: that rules out the
    * parser's {@code a}-in-{@code a} error and its Noah's Ark clause (#329).
    */
-  private static final Set<String> FORMATTING = HtmlPolicy.unmodifiable("a", "b", "code", "em", "i", "s", "small", "strong", "u");
+  private static final Set<String> FORMATTING = Ascii.set("a", "b", "code", "em", "i", "s", "small", "strong", "u");
 
   /** Raw text and RCDATA elements: skipped, content included, up to their end tag. */
   private static final Set<String> RAW_TEXT =
-      HtmlPolicy.unmodifiable("script", "style", "textarea", "title", "xmp", "iframe", "noembed", "noframes", "noscript");
+      Ascii.set("script", "style", "textarea", "title", "xmp", "iframe", "noembed", "noframes", "noscript");
 
   /** Dropped with everything inside, found by counting nested tags of the same name. */
-  private static final Set<String> DROP_CONTENT = HtmlPolicy.unmodifiable("svg", "math", "object", "template", "select");
+  private static final Set<String> DROP_CONTENT = Ascii.set("svg", "math", "object", "template", "select");
 
   /**
    * The spec's numeric character reference table for U+0080..U+009F (windows-1252), indexed by
@@ -94,7 +100,7 @@ final class HtmlSanitizer {
    * its ';', each is a complete name in the spec's table, so the parser reads it without an error
    * and the sanitizer keeps it as written; any other name not in {@link #ENTITIES} is escaped (#592).
    */
-  private static final Set<String> HTML4_NAMES = HtmlPolicy.unmodifiable(
+  private static final Set<String> HTML4_NAMES = Ascii.set(
       "Aacute", "aacute", "Acirc", "acirc", "acute", "AElig", "aelig", "Agrave", "agrave", "alefsym", "Alpha", "alpha",
       "amp", "and", "ang", "Aring", "aring", "asymp", "Atilde", "atilde", "Auml", "auml", "bdquo", "Beta", "beta",
       "brvbar", "bull", "cap", "Ccedil", "ccedil", "cedil", "cent", "Chi", "chi", "circ", "clubs", "cong", "copy",
@@ -180,7 +186,7 @@ final class HtmlSanitizer {
     }
     if (next == '/') {
       char c = pos + 2 < n ? s.charAt(pos + 2) : 0;
-      if (HtmlPolicy.isAsciiLetter(c)) {
+      if (Ascii.isLetter(c)) {
         pos += 2;
         String name = tagName();
         if (attributes() != null) {
@@ -195,7 +201,7 @@ final class HtmlSanitizer {
       }
       return true;
     }
-    if (!HtmlPolicy.isAsciiLetter(next)) {
+    if (!Ascii.isLetter(next)) {
       return false;
     }
     pos++;
@@ -297,10 +303,10 @@ final class HtmlSanitizer {
     if (allowed.contains("id")) {
       String id = attrs.get("id");
       if (id != null) {
-        id = HtmlPolicy.stripWhitespace(decode(id));
+        id = Ascii.stripWhitespace(decode(id));
         if (HtmlPolicy.isClassToken(id)) {
           // an id that already has the prefix keeps it, so sanitizing twice changes nothing
-          sb.append(" id=\"").append(id.startsWith(HtmlPolicy.DEFAULT_ID_PREFIX) ? "" : HtmlPolicy.DEFAULT_ID_PREFIX).append(id).append('"');
+          sb.append(" id=\"").append(id.startsWith(HtmlPolicy.ID_PREFIX) ? "" : HtmlPolicy.ID_PREFIX).append(id).append('"');
         }
       }
     }
@@ -344,7 +350,7 @@ final class HtmlSanitizer {
     if (link != null) {
       sb.append(policy.rel);
       String target = policy.linkTarget ? attrs.get("target") : null;
-      if (target != null && HtmlPolicy.lower(HtmlPolicy.stripWhitespace(decode(target))).equals("_blank")) {
+      if (target != null && Ascii.lower(Ascii.stripWhitespace(decode(target))).equals("_blank")) {
         sb.append(" target=\"_blank\"");
       }
     }
@@ -364,45 +370,24 @@ final class HtmlSanitizer {
     if (!Escapers.isAllowedUrl(url)) {
       return null;
     }
-    if (image && !(url.startsWith("/") && Escapers.isSameOriginUrl(url))) {
+    if (image && !Escapers.isSameOriginPath(url)) {
       return null; // not a same-origin path: '/' not followed by '/' or '\' (tab, CR, LF ignored)
     }
     if (!image && policy.attributes.contains("id") && url.length() > 1 && url.charAt(0) == '#'
-        && HtmlPolicy.isClassToken(url.substring(1)) && !url.startsWith(HtmlPolicy.DEFAULT_ID_PREFIX, 1)) {
-      url = "#" + HtmlPolicy.DEFAULT_ID_PREFIX + url.substring(1); // follow the prefixed id
+        && HtmlPolicy.isClassToken(url.substring(1)) && !url.startsWith(HtmlPolicy.ID_PREFIX, 1)) {
+      url = "#" + HtmlPolicy.ID_PREFIX + url.substring(1); // follow the prefixed id
     }
     return Escapers.escapeHtml(crAsLf(url)); // after the checks: U+FFFD is inert in a URL
   }
 
-  /**
-   * Writes a text attribute the policy allows. Known references are decoded and re-escaped, and
-   * {@link #HTML4_NAMES} references are kept; any other {@code &} is escaped, since an unknown
-   * name such as {@code &X;} is a parse error in a value too (#592).
-   */
+  /** Writes a text attribute the policy allows, as text (see the class javadoc). */
   private void textAttribute(StringBuilder sb, String name, Map<String, String> attrs) {
     String raw = policy.attributes.contains(name) ? attrs.get(name) : null;
     if (raw == null) {
       return;
     }
     sb.append(' ').append(name).append("=\"");
-    StringBuilder pending = new StringBuilder(raw.length());
-    int i = 0;
-    while (i < raw.length()) {
-      char c = raw.charAt(i);
-      int end = c == '&' ? reference(raw, i, raw.length(), pending) : -1;
-      if (end > 0) {
-        i = end;
-      } else if (c == '&' && (end = html4Named(raw, i, raw.length())) > 0) {
-        Escapers.appendHtml(sb, crAsLf(pending.toString()));
-        pending.setLength(0);
-        sb.append(raw, i, end);
-        i = end;
-      } else {
-        pending.append(c);
-        i++;
-      }
-    }
-    Escapers.appendHtml(sb, crAsLf(pending.toString()));
+    appendText(sb, raw, 0, raw.length());
     sb.append('"');
   }
 
@@ -412,7 +397,7 @@ final class HtmlSanitizer {
     if (raw == null) {
       return;
     }
-    String v = HtmlPolicy.stripWhitespace(decode(raw));
+    String v = Ascii.stripWhitespace(decode(raw));
     int start = signed && v.startsWith("-") ? 1 : 0;
     if (v.length() == start || v.length() - start > digits) {
       return;
@@ -431,10 +416,10 @@ final class HtmlSanitizer {
   /** Lower-cased (ASCII) tag name at {@code pos}, which is a letter. */
   private String tagName() {
     int start = pos;
-    while (pos < n && !HtmlPolicy.isWhitespace(s.charAt(pos)) && s.charAt(pos) != '/' && s.charAt(pos) != '>') {
+    while (pos < n && !Ascii.isWhitespace(s.charAt(pos)) && s.charAt(pos) != '/' && s.charAt(pos) != '>') {
       pos++;
     }
-    return HtmlPolicy.lower(s.substring(start, pos));
+    return Ascii.lower(s.substring(start, pos));
   }
 
   /**
@@ -446,7 +431,7 @@ final class HtmlSanitizer {
     Map<String, String> attrs = new HashMap<>();
     selfClosing = false;
     while (true) {
-      while (pos < n && (HtmlPolicy.isWhitespace(s.charAt(pos)) || s.charAt(pos) == '/')) {
+      while (pos < n && (Ascii.isWhitespace(s.charAt(pos)) || s.charAt(pos) == '/')) {
         selfClosing = s.charAt(pos) == '/' && pos + 1 < n && s.charAt(pos + 1) == '>';
         pos++;
       }
@@ -458,17 +443,17 @@ final class HtmlSanitizer {
         return attrs;
       }
       int start = pos++; // the first character may be '='
-      while (pos < n && !HtmlPolicy.isWhitespace(s.charAt(pos)) && "/>=".indexOf(s.charAt(pos)) < 0) {
+      while (pos < n && !Ascii.isWhitespace(s.charAt(pos)) && "/>=".indexOf(s.charAt(pos)) < 0) {
         pos++;
       }
-      String name = HtmlPolicy.lower(s.substring(start, pos));
-      while (pos < n && HtmlPolicy.isWhitespace(s.charAt(pos))) {
+      String name = Ascii.lower(s.substring(start, pos));
+      while (pos < n && Ascii.isWhitespace(s.charAt(pos))) {
         pos++;
       }
       String value = "";
       if (pos < n && s.charAt(pos) == '=') {
         pos++;
-        while (pos < n && HtmlPolicy.isWhitespace(s.charAt(pos))) {
+        while (pos < n && Ascii.isWhitespace(s.charAt(pos))) {
           pos++;
         }
         if (pos >= n) {
@@ -485,7 +470,7 @@ final class HtmlSanitizer {
           pos = end + 1;
         } else {
           int vs = pos;
-          while (pos < n && !HtmlPolicy.isWhitespace(s.charAt(pos)) && s.charAt(pos) != '>') {
+          while (pos < n && !Ascii.isWhitespace(s.charAt(pos)) && s.charAt(pos) != '>') {
             pos++;
           }
           value = s.substring(vs, pos);
@@ -538,8 +523,8 @@ final class HtmlSanitizer {
       }
       int end = lt + 2 + name.length();
       if (end <= n
-          && HtmlPolicy.lower(s.substring(lt + 2, end)).equals(name)
-          && (end == n || HtmlPolicy.isWhitespace(s.charAt(end)) || s.charAt(end) == '/' || s.charAt(end) == '>')) {
+          && Ascii.lower(s.substring(lt + 2, end)).equals(name)
+          && (end == n || Ascii.isWhitespace(s.charAt(end)) || s.charAt(end) == '/' || s.charAt(end) == '>')) {
         skipPast('>', end);
         return;
       }
@@ -550,48 +535,38 @@ final class HtmlSanitizer {
   // ---------------------------------------------------------------------------------------------
   // Text and character references
 
-  /**
-   * Writes {@code s[from, to)} as escaped text. Known character references are decoded and
-   * re-escaped, and {@link #HTML4_NAMES} references such as {@code &eacute;} are kept as they are.
-   * Any other {@code &} is escaped, so a named reference such as {@code &notit;} or {@code &X;}
-   * comes out as {@code &amp;notit;}: copied as written, the parser would report a parse error for
-   * it (a legacy name such as {@code &not} without its ';', or an unknown name; #592).
-   */
+  /** Writes {@code s[from, to)} as element text. */
   private void text(int from, int to) {
     if (dropping != null || from >= to) {
       return;
     }
     int start = out.length();
-    writeText(from, to);
+    appendText(out, s, from, to);
     if (start == afterPre && out.length() > start && out.charAt(start) == '\n') {
       out.insert(start, '\n'); // the parser drops one newline right after <pre>
     }
   }
 
-  private void writeText(int from, int to) {
+  /** Appends {@code s[from, to)} to {@code sb} as text (see the class javadoc). */
+  private static void appendText(StringBuilder sb, String s, int from, int to) {
     StringBuilder pending = new StringBuilder(to - from);
     int i = from;
     while (i < to) {
       char c = s.charAt(i);
-      if (c != '&') {
-        pending.append(c);
-        i++;
-        continue;
-      }
-      int end = reference(s, i, to, pending);
+      int end = c == '&' ? reference(s, i, to, pending) : -1;
       if (end > 0) {
         i = end;
-      } else if ((end = html4Named(s, i, to)) > 0) {
-        Escapers.appendHtml(out, crAsLf(pending.toString()));
+      } else if (c == '&' && (end = html4Named(s, i, to)) > 0) {
+        Escapers.appendHtml(sb, crAsLf(pending.toString()));
         pending.setLength(0);
-        out.append(s, i, end);
+        sb.append(s, i, end);
         i = end;
       } else {
-        pending.append('&');
+        pending.append(c);
         i++;
       }
     }
-    Escapers.appendHtml(out, crAsLf(pending.toString()));
+    Escapers.appendHtml(sb, crAsLf(pending.toString()));
   }
 
   /**
@@ -638,7 +613,7 @@ final class HtmlSanitizer {
       int start = j;
       int cp = 0;
       for (; j < to; j++) {
-        int d = digit(s.charAt(j));
+        int d = Ascii.hexValue(s.charAt(j));
         if (d < 0 || d >= (hex ? 16 : 10)) {
           break;
         }
@@ -658,7 +633,7 @@ final class HtmlSanitizer {
       sb.appendCodePoint(cp);
       return j;
     }
-    int end = unknownNamed(s, i, to);
+    int end = namedReferenceEnd(s, i, to);
     if (end < 0) {
       return -1;
     }
@@ -672,32 +647,19 @@ final class HtmlSanitizer {
 
   /** The index after an {@link #HTML4_NAMES} reference with its ';' at i, or -1. */
   private static int html4Named(String s, int i, int to) {
-    int end = unknownNamed(s, i, to);
+    int end = namedReferenceEnd(s, i, to);
     return end > 0 && HTML4_NAMES.contains(s.substring(i + 1, end - 1)) ? end : -1;
   }
 
   /** The index after a well-formed named reference {@code &[A-Za-z][A-Za-z0-9]*;} at i, or -1. */
-  private static int unknownNamed(String s, int i, int to) {
+  private static int namedReferenceEnd(String s, int i, int to) {
     int j = i + 1;
-    if (j >= to || !HtmlPolicy.isAsciiLetter(s.charAt(j))) {
+    if (j >= to || !Ascii.isLetter(s.charAt(j))) {
       return -1;
     }
-    while (j < to && (HtmlPolicy.isAsciiLetter(s.charAt(j)) || (s.charAt(j) >= '0' && s.charAt(j) <= '9'))) {
+    while (j < to && (Ascii.isLetter(s.charAt(j)) || (s.charAt(j) >= '0' && s.charAt(j) <= '9'))) {
       j++;
     }
     return j < to && s.charAt(j) == ';' ? j + 1 : -1;
-  }
-
-  // ---------------------------------------------------------------------------------------------
-
-  /** ASCII hex digit value, or -1. */
-  private static int digit(char c) {
-    if (c >= '0' && c <= '9') {
-      return c - '0';
-    }
-    if (c >= 'a' && c <= 'f') {
-      return c - 'a' + 10;
-    }
-    return c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
   }
 }

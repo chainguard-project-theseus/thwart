@@ -190,7 +190,7 @@ class FlowProducerTest {
     }
     assertFlow("concat", SafeHtml.concat(
         SafeHtml.escape("a <b> & {{c}}"), SafeHtml.sanitize("<br>"), SafeHtml.sanitize("<p>x<ul><li>y"),
-        HtmlPolicy.RICH.sanitize("<table><tr><td>z")).html());
+        SafeHtml.sanitize("<table><tr><td>z", HtmlPolicy.RICH)).html());
   }
 
   /**

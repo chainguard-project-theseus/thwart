@@ -18,7 +18,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 class HtmlPolicyTest {
 
   private static String rich(String html) {
-    return HtmlPolicy.RICH.sanitize(html).html();
+    return SafeHtml.sanitize(html, HtmlPolicy.RICH).html();
   }
 
   private static String basic(String html) {
@@ -76,7 +76,7 @@ class HtmlPolicyTest {
     assertEquals("<p>t</p>", Html.sanitize(in).html());
     assertEquals("<p class=\"language-x\"><img src=\"/a.png\">t</p>", Html.sanitizeRich(in).html());
     assertSame(SafeHtml.EMPTY, Html.sanitizeRich(null));
-    assertSame(SafeHtml.EMPTY, HtmlPolicy.RICH.sanitize(null));
+    assertSame(SafeHtml.EMPTY, SafeHtml.sanitize(null, HtmlPolicy.RICH));
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -125,9 +125,9 @@ class HtmlPolicyTest {
     for (HtmlPolicy policy : new HtmlPolicy[] {HtmlPolicy.RICH, MAXIMAL}) {
       for (String src : new String[] {"https://x/a.png", "http://cdn.example/a.png", "//cdn.example/a.png", "a.png",
           "data:image/png;base64,iVBORw0KGgo=", "DATA:image/PNG;base64,iVBOR", "data:image/gif;base64,R0lGOD=="}) {
-        assertEquals("<p>x</p>", policy.sanitize("<p><img src=\"" + src + "\">x</p>").html(), src);
+        assertEquals("<p>x</p>", SafeHtml.sanitize("<p><img src=\"" + src + "\">x</p>", policy).html(), src);
       }
-      assertEquals("<img src=\"/a.png\">", policy.sanitize("<img src=\"/a.png\">").html());
+      assertEquals("<img src=\"/a.png\">", SafeHtml.sanitize("<img src=\"/a.png\">", policy).html());
     }
   }
 
@@ -136,9 +136,9 @@ class HtmlPolicyTest {
     // A browser folds only A-Z. toLowerCase(Locale.ROOT) also maps U+212A (Kelvin) to k and U+0130
     // to i plus a combining dot, so a value a browser reads as something else must not pass as a
     // keyword here.
-    assertEquals("k", HtmlPolicy.lower("K"));
-    assertEquals("\u212a", HtmlPolicy.lower("\u212a"));
-    assertEquals("\u0130", HtmlPolicy.lower("\u0130"));
+    assertEquals("k", Ascii.lower("K"));
+    assertEquals("\u212a", Ascii.lower("\u212a"));
+    assertEquals("\u0130", Ascii.lower("\u0130"));
     // "_blan" and U+212A names a browsing context; it is not _blank, so the target is dropped
     assertEquals("<a href=\"/x\" rel=\"nofollow noopener\">x</a>", rich("<a href=\"/x\" target=\"_blan\u212a\">x</a>"));
     assertEquals("<a href=\"/x\" rel=\"nofollow noopener\">x</a>", rich("<a href=\"/x\" target=\"_blan&#x212a;\">x</a>"));
@@ -159,15 +159,15 @@ class HtmlPolicyTest {
     assertEquals("<p>x</p>", rich("<p class=\"note\">x</p>"));
     HtmlPolicy any = HtmlPolicy.builder().allowElements("p").allowClasses(EVERY_CLASS).build();
     // Only tokens of [A-Za-z0-9_-] are kept: ':' ';' '{' never are
-    assertEquals("<p class=\"a b-c d_e\">x</p>", any.sanitize("<p class=\"a ng-init:x; b-c {{x}} d_e\">x</p>").html());
-    assertEquals("<p>x</p>", any.sanitize("<p class=\"ng-init: constructor.constructor('alert(1)')()\">x</p>").html());
+    assertEquals("<p class=\"a b-c d_e\">x</p>", SafeHtml.sanitize("<p class=\"a ng-init:x; b-c {{x}} d_e\">x</p>", any).html());
+    assertEquals("<p>x</p>", SafeHtml.sanitize("<p class=\"ng-init: constructor.constructor('alert(1)')()\">x</p>", any).html());
     // #586: ng-like tokens of that form are kept like any other (AngularJS is not supported, guide §5)
     assertEquals("<p class=\"ng-bind NG-bind ngBind data-ng-init x_ng-if angular\">x</p>",
-        any.sanitize("<p class=\"ng-bind NG-bind ngBind data-ng-init x_ng-if angular\">x</p>").html());
-    assertEquals("<p class=\"ng-x\">x</p>", HtmlPolicy.builder().allowElements("p").allowClasses("ng-*").build()
-        .sanitize("<p class=\"ng-x other\">x</p>").html());
+        SafeHtml.sanitize("<p class=\"ng-bind NG-bind ngBind data-ng-init x_ng-if angular\">x</p>", any).html());
+    assertEquals("<p class=\"ng-x\">x</p>", SafeHtml.sanitize("<p class=\"ng-x other\">x</p>",
+        HtmlPolicy.builder().allowElements("p").allowClasses("ng-*").build()).html());
     HtmlPolicy some = HtmlPolicy.builder().allowElements("p").allowClasses("note", "lang-*").build();
-    assertEquals("<p class=\"note lang-java\">x</p>", some.sanitize("<p class=\"note lang-java hidden fixed inset-0\">x</p>").html());
+    assertEquals("<p class=\"note lang-java\">x</p>", SafeHtml.sanitize("<p class=\"note lang-java hidden fixed inset-0\">x</p>", some).html());
     assertEquals("<p>x</p>", basic("<p class=\"note\">x</p>"));
   }
 
@@ -186,7 +186,7 @@ class HtmlPolicyTest {
     for (HtmlPolicy policy : new HtmlPolicy[] {MAXIMAL,
         HtmlPolicy.builder().allowElements("p", "a").allowAttributes("id").linkRel().build()}) {
       assertEquals("<p id=\"user-content-x\"><a href=\"#user-content-x\">y</a></p>",
-          policy.sanitize("<p id=x><a href=#x>y</a></p>").html().replaceAll(" rel=\"[^\"]*\"", ""));
+          SafeHtml.sanitize("<p id=x><a href=#x>y</a></p>", policy).html().replaceAll(" rel=\"[^\"]*\"", ""));
     }
     // without ids, fragment links stay as they are
     assertEquals("<a href=\"#a\" rel=\"nofollow noopener\">x</a>", basic("<a href=#a>x</a>"));
@@ -211,11 +211,11 @@ class HtmlPolicyTest {
     assertEquals("<a href=\"/x\" rel=\"nofollow noopener\">x</a>", rich("<a href=/x target=_top>x</a>"));
     assertEquals("<a href=\"/x\" rel=\"nofollow noopener\">x</a>", rich("<a href=/x target=\"evil\" rel=opener>x</a>"));
     HtmlPolicy own = HtmlPolicy.builder().allowElements("a").linkRel().build();
-    assertEquals("<a href=\"/x\">x</a>", own.sanitize("<a href=/x rel=opener>x</a>").html());
+    assertEquals("<a href=\"/x\">x</a>", SafeHtml.sanitize("<a href=/x rel=opener>x</a>", own).html());
     HtmlPolicy blank = HtmlPolicy.builder().allowElements("a").linkRel().allowLinkTarget().build();
-    assertEquals("<a href=\"/x\" rel=\"noopener\" target=\"_blank\">x</a>", blank.sanitize("<a href=/x target=_blank>x</a>").html());
+    assertEquals("<a href=\"/x\" rel=\"noopener\" target=\"_blank\">x</a>", SafeHtml.sanitize("<a href=/x target=_blank>x</a>", blank).html());
     HtmlPolicy ugc = HtmlPolicy.builder().allowElements("a").linkRel("ugc", "noreferrer").build();
-    assertEquals("<a href=\"/x\" rel=\"ugc noreferrer\">x</a>", ugc.sanitize("<a href=/x>x</a>").html());
+    assertEquals("<a href=\"/x\" rel=\"ugc noreferrer\">x</a>", SafeHtml.sanitize("<a href=/x>x</a>", ugc).html());
     assertEquals("<a>x</a>", rich("<a href=javascript:alert(1) target=_blank>x</a>"));
   }
 
@@ -254,7 +254,7 @@ class HtmlPolicyTest {
   @Test
   void anEmptyPolicyKeepsOnlyText() {
     HtmlPolicy none = HtmlPolicy.builder().build();
-    assertEquals("a &amp; b{{x}}", none.sanitize("<p>a &amp; <b>b</b>{{x}}</p><script>c</script>").html());
+    assertEquals("a &amp; b{{x}}", SafeHtml.sanitize("<p>a &amp; <b>b</b>{{x}}</p><script>c</script>", none).html());
   }
 
   // ---------------------------------------------------------------------------------------------
