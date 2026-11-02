@@ -76,8 +76,7 @@ class FlowProducerTest {
         HtmlPolicy.builder()
             .allowElements(HtmlPolicy.ELEMENTS.toArray(new String[0]))
             .allowAttributes(HtmlPolicy.ATTRIBUTES.toArray(new String[0]))
-            .allowClasses("*")
-            .allowRemoteImages()
+            .allowClasses(SanitizerBalanceTest.EVERY_CLASS)
             .allowLinkTarget()
             .build());
     POLICIES.put(

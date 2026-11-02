@@ -25,6 +25,22 @@ class HtmlPolicyTest {
     return SafeHtml.sanitize(html).html();
   }
 
+  /** One prefix per first character of a class token: every class token a policy can allow. */
+  private static final String[] EVERY_CLASS =
+      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-".chars()
+          .mapToObj(c -> (char) c + "*")
+          .toArray(String[]::new);
+
+  /** The widest policy the builder can make (#661). */
+  private static final HtmlPolicy MAXIMAL =
+      HtmlPolicy.builder()
+          .allowElements(HtmlPolicy.ELEMENTS.toArray(new String[0]))
+          .allowAttributes(HtmlPolicy.ATTRIBUTES.toArray(new String[0]))
+          .allowClasses(EVERY_CLASS)
+          .allowLinkTarget()
+          .linkRel(HtmlPolicy.REL_TOKENS.toArray(new String[0]))
+          .build();
+
   // ---------------------------------------------------------------------------------------------
   // RICH: what editor and Markdown output needs
 
@@ -87,7 +103,7 @@ class HtmlPolicyTest {
   void imagesNeedACheckedSource() {
     assertEquals("", rich("<img src=javascript:alert(1)>"));
     assertEquals("", rich("<img src=\"jav&#x09;ascript:alert(1)\">"));
-    assertEquals("", rich("<img src=\"data:image/png;base64,iVBOR\">")); // data: only if the policy allows
+    assertEquals("", rich("<img src=\"data:image/png;base64,iVBOR\">")); // never data: (#661)
     assertEquals("", rich("<img src=\"data:text/html,<script>alert(1)</script>\">"));
     assertEquals("", rich("<img alt=x>"));
     assertEquals("", rich("<img src=vbscript:x>"));
@@ -99,18 +115,20 @@ class HtmlPolicyTest {
       assertEquals("", rich("<img src=\"" + remote + "\">"), remote);
     }
     assertEquals("<img src=\"/a/b.png?x#y\">", rich("<img src=\"/a/b.png?x#y\">"));
-    HtmlPolicy remote = HtmlPolicy.builder().allowElements("img").allowRemoteImages().build();
-    assertEquals("<img src=\"https://cdn.example/a.png\">", remote.sanitize("<img src=\"https://cdn.example/a.png\">").html());
-    assertEquals("<img src=\"t.gif\">", remote.sanitize("<img src=t.gif>").html());
-    assertEquals("", remote.sanitize("<img src=javascript:alert(1)>").html());
-    assertEquals("", remote.sanitize("<img src=\"data:image/png;base64,iVBOR=\">").html());
-    HtmlPolicy data = HtmlPolicy.builder().allowElements("img").allowDataImages().build();
-    assertEquals("<img src=\"data:image/png;base64,iVBOR=\">", data.sanitize("<img src=\"data:image/png;base64,iVBOR=\">").html());
-    assertEquals("", data.sanitize("<img src=\"https://cdn.example/a.png\">").html()); // data images aren't remote images
-    assertEquals("", data.sanitize("<img src=\"data:image/svg+xml;base64,PHN2Zz4=\">").html());
-    assertEquals("<img src=\"DATA:image/PNG;base64,iVBOR\">", data.sanitize("<img src=\"DATA:image/PNG;base64,iVBOR\">").html());
-    assertEquals("", data.sanitize("<img src=\"data:image/png,<svg onload=alert(1)>\">").html());
-    assertEquals("", data.sanitize("<img src=\"data:image/png;base64,iV BOR\">").html());
+  }
+
+  @Test
+  void noPolicyKeepsRemoteOrDataImages() {
+    // #661: a remote image tracks every reader (IP, page, time) and can GET intranet URLs; a data:
+    // image is attacker-chosen content with no host the application can block. No policy keeps
+    // either, however wide.
+    for (HtmlPolicy policy : new HtmlPolicy[] {HtmlPolicy.RICH, MAXIMAL}) {
+      for (String src : new String[] {"https://x/a.png", "http://cdn.example/a.png", "//cdn.example/a.png", "a.png",
+          "data:image/png;base64,iVBORw0KGgo=", "DATA:image/PNG;base64,iVBOR", "data:image/gif;base64,R0lGOD=="}) {
+        assertEquals("<p>x</p>", policy.sanitize("<p><img src=\"" + src + "\">x</p>").html(), src);
+      }
+      assertEquals("<img src=\"/a.png\">", policy.sanitize("<img src=\"/a.png\">").html());
+    }
   }
 
   @Test
@@ -129,10 +147,6 @@ class HtmlPolicyTest {
     assertEquals(
         "<a href=\"/x\" rel=\"nofollow noopener\" target=\"_blank\">x</a>",
         rich("<a href=\"/x\" target=\" _blank\n\">x</a>"));
-    // Kelvin is not base64
-    HtmlPolicy data = HtmlPolicy.builder().allowElements("img").allowDataImages().build();
-    assertEquals("", data.sanitize("<img src=\"data:image/png;base64,iVBOR\u212a\">").html());
-    assertEquals("", data.sanitize("<img src=\"data:\u0130mage/png;base64,iVBOR\">").html());
     // names: an element or attribute spelled with Kelvin is a different, unknown name
     assertEquals("x", rich("<bloc\u212aquote>x</bloc\u212aquote>"));
     assertEquals("<p>x</p>", rich("<p \u212alass=\"language-x\">x</p>"));
@@ -143,7 +157,7 @@ class HtmlPolicyTest {
     // RICH keeps only code-highlighting classes: others could restyle the page with its own classes
     assertEquals("<code class=\"language-java\">x</code>", rich("<code class=\"hidden language-java fixed inset-0 lang-x\">x</code>"));
     assertEquals("<p>x</p>", rich("<p class=\"note\">x</p>"));
-    HtmlPolicy any = HtmlPolicy.builder().allowElements("p").allowClasses("*").build();
+    HtmlPolicy any = HtmlPolicy.builder().allowElements("p").allowClasses(EVERY_CLASS).build();
     // Only tokens of [A-Za-z0-9_-] are kept: ':' ';' '{' never are
     assertEquals("<p class=\"a b-c d_e\">x</p>", any.sanitize("<p class=\"a ng-init:x; b-c {{x}} d_e\">x</p>").html());
     assertEquals("<p>x</p>", any.sanitize("<p class=\"ng-init: constructor.constructor('alert(1)')()\">x</p>").html());
@@ -167,8 +181,13 @@ class HtmlPolicyTest {
     // already prefixed: kept, so sanitizing twice changes nothing
     assertEquals("<p id=\"user-content-a\"><a href=\"#user-content-a\" rel=\"nofollow noopener\">x</a></p>",
         rich("<p id=user-content-a><a href=#user-content-a>x</a></p>"));
-    HtmlPolicy own = HtmlPolicy.builder().allowElements("p", "a").allowAttributes("id").idPrefix("doc-").linkRel().build();
-    assertEquals("<p id=\"doc-a\"><a href=\"#doc-a\">x</a></p>", own.sanitize("<p id=a><a href=#a>x</a></p>").html());
+    // #661: the prefix is fixed, so whatever the policy a kept id can't take one of the page's own
+    // ids, and fragment links follow it
+    for (HtmlPolicy policy : new HtmlPolicy[] {MAXIMAL,
+        HtmlPolicy.builder().allowElements("p", "a").allowAttributes("id").linkRel().build()}) {
+      assertEquals("<p id=\"user-content-x\"><a href=\"#user-content-x\">y</a></p>",
+          policy.sanitize("<p id=x><a href=#x>y</a></p>").html().replaceAll(" rel=\"[^\"]*\"", ""));
+    }
     // without ids, fragment links stay as they are
     assertEquals("<a href=\"#a\" rel=\"nofollow noopener\">x</a>", basic("<a href=#a>x</a>"));
   }
@@ -216,13 +235,20 @@ class HtmlPolicyTest {
     for (String c : new String[] {"a:b", "a b", "{{x}}", "", "a;b", "**", "ng-init:x"}) {
       assertThrows(IllegalArgumentException.class, () -> HtmlPolicy.builder().allowClasses(c), c);
     }
-    for (String p : new String[] {"", "-", "x", "1a-", "a b-", "a:b-", "ab", "my_", "a_b", null}) {
-      assertThrows(IllegalArgumentException.class, () -> HtmlPolicy.builder().idPrefix(p), String.valueOf(p));
-    }
     for (String r : new String[] {"opener", "", "nofollow noopener", "external"}) {
       assertThrows(IllegalArgumentException.class, () -> HtmlPolicy.builder().linkRel(r), r);
     }
     assertThrows(NullPointerException.class, () -> SafeHtml.sanitize("x", null));
+  }
+
+  @Test
+  void anyClassWildcardThrows() {
+    // #661: "*" would give user content the page's whole class namespace (CSS overlays such as
+    // Bootstrap's position-fixed top-0 start-0 w-100 h-100, class-initialised widgets)
+    IllegalArgumentException e =
+        assertThrows(IllegalArgumentException.class, () -> HtmlPolicy.builder().allowClasses("*"));
+    assertEquals("not an allowed class pattern: *", e.getMessage());
+    assertThrows(IllegalArgumentException.class, () -> HtmlPolicy.builder().allowClasses("note", "*"));
   }
 
   @Test

@@ -44,19 +44,27 @@ import org.w3c.dom.Node;
  */
 class SanitizerBalanceTest {
 
+  /**
+   * One prefix per first character of a class token, so the oracle sweeps still see every token
+   * kept now that {@code allowClasses("*")} throws (#661).
+   */
+  static final String[] EVERY_CLASS =
+      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-".chars()
+          .mapToObj(c -> (char) c + "*")
+          .toArray(String[]::new);
+
   private static final Map<String, HtmlPolicy> POLICIES = new LinkedHashMap<>();
 
   static {
     POLICIES.put("BASIC", HtmlPolicy.BASIC);
     POLICIES.put("RICH", HtmlPolicy.RICH);
-    // RICH widened: any class and remote images
+    // RICH widened as far as a policy goes: every class token
     POLICIES.put(
         "wide",
         HtmlPolicy.builder()
             .allowElements(HtmlPolicy.ELEMENTS.toArray(new String[0]))
             .allowAttributes(HtmlPolicy.ATTRIBUTES.toArray(new String[0]))
-            .allowClasses("*")
-            .allowRemoteImages()
+            .allowClasses(EVERY_CLASS)
             .allowLinkTarget()
             .build());
     // li without its containers, and a without phrasing parents, must still balance.
@@ -67,7 +75,6 @@ class SanitizerBalanceTest {
             .allowAttributes("id")
             .allowClasses("x-*")
             .linkRel()
-            .allowDataImages()
             .build());
   }
 
