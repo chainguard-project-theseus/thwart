@@ -222,6 +222,11 @@ public final class TesseraProcessor extends AbstractProcessor {
     if (!Files.isDirectory(options.templates())) {
       return "Tessera: templates directory does not exist: " + options.templates();
     }
+    String pkg = options.basePackage();
+    if (!pkg.isEmpty() && !SourceVersion.isName(pkg)) {
+      return "Tessera: -A" + ProcessorOptions.PACKAGE + "=" + pkg
+          + " is not a Java package name, e.g. com.example.views";
+    }
     for (Path base : options.messages()) {
       String problem = MessageBundle.problem(base);
       if (problem != null) {
