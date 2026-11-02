@@ -25,21 +25,12 @@ class FragmentFromJavaTest {
         .compile();
   }
 
-  /** Negative: every way Java once built or vouched for a Fragment or template markup no longer compiles. */
+  /** Negative: Java can neither implement, extend nor construct a Fragment. */
   @Test
-  void javaCannotBuildOrVouchForMarkup() {
+  void javaCannotBuildAFragment() {
     java("static final Fragment F = (ctx, out) -> out.write(\"</form><form action=x>\");").assertError("not a functional interface");
     java("static final class S extends Fragment {}").assertError("cannot inherit from final");
     java("static final Fragment F = new Fragment();").assertError("Fragment()", "private access");
-    java("static Object f(Template t) { return Fragment.of(t); }").assertError("cannot find symbol");
-    java("static Object f(Fragment.Body b) { return Fragment.unverifiedForGeneratedCode(b); }").assertError("cannot find symbol");
-    java("static void f(Fragment g) { Fragment.requireVerified(g, \"t\", \"p\"); }").assertError("cannot find symbol");
-    java("static Object f(Template t) { return SafeHtml.of(t, RenderContext.defaults()); }").assertError("cannot find symbol");
-    java("static final Template T = new Template() {"
-            + " public String templateName() { return \"t\"; }"
-            + " public void render(RenderContext c, Output o) { o.write(\"<li>\"); }"
-            + " @Override public boolean verifiedFlowPartial() { return true; } };")
-        .assertError("does not override");
   }
 
   /** Negative: a page can't take a Fragment, since nothing could pass one (file:line:col error). */

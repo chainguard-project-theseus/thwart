@@ -3,6 +3,7 @@ package dev.tessera.compiler.codegen;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.tessera.compiler.verify.Skeleton;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -26,6 +27,11 @@ import org.junit.jupiter.api.Test;
 class EmissionGuardTest {
   private static final Path MAIN = Path.of("src/main/java/dev/tessera/compiler");
 
+  /** The {@code Escapers} output methods: one per {@link Skeleton.Escaper}, and {@code html}. */
+  private static final String ESCAPERS =
+      Stream.concat(Stream.of(Skeleton.Escaper.values()).map(Skeleton.Escaper::method), Stream.of("html"))
+          .collect(Collectors.joining("|"));
+
   /** Text in a generated-code literal that writes output. */
   private static final List<Pattern> WRITES =
       List.of(
@@ -33,8 +39,8 @@ class EmissionGuardTest {
           // The output variable used in any other way: passed on, aliased (Output o = out), ...
           // but not declared (Output out) and not the English word (out of the table).
           Pattern.compile("(?<![\\w$.])(?<!Output\\s)out(?![\\w$])(?!\\s+of\\b)"),
-          Pattern.compile("\\bEscapers\\.(text|rcdata|attr|url|resourceUrl|refresh|html|json)\\s*\\("),
-          Pattern.compile("\\.(text|rcdata|attr|url|resourceUrl|refresh|html|json)\\s*\\(\\s*(out\\b|$)"),
+          Pattern.compile("\\bEscapers\\.(" + ESCAPERS + ")\\s*\\("),
+          Pattern.compile("\\.(" + ESCAPERS + ")\\s*\\(\\s*(out\\b|$)"),
           Pattern.compile("\\.render\\s*\\("));
 
   /**

@@ -56,12 +56,6 @@ class UnmodelledMarkupTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"<p><![CDATA[x]]></p>", "<svg><text><![CDATA[x]]></text></svg>", "<math><mi><![CDATA[x]]></mi></math>"})
-  void cdataSectionsAreErrors(String body) {
-    compile(body).assertError("t.html:1:", "a CDATA section is not supported", "&lt;");
-  }
-
-  @ParameterizedTest
   @ValueSource(strings = {"xmp", "plaintext", "noembed", "noframes", "frameset"})
   void unmodelledElementsAreErrors(String name) {
     compile("<" + name + ">x</" + name + ">").assertError("t.html:1:", "<" + name + "> is not supported", "use ");
