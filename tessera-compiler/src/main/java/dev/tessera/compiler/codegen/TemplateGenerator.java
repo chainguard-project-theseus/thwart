@@ -92,8 +92,6 @@ public final class TemplateGenerator implements CodegenContext {
    * See {@link ParsingContexts#rawTextElement}.
    */
   private String rawTextHost;
-  /** The {@link #rawTextHost} around the element being generated, not counting the element itself. */
-  private String rawTextParent;
   /** Whether the content being generated is inside an {@code <svg>} or {@code <math>} element. */
   private boolean inForeign;
   /** Whether the element whose content is being generated is a JSON {@code <script>} ({@link #inJsonScript}). */
@@ -286,11 +284,6 @@ public final class TemplateGenerator implements CodegenContext {
   }
 
   @Override
-  public boolean insideRawText() {
-    return rawTextParent != null;
-  }
-
-  @Override
   public Emitted renderElement(Element element, Scope scope, Set<String> ignoredAttributes) {
     // Rendered standalone (fragment method, ~{::selector} helper): no preceding sibling text.
     String ws = whitespaceBefore.remove(element);
@@ -396,6 +389,14 @@ public final class TemplateGenerator implements CodegenContext {
               .error(a.pos(), a.name() + " is only allowed on the root element (the first element of the template)");
         }
       }
+      // A fragment is checked where it lands, so it is declared where it parses like that: HTML content.
+      String place = template.parsingContexts().place(e);
+      Attribute f = e.attribute(Attribute.PREFIX + "fragment").orElse(null);
+      if (f != null && !place.equals(ParsingContexts.HTML)) {
+        diagnostics().error(f.pos(), "t:fragment in " + ParsingContexts.describe(place) + " content is not supported: a"
+            + " browser parses it there by other rules than where it is inserted; declare the fragment outside it"
+            + " (directly under <body> or in its own file) and insert it there");
+      }
       exclusive(e, "text", "utext");
       exclusive(e, "insert", "replace");
       validate(root, e.children());
@@ -438,8 +439,6 @@ public final class TemplateGenerator implements CodegenContext {
 
   private void element(Emitted.Builder c, Element e, Scope scope, Set<String> ignored) {
     String outer = rawTextHost;
-    String outerParent = rawTextParent;
-    rawTextParent = outer;
     boolean outerForeign = inForeign;
     boolean outerJson = jsonScript;
     String host = ParsingContexts.rawTextElement(e) ? e.name() : outer;
@@ -499,7 +498,6 @@ public final class TemplateGenerator implements CodegenContext {
       emit(c, plan, leadingLineFeed, foreignTop);
     } finally {
       rawTextHost = outer;
-      rawTextParent = outerParent;
       inForeign = outerForeign;
       jsonScript = outerJson;
     }

@@ -1126,4 +1126,5 @@ Gaps in Tessera today, with what to do instead.
 | `SELECT_CONTENT` | Anything but `<option>`, `<optgroup>` and `<hr>` in a `<select>` | Move it outside the `<select>` |
 | `STRUCTURE_DEPENDS_ON_DATA` | A fragment that calls itself ever deeper (a recursive tree renderer) | A flat loop with depth classes, or `html.sanitize` to `SafeHtml` (4.4, Rich text) |
 | `UNCALLED_FRAGMENT_FITS_NOWHERE` | A fragment declared in raw text or `t:remove="tag"` content that no template calls | Move it out, or delete it |
+| (build error) `t:fragment in <svg> content is not supported` | A `t:fragment`, or an element `~{::selector}` picks, inside `<svg>`, `<math>`, `<select>`, raw text (`<noscript>`, `<title>`, ...) or `t:remove="tag"` content | Declare the fragment outside it (directly under `<body>` or in its own file) and insert it there |
 | `UNKNOWN_NODE`, `ENGINE_FAILURE` | A fragment the compiler can't resolve, static markup right after a computed attribute that isn't whitespace, `/` or `>`, or an internal failure | Fix the reference, or put a space after the attribute; report an `ENGINE_FAILURE` as a bug |

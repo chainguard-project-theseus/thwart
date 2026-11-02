@@ -99,3 +99,27 @@
 ====
 # name: u756-script-path-variable
 <script t:src="@{/js/{v}/app.js(v=${s})}"></script>
+====
+# Fragments declared outside HTML content (#776): a build error, so the shapes #769 accepted are
+# rejected again, plus a fragment in a <select>.
+====
+# name: h776-svg
+<svg><g t:fragment="r"><text>r</text></g></svg><div t:insert="~{:: r}"></div>
+====
+# name: h776-noscript
+<noscript><b t:fragment="n">x</b></noscript><div t:insert="~{:: n}"></div>
+====
+# name: h776-noscript-hole
+<noscript><b t:fragment="n(String v)">[[v]]</b></noscript><div t:insert="~{:: n(s)}"></div>
+====
+# name: h776-unwrapped-select-in-div
+<select t:remove="tag"><option t:fragment="o(String v)">[[v]]</option></select><div t:insert="~{:: o(s)}"></div>
+====
+# name: h776-unwrapped-select-in-select
+<select t:remove="tag"><option t:fragment="o(String v)">[[v]]</option></select><select t:insert="~{:: o(s)}"></select>
+====
+# name: h776-annotation-xml
+<math><annotation-xml encoding="text/html"><div t:fragment="h">x</div></annotation-xml></math><div t:insert="~{:: h}"></div>
+====
+# name: h776-select
+<select><option t:fragment="o">a</option></select><select t:insert="~{:: o}"></select>

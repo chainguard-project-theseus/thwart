@@ -35,24 +35,8 @@ class UncalledFragmentTest {
     // Rows, cells, options, list items and text-first fragments fit their implied context.
     compile("<table><tr t:fragment=\"r(String s)\"><td>[[${s}]]</td></tr></table>"
         + "<ul><li t:fragment=\"l(String s)\">[[${s}]]</li></ul>"
-        + "<select><option t:fragment=\"o(String s)\" t:text=\"s\">x</option></select>"
+        + "<option t:fragment=\"o(String s)\" t:text=\"s\">x</option>"
         + "<t:block t:fragment=\"t(String s)\">[[${s}]]</t:block>").assertSuccess();
-  }
-
-  @Test
-  void anUncalledFragmentIsCheckedInTheContextItIsDeclaredIn() {
-    // Declared in <svg> or <math>: a static fragment compiles; a value in one is an error there (#678).
-    compile("<svg><g t:fragment=\"g\"><path d=\"M0 0\"/></g></svg><math><mrow t:fragment=\"m\"><mi>x</mi></mrow></math>")
-        .assertSuccess();
-    compile("<svg><title t:fragment=\"f(String s)\">[[${s}]]</title></svg>").assertError("inside <title> is not supported");
-  }
-
-  @Test
-  void anUncalledFragmentDeclaredWhereNoFragmentFitsIsRejected() {
-    Compilation c = compile("<noscript><p t:fragment=\"g(String v)\" t:text=\"v\">x</p></noscript>");
-    c.assertError("f.html:2:11: error: no template inserts fragment f :: g, and it is declared where no fragment fits",
-        "declare it in HTML content, or delete it [verifier:UNCALLED_FRAGMENT_FITS_NOWHERE]");
-    assertEquals(1, c.errors().size(), c.errors().toString());
   }
 
   @Test
