@@ -300,7 +300,7 @@ final class HtmlSanitizer {
         id = HtmlPolicy.stripWhitespace(decode(id));
         if (HtmlPolicy.isClassToken(id)) {
           // an id that already has the prefix keeps it, so sanitizing twice changes nothing
-          sb.append(" id=\"").append(id.startsWith(policy.idPrefix) ? "" : policy.idPrefix).append(id).append('"');
+          sb.append(" id=\"").append(id.startsWith(HtmlPolicy.DEFAULT_ID_PREFIX) ? "" : HtmlPolicy.DEFAULT_ID_PREFIX).append(id).append('"');
         }
       }
     }
@@ -353,43 +353,25 @@ final class HtmlSanitizer {
 
   /**
    * The escaped value of a URL attribute that passes the scheme check, or {@code null}. An image
-   * {@code src} must also be a same-origin path unless the policy allows remote images, or a base64
-   * {@code data:image/...} URL if the policy allows those.
+   * {@code src} must also be a same-origin path, whatever the policy, so viewing stored content
+   * never fetches from another host or shows an inline {@code data:} image (#661).
    */
   private String url(String raw, boolean image) {
     if (raw == null) {
       return null;
     }
     String url = decode(raw);
-    boolean data = image && policy.dataImages && isDataImage(url);
-    if (!data && !Escapers.isAllowedUrl(url)) {
+    if (!Escapers.isAllowedUrl(url)) {
       return null;
     }
-    if (image && !data && !policy.remoteImages && !(url.startsWith("/") && Escapers.isSameOriginUrl(url))) {
+    if (image && !(url.startsWith("/") && Escapers.isSameOriginUrl(url))) {
       return null; // not a same-origin path: '/' not followed by '/' or '\' (tab, CR, LF ignored)
     }
     if (!image && policy.attributes.contains("id") && url.length() > 1 && url.charAt(0) == '#'
-        && HtmlPolicy.isClassToken(url.substring(1)) && !url.startsWith(policy.idPrefix, 1)) {
-      url = "#" + policy.idPrefix + url.substring(1); // follow the prefixed id
+        && HtmlPolicy.isClassToken(url.substring(1)) && !url.startsWith(HtmlPolicy.DEFAULT_ID_PREFIX, 1)) {
+      url = "#" + HtmlPolicy.DEFAULT_ID_PREFIX + url.substring(1); // follow the prefixed id
     }
     return Escapers.escapeHtml(crAsLf(url)); // after the checks: U+FFFD is inert in a URL
-  }
-
-  private static boolean isDataImage(String url) {
-    String u = HtmlPolicy.lower(url);
-    String[] types = {"data:image/png;base64,", "data:image/gif;base64,", "data:image/jpeg;base64,", "data:image/webp;base64,"};
-    for (String t : types) {
-      if (u.startsWith(t)) {
-        for (int i = t.length(); i < u.length(); i++) {
-          char c = u.charAt(i);
-          if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '=')) {
-            return false;
-          }
-        }
-        return true;
-      }
-    }
-    return false;
   }
 
   /**
