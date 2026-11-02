@@ -9,7 +9,7 @@ import org.xml.sax.SAXException;
 
 /**
  * Builds a {@link TestTree} with the shaded current engine, set up like the oracle's
- * {@code HtmlDocumentBuilder} in {@code SpecParsers}.
+ * {@code HtmlDocumentBuilder} in {@code SpecParser}.
  */
 final class CurrentTreeBuilder extends TreeBuilder<TestTree> {
   private final TestTree document = TestTree.document();

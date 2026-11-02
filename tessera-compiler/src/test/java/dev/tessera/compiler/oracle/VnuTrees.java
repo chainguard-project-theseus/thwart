@@ -18,7 +18,7 @@ import org.w3c.dom.Node;
  * about the wrong document (#398), and only this comparison sees it. Under the divergence policy
  * (security-architecture.md §11.4) such drift becomes a coarse exclusion in the verifier.
  *
- * <p>The trees come from {@link SpecParsers}, the unmodified upstream jar of the version the
+ * <p>The trees come from {@link SpecParser}, the unmodified upstream jar of the version the
  * verifier shades ({@code tessera-html5} renames the sources, it doesn't patch them).
  *
  * <p><b>Normal form</b> (the same rules in {@code tree.mjs}; change both together):
@@ -64,25 +64,24 @@ public final class VnuTrees {
    * [...]}}, the tree the vnu engine builds for {@code render} with scripting on and off.
    */
   public static String json(String render) {
-    SpecParser p = SpecParsers.named(SpecParsers.VNU_26);
-    return "{\"scripting-on\":" + tree(p, render, true) + ",\"scripting-off\":" + tree(p, render, false) + "}";
+    return "{\"scripting-on\":" + tree(render, true) + ",\"scripting-off\":" + tree(render, false) + "}";
   }
 
-  /** The normalized tree {@code parser} builds for {@code html}, as JSON. */
-  public static String tree(SpecParser parser, String html, boolean scripting) {
+  /** The normalized tree vnu-26 builds for {@code html}, as JSON. */
+  public static String tree(String html, boolean scripting) {
     StringBuilder sb = new StringBuilder();
-    kids(sb, parser.parse(html, scripting), parser, scripting);
+    kids(sb, SpecParser.parse(html, scripting), scripting);
     return sb.toString();
   }
 
-  private static void kids(StringBuilder sb, Node parent, SpecParser parser, boolean scripting) {
+  private static void kids(StringBuilder sb, Node parent, boolean scripting) {
     sb.append('[');
     boolean first = true;
     StringBuilder text = null;
     if (parent instanceof Element e && HTML.equals(e.getNamespaceURI()) && e.getLocalName().equals("iframe")
         && e.hasAttribute("srcdoc") && !e.hasAttribute("sandbox")) {
       sb.append("[\"#srcdoc\",\"\",[],");
-      kids(sb, parser.parse(e.getAttribute("srcdoc"), scripting), parser, scripting);
+      kids(sb, SpecParser.parse(e.getAttribute("srcdoc"), scripting), scripting);
       sb.append(']');
       first = false;
     }
@@ -105,7 +104,7 @@ public final class VnuTrees {
       }
       sb.append(first ? "" : ",");
       first = false;
-      element(sb, (Element) c, parser, scripting);
+      element(sb, (Element) c, scripting);
     }
     if (text != null) {
       quote(sb.append(first ? "" : ","), text.toString());
@@ -113,7 +112,7 @@ public final class VnuTrees {
     sb.append(']');
   }
 
-  private static void element(StringBuilder sb, Element e, SpecParser parser, boolean scripting) {
+  private static void element(StringBuilder sb, Element e, boolean scripting) {
     String ns = e.getNamespaceURI();
     sb.append('[');
     quote(sb, unescape(e.getLocalName())).append(',');
@@ -137,10 +136,10 @@ public final class VnuTrees {
     sb.append("],");
     if (HTML.equals(ns) && e.getLocalName().equals("template")) {
       sb.append("[[\"#content\",\"\",[],");
-      kids(sb, e, parser, scripting);
+      kids(sb, e, scripting);
       sb.append("]]");
     } else {
-      kids(sb, e, parser, scripting);
+      kids(sb, e, scripting);
     }
     sb.append(']');
   }

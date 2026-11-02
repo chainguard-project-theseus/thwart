@@ -37,7 +37,7 @@
       <artifactId>tessera-html5</artifactId>
     </dependency>
     <!-- Test only: the spec-parser oracle (#317) is the validator jar, copied below and loaded in
-         its own class loader (SpecParsers), so its many bundled libraries stay off the classpath. -->
+         its own class loader (SpecParser), so its many bundled libraries stay off the classpath. -->
     <dependency>
       <groupId>org.mozilla</groupId>
       <artifactId>rhino</artifactId>

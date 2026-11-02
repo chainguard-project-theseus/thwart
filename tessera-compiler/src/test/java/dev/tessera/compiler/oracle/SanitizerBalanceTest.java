@@ -447,40 +447,38 @@ class SanitizerBalanceTest {
 
   private static void assertBalanced(String policy, String input, String out) {
     String expected = canonical(naiveTree(out));
-    for (SpecParser parser : SpecParsers.all()) {
-      for (boolean scripting : new boolean[] {true, false}) {
-        for (String[] ctx : CONTEXTS) {
-          String doc = "<!DOCTYPE html><html><head></head><body>" + ctx[0] + out + ctx[1] + "</body></html>";
-          Document d = parser.parse(doc, scripting);
-          String where = policy + " / " + parser.name() + (scripting ? " scripting" : " no scripting")
-              + " / " + ctx[0] + "\n input: " + input + "\n output: " + out;
-          Element after = byId(d, "ta");
-          assertNotNull(after, () -> "marker lost: " + where);
-          List<Node> nodes = new ArrayList<>();
-          Element parent = byId(d, "tp");
-          if (parent != null) {
-            for (Node c = parent.getFirstChild(); c != null; c = c.getNextSibling()) {
-              nodes.add(c);
-            }
-            Node next = parent.getNextSibling();
-            assertTrue(next == after || (next != null && next.getNodeType() == Node.TEXT_NODE && next.getNextSibling() == after),
-                () -> "the output closed or moved its insertion point: " + where);
-          } else {
-            Element before = byId(d, "tb");
-            assertNotNull(before, () -> "marker lost: " + where);
-            Node c = before.getNextSibling();
-            for (; c != null && c != after; c = c.getNextSibling()) {
-              nodes.add(c);
-            }
-            assertTrue(c == after && after.getParentNode() == before.getParentNode(),
-                () -> "the output moved the next element: " + where);
+    for (boolean scripting : new boolean[] {true, false}) {
+      for (String[] ctx : CONTEXTS) {
+        String doc = "<!DOCTYPE html><html><head></head><body>" + ctx[0] + out + ctx[1] + "</body></html>";
+        Document d = SpecParser.parse(doc, scripting);
+        String where = policy + " / vnu-26" + (scripting ? " scripting" : " no scripting")
+            + " / " + ctx[0] + "\n input: " + input + "\n output: " + out;
+        Element after = byId(d, "ta");
+        assertNotNull(after, () -> "marker lost: " + where);
+        List<Node> nodes = new ArrayList<>();
+        Element parent = byId(d, "tp");
+        if (parent != null) {
+          for (Node c = parent.getFirstChild(); c != null; c = c.getNextSibling()) {
+            nodes.add(c);
           }
-          StringBuilder actual = new StringBuilder();
-          for (Node node : nodes) {
-            canonical(node, actual);
+          Node next = parent.getNextSibling();
+          assertTrue(next == after || (next != null && next.getNodeType() == Node.TEXT_NODE && next.getNextSibling() == after),
+              () -> "the output closed or moved its insertion point: " + where);
+        } else {
+          Element before = byId(d, "tb");
+          assertNotNull(before, () -> "marker lost: " + where);
+          Node c = before.getNextSibling();
+          for (; c != null && c != after; c = c.getNextSibling()) {
+            nodes.add(c);
           }
-          assertEquals(expected, actual.toString(), () -> "the parser did not keep the tree as written: " + where);
+          assertTrue(c == after && after.getParentNode() == before.getParentNode(),
+              () -> "the output moved the next element: " + where);
         }
+        StringBuilder actual = new StringBuilder();
+        for (Node node : nodes) {
+          canonical(node, actual);
+        }
+        assertEquals(expected, actual.toString(), () -> "the parser did not keep the tree as written: " + where);
       }
     }
     String problem = modelProblem(null, naiveTree(out), new ArrayList<>());
@@ -637,7 +635,7 @@ class SanitizerBalanceTest {
       return raw;
     }
     return DECODED.computeIfAbsent("t" + raw, k -> {
-      Document d = SpecParsers.all().get(0).parse("<!DOCTYPE html><body><div>" + raw + "</div>", false);
+      Document d = SpecParser.parse("<!DOCTYPE html><body><div>" + raw + "</div>", false);
       return d.getElementsByTagName("div").item(0).getTextContent();
     });
   }
@@ -647,7 +645,7 @@ class SanitizerBalanceTest {
       return raw;
     }
     return DECODED.computeIfAbsent("a" + raw, k -> {
-      Document d = SpecParsers.all().get(0).parse("<!DOCTYPE html><body><div title=\"" + raw + "\"></div>", false);
+      Document d = SpecParser.parse("<!DOCTYPE html><body><div title=\"" + raw + "\"></div>", false);
       return ((Element) d.getElementsByTagName("div").item(0)).getAttribute("title");
     });
   }

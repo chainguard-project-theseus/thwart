@@ -1,13 +1,13 @@
 # The context verifier's verdict on each oracle seed (#367), checked by SeedVerifierTest.
 # Derived by running the verifier on the skeletons main writes for the seeds, with the profile's
 # diagnostics suppressed (Compilation.Builder#verifierOnly), and reconciled seed by seed with the
-# research prototype's run on 0dda2f1 (~/tessera-handoff/tv/seeds-0dda.tsv, memo §5.1).
+# research prototype's run on 0dda2f1.
 #
 # name  family  expect  [rules]  [# note]
 #   family   AB: a parser-differential or composition seed live on 0dda2f1 (plus pr305-4 and
 #            306-A29, which the value oracle missed). C, D, E: script position, client frameworks,
 #            URL policy (not markup contexts). OVER: a value in raw text (VALUE_IN_RAW_TEXT since #586). -: clean or rejected
-#            on 0dda2f1.
+#            on 0dda2f1, or not measured there (the review probes, oracle/seeds/review-probes.txt).
 #   expect   VERIFIER: the verifier alone rejects it, with each rule listed.
 #            ACCEPT: the verifier accepts what main writes for it.
 #            PROFILE: main's profile rejects it before there is anything to verify (the note says
@@ -387,3 +387,27 @@ r678-is         -    PROFILE  # #678: rejected by the profile, the verifier has 
 r678-xmlns      -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
 r678-font       -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
 r678-meta       -    PROFILE  # #678: rejected by the profile, the verifier has no rule for it
+T1-text-in-tbody             -    VERIFIER TEXT_IN_TABLE
+T2-text-before-row           -    VERIFIER TEXT_IN_TABLE
+T3-ttext-in-tr               -    VERIFIER TEXT_IN_TABLE
+T4-tr-inside-td              -    VERIFIER PARSE_ERROR TEXT_IN_TABLE
+T5-form-in-cell              -    ACCEPT
+T6-caption-nested-table      -    ACCEPT
+T7-colgroup                  -    VERIFIER TEXT_IN_TABLE
+T8-option                    -    ACCEPT
+T9-form-directly-in-table    -    VERIFIER PARSE_ERROR # #406: a <form> directly in a <table> is a parse error
+T10-template-in-table        -    ACCEPT
+T11-conditional-rows         -    ACCEPT
+T12-each-rows-implied-tbody  -    VERIFIER UNBALANCED # #682: the first row implies a <tbody>, the next ones don't
+T13-p-in-p                   -    VERIFIER PARSE_ERROR
+T14-cell-closed-by-td        -    VERIFIER PARSE_ERROR TEXT_IN_TABLE
+T15-svg-title-cdata          -    PROFILE # no tree: the profile's tokenizer stops on the CDATA section
+T16-eq-unquoted              -    PROFILE # no tree: malformed markup in the start tag
+T17-slash-in-tag             -    PROFILE # no tree: malformed markup in the start tag
+T18-fragment-local-mustache  D    ACCEPT # client frameworks, not markup contexts
+T20-nested-form-csrf         E    VERIFIER PARSE_ERROR # CSRF policy; the nested <form> is a parse error
+T21-ordinary-page            -    ACCEPT
+T22-b-misnest                -    PROFILE # no tree: </p> closes the <b> out of order
+T23-table-in-p-quirks        -    VERIFIER PARSE_ERROR
+pr351-text-before-row        -    VERIFIER TEXT_IN_TABLE
+pr351-ttext-on-tr            -    VERIFIER TEXT_IN_TABLE

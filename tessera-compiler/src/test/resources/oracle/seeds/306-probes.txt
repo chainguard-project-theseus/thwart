@@ -8,7 +8,9 @@
 # origin by shape, and {{...PWN in text outside script and HTML raw text/RCDATA. A marker in a
 # script acorn can't tokenize is recorded as CONTEXT_MISMATCH. The parse5 oracle's other reports
 # ({{ in script strings and RCDATA, cross-origin <a href>) are noise and are not recorded.
-# 'main' is the same check on main at 1c4b2b3 (see Seeds.MAIN_SNAPSHOT).
+# 'main' is the same check on main at 1c4b2b3. These 'expect-0dda2f1', 'fixed-by', 'main' and
+# 'engines' lines are history: the loader reads them as comments, and verify/seed-expectations.txt
+# holds the verdicts the tests check.
 # The kinds were then reconciled with the phase-1 checks (#318 HTML, #319 Rhino, #323 context) run
 # on the same renders: a LIVE_SCRIPT that no value makes parse became the kind those checks report,
 # and a CLEAN they flag with a non-executable model break became JS_NOT_LITERAL, CONTEXT_MISMATCH or

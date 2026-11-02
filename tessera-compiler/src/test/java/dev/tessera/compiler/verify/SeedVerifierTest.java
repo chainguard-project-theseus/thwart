@@ -87,10 +87,19 @@ class SeedVerifierTest {
     Map<String, Expectation> e = expectations();
     Set<String> names = Seeds.load().stream().map(Seeds.Seed::name).collect(Collectors.toCollection(TreeSet::new));
     assertEquals(names, new TreeSet<>(e.keySet()));
-    // #367: the <select> seeds are rejected, since #406 by exclusion (c) (ErrorFreeTest); and these three
-    // must be rejected by the verifier (the prototype missed pr304-9, the value oracle pr305-4 and 306-A29).
-    for (String n : List.of("306-A31", "pr304-7", "pr305-1", "pr305-2", "pr305-3", "pr305-4", "pr305-5", "pr305-6", "pr305-7")) {
+    // #367: the verifier rejects the <select> seeds with SELECT_CONTENT; and these three must be rejected by
+    // the verifier (the prototype missed pr304-9, the value oracle pr305-4 and 306-A29).
+    for (String n : List.of("306-A31", "pr304-7", "pr305-1", "pr305-2", "pr305-3", "pr305-4", "pr305-5", "pr305-6", "pr305-7",
+        "pr305-8", "pr305-9")) {
       assertTrue(e.get(n).rules().contains("SELECT_CONTENT"), n);
+    }
+    // Positive controls (the review probes): ordinary table, form, option and page markup compiles end to end.
+    Map<String, Seeds.Seed> byName =
+        Seeds.load().stream().collect(Collectors.toMap(Seeds.Seed::name, s -> s, (a, b) -> a));
+    for (String n : List.of("T5-form-in-cell", "T6-caption-nested-table", "T8-option", "T10-template-in-table",
+        "T11-conditional-rows", "T21-ordinary-page")) {
+      assertEquals("ACCEPT", e.get(n).expect(), n);
+      Compilation.builder().template("t.html", byName.get(n).template()).compile().assertSuccess();
     }
     for (String n : List.of("pr304-9", "pr305-4", "306-A29")) {
       assertEquals("VERIFIER", e.get(n).expect(), n);

@@ -1,16 +1,12 @@
 package dev.tessera.compiler.verify;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.tessera.compiler.oracle.Seeds;
-import dev.tessera.compiler.oracle.SpecParsers;
+import dev.tessera.compiler.oracle.SpecParser;
 import dev.tessera.compiler.testing.Compilation;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -258,7 +254,7 @@ class ErrorFreeTest {
     for (String v : new String[] {null, "", "x", "a b", "<b>", "\""}) {
       Map<String, Object> model = new HashMap<>();
       model.put("s", v);
-      Node doc = SpecParsers.named(SpecParsers.VNU_26).parse("<!DOCTYPE html>" + c.render("t", model), false);
+      Node doc = SpecParser.parse("<!DOCTYPE html>" + c.render("t", model), false);
       String structure = structure(doc);
       if (expected == null) {
         expected = structure;
@@ -306,22 +302,11 @@ class ErrorFreeTest {
   }
 
   /**
-   * The seeds that only the 1.4.16 engine rejected before #406 (where browsers parse {@code
-   * <select>} the classic way) are rejected by exclusion (c), now that the verifier runs one
-   * engine (#408).
+   * The {@code <select>} seeds are rejected by exclusion (c) (SELECT_CONTENT in
+   * seed-expectations.txt, checked by SeedVerifierTest), but an ordinary select still compiles.
    */
   @Test
-  void theSelectSeedsAreRejectedByExclusionC() {
-    Map<String, Seeds.Seed> seeds = Seeds.load().stream().collect(Collectors.toMap(Seeds.Seed::name, x -> x));
-    for (String name : List.of("306-A31", "pr304-7", "pr305-1", "pr305-2", "pr305-5", "pr305-6", "pr305-8", "pr305-9")) {
-      Compilation c = Compilation.builder().template("t.html", seeds.get(name).template()).verifierOnly().compile();
-      Map<String, Skeleton.TemplateSkeleton> all = new LinkedHashMap<>();
-      all.put("t", c.skeleton("t"));
-      List<Finding> f = new ContextVerifier(all).check(c.skeleton("t"));
-      assertTrue(f.stream().anyMatch(x -> x.problem == Problem.SELECT_CONTENT), name + ": " + f.stream()
-          .map(VerifierMessages::message).collect(Collectors.toList()));
-    }
-    // ... and an ordinary select still compiles.
+  void anOrdinarySelectCompiles() {
     verify("<select><option t:text=\"s\">a</option><hr><optgroup label=\"g\"><option>b</option></optgroup></select>")
         .assertSuccess();
   }
