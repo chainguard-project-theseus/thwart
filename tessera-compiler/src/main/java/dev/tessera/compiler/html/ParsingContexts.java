@@ -26,7 +26,9 @@ import java.util.Set;
  * mo mn ms mtext} hold HTML. Nothing inside {@code <svg>} or {@code <math>} is an insertion point
  * and a fragment declared there holds only static markup (#678), and a breakout tag such as {@code
  * <p>} there is a parse error, so the contexts inside them only tell a fragment declared there
- * from one declared in HTML.
+ * from one declared in HTML. The svg and math contexts exist only for the {@code <svg t:replace>}
+ * case, where the fragment root is itself an {@code <svg>}; every other placement in them is
+ * rejected, so a fix-it never suggests declaring or inserting a fragment there.
  *
  * <p>Contexts follow the tags as written, which is how the template is compiled: the children of
  * {@code <svg t:replace>} are SVG content, since they only render as fragments declared there. A

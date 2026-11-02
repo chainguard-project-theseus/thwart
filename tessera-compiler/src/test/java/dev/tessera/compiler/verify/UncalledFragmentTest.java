@@ -51,7 +51,7 @@ class UncalledFragmentTest {
   void anUncalledFragmentDeclaredWhereNoFragmentFitsIsRejected() {
     Compilation c = compile("<noscript><p t:fragment=\"g(String v)\" t:text=\"v\">x</p></noscript>");
     c.assertError("f.html:2:11: error: no template inserts fragment f :: g, and it is declared where no fragment fits",
-        "declare it in HTML, <svg> or <math> content, or delete it [verifier:UNCALLED_FRAGMENT_FITS_NOWHERE]");
+        "declare it in HTML content, or delete it [verifier:UNCALLED_FRAGMENT_FITS_NOWHERE]");
     assertEquals(1, c.errors().size(), c.errors().toString());
   }
 

@@ -89,33 +89,13 @@ public final class GenericAttrProcessor implements AttributeProcessor {
         refresh(ctx, plan, name, value, pos, label);
         return;
       case FORBIDDEN:
-        hint =
-            plan.element().foreign()
-                ? Contexts.FOREIGN
-                : lower.equals("type") && HtmlParser.asciiEqualsIgnoreCase(element, "script")
-                ? "the type of a <script> cannot be computed; its content type must be known at"
-                    + " build time, so write a static type attribute"
-                : lower.equals("type") && HtmlParser.asciiEqualsIgnoreCase(element, "input")
-                ? "the type of an <input> cannot be computed; a browser reads it while it builds the page,"
-                    + " so write a static type attribute, or one <input> per type under t:if"
-                : lower.equals("http-equiv")
-                ? "the http-equiv of a <meta> cannot be computed; it decides whether content is"
-                    + " a refresh URL, so write a static http-equiv attribute"
-                : Contexts.isUrlList(name)
-                ? Contexts.URL_LIST
-                : Contexts.isTreeBuilderInput(plan.element(), name)
-                ? treeBuilderInput(name, lower)
-                : lower.equals("srcdoc")
-                ? "srcdoc is a whole HTML document and cannot contain expressions; use src with a URL"
-                : "attribute name '" + name + "' is not allowed; names must match [A-Za-z_][A-Za-z0-9_.:-]*";
+        hint = Contexts.forbidden(plan.element(), name);
         break;
       default:
         hint = null;
     }
     if (hint != null) {
-      boolean computedType = context == OutputContext.FORBIDDEN && !plan.element().foreign()
-          && (lower.equals("type") || lower.equals("http-equiv"));
-      ctx.diagnostics().error(pos, label + (computedType ? ": " : " is not allowed: ") + hint);
+      ctx.diagnostics().error(pos, label + " is not allowed: " + hint);
       return;
     }
     if ((context == OutputContext.ATTRIBUTE || context == OutputContext.TYPED_ATTRIBUTE)
@@ -268,36 +248,6 @@ public final class GenericAttrProcessor implements AttributeProcessor {
 
   private static boolean isBoolean(TypeMirror t) {
     return t.getKind() == TypeKind.BOOLEAN || isDeclared(t, "java.lang.Boolean");
-  }
-
-  /** Why attribute {@code name}, which the HTML tree builder reads ({@link Contexts#isTreeBuilderInput}), cannot be computed. */
-  private static String treeBuilderInput(String name, String lower) {
-    String computed = "a computed '" + name + "' ";
-    if (lower.equals("is")) {
-      return computed + "decides which custom element a browser creates; write it as a static value";
-    }
-    if (lower.startsWith("xmlns")) {
-      return computed + "must name the element's namespace, which a browser checks while it parses; write it"
-          + " as a static value, or omit it";
-    }
-    if (lower.equals("encoding")) {
-      return computed + "decides whether a browser parses MathML <annotation-xml> content as HTML; write it as a"
-          + " static value";
-    }
-    if (lower.equals("color") || lower.equals("face") || lower.equals("size")) {
-      return computed + "on a <font> decides whether a browser ends <svg> or <math> content there; use a <span>"
-          + " with t:class or t:style instead";
-    }
-    if (lower.startsWith("shadowroot") || lower.equals("for")) {
-      return computed + "on a <template> decides whether a browser attaches its content as a shadow root, or"
-          + " where it moves it; write it as a static value";
-    }
-    if (lower.equals("content")) {
-      return computed + "on a <meta http-equiv=\"Content-Type\"> sets the encoding a browser reads the page in;"
-          + " write it as a static value, or set the encoding in the Content-Type response header";
-    }
-    return computed + "on a <meta> sets the encoding a browser reads the page in; write it as a static value,"
-        + " such as <meta charset=\"utf-8\">";
   }
 
   private static final Pattern REFRESH_PREFIX =
