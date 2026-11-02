@@ -46,7 +46,7 @@ public final class HtmlPolicy {
    * a value of the stated form: {@code title} on any element and {@code alt} on {@code img} (any
    * text), {@code width}/{@code height} on {@code img} (digits), {@code start} and
    * {@code reversed} on {@code ol}, {@code value} on {@code li} (an integer), and {@code id} on any
-   * element ({@code [A-Za-z0-9_-]}, written with the policy's id prefix).
+   * element ({@code [A-Za-z0-9_-]}, written with the prefix {@value #DEFAULT_ID_PREFIX}).
    */
   public static final Set<String> ATTRIBUTES =
       unmodifiable("id", "title", "alt", "width", "height", "start", "reversed", "value");
@@ -54,7 +54,10 @@ public final class HtmlPolicy {
   /** Link {@code rel} tokens a policy may add. */
   public static final Set<String> REL_TOKENS = unmodifiable("nofollow", "noopener", "noreferrer", "ugc");
 
-  /** The id prefix unless {@link Builder#idPrefix} sets another. */
+  /**
+   * The prefix written before every kept {@code id}, so user content cannot clobber
+   * {@code window} or {@code document} properties or the page's own ids. It is fixed (#661).
+   */
   public static final String DEFAULT_ID_PREFIX = "user-content-";
 
   /**
@@ -79,8 +82,8 @@ public final class HtmlPolicy {
    * rewritten to match) and {@code language-*} class tokens (code highlighting). An image is kept
    * only if its {@code src} is a same-origin path (one {@code /}, not {@code //} or {@code /\}), so
    * viewing stored content never sends the reader to another host. Links keep
-   * {@code target="_blank"} and get {@code rel="nofollow noopener"}. For other classes or remote
-   * images, build a policy with {@link Builder#allowClasses} and {@link Builder#allowRemoteImages}.
+   * {@code target="_blank"} and get {@code rel="nofollow noopener"}. For other classes, build a
+   * policy with {@link Builder#allowClasses}.
    */
   public static final HtmlPolicy RICH =
       builder()
@@ -94,25 +97,18 @@ public final class HtmlPolicy {
   final Set<String> attributes;
   private final Set<String> classNames;
   private final List<String> classPrefixes;
-  private final boolean anyClass;
-  final String idPrefix;
   /** The rel attribute written on a kept link ({@code " rel=\"...\""}), or empty. */
   final String rel;
 
   final boolean linkTarget;
-  final boolean dataImages;
-  final boolean remoteImages;
 
   private HtmlPolicy(Builder b) {
     this.elements = Collections.unmodifiableSet(new HashSet<>(b.elements));
     this.attributes = Collections.unmodifiableSet(new HashSet<>(b.attributes));
     Set<String> names = new HashSet<>();
     List<String> prefixes = new ArrayList<>();
-    boolean any = false;
     for (String c : b.classes) {
-      if (c.equals("*")) {
-        any = true;
-      } else if (c.endsWith("*")) {
+      if (c.endsWith("*")) {
         prefixes.add(c.substring(0, c.length() - 1));
       } else {
         names.add(c);
@@ -120,11 +116,7 @@ public final class HtmlPolicy {
     }
     this.classNames = Collections.unmodifiableSet(names);
     this.classPrefixes = Collections.unmodifiableList(prefixes);
-    this.anyClass = any;
-    this.idPrefix = b.idPrefix;
     this.linkTarget = b.linkTarget;
-    this.dataImages = b.dataImages;
-    this.remoteImages = b.remoteImages;
     Set<String> relTokens = new LinkedHashSet<>(b.rel);
     if (linkTarget) {
       relTokens.add("noopener");
@@ -146,7 +138,7 @@ public final class HtmlPolicy {
     if (!isClassToken(token)) {
       return false;
     }
-    if (anyClass || classNames.contains(token)) {
+    if (classNames.contains(token)) {
       return true;
     }
     for (String p : classPrefixes) {
@@ -158,7 +150,7 @@ public final class HtmlPolicy {
   }
 
   boolean allowsClasses() {
-    return anyClass || !classNames.isEmpty() || !classPrefixes.isEmpty();
+    return !classNames.isEmpty() || !classPrefixes.isEmpty();
   }
 
   /** A builder that allows nothing but text; add what the content needs. */
@@ -172,10 +164,7 @@ public final class HtmlPolicy {
     private final Set<String> attributes = new HashSet<>();
     private final Set<String> classes = new LinkedHashSet<>();
     private final Set<String> rel = new LinkedHashSet<>(Arrays.asList("nofollow", "noopener"));
-    private String idPrefix = DEFAULT_ID_PREFIX;
     private boolean linkTarget;
-    private boolean dataImages;
-    private boolean remoteImages;
 
     private Builder() {}
 
@@ -199,36 +188,19 @@ public final class HtmlPolicy {
     }
 
     /**
-     * Allows {@code class} tokens: an exact name, a prefix ending in {@code *}
-     * ({@code "language-*"}), or {@code "*"} for any token. Only tokens of the form
-     * {@code [A-Za-z0-9_-]+} are ever kept; other tokens are dropped.
+     * Allows {@code class} tokens: an exact name, or a prefix ending in {@code *}
+     * ({@code "language-*"}). A bare {@code "*"} throws: it would give user content the page's
+     * whole class namespace, for CSS overlays and class-initialised widgets (#661). Only tokens of
+     * the form {@code [A-Za-z0-9_-]+} are ever kept; other tokens are dropped.
      */
     public Builder allowClasses(String... patterns) {
       for (String p : patterns) {
         String name = p.endsWith("*") ? p.substring(0, p.length() - 1) : p;
-        if (!(p.equals("*") || isClassToken(name))) {
+        if (!isClassToken(name)) { // a bare "*" leaves an empty name
           throw new IllegalArgumentException("not an allowed class pattern: " + p);
         }
         classes.add(p);
       }
-      return this;
-    }
-
-    /**
-     * The prefix written before every kept {@code id} (default {@value #DEFAULT_ID_PREFIX}), so
-     * user content cannot clobber {@code window} or {@code document} properties or the page's own
-     * ids. It must be a letter followed by {@code [A-Za-z0-9_-]} and end in {@code -}, so a kept id
-     * is never a JavaScript identifier; an empty prefix isn't allowed.
-     */
-    public Builder idPrefix(String prefix) {
-      if (prefix == null
-          || prefix.length() < 2
-          || !isAsciiLetter(prefix.charAt(0))
-          || !isClassToken(prefix)
-          || prefix.charAt(prefix.length() - 1) != '-') {
-        throw new IllegalArgumentException("not an allowed id prefix: " + prefix);
-      }
-      this.idPrefix = prefix;
       return this;
     }
 
@@ -247,25 +219,6 @@ public final class HtmlPolicy {
     /** Keeps {@code target="_blank"} on links (any other target is dropped) and adds {@code noopener}. */
     public Builder allowLinkTarget() {
       this.linkTarget = true;
-      return this;
-    }
-
-    /**
-     * Images are kept only with a same-origin path {@code src} unless this is called; with it, any
-     * {@code src} that passes the URL scheme check ({@code http}, {@code https}, or relative) is
-     * kept. Remote images tell the image host the reader's IP address and the page they read.
-     */
-    public Builder allowRemoteImages() {
-      this.remoteImages = true;
-      return this;
-    }
-
-    /**
-     * Also accepts {@code data:image/png}, {@code gif}, {@code jpeg} and {@code webp} base64 URLs
-     * in {@code img src} (an image never runs script). Other {@code data:} URLs stay rejected.
-     */
-    public Builder allowDataImages() {
-      this.dataImages = true;
       return this;
     }
 
