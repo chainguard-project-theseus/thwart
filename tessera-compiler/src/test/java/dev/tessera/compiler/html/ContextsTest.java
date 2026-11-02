@@ -52,20 +52,20 @@ class ContextsTest {
     "body, background, URL",
     "img, longdesc, URL",
     "img, usemap, TYPED_ATTRIBUTE",
-    "a, ping, TRUSTED_URL",
-    "img, srcset, TRUSTED_URL",
-    "source, SrcSet, TRUSTED_URL",
-    "link, imagesrcset, TRUSTED_URL",
+    "a, ping, TYPED_ATTRIBUTE",
+    "img, srcset, TYPED_ATTRIBUTE",
+    "source, SrcSet, TYPED_ATTRIBUTE",
+    "link, imagesrcset, TYPED_ATTRIBUTE",
     "html, manifest, URL",
     "use, xlink:href, URL",
     "area, href, URL",
     "audio, src, URL",
     // SVG animation values (#44, #284): what they hold depends on attributeName, so not one URL (#539)
-    "animate, to, TRUSTED_URL",
-    "set, from, TRUSTED_URL",
-    "animate, by, TRUSTED_URL",
-    "animate, values, TRUSTED_URL",
-    "SET, VALUES, TRUSTED_URL",
+    "animate, to, TYPED_ATTRIBUTE",
+    "set, from, TYPED_ATTRIBUTE",
+    "animate, by, TYPED_ATTRIBUTE",
+    "animate, values, TYPED_ATTRIBUTE",
+    "SET, VALUES, TYPED_ATTRIBUTE",
     "div, values, TYPED_ATTRIBUTE",
     "rect, values, TYPED_ATTRIBUTE",
     // RESOURCE_URL
@@ -451,11 +451,11 @@ class ContextsTest {
     "animate, attributeName, svg:fill, values, STYLE",
     "animate, attributeName, fill, fill, TYPED_ATTRIBUTE",
     "animate, attributeName, fill, begin, TYPED_ATTRIBUTE",
-    "animate, attributeName, href, values, TRUSTED_URL",
-    "set, attributeName, xlink:href, to, TRUSTED_URL",
-    "animate, attributeName, fill-opacity, values, TRUSTED_URL",
-    "animate, attributeName, opacity, to, TRUSTED_URL",
-    "animate, t:attributeName, fill, values, TRUSTED_URL",
+    "animate, attributeName, href, values, TYPED_ATTRIBUTE",
+    "set, attributeName, xlink:href, to, TYPED_ATTRIBUTE",
+    "animate, attributeName, fill-opacity, values, TYPED_ATTRIBUTE",
+    "animate, attributeName, opacity, to, TYPED_ATTRIBUTE",
+    "animate, t:attributeName, fill, values, TYPED_ATTRIBUTE",
     "rect, attributeName, fill, values, TYPED_ATTRIBUTE",
     "animate, attributeName, fill, attributeName, FORBIDDEN",
     "set, attributeName, fill, ATTRIBUTENAME, FORBIDDEN",
@@ -471,16 +471,16 @@ class ContextsTest {
   @Test
   void animatedSvgCssUrlNameFoldsOnlyAscii() {
     // A browser lower-cases A-Z only: attr\u0131buteName (dotless i) and attr\u0130buteName (dotted capital I) are
-    // not attributeName, so they leave the values of an href animation TRUSTED_URL, before or after the real one.
+    // not attributeName, so they leave the values of an href animation TYPED_ATTRIBUTE, before or after the real one.
     for (String decoy : List.of("attr\u0131buteName", "attr\u0130buteName")) {
-      assertEquals(OutputContext.TRUSTED_URL,
+      assertEquals(OutputContext.TYPED_ATTRIBUTE,
           Contexts.attribute(element("animate", "attributeName", "href", decoy, "fill"), "values"), decoy);
-      assertEquals(OutputContext.TRUSTED_URL,
+      assertEquals(OutputContext.TYPED_ATTRIBUTE,
           Contexts.attribute(element("animate", decoy, "fill", "attributeName", "href"), "values"), decoy);
-      assertEquals(OutputContext.TRUSTED_URL, Contexts.attribute(element("set", decoy, "fill"), "to"), decoy);
+      assertEquals(OutputContext.TYPED_ATTRIBUTE, Contexts.attribute(element("set", decoy, "fill"), "to"), decoy);
     }
     // The name it holds folds A-Z only too: mas\u212A (Kelvin sign) is not mask.
-    assertEquals(OutputContext.TRUSTED_URL, Contexts.attribute(element("set", "attributeName", "mas\u212A"), "to"));
+    assertEquals(OutputContext.TYPED_ATTRIBUTE, Contexts.attribute(element("set", "attributeName", "mas\u212A"), "to"));
     assertEquals(OutputContext.STYLE, Contexts.attribute(element("set", "AttributeName", "MASK"), "to"));
   }
 

@@ -85,38 +85,32 @@ public final class Escapers {
   }
 
   /**
-   * URL-valued attribute such as {@code href}/{@code action} (OutputContext.URL). A
-   * {@link TrustedUrl} is attribute-encoded as is. Any other value is attribute-encoded after
-   * a scheme check: only {@code http}, {@code https}, {@code mailto}, {@code tel} and
-   * scheme-less (relative) URLs pass; anything else is replaced by {@code about:invalid#tessera}.
+   * URL-valued attribute such as {@code href}/{@code action} (OutputContext.URL). Every value is
+   * attribute-encoded after a scheme check: only {@code http}, {@code https}, {@code mailto},
+   * {@code tel} and scheme-less (relative) URLs pass; anything else is replaced by
+   * {@code about:invalid#tessera}.
    */
   public static void url(Output out, Object value) {
-    if (value instanceof TrustedUrl) {
-      attr(out, ((TrustedUrl) value).url());
-      return;
-    }
     attr(out, checkedUrl(toText(value)));
   }
 
   /**
    * Resource URL attribute such as {@code <script src>} (OutputContext.RESOURCE_URL). Only
-   * accepts compiler-vetted values: a {@link TrustedUrl}, or a String produced by a link
-   * expression with a literal path. The compiler rejects every other expression.
+   * accepts a String produced by a link expression with a literal path; the compiler rejects
+   * every other expression.
    *
-   * <p>As defence in depth a String also goes through the {@link #url} scheme check, and any
+   * <p>As defence in depth the String also goes through the {@link #url} scheme check, and any
    * other type throws {@link IllegalArgumentException}.
    */
   public static void resourceUrl(Output out, Object value) {
     if (value == null) {
       return;
     }
-    if (value instanceof TrustedUrl) {
-      attr(out, ((TrustedUrl) value).url());
-    } else if (value instanceof String) {
+    if (value instanceof String) {
       attr(out, checkedUrl((String) value));
     } else {
       throw new IllegalArgumentException(
-          "resource URL must be a TrustedUrl or a link, got " + value.getClass().getName());
+          "resource URL must be a link, got " + value.getClass().getName());
     }
   }
 
@@ -545,8 +539,7 @@ public final class Escapers {
    * origin: {@code null} (the attribute is omitted), or a relative URL with no scheme that does not
    * start with two of {@code /} and {@code \} (protocol-relative). As in {@link #isAllowedUrl},
    * leading C0 controls and spaces are stripped and tab/CR/LF are ignored; any {@code :} before a
-   * {@code / ? #} is a scheme, so an absolute URL to the page's own host is not same-origin. A
-   * {@link TrustedUrl} is checked too: it vouches for the scheme, not for the origin. Any other
+   * {@code / ? #} is a scheme, so an absolute URL to the page's own host is not same-origin. The
    * value is checked as {@link #url} writes it, so one that fails the scheme check (written as
    * {@code about:invalid#tessera}) is not same-origin. Used by the compiler for a static form action
    * that may get the CSRF token (#285), by the sanitizer for a same-origin image, and by
@@ -556,8 +549,8 @@ public final class Escapers {
     if (value == null) {
       return true;
     }
-    String s = value instanceof TrustedUrl ? ((TrustedUrl) value).url() : toText(value);
-    if (!(value instanceof TrustedUrl) && !isAllowedUrl(s)) {
+    String s = toText(value);
+    if (!isAllowedUrl(s)) {
       return false;
     }
     int i = 0;

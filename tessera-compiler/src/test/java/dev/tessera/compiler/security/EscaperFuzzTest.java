@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.StringOutput;
-import dev.tessera.runtime.TrustedUrl;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
@@ -95,22 +94,6 @@ class EscaperFuzzTest {
             String problem = strings == null ? "structure changed" : ContextOracle.jsonString(strings[j], expected[j]);
             if (problem != null) {
               fail("json container: " + problem + "\noutput: " + show(out));
-            }
-          }
-        });
-  }
-
-  @Test
-  void trustedUrlIsStillAttributeEscaped() {
-    HostileStrings.forEachSeeded(
-        ITERATIONS / 10,
-        (rnd, i) -> {
-          String s = HostileStrings.random(rnd, 16);
-          TrustedUrl u = TrustedUrl.unchecked(s);
-          for (String out : List.of(run(Escapers::url, u), run(Escapers::resourceUrl, u))) {
-            String problem = ContextOracle.html(out, s);
-            if (problem != null) {
-              fail("TrustedUrl: " + problem + "\ninput: " + show(s));
             }
           }
         });

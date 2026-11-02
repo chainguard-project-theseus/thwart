@@ -137,7 +137,7 @@ them through human adversarial review, one at a time.
 | A. Parser differentials | **Yes** | Accept only a profile where the compiler's model is exact and stable across browsers (§5.2-5.3), verified against a spec parser (§5.7) |
 | B. Composition | **Yes** | Content kinds on fragments, `SafeHtml` and insertion points, checked at build time (§5.5) |
 | C. JS position | **Yes, by restriction** | Holes only as the whole value of a declaration in a closed prelude at the top of the script (§12.3). Don't try to lex all of JS |
-| E. URL/policy | **Mostly** | One URL-shape function used everywhere (resource, htmx, refresh, CSRF), and attributes that are not exactly one URL take only literals or a `TrustedUrl` (§12.2) |
+| E. URL/policy | **Mostly** | One URL-shape function used everywhere (resource, htmx, refresh, CSRF), and attributes that are not exactly one URL take only literals and numbers (§12.2) |
 | D. Client frameworks | **No** | The interpreter, its configuration and its mount points are chosen at runtime. We can *bound* it (§5.6), not prove it. Go `html/template`, Soy and React don't claim this either |
 
 The honest boundary: **Tessera guarantees what the browser's HTML parser and its built-in sinks do
@@ -430,7 +430,7 @@ ways.
 
 | Change | Why |
 |---|---|
-| **docs/security-model.md**: threat model and trust boundaries. Attacker: controls every model value. Template authors: trusted but fallible, so a template whose meaning the compiler can't pin down is rejected, whoever wrote it. Messages: checked at build time. `TrustedUrl.unchecked` and hand-written `Template`s: review points. Browsers: the supported set, including ESR. Page JavaScript: outside (principle 7; there is no framework table since #584) | Today every reviewer reconstructs the threat model, and severity arguments ("contrived template") recur |
+| **docs/security-model.md**: threat model and trust boundaries. Attacker: controls every model value. Template authors: trusted but fallible, so a template whose meaning the compiler can't pin down is rejected, whoever wrote it. Messages: checked at build time. Hand-written `Template`s: review points. Browsers: the supported set, including ESR. Page JavaScript: outside (principle 7; there is no framework table since #584) | Today every reviewer reconstructs the threat model, and severity arguments ("contrived template") recur |
 | **docs/context-model.md**: the profile (§5.2-5.6) as tables. **Every change to `HtmlParser`, `MarkupTokenizer`, `Contexts`, `TextInlining` or `Escapers` updates it in the same PR** | One written model instead of one per PR |
 | **The oracle gate in CI** (§5.7). A new context, mode, or framework entry lands with oracle or harness rows. A PR that widens the accepted language must say so in its description | Turns review findings into CI failures; would have caught #291's regression |
 | **Framework-neutral values for client code** (§12.2, #583, #584; this row first said deny-by-default names and a framework table). A computed value in any name that is not a standard HTML, SVG, MathML or ARIA name is a number, a boolean or a same-origin path. No framework is modelled; `{{` breaking and CSP bound the rest | Ends the chase in family D |
@@ -807,8 +807,8 @@ mechanically instead of by review.**
   `itemprop`: `apple-itunes-app`, Open Graph and any name a browser or crawler adds later are typed.
 - **Single-URL grammar** (PR #567). The URL escapers apply only to attributes whose spec grammar
   is exactly one URL. Lists and values whose meaning depends on another attribute (`ping`,
-  `srcset`, SVG animation `values`/`to`/`from`/`by`) are `TRUSTED_URL`: literals or a
-  `TrustedUrl`. `URL_LIST` is deleted.
+  `srcset`, SVG animation `values`/`to`/`from`/`by`) take literals and numbers only:
+  `TYPED_ATTRIBUTE` since #668. `URL_LIST` is deleted.
 
 An attribute nobody classified is not a plain attribute: it was a build error (#330), and is now `NEUTRAL`.
 
@@ -887,7 +887,7 @@ eight case-by-case patches. The shape is about HTML only: #585 (under #583) dele
 parts (static htmx request URLs and `hx-ws`/`hx-sse` as CSRF sinks, and the `hx-boost` tracking),
 since what htmx sends where is outside the guarantee (use htmx 2 or `selfRequestsOnly`). The
 boosted-form check became a framework-neutral rule: every form's computed `action` is a same-origin
-link or a `TrustedUrl`, since client code may submit any form and swap the response in.
+link (#668), since client code may submit any form and swap the response in.
 
 ### 12.8 `{{` through one function (#547, #571)
 

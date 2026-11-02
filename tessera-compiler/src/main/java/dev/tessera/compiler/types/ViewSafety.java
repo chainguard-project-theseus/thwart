@@ -6,7 +6,6 @@ import dev.tessera.compiler.forms.FormPaths;
 import dev.tessera.runtime.LoopStatus;
 import dev.tessera.runtime.CssValue;
 import dev.tessera.runtime.SafeHtml;
-import dev.tessera.runtime.TrustedUrl;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashSet;
@@ -31,7 +30,7 @@ import javax.lang.model.type.WildcardType;
  * <p>View-safe: primitives and boxes, String/CharSequence, enums, records, {@code java.time}
  * value types, BigDecimal/BigInteger, Optional/List/Set/Collection/Iterable/Map/Map.Entry of
  * view-safe types (and public {@code java.util} types that implement one of them, seen as that
- * interface: {@link #containerView}), arrays of view-safe types, {@code LoopStatus}, {@code SafeHtml}, {@code TrustedUrl}, {@code CssValue},
+ * interface: {@link #containerView}), arrays of view-safe types, {@code LoopStatus}, {@code SafeHtml}, {@code CssValue},
  * and classes annotated {@code @TemplateView}; all of them public, as are any classes they are
  * nested in and their type arguments, so the generated code can name them ({@link #inaccessible}, #269).
  *
@@ -104,7 +103,6 @@ public final class ViewSafety {
       Backports.setOf(
           LoopStatus.class.getName(),
           SafeHtml.class.getName(),
-          TrustedUrl.class.getName(),
           CssValue.class.getName());
 
   /**

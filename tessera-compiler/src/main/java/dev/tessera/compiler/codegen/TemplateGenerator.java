@@ -772,15 +772,14 @@ public final class TemplateGenerator implements CodegenContext {
   private Emitted dynamicAttr(Element e, ElementPlan.DynamicAttr d) {
     // Only attribute contexts: e.g. the SCRIPT (json) escaper does not escape '"'. A STYLE
     // attribute is attribute-escaped; GenericAttrProcessor admits only safe style values (#182),
-    // only literals and numbers in TYPED_ATTRIBUTE (#565), those or TrustedUrls in TRUSTED_URL (#539), and
+    // only literals and numbers in TYPED_ATTRIBUTE (#565; URL lists too, #539), and
     // neutral values (numbers, booleans, same-origin paths, literals) in NEUTRAL (#584).
     OutputContext ctx = d.context();
     String escaper =
         ctx == OutputContext.ATTRIBUTE || ctx == OutputContext.URL
             || ctx == OutputContext.RESOURCE_URL || ctx == OutputContext.REFRESH
             ? ctx.escaper()
-            : ctx == OutputContext.STYLE || ctx == OutputContext.TYPED_ATTRIBUTE || ctx == OutputContext.TRUSTED_URL
-                    || ctx == OutputContext.NEUTRAL
+            : ctx == OutputContext.STYLE || ctx == OutputContext.TYPED_ATTRIBUTE || ctx == OutputContext.NEUTRAL
                 ? OutputContext.ATTRIBUTE.escaper()
                 : null;
     if (escaper == null) {

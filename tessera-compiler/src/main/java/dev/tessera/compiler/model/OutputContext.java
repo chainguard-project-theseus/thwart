@@ -30,18 +30,10 @@ public enum OutputContext {
    */
   URL("url"),
   /**
-   * An attribute that holds URLs but is not exactly one URL (#539): a list ({@code ping},
-   * {@code srcset}, {@code imagesrcset}) or the {@code values to from by} of an SVG
-   * {@code <animate>} or {@code <set>}, whose meaning depends on its {@code attributeName}. The
-   * URL escaper checks one URL, so the value may only combine string literals, numbers and
-   * {@code TrustedUrl}s; a String or other plain value is a build error. Written attribute-escaped.
-   */
-  TRUSTED_URL(null),
-  /**
    * URL that loads code or a document: {@code <script src>}, {@code <script href>},
    * {@code <script xlink:href>}, {@code <iframe src>},
    * {@code <object data>}, {@code <embed src>}, {@code <base href>},
-   * {@code <link href>}. Only a literal-path link expression or a {@code TrustedUrl}.
+   * {@code <link href>}. Only a literal-path link expression.
    */
   RESOURCE_URL("resourceUrl"),
   /**
@@ -64,8 +56,12 @@ public enum OutputContext {
   /**
    * A standard attribute that is not an inert-text attribute ({@code inert-attributes.txt}) and
    * has no more specific context, such as {@code sandbox}, {@code rel}, {@code target}, an SVG
-   * {@code transform} or {@code x}. The value may only combine string literals and numbers (#565);
-   * a String, other plain value or safe type is a build error. Written attribute-escaped.
+   * {@code transform} or {@code x}. Also an attribute that holds URLs but is not exactly one URL
+   * (#539, #668), which the URL escaper can't check: a list ({@code ping}, {@code srcset},
+   * {@code imagesrcset}) or the {@code values to from by} of an SVG {@code <animate>} or
+   * {@code <set>}, whose meaning depends on its {@code attributeName}. The value may only combine
+   * string literals and numbers (#565); a String, other plain value or safe type is a build error.
+   * Written attribute-escaped.
    */
   TYPED_ATTRIBUTE(null),
   /**
