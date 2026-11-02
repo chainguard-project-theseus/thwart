@@ -21,6 +21,7 @@ import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Collections;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.env.MapPropertySource;
 import org.springframework.context.support.ResourceBundleMessageSource;
 import org.springframework.mock.web.MockServletContext;
 import org.springframework.stereotype.Controller;
@@ -128,13 +130,44 @@ class PlainSpringMvcTest {
     MockMvc withPolicy = MockMvcBuilders.webAppContextSetup(context).addFilters(policy).build();
     MvcResult first = withPolicy.perform(get("/csp")).andExpect(status().isOk()).andReturn();
     String nonce = CspPages.assertStamped(first);
-    assertEquals("script-src 'nonce-" + nonce + "'", first.getResponse().getHeader("Content-Security-Policy"));
+    // The application's policy is kept, and the view adds none (#757).
+    assertEquals(
+        Collections.singletonList("script-src 'nonce-" + nonce + "'"),
+        first.getResponse().getHeaders("Content-Security-Policy"));
     String second = CspPages.assertStamped(withPolicy.perform(get("/csp")).andReturn());
     assertNotEquals(nonce, second);
-    // Without the application's filter the page still gets a nonce, and no policy header is sent.
+    // Without the application's filter the view sends the strict policy for the page's nonce.
     MvcResult plain = mvc.perform(get("/csp")).andExpect(status().isOk()).andReturn();
-    CspPages.assertStamped(plain);
-    assertNull(plain.getResponse().getHeader("Content-Security-Policy"));
+    assertEquals(
+        "script-src 'nonce-" + CspPages.assertStamped(plain)
+            + "' 'strict-dynamic'; object-src 'none'; base-uri 'none'",
+        plain.getResponse().getHeader("Content-Security-Policy"));
+  }
+
+  /** {@code tessera.csp.enabled=false} from the plain Spring environment turns the policy off. */
+  @Test
+  void cspPolicyCanBeTurnedOff() throws Exception {
+    AnnotationConfigWebApplicationContext off = new AnnotationConfigWebApplicationContext();
+    try {
+      off.setServletContext(new MockServletContext());
+      off.getEnvironment()
+          .getPropertySources()
+          .addFirst(
+              new MapPropertySource(
+                  "test", Collections.<String, Object>singletonMap("tessera.csp.enabled", "false")));
+      off.register(App.class);
+      off.refresh();
+      MvcResult result =
+          MockMvcBuilders.webAppContextSetup(off)
+              .build()
+              .perform(get("/csp"))
+              .andExpect(status().isOk())
+              .andReturn();
+      CspPages.assertStamped(result);
+      assertNull(result.getResponse().getHeader("Content-Security-Policy"));
+    } finally {
+      off.close();
+    }
   }
 
   @Configuration

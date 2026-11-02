@@ -17,6 +17,12 @@ import dev.tessera.runtime.TemplateModelException;
 import dev.tessera.spring.CspNonce;
 import dev.tessera.spring.plain.CspPages;
 import dev.tessera.spring.testing.SpringTestContext;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponseWrapper;
+import java.io.IOException;
 import java.util.Collections;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,10 +39,13 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.csrf.DefaultCsrfToken;
 import org.springframework.security.web.header.HeaderWriter;
 import org.springframework.security.web.header.HeaderWriterFilter;
+import org.springframework.security.web.header.writers.ContentSecurityPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.XContentTypeOptionsHeaderWriter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * A compiled template through the auto-configuration, with the application's {@code
@@ -245,8 +254,8 @@ class SmokeTest {
 
   /**
    * The guide's Spring Security example (#335): a {@code HeaderWriter} that puts the request's
-   * nonce in the policy. Spring Security 4.2 writes headers before the view and 5.x on commit,
-   * after it; both see the nonce the page was rendered with.
+   * nonce in the policy. Spring Security writes headers on commit, after the view, and the
+   * writer sees the nonce the page was rendered with.
    */
   @Test
   void springSecurityHeaderWriterSeesThePageNonce() throws Exception {
@@ -264,8 +273,60 @@ class SmokeTest {
     assertEquals(
         "script-src 'nonce-" + nonce + "' 'strict-dynamic'; object-src 'none'; base-uri 'self'",
         result.getResponse().getHeader("Content-Security-Policy"));
-    // The starter itself sends no policy.
-    assertNull(mvc.perform(get("/csp")).andReturn().getResponse().getHeader("Content-Security-Policy"));
+  }
+
+  /** Without a policy from the application, the view sends the strict one for its nonce (#757). */
+  @Test
+  void defaultPolicyCarriesThePageNonce() throws Exception {
+    MvcResult result = mvc.perform(get("/csp")).andExpect(status().isOk()).andReturn();
+    String nonce = CspPages.assertStamped(result);
+    assertEquals(
+        "script-src 'nonce-" + nonce + "' 'strict-dynamic'; object-src 'none'; base-uri 'none'",
+        result.getResponse().getHeader("Content-Security-Policy"));
+  }
+
+  /**
+   * Spring Security writes its headers on commit, after the view, and from 5.x its policy writer
+   * backs off from a header already there: the view must not get in first and replace it (#757). With
+   * any {@code HeaderWriterFilter} the view sends no policy, since it cannot see what will follow.
+   */
+  @Test
+  void springSecurityPolicyIsNeverReplaced() throws Exception {
+    HeaderWriterFilter securityCsp =
+        new HeaderWriterFilter(
+            Collections.<HeaderWriter>singletonList(
+                new ContentSecurityPolicyHeaderWriter("default-src 'self'")));
+    MockMvc secured = MockMvcBuilders.webAppContextSetup(context).addFilters(securityCsp).build();
+    MvcResult result = secured.perform(get("/csp")).andExpect(status().isOk()).andReturn();
+    assertEquals(
+        Collections.singletonList("default-src 'self'"),
+        result.getResponse().getHeaders("Content-Security-Policy"));
+
+    // Another filter's wrapper around Spring Security's: the view looks through it.
+    OncePerRequestFilter wrapping =
+        new OncePerRequestFilter() {
+          @Override
+          protected void doFilterInternal(
+              HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+              throws ServletException, IOException {
+            chain.doFilter(request, new HttpServletResponseWrapper(response));
+          }
+        };
+    MockMvc wrapped =
+        MockMvcBuilders.webAppContextSetup(context).addFilters(securityCsp, wrapping).build();
+    result = wrapped.perform(get("/csp")).andExpect(status().isOk()).andReturn();
+    assertEquals(
+        Collections.singletonList("default-src 'self'"),
+        result.getResponse().getHeaders("Content-Security-Policy"));
+
+    MockMvc otherHeaders =
+        MockMvcBuilders.webAppContextSetup(context)
+            .addFilters(
+                new HeaderWriterFilter(
+                    Collections.<HeaderWriter>singletonList(new XContentTypeOptionsHeaderWriter())))
+            .build();
+    result = otherHeaders.perform(get("/csp")).andExpect(status().isOk()).andReturn();
+    assertNull(result.getResponse().getHeader("Content-Security-Policy"));
   }
 
   @SpringBootConfiguration

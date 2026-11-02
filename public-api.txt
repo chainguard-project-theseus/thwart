@@ -278,7 +278,8 @@ dev.tessera.spring.view.TesseraView: public static dev.tessera.spring.view.Tesse
 dev.tessera.spring.view.TesseraView: public static final java.lang.String CONTENT_TYPE
 dev.tessera.spring.view.TesseraView: public void render(java.util.Map<java.lang.String, ?>,jakarta.servlet.http.HttpServletRequest,jakarta.servlet.http.HttpServletResponse) throws java.lang.Exception
 dev.tessera.spring.view.TesseraViewResolver: public dev.tessera.spring.view.TesseraViewResolver(dev.tessera.runtime.TemplateRegistry,dev.tessera.spring.view.RenderContextFactory)
-dev.tessera.spring.view.TesseraViewResolver: public final class dev.tessera.spring.view.TesseraViewResolver implements org.springframework.web.servlet.ViewResolver, org.springframework.core.Ordered
+dev.tessera.spring.view.TesseraViewResolver: public final class dev.tessera.spring.view.TesseraViewResolver implements org.springframework.web.servlet.ViewResolver, org.springframework.core.Ordered, org.springframework.context.EnvironmentAware
 dev.tessera.spring.view.TesseraViewResolver: public int getOrder()
 dev.tessera.spring.view.TesseraViewResolver: public org.springframework.web.servlet.View resolveViewName(java.lang.String,java.util.Locale)
 dev.tessera.spring.view.TesseraViewResolver: public static final int ORDER
+dev.tessera.spring.view.TesseraViewResolver: public void setEnvironment(org.springframework.core.env.Environment)
