@@ -57,7 +57,7 @@ case $tier in
     tier0
     ;;
   tier1)
-    tests=SeedVerifierTest,HostileSweepTest,EscapersTest,EscaperFuzzTest,ErrorFreeTest,AsciiOnlyTest,TextChokePointTest,SstiPayloadTest
+    tests=SeedVerifierTest,ExitStateTest,HostileSweepTest,EscapersTest,EscaperFuzzTest,ErrorFreeTest,AsciiOnlyTest,TextChokePointTest,SstiPayloadTest
     echo "tier1: $tests"
     "${mvn[@]}" test -pl tessera-runtime,tessera-compiler -am \
       -Dtest="$tests" -Dsurefire.failIfNoSpecifiedTests=false
