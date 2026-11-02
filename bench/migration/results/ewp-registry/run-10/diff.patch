@@ -935,9 +935,9 @@ index 91c3aee..738f235 100644
 -    classpathLoader.setPrefix("templates");
 -    classpathLoader.setSuffix(".pebble");
 -    PebbleEngine engine = new PebbleEngine.Builder().loader(classpathLoader).build();
-+    DefaultLinks defaultLinks = new DefaultLinks("");
++    // Every link points to the Registry: prefix its origin.
 +    Links registryLinks =
-+        (path, names, values) -> registryUrl + defaultLinks.build(path, names, values);
++        new DefaultLinks("", url -> registryUrl + url);
 +    RenderContext defaults = RenderContext.defaults();
 +    RenderContext context = new RenderContext(defaults.locale(), defaults.messages(),
 +        registryLinks, defaults.forms());
