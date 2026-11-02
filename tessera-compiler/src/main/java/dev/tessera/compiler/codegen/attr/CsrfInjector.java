@@ -29,7 +29,7 @@ import java.util.Optional;
  *       browser reads it). Any other static value submits as GET and gets no token. A computed
  *       method on a {@code <form>} is a build error ({@code GenericAttrProcessor}).
  *   <li>The action is absent, a static URL same-origin by shape ({@link Checks#isSameOriginUrl}),
- *       or, computed ({@code t:action}, {@code t:attr="action=..."}), a link with a same-origin
+ *       or, computed ({@code t:action}), a link with a same-origin
  *       literal path, re-checked when rendered, or a choice whose every branch is one
  *       ({@code GenericAttrProcessor}); any other computed action of a static POST form is a build
  *       error. A static action on another origin is the author's visible choice: no token.
@@ -96,7 +96,7 @@ public final class CsrfInjector {
    * is. So the input has no {@code t:} attribute except {@code t:value} and {@code t:id} (nothing
    * that can drop it or change its type or name), no {@code disabled} (not submitted) and no
    * {@code form} (submits another form), and the form's body is not replaced ({@code t:text},
-   * {@code t:remove="body"}, ...). The automatic input is left out when one of these names equals
+   * {@code t:utext}, ...). The automatic input is left out when one of these names equals
    * the token's parameter name.
    */
   static List<String> ownTokenNames(ElementPlan plan) {

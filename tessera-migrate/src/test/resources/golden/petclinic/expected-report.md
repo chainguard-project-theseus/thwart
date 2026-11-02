@@ -1,6 +1,6 @@
 # tessera-migrate report
 
-Converted 9 template(s); 50 item(s) need manual attention.
+Converted 9 template(s); 51 item(s) need manual attention.
 
 ## fragments/inputField.html
 
@@ -47,6 +47,7 @@ Converted 9 template(s); 50 item(s) need manual attention.
 - `misc/unsupported.html:7`: `#ctx.request` reads Thymeleaf's evaluation context, which Tessera does not have; a template sees only its `t:params`: read the parameter by name, and add any value the controller does not provide to the model and to `t:params` (guide section 1)
 - `misc/unsupported.html:10`: collection selection/projection is not supported; compute the collection in Java
 - `misc/unsupported.html:12`: `sec:authorize` belongs to the `sec:` dialect, which Tessera does not support; port it by hand
+- `misc/unsupported.html:13`: `th:attr` is not supported; write one `t:<name>` per attribute: `th:attr="title=${a}, href=${b}"` becomes `t:title="a" t:href="b"`
 - `misc/unsupported.html:14`: `data-th-text` (HTML5 data-th-* syntax) is not converted; rewrite it as `t:text`
 - `misc/unsupported.html:15`: object creation with `new` is not supported (never); compute the value in Java
 - `misc/unsupported.html:16`: `th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or put data in a `<script type="application/json">` block

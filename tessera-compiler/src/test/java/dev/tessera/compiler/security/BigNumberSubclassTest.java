@@ -147,7 +147,7 @@ class BigNumberSubclassTest {
           "<p t:style=\"|width: ${x != null ? x : d}px|\">p</p>",
           "<p t:style=\"|width: ${x ?: d}px|\">p</p>",
           "<p t:style=\"|width: ${x}px; height: ${z}px|\">p</p>",
-          "<p t:attr=\"style=|width: ${x}px|\">p</p>");
+          "<p t:style=\"|width: ${x}px|\">p</p>");
 
   private static String renderStyle(String body, Object x, Object z) {
     return renderStyle(body, x, z, BigDecimal.ONE);

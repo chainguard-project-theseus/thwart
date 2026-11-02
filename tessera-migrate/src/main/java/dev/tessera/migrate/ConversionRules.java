@@ -45,7 +45,9 @@ final class ConversionRules {
       "th:attrappend", "`th:attrappend` is not supported; use `t:classappend`, or one `t:<attr>` with a `|...|` literal",
       "th:attrprepend", "`th:attrprepend` is not supported; use `t:classappend`, or one `t:<attr>` with a `|...|` literal",
       "th:alt-title", "`th:alt-title` is not supported; write `t:alt` and `t:title`",
-      "th:lang-xmllang", "`th:lang-xmllang` is not supported; write `t:lang`");
+      "th:lang-xmllang", "`th:lang-xmllang` is not supported; write `t:lang`",
+      "th:attr", "`th:attr` is not supported; write one `t:<name>` per attribute: `th:attr=\"title=${a}, href=${b}\"` becomes `t:title=\"a\" t:href=\"b\"`",
+      "th:errorclass", "`th:errorclass` is not supported; write `t:classappend=\"fields.hasErrors('<path>') ? '<classes>'\"` with the element's `t:field` path, merged into any existing `t:classappend`");
 
   private static final String DATA_TH_MESSAGE =
       "`%s` (HTML5 data-th-* syntax) is not converted; rewrite it as `t:%s`";
@@ -99,7 +101,7 @@ final class ConversionRules {
    * Attributes whose value is a keyword, literal or declaration, not an expression (renamed only).
    * {@code import} names classes and {@code params} declares types and names; neither holds roots.
    */
-  static final Set<String> LITERAL_VALUES = Compat.setOf("remove", "errorclass", "import", "params");
+  static final Set<String> LITERAL_VALUES = Compat.setOf("remove", "import", "params");
 
   /** Characters (besides whitespace) that force a rewritten unquoted value into double quotes. */
   static final String UNQUOTED_VALUE_FORBIDDEN = "\"'=<>`";
@@ -107,11 +109,8 @@ final class ConversionRules {
   /** Attributes whose value is a selection path on {@code t:object}, not a root variable. */
   static final Set<String> SELECTION_VALUES = Compat.setOf("field", "errors");
 
-  /** The only assignment attribute that declares locals ({@code th:with="n=..."}). */
+  /** The assignment attribute: comma-separated {@code name=expr} locals ({@code th:with="n=..."}). */
   static final String WITH = "with";
-
-  /** Attributes whose value is a comma-separated list of {@code name=expr} assignments. */
-  static final Set<String> ASSIGNMENT_VALUES = Compat.setOf(WITH, "attr");
 
   static final String FRAGMENT = "fragment";
   static final String EACH = "each";

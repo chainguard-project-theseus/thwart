@@ -97,7 +97,7 @@ class UnmodelledMarkupTest {
         "<svg><g t:each=\"i : ${#numbers.sequence(1, 2)}\"><rect/></g></svg>",
         "<svg><foreignObject><p t:text=\"s\">x</p></foreignObject></svg>",
         "<svg t:class=\"s\"></svg>",
-        "<svg t:attr=\"fill='red'\"></svg>",
+        "<svg t:fill=\"'red'\"></svg>",
         "<svg t:text=\"s\"></svg>",
         "<math><mi t:text=\"s\">x</mi></math>",
         "<math><annotation-xml t:encoding=\"'text/html'\"><mi>x</mi></annotation-xml></math>",
@@ -142,7 +142,7 @@ class UnmodelledMarkupTest {
 
   @ParameterizedTest
   @ValueSource(strings = {"<img t:srcset=\"'/a.png 1x'\">", "<link rel=\"preload\" as=\"image\" t:imagesrcset=\"'/a.png 1x'\">",
-      "<a href=\"/x\" t:ping=\"'/p'\">x</a>", "<img t:attr=\"srcset='/a.png 1x'\">"})
+      "<a href=\"/x\" t:ping=\"'/p'\">x</a>", "<img t:srcset=\"'/a.png 1x'\">"})
   void urlListsAreForbiddenEvenAsLiterals(String body) {
     compile(body).assertError("t.html:1:", "is not allowed", "list of URLs", "single src or href");
   }

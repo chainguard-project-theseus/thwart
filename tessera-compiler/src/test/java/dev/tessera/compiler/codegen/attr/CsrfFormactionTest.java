@@ -52,8 +52,7 @@ class CsrfFormactionTest {
       strings = {
         "<button t:formaction=\"${u}\">Go</button>",
         "<button t:formaction=\"u\">Go</button>",
-        "<button t:attr=\"formaction=${u}\">Go</button>",
-        "<button t:attr=\"title=${u}, FormAction=${u}\">Go</button>",
+        "<button t:title=\"${u}\" t:FormAction=\"${u}\">Go</button>",
         "<button t:FORMACTION=\"${u}\">Go</button>",
         "<button t:formaction=\"@{//evil.example/x}\">Go</button>",
         "<button t:formaction=\"@{/\\evil.example/x}\">Go</button>",
@@ -87,7 +86,6 @@ class CsrfFormactionTest {
   @ValueSource(
       strings = {
         "<form t:method=\"${m}\"><button t:formaction=\"${u}\">Go</button></form>",
-        "<form t:attr=\"method=${m}\"><button t:formaction=\"${u}\">Go</button></form>",
         "<form method=\"post\" t:action=\"${u}\"><button t:formaction=\"${u}\">Go</button></form>",
         "<form method=\"POST\"><button t:formaction=\"${u}\">Go</button></form>",
       })
@@ -102,7 +100,6 @@ class CsrfFormactionTest {
         "<form id=\"f\" method=\"post\"></form><button form=\"f\" t:formaction=\"${u}\">Go</button>",
         "<form id=\"f\" method=\"post\"></form><form><button form=\"f\" t:formaction=\"${u}\">Go</button></form>",
         "<form method=\"get\"><button t:form=\"'f'\" t:formaction=\"${u}\">Go</button></form>",
-        "<form method=\"get\"><button t:attr=\"form='f'\" t:formaction=\"${u}\">Go</button></form>",
         "<form method=\"get\"><button form=\"f\" formaction=\"https://evil.example/x\">Go</button></form>",
       })
   void formAttributeFails(String body) {
@@ -146,7 +143,7 @@ class CsrfFormactionTest {
         "<button formmethod=\" post\">Go</button>",
         "<input type=\"submit\" formmethod=\"\">",
         "<button t:formmethod=\"${m}\">Go</button>",
-        "<button t:attr=\"formmethod='post'\">Go</button>",
+        "<button t:formmethod=\"'post'\">Go</button>",
       })
   void formmethodInTokenFormFails(String button) {
     rejected(POST + button + "</form>", "formmethod", "with its CSRF token in the URL");
@@ -205,7 +202,7 @@ class CsrfFormactionTest {
   void sameOriginFormactionKeepsToken() {
     Compilation c =
         compile(POST + "<button t:formaction=\"@{/items/{id}/delete(id=${id})}\">Del</button>"
-            + "<button formmethod=\"post\" t:attr=\"formaction=@{/items}\">A</button>"
+            + "<button formmethod=\"post\" t:formaction=\"@{/items}\">A</button>"
             + "<input type=\"submit\" formaction=\"/items/new\" formmethod=\"dialog\">"
             + "<button formaction=\"edit?x=1\" FORMMETHOD=\"Post\">B</button></form>")
             .assertSuccess();
@@ -229,7 +226,7 @@ class CsrfFormactionTest {
   void choiceOfSameOriginLinksKeepsToken() {
     Compilation c = compileChoice(
         "<button t:formaction=\"b ? @{/items/{id}/delete(id=${id})} : @{/items(page='')}\">A</button>"
-            + "<button t:attr=\"formaction=${b} ? @{/x} : (c ? @{/y} : @{/z})\">B</button>")
+            + "<button t:formaction=\"${b} ? @{/x} : (c ? @{/y} : @{/z})\">B</button>")
         .assertSuccess();
     TestForms forms = new TestForms();
     forms.token = new Forms.CsrfToken("_csrf", "tok");
@@ -248,7 +245,7 @@ class CsrfFormactionTest {
         "<button t:formaction=\"b ? ${u} : @{/a}\">Go</button>",
         "<button t:formaction=\"b ? @{/a} : ${u}\">Go</button>",
         "<button t:formaction=\"b ? ${u}\">Go</button>",
-        "<button t:attr=\"formaction=${b} ? @{/a} : ${u}\">Go</button>",
+        "<button t:formaction=\"${b} ? @{/a} : ${u}\">Go</button>",
         "<button t:formaction=\"b ? @{/a} : '/b'\">Go</button>",
         "<button t:formaction=\"b ? @{/a} : '/b/' + ${u}\">Go</button>",
         "<button t:formaction=\"b ? @{/a} : @{//evil.example/x}\">Go</button>",
@@ -284,7 +281,7 @@ class CsrfFormactionTest {
         "<form><button formaction=\"https://evil.example/x\">B</button></form>",
         "<form><button formmethod=\"get\">B</button></form>",
         "<form method=\"post\" action=\"https://pay.example/\"><button t:formaction=\"${u}\">C</button></form>",
-        "<form method=\"get\"><div><input type=\"submit\" t:attr=\"formaction=${u}\"></div></form>",
+        "<form method=\"get\"><div><input type=\"submit\" t:formaction=\"${u}\"></div></form>",
         "<button formaction=\"//evil.example/x\">D</button>",
       })
   void everyFormIsChecked(String body) {

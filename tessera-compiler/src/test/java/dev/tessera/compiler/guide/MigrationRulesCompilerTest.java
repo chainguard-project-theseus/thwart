@@ -37,8 +37,8 @@ class MigrationRulesCompilerTest {
   @Test
   void svgAttributesNameTheFix() {
     compile("<svg><rect t:fill=\"s\"/></svg>").assertError("t.html:1:", "t:fill is not allowed", "a CSS variable");
-    compile("<svg><rect t:attr=\"stroke=s\"/></svg>")
-        .assertError("t.html:1:", "t:attr stroke is not allowed", "a CSS variable");
+    compile("<svg><rect t:stroke=\"s\"/></svg>")
+        .assertError("t.html:1:", "t:stroke is not allowed", "a CSS variable");
   }
 
   @Test

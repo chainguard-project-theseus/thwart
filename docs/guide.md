@@ -389,12 +389,13 @@ that runs code. What differs:
   element: put it on an enclosing element or a `<t:block>`.
 - `t:each` iterates an `Iterable`, array or `Map` (`e.key`, `e.value`), with status `index`,
   `count`, `size`, `first`, `last`, `even`, `odd` (implicit name `xStat`). `t:with` locals are
-  immutable. `t:remove` takes a literal (`all`, `body`, `tag`, `all-but-first`, `none`).
+  immutable. `t:remove` takes `all` or `tag`.
 - Any `t:<name>` sets that attribute, and `null` omits it, where Thymeleaf's `th:value`,
   `th:href`, `th:src`, `th:action`, `th:name` and `th:type` wrote it empty. Where the empty
   attribute matters, write `x ?: ''`. Boolean attributes (`t:checked`, ...) take a condition.
 - Not supported: `th:attrappend`/`attrprepend`, `th:alt-title`, `th:lang-xmllang`, `th:assert`,
-  `th:include` (use `t:insert`) and `th:inline`.
+  `th:include` (use `t:insert`) and `th:inline`; `th:attr`, `th:errorclass` and `th:remove`'s
+  `body`, `all-but-first` and `none` (recipes in section 5's table).
 
 ### 4.4 Output contexts
 
@@ -760,8 +761,8 @@ public record Address(String street) {}
   them with `ids.prev('roles')`/`ids.next('roles')`. A `t:selected` on an option replaces the
   bound-value match for that option.
 - `t:errors` writes the field's messages joined by `<br />`, or removes the element if there are
-  none; `*` is all errors and `global` the form object's own. `t:errorclass` appends a class when
-  the field has errors. For other markup, loop over `fields.errors('email')`.
+  none; `*` is all errors and `global` the form object's own. For other markup, loop over
+  `fields.errors('email')`.
 - `fields.hasErrors(path)`, `fields.errors(path)` and `fields.value(path)` (the display value,
   JSP `spring:bind`'s `status.value`, Thymeleaf's `*{{x}}`) take a literal path, a `Field`
   parameter, or `*{...}` for an indexed path (`fields.hasErrors(*{items[itemStat.index].name})`).
@@ -1144,4 +1145,7 @@ Gaps in Tessera today, with what to do instead.
 | `STRUCTURE_DEPENDS_ON_DATA` | A fragment that calls itself ever deeper (a recursive tree renderer) | A flat loop with depth classes, or `html.sanitize` to `SafeHtml` (4.4, Rich text) |
 | `UNCALLED_FRAGMENT_FITS_NOWHERE` | Verifier-only: a fragment declared outside HTML content is the build error in the next row first | Declare it in HTML content |
 | (build error) `t:fragment in <svg> content is not supported`, `~{::a} selects an element in <svg> content` | A `t:fragment`, or an element `~{::selector}` picks, inside `<svg>`, `<math>`, `<select>`, raw text (`<noscript>`, `<title>`, ...) or `t:remove="tag"` content | Declare the fragment outside it (directly under `<body>` or in its own file) and insert it there |
+| (build error) `t:attr is not supported` | Thymeleaf's `th:attr`, which set several attributes from one value | One `t:<name>` per attribute: `t:attr="title=a, href=b"` becomes `t:title="a" t:href="b"` |
+| (build error) `t:errorclass is not supported` | Thymeleaf's `th:errorclass`, which added a class when the `t:field` had errors | `t:classappend="fields.hasErrors(*{email}) ? 'has-error'"` with the element's `t:field` path; if the element has a `t:classappend` already, join both conditions into that one |
+| (build error) `t:remove="body" is not supported` (also `all-but-first`, `none`) | A `t:remove` value other than `all` and `tag` | Edit the template to the result: delete the content, every child element but the first, or the attribute |
 | `UNKNOWN_NODE`, `ENGINE_FAILURE` | A fragment the compiler can't resolve, static markup right after a computed attribute that isn't whitespace, `/` or `>`, or an internal failure | Fix the reference, or put a space after the attribute; report an `ENGINE_FAILURE` as a bug |

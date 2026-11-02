@@ -189,7 +189,7 @@ class FragmentParsingContextTest {
     page("<math><annotation-xml t:encoding=\"'text/html'\"><t:block t:replace=\"~{::payload(v)}\"></t:block></annotation-xml>"
             + "<annotation-xml><mrow t:fragment=\"payload(String s)\"><mi>x</mi></mrow></annotation-xml></math>")
         .assertError("page.html:2:23", "t:encoding is not allowed");
-    page("<math><annotation-xml encoding=\"text/html\" t:attr=\"id=${v}, encoding=${v}\"><t:block"
+    page("<math><annotation-xml encoding=\"text/html\" t:id=\"${v}\" t:encoding=\"${v}\"><t:block"
             + " t:replace=\"~{::payload(v)}\"></t:block></annotation-xml><annotation-xml><mrow t:fragment=\"payload(String s)\">"
             + "[[s]]</mrow></annotation-xml></math>")
         .assertError("page.html:2:", "inside <math> is not supported");

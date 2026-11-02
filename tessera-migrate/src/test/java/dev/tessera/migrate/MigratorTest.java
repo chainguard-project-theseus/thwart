@@ -100,10 +100,18 @@ class MigratorTest {
         + " t:v-bind:title=\"x\" t:hx-get=\"@{/a}\" t:hx-vals=\"x\" t:x-text=\"x\">a</a>"
         + "<my-list t:items=\"x\"></my-list></div>", convert(src));
     assertMessages(src);
-    String attr = "<div t:params=\"String x\"><a th:attr=\"hx-target=${x}, up-on-loaded=${x},title=${x}\">a</a></div>";
-    assertEquals("<div t:params=\"String x\"><a t:attr=\"hx-target=x, up-on-loaded=x,title=x\">a</a></div>",
-        convert(attr));
-    assertMessages(attr);
+  }
+
+  /** #766: th:attr and th:errorclass are left in place and reported with the recipe, not rewritten. */
+  @Test
+  void attrAndErrorClassAreReportedNotRewritten() throws Exception {
+    String src = "<div t:params=\"String x\"><a th:attr=\"title=${x}\" th:errorclass=\"err\">a</a></div>";
+    assertEquals(src, convert(src));
+    assertMessages(src,
+        "1: `th:attr` is not supported; write one `t:<name>` per attribute: `th:attr=\"title=${a}, href=${b}\"`"
+            + " becomes `t:title=\"a\" t:href=\"b\"`",
+        "1: `th:errorclass` is not supported; write `t:classappend=\"fields.hasErrors('<path>') ? '<classes>'\"`"
+            + " with the element's `t:field` path, merged into any existing `t:classappend`");
   }
 
   @Test
@@ -117,8 +125,7 @@ class MigratorTest {
 
   @Test
   void literalValuedAttributesAreOnlyRenamed() throws Exception {
-    assertEquals("<div><p t:remove=\"all\" t:errorclass=\"error\">x</p></div>",
-        convert("<div><p th:remove=\"all\" th:errorclass=\"error\">x</p></div>"));
+    assertEquals("<div><p t:remove=\"all\">x</p></div>", convert("<div><p th:remove=\"all\">x</p></div>"));
   }
 
   // ---- expressions ----
@@ -148,11 +155,11 @@ class MigratorTest {
   }
 
   @Test
-  void eachWithAndAttrRewriteEachExpression() throws Exception {
+  void eachAndWithRewriteEachExpression() throws Exception {
     assertEquals("<ul t:params=\"Object items, Object b\"><li t:each=\"it, st : items\" t:with=\"x=it.a, y=b\""
-            + " t:attr=\"data-i=st.index\" t:text=\"x + y + st.count\"></li></ul>",
+            + " t:data-i=\"st.index\" t:text=\"x + y + st.count\"></li></ul>",
         convert("<ul><li th:each=\"it, st : ${items}\" th:with=\"x=${it.a}, y=${b}\""
-            + " th:attr=\"data-i=${st.index}\" th:text=\"${x + y + st.count}\"></li></ul>"));
+            + " th:data-i=\"${st.index}\" th:text=\"${x + y + st.count}\"></li></ul>"));
   }
 
   @Test
@@ -226,10 +233,10 @@ class MigratorTest {
       // event handler and style: renamed, so the compiler's t:onclick and t:style errors name the fix
       {"<div t:params=\"String s\"><b th:onclick=\"${s}\" th:onMouseOver=\"${s}\" th:style=\"${s}\">x</b></div>",
        "<div t:params=\"String s\"><b t:onclick=\"s\" t:onMouseOver=\"s\" t:style=\"s\">x</b></div>"},
-      // CSS attributes of an SVG element, directly and in th:attr
-      {"<div t:params=\"String s\"><svg th:cursor=\"${s}\"><rect th:fill=\"${s}\" th:attr=\"stroke=${s}\"/>"
+      // CSS attributes of an SVG element
+      {"<div t:params=\"String s\"><svg th:cursor=\"${s}\"><rect th:fill=\"${s}\" th:stroke=\"${s}\"/>"
            + "<RECT TH:FILL=\"${s}\"/></svg></div>",
-       "<div t:params=\"String s\"><svg t:cursor=\"s\"><rect t:fill=\"s\" t:attr=\"stroke=s\"/>"
+       "<div t:params=\"String s\"><svg t:cursor=\"s\"><rect t:fill=\"s\" t:stroke=\"s\"/>"
            + "<RECT t:FILL=\"s\"/></svg></div>"},
       // a computed target that is not a choice between literals
       {"<div t:params=\"String s\"><a th:target=\"${s}\">a</a></div>",
@@ -334,7 +341,7 @@ class MigratorTest {
     // petclinic (#430): a fixture owner with a null id made this link a 500.
     String src = "<p t:params=\"Owner owner, Pet pet\"><a th:href=\"@{/owners/{ownerId}(ownerId=${owner.id})}\">a</a>\n"
         + "<a th:href=\"@{/owners/{o}/pets/{p}/edit(o=${owner.id},p=${pet?.id}, q=${pet.name})}\">b</a>\n"
-        + "<a th:attr=\"href=@{{id}/edit(id=${owner.id})}\">c</a></p>";
+        + "<a th:href=\"@{{id}/edit(id=${owner.id})}\">c</a></p>";
     assertEquals(src.replace("th:", "t:").replace("${owner.id}", "owner.id").replace("${pet?.id}", "pet?.id")
         .replace("${pet.name}", "pet.name"), convert(src));
     assertMessages(src,
@@ -424,16 +431,16 @@ class MigratorTest {
   void attributesThatCannotBeNullOrThatThymeleafOmitsAreNotReported() throws Exception {
     assertMessages("<form t:params=\"Owner owner\" th:action=\"@{/owners/new}\">"
         + "<input th:value=\"'x'\" th:name=\"|f${owner.id}|\"><input th:value=\"42\" th:type=\"#{input.type}\">"
-        + "<input th:title=\"${owner.name}\" th:attr=\"value=${owner.name}\"><input t:value=\"owner.name\">"
+        + "<input th:title=\"${owner.name}\"><input t:value=\"owner.name\">"
         + "<input th:value=\"checkbox\"></form>");
   }
 
   @Test
   void literalTokensAreQuoted() throws Exception {
     assertEquals("<ul t:params=\"Object nav_x\"><li t:class=\"'nav-item'\" t:text=\"'item.name'\" t:value=\"42\""
-            + " t:if=\"true\" t:with=\"c=nav_x\" t:attr=\"data-k='a-b'\">x</li></ul>",
+            + " t:if=\"true\" t:with=\"c=nav_x\" t:data-k=\"'a-b'\">x</li></ul>",
         convert("<ul><li th:class=\"nav-item\" th:text=\"item.name\" th:value=\"42\" th:if=\"true\""
-            + " t:with=\"c=nav_x\" th:attr=\"data-k=a-b\">x</li></ul>"));
+            + " t:with=\"c=nav_x\" th:data-k=\"a-b\">x</li></ul>"));
     assertEquals("<b t:class=\"'nav-link'\">x</b>", convert("<b th:class=nav-link>x</b>"));
   }
 

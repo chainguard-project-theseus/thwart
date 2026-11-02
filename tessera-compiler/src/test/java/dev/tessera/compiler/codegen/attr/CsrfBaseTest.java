@@ -80,8 +80,7 @@ class CsrfBaseTest {
         "<base t:href=\"@{/\\evil.example/}\">",
         "<base t:href=\"${u}\">",
         "<base t:HREF=\"${u}\">",
-        "<base t:attr=\"href=${u}\">",
-        "<base t:attr=\"target=${u}, href=@{//evil.example/}\">",
+        "<base t:target=\"${u}\" t:href=\"@{//evil.example/}\">",
         "<base t:href=\"${u} != null ? @{/a/} : @{//evil.example/}\">",
       })
   void computedBaseNotSameOriginLinkFails(String base) {
@@ -105,7 +104,7 @@ class CsrfBaseTest {
   void sameOriginBaseKeepsToken() {
     Compilation c =
         compile("<base href=\"/app/\"><base href=\"\"><base href=\"app/\"><base target=\"_blank\">"
-            + "<base t:href=\"@{/app/}\"><base t:attr=\"href=@{/app/{x}/(x=${u})}\">"
+            + "<base t:href=\"@{/app/}\"><base t:href=\"@{/app/{x}/(x=${u})}\">"
             + "<base t:href=\"${u} != null ? @{/app/} : @{/other/}\">" + FORM)
             .assertSuccess();
     TestForms forms = new TestForms();
