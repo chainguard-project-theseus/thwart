@@ -17,11 +17,11 @@
                    <input class="form-control" id="telephone" name="telephone" type="text">
                  <span aria-hidden="true" class="form-control-feedback glyphicon glyphicon-remove">
                  <span class="help-inline">
--                  numeric value out of bounds (&lt;10 digits&gt;.&lt;0 digits&gt; expected)
+-                  must not be empty
 -                  <br>
-                   must not be empty
+                   numeric value out of bounds (&lt;10 digits&gt;.&lt;0 digits&gt; expected)
 +                  <br>
-+                  numeric value out of bounds (&lt;10 digits&gt;.&lt;0 digits&gt; expected)
++                  must not be empty
            <div class="form-group">
              <div class="col-sm-10 col-sm-offset-2">
                <button class="btn btn-default" type="submit">

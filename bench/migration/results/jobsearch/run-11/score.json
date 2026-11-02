@@ -1,0 +1,41 @@
+{
+ "app": "jobsearch",
+ "run": "run-11",
+ "build_ok": true,
+ "tests_ok": true,
+ "tests": {
+  "tests": 1,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0
+ },
+ "tests_failed": [],
+ "baseline_tests": 1,
+ "pages_total": 92,
+ "pages_identical": 81,
+ "pages_reordered": 7,
+ "status_mismatch": [],
+ "insecure": [],
+ "legacy_templates": [],
+ "legacy_constructs": {},
+ "legacy_deps": [],
+ "tessera_templates": 49,
+ "baseline_templates": 49,
+ "pass": false,
+ "wall_minutes": 28.5,
+ "exit": 0,
+ "model": "opus",
+ "budget_usd": 40,
+ "budget_minutes": 90,
+ "outcome": "success",
+ "cost_usd": 27.012356600000018,
+ "turns": 17,
+ "tokens": {
+  "input_tokens": 1036,
+  "output_tokens": 361298,
+  "cache_read_input_tokens": 56868475,
+  "cache_creation_input_tokens": 1252438
+ },
+ "skill_listed": true,
+ "skill_invoked": true
+}

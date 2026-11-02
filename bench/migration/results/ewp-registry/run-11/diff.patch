@@ -1,0 +1,3917 @@
+diff --git a/.gitignore b/.gitignore
+index 0924d14..3c4f020 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -3,3 +3,4 @@ application.properties
+ /var/
+ /src/main/webapp/node/
+ src/main/resources/git.properties
++/.tessera/
+diff --git a/MIGRATION-REPORT.md b/MIGRATION-REPORT.md
+new file mode 100644
+index 0000000..a715238
+--- /dev/null
++++ b/MIGRATION-REPORT.md
+@@ -0,0 +1,255 @@
++# Migration report: Pebble → Tessera
++
++## Summary
++
++Tessera now renders every server-side page of the registry service (the 10 page templates, the
++validation result page, and the two layouts with their fragments). Pebble is gone:
++
++- `pebble-spring-boot-starter` and `pebble` are removed from `pom.xml`.
++- All `src/main/resources/templates/*.peb` files are deleted.
++- `PebbleAsJsonFilter` (the custom `asJson` filter) is deleted.
++- `pebble.strictVariables` and the devtools template reload path are removed from
++  `application.properties`.
++
++The starter logs `Found 16 compiled Tessera templates` at startup. It does not log
++`another template engine is still configured`.
++
++Results:
++
++- **Static analysis:** checkstyle, PMD and SpotBugs pass.
++- **Tests:** all 374 existing tests pass, plus two new ones. I changed one assertion; see "Tests"
++  below.
++- **Page parity:** 23 of the 32 requests in my `pages.txt` come out `same`. The other 9 differ,
++  for the two reasons explained under "What could not be converted 1:1". I could not get those
++  pages to `same` without breaking a Tessera rule.
++
++## What changed
++
++### Build (`pom.xml`, `spotbugs-exclude.xml`, `.gitignore`)
++
++- Added `dev.tessera:tessera-spring-boot-starter` (the jakarta version, since this is Boot 3.2).
++- `maven-compiler-plugin` now has `annotationProcessorPaths`. The list has
++  `spring-boot-configuration-processor`, which the build used to find automatically, and
++  `tessera-compiler`. It also passes `-Atessera.templates` and
++  `-Atessera.package=eu.erasmuswithoutpaper.registry.templates`, and turns on `<parameters>`.
++- Added `tessera-maven-plugin:check`, so that changing only a template triggers a recompile.
++- The generated template package is excluded from SpotBugs and PMD, so the rules themselves are
++  unchanged.
++- `/.tessera/` (the migrate tool and my parity recordings) is in `.gitignore`.
++
++### Templates (`src/main/resources/templates/**/*.html`)
++
++| Old (Pebble) | New (Tessera) |
++|---|---|
++| `generic.peb` (base layout) | `layout/generic.html`: fragment `layout(title, page, uiScript, body)` |
++| `generic-with-toolbar.peb` | `layout/toolbar.html`: fragment `toolbarLayout(title, page, uiScript, main)` that extends `layout` |
++| `{% include "heiFilter" %}` | `fragments/heiFilter.html`: `heiFilter(pattern)` |
++| macros in `validationResult.peb` | `fragments/validationReport.html`: `printKeyValue`, `printHeaders`, `printRequest`, `printResponse` |
++| host table loop in `manifestsOverview.peb` | `fragments/manifestsOverview.html`: `host(hostView, hostNumber)` |
++| every page | a page with the same view name, so every controller still returns the same view name |
++
++- The `{% block scripts %}` block was only used for `ui-<hash>.js`, so it became a `boolean uiScript`
++  layout parameter. Passing a `Fragment` through two layout levels into `<head>` is rejected
++  (`RAW_NOT_FLOW`).
++- The values every page needs are now one `PageCommons` record, model attribute `page`. It replaces
++  the separate `isUsingDevDesign`, `cssFingerprint`, `jsFingerprint` and `uiJsFingerprint`
++  attributes.
++- Where the old markup only worked through browser error recovery, I wrote out the tree the browser
++  actually built, so the page stays the same:
++  - In the help popup, `<p>` was wrapped around `<h4>` and `<ol>`.
++  - In the validation report, `<p>` was wrapped around `<div>` macro output.
++  - `<tr>` rows sat directly in `<table>` (I added an explicit `<tbody>`).
++  - The coverage matrix wrote `<thead>` after the rows.
++  - In the manifests overview, `<h3>` headings and nested tables sat inside an outer `<table>`.
++  - The "covered institutions" grid opened and closed `<tr>` depending on `loop.index % 5`.
++
++  The last two are now shaped in Java by `ManifestsOverviewView`, which reproduces the browser's
++  tree: leading headings, then an empty outer table, then the rest. It also adds the extra unstyled
++  row of padding cells that browsers created when the count was a multiple of five.
++
++### Java
++
++- **New view types:**
++  - `web/view/PageCommons`
++  - `HeiRow`, which replaces the template call to `hei.otherIds('erasmus')`
++  - `FlagView`, which unwraps `Optional<String> detailsUrl`
++  - `ApiEntryView`
++  - `ManifestsOverviewView`
++  - `validators/ValidationReport`, which replaces the nested `Map<String, Object>` "pebble context"
++  - `cmatrix/CoverageMatrix`
++- **`@TemplateView` added to existing classes the templates read:**
++  - `ManifestUpdateStatus`, `UpdateNotice`, `NotifierFlag`, `Severity` (a class used like an enum),
++    `HashComparisonResult`, `ValidationParameter`
++  - the manifest-overview classes (`ApiForHeiImplementationMapping`, `ApiHeiAndMajorVersionTuple`,
++    `ManifestAndHostIndex`, `CoveredInstitutionsCounters`, `ImplementedApisCount`,
++    `ImplementedApiCount`, `ImplementedApiVersionCount`, `ImplementedApiInfo`, `ApiVersion`)
++  - `ManifestAndHostIndex` also had to become `public`.
++- **Coverage matrix:** `CoverageMatrixGenerator.generateToHtmlTable()` used to build an HTML string
++  that the page printed with `| raw`. It is now `generate()` and returns a `CoverageMatrix` record
++  (rows → cells → lines, plus footnotes), and `coverage.html` renders it.
++  - The cell, line and footnote classes now build records instead of appending markup. The
++    "single plain line goes straight into the `<td>`" rule is kept.
++  - `CatalogueDependantCache` has a typed `get/putCoverageMatrix`. The old String methods are kept
++    because `ManifestRepositoryTest` uses them.
++  - The coverage matrix could not go through a sanitizer instead: sanitizer policies drop tables
++    and prefix ids, which would break the `#footnote-…` links.
++- **`HtmlValidationReportFormatter.getPebbleContext()`** became `getReport()`, which returns a
++  `ValidationReport`.
++- **`UiController`:**
++  - fills the new view types
++  - passes `status` as nullable plus `sourcePresent` instead of two `Optional`s
++  - drops `securityDisclaimer`, an HTML string that is now two literal branches in the template
++- **Manifest update notices** are HTML stored in the database. They now render with
++  `t:utext="notices.html(...)"`, which applies a narrow `HtmlPolicy` (`NoticeFunctions`: `p br b
++  code ul li a`, no added `rel`). Before, they were printed raw.
++- **`ReportUtils` (console validator HTML report)** now renders with
++  `ValidationResultTemplate.of(page, report).renderToString(RenderContext.defaults())`.
++  - It was effectively broken before: it looked for `templates/validationResult.pebble`, but the
++    file was `.peb`, so it always returned "An error occurred".
++  - It now produces the report. Asset links are root-relative, because a resource URL
++    (`link[href]`, `script[src]`) must be a literal-path `@{…}` link. That means
++    `https://<registryDomain>` can no longer be put in front of them, and the `registryDomain`
++    parameter is unused.
++- **`RegistryUpdaterImpl`:** fixed the unclosed `<code>` in the "invalid elements inside
++  `<apis-implemented>`" notice. The sanitizer would have flattened the nesting anyway.
++
++### Front end
++
++- **`src/main/webapp/app/main.js`:** the Vue root component reads the API entries from a
++  `<script type="application/json" id="api-entries">` block (see below).
++- **`scripts.js`:** I left it byte-identical on purpose. It is served under a content hash
++  (`/scripts-<sha1>.js`) that every page links to, so changing it would have changed every page.
++
++### Tests
++
++- **New:** `UiControllerIntegrationTest.testPagesRenderThroughTessera` renders nine pages through
++  the real view resolver. `testIiaHashValidatorEscapesSubmittedXml` checks that the submitted XML is
++  escaped in the `<textarea>`.
++- **Changed:** one assertion in `ApiControllerIntegrationTest` (test H). It checked the raw HTML of
++  a notice containing `didn't`. The notice now goes through the sanitizer, which writes the
++  apostrophe as `&#39;`. The assertion now expects `didn&#39;t`. It checks the same content just as
++  strictly; only the HTML serialization of one character differs, and the browser tree is the
++  same. No test was deleted, disabled or loosened.
++
++## Page parity
++
++How I recorded and compared:
++
++- Both apps were started the same way: `.tessera/run.sh`, H2 in memory, a fresh git repository,
++  the `development` profile, root URL `https://localhost:8443`.
++- A small local HTTPS proxy served the app's own self-manifests plus several test manifests from
++  `src/test/resources/test-files`, so the status, overview, coverage and validation pages have real
++  data: duplicates, warnings, errors, a 404 manifest, and HEIs.
++- `.tessera/pages.txt` has 32 requests covering:
++  - the index page
++  - the status list, plus per-URL status in OK, warning, error, unknown and fetch-failed states
++  - per-email status, with flags and with none
++  - coverage, unfiltered and filtered, including no matches
++  - HEI search, empty, with hits and with no hits
++  - the schema validator
++  - the manifests overview
++  - the manifest validator for three manifests, plus its 404
++  - an unknown page (404)
++  - the IIA hash validator: empty form, invalid XML, correct hash, wrong hash, and no IIAs
++- I also recorded and compared a production-design run (root URL
++  `registry.erasmuswithoutpaper.eu`, validators off) for 7 pages. All were `same` except `/status`,
++  for the reason below.
++
++Result: 23 `same`, 9 `differs`:
++
++| Pages | Why they differ |
++|---|---|
++| `/status` and `/status?url=…` (manifest known and loaded): 6 requests | The manifest reload link carried the manifest URL in `data-manifest-url="https://…"`. Tessera does not allow a computed string in a non-standard attribute (`data-*`), because client code may run what it reads there. Only numbers, booleans and same-origin `@{…}` links are allowed, and a manifest URL is none of these. I used the guide's recipe for "data your own script reads": a `<input type="hidden" class="ewp-manifest-url">` before the link, the link class renamed to `ewp-manifest-reload-link`, and a static inline script that posts the input's value to `/reload`. The class is renamed so the old handler in `scripts.js` no longer binds to it (see "Front end"). The DOM therefore differs on purpose. Five of these six pages also show `Last access attempt: TODAY hh:mm:ss (moments ago)`, which differs between any two runs. |
++| `/manifestValidation?url=…`: 3 requests | The page was a **Vue in-DOM template**: `<api-entry name="{{…}}" :security='{{ … \| asJson \| raw }}'>`, compiled in the browser by Vue's runtime compiler. Tessera does not support client frameworks that compile the server's DOM as a template, and the `:security` JSON could not be computed either. I used the guide's recipe ("Vue props → a named component that reads a JSON block"): the mounted markup is now a static template (`<api-entry v-for="api in apis" :name="api.name" …>`), and the data comes from `[[${apis}]]` in a `<script type="application/json">`. The JSON has the same fields Jackson used to write. The `ui-<hash>.js` fingerprint changes because `main.js` changed. |
++
++Every page not listed above is `same`, including all IIA hash validator states, the coverage
++matrix, the manifests overview and the 404 responses.
++
++## What could not be converted 1:1, and why
++
++1. **Manifest reload links** (`status.html`, `statusPerUrl.html`): see the table above. A data
++   attribute holding an arbitrary URL has no Tessera form that keeps the DOM unchanged.
++   - I did not use a script that copies the values back into `data-manifest-url`: the guide lists
++     it as a workaround that brings back what the rule prevents.
++   - I did not edit `scripts.js`: its hash would change on every page.
++2. **The API validator page** (`manifestValidation.html`): it was a Vue in-DOM template over
++   server-rendered data. This is unsupported, so I restructured it as described.
++   - The new JSON data is equivalent and the bundle builds.
++   - I could not click through the page in a real browser here, so the Vue wiring is checked only
++     by the build and by reading the code.
++3. **The validation result page** (`POST /validateApi`, JSON body, posted by the Vue app): I
++   converted it and it compiles, and the console report renders it. But `tessera-migrate record`
++   only sends form posts, so I could not record it or compare it.
++4. **Console HTML report:** the asset links lost their absolute `https://<registry>` prefix (see
++   `ReportUtils` above).
++5. **Notices with broken markup:** the sanitizer flattens nested `<code>`, so a notice relying on
++   that renders slightly differently. The only producer was the typo I fixed in
++   `RegistryUpdaterImpl`.
++
++## Where Tessera or its documentation fell short
++
++1. **No compliant way to emit a string `data-*` value unchanged.** Every recipe in guide 4.4
++   changes the page, yet `compare` only passes `same`/`reordered`. This puts "parity" and "no
++   escape hatch" in direct conflict for very common jQuery code (`$(el).attr("data-…")`). The
++   guide admits recipes change the page, but neither `compare` nor its report can mark a difference
++   as an accepted recipe; `--ignore` only deletes text.
++2. **Vue in-DOM templates are unsupported.** Pages built that way need front-end changes and a JS
++   rebuild, which also changes content-hashed asset URLs.
++3. **Content-hashed assets.** Any recipe that touches a shared script changes its hash on every
++   page. To avoid that I kept `scripts.js` unchanged and inlined the new handler. The guide only
++   suggests masking the hash with `--ignore`, which a fixed external check cannot do.
++4. **The resource-URL rule** (literal-path `@{…}` only) blocks an absolute base URL for
++   stylesheet and script links in emails or offline reports rendered outside a request. Nothing in
++   the guide covers that case.
++5. **Sanitizer output is not DOM-identical** to what the old engine wrote raw:
++   - it writes `'` as `&#39;`, which broke an existing test that asserted on raw HTML
++   - it flattens nested inline elements such as `<code><code>`
++   - it cannot keep tables, and always prefixes ids with `user-content-`
++
++   So an app-generated HTML string such as the coverage matrix had to be rebuilt as records,
++   about 150 lines of Java changes.
++6. **`Optional`** is listed as view-safe, but `opt.get()` is rejected ("not a property"). The
++   guide never says how to read an `Optional`'s value; I unwrapped it in a view record.
++7. **Fragment parameters into `<head>`.** The guide's layout example passes a `head` `Fragment`
++   into `<head>`. Passing such a parameter through a second layout level (toolbar → generic) is
++   rejected with `RAW_NOT_FLOW`, and the message ("parses this Fragment value in the <head>")
++   does not say the cause is that the fragment's content is unknown at that call site. I replaced it
++   with a boolean.
++8. **Build snippet:** with `annotationProcessorPaths`, every processor needs an explicit
++   `<version>`. Under the Boot 3.2 parent, `${spring-boot.version}` does not resolve (I used
++   `${project.parent.version}`). The guide's snippet says to list every processor but not this.
++9. **Printing a `@TemplateView` object.** `Severity` is a class used like an enum. The compiler
++   first said it "is not view-safe" for output. After annotating it, printing it uses `toString()`,
++   which is what I wanted, but the guide does not document that printing a view bean calls
++   `toString()`.
++10. **Error-recovered markup must be written out by hand.** The verifier (correctly) rejects
++    `<p>` around block content, but to keep parity I had to write the tree the browser built (empty
++    `<p></p>` before and after) instead of the obvious fix. The guide's `PARSE_ERROR` row suggests
++    closing the `<p>`, which changes the page.
++
++## Environment notes (not caused by the migration)
++
++- **Front-end build:** `frontend-maven-plugin` downloads Node 26 from nodejs.org, but that binary
++  cannot run in this sandbox (Wolfi: `libatomic.so.1` is missing). So `npm install` fails in the
++  normal build, before and after the migration. For local verification I ran `npm install` and
++  `npm run build-prod` with the system Node 22, then Maven with
++  `-Dskip.installnodenpm -Dskip.npm`. I did not change the plugin configuration.
++- **Javadoc:** `mvn verify` on JDK 21 stops at `maven-javadoc-plugin:jar` because of 5 doclint
++  errors in JAXB-generated sources (`unknown tag: identifier/description`). The untouched original
++  fails in exactly the same way. Excluding those packages breaks javadoc's symbol resolution, so I
++  left it as it was. Everything before that step passes: compile, checkstyle, PMD, SpotBugs, all
++  tests, and packaging.
++- **JDK:** the project targets Java 17. Only JDK 21 and 8 are installed, so I built with JDK 21 at
++  release 17.
++
++## Security
++
++- No Spring Security in this app, so no `permitAll` or CSRF settings were involved. Nothing in
++  Tessera's escaping was turned off.
++- There is no `TrustedUrl.unchecked`; the 0.1.0 runtime has no such class.
++- These values used to print raw and are now handled safely:
++  - the coverage matrix: now data, escaped
++  - notifier flag names: escaped
++  - stored update notices: sanitized
++  - the security disclaimer: static markup in the template
++  - the API entries' JSON: script-safe JSON in a data block instead of HTML attributes
+diff --git a/pom.xml b/pom.xml
+index 7285a5c..5b226f3 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -37,9 +37,9 @@
+             <artifactId>spring-boot-starter-data-jpa</artifactId>
+         </dependency>
+         <dependency>
+-            <groupId>io.pebbletemplates</groupId>
+-            <artifactId>pebble-spring-boot-starter</artifactId>
+-            <version>3.2.2</version>
++            <groupId>dev.tessera</groupId>
++            <artifactId>tessera-spring-boot-starter</artifactId>
++            <version>${tessera.version}</version>
+         </dependency>
+ 
+         <!-- DEV -->
+@@ -194,11 +194,6 @@
+             <artifactId>httpsig-ssh-jce</artifactId>
+             <version>1.3.1</version>
+         </dependency>
+-        <dependency>
+-            <groupId>io.pebbletemplates</groupId>
+-            <artifactId>pebble</artifactId>
+-            <version>3.2.2</version>
+-        </dependency>
+         <dependency>
+             <groupId>eu.erasmuswithoutpaper</groupId>
+             <artifactId>ewp-rsa-aes</artifactId>
+@@ -255,6 +250,7 @@
+         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+         <vueBuildProfile>prod</vueBuildProfile>
+         <start-class>eu.erasmuswithoutpaper.registry.Application</start-class>
++        <tessera.version>0.1.0-SNAPSHOT</tessera.version>
+ 
+         <!-- TODO Temp workaround for commons-text 1.11, override Spring Boot version with newer-->
+         <commons-lang3.version>3.13.0</commons-lang3.version>
+@@ -270,6 +266,41 @@
+             </resource>
+         </resources>
+         <plugins>
++            <plugin>
++                <groupId>org.apache.maven.plugins</groupId>
++                <artifactId>maven-compiler-plugin</artifactId>
++                <configuration>
++                    <parameters>true</parameters>
++                    <annotationProcessorPaths>
++                        <path>
++                            <groupId>org.springframework.boot</groupId>
++                            <artifactId>spring-boot-configuration-processor</artifactId>
++                            <version>${project.parent.version}</version>
++                        </path>
++                        <path>
++                            <groupId>dev.tessera</groupId>
++                            <artifactId>tessera-compiler</artifactId>
++                            <version>${tessera.version}</version>
++                        </path>
++                    </annotationProcessorPaths>
++                    <compilerArgs combine.children="append">
++                        <arg>-Atessera.templates=${project.basedir}/src/main/resources/templates</arg>
++                        <arg>-Atessera.package=eu.erasmuswithoutpaper.registry.templates</arg>
++                    </compilerArgs>
++                </configuration>
++            </plugin>
++            <plugin>
++                <groupId>dev.tessera</groupId>
++                <artifactId>tessera-maven-plugin</artifactId>
++                <version>${tessera.version}</version>
++                <executions>
++                    <execution>
++                        <goals>
++                            <goal>check</goal>
++                        </goals>
++                    </execution>
++                </executions>
++            </plugin>
+             <plugin>
+                 <groupId>org.springframework.boot</groupId>
+                 <artifactId>spring-boot-maven-plugin</artifactId>
+@@ -373,6 +404,7 @@
+                     </rulesets>
+                     <excludeRoots>
+                         <excludeRoot>target/generated-sources/jaxb</excludeRoot>
++                        <excludeRoot>target/generated-sources/annotations</excludeRoot>
+                     </excludeRoots>
+                     <linkXRef>false</linkXRef>
+                 </configuration>
+diff --git a/spotbugs-exclude.xml b/spotbugs-exclude.xml
+index 7b4a385..f5de4aa 100644
+--- a/spotbugs-exclude.xml
++++ b/spotbugs-exclude.xml
+@@ -6,6 +6,10 @@
+     <Match>
+         <Package name="~org.w3.*" />
+     </Match>
++    <Match>
++        <!-- Classes generated by Tessera from src/main/resources/templates -->
++        <Package name="~eu.erasmuswithoutpaper.registry.templates.*" />
++    </Match>
+     <Match>
+         <!-- TODO those bugs should be brought back! It were added for the sake of update Spotbugs -->
+         <!-- TODO Spotbugs ignores that fields are using annotations like @ValidatorTestStep (URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD) -->
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/ContentLine.java b/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/ContentLine.java
+index 9616af8..12a5d70 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/ContentLine.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/ContentLine.java
+@@ -3,19 +3,17 @@ package eu.erasmuswithoutpaper.registry.cmatrix;
+ import java.util.ArrayList;
+ import java.util.List;
+ 
+-import org.springframework.web.util.HtmlUtils;
+ 
+ class ContentLine {
+ 
+   private final List<String> classes;
+   private final List<String> tooltipLine;
+   private String content;
+-  private boolean isContentSafeHtml;
++  private String footnoteLink;
+ 
+   ContentLine() {
+     this.classes = new ArrayList<>();
+     this.tooltipLine = new ArrayList<>();
+-    this.isContentSafeHtml = false;
+   }
+ 
+   ContentLine(String content) {
+@@ -35,39 +33,21 @@ class ContentLine {
+     return this.content;
+   }
+ 
+-  boolean isSafeHtml() {
+-    return this.isContentSafeHtml;
++  boolean isSimple() {
++    return classes.isEmpty() && tooltipLine.isEmpty() && footnoteLink == null;
+   }
+ 
+-  void renderSimpleHtmlLine(StringBuilder sb) {
+-    if (classes.isEmpty() && tooltipLine.isEmpty()) {
+-      sb.append(getSafeContent());
+-    } else {
+-      renderHtmlLine(sb);
+-    }
+-  }
+-
+-  void renderHtmlLine(StringBuilder sb) {
+-    sb.append("<div class='").append(String.join(" ", this.classes)).append('\'');
+-    if (this.tooltipLine.size() > 0) {
+-      sb.append(" title='").append(String.join("\n", this.tooltipLine)).append('\'');
+-    }
+-    sb.append('>').append(getSafeContent()).append("</div>");
+-  }
+-
+-  private String getSafeContent() {
+-    if (this.isContentSafeHtml) {
+-      return this.content;
+-    } else {
+-      return HtmlUtils.htmlEscape(this.content);
+-    }
++  CoverageMatrix.Line toView() {
++    String tooltip = this.tooltipLine.isEmpty() ? null : String.join("\n", this.tooltipLine);
++    return new CoverageMatrix.Line(String.join(" ", this.classes), tooltip, this.content,
++        this.footnoteLink);
+   }
+ 
+   void setContent(String content) {
+     this.content = content;
+   }
+ 
+-  void setContentSafeHtml(boolean isHtml) {
+-    this.isContentSafeHtml = isHtml;
++  void setFootnoteLink(String footnoteLink) {
++    this.footnoteLink = footnoteLink;
+   }
+ }
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/CoverageMatrix.java b/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/CoverageMatrix.java
+new file mode 100644
+index 0000000..ad6c860
+--- /dev/null
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/CoverageMatrix.java
+@@ -0,0 +1,52 @@
++package eu.erasmuswithoutpaper.registry.cmatrix;
++
++import java.util.List;
++
++/**
++ * The HEI/API coverage matrix, as rendered by the coverage page.
++ *
++ * @param rows rows of the matrix, one per HEI.
++ * @param footnotes footnotes listing the other APIs implemented by HEIs.
++ */
++public record CoverageMatrix(List<Row> rows, List<Footnote> footnotes) {
++
++  /**
++   * A row of the matrix.
++   *
++   * @param cells cells of the row.
++   */
++  public record Row(List<Cell> cells) {
++  }
++
++  /**
++   * A cell of the matrix.
++   *
++   * @param colSpan number of columns spanned.
++   * @param classes CSS classes, separated with spaces.
++   * @param simple whether the cell holds a single plain line, written without a wrapper.
++   * @param lines lines of content.
++   */
++  public record Cell(int colSpan, String classes, boolean simple, List<Line> lines) {
++  }
++
++  /**
++   * A line of content in a cell.
++   *
++   * @param classes CSS classes, separated with spaces.
++   * @param tooltip tooltip, or null.
++   * @param content text content.
++   * @param footnoteLink id of the footnote the content links to, or null.
++   */
++  public record Line(String classes, String tooltip, String content, String footnoteLink) {
++  }
++
++  /**
++   * A footnote listing the other APIs implemented by a HEI.
++   *
++   * @param id element id of the footnote.
++   * @param heiId the HEI id.
++   * @param apis the other APIs.
++   */
++  public record Footnote(String id, String heiId, List<String> apis) {
++  }
++}
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/CoverageMatrixCell.java b/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/CoverageMatrixCell.java
+index a0a0242..739bd97 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/CoverageMatrixCell.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/CoverageMatrixCell.java
+@@ -30,27 +30,13 @@ class CoverageMatrixCell {
+     this.contentLines.add(new ContentLine(content));
+   }
+ 
+-  void renderHtmlCell(StringBuilder sb) {
+-    sb.append("<td");
+-    if (this.colSpan > 1) {
+-      sb.append(" colspan='").append(this.colSpan).append('\'');
+-    }
+-    if (!this.classes.isEmpty()) {
+-      sb.append(" class='").append(String.join(" ", this.classes));
+-    }
+-    sb.append("'>");
+-    renderLines(sb);
+-    sb.append("</td>");
+-  }
+-
+-  private void renderLines(StringBuilder sb) {
+-    if (this.contentLines.size() == 1) {
+-      contentLines.get(0).renderSimpleHtmlLine(sb);
+-    } else {
+-      for (ContentLine line : this.contentLines) {
+-        line.renderHtmlLine(sb);
+-      }
++  CoverageMatrix.Cell toView() {
++    List<CoverageMatrix.Line> lines = new ArrayList<>();
++    for (ContentLine line : this.contentLines) {
++      lines.add(line.toView());
+     }
++    boolean simple = this.contentLines.size() == 1 && this.contentLines.get(0).isSimple();
++    return new CoverageMatrix.Cell(this.colSpan, String.join(" ", this.classes), simple, lines);
+   }
+ 
+   void setColSpan(int colSpan) {
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/CoverageMatrixGenerator.java b/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/CoverageMatrixGenerator.java
+index 1ff23b4..3cda02d 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/CoverageMatrixGenerator.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/CoverageMatrixGenerator.java
+@@ -46,14 +46,14 @@ public class CoverageMatrixGenerator {
+   }
+ 
+   /**
+-   * Given an initialized {@link RegistryClient}, generate HTML report describing the HEI/API
++   * Given an initialized {@link RegistryClient}, generate a report describing the HEI/API
+    * coverage.
+    *
+    * @param client    The client to fetch HEI/API data from.
+    * @param heiFilter An optional pattern that should be used to filter HEIs
+-   * @return HTML string with the report.
++   * @return The report, rendered by the coverage page.
+    */
+-  public String generateToHtmlTable(RegistryClient client, String heiFilter) {
++  public CoverageMatrix generate(RegistryClient client, String heiFilter) {
+     List<HeiEntry> heis = this.extractInterestingHeis(client);
+     if (heiFilter != null) {
+       heis =
+@@ -65,23 +65,16 @@ public class CoverageMatrixGenerator {
+       HeiEntry hei = heis.get(i);
+       rows.add(new CoverageMatrixRow(hei, client, i + 1));
+     }
+-    StringBuilder sb = new StringBuilder();
+-    sb.append("<div class='ewpst'>");
+-    sb.append("<table class='ewpst__table'>");
++    List<CoverageMatrix.Row> rowViews = new ArrayList<>();
++    List<CoverageMatrix.Footnote> footnotes = new ArrayList<>();
+     for (CoverageMatrixRow row : rows) {
+-      row.generateHtmlRow(sb);
+-    }
+-    // Header moved after table body to work around sticky-opacity bug in browsers
+-    sb.append(CoverageMatrixRow.generateTableHeader());
+-    sb.append("</table>");
+-    sb.append("<div class='ewpst__footnotes'>");
+-    for (CoverageMatrixRow row : rows) {
+-      OtherApisCell cell = row.getOtherApisCell();
+-      cell.renderHtmlFootnote(sb);
++      rowViews.add(row.toView());
++      CoverageMatrix.Footnote footnote = row.getOtherApisCell().toFootnote();
++      if (footnote != null) {
++        footnotes.add(footnote);
++      }
+     }
+-    sb.append("</div>");
+-    sb.append("</div>");
+-    return sb.toString();
++    return new CoverageMatrix(rowViews, footnotes);
+   }
+ 
+   private List<HeiEntry> extractInterestingHeis(RegistryClient client) {
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/CoverageMatrixRow.java b/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/CoverageMatrixRow.java
+index 927e060..3ce829e 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/CoverageMatrixRow.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/CoverageMatrixRow.java
+@@ -7,141 +7,9 @@ import java.util.List;
+ import eu.erasmuswithoutpaper.registry.documentbuilder.KnownElement;
+ import eu.erasmuswithoutpaper.registryclient.HeiEntry;
+ import eu.erasmuswithoutpaper.registryclient.RegistryClient;
+-import org.springframework.web.util.HtmlUtils;
+ 
+ class CoverageMatrixRow {
+ 
+-  private static String genRow(String text, int colorClass) {
+-    return genRow(text, colorClass, 1, 1, "");
+-  }
+-
+-  private static String genRow(String text, int colorClass, int rowspan, int colspan) {
+-    return genRow(text, colorClass, rowspan, colspan, "");
+-  }
+-
+-  private static String genRow(String text, int colorClass, int rowspan, int colspan,
+-      String classes) {
+-    StringBuilder sb = new StringBuilder();
+-    sb.append("<th ");
+-    if (colspan != 1) {
+-      sb.append("colspan='").append(colspan).append('\'');
+-    }
+-    if (rowspan != 1) {
+-      sb.append("rowspan='").append(rowspan).append('\'');
+-    }
+-    sb.append("class='cell cc").append(colorClass);
+-    if (!classes.isEmpty()) {
+-      sb.append(' ').append(classes);
+-    }
+-    sb.append("'>").append(text).append("</th>");
+-    return sb.toString();
+-  }
+-
+-  static String generateTableHeader() {
+-
+-    StringBuilder row1 = new StringBuilder();
+-    StringBuilder row2 = new StringBuilder();
+-    StringBuilder row3 = new StringBuilder();
+-    row1.append("<tr class='ewpst__row ewpst__row--header'>");
+-    row2.append("<tr class='ewpst__row ewpst__row--header'>");
+-    row3.append("<tr class='ewpst__row ewpst__row--header'>");
+-
+-    /* Row index */
+-
+-    row1.append(genRow("#", NAME_COLOR_CLASS, 2, 1));
+-
+-    /* Institution */
+-
+-    row1.append(genRow("Institution", NAME_COLOR_CLASS, 2, 1, "institution"));
+-
+-    /* SCHAC */
+-
+-    row1.append(genRow("SCHAC", NAME_COLOR_CLASS, 2, 1, "schac"));
+-
+-    /* Erasmus code */
+-
+-    row1.append(genRow("Erasmus code", NAME_COLOR_CLASS, 2, 1, "erasmus"));
+-
+-    /* Primary Network APIs */
+-
+-    int colorClass = getNextColorClass(NAME_COLOR_CLASS);
+-
+-    row1.append(genRow("Primary Network APIs", colorClass, 1, 2));
+-    row2.append(genRow("discov.", colorClass));
+-    row2.append(genRow("echo", colorClass));
+-
+-    /* General Purpose APIs */
+-
+-    colorClass = getNextColorClass(colorClass);
+-
+-    row1.append(genRow("General Purpose APIs", colorClass, 1, 5));
+-    row2.append(genRow("inst.", colorClass));
+-    row2.append(genRow("ounits", colorClass));
+-    row2.append(genRow("courses", colorClass));
+-    row2.append(genRow("course replic.", colorClass));
+-    row2.append(genRow("file", colorClass));
+-
+-    /* IIAs */
+-    colorClass = getNextColorClass(colorClass);
+-
+-    row1.append(genRow("IIAs", colorClass, 1, 3));
+-    row2.append(genRow("ver.", colorClass));
+-    row2.append(genRow("CNR", colorClass));
+-    row2.append(genRow("fact.", colorClass));
+-
+-    /* IIAs Approval */
+-    colorClass = getNextColorClass(colorClass);
+-
+-    row1.append(genRow("IIAs Approval", colorClass, 1, 2));
+-    row2.append(genRow("ver.", colorClass));
+-    row2.append(genRow("CNR", colorClass));
+-
+-    /* OMobilities */
+-    colorClass = getNextColorClass(colorClass);
+-
+-    row1.append(genRow("OMobilities", colorClass, 1, 3));
+-    row2.append(genRow("ver.", colorClass));
+-    row2.append(genRow("CNR", colorClass));
+-    row2.append(genRow("Stats", colorClass));
+-
+-    /* OMobility LAs */
+-
+-    colorClass = getNextColorClass(colorClass);
+-
+-    row1.append(genRow("OMobility LAs", colorClass, 1, 2));
+-    row2.append(genRow("ver.", colorClass));
+-    row2.append(genRow("CNR", colorClass));
+-
+-    /* IMobilities */
+-
+-    colorClass = getNextColorClass(colorClass);
+-
+-    row1.append(genRow("IMobilities", colorClass, 1, 2));
+-    row2.append(genRow("ver.", colorClass));
+-    row2.append(genRow("CNR", colorClass));
+-
+-    /* IMobility ToRs */
+-
+-    colorClass = getNextColorClass(colorClass);
+-
+-    row1.append(genRow("IMobility ToRs", colorClass, 1, 3));
+-    row2.append(genRow("ver.", colorClass));
+-    row2.append(genRow("CNR", colorClass));
+-    row2.append(genRow("Stats", colorClass));
+-
+-    /* Other APIs */
+-
+-    row1.append(genRow("Other APIs", OTHER_APIS_COLOR_CLASS, 2, 1));
+-
+-    /* Finalize */
+-
+-    row1.append("</tr>");
+-    row2.append("</tr>");
+-    row3.append("</tr>");
+-
+-    return "<thead>" + row1.toString() + row2.toString() + row3.toString() + "</thead>";
+-  }
+-
+   private static final int NAME_COLOR_CLASS = 1;
+   private static final int EVEN_COLOR_CLASS = 2;
+   private static final int ODD_COLOR_CLASS = 3;
+@@ -182,11 +50,8 @@ class CoverageMatrixRow {
+       cell.addContentLine("");
+     } else {
+       String erasmusCode = erasmusCodes.iterator().next();
+-      ContentLine erasmusCodeLine = new ContentLine(
+-          // ensure spaces in erasmus code
+-          HtmlUtils.htmlEscape(erasmusCode).replace(" ", "&nbsp;"));
+-      erasmusCodeLine.setContentSafeHtml(true);
+-      cell.addContentLine(erasmusCodeLine);
++      // ensure spaces in erasmus code
++      cell.addContentLine(erasmusCode.replace(' ', '\u00A0'));
+     }
+ 
+     /* Primary Network APIs */
+@@ -348,14 +213,12 @@ class CoverageMatrixRow {
+     return ODD_COLOR_CLASS;
+   }
+ 
+-  void generateHtmlRow(StringBuilder sb) {
+-    sb.append("<tr>");
+-
++  CoverageMatrix.Row toView() {
++    List<CoverageMatrix.Cell> cellViews = new ArrayList<>();
+     for (CoverageMatrixCell cell : this.cells) {
+-      cell.renderHtmlCell(sb);
++      cellViews.add(cell.toView());
+     }
+-
+-    sb.append("</tr>");
++    return new CoverageMatrix.Row(cellViews);
+   }
+ 
+   OtherApisCell getOtherApisCell() {
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/OtherApisCell.java b/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/OtherApisCell.java
+index e566b60..d21df16 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/OtherApisCell.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/cmatrix/OtherApisCell.java
+@@ -7,7 +7,6 @@ import eu.erasmuswithoutpaper.registry.documentbuilder.KnownElement;
+ import eu.erasmuswithoutpaper.registryclient.ApiSearchConditions;
+ import eu.erasmuswithoutpaper.registryclient.HeiEntry;
+ import eu.erasmuswithoutpaper.registryclient.RegistryClient;
+-import org.springframework.web.util.HtmlUtils;
+ 
+ import org.w3c.dom.Element;
+ 
+@@ -41,16 +40,11 @@ class OtherApisCell extends CoverageMatrixCell {
+     }
+ 
+     if (!this.unmatched.isEmpty()) {
+-      StringBuilder sb = new StringBuilder();
+-      sb.append("<a href='#").append(HtmlUtils.htmlEscape(this.getFootnoteId())).append("'>");
+-      sb.append('+').append(this.unmatched.size()).append(" other APIs");
+-      sb.append("</a>");
+       ContentLine line = new ContentLine();
+-      line.setContent(sb.toString());
+-      line.setContentSafeHtml(true);
++      line.setContent("+" + this.unmatched.size() + " other APIs");
++      line.setFootnoteLink(this.getFootnoteId());
+       for (Element apiEntry : this.unmatched) {
+-        line.addTooltipLine(
+-            "{" + HtmlUtils.htmlEscape(apiEntry.getNamespaceURI()) + "}" + apiEntry.getLocalName());
++        line.addTooltipLine(getApiName(apiEntry));
+       }
+       this.addContentLine(line);
+     }
+@@ -60,21 +54,18 @@ class OtherApisCell extends CoverageMatrixCell {
+     return "footnote-" + this.hei.getId();
+   }
+ 
+-  void renderHtmlFootnote(StringBuilder sb) {
+-    if (this.unmatched.size() == 0) {
+-      return;
++  private static String getApiName(Element apiEntry) {
++    return "{" + apiEntry.getNamespaceURI() + "}" + apiEntry.getLocalName();
++  }
++
++  CoverageMatrix.Footnote toFootnote() {
++    if (this.unmatched.isEmpty()) {
++      return null;
+     }
+-    sb.append("<p id='").append(HtmlUtils.htmlEscape(this.getFootnoteId())).append("'>");
+-    sb.append("<code class='ewpst__bordered-code'>");
+-    sb.append(HtmlUtils.htmlEscape(this.hei.getId())).append("</code>");
+-    sb.append(" implements the following APIs:</p>");
+-    sb.append("<ul>");
++    List<String> apis = new ArrayList<>();
+     for (Element apiEntry : this.unmatched) {
+-      sb.append("<li><code>");
+-      sb.append('{').append(HtmlUtils.htmlEscape(apiEntry.getNamespaceURI())).append('}');
+-      sb.append(apiEntry.getLocalName());
+-      sb.append("</code></li>");
++      apis.add(getApiName(apiEntry));
+     }
+-    sb.append("</ul>");
++    return new CoverageMatrix.Footnote(this.getFootnoteId(), this.hei.getId(), apis);
+   }
+ }
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/common/Severity.java b/src/main/java/eu/erasmuswithoutpaper/registry/common/Severity.java
+index 2c45c25..696981a 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/common/Severity.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/common/Severity.java
+@@ -1,5 +1,8 @@
+ package eu.erasmuswithoutpaper.registry.common;
+ 
++import dev.tessera.runtime.TemplateView;
++
++
+ /**
+  * An enumeration of severities.
+  *
+@@ -7,6 +10,7 @@ package eu.erasmuswithoutpaper.registry.common;
+  * It is used as a status for various entities.
+  * </p>
+  */
++@TemplateView
+ public class Severity {
+ 
+   /**
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/consoleapplication/ReportUtils.java b/src/main/java/eu/erasmuswithoutpaper/registry/consoleapplication/ReportUtils.java
+index 91c3aee..304ddbe 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/consoleapplication/ReportUtils.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/consoleapplication/ReportUtils.java
+@@ -1,20 +1,20 @@
+ package eu.erasmuswithoutpaper.registry.consoleapplication;
+ 
+ import java.io.IOException;
+-import java.io.StringWriter;
+-import java.io.Writer;
++import java.io.InputStream;
++import java.net.URL;
+ import java.util.ArrayList;
+ import java.util.List;
+-import java.util.Map;
+ 
+ import eu.erasmuswithoutpaper.registry.documentbuilder.EwpDocBuilder;
++import eu.erasmuswithoutpaper.registry.templates.ValidationResultTemplate;
+ import eu.erasmuswithoutpaper.registry.validators.HtmlValidationReportFormatter;
++import eu.erasmuswithoutpaper.registry.validators.ValidationReport;
+ import eu.erasmuswithoutpaper.registry.validators.ValidationStepWithStatus;
++import eu.erasmuswithoutpaper.registry.web.view.PageCommons;
+ 
+-import io.pebbletemplates.pebble.PebbleEngine;
+-import io.pebbletemplates.pebble.error.PebbleException;
+-import io.pebbletemplates.pebble.loader.ClasspathLoader;
+-import io.pebbletemplates.pebble.template.PebbleTemplate;
++import dev.tessera.runtime.RenderContext;
++import org.apache.commons.codec.digest.DigestUtils;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ 
+@@ -67,28 +67,28 @@ public class ReportUtils {
+     HtmlValidationReportFormatter htmlValidationReportFormatter =
+         new HtmlValidationReportFormatter(docBuilder);
+ 
+-    Map<String, Object> pebbleContext = htmlValidationReportFormatter.getPebbleContext(
++    ValidationReport report = htmlValidationReportFormatter.getReport(
+         steps,
+         validationInfoParameters
+     );
+ 
+-    String registryUrl = "https://" + registryDomain;
+-    pebbleContext.put("baseUrl", registryUrl);
+-    pebbleContext.put("isUsingDevDesign", true);
+-
+-    ClasspathLoader classpathLoader = new ClasspathLoader();
+-    classpathLoader.setPrefix("templates");
+-    classpathLoader.setSuffix(".pebble");
+-    PebbleEngine engine = new PebbleEngine.Builder().loader(classpathLoader).build();
+-
+     try {
+-      PebbleTemplate compiledTemplate = engine.getTemplate("validationResult");
+-      Writer writer = new StringWriter();
+-      compiledTemplate.evaluate(writer, pebbleContext);
+-      return writer.toString();
+-    } catch (PebbleException | IOException e) {
++      PageCommons page = new PageCommons(true, getResourceFingerprint("style.css"),
++          getResourceFingerprint("scripts.js"), getResourceFingerprint("vue-app/ui.js"));
++      return ValidationResultTemplate.of(page, report).renderToString(RenderContext.defaults());
++    } catch (IOException | RuntimeException e) {
+       logger.error("Problem with generating full report as HTML.", e);
+       return "An error occurred";
+     }
+   }
++
++  private static String getResourceFingerprint(String path) throws IOException {
++    URL resource = ReportUtils.class.getClassLoader().getResource(path);
++    if (resource == null) {
++      return "missing";
++    }
++    try (InputStream stream = resource.openStream()) {
++      return DigestUtils.sha1Hex(stream);
++    }
++  }
+ }
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/iia/HashComparisonResult.java b/src/main/java/eu/erasmuswithoutpaper/registry/iia/HashComparisonResult.java
+index 1af5039..34efb08 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/iia/HashComparisonResult.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/iia/HashComparisonResult.java
+@@ -1,5 +1,9 @@
+ package eu.erasmuswithoutpaper.registry.iia;
+ 
++import dev.tessera.runtime.TemplateView;
++
++
++@TemplateView
+ public class HashComparisonResult {
+ 
+   private final String hashExtracted;
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ApiForHeiImplementationMapping.java b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ApiForHeiImplementationMapping.java
+index 6bd971f..d4d09d3 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ApiForHeiImplementationMapping.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ApiForHeiImplementationMapping.java
+@@ -8,10 +8,13 @@ import java.util.List;
+ import java.util.Map;
+ import java.util.stream.Collectors;
+ 
++import dev.tessera.runtime.TemplateView;
++
+ /**
+  * Defines a mapping between API implemented for HEI to place (manifest, host, version) where it
+  * is implemented.
+  */
++@TemplateView
+ public class ApiForHeiImplementationMapping {
+   private Map<ApiHeiAndMajorVersionTuple, Map<ManifestAndHostIndex, List<String>>> map
+       = new HashMap<>();
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ApiHeiAndMajorVersionTuple.java b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ApiHeiAndMajorVersionTuple.java
+index 6769695..c69322e 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ApiHeiAndMajorVersionTuple.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ApiHeiAndMajorVersionTuple.java
+@@ -2,6 +2,9 @@ package eu.erasmuswithoutpaper.registry.manifestoverview;
+ 
+ import java.util.Objects;
+ 
++import dev.tessera.runtime.TemplateView;
++
++@TemplateView
+ public class ApiHeiAndMajorVersionTuple {
+   private String heiId;
+   private String apiName;
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ApiVersion.java b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ApiVersion.java
+index 696d1e7..f3d7bc9 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ApiVersion.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ApiVersion.java
+@@ -2,6 +2,9 @@ package eu.erasmuswithoutpaper.registry.manifestoverview;
+ 
+ import eu.erasmuswithoutpaper.registry.validators.SemanticVersion;
+ 
++import dev.tessera.runtime.TemplateView;
++
++@TemplateView
+ public class ApiVersion {
+   private final boolean valid;
+   private final boolean empty;
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/CoveredInstitutionsCounters.java b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/CoveredInstitutionsCounters.java
+index 47bfe5f..1424c8e 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/CoveredInstitutionsCounters.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/CoveredInstitutionsCounters.java
+@@ -6,6 +6,9 @@ import java.util.HashMap;
+ import java.util.Map;
+ import java.util.stream.Collectors;
+ 
++import dev.tessera.runtime.TemplateView;
++
++@TemplateView
+ public class CoveredInstitutionsCounters {
+   private final Map<ManifestAndHostIndex, Map<String, Integer>> map = new HashMap<>();
+ 
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ImplementedApiCount.java b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ImplementedApiCount.java
+index c3b2a65..61b0e32 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ImplementedApiCount.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ImplementedApiCount.java
+@@ -6,6 +6,9 @@ import java.util.HashMap;
+ import java.util.List;
+ import java.util.Map;
+ 
++import dev.tessera.runtime.TemplateView;
++
++@TemplateView
+ public class ImplementedApiCount {
+   private String name;
+   private Map<String, ImplementedApiVersionCount> countsMap;
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ImplementedApiInfo.java b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ImplementedApiInfo.java
+index 2d544f4..4a40297 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ImplementedApiInfo.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ImplementedApiInfo.java
+@@ -2,6 +2,9 @@ package eu.erasmuswithoutpaper.registry.manifestoverview;
+ 
+ import java.util.List;
+ 
++import dev.tessera.runtime.TemplateView;
++
++@TemplateView
+ public class ImplementedApiInfo {
+ 
+   private final String name;
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ImplementedApiVersionCount.java b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ImplementedApiVersionCount.java
+index 8825235..f09f5ca 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ImplementedApiVersionCount.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ImplementedApiVersionCount.java
+@@ -4,6 +4,9 @@ import java.util.HashSet;
+ import java.util.List;
+ import java.util.Set;
+ 
++import dev.tessera.runtime.TemplateView;
++
++@TemplateView
+ public class ImplementedApiVersionCount {
+   private String version;
+   private Set<String> hosts = new HashSet<>();
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ImplementedApisCount.java b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ImplementedApisCount.java
+index 1e8b3e2..7eeb60a 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ImplementedApisCount.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ImplementedApisCount.java
+@@ -7,6 +7,9 @@ import java.util.HashMap;
+ import java.util.List;
+ import java.util.Map;
+ 
++import dev.tessera.runtime.TemplateView;
++
++@TemplateView
+ public class ImplementedApisCount {
+   private Map<String, ImplementedApiCount> countsMap = new HashMap<>();
+ 
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ManifestAndHostIndex.java b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ManifestAndHostIndex.java
+index 603ff73..46d22a1 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ManifestAndHostIndex.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/manifestoverview/ManifestAndHostIndex.java
+@@ -2,7 +2,10 @@ package eu.erasmuswithoutpaper.registry.manifestoverview;
+ 
+ import java.util.Objects;
+ 
+-class ManifestAndHostIndex {
++import dev.tessera.runtime.TemplateView;
++
++@TemplateView
++public class ManifestAndHostIndex {
+   private final String manifestUrl;
+   private final int hostId;
+ 
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/notifier/NotifierFlag.java b/src/main/java/eu/erasmuswithoutpaper/registry/notifier/NotifierFlag.java
+index ab483ed..8b8dc34 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/notifier/NotifierFlag.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/notifier/NotifierFlag.java
+@@ -7,6 +7,7 @@ import java.util.Optional;
+ 
+ import eu.erasmuswithoutpaper.registry.common.Severity;
+ 
++import dev.tessera.runtime.TemplateView;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ 
+@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory;
+  * {@link #getName()}), a list of recipients (see {@link #getRecipientEmails()} and a
+  * {@link Severity} status (see {@link #getStatus()}.
+  */
++@TemplateView
+ public abstract class NotifierFlag {
+   private static final Logger logger = LoggerFactory.getLogger(NotifierFlag.class);
+ 
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/repository/CatalogueDependantCache.java b/src/main/java/eu/erasmuswithoutpaper/registry/repository/CatalogueDependantCache.java
+index e620096..2464a73 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/repository/CatalogueDependantCache.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/repository/CatalogueDependantCache.java
+@@ -3,6 +3,7 @@ package eu.erasmuswithoutpaper.registry.repository;
+ import java.util.concurrent.ConcurrentHashMap;
+ import java.util.concurrent.ConcurrentMap;
+ 
++import eu.erasmuswithoutpaper.registry.cmatrix.CoverageMatrix;
+ import org.springframework.stereotype.Service;
+ 
+ /**
+@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
+ public class CatalogueDependantCache {
+ 
+   private static final Integer KEY_CMATRIX_HTML = 1;
++  private static final Integer KEY_CMATRIX = 2;
+ 
+   private final ConcurrentMap<Integer, Object> cache = new ConcurrentHashMap<>();
+ 
+@@ -35,6 +37,20 @@ public class CatalogueDependantCache {
+     this.cache.put(KEY_CMATRIX_HTML, value);
+   }
+ 
++  /**
++   * @return Cached coverage matrix.
++   */
++  public CoverageMatrix getCoverageMatrix() {
++    return (CoverageMatrix) this.cache.get(KEY_CMATRIX);
++  }
++
++  /**
++   * @param value New coverage matrix.
++   */
++  public void putCoverageMatrix(CoverageMatrix value) {
++    this.cache.put(KEY_CMATRIX, value);
++  }
++
+   synchronized void clear() {
+     this.cache.clear();
+   }
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/updater/ManifestUpdateStatus.java b/src/main/java/eu/erasmuswithoutpaper/registry/updater/ManifestUpdateStatus.java
+index fdd39d2..7614c21 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/updater/ManifestUpdateStatus.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/updater/ManifestUpdateStatus.java
+@@ -12,6 +12,7 @@ import com.google.gson.Gson;
+ import com.google.gson.JsonArray;
+ import com.google.gson.JsonElement;
+ import com.google.gson.JsonParser;
++import dev.tessera.runtime.TemplateView;
+ import jakarta.persistence.Column;
+ import jakarta.persistence.Entity;
+ import jakarta.persistence.Id;
+@@ -24,6 +25,7 @@ import org.ocpsoft.prettytime.PrettyTime;
+ @Entity
+ @Table(name = "REG_MANIFEST_UPDATE_STATUSES")
+ @ConditionalOnWebApplication
++@TemplateView
+ public class ManifestUpdateStatus {
+ 
+   /**
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/updater/RegistryUpdaterImpl.java b/src/main/java/eu/erasmuswithoutpaper/registry/updater/RegistryUpdaterImpl.java
+index a83fbe1..6981453 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/updater/RegistryUpdaterImpl.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/updater/RegistryUpdaterImpl.java
+@@ -312,7 +312,7 @@ public class RegistryUpdaterImpl implements RegistryUpdater {
+         if (!nonLethalErrors.isEmpty()) {
+           notices.add(new UpdateNotice(Severity.WARNING,
+               "This file contains some invalid elements inside one of "
+-                  + "<code>&lt;apis-implemented&gt;<code> elements."
++                  + "<code>&lt;apis-implemented&gt;</code> elements."
+                   + " This manifest will be imported but incorrect APIs will be ignored."));
+           for (BuildError error : nonLethalErrors) {
+             notices.add(new UpdateNotice(Severity.WARNING, Utils.escapeHtml(error.getMessage())));
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/updater/UpdateNotice.java b/src/main/java/eu/erasmuswithoutpaper/registry/updater/UpdateNotice.java
+index 41e19b4..267dd28 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/updater/UpdateNotice.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/updater/UpdateNotice.java
+@@ -4,10 +4,12 @@ import eu.erasmuswithoutpaper.registry.common.Severity;
+ 
+ import com.google.gson.Gson;
+ import com.google.gson.annotations.SerializedName;
++import dev.tessera.runtime.TemplateView;
+ 
+ /**
+  * Represents a single notice reported during the update process.
+  */
++@TemplateView
+ public class UpdateNotice {
+ 
+   @SerializedName("severity")
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/validators/HtmlValidationReportFormatter.java b/src/main/java/eu/erasmuswithoutpaper/registry/validators/HtmlValidationReportFormatter.java
+index 5d5eb9b..611abfe 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/validators/HtmlValidationReportFormatter.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/validators/HtmlValidationReportFormatter.java
+@@ -13,9 +13,7 @@ import java.text.SimpleDateFormat;
+ import java.util.ArrayList;
+ import java.util.Base64;
+ import java.util.Date;
+-import java.util.HashMap;
+ import java.util.List;
+-import java.util.Map;
+ import java.util.stream.Collectors;
+ 
+ import eu.erasmuswithoutpaper.registry.documentbuilder.BuildParams;
+@@ -35,10 +33,17 @@ public class HtmlValidationReportFormatter {
+     this.docBuilder = docBuilder;
+   }
+ 
+-  public Map<String, Object> getPebbleContext(
++  /**
++   * Builds the data shown on the validation result page.
++   *
++   * @param steps results of run tests.
++   * @param validationInfoParameters basic info about run tests.
++   * @return the report.
++   */
++  public ValidationReport getReport(
+       List<ValidationStepWithStatus> steps,
+       ValidationInfoParameters validationInfoParameters) {
+-    return createValidationReportContext(steps, validationInfoParameters);
++    return createValidationReport(steps, validationInfoParameters);
+   }
+ 
+   public static class ValidationInfoParameters {
+@@ -80,20 +85,18 @@ public class HtmlValidationReportFormatter {
+     }
+   }
+ 
+-  private Map<String, Object> createValidationInfo(
++  private ValidationReport.Info createValidationInfo(
+       ValidationInfoParameters validationInfoParameters) {
+-    Map<String, Object> info = new HashMap<>();
+     DateFormat isoDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
+ 
+-    info.put("validationStarted",
+-        isoDateFormat.format(validationInfoParameters.validationStartedDate));
++    String validationStarted =
++        isoDateFormat.format(validationInfoParameters.validationStartedDate);
+ 
+     Date clientKeysRegenerated = validationInfoParameters.clientKeysRegenerationDate;
+     String clientKeysRegeneratedString = null;
+     if (clientKeysRegenerated != null) {
+       clientKeysRegeneratedString = isoDateFormat.format(clientKeysRegenerated);
+     }
+-    info.put("clientKeysRegenerated", clientKeysRegeneratedString);
+ 
+     String clientKeysAgeWhenValidationStartedInSeconds = null;
+     if (clientKeysRegenerated != null) {
+@@ -105,42 +108,34 @@ public class HtmlValidationReportFormatter {
+       );
+     }
+ 
+-    info.put(
+-        "clientKeysAgeWhenValidationStartedInSeconds",
+-        clientKeysAgeWhenValidationStartedInSeconds
+-    );
+-
+-    info.put("security", validationInfoParameters.httpSecurityDescription.toString());
+-    info.put("url", validationInfoParameters.url);
+-    info.put("apiName", validationInfoParameters.apiName);
+-    info.put("version", validationInfoParameters.version);
+-
+-    info.put(
+-        "securityExplanation",
++    return new ValidationReport.Info(
++        validationStarted,
++        clientKeysRegeneratedString,
++        clientKeysAgeWhenValidationStartedInSeconds,
++        validationInfoParameters.httpSecurityDescription.toString(),
++        validationInfoParameters.url,
++        validationInfoParameters.apiName,
++        validationInfoParameters.version,
+         createSecurityExplanation(validationInfoParameters.httpSecurityDescription)
+     );
+-    return info;
+   }
+ 
+-  private Object createSecurityExplanation(HttpSecurityDescription description) {
++  private List<ValidationReport.Marker> createSecurityExplanation(
++      HttpSecurityDescription description) {
+     String[] explanations = description.getExplanation().split("\n");
+-    List<Map<String, String>> splitExplanations = new ArrayList<>();
++    List<ValidationReport.Marker> splitExplanations = new ArrayList<>();
+     for (String explanation : explanations) {
+       String[] parts = explanation.split(":", 2);
+-      Map<String, String> mapParts = new HashMap<>();
+-      mapParts.put("marker", parts[0]);
+-      mapParts.put("description", parts[1]);
+-      splitExplanations.add(mapParts);
++      splitExplanations.add(new ValidationReport.Marker(parts[0], parts[1]));
+     }
+     return splitExplanations;
+   }
+ 
+-  private Map<String, Object> createValidationReportContext(
++  private ValidationReport createValidationReport(
+       List<ValidationStepWithStatus> testResults,
+       ValidationInfoParameters validationInfoParameters
+   ) {
+-    Map<String, Object> validationReportContext = new HashMap<>();
+-    List<Map<String, Object>> testsArray = testResults.stream()
++    List<ValidationReport.TestStep> testsArray = testResults.stream()
+         .map(this::createTestStepDescription)
+         .collect(Collectors.toList());
+ 
+@@ -149,45 +144,25 @@ public class HtmlValidationReportFormatter {
+             ValidationStepWithStatus.Status::compareTo)
+             .orElse(ValidationStepWithStatus.Status.SUCCESS);
+ 
+-    validationReportContext.put(
+-        "info",
+-        createValidationInfo(validationInfoParameters)
+-    );
+-    validationReportContext.put(
+-        "success",
+-        worstStatus.equals(ValidationStepWithStatus.Status.SUCCESS)
+-    );
+-    validationReportContext.put(
+-        "status",
+-        worstStatus.toString()
+-    );
+-    validationReportContext.put(
+-        "tests",
++    return new ValidationReport(
++        createValidationInfo(validationInfoParameters),
++        worstStatus.equals(ValidationStepWithStatus.Status.SUCCESS),
++        worstStatus.toString(),
+         testsArray
+     );
+-
+-    return validationReportContext;
+   }
+ 
+-  private Map<String, Object> createTestStepDescription(
++  private ValidationReport.TestStep createTestStepDescription(
+       ValidationStepWithStatus testResult) {
+-    Map<String, Object> testStepDescription = new HashMap<>();
+-    testStepDescription.put("name", testResult.getName());
+-    testStepDescription.put("status", testResult.getStatus().toString());
+-
+     String message = testResult.getMessage();
+-    testStepDescription.put("message", message);
+ 
+-    List<Object> requestSnapshots = formatRequestSnapshotsToMap(testResult);
+-    testStepDescription.put("requestSnapshots", requestSnapshots);
+-    List<Object> responseSnapshots = formatResponseSnapshotsToMap(testResult);
+-    testStepDescription.put("responseSnapshots", responseSnapshots);
++    List<ValidationReport.RequestSnapshot> requestSnapshots =
++        formatRequestSnapshots(testResult);
++    List<ValidationReport.ResponseSnapshot> responseSnapshots =
++        formatResponseSnapshots(testResult);
+ 
+     boolean hasMessage = !message.isEmpty() && !message.equals("OK");
+-    testStepDescription.put("hasMessage", hasMessage);
+-
+     boolean hasDetails = !requestSnapshots.isEmpty() || !responseSnapshots.isEmpty();
+-    testStepDescription.put("hasDetails", hasDetails);
+ 
+     int height = 1;
+     if (hasMessage) {
+@@ -197,84 +172,72 @@ public class HtmlValidationReportFormatter {
+       height += 1;
+     }
+ 
+-    testStepDescription.put("height", height);
+-
+-    return testStepDescription;
++    return new ValidationReport.TestStep(testResult.getName(),
++        testResult.getStatus().toString(), message, requestSnapshots, responseSnapshots,
++        hasMessage, hasDetails, height);
+   }
+ 
+ 
+-  private List<Object> formatResponseSnapshotsToMap(ValidationStepWithStatus testResult) {
+-    List<Object> results = new ArrayList<>();
++  private List<ValidationReport.ResponseSnapshot> formatResponseSnapshots(
++      ValidationStepWithStatus testResult) {
++    List<ValidationReport.ResponseSnapshot> results = new ArrayList<>();
+     for (Response snapshot : testResult.getResponseSnapshots()) {
+-      results.add(formatResponseSnapshotToMap(snapshot));
++      results.add(formatResponseSnapshot(snapshot));
+     }
+     return results;
+   }
+ 
+-  private Map<String, Object> formatResponseSnapshotToMap(Response response) {
+-    Map<String, Object> result = new HashMap<>();
+-    result.put("status", response.getStatus());
+-    result.put("rawBodyBase64", getRawBodyBase64(response.getBody()));
++  private ValidationReport.ResponseSnapshot formatResponseSnapshot(Response response) {
++    String developerMessage = null;
++    String prettyXml = null;
+     BuildParams params = new BuildParams(response.getBody());
+     params.setMakingPretty(true);
+     BuildResult buildResult = this.docBuilder.build(params);
+     if (buildResult.getDocument().isPresent()) {
+       Match root = $(buildResult.getDocument().get()).namespaces(KnownNamespace.prefixMap());
+-      result.put(
+-          "developerMessage",
+-          root.xpath("/ewp:error-response/ewp:developer-message").text()
+-      );
+-      result.put("prettyXml", buildResult.getPrettyXml().orElse(null));
+-    } else {
+-      result.put("developerMessage", null);
+-      result.put("prettyXml", null);
++      developerMessage = root.xpath("/ewp:error-response/ewp:developer-message").text();
++      prettyXml = buildResult.getPrettyXml().orElse(null);
+     }
+-    result.put("headers", response.getHeaders());
+-    result.put("processingNoticesHtml", response.getProcessingNoticesHtml());
+-    return result;
++    return new ValidationReport.ResponseSnapshot(response.getStatus(), response.getHeaders(),
++        response.getProcessingNoticesHtml(), developerMessage, prettyXml,
++        getRawBodyBase64(response.getBody()));
+   }
+ 
+-  private List<Object> formatRequestSnapshotsToMap(ValidationStepWithStatus testResult) {
+-    List<Object> results = new ArrayList<>();
++  private List<ValidationReport.RequestSnapshot> formatRequestSnapshots(
++      ValidationStepWithStatus testResult) {
++    List<ValidationReport.RequestSnapshot> results = new ArrayList<>();
+     for (Request snapshot : testResult.getRequestSnapshots()) {
+-      results.add(formatRequestSnapshotToMap(snapshot));
++      results.add(formatRequestSnapshot(snapshot));
+     }
+     return results;
+   }
+ 
+-  private Map<String, Object> formatRequestSnapshotToMap(Request request) {
+-    Map<String, Object> result = new HashMap<>();
++  private ValidationReport.RequestSnapshot formatRequestSnapshot(Request request) {
++    String rawBodyBase64 = null;
++    String body = null;
+     if (request.getBody().isPresent()) {
+-      byte[] body = request.getBody().get();
+-      result.put("rawBodyBase64", getRawBodyBase64(body));
++      byte[] bodyBytes = request.getBody().get();
++      rawBodyBase64 = getRawBodyBase64(bodyBytes);
+       CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder();
+       try {
+-        CharBuffer decoded = decoder.decode(ByteBuffer.wrap(body));
+-        result.put("body", decoded.toString());
++        CharBuffer decoded = decoder.decode(ByteBuffer.wrap(bodyBytes));
++        body = decoded.toString();
+       } catch (CharacterCodingException e) {
+-        result.put("body", null);
++        body = null;
+       }
+-    } else {
+-      result.put("rawBodyBase64", null);
+-      result.put("body", null);
+     }
+-    result.put("url", request.getUrl());
+-    result.put("method", request.getMethod());
+-    result.put("headers", request.getHeaders());
++    String clientCertFingerprint = null;
+     if (request.getClientCertificate().isPresent()) {
+       try {
+-        result.put(
+-            "clientCertFingerprint",
+-            DigestUtils.sha256Hex(request.getClientCertificate().get().getEncoded())
+-        );
++        clientCertFingerprint =
++            DigestUtils.sha256Hex(request.getClientCertificate().get().getEncoded());
+       } catch (CertificateEncodingException e) {
+         throw new RuntimeException(e);
+       }
+-    } else {
+-      result.put("clientCertFingerprint", null);
+     }
+-    result.put("processingNoticesHtml", request.getProcessingNoticesHtml());
+-    return result;
++    return new ValidationReport.RequestSnapshot(request.getMethod(), request.getUrl(),
++        clientCertFingerprint, request.getHeaders(), request.getProcessingNoticesHtml(), body,
++        rawBodyBase64);
+   }
+ 
+   private String getRawBodyBase64(byte[] body) {
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/validators/ValidationParameter.java b/src/main/java/eu/erasmuswithoutpaper/registry/validators/ValidationParameter.java
+index 3d04716..308a9ec 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/validators/ValidationParameter.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/validators/ValidationParameter.java
+@@ -4,6 +4,9 @@ import java.util.ArrayList;
+ import java.util.Arrays;
+ import java.util.List;
+ 
++import dev.tessera.runtime.TemplateView;
++
++@TemplateView
+ public class ValidationParameter {
+   private String name;
+   private List<String> dependencies = new ArrayList<>();
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/validators/ValidationReport.java b/src/main/java/eu/erasmuswithoutpaper/registry/validators/ValidationReport.java
+new file mode 100644
+index 0000000..360c6bb
+--- /dev/null
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/validators/ValidationReport.java
+@@ -0,0 +1,89 @@
++package eu.erasmuswithoutpaper.registry.validators;
++
++import java.util.List;
++import java.util.Map;
++
++/**
++ * Data shown on the validation result page, built by {@link HtmlValidationReportFormatter}.
++ *
++ * @param info basic info about the validation run.
++ * @param success whether all tests succeeded.
++ * @param status the worst status of all tests.
++ * @param tests descriptions of all run tests.
++ */
++public record ValidationReport(Info info, boolean success, String status, List<TestStep> tests) {
++
++  /**
++   * Basic info about the validation run.
++   *
++   * @param validationStarted formatted date when the validation started.
++   * @param clientKeysRegenerated formatted date when client keys were regenerated, or null.
++   * @param clientKeysAgeWhenValidationStartedInSeconds age of client keys, or null.
++   * @param security description of the used HTTP security.
++   * @param url tested URL.
++   * @param apiName tested API name.
++   * @param version tested API version.
++   * @param securityExplanation explanation of the used HTTP security.
++   */
++  public record Info(String validationStarted, String clientKeysRegenerated,
++      String clientKeysAgeWhenValidationStartedInSeconds, String security, String url,
++      String apiName, String version, List<Marker> securityExplanation) {
++  }
++
++  /**
++   * A security marker with its description.
++   *
++   * @param marker the marker.
++   * @param description its description.
++   */
++  public record Marker(String marker, String description) {
++  }
++
++  /**
++   * Description of a single test.
++   *
++   * @param name test name.
++   * @param status test status.
++   * @param message test message.
++   * @param requestSnapshots snapshots of requests made.
++   * @param responseSnapshots snapshots of responses received.
++   * @param hasMessage whether the message should be shown.
++   * @param hasDetails whether there are any snapshots.
++   * @param height number of table rows used by this test.
++   */
++  public record TestStep(String name, String status, String message,
++      List<RequestSnapshot> requestSnapshots, List<ResponseSnapshot> responseSnapshots,
++      boolean hasMessage, boolean hasDetails, int height) {
++  }
++
++  /**
++   * Snapshot of a request.
++   *
++   * @param method HTTP method.
++   * @param url request URL.
++   * @param clientCertFingerprint fingerprint of the client certificate, or null.
++   * @param headers request headers.
++   * @param processingNoticesHtml processing notices.
++   * @param body request body decoded as UTF-8, or null.
++   * @param rawBodyBase64 raw request body encoded in Base64, or null.
++   */
++  public record RequestSnapshot(String method, String url, String clientCertFingerprint,
++      Map<String, String> headers, List<String> processingNoticesHtml, String body,
++      String rawBodyBase64) {
++  }
++
++  /**
++   * Snapshot of a response.
++   *
++   * @param status HTTP status.
++   * @param headers response headers.
++   * @param processingNoticesHtml processing notices.
++   * @param developerMessage developer message from an error response, or null.
++   * @param prettyXml formatted XML body, or null.
++   * @param rawBodyBase64 raw response body encoded in Base64.
++   */
++  public record ResponseSnapshot(int status, Map<String, String> headers,
++      List<String> processingNoticesHtml, String developerMessage, String prettyXml,
++      String rawBodyBase64) {
++  }
++}
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/web/PebbleAsJsonFilter.java b/src/main/java/eu/erasmuswithoutpaper/registry/web/PebbleAsJsonFilter.java
+deleted file mode 100644
+index 54e4db2..0000000
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/web/PebbleAsJsonFilter.java
++++ /dev/null
+@@ -1,55 +0,0 @@
+-package eu.erasmuswithoutpaper.registry.web;
+-
+-import java.util.Collections;
+-import java.util.HashMap;
+-import java.util.List;
+-import java.util.Map;
+-
+-import org.springframework.stereotype.Component;
+-
+-import com.fasterxml.jackson.core.JsonProcessingException;
+-import com.fasterxml.jackson.databind.ObjectMapper;
+-import com.fasterxml.jackson.databind.ObjectWriter;
+-import io.pebbletemplates.pebble.error.PebbleException;
+-import io.pebbletemplates.pebble.extension.AbstractExtension;
+-import io.pebbletemplates.pebble.extension.Filter;
+-import io.pebbletemplates.pebble.template.EvaluationContext;
+-import io.pebbletemplates.pebble.template.PebbleTemplate;
+-import org.slf4j.Logger;
+-import org.slf4j.LoggerFactory;
+-
+-/**
+- * Custom filter to Pebble templating engine that converts passed object or array to its JSON
+- * representation.
+- * Usage: {{ variable | asJson }}
+- */
+-@Component
+-public class PebbleAsJsonFilter extends AbstractExtension {
+-  @Override
+-  public Map<String, Filter> getFilters() {
+-    HashMap<String, Filter> functions = new HashMap<>();
+-    functions.put("asJson", new JsonWriterPebbleFunction());
+-    return functions;
+-  }
+-
+-  public static class JsonWriterPebbleFunction implements Filter {
+-    private static final ObjectWriter WRITER = new ObjectMapper().writer();
+-    private static final Logger LOGGER = LoggerFactory.getLogger(PebbleAsJsonFilter.class);
+-
+-    @Override
+-    public List<String> getArgumentNames() {
+-      return Collections.emptyList();
+-    }
+-
+-    @Override
+-    public Object apply(Object inputObject, Map<String, Object> args, PebbleTemplate self,
+-        EvaluationContext context, int lineNumber) throws PebbleException {
+-      try {
+-        return WRITER.writeValueAsString(inputObject);
+-      } catch (JsonProcessingException e) {
+-        LOGGER.error("Exception raised while serializing object to JSON: " + inputObject, e);
+-        return null;
+-      }
+-    }
+-  }
+-}
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/web/UiController.java b/src/main/java/eu/erasmuswithoutpaper/registry/web/UiController.java
+index 3bf9f58..94eca1a 100644
+--- a/src/main/java/eu/erasmuswithoutpaper/registry/web/UiController.java
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/web/UiController.java
+@@ -7,13 +7,13 @@ import java.util.ArrayList;
+ import java.util.Collection;
+ import java.util.Collections;
+ import java.util.Date;
+-import java.util.HashMap;
+ import java.util.List;
+ import java.util.Map;
+ import java.util.Optional;
+ import java.util.stream.Collectors;
+ 
+ import eu.erasmuswithoutpaper.registry.Application;
++import eu.erasmuswithoutpaper.registry.cmatrix.CoverageMatrix;
+ import eu.erasmuswithoutpaper.registry.cmatrix.CoverageMatrixGenerator;
+ import eu.erasmuswithoutpaper.registry.cmatrix.CoverageMatrixGenerator.HeiComparator;
+ import eu.erasmuswithoutpaper.registry.common.Utils;
+@@ -48,10 +48,16 @@ import eu.erasmuswithoutpaper.registry.validators.SemanticVersion;
+ import eu.erasmuswithoutpaper.registry.validators.SemanticVersion.InvalidVersionString;
+ import eu.erasmuswithoutpaper.registry.validators.ValidationParameter;
+ import eu.erasmuswithoutpaper.registry.validators.ValidationParameters;
++import eu.erasmuswithoutpaper.registry.validators.ValidationReport;
+ import eu.erasmuswithoutpaper.registry.validators.ValidationStepWithStatus;
+ import eu.erasmuswithoutpaper.registry.validators.ValidatorKeyStore;
+ import eu.erasmuswithoutpaper.registry.validators.ValidatorKeyStoreSet;
+ import eu.erasmuswithoutpaper.registry.validators.web.ManifestApiEntry;
++import eu.erasmuswithoutpaper.registry.web.view.ApiEntryView;
++import eu.erasmuswithoutpaper.registry.web.view.FlagView;
++import eu.erasmuswithoutpaper.registry.web.view.HeiRow;
++import eu.erasmuswithoutpaper.registry.web.view.ManifestsOverviewView;
++import eu.erasmuswithoutpaper.registry.web.view.PageCommons;
+ import eu.erasmuswithoutpaper.registryclient.HeiEntry;
+ import eu.erasmuswithoutpaper.registryclient.RegistryClient;
+ import org.springframework.beans.factory.annotation.Autowired;
+@@ -199,7 +205,7 @@ public class UiController {
+     response.addHeader("Cache-Control", "public, max-age=300");
+ 
+     mav.addObject("pattern", pattern);
+-    mav.addObject("coverageMatrixHtml", this.getCoverageMatrixHtml(pattern));
++    mav.addObject("coverageMatrix", this.getCoverageMatrix(pattern));
+     return mav;
+   }
+ 
+@@ -375,8 +381,8 @@ public class UiController {
+       status = Optional.empty();
+     }
+     Optional<ManifestSource> source = this.sourceProvider.getOne(url);
+-    mav.addObject("status", status);
+-    mav.addObject("source", source);
++    mav.addObject("status", status.orElse(null));
++    mav.addObject("sourcePresent", source.isPresent());
+     return mav;
+   }
+ 
+@@ -406,29 +412,14 @@ public class UiController {
+     } catch (ManifestNotFound manifestNotFound) {
+       return this.errorController.get404();
+     }
+-    mav.addObject("apis", apis);
++    mav.addObject("apis", apis.stream().map(ApiEntryView::fromEntry).collect(Collectors.toList()));
+ 
+-    List<Map<String, String>> securities = new ArrayList<>();
++    List<ValidationReport.Marker> securities = new ArrayList<>();
+     for (Map.Entry<String, String> entry : HttpSecurityDescription.getLegend().entrySet()) {
+-      Map<String, String> mapParts = new HashMap<>();
+-      mapParts.put("marker", entry.getKey());
+-      mapParts.put("description", entry.getValue());
+-      securities.add(mapParts);
++      securities.add(new ValidationReport.Marker(entry.getKey(), entry.getValue()));
+     }
+     mav.addObject("securities", securities);
+ 
+-    String securityDisclaimer;
+-    if (isServingDevelopmentVersion()) {
+-      securityDisclaimer = "<b>Make sure</b> that the system you connect to the DEMO EWP Network "
+-          + "contains only scrambled data or artificial data. This network is used for testing, "
+-          + "so - according to Murphy's law - whatever can go wrong, will go wrong.";
+-    } else {
+-      securityDisclaimer = "Do not connect your production system do the EWP Network unless you "
+-          + "are 100% sure that your system is secure and only authorised users can get "
+-          + "access to the data.";
+-    }
+-    mav.addObject("securityDisclaimer", securityDisclaimer);
+-
+     return mav;
+   }
+ 
+@@ -526,7 +517,8 @@ public class UiController {
+     response.addHeader("Cache-Control", "max-age=0, must-revalidate");
+ 
+     mav.addObject("email", email);
+-    mav.addObject("flags", this.notifier.getFlagsWatchedBy(email));
++    mav.addObject("flags", this.notifier.getFlagsWatchedBy(email).stream().map(FlagView::fromFlag)
++        .collect(Collectors.toList()));
+ 
+     return mav;
+   }
+@@ -622,15 +614,15 @@ public class UiController {
+     }
+   }
+ 
+-  private String getCoverageMatrixHtml(String heiFilter) {
++  private CoverageMatrix getCoverageMatrix(String heiFilter) {
+     if (heiFilter != null) {
+-      return this.matrixGenerator.generateToHtmlTable(this.regClient, heiFilter);
++      return this.matrixGenerator.generate(this.regClient, heiFilter);
+     }
+ 
+-    String result = this.catcache.getCoverageMatrixHtml();
++    CoverageMatrix result = this.catcache.getCoverageMatrix();
+     if (result == null) {
+-      result = this.matrixGenerator.generateToHtmlTable(this.regClient, null);
+-      this.catcache.putCoverageMatrixHtml(result);
++      result = this.matrixGenerator.generate(this.regClient, null);
++      this.catcache.putCoverageMatrix(result);
+     }
+     return result;
+   }
+@@ -657,10 +649,8 @@ public class UiController {
+   }
+ 
+   private void initializeMavCommons(ModelAndView mav) {
+-    mav.addObject("isUsingDevDesign", this.isServingDevelopmentVersion());
+-    mav.addObject("cssFingerprint", this.getCssFingerprint());
+-    mav.addObject("jsFingerprint", this.getJsFingerprint());
+-    mav.addObject("uiJsFingerprint", this.getUiJsFingerprint());
++    mav.addObject("page", new PageCommons(this.isServingDevelopmentVersion(),
++        this.getCssFingerprint(), this.getJsFingerprint(), this.getUiJsFingerprint()));
+   }
+ 
+   private boolean isServingDevelopmentVersion() {
+@@ -724,10 +714,8 @@ public class UiController {
+             requestBody.getUrl(), requestBody.getVersion(), httpSecurityDescription,
+             validationStartedDate, this.validatorKeyStore.getCredentialsGenerationDate());
+ 
+-    Map<String, Object> pebbleContext =
+-        htmlValidationReportFormatter.getPebbleContext(testResults, validationInfoParameters);
+-
+-    mav.addAllObjects(pebbleContext);
++    mav.addObject("report",
++        htmlValidationReportFormatter.getReport(testResults, validationInfoParameters));
+ 
+     return mav;
+   }
+@@ -749,7 +737,7 @@ public class UiController {
+         this.manifestOverviewManager.getManifestOverviewState();
+ 
+     Collection<ManifestOverviewInfo> infos = manifestOverviewState.overviewInfos;
+-    mav.addObject("manifestInfos", infos);
++    mav.addObject("manifestInfos", ManifestsOverviewView.fromInfos(infos));
+ 
+     ImplementedApisCount implementedApisCount = manifestOverviewState.implementedApisCount;
+     mav.addObject("implementedApisCount", implementedApisCount);
+@@ -781,13 +769,15 @@ public class UiController {
+     return mav;
+   }
+ 
+-  private List<HeiEntry> getHeisMatching(String pattern) {
++  private List<HeiRow> getHeisMatching(String pattern) {
+     if (pattern.isEmpty()) {
+       return Collections.emptyList();
+     }
+     Collection<HeiEntry> allHeis = regClient.getAllHeis();
+ 
+     return allHeis.stream().filter(Utils.getHeiFilterPredicate(pattern)).sorted(new HeiComparator())
++        .map(hei -> new HeiRow(hei.getName(), hei.getId(),
++            hei.getOtherIds("erasmus").stream().findFirst().orElse(null)))
+         .collect(Collectors.toList());
+   }
+ 
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/web/view/ApiEntryView.java b/src/main/java/eu/erasmuswithoutpaper/registry/web/view/ApiEntryView.java
+new file mode 100644
+index 0000000..969371d
+--- /dev/null
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/web/view/ApiEntryView.java
+@@ -0,0 +1,30 @@
++package eu.erasmuswithoutpaper.registry.web.view;
++
++import java.util.List;
++
++import eu.erasmuswithoutpaper.registry.validators.ValidationParameter;
++import eu.erasmuswithoutpaper.registry.validators.web.ManifestApiEntry;
++
++/**
++ * An API entry which can be validated on the API Validator page.
++ *
++ * @param name API name.
++ * @param version API version.
++ * @param endpoint endpoint name.
++ * @param url endpoint URL.
++ * @param security available security methods.
++ * @param parameters available validation parameters.
++ * @param securityNotices notices about the security methods.
++ */
++public record ApiEntryView(String name, String version, String endpoint, String url,
++    List<String> security, List<ValidationParameter> parameters, List<String> securityNotices) {
++
++  /**
++   * @param entry the manifest API entry.
++   * @return the view.
++   */
++  public static ApiEntryView fromEntry(ManifestApiEntry entry) {
++    return new ApiEntryView(entry.name, entry.version, entry.endpoint.getName(), entry.url,
++        entry.securities, entry.parameters, entry.securityNotices);
++  }
++}
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/web/view/FlagView.java b/src/main/java/eu/erasmuswithoutpaper/registry/web/view/FlagView.java
+new file mode 100644
+index 0000000..a67516c
+--- /dev/null
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/web/view/FlagView.java
+@@ -0,0 +1,22 @@
++package eu.erasmuswithoutpaper.registry.web.view;
++
++import eu.erasmuswithoutpaper.registry.common.Severity;
++import eu.erasmuswithoutpaper.registry.notifier.NotifierFlag;
++
++/**
++ * A notifier flag, as shown on the Recipient Status Report page.
++ *
++ * @param status current status of the flag.
++ * @param name short description of the flag.
++ * @param detailsUrl URL of the page with the status details, or null.
++ */
++public record FlagView(Severity status, String name, String detailsUrl) {
++
++  /**
++   * @param flag the flag.
++   * @return the view.
++   */
++  public static FlagView fromFlag(NotifierFlag flag) {
++    return new FlagView(flag.getStatus(), flag.getName(), flag.getDetailsUrl().orElse(null));
++  }
++}
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/web/view/HeiRow.java b/src/main/java/eu/erasmuswithoutpaper/registry/web/view/HeiRow.java
+new file mode 100644
+index 0000000..4d79f27
+--- /dev/null
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/web/view/HeiRow.java
+@@ -0,0 +1,11 @@
++package eu.erasmuswithoutpaper.registry.web.view;
++
++/**
++ * A row of the HEI Search Page.
++ *
++ * @param name HEI name.
++ * @param id HEI SCHAC id.
++ * @param erasmusCode first Erasmus code of the HEI, or null.
++ */
++public record HeiRow(String name, String id, String erasmusCode) {
++}
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/web/view/ManifestsOverviewView.java b/src/main/java/eu/erasmuswithoutpaper/registry/web/view/ManifestsOverviewView.java
+new file mode 100644
+index 0000000..dd17a35
+--- /dev/null
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/web/view/ManifestsOverviewView.java
+@@ -0,0 +1,109 @@
++package eu.erasmuswithoutpaper.registry.web.view;
++
++import java.util.ArrayList;
++import java.util.Collection;
++import java.util.Collections;
++import java.util.List;
++
++import eu.erasmuswithoutpaper.registry.manifestoverview.HostOverviewInfo;
++import eu.erasmuswithoutpaper.registry.manifestoverview.ImplementedApiInfo;
++import eu.erasmuswithoutpaper.registry.manifestoverview.ManifestOverviewInfo;
++
++/**
++ * The "Implemented APIs and covered HEIs" part of the Manifests Overview page.
++ *
++ * <p>
++ * The page used to write the manifest headings and host tables inside an outer table, which
++ * browsers rearrange: the headings up to the first host table end up before the (empty) outer
++ * table, and everything after it follows the outer table. This view keeps that structure.
++ * </p>
++ *
++ * @param leadingManifestUrls URLs of the manifests whose headings are written before the outer
++ *     table (up to, and including, the first manifest with any hosts).
++ * @param firstHosts hosts of the first manifest with any hosts.
++ * @param otherManifests manifests following the first manifest with any hosts.
++ */
++public record ManifestsOverviewView(List<String> leadingManifestUrls, List<HostView> firstHosts,
++    List<ManifestView> otherManifests) {
++
++  /**
++   * A manifest with its hosts.
++   *
++   * @param url manifest URL.
++   * @param hosts hosts described in the manifest.
++   */
++  public record ManifestView(String url, List<HostView> hosts) {
++  }
++
++  /**
++   * A host described in a manifest.
++   *
++   * @param adminEmails admin emails.
++   * @param adminProvider admin provider, or null.
++   * @param adminNotes admin notes.
++   * @param apisImplemented implemented APIs.
++   * @param coveredHeiIdsCount number of covered HEIs.
++   * @param coveredHeiRows covered HEIs, five per row.
++   */
++  public record HostView(List<String> adminEmails, String adminProvider, List<String> adminNotes,
++      List<ImplementedApiInfo> apisImplemented, int coveredHeiIdsCount,
++      List<CellRow> coveredHeiRows) {
++  }
++
++  /**
++   * A row of covered HEI ids.
++   *
++   * @param styled whether the row has the item class.
++   * @param cells HEI ids, empty strings for padding cells.
++   */
++  public record CellRow(boolean styled, List<String> cells) {
++  }
++
++  private static final int CELLS_PER_ROW = 5;
++
++  /**
++   * @param infos manifest overview infos.
++   * @return the view.
++   */
++  public static ManifestsOverviewView fromInfos(Collection<ManifestOverviewInfo> infos) {
++    List<String> leading = new ArrayList<>();
++    List<HostView> firstHosts = Collections.emptyList();
++    List<ManifestView> others = new ArrayList<>();
++    boolean foundHosts = false;
++    for (ManifestOverviewInfo info : infos) {
++      List<HostView> hosts = new ArrayList<>();
++      for (HostOverviewInfo host : info.getHosts()) {
++        hosts.add(toHostView(host));
++      }
++      if (foundHosts) {
++        others.add(new ManifestView(info.getUrl(), hosts));
++      } else {
++        leading.add(info.getUrl());
++        if (!hosts.isEmpty()) {
++          foundHosts = true;
++          firstHosts = hosts;
++        }
++      }
++    }
++    return new ManifestsOverviewView(leading, firstHosts, others);
++  }
++
++  private static HostView toHostView(HostOverviewInfo host) {
++    List<CellRow> rows = new ArrayList<>();
++    List<String> ids = host.coveredHeiIds;
++    for (int i = 0; i < ids.size(); i += CELLS_PER_ROW) {
++      List<String> cells =
++          new ArrayList<>(ids.subList(i, Math.min(i + CELLS_PER_ROW, ids.size())));
++      while (cells.size() < CELLS_PER_ROW) {
++        cells.add("");
++      }
++      rows.add(new CellRow(true, cells));
++    }
++    if (ids.size() % CELLS_PER_ROW == 0) {
++      // The page always added padding cells; after a full row a browser put them in a new row.
++      rows.add(new CellRow(false, Collections.nCopies(CELLS_PER_ROW, "")));
++    }
++    return new HostView(host.adminEmails, host.adminProvider, host.adminNotes,
++        host.apisImplemented, ids.size(), rows);
++  }
++}
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/web/view/NoticeFunctions.java b/src/main/java/eu/erasmuswithoutpaper/registry/web/view/NoticeFunctions.java
+new file mode 100644
+index 0000000..f1cc245
+--- /dev/null
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/web/view/NoticeFunctions.java
+@@ -0,0 +1,33 @@
++package eu.erasmuswithoutpaper.registry.web.view;
++
++import dev.tessera.runtime.HtmlPolicy;
++import dev.tessera.runtime.SafeHtml;
++import dev.tessera.runtime.TemplateFunction;
++import dev.tessera.runtime.TemplateFunctions;
++
++/**
++ * Template functions for manifest update notices.
++ */
++@TemplateFunctions("notices")
++public final class NoticeFunctions {
++
++  /**
++   * The markup used by the notices built in the updater and the manifest constraints.
++   */
++  private static final HtmlPolicy POLICY = HtmlPolicy.builder()
++      .allowElements("p", "br", "b", "code", "ul", "li", "a")
++      .linkRel()
++      .build();
++
++  private NoticeFunctions() {
++  }
++
++  /**
++   * @param messageHtml HTML of a notice, as stored with the manifest update status.
++   * @return the sanitized HTML.
++   */
++  @TemplateFunction
++  public static SafeHtml html(String messageHtml) {
++    return SafeHtml.sanitize(messageHtml, POLICY);
++  }
++}
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/web/view/PageCommons.java b/src/main/java/eu/erasmuswithoutpaper/registry/web/view/PageCommons.java
+new file mode 100644
+index 0000000..dee07b8
+--- /dev/null
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/web/view/PageCommons.java
+@@ -0,0 +1,13 @@
++package eu.erasmuswithoutpaper.registry.web.view;
++
++/**
++ * Values shared by every page layout.
++ *
++ * @param usingDevDesign whether the page should be rendered with the development design.
++ * @param cssFingerprint fingerprint of the current CSS file.
++ * @param jsFingerprint fingerprint of the current scripts file.
++ * @param uiJsFingerprint fingerprint of the current Vue UI scripts file.
++ */
++public record PageCommons(boolean usingDevDesign, String cssFingerprint, String jsFingerprint,
++    String uiJsFingerprint) {
++}
+diff --git a/src/main/java/eu/erasmuswithoutpaper/registry/web/view/package-info.java b/src/main/java/eu/erasmuswithoutpaper/registry/web/view/package-info.java
+new file mode 100644
+index 0000000..96db664
+--- /dev/null
++++ b/src/main/java/eu/erasmuswithoutpaper/registry/web/view/package-info.java
+@@ -0,0 +1,4 @@
++/**
++ * View types rendered by the Tessera templates.
++ */
++package eu.erasmuswithoutpaper.registry.web.view;
+diff --git a/src/main/resources/application.properties b/src/main/resources/application.properties
+index 21d80f2..a7ed19c 100644
+--- a/src/main/resources/application.properties
++++ b/src/main/resources/application.properties
+@@ -86,6 +86,4 @@ sentry.enabled=false
+ app.registry-production-url=https://registry.erasmuswithoutpaper.eu
+ 
+ spring.jpa.hibernate.ddl-auto=validate
+-pebble.strictVariables=true
+-spring.devtools.restart.additional-paths=src/main/resources/templates
+ spring.jpa.open-in-view=false
+diff --git a/src/main/resources/templates/coverage.html b/src/main/resources/templates/coverage.html
+new file mode 100644
+index 0000000..f136c9e
+--- /dev/null
++++ b/src/main/resources/templates/coverage.html
+@@ -0,0 +1,16 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="eu.erasmuswithoutpaper.registry.web.view.PageCommons, eu.erasmuswithoutpaper.registry.cmatrix.CoverageMatrix"
++      t:params="PageCommons page, String pattern, CoverageMatrix coverageMatrix"
++      t:replace="~{layout/toolbar :: toolbarLayout('HEI/API Coverage Matrix', page, false, ~{::section})}">
++<body>
++    <section class='ewp-section'>
++        <h2 class='ewp-section-title'>HEI/API Coverage Matrix</h2>
++
++        <t:block t:replace="~{fragments/heiFilter :: heiFilter(pattern)}"></t:block>
++
++        <div class="ewpsrc ewpsrc__section_with_top_margin">
++            <div class='ewpst'><table class='ewpst__table'><tbody t:if="!coverageMatrix.rows.isEmpty()"><tr t:each="row : coverageMatrix.rows"><td t:each="cell : row.cells" t:colspan="cell.colSpan > 1 ? cell.colSpan : null" t:class="cell.classes"><t:block t:if="cell.simple" t:text="cell.lines[0].content"></t:block><t:block t:unless="cell.simple"><div t:each="line : cell.lines" t:class="line.classes" t:title="line.tooltip"><a t:if="line.footnoteLink != null" t:href="|#${line.footnoteLink}|" t:text="line.content"></a><t:block t:if="line.footnoteLink == null" t:text="line.content"></t:block></div></t:block></td></tr></tbody><thead><tr class='ewpst__row ewpst__row--header'><th rowspan='2' class='cell cc1'>#</th><th rowspan='2' class='cell cc1 institution'>Institution</th><th rowspan='2' class='cell cc1 schac'>SCHAC</th><th rowspan='2' class='cell cc1 erasmus'>Erasmus code</th><th colspan='2' class='cell cc3'>Primary Network APIs</th><th colspan='5' class='cell cc2'>General Purpose APIs</th><th colspan='3' class='cell cc3'>IIAs</th><th colspan='2' class='cell cc2'>IIAs Approval</th><th colspan='3' class='cell cc3'>OMobilities</th><th colspan='2' class='cell cc2'>OMobility LAs</th><th colspan='2' class='cell cc3'>IMobilities</th><th colspan='3' class='cell cc2'>IMobility ToRs</th><th rowspan='2' class='cell cc4'>Other APIs</th></tr><tr class='ewpst__row ewpst__row--header'><th class='cell cc3'>discov.</th><th class='cell cc3'>echo</th><th class='cell cc2'>inst.</th><th class='cell cc2'>ounits</th><th class='cell cc2'>courses</th><th class='cell cc2'>course replic.</th><th class='cell cc2'>file</th><th class='cell cc3'>ver.</th><th class='cell cc3'>CNR</th><th class='cell cc3'>fact.</th><th class='cell cc2'>ver.</th><th class='cell cc2'>CNR</th><th class='cell cc3'>ver.</th><th class='cell cc3'>CNR</th><th class='cell cc3'>Stats</th><th class='cell cc2'>ver.</th><th class='cell cc2'>CNR</th><th class='cell cc3'>ver.</th><th class='cell cc3'>CNR</th><th class='cell cc2'>ver.</th><th class='cell cc2'>CNR</th><th class='cell cc2'>Stats</th></tr><tr class='ewpst__row ewpst__row--header'></tr></thead></table><div class='ewpst__footnotes'><t:block t:each="footnote : coverageMatrix.footnotes"><p t:id="footnote.id"><code class='ewpst__bordered-code' t:text="footnote.heiId"></code> implements the following APIs:</p><ul><li t:each="api : footnote.apis"><code t:text="api"></code></li></ul></t:block></div></div>        </div>
++    </section>
++</body>
++</html>
+diff --git a/src/main/resources/templates/coverage.peb b/src/main/resources/templates/coverage.peb
+deleted file mode 100644
+index 4f52d29..0000000
+--- a/src/main/resources/templates/coverage.peb
++++ /dev/null
+@@ -1,15 +0,0 @@
+-{% extends "generic-with-toolbar" %}
+-
+-{% block pageTitle %}HEI/API Coverage Matrix{% endblock %}
+-
+-{% block main %}
+-    <section class='ewp-section'>
+-        <h2 class='ewp-section-title'>HEI/API Coverage Matrix</h2>
+-
+-        {% include "heiFilter" %}
+-
+-        <div class="ewpsrc ewpsrc__section_with_top_margin">
+-            {{ coverageMatrixHtml | raw }}
+-        </div>
+-    </section>
+-{% endblock %}
+diff --git a/src/main/resources/templates/heiFilter.peb b/src/main/resources/templates/fragments/heiFilter.html
+similarity index 65%
+rename from src/main/resources/templates/heiFilter.peb
+rename to src/main/resources/templates/fragments/heiFilter.html
+index beb7e66..2652374 100644
+--- a/src/main/resources/templates/heiFilter.peb
++++ b/src/main/resources/templates/fragments/heiFilter.html
+@@ -1,3 +1,5 @@
++<t:block xmlns:t="https://tessera.dev">
++<t:block t:fragment="heiFilter(String pattern)">
+ <p>
+     You can search by HEI name, SCHAC, Erasmus code, PIC.
+     Please type a pattern and hit "Enter".
+@@ -10,6 +12,8 @@
+ </ul>
+ 
+ <form>
+-    <label>Search for HEI: <input name="pattern" type="search" value="{{ pattern | default('') }}"
++    <label>Search for HEI: <input name="pattern" type="search" t:value="pattern ?: ''"
+                                   size="30" autofocus/></label>
+ </form>
++</t:block>
++</t:block>
+diff --git a/src/main/resources/templates/fragments/manifestsOverview.html b/src/main/resources/templates/fragments/manifestsOverview.html
+new file mode 100644
+index 0000000..bc324e8
+--- /dev/null
++++ b/src/main/resources/templates/fragments/manifestsOverview.html
+@@ -0,0 +1,60 @@
++<t:block xmlns:t="https://tessera.dev"
++         t:import="eu.erasmuswithoutpaper.registry.web.view.ManifestsOverviewView">
++                <table class="ewpsrc__host_overview_info_table" t:fragment="host(ManifestsOverviewView.HostView hostOverviewInfo, int hostNumber)">
++                    <tbody>
++                    <tr class="ewpsrc__item">
++                        <td colspan="5">
++                            <h4>HOST <t:block t:text="hostNumber"></t:block></h4>
++                        </td>
++                    </tr>
++                    <tr class="ewpsrc__item">
++                        <td colspan="5">
++                            Admin emails: (<t:block t:text="hostOverviewInfo.adminEmails.size()"></t:block>)
++                        </td>
++                    </tr>
++
++                        <tr class="ewpsrc__item" t:each="email : hostOverviewInfo.adminEmails">
++                            <td colspan="5" t:text="email">
++                            </td>
++                        </tr>
++
++                        <tr class="ewpsrc__item" t:if="hostOverviewInfo.adminProvider != null">
++                            <td colspan="5">
++                                Admin provider: <t:block t:text="hostOverviewInfo.adminProvider"></t:block>
++                            </td>
++                        </tr>
++
++                    <tr class="ewpsrc__item">
++                        <td colspan="5">
++                            Admin notes: (<t:block t:text="hostOverviewInfo.adminNotes.size()"></t:block>)
++                        </td>
++                    </tr>
++                        <tr class="ewpsrc__item" t:each="note : hostOverviewInfo.adminNotes">
++                            <td colspan="5" t:text="note">
++                            </td>
++                        </tr>
++
++                    <tr class="ewpsrc__item">
++                        <td colspan="5">
++                            APIs implemented: (<t:block t:text="hostOverviewInfo.apisImplemented.size()"></t:block>)
++                        </td>
++                    </tr>
++                        <tr class="ewpsrc__item" t:each="apiImplementedInfo : hostOverviewInfo.apisImplemented">
++                            <td t:text="apiImplementedInfo.name">
++                            </td>
++                            <td t:text="apiImplementedInfo.version">
++                            </td>
++                            <td colspan="3">
++                                <t:block t:each="url, urlStat : apiImplementedInfo.urls"><t:block t:text="url"></t:block> <br t:unless="urlStat.last"/> </t:block>
++                            </td>
++                        </tr>
++
++                    <tr class="ewpsrc__item">
++                        <td colspan="5">
++                            Covered institutions: (<t:block t:text="hostOverviewInfo.coveredHeiIdsCount"></t:block>)
++                        </td>
++                    </tr>
++                    <tr t:each="row : hostOverviewInfo.coveredHeiRows" t:class="row.styled ? 'ewpsrc__item'"><td t:each="heiId : row.cells" t:text="heiId"></td></tr>
++                    </tbody>
++                </table>
++</t:block>
+diff --git a/src/main/resources/templates/fragments/validationReport.html b/src/main/resources/templates/fragments/validationReport.html
+new file mode 100644
+index 0000000..dda6482
+--- /dev/null
++++ b/src/main/resources/templates/fragments/validationReport.html
+@@ -0,0 +1,37 @@
++<t:block xmlns:t="https://tessera.dev"
++         t:import="eu.erasmuswithoutpaper.registry.validators.ValidationReport">
++
++<div t:fragment="printKeyValue(String key, String value, String cssClass)" t:class='cssClass'>
++    <span class='ewpsrc__test_key' t:text="|${key}:|">key:</span>
++    <span class='ewpsrc__test_value'>
++        <t:block t:if="value == null">(none)</t:block>
++        <t:block t:unless="value == null" t:text="value"></t:block>
++    </span>
++</div>
++
++<t:block t:fragment="printHeaders(Map<String, String> headers, List<String> processingNotices)">
++    <t:block t:each="header : headers">
++        <div t:replace="~{::printKeyValue(header.key, header.value, 'ewpsrc__test_http-header ')}"></div>
++    </t:block>
++
++    <p class="ewpsrc__test_processing-notice" t:each="notice : processingNotices" t:text="notice"></p>
++</t:block>
++
++<t:block t:fragment="printRequest(ValidationReport.RequestSnapshot request)">
++    <div t:replace="~{::printKeyValue('Method and URL', |${request.method} ${request.url}|, '')}"></div>
++    <div t:replace="~{::printKeyValue('Client certificate fingerprint', request.clientCertFingerprint, '')}"></div>
++    <t:block t:replace="~{::printHeaders(request.headers, request.processingNoticesHtml)}"></t:block>
++    <pre class="ewpsrc__test_message-body" t:if="request.body != null && !request.body.isEmpty()" t:text="request.body"></pre>
++    <pre class="ewpsrc__test_message-body" t:if="(request.body == null || request.body.isEmpty()) && request.rawBodyBase64 != null && !request.rawBodyBase64.isEmpty()" t:text="request.rawBodyBase64"></pre>
++</t:block>
++
++<t:block t:fragment="printResponse(ValidationReport.ResponseSnapshot response)">
++    <div t:replace="~{::printKeyValue('HTTP status', |${response.status}|, '')}"></div>
++    <t:block t:replace="~{::printHeaders(response.headers, response.processingNoticesHtml)}"></t:block>
++    <p class="ewpsrc__test_developer-message" t:if="response.developerMessage != null">Developer message:<br><t:block t:text="response.developerMessage"></t:block></p>
++    <pre class="ewpsrc__test_message-body" t:if="response.rawBodyBase64 == null">(empty body)</pre>
++    <pre class="ewpsrc__test_message-body" t:if="response.rawBodyBase64 != null && response.prettyXml != null" t:text="response.prettyXml"></pre>
++    <pre class="ewpsrc__test_message-body" t:if="response.rawBodyBase64 != null && response.prettyXml == null" t:text="response.rawBodyBase64"></pre>
++</t:block>
++
++</t:block>
+diff --git a/src/main/resources/templates/generic-with-toolbar.peb b/src/main/resources/templates/generic-with-toolbar.peb
+deleted file mode 100644
+index b677a76..0000000
+--- a/src/main/resources/templates/generic-with-toolbar.peb
++++ /dev/null
+@@ -1,28 +0,0 @@
+-{% extends "generic" %}
+-
+-{% block body %}
+-    <header class='ewp-header ewp-header--small {% if isUsingDevDesign %}ewp-header--dev{% endif %}'>
+-        <div class='ewp-header__margin ewp-header__margin--top'></div>
+-        <div class='ewp-header__grid'>
+-            <a href='{{ baseUrl | default("") }}/' class='ewp-header__hlink'>
+-                <div class='ewp-header__logo'>
+-                    <img src='{{ baseUrl | default("") }}/logo.png'>
+-                </div>
+-            </a>
+-            <a href='{{ baseUrl | default("") }}/' class='ewp-header__hlink'>
+-                <h1 class='ewp-header__site-name'>
+-                    {% if isUsingDevDesign %}
+-                        <span class='ewp-header__red-text'>DEV</span> Registry Service
+-                    {% else %}
+-                        EWP Registry Service
+-                    {% endif %}
+-                </h1>
+-            </a>
+-        </div>
+-        <div class='ewp-header__margin ewp-header__margin--bottom'></div>
+-        <div class='ewp-header__bottom-line'></div>
+-    </header>
+-    <main>
+-        {% block main %}{% endblock %}
+-    </main>
+-{% endblock %}
+diff --git a/src/main/resources/templates/generic.peb b/src/main/resources/templates/generic.peb
+deleted file mode 100644
+index 3b530f7..0000000
+--- a/src/main/resources/templates/generic.peb
++++ /dev/null
+@@ -1,17 +0,0 @@
+-<!doctype html>
+-<head>
+-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+-    <title>{% block pageTitle %}{% endblock %}</title>
+-    <link href="https://fonts.googleapis.com/css?family=Inconsolata:400,700|Lato:300,300i,400,400i|Roboto+Slab:700" rel="stylesheet">
+-    <link href="{{ baseUrl | default("") }}/style-{{ cssFingerprint }}.css" rel="stylesheet">
+-    <link href="/favicon.ico" rel="icon" type="image/x-icon">
+-    <script
+-        src="https://code.jquery.com/jquery-3.7.1.min.js"
+-        integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+-        crossorigin="anonymous"></script>
+-    <script src="{{ baseUrl | default("") }}/scripts-{{ jsFingerprint }}.js"></script>
+-    {% block scripts %}{% endblock %}
+-</head>
+-<body>
+-{% block body %}{% endblock %}
+-</body>
+diff --git a/src/main/resources/templates/heiSearch.html b/src/main/resources/templates/heiSearch.html
+new file mode 100644
+index 0000000..aa39c49
+--- /dev/null
++++ b/src/main/resources/templates/heiSearch.html
+@@ -0,0 +1,40 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="eu.erasmuswithoutpaper.registry.web.view.PageCommons, eu.erasmuswithoutpaper.registry.web.view.HeiRow"
++      t:params="PageCommons page, String pattern, List<HeiRow> heis"
++      t:replace="~{layout/toolbar :: toolbarLayout('HEI Search Page', page, false, ~{::section})}">
++<body>
++<section class='ewp-section ewp-section-centered'>
++    <h2 class='ewp-section-title'>HEI Search Page</h2>
++
++    <t:block t:replace="~{fragments/heiFilter :: heiFilter(pattern)}"></t:block>
++
++    <p>
++        Found <t:block t:text="heis.size()"></t:block> HEI(s):
++    </p>
++
++    <div class="ewpsrc ewpsrc__section_with_top_margin">
++        <table class="ewpst__table" t:if="!heis.isEmpty()">
++            <thead>
++                <tr class="ewpst__row ewpst__row--header">
++                    <th class="cell cc1">Name</th>
++                    <th class="cell cc1">SCHAC</th>
++                    <th class="cell cc1">Erasmus code</th>
++                </tr>
++            </thead>
++            <tbody>
++                <tr t:each="hei : heis">
++                    <td class="cell cc1" t:text="hei.name"></td>
++                    <td class="cell cc1 schac">
++                        <a t:href="|https://hei.api.uni-foundation.eu/schac/${hei.id}|" t:text="hei.id">
++                        </a>
++                    </td>
++                    <td class="cell cc1 erasmus" t:text="hei.erasmusCode">
++                    </td>
++                </tr>
++            </tbody>
++        </table>
++    </div>
++</section>
++</body>
++</html>
+diff --git a/src/main/resources/templates/heiSearch.peb b/src/main/resources/templates/heiSearch.peb
+deleted file mode 100644
+index 3e3acc9..0000000
+--- a/src/main/resources/templates/heiSearch.peb
++++ /dev/null
+@@ -1,46 +0,0 @@
+-{% extends "generic-with-toolbar" %}
+-
+-{% block pageTitle %}HEI Search Page{% endblock %}
+-
+-{% block main %}
+-<section class='ewp-section ewp-section-centered'>
+-    <h2 class='ewp-section-title'>HEI Search Page</h2>
+-
+-    {% include "heiFilter" %}
+-
+-    <p>
+-        Found {{ heis|length }} HEI(s):
+-    </p>
+-
+-    <div class="ewpsrc ewpsrc__section_with_top_margin">
+-        {% if heis is not empty %}
+-        <table class="ewpst__table">
+-            <thead>
+-                <tr class="ewpst__row ewpst__row--header">
+-                    <th class="cell cc1">Name</th>
+-                    <th class="cell cc1">SCHAC</th>
+-                    <th class="cell cc1">Erasmus code</th>
+-                </tr>
+-            </thead>
+-            <tbody>
+-                {% for hei in heis %}
+-                <tr>
+-                    <td class="cell cc1">{{ hei.name }}</td>
+-                    <td class="cell cc1 schac">
+-                        <a href="https://hei.api.uni-foundation.eu/schac/{{ hei.id }}">
+-                            {{ hei.id }}
+-                        </a>
+-                    </td>
+-                    <td class="cell cc1 erasmus">
+-                        {% if hei.otherIds('erasmus') is not empty %}
+-                        {{ hei.otherIds('erasmus') | first }}
+-                        {% endif %}
+-                    </td>
+-                </tr>
+-                {% endfor %}
+-            </tbody>
+-        </table>
+-        {% endif %}
+-    </div>
+-</section>
+-{% endblock %}
+diff --git a/src/main/resources/templates/iiaHashValidator.html b/src/main/resources/templates/iiaHashValidator.html
+new file mode 100644
+index 0000000..2daab66
+--- /dev/null
++++ b/src/main/resources/templates/iiaHashValidator.html
+@@ -0,0 +1,43 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="eu.erasmuswithoutpaper.registry.web.view.PageCommons, eu.erasmuswithoutpaper.registry.iia.HashComparisonResult"
++      t:params="PageCommons page, String xml, List<HashComparisonResult> hashComparisonResults, Boolean allResultsCorrect, String errorMessage"
++      t:replace="~{layout/toolbar :: toolbarLayout('IIA Hash Validator', page, false, ~{::section})}">
++<body>
++<section class='ewp-section ewp-section-centered'>
++    <h2 class='ewp-section-title'>IIA Hash Validator</h2>
++
++    <form id="xml_form" method="post">
++        <p class="ewp-para">
++            Paste your IIA Get Response XML document below and press <button>Validate</button>
++        </p>
++        <label>
++            <textarea class="xml-text" name="xml" t:text="xml"></textarea>
++        </label>
++    </form>
++
++    <section id="result_section" t:if="hashComparisonResults != null">
++        <h3 class='ewp-section-title'>Result
++            <span class="ewp-manifest-validator-result" id="result_ok" t:if="allResultsCorrect">OK</span>
++            <span class="ewp-manifest-validator-result" id="result_error" t:unless="allResultsCorrect">Failed</span>
++        </h3>
++
++        <h3 class='ewp-section-title' t:if="hashComparisonResults.isEmpty()">No IIAs where found.</h3>
++
++        <t:block t:each="hashComparisonResult : hashComparisonResults">
++            <t:block t:unless="hashComparisonResult.isCorrect()">
++            <h4>Expected hash: <t:block t:text="hashComparisonResult.hashExpected"></t:block></h4>
++            <label>
++                <p class="ewp-para">
++                    String used to calculate hash:
++                </p>
++                <textarea class="xml-text" t:text="hashComparisonResult.hashedString"></textarea>
++            </label>
++            </t:block>
++        </t:block>
++    </section>
++
++    <h4 t:if="errorMessage != null" t:text="errorMessage"></h4>
++</section>
++</body>
++</html>
+diff --git a/src/main/resources/templates/iiaHashValidator.peb b/src/main/resources/templates/iiaHashValidator.peb
+deleted file mode 100644
+index 32bddc4..0000000
+--- a/src/main/resources/templates/iiaHashValidator.peb
++++ /dev/null
+@@ -1,50 +0,0 @@
+-{% extends "generic-with-toolbar" %}
+-
+-{% block pageTitle %}IIA Hash Validator{% endblock %}
+-
+-{% block main %}
+-<section class='ewp-section ewp-section-centered'>
+-    <h2 class='ewp-section-title'>IIA Hash Validator</h2>
+-
+-    <form id="xml_form" method="post">
+-        <p class="ewp-para">
+-            Paste your IIA Get Response XML document below and press <button>Validate</button>
+-        </p>
+-        <label>
+-            <textarea class="xml-text" name="xml">{{ xml }}</textarea>
+-        </label>
+-    </form>
+-
+-    {% if hashComparisonResults != null %}
+-    <section id="result_section">
+-        <h3 class='ewp-section-title'>Result
+-            {% if allResultsCorrect %}
+-            <span class="ewp-manifest-validator-result" id="result_ok">OK</span>
+-            {% else %}
+-            <span class="ewp-manifest-validator-result" id="result_error">Failed</span>
+-            {% endif %}
+-        </h3>
+-
+-        {% if hashComparisonResults is empty %}
+-        <h3 class='ewp-section-title'>No IIAs where found.</h3>
+-        {% endif %}
+-
+-        {% for hashComparisonResult in hashComparisonResults %}
+-            {% if not hashComparisonResult.isCorrect %}
+-            <h4>Expected hash: {{ hashComparisonResult.hashExpected }}</h4>
+-            <label>
+-                <p class="ewp-para">
+-                    String used to calculate hash:
+-                </p>
+-                <textarea class="xml-text">{{ hashComparisonResult.hashedString }}</textarea>
+-            </label>
+-        {% endif %}
+-        {% endfor %}
+-    </section>
+-    {% endif %}
+-
+-    {% if errorMessage != null %}
+-    <h4>{{ errorMessage }}</h4>
+-    {% endif %}
+-</section>
+-{% endblock %}
+diff --git a/src/main/resources/templates/index.peb b/src/main/resources/templates/index.html
+similarity index 75%
+rename from src/main/resources/templates/index.peb
+rename to src/main/resources/templates/index.html
+index f59156a..f3dfccf 100644
+--- a/src/main/resources/templates/index.peb
++++ b/src/main/resources/templates/index.html
+@@ -1,27 +1,23 @@
+-{% extends "generic" %}
+-
+-{% block pageTitle %}
+-    {% if isUsingDevDesign %}
+-        DEV Registry Service
+-    {% else %}
+-        EWP Registry Service
+-    {% endif %}
+-{% endblock %}
+-
+-{% block body %}
+-    <main class='ewp-header {% if isUsingDevDesign %}ewp-header--dev{% endif %}'>
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="eu.erasmuswithoutpaper.registry.web.view.PageCommons"
++      t:params="PageCommons page, String catalogueUrl, String statusUrl, String coverageUrl, String schemaValidatorUrl, String manifestOverviewUrl, String heiSearchUrl, String iiaHashValidatorUrl, String uptime24, String uptime7, String uptime30, String uptime365, String artifactVersion, String gitVersion, List<String> adminEmails"
++      t:replace="~{layout/generic :: layout(page.usingDevDesign ? 'DEV Registry Service' : 'EWP Registry Service', page, false, ~{::body})}">
++<body t:remove="tag">
++    <main class='ewp-header' t:classappend="page.usingDevDesign ? 'ewp-header--dev'">
+         <div class='ewp-header__margin ewp-header__margin--top'></div>
+         <div class='ewp-header__grid'>
+             <div class='ewp-header__logo'><img src='/logo.png'></div>
+             <h1 class='ewp-header__site-name'>
+-                {% if isUsingDevDesign %}
++                <t:block t:if="page.usingDevDesign">
+                     <span class='ewp-header__red-text'>DEV</span> Registry Service
+-                {% else %}
++                </t:block>
++                <t:block t:unless="page.usingDevDesign">
+                     EWP Registry Service
+-                {% endif %}
++                </t:block>
+             </h1>
+             <div class='ewp-header__site-desc'>
+-                {% if isUsingDevDesign %}
++                <t:block t:if="page.usingDevDesign">
+                     <span class='ewp-header__site-desc-line'>
+                         An alternative instance of the
+                         <a href='https://registry.erasmuswithoutpaper.eu/'>EWP Registry Service</a>
+@@ -32,7 +28,8 @@
+                         <a href='https://github.com/erasmus-without-paper/ewp-specs-architecture'>Architecture</a>
+                         document
+                     </span>
+-                {% else %}
++                </t:block>
++                <t:block t:unless="page.usingDevDesign">
+                     <span class='ewp-header__site-desc-line'>
+                         Automated discovery service of
+                         <a href='https://en.wikipedia.org/wiki/Application_programming_interface'>APIs</a>
+@@ -42,14 +39,14 @@
+                         Provided and supported by <a href='https://www.erasmuswithoutpaper.eu/'>
+                         Erasmus Without Paper</a> project
+                     </span>
+-                {% endif %}
++                </t:block>
+             </div>
+             <div class='ewp-header__details'>
+                 <p>At the following URL you will find the XML cata&shy;logue which describes all the
+                 insti&shy;tu&shy;tions and APIs exposed by them:</p>
+ 
+                 <p class='ewp-header__catalogue-link'>
+-                    <a href='{{ catalogueUrl }}'>{{ catalogueUrl }}</a>
++                    <a t:href='catalogueUrl' t:text='catalogueUrl'></a>
+                 </p>
+ 
+                 <p>This catalogue is conti&shy;nously refreshed. Read the
+@@ -59,24 +56,22 @@
+                 for useful tools and documents.</p>
+ 
+                 <p class='ewp-header__links'>
+-                    <a class='ewp-header__links-item ewp-header__link-item-left' href='{{ manifestOverviewUrl  }}'>Manifests Overview</a>
++                    <a class='ewp-header__links-item ewp-header__link-item-left' t:href='manifestOverviewUrl'>Manifests Overview</a>
+                     <span class='ewp-header__links-item ewp-header__link-item-center'>|</span>
+-                    <a class='ewp-header__links-item ewp-header__link-item-right' href='{{ statusUrl }}'>Manifest Importer Status</a>
++                    <a class='ewp-header__links-item ewp-header__link-item-right' t:href='statusUrl'>Manifest Importer Status</a>
+                 </p>
+                 <p class='ewp-header__links'>
+-                    <a class='ewp-header__links-item ewp-header__link-item-left' href='{{ heiSearchUrl }}'>HEI Search Page</a>
++                    <a class='ewp-header__links-item ewp-header__link-item-left' t:href='heiSearchUrl'>HEI Search Page</a>
+                     <span class='ewp-header__links-item ewp-header__link-item-center'>|</span>
+-                    <a class='ewp-header__links-item ewp-header__link-item-right' href='{{ coverageUrl }}'>HEI/API Coverage Matrix</a>
++                    <a class='ewp-header__links-item ewp-header__link-item-right' t:href='coverageUrl'>HEI/API Coverage Matrix</a>
+                 </p>
+-                {% if isUsingDevDesign %}
+-                    <p class='ewp-header__links'>
+-                        <a class='ewp-header__links-item ewp-header__link-item-left' href='{{ schemaValidatorUrl }}'>XML Schema Validator</a>
++                    <p class='ewp-header__links' t:if="page.usingDevDesign">
++                        <a class='ewp-header__links-item ewp-header__link-item-left' t:href='schemaValidatorUrl'>XML Schema Validator</a>
+                         <span class='ewp-header__links-item ewp-header__link-item-center'>|</span>
+-                        <a class='ewp-header__links-item ewp-header__link-item-right' href='{{ iiaHashValidatorUrl }}'>IIA Hash Validator</a>
++                        <a class='ewp-header__links-item ewp-header__link-item-right' t:href='iiaHashValidatorUrl'>IIA Hash Validator</a>
+                     </p>
+-                {% endif %}
+                 <p class='ewp-header__links'>
+-                    <a class='ewp-header__links-item' href='https://{% if isUsingDevDesign %}dev-{% endif %}stats.erasmuswithoutpaper.eu'>EWP Stats Portal</a>
++                    <a class='ewp-header__links-item' t:href="page.usingDevDesign ? 'https://dev-stats.erasmuswithoutpaper.eu' : 'https://stats.erasmuswithoutpaper.eu'">EWP Stats Portal</a>
+                 </p>
+             </div>
+             <div class='ewp-header__vertical-divider'></div>
+@@ -85,22 +80,22 @@
+                     <div class='ewp-uptime__title'>Uptime ratios</div>
+                     <div class='ewp-uptime__tuples'>
+                         <div class='ewp-uptime__tuple'>
+-                            <span class='ewp-uptime__tuple-uptime'>{{ uptime24 }}</span>
++                            <span class='ewp-uptime__tuple-uptime'><t:block t:text='uptime24'></t:block></span>
+                             <span class='ewp-uptime__tuple-div'> - </span>
+                             <span class='ewp-uptime__tuple-time'>24 hours</span>
+                         </div>
+                         <div class='ewp-uptime__tuple'>
+-                            <span class='ewp-uptime__tuple-uptime'>{{ uptime7 }}</span>
++                            <span class='ewp-uptime__tuple-uptime'><t:block t:text='uptime7'></t:block></span>
+                             <span class='ewp-uptime__tuple-div'> - </span>
+                             <span class='ewp-uptime__tuple-time'>7 days</span>
+                         </div>
+                         <div class='ewp-uptime__tuple'>
+-                            <span class='ewp-uptime__tuple-uptime'>{{ uptime30 }}</span>
++                            <span class='ewp-uptime__tuple-uptime'><t:block t:text='uptime30'></t:block></span>
+                             <span class='ewp-uptime__tuple-div'> - </span>
+                             <span class='ewp-uptime__tuple-time'>30 days</span>
+                         </div>
+                         <div class='ewp-uptime__tuple'>
+-                            <span class='ewp-uptime__tuple-uptime'>{{ uptime365 }}</span>
++                            <span class='ewp-uptime__tuple-uptime'><t:block t:text='uptime365'></t:block></span>
+                             <span class='ewp-uptime__tuple-div'> - </span>
+                             <span class='ewp-uptime__tuple-time'>365 days</span>
+                         </div>
+@@ -122,30 +117,25 @@
+                 </div>
+ 
+                 <div>
+-                    {% if adminEmails != null %}
+-                        <div style='display: flex;'>
++                        <div style='display: flex;' t:if="adminEmails != null">
+                             <svg viewBox='0 0 24 24' role='img' aria-label='Contact'>
+                                 <title>Contact</title>
+                                 <path d='M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z'></path>
+                             </svg>
+ 
+-                            {% for adminEmail in adminEmails %}
+-                                {% if loop.first %}
+-                                    <a href='mailto:{{ adminEmail }}'>{{ adminEmail}}</a>
+-                                {% endif %}
+-                            {% endfor %}
++                            <a t:if="!adminEmails.isEmpty()" t:href="|mailto:${adminEmails[0]}|" t:text="adminEmails[0]"></a>
+                         </div>
+-                    {% endif %}
+                     <div style='display: flex;'>
+                         <svg viewBox='0 0 24 24' role='img' aria-label='Version'>
+                             <title>Version</title>
+                             <path d='M13,14C9.64,14 8.54,15.35 8.18,16.24C9.25,16.7 10,17.76 10,19A3,3 0 0,1 7,22A3,3 0 0,1 4,19C4,17.69 4.83,16.58 6,16.17V7.83C4.83,7.42 4,6.31 4,5A3,3 0 0,1 7,2A3,3 0 0,1 10,5C10,6.31 9.17,7.42 8,7.83V13.12C8.88,12.47 10.16,12 12,12C14.67,12 15.56,10.66 15.85,9.77C14.77,9.32 14,8.25 14,7A3,3 0 0,1 17,4A3,3 0 0,1 20,7C20,8.34 19.12,9.5 17.91,9.86C17.65,11.29 16.68,14 13,14M7,18A1,1 0 0,0 6,19A1,1 0 0,0 7,20A1,1 0 0,0 8,19A1,1 0 0,0 7,18M7,4A1,1 0 0,0 6,5A1,1 0 0,0 7,6A1,1 0 0,0 8,5A1,1 0 0,0 7,4M17,6A1,1 0 0,0 16,7A1,1 0 0,0 17,8A1,1 0 0,0 18,7A1,1 0 0,0 17,6Z'></path>
+                         </svg>
+-                        <code>{{ artifactVersion }} {{ gitVersion }}</code>
++                        <code t:text="|${artifactVersion} ${gitVersion}|"></code>
+                     </div>
+                 </div>
+             </div>
+         </div>
+         <div class='ewp-header__margin ewp-header__margin--bottom'></div>
+     </main>
+-{% endblock %}
++</body>
++</html>
+diff --git a/src/main/resources/templates/layout/generic.html b/src/main/resources/templates/layout/generic.html
+new file mode 100644
+index 0000000..d65bfff
+--- /dev/null
++++ b/src/main/resources/templates/layout/generic.html
+@@ -0,0 +1,20 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="eu.erasmuswithoutpaper.registry.web.view.PageCommons"
++      t:fragment="layout(String title, PageCommons page, boolean uiScript, Fragment body)">
++<head>
++    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
++    <title t:text="title">EWP Registry Service</title>
++    <link href="https://fonts.googleapis.com/css?family=Inconsolata:400,700|Lato:300,300i,400,400i|Roboto+Slab:700" rel="stylesheet">
++    <link t:href="@{/style-{fingerprint}.css(fingerprint=page.cssFingerprint)}" rel="stylesheet">
++    <link href="/favicon.ico" rel="icon" type="image/x-icon">
++    <script
++        src="https://code.jquery.com/jquery-3.7.1.min.js"
++        integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
++        crossorigin="anonymous"></script>
++    <script t:src="@{/scripts-{fingerprint}.js(fingerprint=page.jsFingerprint)}"></script>
++    <script t:if="uiScript" t:src="@{ui-{fingerprint}.js(fingerprint=page.uiJsFingerprint)}" defer></script>
++</head>
++<body t:insert="body">
++</body>
++</html>
+diff --git a/src/main/resources/templates/layout/toolbar.html b/src/main/resources/templates/layout/toolbar.html
+new file mode 100644
+index 0000000..c638569
+--- /dev/null
++++ b/src/main/resources/templates/layout/toolbar.html
+@@ -0,0 +1,31 @@
++<html xmlns:t="https://tessera.dev"
++      t:import="eu.erasmuswithoutpaper.registry.web.view.PageCommons"
++      t:fragment="toolbarLayout(String title, PageCommons page, boolean uiScript, Fragment main)"
++      t:replace="~{layout/generic :: layout(title, page, uiScript, ~{::t:block})}">
++<t:block>
++    <header class='ewp-header ewp-header--small' t:classappend="page.usingDevDesign ? 'ewp-header--dev'">
++        <div class='ewp-header__margin ewp-header__margin--top'></div>
++        <div class='ewp-header__grid'>
++            <a href='/' class='ewp-header__hlink'>
++                <div class='ewp-header__logo'>
++                    <img src='/logo.png'>
++                </div>
++            </a>
++            <a href='/' class='ewp-header__hlink'>
++                <h1 class='ewp-header__site-name'>
++                    <t:block t:if="page.usingDevDesign">
++                        <span class='ewp-header__red-text'>DEV</span> Registry Service
++                    </t:block>
++                    <t:block t:unless="page.usingDevDesign">
++                        EWP Registry Service
++                    </t:block>
++                </h1>
++            </a>
++        </div>
++        <div class='ewp-header__margin ewp-header__margin--bottom'></div>
++        <div class='ewp-header__bottom-line'></div>
++    </header>
++    <main t:insert="main">
++    </main>
++</t:block>
++</html>
+diff --git a/src/main/resources/templates/manifestValidation.peb b/src/main/resources/templates/manifestValidation.html
+similarity index 60%
+rename from src/main/resources/templates/manifestValidation.peb
+rename to src/main/resources/templates/manifestValidation.html
+index 015e929..dbeea57 100644
+--- a/src/main/resources/templates/manifestValidation.peb
++++ b/src/main/resources/templates/manifestValidation.html
+@@ -1,14 +1,9 @@
+-{% extends "generic-with-toolbar" %}
+-
+-{% block pageTitle %}Validate API Endpoints{% endblock %}
+-
+-{% block scripts %}
+-
+-<script src="ui-{{ uiJsFingerprint }}.js" defer></script>
+-
+-{% endblock %}
+-
+-{% block main %}
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="eu.erasmuswithoutpaper.registry.web.view.PageCommons, eu.erasmuswithoutpaper.registry.validators.ValidationReport, eu.erasmuswithoutpaper.registry.web.view.ApiEntryView"
++      t:params="PageCommons page, String manifestUrl, List<ValidationReport.Marker> securities, List<ApiEntryView> apis"
++      t:replace="~{layout/toolbar :: toolbarLayout('Validate API Endpoints', page, true, ~{::body})}">
++<body t:remove="tag">
+     <section class='ewp-section ewp-section-centered'>
+         <h2 class='ewp-section-title'>API Validator</h2>
+ 
+@@ -22,32 +17,31 @@
+             under any circumstances, expose private personal data to unauthorised users.
+             <br/>
+             <br/>
+-            {{ securityDisclaimer | raw }}
++            <t:block t:if="page.usingDevDesign"><b>Make sure</b> that the system you connect to the DEMO EWP Network contains only scrambled data or artificial data. This network is used for testing, so - according to Murphy's law - whatever can go wrong, will go wrong.</t:block>
++            <t:block t:unless="page.usingDevDesign">Do not connect your production system do the EWP Network unless you are 100% sure that your system is secure and only authorised users can get access to the data.</t:block>
+         </div>
+ 
+         <h4 class='ewp-section-title'>Security options</h4>
+-        {% for security in securities %}
+-            <code class='ewpst__bordered-code-larger'>{{ security.marker }}</code> - {{ security.description }} <br>
+-        {% endfor %}
++        <t:block t:each="security : securities">
++            <code class='ewpst__bordered-code-larger' t:text="security.marker"></code> - <t:block t:text="security.description"></t:block> <br>
++        </t:block>
+ 
+ 
+         <p class='ewp-para'>APIs defined in manifest
+-            <code class='ewpst__bordered-code-larger'><a href='{{ manifestUrl }}'>{{ manifestUrl }}</a></code>:
++            <code class='ewpst__bordered-code-larger'><a t:href='manifestUrl' t:text='manifestUrl'></a></code>:
+         </p>
+ 
+         <div id="api-entry-set">
+-        {% for api in apis %}
+-            <api-entry
+-                    name="{{ api.name }}"
+-                    version="{{ api.version }}"
+-                    endpoint="{{ api.endpoint }}"
+-                    url="{{ api.url }}"
+-                    :security='{{ api.securities | asJson | raw }}'
+-                    :parameters='{{ api.parameters | asJson | raw }}'
+-                    :security-notices='{{ api.securityNotices | asJson | raw }}'
++            <api-entry v-for="api in apis"
++                    :name="api.name"
++                    :version="api.version"
++                    :endpoint="api.endpoint"
++                    :url="api.url"
++                    :security="api.security"
++                    :parameters="api.parameters"
++                    :security-notices="api.securityNotices"
+             >
+             </api-entry>
+-        {% endfor %}
+ 
+         <help-popup ref="security-method-popup" popup-name="Security method">
+             Here you have to select security method that will be used to perform calls to validated API.
+@@ -61,7 +55,7 @@
+                 However there are certain cases when you would like to fill those fields.
+             </p>
+             <p>
+-            <h4>When should I fill those fields?</h4>
++            </p><h4>When should I fill those fields?</h4>
+             <ol>
+                 <li>
+                     You would like to see if your API works with parameters different than ones found by the validator.
+@@ -75,17 +69,17 @@
+                     and <code>los_id</code> values from you database. Validator will run tests using that values.
+                 </li>
+             </ol>
+-            </p>
++            <p></p>
+             <p>
+-                <h4>How to find out what parameters are used by the validator?</h4>
++                </p><h4>How to find out what parameters are used by the validator?</h4>
+                 You should look at details of requests made by the validator, they are used as parameters for
+                 HTTP requests with same names.
+-            </p>
++            <p></p>
+             <p>
+-            <h4>What is the meaning of parameter X?</h4>
++            </p><h4>What is the meaning of parameter X?</h4>
+                 Look at the specification of the API you are validating, parameters used here are subset of those
+                 described there.
+-            </p>
++            <p></p>
+             <p>
+                 If you manually enter parameter please take care to provide correct values, they cannot be
+                 verified and are assumed to be correct. Providing invalid parameters will result in failed tests.
+@@ -93,7 +87,8 @@
+ 
+         </help-popup>
+         </div>
++        <script type="application/json" id="api-entries">[[${apis}]]</script>
+     </section>
+ 
+-{% endblock %}
+-
++</body>
++</html>
+diff --git a/src/main/resources/templates/manifestsOverview.html b/src/main/resources/templates/manifestsOverview.html
+new file mode 100644
+index 0000000..e73770c
+--- /dev/null
++++ b/src/main/resources/templates/manifestsOverview.html
+@@ -0,0 +1,91 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="eu.erasmuswithoutpaper.registry.web.view.PageCommons, eu.erasmuswithoutpaper.registry.web.view.ManifestsOverviewView, eu.erasmuswithoutpaper.registry.manifestoverview.*"
++      t:params="PageCommons page, ManifestsOverviewView manifestInfos, ImplementedApisCount implementedApisCount, ApiForHeiImplementationMapping duplicatesInfo, CoveredInstitutionsCounters heiDuplicates"
++      t:replace="~{layout/toolbar :: toolbarLayout('Manifests Overview', page, false, ~{::section})}">
++<body>
++    <section class='ewp-section ewp-section-centered'>
++        <h2 class='ewp-section-title'>Manifests Overview</h2>
++
++        <p class='ewp-para'>Currently defined manifest sources and overview of their contents.</p>
++
++        <div class="ewpsrc ewpsrc__section_with_top_margin">
++            <h2>Implemented APIs statistics</h2>
++                <table class="ewpsrc ewpsrc__api_stats_table" t:each="implementedApiCount : implementedApisCount.counts">
++                <tbody>
++                    <tr class="ewpsrc__item">
++                    <td colspan="3"><h4 t:text="implementedApiCount.name"></h4></td>
++                    </tr>
++                    <tr class="ewpsrc__item">
++                        <td>Version</td>
++                        <td>Hosts</td>
++                        <td>Institutions</td>
++                    </tr>
++                        <tr class="ewpsrc__item" t:each="versionsCounts : implementedApiCount.counts">
++                            <td t:text="versionsCounts.version"></td>
++                            <td t:text="versionsCounts.hostsCount"></td>
++                            <td t:text="versionsCounts.uniqueInstitutionsCount"></td>
++                        </tr>
++                </tbody>
++                </table>
++        </div>
++        <div class='ewpsrc ewpsrc__section_with_top_margin'>
++            <h2>Duplicates in the EWP Network</h2>
++            <h3>Duplicate (HEI, API) pairs on different hosts (with the same major version)</h3>
++                <div style="font-weight: bolder" t:if="duplicatesInfo.map.isEmpty()">
++                    No duplicates.
++                </div>
++                <t:block t:unless="duplicatesInfo.map.isEmpty()">
++                    <table class="ewpsrc ewpsrc__host_overview_info_table" t:each="entry : duplicatesInfo.map">
++                        <tbody>
++                        <tr class="ewpsrc__item">
++                            <td colspan="2" t:text="entry.key.heiId"></td>
++                            <td colspan="2"> API: <t:block t:text="entry.key.apiName"></t:block></td>
++                            <td colspan="1"> Major version: <t:block t:text="entry.key.majorVersion"></t:block></td>
++                        </tr>
++                            <tr class="ewpsrc__item" t:each="implementingHostEntry : entry.value">
++                                <td colspan="3" t:text="implementingHostEntry.key.manifestUrl"></td>
++                                <td colspan="1"> Host: <t:block t:text="implementingHostEntry.key.hostId"></t:block> </td>
++                                <td colspan="1"> Versions: <t:block t:text="strings.join(implementingHostEntry.value, ', ')"></t:block></td>
++                            </tr>
++                        </tbody>
++                    </table>
++                </t:block>
++
++            <h3>Duplicate HEIs on the same host</h3>
++                <div style="font-weight: bolder" t:if="heiDuplicates.map.isEmpty()">
++                    No duplicates.
++                </div>
++                <t:block t:unless="heiDuplicates.map.isEmpty()">
++                    <table class="ewpsrc ewpsrc__host_overview_info_table" t:each="entry : heiDuplicates.map">
++                        <tbody>
++                        <tr class="ewpsrc__item">
++                            <td colspan="2" t:text="entry.key.manifestUrl"></td>
++                            <td colspan="1">Host <t:block t:text="entry.key.hostId"></t:block></td>
++                        </tr>
++                            <tr class="ewpsrc__item" t:each="heiAndCount : entry.value">
++                                <td colspan="2" t:text="heiAndCount.key"></td>
++                                <td colspan="1"> Count: <t:block t:text="heiAndCount.value"></t:block> </td>
++                            </tr>
++                        </tbody>
++                    </table>
++                </t:block>
++        </div>
++
++        <div class='ewpsrc ewpsrc__section_with_top_margin'>
++            <h2>Implemented APIs and covered HEIs</h2>
++            <h3 t:each="url : manifestInfos.leadingManifestUrls"><a t:href="url" t:text="url"></a></h3>
++            <table class="ewpsrc"></table>
++            <t:block t:each="hostOverviewInfo, hostStat : manifestInfos.firstHosts">
++                <table t:replace="~{fragments/manifestsOverview :: host(hostOverviewInfo, hostStat.count)}"></table>
++            </t:block>
++            <t:block t:each="manifestOverviewInfo : manifestInfos.otherManifests">
++                <h3><a t:href="manifestOverviewInfo.url" t:text="manifestOverviewInfo.url"></a></h3>
++                <t:block t:each="hostOverviewInfo, hostStat : manifestOverviewInfo.hosts">
++                    <table t:replace="~{fragments/manifestsOverview :: host(hostOverviewInfo, hostStat.count)}"></table>
++                </t:block>
++            </t:block>
++        </div>
++    </section>
++</body>
++</html>
+diff --git a/src/main/resources/templates/manifestsOverview.peb b/src/main/resources/templates/manifestsOverview.peb
+deleted file mode 100644
+index 5389be0..0000000
+--- a/src/main/resources/templates/manifestsOverview.peb
++++ /dev/null
+@@ -1,192 +0,0 @@
+-{% extends "generic-with-toolbar" %}
+-
+-{% block pageTitle %}Manifests Overview{% endblock %}
+-
+-{% block main %}
+-    <section class='ewp-section ewp-section-centered'>
+-        <h2 class='ewp-section-title'>Manifests Overview</h2>
+-
+-        <p class='ewp-para'>Currently defined manifest sources and overview of their contents.</p>
+-
+-        <div class="ewpsrc ewpsrc__section_with_top_margin">
+-            <h2>Implemented APIs statistics</h2>
+-                {% for implementedApiCount in implementedApisCount.counts %}
+-                <table class="ewpsrc ewpsrc__api_stats_table">
+-                <tbody>
+-                    <tr class="ewpsrc__item">
+-                    <td colspan="3"><h4>{{ implementedApiCount.name }}</h4></td>
+-                    </tr>
+-                    <tr class="ewpsrc__item">
+-                        <td>Version</td>
+-                        <td>Hosts</td>
+-                        <td>Institutions</td>
+-                    </tr>
+-                    {% for versionsCounts in implementedApiCount.counts %}
+-                        <tr class="ewpsrc__item">
+-                            <td>{{ versionsCounts.version }}</td>
+-                            <td>{{ versionsCounts.hostsCount }}</td>
+-                            <td>{{ versionsCounts.uniqueInstitutionsCount }}</td>
+-                        </tr>
+-                    {% endfor %}
+-                </tbody>
+-                </table>
+-                {% endfor %}
+-        </div>
+-        <div class='ewpsrc ewpsrc__section_with_top_margin'>
+-            <h2>Duplicates in the EWP Network</h2>
+-            <h3>Duplicate (HEI, API) pairs on different hosts (with the same major version)</h3>
+-            {% if duplicatesInfo.map is empty %}
+-                <div style="font-weight: bolder">
+-                    No duplicates.
+-                </div>
+-            {% else %}
+-                {% for entry in duplicatesInfo.map %}
+-                    {% set apiAndHei = entry.key %}
+-                    {% set implementingHostsMap = entry.value %}
+-                    <table class="ewpsrc ewpsrc__host_overview_info_table">
+-                        <tr class="ewpsrc__item">
+-                            <td colspan="2">{{ apiAndHei.heiId }}</td>
+-                            <td colspan="2"> API: {{ apiAndHei.apiName }}</td>
+-                            <td colspan="1"> Major version: {{ apiAndHei.majorVersion }}</td>
+-                        </tr>
+-                        {% for implementingHostEntry in implementingHostsMap %}
+-                            {% set implementationInfo = implementingHostEntry.key %}
+-                            {% set implementedVersions = implementingHostEntry.value %}
+-                            <tr class="ewpsrc__item">
+-                                <td colspan="3"> {{ implementationInfo.manifestUrl }} </td>
+-                                <td colspan="1"> Host: {{ implementationInfo.hostId }} </td>
+-                                <td colspan="1"> Versions: {{ implementedVersions | join(', ') }}</td>
+-                            </tr>
+-                        {% endfor %}
+-                    </table>
+-                {% endfor %}
+-            {% endif %}
+-
+-            <h3>Duplicate HEIs on the same host</h3>
+-            {% if heiDuplicates.map is empty %}
+-                <div style="font-weight: bolder">
+-                    No duplicates.
+-                </div>
+-            {% else %}
+-            {% for entry in heiDuplicates.map %}
+-                {% set manifestAndHostId = entry.key %}
+-                {% set heiToCountMap = entry.value %}
+-                    <table class="ewpsrc ewpsrc__host_overview_info_table">
+-                        <tr class="ewpsrc__item">
+-                            <td colspan="2">{{ manifestAndHostId.manifestUrl }}</td>
+-                            <td colspan="1">Host {{ manifestAndHostId.hostId }}</td>
+-                        </tr>
+-                        {% for heiAndCount in heiToCountMap  %}
+-                        {% set heiId = heiAndCount.key %}
+-                        {% set count = heiAndCount.value %}
+-                            <tr class="ewpsrc__item">
+-                                <td colspan="2"> {{ heiId }} </td>
+-                                <td colspan="1"> Count: {{ count }} </td>
+-                            </tr>
+-                        {% endfor %}
+-                    </table>
+-                {% endfor %}
+-            {% endif %}
+-        </div>
+-
+-        <div class='ewpsrc ewpsrc__section_with_top_margin'>
+-            <h2>Implemented APIs and covered HEIs</h2>
+-            <table class="ewpsrc">
+-            {% for manifestOverviewInfo in manifestInfos %}
+-                <h3><a href="{{ manifestOverviewInfo.url }}">{{ manifestOverviewInfo.url }}</a></h3>
+-                {% for hostOverviewInfo in manifestOverviewInfo.hosts %}
+-                <table class="ewpsrc__host_overview_info_table">
+-                    <tr class="ewpsrc__item">
+-                        <td colspan="5">
+-                            <h4>HOST {{ loop.index + 1 }}</h4>
+-                        </td>
+-                    </tr>
+-                    <tr class="ewpsrc__item">
+-                        <td colspan="5">
+-                            Admin emails: ({{ hostOverviewInfo.adminEmails.size }})
+-                        </td>
+-                    </tr>
+-
+-                    {% for email in hostOverviewInfo.adminEmails %}
+-                        <tr class="ewpsrc__item">
+-                            <td colspan="5">
+-                                {{ email }}
+-                            </td>
+-                        </tr>
+-                    {% endfor %}
+-
+-                    {% if hostOverviewInfo.adminProvider is not null %}
+-                        <tr class="ewpsrc__item">
+-                            <td colspan="5">
+-                                Admin provider: {{ hostOverviewInfo.adminProvider }}
+-                            </td>
+-                        </tr>
+-                    {% endif %}
+-
+-                    <tr class="ewpsrc__item">
+-                        <td colspan="5">
+-                            Admin notes: ({{ hostOverviewInfo.adminNotes.size }})
+-                        </td>
+-                    </tr>
+-                    {% for note in hostOverviewInfo.adminNotes %}
+-                        <tr class="ewpsrc__item">
+-                            <td colspan="5">
+-                                {{ note }}
+-                            </td>
+-                        </tr>
+-                    {% endfor %}
+-
+-                    <tr class="ewpsrc__item">
+-                        <td colspan="5">
+-                            APIs implemented: ({{ hostOverviewInfo.apisImplemented.size }})
+-                        </td>
+-                    </tr>
+-                    {% for apiImplementedInfo in hostOverviewInfo.apisImplemented %}
+-                        <tr class="ewpsrc__item">
+-                            <td>
+-                                {{ apiImplementedInfo.name }}
+-                            </td>
+-                            <td>
+-                                {{ apiImplementedInfo.version }}
+-                            </td>
+-                            <td colspan="3">
+-                                {% for url in apiImplementedInfo.urls %}
+-                                    {{ url }} {% if not loop.last%} <br/> {% endif %}
+-                                {% endfor %}
+-                            </td>
+-                        </tr>
+-                    {% endfor %}
+-
+-                    {% set numCoveredHeiIds = hostOverviewInfo.coveredHeiIds.size %}
+-
+-                    <tr class="ewpsrc__item">
+-                        <td colspan="5">
+-                            Covered institutions: ({{ numCoveredHeiIds }})
+-                        </td>
+-                    </tr>
+-                    {% for heiId in hostOverviewInfo.coveredHeiIds %}
+-                        {% if loop.index % 5 == 0 %}
+-                        <tr class="ewpsrc__item">
+-                        {% endif %}
+-                        <td>
+-                         {{ heiId }}
+-                        </td>
+-                        {% if loop.index % 5  == 4 %}
+-                        </tr>
+-                        {% endif %}
+-                    {% endfor %}
+-
+-                    {% set rowsToFill = 5 - (numCoveredHeiIds % 5) %}
+-                    {% for i in range(1, rowsToFill) %}
+-                        <td></td>
+-                        {% if loop.last %}
+-                            </tr>
+-                        {% endif %}
+-                    {% endfor %}
+-                </table>
+-                {% endfor %}
+-            {% endfor %}
+-            </table>
+-        </div>
+-    </section>
+-{% endblock %}
+diff --git a/src/main/resources/templates/schemaValidator.peb b/src/main/resources/templates/schemaValidator.html
+similarity index 88%
+rename from src/main/resources/templates/schemaValidator.peb
+rename to src/main/resources/templates/schemaValidator.html
+index 949f8e0..fce6e63 100644
+--- a/src/main/resources/templates/schemaValidator.peb
++++ b/src/main/resources/templates/schemaValidator.html
+@@ -1,8 +1,9 @@
+-{% extends "generic-with-toolbar" %}
+-
+-{% block pageTitle %}XML Schema Validator{% endblock %}
+-
+-{% block main %}
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="eu.erasmuswithoutpaper.registry.web.view.PageCommons"
++      t:params="PageCommons page"
++      t:replace="~{layout/toolbar :: toolbarLayout('XML Schema Validator', page, false, ~{::body})}">
++<body t:remove="tag">
+     <section class='ewp-section ewp-section-centered'>
+         <h2 class='ewp-section-title'>XML Schema Validator</h2>
+ 
+@@ -42,4 +43,5 @@
+             Server error, try again.
+         </span>
+     </section>
+-{% endblock %}
++</body>
++</html>
+diff --git a/src/main/resources/templates/status.html b/src/main/resources/templates/status.html
+new file mode 100644
+index 0000000..150595b
+--- /dev/null
++++ b/src/main/resources/templates/status.html
+@@ -0,0 +1,59 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="eu.erasmuswithoutpaper.registry.web.view.PageCommons, eu.erasmuswithoutpaper.registry.updater.ManifestUpdateStatus"
++      t:params="PageCommons page, List<ManifestUpdateStatus> manifestStatuses, String manifestValidationUrl, boolean isValidatorEnabled"
++      t:replace="~{layout/toolbar :: toolbarLayout('Status of the EWP Manifest Importer', page, false, ~{::section})}">
++<body>
++    <section class='ewp-section ewp-section-centered'>
++        <h2 class='ewp-section-title'>Manifest Importer Status</h2>
++
++        <p class='ewp-para'>Currently defined manifest sources and their statuses:</p>
++
++        <table class='ewpsrc'>
++            <tbody t:if="!manifestStatuses.isEmpty()">
++                <tr class='ewpsrc__item' t:each="stat, st : manifestStatuses" t:classappend="|ewpsrc__item--status-${stat.lastAccessFlagStatus}|">
++                    <td class='ewpsrc__item' t:text="st.count"> 1 </td>
++                    <td class='ewpsrc__url'>
++                        <a t:href='stat.url' t:text='stat.url'></a>
++                    </td>
++                    <td class='ewpsrc__status' t:text="stat.lastAccessFlagStatus"></td>
++                    <td class='ewpsrv__details'><a t:href="|?url=${stat.url}|">details</a></td>
++                    <td class='ewpsrv__details'>
++                        <input type="hidden" class="ewp-manifest-url" t:value="stat.url"><a class='ewp-manifest-reload-link'>reload now</a>
++                    </td>
++                        <td class='ewpsrv__details' t:if="isValidatorEnabled">
++                            <a t:href="|${manifestValidationUrl}?url=${stat.url}|">validate</a>
++                        </td>
++                </tr>
++            </tbody>
++        </table>
++        <t:block t:if="!manifestStatuses.isEmpty()">
++        <script>
++            jQuery(function($) {
++                // The manifest URL is in the hidden input before each link.
++                $(".ewp-manifest-reload-link").on("click", function() {
++                    var self = $(this);
++                    $.ajax({
++                        url: "/reload",
++                        data: {
++                            url: self.prevAll("input.ewp-manifest-url").first().val()
++                        },
++                        method: 'POST'
++                    }).then(function() {
++                        var info = $("<span>Reload queued</span>");
++                        info.hide();
++                        self.replaceWith(info);
++                        info.fadeIn();
++                    }).catch(function() {
++                        var info = $("<span>Reload FAILED</span>");
++                        info.hide();
++                        self.replaceWith(info);
++                        info.fadeIn();
++                    });
++                });
++            });
++        </script>
++        </t:block>
++    </section>
++</body>
++</html>
+diff --git a/src/main/resources/templates/status.peb b/src/main/resources/templates/status.peb
+deleted file mode 100644
+index 12d0d3b..0000000
+--- a/src/main/resources/templates/status.peb
++++ /dev/null
+@@ -1,32 +0,0 @@
+-{% extends "generic-with-toolbar" %}
+-
+-{% block pageTitle %}Status of the EWP Manifest Importer{% endblock %}
+-
+-{% block main %}
+-    <section class='ewp-section ewp-section-centered'>
+-        <h2 class='ewp-section-title'>Manifest Importer Status</h2>
+-
+-        <p class='ewp-para'>Currently defined manifest sources and their statuses:</p>
+-
+-        <table class='ewpsrc'>
+-            {% for stat in manifestStatuses %}
+-                <tr class='ewpsrc__item ewpsrc__item--status-{{ stat.lastAccessFlagStatus }}'>
+-                    <td class='ewpsrc__item'> {{ loop.index + 1 }} </td>
+-                    <td class='ewpsrc__url'>
+-                        <a href='{{ stat.url }}'>{{ stat.url }}</a>
+-                    </td>
+-                    <td class='ewpsrc__status'>{{ stat.lastAccessFlagStatus }}</td>
+-                    <td class='ewpsrv__details'><a href='?url={{ stat.url }}'>details</a></td>
+-                    <td class='ewpsrv__details'>
+-                        <a class='ewp-manifest-reloader' data-manifest-url="{{ stat.url }}">reload now</a>
+-                    </td>
+-                    {% if isValidatorEnabled %}
+-                        <td class='ewpsrv__details'>
+-                            <a href='{{ manifestValidationUrl }}?url={{ stat.url }}'>validate</a>
+-                        </td>
+-                    {% endif %}
+-                </tr>
+-            {% endfor %}
+-        </table>
+-    </section>
+-{% endblock %}
+diff --git a/src/main/resources/templates/statusPerEmail.html b/src/main/resources/templates/statusPerEmail.html
+new file mode 100644
+index 0000000..9a54f48
+--- /dev/null
++++ b/src/main/resources/templates/statusPerEmail.html
+@@ -0,0 +1,31 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="eu.erasmuswithoutpaper.registry.web.view.PageCommons, eu.erasmuswithoutpaper.registry.web.view.FlagView"
++      t:params="PageCommons page, String email, List<FlagView> flags"
++      t:replace="~{layout/toolbar :: toolbarLayout(|${email} - Recipient Status Report|, page, false, ~{::section})}">
++<body>
++    <section class='ewp-section'>
++        <h2 class='ewp-section-title'>Recipient Status Report</h2>
++
++        <p class='ewp-para'>Requested for recipient email address:
++        <code class='ewpst__bordered-code' t:text="email"></code></p>
++
++        <h2 class='ewp-section-title'>Issues being watched</h2>
++
++            <table class='ewpsrc' t:if="!flags.isEmpty()">
++                <tbody>
++                <tr class='ewpsrc__item' t:each="flag : flags" t:classappend="|ewpsrc__item--status-${flag.status}|">
++                    <td class='ewpsrc__status' t:text="flag.status"></td>
++                    <td class='ewpsrc__message'>
++                        <t:block t:text="flag.name"></t:block>
++                        <t:block t:if="flag.detailsUrl != null">
++                            - <a t:href='flag.detailsUrl'>details</a>
++                        </t:block>
++                    </td>
++                </tr>
++                </tbody>
++            </table>
++            <p class='ewp-para' t:if="flags.isEmpty()">No watched issues found for this email address.</p>
++    </section>
++</body>
++</html>
+diff --git a/src/main/resources/templates/statusPerEmail.peb b/src/main/resources/templates/statusPerEmail.peb
+deleted file mode 100644
+index abe6b65..0000000
+--- a/src/main/resources/templates/statusPerEmail.peb
++++ /dev/null
+@@ -1,32 +0,0 @@
+-{% extends "generic-with-toolbar" %}
+-
+-{% block pageTitle %}{{ email }} - Recipient Status Report{% endblock %}
+-
+-{% block main %}
+-    <section class='ewp-section'>
+-        <h2 class='ewp-section-title'>Recipient Status Report</h2>
+-
+-        <p class='ewp-para'>Requested for recipient email address:
+-        <code class='ewpst__bordered-code'>{{ email }}</code></p>
+-
+-        <h2 class='ewp-section-title'>Issues being watched</h2>
+-
+-        {% if flags.size > 0 %}
+-            <table class='ewpsrc'>
+-                {% for flag in flags %}
+-                    <tr class='ewpsrc__item ewpsrc__item--status-{{ flag.status }}'>
+-                        <td class='ewpsrc__status'>{{ flag.status }}</td>
+-                        <td class='ewpsrc__message'>
+-                            {{ flag.name | raw }}
+-                            {% if flag.detailsUrl.isPresent %}
+-                                - <a href='{{ flag.detailsUrl.get }}'>details</a>
+-                            {% endif %}
+-                        </td>
+-                    </tr>
+-                {% endfor %}
+-            </table>
+-        {% else %}
+-            <p class='ewp-para'>No watched issues found for this email address.</p>
+-        {% endif %}
+-    </section>
+-{% endblock %}
+diff --git a/src/main/resources/templates/statusPerUrl.html b/src/main/resources/templates/statusPerUrl.html
+new file mode 100644
+index 0000000..3ddbbb0
+--- /dev/null
++++ b/src/main/resources/templates/statusPerUrl.html
+@@ -0,0 +1,85 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="eu.erasmuswithoutpaper.registry.web.view.PageCommons, eu.erasmuswithoutpaper.registry.updater.ManifestUpdateStatus"
++      t:params="PageCommons page, String manifestUrl, ManifestUpdateStatus status, boolean sourcePresent"
++      t:replace="~{layout/toolbar :: toolbarLayout('Manifest Status Report', page, false, ~{::section})}">
++<body>
++    <section class='ewp-section ewp-section-centered'>
++        <h2 class='ewp-section-title'>Manifest Status Report</h2>
++
++        <p class='ewp-para'>Manifest URL:
++        <code class='ewpst__bordered-code'><a t:href='manifestUrl' t:text='manifestUrl'></a></code></p>
++
++        <t:block t:if="!sourcePresent && status == null">
++            <p class='ewp-para'>
++                <b>Unknown URL:</b> This URL is not listed among the current Registry Service
++                manifest sources, nor any trace of it can be found in our logs.
++            </p>
++        </t:block>
++        <t:block t:if="!sourcePresent && status != null">
++            <p class='ewp-para'>
++                <b>Stale URL:</b> This URL was once listed among Registry Service sources, but
++                it is not anymore.
++            </p>
++            <p class='ewp-para'>
++                Last access attempt:
++                <code t:text="status.lastAccessAttemptFormatted"></code>
++            </p>
++        </t:block>
++        <t:block t:if="sourcePresent && status == null">
++            <p class='ewp-para'>
++                <b>New URL:</b> This URL is listed among the current Registry Service manifest
++                sources, but it hasn't been accessed yet. Please refresh this page.
++            </p>
++        </t:block>
++        <t:block t:if="sourcePresent && status != null">
++            <p class='ewp-para'>
++                Last access attempt:
++                <code class='ewpst__bordered-code' t:text="status.lastAccessAttemptFormatted"></code>
++                <br>
++                Last access status:
++                <code class='ewpst__bordered-code' t:text="status.lastAccessFlagStatus"></code>
++                <br>
++                <input type="hidden" class="ewp-manifest-url" t:value="manifestUrl"><a class='ewp-manifest-reload-link'>reload now</a>
++            </p>
++            <t:block t:if="!status.lastAccessNotices.isEmpty()">
++                <h2 class='ewp-section-title'>Last access notices</h2>
++
++                <table class='ewpsrc'>
++                    <tbody>
++                    <tr class='ewpsrc__item' t:each="notice : status.lastAccessNotices" t:classappend="|ewpsrc__item--status-${notice.severity}|">
++                        <td class='ewpsrc__status' t:text="notice.severity"></td>
++                        <td class='ewpsrc__message' t:utext="notices.html(notice.messageHtml)"></td>
++                    </tr>
++                    </tbody>
++                </table>
++            </t:block>
++        <script>
++            jQuery(function($) {
++                // The manifest URL is in the hidden input before each link.
++                $(".ewp-manifest-reload-link").on("click", function() {
++                    var self = $(this);
++                    $.ajax({
++                        url: "/reload",
++                        data: {
++                            url: self.prevAll("input.ewp-manifest-url").first().val()
++                        },
++                        method: 'POST'
++                    }).then(function() {
++                        var info = $("<span>Reload queued</span>");
++                        info.hide();
++                        self.replaceWith(info);
++                        info.fadeIn();
++                    }).catch(function() {
++                        var info = $("<span>Reload FAILED</span>");
++                        info.hide();
++                        self.replaceWith(info);
++                        info.fadeIn();
++                    });
++                });
++            });
++        </script>
++        </t:block>
++    </section>
++</body>
++</html>
+diff --git a/src/main/resources/templates/statusPerUrl.peb b/src/main/resources/templates/statusPerUrl.peb
+deleted file mode 100644
+index 06b88d5..0000000
+--- a/src/main/resources/templates/statusPerUrl.peb
++++ /dev/null
+@@ -1,55 +0,0 @@
+-{% extends "generic-with-toolbar" %}
+-
+-{% block pageTitle %}Manifest Status Report{% endblock %}
+-
+-{% block main %}
+-    <section class='ewp-section ewp-section-centered'>
+-        <h2 class='ewp-section-title'>Manifest Status Report</h2>
+-
+-        <p class='ewp-para'>Manifest URL:
+-        <code class='ewpst__bordered-code'><a href='{{ manifestUrl }}'>{{ manifestUrl }}</a></code></p>
+-
+-        {% if (not source.isPresent) and (not status.isPresent) %}
+-            <p class='ewp-para'>
+-                <b>Unknown URL:</b> This URL is not listed among the current Registry Service
+-                manifest sources, nor any trace of it can be found in our logs.
+-            </p>
+-        {% elseif (not source.isPresent) and (status.isPresent) %}
+-            <p class='ewp-para'>
+-                <b>Stale URL:</b> This URL was once listed among Registry Service sources, but
+-                it is not anymore.
+-            </p>
+-            <p class='ewp-para'>
+-                Last access attempt:
+-                <code>{{ status.get.lastAccessAttemptFormatted }}</code>
+-            </p>
+-        {% elseif (source.isPresent) and (not status.isPresent) %}
+-            <p class='ewp-para'>
+-                <b>New URL:</b> This URL is listed among the current Registry Service manifest
+-                sources, but it hasn't been accessed yet. Please refresh this page.
+-            </p>
+-        {% else %}
+-            <p class='ewp-para'>
+-                Last access attempt:
+-                <code class='ewpst__bordered-code'>{{ status.get.lastAccessAttemptFormatted }}</code>
+-                <br>
+-                Last access status:
+-                <code class='ewpst__bordered-code'>{{ status.get.lastAccessFlagStatus.toString }}</code>
+-                <br>
+-                <a class='ewp-manifest-reloader' data-manifest-url="{{ manifestUrl }}">reload now</a>
+-            </p>
+-            {% if status.get.lastAccessNotices.size > 0 %}
+-                <h2 class='ewp-section-title'>Last access notices</h2>
+-
+-                <table class='ewpsrc'>
+-                    {% for notice in status.get.lastAccessNotices %}
+-                        <tr class='ewpsrc__item ewpsrc__item--status-{{ notice.severity }}'>
+-                            <td class='ewpsrc__status'>{{ notice.severity }}</td>
+-                            <td class='ewpsrc__message'>{{ notice.messageHtml | raw }}</td>
+-                        </tr>
+-                    {% endfor %}
+-                </table>
+-            {% endif %}
+-        {% endif %}
+-    </section>
+-{% endblock %}
+diff --git a/src/main/resources/templates/validationResult.html b/src/main/resources/templates/validationResult.html
+new file mode 100644
+index 0000000..cab65ca
+--- /dev/null
++++ b/src/main/resources/templates/validationResult.html
+@@ -0,0 +1,108 @@
++<!DOCTYPE html>
++<html xmlns:t="https://tessera.dev"
++      t:import="eu.erasmuswithoutpaper.registry.web.view.PageCommons, eu.erasmuswithoutpaper.registry.validators.ValidationReport"
++      t:params="PageCommons page, ValidationReport report"
++      t:replace="~{layout/toolbar :: toolbarLayout(|${report.info.apiName} validation result|, page, false, ~{::section})}">
++<body>
++    <section class='ewp-section ewp-section-validation-results'>
++        <h1 class='ewp-section-title'>
++            Result: <code class='ewpst__bordered' t:text="report.status">SUCCESS</code>
++        </h1>
++
++        <h2 class='ewp-section-title'>Basic info</h2>
++        <ul>
++            <li>
++                <p class='ewp-para'>Tested URL:
++                    <code class='ewpst__bordered-code'>
++                        <a t:href='report.info.url' t:text='report.info.url'></a></code>:
++                </p>
++            </li>
++            <li>
++                <p class='ewp-para'>API name: <t:block t:text="report.info.apiName"></t:block></p>
++            </li>
++            <li>
++                <p class='ewp-para'>Version: <t:block t:text="report.info.version"></t:block></p>
++            </li>
++            <li>
++                Security:<br>
++                <code class='ewpst__bordered-code-larger' t:text="report.info.security"></code> <br>
++                <t:block t:each="explanation : report.info.securityExplanation">
++                    <code class='ewpst__bordered-code-larger' t:text="explanation.marker"></code> - <t:block t:text="explanation.description"></t:block><br>
++                </t:block>
++            </li>
++            <li>
++                Datetime validation started: <code class='ewpst__bordered-code' t:text="report.info.validationStarted"></code>
++            </li>
++            <li t:if="report.info.clientKeysRegenerated != null">
++                Datetime client keys regenerated:
++                <code class='ewpst__bordered-code' t:text="report.info.clientKeysRegenerated"></code>
++                (<t:block t:text="report.info.clientKeysAgeWhenValidationStartedInSeconds"></t:block>
++                seconds before validation)
++            </li>
++        </ul>
++
++        <h2 class='ewp-section-title'>Validation results</h2>
++
++        <button type="button" id="show_all_details">Show all details</button>
++        <button type="button" id="hide_all_details">Hide all details</button>
++
++        <table class='ewpsrc ewpsrc__test_validation-table'>
++        <tbody t:if="!report.tests.isEmpty()">
++        <t:block t:each="test, testStat : report.tests">
++            <tr class='ewpsrc__item'>
++                <td class='ewpsrc__test_index' t:rowspan='test.height' t:text="testStat.count">1</td>
++                <td class='ewpsrc__item ewpsrc__test_text' t:classappend="|ewpsrc__item--status-${test.status}|" t:text="test.name"></td>
++                <td class='ewpsrc__item' t:classappend="|ewpsrc__item--status-${test.status} ewpsrc__test_validation-status-code|" t:text="test.status">
++                </td>
++            </tr>
++
++            <tr class='ewpsrc__item' t:if="test.hasMessage">
++                <td colspan='2' class='ewpsrc__item ewpsrc__test_text' t:classappend="|ewpsrc__item--status-${test.status}|" t:text="test.message"></td>
++            </tr>
++
++            <tr class='ewpsrc__item' t:if="test.hasDetails">
++                <td colspan='2'>
++                <details>
++                <summary>
++                    Show/hide details
++                </summary>
++                <table class='ewpsrc ewpsrc__test_details-table'>
++                <tbody t:if="!test.requestSnapshots.isEmpty() || !test.responseSnapshots.isEmpty()">
++                <tr class='ewpsrc__item' t:each="request, requestStat : test.requestSnapshots"><td>
++                    <details>
++                    <summary>
++                        <t:block t:if="requestStat.last">Actual request which was made (#-1)</t:block>
++                        <t:block t:unless="requestStat.last">Preliminary request snapshot (#-<t:block t:text="requestStat.size - requestStat.index"></t:block>)</t:block>
++                    </summary>
++                    <p></p>
++                    <t:block t:replace="~{fragments/validationReport :: printRequest(request)}"></t:block>
++                    <p></p>
++                    </details>
++                </td></tr>
++
++                <tr class='ewpsrc__item' t:each="response, responseStat : test.responseSnapshots"><td>
++                    <details>
++                    <summary>
++                        <t:block t:if="responseStat.first">Response received from server (#+1)</t:block>
++                        <t:block t:unless="responseStat.first">Processed response snapshot (#+<t:block t:text="responseStat.count"></t:block>)</t:block>
++                    </summary>
++                    <p></p>
++                    <t:block t:replace="~{fragments/validationReport :: printResponse(response)}"></t:block>
++                    <p></p>
++                    </details>
++                </td></tr>
++                </tbody>
++                </table>
++
++                </details>
++                </td>
++            </tr>
++            <tr class='ewp-empty-row'></tr>
++
++        </t:block>
++        </tbody>
++        </table>
++
++    </section>
++</body>
++</html>
+diff --git a/src/main/resources/templates/validationResult.peb b/src/main/resources/templates/validationResult.peb
+deleted file mode 100644
+index 32841c4..0000000
+--- a/src/main/resources/templates/validationResult.peb
++++ /dev/null
+@@ -1,174 +0,0 @@
+-{% extends "generic-with-toolbar" %}
+-
+-{% block pageTitle %}{{ info.apiName }} validation result{% endblock %}
+-
+-{% block main %}
+-    <section class='ewp-section ewp-section-validation-results'>
+-        <h1 class='ewp-section-title'>
+-            Result: <code class='ewpst__bordered'>{{ status }}</code>
+-        </h1>
+-
+-        <h2 class='ewp-section-title'>Basic info</h2>
+-        <ul>
+-            <li>
+-                <p class='ewp-para'>Tested URL:
+-                    <code class='ewpst__bordered-code'>
+-                        <a href='{{ info.url }}'>{{ info.url }}</a></code>:
+-                </p>
+-            </li>
+-            <li>
+-                <p class='ewp-para'>API name: {{ info.apiName }}</p>
+-            </li>
+-            <li>
+-                <p class='ewp-para'>Version: {{ info.version }}</p>
+-            </li>
+-            <li>
+-                Security:<br>
+-                <code class='ewpst__bordered-code-larger'>{{ info.security }}</code> <br>
+-                {% for explanation in info.securityExplanation %}
+-                    <code class='ewpst__bordered-code-larger'>{{ explanation.marker }}</code> - {{ explanation.description }}<br>
+-                {% endfor %}
+-            </li>
+-            <li>
+-                Datetime validation started: <code class='ewpst__bordered-code'>{{ info.validationStarted }}</code>
+-            </li>
+-            {% if info.clientKeysRegenerated is not null %}
+-            <li>
+-                Datetime client keys regenerated:
+-                <code class='ewpst__bordered-code'>{{ info.clientKeysRegenerated }}</code>
+-                ({{ info.clientKeysAgeWhenValidationStartedInSeconds }}
+-                seconds before validation)
+-            </li>
+-            {% endif %}
+-        </ul>
+-
+-        <h2 class='ewp-section-title'>Validation results</h2>
+-
+-        <button type="button" id="show_all_details">Show all details</button>
+-        <button type="button" id="hide_all_details">Hide all details</button>
+-
+-        <table class='ewpsrc ewpsrc__test_validation-table'>
+-        {% for test in tests %}
+-            <tr class='ewpsrc__item'>
+-                <td class='ewpsrc__test_index' rowspan='{{ test.height }}'>{{ loop.index + 1 }}</td>
+-                <td class='ewpsrc__item ewpsrc__test_text ewpsrc__item--status-{{ test.status }}'>{{ test.name }}</td>
+-                <td class='ewpsrc__item ewpsrc__item--status-{{ test.status }} ewpsrc__test_validation-status-code'>
+-                    {{ test.status }}
+-                </td>
+-            </tr>
+-
+-            {% if test.hasMessage %}
+-            <tr class='ewpsrc__item'>
+-                <td colspan='2' class='ewpsrc__item ewpsrc__test_text ewpsrc__item--status-{{ test.status }}'>{{ test.message }}</td>
+-            </tr>
+-            {% endif %}
+-
+-            {% if test.hasDetails %}
+-            <tr class='ewpsrc__item'>
+-                <td colspan='2'>
+-                <details>
+-                <summary>
+-                    Show/hide details
+-                </summary>
+-                <table class='ewpsrc ewpsrc__test_details-table'>
+-                {% for request in test.requestSnapshots %}
+-                <tr class='ewpsrc__item'><td>
+-                    <details>
+-                    <summary>
+-                        {% if loop.revindex == 0 %}
+-                            Actual request which was made (#-1)
+-                        {% else %}
+-                            Preliminary request snapshot (#-{{ loop.revindex  + 1 }})
+-                        {% endif %}
+-                    </summary>
+-                    <p>
+-                    {{ printRequest(request) }}
+-                    <p>
+-                    </details>
+-                </td></tr>
+-                {% endfor %}
+-
+-                {% for response in test.responseSnapshots %}
+-                <tr class='ewpsrc__item'><td>
+-                    <details>
+-                    <summary>
+-                        {% if loop.index == 0 %}
+-                            Response received from server (#+1)
+-                        {% else %}
+-                            Processed response snapshot (#+{{ loop.index + 1 }})
+-                        {% endif %}
+-                    </summary>
+-                    <p>{{ printResponse(response) }}</p>
+-                    </details>
+-                </td></tr>
+-                {% endfor %}
+-                </table>
+-
+-                </details>
+-                </td>
+-            </tr>
+-            {% endif %}
+-            <tr class='ewp-empty-row'></tr>
+-
+-        {% endfor %}
+-        </table>
+-
+-    </section>
+-{% endblock %}
+-
+-{% macro printKeyValue(key, value, class="") %}
+-    <div class='{{ class }}'>
+-        <span class='ewpsrc__test_key'>{{ key }}:</span>
+-        <span class='ewpsrc__test_value'>
+-            {% if value is null %}
+-                (none)
+-            {% else %}
+-                {{ value }}
+-            {% endif %}
+-        </span>
+-    </div>
+-{% endmacro %}
+-
+-{% macro printRequest(request) %}
+-    {{ printKeyValue("Method and URL", request.method ~ " " ~ request.url) }}
+-    {{ printKeyValue("Client certificate fingerprint", request.clientCertFingerprint) }}
+-    {{ printHeaders(request) }}
+-    {{ printRequestBody(request) }}
+-{% endmacro %}
+-
+-{% macro printResponse(response) %}
+-    {{ printKeyValue("HTTP status", response.status) }}
+-    {{ printHeaders(response) }}
+-    {{ printResponseBody(response) }}
+-{% endmacro %}
+-
+-{% macro printHeaders(message) %}
+-    {% for header in message.headers %}
+-        {{ printKeyValue(header.key, header.value, "ewpsrc__test_http-header ") }}
+-    {% endfor %}
+-
+-    {% for notice in message.processingNoticesHtml %}
+-        <p class="ewpsrc__test_processing-notice">{{ notice }}</p>
+-    {% endfor %}
+-{% endmacro %}
+-
+-{% macro printResponseBody(message) %}
+-    {% if message.developerMessage is not null %}
+-        <p class="ewpsrc__test_developer-message">Developer message:<br>{{ message.developerMessage }}</p>
+-    {% endif %}
+-    {% if message.rawBodyBase64 is null %}
+-        <pre class="ewpsrc__test_message-body">(empty body)</pre>
+-    {% elseif message.prettyXml is not null %}
+-        <pre class="ewpsrc__test_message-body">{{ message.prettyXml }}</pre>
+-    {% else %}
+-        <pre class="ewpsrc__test_message-body">{{ message.rawBodyBase64 }}</pre>
+-    {% endif %}
+-{% endmacro %}
+-
+-{% macro printRequestBody(message) %}
+-    {% if message.body is not null and message.body is not empty %}
+-        <pre class="ewpsrc__test_message-body">{{ message.body }}</pre>
+-    {% elseif message.rawBodyBase64 is not null and message.rawBodyBase64 is not empty %}
+-        <pre class="ewpsrc__test_message-body">{{ message.rawBodyBase64 }}</pre>
+-    {% endif %}
+-{% endmacro %}
+diff --git a/src/main/webapp/app/main.js b/src/main/webapp/app/main.js
+index 9e83ca4..430c38a 100644
+--- a/src/main/webapp/app/main.js
++++ b/src/main/webapp/app/main.js
+@@ -2,7 +2,14 @@ import { createApp } from 'vue';
+ import apiEntry from "./apiEntry";
+ import helpPopup from "./helpPopup";
+ 
+-createApp({})
++// The API entries are passed as JSON data, the mounted template is static.
++const apis = JSON.parse(document.getElementById('api-entries').textContent);
++
++createApp({
++    data() {
++        return { apis: apis };
++    }
++})
+     .component('apiEntry', apiEntry)
+     .component('helpPopup', helpPopup)
+     .mount('#api-entry-set');
+diff --git a/src/test/java/eu/erasmuswithoutpaper/registry/web/ApiControllerIntegrationTest.java b/src/test/java/eu/erasmuswithoutpaper/registry/web/ApiControllerIntegrationTest.java
+index 45fdac4..e058839 100644
+--- a/src/test/java/eu/erasmuswithoutpaper/registry/web/ApiControllerIntegrationTest.java
++++ b/src/test/java/eu/erasmuswithoutpaper/registry/web/ApiControllerIntegrationTest.java
+@@ -201,8 +201,10 @@ public class ApiControllerIntegrationTest extends WRIntegrationTest {
+ 
+     this.internet.putURL(urlSE, this.getFile("demo1/H-inSE.xml"));
+     this.forceReload(urlSE);
++    // The notice HTML is sanitized before it's rendered, which writes the apostrophe as a
++    // character reference.
+     assertThat(this.status(urlSE)).contains(
+-        "Institution <code>uw.edu.pl</code> didn't match the <code>^.+\\.se$</code> filter pattern");
++        "Institution <code>uw.edu.pl</code> didn&#39;t match the <code>^.+\\.se$</code> filter pattern");
+ 
+     /* [Test I] Add a second manifest source for uw.edu.pl. Define some alternative PIC and Erasmus
+      * codes, along with some alternative names. Expect all of them to be imported, but each unique
+diff --git a/src/test/java/eu/erasmuswithoutpaper/registry/web/UiControllerIntegrationTest.java b/src/test/java/eu/erasmuswithoutpaper/registry/web/UiControllerIntegrationTest.java
+index 402c68f..f527c90 100644
+--- a/src/test/java/eu/erasmuswithoutpaper/registry/web/UiControllerIntegrationTest.java
++++ b/src/test/java/eu/erasmuswithoutpaper/registry/web/UiControllerIntegrationTest.java
+@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.test.web.client.TestRestTemplate;
+ import org.springframework.http.HttpStatus;
+ import org.springframework.http.ResponseEntity;
++import org.springframework.util.LinkedMultiValueMap;
++import org.springframework.util.MultiValueMap;
+ 
+ import org.junit.jupiter.api.Test;
+ 
+@@ -32,4 +34,36 @@ public class UiControllerIntegrationTest extends WRIntegrationTest {
+     assertThat(response.getBody()).contains("Registry Service");
+   }
+ 
++  @Test
++  public void testPagesRenderThroughTessera() {
++    assertPage("/status", "Manifest Importer Status");
++    assertPage("/status?email=nobody@example.com",
++        "No watched issues found for this email address.");
++    assertPage("/status?url=https://unknown.example.com/manifest.xml", "Unknown URL:");
++    assertPage("/coverage", "HEI/API Coverage Matrix");
++    assertPage("/coverage?pattern=xyz", "value=\"xyz\"");
++    assertPage("/heiSearch?pattern=", "Found 0 HEI(s):");
++    assertPage("/manifestsOverview", "Implemented APIs statistics");
++    assertPage("/schemaValidator", "XML Schema Validator");
++    assertPage("/iiaHashValidator", "IIA Hash Validator");
++  }
++
++  @Test
++  public void testIiaHashValidatorEscapesSubmittedXml() {
++    MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
++    form.add("xml", "<b>not xml");
++    ResponseEntity<String> response =
++        this.template.postForEntity("/iiaHashValidator", form, String.class);
++    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
++    assertThat(response.getBody()).contains("&lt;b&gt;not xml</textarea>");
++    assertThat(response.getBody()).doesNotContain("<b>not xml");
++  }
++
++  private void assertPage(String url, String expectedContent) {
++    ResponseEntity<String> response = this.template.getForEntity(url, String.class);
++    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
++    assertThat(response.getBody()).contains("<body>");
++    assertThat(response.getBody()).contains(expectedContent);
++  }
++
+ }

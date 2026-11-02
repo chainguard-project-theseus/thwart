@@ -1,0 +1,109 @@
+01 same      GET /
+02 same      GET /admin/manager
+03 same      GET /info/domain/test
+04 same      GET /info/domain/old
+05 same      GET /info/domain/nosuch
+06 same      GET /info/purl/test/partial
+07 same      GET /info/purl/test/partial/extra/path
+08 same      GET /info/purl/test/gone
+09 same      GET /info/purl/library/book1
+10 same      GET /info/purl/nosuch/thing
+11 same      GET /nosuch/thing
+12 same      GET /?lang=en
+13 same      GET /info/domain/test
+14 same      GET /info/domain/nosuch
+15 same      GET /?lang=de
+16 same      GET /admin/login/password
+17 same      POST /admin/login/password login=nosuch&do_password_reset=x
+18 same      POST /admin/login/password login=user1&do_password_reset=x
+19 reordered GET /admin/login/password?login=user2&token=bad-token
+--- recorded 19.html
++++ now
+@@ -60,4 +60,4 @@
+     ~{
+     <script src="/webjars/bootstrap/js/bootstrap.bundle.min.js">
+     <script type="text/javascript">
+-      function encryptPassword(){try{if (document.getElementById("password").value == document.getElementById("password_wdhl").value){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}else{const msg = "??purl_server.error.validate.passwords_different_de??"; alert(msg);}}catch (err){}return false;}
++      const passwordsDifferentMessage = "??purl_server.error.validate.passwords_different_de??"; function encryptPassword(){try{if (document.getElementById("password").value == document.getElementById("password_wdhl").value){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}else{const msg = passwordsDifferentMessage; alert(msg);}}catch (err){}return false;}
+20 same      POST /admin/login/password password_reset_token=bad-token&password_sha1=a1881c06eec96db9901c7bbfe41c42a3f08e9cb4&do_set_password=x
+21 reordered GET /admin/login/password?login=user2&token=9999999999999_bench-token
+--- recorded 21.html
++++ now
+@@ -60,4 +60,4 @@
+     ~{
+     <script src="/webjars/bootstrap/js/bootstrap.bundle.min.js">
+     <script type="text/javascript">
+-      function encryptPassword(){try{if (document.getElementById("password").value == document.getElementById("password_wdhl").value){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}else{const msg = "??purl_server.error.validate.passwords_different_de??"; alert(msg);}}catch (err){}return false;}
++      const passwordsDifferentMessage = "??purl_server.error.validate.passwords_different_de??"; function encryptPassword(){try{if (document.getElementById("password").value == document.getElementById("password_wdhl").value){var shaObj = new jsSHA("SHA-1","TEXT"); shaObj.update(document.getElementById("password").value); var hash = shaObj.getHash("HEX"); document.getElementById("password_sha1").value = hash; return true;}else{const msg = passwordsDifferentMessage; alert(msg);}}catch (err){}return false;}
+22 same      POST /admin/login/password password_reset_token=9999999999999_bench-token&password_sha1=a1881c06eec96db9901c7bbfe41c42a3f08e9cb4&do_set_password=x
+23 same      GET /admin/login
+24 same      POST /admin/login username=admin&password=d033e22ae348aeb5660fc2140aec35850c4da997
+25 same      GET /
+26 same      GET /admin/manager/purl/search
+27 same      POST /admin/manager/purl/search path=/test&targetURL=
+28 same      POST /admin/manager/purl/search path=/test&targetURL=&tombstoned=on
+29 same      POST /admin/manager/purl/search path=&targetURL=books
+30 same      POST /admin/manager/purl/search path=/nothing&targetURL=
+31 same      GET /admin/manager/domain/search
+32 same      POST /admin/manager/domain/search searchPath=&searchName=&searchUser=
+33 same      POST /admin/manager/domain/search searchPath=&searchName=&searchUser=&searchTombstonedDomain=on
+34 same      POST /admin/manager/domain/search searchPath=/nothing&searchName=&searchUser=
+35 same      GET /admin/manager/user/search
+36 same      POST /admin/manager/user/search searchLogin=&searchFullName=&searchAffiliation=&searchEMailAddress=
+37 same      POST /admin/manager/user/search searchLogin=&searchFullName=&searchAffiliation=&searchEMailAddress=&searchTombstonedUser=on
+38 same      POST /admin/manager/user/search searchLogin=nobody&searchFullName=&searchAffiliation=&searchEMailAddress=
+39 same      GET /admin/manager/purl/create
+40 same      POST /admin/manager/purl/create id=-1&path=&type=REDIRECT_302&target=
+41 same      POST /admin/manager/purl/create id=-1&path=no slash!&type=REDIRECT_302&target=ftp://x
+42 same      POST /admin/manager/purl/create id=-1&path=/nodomain/x&type=REDIRECT_302&target=https://example.org/x
+43 same      POST /admin/manager/purl/create id=-1&path=/old/x&type=REDIRECT_302&target=https://example.org/x
+44 same      POST /admin/manager/purl/create id=-1&path=/test/redirect&type=REDIRECT_302&target=https://example.org/x
+45 same      POST /admin/manager/purl/create id=-1&path=/library/book2&type=PARTIAL_302&target=https://example.org/books/2/
+46 same      GET /admin/manager/purl/modify?id=4
+47 same      GET /admin/manager/purl/modify?id=99
+48 same      POST /admin/manager/purl/modify id=4&path=/library/book1&type=REDIRECT_302&target=
+49 same      POST /admin/manager/purl/modify id=4&path=/library/book1&type=PARTIAL_302&target=https://example.org/books/one/
+50 same      GET /admin/manager/purl/delete?id=4
+51 same      GET /admin/manager/purl/delete?id=99
+52 same      POST /admin/manager/purl/delete id=4
+53 same      GET /admin/manager/domain/create
+54 same      POST /admin/manager/domain/create id=-1&path=&name=&domainUserList[0].user.login=&_domainUserList[0].canCreate=on&_domainUserList[0].canModify=on&comment=&addUser=
+55 same      POST /admin/manager/domain/create id=-1&path=&name=&domainUserList[0].user.login=&_domainUserList[0].canCreate=on&_domainUserList[0].canModify=on&comment=&submit=
+56 same      POST /admin/manager/domain/create id=-1&path=/admin&name=Reserved&domainUserList[0].user.login=&_domainUserList[0].canCreate=on&_domainUserList[0].canModify=on&comment=&submit=
+57 same      POST /admin/manager/domain/create id=-1&path=/test&name=Again&domainUserList[0].user.login=&_domainUserList[0].canCreate=on&_domainUserList[0].canModify=on&comment=&submit=
+58 same      GET /admin/manager/domain/modify?id=1
+59 same      GET /admin/manager/domain/modify?id=99
+60 same      POST /admin/manager/domain/modify id=1&name=Test Domain&domainUserList[0].user.login=user1&domainUserList[0].canCreate=true&_domainUserList[0].canCreate=on&domainUserList[0].canModify=true&_domainUserList[0].canModify=on&domainUserList[1].user.login=user2&_domainUserList[1].canCreate=on&domainUserList[1].canModify=true&_domainUserList[1].canModify=on&domainUserList[2].user.login=&_domainUserList[2].canCreate=on&_domainUserList[2].canModify=on&comment=x&addUser=
+61 same      POST /admin/manager/domain/modify id=1&name=&domainUserList[0].user.login=user1&domainUserList[0].canCreate=true&_domainUserList[0].canCreate=on&domainUserList[0].canModify=true&_domainUserList[0].canModify=on&comment=&submit=
+62 same      POST /admin/manager/domain/modify id=1&path=/test&name=Test Domain (renamed)&domainUserList[0].user.login=user1&domainUserList[0].canCreate=true&_domainUserList[0].canCreate=on&domainUserList[0].canModify=true&_domainUserList[0].canModify=on&domainUserList[1].user.login=admin&domainUserList[1].canCreate=true&_domainUserList[1].canCreate=on&_domainUserList[1].canModify=on&comment=Renamed&submit=
+63 same      GET /admin/manager/domain/delete?id=2
+64 same      GET /admin/manager/domain/delete?id=99
+65 same      POST /admin/manager/domain/delete id=2
+66 same      GET /admin/manager/user/create
+67 same      POST /admin/manager/user/create id=-1&passwordSHA=da39a3ee5e6b4b0d3255bfef95601890afd80709&login=&fullname=&affiliation=&email=&comment=
+68 same      POST /admin/manager/user/create id=-1&passwordSHA=b3daa77b4c04a9551b8781d03191fe098f325e67&login=user1&fullname=Dup&affiliation=&email=&comment=
+69 same      POST /admin/manager/user/create id=-1&passwordSHA=4dd5ab4d8dfe2cbb1baed3a2e0e1d0f6a89d79f7&login=newbie&admin=true&_admin=on&fullname=New <Person>&affiliation=Bench %26 Co&email=newbie@example.org&comment=created by the bench
+70 same      GET /admin/manager/user/modify?id=2
+71 same      GET /admin/manager/user/modify?id=99
+72 same      POST /admin/manager/user/modify id=2&_admin=on&fullname=x&comment=
+73 same      POST /admin/manager/user/modify id=2&login=user1&_admin=on&fullname=Ursula One-Changed&affiliation=Library&email=u1@example.org&comment=changed
+74 same      GET /admin/manager/user/delete?id=3
+75 same      GET /admin/manager/user/delete?id=99
+76 same      POST /admin/manager/user/delete id=3
+77 same      POST /admin/manager/user/search searchLogin=&searchFullName=&searchAffiliation=&searchEMailAddress=&searchTombstonedUser=on
+78 same      POST /admin/logout
+79 same      GET /admin/login
+80 same      POST /admin/login username=user1&password=wrong
+81 same      POST /admin/login username=user1&password=b3daa77b4c04a9551b8781d03191fe098f325e67
+82 same      GET /admin/manager/help
+83 same      GET /admin/manager/domain/search
+84 same      POST /admin/manager/domain/search searchPath=&searchName=&searchUser=user1
+85 same      GET /admin/manager/domain/create
+86 same      GET /admin/manager/user/search
+87 same      GET /admin/manager/purl/create
+88 same      POST /admin/manager/purl/create id=-1&path=/library/nope&type=REDIRECT_302&target=https://example.org/x
+89 same      GET /admin/manager/purl/create
+90 same      POST /admin/manager/purl/create id=-1&path=/test/user1&type=REDIRECT_302&target=https://example.org/user1
+91 same      POST /admin/logout
+92 same      GET /admin/login?logout
+tessera-migrate compare: 92 page(s): 90 same, 2 reordered, 0 differ
