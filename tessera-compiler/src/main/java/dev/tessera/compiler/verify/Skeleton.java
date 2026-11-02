@@ -96,8 +96,13 @@ public final class Skeleton {
   public enum Source {
     /** A {@code SafeHtml} value: {@code t:utext}, {@code [(...)]}. */
     SAFE_HTML,
-    /** A bundle message checked as HTML at build time: {@code t:utext="#{key}"}. */
+    /**
+     * A bundle message as HTML, {@code t:utext="#{key}"}, sanitized by the message policy without
+     * links: PHRASING content with no {@code a} ({@link ContentKinds}, #677).
+     */
     HTML_MESSAGE,
+    /** As {@link #HTML_MESSAGE}, with links: PHRASING content that may have an {@code a}. */
+    LINKED_HTML_MESSAGE,
     /**
      * A {@code Fragment} value built in Java: a page parameter or an unbound fragment parameter
      * (#581: generated code refuses one that isn't a {@code Fragment.of}). A template-built one
@@ -223,36 +228,18 @@ public final class Skeleton {
     }
   }
 
-  /**
-   * HTML written as is: known only at render time, or, for an {@link Source#HTML_MESSAGE}, one of
-   * the markups in {@link #content} (#329).
-   */
+  /** HTML written as is, known only at render time; {@link #source} says of which kind. */
   public static final class RawInsert implements Node {
     private final Source source;
-    private final Seq content;
     private final SourcePos pos;
 
     public RawInsert(Source source, SourcePos pos) {
-      this(source, pos, null);
-    }
-
-    /**
-     * HTML whose every possible markup {@code content} describes (statics and text holes), or null
-     * if it is known only at render time.
-     */
-    public RawInsert(Source source, SourcePos pos, Seq content) {
       this.source = Objects.requireNonNull(source);
-      this.content = content;
       this.pos = pos;
     }
 
     public Source source() {
       return source;
-    }
-
-    /** What is written, if it is known at build time; else null. */
-    public Seq content() {
-      return content;
     }
 
     @Override
@@ -267,7 +254,7 @@ public final class Skeleton {
 
     @Override
     public String toString() {
-      return "$raw{" + source + (content == null ? "" : " " + content) + (pos == null ? "" : " @" + pos) + "}";
+      return "$raw{" + source + (pos == null ? "" : " @" + pos) + "}";
     }
   }
 

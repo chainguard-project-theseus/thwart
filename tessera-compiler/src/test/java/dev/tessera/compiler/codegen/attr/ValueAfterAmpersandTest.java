@@ -68,12 +68,16 @@ class ValueAfterAmpersandTest {
   }
 
   @Test
-  void checkedMessageWithAmpersandBeforeAnArgumentFailsToBuild() {
-    Compilation.builder()
+  void messageWithAmpersandBeforeAnArgumentWritesABrokenBrace() {
+    // The sanitizer decodes the reference the argument finishes and writes it as a text brace (#677).
+    Compilation c = Compilation.builder()
         .template("page.html", "<div t:params=\"String s\">\n<p>[(#{m(${s})})]</p>\n</div>")
         .messages("m=x&{0}\n")
         .compile()
-        .assertError("page.html:2:6:", CHARREF);
+        .assertSuccess();
+    RenderContext ctx = new RenderContext(
+        Locale.US, (k, a) -> new java.text.MessageFormat("x&{0}", Locale.US).format(a), new DefaultLinks(""), Forms.NONE);
+    assertEquals("<div>\n<p>x<!---->{<!---->x</p>\n</div>", c.render("page", Map.of("s", "#123;x"), ctx));
   }
 
   @Test

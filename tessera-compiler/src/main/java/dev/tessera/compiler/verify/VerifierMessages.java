@@ -96,12 +96,6 @@ final class VerifierMessages {
         return "a browser lets the markup of " + source(f.source) + " close " + f.detail + " around it"
             + closedBy(f.detail) + ", so the rest of the page would parse differently; insert it in a <div> instead,"
             + " outside the open element";
-      case MESSAGE_CHANGES_STATE:
-        // No detail when every parser state is as before but the path is not (#607).
-        return "a browser parses the markup of this HTML message so that it "
-            + (f.detail == null ? "changes how what follows is parsed" : f.detail) + ", and the rest of the"
-            + " page would be parsed differently; close every element the message opens, and insert it where its"
-            + " markup fits (a message with a <p> in a <div>, not in a <p>)";
       case FRAMESET:
         return "<frameset> isn't supported: a browser uses it only if no body content came before it, so the page"
             + " would depend on what precedes it; use an <iframe> or an ordinary layout";
@@ -466,6 +460,7 @@ final class VerifierMessages {
       case SAFE_HTML:
         return "this SafeHtml value";
       case HTML_MESSAGE:
+      case LINKED_HTML_MESSAGE:
         return "this HTML message";
       default:
         return "this Fragment value";

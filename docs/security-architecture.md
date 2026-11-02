@@ -293,7 +293,7 @@ its host element. `SafeHtml` is `HTML_FLOW`. #304 implements most of this.
 - `t:insert`, `t:utext` and `[(...)]` into RCDATA or raw text are errors (#298, #300).
   `t:replace` with a whole `<title>` fragment is the fix-it.
 - `t:remove="tag"` on raw-text, RCDATA or foreign elements is an error (#300).
-- HTML messages (`#{...}` as HTML) are `HTML_FLOW` and are checked when they're used, like
+- HTML messages (`#{...}` as HTML) are sanitized at render time to inline content (#677) and are checked where they're used, like
   `SafeHtml`.
 
 This is Soy's model applied to our types, and it's additive: existing code is `HTML_FLOW`.
@@ -431,7 +431,7 @@ ways.
 
 | Change | Why |
 |---|---|
-| **docs/security-model.md**: threat model and trust boundaries. Attacker: controls every model value. Template authors: trusted but fallible, so a template whose meaning the compiler can't pin down is rejected, whoever wrote it. Messages: checked at build time. Hand-written `Template`s: review points. Browsers: the supported set, including ESR. Page JavaScript: outside (principle 7; there is no framework table since #584) | Today every reviewer reconstructs the threat model, and severity arguments ("contrived template") recur |
+| **docs/security-model.md**: threat model and trust boundaries. Attacker: controls every model value. Template authors: trusted but fallible, so a template whose meaning the compiler can't pin down is rejected, whoever wrote it. Messages: their markup is sanitized at render time (#677). Hand-written `Template`s: review points. Browsers: the supported set, including ESR. Page JavaScript: outside (principle 7; there is no framework table since #584) | Today every reviewer reconstructs the threat model, and severity arguments ("contrived template") recur |
 | **docs/context-model.md**: the profile (§5.2-5.6) as tables. **Every change to `HtmlParser`, `MarkupTokenizer`, `Contexts`, `TextInlining` or `Escapers` updates it in the same PR** | One written model instead of one per PR |
 | **The oracle gate in CI** (§5.7). A new context, mode, or framework entry lands with oracle or harness rows. A PR that widens the accepted language must say so in its description | Turns review findings into CI failures; would have caught #291's regression |
 | **Framework-neutral values for client code** (§12.2, #583, #584; this row first said deny-by-default names and a framework table). A computed value in any name that is not a standard HTML, SVG, MathML or ARIA name is a number, a boolean or a same-origin path. No framework is modelled; `{{` breaking and CSP bound the rest | Ends the chase in family D |

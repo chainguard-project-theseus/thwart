@@ -405,7 +405,7 @@ each one accepts:
 | Context | Where | Accepts |
 |---|---|---|
 | Text | element text, `t:text`, `[[...]]` | Any value, escaped. |
-| Raw HTML | `t:utext`, `[(...)]` | A `SafeHtml`, or a bundle message checked at build time (section 4.5). |
+| Raw HTML | `t:utext`, `[(...)]` | A `SafeHtml`, or a bundle message, sanitized by the message policy (section 4.5). |
 | Attribute | inert-text attributes: `title`, `alt`, `class`, `id`, `value`, `name`, `placeholder`, `aria-*`, ... | Any value, escaped. |
 | Typed attribute | other standard attributes: `rel`, `target`, `sandbox`, most of `<meta content>`, SVG geometry, URL lists (`srcset`, `ping`, SVG animation values), ... | Literals, numbers, and a choice between literals (`${newWindow} ? '_blank' : '_self'`). |
 | URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, ... | Any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#tessera`. Forms: section 4.7. |
@@ -558,14 +558,18 @@ key computed from data has no template form: resolve it in Java with `MessageSou
 request `Locale` and pass the string in the model.
 
 **Messages with markup.** A message whose value holds markup (Thymeleaf `th:utext="#{...}"`, JSP
-`<spring:message>` without escaping) prints as HTML with `t:utext="#{key(args)}"`. It needs
-`-Atessera.messages`: the compiler checks the value in every locale file against an allow-list of
-simple formatting elements and safe links, and arguments are escaped. If a message doesn't fit,
-move its markup into the template and keep the text in the bundle.
+`<spring:message>` without escaping) prints as HTML with `t:utext="#{key(args)}"`. The arguments
+are escaped, and at render time the formatted message is sanitized with a fixed policy: inline
+markup (`b i em strong u s sub sup small mark code kbd span br`, a `title`) and links (`a` with an
+`http`, `https`, `mailto`, `tel` or relative `href`, given `rel="noopener noreferrer"`;
+`target="_blank"` is kept). Anything else is dropped and its text kept: a `<p>` or `<div>`, a
+`class` or `style`. A message is inline content, so it fits in a `<p>` or heading; one with a link
+can't go inside another link (the build says so), a key whose values have no `<a>` can. For block
+markup, keep the text in the bundle and the markup in the template.
 
 <!-- compile: messages -->
 ```properties
-phaseout.notice=This version is being phased out: see <a href="/phaseout" class="alert-link">the plan</a>.<br>Save your work.
+phaseout.notice=This version is being phased out: see <a href="/phaseout">the plan</a>.<br>Save your work.
 welcome.html=Hello <b>{0}</b>!
 ```
 

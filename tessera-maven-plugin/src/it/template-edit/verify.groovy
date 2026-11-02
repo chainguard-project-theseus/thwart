@@ -23,12 +23,12 @@ assert new File(basedir, 'target/classes/git.properties').text.contains('git.com
 // (6, 7), and kept the output when nothing changed (5, 9). A failed build (2, 7) leaves no class
 // files and no record, so the next one (3, 8) compiles without the plugin deleting anything, as
 // does the first (1), whose class output holds only git.properties (#626). Invocation 7 failed on
-// the locale file's markup.
+// the locale file's link (#677: a message with a link can't go inside a link).
 def log = new File(basedir, 'build.log').text
 assert log.count('Tessera: templates or messages changed since the last compile') == 4
 assert log.count('Tessera: no template fingerprint') == 0
 assert log.count('Nothing to compile') == 2 : 'invocation 5 or 9 recompiled'
-assert log.contains("message 'greeting' in ") && log.contains('messages_fr.properties') && log.contains('<img> is not allowed')
+assert log.contains('[verifier:RAW_CLOSES_ELEMENT]')
 assert !log.contains('read other message bundles')
 def last = log.substring(log.lastIndexOf('edits/msg-fixed'))
 assert last.contains('Recompiling the module') : 'invocation 8 did not compile'

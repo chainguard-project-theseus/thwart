@@ -20,6 +20,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.IntConsumer;
 
 /**
@@ -225,49 +226,39 @@ public final class Escapers {
     return args;
   }
 
-  /**
-   * A bundle message rendered as HTML ({@code t:utext="#{key(args)}"}, {@code [(#{...})]}; #236).
-   * {@code checked} holds the key's values in every bundle file the compiler checked as HTML. The
-   * arguments are HTML-escaped (numbers and dates are kept for MessageFormat) and the message is
-   * looked up; the result is returned as HTML, its edges as {@link #rawEdges} writes them, only if it is exactly what one of the {@code checked}
-   * patterns produces (as written, or formatted by {@link MessageFormat} in the context's locale
-   * with the escaped arguments). The runtime never decides a message is safe by inspecting it:
-   * anything else (a bundle the build did not see, a database-backed message source, a file changed
-   * after the build, a missing key) is looked up again with the arguments as plain text
-   * ({@link #messageTextArgs}) and the whole result escaped as text, {@code {{} broken as by
-   * {@link #text}, so each argument is escaped once (#537). {@code null} becomes {@code ""}.
-   */
-  public static String htmlMessage(RenderContext ctx, String key, Object[] args, String[] checked) {
-    Object[] text = messageTextArgs(args);
-    Object[] escaped = escapeTextArgs(text);
-    String message = ctx.messages().get(key, escaped);
-    if (message == null) {
-      return "";
-    }
-    for (String pattern : checked) {
-      if (message.equals(pattern)) {
-        return rawEdges(message);
-      }
-      try {
-        if (message.equals(new MessageFormat(pattern, ctx.locale()).format(escaped))) {
-          return rawEdges(message);
-        }
-      } catch (IllegalArgumentException e) {
-        // an argument does not fit the pattern (e.g. text for {0,number}): not this pattern
-      }
-    }
-    String fallback = ctx.messages().get(key, text);
-    return fallback == null ? "" : escapeText(fallback);
-  }
+  /** How many distinct messages without arguments {@link #htmlMessage} keeps sanitized, per policy. */
+  static final int MESSAGE_CACHE_SIZE = 4096;
+
+  private static final Map<String, SafeHtml> MESSAGES = new ConcurrentHashMap<>();
+  private static final Map<String, SafeHtml> MESSAGES_NO_LINKS = new ConcurrentHashMap<>();
 
   /**
-   * The arguments of {@link #htmlMessage} for a checked pattern: those of {@link #messageTextArgs}
-   * with each text escaped as HTML text, {@code {{} broken as by {@link #text}. The compiler has
-   * checked the message's markup and that its placeholders only stand in text, so that is all an
-   * argument needs. Returns a new array.
+   * A bundle message rendered as HTML ({@code t:utext="#{key(args)}"}, {@code [(#{...})]}; #677).
+   * The arguments are escaped as HTML text (numbers and dates are kept for MessageFormat), the
+   * message is looked up with them, and the result is cleaned with the fixed message policy,
+   * {@link HtmlPolicy#MESSAGE} ({@link HtmlPolicy#MESSAGE_NO_LINKS} without {@code links}): markup
+   * outside it is dropped and its text kept, whatever the bundle or the message source holds, and an
+   * argument is only ever text. A message without arguments is sanitized once per distinct text
+   * (up to {@link #MESSAGE_CACHE_SIZE}). A missing message ({@code null}) gives {@link SafeHtml#EMPTY}.
    */
-  static Object[] htmlMessageArgs(Object[] args) {
-    return escapeTextArgs(messageTextArgs(args));
+  public static SafeHtml htmlMessage(RenderContext ctx, String key, Object[] args, boolean links) {
+    HtmlPolicy policy = links ? HtmlPolicy.MESSAGE : HtmlPolicy.MESSAGE_NO_LINKS;
+    if (args.length > 0) {
+      return SafeHtml.sanitize(ctx.messages().get(key, escapeTextArgs(messageTextArgs(args))), policy);
+    }
+    String message = ctx.messages().get(key, args);
+    if (message == null) {
+      return SafeHtml.EMPTY;
+    }
+    Map<String, SafeHtml> cache = links ? MESSAGES : MESSAGES_NO_LINKS;
+    SafeHtml html = cache.get(message);
+    if (html == null) {
+      html = SafeHtml.sanitize(message, policy);
+      if (cache.size() < MESSAGE_CACHE_SIZE) {
+        cache.put(message, html);
+      }
+    }
+    return html;
   }
 
   /** A copy of {@code text} with each {@code String} escaped as HTML text. */
@@ -383,7 +374,7 @@ public final class Escapers {
    * The one way a value reaches element text (#248, #336): escaped as {@link #appendHtml}, with
    * an empty comment on both sides of every {@code {} and {@code }} (#571), so that a brace in the
    * value never meets another one, inside it or next to it. {@link #text}, {@link SafeHtml#escape}, the
-   * sanitizer's text, HTML message arguments and unchecked messages all call it, and
+   * sanitizer's text and HTML message arguments all call it, and
    * {@code TextChokePointTest} fails if runtime code escapes text another way.
    */
   static void appendText(StringBuilder sb, String s) {
