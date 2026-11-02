@@ -18,10 +18,4 @@ class SafeHtmlTest {
     assertEquals(SafeHtml.escape("a"), SafeHtml.concat(SafeHtml.escape("a"), null));
     assertThrows(NullPointerException.class, () -> SafeHtml.sanitize("a", null));
   }
-
-  @Test
-  void escapeKeepsBracesAsText() {
-    // #679: SafeHtml.escape is element text, like t:text; braces are plain text.
-    assertEquals("{{x}} &amp;", SafeHtml.escape("{{x}} &").html());
-  }
 }

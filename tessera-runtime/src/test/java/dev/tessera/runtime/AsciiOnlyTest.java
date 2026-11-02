@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
  * U+017F and U+212A to ASCII letters, while a browser folds A-Z only in tag, attribute and keyword
  * names and URL schemes (#465, #506, #507, #519, #534). Likewise {@code Character.isWhitespace},
  * {@code trim}, {@code strip} and regex {@code \\s} count U+000B and other chars as whitespace that
- * HTML does not (#338), and {@code isLetter}/{@code isDigit} accept non-ASCII letters and digits. Compare names with {@code HtmlPolicy.lower}.
+ * HTML does not (#338), and {@code isLetter}/{@code isDigit} accept non-ASCII letters and digits. Use the helpers in {@code Ascii} ({@code Ascii.lower} for names).
  * Java's {@code CASE_INSENSITIVE} and {@code (?i)} are ASCII-only and stay allowed; the flags that
  * make them Unicode are banned.
  */
