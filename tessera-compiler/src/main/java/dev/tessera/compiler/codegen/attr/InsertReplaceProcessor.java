@@ -51,10 +51,8 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     }
     ParsingContexts contexts = ctx.template().parsingContexts();
     String point = replace ? contexts.place(plan.element()) : contexts.content(plan.element());
-    // Written inside raw text, the raw-text rule (TemplateGenerator) reports this. The output decides,
-    // not the declaration: in a fragment declared in raw text and inserted elsewhere, the call is
-    // compiled, and the verifier checks it where the fragment lands.
-    boolean rawText = ctx.insideRawText() || (!replace && ParsingContexts.rawTextElement(plan.element()));
+    // Written inside raw text, the raw-text rule (TemplateGenerator) reports this.
+    boolean rawText = contexts.insideRawText(plan.element()) || (!replace && ParsingContexts.rawTextElement(plan.element()));
     Emitted code = rawText ? null : code(ctx, attr, plan, point);
     // On error, render nothing in its place so the children do not cascade into more errors.
     Emitted stmts = code == null ? Emitted.EMPTY : code;

@@ -314,7 +314,8 @@ or tree-builder error except the two allowed ones of §11.3 item 4, missing doct
 "Duplicate ID" (`PARSE_ERROR`). A partial counts errors
 only in its implied fragment context (`tr`: `tbody`; `td`, `th`: `tr`; `option`, `optgroup`:
 `select`; `li`: `ul`; otherwise `body`). A fragment no template calls is checked on its own, or
-rejected if it is declared where no fragment fits (`UNCALLED_FRAGMENT_FITS_NOWHERE`).
+rejected if it is declared where no fragment fits (`UNCALLED_FRAGMENT_FITS_NOWHERE`). In a build that rule never fires: a
+fragment declared outside HTML content is a generator error first (#776).
 
 **Coarse exclusions**, where browsers are known to split:
 
