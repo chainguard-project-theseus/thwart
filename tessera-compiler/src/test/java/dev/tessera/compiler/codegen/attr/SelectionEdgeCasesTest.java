@@ -19,7 +19,7 @@ class SelectionEdgeCasesTest {
   }
 
   private static String page(String body) {
-    return "<html " + NS + " t:import=\"com.example.Owner\" t:params=\"Owner owner\">" + body + "</html>";
+    return "<html " + NS + " t:import=\"com.example.Owner\" t:params=\"Owner owner\"><body>" + body + "</body></html>";
   }
 
   @Test
@@ -46,7 +46,7 @@ class SelectionEdgeCasesTest {
             .compile()
             .assertSuccess();
     assertEquals(
-        "<html><form><section>[<span>Jo</span>]</section><span>Jo</span></form></html>",
+        "<html><body><form><section>[<span>Jo</span>]</section><span>Jo</span></form></body></html>",
         c.render("page", Map.of("owner", c.newInstance("com.example.Owner", "Jo"))));
   }
 
@@ -62,7 +62,7 @@ class SelectionEdgeCasesTest {
             .compile()
             .assertSuccess();
     assertEquals(
-        "<html><section>[<form><span>Jo</span></form>]</section><form><span>Jo</span></form></html>",
+        "<html><body><section>[<form><span>Jo</span></form>]</section><form><span>Jo</span></form></body></html>",
         c.render("page", Map.of("owner", c.newInstance("com.example.Owner", "Jo"))));
   }
 

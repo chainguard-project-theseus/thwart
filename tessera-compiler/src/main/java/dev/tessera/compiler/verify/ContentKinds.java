@@ -203,6 +203,23 @@ public final class ContentKinds {
   }
 
   /**
+   * The signature of {@code s} as an exit state is compared with an entry state (#682): without the
+   * original insertion mode, unless it is live. The parser sets it on entering the "text" mode (and
+   * validator.nu's held-back table text) and reads it only there; validator.nu keeps the last value
+   * afterwards, so a {@code <textarea>}, {@code <script>} or {@code <template>} would otherwise look
+   * like a change.
+   */
+  static String flowSignature(ParserState s) {
+    String sig = s.signature();
+    if (s.mode() == InsertionMode.TEXT || s.pendingTableText()) {
+      return sig;
+    }
+    int at = sig.indexOf(" original=");
+    int end = at < 0 ? -1 : sig.indexOf(' ', at + 1);
+    return at < 0 || end < 0 ? sig : sig.substring(0, at) + sig.substring(end);
+  }
+
+  /**
    * In words, how {@code after} differs from {@code before} (states of one parser): which elements
    * were closed or left open, else that the parser is in another state.
    */

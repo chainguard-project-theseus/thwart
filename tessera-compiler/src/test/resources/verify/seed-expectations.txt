@@ -122,12 +122,12 @@ pr290-2         C    ACCEPT
 pr290-3         C    ACCEPT
 pr290-4         C    ACCEPT
 pr290-5         -    ACCEPT
-pr297-1         -    ACCEPT
-pr297-2         -    ACCEPT
+pr297-1         -    VERIFIER UNBALANCED  # #682: the malformed title="a"b" leaves the <div> open at the partial's end (the profile rejects it first)
+pr297-2         -    VERIFIER UNBALANCED  # #682: </p "> leaves the <div> open at the partial's end (the profile rejects it first)
 pr298-1         AB   VERIFIER TEXT_IN_SCRIPT
 pr298-2         AB   VERIFIER TEXT_IN_SCRIPT
 pr298-3         AB   VERIFIER TEXT_IN_SCRIPT
-pr298-4         -    ACCEPT
+pr298-4         -    VERIFIER UNBALANCED  # #682: <plaintext> ends the partial in plaintext (the profile rejects it first)
 pr298-5         AB   VERIFIER RAW_NOT_FLOW
 pr300-1         AB   VERIFIER TEXT_IN_SCRIPT
 pr300-2         AB   VERIFIER TEXT_IN_SCRIPT
