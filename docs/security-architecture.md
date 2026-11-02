@@ -153,8 +153,8 @@ markup, text and standard attribute values is outside the guarantee. In non-stan
 names the compiler constrains its own output to framework-neutral values (§5.3).
 
 The backstop is a strict CSP: the Spring starter puts the request's nonce on every `<script>`
-and `<style>` the compiler writes (context-model.md §6.4), and the application sends a
-nonce-based policy without `'unsafe-eval'` (guide §4.9).
+and `<style>` the compiler writes (context-model.md §6.4), and its view sends a strict
+nonce-based policy unless the response already has one (guide §4.9).
 
 ### 5.7 Expressions
 

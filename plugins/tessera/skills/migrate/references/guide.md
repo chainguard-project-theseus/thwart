@@ -958,9 +958,12 @@ templates: Java can't build one, and a page (`t:params`) or a function can't tak
 took one becomes a fragment its callers pass `~{...}`.
 
 **Content Security Policy.** With the Spring starter every `<script>` and `<style>` the template
-writes gets the request's nonce (`CspNonce.get(request)` returns it for your policy header). Delete
-Thymeleaf's `th:nonce`; a nonce attribute in a template is an error. The starter sends no policy
-header itself.
+writes gets the request's nonce, and the page is sent with `Content-Security-Policy: script-src
+'nonce-N' 'strict-dynamic'; object-src 'none'; base-uri 'none'` unless the response already has one (a
+filter that runs before the view). Spring Security writes headers after the view, so under its
+`HeaderWriterFilter` the starter sends none: add a `HeaderWriter` that sets the policy with
+`CspNonce.get(request)`. `tessera.csp.enabled=false` turns the default off. Delete
+Thymeleaf's `th:nonce`; a nonce attribute in a template is an error.
 
 ### 4.10 Notes for specific engines
 
