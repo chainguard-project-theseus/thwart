@@ -11,10 +11,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Elements whose content a browser reads as raw text or RCDATA while Tessera parses it as markup:
- * {@code <xmp> <iframe> <noembed> <noframes> <noscript>} (scripting on), and what follows a
+ * {@code <iframe> <noscript>} (scripting on), and what follows a
  * minimized {@code <textarea/>} or {@code <title/>}. The browser ends that text at the first
  * {@code </name}; wherever Tessera reads that end tag differently, or HTML known only at runtime
  * could contain it, the template must not build.
+ * ({@code <xmp> <noembed> <noframes> <plaintext>} are rejected outright: UnmodelledMarkupTest. The
+ * verifier keeps its own copy of the raw-text rule for them, below.)
  */
 class BrowserRawTextTest {
   private static final String XSS = "</noscript></iframe></xmp></textarea><script>alert(1)</script>";
@@ -31,16 +33,10 @@ class BrowserRawTextTest {
 
   @Test
   void endTagHiddenFromTesseraIsAnError() {
-    compile("<xmp><i title=\"</xmp><script>/*\"></i></xmp>*/\n[[s]]\n<!-- </script> -->")
-        .assertError("page.html:2:16:", "content of <xmp> contains '</xmp' before its end tag");
     compile("<noscript><!-- </noscript><script> --></noscript>\n[[s]]\n<!-- </script> -->")
         .assertError("page.html:2:16:", "content of <noscript> contains '</noscript' before its end tag");
     compile("<iframe><script>var a = \"</IFRAME>\";</script></iframe>")
         .assertError("page.html:2:26:", "content of <iframe> contains '</iframe' before its end tag");
-    compile("<noembed><p title=\"</noembed \"></p></noembed>")
-        .assertError("page.html:2:20:", "content of <noembed> contains '</noembed' before its end tag");
-    compile("<noframes><textarea></noframes></textarea></noframes>")
-        .assertError("page.html:2:21:", "content of <noframes> contains '</noframes' before its end tag");
     // A browser ends the outer <noscript> at the inner one's end tag.
     compile("<noscript><noscript></noscript></noscript>")
         .assertError("page.html:2:21:", "content of <noscript> contains '</noscript' before its end tag");
@@ -64,7 +60,6 @@ class BrowserRawTextTest {
     compile("<p><title/></p>").assertError("page.html:2:4:", "<title/> is not self-closing");
     compile("<IFrame src=\"/x\"/>").assertError("page.html:2:1:", "<iframe/> is not self-closing");
     compile("<noscript/>").assertError("page.html:2:1:", "<noscript/> is not self-closing");
-    compile("<xmp class=\"c\" />").assertError("page.html:2:1:", "<xmp/> is not self-closing");
     compile("<svg><foreignObject><textarea/></foreignObject></svg>")
         .assertError("page.html:2:21:", "<textarea/> is not self-closing");
     // HTML integration points and breakout tags make <title> RCDATA again inside <svg> and <math>.
@@ -98,8 +93,6 @@ class BrowserRawTextTest {
         .assertError("page.html:2:34:", "t:insert " + msg);
     compile("<b t:fragment=\"f\">x</b><iframe><i t:replace=\"~{::f}\"></i></iframe>")
         .assertError("page.html:2:35:", "t:replace inside <iframe> is not supported");
-    compile("<xmp><noscript t:replace=\"~{::f}\"></noscript></xmp><b t:fragment=\"f\">x</b>")
-        .assertError("page.html:2:16:", "t:replace inside <xmp> is not supported");
     // Content that t:replace, t:text or a parameterized t:fragment replaces is never written there.
     compile("<p t:fragment=\"f\">ok</p><noscript t:replace=\"~{::f}\">[(h)]<b t:utext=\"h\"></b></noscript>")
         .assertSuccess();

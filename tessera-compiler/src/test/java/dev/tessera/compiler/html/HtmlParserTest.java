@@ -633,10 +633,9 @@ class HtmlParserTest {
         List.of("dir/t.html:2:5: error: malformed markup: content of <title> contains"
             + " '</title' before its end tag: escape it (in a script string, write '<\\/title')"),
         errors("<title>\n<!--</title ><script>[[${x}]]</script>--></title>"));
-    assertEquals(
-        List.of("dir/t.html:1:32: error: malformed markup: content of <script> contains"
-            + " '</script' before its end tag: escape it (in a script string, write '<\\/script')"),
-        errors("<script type=\"text/html\"><a b=\"</script><p>\"></script>"));
+    // A script's content is raw text whatever its type, as in a browser: it ends at the first </script>.
+    Element script = el(parseOk("<script type=\"text/html\"><a b=\"</script>").children().get(0));
+    assertEquals("<a b=\"", ((Text) script.children().get(0)).raw());
     // A DOCTYPE or <?xml there is text too, so its quotes hide nothing.
     String title = "dir/t.html:1:21: error: malformed markup: content of <title> contains '</title' before its end"
         + " tag: escape it (in a script string, write '<\\/title')";
@@ -692,16 +691,14 @@ class HtmlParserTest {
 
   @Test
   void browserRawTextEndTagMustBeTheElementsOwn() {
-    // A browser reads <xmp>, <iframe>, <noembed>, <noframes> and <noscript> (scripting on) as raw
+    // A browser reads <iframe> and <noscript> (scripting on) as raw
     // text up to the first </name; Tessera parses markup there, so that must be the element's end tag.
-    assertEquals(List.of(hiddenEndTag(1, 16, "xmp")), errors("<xmp><i title=\"</xmp><script>/*\"></i></xmp>"));
     assertEquals(
         List.of(hiddenEndTag(2, 6, "NoScript")), errors("<NoScript>\n<!-- </NOSCRIPT><script> --></noscript>"));
     assertEquals(List.of(hiddenEndTag(1, 21, "noscript")), errors("<noscript><noscript></noscript></noscript>"));
     assertEquals(
         List.of(hiddenEndTag(1, 26, "iframe")), errors("<iframe><script>var a = \"</iframe>\";</script></iframe>"));
-    parseOk("<noscript><img src=\"a.png\"></noscript><iframe src=\"/x\"></iframe><xmp>a <b>b</b></xmp>");
-    parseOk("<noembed><!-- c --><p title=\"</noembedx>\"></p></noembed ><noframes></noframes>");
+    parseOk("<noscript><img src=\"a.png\"></noscript><iframe src=\"/x\"></iframe>");
     parseOk("<div><noscript><p>x</p></NOSCRIPT></div><noscript><noembed></noembed></noscript>");
   }
 
@@ -709,7 +706,7 @@ class HtmlParserTest {
   void browserRawElementsEndWhereABrowserDoes() {
     // #283: a browser reads these as raw text up to the first </name, so an end tag hidden in a
     // nested raw-text element, a comment or an attribute value ends them there.
-    for (String tag : List.of("xmp", "iframe", "noembed", "noframes", "noscript")) {
+    for (String tag : List.of("iframe", "noscript")) {
       for (String html : List.of(
           "<" + tag + "><textarea></" + tag + "><script>[[${x}]]</script></textarea></" + tag + ">",
           "<" + tag + "><title></" + tag + "><script>[[${x}]]</script></title></" + tag + ">",
@@ -718,10 +715,10 @@ class HtmlParserTest {
         assertEquals(List.of(hiddenEndTag(1, html.indexOf("</" + tag) + 1, tag)), errors(html), html);
       }
     }
-    assertEquals(List.of(hiddenEndTag(2, 5, "xmp")), errors("<xmp>\n<!--</XMP >--></xmp>"));
+    assertEquals(List.of(hiddenEndTag(2, 5, "iframe")), errors("<iframe>\n<!--</IFRAME >--></iframe>"));
     // unquoted attribute value, and '/' after the name
-    assertEquals(List.of(hiddenEndTag(1, 15, "xmp")), errors("<xmp><p title=</xmp>x</p></xmp>"));
-    assertEquals(List.of(hiddenEndTag(1, 10, "xmp")), errors("<xmp><!--</xmp/>--></xmp>"));
+    assertEquals(List.of(hiddenEndTag(1, 18, "iframe")), errors("<iframe><p title=</iframe>x</p></iframe>"));
+    assertEquals(List.of(hiddenEndTag(1, 13, "iframe")), errors("<iframe><!--</iframe/>--></iframe>"));
     // browsers fold ASCII letters only: </no\u017Fcript> is no end tag to them (and an error here), so
     // the </noscript> in the title is where a browser ends the element
     assertEquals(
@@ -732,7 +729,7 @@ class HtmlParserTest {
 
     Element noscript = el(parseOk("<noscript><img t:src=\"@{/p.gif}\"><p>[[${x}]]</p></noscript>").children().get(0));
     assertEquals("p", el(noscript.children().get(1)).name());
-    parseOk("<iframe>[[${x}]]</iframe><xmp>[[${x}]]</xmp><noembed></noembed><noframes><p>a</p></noframes>");
+    parseOk("<iframe>[[${x}]]</iframe>");
     // not an end tag: the name must be followed by whitespace, '/' or '>'
     parseOk("<noscript><a title=\"</noscriptx>\"></a></noscript>");
   }
@@ -830,62 +827,8 @@ class HtmlParserTest {
     parseOk("<script>/* a */</script><style>/* b */</style>");
   }
 
-  private static String foreignMarkup(int col, String tag) {
-    return "dir/t.html:1:" + col + ": error: malformed markup: '<' inside <" + tag + "> in <svg> or <math> starts"
-        + " markup in a browser, not text: write &lt; for a literal '<'";
-  }
-
   @Test
-  void markupInForeignRawTextIsAnError() {
-    // SVG <title> is an HTML integration point: a browser runs this script.
-    assertEquals(List.of(foreignMarkup(13, "title")), errors("<svg><title><script>[[${x}]]</script></title></svg>"));
-    assertEquals(foreignMarkup(13, "title"),
-        errors("<svg><title><script x=a\">[[${x}]]</script>\" ></title></svg>").get(0));
-    // Inside svg and math these are foreign elements, and <p>/<img> leave foreign content.
-    assertEquals(List.of(foreignMarkup(13, "style")),
-        errors("<svg><style><p><script>/*</style>*/[[${x}]]//<script></script></svg>"));
-    assertEquals(List.of(foreignMarkup(17, "textarea")),
-        errors("<math><textarea><p><script>[[${x}]]</script></p></textarea></math>"));
-    assertEquals(List.of(foreignMarkup(16, "textarea")),
-        errors("<svg><textarea><img src=x onerror=[[${x}]]></textarea></svg>"));
-    assertEquals(List.of(foreignMarkup(14, "title")),
-        errors("<math><title><img src=x onerror=[[${x}]]></title></math>"));
-    assertEquals(List.of(foreignMarkup(19, "script")), errors("<svg><script>if (a<b) {}</script></svg>"));
-    assertEquals(List.of(foreignMarkup(13, "style")), errors("<svg><style><!-- a{} --></style></svg>"));
-    assertEquals(List.of(foreignMarkup(13, "style")), errors("<svg><style></ a{}</style></svg>"));
-    assertEquals(withCdata(14), errors("<svg><script><![CDATA[ f() </script></svg>"));
-    // Namespaces: mglyph stays MathML in <mi>, and <math> inside <svg> is an SVG element.
-    assertEquals(List.of(foreignMarkup(29, "textarea")),
-        errors("<math><mi><mglyph><textarea><b>x</b></textarea></mglyph></mi></math>"));
-    assertEquals(List.of(foreignMarkup(26, "textarea")),
-        errors("<svg><math><mi><textarea><b>x</b></textarea></mi></math></svg>"));
-    // annotation-xml is an HTML integration point only with a static HTML encoding (ASCII case-insensitive).
-    assertEquals(List.of(foreignMarkup(58, "textarea")),
-        errors("<math><annotation-xml encoding=\"image/svg+xml\"><textarea><b>x</b></textarea></annotation-xml></math>"));
-    assertEquals(List.of(foreignMarkup(69, "textarea")), errors(
-        "<math><annotation-xml encoding=\"text/html\" t:encoding=\"e\"><textarea><b>x</b></textarea></annotation-xml></math>"));
-    assertEquals(List.of(foreignMarkup(66, "textarea")), errors(
-        "<math><annotation-xml encoding=\"appl\u0131cation/xhtml+xml\"><textarea><b>x</b></textarea></annotation-xml></math>"));
-    // A tag that is not rendered is not the parent the browser sees.
-    assertEquals(List.of(foreignMarkup(43, "title")),
-        errors("<svg><foreignObject t:remove=\"tag\"><title><script>[[${x}]]</script></title></foreignObject></svg>"));
-    assertEquals(List.of(foreignMarkup(36, "textarea")),
-        errors("<math><mi t:remove=\"tag\"><textarea><img src=x onerror=[[${x}]]></textarea></mi></math>"));
-    assertEquals(List.of(foreignMarkup(38, "textarea")), errors(
-        "<math><mi><t:block><mglyph><textarea><p>[[${x}]]</p></textarea></mglyph></t:block></mi></math>"));
-  }
-
-  @Test
-  void cdataInForeignRawTextIsAnError() {
-    // #678: every CDATA section is an error, in SVG raw text too, with the same message as elsewhere.
-    assertEquals(withCdata(13), errors("<svg><title><![CDATA[ > <script>[[${x}]]</script> ]]></title></svg>"));
-    assertEquals(withCdata(13), errors("<svg><title><![CDATA[ a < b ]]> [[${x}]]</title></svg>"));
-    assertEquals(withCdata(14), errors("<svg><script><![CDATA[ if (a > b) { f([[${x}]]); } ]]></script></svg>"));
-    assertEquals(withCdata(13), errors("<svg><style><![CDATA[ a > b { fill: red } ]]></style></svg>"));
-  }
-
-  @Test
-  void foreignRawTextWithoutMarkupStillParses() {
+  void foreignContentIsByTag() {
     Element svg = el(parseOk("<svg><title>a &lt; b [[${x}]]</title><desc>d</desc><style>.a > b { fill: red }</style>"
         + "<script>if (a > b) { f(\"b\"); }</script><textarea>a < b</textarea><title/></svg>")
         .rootElement());
@@ -897,13 +840,20 @@ class HtmlParserTest {
         List.of(OutputContext.TEXT, OutputContext.TEXT, OutputContext.STYLE, OutputContext.SCRIPT, OutputContext.TEXT),
         kids.subList(0, 5).stream().map(e -> ((Text) e.children().get(0)).context()).toList());
 
-    // Integration points: their children are HTML again.
+    // Foreign content is by tag (#759): integration points are not modelled, so their children stay
+    // foreign, where nothing is computed. A browser's reading of them is the verifier's.
     Element fo = el(el(parseOk("<svg><foreignObject><div><title><b>t</b></title><textarea><i></i></textarea>"
         + "<style>a>b{}</style><script>if (a<b) {}</script></div></foreignObject></svg>").rootElement())
         .children().get(0));
     assertTrue(fo.foreign());
     Element div = el(fo.children().get(0));
-    assertFalse(div.foreign());
+    assertTrue(div.foreign());
+    Element mi = el(el(el(parseOk("<math><annotation-xml encoding=\"text/html\"><p>x</p></annotation-xml></math>")
+        .rootElement()).children().get(0)).children().get(0));
+    assertTrue(mi.foreign());
+    // Markup a browser would read differently there is the verifier's parse error, not the parser's.
+    parseOk("<svg><p>x</p><style><b></style><font color=\"red\">f</font></svg><math><title><i>t</i></title></math>");
+    assertFalse(el(parseOk("<svg></svg><div></div>").children().get(1)).foreign());
     assertEquals(
         List.of(OutputContext.TEXT, OutputContext.TEXT, OutputContext.STYLE, OutputContext.SCRIPT),
         div.children().stream().map(n -> ((Text) el(n).children().get(0)).context()).toList());
@@ -912,102 +862,6 @@ class HtmlParserTest {
     parseOk("<svg><t:block><foreignObject t:remove=\"none\"><t:block><title><b>t</b></title></t:block>"
         + "</foreignObject></t:block></svg>");
     parseOk("<math><annotation-xml><svg><title>t</title></svg></annotation-xml></math><title><b>html</b></title>");
-  }
-
-  @Test
-  void annotationXmlEncodingFoldsOnlyAscii() {
-    // A browser lower-cases A-Z only: encod\u0131ng (dotless i) and encod\u0130ng (dotted capital I) are not
-    // encoding, so this annotation-xml holds MathML.
-    for (String name : List.of("encod\u0131ng", "encod\u0130ng")) {
-      Document doc = parseOk("<math><annotation-xml " + name + "=\"text/html\"><mrow></mrow></annotation-xml></math>");
-      Element annotation = el(el(doc.rootElement()).children().get(0));
-      assertTrue(el(annotation.children().get(0)).foreign(), name);
-    }
-    Document doc = parseOk("<math><annotation-xml ENCODING=\"TEXT/HTML\"><mrow></mrow></annotation-xml></math>");
-    Element annotation = el(el(doc.rootElement()).children().get(0));
-    assertFalse(el(annotation.children().get(0)).foreign());
-  }
-
-  @Test
-  void fontBreakoutFoldsOnlyAscii() {
-    // sıze (dotless i) and sİze (dotted capital I) are not size to a browser, so this <font> stays in
-    // the SVG, in the parser and in ParsingContexts alike.
-    for (String name : List.of("sıze", "sİze")) {
-      Document doc = parseOk("<svg><font " + name + "=\"1\"><title>t</title></font></svg>");
-      assertEquals("svg", ParsingContexts.of(doc).content(el(doc.rootElement())), name);
-    }
-    assertEquals(List.of(breakout(6, "font")), errors("<svg><font SIZE=\"1\"><title>t</title></font></svg>"));
-  }
-
-  private static String breakout(int col, String tag) {
-    return "dir/t.html:1:" + col + ": error: malformed markup: <" + tag + "> inside <svg> or <math> is HTML in a"
-        + " browser and ends the <svg> or <math> there: close it first, or put HTML inside <foreignObject>";
-  }
-
-  @Test
-  void breakoutTagInForeignContentIsAnError() {
-    // A browser closes the <svg> at <p>, so this <title> is an HTML RCDATA title, not SVG text.
-    assertEquals(List.of(breakout(6, "p")), errors("<svg><p><title>[[${x}]]</title></p></svg>"));
-    assertEquals(List.of(breakout(9, "DIV")), errors("<svg><g><DIV>x</DIV></g></svg>"));
-    assertEquals(List.of(breakout(6, "br")), errors("<svg><br></svg>"));
-    assertEquals(List.of(breakout(7, "img")), errors("<math><img src=\"a.png\"/></math>"));
-    assertEquals(List.of(breakout(6, "font")), errors("<svg><font color=\"red\">x</font></svg>"));
-    assertEquals(List.of(breakout(6, "font")), errors("<svg><font t:attr=\"size=${x}\">x</font></svg>"));
-    assertEquals(List.of(breakout(15, "span")), errors("<svg><t:block><span>x</span></t:block></svg>"));
-    assertEquals(List.of(breakout(23, "p")), errors("<math><annotation-xml><p>x</p></annotation-xml></math>"));
-    // Under an integration point, or with the tag not rendered, it stays where it is.
-    parseOk("<svg><foreignObject><p><b>x</b><br></p></foreignObject><desc><i>d</i></desc><font>f</font></svg>");
-    parseOk("<math><mi><b>x</b></mi><annotation-xml encoding=\"TEXT/HTML\"><div><style>.x::before{content:\"<b>\"}</style>"
-        + "</div></annotation-xml></math>");
-    parseOk("<svg><g t:remove=\"tag\"><text>t</text></g><p t:remove=\"tag\"><text>t</text></p></svg>");
-  }
-
-  @Test
-  void breakoutsFromPr291() {
-    assertEquals(List.of(breakout(6, "p")), errors("<svg><p t:remove=\"all\"></p><title>x</title></svg>"));
-    assertEquals(List.of(breakout(6, "p")), errors("<svg><p t:if=\"${x} == null\"></p><title>x</title></svg>"));
-    assertEquals(List.of(breakout(6, "font")), errors("<svg><font t:size=\"${x}\"></font></svg>"));
-    assertEquals(List.of(breakout(6, "font")), errors("<svg><font t:attr=\"face=${x}\"></font></svg>"));
-    assertEquals(List.of(breakout(6, "font")), errors("<svg><font t:attr=\"id=${x}, Color=${x}\"></font></svg>"));
-    // A t:attr that names other attributes cannot add a color, face or size.
-    parseOk("<svg><font t:attr=\"id=${x}, title=${x}\">f</font></svg>");
-    assertEquals(List.of(breakout(6, "font")), errors("<svg><font t:attrappend=\"id=${x}\"></font></svg>"));
-    assertEquals(List.of(breakout(7, "p")), errors("<math><p></p></math>"));
-    parseOk("<svg><foreignObject><p>x</p></foreignObject><desc><b>d</b></desc><font></font></svg>");
-    parseOk("<math><mtext><p>x</p></mtext><annotation-xml encoding=\"text/html\"><div>d</div></annotation-xml></math>");
-  }
-
-  @Test
-  void markupInForeignRawTextCasesFromPr291() {
-    // Each case: the template, the foreign raw-text element and the '<' a browser parses as markup.
-    String[][] cases = {
-      {"<svg><textarea><script>[[${x}]]</script></textarea></svg>", "textarea", "<script>"},
-      {"<math><title><script>[[${x}]]</script></title></math>", "title", "<script>"},
-      {"<math><textarea><script>[[${x}]]</script></textarea></math>", "textarea", "<script>"},
-      {"<SVG><g><Title><script>[[${x}]]</script></Title></g></SVG>", "Title", "<script>"},
-      // MathML <title> is not an integration point; annotation-xml is one only for HTML.
-      {"<math><title><textarea><script>[[${x}]]</script></textarea></title></math>", "title", "<textarea>"},
-      {"<math><annotation-xml><textarea><script>[[${x}]]</script></textarea></annotation-xml></math>", "textarea",
-          "<script>"},
-      {"<math><annotation-xml encoding=\"text/xml\"><title><script>[[${x}]]</script></title></annotation-xml></math>",
-          "title", "<script>"},
-      // mglyph stays MathML in <mi>.
-      {"<math><mi><mglyph><textarea><script>[[${x}]]</script></textarea></mglyph></mi></math>", "textarea",
-          "<script>"},
-      // <svg> inside annotation-xml is SVG again.
-      {"<math><annotation-xml><svg><title><script>[[${x}]]</script></title></svg></annotation-xml></math>", "title",
-          "<script>"},
-      // A bare <font> stays in SVG.
-      {"<svg><font></font><textarea><script>[[${x}]]</script></textarea></svg>", "textarea", "<script>"},
-      // Without its tag, the SVG <title> is still SVG: its content is the browser's <svg><textarea>.
-      {"<svg><title t:remove=\"tag\"><textarea><script>[[${x}]]</script></textarea></title></svg>", "title",
-          "<textarea>"},
-      {"<math><mi><t:block><mglyph><textarea><img src=\"x\" onerror=\"[[${x}]]\"></textarea></mglyph></t:block></mi>"
-          + "</math>", "textarea", "<img"},
-    };
-    for (String[] c : cases) {
-      assertEquals(List.of(foreignMarkup(c[0].indexOf(c[2]) + 1, c[1])), errors(c[0]), c[0]);
-    }
   }
 
   /** Every text node, depth-first, as {@code raw=context}. */
@@ -1053,55 +907,6 @@ class HtmlParserTest {
   }
 
   @Test
-  void foreignTitleTakesTheNamespaceABrowserGivesIt() {
-    // <svg> directly in <math> is a MathML element, so its <title> is a MathML title. The parser
-    // gives every title TEXT; the namespace is what tells the verifier to name RCDATA (#378).
-    for (String html :
-        List.of(
-            "<math><svg><title>[[${x}]]</title></svg></math>", "<svg><math><title>[[${x}]]</title></math></svg>")) {
-      Document doc = parseOk(html);
-      assertEquals(List.of("[[${x}]]=TEXT"), texts(doc.children()), html);
-      assertEquals(List.of("title=foreign"), titles(doc.children()), html);
-    }
-    // A computed encoding may or may not be HTML: Tessera takes the stricter, MathML reading.
-    for (String html :
-        List.of(
-            "<math><annotation-xml t:encoding=\"${x}\"><title>[[${x}]]</title></annotation-xml></math>",
-            "<math><annotation-xml t:attr=\"encoding=${x}\"><title>[[${x}]]</title></annotation-xml></math>",
-            "<math><annotation-xml encoding=\"text/html\" t:attr=\"id=${x}, ENCODING=${x}\"><title>[[${x}]]</title>"
-                + "</annotation-xml></math>",
-            // A t:attr that does not parse, or any other t:attr*, may set anything.
-            "<math><annotation-xml encoding=\"text/html\" t:attr=\"id ${x}\"><title>[[${x}]]</title></annotation-xml></math>",
-            "<math><annotation-xml encoding=\"text/html\" t:attr=\"__${n}__=${x}\"><title>[[${x}]]</title></annotation-xml></math>",
-            "<math><annotation-xml encoding=\"text/html\" t:attrappend=\"id=${x}\"><title>[[${x}]]</title></annotation-xml></math>")) {
-      Document doc = parseOk(html);
-      assertEquals(List.of("[[${x}]]=TEXT"), texts(doc.children()), html);
-      assertEquals(List.of("title=foreign"), titles(doc.children()), html);
-    }
-    // A t:attr that names only other attributes keeps the static encoding: the title is an HTML
-    // title, which a browser parses as RCDATA.
-    Document doc = parseOk("<math><annotation-xml encoding=\"text/html\" t:attr=\"id=${x}\"><title>[[${x}]]</title>"
-        + "</annotation-xml></math>");
-    assertEquals(List.of("[[${x}]]=TEXT"), texts(doc.children()));
-    assertEquals(List.of("title=html"), titles(doc.children()));
-    parseOk("<math><annotation-xml encoding=\"text/html\" t:attr=\"id=${x}\"><p>[[${x}]]</p></annotation-xml></math>");
-  }
-
-  /** {@code title=html} or {@code title=foreign} for each {@code <title>} in {@code nodes}, in order. */
-  private static List<String> titles(List<Node> nodes) {
-    List<String> out = new ArrayList<>();
-    for (Node n : nodes) {
-      if (n instanceof Element e) {
-        if (e.name().equalsIgnoreCase("title")) {
-          out.add("title=" + (e.foreign() ? "foreign" : "html"));
-        }
-        out.addAll(titles(e.children()));
-      }
-    }
-    return out;
-  }
-
-  @Test
   void hiddenEndTagInHtmlRawTextInsideForeignContentIsAnError() {
     assertEquals(
         List.of("dir/t.html:1:41: error: malformed markup: content of <textarea> contains"
@@ -1112,32 +917,6 @@ class HtmlParserTest {
         List.of("dir/t.html:1:25: error: malformed markup: content of <title> contains"
             + " '</title' before its end tag: escape it (in a script string, write '<\\/title')"),
         errors("<svg><desc><title><a b=\"</title><script>\">[[${x}]]</a></title></desc></svg>"));
-  }
-
-  private static String foreignReference(int col, String tag) {
-    return "dir/t.html:1:" + col + ": error: malformed markup: '&' inside <" + tag + "> in <svg> or <math> is decoded"
-        + " by a browser: write the character itself";
-  }
-
-  @Test
-  void characterReferenceInForeignScriptOrStyleIsAnError() {
-    // A browser decodes &quot; in an SVG <script> to a quote that Tessera's JS lexer did not see.
-    assertEquals(List.of(foreignReference(22, "script")),
-        errors("<svg><script>var a = &quot;[[${x}]]&quot;;</script></svg>"));
-    // A CDATA section is no way out (#678): it is an error first.
-    assertEquals(withCdata(14), errors("<svg><script><![CDATA[ var a = 1; ]]> &quot;[[${x}]]&quot;</script></svg>"));
-    assertEquals(List.of(foreignReference(23, "script")),
-        errors("<math><script>var a = &#39;[[${x}]]&#39;;</script></math>"));
-    assertEquals(List.of(foreignReference(35, "style")),
-        errors("<svg><style>.a::before { content: &quot;x&quot; }</style></svg>"));
-    assertEquals(List.of(foreignReference(17, "STYLE")), errors("<math><STYLE>a{}&#10;</STYLE></math>"));
-    // A '&' that is not a reference is still decoded text; fail closed on any '&'.
-    assertEquals(List.of(foreignReference(20, "script")), errors("<svg><script>if (a && b) {}</script></svg>"));
-    // In HTML content a script is raw text.
-    parseOk("<script>var a = \"&quot;\" && [[${x}]];</script><style>a::before { content: \"&amp;\" }</style>");
-    parseOk("<svg><foreignObject><script>if (a && b) {}</script></foreignObject></svg>");
-    // Title and textarea are TEXT in svg: both readings decode there.
-    parseOk("<svg><title>a &amp; b</title><textarea>&quot;</textarea></svg>");
   }
 
   @Test

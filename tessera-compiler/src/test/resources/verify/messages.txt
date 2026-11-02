@@ -113,11 +113,11 @@ m=See <a href="/docs">the docs</a>.
 -- t.html
 <a $NS href="/x"><span t:utext="#{m}">x</span></a>
 => t.html:1:59: error: a browser lets the markup of this HTML message close an open <a> around it (a link in the value ends it), so the rest of the page would parse differently; insert it outside the open element [verifier:RAW_CLOSES_ELEMENT]
-== FRAMESET: a frameset page
+== PARSE_ERROR: a frameset page
 -- t.html
 <!DOCTYPE html>
 <html $NS t:params="String s"><frameset><frame t:src="s"></frameset></html>
-=> t.html:2:57: error: <frameset> isn't supported: a browser uses it only if no body content came before it, so the page would depend on what precedes it; use an <iframe> or an ordinary layout [verifier:FRAMESET]
+=> t.html:2:57: error: <frameset> isn't supported: a browser uses it only if no body content came before it, so the page would depend on what precedes it; use an <iframe> or an ordinary layout [verifier:PARSE_ERROR]
 == STRUCTURE_DEPENDS_ON_DATA: a fragment that inserts itself, deeper each time
 -- rich.html
 <div $NS t:import="java.util.List" t:params="List<String> nodes"><t:block t:fragment="nodes(List<String> ns)"><t:block t:each="n : ns"><ul t:if="n == 'ul'"><li t:insert="~{rich :: nodes(ns)}"></li></ul></t:block></t:block><section t:insert="~{rich :: nodes(nodes)}"></section></div>

@@ -238,15 +238,15 @@ class FragmentParsingContextTest {
 
   @Test
   void breakoutsAndComputedEncodingsInForeignContentAreErrors() {
-    // #678: the parser rejects a breakout tag in <svg>/<math>, and nothing inside them is computed,
-    // so no fragment is ever in or holds mixed foreign content.
-    String breakout = "inside <svg> or <math> is HTML in a browser and ends the <svg> or <math> there";
+    // #678, #759: nothing inside <svg>/<math> is computed (a fragment there included), and a breakout
+    // tag there is the verifier's parse error, so no fragment is ever in or holds mixed foreign content.
+    String breakout = "inside <svg> is not supported";
     page("<svg><p>x</p><g t:fragment=\"m\"><path d=\"M0 0\"/></g></svg><svg t:insert=\"~{:: m}\"></svg>")
-        .assertError("page.html:2:6", breakout);
+        .assertError("page.html:2:", breakout);
     page("<svg><font COLOR=\"red\">x</font><g t:fragment=\"m\"><path/></g></svg><svg t:insert=\"~{:: m}\"></svg>")
-        .assertError("page.html:2:6", breakout);
+        .assertError("page.html:2:", breakout);
     page("<svg><font t:color=\"v\">x</font><g t:fragment=\"m\"><path/></g></svg><svg t:insert=\"~{:: m}\"></svg>")
-        .assertError("page.html:2:6", breakout);
+        .assertError("page.html:2:", "t:color is not allowed");
     page("<math><annotation-xml t:encoding=\"'text/html'\"><t:block t:replace=\"~{::payload(v)}\"></t:block></annotation-xml>"
             + "<annotation-xml><mrow t:fragment=\"payload(String s)\"><mi>x</mi></mrow></annotation-xml></math>")
         .assertError("page.html:2:23", "t:encoding is not allowed");

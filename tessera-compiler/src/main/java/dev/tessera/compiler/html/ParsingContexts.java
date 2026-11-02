@@ -24,14 +24,14 @@ import java.util.Set;
  * check ({@code ContextVerifier}), which replays it in the caller's real parser state.
  *
  * <p>A context is {@link #HTML}, {@code svg}, {@code math}, {@code select}, or the name of the
- * raw-text element. SVG {@code foreignObject}, {@code desc} and {@code title} and MathML {@code mi
- * mo mn ms mtext} hold HTML.
+ * raw-text element. Foreign content is by tag: everything under {@code <svg>} or {@code <math>} is
+ * {@code svg} or {@code math} content (integration points are the verifier's to model).
  *
  * <p>Contexts follow the tags as written, which is how the template is compiled: the children of
  * {@code <svg t:replace>} are SVG content, since they only render as fragments declared there. A
  * {@code <t:block>} has no tag and does not change the context. An element with {@code
  * t:remove="tag"} renders its children without the tag, so where its tag would change the context
- * (an {@code <svg>}, {@code <foreignObject>}, {@code <title>}, ...) its content is {@link
+ * (an {@code <svg>}, {@code <title>}, ...) its content is {@link
  * #UNWRAPPED}: a browser parses it differently from how it is compiled.
  *
  * <p>Runtime HTML inside a {@link #rawTextElement} is the raw-text rule's error (TemplateGenerator):
@@ -47,7 +47,7 @@ public final class ParsingContexts {
 
   private static final Set<String> RAW_TEXT =
       Backports.setOf(
-          "title", "textarea", "script", "style", "xmp", "iframe", "noembed", "noframes", "noscript", "plaintext");
+          "title", "textarea", "script", "style", "iframe", "noscript");
 
   private final Map<Element, String> content = new IdentityHashMap<>();
   private final Map<Element, String> place = new IdentityHashMap<>();
@@ -92,9 +92,8 @@ public final class ParsingContexts {
   /**
    * Whether a browser may read the content of {@code e} as text up to its end tag, the elements
    * TemplateGenerator's raw-text rule checks: {@code <title>}, {@code <textarea>} and {@link
-   * Contexts#browserRawText} elements, by name in any namespace: a browser reads {@code <title>} in
-   * {@code <svg>} or {@code <math>} as RCDATA in an HTML integration point or after a tag that ends
-   * foreign content ({@code <b>}).
+   * Contexts#browserRawText} elements, by name in any namespace (a browser reads an SVG {@code
+   * <title>} as RCDATA after a tag that ends foreign content).
    */
   public static boolean rawTextElement(Element e) {
     String name = HtmlParser.asciiLower(e.name());
@@ -160,12 +159,9 @@ public final class ParsingContexts {
           return name;
         }
         return RAW_TEXT.contains(name) ? name : HTML;
-      case "svg":
-        return HtmlParser.SVG_HTML_PARENTS.contains(name) ? HTML : "svg";
-      case "math":
-        return HtmlParser.MATHML_TEXT_PARENTS.contains(name) ? HTML : "math";
       default:
-        // Inside raw text a browser sees no elements at all; inside <select> it stays in select.
+        // Inside raw text a browser sees no elements at all; inside <select> it stays in select, and
+        // under <svg> or <math> in foreign content (by tag: see HtmlParser).
         return context;
     }
   }

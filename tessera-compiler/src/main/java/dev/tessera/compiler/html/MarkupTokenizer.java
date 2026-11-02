@@ -19,8 +19,8 @@ package dev.tessera.compiler.html;
  *   <li>An attribute name ends at {@code =} or whitespace; it has a value if the following run of
  *       {@code =} and whitespace has an {@code =}. A quoted value ends at its closing quote, an
  *       unquoted one at whitespace.
- *   <li>Void elements are always self-closed. The content of {@code <style>}, and of {@code
- *       <script>} without a {@code type} or with a JavaScript one, is not tokenized: it ends at the
+ *   <li>Void elements are always self-closed. The content of {@code <script>} and {@code <style>}
+ *       is not tokenized, whatever its {@code type} (as in a browser): it ends at the
  *       first {@code </name>} spelled as in the start tag.
  *   <li>A structure without its end is fatal, as are a few malformed tags; the {@link
  *       MarkupException} messages are attoparser's. Malformed DOCTYPEs and processing instructions
@@ -103,10 +103,6 @@ final class MarkupTokenizer {
   private static final String[] VOID_ELEMENTS = {
     "area", "base", "br", "col", "embed", "hr", "img", "input", "keygen", "link", "menuitem", "meta",
     "param", "source", "track", "wbr"
-  };
-  private static final String[] JAVASCRIPT_TYPES = {
-    "javascript", "ecmascript", "text/javascript", "text/ecmascript", "application/javascript",
-    "application/ecmascript", "module"
   };
 
   private static final int NONE = 0;
@@ -447,21 +443,16 @@ final class MarkupTokenizer {
     }
     String name = str(start + 1, nameEnd);
     boolean isVoid = !minimized && isVoid(name);
-    boolean script = HtmlParser.asciiEqualsIgnoreCase(name, "script");
-    boolean[] raw = {!minimized && !isVoid && (script || HtmlParser.asciiEqualsIgnoreCase(name, "style"))};
+    boolean raw = !minimized && !isVoid && (HtmlParser.asciiEqualsIgnoreCase(name, "script")
+        || HtmlParser.asciiEqualsIgnoreCase(name, "style"));
     handler.startTag(start, nameEnd);
-    attributes(nameEnd, end, (ns, ne, vs, ve, quote) -> {
-      if (script && HtmlParser.asciiEqualsIgnoreCase(str(ns, ne), "type")) {
-        raw[0] = vs >= 0 && isJavaScriptType(str(vs, ve));
-      }
-      handler.attribute(ns, ne, vs, ve, quote);
-    });
+    attributes(nameEnd, end, handler::attribute);
     if (minimized || isVoid) {
       handler.selfClosedTagEnd(minimized);
       return;
     }
     handler.openTagEnd(end);
-    if (raw[0]) {
+    if (raw) {
       cdataEnd = ("</" + name + ">").toCharArray();
     }
   }
@@ -469,15 +460,6 @@ final class MarkupTokenizer {
   private static boolean isVoid(String name) {
     for (String v : VOID_ELEMENTS) {
       if (HtmlParser.asciiEqualsIgnoreCase(v, name)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private static boolean isJavaScriptType(String type) {
-    for (String t : JAVASCRIPT_TYPES) {
-      if (HtmlParser.asciiEqualsIgnoreCase(t, type)) {
         return true;
       }
     }
