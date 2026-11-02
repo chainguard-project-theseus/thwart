@@ -64,12 +64,20 @@ public final class ContentKinds {
    * to be reopened are reached only by error recovery, a {@link Problem#PARSE_ERROR} (#410).
    */
   public static Problem problem(ParserState s) {
+    return problem(s, Skeleton.Source.SAFE_HTML);
+  }
+
+  /**
+   * The problem with HTML from {@code source} inserted in state {@code s}: as {@link #problem(ParserState)}
+   * for FLOW, with {@link #closer(ParserState, Skeleton.Source)} for an HTML message.
+   */
+  public static Problem problem(ParserState s, Skeleton.Source source) {
     OpenElement current = s.currentNode();
     if (s.tokenizer() != TokenizerState.DATA || !s.pendingInput().isEmpty() || current == null
         || !OpenElement.HTML.equals(current.namespace()) || !FLOW_MODES.contains(s.mode())) {
       return Problem.RAW_NOT_FLOW;
     }
-    return closer(s) == null ? null : Problem.RAW_CLOSES_ELEMENT;
+    return closer(s, source) == null ? null : Problem.RAW_CLOSES_ELEMENT;
   }
 
   /**
@@ -188,11 +196,29 @@ public final class ContentKinds {
    * them would reject sanitized text in any list item or form (#329 PR: 20 bench pages in forms).
    */
   static String closer(ParserState s) {
+    return closer(s, Skeleton.Source.SAFE_HTML);
+  }
+
+  /**
+   * As {@link #closer(ParserState)} for HTML from {@code source}. An HTML message is PHRASING
+   * (#677): the message policy writes only {@code b i em strong u s sub sup small mark code kbd
+   * span br}, balanced and without nesting a formatting element in one of its name, and, for a
+   * {@link Skeleton.Source#LINKED_HTML_MESSAGE}, {@code a}. None of those closes an open {@code p},
+   * heading, {@code button}, {@code nobr} or {@code ruby}, so only an open {@code select} and, for
+   * links, an open {@code a} are left.
+   */
+  static String closer(ParserState s, Skeleton.Source source) {
     List<OpenElement> stack = s.stack();
     for (OpenElement e : stack) {
       if (e.isHtml("select") || e.isHtml("option") || e.isHtml("optgroup")) {
         return "an open <" + e.localName() + ">";
       }
+    }
+    if (source == Skeleton.Source.HTML_MESSAGE) {
+      return null;
+    }
+    if (source == Skeleton.Source.LINKED_HTML_MESSAGE) {
+      return openLink(s);
     }
     if (inScope(stack, "p", true)) {
       return "an open <p>";
@@ -206,6 +232,11 @@ public final class ContentKinds {
         return "an open <" + name + ">";
       }
     }
+    return openLink(s);
+  }
+
+  /** "an open <a>" if an {@code a} start tag would run the adoption agency in {@code s}, else null. */
+  private static String openLink(ParserState s) {
     List<Integer> list = s.activeFormatting();
     for (int i = list.size() - 1; i >= 0 && list.get(i) != ParserState.MARKER; i--) {
       if (s.activeFormattingElements().get(i).isHtml("a")) {

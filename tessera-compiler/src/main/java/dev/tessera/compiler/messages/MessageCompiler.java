@@ -2,18 +2,14 @@ package dev.tessera.compiler.messages;
 
 import dev.tessera.compiler.CompilerEnv;
 import dev.tessera.compiler.JavaStrings;
-import dev.tessera.compiler.SourcePos;
+import dev.tessera.compiler.codegen.Emitted;
 import dev.tessera.compiler.expr.Expr;
 import dev.tessera.compiler.html.HtmlParser;
 import dev.tessera.compiler.types.CompiledExpr;
 import dev.tessera.compiler.types.ExpressionCompiler;
 import dev.tessera.compiler.types.Scope;
-import dev.tessera.compiler.verify.Skeleton;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -24,7 +20,7 @@ public final class MessageCompiler {
   private MessageCompiler() {}
 
   public static CompiledExpr compile(Expr.Message message, Scope scope, ExpressionCompiler expressions) {
-    String args = args(message, scope, expressions, true);
+    String args = args(message, scope, expressions);
     if (args == null) {
       return null;
     }
@@ -37,103 +33,33 @@ public final class MessageCompiler {
   }
 
   /**
-   * Code of the HTML of {@code #{key(args)}} ({@code t:utext}, {@code [(...)]}; #236), a
-   * {@code String} the generator writes as is ({@code codegen.Emitted#htmlMessage}), or
-   * {@code null} after reporting an error. The bundle must be checked, and the key's value in
-   * every bundle file the build can see must pass {@link MessageMarkup}. Arguments are
-   * HTML-escaped before they are formatted into the message, and at runtime a message that is not
-   * what one of those checked values produces is escaped ({@code Escapers.htmlMessage}).
+   * What {@code #{key(args)}} writes as HTML ({@code t:utext}, {@code [(...)]}; #677), or
+   * {@code null} after reporting an error: the message, looked up with its arguments escaped as
+   * text and cleaned at runtime by the fixed message policy ({@code Escapers.htmlMessage}). Links
+   * are kept only if the bundle is unchecked or a value of the key has an {@code <a}; otherwise the
+   * message is phrasing without links, which can stand inside a link too.
    */
-  public static String htmlValue(Expr.Message message, String form, Scope scope, ExpressionCompiler expressions) {
-    CompilerEnv env = expressions.env();
-    MessageBundle bundle = env.messages();
-    String key = message.key();
-    if (!bundle.isChecked()) {
-      env.diagnostics()
-          .error(
-              message.pos(),
-              form + " with a message #{...} needs -Atessera.messages=<bundle base path>, so the message"
-                  + " can be checked as HTML at build time; or use t:text or [[...]] (escaped)");
-      return null;
-    }
-    boolean ok = true;
-    List<String> checked = new ArrayList<>();
-    for (Map.Entry<String, String> v : bundle.values(key).entrySet()) {
-      checked.add(JavaStrings.literal(v.getValue()));
-      String problem = MessageMarkup.problem(v.getValue());
-      if (problem != null) {
-        env.diagnostics()
-            .error(
-                message.pos(),
-                "message '" + key + "' in " + v.getKey() + " cannot be rendered as HTML by " + form + ": "
-                    + problem);
-        ok = false;
-      }
-    }
-    String args = args(message, scope, expressions, ok);
+  public static Emitted html(Expr.Message message, Scope scope, ExpressionCompiler expressions) {
+    String args = args(message, scope, expressions);
     if (args == null) {
       return null;
     }
-    // The runtime prints the message as HTML only if it is what one of the checked values produces.
-    return "dev.tessera.runtime.Escapers.htmlMessage(ctx, " + JavaStrings.literal(key) + ", " + args
-        + ", new java.lang.String[] {" + String.join(", ", checked) + "})";
-  }
-
-  /**
-   * The skeleton of what {@link #htmlValue}'s code writes (#329): the message is known at build
-   * time, so it is recorded as the static markup it is, not as HTML known only at render time. One
-   * branch per value of the key in the bundle files the build sees, in each of the two forms
-   * {@code Escapers.htmlMessage} writes it: as written (a message without arguments), and as
-   * {@link java.text.MessageFormat} formats it, with a text hole for each placeholder (arguments
-   * are escaped text, numbers or dates). One more branch is a text hole: a message that is none of
-   * those is written escaped as text. {@code element} is
-   * the element whose content the message is ({@link Skeleton.Hole#element}).
-   */
-  public static Skeleton.Node htmlSkeleton(Expr.Message message, CompilerEnv env, String element) {
-    SourcePos pos = message.pos();
-    element = element == null ? null : HtmlParser.asciiLower(element);
-    Map<String, Skeleton.Seq> branches = new LinkedHashMap<>();
-    for (String value : env.messages().values(message.key()).values()) {
-      List<Skeleton.Node> written = new ArrayList<>();
-      if (!value.isEmpty()) {
-        written.add(new Skeleton.Static(value, pos));
-      }
-      Skeleton.Seq asWritten = new Skeleton.Seq(written);
-      branches.put(asWritten.toString(), asWritten);
-      String formatted;
-      try {
-        formatted = MessageMarkup.formatted(value);
-      } catch (MessageMarkup.Bad e) {
-        continue; // reported by htmlValue; nothing is generated
-      }
-      List<Skeleton.Node> nodes = new ArrayList<>();
-      int from = 0;
-      for (int i = formatted.indexOf(MessageMarkup.ARG); ; i = formatted.indexOf(MessageMarkup.ARG, from)) {
-        int end = i < 0 ? formatted.length() : i;
-        if (end > from) {
-          nodes.add(new Skeleton.Static(formatted.substring(from, end), pos));
-        }
-        if (i < 0) {
-          break;
-        }
-        nodes.add(new Skeleton.Hole(Skeleton.Escaper.TEXT, element, null, pos));
-        from = i + 1;
-      }
-      Skeleton.Seq seq = new Skeleton.Seq(nodes);
-      branches.put(seq.toString(), seq);
+    MessageBundle bundle = expressions.env().messages();
+    boolean links = !bundle.isChecked();
+    for (String value : bundle.values(message.key()).values()) {
+      links |= HtmlParser.asciiLower(value).contains("<a");
     }
-    Skeleton.Seq escaped = new Skeleton.Seq(
-        Collections.singletonList(new Skeleton.Hole(Skeleton.Escaper.TEXT, element, null, pos)));
-    branches.put(escaped.toString(), escaped);
-    Skeleton.Alt alt = new Skeleton.Alt(new ArrayList<>(branches.values()), pos);
-    return new Skeleton.RawInsert(Skeleton.Source.HTML_MESSAGE, pos, new Skeleton.Seq(Collections.singletonList(alt)));
+    String code = "dev.tessera.runtime.Escapers.htmlMessage(ctx, " + JavaStrings.literal(message.key()) + ", "
+        + args + ", " + links + ")";
+    return Emitted.htmlMessage(message.pos(), code, links);
   }
 
   /**
    * The {@code new Object[] {...}} of compiled arguments, or {@code null} after reporting an
-   * unknown key or a bad argument (or when {@code ok} is false).
+   * unknown key or a bad argument.
    */
-  private static String args(Expr.Message message, Scope scope, ExpressionCompiler expressions, boolean ok) {
+  private static String args(Expr.Message message, Scope scope, ExpressionCompiler expressions) {
+    boolean ok = true;
     CompilerEnv env = expressions.env();
     MessageBundle bundle = env.messages();
     String key = message.key();

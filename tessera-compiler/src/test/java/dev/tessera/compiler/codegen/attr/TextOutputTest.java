@@ -137,9 +137,9 @@ class TextOutputTest {
   }
 
   @Test
-  void utextWithUncheckedMessageIsBuildError() {
+  void utextWithUncheckedMessageIsSanitizedAtRender() {
     compile("String s", "<p t:utext=\"#{home.welcome}\">x</p>")
-        .assertError("page.html:1:", "t:utext with a message #{...} needs -Atessera.messages");
+        .assertSuccess();
   }
 
   @Test
@@ -243,7 +243,6 @@ class TextOutputTest {
     Compilation c = compile("SafeHtml h", "<div>a [(h)] b</div>").assertSuccess();
     assertEquals("<div><div>a <i>x</i> b</div></div>", c.render("page", model("h", TestFragments.safeHtml("<i>x</i>"))));
     compile("String s", "<p>[(s)]</p>").assertError("page.html:1:", "[(...)]", "SafeHtml", "java.lang.String");
-    compile("String s", "<p>[(#{x})]</p>").assertError("[(...)] with a message #{...} needs -Atessera.messages");
   }
 
   @Test

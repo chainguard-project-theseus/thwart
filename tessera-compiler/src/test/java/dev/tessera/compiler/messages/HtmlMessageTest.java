@@ -1,7 +1,8 @@
 package dev.tessera.compiler.messages;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.DefaultLinks;
@@ -17,7 +18,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** {@code t:utext="#{key(args)}"} and {@code [(#{...})]}: bundle messages rendered as HTML (#236). */
+/**
+ * {@code t:utext="#{key(args)}"} and {@code [(#{...})]}: bundle messages rendered as HTML, sanitized
+ * by the fixed message policy at runtime (#677).
+ */
 class HtmlMessageTest {
   private static final String BUNDLE =
       "intro=See <a href=\"/phase-out\" class=\"alert-link\">the phase-out</a>.<br>Next paragraph.\n"
@@ -30,6 +34,9 @@ class HtmlMessageTest {
           + "<p t:utext=\"#{greet(name, n)}\">x</p>"
           + "<span>[(#{greet(name, n)})]</span>"
           + "</div>";
+
+  private static final String INTRO =
+      "See <a href=\"/phase-out\" rel=\"noopener noreferrer\">the phase-out</a>.<br>Next paragraph.";
 
   /** Like Spring: MessageFormat only when there are arguments. */
   private static RenderContext ctx(String properties) {
@@ -51,11 +58,11 @@ class HtmlMessageTest {
   }
 
   @Test
-  void rendersCheckedMessageAsHtml() {
+  void rendersTheMessageSanitized() {
     Compilation c = compile(BUNDLE, PAGE).assertSuccess();
     String html = c.render("page", Map.of("name", "Ann", "n", 1234), ctx(BUNDLE));
     assertEquals(
-        "<div><p>See <a href=\"/phase-out\" class=\"alert-link\">the phase-out</a>.<br>Next paragraph.</p>"
+        "<div><p>" + INTRO + "</p>"
             + "<p>Hello <b>Ann</b>, you have 1,234 items</p>"
             + "<span>Hello <b>Ann</b>, you have 1,234 items</span></div>",
         html);
@@ -66,7 +73,7 @@ class HtmlMessageTest {
     Compilation c = compile(BUNDLE, PAGE).assertSuccess();
     String html = c.render("page", Map.of("name", "<script>alert(1)</script>\"'&", "n", 1), ctx(BUNDLE));
     assertEquals(
-        "<div><p>See <a href=\"/phase-out\" class=\"alert-link\">the phase-out</a>.<br>Next paragraph.</p>"
+        "<div><p>" + INTRO + "</p>"
             + "<p>Hello <b>&lt;script&gt;alert(1)&lt;/script&gt;&quot;&#39;&amp;</b>, you have 1 items</p>"
             + "<span>Hello <b>&lt;script&gt;alert(1)&lt;/script&gt;&quot;&#39;&amp;</b>, you have 1 items</span></div>",
         html);
@@ -85,15 +92,15 @@ class HtmlMessageTest {
   void quotedApostropheIsFormattedWhenThereAreArguments() {
     Compilation c =
         compile(BUNDLE, "<p t:params=\"String s\" t:utext=\"#{plain(s)}\">x</p>").assertSuccess();
-    assertEquals("<p>Don't <i>panic</i></p>", c.render("page", Map.of("s", "x"), ctx(BUNDLE)));
+    assertEquals("<p>Don&#39;t <i>panic</i></p>", c.render("page", Map.of("s", "x"), ctx(BUNDLE)));
   }
 
   @Test
-  void needsTheBundleOption() {
+  void worksWithoutTheBundleOption() {
+    // Nothing about the markup is checked at build time; an unchecked bundle's messages keep links.
     Compilation c =
-        Compilation.builder().template("page.html", "<div>\n<p t:utext=\"#{intro}\">x</p></div>").compile();
-    c.assertError("page.html:2:", "t:utext with a message #{...} needs -Atessera.messages");
-    assertNull(c.generatedSource("tessera.generated.PageTemplate"));
+        Compilation.builder().template("page.html", "<div>\n<p t:utext=\"#{intro}\">x</p></div>").compile().assertSuccess();
+    assertEquals("<div>\n<p>" + INTRO + "</p></div>", c.render("page", Map.of(), ctx(BUNDLE)));
   }
 
   @Test
@@ -102,71 +109,23 @@ class HtmlMessageTest {
         .assertError("page.html:2:", "unknown message key 'intr'", "messages.properties");
   }
 
-  @Test
-  void scriptInBundleFailsNamingFileAndKey() {
-    Compilation c = compile("bad=Hi<script>alert(1)</script>\n", "<div>\n<p t:utext=\"#{bad}\">x</p></div>");
-    c.assertError(
-        "page.html:2:", "message 'bad' in ", "messages.properties cannot be rendered as HTML by t:utext",
-        "<script> is not allowed");
-    assertNull(c.generatedSource("tessera.generated.PageTemplate"));
-  }
-
-  /**
-   * #336: with k=&#123; the page would render {&#123;VALUE }}, which Vue runs: the runtime breaks
-   * only a literal '{' at a message's edges, so a brace reference in a checked message fails.
-   */
-  @ParameterizedTest
-  @ValueSource(strings = {"k=&#123;\n", "k=&#x7b;{0}\n", "k=&lbrace;\n"})
-  void braceReferenceAtAMessageEdgeFails(String bundle) {
-    String arg = bundle.contains("{0}") ? "(s)" : "";
-    Compilation c = compile(bundle, "<div t:params=\"String s\">\n<p>{[(#{k" + arg + "})]}[[s]] }}</p></div>");
-    c.assertError("page.html:2:", "message 'k'", "a character reference for '{' or '}' is not supported");
-    assertNull(c.generatedSource("tessera.generated.PageTemplate"));
-  }
-
-  @Test
-  void eventHandlerInBundleFails() {
-    compile("bad=<b onclick=\"alert(1)\">x</b>\n", "<div>\n<span>[(#{bad})]</span></div>")
-        .assertError("page.html:2:", "message 'bad'", "by [(...)]", "attribute onclick is not allowed on <b>");
-  }
-
-  @Test
-  void badLocaleFileFailsNamingIt() {
-    Compilation c =
-        Compilation.builder()
-            .template("page.html", "<div>\n<p t:utext=\"#{intro}\">x</p></div>")
-            .messages("intro=<b>Hi</b>\n")
-            .localeMessages("fr", "intro=<b>Salut</b><img src=x onerror=alert(1)>\n")
-            .localeMessages("pt_BR", "intro=<b>Oi</b>\n")
-            .compile();
-    c.assertError("page.html:2:", "message 'intro' in ", "messages_fr.properties", "<img> is not allowed");
-    assertEquals(1, c.errors().size(), c.diagnostics().toString());
-  }
-
-  @Test
-  void placeholderInAttributeFails() {
-    compile("bad=<a href=\"{0}\">x</a>\n", "<div t:params=\"String u\">\n<p t:utext=\"#{bad(u)}\">x</p></div>")
-        .assertError("page.html:2:", "a placeholder may not be inside a tag (attribute href of <a>)");
-  }
-
-  @Test
-  void messageIsOnlyCheckedWhereItIsRenderedAsHtml() {
-    compile("bad=<script>x</script>\n", "<p t:text=\"#{bad}\">x</p>").assertSuccess();
-  }
-
   @ParameterizedTest
   @ValueSource(
       strings = {
-        "<a href=\"javascript:alert(1)\">x</a>",
-        "<a href=\"java&#115;cript:alert(1)\">x</a>",
-        "<style>p{}</style>",
-        "<p style=\"color:red\">x</p>",
-        "<!-- x -->",
-        "</div>",
-        "<div>x",
-        "<b>{0,choice,0#a|1#<script>}</b>",
+        "Hi<script>alert(1)</script>",
+        "Hi<img src=x onerror=alert(1)>",
+        "<a href=\"javascript:alert(1)\">Hi</a>",
+        "<a href=\"java&#115;cript:alert(1)\">Hi</a>",
+        "<b onclick=\"alert(1)\" style=\"color:red\">Hi</b>",
+        "<style>p{}</style>Hi",
+        "<!-- x -->Hi",
+        "</div></p>Hi<div>",
+        "<p>Hi",
+        "<svg onload=alert(1)>Hi</svg>",
+        "<form action=/x>Hi<input name=a></form>",
+        "<textarea>Hi</textarea>",
       })
-  void unsafeOrMalformedBundleValuesFail(String value) {
+  void hostileBundleValuesCompileAndRenderOnlyThePolicysMarkup(String value) {
     Properties p = new Properties();
     p.setProperty("bad", value);
     java.io.StringWriter w = new java.io.StringWriter();
@@ -175,36 +134,34 @@ class HtmlMessageTest {
     } catch (IOException e) {
       throw new AssertionError(e);
     }
-    Compilation c = compile(w.toString(), "<div>\n<p t:utext=\"#{bad}\">x</p></div>");
-    c.assertError("page.html:2:", "message 'bad'", "cannot be rendered as HTML");
+    Compilation c = compile(w.toString(), "<div>\n<p t:utext=\"#{bad}\">x</p></div>").assertSuccess();
+    String html = c.render("page", Map.of(), ctx(w.toString()));
+    assertFalse(
+        html.matches("(?s).*(script|onclick|onerror|onload|style|javascript|<img|<svg|<form|<input|<textarea|<p><p|<div><div).*"),
+        html);
+    assertTrue(html.startsWith("<div>\n<p>") && html.endsWith("</p></div>"), html);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"k=&#123;\n", "k=&#x7b;{0}\n", "k=&lbrace;\n"})
+  void braceReferenceAtAMessageEdgeIsBroken(String bundle) {
+    // #336: a reference for '{' is decoded and written as a text brace, broken from its neighbours.
+    String arg = bundle.contains("{0}") ? "(s)" : "";
+    Compilation c =
+        compile(bundle, "<div t:params=\"String s\">\n<p>[(#{k" + arg + "})][[s]]</p></div>").assertSuccess();
+    String html = c.render("page", Map.of("s", "{"), ctx(bundle));
+    assertFalse(html.contains("{{"), html);
   }
 
   @Test
-  void runtimeMessageTheBuildDidNotCheckIsEscaped() {
+  void runtimeMessageTheBuildDidNotSeeIsSanitized() {
     Compilation c = compile(BUNDLE, PAGE).assertSuccess();
-    // At runtime the message source returns other values for the checked keys (a bundle in
-    // another directory or jar, a database, a file changed after the build).
+    // At runtime the message source returns other values for the keys (a bundle in another
+    // directory or jar, a database, a file changed after the build).
     String evil =
-        "intro=<script>alert(1)</script>\n"
+        "intro=<script>alert(1)</script><b>bold</b>\n"
             + "greet=<img src=x onerror=alert({0})>{1}\n";
     String html = c.render("page", Map.of("name", "Ann", "n", 1), ctx(evil));
-    assertEquals(
-        "<div><p>&lt;script&gt;alert(1)&lt;/script&gt;</p>"
-            + "<p>&lt;img src=x onerror=alert(Ann)&gt;1</p>"
-            + "<span>&lt;img src=x onerror=alert(Ann)&gt;1</span></div>",
-        html);
-  }
-
-  @Test
-  void runtimeMessageFromALocaleFileTheBuildCheckedIsHtml() {
-    Compilation c =
-        Compilation.builder()
-            .template("page.html", "<p t:utext=\"#{intro}\">x</p>")
-            .messages("intro=<b>Hi</b>\n")
-            .localeMessages("fr", "intro=<b>Salut</b>\n")
-            .compile()
-            .assertSuccess();
-    assertEquals("<p><b>Salut</b></p>", c.render("page", Map.of(), ctx("intro=<b>Salut</b>\n")));
-    assertEquals("<p>&lt;i&gt;Salut&lt;/i&gt;</p>", c.render("page", Map.of(), ctx("intro=<i>Salut</i>\n")));
+    assertEquals("<div><p><b>bold</b></p><p>1</p><span>1</span></div>", html);
   }
 }

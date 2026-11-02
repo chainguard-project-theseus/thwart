@@ -548,18 +548,14 @@ public final class TextInlining {
 
   /**
    * A statement writing {@code e} as raw HTML, or nothing after reporting an error. {@code e} must
-   * have static type {@code SafeHtml} or be a bundle message {@code #{...}} that passes the
-   * build-time markup check; {@code form} names the construct in messages.
+   * have static type {@code SafeHtml} or be a bundle message {@code #{...}}; {@code form} names the
+   * construct in messages.
    */
   static Emitted safeHtmlStatement(CodegenContext ctx, Expr e, String form, Scope scope) {
     if (e instanceof Expr.Message) {
-      // A bundle message is developer-authored markup, checked at build time (#236).
-      String message = MessageCompiler.htmlValue((Expr.Message) e, form, scope, ctx.expressions());
-      return message == null
-          ? Emitted.EMPTY
-          : Emitted.htmlMessage(
-                  message, MessageCompiler.htmlSkeleton((Expr.Message) e, ctx.expressions().env(), ctx.hostElement()))
-              .then("\n");
+      // A bundle message, sanitized at runtime by the fixed message policy (#677).
+      Emitted message = MessageCompiler.html((Expr.Message) e, scope, ctx.expressions());
+      return message == null ? Emitted.EMPTY : message.then("\n");
     }
     CompiledExpr c = ctx.expressions().compile(e, scope);
     if (c == null) {

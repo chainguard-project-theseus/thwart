@@ -125,19 +125,12 @@
 -- t.html
 <a $NS t:import="dev.tessera.runtime.Fragment" t:params="Fragment f" href="/x"><span t:insert="f">x</span></a>
 => t.html:1:122: error: a browser lets the markup of this Fragment value close an open <a> around it (a link in the value ends it), so the rest of the page would parse differently; insert it in a <div> instead, outside the open element [verifier:RAW_CLOSES_ELEMENT]
-== MESSAGE_CHANGES_STATE: an HTML message with a paragraph, in a paragraph
+== RAW_CLOSES_ELEMENT: an HTML message with a link, in a link
 -- messages.properties
-m=<p>Read this first.</p>
+m=See <a href="/docs">the docs</a>.
 -- t.html
-<p><span t:utext="#{m}">x</span></p>
-=> t.html:1:74: error: a browser parses the markup of this HTML message so that it closes an open <p> around it, and the rest of the page would be parsed differently; close every element the message opens, and insert it where its markup fits (a message with a <p> in a <div>, not in a <p>) [verifier:MESSAGE_CHANGES_STATE]
-=> t.html:1:74: error: the HTML parser reports "End tag “p” implied, but there were open elements." here: a browser reads this markup only by error recovery, where browsers can differ; Tessera accepts only markup that parses without errors, so fix the markup [verifier:PARSE_ERROR]
-== MESSAGE_CHANGES_STATE: an HTML message that leaves its paragraph open
--- messages.properties
-m=First.<p>Second.
--- t.html
-<span t:utext="#{m}">x</span>
-=> t.html:1:71: error: a browser parses the markup of this HTML message so that it leaves <p> open, and the rest of the page would be parsed differently; close every element the message opens, and insert it where its markup fits (a message with a <p> in a <div>, not in a <p>) [verifier:MESSAGE_CHANGES_STATE]
+<a $NS href="/x"><span t:utext="#{m}">x</span></a>
+=> t.html:1:59: error: a browser lets the markup of this HTML message close an open <a> around it (a link in the value ends it), so the rest of the page would parse differently; insert it in a <div> instead, outside the open element [verifier:RAW_CLOSES_ELEMENT]
 == FRAMESET: a frameset page
 -- t.html
 <!DOCTYPE html>

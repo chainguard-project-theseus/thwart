@@ -97,8 +97,6 @@ public final class TemplateCompiler {
         ((Skeleton.Alt) n).branches().forEach(c -> holes(c, out));
       } else if (n instanceof Skeleton.Call) {
         ((Skeleton.Call) n).fragmentArgs().values().forEach(c -> holes(c, out));
-      } else if (n instanceof Skeleton.RawInsert && ((Skeleton.RawInsert) n).content() != null) {
-        holes(((Skeleton.RawInsert) n).content(), out);
       }
       return out;
     }
