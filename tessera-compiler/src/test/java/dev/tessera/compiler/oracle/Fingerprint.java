@@ -1,10 +1,10 @@
 package dev.tessera.compiler.oracle;
 
 import dev.tessera.compiler.model.OutputContext;
-import dev.tessera.runtime.DefaultLinks;
 import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.Output;
 import dev.tessera.runtime.StringOutput;
+import dev.tessera.runtime.UrlEncoding;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -42,7 +42,7 @@ import java.util.regex.Pattern;
  * <p>A slot can also reach the output through a link expression ({@code @{/x/{id}(id=${s})}},
  * {@code @{/x(q=${s})}}), which percent-encodes it as a path segment or a query value before the
  * context's escaper runs. The table also holds those <em>link cores</em>, built with
- * {@link DefaultLinks}, for every context including {@link OutputContext#REFRESH} (whose escaper
+ * {@link UrlEncoding}, for every context including {@link OutputContext#REFRESH} (whose escaper
  * only takes {@code <digits>;url=<path>}, so it only ever sees a slot inside a link). A path segment
  * encodes every character the escapers touch, so its core is the same in every context and is
  * accepted wherever some escaper is correct: the value is {@code [A-Za-z0-9._~%-]} only, inert
@@ -80,12 +80,11 @@ public final class Fingerprint {
   private static final Map<OutputContext, List<String>> LINK_DECODED = new EnumMap<>(OutputContext.class);
 
   static {
-    DefaultLinks links = new DefaultLinks("");
     String marker = marker(1);
     List<String> linkValues =
         List.of(
-            links.build("/{p}", new String[] {"p"}, new Object[] {value(1)}),
-            links.build("/", new String[] {"q"}, new Object[] {value(1)}));
+            "/" + UrlEncoding.pathVariable("p", value(1)),
+            "/?q=" + UrlEncoding.queryValue(value(1)));
     for (OutputContext c : OutputContext.values()) {
       if (c.escaper() == null) {
         continue;

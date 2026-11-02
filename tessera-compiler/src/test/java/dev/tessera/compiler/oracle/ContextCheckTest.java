@@ -6,9 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.tessera.compiler.model.OutputContext;
 import dev.tessera.compiler.testing.Compilation;
-import dev.tessera.runtime.DefaultLinks;
 import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.StringOutput;
+import dev.tessera.runtime.UrlEncoding;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -256,7 +256,7 @@ class ContextCheckTest {
     assertClean("<svg><a><set attributeName=\"href\" to=\"" + attr(FP) + "\"/></a></svg>");
     assertClean("<svg><rect><animate attributeName=\"opacity\" values=\"" + attr(FP) + "\"/></rect></svg>");
     // A query-encoded link value is still entity-escaped: wrong in an event handler.
-    String query = new DefaultLinks("").build("/", new String[] {"q"}, new Object[] {FP});
+    String query = "/?q=" + UrlEncoding.queryValue(FP);
     assertTrue(query.contains("%3C'"), query);
     assertMismatch("<p onclick=\"go('" + attr(query) + "')\">x</p>", "@onclick");
   }
@@ -297,11 +297,10 @@ class ContextCheckTest {
    */
   @Test
   void linkOutsideHtmlMustBeANeutralPath() {
-    DefaultLinks links = new DefaultLinks("");
-    String path = links.build("/x/{id}", new String[] {"id"}, new Object[] {FP});
-    assertMismatch("<p data-u=\"" + attr(links.build("/x", new String[] {"q"}, new Object[] {FP})) + "\">x</p>",
+    String path = "/x/" + UrlEncoding.pathVariable("id", FP);
+    assertMismatch("<p data-u=\"" + attr("/x?q=" + UrlEncoding.queryValue(FP)) + "\">x</p>",
         "@data-u", "outside HTML");
-    assertMismatch("<p data-u=\"" + attr(links.build("/a--b/{id}", new String[] {"id"}, new Object[] {FP}))
+    assertMismatch("<p data-u=\"" + attr("/a--b/" + UrlEncoding.pathVariable("id", FP))
         + "\">x</p>", "@data-u");
     assertMismatch("<p data-u=\"/" + attr(path) + "\">x</p>", "@data-u");
     assertMismatch("<p data-u=\"" + attr(path) + "#top\">x</p>", "@data-u");
@@ -318,7 +317,7 @@ class ContextCheckTest {
    */
   @Test
   void neutralOutsideHtmlAndStringsInStandardNamesAreClean() {
-    String path = new DefaultLinks("").build("/x/{id}", new String[] {"id"}, new Object[] {FP});
+    String path = "/x/" + UrlEncoding.pathVariable("id", FP);
     assertClean("<p data-u=\"" + attr(path) + "\" hx-get=\"" + attr(path) + "\" :x=\"" + attr(path) + "\">x</p>");
     assertClean("<p hx-vals=\"" + attr(path) + "\" x-text=\"" + attr(path) + "\" ng-init=\"" + attr(path) + "\">x</p>");
     assertClean("<x-c params=\"" + attr(path) + "\">x</x-c>");

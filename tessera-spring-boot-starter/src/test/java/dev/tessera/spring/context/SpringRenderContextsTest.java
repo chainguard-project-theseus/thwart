@@ -166,15 +166,15 @@ class SpringRenderContextsTest {
           }
         };
     Links links =
-        SpringRenderContexts.links((path, names, values) -> "/ctx" + path, encoding);
-    assertEquals(
-        "/ctx/owners;jsessionid=1", links.build("/owners", new String[0], new Object[0]));
+        SpringRenderContexts.create(request, encoding, Collections.<String, Object>emptyMap()).links();
+    assertEquals("/app/owners;jsessionid=1", links.encode(links.contextPath() + "/owners"));
   }
 
   @Test
   void linksUseRequestContextPath() {
     RenderContext ctx = create(Collections.<String, Object>emptyMap());
-    assertEquals("/app/owners/7", ctx.links().build("/owners/{id}", new String[] {"id"}, new Object[] {7}));
+    assertEquals("/app", ctx.links().contextPath());
+    assertEquals("/app/owners/7", ctx.links().encode("/app/owners/7"));
   }
 
   @Test
