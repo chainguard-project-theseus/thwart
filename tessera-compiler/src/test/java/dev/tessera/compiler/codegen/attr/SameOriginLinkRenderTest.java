@@ -27,7 +27,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 class SameOriginLinkRenderTest {
   /** One template per checked slot; each links to {@code @{/a}} or {@code @{/{x}/a(x=${u})}}. */
   private static final String[] SLOTS = {
-    "<button t:hx-get=\"@{/a}\">x</button>",
+    "<button t:data-hx-get=\"@{/a}\">x</button>",
     "<button t:attr=\"data-hx-post=@{/{x}/a(x=${u})}\">x</button>",
     "<meta http-equiv=\"refresh\" t:content=\"'3;url=' + @{/a}\">",
     "<base t:href=\"@{/a}\">",

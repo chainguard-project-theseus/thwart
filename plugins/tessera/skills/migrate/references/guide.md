@@ -60,7 +60,7 @@ inside `|...|` and `+` a `null` prints `null`.
 | builds a view name, fragment name, message key or link path from strings | Conditionals between literals; link `{placeholders}`; a `Fragment` argument. A message key computed from data is resolved in Java and passed as a string. |
 | evaluates a string as a template (`?eval`, `#evaluate`, `__${...}__`) | Compute the value in Java. |
 | prints a string unescaped | Stored rich text: `t:utext="html.sanitize(article.text)"`. Markup built in Java: a `SafeHtml`. A bundle message with markup: `t:utext="#{key}"` (section 4.5). |
-| puts expressions in `style` or a `data-*`/framework attribute | Section 4.4: `t:style` takes literals, numbers and `css.*` values; other non-standard attributes take only framework-neutral values. |
+| puts expressions in `style`, a `data-*` or a framework attribute (`th:hx-get`) | Section 4.4: `t:style` takes literals, numbers and `css.*` values; `data-*` attributes take only framework-neutral values; any other non-standard name is a build error (use `t:data-hx-get`, which htmx also reads). |
 | has an event handler (`onclick="..."`, any `on*`, static or computed) or a `javascript:` URL | Build errors: a strict CSP blocks inline script. Mark the element (`data-action="save"`) and attach one listener from a `<script>`: `document.addEventListener('click', e => { const el = e.target.closest('[data-action=save]'); if (el) save(el); });`. A `href="javascript:void(0)"` link becomes a `<button type="button">`, or `href="#"` with `e.preventDefault()` in the listener. `tessera-migrate` flags both. |
 | includes a file, calls a macro or tag with a body, or extends a layout | A fragment call with `Fragment` arguments (section 4.8). |
 | binds a form through form tags or macros | `t:object`, `t:field`, `t:errors`, `fields.*` (section 4.7). |
@@ -398,22 +398,33 @@ that runs code. What differs:
 
 ### 4.4 Output contexts
 
-The compiler decides the context from the element and attribute name; you can't override it. What
-each one accepts:
+The compiler decides the context from the element and attribute name; you can't override it. A
+computed attribute must be on one closed list: `data-*`, `aria-*`, and the names in the table
+below. Any other computed name is a build error (recipes below the table). What each context
+accepts:
 
 | Context | Where | Accepts |
 |---|---|---|
 | Text | element text, `t:text`, `[[...]]` | Any value, escaped. |
 | Raw HTML | `t:utext`, `[(...)]` | A `SafeHtml`, or a bundle message, sanitized by the message policy (section 4.5). |
-| Attribute | inert-text attributes: `title`, `alt`, `class`, `id`, `value`, `name`, `placeholder`, `aria-*`, ... | Any value, escaped. |
-| Typed attribute | other standard attributes: `rel`, `target`, `sandbox`, most of `<meta content>`, ... | Literals, numbers, and a choice between literals (`${newWindow} ? '_blank' : '_self'`). |
-| URL | `href`, `src`, `action`, `formaction`, `cite`, `poster`, ... | Any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#tessera`. Forms: section 4.7. |
-| Resource URL | `script[src]`, `iframe[src]`, `frame[src]`, `embed[src]`, `object[data]`, `link[href]`, `base[href]` | A same-origin `@{...}` link without query parameters, such as `@{/js/{v}/app.js(v=${v})}`. Load another origin with a static attribute. |
-| Neutral | every other name: `data-*`, `hx-*`, `x-*`, `v-*`, `ng-*`, custom elements' attributes | A framework-neutral value (below). |
+| Attribute | text: `abbr alt download id label name pattern placeholder title value`; keywords: `autocomplete dir enterkeyhint formmethod hidden inputmode method scope spellcheck translate`; numbers: `cols colspan datetime height high low max maxlength min minlength optimum rows rowspan size span start step tabindex width`; booleans (they take a condition): `async autofocus checked defer disabled formnovalidate multiple novalidate open readonly required reversed selected`; `for form headers list accept class hreflang lang role`; the WAI-ARIA 1.2 `aria-*` names | Any value, escaped. |
+| Typed attribute | `target`; `value` other than on `button data input li meter option progress select`; `for` other than on `label` and `output` | Literals, numbers, and a choice between literals (`${newWindow} ? '_blank' : '_self'`). |
+| URL | `href`, `src`, `action`, `formaction`, `cite`, `poster` | Any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#tessera`. Forms: section 4.7. |
+| Resource URL | `script[src]`, `script[href]`, `iframe[src]`, `frame[src]`, `embed[src]`, `object[data]`, `link[href]`, `base[href]` | A same-origin `@{...}` link without query parameters, such as `@{/js/{v}/app.js(v=${v})}`. Load another origin with a static attribute. |
+| Neutral | `data-*`, and an `aria-*` name outside WAI-ARIA 1.2 | A framework-neutral value (below). |
 | Script | `<script>` text | `[[...]]` writes JSON (below). |
 | Style | the `style` attribute | Literals, numbers and `CssValue`s (`css.color(c)`, `css.length(l)`, `css.url(u)`, `css.var(name)`), combined with `+`, `\|...\|` and conditionals. No expressions in `<style>`. |
 | Refresh | `content` of `<meta http-equiv="refresh">` | `'3;url=' + @{/path...}`: a literal delay and a same-origin link. |
-| Forbidden | `on*`, `srcdoc`, URL lists (`srcset`, `imagesrcset`, `ping`), and what the parser reads: `type` on `<script>` and `<input>`, `<meta http-equiv>` and `charset`, `<meta content>` under a static `http-equiv="Content-Type"`, `<template shadowroot*>` and `for`, `encoding`, `is`, `xmlns*`, `<font color/face/size>`, names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x`) | Nothing computed. |
+| Forbidden | `on*`, `srcdoc`, URL lists (`srcset`, `imagesrcset`, `ping`), and what the parser reads: `type` on `<script>` and `<input>`, `<meta http-equiv>` and `charset`, `<template shadowroot*>` and `for`, `encoding`, `is`, `xmlns*`, `<font color/face/size>`, names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x`); and every name not on the list above: `content` other than a refresh, `type`, `rel`, `loading`, `nonce`, `property`, `hx-*`, `x-*`, `v-*`, a custom element's own attributes, ... | Nothing computed. |
+
+**A computed name that is not on the list.** Port it by what it is for:
+
+| The attribute is | Recipe |
+|---|---|
+| read by your script or a client library (`th:hx-get`, `th:attr="blockid=${id}"`, `th:icon`) | A `data-*` attribute: `t:data-hx-get="@{/items/{id}(id=${id})}"` (htmx reads `data-hx-*` too), `t:data-blockid="${id}"`; the script reads `el.dataset`. Its value is neutral (below). |
+| one of a few values (`th:type="${submit} ? 'submit' : 'button'"`, `th:rel`, `th:loading`) | A static attribute, or one element per value under `t:if`/`t:switch`. |
+| `th:attr="nonce=${nonce}"` on a `<script>` | Delete it: Tessera stamps the CSP nonce itself (section 4.9). |
+| `content` of a named `<meta>` (`description`, Open Graph `property`) | A static `content`, or one `<meta>` per case under `t:if`. |
 
 **SVG, MathML and markup Tessera doesn't model.** An `<svg>` or `<math>` must be static: no
 `t:*` attribute, `[[...]]` or fragment inside it, and no computed attribute on it (control flow on the
@@ -454,8 +465,8 @@ read with `JSON.parse`; inside it, write `{"name": [[${x}]]}` without quotes aro
 
 **Framework-neutral values.** Many client-side frameworks run attribute values as code (Vue's
 `v-html`, Alpine's `x-data`, htmx's `hx-on`, Knockout's `data-bind`), and in several `data-*` is the
-code channel. Tessera models none of them, so a computed attribute whose name isn't a standard
-HTML, SVG, MathML or ARIA attribute takes only a value no framework can run: a number, a boolean, a
+code channel. Tessera models none of them, so a computed `data-*` attribute (the only computed name
+outside HTML; `hx-*`, `x-*`, `v-*` are build errors) takes only a value no framework can run: a number, a boolean, a
 same-origin link `@{/items/{id}(id=${item.id})}` (literal path, every parameter a path variable, no
 query), or a choice between those and literals. `t:data-id="${item.id}"` compiles;
 `t:data-name="${item.name}"` doesn't. Static attributes are copied as written, so

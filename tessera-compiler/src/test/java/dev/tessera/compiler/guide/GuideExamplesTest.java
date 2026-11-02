@@ -187,9 +187,10 @@ class GuideExamplesTest {
     // Negative: the "before" templates of the recipes are build errors, for the reason the recipes give.
     String[][] befores = {
         {"<span t:data-bs-title=\"tip\">?</span>", "framework-neutral"},
-        {"<button t:hx-vals=\"tip\">Add</button>", "framework-neutral"},
-        {"<div t:x-data=\"|{ name: '${tip}' }|\"></div>", "framework-neutral"},
-        {"<a t:hx-get=\"@{/search(q=${tip})}\">s</a>", "cannot have a query"}};
+        {"<button t:data-hx-vals=\"tip\">Add</button>", "framework-neutral"},
+        {"<button t:hx-vals=\"tip\">Add</button>", "t:data-hx-vals"},
+        {"<div t:data-x-data=\"|{ name: '${tip}' }|\"></div>", "framework-neutral"},
+        {"<a t:data-hx-get=\"@{/search(q=${tip})}\">s</a>", "cannot have a query"}};
     for (String[] before : befores) {
       Compilation c = Compilation.builder()
           .template("before.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"String tip\">" + before[0] + "</div>")

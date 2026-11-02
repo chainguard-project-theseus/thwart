@@ -173,15 +173,15 @@ name is classified by client framework.
 
 | Class (`OutputContext`) | Where | Accepts | Checked by |
 |---|---|---|---|
-| `FORBIDDEN` | names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x` included); every attribute of an SVG or MathML element; `srcdoc`; URL lists `ping`, `srcset`, `imagesrcset`; attributes the tree builder reads: `is`, `xmlns*`, `encoding`, `type` on `<input>` and `<script>`, `color`/`face`/`size` on `<font>`, `<template>` `shadowroot*` and `for`, `<meta>` `charset` and `http-equiv`, and `content` under a static `http-equiv="Content-Type"` | nothing: build error | `ContextsTest`, `NeutralValuesTest`, `AttributesEndToEndTest` |
+| `FORBIDDEN` | names outside `[A-Za-z_][A-Za-z0-9_.:-]*` (Vue's `:x`, `@x` included); every attribute of an SVG or MathML element; `srcdoc`; URL lists `ping`, `srcset`, `imagesrcset`; attributes the tree builder reads: `is`, `xmlns*`, `encoding`, `type` on `<input>` and `<script>`, `color`/`face`/`size` on `<font>`, `<template>` `shadowroot*` and `for`, `<meta>` `charset` and `http-equiv`, and `content` under a static `http-equiv="Content-Type"` ; and every name off the closed allow-list (#761): any name but `data-*`, `aria-*` and the names below, `content` other than a refresh included | nothing: build error | `ContextsTest`, `NeutralValuesTest`, `AttributesEndToEndTest` |
 | `EVENT_HANDLER` | `on*` | nothing: build error | `ContextsTest` |
 | `STYLE` | `style` | literals, numbers and `CssValue` (`Escapers.attr`) | `StyleAttributeTest` |
 | `REFRESH` | `content` of `<meta http-equiv="refresh">` | a literal delay and a same-origin link (`Escapers.refresh`) | seed `B3`, `SameOriginLinkRenderTest` |
-| `RESOURCE_URL` | `script[src\|href\|xlink:href]`, `iframe/frame/embed[src]`, `object[data]`, `base/link[href]` | a same-origin literal-path `@{...}` link with no query parameters: no scheme or `//` origin, data only in percent-encoded path variables, and a `/` path re-checked when rendered (`Escapers.sameOriginLink`); a `<base href>` must also start with a single `/` | `LinkCompilerTest`, `AttributesEndToEndTest`, `CsrfBaseTest` |
-| `URL` | attributes whose grammar is exactly one URL: `href src action formaction cite poster xlink:href background longdesc manifest` | any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#tessera` (`Escapers.url`) | `AttributesEndToEndTest` |
-| `TYPED_ATTRIBUTE` | every other standard name without an inert value type (`rel`, `target`, `sandbox`, `allow`, `crossorigin`, `usemap`, ...), and `<meta content>` unless its static `name` is `description`, `keywords`, `author`, `application-name`, `generator`, `color-scheme` or `theme-color` | string literals, numbers, a choice between literals (`Escapers.attr`) | `InertAttributesTest`, `KnownAttributesTest`, `ContextsTest` |
-| `ATTRIBUTE` | inert-text attributes (`inert-attributes.txt`: text, keyword, number, boolean, ID and token values, ARIA) | any value (`Escapers.attr`) | `ContextsTest` |
-| `NEUTRAL` | every other name: `data-*`, `hx-*`, `x-*`, `v-*`, a custom element's own attributes | a framework-neutral value by static type and shape: an exact-class number in plain decimal (`Escapers.neutralNumber`), a boolean, a link `@{/path}` with a literal path in `A-Z a-z 0-9 . _ ~ / -` and `%XX` and no query (`Escapers.neutralPath`), or a choice between those and literals | `NeutralValuesTest`, `HostileSweepTest` |
+| `RESOURCE_URL` | `script[src\|href]`, `iframe/frame/embed[src]`, `object[data]`, `base/link[href]` | a same-origin literal-path `@{...}` link with no query parameters: no scheme or `//` origin, data only in percent-encoded path variables, and a `/` path re-checked when rendered (`Escapers.sameOriginLink`); a `<base href>` must also start with a single `/` | `LinkCompilerTest`, `AttributesEndToEndTest`, `CsrfBaseTest` |
+| `URL` | `href src action formaction cite poster` | any value; only `http`, `https`, `mailto`, `tel` and relative URLs pass, anything else becomes `about:invalid#tessera` (`Escapers.url`) | `AttributesEndToEndTest` |
+| `TYPED_ATTRIBUTE` | `target`; `value` other than on `button data input li meter option progress select`; `for` other than on `label` and `output` | string literals, numbers, a choice between literals (`Escapers.attr`) | `InertAttributesTest`, `ContextsTest` |
+| `ATTRIBUTE` | the listed inert names (`Contexts.COMPUTED`: text `abbr alt download id label name pattern placeholder title value`, keywords, numbers, booleans, ID references, `accept class hreflang lang`, `role` and the WAI-ARIA 1.2 names) | any value (`Escapers.attr`) | `ContextsTest` |
+| `NEUTRAL` | `data-*`, and an `aria-*` name outside WAI-ARIA 1.2 | a framework-neutral value by static type and shape: an exact-class number in plain decimal (`Escapers.neutralNumber`), a boolean, a link `@{/path}` with a literal path in `A-Z a-z 0-9 . _ ~ / -` and `%XX` and no query (`Escapers.neutralPath`), or a choice between those and literals | `NeutralValuesTest`, `HostileSweepTest` |
 
 ### 6.2 Which computed names are accepted
 
@@ -190,9 +190,8 @@ Static attributes are copied verbatim, except a static `is`. A static `on*` hand
 
 | Name | Accepted | Checked by |
 |---|---|---|
-| Standard HTML, SVG, MathML or ARIA attribute (`tessera-compiler/src/main/resources/dev/tessera/compiler/html/attributes.txt`, which names its spec versions) on an HTML element | classified as in 6.1 | `ContextsTest`, `KnownAttributesTest` |
-| Any other name matching `[A-Za-z_][A-Za-z0-9_.:-]*` | `NEUTRAL` | `NeutralValuesTest` |
-| Any other name | error | `ContextsTest` |
+| `data-*`, `aria-*`, or a name on the closed allow-list (`Contexts.COMPUTED`, guide §4.4) on an HTML element | classified as in 6.1 | `ContextsTest` |
+| Any other name | error, with a fix-it naming a static value, `t:if`, or a `data-*` attribute | `ContextsTest`, `NeutralValuesTest`, `InertAttributesTest` |
 | Static `is` | a valid custom element name only (ASCII, with `-`, not a reserved SVG/MathML name) | `NeutralValuesTest` |
 | Computed `action` on a `<form>` | a same-origin link, or a choice whose every branch is one | `FormActionTest`, `CsrfActionOriginTest` |
 | Computed `formaction` | a same-origin link, or a choice whose every branch is one | `CsrfFormactionTest` |
@@ -201,8 +200,8 @@ Static attributes are copied verbatim, except a static `is`. A static `on*` hand
 ### 6.3 Client code
 
 There is no framework table: client code that evaluates attribute values or DOM text is outside
-the guarantee (principle 7), and the compiler constrains its own output only in attribute names
-outside HTML (`NEUTRAL`). Client frameworks that compile the server's DOM as a template are
+the guarantee (principle 7), and the compiler constrains its own output only in `data-*` names
+(`NEUTRAL`); every other name outside HTML is off the allow-list. Client frameworks that compile the server's DOM as a template are
 unsupported; a strict CSP is the backstop (6.4, guide §4.9).
 
 | Rule | Enforced by | Checked by |

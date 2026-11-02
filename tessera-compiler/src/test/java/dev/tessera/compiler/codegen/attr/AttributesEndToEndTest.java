@@ -66,11 +66,20 @@ class AttributesEndToEndTest {
         .assertError("t.html:1:", "TrustedUrl");
   }
 
-  /** {@code usemap} is a hash-name reference, not a URL (#539): literals only, like other typed attributes. */
+  /**
+   * Negative: names that once were typed attributes or URLs ({@code usemap}, #539; {@code manifest},
+   * {@code background}, {@code longdesc}) are off the closed allow-list (#761), literals included.
+   */
   @Test
-  void usemapIsNotAUrl() {
-    assertEquals("<img usemap=\"#m\">", render("<img t:usemap=\"${b} ? '#n' : '#m'\">", model()));
-    compile("<img t:usemap=\"s\">").assertError("t.html:1:", "t:usemap is not allowed", "not an inert-text attribute");
+  void namesOffTheListTakeNothing() {
+    for (String body : new String[] {"<img t:usemap=\"${b} ? '#n' : '#m'\">", "<img t:usemap=\"s\">",
+        "<img t:longdesc=\"s\">", "<body t:background=\"'/a.png'\"></body>", "<a t:xlink:href=\"s\">x</a>"}) {
+      compile(body).assertError("t.html:1:", "is not allowed", "is not on Tessera's list of computed attributes");
+    }
+    Compilation c = Compilation.builder()
+        .template("m.html", "<html xmlns:t=\"https://tessera.dev\" t:params=\"String s\" t:manifest=\"s\"><body></body></html>")
+        .compile();
+    c.assertError("m.html:1:", "t:manifest is not allowed", "is not on Tessera's list");
   }
 
   @Test
@@ -101,19 +110,6 @@ class AttributesEndToEndTest {
     compile("<link t:href=\"s\">").assertError("t:href on <link>");
     compile("<script t:attr=\"src=s\"></script>").assertError("t:attr src on <script>");
     compile("<object t:data=\"s + 'x'\"></object>").assertError("t:data on <object>");
-  }
-
-  /** {@code manifest} is a URL: the scheme check applies. */
-  @Test
-  void manifestIsAUrl() {
-    Compilation c = Compilation.builder()
-        .template("m.html", "<html xmlns:t=\"https://tessera.dev\" t:params=\"String s\" t:manifest=\"s\"><body></body></html>")
-        .compile()
-        .assertSuccess();
-    String ok = c.render("m", Compilation.model("s", "/app.appcache"));
-    assertTrue(ok.contains("<html manifest=\"/app.appcache\">"), ok);
-    String bad = c.render("m", Compilation.model("s", "javascript:alert(1)"));
-    assertTrue(bad.contains("<html manifest=\"about:invalid#tessera\">"), bad);
   }
 
   /**
@@ -222,13 +218,11 @@ class AttributesEndToEndTest {
         .assertError("t:attr content is not allowed", "same-origin path");
     compile("<meta t:http-equiv=\"s\" t:content=\"c\">").assertError("t:http-equiv is not allowed: the http-equiv of a <meta>", "static http-equiv");
     compile("<meta t:attr=\"http-equiv=s\" content=\"0;url=/x\">").assertError("t:attr http-equiv", "<meta>");
-    // A literal refresh written by the author is fine, and so is other meta content.
+    // A literal refresh written by the author is fine; other computed meta content is off the list (#761).
     assertEquals(
         "<meta http-equiv=\"refresh\" content=\"5\">",
         render("<meta http-equiv=\"refresh\" content=\"5\">", model()));
-    assertEquals(
-        "<meta name=\"description\" content=\"a&lt;b\">",
-        render("<meta name=\"description\" t:content=\"s\">", model("s", "a<b")));
+    compile("<meta name=\"description\" t:content=\"s\">").assertError("t:content is not allowed", "is not on Tessera's list");
   }
 
   @Test
@@ -255,11 +249,10 @@ class AttributesEndToEndTest {
             model()));
     compile("<p is=\"x-p\">x</p><svg xmlns=\"http://www.w3.org/2000/svg\"></svg>"
         + "<template shadowrootmode=\"open\" for=\"x\"><p>x</p></template>").assertSuccess();
-    compile("<meta name=\"description\" t:content=\"s\">"
-        + "<label t:for=\"s\">x</label>").assertSuccess();
-    // #539: shadowrootmode is no inert-text attribute anywhere, and content under another http-equiv takes a safe value.
-    compile("<meta http-equiv=\"content-language\" t:content=\"s\">").assertError("t.html:1:", "t:content is not allowed", "inert-text");
-    compile("<div t:shadowrootmode=\"s\">x</div>").assertError("t.html:1:", "t:shadowrootmode is not allowed", "inert-text");
+    compile("<label t:for=\"s\">x</label>").assertSuccess();
+    // #761: shadowrootmode elsewhere, and content under another http-equiv, are off the list.
+    compile("<meta http-equiv=\"content-language\" t:content=\"'en'\">").assertError("t.html:1:", "t:content is not allowed", "not on");
+    compile("<div t:shadowrootmode=\"s\">x</div>").assertError("t.html:1:", "t:shadowrootmode is not allowed", "not on");
   }
 
   @Test
@@ -288,9 +281,10 @@ class AttributesEndToEndTest {
     compile("<script t:type=\"s\"></script>").assertError("t:type is not allowed: the type of a <script>", "static type attribute");
     compile("<script t:attr=\"type=s\"></script>").assertError("t:attr type", "<script>");
     compile("<script type=\"application/json\" t:attr=\"type=s\"></script>").assertError("t:attr type");
-    // #678: on an <input> too; on other elements type is an ordinary attribute.
+    // #678: on an <input> too; on other elements type is off the list (#761), with no per-element exception.
     compile("<input t:type=\"s\">").assertError("t:type is not allowed: the type of an <input>", "static type attribute");
-    assertEquals("<ol type=\"i\"></ol>", render("<ol t:type=\"${b} ? 'a' : 'i'\"></ol>", model()));
+    compile("<ol t:type=\"${b} ? 'a' : 'i'\"></ol>").assertError("t:type is not allowed", "not on");
+    compile("<button t:type=\"${b} ? 'submit' : 'button'\">x</button>").assertError("t:type is not allowed", "under t:if");
   }
 
   @Test

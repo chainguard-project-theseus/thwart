@@ -5,8 +5,6 @@ import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.JavaStrings;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.TemplateSource;
-import dev.tessera.compiler.expr.Assignment;
-import dev.tessera.compiler.expr.ExpressionParser;
 import dev.tessera.compiler.model.Attribute;
 import dev.tessera.compiler.model.Comment;
 import dev.tessera.compiler.model.DocType;
@@ -191,35 +189,6 @@ public final class HtmlParser {
       }
     }
     return true;
-  }
-
-  /**
-   * Whether {@code a} is a {@code t:attr*} attribute that may set attribute {@code name}
-   * (lower-case): a {@code t:attr} sets only the attributes it names, which the template writes as
-   * literals ({@code t:attr="id=${s}"} cannot set {@code encoding}). A {@code t:attr} that does not
-   * parse, and any other {@code t:attr*}, may set anything; AttrProcessor reports the parse error.
-   */
-  public static boolean attrMaySet(Attribute a, String name) {
-    String local = asciiLower(a.localName());
-    if (!a.isTessera() || !local.startsWith("attr")) {
-      return false;
-    }
-    if (!local.equals("attr")) {
-      return true;
-    }
-    if (a.value() == null) {
-      return false;
-    }
-    List<Assignment> assignments = new ExpressionParser().parseAssignments(a.value(), a.valuePos(), d -> {});
-    if (assignments == null) {
-      return true;
-    }
-    for (Assignment assignment : assignments) {
-      if (asciiLower(assignment.name()).equals(name)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /**

@@ -26,9 +26,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * Rule 3 of #583 (#584): an attribute name outside HTML ({@code data-*}, {@code hx-*}, {@code x-*},
- * {@code v-*}, a custom element's own attribute, any other name) takes only a framework-neutral
- * computed value: an exact-class number in plain decimal, a boolean, a same-origin {@code @{}} path
+ * Rule 3 of #583 (#584): a {@code data-*} attribute, and an {@code aria-*} name outside WAI-ARIA
+ * 1.2, takes only a framework-neutral computed value; every other name outside HTML ({@code hx-*},
+ * {@code x-*}, {@code v-*}, a custom element's own attribute, ...) is off the closed allow-list (#761)
+ * and takes none. Neutral: an exact-class number in plain decimal, a boolean, a same-origin {@code @{}} path
  * with no query, or a choice between those and literals. Checked at build time by static type and
  * expression shape; numbers and paths are re-checked when rendered.
  */
@@ -62,13 +63,26 @@ class NeutralValuesTest {
   // ---- negative: computed strings outside HTML attributes are build errors (#584's probes) ----
 
   @ParameterizedTest
-  @ValueSource(strings = {"data-on-click", "hx-on:click", "x-html", "v-html", "data-name", "hx-vals", "x-data",
-      "foo", "data-bind", "hx-get", "data-hx-post", "hx-push-url", "up-on-loaded", "ng-init",
-      "_", "hx-action"})
+  @ValueSource(strings = {"data-on-click", "data-hx-on:click", "data-x-html", "data-v-html", "data-name", "data-hx-vals",
+      "data-x-data", "data-bind", "data-hx-get", "data-hx-post", "data-hx-push-url", "data-up-on-loaded", "data-ng-init",
+      "aria-foo", "DATA-X"})
   void computedStringIsABuildError(String name) {
     compile("<p t:" + name + "=\"${s}\">x</p>")
         .assertError("t.html:1:", "t:" + name + " is not allowed", "framework-neutral", "not a java.lang.String");
     compile("<p t:attr=\"" + name + "=${s}\">x</p>").assertError("t.html:1:", "framework-neutral");
+  }
+
+  /**
+   * #761: a name outside HTML that is not {@code data-*} or {@code aria-*} takes no computed value,
+   * neutral or not, with a fix-it naming the {@code data-*} spelling.
+   */
+  @ParameterizedTest
+  @ValueSource(strings = {"hx-on:click", "x-html", "v-html", "hx-vals", "x-data", "foo", "hx-get", "hx-push-url",
+      "up-on-loaded", "ng-init", "_", "hx-action", "v-bind:title", "x-bind:title"})
+  void namesOffTheListTakeNoValue(String name) {
+    compile("<p t:" + name + "=\"${i.id}\">x</p>")
+        .assertError("t.html:1:", "t:" + name + " is not allowed", "is not on Tessera's list", "t:data-");
+    compile("<p t:attr=\"" + name + "=${flag}\">x</p>").assertError("t.html:1:", "is not on Tessera's list");
   }
 
   /**
@@ -103,7 +117,7 @@ class NeutralValuesTest {
    * framework may run what it reads there. In a standard inert attribute it is text as usual.
    */
   @ParameterizedTest
-  @ValueSource(strings = {"data-tip", "hx-vals", "x-data", "v-html", "data-bind"})
+  @ValueSource(strings = {"data-tip", "data-hx-vals", "data-x-data", "data-v-html", "data-bind"})
   void messageIsNotANeutralValue(String name) {
     compileWithMessages("<p t:" + name + "=\"#{tip}\">x</p>").assertError("t.html:1:", "framework-neutral");
     compileWithMessages("<p t:attr=\"" + name + "=#{tip}\">x</p>").assertError("t.html:1:", "framework-neutral");
@@ -116,11 +130,12 @@ class NeutralValuesTest {
     compileWithMessages("<p t:title=\"#{tip}\">x</p>").assertSuccess();
   }
 
-  /** A custom element's own attributes follow rule 3; there is no prop exemption. */
+  /** A custom element's own attributes are off the list (#761); there is no prop exemption. */
   @Test
-  void customElementAttributeTakesNoString() {
-    compile("<x-widget t:html=\"${s}\"></x-widget>").assertError("t.html:1:", "t:html is not allowed", "neutral");
-    compile("<x-widget t:heading=\"${i.name}\"></x-widget>").assertError("t.html:1:", "neutral");
+  void customElementAttributeTakesNoValue() {
+    compile("<x-widget t:html=\"${s}\"></x-widget>").assertError("t.html:1:", "t:html is not allowed", "not on");
+    compile("<x-widget t:heading=\"${i.id}\"></x-widget>").assertError("t.html:1:", "not on");
+    compile("<x-widget t:data-heading=\"${i.name}\"></x-widget>").assertError("t.html:1:", "neutral");
     // Its standard attributes are classified as on any element.
     compile("<x-widget t:title=\"${s}\"></x-widget>").assertSuccess();
     compile("<x-widget t:target=\"${s}\"></x-widget>").assertError("t.html:1:", "not an inert-text attribute");
@@ -204,8 +219,8 @@ class NeutralValuesTest {
 
   @Test
   void sameOriginLinkWithPathVariable() {
-    Compilation c = compile("<p t:hx-get=\"@{/items/{id}(id=${i.id})}\">x</p>").assertSuccess();
-    assertEquals("<div><p hx-get=\"/items/7\">x</p></div>", render(c));
+    Compilation c = compile("<p t:data-hx-get=\"@{/items/{id}(id=${i.id})}\">x</p>").assertSuccess();
+    assertEquals("<div><p data-hx-get=\"/items/7\">x</p></div>", render(c));
   }
 
   @Test
@@ -219,29 +234,18 @@ class NeutralValuesTest {
         + " data-or=\"0\">x</p></div>", render(c, "big", new BigDecimal("1.5"), "flag", false));
   }
 
-  /** Framework names are ordinary rule-3 names: a neutral value goes anywhere, under t:attr too. */
-  @Test
-  void neutralValuesInAnyName() {
-    Compilation c = compile("<x-widget t:hx-vals=\"${i.id}\" t:attr=\"x-show=${flag},count=${i.id}\""
-        + " t:v-html=\"${i.id}\"></x-widget>").assertSuccess();
-    assertEquals("<div><x-widget x-show=\"true\" count=\"7\" hx-vals=\"7\" v-html=\"7\"></x-widget></div>",
-        render(c));
-  }
-
   /**
-   * A Vue/Alpine binding writes no JSON (#599 deleted jsonAttr): a String or a collection is a build
-   * error, a neutral value is attribute-escaped, and a null leaves the attribute out instead of
-   * writing JSON {@code null}.
+   * A neutral value goes into any data-* name, on a custom element and under t:attr too; it writes
+   * no JSON (#599 deleted jsonAttr), and a null leaves the attribute out.
    */
   @Test
-  void bindingsTakeNeutralValuesNotJson() {
-    for (String name : List.of("v-bind:title", "x-bind:title")) {
-      compile("<p t:attr=\"" + name + "=${s}\">x</p>").assertError("t.html:1:", "framework-neutral");
-      compile("<p t:attr=\"" + name + "=${tags}\">x</p>").assertError("t.html:1:", "framework-neutral");
-      Compilation c = compile("<p t:attr=\"" + name + "=${big}\">x</p>").assertSuccess();
-      assertEquals("<div><p " + name + "=\"1.5\">x</p></div>", render(c, "big", new BigDecimal("1.5")));
-      assertEquals("<div><p>x</p></div>", render(c, "big", null));
-    }
+  void neutralValuesInAnyDataName() {
+    Compilation c = compile("<x-widget t:data-hx-vals=\"${i.id}\" t:attr=\"data-x-show=${flag},data-count=${i.id}\""
+        + " t:aria-foo=\"${big}\"></x-widget>").assertSuccess();
+    assertEquals("<div><x-widget data-x-show=\"true\" data-count=\"7\" data-hx-vals=\"7\" aria-foo=\"1.5\"></x-widget>"
+        + "</div>", render(c, "big", new BigDecimal("1.5")));
+    assertEquals("<div><x-widget data-x-show=\"true\" data-count=\"7\" data-hx-vals=\"7\"></x-widget></div>",
+        render(c, "big", null));
   }
 
   /**
@@ -253,8 +257,8 @@ class NeutralValuesTest {
    */
   @Test
   void neutralOutputsRunNothingAsJavaScript() {
-    Compilation c = compile("<p t:hx-on:click=\"@{/a/{x}/b--c(x=${s})}\" t:x-data=\"${d}\" t:v-html=\"${big}\""
-        + " t:x-init=\"${flag}\" t:data-on-load=\"${i.id}\">x</p>").assertSuccess();
+    Compilation c = compile("<p t:data-hx-on:click=\"@{/a/{x}/b--c(x=${s})}\" t:data-x-data=\"${d}\" t:data-v-html=\"${big}\""
+        + " t:data-x-init=\"${flag}\" t:data-on-load=\"${i.id}\">x</p>").assertSuccess();
     List<String> values = new ArrayList<>();
     for (String s : new String[] {"--location.port--", "-document.cookie--", "x=alert(1)", "a'+alert(1)+'", "${alert(1)}",
         "a;alert(1)", " alert(1)", "a\nb", "../..//evil", "-%2D-", "a%", "é", "constructor.constructor"}) {
