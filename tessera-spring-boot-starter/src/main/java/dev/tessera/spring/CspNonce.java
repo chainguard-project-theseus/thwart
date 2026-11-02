@@ -5,7 +5,7 @@ import java.security.SecureRandom;
 import java.util.Base64;
 
 /**
- * The request's Content Security Policy nonce (#335). The starter's {@code RenderContext} carries
+ * The request's Content Security Policy nonce. The starter's {@code RenderContext} carries
  * it, so every {@code <script>} and {@code <style>} a template writes gets {@code nonce="..."}.
  * Use the same value in your {@code Content-Security-Policy} header, for example {@code
  * "script-src 'nonce-" + CspNonce.get(request) + "' 'strict-dynamic'"}. The starter sends no

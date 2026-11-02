@@ -18,7 +18,7 @@ import java.util.Map;
  * {@code ctx.template().fragments()}, rendering the fragment element in a scope containing only
  * its declared parameters ({@link CodegenContext#renderFragment}).
  *
- * <p>A fragment with a {@code Fragment} parameter gets no public method (#600): the verifier parses
+ * <p>A fragment with a {@code Fragment} parameter gets no public method: the verifier parses
  * the fragments templates pass where they land, and checks nothing else. Its class and every class
  * that calls it get a private copy instead ({@link CodegenContext#privateFragment}), so only
  * generated code can pass it a {@code Fragment}.

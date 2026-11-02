@@ -13,7 +13,7 @@ import java.util.Set;
 /**
  * Java 8 versions of the Java 9-11 library methods the compiler used ({@code List.of},
  * {@code List.copyOf}, {@code String.strip}, ...), because the processor runs inside the
- * application's javac, which may be JDK 8 (#166). Same contracts: collections are unmodifiable and
+ * application's javac, which may be JDK 8. Same contracts: collections are unmodifiable and
  * reject nulls; whitespace is {@link Character#isWhitespace(int)}.
  */
 public final class Backports {

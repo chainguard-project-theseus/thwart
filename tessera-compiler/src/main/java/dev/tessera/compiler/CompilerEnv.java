@@ -20,7 +20,7 @@ import javax.lang.model.util.Types;
  * @param functionNamespaces {@code @TemplateFunctions} classes found in the current
  *     compilation (built-in namespaces are added by the function registry)
  * @param functionIndex maps any other namespace to the qualified name of the class that declared it
- *     in an earlier compilation, or null (the processor reads the index from the classpath, #118)
+ *     in an earlier compilation, or null (the processor reads the index from the classpath)
  */
 public final class CompilerEnv {
   private final Elements elements;

@@ -842,7 +842,7 @@ public final class ExpressionParser {
     /**
      * The name after {@code ::}: a fragment name or, in a same-template selection, a tag name. A tag
      * name may contain '-' (a custom element such as {@code my-card}), and {@code t:block} is the one
-     * with a prefix (#137). Other markup selectors ({@code #id}, {@code .class}, paths) are not
+     * with a prefix. Other markup selectors ({@code #id}, {@code .class}, paths) are not
      * supported.
      */
     String selector() {

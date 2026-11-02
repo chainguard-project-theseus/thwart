@@ -1,8 +1,8 @@
 package dev.tessera.compiler.verify;
 
 /**
- * What the context verifier rejects (#367). The names are stable rule ids: each error message
- * carries one ({@link VerifierMessages}), and #368 maps them to fix-its. Ids appear in messages:
+ * What the context verifier rejects. The names are stable rule ids: each error message
+ * carries one ({@link VerifierMessages}), which maps them to fix-its. Ids appear in messages:
  * don't rename one.
  */
 public enum Problem {
@@ -40,42 +40,42 @@ public enum Problem {
    */
   RAW_CLOSES_ELEMENT,
   /**
-   * The parser reports a parse error (#406): the markup parses only by error recovery (foster
+   * The parser reports a parse error: the markup parses only by error recovery (foster
    * parenting, misnested or stray tags, a second {@code <body>}, ...), where browsers may build
    * different trees. Two kinds are allowed ({@link Rules#allowedError}): the missing-doctype
    * messages and validator.nu's "Duplicate ID".
    */
   PARSE_ERROR,
-  /** An {@code svg} or {@code math} element inside a table part or {@code <template>} (#398, exclusion (a)). */
+  /** An {@code svg} or {@code math} element inside a table part or {@code <template>} (exclusion (a)). */
   FOREIGN_IN_TABLE,
-  /** An HTML table part directly in {@code <template>} (#401, exclusion (b)). */
+  /** An HTML table part directly in {@code <template>} (exclusion (b)). */
   TABLE_IN_TEMPLATE,
-  /** An element other than {@code option}, {@code optgroup} or {@code hr} in a {@code <select>} (#305, exclusion (c)). */
+  /** An element other than {@code option}, {@code optgroup} or {@code hr} in a {@code <select>} (exclusion (c)). */
   SELECT_CONTENT,
   /**
    * A fragment that no template calls, declared where no fragment fits (raw text or {@code
    * t:remove="tag"} content), so the verifier can't check it on its
-   * own (#461, {@link ContextVerifier#checkUncalled}).
+   * own ({@link ContextVerifier#checkUncalled}).
    */
   UNCALLED_FRAGMENT_FITS_NOWHERE,
   /**
    * A value (any escaper) in the raw text of {@code <noscript>} (scripting on), {@code <xmp>},
-   * {@code <iframe>}, {@code <noembed>} or {@code <noframes>} (#586): raw text decodes no character
+   * {@code <iframe>}, {@code <noembed>} or {@code <noframes>}: raw text decodes no character
    * reference, so no escaper fits.
    */
   VALUE_IN_RAW_TEXT,
   /**
-   * A value (any escaper) while the current node is SVG or MathML (#678): foreign content, its
+   * A value (any escaper) while the current node is SVG or MathML: foreign content, its
    * integration points and presentation attributes are not modelled, so only static markup goes there.
    */
   VALUE_IN_FOREIGN,
   /**
-   * A CDATA section anywhere (#678, exclusion (d)): a browser reads one only in SVG and MathML, and
+   * A CDATA section anywhere (exclusion (d)): a browser reads one only in SVG and MathML, and
    * some read it as a comment that ends at the first {@code >} in an integration point.
    */
   CDATA_SECTION,
   /**
-   * Control flow that isn't state-neutral (#682): a {@code t:if}, {@code t:unless}, {@code t:case},
+   * Control flow that isn't state-neutral: a {@code t:if}, {@code t:unless}, {@code t:case},
    * {@code t:each}, computed attribute or fragment insertion whose body, or a partial (or fragment
    * checked on its own) that as a whole, leaves the parser in another state than it found it in
    * (an element left open or closed, inside a tag or comment, an implied {@code <tbody>}), so what

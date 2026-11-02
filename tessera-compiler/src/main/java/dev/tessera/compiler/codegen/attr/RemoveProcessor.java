@@ -53,7 +53,7 @@ public final class RemoveProcessor implements AttributeProcessor {
                       + " t:remove=\"all\" to drop the element");
         }
         // Also after an error: nothing is written then, and the skeleton keeps what the template
-        // asks for, for the verifier's own check (#367).
+        // asks for, for the verifier's own check.
         plan.omitTag();
         break;
       case "all-but-first":

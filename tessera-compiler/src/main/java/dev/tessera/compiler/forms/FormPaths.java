@@ -46,7 +46,7 @@ public final class FormPaths {
     /**
      * The path, but not the field's value, which is null: for a field bound by name only, whose
      * value is never read ({@code t:errors}, {@code fields.*}, {@code t:field} on a file input), so
-     * its type need not be view-safe ({@link ExpressionCompiler#pathType}, #129).
+     * its type need not be view-safe ({@link ExpressionCompiler#pathType}).
      */
     PATH,
     /** The path and the field's current value, whose type must not be on the deny-list. */
@@ -150,7 +150,7 @@ public final class FormPaths {
 
   /**
    * The {@code Field} variable at the root of {@code e} if {@code e} is a sub-path of it,
-   * {@code name.answer} or {@code name.items[i].text} (#239), and empty otherwise (also for a bare
+   * {@code name.answer} or {@code name.items[i].text}, and empty otherwise (also for a bare
    * {@code name}, see {@link #fieldVariable}).
    */
   public static Optional<Variable> fieldRoot(Expr e, Scope scope) {
@@ -216,7 +216,7 @@ public final class FormPaths {
    * Resolves a field path expression against the {@code t:object} selection in {@code scope}:
    * {@code lastName}, {@code *{address.city}}, or with index segments {@code *{items[0].name}},
    * {@code *{items[i].name}}, {@code *{items[${iterStat.index}].name}}, or with map key segments
-   * {@code *{prices[key]}}, {@code *{prices['x']}} (#190). A List or array index is an int literal
+   * {@code *{prices[key]}}, {@code *{prices['x']}}. A List or array index is an int literal
    * or an int-typed variable or property chain (a loop variable, {@code iterStat.index}); a Map key
    * is a literal or a variable or property chain of type int, long, String or an enum, written as
    * Spring's {@code BeanWrapper} reads it, unquoted: {@code prices[x]}. A String key is checked by
@@ -451,7 +451,7 @@ public final class FormPaths {
    * Parses a string-literal field path ({@code lastName}, {@code address.city},
    * {@code items[0].name}, {@code prices[x]}) into the expression {@link #resolve} takes, or returns
    * null if {@code path} is not one. Indexes are decimal ints without leading zeros; a map key is
-   * an identifier, unquoted as Spring writes it (#190).
+   * an identifier, unquoted as Spring writes it.
    */
   static Expr parseLiteral(String path, SourcePos pos) {
     Expr e = null;

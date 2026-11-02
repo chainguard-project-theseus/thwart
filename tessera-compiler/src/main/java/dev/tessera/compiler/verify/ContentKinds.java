@@ -25,12 +25,12 @@ import java.util.Set;
  * <p>Then the parser leaves the value in the state it entered it, whatever the value is, so the
  * rest of the template parses as the verifier saw it.
  *
- * <p>Only one kind exists, FLOW: the bench corpus needs no other (see the #329 PR). FLOW is
+ * <p>Only one kind exists, FLOW: the bench corpus needs no other. FLOW is
  * balanced flow content: every element it opens it closes; it has no {@code form} element; and
  * its top-level elements are not list items ({@code li}, {@code dd}, {@code dt}), table parts,
  * {@code head}, {@code body}, {@code html} or {@code frameset}. Producers: every {@code
  * html.sanitize} policy (the producer test checks them), and {@code SafeHtml.escape} and {@code
- * concat} of FLOW values. A {@code Fragment} argument is verified where it lands (#676).
+ * concat} of FLOW values. A {@code Fragment} argument is verified where it lands.
  */
 public final class ContentKinds {
   private ContentKinds() {}
@@ -57,7 +57,7 @@ public final class ContentKinds {
    * <p>{@link Problem#RAW_NOT_FLOW}: not in data state; the current node isn't HTML; or the mode
    * isn't in body, in cell, in caption or in template. {@link Problem#RAW_CLOSES_ELEMENT}: an open
    * element that a flow start tag closes or adopts ({@link #closer}). Formatting elements waiting
-   * to be reopened are reached only by error recovery, a {@link Problem#PARSE_ERROR} (#410).
+   * to be reopened are reached only by error recovery, a {@link Problem#PARSE_ERROR}.
    */
   public static Problem problem(ParserState s) {
     return problem(s, Skeleton.Source.SAFE_HTML);
@@ -114,25 +114,25 @@ public final class ContentKinds {
    *
    * <p>Not here: SVG or MathML above a cell, where a {@code </table>} in the value resets the mode
    * differently in validator.nu and the standard. Exclusion (a) rejects any {@code <svg>} or
-   * {@code <math>} in a table part ({@link Rules#exclusion}, #410).
+   * {@code <math>} in a table part ({@link Rules#exclusion}).
    *
    * <p>Not here: three or more formatting entries of one name. One more drops the oldest from the
    * list (the Noah's Ark clause), but that element stays open, and in an error-free parse the list
-   * changes the tree only through entries that are no longer open (#444).
+   * changes the tree only through entries that are no longer open.
    *
    * <p>Not here, because FLOW content can't close them: an open {@code li}, {@code dd} or {@code dt}
    * (FLOW content writes those only inside its own list, whose {@code ul}/{@code ol}/{@code dl}
    * stops the start tag's search), and an open {@code form} (FLOW content has no {@code form},
    * whose start tag would be ignored there and whose end tag would close the open one). Rejecting
-   * them would reject sanitized text in any list item or form (#329 PR: 20 bench pages in forms).
+   * them would reject sanitized text in any list item or form (20 bench pages write it in a form).
    */
   static String closer(ParserState s) {
     return closer(s, Skeleton.Source.SAFE_HTML);
   }
 
   /**
-   * As {@link #closer(ParserState)} for HTML from {@code source}. An HTML message is PHRASING
-   * (#677): the message policy writes only {@code b i em strong u s sub sup small mark code kbd
+   * As {@link #closer(ParserState)} for HTML from {@code source}. An HTML message is PHRASING:
+   * the message policy writes only {@code b i em strong u s sub sup small mark code kbd
    * span br}, balanced and without nesting a formatting element in one of its name, and, for a
    * {@link Skeleton.Source#LINKED_HTML_MESSAGE}, {@code a}. None of those closes an open {@code p},
    * heading, {@code button}, {@code nobr} or {@code ruby}, so only an open {@code select} and, for
@@ -203,7 +203,7 @@ public final class ContentKinds {
   }
 
   /**
-   * The signature of {@code s} as an exit state is compared with an entry state (#682): without the
+   * The signature of {@code s} as an exit state is compared with an entry state: without the
    * original insertion mode, unless it is live. The parser sets it on entering the "text" mode (and
    * validator.nu's held-back table text) and reads it only there; validator.nu keeps the last value
    * afterwards, so a {@code <textarea>}, {@code <script>} or {@code <template>} would otherwise look

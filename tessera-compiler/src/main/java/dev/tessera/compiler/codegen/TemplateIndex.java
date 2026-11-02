@@ -320,8 +320,8 @@ public final class TemplateIndex {
 
   /**
    * {@code Field} is a fragment parameter type only: its argument is a field path checked at the
-   * call site, which a template rendered from a model has no way to supply. So is {@code Fragment}
-   * (#676): no Java code can build one, so only a template calling the fragment can pass it.
+   * call site, which a template rendered from a model has no way to supply. So is {@code Fragment}:
+   * no Java code can build one, so only a template calling the fragment can pass it.
    */
   private static List<Param> withoutFields(List<Param> params, List<ParamDecl> decls, DiagnosticSink sink) {
     List<Param> out = new ArrayList<>();

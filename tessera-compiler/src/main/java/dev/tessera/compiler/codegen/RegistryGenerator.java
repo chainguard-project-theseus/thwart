@@ -24,7 +24,7 @@ import javax.lang.model.type.TypeMirror;
  * naming the template, the parameter, the expected and the actual type. Generic arguments are
  * not checked. A primitive parameter needs a value of its box type; a missing one throws.
  *
- * <p>Fragment entries (#131, {@code TemplateRegistry.fragments()}): one per fragment named in
+ * <p>Fragment entries ({@code TemplateRegistry.fragments()}): one per fragment named in
  * {@code servable} (as {@code page :: fragment}, the fragments the verifier checked as a response
  * body) none of whose parameters is a {@code Fragment} or {@code Field}, which a model can't
  * supply. Its renderer adapts the model to the fragment's own declared parameters the same way and

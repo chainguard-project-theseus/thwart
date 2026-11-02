@@ -34,7 +34,7 @@ final class ConversionRules {
   /**
    * {@code th:} attributes that are left in place, unrenamed, and reported. Keys are lower-case
    * attribute names. {@code th:on*} and {@code th:style} are converted like any other attribute:
-   * the compiler's error for a computed one names the fix (#595).
+   * the compiler's error for a computed one names the fix.
    */
   private static final Map<String, String> UNSUPPORTED_ATTRIBUTES = Compat.mapOf(
       ConversionRules.THYMELEAF_INLINE, "`th:inline` is not supported; use `[[...]]` in `<script>` (JSON-escaped) or put data in a `<script type=\"application/json\">` block",
@@ -129,8 +129,8 @@ final class ConversionRules {
 
   /**
    * Thymeleaf's double-brace selection of a field path, {@code *{{due}}}: inside {@code th:object}
-   * the field's BindStatus display value (rejected or formatted), which is {@code fields.value('due')}
-   * (#133). Group 1 is the path: names and int indexes.
+   * the field's BindStatus display value (rejected or formatted), which is {@code fields.value('due')}.
+   * Group 1 is the path: names and int indexes.
    */
   static final Pattern DOUBLE_BRACE_SELECTION =
       Pattern.compile("\\*\\{\\{\\s*([A-Za-z_]\\w*(?:\\[\\d+\\])*(?:\\.[A-Za-z_]\\w*(?:\\[\\d+\\])*)*)\\s*\\}\\}");
@@ -321,7 +321,7 @@ final class ConversionRules {
   /** Thymeleaf's inlining switch; {@code th:inline="none"} leaves {@code [[...]]} in its body alone. */
   static final String THYMELEAF_INLINE = "th:inline";
   static final String INLINE_NONE = "none";
-  /** {@code th:inline="javascript"}: Thymeleaf's natural-template comments apply (#315). */
+  /** {@code th:inline="javascript"}: Thymeleaf's natural-template comments apply. */
   static final String INLINE_JAVASCRIPT = "javascript";
 
   static final String SCRIPT = "script";

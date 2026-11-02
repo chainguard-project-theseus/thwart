@@ -84,7 +84,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
         }
         String origin = call.contexts.place(call.root);
         String fix = fitsNothing(point);
-        // Nothing fits in raw text, and nothing inside <svg> or <math> is an insertion point (#678): a fix-it
+        // Nothing fits in raw text, and nothing inside <svg> or <math> is an insertion point: a fix-it
         // never suggests inserting or declaring a fragment there.
         if (fix == null && (ParsingContexts.isRawText(origin) || isForeign(origin))) {
           fix = "declare the fragment outside " + ParsingContexts.describe(origin) + icon(origin);
@@ -107,7 +107,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
                     + attr.name() + " puts it in " + ParsingContexts.describe(point)
                     + " content, where a browser parses its markup differently: " + fix);
         // The call is still emitted: nothing is written on error, and the skeleton keeps it for the
-        // verifier's own check (#367).
+        // verifier's own check.
       }
       return call == null ? null : Emitted.wrap("{\n" + pre, call.emit(ref.pos()).then("\n"), "}");
     }
@@ -399,7 +399,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
   /**
    * An argument for a {@code Field} parameter: a string literal field path, checked here against
    * the caller's {@code t:object} type, a {@code Field} variable passed on (a fragment forwarding
-   * its own parameter), or a sub-path of one ({@code name.answer}, #239). Nothing else: the path
+   * its own parameter), or a sub-path of one ({@code name.answer}). Nothing else: the path
    * is never computed from a run-time string. For a {@code Field<T>} parameter the field's type
    * must be assignable to {@code T}.
    */

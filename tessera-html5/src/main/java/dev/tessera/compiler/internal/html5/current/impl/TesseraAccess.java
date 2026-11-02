@@ -7,7 +7,7 @@ import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
 /**
- * Tessera's accessor for this htmlparser build (#365). It lives in the parser's own package so it
+ * Tessera's accessor for this htmlparser build. It lives in the parser's own package so it
  * can read the package-private and protected state the build-time verifier needs, without
  * patching the parser source. One instance is one parser: a tokenizer and a tree builder that
  * builds no tree.
@@ -35,7 +35,7 @@ public final class TesseraAccess {
   private Listener listener;
 
   /**
-   * What the parser reports while it parses (#406). Positions are the tokenizer's: line (from 1)
+   * What the parser reports while it parses. Positions are the tokenizer's: line (from 1)
    * and column (from 1, in UTF-16 units) of the character it was reading, counted from the start of
    * the first {@link #feed} of this instance (every {@link #fork} starts counting afresh).
    */
@@ -68,7 +68,7 @@ public final class TesseraAccess {
       tree.setFragmentContext(contextName.intern(), contextNamespace.intern(), null, false);
     }
     // The error-reporting tokenizer tracks line and column and reports tokenizer errors; with an
-    // error handler, the tree builder reports its own (#406). Neither changes what is parsed.
+    // error handler, the tree builder reports its own. Neither changes what is parsed.
     tokenizer = new ErrorReportingTokenizer(tree, false);
     ErrorHandler errors = new ErrorHandler() {
       @Override
@@ -373,7 +373,7 @@ public final class TesseraAccess {
       access.pushed(ns, name, node);
     }
 
-    /** Where the tokenizer asks whether {@code <![} starts a CDATA section (#441). */
+    /** Where the tokenizer asks whether {@code <![} starts a CDATA section. */
     @Override
     public boolean cdataSectionAllowed() throws SAXException {
       boolean allowed = super.cdataSectionAllowed();

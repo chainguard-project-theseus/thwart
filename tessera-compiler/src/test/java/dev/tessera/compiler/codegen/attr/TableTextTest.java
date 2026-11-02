@@ -10,7 +10,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * #348, now the build-time verifier's: a browser moves text out of {@code table}, {@code tbody},
+ * A browser moves text out of {@code table}, {@code tbody},
  * {@code thead}, {@code tfoot}, {@code tr} and {@code colgroup} in front of the table. A value a
  * browser reads as table text, raw HTML outside a cell and a misplaced table part are build
  * errors; text in a cell is ordinary escaped text.
@@ -47,7 +47,7 @@ class TableTextTest {
   }
 
   /**
-   * #348, now the build-time verifier's: a browser moves text out of {@code table}, {@code tbody},
+   * A browser moves text out of {@code table}, {@code tbody},
    * {@code thead}, {@code tfoot}, {@code tr} and {@code colgroup} in front of the table. The
    * verifier reports any value a browser reads as table text, and raw HTML outside a cell.
    */
@@ -105,7 +105,7 @@ class TableTextTest {
   }
 
   /**
-   * #348, now the build-time verifier's: a table part where a browser does not keep it makes the
+   * A table part where a browser does not keep it makes the
    * browser close elements up to one that takes it (a {@code <tr>} ends a {@code <td>}), so the
    * text after it is read in the table and moved in front of it. A {@code <form>} in a table is
    * closed at once. Each is a parse error, and the value after it table text.
@@ -154,7 +154,7 @@ class TableTextTest {
         .compile();
   }
 
-  /** #348: what t:insert/t:replace writes where it lands, through tagless fragment roots. */
+  /** What t:insert/t:replace writes where it lands, through tagless fragment roots. */
   @ParameterizedTest
   @ValueSource(
       strings = {
@@ -193,7 +193,7 @@ class TableTextTest {
   }
 
   /**
-   * #348: a {@code ~{::tr}} passed as a {@code Fragment} and inserted in a {@code <td>} ends the
+   * A {@code ~{::tr}} passed as a {@code Fragment} and inserted in a {@code <td>} ends the
    * cell, so the value after it is moved in front of the table. The verifier parses it where it
    * lands, also through a ternary, an Elvis or a t:with alias (#561).
    */

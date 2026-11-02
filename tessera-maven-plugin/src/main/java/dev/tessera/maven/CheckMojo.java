@@ -20,7 +20,7 @@ import org.apache.maven.plugins.annotations.Parameter;
 
 /**
  * Makes {@code compile} run the Tessera annotation processor again when templates or message
- * bundles changed (#425, #447).
+ * bundles changed.
  *
  * <p>maven-compiler-plugin runs javac only when Java sources, the source set or the classpath
  * change, so a template-only or message-only edit used to leave the old generated classes and a
@@ -32,7 +32,7 @@ import org.apache.maven.plugins.annotations.Parameter;
  * generated sources and the compiler plugin's incremental state), so the compiler plugin compiles
  * the module from scratch whatever its version or incremental mode. A first build (no classes
  * yet) is left alone. Other files in the class directories are kept: copied resources, and files
- * a plugin wrote earlier in the build, such as git-commit-id's {@code git.properties} (#626).
+ * a plugin wrote earlier in the build, such as git-commit-id's {@code git.properties}.
  */
 @Mojo(name = "check", defaultPhase = LifecyclePhase.PROCESS_SOURCES, threadSafe = true)
 public final class CheckMojo extends AbstractMojo {
@@ -111,8 +111,8 @@ public final class CheckMojo extends AbstractMojo {
 
   /**
    * Why the output in {@code classes} is stale, or null. Main output with class files but without
-   * a record is stale (a failed or pre-#425 compile); without class files it is a first build that
-   * other plugins may have written to (#626); test output without one is not (its compile may not
+   * a record is stale (a failed compile, or one from before the record); without class files it is a first build that
+   * other plugins may have written to; test output without one is not (its compile may not
    * run the processor).
    */
   static Stale stale(Path classes, byte[] current, boolean main) throws IOException {

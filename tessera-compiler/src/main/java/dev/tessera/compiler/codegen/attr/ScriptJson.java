@@ -177,7 +177,7 @@ final class ScriptJson {
       default:
         return null;
     }
-    t = ctx.expressions().containerView(t); // an ArrayList or TreeMap as its List or Map (#135)
+    t = ctx.expressions().containerView(t); // an ArrayList or TreeMap as its List or Map
     DeclaredType dt = (DeclaredType) t;
     TypeElement te = (TypeElement) dt.asElement();
     String name = te.getQualifiedName().toString();
@@ -398,7 +398,7 @@ final class ScriptJson {
     return JavaStrings.lowerLeadingUpper(rest);
   }
 
-  /** Whether the generated helper can name {@code t}; if not, says why in {@link #failure} (#269). */
+  /** Whether the generated helper can name {@code t}; if not, says why in {@link #failure}. */
   private boolean accessible(TypeMirror t) {
     Optional<String> why = ctx.expressions().inaccessibleReason(t);
     if (why.isPresent() && failure == null) {

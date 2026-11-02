@@ -3,7 +3,7 @@ package dev.tessera.compiler.html;
 /**
  * Splits a template into markup events. It tokenizes exactly as attoparser 2.0.9 did in HTML mode
  * with the configuration Tessera used (no balancing and no validation beyond structure), so
- * templates parse the same as they did before Tessera had its own tokenizer (#170). Balancing,
+ * templates parse the same as they did before Tessera had its own tokenizer. Balancing,
  * names, duplicates and raw-text handling are {@link HtmlParser}'s job.
  *
  * <p>Rules, all inherited from attoparser:
@@ -38,7 +38,7 @@ package dev.tessera.compiler.html;
  *
  * <p>Thymeleaf's parser-level comment {@code <!--/* ... *&#47;-->} is a template comment, also
  * Tessera's own: from {@code <!--/*} to the first {@code *&#47;-->} it is one {@link
- * Handler#templateComment} token, never output and never parsed (#132). One without its end is
+ * Handler#templateComment} token, never output and never parsed. One without its end is
  * fatal. In raw text ({@link Handler#rawText}, and the untokenized content of {@code <script>} and
  * {@code <style>}) it is not recognized, as a browser reads it as text there; {@code HtmlParser}
  * rejects it in that content. Thymeleaf's prototype-only comment {@code <!--/*&#47; ... /*&#47;-->} starts
@@ -651,7 +651,7 @@ final class MarkupTokenizer {
 
   /**
    * A char that Java or Unicode counts as a space but HTML does not (U+000B, U+001C to U+001F, the
-   * Unicode space and line separators): in a tag it is part of a name or value, not a separator (#338).
+   * Unicode space and line separators): in a tag it is part of a name or value, not a separator.
    */
   private static boolean isNonHtmlSpace(char c) {
     int type = Character.getType(c);

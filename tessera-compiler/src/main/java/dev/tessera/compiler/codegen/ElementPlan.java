@@ -34,7 +34,7 @@ import java.util.Optional;
  *   wrappers[n].close ... wrappers[0].close
  * </pre>
  *
- * Everything written goes through {@link Emitted}, which records the skeleton (#366). A dynamic
+ * Everything written goes through {@link Emitted}, which records the skeleton. A dynamic
  * attribute is emitted as
  * {@code { Object v$ = <valueCode>; if (v$ != null) { out.write(" name=\""); Escapers.<ctx>(out, v$); out.write('"'); } }},
  * so a {@code null} value omits the attribute (Thymeleaf behaviour) and boolean attributes use
@@ -46,7 +46,7 @@ public final class ElementPlan {
 
   /**
    * Code opened before and closed after the element: a scope ({@code { decl; ... }}), a condition
-   * or a loop. The kind is the skeleton of the element inside (#366): a scope runs it once, a
+   * or a loop. The kind is the skeleton of the element inside: a scope runs it once, a
    * condition makes it optional, a loop repeats it. Only a loop's open code writes: the
    * separator before every iteration but the first.
    */

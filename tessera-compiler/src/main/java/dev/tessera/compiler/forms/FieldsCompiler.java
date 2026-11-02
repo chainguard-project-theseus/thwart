@@ -46,7 +46,7 @@ public final class FieldsCompiler {
             ? types.getPrimitiveType(TypeKind.BOOLEAN)
             : function.equals("value") ? string : types.getDeclaredType(elements.getTypeElement("java.util.List"), string);
     // hasErrors and errors read only the errors, never the value, so the field's type need not be
-    // view-safe (#129); value passes the field's current value to Forms.value.
+    // view-safe; value passes the field's current value to Forms.value.
     boolean value = function.equals("value");
     FormPaths.Check check = value ? FormPaths.Check.VALUE : FormPaths.Check.PATH;
     // A Field fragment parameter: the caller checked its path against its own t:object.
@@ -54,7 +54,7 @@ public final class FieldsCompiler {
     if (field.isPresent()) {
       return call(function, FormPaths.fromVariable(field.get(), pos, expressions), type, pos);
     }
-    // A sub-path of one, fields.hasErrors(name.answer) (#239).
+    // A sub-path of one, fields.hasErrors(name.answer).
     Optional<Variable> root = args.size() == 1 ? FormPaths.fieldRoot(args.get(0), scope) : Optional.empty();
     if (root.isPresent()) {
       FormPaths.FormField f = FormPaths.resolveSubPath(args.get(0), root.get(), scope, expressions, check);

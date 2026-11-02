@@ -3,12 +3,12 @@ package dev.tessera.runtime;
 /**
  * The type of a markup argument between compiled templates, e.g. {@code ~{::body}} in
  * {@code t:replace="~{layout :: layout(~{::body}, 'home')}"}; the receiving fragment declares a
- * {@code Fragment} parameter and inserts it with {@code t:insert} or {@code t:replace} (#676).
+ * {@code Fragment} parameter and inserts it with {@code t:insert} or {@code t:replace}.
  *
  * <p>Compile-time only: this class has no instances, so no Java code can build or vouch for a
  * {@code Fragment}. The compiler checks each argument's markup at the call site, where the callee
  * inserts it. In generated code a {@code Fragment} parameter is a {@link Body} of a {@code private}
- * method (#600): its class and each class that calls it get a private copy, so only the generated
+ * method: its class and each class that calls it get a private copy, so only the generated
  * class itself can pass one. A page ({@code t:params}) and a {@code @TemplateFunction} may not take
  * a {@code Fragment}.
  */
