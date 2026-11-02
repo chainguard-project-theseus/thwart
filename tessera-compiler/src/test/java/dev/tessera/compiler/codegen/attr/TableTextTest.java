@@ -68,8 +68,8 @@ class TableTextTest {
         "<table><t:block t:if=\"${s != null}\"><t:block>[[s]]</t:block></t:block></table>|" + TEXT_IN_TABLE,
         "<table><tr t:utext=\"h\"></tr></table>|" + RAW_NOT_FLOW,
         "<table><tr>[(h)]</tr></table>|" + RAW_NOT_FLOW,
-        // <table> is HTML in a browser and ends the <svg>: the profile rejects it first.
-        "<svg><table>[[s]]</table></svg>|malformed markup: <table> inside <svg> or <math> is HTML",
+        // Under <svg> nothing is computed (foreign by tag); the verifier would see <table> end the <svg>.
+        "<svg><table>[[s]]</table></svg>|SVG and MathML by rules Tessera doesn't check",
       })
   void computedTextDirectlyInTableIsABuildError(String bodyAndCheck) {
     assertRejected(bodyAndCheck);

@@ -60,6 +60,19 @@ Every stage reports to a `DiagnosticSink` and continues; errors print as
 `TesseraProcessor` is the single gate, checked once after every template has compiled.
 Stages are concrete classes; the only interface with several implementations is `AttributeProcessor`.
 
+**Two HTML models is the floor.** `HtmlParser` reads the template source; `ContextVerifier` runs
+the spec parser (validator.nu) over the composed output. Each HTML decision lives in one of them.
+The hand parser owns lexing, the tree, source positions, escaper choice and attribute policy, and
+models foreign content only as "under `<svg>` or `<math>`, by tag", where nothing is computed.
+Imitating the browser (integration points, breakout tags, raw text inside foreign content, error
+recovery) is the verifier's job alone. Neither can do the other's work. The verifier sees only
+composed output: it has no template spans, and fragments and control flow are already expanded.
+Codegen needs a tree that is faithful to the source, with a line and column on every node. Using
+the spec parser as the only model was measured and deferred in #675. Revisit it when (a) the
+engine has a token API that keeps spans and (b) there is a recipe for page arguments declared
+before `<body>`. (a) is cheaper than #675 estimated: the engine's `TokenHandler` already gets
+tokens, and its tokenizer tracks line and column.
+
 ## Key interfaces (all in code; read the javadoc)
 
 - Runtime: `Template.render(RenderContext, Output)`; `RenderContext(locale, messages, links, forms)`,

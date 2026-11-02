@@ -17,8 +17,8 @@ import java.util.stream.Collectors;
  * @param hasEndTag an explicit end tag was present (false for void and self-closing elements
  *     and for elements closed implicitly)
  * @param pos position of the {@code <}
- * @param foreign an SVG or MathML element: inside {@code <svg>} or {@code <math>}, outside an HTML
- *     integration point such as SVG {@code foreignObject} (set by the parser)
+ * @param foreign an {@code <svg>} or {@code <math>} element or one inside it, by tag (set by the
+ *     parser; integration points are not modelled)
  */
 public final class Element implements Node {
   private final String name;

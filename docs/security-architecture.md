@@ -326,7 +326,7 @@ rejected if it is declared where no fragment fits (`UNCALLED_FRAGMENT_FITS_NOWHE
 | (c) `SELECT_CONTENT` | anything but `option`, `optgroup` and `hr` above `<select>` | classic and customizable `<select>` parsing differ |
 | (d) `CDATA_SECTION` | any CDATA section | browsers read CDATA only in foreign content, and split on it at integration points |
 
-`<frameset>` is rejected too (`FRAMESET`): whether its start tag applies depends on what came
+`<frameset>` is rejected too, as a `PARSE_ERROR`: whether its start tag applies depends on what came
 before. The exclusions are coarse on purpose: a wider rule that is obviously right beats a narrow
 one that models a browser.
 
