@@ -96,11 +96,9 @@ class BrowserRawTextTest {
     // Content that t:replace, t:text or a parameterized t:fragment replaces is never written there.
     compile("<p t:fragment=\"f\">ok</p><noscript t:replace=\"~{::f}\">[(h)]<b t:utext=\"h\"></b></noscript>")
         .assertSuccess();
-    // The fragment itself is written only by its own method, and the verifier's one error is that: no
-    // template inserts it, and declared in raw text, where no fragment fits, it can't be checked on
-    // its own (#461).
+    // A fragment declared in raw text is the one error (#776).
     Compilation g = compile("<noscript><p t:fragment=\"g(SafeHtml x)\" t:utext=\"x\"></p></noscript>");
-    g.assertError("page.html:2:", "error: no template inserts fragment page :: g", "[verifier:UNCALLED_FRAGMENT_FITS_NOWHERE]");
+    g.assertError("page.html:2:14:", "t:fragment in <noscript> content is not supported");
     assertEquals(1, g.errors().size(), g.errors().toString());
     // A quoted ')]' does not end [( , as for t:text: this is literal text.
     compile("<noscript>[( ')]' </noscript>").assertSuccess();

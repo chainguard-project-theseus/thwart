@@ -10,14 +10,11 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * A fragment is compiled in the parsing context it is declared in (HTML, {@code <svg>},
- * {@code <math>}, raw text), but where it lands is the verifier's check: it replays the fragment's
- * skeleton, holes and their escapers included, in the caller's real parser state. In {@code <svg>},
- * {@code <title>} holds HTML, so an HTML fragment's {@code <title><script>[[s]]</script></title>}
- * would run {@code s} as script there; nothing inside {@code <svg>} or {@code <math>} is an
- * insertion point (#678), so that is rejected before it gets there. Static, hole-free markup
- * declared in one context and inserted in another is the author's own markup: it is accepted
- * when the composed page parses without errors.
+ * A fragment is declared in HTML content (#776), and where it lands is the verifier's check: it
+ * replays the fragment's skeleton, holes and their escapers included, in the caller's real parser
+ * state. In {@code <svg>}, {@code <title>} holds HTML, so an HTML fragment's {@code
+ * <title><script>[[s]]</script></title>} would run {@code s} as script there; nothing inside {@code
+ * <svg>} or {@code <math>} is an insertion point (#678), so that is rejected before it gets there.
  */
 class FragmentParsingContextTest {
   private static final String NS = "xmlns:t=\"https://tessera.dev\"";
@@ -27,9 +24,6 @@ class FragmentParsingContextTest {
           + "<a t:fragment=\"x(String s)\"><title><script>[[s]]</script></title></a>\n"
           + "<i t:fragment=\"plain\">plain</i>\n"
           + "<svg t:fragment=\"check\" viewBox=\"0 0 1 1\"><title>Check</title><path d=\"M0 0\"/></svg>\n"
-          + "<svg><g t:fragment=\"r(String s)\"><text>r</text></g>"
-          + "<t:block t:fragment=\"paths\"><path d=\"M0 0\"/></t:block></svg>\n"
-          + "<math><mrow t:fragment=\"row\"><mi>x</mi></mrow></math>\n"
           + "<span t:fragment=\"sel(String s)\"><style><script></style>[[s]]</span>\n"
           + "<option t:fragment=\"opt(String s)\" t:text=\"s\">x</option><t:block t:fragment=\"opts\"><option>a</option></t:block>\n"
           + "<section t:fragment=\"card(Fragment content)\"><div t:replace=\"${content}\">c</div></section>\n"
@@ -51,7 +45,6 @@ class FragmentParsingContextTest {
     page("<svg><g t:replace=\"~{frags :: x(v)}\"></g></svg>").assertError("page.html:2:20", svg);
     page("<math><mrow t:insert=\"~{frags :: plain}\"></mrow></math>").assertError("page.html:2:23", math);
     page("<math><mrow t:insert=\"~{frags :: check}\"></mrow></math>").assertError("page.html:2:23", math);
-    page("<math><mi t:insert=\"~{frags :: row}\"></mi></math>").assertError("page.html:2:21", math);
   }
 
   @Test
@@ -68,14 +61,32 @@ class FragmentParsingContextTest {
   }
 
   @Test
-  void svgFragmentInsideHtmlIsTheVerifiersCheck() {
-    // Static SVG markup in HTML content is the author's own markup: <g><text>r</text></g> parses
-    // without errors there, and holds no hole whose escaper could be wrong.
-    page("<div t:insert=\"~{frags :: r(v)}\"></div>").assertSuccess();
-    // <path/> is not void in HTML: the verifier rejects the composed page at the call.
-    page("<p t:replace=\"~{frags :: paths}\"></p>")
-        .assertError("page.html:2:15", "in fragment frags :: paths, inserted here, at frags.html:5:80: a browser ignores"
-            + " the '/' of <path/>");
+  void fragmentDeclaredOutsideHtmlContentIsRejected() {
+    // #776: a fragment, or an element ~{::selector} renders elsewhere, is declared in HTML content.
+    String rule = " content is not supported: a browser parses it there by other rules than where it is inserted;"
+        + " declare the fragment outside it (directly under <body> or in its own file) and insert it there";
+    // The shapes #769 accepted.
+    page("<svg><g t:fragment=\"r\"><text>r</text></g></svg><div t:insert=\"~{:: r}\"></div>")
+        .assertError("page.html:2:9", "t:fragment in <svg>" + rule);
+    page("<noscript><b t:fragment=\"n\">x</b></noscript><div t:insert=\"~{:: n}\"></div>")
+        .assertError("page.html:2:14", "t:fragment in <noscript>" + rule);
+    page("<noscript><b t:fragment=\"n(String s)\">[[s]]</b></noscript><div t:insert=\"~{:: n(v)}\"></div>")
+        .assertError("page.html:2:14", "t:fragment in <noscript>" + rule);
+    String o = "<select t:remove=\"tag\"><option t:fragment=\"o(String s)\">[[s]]</option></select>";
+    String unwrapped = "t:fragment in t:remove=\"tag\" (on an element whose tag changes how its content is parsed)";
+    page(o + "<div t:insert=\"~{:: o(v)}\"></div>").assertError("page.html:2:32", unwrapped + rule);
+    page(o + "<select t:insert=\"~{:: o(v)}\"></select>").assertError("page.html:2:32", unwrapped + rule);
+    page("<math><annotation-xml encoding=\"text/html\"><div t:fragment=\"h\">x</div></annotation-xml></math>"
+            + "<div t:insert=\"~{:: h}\"></div>")
+        .assertError("page.html:2:49", "t:fragment in <math>" + rule);
+    // Also <select> content, a fragment under <svg t:replace>, and an element ~{::selector} picks.
+    page("<select><option t:fragment=\"p\">a</option></select><select t:insert=\"~{:: p}\"></select>")
+        .assertError("page.html:2:17", "t:fragment in <select>" + rule);
+    page("<svg t:replace=\"~{frags :: check}\"><g t:fragment=\"g\"><path/></g></svg>")
+        .assertError("page.html:2:39", "t:fragment in <svg>" + rule);
+    page("<div t:replace=\"~{frags :: card(~{::a})}\"></div><svg><a><text>t</text></a></svg>")
+        .assertError("page.html:2:", "~{::a} selects an element in <svg> content, which a browser parses there by other"
+            + " rules than where it is inserted; select an element outside it (directly under <body>) instead");
   }
 
   @Test
@@ -91,26 +102,7 @@ class FragmentParsingContextTest {
             .template("page.html", "<div " + NS + " t:params=\"Fragment f\">\n<title t:insert=\"${f}\"></title></div>")
             .compile(),
         "page.html:2:8", "t:insert", "title");
-    rawTextError(page("<svg><title t:insert=\"~{frags :: r(v)}\"></title></svg>"), "page.html:2:13", "t:insert", "title");
-    rawTextError(page("<noscript><b t:fragment=\"n\">x</b></noscript><noscript><i t:insert=\"~{:: n}\"></i></noscript>"),
-        "page.html:2:", "t:insert", "noscript");
-    // A fragment declared in raw text and inserted in HTML content: the verifier replays its markup
-    // and holes there, where the text escaper it was compiled with is the one HTML text needs.
-    page("<noscript><b t:fragment=\"n\">x</b></noscript><div t:insert=\"~{:: n}\"></div>").assertSuccess();
-    Compilation hole =
-        page("<noscript><b t:fragment=\"n(String s)\">[[s]]</b></noscript><div t:insert=\"~{:: n(v)}\"></div>").assertSuccess();
-    assertTrue(hole.render("page", Map.of("v", "</noscript><script>")).contains("<div><b>&lt;/noscript&gt;&lt;script&gt;</b></div>"));
-    // Its own insertions are compiled where it renders, not dropped: the output, not the
-    // declaration, decides whether they are written inside raw text.
-    Compilation nested = page("<noscript><b t:fragment=\"n(String s)\"><i t:insert=\"~{frags :: plain}\"></i>"
-        + "<u t:replace=\"~{frags :: plain}\"></u></b></noscript><div t:insert=\"~{:: n(v)}\"></div>").assertSuccess();
-    assertTrue(nested.render("page", Map.of("v", "x")).contains("<div><b><i><i>plain</i></i><i>plain</i></b></div>"),
-        nested.render("page", Map.of("v", "x")));
-    page("<noscript><b t:fragment=\"n(Fragment f)\"><i t:insert=\"${f}\"></i></b></noscript>")
-        .assertError("page.html:2:", "t:insert with a Fragment value is only allowed in HTML content, not in <noscript>"
-            + " content");
-    page("<svg><noscript><g t:fragment=\"n\"><path/></g></noscript></svg><svg t:insert=\"~{:: n}\"></svg>")
-        .assertError("page.html:2:", "a value, condition, loop or fragment inside <svg> is not supported");
+    rawTextError(page("<svg><title t:insert=\"~{frags :: plain}\"></title></svg>"), "page.html:2:13", "t:insert", "title");
   }
 
   /** {@code c} has the raw-text rule's error for {@code what} inside {@code <element>}, and no error of this rule. */
@@ -121,38 +113,7 @@ class FragmentParsingContextTest {
   }
 
   @Test
-  void fragmentUnderReplacedSvgIsDeclaredInSvg() {
-    // The children of <svg t:replace> are compiled as SVG content (where, say, <![CDATA[ is text), so
-    // a value in them is a value inside <svg> (#678), wherever the fragment is inserted.
-    String x = "<g t:fragment=\"x(String v)\"><text>[[v]]</text></g>";
-    String message = "a value, condition, loop or fragment inside <text> is not supported";
-    page("<svg t:replace=\"~{:: y}\">" + x + "</svg><b t:fragment=\"y\">y</b><div t:insert=\"~{:: x(v)}\"></div>")
-        .assertError("page.html:2:62", message);
-    Compilation.builder()
-        .template("frags.html", "<div " + NS + "><svg t:replace=\"~{:: y}\">" + x + "</svg><b t:fragment=\"y\">y</b></div>")
-        .template("page.html", "<div " + NS + " t:params=\"String v\">\n<div t:replace=\"~{frags :: x(v)}\"></div></div>")
-        .compile()
-        .assertError("frags.html:1:97", message);
-    // An insertion point inside such a fragment is in <svg> content too.
-    page("<svg t:replace=\"~{:: y}\"><g t:fragment=\"z(String w)\"><a t:insert=\"~{frags :: x(w)}\"></a></g></svg>"
-            + "<b t:fragment=\"y\">y</b><svg t:insert=\"~{:: z(v)}\"></svg>")
-        .assertError("page.html:2:67", "a value, condition, loop or fragment inside <a> is not supported");
-    // A static fragment declared there still compiles; inserting it into an <svg> is a value inside it (#678).
-    page("<svg t:replace=\"~{:: y}\"><g t:fragment=\"r(String s)\"><text>r</text></g></svg>"
-            + "<b t:fragment=\"y\">y</b><svg t:insert=\"~{:: r(v)}\"></svg>")
-        .assertError("page.html:2:", "inside <svg> is not supported");
-  }
-
-  @Test
-  void fragmentUnderUnwrappedElementIsTheVerifiersCheck() {
-    // Without its tag, a <select>'s content is parsed as HTML where it was compiled in <select>. The
-    // verifier replays the hole in the state it really lands in: text in an <option>, in a <div> or
-    // a <select>, which the text escaper it was compiled with covers.
-    String o = "<option t:fragment=\"o(String v)\">[[v]]</option>";
-    Compilation div = page("<select t:remove=\"tag\">" + o + "</select><div t:insert=\"~{:: o(v)}\"></div>").assertSuccess();
-    assertEquals("<div>\n<div><option>&lt;v&gt;</option></div>\n</div>",
-        div.render("page", Map.of("v", "<v>")));
-    page("<select t:remove=\"tag\">" + o + "</select><select t:insert=\"~{:: o(v)}\"></select>").assertSuccess();
+  void insertionUnderUnwrappedElementIsTheVerifiersCheck() {
     page("<select t:remove=\"tag\"><option t:insert=\"~{frags :: opt(v)}\"></option></select>")
         .assertError("page.html:2:42", "fragment frags :: opt, inserted here, closes an open <option> around it");
     // On <svg>, t:remove="tag" is an error of its own.
@@ -180,9 +141,6 @@ class FragmentParsingContextTest {
     rawTextError(raw("<noscript><p>[(${h})]</p></noscript>"), "page.html:2:", "[(...)]", "noscript");
     raw("<select t:remove=\"tag\"><option t:utext=\"${h}\"></option></select>")
         .assertError("page.html:2:", "not in t:remove=\"tag\"");
-    // A fragment under <svg t:replace> renders in <svg> content.
-    raw("<svg t:replace=\"~{:: y}\"><g t:fragment=\"x\"><a t:utext=\"${h}\"></a></g></svg><b t:fragment=\"y\">y</b>")
-        .assertError("page.html:2:", "not in <svg> content");
     Compilation messages =
         Compilation.builder()
             .messages("m=<p>x</p>")
@@ -218,25 +176,6 @@ class FragmentParsingContextTest {
   }
 
   @Test
-  void fragmentArgumentDeclaredInSvgIsRejected() {
-    page("<div t:replace=\"~{frags :: card(~{::a})}\"></div><svg><a><text>[[${v}]]</text></a></svg>")
-        .assertError("page.html:2:67", "a value, condition, loop or fragment inside <text> is not supported");
-    // The verifier replays the argument where card inserts it, in HTML content.
-    page("<div t:replace=\"~{frags :: card(~{frags :: paths})}\"></div>")
-        .assertError("page.html:2:17", "in fragment frags :: paths, inserted here, at frags.html:5:80, through the calls"
-            + " here inserts frags :: card");
-  }
-
-  @Test
-  void replacedFragmentRootIsWhereItsReplacementLands() {
-    // x keeps no <svg> tag of its own: y's svg markup would land in HTML content.
-    page("<svg><g t:fragment=\"y(String s)\"><text>[[s]]</text></g></svg>"
-            + "<svg><svg t:fragment=\"x(String s)\" t:replace=\"~{:: y(s)}\"></svg></svg>"
-            + "<div t:insert=\"~{:: x(v)}\"></div>")
-        .assertError("page.html:2:42", "a value, condition, loop or fragment inside <text> is not supported");
-  }
-
-  @Test
   void breakoutsAndComputedEncodingsInForeignContentAreErrors() {
     // #678, #759: nothing inside <svg>/<math> is computed (a fragment there included), and a breakout
     // tag there is the verifier's parse error, so no fragment is ever in or holds mixed foreign content.
@@ -261,7 +200,7 @@ class FragmentParsingContextTest {
     // The verifier's SELECT_CONTENT checks what each call really puts into a <select>.
     String fix = "in a <select>: browsers that parse <select> the classic way";
     page("<select><option t:insert=\"~{frags :: sel(v)}\"></option></select>")
-        .assertError("page.html:2:27", "in fragment frags :: sel, inserted here, at frags.html:7:1: <span> " + fix);
+        .assertError("page.html:2:27", "in fragment frags :: sel, inserted here, at frags.html:5:1: <span> " + fix);
     // Its own template: no template could insert it anywhere, so the verifier rejects it on its own
     // where nothing calls it (#461).
     Compilation.builder()
@@ -318,18 +257,6 @@ class FragmentParsingContextTest {
   }
 
   @Test
-  void fragmentDeclaredInAnHtmlIntegrationPointIsStaticMarkup() {
-    // Nothing inside <math> is an insertion point (#678), so a fragment declared in an
-    // annotation-xml holds no hole: inserting its static markup in HTML content is the author's own.
-    page("<math><annotation-xml encoding=\"text/html\"><div t:fragment=\"h\">x</div></annotation-xml></math>"
-            + "<div t:insert=\"~{:: h}\"></div>")
-        .assertSuccess();
-    page("<math><annotation-xml encoding=\"text/html\"><div t:fragment=\"h\">x</div></annotation-xml></math>"
-            + "<math><mrow t:insert=\"~{:: h}\"></mrow></math>")
-        .assertError("page.html:2:", "a value, condition, loop or fragment inside <math> is not supported");
-  }
-
-  @Test
   void annotationXmlEncodingNameFoldsOnlyAscii() {
     // encodıng and encodİng are not encoding to a browser, so the annotation-xml holds MathML: there
     // <title> holds markup and <mi> holds HTML, so the HTML fragment's RCDATA <script> would run s.
@@ -361,10 +288,10 @@ class FragmentParsingContextTest {
             + "</div>",
         c.render("page", Map.of("v", "<v>")));
     // #678: a fragment inserted inside an <svg> or <math> is a value there.
-    for (String inside : new String[] {"<svg t:insert=\"~{frags :: paths}\"></svg>",
-        "<svg><g t:replace=\"~{frags :: check}\"></g></svg>", "<svg><t:block t:insert=\"~{frags :: paths}\"></t:block></svg>",
+    for (String inside : new String[] {"<svg t:insert=\"~{frags :: check}\"></svg>",
+        "<svg><g t:replace=\"~{frags :: check}\"></g></svg>",
         "<svg><foreignObject><p t:insert=\"~{frags :: plain}\"></p></foreignObject></svg>",
-        "<math><mi t:replace=\"~{frags :: row}\"></mi></math>"}) {
+        "<math><mi t:replace=\"~{frags :: plain}\"></mi></math>"}) {
       page(inside).assertError("page.html:2:", "is not supported", "as static markup");
     }
   }

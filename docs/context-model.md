@@ -162,7 +162,7 @@ is `a b i em strong u s del ins sub sup small mark code kbd span br img`.
 | `t:insert`, `t:utext`, `[(...)]` into RCDATA or raw text | error | generator; verifier | `BrowserRawTextTest` |
 | `t:replace` with a whole `<title>` fragment | allowed | | `FragmentsTest` |
 | `t:remove="tag"` on raw-text, RCDATA or foreign elements | error | generator; verifier | `ControlFlowTest`, `FragmentsTest` |
-| Fragment no template calls, declared where no fragment fits | error | verifier: `UNCALLED_FRAGMENT_FITS_NOWHERE` | `ContextVerifierTest` |
+| `t:fragment`, or a `~{::selector}` target, declared outside HTML content (`svg`, `math`, `select`, raw text, `t:remove="tag"`) | error | generator | `FragmentParsingContextTest` |
 
 ## 6. Attributes
 
@@ -283,7 +283,7 @@ escapers is rejected.
 | `VALUE_IN_FOREIGN` | any value while the current node is SVG or MathML | static SVG/MathML; the change outside it |
 | `UNBALANCED` | a `t:if`, `t:unless`, `t:case`, `t:each` (one pass, or its separator), computed attribute or fragment insertion whose body leaves the parser in another state than it found it in, or a partial that does as a whole. Allowed: in template mode, the switch a flow start tag makes; a fragment inserted at the start of a document that ends it (a layout on `<html>`) | bodies that close what they open and leave open what they find open |
 | `STRUCTURE_DEPENDS_ON_DATA` | a fragment that calls itself in ever new parser states, or reaches a bad state only through recursion | recursion into the state its call started in |
-| `UNCALLED_FRAGMENT_FITS_NOWHERE` | a fragment no template calls, declared where no fragment fits (raw text, `t:remove="tag"` content) | a fragment some template calls, or one declared in HTML, `svg`, `math` or `select` content |
+| `UNCALLED_FRAGMENT_FITS_NOWHERE` | a fragment no template calls, declared where no fragment fits (raw text, `t:remove="tag"` content); verifier-only, since a fragment declared outside HTML content is a build error first (#776) | a fragment declared in HTML content |
 | `ENGINE_FAILURE`, `UNKNOWN_NODE` | a parser that throws; a fragment the skeleton doesn't define; markup right after a computed attribute that isn't whitespace, `/` or `>` | |
 
 A partial (a view whose output doesn't start with a doctype or `<html>`) is checked by fragment

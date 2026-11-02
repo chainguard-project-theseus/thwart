@@ -432,3 +432,10 @@ u756-script-query            -    PROFILE  # #756: a resource URL with a query p
 u756-script-protocol-relative  -  PROFILE  # #756: a resource URL from another origin; the verifier has no rule for it; hole not emitted
 u756-script-absolute         -    PROFILE  # #756: a resource URL from another origin; the verifier has no rule for it; hole not emitted
 u756-script-path-variable    -    ACCEPT
+h776-svg                     -    PROFILE  # #776: a fragment declared outside HTML content
+h776-noscript                -    PROFILE  # #776: a fragment declared outside HTML content
+h776-noscript-hole           -    PROFILE  # #776: a fragment declared outside HTML content
+h776-unwrapped-select-in-div -    PROFILE  # #776: a fragment declared outside HTML content
+h776-unwrapped-select-in-select -    PROFILE  # #776: a fragment declared outside HTML content
+h776-annotation-xml          -    PROFILE  # #776: a fragment declared outside HTML content
+h776-select                  -    PROFILE  # #776: a fragment declared outside HTML content
