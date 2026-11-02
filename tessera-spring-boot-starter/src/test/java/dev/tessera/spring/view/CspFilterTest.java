@@ -74,6 +74,22 @@ class CspFilterTest {
     assertThat(response.getHeaders(CspFilter.HEADER)).containsExactly("default-src 'self'");
   }
 
+  /** A page stamped without the filter in its chain warns (once); one inside the chain doesn't. */
+  @Test
+  void stampOutsideTheFilterWarnsOnce() throws Exception {
+    CspFilter.warned = false;
+    new CspFilter()
+        .doFilter(
+            new MockHttpServletRequest(),
+            new MockHttpServletResponse(),
+            (rq, rs) -> CspFilter.stamp(rq, "abc"));
+    assertThat(CspFilter.warned).isFalse();
+    CspFilter.stamp(new MockHttpServletRequest(), "abc");
+    assertThat(CspFilter.warned).isTrue();
+    CspFilter.stamp(new MockHttpServletRequest(), "abc"); // no second warning
+    assertThat(CspFilter.warned).isTrue();
+  }
+
   @Test
   void disabledOrNoNonceOrNoTesseraViewSendsNoPolicy() throws Exception {
     assertThat(render(view("abc", false)).containsHeader(CspFilter.HEADER)).isFalse();

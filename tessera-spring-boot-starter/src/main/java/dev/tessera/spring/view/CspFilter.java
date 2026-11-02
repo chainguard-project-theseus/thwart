@@ -40,7 +40,7 @@ public final class CspFilter implements Filter, WebApplicationInitializer {
   /** A CSP {@code base64-value}: anything else could change the policy it is spliced into. */
   private static final Pattern NONCE = Pattern.compile("[A-Za-z0-9+/_-]+={0,2}");
 
-  private static volatile boolean warned;
+  static volatile boolean warned; // package-private for CspFilterTest
 
   /**
    * Marks the request as a Tessera page with {@code nonce}, which must be base64. Warns once if
