@@ -224,6 +224,15 @@ class FlowProducerTest {
         }
       }
     }
+    // Still rejected where PHRASING can't go: a select (RAW_CLOSES_ELEMENT), a table part, raw text
+    // or foreign content (RAW_NOT_FLOW).
+    for (String context : new String[] {"<!DOCTYPE html><select>", "<!DOCTYPE html><select><option>",
+        "<!DOCTYPE html><select><optgroup>", "<!DOCTYPE html><table>", "<!DOCTYPE html><table><tr>",
+        "<!DOCTYPE html><textarea>", "<!DOCTYPE html><svg>", "<!DOCTYPE html><p><math>"}) {
+      for (Parser p : entries(context)) {
+        assertNotNull(ContentKinds.problem(p.state(), Skeleton.Source.SAFE_INLINE_HTML), () -> "SafeInlineHtml in " + context);
+      }
+    }
     String[] all = contexts.toArray(new String[0]);
     for (String input : inputs) {
       String html = SafeInlineHtml.sanitize(input, widest).html();
