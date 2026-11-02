@@ -1,0 +1,142 @@
+001 same      GET /
+002 same      GET /en-US/
+003 same      GET /de-DE/
+004 same      GET /en-GB/
+005 same      GET /sv-SE/
+006 same      GET /ja-JP/
+007 same      GET /en-US/topCategory/World%20of%20Nature?categoryId=1
+008 same      GET /en-US/topCategory/World%20of%20Nature?categoryId=1&page=2
+009 same      GET /en-US/category/Animals?categoryId=2
+010 same      GET /en-US/category/Animals?categoryId=2&finish=matte&size=16x12&minPrice=10&maxPrice=100
+011 same      GET /de-DE/category/Flowers?categoryId=3
+012 same      GET /en-US/product/Grizzly%20Bear/1
+013 same      GET /de-DE/product/Great%20Grey%20Owl/2
+014 same      GET /en-US/product/Missing/99999
+015 same      GET /en-US/search?q=bear
+016 same      GET /en-US/search?q=zzzzqqq
+017 same      GET /en-US/search?q=
+018 same      GET /en-US/searchSuggest?q=bea
+019 same      GET /en-US/searchSuggest?q=zzzzqqq
+020 same      GET /en-US/updatePrice
+021 same      GET /en-US/login
+022 same      POST /en-US/updatePrice productId=1&size=24x18&finish=matte
+023 same      GET /en-US/cart
+024 same      GET /en-US/miniCart
+025 same      GET /en-US/addToCartSlider?productId=1&finish=matte&size=16x12
+026 same      GET /en-US/addToCartSlider?productId=2&finish=matte&size=32x24
+027 same      GET /en-US/miniCart
+028 same      GET /en-US/cart
+029 same      GET /en-US/login
+030 same      POST /en-US/updateProductCount?cartProductId=1 productCount=3
+031 same      GET /en-US/cart
+032 same      GET /en-US/login
+033 same      POST /en-US/deleteFromCart?cartProductId=2
+034 same      GET /en-US/checkout/shippingAddress
+035 same      POST /en-US/checkout/shippingAddress firstName=Ada&name=Lovelace&company=&addressLine=12%20Main%20St&city=Springfield&state=IL&zip=62701&country=United%20States
+036 same      GET /en-US/checkout/billingAddress
+037 same      POST /en-US/checkout/billingAddress firstName=Ada&name=Lovelace&company=Engines%20Ltd&addressLine=1%20Mill%20Rd&city=Springfield&state=IL&zip=62702&country=United%20States
+038 same      GET /en-US/checkout/payment
+039 same      POST /en-US/checkout/payment cardNumber=1234&name=&expiry=13/99&cvv=
+040 same      POST /en-US/checkout/payment cardNumber=4111111111111111&name=Ada%20Lovelace&expiry=12/30&cvv=123
+041 same      GET /en-US/checkout/placeOrder
+042 same      POST /en-US/checkout/placeOrder
+043 same      GET /en-US/checkout/orderConfirmation
+044 same      GET /en-US/cart
+045 same      GET /en-US/accountOverview
+046 same      GET /en-US/login
+047 same      POST /en-US/login email=johndoe@example.com&password=wrong
+048 same      POST /en-US/login email=johndoe@example.com&password=topsecret
+049 same      GET /en-US/accountOverview
+050 same      GET /en-US/orderOverview
+051 same      GET /de-DE/addToCartSlider?productId=3&finish=matte&size=16x12
+052 same      GET /de-DE/cart
+053 same      GET /de-DE/checkout/shippingAddress
+054 same      POST /de-DE/checkout/shippingAddress firstName=John&name=Doe&company=&addressLine=Hauptstr.%201&city=Jena&state=TH&zip=07743&country=Germany
+055 same      POST /de-DE/checkout/billingAddress firstName=John&name=Doe&company=&addressLine=Hauptstr.%201&city=Jena&state=TH&zip=07743&country=Germany
+056 same      POST /de-DE/checkout/payment cardNumber=4111111111111111&name=John%20Doe&expiry=11/29&cvv=321
+057 same      POST /de-DE/checkout/placeOrder
+058 same      GET /de-DE/orderOverview
+059 same      GET /en-US/orderOverview
+060 same      GET /en-US/accountOverview
+061 same      POST /en-US/updateAccount firstName=Johnny&name=Doe&email=johndoe@example.com
+062 same      GET /en-US/logout
+063 same      GET /en-US/register
+064 same      POST /en-US/register firstName=Jane&name=Doe&email=janedoe@example.com&password=secret1
+065 same      POST /en-US/register firstName=Zoe&name=New&email=zoe.new@example.com&password=secret1
+066 same      GET /en-US/accountOverview
+067 same      GET /en-US/logout
+068 same      GET /break
+069 same      GET /error?reason=session-expired
+070 same      GET /no/such/page
+071 same      GET /backoffice/
+072 same      GET /backoffice/starting
+073 same      GET /backoffice/login
+074 same      POST /backoffice/login username=admin&password=wrong
+075 same      GET /backoffice/login?error
+076 same      POST /backoffice/login username=admin&password=admin-2026!
+077 same      GET /backoffice/
+078 same      GET /backoffice/customers
+079 same      GET /backoffice/customers?q=doe
+080 same      GET /backoffice/customers?sort=number&dir=asc&size=5&page=1
+081 same      GET /backoffice/customers/dashboard
+082 same      GET /backoffice/customers/import-export
+083 same      GET /backoffice/customers/settings
+084 same      GET /backoffice/customers/new
+085 same      POST /backoffice/customers/new firstName=Jane&middleName=&lastName=Doe&email=janedoe@example.com&password=secret12
+086 same      GET /backoffice/customers/00000000-0000-4000-8000-000000000002
+087 same      GET /backoffice/customers/00000000-0000-4000-8000-000000000002/edit-name
+088 same      GET /backoffice/customers/00000000-0000-4000-8000-000000000002
+089 same      POST /backoffice/customers/00000000-0000-4000-8000-000000000002/edit-name firstName=Janet&middleName=Q&lastName=Doe&version=0
+090 same      GET /backoffice/customers/00000000-0000-4000-8000-000000000002
+091 same      POST /backoffice/customers/00000000-0000-4000-8000-000000000002/edit-name firstName=Jan&middleName=&lastName=Doe&version=0
+092 same      GET /backoffice/customers/00000000-0000-4000-8000-000000000002/addresses/new
+093 same      GET /backoffice/customers/00000000-0000-4000-8000-000000000002
+094 same      POST /backoffice/customers/00000000-0000-4000-8000-000000000002/addresses/new name=Home&recipientFirstName=Janet&recipientLastName=Doe&company=&addressLine1=5%20Oak%20Ave&addressLine2=Apt%202&city=Portland&state=OR&postalCode=97201&country=United%20States
+095 same      GET /backoffice/customers/00000000-0000-4000-8000-000000000002
+096 same      GET /backoffice/customers/00000000-0000-4000-8000-000000000002/addresses/1/edit
+097 same      GET /backoffice/customers/00000000-0000-4000-8000-000000000002
+098 same      POST /backoffice/customers/00000000-0000-4000-8000-000000000002/addresses/1/edit name=Work&recipientFirstName=Janet&recipientLastName=Doe&company=Acme&addressLine1=9%20Pine%20St&addressLine2=&city=Portland&state=OR&postalCode=97204&country=United%20States
+099 same      GET /backoffice/customers/00000000-0000-4000-8000-000000000002/addresses/1/delete
+100 same      GET /backoffice/customers/00000000-0000-4000-8000-000000000002/credit-cards/new
+101 same      GET /backoffice/customers/00000000-0000-4000-8000-000000000002/delete
+102 same      GET /backoffice/customers/00000000-0000-4000-8000-000000000001
+103 same      GET /backoffice/orders
+104 same      GET /backoffice/orders/dashboard
+105 same      GET /backoffice/orders/list
+106 same      GET /backoffice/orders/export
+107 same      GET /backoffice/catalog
+108 same      GET /backoffice/catalog/dashboard
+109 same      GET /backoffice/catalog/categories
+110 same      GET /backoffice/catalog/products
+111 same      GET /backoffice/catalog/variations
+112 same      GET /backoffice/catalog/pricing
+113 same      GET /backoffice/catalog/import-export
+114 same      GET /backoffice/catalog/settings
+115 same      GET /backoffice/security
+116 same      GET /backoffice/security/import-export
+117 same      GET /backoffice/security/settings
+118 same      GET /backoffice/admin/security
+119 same      GET /backoffice/security/users
+120 same      GET /backoffice/security/users?search=adm
+121 same      GET /backoffice/security/users/new
+122 same      POST /backoffice/security/users/new username=clerk&displayName=Clerk&email=clerk@example.com&password=Clerk-2026!&confirmPassword=nope&roleId=4
+123 same      POST /backoffice/security/users/new username=clerk&displayName=Clerk&email=clerk@example.com&password=Clerk-2026!&confirmPassword=Clerk-2026!&roleId=4
+124 same      GET /backoffice/security/users/1/edit
+125 same      GET /backoffice/security/users/2/edit
+126 same      POST /backoffice/security/users/2/edit username=clerk&displayName=Head%20Clerk&email=clerk@example.com&roleId=5
+127 same      POST /backoffice/security/users/2/reset-password newPassword=a&confirmPassword=b
+128 same      GET /backoffice/security/users
+129 same      GET /backoffice/security/roles
+130 same      GET /backoffice/security/roles/new
+131 same      POST /backoffice/security/roles name=&description=
+132 same      POST /backoffice/security/roles name=Auditor&description=Reads%20the%20audit%20log&moduleIds=security
+133 same      GET /backoffice/security/roles/6/edit
+134 same      POST /backoffice/security/roles/6 name=Auditor&description=Reads%20everything&moduleIds=security&moduleIds=orders
+135 same      GET /backoffice/security/roles
+136 same      GET /backoffice/security/audit-log
+137 same      GET /backoffice/security/audit-log?action=LOGIN
+138 same      GET /backoffice/access-denied
+139 same      GET /backoffice/no-such-module
+140 same      POST /backoffice/logout
+141 same      GET /backoffice/customers
+tessera-migrate compare: 141 page(s): 141 same, 0 reordered, 0 differ

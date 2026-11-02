@@ -1,0 +1,16 @@
+{
+  "repo": "https://github.com/Xceptance/posters-demo-store",
+  "commit": "fe94bb41ddf513057d9b99f5346677d3161cece9",
+  "engine": "thymeleaf",
+  "difficulty": "medium",
+  "build": "cd implementation && mvn -B -ntp clean package -DskipTests",
+  "test": "cd implementation && mvn -B -ntp test",
+  "start": "bash /bench/app/start.sh",
+  "ready": "/backoffice/starting",
+  "base": "http://localhost:8080",
+  "ignore": [
+    "ORD-\\d+",
+    "(?<![\\d:])\\d\\d:\\d\\d(:\\d\\d(\\.\\d+)?)?(?![\\d:])",
+    "\\b[A-Z][a-z]{2}\\.? \\d\\d, \\d{4}\\b"
+  ]
+}
