@@ -8,8 +8,11 @@ import dev.tessera.runtime.TemplateEntry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterRegistration;
 import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,6 +23,9 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.web.header.HeaderWriter;
+import org.springframework.security.web.header.HeaderWriterFilter;
+import org.springframework.security.web.header.writers.ContentSecurityPolicyHeaderWriter;
 
 /**
  * The default policy (#775): the view stamps the request with its nonce, and {@link CspFilter}
@@ -40,6 +46,31 @@ class CspFilterTest {
   @Test
   void policySetBeforeCommitIsKept() throws Exception {
     MockHttpServletResponse response = render(view("abc", true), "default-src 'self'");
+    assertThat(response.getHeaders(CspFilter.HEADER)).containsExactly("default-src 'self'");
+  }
+
+  /**
+   * An empty page (length 0) under Spring Security's policy writer: this filter must not commit
+   * before Spring Security's wrapper does, or the application's policy would be replaced.
+   */
+  @Test
+  void emptyPageKeepsSpringSecurityPolicy() throws Exception {
+    TemplateEntry empty =
+        new TemplateEntry(
+            "empty", Collections.<TemplateEntry.Param>emptyList(), (m, ctx, out) -> {});
+    TesseraView view =
+        TesseraView.of(empty, (rq, r, m) -> RenderContext.defaults().withCspNonce("abc"), true);
+    HeaderWriterFilter security =
+        new HeaderWriterFilter(
+            Collections.<HeaderWriter>singletonList(
+                new ContentSecurityPolicyHeaderWriter("default-src 'self'")));
+    MockHttpServletResponse response = new MockHttpServletResponse();
+    new CspFilter()
+        .doFilter(
+            new MockHttpServletRequest(),
+            response,
+            (rq, rs) -> security.doFilter(rq, rs, (rq2, rs2) -> render(view, rq2, rs2)));
+    assertThat(response.getContentLength()).isEqualTo(0);
     assertThat(response.getHeaders(CspFilter.HEADER)).containsExactly("default-src 'self'");
   }
 
@@ -161,18 +192,18 @@ class CspFilterTest {
   private static MockHttpServletResponse render(
       TesseraView view, MockHttpServletResponse response) throws Exception {
     new CspFilter()
-        .doFilter(
-            new MockHttpServletRequest(),
-            response,
-            (rq, rs) -> {
-              try {
-                view.render(null, (HttpServletRequest) rq, (HttpServletResponse) rs);
-              } catch (RuntimeException | java.io.IOException e) {
-                throw e;
-              } catch (Exception e) {
-                throw new IllegalStateException(e);
-              }
-            });
+        .doFilter(new MockHttpServletRequest(), response, (rq, rs) -> render(view, rq, rs));
     return response;
+  }
+
+  private static void render(TesseraView view, ServletRequest request, ServletResponse response)
+      throws IOException {
+    try {
+      view.render(null, (HttpServletRequest) request, (HttpServletResponse) response);
+    } catch (RuntimeException | IOException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
   }
 }

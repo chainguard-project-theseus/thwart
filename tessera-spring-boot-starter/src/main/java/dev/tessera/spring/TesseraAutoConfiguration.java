@@ -86,8 +86,7 @@ public class TesseraAutoConfiguration {
     FilterRegistrationBean<ResourceUrlEncodingFilter> registration =
         new FilterRegistrationBean<>(new ResourceUrlEncodingFilter());
     if (registersForErrorDispatch(SpringBootVersion.getVersion())) {
-      registration.setDispatcherTypes(
-        DispatcherType.REQUEST, DispatcherType.ASYNC, DispatcherType.ERROR);
+      registration.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ERROR);
     } else {
       registration.setDispatcherTypes(DispatcherType.REQUEST);
     }

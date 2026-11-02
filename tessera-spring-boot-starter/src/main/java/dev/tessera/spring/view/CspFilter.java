@@ -118,9 +118,14 @@ public final class CspFilter implements Filter, WebApplicationInitializer {
       done = true;
     }
 
+    /**
+     * The same conditions as Spring Security's {@code OnCommittedResponseWrapper}, so this never
+     * fires before its writers have run; an empty body is left to the end of the request.
+     */
     void count(int n) {
       written += n;
-      if ((length >= 0 && written >= length) || written >= getBufferSize()) {
+      int buffer = getBufferSize();
+      if ((length > 0 && written >= length) || (buffer > 0 && written >= buffer)) {
         commit();
       }
     }
