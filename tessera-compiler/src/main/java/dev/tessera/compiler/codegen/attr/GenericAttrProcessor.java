@@ -173,7 +173,17 @@ public final class GenericAttrProcessor implements AttributeProcessor {
           + link.path() + "}: write a static attribute to load from another origin");
       return null;
     }
-    List<String> vars = LinkCompiler.placeholders(link.path());
+    // A {var} written after the literal's '?' or '#' would put data in the query or fragment.
+    String path = link.path();
+    int q = path.indexOf('?');
+    int h = path.indexOf('#');
+    int end = q < 0 ? h : h < 0 ? q : Math.min(q, h);
+    if (end >= 0 && path.indexOf('{', end) >= 0) {
+      ctx.diagnostics().error(link.pos(), what + "its path variables must come before any '?' or '#', not @{"
+          + path + "}: put the value in the path, such as @{/js/{v}/app.js(v=${v})}");
+      return null;
+    }
+    List<String> vars = LinkCompiler.placeholders(path);
     for (Assignment p : link.params()) {
       if (!vars.contains(p.name())) {
         ctx.diagnostics().error(p.pos(), what + "its link takes no query parameter such as '" + p.name()

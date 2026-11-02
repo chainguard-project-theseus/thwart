@@ -21,7 +21,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  * {@code /}, but the URL is built at render time by {@link Links} (#358): a context path ending in
  * {@code /}, a custom {@code Links} context path or encode hook, or an empty path variable could turn {@code /a} into the
  * protocol-relative {@code //a}. Every slot that uses {@code LinkCompiler.isSameOriginPath}
- * re-checks the built URL and fails the render rather than leave the origin.
+ * re-checks the built URL and fails the render rather than leave the origin, as does a resource URL
+ * with a rooted path (#756).
  */
 class SameOriginLinkRenderTest {
   /** One template per checked slot; each links to {@code @{/a}} or {@code @{/{x}/a(x=${u})}}. */
@@ -39,6 +40,9 @@ class SameOriginLinkRenderTest {
     "<form method=\"post\" t:action=\"${u} == 'zz' ? @{/b} : @{/{x}/a(x=${u})}\"></form>",
     "<form method=\"post\" action=\"/transfer\"><button t:formaction=\"${u} != 'zz' ? @{/{x}/a(x=${u})} : @{/b}\">Go"
         + "</button></form>",
+    // A resource URL (#756): a rooted path is re-checked too.
+    "<script t:src=\"@{/a}\"></script>",
+    "<script t:src=\"@{/{x}/a(x=${u})}\"></script>",
   };
 
   private static Compilation compile(String body) {
@@ -70,7 +74,7 @@ class SameOriginLinkRenderTest {
 
   /** Positive: a context path of "/" or "/app/" is normalised, so every slot renders a single '/'. */
   @ParameterizedTest
-  @ValueSource(ints = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+  @ValueSource(ints = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12})
   void contextPathWithTrailingSlashStaysSameOrigin(int i) {
     Compilation c = compile(SLOTS[i]);
     for (String root : new String[] {"", "/", "//", "/app", "/app/", "/app//"}) {
@@ -83,7 +87,7 @@ class SameOriginLinkRenderTest {
 
   /** Negative: a custom context path or encode hook that makes any slot's link leave the origin fails the render. */
   @ParameterizedTest
-  @ValueSource(ints = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+  @ValueSource(ints = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12})
   void customLinksLeavingTheOriginFailsTheRender(int i) {
     Compilation c = compile(SLOTS[i]);
     for (String prefix :
@@ -99,7 +103,7 @@ class SameOriginLinkRenderTest {
 
   /** Negative: an empty or dot-segment path variable fails the render whatever the Links (it would give //a). */
   @ParameterizedTest
-  @ValueSource(ints = {1, 4, 8, 9, 10})
+  @ValueSource(ints = {1, 4, 8, 9, 10, 12})
   void emptyPathVariableFailsTheRender(int i) {
     Compilation c = compile(SLOTS[i]);
     for (String bad : new String[] {"", ".", ".."}) {
@@ -113,7 +117,7 @@ class SameOriginLinkRenderTest {
    * before finding the authority. A path variable's {@code /}, {@code \} and {@code %} are encoded.
    */
   @ParameterizedTest
-  @ValueSource(ints = {1, 4, 8, 9, 10})
+  @ValueSource(ints = {1, 4, 8, 9, 10, 12})
   void encodedSlashesStayPaths(int i) {
     Compilation c = compile(SLOTS[i]);
     assertTrue(render(c, new DefaultLinks("/"), "/evil.example").contains("\"/%2Fevil.example/a\""));

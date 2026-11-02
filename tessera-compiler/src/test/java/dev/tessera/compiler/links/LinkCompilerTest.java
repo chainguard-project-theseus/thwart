@@ -335,6 +335,20 @@ class LinkCompilerTest {
     assertNull(c.generatedSource("tessera.generated.PageTemplate"));
   }
 
+  /** Negative: a path variable written in the literal's query or fragment is data in the query too. */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "<script t:src=\"@{/x.js?cb={v}(v=${s})}\"></script>",
+        "<link t:href=\"@{/a.css?x=1&cb={v}(v=${s})}\">",
+        "<iframe t:src=\"@{/f#a{v}(v=${s})}\"></iframe>"
+      })
+  void resourceUrlVariableInQueryIsAnError(String markup) {
+    Compilation c = page(markup);
+    c.assertError("page.html:2:", "path variables must come before any '?' or '#'");
+    assertNull(c.generatedSource("tessera.generated.PageTemplate"));
+  }
+
   @Test
   void sameOriginPathShape() {
     for (String ok : List.of("/", "/x", "/x\\y", "/%5Cevil", "/%2F/evil", "/x//y")) {
