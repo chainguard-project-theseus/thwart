@@ -18,7 +18,6 @@ import java.util.Optional;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
 
 /**
  * Form field paths ({@code lastName}, {@code address.city}, {@code items[i].name},
@@ -356,9 +355,7 @@ public final class FormPaths {
             || ExpressionCompiler.isDeclared(t, "java.lang.Byte");
     boolean isLong = t.getKind() == TypeKind.LONG || ExpressionCompiler.isDeclared(t, "java.lang.Long");
     boolean isString = ExpressionCompiler.isDeclared(t, "java.lang.String");
-    Types types = expressions.env().types();
-    TypeMirror enumType = types.erasure(expressions.env().elements().getTypeElement("java.lang.Enum").asType());
-    boolean isEnum = t.getKind() == TypeKind.DECLARED && types.isSubtype(types.erasure(t), enumType);
+    boolean isEnum = t.getKind() == TypeKind.DECLARED && expressions.isSubtypeOf(t, "java.lang.Enum");
     if (!isInt && !(mapKey && (isLong || isString || isEnum))) {
       diagnostics.error(e.pos(), mapKey
           ? "a map key in a field path must be an int, a long, a String or an enum, got " + t
@@ -418,18 +415,12 @@ public final class FormPaths {
   }
 
   private static boolean isMap(TypeMirror t, ExpressionCompiler expressions) {
-    Types types = expressions.env().types();
-    TypeMirror map = types.erasure(expressions.env().elements().getTypeElement("java.util.Map").asType());
-    return t.getKind() == TypeKind.DECLARED && types.isSubtype(types.erasure(t), map);
+    return t.getKind() == TypeKind.DECLARED && expressions.isSubtypeOf(t, "java.util.Map");
   }
 
   private static boolean isListOrArray(TypeMirror t, ExpressionCompiler expressions) {
-    if (t.getKind() == TypeKind.ARRAY) {
-      return true;
-    }
-    Types types = expressions.env().types();
-    TypeMirror list = types.erasure(expressions.env().elements().getTypeElement("java.util.List").asType());
-    return t.getKind() == TypeKind.DECLARED && types.isSubtype(types.erasure(t), list);
+    return t.getKind() == TypeKind.ARRAY
+        || (t.getKind() == TypeKind.DECLARED && expressions.isSubtypeOf(t, "java.util.List"));
   }
 
   /** Moves the pending path text to {@code name} and (without brackets, as Spring) to {@code id}. */
