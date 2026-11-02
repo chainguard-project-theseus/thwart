@@ -43,7 +43,7 @@ JDK 21+. The table names the main classes only.
 | | `.codegen.attr` | one processor class per attribute family + hooks | |
 | | `.processor` | `TesseraProcessor` (javac entry point), options, discovery | |
 | | `.verify` | `Skeleton`: what each generated class writes, recorded by `Emitted` | |
-| | `.verify.engine` | `Engine`, `Parser`, `ParserState`: the spec HTML parser the build-time verifier runs (security-architecture.md §11.4) | |
+| | `.verify.engine` | `Vnu`, `Parser`, `ParserState`: the spec HTML parser the build-time verifier runs (security-architecture.md §11.4) | |
 | `tessera-html5` | `dev.tessera.compiler.internal.html5.current` | build only: validator.nu htmlparser source from Maven Central (`validator:26.10.12:sources`), pinned by SHA-256, renamed and compiled for Java 8, plus a `TesseraAccess` accessor; shaded into the `tessera-compiler` jar with its MIT notice | none |
 | `tessera-spring-boot-starter` | `dev.tessera.spring{,.view,.context,.fn}` | auto-config, plain-Spring config, view resolver, request `RenderContext`, `auth` | runtime; Spring 4.3+ / Boot 1.5+, Servlet 3.0+ from the app (`jakarta.servlet`) |
 | `tessera-spring-boot-starter-javax` | same | the starter jar shaded with `jakarta.servlet` relocated to `javax.servlet` | runtime |

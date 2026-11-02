@@ -28,29 +28,6 @@ public final class Skeleton {
   public interface Node {
     /** Where in the template the node comes from, or null. */
     SourcePos pos();
-
-    <R> R accept(Visitor<R> v);
-  }
-
-  /** Dispatch over the node kinds, so callers need no {@code instanceof} chains. */
-  public interface Visitor<R> {
-    R visitStatic(Static n);
-
-    R visitHole(Hole n);
-
-    R visitRawInsert(RawInsert n);
-
-    R visitCall(Call n);
-
-    R visitParamInsert(ParamInsert n);
-
-    R visitSeq(Seq n);
-
-    R visitOpt(Opt n);
-
-    R visitAlt(Alt n);
-
-    R visitRep(Rep n);
   }
 
   /** The runtime escaper a hole is written with: exactly one {@code dev.tessera.runtime.Escapers} method. */
@@ -157,11 +134,6 @@ public final class Skeleton {
     }
 
     @Override
-    public <R> R accept(Visitor<R> v) {
-      return v.visitStatic(this);
-    }
-
-    @Override
     public String toString() {
       return quote(text);
     }
@@ -204,11 +176,6 @@ public final class Skeleton {
     }
 
     @Override
-    public <R> R accept(Visitor<R> v) {
-      return v.visitHole(this);
-    }
-
-    @Override
     public String toString() {
       return "${" + escaper + (attribute == null ? "" : " " + attribute) + (pos == null ? "" : " @" + pos) + "}";
     }
@@ -231,11 +198,6 @@ public final class Skeleton {
     @Override
     public SourcePos pos() {
       return pos;
-    }
-
-    @Override
-    public <R> R accept(Visitor<R> v) {
-      return v.visitRawInsert(this);
     }
 
     @Override
@@ -315,11 +277,6 @@ public final class Skeleton {
     }
 
     @Override
-    public <R> R accept(Visitor<R> v) {
-      return v.visitCall(this);
-    }
-
-    @Override
     public String toString() {
       return "call{" + target + (fragmentArgs.isEmpty() ? "" : " " + fragmentArgs) + "}";
     }
@@ -346,11 +303,6 @@ public final class Skeleton {
     @Override
     public SourcePos pos() {
       return pos;
-    }
-
-    @Override
-    public <R> R accept(Visitor<R> v) {
-      return v.visitParamInsert(this);
     }
 
     @Override
@@ -381,11 +333,6 @@ public final class Skeleton {
     @Override
     public SourcePos pos() {
       return nodes.isEmpty() ? null : nodes.get(0).pos();
-    }
-
-    @Override
-    public <R> R accept(Visitor<R> v) {
-      return v.visitSeq(this);
     }
 
     @Override
@@ -424,11 +371,6 @@ public final class Skeleton {
     }
 
     @Override
-    public <R> R accept(Visitor<R> v) {
-      return v.visitOpt(this);
-    }
-
-    @Override
     public String toString() {
       return "opt:" + kind + "(" + body + ")";
     }
@@ -451,11 +393,6 @@ public final class Skeleton {
     @Override
     public SourcePos pos() {
       return pos;
-    }
-
-    @Override
-    public <R> R accept(Visitor<R> v) {
-      return v.visitAlt(this);
     }
 
     @Override
@@ -500,11 +437,6 @@ public final class Skeleton {
     }
 
     @Override
-    public <R> R accept(Visitor<R> v) {
-      return v.visitRep(this);
-    }
-
-    @Override
     public String toString() {
       return "rep:" + kind + "(" + body + (separator.nodes().isEmpty() ? "" : " / " + separator) + ")";
     }
@@ -526,8 +458,8 @@ public final class Skeleton {
 
     /**
      * {@code fragmentContexts}: the parsing context each fragment is declared in, as {@code
-     * html.ParsingContexts} names it ({@code HTML}, {@code svg}, {@code math}, {@code
-     * annotation-xml}, {@code select}, or one where no fragment fits); HTML if absent (#461).
+     * html.ParsingContexts} names it ({@code HTML}, {@code svg}, {@code math}, {@code select}, or
+     * one where no fragment fits); HTML if absent (#461).
      */
     public TemplateSkeleton(String viewName, Seq body, Map<String, Seq> fragments, Map<String, String> fragmentContexts) {
       this.viewName = Objects.requireNonNull(viewName);

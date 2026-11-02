@@ -7,11 +7,10 @@ import dev.tessera.compiler.security.HostileStrings;
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.compiler.verify.Skeleton;
 import dev.tessera.compiler.verify.SkeletonMatcher;
-import dev.tessera.compiler.verify.engine.Engine;
 import dev.tessera.compiler.verify.engine.EngineException;
-import dev.tessera.compiler.verify.engine.Engines;
 import dev.tessera.compiler.verify.engine.Parser;
 import dev.tessera.compiler.verify.engine.ParserState;
+import dev.tessera.compiler.verify.engine.Vnu;
 import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.Output;
 import dev.tessera.runtime.RenderContext;
@@ -342,17 +341,17 @@ class ProfileOracleTest {
     return out.toString();
   };
 
-  /** One parser the lemma runs: an engine, scripting on or off, document or {@code <body>} fragment parsing. */
-  record LemmaParser(Engine engine, boolean scripting, boolean fragment) {
+  /** One parser the lemma runs: scripting on or off, document or {@code <body>} fragment parsing. */
+  record LemmaParser(boolean scripting, boolean fragment) {
     Parser start() throws EngineException {
       return fragment
-          ? engine.fragment(VnuTrees.HTML, "body", scripting)
-          : engine.document(scripting);
+          ? Vnu.fragment(VnuTrees.HTML, "body", scripting)
+          : Vnu.document(scripting);
     }
 
     @Override
     public String toString() {
-      return engine.name() + (scripting ? " scripting-on" : " scripting-off") + (fragment ? " fragment(body)" : " document");
+      return Vnu.NAME + (scripting ? " scripting-on" : " scripting-off") + (fragment ? " fragment(body)" : " document");
     }
   }
 
@@ -360,10 +359,9 @@ class ProfileOracleTest {
 
   static {
     List<LemmaParser> ps = new ArrayList<>();
-    Engine e = Engines.CURRENT;
     for (boolean scripting : new boolean[] {true, false}) {
       for (boolean fragment : new boolean[] {false, true}) {
-        ps.add(new LemmaParser(e, scripting, fragment));
+        ps.add(new LemmaParser(scripting, fragment));
       }
     }
     LEMMA_PARSERS = List.copyOf(ps);
@@ -378,7 +376,7 @@ class ProfileOracleTest {
    */
   static String lemmaKey(ParserState s) {
     return String.join("|",
-        s.engine(), String.valueOf(s.fragmentContext()), String.valueOf(s.scripting()),
+        String.valueOf(s.fragmentContext()), String.valueOf(s.scripting()),
         String.valueOf(s.tokenizer()), String.valueOf(s.attributeName()), String.valueOf(s.endTagExpectation()),
         String.valueOf(s.mode()), String.valueOf(s.originalMode()), String.valueOf(s.stack()),
         String.valueOf(s.activeFormatting()), String.valueOf(s.activeFormattingElements()),

@@ -47,74 +47,40 @@ final class SkeletonFidelity {
       return;
     }
     for (Skeleton.Node n : seq.nodes()) {
-      n.accept(new Skeleton.Visitor<Void>() {
-        @Override
-        public Void visitStatic(Skeleton.Static s) {
-          add(s.pos() == null ? "Static (generated markup)" : "Static");
-          return null;
+      if (n instanceof Skeleton.Static s) {
+        add(s.pos() == null ? "Static (generated markup)" : "Static");
+      } else if (n instanceof Skeleton.Hole h) {
+        add("Hole " + h.escaper());
+      } else if (n instanceof Skeleton.RawInsert r) {
+        add("RawInsert " + r.source());
+      } else if (n instanceof Skeleton.Call call) {
+        add(call.fragmentArgs().isEmpty() ? "Call" : "Call with fragment arguments");
+        for (Skeleton.Seq a : call.fragmentArgs().values()) {
+          count(c, a, seen);
         }
-
-        @Override
-        public Void visitHole(Skeleton.Hole h) {
-          add("Hole " + h.escaper());
-          return null;
+        Skeleton.Seq target = c.fragmentSkeleton(call.target());
+        if (target != null) {
+          count(c, target, seen);
         }
-
-        @Override
-        public Void visitRawInsert(Skeleton.RawInsert r) {
-          add("RawInsert " + r.source());
-          return null;
+      } else if (n instanceof Skeleton.ParamInsert) {
+        add("ParamInsert");
+      } else if (n instanceof Skeleton.Seq q) {
+        count(c, q, seen);
+      } else if (n instanceof Skeleton.Opt o) {
+        add("Opt " + o.kind());
+        count(c, o.body(), seen);
+      } else if (n instanceof Skeleton.Alt a) {
+        add("Alt");
+        for (Skeleton.Seq b : a.branches()) {
+          count(c, b, seen);
         }
-
-        @Override
-        public Void visitCall(Skeleton.Call call) {
-          add(call.fragmentArgs().isEmpty() ? "Call" : "Call with fragment arguments");
-          for (Skeleton.Seq a : call.fragmentArgs().values()) {
-            count(c, a, seen);
-          }
-          Skeleton.Seq target = c.fragmentSkeleton(call.target());
-          if (target != null) {
-            count(c, target, seen);
-          }
-          return null;
-        }
-
-        @Override
-        public Void visitParamInsert(Skeleton.ParamInsert p) {
-          add("ParamInsert");
-          return null;
-        }
-
-        @Override
-        public Void visitSeq(Skeleton.Seq q) {
-          count(c, q, seen);
-          return null;
-        }
-
-        @Override
-        public Void visitOpt(Skeleton.Opt o) {
-          add("Opt " + o.kind());
-          count(c, o.body(), seen);
-          return null;
-        }
-
-        @Override
-        public Void visitAlt(Skeleton.Alt a) {
-          add("Alt");
-          for (Skeleton.Seq b : a.branches()) {
-            count(c, b, seen);
-          }
-          return null;
-        }
-
-        @Override
-        public Void visitRep(Skeleton.Rep r) {
-          add("Rep " + r.kind() + (r.separator().nodes().isEmpty() ? "" : " with separator"));
-          count(c, r.body(), seen);
-          count(c, r.separator(), seen);
-          return null;
-        }
-      });
+      } else if (n instanceof Skeleton.Rep r) {
+        add("Rep " + r.kind() + (r.separator().nodes().isEmpty() ? "" : " with separator"));
+        count(c, r.body(), seen);
+        count(c, r.separator(), seen);
+      } else {
+        throw new IllegalArgumentException("unknown node " + n.getClass().getSimpleName());
+      }
     }
   }
 

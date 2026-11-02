@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.tessera.compiler.internal.html5.current.impl.TesseraAccess;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -15,20 +16,19 @@ import org.junit.jupiter.api.Test;
 /** The engine API over the shaded parser (#365). */
 class EnginesTest {
 
-  private static ParserState doc(Engine e, String html) throws EngineException {
-    return doc(e, html, false);
+  private static ParserState doc(String html) throws EngineException {
+    return doc(html, false);
   }
 
-  private static ParserState doc(Engine e, String html, boolean scripting) throws EngineException {
-    Parser p = e.document(scripting);
+  private static ParserState doc(String html, boolean scripting) throws EngineException {
+    Parser p = Vnu.document(scripting);
     p.feed(html);
     return p.state();
   }
 
   @Test
-  void names() throws EngineException {
-    assertEquals("htmlparser@validator-26.10.12", Engines.CURRENT.name());
-    assertEquals("htmlparser@validator-26.10.12", doc(Engines.CURRENT, "<p>").engine());
+  void names() {
+    assertEquals("htmlparser@validator-26.10.12", Vnu.NAME);
   }
 
   /** Customizable <select> parsing keeps <title> RCDATA in a select. */
@@ -36,7 +36,7 @@ class EnginesTest {
   void selectTitleIsRcdata() throws EngineException {
     for (boolean scripting : new boolean[] {true, false}) {
       String html = "<!DOCTYPE html><select><title><script>";
-      ParserState current = doc(Engines.CURRENT, html, scripting);
+      ParserState current = doc(html, scripting);
       assertEquals(TokenizerState.RCDATA, current.tokenizer());
       assertEquals("title", current.endTagExpectation());
       assertEquals("title", current.currentNode().localName());
@@ -46,81 +46,79 @@ class EnginesTest {
   /** The state at a hole: the template's text up to the hole, fed in one chunk. */
   @Test
   void stateAtHoleOffsets() throws EngineException {
-    Engine e = Engines.CURRENT;
-    ParserState s = doc(e, "<!DOCTYPE html><p>Hello, ");
-    assertEquals(TokenizerState.DATA, s.tokenizer(), e.name());
+    ParserState s = doc("<!DOCTYPE html><p>Hello, ");
+    assertEquals(TokenizerState.DATA, s.tokenizer(), Vnu.NAME);
     assertEquals(InsertionMode.IN_BODY, s.mode());
     assertTrue(s.currentNode().isHtml("p"));
     assertEquals("", s.pendingInput());
     assertNull(s.attributeName());
 
-    s = doc(e, "<!DOCTYPE html><body><a href=\"/x?q=");
+    s = doc("<!DOCTYPE html><body><a href=\"/x?q=");
     assertEquals(TokenizerState.ATTRIBUTE_VALUE_DOUBLE_QUOTED, s.tokenizer());
     assertEquals("href", s.attributeName());
     assertFalse(s.pendingInput().isEmpty());
     assertEquals(InsertionMode.IN_BODY, s.mode());
     assertTrue(s.currentNode().isHtml("body"), "the <a> isn't emitted yet");
 
-    assertEquals("title", doc(e, "<div TITLE=\"").attributeName());
-    assertEquals(TokenizerState.ATTRIBUTE_VALUE_SINGLE_QUOTED, doc(e, "<div title='").tokenizer());
-    assertEquals(TokenizerState.ATTRIBUTE_VALUE_UNQUOTED, doc(e, "<div title=x").tokenizer());
-    assertEquals("title", doc(e, "<div title=").attributeName());
-    assertEquals(TokenizerState.BEFORE_ATTRIBUTE_VALUE, doc(e, "<div title=").tokenizer());
-    ParserState name = doc(e, "<div id=\"a\" tit");
+    assertEquals("title", doc("<div TITLE=\"").attributeName());
+    assertEquals(TokenizerState.ATTRIBUTE_VALUE_SINGLE_QUOTED, doc("<div title='").tokenizer());
+    assertEquals(TokenizerState.ATTRIBUTE_VALUE_UNQUOTED, doc("<div title=x").tokenizer());
+    assertEquals("title", doc("<div title=").attributeName());
+    assertEquals(TokenizerState.BEFORE_ATTRIBUTE_VALUE, doc("<div title=").tokenizer());
+    ParserState name = doc("<div id=\"a\" tit");
     assertEquals(TokenizerState.ATTRIBUTE_NAME, name.tokenizer());
     assertNull(name.attributeName(), "the name isn't complete");
-    ParserState duplicate = doc(e, "<div title=\"a\" title=\"");
+    ParserState duplicate = doc("<div title=\"a\" title=\"");
     assertEquals(TokenizerState.ATTRIBUTE_VALUE_DOUBLE_QUOTED, duplicate.tokenizer());
     assertNull(duplicate.attributeName(), "a duplicate attribute is dropped");
 
-    s = doc(e, "<!DOCTYPE html><textarea>");
+    s = doc("<!DOCTYPE html><textarea>");
     assertEquals(TokenizerState.RCDATA, s.tokenizer());
     assertEquals("textarea", s.endTagExpectation());
     assertTrue(s.dropsNextLineFeed());
-    assertEquals(TokenizerState.RAWTEXT, doc(e, "<style>").tokenizer());
-    assertEquals(TokenizerState.PLAINTEXT, doc(e, "<plaintext>").tokenizer());
-    assertEquals(TokenizerState.SCRIPT_DATA, doc(e, "<script>var a = ").tokenizer());
-    assertEquals(TokenizerState.SCRIPT_DATA_DOUBLE_ESCAPED, doc(e, "<script><!--<script>").tokenizer());
-    assertEquals(TokenizerState.COMMENT, doc(e, "<p><!-- x").tokenizer());
-    assertEquals(TokenizerState.CDATA_SECTION, doc(e, "<svg><![CDATA[x").tokenizer());
-    assertEquals(TokenizerState.BOGUS_COMMENT, doc(e, "<p><![CDATA[").tokenizer(), "CDATA is a bogus comment in HTML");
+    assertEquals(TokenizerState.RAWTEXT, doc("<style>").tokenizer());
+    assertEquals(TokenizerState.PLAINTEXT, doc("<plaintext>").tokenizer());
+    assertEquals(TokenizerState.SCRIPT_DATA, doc("<script>var a = ").tokenizer());
+    assertEquals(TokenizerState.SCRIPT_DATA_DOUBLE_ESCAPED, doc("<script><!--<script>").tokenizer());
+    assertEquals(TokenizerState.COMMENT, doc("<p><!-- x").tokenizer());
+    assertEquals(TokenizerState.CDATA_SECTION, doc("<svg><![CDATA[x").tokenizer());
+    assertEquals(TokenizerState.BOGUS_COMMENT, doc("<p><![CDATA[").tokenizer(), "CDATA is a bogus comment in HTML");
 
-    ParserState ref = doc(e, "<p>a &am");
+    ParserState ref = doc("<p>a &am");
     assertNotEquals(TokenizerState.DATA, ref.tokenizer());
     assertFalse(ref.pendingInput().isEmpty());
   }
 
   @Test
   void treeState() throws EngineException {
-    Engine e = Engines.CURRENT;
-    ParserState s = doc(e, "<svg><foreignObject>");
-    assertEquals(new OpenElement(OpenElement.SVG, "foreignObject", true), s.currentNode(), e.name());
-    assertTrue(doc(e, "<math><annotation-xml encoding=\"text/html\">").currentNode().htmlIntegrationPoint());
-    assertFalse(doc(e, "<math><annotation-xml encoding=\"x\">").currentNode().htmlIntegrationPoint());
-    assertEquals(OpenElement.MATHML, doc(e, "<math><mi>").currentNode().namespace());
+    ParserState s = doc("<svg><foreignObject>");
+    assertEquals(new OpenElement(OpenElement.SVG, "foreignObject", true), s.currentNode(), Vnu.NAME);
+    assertTrue(doc("<math><annotation-xml encoding=\"text/html\">").currentNode().htmlIntegrationPoint());
+    assertFalse(doc("<math><annotation-xml encoding=\"x\">").currentNode().htmlIntegrationPoint());
+    assertEquals(OpenElement.MATHML, doc("<math><mi>").currentNode().namespace());
 
-    assertTrue(doc(e, "<!DOCTYPE html><table>x").pendingTableText());
-    assertFalse(doc(e, "<!DOCTYPE html><table> \n").pendingTableText());
-    assertTrue(doc(e, "<pre>").dropsNextLineFeed());
-    assertFalse(doc(e, "<pre>\n").dropsNextLineFeed());
+    assertTrue(doc("<!DOCTYPE html><table>x").pendingTableText());
+    assertFalse(doc("<!DOCTYPE html><table> \n").pendingTableText());
+    assertTrue(doc("<pre>").dropsNextLineFeed());
+    assertFalse(doc("<pre>\n").dropsNextLineFeed());
 
-    s = doc(e, "<!DOCTYPE html><b><i>");
+    s = doc("<!DOCTYPE html><b><i>");
     assertEquals(List.of(2, 3), s.activeFormatting());
-    s = doc(e, "<!DOCTYPE html><p><b></p>");
+    s = doc("<!DOCTYPE html><p><b></p>");
     assertEquals(List.of(ParserState.NOT_ON_STACK), s.activeFormatting());
     assertEquals("b", s.activeFormattingElements().get(0).localName());
-    s = doc(e, "<!DOCTYPE html><p><b></p><table><tr><td>");
+    s = doc("<!DOCTYPE html><p><b></p><table><tr><td>");
     assertEquals(List.of(ParserState.NOT_ON_STACK, ParserState.MARKER), s.activeFormatting());
     // Attributes of formatting entries are not part of the state: only the Noah's Ark clause reads
     // them, and in an error-free parse it can't change the tree (#444).
-    assertEquals(doc(e, "<p><b class=x></p>"), doc(e, "<p><b class=y></p>"));
+    assertEquals(doc("<p><b class=x></p>"), doc("<p><b class=y></p>"));
 
-    assertTrue(doc(e, "<form>").formPointer());
-    assertTrue(doc(e, "<p>").headPointer());
-    assertTrue(doc(e, "<p>").quirks());
-    assertFalse(doc(e, "<!DOCTYPE html><p>").quirks());
-    assertEquals(List.of(InsertionMode.IN_TEMPLATE, InsertionMode.IN_TEMPLATE), doc(e, "<template><template>").templateModes());
-    assertEquals(List.of(InsertionMode.IN_TABLE_BODY), doc(e, "<template><tr>").templateModes());
+    assertTrue(doc("<form>").formPointer());
+    assertTrue(doc("<p>").headPointer());
+    assertTrue(doc("<p>").quirks());
+    assertFalse(doc("<!DOCTYPE html><p>").quirks());
+    assertEquals(List.of(InsertionMode.IN_TEMPLATE, InsertionMode.IN_TEMPLATE), doc("<template><template>").templateModes());
+    assertEquals(List.of(InsertionMode.IN_TABLE_BODY), doc("<template><tr>").templateModes());
   }
 
   /** Each insertion mode an engine has is reached, so the per-engine mode tables are right. */
@@ -149,42 +147,39 @@ class EnginesTest {
       {"<!DOCTYPE html><body></body></html>", "AFTER_AFTER_BODY"},
       {"<!DOCTYPE html><frameset></frameset></html>", "AFTER_AFTER_FRAMESET"},
     };
-    Engine e = Engines.CURRENT;
     for (String[] c : cases) {
-      assertEquals(InsertionMode.valueOf(c[1]), doc(e, c[0]).mode(), e.name() + " " + c[0]);
+      assertEquals(InsertionMode.valueOf(c[1]), doc(c[0]).mode(), Vnu.NAME + " " + c[0]);
     }
-    assertEquals(InsertionMode.IN_HEAD, doc(Engines.CURRENT, "<!DOCTYPE html><title>").originalMode());
-    assertEquals(InsertionMode.IN_BODY, doc(Engines.CURRENT, "<!DOCTYPE html><select>").mode());
-    assertEquals(InsertionMode.IN_CELL, doc(Engines.CURRENT, "<!DOCTYPE html><table><tr><td><select>").mode());
+    assertEquals(InsertionMode.IN_HEAD, doc("<!DOCTYPE html><title>").originalMode());
+    assertEquals(InsertionMode.IN_BODY, doc("<!DOCTYPE html><select>").mode());
+    assertEquals(InsertionMode.IN_CELL, doc("<!DOCTYPE html><table><tr><td><select>").mode());
   }
 
   @Test
   void bothScriptingModes() throws EngineException {
-    Engine e = Engines.CURRENT;
-    ParserState on = doc(e, "<!DOCTYPE html><body><noscript>", true);
-    ParserState off = doc(e, "<!DOCTYPE html><body><noscript>", false);
+    ParserState on = doc("<!DOCTYPE html><body><noscript>", true);
+    ParserState off = doc("<!DOCTYPE html><body><noscript>", false);
     assertTrue(on.scripting());
     assertFalse(off.scripting());
-    assertEquals(TokenizerState.RAWTEXT, on.tokenizer(), e.name());
-    assertEquals(TokenizerState.DATA, off.tokenizer(), e.name());
+    assertEquals(TokenizerState.RAWTEXT, on.tokenizer(), Vnu.NAME);
+    assertEquals(TokenizerState.DATA, off.tokenizer(), Vnu.NAME);
     assertNotEquals(on, off);
-    assertEquals(InsertionMode.IN_HEAD_NOSCRIPT, doc(e, "<!DOCTYPE html><head><noscript>", false).mode());
-    assertEquals(InsertionMode.TEXT, doc(e, "<!DOCTYPE html><head><noscript>", true).mode());
+    assertEquals(InsertionMode.IN_HEAD_NOSCRIPT, doc("<!DOCTYPE html><head><noscript>", false).mode());
+    assertEquals(InsertionMode.TEXT, doc("<!DOCTYPE html><head><noscript>", true).mode());
   }
 
   @Test
   void fragments() throws EngineException {
-    Engine e = Engines.CURRENT;
-    Parser p = e.fragment(OpenElement.HTML, "tr", false);
+    Parser p = Vnu.fragment(OpenElement.HTML, "tr", false);
     p.feed("<td>");
-    assertEquals(InsertionMode.IN_CELL, p.state().mode(), e.name());
-    assertEquals(TokenizerState.RCDATA, e.fragment(OpenElement.HTML, "textarea", false).state().tokenizer());
-    assertEquals(TokenizerState.RAWTEXT, e.fragment(OpenElement.HTML, "noscript", true).state().tokenizer());
-    assertEquals(TokenizerState.DATA, e.fragment(OpenElement.HTML, "noscript", false).state().tokenizer());
-    p = e.fragment(OpenElement.SVG, "svg", false);
+    assertEquals(InsertionMode.IN_CELL, p.state().mode(), Vnu.NAME);
+    assertEquals(TokenizerState.RCDATA, Vnu.fragment(OpenElement.HTML, "textarea", false).state().tokenizer());
+    assertEquals(TokenizerState.RAWTEXT, Vnu.fragment(OpenElement.HTML, "noscript", true).state().tokenizer());
+    assertEquals(TokenizerState.DATA, Vnu.fragment(OpenElement.HTML, "noscript", false).state().tokenizer());
+    p = Vnu.fragment(OpenElement.SVG, "svg", false);
     p.feed("<circle>");
     assertEquals(new OpenElement(OpenElement.SVG, "circle", false), p.state().currentNode());
-    assertThrows(IllegalArgumentException.class, () -> e.fragment("urn:x", "div", false));
+    assertThrows(IllegalArgumentException.class, () -> Vnu.fragment("urn:x", "div", false));
   }
 
   /**
@@ -194,12 +189,11 @@ class EnginesTest {
    */
   @Test
   void contextIsPartOfTheSignature() throws EngineException {
-    Engine e = Engines.CURRENT;
-    Parser div = e.fragment(OpenElement.HTML, "div", false);
-    Parser caption = e.fragment(OpenElement.HTML, "caption", false);
+    Parser div = Vnu.fragment(OpenElement.HTML, "div", false);
+    Parser caption = Vnu.fragment(OpenElement.HTML, "caption", false);
     div.feed("<table><tr><td>");
     caption.feed("<table><tr><td>");
-    assertEquals(div.state().stack(), caption.state().stack(), e.name());
+    assertEquals(div.state().stack(), caption.state().stack(), Vnu.NAME);
     assertEquals(div.state().mode(), caption.state().mode());
     assertNotEquals(div.state(), caption.state());
     div.feed("</table>");
@@ -207,11 +201,11 @@ class EnginesTest {
     assertEquals(InsertionMode.IN_BODY, div.state().mode());
     assertEquals(InsertionMode.IN_CAPTION, caption.state().mode());
     assertEquals(new OpenElement(OpenElement.HTML, "caption", false), caption.state().fragmentContext());
-    assertNull(e.document(false).state().fragmentContext());
-    assertNotEquals(e.document(false).state(), e.fragment(OpenElement.HTML, "html", false).state());
+    assertNull(Vnu.document(false).state().fragmentContext());
+    assertNotEquals(Vnu.document(false).state(), Vnu.fragment(OpenElement.HTML, "html", false).state());
 
-    div = e.fragment(OpenElement.HTML, "div", false);
-    Parser select = e.fragment(OpenElement.HTML, "select", false);
+    div = Vnu.fragment(OpenElement.HTML, "div", false);
+    Parser select = Vnu.fragment(OpenElement.HTML, "select", false);
     assertEquals(div.state().mode(), select.state().mode());
     assertNotEquals(div.state(), select.state());
     div.feed("<select>");
@@ -236,33 +230,31 @@ class EnginesTest {
       {"<!DOCTYPE html><p title=\"&x\"", "><script>"},
       {"<!DOCTYPE html><p title=&x ", "id=\"", "\"><script>"},
     };
-    Engine e = Engines.CURRENT;
     for (String[] chunks : cases) {
-      Parser p = e.document(true);
+      Parser p = Vnu.document(true);
       for (String c : chunks) {
         p.feed(c);
         p.state();
       }
       ParserState s = p.state();
-      assertEquals(TokenizerState.SCRIPT_DATA, s.tokenizer(), e.name() + " " + String.join("|", chunks));
-      assertEquals(doc(e, String.join("", chunks), true), s);
+      assertEquals(TokenizerState.SCRIPT_DATA, s.tokenizer(), Vnu.NAME + " " + String.join("|", chunks));
+      assertEquals(doc(String.join("", chunks), true), s);
     }
   }
 
   @Test
   void forkIsIndependent() throws EngineException {
-    Engine e = Engines.CURRENT;
-    Parser p = e.document(true);
+    Parser p = Vnu.document(true);
     p.feed("<!DOCTYPE html><div><a href=\"/x");
     ParserState before = p.state();
     Parser q = p.fork();
     q.feed("\">link</a><table>");
-    assertEquals(before, p.state(), e.name());
+    assertEquals(before, p.state(), Vnu.NAME);
     assertEquals(InsertionMode.IN_TABLE, q.state().mode());
     p.feed("\">");
     assertEquals(TokenizerState.DATA, p.state().tokenizer());
     assertTrue(p.state().currentNode().isHtml("a"));
-    assertEquals(before, doc(e, "<!DOCTYPE html><div><a href=\"/x", true), "same input, same state");
+    assertEquals(before, doc("<!DOCTYPE html><div><a href=\"/x", true), "same input, same state");
   }
 
   // Inputs for the split and fork properties: each ends between tokens, so its state has no
@@ -292,28 +284,27 @@ class EnginesTest {
   @Test
   void stateDoesNotDependOnSplitPoints() throws EngineException {
     Random random = new Random(365);
-    Engine e = Engines.CURRENT;
     for (boolean scripting : new boolean[] {true, false}) {
       for (String input : INPUTS) {
-        ParserState whole = doc(e, input, scripting);
+        ParserState whole = doc(input, scripting);
         assertEquals("", whole.pendingInput(), input);
         // Every single split point, then random multi-way splits.
         for (int i = 0; i <= input.length(); i++) {
-          Parser p = e.document(scripting);
+          Parser p = Vnu.document(scripting);
           p.feed(input.substring(0, i));
           p.state();
           p.feed(input.substring(i));
-          assertEquals(whole, p.state(), e.name() + " split at " + i + ": " + input);
+          assertEquals(whole, p.state(), Vnu.NAME + " split at " + i + ": " + input);
         }
         for (int trial = 0; trial < 20; trial++) {
-          Parser p = e.document(scripting);
+          Parser p = Vnu.document(scripting);
           for (String chunk : randomChunks(input, random)) {
             p.feed(chunk);
             if (random.nextBoolean()) {
               p.state();
             }
           }
-          assertEquals(whole, p.state(), e.name() + " " + input);
+          assertEquals(whole, p.state(), Vnu.NAME + " " + input);
         }
       }
     }
@@ -328,18 +319,17 @@ class EnginesTest {
    */
   @Test
   void eventsDoNotDependOnSplitPoints() throws EngineException {
-    Engine e = Engines.CURRENT;
     long errors = 0;
     for (boolean scripting : new boolean[] {true, false}) {
       for (String input : INPUTS) {
-        List<String> whole = events(e, scripting, input);
+        List<String> whole = events(scripting, input);
         errors += whole.stream().filter(x -> x.contains(" error ")).count();
         for (int i = 0; i <= input.length(); i++) {
-          assertSameEvents(whole, events(e, scripting, input.substring(0, i), input.substring(i)),
+          assertSameEvents(whole, events(scripting, input.substring(0, i), input.substring(i)),
               "split at " + i + ": " + input);
         }
         for (int i = 0; i + 1 < input.length(); i++) {
-          assertSameEvents(whole, events(e, scripting, input.substring(0, i), input.substring(i, i + 1), input.substring(i + 1)),
+          assertSameEvents(whole, events(scripting, input.substring(0, i), input.substring(i, i + 1), input.substring(i + 1)),
               "one character alone at " + i + ": " + input);
         }
       }
@@ -358,8 +348,8 @@ class EnginesTest {
   }
 
   /** What a listener hears while {@code chunks} are fed in turn, at offsets into their concatenation. */
-  private static List<String> events(Engine e, boolean scripting, String... chunks) throws EngineException {
-    Parser p = e.document(scripting);
+  private static List<String> events(boolean scripting, String... chunks) throws EngineException {
+    Parser p = Vnu.document(scripting);
     List<String> out = new ArrayList<>();
     int[] base = {0};
     for (String chunk : chunks) {
@@ -410,7 +400,7 @@ class EnginesTest {
 
   private static List<String> cdata(String input) throws EngineException {
     List<String> out = new ArrayList<>();
-    for (String x : events(Engines.CURRENT, true, input)) {
+    for (String x : events(true, input)) {
       int at = x.indexOf(" cdata ");
       if (at >= 0) {
         out.add(x.substring(at + " cdata ".length()));
@@ -422,17 +412,16 @@ class EnginesTest {
   /** A fork made anywhere, even mid-tag, continues exactly like the parser it was forked from. */
   @Test
   void forkAnywhereContinuesExactly() throws EngineException {
-    Engine e = Engines.CURRENT;
     for (String input : INPUTS) {
-      ParserState whole = doc(e, input, true);
+      ParserState whole = doc(input, true);
       for (int i = 0; i <= input.length(); i++) {
-        Parser p = e.document(true);
+        Parser p = Vnu.document(true);
         p.feed(input.substring(0, i));
         ParserState at = p.state();
         Parser q = p.fork();
         assertEquals(at, q.state());
         q.feed(input.substring(i));
-        assertEquals(whole, q.state(), e.name() + " fork at " + i + ": " + input);
+        assertEquals(whole, q.state(), Vnu.NAME + " fork at " + i + ": " + input);
         assertEquals(at, p.state(), "the original is unchanged");
       }
     }
@@ -460,8 +449,7 @@ class EnginesTest {
    */
   @Test
   void splitDependenceComesWithParseErrors() throws EngineException {
-    Engine e = Engines.CURRENT;
-    assertTrue(rejecting(events(e, true, "<!<x>b<p>")) && rejecting(events(e, true, "<!<", "x>b<p>")));
+    assertTrue(rejecting(events(true, "<!<x>b<p>")) && rejecting(events(true, "<!<", "x>b<p>")));
     Random random = new Random(408);
     int differ = 0;
     for (int n = 0; n < 1000; n++) {
@@ -471,7 +459,7 @@ class EnginesTest {
       }
       String input = sb.toString();
       boolean scripting = random.nextBoolean();
-      List<String> whole = events(e, scripting, input);
+      List<String> whole = events(scripting, input);
       List<List<String>> splits = new ArrayList<>();
       for (int i = 1; i < input.length(); i++) {
         splits.add(List.of(input.substring(0, i), input.substring(i)));
@@ -480,7 +468,7 @@ class EnginesTest {
         splits.add(randomChunks(input, random));
       }
       for (List<String> chunks : splits) {
-        List<String> got = events(e, scripting, chunks.toArray(new String[0]));
+        List<String> got = events(scripting, chunks.toArray(new String[0]));
         if (!withoutOffsets(whole).equals(withoutOffsets(got))) {
           differ++;
           assertTrue(rejecting(whole) && rejecting(got), "split " + chunks + "\n" + whole + "\n" + got);
@@ -534,14 +522,13 @@ class EnginesTest {
     assertTrue(ea, "surefire runs tests with -ea");
     assertTrue(dev.tessera.compiler.internal.html5.current.impl.Tokenizer.class.desiredAssertionStatus());
     assertTrue(dev.tessera.compiler.internal.html5.current.impl.TreeBuilder.class.desiredAssertionStatus());
-    Engine e = Engines.CURRENT;
     for (boolean scripting : new boolean[] {true, false}) {
-      ParserState s = doc(e, "<!DOCTYPE html><p>&drop</span>x", scripting);
-      assertEquals(TokenizerState.DATA, s.tokenizer(), e.name());
+      ParserState s = doc("<!DOCTYPE html><p>&drop</span>x", scripting);
+      assertEquals(TokenizerState.DATA, s.tokenizer(), Vnu.NAME);
       assertTrue(s.currentNode().isHtml("p"));
       // Template contents in a document, and a fragment in a template.
-      doc(e, "<!DOCTYPE html><template><td>&drop</td><template><tr></template></template><p>", scripting);
-      Parser p = e.fragment(OpenElement.HTML, "template", scripting);
+      doc("<!DOCTYPE html><template><td>&drop</td><template><tr></template></template><p>", scripting);
+      Parser p = Vnu.fragment(OpenElement.HTML, "template", scripting);
       p.feed("<tr><td>&x</td></tr><caption>");
       p.state();
     }
@@ -551,7 +538,7 @@ class EnginesTest {
   @Test
   void engineFailuresAreCheckedAndFinal() throws EngineException {
     for (Throwable t : new Throwable[] {new IllegalStateException("boom"), new AssertionError("boom")}) {
-      Parser p = new VnuParser((VnuEngine) Engines.CURRENT, new FailingRaw(t, "DATA"));
+      Parser p = new VnuParser(new FailingRaw(t, "DATA"));
       EngineException first = assertThrows(EngineException.class, () -> p.feed("<p>"));
       assertTrue(first.getMessage().startsWith("htmlparser@validator-26.10.12: parsing failed"), first.getMessage());
       assertTrue(first.getCause() == t);
@@ -560,7 +547,7 @@ class EnginesTest {
       assertThrows(EngineException.class, p::fork);
     }
     // A state Tessera has no name for fails closed too.
-    Parser unknown = new VnuParser((VnuEngine) Engines.CURRENT, new FailingRaw(null, "SOMETHING_NEW"));
+    Parser unknown = new VnuParser(new FailingRaw(null, "SOMETHING_NEW"));
     EngineException e = assertThrows(EngineException.class, unknown::state);
     assertTrue(e.getMessage().contains("unknown tokenizer state"), e.getMessage());
   }
@@ -576,7 +563,7 @@ class EnginesTest {
     }
 
     @Override
-    public void feed(char[] chars, int start, int end, RawListener listener) throws Exception {
+    public void feed(char[] chars, int start, int end, TesseraAccess.Listener listener) throws Exception {
       if (failure instanceof Error) {
         throw (Error) failure;
       }
@@ -644,8 +631,8 @@ class EnginesTest {
     }
 
     @Override
-    public RawTree tree() {
-      RawTree t = new RawTree();
+    public TesseraAccess.Tree tree() {
+      TesseraAccess.Tree t = new TesseraAccess.Tree();
       t.stackNamespaces = new String[0];
       t.stackNames = new String[0];
       t.stackHtmlIntegrationPoints = new boolean[0];

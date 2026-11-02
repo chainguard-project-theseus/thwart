@@ -10,7 +10,7 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * The verifier's rule table (docs/security-architecture.md §11.2, memo §3.1-§3.2): in which parser
+ * The verifier's rule table (docs/security-architecture.md §11.2, context-model.md §9): in which parser
  * states an escaper's output is inert, and a value is handled the same way whatever it is. Every
  * state not accepted here is rejected, so a state the table doesn't name fails closed.
  */
@@ -87,12 +87,12 @@ final class Rules {
   }
 
   /**
-   * In raw text, whether it is the content of an element a browser never renders as markup or runs:
-   * not {@code <style>}.
+   * In raw text (the current node is HTML, {@link #hole}), whether it is the content of an element
+   * a browser never renders as markup or runs: not {@code <style>}.
    */
   private static boolean neverRun(ParserState s) {
     OpenElement current = s.currentNode();
-    return current != null && OpenElement.HTML.equals(current.namespace())
+    return current != null
         && (INERT_RAWTEXT.contains(current.localName()) || current.localName().equals("noscript") && s.scripting());
   }
 

@@ -368,17 +368,15 @@ class Jdk8ProcessorTest {
         src,
         """
         package smoke;
-        import dev.tessera.compiler.verify.engine.Engine;
-        import dev.tessera.compiler.verify.engine.Engines;
+        import dev.tessera.compiler.verify.engine.Vnu;
         import dev.tessera.compiler.verify.engine.Parser;
         public final class EngineSmoke {
           public static void main(String[] args) throws Exception {
-            Engine e = Engines.CURRENT;
-            Parser p = e.document(true);
+            Parser p = Vnu.document(true);
             p.feed("<!DOCTYPE html><p>&drop</span><a href=\\"x");
             Parser q = p.fork();
             q.feed("\\"><select><title><script>");
-            System.out.println(e.name() + " " + p.state().tokenizer() + " " + p.state().attributeName()
+            System.out.println(Vnu.NAME + " " + p.state().tokenizer() + " " + p.state().attributeName()
                 + " " + q.state().tokenizer() + " " + q.state().currentNode());
           }
         }

@@ -8,10 +8,9 @@ import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.compiler.verify.Skeleton.Node;
 import dev.tessera.compiler.verify.Skeleton.Seq;
-import dev.tessera.compiler.verify.engine.Engine;
-import dev.tessera.compiler.verify.engine.Engines;
 import dev.tessera.compiler.verify.engine.Parser;
 import dev.tessera.compiler.verify.engine.ParserState;
+import dev.tessera.compiler.verify.engine.Vnu;
 import dev.tessera.runtime.DefaultLinks;
 import dev.tessera.runtime.Forms;
 import dev.tessera.runtime.RenderContext;
@@ -166,8 +165,7 @@ class ContentKindsTest {
    */
   @Test
   void templateModeContinuesFromTheSwitchedState() throws Exception {
-    Engine e = Engines.CURRENT;
-    Parser p = e.document(true);
+    Parser p = Vnu.document(true);
     p.feed("<template>");
     ParserState entry = p.state();
     assertNull(ContentKinds.problem(entry));

@@ -121,14 +121,10 @@ public final class TesseraAccess {
   }
 
   /**
-   * Tokenizes {@code chars[start, end)} without end-of-file processing, as vnu's own driver does:
-   * a CR at the end of one chunk swallows an LF at the start of the next.
+   * Tokenizes {@code chars[start, end)} without end-of-file processing, as vnu's own driver does
+   * (a CR at the end of one chunk swallows an LF at the start of the next), telling {@code
+   * listener} (if not null) what happens.
    */
-  public void feed(char[] chars, int start, int end) throws SAXException {
-    feed(chars, start, end, null);
-  }
-
-  /** {@link #feed(char[], int, int)}, telling {@code listener} (if not null) what happens. */
   public void feed(char[] chars, int start, int end, Listener listener) throws SAXException {
     this.listener = listener;
     try {

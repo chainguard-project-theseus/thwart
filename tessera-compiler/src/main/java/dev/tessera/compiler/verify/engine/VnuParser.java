@@ -1,5 +1,6 @@
 package dev.tessera.compiler.verify.engine;
 
+import dev.tessera.compiler.internal.html5.current.impl.TesseraAccess;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,7 +19,6 @@ import java.util.List;
  * forks share them.
  */
 final class VnuParser implements Parser {
-  private final VnuEngine engine;
   /** The fragment parsing context, or null for document parsing. */
   private final OpenElement context;
   private RawParser raw;
@@ -29,17 +29,16 @@ final class VnuParser implements Parser {
   private ParserState cached;
   private EngineException broken;
 
-  VnuParser(VnuEngine engine, RawParser raw) {
-    this(engine, null, raw);
+  VnuParser(RawParser raw) {
+    this(null, raw);
   }
 
-  VnuParser(VnuEngine engine, OpenElement context, RawParser raw) {
-    this(engine, context, raw, null, new StringBuilder(), null);
+  VnuParser(OpenElement context, RawParser raw) {
+    this(context, raw, null, new StringBuilder(), null);
   }
 
-  private VnuParser(VnuEngine engine, OpenElement context, RawParser raw, ParserState anchor,
+  private VnuParser(OpenElement context, RawParser raw, ParserState anchor,
       StringBuilder pending, ParserState cached) {
-    this.engine = engine;
     this.context = context;
     this.raw = raw;
     this.anchor = anchor;
@@ -47,13 +46,13 @@ final class VnuParser implements Parser {
     this.cached = cached;
   }
 
-  static EngineException failure(Engine engine, String what, Throwable cause) {
-    return new EngineException(engine.name() + ": " + what + " failed: " + cause, cause);
+  static EngineException failure(String what, Throwable cause) {
+    return new EngineException(Vnu.NAME + ": " + what + " failed: " + cause, cause);
   }
 
   private void checkUsable() throws EngineException {
     if (broken != null) {
-      throw new EngineException(engine.name() + ": parser is unusable after an earlier failure", broken);
+      throw new EngineException(Vnu.NAME + ": parser is unusable after an earlier failure", broken);
     }
   }
 
@@ -86,7 +85,7 @@ final class VnuParser implements Parser {
       broken = e;
       throw e;
     } catch (Exception | AssertionError e) {
-      broken = failure(engine, "parsing", e);
+      broken = failure("parsing", e);
       throw broken;
     }
   }
@@ -95,12 +94,12 @@ final class VnuParser implements Parser {
    * Passes what {@code raw} reports while it parses {@code chars} on to {@code listener}, at
    * offsets into {@code chars}; the tokenizer's line 1, column 1 is {@code chars[start]}.
    */
-  private RawParser.RawListener events(final Listener listener, final RawParser raw, final char[] chars,
+  private TesseraAccess.Listener events(final Listener listener, final RawParser raw, final char[] chars,
       final int start) {
     if (listener == null) {
       return null;
     }
-    return new RawParser.RawListener() {
+    return new TesseraAccess.Listener() {
       /** Where line {@code curLine} starts in {@code chars}: events come in input order. */
       private int curLine = 1;
       private int curStart = start;
@@ -208,7 +207,7 @@ final class VnuParser implements Parser {
       broken = e;
       throw e;
     } catch (Exception | AssertionError e) {
-      broken = failure(engine, "reading the parser state", e);
+      broken = failure("reading the parser state", e);
       throw broken;
     }
   }
@@ -217,7 +216,7 @@ final class VnuParser implements Parser {
   public Parser fork() throws EngineException {
     checkUsable();
     // Raw parsers are never fed in place (see the class comment), so the copy can share them.
-    return new VnuParser(engine, context, raw, anchor, new StringBuilder(pending), cached);
+    return new VnuParser(context, raw, anchor, new StringBuilder(pending), cached);
   }
 
   private ParserState read() throws Exception {
@@ -228,9 +227,9 @@ final class VnuParser implements Parser {
     } else if (anchor != null && !raw.betweenTokens()) {
       pendingInput = anchor.signature() + "\n" + pending;
     } else {
-      throw new EngineException(engine.name() + ": inside a token with no known start (" + tokenizer + ")");
+      throw new EngineException(Vnu.NAME + ": inside a token with no known start (" + tokenizer + ")");
     }
-    RawParser.RawTree t = raw.tree();
+    TesseraAccess.Tree t = raw.tree();
     List<OpenElement> stack = new ArrayList<>(t.stackNames.length);
     for (int i = 0; i < t.stackNames.length; i++) {
       stack.add(new OpenElement(t.stackNamespaces[i], t.stackNames[i], t.stackHtmlIntegrationPoints[i]));
@@ -252,7 +251,6 @@ final class VnuParser implements Parser {
       templateModes.add(mode(m));
     }
     return new ParserState(
-        engine.name(),
         context,
         raw.scripting(),
         tokenizer,
@@ -279,7 +277,7 @@ final class VnuParser implements Parser {
         return s;
       }
     }
-    throw new EngineException(engine.name() + ": unknown tokenizer state");
+    throw new EngineException(Vnu.NAME + ": unknown tokenizer state");
   }
 
   private InsertionMode mode(String name) throws EngineException {
@@ -288,11 +286,11 @@ final class VnuParser implements Parser {
         return m;
       }
     }
-    throw new EngineException(engine.name() + ": unknown insertion mode");
+    throw new EngineException(Vnu.NAME + ": unknown insertion mode");
   }
 
   @Override
   public String toString() {
-    return engine.name();
+    return Vnu.NAME;
   }
 }
