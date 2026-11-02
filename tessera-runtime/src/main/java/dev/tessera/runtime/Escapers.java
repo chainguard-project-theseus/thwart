@@ -172,6 +172,13 @@ public final class Escapers {
     }
   }
 
+  /** Raw inline HTML: t:utext and {@code [(...)]} of a {@link SafeInlineHtml}. */
+  public static void html(Output out, SafeInlineHtml value) {
+    if (value != null) {
+      out.write(value.html());
+    }
+  }
+
   /** How far from the decimal point a formatted {@link BigDecimal} may reach; see {@link #messageArgs}. */
   static final int MAX_NUMBER_DIGITS = 10000;
 

@@ -68,6 +68,8 @@ public final class Skeleton {
     HTML_MESSAGE,
     /** As {@link #HTML_MESSAGE}, with links: PHRASING content that may have an {@code a}. */
     LINKED_HTML_MESSAGE,
+    /** A {@code SafeInlineHtml} value (#397): PHRASING content with no {@code a}, as {@link #HTML_MESSAGE}. */
+    SAFE_INLINE_HTML,
     /**
      * An unbound {@code Fragment} parameter: a fragment checked apart from any call site. A bound
      * one is its candidates; Java can't build one.

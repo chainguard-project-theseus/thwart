@@ -163,9 +163,13 @@ public final class Emitted {
         + body + ";\nout.write(" + (javaScript ? "\"(\" + s$ + \")\"" : "s$.toString()") + ");\n}\n";
   }
 
-  /** A {@code SafeHtml} value: {@code Escapers.html(out, <valueCode>);} */
-  public static Emitted safeHtml(SourcePos pos, String valueCode) {
-    return of(ESCAPERS + "html(out, " + valueCode + ");", new Skeleton.RawInsert(Skeleton.Source.SAFE_HTML, pos));
+  /**
+   * A {@code SafeHtml} value, or a {@code SafeInlineHtml} one if {@code inline}:
+   * {@code Escapers.html(out, <valueCode>);}
+   */
+  public static Emitted safeHtml(SourcePos pos, String valueCode, boolean inline) {
+    Skeleton.Source source = inline ? Skeleton.Source.SAFE_INLINE_HTML : Skeleton.Source.SAFE_HTML;
+    return of(ESCAPERS + "html(out, " + valueCode + ");", new Skeleton.RawInsert(source, pos));
   }
 
   /**
