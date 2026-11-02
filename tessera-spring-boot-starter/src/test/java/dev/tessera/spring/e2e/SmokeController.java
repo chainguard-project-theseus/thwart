@@ -1,6 +1,5 @@
 package dev.tessera.spring.e2e;
 
-import dev.tessera.spring.e2e.templates.smoke.PageTemplate;
 import java.time.LocalDate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -67,11 +66,6 @@ public class SmokeController {
     model.addAttribute("name", "Ann");
     model.addAttribute("secret", "s3cret");
     return "smoke/rows :: row";
-  }
-
-  @GetMapping("/typed")
-  public PageTemplate typed() {
-    return PageTemplate.of(new Signup("Grace"));
   }
 
   /** A bound cart (so the model has a BindingResult, as for any {@code @ModelAttribute}). */

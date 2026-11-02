@@ -32,8 +32,8 @@ A template is HTML with a typed parameter header:
 ```
 
 The application's `javac` compiles `customers/show.html` to a `ShowTemplate` class. A controller
-returns the view name `"customers/show"` with a model, as with Thymeleaf, or returns the typed
-`ShowTemplate.of(customer, orders)`. A mistake such as an unknown property, a method that isn't a
+returns the view name `"customers/show"` with a model, as with Thymeleaf. A mistake such as an
+unknown property, a method that isn't a
 getter, a type that isn't view-safe, or `T(java.lang.Runtime)` is a build error with `file:line:col`.
 
 ## Design principles
@@ -190,7 +190,7 @@ Thymeleaf directory and reports, by `file:line`, what it couldn't convert.
 | `tessera-runtime` | Runtime: escapers, safe types, links, messages, forms. No dependencies |
 | `tessera-html5` | Build only: the pinned validator.nu HTML parser, renamed and compiled for Java 8, for the build-time verifier |
 | `tessera-compiler` | Template compiler and annotation processor. Shades `tessera-html5` and nothing else |
-| `tessera-spring-boot-starter` | Spring MVC integration (`jakarta.servlet`): view resolver, typed return values, forms, CSRF, i18n, `auth` functions |
+| `tessera-spring-boot-starter` | Spring MVC integration (`jakarta.servlet`): view resolver, forms, CSRF, i18n, `auth` functions |
 | `tessera-spring-boot-starter-javax` | The same starter relocated to `javax.servlet` |
 | `tessera-spring-tests` | Runs the starter's tests on Boot 3.5, 2.7, 2.0 and 1.5 and plain Spring MVC 5.0 and 4.3 |
 | `tessera-migrate` | Page record/compare and the Thymeleaf converter (bundles attoparser and jsoup) |

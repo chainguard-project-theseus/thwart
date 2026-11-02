@@ -30,13 +30,6 @@ class PlainSpringXmlTest {
               .getResponse()
               .getContentAsString();
       assertTrue(page.contains("<p id=\"hello\">Hello, Ada</p>"), page);
-      String typed =
-          mvc.perform(get("/typed"))
-              .andExpect(status().isOk())
-              .andReturn()
-              .getResponse()
-              .getContentAsString();
-      assertTrue(typed.contains("Hello, Grace"), typed);
       mvc.perform(post("/signup").param("name", "Ada"))
           .andExpect(status().is3xxRedirection())
           .andExpect(redirectedUrl("/page"));
