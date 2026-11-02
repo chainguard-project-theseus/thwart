@@ -6,7 +6,7 @@
 # The header below is the compiler file's, copied with its names.
 #
 # The standard attribute names (#330, #584,
-# docs/security-architecture.md section 12.2, docs/context-model.md section 6.2). Every other plain
+# docs/security-architecture.md section 5.3, docs/context-model.md section 6.2). Every other plain
 # name (data-*, a custom element's own attributes, framework names) takes only a neutral value.
 # Contexts.attribute still classifies each name (URL, STYLE, FORBIDDEN, ...); this file only
 # says which names exist. Static attributes are not checked against it.

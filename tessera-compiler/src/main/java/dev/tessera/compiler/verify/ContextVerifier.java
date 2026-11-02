@@ -3,12 +3,12 @@ package dev.tessera.compiler.verify;
 import dev.tessera.compiler.DiagnosticSink;
 import dev.tessera.compiler.SourcePos;
 import dev.tessera.compiler.verify.engine.EngineException;
-import dev.tessera.compiler.verify.engine.Engines;
 import dev.tessera.compiler.verify.engine.InsertionMode;
 import dev.tessera.compiler.verify.engine.OpenElement;
 import dev.tessera.compiler.verify.engine.Parser;
 import dev.tessera.compiler.verify.engine.ParserState;
 import dev.tessera.compiler.verify.engine.TokenizerState;
+import dev.tessera.compiler.verify.engine.Vnu;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -24,9 +24,9 @@ import java.util.TreeMap;
 /**
  * The build-time context verifier (#367, docs/security-architecture.md §11): the security boundary
  * for markup contexts. It runs each template's {@link Skeleton} through the spec HTML parser
- * ({@link Engines#CURRENT}), with scripting on and off, and accepts a hole only if its escaper's
- * output is inert in the parser state there in both ({@link Rules}). A template it doesn't
- * accept is a build error at the hole's file, line and column.
+ * ({@link Vnu}), with scripting on and off, and accepts a hole only if its escaper's output is
+ * inert in the parser state there in both ({@link Rules}). A template it doesn't accept is a build
+ * error at the hole's file, line and column.
  *
  * <p>It follows one path through the template, with the parsers as the transfer function. A path
  * holds the two parsers (one, when the template has no {@code <noscript>}). Statics are fed as they
@@ -42,9 +42,9 @@ import java.util.TreeMap;
  * <p>It accepts only error-free parses (#406, security-architecture.md §11.4): every parse error the
  * engine finds, with scripting on and off, is {@link Problem#PARSE_ERROR} at the static that holds
  * it, except the allow-list ({@link Rules#allowedError}); a partial counts them, and its balance,
- * only in its fragment contexts. And it checks
- * the coarse exclusions ({@link Rules#exclusion}) at every element the parser inserts, and at
- * rejects every CDATA section it starts ({@link Problem#CDATA_SECTION}).
+ * only in its fragment contexts. It checks the coarse exclusions ({@link Rules#exclusion}) at every
+ * element the parser inserts, and rejects every CDATA section the parser starts ({@link
+ * Problem#CDATA_SECTION}).
  *
  * <p>It fails closed: an engine failure, a recursion into ever new states and a node it can't
  * interpret are build errors.
@@ -56,7 +56,7 @@ public final class ContextVerifier {
   /** A fragment that calls itself may be entered in at most this many states while it recurses. */
   static final int MAX_RECURSIVE_ENTRIES = 24;
 
-  /** Fragment parsing contexts a partial's root element implies (memo §3.4.6); anything else: body. */
+  /** Fragment parsing contexts a partial's root element implies; anything else: body. */
   private static final Map<String, String> PARTIAL_CONTEXTS = new HashMap<>();
 
   static {
@@ -181,7 +181,6 @@ public final class ContextVerifier {
   static {
     DECLARED_CONTEXTS.put("svg", new OpenElement(OpenElement.SVG, "svg", false));
     DECLARED_CONTEXTS.put("math", new OpenElement(OpenElement.MATHML, "math", false));
-    DECLARED_CONTEXTS.put("annotation-xml", new OpenElement(OpenElement.MATHML, "annotation-xml", false));
     DECLARED_CONTEXTS.put("select", new OpenElement(OpenElement.HTML, "select", false));
   }
 
@@ -643,9 +642,9 @@ public final class ContextVerifier {
    * name (a boolean attribute such as {@code disabled}), a '=' or a name right after the written
    * value is a parse error, where without it they would give that attribute a value or start the
    * next one. So the two differ only in the element's attribute list. That list matters to the
-   * tree builder only through {@link #PRESENCE_MATTERS}, through duplicate names, and where the
-   * attribute makes a parse error ({@code <font color>} in SVG), where the written attribute is
-   * the stricter case (a later duplicate is dropped). An {@code <input>} in a table is a parse
+   * tree builder only through duplicate names and where the attribute makes a parse error, where
+   * the written attribute is the stricter case (a later duplicate is dropped), and through MathML's
+   * {@code encoding}, which is never computed (#678). An {@code <input>} in a table is a parse
    * error with any {@code type}. So the written path alone stands for both, and a tag with many
    * computed attributes doesn't multiply the states. Otherwise both must be one state ({@link
    * #balanced}).
@@ -661,7 +660,7 @@ public final class ContextVerifier {
     ParserState[] entry = p.states();
     boolean pendingBoundary = p.tagBoundary;
     Path written = seq(o.body(), p.fork(), env);
-    boolean merge = name != null && !PRESENCE_MATTERS.equals(name);
+    boolean merge = name != null;
     boolean inName = false;
     for (ParserState s : entry) {
       TokenizerState t = s.tokenizer();
@@ -681,12 +680,6 @@ public final class ContextVerifier {
     }
     return written;
   }
-
-  /**
-   * The attribute whose presence changes how the rest parses without a parse error either way:
-   * {@code encoding} (MathML {@code annotation-xml} is an HTML integration point with it).
-   */
-  private static final String PRESENCE_MATTERS = "encoding";
 
   /**
    * Zero or more {@code body}, separated. One pass of the body and the separator must each be
@@ -1043,8 +1036,8 @@ public final class ContextVerifier {
   private Path start(OpenElement context, boolean scriptingOff) throws EngineException {
     List<Parser> ps = new ArrayList<>();
     for (boolean on : scriptingOff ? new boolean[] {true, false} : new boolean[] {true}) {
-      ps.add(context == null ? Engines.CURRENT.document(on)
-          : Engines.CURRENT.fragment(context.namespace(), context.localName(), on));
+      ps.add(context == null ? Vnu.document(on)
+          : Vnu.fragment(context.namespace(), context.localName(), on));
     }
     return new Path(this, ps.toArray(new Parser[0]));
   }
@@ -1254,7 +1247,8 @@ public final class ContextVerifier {
     private String tail = "";
     /**
      * Per parser, where each element on its stack of open elements was inserted, by stack index
-     * (#393): the cause a message names. Not part of the {@link #key}: merged paths keep the first's.
+     * (#393): the cause a message names. Not part of the {@link #key}: a memoised call's exit keeps
+     * the one it was first analysed with.
      */
     private final List<List<Opened>> opened = new ArrayList<>();
 

@@ -244,8 +244,8 @@ class ErrorFreeTest {
   }
 
   /**
-   * Identical formatting elements, one with a computed attribute, written in order (#444, which
-   * retired NOAHS_ARK): the value decides whether the Noah's Ark clause drops the outer {@code <b>}
+   * Identical formatting elements, one with a computed attribute, written in order (#444): the
+   * value decides whether the Noah's Ark clause drops the outer {@code <b>}
    * from the list of active formatting elements when the fourth opens, but the element stays open,
    * and in an error-free parse the list changes the tree only through entries that are no longer
    * open. So the template is accepted, and every value renders the same structure.
@@ -282,19 +282,18 @@ class ErrorFreeTest {
   }
 
   /**
-   * The negatives of the rules #410 retired, narrowed, folded into an exclusion or kept: each
-   * still fails to compile.
+   * Misnesting and other error recovery are parse errors (#410, #444), and a {@code <frameset>}
+   * is an exclusion: each fails to compile.
    */
   @Test
-  void theNegativesOfRetiredRulesStillFail() {
-    // TEXT_RECONSTRUCTS: </p> closes the <b> out of order, and the value would go into a copy.
+  void misnestingIsAParseError() {
+    // </p> closes the <b> out of order, and the value would go into a reconstructed copy.
     verify("<p><b>x</p>[[${s}]]").assertError("t.html:1:", "[verifier:PARSE_ERROR]");
-    // NOAHS_ARK (retired by #444): identical formatting elements with a computed attribute,
-    // misnested, are a parse error. Written in order they are accepted
-    // (aComputedAttributeCantChangeTheTreeOfIdenticalFormattingElements).
+    // Identical formatting elements with a computed attribute, misnested. Written in order they
+    // are accepted (aComputedAttributeCantChangeTheTreeOfIdenticalFormattingElements).
     verify("<p><b class=\"x\">1<b class=\"x\">2<b class=\"x\">3<b t:class=\"s\">4</b></b></p>z")
         .assertError("t.html:1:", "[verifier:PARSE_ERROR]");
-    // ATTRIBUTE_VALUE_CHANGES_PARSE for a computed input type: an <input> directly in a table.
+    // A computed input type on an <input> directly in a table.
     verify("<table><input t:type=\"s\"></table>").assertError("t.html:1:", "moves this <input> out of the table",
         "[verifier:PARSE_ERROR]");
     // FRAMESET: any frameset element.

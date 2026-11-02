@@ -15,17 +15,18 @@ import java.util.Set;
 /**
  * How a browser parses the content of each element of a template: as {@link #HTML} markup, as
  * SVG or MathML (foreign content, where {@code <title>}, {@code <style>} and {@code <script>}
- * hold markup and {@code <![CDATA[} is text), inside a {@code <select>} (where some browsers
- * ignore {@code <title>} and {@code <style>} tags and parse their content as markup), or as the
- * raw text of an HTML {@code <title>}, {@code <textarea>}, {@code <noscript>}, ... A fragment's
- * markup reads the same only where it is parsed in the context it was compiled in, so
- * {@code t:insert} and {@code t:replace} compare these contexts.
+ * hold markup and {@code <![CDATA[} starts a CDATA section), inside a {@code <select>} (where
+ * some browsers ignore {@code <title>} and {@code <style>} tags and parse their content as
+ * markup), or as the raw text of an HTML {@code <title>}, {@code <textarea>}, {@code <noscript>},
+ * ... A fragment's markup reads the same only where it is parsed in the context it was compiled
+ * in, so {@code t:insert} and {@code t:replace} compare these contexts.
  *
  * <p>A context is {@link #HTML}, {@code svg}, {@code math}, {@code select}, or the name of the
  * raw-text element. SVG {@code foreignObject}, {@code desc} and {@code title} and MathML {@code mi
- * mo mn ms mtext} hold HTML. Nothing inside {@code <svg>} or {@code <math>} is a fragment or an
- * insertion point (#678), and a breakout tag such as {@code <p>} there is a parse error, so the
- * contexts inside them only tell a fragment declared there from one declared in HTML.
+ * mo mn ms mtext} hold HTML. Nothing inside {@code <svg>} or {@code <math>} is an insertion point
+ * and a fragment declared there holds only static markup (#678), and a breakout tag such as {@code
+ * <p>} there is a parse error, so the contexts inside them only tell a fragment declared there
+ * from one declared in HTML.
  *
  * <p>Contexts follow the tags as written, which is how the template is compiled: the children of
  * {@code <svg t:replace>} are SVG content, since they only render as fragments declared there. A
