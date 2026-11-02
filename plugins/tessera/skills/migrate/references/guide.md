@@ -773,8 +773,33 @@ parameters.
   - A fragment library wrapped in `<html>`, with a fragment call or `t:if` before its `<body>`:
     that content makes a browser open the `<body>` (or `<head>`). Make the library's root a
     `<t:block>` instead of `<html>`, or move the fragments into the `<body>`.
+  - `<head t:replace="~{fragments/head :: head('Home')}">` or `<body t:replace="...">`: the
+    fragment brings its own `<head>` or `<body>` where a browser has already opened one. Keep
+    the page's `<head>` and replace a `<t:block>` inside it with a fragment of the head's content
+    (below), or put a layout on `<html>` (Layouts).
 
   A layout call on the page's `<html>` (below) is fine: it ends the document.
+
+<!-- compile: template guide/fragments/head.html -->
+```html
+<t:block xmlns:t="https://tessera.dev">
+  <t:block t:fragment="common(String title)">
+    <title t:text="|${title} - Example|">Example</title>
+    <link rel="stylesheet" t:href="@{/css/app.css}" />
+  </t:block>
+</t:block>
+```
+
+<!-- compile: template guide/head-page.html -->
+```html
+<!DOCTYPE html>
+<html xmlns:t="https://tessera.dev">
+<head>
+  <t:block t:replace="~{guide/fragments/head :: common('Home')}"></t:block>
+</head>
+<body><h1>Home</h1></body>
+</html>
+```
 
 **Layouts.** A layout is a fragment with `Fragment` parameters. Each page replaces itself with the
 layout and passes its `<body>`, marked `t:remove="tag"` so that only the body's children are

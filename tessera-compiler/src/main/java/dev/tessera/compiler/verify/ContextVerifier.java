@@ -279,7 +279,12 @@ public final class ContextVerifier {
             && entries.size() > 1) {
           // A partial counts parse errors and balance only in the fragment contexts its root
           // implies (#406, #682): as a document, a <tr> partial is a stray start tag, and the
-          // first element of any partial opens <html> and <body>.
+          // first element of any partial opens <html> and <body>. So a t:if unbalanced only as a
+          // document goes on from its entry alone (optional): its written and skipped states converge at
+          // the first flow element, which opens <body> in both, and before that they differ only in head
+          // or body placement, where <noscript>, <style>, <title> and the other head elements tokenize
+          // the same, so every hole meets the same escaper rule (#707, ContextVerifierRulesTest
+          // aLeadingIfDoesNotChangeHowHeadElementsInAPartialAreChecked).
           continue;
         }
         // Data-dependent structure is one error per place, not one per hole it reaches.
@@ -687,11 +692,22 @@ public final class ContextVerifier {
    * Zero or more {@code body}, separated. One pass of the body and the separator must each be
    * state-neutral ({@link #optional}); then every number of passes leaves the entry state. In
    * template mode the first pass may switch the mode, and the next passes are checked from there.
+   * A separator that switches it is rejected (#707): from two passes on, what follows would parse
+   * in the separator's state, not the first pass's.
    */
   private Path rep(Skeleton.Rep r, Path p, Env env, SourcePos pos) throws EngineException {
     String what = r.kind() == Skeleton.RepKind.EACH ? "this t:each" : "the messages of this t:errors";
     Path once = optional(r.body(), p, env, pos, what, false);
     Path next = optional(r.separator(), once, env, pos, what, false);
+    ParserState[] a = once.states();
+    ParserState[] b = next.states();
+    for (int i = 0; i < a.length; i++) {
+      if (!ContentKinds.flowSignature(a[i]).equals(ContentKinds.flowSignature(b[i]))) {
+        add(Problem.UNBALANCED, pos, null, null, null, Collections.singletonList(b[i]),
+            VerifierMessages.unbalanced("the separator of " + what, a[i], b[i]));
+        return once;
+      }
+    }
     if (!flowKey(once).equals(flowKey(p))) {
       return optional(r.body(), next, env, pos, what, false);
     }

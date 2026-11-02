@@ -393,10 +393,36 @@ class ContextVerifierRulesTest {
   }
 
   @Test
+  void aLeadingIfDoesNotChangeHowHeadElementsInAPartialAreChecked() {
+    // As a document, a leading t:if leaves the parser in body (written) or before <html> (skipped);
+    // the verifier goes on from the entry only. A hole in a head element after it is rejected
+    // wherever either state would reject it (#707): these elements tokenize alike in head and body,
+    // and the head adds rules of its own (TEXT_OUTSIDE_BODY after a <noscript> with scripting off).
+    for (String e : List.of("noscript", "style", "title")) {
+      Node[] el = {st("<" + e + ">"), text(), st("</" + e + ">")};
+      List<Problem> skipped = problems(check(seq(el)));
+      List<Problem> written = problems(check(seq(st("<p>x</p>"), el[0], el[1], el[2])));
+      List<Problem> leadingIf = problems(check(seq(opt(st("<p>x</p>")), el[0], el[1], el[2])));
+      assertTrue(leadingIf.containsAll(skipped) && leadingIf.containsAll(written),
+          e + ": " + leadingIf + " skipped " + skipped + " written " + written);
+    }
+    accept(opt(st("<p>x</p>")), st("<title>"), text(), st("</title>"));
+    reject(Problem.TEXT_IN_SCRIPT, opt(st("<p>x</p>")), st("<style>"), text(), st("</style>"));
+    reject(Problem.VALUE_IN_RAW_TEXT, opt(st("<p>x</p>")), st("<noscript>"), text(), st("</noscript>"));
+  }
+
+  @Test
   void aTemplateElementMaySwitchToBody() {
     // In template mode, the first flow start tag switches the mode: allowed, and checked from there on.
     accept(st("<template>"), rep(seq(st("<div>"), text(), st("</div>"))), st("</template>"));
     accept(st("<template>"), opt(st("<p>"), text(), st("</p>")), st("<div>x</div></template>"));
+    // ... but not by a loop's separator only: from two passes on a browser is in body, where the
+    // first pass leaves template mode (#707). Rejected, not modelled.
+    reject(Problem.UNBALANCED, st("<template>"),
+        new Skeleton.Rep(Skeleton.RepKind.ERRORS, seq(text()), seq(st("<br />")), pos()),
+        st("<tr><td>"), text(), st("</td></tr></template>"));
+    reject(Problem.UNBALANCED, st("<template>"),
+        new Skeleton.Rep(Skeleton.RepKind.ERRORS, seq(text()), seq(st("<br />")), pos()), st("</template>"));
   }
 
   @Test
