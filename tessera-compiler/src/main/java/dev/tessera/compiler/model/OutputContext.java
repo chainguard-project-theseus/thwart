@@ -30,7 +30,7 @@ public enum OutputContext {
    */
   RESOURCE_URL(Escaper.RESOURCE_URL),
   /**
-   * The {@code content} of a {@code <meta http-equiv="refresh">} (#237). Only
+   * The {@code content} of a {@code <meta http-equiv="refresh">}. Only
    * {@code '<seconds>;url=' + @{/path...}} with a same-origin literal path is accepted; the
    * escaper encodes the characters that end a refresh URL and re-checks the path.
    */
@@ -43,21 +43,21 @@ public enum OutputContext {
   /**
    * {@code <style>} element or {@code style} attribute. Expressions in a {@code <style>} are a
    * build error; a {@code style} attribute takes only literals, numbers and {@code CssValue}s
-   * (#182) and is attribute-escaped.
+   * and is attribute-escaped.
    */
   STYLE(null),
   /**
    * A standard attribute that is not an inert-text attribute ({@code inert-attributes.txt}) and
    * has no more specific context, such as {@code sandbox}, {@code rel} or {@code target},
    * or the {@code content} of a {@code <meta>} that is not named.
-   * The value may only combine string literals and numbers (#565); a String, other plain value or
+   * The value may only combine string literals and numbers; a String, other plain value or
    * safe type is a build error. Written attribute-escaped.
    */
   TYPED_ATTRIBUTE(null),
   /**
    * An attribute whose name is not a standard HTML, SVG, MathML or ARIA name ({@code data-*},
-   * {@code hx-*}, {@code x-*}, {@code v-*}, a custom element's own attributes, any other plain name;
-   * #583 rule 3, #584). Whatever client code reads it gets only a framework-neutral value: an
+   * {@code hx-*}, {@code x-*}, {@code v-*}, a custom element's own attributes, any other plain name):
+   * client frameworks may run any non-standard attribute as code. Whatever client code reads it gets only a framework-neutral value: an
    * exact-class number written in plain decimal, a boolean, a same-origin {@code @{/path}} with no
    * query, or a choice between those and literals. A String or any other type is a build error.
    * Written attribute-escaped.

@@ -32,8 +32,8 @@ import java.util.function.IntConsumer;
  * {@link String#valueOf(Object)}. Safe types are only honoured where noted.
  *
  * <p>HTML escapers also replace controls other than ASCII whitespace, noncharacters and unpaired
- * surrogates with U+FFFD ({@link #forbiddenCodePoint}), so the output parses without a parse error (#614).
- * The JSON escapers write the same code points as {@code \\uXXXX} escapes, the same JS value (#619).
+ * surrogates with U+FFFD ({@link #forbiddenCodePoint}), so the output parses without a parse error.
+ * The JSON escapers write the same code points as {@code \\uXXXX} escapes, the same JS value.
  */
 public final class Escapers {
   private Escapers() {}
@@ -61,7 +61,7 @@ public final class Escapers {
     escapeHtml(out, toText(value));
   }
 
-  // Typed overloads of text (#685): javac picks them for a primitive value, whose text is only
+  // Typed overloads of text: javac picks them for a primitive value, whose text is only
   // digits, '-' or a literal, written without escaping. A char is escaped like any other value (it
   // would otherwise widen to the int overload); a boxed value, and an enum, whose toString() an
   // application can override, go to text(Output, Object) and are escaped.
@@ -122,7 +122,7 @@ public final class Escapers {
   }
 
   /**
-   * The {@code content} of a {@code <meta http-equiv="refresh">} (OutputContext.REFRESH, #237).
+   * The {@code content} of a {@code <meta http-equiv="refresh">} (OutputContext.REFRESH).
    * The compiler only lets through {@code "<digits>;url=" + <link with a literal /path>}. The
    * URL part has {@code ; , ' " \}, ASCII whitespace and control characters percent-encoded, so a
    * browser's loose refresh parsing cannot end it early or strip characters from it, and it
@@ -156,7 +156,7 @@ public final class Escapers {
   }
 
   /**
-   * A {@code BigDecimal} or {@code BigInteger} piece of a {@code style} attribute value (#182),
+   * A {@code BigDecimal} or {@code BigInteger} piece of a {@code style} attribute value,
    * which generated code joins with literals and {@link CssValue}s before {@link #attr} escapes it.
    * Neither class is final, so only the JDK classes themselves are accepted, as in {@link #json};
    * a subclass throws {@link IllegalArgumentException}. {@code null} stays {@code null}.
@@ -232,7 +232,7 @@ public final class Escapers {
   private static final Map<String, SafeHtml> MESSAGES_NO_LINKS = new ConcurrentHashMap<>();
 
   /**
-   * A bundle message rendered as HTML ({@code t:utext="#{key(args)}"}, {@code [(#{...})]}; #677).
+   * A bundle message rendered as HTML ({@code t:utext="#{key(args)}"}, {@code [(#{...})]}).
    * The arguments are escaped as HTML text (numbers and dates are kept for MessageFormat), the
    * message is looked up with them, and the result is cleaned with the fixed message policy,
    * {@link HtmlPolicy#MESSAGE} ({@link HtmlPolicy#MESSAGE_NO_LINKS} without {@code links}): markup
@@ -427,7 +427,7 @@ public final class Escapers {
     return sb.toString();
   }
 
-  /** {@link #appendHtml} from index {@code i}, copying runs of kept characters in bulk (#685). */
+  /** {@link #appendHtml} from index {@code i}, copying runs of kept characters in bulk. */
   private static void appendEscapedHtml(StringBuilder sb, String s, int i) {
     int n = s.length();
     int kept = 0;
@@ -458,12 +458,12 @@ public final class Escapers {
   }
 
   /**
-   * Whether {@code cp} is a parse error in the parser's input (#592, #614): a control other than
+   * Whether {@code cp} is a parse error in the parser's input: a control other than
    * ASCII whitespace (U+0000-U+001F but TAB, LF, FF and CR, and U+007F-U+009F), a noncharacter
    * (U+FDD0-U+FDEF and the last two code points of every plane) or a surrogate (a lone one, as
    * {@link Character#codePointAt(CharSequence, int)} returns it). The HTML escapers, and so the
    * sanitizer, which writes text and attribute values through them, write it as U+FFFD, and the
-   * JSON escapers as {@code \\uXXXX} (#619): the one rule for every producer.
+   * JSON escapers as {@code \\uXXXX}: the one rule for every producer.
    */
   static boolean forbiddenCodePoint(int cp) {
     if (cp < 0x20) {
@@ -559,7 +559,7 @@ public final class Escapers {
    * CSRF token), if it starts
    * with {@code /} and {@linkplain #isSameOriginUrl is same-origin}. The compiler checks only the
    * literal path; a context path ending in {@code /}, a custom {@link Links}, or a path variable can
-   * still turn {@code /a} into the protocol-relative {@code //a} (#358). Anything else fails the
+   * still turn {@code /a} into the protocol-relative {@code //a}. Anything else fails the
    * render with an {@link IllegalStateException} rather than leave the origin.
    */
   public static String sameOriginLink(String url) {
@@ -572,10 +572,10 @@ public final class Escapers {
   }
 
   /**
-   * A number in an attribute outside HTML ({@code data-*}, {@code hx-*}, ...; #583 rule 3, #584), in
+   * A number in an attribute outside HTML ({@code data-*}, {@code hx-*}, ...), which client frameworks may run as code, in
    * plain decimal {@code -?(0|[1-9][0-9]*)(\.[0-9]+)?}: no exponent, {@code +}, NaN or Infinity, which
    * client code could read as an identifier. Only the JDK's own {@code Byte Short Integer Long
-   * BigInteger BigDecimal Float Double} are accepted, a subclass throws (#553's exact-class rule), as
+   * BigInteger BigDecimal Float Double} are accepted, a subclass throws (it could override toString), as
    * does a NaN or infinite value. {@code null} stays {@code null}.
    */
   public static String neutralNumber(Object value) {
@@ -629,7 +629,7 @@ public final class Escapers {
 
   /**
    * {@code url}, a link built by {@link Links} for an attribute outside HTML ({@code data-*},
-   * {@code hx-*}, ...; #583 rule 3, #584), in the alphabet client code reads as a regular expression
+   * {@code hx-*}, ...), which client frameworks may run as code, in the alphabet client code reads as a regular expression
    * literal and nothing else: every byte outside {@code A-Z a-z 0-9 . _ ~ / -} is percent-encoded
    * (UTF-8), except a {@code %} that already starts a {@code %XX}, and the second {@code -} of
    * {@code --} (a decrement, which writes) becomes {@code %2D}. Path variables come from data, and a
@@ -834,7 +834,7 @@ public final class Escapers {
    * compiler never places a value: {@code < > & ' ` $ {}, U+2028, U+2029 and every
    * {@link #forbiddenCodePoint} (controls, noncharacters as their two halves when supplementary, and
    * lone surrogates) become {@code \\uXXXX}, and {@code /} becomes {@code \\/}. An escape is the same
-   * JS value, and the page parses without a parse error (#619).
+   * JS value, and the page parses without a parse error.
    */
   private static void writeJsonString(StringBuilder sb, String s) {
     sb.append('"');

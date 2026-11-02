@@ -6,7 +6,7 @@ import java.util.Objects;
  * HTML that is known to be safe to emit without escaping. The only ways to get one are
  * {@link #escape(String)}, {@link #sanitize(String)} (or with an {@link HtmlPolicy}), or
  * {@link #concat(SafeHtml...)} of other {@code SafeHtml}s. There is no constructor that skips the
- * check (#664). {@code t:utext} accepts nothing else.
+ * check. {@code t:utext} accepts nothing else.
  */
 public final class SafeHtml {
   public static final SafeHtml EMPTY = new SafeHtml("");

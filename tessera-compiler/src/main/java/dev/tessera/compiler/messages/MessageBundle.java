@@ -30,11 +30,11 @@ import java.util.stream.Stream;
  * bundle is unchecked and every key is accepted (with a warning per template).
  *
  * <p>The option is a comma-separated list of Spring basenames, each the path of a bundle without
- * {@code .properties} (#134). A basename may carry a locale suffix, {@code messages_en}, meaning
+ * {@code .properties}. A basename may carry a locale suffix, {@code messages_en}, meaning
  * basename {@code messages} with default locale {@code en}. For each basename the build loads
  * {@code <base>.properties} (if it exists) and every locale file beside it ({@code
- * <base>_fr.properties}, {@code <base>_pt_BR.properties}, ...; #236), named as Spring names them
- * for a {@link Locale} (#271). A request in another locale falls back to the default locale's files
+ * <base>_fr.properties}, {@code <base>_pt_BR.properties}, ...), named as Spring names them
+ * for a {@link Locale}. A request in another locale falls back to the default locale's files
  * ({@code _pt_BR}, then {@code _pt}) and then to the base file
  * ({@code ReloadableResourceBundleMessageSource}), so a key is known when it is in the base file or
  * one of the default locale's files of some basename; a locale file may leave keys out. Spring

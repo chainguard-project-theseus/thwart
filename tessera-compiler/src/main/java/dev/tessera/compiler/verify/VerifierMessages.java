@@ -9,7 +9,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Every message text of the context verifier, in one place (#368). A message says, in plain words,
+ * Every message text of the context verifier, in one place. A message says, in plain words,
  * what a browser does with the value at that point and the smallest template change that fixes it.
  * It never shows a parser state, an insertion mode or an engine class. When the hole is inside a
  * fragment, the error is at the call site and the message names the fragment and the hole; when
@@ -34,7 +34,7 @@ final class VerifierMessages {
     }
     sb.append(text(f));
     if (f.causeAt != null) {
-      // The markup before the value that put the parser there (#393): <svg> itself is named without "SVG".
+      // The markup before the value that put the parser there: <svg> itself is named without "SVG".
       String name = f.cause.localName().equals("svg") || f.cause.localName().equals("math")
           ? "<" + f.cause.localName() + ">" : element(f.cause);
       sb.append("; a browser opened the ").append(name).append(" it is in at ").append(f.causeAt);
@@ -136,7 +136,7 @@ final class VerifierMessages {
     }
   }
 
-  /** Problems a parser reports while it parses (#406), not found in a state at a hole. */
+  /** Problems a parser reports while it parses, not found in a state at a hole. */
   private static boolean reportedByParser(Problem p) {
     return p == Problem.PARSE_ERROR || p == Problem.FOREIGN_IN_TABLE || p == Problem.TABLE_IN_TEMPLATE
         || p == Problem.SELECT_CONTENT || p == Problem.FRAMESET || p == Problem.CDATA_SECTION;
@@ -173,7 +173,7 @@ final class VerifierMessages {
 
   /**
    * The detail of a {@link Problem#PARSE_ERROR}: the parser's {@code message} and the {@code
-   * markup} it is in (from its {@code <}, or ""), which some fix-its name (#442).
+   * markup} it is in (from its {@code <}, or ""), which some fix-its name.
    */
   static String parseErrorDetail(String message, String markup) {
     return markup.isEmpty() ? message : message + '\u0000' + markup;
@@ -409,7 +409,7 @@ final class VerifierMessages {
   }
 
   /**
-   * The text of {@link Problem#UNBALANCED} (#682): {@code what} (the body or fragment, in words),
+   * The text of {@link Problem#UNBALANCED}: {@code what} (the body or fragment, in words),
    * how it leaves the parser ({@code after}) unlike it found it ({@code before}), and the fix, with
    * the migration recipes for the two shapes the bench corpus has (guide section 4.8).
    */

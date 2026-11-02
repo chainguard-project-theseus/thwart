@@ -5,7 +5,7 @@ import dev.tessera.runtime.TemplateFunction;
 import dev.tessera.runtime.TemplateFunctions;
 
 /**
- * Built-in {@code css} namespace: validated values for {@code style} attributes (#182). Always
+ * Built-in {@code css} namespace: validated values for {@code style} attributes. Always
  * registered. Invalid or {@code null} input gives {@code null}: a {@code t:style} that is only
  * that value is omitted, and inside {@code |...|} or {@code +} it prints {@code null}, which the
  * browser drops as an invalid declaration.
@@ -32,7 +32,7 @@ public final class Css {
     return CssValue.url(s);
   }
 
-  /** {@link CssValue#var(String)}: {@code var(--brand)} for the custom property name {@code --brand} (#429). */
+  /** {@link CssValue#var(String)}: {@code var(--brand)} for the custom property name {@code --brand}. */
   @TemplateFunction
   public static CssValue var(String name) {
     return CssValue.var(name);

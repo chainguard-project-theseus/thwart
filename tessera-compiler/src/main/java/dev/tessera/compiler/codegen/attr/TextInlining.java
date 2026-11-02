@@ -54,7 +54,7 @@ public final class TextInlining {
     String parsing = ctx.template().parsingContexts().text(text);
     boolean rawText = ctx.template().parsingContexts().insideRawText(text);
     if (text.context() == OutputContext.SCRIPT) {
-      // Reported only: the code is still emitted, and the skeleton keeps each hole for the verifier (#367).
+      // Reported only: the code is still emitted, and the skeleton keeps each hole for the verifier.
       if (ctx.inJsonScript()) {
         checkJsonScript(ctx, text);
       } else {
@@ -80,7 +80,7 @@ public final class TextInlining {
                   form + " may not follow '" + markup + "' directly: the browser would read the value as markup;"
                       + " write &lt; for a literal '<'");
           // Still emitted: nothing is written on error, and the skeleton keeps the hole for the
-          // verifier's own check (#367).
+          // verifier's own check.
         }
         code.add(inline(ctx, text.context(), parsing, rawText, raw.substring(i + 2, end), pos, escaped, scope));
         i = end + 2;
@@ -432,7 +432,7 @@ public final class TextInlining {
    */
   static Emitted safeHtmlStatement(CodegenContext ctx, Expr e, String form, Scope scope) {
     if (e instanceof Expr.Message) {
-      // A bundle message, sanitized at runtime by the fixed message policy (#677).
+      // A bundle message, sanitized at runtime by the fixed message policy.
       Emitted message = MessageCompiler.html((Expr.Message) e, scope, ctx.expressions());
       return message == null ? Emitted.EMPTY : message.then("\n");
     }

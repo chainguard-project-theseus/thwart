@@ -12,7 +12,7 @@ import java.util.TreeMap;
 import java.util.stream.Stream;
 
 /**
- * The fingerprint the annotation processor writes after compiling the templates (#425, #447):
+ * The fingerprint the annotation processor writes after compiling the templates:
  * after a version line, one line per {@code **}{@code /*.html} file under the templates root,
  * {@code <sha-256 of its bytes> <path relative to the root>}, sorted by path; then, for each
  * {@code -Atessera.messages} basename in option order, a line {@code messages <its file name>}

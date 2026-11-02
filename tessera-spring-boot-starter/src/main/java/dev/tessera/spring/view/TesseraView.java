@@ -21,8 +21,8 @@ import org.springframework.web.servlet.View;
 /**
  * Renders a compiled Tessera template as {@code text/html;charset=UTF-8}. The output is buffered
  * so a failure mid-render (for example a {@code TemplateModelException}) never commits a partial
- * page; it is then written to the response stream as UTF-8 bytes with a {@code Content-Length}
- * (#685). As with Spring's {@code AbstractView} and Thymeleaf's view, the handler's {@code
+ * page; it is then written to the response stream as UTF-8 bytes with a {@code Content-Length}.
+ * As with Spring's {@code AbstractView} and Thymeleaf's view, the handler's {@code
  * @PathVariable} values ({@link View#PATH_VARIABLES}) are merged under the model, so a model
  * attribute of the same name wins. A template still reads only its declared {@code t:params}.
  */

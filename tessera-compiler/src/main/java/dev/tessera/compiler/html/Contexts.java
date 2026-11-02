@@ -20,7 +20,7 @@ public final class Contexts {
       Backports.setOf("xmp", "iframe", "noembed", "noframes", "noscript");
 
   /**
-   * The attributes whose grammar is exactly one URL (#539): WHATWG "valid (non-empty) URL
+   * The attributes whose grammar is exactly one URL: WHATWG "valid (non-empty) URL
    * potentially surrounded by spaces" ({@code href src action formaction cite poster}), the
    * obsolete {@code background longdesc manifest}, and {@code xlink:href} (no HTML element defines
    * it; it keeps the stricter URL check rather than a plain value). Only these take the URL
@@ -32,14 +32,14 @@ public final class Contexts {
           "xlink:href");
 
   /**
-   * The attributes that hold URLs but are not exactly one URL (#414, #539, #567): {@code ping} is
+   * The attributes that hold URLs but are not exactly one URL: {@code ping} is
    * space-separated URLs, {@code srcset} and {@code imagesrcset} comma-separated image candidates.
-   * A computed one is FORBIDDEN (#678): {@link #forbidden}.
+   * A computed one is FORBIDDEN: {@link #forbidden}.
    */
   private static final Set<String> URL_LIST_ATTRIBUTES = Backports.setOf("ping", "srcset", "imagesrcset");
 
   /**
-   * Why nothing inside {@code <svg>} or {@code <math>} is computed, with the fix-it (#678), naming
+   * Why nothing inside {@code <svg>} or {@code <math>} is computed, with the fix-it, naming
    * {@code root} when it is one of them (null or another name: both).
    */
   public static String foreign(String root) {
@@ -67,14 +67,14 @@ public final class Contexts {
 
   /**
    * Context for the value of attribute {@code attributeName} (without {@code t:}) on
-   * {@code element} (#330, #584; the table is docs/context-model.md section 6.1). In order: what
+   * {@code element} (the table is docs/context-model.md section 6.1). In order: what
    * {@link #forbidden} gives a reason for FORBIDDEN; {@code on*} EVENT_HANDLER; {@code style} STYLE;
    * a refresh {@code content} REFRESH ({@link OutputContext#REFRESH}); {@link #isResourceUrl
    * resource URLs} RESOURCE_URL; {@link #URL_ATTRIBUTES} URL; other standard names that are not
    * inert ({@code inert-attributes.txt}) and a {@code content} of a {@code <meta>} that does not
    * {@link #isNamedMetaContent name plain metadata} TYPED_ATTRIBUTE; the other
    * {@link KnownAttributes#isStandard standard names} ATTRIBUTE; and every other plain name NEUTRAL
-   * (#583 rule 3): {@code data-*}, {@code hx-*}, {@code x-*}, {@code v-*}, a custom element's own
+   * (client frameworks may run any non-standard attribute as code): {@code data-*}, {@code hx-*}, {@code x-*}, {@code v-*}, a custom element's own
    * attributes, any other name outside HTML. {@code :x} and {@code @x} are not plain names, so they
    * are FORBIDDEN.
    */
@@ -108,9 +108,9 @@ public final class Contexts {
 
   /**
    * Why a computed attribute {@code attributeName} on {@code element} is FORBIDDEN, with the fix-it,
-   * or null if it is not: every attribute of an SVG or MathML element (#678); a name that is not
-   * {@code [A-Za-z_][A-Za-z0-9_.:-]*}; {@code srcdoc}; a {@link #URL_LIST_ATTRIBUTES URL list}
-   * (#678); and a {@link #treeBuilderInput tree-builder input} (#678). The only place that decides
+   * or null if it is not: every attribute of an SVG or MathML element; a name that is not
+   * {@code [A-Za-z_][A-Za-z0-9_.:-]*}; {@code srcdoc}; a {@link #URL_LIST_ATTRIBUTES URL list};
+   * and a {@link #treeBuilderInput tree-builder input}. The only place that decides
    * an attribute is FORBIDDEN.
    */
   public static String forbidden(Element element, String attributeName) {
@@ -141,7 +141,7 @@ public final class Contexts {
 
   /**
    * The {@code <meta name>} values whose {@code content} is display text no browser, OS or crawler
-   * acts on (#590): a computed content is plain ATTRIBUTE only under one of these.
+   * acts on: a computed content is plain ATTRIBUTE only under one of these.
    */
   private static final Set<String> INERT_META_NAMES = Backports.setOf(
       "description", "keywords", "author", "application-name", "generator", "color-scheme", "theme-color");
@@ -154,8 +154,8 @@ public final class Contexts {
   private static final Set<String> META_KEYS = Backports.setOf("name", "http-equiv", "property", "itemprop");
 
   /**
-   * Whether the {@code content} of {@code element} (a {@code <meta>}) is plain metadata text (#539,
-   * #590): every static {@code name} is on {@link #INERT_META_NAMES the allow-list} and there is at
+   * Whether the {@code content} of {@code element} (a {@code <meta>}) is plain metadata text:
+   * every static {@code name} is on {@link #INERT_META_NAMES the allow-list} and there is at
    * least one, and no other {@link #META_KEYS key} is static, computed or {@link HtmlParser#attrMaySet
    * may be set} by a {@code t:attr*}. Any other content (a policy such as {@code referrer} or
    * {@code viewport}, an unknown name, Open Graph) takes literals only. Names and values fold A-Z only,
@@ -213,7 +213,7 @@ public final class Contexts {
   /**
    * Whether {@code value}, a static {@code is}, is a valid custom element name (HTML 4.13.3), which
    * is all the attribute may hold: the tree builder reads it to pick the element's custom element
-   * definition (#272). Any other value, such as {@code is="script"}, is a build error, so no element
+   * definition. Any other value, such as {@code is="script"}, is a build error, so no element
    * is classified as one element and rendered as another by whatever reads {@code is} later.
    */
   public static boolean isCustomElementName(String value) {
@@ -224,7 +224,7 @@ public final class Contexts {
   /**
    * Why a computed {@code name} ({@code attr} A-Z folded) on {@code element} is FORBIDDEN because
    * the HTML tree builder reads it while it builds the page (HTML 13.2.6), or it decides how other
-   * content is read (#678), or null if it is neither: {@code is} (which custom element to create),
+   * content is read, or null if it is neither: {@code is} (which custom element to create),
    * {@code xmlns*} (checked against the namespace) and {@code encoding} (whether a MathML
    * {@code annotation-xml} holds HTML) on any element; {@code type} on {@code <input>} (a hidden
    * input stays in a table) and {@code <script>} (whether its content is JavaScript); {@code color},
@@ -301,8 +301,8 @@ public final class Contexts {
   /**
    * Whether a browser reads the content of element {@code name} as raw text while Tessera parses
    * it as markup: {@code xmp iframe noembed noframes}, and {@code noscript} when scripting is
-   * on. No value is written there: computed content is a build error (#577), and the verifier
-   * rejects any hole in that raw text ({@code VALUE_IN_RAW_TEXT}, #586). The static content must
+   * on. No value is written there: computed content is a build error, and the verifier
+   * rejects any hole in that raw text ({@code VALUE_IN_RAW_TEXT}). The static content must
    * end where a browser ends the element: at the first {@code </name} after the start tag.
    */
   public static boolean browserRawText(String name) {

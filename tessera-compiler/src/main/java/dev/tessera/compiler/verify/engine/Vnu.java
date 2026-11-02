@@ -5,8 +5,8 @@ import dev.tessera.compiler.internal.html5.current.impl.TesseraAccess;
 /**
  * The spec HTML parser the build-time verifier runs (security-architecture.md §11.4): validator.nu
  * htmlparser from {@code nu.validator:validator:26.10.12}, built for Java 8, renamed into {@code
- * dev.tessera.compiler.internal.html5} and shaded into this jar (#365). Its parsers report parse
- * errors and inserted elements to a {@link Parser.Listener} (#406).
+ * dev.tessera.compiler.internal.html5} and shaded into this jar. Its parsers report parse
+ * errors and inserted elements to a {@link Parser.Listener}.
  */
 public final class Vnu {
   private Vnu() {}

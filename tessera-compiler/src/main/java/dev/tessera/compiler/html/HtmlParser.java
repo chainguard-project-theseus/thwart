@@ -343,7 +343,7 @@ public final class HtmlParser {
    * {@code <textarea>} inside {@code <svg>} or {@code <math>}, of the first {@code <} followed by
    * an ASCII letter, {@code !}, {@code /} or {@code ?}, or -1. A browser parses such content as
    * markup, not as raw text, so the contexts after that {@code <} could differ from Tessera's. A
-   * {@code <![CDATA[} is markup too: every CDATA section is an error (#678).
+   * {@code <![CDATA[} is markup too: every CDATA section is an error.
    */
   static int foreignMarkup(String body) {
     for (int i = body.indexOf('<'); i >= 0 && i + 1 < body.length(); i = body.indexOf('<', i + 1)) {
@@ -638,7 +638,7 @@ public final class HtmlParser {
     }
 
     /**
-     * A template comment is dropped: nothing in it is parsed, compiled or written (#132). The text
+     * A template comment is dropped: nothing in it is parsed, compiled or written. The text
      * on either side stays two nodes, so positions in the second stay right.
      */
     @Override
@@ -659,7 +659,7 @@ public final class HtmlParser {
         return;
       }
       flushText();
-      // #678: a browser reads a CDATA section only in SVG and MathML, and some read it as a comment that
+      // A browser reads a CDATA section only in SVG and MathML, and some read it as a comment that
       // ends at the first '>' in an integration point; Tessera doesn't model either.
       diagnostics.error(position(start), CDATA_SECTION);
       // Kept as text, so the verifier also sees the section (Problem.CDATA_SECTION).
@@ -737,7 +737,7 @@ public final class HtmlParser {
         return;
       }
       // A browser reads <script/>, <style/> or <select/> in HTML as a start tag: the verifier's parse
-      // error (#442). <textarea/>, <title/> and the other raw text elements are checked where Tessera
+      // error. <textarea/>, <title/> and the other raw text elements are checked where Tessera
       // writes them (TemplateGenerator).
       checkBreakout(tag);
       children().add(tag.toElement(minimized, false));

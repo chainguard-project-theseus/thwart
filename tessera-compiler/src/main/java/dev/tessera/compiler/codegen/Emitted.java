@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * The single output path of generated code (#366): Java statements that write template output,
+ * The single output path of generated code: Java statements that write template output,
  * together with the {@link Skeleton} of what they write. Every {@code out.write}, escaper call and
  * fragment render in generated code is made here, and records its skeleton node in the same call
  * that makes its Java text, so the skeleton the verifier checks cannot differ from the bytes the
@@ -26,7 +26,7 @@ import java.util.function.Function;
  *
  * <p>Static text is kept apart from the code around it until {@link #java} is asked for, so that
  * {@link #concat} and {@link Builder#add} merge adjacent static text, also across nested elements,
- * into one write (#685).
+ * into one write.
  *
  * <p>Immutable.
  */
@@ -129,8 +129,8 @@ public final class Emitted {
   /**
    * One double-quoted attribute, {@code  <attribute>="<value>"}, the value written by
    * {@code escaper}: {@code Escapers.<escaper>(out, <valueCode>);}. The blank code around the
-   * escaper call writes nothing; it keeps the generated Java as it was before {@code Emitted}
-   * (#366).
+   * escaper call writes nothing; it keeps the generated Java as it was before
+   * {@code Emitted}.
    */
   public static Emitted attributeValue(Skeleton.Escaper escaper, String attribute, SourcePos pos, String valueCode) {
     return concat(
@@ -171,7 +171,7 @@ public final class Emitted {
   /**
    * A bundle message as HTML: {@code Escapers.html(out, <messageCode>);}, where {@code messageCode}
    * ({@code Escapers.htmlMessage(...)}) sanitizes it by the message policy, with or without
-   * {@code links} (#677).
+   * {@code links}.
    */
   public static Emitted htmlMessage(SourcePos pos, String messageCode, boolean links) {
     Skeleton.Source source = links ? Skeleton.Source.LINKED_HTML_MESSAGE : Skeleton.Source.HTML_MESSAGE;
@@ -197,7 +197,7 @@ public final class Emitted {
   /**
    * A {@code Fragment} value: {@code { <type> <local> = <valueCode>; if (<local> != null) {
    * <local>.render(ctx, out); } }}. {@code candidates} is the skeleton of what the value may
-   * write (#561).
+   * write.
    */
   public static Emitted fragmentValue(String type, String local, String valueCode, Skeleton.Node candidates) {
     return of(

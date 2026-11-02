@@ -140,7 +140,7 @@ public interface Forms {
       };
 
   /**
-   * Whether {@code key} can be a map key segment of a field path, {@code prices[key]} (#190):
+   * Whether {@code key} can be a map key segment of a field path, {@code prices[key]}:
    * non-null, non-empty, and without '[', ']' or quotes (' and "). Spring's property paths have no escape,
    * so such a key would end the segment early or have its quotes stripped and bind another path.
    */

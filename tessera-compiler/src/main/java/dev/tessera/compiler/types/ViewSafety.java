@@ -32,7 +32,7 @@ import javax.lang.model.type.WildcardType;
  * view-safe types (and public {@code java.util} types that implement one of them, seen as that
  * interface: {@link #containerView}), arrays of view-safe types, {@code LoopStatus}, {@code SafeHtml}, {@code CssValue},
  * and classes annotated {@code @TemplateView}; all of them public, as are any classes they are
- * nested in and their type arguments, so the generated code can name them ({@link #inaccessible}, #269).
+ * nested in and their type arguments, so the generated code can name them ({@link #inaccessible}).
  *
  * <p>Never view-safe, even if annotated or registered: {@code Object} (as a declared type and
  * its methods), {@code Class}, {@code ClassLoader}, {@code java.lang.reflect.*},
@@ -108,7 +108,7 @@ public final class ViewSafety {
   /**
    * Whether {@code qualifiedName} is a box, {@code String}, {@code CharSequence},
    * {@code BigDecimal} or {@code BigInteger}: a view-safe value that {@code Escapers.json} writes
-   * as a JSON scalar. The script serializer ({@code ScriptJson}) shares this list (#591).
+   * as a JSON scalar. The script serializer ({@code ScriptJson}) shares this list.
    */
   public static boolean isJdkValueType(String qualifiedName) {
     return JDK_VALUE_TYPES.contains(qualifiedName);
@@ -271,7 +271,7 @@ public final class ViewSafety {
 
   /**
    * {@code type} seen as the container interface it implements, if it is a public {@code java.util}
-   * type other than those interfaces (#135): {@code ArrayList<E>} and {@code LinkedList<E>} as
+   * type other than those interfaces: {@code ArrayList<E>} and {@code LinkedList<E>} as
    * {@code List<E>}, {@code TreeSet<E>} as {@code Set<E>}, {@code TreeMap<K, V>} and
    * {@code SortedMap<K, V>} as {@code Map<K, V>}, {@code ArrayDeque<E>} as {@code Collection<E>}.
    * Templates then see only the interface's members, never the class's own methods (such as
@@ -477,7 +477,7 @@ public final class ViewSafety {
   }
 
   /**
-   * Whether {@code te} is a record. By kind name: the processor is Java 8 code (#166) and
+   * Whether {@code te} is a record. By kind name: the processor is Java 8 code and
    * {@code ElementKind.RECORD} exists only on JDK 16+, where javac can compile records.
    */
   static boolean isRecord(TypeElement te) {

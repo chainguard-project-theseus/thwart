@@ -13,14 +13,14 @@ import org.attoparser.AbstractMarkupHandler;
 import org.attoparser.ParseException;
 
 /**
- * Layout markup that a browser reads only by error recovery, which the build rejects (#406, #409):
+ * Layout markup that a browser reads only by error recovery, which the build rejects:
  * a page passes {@code ~{::body}} (or {@code ::head}, {@code ::html}) to a fragment that inserts
  * it inside its own element of that name. Runs over all converted templates, because whether a
  * page's {@code <body>} nests depends on where the layout inserts it. The page's element gets
  * {@code t:remove="tag"} only if that keeps the page the same in a browser: it has no attributes,
  * or a browser would merge them into a layout element that already has them; otherwise it is
  * reported with the fix. Other parse errors, such as a second {@code <body>} written in one
- * template, are the compiler's to report (#595).
+ * template, are the compiler's to report.
  */
 final class Layouts {
   private Layouts() {}

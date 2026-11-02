@@ -63,7 +63,7 @@ final class Migrator {
   /**
    * {@code source} without the markers of Thymeleaf's prototype-only comments {@code <!--/*&#47; ...
    * /*&#47;-->}: Thymeleaf drops them before parsing and renders the content, and Tessera rejects
-   * them (#132). Like Thymeleaf, it applies everywhere, and leaves one without its end alone.
+   * them. Like Thymeleaf, it applies everywhere, and leaves one without its end alone.
    */
   static String prototypeOnlyContent(String source) {
     StringBuilder sb = new StringBuilder();
@@ -113,7 +113,7 @@ final class Migrator {
     private String openName;
     /**
      * The {@code type} of that {@code <script>}. A computed {@code t:type} on a script is a build
-     * error (#678), so it is not tracked.
+     * error, so it is not tracked.
      */
     private String scriptType;
     /** True between the start and end tag of a JavaScript or JSON {@code <script>}. */
@@ -235,7 +235,7 @@ final class Migrator {
         inlineMode = Compat.strip(value).toLowerCase(Locale.ROOT);
       }
       if (quotedValueEnd == nameOffset) {
-        // A browser reads the two attributes the same with or without the space (#331).
+        // A browser reads the two attributes the same with or without the space.
         edits.add(nameOffset, nameOffset, " ");
         report(nameLine, String.format(ConversionRules.ATTRIBUTE_SPACE_MESSAGE, name));
       }
@@ -479,8 +479,8 @@ final class Migrator {
      * inline stays, except in a natural-template comment ({@link #naturalComment}), and the compiler
      * reports it where it rejects it: in a string, a template literal (even {@code `[[...]]`: the
      * backticks may follow a tag, {@code String.raw`...`}, which dropping them would break) or a
-     * comment (#595), or anywhere but the whole value of a declaration at the top of a JavaScript
-     * script (#540). The scan tracks strings, template
+     * comment, or anywhere but the whole value of a declaration at the top of a JavaScript
+     * script. The scan tracks strings, template
      * literal {@code ${...}} and comments, not regular expression literals: an
      * unterminated {@code '}/{@code "} string ends at {@code \n} or {@code \r}, not at U+2028/U+2029
      * (ES2019), and {@code \} followed by CRLF is a line continuation. The compiler is
@@ -581,7 +581,7 @@ final class Migrator {
         "\"[^\"\\r\\n]*\"|'[^'\\r\\n]*'|-?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?|true|false|null");
 
     /**
-     * Thymeleaf's JavaScript natural template (#315): in a {@code th:inline="javascript"} script, a
+     * Thymeleaf's JavaScript natural template: in a {@code th:inline="javascript"} script, a
      * {@code /*...*}{@code /} comment whose whole content is {@code [[...]]} or {@code [(...)]} is
      * replaced by its value, and the text after it is dropped up to the next {@code ;}, {@code ,},
      * {@code )}, {@code }}, {@code ]}, {@code //} or line feed outside quotes, brackets and braces

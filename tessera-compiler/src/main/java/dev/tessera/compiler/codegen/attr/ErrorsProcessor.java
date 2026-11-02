@@ -40,7 +40,7 @@ public final class ErrorsProcessor implements AttributeProcessor {
       }
       field = FormPaths.literal(selection.get(), keyword, null);
     } else {
-      // Only the errors are read, never the value, so the field's type need not be view-safe (#129).
+      // Only the errors are read, never the value, so the field's type need not be view-safe.
       field = FieldProcessor.field(ctx, attr, plan.scope(), FormPaths.Check.PATH);
       if (field == null) {
         return;

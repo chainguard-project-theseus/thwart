@@ -22,7 +22,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * The build-time context verifier (#367, docs/security-architecture.md §11): the security boundary
+ * The build-time context verifier (docs/security-architecture.md §11): the security boundary
  * for markup contexts. It runs each template's {@link Skeleton} through the spec HTML parser
  * ({@link Vnu}), with scripting on and off, and accepts a hole only if its escaper's output is
  * inert in the parser state there in both ({@link Rules}). A template it doesn't accept is a build
@@ -31,7 +31,7 @@ import java.util.TreeMap;
  * <p>It follows one path through the template, with the parsers as the transfer function. A path
  * holds the two parsers (one, when the template has no {@code <noscript>}). Statics are fed as they
  * are. A hole is checked and leaves the state as it was (that is what "inert" means); an attribute
- * hole writes nothing into the value. Control flow is state-neutral (#682): the body of a {@code
+ * hole writes nothing into the value. Control flow is state-neutral: the body of a {@code
  * t:if}, {@code t:case}, {@code t:each} and every fragment insertion must leave the parsers in the
  * state it found them in ({@link #balanced}), and a partial must end in the state it starts in, so
  * every way through the template is in the same state at each point and one path is exact. A
@@ -39,7 +39,7 @@ import java.util.TreeMap;
  * fragment arguments); a recursive call in the state its call in progress started in is neutral by
  * induction.
  *
- * <p>It accepts only error-free parses (#406, security-architecture.md §11.4): every parse error the
+ * <p>It accepts only error-free parses (security-architecture.md §11.4): every parse error the
  * engine finds, with scripting on and off, is {@link Problem#PARSE_ERROR} at the static that holds
  * it, except the allow-list ({@link Rules#allowedError}); a partial counts them, and its balance,
  * only in its fragment contexts. It checks the coarse exclusions ({@link Rules#exclusion}) at every
@@ -75,7 +75,7 @@ public final class ContextVerifier {
   /** The calls in progress, by memo key: their depth on the call stack. */
   private final Map<String, Integer> inProgress = new HashMap<>();
   private final List<Skeleton.FragmentId> callStack = new ArrayList<>();
-  /** The position of each call on {@link #callStack}, for a recursion's cycle in messages (#393). */
+  /** The position of each call on {@link #callStack}, for a recursion's cycle in messages. */
   private final List<SourcePos> callSites = new ArrayList<>();
   /** Per fragment that is on the call stack: how many states it was entered in by recursion. */
   private final Map<Skeleton.FragmentId, Integer> recursiveEntries = new HashMap<>();
@@ -121,8 +121,8 @@ public final class ContextVerifier {
   }
 
   /**
-   * The fragments that no template's body reaches through fragment calls, in declaration order
-   * (#461). The verifier sees the others in the states their calls write them in; these it checks
+   * The fragments that no template's body reaches through fragment calls, in declaration order.
+   * The verifier sees the others in the states their calls write them in; these it checks
    * on their own ({@link #checkUncalled}). A fragment that only such a fragment calls is checked
    * through that call.
    */
@@ -177,7 +177,7 @@ public final class ContextVerifier {
 
   /**
    * Fragment parsing contexts for fragments declared outside HTML content, by declared context.
-   * Nothing inside {@code <svg>} or {@code <math>} is an insertion point (#678): the svg and math
+   * Nothing inside {@code <svg>} or {@code <math>} is an insertion point: the svg and math
    * entries exist only for the {@code <svg t:replace>} case, where the fragment root is itself an
    * {@code <svg>}, so that such a fragment is checked in the content it was compiled in.
    */
@@ -190,7 +190,7 @@ public final class ContextVerifier {
   }
 
   /**
-   * What the verifier rejects in a fragment no template calls ({@link #uncalled}, #461), checked on
+   * What the verifier rejects in a fragment no template calls ({@link #uncalled}), checked on
    * its own like a partial: declared in HTML content, in the fragment contexts its root elements
    * imply (as a document only if it is a page); declared in {@code <svg>}, {@code <math>} or
    * {@code <select>} content, in that element. Declared where no fragment fits (raw text or
@@ -224,8 +224,8 @@ public final class ContextVerifier {
   }
 
   /**
-   * The fragments of {@code templates} the verifier accepts on their own, as a response body
-   * (#131), named {@code page :: fragment}: checked as {@link #checkUncalled} checks a fragment no
+   * The fragments of {@code templates} the verifier accepts on their own, as a response body,
+   * named {@code page :: fragment}: checked as {@link #checkUncalled} checks a fragment no
    * template calls. A called fragment was checked only in the states its calls write it in, so it is
    * checked here again; one with a finding, or that fits nowhere, is left out (it gets no registry
    * entry) and is not an error. Call it only when {@link #verify} reported nothing.
@@ -282,12 +282,12 @@ public final class ContextVerifier {
         if ((f.problem == Problem.PARSE_ERROR || f.problem == Problem.UNBALANCED) && context == null
             && entries.size() > 1) {
           // A partial counts parse errors and balance only in the fragment contexts its root
-          // implies (#406, #682): as a document, a <tr> partial is a stray start tag, and the
+          // implies: as a document, a <tr> partial is a stray start tag, and the
           // first element of any partial opens <html> and <body>. So a t:if unbalanced only as a
           // document goes on from its entry alone (optional): its written and skipped states converge at
           // the first flow element, which opens <body> in both, and before that they differ only in head
           // or body placement, where <noscript>, <style>, <title> and the other head elements tokenize
-          // the same, so every hole meets the same escaper rule (#707, ContextVerifierRulesTest
+          // the same, so every hole meets the same escaper rule (ContextVerifierRulesTest
           // aLeadingIfDoesNotChangeHowHeadElementsInAPartialAreChecked).
           continue;
         }
@@ -580,7 +580,7 @@ public final class ContextVerifier {
   }
 
   /**
-   * State-neutral control flow (#682): {@code body} run from {@code entry} (on a fork) must leave
+   * State-neutral control flow: {@code body} run from {@code entry} (on a fork) must leave
    * the parsers as it found them ({@link #balanced}), so a body written or not, once or many times,
    * leaves one state and one path stands for all. Returns the body's exit, which parses what follows
    * as the entry does or (template mode) at least as strictly; if it is unbalanced, the entry.
@@ -649,7 +649,7 @@ public final class ContextVerifier {
    * next one. So the two differ only in the element's attribute list. That list matters to the
    * tree builder only through duplicate names and where the attribute makes a parse error, where
    * the written attribute is the stricter case (a later duplicate is dropped), and through MathML's
-   * {@code encoding}, which is never computed (#678). An {@code <input>} in a table is a parse
+   * {@code encoding}, which is never computed. An {@code <input>} in a table is a parse
    * error with any {@code type}. So the written path alone stands for both, and a tag with many
    * computed attributes doesn't multiply the states. Otherwise both must be one state ({@link
    * #balanced}).
@@ -690,7 +690,7 @@ public final class ContextVerifier {
    * Zero or more {@code body}, separated. One pass of the body and the separator must each be
    * state-neutral ({@link #optional}); then every number of passes leaves the entry state. In
    * template mode the first pass may switch the mode, and the next passes are checked from there.
-   * A separator that switches it is rejected (#707): from two passes on, what follows would parse
+   * A separator that switches it is rejected: from two passes on, what follows would parse
    * in the separator's state, not the first pass's.
    */
   private Path rep(Skeleton.Rep r, Path p, Env env, SourcePos pos) throws EngineException {
@@ -808,7 +808,7 @@ public final class ContextVerifier {
   }
 
   /**
-   * {@link #add}, naming as the cause (#393) the element the first state reads the value in because
+   * {@link #add}, naming as the cause the element the first state reads the value in because
    * of earlier markup ({@link #causeIndex}), with where path {@code p} inserted it.
    */
   private void add(Path p, Problem problem, SourcePos pos, Skeleton.Escaper escaper, Skeleton.Source source,
@@ -833,7 +833,7 @@ public final class ContextVerifier {
 
   /**
    * The index on {@code s}'s stack of the element whose start tag put the parser where it reads the
-   * next value (#393), or -1: in raw text, the raw-text element; in text in SVG or MathML, the
+   * next value, or -1: in raw text, the raw-text element; in text in SVG or MathML, the
    * outermost foreign element around it; in text directly in a table part, that part.
    */
   static int causeIndex(ParserState s) {
@@ -1048,7 +1048,7 @@ public final class ContextVerifier {
   }
 
   /**
-   * What the parsers of a path reported while they parsed one chunk (#406): parse errors not on
+   * What the parsers of a path reported while they parsed one chunk: parse errors not on
    * the allow-list, and excluded stack shapes, each with the parsers that reported it.
    */
   private void reported(Path p, Map<String, Reported> issues) throws EngineException {
@@ -1108,7 +1108,7 @@ public final class ContextVerifier {
     /**
      * Where a parse error at {@code offset} is reported. In a part that is text (it doesn't start
      * with {@code <}), at the {@code <} before the offset that starts markup, so a bogus comment in
-     * text is reported at its {@code <!}, {@code <?} or {@code </} (#442); else at the part, which
+     * text is reported at its {@code <!}, {@code <?} or {@code </}; else at the part, which
      * is the tag, comment or doctype.
      */
     SourcePos errorAt(int offset) {
@@ -1251,8 +1251,8 @@ public final class ContextVerifier {
     /** The last chars written to the parsers, for the markup a parse error names ({@link Located#markup}). */
     private String tail = "";
     /**
-     * Per parser, where each element on its stack of open elements was inserted, by stack index
-     * (#393): the cause a message names. Not part of the {@link #key}: a memoised call's exit keeps
+     * Per parser, where each element on its stack of open elements was inserted, by stack index:
+     * the cause a message names. Not part of the {@link #key}: a memoised call's exit keeps
      * the one it was first analysed with.
      */
     private final List<List<Opened>> opened = new ArrayList<>();
@@ -1337,7 +1337,7 @@ public final class ContextVerifier {
           @Override
           public void error(String message, int offset) {
             if (!Rules.allowedError(message)) {
-              // With the markup it is in, for the fix-it, and at that markup's '<' (#442).
+              // With the markup it is in, for the fix-it, and at that markup's '<'.
               note(Problem.PARSE_ERROR, VerifierMessages.parseErrorDetail(message, Located.markup(before, text.text,
                   offset)), offset, text.errorAt(offset));
             }
@@ -1364,7 +1364,7 @@ public final class ContextVerifier {
 
           @Override
           public void cdata(OpenElement current, int offset) {
-            // Any CDATA section (#678); at the '<' of "<![" (the engine reports the '['), if this chunk holds it.
+            // Any CDATA section; at the '<' of "<![" (the engine reports the '['), if this chunk holds it.
             note(Problem.CDATA_SECTION, VerifierMessages.element(current), Math.max(0, offset - 2));
           }
 

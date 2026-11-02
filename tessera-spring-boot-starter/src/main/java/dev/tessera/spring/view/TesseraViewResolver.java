@@ -18,7 +18,7 @@ import org.springframework.web.servlet.ViewResolver;
  * and FreeMarker put their prefix in front of the name, so {@code "/auth/register"} finds the same
  * file as {@code "auth/register"}) and that the spaces around a {@code ::} are made single
  * ({@link #lookupName}), so {@code "owners/list::rows"} finds the fragment entry {@code
- * owners/list :: rows} (#131). Anything else that is not exactly a compiled template's or
+ * owners/list :: rows}. Anything else that is not exactly a compiled template's or
  * fragment entry's name (including {@code redirect:} and {@code forward:} names, which no template
  * file can be called, and fragment selectors such as {@code page :: #id} or {@code page ::
  * rows(x)}) yields {@code null} so the next resolver runs. Construction logs how many compiled
@@ -78,7 +78,7 @@ public final class TesseraViewResolver implements ViewResolver, Ordered {
 
   /**
    * The registry name {@code viewName} is looked up by: {@code viewName} less one leading {@code /}.
-   * A name with {@code ::} (#131) is cut at the first one into two literal halves, each trimmed as
+   * A name with {@code ::} is cut at the first one into two literal halves, each trimmed as
    * Thymeleaf trims them ({@link String#trim}), the page half less one leading {@code /}, and joined
    * as {@code page :: fragment}, the name of a fragment entry. Nothing is evaluated: a selector,
    * arguments or a second {@code ::} stay in the name, which then matches nothing.

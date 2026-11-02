@@ -9,7 +9,7 @@ import dev.tessera.compiler.internal.html5.current.impl.TesseraAccess;
 interface RawParser {
   /**
    * Tokenizes {@code chars[start, end)}, telling {@code listener} (if not null) about parse errors,
-   * inserted elements and CDATA sections (#406), at the tokenizer's line and column (from 1) in the
+   * inserted elements and CDATA sections, at the tokenizer's line and column (from 1) in the
    * input fed to this raw parser since it was created (a fork counts afresh).
    */
   void feed(char[] chars, int start, int end, TesseraAccess.Listener listener) throws Exception;
