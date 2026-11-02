@@ -157,6 +157,36 @@ class AttributesEndToEndTest {
     compile("<p t:attr=\"title=s, onload=s\">x</p>").assertError("t:attr onload is not allowed");
   }
 
+  /**
+   * Negative (#755): static inline script, which a strict nonce CSP blocks, is a build error at the
+   * attribute: {@code on*} on any element, and a {@code javascript:} URL in a URL attribute however
+   * a browser still reads the scheme (case, character references, leading spaces, tab/CR/LF).
+   */
+  @Test
+  void staticInlineScriptIsBuildError() {
+    String col = "t.html:1:" + (HEADER.length() + 4) + ":";
+    compile("<a onclick=\"x()\">x</a>").assertError(col, "onclick on <a> is not allowed", "addEventListener", "data-*");
+    for (String t : new String[] {"<p ONMOUSEOVER=\"x()\">x</p>", "<svg><circle onload=\"x()\"/></svg>",
+        "<img src=\"/a.png\" onerror=x()>"}) {
+      compile(t).assertError("t.html:1:", "is not allowed: inline event handlers are not supported");
+    }
+    compile("<a href=\"javascript:void(0)\">x</a>").assertError(col, "href on <a> is not allowed", "javascript: URLs");
+    for (String t : new String[] {"<a href=\"JavaScript:x()\">x</a>", "<a href=\" java&#x09;script:x()\">x</a>",
+        "<a href=\"jav&#x61;script:x()\">x</a>", "<form action=\"javascript:x()\"></form>",
+        "<iframe src=\"javascript:x()\"></iframe>", "<object data=\"javascript:x()\"></object>",
+        "<svg><a href=\"javascript:x()\"><text>x</text></a></svg>"}) {
+      compile(t).assertError("t.html:1:", "is not allowed: javascript: URLs are not supported");
+    }
+  }
+
+  /** Positive (#755): {@code href="#"}, data-* and values that only mention javascript stay accepted. */
+  @Test
+  void staticNonScriptStaysAccepted() {
+    compile("<a href=\"#\" data-action=\"save\" title=\"javascript:x\">x</a><a href=\"/javascript:x\">y</a>"
+        + "<a href=\"java script:x\">z</a><input value=\"javascript:x\"><button type=\"button\">b</button>")
+        .assertSuccess();
+  }
+
   @Test
   void styleAndSrcdocAreBuildErrors() {
     compile("<p t:style=\"s\">x</p>").assertError("t:style is not allowed", "t:class");

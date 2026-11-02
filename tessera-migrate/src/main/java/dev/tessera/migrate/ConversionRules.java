@@ -75,6 +75,26 @@ final class ConversionRules {
     return null;
   }
 
+  private static final String STATIC_SCRIPT_MESSAGE =
+      "`%s` is inline script, which Tessera rejects (a strict CSP blocks it); mark the element with a `data-*`"
+          + " attribute and attach the listener from a `<script>` with `addEventListener`%s (guide section 1)";
+
+  /**
+   * The report message for a plain attribute that is inline script, or {@code null}: an
+   * {@code on*} handler, or a value that starts with {@code javascript:} (spaces and case aside).
+   * The compiler's check ({@code Contexts.staticScript}) is the exact one; this flags the shapes.
+   */
+  static String staticScriptMessage(String name, String value) {
+    if (name.toLowerCase(Locale.ROOT).startsWith("on")) {
+      return String.format(STATIC_SCRIPT_MESSAGE, name, "");
+    }
+    if (value != null && Compat.strip(value).toLowerCase(Locale.ROOT).startsWith("javascript:")) {
+      return String.format(STATIC_SCRIPT_MESSAGE, name + "=\"" + Compat.strip(value) + "\"",
+          "; a `javascript:void(0)` link becomes a `<button type=\"button\">` or `href=\"#\"`");
+    }
+    return null;
+  }
+
   /**
    * Attributes whose value is a keyword, literal or declaration, not an expression (renamed only).
    * {@code import} names classes and {@code params} declares types and names; neither holds roots.

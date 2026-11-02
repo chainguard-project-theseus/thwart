@@ -132,6 +132,36 @@ public final class Contexts {
   }
 
   /**
+   * Why static attribute {@code name="value"} on {@code element} is rejected, with the fix-it, or
+   * null if it is not: an {@code on*} event handler, or a {@code javascript:} URL in a URL attribute
+   * (one {@link #URL_ATTRIBUTES} or {@link #isResourceUrl resource URL} names, on any element). Both
+   * are inline script, which the strict nonce CSP blocks, so a template never depends on one. The
+   * scheme is found as {@code Escapers.isAllowedUrl} finds it: {@code value} has its character
+   * references decoded, leading C0 controls and spaces are skipped and tab/CR/LF ignored.
+   */
+  public static String staticScript(Element element, String name, String value) {
+    String attr = HtmlParser.asciiLower(name);
+    if (attr.startsWith("on")) {
+      return "inline event handlers are not supported: a strict CSP blocks them; remove " + name + " and attach"
+          + " the listener from a <script> with addEventListener, or mark the element with a data-* attribute and"
+          + " handle it with one delegated listener";
+    }
+    if (value == null || !(URL_ATTRIBUTES.contains(attr) || isResourceUrl(HtmlParser.asciiLower(element.name()), attr))) {
+      return null;
+    }
+    StringBuilder scheme = new StringBuilder();
+    for (int i = 0; i < value.length() && scheme.length() < 11; i++) {
+      char c = value.charAt(i);
+      if (c != '\t' && c != '\n' && c != '\r' && (c > ' ' || scheme.length() > 0)) {
+        scheme.append(c);
+      }
+    }
+    return !HtmlParser.asciiLower(scheme.toString()).equals("javascript:") ? null
+        : "javascript: URLs are not supported: a strict CSP blocks them; use href=\"#\" or a <button type=\"button\">"
+            + " and attach the listener from a <script> with addEventListener";
+  }
+
+  /**
    * {@code content} on a {@code <meta>} whose static {@code http-equiv} is {@code refresh}. The name and value fold
    * A-Z only, as in a browser: {@code http-equ\u0131v} is not {@code http-equiv}.
    */

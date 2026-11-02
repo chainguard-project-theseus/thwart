@@ -185,7 +185,8 @@ name is classified by client framework.
 
 ### 6.2 Which computed names are accepted
 
-Static attributes are copied verbatim, except a static `is`.
+Static attributes are copied verbatim, except a static `is`. A static `on*` handler, or a static
+`javascript:` URL in a URL attribute, is a build error: a strict nonce CSP blocks both (#755).
 
 | Name | Accepted | Checked by |
 |---|---|---|

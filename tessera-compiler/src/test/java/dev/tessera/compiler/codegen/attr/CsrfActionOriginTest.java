@@ -69,7 +69,7 @@ class CsrfActionOriginTest {
     for (String action :
         new String[] {
           "https://other/", "HTTP://other/", "//other/", "/\\other/", "\\\\other/", "\\/other/",
-          " //other/", "/&#9;/other/", "&#10;//other", "mailto:a@b", "javascript:x",
+          " //other/", "/&#9;/other/", "&#10;//other", "mailto:a@b",
           // Named references the parser keeps but a browser decodes (/ : tab).
           "&sol;&sol;evil.example/", "/&sol;evil/", "https&colon;//evil/", "&Tab;//evil/", "/&Tab;/evil/",
           "&bsol;&bsol;evil/", "&sol;&#47;evil/",
