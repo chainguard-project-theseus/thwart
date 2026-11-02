@@ -51,10 +51,10 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     }
     ParsingContexts contexts = ctx.template().parsingContexts();
     String point = replace ? contexts.place(plan.element()) : contexts.content(plan.element());
-    // Inside raw text the raw-text rule (TemplateGenerator) reports this. A fragment declared there
-    // and inserted elsewhere is checked where it lands by the verifier, like any other call.
-    boolean rawText =
-        contexts.insideRawText(plan.element()) || (!replace && ParsingContexts.rawTextElement(plan.element()));
+    // Written inside raw text, the raw-text rule (TemplateGenerator) reports this. The output decides,
+    // not the declaration: in a fragment declared in raw text and inserted elsewhere, the call is
+    // compiled, and the verifier checks it where the fragment lands.
+    boolean rawText = ctx.insideRawText() || (!replace && ParsingContexts.rawTextElement(plan.element()));
     Emitted code = rawText ? null : code(ctx, attr, plan, point);
     // On error, render nothing in its place so the children do not cascade into more errors.
     Emitted stmts = code == null ? Emitted.EMPTY : code;
@@ -103,10 +103,7 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
               e.pos(),
               attr.name() + " with a Fragment value is only allowed in HTML content, not in "
                   + ParsingContexts.describe(point) + " content, where a browser parses the fragment's markup"
-                  + " differently: "
-                  + (fitsNothing(point) != null
-                      ? fitsNothing(point)
-                      : "insert a ~{template :: name} declared inside " + ParsingContexts.describe(point)));
+                  + " differently: move the " + attr.name() + " into HTML content");
       return null;
     }
     // Parsed again only for its shape: ctx.compile parsed it without errors.
@@ -117,11 +114,6 @@ public final class InsertReplaceProcessor implements AttributeProcessor {
     }
     String f = ctx.freshName("f");
     return Emitted.fragmentValue(JavaStrings.FRAGMENT_BODY, f, e.code(), candidates);
-  }
-
-  /** What to do where no fragment fits ({@code point} is unwrapped content), or null. */
-  private static String fitsNothing(String point) {
-    return ParsingContexts.isUnwrapped(point) ? "no fragment fits there: drop the t:remove=\"tag\"" : null;
   }
 
   /**

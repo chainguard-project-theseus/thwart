@@ -100,6 +100,15 @@ class FragmentParsingContextTest {
     Compilation hole =
         page("<noscript><b t:fragment=\"n(String s)\">[[s]]</b></noscript><div t:insert=\"~{:: n(v)}\"></div>").assertSuccess();
     assertTrue(hole.render("page", Map.of("v", "</noscript><script>")).contains("<div><b>&lt;/noscript&gt;&lt;script&gt;</b></div>"));
+    // Its own insertions are compiled where it renders, not dropped: the output, not the
+    // declaration, decides whether they are written inside raw text.
+    Compilation nested = page("<noscript><b t:fragment=\"n(String s)\"><i t:insert=\"~{frags :: plain}\"></i>"
+        + "<u t:replace=\"~{frags :: plain}\"></u></b></noscript><div t:insert=\"~{:: n(v)}\"></div>").assertSuccess();
+    assertTrue(nested.render("page", Map.of("v", "x")).contains("<div><b><i><i>plain</i></i><i>plain</i></b></div>"),
+        nested.render("page", Map.of("v", "x")));
+    page("<noscript><b t:fragment=\"n(Fragment f)\"><i t:insert=\"${f}\"></i></b></noscript>")
+        .assertError("page.html:2:", "t:insert with a Fragment value is only allowed in HTML content, not in <noscript>"
+            + " content");
     page("<svg><noscript><g t:fragment=\"n\"><path/></g></noscript></svg><svg t:insert=\"~{:: n}\"></svg>")
         .assertError("page.html:2:", "a value, condition, loop or fragment inside <svg> is not supported");
   }
@@ -205,7 +214,7 @@ class FragmentParsingContextTest {
         .assertError(
             "box.html:2:16",
             "t:insert with a Fragment value is only allowed in HTML content, not in <svg> content, where a browser parses"
-                + " the fragment's markup differently: insert a ~{template :: name} declared inside <svg>");
+                + " the fragment's markup differently: move the t:insert into HTML content");
   }
 
   @Test

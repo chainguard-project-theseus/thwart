@@ -117,11 +117,6 @@ public final class ParsingContexts {
     return context.equals(HTML) ? HTML : "<" + context + ">";
   }
 
-  /** Whether {@code context} is {@link #UNWRAPPED}: no fragment fits there. */
-  public static boolean isUnwrapped(String context) {
-    return context.equals(UNWRAPPED);
-  }
-
   /** Whether {@code context} is the raw text of an HTML {@code <title>}, {@code <noscript>}, ... */
   public static boolean isRawText(String context) {
     return RAW_TEXT.contains(context);

@@ -84,6 +84,14 @@ public interface CodegenContext {
    */
   boolean inJsonScript();
 
+  /**
+   * Whether the element being generated is written inside a raw text element ({@link
+   * dev.tessera.compiler.html.ParsingContexts#rawTextElement}) of this output, not counting itself.
+   * A fragment method or {@code ~{::selector}} helper starts outside one, wherever its element is
+   * declared: what it writes is checked where it is inserted.
+   */
+  boolean insideRawText();
+
   /** Adds a member (method or constant) to the generated class. */
   void addMember(String javaCode);
 
