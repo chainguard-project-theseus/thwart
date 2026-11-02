@@ -157,7 +157,6 @@ class ViewSafetyTest {
                       "java.math.BigInteger",
                       "dev.tessera.runtime.LoopStatus",
                       "dev.tessera.runtime.SafeHtml",
-                      "dev.tessera.runtime.TrustedUrl",
                       "java.util.List<com.example.Item>",
                       "java.util.Set<java.lang.String>",
                       "java.util.Collection<java.lang.Long>",
@@ -275,7 +274,6 @@ class ViewSafetyTest {
               assertEquals("java.math.BigDecimal", ec.resolveType(ref("BigDecimal"), List.of()).toString());
               assertEquals("dev.tessera.runtime.LoopStatus", ec.resolveType(ref("LoopStatus"), List.of()).toString());
               assertEquals("dev.tessera.runtime.SafeHtml", ec.resolveType(ref("SafeHtml"), List.of()).toString());
-              assertEquals("dev.tessera.runtime.TrustedUrl", ec.resolveType(ref("TrustedUrl"), List.of()).toString());
               assertEquals("dev.tessera.runtime.Fragment", ec.resolveType(ref("Fragment"), List.of()).toString());
               assertEquals("int", ec.resolveType(ref("int"), List.of()).toString());
               assertEquals("int[][]", ec.resolveType(ref("int[][]"), List.of()).toString());

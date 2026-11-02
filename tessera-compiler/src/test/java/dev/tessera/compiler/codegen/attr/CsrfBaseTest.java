@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import dev.tessera.compiler.codegen.attr.FormFixture.TestForms;
 import dev.tessera.compiler.testing.Compilation;
 import dev.tessera.runtime.Forms;
-import dev.tessera.runtime.TrustedUrl;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -25,7 +24,7 @@ class CsrfBaseTest {
 
   private static Compilation compile(String body) {
     return Compilation.builder()
-        .template("page.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"String u, TrustedUrl t\">\n"
+        .template("page.html", "<div xmlns:t=\"https://tessera.dev\" t:params=\"String u\">\n"
             + body + "\n</div>")
         .compile();
   }
@@ -72,7 +71,7 @@ class CsrfBaseTest {
     rejected(base + FORM, "on <base> is not allowed");
   }
 
-  /** Negative: a computed base must be a same-origin link; a String or TrustedUrl is not enough. */
+  /** Negative: a computed base must be a same-origin link; a String is not enough. */
   @ParameterizedTest
   @ValueSource(
       strings = {
@@ -80,9 +79,8 @@ class CsrfBaseTest {
         "<base t:href=\"@{https://evil.example/}\">",
         "<base t:href=\"@{/\\evil.example/}\">",
         "<base t:href=\"${u}\">",
-        "<base t:href=\"${t}\">",
-        "<base t:HREF=\"${t}\">",
-        "<base t:attr=\"href=${t}\">",
+        "<base t:HREF=\"${u}\">",
+        "<base t:attr=\"href=${u}\">",
         "<base t:attr=\"target=${u}, href=@{//evil.example/}\">",
         "<base t:href=\"${u} != null ? @{/a/} : @{//evil.example/}\">",
       })
@@ -112,7 +110,7 @@ class CsrfBaseTest {
             .assertSuccess();
     TestForms forms = new TestForms();
     forms.token = new Forms.CsrfToken("_csrf", "tok");
-    String out = c.render("page", Map.of("u", "x y", "t", TrustedUrl.unchecked("https://evil.example/")), ctx(forms));
+    String out = c.render("page", Map.of("u", "x y"), ctx(forms));
     assertEquals(
         "<div>\n<base href=\"/app/\"><base href=\"\"><base href=\"app/\"><base target=\"_blank\">"
             + "<base href=\"/app/\"><base href=\"/app/x%20y/\"><base href=\"/app/\">"

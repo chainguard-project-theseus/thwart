@@ -95,7 +95,7 @@ class CsrfClosedShapeTest {
 
   /**
    * #498: a boost from a layout needs no tracking. A POST form's computed action is a same-origin
-   * link or an error, and a GET form's a same-origin link or a TrustedUrl (#585), boosted or not.
+   * link or an error, and a GET form's too (#585, #668), boosted or not.
    */
   @Test
   void boostFromLayout() {

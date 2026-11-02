@@ -79,7 +79,7 @@ start and run it again before deciding time is short.
 - Page parity: `compare` exits 0 on your `pages.txt`, so every page is `same` or `reordered` with
   its recorded status and final URL, or you can say why a remaining difference is right. A
   `pages.txt` that skips pages or states proves nothing.
-- Security isn't weakened: no `TrustedUrl.unchecked`, no new `permitAll`,
+- Security isn't weakened: no new `permitAll`,
   no CSRF or escaping turned off. Output the old engine printed raw and Tessera now escapes is the
   intended difference.
 - The old engine is gone, and the startup warning `Tessera: another template engine is still

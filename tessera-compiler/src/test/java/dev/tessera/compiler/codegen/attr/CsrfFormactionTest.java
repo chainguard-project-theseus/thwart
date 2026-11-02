@@ -219,8 +219,8 @@ class CsrfFormactionTest {
 
   private static Compilation compileChoice(String button) {
     return Compilation.builder()
-        .template("page.html", "<div xmlns:t=\"https://tessera.dev\" t:import=\"dev.tessera.runtime.TrustedUrl\""
-            + " t:params=\"boolean b, boolean c, String u, TrustedUrl t, int id\">\n" + POST + button + "</form>\n</div>")
+        .template("page.html", "<div xmlns:t=\"https://tessera.dev\""
+            + " t:params=\"boolean b, boolean c, String u, int id\">\n" + POST + button + "</form>\n</div>")
         .compile();
   }
 

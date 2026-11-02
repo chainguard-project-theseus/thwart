@@ -51,8 +51,7 @@ Each principle removes a class of bugs. The full rules are in [AGENTS.md](AGENTS
 4. **No reflection at runtime.** All access is generated Java. No SpEL, OGNL or `ScriptEngine`.
 5. **Contexts are proven, not guessed; escaping cannot be forgotten.** The compiler accepts only
    templates where it can classify every output position exactly as browsers parse it, and the
-   context picks the escaper. Raw output needs a `SafeHtml`, `TrustedUrl` or `Fragment` built in
-   Java.
+   context picks the escaper. Raw output needs a `SafeHtml` or `Fragment` built in Java.
 6. **Familiar before novel, inside the profile.** The syntax tracks Thymeleaf wherever that is
    safe, so migration is mostly mechanical. Parity never overrides 5.
 7. **The guarantee ends at the HTML parser.** Tessera guarantees what the browser's HTML parser

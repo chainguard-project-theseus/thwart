@@ -33,9 +33,9 @@ public final class Contexts {
   /**
    * The attributes that hold URLs but are not exactly one URL (#414, #539, #567): {@code ping} is
    * space-separated URLs, {@code srcset} and {@code imagesrcset} comma-separated image candidates.
-   * TRUSTED_URL.
+   * TYPED_ATTRIBUTE (#668): literals, numbers and a choice between them.
    */
-  private static final Set<String> TRUSTED_URL_ATTRIBUTES = Backports.setOf("ping", "srcset", "imagesrcset");
+  private static final Set<String> URL_LIST_ATTRIBUTES = Backports.setOf("ping", "srcset", "imagesrcset");
 
   /**
    * SVG presentation attributes whose value is CSS that may hold a {@code url()}: a paint server
@@ -72,9 +72,9 @@ public final class Contexts {
    * {@link #isLegacyHtmxConnect hx-ws or hx-sse} FORBIDDEN (#562); a
    * refresh {@code content} REFRESH ({@link OutputContext#REFRESH}); {@code srcdoc}, the attributes
    * that decide how another value is read and {@link #isTreeBuilderInput tree-builder inputs}
-   * FORBIDDEN; {@link #isResourceUrl resource URLs} RESOURCE_URL; {@link #TRUSTED_URL_ATTRIBUTES URL
-   * lists} and {@link #ANIMATION_VALUES animation values} TRUSTED_URL; {@link #URL_ATTRIBUTES} URL;
-   * other standard names that are not inert ({@code inert-attributes.txt}) and a {@code content}
+   * FORBIDDEN; {@link #isResourceUrl resource URLs} RESOURCE_URL; {@link #URL_ATTRIBUTES} URL;
+   * {@link #URL_LIST_ATTRIBUTES URL lists}, {@link #ANIMATION_VALUES animation values}, other
+   * standard names that are not inert ({@code inert-attributes.txt}) and a {@code content}
    * of a {@code <meta>} that does not {@link #isNamedMetaContent name plain metadata}
    * TYPED_ATTRIBUTE; the other {@link KnownAttributes#isStandard standard names} ATTRIBUTE; and
    * every other name NEUTRAL (#583 rule 3): {@code data-*}, {@code hx-*}, {@code x-*},
@@ -110,17 +110,27 @@ public final class Contexts {
     if (isResourceUrl(el, attr)) {
       return OutputContext.RESOURCE_URL;
     }
-    if (TRUSTED_URL_ATTRIBUTES.contains(attr) || (isAnimation(el) && ANIMATION_VALUES.contains(attr))) {
-      return OutputContext.TRUSTED_URL;
-    }
     if (URL_ATTRIBUTES.contains(attr)) {
       return OutputContext.URL;
     }
-    if (KnownAttributes.needsSafeValue(element, attr)
+    if (holdsUrls(element, attr)
+        || KnownAttributes.needsSafeValue(element, attr)
         || (el.equals("meta") && attr.equals("content") && !isNamedMetaContent(element))) {
       return OutputContext.TYPED_ATTRIBUTE;
     }
     return KnownAttributes.isStandard(attr) ? OutputContext.ATTRIBUTE : OutputContext.NEUTRAL;
+  }
+
+  /**
+   * Whether {@code attributeName} on {@code element} holds URLs but is not exactly one URL: a
+   * {@link #URL_LIST_ATTRIBUTES URL list} or an {@link #ANIMATION_VALUES animation value}. Such an
+   * attribute is TYPED_ATTRIBUTE (#668) unless an earlier rule of {@link #attribute} applies, and its
+   * build error says why.
+   */
+  public static boolean holdsUrls(Element element, String attributeName) {
+    String attr = HtmlParser.asciiLower(attributeName);
+    return URL_LIST_ATTRIBUTES.contains(attr)
+        || (isAnimation(HtmlParser.asciiLower(element.name())) && ANIMATION_VALUES.contains(attr));
   }
 
   /** {@code lowerName} without a leading {@code data-}, which htmx ignores. */
@@ -243,7 +253,7 @@ public final class Contexts {
 
   /**
    * The attributes of an SVG animation element that hold the values it sets. On {@code <animate>}
-   * and {@code <set>} they are TRUSTED_URL (#539), not URL: what they hold depends on the
+   * and {@code <set>} they are TYPED_ATTRIBUTE (#539, #668), not URL: what they hold depends on the
    * {@code attributeName} ({@code values} is a {@code ;}-separated list, and an animated
    * {@code href} can be set to {@code javascript:}). STYLE when {@link #animatesSvgCssUrl the
    * animation sets CSS}, which is why a computed {@code attributeName} is FORBIDDEN.
