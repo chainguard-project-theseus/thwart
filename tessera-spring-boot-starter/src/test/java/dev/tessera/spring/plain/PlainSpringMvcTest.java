@@ -78,12 +78,6 @@ class PlainSpringMvcTest {
   }
 
   @Test
-  void templateReturnValueRenders() throws Exception {
-    String body = body("/typed");
-    assertTrue(body.contains("Hello, Grace"), body);
-  }
-
-  @Test
   void formErrorsRender() throws Exception {
     String body =
         mvc.perform(post("/signup").param("name", ""))

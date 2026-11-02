@@ -7,9 +7,7 @@ import dev.tessera.spring.view.TesseraViewResolver;
 import jakarta.servlet.DispatcherType;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.SmartInitializingSingleton;
-import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.SpringBootVersion;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -25,10 +23,10 @@ import org.springframework.web.servlet.resource.ResourceUrlEncodingFilter;
 
 /**
  * Registers the Tessera view resolver (ordered before Thymeleaf's, falling through for unknown
- * names), the {@code Template} return-value handler, and the merged build-time {@code
- * TemplateRegistry}. The registry, render-context factory and resolver back off if the
- * application declares its own bean of that type. With the resource chain enabled it also
- * registers {@link ResourceUrlEncodingFilter}, as Boot's Thymeleaf auto-configuration did.
+ * names) and the merged build-time {@code TemplateRegistry}. The registry, render-context
+ * factory and resolver back off if the application declares its own bean of that type. With
+ * the resource chain enabled it also registers {@link ResourceUrlEncodingFilter}, as Boot's
+ * Thymeleaf auto-configuration did.
  *
  * <p>Plain {@code @Configuration} with untyped conditions (not {@code @AutoConfiguration} or
  * {@code type = SERVLET}) so that one class works on Spring Boot 1.5 through 4. Applications
@@ -115,11 +113,5 @@ public class TesseraAutoConfiguration {
   @Bean
   public SmartInitializingSingleton tesseraOldEngineWarning() {
     return new OldEngineWarning();
-  }
-
-  @Bean
-  public static BeanPostProcessor tesseraReturnValueHandlerRegistrar(
-      ObjectProvider<RenderContextFactory> contexts) {
-    return new ReturnValueHandlerRegistrar(contexts);
   }
 }

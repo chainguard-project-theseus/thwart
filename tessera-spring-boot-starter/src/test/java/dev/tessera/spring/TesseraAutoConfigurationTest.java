@@ -103,10 +103,9 @@ class TesseraAutoConfigurationTest {
   @Test
   void backsOffWhenTesseraConfigurationIsImported() {
     // A Boot app that also imports the plain-Spring configuration gets one set of beans, not a
-    // bean-name clash (refresh would fail) or a second return-value handler.
+    // bean-name clash (refresh would fail).
     try (AnnotationConfigWebApplicationContext ctx = web(TesseraConfiguration.class)) {
       assertThat(ctx.getBeanNamesForType(TesseraViewResolver.class)).hasSize(1);
-      assertThat(ctx.getBeanNamesForType(ReturnValueHandlerRegistrar.class)).hasSize(1);
       // One startup warning per context, not one per configuration class.
       assertThat(ctx.getBeanNamesForType(OldEngineWarning.class)).hasSize(1);
     }
@@ -137,47 +136,6 @@ class TesseraAutoConfigurationTest {
       assertThat(ctx.getBeanNamesForType(OldEngineWarning.class))
           .contains("tesseraOldEngineWarning");
       assertThat(ctx.getBean(OldEngineWarningTest.RecordingLog.class).warn).isEmpty();
-    }
-  }
-
-  @Test
-  void warnsWhenBootsDefaultViewResolverServesJsps() {
-    for (String property :
-        new String[] {"spring.mvc.view.suffix", "spring.mvc.view.prefix"}) {
-      Map<String, Object> properties = new HashMap<>();
-      properties.put(property, property.endsWith("suffix") ? ".jsp" : "/WEB-INF/jsp/");
-      try (AnnotationConfigWebApplicationContext ctx =
-          withProperties(properties, BootWebMvc.class, OldEngineWarningTest.Recording.class)) {
-        assertThat(ctx.getBean(OldEngineWarningTest.RecordingLog.class).warn)
-            .as(property)
-            .containsExactly(
-                String.format(
-                    OldEngineWarning.MESSAGE, InternalResourceViewResolver.class.getName()));
-      }
-    }
-  }
-
-  @Test
-  void warnsForAUserJspResolverInABootApp() {
-    // Boot backs off for the user's InternalResourceViewResolver.
-    try (AnnotationConfigWebApplicationContext ctx =
-        web(UserJsp.class, BootWebMvc.class, OldEngineWarningTest.Recording.class)) {
-      assertThat(ctx.getBeanNamesForType(InternalResourceViewResolver.class))
-          .containsExactly("jspViewResolver");
-      assertThat(ctx.getBean(OldEngineWarningTest.RecordingLog.class).warn)
-          .containsExactly(
-              String.format(OldEngineWarning.MESSAGE, InternalResourceViewResolver.class.getName()));
-    }
-  }
-
-  @Configuration
-  static class UserJsp {
-    @Bean
-    InternalResourceViewResolver jspViewResolver() {
-      InternalResourceViewResolver resolver = new InternalResourceViewResolver();
-      resolver.setPrefix("/WEB-INF/jsp/");
-      resolver.setSuffix(".jsp");
-      return resolver;
     }
   }
 

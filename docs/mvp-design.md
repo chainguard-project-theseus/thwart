@@ -45,7 +45,7 @@ JDK 21+. The table names the main classes only.
 | | `.verify` | `Skeleton`: what each generated class writes, recorded by `Emitted` | |
 | | `.verify.engine` | `Engine`, `Parser`, `ParserState`: the spec HTML parser the build-time verifier runs (security-architecture.md §11.4) | |
 | `tessera-html5` | `dev.tessera.compiler.internal.html5.current` | build only: validator.nu htmlparser source from Maven Central (`validator:26.10.12:sources`), pinned by SHA-256, renamed and compiled for Java 8, plus a `TesseraAccess` accessor; shaded into the `tessera-compiler` jar with its MIT notice | none |
-| `tessera-spring-boot-starter` | `dev.tessera.spring{,.view,.context,.fn}` | auto-config, plain-Spring config, view resolver, return values, request `RenderContext`, `auth` | runtime; Spring 4.3+ / Boot 1.5+, Servlet 3.0+ from the app (`jakarta.servlet`) |
+| `tessera-spring-boot-starter` | `dev.tessera.spring{,.view,.context,.fn}` | auto-config, plain-Spring config, view resolver, request `RenderContext`, `auth` | runtime; Spring 4.3+ / Boot 1.5+, Servlet 3.0+ from the app (`jakarta.servlet`) |
 | `tessera-spring-boot-starter-javax` | same | the starter jar shaded with `jakarta.servlet` relocated to `javax.servlet` | runtime |
 | `tessera-spring-tests` | | the starter's test sources run on Boot 3.5, 2.7, 2.0 and 1.5 and on Spring MVC 5.0 and 4.3 without Boot | |
 | `tessera-migrate` | `dev.tessera.migrate` | CLI: page record/compare (`Crawler`, `PageNormalizer`, `Parity`) and the Thymeleaf → Tessera converter (`Migrator`) | attoparser, jsoup (bundled into the jar) |
@@ -296,7 +296,7 @@ The registry also has `fragments()` (#131): an entry named `page :: name` per fr
 - `TesseraAutoConfiguration`: merged `TemplateRegistry.load(classLoader)`, a `TesseraViewResolver`
   ordered before Thymeleaf's that returns `null` for unknown names (fall-through; never parses a
   name: it drops one leading `/` and makes the spaces around a `::` single, then does one exact
-  lookup), and a return-value handler so controllers can `return OwnerDetailsTemplate.of(owner)`.
+  lookup), one view per registry entry.
   `redirect:`/`forward:` prefixes are left to Spring. While another engine is configured it
   renders every unknown name; the guarantees cover Tessera-rendered views, and a startup warning
   (log only, matched on the class names of the other engines' view resolvers) says so.
@@ -304,8 +304,7 @@ The registry also has `fragments()` (#131): an entry named `page :: name` per fr
   source tree (`jakarta.servlet`, `--release 8`) compiled against Boot 4.1; `tessera-spring-boot-starter-javax` relocates it to `javax.servlet`.
   An application uses exactly one of the two. To work on every generation the auto-configuration
   is a plain `@Configuration` with untyped `@ConditionalOnWebApplication` and
-  `@ConditionalOnClass(DispatcherServlet)`, the return-value handler is added by a
-  `BeanPostProcessor` on `RequestMappingHandlerAdapter` (not a `WebMvcConfigurer`), and the jar
+  `@ConditionalOnClass(DispatcherServlet)`, and the jar
   carries every registration file: `AutoConfiguration.imports` (Boot 2.7+), `spring.factories`
   (`EnableAutoConfiguration` and `AutoConfigureWebMvc` keys, Boot 1.5-2.6), and the Boot 2.7/3
   and Boot 4 `AutoConfigureWebMvc.imports` for `@WebMvcTest`. The shared tests use their own

@@ -144,7 +144,6 @@ Spring forms get CSRF tokens inserted automatically into every `method="post"` f
 
 ## Spring integration (`tessera-spring-boot-starter`)
 
-- **Typed returns.** Controllers can return the generated object directly.
 - **String view names, safely.** Names are looked up in a build-time registry of compiled templates. Unknown name is a 404, never a template parse. Model attributes are matched to `t:params` by name and type, failing fast on mismatch.
 - **Forms.** `t:object`, `t:field`, `t:errors`, `t:errorclass` read from `BindingResult` as Thymeleaf does; field names checked at build time.
 - **i18n.** `#{...}` resolves through Spring's `MessageSource`. Missing default-locale keys are build errors.
