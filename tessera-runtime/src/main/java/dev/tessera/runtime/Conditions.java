@@ -35,7 +35,7 @@ public final class Conditions {
       return (Character) value != '\0';
     }
     if (value instanceof String) {
-      String v = HtmlPolicy.lower((String) value);
+      String v = Ascii.lower((String) value);
       return !(v.equals("false") || v.equals("off") || v.equals("no"));
     }
     return true;

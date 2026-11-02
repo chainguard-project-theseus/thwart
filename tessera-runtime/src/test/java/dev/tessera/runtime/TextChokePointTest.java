@@ -18,11 +18,11 @@ import org.junit.jupiter.api.Test;
  */
 class TextChokePointTest {
 
-  /** The arguments {@code new SafeHtml(...)} may be built from. */
+  /** Exactly the arguments {@code new SafeHtml(...)} is built from: a new or a stale entry fails. */
   private static final Set<String> SAFE_HTML_SOURCES =
       Set.of(
           "\"\"", "Escapers.escapeHtml(text == null ? \"\" : text)", "HtmlSanitizer.sanitize(html, policy)",
-          "sb.toString()", "requireFlowPartial(template, \"SafeHtml.of\").renderToString(ctx)");
+          "sb.toString()");
 
   @Test
   void safeHtmlIsBuiltOnlyFromCheckedSources() throws IOException {
@@ -32,7 +32,6 @@ class TextChokePointTest {
     while (m.find()) {
       args.add(m.group(1));
     }
-    args.removeAll(SAFE_HTML_SOURCES);
-    assertEquals(Set.of(), args);
+    assertEquals(SAFE_HTML_SOURCES, args);
   }
 }

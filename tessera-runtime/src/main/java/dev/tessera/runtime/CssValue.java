@@ -98,11 +98,11 @@ public final class CssValue {
     if (s == null) {
       return null;
     }
-    String t = HtmlPolicy.stripWhitespace(s);
+    String t = Ascii.stripWhitespace(s);
     if (HEX.matcher(t).matches()) {
       return new CssValue(t);
     }
-    String lower = HtmlPolicy.lower(t);
+    String lower = Ascii.lower(t);
     if (NAMED.contains(lower)) {
       return new CssValue(lower);
     }
@@ -133,7 +133,7 @@ public final class CssValue {
     if (s == null) {
       return null;
     }
-    String t = HtmlPolicy.stripWhitespace(s);
+    String t = Ascii.stripWhitespace(s);
     return LENGTH.matcher(t).matches() ? new CssValue(t) : null;
   }
 
@@ -147,7 +147,7 @@ public final class CssValue {
     if (name == null) {
       return null;
     }
-    String t = HtmlPolicy.stripWhitespace(name);
+    String t = Ascii.stripWhitespace(name);
     return CUSTOM_PROPERTY.matcher(t).matches() ? new CssValue("var(" + t + ")") : null;
   }
 
@@ -173,7 +173,7 @@ public final class CssValue {
     if (s == null) {
       return null;
     }
-    String t = HtmlPolicy.stripWhitespace(s);
+    String t = Ascii.stripWhitespace(s);
     if (t.isEmpty() || t.length() > MAX_URL_LENGTH) {
       return null;
     }
@@ -191,7 +191,7 @@ public final class CssValue {
       char c = t.charAt(i);
       if (isUrlSafe(c)) {
         b.append(c);
-      } else if (c == '%' && i + 2 < t.length() && isHex(t.charAt(i + 1)) && isHex(t.charAt(i + 2))) {
+      } else if (c == '%' && i + 2 < t.length() && Ascii.isHexDigit(t.charAt(i + 1)) && Ascii.isHexDigit(t.charAt(i + 2))) {
         b.append(c);
       } else if (c < 0x80) {
         UrlEncoding.percent(b, c);
@@ -214,7 +214,7 @@ public final class CssValue {
   private static boolean hasScheme(String t, String scheme) {
     return t.length() > scheme.length()
         && t.charAt(scheme.length()) == ':'
-        && HtmlPolicy.lower(t.substring(0, scheme.length())).equals(scheme);
+        && Ascii.lower(t.substring(0, scheme.length())).equals(scheme);
   }
 
   private static boolean isUrlSafe(char c) {
@@ -222,10 +222,6 @@ public final class CssValue {
         || (c >= 'A' && c <= 'Z')
         || (c >= '0' && c <= '9')
         || "-._~:/?#[]@!$&+,;=".indexOf(c) >= 0;
-  }
-
-  private static boolean isHex(char c) {
-    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
   }
 
   /** The CSS text. */

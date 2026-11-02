@@ -1,5 +1,6 @@
 package dev.tessera.runtime.fn;
 
+import dev.tessera.runtime.Escapers;
 import dev.tessera.runtime.TemplateFunction;
 import dev.tessera.runtime.TemplateFunctions;
 import java.math.BigDecimal;
@@ -21,15 +22,12 @@ import java.util.Locale;
  * for the locale's own, and for grouping {@code 'NONE'} for none) can override. Unlike Thymeleaf,
  * rounding is half-up. A {@code null} number formats as {@code null} (renders as nothing).
  *
- * <p>{@link DecimalFormat} writes a number in plain notation, one character per digit, so a
- * {@link BigDecimal} with a large exponent expands: {@code formatInteger(1E+999999999, 1, 'COMMA')},
- * 12 characters of input, writes 1,333,333,333 characters and took 31 s. As for message arguments
- * ({@code Escapers.messageArgs}), a nonzero number, of any {@link Number} type (anything but a JDK
- * {@code BigDecimal}, a {@code BigDecimal} subclass included, is converted to one from its
- * {@code toString()}, and the converted value is what is formatted), with more than 10,000 integer digits
- * ({@code precision() - scale() > 10000}) or whose first digit is more than 10,000 places below the decimal point
- * ({@code precision() - scale() <= -10000}), and a digit count ({@code minIntDigits},
- * {@code minDigits}, {@code decimals}) above 10,000, throw {@link IllegalArgumentException}.
+ * <p>A number reaching more than 10,000 places from the decimal point, and a digit count
+ * ({@code minIntDigits}, {@code minDigits}, {@code decimals}) above 10,000, throw
+ * {@link IllegalArgumentException}: the bound of {@link Escapers#requireBoundedMagnitude}, whose
+ * rationale is on {@code Escapers.messageArgs}. A number of any {@link Number} type but a JDK
+ * {@code BigDecimal} (a subclass included) is first converted to one from its {@code toString()},
+ * and the converted value is checked and formatted.
  * {@code formatPercent} multiplies by 100, which adds two digits.
  */
 @TemplateFunctions("numbers")
@@ -195,11 +193,7 @@ public final class Numbers {
     // So anything but a JDK BigDecimal is converted from its text, and the bound is checked on, and
     // DecimalFormat formats, the converted value.
     BigDecimal d = n.getClass() == BigDecimal.class ? (BigDecimal) n : new BigDecimal(n.toString());
-    long magnitude = (long) d.precision() - d.scale();
-    if (d.signum() != 0 && (magnitude > MAX_DIGITS || magnitude <= -MAX_DIGITS)) {
-      throw new IllegalArgumentException(
-          "cannot format a number more than " + MAX_DIGITS + " places from the decimal point");
-    }
-    return d;
+    return Escapers.requireBoundedMagnitude(
+        d, "cannot format a number more than " + MAX_DIGITS + " places from the decimal point");
   }
 }
