@@ -21,7 +21,7 @@ Done means, and your result is checked against:
    your app the same way from the same data, records the original with `tessera-migrate record`
    and runs `tessera-migrate compare` against yours: every page must come out `same` or
    `reordered`, with the recorded status and final URL. The list is not given to you.
-4. Security is not weakened: no `TrustedUrl.unchecked`, no new
+4. Security is not weakened: no escaping bypass, no new
    `permitAll`, no CSRF or escaping turned off, no tests disabled.
 
 You have {minutes} minutes. Work in /work/app only. Before you finish, write

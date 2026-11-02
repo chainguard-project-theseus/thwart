@@ -70,8 +70,9 @@ Two kinds of round:
    status and final-URL mismatches, and a diff), the agent's `MIGRATION-REPORT.md`, and
    `agent.json` (wall time, cost, tokens, outcome, skill use). A run **passes** when the build and all tests
    pass (no fewer tests than the baseline), compare reports every page `same` or `reordered` with
-   its recorded status and final URL, the diff adds no `SafeHtml.unchecked`,
-   `TrustedUrl.unchecked`, `permitAll`, CSRF disabling or `@Disabled`, and no legacy template or
+   its recorded status and final URL, the diff adds no `permitAll`, CSRF disabling, `@Disabled`
+   or `@Ignore` (bench.py still rejects the removed `SafeHtml.unchecked` and
+   `TrustedUrl.unchecked` as a tripwire), and no legacy template or
    view-engine dependency is left (Apache Tiles counts as one: a `tiles-*` dependency or a Tiles
    definitions XML file fails the run whatever the app's engine). Runs from #115 were scored by an older Python crawler and
    normalizer; they have `pages.diff` instead of `compare.txt`, and `rescore` leaves them alone.
@@ -110,8 +111,9 @@ Run `bench.py baseline <name>` and check `results/<name>/baseline/determinism.tx
 
 Current ignores: times of day (fredbet, jobsearch: seeded data is stamped at startup; the date
 is still compared), UUIDs (fredbet: image keys generated at startup), the webjar version path
-segment (spring-petclinic, its Boot 2.0 and 1.5 rungs, fredbet: Boot adds it for Thymeleaf through `ResourceUrlEncodingFilter`,
-which Tessera's starter does not register yet, #122), JobSearch's `<span text-bg-...">`, an
+segment (spring-petclinic, its Boot 2.0 and 1.5 rungs, fredbet: Boot adds it for Thymeleaf through `ResourceUrlEncodingFilter`;
+the starter now registers that filter too, #122, so these can go once a bench round confirms
+the segment matches), JobSearch's `<span text-bg-...">`, an
 attribute built from an unbalanced quote in the original template, and its
 `+ (spring.status.error?then(...))` left as literal attribute text in two inputs, the Mustache
 petclinic's `<span">` typo on the pagination pages, and order timestamps (jpetstore:

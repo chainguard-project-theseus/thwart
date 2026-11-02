@@ -1,8 +1,5 @@
 # Tessera vs Thymeleaf benchmarks
 
-The [runtime URL performance comparison](URL-PERFORMANCE.md) records before/after
-throughput and allocation for the URL rendering improvements in #191.
-
 JMH benchmarks that render the same pages with Tessera and Thymeleaf. `EquivalenceTest` checks
 that both engines produce identical HTML for the benchmark data.
 
@@ -11,10 +8,15 @@ that both engines produce identical HTML for the benchmark data.
 | Owner table | `owners.html` | 100 rows, `each` with a status variable, path-variable and query links, `if`/`unless`, ternaries, string concatenation, escaping (some names contain `'`, `&`, `<`) |
 | Layout page | `home.html`, `fragments/{layout,menu,cards}.html` | petclinic-style `~{::body}` layout, 4 parameterized menu items with `classappend`, 20 cards, each making nested fragment calls for pet labels and a status badge |
 
+The two pages are `RenderBenchmark`. The other classes are microbenchmarks of one feature each
+(links, loops, escaping, JSON, formatting) against the same feature in Thymeleaf.
+
 Tessera templates live in `src/main/tessera` (compiled by the annotation processor), Thymeleaf
 templates in `src/main/resources/thymeleaf`. Both use a root context path. Tessera renders through
 the generated typed `render(...)` method; Thymeleaf uses a `TemplateEngine` with template caching
 on, so the steady state measures rendering, not parsing. Both render to a `String`.
+
+## Running
 
 `mvn verify` only builds the benchmarks. To run them:
 
@@ -23,56 +25,34 @@ mvn -B -ntp -pl tessera-benchmarks -am package -DskipTests
 java -jar tessera-benchmarks/target/benchmarks.jar
 ```
 
-## Results
-
-### Continuous benchmarks
-
-[Chainguard Checks](../.chainguard/ci/benchmarks.yaml) runs all benchmark methods and their
-parameter combinations automatically:
+[Chainguard Checks](../.chainguard/ci/benchmarks.yaml) runs every benchmark and parameter
+combination through `ci.sh`, which clean-builds the benchmark reactor and runs the benchmark
+module's tests, including the equivalence checks, before measuring:
 
 - Pull requests: `benchmarks/smoke`, one fork with one 200 ms warmup and one 200 ms measurement.
-  This checks that benchmarks execute; these short timings are not performance evidence.
-- Each merge to the default branch: `benchmarks/measure`, two forks with three 1-second
-  warmups and three 1-second measurements per fork, for throughput and allocation tracking.
+  This checks that benchmarks execute; these timings are not performance evidence.
+- Each merge to main: `benchmarks/measure`, two forks with three 1-second warmups and three
+  1-second measurements per fork, JDK 21, one thread, 256 MiB fork heaps, the GC profiler.
 
-Both checks use JDK 21, one benchmark thread, 256 MiB fork heaps, the GC profiler, and a pinned
-`medium-amd64` resource class. They clean-build the benchmark reactor and run its tests,
-including template equivalence checks, before measuring. Build/test failures and benchmark
-exceptions fail the check. Timing changes do not: shared VM CPUs, JIT decisions and short
-measurement windows can produce noise. Compare like-for-like measurement runs, examine error
-intervals, and confirm regressions on a quiet machine. These checks do not automatically compare
-against a baseline or enforce performance budgets.
+Reproduce either locally with `bash tessera-benchmarks/ci.sh smoke|measure`; results land in
+`target/ci-results/`. Timings on shared CI VMs are informational: no baseline comparison or
+performance budget is enforced.
 
-Open the benchmark check's GitHub summary for the JMH result table (including `ops/s` and
-`gc.alloc.rate.norm` in B/op); its Details link opens the full run log. Raw JMH JSON is printed
-between `::benchmark-json-start::` and `::benchmark-json-end::` in that log. Locally, JSON and
-the JMH log are in `target/ci-results/`. The CI VM's files are ephemeral; no separate downloadable
-artifact or external storage is configured. The JSON also records the JDK and JMH settings.
+## Results
 
-Reproduce either check from a checkout with JDK 21+ and Maven:
+Current numbers are in the `benchmarks/measure` check summary on main: the JMH table with
+`ops/s` and `gc.alloc.rate.norm` (B/op), and raw JSON between `::benchmark-json-start::` and
+`::benchmark-json-end::` in its log.
 
-```sh
-bash tessera-benchmarks/ci.sh smoke
-bash tessera-benchmarks/ci.sh measure
-```
+For reference, the measure run of Nov 2, 2026 on commit `c0f02b3f` (JDK 21.0.13, JMH 1.37,
+`medium-amd64`):
 
-Set `JAVA_HOME` to the JDK and, when available, `JDK8_HOME` for the real-JDK-8 processor test.
-CI supplies both. The script prints the revision and OS/architecture alongside the results.
-
-### Original rendering comparison
-
-Oct 22, 2026, default settings (2 forks, 5 x 1 s warmup, 5 x 1 s measurement), throughput in
-operations per second (higher is better).
-
-- Machine: Apple M4 (10 cores), 24 GB RAM, macOS 26.7.1, on AC power
-- JVM: OpenJDK 26.0.2 (Homebrew), default flags; JMH 1.37; Thymeleaf 3.1.5.RELEASE
-
-| Benchmark | Score (ops/s) | Error (99.9%) | Tessera speedup |
+| Benchmark | ops/s | B/op | Tessera speedup |
 |---|---:|---:|---:|
-| `ownersTableTessera` | 12,740 | ± 804 | **6.9x** |
-| `ownersTableThymeleaf` | 1,844 | ± 106 | |
-| `layoutPageTessera` | 147,378 | ± 4,800 | **21.3x** |
-| `layoutPageThymeleaf` | 6,924 | ± 315 | |
+| `ownersTableTessera` | 21,590 ± 222 | 88,736 | **19x** |
+| `ownersTableThymeleaf` | 1,129 ± 193 | 1,589,734 | |
+| `layoutPageTessera` | 179,437 ± 12,021 | 18,456 | **42x** |
+| `layoutPageThymeleaf` | 4,245 ± 242 | 391,554 | |
 
 The fragment-heavy page shows the larger gap: a Tessera fragment call is a static method call,
 while Thymeleaf resolves the fragment template, evaluates the selector and binds parameters as
